@@ -1,0 +1,5 @@
+tensorflow==1.13.1 ; sys_platform=="darwin"
+tensorflow-gpu==1.13.1 ; sys_platform=="linux"
+tensorflow-datasets==1.0.1
+matplotlib==3.0.3
+Pillow==5.4.1
