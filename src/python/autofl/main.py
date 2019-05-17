@@ -24,5 +24,9 @@ def main():
   model.evaluate(x_test, y_test)
 
 
+def integer_addition(x: int, y: int) -> int:
+  return x + y
+
+
 if __name__ == "__main__":
   main()
