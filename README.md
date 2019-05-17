@@ -28,7 +28,7 @@ Python 3.6.8
 Use any `./pants` command to trigger the initial setup:
 
 ```bash
-$ ./pants run src/python/autofl:main
+$ ./pants run src/python/autofl:bin
 ```
 
 ## Packages
