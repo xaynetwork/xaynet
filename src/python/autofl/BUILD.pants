@@ -17,7 +17,7 @@ python_library(
 )
 
 python_binary(
-  name = "bin",
+  name = "autofl",
   dependencies = [
     ":lib",
   ],
