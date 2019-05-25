@@ -11,8 +11,8 @@ tf.logging.set_verbosity(tf.logging.ERROR)
 
 def main():
   x_train, y_train, x_test, y_test = load()
-  print("x_train:", x_train.shape) 
-  print("y_train:", y_train.shape) 
+  print("x_train:", x_train.shape, type(x_train))
+  print("y_train:", y_train.shape, type(x_train))
 
 
 def load():
