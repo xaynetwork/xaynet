@@ -1,6 +1,9 @@
 import os
 from pprint import pprint
-from typing import Any, List, Tuple
+from typing import Any
+from typing import List
+from typing import Optional
+from typing import Tuple
 
 import numpy as np
 import tensorflow as tf
@@ -39,13 +42,15 @@ def load() -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
   return x_train, y_train, x_test, y_test
 
 
-def shuffle(x, y) -> Tuple[np.ndarray, np.ndarray]:
-  x_shuffled = x
-  y_shuffled = y
+def shuffle(x: np.ndarray, y: np.ndarray, seed: Optional[int] = None) -> Tuple[np.ndarray, np.ndarray]:
+  assert x.shape[0] == y.shape[0]
+  p = np.random.RandomState(seed=seed).permutation(x.shape[0])
+  x_shuffled = x[p]
+  y_shuffled = y[p]
   return x_shuffled, y_shuffled
 
 
-def split(x, y, num_splits: int) -> Tuple[List[Any], List[Any]]:
+def split(x: np.ndarray, y: np.ndarray, num_splits: int) -> Tuple[List[Any], List[Any]]:
   x_splits = np.split(x, indices_or_sections=num_splits, axis=0)
   y_splits = np.split(y, indices_or_sections=num_splits, axis=0)
   return x_splits, y_splits

@@ -35,3 +35,14 @@ def test_split_dims():
   for xs, ys in zip(x_splits, y_splits):
     assert xs.shape[0] == ys.shape[0]
   # TODO Assert: Each split has the same dimensionality (except for number of examples)
+
+
+def test_shuffle():
+  # Prepare
+  x = np.array([1, 2, 3, 4])
+  y = np.array([11, 12, 13, 14])
+  # Execute
+  xs, ys = main.shuffle(x, y, seed=42)
+  # Assert
+  for x, y in zip(xs, ys):
+    assert x == (y - 10)
