@@ -18,7 +18,12 @@ def main():
   print("\tx_train:", x_train.shape, type(x_train))
   print("\ty_train:", y_train.shape, type(x_train))
 
-  # TODO shuffle x/y first
+  # Shuffle both x and y with the same permutation
+  x_train, y_train = shuffle(x_train, y_train)
+  print("Training set after shuffle:")
+  print("\tx_train:", x_train.shape, type(x_train))
+  print("\ty_train:", y_train.shape, type(x_train))
+
   x_splits, y_splits = split(x_train, y_train, PARTITIONS)
   x_train_0 = x_splits[0]
   y_train_0 = y_splits[0]
@@ -28,13 +33,19 @@ def main():
     print("\t", str(i), "y_split:", y_split.shape, type(y_split))
 
 
-def load():
+def load() -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
   mnist = tf.keras.datasets.mnist
   (x_train, y_train), (x_test, y_test) = mnist.load_data()
   return x_train, y_train, x_test, y_test
 
 
-def split(x, y, num_splits=1) -> Tuple[List[Any], List[Any]]:
+def shuffle(x, y) -> Tuple[np.ndarray, np.ndarray]:
+  x_shuffled = x
+  y_shuffled = y
+  return x_shuffled, y_shuffled
+
+
+def split(x, y, num_splits: int) -> Tuple[List[Any], List[Any]]:
   x_splits = np.split(x, indices_or_sections=num_splits, axis=0)
   y_splits = np.split(y, indices_or_sections=num_splits, axis=0)
   return x_splits, y_splits
