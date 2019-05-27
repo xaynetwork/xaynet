@@ -56,5 +56,12 @@ def split(x: np.ndarray, y: np.ndarray, num_splits: int) -> Tuple[List[Any], Lis
   return x_splits, y_splits
 
 
+def load_splits() -> Tuple[List[np.ndarray], List[np.ndarray], np.ndarray, np.ndarray]:
+  x_train, y_train, x_test, y_test = load() 
+  x_train, y_train = shuffle(x_train, y_train)
+  x_splits, y_splits = split(x_train, y_train, PARTITIONS)
+  return x_splits, y_splits, x_test, y_test
+
+
 if __name__ == "__main__":
   main()
