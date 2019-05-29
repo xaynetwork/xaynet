@@ -1,9 +1,15 @@
 import tensorflow as tf
+import mnist_f
 
-
-# Source: https://www.tensorflow.org/overview/
 
 def main():
+  x_splits, y_splits, x_test, y_test = mnist_f.load_splits()
+  print(len(x_splits))
+  print(len(y_splits))
+
+
+def tf_hello_world():
+  # Source: https://www.tensorflow.org/overview/
   mnist = tf.keras.datasets.mnist
 
   (x_train, y_train),(x_test, y_test) = mnist.load_data()

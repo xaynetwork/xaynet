@@ -11,7 +11,7 @@ python_library(
   name = "lib",
   dependencies = [
     third_party_tf,
-    "3rdparty/python:tensorflow-datasets",
+    "src/python/mnist_f:lib",
   ],
   # sources default to *.py - (test_*.py, *_test.py)
 )
