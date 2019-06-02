@@ -4,4 +4,4 @@ tensorflow==1.13.1 ; sys_platform=="darwin"
 tensorflow-gpu==1.13.1 ; sys_platform=="linux"
 tensorflow-datasets==1.0.2
 matplotlib==3.0.3
-Pillow==6.0.0
+Pillow-SIMD==5.3.0.post1
