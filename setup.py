@@ -28,7 +28,7 @@ setup(
     description="AutoFL demonstrates automated architecture search in federated learning environments.",
     url="https://gitlab.com/xainag/autofl",
     author=[
-        "Daniel Beutel <daniel.beutel@xain.io>",
+        "Daniel J. Beutel <daniel.beutel@xain.io>",
         "Taner Topal <taner.topal@xain.io>",
     ],
     author_email="daniel.beutel@xain.io",
