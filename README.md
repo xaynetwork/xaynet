@@ -16,7 +16,7 @@ $ cd autofl
 AutoFL requires the following tools to be installed:
 
 - [Python 3.6.8](https://python.org/)
-- [Pantsbuild 1.16.0rc0](https://www.pantsbuild.org/)
+
 
 Verify Python installation:
 
@@ -25,13 +25,10 @@ $ python3 --version
 Python 3.6.8
 ```
 
-Use any `./pants` command to trigger the initial setup:
-
-```bash
-$ ./pants run src/python/autofl:bin
-```
-
 ## Packages
 
-- AutoFL: `src/python/autofl`
-- CIFAR-10F: `src/python/cifar10f`
+The `autofl` package contains the following sub-packages:
+
+- FedML: Federated Learning
+- CIFAR-10F: A partitioned version of CIFAR-10
+- MNIST-F: A partitioned version of MNIST
