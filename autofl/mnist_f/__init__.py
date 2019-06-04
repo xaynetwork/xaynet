@@ -1,1 +1,1 @@
-from mnist_f.main import load_splits
+from autofl.mnist_f.main import load_splits

@@ -1,19 +1,19 @@
 import numpy as np
-from mnist_f import persistence
+from autofl.mnist_f import persistence
 
 
 # TODO mark as integration test
 def test_store_load():
-  fname = "a"
-  fname_full = "a.npy"
-  
-  # Create NumPy array
-  a_expected = np.zeros(shape=(3,28,28,1), dtype=np.uint8)
-  a_expected[0][1][1][0] = 255
+    fname = "a"
+    fname_full = "a.npy"
 
-  # Store to disk, then load from disk
-  persistence.store(a_expected, fname=fname)
-  a_actual = persistence.load(fname=fname_full)
+    # Create NumPy array
+    a_expected = np.zeros(shape=(3, 28, 28, 1), dtype=np.uint8)
+    a_expected[0][1][1][0] = 255
 
-  # Test equality
-  assert np.array_equal(a_expected, a_actual)
+    # Store to disk, then load from disk
+    persistence.store(a_expected, fname=fname)
+    a_actual = persistence.load(fname=fname_full)
+
+    # Test equality
+    assert np.array_equal(a_expected, a_actual)

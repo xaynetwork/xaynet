@@ -1,0 +1,16 @@
+stages:
+  - qa
+
+image: python:3.6
+
+lint:
+  stage: qa
+  script:
+  - ./scripts/setup.sh
+  - ./scripts/lint.sh
+
+test:
+  stage: qa
+  script:
+  - ./scripts/setup.sh
+  - ./scripts/test.sh
