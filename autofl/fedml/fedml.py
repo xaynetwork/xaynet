@@ -1,5 +1,5 @@
 import tensorflow as tf
-from autofl import mnist_f
+from autofl.mnist_f import mnist_f
 
 
 def main():
@@ -34,7 +34,3 @@ def tf_hello_world():
 
 def integer_addition(x: int, y: int) -> int:
     return x + y
-
-
-if __name__ == "__main__":
-    main()

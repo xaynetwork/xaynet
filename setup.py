@@ -55,5 +55,5 @@ setup(
         "dev": dev_require + tests_require,
     },
     cmdclass={},
-    entry_points={"console_scripts": ["autofl=autofl.fedml.main:tf_hello_world"]},
+    entry_points={"console_scripts": ["autofl=autofl.fedml.fedml:tf_hello_world"]},
 )
