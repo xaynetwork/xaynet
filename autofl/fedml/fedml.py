@@ -2,10 +2,12 @@ import tensorflow as tf
 from autofl.mnist_f import mnist_f
 from autofl.fedml import net
 
+PARTICIPANTS = 3
+
 
 def main():
     # Load data
-    x_splits, y_splits, x_test, y_test = mnist_f.load_splits()
+    x_splits, y_splits, x_test, y_test = mnist_f.load_splits(num_splits=PARTICIPANTS)
     print(len(x_splits))
     print(len(y_splits))
     # Create model
