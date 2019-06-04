@@ -3,14 +3,26 @@ stages:
 
 image: python:3.6
 
+variables:
+    PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+cache:
+  paths:
+    - .cache/pip
+    - venv/
+
+before_script:
+  - pip install virtualenv
+  - virtualenv venv
+  - source venv/bin/activate
+  - ./scripts/setup.sh
+
 lint:
   stage: qa
   script:
-  - ./scripts/setup.sh
   - ./scripts/lint.sh
 
 test:
   stage: qa
   script:
-  - ./scripts/setup.sh
   - ./scripts/test.sh

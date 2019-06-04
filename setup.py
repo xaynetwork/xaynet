@@ -18,9 +18,9 @@ cpu_require = ["tensorflow==1.13.1"]
 
 gpu_require = ["tensorflow-gpu==1.13.1"]
 
-dev_require = ["black==19.3b0", "mypy==0.630", "pylint==2.3.1", "astroid<=2.2"]
+dev_require = ["black==19.3b0", "mypy==0.701", "pylint==2.3.1", "astroid<=2.2"]
 
-tests_require = ["pytest==3.6.0", "pytest-cov==2.7.1", "pytest-watch==4.2.0"]
+tests_require = ["pytest==4.6.2", "pytest-cov==2.7.1", "pytest-watch==4.2.0"]
 
 setup(
     name="autofl",
