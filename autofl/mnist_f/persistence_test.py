@@ -3,6 +3,7 @@ from autofl.mnist_f import persistence
 
 
 # TODO mark as integration test
+# TODO find a better solution for a.npy
 def test_store_load():
     fname = "a"
     fname_full = "a.npy"

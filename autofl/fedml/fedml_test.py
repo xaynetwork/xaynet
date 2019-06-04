@@ -1,7 +1,7 @@
-from autofl.fedml import main
+from autofl.fedml import fedml
 
 
 def test_integer_addition():
     expected = 3
-    actual = main.integer_addition(1, 2)
+    actual = fedml.integer_addition(1, 2)
     assert expected == actual
