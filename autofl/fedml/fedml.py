@@ -98,7 +98,7 @@ class Coordinator:
         for round in range(num_rounds):
             # Select random participant
             random_index = randint(0, len(self.participants) - 1)
-            print("Training round", str(round + 1), "- participant", random_index)
+            print("\nTraining round", str(round + 1), "- participant", random_index)
             participant = self.participants[random_index]
             # Push current model parameters to this participant
             theta = _get_model_params(self.model)
@@ -106,9 +106,9 @@ class Coordinator:
             # Train for a number of steps
             participant.train(1)  # TODO don't train a full episode, just a few steps
             # Pull updated model parameters from participant
-            theta = participant.retrieve_model_parameters()
+            theta_prime = participant.retrieve_model_parameters()
             # Update own model parameters
-            _set_model_params(self.model, theta)
+            _set_model_params(self.model, theta_prime)
 
     def evaluate(self, x_test: ndarray, y_test: ndarray) -> Tuple[float, float]:
         x_test = x_test / 255.0
