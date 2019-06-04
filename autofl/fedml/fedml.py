@@ -1,3 +1,4 @@
+import random
 from random import randint
 from typing import Tuple
 from typing import List
@@ -12,7 +13,7 @@ PARTICIPANTS = 10
 
 
 def main():
-    round_robin()
+    federated_learning()
 
 
 def individual():
@@ -57,6 +58,29 @@ def round_robin():
     # Evaluate final model
     loss, accuracy = coordinator.evaluate(x_test, y_test)
     print("Final loss and accuracy:", loss, accuracy)
+
+
+def federated_learning():
+    print("\n\nStarting federated learning\n")
+    # Load data (multiple splits for training and one split for validation)
+    x_splits, y_splits, x_test, y_test = mnist_f.load_splits(num_splits=PARTICIPANTS)
+    print("Number of splits x/y train:", len(x_splits), len(y_splits))
+    # Initialize participants and coordinator
+    # Note that there is no need for common initialization at this point: Common
+    # initialization will happen during the first few rounds because the coordinator will
+    # push its own weight to the respective participants of each training round.
+    participants = []
+    for x_split, y_split in zip(x_splits, y_splits):
+        model = net.fc()
+        participant = Participant(model, x_split, y_split)
+        participants.append(participant)
+    model = net.fc()  # This will act as the initial model
+    coordinator = Coordinator(model, participants)
+    # Start training
+    coordinator.train_fl(10, C=3)
+    # Evaluate final model
+    loss, accuracy = coordinator.evaluate(x_test, y_test)
+    print("\nFinal loss and accuracy:", loss, accuracy)
 
 
 class Participant:
@@ -110,10 +134,47 @@ class Coordinator:
             # Update own model parameters
             _set_model_params(self.model, theta_prime)
 
+    def train_fl(self, num_rounds: int, C: int) -> None:
+        for round in range(num_rounds):
+            random_indices = random.sample(range(0, len(self.participants)), C)
+            print("\nTraining round", str(round + 1), "- participants", random_indices)
+            # Collect training results from the participants of this round
+            thetas = []
+            for index in random_indices:
+                theta = self._single_step(index)
+                thetas.append(theta)
+            # Aggregate training results
+            theta_prime = _federated_averaging(thetas)
+            # Update own model parameters
+            _set_model_params(self.model, theta_prime)
+
+    def _single_step(self, random_index: int) -> List[List[ndarray]]:
+        participant = self.participants[random_index]
+        # Push current model parameters to this participant
+        theta = _get_model_params(self.model)
+        participant.update_model_parameters(theta)
+        # Train for a number of steps
+        participant.train(1)  # TODO don't train a full episode, just a few steps
+        # Pull updated model parameters from participant
+        theta_prime = participant.retrieve_model_parameters()
+        return theta_prime
+
     def evaluate(self, x_test: ndarray, y_test: ndarray) -> Tuple[float, float]:
         x_test = x_test / 255.0
         loss, accuracy = self.model.evaluate(x_test, y_test)
         return loss, accuracy
+
+
+def _federated_averaging(thetas: List[List[List[ndarray]]]) -> List[List[ndarray]]:
+    theta_avg: List[List[ndarray]] = thetas[0]
+    for theta in thetas[1:]:
+        for layer_index, layer in enumerate(theta):
+            for weight_index, weights in enumerate(layer):
+                theta_avg[layer_index][weight_index] += weights
+    for layer in theta_avg:
+        for weights in layer:
+            weights /= len(thetas)
+    return theta_avg
 
 
 def _get_model_params(model: tf.keras.Model) -> List[List[ndarray]]:
