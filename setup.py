@@ -11,7 +11,7 @@ install_requires = [
     "tensorflow-datasets==1.0.2",
     "tensorflow-federated==0.4.0",
     "matplotlib==3.0.3",
-    "Pillow-SIMD==5.3.0.post1",
+    "Pillow==6.0.0",
 ]
 
 cpu_require = ["tensorflow==1.13.1"]
@@ -28,7 +28,7 @@ setup(
     description="AutoFL demonstrates automated architecture search in federated learning environments.",
     url="https://gitlab.com/xainag/autofl",
     author=[
-        "Daniel Beutel <daniel.beutel@xain.io>",
+        "Daniel J. Beutel <daniel.beutel@xain.io>",
         "Taner Topal <taner.topal@xain.io>",
     ],
     author_email="daniel.beutel@xain.io",
