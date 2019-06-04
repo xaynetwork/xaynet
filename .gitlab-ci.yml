@@ -2,15 +2,24 @@ stages:
   - qa
 
 image: python:3.6
+cache:
+  paths:
+    - .pip
 
 lint:
   stage: qa
+  before_script:
+    - mkdir -p .pip
+    - pip install -U pip
+    - ./scripts/setup_ci.sh
   script:
-  - ./scripts/setup.sh
   - ./scripts/lint.sh
 
 test:
   stage: qa
+  before_script:
+    - mkdir -p .pip
+    - pip install -U pip
+    - ./scripts/setup_ci.sh
   script:
-  - ./scripts/setup.sh
   - ./scripts/test.sh
