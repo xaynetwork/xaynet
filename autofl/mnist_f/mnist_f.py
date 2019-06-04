@@ -63,7 +63,3 @@ def load_splits() -> Tuple[List[np.ndarray], List[np.ndarray], np.ndarray, np.nd
     x_train, y_train = shuffle(x_train, y_train)
     x_splits, y_splits = split(x_train, y_train, PARTITIONS)
     return x_splits, y_splits, x_test, y_test
-
-
-if __name__ == "__main__":
-    main()
