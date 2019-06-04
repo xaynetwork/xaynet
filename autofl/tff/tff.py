@@ -22,7 +22,3 @@ def main():
     emnist_train, emnist_test = tff.simulation.datasets.emnist.load_data()
     l = len(emnist_train.client_ids)
     print(l)
-
-
-if __name__ == "__main__":
-    main()
