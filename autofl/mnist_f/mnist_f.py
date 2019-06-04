@@ -61,7 +61,7 @@ def load_splits(
     num_splits: int
 ) -> Tuple[List[ndarray], List[ndarray], ndarray, ndarray]:
     x_train, y_train, x_test, y_test = load()
-    assert x_train % num_splits == 0
+    assert x_train.shape[0] % num_splits == 0
     x_train, y_train = shuffle(x_train, y_train)
     x_splits, y_splits = split(x_train, y_train, num_splits)
     return x_splits, y_splits, x_test, y_test
