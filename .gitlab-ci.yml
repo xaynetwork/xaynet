@@ -10,7 +10,6 @@ lint:
   stage: qa
   before_script:
     - mkdir -p .pip
-    - pip install -U pip
     - ./scripts/setup_ci.sh
   script:
   - ./scripts/lint.sh
@@ -19,7 +18,6 @@ test:
   stage: qa
   before_script:
     - mkdir -p .pip
-    - pip install -U pip
     - ./scripts/setup_ci.sh
   script:
   - ./scripts/test.sh
