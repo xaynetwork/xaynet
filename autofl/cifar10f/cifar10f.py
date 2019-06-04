@@ -39,7 +39,3 @@ def log_info(ds: Dataset) -> None:
     print("ds.output_shapes:\t", ds.output_shapes)
     print("ds.output_types:\t", ds.output_types)
     print("-" * 80)
-
-
-if __name__ == "__main__":
-    main()
