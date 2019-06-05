@@ -3,7 +3,6 @@ from typing import Any, Tuple
 
 import tensorflow as tf
 import tensorflow_datasets as tfds
-from tensorflow.data import Dataset
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 tf.logging.set_verbosity(tf.logging.ERROR)
@@ -11,13 +10,13 @@ tf.logging.set_verbosity(tf.logging.ERROR)
 
 def main() -> None:
     print("Attempting to download CIFAR-10")
-    ds_train_full, ds_test, info = init_dataset()
+    ds_train_full, ds_test, _ = init_dataset()
     print("Download complete")
     log_info(ds_train_full)
     log_info(ds_test)
 
 
-def init_dataset(data_dir=None) -> Tuple[Dataset, Dataset, Any]:
+def init_dataset(data_dir=None) -> Tuple[tf.data.Dataset, tf.data.Dataset, Any]:
     (ds_train_full, ds_test), info = tfds.load(
         name="cifar10",
         split=["train", "test"],
@@ -33,7 +32,7 @@ def init_dataset(data_dir=None) -> Tuple[Dataset, Dataset, Any]:
     return ds_train_full, ds_test, info
 
 
-def log_info(ds: Dataset) -> None:
+def log_info(ds: tf.data.Dataset) -> None:
     print("-" * 3, "Dataset Info", "-" * 63)
     print(ds)
     print("ds.output_shapes:\t", ds.output_shapes)
