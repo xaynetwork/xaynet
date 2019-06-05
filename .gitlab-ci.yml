@@ -21,6 +21,7 @@ lint:
   stage: qa
   script:
   - ./scripts/lint.sh
+  allow_failure: true
 
 test:
   stage: qa
