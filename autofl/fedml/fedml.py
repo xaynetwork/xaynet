@@ -119,10 +119,15 @@ class Coordinator:
     # match the coordinator weights ahead of every training round we achieve common
     # initialization.
     def train(self, num_rounds: int) -> None:
-        for round in range(num_rounds):
+        for training_round in range(num_rounds):
             # Select random participant
             random_index = randint(0, len(self.participants) - 1)
-            print("\nTraining round", str(round + 1), "- participant", random_index)
+            print(
+                "\nTraining round",
+                str(training_round + 1),
+                "- participant",
+                random_index,
+            )
             participant = self.participants[random_index]
             # Push current model parameters to this participant
             theta = _get_model_params(self.model)
@@ -135,9 +140,14 @@ class Coordinator:
             _set_model_params(self.model, theta_prime)
 
     def train_fl(self, num_rounds: int, C: int) -> None:
-        for round in range(num_rounds):
+        for training_round in range(num_rounds):
             random_indices = random.sample(range(0, len(self.participants)), C)
-            print("\nTraining round", str(round + 1), "- participants", random_indices)
+            print(
+                "\nTraining round",
+                str(training_round + 1),
+                "- participants",
+                random_indices,
+            )
             # Collect training results from the participants of this round
             thetas = []
             for index in random_indices:
