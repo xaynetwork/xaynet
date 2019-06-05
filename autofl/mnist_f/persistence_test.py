@@ -1,4 +1,5 @@
 import numpy as np
+
 from autofl.mnist_f import persistence
 
 

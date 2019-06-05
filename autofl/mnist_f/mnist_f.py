@@ -1,12 +1,10 @@
 import os
 from pprint import pprint
-from typing import List
-from typing import Optional
-from typing import Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
-from numpy import ndarray
 import tensorflow as tf
+from numpy import ndarray
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 tf.logging.set_verbosity(tf.logging.ERROR)
@@ -50,7 +48,9 @@ def shuffle(
     return x_shuffled, y_shuffled
 
 
-def split(x: ndarray, y: ndarray, num_splits: int) -> Tuple[List[ndarray], List[ndarray]]:
+def split(
+    x: ndarray, y: ndarray, num_splits: int
+) -> Tuple[List[ndarray], List[ndarray]]:
     x_splits = np.split(x, indices_or_sections=num_splits, axis=0)
     y_splits = np.split(y, indices_or_sections=num_splits, axis=0)
     return x_splits, y_splits

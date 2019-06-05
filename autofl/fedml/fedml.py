@@ -1,13 +1,13 @@
 import random
 from random import randint
-from typing import Tuple
-from typing import List
-import numpy as np
-from numpy import ndarray
-import tensorflow as tf
-from autofl.mnist_f import mnist_f
-from autofl.fedml import net
+from typing import List, Tuple
 
+import numpy as np
+import tensorflow as tf
+from numpy import ndarray
+
+from autofl.fedml import net
+from autofl.mnist_f import mnist_f
 
 PARTICIPANTS = 10
 

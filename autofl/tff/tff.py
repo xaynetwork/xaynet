@@ -1,9 +1,6 @@
 import os
 from pprint import pprint
-from typing import Any
-from typing import List
-from typing import Optional
-from typing import Tuple
+from typing import Any, List, Optional, Tuple
 
 import numpy as np
 import tensorflow as tf
