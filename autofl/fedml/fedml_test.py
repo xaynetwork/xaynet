@@ -10,8 +10,7 @@ def test_Participant_x_y_shape_valid():
     y = np.zeros((3))
     # Execute
     _ = fedml.Participant(m, x, y)
-    # Assert
-    pass
+    # pass
 
 
 def test_Participant_x_y_shape_invalid():
@@ -58,7 +57,7 @@ def test_federated_averaging():
     ]
 
     # Execute
-    theta_actual = fedml._federated_averaging(thetas)
+    theta_actual = fedml.federated_averaging(thetas)
 
     # Assert
     assert len(theta_actual) == len(theta_expected)
