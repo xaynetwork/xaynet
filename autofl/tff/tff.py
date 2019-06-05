@@ -1,6 +1,4 @@
 import os
-from pprint import pprint
-from typing import Any, List, Optional, Tuple
 
 import numpy as np
 import tensorflow as tf
@@ -14,8 +12,7 @@ PARTITIONS = 3
 
 def main():
     tf.compat.v1.enable_v2_behavior()
-
     tff.federated_computation(lambda: "Hello, World!")()
-    emnist_train, emnist_test = tff.simulation.datasets.emnist.load_data()
+    emnist_train, _ = tff.simulation.datasets.emnist.load_data()
     l = len(emnist_train.client_ids)
     print(l)
