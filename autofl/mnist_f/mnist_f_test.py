@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from autofl.mnist_f import mnist_f
 
@@ -61,8 +62,8 @@ def test_split_num_splits_invalid():
     # Execute & assert
     try:
         _, _ = mnist_f.split(x, y, num_splits)
-        fail()
-    except:
+        pytest.fail()
+    except ValueError:
         pass
 
 

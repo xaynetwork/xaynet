@@ -2,7 +2,6 @@ import random
 from random import randint
 from typing import List, Tuple
 
-import numpy as np
 import tensorflow as tf
 from numpy import ndarray
 
@@ -154,7 +153,7 @@ class Coordinator:
                 theta = self._single_step(index)
                 thetas.append(theta)
             # Aggregate training results
-            theta_prime = _federated_averaging(thetas)
+            theta_prime = federated_averaging(thetas)
             # Update own model parameters
             _set_model_params(self.model, theta_prime)
 
@@ -175,7 +174,7 @@ class Coordinator:
         return loss, accuracy
 
 
-def _federated_averaging(thetas: List[List[List[ndarray]]]) -> List[List[ndarray]]:
+def federated_averaging(thetas: List[List[List[ndarray]]]) -> List[List[ndarray]]:
     theta_avg: List[List[ndarray]] = thetas[0]
     for theta in thetas[1:]:
         for layer_index, layer in enumerate(theta):

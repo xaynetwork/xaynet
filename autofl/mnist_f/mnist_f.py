@@ -1,5 +1,4 @@
 import os
-from pprint import pprint
 from typing import List, Optional, Tuple
 
 import numpy as np
@@ -12,7 +11,7 @@ tf.logging.set_verbosity(tf.logging.ERROR)
 
 def main():
     # Load dataset
-    x_train, y_train, x_test, y_test = load()
+    x_train, y_train, _, _ = load()
     print("Training set before split:")
     print("\tx_train:", x_train.shape, type(x_train))
     print("\ty_train:", y_train.shape, type(x_train))
@@ -24,8 +23,6 @@ def main():
     print("\ty_train:", y_train.shape, type(x_train))
 
     x_splits, y_splits = split(x_train, y_train, num_splits=3)
-    x_train_0 = x_splits[0]
-    y_train_0 = y_splits[0]
     print("Training set after split:")
     for i, (x_split, y_split) in enumerate(zip(x_splits, y_splits)):
         print("\t", str(i), "x_split:", x_split.shape, type(x_split))
