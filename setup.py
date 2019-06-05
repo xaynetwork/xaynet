@@ -62,5 +62,11 @@ setup(
         "dev": dev_require + tests_require,
     },
     cmdclass={},
-    entry_points={"console_scripts": ["autofl=autofl.fedml.fedml:tf_hello_world"]},
+    entry_points={
+        "console_scripts": [
+            "fedml_individual=autofl.fedml.fedml:individual",
+            "fedml_round_robin=autofl.fedml.fedml:round_robin",
+            "fedml_federated_learning=autofl.fedml.fedml:federated_learning",
+        ]
+    },
 )
