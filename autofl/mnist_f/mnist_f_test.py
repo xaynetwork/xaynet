@@ -1,5 +1,5 @@
-import pytest
 import numpy as np
+import pytest
 
 from autofl.mnist_f import mnist_f
 
