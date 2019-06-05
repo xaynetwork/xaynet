@@ -4,4 +4,14 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 cd $DIR/../
 
-pytest
+# format code
+black --check setup.py autofl && echo "===> black says: well done <==="
+
+# lint
+pylint --rcfile=pylint.ini autofl && echo "===> pylint says: well done <==="
+
+# type checks
+mypy --ignore-missing-imports autofl && echo "===> mypy says: well done <==="
+
+# tests
+pytest && echo "===> pytest says: well done <==="
