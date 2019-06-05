@@ -63,7 +63,7 @@ def test_split_num_splits_invalid():
     try:
         _, _ = mnist_f.split(x, y, num_splits)
         pytest.fail()
-    except AssertionError:
+    except ValueError:
         pass
 
 
