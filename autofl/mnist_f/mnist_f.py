@@ -2,8 +2,8 @@ import os
 from typing import List, Optional, Tuple
 
 import numpy as np
-import tensorflow as tf
 from numpy import ndarray
+import tensorflow as tf
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 tf.logging.set_verbosity(tf.logging.ERROR)
