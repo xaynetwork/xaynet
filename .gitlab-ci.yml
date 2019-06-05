@@ -4,7 +4,7 @@ stages:
 image: python:3.6
 
 variables:
-    PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
 
 cache:
   paths:
@@ -17,12 +17,7 @@ before_script:
   - source venv/bin/activate
   - ./scripts/setup.sh
 
-lint:
-  stage: qa
-  script:
-  - ./scripts/lint.sh
-
 test:
   stage: qa
   script:
-  - ./scripts/test.sh
+    - ./scripts/test.sh
