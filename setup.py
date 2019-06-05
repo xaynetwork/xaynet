@@ -1,6 +1,7 @@
-import sys
 import glob
-from setuptools import setup, find_packages
+import sys
+
+from setuptools import find_packages, setup
 
 if sys.version_info < (3, 6):
     sys.exit("Please use Python version 3.6 or higher.")
@@ -18,7 +19,13 @@ cpu_require = ["tensorflow==1.13.1"]
 
 gpu_require = ["tensorflow-gpu==1.13.1"]
 
-dev_require = ["black==19.3b0", "mypy==0.701", "pylint==2.3.1", "astroid<=2.2"]
+dev_require = [
+    "black==19.3b0",
+    "mypy==0.701",
+    "pylint==2.3.1",
+    "astroid<=2.2",
+    "isort==4.3.20",
+]
 
 tests_require = ["pytest==4.6.2", "pytest-cov==2.7.1", "pytest-watch==4.2.0"]
 

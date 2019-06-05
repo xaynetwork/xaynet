@@ -1,4 +1,5 @@
 import numpy as np
+
 from autofl.mnist_f import mnist_f
 
 
@@ -10,7 +11,7 @@ def test_load():
     assert len(y_train.shape) == len(y_test.shape)
 
 
-def test_split_num_splits():
+def test_split_num_splits_valid_max():
     # Prepare
     x = np.zeros((3, 28, 28))
     y = np.zeros((3))
@@ -22,6 +23,47 @@ def test_split_num_splits():
     assert len(y_splits) == num_splits
     # By the transitive property of == also:
     # len(x_splits) == len(y_splits)
+
+
+def test_split_num_splits_valid_min():
+    # Prepare
+    x = np.zeros((3, 28, 28))
+    y = np.zeros((3))
+    num_splits = 1
+    # Execute
+    x_splits, y_splits = mnist_f.split(x, y, num_splits)
+    # Assert
+    assert len(x_splits) == num_splits
+    assert len(y_splits) == num_splits
+    # By the transitive property of == also:
+    # len(x_splits) == len(y_splits)
+
+
+def test_split_num_splits_valid():
+    # Prepare
+    x = np.zeros((6, 28, 28))
+    y = np.zeros((6))
+    num_splits = 2
+    # Execute
+    x_splits, y_splits = mnist_f.split(x, y, num_splits)
+    # Assert
+    assert len(x_splits) == num_splits
+    assert len(y_splits) == num_splits
+    # By the transitive property of == also:
+    # len(x_splits) == len(y_splits)
+
+
+def test_split_num_splits_invalid():
+    # Prepare
+    x = np.zeros((3, 28, 28))
+    y = np.zeros((3))
+    num_splits = 2
+    # Execute & assert
+    try:
+        _, _ = mnist_f.split(x, y, num_splits)
+        fail()
+    except:
+        pass
 
 
 def test_split_dims():
