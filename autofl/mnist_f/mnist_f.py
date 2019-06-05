@@ -1,6 +1,5 @@
 import os
 from pprint import pprint
-from typing import Any
 from typing import List
 from typing import Optional
 from typing import Tuple
@@ -51,7 +50,7 @@ def shuffle(
     return x_shuffled, y_shuffled
 
 
-def split(x: ndarray, y: ndarray, num_splits: int) -> Tuple[List[Any], List[Any]]:
+def split(x: ndarray, y: ndarray, num_splits: int) -> Tuple[List[ndarray], List[ndarray]]:
     x_splits = np.split(x, indices_or_sections=num_splits, axis=0)
     y_splits = np.split(y, indices_or_sections=num_splits, axis=0)
     return x_splits, y_splits
