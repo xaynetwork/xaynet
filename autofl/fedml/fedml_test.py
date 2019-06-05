@@ -1,5 +1,5 @@
 import numpy as np
-
+import pytest
 from autofl.fedml import fedml
 
 
@@ -21,12 +21,12 @@ def test_Participant_x_y_shape_invalid():
     # Execute & assert
     try:
         _ = fedml.Participant(m, x, y)
-        fail()
-    except:
+        pytest.fail("No AssertionError raised")
+    except AssertionError:
         pass
 
 
-def test_federated_averaging():
+def test_federated_averaging():  # pylint: disable=too-many-locals
     # Prepare:
     # - Three weight updates (u0, u1, u2)
     # - Two layers in the model
