@@ -1,4 +1,4 @@
-from autofl.agent import agent
+from . import agent
 
 
 def test_parse_arch_str():

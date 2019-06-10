@@ -1,5 +1,9 @@
-from pprint import pformat
+from pprint import pformat, pprint
 from typing import List
+
+import tensorflow as tf
+
+FLAGS = tf.app.flags.FLAGS
 
 
 def main(_):
@@ -12,9 +16,16 @@ def main(_):
     arch.add_layer([2, 0, 0, 1])
     arch.add_layer([2, 0, 0, 0, 0])
     arch.add_layer([3, 1, 1, 0, 1, 0])
-    print("Architecture:")
+    print("Architecture (hardcoded):")
     print("\t architecture:", arch)
     print("\t num_layers:  ", arch.get_num_layers())
+    # Arch flag
+    print(FLAGS.arch)
+    arch2 = parse_arch_str(FLAGS.arch)
+    print("Architecture (passed via flag):")
+    print("\t architecture:", arch2)
+    print("\t num_layers:  ", arch2.get_num_layers())
+    pprint(dir(FLAGS))
 
 
 class Architecture:
