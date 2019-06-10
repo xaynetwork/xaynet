@@ -10,8 +10,6 @@ isort --check-only -rc setup.py autofl && echo "===> isort says: well done <==="
 # format code
 black --check setup.py autofl && echo "===> black says: well done <===" &&
 
-
-
 # lint
 pylint --rcfile=pylint.ini autofl && echo "===> pylint says: well done <===" &&
 
