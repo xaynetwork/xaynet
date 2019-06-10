@@ -3,9 +3,9 @@ from . import agent
 
 def test_parse_arch_str():
     # Prepare
-    arch_str = "0 1 1"
+    arch_strs = ["0", "1", "1"]
     # Execute
-    arch = agent.parse_arch_str(arch_str)
+    arch = agent.parse_arch_str(arch_strs)
     # Assert
     assert arch.get_num_layers() == 2
     assert len(arch.get_layer(0)) == 1

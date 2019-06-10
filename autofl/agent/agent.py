@@ -22,10 +22,11 @@ def main(_):
     # Arch flag
     print(FLAGS.arch)
     arch2 = parse_arch_str(FLAGS.arch)
-    print("Architecture (passed via flag):")
+    print("Architecture (passed via flag):", FLAGS.arch)
     print("\t architecture:", arch2)
     print("\t num_layers:  ", arch2.get_num_layers())
     pprint(dir(FLAGS))
+    pprint(getattr(FLAGS, "controller_lr"))
 
 
 class Architecture:
@@ -47,8 +48,7 @@ class Architecture:
         return self.arch[index]
 
 
-def parse_arch_str(arch_str: str) -> Architecture:
-    arch_strs: List[str] = arch_str.split()
+def parse_arch_str(arch_strs: List[str]) -> Architecture:
     arch_ints: List[int] = list(map(int, arch_strs))
     arch = Architecture()
     take = 1
