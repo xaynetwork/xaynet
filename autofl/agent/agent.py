@@ -1,32 +1,38 @@
-from pprint import pformat, pprint
+from pprint import pformat
 from typing import List
 
 import tensorflow as tf
+from tensorflow.keras.layers import (
+    Activation,
+    AveragePooling2D,
+    BatchNormalization,
+    Conv2D,
+    Dense,
+    Flatten,
+    Input,
+    MaxPool2D,
+)
 
 FLAGS = tf.app.flags.FLAGS
 
 
 def main(_):
-    print("Hello, architecture search!")
-    # Hardcoded architecture
-    arch = Architecture()
-    arch.add_layer([0])
-    arch.add_layer([3, 0])
-    arch.add_layer([0, 1, 0])
-    arch.add_layer([2, 0, 0, 1])
-    arch.add_layer([2, 0, 0, 0, 0])
-    arch.add_layer([3, 1, 1, 0, 1, 0])
-    print("Architecture (hardcoded):")
+    # Architecture
+    if FLAGS.arch:
+        arch = parse_arch_str(FLAGS.arch)
+    else:
+        arch_strs = "0 1 0 2 0 0 3 0 0 0 4 0 0 0 0".split()
+        arch = parse_arch_str(arch_strs)
+    print("Architecture:", FLAGS.arch)
     print("\t architecture:", arch)
     print("\t num_layers:  ", arch.get_num_layers())
-    # Arch flag
-    print(FLAGS.arch)
-    arch2 = parse_arch_str(FLAGS.arch)
-    print("Architecture (passed via flag):", FLAGS.arch)
-    print("\t architecture:", arch2)
-    print("\t num_layers:  ", arch2.get_num_layers())
-    pprint(dir(FLAGS))
-    pprint(getattr(FLAGS, "controller_lr"))
+    # Model
+    model = build_architecture(arch)
+    optimizer = tf.keras.optimizers.SGD(lr=0.01, momentum=0.9)
+    model.compile(
+        optimizer=optimizer, loss="categorical_crossentropy", metrics=["accuracy"]
+    )
+    model.summary()
 
 
 class Architecture:
@@ -46,6 +52,73 @@ class Architecture:
     def get_layer(self, index: int) -> List[int]:
         assert index < len(self.arch)
         return self.arch[index]
+
+
+def build_architecture(
+    arch: Architecture, input_shape=(32, 32, 3), num_classes=10
+) -> tf.keras.Model:
+    inputs = Input(shape=input_shape)
+    x = inputs
+    out_filters = 24
+    for layer_index in range(arch.get_num_layers()):
+        layer = arch.get_layer(layer_index)
+        op_index = layer[0]
+        _scs = layer[1:]  # Skip connections
+        op_fn = op_fns[op_index]
+        x = op_fn(x, out_filters)
+        if op_index in [4, 5]:
+            out_filters *= 2
+    # Softmax
+    x = Flatten()(x)
+    print("\ntype(x):", type(x), "\n")
+    outputs = Dense(num_classes, activation="softmax")(x)
+    return tf.keras.Model(inputs=inputs, outputs=outputs)
+
+
+def apply_conv_3x3(x, out_filters) -> tf.Tensor:
+    x = Activation("relu")(x)
+    x = Conv2D(filters=out_filters, kernel_size=3, padding="same")(x)
+    x = BatchNormalization()(x)
+    return x
+
+
+def apply_conv_5x5(x, out_filters) -> tf.Tensor:
+    x = Activation("relu")(x)
+    x = Conv2D(filters=out_filters, kernel_size=5, padding="same")(x)
+    x = BatchNormalization()(x)
+    return x
+
+
+def apply_ds_conv_3x3(x, out_filters) -> tf.Tensor:
+    x = Activation("relu")(x)
+    x = Conv2D(filters=out_filters, kernel_size=3, padding="same")(x)
+    x = BatchNormalization()(x)
+    return x
+
+
+def apply_ds_conv_5x5(x, out_filters) -> tf.Tensor:
+    x = Activation("relu")(x)
+    x = Conv2D(filters=out_filters, kernel_size=5, padding="same")(x)
+    x = BatchNormalization()(x)
+    return x
+
+
+def apply_avg_pooling(x, _out_filters) -> tf.Tensor:
+    return AveragePooling2D(pool_size=2)(x)
+
+
+def apply_max_pooling(x, _out_filters) -> tf.Tensor:
+    return MaxPool2D(pool_size=2)(x)
+
+
+op_fns = {
+    0: apply_conv_3x3,
+    1: apply_conv_5x5,
+    2: apply_ds_conv_3x3,
+    3: apply_ds_conv_5x5,
+    4: apply_avg_pooling,
+    5: apply_max_pooling,
+}
 
 
 def parse_arch_str(arch_strs: List[str]) -> Architecture:
