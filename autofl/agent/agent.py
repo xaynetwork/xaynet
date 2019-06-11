@@ -1,6 +1,7 @@
 from pprint import pformat
 from typing import List
 
+import numpy as np
 import tensorflow as tf
 from tensorflow.keras.layers import (
     Activation,
@@ -18,12 +19,18 @@ FLAGS = tf.app.flags.FLAGS
 
 def main(_):
     # Architecture
+    print("#" * 80)
     if FLAGS.arch:
+        print("Using user-provided arch:", FLAGS.arch)
         arch = parse_arch_str(FLAGS.arch)
+    elif FLAGS.sample_random_arch:
+        print("Using randomly sampled arch")
+        arch = sample_architecture(num_layers=3)
     else:
         arch_strs = "0 1 0 2 0 0 3 0 0 0 4 0 0 0 0".split()
+        print("Using hardcoded arch:", arch_strs)
         arch = parse_arch_str(arch_strs)
-    print("Architecture:", FLAGS.arch)
+    print("Architecture:")
     print("\t architecture:", arch)
     print("\t num_layers:  ", arch.get_num_layers())
     # Model
@@ -52,6 +59,16 @@ class Architecture:
     def get_layer(self, index: int) -> List[int]:
         assert index < len(self.arch)
         return self.arch[index]
+
+
+def sample_architecture(num_layers=4) -> Architecture:
+    arch = Architecture()
+    for layer_index in range(num_layers):
+        op = np.random.randint(low=0, high=6, size=1)
+        scs = np.random.randint(low=0, high=2, size=layer_index)  # Skip connections
+        layer = np.hstack((op, scs))
+        arch.add_layer(layer.tolist())
+    return arch
 
 
 def build_architecture(
