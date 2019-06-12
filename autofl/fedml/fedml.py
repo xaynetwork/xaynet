@@ -5,8 +5,8 @@ from typing import List, Tuple
 import tensorflow as tf
 from numpy import ndarray
 
+from autofl.data.mnist_f import mnist_f
 from autofl.fedml import net
-from autofl.mnist_f import mnist_f
 
 PARTICIPANTS = 10
 

@@ -1,6 +1,6 @@
 import numpy as np
 
-from autofl.mnist_f import persistence
+from autofl.data.mnist_f import persistence
 
 
 # TODO mark as integration test

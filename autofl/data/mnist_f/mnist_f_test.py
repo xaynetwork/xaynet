@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from autofl.mnist_f import mnist_f
+from autofl.data.mnist_f import mnist_f
 
 
 def test_load():
