@@ -3,7 +3,7 @@ from typing import Tuple
 import numpy as np
 import pytest
 
-from .data import load
+from autofl.data import data
 
 
 class KerasDataset:  # pylint: disable=too-few-public-methods
@@ -30,4 +30,4 @@ class KerasDataset:  # pylint: disable=too-few-public-methods
 
 @pytest.fixture
 def dataset():
-    return load(KerasDataset())
+    return data.load(KerasDataset())
