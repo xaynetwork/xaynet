@@ -6,7 +6,7 @@ import pytest
 from .data import load
 
 
-class keras_dataset:  # pylint: disable=too-few-public-methods
+class KerasDataset:  # pylint: disable=too-few-public-methods
     """
     Used as a mock dataset which will go through the load method in the data.py module
     to make sure that the mock dataset stays compatible with the default load function
@@ -30,4 +30,4 @@ class keras_dataset:  # pylint: disable=too-few-public-methods
 
 @pytest.fixture
 def dataset():
-    return load(keras_dataset)
+    return load(KerasDataset())
