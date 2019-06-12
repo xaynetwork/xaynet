@@ -1,13 +1,18 @@
 from typing import Tuple
 
-import pytest
-import tensorflow as tf
 import numpy as np
+import pytest
 
 from .data import load
 
 
-class keras_dataset:
+class keras_dataset:  # pylint: disable=too-few-public-methods
+    """
+    Used as a mock dataset which will go through the load method in the data.py module
+    to make sure that the mock dataset stays compatible with the default load function
+    for all datasets in the project
+    """
+
     @staticmethod
     def load_data() -> Tuple[
         Tuple[np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray]
@@ -25,22 +30,4 @@ class keras_dataset:
 
 @pytest.fixture
 def dataset():
-    (x_train, y_train, x_test, y_test) = load(keras_dataset)
-
-    assert isinstance(
-        x_train, np.ndarray
-    ), "load method in data.py seems to be out of sync with assumptions in fixture"
-
-    assert isinstance(
-        y_train, np.ndarray
-    ), "load method in data.py seems to be out of sync with assumptions in fixture"
-
-    assert isinstance(
-        x_test, np.ndarray
-    ), "load method in data.py seems to be out of sync with assumptions in fixture"
-
-    assert isinstance(
-        x_test, np.ndarray
-    ), "load method in data.py seems to be out of sync with assumptions in fixture"
-
-    return (x_train, y_train, x_test, y_test)
+    return load(keras_dataset)
