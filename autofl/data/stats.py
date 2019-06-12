@@ -1,17 +1,16 @@
-import os
 from typing import Dict, Tuple
 
 import numpy as np
 
-ndarray = np.ndarray
 
-
-def basic_statistics(dataset: Tuple[ndarray, ndarray, ndarray, ndarray]) -> Dict:
+def basic_statistics(
+    dataset: Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+) -> Dict:
     """
     Creates dataset statistics for a dataset of the shape:
-    
+
     Tuple[ndarray, ndarray, ndarray, ndarray]
-    
+
     respectively
 
     (x_train, y_train, x_test, y_test)
@@ -32,7 +31,7 @@ def basic_statistics(dataset: Tuple[ndarray, ndarray, ndarray, ndarray]) -> Dict
 
     stats["test"] = {
         "number_of_examples": x_test.shape[0],
-        "number_of_examples_per_label": np.unique(y_train, return_counts=True),
+        "number_of_examples_per_label": np.unique(y_test, return_counts=True),
     }
 
     return stats
