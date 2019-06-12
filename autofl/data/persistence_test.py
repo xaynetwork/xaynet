@@ -1,10 +1,12 @@
 import numpy as np
+import pytest
 
 from autofl.data import persistence
 
 
 # TODO mark as integration test
 # TODO find a better solution for a.npy
+@pytest.mark.integration
 def test_store_load():
     fname = "a"
     fname_full = "a.npy"
