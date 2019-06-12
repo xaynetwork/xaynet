@@ -48,7 +48,9 @@ def basic_stats(dataset: Tuple[np.ndarray, np.ndarray]) -> DatasetStats:
     )
 
 
-def basic_stats_multiple(datasets: List[Tuple[np.ndarray, np.ndarray]]) -> List[Dict]:
+def basic_stats_multiple(
+    datasets: List[Tuple[np.ndarray, np.ndarray]]
+) -> List[DatasetStats]:
     """
     Creates dataset statistics for multiple datasets which will
     be passed through "basic_stats()" in a loop
