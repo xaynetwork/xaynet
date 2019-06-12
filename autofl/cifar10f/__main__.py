@@ -1,3 +1,3 @@
-from autofl.cifar10f.cifar10f import main
+from autofl.cifar10f import c10f
 
-main()
+c10f.main()

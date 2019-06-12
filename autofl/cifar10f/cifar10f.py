@@ -1,40 +1,63 @@
 import os
-from typing import Any, Tuple
+from typing import List, Optional, Tuple
 
+import numpy as np
 import tensorflow as tf
-import tensorflow_datasets as tfds
+from numpy import ndarray
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 tf.logging.set_verbosity(tf.logging.ERROR)
 
 
-def main() -> None:
-    print("Attempting to download CIFAR-10")
-    ds_train_full, ds_test, _ = init_dataset()
-    print("Download complete")
-    log_info(ds_train_full)
-    log_info(ds_test)
+def main():
+    # Load dataset
+    x_train, y_train, _, _ = load()
+    print("Training set before split:")
+    print("\tx_train:", x_train.shape, type(x_train))
+    print("\ty_train:", y_train.shape, type(x_train))
+
+    # Shuffle both x and y with the same permutation
+    x_train, y_train = shuffle(x_train, y_train)
+    print("Training set after shuffle:")
+    print("\tx_train:", x_train.shape, type(x_train))
+    print("\ty_train:", y_train.shape, type(x_train))
+
+    x_splits, y_splits = split(x_train, y_train, num_splits=5)
+    print("Training set after split:")
+    for i, (x_split, y_split) in enumerate(zip(x_splits, y_splits)):
+        print("\t", str(i), "x_split:", x_split.shape, type(x_split))
+        print("\t", str(i), "y_split:", y_split.shape, type(y_split))
 
 
-def init_dataset(data_dir=None) -> Tuple[tf.data.Dataset, tf.data.Dataset, Any]:
-    (ds_train_full, ds_test), info = tfds.load(
-        name="cifar10",
-        split=["train", "test"],
-        data_dir=data_dir,
-        as_supervised=True,
-        with_info=True,
-    )
-    input_shape: Tuple[int, int, int] = info.features["image"].shape
-    num_classes: int = info.features["label"].num_classes
-    m_train_full: int = info.splits["train"].num_examples
-    m_test: int = info.splits["test"].num_examples
-    info = (input_shape, num_classes, m_train_full, m_test)
-    return ds_train_full, ds_test, info
+def load() -> Tuple[ndarray, ndarray, ndarray, ndarray]:
+    cifar10 = tf.keras.datasets.cifar10
+    (x_train, y_train), (x_test, y_test) = cifar10.load_data()
+    return x_train, y_train, x_test, y_test
 
 
-def log_info(ds: tf.data.Dataset) -> None:
-    print("-" * 3, "Dataset Info", "-" * 63)
-    print(ds)
-    print("ds.output_shapes:\t", ds.output_shapes)
-    print("ds.output_types:\t", ds.output_types)
-    print("-" * 80)
+def shuffle(
+    x: ndarray, y: ndarray, seed: Optional[int] = None
+) -> Tuple[ndarray, ndarray]:
+    assert x.shape[0] == y.shape[0]
+    permutation = np.random.RandomState(seed=seed).permutation(x.shape[0])
+    x_shuffled = x[permutation]
+    y_shuffled = y[permutation]
+    return x_shuffled, y_shuffled
+
+
+def split(
+    x: ndarray, y: ndarray, num_splits: int
+) -> Tuple[List[ndarray], List[ndarray]]:
+    x_splits = np.split(x, indices_or_sections=num_splits, axis=0)
+    y_splits = np.split(y, indices_or_sections=num_splits, axis=0)
+    return x_splits, y_splits
+
+
+def load_splits(
+    num_splits: int
+) -> Tuple[List[ndarray], List[ndarray], ndarray, ndarray]:
+    x_train, y_train, x_test, y_test = load()
+    assert x_train.shape[0] % num_splits == 0
+    x_train, y_train = shuffle(x_train, y_train)
+    x_splits, y_splits = split(x_train, y_train, num_splits)
+    return x_splits, y_splits, x_test, y_test
