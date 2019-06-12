@@ -5,7 +5,7 @@ from typing import List, Tuple
 import tensorflow as tf
 from numpy import ndarray
 
-from autofl.data.mnist_f import mnist_f
+from autofl.data import data
 from autofl.fedml import net
 
 PARTICIPANTS = 10
@@ -17,7 +17,7 @@ def main():
 
 def individual():
     # Load data
-    x_splits, y_splits, x_test, y_test = mnist_f.load_splits(num_splits=PARTICIPANTS)
+    x_splits, y_splits, x_test, y_test = data.load_splits_mnist(num_splits=PARTICIPANTS)
     print("Number of splits x/y train:", len(x_splits), len(y_splits))
     # Create model
     model = net.fc()
@@ -39,7 +39,7 @@ def individual():
 
 def round_robin():
     # Load data (multiple splits for training and one split for validation)
-    x_splits, y_splits, x_test, y_test = mnist_f.load_splits(num_splits=PARTICIPANTS)
+    x_splits, y_splits, x_test, y_test = data.load_splits_mnist(num_splits=PARTICIPANTS)
     print("Number of splits x/y train:", len(x_splits), len(y_splits))
     # Initialize participants and coordinator
     # Note that there is no need for common initialization at this point: Common
@@ -62,7 +62,7 @@ def round_robin():
 def federated_learning():
     print("\n\nStarting federated learning\n")
     # Load data (multiple splits for training and one split for validation)
-    x_splits, y_splits, x_test, y_test = mnist_f.load_splits(num_splits=PARTICIPANTS)
+    x_splits, y_splits, x_test, y_test = data.load_splits_mnist(num_splits=PARTICIPANTS)
     print("Number of splits x/y train:", len(x_splits), len(y_splits))
     # Initialize participants and coordinator
     # Note that there is no need for common initialization at this point: Common
