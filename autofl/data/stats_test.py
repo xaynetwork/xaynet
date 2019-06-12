@@ -1,10 +1,11 @@
-from autofl.data.stats import basic_stats, basic_stats_multiple
+from autofl.data.stats import DatasetStats, basic_stats, basic_stats_multiple
 
 
 def test_basic_stats(dataset):
     (x, y, _, _) = dataset
     stats = basic_stats((x, y))
 
+    assert isinstance(stats, DatasetStats)
     assert "number_of_examples" in stats
     assert "number_of_examples_per_label" in stats
 
@@ -20,5 +21,6 @@ def test_basic_stats_multiple(dataset):
     stats_list = basic_stats_multiple([(x1, y1), (x2, y2)])
 
     for stat in stats_list:
+        assert isinstance(stat, DatasetStats)
         assert "number_of_examples" in stat
         assert "number_of_examples_per_label" in stat
