@@ -1,5 +1,5 @@
 from collections.abc import Mapping
-from typing import Dict, List, Tuple
+from typing import List, Tuple
 
 import numpy as np
 
@@ -13,9 +13,14 @@ class DatasetStats(Mapping):
     def __init__(self, *args, **kw):
         # Make certain properties required
         assert "number_of_examples" in kw, "property number_of_examples is required"
+
         assert (
             "number_of_examples_per_label" in kw
         ), "property number_of_examples_per_label is required"
+
+        assert isinstance(
+            kw["number_of_examples_per_label"], tuple
+        ), "property number_of_examples_per_label should be a tuple"
 
         self._storage = dict(*args, **kw)
 

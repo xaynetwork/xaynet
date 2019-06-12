@@ -1,4 +1,25 @@
+import numpy as np
+import pytest
+
 from autofl.data.stats import DatasetStats, basic_stats, basic_stats_multiple
+
+
+@pytest.mark.xfail(strict=True)
+def test_create_dataset_stats_failure():
+    DatasetStats()
+
+
+def test_create_dataset_stats():
+    number_of_examples = 1
+    number_of_examples_per_label = (np.ndarray((1)), np.ndarray((1)))
+
+    stats = DatasetStats(
+        number_of_examples=number_of_examples,
+        number_of_examples_per_label=number_of_examples_per_label,
+    )
+
+    assert stats["number_of_examples"] == 1
+    assert stats["number_of_examples_per_label"] == number_of_examples_per_label
 
 
 def test_basic_stats(dataset):
@@ -20,7 +41,7 @@ def test_basic_stats_multiple(dataset):
     (x1, y1, x2, y2) = dataset
     stats_list = basic_stats_multiple([(x1, y1), (x2, y2)])
 
-    for stat in stats_list:
-        assert isinstance(stat, DatasetStats)
-        assert "number_of_examples" in stat
-        assert "number_of_examples_per_label" in stat
+    for stats in stats_list:
+        assert isinstance(stats, DatasetStats)
+        assert "number_of_examples" in stats
+        assert "number_of_examples_per_label" in stats
