@@ -68,7 +68,6 @@ setup(
             "fedml_individual=autofl.fedml.fedml:individual",
             "fedml_round_robin=autofl.fedml.fedml:round_robin",
             "fedml_federated_learning=autofl.fedml.fedml:federated_learning",
-            "dataset_stats=autofl.data.stats:basic_statistics",
         ]
     },
 )
