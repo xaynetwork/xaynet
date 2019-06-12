@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from autofl.data.mnist_f import persistence
+from autofl.data import persistence
 
 
 # TODO mark as integration test
