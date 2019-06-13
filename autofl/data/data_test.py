@@ -5,6 +5,7 @@ import tensorflow as tf
 from autofl.data import data
 
 
+@pytest.mark.integration
 def test_load():
     x_train, y_train, x_test, y_test = data.load(tf.keras.datasets.mnist)
     assert x_train.shape[0] == y_train.shape[0]
