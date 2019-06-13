@@ -1,6 +1,6 @@
 import random
 from random import randint
-from typing import List, Tuple
+from typing import Callable, List, Tuple
 
 import tensorflow as tf
 from numpy import ndarray
@@ -91,6 +91,9 @@ class Participant:
         self.dataset = prep.init_dataset(x_split, y_split)
         self.history = None
 
+    def replace_model(self, model: tf.keras.Model) -> None:
+        self.model = model
+
     def update_model_parameters(self, theta: List[List[ndarray]]) -> None:
         _set_model_params(self.model, theta)
 
@@ -111,6 +114,12 @@ class Coordinator:
     def __init__(self, model: tf.keras.Model, participants: List[Participant]) -> None:
         self.model = model
         self.participants = participants
+
+    def replace_model(self, model_fn: Callable[..., tf.keras.Model]) -> None:
+        self.model = model_fn()
+        for p in self.participants:
+            model = model_fn()
+            p.replace_model(model)
 
     # Common initialization happens implicitly: By updating the participant weights to
     # match the coordinator weights ahead of every training round we achieve common

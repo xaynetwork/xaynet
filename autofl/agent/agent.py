@@ -1,8 +1,9 @@
 from pprint import pformat
-from typing import List
+from typing import List, Tuple
 
 import numpy as np
 import tensorflow as tf
+from numpy import ndarray
 from tensorflow.keras.layers import (
     Activation,
     AveragePooling2D,
@@ -14,10 +15,18 @@ from tensorflow.keras.layers import (
     MaxPool2D,
 )
 
+from ..data import data
+from ..fedml.fedml import Coordinator, Participant
+
 FLAGS = tf.app.flags.FLAGS
+PARTICIPANTS = 5
 
 
 def main(_):
+    autofl()
+
+
+def build_model_and_print_summary():
     # Architecture
     print("#" * 80)
     if FLAGS.arch:
@@ -42,6 +51,29 @@ def main(_):
     model.summary()
 
 
+def autofl():
+    print("\n\nStarting AutoFL\n")
+    # Load data (multiple splits for training and one split for validation)
+    x_splits, y_splits, x_test, y_test = data.load_splits_cifar10(
+        num_splits=PARTICIPANTS
+    )
+    print("Number of splits x/y train:", len(x_splits), len(y_splits))
+    # Initialize participants and coordinator
+    # Note that no initial model is provided to the constructors, the models
+    # will be created and set by the agent.
+    participants = []
+    for x_split, y_split in zip(x_splits, y_splits):
+        participant = Participant(None, x_split, y_split)
+        participants.append(participant)
+    coordinator = Coordinator(None, participants)
+    # AutoFL
+    agent: Agent = RandomAgent(coordinator=coordinator)
+    agent.train()
+    # Evaluate final model
+    loss, accuracy = agent.evaluate(x_test, y_test)
+    print("\nFinal loss and accuracy:", loss, accuracy)
+
+
 class Architecture:
     def __init__(self):
         self.arch: List[List[int]] = []
@@ -61,7 +93,67 @@ class Architecture:
         return self.arch[index]
 
 
-def sample_architecture(num_layers=4) -> Architecture:
+class Agent:
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def train(self, episodes: int):
+        raise NotImplementedError("abstract method")
+
+    def sample_architecture(self, num_layers: int) -> Architecture:
+        raise NotImplementedError("abstract method")
+
+    def evaluate(self, x_test: ndarray, y_test: ndarray) -> Tuple[float, float]:
+        raise NotImplementedError("abstract method")
+
+
+class LstmAgent(Agent):
+    def __init__(self, hidden_units=64):
+        super().__init__(self)
+        self.hidden_units = hidden_units
+
+    def train(self, episodes: int):
+        pass
+
+    def sample_architecture(self, num_layers: int) -> Architecture:
+        pass
+
+    def evaluate(self, x_test: ndarray, y_test: ndarray) -> Tuple[float, float]:
+        pass
+
+
+class RandomAgent(Agent):
+    def __init__(self, coordinator: Coordinator):
+        super().__init__(self)
+        self.coordinator = coordinator
+
+    def train(self, episodes=5):
+        for episode in range(episodes):
+            print("#" * 80)
+            print("\tAutoFL Episode", episode)
+            self._train_arch()
+
+    def _train_arch(self) -> None:
+        arch = self.sample_architecture(num_layers=2)
+
+        def model_fn():
+            model = build_architecture(arch)
+            model.compile(
+                optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"]
+            )
+            return model
+
+        self.coordinator.replace_model(model_fn)
+        self.coordinator.train_fl(num_rounds=2, C=3)
+
+    def sample_architecture(self, num_layers: int) -> Architecture:
+        return sample_architecture(num_layers=3)
+
+    def evaluate(self, x_test: ndarray, y_test: ndarray) -> Tuple[float, float]:
+        return self.coordinator.evaluate(x_test, y_test)
+
+
+def sample_architecture(num_layers: int) -> Architecture:
     arch = Architecture()
     for layer_index in range(num_layers):
         op = np.random.randint(low=0, high=6, size=1)
