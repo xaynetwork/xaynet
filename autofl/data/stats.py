@@ -4,11 +4,6 @@ import numpy as np
 
 
 class DatasetStats:
-    """
-    Inheriting from Mapping makes DatasetStats immutable after instantiation
-    See: https://docs.python.org/3/library/collections.abc.html
-    """
-
     def __init__(self, number_of_examples: int, number_of_examples_per_label: tuple):
         self.number_of_examples = number_of_examples
         self.number_of_examples_per_label = number_of_examples_per_label
