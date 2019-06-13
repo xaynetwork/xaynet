@@ -5,7 +5,7 @@ from typing import List, Tuple
 import tensorflow as tf
 from numpy import ndarray
 
-from autofl.data import data
+from autofl.data import data, prep
 from autofl.fedml import net
 
 PARTICIPANTS = 10
@@ -88,8 +88,7 @@ class Participant:
     ) -> None:
         assert x_split.shape[0] == y_split.shape[0]
         self.model = model
-        self.x_split = x_split
-        self.y_split = y_split
+        self.dataset = prep.init_dataset(x_split, y_split)
         self.history = None
 
     def update_model_parameters(self, theta: List[List[ndarray]]) -> None:
@@ -99,11 +98,10 @@ class Participant:
         return _get_model_params(self.model)
 
     def train(self, epochs: int):
-        x_train = self.x_split / 255.0
-        y_train = self.y_split
-        self.history = self.model.fit(x_train, y_train, epochs=epochs)
+        self.history = self.model.fit(self.dataset, epochs=epochs, steps_per_epoch=8)
 
     def evaluate(self, x_test: ndarray, y_test: ndarray) -> Tuple[float, float]:
+        # FIXME use Dataset
         x_test = x_test / 255.0
         loss, accuracy = self.model.evaluate(x_test, y_test)
         return loss, accuracy

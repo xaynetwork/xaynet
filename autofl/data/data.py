@@ -11,6 +11,8 @@ tf.logging.set_verbosity(tf.logging.ERROR)
 
 def load(keras_dataset) -> Tuple[ndarray, ndarray, ndarray, ndarray]:
     (x_train, y_train), (x_test, y_test) = keras_dataset.load_data()
+    y_train = y_train.reshape((y_train.shape[0],))
+    y_test = y_test.reshape((y_test.shape[0],))
     return x_train, y_train, x_test, y_test
 
 
