@@ -51,13 +51,14 @@ def augment(ds: Dataset) -> Dataset:
 def batch_and_repeat(
     ds: Dataset, batch_size: int, shuffle: bool = True, repeat: bool = True
 ) -> Dataset:
-    if batch_size > 0:
-        ds = ds.batch(batch_size, drop_remainder=False)
+    ds = ds.prefetch(buffer_size=AUTOTUNE)
     if shuffle:
         ds = ds.shuffle(512, seed=SEED)
     if repeat:
         ds = ds.repeat()
-    return ds.prefetch(buffer_size=AUTOTUNE)
+    if batch_size > 0:
+        ds = ds.batch(batch_size, drop_remainder=False)
+    return ds
 
 
 def _prep_cast_label(y: tf.Tensor) -> tf.Tensor:
