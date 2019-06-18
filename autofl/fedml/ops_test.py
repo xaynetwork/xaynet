@@ -1,30 +1,6 @@
 import numpy as np
-import pytest
 
-from autofl.fedml import fedml
-
-
-def test_Participant_x_y_shape_valid():
-    # Prepare
-    m = None
-    x = np.zeros((5, 32, 32, 3), dtype=np.uint8)
-    y = np.zeros((5), dtype=np.uint8)
-    # Execute
-    _ = fedml.Participant(m, x, y)
-    # pass
-
-
-def test_Participant_x_y_shape_invalid():
-    # Prepare
-    m = None
-    x = np.zeros((3, 32, 32, 3), dtype=np.uint8)
-    y = np.zeros((4), dtype=np.uint8)
-    # Execute & assert
-    try:
-        _ = fedml.Participant(m, x, y)
-        pytest.fail("No AssertionError raised")
-    except AssertionError:
-        pass
+from . import ops
 
 
 def test_federated_averaging():  # pylint: disable=too-many-locals
@@ -58,7 +34,7 @@ def test_federated_averaging():  # pylint: disable=too-many-locals
     ]
 
     # Execute
-    theta_actual = fedml.federated_averaging(thetas)
+    theta_actual = ops.federated_averaging(thetas)
 
     # Assert
     assert len(theta_actual) == len(theta_expected)
