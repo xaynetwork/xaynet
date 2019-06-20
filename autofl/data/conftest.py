@@ -1,12 +1,10 @@
-from typing import Tuple
-
 import numpy as np
 import pytest
 
-from autofl.data import data
+from autofl.data import data, typing
 
 
-class KerasDataset:  # pylint: disable=too-few-public-methods
+class MockKerasDataset:  # pylint: disable=too-few-public-methods
     """
     Used as a mock dataset which will go through the load method in the data.py module
     to make sure that the mock dataset stays compatible with the default load function
@@ -14,9 +12,7 @@ class KerasDataset:  # pylint: disable=too-few-public-methods
     """
 
     @staticmethod
-    def load_data() -> Tuple[
-        Tuple[np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray]
-    ]:
+    def load_data() -> typing.KerasDataset:
         labels = np.arange(10, dtype=np.int8)
 
         x_train = np.ones((60, 32, 32, 3), dtype=np.int8)
@@ -29,5 +25,24 @@ class KerasDataset:  # pylint: disable=too-few-public-methods
 
 
 @pytest.fixture
-def dataset():
-    return data.load(KerasDataset())
+def mock_keras_dataset() -> MockKerasDataset:
+    """keras dataset mock"""
+    return MockKerasDataset()
+
+
+@pytest.fixture
+def mock_dataset() -> typing.Dataset:
+    """dataset mock after it went through internal load method"""
+    return data.load(MockKerasDataset())
+
+
+@pytest.fixture
+def mock_cifar10_random_splits_10_dataset() -> typing.FederatedDataset:
+    """dataset mock after it went through internal load method"""
+    return data.load_splits(10, MockKerasDataset())
+
+
+@pytest.fixture
+def mock_cifar10_random_splits_2_dataset() -> typing.FederatedDataset:
+    """dataset mock after it went through internal load method"""
+    return data.load_splits(2, MockKerasDataset())
