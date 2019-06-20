@@ -14,6 +14,7 @@ install_requires = [
     "tensorflow-federated==0.4.0",
     "matplotlib==3.0.3",
     "Pillow==6.0.0",
+    "gym==0.12.5",
 ]
 
 cpu_require = ["tensorflow==1.13.1"]
