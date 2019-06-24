@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import pytest
 
@@ -37,25 +39,25 @@ def test_dataset_to_filename_ndarray_tuple(mock_cifar10_random_splits_2_dataset)
 
 
 @pytest.mark.integration
-def test_save_load_single():
-    tmp_file = "/tmp/autofl_test_save_load_single.npy"
+def test_save_load_single(tmp_path):
+    tmp_file = "autofl_test_save_load_single.npy"
 
     # Create NumPy array
     a_expected = np.zeros(shape=(3, 28, 28, 1), dtype=np.uint8)
     a_expected[0][1][1][0] = 255
 
     # Store to disk, then load from disk
-    persistence.save(filename=tmp_file, data=a_expected)
-    a_actual = persistence.load(filename=tmp_file)
+    persistence.save(filename=tmp_file, data=a_expected, storage_dir=tmp_path)
+    a_actual = persistence.load(filename=tmp_file, storage_dir=tmp_path)
 
     # Test equality
     assert np.array_equal(a_expected, a_actual)
 
 
 @pytest.mark.integration
-def test_save_load_multi():
+def test_save_load_multi(tmp_path):
     # Prepare
-    tmp_file = "/tmp/autofl_test_save_load_multi.npy"
+    tmp_file = "autofl_test_save_load_multi.npy"
 
     # -> Create NumPy array
     x0 = np.ones(shape=(3, 3, 3), dtype=np.uint8)
@@ -65,10 +67,10 @@ def test_save_load_multi():
     x_all = np.array([x0, x1, x2])
 
     # -> Store to disk, then load from disk
-    persistence.save(filename=tmp_file, data=x_all)
+    persistence.save(filename=tmp_file, data=x_all, storage_dir=tmp_path)
 
     # Execute
-    x_all_actual = persistence.load(filename=tmp_file)
+    x_all_actual = persistence.load(filename=tmp_file, storage_dir=tmp_path)
 
     # Assert
     # -> Test equality
@@ -80,3 +82,42 @@ def test_save_load_multi():
     assert np.array_equal(x0, x0_ex)
     assert np.array_equal(x1, x1_ex)
     assert np.array_equal(x2, x2_ex)
+
+
+@pytest.mark.integration
+def test_save_splits_with_save(mock_cifar10_random_splits_1_dataset, tmp_path):
+    # Prepare
+    # -> Files which are supposed to be created in tmp_path
+    files_to_be_created = [
+        "tpl_x0.npy",
+        "tpl_y0.npy",
+        "tpl_y_test.npy",
+        "tpl_x_test.npy",
+    ]
+
+    # -> Using mock_cifar10_random_splits_1_dataset
+    xy_splits, xy_test = mock_cifar10_random_splits_1_dataset
+
+    # Execute
+    persistence.save_splits(
+        # filename_template is not relevant for the
+        # test as the mock will ignore it
+        filename_template="tpl_{}.npy",
+        dataset=mock_cifar10_random_splits_1_dataset,
+        storage_dir=tmp_path,
+    )
+
+    # Assert
+    files_in_storage_dir = os.listdir(tmp_path)
+
+    assert set(files_in_storage_dir) == set(files_to_be_created)
+
+    data = {
+        filename: np.load("{}/{}".format(tmp_path, filename))
+        for filename in files_to_be_created
+    }
+
+    assert data["tpl_x0.npy"].shape == xy_splits[0][0].shape
+    assert data["tpl_y0.npy"].shape == xy_splits[0][1].shape
+    assert data["tpl_x_test.npy"].shape == xy_test[0].shape
+    assert data["tpl_y_test.npy"].shape == xy_test[1].shape

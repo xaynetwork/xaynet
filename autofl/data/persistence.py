@@ -2,15 +2,22 @@ from typing import List, Tuple
 
 import numpy as np
 
+from .config import get_config
 from .typing import FederatedDataset
 
 
-def save(filename: str, data: np.ndarray):
-    np.save(filename, data)
+def save(
+    filename: str, data: np.ndarray, storage_dir: str = get_config("local_dataset_dir")
+):
+    path = "{}/{}".format(storage_dir, filename)
+    np.save(path, data)
 
 
-def load(filename: str) -> np.ndarray:
-    return np.load(filename)
+def load(
+    filename: str, storage_dir: str = get_config("local_dataset_dir")
+) -> np.ndarray:
+    path = "{}/{}".format(storage_dir, filename)
+    return np.load(path)
 
 
 def dataset_to_filename_ndarray_tuple(
@@ -44,15 +51,20 @@ def generate_filename_ndarray_tuple(
     return filename_ndarray_tuple
 
 
-def save_splits(filename_template: str, dataset: FederatedDataset):
+def save_splits(
+    filename_template: str,
+    dataset: FederatedDataset,
+    storage_dir: str = get_config("local_dataset_dir"),
+):
     filename_ndarray_tuple = dataset_to_filename_ndarray_tuple(
         filename_template, dataset
     )
-
     for filename, ndarr in filename_ndarray_tuple:
-        save(filename, ndarr)
+        save(filename=filename, data=ndarr, storage_dir=storage_dir)
 
 
-def load_splits(filename_template: str) -> FederatedDataset:
-    print(filename_template)
+def load_splits(
+    filename_template: str, storage_dir: str = get_config("local_dataset_dir")
+) -> FederatedDataset:
+    print(filename_template, storage_dir)
     return np.ndarray([])

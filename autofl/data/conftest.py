@@ -46,3 +46,9 @@ def mock_cifar10_random_splits_10_dataset() -> typing.FederatedDataset:
 def mock_cifar10_random_splits_2_dataset() -> typing.FederatedDataset:
     """dataset mock after it went through internal load method"""
     return data.load_splits(2, MockKerasDataset())
+
+
+@pytest.fixture
+def mock_cifar10_random_splits_1_dataset() -> typing.FederatedDataset:
+    """dataset mock after it went through internal load method"""
+    return data.load_splits(1, MockKerasDataset())

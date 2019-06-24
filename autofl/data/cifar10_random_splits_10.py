@@ -7,7 +7,6 @@ import tensorflow as tf
 from . import data, persistence
 from .typing import FederatedDataset
 
-LOCAL_STORAGE_DIR = "/tmp"
 FILENAME_TEMPLATE = "cifar10_random_split_10_{}.npy"
 
 
