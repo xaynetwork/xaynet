@@ -16,8 +16,6 @@ from tensorflow.keras.layers import (
     MaxPool2D,
 )
 
-
-
 from .. import flenv
 from ..data import cifar10_random_splits_10
 from ..fedml.fedml import Coordinator, Participant
