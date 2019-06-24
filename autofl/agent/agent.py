@@ -1,6 +1,7 @@
 from pprint import pformat
 from typing import List, Tuple
 
+import gym
 import numpy as np
 import tensorflow as tf
 from numpy import ndarray
@@ -15,6 +16,9 @@ from tensorflow.keras.layers import (
     MaxPool2D,
 )
 
+
+
+from .. import flenv
 from ..data import cifar10_random_splits_10
 from ..fedml.fedml import Coordinator, Participant
 
@@ -23,7 +27,13 @@ PARTICIPANTS = 5
 
 
 def main(_):
-    autofl()
+    gym_autofl()
+
+
+def gym_autofl():
+    flenv.register_gym_env()
+    e = gym.make("FederatedLearning-v0")
+    print(e)
 
 
 def build_model_and_print_summary():
