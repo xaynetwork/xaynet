@@ -1,12 +1,10 @@
 from . import agent
 
 
-def test_parse_arch_str():
+def test_sample_architecture():
     # Prepare
-    arch_strs = ["0", "1", "1"]
+    expected = 5
     # Execute
-    arch = agent.parse_arch_str(arch_strs)
+    arch = agent.sample_architecture(num_layers=expected)
     # Assert
-    assert arch.get_num_layers() == 2
-    assert len(arch.get_layer(0)) == 1
-    assert len(arch.get_layer(1)) == 2
+    assert arch.get_num_layers() == expected
