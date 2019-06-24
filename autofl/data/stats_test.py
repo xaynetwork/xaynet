@@ -16,8 +16,8 @@ def test_create_dataset_stats():
     assert stats.number_of_examples_per_label == number_of_examples_per_label
 
 
-def test_basic_stats(dataset):
-    (x, y, _, _) = dataset
+def test_basic_stats(mock_dataset):
+    (x, y, _, _) = mock_dataset
     stats = basic_stats((x, y))
 
     assert isinstance(stats, DatasetStats)
@@ -29,8 +29,8 @@ def test_basic_stats(dataset):
         assert count == 6
 
 
-def test_basic_stats_multiple(dataset):
-    (x1, y1, x2, y2) = dataset
+def test_basic_stats_multiple(mock_dataset):
+    (x1, y1, x2, y2) = mock_dataset
     stats_list = basic_stats_multiple([(x1, y1), (x2, y2)])
 
     for stats in stats_list:
