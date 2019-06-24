@@ -6,7 +6,7 @@ import tensorflow as tf
 from numpy import ndarray
 
 from .. import flenv
-from ..data import data
+from ..data import cifar10_random_splits_10
 from ..fedml.fedml import Coordinator, Participant
 from ..flenv.arch import Architecture, build_architecture, parse_arch_str
 
@@ -53,15 +53,15 @@ def build_model_and_print_summary():
 def autofl():
     print("\n\nStarting AutoFL\n")
     # Load data (multiple splits for training and one split for validation)
-    x_splits, y_splits, x_test, y_test = data.load_splits_cifar10(
-        num_splits=PARTICIPANTS
-    )
-    print("Number of splits x/y train:", len(x_splits), len(y_splits))
+    xy_splits, xy_test = cifar10_random_splits_10.load_splits()
+
+    print("Number of splits x/y train:", len(xy_splits))
+
     # Initialize participants and coordinator
     # Note that no initial model is provided to the constructors, the models
     # will be created and set by the agent.
     participants = []
-    for x_split, y_split in zip(x_splits, y_splits):
+    for x_split, y_split in xy_splits:
         participant = Participant(None, x_split, y_split)
         participants.append(participant)
     coordinator = Coordinator(None, participants)
@@ -69,6 +69,7 @@ def autofl():
     agent: Agent = RandomAgent(coordinator=coordinator)
     agent.train()
     # Evaluate final model
+    x_test, y_test = xy_test
     loss, accuracy = agent.evaluate(x_test, y_test)
     print("\nFinal loss and accuracy:", loss, accuracy)
 
