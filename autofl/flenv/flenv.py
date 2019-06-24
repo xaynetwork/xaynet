@@ -16,10 +16,12 @@ class FederatedLearningEnv(gym.Env):
         # TODO load data for each participant
         print("FederatedLearningEvn initialized")
 
-    def step(self, action):
+    # TODO: remove pylint disable after implementing actual functionality
+    def step(self, action):  # pylint: disable=R0201,W0613
         return None, random.random(), False, None
 
-    def reset(self):
+    # TODO: remove pylint disable after implementing actual functionality
+    def reset(self):  # pylint: disable=R0201,W0613
         return None
 
     def render(self, mode="human"):
