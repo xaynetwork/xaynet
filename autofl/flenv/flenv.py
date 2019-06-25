@@ -1,4 +1,5 @@
 import random
+from typing import Any, Tuple
 
 import gym
 from gym.envs.registration import register
@@ -11,18 +12,16 @@ def register_gym_env():
 class FederatedLearningEnv(gym.Env):
     metadata = {"render.modes": ["human"]}
 
-    def __init__(self):
+    def __init__(self) -> None:
         # TODO setup participants and coordinator
         # TODO load data for each participant
         print("FederatedLearningEvn initialized")
 
-    # TODO: remove pylint disable after implementing actual functionality
-    def step(self, action):  # pylint: disable=R0201,W0613
+    def step(self, action: str) -> Tuple[Any, float, bool, Any]:
         return None, random.random(), False, None
 
-    # TODO: remove pylint disable after implementing actual functionality
-    def reset(self):  # pylint: disable=R0201,W0613
+    def reset(self) -> Any:
         return None
 
-    def render(self, mode="human"):
+    def render(self, mode="human") -> None:
         raise NotImplementedError()
