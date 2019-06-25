@@ -25,14 +25,9 @@ class Coordinator:
     def train(self, num_rounds: int) -> None:
         for training_round in range(num_rounds):
             # Select random participant
-            random_index = random.randint(0, len(self.participants) - 1)
-            print(
-                "\nTraining round",
-                str(training_round + 1),
-                "- participant",
-                random_index,
-            )
-            participant = self.participants[random_index]
+            index = random.randint(0, len(self.participants) - 1)
+            print("\nRound", str(training_round + 1), "- participant", index)
+            participant = self.participants[index]
             # Push current model parameters to this participant
             theta = get_model_params(self.model)
             participant.update_model_parameters(theta)
@@ -45,16 +40,12 @@ class Coordinator:
 
     def train_fl(self, num_rounds: int, C: int) -> None:
         for training_round in range(num_rounds):
-            random_indices = random.sample(range(0, len(self.participants)), C)
-            print(
-                "\nTraining round",
-                str(training_round + 1),
-                "- participants",
-                random_indices,
-            )
+            # Determine who participates in this round
+            indices = random.sample(range(0, len(self.participants)), C)
+            print("\nRound", str(training_round + 1), "- participants", indices)
             # Collect training results from the participants of this round
             thetas = []
-            for index in random_indices:
+            for index in indices:
                 theta = self._single_step(index)
                 thetas.append(theta)
             # Aggregate training results
