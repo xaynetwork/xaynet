@@ -1,6 +1,8 @@
+import os
 from typing import List, Tuple
 
 import numpy as np
+from absl import logging
 
 from .config import get_config
 from .typing import FederatedDataset
@@ -66,5 +68,9 @@ def save_splits(
 def load_splits(
     filename_template: str, storage_dir: str = get_config("local_dataset_dir")
 ) -> FederatedDataset:
-    print(filename_template, storage_dir)
+    files_in_dataset_dir = os.listdir(storage_dir)
+
+    logging.debug(filename_template)
+    logging.debug(files_in_dataset_dir)
+
     return np.ndarray([])
