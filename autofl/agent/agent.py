@@ -3,7 +3,7 @@ from typing import Tuple
 import gym
 import numpy as np
 import tensorflow as tf
-from absl import logging
+from absl import flags, logging
 from numpy import ndarray
 
 from .. import flenv
@@ -12,7 +12,7 @@ from ..fedml.controller import RandomController
 from ..fedml.fedml import Coordinator, Participant
 from ..flenv.arch import Architecture, build_architecture, parse_arch_str
 
-FLAGS = tf.app.flags.FLAGS
+FLAGS = flags.FLAGS
 PARTICIPANTS = 5
 
 
