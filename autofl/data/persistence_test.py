@@ -1,9 +1,7 @@
-import os
-
 import numpy as np
 import pytest
 
-from autofl.data import persistence
+from autofl.data import config, persistence
 
 
 def test_dataset_to_filename_ndarray_tuple(mock_cifar10_random_splits_2_dataset):
@@ -84,19 +82,33 @@ def test_save_load_multi(tmp_path):
     assert np.array_equal(x2, x2_ex)
 
 
-@pytest.mark.integration
-def test_save_splits_with_save(mock_cifar10_random_splits_1_dataset, tmp_path):
+def test_save_splits(mock_cifar10_random_splits_1_dataset, monkeypatch):
     # Prepare
-    # -> Files which are supposed to be created in tmp_path
-    files_to_be_created = [
-        "tpl_x0.npy",
-        "tpl_y0.npy",
-        "tpl_y_test.npy",
-        "tpl_x_test.npy",
-    ]
 
     # -> Using mock_cifar10_random_splits_1_dataset
     xy_splits, xy_test = mock_cifar10_random_splits_1_dataset
+
+    # -> local storage dir
+    ld_dir = config.get_config("local_dataset_dir")
+
+    # -> Files which are supposed to be saved
+    files_to_be_saved = [
+        ("tpl_x0.npy", xy_splits[0][0], ld_dir),
+        ("tpl_y0.npy", xy_splits[0][1], ld_dir),
+        ("tpl_x_test.npy", xy_test[0], ld_dir),
+        ("tpl_y_test.npy", xy_test[1], ld_dir),
+    ]
+
+    files_passed_to_save = []
+
+    def mock_save(
+        filename: str,
+        data: np.ndarray,
+        storage_dir: str = config.get_config("local_dataset_dir"),
+    ):
+        files_passed_to_save.append((filename, data, storage_dir))
+
+    monkeypatch.setattr(persistence, "save", mock_save)
 
     # Execute
     persistence.save_splits(
@@ -104,20 +116,12 @@ def test_save_splits_with_save(mock_cifar10_random_splits_1_dataset, tmp_path):
         # test as the mock will ignore it
         filename_template="tpl_{}.npy",
         dataset=mock_cifar10_random_splits_1_dataset,
-        storage_dir=tmp_path,
     )
 
     # Assert
-    files_in_storage_dir = os.listdir(tmp_path)
+    for i, tpl_1 in enumerate(files_to_be_saved):
+        tpl_2 = files_passed_to_save[i]
 
-    assert set(files_in_storage_dir) == set(files_to_be_created)
-
-    data = {
-        filename: np.load("{}/{}".format(tmp_path, filename))
-        for filename in files_to_be_created
-    }
-
-    assert data["tpl_x0.npy"].shape == xy_splits[0][0].shape
-    assert data["tpl_y0.npy"].shape == xy_splits[0][1].shape
-    assert data["tpl_x_test.npy"].shape == xy_test[0].shape
-    assert data["tpl_y_test.npy"].shape == xy_test[1].shape
+        assert tpl_1[0] == tpl_2[0]
+        assert tpl_1[1].shape == tpl_2[1].shape
+        assert tpl_1[2] == tpl_2[2]
