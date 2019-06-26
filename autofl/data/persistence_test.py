@@ -82,21 +82,17 @@ def test_save_load_multi(tmp_path):
     assert np.array_equal(x2, x2_ex)
 
 
-def test_save_splits(mock_cifar10_random_splits_1_dataset, monkeypatch):
+def test_save_splits(monkeypatch, tmp_path, mock_cifar10_random_splits_1_dataset):
     # Prepare
-
     # -> Using mock_cifar10_random_splits_1_dataset
     xy_splits, xy_test = mock_cifar10_random_splits_1_dataset
 
-    # -> local storage dir
-    ld_dir = config.get_config("local_dataset_dir")
-
     # -> Files which are supposed to be saved
     files_to_be_saved = [
-        ("tpl_x0.npy", xy_splits[0][0], ld_dir),
-        ("tpl_y0.npy", xy_splits[0][1], ld_dir),
-        ("tpl_x_test.npy", xy_test[0], ld_dir),
-        ("tpl_y_test.npy", xy_test[1], ld_dir),
+        ("tpl_x0.npy", xy_splits[0][0], tmp_path),
+        ("tpl_y0.npy", xy_splits[0][1], tmp_path),
+        ("tpl_x_test.npy", xy_test[0], tmp_path),
+        ("tpl_y_test.npy", xy_test[1], tmp_path),
     ]
 
     files_passed_to_save = []
@@ -116,6 +112,7 @@ def test_save_splits(mock_cifar10_random_splits_1_dataset, monkeypatch):
         # test as the mock will ignore it
         filename_template="tpl_{}.npy",
         dataset=mock_cifar10_random_splits_1_dataset,
+        storage_dir=tmp_path,
     )
 
     # Assert
@@ -123,3 +120,30 @@ def test_save_splits(mock_cifar10_random_splits_1_dataset, monkeypatch):
         assert tpl_expected[0] == tpl_actual[0]
         assert tpl_expected[1].shape == tpl_actual[1].shape
         assert tpl_expected[2] == tpl_actual[2]
+
+
+@pytest.mark.integration
+def test_list_files_for_template(monkeypatch, mock_cifar10_random_splits_2_dir):
+    """
+    Check if we can list files from given directory correctly
+    """
+    # Prepare
+    filename_template = "cifar10_random_splits_2_{}.npy"
+
+    filenames_expected = [
+        "cifar10_random_splits_2_x0.npy",
+        "cifar10_random_splits_2_y0.npy",
+        "cifar10_random_splits_2_x1.npy",
+        "cifar10_random_splits_2_y1.npy",
+        "cifar10_random_splits_2_x_test.npy",
+        "cifar10_random_splits_2_y_test.npy",
+    ]
+
+    # Execute
+    filenames_actual = persistence.list_files_for_template(
+        filename_template=filename_template,
+        storage_dir=mock_cifar10_random_splits_2_dir,
+    )
+
+    # Assert
+    assert set(filenames_expected) == set(filenames_actual)
