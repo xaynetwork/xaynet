@@ -66,7 +66,7 @@ def save_splits(
 
 
 def list_files_for_template(
-    filename_template: str, storage_dir: str = get_config("local_dataset_dir")
+    storage_dir: str = get_config("local_dataset_dir")
 ) -> List[str]:
     files_in_dataset_dir = os.listdir(storage_dir)
 
