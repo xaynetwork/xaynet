@@ -2,9 +2,16 @@ from pprint import pformat
 from typing import List
 
 import tensorflow as tf
-from tensorflow.keras.layers import (Activation, AveragePooling2D,
-                                     BatchNormalization, Conv2D, Dense,
-                                     Flatten, Input, MaxPool2D)
+from tensorflow.keras.layers import (
+    Activation,
+    AveragePooling2D,
+    BatchNormalization,
+    Conv2D,
+    Dense,
+    Flatten,
+    Input,
+    MaxPool2D,
+)
 
 
 class Architecture:
