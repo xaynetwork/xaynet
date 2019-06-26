@@ -8,22 +8,22 @@ if sys.version_info < (3, 6):
 
 install_requires = [
     "typing-extensions==3.7.2",
-    "numpy==1.16.3",
+    "numpy==1.16.4",
     "absl-py==0.7.1",
     "tensorflow-datasets==1.0.2",
-    "tensorflow-federated==0.4.0",
-    "matplotlib==3.0.3",
+    "tensorflow-federated==0.5.0",
+    "matplotlib==3.1.0",
     "Pillow==6.0.0",
-    "gym==0.12.5",
+    "gym==0.13.0",
 ]
 
-cpu_require = ["tensorflow==1.13.1"]
+cpu_require = ["tensorflow==1.14.0"]
 
-gpu_require = ["tensorflow-gpu==1.13.1"]
+gpu_require = ["tensorflow-gpu==1.14.0"]
 
 dev_require = [
     "black==19.3b0",
-    "mypy==0.701",
+    "mypy==0.711",
     "pylint==2.3.1",
     "astroid<=2.2",
     "isort==4.3.20",
