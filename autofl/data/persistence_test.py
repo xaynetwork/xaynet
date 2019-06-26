@@ -119,9 +119,7 @@ def test_save_splits(mock_cifar10_random_splits_1_dataset, monkeypatch):
     )
 
     # Assert
-    for i, tpl_1 in enumerate(files_to_be_saved):
-        tpl_2 = files_passed_to_save[i]
-
-        assert tpl_1[0] == tpl_2[0]
-        assert tpl_1[1].shape == tpl_2[1].shape
-        assert tpl_1[2] == tpl_2[2]
+    for tpl_expected, tpl_actual in zip(files_to_be_saved, files_passed_to_save):
+        assert tpl_expected[0] == tpl_actual[0]
+        assert tpl_expected[1].shape == tpl_actual[1].shape
+        assert tpl_expected[2] == tpl_actual[2]
