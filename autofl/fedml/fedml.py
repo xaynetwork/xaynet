@@ -5,9 +5,7 @@ from autofl.fedml import net
 
 from .controller import RandomController, RoundRobinController
 from .coordinator import Coordinator
-from .participant import Participant
-
-PARTICIPANTS = 10
+from .participant import init_participants
 
 
 def individual():
@@ -16,12 +14,8 @@ def individual():
     logging.info("Number of splits x/y train:", len(xy_splits))
 
     # Train independent models on each data partition
-    participants = []
-    for x_split, y_split in xy_splits:
-        # TODO common initialization for all participants
-        model = net.cnn()  # Create a new model for each participant
-        participant = Participant(model, x_split, y_split)
-        participants.append(participant)
+    # TODO common initialization for all participant models
+    participants = init_participants(xy_splits)
 
     # Train each model
     for p in participants:
@@ -43,11 +37,7 @@ def round_robin():
     # Note that there is no need for common initialization at this point: Common
     # initialization will happen during the first few rounds because the coordinator will
     # push its own weight to the respective participants of each training round.
-    participants = []
-    for x_split, y_split in xy_splits:
-        model = net.cnn()
-        participant = Participant(model, x_split, y_split)
-        participants.append(participant)
+    participants = init_participants(xy_splits)
     model = net.cnn()  # This will act as the initial model
     controller = RoundRobinController(num_participants=len(participants))
     coordinator = Coordinator(controller, model, participants)
@@ -71,11 +61,7 @@ def federated_learning():
     # Note that there is no need for common initialization at this point: Common
     # initialization will happen during the first few rounds because the coordinator will
     # push its own weight to the respective participants of each training round.
-    participants = []
-    for x_split, y_split in xy_splits:
-        model = net.cnn()
-        participant = Participant(model, x_split, y_split)
-        participants.append(participant)
+    participants = init_participants(xy_splits)
     model = net.cnn()
     controller = RandomController(num_participants=len(participants), C=3)
     coordinator = Coordinator(controller, model, participants)
