@@ -20,5 +20,5 @@ pylint --rcfile=pylint.ini autofl && echo "===> pylint says: well done <===" &&
 mypy --ignore-missing-imports autofl && echo "===> mypy says: well done <===" &&
 
 # tests
-pytest -m unmarked && echo "===> pytest/unmarked says: well done <==="
-pytest -m integration && echo "===> pytest/integration says: well done <==="
+pytest -v -m unmarked && echo "===> pytest/unmarked says: well done <==="
+pytest -v -m integration && echo "===> pytest/integration says: well done <==="

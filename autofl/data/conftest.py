@@ -1,9 +1,14 @@
 import os
+from typing import List
 
 import numpy as np
 import pytest
 
 from autofl.data import data, persistence, typing
+
+
+def create_empty_file(full_path):
+    open(full_path, "a").close()
 
 
 class MockKerasDataset:  # pylint: disable=too-few-public-methods
@@ -56,6 +61,12 @@ def mock_random_splits_1_dataset() -> typing.FederatedDataset:
     return data.load_splits(1, MockKerasDataset())
 
 
+@pytest.fixture
+def mock_random_splits_2_filename_ndarray_tuples() -> List[typing.FilenameNDArrayTuple]:
+    dataset = data.load_splits(2, MockKerasDataset())
+    return persistence.dataset_to_filename_ndarray_tuple_list(dataset)
+
+
 @pytest.fixture(scope="session")
 def mock_datasets_dir(tmpdir_factory):
     dataset_dir = tmpdir_factory.mktemp("datasets")
@@ -64,15 +75,19 @@ def mock_datasets_dir(tmpdir_factory):
     os.mkdir(dataset_dir.join("random_splits_10"))
 
     persistence.save_splits(
-        filename_template="random_splits_2_{}.npy",
         dataset=data.load_splits(2, MockKerasDataset()),
         storage_dir=str(dataset_dir.join("random_splits_2")),
     )
 
     persistence.save_splits(
-        filename_template="random_splits_10_{}.npy",
         dataset=data.load_splits(10, MockKerasDataset()),
         storage_dir=str(dataset_dir.join("random_splits_10")),
     )
+
+    # Write to usually os generated files into the directories
+    # to check if the loading methods can handle auto generated
+    # os files
+    create_empty_file(dataset_dir.join("random_splits_2/.DS_Store"))
+    create_empty_file(dataset_dir.join("random_splits_10/.DS_Store"))
 
     return str(dataset_dir)
