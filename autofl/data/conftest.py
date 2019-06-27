@@ -84,7 +84,7 @@ def mock_datasets_dir(tmpdir_factory):
         storage_dir=str(dataset_dir.join("random_splits_10")),
     )
 
-    # Write to usually os generated files into the directories
+    # Write two usually os generated files into the directories
     # to check if the loading methods can handle auto generated
     # os files
     create_empty_file(dataset_dir.join("random_splits_2/.DS_Store"))
