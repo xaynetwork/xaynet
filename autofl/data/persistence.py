@@ -65,26 +65,14 @@ def save_splits(
         save(filename=filename, data=ndarr, storage_dir=storage_dir)
 
 
+def get_dataset_dir_from_template(filename_template: str) -> str:
+    return filename_template[:-7]
+
+
 def list_files_for_template(
-    storage_dir: str = get_config("local_dataset_dir")
-) -> List[str]:
-    files_in_dataset_dir = os.listdir(storage_dir)
-
-    return files_in_dataset_dir
-
-
-def load_splits(
     filename_template: str, storage_dir: str = get_config("local_dataset_dir")
-) -> FederatedDataset:
-    """loads a dataset given a filename_template from storage_dir
+) -> List[str]:
+    dataset_subdir = get_dataset_dir_from_template(filename_template)
+    full_path = os.path.join(storage_dir, dataset_subdir)
 
-    Args:
-        filename_template (str): A filename template of the form `*_NUM_SPLITS_{}.npy`
-        storage_dir (str): The full path of the directory in which the dataset is stored
-    """
-    files_in_dataset_dir = os.listdir(storage_dir)
-
-    logging.debug(filename_template)
-    logging.debug(files_in_dataset_dir)
-
-    return np.ndarray([])
+    return os.listdir(full_path)

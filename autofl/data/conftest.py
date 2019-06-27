@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import pytest
 
@@ -37,31 +39,40 @@ def mock_dataset() -> typing.Dataset:
 
 
 @pytest.fixture
-def mock_cifar10_random_splits_10_dataset() -> typing.FederatedDataset:
+def mock_random_splits_10_dataset() -> typing.FederatedDataset:
     """dataset mock after it went through internal load method"""
     return data.load_splits(10, MockKerasDataset())
 
 
 @pytest.fixture
-def mock_cifar10_random_splits_2_dataset() -> typing.FederatedDataset:
+def mock_random_splits_2_dataset() -> typing.FederatedDataset:
     """dataset mock after it went through internal load method"""
     return data.load_splits(2, MockKerasDataset())
 
 
 @pytest.fixture
-def mock_cifar10_random_splits_1_dataset() -> typing.FederatedDataset:
+def mock_random_splits_1_dataset() -> typing.FederatedDataset:
     """dataset mock after it went through internal load method"""
     return data.load_splits(1, MockKerasDataset())
 
 
 @pytest.fixture(scope="session")
-def mock_cifar10_random_splits_2_dir(tmpdir_factory):
+def mock_datasets_dir(tmpdir_factory):
     dataset_dir = tmpdir_factory.mktemp("datasets")
 
+    os.mkdir(dataset_dir.join("random_splits_2"))
+    os.mkdir(dataset_dir.join("random_splits_10"))
+
     persistence.save_splits(
-        filename_template="cifar10_random_splits_2_{}.npy",
+        filename_template="random_splits_2_{}.npy",
         dataset=data.load_splits(2, MockKerasDataset()),
-        storage_dir=str(dataset_dir),
+        storage_dir=str(dataset_dir.join("random_splits_2")),
+    )
+
+    persistence.save_splits(
+        filename_template="random_splits_10_{}.npy",
+        dataset=data.load_splits(10, MockKerasDataset()),
+        storage_dir=str(dataset_dir.join("random_splits_10")),
     )
 
     return str(dataset_dir)
