@@ -1,15 +1,17 @@
-import random
 from typing import Callable, List, Tuple
 
 import tensorflow as tf
 from numpy import ndarray
 
-from .ops import federated_averaging, get_model_params, set_model_params
+from .ops import get_model_params, set_model_params
 from .participant import Participant
 
 
 class Coordinator:
-    def __init__(self, model: tf.keras.Model, participants: List[Participant]) -> None:
+    def __init__(
+        self, controller, model: tf.keras.Model, participants: List[Participant]
+    ) -> None:
+        self.controller = controller
         self.model = model
         self.participants = participants
 
@@ -22,43 +24,18 @@ class Coordinator:
     # Common initialization happens implicitly: By updating the participant weights to
     # match the coordinator weights ahead of every training round we achieve common
     # initialization.
-    def train(self, num_rounds: int) -> None:
+    def fit(self, num_rounds: int):
         for training_round in range(num_rounds):
-            # Select random participant
-            random_index = random.randint(0, len(self.participants) - 1)
-            print(
-                "\nTraining round",
-                str(training_round + 1),
-                "- participant",
-                random_index,
-            )
-            participant = self.participants[random_index]
-            # Push current model parameters to this participant
-            theta = get_model_params(self.model)
-            participant.update_model_parameters(theta)
-            # Train for a number of steps
-            participant.train(1)  # TODO don't train a full episode, just a few steps
-            # Pull updated model parameters from participant
-            theta_prime = participant.retrieve_model_parameters()
-            # Update own model parameters
-            set_model_params(self.model, theta_prime)
-
-    def train_fl(self, num_rounds: int, C: int) -> None:
-        for training_round in range(num_rounds):
-            random_indices = random.sample(range(0, len(self.participants)), C)
-            print(
-                "\nTraining round",
-                str(training_round + 1),
-                "- participants",
-                random_indices,
-            )
+            # Determine who participates in this round
+            indices = self.controller.indices()
+            print("\nRound", str(training_round + 1), "- participants", indices)
             # Collect training results from the participants of this round
             thetas = []
-            for index in random_indices:
+            for index in indices:
                 theta = self._single_step(index)
                 thetas.append(theta)
             # Aggregate training results
-            theta_prime = federated_averaging(thetas)
+            theta_prime = self.controller.aggregate(thetas)
             # Update own model parameters
             set_model_params(self.model, theta_prime)
 

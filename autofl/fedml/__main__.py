@@ -1,3 +1,3 @@
 from autofl.fedml import fedml
 
-fedml.main()
+fedml.federated_learning()
