@@ -8,12 +8,10 @@ from numpy import ndarray
 
 from .. import flenv
 from ..data import cifar10_random_splits_10
-from ..fedml.controller import RandomController
-from ..fedml.fedml import Coordinator, Participant
+from ..fedml import Coordinator, Participant, RandomController
 from ..flenv.arch import Architecture, build_architecture, parse_arch_str
 
 FLAGS = flags.FLAGS
-PARTICIPANTS = 5
 
 
 def main(_):
