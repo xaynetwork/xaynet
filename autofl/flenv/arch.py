@@ -63,7 +63,6 @@ def build_architecture(
             out_filters *= 2
     # Softmax
     x = Flatten()(x)
-    print("\ntype(x):", type(x), "\n")
     outputs = Dense(num_classes, activation="softmax")(x)
     return tf.keras.Model(inputs=inputs, outputs=outputs)
 

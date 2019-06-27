@@ -4,7 +4,7 @@ import tensorflow as tf
 from numpy import ndarray
 
 from ..data import prep
-from . import ops
+from . import net, ops
 
 
 class Participant:
@@ -33,3 +33,12 @@ class Participant:
         x_test = x_test / 255.0
         loss, accuracy = self.model.evaluate(x_test, y_test)
         return loss, accuracy
+
+
+def init_participants(xy_splits) -> List[Participant]:
+    participants = []
+    for x_split, y_split in xy_splits:
+        model = net.cnn()
+        participant = Participant(model, x_split, y_split)
+        participants.append(participant)
+    return participants

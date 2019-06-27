@@ -3,16 +3,15 @@ from typing import Tuple
 import gym
 import numpy as np
 import tensorflow as tf
-from absl import flags
+from absl import flags, logging
 from numpy import ndarray
 
 from .. import flenv
 from ..data import cifar10_random_splits_10
-from ..fedml.fedml import Coordinator, Participant
+from ..fedml import Coordinator, Participant, RandomController
 from ..flenv.arch import Architecture, build_architecture, parse_arch_str
 
 FLAGS = flags.FLAGS
-PARTICIPANTS = 5
 
 
 def main(_):
@@ -28,20 +27,20 @@ def gym_autofl():
 
 def build_model_and_print_summary():
     # Architecture
-    print("#" * 80)
+    logging.info("#" * 80)
     if FLAGS.arch:
-        print("Using user-provided arch:", FLAGS.arch)
+        logging.info("Using user-provided arch:", FLAGS.arch)
         arch = parse_arch_str(FLAGS.arch)
     elif FLAGS.sample_random_arch:
-        print("Using randomly sampled arch")
+        logging.info("Using randomly sampled arch")
         arch = sample_architecture(num_layers=3)
     else:
         arch_strs = "0 1 0 2 0 0 3 0 0 0 4 0 0 0 0".split()
-        print("Using hardcoded arch:", arch_strs)
+        logging.info("Using hardcoded arch:", arch_strs)
         arch = parse_arch_str(arch_strs)
-    print("Architecture:")
-    print("\t architecture:", arch)
-    print("\t num_layers:  ", arch.get_num_layers())
+    logging.info("Architecture:")
+    logging.info("\t architecture:", arch)
+    logging.info("\t num_layers:  ", arch.get_num_layers())
     # Model
     model = build_architecture(arch)
     optimizer = tf.keras.optimizers.SGD(lr=0.01, momentum=0.9)
@@ -52,11 +51,11 @@ def build_model_and_print_summary():
 
 
 def autofl():
-    print("\n\nStarting AutoFL\n")
+    logging.info("\n\nStarting AutoFL\n")
     # Load data (multiple splits for training and one split for validation)
     xy_splits, xy_test = cifar10_random_splits_10.load_splits()
 
-    print("Number of splits x/y train:", len(xy_splits))
+    logging.info("Number of splits x/y train: {}".format(len(xy_splits)))
 
     # Initialize participants and coordinator
     # Note that no initial model is provided to the constructors, the models
@@ -65,14 +64,15 @@ def autofl():
     for x_split, y_split in xy_splits:
         participant = Participant(None, x_split, y_split)
         participants.append(participant)
-    coordinator = Coordinator(None, participants)
+    controller = RandomController(num_participants=len(participants), C=3)
+    coordinator = Coordinator(controller, None, participants)
     # AutoFL
     agent: Agent = RandomAgent(coordinator=coordinator)
     agent.train()
     # Evaluate final model
     x_test, y_test = xy_test
     loss, accuracy = agent.evaluate(x_test, y_test)
-    print("\nFinal loss and accuracy:", loss, accuracy)
+    logging.info("\nFinal loss and accuracy:", loss, accuracy)
 
 
 class Agent:
@@ -111,8 +111,8 @@ class RandomAgent(Agent):
 
     def train(self, episodes=5):
         for episode in range(episodes):
-            print("#" * 80)
-            print("\tAutoFL Episode", episode)
+            logging.info("#" * 80)
+            logging.info("\tAutoFL Episode {}".format(episode))
             self._train_arch()
 
     def _train_arch(self) -> None:
@@ -126,7 +126,7 @@ class RandomAgent(Agent):
             return model
 
         self.coordinator.replace_model(model_fn)
-        self.coordinator.train_fl(num_rounds=2, C=3)
+        self.coordinator.fit(num_rounds=2)
 
     def sample_architecture(self, num_layers: int) -> Architecture:
         return sample_architecture(num_layers=3)
