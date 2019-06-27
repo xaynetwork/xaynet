@@ -24,7 +24,7 @@ def load(
 
 def dataset_to_filename_ndarray_tuple(
     filename_template: str, dataset: FederatedDataset
-):
+) -> List[Tuple[str, np.ndarray]]:
     filename_ndarray_tuples: List[Tuple[str, np.ndarray]] = []
     xy_splits, xy_test = dataset
 
@@ -65,12 +65,14 @@ def save_splits(
         save(filename=filename, data=ndarr, storage_dir=storage_dir)
 
 
-def load_splits(
+def get_dataset_dir_from_template(filename_template: str) -> str:
+    return filename_template[:-7]
+
+
+def list_files_for_template(
     filename_template: str, storage_dir: str = get_config("local_dataset_dir")
-) -> FederatedDataset:
-    files_in_dataset_dir = os.listdir(storage_dir)
+) -> List[str]:
+    dataset_subdir = get_dataset_dir_from_template(filename_template)
+    full_path = os.path.join(storage_dir, dataset_subdir)
 
-    logging.debug(filename_template)
-    logging.debug(files_in_dataset_dir)
-
-    return np.ndarray([])
+    return os.listdir(full_path)

@@ -4,7 +4,7 @@ This file contains global config variables
 import os
 
 config = {
-    "local_dataset_dir": os.environ.get("LOCAL_DATASET_DIR", "/tmp"),
+    "local_dataset_dir": os.environ.get("LOCAL_DATASET_DIR", "~/.autofl/datasets"),
     "fetch_datasets": os.environ.get("FETCH_DATASETS", "1"),
 }
 
