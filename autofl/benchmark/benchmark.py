@@ -1,7 +1,8 @@
 from absl import logging
 
 from autofl.data import cifar10_random_splits_10
-from autofl.fedml import Coordinator, RandomController, init_participants, net
+from autofl.fedml import Coordinator, Participant, RandomController
+from autofl.net import resnet_v2_20_compiled
 
 
 def main(_):
@@ -22,14 +23,17 @@ def train_CIFAR_10_with_random_controller():
     xy_splits, xy_test = cifar10_random_splits_10.load_splits()
 
     # Init participants
-    participants = init_participants(xy_splits)
+    participants = []
+    for x_split, y_split in xy_splits:
+        model = resnet_v2_20_compiled()
+        participant = Participant(model, x_split, y_split)
+        participants.append(participant)
 
     # Init controller
     controller = RandomController(len(participants), C=3)
 
     # Init model
-    # TODO replace with ResNet
-    model = net.cnn()
+    model = resnet_v2_20_compiled()
 
     # Init coordinator
     coordinator = Coordinator(controller, model, participants)
