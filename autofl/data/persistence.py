@@ -8,13 +8,12 @@ A dataset is stored with N>=0 for N=num_splits-1 as
 - y_test.npy
 """
 import os
-from typing import Callable, List, Set, Tuple
+from typing import List, Optional, Set, Tuple
 
 import numpy as np
 from absl import logging
 
-from .config import get_config
-from .typing import FederatedDataset, FilenameNDArrayTuple
+from autofl.types import FederatedDataset, FilenameNDArrayTuple
 
 
 def save(filename: str, data: np.ndarray, storage_dir: str):
@@ -35,19 +34,15 @@ def dataset_to_filename_ndarray_tuple_list(
 
     # Add all splits as tuples to filename_ndarray_tuple
     for i, split in enumerate(xy_splits):
-        filename_ndarray_tuples += generate_filename_ndarray_tuple(
-            xy=split, suffix=str(i)
-        )
+        filename_ndarray_tuples += to_filename_ndarray_tuple(xy=split, suffix=str(i))
 
     # Add test set to files which will be stored
-    filename_ndarray_tuples += generate_filename_ndarray_tuple(
-        xy=xy_test, suffix="_test"
-    )
+    filename_ndarray_tuples += to_filename_ndarray_tuple(xy=xy_test, suffix="_test")
 
     return filename_ndarray_tuples
 
 
-def generate_filename_ndarray_tuple(
+def to_filename_ndarray_tuple(
     suffix: str, xy: Tuple[np.ndarray, np.ndarray]
 ) -> List[FilenameNDArrayTuple]:
     x, y = xy
@@ -62,7 +57,7 @@ def strip_npy_ending(fn):
     return fn[:-4]
 
 
-def generate_dataset_from_filename_ndarray_tuples(
+def dataset_from_filename_ndarray_tuples(
     tuples: List[FilenameNDArrayTuple]
 ) -> FederatedDataset:
     # Get highest index from xN
@@ -107,7 +102,7 @@ def save_splits(dataset: FederatedDataset, storage_dir: str):
         save(filename=filename, data=ndarr, storage_dir=storage_dir)
 
 
-def load_splits(storage_dir: str):
+def load_splits(storage_dir: str) -> FederatedDataset:
     logging.info("Retrieving dataset from {}".format(storage_dir))
 
     files = list_files_for_dataset(storage_dir)
@@ -115,33 +110,22 @@ def load_splits(storage_dir: str):
     # Load data from disk
     filename_ndarray_tuples = [(fn, load(fn, storage_dir)) for fn in files]
 
-    # generate dataset from tuples
-    dataset = generate_dataset_from_filename_ndarray_tuples(filename_ndarray_tuples)
+    # Create dataset from tuples
+    dataset = dataset_from_filename_ndarray_tuples(filename_ndarray_tuples)
 
     return dataset
 
 
-def load_or_generate_dataset(
-    dataset_name: str,
-    generate_dataset_method: Callable[[], FederatedDataset],
-    local_datasets_dir: str = get_config("local_datasets_dir"),
-) -> FederatedDataset:
+def load_local_dataset(
+    dataset_name: str, local_datasets_dir: str
+) -> Optional[FederatedDataset]:
     # Check if dataset exists locally and if so load and return
     dataset_dir = os.path.join(local_datasets_dir, dataset_name)
 
     if dataset_name in list_datasets(local_datasets_dir):
         return load_splits(storage_dir=dataset_dir)
 
-    # TODO: try to load dataset remotely
-    #       and return if exists
-
-    dataset = generate_dataset_method()
-
-    # Create dataset directory
-    os.makedirs(dataset_dir)
-    save_splits(dataset, dataset_dir)
-
-    return dataset
+    return None
 
 
 def is_npy_file(fn):

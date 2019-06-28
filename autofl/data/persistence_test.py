@@ -3,12 +3,13 @@ import os
 import numpy as np
 import pytest
 
-from autofl.data import cifar10_random_splits_10, persistence, typing
+from autofl.data import persistence
+from autofl.types import FederatedDataset
 
 
 # Helper method to compare two federated datasets
 def check_federated_dataset_equality(
-    dataset_expected: typing.FederatedDataset, dataset_actual: typing.FederatedDataset
+    dataset_expected: FederatedDataset, dataset_actual: FederatedDataset
 ):
     xy_splits_expected, xy_test_expected = dataset_expected
     xy_splits_actual, xy_test_actual = dataset_actual
@@ -58,7 +59,7 @@ def test_dataset_to_filename_ndarray_tuple_list(mock_random_splits_2_dataset):
             assert arr.shape[0] == 30
 
 
-def test_generate_filename_ndarray_tuple():
+def test_to_filename_ndarray_tuple():
     # Prepare
     x = np.ones((3, 2))
     y = np.ones((3))
@@ -66,7 +67,7 @@ def test_generate_filename_ndarray_tuple():
     t_expected = [("x0.npy", x), ("y0.npy", y)]
 
     # Execute
-    t_actual = persistence.generate_filename_ndarray_tuple("0", (x, y))
+    t_actual = persistence.to_filename_ndarray_tuple("0", (x, y))
 
     # Assert
     assert t_expected == t_actual
@@ -142,11 +143,11 @@ def test_list_files_for_dataset(mock_datasets_dir):
     assert set(filenames_expected) == set(filenames_actual)
 
 
-def test_generate_dataset_from_filename_ndarray_tuples(
+def test_dataset_from_filename_ndarray_tuples(
     mock_random_splits_2_dataset, mock_random_splits_2_filename_ndarray_tuples
 ):
     # Execute
-    dataset_actual = persistence.generate_dataset_from_filename_ndarray_tuples(
+    dataset_actual = persistence.dataset_from_filename_ndarray_tuples(
         mock_random_splits_2_filename_ndarray_tuples
     )
 
@@ -182,16 +183,10 @@ def test_list_datasets(mock_datasets_dir):
     assert expected_datasets == actual_datasets
 
 
-def test_load_or_generate_dataset_locally_existing(
-    monkeypatch, tmp_path, mock_random_splits_2_dataset
-):
+def test_load_local_dataset(monkeypatch, tmp_path, mock_random_splits_2_dataset):
     # Prepare
     dataset_name = "my_dataset"
     dataset_expected = mock_random_splits_2_dataset
-
-    # Just a placeholder to pass as it will not be used
-    def mock_generate_dataset_method():
-        pass
 
     def mock_list_datasets(local_datasets_dir: str):
         # Assert: Check if list_datasets receives the correct arguments
@@ -209,10 +204,8 @@ def test_load_or_generate_dataset_locally_existing(
     monkeypatch.setattr(persistence, "load_splits", mock_load_splits)
 
     # Execute
-    dataset_actual = persistence.load_or_generate_dataset(
-        dataset_name=dataset_name,
-        generate_dataset_method=mock_generate_dataset_method,
-        local_datasets_dir=tmp_path,
+    dataset_actual = persistence.load_local_dataset(
+        dataset_name=dataset_name, local_datasets_dir=tmp_path
     )
 
     # Assert

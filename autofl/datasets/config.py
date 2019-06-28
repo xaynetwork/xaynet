@@ -7,9 +7,9 @@ config = {
     "local_datasets_dir": os.environ.get(
         "LOCAL_DATASETS_DIR", os.path.expanduser("~/.autofl/datasets")
     ),
-    "fetch_datasets": os.environ.get("FETCH_DATASETS", "1"),
-    "dataset_repository": os.environ.get(
-        "DATASET_REPOSITORY", "https://xainag.gitlab.io/autofl/"
+    "fetch_datasets": os.environ.get("FETCH_DATASETS", "0"),
+    "remote_datasets_dir": os.environ.get(
+        "REMOTE_DATASET_DIR", "https://xainag.gitlab.io/autofl/"
     ),
 }
 

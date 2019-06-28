@@ -4,13 +4,13 @@ import numpy as np
 import tensorflow as tf
 from numpy import ndarray
 
-from .typing import Dataset, FederatedDataset
+from autofl.types import FederatedDataset, NDArrayDataset
 
 # Passed to RandomState for predictable shuffling
 SEED = 851746
 
 
-def load(keras_dataset) -> Dataset:
+def load(keras_dataset) -> NDArrayDataset:
     (x_train, y_train), (x_test, y_test) = keras_dataset.load_data()
     y_train = y_train.reshape((y_train.shape[0],))
     y_test = y_test.reshape((y_test.shape[0],))

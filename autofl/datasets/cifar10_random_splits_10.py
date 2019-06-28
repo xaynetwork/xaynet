@@ -4,8 +4,10 @@ Easily accessable datasets
 
 import tensorflow as tf
 
-from . import data, persistence
-from .typing import FederatedDataset
+from autofl.data import data, persistence
+from autofl.types import FederatedDataset
+
+from .config import get_config
 
 DATASET_NAME = __name__[:-4].split(".")[-1]
 
@@ -16,6 +18,6 @@ def generate_dataset() -> FederatedDataset:
 
 
 def load_splits():
-    return persistence.load_or_generate_dataset(
-        dataset_name=DATASET_NAME, generate_dataset_method=generate_dataset
+    return persistence.load_local_dataset(
+        dataset_name=DATASET_NAME, local_datasets_dir=get_config("local_datasets_dir")
     )

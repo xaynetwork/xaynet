@@ -1,7 +1,7 @@
 import numpy as np
 import tensorflow as tf
 
-from autofl.data import cifar10_random_splits_10
+from autofl.datasets import cifar10_random_splits_10
 
 
 def test_generate_dataset(mock_keras_dataset, monkeypatch):
