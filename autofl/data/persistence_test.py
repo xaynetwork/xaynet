@@ -168,3 +168,15 @@ def test_save_load_splits(tmp_path, mock_random_splits_2_dataset):
     check_dataset_equality(
         dataset_expected=mock_random_splits_2_dataset, dataset_actual=dataset_actual
     )
+
+
+@pytest.mark.integration
+def test_list_datasets(mock_datasets_dir):
+    # Prepare
+    expected_datasets = set(["random_splits_2", "random_splits_10"])
+
+    # Execute
+    actual_datasets = persistence.list_datasets(local_datasets_dir=mock_datasets_dir)
+
+    # Assert
+    assert expected_datasets == actual_datasets

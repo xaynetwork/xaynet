@@ -8,11 +8,12 @@ A dataset is stored with N>=0 for N=num_splits-1 as
 - y_test.npy
 """
 import os
-from typing import List, Tuple
+from typing import Callable, List, Set, Tuple
 
 import numpy as np
 from absl import logging
 
+from .config import get_config
 from .typing import FederatedDataset, FilenameNDArrayTuple
 
 
@@ -120,6 +121,29 @@ def load_splits(storage_dir: str):
     return dataset
 
 
+def load_or_generate_dataset(
+    dataset_name: str,
+    generate_dataset_method: Callable[[], FederatedDataset],
+    local_datasets_dir: str = get_config("local_datasets_dir"),
+) -> FederatedDataset:
+    # Check if dataset exists locally and if so load and return
+    dataset_dir = os.path.join(local_datasets_dir, dataset_name)
+
+    if dataset_name in list_datasets(local_datasets_dir):
+        return load_splits(storage_dir=dataset_dir)
+
+    # TODO: try to load dataset remotely
+    #       and return if exists
+
+    dataset = generate_dataset_method()
+
+    # Create dataset directory
+    os.makedirs(dataset_dir)
+    save_splits(dataset, dataset_dir)
+
+    return dataset
+
+
 def is_npy_file(fn):
     return fn[-4:] == ".npy"
 
@@ -127,3 +151,16 @@ def is_npy_file(fn):
 def list_files_for_dataset(storage_dir: str) -> List[str]:
     files = os.listdir(storage_dir)
     return list(filter(is_npy_file, files))
+
+
+def list_datasets(local_datasets_dir: str) -> Set[str]:
+    files = os.listdir(local_datasets_dir)
+
+    directories = []
+
+    for fn in files:
+        full_path = os.path.join(local_datasets_dir, fn)
+        if os.path.isdir(full_path):
+            directories.append(fn)
+
+    return set(directories)

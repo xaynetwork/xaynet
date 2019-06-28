@@ -8,7 +8,7 @@ if sys.version_info < (3, 6):
 
 install_requires = [
     "typing-extensions==3.7.2",
-    "numpy==1.16.4",
+    "numpy==1.15.4",
     "absl-py==0.7.1",
     "tensorflow-datasets==1.0.2",
     "tensorflow-federated==0.5.0",
