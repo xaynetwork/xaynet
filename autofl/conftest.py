@@ -6,10 +6,10 @@ import pytest
 
 from autofl.data import data, persistence
 from autofl.types import (
-    FederatedDataset,
-    FilenameNDArrayTuple,
-    KerasDataset,
-    NDArrayDataset,
+  FederatedDataset,
+  FnameNDArrayTuple,
+  KerasDataset,
+  NDArrayDataset,
 )
 
 
@@ -74,9 +74,9 @@ def mock_random_splits_1_dataset() -> FederatedDataset:
 
 
 @pytest.fixture
-def mock_random_splits_2_filename_ndarray_tuples() -> List[FilenameNDArrayTuple]:
+def mock_random_splits_2_fname_ndarray_tuples() -> List[FnameNDArrayTuple]:
     dataset = data.load_splits(2, MockKerasDataset())
-    return persistence.dataset_to_filename_ndarray_tuple_list(dataset)
+    return persistence.dataset_to_fname_ndarray_tuple_list(dataset)
 
 
 @pytest.fixture(scope="session")

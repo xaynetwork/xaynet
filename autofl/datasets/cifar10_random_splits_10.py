@@ -9,7 +9,7 @@ from autofl.types import FederatedDataset
 
 from .config import get_config
 
-DATASET_NAME = __name__[:-4].split(".")[-1]
+DATASET_NAME = 'cifar10_random_splits_10'
 
 
 def generate_dataset() -> FederatedDataset:

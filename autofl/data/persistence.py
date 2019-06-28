@@ -13,38 +13,38 @@ from typing import List, Optional, Set, Tuple
 import numpy as np
 from absl import logging
 
-from autofl.types import FederatedDataset, FilenameNDArrayTuple
+from autofl.types import FederatedDataset, FnameNDArrayTuple
 
 
-def save(filename: str, data: np.ndarray, storage_dir: str):
-    path = "{}/{}".format(storage_dir, filename)
+def save(fname: str, data: np.ndarray, storage_dir: str):
+    path = "{}/{}".format(storage_dir, fname)
     np.save(path, data)
 
 
-def load(filename: str, storage_dir: str) -> np.ndarray:
-    path = "{}/{}".format(storage_dir, filename)
+def load(fname: str, storage_dir: str) -> np.ndarray:
+    path = "{}/{}".format(storage_dir, fname)
     return np.load(path)
 
 
-def dataset_to_filename_ndarray_tuple_list(
+def dataset_to_fname_ndarray_tuple_list(
     dataset: FederatedDataset
 ) -> List[Tuple[str, np.ndarray]]:
-    filename_ndarray_tuples: List[Tuple[str, np.ndarray]] = []
+    fname_ndarray_tuples: List[Tuple[str, np.ndarray]] = []
     xy_splits, xy_test = dataset
 
-    # Add all splits as tuples to filename_ndarray_tuple
+    # Add all splits as tuples to fname_ndarray_tuple
     for i, split in enumerate(xy_splits):
-        filename_ndarray_tuples += to_filename_ndarray_tuple(xy=split, suffix=str(i))
+        fname_ndarray_tuples += to_fname_ndarray_tuple(xy=split, suffix=str(i))
 
     # Add test set to files which will be stored
-    filename_ndarray_tuples += to_filename_ndarray_tuple(xy=xy_test, suffix="_test")
+    fname_ndarray_tuples += to_fname_ndarray_tuple(xy=xy_test, suffix="_test")
 
-    return filename_ndarray_tuples
+    return fname_ndarray_tuples
 
 
-def to_filename_ndarray_tuple(
+def to_fname_ndarray_tuple(
     suffix: str, xy: Tuple[np.ndarray, np.ndarray]
-) -> List[FilenameNDArrayTuple]:
+) -> List[FnameNDArrayTuple]:
     x, y = xy
 
     name_x = "x{}.npy".format(suffix)
@@ -57,31 +57,31 @@ def strip_npy_ending(fn):
     return fn[:-4]
 
 
-def dataset_from_filename_ndarray_tuples(
-    tuples: List[FilenameNDArrayTuple]
+def dataset_from_fname_ndarray_tuples(
+    tuples: List[FnameNDArrayTuple]
 ) -> FederatedDataset:
     # Get highest index from xN
-    tuples = [(strip_npy_ending(fn), nda) for fn, nda in tuples]
-    max_index = [int(fn[1:]) for fn, _ in tuples if "test" not in fn]
+    tuples = [(strip_npy_ending(fname), nda) for fname, nda in tuples]
+    max_index = [int(fname[1:]) for fname, _ in tuples if "test" not in fname]
     count_tuples = max(max_index) + 1
 
     xy_splits_list = [[None, None]] * count_tuples
     xy_test_list = [None, None]
 
-    for fn, nda in tuples:
-        if "_test" not in fn:
-            index = int(fn[1:])
+    for fname, nda in tuples:
+        if "_test" not in fname:
+            index = int(fname[1:])
 
-            if "x" in fn:
+            if "x" in fname:
                 xy_splits_list[index][0] = nda
 
-            if "y" in fn:
+            if "y" in fname:
                 xy_splits_list[index][1] = nda
 
-        if fn == "x_test":
+        if fname == "x_test":
             xy_test_list[0] = nda
 
-        if fn == "y_test":
+        if fname == "y_test":
             xy_test_list[1] = nda
 
     # Change List[List[ndarray, ndarray]] into List[Tuple[ndarray, ndarray]]
@@ -96,10 +96,10 @@ def dataset_from_filename_ndarray_tuples(
 def save_splits(dataset: FederatedDataset, storage_dir: str):
     logging.info("Storing dataset in {}".format(storage_dir))
 
-    filename_ndarray_tuple = dataset_to_filename_ndarray_tuple_list(dataset)
+    fname_ndarray_tuple = dataset_to_fname_ndarray_tuple_list(dataset)
 
-    for filename, ndarr in filename_ndarray_tuple:
-        save(filename=filename, data=ndarr, storage_dir=storage_dir)
+    for fname, ndarr in fname_ndarray_tuple:
+        save(fname=fname, data=ndarr, storage_dir=storage_dir)
 
 
 def load_splits(storage_dir: str) -> FederatedDataset:
@@ -108,10 +108,10 @@ def load_splits(storage_dir: str) -> FederatedDataset:
     files = list_files_for_dataset(storage_dir)
 
     # Load data from disk
-    filename_ndarray_tuples = [(fn, load(fn, storage_dir)) for fn in files]
+    fname_ndarray_tuples = [(fname, load(fname, storage_dir)) for fname in files]
 
     # Create dataset from tuples
-    dataset = dataset_from_filename_ndarray_tuples(filename_ndarray_tuples)
+    dataset = dataset_from_fname_ndarray_tuples(fname_ndarray_tuples)
 
     return dataset
 
@@ -128,8 +128,8 @@ def load_local_dataset(
     return None
 
 
-def is_npy_file(fn):
-    return fn[-4:] == ".npy"
+def is_npy_file(fname):
+    return fname.split(".")[-1] == "npy"
 
 
 def list_files_for_dataset(storage_dir: str) -> List[str]:
@@ -142,9 +142,9 @@ def list_datasets(local_datasets_dir: str) -> Set[str]:
 
     directories = []
 
-    for fn in files:
-        full_path = os.path.join(local_datasets_dir, fn)
+    for fname in files:
+        full_path = os.path.join(local_datasets_dir, fname)
         if os.path.isdir(full_path):
-            directories.append(fn)
+            directories.append(fname)
 
     return set(directories)

@@ -79,7 +79,10 @@ def test_split_dims():
     # Assert: Corresponding x and y have the same number of examples
     for xs, ys in zip(x_splits, y_splits):
         assert xs.shape[0] == ys.shape[0]
-    # TODO Assert: Each split has the same dimensionality (except for number of examples)
+
+    # Assert: Each split has the same dimensionality (except for number of examples)
+    assert all([xs.shape == x_splits[0].shape for i, xs in enumerate(x_splits)])
+    assert all([ys.shape == y_splits[0].shape for i, ys in enumerate(y_splits)])
 
 
 def test_shuffle():
