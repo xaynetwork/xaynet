@@ -3,11 +3,11 @@ import os
 import numpy as np
 import pytest
 
-from autofl.data import persistence, typing
+from autofl.data import cifar10_random_splits_10, persistence, typing
 
 
 # Helper method to compare two federated datasets
-def check_dataset_equality(
+def check_federated_dataset_equality(
     dataset_expected: typing.FederatedDataset, dataset_actual: typing.FederatedDataset
 ):
     xy_splits_expected, xy_test_expected = dataset_expected
@@ -150,7 +150,7 @@ def test_generate_dataset_from_filename_ndarray_tuples(
         mock_random_splits_2_filename_ndarray_tuples
     )
 
-    check_dataset_equality(
+    check_federated_dataset_equality(
         dataset_expected=mock_random_splits_2_dataset, dataset_actual=dataset_actual
     )
 
@@ -165,7 +165,7 @@ def test_save_load_splits(tmp_path, mock_random_splits_2_dataset):
     dataset_actual = persistence.load_splits(storage_dir=tmp_path)
 
     # Assert
-    check_dataset_equality(
+    check_federated_dataset_equality(
         dataset_expected=mock_random_splits_2_dataset, dataset_actual=dataset_actual
     )
 
@@ -180,3 +180,40 @@ def test_list_datasets(mock_datasets_dir):
 
     # Assert
     assert expected_datasets == actual_datasets
+
+
+def test_load_or_generate_dataset_locally_existing(
+    monkeypatch, tmp_path, mock_random_splits_2_dataset
+):
+    # Prepare
+    dataset_name = "my_dataset"
+    dataset_expected = mock_random_splits_2_dataset
+
+    # Just a placeholder to pass as it will not be used
+    def mock_generate_dataset_method():
+        pass
+
+    def mock_list_datasets(local_datasets_dir: str):
+        # Assert: Check if list_datasets receives the correct arguments
+        assert local_datasets_dir == tmp_path
+        return set([dataset_name])
+
+    def mock_load_splits(storage_dir: str):
+        # Assert: Check if load_splits receives the correct arguments
+        dataset_dir = os.path.join(tmp_path, dataset_name)
+
+        assert storage_dir == dataset_dir
+        return dataset_expected
+
+    monkeypatch.setattr(persistence, "list_datasets", mock_list_datasets)
+    monkeypatch.setattr(persistence, "load_splits", mock_load_splits)
+
+    # Execute
+    dataset_actual = persistence.load_or_generate_dataset(
+        dataset_name=dataset_name,
+        generate_dataset_method=mock_generate_dataset_method,
+        local_datasets_dir=tmp_path,
+    )
+
+    # Assert
+    check_federated_dataset_equality(dataset_expected, dataset_actual)
