@@ -1,6 +1,6 @@
 from absl import logging
 
-from autofl.data import cifar10_random_splits_10
+from autofl.datasets import cifar10_random_splits_10
 from autofl.fedml import net
 
 from .controller import RandomController, RoundRobinController
