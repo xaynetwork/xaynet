@@ -15,6 +15,7 @@ install_requires = [
     "matplotlib==3.1.0",
     "Pillow==6.0.0",
     "gym==0.13.0",
+    "requests==2.22.0",
 ]
 
 cpu_require = ["tensorflow==1.14.0"]

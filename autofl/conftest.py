@@ -5,12 +5,7 @@ import numpy as np
 import pytest
 
 from autofl.data import data, persistence
-from autofl.types import (
-  FederatedDataset,
-  FnameNDArrayTuple,
-  KerasDataset,
-  NDArrayDataset,
-)
+from autofl.types import FederatedDataset, FnameNDArrayTuple, KerasDataset
 
 
 def pytest_collection_modifyitems(items):
@@ -50,7 +45,7 @@ def mock_keras_dataset() -> MockKerasDataset:
 
 
 @pytest.fixture
-def mock_dataset() -> NDArrayDataset:
+def mock_dataset() -> KerasDataset:
     """dataset mock after it went through internal load method"""
     return data.load(MockKerasDataset())
 
