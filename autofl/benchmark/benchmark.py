@@ -1,6 +1,6 @@
 from absl import logging
 
-from autofl.data import cifar10_random_splits_10
+from autofl.datasets import cifar10_random_splits_10
 from autofl.fedml import Coordinator, Participant, RandomController
 from autofl.net import resnet_v2_20_compiled
 

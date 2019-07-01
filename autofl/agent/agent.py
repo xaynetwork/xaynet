@@ -7,7 +7,7 @@ from absl import flags, logging
 from numpy import ndarray
 
 from .. import flenv
-from ..data import cifar10_random_splits_10
+from ..datasets import cifar10_random_splits_10
 from ..fedml import Coordinator, Participant, RandomController
 from ..flenv.arch import Architecture, build_architecture, parse_arch_str
 
