@@ -29,9 +29,10 @@ class Participant:
         self.history = self.model.fit(self.dataset, epochs=epochs, steps_per_epoch=8)
 
     def evaluate(self, x_test: ndarray, y_test: ndarray) -> Tuple[float, float]:
-        # FIXME use Dataset
-        x_test = x_test / 255.0
-        loss, accuracy = self.model.evaluate(x_test, y_test)
+        ds_val = prep.init_validation_dataset(x_test, y_test)
+        # Assume the validation `tf.data.Dataset` to yield exactly one batch containing
+        # all examples in the validation set
+        loss, accuracy = self.model.evaluate(ds_val, steps=1)
         return loss, accuracy
 
 
