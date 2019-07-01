@@ -16,10 +16,9 @@ def generate_dataset() -> FederatedDataset:
     """Will generate dataset and store it locally"""
     dataset = data.load_splits(10, tf.keras.datasets.cifar10)
     return dataset
-    
 
 
-def load():
+def load_splits():
     return persistence.load_local_dataset(
         dataset_name=DATASET_NAME, local_datasets_dir=get_config("local_datasets_dir")
     )
