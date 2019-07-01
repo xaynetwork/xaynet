@@ -1,3 +1,5 @@
+from absl import app
+
 from autofl.fedml import fedml
 
-fedml.federated_learning()
+app.run(main=fedml.federated_learning)
