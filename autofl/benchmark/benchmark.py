@@ -6,17 +6,23 @@ from autofl.net import resnet_v2_20_compiled
 
 
 def main(_):
-    train_CIFAR_10_with_random_controller()
+    eval_CIFAR_10_with_random_controller()
+
+
+def eval_CIFAR_10_centralized():
+    fn_name = eval_CIFAR_10_centralized.__name__
+    logging.info("Starting benchmark: {}".format(fn_name))
 
 
 # pytest-disable: duplicate-code
-def train_CIFAR_10_with_random_controller():
+def eval_CIFAR_10_with_random_controller():
     """
     - Data: CIFAR-10, 10 shards, each shard: 500 examples for each class (perfectly balanced)
     - Model: ResNet20v2
     - Controller: RandomController
     """
-    logging.info("Starting benchmark")
+    fn_name = eval_CIFAR_10_centralized.__name__
+    logging.info("Starting benchmark: {}".format(fn_name))
 
     # Init data
     # TODO load perfectly balanced data
