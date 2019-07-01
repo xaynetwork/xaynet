@@ -13,7 +13,7 @@ from typing import List, Optional, Set, Tuple
 import numpy as np
 from absl import logging
 
-from autofl.types import FederatedDataset, FederatedDatasetSplit, FnameNDArrayTuple
+from autofl.types import FederatedDataset, FnameNDArrayTuple
 
 
 def save(fname: str, data: np.ndarray, storage_dir: str):
