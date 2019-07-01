@@ -2,7 +2,7 @@ import math
 
 import tensorflow as tf
 
-from .resnet import resnet
+from .resnet import resnet  # type: ignore
 
 
 def resnet_v2_20():
