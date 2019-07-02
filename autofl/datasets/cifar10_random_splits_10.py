@@ -1,6 +1,7 @@
 """
 Easily accessable datasets
 """
+import os
 
 import tensorflow as tf
 
@@ -14,8 +15,7 @@ DATASET_NAME = "cifar10_random_splits_10"
 
 def generate_dataset() -> FederatedDataset:
     """Will generate dataset and store it locally"""
-    dataset = data.load_splits(10, tf.keras.datasets.cifar10)
-    return dataset
+    return data.generate_splits(10, tf.keras.datasets.cifar10)
 
 
 def load_splits():
@@ -30,3 +30,17 @@ def load_shard():
 
 def load_test():
     pass
+
+
+if __name__ == "__main__":
+    """
+    Generates and stores dataset locally
+    Will only once be used to generate the dataset to be stored online
+    """
+    dataset = generate_dataset()
+
+    dataset_dir = persistence.get_dataset_dir(
+        dataset_name=DATASET_NAME, local_datasets_dir=get_config("local_datasets_dir")
+    )
+
+    persistence.save_splits(dataset=dataset, storage_dir=dataset_dir)

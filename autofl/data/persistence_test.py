@@ -1,4 +1,5 @@
 import os
+from time import time
 
 import numpy as np
 import pytest
@@ -22,8 +23,8 @@ def check_federated_dataset_equality(
         x_expected, y_expected = xy_expected
         x_actual, y_actual = xy_actual
 
-        assert x_expected.shape == x_actual.shape
-        assert y_expected.shape == y_actual.shape
+        np.testing.assert_equal(x_expected, x_actual)
+        np.testing.assert_equal(y_expected, y_actual)
 
     assert xy_test_expected[0].shape == xy_test_actual[0].shape
     assert xy_test_expected[1].shape == xy_test_actual[1].shape
@@ -86,7 +87,7 @@ def test_save_load_single(tmp_path):
     a_actual = persistence.load(fname=tmp_file, storage_dir=tmp_path)
 
     # Test equality
-    assert np.array_equal(a_expected, a_actual)
+    np.testing.assert_equal(a_expected, a_actual)
 
 
 def test_save_splits(monkeypatch, tmp_path, mock_random_splits_1_dataset):
@@ -210,3 +211,43 @@ def test_load_local_dataset(monkeypatch, tmp_path, mock_random_splits_2_dataset)
 
     # Assert
     check_federated_dataset_equality(dataset_expected, dataset_actual)
+
+
+@pytest.mark.integration
+def test_download_remote_ndarray(tmp_path, mock_datasets_repository):
+
+    # Prepare
+    dataset_name = "integration_test"
+    split_name = "ones32.npy"
+
+    ndarray_expected = np.ones((3, 2))
+
+    # Execute
+    t1 = time() * 1000.0
+
+    ndarray_actual = persistence.download_remote_ndarray(
+        datasets_repository=mock_datasets_repository,
+        dataset_name=dataset_name,
+        split_name=split_name,
+        local_datasets_dir=tmp_path,
+    )
+
+    t2 = time() * 1000.0
+
+    # Loading from remote should take less than 1000ms
+    assert (t2 - t1) < 1000
+
+    ndarray_actual = persistence.download_remote_ndarray(
+        datasets_repository=mock_datasets_repository,
+        dataset_name=dataset_name,
+        split_name=split_name,
+        local_datasets_dir=tmp_path,
+    )
+
+    t3 = time() * 1000.0
+
+    # Loading from disk should take less than 10ms
+    assert (t3 - t2) < 10
+
+    # Assert
+    np.testing.assert_equal(ndarray_actual, ndarray_expected)

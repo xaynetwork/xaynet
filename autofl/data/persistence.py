@@ -8,12 +8,14 @@ A dataset is stored with N>=0 for N=num_splits-1 as
 - y_test.npy
 """
 import os
+import shutil
 from typing import List, Optional, Set, Tuple
 
 import numpy as np
+import requests
 from absl import logging
 
-from autofl.types import FederatedDataset, FnameNDArrayTuple
+from autofl.types import FederatedDataset, FederatedDatasetSplit, FnameNDArrayTuple
 
 
 def save(fname: str, data: np.ndarray, storage_dir: str):
@@ -116,16 +118,49 @@ def load_splits(storage_dir: str) -> FederatedDataset:
     return dataset
 
 
+def get_dataset_dir(dataset_name: str, local_datasets_dir: str) -> str:
+    """Will return dataset directory and create it if its not already present"""
+    dataset_dir = os.path.join(local_datasets_dir, dataset_name)
+
+    if not os.path.isdir(dataset_dir):
+        os.makedirs(dataset_dir)
+
+    return dataset_dir
+
+
 def load_local_dataset(
     dataset_name: str, local_datasets_dir: str
 ) -> Optional[FederatedDataset]:
     # Check if dataset exists locally and if so load and return
-    dataset_dir = os.path.join(local_datasets_dir, dataset_name)
+    dataset_dir = get_dataset_dir(dataset_name, local_datasets_dir)
 
     if dataset_name in list_datasets(local_datasets_dir):
         return load_splits(storage_dir=dataset_dir)
 
     return None
+
+
+def download_remote_ndarray(
+    datasets_repository: str,
+    dataset_name: str,
+    split_name: str,
+    local_datasets_dir: str,
+) -> Optional[FederatedDatasetSplit]:
+    """Downloads dataset split and loads from disk if already present"""
+    url = "{}/{}/{}".format(datasets_repository, dataset_name, split_name)
+
+    dataset_dir = get_dataset_dir(dataset_name, local_datasets_dir)
+    fpath = os.path.join(dataset_dir, split_name)
+
+    if not os.path.isfile(fpath):
+        response = requests.get(url, stream=True)
+
+        with open(fpath, "wb") as fin:
+            shutil.copyfileobj(response.raw, fin)
+
+    ndarray = np.load(fpath)
+
+    return ndarray
 
 
 def is_npy_file(fname):

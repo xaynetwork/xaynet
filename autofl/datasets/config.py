@@ -9,7 +9,8 @@ config = {
     ),
     "fetch_datasets": os.environ.get("FETCH_DATASETS", "0"),
     "datasets_repository": os.environ.get(
-        "DATASET_REPOSITORY", "https://xainag.gitlab.io/autofl/"
+        "DATASET_REPOSITORY",
+        "http://datasets.xain.io.s3-website.eu-central-1.amazonaws.com/datasets",
     ),
 }
 
