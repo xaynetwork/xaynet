@@ -32,10 +32,10 @@ def check_federated_dataset_equality(
 def test_dataset_to_fname_ndarray_tuple_list(mock_random_splits_2_dataset):
     # Prepare
     fnames_expected = [
-        "x0.npy",
-        "y0.npy",
-        "x1.npy",
-        "y1.npy",
+        "x_0.npy",
+        "y_0.npy",
+        "x_1.npy",
+        "y_1.npy",
         "x_test.npy",
         "y_test.npy",
     ]
@@ -64,7 +64,7 @@ def test_to_fname_ndarray_tuple():
     x = np.ones((3, 2))
     y = np.ones((3))
 
-    t_expected = [("x0.npy", x), ("y0.npy", y)]
+    t_expected = [("x_0.npy", x), ("y_0.npy", y)]
 
     # Execute
     t_actual = persistence.to_fname_ndarray_tuple("0", (x, y))
@@ -74,30 +74,34 @@ def test_to_fname_ndarray_tuple():
 
 
 @pytest.mark.integration
-def test_save_load_single(tmp_path):
-    tmp_file = "autofl_test_save_load_single.npy"
+def test_save(tmp_path):
+    fname = "autofl_test_save_load_single.npy"
+    fpath = os.path.join(tmp_path, fname)
 
     # Create NumPy array
     a_expected = np.zeros(shape=(3, 28, 28, 1), dtype=np.uint8)
     a_expected[0][1][1][0] = 255
 
-    # Store to disk, then load from disk
-    persistence.save(fname=tmp_file, data=a_expected, storage_dir=tmp_path)
-    a_actual = persistence.load(fname=tmp_file, storage_dir=tmp_path)
+    # Execute
+    persistence.save(fname=fname, data=a_expected, storage_dir=tmp_path)
 
-    # Test equality
+    # Assert
+    a_actual = np.load(fpath)  # load ndarry
+
     np.testing.assert_equal(a_expected, a_actual)
 
 
-def test_save_splits(monkeypatch, tmp_path, mock_random_splits_1_dataset):
+def test_save_splits(monkeypatch, tmp_path, mock_random_splits_2_dataset):
     # Prepare
-    # -> Using mock_random_splits_1_dataset
-    xy_splits, xy_test = mock_random_splits_1_dataset
+    dataset_name = "mock_dataset"
+    xy_splits, xy_test = mock_random_splits_2_dataset
 
     # -> Files which are supposed to be saved
     files_to_be_saved = [
-        ("x0.npy", xy_splits[0][0], tmp_path),
-        ("y0.npy", xy_splits[0][1], tmp_path),
+        ("x_0.npy", xy_splits[0][0], tmp_path),
+        ("y_0.npy", xy_splits[0][1], tmp_path),
+        ("x_1.npy", xy_splits[1][0], tmp_path),
+        ("y_1.npy", xy_splits[1][1], tmp_path),
         ("x_test.npy", xy_test[0], tmp_path),
         ("y_test.npy", xy_test[1], tmp_path),
     ]
@@ -110,103 +114,53 @@ def test_save_splits(monkeypatch, tmp_path, mock_random_splits_1_dataset):
     monkeypatch.setattr(persistence, "save", mock_save)
 
     # Execute
-    persistence.save_splits(dataset=mock_random_splits_1_dataset, storage_dir=tmp_path)
+    persistence.save_splits(
+        dataset_name=dataset_name,
+        dataset=mock_random_splits_2_dataset,
+        local_generator_dir=tmp_path,
+    )
+
+    dataset_dir = os.path.join(tmp_path, dataset_name)
 
     # Assert
     for expected, actual in zip(files_to_be_saved, files_passed_to_save):
         assert expected[0] == actual[0]
         assert expected[1].shape == actual[1].shape
-        assert expected[2] == actual[2]
-
-
-@pytest.mark.integration
-def test_list_files_for_dataset(mock_datasets_dir):
-    """
-    Check if we can list files from given directory correctly
-    """
-    # Prepare
-    fnames_expected = [
-        "x0.npy",
-        "y0.npy",
-        "x1.npy",
-        "y1.npy",
-        "x_test.npy",
-        "y_test.npy",
-    ]
-
-    dataset_dir = os.path.join(mock_datasets_dir, "random_splits_2")
-
-    # Execute
-    fnames_actual = persistence.list_files_for_dataset(storage_dir=dataset_dir)
-
-    # Assert
-    assert set(fnames_expected) == set(fnames_actual)
-
-
-def test_dataset_from_fname_ndarray_tuples(
-    mock_random_splits_2_dataset, mock_random_splits_2_fname_ndarray_tuples
-):
-    # Execute
-    dataset_actual = persistence.dataset_from_fname_ndarray_tuples(
-        mock_random_splits_2_fname_ndarray_tuples
-    )
-
-    check_federated_dataset_equality(
-        dataset_expected=mock_random_splits_2_dataset, dataset_actual=dataset_actual
-    )
+        assert dataset_dir == actual[2]
 
 
 @pytest.mark.integration
 def test_save_load_splits(tmp_path, mock_random_splits_2_dataset):
+    # Prepare
+    dataset_name = "mock_dataset"
+    dataset_dir = os.path.join(tmp_path, dataset_name)
+
+    def fpath(fname):
+        return os.path.join(dataset_dir, fname)
+
     # Execute
     # Save splits into tmp directory
-    persistence.save_splits(dataset=mock_random_splits_2_dataset, storage_dir=tmp_path)
-
-    # Load splits from tmp directory
-    dataset_actual = persistence.load_splits(storage_dir=tmp_path)
+    persistence.save_splits(
+        dataset_name=dataset_name,
+        dataset=mock_random_splits_2_dataset,
+        local_generator_dir=tmp_path,
+    )
 
     # Assert
+    # Load splits from tmp directory
+    d = {
+        # remove .npy ending with [:-4]
+        fname[:-4]: np.load(fpath(fname))
+        for fname in os.listdir(dataset_dir)
+    }
+
+    dataset_actual = (
+        # train set
+        [(d["x_0"], d["y_0"]), (d["x_1"], d["y_1"])],
+        # test set
+        (d["x_test"], d["y_test"]),
+    )
+
     check_federated_dataset_equality(
         dataset_expected=mock_random_splits_2_dataset, dataset_actual=dataset_actual
     )
-
-
-@pytest.mark.integration
-def test_list_datasets(mock_datasets_dir):
-    # Prepare
-    expected_datasets = set(["random_splits_2", "random_splits_10"])
-
-    # Execute
-    actual_datasets = persistence.list_datasets(local_generator_dir=mock_datasets_dir)
-
-    # Assert
-    assert expected_datasets == actual_datasets
-
-
-def test_load_local_dataset(monkeypatch, tmp_path, mock_random_splits_2_dataset):
-    # Prepare
-    dataset_name = "my_dataset"
-    dataset_expected = mock_random_splits_2_dataset
-
-    def mock_list_datasets(local_generator_dir: str):
-        # Assert: Check if list_datasets receives the correct arguments
-        assert local_generator_dir == tmp_path
-        return set([dataset_name])
-
-    def mock_load_splits(storage_dir: str):
-        # Assert: Check if load_splits receives the correct arguments
-        dataset_dir = os.path.join(tmp_path, dataset_name)
-
-        assert storage_dir == dataset_dir
-        return dataset_expected
-
-    monkeypatch.setattr(persistence, "list_datasets", mock_list_datasets)
-    monkeypatch.setattr(persistence, "load_splits", mock_load_splits)
-
-    # Execute
-    dataset_actual = persistence.load_local_dataset(
-        dataset_name=dataset_name, local_generator_dir=tmp_path
-    )
-
-    # Assert
-    check_federated_dataset_equality(dataset_expected, dataset_actual)
