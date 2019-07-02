@@ -17,11 +17,12 @@ def init_dataset(x: np.ndarray, y: np.ndarray) -> Dataset:
     # - Cast color channel values to float, divide by 255
     # - One-hot encode labels
     ds = prepare(ds, num_classes=10)
-    # Data augmentation:
+    # Data augmentation (CIFAR-10 only):
     # - Randomize hue/saturation/brightness/contrast
     # - Take random 32x32 crop (after padding to 40x40)
     # - Random horizontal flip
-    ds = augment(ds)
+    if x.ndim == 4:
+        ds = augment_cifar(ds)
     return batch_and_repeat(ds, batch_size=64)
 
 
@@ -51,7 +52,7 @@ def prepare(ds: Dataset, num_classes: int) -> Dataset:
     return ds
 
 
-def augment(ds: Dataset) -> Dataset:
+def augment_cifar(ds: Dataset) -> Dataset:
     ds = ds.map(
         lambda x, y: (_random_hue_saturation_brightness_contrast(x), y),
         num_parallel_calls=AUTOTUNE,
