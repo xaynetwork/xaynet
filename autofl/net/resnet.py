@@ -1,6 +1,7 @@
 # Derived from: https://github.com/keras-team/keras/blob/master/examples/cifar10_resnet.py
 # pylint: skip-file
 # type: ignore
+
 from typing import Optional, Tuple
 
 import tensorflow.keras as keras
@@ -265,7 +266,7 @@ def resnet_v2(
     # Instantiate the stack of residual units
     for stage in range(3):
         for res_block in range(num_res_blocks):
-            activation = "relu"
+            activation: Optional[str] = "relu"
             batch_normalization = True
             strides = 1
             if stage == 0:
