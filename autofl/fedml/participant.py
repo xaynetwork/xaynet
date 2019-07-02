@@ -4,7 +4,8 @@ import tensorflow as tf
 from numpy import ndarray
 
 from ..data import prep
-from . import net, ops
+from ..net import cnn_compiled
+from . import ops
 
 
 class Participant:
@@ -39,7 +40,7 @@ class Participant:
 def init_participants(xy_splits) -> List[Participant]:
     participants = []
     for x_split, y_split in xy_splits:
-        model = net.cnn()
+        model = cnn_compiled()  # FIXME refactor
         participant = Participant(model, x_split, y_split)
         participants.append(participant)
     return participants
