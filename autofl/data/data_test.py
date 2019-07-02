@@ -7,7 +7,7 @@ from autofl.data import data
 
 @pytest.mark.integration
 def test_load():
-    x_train, y_train, x_test, y_test = data.load(tf.keras.datasets.mnist)
+    (x_train, y_train), (x_test, y_test) = data.load(tf.keras.datasets.mnist)
     assert x_train.shape[0] == y_train.shape[0]
     assert x_test.shape[0] == y_test.shape[0]
     assert len(x_train.shape) == len(x_test.shape)

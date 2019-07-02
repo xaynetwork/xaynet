@@ -5,12 +5,7 @@ import numpy as np
 import pytest
 
 from autofl.data import data, persistence
-from autofl.types import (
-  FederatedDataset,
-  FnameNDArrayTuple,
-  KerasDataset,
-  NDArrayDataset,
-)
+from autofl.types import FederatedDataset, FnameNDArrayTuple, KerasDataset
 
 
 def pytest_collection_modifyitems(items):
@@ -44,13 +39,18 @@ class MockKerasDataset:  # pylint: disable=too-few-public-methods
 
 
 @pytest.fixture
+def mock_datasets_repository() -> str:
+    return "https://s3.eu-central-1.amazonaws.com/datasets.xain.io/autofl"
+
+
+@pytest.fixture
 def mock_keras_dataset() -> MockKerasDataset:
     """keras dataset mock"""
     return MockKerasDataset()
 
 
 @pytest.fixture
-def mock_dataset() -> NDArrayDataset:
+def mock_dataset() -> KerasDataset:
     """dataset mock after it went through internal load method"""
     return data.load(MockKerasDataset())
 
@@ -58,24 +58,24 @@ def mock_dataset() -> NDArrayDataset:
 @pytest.fixture
 def mock_random_splits_10_dataset() -> FederatedDataset:
     """dataset mock after it went through internal load method"""
-    return data.load_splits(10, MockKerasDataset())
+    return data.generate_splits(10, MockKerasDataset(), shuffle_train=False)
 
 
 @pytest.fixture
 def mock_random_splits_2_dataset() -> FederatedDataset:
     """dataset mock after it went through internal load method"""
-    return data.load_splits(2, MockKerasDataset())
+    return data.generate_splits(2, MockKerasDataset(), shuffle_train=False)
 
 
 @pytest.fixture
 def mock_random_splits_1_dataset() -> FederatedDataset:
     """dataset mock after it went through internal load method"""
-    return data.load_splits(1, MockKerasDataset())
+    return data.generate_splits(1, MockKerasDataset(), shuffle_train=False)
 
 
 @pytest.fixture
 def mock_random_splits_2_fname_ndarray_tuples() -> List[FnameNDArrayTuple]:
-    dataset = data.load_splits(2, MockKerasDataset())
+    dataset = data.generate_splits(2, MockKerasDataset(), shuffle_train=False)
     return persistence.dataset_to_fname_ndarray_tuple_list(dataset)
 
 
@@ -87,12 +87,12 @@ def mock_datasets_dir(tmpdir_factory):
     os.mkdir(dataset_dir.join("random_splits_10"))
 
     persistence.save_splits(
-        dataset=data.load_splits(2, MockKerasDataset()),
+        dataset=data.generate_splits(2, MockKerasDataset()),
         storage_dir=str(dataset_dir.join("random_splits_2")),
     )
 
     persistence.save_splits(
-        dataset=data.load_splits(10, MockKerasDataset()),
+        dataset=data.generate_splits(10, MockKerasDataset()),
         storage_dir=str(dataset_dir.join("random_splits_10")),
     )
 

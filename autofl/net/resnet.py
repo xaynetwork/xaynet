@@ -1,7 +1,6 @@
 # Derived from: https://github.com/keras-team/keras/blob/master/examples/cifar10_resnet.py
 # pylint: skip-file
 
-
 from typing import Optional, Tuple
 
 import tensorflow.keras as keras
