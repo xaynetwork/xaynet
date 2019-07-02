@@ -35,7 +35,7 @@ def fc_compiled() -> tf.keras.Model:
         ]
     )
     model.compile(
-        optimizer="adam", loss="sparse_categorical_crossentropy", metrics=["accuracy"]
+        optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"]
     )
     return model
 
