@@ -145,7 +145,7 @@ def download_remote_ndarray(
     dataset_name: str,
     split_name: str,
     local_datasets_dir: str,
-) -> Optional[FederatedDatasetSplit]:
+) -> FederatedDatasetSplit:
     """Downloads dataset split and loads from disk if already present
 
     Parameters:
