@@ -1,11 +1,10 @@
 import os
-from time import time
 
 import numpy as np
 import pytest
 
-from autofl.data import persistence
-from autofl.types import FederatedDataset
+from ..types import FederatedDataset
+from . import persistence
 
 
 # Helper method to compare two federated datasets
@@ -178,7 +177,7 @@ def test_list_datasets(mock_datasets_dir):
     expected_datasets = set(["random_splits_2", "random_splits_10"])
 
     # Execute
-    actual_datasets = persistence.list_datasets(local_datasets_dir=mock_datasets_dir)
+    actual_datasets = persistence.list_datasets(local_generator_dir=mock_datasets_dir)
 
     # Assert
     assert expected_datasets == actual_datasets
@@ -189,9 +188,9 @@ def test_load_local_dataset(monkeypatch, tmp_path, mock_random_splits_2_dataset)
     dataset_name = "my_dataset"
     dataset_expected = mock_random_splits_2_dataset
 
-    def mock_list_datasets(local_datasets_dir: str):
+    def mock_list_datasets(local_generator_dir: str):
         # Assert: Check if list_datasets receives the correct arguments
-        assert local_datasets_dir == tmp_path
+        assert local_generator_dir == tmp_path
         return set([dataset_name])
 
     def mock_load_splits(storage_dir: str):
@@ -206,48 +205,8 @@ def test_load_local_dataset(monkeypatch, tmp_path, mock_random_splits_2_dataset)
 
     # Execute
     dataset_actual = persistence.load_local_dataset(
-        dataset_name=dataset_name, local_datasets_dir=tmp_path
+        dataset_name=dataset_name, local_generator_dir=tmp_path
     )
 
     # Assert
     check_federated_dataset_equality(dataset_expected, dataset_actual)
-
-
-@pytest.mark.integration
-def test_download_remote_ndarray(tmp_path, mock_datasets_repository):
-
-    # Prepare
-    dataset_name = "integration_test"
-    split_name = "ones32.npy"
-
-    ndarray_expected = np.ones((3, 2))
-
-    # Execute
-    t1 = time() * 1000.0
-
-    ndarray_actual = persistence.download_remote_ndarray(
-        datasets_repository=mock_datasets_repository,
-        dataset_name=dataset_name,
-        split_name=split_name,
-        local_datasets_dir=tmp_path,
-    )
-
-    t2 = time() * 1000.0
-
-    # Loading from remote should take less than 1000ms
-    assert (t2 - t1) < 1000
-
-    ndarray_actual = persistence.download_remote_ndarray(
-        datasets_repository=mock_datasets_repository,
-        dataset_name=dataset_name,
-        split_name=split_name,
-        local_datasets_dir=tmp_path,
-    )
-
-    t3 = time() * 1000.0
-
-    # Loading from disk should take less than 10ms
-    assert (t3 - t2) < 10
-
-    # Assert
-    np.testing.assert_equal(ndarray_actual, ndarray_expected)

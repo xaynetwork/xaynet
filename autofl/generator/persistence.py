@@ -8,14 +8,12 @@ A dataset is stored with N>=0 for N=num_splits-1 as
 - y_test.npy
 """
 import os
-import shutil
 from typing import List, Optional, Set, Tuple
 
 import numpy as np
-import requests
 from absl import logging
 
-from autofl.types import FederatedDataset, FederatedDatasetSplit, FnameNDArrayTuple
+from autofl.types import FederatedDataset, FnameNDArrayTuple
 
 
 def save(fname: str, data: np.ndarray, storage_dir: str):
@@ -95,6 +93,16 @@ def dataset_from_fname_ndarray_tuples(
     return (xy_splits, xy_test)
 
 
+def get_generator_dataset_dir(dataset_name: str, local_generator_dir: str) -> str:
+    """Will return dataset directory and create it if its not already present"""
+    dataset_dir = os.path.join(local_generator_dir, dataset_name)
+
+    if not os.path.isdir(dataset_dir):
+        os.makedirs(dataset_dir)
+
+    return dataset_dir
+
+
 def save_splits(dataset: FederatedDataset, storage_dir: str):
     logging.info("Storing dataset in {}".format(storage_dir))
 
@@ -118,56 +126,16 @@ def load_splits(storage_dir: str) -> FederatedDataset:
     return dataset
 
 
-def get_dataset_dir(dataset_name: str, local_datasets_dir: str) -> str:
-    """Will return dataset directory and create it if its not already present"""
-    dataset_dir = os.path.join(local_datasets_dir, dataset_name)
-
-    if not os.path.isdir(dataset_dir):
-        os.makedirs(dataset_dir)
-
-    return dataset_dir
-
-
 def load_local_dataset(
-    dataset_name: str, local_datasets_dir: str
+    dataset_name: str, local_generator_dir: str
 ) -> Optional[FederatedDataset]:
     # Check if dataset exists locally and if so load and return
-    dataset_dir = get_dataset_dir(dataset_name, local_datasets_dir)
+    dataset_dir = get_generator_dataset_dir(dataset_name, local_generator_dir)
 
-    if dataset_name in list_datasets(local_datasets_dir):
+    if dataset_name in list_datasets(local_generator_dir):
         return load_splits(storage_dir=dataset_dir)
 
     return None
-
-
-def download_remote_ndarray(
-    datasets_repository: str,
-    dataset_name: str,
-    split_name: str,
-    local_datasets_dir: str,
-) -> FederatedDatasetSplit:
-    """Downloads dataset split and loads from disk if already present
-
-    Parameters:
-    datasets_repository (str): datasets repository base URL
-    dataset_name (str): Name of dataset in repository
-    split_name (str): Split name. Example: "x0.npy"
-    local_datasets_dir (str): Directory in which all local datasets are stored
-    """
-    url = "{}/{}/{}".format(datasets_repository, dataset_name, split_name)
-
-    dataset_dir = get_dataset_dir(dataset_name, local_datasets_dir)
-    fpath = os.path.join(dataset_dir, split_name)
-
-    if not os.path.isfile(fpath):
-        response = requests.get(url, stream=True)
-
-        with open(fpath, "wb") as fin:
-            shutil.copyfileobj(response.raw, fin)
-
-    ndarray = np.load(fpath)
-
-    return ndarray
 
 
 def is_npy_file(fname):
@@ -179,13 +147,13 @@ def list_files_for_dataset(storage_dir: str) -> List[str]:
     return list(filter(is_npy_file, files))
 
 
-def list_datasets(local_datasets_dir: str) -> Set[str]:
-    files = os.listdir(local_datasets_dir)
+def list_datasets(local_generator_dir: str) -> Set[str]:
+    files = os.listdir(local_generator_dir)
 
     directories = []
 
     for fname in files:
-        full_path = os.path.join(local_datasets_dir, fname)
+        full_path = os.path.join(local_generator_dir, fname)
         if os.path.isdir(full_path):
             directories.append(fname)
 

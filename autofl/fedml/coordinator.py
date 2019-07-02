@@ -3,7 +3,7 @@ from typing import Callable, List, Tuple
 import tensorflow as tf
 from numpy import ndarray
 
-from ..data import prep
+from ..datasets import prep
 from .ops import get_model_params, set_model_params
 from .participant import Participant
 

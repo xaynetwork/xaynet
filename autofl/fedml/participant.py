@@ -3,7 +3,7 @@ from typing import List, Tuple
 import tensorflow as tf
 from numpy import ndarray
 
-from ..data import prep
+from ..datasets import prep
 from ..net import cnn_compiled
 from . import ops
 

@@ -1,6 +1,6 @@
 import numpy as np
 
-from autofl.data.stats import DatasetStats, basic_stats, basic_stats_multiple
+from .stats import DatasetStats, basic_stats, basic_stats_multiple
 
 
 def test_create_dataset_stats():
