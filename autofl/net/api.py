@@ -3,7 +3,7 @@ import math
 import tensorflow as tf
 
 from ..flenv import arch
-from .resnet import resnet  # type: ignore
+from .resnet import resnet
 
 
 def resnet_v2_20():
