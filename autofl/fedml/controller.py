@@ -45,9 +45,9 @@ class CycleRandomController(Controller):
         super().__init__(num_participants)
         self.cycle: np.ndarray = np.array([])
 
-    def indices(self):
+    def indices(self) -> List[int]:
         if self.cycle.size == 0:
             self.cycle = np.random.permutation(self.num_participants)
         next_index = self.cycle[0]
         self.cycle = self.cycle[1:]
-        return next_index
+        return [next_index]
