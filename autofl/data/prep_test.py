@@ -5,7 +5,7 @@ from . import prep
 
 def test_init_dataset(mock_dataset):
     # Prepare
-    (x, y, _, _) = mock_dataset
+    (x, y), (_, _) = mock_dataset
     # Execute
     ds = prep.init_dataset(x, y)
     # Assert

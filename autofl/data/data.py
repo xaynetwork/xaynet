@@ -1,24 +1,22 @@
-import os
 from typing import List, Optional, Tuple
 
 import numpy as np
 import tensorflow as tf
 from numpy import ndarray
 
-from .typing import Dataset, FederatedDataset
-
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
-tf.logging.set_verbosity(tf.logging.ERROR)
+from autofl.types import FederatedDataset, KerasDataset
 
 # Passed to RandomState for predictable shuffling
 SEED = 851746
 
 
-def load(keras_dataset) -> Dataset:
+def load(keras_dataset) -> KerasDataset:
     (x_train, y_train), (x_test, y_test) = keras_dataset.load_data()
+
     y_train = y_train.reshape((y_train.shape[0],))
     y_test = y_test.reshape((y_test.shape[0],))
-    return x_train, y_train, x_test, y_test
+
+    return (x_train, y_train), (x_test, y_test)
 
 
 def shuffle(
@@ -39,10 +37,16 @@ def split(
     return x_splits, y_splits
 
 
-def load_splits(num_splits: int, keras_dataset) -> FederatedDataset:
-    x_train, y_train, x_test, y_test = load(keras_dataset)
+def generate_splits(
+    num_splits: int, keras_dataset, shuffle_train=True
+) -> FederatedDataset:
+    (x_train, y_train), (x_test, y_test) = load(keras_dataset)
+
     assert x_train.shape[0] % num_splits == 0
-    x_train, y_train = shuffle(x_train, y_train, seed=SEED)
+
+    if shuffle_train:
+        x_train, y_train = shuffle(x_train, y_train, seed=SEED)
+
     x_splits, y_splits = split(x_train, y_train, num_splits)
 
     xy_splits = list(zip(x_splits, y_splits))
@@ -50,5 +54,5 @@ def load_splits(num_splits: int, keras_dataset) -> FederatedDataset:
     return xy_splits, (x_test, y_test)
 
 
-def load_splits_mnist(num_splits: int) -> FederatedDataset:
-    return load_splits(num_splits, tf.keras.datasets.mnist)
+def generate_splits_mnist(num_splits: int) -> FederatedDataset:
+    return generate_splits(num_splits, tf.keras.datasets.mnist)

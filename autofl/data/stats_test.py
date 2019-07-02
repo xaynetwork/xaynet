@@ -17,7 +17,7 @@ def test_create_dataset_stats():
 
 
 def test_basic_stats(mock_dataset):
-    (x, y, _, _) = mock_dataset
+    (x, y), (_, _) = mock_dataset
     stats = basic_stats((x, y))
 
     assert isinstance(stats, DatasetStats)
@@ -30,7 +30,7 @@ def test_basic_stats(mock_dataset):
 
 
 def test_basic_stats_multiple(mock_dataset):
-    (x1, y1, x2, y2) = mock_dataset
+    (x1, y1), (x2, y2) = mock_dataset
     stats_list = basic_stats_multiple([(x1, y1), (x2, y2)])
 
     for stats in stats_list:

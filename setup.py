@@ -8,13 +8,14 @@ if sys.version_info < (3, 6):
 
 install_requires = [
     "typing-extensions==3.7.2",
-    "numpy==1.16.4",
+    "numpy==1.15.4",
     "absl-py==0.7.1",
     "tensorflow-datasets==1.0.2",
     "tensorflow-federated==0.5.0",
     "matplotlib==3.1.0",
     "Pillow==6.0.0",
     "gym==0.13.0",
+    "requests==2.22.0",
 ]
 
 cpu_require = ["tensorflow==1.14.0"]

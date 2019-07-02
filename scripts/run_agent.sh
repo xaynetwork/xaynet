@@ -1,3 +1,8 @@
+#!/bin/bash
+
+# Exit immediately if a command exits with a non-zero status.
+set -e
+
 test_arch="0"
 test_arch="$test_arch 1 0"
 test_arch="$test_arch 2 1 0"
