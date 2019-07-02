@@ -3,8 +3,9 @@ import os
 import numpy as np
 import tensorflow as tf
 
-import autofl.datasets.cifar10_random_splits_10 as ds
 from autofl.data import persistence
+
+from . import cifar10_random_splits_10 as ds
 
 
 def test_generate_dataset(mock_keras_dataset, monkeypatch):
