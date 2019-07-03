@@ -60,7 +60,7 @@ def load_splits(local_datasets_dir: str = FLAGS.local_datasets_dir) -> Federated
     xy_splits = []
     xy_test = (None, None)
 
-    for split_id, _ in DATASET_SPLIT_HASHES:
+    for split_id in DATASET_SPLIT_HASHES:
         data = load_split(
             split_id=split_id,
             # passing respective hash tuple for given split_id
