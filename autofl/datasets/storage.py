@@ -4,9 +4,9 @@ from typing import Tuple
 
 import numpy
 import requests
-from absl import logging
+from absl import flags
 
-logging.set_verbosity(logging.DEBUG)
+FLAGS = flags.FLAGS
 
 
 def sha1checksum(fpath: str):
@@ -66,7 +66,7 @@ def load_ndarray(
     dataset_dir = get_dataset_dir(dataset_name, local_datasets_dir)
     fpath = os.path.join(dataset_dir, ndarray_name)
 
-    if not os.path.isfile(fpath):
+    if FLAGS.fetch_datasets and not os.path.isfile(fpath):
         fetch_ndarray(url, fpath)
 
     sha1 = sha1checksum(fpath)

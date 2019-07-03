@@ -16,6 +16,6 @@ flags.DEFINE_string(
 )
 flags.DEFINE_boolean(
     "fetch_datasets",
-    False,
+    True,
     "Indicates if remote datasets should be fetched if required.",
 )
