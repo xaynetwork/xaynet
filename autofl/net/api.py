@@ -2,7 +2,7 @@ import math
 
 import tensorflow as tf
 
-from ..flenv import arch
+from . import arch
 from .resnet import resnet
 
 

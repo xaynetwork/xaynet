@@ -9,7 +9,7 @@ from numpy import ndarray
 from .. import flenv
 from ..datasets import cifar10_random_splits_10
 from ..fedml import Coordinator, Participant, RandomController
-from ..flenv.arch import Architecture, build_architecture, parse_arch_str
+from ..net.arch import Architecture, build_architecture, parse_arch_str
 
 FLAGS = flags.FLAGS
 
