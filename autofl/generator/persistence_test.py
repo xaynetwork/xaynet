@@ -32,10 +32,10 @@ def check_federated_dataset_equality(
 def test_dataset_to_fname_ndarray_tuple_list(mock_random_splits_2_dataset):
     # Prepare
     fnames_expected = [
-        "x_0.npy",
-        "y_0.npy",
-        "x_1.npy",
-        "y_1.npy",
+        "x_00.npy",
+        "y_00.npy",
+        "x_01.npy",
+        "y_01.npy",
         "x_test.npy",
         "y_test.npy",
     ]
@@ -98,10 +98,10 @@ def test_save_splits(monkeypatch, tmp_path, mock_random_splits_2_dataset):
 
     # -> Files which are supposed to be saved
     files_to_be_saved = [
-        ("x_0.npy", xy_splits[0][0], tmp_path),
-        ("y_0.npy", xy_splits[0][1], tmp_path),
-        ("x_1.npy", xy_splits[1][0], tmp_path),
-        ("y_1.npy", xy_splits[1][1], tmp_path),
+        ("x_00.npy", xy_splits[0][0], tmp_path),
+        ("y_00.npy", xy_splits[0][1], tmp_path),
+        ("x_01.npy", xy_splits[1][0], tmp_path),
+        ("y_01.npy", xy_splits[1][1], tmp_path),
         ("x_test.npy", xy_test[0], tmp_path),
         ("y_test.npy", xy_test[1], tmp_path),
     ]
@@ -156,7 +156,7 @@ def test_save_load_splits(tmp_path, mock_random_splits_2_dataset):
 
     dataset_actual = (
         # train set
-        [(d["x_0"], d["y_0"]), (d["x_1"], d["y_1"])],
+        [(d["x_00"], d["y_00"]), (d["x_01"], d["y_01"])],
         # test set
         (d["x_test"], d["y_test"]),
     )

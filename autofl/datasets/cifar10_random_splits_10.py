@@ -1,69 +1,94 @@
+from typing import Tuple
+
+from absl import flags
+
 from ..types import FederatedDataset
 from . import storage
-from .config import get_config
+
+FLAGS = flags.FLAGS
 
 DATASET_NAME = "cifar10_random_splits_10"
-
 DATASET_SPLIT_HASHES = {
-    "x_0.npy": "d302de44a32a31a6c2930b053684ecd8b42cb681",
-    "x_1.npy": "c15f47ee6952558bc679866a49dbf9671d1c3de0",
-    "x_2.npy": "3d1043525d1661f9867fcdfd885d74877154d1c6",
-    "x_3.npy": "36cd5d81f399a94251da0230c7dce6dfbcde08ca",
-    "x_4.npy": "bbdf9c8e8fb3caff23016a22b9b7fd823a79b96e",
-    "x_5.npy": "ab028c7e44c8e1786aa9ca13a463bbd2219ddb7d",
-    "x_6.npy": "b4e5e7360682f3708cffba852ba8fb819cfa919c",
-    "x_7.npy": "ab24961a27c02e509d3589737b42f44be85b4b59",
-    "x_8.npy": "277c169c7a71e78a2c726e6d7558b614778f2036",
-    "x_9.npy": "e0067be90c8acf4c3286c29a5789a2b0131bc2f7",
-    "y_0.npy": "e3f704ced3290d35cf4b2b5b59a04267ddb2c985",
-    "y_1.npy": "e5ad82230e725e7c130ea30f968b5c5827069005",
-    "y_2.npy": "17aecfe65967a3af1e1e56850a46f30cf994c7a2",
-    "y_3.npy": "3ff2eaaa878fdabdec881a8c56ee359b41a5058d",
-    "y_4.npy": "e3217dbbacb655b008d82f21dfe7ac0fd77a5e42",
-    "y_5.npy": "8e85b62f14cc3ea8562d6de225caf2e5621e6871",
-    "y_6.npy": "a5c7433c5ec57f8a79704c6cc5bcb63dfd733b5c",
-    "y_7.npy": "7e2e41829d7fd0e72ba9824ded5fcc0fa51ae671",
-    "y_8.npy": "2fa72d6d81bb2713bd2c50430b063b38c8b0bf07",
-    "y_9.npy": "492d0add0f969cc7f3eeef772c013b06fe1b835b",
-    "x_test.npy": "b3445026a7109c894048d592569b09c8344d167e",
-    "y_test.npy": "44127f76beca2a38125f22debb2c6d92631e4080",
+    "00": (
+        "d302de44a32a31a6c2930b053684ecd8b42cb681",
+        "e3f704ced3290d35cf4b2b5b59a04267ddb2c985",
+    ),
+    "01": (
+        "c15f47ee6952558bc679866a49dbf9671d1c3de0",
+        "e5ad82230e725e7c130ea30f968b5c5827069005",
+    ),
+    "02": (
+        "3d1043525d1661f9867fcdfd885d74877154d1c6",
+        "17aecfe65967a3af1e1e56850a46f30cf994c7a2",
+    ),
+    "03": (
+        "36cd5d81f399a94251da0230c7dce6dfbcde08ca",
+        "3ff2eaaa878fdabdec881a8c56ee359b41a5058d",
+    ),
+    "04": (
+        "bbdf9c8e8fb3caff23016a22b9b7fd823a79b96e",
+        "e3217dbbacb655b008d82f21dfe7ac0fd77a5e42",
+    ),
+    "05": (
+        "ab028c7e44c8e1786aa9ca13a463bbd2219ddb7d",
+        "8e85b62f14cc3ea8562d6de225caf2e5621e6871",
+    ),
+    "06": (
+        "b4e5e7360682f3708cffba852ba8fb819cfa919c",
+        "a5c7433c5ec57f8a79704c6cc5bcb63dfd733b5c",
+    ),
+    "07": (
+        "ab24961a27c02e509d3589737b42f44be85b4b59",
+        "7e2e41829d7fd0e72ba9824ded5fcc0fa51ae671",
+    ),
+    "08": (
+        "277c169c7a71e78a2c726e6d7558b614778f2036",
+        "2fa72d6d81bb2713bd2c50430b063b38c8b0bf07",
+    ),
+    "09": (
+        "e0067be90c8acf4c3286c29a5789a2b0131bc2f7",
+        "492d0add0f969cc7f3eeef772c013b06fe1b835b",
+    ),
+    "test": (
+        "b3445026a7109c894048d592569b09c8344d167e",
+        "44127f76beca2a38125f22debb2c6d92631e4080",
+    ),
 }
 
 
-def load_splits() -> FederatedDataset:
+def load_splits(local_datasets_dir: str = FLAGS.local_datasets_dir) -> FederatedDataset:
     xy_splits = []
+    xy_test = (None, None)
 
-    for i in range(10):
-        split_id = str(i).zfill(2)
-        xy_splits.append(load_split(split_id))
+    for split_id in DATASET_SPLIT_HASHES:
+        data = load_split(
+            split_id=split_id,
+            # passing respective hash tuple for given split_id
+            split_hashes=DATASET_SPLIT_HASHES[split_id],
+            local_datasets_dir=local_datasets_dir,
+        )
 
-    xy_test = load_split("test")
+        if split_id == "test":
+            xy_test = data
+        else:
+            xy_splits.append(data)
 
     return xy_splits, xy_test
 
 
-def load_split(split_id, local_datasets_dir: str = get_config("local_datasets_dir")):
-    valid_ids = set(
-        ["00", "01", "02", "03", "04", "05", "06", "07", "08", "09", "test"]
-    )
+def load_split(
+    split_id: str,
+    split_hashes: Tuple[str, str],
+    local_datasets_dir: str = FLAGS.local_datasets_dir,
+):
+    assert split_id in set(DATASET_SPLIT_HASHES.keys())
 
-    assert split_id in valid_ids
-
-    x_split_name = "x_{}.npy".format(split_id)
-    y_split_name = "y_{}.npy".format(split_id)
-
-    x_i = storage.download_remote_ndarray(
-        datasets_repository=get_config("datasets_repository"),
+    x_i, y_i = storage.load_split(
+        datasets_repository=FLAGS.datasets_repository,
         dataset_name=DATASET_NAME,
-        split_name=x_split_name,
+        split_id=split_id,
+        split_hashes=split_hashes,
         local_datasets_dir=local_datasets_dir,
     )
 
-    y_i = storage.download_remote_ndarray(
-        datasets_repository=get_config("datasets_repository"),
-        dataset_name=DATASET_NAME,
-        split_name=y_split_name,
-        local_datasets_dir=local_datasets_dir,
-    )
-
-    return (x_i, y_i)
+    return x_i, y_i

@@ -1,8 +1,8 @@
 from absl import logging
 
-from autofl.data import data  # FIXME remove after refactoring
 from autofl.datasets import cifar10_random_splits_10
 from autofl.fedml import Coordinator, Participant, RandomController
+from autofl.generator import data
 from autofl.net import fc_compiled, resnet_v2_20_compiled
 
 

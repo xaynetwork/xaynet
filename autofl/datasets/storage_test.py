@@ -7,40 +7,63 @@ from . import storage
 
 
 @pytest.mark.integration
-def test_download_remote_ndarray(tmp_path, mock_datasets_repository):
+def test_load_ndarray(tmp_path, mock_datasets_repository):
 
     # Prepare
     dataset_name = "integration_test"
-    split_name = "ones32.npy"
+    ndarray_name = "ones32.npy"
+    ndarray_hash = "6a052c9b5c04e51a84b5ae4b0539707236a979aa"
 
     ndarray_expected = numpy.ones((3, 2))
 
-    # Execute
     t1 = time() * 1000.0
 
-    ndarray_actual = storage.download_remote_ndarray(
+    # Execute
+    ndarray_actual = storage.load_ndarray(
         datasets_repository=mock_datasets_repository,
         dataset_name=dataset_name,
-        split_name=split_name,
+        ndarray_name=ndarray_name,
+        ndarray_hash=ndarray_hash,
         local_datasets_dir=tmp_path,
     )
 
     t2 = time() * 1000.0
 
+    # Assert
     # Loading from remote should take less than 1000ms
     assert (t2 - t1) < 1000
+    numpy.testing.assert_equal(ndarray_actual, ndarray_expected)
 
-    ndarray_actual = storage.download_remote_ndarray(
+    # Execute
+    ndarray_actual = storage.load_ndarray(
         datasets_repository=mock_datasets_repository,
         dataset_name=dataset_name,
-        split_name=split_name,
+        ndarray_name=ndarray_name,
+        ndarray_hash=ndarray_hash,
         local_datasets_dir=tmp_path,
     )
 
     t3 = time() * 1000.0
 
+    # Assert
     # Loading from disk should take less than 10ms
     assert (t3 - t2) < 10
-
-    # Assert
     numpy.testing.assert_equal(ndarray_actual, ndarray_expected)
+
+
+@pytest.mark.xfail
+@pytest.mark.integration
+def test_load_ndarray_wrong_hash(tmp_path, mock_datasets_repository):
+    # Prepare
+    dataset_name = "integration_test"
+    ndarray_name = "ones32.npy"
+    ndarray_hash = "wrong_hash"
+
+    # Execute and expect to fail
+    storage.load_ndarray(
+        datasets_repository=mock_datasets_repository,
+        dataset_name=dataset_name,
+        ndarray_name=ndarray_name,
+        ndarray_hash=ndarray_hash,
+        local_datasets_dir=tmp_path,
+    )

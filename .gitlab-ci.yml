@@ -21,3 +21,8 @@ test:
   stage: qa
   script:
     - ./scripts/test.sh
+
+test_slow:
+  stage: qa
+  script:
+    - ./scripts/test_slow.sh
