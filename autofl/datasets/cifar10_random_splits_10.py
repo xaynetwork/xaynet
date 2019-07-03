@@ -1,48 +1,11 @@
 from typing import Tuple
 
+from absl import flags
+
 from ..types import FederatedDataset
 from . import storage
-from .config import get_config
 
-
-def load_splits() -> FederatedDataset:
-    xy_splits = []
-
-    for i in range(10):
-        split_id = str(i).zfill(2)
-        xy_split = load_split(
-            split_id=split_id,
-            # passing respective hash tuple for given split_id
-            split_hashes=DATASET_SPLIT_HASHES[split_id],
-        )
-        xy_splits.append(xy_split)
-
-    xy_test = load_split("test", split_hashes=DATASET_SPLIT_HASHES["test"])
-
-    return xy_splits, xy_test
-
-
-def load_split(
-    split_id: str,
-    split_hashes: Tuple[str, str],
-    local_datasets_dir: str = get_config("local_datasets_dir"),
-):
-    valid_ids = set(
-        ["00", "01", "02", "03", "04", "05", "06", "07", "08", "09", "test"]
-    )
-
-    assert split_id in valid_ids
-
-    x_i, y_i = storage.load_split(
-        datasets_repository=get_config("datasets_repository"),
-        dataset_name=DATASET_NAME,
-        split_id=split_id,
-        split_hashes=split_hashes,
-        local_datasets_dir=local_datasets_dir,
-    )
-
-    return x_i, y_i
-
+FLAGS = flags.FLAGS
 
 DATASET_NAME = "cifar10_random_splits_10"
 DATASET_SPLIT_HASHES = {
@@ -91,3 +54,47 @@ DATASET_SPLIT_HASHES = {
         "44127f76beca2a38125f22debb2c6d92631e4080",
     ),
 }
+
+
+def load_splits(local_datasets_dir: str = FLAGS.local_datasets_dir) -> FederatedDataset:
+    xy_splits = []
+
+    for i in range(10):
+        split_id = str(i).zfill(2)
+        xy_split = load_split(
+            split_id=split_id,
+            # passing respective hash tuple for given split_id
+            split_hashes=DATASET_SPLIT_HASHES[split_id],
+            local_datasets_dir=local_datasets_dir,
+        )
+        xy_splits.append(xy_split)
+
+    xy_test = load_split(
+        split_id="test",
+        split_hashes=DATASET_SPLIT_HASHES["test"],
+        local_datasets_dir=local_datasets_dir,
+    )
+
+    return xy_splits, xy_test
+
+
+def load_split(
+    split_id: str,
+    split_hashes: Tuple[str, str],
+    local_datasets_dir: str = FLAGS.local_datasets_dir,
+):
+    valid_ids = set(
+        ["00", "01", "02", "03", "04", "05", "06", "07", "08", "09", "test"]
+    )
+
+    assert split_id in valid_ids
+
+    x_i, y_i = storage.load_split(
+        datasets_repository=FLAGS.datasets_repository,
+        dataset_name=DATASET_NAME,
+        split_id=split_id,
+        split_hashes=split_hashes,
+        local_datasets_dir=local_datasets_dir,
+    )
+
+    return x_i, y_i

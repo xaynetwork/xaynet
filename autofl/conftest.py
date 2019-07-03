@@ -1,7 +1,14 @@
 import numpy as np
 import pytest
+from absl import flags
 
 from .types import KerasDataset
+
+FLAGS = flags.FLAGS
+
+# Invoking FLAGS will make the flags usable for the
+# test execution and avoid throwing an error
+FLAGS(argv=["test"])
 
 
 def create_mock_dataset() -> KerasDataset:
@@ -20,9 +27,3 @@ def create_mock_dataset() -> KerasDataset:
 def mock_dataset() -> KerasDataset:
     """dataset mock after it went through internal load method"""
     return create_mock_dataset()
-
-
-def pytest_collection_modifyitems(items):
-    for item in items:
-        if not any(item.iter_markers()):
-            item.add_marker("unmarked")

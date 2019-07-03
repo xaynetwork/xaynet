@@ -1,10 +1,12 @@
 import hashlib
 import os
-import shutil
 from typing import Tuple
 
 import numpy
 import requests
+from absl import logging
+
+logging.set_verbosity(logging.DEBUG)
 
 
 def sha1checksum(fpath: str):
@@ -32,10 +34,15 @@ def get_dataset_dir(dataset_name: str, local_datasets_dir: str) -> str:
 
 def fetch_ndarray(url, fpath):
     """Get file from fpath and store at fpath"""
-    response = requests.get(url, stream=True)
+    r = requests.get(url, stream=True)
 
-    with open(fpath, "wb") as fin:
-        shutil.copyfileobj(response.raw, fin)
+    if r.status_code != 200:
+        raise Exception("Received HTTP Status {} for url {}".format(r.status_code, url))
+
+    handle = open(fpath, "wb")
+    for chunk in r.iter_content(chunk_size=1024):
+        if chunk:  # filter out keep-alive new chunks
+            handle.write(chunk)
 
 
 def load_ndarray(
@@ -52,6 +59,7 @@ def load_ndarray(
     dataset_name (str): Name of dataset in repository
     ndarray_name (str): ndarray name. Example: "x0.npy"
     local_datasets_dir (str): Directory in which all local datasets are stored
+    cleanup (bool): Cleanup file if it has the wrong hash
     """
     url = "{}/{}/{}".format(datasets_repository, dataset_name, ndarray_name)
 
@@ -63,7 +71,17 @@ def load_ndarray(
 
     sha1 = sha1checksum(fpath)
 
-    assert sha1 == ndarray_hash, "Given hash does not match file hash"
+    if sha1 != ndarray_hash:
+        # Delete the downloaded file if it has the wrong hash
+        # Otherwise the next invocation will not download it again
+        # which is not a desired behavior
+        os.remove(fpath)
+
+        raise Exception(
+            "Given hash {} for file {} does not match".format(
+                ndarray_hash, ndarray_name
+            )
+        )
 
     ndarray = numpy.load(fpath)
 
@@ -77,10 +95,10 @@ def load_split(
     split_hashes: Tuple[str, str],
     local_datasets_dir=str,
 ):
-    x_name = "x_{}.ndy".format(split_id)
+    x_name = "x_{}.npy".format(split_id)
     x_hash = split_hashes[0]
 
-    y_name = "y_{}.ndy".format(split_id)
+    y_name = "y_{}.npy".format(split_id)
     y_hash = split_hashes[1]
 
     x = load_ndarray(

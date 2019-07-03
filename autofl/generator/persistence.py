@@ -29,7 +29,7 @@ def dataset_to_fname_ndarray_tuple_list(
 
     # Add all splits as tuples to fname_ndarray_tuple
     for i, split in enumerate(xy_splits):
-        fname_ndarray_tuples += to_fname_ndarray_tuple(xy=split, suffix=str(i))
+        fname_ndarray_tuples += to_fname_ndarray_tuple(xy=split, suffix=str(i).zfill(2))
 
     # Add test set to files which will be stored
     fname_ndarray_tuples += to_fname_ndarray_tuple(xy=xy_test, suffix="test")
