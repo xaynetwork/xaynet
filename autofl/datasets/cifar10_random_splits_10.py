@@ -58,22 +58,20 @@ DATASET_SPLIT_HASHES = {
 
 def load_splits(local_datasets_dir: str = FLAGS.local_datasets_dir) -> FederatedDataset:
     xy_splits = []
+    xy_test = (None, None)
 
-    for i in range(10):
-        split_id = str(i).zfill(2)
-        xy_split = load_split(
+    for split_id, _ in DATASET_SPLIT_HASHES:
+        data = load_split(
             split_id=split_id,
             # passing respective hash tuple for given split_id
             split_hashes=DATASET_SPLIT_HASHES[split_id],
             local_datasets_dir=local_datasets_dir,
         )
-        xy_splits.append(xy_split)
 
-    xy_test = load_split(
-        split_id="test",
-        split_hashes=DATASET_SPLIT_HASHES["test"],
-        local_datasets_dir=local_datasets_dir,
-    )
+        if split_id == "test":
+            xy_test = data
+        else:
+            xy_splits.append(data)
 
     return xy_splits, xy_test
 
@@ -83,11 +81,7 @@ def load_split(
     split_hashes: Tuple[str, str],
     local_datasets_dir: str = FLAGS.local_datasets_dir,
 ):
-    valid_ids = set(
-        ["00", "01", "02", "03", "04", "05", "06", "07", "08", "09", "test"]
-    )
-
-    assert split_id in valid_ids
+    assert split_id in set(DATASET_SPLIT_HASHES.keys())
 
     x_i, y_i = storage.load_split(
         datasets_repository=FLAGS.datasets_repository,
