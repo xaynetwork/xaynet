@@ -1,14 +1,7 @@
 import numpy as np
 import pytest
-from absl import flags
 
 from .types import KerasDataset
-
-FLAGS = flags.FLAGS
-
-# Invoking FLAGS will make the flags usable for the
-# test execution and avoid throwing an error
-FLAGS(argv=["test"])
 
 
 def create_mock_dataset() -> KerasDataset:
