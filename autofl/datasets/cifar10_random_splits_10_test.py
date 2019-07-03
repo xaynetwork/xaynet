@@ -30,7 +30,6 @@ def test_load_splits(tmp_path):
         assert isinstance(y, np.ndarray)
 
 
-@pytest.mark.xfail
 @pytest.mark.integration
 def test_load_splits_without_fetch(tmp_path, disable_fetch):  # pylint: disable=W0613
     # Prepare
@@ -38,19 +37,8 @@ def test_load_splits_without_fetch(tmp_path, disable_fetch):  # pylint: disable=
         return tmp_path
 
     # Execute
-    xy_splits_actual, xy_test_actual = cifar10.load_splits(
-        get_local_datasets_dir=get_local_datasets_dir
-    )
-
-    # Assert
-    assert isinstance(xy_splits_actual, list)
-    assert isinstance(xy_test_actual, tuple)
-
-    for xy in xy_splits_actual:
-        x, y = xy
-
-        assert isinstance(x, np.ndarray)
-        assert isinstance(y, np.ndarray)
+    with pytest.raises(Exception):
+        cifar10.load_splits(get_local_datasets_dir=get_local_datasets_dir)
 
 
 def test_load_split(monkeypatch, tmp_path):
@@ -58,7 +46,7 @@ def test_load_split(monkeypatch, tmp_path):
     def get_local_datasets_dir():
         return tmp_path
 
-    split_id_expected = "05"
+    split_id_expected = "00"
     split_hashes_expected = ("foo", "bar")
     x_expected = np.ones((3, 2))
     y_expected = np.ones((3))

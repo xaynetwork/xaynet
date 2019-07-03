@@ -3,9 +3,6 @@ This conftest should only contain options for pytest
 itself but nothing like fixtures etc.
 """
 import pytest
-from absl import flags
-
-FLAGS = flags.FLAGS
 
 
 def pytest_addoption(parser):
@@ -27,9 +24,3 @@ def pytest_collection_modifyitems(config, items):
 
         if not config.getoption("--runslow") and "slow" in item.keywords:
             item.add_marker(skip_slow)
-
-
-def pytest_runtest_setup():
-    # Invoking FLAGS will make the flags usable for the
-    # test execution and avoid throwing an error
-    FLAGS(argv=["test"])

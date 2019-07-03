@@ -7,8 +7,3 @@ FLAGS = flags.FLAGS
 @pytest.fixture
 def mock_datasets_repository() -> str:
     return "https://s3.eu-central-1.amazonaws.com/datasets.xain.io/autofl"
-
-
-@pytest.fixture
-def disable_fetch():
-    FLAGS(["test", "--fetch_datasets=False"])
