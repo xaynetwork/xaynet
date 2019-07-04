@@ -56,7 +56,13 @@ DATASET_SPLIT_HASHES = {
 }
 
 
-def load_splits(local_datasets_dir: str = FLAGS.local_datasets_dir) -> FederatedDataset:
+def default_get_local_datasets_dir():
+    return FLAGS.local_datasets_dir
+
+
+def load_splits(
+    get_local_datasets_dir=default_get_local_datasets_dir
+) -> FederatedDataset:
     xy_splits = []
     xy_test = (None, None)
 
@@ -65,7 +71,7 @@ def load_splits(local_datasets_dir: str = FLAGS.local_datasets_dir) -> Federated
             split_id=split_id,
             # passing respective hash tuple for given split_id
             split_hashes=DATASET_SPLIT_HASHES[split_id],
-            local_datasets_dir=local_datasets_dir,
+            get_local_datasets_dir=get_local_datasets_dir,
         )
 
         if split_id == "test":
@@ -79,7 +85,7 @@ def load_splits(local_datasets_dir: str = FLAGS.local_datasets_dir) -> Federated
 def load_split(
     split_id: str,
     split_hashes: Tuple[str, str],
-    local_datasets_dir: str = FLAGS.local_datasets_dir,
+    get_local_datasets_dir=default_get_local_datasets_dir,
 ):
     assert split_id in set(DATASET_SPLIT_HASHES.keys())
 
@@ -88,7 +94,7 @@ def load_split(
         dataset_name=DATASET_NAME,
         split_id=split_id,
         split_hashes=split_hashes,
-        local_datasets_dir=local_datasets_dir,
+        local_datasets_dir=get_local_datasets_dir(),
     )
 
     return x_i, y_i

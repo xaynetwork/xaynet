@@ -6,9 +6,21 @@ from .types import KerasDataset
 
 FLAGS = flags.FLAGS
 
-# Invoking FLAGS will make the flags usable for the
-# test execution and avoid throwing an error
-FLAGS(argv=["test"])
+
+def pytest_runtest_setup():
+    # Invoking FLAGS will make the flags usable for the
+    # test execution and avoid throwing an error
+    FLAGS(
+        argv=[
+            "test",  # some app name required
+            "--fetch_datasets=True",  # resetting to default at beginning of every test
+        ]
+    )
+
+
+@pytest.fixture
+def disable_fetch():
+    FLAGS(["test", "--fetch_datasets=False"])
 
 
 def create_mock_dataset() -> KerasDataset:

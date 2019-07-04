@@ -10,8 +10,14 @@ from . import storage
 @pytest.mark.slow
 @pytest.mark.integration
 def test_load_splits(tmp_path):
+    # Prepare
+    def get_local_datasets_dir():
+        return tmp_path
+
     # Execute
-    xy_splits_actual, xy_test_actual = cifar10.load_splits(local_datasets_dir=tmp_path)
+    xy_splits_actual, xy_test_actual = cifar10.load_splits(
+        get_local_datasets_dir=get_local_datasets_dir
+    )
 
     # Assert
     assert isinstance(xy_splits_actual, list)
@@ -24,14 +30,28 @@ def test_load_splits(tmp_path):
         assert isinstance(y, np.ndarray)
 
 
+@pytest.mark.integration
+def test_load_splits_without_fetch(tmp_path, disable_fetch):  # pylint: disable=W0613
+    # Prepare
+    def get_local_datasets_dir():
+        return tmp_path
+
+    # Execute
+    with pytest.raises(Exception):
+        cifar10.load_splits(get_local_datasets_dir=get_local_datasets_dir)
+
+
 def test_load_split(monkeypatch, tmp_path):
     # Prepare
-    split_id_expected = "05"
+    def get_local_datasets_dir():
+        return tmp_path
+
+    split_id_expected = "00"
     split_hashes_expected = ("foo", "bar")
     x_expected = np.ones((3, 2))
     y_expected = np.ones((3))
 
-    def mock_load_split(
+    def mock_storage_load_split(
         datasets_repository: str,
         dataset_name: str,
         split_id: str,
@@ -51,13 +71,13 @@ def test_load_split(monkeypatch, tmp_path):
 
     # We are mocking the load_split method in the storage module
     # which will be called by the load_split method in the cifar10 module
-    monkeypatch.setattr(storage, "load_split", mock_load_split)
+    monkeypatch.setattr(storage, "load_split", mock_storage_load_split)
 
     # Execute
     x_actual, y_actual = cifar10.load_split(
         split_id=split_id_expected,
         split_hashes=split_hashes_expected,
-        local_datasets_dir=tmp_path,
+        get_local_datasets_dir=get_local_datasets_dir,
     )
 
     np.testing.assert_equal(x_actual, x_expected)
