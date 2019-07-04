@@ -1,8 +1,12 @@
+import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 import tensorflow as tf
 
 from . import data
+
+assert_equal = np.testing.assert_equal
+assert_raises = np.testing.assert_raises
 
 
 @pytest.mark.integration
@@ -85,12 +89,72 @@ def test_split_dims():
     assert all([ys.shape == y_splits[0].shape for i, ys in enumerate(y_splits)])
 
 
-def test_shuffle():
+def test_random_shuffle():
     # Prepare
     x = np.array([1, 2, 3, 4])
     y = np.array([11, 12, 13, 14])
     # Execute
-    xs, ys = data.shuffle(x, y, seed=42)
+    xs, ys = data.random_shuffle(x, y)
     # Assert
     for x, y in zip(xs, ys):
         assert x == (y - 10)
+
+
+def test_balanced_labels_shuffle_wrong_section_count():
+    # Prepare
+    examples = range(100, 200)
+    sorted_labels = range(10)
+
+    x = np.array(examples, dtype=np.int64)
+    y = np.tile(np.array(sorted_labels, dtype=np.int64), 10)
+
+    with pytest.raises(Exception):
+        data.balanced_labels_shuffle(x, y, section_count=3)
+
+
+# We will test for an example count of 100 so section_count needs to
+# be chosen so that "example_count / section_count" has no rest
+@pytest.mark.parametrize(
+    "section_count, example_count", [(2, 1000), (5, 1000), (10, 1000)]
+)
+def test_balanced_labels_shuffle(section_count, example_count):
+    # Prepare
+    unique_labels = range(10)  # 10 unique labels
+    label_count = len(unique_labels)
+
+    # Values will at the same time be their original labels
+    # We will later use this for asserting if the label relationship is still present
+    x = np.tile(np.array(unique_labels, dtype=np.int64), example_count // label_count)
+    y = np.tile(np.array(unique_labels, dtype=np.int64), example_count // label_count)
+
+    assert x.shape[0] == y.shape[0]
+
+    # Execute
+    x_shuffled, y_shuffled = data.balanced_labels_shuffle(
+        x, y, section_count=section_count
+    )
+
+    # Assert
+    # Create tuples for x,y splits so we can more easily analyze them
+    x_splits = np.split(x_shuffled, indices_or_sections=section_count, axis=0)
+    y_splits = np.split(y_shuffled, indices_or_sections=section_count, axis=0)
+
+    for index, y_split in enumerate(y_splits):
+        # Check that the split has the right size
+        assert y_split.shape[0] == int(example_count / section_count)
+        # Check that each segment contains each label
+        assert set(y_split) == set(unique_labels)
+
+        # Check that each y_split is uniquely shuffled
+        if index > 0:
+            with pytest.raises(Exception):
+                assert_equal(
+                    y_split,
+                    y_splits[0],
+                    err_msg="Each split should be uniquely shuffled",
+                )
+
+    # Check that each value still matches its label
+    for x_split, y_split in zip(x_splits, y_splits):
+        for x_i, y_i in zip(x_split, y_split):
+            assert x_i == y_i

@@ -54,7 +54,7 @@ def test_load_ndarray(tmp_path):
 def test_load_ndarray_wrong_hash(tmp_path):
     # Prepare
     dataset_name = "integration_test"
-    ndarray_name = "ones32.npy"
+    ndarray_name = "x_00.npy"
     ndarray_hash = "wrong_hash"
 
     # Execute and expect to fail

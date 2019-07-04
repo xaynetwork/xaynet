@@ -1,4 +1,5 @@
 import pytest
+from numpy import ndarray
 
 from ..conftest import create_mock_dataset
 from ..types import FederatedDataset, KerasDataset
@@ -27,7 +28,11 @@ class MockKerasDataset:  # pylint: disable=too-few-public-methods
         return create_mock_dataset()
 
 
+def shuffle_method(x: ndarray, y: ndarray):
+    return x, y
+
+
 @pytest.fixture
 def mock_random_splits_2_dataset() -> FederatedDataset:
     """dataset mock after it went through internal load method"""
-    return data.generate_splits(2, MockKerasDataset(), shuffle_train=False)
+    return data.generate_splits(2, MockKerasDataset(), shuffle_method=shuffle_method)
