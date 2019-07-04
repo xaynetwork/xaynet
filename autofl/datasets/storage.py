@@ -6,7 +6,13 @@ import numpy
 import requests
 from absl import flags
 
+from ..types import FederatedDataset
+
 FLAGS = flags.FLAGS
+
+
+def default_get_local_datasets_dir():
+    return FLAGS.local_datasets_dir
 
 
 def sha1checksum(fpath: str):
@@ -46,11 +52,7 @@ def fetch_ndarray(url, fpath):
 
 
 def load_ndarray(
-    datasets_repository: str,
-    dataset_name: str,
-    ndarray_name: str,
-    ndarray_hash: str,
-    local_datasets_dir: str,
+    dataset_name: str, ndarray_name: str, ndarray_hash: str, local_datasets_dir: str
 ):
     """Downloads dataset ndarray and loads from disk if already present
 
@@ -61,7 +63,7 @@ def load_ndarray(
     local_datasets_dir (str): Directory in which all local datasets are stored
     cleanup (bool): Cleanup file if it has the wrong hash
     """
-    url = "{}/{}/{}".format(datasets_repository, dataset_name, ndarray_name)
+    url = "{}/{}/{}".format(FLAGS.datasets_repository, dataset_name, ndarray_name)
 
     dataset_dir = get_dataset_dir(dataset_name, local_datasets_dir)
     fpath = os.path.join(dataset_dir, ndarray_name)
@@ -89,7 +91,6 @@ def load_ndarray(
 
 
 def load_split(
-    datasets_repository: str,
     dataset_name: str,
     split_id: str,
     split_hashes: Tuple[str, str],
@@ -102,7 +103,6 @@ def load_split(
     y_hash = split_hashes[1]
 
     x = load_ndarray(
-        datasets_repository=datasets_repository,
         dataset_name=dataset_name,
         ndarray_name=x_name,
         ndarray_hash=x_hash,
@@ -110,7 +110,6 @@ def load_split(
     )
 
     y = load_ndarray(
-        datasets_repository=datasets_repository,
         dataset_name=dataset_name,
         ndarray_name=y_name,
         ndarray_hash=y_hash,
@@ -118,3 +117,28 @@ def load_split(
     )
 
     return x, y
+
+
+def load_splits(
+    dataset_name: str,
+    dataset_split_hashes: dict,
+    get_local_datasets_dir=default_get_local_datasets_dir,
+) -> FederatedDataset:
+    xy_splits = []
+    xy_test = (None, None)
+
+    for split_id in dataset_split_hashes:
+        data = load_split(
+            dataset_name=dataset_name,
+            split_id=split_id,
+            # passing respective hash tuple for given split_id
+            split_hashes=dataset_split_hashes[split_id],
+            local_datasets_dir=get_local_datasets_dir(),
+        )
+
+        if split_id == "test":
+            xy_test = data
+        else:
+            xy_splits.append(data)
+
+    return xy_splits, xy_test

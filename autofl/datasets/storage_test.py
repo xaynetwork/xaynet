@@ -7,11 +7,11 @@ from . import storage
 
 
 @pytest.mark.integration
-def test_load_ndarray(tmp_path, mock_datasets_repository):
+def test_load_ndarray(tmp_path):
 
     # Prepare
     dataset_name = "integration_test"
-    ndarray_name = "ones32.npy"
+    ndarray_name = "x_00.npy"
     ndarray_hash = "6a052c9b5c04e51a84b5ae4b0539707236a979aa"
 
     ndarray_expected = numpy.ones((3, 2))
@@ -20,7 +20,6 @@ def test_load_ndarray(tmp_path, mock_datasets_repository):
 
     # Execute
     ndarray_actual = storage.load_ndarray(
-        datasets_repository=mock_datasets_repository,
         dataset_name=dataset_name,
         ndarray_name=ndarray_name,
         ndarray_hash=ndarray_hash,
@@ -36,7 +35,6 @@ def test_load_ndarray(tmp_path, mock_datasets_repository):
 
     # Execute
     ndarray_actual = storage.load_ndarray(
-        datasets_repository=mock_datasets_repository,
         dataset_name=dataset_name,
         ndarray_name=ndarray_name,
         ndarray_hash=ndarray_hash,
@@ -53,7 +51,7 @@ def test_load_ndarray(tmp_path, mock_datasets_repository):
 
 @pytest.mark.xfail
 @pytest.mark.integration
-def test_load_ndarray_wrong_hash(tmp_path, mock_datasets_repository):
+def test_load_ndarray_wrong_hash(tmp_path):
     # Prepare
     dataset_name = "integration_test"
     ndarray_name = "ones32.npy"
@@ -61,7 +59,6 @@ def test_load_ndarray_wrong_hash(tmp_path, mock_datasets_repository):
 
     # Execute and expect to fail
     storage.load_ndarray(
-        datasets_repository=mock_datasets_repository,
         dataset_name=dataset_name,
         ndarray_name=ndarray_name,
         ndarray_hash=ndarray_hash,

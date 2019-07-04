@@ -1,3 +1,4 @@
+# pylint: disable=R0801
 from typing import Tuple
 
 from absl import flags
@@ -56,41 +57,24 @@ DATASET_SPLIT_HASHES = {
 }
 
 
-def default_get_local_datasets_dir():
-    return FLAGS.local_datasets_dir
-
-
 def load_splits(
-    get_local_datasets_dir=default_get_local_datasets_dir
+    get_local_datasets_dir=storage.default_get_local_datasets_dir
 ) -> FederatedDataset:
-    xy_splits = []
-    xy_test = (None, None)
-
-    for split_id in DATASET_SPLIT_HASHES:
-        data = load_split(
-            split_id=split_id,
-            # passing respective hash tuple for given split_id
-            split_hashes=DATASET_SPLIT_HASHES[split_id],
-            get_local_datasets_dir=get_local_datasets_dir,
-        )
-
-        if split_id == "test":
-            xy_test = data
-        else:
-            xy_splits.append(data)
-
-    return xy_splits, xy_test
+    return storage.load_splits(
+        dataset_name=DATASET_NAME,
+        dataset_split_hashes=DATASET_SPLIT_HASHES,
+        get_local_datasets_dir=get_local_datasets_dir,
+    )
 
 
 def load_split(
     split_id: str,
     split_hashes: Tuple[str, str],
-    get_local_datasets_dir=default_get_local_datasets_dir,
+    get_local_datasets_dir=storage.default_get_local_datasets_dir,
 ):
     assert split_id in set(DATASET_SPLIT_HASHES.keys())
 
     x_i, y_i = storage.load_split(
-        datasets_repository=FLAGS.datasets_repository,
         dataset_name=DATASET_NAME,
         split_id=split_id,
         split_hashes=split_hashes,
