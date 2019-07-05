@@ -1,4 +1,3 @@
-# pylint: disable=R0801
 from typing import Tuple
 
 from absl import flags
