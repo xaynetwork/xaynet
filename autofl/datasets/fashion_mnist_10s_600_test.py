@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from . import cifar10_random_splits_10 as cifar10
+from . import fashion_mnist_10s_600 as fashion10
 
 
 @pytest.mark.slow
@@ -12,7 +12,7 @@ def test_load_splits(tmp_path):
         return tmp_path
 
     # Execute
-    xy_splits_actual, xy_test_actual = cifar10.load_splits(
+    xy_splits_actual, xy_test_actual = fashion10.load_splits(
         get_local_datasets_dir=get_local_datasets_dir
     )
 
@@ -35,4 +35,4 @@ def test_load_splits_without_fetch(tmp_path, disable_fetch):  # pylint: disable=
 
     # Execute
     with pytest.raises(Exception):
-        cifar10.load_splits(get_local_datasets_dir=get_local_datasets_dir)
+        fashion10.load_splits(get_local_datasets_dir=get_local_datasets_dir)

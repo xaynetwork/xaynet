@@ -1,4 +1,4 @@
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 import numpy as np
 import tensorflow as tf
@@ -19,14 +19,51 @@ def load(keras_dataset) -> KerasDataset:
     return (x_train, y_train), (x_test, y_test)
 
 
-def shuffle(
-    x: ndarray, y: ndarray, seed: Optional[int] = None
-) -> Tuple[ndarray, ndarray]:
+def random_shuffle(x: ndarray, y: ndarray) -> Tuple[ndarray, ndarray]:
     assert x.shape[0] == y.shape[0]
-    permutation = np.random.RandomState(seed=seed).permutation(x.shape[0])
+    permutation = np.random.RandomState(seed=SEED).permutation(x.shape[0])
     x_shuffled = x[permutation]
     y_shuffled = y[permutation]
     return x_shuffled, y_shuffled
+
+
+def balanced_labels_shuffle(
+    x: ndarray, y: ndarray, section_count=10
+) -> Tuple[ndarray, ndarray]:
+    """Shuffled y so that the labels are uniformly distributed in each section"""
+    assert x.shape[0] == y.shape[0], "x and y need to have them dimension on axis=0"
+
+    example_count = y.shape[0]
+    unique_label_count = np.unique(y).shape[0]
+    section_size = int(example_count / section_count)
+
+    assert (
+        unique_label_count % section_count == 0
+    ), "count of unique labels needs to be divideable by section_count"
+
+    assert (
+        example_count % section_count == 0
+    ), "Number of examples needs to be evenly divideable by section_count"
+
+    x_shuffled, y_shuffled = random_shuffle(x, y)
+
+    # Array of indices that sort a along the specified axis.
+    sort_indexes = np.argsort(y_shuffled, axis=0)
+
+    x_sorted = x_shuffled[sort_indexes]
+    y_sorted = y_shuffled[sort_indexes]
+
+    section_indicies = (
+        np.array(range(example_count), np.int64)
+        .reshape((section_size, section_count))
+        .transpose()
+        .reshape(example_count)
+    )
+
+    x_biased = x_sorted[section_indicies]
+    y_biased = y_sorted[section_indicies]
+
+    return x_biased, y_biased
 
 
 def split(
@@ -38,14 +75,13 @@ def split(
 
 
 def generate_splits(
-    num_splits: int, keras_dataset, shuffle_train=True
+    num_splits: int, keras_dataset, shuffle_method=random_shuffle
 ) -> FederatedDataset:
     (x_train, y_train), (x_test, y_test) = load(keras_dataset)
 
     assert x_train.shape[0] % num_splits == 0
 
-    if shuffle_train:
-        x_train, y_train = shuffle(x_train, y_train, seed=SEED)
+    x_train, y_train = shuffle_method(x_train, y_train)
 
     x_splits, y_splits = split(x_train, y_train, num_splits)
 
