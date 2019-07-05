@@ -32,51 +32,45 @@ def balanced_labels_shuffle(
 ) -> Tuple[ndarray, ndarray]:
     """Shuffled y so that the labels are uniformly distributed in each section"""
     assert x.shape[0] == y.shape[0], "x and y need to have them dimension on axis=0"
+
+    example_count = y.shape[0]
+    unique_label_count = np.unique(y).shape[0]
+    section_size = int(example_count / section_count)
+
     assert (
-        np.unique(y).shape[0] % section_count == 0
+        unique_label_count % section_count == 0
     ), "count of unique labels needs to be divideable by section_count"
 
-    samples_count = y.shape[0]
-
     assert (
-        samples_count % section_count == 0
+        example_count % section_count == 0
     ), "Number of examples needs to be evenly divideable by section_count"
 
-    # Number of samples per section e.g. for 60 samples and section_count=10 => 6
-    section_size = int(samples_count / section_count)
+    x_shuffled, y_shuffled = random_shuffle(x, y)
 
     # Array of indices that sort a along the specified axis.
-    index_array = np.argsort(y, axis=0)
+    sort_indexes = np.argsort(y_shuffled, axis=0)
 
-    x_sorted = x[index_array]
-    y_sorted = y[index_array]
+    x_sorted = x_shuffled[sort_indexes]
+    y_sorted = y_shuffled[sort_indexes]
 
-    # Create a permutation which will be the basis to shuffle each section in itself
-    global_permutation = np.array([], dtype=np.int64)
+    # for i in range(section_count):
+    #     section_start = i * section_size
+    #     section_end = section_start + section_size
+    #     section = y_sorted[section_start:section_end]
+    #     section_label_count = np.unique(section, return_counts=True)[1][0]
+    #     assert section_label_count == 10
 
-    # To create a global permutation we will first shift each entry
-    # in our permutation for each section by section_size
-    section_permutations = [
-        list(
-            map(
-                lambda x: x + (i * section_size),
-                # Use as seed = SEED + i so each section is uniquly shuffled
-                np.random.RandomState(seed=SEED + i).permutation(section_size),
-            )
-        )
-        for i in range(section_count)
-    ]
+    section_indicies = (
+        np.array(range(example_count), np.int64)
+        .reshape((section_size, section_count))
+        .transpose()
+        .reshape(example_count)
+    )
 
-    global_permutation = np.append(global_permutation, section_permutations)
+    x_biased = x_sorted[section_indicies]
+    y_biased = y_sorted[section_indicies]
 
-    x_shuffled = x[global_permutation]
-    y_shuffled = y[global_permutation]
-
-    return x_shuffled, y_shuffled
-
-    # 1. sort by labels
-    # 2. shuffle labels groups in themself
-    # 3. take into each split 600 from each label
+    return x_biased, y_biased
 
 
 def split(

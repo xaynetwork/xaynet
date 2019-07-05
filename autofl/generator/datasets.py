@@ -21,7 +21,7 @@ def generate_fashion_mnist_10s_600():
     dataset = data.generate_splits(
         num_splits=10,
         keras_dataset=tf.keras.datasets.fashion_mnist,
-        shuffle_method=data.balanced_classes_shuffle,
+        shuffle_method=data.balanced_labels_shuffle,
     )
 
     persistence.save_splits(
