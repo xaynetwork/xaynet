@@ -5,10 +5,6 @@ import pytest
 from . import fashion_mnist_10s_600 as fashion10
 
 
-# TODO:
-# regarding xfail implement dataset generation in
-# generate and upload; Afterwards remove xfail=expected-to-fail :)
-@pytest.mark.xfail
 @pytest.mark.slow
 @pytest.mark.integration
 def test_load_splits(tmp_path):

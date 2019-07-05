@@ -8,52 +8,51 @@ from . import storage
 
 FLAGS = flags.FLAGS
 
-DATASET_NAME = "fashion_mnist_600_per_class_10.py"
-# TODO: correct hashes
+DATASET_NAME = "fashion_mnist_10s_600"
 DATASET_SPLIT_HASHES = {
     "00": (
-        "123d302de44a32a31a6c2930b053684ecd8b42cb681",
-        "e3f701234ced3290d35cf4b2b5b59a04267ddb2c985",
+        "c008c5dcaf03d23962756f92e6cd09a902f20f8b",
+        "e67663f832358b645232f0d448d84e4d6e8c65cd",
     ),
     "01": (
-        "123c15f47ee6952558bc679866a49dbf9671d1c3de0",
-        "e5ad81232230e725e7c130ea30f968b5c5827069005",
+        "d403feaf91c7f4e896a20dc5408100fad5862842",
+        "e67663f832358b645232f0d448d84e4d6e8c65cd",
     ),
     "02": (
-        "1233d1043525d1661f9867fcdfd885d74877154d1c6",
-        "17aec123fe65967a3af1e1e56850a46f30cf994c7a2",
+        "9fa8e9995565c523943180dcc99eb0fca4d571e8",
+        "e67663f832358b645232f0d448d84e4d6e8c65cd",
     ),
     "03": (
-        "12336cd5d81f399a94251da0230c7dce6dfbcde08ca",
-        "3ff2e123aaa878fdabdec881a8c56ee359b41a5058d",
+        "eb719b95a6f77c9426e1850756e32363babe968f",
+        "e67663f832358b645232f0d448d84e4d6e8c65cd",
     ),
     "04": (
-        "123bbdf9c8e8fb3caff23016a22b9b7fd823a79b96e",
-        "e3217123dbbacb655b008d82f21dfe7ac0fd77a5e42",
+        "bb2656915fe174924fc91f0b84e6496d169a55a8",
+        "e67663f832358b645232f0d448d84e4d6e8c65cd",
     ),
     "05": (
-        "123ab028c7e44c8e1786aa9ca13a463bbd2219ddb7d",
-        "8e85b12362f14cc3ea8562d6de225caf2e5621e6871",
+        "6c01cd10d0b6285792826cac09b2e217a0810e40",
+        "e67663f832358b645232f0d448d84e4d6e8c65cd",
     ),
     "06": (
-        "123b4e5e7360682f3708cffba852ba8fb819cfa919c",
-        "a5c7412333c5ec57f8a79704c6cc5bcb63dfd733b5c",
+        "a850b38f94196ee00633db97b97476f0ab91ea2c",
+        "e67663f832358b645232f0d448d84e4d6e8c65cd",
     ),
     "07": (
-        "123ab24961a27c02e509d3589737b42f44be85b4b59",
-        "7e2e41231829d7fd0e72ba9824ded5fcc0fa51ae671",
+        "f4361082c4953046dedf669275da75819b9312f5",
+        "e67663f832358b645232f0d448d84e4d6e8c65cd",
     ),
     "08": (
-        "123277c169c7a71e78a2c726e6d7558b614778f2036",
-        "2fa72123d6d81bb2713bd2c50430b063b38c8b0bf07",
+        "597154fb56f18a585dca5372e53fd403465cac54",
+        "e67663f832358b645232f0d448d84e4d6e8c65cd",
     ),
     "09": (
-        "123e0067be90c8acf4c3286c29a5789a2b0131bc2f7",
-        "492d0123add0f969cc7f3eeef772c013b06fe1b835b",
+        "536d42f71f875f34003bd2a89ea2a886dff1a813",
+        "e67663f832358b645232f0d448d84e4d6e8c65cd",
     ),
     "test": (
-        "b3123445026a7109c894048d592569b09c8344d167e",
-        "44127f71236beca2a38125f22debb2c6d92631e4080",
+        "79e6584f3574e22e97dfe17ddf1b9856b3f2284f",
+        "b056ffe622e9a6cfb76862c5ecb120c73d4fd99e",
     ),
 }
 
