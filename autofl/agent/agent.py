@@ -70,8 +70,7 @@ def autofl():
     agent: Agent = RandomAgent(coordinator=coordinator)
     agent.train()
     # Evaluate final model
-    x_test, y_test = xy_test
-    loss, accuracy = agent.evaluate(x_test, y_test)
+    loss, accuracy = agent.evaluate(xy_test)
     logging.info("\nFinal loss and accuracy:", loss, accuracy)
 
 
@@ -85,7 +84,7 @@ class Agent:
     def sample_architecture(self, num_layers: int) -> Architecture:
         raise NotImplementedError("abstract method")
 
-    def evaluate(self, x_test: ndarray, y_test: ndarray) -> Tuple[float, float]:
+    def evaluate(self, xy_test: Tuple[ndarray, ndarray]) -> Tuple[float, float]:
         raise NotImplementedError("abstract method")
 
 
@@ -100,7 +99,7 @@ class LstmAgent(Agent):
     def sample_architecture(self, num_layers: int) -> Architecture:
         pass
 
-    def evaluate(self, x_test: ndarray, y_test: ndarray) -> Tuple[float, float]:
+    def evaluate(self, xy_test: Tuple[ndarray, ndarray]) -> Tuple[float, float]:
         pass
 
 
@@ -131,8 +130,8 @@ class RandomAgent(Agent):
     def sample_architecture(self, num_layers: int) -> Architecture:
         return sample_architecture(num_layers=3)
 
-    def evaluate(self, x_test: ndarray, y_test: ndarray) -> Tuple[float, float]:
-        return self.coordinator.evaluate(x_test, y_test)
+    def evaluate(self, xy_test: Tuple[ndarray, ndarray]) -> Tuple[float, float]:
+        return self.coordinator.evaluate(xy_test)
 
 
 def sample_architecture(num_layers: int) -> Architecture:
