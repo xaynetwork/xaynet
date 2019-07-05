@@ -53,13 +53,6 @@ def balanced_labels_shuffle(
     x_sorted = x_shuffled[sort_indexes]
     y_sorted = y_shuffled[sort_indexes]
 
-    # for i in range(section_count):
-    #     section_start = i * section_size
-    #     section_end = section_start + section_size
-    #     section = y_sorted[section_start:section_end]
-    #     section_label_count = np.unique(section, return_counts=True)[1][0]
-    #     assert section_label_count == 10
-
     section_indicies = (
         np.array(range(example_count), np.int64)
         .reshape((section_size, section_count))
