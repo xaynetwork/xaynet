@@ -6,3 +6,5 @@ from .cifar10_random_splits_10 import load_split as cifar10_random_splits_10_loa
 from .cifar10_random_splits_10 import (
     load_splits as cifar10_random_splits_10_load_splits,
 )
+from .fashion_mnist_10s_600 import load_split as fashion_mnist_10s_600_load_split
+from .fashion_mnist_10s_600 import load_splits as fashion_mnist_10s_600_load_splits
