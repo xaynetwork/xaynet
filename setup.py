@@ -12,9 +12,9 @@ install_requires = [
     "absl-py==0.7.1",
     "tensorflow-datasets==1.0.2",
     "tensorflow-federated==0.5.0",
-    "matplotlib==3.1.0",
-    "Pillow==6.0.0",
-    "gym==0.13.0",
+    "matplotlib==3.1.1",
+    "Pillow==6.1.0",
+    "gym[atari,box2d]==0.13.1",
     "requests==2.22.0",
 ]
 
