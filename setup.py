@@ -11,7 +11,7 @@ install_requires = [
     "numpy==1.15.4",
     "absl-py==0.7.1",
     "tensorflow-datasets==1.0.2",
-    "tensorflow-federated==0.5.0",
+    "tensorflow-federated==0.7.0",
     "matplotlib==3.1.1",
     "Pillow==6.1.0",
     "gym[atari,box2d]==0.13.1",
@@ -24,7 +24,7 @@ gpu_require = ["tensorflow-gpu==1.14.0"]
 
 dev_require = [
     "black==19.3b0",
-    "mypy==0.711",
+    "mypy==0.720",
     "pylint==2.3.1",
     "astroid<=2.2",
     "isort==4.3.20",
