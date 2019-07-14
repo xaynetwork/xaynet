@@ -9,10 +9,14 @@ def main(_):
     # Init env
     flenv.register_gym_env()
     env = gym.make("FederatedLearning-v0")
+
+    print("obervation_space: {}".format(env.observation_space))
+    print("action_space:     {}".format(env.action_space))
+
     # Exercise for a few steps
     s = env.reset()
     for step in range(env.num_rounds):
-        a = np.random.random_integers(0, 1, env.num_participants)
+        a = np.random.random_integers(0, 1, env.num_participants())
         s_prime, r, d, _ = env.step(a)
         exp = (s, a, r, s_prime, d)
         logging.info(

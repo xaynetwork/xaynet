@@ -10,7 +10,7 @@ from autofl.net import fc_compiled
 from ..datasets.api import fashion_mnist_10s_600_load_splits
 from ..fedml import Coordinator, Participant, RandomController
 
-NUM_ROUNDS = 7
+NUM_ROUNDS = 17
 
 
 def register_gym_env():
@@ -23,14 +23,14 @@ class FederatedLearningEnv(gym.Env):
 
     def __init__(self) -> None:
         self.coordinator = init_fl()
-        # TODO override env.state_space and env.action_space
-        # FIXME probably wrong, suggests that action in {0, ..., NUM_PARTICIPANTS-1}
-        self.action_space = gym.spaces.Discrete(self.coordinator.num_participants())
+        # Gym Env.observation_space and Env.action_space
+        nvec = [2] * self.coordinator.num_participants()
+        self.action_space = gym.spaces.MultiDiscrete(nvec)
         self.observation_space = gym.spaces.Box(
             low=0,
             high=1,
             shape=(NUM_ROUNDS, self.coordinator.num_participants()),
-            dtype=np.int8,
+            dtype=np.float32,
         )
         self.num_rounds = NUM_ROUNDS
         self.state: np.ndarray = self._initial_state()
