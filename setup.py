@@ -7,7 +7,7 @@ if sys.version_info < (3, 6):
     sys.exit("Please use Python version 3.6 or higher.")
 
 install_requires = [
-    "typing-extensions==3.7.2",
+    "typing-extensions==3.7.4",
     "numpy==1.15.4",
     "absl-py==0.7.1",
     "tensorflow-datasets==1.0.2",
