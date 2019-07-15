@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import Any, List, Tuple
 
 from numpy import ndarray
 
@@ -10,3 +10,5 @@ FederatedDatasetSplit = Tuple[ndarray, ndarray]
 FederatedDataset = Tuple[List[FederatedDatasetSplit], FederatedDatasetSplit]
 
 FnameNDArrayTuple = Tuple[str, ndarray]
+
+Transition = Tuple[ndarray, Any, float, ndarray, bool]
