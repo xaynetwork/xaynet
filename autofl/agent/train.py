@@ -88,3 +88,15 @@ def log_progress(
                 episode - 100, mean_episode_reward
             )
         )
+
+
+def watch(agent, env, epsilon=0.0, episodes=1, max_t=200):
+    for _ in range(episodes):
+        observation = env.reset()
+        for _ in range(max_t):
+            env.render()
+            action = agent.action(observation, epsilon=0.0)
+            observation, _, done, _ = env.step(action)
+            if done:
+                break
+    env.close()
