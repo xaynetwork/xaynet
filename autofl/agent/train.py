@@ -1,4 +1,3 @@
-from abc import ABC
 from collections import deque
 from typing import Deque, List
 
@@ -9,6 +8,7 @@ from absl import logging
 from .agent import Agent
 
 
+# pylint: disable-msg=too-many-arguments,too-many-locals
 def train(
     agent: Agent,
     env: gym.Env,
@@ -65,6 +65,7 @@ def train(
             break
 
 
+# pylint: disable-msg=too-many-arguments
 def log_progress(
     episode: int,
     mean_episode_reward: float,
