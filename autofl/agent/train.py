@@ -95,7 +95,7 @@ def watch(agent, env, epsilon=0.0, episodes=1, max_t=200):
         observation = env.reset()
         for _ in range(max_t):
             env.render()
-            action = agent.action(observation, epsilon=0.0)
+            action = agent.action(observation, epsilon=epsilon)
             observation, _, done, _ = env.step(action)
             if done:
                 break
