@@ -38,11 +38,15 @@ class FederatedLearningEnv(gym.Env):
         self.prev_reward = 0.0
 
     def step(self, action: np.ndarray) -> Tuple[Any, float, bool, Any]:
+        assert action.shape == (self.num_participants(),)
+        assert action.sum() >= 1  # There's at least one 1
+
         # Ask coordinator to train using the provided participants
-        logging.info("FlEnv: step() received action {}".format(action))
         indices = action_to_indices(action)
-        logging.info("FlEnv: Train using participants {}".format(indices))
-        self.coordinator.fit_round(indices)
+        logging.info(
+            "FlEnv: Train action {}, i.e. participants {}".format(action, indices)
+        )
+        self.coordinator.fit_round(indices.tolist())
 
         # Estimate loss and accuracy
         logging.info("FlEnv: Evaluate")
@@ -77,7 +81,7 @@ class FederatedLearningEnv(gym.Env):
 
 
 def action_to_indices(action: np.ndarray) -> np.ndarray:
-    return np.nonzero(action)[0]  # FIXME this is ugly
+    return np.argwhere(action == 1).squeeze(axis=1)
 
 
 def init_fl() -> Coordinator:
