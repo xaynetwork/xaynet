@@ -1,6 +1,7 @@
 # Derived from: https://github.com/udacity/deep-reinforcement-learning/blob/master/dqn/solution/dqn_agent.py  # pylint: disable-msg=line-too-long
 
 import random
+from typing import cast
 
 import numpy as np
 import torch
@@ -106,7 +107,7 @@ class TorchAgent(Agent):
         # Sample from transition buffer
         experiences = self.buffer.sample(k=self.batch_size)
         states, actions, rewards, next_states, dones = experiences
-        dones_bytes: torch.Tensor = dones.type(torch.uint8)
+        dones_bytes = cast(torch.Tensor, dones.type(dtype=torch.uint8))
 
         # Compute Q(s_t, a): Model computes Q(s_t), then we select the columns of actions taken
         state_action_values = self.dqn_policy(states).gather(1, actions)
