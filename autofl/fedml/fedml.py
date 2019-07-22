@@ -8,10 +8,10 @@ from .coordinator import Coordinator
 from .participant import init_participants
 
 
-def individual():
+def individual(_):
     # Load data
     xy_splits, xy_test = cifar10_random_splits_10.load_splits()
-    logging.info("Number of splits x/y train:", len(xy_splits))
+    logging.info("Number of splits x/y train: {}".format(len(xy_splits)))
 
     # Train independent models on each data partition
     # TODO common initialization for all participant models
@@ -25,13 +25,13 @@ def individual():
     for i, p in enumerate(participants):
         x_test, y_test = xy_test
         loss, accuracy = p.evaluate(x_test, y_test)
-        logging.info("Participant", i, ":", loss, accuracy)
+        logging.info("Participant {}: {}, {}".format(i, loss, accuracy))
 
 
-def round_robin():
+def round_robin(_):
     # Load data (multiple splits for training and one split for validation)
     xy_splits, xy_test = cifar10_random_splits_10.load_splits()
-    logging.info("Number of splits x/y train:", len(xy_splits))
+    logging.info("Number of splits x/y train: {}".format(len(xy_splits)))
 
     # Initialize participants and coordinator
     # Note that there is no need for common initialization at this point: Common
@@ -47,15 +47,15 @@ def round_robin():
 
     # Evaluate final model
     x_test, y_test = xy_test
-    loss, accuracy = coordinator.evaluate(x_test, y_test)
-    logging.info("Final loss and accuracy:", loss, accuracy)
+    loss, accuracy = coordinator.evaluate((x_test, y_test))
+    logging.info("\nFinal loss {}, accuracy {}".format(loss, accuracy))
 
 
-def federated_learning():
+def federated_learning(_):
     logging.info("\n\nStarting federated learning\n")
     # Load data (multiple splits for training and one split for validation)
     xy_splits, xy_test = cifar10_random_splits_10.load_splits()
-    logging.info("Number of splits x/y train:", len(xy_splits))
+    logging.info("Number of splits x/y train: {}".format(len(xy_splits)))
 
     # Initialize participants and coordinator
     # Note that there is no need for common initialization at this point: Common
@@ -71,5 +71,5 @@ def federated_learning():
 
     # Evaluate final model
     x_test, y_test = xy_test
-    loss, accuracy = coordinator.evaluate(x_test, y_test)
-    logging.info("\nFinal loss and accuracy:", loss, accuracy)
+    loss, accuracy = coordinator.evaluate((x_test, y_test))
+    logging.info("\nFinal loss {}, accuracy {}".format(loss, accuracy))

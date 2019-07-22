@@ -34,8 +34,7 @@ def eval_MNIST():
     coordinator.fit(num_rounds=2)
 
     # Evaluate
-    x_test, y_test = xy_test
-    loss, accuracy = coordinator.evaluate(x_test, y_test)
+    loss, accuracy = coordinator.evaluate(xy_test)
     logging.info("Final loss: {}, accuracy: {}".format(loss, accuracy))
 
 
@@ -78,6 +77,5 @@ def eval_CIFAR_10_with_random_controller():
     coordinator.fit(num_rounds=40)
 
     # Evaluate
-    x_test, y_test = xy_test
-    loss, accuracy = coordinator.evaluate(x_test, y_test)
+    loss, accuracy = coordinator.evaluate(xy_test)
     logging.info("Final loss: {}, accuracy: {}".format(loss, accuracy))

@@ -7,15 +7,18 @@ if sys.version_info < (3, 6):
     sys.exit("Please use Python version 3.6 or higher.")
 
 install_requires = [
-    "typing-extensions==3.7.2",
+    "typing-extensions==3.7.4",
     "numpy==1.15.4",
     "absl-py==0.7.1",
     "tensorflow-datasets==1.0.2",
-    "tensorflow-federated==0.5.0",
-    "matplotlib==3.1.0",
-    "Pillow==6.0.0",
-    "gym==0.13.0",
+    "tensorflow-federated==0.7.0",
+    "matplotlib==3.1.1",
+    "Pillow==6.1.0",
+    "gym[atari,box2d]==0.13.1",
     "requests==2.22.0",
+    "torch==1.1.0",
+    "torchvision==0.3.0",
+    "torchsummary==1.5.1",
 ]
 
 cpu_require = ["tensorflow==1.14.0"]
@@ -24,7 +27,7 @@ gpu_require = ["tensorflow-gpu==1.14.0"]
 
 dev_require = [
     "black==19.3b0",
-    "mypy==0.711",
+    "mypy==0.720",
     "pylint==2.3.1",
     "astroid<=2.2",
     "isort==4.3.20",

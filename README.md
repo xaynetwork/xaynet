@@ -35,3 +35,9 @@ The `autofl` package contains the following sub-packages:
 - `data`: Provides utilities to split existing datasets into shards in order to simulate a federated learning scenario. Other building blocks can be used to analyze, load, preprocess and augment the data partitions using `tf.data.Dataset`. Provided federated versions of popular vision datasets include:
   - CIFAR-10-F: A partitioned version of CIFAR-10
   - MNIST-F: A partitioned version of MNIST
+
+## Related Papers
+
+- [Communication-Efficient Learning of Deep Networks from Decentralized Data](https://arxiv.org/abs/1602.05629)
+- [Analyzing Federated Learning through an Adversarial Lens](https://arxiv.org/abs/1811.12470)
+- [Towards Federated Learning at Scale: System Design](https://arxiv.org/abs/1902.01046)

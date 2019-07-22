@@ -21,6 +21,7 @@ def load(keras_dataset) -> KerasDataset:
 
 def random_shuffle(x: ndarray, y: ndarray) -> Tuple[ndarray, ndarray]:
     assert x.shape[0] == y.shape[0]
+    # pylint: disable-msg=no-member
     permutation = np.random.RandomState(seed=SEED).permutation(x.shape[0])
     x_shuffled = x[permutation]
     y_shuffled = y[permutation]
