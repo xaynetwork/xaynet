@@ -1,5 +1,5 @@
 from absl import app
 
-from . import agent
+from . import federation_policy
 
-app.run(main=agent.main)
+app.run(main=federation_policy.main)
