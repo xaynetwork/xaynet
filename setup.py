@@ -16,7 +16,7 @@ install_requires = [
     "Pillow==6.1.0",
     "gym[atari,box2d]==0.13.1",
     "requests==2.22.0",
-    "torch==1.1.0.post2",
+    "torch==1.1.0",
     "torchvision==0.3.0",
     "torchsummary==1.5.1",
 ]
