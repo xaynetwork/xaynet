@@ -34,7 +34,10 @@ def train(
         # Start episode
         for _ in range(max_t):
             # Select action
-            action = agent.action(observation, epsilon)
+            if isinstance(env.action_space, gym.spaces.discrete.Discrete):
+                action = agent.action_discrete(observation, epsilon)
+            elif isinstance(env.action_space, gym.spaces.multi_discrete.MultiDiscrete):
+                action = agent.action_multi_discrete(observation, epsilon)
             # Take action
             next_observation, reward, done, _ = env.step(action)
             # Update agent with experience
@@ -46,7 +49,7 @@ def train(
             episode_reward += reward
             reward_min = min(reward_min, reward)
             reward_max = max(reward_max, reward)
-            #
+            # Stop if state is terminal
             if done:
                 break
 
@@ -95,7 +98,11 @@ def watch(agent, env, epsilon=0.0, episodes=1, max_t=200):
         observation = env.reset()
         for _ in range(max_t):
             env.render()
-            action = agent.action(observation, epsilon=epsilon)
+            # Select action
+            if isinstance(env.action_space, gym.spaces.discrete.Discrete):
+                action = agent.action_discrete(observation, epsilon)
+            elif isinstance(env.action_space, gym.spaces.multi_discrete.MultiDiscrete):
+                action = agent.action_multi_discrete(observation, epsilon)
             observation, _, done, _ = env.step(action)
             if done:
                 break

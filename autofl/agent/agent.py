@@ -11,7 +11,10 @@ from .transition_buffer import TransitionBuffer
 
 
 class Agent(ABC):
-    def action(self, observation, epsilon) -> int:
+    def action_discrete(self, observation, epsilon) -> int:
+        raise NotImplementedError()
+
+    def action_multi_discrete(self, observation, epsilon) -> np.ndarray:
         raise NotImplementedError()
 
     def update(self, transition: Transition) -> None:
