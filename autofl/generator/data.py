@@ -90,6 +90,73 @@ def group_by_label(x: ndarray, y: ndarray) -> Tuple[ndarray, ndarray]:
     return x_sorted, y_sorted
 
 
+def biased_balanced_labels_shuffle(  # pylint: disable=R0914
+    x: ndarray, y: ndarray, bias=1000
+) -> Tuple[ndarray, ndarray]:
+    """
+    Shuffle y so that the labels are uniformly distributed in each section
+    except one label which will have a bias. Considering the bias the rest
+    needs to be evenly dividable
+    """
+    assert x.shape[0] == y.shape[0], "x and y need to have them dimension on axis=0"
+
+    example_count = y.shape[0]
+    # section_count is equal to number of unique labels
+    unique_labels_set = set(y)
+    section_count = len(unique_labels_set)
+    section_size = int(example_count / section_count)
+
+    assert (
+        example_count % section_count == 0
+    ), "Number of examples needs to be evenly divideable by section_count"
+
+    # Array of indices that sort a along the specified axis.
+    sort_indexes = np.argsort(y, axis=0)
+
+    x_sorted = x[sort_indexes]
+    y_sorted = y[sort_indexes]
+
+    x_splits, y_splits = split(x_sorted, y_sorted, num_splits=section_count)
+
+    # Extract first "bias" from each split
+    x_biased_splits = [x_split[:bias] for x_split in x_splits]
+    y_biased_splits = [y_split[:bias] for y_split in y_splits]
+
+    for y_biased_split in y_biased_splits:
+        # Check that we got single label splits
+        assert len(set(y_biased_split)) == 1
+
+    # Merge rest
+    x_unbiased = np.append([], [x_split[bias:] for x_split in x_splits])
+    y_unbiased = np.append([], [y_split[bias:] for y_split in y_splits])
+
+    assert len(x_unbiased) == section_count * (
+        section_size - bias
+    ), "Length of unbiased elements should be equal to original length minus extracted bias"
+
+    # Create balanced shuffle of rest
+    x_balanced, y_balanced = balanced_labels_shuffle(
+        x_unbiased, y_unbiased, section_count=section_count
+    )
+
+    for y_balanced_split in np.split(y_balanced, indices_or_sections=section_count):
+        assert set(y_balanced_split) == unique_labels_set
+
+    # split unbiased splits again to be merged with biased splits
+    x_balanced_splits, y_balanced_splits = split(
+        x_balanced, y_balanced, num_splits=section_count
+    )
+
+    x_biased = np.append(
+        [], [np.append(x1, x2) for x1, x2 in zip(x_biased_splits, x_balanced_splits)]
+    )
+    y_biased = np.append(
+        [], [np.append(y1, y2) for y1, y2 in zip(y_biased_splits, y_balanced_splits)]
+    )
+
+    return x_biased, y_biased
+
+
 def split(
     x: ndarray, y: ndarray, num_splits: int
 ) -> Tuple[List[ndarray], List[ndarray]]:
