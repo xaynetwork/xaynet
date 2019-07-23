@@ -127,10 +127,10 @@ def biased_balanced_labels_shuffle(  # pylint: disable=R0914
         assert len(set(y_biased_split)) == 1
 
     # Merge rest
-    x_unbiased = np.append([], [x_split[bias:] for x_split in x_splits])
-    y_unbiased = np.append([], [y_split[bias:] for y_split in y_splits])
+    x_unbiased = np.concatenate([x_split[bias:] for x_split in x_splits])
+    y_unbiased = np.concatenate([y_split[bias:] for y_split in y_splits])
 
-    assert len(x_unbiased) == section_count * (
+    assert x_unbiased.shape[0] == section_count * (
         section_size - bias
     ), "Length of unbiased elements should be equal to original length minus extracted bias"
 
