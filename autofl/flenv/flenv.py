@@ -1,4 +1,4 @@
-from typing import Any, Tuple
+from typing import Any, Tuple, Union
 
 import gym
 import numpy as np
@@ -37,16 +37,22 @@ class FederatedLearningEnv(gym.Env):
         self.round = 0
         self.prev_reward = 0.0
 
-    def step(self, action: np.ndarray) -> Tuple[Any, float, bool, Any]:
-        assert action.shape == (self.num_participants(),)
-        assert action.sum() >= 1  # There's at least one 1
+    def step(self, action: Union[np.ndarray, int]) -> Tuple[Any, float, bool, Any]:
+        if isinstance(action, int):
+            assert action >= 0
+            assert action < self.num_participants()
+            indices = [action]
+        else:
+            print(action.shape)
+            assert action.shape == (self.num_participants(),)
+            assert action.sum() >= 1  # There's at least one 1
+            indices = action_to_indices(action).tolist()
 
         # Ask coordinator to train using the provided participants
-        indices = action_to_indices(action)
         logging.info(
             "FlEnv: Train action {}, i.e. participants {}".format(action, indices)
         )
-        self.coordinator.fit_round(indices.tolist())
+        self.coordinator.fit_round(indices)
 
         # Estimate loss and accuracy
         logging.info("FlEnv: Evaluate")
