@@ -1,10 +1,9 @@
 import gym
+from absl import logging
 from typing_extensions import Final
 
 from autofl import flenv
-from autofl.agent.train import train
-
-from .agent_dqn import TorchAgent
+from autofl.agent import TorchAgent, train
 
 LEARNING_RATE: Final = 5e-4
 MAX_E: Final = 2000
@@ -17,6 +16,8 @@ WATCH_TRAINED_AGENT = True
 
 
 def main(_):
+    logging.info("Starting Federation Policy benchmark")
+
     # Environment
     flenv.register_gym_env()
     env = gym.make("FederatedLearning-v0")
@@ -33,4 +34,5 @@ def main(_):
         max_t=MAX_T,
         epsilon_initial=EPSILON_INITIAL,
         epsilon_final=EPSILON_FINAL,
+        discrete=True,
     )
