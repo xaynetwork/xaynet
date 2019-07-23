@@ -142,6 +142,9 @@ class TorchAgent(Agent):
         # Optimize policy network
         self.optimizer.zero_grad()
         loss.backward()
+        # # Gradient clipping
+        # for param in self.dqn_policy.parameters():
+        #    param.grad.data.clamp_(-1, 1)
         self.optimizer.step()
 
         # Update target network

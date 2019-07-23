@@ -1,6 +1,6 @@
 import numpy as np
 
-from .agent_dqn import TorchAgent, multi_hot, n_largest
+from .agent_torch import TorchAgent, multi_hot, n_largest
 
 
 def test_TorchAgent_action_multi_discrete():
