@@ -16,6 +16,7 @@ def train(
     max_t: int = 1000,
     epsilon_initial=1.0,
     epsilon_final=0.1,
+    discrete=True,
 ):
     logging.info("env.action_space: {}".format(env.action_space))
     logging.info("env.observation_space: {}".format(env.observation_space))
@@ -34,9 +35,9 @@ def train(
         # Start episode
         for _ in range(max_t):
             # Select action
-            if isinstance(env.action_space, gym.spaces.discrete.Discrete):
+            if discrete:
                 action = agent.action_discrete(observation, epsilon)
-            elif isinstance(env.action_space, gym.spaces.multi_discrete.MultiDiscrete):
+            else:
                 action = agent.action_multi_discrete(observation, epsilon)
             # Take action
             next_observation, reward, done, _ = env.step(action)

@@ -61,7 +61,8 @@ class TorchAgent(Agent):
     def action_discrete(self, observation, epsilon) -> int:
         # Epsilon-greedy action selection
         if random.random() <= epsilon:
-            return random.choice(np.arange(self.num_actions))
+            random_action = random.choice(np.arange(self.num_actions))
+            return int(random_action)
         # Compute Q(s_t)
         state = torch.from_numpy(observation).float().unsqueeze(0).to(DEVICE)
         if self.seqdqn:
@@ -71,7 +72,8 @@ class TorchAgent(Agent):
             action_values = self.dqn_policy(state)
         self.dqn_policy.train()
         # Greedy action
-        return np.argmax(action_values.cpu().data.numpy())
+        greedy_action = np.argmax(action_values.cpu().data.numpy())
+        return int(greedy_action)
 
     def action_multi_discrete(self, observation, epsilon) -> np.ndarray:
         # Epsilon-greedy action selection
@@ -142,6 +144,9 @@ class TorchAgent(Agent):
         # Optimize policy network
         self.optimizer.zero_grad()
         loss.backward()
+        # # Gradient clipping
+        # for param in self.dqn_policy.parameters():
+        #    param.grad.data.clamp_(-1, 1)
         self.optimizer.step()
 
         # Update target network
@@ -167,7 +172,7 @@ def n_largest(arr, n):
     return (-arr).argsort()[:n]
 
 
-def multi_hot(indices, size) -> np.ndarray:
+def multi_hot(indices: np.ndarray, size: int) -> np.ndarray:
     x = np.zeros((size)).astype(np.int64)
     x[indices] = 1
     return x
