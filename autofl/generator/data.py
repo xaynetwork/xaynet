@@ -71,7 +71,6 @@ def group_by_label(x: ndarray, y: ndarray) -> Tuple[ndarray, ndarray]:
     """
     Shuffles y so that only a single label is in each section
     Number of sections will depend on number of unique labels
-    Sections may have different sizes
     """
     assert x.shape[0] == y.shape[0], "x and y need to have them dimension on axis=0"
 
