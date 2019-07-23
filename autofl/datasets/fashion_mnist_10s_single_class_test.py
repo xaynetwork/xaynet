@@ -26,6 +26,9 @@ def test_load_splits(tmp_path):
         assert isinstance(x, np.ndarray)
         assert isinstance(y, np.ndarray)
 
+        # Check that each split contains only one label
+        assert len(set(y)) == 1
+
 
 @pytest.mark.integration
 def test_load_splits_without_fetch(tmp_path, disable_fetch):  # pylint: disable=W0613
