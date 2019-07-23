@@ -116,7 +116,7 @@ def test_balanced_labels_shuffle_wrong_section_count():
 )
 def test_balanced_labels_shuffle(section_count, example_count):
     # Prepare
-    unique_labels = range(section_count)  # 10 unique labels
+    unique_labels = range(10)  # 10 unique labels
 
     # Values will at the same time be their original labels
     # We will later use this for asserting if the label relationship is still present
@@ -163,8 +163,6 @@ def test_balanced_labels_shuffle(section_count, example_count):
 def test_group_by_label(unique_labels_count, example_count):
     # Prepare
     unique_labels = range(unique_labels_count)
-
-    print(unique_labels)
 
     # Values will at the same time be their original labels
     # We will later use this for asserting if the label relationship is still present
