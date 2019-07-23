@@ -157,6 +157,69 @@ def test_balanced_labels_shuffle(section_count, example_count):
             assert x_i == y_i
 
 
+@pytest.mark.parametrize("bias, example_count", [(10, 1000), (20, 1000), (50, 1000)])
+def test_biased_balanced_labels_shuffle(bias, example_count):  # pylint: disable=R0914
+    # Prepare
+    unique_labels_count = 10
+    unique_labels = range(unique_labels_count)  # 10 unique labels
+    section_size = example_count / unique_labels_count
+    unbiased_label_count = (section_size - bias) / unique_labels_count
+
+    # Values will at the same time be their original labels
+    # We will later use this for asserting if the label relationship is still present
+    x = np.tile(
+        np.array(unique_labels, dtype=np.int64), example_count // len(unique_labels)
+    )
+
+    # Shuffle to avoid any bias; been there...
+    np.random.shuffle(x)
+
+    y = np.copy(x)
+
+    assert x.shape[0] == y.shape[0]
+
+    # Execute
+    x_balanced_shuffled, y_balanced_shuffled = data.biased_balanced_labels_shuffle(
+        x, y, bias=bias
+    )
+
+    # Assert
+    # Create tuples for x,y splits so we can more easily analyze them
+    x_splits = np.split(
+        x_balanced_shuffled, indices_or_sections=unique_labels_count, axis=0
+    )
+    y_splits = np.split(
+        y_balanced_shuffled, indices_or_sections=unique_labels_count, axis=0
+    )
+
+    # Check that each value still matches its label
+    for split_index, xy_split in enumerate(zip(x_splits, y_splits)):
+        x_split, y_split = xy_split
+
+        # Check that the split has the right size
+        assert y_split.shape[0] == int(example_count / unique_labels_count)
+        # Check that each segment contains each label
+        assert set(y_split) == set(
+            unique_labels
+        ), "Each label needs to be present in each section"
+
+        unique_counts = np.unique(y_split, return_counts=True)[1]
+
+        # The first split should contain a bias for the first label
+        # The second split should contain a bias for the second label
+        # repeat untill The "last label should..."
+        for unique_counts_index, unique_count in enumerate(unique_counts):
+            if split_index == unique_counts_index:
+                assert (
+                    unique_count == unbiased_label_count + bias
+                ), "At split_index {} a bias should be present".format(split_index)
+            else:
+                assert unique_count == unbiased_label_count
+
+        for x_i, y_i in zip(x_split, y_split):
+            assert x_i == y_i
+
+
 @pytest.mark.parametrize(
     "unique_labels_count, example_count", [(2, 1000), (5, 1000), (10, 1000)]
 )
