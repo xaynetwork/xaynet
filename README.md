@@ -41,3 +41,9 @@ The `autofl` package contains the following sub-packages:
 - [Communication-Efficient Learning of Deep Networks from Decentralized Data](https://arxiv.org/abs/1602.05629)
 - [Analyzing Federated Learning through an Adversarial Lens](https://arxiv.org/abs/1811.12470)
 - [Towards Federated Learning at Scale: System Design](https://arxiv.org/abs/1902.01046)
+
+## PyTorch
+
+PyTorch might require the following native library on macOS:
+
+`brew install libomp`
