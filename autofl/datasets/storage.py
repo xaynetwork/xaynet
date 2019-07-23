@@ -4,7 +4,7 @@ from typing import Tuple
 
 import numpy
 import requests
-from absl import flags
+from absl import flags, logging
 
 from ..types import FederatedDataset
 
@@ -41,6 +41,8 @@ def get_dataset_dir(dataset_name: str, local_datasets_dir: str) -> str:
 def fetch_ndarray(url, fpath):
     """Get file from fpath and store at fpath"""
     r = requests.get(url, stream=True)
+
+    logging.info("Fetching file {}".format(url))
 
     if r.status_code != 200:
         raise Exception("Received HTTP Status {} for url {}".format(r.status_code, url))
