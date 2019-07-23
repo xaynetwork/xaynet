@@ -91,7 +91,7 @@ def group_by_label(x: ndarray, y: ndarray) -> Tuple[ndarray, ndarray]:
 
 
 def biased_balanced_labels_shuffle(  # pylint: disable=R0914
-    x: ndarray, y: ndarray, bias=1500
+    x: ndarray, y: ndarray, bias=1000
 ) -> Tuple[ndarray, ndarray]:
     """
     Shuffle y so that the labels are uniformly distributed in each section
