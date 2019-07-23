@@ -67,6 +67,30 @@ def balanced_labels_shuffle(
     return x_biased, y_biased
 
 
+def group_by_label(x: ndarray, y: ndarray) -> Tuple[ndarray, ndarray]:
+    """
+    Shuffles y so that only a single label is in each section
+    Number of sections will depend on number of unique labels
+    Sections may have different sizes
+    """
+    assert x.shape[0] == y.shape[0], "x and y need to have them dimension on axis=0"
+
+    example_count = y.shape[0]
+    section_count = np.unique(y).shape[0]
+
+    assert (
+        example_count % section_count == 0
+    ), "Number of examples needs to be evenly divideable by section_count"
+
+    # Array of indices that sort a along the specified axis.
+    sort_indexes = np.argsort(y, axis=0)
+
+    x_sorted = x[sort_indexes]
+    y_sorted = y[sort_indexes]
+
+    return x_sorted, y_sorted
+
+
 def split(
     x: ndarray, y: ndarray, num_splits: int
 ) -> Tuple[List[ndarray], List[ndarray]]:
@@ -76,13 +100,13 @@ def split(
 
 
 def generate_splits(
-    num_splits: int, keras_dataset, shuffle_method=random_shuffle
+    num_splits: int, keras_dataset, transformer=random_shuffle
 ) -> FederatedDataset:
     (x_train, y_train), (x_test, y_test) = load(keras_dataset)
 
     assert x_train.shape[0] % num_splits == 0
 
-    x_train, y_train = shuffle_method(x_train, y_train)
+    x_train, y_train = transformer(x_train, y_train)
 
     x_splits, y_splits = split(x_train, y_train, num_splits)
 

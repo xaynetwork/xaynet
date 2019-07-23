@@ -116,7 +116,7 @@ def test_balanced_labels_shuffle_wrong_section_count():
 )
 def test_balanced_labels_shuffle(section_count, example_count):
     # Prepare
-    unique_labels = range(10)  # 10 unique labels
+    unique_labels = range(section_count)  # 10 unique labels
 
     # Values will at the same time be their original labels
     # We will later use this for asserting if the label relationship is still present
@@ -153,5 +153,48 @@ def test_balanced_labels_shuffle(section_count, example_count):
         for c in np.unique(y_split, return_counts=True)[1]:
             assert c == label_count_per_section
 
+        for x_i, y_i in zip(x_split, y_split):
+            assert x_i == y_i
+
+
+@pytest.mark.parametrize(
+    "unique_labels_count, example_count", [(2, 1000), (5, 1000), (10, 1000)]
+)
+def test_group_by_label(unique_labels_count, example_count):
+    # Prepare
+    unique_labels = range(unique_labels_count)
+
+    print(unique_labels)
+
+    # Values will at the same time be their original labels
+    # We will later use this for asserting if the label relationship is still present
+    x = np.tile(
+        np.array(unique_labels, dtype=np.int64), example_count // unique_labels_count
+    )
+
+    # Shuffle to avoid any bias; been there...
+    np.random.shuffle(x)
+
+    y = np.copy(x)
+
+    assert x.shape[0] == y.shape[0]
+
+    # Execute
+    x_sectioned, y_sectioned = data.group_by_label(x, y)
+
+    # Assert
+    # Create tuples for x,y splits so we can more easily analyze them
+    x_splits = np.split(x_sectioned, indices_or_sections=unique_labels_count, axis=0)
+    y_splits = np.split(y_sectioned, indices_or_sections=unique_labels_count, axis=0)
+
+    # Check that each value still matches its label
+    for (x_split, y_split) in zip(x_splits, y_splits):
+        # Check that the split has the right size
+        assert y_split.shape[0] == int(example_count / unique_labels_count)
+
+        # Check that each segment contains only one label
+        assert len(set(y_split)) == 1
+
+        # check that x,y is correctly matched
         for x_i, y_i in zip(x_split, y_split):
             assert x_i == y_i

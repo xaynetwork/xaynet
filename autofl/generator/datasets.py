@@ -7,7 +7,7 @@ def generate_cifar10_random_splits_10():
     dataset = data.generate_splits(
         num_splits=10,
         keras_dataset=tf.keras.datasets.cifar10,
-        shuffle_method=data.random_shuffle,
+        transformer=data.random_shuffle,
     )
 
     persistence.save_splits(
@@ -21,11 +21,25 @@ def generate_fashion_mnist_10s_600():
     dataset = data.generate_splits(
         num_splits=10,
         keras_dataset=tf.keras.datasets.fashion_mnist,
-        shuffle_method=data.balanced_labels_shuffle,
+        transformer=data.balanced_labels_shuffle,
     )
 
     persistence.save_splits(
         dataset_name="fashion_mnist_10s_600",
+        dataset=dataset,
+        local_generator_dir=config.local_generator_datasets_dir,
+    )
+
+
+def generate_fashion_mnist_10s_single_class():
+    dataset = data.generate_splits(
+        num_splits=10,
+        keras_dataset=tf.keras.datasets.fashion_mnist,
+        transformer=data.group_by_label,
+    )
+
+    persistence.save_splits(
+        dataset_name="fashion_mnist_10s_single_class",
         dataset=dataset,
         local_generator_dir=config.local_generator_datasets_dir,
     )
