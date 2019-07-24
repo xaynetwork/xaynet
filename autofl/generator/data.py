@@ -49,22 +49,22 @@ def balanced_labels_shuffle(
     x_shuffled, y_shuffled = random_shuffle(x, y)
 
     # Array of indices that sort a along the specified axis.
-    sort_indexes = np.argsort(y_shuffled, axis=0)
+    sort_index = np.argsort(y_shuffled, axis=0)
 
-    x_sorted = x_shuffled[sort_indexes]
-    y_sorted = y_shuffled[sort_indexes]
+    x_sorted = x_shuffled[sort_index]
+    y_sorted = y_shuffled[sort_index]
 
-    section_indicies = (
+    balance_index = (
         np.array(range(example_count), np.int64)
         .reshape((section_size, section_count))
         .transpose()
         .reshape(example_count)
     )
 
-    x_biased = x_sorted[section_indicies]
-    y_biased = y_sorted[section_indicies]
+    x_balanced = x_sorted[balance_index]
+    y_balanced = y_sorted[balance_index]
 
-    return x_biased, y_biased
+    return x_balanced, y_balanced
 
 
 def group_by_label(x: ndarray, y: ndarray) -> Tuple[ndarray, ndarray]:
@@ -165,12 +165,40 @@ def split(
     return x_splits, y_splits
 
 
+def extract_validation_set(x: ndarray, y: ndarray, size=6000):
+    """Will extract a validation set of "size" from given x,y pair
+
+    Parameters:
+    x (ndarray): numpy array
+    y (ndarray): numpy array
+    size (int): Size of validation set. Must be smaller than examples count
+                in x, y and multiple of label_count
+    """
+    assert x.shape[0] == y.shape[0]
+    assert (
+        x.shape[0] % size == 0
+    ), "x.shape[0] (number of examples) needs to be evenly dividable by size"
+
+    assert size % len(set(y)) == 0, "size must be a multiple of number of labels"
+
+    x_balanced, y_balanced = balanced_labels_shuffle(x, y)
+
+    xy_val = (x_balanced[:size], y_balanced[:size])
+    xy_train = (x_balanced[size:], y_balanced[size:])
+
+    return xy_train, xy_val
+
+
 def generate_splits(
-    num_splits: int, keras_dataset, transformer=random_shuffle
+    num_splits: int, keras_dataset, validation_set_size=6000, transformer=random_shuffle
 ) -> FederatedDataset:
-    (x_train, y_train), (x_test, y_test) = load(keras_dataset)
+    (x_train, y_train), xy_test = load(keras_dataset)
 
     assert x_train.shape[0] % num_splits == 0
+
+    (x_train, y_train), xy_val = extract_validation_set(
+        x_train, y_train, size=validation_set_size
+    )
 
     x_train, y_train = transformer(x_train, y_train)
 
@@ -178,7 +206,7 @@ def generate_splits(
 
     xy_splits = list(zip(x_splits, y_splits))
 
-    return xy_splits, (x_test, y_test)
+    return xy_splits, xy_val, xy_test
 
 
 def generate_splits_mnist(num_splits: int) -> FederatedDataset:

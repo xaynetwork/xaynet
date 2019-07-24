@@ -1,11 +1,14 @@
 import gym
 import numpy as np
+import pytest
 
 from autofl import flenv
 
 from .flenv import action_to_indices
 
 
+@pytest.mark.integration
+@pytest.mark.slow
 def test_FederatedLearningEnv_init_reset():
     # Prepare
     flenv.register_gym_env()

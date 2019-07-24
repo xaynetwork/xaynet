@@ -129,6 +129,7 @@ def load_splits(
     get_local_datasets_dir=default_get_local_datasets_dir,
 ) -> FederatedDataset:
     xy_splits = []
+    xy_val = (None, None)
     xy_test = (None, None)
 
     for split_id in dataset_split_hashes:
@@ -142,7 +143,9 @@ def load_splits(
 
         if split_id == "test":
             xy_test = data
+        elif split_id == "val":
+            xy_val = data
         else:
             xy_splits.append(data)
 
-    return xy_splits, xy_test
+    return xy_splits, xy_val, xy_test

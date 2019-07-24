@@ -88,6 +88,40 @@ def test_split_dims():
     assert all([ys.shape == y_splits[0].shape for i, ys in enumerate(y_splits)])
 
 
+def test_extract_validation_set():
+    # Prepare
+    example_count = 1000
+    validation_set_size = 100
+    labels = list(range(0, 10))
+    x = np.zeros((example_count, 28, 28), dtype=np.float64)
+    y = np.tile(np.array(labels, dtype=np.int64), example_count // 10)
+
+    # Shuffle to make sure that extract_validation_set
+    # does not expect a sorted array in any form
+    np.random.shuffle(y)
+
+    # Execute
+    (x_train, y_train), (x_val, y_val) = data.extract_validation_set(x, y, size=100)
+
+    # Assert
+    assert (
+        x_val.shape[0] == y_val.shape[0] == validation_set_size
+    ), "Validation set has wrong size"
+    assert (
+        x_train.shape[0] == y_train.shape[0] == example_count - validation_set_size
+    ), "Train set has wrong size"
+
+    assert (
+        set(labels) == set(y_train) == set(y_val)
+    ), "Train and validation set both need to contain all labels"
+
+    label_counts_train = np.unique(y_train, return_counts=True)[1]
+    label_counts_validation = np.unique(y_val, return_counts=True)[1]
+
+    # Each label occurs equal times
+    assert len(set(label_counts_train)) == len(set(label_counts_validation)) == 1
+
+
 def test_random_shuffle():
     # Prepare
     x = np.array([1, 2, 3, 4])

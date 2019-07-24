@@ -35,4 +35,9 @@ def no_shuffle(x: ndarray, y: ndarray):
 @pytest.fixture
 def mock_random_splits_2_dataset() -> FederatedDataset:
     """dataset mock after it went through internal load method"""
-    return data.generate_splits(2, MockKerasDataset(), transformer=no_shuffle)
+    return data.generate_splits(
+        num_splits=2,
+        validation_set_size=60,
+        keras_dataset=MockKerasDataset(),
+        transformer=no_shuffle,
+    )

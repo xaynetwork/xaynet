@@ -12,12 +12,13 @@ def test_load_splits(tmp_path):
         return tmp_path
 
     # Execute
-    xy_splits_actual, xy_test_actual = cifar10.load_splits(
+    xy_splits_actual, xy_val_actual, xy_test_actual = cifar10.load_splits(
         get_local_datasets_dir=get_local_datasets_dir
     )
 
     # Assert
     assert isinstance(xy_splits_actual, list)
+    assert isinstance(xy_val_actual, tuple)
     assert isinstance(xy_test_actual, tuple)
 
     for xy in xy_splits_actual:

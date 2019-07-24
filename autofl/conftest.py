@@ -26,11 +26,13 @@ def disable_fetch():
 def create_mock_dataset() -> KerasDataset:
     labels = np.arange(10, dtype=np.int8)
 
-    x_train = np.ones((60, 32, 32, 3), dtype=np.int8)
-    y_train = np.tile(labels, 6)
+    x_train = np.ones((600, 32, 32, 3), dtype=np.int8)
+    y_train = np.tile(labels, 60)
+    assert x_train.shape[0] == y_train.shape[0]
 
-    x_test = np.ones((10, 32, 32, 3), dtype=np.int8)
-    y_test = np.tile(labels, 1)
+    x_test = np.ones((100, 32, 32, 3), dtype=np.int8)
+    y_test = np.tile(labels, 10)
+    assert x_test.shape[0] == y_test.shape[0]
 
     return (x_train, y_train), (x_test, y_test)
 

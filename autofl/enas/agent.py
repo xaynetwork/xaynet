@@ -53,7 +53,7 @@ def build_model_and_print_summary():
 def autofl():
     logging.info("\n\nStarting AutoFL\n")
     # Load data (multiple splits for training and one split for validation)
-    xy_splits, xy_test = cifar10_random_splits_10.load_splits()
+    xy_splits, xy_val, xy_test = cifar10_random_splits_10.load_splits()
 
     logging.info("Number of splits x/y train: {}".format(len(xy_splits)))
 
@@ -61,8 +61,8 @@ def autofl():
     # Note that no initial model is provided to the constructors, the models
     # will be created and set by the agent.
     participants = []
-    for x_split, y_split in xy_splits:
-        participant = Participant(None, x_split, y_split)
+    for xy_split in xy_splits:
+        participant = Participant(None, xy_split, xy_val)
         participants.append(participant)
     controller = RandomController(num_participants=len(participants), C=3)
     coordinator = Coordinator(controller, None, participants)

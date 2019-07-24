@@ -12,12 +12,13 @@ def test_load_splits(tmp_path):
         return tmp_path
 
     # Execute
-    xy_splits_actual, xy_test_actual = fashion10.load_splits(
+    xy_splits_actual, xy_val_actual, xy_test_actual = fashion10.load_splits(
         get_local_datasets_dir=get_local_datasets_dir
     )
 
     # Assert
     assert isinstance(xy_splits_actual, list)
+    assert isinstance(xy_val_actual, tuple)
     assert isinstance(xy_test_actual, tuple)
 
     for xy in xy_splits_actual:
@@ -27,9 +28,10 @@ def test_load_splits(tmp_path):
         assert isinstance(y, np.ndarray)
 
         counts = np.unique(np.unique(y, return_counts=True)[1], return_counts=True)
-        # we should have one label which occurs 1500 times
-        # and 9 labels which occur 500 times
-        assert set(counts[0]) == set([1500, 500])
+
+        # we should have one label which occurs 1440 times
+        # and 9 labels which occur 440 times
+        assert set(counts[0]) == set([1440, 440])
         assert set(counts[1]) == set([1, 9])
 
 

@@ -16,7 +16,10 @@ def eval_MNIST():
 
     # Init data
     # TODO load perfectly balanced splits
-    xy_splits, xy_test = data.generate_splits_mnist(num_splits=10)
+    # TODO: use xy_val
+    xy_splits, xy_val, xy_test = data.generate_splits_mnist(  # pylint: disable=unused-variable
+        num_splits=10
+    )
 
     # Init participants
     participants = []
@@ -55,7 +58,9 @@ def eval_CIFAR_10_with_random_controller():
 
     # Init data
     # TODO load perfectly balanced data
-    xy_splits, xy_test = cifar10_random_splits_10.load_splits()
+    xy_splits, xy_val, xy_test = (  # pylint: disable=unused-variable
+        cifar10_random_splits_10.load_splits()
+    )
 
     # Init participants
     participants = []
