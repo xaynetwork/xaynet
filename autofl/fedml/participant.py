@@ -54,10 +54,10 @@ class Participant:
         return loss, accuracy
 
 
-def init_participants(xy_splits) -> List[Participant]:
+def init_participants(xy_splits, xy_val) -> List[Participant]:
     participants = []
-    for x_split, y_split in xy_splits:
+    for xy_train in xy_splits:
         model = cnn_compiled()  # FIXME refactor
-        participant = Participant(model, x_split, y_split)
+        participant = Participant(model, xy_train, xy_val)
         participants.append(participant)
     return participants

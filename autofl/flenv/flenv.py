@@ -5,10 +5,9 @@ import numpy as np
 from absl import logging
 from gym.envs.registration import register
 
+from autofl.datasets import fashion_mnist_10s_600
+from autofl.fedml import Coordinator, Participant, RandomController
 from autofl.net import cnn_compiled
-
-from ..datasets.api import fashion_mnist_10s_600_load_splits
-from ..fedml import Coordinator, Participant, RandomController
 
 NUM_ROUNDS = 10  # FIXME: 40?
 
@@ -23,9 +22,10 @@ class FederatedLearningEnv(gym.Env):
     metadata = {"render.modes": ["human"]}
 
     def __init__(self) -> None:
-        coordinator, xy_val = init_fl()
+        coordinator, xy_val, xy_test = init_fl()
         self.coordinator = coordinator
         self.xy_val = xy_val
+        self.xy_test = xy_test
         # Gym Env.observation_space and Env.action_space
         nvec = [2] * self.coordinator.num_participants()
         self.action_space = gym.spaces.MultiDiscrete(nvec)
@@ -57,14 +57,6 @@ class FederatedLearningEnv(gym.Env):
         )
         self.coordinator.fit_round(indices)
 
-        # Estimate loss and accuracy
-        logging.info("FlEnv: Evaluate")
-        # TODO consider: full validation (or test?) set evaluation after last round
-        _, accuracy = self.coordinator.evaluate(self.xy_val)
-        # Reward: Gain in validation set accuracy (estimated)
-        reward = accuracy - self.prev_reward
-        self.prev_reward = reward
-
         # Update state: Override row of zeros with actual indices (i.e. the action taken)
         # This results in a soft Markovian state which is basically an action log
         self.state[self.round] = action
@@ -72,6 +64,20 @@ class FederatedLearningEnv(gym.Env):
         # Done: Terminate when limit is reached
         self.round += 1
         done = self.round == self.num_rounds
+
+        # Estimate loss and accuracy
+        # TODO consider: full validation (or test?) set evaluation after last round
+        if done:
+            logging.info("FlEnv: Evaluate on test set")
+            _, accuracy = self.coordinator.evaluate(self.xy_test)
+        else:
+            logging.info("FlEnv: Evaluate on validation set")
+            _, accuracy = self.coordinator.evaluate(self.xy_val)
+        # Reward: Gain in validation set accuracy (estimated)
+        # FIXME this mixes validation and test set accuracy
+        reward = accuracy - self.prev_reward
+        self.prev_reward = reward
+
         return np.copy(self.state), reward, done, None
 
     def reset(self) -> Any:
@@ -93,10 +99,11 @@ def action_to_indices(action: np.ndarray) -> np.ndarray:
     return np.argwhere(action == 1).squeeze(axis=1)
 
 
-def init_fl() -> Tuple[Coordinator, Any]:
-    # FIXME return xy_val (once available), not xy_test
-    xy_splits, xy_test = fashion_mnist_10s_600_load_splits()
-    xy_val = xy_test  # FIXME remove once validation set is available
+def init_fl() -> Tuple[Coordinator, Any, Any]:
+    xy_splits, xy_val, xy_test = fashion_mnist_10s_600.load_splits()
+    assert xy_splits is not None, "xy_splits is None"
+    assert xy_val is not None, "xy_val is None"
+    assert xy_test is not None, "xy_test is None"
     # Init participants
     participants = []
     for xy_train in xy_splits:
@@ -107,4 +114,4 @@ def init_fl() -> Tuple[Coordinator, Any]:
     # FIXME refactor: No controller needed
     controller = RandomController(10, 3)
     model = cnn_compiled()
-    return Coordinator(controller, model, participants), xy_val
+    return Coordinator(controller, model, participants), xy_val, xy_test

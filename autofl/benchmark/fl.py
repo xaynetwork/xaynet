@@ -17,8 +17,7 @@ def benchmark_gain_FashionMNIST():
     EPOCHS = 40
 
     # Load perfectly balanced shards
-    xy_splits, xy_test = fashion_mnist_10s_600.load_splits()
-    xy_val = xy_test  # FIXME remove once xy_val is available
+    xy_splits, xy_val, xy_test = fashion_mnist_10s_600.load_splits()
 
     # Train CNN on a single partition ("unitary learning")
     partition_id = 0

@@ -6,6 +6,7 @@ from autofl import flenv
 from .flenv import action_to_indices
 
 
+@pytest.mark.integration
 def test_FederatedLearningEnv_init_reset():
     # Prepare
     flenv.register_gym_env()
