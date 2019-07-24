@@ -191,14 +191,7 @@ def test_balanced_labels_shuffle(section_count, example_count):
             assert x_i == y_i
 
 
-@pytest.mark.parametrize(
-    "bias, example_count",
-    [
-        (10, 1000),
-        # (20, 1000),
-        # (50, 1000)
-    ],
-)
+@pytest.mark.parametrize("bias, example_count", [(10, 1000), (20, 1000), (50, 1000)])
 def test_biased_balanced_labels_shuffle(bias, example_count):  # pylint: disable=R0914
     # Prepare
     unique_labels_count = 10
@@ -229,7 +222,7 @@ def test_biased_balanced_labels_shuffle(bias, example_count):  # pylint: disable
 
     # Check that each value still matches its label
     for split_index, xy_split in enumerate(zip(x_splits, y_splits)):
-        x_split, y_split = xy_split
+        _, y_split = xy_split
 
         # Check that the split has the right size
         assert y_split.shape[0] == int(example_count / unique_labels_count)
