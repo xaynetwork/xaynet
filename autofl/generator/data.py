@@ -171,7 +171,8 @@ def extract_validation_set(x: ndarray, y: ndarray, size=6000):
     Parameters:
     x (ndarray): numpy array
     y (ndarray): numpy array
-    size (int): Size of validation set. Must be smaller than examples count in x, y and multiple of label_count
+    size (int): Size of validation set. Must be smaller than examples count
+                in x, y and multiple of label_count
     """
     assert x.shape[0] == y.shape[0]
     assert (
