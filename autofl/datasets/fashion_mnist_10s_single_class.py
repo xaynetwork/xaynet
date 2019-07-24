@@ -9,50 +9,54 @@ FLAGS = flags.FLAGS
 
 DATASET_NAME = "fashion_mnist_10s_single_class"
 DATASET_SPLIT_HASHES = {
-    "00": (
-        "396fde45d36c39d9348717aa022a84fd327ae40d",
-        "2c1b9cccdbea1d5aa0bedd5664be75f7ce99869d",
-    ),
-    "01": (
-        "5383a9f5a40cca30ecadfb054e9e4ac9b9785376",
-        "0a5de67d329bd8389bd2b0ed5407e09e00c6cd90",
-    ),
-    "02": (
-        "c2e5b56f4ed507ae260d87e7128431566e71c6bc",
-        "4bdb25616ddf967576645ef9e4f18af29a73a704",
-    ),
-    "03": (
-        "0d366ad481ee7db063f75df310c8e9c598d30989",
-        "997a507a09282b4c8e48304ac55670604d867716",
-    ),
-    "04": (
-        "d768d839ab672a6f937c013abbc18b1c3c5eba11",
-        "97b2c1fae97aea5d07b6765ae0ac48f0b4b6129e",
-    ),
-    "05": (
-        "61a121bb680b86def87349d794742541f12ebba1",
-        "6709578defcc510e86591030196c99aa64bac081",
-    ),
-    "06": (
-        "bb8169c99ce096807a6ea802fa293528e33a13f8",
-        "636b8027f35a807847e0112c1767d845ea318636",
-    ),
-    "07": (
-        "30c410e07bac2d456ad2604f44cb63e4ebd32c80",
-        "d2f2d9e5d588f4e48b2778281203f2e54fed5688",
-    ),
-    "08": (
-        "b9bad150a1af3c94bf7316b0367722e07e7a185f",
-        "5fca148c17cfb7e2df2b54f458104d9bd3eb022e",
-    ),
-    "09": (
-        "f65015a87915591384383e94ccf3938c797d2fe4",
-        "6cfefa4b1930b4066ab0d4b83d1cedcf5280e003",
-    ),
-    "test": (
+    "00": [
+        "f07bc648de06aa53bcb2237a9f5031398e42b5f7",
+        "27fc2b251292942f840c30eeba766ffd6bd2d4f2",
+    ],
+    "01": [
+        "a9e24938cb531fb5ec06b18ab3d1dbe22926350f",
+        "bf675921ede2125de2d4c783a303511bbd1c2ab9",
+    ],
+    "02": [
+        "e04d0f3ef0849d1565318c16abaa1f47bca9b7ef",
+        "6ee9b9b5cf4c070bf81a2a1673eb45d7d66c77b8",
+    ],
+    "03": [
+        "59cc38f595e284e7d579c59a538f50696a8ee809",
+        "75aed8ca0d0070c2bb0cf208e603ba38c65d7e13",
+    ],
+    "04": [
+        "e615f3a774192ecdb64aaa12b5b3b70444ea9c3d",
+        "bda49e8cc8b463903b2c255ac643466c32609bf0",
+    ],
+    "05": [
+        "20126348ad84389458fbd4d2944dbbb9e8337217",
+        "a5819bce1f53108141782dd4550bbf9defa13b3c",
+    ],
+    "06": [
+        "8cb60a2a330b12e333bff525c404720b746868ff",
+        "98ba8b763570597da9de82fe32ae2425d9ba1296",
+    ],
+    "07": [
+        "f39c4aa9750516b2cc17f894d9a28c1ba16b742d",
+        "6425250faa8285d9f500913f449b60725cb5ab26",
+    ],
+    "08": [
+        "d1cfe83e69a2db7e36d72e9e643fe066c87c766d",
+        "93d6e6aca1eb539f2f6f8f8c2b1e1c120c53633b",
+    ],
+    "09": [
+        "a5b5fa21b761e66b0eae54208c9b5b91c85f1054",
+        "434c100e36be3e7d126e57fa1e7e76c814463a44",
+    ],
+    "test": [
         "79e6584f3574e22e97dfe17ddf1b9856b3f2284f",
         "b056ffe622e9a6cfb76862c5ecb120c73d4fd99e",
-    ),
+    ],
+    "val": [
+        "c008c5dcaf03d23962756f92e6cd09a902f20f8b",
+        "e67663f832358b645232f0d448d84e4d6e8c65cd",
+    ],
 }
 
 
