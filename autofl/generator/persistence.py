@@ -27,16 +27,14 @@ def dataset_to_fname_ndarray_tuple_list(
     dataset: FederatedDataset
 ) -> List[Tuple[str, np.ndarray]]:
     fname_ndarray_tuples: List[Tuple[str, np.ndarray]] = []
-    xy_splits, xy_validation, xy_test = dataset
+    xy_splits, xy_val, xy_test = dataset
 
     # Add all splits as tuples to fname_ndarray_tuple
     for i, split in enumerate(xy_splits):
         fname_ndarray_tuples += to_fname_ndarray_tuple(xy=split, suffix=str(i).zfill(2))
 
     # Add validation set to files which will be stored
-    fname_ndarray_tuples += to_fname_ndarray_tuple(
-        xy=xy_validation, suffix="validation"
-    )
+    fname_ndarray_tuples += to_fname_ndarray_tuple(xy=xy_val, suffix="val")
 
     # Add test set to files which will be stored
     fname_ndarray_tuples += to_fname_ndarray_tuple(xy=xy_test, suffix="test")

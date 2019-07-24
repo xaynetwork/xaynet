@@ -1,36 +1,53 @@
 from typing import List, Tuple
 
+import numpy as np
 import tensorflow as tf
-from numpy import ndarray
 
-from ..datasets import prep
-from ..net import cnn_compiled
+from autofl.datasets import prep
+from autofl.net import cnn_compiled
+
 from . import ops
+
+BATCH_SIZE = 64
 
 
 class Participant:
     def __init__(
-        self, model: tf.keras.Model, x_split: ndarray, y_split: ndarray
+        self,
+        model: tf.keras.Model,
+        xy_train: Tuple[np.ndarray, np.ndarray],
+        xy_val: Tuple[np.ndarray, np.ndarray],
     ) -> None:
-        assert x_split.shape[0] == y_split.shape[0]
+        assert xy_train[0].shape[0] == xy_train[1].shape[0]
+        assert xy_val[0].shape[0] == xy_val[1].shape[0]
         self.model = model
-        self.dataset = prep.init_dataset(x_split, y_split)
-        self.history = None
+        self.ds_train = prep.init_dataset(xy_train[0], xy_train[1])
+        self.ds_val = prep.init_dataset(xy_val[0], xy_val[1])
+        self.steps_train = int(xy_train[0].shape[0] / BATCH_SIZE)
+        self.steps_val = int(xy_val[0].shape[0] / BATCH_SIZE)
 
     def replace_model(self, model: tf.keras.Model) -> None:
         self.model = model
 
-    def update_model_parameters(self, theta: List[List[ndarray]]) -> None:
+    def update_model_parameters(self, theta: List[List[np.ndarray]]) -> None:
         ops.set_model_params(self.model, theta)
 
-    def retrieve_model_parameters(self) -> List[List[ndarray]]:
+    def retrieve_model_parameters(self) -> List[List[np.ndarray]]:
         return ops.get_model_params(self.model)
 
     def train(self, epochs: int):
-        self.history = self.model.fit(self.dataset, epochs=epochs, steps_per_epoch=8)
+        history = self.model.fit(
+            self.ds_train,
+            epochs=epochs,
+            validation_data=self.ds_val,
+            shuffle=False,  # Shuffling is handled via tf.data.Dataset
+            steps_per_epoch=self.steps_train,
+            validation_steps=self.steps_val,
+        )
+        return history
 
-    def evaluate(self, x_test: ndarray, y_test: ndarray) -> Tuple[float, float]:
-        ds_val = prep.init_validation_dataset(x_test, y_test)
+    def evaluate(self, xy_test: Tuple[np.ndarray, np.ndarray]) -> Tuple[float, float]:
+        ds_val = prep.init_validation_dataset(xy_test[0], xy_test[1])
         # Assume the validation `tf.data.Dataset` to yield exactly one batch containing
         # all examples in the validation set
         loss, accuracy = self.model.evaluate(ds_val, steps=1)

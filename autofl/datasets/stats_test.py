@@ -26,7 +26,7 @@ def test_basic_stats(mock_dataset):
     assert len(stats.number_of_examples_per_label[0]) == 10
 
     for count in stats.number_of_examples_per_label[1]:
-        assert count == 6
+        assert count == 60
 
 
 def test_basic_stats_multiple(mock_dataset):

@@ -101,24 +101,22 @@ def test_extract_validation_set():
     np.random.shuffle(y)
 
     # Execute
-    (x_train, y_train), (x_validation, y_validation) = data.extract_validation_set(
-        x, y, size=100
-    )
+    (x_train, y_train), (x_val, y_val) = data.extract_validation_set(x, y, size=100)
 
     # Assert
     assert (
-        x_validation.shape[0] == y_validation.shape[0] == validation_set_size
+        x_val.shape[0] == y_val.shape[0] == validation_set_size
     ), "Validation set has wrong size"
     assert (
         x_train.shape[0] == y_train.shape[0] == example_count - validation_set_size
     ), "Train set has wrong size"
 
     assert (
-        set(labels) == set(y_train) == set(y_validation)
+        set(labels) == set(y_train) == set(y_val)
     ), "Train and validation set both need to contain all labels"
 
     label_counts_train = np.unique(y_train, return_counts=True)[1]
-    label_counts_validation = np.unique(y_validation, return_counts=True)[1]
+    label_counts_validation = np.unique(y_val, return_counts=True)[1]
 
     # Each label occurs equal times
     assert len(set(label_counts_train)) == len(set(label_counts_validation)) == 1

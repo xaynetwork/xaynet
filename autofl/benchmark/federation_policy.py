@@ -1,5 +1,5 @@
 import gym
-from absl import logging
+from absl import app, logging
 from typing_extensions import Final
 
 from autofl import flenv
@@ -15,7 +15,7 @@ WATCH_UNTRAINED_AGENT = True
 WATCH_TRAINED_AGENT = True
 
 
-def main(_):
+def benchmark_policy_FashionMNIST():
     logging.info("Starting Federation Policy benchmark")
 
     # Environment
@@ -36,3 +36,11 @@ def main(_):
         epsilon_final=EPSILON_FINAL,
         discrete=True,
     )
+
+
+def main(_):
+    benchmark_policy_FashionMNIST()
+
+
+if __name__ == "__main__":
+    app.run(main=main)

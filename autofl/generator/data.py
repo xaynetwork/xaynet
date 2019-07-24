@@ -182,10 +182,10 @@ def extract_validation_set(x: ndarray, y: ndarray, size=6000):
 
     x_balanced, y_balanced = balanced_labels_shuffle(x, y)
 
-    xy_validation = (x_balanced[:size], y_balanced[:size])
+    xy_val = (x_balanced[:size], y_balanced[:size])
     xy_train = (x_balanced[size:], y_balanced[size:])
 
-    return xy_train, xy_validation
+    return xy_train, xy_val
 
 
 def generate_splits(
@@ -195,7 +195,7 @@ def generate_splits(
 
     assert x_train.shape[0] % num_splits == 0
 
-    (x_train_rest, y_train_rest), xy_validation = extract_validation_set(
+    (x_train, y_train), xy_val = extract_validation_set(
         x_train, y_train, size=validation_set_size
     )
 
@@ -205,7 +205,7 @@ def generate_splits(
 
     xy_splits = list(zip(x_splits, y_splits))
 
-    return xy_splits, xy_validation, xy_test
+    return xy_splits, xy_val, xy_test
 
 
 def generate_splits_mnist(num_splits: int) -> FederatedDataset:
