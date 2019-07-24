@@ -4,7 +4,7 @@ from typing import Tuple
 
 import numpy
 import requests
-from absl import flags
+from absl import flags, logging
 
 from ..types import FederatedDataset
 
@@ -42,6 +42,8 @@ def fetch_ndarray(url, fpath):
     """Get file from fpath and store at fpath"""
     r = requests.get(url, stream=True)
 
+    logging.info("Fetching file {}".format(url))
+
     if r.status_code != 200:
         raise Exception("Received HTTP Status {} for url {}".format(r.status_code, url))
 
@@ -59,7 +61,7 @@ def load_ndarray(
     Parameters:
     datasets_repository (str): datasets repository base URL
     dataset_name (str): Name of dataset in repository
-    ndarray_name (str): ndarray name. Example: "x0.npy"
+    ndarray_name (str): ndarray name. Example: "x_00.npy"
     local_datasets_dir (str): Directory in which all local datasets are stored
     cleanup (bool): Cleanup file if it has the wrong hash
     """
@@ -71,6 +73,8 @@ def load_ndarray(
     if FLAGS.fetch_datasets and not os.path.isfile(fpath):
         fetch_ndarray(url, fpath)
 
+    # Check sha1checksum after conditional fetch even when no download
+    # occured and local dataset was used to avoid accidental corruption
     sha1 = sha1checksum(fpath)
 
     if sha1 != ndarray_hash:
