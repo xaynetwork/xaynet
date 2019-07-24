@@ -143,7 +143,7 @@ def load_splits(
 
         if split_id == "test":
             xy_test = data
-        elif split_id == "validation":
+        elif split_id == "val":
             xy_val = data
         else:
             xy_splits.append(data)

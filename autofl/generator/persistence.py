@@ -76,6 +76,9 @@ def save_splits(dataset_name: str, dataset: FederatedDataset, local_generator_di
 
     for fname, ndarr in fname_ndarray_tuple:
         save(fname=fname, data=ndarr, storage_dir=dataset_dir)
+
+        print("{}/{}".format(dataset_dir, fname))
+
         sha1 = storage.sha1checksum("{}/{}".format(dataset_dir, fname))
 
         storage_key = fname[2:-4]

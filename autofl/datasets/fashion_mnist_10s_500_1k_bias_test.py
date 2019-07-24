@@ -28,9 +28,10 @@ def test_load_splits(tmp_path):
         assert isinstance(y, np.ndarray)
 
         counts = np.unique(np.unique(y, return_counts=True)[1], return_counts=True)
-        # we should have one label which occurs 1500 times
-        # and 9 labels which occur 500 times
-        assert set(counts[0]) == set([1500, 500])
+
+        # we should have one label which occurs 1440 times
+        # and 9 labels which occur 440 times
+        assert set(counts[0]) == set([1440, 440])
         assert set(counts[1]) == set([1, 9])
 
 
