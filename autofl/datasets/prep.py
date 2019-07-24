@@ -9,7 +9,7 @@ SEED = 1096
 def init_dataset(x: np.ndarray, y: np.ndarray) -> Dataset:
     # Assume that each row in `x` corresponds to the same row in `y`
     assert x.shape[0] == y.shape[0]
-    assert x.ndim == 3 or x.ndim == 4  # MNIST: 3, CIFAR-10: 4
+    assert x.ndim == 3 or x.ndim == 4  # (Fashion-)MNIST: 3, CIFAR-10: 4
     assert y.ndim == 1
     # Create tf.data.Dataset from ndarrays
     ds = to_dataset(x, y)
