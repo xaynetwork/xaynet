@@ -18,25 +18,24 @@ def benchmark_gain_FashionMNIST():
 
     # Load perfectly balanced shards
     xy_splits, xy_test = fashion_mnist_10s_600.load_splits()
+    xy_val = xy_test  # FIXME remove once xy_val is available
 
     # Train CNN on a single partition ("unitary learning")
     partition_id = 0
     logging.info("> Train model on partition {}".format(partition_id))
-    # TODO use xy_val once available
-    ul_results = run_uni(xy_splits[partition_id], xy_test, xy_test, EPOCHS)
+    ul_results = run_uni(xy_splits[partition_id], xy_val, xy_test, EPOCHS)
 
     # Train CNN using federated learning on all partitions
     logging.info("> Train federated model on all partitions")
-    # TODO use xy_val once available
-    fl_results = run_fed(xy_splits, xy_test, xy_test, EPOCHS)
+    fl_results = run_fed(xy_splits, xy_val, xy_test, EPOCHS)
 
     # Output results
-    history_ul, loss_ul, accuracy_ul = ul_results
-    history_fl, loss_fl, accuracy_fl = fl_results
+    history_ul, loss_ul, acc_ul = ul_results
+    history_fl, loss_fl, acc_fl = fl_results
 
     report.plot_accuracies(history_ul, history_fl)
-    report.test_set_performance(accuracy_ul, loss_ul)
-    report.test_set_performance(accuracy_fl, loss_fl)
+    logging.info("UL test set loss: {}, accuracy: {}".format(loss_ul, acc_ul))
+    logging.info("FL test set loss: {}, accuracy: {}".format(loss_fl, acc_fl))
 
 
 def run_uni(

@@ -50,8 +50,3 @@ def plot_curves(
     if show:
         plt.show()
     plt.close()
-
-
-def test_set_performance(acc: float, loss: float):
-    print("Test set accuracy:", acc)
-    print("Test set loss:    ", loss)
