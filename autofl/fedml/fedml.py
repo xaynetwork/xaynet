@@ -2,7 +2,7 @@ from absl import logging
 
 from autofl.datasets import cifar10_random_splits_10
 
-from ..net import cnn_compiled
+from ..net import enas_cnn_compiled
 from .controller import RandomController, RoundRobinController
 from .coordinator import Coordinator
 from .participant import init_participants
@@ -38,7 +38,7 @@ def round_robin(_):
     # initialization will happen during the first few rounds because the coordinator will
     # push its own weight to the respective participants of each training round.
     participants = init_participants(xy_splits)
-    model = cnn_compiled()  # This will act as the initial model
+    model = enas_cnn_compiled()  # This will act as the initial model
     controller = RoundRobinController(num_participants=len(participants))
     coordinator = Coordinator(controller, model, participants)
 
@@ -62,7 +62,7 @@ def federated_learning(_):
     # initialization will happen during the first few rounds because the coordinator will
     # push its own weight to the respective participants of each training round.
     participants = init_participants(xy_splits)
-    model = cnn_compiled()
+    model = enas_cnn_compiled()
     controller = RandomController(num_participants=len(participants), C=3)
     coordinator = Coordinator(controller, model, participants)
 

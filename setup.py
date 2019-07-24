@@ -30,6 +30,7 @@ dev_require = [
     "pylint==2.3.1",
     "astroid<=2.2",
     "isort==4.3.20",
+    "rope==0.14.0",
 ]
 
 tests_require = ["pytest==4.6.2", "pytest-cov==2.7.1", "pytest-watch==4.2.0"]
