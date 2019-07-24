@@ -7,7 +7,9 @@ KerasDataset = Tuple[Tuple[ndarray, ndarray], Tuple[ndarray, ndarray]]
 
 # User in the autofl project
 FederatedDatasetSplit = Tuple[ndarray, ndarray]
-FederatedDataset = Tuple[List[FederatedDatasetSplit], FederatedDatasetSplit]
+FederatedDataset = Tuple[
+    List[FederatedDatasetSplit], FederatedDatasetSplit, FederatedDatasetSplit
+]
 
 FnameNDArrayTuple = Tuple[str, ndarray]
 

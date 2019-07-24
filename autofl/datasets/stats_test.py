@@ -22,7 +22,7 @@ def test_basic_stats(mock_dataset):
 
     assert isinstance(stats, DatasetStats)
 
-    assert stats.number_of_examples == 60
+    assert stats.number_of_examples == 600
     assert len(stats.number_of_examples_per_label[0]) == 10
 
     for count in stats.number_of_examples_per_label[1]:

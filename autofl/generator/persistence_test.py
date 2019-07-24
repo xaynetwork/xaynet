@@ -13,8 +13,8 @@ from . import persistence
 def check_federated_dataset_equality(
     dataset_expected: FederatedDataset, dataset_actual: FederatedDataset
 ):
-    xy_splits_expected, xy_test_expected = dataset_expected
-    xy_splits_actual, xy_test_actual = dataset_actual
+    xy_splits_expected, xy_validation_expected, xy_test_expected = dataset_expected
+    xy_splits_actual, xy_validation_actual, xy_test_actual = dataset_actual
 
     assert len(xy_splits_expected) == len(xy_splits_actual)
     assert len(xy_test_expected) == len(xy_test_actual)
@@ -27,6 +27,9 @@ def check_federated_dataset_equality(
         np.testing.assert_equal(x_expected, x_actual)
         np.testing.assert_equal(y_expected, y_actual)
 
+    assert xy_validation_expected[0].shape == xy_validation_actual[0].shape
+    assert xy_validation_expected[1].shape == xy_validation_actual[1].shape
+
     assert xy_test_expected[0].shape == xy_test_actual[0].shape
     assert xy_test_expected[1].shape == xy_test_actual[1].shape
 
@@ -38,6 +41,8 @@ def test_dataset_to_fname_ndarray_tuple_list(mock_random_splits_2_dataset):
         "y_00.npy",
         "x_01.npy",
         "y_01.npy",
+        "x_validation.npy",
+        "y_validation.npy",
         "x_test.npy",
         "y_test.npy",
     ]
@@ -57,8 +62,10 @@ def test_dataset_to_fname_ndarray_tuple_list(mock_random_splits_2_dataset):
 
         if "test" in name:
             assert arr.shape[0] == 10
+        elif "validation" in name:
+            assert arr.shape[0] == 6
         else:
-            assert arr.shape[0] == 30
+            assert arr.shape[0] == 27
 
 
 def test_to_fname_ndarray_tuple():
@@ -96,7 +103,7 @@ def test_save(tmp_path):
 def test_save_splits(monkeypatch, tmp_path, mock_random_splits_2_dataset):
     # Prepare
     dataset_name = "mock_dataset"
-    xy_splits, xy_test = mock_random_splits_2_dataset
+    xy_splits, xy_validation, xy_test = mock_random_splits_2_dataset
 
     # -> Files which are supposed to be saved
     files_to_be_saved = [
@@ -104,6 +111,8 @@ def test_save_splits(monkeypatch, tmp_path, mock_random_splits_2_dataset):
         ("y_00.npy", xy_splits[0][1], tmp_path),
         ("x_01.npy", xy_splits[1][0], tmp_path),
         ("y_01.npy", xy_splits[1][1], tmp_path),
+        ("x_validation.npy", xy_validation[0], tmp_path),
+        ("y_validation.npy", xy_validation[1], tmp_path),
         ("x_test.npy", xy_test[0], tmp_path),
         ("y_test.npy", xy_test[1], tmp_path),
     ]
@@ -163,6 +172,8 @@ def test_save_load_splits(tmp_path, mock_random_splits_2_dataset):
     dataset_actual = (
         # train set
         [(d["x_00"], d["y_00"]), (d["x_01"], d["y_01"])],
+        # validation set
+        (d["x_validation"], d["y_validation"]),
         # test set
         (d["x_test"], d["y_test"]),
     )
