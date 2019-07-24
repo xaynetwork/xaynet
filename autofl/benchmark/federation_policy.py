@@ -15,7 +15,7 @@ WATCH_UNTRAINED_AGENT = True
 WATCH_TRAINED_AGENT = True
 
 
-def benchmark_policy_FashionMNIST(_):
+def benchmark_policy_FashionMNIST():
     logging.info("Starting Federation Policy benchmark")
 
     # Environment

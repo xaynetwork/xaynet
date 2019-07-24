@@ -5,24 +5,27 @@ import numpy as np
 from absl import logging
 from gym.envs.registration import register
 
-from autofl.net import fc_compiled
+from autofl.net import cnn_compiled
 
 from ..datasets.api import fashion_mnist_10s_600_load_splits
 from ..fedml import Coordinator, Participant, RandomController
 
-NUM_ROUNDS = 17
+NUM_ROUNDS = 10  # FIXME: 40?
 
 
 def register_gym_env():
     register(id="FederatedLearning-v0", entry_point="autofl.flenv:FederatedLearningEnv")
 
 
+# pylint: disable-msg=too-many-instance-attributes
 class FederatedLearningEnv(gym.Env):
 
     metadata = {"render.modes": ["human"]}
 
     def __init__(self) -> None:
-        self.coordinator = init_fl()
+        coordinator, xy_val = init_fl()
+        self.coordinator = coordinator
+        self.xy_val = xy_val
         # Gym Env.observation_space and Env.action_space
         nvec = [2] * self.coordinator.num_participants()
         self.action_space = gym.spaces.MultiDiscrete(nvec)
@@ -57,7 +60,7 @@ class FederatedLearningEnv(gym.Env):
         # Estimate loss and accuracy
         logging.info("FlEnv: Evaluate")
         # TODO consider: full validation (or test?) set evaluation after last round
-        _, accuracy = self.coordinator.evaluate()
+        _, accuracy = self.coordinator.evaluate(self.xy_val)
         # Reward: Gain in validation set accuracy (estimated)
         reward = accuracy - self.prev_reward
         self.prev_reward = reward
@@ -90,17 +93,18 @@ def action_to_indices(action: np.ndarray) -> np.ndarray:
     return np.argwhere(action == 1).squeeze(axis=1)
 
 
-def init_fl() -> Coordinator:
-    # xy_splits, xy_test = data.generate_splits_mnist(num_splits=10)
+def init_fl() -> Tuple[Coordinator, Any]:
+    # FIXME return xy_val (once available), not xy_test
     xy_splits, xy_test = fashion_mnist_10s_600_load_splits()
+    xy_val = xy_test  # FIXME remove once validation set is available
     # Init participants
-    ps = []
-    for xy_split in xy_splits:
-        model = fc_compiled()
-        p = Participant(model, xy_split[0], xy_split[1])
-        ps.append(p)
+    participants = []
+    for xy_train in xy_splits:
+        model = cnn_compiled()
+        p = Participant(model, xy_train, xy_val)
+        participants.append(p)
     # Init coordinator
     # FIXME refactor: No controller needed
     controller = RandomController(10, 3)
-    model = fc_compiled()
-    return Coordinator(controller, model, ps, xy_test)
+    model = cnn_compiled()
+    return Coordinator(controller, model, participants), xy_val
