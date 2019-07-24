@@ -147,14 +147,22 @@ def biased_balanced_labels_shuffle(  # pylint: disable=R0914
         x_balanced, y_balanced, num_splits=section_count
     )
 
-    x_biased = np.append(
-        [], [np.append(x1, x2) for x1, x2 in zip(x_biased_splits, x_balanced_splits)]
+    x_merged = np.concatenate(
+        [
+            np.concatenate([x1, x2], axis=0)
+            for x1, x2 in zip(x_biased_splits, x_balanced_splits)
+        ]
     )
-    y_biased = np.append(
-        [], [np.append(y1, y2) for y1, y2 in zip(y_biased_splits, y_balanced_splits)]
+    y_merged = np.concatenate(
+        [
+            np.concatenate([y1, y2], axis=0)
+            for y1, y2 in zip(y_biased_splits, y_balanced_splits)
+        ]
     )
 
-    return x_biased, y_biased
+    assert x.shape == x_merged.shape, "Shape of x should not change"
+
+    return x_merged, y_merged
 
 
 def split(
