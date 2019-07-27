@@ -3,23 +3,42 @@ from typing import List, Tuple
 import numpy as np
 from absl import app, logging
 
-from autofl.datasets import fashion_mnist_10s_600
+from autofl.datasets import (
+    fashion_mnist_10s_500_1k_bias,
+    fashion_mnist_10s_600,
+    fashion_mnist_10s_single_class,
+)
 from autofl.fedml import Coordinator, Participant, RandomController
 from autofl.net import cnn_compiled
 
 from . import report
 
+EPOCHS = 40
 
-# TODO initialize both (UL|FL) models the same way
-def benchmark_gain_FashionMNIST():
-    logging.info("Starting Fashion-MNIST Benchmark")
 
-    EPOCHS = 40
-
-    # Load perfectly balanced shards
+def benchmark_ul_fl_FashionMNIST_10p_0():
+    logging.info("Starting Fashion-MNIST-10p-0 Benchmark")
     xy_splits, xy_val, xy_test = fashion_mnist_10s_600.load_splits()
+    run_unitary_versus_federated(xy_splits, xy_val, xy_test)
+
+
+def benchmark_ul_fl_FashionMNIST_10p_1000():
+    logging.info("Starting Fashion-MNIST-10p-1000 Benchmark")
+    xy_splits, xy_val, xy_test = fashion_mnist_10s_500_1k_bias.load_splits()
+    run_unitary_versus_federated(xy_splits, xy_val, xy_test)
+
+
+def benchmark_ul_fl_FashionMNIST_10p_5400():
+    logging.info("Starting Fashion-MNIST-10p-5400 Benchmark")
+    xy_splits, xy_val, xy_test = fashion_mnist_10s_single_class.load_splits()
+    run_unitary_versus_federated(xy_splits, xy_val, xy_test)
+
+
+def run_unitary_versus_federated(xy_splits, xy_val, xy_test):
+    # TODO initialize both (UL|FL) models the same way
 
     # Train CNN on a single partition ("unitary learning")
+    # TODO train n models on all partitions
     partition_id = 0
     logging.info("> Train model on partition {}".format(partition_id))
     ul_results = run_uni(xy_splits[partition_id], xy_val, xy_test, EPOCHS)
@@ -82,7 +101,9 @@ def run_fed(
 
 
 def main(_):
-    benchmark_gain_FashionMNIST()
+    benchmark_ul_fl_FashionMNIST_10p_0()
+    # benchmark_ul_fl_FashionMNIST_10p_1000()
+    # benchmark_ul_fl_FashionMNIST_10p_5400()
 
 
 if __name__ == "__main__":
