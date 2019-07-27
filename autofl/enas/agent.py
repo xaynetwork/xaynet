@@ -6,10 +6,11 @@ import tensorflow as tf
 from absl import flags, logging
 from numpy import ndarray
 
-from .. import flenv
-from ..datasets import cifar10_random_splits_10
-from ..fedml import Coordinator, Participant, RandomController
-from ..net.arch import Architecture, build_architecture, parse_arch_str
+from autofl import flenv
+from autofl.datasets import cifar10_random_splits_10
+from autofl.fedml import Coordinator, Participant, RandomController
+
+from .arch import Architecture, build_architecture, parse_arch_str
 
 FLAGS = flags.FLAGS
 
