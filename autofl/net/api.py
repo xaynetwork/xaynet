@@ -40,12 +40,29 @@ def fc_compiled(input_shape=(28, 28, 1), num_classes=10) -> tf.keras.Model:
 def cnn_compiled(input_shape=(28, 28, 1), num_classes=10) -> tf.keras.Model:
     inputs = Input(shape=input_shape)
     x = Conv2D(32, kernel_size=3, activation="relu")(inputs)
-    x = Conv2D(64, (3, 3), activation="relu")(x)
+    x = Conv2D(64, kernel_size=3, activation="relu")(x)
     x = MaxPool2D(pool_size=(2, 2))(x)
     x = Dropout(0.25)(x)
     x = Flatten()(x)
     x = Dense(128, activation="relu")(x)
     x = Dropout(0.5)(x)
+    outputs = Dense(num_classes, activation="softmax")(x)
+
+    model = tf.keras.Model(inputs=inputs, outputs=outputs)
+
+    model.compile(
+        loss=tf.keras.losses.categorical_crossentropy,
+        optimizer=tf.keras.optimizers.Adam(),
+        metrics=["accuracy"],
+    )
+    return model
+
+
+def fl_2nn_compiled(input_shape=(28, 28, 1), num_classes=10) -> tf.keras.Model:
+    inputs = Input(shape=input_shape)
+    x = Flatten()(inputs)
+    x = Dense(200, activation="relu")(x)
+    x = Dense(200, activation="relu")(x)
     outputs = Dense(num_classes, activation="softmax")(x)
 
     model = tf.keras.Model(inputs=inputs, outputs=outputs)
