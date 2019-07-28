@@ -72,7 +72,7 @@ class Coordinator:
         return theta_prime, history
 
     def evaluate(self, xy_val: Tuple[ndarray, ndarray]) -> Tuple[float, float]:
-        ds_val = prep.init_ds_val(xy_val[0], xy_val[1])
+        ds_val = prep.init_ds_val(xy_val)
         # Assume the validation `tf.data.Dataset` to yield exactly one batch containing
         # all examples in the validation set
         loss, accuracy = self.model.evaluate(ds_val, steps=1)
@@ -82,8 +82,8 @@ class Coordinator:
         return len(self.participants)
 
 
-def abs_C(C: float, num_participants: int):
-    return min(num_participants, max(1, C * num_participants))
+def abs_C(C: float, num_participants: int) -> int:
+    return int(min(num_participants, max(1, C * num_participants)))
 
 
 def aggregate_histories(history_updates):
