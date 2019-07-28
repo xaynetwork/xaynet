@@ -13,7 +13,7 @@ from autofl.net import orig_cnn_compiled
 
 from . import report
 
-EPOCHS = 40
+ROUNDS = 40
 
 
 def benchmark_ul_fl_FashionMNIST_10p_0():
@@ -41,11 +41,11 @@ def run_unitary_versus_federated(xy_splits, xy_val, xy_test):
     # TODO train n models on all partitions
     partition_id = 0
     logging.info("> Train model on partition {}".format(partition_id))
-    ul_results = run_uni(xy_splits[partition_id], xy_val, xy_test, EPOCHS)
+    ul_results = run_uni(xy_splits[partition_id], xy_val, xy_test, ROUNDS)
 
     # Train CNN using federated learning on all partitions
     logging.info("> Train federated model on all partitions")
-    fl_results = run_fed(xy_splits, xy_val, xy_test, EPOCHS)
+    fl_results = run_fed(xy_splits, xy_val, xy_test, ROUNDS)
 
     # Output results
     history_ul, loss_ul, acc_ul = ul_results
