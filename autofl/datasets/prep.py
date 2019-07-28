@@ -11,17 +11,12 @@ SEED = 1096
 def init_ds_train(
     xy: Tuple[np.ndarray, np.ndarray], num_classes=10, batch_size=32
 ) -> Dataset:
-    # FIXME implement augmentation for Fashion-MNIST
-    return init_ds(
-        xy, num_classes, batch_size=batch_size, augmentation=False, shuffle=True
-    )
+    return init_ds(xy, num_classes, batch_size, augmentation=True, shuffle=True)
 
 
 def init_ds_val(xy: Tuple[np.ndarray, np.ndarray], num_classes=10) -> Dataset:
     batch_size = xy[0].shape[0]  # Return full dataset as one large batch
-    return init_ds(
-        xy, num_classes, batch_size=batch_size, augmentation=False, shuffle=False
-    )
+    return init_ds(xy, num_classes, batch_size, augmentation=False, shuffle=False)
 
 
 # pylint: disable-msg=too-many-arguments
@@ -50,11 +45,11 @@ def init_ds(
     ds = prepare(ds, num_classes=num_classes)
     # Data augmentation:
     # - Randomize hue/saturation/brightness/contrast (CIFAR-10/non-grayscale only)
-    # - Take random 32x32 crop (after padding to 40x40)
+    # - Take random 32x32 (or 28x28) crop (after padding to 40x40 (or 32x32))
     # - Random horizontal flip
     if augmentation:
         ds = augment_ds(ds, grayscale)
-    return batch_and_repeat(ds, batch_size=batch_size, shuffle=shuffle)
+    return batch_and_repeat(ds, batch_size, shuffle=shuffle, repeat=True)
 
 
 def to_dataset(x: np.ndarray, y: np.ndarray) -> Dataset:
@@ -74,7 +69,14 @@ def augment_ds(ds: Dataset, grayscale: bool) -> Dataset:
             lambda x, y: (_random_hue_saturation_brightness_contrast(x), y),
             num_parallel_calls=AUTOTUNE,
         )
-    ds = ds.map(lambda x, y: (_random_crop(x), y), num_parallel_calls=AUTOTUNE)
+    if grayscale:
+        ds = ds.map(
+            lambda x, y: (_random_crop_mnist(x), y), num_parallel_calls=AUTOTUNE
+        )
+    else:
+        ds = ds.map(
+            lambda x, y: (_random_crop_cifar(x), y), num_parallel_calls=AUTOTUNE
+        )
     ds = ds.map(
         lambda x, y: (_random_horizontal_flip(x), y), num_parallel_calls=AUTOTUNE
     )
@@ -82,7 +84,7 @@ def augment_ds(ds: Dataset, grayscale: bool) -> Dataset:
 
 
 def batch_and_repeat(
-    ds: Dataset, batch_size: int, shuffle: bool = True, repeat: bool = True
+    ds: Dataset, batch_size: int, shuffle: bool, repeat: bool
 ) -> Dataset:
     ds = ds.prefetch(buffer_size=AUTOTUNE)
     if shuffle:
@@ -106,7 +108,12 @@ def _prep_one_hot(y: tf.Tensor, num_classes: int) -> tf.Tensor:
     return tf.one_hot(y, num_classes)
 
 
-def _random_crop(img: tf.Tensor) -> tf.Tensor:
+def _random_crop_mnist(img: tf.Tensor) -> tf.Tensor:
+    img_padded = tf.image.pad_to_bounding_box(img, 2, 2, 32, 32)
+    return tf.image.random_crop(img_padded, size=[28, 28, 1], seed=SEED)
+
+
+def _random_crop_cifar(img: tf.Tensor) -> tf.Tensor:
     img_padded = tf.image.pad_to_bounding_box(img, 4, 4, 40, 40)
     return tf.image.random_crop(img_padded, size=[32, 32, 3], seed=SEED)
 
