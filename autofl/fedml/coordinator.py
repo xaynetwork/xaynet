@@ -74,6 +74,10 @@ class Coordinator:
         return len(self.participants)
 
 
+def abs_C(C: float, num_participants: int):
+    return min(num_participants, max(1, C * num_participants))
+
+
 def aggregate_histories(history_updates):
     history = history_updates[0][0]
     for histories in history_updates[1:]:
