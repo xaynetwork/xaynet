@@ -7,6 +7,7 @@ FORMAT: str = "png"
 
 def plot_accuracies(history_ul, history_fl, plot_dir=None):
     fname = "fl_vs_ul.png"
+    xlim_max = len(history_ul.history["val_acc"])
     plot_curves(
         curves=[history_ul.history["val_acc"], history_fl.history["val_acc"]],
         legend=["UL", "FL"],
@@ -17,6 +18,7 @@ def plot_accuracies(history_ul, history_fl, plot_dir=None):
         save=True,
         show=False,
         ylim_max=1.0,
+        xlim_max=xlim_max,
     )
 
 
@@ -31,12 +33,13 @@ def plot_curves(
     save: bool = True,
     show: bool = False,
     ylim_max: float = 1.0,
+    xlim_max: float = 40.0,
 ) -> None:
     assert len(curves) == len(legend)
     assert fname is not None
     plt.figure()
     plt.ylim(0.0, ylim_max)
-    plt.xlim(0.0, 40.0)
+    plt.xlim(0.0, xlim_max)
     for c in curves:
         plt.plot(c)
     if title is not None:
