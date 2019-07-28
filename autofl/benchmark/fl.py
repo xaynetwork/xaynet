@@ -9,7 +9,7 @@ from autofl.datasets import (
     fashion_mnist_10s_single_class,
 )
 from autofl.fedml import Coordinator, Participant, RandomController
-from autofl.net import cnn_compiled
+from autofl.net import orig_cnn_compiled
 
 from . import report
 
@@ -63,7 +63,7 @@ def run_uni(
     epochs: int,
 ):
     # Initialize model and participant
-    model = cnn_compiled()
+    model = orig_cnn_compiled()
     participant = Participant(model, xy_train=xy_train, xy_val=xy_val)
     # Train model
     history = participant.train(epochs)
@@ -80,16 +80,16 @@ def run_fed(
     xy_test: Tuple[np.ndarray, np.ndarray],
     rounds: int,
 ):
-    C = 3
+    C = 3  # FIXME refactor: use fraction
     # Init participants
     participants = []
     for xy_train in xy_train_partitions:
-        model = cnn_compiled()
+        model = orig_cnn_compiled()
         participant = Participant(model, xy_train=xy_train, xy_val=xy_val)
         participants.append(participant)
     num_participants = len(participants)
     # Init coordinator
-    model = cnn_compiled()
+    model = orig_cnn_compiled()
     controller = RandomController(num_participants, C)
     coordinator = Coordinator(controller, model, participants)
     # Train model

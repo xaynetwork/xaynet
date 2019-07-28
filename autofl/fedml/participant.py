@@ -4,7 +4,7 @@ import numpy as np
 import tensorflow as tf
 
 from autofl.datasets import prep
-from autofl.net import cnn_compiled
+from autofl.net import orig_cnn_compiled
 
 from . import ops
 
@@ -65,7 +65,7 @@ class Participant:
 def init_participants(xy_splits, xy_val) -> List[Participant]:
     participants = []
     for xy_train in xy_splits:
-        model = cnn_compiled()  # FIXME refactor
+        model = orig_cnn_compiled()  # FIXME refactor
         participant = Participant(model, xy_train, xy_val)
         participants.append(participant)
     return participants
