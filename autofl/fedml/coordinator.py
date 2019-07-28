@@ -54,13 +54,12 @@ class Coordinator:
 
     def _single_step(self, random_index: int) -> Tuple[List[List[ndarray]], Any]:
         participant = self.participants[random_index]
-        # Push current model parameters to this participant
+        # Train one round on this particular participant:
+        # - Push current model parameters to this participant
+        # - Train for a number of epochs
+        # - Pull updated model parameters from participant
         theta = get_model_params(self.model)
-        participant.update_model_parameters(theta)
-        # Train for a number of epochs
-        history = participant.train(epochs=1)
-        # Pull updated model parameters from participant
-        theta_prime = participant.retrieve_model_parameters()
+        theta_prime, history = participant.train_round(theta, epochs=1)
         return theta_prime, history
 
     def evaluate(self, xy_val: Tuple[ndarray, ndarray]) -> Tuple[float, float]:

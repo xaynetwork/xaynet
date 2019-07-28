@@ -29,18 +29,18 @@ class Participant:
     def train_round(
         self, theta: List[List[np.ndarray]], epochs
     ) -> Tuple[List[List[np.ndarray]], Any]:
-        self.update_model_parameters(theta)
-        history = self.train(epochs)
-        theta_prime = self.retrieve_model_parameters()
+        self._update_model_parameters(theta)
+        history = self._train(epochs)
+        theta_prime = self._retrieve_model_parameters()
         return theta_prime, history
 
-    def update_model_parameters(self, theta: List[List[np.ndarray]]) -> None:
+    def _update_model_parameters(self, theta: List[List[np.ndarray]]) -> None:
         ops.set_model_params(self.model, theta)
 
-    def retrieve_model_parameters(self) -> List[List[np.ndarray]]:
+    def _retrieve_model_parameters(self) -> List[List[np.ndarray]]:
         return ops.get_model_params(self.model)
 
-    def train(self, epochs: int) -> Any:
+    def _train(self, epochs: int) -> Any:
         history = self.model.fit(
             self.ds_train,
             epochs=epochs,
