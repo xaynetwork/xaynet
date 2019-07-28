@@ -39,7 +39,7 @@ def round_robin(_):
     participants = init_participants(xy_splits, xy_val)
     model = orig_cnn_compiled()  # This will act as the initial model
     controller = RoundRobinController(num_participants=len(participants))
-    coordinator = Coordinator(controller, model, participants)
+    coordinator = Coordinator(controller, model, participants, C=0.1)
 
     # Start training
     coordinator.fit(num_rounds=10)
@@ -61,8 +61,8 @@ def federated_learning(_):
     # push its own weight to the respective participants of each training round.
     participants = init_participants(xy_splits, xy_val)
     model = orig_cnn_compiled()
-    controller = RandomController(num_participants=len(participants), C=3)
-    coordinator = Coordinator(controller, model, participants)
+    controller = RandomController(num_participants=len(participants))
+    coordinator = Coordinator(controller, model, participants, C=0.3)
 
     # Start training
     coordinator.fit(num_rounds=10)

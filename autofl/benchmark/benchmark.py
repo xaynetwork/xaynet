@@ -29,9 +29,9 @@ def eval_MNIST():
         participants.append(participant)
 
     # Init coordinator
-    controller = RandomController(len(participants), C=3)
+    controller = RandomController(len(participants))
     model = orig_cnn_compiled()
-    coordinator = Coordinator(controller, model, participants)
+    coordinator = Coordinator(controller, model, participants, C=0.3)
 
     # Train
     coordinator.fit(num_rounds=2)
@@ -70,13 +70,13 @@ def eval_CIFAR_10_with_random_controller():
         participants.append(participant)
 
     # Init controller
-    controller = RandomController(len(participants), C=3)
+    controller = RandomController(len(participants))
 
     # Init model
     model = resnet20v2_compiled()
 
     # Init coordinator
-    coordinator = Coordinator(controller, model, participants)
+    coordinator = Coordinator(controller, model, participants, C=0.3)
 
     # Train
     coordinator.fit(num_rounds=40)

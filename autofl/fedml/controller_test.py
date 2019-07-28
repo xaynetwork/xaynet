@@ -9,7 +9,7 @@ def test_round_robin_controller():
     for _ in range(5):
         for i in range(NUM_PARTICIPANTS):
             # Execute
-            indices = controller.indices()
+            indices = controller.indices(num_indices=1)
             # Assert
             assert len(indices) == 1
             assert indices[0] == i
@@ -23,10 +23,10 @@ def test_cycle_random_controller():
     # Execute
     indices0 = []
     for _ in range(NUM_PARTICIPANTS):
-        indices0.append(controller.indices()[0])
+        indices0.append(controller.indices(num_indices=1)[0])
     indices1 = []
     for _ in range(NUM_PARTICIPANTS):
-        indices1.append(controller.indices()[0])
+        indices1.append(controller.indices(num_indices=1)[0])
 
     # Assert
     assert len(indices0) == 3

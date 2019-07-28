@@ -9,12 +9,20 @@ from .participant import Participant
 
 
 class Coordinator:
+    # pylint: disable-msg=too-many-arguments
     def __init__(
-        self, controller, model: tf.keras.Model, participants: List[Participant]
+        self,
+        controller,
+        model: tf.keras.Model,
+        participants: List[Participant],
+        C: float,
+        E: int = 1,
     ) -> None:
         self.controller = controller
         self.model = model
         self.participants = participants
+        self.C = C
+        self.E = E
 
     # TODO remove or refactor: only needed for FedNasEnv
     def replace_model(self, model_fn: Callable[..., tf.keras.Model]) -> None:
@@ -30,7 +38,8 @@ class Coordinator:
         history_updates: List[List[Any]] = []
         for training_round in range(num_rounds):
             # Determine who participates in this round
-            indices = self.controller.indices()
+            num_indices = abs_C(self.C, self.num_participants())
+            indices = self.controller.indices(num_indices)
             print("\nRound", str(training_round + 1), "- participants", indices)
             histories = self.fit_round(indices)
             history_updates.append(histories)
@@ -59,7 +68,7 @@ class Coordinator:
         # - Train for a number of epochs
         # - Pull updated model parameters from participant
         theta = get_model_params(self.model)
-        theta_prime, history = participant.train_round(theta, epochs=1)
+        theta_prime, history = participant.train_round(theta, epochs=self.E)
         return theta_prime, history
 
     def evaluate(self, xy_val: Tuple[ndarray, ndarray]) -> Tuple[float, float]:
