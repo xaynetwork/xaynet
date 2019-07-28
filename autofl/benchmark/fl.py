@@ -66,7 +66,7 @@ def run_uni(
     model = orig_cnn_compiled()
     participant = Participant(model, xy_train=xy_train, xy_val=xy_val)
     # Train model
-    history = participant._train(epochs)
+    history = participant._train(epochs)  # pylint: disable-msg=protected-access
     # Evaluate final performance
     loss, accuracy = participant.evaluate(xy_test)
     # Report results

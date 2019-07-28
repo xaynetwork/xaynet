@@ -63,7 +63,7 @@ class Coordinator:
         return theta_prime, history
 
     def evaluate(self, xy_val: Tuple[ndarray, ndarray]) -> Tuple[float, float]:
-        ds_val = prep.init_validation_dataset(xy_val[0], xy_val[1])
+        ds_val = prep.init_ds_val(xy_val[0], xy_val[1])
         # Assume the validation `tf.data.Dataset` to yield exactly one batch containing
         # all examples in the validation set
         loss, accuracy = self.model.evaluate(ds_val, steps=1)

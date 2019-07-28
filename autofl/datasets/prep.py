@@ -6,15 +6,39 @@ AUTOTUNE = tf.data.experimental.AUTOTUNE
 SEED = 1096
 
 
-def init_dataset(
-    x: np.ndarray, y: np.ndarray, num_classes=10, augmentation=False
+def init_ds_train(
+    x: np.ndarray, y: np.ndarray, num_classes=10, batch_size=32
+) -> Dataset:
+    # FIXME implement augmentation for Fashion-MNIST
+    return init_ds(
+        x, y, num_classes, batch_size=batch_size, augmentation=False, shuffle=True
+    )
+
+
+def init_ds_val(x: np.ndarray, y: np.ndarray, num_classes=10) -> Dataset:
+    batch_size = x.shape[0]  # Return full dataset as one large batch
+    return init_ds(
+        x, y, num_classes, batch_size=batch_size, augmentation=False, shuffle=False
+    )
+
+
+# pylint: disable-msg=too-many-arguments
+def init_ds(
+    x: np.ndarray,
+    y: np.ndarray,
+    num_classes: int,
+    batch_size: int,
+    augmentation=False,
+    shuffle=False,
 ) -> Dataset:
     # Assume that each row in `x` corresponds to the same row in `y`
     assert x.shape[0] == y.shape[0]
     assert x.ndim == 3 or x.ndim == 4  # (Fashion-)MNIST: 3, CIFAR-10: 4
     assert y.ndim == 1
     # Add one dimension to grayscale-image datasets
+    grayscale = False
     if x.ndim == 3:
+        grayscale = True
         x = np.reshape(x, (x.shape[0], x.shape[1], x.shape[2], 1))
     # Create tf.data.Dataset from ndarrays
     ds = to_dataset(x, y)
@@ -22,31 +46,13 @@ def init_dataset(
     # - Cast color channel values to float, divide by 255
     # - One-hot encode labels
     ds = prepare(ds, num_classes=num_classes)
-    # Data augmentation (CIFAR-10 only):
-    # - Randomize hue/saturation/brightness/contrast
+    # Data augmentation:
+    # - Randomize hue/saturation/brightness/contrast (CIFAR-10/non-grayscale only)
     # - Take random 32x32 crop (after padding to 40x40)
     # - Random horizontal flip
     if augmentation:
-        ds = augment_cifar(ds)
-    return batch_and_repeat(ds, batch_size=64)
-
-
-def init_validation_dataset(x: np.ndarray, y: np.ndarray, num_classes=10) -> Dataset:
-    # Assume that each row in `x` corresponds to the same row in `y`
-    assert x.shape[0] == y.shape[0]
-    assert x.ndim == 3 or x.ndim == 4  # (Fashion-)MNIST: 3, CIFAR-10: 4
-    assert y.ndim == 1
-    # Add one dimension to grayscale-image datasets
-    if x.ndim == 3:
-        x = np.reshape(x, (x.shape[0], x.shape[1], x.shape[2], 1))
-    # Create tf.data.Dataset from ndarrays
-    ds = to_dataset(x, y)
-    # Data preparation:
-    # - Cast color channel values to float, divide by 255
-    # - One-hot encode labels
-    ds = prepare(ds, num_classes=num_classes)
-    # No data augmentation or shuffle on the validation set
-    return batch_and_repeat(ds, batch_size=x.shape[0], shuffle=False, repeat=True)
+        ds = augment_ds(ds, grayscale)
+    return batch_and_repeat(ds, batch_size=batch_size, shuffle=shuffle)
 
 
 def to_dataset(x: np.ndarray, y: np.ndarray) -> Dataset:
@@ -60,11 +66,12 @@ def prepare(ds: Dataset, num_classes: int) -> Dataset:
     return ds
 
 
-def augment_cifar(ds: Dataset) -> Dataset:
-    ds = ds.map(
-        lambda x, y: (_random_hue_saturation_brightness_contrast(x), y),
-        num_parallel_calls=AUTOTUNE,
-    )
+def augment_ds(ds: Dataset, grayscale: bool) -> Dataset:
+    if not grayscale:
+        ds = ds.map(
+            lambda x, y: (_random_hue_saturation_brightness_contrast(x), y),
+            num_parallel_calls=AUTOTUNE,
+        )
     ds = ds.map(lambda x, y: (_random_crop(x), y), num_parallel_calls=AUTOTUNE)
     ds = ds.map(
         lambda x, y: (_random_horizontal_flip(x), y), num_parallel_calls=AUTOTUNE
@@ -77,7 +84,7 @@ def batch_and_repeat(
 ) -> Dataset:
     ds = ds.prefetch(buffer_size=AUTOTUNE)
     if shuffle:
-        ds = ds.shuffle(512, seed=SEED)
+        ds = ds.shuffle(1024, seed=SEED)
     if repeat:
         ds = ds.repeat()
     if batch_size > 0:
