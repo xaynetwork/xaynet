@@ -5,12 +5,9 @@ from . import prep
 
 def test_init_dataset(mock_dataset):
     # Prepare
-    (x, y), _ = mock_dataset
-
-    print(x.shape, y.shape)
-
+    xy, _ = mock_dataset
     # Execute
-    ds = prep.init_ds_train(x, y)
+    ds = prep.init_ds_train(xy)
     # Assert
     assert ds.output_types == (tf.float32, tf.float32)
     assert len(ds.output_shapes) == 2

@@ -1,3 +1,5 @@
+from typing import Tuple
+
 import numpy as np
 import tensorflow as tf
 from tensorflow.data import Dataset
@@ -7,30 +9,30 @@ SEED = 1096
 
 
 def init_ds_train(
-    x: np.ndarray, y: np.ndarray, num_classes=10, batch_size=32
+    xy: Tuple[np.ndarray, np.ndarray], num_classes=10, batch_size=32
 ) -> Dataset:
     # FIXME implement augmentation for Fashion-MNIST
     return init_ds(
-        x, y, num_classes, batch_size=batch_size, augmentation=False, shuffle=True
+        xy, num_classes, batch_size=batch_size, augmentation=False, shuffle=True
     )
 
 
-def init_ds_val(x: np.ndarray, y: np.ndarray, num_classes=10) -> Dataset:
-    batch_size = x.shape[0]  # Return full dataset as one large batch
+def init_ds_val(xy: Tuple[np.ndarray, np.ndarray], num_classes=10) -> Dataset:
+    batch_size = xy[0].shape[0]  # Return full dataset as one large batch
     return init_ds(
-        x, y, num_classes, batch_size=batch_size, augmentation=False, shuffle=False
+        xy, num_classes, batch_size=batch_size, augmentation=False, shuffle=False
     )
 
 
 # pylint: disable-msg=too-many-arguments
 def init_ds(
-    x: np.ndarray,
-    y: np.ndarray,
+    xy: Tuple[np.ndarray, np.ndarray],
     num_classes: int,
     batch_size: int,
     augmentation=False,
     shuffle=False,
 ) -> Dataset:
+    (x, y) = xy
     # Assume that each row in `x` corresponds to the same row in `y`
     assert x.shape[0] == y.shape[0]
     assert x.ndim == 3 or x.ndim == 4  # (Fashion-)MNIST: 3, CIFAR-10: 4
