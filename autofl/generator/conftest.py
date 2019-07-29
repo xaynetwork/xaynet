@@ -1,19 +1,9 @@
 import pytest
 from numpy import ndarray
 
-from ..conftest import create_mock_dataset
+from ..conftest import create_mock_keras_dataset
 from ..types import FederatedDataset, KerasDataset
 from . import data
-
-
-def pytest_collection_modifyitems(items):
-    for item in items:
-        if not any(item.iter_markers()):
-            item.add_marker("unmarked")
-
-
-def create_empty_file(full_path):
-    open(full_path, "a").close()
 
 
 class MockKerasDataset:  # pylint: disable=too-few-public-methods
@@ -25,7 +15,7 @@ class MockKerasDataset:  # pylint: disable=too-few-public-methods
 
     @staticmethod
     def load_data() -> KerasDataset:
-        return create_mock_dataset()
+        return create_mock_keras_dataset()
 
 
 def no_shuffle(x: ndarray, y: ndarray):
