@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import Any, List, Tuple
 
 import numpy as np
 import tensorflow as tf
@@ -26,8 +26,13 @@ class Participant:
         self.steps_train = int(xy_train[0].shape[0] / BATCH_SIZE)
         self.steps_val = int(xy_val[0].shape[0] / BATCH_SIZE)
 
-    def replace_model(self, model: tf.keras.Model) -> None:
-        self.model = model
+    def train_round(
+        self, theta: List[List[np.ndarray]], epochs
+    ) -> Tuple[List[List[np.ndarray]], Any]:
+        self.update_model_parameters(theta)
+        history = self.train(epochs)
+        theta_prime = self.retrieve_model_parameters()
+        return theta_prime, history
 
     def update_model_parameters(self, theta: List[List[np.ndarray]]) -> None:
         ops.set_model_params(self.model, theta)
@@ -35,7 +40,7 @@ class Participant:
     def retrieve_model_parameters(self) -> List[List[np.ndarray]]:
         return ops.get_model_params(self.model)
 
-    def train(self, epochs: int):
+    def train(self, epochs: int) -> Any:
         history = self.model.fit(
             self.ds_train,
             epochs=epochs,
@@ -52,6 +57,9 @@ class Participant:
         # all examples in the validation set
         loss, accuracy = self.model.evaluate(ds_val, steps=1)
         return loss, accuracy
+
+    def replace_model(self, model: tf.keras.Model) -> None:
+        self.model = model
 
 
 def init_participants(xy_splits, xy_val) -> List[Participant]:
