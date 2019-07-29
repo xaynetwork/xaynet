@@ -5,6 +5,7 @@ from .datasets import (
     generate_fashion_mnist_10s_500_1k_bias,
     generate_fashion_mnist_10s_600,
     generate_fashion_mnist_10s_single_class,
+    generate_fashion_mnist_100p_IID_balanced,
 )
 
 
@@ -14,6 +15,7 @@ def main(_):
     generate_fashion_mnist_10s_600()
     generate_fashion_mnist_10s_single_class()
     generate_fashion_mnist_10s_500_1k_bias()
+    generate_fashion_mnist_100p_IID_balanced()
 
 
 app.run(main=main)
