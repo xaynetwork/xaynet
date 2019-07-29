@@ -20,16 +20,12 @@ def test_cycle_random_controller():
     NUM_PARTICIPANTS = 3
     controller = CycleRandomController(num_participants=NUM_PARTICIPANTS)
 
-    # Execute
-    indices0 = []
-    for _ in range(NUM_PARTICIPANTS):
-        indices0.append(controller.indices(num_indices=1)[0])
-    indices1 = []
-    for _ in range(NUM_PARTICIPANTS):
-        indices1.append(controller.indices(num_indices=1)[0])
-
-    # Assert
-    assert len(indices0) == 3
-    assert set(indices0) == set([0, 1, 2])
-    assert len(indices1) == 3
-    assert set(indices1) == set([0, 1, 2])
+    # Execute & Assert
+    for _ in range(10):
+        # Execute
+        indices = []
+        for _ in range(NUM_PARTICIPANTS):
+            indices.append(controller.indices(num_indices=1)[0])
+        # Assert
+        assert len(indices) == 3
+        assert set(indices) == set([0, 1, 2])
