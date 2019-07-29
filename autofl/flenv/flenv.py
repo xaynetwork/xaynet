@@ -7,7 +7,7 @@ from gym.envs.registration import register
 
 from autofl.datasets import fashion_mnist_10s_600
 from autofl.fedml import Coordinator, Participant, RandomController
-from autofl.net import cnn_compiled
+from autofl.net import orig_cnn_compiled
 
 NUM_ROUNDS = 10  # FIXME: 40?
 
@@ -107,11 +107,11 @@ def init_fl() -> Tuple[Coordinator, Any, Any]:
     # Init participants
     participants = []
     for xy_train in xy_splits:
-        model = cnn_compiled()
+        model = orig_cnn_compiled()
         p = Participant(model, xy_train, xy_val)
         participants.append(p)
     # Init coordinator
     # FIXME refactor: No controller needed
     controller = RandomController(10, 3)
-    model = cnn_compiled()
+    model = orig_cnn_compiled()
     return Coordinator(controller, model, participants), xy_val, xy_test

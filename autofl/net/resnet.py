@@ -1,8 +1,10 @@
 # Derived from: https://github.com/keras-team/keras/blob/master/examples/cifar10_resnet.py
 # pylint: skip-file
 
+import math
 from typing import Optional, Tuple
 
+import tensorflow as tf
 import tensorflow.keras as keras
 from tensorflow.keras.layers import (
     Activation,
@@ -19,6 +21,25 @@ from tensorflow.keras.regularizers import l2
 
 L2_DEFAULT: float = 1e-4
 KERNEL_INITIALIZER_DEFAULT = "he_normal"
+
+
+def resnet20v2_compiled(
+    input_shape=(32, 32, 3),
+    num_classes=10,
+    lr_initial: float = 0.1,
+    momentum: float = 0.9,
+    k: float = 0.15,
+) -> tf.keras.Model:
+    model, _ = resnet(input_shape=(32, 32, 3), num_classes=10, version=2, n=2)
+
+    def exp_decay(epoch: int) -> float:
+        return lr_initial * math.exp(-k * epoch)
+
+    optimizer = tf.keras.optimizers.SGD(lr=exp_decay(0), momentum=momentum)
+    model.compile(
+        optimizer=optimizer, loss="categorical_crossentropy", metrics=["accuracy"]
+    )
+    return model
 
 
 def resnet(

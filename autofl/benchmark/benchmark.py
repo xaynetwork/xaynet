@@ -3,7 +3,7 @@ from absl import logging
 from autofl.datasets import cifar10_random_splits_10
 from autofl.fedml import Coordinator, Participant, RandomController
 from autofl.generator import data
-from autofl.net import fc_compiled, resnet_v2_20_compiled
+from autofl.net import orig_cnn_compiled, resnet20v2_compiled
 
 
 def main(_):
@@ -24,13 +24,13 @@ def eval_MNIST():
     # Init participants
     participants = []
     for x_split, y_split in xy_splits:
-        model = fc_compiled()
+        model = orig_cnn_compiled()
         participant = Participant(model, x_split, y_split)
         participants.append(participant)
 
     # Init coordinator
     controller = RandomController(len(participants), C=3)
-    model = fc_compiled()
+    model = orig_cnn_compiled()
     coordinator = Coordinator(controller, model, participants)
 
     # Train
@@ -65,7 +65,7 @@ def eval_CIFAR_10_with_random_controller():
     # Init participants
     participants = []
     for x_split, y_split in xy_splits:
-        model = resnet_v2_20_compiled()
+        model = resnet20v2_compiled()
         participant = Participant(model, x_split, y_split)
         participants.append(participant)
 
@@ -73,7 +73,7 @@ def eval_CIFAR_10_with_random_controller():
     controller = RandomController(len(participants), C=3)
 
     # Init model
-    model = resnet_v2_20_compiled()
+    model = resnet20v2_compiled()
 
     # Init coordinator
     coordinator = Coordinator(controller, model, participants)
