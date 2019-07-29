@@ -54,7 +54,7 @@ def run_unitary_versus_federated(xy_splits, xy_val, xy_test, C):
     partition_id = 0
     logging.info("> Train model on partition {}".format(partition_id))
     ul_results = run_uni(
-        xy_splits[partition_id], xy_val, xy_test, epochs=ROUNDS, B=FLH_B
+        xy_splits[partition_id], xy_val, xy_test, epochs=ROUNDS, batch_size=FLH_B
     )
 
     # Train CNN using federated learning on all partitions
@@ -75,12 +75,12 @@ def run_uni(
     xy_val: Tuple[np.ndarray, np.ndarray],
     xy_test: Tuple[np.ndarray, np.ndarray],
     epochs: int,
-    B: int,
+    batch_size: int,
 ):
     # Initialize model and participant
     model = orig_cnn_compiled()
     participant = Participant(
-        model, xy_train=xy_train, xy_val=xy_val, num_classes=10, batch_size=B
+        model, xy_train=xy_train, xy_val=xy_val, num_classes=10, batch_size=batch_size
     )
     # Train model
     history = participant._train(epochs)  # pylint: disable-msg=protected-access
