@@ -5,10 +5,11 @@ from numpy import ndarray
 # Returned from keras
 KerasDataset = Tuple[Tuple[ndarray, ndarray], Tuple[ndarray, ndarray]]
 
-# User in the autofl project
-FederatedDatasetSplit = Tuple[ndarray, ndarray]
+FederatedDatasetPartition = Tuple[ndarray, ndarray]
 FederatedDataset = Tuple[
-    List[FederatedDatasetSplit], FederatedDatasetSplit, FederatedDatasetSplit
+    List[FederatedDatasetPartition],
+    FederatedDatasetPartition,
+    FederatedDatasetPartition,
 ]
 
 FnameNDArrayTuple = Tuple[str, ndarray]

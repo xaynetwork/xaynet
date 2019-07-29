@@ -1,37 +1,24 @@
-import numpy as np
-
-from .stats import DatasetStats, basic_stats, basic_stats_multiple
+from .stats import DSStats
 
 
-def test_create_dataset_stats():
-    number_of_examples = 1
-    number_of_examples_per_label = (np.ndarray((1)), np.ndarray((1)))
+def test_DSStats_all(mock_federated_dataset):
+    ds_stats = DSStats("fed_ds", mock_federated_dataset)
 
-    stats = DatasetStats(
-        number_of_examples=number_of_examples,
-        number_of_examples_per_label=number_of_examples_per_label,
-    )
+    stats = ds_stats.all()
 
-    assert stats.number_of_examples == 1
-    assert stats.number_of_examples_per_label == number_of_examples_per_label
+    assert isinstance(stats, dict)
+    assert isinstance(stats["number_of_examples_per_label_per_shard"], dict)
 
+    for key, stat in stats["number_of_examples_per_label_per_shard"].items():
+        assert "total" in stat
+        assert "per_label" in stat
 
-def test_basic_stats(mock_dataset):
-    (x, y), (_, _) = mock_dataset
-    stats = basic_stats((x, y))
+        if key == "val":
+            assert stat["total"] == 60
+        elif key == "test":
+            assert stat["total"] == 100
+        else:
+            assert stat["total"] == 270
 
-    assert isinstance(stats, DatasetStats)
-
-    assert stats.number_of_examples == 600
-    assert len(stats.number_of_examples_per_label[0]) == 10
-
-    for count in stats.number_of_examples_per_label[1]:
-        assert count == 60
-
-
-def test_basic_stats_multiple(mock_dataset):
-    (x1, y1), (x2, y2) = mock_dataset
-    stats_list = basic_stats_multiple([(x1, y1), (x2, y2)])
-
-    for stats in stats_list:
-        assert isinstance(stats, DatasetStats)
+        assert isinstance(stat["per_label"], list)
+        assert len(stat["per_label"]) == 10

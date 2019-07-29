@@ -3,9 +3,9 @@ import tensorflow as tf
 from . import prep
 
 
-def test_init_dataset(mock_dataset):
+def test_init_dataset(mock_keras_dataset):
     # Prepare
-    xy, _ = mock_dataset
+    xy, _ = mock_keras_dataset
     # Execute
     ds = prep.init_ds_train(xy)
     # Assert
