@@ -29,8 +29,8 @@ def test_load_ndarray(tmp_path):
     t2 = time() * 1000.0
 
     # Assert
-    # Loading from remote should take less than 1000ms
-    assert (t2 - t1) < 1000
+    # Loading from remote should take less than 10s
+    assert (t2 - t1) < 10000
     numpy.testing.assert_equal(ndarray_actual, ndarray_expected)
 
     # Execute
