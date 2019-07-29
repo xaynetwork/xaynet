@@ -9,12 +9,20 @@ from .participant import Participant
 
 
 class Coordinator:
+    # pylint: disable-msg=too-many-arguments
     def __init__(
-        self, controller, model: tf.keras.Model, participants: List[Participant]
+        self,
+        controller,
+        model: tf.keras.Model,
+        participants: List[Participant],
+        C: float,
+        E: int = 1,
     ) -> None:
         self.controller = controller
         self.model = model
         self.participants = participants
+        self.C = C
+        self.E = E
 
     # TODO remove or refactor: only needed for FedNasEnv
     def replace_model(self, model_fn: Callable[..., tf.keras.Model]) -> None:
@@ -30,7 +38,8 @@ class Coordinator:
         history_updates: List[List[Any]] = []
         for training_round in range(num_rounds):
             # Determine who participates in this round
-            indices = self.controller.indices()
+            num_indices = abs_C(self.C, self.num_participants())
+            indices = self.controller.indices(num_indices)
             print("\nRound", str(training_round + 1), "- participants", indices)
             histories = self.fit_round(indices)
             history_updates.append(histories)
@@ -54,17 +63,16 @@ class Coordinator:
 
     def _single_step(self, random_index: int) -> Tuple[List[List[ndarray]], Any]:
         participant = self.participants[random_index]
-        # Push current model parameters to this participant
+        # Train one round on this particular participant:
+        # - Push current model parameters to this participant
+        # - Train for a number of epochs
+        # - Pull updated model parameters from participant
         theta = get_model_params(self.model)
-        participant.update_model_parameters(theta)
-        # Train for a number of epochs
-        history = participant.train(epochs=1)
-        # Pull updated model parameters from participant
-        theta_prime = participant.retrieve_model_parameters()
+        theta_prime, history = participant.train_round(theta, epochs=self.E)
         return theta_prime, history
 
     def evaluate(self, xy_val: Tuple[ndarray, ndarray]) -> Tuple[float, float]:
-        ds_val = prep.init_validation_dataset(xy_val[0], xy_val[1])
+        ds_val = prep.init_ds_val(xy_val)
         # Assume the validation `tf.data.Dataset` to yield exactly one batch containing
         # all examples in the validation set
         loss, accuracy = self.model.evaluate(ds_val, steps=1)
@@ -72,6 +80,10 @@ class Coordinator:
 
     def num_participants(self) -> int:
         return len(self.participants)
+
+
+def abs_C(C: float, num_participants: int) -> int:
+    return int(min(num_participants, max(1, C * num_participants)))
 
 
 def aggregate_histories(history_updates):

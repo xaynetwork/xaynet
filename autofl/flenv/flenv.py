@@ -112,6 +112,6 @@ def init_fl() -> Tuple[Coordinator, Any, Any]:
         participants.append(p)
     # Init coordinator
     # FIXME refactor: No controller needed
-    controller = RandomController(10, 3)
+    controller = RandomController(10)
     model = orig_cnn_compiled()
-    return Coordinator(controller, model, participants), xy_val, xy_test
+    return Coordinator(controller, model, participants, C=0.3), xy_val, xy_test

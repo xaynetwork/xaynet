@@ -13,6 +13,10 @@ from autofl.net import orig_cnn_compiled
 
 from . import report
 
+FLH_B = 32  # Batch size used by participants
+FLH_E = 1  # Number of training episodes in each round
+FLH_C = 0.3  # Fraction of participants used in each round of training
+
 ROUNDS = 40
 
 
@@ -41,11 +45,13 @@ def run_unitary_versus_federated(xy_splits, xy_val, xy_test):
     # TODO train n models on all partitions
     partition_id = 0
     logging.info("> Train model on partition {}".format(partition_id))
-    ul_results = run_uni(xy_splits[partition_id], xy_val, xy_test, ROUNDS)
+    ul_results = run_uni(
+        xy_splits[partition_id], xy_val, xy_test, epochs=ROUNDS, B=FLH_B
+    )
 
     # Train CNN using federated learning on all partitions
     logging.info("> Train federated model on all partitions")
-    fl_results = run_fed(xy_splits, xy_val, xy_test, ROUNDS)
+    fl_results = run_fed(xy_splits, xy_val, xy_test, ROUNDS, C=FLH_C, E=FLH_E, B=FLH_B)
 
     # Output results
     history_ul, loss_ul, acc_ul = ul_results
@@ -61,37 +67,42 @@ def run_uni(
     xy_val: Tuple[np.ndarray, np.ndarray],
     xy_test: Tuple[np.ndarray, np.ndarray],
     epochs: int,
+    B: int,
 ):
     # Initialize model and participant
     model = orig_cnn_compiled()
-    participant = Participant(model, xy_train=xy_train, xy_val=xy_val)
+    participant = Participant(
+        model, xy_train=xy_train, xy_val=xy_val, num_classes=10, batch_size=B
+    )
     # Train model
-    history = participant.train(epochs)
+    history = participant._train(epochs)  # pylint: disable-msg=protected-access
     # Evaluate final performance
     loss, accuracy = participant.evaluate(xy_test)
     # Report results
     return history, loss, accuracy
 
 
-# pylint: disable-msg=too-many-locals
+# pylint: disable-msg=too-many-locals,too-many-arguments
 def run_fed(
     xy_train_partitions: List[Tuple[np.ndarray, np.ndarray]],
     xy_val: Tuple[np.ndarray, np.ndarray],
     xy_test: Tuple[np.ndarray, np.ndarray],
     rounds: int,
+    C: float,
+    E: int,
+    B: int,
 ):
-    C = 3  # FIXME refactor: use fraction
     # Init participants
     participants = []
     for xy_train in xy_train_partitions:
         model = orig_cnn_compiled()
-        participant = Participant(model, xy_train=xy_train, xy_val=xy_val)
+        participant = Participant(model, xy_train, xy_val, num_classes=10, batch_size=B)
         participants.append(participant)
     num_participants = len(participants)
     # Init coordinator
     model = orig_cnn_compiled()
-    controller = RandomController(num_participants, C)
-    coordinator = Coordinator(controller, model, participants)
+    controller = RandomController(num_participants)
+    coordinator = Coordinator(controller, model, participants, C=C, E=E)
     # Train model
     history = coordinator.fit(num_rounds=rounds)
     # Evaluate final performance
