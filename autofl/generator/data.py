@@ -38,10 +38,6 @@ def balanced_labels_shuffle(
     section_size = int(example_count / section_count)
 
     assert (
-        section_count % unique_label_count == 0
-    ), "count of unique labels needs to be divideable by section_count"
-
-    assert (
         example_count % section_count == 0
     ), "Number of examples needs to be evenly divideable by section_count"
 
