@@ -1,6 +1,8 @@
+import random
 from typing import List, Tuple
 
 import numpy as np
+import tensorflow as tf
 from absl import app, logging
 
 from autofl.datasets import (
@@ -13,6 +15,12 @@ from autofl.fedml import Coordinator, Participant, RandomController
 from autofl.net import orig_cnn_compiled
 
 from . import report
+
+random.seed(0)
+np.random.seed(1)
+tf.set_random_seed(2)
+
+MODEL_SEED = 1096
 
 FLH_B = 32  # Batch size used by participants
 FLH_E = 1  # Number of training episodes in each round
@@ -78,7 +86,7 @@ def run_uni(
     batch_size: int,
 ):
     # Initialize model and participant
-    model = orig_cnn_compiled()
+    model = orig_cnn_compiled(seed=MODEL_SEED)
     participant = Participant(
         model, xy_train=xy_train, xy_val=xy_val, num_classes=10, batch_size=batch_size
     )
@@ -103,12 +111,12 @@ def run_fed(
     # Init participants
     participants = []
     for xy_train in xy_train_partitions:
-        model = orig_cnn_compiled()
+        model = orig_cnn_compiled(seed=MODEL_SEED)
         participant = Participant(model, xy_train, xy_val, num_classes=10, batch_size=B)
         participants.append(participant)
     num_participants = len(participants)
     # Init coordinator
-    model = orig_cnn_compiled()
+    model = orig_cnn_compiled(seed=MODEL_SEED)
     controller = RandomController(num_participants)
     coordinator = Coordinator(controller, model, participants, C=C, E=E)
     # Train model
