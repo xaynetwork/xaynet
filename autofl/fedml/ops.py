@@ -4,6 +4,7 @@ import tensorflow as tf
 from numpy import ndarray
 
 
+# FIXME align return type with KerasWeights type
 def federated_averaging(thetas: List[List[List[ndarray]]]) -> List[List[ndarray]]:
     theta_avg: List[List[ndarray]] = thetas[0]
     for theta in thetas[1:]:
@@ -16,6 +17,7 @@ def federated_averaging(thetas: List[List[List[ndarray]]]) -> List[List[ndarray]
     return theta_avg
 
 
+# FIXME align return type with KerasWeights type
 def get_model_params(model: tf.keras.Model) -> List[List[ndarray]]:
     theta = []
     for layer in model.layers:
@@ -23,6 +25,7 @@ def get_model_params(model: tf.keras.Model) -> List[List[ndarray]]:
     return theta
 
 
+# FIXME align return type with KerasWeights type
 def set_model_params(model: tf.keras.Model, theta: List[List[ndarray]]):
     for layer, layer_weights in zip(model.layers, theta):
         layer.set_weights(layer_weights)

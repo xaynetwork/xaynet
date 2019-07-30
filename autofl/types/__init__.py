@@ -15,3 +15,5 @@ FederatedDataset = Tuple[
 FnameNDArrayTuple = Tuple[str, ndarray]
 
 Transition = Tuple[ndarray, Any, float, ndarray, bool]
+
+KerasWeights = List[ndarray]

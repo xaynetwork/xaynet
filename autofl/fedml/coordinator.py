@@ -3,7 +3,10 @@ from typing import Any, Callable, List, Tuple
 import tensorflow as tf
 from numpy import ndarray
 
+from autofl.types import KerasWeights
+
 from ..datasets import prep
+from .aggregate import weighted_avg
 from .ops import get_model_params, set_model_params
 from .participant import Participant
 
@@ -17,12 +20,14 @@ class Coordinator:
         participants: List[Participant],
         C: float,
         E: int = 1,
+        aggregate_fn: Callable[[List[KerasWeights]], KerasWeights] = weighted_avg,
     ) -> None:
         self.controller = controller
         self.model = model
         self.participants = participants
         self.C = C
         self.E = E
+        self.aggregate_fn = aggregate_fn
 
     # TODO remove or refactor: only needed for FedNasEnv
     def replace_model(self, model_fn: Callable[..., tf.keras.Model]) -> None:
@@ -55,7 +60,7 @@ class Coordinator:
             thetas.append(theta)
             histories.append(history)
         # Aggregate training results
-        theta_prime = self.controller.aggregate(thetas)
+        theta_prime = self.aggregate_fn(thetas)
         # Update own model parameters
         set_model_params(self.model, theta_prime)
         # Report progress
