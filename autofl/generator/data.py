@@ -34,7 +34,6 @@ def balanced_labels_shuffle(
     assert x.shape[0] == y.shape[0], "x and y need to have them dimension on axis=0"
 
     example_count = y.shape[0]
-    unique_label_count = np.unique(y).shape[0]
     section_size = int(example_count / section_count)
 
     assert (
