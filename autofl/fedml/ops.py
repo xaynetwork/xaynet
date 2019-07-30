@@ -5,19 +5,6 @@ from numpy import ndarray
 
 
 # FIXME align return type with KerasWeights type
-def federated_averaging(thetas: List[List[List[ndarray]]]) -> List[List[ndarray]]:
-    theta_avg: List[List[ndarray]] = thetas[0]
-    for theta in thetas[1:]:
-        for layer_index, layer in enumerate(theta):
-            for weight_index, weights in enumerate(layer):
-                theta_avg[layer_index][weight_index] += weights
-    for layer in theta_avg:
-        for weights in layer:
-            weights /= len(thetas)
-    return theta_avg
-
-
-# FIXME align return type with KerasWeights type
 def get_model_params(model: tf.keras.Model) -> List[List[ndarray]]:
     theta = []
     for layer in model.layers:

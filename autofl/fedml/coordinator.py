@@ -20,7 +20,7 @@ class Coordinator:
         participants: List[Participant],
         C: float,
         E: int = 1,
-        aggregate_fn: Callable[[List[KerasWeights]], KerasWeights] = weighted_avg,
+        aggregate_fn: Callable[[List[KerasWeights], Any], KerasWeights] = weighted_avg,
     ) -> None:
         self.controller = controller
         self.model = model
@@ -60,7 +60,7 @@ class Coordinator:
             thetas.append(theta)
             histories.append(history)
         # Aggregate training results
-        theta_prime = self.aggregate_fn(thetas)
+        theta_prime = self.aggregate_fn(thetas, self)
         # Update own model parameters
         set_model_params(self.model, theta_prime)
         # Report progress

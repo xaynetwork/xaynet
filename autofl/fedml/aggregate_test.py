@@ -1,6 +1,6 @@
 import numpy as np
 
-from . import ops
+from . import aggregate
 
 
 def test_federated_averaging():  # pylint: disable=too-many-locals
@@ -34,7 +34,7 @@ def test_federated_averaging():  # pylint: disable=too-many-locals
     ]
 
     # Execute
-    theta_actual = ops.federated_averaging(thetas)
+    theta_actual = aggregate.federated_averaging(thetas)
 
     # Assert
     assert len(theta_actual) == len(theta_expected)
