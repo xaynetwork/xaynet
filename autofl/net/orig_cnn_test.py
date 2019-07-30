@@ -29,15 +29,11 @@ def test_seed_mnist():
     random.seed(0)
     np.random.seed(1)
     tf.set_random_seed(2)
-    MODEL_SEED = 3
+    SEED = 3
 
     # Execute
-    model_a = orig_cnn_compiled(
-        input_shape=(28, 28, 1), num_classes=10, seed=MODEL_SEED
-    )
-    model_b = orig_cnn_compiled(
-        input_shape=(28, 28, 1), num_classes=10, seed=MODEL_SEED
-    )
+    model_a = orig_cnn_compiled(input_shape=(28, 28, 1), num_classes=10, seed=SEED)
+    model_b = orig_cnn_compiled(input_shape=(28, 28, 1), num_classes=10, seed=SEED)
 
     # Assert
     assert model_a.count_params() == model_b.count_params()
@@ -58,15 +54,11 @@ def test_seed_cifar():
     random.seed(0)
     np.random.seed(1)
     tf.set_random_seed(2)
-    MODEL_SEED = 3
+    SEED = 3
 
     # Execute
-    model_a = orig_cnn_compiled(
-        input_shape=(32, 32, 3), num_classes=10, seed=MODEL_SEED
-    )
-    model_b = orig_cnn_compiled(
-        input_shape=(32, 32, 3), num_classes=10, seed=MODEL_SEED
-    )
+    model_a = orig_cnn_compiled(input_shape=(32, 32, 3), num_classes=10, seed=SEED)
+    model_b = orig_cnn_compiled(input_shape=(32, 32, 3), num_classes=10, seed=SEED)
 
     # Assert
     assert model_a.count_params() == model_b.count_params()
