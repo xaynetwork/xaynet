@@ -1,8 +1,7 @@
 from absl import logging
 
-from autofl.datasets import cifar10_random_splits_10
+from autofl.datasets import cifar10_random_splits_10, fashion_mnist_10s_600
 from autofl.fedml import Coordinator, Participant, RandomController
-from autofl.generator import data
 from autofl.net import orig_cnn_compiled, resnet20v2_compiled
 
 
@@ -17,8 +16,8 @@ def eval_MNIST():
     # Init data
     # TODO load perfectly balanced splits
     # TODO: use xy_val
-    xy_splits, xy_val, xy_test = data.generate_splits_mnist(  # pylint: disable=unused-variable
-        num_splits=10
+    xy_splits, xy_val, xy_test = (  # pylint: disable=unused-variable
+        fashion_mnist_10s_600.load_splits()
     )
 
     # Init participants

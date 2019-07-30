@@ -1,7 +1,6 @@
 from typing import List, Tuple
 
 import numpy as np
-import tensorflow as tf
 from numpy import ndarray
 
 from autofl.types import FederatedDataset, KerasDataset
@@ -35,12 +34,7 @@ def balanced_labels_shuffle(
     assert x.shape[0] == y.shape[0], "x and y need to have them dimension on axis=0"
 
     example_count = y.shape[0]
-    unique_label_count = np.unique(y).shape[0]
     section_size = int(example_count / section_count)
-
-    assert (
-        unique_label_count % section_count == 0
-    ), "count of unique labels needs to be divideable by section_count"
 
     assert (
         example_count % section_count == 0
@@ -198,7 +192,11 @@ def extract_validation_set(x: ndarray, y: ndarray, size=6000):
 
 
 def generate_splits(
-    num_splits: int, keras_dataset, validation_set_size=6000, transformer=random_shuffle
+    num_splits: int,
+    keras_dataset,
+    validation_set_size=6000,
+    transformer=random_shuffle,
+    transformer_kwargs=None,
 ) -> FederatedDataset:
     (x_train, y_train), xy_test = load(keras_dataset)
 
@@ -208,14 +206,13 @@ def generate_splits(
         x_train, y_train, size=validation_set_size
     )
 
-    x_train, y_train = transformer(x_train, y_train)
+    if transformer_kwargs is None:
+        x_train, y_train = transformer(x_train, y_train)
+    else:
+        x_train, y_train = transformer(x_train, y_train, **transformer_kwargs)
 
     x_splits, y_splits = split(x_train, y_train, num_splits)
 
     xy_splits = list(zip(x_splits, y_splits))
 
     return xy_splits, xy_val, xy_test
-
-
-def generate_splits_mnist(num_splits: int) -> FederatedDataset:
-    return generate_splits(num_splits, tf.keras.datasets.mnist)

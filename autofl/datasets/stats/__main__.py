@@ -5,6 +5,7 @@ from autofl.datasets import (
     fashion_mnist_10s_500_1k_bias,
     fashion_mnist_10s_600,
     fashion_mnist_10s_single_class,
+    fashion_mnist_100p_IID_balanced,
 )
 
 from .stats import DSStats
@@ -32,6 +33,13 @@ def main(_):
         DSStats(
             name="fashion_mnist_10s_single_class",
             ds=fashion_mnist_10s_single_class.load_splits(),
+        )
+    )
+
+    logging.info(
+        DSStats(
+            name="fashion_mnist_100p_IID_balanced",
+            ds=fashion_mnist_100p_IID_balanced.load_splits(),
         )
     )
 

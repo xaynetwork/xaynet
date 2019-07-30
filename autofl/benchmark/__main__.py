@@ -1,5 +1,11 @@
 from absl import app
 
-from . import benchmark
+from autofl.benchmark import fl
 
-app.run(main=benchmark.main)
+
+def main():
+    app.run(main=fl.main)
+
+
+if __name__ == "__main__":
+    main()

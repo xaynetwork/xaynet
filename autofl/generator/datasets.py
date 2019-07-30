@@ -29,6 +29,7 @@ def generate_fashion_mnist_10s_600():
         validation_set_size=6000,
         keras_dataset=tf.keras.datasets.fashion_mnist,
         transformer=data.balanced_labels_shuffle,
+        transformer_kwargs={"section_count": 10},
     )
 
     persistence.save_splits(
@@ -46,6 +47,7 @@ def generate_fashion_mnist_10s_500_1k_bias():
         validation_set_size=6000,
         keras_dataset=tf.keras.datasets.fashion_mnist,
         transformer=data.biased_balanced_labels_shuffle,
+        transformer_kwargs={"bias": 1000},
     )
 
     persistence.save_splits(
@@ -80,6 +82,7 @@ def generate_fashion_mnist_100p_IID_balanced():
         validation_set_size=6000,
         keras_dataset=tf.keras.datasets.fashion_mnist,
         transformer=data.balanced_labels_shuffle,
+        transformer_kwargs={"section_count": 100},
     )
 
     persistence.save_splits(
