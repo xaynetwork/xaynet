@@ -1,6 +1,6 @@
 from absl import logging
 
-from autofl.datasets import fashion_mnist_10s_600 as ds
+from autofl.datasets import fashion_mnist_10s_600 as fashion_mnist
 from autofl.net import orig_cnn_compiled
 
 from .controller import RandomController, RoundRobinController
@@ -10,7 +10,7 @@ from .participant import init_participants
 
 def individual(_):
     # Load data
-    xy_splits, xy_val, xy_test = ds.load_splits()
+    xy_splits, xy_val, xy_test = fashion_mnist.load_splits()
     logging.info("Number of splits x/y train: {}".format(len(xy_splits)))
 
     # Train independent models on each data partition
@@ -29,7 +29,7 @@ def individual(_):
 
 def round_robin(_):
     # Load data (multiple splits for training and one split for validation)
-    xy_splits, xy_val, xy_test = ds.load_splits()
+    xy_splits, xy_val, xy_test = fashion_mnist.load_splits()
     logging.info("Number of splits x/y train: {}".format(len(xy_splits)))
 
     # Initialize participants and coordinator
@@ -52,7 +52,7 @@ def round_robin(_):
 def federated_learning(_):
     logging.info("\n\nStarting federated learning\n")
     # Load data (multiple splits for training and one split for validation)
-    xy_splits, xy_val, xy_test = ds.load_splits()
+    xy_splits, xy_val, xy_test = fashion_mnist.load_splits()
     logging.info("Number of splits x/y train: {}".format(len(xy_splits)))
 
     # Initialize participants and coordinator
