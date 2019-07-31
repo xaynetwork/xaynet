@@ -12,17 +12,9 @@ def weighted_avg(thetas: List[KerasWeights], coordinator) -> KerasWeights:
 
 
 # FIXME align return type with KerasWeights type
-# FIXME unify with weighted_federated_averaging
 def federated_averaging(thetas: List[List[List[np.ndarray]]]) -> List[List[np.ndarray]]:
-    theta_avg: List[List[np.ndarray]] = thetas[0]
-    for theta in thetas[1:]:
-        for layer_index, layer in enumerate(theta):
-            for weight_index, weights in enumerate(layer):
-                theta_avg[layer_index][weight_index] += weights
-    for layer in theta_avg:
-        for weights in layer:
-            weights /= len(thetas)
-    return theta_avg
+    weighting = np.ones((len(thetas),))
+    return weighted_federated_averaging(thetas, weighting)
 
 
 # FIXME align return type with KerasWeights type
