@@ -1,4 +1,8 @@
+from typing import Callable
+
 import tensorflow as tf
+
+from autofl.fedml import Coordinator
 
 from . import arch
 
@@ -10,3 +14,12 @@ def enas_cnn_compiled() -> tf.keras.Model:
         optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"]
     )
     return model
+
+
+def replace_model(
+    coordinator: Coordinator, model_fn: Callable[..., tf.keras.Model]
+) -> None:
+    coordinator.model = model_fn()
+    for p in coordinator.participants:
+        model = model_fn()
+        p.replace_model(model)

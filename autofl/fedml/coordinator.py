@@ -29,13 +29,6 @@ class Coordinator:
         self.E = E
         self.aggregate_fn = aggregate_fn
 
-    # TODO remove or refactor: only needed for FedNasEnv
-    def replace_model(self, model_fn: Callable[..., tf.keras.Model]) -> None:
-        self.model = model_fn()
-        for p in self.participants:
-            model = model_fn()
-            p.replace_model(model)
-
     # Common initialization happens implicitly: By updating the participant weights to
     # match the coordinator weights ahead of every training round we achieve common
     # initialization.
