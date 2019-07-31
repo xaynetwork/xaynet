@@ -7,7 +7,6 @@ from autofl.types import KerasWeights
 
 from ..datasets import prep
 from .aggregate import weighted_avg
-from .ops import get_model_params, set_model_params
 from .participant import Participant
 
 
@@ -55,17 +54,17 @@ class Coordinator:
         # Aggregate training results
         theta_prime = self.aggregate_fn(thetas, self)
         # Update own model parameters
-        set_model_params(self.model, theta_prime)
+        self.model.set_weights(theta_prime)
         # Report progress
         return histories
 
-    def _single_step(self, random_index: int) -> Tuple[List[List[ndarray]], Any]:
+    def _single_step(self, random_index: int) -> Tuple[KerasWeights, Any]:
         participant = self.participants[random_index]
         # Train one round on this particular participant:
         # - Push current model parameters to this participant
         # - Train for a number of epochs
         # - Pull updated model parameters from participant
-        theta = get_model_params(self.model)
+        theta = self.model.get_weights()
         theta_prime, history = participant.train_round(theta, epochs=self.E)
         return theta_prime, history
 
