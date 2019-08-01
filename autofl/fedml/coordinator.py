@@ -3,8 +3,10 @@ from typing import Any, Callable, List, Tuple
 import tensorflow as tf
 from numpy import ndarray
 
+from autofl.types import KerasWeights
+
 from ..datasets import prep
-from .ops import get_model_params, set_model_params
+from .aggregate import weighted_avg
 from .participant import Participant
 
 
@@ -17,19 +19,14 @@ class Coordinator:
         participants: List[Participant],
         C: float,
         E: int = 1,
+        aggregate_fn: Callable[[List[KerasWeights], Any], KerasWeights] = weighted_avg,
     ) -> None:
         self.controller = controller
         self.model = model
         self.participants = participants
         self.C = C
         self.E = E
-
-    # TODO remove or refactor: only needed for FedNasEnv
-    def replace_model(self, model_fn: Callable[..., tf.keras.Model]) -> None:
-        self.model = model_fn()
-        for p in self.participants:
-            model = model_fn()
-            p.replace_model(model)
+        self.aggregate_fn = aggregate_fn
 
     # Common initialization happens implicitly: By updating the participant weights to
     # match the coordinator weights ahead of every training round we achieve common
@@ -55,19 +52,19 @@ class Coordinator:
             thetas.append(theta)
             histories.append(history)
         # Aggregate training results
-        theta_prime = self.controller.aggregate(thetas)
+        theta_prime = self.aggregate_fn(thetas, self)
         # Update own model parameters
-        set_model_params(self.model, theta_prime)
+        self.model.set_weights(theta_prime)
         # Report progress
         return histories
 
-    def _single_step(self, random_index: int) -> Tuple[List[List[ndarray]], Any]:
+    def _single_step(self, random_index: int) -> Tuple[KerasWeights, Any]:
         participant = self.participants[random_index]
         # Train one round on this particular participant:
         # - Push current model parameters to this participant
         # - Train for a number of epochs
         # - Pull updated model parameters from participant
-        theta = get_model_params(self.model)
+        theta = self.model.get_weights()
         theta_prime, history = participant.train_round(theta, epochs=self.E)
         return theta_prime, history
 

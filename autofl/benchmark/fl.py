@@ -36,7 +36,7 @@ def benchmark_ul_fl_FashionMNIST_100p_IID_balanced():
     run_unitary_versus_federated(xy_parts, xy_val, xy_test, C=0.1)
 
 
-def benchmark_ul_fl_FashionMNIST_10p_0():
+def benchmark_ul_fl_FashionMNIST_10p_IID_balanced():
     logging.info("Starting Fashion-MNIST-10p-0 Benchmark")
     xy_splits, xy_val, xy_test = fashion_mnist_10s_600.load_splits()
     run_unitary_versus_federated(xy_splits, xy_val, xy_test, C=0.3)
@@ -128,10 +128,10 @@ def run_fed(
 
 
 def main(_):
-    # benchmark_ul_fl_FashionMNIST_10p_0()
+    benchmark_ul_fl_FashionMNIST_10p_IID_balanced()
     # benchmark_ul_fl_FashionMNIST_10p_1000()
     # benchmark_ul_fl_FashionMNIST_10p_5400()
-    benchmark_ul_fl_FashionMNIST_100p_IID_balanced()
+    # benchmark_ul_fl_FashionMNIST_100p_IID_balanced()
 
 
 if __name__ == "__main__":

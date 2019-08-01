@@ -115,6 +115,7 @@ class RandomAgent(Agent):
             logging.info("\tAutoFL Episode {}".format(episode))
             self._train_arch()
 
+    # pylint: disable-msg=unused-variable
     def _train_arch(self) -> None:
         arch = self.sample_architecture(num_layers=2)
 
@@ -125,8 +126,9 @@ class RandomAgent(Agent):
             )
             return model
 
-        self.coordinator.replace_model(model_fn)
-        self.coordinator.fit(num_rounds=2)
+        # FIXME implement model/architecture replacement mechanism
+        # self.coordinator.replace_model(model_fn)
+        # self.coordinator.fit(num_rounds=2)
 
     def sample_architecture(self, num_layers: int) -> Architecture:
         return sample_architecture(num_layers=3)
