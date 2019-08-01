@@ -9,11 +9,11 @@ from autofl.datasets import (
 
 from . import report, run
 
-FLH_B = 32  # Batch size used by participants
-FLH_E = 1  # Number of training episodes in each round
 FLH_C = 0.1  # Fraction of participants used in each round of training
+FLH_E = 1  # Number of training episodes in each round
+FLH_B = 32  # Batch size used by participants
 
-ROUNDS = 40
+ROUNDS = 50
 
 
 def benchmark_ul_fl_FashionMNIST_100p_IID_balanced():
@@ -62,7 +62,7 @@ def _run_unitary_versus_federated(xy_splits, xy_val, xy_test, C):
     )
 
     # Output results
-    report.plot_accuracies(ul_hist, fl_hist)
+    report.plot_accuracies(ul_hist, fl_hist, fname="UL-FL.png")
     logging.info("UL test set loss: {}, accuracy: {}".format(ul_loss, ul_acc))
     logging.info("FL test set loss: {}, accuracy: {}".format(fl_loss, fl_acc))
 
@@ -76,19 +76,3 @@ def main(_):
 
 if __name__ == "__main__":
     app.run(main=main)
-
-
-# TODO 2 more splits: more bias, less bias
-# or not: bias can go from 0 to 5400
-# - 0 bias: balanced
-# - 5400 bias: fully biased
-# we have:
-# - 0
-# - 1000
-# - 5400
-# we should:
-# - 0
-# - 1350
-# - 2700
-# - 4500
-# - 5400
