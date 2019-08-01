@@ -1,18 +1,38 @@
-from typing import Callable, List, Tuple
+from abc import ABC
+from typing import List, Tuple
 
 import numpy as np
 from absl import logging
 
 from autofl.types import KerasWeights
 
+from .evaluator import Evaluator
 
-# pylint: disable-msg=unused-argument
-def weighted_agg(
-    thetas: List[KerasWeights],
-    evaluate_fn: Callable[[KerasWeights], Tuple[float, float]],
-    verbose=False,
-) -> KerasWeights:
-    # FIXME implement weighting
+
+class Aggregator(ABC):
+    def __init__(self):
+        pass
+
+    def aggregate(self, thetas: List[KerasWeights]) -> KerasWeights:
+        raise NotImplementedError()
+
+
+class WeightedAverageAgg(Aggregator):
+    def aggregate(self, thetas: List[KerasWeights]) -> KerasWeights:
+        return weighted_agg(thetas)
+
+
+class EvoAgg(Aggregator):
+    def __init__(self, evaluator: Evaluator):
+        super().__init__()
+        self.evaluator = evaluator
+
+    def aggregate(self, thetas: List[KerasWeights]) -> KerasWeights:
+        return evo_agg(thetas, self.evaluator, False)
+
+
+def weighted_agg(thetas: List[KerasWeights],) -> KerasWeights:
+    # FIXME implement #examples-based weighting
     return federated_averaging(thetas)
 
 
@@ -44,9 +64,7 @@ def weighted_federated_averaging(
 
 
 def evo_agg(
-    thetas: List[KerasWeights],
-    evaluate_fn: Callable[[KerasWeights], Tuple[float, float]],
-    verbose=False,
+    thetas: List[KerasWeights], evaluator: Evaluator, verbose=False
 ) -> KerasWeights:
     """
     - Init different weightings
@@ -58,7 +76,7 @@ def evo_agg(
     # TODO in parallel, do:
     theta_prime_candidates = []
     for i in range(3):
-        candidate = compute_candidate(thetas, evaluate_fn)
+        candidate = compute_candidate(thetas, evaluator)
         if verbose:
             logging.info(
                 "candidate {} (weighting {}): {} loss".format(
@@ -81,11 +99,11 @@ def pick_best_candidate(candidates: List) -> KerasWeights:
 
 
 def compute_candidate(
-    thetas: KerasWeights, evaluate_fn: Callable[[KerasWeights], Tuple[float, float]]
+    thetas: KerasWeights, evaluator: Evaluator
 ) -> Tuple[np.ndarray, KerasWeights, float, float]:
     weighting = random_weighting(len(thetas))
     theta_prime_candidate = weighted_federated_averaging(thetas, weighting)
-    loss, acc = evaluate_fn(theta_prime_candidate)
+    loss, acc = evaluator.evaluate(theta_prime_candidate)
     return weighting, theta_prime_candidate, loss, acc
 
 

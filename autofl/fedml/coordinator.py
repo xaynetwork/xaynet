@@ -1,12 +1,13 @@
 from typing import Any, Callable, List, Optional, Tuple
 
 import tensorflow as tf
+from absl import logging
 from numpy import ndarray
 
+from autofl.datasets import prep
 from autofl.types import KerasWeights
 
-from ..datasets import prep
-from .aggregate import weighted_agg
+from .aggregate import Aggregator, WeightedAverageAgg
 from .participant import Participant
 
 
@@ -19,20 +20,14 @@ class Coordinator:
         participants: List[Participant],
         C: float,
         E: int = 1,
-        aggregate_fn: Callable[
-            [List[KerasWeights], Any, bool], KerasWeights
-        ] = weighted_agg,
-        xy_val: Optional[Tuple[ndarray, ndarray]] = None,
+        aggregator: Optional[Aggregator] = None,
     ) -> None:
         self.controller = controller
         self.model = model
         self.participants = participants
         self.C = C
         self.E = E
-        self.aggregate_fn = aggregate_fn
-        self.evaluate_fn = (
-            None if xy_val is None else create_evalueate_fn(model, xy_val)
-        )
+        self.aggregator = aggregator if aggregator else WeightedAverageAgg()
 
     # Common initialization happens implicitly: By updating the participant weights to
     # match the coordinator weights ahead of every training round we achieve common
@@ -43,7 +38,11 @@ class Coordinator:
             # Determine who participates in this round
             num_indices = abs_C(self.C, self.num_participants())
             indices = self.controller.indices(num_indices)
-            print("\nRound", str(training_round + 1), "- participants", indices)
+            logging.info(
+                "\nRound {}/{}: Participants {}".format(
+                    training_round + 1, num_rounds, indices
+                )
+            )
             histories = self.fit_round(indices)
             history_updates.append(histories)
         # Return aggregated histories
@@ -58,7 +57,7 @@ class Coordinator:
             thetas.append(theta)
             histories.append(history)
         # Aggregate training results
-        theta_prime = self.aggregate_fn(thetas, self.evaluate_fn, True)
+        theta_prime = self.aggregator.aggregate(thetas)
         # Update own model parameters
         self.model.set_weights(theta_prime)
         # Report progress
