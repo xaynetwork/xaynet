@@ -18,7 +18,6 @@ install_requires = [
     "torch==1.1.0",
     "torchvision==0.3.0",
     "torchsummary==1.5.1",
-    "boto3==1.9.199",
 ]
 
 cpu_require = ["tensorflow==1.14.0"]
@@ -32,6 +31,7 @@ dev_require = [
     "astroid<=2.2",
     "isort==4.3.20",
     "rope==0.14.0",
+    "faker==2.0.0",
 ]
 
 tests_require = ["pytest==4.6.2", "pytest-cov==2.7.1", "pytest-watch==4.2.0"]

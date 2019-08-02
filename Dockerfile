@@ -9,8 +9,8 @@ COPY scripts/setup.sh scripts/setup.sh
 
 RUN ./scripts/setup.sh
 
+COPY scripts scripts
 COPY autofl autofl
 
 # Rerun to install scripts
 RUN ./scripts/setup.sh
-
