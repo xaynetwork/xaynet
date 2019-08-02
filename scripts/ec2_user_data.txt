@@ -15,6 +15,7 @@ docker pull 693828385217.dkr.ecr.eu-central-1.amazonaws.com/autofl:latest
 # Start docker job
 docker run 693828385217.dkr.ecr.eu-central-1.amazonaws.com/autofl:latest train
 
-# cancel previous shutdown and shutdown immediately after the job finishes
+# Cancel previous shutdown and shutdown immediately after the job finishes
+# The machine is setup to terminate on shutdown
 shutdown -c
 shutdown -P now
