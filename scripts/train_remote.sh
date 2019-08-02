@@ -14,7 +14,7 @@ IMAGE_FULLNAME=$ECR_REPO:$IMAGE_TAG
 
 # Read user_data and replace latest tag with our tag
 USER_DATA=`cat $DIR/ec2_user_data.txt`
-USER_DATA="${USER_DATA/latest/$IMAGE_TAG}"
+USER_DATA="${USER_DATA//latest/$IMAGE_TAG}"
 
 INSTANCE_TYPE="m5.large"
 

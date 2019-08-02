@@ -13,8 +13,11 @@ sudo shutdown -P 60
 # the right IAM instance profile to the EC2 instance
 $(aws ecr get-login --region eu-central-1 --no-include-email)
 
+# Pull docker job
+docker pull 693828385217.dkr.ecr.eu-central-1.amazonaws.com/autofl:latest
+
 # Start docker job
-docker run --rm 693828385217.dkr.ecr.eu-central-1.amazonaws.com/autofl:latest train
+docker run 693828385217.dkr.ecr.eu-central-1.amazonaws.com/autofl:latest train
 
 # cancel previous shutdown and shutdown immediately after the job finishes
 shutdown -c
