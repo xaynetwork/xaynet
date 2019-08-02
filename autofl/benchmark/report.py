@@ -6,7 +6,7 @@ FORMAT: str = "png"
 
 
 def plot_accuracies(
-    history_ul, history_fl, fname="benchmark_result.png", plot_dir=None
+    history_ul, history_fl, fname="benchmark_result.png", plot_dir="output"
 ):
     xlim_max = len(history_ul.history["val_acc"])
     plot_curves(
