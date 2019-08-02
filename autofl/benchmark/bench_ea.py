@@ -1,0 +1,61 @@
+from absl import app, logging
+
+from autofl.datasets import fashion_mnist_10s_600
+from autofl.fedml.aggregate import EvoAgg
+from autofl.fedml.evaluator import Evaluator
+from autofl.net import orig_cnn_compiled
+
+from . import report, run
+
+FLH_C = 0.3  # Fraction of participants used in each round of training
+FLH_E = 1  # Number of training episodes in each round
+FLH_B = 32  # Batch size used by participants
+
+ROUNDS = 50
+
+
+def benchmark_evolutionary_avg():
+    fn_name = benchmark_evolutionary_avg.__name__
+    logging.info("Starting {}".format(fn_name))
+
+    # Load dataset
+    xy_parts, xy_val, xy_test = fashion_mnist_10s_600.load_splits()
+
+    # Run Federated Learning with evolutionary aggregation
+    evaluator = Evaluator(orig_cnn_compiled(), xy_val)  # FIXME refactor
+    aggregator = EvoAgg(evaluator)
+    hist_a, loss_a, acc_a = run.federated_training(
+        xy_parts,
+        xy_val,
+        xy_test,
+        rounds=ROUNDS,
+        C=FLH_C,
+        E=FLH_E,
+        B=FLH_B,
+        aggregator=aggregator,
+    )
+
+    # Run Federated Learning with weighted average aggregation
+    hist_b, loss_b, acc_b = run.federated_training(
+        xy_parts, xy_val, xy_test, rounds=ROUNDS, C=FLH_C, E=FLH_E, B=FLH_B
+    )
+
+    # Output results
+    # FIXME make legend configurable
+    report.plot_accuracies(hist_a, hist_b, fname="EA-WA.png")
+    logging.info("EA test set loss: {}, accuracy: {}".format(loss_a, acc_a))
+    logging.info("WA test set loss: {}, accuracy: {}".format(loss_b, acc_b))
+
+
+def benchmark_evolutionary_avg_with_noise():
+    fn_name = benchmark_evolutionary_avg.__name__
+    logging.info("Starting {}".format(fn_name))
+    raise NotImplementedError()
+
+
+def main(_):
+    benchmark_evolutionary_avg()
+
+
+if __name__ == "__main__":
+    app.run(main=main)
