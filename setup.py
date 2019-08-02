@@ -18,7 +18,6 @@ install_requires = [
     "torch==1.1.0",
     "torchvision==0.3.0",
     "torchsummary==1.5.1",
-    "boto3==1.9.199",
 ]
 
 cpu_require = ["tensorflow==1.14.0"]
