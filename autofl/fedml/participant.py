@@ -5,8 +5,7 @@ import tensorflow as tf
 
 from autofl.datasets import prep
 from autofl.net import orig_cnn_compiled
-
-from . import ops
+from autofl.types import FederatedDatasetPartition, KerasWeights
 
 NUM_CLASSES = 10
 BATCH_SIZE = 64
@@ -32,19 +31,11 @@ class Participant:
         self.ds_val = prep.init_ds_val(xy_val, num_classes)
         self.steps_val = 1
 
-    def train_round(
-        self, theta: List[List[np.ndarray]], epochs
-    ) -> Tuple[List[List[np.ndarray]], Any]:
-        self._update_model_parameters(theta)
+    def train_round(self, theta: KerasWeights, epochs) -> Tuple[KerasWeights, Any]:
+        self.model.set_weights(theta)
         history = self._train(epochs)
-        theta_prime = self._retrieve_model_parameters()
+        theta_prime = self.model.get_weights()
         return theta_prime, history
-
-    def _update_model_parameters(self, theta: List[List[np.ndarray]]) -> None:
-        ops.set_model_params(self.model, theta)
-
-    def _retrieve_model_parameters(self) -> List[List[np.ndarray]]:
-        return ops.get_model_params(self.model)
 
     def _train(self, epochs: int) -> Any:
         history = self.model.fit(
@@ -68,9 +59,11 @@ class Participant:
         self.model = model
 
 
-def init_participants(xy_splits, xy_val) -> List[Participant]:
-    participants = []
-    for xy_train in xy_splits:
+def init_participants(
+    xy_partitions: List[FederatedDatasetPartition], xy_val: FederatedDatasetPartition
+) -> List[Participant]:
+    participants: List[Participant] = []
+    for xy_train in xy_partitions:
         model = orig_cnn_compiled()  # FIXME refactor
         participant = Participant(model, xy_train, xy_val)
         participants.append(participant)

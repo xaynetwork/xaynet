@@ -4,8 +4,6 @@ from typing import List
 
 import numpy as np
 
-from .ops import federated_averaging
-
 
 class Controller(ABC):
     def __init__(self, num_participants) -> None:
@@ -13,11 +11,6 @@ class Controller(ABC):
 
     def indices(self, num_indices: int) -> List[int]:
         raise NotImplementedError("not implemented")
-
-    @staticmethod
-    def aggregate(thetas):
-        theta_prime = federated_averaging(thetas)
-        return theta_prime
 
 
 class RandomController(Controller):
