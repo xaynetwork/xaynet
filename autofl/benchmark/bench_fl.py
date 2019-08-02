@@ -61,10 +61,17 @@ def _run_unitary_versus_federated(xy_splits, xy_val, xy_test, C):
         xy_splits, xy_val, xy_test, ROUNDS, C=C, E=FLH_E, B=FLH_B
     )
 
-    # Output results
-    report.plot_accuracies(ul_hist, fl_hist, fname="UL-FL.png")
-    logging.info("UL test set loss: {}, accuracy: {}".format(ul_loss, ul_acc))
-    logging.info("FL test set loss: {}, accuracy: {}".format(fl_loss, fl_acc))
+    # Plot results
+    # FIXME use different filenames for different datasets
+    report.plot_accuracies(ul_hist, fl_hist, fname="UL-FL-plot.png")
+    # Write results JSON
+    results = {}
+    results["loss_a"] = float(ul_loss)
+    results["acc_a"] = float(ul_acc)
+    results["loss_b"] = float(fl_loss)
+    results["acc_b"] = float(fl_acc)
+    # TODO add histories
+    report.write_json(results, fname="UL-FL-results.json")
 
 
 def main(_):
