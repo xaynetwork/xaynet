@@ -2,10 +2,6 @@
 
 set -x
 
-# Install additional dependencies
-sudo apt update
-sudo apt install mosh htop iftop
-
 # Set automatic shutdown after 5 hours
 sudo shutdown -P 60
 
