@@ -9,7 +9,7 @@ cd $DIR/../
 export AWS_PROFILE=xain-autofl
 
 ECR_REPO="693828385217.dkr.ecr.eu-central-1.amazonaws.com/autofl"
-IMAGE_TAG=$(python -c "import time; print(int(time.time() / 60))")
+IMAGE_TAG=$(python $DIR/image_tag.py)
 IMAGE_FULLNAME=$ECR_REPO:$IMAGE_TAG
 
 # Read user_data and replace latest tag with our tag
