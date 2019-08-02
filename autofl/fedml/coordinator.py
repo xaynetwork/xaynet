@@ -1,12 +1,13 @@
-from typing import Any, Callable, List, Tuple
+from typing import Any, Callable, List, Optional, Tuple
 
 import tensorflow as tf
+from absl import logging
 from numpy import ndarray
 
+from autofl.datasets import prep
 from autofl.types import KerasWeights
 
-from ..datasets import prep
-from .aggregate import weighted_avg
+from .aggregate import Aggregator, WeightedAverageAgg
 from .participant import Participant
 
 
@@ -19,14 +20,14 @@ class Coordinator:
         participants: List[Participant],
         C: float,
         E: int = 1,
-        aggregate_fn: Callable[[List[KerasWeights], Any], KerasWeights] = weighted_avg,
+        aggregator: Optional[Aggregator] = None,
     ) -> None:
         self.controller = controller
         self.model = model
         self.participants = participants
         self.C = C
         self.E = E
-        self.aggregate_fn = aggregate_fn
+        self.aggregator = aggregator if aggregator else WeightedAverageAgg()
 
     # Common initialization happens implicitly: By updating the participant weights to
     # match the coordinator weights ahead of every training round we achieve common
@@ -37,7 +38,11 @@ class Coordinator:
             # Determine who participates in this round
             num_indices = abs_C(self.C, self.num_participants())
             indices = self.controller.indices(num_indices)
-            print("\nRound", str(training_round + 1), "- participants", indices)
+            logging.info(
+                "\nRound {}/{}: Participants {}".format(
+                    training_round + 1, num_rounds, indices
+                )
+            )
             histories = self.fit_round(indices)
             history_updates.append(histories)
         # Return aggregated histories
@@ -52,7 +57,7 @@ class Coordinator:
             thetas.append(theta)
             histories.append(history)
         # Aggregate training results
-        theta_prime = self.aggregate_fn(thetas, self)
+        theta_prime = self.aggregator.aggregate(thetas)
         # Update own model parameters
         self.model.set_weights(theta_prime)
         # Report progress
@@ -98,3 +103,24 @@ def history_update(h0, h1):
         vals = h1[k]
         h0[k] = h0[k] + vals
     return h0
+
+
+def create_evalueate_fn(
+    orig_model: tf.keras.Model, xy_val: Tuple[ndarray, ndarray]
+) -> Callable[[KerasWeights], Tuple[float, float]]:
+    ds_val = prep.init_ds_val(xy_val)
+    model = tf.keras.models.clone_model(orig_model)
+    # FIXME refactor model compilation
+    model.compile(
+        loss=tf.keras.losses.categorical_crossentropy,
+        optimizer=tf.keras.optimizers.Adam(),
+        metrics=["accuracy"],
+    )
+
+    def fn(theta: KerasWeights) -> Tuple[float, float]:
+        model.set_weights(theta)
+        # Assume the validation `tf.data.Dataset` to yield exactly one batch containing
+        # all examples in the validation set
+        return model.evaluate(ds_val, steps=1)
+
+    return fn

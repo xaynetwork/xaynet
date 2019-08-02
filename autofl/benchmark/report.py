@@ -5,8 +5,9 @@ import matplotlib.pyplot as plt
 FORMAT: str = "png"
 
 
-def plot_accuracies(history_ul, history_fl, plot_dir=None):
-    fname = "fl_vs_ul.png"
+def plot_accuracies(
+    history_ul, history_fl, fname="benchmark_result.png", plot_dir=None
+):
     xlim_max = len(history_ul.history["val_acc"])
     plot_curves(
         curves=[history_ul.history["val_acc"], history_fl.history["val_acc"]],
