@@ -15,7 +15,12 @@ IMAGE_FULLNAME=$ECR_REPO:$IMAGE_TAG
 # Read user_data and replace latest tag with our tag
 USER_DATA=`cat $DIR/ec2_user_data.txt`
 USER_DATA="${USER_DATA/latest/$IMAGE_TAG}"
-USER_DATA_BASE64=`echo $USER_DATA | base64`
+USER_DATA_BASE64=`echo -n $USER_DATA | base64`
+# Remove new line in linux as base64 wraps lines here
+# This could be avoided with the -w option but that one does
+# not exist in the macos version of base64 so we will just use
+# string replacement
+USER_DATA_BASE64="${USER_DATA_BASE64//[$'\t\r\n ']}"
 
 INSTANCE_TYPE="m5.large"
 
