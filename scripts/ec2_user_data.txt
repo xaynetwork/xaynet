@@ -1,0 +1,24 @@
+#!/bin/bash
+
+set -x
+
+# Install additional dependencies
+sudo apt update
+sudo apt install mosh htop iftop
+
+# Set automatic shutdown after 5 hours
+sudo shutdown -P 60
+
+# Sleep for 15min to give the job enough time to start
+sleep 900
+
+# Login into ECR. This only works because we assigned
+# the right IAM instance profile to the EC2 instance
+$(aws ecr get-login --region eu-central-1 --no-include-email)
+
+# Start docker job
+docker run --rm 693828385217.dkr.ecr.eu-central-1.amazonaws.com/autofl:latest train
+
+# Start monitoring the docker job and shutdown
+# after the job terminates
+#### TODO ####
