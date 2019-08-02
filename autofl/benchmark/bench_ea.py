@@ -42,9 +42,15 @@ def benchmark_evolutionary_avg():
 
     # Output results
     # FIXME make legend configurable
-    report.plot_accuracies(hist_a, hist_b, fname="EA-WA.png")
-    logging.info("EA test set loss: {}, accuracy: {}".format(loss_a, acc_a))
-    logging.info("WA test set loss: {}, accuracy: {}".format(loss_b, acc_b))
+    report.plot_accuracies(hist_a, hist_b, fname="EA-WA-plot.png")
+    # Write results JSON
+    results = {}
+    results["loss_a"] = float(loss_a)
+    results["acc_a"] = float(acc_a)
+    results["loss_b"] = float(loss_b)
+    results["acc_b"] = float(acc_b)
+    # TODO add histories
+    report.write_json(results, fname="EA-WA-results.json")
 
 
 def benchmark_evolutionary_avg_with_noise():

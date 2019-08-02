@@ -1,12 +1,19 @@
-from typing import Optional
+import json
+from typing import Dict, Optional
 
 import matplotlib.pyplot as plt
 
 FORMAT: str = "png"
 
 
+def write_json(results: Dict, fname="benchmark_results.json", plot_dir="output"):
+    fname = plot_dir + "/" + fname
+    with open(fname, "w") as outfile:
+        json.dump(results, outfile, indent=2, sort_keys=True)
+
+
 def plot_accuracies(
-    history_ul, history_fl, fname="benchmark_result.png", plot_dir=None
+    history_ul, history_fl, fname="benchmark_plot.png", plot_dir="output"
 ):
     xlim_max = len(history_ul.history["val_acc"])
     plot_curves(
