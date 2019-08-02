@@ -16,6 +16,11 @@ IMAGE_FULLNAME=$ECR_REPO:$IMAGE_TAG
 USER_DATA=`cat $DIR/ec2_user_data.txt`
 USER_DATA="${USER_DATA//latest/$IMAGE_TAG}"
 
+
+# possible options for CPU only
+# m5.large, m5.xlarge, m5.2xlarge, m5.4xlarge,
+# m5.8xlarge, m5.12xlarge, m5.16xlarge, m5.24xlarge
+# But beware it gets quite expensive... up $5.52 per Hour
 INSTANCE_TYPE="m5.large"
 
 build_image() {
