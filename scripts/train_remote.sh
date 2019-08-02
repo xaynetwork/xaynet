@@ -38,7 +38,7 @@ run_image() {
     --iam-instance-profile Name=ECRFullAccess \
     --security-group-ids sg-01ff10b690dffbaf5 sg-01207b671ffadadf5 \
     --instance-initiated-shutdown-behavior terminate \
-    --user-data '$USER_DATA'
+    --user-data "$USER_DATA"
 }
 
 build_image
