@@ -1,4 +1,5 @@
 output/*
+results
 
 # Pantsbuild
 .pants.d

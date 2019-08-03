@@ -6,8 +6,6 @@ set -e
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd $DIR/../
 
-export AWS_PROFILE=xain-autofl
-
 ECR_REPO="693828385217.dkr.ecr.eu-central-1.amazonaws.com/autofl"
 IMAGE_TAG=$(python $DIR/image_tag.py)
 IMAGE_FULLNAME=$ECR_REPO:$IMAGE_TAG
@@ -21,7 +19,7 @@ USER_DATA="${USER_DATA//latest/$IMAGE_TAG}"
 # m5.large, m5.xlarge, m5.2xlarge, m5.4xlarge,
 # m5.8xlarge, m5.12xlarge, m5.16xlarge, m5.24xlarge
 # But beware it gets quite expensive... up $5.52 per Hour
-INSTANCE_TYPE="m5.large"
+INSTANCE_TYPE="m5.xlarge"
 
 build_image() {
     docker build -t $IMAGE_FULLNAME .
@@ -40,7 +38,7 @@ run_image() {
     --instance-type $INSTANCE_TYPE \
     --key-name autofl_job \
     --subnet-id subnet-1bc3c466 \
-    --iam-instance-profile Name=ECRFullAccess \
+    --iam-instance-profile Name=AutoFLJob \
     --security-group-ids sg-01ff10b690dffbaf5 sg-01207b671ffadadf5 \
     --instance-initiated-shutdown-behavior terminate \
     --user-data "$USER_DATA"

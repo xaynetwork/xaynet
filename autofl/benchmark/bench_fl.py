@@ -65,7 +65,8 @@ def _run_unitary_versus_federated(xy_splits, xy_val, xy_test, C):
     # FIXME use different filenames for different datasets
     report.plot_accuracies(ul_hist, fl_hist, fname="UL-FL-plot.png")
     # Write results JSON
-    results = {}
+    results = {"FLH_E": FLH_E, "FLH_B": FLH_B, "ROUNDS": ROUNDS}
+
     results["loss_a"] = float(ul_loss)
     results["acc_a"] = float(ul_acc)
     results["loss_b"] = float(fl_loss)
