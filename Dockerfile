@@ -1,6 +1,8 @@
-FROM python:3.7.4-buster
+FROM tensorflow/tensorflow:1.14.0-gpu-py3
 
 WORKDIR /opt/ml/project
+
+ARG DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update
 RUN apt-get install -y awscli
@@ -11,6 +13,9 @@ COPY setup.py setup.py
 COPY scripts/setup.sh scripts/setup.sh
 
 RUN ./scripts/setup.sh
+
+# Create output directory as its expected
+RUN mkdir output
 
 COPY scripts scripts
 COPY autofl autofl
