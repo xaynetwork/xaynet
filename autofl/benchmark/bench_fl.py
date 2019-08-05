@@ -76,10 +76,10 @@ def _run_unitary_versus_federated(xy_splits, xy_val, xy_test, C):
 
 
 def main(_):
-    benchmark_ul_fl_FashionMNIST_10p_IID_balanced()
+    # benchmark_ul_fl_FashionMNIST_10p_IID_balanced()
     # benchmark_ul_fl_FashionMNIST_10p_1000()
     # benchmark_ul_fl_FashionMNIST_10p_5400()
-    # benchmark_ul_fl_FashionMNIST_100p_IID_balanced()
+    benchmark_ul_fl_FashionMNIST_100p_IID_balanced()
 
 
 if __name__ == "__main__":
