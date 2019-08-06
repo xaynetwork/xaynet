@@ -197,6 +197,7 @@ def test_biased_balanced_labels_shuffle(bias, example_count):  # pylint: disable
     unique_labels_count = 10
     unique_labels = range(unique_labels_count)  # 10 unique labels
     section_size = example_count // unique_labels_count
+    # Amount of labels per partition without any bias
     unbiased_label_count = (section_size - bias) / unique_labels_count
 
     x = np.ones((example_count, 28, 28), dtype=np.int64)
