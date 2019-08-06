@@ -199,8 +199,6 @@ def test_biased_balanced_labels_shuffle(bias, example_count):  # pylint: disable
     section_size = example_count // unique_labels_count
     unbiased_label_count = (section_size - bias) / unique_labels_count
 
-    # Values will at the same time be their original labels
-    # We will later use this for asserting if the label relationship is still present
     x = np.ones((example_count, 28, 28), dtype=np.int64)
     y = np.tile(np.array(unique_labels, dtype=np.int64), section_size)
 
