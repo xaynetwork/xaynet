@@ -27,8 +27,8 @@ def test_load_splits(tmp_path):
         assert isinstance(x, np.ndarray)
         assert isinstance(y, np.ndarray)
 
-        # Check that each split contains each label
-        assert len(set(y)) == 10
+        # Check that each split contains at most 2 labels
+        assert len(set(y)) in [1, 2]
 
 
 @pytest.mark.integration
