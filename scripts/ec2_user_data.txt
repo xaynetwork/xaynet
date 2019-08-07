@@ -3,7 +3,7 @@
 set -x
 
 # Set automatic shutdown after 1 hours
-sudo shutdown -P 60
+sudo shutdown -P 180
 
 # Login into ECR. This only works because we assigned
 # the right IAM instance profile to the EC2 instance

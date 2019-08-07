@@ -5,6 +5,7 @@ from autofl.datasets import (
     fashion_mnist_10s_600,
     fashion_mnist_10s_single_class,
     fashion_mnist_100p_IID_balanced,
+    fashion_mnist_100p_non_IID,
 )
 
 from . import report, run
@@ -21,6 +22,14 @@ def benchmark_ul_fl_FashionMNIST_100p_IID_balanced():
     logging.info("Starting {}".format(fn_name))
 
     xy_parts, xy_val, xy_test = fashion_mnist_100p_IID_balanced.load_splits()
+    _run_unitary_versus_federated(xy_parts, xy_val, xy_test, C=0.1)
+
+
+def benchmark_ul_fl_FashionMNIST_100p_non_IID():
+    fn_name = benchmark_ul_fl_FashionMNIST_100p_non_IID.__name__
+    logging.info("Starting {}".format(fn_name))
+
+    xy_parts, xy_val, xy_test = fashion_mnist_100p_non_IID.load_splits()
     _run_unitary_versus_federated(xy_parts, xy_val, xy_test, C=0.1)
 
 
@@ -79,7 +88,8 @@ def main(_):
     # benchmark_ul_fl_FashionMNIST_10p_IID_balanced()
     # benchmark_ul_fl_FashionMNIST_10p_1000()
     # benchmark_ul_fl_FashionMNIST_10p_5400()
-    benchmark_ul_fl_FashionMNIST_100p_IID_balanced()
+    # benchmark_ul_fl_FashionMNIST_100p_IID_balanced()
+    benchmark_ul_fl_FashionMNIST_100p_non_IID()
 
 
 if __name__ == "__main__":
