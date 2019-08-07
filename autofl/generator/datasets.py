@@ -90,3 +90,21 @@ def generate_fashion_mnist_100p_IID_balanced():
         dataset=dataset,
         local_generator_dir=config.local_generator_datasets_dir,
     )
+
+
+def generate_fashion_mnist_100p_non_IID():
+    logging.info("Generate fashion_mnist_100p_non_IID")
+
+    dataset = data.generate_splits(
+        num_splits=100,
+        validation_set_size=6000,
+        keras_dataset=tf.keras.datasets.fashion_mnist,
+        transformer=data.sorted_labels_sections_shuffle,
+        transformer_kwargs={"section_count": 100},
+    )
+
+    persistence.save_splits(
+        dataset_name="fashion_mnist_100p_non_IID",
+        dataset=dataset,
+        local_generator_dir=config.local_generator_datasets_dir,
+    )

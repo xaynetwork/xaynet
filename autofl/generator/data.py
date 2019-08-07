@@ -159,6 +159,51 @@ def biased_balanced_labels_shuffle(  # pylint: disable=R0914
     return x_merged, y_merged
 
 
+def sorted_labels_sections_shuffle(  # pylint: disable=R0914
+    x: ndarray, y: ndarray, section_count=100
+) -> Tuple[ndarray, ndarray]:
+    """
+    Does the following:
+    1. Sort by label
+    2. Shuffles sections randomley
+    """
+    assert x.shape[0] == y.shape[0], "x and y need to have them dimension on axis=0"
+    assert (
+        x.shape[0] % section_count == 0
+    ), "Number of examples needs to be divisionable by section_count"
+    assert (
+        x.shape[0] % 2 * section_count == 0
+    ), "Number of examples needs to be divisionable by section_count times two"
+
+    example_count = x.shape[0]
+    section_size = example_count // section_count
+
+    # Array of indices that sort a along the specified axis.
+    sort_indexes = np.argsort(y, axis=0)
+
+    x_sorted = x[sort_indexes]
+    y_sorted = y[sort_indexes]
+
+    permutation = np.array(range(example_count), np.int64)
+
+    # some math:
+    # example_count = m * n
+    # m = 2 * section_count
+    # n = example_count / (2 * section_count) = section_size / 2
+    permutation = permutation.reshape((2 * section_count, section_size // 2))
+
+    # pylint: disable-msg=no-member
+    rnd_index = np.random.RandomState(seed=SEED).permutation(len(permutation))
+
+    permutation = permutation[rnd_index]
+    permutation = permutation.reshape(example_count)
+
+    x_shuffled = x_sorted[permutation]
+    y_shuffled = y_sorted[permutation]
+
+    return (x_shuffled, y_shuffled)
+
+
 def split(
     x: ndarray, y: ndarray, num_splits: int
 ) -> Tuple[List[ndarray], List[ndarray]]:

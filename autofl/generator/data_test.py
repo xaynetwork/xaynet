@@ -246,6 +246,50 @@ def test_biased_balanced_labels_shuffle(bias, example_count):  # pylint: disable
 
 
 @pytest.mark.parametrize(
+    "section_count, example_count", [(10, 1000), (20, 3000), (100, 6000)]
+)
+def test_sorted_labels_sections_shuffle(
+    section_count, example_count
+):  # pylint: disable=R0914
+    # Prepare
+    unique_labels_count = 10
+    unique_labels = range(unique_labels_count)  # 10 unique labels
+    section_size = int(example_count / section_count)
+
+    assert example_count % section_count == 0
+    assert example_count % (2 * section_count) == 0
+    assert section_size % unique_labels_count == 0
+
+    x = np.ones((example_count, 28, 28), dtype=np.int64)
+
+    y = np.tile(
+        np.array(unique_labels, dtype=np.int64), example_count // unique_labels_count
+    )
+
+    assert x.shape[0] == example_count
+    assert x.shape[0] == y.shape[0]
+
+    # each section should only contain up to two labels
+    expected_label_counts_per_split = set([1, 2])
+
+    # Execute
+    x_shuffled, y_shuffled = data.sorted_labels_sections_shuffle(
+        x, y, section_count=section_count
+    )
+
+    # Assert
+    assert x.shape == x_shuffled.shape
+    assert y.shape == y_shuffled.shape
+
+    # Create tuples for x,y splits so we can more easily analyze them
+    y_splits = np.split(y_shuffled, indices_or_sections=section_count, axis=0)
+
+    actual_label_counts_per_split = {len(set(y_split)) for y_split in y_splits}
+
+    assert actual_label_counts_per_split.issubset(expected_label_counts_per_split)
+
+
+@pytest.mark.parametrize(
     "unique_labels_count, example_count", [(2, 1000), (5, 1000), (10, 1000)]
 )
 def test_group_by_label(unique_labels_count, example_count):
