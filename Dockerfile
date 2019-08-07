@@ -1,22 +1,30 @@
-# FROM tensorflow/tensorflow:1.14.0-gpu-py3
-FROM python:3.7.4-buster
+FROM python:3.6.8
 
 WORKDIR /opt/ml/project
 
-ARG DEBIAN_FRONTEND=noninteractive
-
-RUN apt-get update
-RUN apt-get install -y awscli
+# Create output directory as its expected
+RUN mkdir output
 
 # First copy scripts and setup.py to install dependencies
 # and avoid reinstalling dependencies when only changing the code
 COPY setup.py setup.py
-COPY scripts/setup.sh scripts/setup.sh
 
-RUN ./scripts/setup.sh
+# Mostly taken from setup.py but split into
+# required, dev and cpu to trigger image layer
+# updates less often
+RUN pip install -U pip==19.2.1
+RUN pip install -U setuptools==41.0.1
 
-# Create output directory as its expected
-RUN mkdir output
+# This will install pytorch with CPU only support and
+# avoid downloading the > 600MB GPU enabled version
+RUN pip install https://download.pytorch.org/whl/cpu/torch-1.1.0-cp36-cp36m-linux_x86_64.whl \
+    https://download.pytorch.org/whl/cpu/torchvision-0.3.0-cp36-cp36m-linux_x86_64.whl
+
+# Now install required_installs as well as dev
+# and cpu in order of least likely changes
+RUN pip install -e .
+RUN pip install -e .[cpu]
+RUN pip install -e .[dev]
 
 COPY scripts scripts
 COPY autofl autofl
