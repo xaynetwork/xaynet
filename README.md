@@ -25,12 +25,6 @@ $ python3 --version
 Python 3.6.8
 ```
 
-## AWS
-
-```bash
-brew install awscli
-```
-
 ## Packages
 
 The `autofl` package contains the following sub-packages:
