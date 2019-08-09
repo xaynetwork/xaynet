@@ -21,7 +21,7 @@ def orig_2nn_compiled(
 
     model.compile(
         loss=tf.keras.losses.categorical_crossentropy,
-        optimizer=tf.keras.optimizers.Adam(),
+        optimizer=tf.keras.optimizers.SGD(),
         metrics=["accuracy"],
     )
     return model
