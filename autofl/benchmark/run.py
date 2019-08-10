@@ -29,7 +29,15 @@ def unitary_training(
         model, xy_train=xy_train, xy_val=xy_val, num_classes=10, batch_size=batch_size
     )
     # Train model
+    train_loss, train_acc = participant.evaluate(xy_train)  # Note: Just one batch
+    val_loss, val_acc = participant.evaluate(xy_val)
     history = participant._train(epochs)  # pylint: disable-msg=protected-access
+    history = {
+        "acc": [train_acc] + history["acc"],
+        "loss": [train_loss] + history["loss"],
+        "val_acc": [val_acc] + history["val_acc"],
+        "val_loss": [val_loss] + history["val_loss"],
+    }
     # Evaluate final performance
     loss, accuracy = participant.evaluate(xy_test)
     # Report results
@@ -59,7 +67,7 @@ def federated_training(
     model = orig_cnn_compiled(seed=MODEL_SEED)
     controller = RandomController(num_participants)
     coordinator = Coordinator(
-        controller, model, participants, C=C, E=E, aggregator=aggregator
+        controller, model, participants, C=C, E=E, xy_val=xy_val, aggregator=aggregator
     )
 
     # Train model

@@ -1,5 +1,5 @@
 import json
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 import matplotlib.pyplot as plt
 
@@ -13,11 +13,14 @@ def write_json(results: Dict, fname="benchmark_results.json", plot_dir="output")
 
 
 def plot_accuracies(
-    history_ul, history_fl, fname="benchmark_plot.png", plot_dir="output"
+    history_ul: Dict[str, List[float]],
+    history_fl: Dict[str, List[float]],
+    fname="benchmark_plot.png",
+    plot_dir="output",
 ):
-    xlim_max = len(history_ul.history["val_acc"])
+    xlim_max = len(history_ul["val_acc"])
     plot_curves(
-        curves=[history_ul.history["val_acc"], history_fl.history["val_acc"]],
+        curves=[history_ul["val_acc"], history_fl["val_acc"]],
         legend=["UL", "FL"],
         title="Validation set accuracy for unitary and federated learning",
         ylabel="accuracy",
