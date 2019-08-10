@@ -11,7 +11,7 @@ from autofl.datasets import (
 from . import report, run
 
 FLH_C = 0.1  # Fraction of participants used in each round of training
-FLH_E = 1  # Number of training episodes in each round
+FLH_E = 4  # Number of training episodes in each round
 FLH_B = 32  # Batch size used by participants
 
 ROUNDS = 50
@@ -73,7 +73,9 @@ def _run_unitary_versus_federated(name: str, xy_splits, xy_val, xy_test, C):
     # Plot results
     # FIXME use different filenames for different datasets
     report.plot_accuracies(ul_hist, fl_hist, fname="UL-FL-plot.png")
+
     # Write results JSON
+    # TODO include history
     results = {
         "name": name,
         "FLH_C": C,
@@ -85,7 +87,6 @@ def _run_unitary_versus_federated(name: str, xy_splits, xy_val, xy_test, C):
         "loss_b": float(fl_loss),
         "acc_b": float(fl_acc),
     }
-    # TODO add histories
     report.write_json(results, fname="UL-FL-results.json")
 
 
