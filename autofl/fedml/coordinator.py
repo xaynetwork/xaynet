@@ -90,7 +90,7 @@ class Coordinator:
         # Assume the validation `tf.data.Dataset` to yield exactly one batch containing
         # all examples in the validation set
         loss, accuracy = self.model.evaluate(ds_val, steps=1)
-        return loss, accuracy
+        return float(loss), float(accuracy)
 
     def num_participants(self) -> int:
         return len(self.participants)

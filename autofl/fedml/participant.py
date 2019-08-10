@@ -46,7 +46,7 @@ class Participant:
             steps_per_epoch=self.steps_train,
             validation_steps=self.steps_val,
         )
-        return hist.history
+        return cast_to_float(hist.history)
 
     def evaluate(self, xy_test: Tuple[np.ndarray, np.ndarray]) -> Tuple[float, float]:
         ds_val = prep.init_ds_val(xy_test)
@@ -57,6 +57,13 @@ class Participant:
 
     def replace_model(self, model: tf.keras.Model) -> None:
         self.model = model
+
+
+def cast_to_float(hist):
+    for key in hist:
+        for index, number in enumerate(hist[key]):
+            hist[key][index] = float(number)
+    return hist
 
 
 def init_participants(
