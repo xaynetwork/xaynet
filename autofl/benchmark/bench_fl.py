@@ -22,7 +22,7 @@ def benchmark_ul_fl_FashionMNIST_100p_IID_balanced():
     logging.info("Starting {}".format(fn_name))
 
     xy_parts, xy_val, xy_test = fashion_mnist_100p_IID_balanced.load_splits()
-    _run_unitary_versus_federated(xy_parts, xy_val, xy_test, C=0.1)
+    _run_unitary_versus_federated(fn_name, xy_parts, xy_val, xy_test, C=FLH_C)
 
 
 def benchmark_ul_fl_FashionMNIST_100p_non_IID():
@@ -30,31 +30,31 @@ def benchmark_ul_fl_FashionMNIST_100p_non_IID():
     logging.info("Starting {}".format(fn_name))
 
     xy_parts, xy_val, xy_test = fashion_mnist_100p_non_IID.load_splits()
-    _run_unitary_versus_federated(xy_parts, xy_val, xy_test, C=0.1)
+    _run_unitary_versus_federated(fn_name, xy_parts, xy_val, xy_test, C=FLH_C)
 
 
 def benchmark_ul_fl_FashionMNIST_10p_IID_balanced():
     fn_name = benchmark_ul_fl_FashionMNIST_10p_IID_balanced.__name__
     logging.info("Starting {}".format(fn_name))
     xy_splits, xy_val, xy_test = fashion_mnist_10s_600.load_splits()
-    _run_unitary_versus_federated(xy_splits, xy_val, xy_test, C=0.3)
+    _run_unitary_versus_federated(fn_name, xy_splits, xy_val, xy_test, C=0.3)
 
 
 def benchmark_ul_fl_FashionMNIST_10p_1000():
     fn_name = benchmark_ul_fl_FashionMNIST_10p_1000.__name__
     logging.info("Starting {}".format(fn_name))
     xy_splits, xy_val, xy_test = fashion_mnist_10s_500_1k_bias.load_splits()
-    _run_unitary_versus_federated(xy_splits, xy_val, xy_test, C=0.3)
+    _run_unitary_versus_federated(fn_name, xy_splits, xy_val, xy_test, C=0.3)
 
 
 def benchmark_ul_fl_FashionMNIST_10p_5400():
     fn_name = benchmark_ul_fl_FashionMNIST_10p_5400.__name__
     logging.info("Starting {}".format(fn_name))
     xy_splits, xy_val, xy_test = fashion_mnist_10s_single_class.load_splits()
-    _run_unitary_versus_federated(xy_splits, xy_val, xy_test, C=0.3)
+    _run_unitary_versus_federated(fn_name, xy_splits, xy_val, xy_test, C=0.3)
 
 
-def _run_unitary_versus_federated(xy_splits, xy_val, xy_test, C):
+def _run_unitary_versus_federated(name: str, xy_splits, xy_val, xy_test, C):
     # TODO train n models on all partitions
 
     # Train CNN on a single partition ("unitary learning")
@@ -74,12 +74,17 @@ def _run_unitary_versus_federated(xy_splits, xy_val, xy_test, C):
     # FIXME use different filenames for different datasets
     report.plot_accuracies(ul_hist, fl_hist, fname="UL-FL-plot.png")
     # Write results JSON
-    results = {"FLH_E": FLH_E, "FLH_B": FLH_B, "ROUNDS": ROUNDS}
-
-    results["loss_a"] = float(ul_loss)
-    results["acc_a"] = float(ul_acc)
-    results["loss_b"] = float(fl_loss)
-    results["acc_b"] = float(fl_acc)
+    results = {
+        "name": name,
+        "FLH_C": C,
+        "FLH_E": FLH_E,
+        "FLH_B": FLH_B,
+        "ROUNDS": ROUNDS,
+        "loss_a": float(ul_loss),
+        "acc_a": float(ul_acc),
+        "loss_b": float(fl_loss),
+        "acc_b": float(fl_acc),
+    }
     # TODO add histories
     report.write_json(results, fname="UL-FL-results.json")
 

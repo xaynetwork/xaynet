@@ -17,12 +17,19 @@ AutoFL requires the following tools to be installed:
 
 - [Python 3.6.8](https://python.org/)
 
-
 Verify Python installation:
 
 ```bash
 $ python3 --version
 Python 3.6.8
+```
+
+## AWS
+
+In `~/.aws`, place two config files: `config` and `credentials`. Then:
+
+```bash
+export AWS_PROFILE=xain-autofl
 ```
 
 ## Packages
