@@ -2,8 +2,8 @@
 
 set -x
 
-# Set automatic shutdown after 1 hours
-sudo shutdown -P 180
+# Set automatic shutdown after 5 hours
+sudo shutdown -P 300
 
 # Login into ECR. This only works because we assigned
 # the right IAM instance profile to the EC2 instance
@@ -13,7 +13,8 @@ $(aws ecr get-login --region eu-central-1 --no-include-email)
 docker pull 693828385217.dkr.ecr.eu-central-1.amazonaws.com/autofl:latest
 
 # Start docker job
-docker run -v $(pwd)/output:/opt/ml/project/output 693828385217.dkr.ecr.eu-central-1.amazonaws.com/autofl:latest train
+mkdir $(pwd)/output
+docker run -v $(pwd)/output:/opt/ml/project/output 693828385217.dkr.ecr.eu-central-1.amazonaws.com/autofl:latest train >& $(pwd)/output/training.log
 docker run -v $(pwd)/output:/opt/ml/project/output 693828385217.dkr.ecr.eu-central-1.amazonaws.com/autofl:latest ./scripts/push_results.sh latest
 
 # Cancel previous shutdown and shutdown 1m after the job finishes

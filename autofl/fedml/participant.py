@@ -45,6 +45,7 @@ class Participant:
             shuffle=False,  # Shuffling is handled via tf.data.Dataset
             steps_per_epoch=self.steps_train,
             validation_steps=self.steps_val,
+            verbose=2,
         )
         return cast_to_float(hist.history)
 

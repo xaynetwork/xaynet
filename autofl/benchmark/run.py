@@ -11,7 +11,7 @@ from autofl.types import FederatedDatasetPartition
 
 random.seed(0)
 np.random.seed(1)
-tf.set_random_seed(2)
+tf.compat.v1.set_random_seed(2)
 
 MODEL_SEED = 1096
 
