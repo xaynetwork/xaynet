@@ -26,11 +26,36 @@ Python 3.6.8
 
 ## AWS
 
+### Configuration
+
 In `~/.aws`, place two config files: `config` and `credentials`. Then:
 
 ```bash
 export AWS_PROFILE=xain-autofl
 ```
+
+### Connect to running instances
+
+After starting a training job on AWS using `./scripts/train_remote.sh`:
+
+1. List all running EC2 instances:
+    ```shell
+    $ AWS_PROFILE=xain-autofl aws ec2 describe-instances  --filters Name=instance-state-code,Values=16 | jq '.Reservations[].Instances[].PublicIpAddress'
+    "35.158.158.119"
+    "18.185.67.166"
+    ```
+2. Connect to one of the running instances using ssh:
+    ```shell
+    $ ssh -i ~/.ssh/autofl_job.pem.xain ubuntu@18.185.67.166
+    ```
+
+3. List running docker containers and follow the logs of one of them:
+    ```shell
+    $ docker ps
+    CONTAINER ID        IMAGE                                                                                  COMMAND             CREATED             STATUS              PORTS               NAMES
+    6affb6534450        693828385217.dkr.ecr.eu-central-1.amazonaws.com/autofl:20190810T092037_andrea_jordan   "train"             8 minutes ago       Up 8 minutes                            suspicious_hofstadter
+    $ docker logs -f suspicious_hofstadter
+    ```
 
 ## Packages
 

@@ -1,4 +1,4 @@
-from typing import Any, List, Tuple
+from typing import Dict, List, Tuple
 
 import numpy as np
 import tensorflow as tf
@@ -31,14 +31,14 @@ class Participant:
         self.ds_val = prep.init_ds_val(xy_val, num_classes)
         self.steps_val = 1
 
-    def train_round(self, theta: KerasWeights, epochs) -> Tuple[KerasWeights, Any]:
+    def train_round(self, theta: KerasWeights, epochs) -> KerasWeights:
         self.model.set_weights(theta)
-        history = self._train(epochs)
+        _ = self._train(epochs)
         theta_prime = self.model.get_weights()
-        return theta_prime, history
+        return theta_prime
 
-    def _train(self, epochs: int) -> Any:
-        history = self.model.fit(
+    def _train(self, epochs: int) -> Dict[str, List[float]]:
+        hist = self.model.fit(
             self.ds_train,
             epochs=epochs,
             validation_data=self.ds_val,
@@ -46,7 +46,7 @@ class Participant:
             steps_per_epoch=self.steps_train,
             validation_steps=self.steps_val,
         )
-        return history
+        return hist.history
 
     def evaluate(self, xy_test: Tuple[np.ndarray, np.ndarray]) -> Tuple[float, float]:
         ds_val = prep.init_ds_val(xy_test)

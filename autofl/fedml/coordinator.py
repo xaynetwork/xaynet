@@ -1,4 +1,4 @@
-from typing import Any, Callable, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 import tensorflow as tf
 from absl import logging
@@ -19,7 +19,8 @@ class Coordinator:
         model: tf.keras.Model,
         participants: List[Participant],
         C: float,
-        E: int = 1,
+        E: int,
+        xy_val: Tuple[ndarray, ndarray],
         aggregator: Optional[Aggregator] = None,
     ) -> None:
         self.controller = controller
@@ -27,13 +28,22 @@ class Coordinator:
         self.participants = participants
         self.C = C
         self.E = E
+        self.xy_val = xy_val
         self.aggregator = aggregator if aggregator else WeightedAverageAgg()
 
     # Common initialization happens implicitly: By updating the participant weights to
     # match the coordinator weights ahead of every training round we achieve common
     # initialization.
     def fit(self, num_rounds: int):
-        history_updates: List[List[Any]] = []
+        # Init history
+        loss, acc = self.evaluate(self.xy_val)
+        history: Dict[str, List[float]] = {
+            "acc": [acc],
+            "loss": [loss],
+            "val_acc": [acc],
+            "val_loss": [loss],
+        }
+        # Train rounds
         for training_round in range(num_rounds):
             # Determine who participates in this round
             num_indices = abs_C(self.C, self.num_participants())
@@ -43,35 +53,37 @@ class Coordinator:
                     training_round + 1, num_rounds, indices
                 )
             )
-            histories = self.fit_round(indices)
-            history_updates.append(histories)
-        # Return aggregated histories
-        return aggregate_histories(history_updates)
+            # Train
+            self.fit_round(indices)
+            # Evaluate
+            if self.xy_val:
+                loss, acc = self.evaluate(self.xy_val)
+                history["loss"].append(loss)  # FIXME
+                history["acc"].append(acc)  # FIXME
+                history["val_loss"].append(loss)
+                history["val_acc"].append(acc)
+        return history
 
-    def fit_round(self, indices: List[int]):
+    def fit_round(self, indices: List[int]) -> None:
         # Collect training results from the participants of this round
         thetas = []
-        histories = []
         for index in indices:
-            theta, history = self._single_step(index)
+            theta = self._single_step(index)
             thetas.append(theta)
-            histories.append(history)
         # Aggregate training results
         theta_prime = self.aggregator.aggregate(thetas)
         # Update own model parameters
         self.model.set_weights(theta_prime)
-        # Report progress
-        return histories
 
-    def _single_step(self, random_index: int) -> Tuple[KerasWeights, Any]:
+    def _single_step(self, random_index: int) -> KerasWeights:
         participant = self.participants[random_index]
         # Train one round on this particular participant:
         # - Push current model parameters to this participant
         # - Train for a number of epochs
         # - Pull updated model parameters from participant
         theta = self.model.get_weights()
-        theta_prime, history = participant.train_round(theta, epochs=self.E)
-        return theta_prime, history
+        theta_prime = participant.train_round(theta, epochs=self.E)
+        return theta_prime
 
     def evaluate(self, xy_val: Tuple[ndarray, ndarray]) -> Tuple[float, float]:
         ds_val = prep.init_ds_val(xy_val)
@@ -86,23 +98,6 @@ class Coordinator:
 
 def abs_C(C: float, num_participants: int) -> int:
     return int(min(num_participants, max(1, C * num_participants)))
-
-
-def aggregate_histories(history_updates):
-    history = history_updates[0][0]
-    for histories in history_updates[1:]:
-        h0 = history.history
-        h1 = histories[0].history
-        h_prime = history_update(h0, h1)
-        history.history = h_prime
-    return history
-
-
-def history_update(h0, h1):
-    for k in h1.keys():
-        vals = h1[k]
-        h0[k] = h0[k] + vals
-    return h0
 
 
 def create_evalueate_fn(

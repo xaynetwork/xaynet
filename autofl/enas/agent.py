@@ -66,7 +66,7 @@ def autofl():
         participant = Participant(None, xy_split, xy_val)
         participants.append(participant)
     controller = RandomController(num_participants=len(participants))
-    coordinator = Coordinator(controller, None, participants, C=0.3)
+    coordinator = Coordinator(controller, None, participants, C=0.3, E=1, xy_val=xy_val)
     # AutoFL
     agent: Agent = RandomAgent(coordinator=coordinator)
     agent.train()
