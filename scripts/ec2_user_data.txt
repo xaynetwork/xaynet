@@ -13,7 +13,8 @@ $(aws ecr get-login --region eu-central-1 --no-include-email)
 docker pull 693828385217.dkr.ecr.eu-central-1.amazonaws.com/autofl:latest
 
 # Start docker job
-mkdir $(pwd)/output
+mkdir -p /opt/autofl/output
+cd /opt/autofl/
 docker run -v $(pwd)/output:/opt/ml/project/output 693828385217.dkr.ecr.eu-central-1.amazonaws.com/autofl:latest train >& $(pwd)/output/training.log
 docker run -v $(pwd)/output:/opt/ml/project/output 693828385217.dkr.ecr.eu-central-1.amazonaws.com/autofl:latest ./scripts/push_results.sh latest
 
