@@ -60,8 +60,6 @@ def assert_dataset_origin(keras_dataset, federated_dataset):
     counts = list(hash_table.values())
     unq = np.unique(counts)
 
-    print(unq)
-
     assert len(unq) == 1, "Some examples are duplicate or not existing in keras dataset"
     assert unq[0] == 1, "Federated example not found in original keras dataset"
 
