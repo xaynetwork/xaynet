@@ -62,7 +62,7 @@ def assert_dataset_origin(keras_dataset, federated_dataset):
 
     print(unq)
 
-    assert len(unq) == 1, "Duplicate examples found"
+    assert len(unq) == 1, "Some examples are duplicate or not existing in keras dataset"
     assert unq[0] == 1, "Federated example not found in original keras dataset"
 
 
