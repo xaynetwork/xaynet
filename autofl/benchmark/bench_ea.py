@@ -1,8 +1,8 @@
 from absl import app, logging
 
 from autofl.datasets import fashion_mnist_10s_600
-from autofl.fedml.aggregate import EvoAgg
-from autofl.fedml.evaluator import Evaluator
+from autofl.fl.coordinator.aggregate import EvoAgg
+from autofl.fl.coordinator.evaluator import Evaluator
 from autofl.net import orig_cnn_compiled
 
 from . import report, run

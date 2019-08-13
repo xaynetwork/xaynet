@@ -8,7 +8,8 @@ from numpy import ndarray
 
 from autofl import flenv
 from autofl.datasets import cifar10_random_splits_10
-from autofl.fedml import Coordinator, Participant, RandomController
+from autofl.fl.coordinator import Coordinator, RandomController
+from autofl.fl.participant import Participant
 
 from .arch import Architecture, build_architecture, parse_arch_str
 

@@ -5,10 +5,10 @@ from absl import logging
 from numpy import ndarray
 
 from autofl.datasets import prep
+from autofl.fl.participant import Participant
 from autofl.types import KerasWeights
 
 from .aggregate import Aggregator, WeightedAverageAgg
-from .participant import Participant
 
 
 class Coordinator:
