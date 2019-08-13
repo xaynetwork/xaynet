@@ -16,10 +16,11 @@ def enas_cnn_compiled() -> tf.keras.Model:
     return model
 
 
+# pylint: disable-msg=unused-variable
 def replace_model(
     coordinator: Coordinator, model_fn: Callable[..., tf.keras.Model]
 ) -> None:
     coordinator.model = model_fn()
     for p in coordinator.participants:
         model = model_fn()
-        p.replace_model(model)
+        # p.replace_model(model)

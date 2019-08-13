@@ -19,7 +19,7 @@ class Aggregator(ABC):
 
 class WeightedAverageAgg(Aggregator):
     def aggregate(self, thetas: List[KerasWeights]) -> KerasWeights:
-        return weighted_agg(thetas)
+        return federated_averaging(thetas)
 
 
 class EvoAgg(Aggregator):
@@ -31,12 +31,8 @@ class EvoAgg(Aggregator):
         return evo_agg(thetas, self.evaluator, False)
 
 
-def weighted_agg(thetas: List[KerasWeights],) -> KerasWeights:
-    # FIXME implement #examples-based weighting
-    return federated_averaging(thetas)
-
-
 def federated_averaging(thetas: List[KerasWeights]) -> KerasWeights:
+    # FIXME implement #examples-based weighting
     weighting = np.ones((len(thetas),))
     return weighted_federated_averaging(thetas, weighting)
 

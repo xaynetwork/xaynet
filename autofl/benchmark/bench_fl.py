@@ -61,7 +61,11 @@ def _run_unitary_versus_federated(name: str, xy_splits, xy_val, xy_test, C):
     partition_id = 0
     logging.info("Run unitary training using partition {}".format(partition_id))
     ul_hist, ul_loss, ul_acc = run.unitary_training(
-        xy_splits[partition_id], xy_val, xy_test, epochs=ROUNDS, batch_size=FLH_B
+        xy_splits[partition_id],
+        xy_val,
+        xy_test,
+        epochs=ROUNDS,  # TODO ROUNDS * FLH_E,
+        batch_size=FLH_B,
     )
 
     # Train CNN using federated learning on all partitions
@@ -75,7 +79,6 @@ def _run_unitary_versus_federated(name: str, xy_splits, xy_val, xy_test, C):
     report.plot_accuracies(ul_hist, fl_hist, fname="UL-FL-plot.png")
 
     # Write results JSON
-    # TODO include history
     results = {
         "name": name,
         "FLH_C": C,
@@ -84,8 +87,10 @@ def _run_unitary_versus_federated(name: str, xy_splits, xy_val, xy_test, C):
         "ROUNDS": ROUNDS,
         "loss_a": float(ul_loss),
         "acc_a": float(ul_acc),
+        "hist_a": ul_hist,
         "loss_b": float(fl_loss),
         "acc_b": float(fl_acc),
+        "hist_b": fl_hist,
     }
     report.write_json(results, fname="UL-FL-results.json")
 

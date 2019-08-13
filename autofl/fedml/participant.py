@@ -4,8 +4,7 @@ import numpy as np
 import tensorflow as tf
 
 from autofl.datasets import prep
-from autofl.net import orig_cnn_compiled
-from autofl.types import FederatedDatasetPartition, KerasWeights
+from autofl.types import KerasWeights
 
 NUM_CLASSES = 10
 BATCH_SIZE = 64
@@ -47,7 +46,7 @@ class Participant:
             validation_steps=self.steps_val,
             verbose=2,
         )
-        return hist.history
+        return cast_to_float(hist.history)
 
     def evaluate(self, xy_test: Tuple[np.ndarray, np.ndarray]) -> Tuple[float, float]:
         ds_val = prep.init_ds_val(xy_test)
@@ -56,16 +55,9 @@ class Participant:
         loss, accuracy = self.model.evaluate(ds_val, steps=1)
         return loss, accuracy
 
-    def replace_model(self, model: tf.keras.Model) -> None:
-        self.model = model
 
-
-def init_participants(
-    xy_partitions: List[FederatedDatasetPartition], xy_val: FederatedDatasetPartition
-) -> List[Participant]:
-    participants: List[Participant] = []
-    for xy_train in xy_partitions:
-        model = orig_cnn_compiled()  # FIXME refactor
-        participant = Participant(model, xy_train, xy_val)
-        participants.append(participant)
-    return participants
+def cast_to_float(hist):
+    for key in hist:
+        for index, number in enumerate(hist[key]):
+            hist[key][index] = float(number)
+    return hist

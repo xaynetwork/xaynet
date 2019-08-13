@@ -1,5 +1,5 @@
 import random
-from typing import List
+from typing import Dict, List, Tuple
 
 import numpy as np
 import tensorflow as tf
@@ -22,7 +22,7 @@ def unitary_training(
     xy_test: FederatedDatasetPartition,
     epochs: int,
     batch_size: int,
-):
+) -> Tuple[Dict[str, List[float]], float, float]:
     # Initialize model and participant
     model = orig_cnn_compiled(seed=MODEL_SEED)
     participant = Participant(
@@ -33,10 +33,10 @@ def unitary_training(
     val_loss, val_acc = participant.evaluate(xy_val)
     history = participant._train(epochs)  # pylint: disable-msg=protected-access
     history = {
-        "acc": [train_acc] + history["acc"],
-        "loss": [train_loss] + history["loss"],
-        "val_acc": [val_acc] + history["val_acc"],
-        "val_loss": [val_loss] + history["val_loss"],
+        "acc": [float(train_acc)] + history["acc"],
+        "loss": [float(train_loss)] + history["loss"],
+        "val_acc": [float(val_acc)] + history["val_acc"],
+        "val_loss": [float(val_loss)] + history["val_loss"],
     }
     # Evaluate final performance
     loss, accuracy = participant.evaluate(xy_test)
@@ -54,7 +54,12 @@ def federated_training(
     E: int,
     B: int,
     aggregator: Aggregator = None,
-):
+) -> Tuple[Dict[str, List[float]], float, float]:
+    # Initialize participants and coordinator
+    # Note that there is no need for common initialization at this point: Common
+    # initialization will happen during the first few rounds because the coordinator will
+    # push its own weight to the respective participants of each training round.
+
     # Init participants
     participants = []
     for xy_train in xy_train_partitions:
