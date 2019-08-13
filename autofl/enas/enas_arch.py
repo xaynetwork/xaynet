@@ -2,7 +2,7 @@ from typing import Callable
 
 import tensorflow as tf
 
-from autofl.fedml import Coordinator
+from autofl.fl.coordinator import Coordinator
 
 from . import arch
 

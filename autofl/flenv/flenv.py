@@ -6,7 +6,8 @@ from absl import logging
 from gym.envs.registration import register
 
 from autofl.datasets import fashion_mnist_10s_600
-from autofl.fedml import Coordinator, Participant, RandomController
+from autofl.fl.coordinator import Coordinator, RandomController
+from autofl.fl.participant import Participant
 from autofl.net import orig_cnn_compiled
 
 NUM_ROUNDS = 10  # FIXME: 40?
