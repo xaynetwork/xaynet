@@ -66,22 +66,22 @@ class Coordinator:
 
     def fit_round(self, indices: List[int]) -> None:
         # Collect training results from the participants of this round
-        thetas = []
+        theta_updates = []
+        theta = self.model.get_weights()
         for index in indices:
-            theta = self._single_step(index)
-            thetas.append(theta)
+            theta_update = self._single_step(index, theta)
+            theta_updates.append(theta_update)
         # Aggregate training results
-        theta_prime = self.aggregator.aggregate(thetas)
+        theta_prime = self.aggregator.aggregate(theta_updates)
         # Update own model parameters
         self.model.set_weights(theta_prime)
 
-    def _single_step(self, random_index: int) -> KerasWeights:
+    def _single_step(self, random_index: int, theta: KerasWeights) -> KerasWeights:
         participant = self.participants[random_index]
         # Train one round on this particular participant:
         # - Push current model parameters to this participant
         # - Train for a number of epochs
         # - Pull updated model parameters from participant
-        theta = self.model.get_weights()
         theta_prime = participant.train_round(theta, epochs=self.E)
         return theta_prime
 
