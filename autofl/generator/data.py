@@ -55,8 +55,13 @@ def assert_dataset_origin(keras_dataset, federated_dataset):
     hash_table = {hash_xy(x, y): 0 for (x, y) in zip(x_keras, y_keras)}
 
     for (x, y) in zip(x_fed, y_fed):
-        if hash_xy(x, y) not in hash_table:
-            raise Exception("Federated example not found in original keras dataset")
+        hash_table[hash_xy(x, y)] += 1
+    
+    counts = hash_table.values()
+    unq = np.unique(counts)
+    
+    assert len(unq) == 1, "Duplicate examples found"
+    assert unq[0] == 1, "Federated example not found in original keras dataset"
 
 
 def random_shuffle(x: ndarray, y: ndarray) -> Tuple[ndarray, ndarray]:
