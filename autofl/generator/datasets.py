@@ -14,6 +14,10 @@ def generate_cifar10_random_splits_10():
         transformer=data.random_shuffle,
     )
 
+    data.assert_dataset_origin(
+        keras_dataset=data.load(tf.keras.datasets.cifar10), federated_dataset=dataset
+    )
+
     persistence.save_splits(
         dataset_name="cifar10_random_splits_10",
         dataset=dataset,
@@ -30,6 +34,11 @@ def generate_fashion_mnist_10s_600():
         keras_dataset=tf.keras.datasets.fashion_mnist,
         transformer=data.balanced_labels_shuffle,
         transformer_kwargs={"section_count": 10},
+    )
+
+    data.assert_dataset_origin(
+        keras_dataset=data.load(tf.keras.datasets.fashion_mnist),
+        federated_dataset=dataset,
     )
 
     persistence.save_splits(
@@ -50,6 +59,11 @@ def generate_fashion_mnist_10s_500_1k_bias():
         transformer_kwargs={"bias": 1000},
     )
 
+    data.assert_dataset_origin(
+        keras_dataset=data.load(tf.keras.datasets.fashion_mnist),
+        federated_dataset=dataset,
+    )
+
     persistence.save_splits(
         dataset_name="fashion_mnist_10s_500_1k_bias",
         dataset=dataset,
@@ -65,6 +79,11 @@ def generate_fashion_mnist_10s_single_class():
         validation_set_size=6000,
         keras_dataset=tf.keras.datasets.fashion_mnist,
         transformer=data.group_by_label,
+    )
+
+    data.assert_dataset_origin(
+        keras_dataset=data.load(tf.keras.datasets.fashion_mnist),
+        federated_dataset=dataset,
     )
 
     persistence.save_splits(
@@ -85,6 +104,11 @@ def generate_fashion_mnist_100p_IID_balanced():
         transformer_kwargs={"section_count": 100},
     )
 
+    data.assert_dataset_origin(
+        keras_dataset=data.load(tf.keras.datasets.fashion_mnist),
+        federated_dataset=dataset,
+    )
+
     persistence.save_splits(
         dataset_name="fashion_mnist_100p_IID_balanced",
         dataset=dataset,
@@ -101,6 +125,11 @@ def generate_fashion_mnist_100p_non_IID():
         keras_dataset=tf.keras.datasets.fashion_mnist,
         transformer=data.sorted_labels_sections_shuffle,
         transformer_kwargs={"section_count": 100},
+    )
+
+    data.assert_dataset_origin(
+        keras_dataset=data.load(tf.keras.datasets.fashion_mnist),
+        federated_dataset=dataset,
     )
 
     persistence.save_splits(
