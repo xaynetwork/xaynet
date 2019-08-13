@@ -35,7 +35,7 @@ def mock_random_splits_2_dataset() -> FederatedDataset:
 
 @pytest.fixture
 def mock_simple_keras_dataset():
-    # train set with numbers 0, 7, 1, 2 as 3x3 images/matrixes
+    # train set with labels 0, 7, 1, 2 as 3x3 images/matrixes
     x_train = np.array(
         [
             [[1, 1, 1], [1, 0, 1], [1, 1, 1]],
@@ -47,7 +47,7 @@ def mock_simple_keras_dataset():
     )
     y_train = np.array([0, 7, 1, 2], dtype=np.int8)
 
-    # test set with number 1 as matrix
+    # test set with label 1 and corresponding matrix (x_train[0])
     x_test = np.array([[[0, 0, 1], [0, 0, 1], [0, 0, 1]]], dtype=np.int8)
     y_test = np.array([1], dtype=np.int8)
 
