@@ -55,6 +55,11 @@ def federated_training(
     B: int,
     aggregator: Aggregator = None,
 ) -> Tuple[Dict[str, List[float]], float, float]:
+    # Initialize participants and coordinator
+    # Note that there is no need for common initialization at this point: Common
+    # initialization will happen during the first few rounds because the coordinator will
+    # push its own weight to the respective participants of each training round.
+
     # Init participants
     participants = []
     for xy_train in xy_train_partitions:
