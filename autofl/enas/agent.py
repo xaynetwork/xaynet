@@ -63,8 +63,8 @@ def autofl():
     # Note that no initial model is provided to the constructors, the models
     # will be created and set by the agent.
     participants = []
-    for xy_split in xy_splits:
-        participant = Participant(None, xy_split, xy_val)
+    for cid, xy_split in enumerate(xy_splits):
+        participant = Participant(str(cid), None, xy_split, xy_val)
         participants.append(participant)
     controller = RandomController(num_participants=len(participants))
     coordinator = Coordinator(controller, None, participants, C=0.3, E=1, xy_val=xy_val)

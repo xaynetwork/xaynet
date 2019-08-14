@@ -10,7 +10,7 @@ def test_Participant_x_y_shape_valid():
     x = np.zeros((5, 32, 32, 3), dtype=np.uint8)
     y = np.zeros((5), dtype=np.uint8)
     # Execute
-    _ = Participant(m, (x, y), (x, y))
+    _ = Participant(0, m, (x, y), (x, y))
     # pass if initialization does not raise an exception
 
 
@@ -21,7 +21,7 @@ def test_Participant_x_y_shape_invalid():
     y = np.zeros((4), dtype=np.uint8)
     # Execute & assert
     try:
-        _ = Participant(m, (x, y), (x, y))
+        _ = Participant(0, m, (x, y), (x, y))
         pytest.fail("No AssertionError raised")
     except AssertionError:
         pass
