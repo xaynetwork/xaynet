@@ -1,19 +1,20 @@
 import numpy as np
 import pytest
 
-from . import cifar10_random_splits_10 as cifar10
+from .dataset import config, load_splits
 
 
 @pytest.mark.slow
 @pytest.mark.integration
-def test_load_splits(tmp_path):
+@pytest.mark.parametrize("dataset_name", [(dn) for dn in config])
+def test_load_splits(tmp_path, dataset_name):
     # Prepare
     def get_local_datasets_dir():
         return tmp_path
 
     # Execute
-    xy_splits_actual, xy_val_actual, xy_test_actual = cifar10.load_splits(
-        get_local_datasets_dir=get_local_datasets_dir
+    xy_splits_actual, xy_val_actual, xy_test_actual = load_splits(
+        dataset_name=dataset_name, get_local_datasets_dir=get_local_datasets_dir
     )
 
     # Assert
@@ -29,11 +30,16 @@ def test_load_splits(tmp_path):
 
 
 @pytest.mark.integration
-def test_load_splits_without_fetch(tmp_path, disable_fetch):  # pylint: disable=W0613
+@pytest.mark.parametrize("dataset_name", [(dn) for dn in config])
+def test_load_splits_without_fetch(
+    tmp_path, disable_fetch, dataset_name  # pylint: disable=W0613
+):
     # Prepare
     def get_local_datasets_dir():
         return tmp_path
 
     # Execute
     with pytest.raises(Exception):
-        cifar10.load_splits(get_local_datasets_dir=get_local_datasets_dir)
+        load_splits(
+            dataset_name=dataset_name, get_local_datasets_dir=get_local_datasets_dir
+        )
