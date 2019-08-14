@@ -1,3 +1,4 @@
+import concurrent.futures
 from typing import Callable, Dict, List, Optional, Tuple
 
 import tensorflow as tf
@@ -75,6 +76,26 @@ class Coordinator:
         # Update own model parameters
         self.model.set_weights(theta_prime)
 
+    def fit_round_con(self, indices):
+        """Train on each participant cuncurrently"""
+        theta_updates = []
+        theta = self.model.get_weights()
+        participants = [self.participants[i] for i in indices]
+        # Wait for all futures to complete
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future_results = [
+                executor.submit(train_round_on_participant, p, theta, self.E)
+                for p in participants
+            ]
+            concurrent.futures.wait(future_results)
+            for future in future_results:
+                theta_update = future.result()
+                theta_updates.append(theta_update)
+        # Aggregate training results
+        theta_prime = self.aggregator.aggregate(theta_updates)
+        # Update own model parameters
+        self.model.set_weights(theta_prime)
+
     def _single_step(self, random_index: int, theta: KerasWeights) -> KerasWeights:
         participant = self.participants[random_index]
         # Train one round on this particular participant:
@@ -93,6 +114,13 @@ class Coordinator:
 
     def num_participants(self) -> int:
         return len(self.participants)
+
+
+def train_round_on_participant(
+    p: Participant, theta: KerasWeights, epochs: int
+) -> KerasWeights:
+    theta_prime = p.train_round(theta, epochs=epochs)
+    return theta_prime
 
 
 def abs_C(C: float, num_participants: int) -> int:
