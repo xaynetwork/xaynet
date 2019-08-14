@@ -1,3 +1,5 @@
+import time
+
 from absl import app, logging
 
 from autofl.datasets import (
@@ -55,9 +57,10 @@ def benchmark_ul_fl_FashionMNIST_10p_5400():
 
 
 def _run_unitary_versus_federated(name: str, xy_splits, xy_val, xy_test, C):
-    # TODO train n models on all partitions
+    start = time.time()
 
     # Train CNN on a single partition ("unitary learning")
+    # TODO train n models on all partitions
     partition_id = 0
     logging.info("Run unitary training using partition {}".format(partition_id))
     ul_hist, ul_loss, ul_acc = run.unitary_training(
@@ -74,6 +77,8 @@ def _run_unitary_versus_federated(name: str, xy_splits, xy_val, xy_test, C):
         xy_splits, xy_val, xy_test, ROUNDS, C=C, E=FLH_E, B=FLH_B
     )
 
+    end = time.time()
+
     # Plot results
     # FIXME use different filenames for different datasets
     report.plot_accuracies(ul_hist, fl_hist, fname="UL-FL-plot.png")
@@ -81,6 +86,9 @@ def _run_unitary_versus_federated(name: str, xy_splits, xy_val, xy_test, C):
     # Write results JSON
     results = {
         "name": name,
+        "start": start,
+        "end": end,
+        "duration": end - start,
         "FLH_C": C,
         "FLH_E": FLH_E,
         "FLH_B": FLH_B,
