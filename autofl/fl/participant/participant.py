@@ -28,7 +28,7 @@ class Participant:
         self.model = model
         # Training set
         self.ds_train = prep.init_ds_train(xy_train, num_classes, batch_size)
-        self.steps_train = int(xy_train[0].shape[0] / BATCH_SIZE)
+        self.steps_train: int = int(xy_train[0].shape[0] / batch_size)
         # Validation set
         self.ds_val = prep.init_ds_val(xy_val, num_classes)
         self.steps_val = 1
