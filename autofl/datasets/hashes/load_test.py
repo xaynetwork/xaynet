@@ -1,9 +1,9 @@
-from autofl.datasets.hashes import load_hashes
+from autofl.datasets.hashes import load
 
 
 def test_load_hashes():
     # Execute
-    dataset_hashes = load_hashes()
+    dataset_hashes = load.load_hashes()
 
     # Prepare
     assert isinstance(dataset_hashes, dict)

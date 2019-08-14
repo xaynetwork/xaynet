@@ -3,8 +3,8 @@ import json
 import os
 
 
-def load():
-    datasets = {}
+def load_hashes():
+    hashes = {}
     path = os.path.dirname(__file__)
 
     json_pattern = os.path.join(path, "*.json")
@@ -13,4 +13,6 @@ def load():
     for fname in file_list:
         with open(fname) as f:
             dict_key = os.path.basename(fname)[0:-5]
-            datasets[dict_key] = json.loads(f.read())
+            hashes[dict_key] = json.loads(f.read())
+
+    return hashes
