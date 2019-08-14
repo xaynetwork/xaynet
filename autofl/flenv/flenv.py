@@ -56,7 +56,7 @@ class FederatedLearningEnv(gym.Env):
         logging.info(
             "FlEnv: Train action {}, i.e. participants {}".format(action, indices)
         )
-        self.coordinator.fit_round_seq(indices)
+        self.coordinator.fit_round(indices)
 
         # Update state: Override row of zeros with actual indices (i.e. the action taken)
         # This results in a soft Markovian state which is basically an action log

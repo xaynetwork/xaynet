@@ -53,7 +53,7 @@ class Coordinator:
                 "Round {}/{}: Participants {}".format(r + 1, num_rounds, indices)
             )
             # Train
-            self.fit_round_con(indices)
+            self.fit_round(indices)
             # Evaluate
             if self.xy_val:
                 loss, acc = self.evaluate(self.xy_val)
@@ -63,47 +63,45 @@ class Coordinator:
                 history["val_acc"].append(acc)
         return history
 
-    def fit_round_seq(self, indices: List[int]) -> None:
-        """Train on each participant sequentially"""
-        # Collect training results from the participants of this round
-        theta_updates = []
+    def fit_round(self, indices: List[int]) -> None:
         theta = self.model.get_weights()
-        for index in indices:
-            theta_update = self._single_step(index, theta)
-            theta_updates.append(theta_update)
+        participants = [self.participants[i] for i in indices]
+        # Collect training results from the participants of this round
+        theta_updates = self.train_local_concurrently(theta, participants)
         # Aggregate training results
         theta_prime = self.aggregator.aggregate(theta_updates)
         # Update own model parameters
         self.model.set_weights(theta_prime)
 
-    def fit_round_con(self, indices):
+    def train_local_sequentially(
+        self, theta: KerasWeights, participants: List[Participant]
+    ) -> List[KerasWeights]:
+        """Train on each participant sequentially"""
+        theta_updates = []
+        for participant in participants:
+            # Train one round on this particular participant:
+            # - Push current model parameters to this participant
+            # - Train for a number of epochs
+            # - Pull updated model parameters from participant
+            theta_update = participant.train_round(theta, epochs=self.E)
+            theta_updates.append(theta_update)
+        return theta_updates
+
+    def train_local_concurrently(
+        self, theta: KerasWeights, participants: List[Participant]
+    ) -> List[KerasWeights]:
         """Train on each participant cuncurrently"""
         theta_updates = []
-        theta = self.model.get_weights()
-        participants = [self.participants[i] for i in indices]
         # Wait for all futures to complete
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future_results = [
-                executor.submit(train_round_on_participant, p, theta, self.E)
-                for p in participants
+                executor.submit(train_local, p, theta, self.E) for p in participants
             ]
             concurrent.futures.wait(future_results)
             for future in future_results:
                 theta_update = future.result()
                 theta_updates.append(theta_update)
-        # Aggregate training results
-        theta_prime = self.aggregator.aggregate(theta_updates)
-        # Update own model parameters
-        self.model.set_weights(theta_prime)
-
-    def _single_step(self, random_index: int, theta: KerasWeights) -> KerasWeights:
-        participant = self.participants[random_index]
-        # Train one round on this particular participant:
-        # - Push current model parameters to this participant
-        # - Train for a number of epochs
-        # - Pull updated model parameters from participant
-        theta_prime = participant.train_round(theta, epochs=self.E)
-        return theta_prime
+        return theta_updates
 
     def evaluate(self, xy_val: Tuple[ndarray, ndarray]) -> Tuple[float, float]:
         ds_val = prep.init_ds_val(xy_val)
@@ -116,9 +114,7 @@ class Coordinator:
         return len(self.participants)
 
 
-def train_round_on_participant(
-    p: Participant, theta: KerasWeights, epochs: int
-) -> KerasWeights:
+def train_local(p: Participant, theta: KerasWeights, epochs: int) -> KerasWeights:
     theta_prime = p.train_round(theta, epochs=epochs)
     return theta_prime
 
