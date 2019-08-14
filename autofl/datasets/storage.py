@@ -7,6 +7,7 @@ import requests
 from absl import flags, logging
 
 from ..types import FederatedDataset
+from . import hashes
 
 FLAGS = flags.FLAGS
 
@@ -124,13 +125,13 @@ def load_split(
 
 
 def load_splits(
-    dataset_name: str,
-    dataset_split_hashes: dict,
-    get_local_datasets_dir=default_get_local_datasets_dir,
+    dataset_name: str, get_local_datasets_dir=default_get_local_datasets_dir
 ) -> FederatedDataset:
     xy_splits = []
     xy_val = (None, None)
     xy_test = (None, None)
+
+    dataset_split_hashes = hashes.datasets[dataset_name]
 
     for split_id in dataset_split_hashes:
         data = load_split(
