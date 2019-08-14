@@ -109,7 +109,9 @@ def init_fl() -> Tuple[Coordinator, Any, Any]:
     participants = []
     for cid, xy_train in enumerate(xy_splits):
         model = orig_cnn_compiled()
-        p = Participant(str(cid), model, xy_train, xy_val)
+        p = Participant(
+            str(cid), model, xy_train, xy_val, num_classes=10, batch_size=32
+        )
         participants.append(p)
     # Init coordinator
     # FIXME refactor: No controller needed
