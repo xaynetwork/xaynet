@@ -25,9 +25,15 @@ def unitary_training(
     batch_size: int,
 ) -> Tuple[Dict[str, List[float]], float, float]:
     # Initialize model and participant
+    cid = 0
     model = orig_cnn_compiled(seed=MODEL_SEED)
     participant = Participant(
-        model, xy_train=xy_train, xy_val=xy_val, num_classes=10, batch_size=batch_size
+        cid,
+        model,
+        xy_train=xy_train,
+        xy_val=xy_val,
+        num_classes=10,
+        batch_size=batch_size,
     )
     # Train model
     train_loss, train_acc = participant.evaluate(xy_train)  # Note: Just one batch
@@ -63,9 +69,11 @@ def federated_training(
 
     # Init participants
     participants = []
-    for xy_train in xy_train_partitions:
+    for cid, xy_train in enumerate(xy_train_partitions):
         model = orig_cnn_compiled(seed=MODEL_SEED)
-        participant = Participant(model, xy_train, xy_val, num_classes=10, batch_size=B)
+        participant = Participant(
+            str(cid), None, xy_train, xy_val, num_classes=10, batch_size=B
+        )
         participants.append(participant)
     num_participants = len(participants)
 

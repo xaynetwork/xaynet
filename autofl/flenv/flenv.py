@@ -107,9 +107,9 @@ def init_fl() -> Tuple[Coordinator, Any, Any]:
     assert xy_test is not None, "xy_test is None"
     # Init participants
     participants = []
-    for xy_train in xy_splits:
+    for cid, xy_train in enumerate(xy_splits):
         model = orig_cnn_compiled()
-        p = Participant(model, xy_train, xy_val)
+        p = Participant(str(cid), model, xy_train, xy_val)
         participants.append(p)
     # Init coordinator
     # FIXME refactor: No controller needed

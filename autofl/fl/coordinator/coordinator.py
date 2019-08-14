@@ -44,14 +44,12 @@ class Coordinator:
             "val_loss": [loss],
         }
         # Train rounds
-        for training_round in range(num_rounds):
+        for r in range(num_rounds):
             # Determine who participates in this round
             num_indices = abs_C(self.C, self.num_participants())
             indices = self.controller.indices(num_indices)
             logging.info(
-                "\nRound {}/{}: Participants {}".format(
-                    training_round + 1, num_rounds, indices
-                )
+                "Round {}/{}: Participants {}".format(r + 1, num_rounds, indices)
             )
             # Train
             self.fit_round(indices)
