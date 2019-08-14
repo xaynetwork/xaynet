@@ -19,7 +19,7 @@ USER_DATA="${USER_DATA//latest/$IMAGE_TAG}"
 # m5.large, m5.xlarge, m5.2xlarge, m5.4xlarge,
 # m5.8xlarge, m5.12xlarge, m5.16xlarge, m5.24xlarge
 # But beware it gets quite expensive... up $5.52 per Hour
-INSTANCE_TYPE="m5.2xlarge"
+INSTANCE_TYPE="m5.8xlarge"
 
 build_image() {
     docker build -t $IMAGE_FULLNAME .
