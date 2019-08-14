@@ -7,7 +7,7 @@ from gym.envs.registration import register
 
 from autofl.datasets import load_splits
 from autofl.fl.coordinator import Coordinator, RandomController
-from autofl.fl.participant import Participant
+from autofl.fl.participant import ModelProvider, Participant
 from autofl.net import orig_cnn_compiled
 
 NUM_ROUNDS = 10  # FIXME: 40?
@@ -107,18 +107,16 @@ def init_fl() -> Tuple[Coordinator, Any, Any]:
     assert xy_test is not None, "xy_test is None"
     # Init participants
     participants = []
+    model_provider = ModelProvider(orig_cnn_compiled)
     for cid, xy_train in enumerate(xy_splits):
-        model = orig_cnn_compiled()
         p = Participant(
-            str(cid), model, xy_train, xy_val, num_classes=10, batch_size=32
+            str(cid), model_provider, xy_train, xy_val, num_classes=10, batch_size=32
         )
         participants.append(p)
     # Init coordinator
     # FIXME refactor: No controller needed
     controller = RandomController(10)
-    model = orig_cnn_compiled()
-    return (
-        Coordinator(controller, model, participants, C=0.3, E=1, xy_val=xy_val),
-        xy_val,
-        xy_test,
+    coordinator = Coordinator(
+        controller, model_provider, participants, C=0.3, E=1, xy_val=xy_val
     )
+    return (coordinator, xy_val, xy_test)
