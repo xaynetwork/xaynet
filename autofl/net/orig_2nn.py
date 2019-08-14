@@ -1,11 +1,9 @@
-from typing import Optional
-
 import tensorflow as tf
 from tensorflow.keras.layers import Dense, Flatten, Input
 
 
 def orig_2nn_compiled(
-    input_shape=(28, 28, 1), num_classes=10, seed: Optional[int] = None
+    input_shape=(28, 28, 1), num_classes=10, seed: int = 1096
 ) -> tf.keras.Model:
     # Kernel initializer
     ki = tf.keras.initializers.glorot_uniform(seed=seed)

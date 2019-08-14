@@ -5,7 +5,7 @@ from absl import logging
 from numpy import ndarray
 
 from autofl.datasets import prep
-from autofl.fl.participant import Participant
+from autofl.fl.participant import ModelProvider, Participant
 from autofl.types import KerasWeights
 
 from .aggregate import Aggregator, WeightedAverageAgg
@@ -16,7 +16,7 @@ class Coordinator:
     def __init__(
         self,
         controller,
-        model: tf.keras.Model,
+        model_provider: ModelProvider,
         participants: List[Participant],
         C: float,
         E: int,
@@ -24,7 +24,7 @@ class Coordinator:
         aggregator: Optional[Aggregator] = None,
     ) -> None:
         self.controller = controller
-        self.model = model
+        self.model = model_provider.init_model()
         self.participants = participants
         self.C = C
         self.E = E
@@ -52,7 +52,7 @@ class Coordinator:
                 "Round {}/{}: Participants {}".format(r + 1, num_rounds, indices)
             )
             # Train
-            self.fit_round(indices)
+            self.fit_round_seq(indices)
             # Evaluate
             if self.xy_val:
                 loss, acc = self.evaluate(self.xy_val)
@@ -62,7 +62,8 @@ class Coordinator:
                 history["val_acc"].append(acc)
         return history
 
-    def fit_round(self, indices: List[int]) -> None:
+    def fit_round_seq(self, indices: List[int]) -> None:
+        """Train on each participant sequentially"""
         # Collect training results from the participants of this round
         theta_updates = []
         theta = self.model.get_weights()
