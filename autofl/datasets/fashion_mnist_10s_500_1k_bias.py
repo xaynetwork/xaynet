@@ -1,9 +1,10 @@
 from typing import Tuple
 
+import tensorflow as tf
 from absl import flags
 
-from ..types import FederatedDataset
-from . import storage
+from autofl.datasets import storage, testing
+from autofl.types import FederatedDataset
 
 FLAGS = flags.FLAGS
 
@@ -63,11 +64,18 @@ DATASET_SPLIT_HASHES = {
 def load_splits(
     get_local_datasets_dir=storage.default_get_local_datasets_dir
 ) -> FederatedDataset:
-    return storage.load_splits(
+    ds = storage.load_splits(
         dataset_name=DATASET_NAME,
         dataset_split_hashes=DATASET_SPLIT_HASHES,
         get_local_datasets_dir=get_local_datasets_dir,
     )
+
+    testing.assert_dataset_origin(
+        keras_dataset=testing.load(tf.keras.datasets.fashion_mnist),
+        federated_dataset=ds,
+    )
+
+    return ds
 
 
 def load_split(

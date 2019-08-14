@@ -1,6 +1,8 @@
 import tensorflow as tf
 from absl import logging
 
+from autofl.datasets import testing
+
 from . import config, data, persistence
 
 
@@ -14,7 +16,7 @@ def generate_cifar10_random_splits_10():
         transformer=data.random_shuffle,
     )
 
-    data.assert_dataset_origin(
+    testing.assert_dataset_origin(
         keras_dataset=data.load(tf.keras.datasets.cifar10), federated_dataset=dataset
     )
 
@@ -36,7 +38,7 @@ def generate_fashion_mnist_10s_600():
         transformer_kwargs={"section_count": 10},
     )
 
-    data.assert_dataset_origin(
+    testing.assert_dataset_origin(
         keras_dataset=data.load(tf.keras.datasets.fashion_mnist),
         federated_dataset=dataset,
     )
@@ -59,7 +61,7 @@ def generate_fashion_mnist_10s_500_1k_bias():
         transformer_kwargs={"bias": 1000},
     )
 
-    data.assert_dataset_origin(
+    testing.assert_dataset_origin(
         keras_dataset=data.load(tf.keras.datasets.fashion_mnist),
         federated_dataset=dataset,
     )
@@ -81,7 +83,7 @@ def generate_fashion_mnist_10s_single_class():
         transformer=data.group_by_label,
     )
 
-    data.assert_dataset_origin(
+    testing.assert_dataset_origin(
         keras_dataset=data.load(tf.keras.datasets.fashion_mnist),
         federated_dataset=dataset,
     )
@@ -104,7 +106,7 @@ def generate_fashion_mnist_100p_IID_balanced():
         transformer_kwargs={"section_count": 100},
     )
 
-    data.assert_dataset_origin(
+    testing.assert_dataset_origin(
         keras_dataset=data.load(tf.keras.datasets.fashion_mnist),
         federated_dataset=dataset,
     )
@@ -127,7 +129,7 @@ def generate_fashion_mnist_100p_non_IID():
         transformer_kwargs={"section_count": 100},
     )
 
-    data.assert_dataset_origin(
+    testing.assert_dataset_origin(
         keras_dataset=data.load(tf.keras.datasets.fashion_mnist),
         federated_dataset=dataset,
     )
