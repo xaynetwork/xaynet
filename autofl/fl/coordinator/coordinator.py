@@ -53,7 +53,7 @@ class Coordinator:
                 "Round {}/{}: Participants {}".format(r + 1, num_rounds, indices)
             )
             # Train
-            self.fit_round_seq(indices)
+            self.fit_round_con(indices)
             # Evaluate
             if self.xy_val:
                 loss, acc = self.evaluate(self.xy_val)

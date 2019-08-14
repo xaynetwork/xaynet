@@ -9,9 +9,6 @@ from autofl.types import KerasWeights
 
 from . import ModelProvider
 
-NUM_CLASSES = 10  # FIXME remove
-BATCH_SIZE = 64  # FIXME remove
-
 
 class Participant:
     # pylint: disable-msg=too-many-arguments
@@ -21,8 +18,8 @@ class Participant:
         model_provider: ModelProvider,
         xy_train: Tuple[np.ndarray, np.ndarray],
         xy_val: Tuple[np.ndarray, np.ndarray],
-        num_classes: int = NUM_CLASSES,
-        batch_size: int = BATCH_SIZE,
+        num_classes: int,
+        batch_size: int,
     ) -> None:
         assert xy_train[0].shape[0] == xy_train[1].shape[0]
         assert xy_val[0].shape[0] == xy_val[1].shape[0]

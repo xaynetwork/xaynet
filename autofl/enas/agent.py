@@ -64,7 +64,9 @@ def autofl():
     # will be created and set by the agent.
     participants = []
     for cid, xy_split in enumerate(xy_splits):
-        participant = Participant(str(cid), None, xy_split, xy_val)
+        participant = Participant(
+            str(cid), None, xy_split, xy_val, num_classes=10, batch_size=32
+        )
         participants.append(participant)
     controller = RandomController(num_participants=len(participants))
     coordinator = Coordinator(controller, None, participants, C=0.3, E=1, xy_val=xy_val)
