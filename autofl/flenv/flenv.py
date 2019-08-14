@@ -5,7 +5,7 @@ import numpy as np
 from absl import logging
 from gym.envs.registration import register
 
-from autofl.datasets import fashion_mnist_10s_600
+from autofl.datasets import load_splits
 from autofl.fl.coordinator import Coordinator, RandomController
 from autofl.fl.participant import Participant
 from autofl.net import orig_cnn_compiled
@@ -101,7 +101,7 @@ def action_to_indices(action: np.ndarray) -> np.ndarray:
 
 
 def init_fl() -> Tuple[Coordinator, Any, Any]:
-    xy_splits, xy_val, xy_test = fashion_mnist_10s_600.load_splits()
+    xy_splits, xy_val, xy_test = load_splits("fashion_mnist_10s_600")
     assert xy_splits is not None, "xy_splits is None"
     assert xy_val is not None, "xy_val is None"
     assert xy_test is not None, "xy_test is None"

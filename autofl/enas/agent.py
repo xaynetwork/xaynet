@@ -7,7 +7,7 @@ from absl import flags, logging
 from numpy import ndarray
 
 from autofl import flenv
-from autofl.datasets import cifar10_random_splits_10
+from autofl.datasets import load_splits
 from autofl.fl.coordinator import Coordinator, RandomController
 from autofl.fl.participant import Participant
 
@@ -55,7 +55,7 @@ def build_model_and_print_summary():
 def autofl():
     logging.info("\n\nStarting AutoFL\n")
     # Load data (multiple splits for training and one split for validation)
-    xy_splits, xy_val, xy_test = cifar10_random_splits_10.load_splits()
+    xy_splits, xy_val, xy_test = load_splits("cifar10_random_splits_10")
 
     logging.info("Number of splits x/y train: {}".format(len(xy_splits)))
 

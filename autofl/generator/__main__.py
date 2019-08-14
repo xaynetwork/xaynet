@@ -1,6 +1,6 @@
 from absl import app
 
-from .datasets import (
+from autofl.generator.datasets import (
     generate_cifar10_random_splits_10,
     generate_fashion_mnist_10s_500_1k_bias,
     generate_fashion_mnist_10s_600,
@@ -11,6 +11,8 @@ from .datasets import (
 
 
 def main(_):
+    # assert_online_datasets()
+
     # Just uncomment the methods you want to run
     generate_cifar10_random_splits_10()
     generate_fashion_mnist_10s_600()

@@ -2,13 +2,7 @@ import time
 
 from absl import app, logging
 
-from autofl.datasets import (
-    fashion_mnist_10s_500_1k_bias,
-    fashion_mnist_10s_600,
-    fashion_mnist_10s_single_class,
-    fashion_mnist_100p_IID_balanced,
-    fashion_mnist_100p_non_IID,
-)
+from autofl.datasets import load_splits
 
 from . import report, run
 
@@ -23,7 +17,7 @@ def benchmark_ul_fl_FashionMNIST_100p_IID_balanced():
     fn_name = benchmark_ul_fl_FashionMNIST_100p_IID_balanced.__name__
     logging.info("Starting {}".format(fn_name))
 
-    xy_parts, xy_val, xy_test = fashion_mnist_100p_IID_balanced.load_splits()
+    xy_parts, xy_val, xy_test = load_splits("fashion_mnist_100p_IID_balanced")
     _run_unitary_versus_federated(fn_name, xy_parts, xy_val, xy_test, C=FLH_C)
 
 
@@ -31,28 +25,28 @@ def benchmark_ul_fl_FashionMNIST_100p_non_IID():
     fn_name = benchmark_ul_fl_FashionMNIST_100p_non_IID.__name__
     logging.info("Starting {}".format(fn_name))
 
-    xy_parts, xy_val, xy_test = fashion_mnist_100p_non_IID.load_splits()
+    xy_parts, xy_val, xy_test = load_splits("fashion_mnist_100p_non_IID")
     _run_unitary_versus_federated(fn_name, xy_parts, xy_val, xy_test, C=FLH_C)
 
 
 def benchmark_ul_fl_FashionMNIST_10p_IID_balanced():
     fn_name = benchmark_ul_fl_FashionMNIST_10p_IID_balanced.__name__
     logging.info("Starting {}".format(fn_name))
-    xy_splits, xy_val, xy_test = fashion_mnist_10s_600.load_splits()
+    xy_splits, xy_val, xy_test = load_splits("fashion_mnist_10s_600")
     _run_unitary_versus_federated(fn_name, xy_splits, xy_val, xy_test, C=0.3)
 
 
 def benchmark_ul_fl_FashionMNIST_10p_1000():
     fn_name = benchmark_ul_fl_FashionMNIST_10p_1000.__name__
     logging.info("Starting {}".format(fn_name))
-    xy_splits, xy_val, xy_test = fashion_mnist_10s_500_1k_bias.load_splits()
+    xy_splits, xy_val, xy_test = load_splits("fashion_mnist_10s_500_1k_bias")
     _run_unitary_versus_federated(fn_name, xy_splits, xy_val, xy_test, C=0.3)
 
 
 def benchmark_ul_fl_FashionMNIST_10p_5400():
     fn_name = benchmark_ul_fl_FashionMNIST_10p_5400.__name__
     logging.info("Starting {}".format(fn_name))
-    xy_splits, xy_val, xy_test = fashion_mnist_10s_single_class.load_splits()
+    xy_splits, xy_val, xy_test = load_splits("fashion_mnist_10s_single_class")
     _run_unitary_versus_federated(fn_name, xy_splits, xy_val, xy_test, C=0.3)
 
 

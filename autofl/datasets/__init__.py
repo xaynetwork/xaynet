@@ -2,6 +2,8 @@ import os
 
 from absl import flags
 
+from .dataset import load_splits
+
 FLAGS = flags.FLAGS
 
 flags.DEFINE_string(

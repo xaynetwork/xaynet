@@ -1,5 +1,5 @@
+import numpy as np
 import pytest
-from numpy import ndarray
 
 from ..conftest import create_mock_keras_dataset
 from ..types import FederatedDataset, KerasDataset
@@ -18,7 +18,7 @@ class MockKerasDataset:  # pylint: disable=too-few-public-methods
         return create_mock_keras_dataset()
 
 
-def no_shuffle(x: ndarray, y: ndarray):
+def no_shuffle(x: np.ndarray, y: np.ndarray):
     return x, y
 
 
