@@ -6,7 +6,7 @@ import tensorflow as tf
 
 from autofl.fl.coordinator import Coordinator, RandomController
 from autofl.fl.coordinator.aggregate import Aggregator
-from autofl.fl.participant import Participant
+from autofl.fl.participant import ModelProvider, Participant
 from autofl.net import orig_cnn_compiled
 from autofl.types import FederatedDatasetPartition
 
@@ -14,9 +14,7 @@ random.seed(0)
 np.random.seed(1)
 tf.compat.v1.set_random_seed(2)
 
-MODEL_SEED = 1096
-
-
+# pylint: disable-msg=too-many-locals
 def unitary_training(
     xy_train: FederatedDatasetPartition,
     xy_val: FederatedDatasetPartition,
@@ -24,29 +22,41 @@ def unitary_training(
     epochs: int,
     batch_size: int,
 ) -> Tuple[Dict[str, List[float]], float, float]:
+
+    model_provider = ModelProvider(model_fn=orig_cnn_compiled)
+
     # Initialize model and participant
     cid = 0
-    model = orig_cnn_compiled(seed=MODEL_SEED)
     participant = Participant(
         cid,
-        model,
+        model_provider,
         xy_train=xy_train,
         xy_val=xy_val,
         num_classes=10,
         batch_size=batch_size,
     )
+    model = model_provider.init_model()
+    theta = model.get_weights()
+
+    # Evaluate initial training and validation set loss (and accuracy)
+    train_loss, train_acc = participant.evaluate(
+        theta, xy_train
+    )  # Note: This evaluates just one batch, not the entire dataset
+    val_loss, val_acc = participant.evaluate(theta, xy_val)
+
     # Train model
-    train_loss, train_acc = participant.evaluate(xy_train)  # Note: Just one batch
-    val_loss, val_acc = participant.evaluate(xy_val)
-    history = participant._train(epochs)  # pylint: disable-msg=protected-access
+    history = participant._train(model, epochs)  # pylint: disable-msg=protected-access
     history = {
         "acc": [float(train_acc)] + history["acc"],
         "loss": [float(train_loss)] + history["loss"],
         "val_acc": [float(val_acc)] + history["val_acc"],
         "val_loss": [float(val_loss)] + history["val_loss"],
     }
+
     # Evaluate final performance
-    loss, accuracy = participant.evaluate(xy_test)
+    theta = model.get_weights()
+    loss, accuracy = participant.evaluate(theta, xy_test)
+
     # Report results
     return history, loss, accuracy
 
@@ -67,26 +77,34 @@ def federated_training(
     # initialization will happen during the first few rounds because the coordinator will
     # push its own weight to the respective participants of each training round.
 
+    model_provider = ModelProvider(model_fn=orig_cnn_compiled)
+
     # Init participants
     participants = []
     for cid, xy_train in enumerate(xy_train_partitions):
-        model = orig_cnn_compiled(seed=MODEL_SEED)
         participant = Participant(
-            str(cid), None, xy_train, xy_val, num_classes=10, batch_size=B
+            str(cid), model_provider, xy_train, xy_val, num_classes=10, batch_size=B
         )
         participants.append(participant)
     num_participants = len(participants)
 
     # Init coordinator
-    model = orig_cnn_compiled(seed=MODEL_SEED)
     controller = RandomController(num_participants)
     coordinator = Coordinator(
-        controller, model, participants, C=C, E=E, xy_val=xy_val, aggregator=aggregator
+        controller,
+        model_provider,
+        participants,
+        C=C,
+        E=E,
+        xy_val=xy_val,
+        aggregator=aggregator,
     )
 
     # Train model
     history = coordinator.fit(num_rounds=rounds)
+
     # Evaluate final performance
     loss, accuracy = coordinator.evaluate(xy_test)
+
     # Report results
     return history, loss, accuracy

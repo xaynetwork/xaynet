@@ -1,5 +1,3 @@
-from typing import Optional
-
 import tensorflow as tf
 from tensorflow.keras.layers import Conv2D, Dense, Flatten, Input, MaxPool2D
 
