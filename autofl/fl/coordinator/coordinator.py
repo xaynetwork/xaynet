@@ -35,33 +35,26 @@ class Coordinator:
     # Common initialization happens implicitly: By updating the participant weights to
     # match the coordinator weights ahead of every training round we achieve common
     # initialization.
-    def fit(self, num_rounds: int):
-        # Init history
+    def fit(self, num_rounds: int) -> Tuple[KerasHistory, List[List[KerasHistory]]]:
+        # Evaluate initial model and initialize history
         loss, acc = self.evaluate(self.xy_val)
-        history: Dict[str, List[float]] = {
-            "acc": [acc],
-            "loss": [loss],
-            "val_acc": [acc],
-            "val_loss": [loss],
-        }
+        hist_co: KerasHistory = {"val_loss": [loss], "val_acc": [acc]}
         # Train rounds
+        hist_ps: List[List[KerasHistory]] = []
         for r in range(num_rounds):
             # Determine who participates in this round
             num_indices = abs_C(self.C, self.num_participants())
             indices = self.controller.indices(num_indices)
-            logging.info(
-                "Round {}/{}: Participants {}".format(r + 1, num_rounds, indices)
-            )
+            msg = "Round {}/{}: Participants {}".format(r + 1, num_rounds, indices)
+            logging.info(msg)
             # Train
-            _ = self.fit_round(indices)  # TODO use return value (i.e. history)
+            histories = self.fit_round(indices)  # TODO use return value (i.e. history)
+            hist_ps.append(histories)
             # Evaluate
-            if self.xy_val:
-                loss, acc = self.evaluate(self.xy_val)
-                history["loss"].append(loss)  # FIXME
-                history["acc"].append(acc)  # FIXME
-                history["val_loss"].append(loss)
-                history["val_acc"].append(acc)
-        return history
+            val_loss, val_acc = self.evaluate(self.xy_val)
+            hist_co["val_loss"].append(val_loss)
+            hist_co["val_acc"].append(val_acc)
+        return hist_co, hist_ps
 
     def fit_round(self, indices: List[int]) -> List[KerasHistory]:
         theta = self.model.get_weights()
