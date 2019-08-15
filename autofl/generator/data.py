@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import Callable, List, Tuple
 
 import numpy as np
 from numpy import ndarray
@@ -18,8 +18,95 @@ def load(keras_dataset) -> KerasDataset:
     return (x_train, y_train), (x_test, y_test)
 
 
-def random_shuffle(x: ndarray, y: ndarray) -> Tuple[ndarray, ndarray]:
+def split(
+    x: ndarray, y: ndarray, num_splits: int
+) -> Tuple[List[ndarray], List[ndarray]]:
+    x_splits = np.split(x, indices_or_sections=num_splits, axis=0)
+    y_splits = np.split(y, indices_or_sections=num_splits, axis=0)
+    return x_splits, y_splits
+
+
+def extract_validation_set(x: ndarray, y: ndarray, size=6000):
+    """Will extract a validation set of "size" from given x,y pair
+
+    Parameters:
+    x (ndarray): numpy array
+    y (ndarray): numpy array
+    size (int): Size of validation set. Must be smaller than examples count
+                in x, y and multiple of label_count
+    """
     assert x.shape[0] == y.shape[0]
+    assert (
+        x.shape[0] % size == 0
+    ), "x.shape[0] (number of examples) needs to be evenly dividable by size"
+
+    assert size % len(set(y)) == 0, "size must be a multiple of number of labels"
+
+    x_balanced, y_balanced = balanced_labels_shuffle(x, y)
+
+    xy_val = (x_balanced[:size], y_balanced[:size])
+    xy_train = (x_balanced[size:], y_balanced[size:])
+
+    return xy_train, xy_val
+
+
+def generate_splits(
+    num_splits: int,
+    keras_dataset,
+    transformer,
+    transformer_kwargs=None,
+    validation_set_size=6000,
+) -> FederatedDataset:
+    (x_train, y_train), xy_test = load(keras_dataset)
+
+    assert x_train.shape[0] % num_splits == 0
+
+    (x_train, y_train), xy_val = extract_validation_set(
+        x_train, y_train, size=validation_set_size
+    )
+
+    if not transformer_kwargs or transformer_kwargs is None:
+        x_train, y_train = transformer(x_train, y_train)
+    else:
+        x_train, y_train = transformer(x_train, y_train, **transformer_kwargs)
+
+    x_splits, y_splits = split(x_train, y_train, num_splits)
+
+    xy_splits = list(zip(x_splits, y_splits))
+
+    return xy_splits, xy_val, xy_test
+
+
+#####################################################
+### From here on our transformers will be defined ###
+#####################################################
+
+
+def transfomer_decorator(func: Callable):
+    """The decorator will validate the input and result of any
+    transformer function it is applied to"""
+
+    def wrapper(
+        x: np.ndarray, y: np.ndarray, *args, **kwargs
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        assert x.shape[0] == y.shape[0], "x and y need to have them dimension on axis=0"
+
+        x_transformed, y_transformed = func(x, y, *args, **kwargs)
+
+        assert (
+            x.shape == x_transformed.shape
+        ), "x has to have the same shape after transformation as before"
+        assert (
+            y.shape == y_transformed.shape
+        ), "x has to have the same shape after transformation as before"
+
+        return (x_transformed, y_transformed)
+
+    return wrapper
+
+
+@transfomer_decorator
+def random_shuffle(x: ndarray, y: ndarray) -> Tuple[ndarray, ndarray]:
     # pylint: disable-msg=no-member
     permutation = np.random.RandomState(seed=SEED).permutation(x.shape[0])
     x_shuffled = x[permutation]
@@ -27,12 +114,11 @@ def random_shuffle(x: ndarray, y: ndarray) -> Tuple[ndarray, ndarray]:
     return x_shuffled, y_shuffled
 
 
+@transfomer_decorator
 def balanced_labels_shuffle(
     x: ndarray, y: ndarray, section_count=10
 ) -> Tuple[ndarray, ndarray]:
     """Shuffled y so that the labels are uniformly distributed in each section"""
-    assert x.shape[0] == y.shape[0], "x and y need to have them dimension on axis=0"
-
     example_count = y.shape[0]
     section_size = int(example_count / section_count)
 
@@ -61,13 +147,12 @@ def balanced_labels_shuffle(
     return x_balanced, y_balanced
 
 
+@transfomer_decorator
 def group_by_label(x: ndarray, y: ndarray) -> Tuple[ndarray, ndarray]:
     """
     Shuffles y so that only a single label is in each section
     Number of sections will depend on number of unique labels
     """
-    assert x.shape[0] == y.shape[0], "x and y need to have them dimension on axis=0"
-
     example_count = y.shape[0]
     section_count = np.unique(y).shape[0]
 
@@ -84,6 +169,7 @@ def group_by_label(x: ndarray, y: ndarray) -> Tuple[ndarray, ndarray]:
     return x_sorted, y_sorted
 
 
+@transfomer_decorator
 def biased_balanced_labels_shuffle(  # pylint: disable=R0914
     x: ndarray, y: ndarray, bias=1000
 ) -> Tuple[ndarray, ndarray]:
@@ -92,8 +178,6 @@ def biased_balanced_labels_shuffle(  # pylint: disable=R0914
     except one label which will have a bias. Considering the bias the rest
     needs to be evenly dividable
     """
-    assert x.shape[0] == y.shape[0], "x and y need to have them dimension on axis=0"
-
     example_count = y.shape[0]
     # section_count is equal to number of unique labels
     unique_labels_set = set(y)
@@ -159,6 +243,7 @@ def biased_balanced_labels_shuffle(  # pylint: disable=R0914
     return x_merged, y_merged
 
 
+@transfomer_decorator
 def sorted_labels_sections_shuffle(  # pylint: disable=R0914
     x: ndarray, y: ndarray, section_count=100
 ) -> Tuple[ndarray, ndarray]:
@@ -167,7 +252,6 @@ def sorted_labels_sections_shuffle(  # pylint: disable=R0914
     1. Sort by label
     2. Shuffles sections randomley
     """
-    assert x.shape[0] == y.shape[0], "x and y need to have them dimension on axis=0"
     assert (
         x.shape[0] % section_count == 0
     ), "Number of examples needs to be divisionable by section_count"
@@ -202,62 +286,3 @@ def sorted_labels_sections_shuffle(  # pylint: disable=R0914
     y_shuffled = y_sorted[permutation]
 
     return (x_shuffled, y_shuffled)
-
-
-def split(
-    x: ndarray, y: ndarray, num_splits: int
-) -> Tuple[List[ndarray], List[ndarray]]:
-    x_splits = np.split(x, indices_or_sections=num_splits, axis=0)
-    y_splits = np.split(y, indices_or_sections=num_splits, axis=0)
-    return x_splits, y_splits
-
-
-def extract_validation_set(x: ndarray, y: ndarray, size=6000):
-    """Will extract a validation set of "size" from given x,y pair
-
-    Parameters:
-    x (ndarray): numpy array
-    y (ndarray): numpy array
-    size (int): Size of validation set. Must be smaller than examples count
-                in x, y and multiple of label_count
-    """
-    assert x.shape[0] == y.shape[0]
-    assert (
-        x.shape[0] % size == 0
-    ), "x.shape[0] (number of examples) needs to be evenly dividable by size"
-
-    assert size % len(set(y)) == 0, "size must be a multiple of number of labels"
-
-    x_balanced, y_balanced = balanced_labels_shuffle(x, y)
-
-    xy_val = (x_balanced[:size], y_balanced[:size])
-    xy_train = (x_balanced[size:], y_balanced[size:])
-
-    return xy_train, xy_val
-
-
-def generate_splits(
-    num_splits: int,
-    keras_dataset,
-    validation_set_size=6000,
-    transformer=random_shuffle,
-    transformer_kwargs=None,
-) -> FederatedDataset:
-    (x_train, y_train), xy_test = load(keras_dataset)
-
-    assert x_train.shape[0] % num_splits == 0
-
-    (x_train, y_train), xy_val = extract_validation_set(
-        x_train, y_train, size=validation_set_size
-    )
-
-    if transformer_kwargs is None:
-        x_train, y_train = transformer(x_train, y_train)
-    else:
-        x_train, y_train = transformer(x_train, y_train, **transformer_kwargs)
-
-    x_splits, y_splits = split(x_train, y_train, num_splits)
-
-    xy_splits = list(zip(x_splits, y_splits))
-
-    return xy_splits, xy_val, xy_test
