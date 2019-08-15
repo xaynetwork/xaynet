@@ -265,21 +265,33 @@ def sorted_labels_sections_shuffle(  # pylint: disable=R0914
     # Array of indices that sort a along the specified axis.
     sort_indexes = np.argsort(y, axis=0)
 
+    # After sorting we will have label_count sorted sections
+    # e.g. with 4 labels and 8 examples (assuming each label occurs equal times)
+    # => l1 l1 l2 l2 l3 l3 l4 l4
     x_sorted = x[sort_indexes]
     y_sorted = y[sort_indexes]
 
+    # Now we will init a permutation to shuffle our sorted examples
     permutation = np.array(range(example_count), np.int64)
 
     # some math:
     # example_count = m * n
     # m = 2 * section_count
-    # n = example_count / (2 * section_count) = section_size / 2
+    # n = example_count / (2 * section_count) == section_size / 2
+    # => for a given section_count of 4 for our previous example this would be
+    #    m = 8 and n = 1
     permutation = permutation.reshape((2 * section_count, section_size // 2))
 
+    # We will now create a random index which will shuffle the sections in
+    # our permutation randomly on axis=0 before we later reshape the permutation
+    # back into a list with length == example_count and use it to shuffle our
+    # x_sorted and y_sorted
     # pylint: disable-msg=no-member
-    rnd_index = np.random.RandomState(seed=SEED).permutation(len(permutation))
+    section_shuffle_index = np.random.RandomState(seed=SEED).permutation(
+        len(permutation)
+    )
 
-    permutation = permutation[rnd_index]
+    permutation = permutation[section_shuffle_index]
     permutation = permutation.reshape(example_count)
 
     x_shuffled = x_sorted[permutation]
