@@ -67,15 +67,11 @@ def _run_unitary_versus_federated(name: str, xy_splits, xy_val, xy_test, C):
 
     # Train CNN using federated learning on all partitions
     logging.info("Run federated learning using all partitions")
-    fl_hist, fl_loss, fl_acc = run.federated_training(
+    fl_hist, _, fl_loss, fl_acc = run.federated_training(
         xy_splits, xy_val, xy_test, ROUNDS, C=C, E=FLH_E, B=FLH_B
     )
 
     end = time.time()
-
-    # Plot results
-    # FIXME use different filenames for different datasets
-    report.plot_accuracies(ul_hist, fl_hist, fname="plot.png")
 
     # Write results JSON
     results = {
@@ -87,14 +83,22 @@ def _run_unitary_versus_federated(name: str, xy_splits, xy_val, xy_test, C):
         "FLH_E": FLH_E,
         "FLH_B": FLH_B,
         "ROUNDS": ROUNDS,
-        "loss_a": float(ul_loss),
-        "acc_a": float(ul_acc),
-        "hist_a": ul_hist,
-        "loss_b": float(fl_loss),
-        "acc_b": float(fl_acc),
-        "hist_b": fl_hist,
+        "unitary_learning": {
+            "loss": float(ul_loss),
+            "acc": float(ul_acc),
+            "hist": ul_hist,
+        },
+        "federated_learning": {
+            "loss": float(fl_loss),
+            "acc": float(fl_acc),
+            "hist": fl_hist,
+        },
     }
     report.write_json(results, fname="results.json")
+
+    # Plot results
+    # FIXME use different filenames for different datasets
+    report.plot_accuracies(ul_hist, fl_hist, fname="plot.png")
 
 
 def main(_):
