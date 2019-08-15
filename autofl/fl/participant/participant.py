@@ -5,7 +5,7 @@ import tensorflow as tf
 from absl import logging
 
 from autofl.datasets import prep
-from autofl.types import KerasWeights
+from autofl.types import KerasHistory, KerasWeights
 
 from . import ModelProvider
 
@@ -34,16 +34,18 @@ class Participant:
         self.xy_val = xy_val
         self.steps_val: int = 1
 
-    def train_round(self, theta: KerasWeights, epochs) -> KerasWeights:
+    def train_round(
+        self, theta: KerasWeights, epochs: int
+    ) -> Tuple[KerasWeights, KerasHistory]:
         logging.info("Participant {}: train_round START".format(self.cid))
         model = self.model_provider.init_model()
         model.set_weights(theta)
-        _ = self._train(model, epochs)
+        hist: KerasHistory = self.fit(model, epochs)
         theta_prime = model.get_weights()
         logging.info("Participant {}: train_round FINISH".format(self.cid))
-        return theta_prime
+        return theta_prime, hist
 
-    def _train(self, model, epochs: int) -> Dict[str, List[float]]:
+    def fit(self, model: tf.keras.Model, epochs: int) -> KerasHistory:
         ds_train = prep.init_ds_train(self.xy_train, self.num_classes, self.batch_size)
         ds_val = prep.init_ds_val(self.xy_val, self.num_classes)
 
@@ -71,7 +73,7 @@ class Participant:
         return loss, accuracy
 
 
-def cast_to_float(hist):
+def cast_to_float(hist) -> KerasHistory:
     for key in hist:
         for index, number in enumerate(hist[key]):
             hist[key][index] = float(number)

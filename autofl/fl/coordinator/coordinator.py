@@ -83,7 +83,7 @@ class Coordinator:
             # - Push current model parameters to this participant
             # - Train for a number of epochs
             # - Pull updated model parameters from participant
-            theta_update = participant.train_round(theta, epochs=self.E)
+            theta_update, _ = participant.train_round(theta, epochs=self.E)
             theta_updates.append(theta_update)
         return theta_updates
 
@@ -99,7 +99,7 @@ class Coordinator:
             ]
             concurrent.futures.wait(future_results)
             for future in future_results:
-                theta_update = future.result()
+                theta_update, _ = future.result()
                 theta_updates.append(theta_update)
         return theta_updates
 
