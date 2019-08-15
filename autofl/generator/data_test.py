@@ -142,7 +142,7 @@ def test_balanced_labels_shuffle_wrong_section_count():
     y = np.tile(np.array(sorted_labels, dtype=np.int64), 10)
 
     with pytest.raises(Exception):
-        data.balanced_labels_shuffle(x, y, section_count=3)
+        data.balanced_labels_shuffle(x, y, num_partitions=3)
 
 
 @pytest.mark.parametrize(
@@ -167,7 +167,7 @@ def test_balanced_labels_shuffle(section_count, example_count):
 
     # Execute
     x_balanced_shuffled, y_balanced_shuffled = data.balanced_labels_shuffle(
-        x, y, section_count=section_count
+        x, y, num_partitions=section_count
     )
 
     # Assert
@@ -194,11 +194,11 @@ def test_balanced_labels_shuffle(section_count, example_count):
 @pytest.mark.parametrize("bias, example_count", [(10, 1000), (20, 1000), (50, 1000)])
 def test_biased_balanced_labels_shuffle(bias, example_count):  # pylint: disable=R0914
     # Prepare
-    unique_labels_count = 10
-    unique_labels = range(unique_labels_count)  # 10 unique labels
-    section_size = example_count // unique_labels_count
+    num_unique_classes = 10
+    unique_labels = range(num_unique_classes)  # 10 unique labels
+    section_size = example_count // num_unique_classes
     # Amount of labels per partition without any bias
-    unbiased_label_count = (section_size - bias) / unique_labels_count
+    unbiased_label_count = (section_size - bias) / num_unique_classes
 
     x = np.ones((example_count, 28, 28), dtype=np.int64)
     y = np.tile(np.array(unique_labels, dtype=np.int64), section_size)
@@ -213,10 +213,10 @@ def test_biased_balanced_labels_shuffle(bias, example_count):  # pylint: disable
     # Assert
     # Create tuples for x,y splits so we can more easily analyze them
     x_splits = np.split(
-        x_balanced_shuffled, indices_or_sections=unique_labels_count, axis=0
+        x_balanced_shuffled, indices_or_sections=num_unique_classes, axis=0
     )
     y_splits = np.split(
-        y_balanced_shuffled, indices_or_sections=unique_labels_count, axis=0
+        y_balanced_shuffled, indices_or_sections=num_unique_classes, axis=0
     )
 
     # Check that each value still matches its label
@@ -224,7 +224,7 @@ def test_biased_balanced_labels_shuffle(bias, example_count):  # pylint: disable
         _, y_split = xy_split
 
         # Check that the split has the right size
-        assert y_split.shape[0] == int(example_count / unique_labels_count)
+        assert y_split.shape[0] == int(example_count / num_unique_classes)
         # Check that each segment contains each label
         assert set(y_split) == set(
             unique_labels
@@ -245,24 +245,24 @@ def test_biased_balanced_labels_shuffle(bias, example_count):  # pylint: disable
 
 
 @pytest.mark.parametrize(
-    "section_count, example_count", [(10, 1000), (20, 3000), (100, 6000)]
+    "num_partitions, example_count", [(10, 1000), (20, 3000), (100, 6000)]
 )
 def test_sorted_labels_sections_shuffle(
-    section_count, example_count
+    num_partitions, example_count
 ):  # pylint: disable=R0914
     # Prepare
-    unique_labels_count = 10
-    unique_labels = range(unique_labels_count)  # 10 unique labels
-    section_size = int(example_count / section_count)
+    num_unique_classes = 10
+    unique_labels = range(num_unique_classes)  # 10 unique labels
+    section_size = int(example_count / num_partitions)
 
-    assert example_count % section_count == 0
-    assert example_count % (2 * section_count) == 0
-    assert section_size % unique_labels_count == 0
+    assert example_count % num_partitions == 0
+    assert example_count % (2 * num_partitions) == 0
+    assert section_size % num_unique_classes == 0
 
     x = np.ones((example_count, 28, 28), dtype=np.int64)
 
     y = np.tile(
-        np.array(unique_labels, dtype=np.int64), example_count // unique_labels_count
+        np.array(unique_labels, dtype=np.int64), example_count // num_unique_classes
     )
 
     assert x.shape[0] == example_count
@@ -273,7 +273,7 @@ def test_sorted_labels_sections_shuffle(
 
     # Execute
     x_shuffled, y_shuffled = data.sorted_labels_sections_shuffle(
-        x, y, section_count=section_count
+        x, y, num_partitions=num_partitions
     )
 
     # Assert
@@ -281,7 +281,7 @@ def test_sorted_labels_sections_shuffle(
     assert y.shape == y_shuffled.shape
 
     # Create tuples for x,y splits so we can more easily analyze them
-    y_splits = np.split(y_shuffled, indices_or_sections=section_count, axis=0)
+    y_splits = np.split(y_shuffled, indices_or_sections=num_partitions, axis=0)
 
     actual_label_counts_per_split = {len(set(y_split)) for y_split in y_splits}
 
@@ -289,16 +289,16 @@ def test_sorted_labels_sections_shuffle(
 
 
 @pytest.mark.parametrize(
-    "unique_labels_count, example_count", [(2, 1000), (5, 1000), (10, 1000)]
+    "num_unique_classes, example_count", [(2, 1000), (5, 1000), (10, 1000)]
 )
-def test_group_by_label(unique_labels_count, example_count):
+def test_group_by_label(num_unique_classes, example_count):
     # Prepare
-    unique_labels = range(unique_labels_count)
+    unique_labels = range(num_unique_classes)
 
     # Values will at the same time be their original labels
     # We will later use this for asserting if the label relationship is still present
     x = np.tile(
-        np.array(unique_labels, dtype=np.int64), example_count // unique_labels_count
+        np.array(unique_labels, dtype=np.int64), example_count // num_unique_classes
     )
 
     # Shuffle to avoid any bias; been there...
@@ -313,13 +313,13 @@ def test_group_by_label(unique_labels_count, example_count):
 
     # Assert
     # Create tuples for x,y splits so we can more easily analyze them
-    x_splits = np.split(x_sectioned, indices_or_sections=unique_labels_count, axis=0)
-    y_splits = np.split(y_sectioned, indices_or_sections=unique_labels_count, axis=0)
+    x_splits = np.split(x_sectioned, indices_or_sections=num_unique_classes, axis=0)
+    y_splits = np.split(y_sectioned, indices_or_sections=num_unique_classes, axis=0)
 
     # Check that each value still matches its label
     for (x_split, y_split) in zip(x_splits, y_splits):
         # Check that the split has the right size
-        assert y_split.shape[0] == int(example_count / unique_labels_count)
+        assert y_split.shape[0] == int(example_count / num_unique_classes)
 
         # Check that each segment contains only one label
         assert len(set(y_split)) == 1

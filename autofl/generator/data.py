@@ -116,14 +116,14 @@ def random_shuffle(x: ndarray, y: ndarray) -> Tuple[ndarray, ndarray]:
 
 @transfomer_decorator
 def balanced_labels_shuffle(
-    x: ndarray, y: ndarray, section_count=10
+    x: ndarray, y: ndarray, num_partitions=10
 ) -> Tuple[ndarray, ndarray]:
     """Shuffled y so that the labels are uniformly distributed in each section"""
     example_count = y.shape[0]
-    section_size = int(example_count / section_count)
+    section_size = int(example_count / num_partitions)
 
     assert (
-        example_count % section_count == 0
+        example_count % num_partitions == 0
     ), "Number of examples needs to be evenly divideable by section_count"
 
     x_shuffled, y_shuffled = random_shuffle(x, y)
@@ -136,7 +136,7 @@ def balanced_labels_shuffle(
 
     balance_index = (
         np.array(range(example_count), np.int64)
-        .reshape((section_size, section_count))
+        .reshape((section_size, num_partitions))
         .transpose()
         .reshape(example_count)
     )
@@ -214,7 +214,7 @@ def biased_balanced_labels_shuffle(  # pylint: disable=R0914
 
     # Create balanced shuffle of rest
     x_balanced, y_balanced = balanced_labels_shuffle(
-        x_unbiased, y_unbiased, section_count=section_count
+        x_unbiased, y_unbiased, num_partitions=section_count
     )
 
     for y_balanced_split in np.split(y_balanced, indices_or_sections=section_count):
@@ -245,7 +245,7 @@ def biased_balanced_labels_shuffle(  # pylint: disable=R0914
 
 @transfomer_decorator
 def sorted_labels_sections_shuffle(  # pylint: disable=R0914
-    x: ndarray, y: ndarray, section_count=100
+    x: ndarray, y: ndarray, num_partitions=100
 ) -> Tuple[ndarray, ndarray]:
     """
     Does the following:
@@ -253,46 +253,42 @@ def sorted_labels_sections_shuffle(  # pylint: disable=R0914
     2. Shuffles sections randomley
     """
     assert (
-        x.shape[0] % section_count == 0
-    ), "Number of examples needs to be divisionable by section_count"
+        x.shape[0] % num_partitions == 0
+    ), "Number of examples needs to be divisionable by num_partitions"
     assert (
-        x.shape[0] % 2 * section_count == 0
-    ), "Number of examples needs to be divisionable by section_count times two"
+        x.shape[0] % 2 * num_partitions == 0
+    ), "Number of examples needs to be divisionable by num_partitions times two"
 
-    example_count = x.shape[0]
-    section_size = example_count // section_count
+    num_examples = x.shape[0]
+    num_examples_per_partition = num_examples // num_partitions
 
     # Array of indices that sort a along the specified axis.
-    sort_indexes = np.argsort(y, axis=0)
+    sort_indices = np.argsort(y, axis=0)
 
-    # After sorting we will have label_count sorted sections
+    # After sorting we will have num_labels sorted sections (e.g. 10 for MNIST)
     # e.g. with 4 labels and 8 examples (assuming each label occurs equal times)
-    # => l1 l1 l2 l2 l3 l3 l4 l4
-    x_sorted = x[sort_indexes]
-    y_sorted = y[sort_indexes]
+    # => y = [0, 0, 1, 1, 2, 2, 3, 3]
+    x_sorted = x[sort_indices]
+    y_sorted = y[sort_indices]
 
     # Now we will init a permutation to shuffle our sorted examples
-    permutation = np.array(range(example_count), np.int64)
+    permutation = np.array(range(num_examples), np.int64)
 
-    # some math:
-    # example_count = m * n
-    # m = 2 * section_count
-    # n = example_count / (2 * section_count) == section_size / 2
-    # => for a given section_count of 4 for our previous example this would be
-    #    m = 8 and n = 1
-    permutation = permutation.reshape((2 * section_count, section_size // 2))
+    num_sections = 2 * num_partitions
+    num_examples_per_section = num_examples_per_partition // 2
+    permutation = permutation.reshape((num_sections, num_examples_per_section))
 
     # We will now create a random index which will shuffle the sections in
     # our permutation randomly on axis=0 before we later reshape the permutation
-    # back into a list with length == example_count and use it to shuffle our
+    # back into a list with length == num_examples and use it to shuffle our
     # x_sorted and y_sorted
     # pylint: disable-msg=no-member
-    section_shuffle_index = np.random.RandomState(seed=SEED).permutation(
+    section_shuffle_indices = np.random.RandomState(seed=SEED).permutation(
         len(permutation)
     )
 
-    permutation = permutation[section_shuffle_index]
-    permutation = permutation.reshape(example_count)
+    permutation = permutation[section_shuffle_indices]
+    permutation = permutation.reshape(num_examples)
 
     x_shuffled = x_sorted[permutation]
     y_shuffled = y_sorted[permutation]
