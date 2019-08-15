@@ -97,9 +97,26 @@ def _run_unitary_versus_federated(name: str, xy_splits, xy_val, xy_test, C):
     report.write_json(results, fname="results.json")
 
     # Plot results
-    # TODO use different filenames for different datasets
-    # FIXME plot values starting at 1 (not 0)
-    report.plot_accuracies(ul_hist, fl_hist, fname="plot.png")
+    # TODO include aggregated participant histories in plot
+    plot_data = [
+        (
+            "Unitary Learning",
+            ul_hist["val_acc"],
+            [i for i in range(start=1, stop=len(ul_hist["val_acc"]) + 1, step=1)],
+        ),
+        (
+            "Federated Learning",
+            fl_hist["val_acc"],
+            [
+                i
+                for i in range(
+                    start=FLH_E, stop=(len(fl_hist["val_acc"]) * FLH_E) + 1, step=FLH_E
+                )
+            ],
+        ),
+    ]
+    # FIXME use different filenames for different datasets
+    report.plot_accs(plot_data, fname="plot.png")
 
 
 def main(_):
