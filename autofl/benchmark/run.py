@@ -45,7 +45,7 @@ def unitary_training(
     val_loss, val_acc = participant.evaluate(theta, xy_val)
 
     # Train model
-    history = participant._train(model, epochs)  # pylint: disable-msg=protected-access
+    history = participant.fit(model, epochs)
     history = {
         "acc": [float(train_acc)] + history["acc"],
         "loss": [float(train_loss)] + history["loss"],

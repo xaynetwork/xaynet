@@ -1,4 +1,4 @@
-from typing import Any, List, Tuple
+from typing import Any, Dict, List, Tuple
 
 from numpy import ndarray
 
@@ -17,3 +17,4 @@ FnameNDArrayTuple = Tuple[str, ndarray]
 Transition = Tuple[ndarray, Any, float, ndarray, bool]
 
 KerasWeights = List[ndarray]
+KerasHistory = Dict[str, List[float]]
