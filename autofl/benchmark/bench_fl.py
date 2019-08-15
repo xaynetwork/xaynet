@@ -97,7 +97,8 @@ def _run_unitary_versus_federated(name: str, xy_splits, xy_val, xy_test, C):
     report.write_json(results, fname="results.json")
 
     # Plot results
-    # FIXME use different filenames for different datasets
+    # TODO use different filenames for different datasets
+    # FIXME plot values starting at 1 (not 0)
     report.plot_accuracies(ul_hist, fl_hist, fname="plot.png")
 
 

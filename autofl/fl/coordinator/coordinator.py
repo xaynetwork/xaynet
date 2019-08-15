@@ -36,9 +36,8 @@ class Coordinator:
     # match the coordinator weights ahead of every training round we achieve common
     # initialization.
     def fit(self, num_rounds: int) -> Tuple[KerasHistory, List[List[KerasHistory]]]:
-        # Evaluate initial model and initialize history
-        loss, acc = self.evaluate(self.xy_val)
-        hist_co: KerasHistory = {"val_loss": [loss], "val_acc": [acc]}
+        # Initialize history
+        hist_co: KerasHistory = {"val_loss": [], "val_acc": []}
         # Train rounds
         hist_ps: List[List[KerasHistory]] = []
         for r in range(num_rounds):
