@@ -98,7 +98,7 @@ def transfomer_decorator(func: Callable):
         ), "x has to have the same shape after transformation as before"
         assert (
             y.shape == y_transformed.shape
-        ), "x has to have the same shape after transformation as before"
+        ), "y has to have the same shape after transformation as before"
 
         return (x_transformed, y_transformed)
 
