@@ -61,7 +61,7 @@ def _run_unitary_versus_federated(name: str, xy_splits, xy_val, xy_test, C):
         xy_splits[partition_id],
         xy_val,
         xy_test,
-        epochs=ROUNDS,  # TODO ROUNDS * FLH_E,
+        epochs=ROUNDS * FLH_E,
         batch_size=FLH_B,
     )
 
