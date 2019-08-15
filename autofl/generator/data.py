@@ -65,6 +65,8 @@ def generate_splits(
         x_train, y_train, size=validation_set_size
     )
 
+    
+
     if not transformer_kwargs or transformer_kwargs is None:
         x_train, y_train = transformer(x_train, y_train)
     else:
