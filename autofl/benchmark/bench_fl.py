@@ -102,17 +102,12 @@ def _run_unitary_versus_federated(name: str, xy_splits, xy_val, xy_test, C):
         (
             "Unitary Learning",
             ul_hist["val_acc"],
-            [i for i in range(start=1, stop=len(ul_hist["val_acc"]) + 1, step=1)],
+            [i for i in range(1, len(ul_hist["val_acc"]) + 1, 1)],
         ),
         (
             "Federated Learning",
             fl_hist["val_acc"],
-            [
-                i
-                for i in range(
-                    start=FLH_E, stop=(len(fl_hist["val_acc"]) * FLH_E) + 1, step=FLH_E
-                )
-            ],
+            [i for i in range(FLH_E, len(fl_hist["val_acc"]) * FLH_E + 1, FLH_E)],
         ),
     ]
     # FIXME use different filenames for different datasets
