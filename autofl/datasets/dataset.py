@@ -17,6 +17,16 @@ config = {
         "keras_dataset": tf.keras.datasets.fashion_mnist
     },
     "fashion_mnist_100p_non_IID": {"keras_dataset": tf.keras.datasets.fashion_mnist},
+    "fashion_mnist_100p_01cpp": {"keras_dataset": tf.keras.datasets.fashion_mnist},
+    "fashion_mnist_100p_02cpp": {"keras_dataset": tf.keras.datasets.fashion_mnist},
+    "fashion_mnist_100p_03cpp": {"keras_dataset": tf.keras.datasets.fashion_mnist},
+    "fashion_mnist_100p_04cpp": {"keras_dataset": tf.keras.datasets.fashion_mnist},
+    "fashion_mnist_100p_05cpp": {"keras_dataset": tf.keras.datasets.fashion_mnist},
+    "fashion_mnist_100p_06cpp": {"keras_dataset": tf.keras.datasets.fashion_mnist},
+    "fashion_mnist_100p_07cpp": {"keras_dataset": tf.keras.datasets.fashion_mnist},
+    "fashion_mnist_100p_08cpp": {"keras_dataset": tf.keras.datasets.fashion_mnist},
+    "fashion_mnist_100p_09cpp": {"keras_dataset": tf.keras.datasets.fashion_mnist},
+    "fashion_mnist_100p_10cpp": {"keras_dataset": tf.keras.datasets.fashion_mnist},
 }
 
 

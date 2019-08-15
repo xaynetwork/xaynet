@@ -245,7 +245,7 @@ def biased_balanced_labels_shuffle(  # pylint: disable=R0914
 
 @transfomer_decorator
 def sorted_labels_sections_shuffle(  # pylint: disable=R0914
-    x: ndarray, y: ndarray, num_partitions=100
+    x: ndarray, y: ndarray, num_partitions=100, class_per_partition=1
 ) -> Tuple[ndarray, ndarray]:
     """
     Does the following:
@@ -274,8 +274,8 @@ def sorted_labels_sections_shuffle(  # pylint: disable=R0914
     # Now we will init a permutation to shuffle our sorted examples
     permutation = np.array(range(num_examples), np.int64)
 
-    num_sections = 2 * num_partitions
-    num_examples_per_section = num_examples_per_partition // 2
+    num_sections = class_per_partition * num_partitions
+    num_examples_per_section = num_examples_per_partition // class_per_partition
     permutation = permutation.reshape((num_sections, num_examples_per_section))
 
     # We will now create a random index which will shuffle the sections in
