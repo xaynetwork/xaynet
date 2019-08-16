@@ -6,7 +6,7 @@ set -e
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd $DIR/../
 
-export BENCHMARK_GROUP=non-IID_to_IID
+export BENCHMARK_GROUP=non_IID_to_IID
 
 # non-IID
 ./scripts/train_remote.sh --benchmark_name fashion_mnist_100p_01cpp
