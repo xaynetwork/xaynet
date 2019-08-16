@@ -36,8 +36,6 @@ def load_splits(
         dataset_name=dataset_name, get_local_datasets_dir=get_local_datasets_dir
     )
 
-    keras_dataset = testing.load(config[dataset_name]["keras_dataset"])
-
     testing.assert_dataset_origin(
         keras_dataset=keras_dataset, federated_dataset=federated_dataset
     )
