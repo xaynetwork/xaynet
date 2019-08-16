@@ -101,7 +101,7 @@ datasets = {
         "transformers_kwargs": [
             # we need to remove 100 elements from the full xy_train so the
             # 540 examples per partition are reduced to 539 and therefore
-            # divideable by 7
+            # divisible by 7
             {"num_take": 100},
             {"num_partitions": 100, "class_per_partition": 7},
         ],
@@ -115,7 +115,7 @@ datasets = {
         "transformers_kwargs": [
             # we need to remove 400 elements from the full xy_train so the
             # 540 examples per partition are reduced to 536 and therefore
-            # divideable by 8
+            # divisible by 8
             {"num_take": 400},
             {"num_partitions": 100, "class_per_partition": 8},
         ],
