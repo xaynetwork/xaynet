@@ -17,6 +17,32 @@ def test_load():
     assert len(y_train.shape) == len(y_test.shape)
 
 
+def test_take_balanced(mock_keras_dataset):
+    # Prepare
+    (x, y), _ = mock_keras_dataset
+    num_examples = x.shape[0]
+    num_to_be_removed = 100
+    [unique_classes, num_classes_per_class] = np.unique(y, return_counts=True)
+    expected_num_classes_per_class = [
+        n - num_to_be_removed // len(unique_classes) for n in num_classes_per_class
+    ]
+
+    # Execute
+    x, y = data.take_balanced(x, y, num_to_be_removed)
+
+    # Assert
+    assert isinstance(x, np.ndarray)
+    assert isinstance(y, np.ndarray)
+
+    assert x.shape[0] == y.shape[0] == num_examples - num_to_be_removed
+
+    [_, actual_num_classes_per_class] = np.unique(y, return_counts=True)
+
+    # Each class should occur equal times so we use
+    # the `set` method which makes comparision easier
+    assert set(expected_num_classes_per_class) == set(actual_num_classes_per_class)
+
+
 def test_split_num_splits_valid_max():
     # Prepare
     x = np.zeros((3, 28, 28))
@@ -244,11 +270,12 @@ def test_biased_balanced_labels_shuffle(bias, example_count):  # pylint: disable
                 assert unique_count == unbiased_label_count
 
 
+@pytest.mark.parametrize("class_per_partition", [(1), (5), (10)])
 @pytest.mark.parametrize(
     "num_partitions, example_count", [(10, 1000), (20, 3000), (100, 6000)]
 )
 def test_sorted_labels_sections_shuffle(
-    num_partitions, example_count
+    example_count, num_partitions, class_per_partition
 ):  # pylint: disable=R0914
     # Prepare
     num_unique_classes = 10
@@ -268,12 +295,9 @@ def test_sorted_labels_sections_shuffle(
     assert x.shape[0] == example_count
     assert x.shape[0] == y.shape[0]
 
-    # each section should only contain up to two labels
-    expected_label_counts_per_split = set([1, 2])
-
     # Execute
     x_shuffled, y_shuffled = data.sorted_labels_sections_shuffle(
-        x, y, num_partitions=num_partitions
+        x, y, num_partitions=num_partitions, class_per_partition=class_per_partition
     )
 
     # Assert
@@ -283,9 +307,11 @@ def test_sorted_labels_sections_shuffle(
     # Create tuples for x,y splits so we can more easily analyze them
     y_splits = np.split(y_shuffled, indices_or_sections=num_partitions, axis=0)
 
-    actual_label_counts_per_split = {len(set(y_split)) for y_split in y_splits}
+    actual_max_num_class_per_partition = max(
+        [len(set(y_split)) for y_split in y_splits]
+    )
 
-    assert actual_label_counts_per_split.issubset(expected_label_counts_per_split)
+    assert actual_max_num_class_per_partition <= class_per_partition
 
 
 @pytest.mark.parametrize(

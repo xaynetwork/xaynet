@@ -16,7 +16,6 @@ config = {
     "fashion_mnist_100p_IID_balanced": {
         "keras_dataset": tf.keras.datasets.fashion_mnist
     },
-    "fashion_mnist_100p_non_IID": {"keras_dataset": tf.keras.datasets.fashion_mnist},
     "fashion_mnist_100p_01cpp": {"keras_dataset": tf.keras.datasets.fashion_mnist},
     "fashion_mnist_100p_02cpp": {"keras_dataset": tf.keras.datasets.fashion_mnist},
     "fashion_mnist_100p_03cpp": {"keras_dataset": tf.keras.datasets.fashion_mnist},

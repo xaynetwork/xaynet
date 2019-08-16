@@ -50,11 +50,36 @@ def extract_validation_set(x: ndarray, y: ndarray, size=6000):
     return xy_train, xy_val
 
 
+def assert_is_balanced(y):
+    [_, counts] = np.unique(y, return_counts=True)
+    assert len(set(counts)) == 1, "Some labels appear more often than others"
+
+
+def take_balanced(x: ndarray, y: ndarray, num_take: int):
+    assert_is_balanced(y)
+
+    num_classes = len(np.unique(y))
+    num_take_per_class = num_take // num_classes
+
+    assert (
+        num_take % num_classes == 0
+    ), "Number of examples to be removed has to be divideable by num_take"
+
+    x, y = group_by_label(x, y)
+
+    x_splits, y_splits = split(x, y, num_classes)
+
+    x = np.concatenate([x_split[num_take_per_class:] for x_split in x_splits])
+    y = np.concatenate([y_split[num_take_per_class:] for y_split in y_splits])
+
+    return x, y
+
+
 def generate_splits(
     num_splits: int,
     keras_dataset,
-    transformer,
-    transformer_kwargs=None,
+    transformers,
+    transformers_kwargs=None,
     validation_set_size=6000,
 ) -> FederatedDataset:
     (x_train, y_train), xy_test = load(keras_dataset)
@@ -65,12 +90,15 @@ def generate_splits(
         x_train, y_train, size=validation_set_size
     )
 
-    
-
-    if not transformer_kwargs or transformer_kwargs is None:
-        x_train, y_train = transformer(x_train, y_train)
-    else:
-        x_train, y_train = transformer(x_train, y_train, **transformer_kwargs)
+    for i, transformer in enumerate(transformers):
+        if (
+            not transformers_kwargs
+            or not transformers_kwargs[i]
+            or transformers_kwargs[i] is None
+        ):
+            x_train, y_train = transformer(x_train, y_train)
+        else:
+            x_train, y_train = transformer(x_train, y_train, **transformers_kwargs[i])
 
     x_splits, y_splits = split(x_train, y_train, num_splits)
 
@@ -257,9 +285,6 @@ def sorted_labels_sections_shuffle(  # pylint: disable=R0914
     assert (
         x.shape[0] % num_partitions == 0
     ), "Number of examples needs to be divisionable by num_partitions"
-    assert (
-        x.shape[0] % 2 * num_partitions == 0
-    ), "Number of examples needs to be divisionable by num_partitions times two"
 
     num_examples = x.shape[0]
     num_examples_per_partition = num_examples // num_partitions

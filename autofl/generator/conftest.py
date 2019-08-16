@@ -29,5 +29,5 @@ def mock_random_splits_2_dataset() -> FederatedDataset:
         num_splits=2,
         validation_set_size=60,
         keras_dataset=MockKerasDataset(),
-        transformer=no_shuffle,
+        transformers=[no_shuffle],
     )
