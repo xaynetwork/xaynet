@@ -1,4 +1,5 @@
 import time
+from typing import List, Optional, Tuple
 
 from absl import app, logging
 
@@ -61,7 +62,7 @@ def _run_unitary_versus_federated(name: str, xy_splits, xy_val, xy_test, C):
         xy_splits[partition_id],
         xy_val,
         xy_test,
-        epochs=ROUNDS,  # TODO ROUNDS * FLH_E,
+        epochs=ROUNDS * FLH_E,
         batch_size=FLH_B,
     )
 
@@ -97,8 +98,21 @@ def _run_unitary_versus_federated(name: str, xy_splits, xy_val, xy_test, C):
     report.write_json(results, fname="results.json")
 
     # Plot results
+    # TODO include aggregated participant histories in plot
+    plot_data: List[Tuple[str, List[float], Optional[List[int]]]] = [
+        (
+            "Unitary Learning",
+            ul_hist["val_acc"],
+            [i for i in range(1, len(ul_hist["val_acc"]) + 1, 1)],
+        ),
+        (
+            "Federated Learning",
+            fl_hist["val_acc"],
+            [i for i in range(FLH_E, len(fl_hist["val_acc"]) * FLH_E + 1, FLH_E)],
+        ),
+    ]
     # FIXME use different filenames for different datasets
-    report.plot_accuracies(ul_hist, fl_hist, fname="plot.png")
+    report.plot_accs(plot_data, fname="plot.png")
 
 
 def main(_):

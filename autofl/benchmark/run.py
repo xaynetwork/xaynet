@@ -14,6 +14,7 @@ random.seed(0)
 np.random.seed(1)
 tf.compat.v1.set_random_seed(2)
 
+
 # pylint: disable-msg=too-many-locals
 def unitary_training(
     xy_train: FederatedDatasetPartition,
@@ -38,20 +39,8 @@ def unitary_training(
     model = model_provider.init_model()
     theta = model.get_weights()
 
-    # Evaluate initial training and validation set loss (and accuracy)
-    train_loss, train_acc = participant.evaluate(
-        theta, xy_train
-    )  # Note: This evaluates just one batch, not the entire dataset
-    val_loss, val_acc = participant.evaluate(theta, xy_val)
-
     # Train model
     hist = participant.fit(model, epochs)
-    hist = {
-        "acc": [float(train_acc)] + hist["acc"],
-        "loss": [float(train_loss)] + hist["loss"],
-        "val_acc": [float(val_acc)] + hist["val_acc"],
-        "val_loss": [float(val_loss)] + hist["val_loss"],
-    }
 
     # Evaluate final performance
     theta = model.get_weights()
