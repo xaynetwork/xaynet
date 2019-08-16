@@ -50,11 +50,36 @@ def extract_validation_set(x: ndarray, y: ndarray, size=6000):
     return xy_train, xy_val
 
 
+def assert_is_balanced(y):
+    [_, counts] = np.unique(y, return_counts=True)
+    assert len(set(counts)) == 1, "Some classes appear more often than others"
+
+
+def remove_balanced(x: ndarray, y: ndarray, num_remove: int) -> Tuple[ndarray, ndarray]:
+    assert_is_balanced(y)
+
+    num_classes = len(np.unique(y))
+    num_remove_per_class = num_remove // num_classes
+
+    assert (
+        num_remove % num_classes == 0
+    ), "Number of examples to be removed has to be divisible by num_remove"
+
+    x, y = group_by_label(x, y)
+
+    x_splits, y_splits = split(x, y, num_classes)
+
+    x = np.concatenate([x_split[num_remove_per_class:] for x_split in x_splits])
+    y = np.concatenate([y_split[num_remove_per_class:] for y_split in y_splits])
+
+    return x, y
+
+
 def generate_splits(
     num_splits: int,
     keras_dataset,
-    transformer,
-    transformer_kwargs=None,
+    transformers,
+    transformers_kwargs=None,
     validation_set_size=6000,
 ) -> FederatedDataset:
     (x_train, y_train), xy_test = load(keras_dataset)
@@ -65,10 +90,15 @@ def generate_splits(
         x_train, y_train, size=validation_set_size
     )
 
-    if not transformer_kwargs or transformer_kwargs is None:
-        x_train, y_train = transformer(x_train, y_train)
-    else:
-        x_train, y_train = transformer(x_train, y_train, **transformer_kwargs)
+    for i, transformer in enumerate(transformers):
+        if (
+            not transformers_kwargs
+            or not transformers_kwargs[i]
+            or transformers_kwargs[i] is None
+        ):
+            x_train, y_train = transformer(x_train, y_train)
+        else:
+            x_train, y_train = transformer(x_train, y_train, **transformers_kwargs[i])
 
     x_splits, y_splits = split(x_train, y_train, num_splits)
 
@@ -116,15 +146,15 @@ def random_shuffle(x: ndarray, y: ndarray) -> Tuple[ndarray, ndarray]:
 
 @transfomer_decorator
 def balanced_labels_shuffle(
-    x: ndarray, y: ndarray, section_count=10
+    x: ndarray, y: ndarray, num_partitions=10
 ) -> Tuple[ndarray, ndarray]:
     """Shuffled y so that the labels are uniformly distributed in each section"""
     example_count = y.shape[0]
-    section_size = int(example_count / section_count)
+    section_size = int(example_count / num_partitions)
 
     assert (
-        example_count % section_count == 0
-    ), "Number of examples needs to be evenly divideable by section_count"
+        example_count % num_partitions == 0
+    ), "Number of examples needs to be evenly divisible by section_count"
 
     x_shuffled, y_shuffled = random_shuffle(x, y)
 
@@ -136,7 +166,7 @@ def balanced_labels_shuffle(
 
     balance_index = (
         np.array(range(example_count), np.int64)
-        .reshape((section_size, section_count))
+        .reshape((section_size, num_partitions))
         .transpose()
         .reshape(example_count)
     )
@@ -158,7 +188,7 @@ def group_by_label(x: ndarray, y: ndarray) -> Tuple[ndarray, ndarray]:
 
     assert (
         example_count % section_count == 0
-    ), "Number of examples needs to be evenly divideable by section_count"
+    ), "Number of examples needs to be evenly divisible by section_count"
 
     # Array of indices that sort a along the specified axis.
     sort_indexes = np.argsort(y, axis=0)
@@ -186,7 +216,7 @@ def biased_balanced_labels_shuffle(  # pylint: disable=R0914
 
     assert (
         example_count % section_count == 0
-    ), "Number of examples needs to be evenly divideable by section_count"
+    ), "Number of examples needs to be evenly divisible by section_count"
 
     # Array of indices that sort a along the specified axis.
     sort_indexes = np.argsort(y, axis=0)
@@ -214,7 +244,7 @@ def biased_balanced_labels_shuffle(  # pylint: disable=R0914
 
     # Create balanced shuffle of rest
     x_balanced, y_balanced = balanced_labels_shuffle(
-        x_unbiased, y_unbiased, section_count=section_count
+        x_unbiased, y_unbiased, num_partitions=section_count
     )
 
     for y_balanced_split in np.split(y_balanced, indices_or_sections=section_count):
@@ -245,7 +275,7 @@ def biased_balanced_labels_shuffle(  # pylint: disable=R0914
 
 @transfomer_decorator
 def sorted_labels_sections_shuffle(  # pylint: disable=R0914
-    x: ndarray, y: ndarray, section_count=100
+    x: ndarray, y: ndarray, num_partitions=100, max_classes_per_partition=1
 ) -> Tuple[ndarray, ndarray]:
     """
     Does the following:
@@ -253,34 +283,39 @@ def sorted_labels_sections_shuffle(  # pylint: disable=R0914
     2. Shuffles sections randomley
     """
     assert (
-        x.shape[0] % section_count == 0
-    ), "Number of examples needs to be divisionable by section_count"
-    assert (
-        x.shape[0] % 2 * section_count == 0
-    ), "Number of examples needs to be divisionable by section_count times two"
+        x.shape[0] % num_partitions == 0
+    ), "Number of examples needs to be divisionable by num_partitions"
 
-    example_count = x.shape[0]
-    section_size = example_count // section_count
+    num_examples = x.shape[0]
+    num_examples_per_partition = num_examples // num_partitions
 
     # Array of indices that sort a along the specified axis.
-    sort_indexes = np.argsort(y, axis=0)
+    sort_indices = np.argsort(y, axis=0)
 
-    x_sorted = x[sort_indexes]
-    y_sorted = y[sort_indexes]
+    # After sorting we will have num_labels sorted sections (e.g. 10 for MNIST)
+    # e.g. with 4 labels and 8 examples (assuming each label occurs equal times)
+    # => y = [0, 0, 1, 1, 2, 2, 3, 3]
+    x_sorted = x[sort_indices]
+    y_sorted = y[sort_indices]
 
-    permutation = np.array(range(example_count), np.int64)
+    # Now we will init a permutation to shuffle our sorted examples
+    permutation = np.array(range(num_examples), np.int64)
 
-    # some math:
-    # example_count = m * n
-    # m = 2 * section_count
-    # n = example_count / (2 * section_count) = section_size / 2
-    permutation = permutation.reshape((2 * section_count, section_size // 2))
+    num_sections = max_classes_per_partition * num_partitions
+    num_examples_per_section = num_examples_per_partition // max_classes_per_partition
+    permutation = permutation.reshape((num_sections, num_examples_per_section))
 
+    # We will now create a random index which will shuffle the sections in
+    # our permutation randomly on axis=0 before we later reshape the permutation
+    # back into a list with length == num_examples and use it to shuffle our
+    # x_sorted and y_sorted
     # pylint: disable-msg=no-member
-    rnd_index = np.random.RandomState(seed=SEED).permutation(len(permutation))
+    section_shuffle_indices = np.random.RandomState(seed=SEED).permutation(
+        len(permutation)
+    )
 
-    permutation = permutation[rnd_index]
-    permutation = permutation.reshape(example_count)
+    permutation = permutation[section_shuffle_indices]
+    permutation = permutation.reshape(num_examples)
 
     x_shuffled = x_sorted[permutation]
     y_shuffled = y_sorted[permutation]

@@ -15,13 +15,14 @@ def generate_dataset(dataset_name):
         num_splits=c["num_splits"],
         validation_set_size=c["validation_set_size"],
         keras_dataset=c["keras_dataset"],
-        transformer=c["transformer"],
-        transformer_kwargs=c["transformer_kwargs"],
+        transformers=c["transformers"],
+        transformers_kwargs=c["transformers_kwargs"],
     )
 
-    testing.assert_dataset_origin(
-        keras_dataset=data.load(c["keras_dataset"]), federated_dataset=dataset
-    )
+    if c["assert_dataset_origin"]:
+        testing.assert_dataset_origin(
+            keras_dataset=data.load(c["keras_dataset"]), federated_dataset=dataset
+        )
 
     persistence.save_splits(
         dataset_name=dataset_name,
