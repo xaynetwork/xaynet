@@ -12,7 +12,7 @@ FLAGS = flags.FLAGS
 FLH_E = 4  # Number of training episodes in each round
 FLH_B = 32  # Batch size used by participants
 
-ROUNDS = 1
+ROUNDS = 50
 
 
 """
