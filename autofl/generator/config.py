@@ -50,7 +50,9 @@ datasets = {
     "fashion_mnist_100p_01cpp": {
         "keras_dataset": tf.keras.datasets.fashion_mnist,
         "transformers": [data.sorted_labels_sections_shuffle],
-        "transformers_kwargs": [{"num_partitions": 100, "class_per_partition": 1}],
+        "transformers_kwargs": [
+            {"num_partitions": 100, "max_classes_per_partition": 1}
+        ],
         "num_splits": 100,
         "validation_set_size": 6000,
         "assert_dataset_origin": True,
@@ -58,7 +60,9 @@ datasets = {
     "fashion_mnist_100p_02cpp": {
         "keras_dataset": tf.keras.datasets.fashion_mnist,
         "transformers": [data.sorted_labels_sections_shuffle],
-        "transformers_kwargs": [{"num_partitions": 100, "class_per_partition": 2}],
+        "transformers_kwargs": [
+            {"num_partitions": 100, "max_classes_per_partition": 2}
+        ],
         "num_splits": 100,
         "validation_set_size": 6000,
         "assert_dataset_origin": True,
@@ -66,7 +70,9 @@ datasets = {
     "fashion_mnist_100p_03cpp": {
         "keras_dataset": tf.keras.datasets.fashion_mnist,
         "transformers": [data.sorted_labels_sections_shuffle],
-        "transformers_kwargs": [{"num_partitions": 100, "class_per_partition": 3}],
+        "transformers_kwargs": [
+            {"num_partitions": 100, "max_classes_per_partition": 3}
+        ],
         "num_splits": 100,
         "validation_set_size": 6000,
         "assert_dataset_origin": True,
@@ -74,7 +80,9 @@ datasets = {
     "fashion_mnist_100p_04cpp": {
         "keras_dataset": tf.keras.datasets.fashion_mnist,
         "transformers": [data.sorted_labels_sections_shuffle],
-        "transformers_kwargs": [{"num_partitions": 100, "class_per_partition": 4}],
+        "transformers_kwargs": [
+            {"num_partitions": 100, "max_classes_per_partition": 4}
+        ],
         "num_splits": 100,
         "validation_set_size": 6000,
         "assert_dataset_origin": True,
@@ -82,7 +90,9 @@ datasets = {
     "fashion_mnist_100p_05cpp": {
         "keras_dataset": tf.keras.datasets.fashion_mnist,
         "transformers": [data.sorted_labels_sections_shuffle],
-        "transformers_kwargs": [{"num_partitions": 100, "class_per_partition": 5}],
+        "transformers_kwargs": [
+            {"num_partitions": 100, "max_classes_per_partition": 5}
+        ],
         "num_splits": 100,
         "validation_set_size": 6000,
         "assert_dataset_origin": True,
@@ -90,20 +100,22 @@ datasets = {
     "fashion_mnist_100p_06cpp": {
         "keras_dataset": tf.keras.datasets.fashion_mnist,
         "transformers": [data.sorted_labels_sections_shuffle],
-        "transformers_kwargs": [{"num_partitions": 100, "class_per_partition": 6}],
+        "transformers_kwargs": [
+            {"num_partitions": 100, "max_classes_per_partition": 6}
+        ],
         "num_splits": 100,
         "validation_set_size": 6000,
         "assert_dataset_origin": True,
     },
     "fashion_mnist_100p_07cpp": {
         "keras_dataset": tf.keras.datasets.fashion_mnist,
-        "transformers": [data.take_balanced, data.sorted_labels_sections_shuffle],
+        "transformers": [data.remove_balanced, data.sorted_labels_sections_shuffle],
         "transformers_kwargs": [
             # we need to remove 100 elements from the full xy_train so the
             # 540 examples per partition are reduced to 539 and therefore
             # divisible by 7
-            {"num_take": 100},
-            {"num_partitions": 100, "class_per_partition": 7},
+            {"num_remove": 100},
+            {"num_partitions": 100, "max_classes_per_partition": 7},
         ],
         "num_splits": 100,
         "validation_set_size": 6000,
@@ -111,13 +123,13 @@ datasets = {
     },
     "fashion_mnist_100p_08cpp": {
         "keras_dataset": tf.keras.datasets.fashion_mnist,
-        "transformers": [data.take_balanced, data.sorted_labels_sections_shuffle],
+        "transformers": [data.remove_balanced, data.sorted_labels_sections_shuffle],
         "transformers_kwargs": [
             # we need to remove 400 elements from the full xy_train so the
             # 540 examples per partition are reduced to 536 and therefore
             # divisible by 8
-            {"num_take": 400},
-            {"num_partitions": 100, "class_per_partition": 8},
+            {"num_remove": 400},
+            {"num_partitions": 100, "max_classes_per_partition": 8},
         ],
         "num_splits": 100,
         "validation_set_size": 6000,
@@ -126,7 +138,9 @@ datasets = {
     "fashion_mnist_100p_09cpp": {
         "keras_dataset": tf.keras.datasets.fashion_mnist,
         "transformers": [data.sorted_labels_sections_shuffle],
-        "transformers_kwargs": [{"num_partitions": 100, "class_per_partition": 9}],
+        "transformers_kwargs": [
+            {"num_partitions": 100, "max_classes_per_partition": 9}
+        ],
         "num_splits": 100,
         "validation_set_size": 6000,
         "assert_dataset_origin": True,
@@ -134,7 +148,9 @@ datasets = {
     "fashion_mnist_100p_10cpp": {
         "keras_dataset": tf.keras.datasets.fashion_mnist,
         "transformers": [data.sorted_labels_sections_shuffle],
-        "transformers_kwargs": [{"num_partitions": 100, "class_per_partition": 10}],
+        "transformers_kwargs": [
+            {"num_partitions": 100, "max_classes_per_partition": 10}
+        ],
         "num_splits": 100,
         "validation_set_size": 6000,
         "assert_dataset_origin": True,

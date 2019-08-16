@@ -17,7 +17,7 @@ def test_load():
     assert len(y_train.shape) == len(y_test.shape)
 
 
-def test_take_balanced(mock_keras_dataset):
+def test_remove_balanced(mock_keras_dataset):
     # Prepare
     (x, y), _ = mock_keras_dataset
     num_examples = x.shape[0]
@@ -28,7 +28,7 @@ def test_take_balanced(mock_keras_dataset):
     ]
 
     # Execute
-    x, y = data.take_balanced(x, y, num_to_be_removed)
+    x, y = data.remove_balanced(x=x, y=y, num_remove=num_to_be_removed)
 
     # Assert
     assert isinstance(x, np.ndarray)
@@ -270,12 +270,12 @@ def test_biased_balanced_labels_shuffle(bias, example_count):  # pylint: disable
                 assert unique_count == unbiased_label_count
 
 
-@pytest.mark.parametrize("class_per_partition", [(1), (5), (10)])
+@pytest.mark.parametrize("max_classes_per_partition", [(1), (5), (10)])
 @pytest.mark.parametrize(
     "num_partitions, example_count", [(10, 1000), (20, 3000), (100, 6000)]
 )
 def test_sorted_labels_sections_shuffle(
-    example_count, num_partitions, class_per_partition
+    example_count, num_partitions, max_classes_per_partition
 ):  # pylint: disable=R0914
     # Prepare
     num_unique_classes = 10
@@ -297,7 +297,10 @@ def test_sorted_labels_sections_shuffle(
 
     # Execute
     x_shuffled, y_shuffled = data.sorted_labels_sections_shuffle(
-        x, y, num_partitions=num_partitions, class_per_partition=class_per_partition
+        x,
+        y,
+        num_partitions=num_partitions,
+        max_classes_per_partition=max_classes_per_partition,
     )
 
     # Assert
@@ -307,11 +310,11 @@ def test_sorted_labels_sections_shuffle(
     # Create tuples for x,y splits so we can more easily analyze them
     y_splits = np.split(y_shuffled, indices_or_sections=num_partitions, axis=0)
 
-    actual_max_num_class_per_partition = max(
+    actual_max_num_classes_per_partition = max(
         [len(set(y_split)) for y_split in y_splits]
     )
 
-    assert actual_max_num_class_per_partition <= class_per_partition
+    assert actual_max_num_classes_per_partition <= max_classes_per_partition
 
 
 @pytest.mark.parametrize(

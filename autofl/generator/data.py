@@ -154,7 +154,7 @@ def balanced_labels_shuffle(
 
     assert (
         example_count % num_partitions == 0
-    ), "Number of examples needs to be evenly divideable by section_count"
+    ), "Number of examples needs to be evenly divisible by section_count"
 
     x_shuffled, y_shuffled = random_shuffle(x, y)
 
@@ -188,7 +188,7 @@ def group_by_label(x: ndarray, y: ndarray) -> Tuple[ndarray, ndarray]:
 
     assert (
         example_count % section_count == 0
-    ), "Number of examples needs to be evenly divideable by section_count"
+    ), "Number of examples needs to be evenly divisible by section_count"
 
     # Array of indices that sort a along the specified axis.
     sort_indexes = np.argsort(y, axis=0)
@@ -216,7 +216,7 @@ def biased_balanced_labels_shuffle(  # pylint: disable=R0914
 
     assert (
         example_count % section_count == 0
-    ), "Number of examples needs to be evenly divideable by section_count"
+    ), "Number of examples needs to be evenly divisible by section_count"
 
     # Array of indices that sort a along the specified axis.
     sort_indexes = np.argsort(y, axis=0)
@@ -275,7 +275,7 @@ def biased_balanced_labels_shuffle(  # pylint: disable=R0914
 
 @transfomer_decorator
 def sorted_labels_sections_shuffle(  # pylint: disable=R0914
-    x: ndarray, y: ndarray, num_partitions=100, class_per_partition=1
+    x: ndarray, y: ndarray, num_partitions=100, max_classes_per_partition=1
 ) -> Tuple[ndarray, ndarray]:
     """
     Does the following:
@@ -301,8 +301,8 @@ def sorted_labels_sections_shuffle(  # pylint: disable=R0914
     # Now we will init a permutation to shuffle our sorted examples
     permutation = np.array(range(num_examples), np.int64)
 
-    num_sections = class_per_partition * num_partitions
-    num_examples_per_section = num_examples_per_partition // class_per_partition
+    num_sections = max_classes_per_partition * num_partitions
+    num_examples_per_section = num_examples_per_partition // max_classes_per_partition
     permutation = permutation.reshape((num_sections, num_examples_per_section))
 
     # We will now create a random index which will shuffle the sections in
