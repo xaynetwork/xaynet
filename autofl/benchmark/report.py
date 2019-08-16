@@ -67,7 +67,7 @@ def plot_curves(
 
 
 def plot_accs(
-    data: List[Tuple[str, List[float], List[int]]],
+    data: List[Tuple[str, List[float], Optional[List[int]]]],
     fname="benchmark_plot.png",
     plot_dir="output",
 ):
@@ -87,7 +87,7 @@ def plot_accs(
 
 
 def plot(
-    data: List[Tuple[str, List[float], List[int]]],
+    data: List[Tuple[str, List[float], Optional[List[int]]]],
     title: Optional[str] = None,
     ylabel: str = None,
     plotdir: Optional[str] = None,
@@ -109,6 +109,7 @@ def plot(
         if indices is None:
             plt.plot(values)
         else:
+            assert len(values) == len(indices)
             plt.plot(indices, values)
     plt.legend(legend, loc="lower right")
 
