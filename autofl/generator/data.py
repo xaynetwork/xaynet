@@ -52,25 +52,25 @@ def extract_validation_set(x: ndarray, y: ndarray, size=6000):
 
 def assert_is_balanced(y):
     [_, counts] = np.unique(y, return_counts=True)
-    assert len(set(counts)) == 1, "Some labels appear more often than others"
+    assert len(set(counts)) == 1, "Some classes appear more often than others"
 
 
-def take_balanced(x: ndarray, y: ndarray, num_take: int):
+def remove_balanced(x: ndarray, y: ndarray, num_remove: int) -> Tuple[ndarray, ndarray]:
     assert_is_balanced(y)
 
     num_classes = len(np.unique(y))
-    num_take_per_class = num_take // num_classes
+    num_remove_per_class = num_remove // num_classes
 
     assert (
-        num_take % num_classes == 0
-    ), "Number of examples to be removed has to be divideable by num_take"
+        num_remove % num_classes == 0
+    ), "Number of examples to be removed has to be divisible by num_remove"
 
     x, y = group_by_label(x, y)
 
     x_splits, y_splits = split(x, y, num_classes)
 
-    x = np.concatenate([x_split[num_take_per_class:] for x_split in x_splits])
-    y = np.concatenate([y_split[num_take_per_class:] for y_split in y_splits])
+    x = np.concatenate([x_split[num_remove_per_class:] for x_split in x_splits])
+    y = np.concatenate([y_split[num_remove_per_class:] for y_split in y_splits])
 
     return x, y
 
