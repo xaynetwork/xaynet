@@ -21,18 +21,18 @@ In this config the key in the dictionary will be the name of the benchmark
 benchmarks = {
     "fashion_mnist_100p_IID_balanced": {
         "dataset_name": "fashion_mnist_100p_IID_balanced",
-        "C": 0.3,
+        "C": 0.1,
     },
-    "fashion_mnist_100p_01cpp": {"dataset_name": "fashion_mnist_100p_01cpp", "C": 0.3},
-    "fashion_mnist_100p_02cpp": {"dataset_name": "fashion_mnist_100p_02cpp", "C": 0.3},
-    "fashion_mnist_100p_03cpp": {"dataset_name": "fashion_mnist_100p_03cpp", "C": 0.3},
-    "fashion_mnist_100p_04cpp": {"dataset_name": "fashion_mnist_100p_04cpp", "C": 0.3},
-    "fashion_mnist_100p_05cpp": {"dataset_name": "fashion_mnist_100p_05cpp", "C": 0.3},
-    "fashion_mnist_100p_06cpp": {"dataset_name": "fashion_mnist_100p_06cpp", "C": 0.3},
-    "fashion_mnist_100p_07cpp": {"dataset_name": "fashion_mnist_100p_07cpp", "C": 0.3},
-    "fashion_mnist_100p_08cpp": {"dataset_name": "fashion_mnist_100p_08cpp", "C": 0.3},
-    "fashion_mnist_100p_09cpp": {"dataset_name": "fashion_mnist_100p_09cpp", "C": 0.3},
-    "fashion_mnist_100p_10cpp": {"dataset_name": "fashion_mnist_100p_10cpp", "C": 0.3},
+    "fashion_mnist_100p_01cpp": {"dataset_name": "fashion_mnist_100p_01cpp", "C": 0.1},
+    "fashion_mnist_100p_02cpp": {"dataset_name": "fashion_mnist_100p_02cpp", "C": 0.1},
+    "fashion_mnist_100p_03cpp": {"dataset_name": "fashion_mnist_100p_03cpp", "C": 0.1},
+    "fashion_mnist_100p_04cpp": {"dataset_name": "fashion_mnist_100p_04cpp", "C": 0.1},
+    "fashion_mnist_100p_05cpp": {"dataset_name": "fashion_mnist_100p_05cpp", "C": 0.1},
+    "fashion_mnist_100p_06cpp": {"dataset_name": "fashion_mnist_100p_06cpp", "C": 0.1},
+    "fashion_mnist_100p_07cpp": {"dataset_name": "fashion_mnist_100p_07cpp", "C": 0.1},
+    "fashion_mnist_100p_08cpp": {"dataset_name": "fashion_mnist_100p_08cpp", "C": 0.1},
+    "fashion_mnist_100p_09cpp": {"dataset_name": "fashion_mnist_100p_09cpp", "C": 0.1},
+    "fashion_mnist_100p_10cpp": {"dataset_name": "fashion_mnist_100p_10cpp", "C": 0.1},
 }
 
 
