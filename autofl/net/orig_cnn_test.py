@@ -12,7 +12,7 @@ def test_num_parameters_mnist():
     # Execute
     num_params = model.count_params()
     # Assert
-    assert num_params == 582_026
+    assert num_params == 1_663_370
 
 
 def test_num_parameters_cifar():
@@ -21,7 +21,7 @@ def test_num_parameters_cifar():
     # Execute
     num_params = model.count_params()
     # Assert
-    assert num_params == 878_538
+    assert num_params == 2_156_490
 
 
 def test_seed_mnist():
