@@ -1,4 +1,5 @@
 import time
+from typing import List, Optional, Tuple
 
 from absl import app, logging
 
@@ -98,7 +99,7 @@ def _run_unitary_versus_federated(name: str, xy_splits, xy_val, xy_test, C):
 
     # Plot results
     # TODO include aggregated participant histories in plot
-    plot_data = [
+    plot_data: List[Tuple[str, List[float], Optional[List[int]]]] = [
         (
             "Unitary Learning",
             ul_hist["val_acc"],
