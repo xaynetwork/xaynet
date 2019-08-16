@@ -1,5 +1,5 @@
 import random
-from typing import Dict, List, Tuple
+from typing import List, Tuple
 
 import numpy as np
 import tensorflow as tf
@@ -8,7 +8,7 @@ from autofl.fl.coordinator import Coordinator, RandomController
 from autofl.fl.coordinator.aggregate import Aggregator
 from autofl.fl.participant import ModelProvider, Participant
 from autofl.net import orig_cnn_compiled
-from autofl.types import FederatedDatasetPartition
+from autofl.types import FederatedDatasetPartition, KerasHistory
 
 random.seed(0)
 np.random.seed(1)
@@ -21,7 +21,7 @@ def unitary_training(
     xy_test: FederatedDatasetPartition,
     epochs: int,
     batch_size: int,
-) -> Tuple[Dict[str, List[float]], float, float]:
+) -> Tuple[KerasHistory, float, float]:
 
     model_provider = ModelProvider(model_fn=orig_cnn_compiled)
 
@@ -45,20 +45,20 @@ def unitary_training(
     val_loss, val_acc = participant.evaluate(theta, xy_val)
 
     # Train model
-    history = participant.fit(model, epochs)
-    history = {
-        "acc": [float(train_acc)] + history["acc"],
-        "loss": [float(train_loss)] + history["loss"],
-        "val_acc": [float(val_acc)] + history["val_acc"],
-        "val_loss": [float(val_loss)] + history["val_loss"],
+    hist = participant.fit(model, epochs)
+    hist = {
+        "acc": [float(train_acc)] + hist["acc"],
+        "loss": [float(train_loss)] + hist["loss"],
+        "val_acc": [float(val_acc)] + hist["val_acc"],
+        "val_loss": [float(val_loss)] + hist["val_loss"],
     }
 
     # Evaluate final performance
     theta = model.get_weights()
-    loss, accuracy = participant.evaluate(theta, xy_test)
+    loss, acc = participant.evaluate(theta, xy_test)
 
     # Report results
-    return history, loss, accuracy
+    return hist, loss, acc
 
 
 # pylint: disable-msg=too-many-locals,too-many-arguments
@@ -71,7 +71,7 @@ def federated_training(
     E: int,
     B: int,
     aggregator: Aggregator = None,
-) -> Tuple[Dict[str, List[float]], float, float]:
+) -> Tuple[KerasHistory, List[List[KerasHistory]], float, float]:
     # Initialize participants and coordinator
     # Note that there is no need for common initialization at this point: Common
     # initialization will happen during the first few rounds because the coordinator will
@@ -101,10 +101,10 @@ def federated_training(
     )
 
     # Train model
-    history = coordinator.fit(num_rounds=rounds)
+    hist_co, hist_ps = coordinator.fit(num_rounds=rounds)
 
     # Evaluate final performance
-    loss, accuracy = coordinator.evaluate(xy_test)
+    loss, acc = coordinator.evaluate(xy_test)
 
     # Report results
-    return history, loss, accuracy
+    return hist_co, hist_ps, loss, acc
