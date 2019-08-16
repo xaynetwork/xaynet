@@ -10,10 +10,24 @@ def orig_cnn_compiled(
 
     # Architecture
     inputs = Input(shape=input_shape)
-    x = Conv2D(32, kernel_size=5, kernel_initializer=ki, activation="relu")(inputs)
-    x = MaxPool2D(pool_size=2)(x)
-    x = Conv2D(64, kernel_size=5, kernel_initializer=ki, activation="relu")(x)
-    x = MaxPool2D(pool_size=2)(x)
+    x = Conv2D(
+        32,
+        kernel_size=(5, 5),
+        strides=(1, 1),
+        kernel_initializer=ki,
+        padding="same",
+        activation="relu",
+    )(inputs)
+    x = MaxPool2D(pool_size=(2, 2), strides=(2, 2))(x)
+    x = Conv2D(
+        64,
+        kernel_size=(5, 5),
+        strides=(1, 1),
+        kernel_initializer=ki,
+        padding="same",
+        activation="relu",
+    )(x)
+    x = MaxPool2D(pool_size=(2, 2), strides=(2, 2))(x)
     x = Flatten()(x)
     x = Dense(512, kernel_initializer=ki, activation="relu")(x)
     outputs = Dense(num_classes, kernel_initializer=ki, activation="softmax")(x)
