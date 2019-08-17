@@ -35,8 +35,8 @@ def plot_accuracies(
 
 # pylint: disable-msg=too-many-arguments
 def plot_curves(
-    curves,
-    legend,
+    curves: List[List[float]],
+    legend: List[str],
     title: Optional[str] = None,
     ylabel: str = None,
     plotdir: Optional[str] = None,
