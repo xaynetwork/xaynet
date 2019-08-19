@@ -1,7 +1,8 @@
 import tensorflow as tf
 from tensorflow.keras.layers import Conv2D, Dense, Dropout, Flatten, MaxPool2D
 
-# Derived from: https://medium.com/tensorflow/hello-deep-learning-fashion-mnist-with-keras-50fcff8cd74a
+# Derived from:
+# https://medium.com/tensorflow/hello-deep-learning-fashion-mnist-with-keras-50fcff8cd74a
 
 
 def blog_cnn_compiled(
