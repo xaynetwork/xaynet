@@ -6,6 +6,7 @@ import pytest
 from . import storage
 
 
+@pytest.mark.slow
 @pytest.mark.integration
 def test_load_ndarray(tmp_path):
 
