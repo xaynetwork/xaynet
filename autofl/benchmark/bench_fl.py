@@ -106,7 +106,7 @@ def _run_unitary_versus_federated(benchmark_name: str, dataset_name: str, C: flo
     report.plot_accuracies(plot_data, fname="plot.png")
 
 
-def main(_):
+def main():
     benchmark_name = FLAGS.benchmark_name
     kwargs = benchmarks[benchmark_name]
     _run_unitary_versus_federated(benchmark_name=benchmark_name, **kwargs)
