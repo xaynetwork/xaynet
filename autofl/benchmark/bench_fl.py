@@ -1,11 +1,13 @@
 import time
 from typing import List, Optional, Tuple
 
-from absl import app, logging
+from absl import flags, logging
 
 from autofl.datasets import load_splits
 
 from . import report, run
+
+FLAGS = flags.FLAGS
 
 FLH_C = 0.1  # Fraction of participants used in each round of training
 FLH_E = 4  # Number of training epochs in each round
@@ -14,50 +16,40 @@ FLH_B = 32  # Batch size used by participants
 ROUNDS = 50
 
 
-def benchmark_ul_fl_FashionMNIST_100p_IID_balanced():
-    fn_name = benchmark_ul_fl_FashionMNIST_100p_IID_balanced.__name__
-    logging.info("Starting {}".format(fn_name))
-
-    xy_parts, xy_val, xy_test = load_splits("fashion_mnist_100p_IID_balanced")
-    _run_unitary_versus_federated(fn_name, xy_parts, xy_val, xy_test, C=FLH_C)
-
-
-def benchmark_ul_fl_FashionMNIST_100p_non_IID():
-    fn_name = benchmark_ul_fl_FashionMNIST_100p_non_IID.__name__
-    logging.info("Starting {}".format(fn_name))
-
-    xy_parts, xy_val, xy_test = load_splits("fashion_mnist_100p_non_IID")
-    _run_unitary_versus_federated(fn_name, xy_parts, xy_val, xy_test, C=FLH_C)
-
-
-def benchmark_ul_fl_FashionMNIST_10p_IID_balanced():
-    fn_name = benchmark_ul_fl_FashionMNIST_10p_IID_balanced.__name__
-    logging.info("Starting {}".format(fn_name))
-    xy_splits, xy_val, xy_test = load_splits("fashion_mnist_10s_600")
-    _run_unitary_versus_federated(fn_name, xy_splits, xy_val, xy_test, C=0.3)
+"""
+In this config the key in the dictionary will be the name of the benchmark
+"""
+benchmarks = {
+    "fashion_mnist_100p_IID_balanced": {
+        "dataset_name": "fashion_mnist_100p_IID_balanced",
+        "C": 0.1,
+    },
+    "fashion_mnist_100p_01cpp": {"dataset_name": "fashion_mnist_100p_01cpp", "C": 0.1},
+    "fashion_mnist_100p_02cpp": {"dataset_name": "fashion_mnist_100p_02cpp", "C": 0.1},
+    "fashion_mnist_100p_03cpp": {"dataset_name": "fashion_mnist_100p_03cpp", "C": 0.1},
+    "fashion_mnist_100p_04cpp": {"dataset_name": "fashion_mnist_100p_04cpp", "C": 0.1},
+    "fashion_mnist_100p_05cpp": {"dataset_name": "fashion_mnist_100p_05cpp", "C": 0.1},
+    "fashion_mnist_100p_06cpp": {"dataset_name": "fashion_mnist_100p_06cpp", "C": 0.1},
+    "fashion_mnist_100p_07cpp": {"dataset_name": "fashion_mnist_100p_07cpp", "C": 0.1},
+    "fashion_mnist_100p_08cpp": {"dataset_name": "fashion_mnist_100p_08cpp", "C": 0.1},
+    "fashion_mnist_100p_09cpp": {"dataset_name": "fashion_mnist_100p_09cpp", "C": 0.1},
+    "fashion_mnist_100p_10cpp": {"dataset_name": "fashion_mnist_100p_10cpp", "C": 0.1},
+}
 
 
-def benchmark_ul_fl_FashionMNIST_10p_1000():
-    fn_name = benchmark_ul_fl_FashionMNIST_10p_1000.__name__
-    logging.info("Starting {}".format(fn_name))
-    xy_splits, xy_val, xy_test = load_splits("fashion_mnist_10s_500_1k_bias")
-    _run_unitary_versus_federated(fn_name, xy_splits, xy_val, xy_test, C=0.3)
+def _run_unitary_versus_federated(benchmark_name: str, dataset_name: str, C: float):
+    """
+    :param C: Fraction of participants used in each round of training
+    """
+    logging.info(f"Starting {benchmark_name}")
+    xy_splits, xy_val, xy_test = load_splits(dataset_name)
 
-
-def benchmark_ul_fl_FashionMNIST_10p_5400():
-    fn_name = benchmark_ul_fl_FashionMNIST_10p_5400.__name__
-    logging.info("Starting {}".format(fn_name))
-    xy_splits, xy_val, xy_test = load_splits("fashion_mnist_10s_single_class")
-    _run_unitary_versus_federated(fn_name, xy_splits, xy_val, xy_test, C=0.3)
-
-
-def _run_unitary_versus_federated(name: str, xy_splits, xy_val, xy_test, C):
     start = time.time()
 
     # Train CNN on a single partition ("unitary learning")
     # TODO train n models on all partitions
     partition_id = 0
-    logging.info("Run unitary training using partition {}".format(partition_id))
+    logging.info(f"Run unitary training using partition {partition_id}")
     ul_hist, ul_loss, ul_acc = run.unitary_training(
         xy_splits[partition_id],
         xy_val,
@@ -76,7 +68,7 @@ def _run_unitary_versus_federated(name: str, xy_splits, xy_val, xy_test, C):
 
     # Write results JSON
     results = {
-        "name": name,
+        "name": benchmark_name,
         "start": start,
         "end": end,
         "duration": end - start,
@@ -112,16 +104,10 @@ def _run_unitary_versus_federated(name: str, xy_splits, xy_val, xy_test, C):
         ),
     ]
     # FIXME use different filenames for different datasets
-    report.plot_accs(plot_data, fname="plot.png")
+    report.plot_accuracies(plot_data, fname="plot.png")
 
 
-def main(_):
-    # benchmark_ul_fl_FashionMNIST_10p_IID_balanced()
-    # benchmark_ul_fl_FashionMNIST_10p_1000()
-    # benchmark_ul_fl_FashionMNIST_10p_5400()
-    # benchmark_ul_fl_FashionMNIST_100p_IID_balanced()
-    benchmark_ul_fl_FashionMNIST_100p_non_IID()
-
-
-if __name__ == "__main__":
-    app.run(main=main)
+def main():
+    benchmark_name = FLAGS.benchmark_name
+    kwargs = benchmarks[benchmark_name]
+    _run_unitary_versus_federated(benchmark_name=benchmark_name, **kwargs)
