@@ -103,7 +103,7 @@ def _run_unitary_versus_federated(benchmark_name: str, dataset_name: str, C: flo
         ),
     ]
     # FIXME use different filenames for different datasets
-    report.plot_accs(plot_data, fname="plot.png")
+    report.plot_accuracies(plot_data, fname="plot.png")
 
 
 def main(_):
