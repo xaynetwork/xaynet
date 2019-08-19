@@ -41,8 +41,11 @@ def benchmark_evolutionary_avg():
     )
 
     # Output results
-    # FIXME make legend configurable
-    report.plot_accuracies(hist_a, hist_b, fname="EA-WA-plot.png")
+    report.plot_accuracies(
+        [("EA", hist_a["val_acc"], None), ("WA", hist_b["val_acc"], None)],
+        fname="EA-WA-plot.png",
+    )
+
     # Write results JSON
     results = {}
     results["loss_a"] = float(loss_a)
