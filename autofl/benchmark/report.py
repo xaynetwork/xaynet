@@ -23,17 +23,50 @@ def write_json(results: Dict, fname="benchmark_results.json"):
         json.dump(results, outfile, indent=2, sort_keys=True)
 
 
+def plot_idd_cpp_comparision(
+    data: List[Tuple[str, List[float], Optional[List[int]]]], fname="benchmark_plot.png"
+) -> str:
+    """
+    Plots IDD and Ncpp dataset performance comparision
+
+    :param data: List of tuples which represent (name, values, indices)
+    :param fname: Filename of plot
+
+    :returns: Absolut path to saved plot
+    """
+    assert len(data) == 2, "Expecting a list of two curves"
+
+    xticks_locations = list(range(1, 12, 1))
+    xticks_labels = ["IDD"] + [str(n) for n in range(10, 0, -1)]
+
+    return _plot(
+        data,
+        title="Max achieved accuracy for unitary and federated learning",
+        xlabel="partitioning grade",
+        ylabel="accuracy",
+        fname=fname,
+        save=True,
+        show=False,
+        ylim_max=1.0,
+        xlim_max=12,
+        xticks_args=(xticks_locations, xticks_labels),
+    )
+
+
 def plot_accuracies(
     data: List[Tuple[str, List[float], Optional[List[int]]]], fname="benchmark_plot.png"
-):
+) -> str:
     """
     :param data: List of tuples where each represents a line in the plot
                  with tuple beeing (name, values, indices)
+    :param fname: Filename of plot
+
+    :returns: Absolut path to saved plot
     """
     # Take highest length of values list as xlim_max
     xlim_max = max([len(values) for _, values, _ in data])
 
-    _plot(
+    return _plot(
         data,
         title="Validation set accuracy for unitary and federated learning",
         ylabel="accuracy",
@@ -48,27 +81,36 @@ def plot_accuracies(
 def _plot(
     data: List[Tuple[str, List[float], Optional[List[int]]]],
     title: Optional[str] = None,
+    xlabel: str = "epoch",
     ylabel: str = None,
     fname: Optional[str] = None,
     save: bool = True,
     show: bool = False,
     ylim_max: float = 1.0,
     xlim_max: float = 40.0,
-) -> None:
+    xticks_args: Optional[Tuple[List[int], List[str]]] = None,
+) -> str:
     """
     :param data: List of tuples where each represents a line in the plot
                  with tuple beeing (name, values, indices)
+
+    :returns: For save=True returns absolut path to saved file otherwise None
     """
     assert fname is not None
+
+    fname_abspath = get_abspath(fname)
 
     plt.figure()
     plt.ylim(0.0, ylim_max)
     plt.xlim(0.0, xlim_max)
 
+    if xticks_args is not None:
+        plt.xticks(*xticks_args)
+
     if title is not None:
         plt.title(title)
 
-    plt.xlabel("epoch")
+    plt.xlabel(xlabel)
     plt.ylabel(ylabel)
 
     legend = []
@@ -88,8 +130,9 @@ def _plot(
     if save:
         # if fname is an absolute path use fname directly otherwise assume
         # fname is filename and prepend output_dir
-        fname = get_abspath(fname)
-        plt.savefig(fname=fname, format=FORMAT)
+        plt.savefig(fname=fname_abspath, format=FORMAT)
     if show:
         plt.show()
     plt.close()
+
+    return fname_abspath
