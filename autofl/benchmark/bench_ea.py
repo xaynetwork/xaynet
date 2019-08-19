@@ -8,7 +8,7 @@ from autofl.net import orig_cnn_compiled
 from . import report, run
 
 FLH_C = 0.3  # Fraction of participants used in each round of training
-FLH_E = 1  # Number of training episodes in each round
+FLH_E = 1  # Number of training epochs in each round
 FLH_B = 32  # Batch size used by participants
 
 ROUNDS = 50

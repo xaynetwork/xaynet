@@ -61,10 +61,7 @@ class Coordinator:
         # Collect training results from the participants of this round
         theta_updates, histories = self.train_local_concurrently(theta, participants)
         # Aggregate training results
-        if len(theta_updates) > 1:
-            theta_prime = self.aggregator.aggregate(theta_updates)
-        elif len(theta_updates) == 1:
-            theta_prime = theta_updates[0]
+        theta_prime = self.aggregator.aggregate(theta_updates)
         # Update own model parameters
         self.model.set_weights(theta_prime)
         return histories
