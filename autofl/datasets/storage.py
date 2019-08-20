@@ -1,4 +1,3 @@
-import hashlib
 import os
 from typing import Tuple
 
@@ -6,6 +5,7 @@ import numpy
 import requests
 from absl import flags, logging
 
+from ..helpers.sha1 import checksum
 from ..types import FederatedDataset
 from . import hashes
 
@@ -14,19 +14,6 @@ FLAGS = flags.FLAGS
 
 def default_get_local_datasets_dir():
     return FLAGS.local_datasets_dir
-
-
-def sha1checksum(fpath: str):
-    sha1 = hashlib.sha1()
-
-    with open(fpath, "rb") as f:
-        while True:
-            data = f.read()
-            if not data:
-                break
-            sha1.update(data)
-
-    return sha1.hexdigest()
 
 
 def get_dataset_dir(dataset_name: str, local_datasets_dir: str) -> str:
@@ -74,9 +61,9 @@ def load_ndarray(
     if FLAGS.fetch_datasets and not os.path.isfile(fpath):
         fetch_ndarray(url, fpath)
 
-    # Check sha1checksum after conditional fetch even when no download
+    # Check sha1 checksum after conditional fetch even when no download
     # occured and local dataset was used to avoid accidental corruption
-    sha1 = sha1checksum(fpath)
+    sha1 = checksum(fpath)
 
     if sha1 != ndarray_hash:
         # Delete the downloaded file if it has the wrong hash

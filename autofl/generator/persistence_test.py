@@ -3,7 +3,7 @@ import os
 import numpy as np
 import pytest
 
-from autofl.datasets import storage
+from autofl.helpers import sha1
 
 from ..types import FederatedDataset
 from . import persistence
@@ -122,11 +122,11 @@ def test_save_splits(monkeypatch, tmp_path, mock_random_splits_2_dataset):
     def mock_save(fname: str, data: np.ndarray, storage_dir: str):
         files_passed_to_save.append((fname, data, storage_dir))
 
-    def mock_sha1checksum(fpath: str):
+    def mock_checksum(fpath: str):
         return "MOCK_CHECKSUM_FOR: {}".format(fpath)
 
     monkeypatch.setattr(persistence, "save", mock_save)
-    monkeypatch.setattr(storage, "sha1checksum", mock_sha1checksum)
+    monkeypatch.setattr(sha1, "checksum", mock_checksum)
 
     # Execute
     persistence.save_splits(
