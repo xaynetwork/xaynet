@@ -26,3 +26,8 @@ test_slow:
   stage: qa
   script:
     - ./scripts/test_slow.sh
+
+test_benchmark:
+  stage: qa
+  script:
+    - train --benchmark_name=integration_test

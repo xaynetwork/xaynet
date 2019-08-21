@@ -1,7 +1,7 @@
 import time
 from typing import List, Optional, Tuple
 
-from absl import flags, logging
+from absl import app, flags, logging
 
 from autofl.datasets import load_splits
 
@@ -115,7 +115,12 @@ def run_unitary_versus_federated(
     report.plot_accuracies(plot_data, fname="plot.png")
 
 
-def main():
+def main(_):
     benchmark_name = FLAGS.benchmark_name
     kwargs = benchmarks[benchmark_name]
     run_unitary_versus_federated(benchmark_name=benchmark_name, **kwargs)
+
+
+if __name__ == "__main__":
+    FLAGS(["_", "--benchmark_name=fashion_mnist_100p_IID_balanced"])
+    app.run(main=main)
