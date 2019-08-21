@@ -17,6 +17,12 @@ class Aggregator(ABC):
         raise NotImplementedError()
 
 
+class IdentityAgg(Aggregator):
+    def aggregate(self, thetas: List[KerasWeights]) -> KerasWeights:
+        assert len(thetas) == 1
+        return thetas[0]
+
+
 class WeightedAverageAgg(Aggregator):
     def aggregate(self, thetas: List[KerasWeights]) -> KerasWeights:
         return federated_averaging(thetas)

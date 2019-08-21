@@ -10,11 +10,10 @@ from . import report, run
 FLAGS = flags.FLAGS
 
 # Default parameters for _run_unitary_versus_federated
-FLH_C = 0.1  # Fraction of participants in each round
-FLH_E = 4  # Number of training episodes in each round
+FLH_C = 0.1  # Fraction of participants used in each round of training
+FLH_E = 4  # Number of training epochs in each round
 FLH_B = 32  # Batch size used by participants
-
-ROUNDS = 50
+ROUNDS = 50  # Number of total rounds to train
 
 
 """
@@ -24,7 +23,7 @@ benchmarks = {
     "integration_test": {
         "dataset_name": "fashion_mnist_100p_01cpp",
         "C": 0.02,  # two participants
-        "E": 2,  # two episodes per round
+        "E": 2,  # two epochs per round
         "rounds": 2,  # two rounds
     },
     "fashion_mnist_100p_IID_balanced": {
