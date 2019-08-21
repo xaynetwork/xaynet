@@ -14,7 +14,7 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 from absl import logging
 
-from autofl.datasets import storage
+from autofl.helpers import sha1
 from autofl.types import FederatedDataset, FnameNDArrayTuple
 
 
@@ -79,14 +79,14 @@ def save_splits(dataset_name: str, dataset: FederatedDataset, local_generator_di
 
         print("{}/{}".format(dataset_dir, fname))
 
-        sha1 = storage.sha1checksum("{}/{}".format(dataset_dir, fname))
+        sha1cs = sha1.checksum("{}/{}".format(dataset_dir, fname))
 
         storage_key = fname[2:-4]
 
         if storage_key not in split_hashes:
             split_hashes[storage_key] = [None, None]
 
-        split_hashes[storage_key][0 if "x_" in fname else 1] = sha1
+        split_hashes[storage_key][0 if "x_" in fname else 1] = sha1cs
 
     logging.info("DATASET_SPLIT_HASHES={}".format(pprint.pformat(split_hashes)))
     logging.info("{} generated and stored\n".format(dataset_name))

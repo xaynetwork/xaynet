@@ -6,7 +6,16 @@ set -e
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd $DIR/../
 
-export BENCHMARK_GROUP=non_IID_to_IID
+read -p "Enter a group id which will be append to non_IID_to_IID-" GROUP_ID
+
+# Will be used in image_tag.py
+# unfortunatly the whole thing is a bit hacky
+export BENCHMARK_GROUP="IID_non_IID_$GROUP_ID"
+
+echo "Running benchmark with group id => $BENCHMARK_GROUP"
+
+# IID
+./scripts/train_remote.sh --benchmark_name fashion_mnist_100p_IID_balanced
 
 # non-IID
 ./scripts/train_remote.sh --benchmark_name fashion_mnist_100p_01cpp
@@ -19,6 +28,3 @@ export BENCHMARK_GROUP=non_IID_to_IID
 ./scripts/train_remote.sh --benchmark_name fashion_mnist_100p_08cpp
 ./scripts/train_remote.sh --benchmark_name fashion_mnist_100p_09cpp
 ./scripts/train_remote.sh --benchmark_name fashion_mnist_100p_10cpp
-
-# IID
-./scripts/train_remote.sh --benchmark_name fashion_mnist_100p_IID_balanced

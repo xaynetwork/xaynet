@@ -23,11 +23,11 @@ def write_json(results: Dict, fname="benchmark_results.json"):
         json.dump(results, outfile, indent=2, sort_keys=True)
 
 
-def plot_idd_cpp_comparision(
+def plot_iid_noniid_comparison(
     data: List[Tuple[str, List[float], Optional[List[int]]]], fname="benchmark_plot.png"
 ) -> str:
     """
-    Plots IDD and Ncpp dataset performance comparision
+    Plots IID and Non-IID dataset performance comparision
 
     :param data: List of tuples which represent (name, values, indices)
     :param fname: Filename of plot
@@ -37,7 +37,7 @@ def plot_idd_cpp_comparision(
     assert len(data) == 2, "Expecting a list of two curves"
 
     xticks_locations = list(range(1, 12, 1))
-    xticks_labels = ["IDD"] + [str(n) for n in range(10, 0, -1)]
+    xticks_labels = ["IID"] + [str(n) for n in range(10, 0, -1)]
 
     return _plot(
         data,
@@ -105,7 +105,8 @@ def _plot(
     plt.xlim(0.0, xlim_max)
 
     if xticks_args is not None:
-        plt.xticks(*xticks_args)
+        xticks_locations, xticks_labels = xticks_args
+        plt.xticks(xticks_locations, xticks_labels)
 
     if title is not None:
         plt.title(title)

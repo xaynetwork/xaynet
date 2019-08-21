@@ -1,25 +1,12 @@
-import hashlib
 import os
 
 import pytest
 from absl import flags
 
+from ..helpers.sha1 import checksum
 from . import report
 
 FLAGS = flags.FLAGS
-
-
-def sha1checksum(fpath: str):
-    sha1 = hashlib.sha1()
-
-    with open(fpath, "rb") as f:
-        while True:
-            data = f.read()
-            if not data:
-                break
-            sha1.update(data)
-
-    return sha1.hexdigest()
 
 
 def test_get_abspath_fname_with_absolute_path():
@@ -48,7 +35,7 @@ def test_get_abspath_fname_only_filename(output_dir):
 
 
 @pytest.mark.integration
-def test_plot_idd_cpp_comparision(output_dir):
+def test_plot_iid_noniid_comparison(output_dir):
     # Prepare
     data = [
         (
@@ -64,10 +51,10 @@ def test_plot_idd_cpp_comparision(output_dir):
     ]
     fname = "myplot.png"
     expected_filepath = os.path.join(output_dir, fname)
-    expected_sha1 = "109d91d90a7a746fa1e99cd198d823025db3bd17"
+    expected_sha1 = "98b214a3f783a376645b9936b28bb5918283cc88"
 
     # Execute
-    actual_filepath = report.plot_idd_cpp_comparision(data=data, fname=fname)
+    actual_filepath = report.plot_iid_noniid_comparison(data=data, fname=fname)
 
     # If any error occurs we will be able to look at the plot. If the the ploting
     # logic is changed the file under this path can be used to get the new hash
@@ -76,7 +63,7 @@ def test_plot_idd_cpp_comparision(output_dir):
 
     # Assert
     assert expected_filepath == actual_filepath
-    assert expected_sha1 == sha1checksum(actual_filepath), "Checksum not matching"
+    assert expected_sha1 == checksum(actual_filepath), "Checksum not matching"
 
 
 @pytest.mark.integration
@@ -108,4 +95,4 @@ def test_plot_accuracies(output_dir):
 
     # Assert
     assert expected_filepath == actual_filepath
-    assert expected_sha1 == sha1checksum(actual_filepath), "Checksum not matching"
+    assert expected_sha1 == checksum(actual_filepath), "Checksum not matching"
