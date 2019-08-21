@@ -3,28 +3,97 @@ import os
 from typing import Dict, List, Optional, Tuple
 
 import matplotlib.pyplot as plt
-from absl import flags
+from absl import app, flags
 
 FORMAT: str = "png"
 
 FLAGS = flags.FLAGS
 
 
-def get_abspath(fname: str) -> str:
+def get_abspath(fname: str, fdir: str = None) -> str:
     if os.path.isabs(fname):
         return fname
 
-    return os.path.join(FLAGS.output_dir, fname)
+    if fdir is None:
+        raise Exception("For relative fname fdir is required")
+
+    return os.path.join(fdir, fname)
 
 
-def write_json(results: Dict, fname="benchmark_results.json"):
-    fname = get_abspath(fname)
+def write_json(results: Dict, fname="results.json"):
+    fname = get_abspath(fname, FLAGS.output_dir)
     with open(fname, "w") as outfile:
         json.dump(results, outfile, indent=2, sort_keys=True)
 
 
+def read_json(fname="results.json"):
+    fname = get_abspath(fname, FLAGS.output_dir)
+    with open(fname, "r") as outfile:
+        return json.loads(outfile.read())
+
+
+def read_uni_vs_fed_acc_stats(
+    filter_substring: str
+) -> Tuple[Dict[str, float], Dict[str, float]]:
+    """
+    Reads results directory for given group id and
+    extracts values from results.json files
+
+    :param filter_substring: has to be part of the dir name in results directory
+
+    :returns: tuple of dicts (unitary, federated) which contain Dict[benchmark_name, accuracy]
+    """
+    assert os.path.isdir(FLAGS.results_dir)
+
+    # get list of all directories which contain given substring
+    matches = [
+        dname for dname in os.listdir(FLAGS.results_dir) if filter_substring in dname
+    ]
+
+    # get list of all results.json files
+    result_files = [os.path.join(FLAGS.results_dir, m, "results.json") for m in matches]
+
+    # get list of dicts for all results.json files
+    jsons = [read_json(fname) for fname in result_files]
+
+    # Values in the form { benchmark_name: acc } for unitary and federated learning
+    uni_values = {json["name"]: json["unitary_learning"]["acc"] for json in jsons}
+    fed_values = {json["name"]: json["federated_learning"]["acc"] for json in jsons}
+
+    return (uni_values, fed_values)
+
+
+def plot_iid_noniid_comparison_from_results():
+    uni_values, fed_values = read_uni_vs_fed_acc_stats(
+        filter_substring=FLAGS.IID_nonIID_group_name
+    )
+
+    order = [
+        "fashion_mnist_100p_IID_balanced",
+        "fashion_mnist_100p_10cpp",
+        "fashion_mnist_100p_09cpp",
+        "fashion_mnist_100p_08cpp",
+        "fashion_mnist_100p_07cpp",
+        "fashion_mnist_100p_06cpp",
+        "fashion_mnist_100p_05cpp",
+        "fashion_mnist_100p_04cpp",
+        "fashion_mnist_100p_03cpp",
+        "fashion_mnist_100p_02cpp",
+        "fashion_mnist_100p_01cpp",
+    ]
+
+    data = [
+        ("unitary", [uni_values[n] for n in order], range(1, 12, 1)),
+        ("federated", [fed_values[n] for n in order], range(1, 12, 1)),
+    ]
+
+    fname = plot_iid_noniid_comparison(data)
+
+    print(f"Data ploted and save in {fname}")
+
+
 def plot_iid_noniid_comparison(
-    data: List[Tuple[str, List[float], Optional[List[int]]]], fname="benchmark_plot.png"
+    data: List[Tuple[str, List[float], Optional[List[int]]]], fname="plot.png"
 ) -> str:
     """
     Plots IID and Non-IID dataset performance comparision
@@ -54,7 +123,7 @@ def plot_iid_noniid_comparison(
 
 
 def plot_accuracies(
-    data: List[Tuple[str, List[float], Optional[List[int]]]], fname="benchmark_plot.png"
+    data: List[Tuple[str, List[float], Optional[List[int]]]], fname="plot.png"
 ) -> str:
     """
     :param data: List of tuples where each represents a line in the plot
@@ -98,7 +167,7 @@ def _plot(
     """
     assert fname is not None
 
-    fname_abspath = get_abspath(fname)
+    fname_abspath = get_abspath(fname, FLAGS.output_dir)
 
     plt.figure()
     plt.ylim(0.0, ylim_max)
@@ -137,3 +206,11 @@ def _plot(
     plt.close()
 
     return fname_abspath
+
+
+def main(_):
+    plot_iid_noniid_comparison_from_results()
+
+
+if __name__ == "__main__":
+    app.run(main=main)

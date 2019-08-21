@@ -27,7 +27,7 @@ def test_get_abspath_fname_only_filename(output_dir):
     expected_abspath = os.path.join(output_dir, fname)
 
     # Execute
-    actual_abspath = report.get_abspath(fname)
+    actual_abspath = report.get_abspath(fname, output_dir)
 
     # Assert
     assert expected_abspath == actual_abspath
