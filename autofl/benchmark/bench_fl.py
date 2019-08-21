@@ -122,5 +122,7 @@ def main(_):
 
 
 if __name__ == "__main__":
+    # Flags will be overriden by manually set flags as they will be parsed
+    # again in the app.run invokation and overrides those set here
     FLAGS(["_", "--benchmark_name=fashion_mnist_100p_IID_balanced"])
     app.run(main=main)
