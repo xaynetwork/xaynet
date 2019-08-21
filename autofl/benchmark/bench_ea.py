@@ -1,4 +1,4 @@
-from absl import logging
+from absl import app, logging
 
 from autofl.datasets import load_splits
 from autofl.fl.coordinator.aggregate import EvoAgg
@@ -62,5 +62,9 @@ def benchmark_evolutionary_avg_with_noise():
     raise NotImplementedError()
 
 
-def main():
+def main(_):
     benchmark_evolutionary_avg()
+
+
+if __name__ == "__main__":
+    app.run(main=main)
