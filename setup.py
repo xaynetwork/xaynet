@@ -76,7 +76,7 @@ setup(
             "fedml_individual=autofl.fedml.fedml:individual",
             "fedml_round_robin=autofl.fedml.fedml:round_robin",
             "fedml_federated_learning=autofl.fedml.fedml:federated_learning",
-            "train=autofl.benchmark.__main__:main",
+            "train=autofl.benchmark.__main__:main_wrapper",
         ]
     },
 )
