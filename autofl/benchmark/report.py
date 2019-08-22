@@ -37,12 +37,12 @@ def read_accuracies_from_results(dname: str):
     :param dname: directory in which the results.json file can be found
     """
     fname = os.path.join(FLAGS.results_dir, dname, "results.json")
-    json = read_json(fname)
+    data = read_json(fname)
 
     return (
-        json["name"],
-        json["unitary_learning"]["acc"],
-        json["federated_learning"]["acc"],
+        data["name"],
+        data["unitary_learning"]["acc"],
+        data["federated_learning"]["acc"],
     )
 
 
@@ -62,7 +62,8 @@ def read_uni_vs_fed_acc_stats(filter_substring: str) -> List[Tuple[str, float, f
         filter(lambda d: filter_substring in d, os.listdir(FLAGS.results_dir))
     )
 
-    assert len(matches) > 0, "No values results found for given group_name"
+    if not matches:
+        raise Exception("No values results found for given group_name")
 
     return list(map(read_accuracies_from_results, matches))
 
