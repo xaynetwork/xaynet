@@ -32,58 +32,65 @@ def read_json(fname: str):
         return json.loads(outfile.read())
 
 
-def read_uni_vs_fed_acc_stats(
-    filter_substring: str
-) -> Tuple[Dict[str, float], Dict[str, float]]:
+def read_accuracies_from_results(dname: str):
+    """Reads unitary and federated accuracy from results.json
+    :param dname: directory in which the results.json file can be found
+    """
+    fname = os.path.join(FLAGS.results_dir, dname, "results.json")
+    json = read_json(fname)
+
+    return (
+        json["name"],
+        json["unitary_learning"]["acc"],
+        json["federated_learning"]["acc"],
+    )
+
+
+def read_uni_vs_fed_acc_stats(filter_substring: str) -> List[Tuple[str, float, float]]:
     """
     Reads results directory for given group id and
     extracts values from results.json files
 
     :param filter_substring: has to be part of the dir name in results directory
 
-    :returns: tuple of dicts (unitary, federated) which contain Dict[benchmark_name, accuracy]
+    :returns: List of tuples (benchmark_name, unitary_accuracy, federated_accuracy)
     """
     assert os.path.isdir(FLAGS.results_dir)
 
     # get list of all directories which contain given substring
-    matches = [
-        dname for dname in os.listdir(FLAGS.results_dir) if filter_substring in dname
-    ]
+    matches = list(
+        filter(lambda d: filter_substring in d, os.listdir(FLAGS.results_dir))
+    )
 
-    # get list of all results.json files
-    result_files = [os.path.join(FLAGS.results_dir, m, "results.json") for m in matches]
+    assert len(matches) > 0, "No values results found for given group_name"
 
-    # get list of dicts for all results.json files
-    jsons = [read_json(fname) for fname in result_files]
-
-    # Values in the form { benchmark_name: acc } for unitary and federated learning
-    uni_values = {json["name"]: json["unitary_learning"]["acc"] for json in jsons}
-    fed_values = {json["name"]: json["federated_learning"]["acc"] for json in jsons}
-
-    return (uni_values, fed_values)
+    return list(map(read_accuracies_from_results, matches))
 
 
 def plot_uni_vs_fed_acc_stats():
-    uni_values, fed_values = read_uni_vs_fed_acc_stats(
-        filter_substring=FLAGS.group_name
-    )
-
-    # Values should come in pairs
-    assert len(uni_values) == len(fed_values)
+    # List of tuples (benchmark_name, unitary_accuracy, federated_accuracy)
+    values = read_uni_vs_fed_acc_stats(filter_substring=FLAGS.group_name)
 
     # reverse order data by name
     # e.g. "fashion_mnist_100p_07cpp" before "fashion_mnist_100p_05cpp",
-    sorted_names = sorted(uni_values.keys(), reverse=True)
-    indices = range(1, len(sorted_names) + 1, 1)
+    sorted_values = sorted(values, key=lambda v: v[0], reverse=True)
+    indices = range(1, len(sorted_values) + 1)
+
+    # For better understanding:
+    # zip(*[('a0', 'b0', 'c0'), ('a1', 'b1', 'c1')]) == [('a0', 'a1'), ('b0', 'b1'), ('c0', 'c1')]
+    # list(('a0', 'a1')) == ['a0', 'a1']
+    benchmark_names, unitary_accuracies, federated_accuracies = map(
+        list, zip(*sorted_values)
+    )
 
     data = [
-        ("unitary", [uni_values[n] for n in sorted_names], indices),
-        ("federated", [fed_values[n] for n in sorted_names], indices),
+        ("unitary", unitary_accuracies, indices),
+        ("federated", federated_accuracies, indices),
     ]
 
     fname = plot_iid_noniid_comparison(
         data,
-        xticks_args=(indices, [name[19:] for name in sorted_names]),
+        xticks_args=(indices, [name[19:] for name in benchmark_names]),
         fname=f"plot_{FLAGS.group_name}.png",
     )
 
