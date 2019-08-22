@@ -20,13 +20,13 @@ def get_abspath(fname: str, fdir: str = None) -> str:
     return os.path.join(fdir, fname)
 
 
-def write_json(results: Dict, fname="results.json"):
+def write_json(results: Dict, fname: str):
     fname = get_abspath(fname, FLAGS.output_dir)
     with open(fname, "w") as outfile:
         json.dump(results, outfile, indent=2, sort_keys=True)
 
 
-def read_json(fname="results.json"):
+def read_json(fname: str):
     fname = get_abspath(fname, FLAGS.output_dir)
     with open(fname, "r") as outfile:
         return json.loads(outfile.read())
