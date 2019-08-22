@@ -71,8 +71,6 @@ def plot_uni_vs_fed_acc_stats():
     # Values should come in pairs
     assert len(uni_values) == len(fed_values)
 
-    num_values = len(fed_values)
-
     # reverse order data by name
     # e.g. "fashion_mnist_100p_07cpp" before "fashion_mnist_100p_05cpp",
     sorted_names = sorted(uni_values.keys(), reverse=True)
