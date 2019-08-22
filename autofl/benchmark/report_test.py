@@ -51,7 +51,7 @@ def test_plot_iid_noniid_comparison(output_dir):
     ]
     fname = "myplot.png"
     expected_filepath = os.path.join(output_dir, fname)
-    expected_sha1 = "98b214a3f783a376645b9936b28bb5918283cc88"
+    expected_sha1 = "dc35c4ef5545aad050b95759725d0926cc2e6684"
 
     # Execute
     actual_filepath = report.plot_iid_noniid_comparison(data=data, fname=fname)
@@ -83,7 +83,7 @@ def test_plot_accuracies(output_dir):
     ]
     fname = "myplot.png"
     expected_filepath = os.path.join(output_dir, fname)
-    expected_sha1 = "f8d835bc1a5443ee40fa69dd9e222f61c154f1be"
+    expected_sha1 = "457baa8179f08f06c4e60213eb0bbbe79a4f9d3e"
 
     # Execute
     actual_filepath = report.plot_accuracies(data=data, fname=fname)
