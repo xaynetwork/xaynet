@@ -27,8 +27,4 @@ flags.DEFINE_string(
     "benchmark_name", None, "Name of the benchmark to be run e.g 'integration_test'"
 )
 
-flags.DEFINE_string(
-    "IID_nonIID_group_name",
-    None,
-    "Group name to be ploted for the IID_nonIID benchmark",
-)
+flags.DEFINE_string("group_name", None, "Group name to be ploted")

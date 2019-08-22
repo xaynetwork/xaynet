@@ -63,37 +63,39 @@ def read_uni_vs_fed_acc_stats(
     return (uni_values, fed_values)
 
 
-def plot_iid_noniid_comparison_from_results():
+def plot_uni_vs_fed_acc_stats():
     uni_values, fed_values = read_uni_vs_fed_acc_stats(
-        filter_substring=FLAGS.IID_nonIID_group_name
+        filter_substring=FLAGS.group_name
     )
 
-    order = [
-        "fashion_mnist_100p_IID_balanced",
-        "fashion_mnist_100p_10cpp",
-        "fashion_mnist_100p_09cpp",
-        "fashion_mnist_100p_08cpp",
-        "fashion_mnist_100p_07cpp",
-        "fashion_mnist_100p_06cpp",
-        "fashion_mnist_100p_05cpp",
-        "fashion_mnist_100p_04cpp",
-        "fashion_mnist_100p_03cpp",
-        "fashion_mnist_100p_02cpp",
-        "fashion_mnist_100p_01cpp",
-    ]
+    # Values should come in pairs
+    assert len(uni_values) == len(fed_values)
+
+    num_values = len(fed_values)
+
+    # reverse order data by name
+    # e.g. "fashion_mnist_100p_07cpp" before "fashion_mnist_100p_05cpp",
+    sorted_names = sorted(uni_values.keys(), reverse=True)
+    indices = range(1, len(sorted_names) + 1, 1)
 
     data = [
-        ("unitary", [uni_values[n] for n in order], range(1, 12, 1)),
-        ("federated", [fed_values[n] for n in order], range(1, 12, 1)),
+        ("unitary", [uni_values[n] for n in sorted_names], indices),
+        ("federated", [fed_values[n] for n in sorted_names], indices),
     ]
 
-    fname = plot_iid_noniid_comparison(data)
+    fname = plot_iid_noniid_comparison(
+        data,
+        xticks_args=(indices, [name[19:] for name in sorted_names]),
+        fname=f"plot_{FLAGS.group_name}.png",
+    )
 
     print(f"Data ploted and save in {fname}")
 
 
 def plot_iid_noniid_comparison(
-    data: List[Tuple[str, List[float], Optional[List[int]]]], fname="plot.png"
+    data: List[Tuple[str, List[float], Optional[List[int]]]],
+    xticks_args: Optional[Tuple[List[int], List[str]]] = None,
+    fname="plot.png",
 ) -> str:
     """
     Plots IID and Non-IID dataset performance comparision
@@ -105,8 +107,11 @@ def plot_iid_noniid_comparison(
     """
     assert len(data) == 2, "Expecting a list of two curves"
 
-    xticks_locations = list(range(1, 12, 1))
-    xticks_labels = ["IID"] + [str(n) for n in range(10, 0, -1)]
+    if xticks_args:
+        xticks_locations, xticks_labels = xticks_args
+    else:
+        xticks_locations = list(range(1, 12, 1))
+        xticks_labels = ["IID"] + [str(n) for n in range(10, 0, -1)]
 
     return _plot(
         data,
@@ -119,6 +124,7 @@ def plot_iid_noniid_comparison(
         ylim_max=1.0,
         xlim_max=12,
         xticks_args=(xticks_locations, xticks_labels),
+        legend_loc="upper right",
     )
 
 
@@ -158,6 +164,7 @@ def _plot(
     ylim_max: float = 1.0,
     xlim_max: float = 40.0,
     xticks_args: Optional[Tuple[List[int], List[str]]] = None,
+    legend_loc: str = "lower right",
 ) -> str:
     """
     :param data: List of tuples where each represents a line in the plot
@@ -175,7 +182,7 @@ def _plot(
 
     if xticks_args is not None:
         xticks_locations, xticks_labels = xticks_args
-        plt.xticks(xticks_locations, xticks_labels)
+        plt.xticks(xticks_locations, xticks_labels, rotation=90)
 
     if title is not None:
         plt.title(title)
@@ -195,7 +202,10 @@ def _plot(
             assert len(values) == len(indices)
             plt.plot(indices, values)
 
-    plt.legend(legend, loc="lower right")
+    plt.legend(legend, loc=legend_loc)
+
+    # https://matplotlib.org/users/tight_layout_guide.html
+    plt.tight_layout()
 
     if save:
         # if fname is an absolute path use fname directly otherwise assume
@@ -209,7 +219,7 @@ def _plot(
 
 
 def main(_):
-    plot_iid_noniid_comparison_from_results()
+    plot_uni_vs_fed_acc_stats()
 
 
 if __name__ == "__main__":
