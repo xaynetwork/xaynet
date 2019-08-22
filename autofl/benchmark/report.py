@@ -87,7 +87,7 @@ def plot_uni_vs_fed_acc_stats():
         fname=f"plot_{FLAGS.group_name}.png",
     )
 
-    print(f"Data ploted and save in {fname}")
+    print(f"Data plotted and saved in {fname}")
 
 
 def plot_iid_noniid_comparison(
