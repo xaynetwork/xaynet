@@ -51,10 +51,15 @@ def test_plot_iid_noniid_comparison(output_dir):
     ]
     fname = "myplot.png"
     expected_filepath = os.path.join(output_dir, fname)
-    expected_sha1 = "dc35c4ef5545aad050b95759725d0926cc2e6684"
+    expected_sha1 = "4b9fb44d7d3f92889ada5d59bb74d21a34a5fdaa"
+
+    xticks_locations = range(1, 12, 1)
+    xticks_labels = [chr(i) for i in range(65, 77, 1)]  # A, B, ..., K
 
     # Execute
-    actual_filepath = report.plot_iid_noniid_comparison(data=data, fname=fname)
+    actual_filepath = report.plot_iid_noniid_comparison(
+        data=data, xticks_args=(xticks_locations, xticks_labels), fname=fname
+    )
 
     # If any error occurs we will be able to look at the plot. If the the ploting
     # logic is changed the file under this path can be used to get the new hash

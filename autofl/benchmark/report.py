@@ -92,7 +92,7 @@ def plot_uni_vs_fed_acc_stats():
 
 def plot_iid_noniid_comparison(
     data: List[Tuple[str, List[float], Optional[List[int]]]],
-    xticks_args: Optional[Tuple[List[int], List[str]]] = None,
+    xticks_args: Optional[Tuple[List[int], List[str]]],
     fname="plot.png",
 ) -> str:
     """
@@ -105,12 +105,6 @@ def plot_iid_noniid_comparison(
     """
     assert len(data) == 2, "Expecting a list of two curves"
 
-    if xticks_args:
-        xticks_locations, xticks_labels = xticks_args
-    else:
-        xticks_locations = list(range(1, 12, 1))
-        xticks_labels = ["IID"] + [str(n) for n in range(10, 0, -1)]
-
     return _plot(
         data,
         title="Max achieved accuracy for unitary and federated learning",
@@ -121,7 +115,7 @@ def plot_iid_noniid_comparison(
         show=False,
         ylim_max=1.0,
         xlim_max=12,
-        xticks_args=(xticks_locations, xticks_labels),
+        xticks_args=xticks_args,
         legend_loc="upper right",
     )
 
@@ -180,7 +174,9 @@ def _plot(
 
     if xticks_args is not None:
         xticks_locations, xticks_labels = xticks_args
-        plt.xticks(xticks_locations, xticks_labels, rotation=90)
+        # if any label has length > 3 rotate labels by 90 degrees
+        rot = 90 if any([len(l) > 3 for l in xticks_labels]) else 0
+        plt.xticks(xticks_locations, xticks_labels, rotation=rot)
 
     if title is not None:
         plt.title(title)
