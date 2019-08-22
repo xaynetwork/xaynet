@@ -41,7 +41,8 @@ def blog_cnn_compiled(
     model.add(Dense(num_classes, activation="softmax", kernel_initializer=ki))
 
     # Compile model
+    optimizer = "adam"
     model.compile(
-        loss="categorical_crossentropy", optimizer="adam", metrics=["accuracy"]
+        loss="categorical_crossentropy", optimizer=optimizer, metrics=["accuracy"]
     )
     return model

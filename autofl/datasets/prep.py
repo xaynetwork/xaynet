@@ -9,23 +9,23 @@ SEED = 1096
 
 
 def init_ds_train(
-    xy: Tuple[np.ndarray, np.ndarray], num_classes=10, batch_size=32
+    xy: Tuple[np.ndarray, np.ndarray], num_classes=10, batch_size=32, augmentation=False
 ) -> Dataset:
-    return init_ds(xy, num_classes, batch_size, augmentation=True, shuffle=True)
+    return _init_ds(xy, num_classes, batch_size, augmentation, shuffle=True)
 
 
 def init_ds_val(xy: Tuple[np.ndarray, np.ndarray], num_classes=10) -> Dataset:
     batch_size = xy[0].shape[0]  # Return full dataset as one large batch
-    return init_ds(xy, num_classes, batch_size, augmentation=False, shuffle=False)
+    return _init_ds(xy, num_classes, batch_size, augmentation=False, shuffle=False)
 
 
 # pylint: disable-msg=too-many-arguments
-def init_ds(
+def _init_ds(
     xy: Tuple[np.ndarray, np.ndarray],
     num_classes: int,
     batch_size: int,
-    augmentation=False,
-    shuffle=False,
+    augmentation: bool,
+    shuffle: bool,
 ) -> Dataset:
     (x, y) = xy
     # Assume that each row in `x` corresponds to the same row in `y`
