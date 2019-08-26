@@ -101,7 +101,7 @@ def action_to_indices(action: np.ndarray) -> np.ndarray:
 
 
 def init_fl() -> Tuple[Coordinator, Any, Any]:
-    xy_splits, xy_val, xy_test = load_splits("fashion_mnist_10s_600")
+    xy_splits, xy_val, xy_test = load_splits("fashion_mnist_100p_03cpp")
     assert xy_splits is not None, "xy_splits is None"
     assert xy_val is not None, "xy_val is None"
     assert xy_test is not None, "xy_test is None"

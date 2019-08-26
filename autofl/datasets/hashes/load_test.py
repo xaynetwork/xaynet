@@ -7,5 +7,5 @@ def test_load_hashes():
 
     # Prepare
     assert isinstance(dataset_hashes, dict)
-    assert "fashion_mnist_100p_non_IID" in dataset_hashes.keys()
-    assert len(dataset_hashes["fashion_mnist_100p_non_IID"].keys()) == 102
+    assert "fashion_mnist_100p_01cpp" in dataset_hashes.keys()
+    assert len(dataset_hashes["fashion_mnist_100p_01cpp"].keys()) == 102

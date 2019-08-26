@@ -167,6 +167,7 @@ def test_save_load_splits(tmp_path, mock_random_splits_2_dataset):
         # remove .npy ending with [:-4]
         fname[:-4]: np.load(fpath(fname))
         for fname in os.listdir(dataset_dir)
+        if "npy" in fname
     }
 
     dataset_actual = (

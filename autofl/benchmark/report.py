@@ -1,35 +1,14 @@
-import json
 import os
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import matplotlib.pyplot as plt
 from absl import app, flags
 
+from autofl import helpers
+
 FORMAT: str = "png"
 
 FLAGS = flags.FLAGS
-
-
-def get_abspath(fname: str, fdir: str = None) -> str:
-    if os.path.isabs(fname):
-        return fname
-
-    if fdir is None:
-        raise Exception("For relative fname fdir is required")
-
-    return os.path.join(fdir, fname)
-
-
-def write_json(results: Dict, fname: str):
-    fname = get_abspath(fname, FLAGS.output_dir)
-    with open(fname, "w") as outfile:
-        json.dump(results, outfile, indent=2, sort_keys=True)
-
-
-def read_json(fname: str):
-    fname = get_abspath(fname, FLAGS.output_dir)
-    with open(fname, "r") as outfile:
-        return json.loads(outfile.read())
 
 
 def read_accuracies_from_results(dname: str):
@@ -37,7 +16,7 @@ def read_accuracies_from_results(dname: str):
     :param dname: directory in which the results.json file can be found
     """
     fname = os.path.join(FLAGS.results_dir, dname, "results.json")
-    data = read_json(fname)
+    data = helpers.storage.read_json(fname)
 
     return (
         data["name"],
@@ -174,7 +153,7 @@ def _plot(
     """
     assert fname is not None
 
-    fname_abspath = get_abspath(fname, FLAGS.output_dir)
+    fname_abspath = helpers.storage.get_abspath(fname, FLAGS.output_dir)
 
     plt.figure()
     plt.ylim(0.0, ylim_max)

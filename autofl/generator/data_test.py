@@ -4,9 +4,6 @@ import tensorflow as tf
 
 from . import data
 
-assert_equal = np.testing.assert_equal
-assert_raises = np.testing.assert_raises
-
 
 @pytest.mark.integration
 def test_load():
@@ -270,18 +267,76 @@ def test_biased_balanced_labels_shuffle(bias, example_count):  # pylint: disable
                 assert unique_count == unbiased_label_count
 
 
-@pytest.mark.parametrize("max_classes_per_partition", [(1), (5), (10)])
-@pytest.mark.parametrize(
-    "num_partitions, example_count", [(10, 1000), (20, 3000), (100, 6000)]
-)
+# def test_Bucket(replace, num_classes, num_per_class, num_per_pick):
+#     # Prepare
+#     bucket = data.Bucket(num_classes=num_classes, num_per_class=num_per_class)
+#     expected_bucket_size = num_classes * num_per_class
+#     expected_total_picks_till_empty = math.ceil(expected_bucket_size / num_per_pick)
+
+#     # Execute
+#     if not replace and num_per_pick > num_classes:
+#         with pytest.raises(Exception):
+#             bucket.pick(num_per_pick, replace=replace)
+#             # FIXME: don't rturn rather use some pytest method here
+#         return
+
+#     picks = np.array([], dtype=np.int8)
+
+#     # try to pick too much
+#     for _ in range(expected_total_picks_till_empty):
+#         picks = np.concatenate([picks, bucket.pick(num_per_pick, replace=replace)])
+
+#     # Assert
+#     # picks should contain num_classes * num_per_class entries
+#     assert picks.size == expected_bucket_size
+
+#     # Bucket should be empty after num_per_class picks
+#     assert set(bucket.storage) == set([0])
+
+#     actual_unq_classes = np.unique(picks, return_counts=True)[1]
+
+#     # Each class should be picked equal amount times
+#     assert len(set(actual_unq_classes)) == 1
+
+
+@pytest.mark.parametrize("cpp", [1, 5, 10])
+def test_partition_distribution(cpp):
+    # Prepare
+    num_partitions = 10
+    num_classes = 10
+    num_sections = cpp * num_partitions
+    num_per_class = num_sections / num_classes
+
+    # Execute
+    p_dist = data.partition_distribution(
+        num_classes=num_classes, num_partitions=num_partitions, cpp=cpp
+    )
+
+    # Assert
+    assert len(p_dist) == num_partitions
+
+    for partition in p_dist:
+        non_zero = np.count_nonzero(partition)
+        assert non_zero == cpp
+
+    assert np.sum(p_dist) == num_sections
+
+    # Each class should occur globally same number of times
+    for column in p_dist.T:
+        assert np.sum(column) == num_per_class
+
+
+@pytest.mark.parametrize("cpp", [1, 5, 10])
+@pytest.mark.parametrize("example_count, num_partitions", [(400, 20), (1000, 100)])
 def test_sorted_labels_sections_shuffle(
-    example_count, num_partitions, max_classes_per_partition
+    cpp, num_partitions, example_count
 ):  # pylint: disable=R0914
     # Prepare
     num_unique_classes = 10
     unique_labels = range(num_unique_classes)  # 10 unique labels
     section_size = int(example_count / num_partitions)
 
+    # Assert that assumptions about input are correct
     assert example_count % num_partitions == 0
     assert example_count % (2 * num_partitions) == 0
     assert section_size % num_unique_classes == 0
@@ -292,15 +347,13 @@ def test_sorted_labels_sections_shuffle(
         np.array(unique_labels, dtype=np.int64), example_count // num_unique_classes
     )
 
+    # Assert that assumptions about input are correct
     assert x.shape[0] == example_count
     assert x.shape[0] == y.shape[0]
 
     # Execute
     x_shuffled, y_shuffled = data.sorted_labels_sections_shuffle(
-        x,
-        y,
-        num_partitions=num_partitions,
-        max_classes_per_partition=max_classes_per_partition,
+        x, y, num_partitions=num_partitions, cpp=cpp
     )
 
     # Assert
@@ -310,11 +363,9 @@ def test_sorted_labels_sections_shuffle(
     # Create tuples for x,y splits so we can more easily analyze them
     y_splits = np.split(y_shuffled, indices_or_sections=num_partitions, axis=0)
 
-    actual_max_num_classes_per_partition = max(
-        [len(set(y_split)) for y_split in y_splits]
-    )
+    actual_cpp = [len(set(y_split)) for y_split in y_splits]
 
-    assert actual_max_num_classes_per_partition <= max_classes_per_partition
+    assert set(actual_cpp) == set([cpp])
 
 
 @pytest.mark.parametrize(

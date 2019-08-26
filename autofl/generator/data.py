@@ -7,6 +7,7 @@ from autofl.types import FederatedDataset, KerasDataset
 
 # Passed to RandomState for predictable shuffling
 SEED = 851746
+rst = np.random.RandomState(seed=SEED)  # pylint: disable-msg=no-member
 
 
 def load(keras_dataset) -> KerasDataset:
@@ -107,6 +108,108 @@ def generate_splits(
     return xy_splits, xy_val, xy_test
 
 
+class Bucket:
+    def __init__(self, num_classes, num_per_class, dtype=np.int8):
+        self.dtype = dtype
+        self.num_class = num_classes
+
+        # index == class and value == how many are left
+        self.storage = np.full((num_classes), num_per_class, dtype=self.dtype)
+
+    def zero_indicies(self):
+        return np.where(self.storage == 0)[0]
+
+    def multi_indicies(self):
+        """Returns indices which have more than one section left"""
+        return np.where(self.storage > 1)[0]
+
+    def has_distinct_sections(self, num_distinct_sections: int) -> bool:
+        possible_choices = np.flatnonzero(self.storage)
+        return possible_choices.size >= num_distinct_sections
+
+    def sample(self, num_distinct_sections: int):
+        possible_choices = np.flatnonzero(self.storage)
+        choices = rst.choice(possible_choices, num_distinct_sections, replace=False)
+
+        # pylint: disable-msg=no-member
+        np.subtract.at(self.storage, choices, 1)
+
+        return choices
+
+    def inc_dec(self, index_inc, index_dec) -> None:
+        # pylint: disable-msg=no-member
+        np.subtract.at(self.storage, [index_dec], 1)
+        np.add.at(self.storage, [index_inc], 1)
+
+
+def partition_distribution(
+    num_classes: int, num_partitions: int, cpp: int
+) -> np.ndarray:
+    """
+    :param num_classes: number of distinct unique classes
+    :param num_partitions: number of partitions
+    :param cpp: number of classes per partition required
+
+    :returns: parition distribution as an ndarray of shape (num_partitions, num_classes)
+              with ones at the locations where a section should be
+    """
+    dtype = np.int8
+    num_sections = cpp * num_partitions
+    num_per_class = num_sections / num_classes
+
+    partitions = np.zeros((num_partitions, num_classes), dtype=dtype)
+
+    # e.g. [20, 20, 20, 20] for num_classes=4 and cpp = 2
+    bucket = Bucket(num_classes, num_per_class)
+
+    for p in partitions:
+        # 1. Check if there are 5 distinct non-zero values in the bucket
+        while not bucket.has_distinct_sections(cpp):
+            # Swap a section (which is available multiple times) from the bucket
+            # with a section of a partition where that partition does not contain
+            # the bucket section yet
+
+            # pull from partition and fill bucket
+            bucket_zero_indicies = bucket.zero_indicies()
+
+            # pull from bucket and fill partition
+            bucket_multi_indicies = bucket.multi_indicies()
+
+            # sample one index from each
+            bucket_zero_index = rst.choice(bucket_zero_indicies, 1)
+            bucket_multi_index = rst.choice(bucket_multi_indicies, 1)
+
+            # Find partition where:
+            # - index_zero is at least one
+            # - index_multi is zero
+            partition_candidates_zero = np.where(
+                partitions.T[bucket_zero_index][0] == 1
+            )
+            partition_candidates_multi = np.where(
+                partitions.T[bucket_multi_index][0] == 0
+            )
+            partition_candidates = np.intersect1d(
+                partition_candidates_zero, partition_candidates_multi
+            )
+
+            # Pick one partiton to modify
+            pc_index = rst.choice(partition_candidates, 1)[0]
+
+            # Swap
+            partitions[pc_index][bucket_multi_index] += 1
+            partitions[pc_index][bucket_zero_index] -= 1
+            bucket.inc_dec(index_inc=bucket_zero_index, index_dec=bucket_multi_index)
+
+        # 2. Sample from the bucket
+        p_indicies = bucket.sample(num_distinct_sections=cpp)
+        np.add.at(p, p_indicies, 1)
+
+    permutation = rst.permutation(partitions.shape[0])
+    partitions_shuffled = partitions[permutation]
+
+    return partitions_shuffled
+
+
 #####################################################
 ### From here on our transformers will be defined ###
 #####################################################
@@ -138,7 +241,7 @@ def transfomer_decorator(func: Callable):
 @transfomer_decorator
 def random_shuffle(x: ndarray, y: ndarray) -> Tuple[ndarray, ndarray]:
     # pylint: disable-msg=no-member
-    permutation = np.random.RandomState(seed=SEED).permutation(x.shape[0])
+    permutation = rst.permutation(x.shape[0])
     x_shuffled = x[permutation]
     y_shuffled = y[permutation]
     return x_shuffled, y_shuffled
@@ -275,7 +378,7 @@ def biased_balanced_labels_shuffle(  # pylint: disable=R0914
 
 @transfomer_decorator
 def sorted_labels_sections_shuffle(  # pylint: disable=R0914
-    x: ndarray, y: ndarray, num_partitions=100, max_classes_per_partition=1
+    x: ndarray, y: ndarray, num_partitions: int, cpp: int
 ) -> Tuple[ndarray, ndarray]:
     """
     Does the following:
@@ -286,8 +389,10 @@ def sorted_labels_sections_shuffle(  # pylint: disable=R0914
         x.shape[0] % num_partitions == 0
     ), "Number of examples needs to be divisionable by num_partitions"
 
-    num_examples = x.shape[0]
-    num_examples_per_partition = num_examples // num_partitions
+    num_classes = len(np.unique(y))
+    # TODO: explain why num_sections has this value; its not so intiutive at first sight
+    num_sections = cpp * num_partitions
+    num_subsections = num_sections / num_classes
 
     # Array of indices that sort a along the specified axis.
     sort_indices = np.argsort(y, axis=0)
@@ -298,26 +403,44 @@ def sorted_labels_sections_shuffle(  # pylint: disable=R0914
     x_sorted = x[sort_indices]
     y_sorted = y[sort_indices]
 
-    # Now we will init a permutation to shuffle our sorted examples
-    permutation = np.array(range(num_examples), np.int64)
+    # After splitting the sorted x and y each split will contain one class
+    x_splits, y_splits = split(x_sorted, y_sorted, num_classes)
 
-    num_sections = max_classes_per_partition * num_partitions
-    num_examples_per_section = num_examples_per_partition // max_classes_per_partition
-    permutation = permutation.reshape((num_sections, num_examples_per_section))
+    # Class sections will contain sub sections will contain the actual values
+    # Accessing for example y_sections[5][3] would return the 3th sub-section of
+    # the 5th class
+    x_cs = [np.split(xs, indices_or_sections=num_subsections) for xs in x_splits]
+    y_cs = [np.split(ys, indices_or_sections=num_subsections) for ys in y_splits]
 
-    # We will now create a random index which will shuffle the sections in
-    # our permutation randomly on axis=0 before we later reshape the permutation
-    # back into a list with length == num_examples and use it to shuffle our
-    # x_sorted and y_sorted
-    # pylint: disable-msg=no-member
-    section_shuffle_indices = np.random.RandomState(seed=SEED).permutation(
-        len(permutation)
+    # Type of dist is List[List[int]] with length num_partitions where each sublist
+    # has length num_class and contains at each index the number of times the
+    # class section should occur in the final dataset
+    cs_dist = partition_distribution(
+        num_classes=num_classes, num_partitions=num_partitions, cpp=cpp
     )
 
-    permutation = permutation[section_shuffle_indices]
-    permutation = permutation.reshape(num_examples)
+    # init x_dist, y_dist with the same shape as x and y just empty
+    x_dist = np.empty((0, *x.shape[1:]), dtype=x.dtype)
+    y_dist = np.empty((0, *y.shape[1:]), dtype=y.dtype)
 
-    x_shuffled = x_sorted[permutation]
-    y_shuffled = y_sorted[permutation]
+    # extract for each parition in cs_dist
+    for partition in cs_dist:
+        for class_index, num_repitions in enumerate(partition):
+            if num_repitions > 0:
+                x_s, x_cs[class_index] = (
+                    x_cs[class_index][:num_repitions],
+                    x_cs[class_index][num_repitions:],
+                )
 
-    return (x_shuffled, y_shuffled)
+                y_s, y_cs[class_index] = (
+                    y_cs[class_index][:num_repitions],
+                    y_cs[class_index][num_repitions:],
+                )
+
+                x_s = np.concatenate(x_s)
+                y_s = np.concatenate(y_s)
+
+                x_dist = np.concatenate([x_dist, x_s])
+                y_dist = np.concatenate([y_dist, y_s])
+
+    return (x_dist, y_dist)
