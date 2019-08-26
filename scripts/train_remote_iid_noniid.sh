@@ -14,10 +14,8 @@ export BENCHMARK_GROUP="IID_nonIID_$GROUP_ID"
 
 echo "Running benchmark with group id => $BENCHMARK_GROUP"
 
-# IID
-./scripts/train_remote.sh --benchmark_name fashion_mnist_100p_IID_balanced
 
-# non-IID
+# Non-IID
 ./scripts/train_remote.sh --benchmark_name fashion_mnist_100p_01cpp
 ./scripts/train_remote.sh --benchmark_name fashion_mnist_100p_02cpp
 ./scripts/train_remote.sh --benchmark_name fashion_mnist_100p_03cpp
@@ -28,3 +26,5 @@ echo "Running benchmark with group id => $BENCHMARK_GROUP"
 ./scripts/train_remote.sh --benchmark_name fashion_mnist_100p_08cpp
 ./scripts/train_remote.sh --benchmark_name fashion_mnist_100p_09cpp
 ./scripts/train_remote.sh --benchmark_name fashion_mnist_100p_10cpp
+# IID
+./scripts/train_remote.sh --benchmark_name fashion_mnist_100p_IID_balanced

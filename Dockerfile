@@ -12,8 +12,8 @@ COPY setup.py setup.py
 # Mostly taken from setup.py but split into
 # required, dev and cpu to trigger image layer
 # updates less often
-RUN pip install -U pip==19.2.2
-RUN pip install -U setuptools==41.0.1
+RUN pip install -U pip==19.2.3
+RUN pip install -U setuptools==41.2.0
 
 # This will install pytorch with CPU only support and
 # avoid downloading the > 600MB GPU enabled version
