@@ -4,7 +4,7 @@ from typing import List, Optional, Tuple
 import matplotlib.pyplot as plt
 from absl import app, flags
 
-from autofl import helpers
+from autofl.helpers import storage
 
 FORMAT: str = "png"
 
@@ -16,7 +16,7 @@ def read_accuracies_from_results(dname: str):
     :param dname: directory in which the results.json file can be found
     """
     fname = os.path.join(FLAGS.results_dir, dname, "results.json")
-    data = helpers.storage.read_json(fname)
+    data = storage.read_json(fname)
 
     return (
         data["name"],
@@ -153,7 +153,7 @@ def _plot(
     """
     assert fname is not None
 
-    fname_abspath = helpers.storage.get_abspath(fname, FLAGS.output_dir)
+    fname_abspath = storage.get_abspath(fname, FLAGS.output_dir)
 
     plt.figure()
     plt.ylim(0.0, ylim_max)

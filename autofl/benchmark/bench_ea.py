@@ -1,9 +1,9 @@
 from absl import app, logging
 
-from autofl import helpers
 from autofl.datasets import load_splits
 from autofl.fl.coordinator.aggregate import EvoAgg
 from autofl.fl.coordinator.evaluator import Evaluator
+from autofl.helpers import storage
 from autofl.net import orig_cnn_compiled
 
 from . import report, run
@@ -54,7 +54,7 @@ def benchmark_evolutionary_avg():
     results["loss_b"] = float(loss_b)
     results["acc_b"] = float(acc_b)
     # TODO add histories
-    helpers.storage.write_json(results, fname="EA-WA-results.json")
+    storage.write_json(results, fname="EA-WA-results.json")
 
 
 def benchmark_evolutionary_avg_with_noise():

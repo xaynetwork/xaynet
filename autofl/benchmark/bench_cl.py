@@ -4,7 +4,7 @@ from typing import List, Optional, Tuple
 import tensorflow as tf
 from absl import app, logging
 
-from autofl import helpers
+from autofl.helpers import storage
 
 from . import report, run
 
@@ -90,7 +90,7 @@ def bench_cl_ul(
         "FLH_B": B,
         "unitary_learning": {"loss": float(loss), "acc": float(acc), "hist": hist},
     }
-    helpers.storage.write_json(results, fname=name + "-results.json")
+    storage.write_json(results, fname=name + "-results.json")
 
     # Plot results
     plot_data: List[Tuple[str, List[float], Optional[List[int]]]] = [
