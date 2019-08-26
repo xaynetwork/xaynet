@@ -3,35 +3,11 @@ import os
 import pytest
 from absl import flags
 
-from ..helpers.sha1 import checksum
+from autofl.helpers.sha1 import checksum
+
 from . import report
 
 FLAGS = flags.FLAGS
-
-
-def test_get_abspath_fname_with_absolute_path():
-    # Prepare
-    fname = "/my/absolute/path/myfile"
-    expected_abspath = fname
-
-    # Execute
-    actual_abspath = report.get_abspath(fname)
-
-    # Assert
-    assert expected_abspath == actual_abspath
-
-
-def test_get_abspath_fname_only_filename(output_dir):
-    # Prepare
-    fname = "myfile"
-    expected_abspath = os.path.join(output_dir, fname)
-
-    # Execute
-    actual_abspath = report.get_abspath(fname, output_dir)
-
-    # Assert
-    assert expected_abspath == actual_abspath
-    assert output_dir in actual_abspath
 
 
 @pytest.mark.integration

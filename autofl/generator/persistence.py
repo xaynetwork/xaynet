@@ -8,13 +8,12 @@ A dataset is stored with N>=0 for N=num_splits-1 as
 - y_test.npy
 """
 import os
-import pprint
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 from absl import logging
 
-from autofl.helpers import sha1
+from autofl.helpers import sha1, storage
 from autofl.types import FederatedDataset, FnameNDArrayTuple
 
 
@@ -88,5 +87,7 @@ def save_splits(dataset_name: str, dataset: FederatedDataset, local_generator_di
 
         split_hashes[storage_key][0 if "x_" in fname else 1] = sha1cs
 
-    logging.info("DATASET_SPLIT_HASHES={}".format(pprint.pformat(split_hashes)))
+    hash_file = os.path.join(dataset_dir, f"../../{dataset_name}.json")
+    storage.write_json(split_hashes, hash_file)
+
     logging.info("{} generated and stored\n".format(dataset_name))

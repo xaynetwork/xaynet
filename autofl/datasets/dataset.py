@@ -6,26 +6,22 @@ from autofl.types import FederatedDataset
 
 FLAGS = flags.FLAGS
 
+cifar10 = tf.keras.datasets.cifar10
+fashion_mnist = tf.keras.datasets.fashion_mnist
+
 config = {
-    "cifar10_random_splits_10": {"keras_dataset": tf.keras.datasets.cifar10},
-    "fashion_mnist_10s_500_1k_bias": {"keras_dataset": tf.keras.datasets.fashion_mnist},
-    "fashion_mnist_10s_600": {"keras_dataset": tf.keras.datasets.fashion_mnist},
-    "fashion_mnist_10s_single_class": {
-        "keras_dataset": tf.keras.datasets.fashion_mnist
-    },
-    "fashion_mnist_100p_IID_balanced": {
-        "keras_dataset": tf.keras.datasets.fashion_mnist
-    },
-    "fashion_mnist_100p_01cpp": {"keras_dataset": tf.keras.datasets.fashion_mnist},
-    "fashion_mnist_100p_02cpp": {"keras_dataset": tf.keras.datasets.fashion_mnist},
-    "fashion_mnist_100p_03cpp": {"keras_dataset": tf.keras.datasets.fashion_mnist},
-    "fashion_mnist_100p_04cpp": {"keras_dataset": tf.keras.datasets.fashion_mnist},
-    "fashion_mnist_100p_05cpp": {"keras_dataset": tf.keras.datasets.fashion_mnist},
-    "fashion_mnist_100p_06cpp": {"keras_dataset": tf.keras.datasets.fashion_mnist},
-    "fashion_mnist_100p_07cpp": {"keras_dataset": tf.keras.datasets.fashion_mnist},
-    "fashion_mnist_100p_08cpp": {"keras_dataset": tf.keras.datasets.fashion_mnist},
-    "fashion_mnist_100p_09cpp": {"keras_dataset": tf.keras.datasets.fashion_mnist},
-    "fashion_mnist_100p_10cpp": {"keras_dataset": tf.keras.datasets.fashion_mnist},
+    "cifar10_random_splits_10": {"keras_dataset": cifar10},
+    "fashion_mnist_100p_01cpp": {"keras_dataset": fashion_mnist},
+    "fashion_mnist_100p_02cpp": {"keras_dataset": fashion_mnist},
+    "fashion_mnist_100p_03cpp": {"keras_dataset": fashion_mnist},
+    "fashion_mnist_100p_04cpp": {"keras_dataset": fashion_mnist},
+    "fashion_mnist_100p_05cpp": {"keras_dataset": fashion_mnist},
+    "fashion_mnist_100p_06cpp": {"keras_dataset": fashion_mnist},
+    "fashion_mnist_100p_07cpp": {"keras_dataset": fashion_mnist},
+    "fashion_mnist_100p_08cpp": {"keras_dataset": fashion_mnist},
+    "fashion_mnist_100p_09cpp": {"keras_dataset": fashion_mnist},
+    "fashion_mnist_100p_10cpp": {"keras_dataset": fashion_mnist},
+    "fashion_mnist_100p_IID_balanced": {"keras_dataset": fashion_mnist},
 }
 
 

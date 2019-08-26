@@ -1,5 +1,6 @@
 from absl import app, logging
 
+from autofl import helpers
 from autofl.datasets import load_splits
 from autofl.fl.coordinator.aggregate import EvoAgg
 from autofl.fl.coordinator.evaluator import Evaluator
@@ -19,7 +20,7 @@ def benchmark_evolutionary_avg():
     logging.info("Starting {}".format(fn_name))
 
     # Load dataset
-    xy_parts, xy_val, xy_test = load_splits("fashion_mnist_10s_600")
+    xy_parts, xy_val, xy_test = load_splits("fashion_mnist_100p_03cpp")
 
     # Run Federated Learning with evolutionary aggregation
     evaluator = Evaluator(orig_cnn_compiled(), xy_val)  # FIXME refactor
@@ -53,7 +54,7 @@ def benchmark_evolutionary_avg():
     results["loss_b"] = float(loss_b)
     results["acc_b"] = float(acc_b)
     # TODO add histories
-    report.write_json(results, fname="EA-WA-results.json")
+    helpers.storage.write_json(results, fname="EA-WA-results.json")
 
 
 def benchmark_evolutionary_avg_with_noise():
