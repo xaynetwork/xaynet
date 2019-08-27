@@ -15,10 +15,15 @@ USER_DATA=`cat $DIR/ec2_user_data.txt`
 USER_DATA="${USER_DATA//latest/$IMAGE_TAG}"
 USER_DATA="${USER_DATA//CMD_FLAGS/$@}"
 
-# possible options for CPU only
-# m5.large, m5.xlarge, m5.2xlarge, m5.4xlarge,
-# m5.8xlarge, m5.12xlarge, m5.16xlarge, m5.24xlarge
-# But beware it gets quite expensive... up $5.52 per Hour
+# Possible options for CPU only:
+# - m5.large:     2 vCPU,   8 GB RAM
+# - m5.xlarge:    4 vCPU,  16 GB RAM
+# - m5.2xlarge:   8 vCPU,  32 GB RAM
+# - m5.4xlarge:  16 vCPU,  64 GB RAM
+# - m5.8xlarge:  32 vCPU, 128 GB RAM
+# - m5.12xlarge: 48 vCPU, 192 GB RAM
+# - m5.16xlarge: 64 vCPU, 256 GB RAM
+# - m5.24xlarge: 96 vCPU, 384 GB RAM
 INSTANCE_TYPE="m5.8xlarge"
 
 build_image() {
