@@ -5,10 +5,10 @@ import numpy as np
 from absl import logging
 from gym.envs.registration import register
 
+from autofl.benchmark.net import orig_cnn_compiled
 from autofl.datasets import load_splits
 from autofl.fl.coordinator import Coordinator, RandomController
 from autofl.fl.participant import ModelProvider, Participant
-from autofl.net import orig_cnn_compiled
 
 NUM_ROUNDS = 10  # FIXME: 40?
 

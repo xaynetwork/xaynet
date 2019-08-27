@@ -4,10 +4,10 @@ from typing import List, Tuple
 import numpy as np
 import tensorflow as tf
 
+from autofl.benchmark.net import orig_cnn_compiled
 from autofl.fl.coordinator import Coordinator, RandomController
 from autofl.fl.coordinator.aggregate import Aggregator
 from autofl.fl.participant import ModelProvider, Participant
-from autofl.net import orig_cnn_compiled
 from autofl.types import FederatedDatasetPartition, KerasHistory
 
 random.seed(0)

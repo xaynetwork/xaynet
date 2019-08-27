@@ -1,10 +1,10 @@
 from absl import app, logging
 
+from autofl.benchmark.net import orig_cnn_compiled
 from autofl.datasets import load_splits
 from autofl.fl.coordinator.aggregate import EvoAgg
 from autofl.fl.coordinator.evaluator import Evaluator
 from autofl.helpers import storage
-from autofl.net import orig_cnn_compiled
 
 from . import report, run
 
