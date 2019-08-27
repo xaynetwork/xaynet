@@ -10,14 +10,8 @@ install_requires = [
     "typing-extensions==3.7.4",
     "numpy==1.15.4",
     "absl-py==0.7.1",
-    "tensorflow-datasets==1.0.2",
     "matplotlib==3.1.1",
-    "Pillow==6.1.0",
-    "gym[atari,box2d]==0.13.1",
     "requests==2.22.0",
-    "torch==1.1.0",
-    "torchvision==0.3.0",
-    "torchsummary==1.5.1",
 ]
 
 cpu_require = ["tensorflow==1.14.0"]
