@@ -4,11 +4,11 @@ from typing import List, Tuple
 import numpy as np
 import tensorflow as tf
 
-from autofl.benchmark.net import orig_cnn_compiled
-from autofl.fl.coordinator import Coordinator, RandomController
-from autofl.fl.coordinator.aggregate import Aggregator
-from autofl.fl.participant import ModelProvider, Participant
-from autofl.types import FederatedDatasetPartition, KerasHistory
+from xain.benchmark.net import orig_cnn_compiled
+from xain.fl.coordinator import Coordinator, RandomController
+from xain.fl.coordinator.aggregate import Aggregator
+from xain.fl.participant import ModelProvider, Participant
+from xain.types import FederatedDatasetPartition, KerasHistory
 
 random.seed(0)
 np.random.seed(1)

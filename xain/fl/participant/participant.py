@@ -4,8 +4,8 @@ import numpy as np
 import tensorflow as tf
 from absl import logging
 
-from autofl.datasets import prep
-from autofl.types import KerasHistory, KerasWeights
+from xain.datasets import prep
+from xain.types import KerasHistory, KerasWeights
 
 from . import ModelProvider
 

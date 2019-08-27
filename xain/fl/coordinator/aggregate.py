@@ -4,7 +4,7 @@ from typing import List, Tuple
 import numpy as np
 from absl import logging
 
-from autofl.types import KerasWeights
+from xain.types import KerasWeights
 
 from .evaluator import Evaluator
 

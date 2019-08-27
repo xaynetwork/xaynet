@@ -1,4 +1,4 @@
-from autofl.datasets.hashes import load
+from xain.datasets.hashes import load
 
 
 def test_load_hashes():

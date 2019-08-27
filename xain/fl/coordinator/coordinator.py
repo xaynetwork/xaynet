@@ -5,9 +5,9 @@ import tensorflow as tf
 from absl import logging
 from numpy import ndarray
 
-from autofl.datasets import prep
-from autofl.fl.participant import ModelProvider, Participant
-from autofl.types import KerasHistory, KerasWeights
+from xain.datasets import prep
+from xain.fl.participant import ModelProvider, Participant
+from xain.types import KerasHistory, KerasWeights
 
 from .aggregate import Aggregator, WeightedAverageAgg
 

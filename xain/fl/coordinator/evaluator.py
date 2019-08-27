@@ -3,8 +3,8 @@ from typing import Tuple
 import numpy as np
 import tensorflow as tf
 
-from autofl.datasets import prep
-from autofl.types import KerasWeights
+from xain.datasets import prep
+from xain.types import KerasWeights
 
 
 class Evaluator:

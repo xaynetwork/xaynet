@@ -3,8 +3,8 @@ from typing import List, Optional, Tuple
 
 from absl import app, flags, logging
 
-from autofl.datasets import load_splits
-from autofl.helpers import storage
+from xain.datasets import load_splits
+from xain.helpers import storage
 
 from . import report, run
 

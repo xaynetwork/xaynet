@@ -1,6 +1,6 @@
 import numpy as np
 
-from autofl.types import KerasDataset
+from xain.types import KerasDataset
 
 
 def load(keras_dataset) -> KerasDataset:

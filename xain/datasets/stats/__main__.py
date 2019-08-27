@@ -1,6 +1,6 @@
 from absl import app, logging
 
-from autofl.datasets.dataset import config, load_splits
+from xain.datasets.dataset import config, load_splits
 
 from .stats import DSStats
 

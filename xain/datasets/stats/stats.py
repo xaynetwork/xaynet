@@ -2,7 +2,7 @@ from typing import Dict, List
 
 import numpy as np
 
-from autofl.types import FederatedDataset, FederatedDatasetPartition
+from xain.types import FederatedDataset, FederatedDatasetPartition
 
 PartitionStat = Dict[str, List[int]]
 

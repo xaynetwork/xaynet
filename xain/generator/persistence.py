@@ -13,8 +13,8 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 from absl import logging
 
-from autofl.helpers import sha1, storage
-from autofl.types import FederatedDataset, FnameNDArrayTuple
+from xain.helpers import sha1, storage
+from xain.types import FederatedDataset, FnameNDArrayTuple
 
 
 def save(fname: str, data: np.ndarray, storage_dir: str):

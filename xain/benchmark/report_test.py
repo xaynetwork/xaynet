@@ -3,7 +3,7 @@ import os
 import pytest
 from absl import flags
 
-from autofl.helpers.sha1 import checksum
+from xain.helpers.sha1 import checksum
 
 from . import report
 

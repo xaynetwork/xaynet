@@ -1,6 +1,6 @@
 from absl import app, flags
 
-from autofl.benchmark import bench_ea, bench_fl
+from xain.benchmark import bench_ea, bench_fl
 
 FLAGS = flags.FLAGS
 benchmark_names = [n for n in bench_fl.benchmarks]

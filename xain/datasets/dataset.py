@@ -1,8 +1,8 @@
 import tensorflow as tf
 from absl import flags
 
-from autofl.datasets import storage
-from autofl.types import FederatedDataset
+from xain.datasets import storage
+from xain.types import FederatedDataset
 
 FLAGS = flags.FLAGS
 

@@ -2,7 +2,7 @@ import os
 
 import tensorflow as tf
 
-from autofl.generator import data
+from xain.generator import data
 
 local_generator_datasets_dir = os.path.expanduser("~/.autofl/generator/datasets")
 

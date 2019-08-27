@@ -3,7 +3,7 @@ from typing import Callable, List, Tuple
 import numpy as np
 from numpy import ndarray
 
-from autofl.types import FederatedDataset, KerasDataset
+from xain.types import FederatedDataset, KerasDataset
 
 # Passed to RandomState for predictable shuffling
 SEED = 851746

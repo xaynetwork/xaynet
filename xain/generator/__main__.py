@@ -1,7 +1,7 @@
 from absl import app, logging
 
-from autofl.datasets import testing
-from autofl.generator import config, data, persistence
+from xain.datasets import testing
+from xain.generator import config, data, persistence
 
 
 def generate_dataset(dataset_name):

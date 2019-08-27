@@ -3,7 +3,7 @@ import os
 import numpy as np
 import pytest
 
-from autofl.helpers import sha1
+from xain.helpers import sha1
 
 from ..types import FederatedDataset
 from . import persistence
