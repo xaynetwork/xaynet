@@ -5,7 +5,7 @@ import tensorflow as tf
 from tensorflow.data import Dataset
 
 AUTOTUNE = tf.data.experimental.AUTOTUNE
-SEED = 1096
+SEED = 2017
 
 
 def init_ds_train(
