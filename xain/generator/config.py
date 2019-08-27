@@ -4,6 +4,7 @@ import tensorflow as tf
 
 from xain.generator import data
 
+# TODO: Change the folder to `.xain`
 local_generator_datasets_dir = os.path.expanduser("~/.autofl/generator/datasets")
 
 cifar10 = tf.keras.datasets.cifar10

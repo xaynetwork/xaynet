@@ -19,7 +19,7 @@ RUN pip install -U setuptools==41.2.0
 RUN pip install -e .[cpu,dev]
 
 COPY scripts scripts
-COPY autofl autofl
+COPY xain xain
 
 # Rerun to install scripts
 RUN ./scripts/setup.sh

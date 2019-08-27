@@ -6,6 +6,7 @@ from .dataset import load_splits
 
 FLAGS = flags.FLAGS
 
+# TODO: folder should be renamed to `.xain`
 flags.DEFINE_string(
     "local_datasets_dir",
     os.path.expanduser("~/.autofl/datasets"),

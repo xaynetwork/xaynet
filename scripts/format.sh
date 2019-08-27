@@ -7,5 +7,5 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 cd $DIR/../
 
-isort --indent=4 -rc setup.py conftest.py autofl
-black setup.py conftest.py autofl
+isort --indent=4 -rc setup.py conftest.py xain
+black setup.py conftest.py xain

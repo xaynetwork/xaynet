@@ -66,6 +66,7 @@ setup(
     cmdclass={},
     entry_points={
         "console_scripts": [
+            # TODO: agent doesn't seem to exist anymore
             "agent=xain.agent.agent:gym_autofl",
             "fedml_individual=xain.fedml.fedml:individual",
             "fedml_round_robin=xain.fedml.fedml:round_robin",

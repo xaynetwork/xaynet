@@ -11,7 +11,7 @@ The plot which compares the top performances of unitary and federated learning o
 To do this you have to first run a group of benchmarks with e.g. the `train_remote_iid_noniid.sh` script in scripts. Afterwards you can plot the values using
 
 ```bash
-python -m autofl.benchmark.report --group_name GROUP_NAME
+python -m xain.benchmark.report --group_name GROUP_NAME
 ```
 
 When executing `train_remote_iid_noniid.sh` you will be asked for a GROUP_NAME

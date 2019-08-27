@@ -84,7 +84,7 @@ def test_to_fname_ndarray_tuple():
 
 @pytest.mark.integration
 def test_save(tmp_path):
-    fname = "autofl_test_save_load_single.npy"
+    fname = "xain_test_save_load_single.npy"
     fpath = os.path.join(tmp_path, fname)
 
     # Create NumPy array

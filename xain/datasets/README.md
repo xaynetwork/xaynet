@@ -9,5 +9,5 @@ You can find all public methods of the package in its `api` module.
 **Example:**
 
 ```python
-from autofl.datasets.api import cifar10_random_splits_10_load_split
+from xain.datasets.api import cifar10_random_splits_10_load_split
 ```
