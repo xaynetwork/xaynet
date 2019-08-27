@@ -1,6 +1,6 @@
 # AutoFL
 
-AutoFL demonstrates automated architecture search in federated learning environments.
+AutoFL demonstrates federated learning on various data partitioning schemes.
 
 ## Quick Start
 
@@ -15,13 +15,13 @@ $ cd autofl
 
 AutoFL requires the following tools to be installed:
 
-- [Python 3.6.8](https://python.org/)
+- [Python 3.6.9](https://python.org/)
 
 Verify Python installation:
 
 ```bash
 $ python3 --version
-Python 3.6.8
+Python 3.6.9
 ```
 
 ## AWS
