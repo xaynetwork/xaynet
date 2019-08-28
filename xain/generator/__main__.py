@@ -12,7 +12,7 @@ def generate_dataset(dataset_name):
     c = config.datasets[dataset_name]
 
     dataset = data.generate_splits(
-        num_splits=c["num_splits"],
+        num_partitions=c["num_partitions"],
         validation_set_size=c["validation_set_size"],
         keras_dataset=c["keras_dataset"],
         transformers=c["transformers"],

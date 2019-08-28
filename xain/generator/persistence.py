@@ -21,6 +21,10 @@ def save(fname: str, data: np.ndarray, storage_dir: str):
     path = "{}/{}".format(storage_dir, fname)
     np.save(path, data)
 
+    print(f"Saved {path}")
+
+    return sha1.checksum(path)
+
 
 def dataset_to_fname_ndarray_tuple_list(
     dataset: FederatedDataset
@@ -74,11 +78,7 @@ def save_splits(dataset_name: str, dataset: FederatedDataset, local_generator_di
     split_hashes: Dict[str, List[Optional[str]]] = {}
 
     for fname, ndarr in fname_ndarray_tuple:
-        save(fname=fname, data=ndarr, storage_dir=dataset_dir)
-
-        print("{}/{}".format(dataset_dir, fname))
-
-        sha1cs = sha1.checksum("{}/{}".format(dataset_dir, fname))
+        sha1cs = save(fname=fname, data=ndarr, storage_dir=dataset_dir)
 
         storage_key = fname[2:-4]
 
