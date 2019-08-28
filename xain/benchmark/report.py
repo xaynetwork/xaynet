@@ -1,10 +1,20 @@
 import os
 from typing import List, Optional, Tuple
 
-import matplotlib.pyplot as plt
+import matplotlib
 from absl import app, flags
 
 from xain.helpers import storage
+
+matplotlib.use("AGG")
+
+# To avoid issues with tkinter we need to set the renderer
+# for matplotlib before importing pyplot
+# As isort would move this line under the "import matplotlib"
+# We need to skip isort explicitly
+# pylint: disable-msg=wrong-import-position, wrong-import-order
+import matplotlib.pyplot as plt  # isort:skip
+
 
 FORMAT: str = "png"
 

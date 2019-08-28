@@ -326,20 +326,15 @@ def test_partition_distribution(cpp):
         assert np.sum(column) == num_per_class
 
 
-@pytest.mark.parametrize("cpp", [1, 5, 10])
-@pytest.mark.parametrize("example_count, num_partitions", [(400, 20), (1000, 100)])
+@pytest.mark.parametrize(
+    "example_count, num_partitions, cpp", [(44000, 100, 4), (54000, 100, 6)]
+)
 def test_sorted_labels_sections_shuffle(
     cpp, num_partitions, example_count
 ):  # pylint: disable=R0914
     # Prepare
     num_unique_classes = 10
     unique_labels = range(num_unique_classes)  # 10 unique labels
-    section_size = int(example_count / num_partitions)
-
-    # Assert that assumptions about input are correct
-    assert example_count % num_partitions == 0
-    assert example_count % (2 * num_partitions) == 0
-    assert section_size % num_unique_classes == 0
 
     x = np.ones((example_count, 28, 28), dtype=np.int64)
 
@@ -366,6 +361,24 @@ def test_sorted_labels_sections_shuffle(
     actual_cpp = [len(set(y_split)) for y_split in y_splits]
 
     assert set(actual_cpp) == set([cpp])
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize(
+    "example_count, num_partitions, cpp",
+    [
+        (45000, 100, 1),
+        (45000, 100, 6),
+        (45000, 100, 10),
+        (54000, 100, 1),
+        (54000, 100, 4),
+        (53900, 100, 7),
+        (54000, 100, 10),
+    ],
+)
+def test_sorted_labels_sections_shuffle_verbose(cpp, num_partitions, example_count):
+    """Purpose of this test is to test even more verbose"""
+    test_sorted_labels_sections_shuffle(cpp, num_partitions, example_count)
 
 
 @pytest.mark.parametrize(

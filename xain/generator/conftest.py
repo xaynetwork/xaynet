@@ -26,7 +26,7 @@ def no_shuffle(x: np.ndarray, y: np.ndarray):
 def mock_random_splits_2_dataset() -> FederatedDataset:
     """dataset mock after it went through internal load method"""
     return data.generate_splits(
-        num_splits=2,
+        num_partitions=2,
         validation_set_size=60,
         keras_dataset=MockKerasDataset(),
         transformers=[no_shuffle],
