@@ -33,11 +33,10 @@ def test_load_splits(tmp_path, dataset_name):
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("dataset_name", [(dn) for dn in config])
-def test_load_splits_without_fetch(
-    tmp_path, disable_fetch, dataset_name  # pylint: disable=W0613
-):
+def test_load_splits_without_fetch(tmp_path, disable_fetch):  # pylint: disable=W0613
     # Prepare
+    dataset_name = list(config)[0]
+
     def get_local_datasets_dir():
         return tmp_path
 
