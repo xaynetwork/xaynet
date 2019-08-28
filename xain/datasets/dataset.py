@@ -11,6 +11,16 @@ fashion_mnist = tf.keras.datasets.fashion_mnist
 
 config = {
     "cifar10_random_splits_10": {"keras_dataset": cifar10},
+    "cifar10_100p_01cpp": {"keras_dataset": cifar10},
+    "cifar10_100p_02cpp": {"keras_dataset": cifar10},
+    "cifar10_100p_03cpp": {"keras_dataset": cifar10},
+    "cifar10_100p_04cpp": {"keras_dataset": cifar10},
+    "cifar10_100p_05cpp": {"keras_dataset": cifar10},
+    "cifar10_100p_06cpp": {"keras_dataset": cifar10},
+    "cifar10_100p_07cpp": {"keras_dataset": cifar10},
+    "cifar10_100p_08cpp": {"keras_dataset": cifar10},
+    "cifar10_100p_09cpp": {"keras_dataset": cifar10},
+    "cifar10_100p_10cpp": {"keras_dataset": cifar10},
     "fashion_mnist_100p_01cpp": {"keras_dataset": fashion_mnist},
     "fashion_mnist_100p_02cpp": {"keras_dataset": fashion_mnist},
     "fashion_mnist_100p_03cpp": {"keras_dataset": fashion_mnist},
