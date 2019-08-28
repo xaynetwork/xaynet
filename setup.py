@@ -48,7 +48,7 @@ setup(
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Any Industry",
         "Topic :: ML :: Machine Learning :: AI",
-        "License :: MIT",
+        "License :: OSI Approved :: Apache Software License",
         "Programming Language :: Python :: 3 :: Only",
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
