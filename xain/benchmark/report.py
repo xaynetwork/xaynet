@@ -62,7 +62,7 @@ def plot_uni_vs_fed_acc_stats():
     values = read_uni_vs_fed_acc_stats(filter_substring=FLAGS.group_name)
 
     # reverse order data by name
-    # e.g. "fashion_mnist_100p_07cpp" before "fashion_mnist_100p_05cpp",
+    # e.g. "fashion-mnist-100p-noniid-07cpp" before "fashion-mnist-100p-noniid-05cpp",
     sorted_values = sorted(values, key=lambda v: v[0], reverse=True)
     indices = range(1, len(sorted_values) + 1)
 

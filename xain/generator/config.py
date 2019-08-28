@@ -14,16 +14,8 @@ keras_fashion_mnist = tf.keras.datasets.fashion_mnist
 leftpad = lambda i: str(i).zfill(2)
 
 cifar10 = {
-    "cifar10_random_splits_10": {
-        "keras_dataset": keras_cifar10,
-        "transformers": [data.random_shuffle],
-        "transformers_kwargs": [{}],
-        "num_partitions": 10,
-        "validation_set_size": 5000,
-        "assert_dataset_origin": True,
-    },
     **{
-        f"cifar10_100p_{leftpad(num_cpp)}cpp": {
+        f"cifar-10-100p-noniid-{leftpad(num_cpp)}cpp": {
             "keras_dataset": keras_cifar10,
             "transformers": [data.sorted_labels_sections_shuffle],
             "transformers_kwargs": [{"num_partitions": 100, "cpp": num_cpp}],
@@ -31,12 +23,12 @@ cifar10 = {
             "validation_set_size": 5000,
             "assert_dataset_origin": True,
         }
-        for num_cpp in [1, 2, 3, 5, 6, 9, 10]
+        for num_cpp in [1, 2, 3, 5, 6, 9]
     },
     # Edge cases where the default parition volume is not
     # divisible by given CPP values
     **{
-        f"cifar10_100p_{leftpad(num_cpp)}cpp": {
+        f"cifar-10-100p-noniid-{leftpad(num_cpp)}cpp": {
             "keras_dataset": keras_cifar10,
             "transformers": [data.remove_balanced, data.sorted_labels_sections_shuffle],
             "transformers_kwargs": [
@@ -53,7 +45,7 @@ cifar10 = {
 
 fashion_mnist = {
     **{
-        f"fashion_mnist_100p_{leftpad(num_cpp)}cpp": {
+        f"fashion-mnist-100p-noniid-{leftpad(num_cpp)}cpp": {
             "keras_dataset": keras_fashion_mnist,
             "transformers": [data.sorted_labels_sections_shuffle],
             "transformers_kwargs": [{"num_partitions": 100, "cpp": num_cpp}],
@@ -62,11 +54,11 @@ fashion_mnist = {
             "assert_dataset_origin": True,
         }
         # num_cpp 7 and 8 are special cases; see next
-        for num_cpp in [1, 2, 3, 4, 5, 6, 9, 10]
+        for num_cpp in [1, 2, 3, 4, 5, 6, 9]
     },
     # Edge cases where the default parition volume is not
     # divisible by given CPP values
-    "fashion_mnist_100p_07cpp": {
+    "fashion-mnist-100p-noniid-07cpp": {
         "keras_dataset": keras_fashion_mnist,
         "transformers": [data.remove_balanced, data.sorted_labels_sections_shuffle],
         "transformers_kwargs": [
@@ -80,7 +72,7 @@ fashion_mnist = {
         "validation_set_size": 6000,
         "assert_dataset_origin": False,
     },
-    "fashion_mnist_100p_08cpp": {
+    "fashion-mnist-100p-noniid-08cpp": {
         "keras_dataset": keras_fashion_mnist,
         "transformers": [data.remove_balanced, data.sorted_labels_sections_shuffle],
         "transformers_kwargs": [
@@ -94,7 +86,7 @@ fashion_mnist = {
         "validation_set_size": 6000,
         "assert_dataset_origin": False,
     },
-    "fashion_mnist_100p_IID_balanced": {
+    "fashion-mnist-100p-iid-balanced": {
         "keras_dataset": keras_fashion_mnist,
         "transformers": [data.balanced_labels_shuffle],
         "transformers_kwargs": [{"num_partitions": 100}],
