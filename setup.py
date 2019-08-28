@@ -32,7 +32,7 @@ dev_require = [
 tests_require = ["pytest==4.6.2", "pytest-cov==2.7.1", "pytest-watch==4.2.0"]
 
 setup(
-    name="autofl",
+    name="xain",
     version="0.1.0",
     description="AutoFL demonstrates automated architecture search in federated learning environments.",
     url="https://gitlab.com/xainag/autofl",
@@ -66,11 +66,12 @@ setup(
     cmdclass={},
     entry_points={
         "console_scripts": [
-            "agent=autofl.agent.agent:gym_autofl",
-            "fedml_individual=autofl.fedml.fedml:individual",
-            "fedml_round_robin=autofl.fedml.fedml:round_robin",
-            "fedml_federated_learning=autofl.fedml.fedml:federated_learning",
-            "train=autofl.benchmark.__main__:main_wrapper",
+            # TODO: agent doesn't seem to exist anymore
+            "agent=xain.agent.agent:gym_autofl",
+            "fedml_individual=xain.fedml.fedml:individual",
+            "fedml_round_robin=xain.fedml.fedml:round_robin",
+            "fedml_federated_learning=xain.fedml.fedml:federated_learning",
+            "train=xain.benchmark.__main__:main_wrapper",
         ]
     },
 )

@@ -57,7 +57,7 @@ After starting a training job on AWS using `./scripts/train_remote.sh`:
 
 ## Packages
 
-The `autofl` package contains the following sub-packages:
+The `xain` package contains the following sub-packages:
 
 - `agent`: A reinforcement learning based agent which interacts with `flenv` using the OpenAI Gym interface. The agent samples architectures, trains them, and attempts to improve the performance of sampled architectures over time.
 - `flenv`: Provides a reinforcement learning environment using OpenAI Gym. It receives architecture specification strings, uses them to build a `tf.keras.Model`, and then utilizes `fedml` to train the architecture in a federated fashion. A future version will also leverages a cache to hold weight matrices and speed up training (inspired by ENAS).
