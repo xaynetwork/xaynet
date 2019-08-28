@@ -22,24 +22,44 @@ In this config the key in the dictionary will be the name of the benchmark
 """
 benchmarks = {
     "integration_test": {
-        "dataset_name": "fashion_mnist_100p_01cpp",
+        "dataset_name": "fashion-mnist-100p-noniid-01cpp",
         "C": 0.02,  # two participants
         "E": 2,  # two epochs per round
         "rounds": 2,  # two rounds
     },
-    "fashion_mnist_100p_IID_balanced": {
-        "dataset_name": "fashion_mnist_100p_IID_balanced"
+    "fashion-mnist-100p-iid-balanced": {
+        "dataset_name": "fashion-mnist-100p-iid-balanced"
     },
-    "fashion_mnist_100p_01cpp": {"dataset_name": "fashion_mnist_100p_01cpp"},
-    "fashion_mnist_100p_02cpp": {"dataset_name": "fashion_mnist_100p_02cpp"},
-    "fashion_mnist_100p_03cpp": {"dataset_name": "fashion_mnist_100p_03cpp"},
-    "fashion_mnist_100p_04cpp": {"dataset_name": "fashion_mnist_100p_04cpp"},
-    "fashion_mnist_100p_05cpp": {"dataset_name": "fashion_mnist_100p_05cpp"},
-    "fashion_mnist_100p_06cpp": {"dataset_name": "fashion_mnist_100p_06cpp"},
-    "fashion_mnist_100p_07cpp": {"dataset_name": "fashion_mnist_100p_07cpp"},
-    "fashion_mnist_100p_08cpp": {"dataset_name": "fashion_mnist_100p_08cpp"},
-    "fashion_mnist_100p_09cpp": {"dataset_name": "fashion_mnist_100p_09cpp"},
-    "fashion_mnist_100p_10cpp": {"dataset_name": "fashion_mnist_100p_10cpp"},
+    "fashion-mnist-100p-noniid-01cpp": {
+        "dataset_name": "fashion-mnist-100p-noniid-01cpp"
+    },
+    "fashion-mnist-100p-noniid-02cpp": {
+        "dataset_name": "fashion-mnist-100p-noniid-02cpp"
+    },
+    "fashion-mnist-100p-noniid-03cpp": {
+        "dataset_name": "fashion-mnist-100p-noniid-03cpp"
+    },
+    "fashion-mnist-100p-noniid-04cpp": {
+        "dataset_name": "fashion-mnist-100p-noniid-04cpp"
+    },
+    "fashion-mnist-100p-noniid-05cpp": {
+        "dataset_name": "fashion-mnist-100p-noniid-05cpp"
+    },
+    "fashion-mnist-100p-noniid-06cpp": {
+        "dataset_name": "fashion-mnist-100p-noniid-06cpp"
+    },
+    "fashion-mnist-100p-noniid-07cpp": {
+        "dataset_name": "fashion-mnist-100p-noniid-07cpp"
+    },
+    "fashion-mnist-100p-noniid-08cpp": {
+        "dataset_name": "fashion-mnist-100p-noniid-08cpp"
+    },
+    "fashion-mnist-100p-noniid-09cpp": {
+        "dataset_name": "fashion-mnist-100p-noniid-09cpp"
+    },
+    "fashion-mnist-100p-noniid-10cpp": {
+        "dataset_name": "fashion-mnist-100p-noniid-10cpp"
+    },
 }
 
 

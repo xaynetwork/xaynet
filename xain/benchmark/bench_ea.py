@@ -20,7 +20,7 @@ def benchmark_evolutionary_avg():
     logging.info("Starting {}".format(fn_name))
 
     # Load dataset
-    xy_parts, xy_val, xy_test = load_splits("fashion_mnist_100p_03cpp")
+    xy_parts, xy_val, xy_test = load_splits("fashion-mnist-100p-noniid-03cpp")
 
     # Run Federated Learning with evolutionary aggregation
     evaluator = Evaluator(orig_cnn_compiled(), xy_val)  # FIXME refactor
