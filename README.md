@@ -1,4 +1,4 @@
-# Xain
+# XAIN
 
 Xain demonstrates federated learning on various data partitioning schemes.
 
