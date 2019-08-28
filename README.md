@@ -1,6 +1,6 @@
-# AutoFL
+# Xain
 
-AutoFL demonstrates federated learning on various data partitioning schemes.
+Xain demonstrates federated learning on various data partitioning schemes.
 
 ## Quick Start
 
