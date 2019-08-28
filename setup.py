@@ -51,6 +51,7 @@ setup(
         "License :: MIT",
         "Programming Language :: Python :: 3 :: Only",
         "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
         "Operating System :: MacOS :: MacOS X",
         "Operating System :: POSIX :: Linux",
     ],
@@ -66,8 +67,6 @@ setup(
     cmdclass={},
     entry_points={
         "console_scripts": [
-            # TODO: agent doesn't seem to exist anymore
-            "agent=xain.agent.agent:gym_autofl",
             "fedml_individual=xain.fedml.fedml:individual",
             "fedml_round_robin=xain.fedml.fedml:round_robin",
             "fedml_federated_learning=xain.fedml.fedml:federated_learning",

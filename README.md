@@ -55,25 +55,8 @@ After starting a training job on AWS using `./scripts/train_remote.sh`:
    $ docker logs -f $(docker ps -q)
    ```
 
-## Packages
-
-The `xain` package contains the following sub-packages:
-
-- `agent`: A reinforcement learning based agent which interacts with `flenv` using the OpenAI Gym interface. The agent samples architectures, trains them, and attempts to improve the performance of sampled architectures over time.
-- `flenv`: Provides a reinforcement learning environment using OpenAI Gym. It receives architecture specification strings, uses them to build a `tf.keras.Model`, and then utilizes `fedml` to train the architecture in a federated fashion. A future version will also leverages a cache to hold weight matrices and speed up training (inspired by ENAS).
-- `fedml`: Allows to train any `tf.keras.Model` in a federated fashion, i.e. by having a coordinator which manages the training across different participants who compute local updates on their individual partition of the data.
-- `data`: Provides utilities to split existing datasets into shards in order to simulate a federated learning scenario. Other building blocks can be used to analyze, load, preprocess and augment the data partitions using `tf.data.Dataset`. Provided federated versions of popular vision datasets include:
-  - CIFAR-10-F: A partitioned version of CIFAR-10
-  - MNIST-F: A partitioned version of MNIST
-
 ## Related Papers
 
 - [Communication-Efficient Learning of Deep Networks from Decentralized Data](https://arxiv.org/abs/1602.05629)
 - [Analyzing Federated Learning through an Adversarial Lens](https://arxiv.org/abs/1811.12470)
 - [Towards Federated Learning at Scale: System Design](https://arxiv.org/abs/1902.01046)
-
-## PyTorch
-
-PyTorch might require the following native library on macOS:
-
-`brew install libomp`
