@@ -13,9 +13,7 @@ flags.DEFINE_string(
     "Local directory to store datasets in. Usually ~/.autofl/datasets",
 )
 flags.DEFINE_string(
-    "datasets_repository",
-    "http://datasets.xain.io/autofl",
-    "Remote datasets repository.",
+    "datasets_repository", "http://datasets.xain.io", "Remote datasets repository."
 )
 flags.DEFINE_boolean(
     "fetch_datasets",
