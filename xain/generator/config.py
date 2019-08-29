@@ -40,6 +40,14 @@ cifar10 = {
         }
         for num_cpp in [4, 7, 8]
     },
+    "cifar-10-100p-iid-balanced": {
+        "keras_dataset": keras_cifar10,
+        "transformers": [data.balanced_labels_shuffle],
+        "transformers_kwargs": [{"num_partitions": 100}],
+        "num_partitions": 100,
+        "validation_set_size": 5000,
+        "assert_dataset_origin": True,
+    },
 }
 
 fashion_mnist = {

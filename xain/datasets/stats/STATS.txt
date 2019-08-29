@@ -1,24 +1,6 @@
-I0828 17:05:59.963622 4705183168 __main__.py:10] cifar10_random_splits_10
-I0828 17:06:00.538936 4705183168 __main__.py:11] 
-name: cifar10_random_splits_10
-number_of_examples_per_label_per_shard
-partition: 00	total: 4500	per_label:  470	 438	 488	 466	 424	 443	 431	 455	 425	 460
-partition: 01	total: 4500	per_label:  464	 428	 443	 434	 470	 450	 453	 416	 475	 467
-partition: 02	total: 4500	per_label:  452	 470	 459	 405	 468	 425	 492	 436	 434	 459
-partition: 03	total: 4500	per_label:  471	 479	 403	 481	 448	 474	 442	 425	 434	 443
-partition: 04	total: 4500	per_label:  418	 470	 426	 453	 452	 457	 478	 450	 447	 449
-partition: 05	total: 4500	per_label:  439	 441	 453	 440	 450	 462	 432	 467	 460	 456
-partition: 06	total: 4500	per_label:  468	 451	 473	 410	 470	 473	 411	 467	 446	 431
-partition: 07	total: 4500	per_label:  448	 445	 460	 450	 455	 428	 470	 426	 465	 453
-partition: 08	total: 4500	per_label:  430	 424	 445	 469	 448	 452	 434	 502	 465	 431
-partition: 09	total: 4500	per_label:  440	 454	 450	 492	 415	 436	 457	 456	 449	 451
-partition: val	total: 5000	per_label:  500	 500	 500	 500	 500	 500	 500	 500	 500	 500
-partition: test	total: 10000	per_label: 1000	1000	1000	1000	1000	1000	1000	1000	1000	1000
-========================================================================================================================
-
-I0828 17:06:00.554736 4705183168 __main__.py:10] cifar10_100p_01cpp
-I0828 17:06:01.096729 4705183168 __main__.py:11] 
-name: cifar10_100p_01cpp
+I0829 12:10:40.746832 4632933824 __main__.py:10] cifar-10-100p-noniid-01cpp
+I0829 12:10:41.212282 4632933824 __main__.py:11] 
+name: cifar-10-100p-noniid-01cpp
 number_of_examples_per_label_per_shard
 partition: 0000	total: 450	per_label:    0	   0	   0	   0	   0	   0	   0	   0	   0	 450
 partition: 0001	total: 450	per_label:    0	   0	   0	   0	   0	   0	 450	   0	   0	   0
@@ -124,9 +106,9 @@ partition: val	total: 5000	per_label:  500	 500	 500	 500	 500	 500	 500	 500	 5
 partition: test	total: 10000	per_label: 1000	1000	1000	1000	1000	1000	1000	1000	1000	1000
 ========================================================================================================================
 
-I0828 17:06:01.131448 4705183168 __main__.py:10] cifar10_100p_02cpp
-I0828 17:06:01.669027 4705183168 __main__.py:11] 
-name: cifar10_100p_02cpp
+I0829 12:10:41.232432 4632933824 __main__.py:10] cifar-10-100p-noniid-02cpp
+I0829 12:10:41.682577 4632933824 __main__.py:11] 
+name: cifar-10-100p-noniid-02cpp
 number_of_examples_per_label_per_shard
 partition: 0000	total: 450	per_label:    0	   0	   0	   0	 225	   0	   0	   0	   0	 225
 partition: 0001	total: 450	per_label:    0	 225	   0	   0	   0	   0	 225	   0	   0	   0
@@ -232,9 +214,9 @@ partition: val	total: 5000	per_label:  500	 500	 500	 500	 500	 500	 500	 500	 5
 partition: test	total: 10000	per_label: 1000	1000	1000	1000	1000	1000	1000	1000	1000	1000
 ========================================================================================================================
 
-I0828 17:06:01.692220 4705183168 __main__.py:10] cifar10_100p_03cpp
-I0828 17:06:02.380497 4705183168 __main__.py:11] 
-name: cifar10_100p_03cpp
+I0829 12:10:41.702767 4632933824 __main__.py:10] cifar-10-100p-noniid-03cpp
+I0829 12:10:42.149468 4632933824 __main__.py:11] 
+name: cifar-10-100p-noniid-03cpp
 number_of_examples_per_label_per_shard
 partition: 0000	total: 450	per_label:    0	   0	   0	 150	 150	   0	   0	   0	   0	 150
 partition: 0001	total: 450	per_label:    0	 150	   0	   0	   0	 150	 150	   0	   0	   0
@@ -340,9 +322,9 @@ partition: val	total: 5000	per_label:  500	 500	 500	 500	 500	 500	 500	 500	 5
 partition: test	total: 10000	per_label: 1000	1000	1000	1000	1000	1000	1000	1000	1000	1000
 ========================================================================================================================
 
-I0828 17:06:02.415905 4705183168 __main__.py:10] cifar10_100p_04cpp
-I0828 17:06:03.324650 4705183168 __main__.py:11] 
-name: cifar10_100p_04cpp
+I0829 12:10:42.169783 4632933824 __main__.py:10] cifar-10-100p-noniid-04cpp
+I0829 12:10:42.624710 4632933824 __main__.py:11] 
+name: cifar-10-100p-noniid-04cpp
 number_of_examples_per_label_per_shard
 partition: 0000	total: 448	per_label:    0	 112	   0	 112	 112	   0	   0	   0	   0	 112
 partition: 0001	total: 448	per_label:    0	 112	 112	   0	   0	 112	 112	   0	   0	   0
@@ -448,9 +430,9 @@ partition: val	total: 5000	per_label:  500	 500	 500	 500	 500	 500	 500	 500	 5
 partition: test	total: 10000	per_label: 1000	1000	1000	1000	1000	1000	1000	1000	1000	1000
 ========================================================================================================================
 
-I0828 17:06:03.362157 4705183168 __main__.py:10] cifar10_100p_05cpp
-I0828 17:06:04.186340 4705183168 __main__.py:11] 
-name: cifar10_100p_05cpp
+I0829 12:10:42.645477 4632933824 __main__.py:10] cifar-10-100p-noniid-05cpp
+I0829 12:10:43.170032 4632933824 __main__.py:11] 
+name: cifar-10-100p-noniid-05cpp
 number_of_examples_per_label_per_shard
 partition: 0000	total: 450	per_label:   90	  90	   0	  90	   0	   0	   0	  90	   0	  90
 partition: 0001	total: 450	per_label:    0	  90	  90	  90	   0	  90	  90	   0	   0	   0
@@ -556,9 +538,9 @@ partition: val	total: 5000	per_label:  500	 500	 500	 500	 500	 500	 500	 500	 5
 partition: test	total: 10000	per_label: 1000	1000	1000	1000	1000	1000	1000	1000	1000	1000
 ========================================================================================================================
 
-I0828 17:06:04.223049 4705183168 __main__.py:10] cifar10_100p_06cpp
-I0828 17:06:05.249282 4705183168 __main__.py:11] 
-name: cifar10_100p_06cpp
+I0829 12:10:43.193270 4632933824 __main__.py:10] cifar-10-100p-noniid-06cpp
+I0829 12:10:43.643403 4632933824 __main__.py:11] 
+name: cifar-10-100p-noniid-06cpp
 number_of_examples_per_label_per_shard
 partition: 0000	total: 450	per_label:    0	  75	  75	  75	  75	   0	   0	  75	   0	  75
 partition: 0001	total: 450	per_label:   75	  75	  75	  75	   0	  75	  75	   0	   0	   0
@@ -664,9 +646,9 @@ partition: val	total: 5000	per_label:  500	 500	 500	 500	 500	 500	 500	 500	 5
 partition: test	total: 10000	per_label: 1000	1000	1000	1000	1000	1000	1000	1000	1000	1000
 ========================================================================================================================
 
-I0828 17:06:05.331458 4705183168 __main__.py:10] cifar10_100p_07cpp
-I0828 17:06:06.076293 4705183168 __main__.py:11] 
-name: cifar10_100p_07cpp
+I0829 12:10:43.664402 4632933824 __main__.py:10] cifar-10-100p-noniid-07cpp
+I0829 12:10:44.148938 4632933824 __main__.py:11] 
+name: cifar-10-100p-noniid-07cpp
 number_of_examples_per_label_per_shard
 partition: 0000	total: 448	per_label:   64	  64	  64	  64	  64	   0	   0	  64	   0	  64
 partition: 0001	total: 448	per_label:   64	  64	  64	  64	  64	  64	  64	   0	   0	   0
@@ -772,9 +754,9 @@ partition: val	total: 5000	per_label:  500	 500	 500	 500	 500	 500	 500	 500	 5
 partition: test	total: 10000	per_label: 1000	1000	1000	1000	1000	1000	1000	1000	1000	1000
 ========================================================================================================================
 
-I0828 17:06:06.098464 4705183168 __main__.py:10] cifar10_100p_08cpp
-I0828 17:06:06.826488 4705183168 __main__.py:11] 
-name: cifar10_100p_08cpp
+I0829 12:10:44.169368 4632933824 __main__.py:10] cifar-10-100p-noniid-08cpp
+I0829 12:10:44.629358 4632933824 __main__.py:11] 
+name: cifar-10-100p-noniid-08cpp
 number_of_examples_per_label_per_shard
 partition: 0000	total: 448	per_label:   56	   0	  56	  56	  56	  56	   0	  56	  56	  56
 partition: 0001	total: 448	per_label:   56	  56	  56	  56	  56	  56	  56	   0	   0	  56
@@ -880,9 +862,9 @@ partition: val	total: 5000	per_label:  500	 500	 500	 500	 500	 500	 500	 500	 5
 partition: test	total: 10000	per_label: 1000	1000	1000	1000	1000	1000	1000	1000	1000	1000
 ========================================================================================================================
 
-I0828 17:06:06.849633 4705183168 __main__.py:10] cifar10_100p_09cpp
-I0828 17:06:07.561794 4705183168 __main__.py:11] 
-name: cifar10_100p_09cpp
+I0829 12:10:44.650670 4632933824 __main__.py:10] cifar-10-100p-noniid-09cpp
+I0829 12:10:45.127367 4632933824 __main__.py:11] 
+name: cifar-10-100p-noniid-09cpp
 number_of_examples_per_label_per_shard
 partition: 0000	total: 450	per_label:   50	  50	  50	  50	  50	  50	   0	  50	  50	  50
 partition: 0001	total: 450	per_label:   50	  50	  50	  50	  50	  50	  50	  50	   0	  50
@@ -988,9 +970,9 @@ partition: val	total: 5000	per_label:  500	 500	 500	 500	 500	 500	 500	 500	 5
 partition: test	total: 10000	per_label: 1000	1000	1000	1000	1000	1000	1000	1000	1000	1000
 ========================================================================================================================
 
-I0828 17:06:07.583641 4705183168 __main__.py:10] cifar10_100p_10cpp
-I0828 17:06:08.256937 4705183168 __main__.py:11] 
-name: cifar10_100p_10cpp
+I0829 12:10:45.163805 4632933824 __main__.py:10] cifar-10-100p-iid-balanced
+I0829 12:10:45.672061 4632933824 __main__.py:11] 
+name: cifar-10-100p-iid-balanced
 number_of_examples_per_label_per_shard
 partition: 0000	total: 450	per_label:   45	  45	  45	  45	  45	  45	  45	  45	  45	  45
 partition: 0001	total: 450	per_label:   45	  45	  45	  45	  45	  45	  45	  45	  45	  45
@@ -1096,9 +1078,9 @@ partition: val	total: 5000	per_label:  500	 500	 500	 500	 500	 500	 500	 500	 5
 partition: test	total: 10000	per_label: 1000	1000	1000	1000	1000	1000	1000	1000	1000	1000
 ========================================================================================================================
 
-I0828 17:06:08.277735 4705183168 __main__.py:10] fashion_mnist_100p_01cpp
-I0828 17:06:08.587085 4705183168 __main__.py:11] 
-name: fashion_mnist_100p_01cpp
+I0829 12:10:45.705904 4632933824 __main__.py:10] fashion-mnist-100p-noniid-01cpp
+I0829 12:10:45.932650 4632933824 __main__.py:11] 
+name: fashion-mnist-100p-noniid-01cpp
 number_of_examples_per_label_per_shard
 partition: 0000	total: 540	per_label:    0	   0	   0	   0	   0	   0	   0	   0	   0	 540
 partition: 0001	total: 540	per_label:    0	   0	   0	   0	   0	   0	 540	   0	   0	   0
@@ -1204,9 +1186,9 @@ partition: val	total: 6000	per_label:  600	 600	 600	 600	 600	 600	 600	 600	 6
 partition: test	total: 10000	per_label: 1000	1000	1000	1000	1000	1000	1000	1000	1000	1000
 ========================================================================================================================
 
-I0828 17:06:08.597779 4705183168 __main__.py:10] fashion_mnist_100p_02cpp
-I0828 17:06:08.904087 4705183168 __main__.py:11] 
-name: fashion_mnist_100p_02cpp
+I0829 12:10:45.943198 4632933824 __main__.py:10] fashion-mnist-100p-noniid-02cpp
+I0829 12:10:46.127080 4632933824 __main__.py:11] 
+name: fashion-mnist-100p-noniid-02cpp
 number_of_examples_per_label_per_shard
 partition: 0000	total: 540	per_label:    0	   0	   0	   0	 270	   0	   0	   0	   0	 270
 partition: 0001	total: 540	per_label:    0	 270	   0	   0	   0	   0	 270	   0	   0	   0
@@ -1312,9 +1294,9 @@ partition: val	total: 6000	per_label:  600	 600	 600	 600	 600	 600	 600	 600	 6
 partition: test	total: 10000	per_label: 1000	1000	1000	1000	1000	1000	1000	1000	1000	1000
 ========================================================================================================================
 
-I0828 17:06:08.912912 4705183168 __main__.py:10] fashion_mnist_100p_03cpp
-I0828 17:06:09.214309 4705183168 __main__.py:11] 
-name: fashion_mnist_100p_03cpp
+I0829 12:10:46.135390 4632933824 __main__.py:10] fashion-mnist-100p-noniid-03cpp
+I0829 12:10:46.449710 4632933824 __main__.py:11] 
+name: fashion-mnist-100p-noniid-03cpp
 number_of_examples_per_label_per_shard
 partition: 0000	total: 540	per_label:    0	   0	   0	 180	 180	   0	   0	   0	   0	 180
 partition: 0001	total: 540	per_label:    0	 180	   0	   0	   0	 180	 180	   0	   0	   0
@@ -1420,9 +1402,9 @@ partition: val	total: 6000	per_label:  600	 600	 600	 600	 600	 600	 600	 600	 6
 partition: test	total: 10000	per_label: 1000	1000	1000	1000	1000	1000	1000	1000	1000	1000
 ========================================================================================================================
 
-I0828 17:06:09.223148 4705183168 __main__.py:10] fashion_mnist_100p_04cpp
-I0828 17:06:09.529641 4705183168 __main__.py:11] 
-name: fashion_mnist_100p_04cpp
+I0829 12:10:46.458380 4632933824 __main__.py:10] fashion-mnist-100p-noniid-04cpp
+I0829 12:10:46.644336 4632933824 __main__.py:11] 
+name: fashion-mnist-100p-noniid-04cpp
 number_of_examples_per_label_per_shard
 partition: 0000	total: 540	per_label:    0	 135	   0	 135	 135	   0	   0	   0	   0	 135
 partition: 0001	total: 540	per_label:    0	 135	 135	   0	   0	 135	 135	   0	   0	   0
@@ -1528,9 +1510,9 @@ partition: val	total: 6000	per_label:  600	 600	 600	 600	 600	 600	 600	 600	 6
 partition: test	total: 10000	per_label: 1000	1000	1000	1000	1000	1000	1000	1000	1000	1000
 ========================================================================================================================
 
-I0828 17:06:09.538074 4705183168 __main__.py:10] fashion_mnist_100p_05cpp
-I0828 17:06:09.840195 4705183168 __main__.py:11] 
-name: fashion_mnist_100p_05cpp
+I0829 12:10:46.653078 4632933824 __main__.py:10] fashion-mnist-100p-noniid-05cpp
+I0829 12:10:46.918503 4632933824 __main__.py:11] 
+name: fashion-mnist-100p-noniid-05cpp
 number_of_examples_per_label_per_shard
 partition: 0000	total: 540	per_label:  108	 108	   0	 108	   0	   0	   0	 108	   0	 108
 partition: 0001	total: 540	per_label:    0	 108	 108	 108	   0	 108	 108	   0	   0	   0
@@ -1636,9 +1618,9 @@ partition: val	total: 6000	per_label:  600	 600	 600	 600	 600	 600	 600	 600	 6
 partition: test	total: 10000	per_label: 1000	1000	1000	1000	1000	1000	1000	1000	1000	1000
 ========================================================================================================================
 
-I0828 17:06:09.849225 4705183168 __main__.py:10] fashion_mnist_100p_06cpp
-I0828 17:06:10.156145 4705183168 __main__.py:11] 
-name: fashion_mnist_100p_06cpp
+I0829 12:10:46.931100 4632933824 __main__.py:10] fashion-mnist-100p-noniid-06cpp
+I0829 12:10:47.226949 4632933824 __main__.py:11] 
+name: fashion-mnist-100p-noniid-06cpp
 number_of_examples_per_label_per_shard
 partition: 0000	total: 540	per_label:    0	  90	  90	  90	  90	   0	   0	  90	   0	  90
 partition: 0001	total: 540	per_label:   90	  90	  90	  90	   0	  90	  90	   0	   0	   0
@@ -1744,9 +1726,9 @@ partition: val	total: 6000	per_label:  600	 600	 600	 600	 600	 600	 600	 600	 6
 partition: test	total: 10000	per_label: 1000	1000	1000	1000	1000	1000	1000	1000	1000	1000
 ========================================================================================================================
 
-I0828 17:06:10.165136 4705183168 __main__.py:10] fashion_mnist_100p_07cpp
-I0828 17:06:10.489313 4705183168 __main__.py:11] 
-name: fashion_mnist_100p_07cpp
+I0829 12:10:47.236155 4632933824 __main__.py:10] fashion-mnist-100p-noniid-07cpp
+I0829 12:10:47.428269 4632933824 __main__.py:11] 
+name: fashion-mnist-100p-noniid-07cpp
 number_of_examples_per_label_per_shard
 partition: 0000	total: 539	per_label:   77	  77	  77	  77	  77	   0	   0	  77	   0	  77
 partition: 0001	total: 539	per_label:   77	  77	  77	  77	  77	  77	  77	   0	   0	   0
@@ -1852,9 +1834,9 @@ partition: val	total: 6000	per_label:  600	 600	 600	 600	 600	 600	 600	 600	 6
 partition: test	total: 10000	per_label: 1000	1000	1000	1000	1000	1000	1000	1000	1000	1000
 ========================================================================================================================
 
-I0828 17:06:10.498032 4705183168 __main__.py:10] fashion_mnist_100p_08cpp
-I0828 17:06:10.801141 4705183168 __main__.py:11] 
-name: fashion_mnist_100p_08cpp
+I0829 12:10:47.436838 4632933824 __main__.py:10] fashion-mnist-100p-noniid-08cpp
+I0829 12:10:47.627669 4632933824 __main__.py:11] 
+name: fashion-mnist-100p-noniid-08cpp
 number_of_examples_per_label_per_shard
 partition: 0000	total: 536	per_label:   67	   0	  67	  67	  67	  67	   0	  67	  67	  67
 partition: 0001	total: 536	per_label:   67	  67	  67	  67	  67	  67	  67	   0	   0	  67
@@ -1960,9 +1942,9 @@ partition: val	total: 6000	per_label:  600	 600	 600	 600	 600	 600	 600	 600	 6
 partition: test	total: 10000	per_label: 1000	1000	1000	1000	1000	1000	1000	1000	1000	1000
 ========================================================================================================================
 
-I0828 17:06:10.810410 4705183168 __main__.py:10] fashion_mnist_100p_09cpp
-I0828 17:06:11.120918 4705183168 __main__.py:11] 
-name: fashion_mnist_100p_09cpp
+I0829 12:10:47.636218 4632933824 __main__.py:10] fashion-mnist-100p-noniid-09cpp
+I0829 12:10:47.827224 4632933824 __main__.py:11] 
+name: fashion-mnist-100p-noniid-09cpp
 number_of_examples_per_label_per_shard
 partition: 0000	total: 540	per_label:   60	  60	  60	  60	  60	  60	   0	  60	  60	  60
 partition: 0001	total: 540	per_label:   60	  60	  60	  60	  60	  60	  60	  60	   0	  60
@@ -2068,117 +2050,9 @@ partition: val	total: 6000	per_label:  600	 600	 600	 600	 600	 600	 600	 600	 6
 partition: test	total: 10000	per_label: 1000	1000	1000	1000	1000	1000	1000	1000	1000	1000
 ========================================================================================================================
 
-I0828 17:06:11.130295 4705183168 __main__.py:10] fashion_mnist_100p_10cpp
-I0828 17:06:11.437717 4705183168 __main__.py:11] 
-name: fashion_mnist_100p_10cpp
-number_of_examples_per_label_per_shard
-partition: 0000	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0001	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0002	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0003	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0004	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0005	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0006	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0007	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0008	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0009	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0010	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0011	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0012	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0013	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0014	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0015	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0016	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0017	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0018	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0019	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0020	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0021	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0022	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0023	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0024	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0025	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0026	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0027	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0028	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0029	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0030	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0031	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0032	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0033	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0034	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0035	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0036	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0037	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0038	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0039	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0040	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0041	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0042	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0043	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0044	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0045	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0046	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0047	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0048	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0049	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0050	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0051	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0052	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0053	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0054	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0055	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0056	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0057	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0058	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0059	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0060	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0061	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0062	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0063	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0064	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0065	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0066	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0067	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0068	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0069	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0070	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0071	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0072	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0073	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0074	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0075	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0076	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0077	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0078	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0079	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0080	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0081	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0082	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0083	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0084	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0085	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0086	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0087	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0088	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0089	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0090	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0091	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0092	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0093	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0094	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0095	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0096	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0097	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0098	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: 0099	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
-partition: val	total: 6000	per_label:  600	 600	 600	 600	 600	 600	 600	 600	 600	 600
-partition: test	total: 10000	per_label: 1000	1000	1000	1000	1000	1000	1000	1000	1000	1000
-========================================================================================================================
-
-I0828 17:06:11.447027 4705183168 __main__.py:10] fashion_mnist_100p_IID_balanced
-I0828 17:06:11.776464 4705183168 __main__.py:11] 
-name: fashion_mnist_100p_IID_balanced
+I0829 12:10:47.838360 4632933824 __main__.py:10] fashion-mnist-100p-iid-balanced
+I0829 12:10:48.023293 4632933824 __main__.py:11] 
+name: fashion-mnist-100p-iid-balanced
 number_of_examples_per_label_per_shard
 partition: 0000	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
 partition: 0001	total: 540	per_label:   54	  54	  54	  54	  54	  54	  54	  54	  54	  54
