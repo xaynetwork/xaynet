@@ -26,7 +26,7 @@ jobs:
             - v1-dependencies-
 
       - run:
-          name: install dependencies
+          name: setup the python project
           command: |
             python3 -m venv venv
             . venv/bin/activate
@@ -37,25 +37,49 @@ jobs:
             - ./venv
           key: v1-dependencies-{{ checksum "setup.py" }}
 
-      # run tests!
-      # this example uses Django's built-in test-runner
-      # other common Python testing frameworks include pytest and nose
-      # https://pytest.org
-      # https://nose.readthedocs.io
+  tests:
+    docker:
+      - image: circleci/python:3.7
+    steps:
+      - checkout
       - run:
           name: run tests
           command: |
             . venv/bin/activate
             ./scripts/test.sh
 
+  tests_slow:
+    docker:
+      - image: circleci/python:3.7
+    steps:
+      - checkout
       - run:
           name: run tests slow
           command: |
             . venv/bin/activate
             ./scripts/test_slow.sh
-
+  test_benchmark:
+    docker:
+      - image: circleci/python:3.7
+    steps:
+      - checkout
       - run:
           name: run tests benchmark
           command: |
             . venv/bin/activate
             train --benchmark_name=integration_test
+
+workflows:
+  version: 2.1
+  qa:
+    jobs:
+      - build
+      - tests:
+          requires:
+            - build
+      - tests_slow:
+          requires:
+            - build
+      - tests_benchmark:
+          requires:
+            - build
