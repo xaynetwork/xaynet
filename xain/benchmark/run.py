@@ -22,10 +22,10 @@ tf.compat.v1.set_random_seed(2)
 
 
 # Default parameters for `unitary_versus_federated`
-FLH_C = 0.1  # Fraction of participants used in each round of training
-ROUNDS = 50  # Number of total rounds to train
-FLH_E = 4  # Number of training epochs in each round
-FLH_B = 64  # Batch size used by participants
+DEFAULT_R = 50  # Number of total rounds to train
+DEFAULT_E = 4  # Number of training epochs in each round
+DEFAULT_C = 0.1  # Fraction of participants used in each round of training
+DEFAULT_B = 64  # Batch size used by participants
 
 
 # pylint: disable-msg=too-many-locals
@@ -33,8 +33,8 @@ def unitary_training(
     xy_train: FederatedDatasetPartition,
     xy_val: FederatedDatasetPartition,
     xy_test: FederatedDatasetPartition,
-    epochs: int,
-    batch_size: int,
+    E: int,
+    B: int,
 ) -> Tuple[KerasHistory, float, float]:
 
     model_provider = ModelProvider(model_fn=orig_cnn_compiled)
@@ -47,13 +47,13 @@ def unitary_training(
         xy_train=xy_train,
         xy_val=xy_val,
         num_classes=10,
-        batch_size=batch_size,
+        batch_size=B,
     )
     model = model_provider.init_model()
     theta = model.get_weights()
 
     # Train model
-    hist = participant.fit(model, epochs)
+    hist = participant.fit(model, E)
 
     # Evaluate final performance
     theta = model.get_weights()
@@ -68,9 +68,9 @@ def federated_training(
     xy_train_partitions: List[FederatedDatasetPartition],
     xy_val: FederatedDatasetPartition,
     xy_test: FederatedDatasetPartition,
-    rounds: int,
-    C: float,
+    R: int,
     E: int,
+    C: float,
     B: int,
     aggregator: Aggregator = None,
 ) -> Tuple[KerasHistory, List[List[KerasHistory]], float, float]:
@@ -103,7 +103,7 @@ def federated_training(
     )
 
     # Train model
-    hist_co, hist_ps = coordinator.fit(num_rounds=rounds)
+    hist_co, hist_ps = coordinator.fit(num_rounds=R)
 
     # Evaluate final performance
     loss, acc = coordinator.evaluate(xy_test)
@@ -115,10 +115,10 @@ def federated_training(
 def unitary_versus_federated(
     benchmark_name: str,
     dataset_name: str,
-    C: float = FLH_C,
-    E: int = FLH_E,
-    B: int = FLH_B,
-    rounds: int = ROUNDS,
+    R: int = DEFAULT_R,
+    E: int = DEFAULT_E,
+    C: float = DEFAULT_C,
+    B: int = DEFAULT_B,
 ):
     """
     :param C: Fraction of participants used in each round of training
@@ -133,14 +133,12 @@ def unitary_versus_federated(
     partition_id = 0
     xy_train = xy_train_partitions[partition_id]
     logging.info(f"Run unitary training using partition {partition_id}")
-    ul_hist, ul_loss, ul_acc = unitary_training(
-        xy_train, xy_val, xy_test, epochs=rounds * E, batch_size=B
-    )
+    ul_hist, ul_loss, ul_acc = unitary_training(xy_train, xy_val, xy_test, E=R * E, B=B)
 
     # Train CNN using federated learning on all partitions
     logging.info("Run federated learning using all partitions")
     fl_hist, _, fl_loss, fl_acc = federated_training(
-        xy_train_partitions, xy_val, xy_test, rounds, C=C, E=E, B=B
+        xy_train_partitions, xy_val, xy_test, R, E=E, C=C, B=B
     )
 
     end = time.time()
@@ -151,10 +149,10 @@ def unitary_versus_federated(
         "start": start,
         "end": end,
         "duration": end - start,
-        "FLH_C": C,
-        "FLH_E": E,
-        "FLH_B": B,
-        "ROUNDS": rounds,
+        "R": R,
+        "E": E,
+        "C": C,
+        "B": B,
         "unitary_learning": {
             "loss": float(ul_loss),
             "acc": float(ul_acc),

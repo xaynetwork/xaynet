@@ -41,9 +41,9 @@ benchmarks = {
     },
     "integration_test": {
         "dataset_name": "fashion-mnist-100p-noniid-01cpp",
-        "C": 0.02,  # two participants
+        "R": 2,  # two rounds
         "E": 2,  # two epochs per round
-        "rounds": 2,  # two rounds
+        "C": 0.02,  # two participants
     },
 }
 

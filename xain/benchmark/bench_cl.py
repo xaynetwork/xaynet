@@ -72,12 +72,10 @@ def bench_cl_ul(
     start = time.time()
     if use_coordinator:
         hist, _, loss, acc = run.federated_training(
-            [xy_train], xy_val, xy_test, rounds=epochs, C=0, E=1, B=B
+            [xy_train], xy_val, xy_test, R=epochs, E=1, C=0, B=B
         )
     else:
-        hist, loss, acc = run.unitary_training(
-            xy_train, xy_val, xy_test, epochs=epochs, batch_size=B
-        )
+        hist, loss, acc = run.unitary_training(xy_train, xy_val, xy_test, E=epochs, B=B)
     end = time.time()
 
     # Write results JSON
@@ -86,8 +84,8 @@ def bench_cl_ul(
         "start": start,
         "end": end,
         "duration": end - start,
-        "FLH_E": epochs,
-        "FLH_B": B,
+        "E": epochs,
+        "B": B,
         "unitary_learning": {"loss": float(loss), "acc": float(acc), "hist": hist},
     }
     storage.write_json(results, fname=name + "-results.json")
