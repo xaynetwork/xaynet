@@ -1,4 +1,4 @@
 # See for details: https://docs.gitlab.com/ee/user/project/code_owners.html
 
 # We can specifiy a default match using wildcards:
-* @danieljanes @tanertopal @rodmar
+* @danieljanes @tanertopal @r-marques
