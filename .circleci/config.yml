@@ -58,7 +58,8 @@ jobs:
           command: |
             . venv/bin/activate
             ./scripts/test_slow.sh
-  test_benchmark:
+
+  tests_benchmark:
     docker:
       - image: circleci/python:3.7
     steps:
