@@ -16,7 +16,9 @@ def test_run_unitary_versus_federated(output_dir):
     kwargs = bench_fl.benchmarks[benchmark_name]
 
     # Execute
-    run.unitary_versus_federated(benchmark_name=benchmark_name, **kwargs)
+    run.unitary_versus_federated(
+        benchmark_name=benchmark_name, model_name="blog_cnn", **kwargs
+    )
 
     # Assert
     # check if the files exist as the training is not deterministic
