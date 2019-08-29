@@ -8,11 +8,10 @@ from xain.helpers import storage
 
 from . import report, run
 
-FLH_C = 0.3  # Fraction of participants used in each round of training
-FLH_E = 1  # Number of training epochs in each round
-FLH_B = 32  # Batch size used by participants
-
-ROUNDS = 50
+DEFAULT_R = 50
+DEFAULT_E = 1  # Number of training epochs in each round
+DEFAULT_C = 0.3  # Fraction of participants used in each round of training
+DEFAULT_B = 32  # Batch size used by participants
 
 
 def benchmark_evolutionary_avg():
@@ -29,16 +28,16 @@ def benchmark_evolutionary_avg():
         xy_parts,
         xy_val,
         xy_test,
-        rounds=ROUNDS,
-        C=FLH_C,
-        E=FLH_E,
-        B=FLH_B,
+        R=DEFAULT_R,
+        E=DEFAULT_E,
+        C=DEFAULT_C,
+        B=DEFAULT_B,
         aggregator=aggregator,
     )
 
     # Run Federated Learning with weighted average aggregation
     hist_b, _, loss_b, acc_b = run.federated_training(
-        xy_parts, xy_val, xy_test, rounds=ROUNDS, C=FLH_C, E=FLH_E, B=FLH_B
+        xy_parts, xy_val, xy_test, R=DEFAULT_R, E=DEFAULT_E, C=DEFAULT_C, B=DEFAULT_B
     )
 
     # Output results

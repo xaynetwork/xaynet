@@ -3,7 +3,7 @@ import os
 import pytest
 from absl import flags
 
-from . import bench_fl
+from . import bench_fl, run
 
 FLAGS = flags.FLAGS
 
@@ -16,7 +16,7 @@ def test_run_unitary_versus_federated(output_dir):
     kwargs = bench_fl.benchmarks[benchmark_name]
 
     # Execute
-    bench_fl.run_unitary_versus_federated(benchmark_name=benchmark_name, **kwargs)
+    run.unitary_versus_federated(benchmark_name=benchmark_name, **kwargs)
 
     # Assert
     # check if the files exist as the training is not deterministic
