@@ -51,7 +51,9 @@ benchmarks = {
 def main(_):
     benchmark_name = FLAGS.benchmark_name
     kwargs = benchmarks[benchmark_name]
-    run.unitary_versus_federated(benchmark_name=benchmark_name, **kwargs)
+    run.unitary_versus_federated(
+        benchmark_name=benchmark_name, model_name="blog_cnn", **kwargs
+    )
 
 
 if __name__ == "__main__":
