@@ -72,10 +72,12 @@ def bench_cl_ul(
     start = time.time()
     if use_coordinator:
         hist, _, loss, acc = run.federated_training(
-            [xy_train], xy_val, xy_test, R=epochs, E=1, C=0, B=B
+            "blog_cnn", [xy_train], xy_val, xy_test, R=epochs, E=1, C=0, B=B
         )
     else:
-        hist, loss, acc = run.unitary_training(xy_train, xy_val, xy_test, E=epochs, B=B)
+        hist, loss, acc = run.unitary_training(
+            "blog_cnn", xy_train, xy_val, xy_test, E=epochs, B=B
+        )
     end = time.time()
 
     # Write results JSON
