@@ -4,25 +4,38 @@ XAIN demonstrates federated learning on various data partitioning schemes.
 
 ## Quick Start
 
-### Clone Repository
+XAIN requires the following tools to be installed:
+
+- [Python 3.6+](https://python.org/)
+
+### Clone Repository & Install XAIN
 
 ```bash
-$ git clone https://gitlab.com/xainag/autofl
-$ cd autofl
+$ git clone https://github.com/xainag/xain.git
+$ cd xain
+
+$ pip install -e .[dev,cpu]
 ```
 
 ### Verify Installation
 
-AutoFL requires the following tools to be installed:
-
-- [Python 3.6.9](https://python.org/)
-
-Verify Python installation:
+You can verify the installation by running the tests
 
 ```bash
-$ python3 --version
-Python 3.6.9
+$ pytest
 ```
+
+### Running training sessions
+
+```bash
+$ train --benchmark_name=integration_test
+```
+
+You can see all available benchmark types with running:
+```bash
+$ train
+```
+
 
 ## AWS
 
