@@ -19,7 +19,7 @@ config = {
     "cifar-10-100p-noniid-07cpp": {"keras_dataset": cifar10},
     "cifar-10-100p-noniid-08cpp": {"keras_dataset": cifar10},
     "cifar-10-100p-noniid-09cpp": {"keras_dataset": cifar10},
-    "cifar-10-100p-noniid-10cpp": {"keras_dataset": cifar10},
+    "cifar-10-100p-iid-balanced": {"keras_dataset": cifar10},
     "fashion-mnist-100p-noniid-01cpp": {"keras_dataset": fashion_mnist},
     "fashion-mnist-100p-noniid-02cpp": {"keras_dataset": fashion_mnist},
     "fashion-mnist-100p-noniid-03cpp": {"keras_dataset": fashion_mnist},
@@ -29,7 +29,6 @@ config = {
     "fashion-mnist-100p-noniid-07cpp": {"keras_dataset": fashion_mnist},
     "fashion-mnist-100p-noniid-08cpp": {"keras_dataset": fashion_mnist},
     "fashion-mnist-100p-noniid-09cpp": {"keras_dataset": fashion_mnist},
-    "fashion-mnist-100p-noniid-10cpp": {"keras_dataset": fashion_mnist},
     "fashion-mnist-100p-iid-balanced": {"keras_dataset": fashion_mnist},
 }
 
