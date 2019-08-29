@@ -1,6 +1,6 @@
 # XAIN
 
-Xain demonstrates federated learning on various data partitioning schemes.
+XAIN demonstrates federated learning on various data partitioning schemes.
 
 ## Quick Start
 
