@@ -65,6 +65,7 @@ jobs:
   tests_benchmark:
     docker:
       - image: circleci/python:3.7
+    resource_class: large
     steps:
       - checkout
 
