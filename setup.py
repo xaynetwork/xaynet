@@ -12,6 +12,7 @@ install_requires = [
     "absl-py==0.7.1",
     "matplotlib==3.1.1",
     "requests==2.22.0",
+    "boto3==1.9.218",
 ]
 
 cpu_require = ["tensorflow==1.14.0"]

@@ -18,3 +18,7 @@ flags.DEFINE_string(
 flags.DEFINE_string(
     "results_dir", results_dir_default, "Results directory as absolute path"
 )
+
+flags.DEFINE_string(
+    "S3_bucket", "xain-results", "Bucket name for the results to be uploaded to"
+)
