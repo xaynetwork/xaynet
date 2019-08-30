@@ -1,11 +1,8 @@
 version: 2.1
 jobs:
-  build:
+  tests:
     docker:
       - image: circleci/python:3.7
-
-    resource_class: xlarge
-
     steps:
       - checkout
 
@@ -33,6 +30,31 @@ jobs:
           command: |
             . venv/bin/activate
             ./scripts/test.sh
+  tests_slow:
+    docker:
+      - image: circleci/python:3.7
+    resource_class: xlarge
+    steps:
+      - checkout
+
+      # Download and cache dependencies
+      - restore_cache:
+          keys:
+            - v1-dependencies-{{ checksum "setup.py" }}
+            # fallback to using the latest cache if no exact match is found
+            - v1-dependencies-
+
+      - run:
+          name: install dependencies
+          command: |
+            python3 -m venv venv
+            . venv/bin/activate
+            ./scripts/setup.sh
+
+      - save_cache:
+          paths:
+            - ./venv
+          key: v1-dependencies-{{ checksum "setup.py" }}
 
       - run:
           name: run tests slow
@@ -40,8 +62,42 @@ jobs:
             . venv/bin/activate
             ./scripts/test_slow.sh
 
+  tests_benchmark:
+    docker:
+      - image: circleci/python:3.7
+    steps:
+      - checkout
+
+      # Download and cache dependencies
+      - restore_cache:
+          keys:
+            - v1-dependencies-{{ checksum "setup.py" }}
+            # fallback to using the latest cache if no exact match is found
+            - v1-dependencies-
+
+      - run:
+          name: install dependencies
+          command: |
+            python3 -m venv venv
+            . venv/bin/activate
+            ./scripts/setup.sh
+
+      - save_cache:
+          paths:
+            - ./venv
+          key: v1-dependencies-{{ checksum "setup.py" }}
+
       - run:
           name: run tests benchmark
           command: |
             . venv/bin/activate
             train --benchmark_name=integration_test
+
+
+workflows:
+  version: 2.1
+  qa:
+    jobs:
+      - tests
+      - tests_slow
+      - tests_benchmark
