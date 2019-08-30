@@ -8,12 +8,12 @@ from .dataset import config, load_splits
 
 @pytest.mark.slow
 @pytest.mark.integration
-# Randomly select 3 datasets and check if they are still downloadable
-@pytest.mark.parametrize("dataset_name", random.sample([(dn) for dn in config], 3))
-def test_load_splits(tmp_path, dataset_name):
+def test_load_splits(tmp_path):
     # Prepare
     def get_local_datasets_dir():
         return tmp_path
+
+    dataset_name = random.choice(list(config))
 
     # Execute
     xy_splits_actual, xy_val_actual, xy_test_actual = load_splits(
