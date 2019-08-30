@@ -6,7 +6,7 @@ import numpy as np
 import tensorflow as tf
 from absl import logging
 
-from xain.benchmark.net import orig_cnn_compiled
+from xain.benchmark.net import load_model_fn
 from xain.datasets import load_splits
 from xain.fl.coordinator import Coordinator, RandomController
 from xain.fl.coordinator.aggregate import Aggregator
@@ -28,8 +28,9 @@ DEFAULT_C = 0.1  # Fraction of participants used in each round of training
 DEFAULT_B = 64  # Batch size used by participants
 
 
-# pylint: disable-msg=too-many-locals
+# pylint: disable-msg=too-many-locals,too-many-arguments
 def unitary_training(
+    model_name: str,
     xy_train: FederatedDatasetPartition,
     xy_val: FederatedDatasetPartition,
     xy_test: FederatedDatasetPartition,
@@ -37,7 +38,8 @@ def unitary_training(
     B: int,
 ) -> Tuple[KerasHistory, float, float]:
 
-    model_provider = ModelProvider(model_fn=orig_cnn_compiled)
+    model_fn = load_model_fn(model_name)
+    model_provider = ModelProvider(model_fn=model_fn)
 
     # Initialize model and participant
     cid = 0
@@ -65,6 +67,7 @@ def unitary_training(
 
 # pylint: disable-msg=too-many-locals,too-many-arguments
 def federated_training(
+    model_name: str,
     xy_train_partitions: List[FederatedDatasetPartition],
     xy_val: FederatedDatasetPartition,
     xy_test: FederatedDatasetPartition,
@@ -79,7 +82,8 @@ def federated_training(
     # initialization will happen during the first few rounds because the coordinator will
     # push its own weight to the respective participants of each training round.
 
-    model_provider = ModelProvider(model_fn=orig_cnn_compiled)
+    model_fn = load_model_fn(model_name)
+    model_provider = ModelProvider(model_fn=model_fn)
 
     # Init participants
     participants = []
@@ -114,6 +118,7 @@ def federated_training(
 
 def unitary_versus_federated(
     benchmark_name: str,
+    model_name: str,
     dataset_name: str,
     R: int = DEFAULT_R,
     E: int = DEFAULT_E,
@@ -133,12 +138,14 @@ def unitary_versus_federated(
     partition_id = 0
     xy_train = xy_train_partitions[partition_id]
     logging.info(f"Run unitary training using partition {partition_id}")
-    ul_hist, ul_loss, ul_acc = unitary_training(xy_train, xy_val, xy_test, E=R * E, B=B)
+    ul_hist, ul_loss, ul_acc = unitary_training(
+        model_name, xy_train, xy_val, xy_test, E=R * E, B=B
+    )
 
     # Train CNN using federated learning on all partitions
     logging.info("Run federated learning using all partitions")
     fl_hist, _, fl_loss, fl_acc = federated_training(
-        xy_train_partitions, xy_val, xy_test, R, E=E, C=C, B=B
+        model_name, xy_train_partitions, xy_val, xy_test, R=R, E=E, C=C, B=B
     )
 
     end = time.time()
