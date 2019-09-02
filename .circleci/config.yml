@@ -1,4 +1,8 @@
 version: 2.1
+
+orbs:
+  aws-cli: circleci/aws-cli@0.1.15
+
 jobs:
   tests:
     docker:
@@ -93,7 +97,6 @@ jobs:
           command: |
             . venv/bin/activate
             train --benchmark_name=integration_test
-
 
 workflows:
   version: 2.1

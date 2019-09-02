@@ -10,7 +10,7 @@ FLAGS = flags.FLAGS
 
 
 s3 = boto3.resource("s3")
-session = boto3.Session(profile_name="xain-xain")
+session = boto3.Session()
 client = session.client("s3")
 
 
