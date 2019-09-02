@@ -18,7 +18,7 @@ XAIN requires the following tools to be installed:
 
 ### Clone Repository & Install XAIN
 
-The clone this repository and to install the XAIN project, please execute the following commands:
+To clone this repository and to install the XAIN project, please execute the following commands:
 
 ```bash
 $ git clone https://github.com/xainag/xain.git
