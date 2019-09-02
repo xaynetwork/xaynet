@@ -41,7 +41,11 @@ def populated_results_dir(tmpdir):
     tmpdir = str(tmpdir)
     FLAGS(["test", f"--results_dir={tmpdir}"])
 
-    fname = os.path.join(tmpdir, f"some_file.txt")
+    # Create a subdirectory to make the case more complex
+    dname = os.path.join(tmpdir, "some_dir")
+    os.mkdir(dname)
+
+    fname = os.path.join(dname, "some_file.txt")
 
     # create a new file and open it for writing
     with open(fname, "x") as f:

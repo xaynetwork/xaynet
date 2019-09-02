@@ -1,3 +1,4 @@
+import glob
 import os
 
 import boto3
@@ -11,16 +12,20 @@ session = boto3.Session(profile_name="xain-xain")
 client = session.client("s3")
 
 
-def list_all_files(dname: str):
-    files_found = []
+def listdir_recursive(dname: str):
+    """Lists all files found in {dname} with relative path
 
-    for root, _, files in os.walk(dname):
-        for fname in files:
-            local_path = os.path.join(root, fname)
-            relative_path = os.path.relpath(local_path, dname)
-            files_found.append(relative_path)
+    Args:
+        dname (str): Absolute path to directory
 
-    return files_found
+    Returns:
+        List[str]: List of all files with relative path to dname
+    """
+    return [
+        os.path.relpath(fpath, dname)
+        for fpath in glob.glob(f"{dname}/**", recursive=True)
+        if os.path.isfile(fpath)
+    ]
 
 
 def push(group_name: str, task_name: str):
@@ -76,7 +81,7 @@ def download():
     all_objs = client.list_objects_v2(Bucket=bucket)
     actual_objs = [obj["Key"] for obj in all_objs["Contents"]]
 
-    already_downloaded_files = list_all_files(results_dir)
+    already_downloaded_files = listdir_recursive(results_dir)
 
     # enumerate local files recursively
     for key in actual_objs:
