@@ -2,6 +2,7 @@ import hashlib
 
 
 def checksum(fpath: str):
+    """Return checksum of file a fpath"""
     sha1 = hashlib.sha1()
 
     with open(fpath, "rb") as f:

@@ -28,8 +28,7 @@ def listdir_recursive(dname: str):
 
 
 def push(group_name: str, task_name: str):
-    """
-    Method will push everything in output directory to the S3_BUCKET on AWS S3
+    """Push everything in output directory to the S3_BUCKET on AWS S3
 
     Args:
         group_name (str)
@@ -61,10 +60,7 @@ def push(group_name: str, task_name: str):
 
 
 def download():
-    """
-    Method will download all remote results which are locally not present
-    from the S3_BUCKET on AWS S3
-    """
+    """Download all remote results which are locally not present from the S3_BUCKET on AWS S3"""
     # Use results_dir which was passed via absl flags and defaults to
     # "git_root/results" and upload everything in it as results
     results_dir = FLAGS.results_dir

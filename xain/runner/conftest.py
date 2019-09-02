@@ -37,7 +37,7 @@ def populated_output_dir(tmpdir):
 
 @pytest.fixture
 def populated_results_dir(tmpdir):
-    """results_dir containing one file"""
+    """Create a results_dir containing one file in a subdirectory"""
     tmpdir = str(tmpdir)
     FLAGS(["test", f"--results_dir={tmpdir}"])
 
