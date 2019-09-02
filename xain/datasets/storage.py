@@ -1,3 +1,4 @@
+import concurrent.futures
 import os
 from typing import Tuple
 
@@ -21,7 +22,7 @@ def get_dataset_dir(dataset_name: str, local_datasets_dir: str) -> str:
     dataset_dir = os.path.join(local_datasets_dir, dataset_name)
 
     if not os.path.isdir(dataset_dir):
-        os.makedirs(dataset_dir)
+        os.makedirs(dataset_dir, exist_ok=True)
 
     return dataset_dir
 
@@ -120,14 +121,27 @@ def load_splits(
 
     dataset_split_hashes = hashes.datasets[dataset_name]
 
-    for split_id in dataset_split_hashes:
+    local_datasets_dir = get_local_datasets_dir()
+
+    def load_method(split_id: str):
         data = load_split(
             dataset_name=dataset_name,
             split_id=split_id,
             # passing respective hash tuple for given split_id
             split_hashes=dataset_split_hashes[split_id],
-            local_datasets_dir=get_local_datasets_dir(),
+            local_datasets_dir=local_datasets_dir,
         )
+
+        return split_id, data
+
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        future_results = [
+            executor.submit(load_method, split_id) for split_id in dataset_split_hashes
+        ]
+        concurrent.futures.wait(future_results)
+
+    for future in future_results:
+        split_id, data = future.result()
 
         if split_id == "test":
             xy_test = data

@@ -6,31 +6,38 @@ from setuptools import find_packages, setup
 if sys.version_info < (3, 6):
     sys.exit("Please use Python version 3.6 or higher.")
 
+# License comments according to `pip-licenses`
+
 install_requires = [
-    "typing-extensions==3.7.4",
-    "numpy==1.15.4",
-    "absl-py==0.7.1",
-    "matplotlib==3.1.1",
-    "requests==2.22.0",
-    "boto3==1.9.218",
+    "typing-extensions==3.7.4",  # PSF
+    "numpy==1.15.4",  # BSD
+    "absl-py==0.7.1",  # Apache 2.0
+    "matplotlib==3.1.1",  # PSF
+    "requests==2.22.0",  # Apache 2.0
+    "boto3==1.9.218",  # Apache 2.0
 ]
 
-cpu_require = ["tensorflow==1.14.0"]
+cpu_require = ["tensorflow==1.14.0"]  # Apache 2.0
 
-gpu_require = ["tensorflow-gpu==1.14.0"]
+gpu_require = ["tensorflow-gpu==1.14.0"]  # Apache 2.0
 
 dev_require = [
-    "black==19.3b0",
-    "mypy==0.720",
-    "pylint==2.3.1",
-    "astroid<=2.2",
-    "isort==4.3.20",
-    "rope==0.14.0",
-    "faker==2.0.0",
-    "awscli==1.16.210",
+    "black==19.3b0",  # MIT
+    "mypy==0.720",  # MIT License
+    "pylint==2.3.1",  # GPL
+    "astroid<=2.2",  # LGPL
+    "isort==4.3.20",  # MIT
+    "rope==0.14.0",  # GNU GPL
+    "faker==2.0.0",  # MIT License
+    "awscli==1.16.210",  # Apache License 2.0
+    "pip-licenses==1.15.2",  # MIT License
 ]
 
-tests_require = ["pytest==4.6.2", "pytest-cov==2.7.1", "pytest-watch==4.2.0"]
+tests_require = [
+    "pytest==4.6.2",  # MIT license
+    "pytest-cov==2.7.1",  # MIT
+    "pytest-watch==4.2.0",  # MIT
+]
 
 setup(
     name="xain",
@@ -41,7 +48,7 @@ setup(
         "Daniel J. Beutel <daniel.beutel@xain.io>",
         "Taner Topal <taner.topal@xain.io>",
     ],
-    author_email="daniel.beutel@xain.io",
+    author_email="services@xain.io",
     license="Apache License Version 2.0",
     zip_safe=False,
     python_requires=">=3.6",
@@ -66,12 +73,5 @@ setup(
         "dev": dev_require + tests_require,
     },
     cmdclass={},
-    entry_points={
-        "console_scripts": [
-            "fedml_individual=xain.fedml.fedml:individual",
-            "fedml_round_robin=xain.fedml.fedml:round_robin",
-            "fedml_federated_learning=xain.fedml.fedml:federated_learning",
-            "train=xain.benchmark.__main__:main_wrapper",
-        ]
-    },
+    entry_points={"console_scripts": ["train=xain.benchmark.__main__:main_wrapper"]},
 )
