@@ -26,9 +26,10 @@ def pytest_runtest_setup():
 
 @pytest.fixture
 def output_dir(tmpdir):
-    od = str(tmpdir)
-    FLAGS(["test", f"--output_dir={od}"])
-    return od
+    tmpdir = str(tmpdir)
+    FLAGS(["test", f"--output_dir={tmpdir}"])
+
+    return tmpdir
 
 
 @pytest.fixture
