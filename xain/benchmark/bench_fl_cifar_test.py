@@ -3,7 +3,7 @@ import os
 import pytest
 from absl import flags
 
-from . import bench_fl, run
+from . import bench_fl_cifar, run
 
 FLAGS = flags.FLAGS
 
@@ -13,11 +13,11 @@ FLAGS = flags.FLAGS
 def test_run_unitary_versus_federated(output_dir):
     # Prepare
     benchmark_name = "integration_test"
-    kwargs = bench_fl.benchmarks[benchmark_name]
+    kwargs = bench_fl_cifar.benchmarks[benchmark_name]
 
     # Execute
     run.unitary_versus_federated(
-        benchmark_name=benchmark_name, model_name="blog_cnn", **kwargs
+        benchmark_name=benchmark_name, model_name="resnet20", **kwargs
     )
 
     # Assert

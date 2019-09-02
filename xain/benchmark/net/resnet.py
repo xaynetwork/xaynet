@@ -24,7 +24,7 @@ KERNEL_INITIALIZER_DEFAULT = "he_normal"
 
 
 def resnet20v2_compiled(
-    input_shape=(32, 32, 3),
+    input_shape=(32, 32, 3),  # CIFAR
     num_classes=10,
     lr_initial: float = 0.1,
     momentum: float = 0.9,

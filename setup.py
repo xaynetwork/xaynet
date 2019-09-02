@@ -36,7 +36,7 @@ setup(
     name="xain",
     version="0.1.0",
     description="XAIN demonstrates automated architecture search in federated learning environments.",
-    url="https://gitlab.com/xainag/autofl",
+    url="https://github.com/xainag/xain",
     author=[
         "Daniel J. Beutel <daniel.beutel@xain.io>",
         "Taner Topal <taner.topal@xain.io>",
