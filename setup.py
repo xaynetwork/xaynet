@@ -40,7 +40,7 @@ setup(
         "Daniel J. Beutel <daniel.beutel@xain.io>",
         "Taner Topal <taner.topal@xain.io>",
     ],
-    author_email="daniel.beutel@xain.io",
+    author_email="services@xain.io",
     license="Apache License Version 2.0",
     zip_safe=False,
     python_requires=">=3.6",
@@ -65,12 +65,5 @@ setup(
         "dev": dev_require + tests_require,
     },
     cmdclass={},
-    entry_points={
-        "console_scripts": [
-            "fedml_individual=xain.fedml.fedml:individual",
-            "fedml_round_robin=xain.fedml.fedml:round_robin",
-            "fedml_federated_learning=xain.fedml.fedml:federated_learning",
-            "train=xain.benchmark.__main__:main_wrapper",
-        ]
-    },
+    entry_points={"console_scripts": ["train=xain.benchmark.__main__:main_wrapper"]},
 )
