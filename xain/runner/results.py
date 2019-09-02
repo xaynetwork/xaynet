@@ -6,7 +6,6 @@ from absl import flags
 
 FLAGS = flags.FLAGS
 
-# Let's use Amazon S3
 s3 = boto3.resource("s3")
 session = boto3.Session()
 client = session.client("s3")
@@ -33,43 +32,38 @@ def push(group_name: str, task_name: str):
     Method will push everything in output directory to the S3_BUCKET on AWS S3
 
     Args:
-    @param group_name
-    @param task_name
-    @param bucket
+        group_name (str)
+        task_name (str)
     """
     # Use output_dir which was passed via absl flags and defaults to
     # "git_root/output" and upload everything in it as results
     output_dir = FLAGS.output_dir
     bucket = FLAGS.S3_bucket
 
-    # enumerate local files recursively
-    for root, _, files in os.walk(output_dir):
-        files = [f for f in files if f not in [".gitkeep", ".DS_Store"]]
+    ignored_files = [".gitkeep", ".DS_Store"]
+    files = listdir_recursive(output_dir)
 
-        for fname in files:
-            local_path = os.path.join(root, fname)
-            relative_path = os.path.relpath(local_path, output_dir)
-            key = os.path.join(group_name, task_name, relative_path)
+    for fname in files:
+        if fname in ignored_files:
+            continue
 
-            # pylint: disable=bare-except
-            try:
-                # Will throw an error if object does not exist
-                client.head_object(Bucket=bucket, Key=key)
-            # TODO: fix this by using something similar to:
-            # https://stackoverflow.com/questions/33842944/check-if-a-key-exists-in-a-bucket-in-s3-using-boto3
-            except:
-                client.upload_file(local_path, bucket, key)
+        local_path = os.path.join(output_dir, fname)
+        key = os.path.join(group_name, task_name, fname)
+
+        # pylint: disable=bare-except
+        try:
+            # Will throw an error if object does not exist
+            client.head_object(Bucket=bucket, Key=key)
+        # TODO: fix this by using something similar to:
+        # https://stackoverflow.com/questions/33842944/check-if-a-key-exists-in-a-bucket-in-s3-using-boto3
+        except:
+            client.upload_file(local_path, bucket, key)
 
 
 def download():
     """
     Method will download all remote results which are locally not present
     from the S3_BUCKET on AWS S3
-
-    Args:
-    @param group_name
-    @param task_name
-    @param bucket
     """
     # Use results_dir which was passed via absl flags and defaults to
     # "git_root/results" and upload everything in it as results
