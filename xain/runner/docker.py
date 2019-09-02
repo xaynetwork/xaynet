@@ -31,7 +31,3 @@ def build():
 
     # Raise CalledProcessError if the exit code is non-zero.
     sp.check_returncode()
-
-
-if __name__ == "__main__":
-    build()
