@@ -1,11 +1,12 @@
-from os import path
+import os
 
 from absl import flags
 
-module_dir = path.dirname(__file__)  # directory in which this module resides
-root_dir = path.abspath(path.join(module_dir, ".."))  # project root dir
-output_dir_default = path.abspath(path.join(root_dir, "output"))
-results_dir_default = path.abspath(path.join(root_dir, "results"))
+from xain.helpers import project
+
+root_dir = project.root()
+output_dir_default = os.path.abspath(os.path.join(root_dir, "output"))
+results_dir_default = os.path.abspath(os.path.join(root_dir, "results"))
 
 # following: https://abseil.io/docs/cpp/guides/flags#flags-best-practices
 # we will define our flags in this file
