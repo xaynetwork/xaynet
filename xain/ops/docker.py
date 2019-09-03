@@ -23,7 +23,7 @@ def get_image_name(tag: str):
     return f"{ECR_REPO}:{tag}"
 
 
-def generate_tag(group: str = ""):
+def generate_unique_tag():
     """Return a unique string with utc time and human readable part.
     If passed it will include group as substring in the middle"""
 
@@ -31,22 +31,20 @@ def generate_tag(group: str = ""):
     # pylint: disable=no-member
     fake_name = fake.name().lower().replace(" ", "_")
 
-    # short_hash = subprocess("git rev-parse --short HEAD", stdout=subprocess.PIPE).decode('utf-8')
-    # print(short_hash)
-
-    if group:
-        return f"{utc_time}_{group}_{fake_name}"
-
     return f"{utc_time}_{fake_name}"
 
 
-def build(tag: str = "latest", should_push: bool = False):
-    """Build xain docker container
+def build(should_push: bool = False):
+    """Build xain docker container and tag it uniquely
+    If image already exists a new tag will be added anyway
 
     Args:
         tag (str): docker image tag to be used
     """
-    command = ["docker", "build", ".", "-t", get_image_name(tag)]
+    tag = generate_unique_tag()
+    image_name = get_image_name(tag)
+
+    command = ["docker", "build", ".", "-t", image_name]
     subprocess.run(command, cwd=root_dir).check_returncode()
 
     if should_push:
