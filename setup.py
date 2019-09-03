@@ -14,7 +14,8 @@ install_requires = [
     "absl-py==0.7.1",  # Apache 2.0
     "matplotlib==3.1.1",  # PSF
     "requests==2.22.0",  # Apache 2.0
-    "boto3==1.9.218",  # Apache 2.0
+    "boto3==1.9.220",  # Apache License 2.0
+    "awscli==1.16.230",  # Apache License 2.0
 ]
 
 cpu_require = ["tensorflow==1.14.0"]  # Apache 2.0
@@ -25,11 +26,10 @@ dev_require = [
     "black==19.3b0",  # MIT
     "mypy==0.720",  # MIT License
     "pylint==2.3.1",  # GPL
-    "astroid<=2.2",  # LGPL
+    "astroid<=2.2.5",  # LGPL
     "isort==4.3.20",  # MIT
     "rope==0.14.0",  # GNU GPL
     "faker==2.0.0",  # MIT License
-    "awscli==1.16.210",  # Apache License 2.0
     "pip-licenses==1.15.2",  # MIT License
 ]
 

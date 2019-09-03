@@ -10,10 +10,8 @@ from . import results
 
 FLAGS = flags.FLAGS
 
-# Let's use Amazon S3
-s3 = boto3.resource("s3")
-session = boto3.Session()
-client = session.client("s3")
+
+client = boto3.client("s3")
 
 
 @pytest.mark.integration
