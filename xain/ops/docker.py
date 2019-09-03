@@ -42,13 +42,16 @@ def build(should_push: bool = False):
         tag (str): docker image tag to be used
     """
     tag = generate_unique_tag()
-    image_name = get_image_name(tag)
+    image_name_unique = get_image_name(tag)
+    image_name_latest = get_image_name("latest")
 
-    command = ["docker", "build", ".", "-t", image_name]
+    command = ["docker", "build", ".", "-t", image_name_latest, "-t", image_name_unique]
     subprocess.run(command, cwd=root_dir).check_returncode()
 
     if should_push:
         push()
+
+    return image_name_unique
 
 
 def push(tag: str = "latest"):
