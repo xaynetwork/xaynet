@@ -9,9 +9,7 @@ from absl import flags
 FLAGS = flags.FLAGS
 
 
-s3 = boto3.resource("s3")
-session = boto3.Session()
-client = session.client("s3")
+client = boto3.client("s3")
 
 
 def random_string(length: int):

@@ -2,13 +2,11 @@ import glob
 import os
 
 import boto3
-from absl import flags
+from absl import app, flags, logging
 
 FLAGS = flags.FLAGS
 
-s3 = boto3.resource("s3")
-session = boto3.Session()
-client = session.client("s3")
+client = boto3.client("s3")
 
 
 def listdir_recursive(dname: str):
@@ -53,9 +51,11 @@ def push(group_name: str, task_name: str):
         try:
             # Will throw an error if object does not exist
             client.head_object(Bucket=bucket, Key=key)
+            logging.info(f"{key} is already uploaded")
         # TODO: fix this by using something similar to:
         # https://stackoverflow.com/questions/33842944/check-if-a-key-exists-in-a-bucket-in-s3-using-boto3
         except:
+            logging.info(f"Uploading {local_path} to {bucket} as {key}")
             client.upload_file(local_path, bucket, key)
 
 
@@ -69,6 +69,11 @@ def download():
     # Get list of all files which where uploaded to the bucket which contain
     # the group_name => integration_test
     all_objs = client.list_objects_v2(Bucket=bucket)
+
+    if "Contents" not in all_objs:
+        logging.info("No results to download")
+        return
+
     actual_objs = [obj["Key"] for obj in all_objs["Contents"]]
 
     already_downloaded_files = listdir_recursive(results_dir)
@@ -82,4 +87,9 @@ def download():
             # Instead of checking just create with exist_ok
             os.makedirs(dname, exist_ok=True)
 
+            logging.info(f"Downloading {key} from {bucket} to {fname}")
             client.download_file(Bucket=bucket, Key=key, Filename=fname)
+
+
+if __name__ == "__main__":
+    app.run(main=lambda _: download())

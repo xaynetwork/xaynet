@@ -23,3 +23,12 @@ flags.DEFINE_string(
 flags.DEFINE_string(
     "S3_bucket", "xain-results", "Bucket name for the results to be uploaded to"
 )
+
+# These flags are used in these packages: benchmark, ops
+flags.DEFINE_enum("benchmark_type", "fl", ["fl", "ea"], "Type of benchmark to run")
+
+flags.DEFINE_string(
+    "benchmark_name", None, "Name of the benchmark to be run e.g. 'integration_test'"
+)
+
+flags.DEFINE_string("group_name", None, "Group name to be plotted")
