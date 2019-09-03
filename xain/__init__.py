@@ -25,7 +25,9 @@ flags.DEFINE_string(
 )
 
 # These flags are used in these packages: benchmark, ops
-flags.DEFINE_enum("benchmark_type", "fl", ["fl", "ea"], "Type of benchmark to run")
+flags.DEFINE_enum(
+    "benchmark_type", "fl", ["fl", "fl_cifar", "ea"], "Type of benchmark to run"
+)
 
 flags.DEFINE_string(
     "benchmark_name", None, "Name of the benchmark to be run e.g. 'integration_test'"
