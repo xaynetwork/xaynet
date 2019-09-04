@@ -51,7 +51,7 @@ benchmarks: Dict[str, Benchmark] = {
     # Class Partitioning
     # ##############################
     #
-    "cpp-fashion-mnist-100p-iid-balanced": Benchmark(
+    "cpp-fashion-mnist-100p": Benchmark(
         tasks=[
             FashionMNISTTask(dataset_name="fashion-mnist-100p-noniid-01cpp"),
             FashionMNISTTask(dataset_name="fashion-mnist-100p-noniid-02cpp"),
