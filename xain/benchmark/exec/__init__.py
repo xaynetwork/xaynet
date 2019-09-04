@@ -8,12 +8,7 @@ flags.DEFINE_string(
 
 flags.DEFINE_string("task_name", None, "")
 
-flags.DEFINE_string(
-    "model",
-    None,
-    # pylint: disable-msg=consider-iterating-dictionary
-    f"Model name, one of {[fn for fn in model_fns.keys()]}",
-)
+flags.DEFINE_string("model", None, f"Model name, one of {[fn for fn in model_fns]}")
 
 flags.DEFINE_string("dataset", None, "Dataset name")
 
