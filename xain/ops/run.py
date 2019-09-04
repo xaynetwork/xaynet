@@ -1,7 +1,8 @@
 import subprocess
+from typing import Dict
 
 import boto3
-from absl import flags
+from absl import flags, logging
 
 from xain.helpers import project
 from xain.ops.docker import get_image_name
@@ -13,6 +14,18 @@ root_dir = project.root()
 client = boto3.client("ec2")
 
 
+cores: Dict[int, str] = {
+    2: "m5.large",
+    4: "m5.xlarge",
+    8: "m5.2xlarge",
+    16: "m5.4xlarge",
+    32: "m5.8xlarge",
+    48: "m5.12xlarge",
+    64: "m5.16xlarge",
+    96: "m5.24xlarge",
+}
+
+
 def docker(tag: str = "latest", **kwargs):
     """Run train in docker while accepting an arbitrary
     number of absl flags to be passed to the docker container
@@ -22,17 +35,23 @@ def docker(tag: str = "latest", **kwargs):
         **kwargs: Will be turned into "--{arg}={kwargs[arg]" format and passed to docker container
     """
 
-    command = ["docker", "run", "--rm", get_image_name(tag), "train"]
+    command = [
+        "docker",
+        "run",
+        "--rm",
+        get_image_name(tag),
+        "python",
+        "-m",
+        "xain.benchmark.exec",
+    ]
 
     for arg in kwargs:
-        if arg not in FLAGS:
-            raise Exception(f"{arg} is not a valid absl flags")
         command.append(f"--{arg}={kwargs[arg]}")
 
     subprocess.run(command, cwd=root_dir)
 
 
-def ec2(image: str, timeout: int = 300, instance_type="m5.large", **kwargs):
+def ec2(image: str, timeout: int = 300, instance_cores=2, **kwargs):
     """Runs job on EC2 instead of a local machine
 
     Possible options for instance_type (CPU only) are:
@@ -49,13 +68,15 @@ def ec2(image: str, timeout: int = 300, instance_type="m5.large", **kwargs):
         instance_type (str): EC2 instance size to be used
         **kwargs: Will be turned into "--{arg}={kwargs[arg]" format and passed to docker container
     """
+    assert (
+        instance_cores in cores
+    ), f"instance_cores {instance_cores} not in {cores.keys()}"
+    instance_type = cores[instance_cores]
 
     absl_flags = ""  # Will be passed to docker run in EC2 instance
     instance_name = ""  # Will be used to make the instance easier identifyable
 
     for arg in kwargs:
-        if arg not in FLAGS:
-            raise Exception(f"{arg} is not a valid absl flags")
         absl_flags += f"--{arg}={kwargs[arg]} "
         instance_name += f"{arg}={kwargs[arg]} "
 
@@ -80,14 +101,12 @@ def ec2(image: str, timeout: int = 300, instance_type="m5.large", **kwargs):
         ],
         AdditionalInfo=absl_flags,  # Helpful to identify instance in EC2 UI
     )
-
     instance_id = run_response["Instances"][0]["InstanceId"]
-    # desc_response = client.describe_instances(InstanceIds=[instance_id])
-
-    print({"InstanceId": instance_id, "Name": instance_name})
+    logging.info({"InstanceId": instance_id, "Name": instance_name})
 
 
 if __name__ == "__main__":
+    # FIXME replace with new mechanism
     ec2(
         image="693828385217.dkr.ecr.eu-central-1.amazonaws.com/xain:latest",
         benchmark_name="fashion-mnist-100p-iid-balanced",

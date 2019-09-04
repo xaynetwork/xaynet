@@ -6,7 +6,7 @@ from xain.fl.coordinator.aggregate import EvoAgg
 from xain.fl.coordinator.evaluator import Evaluator
 from xain.helpers import storage
 
-from . import report, run
+from .exec import report, run
 
 DEFAULT_R = 50
 DEFAULT_E = 1  # Number of training epochs in each round

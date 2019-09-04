@@ -24,12 +24,11 @@ def get_image_name(tag: str):
 
 
 def generate_unique_tag():
-    """Return a unique string with utc time and human readable part.
-    If passed it will include group as substring in the middle"""
+    """Return a unique string with utc time and human readable part"""
 
     utc_time = strftime("%Y%m%dT%H%M")
     # pylint: disable=no-member
-    fake_name = fake.name().lower().replace(" ", "_")
+    fake_name = fake.name().lower().replace(" ", "_").replace(".", "")
 
     return f"{utc_time}_{fake_name}"
 
@@ -43,18 +42,17 @@ def build(should_push: bool = False):
     """
     tag = generate_unique_tag()
     image_name_unique = get_image_name(tag)
-    image_name_latest = get_image_name("latest")
 
-    command = ["docker", "build", ".", "-t", image_name_latest, "-t", image_name_unique]
+    command = ["docker", "build", ".", "-t", image_name_unique]
     subprocess.run(command, cwd=root_dir).check_returncode()
 
     if should_push:
-        push()
+        push(tag)
 
     return image_name_unique
 
 
-def push(tag: str = "latest"):
+def push(tag: str):
     """Push xain docker container
 
     Args:

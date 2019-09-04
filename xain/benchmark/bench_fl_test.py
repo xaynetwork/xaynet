@@ -3,7 +3,8 @@ import os
 import pytest
 from absl import flags
 
-from . import bench_fl, run
+from . import bench_fl
+from .exec import run
 
 FLAGS = flags.FLAGS
 
