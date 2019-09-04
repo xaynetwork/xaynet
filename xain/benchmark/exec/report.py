@@ -2,7 +2,7 @@ import os
 from typing import List, Optional, Tuple
 
 import matplotlib
-from absl import app, flags
+from absl import app, flags, logging
 
 from xain.helpers import storage
 
@@ -21,11 +21,10 @@ FORMAT: str = "png"
 FLAGS = flags.FLAGS
 
 
-def read_accuracies_from_results(dname: str):
+def read_accuracies_from_results_file(fname: str) -> Tuple[str, float, float]:
     """Reads unitary and federated accuracy from results.json
     :param dname: directory in which the results.json file can be found
     """
-    fname = os.path.join(FLAGS.results_dir, dname, "results.json")
     data = storage.read_json(fname)
 
     return (
@@ -35,7 +34,7 @@ def read_accuracies_from_results(dname: str):
     )
 
 
-def read_uni_vs_fed_acc_stats(filter_substring: str) -> List[Tuple[str, float, float]]:
+def read_accuracies_from_group(group_dir: str) -> List[Tuple[str, float, float]]:
     """
     Reads results directory for given group id and
     extracts values from results.json files
@@ -44,54 +43,70 @@ def read_uni_vs_fed_acc_stats(filter_substring: str) -> List[Tuple[str, float, f
 
     :returns: List of tuples (benchmark_name, unitary_accuracy, federated_accuracy)
     """
-    assert os.path.isdir(FLAGS.results_dir)
+    assert os.path.isdir(group_dir)
 
     # get list of all directories which contain given substring
-    matches = list(
-        filter(lambda d: filter_substring in d, os.listdir(FLAGS.results_dir))
-    )
+    json_files = [
+        fname
+        for fname in storage.listdir_recursive(group_dir, relpath=False)
+        if fname.endswith("results.json")
+    ]
 
-    if not matches:
-        raise Exception("No values results found for given group_name")
+    if not json_files:
+        raise Exception(f"No values results found in group_dir: {group_dir}")
 
-    return list(map(read_accuracies_from_results, matches))
+    # Read accuracies from each file and return list of values in tuples
+    return [read_accuracies_from_results_file(fname) for fname in json_files]
 
 
-def plot_uni_vs_fed_acc_stats():
+PlotValues = Tuple[str, List[float], Optional[List[int]]]
+XticksLocations = List[int]
+XticksLabels = List[str]
+
+
+def prepare_iid_noniid_comparison_data(
+    group_name: str
+) -> Tuple[List[PlotValues], Optional[Tuple[XticksLocations, XticksLabels]]]:
+    """Constructs and returns curves and xticks_args
+
+    Args:
+        group_name (str): group name for which to construct the curves
+
+    Returns:
+        (
+            [
+                ("unitary", unitary_accuracies, indices),
+                ("federated", federated_accuracies, indices)
+            ],
+            (xticks_locations, xticks_labels))
+        )
+    """
     # List of tuples (benchmark_name, unitary_accuracy, federated_accuracy)
-    values = read_uni_vs_fed_acc_stats(filter_substring=FLAGS.group_name)
+    values = read_accuracies_from_group(group_name)
 
     # reverse order data by name
     # e.g. "fashion-mnist-100p-noniid-07cpp" before "fashion-mnist-100p-noniid-05cpp",
     sorted_values = sorted(values, key=lambda v: v[0], reverse=True)
-    indices = range(1, len(sorted_values) + 1)
+    indices = list(range(1, len(sorted_values) + 1))
 
     # For better understanding:
     # zip(*[('a0', 'b0', 'c0'), ('a1', 'b1', 'c1')]) == [('a0', 'a1'), ('b0', 'b1'), ('c0', 'c1')]
     # list(('a0', 'a1')) == ['a0', 'a1']
-    benchmark_names, unitary_accuracies, federated_accuracies = map(
-        list, zip(*sorted_values)
-    )
+    names, unitary_accuracies, federated_accuracies = [
+        list(l) for l in zip(*sorted_values)
+    ]
 
-    data = [
+    data: List[PlotValues] = [
         ("unitary", unitary_accuracies, indices),
         ("federated", federated_accuracies, indices),
     ]
 
-    fname = plot_iid_noniid_comparison(
-        data,
-        xticks_args=(indices, [name[19:] for name in benchmark_names]),
-        fname=f"plot_{FLAGS.group_name}.png",
-    )
+    labels: List[str] = [name[19:] for name in names]
 
-    print(f"Data plotted and saved in {fname}")
+    return (data, (indices, labels))
 
 
-def plot_iid_noniid_comparison(
-    data: List[Tuple[str, List[float], Optional[List[int]]]],
-    xticks_args: Optional[Tuple[List[int], List[str]]],
-    fname="plot.png",
-) -> str:
+def plot_iid_noniid_comparison() -> str:
     """
     Plots IID and Non-IID dataset performance comparision
 
@@ -100,9 +115,14 @@ def plot_iid_noniid_comparison(
 
     :returns: Absolut path to saved plot
     """
+    group_name = FLAGS.group_name
+    fname = f"plot_{group_name}.png"
+
+    (data, xticks_args) = prepare_iid_noniid_comparison_data(group_name)
+
     assert len(data) == 2, "Expecting a list of two curves"
 
-    return _plot(
+    fpath = _plot(
         data,
         title="Max achieved accuracy for unitary and federated learning",
         xlabel="partitioning grade",
@@ -115,6 +135,10 @@ def plot_iid_noniid_comparison(
         xticks_args=xticks_args,
         legend_loc="upper right",
     )
+
+    logging.info(f"Data plotted and saved in {fname}")
+
+    return fpath
 
 
 def plot_accuracies(
@@ -210,8 +234,9 @@ def _plot(
 
 
 def main(_):
-    plot_uni_vs_fed_acc_stats()
+    plot_iid_noniid_comparison()
 
 
 if __name__ == "__main__":
+    flags.mark_flag_as_required("group_name")
     app.run(main=main)
