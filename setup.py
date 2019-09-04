@@ -14,6 +14,7 @@ install_requires = [
     "absl-py==0.7.1",  # Apache 2.0
     "matplotlib==3.1.1",  # PSF
     "requests==2.22.0",  # Apache 2.0
+    "botocore==1.12.220",  # Apache License 2.0
     "boto3==1.9.220",  # Apache License 2.0
     "awscli==1.16.230",  # Apache License 2.0
 ]
