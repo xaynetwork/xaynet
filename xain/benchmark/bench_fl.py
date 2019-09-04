@@ -1,6 +1,6 @@
 from absl import app, flags
 
-from . import run
+from .exec import run
 
 FLAGS = flags.FLAGS
 
