@@ -86,9 +86,9 @@ def run_benchmark(benchmark_name: str):
         run_task(
             docker_image_name=docker_image_name,
             group_name=group_name,
+            task_class=task.__class__.__name__,
             model=model_name,
             dataset=dataset_name,
-            task_class=task.__class__.__name__,
             R=task.R,
             E=task.E,
             C=task.C,
@@ -104,9 +104,9 @@ def run_benchmark(benchmark_name: str):
 def run_task(
     docker_image_name: str,
     group_name: str,
+    task_class: str,
     model: str,
     dataset: str,
-    task_class: str,
     R: int,
     E: int,
     C: float,
