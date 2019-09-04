@@ -76,6 +76,33 @@ benchmarks: Dict[str, Benchmark] = {
         ],
         aggregation_name="cpp-aggregation",
     ),
+    #
+    # ##############################
+    # End-To-End Tests
+    # ##############################
+    #
+    "e2e-flul-fashion-mnist": Benchmark(
+        tasks=[
+            UnitaryFashionMNISTTask(
+                dataset_name="fashion-mnist-100p-noniid-02cpp", E=4, partition_id=0
+            ),
+            FashionMNISTTask(
+                dataset_name="fashion-mnist-100p-noniid-02cpp", R=2, E=2, C=0.02
+            ),
+        ],
+        aggregation_name="flul-aggregation",
+    ),
+    "e2e-flul-cifar-10": Benchmark(
+        tasks=[
+            UnitaryFashionMNISTTask(
+                dataset_name="cifar-10-100p-noniid-02cpp", E=4, partition_id=0
+            ),
+            FashionMNISTTask(
+                dataset_name="cifar-10-100p-noniid-02cpp", R=2, E=2, C=0.02
+            ),
+        ],
+        aggregation_name="flul-aggregation",
+    ),
 }
 
 
