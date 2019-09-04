@@ -1,5 +1,5 @@
 import os
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import matplotlib
 import numpy as np
@@ -34,7 +34,7 @@ def get_task_accuracy(data: dict) -> float:
     return data["acc"]
 
 
-def read_task_values(fname: str) -> Tuple[str, float, float]:
+def read_task_values(fname: str) -> Tuple[str, str, float]:
     """Reads unitary and federated accuracy from results.json
 
     Args:
@@ -72,18 +72,22 @@ def read_all_task_values(group_dir: str) -> List[Tuple[str, str, float]]:
     return [read_task_values(fname) for fname in json_files]
 
 
-def group_values_by_class(values):
+def group_values_by_class(
+    values: List[Tuple[str, str, float]]
+) -> Dict[str, List[Tuple[str, float]]]:
     # Get unique task classes
     task_classes = np.unique([v[0] for v in values])
 
     # Group values by task_class
-    grouped_values = {task_class: [] for task_class in task_classes}
+    grouped_values: Dict[str, List[Tuple[str, float]]] = {
+        task_class: [] for task_class in task_classes
+    }
 
     for task_class in task_classes:
         filtered_values = [v for v in values if v[0] == task_class]
         for value in filtered_values:
-            (_, label, value) = value
-            grouped_values[task_class].append((label, value))
+            (_, label, acc) = value
+            grouped_values[task_class].append((label, acc))
 
     return grouped_values
 
@@ -115,17 +119,18 @@ def prepare_comparison_data(
     values = read_all_task_values(group_dir=group_dir)
     values = sorted(values, key=lambda v: v[1], reverse=True)  # sort by
 
-    values = group_values_by_class(values)
+    assert values, "No values for group found"
 
-    task_classes = [k for k in values]
-    indices = list(range(1, len(values[task_classes[0]]) + 1))
-    labels = [label for label, _ in values[task_classes[0]]]
+    grouped_values = group_values_by_class(values)
+    task_classes = [k for k in grouped_values]
+    indices = list(range(1, len(grouped_values[task_classes[0]]) + 1))
+    labels = [label for label, _ in grouped_values[task_classes[0]]]
 
     data: List[PlotValues] = []
 
-    for group in values:
-        group_values = [acc for _, acc in values[group]]
-        plot_values = (group, group_values, indices)
+    for task_class in grouped_values:
+        task_class_values = [acc for _, acc in grouped_values[task_class]]
+        plot_values = (task_class, task_class_values, indices)
         data.append(plot_values)
 
     return (data, (indices, labels))
