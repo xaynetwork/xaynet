@@ -2,6 +2,7 @@ import os
 from typing import List, Optional, Tuple
 
 import matplotlib
+import numpy as np
 from absl import app, flags, logging
 
 from xain.helpers import storage
@@ -21,20 +22,32 @@ FORMAT: str = "png"
 FLAGS = flags.FLAGS
 
 
-def read_accuracies_from_results_file(fname: str) -> Tuple[str, float, float]:
+def get_task_class(data: dict) -> str:
+    return data["task_name"].split("_")[0]
+
+
+def get_task_label(data: dict) -> str:
+    return data["dataset"].split("-")[-1]
+
+
+def get_task_accuracy(data: dict) -> float:
+    return data["acc"]
+
+
+def read_task_values(fname: str) -> Tuple[str, float, float]:
     """Reads unitary and federated accuracy from results.json
-    :param dname: directory in which the results.json file can be found
+
+    Args:
+        fname (str): path to results.json file containing required fields
+
+    Returns
+        task_name, task_label, accuracy (str, str, float)
     """
     data = storage.read_json(fname)
-
-    return (
-        data["name"],
-        data["unitary_learning"]["acc"],
-        data["federated_learning"]["acc"],
-    )
+    return (get_task_class(data), get_task_label(data), get_task_accuracy(data))
 
 
-def read_accuracies_from_group(group_dir: str) -> List[Tuple[str, float, float]]:
+def read_all_task_values(group_dir: str) -> List[Tuple[str, str, float]]:
     """
     Reads results directory for given group id and
     extracts values from results.json files
@@ -56,7 +69,23 @@ def read_accuracies_from_group(group_dir: str) -> List[Tuple[str, float, float]]
         raise Exception(f"No values results found in group_dir: {group_dir}")
 
     # Read accuracies from each file and return list of values in tuples
-    return [read_accuracies_from_results_file(fname) for fname in json_files]
+    return [read_task_values(fname) for fname in json_files]
+
+
+def group_values_by_class(values):
+    # Get unique task classes
+    task_classes = np.unique([v[0] for v in values])
+
+    # Group values by task_class
+    grouped_values = {task_class: [] for task_class in task_classes}
+
+    for task_class in task_classes:
+        filtered_values = [v for v in values if v[0] == task_class]
+        for value in filtered_values:
+            (_, label, value) = value
+            grouped_values[task_class].append((label, value))
+
+    return grouped_values
 
 
 PlotValues = Tuple[str, List[float], Optional[List[int]]]
@@ -64,7 +93,7 @@ XticksLocations = List[int]
 XticksLabels = List[str]
 
 
-def prepare_iid_noniid_comparison_data(
+def prepare_comparison_data(
     group_name: str
 ) -> Tuple[List[PlotValues], Optional[Tuple[XticksLocations, XticksLabels]]]:
     """Constructs and returns curves and xticks_args
@@ -81,34 +110,29 @@ def prepare_iid_noniid_comparison_data(
             (xticks_locations, xticks_labels))
         )
     """
+    group_dir = os.path.join(FLAGS.results_dir, group_name)
     # List of tuples (benchmark_name, unitary_accuracy, federated_accuracy)
-    values = read_accuracies_from_group(group_name)
+    values = read_all_task_values(group_dir=group_dir)
+    values = sorted(values, key=lambda v: v[1], reverse=True)  # sort by
 
-    # reverse order data by name
-    # e.g. "fashion-mnist-100p-noniid-07cpp" before "fashion-mnist-100p-noniid-05cpp",
-    sorted_values = sorted(values, key=lambda v: v[0], reverse=True)
-    indices = list(range(1, len(sorted_values) + 1))
+    values = group_values_by_class(values)
 
-    # For better understanding:
-    # zip(*[('a0', 'b0', 'c0'), ('a1', 'b1', 'c1')]) == [('a0', 'a1'), ('b0', 'b1'), ('c0', 'c1')]
-    # list(('a0', 'a1')) == ['a0', 'a1']
-    names, unitary_accuracies, federated_accuracies = [
-        list(l) for l in zip(*sorted_values)
-    ]
+    task_classes = [k for k in values]
+    indices = list(range(1, len(values[task_classes[0]]) + 1))
+    labels = [label for label, _ in values[task_classes[0]]]
 
-    data: List[PlotValues] = [
-        ("unitary", unitary_accuracies, indices),
-        ("federated", federated_accuracies, indices),
-    ]
+    data: List[PlotValues] = []
 
-    labels: List[str] = [name[19:] for name in names]
+    for group in values:
+        group_values = [acc for _, acc in values[group]]
+        plot_values = (group, group_values, indices)
+        data.append(plot_values)
 
     return (data, (indices, labels))
 
 
-def plot_iid_noniid_comparison() -> str:
-    """
-    Plots IID and Non-IID dataset performance comparision
+def plot_final_task_accuracies() -> str:
+    """Plots IID and Non-IID dataset performance comparision
 
     :param data: List of tuples which represent (name, values, indices)
     :param fname: Filename of plot
@@ -118,7 +142,7 @@ def plot_iid_noniid_comparison() -> str:
     group_name = FLAGS.group_name
     fname = f"plot_{group_name}.png"
 
-    (data, xticks_args) = prepare_iid_noniid_comparison_data(group_name)
+    (data, xticks_args) = prepare_comparison_data(group_name)
 
     assert len(data) == 2, "Expecting a list of two curves"
 
@@ -233,10 +257,6 @@ def _plot(
     return fname_abspath
 
 
-def main(_):
-    plot_iid_noniid_comparison()
-
-
-if __name__ == "__main__":
+def app_run_plot_final_task_accuracies():
     flags.mark_flag_as_required("group_name")
-    app.run(main=main)
+    app.run(main=lambda _: plot_final_task_accuracies())

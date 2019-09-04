@@ -10,12 +10,12 @@ from . import report
 FLAGS = flags.FLAGS
 
 
-def test_read_accuracies_from_results_file(monkeypatch):
+def test_read_task_values(monkeypatch):
     # Prepare
     json_data = {
-        "name": "foo",
-        "unitary_learning": {"acc": 0.1},
-        "federated_learning": {"acc": 0.2},
+        "task_name": "TaskClass_foo_bar",
+        "dataset": "fashion-mnist-100p-noniid-05cpp",
+        "acc": 0.42,
     }
 
     def mock_read_json(_: str):
@@ -23,21 +23,17 @@ def test_read_accuracies_from_results_file(monkeypatch):
 
     monkeypatch.setattr(storage, "read_json", mock_read_json)
 
-    expected_data = (
-        json_data["name"],
-        json_data["unitary_learning"]["acc"],
-        json_data["federated_learning"]["acc"],
-    )
+    expected_data = ("TaskClass", "05cpp", 0.42)
 
     # Execute
-    actual_data = report.read_accuracies_from_results_file("any.json")
+    actual_data = report.read_task_values("any.json")
 
     # Assert
     assert expected_data == actual_data
 
 
 @pytest.mark.integration
-def test_read_accuracies_from_group(monkeypatch, group_name, results_dir):
+def test_read_all_task_values(monkeypatch, group_name, results_dir):
     # Prepare
     other_group_name = "other_group"
     assert group_name != other_group_name  # just in case
@@ -61,24 +57,20 @@ def test_read_accuracies_from_group(monkeypatch, group_name, results_dir):
 
     expected_results = files[:2]
 
-    def mock_read_accuracies_from_results_file(fname):
+    def mock_read_task_values(fname):
         return fname
 
-    monkeypatch.setattr(
-        report,
-        "read_accuracies_from_results_file",
-        mock_read_accuracies_from_results_file,
-    )
+    monkeypatch.setattr(report, "read_task_values", mock_read_task_values)
 
     # Execute
-    actual_results = report.read_accuracies_from_group(group_dir)
+    actual_results = report.read_all_task_values(group_dir)
 
     # Assert
     assert actual_results == expected_results
 
 
 @pytest.mark.integration
-def test_plot_iid_noniid_comparison(output_dir, group_name, monkeypatch):
+def test_plot_final_task_accuracies(output_dir, group_name, monkeypatch):
     # Prepare
     data = [
         (
@@ -99,17 +91,13 @@ def test_plot_iid_noniid_comparison(output_dir, group_name, monkeypatch):
     xticks_locations = range(1, 12, 1)
     xticks_labels = [chr(i) for i in range(65, 77, 1)]  # A, B, ..., K
 
-    def mock_prepare_iid_noniid_comparison_data(_: str):
+    def mock_prepare_comparison_data(_: str):
         return (data, (xticks_locations, xticks_labels))
 
-    monkeypatch.setattr(
-        report,
-        "prepare_iid_noniid_comparison_data",
-        mock_prepare_iid_noniid_comparison_data,
-    )
+    monkeypatch.setattr(report, "prepare_comparison_data", mock_prepare_comparison_data)
 
     # Execute
-    actual_filepath = report.plot_iid_noniid_comparison()
+    actual_filepath = report.plot_final_task_accuracies()
 
     # If any error occurs we will be able to look at the plot. If the the ploting
     # logic is changed the file under this path can be used to get the new hash
