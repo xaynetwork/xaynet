@@ -73,5 +73,10 @@ setup(
         "dev": dev_require + tests_require,
     },
     cmdclass={},
-    entry_points={"console_scripts": ["train=xain.benchmark.__main__:main_wrapper"]},
+    entry_points={
+        "console_scripts": [
+            "pull_results=xain.ops.__main__:download",
+            "train_remote=xain.benchmark.__main__:main",
+        ]
+    },
 )

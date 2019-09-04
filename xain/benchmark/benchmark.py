@@ -2,6 +2,8 @@ from typing import Callable, Dict, List
 
 from absl import app, flags, logging
 
+from xain.ops import docker, run
+
 from .aggregation import cpp_aggregation, flul_aggregation
 from .task import FashionMNISTTask, Task, UnitaryFashionMNISTTask
 
@@ -69,30 +71,55 @@ benchmarks: Dict[str, Benchmark] = {
 
 
 def run_benchmark(benchmark_name: str):
+    logging.info(f"Building Docker image for benchmark {benchmark_name}")
+    docker_image_name = docker.build(should_push=True)
+
     logging.info(f"Starting benchmark {benchmark_name}")
     benchmark = benchmarks[benchmark_name]
-    aggregation_name = benchmark.aggregation_name
-    # TODO run tasks in parallel
+
+    # TODO Initiate tasks in parallel
     for task in benchmark.tasks:
         model_name = task.model_name
         dataset_name = task.dataset_name
-        run_task(model_name, dataset_name, R=task.R, E=task.E, C=task.C, B=task.B)
-    # TODO wait for completion
+        run_task(
+            docker_image_name=docker_image_name,
+            model=model_name,
+            dataset=dataset_name,
+            R=task.R,
+            E=task.E,
+            C=task.C,
+            B=task.B,
+        )
+
     # Aggregate results
-    aggregation_fn = aggregations[aggregation_name]
+    # TODO wait for completion or move to separate task
+    aggregation_fn = aggregations[benchmark.aggregation_name]
     aggregation_fn()
 
 
-def run_task(model: str, dataset: str, R: int, E: int, C: float, B: int):
-    logging.info(f"Run task: {model}, {dataset}, {R}, {E}, {C}, {B}")
+def run_task(
+    docker_image_name: str, model: str, dataset: str, R: int, E: int, C: float, B: int
+):
+    logging.info(
+        f"Attempting to run task on EC2: {model}, {dataset}, {R}, {E}, {C}, {B}"
+    )
+    run.ec2(
+        image=docker_image_name,
+        timeout=300,  # TODO dynamic from benchmark config
+        instance_cores=2,  # TODO dynamic from benchmark config
+        # The following arguments will be passed as absl flags:
+        group_name=docker_image_name,
+        task_name=f"task_{dataset}_{model}_{R}_{E}_{C}_{B}",
+        model=model,
+        dataset=dataset,
+        R=R,
+        E=E,
+        C=C,
+        B=B,
+    )
 
 
 def main(_):
     benchmark_name = FLAGS.benchmark_name
     assert benchmark_name in benchmarks.keys()
     run_benchmark(benchmark_name=benchmark_name)
-
-
-if __name__ == "__main__":
-    FLAGS(["_", "--benchmark_name=flul-fashion-mnist-100p-iid-balanced"])
-    app.run(main=main)

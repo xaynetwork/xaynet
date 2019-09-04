@@ -89,7 +89,3 @@ def download():
 
             logging.info(f"Downloading {key} from {bucket} to {fname}")
             client.download_file(Bucket=bucket, Key=key, Filename=fname)
-
-
-if __name__ == "__main__":
-    app.run(main=lambda _: download())
