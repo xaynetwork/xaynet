@@ -2,7 +2,7 @@ import glob
 import os
 
 import boto3
-from absl import app, flags, logging
+from absl import flags, logging
 
 FLAGS = flags.FLAGS
 

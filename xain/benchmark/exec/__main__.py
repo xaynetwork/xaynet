@@ -1,6 +1,6 @@
 import time
 
-from absl import app, flags, logging
+from absl import app, flags
 
 from xain.datasets import load_splits
 from xain.helpers import storage
