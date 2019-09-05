@@ -6,7 +6,8 @@ FLAGS = flags.FLAGS
 
 
 def main():
-    FLAGS(["_", "--benchmark_name=flul-fashion-mnist-100p-iid-balanced"])
+    # mark_flag_as_required only works if no default in __init__.py is set
+    # flags.mark_flag_as_required("benchmark_name")
     app.run(main=benchmark.main)
 
 
