@@ -1,10 +1,11 @@
 from concurrent import futures
 
-import pytest
 import grpc
+import pytest
 
-from xain.grpc import helloworld_pb2_grpc, helloworld_pb2
+from xain.grpc import helloworld_pb2, helloworld_pb2_grpc
 from xain.grpc.greeter_server import Greeter
+
 
 @pytest.fixture
 def greeter_server():
