@@ -75,8 +75,11 @@ def ec2(image: str, timeout: int = 300, instance_cores=2, **kwargs):
     instance_name = ""  # Will be used to make the instance easier identifyable
 
     for arg in kwargs:
+        if kwargs[arg] is None:
+            # Don't pass flags where arg has value None
+            continue
         absl_flags += f"--{arg}={kwargs[arg]} "
-        instance_name += f"{arg}={kwargs[arg]} "
+        instance_name += f"{kwargs[arg]}_"
 
     udata = user_data(image=image, timeout=timeout, flags=absl_flags)
 

@@ -115,6 +115,7 @@ def federated_training(
     return hist_co, hist_ps, loss, acc
 
 
+# FIXME remove
 def unitary_versus_federated(
     benchmark_name: str,
     model_name: str,
