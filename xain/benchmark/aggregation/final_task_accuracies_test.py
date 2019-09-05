@@ -6,7 +6,7 @@ from absl import flags
 from xain.helpers import sha1
 
 from . import final_task_accuracies
-from .aggregation import TaskResult
+from .results import TaskResult
 
 FLAGS = flags.FLAGS
 

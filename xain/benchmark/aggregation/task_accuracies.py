@@ -5,13 +5,13 @@ from absl import app, flags, logging
 
 from xain.types import PlotValues
 
-from .aggregation import GroupResult, TaskResult
 from .plot import plot
+from .results import GroupResult, TaskResult
 
 FLAGS = flags.FLAGS
 
 
-def read_task_values(task_result: TaskResult) -> Tuple[str, List[float]]:
+def read_task_values(task_result: TaskResult) -> Tuple[str, List[float], int]:
     """Reads unitary and federated accuracy from results.json
 
     Args:
@@ -20,10 +20,10 @@ def read_task_values(task_result: TaskResult) -> Tuple[str, List[float]]:
     Returns
         class, label, final_accuracy (str, str, float): e.g. ("VisionTask", "cpp01", 0.92)
     """
-    return (task_result.get_class(), task_result.get_accuracies())
+    return (task_result.get_class(), task_result.get_accuracies(), task_result.get_E())
 
 
-def read_all_task_values(group_dir: str) -> List[Tuple[str, List[float]]]:
+def read_all_task_values(group_dir: str) -> List[Tuple[str, List[float], int]]:
     """
     Reads results directory for given group id and
     extracts values from results.json files
@@ -59,9 +59,13 @@ def prepare_aggregation_data(group_name: str) -> List[PlotValues]:
     data: List[PlotValues] = []
 
     for value in values:
-        print(value)
-        task_class, task_accuracies = value
-        indices = list(range(1, len(task_accuracies) + 1))
+        task_class, task_accuracies, E = value
+
+        if "Unitary" in task_class:
+            indices = [i for i in range(1, len(task_accuracies) + 1, 1)]
+        else:
+            indices = [i for i in range(E, len(task_accuracies) * E + 1, E)]
+
         data.append((task_class, task_accuracies, indices))
 
     return data
@@ -81,7 +85,7 @@ def aggregate() -> str:
     data = prepare_aggregation_data(group_name)
 
     # Take highest length of values list as xlim_max
-    xlim_max = max([len(values) for _, values, _ in data])
+    xlim_max = max([len(values) for _, values, _ in data]) + 1
 
     fpath = plot(
         data,
@@ -94,7 +98,7 @@ def aggregate() -> str:
         xlim_max=xlim_max,
     )
 
-    logging.info(f"Data plotted and saved in {fname}")
+    logging.info(f"Data plotted and saved in {fpath}")
 
     return fpath
 

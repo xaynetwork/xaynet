@@ -6,8 +6,8 @@ from absl import app, flags, logging
 
 from xain.types import PlotValues, XticksLabels, XticksLocations
 
-from .aggregation import GroupResult, TaskResult
 from .plot import plot
+from .results import GroupResult, TaskResult
 
 FLAGS = flags.FLAGS
 
@@ -128,7 +128,7 @@ def aggregate() -> str:
         legend_loc="upper right",
     )
 
-    logging.info(f"Data plotted and saved in {fname}")
+    logging.info(f"Data plotted and saved in {fpath}")
 
     return fpath
 
