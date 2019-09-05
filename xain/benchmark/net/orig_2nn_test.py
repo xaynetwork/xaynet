@@ -1,11 +1,13 @@
 import random
 
 import numpy as np
+import pytest
 import tensorflow as tf
 
 from .orig_2nn import orig_2nn_compiled
 
 
+@pytest.mark.slow
 def test_num_parameters():
     # Prepare
     model = orig_2nn_compiled()
@@ -15,6 +17,7 @@ def test_num_parameters():
     assert num_params == 199_210
 
 
+@pytest.mark.slow
 def test_seed_mnist():
     # Prepare
     random.seed(0)
@@ -39,6 +42,7 @@ def test_seed_mnist():
         np.testing.assert_equal(w_a, w_b)
 
 
+@pytest.mark.slow
 def test_seed_cifar():
     # Prepare
     random.seed(0)
