@@ -42,7 +42,7 @@ $ python -m xain.benchmark --helpfull
 
 ### Connect to running instances
 
-Start a benchmark suit
+Start a benchmark suite
 
 Then:
 
