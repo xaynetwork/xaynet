@@ -4,7 +4,6 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 from absl import app, flags, logging
 
-from xain.helpers import storage
 from xain.types import PlotValues, XticksLabels, XticksLocations
 
 from .aggregation import GroupResult, TaskResult

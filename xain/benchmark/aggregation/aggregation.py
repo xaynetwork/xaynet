@@ -1,6 +1,6 @@
 import os
 from abc import ABC
-from typing import Dict, List
+from typing import List
 
 from absl import logging
 

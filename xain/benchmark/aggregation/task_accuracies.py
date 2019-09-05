@@ -1,5 +1,5 @@
 import os
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 from absl import app, flags, logging
 

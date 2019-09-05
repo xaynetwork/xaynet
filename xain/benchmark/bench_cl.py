@@ -1,5 +1,4 @@
 import time
-from typing import List, Optional, Tuple
 
 import tensorflow as tf
 from absl import app, logging
