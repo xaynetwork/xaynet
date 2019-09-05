@@ -17,6 +17,7 @@ def greeter_server():
     server.stop(0)
 
 
+# pylint: disable=W0613,W0621
 def test_greeter_server(greeter_server):
     with grpc.insecure_channel("localhost:50051") as channel:
         stub = helloworld_pb2_grpc.GreeterStub(channel)
