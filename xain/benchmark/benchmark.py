@@ -1,3 +1,4 @@
+from time import strftime
 from typing import Callable, Dict, List
 
 from absl import flags, logging
@@ -112,6 +113,7 @@ def run_benchmark(benchmark_name: str):
 
     logging.info(f"Starting benchmark {benchmark_name}")
     benchmark = benchmarks[benchmark_name]
+    group_name = f"group_{benchmark_name}_{strftime('%Y%m%dT%H%M')}"
 
     # TODO Initiate tasks in parallel
     for task in benchmark.tasks:
@@ -119,6 +121,8 @@ def run_benchmark(benchmark_name: str):
         dataset_name = task.dataset_name
         run_task(
             docker_image_name=docker_image_name,
+            group_name=group_name,
+            task_class=task.__class__.__name__,
             model=model_name,
             dataset=dataset_name,
             R=task.R,
@@ -134,7 +138,15 @@ def run_benchmark(benchmark_name: str):
 
 
 def run_task(
-    docker_image_name: str, model: str, dataset: str, R: int, E: int, C: float, B: int
+    docker_image_name: str,
+    group_name: str,
+    task_class: str,
+    model: str,
+    dataset: str,
+    R: int,
+    E: int,
+    C: float,
+    B: int,
 ):
     logging.info(
         f"Attempting to run task on EC2: {model}, {dataset}, {R}, {E}, {C}, {B}"
@@ -144,8 +156,8 @@ def run_task(
         timeout=300,  # TODO dynamic from benchmark config
         instance_cores=2,  # TODO dynamic from benchmark config
         # The following arguments will be passed as absl flags:
-        group_name=docker_image_name,
-        task_name=f"task_{dataset}_{model}_{R}_{E}_{C}_{B}",
+        group_name=group_name,
+        task_name=f"{task_class}_{dataset}_{model}_{R}_{E}_{C}_{B}",
         model=model,
         dataset=dataset,
         R=R,
@@ -157,5 +169,5 @@ def run_task(
 
 def main(_):
     benchmark_name = FLAGS.benchmark_name
-    assert benchmark_name in benchmarks.keys()
+    assert benchmark_name in benchmarks
     run_benchmark(benchmark_name=benchmark_name)

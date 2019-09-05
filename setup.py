@@ -78,6 +78,7 @@ setup(
         "console_scripts": [
             "pull_results=xain.ops.__main__:download",
             "train_remote=xain.benchmark.__main__:main",
+            "plot_final_task_accuracies=xain.benchmark.exec.report:app_run_plot_final_task_accuracies",
         ]
     },
 )
