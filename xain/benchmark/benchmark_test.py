@@ -1,5 +1,6 @@
 from xain.benchmark.net import model_fns
 from xain.datasets.dataset import config
+from xain.ops.run import cores
 
 from .benchmark import aggregations, benchmarks
 
@@ -44,3 +45,18 @@ def test_valid_dataset_names():
     # Assert
     for dataset_name in dataset_names:
         assert dataset_name in all_datasets
+
+
+def test_valid_instance_cores():
+    """
+    Verify that all dataset names used in `Task` objects are available in `xain.datasets`
+    """
+
+    # Prepare
+    instance_cores = [
+        task.instance_cores for b in benchmarks for task in benchmarks[b].tasks
+    ]
+
+    # Assert
+    for ic in instance_cores:
+        assert ic in cores
