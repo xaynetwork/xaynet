@@ -6,7 +6,7 @@ from absl import app, logging
 
 from xain.helpers import storage
 
-from .aggregation import report
+from .aggregation import task_accuracies
 from .exec import run
 
 B = 64
@@ -101,7 +101,7 @@ def bench_cl_ul(
             [i for i in range(1, len(hist["val_acc"]) + 1, 1)],
         )
     ]
-    report.plot_accuracies(plot_data, fname=name + "-plot.png")
+    task_accuracies.plot(plot_data, fname=name + "-plot.png")
 
 
 def data(limit: bool):

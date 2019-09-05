@@ -6,7 +6,7 @@ import numpy as np
 import tensorflow as tf
 from absl import logging
 
-from xain.benchmark.aggregation import report
+from xain.benchmark.aggregation import task_accuracies
 from xain.benchmark.net import load_model_fn
 from xain.datasets import load_splits
 from xain.fl.coordinator import Coordinator, RandomController
@@ -187,4 +187,4 @@ def unitary_versus_federated(
         ),
     ]
     # FIXME use different filenames for different datasets
-    report.plot_accuracies(plot_data, fname="plot.png")
+    task_accuracies.plot(plot_data, fname="plot.png")
