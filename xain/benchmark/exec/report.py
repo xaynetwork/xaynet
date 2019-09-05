@@ -22,11 +22,11 @@ FORMAT: str = "png"
 FLAGS = flags.FLAGS
 
 
-def get_task_class(data: dict) -> str:
+def get_task_class(data: Dict) -> str:
     return data["task_name"].split("_")[0]
 
 
-def get_task_label(data: dict) -> str:
+def get_task_label(data: Dict) -> str:
     return data["dataset"].split("-")[-1]
 
 
