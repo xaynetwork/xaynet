@@ -1,18 +1,76 @@
-# Benchmarks
+# Benchmark Execution
 
-This package contains all the benchmarks to be run.
+## Training
 
-## Plots
+To execute a training session locally:
 
-Generally plots will be automatically generated when a benchmark is triggered.
-
-**Exception:**<br>
-The plot which compares the top performances of unitary and federated learning on the IID to Non-IID datasets aggregates top accuracies of a given benchmark group in the results directory and plots them.
-To do this you have to first run a group of benchmarks with e.g. the `train_remote_iid_noniid.sh` script in scripts. Afterwards you can plot the values using
-
-```bash
-python -m xain.benchmark.report --group_name GROUP_NAME
+```shell
+$ python -m xain.benchmark.exec \
+    --group_name=abc \
+    --task_name=def \
+    --dataset=fashion-mnist-100p-iid-balanced \
+    --model=blog_cnn \
+    --R=2 \
+    --E=2 \
+    --C=0.02 \
+    --B=64
 ```
 
-When executing `train_remote_iid_noniid.sh` you will be asked for a GROUP_NAME
-Alternatively when running `train_remote.sh` you can set it via the ENV variable `BENCHMARK_GROUP`
+## Benchmark Suites (using AWS EC2)
+
+Here we describe how to configure and run an AWS service. Please bear in mind that you are responsible for any costs that may arise when using these external services.
+
+### Configuration
+
+In `~/.aws`, place two config files: `config` and `credentials`. Then execute the command:
+
+```shell
+export AWS_PROFILE=xain-xain
+```
+
+### Running a benchmark suite
+
+```shell
+$ python -m xain.benchmark --benchmark_name=BENCHMARK_NAME
+```
+
+You can see valid benchmark names by using
+
+```shell
+$ python -m xain.benchmark --helpfull
+```
+
+### Connect to running instances
+
+Start a benchmark suite
+
+Then:
+
+1. List all running EC2 instances:
+
+```shell
+$ AWS_PROFILE=xain-xain aws ec2 describe-instances  --filters Name=instance-state-code,Values=16 | jq '.Reservations[].Instances[].PublicIpAddress'
+"35.158.158.119"
+"18.185.67.166"
+```
+
+2. Connect to one of the running instances using ssh:
+
+```shell
+$ ssh -i ~/.ssh/xain-ec2-remote-training.pem ubuntu@18.185.67.166
+```
+
+3. Follow the logs of the container to see how things are running:
+
+```shell
+$ docker logs -f $(docker ps -q)
+```
+
+# Plotting
+
+To plot final task accuracies in a group of tasks use
+
+```shell
+$ pull_results
+$ plot_final_task_accuracies --group_name=GROUP_NAME
+```
