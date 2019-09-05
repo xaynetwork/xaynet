@@ -6,7 +6,7 @@ from xain.fl.coordinator.aggregate import EvoAgg
 from xain.fl.coordinator.evaluator import Evaluator
 from xain.helpers import storage
 
-from .aggregation import report
+from .aggregation import task_accuracies
 from .exec import run
 
 DEFAULT_R = 50
@@ -50,7 +50,7 @@ def benchmark_evolutionary_avg():
     )
 
     # Output results
-    report.plot_accuracies(
+    task_accuracies.plot(
         [("EA", hist_a["val_acc"], None), ("WA", hist_b["val_acc"], None)],
         fname="EA-WA-plot.png",
     )

@@ -5,7 +5,7 @@ from absl import flags
 
 from xain.helpers import sha1, storage
 
-from . import report
+from . import final_task_accuracies
 
 FLAGS = flags.FLAGS
 
@@ -26,7 +26,7 @@ def test_read_task_values(monkeypatch):
     expected_data = ("TaskClass", "05cpp", 0.42)
 
     # Execute
-    actual_data = report.read_task_values("any.json")
+    actual_data = final_task_accuracies.read_task_values("any.json")
 
     # Assert
     assert expected_data == actual_data
@@ -60,10 +60,12 @@ def test_read_all_task_values(monkeypatch, group_name, results_dir):
     def mock_read_task_values(fname):
         return fname
 
-    monkeypatch.setattr(report, "read_task_values", mock_read_task_values)
+    monkeypatch.setattr(
+        final_task_accuracies, "read_task_values", mock_read_task_values
+    )
 
     # Execute
-    actual_results = report.read_all_task_values(group_dir)
+    actual_results = final_task_accuracies.read_all_task_values(group_dir)
 
     # Assert
     assert set(actual_results) == set(expected_results)
@@ -94,42 +96,12 @@ def test_plot_final_task_accuracies(output_dir, group_name, monkeypatch):
     def mock_prepare_comparison_data(_: str):
         return (data, (xticks_locations, xticks_labels))
 
-    monkeypatch.setattr(report, "prepare_comparison_data", mock_prepare_comparison_data)
+    monkeypatch.setattr(
+        final_task_accuracies, "prepare_comparison_data", mock_prepare_comparison_data
+    )
 
     # Execute
-    actual_filepath = report.plot_final_task_accuracies()
-
-    # If any error occurs we will be able to look at the plot. If the the ploting
-    # logic is changed the file under this path can be used to get the new hash
-    # after evaluating the rendered plot
-    print(actual_filepath)
-
-    # Assert
-    assert expected_filepath == actual_filepath
-    assert expected_sha1 == sha1.checksum(actual_filepath), "Checksum not matching"
-
-
-@pytest.mark.integration
-def test_plot_accuracies(output_dir):
-    # Prepare
-    data = [
-        (
-            "unitary",
-            [0.96, 0.90, 0.81, 0.72, 0.63, 0.54, 0.45, 0.36, 0.27, 0.18, 0.09],
-            range(1, 12, 1),
-        ),
-        (
-            "federated",
-            [0.92, 0.89, 0.87, 0.85, 0.83, 0.81, 0.80, 0.79, 0.78, 0.77, 0.77],
-            range(1, 12, 1),
-        ),
-    ]
-    fname = "myplot.png"
-    expected_filepath = os.path.join(output_dir, fname)
-    expected_sha1 = "457baa8179f08f06c4e60213eb0bbbe79a4f9d3e"
-
-    # Execute
-    actual_filepath = report.plot_accuracies(data=data, fname=fname)
+    actual_filepath = final_task_accuracies.plot()
 
     # If any error occurs we will be able to look at the plot. If the the ploting
     # logic is changed the file under this path can be used to get the new hash
