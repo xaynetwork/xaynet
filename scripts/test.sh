@@ -8,7 +8,7 @@ cd $DIR/../
 isort --check-only --indent=4 -rc setup.py conftest.py xain && echo "===> isort says: well done <===" &&
 
 # format code
-black --check setup.py conftest.py xain && echo "===> black says: well done <===" &&
+black --check --exclude "xain/grpc/.*_pb2.*" setup.py conftest.py xain && echo "===> black says: well done <===" &&
 
 # lint
 pylint --rcfile=pylint.ini xain && echo "===> pylint says: well done <===" &&
