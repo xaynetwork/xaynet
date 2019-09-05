@@ -6,7 +6,8 @@ from absl import app, logging
 
 from xain.helpers import storage
 
-from .exec import report, run
+from .aggregation import report
+from .exec import run
 
 B = 64
 
