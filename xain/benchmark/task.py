@@ -7,6 +7,7 @@ DEFAULT_C = 0.1  # Fraction of participants participating in each round
 DEFAULT_B = 64  # Batch size
 
 
+# pylint: disable-msg=too-many-instance-attributes
 class Task(ABC):
     def __init__(
         self,
@@ -17,6 +18,7 @@ class Task(ABC):
         C: float,
         B: int,
         partition_id: Optional[int] = None,
+        instance_cores: int = 2,
     ):
         self.dataset_name = dataset_name
         self.model_name = model_name
@@ -25,6 +27,7 @@ class Task(ABC):
         self.C = C
         self.B = B
         self.partition_id = partition_id
+        self.instance_cores = instance_cores
 
 
 class VisionTask(Task):
@@ -36,9 +39,16 @@ class VisionTask(Task):
         E=DEFAULT_E,
         C=DEFAULT_C,
         B=DEFAULT_B,
+        instance_cores=2,
     ):
         super().__init__(
-            dataset_name=dataset_name, model_name=model_name, R=R, E=E, C=C, B=B
+            dataset_name=dataset_name,
+            model_name=model_name,
+            R=R,
+            E=E,
+            C=C,
+            B=B,
+            instance_cores=instance_cores,
         )
 
 
@@ -50,6 +60,7 @@ class UnitaryVisionTask(Task):
         E=DEFAULT_R * DEFAULT_E,
         B=DEFAULT_B,
         partition_id: int = 0,
+        instance_cores=2,
     ):
         super().__init__(
             dataset_name=dataset_name,
@@ -59,4 +70,5 @@ class UnitaryVisionTask(Task):
             C=0.0,
             B=B,
             partition_id=partition_id,
+            instance_cores=instance_cores,
         )

@@ -32,18 +32,26 @@ benchmarks: Dict[str, Benchmark] = {
     "flul-fashion-mnist-100p-iid-balanced": Benchmark(
         tasks=[
             UnitaryVisionTask(
-                dataset_name="fashion-mnist-100p-iid-balanced", partition_id=0
+                dataset_name="fashion-mnist-100p-iid-balanced",
+                partition_id=0,
+                instance_cores=4,
             ),
-            VisionTask(dataset_name="fashion-mnist-100p-iid-balanced"),
+            VisionTask(
+                dataset_name="fashion-mnist-100p-iid-balanced", instance_cores=4
+            ),
         ],
         aggregation_name="flul-aggregation",
     ),
     "flul-fashion-mnist-100p-noniid-02cpp": Benchmark(
         tasks=[
             UnitaryVisionTask(
-                dataset_name="fashion-mnist-100p-noniid-02cpp", partition_id=0
+                dataset_name="fashion-mnist-100p-noniid-02cpp",
+                partition_id=0,
+                instance_cores=4,
             ),
-            VisionTask(dataset_name="fashion-mnist-100p-noniid-02cpp"),
+            VisionTask(
+                dataset_name="fashion-mnist-100p-noniid-02cpp", instance_cores=4
+            ),
         ],
         aggregation_name="flul-aggregation",
     ),
@@ -53,9 +61,12 @@ benchmarks: Dict[str, Benchmark] = {
                 dataset_name="cifar-10-100p-iid-balanced",
                 model_name="resnet20",
                 partition_id=0,
+                instance_cores=16,
             ),
             VisionTask(
-                dataset_name="cifar-10-100p-iid-balanced", model_name="resnet20"
+                dataset_name="cifar-10-100p-iid-balanced",
+                model_name="resnet20",
+                instance_cores=16,
             ),
         ],
         aggregation_name="flul-aggregation",
@@ -66,9 +77,12 @@ benchmarks: Dict[str, Benchmark] = {
                 dataset_name="cifar-10-100p-noniid-02cpp",
                 model_name="resnet20",
                 partition_id=0,
+                instance_cores=16,
             ),
             VisionTask(
-                dataset_name="cifar-10-100p-noniid-02cpp", model_name="resnet20"
+                dataset_name="cifar-10-100p-noniid-02cpp",
+                model_name="resnet20",
+                instance_cores=16,
             ),
         ],
         aggregation_name="flul-aggregation",
@@ -80,26 +94,66 @@ benchmarks: Dict[str, Benchmark] = {
     #
     "cpp-fashion-mnist-100p": Benchmark(
         tasks=[
-            VisionTask(dataset_name="fashion-mnist-100p-noniid-01cpp"),
-            VisionTask(dataset_name="fashion-mnist-100p-noniid-02cpp"),
-            VisionTask(dataset_name="fashion-mnist-100p-noniid-03cpp"),
-            VisionTask(dataset_name="fashion-mnist-100p-noniid-04cpp"),
-            VisionTask(dataset_name="fashion-mnist-100p-noniid-05cpp"),
-            VisionTask(dataset_name="fashion-mnist-100p-noniid-06cpp"),
-            VisionTask(dataset_name="fashion-mnist-100p-noniid-07cpp"),
-            VisionTask(dataset_name="fashion-mnist-100p-noniid-08cpp"),
-            VisionTask(dataset_name="fashion-mnist-100p-noniid-09cpp"),
-            VisionTask(dataset_name="fashion-mnist-100p-iid-balanced"),
-            UnitaryVisionTask(dataset_name="fashion-mnist-100p-noniid-01cpp"),
-            UnitaryVisionTask(dataset_name="fashion-mnist-100p-noniid-02cpp"),
-            UnitaryVisionTask(dataset_name="fashion-mnist-100p-noniid-03cpp"),
-            UnitaryVisionTask(dataset_name="fashion-mnist-100p-noniid-04cpp"),
-            UnitaryVisionTask(dataset_name="fashion-mnist-100p-noniid-05cpp"),
-            UnitaryVisionTask(dataset_name="fashion-mnist-100p-noniid-06cpp"),
-            UnitaryVisionTask(dataset_name="fashion-mnist-100p-noniid-07cpp"),
-            UnitaryVisionTask(dataset_name="fashion-mnist-100p-noniid-08cpp"),
-            UnitaryVisionTask(dataset_name="fashion-mnist-100p-noniid-09cpp"),
-            UnitaryVisionTask(dataset_name="fashion-mnist-100p-iid-balanced"),
+            VisionTask(
+                dataset_name="fashion-mnist-100p-noniid-01cpp", instance_cores=4
+            ),
+            VisionTask(
+                dataset_name="fashion-mnist-100p-noniid-02cpp", instance_cores=4
+            ),
+            VisionTask(
+                dataset_name="fashion-mnist-100p-noniid-03cpp", instance_cores=4
+            ),
+            VisionTask(
+                dataset_name="fashion-mnist-100p-noniid-04cpp", instance_cores=4
+            ),
+            VisionTask(
+                dataset_name="fashion-mnist-100p-noniid-05cpp", instance_cores=4
+            ),
+            VisionTask(
+                dataset_name="fashion-mnist-100p-noniid-06cpp", instance_cores=4
+            ),
+            VisionTask(
+                dataset_name="fashion-mnist-100p-noniid-07cpp", instance_cores=4
+            ),
+            VisionTask(
+                dataset_name="fashion-mnist-100p-noniid-08cpp", instance_cores=4
+            ),
+            VisionTask(
+                dataset_name="fashion-mnist-100p-noniid-09cpp", instance_cores=4
+            ),
+            VisionTask(
+                dataset_name="fashion-mnist-100p-iid-balanced", instance_cores=4
+            ),
+            UnitaryVisionTask(
+                dataset_name="fashion-mnist-100p-noniid-01cpp", instance_cores=4
+            ),
+            UnitaryVisionTask(
+                dataset_name="fashion-mnist-100p-noniid-02cpp", instance_cores=4
+            ),
+            UnitaryVisionTask(
+                dataset_name="fashion-mnist-100p-noniid-03cpp", instance_cores=4
+            ),
+            UnitaryVisionTask(
+                dataset_name="fashion-mnist-100p-noniid-04cpp", instance_cores=4
+            ),
+            UnitaryVisionTask(
+                dataset_name="fashion-mnist-100p-noniid-05cpp", instance_cores=4
+            ),
+            UnitaryVisionTask(
+                dataset_name="fashion-mnist-100p-noniid-06cpp", instance_cores=4
+            ),
+            UnitaryVisionTask(
+                dataset_name="fashion-mnist-100p-noniid-07cpp", instance_cores=4
+            ),
+            UnitaryVisionTask(
+                dataset_name="fashion-mnist-100p-noniid-08cpp", instance_cores=4
+            ),
+            UnitaryVisionTask(
+                dataset_name="fashion-mnist-100p-noniid-09cpp", instance_cores=4
+            ),
+            UnitaryVisionTask(
+                dataset_name="fashion-mnist-100p-iid-balanced", instance_cores=4
+            ),
         ],
         aggregation_name="cpp-aggregation",
     ),
@@ -111,10 +165,17 @@ benchmarks: Dict[str, Benchmark] = {
     "e2e-flul-fashion-mnist": Benchmark(
         tasks=[
             UnitaryVisionTask(
-                dataset_name="fashion-mnist-100p-noniid-02cpp", E=4, partition_id=0
+                dataset_name="fashion-mnist-100p-noniid-02cpp",
+                E=4,
+                partition_id=0,
+                instance_cores=4,
             ),
             VisionTask(
-                dataset_name="fashion-mnist-100p-noniid-02cpp", R=2, E=2, C=0.02
+                dataset_name="fashion-mnist-100p-noniid-02cpp",
+                R=2,
+                E=2,
+                C=0.02,
+                instance_cores=4,
             ),
         ],
         aggregation_name="flul-aggregation",
@@ -122,9 +183,18 @@ benchmarks: Dict[str, Benchmark] = {
     "e2e-flul-cifar-10": Benchmark(
         tasks=[
             UnitaryVisionTask(
-                dataset_name="cifar-10-100p-noniid-02cpp", E=4, partition_id=0
+                dataset_name="cifar-10-100p-noniid-02cpp",
+                E=4,
+                partition_id=0,
+                instance_cores=16,
             ),
-            VisionTask(dataset_name="cifar-10-100p-noniid-02cpp", R=2, E=2, C=0.02),
+            VisionTask(
+                dataset_name="cifar-10-100p-noniid-02cpp",
+                R=2,
+                E=2,
+                C=0.02,
+                instance_cores=16,
+            ),
         ],
         aggregation_name="flul-aggregation",
     ),
@@ -153,6 +223,7 @@ def run_benchmark(benchmark_name: str):
             E=task.E,
             C=task.C,
             B=task.B,
+            instance_cores=task.instance_cores,
         )
 
     # Aggregate results
@@ -171,14 +242,14 @@ def run_task(
     E: int,
     C: float,
     B: int,
+    instance_cores: int,
 ):
-    logging.info(
-        f"Attempting to run task on EC2: {model}, {dataset}, {R}, {E}, {C}, {B}"
-    )
+    task_msg = f"{model}, {dataset}, {R}, {E}, {C}, {B}, {instance_cores}"
+    logging.info(f"Attempting to run task on EC2: {task_msg}")
     run.ec2(
         image=docker_image_name,
         timeout=300,  # TODO dynamic from benchmark config
-        instance_cores=2,  # TODO dynamic from benchmark config
+        instance_cores=instance_cores,
         # The following arguments will be passed as absl flags:
         group_name=group_name,
         task_name=f"{task_class}_{dataset}_{model}_{R}_{E}_{C}_{B}",
