@@ -35,7 +35,7 @@ def read_all_task_values(group_dir: str) -> List[Tuple[str, str, float]]:
 
     :param filter_substring: has to be part of the dir name in results directory
 
-    :returns: List of tuples (task_class, task_label, federated_accuracy)
+    :returns: List of tuples (task_class, task_label, final_accuracy)
     """
     task_results = GroupResult(group_dir).get_results()
     # Read accuracies from each file and return list of values in tuples

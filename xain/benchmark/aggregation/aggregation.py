@@ -19,7 +19,6 @@ def cpp_aggregation():
 
 class TaskResult(ABC):
     def __init__(self, fname: str):
-        print(fname)
         self.data = storage.read_json(fname)
 
     def get_class(self) -> str:
