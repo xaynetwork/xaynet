@@ -27,7 +27,7 @@ class Task(ABC):
         self.partition_id = partition_id
 
 
-class FashionMNISTTask(Task):
+class VisionTask(Task):
     def __init__(
         self,
         dataset_name: str,
@@ -42,7 +42,7 @@ class FashionMNISTTask(Task):
         )
 
 
-class UnitaryFashionMNISTTask(Task):
+class UnitaryVisionTask(Task):
     def __init__(
         self,
         dataset_name: str,
