@@ -3,17 +3,17 @@ from typing import Callable, Dict, List
 
 from absl import flags, logging
 
+from xain.benchmark.aggregation import aggregation
 from xain.ops import docker, run
 
-from .aggregation import cpp_aggregation, flul_aggregation
 from .task import Task, UnitaryVisionTask, VisionTask
 
 FLAGS = flags.FLAGS
 
 
 aggregations: Dict[str, Callable] = {
-    "flul-aggregation": flul_aggregation,
-    "cpp-aggregation": cpp_aggregation,
+    "flul-aggregation": aggregation.flul_aggregation,
+    "cpp-aggregation": aggregation.cpp_aggregation,
 }
 
 
