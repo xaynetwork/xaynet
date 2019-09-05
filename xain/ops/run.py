@@ -11,8 +11,6 @@ from xain.ops.ec2 import user_data
 FLAGS = flags.FLAGS
 root_dir = project.root()
 
-client = boto3.client("ec2")
-
 
 cores: Dict[int, str] = {
     2: "m5.large",
@@ -26,7 +24,7 @@ cores: Dict[int, str] = {
 }
 
 
-def docker(tag: str = "latest", **kwargs):
+def docker(tag: str, **kwargs):
     """Run train in docker while accepting an arbitrary
     number of absl flags to be passed to the docker container
 
@@ -82,14 +80,15 @@ def ec2(image: str, timeout: int = 300, instance_cores=2, **kwargs):
 
     udata = user_data(image=image, timeout=timeout, flags=absl_flags)
 
+    client = boto3.client("ec2")
     run_response = client.run_instances(
         ImageId="ami-08806c999be9493f1",
         MinCount=1,
         MaxCount=1,
         InstanceType=instance_type,
-        KeyName="autofl_job",
+        KeyName="xain-ec2-remote-training",
         SubnetId="subnet-1bc3c466",
-        IamInstanceProfile={"Name": "AutoFLJob"},
+        IamInstanceProfile={"Name": "XainEC2RemoteTraining"},
         SecurityGroupIds=["sg-01ff10b690dffbaf5", "sg-01207b671ffadadf5"],
         InstanceInitiatedShutdownBehavior="terminate",
         UserData=udata,
