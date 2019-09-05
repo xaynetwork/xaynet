@@ -169,6 +169,7 @@ benchmarks: Dict[str, Benchmark] = {
                 E=4,
                 partition_id=0,
                 instance_cores=4,
+                timeout=10,
             ),
             VisionTask(
                 dataset_name="fashion-mnist-100p-noniid-02cpp",
@@ -176,6 +177,7 @@ benchmarks: Dict[str, Benchmark] = {
                 E=2,
                 C=0.02,
                 instance_cores=4,
+                timeout=10,
             ),
         ],
         aggregation_name="flul-aggregation",
@@ -187,6 +189,7 @@ benchmarks: Dict[str, Benchmark] = {
                 E=4,
                 partition_id=0,
                 instance_cores=16,
+                timeout=10,
             ),
             VisionTask(
                 dataset_name="cifar-10-100p-noniid-02cpp",
@@ -194,6 +197,7 @@ benchmarks: Dict[str, Benchmark] = {
                 E=2,
                 C=0.02,
                 instance_cores=16,
+                timeout=10,
             ),
         ],
         aggregation_name="flul-aggregation",
@@ -224,6 +228,7 @@ def run_benchmark(benchmark_name: str):
             C=task.C,
             B=task.B,
             instance_cores=task.instance_cores,
+            timeout=task.timeout,
         )
 
     # Aggregate results
@@ -243,12 +248,13 @@ def run_task(
     C: float,
     B: int,
     instance_cores: int,
+    timeout: int,
 ):
-    task_msg = f"{model}, {dataset}, {R}, {E}, {C}, {B}, {instance_cores}"
+    task_msg = f"{model}, {dataset}, {R}, {E}, {C}, {B}, {instance_cores}, {timeout}"
     logging.info(f"Attempting to run task on EC2: {task_msg}")
     run.ec2(
         image=docker_image_name,
-        timeout=300,  # TODO dynamic from benchmark config
+        timeout=timeout,
         instance_cores=instance_cores,
         # The following arguments will be passed as absl flags:
         group_name=group_name,
