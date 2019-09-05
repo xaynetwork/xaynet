@@ -57,7 +57,7 @@ $ AWS_PROFILE=xain-xain aws ec2 describe-instances  --filters Name=instance-stat
 2. Connect to one of the running instances using ssh:
 
 ```shell
-$ ssh -i ~/.ssh/autofl_job.pem.xain ubuntu@18.185.67.166
+$ ssh -i ~/.ssh/xain-ec2-remote-training.pem ubuntu@18.185.67.166
 ```
 
 3. Follow the logs of the container to see how things are running:
