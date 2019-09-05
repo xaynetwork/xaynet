@@ -6,6 +6,8 @@ DEFAULT_E = 5  # Number of epochs (on each client, in each round)
 DEFAULT_C = 0.1  # Fraction of participants participating in each round
 DEFAULT_B = 64  # Batch size
 
+DEFAULT_INSTANCE_CORES = 2
+DEFAULT_TIMEOUT = 60
 
 # pylint: disable-msg=too-many-instance-attributes
 class Task(ABC):
@@ -18,7 +20,8 @@ class Task(ABC):
         C: float,
         B: int,
         partition_id: Optional[int] = None,
-        instance_cores: int = 2,
+        instance_cores: int = DEFAULT_INSTANCE_CORES,
+        timeout: int = DEFAULT_TIMEOUT,
     ):
         self.dataset_name = dataset_name
         self.model_name = model_name
@@ -28,6 +31,7 @@ class Task(ABC):
         self.B = B
         self.partition_id = partition_id
         self.instance_cores = instance_cores
+        self.timeout = timeout
 
 
 class VisionTask(Task):
@@ -39,7 +43,8 @@ class VisionTask(Task):
         E=DEFAULT_E,
         C=DEFAULT_C,
         B=DEFAULT_B,
-        instance_cores=2,
+        instance_cores=DEFAULT_INSTANCE_CORES,
+        timeout: int = DEFAULT_TIMEOUT,
     ):
         super().__init__(
             dataset_name=dataset_name,
@@ -49,6 +54,7 @@ class VisionTask(Task):
             C=C,
             B=B,
             instance_cores=instance_cores,
+            timeout=timeout,
         )
 
 
@@ -60,7 +66,8 @@ class UnitaryVisionTask(Task):
         E=DEFAULT_R * DEFAULT_E,
         B=DEFAULT_B,
         partition_id: int = 0,
-        instance_cores=2,
+        instance_cores=DEFAULT_INSTANCE_CORES,
+        timeout: int = DEFAULT_TIMEOUT,
     ):
         super().__init__(
             dataset_name=dataset_name,
@@ -71,4 +78,5 @@ class UnitaryVisionTask(Task):
             B=B,
             partition_id=partition_id,
             instance_cores=instance_cores,
+            timeout=timeout,
         )
