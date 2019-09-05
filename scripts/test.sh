@@ -17,7 +17,6 @@ pylint --rcfile=pylint.ini xain && echo "===> pylint says: well done <===" &&
 mypy --ignore-missing-imports xain && echo "===> mypy says: well done <===" &&
 
 # tests
-pytest -v -m unmarked && echo "===> pytest/unmarked says: well done <===" &&
-pytest -v -m integration && echo "===> pytest/integration says: well done <===" &&
+pytest -v && echo "===> pytest/unmarked says: well done <===" &&
 
 echo "All went well"

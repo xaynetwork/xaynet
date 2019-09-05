@@ -1,11 +1,13 @@
 import random
 
 import numpy as np
+import pytest
 import tensorflow as tf
 
 from .blog_cnn import blog_cnn_compiled
 
 
+@pytest.mark.slow
 def test_num_parameters_mnist():
     # Prepare
     model = blog_cnn_compiled(input_shape=(28, 28, 1), num_classes=10)
@@ -15,6 +17,7 @@ def test_num_parameters_mnist():
     assert num_params == 412_778
 
 
+@pytest.mark.slow
 def test_num_parameters_cifar():
     # Prepare
     model = blog_cnn_compiled(input_shape=(32, 32, 3), num_classes=10)
@@ -24,6 +27,7 @@ def test_num_parameters_cifar():
     assert num_params == 536_170
 
 
+@pytest.mark.slow
 def test_seed_mnist():
     # Prepare
     random.seed(0)
@@ -48,6 +52,7 @@ def test_seed_mnist():
         np.testing.assert_equal(w_a, w_b)
 
 
+@pytest.mark.slow
 def test_seed_cifar():
     # Prepare
     random.seed(0)
@@ -72,6 +77,7 @@ def test_seed_cifar():
         np.testing.assert_equal(w_a, w_b)
 
 
+@pytest.mark.slow
 def test_seed_unequal():
     # Prepare
     random.seed(0)
