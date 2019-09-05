@@ -6,7 +6,7 @@ from absl import flags, logging
 from xain.ops import docker, run
 
 from .aggregation import cpp_aggregation, flul_aggregation
-from .task import FashionMNISTTask, Task, UnitaryFashionMNISTTask
+from .task import Task, UnitaryVisionTask, VisionTask
 
 FLAGS = flags.FLAGS
 
@@ -31,19 +31,45 @@ benchmarks: Dict[str, Benchmark] = {
     #
     "flul-fashion-mnist-100p-iid-balanced": Benchmark(
         tasks=[
-            UnitaryFashionMNISTTask(
+            UnitaryVisionTask(
                 dataset_name="fashion-mnist-100p-iid-balanced", partition_id=0
             ),
-            FashionMNISTTask(dataset_name="fashion-mnist-100p-iid-balanced"),
+            VisionTask(dataset_name="fashion-mnist-100p-iid-balanced"),
         ],
         aggregation_name="flul-aggregation",
     ),
     "flul-fashion-mnist-100p-noniid-02cpp": Benchmark(
         tasks=[
-            UnitaryFashionMNISTTask(
+            UnitaryVisionTask(
                 dataset_name="fashion-mnist-100p-noniid-02cpp", partition_id=0
             ),
-            FashionMNISTTask(dataset_name="fashion-mnist-100p-noniid-02cpp"),
+            VisionTask(dataset_name="fashion-mnist-100p-noniid-02cpp"),
+        ],
+        aggregation_name="flul-aggregation",
+    ),
+    "flul-cifar-10-100p-iid-balanced": Benchmark(
+        tasks=[
+            UnitaryVisionTask(
+                dataset_name="cifar-10-100p-iid-balanced",
+                model_name="resnet20",
+                partition_id=0,
+            ),
+            VisionTask(
+                dataset_name="cifar-10-100p-iid-balanced", model_name="resnet20"
+            ),
+        ],
+        aggregation_name="flul-aggregation",
+    ),
+    "flul-cifar-10-100p-noniid-02cpp": Benchmark(
+        tasks=[
+            UnitaryVisionTask(
+                dataset_name="cifar-10-100p-noniid-02cpp",
+                model_name="resnet20",
+                partition_id=0,
+            ),
+            VisionTask(
+                dataset_name="cifar-10-100p-noniid-02cpp", model_name="resnet20"
+            ),
         ],
         aggregation_name="flul-aggregation",
     ),
@@ -54,26 +80,26 @@ benchmarks: Dict[str, Benchmark] = {
     #
     "cpp-fashion-mnist-100p": Benchmark(
         tasks=[
-            FashionMNISTTask(dataset_name="fashion-mnist-100p-noniid-01cpp"),
-            FashionMNISTTask(dataset_name="fashion-mnist-100p-noniid-02cpp"),
-            FashionMNISTTask(dataset_name="fashion-mnist-100p-noniid-03cpp"),
-            FashionMNISTTask(dataset_name="fashion-mnist-100p-noniid-04cpp"),
-            FashionMNISTTask(dataset_name="fashion-mnist-100p-noniid-05cpp"),
-            FashionMNISTTask(dataset_name="fashion-mnist-100p-noniid-06cpp"),
-            FashionMNISTTask(dataset_name="fashion-mnist-100p-noniid-07cpp"),
-            FashionMNISTTask(dataset_name="fashion-mnist-100p-noniid-08cpp"),
-            FashionMNISTTask(dataset_name="fashion-mnist-100p-noniid-09cpp"),
-            FashionMNISTTask(dataset_name="fashion-mnist-100p-iid-balanced"),
-            UnitaryFashionMNISTTask(dataset_name="fashion-mnist-100p-noniid-01cpp"),
-            UnitaryFashionMNISTTask(dataset_name="fashion-mnist-100p-noniid-02cpp"),
-            UnitaryFashionMNISTTask(dataset_name="fashion-mnist-100p-noniid-03cpp"),
-            UnitaryFashionMNISTTask(dataset_name="fashion-mnist-100p-noniid-04cpp"),
-            UnitaryFashionMNISTTask(dataset_name="fashion-mnist-100p-noniid-05cpp"),
-            UnitaryFashionMNISTTask(dataset_name="fashion-mnist-100p-noniid-06cpp"),
-            UnitaryFashionMNISTTask(dataset_name="fashion-mnist-100p-noniid-07cpp"),
-            UnitaryFashionMNISTTask(dataset_name="fashion-mnist-100p-noniid-08cpp"),
-            UnitaryFashionMNISTTask(dataset_name="fashion-mnist-100p-noniid-09cpp"),
-            UnitaryFashionMNISTTask(dataset_name="fashion-mnist-100p-iid-balanced"),
+            VisionTask(dataset_name="fashion-mnist-100p-noniid-01cpp"),
+            VisionTask(dataset_name="fashion-mnist-100p-noniid-02cpp"),
+            VisionTask(dataset_name="fashion-mnist-100p-noniid-03cpp"),
+            VisionTask(dataset_name="fashion-mnist-100p-noniid-04cpp"),
+            VisionTask(dataset_name="fashion-mnist-100p-noniid-05cpp"),
+            VisionTask(dataset_name="fashion-mnist-100p-noniid-06cpp"),
+            VisionTask(dataset_name="fashion-mnist-100p-noniid-07cpp"),
+            VisionTask(dataset_name="fashion-mnist-100p-noniid-08cpp"),
+            VisionTask(dataset_name="fashion-mnist-100p-noniid-09cpp"),
+            VisionTask(dataset_name="fashion-mnist-100p-iid-balanced"),
+            UnitaryVisionTask(dataset_name="fashion-mnist-100p-noniid-01cpp"),
+            UnitaryVisionTask(dataset_name="fashion-mnist-100p-noniid-02cpp"),
+            UnitaryVisionTask(dataset_name="fashion-mnist-100p-noniid-03cpp"),
+            UnitaryVisionTask(dataset_name="fashion-mnist-100p-noniid-04cpp"),
+            UnitaryVisionTask(dataset_name="fashion-mnist-100p-noniid-05cpp"),
+            UnitaryVisionTask(dataset_name="fashion-mnist-100p-noniid-06cpp"),
+            UnitaryVisionTask(dataset_name="fashion-mnist-100p-noniid-07cpp"),
+            UnitaryVisionTask(dataset_name="fashion-mnist-100p-noniid-08cpp"),
+            UnitaryVisionTask(dataset_name="fashion-mnist-100p-noniid-09cpp"),
+            UnitaryVisionTask(dataset_name="fashion-mnist-100p-iid-balanced"),
         ],
         aggregation_name="cpp-aggregation",
     ),
@@ -84,10 +110,10 @@ benchmarks: Dict[str, Benchmark] = {
     #
     "e2e-flul-fashion-mnist": Benchmark(
         tasks=[
-            UnitaryFashionMNISTTask(
+            UnitaryVisionTask(
                 dataset_name="fashion-mnist-100p-noniid-02cpp", E=4, partition_id=0
             ),
-            FashionMNISTTask(
+            VisionTask(
                 dataset_name="fashion-mnist-100p-noniid-02cpp", R=2, E=2, C=0.02
             ),
         ],
@@ -95,12 +121,10 @@ benchmarks: Dict[str, Benchmark] = {
     ),
     "e2e-flul-cifar-10": Benchmark(
         tasks=[
-            UnitaryFashionMNISTTask(
+            UnitaryVisionTask(
                 dataset_name="cifar-10-100p-noniid-02cpp", E=4, partition_id=0
             ),
-            FashionMNISTTask(
-                dataset_name="cifar-10-100p-noniid-02cpp", R=2, E=2, C=0.02
-            ),
+            VisionTask(dataset_name="cifar-10-100p-noniid-02cpp", R=2, E=2, C=0.02),
         ],
         aggregation_name="flul-aggregation",
     ),
