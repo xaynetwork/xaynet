@@ -1,12 +1,10 @@
 import time
-from typing import List, Optional, Tuple
 
 import tensorflow as tf
 from absl import app, logging
 
 from xain.helpers import storage
 
-from .aggregation import task_accuracies
 from .exec import run
 
 B = 64
@@ -92,16 +90,6 @@ def bench_cl_ul(
         "unitary_learning": {"loss": float(loss), "acc": float(acc), "hist": hist},
     }
     storage.write_json(results, fname=name + "-results.json")
-
-    # Plot results
-    plot_data: List[Tuple[str, List[float], Optional[List[int]]]] = [
-        (
-            "Unitary Learning",
-            hist["val_acc"],
-            [i for i in range(1, len(hist["val_acc"]) + 1, 1)],
-        )
-    ]
-    task_accuracies.plot(plot_data, fname=name + "-plot.png")
 
 
 def data(limit: bool):

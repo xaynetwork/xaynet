@@ -6,7 +6,6 @@ from xain.fl.coordinator.aggregate import EvoAgg
 from xain.fl.coordinator.evaluator import Evaluator
 from xain.helpers import storage
 
-from .aggregation import task_accuracies
 from .exec import run
 
 DEFAULT_R = 50
@@ -25,7 +24,7 @@ def benchmark_evolutionary_avg():
     # Run Federated Learning with evolutionary aggregation
     evaluator = Evaluator(orig_cnn_compiled(), xy_val)  # FIXME refactor
     aggregator = EvoAgg(evaluator)
-    hist_a, _, loss_a, acc_a = run.federated_training(
+    _, _, loss_a, acc_a = run.federated_training(
         "blog_cnn",
         xy_parts,
         xy_val,
@@ -38,7 +37,7 @@ def benchmark_evolutionary_avg():
     )
 
     # Run Federated Learning with weighted average aggregation
-    hist_b, _, loss_b, acc_b = run.federated_training(
+    _, _, loss_b, acc_b = run.federated_training(
         "blog_cnn",
         xy_parts,
         xy_val,
@@ -47,12 +46,6 @@ def benchmark_evolutionary_avg():
         E=DEFAULT_E,
         C=DEFAULT_C,
         B=DEFAULT_B,
-    )
-
-    # Output results
-    task_accuracies.plot(
-        [("EA", hist_a["val_acc"], None), ("WA", hist_b["val_acc"], None)],
-        fname="EA-WA-plot.png",
     )
 
     # Write results JSON
