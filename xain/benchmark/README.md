@@ -16,7 +16,7 @@ $ python -m xain.benchmark.exec \
     --B=64
 ```
 
-## Benchmark Suits (using AWS EC2)
+## Benchmark Suites (using AWS EC2)
 
 Here we describe how to configure and run an AWS service. Please bear in mind that you are responsible for any costs that may arise when using these external services.
 
@@ -28,7 +28,7 @@ In `~/.aws`, place two config files: `config` and `credentials`. Then execute th
 export AWS_PROFILE=xain-xain
 ```
 
-### Running a suit
+### Running a benchmark suite
 
 ```shell
 $ python -m xain.benchmark --benchmark_name=BENCHMARK_NAME
@@ -42,7 +42,7 @@ $ python -m xain.benchmark --helpfull
 
 ### Connect to running instances
 
-Start a benchmark suit
+Start a benchmark suite
 
 Then:
 
