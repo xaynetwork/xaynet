@@ -1,3 +1,5 @@
 from absl import flags
 
-flags.DEFINE_string("benchmark_name", None, "..")
+from .benchmark import benchmarks
+
+flags.DEFINE_string("benchmark_name", None, f"One of: {[k for k in benchmarks]}")
