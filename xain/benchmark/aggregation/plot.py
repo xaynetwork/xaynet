@@ -4,6 +4,7 @@ import matplotlib
 from absl import flags
 
 from xain.helpers import storage
+from xain.types import PlotValues
 
 matplotlib.use("AGG")
 
@@ -20,7 +21,7 @@ FLAGS = flags.FLAGS
 
 
 def plot(
-    data: List[Tuple[str, List[float], Optional[List[int]]]],
+    data: List[PlotValues],
     title: Optional[str] = None,
     xlabel: str = "epoch",
     ylabel: str = None,

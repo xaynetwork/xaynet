@@ -1,10 +1,13 @@
+import os
+from tempfile import TemporaryDirectory
 from time import strftime
 from typing import Callable, Dict, List, Optional
 
 from absl import flags, logging
 
 from xain.benchmark.aggregation import aggregation
-from xain.ops import docker, run
+from xain.helpers import storage
+from xain.ops import docker, results, run
 
 from .task import Task, UnitaryVisionTask, VisionTask
 
@@ -205,6 +208,20 @@ benchmarks: Dict[str, Benchmark] = {
 }
 
 
+def build_task_name(task):
+    return "_".join(
+        [
+            task.__class__.__name__,
+            task.dataset_name,
+            task.model_name,
+            str(task.R),
+            str(task.E),
+            str(task.C),
+            str(task.B),
+        ]
+    )
+
+
 def run_benchmark(benchmark_name: str):
     logging.info(f"Building Docker image for benchmark {benchmark_name}")
     docker_image_name = docker.build(should_push=True)
@@ -220,7 +237,7 @@ def run_benchmark(benchmark_name: str):
         run_task(
             docker_image_name=docker_image_name,
             group_name=group_name,
-            task_class=task.__class__.__name__,
+            task_name=build_task_name(task),
             model=model_name,
             dataset=dataset_name,
             R=task.R,
@@ -232,16 +249,17 @@ def run_benchmark(benchmark_name: str):
             timeout=task.timeout,
         )
 
-    # Aggregate results
-    # TODO wait for completion or move to separate task
-    aggregation_fn = aggregations[benchmark.aggregation_name]
-    aggregation_fn()
+    with TemporaryDirectory() as tmpdir:
+        fname = os.path.join(tmpdir, "config.json")
+        data = {"aggregation_name": benchmark.aggregation_name}
+        storage.write_json(data, fname)
+        results.push(group_name=group_name, task_name="", output_dir=tmpdir)
 
 
 def run_task(
     docker_image_name: str,
     group_name: str,
-    task_class: str,
+    task_name: str,
     model: str,
     dataset: str,
     R: int,
@@ -260,7 +278,7 @@ def run_task(
         instance_cores=instance_cores,
         # The following arguments will be passed as absl flags:
         group_name=group_name,
-        task_name=f"{task_class}_{dataset}_{model}_{R}_{E}_{C}_{B}",
+        task_name=task_name,
         model=model,
         dataset=dataset,
         R=R,

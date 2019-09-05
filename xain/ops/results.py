@@ -10,16 +10,18 @@ FLAGS = flags.FLAGS
 client = boto3.client("s3")
 
 
-def push(group_name: str, task_name: str):
+def push(group_name: str, task_name: str, output_dir: str = None):
     """Push everything in output directory to the S3_BUCKET on AWS S3
 
     Args:
         group_name (str)
         task_name (str)
     """
-    # Use output_dir which was passed via absl flags and defaults to
-    # "git_root/output" and upload everything in it as results
-    output_dir = FLAGS.output_dir
+    # If no output_dir was explicitly set use output_dir which was passed via absl flags
+    # and defaults to "git_root/output" and upload everything in it as results
+    if output_dir is None:
+        output_dir = FLAGS.output_dir
+
     bucket = FLAGS.S3_bucket
 
     ignored_files = [".gitkeep", ".DS_Store"]
