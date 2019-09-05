@@ -14,6 +14,7 @@ FLAGS = flags.FLAGS
 client = boto3.client("s3")
 
 
+@pytest.mark.slow
 @pytest.mark.integration
 def test_push_results(populated_output_dir):
     # Prepare
@@ -48,6 +49,7 @@ def test_push_results(populated_output_dir):
     ), "Cleaning up the bucket failed"
 
 
+@pytest.mark.slow
 @pytest.mark.integration
 def test_download_results(populated_results_dir, populated_S3_bucket):
     # Prepare

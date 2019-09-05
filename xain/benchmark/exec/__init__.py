@@ -2,10 +2,6 @@ from absl import flags
 
 from xain.benchmark.net import model_fns
 
-flags.DEFINE_string(
-    "group_name", None, "Group name used to gather the tasks of one benchmark"
-)
-
 flags.DEFINE_string("task_name", None, "")
 
 flags.DEFINE_string("model", None, f"Model name, one of {[fn for fn in model_fns]}")

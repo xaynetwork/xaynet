@@ -6,6 +6,7 @@ import numpy as np
 import tensorflow as tf
 from absl import logging
 
+from xain.benchmark.aggregation import report
 from xain.benchmark.net import load_model_fn
 from xain.datasets import load_splits
 from xain.fl.coordinator import Coordinator, RandomController
@@ -13,8 +14,6 @@ from xain.fl.coordinator.aggregate import Aggregator
 from xain.fl.participant import ModelProvider, Participant
 from xain.helpers import storage
 from xain.types import FederatedDatasetPartition, KerasHistory
-
-from . import report
 
 random.seed(0)
 np.random.seed(1)

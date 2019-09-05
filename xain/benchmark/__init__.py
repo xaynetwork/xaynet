@@ -7,3 +7,7 @@ flags.DEFINE_string(
     "flul-fashion-mnist-100p-iid-balanced",
     f"One of: {[k for k in benchmarks]}",
 )
+
+flags.DEFINE_string(
+    "group_name", None, "Group name used to gather the tasks of one benchmark"
+)
