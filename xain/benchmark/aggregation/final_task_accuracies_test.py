@@ -6,30 +6,9 @@ from absl import flags
 from xain.helpers import sha1, storage
 
 from . import final_task_accuracies
+from .aggregation import TaskResult
 
 FLAGS = flags.FLAGS
-
-
-def test_read_task_values(monkeypatch):
-    # Prepare
-    json_data = {
-        "task_name": "TaskClass_foo_bar",
-        "dataset": "fashion-mnist-100p-noniid-05cpp",
-        "acc": 0.42,
-    }
-
-    def mock_read_json(_: str):
-        return json_data
-
-    monkeypatch.setattr(storage, "read_json", mock_read_json)
-
-    expected_data = ("TaskClass", "05cpp", 0.42)
-
-    # Execute
-    actual_data = final_task_accuracies.read_task_values("any.json")
-
-    # Assert
-    assert expected_data == actual_data
 
 
 @pytest.mark.integration
@@ -52,13 +31,11 @@ def test_read_all_task_values(monkeypatch, group_name, results_dir):
         dname = os.path.dirname(fname)
         os.makedirs(dname)
         with open(fname, "x") as f:
-            f.write("content not relevant")
+            f.write("{}")
             f.close()
 
-    expected_results = files[:2]
-
-    def mock_read_task_values(fname):
-        return fname
+    def mock_read_task_values(task_result: TaskResult):
+        return task_result
 
     monkeypatch.setattr(
         final_task_accuracies, "read_task_values", mock_read_task_values
@@ -68,7 +45,10 @@ def test_read_all_task_values(monkeypatch, group_name, results_dir):
     actual_results = final_task_accuracies.read_all_task_values(group_dir)
 
     # Assert
-    assert set(actual_results) == set(expected_results)
+    assert len(actual_results) == 2
+
+    for r in actual_results:
+        isinstance(r, TaskResult)
 
 
 @pytest.mark.integration
@@ -93,15 +73,15 @@ def test_plot_final_task_accuracies(output_dir, group_name, monkeypatch):
     xticks_locations = range(1, 12, 1)
     xticks_labels = [chr(i) for i in range(65, 77, 1)]  # A, B, ..., K
 
-    def mock_prepare_comparison_data(_: str):
+    def mock_prepare_aggregation_data(_: str):
         return (data, (xticks_locations, xticks_labels))
 
     monkeypatch.setattr(
-        final_task_accuracies, "prepare_comparison_data", mock_prepare_comparison_data
+        final_task_accuracies, "prepare_aggregation_data", mock_prepare_aggregation_data
     )
 
     # Execute
-    actual_filepath = final_task_accuracies.plot()
+    actual_filepath = final_task_accuracies.aggregate()
 
     # If any error occurs we will be able to look at the plot. If the the ploting
     # logic is changed the file under this path can be used to get the new hash

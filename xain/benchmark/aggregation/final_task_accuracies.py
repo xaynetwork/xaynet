@@ -5,35 +5,28 @@ import numpy as np
 from absl import app, flags, logging
 
 from xain.helpers import storage
+from xain.types import PlotValues, XticksLabels, XticksLocations
 
-from .plot import plot as mpl_plot
+from .aggregation import GroupResult, TaskResult
+from .plot import plot
 
 FLAGS = flags.FLAGS
 
 
-def get_task_class(data: Dict) -> str:
-    return data["task_name"].split("_")[0]
-
-
-def get_task_label(data: Dict) -> str:
-    return data["dataset"].split("-")[-1]
-
-
-def get_task_accuracy(data: Dict) -> float:
-    return data["acc"]
-
-
-def read_task_values(fname: str) -> Tuple[str, str, float]:
+def read_task_values(task_result: TaskResult) -> Tuple[str, str, float]:
     """Reads unitary and federated accuracy from results.json
 
     Args:
         fname (str): path to results.json file containing required fields
 
     Returns
-        task_name, task_label, accuracy (str, str, float)
+        class, label, final_accuracy (str, str, float): e.g. ("VisionTask", "cpp01", 0.92)
     """
-    data = storage.read_json(fname)
-    return (get_task_class(data), get_task_label(data), get_task_accuracy(data))
+    return (
+        task_result.get_class(),
+        task_result.get_label(),
+        task_result.get_final_accuracy(),
+    )
 
 
 def read_all_task_values(group_dir: str) -> List[Tuple[str, str, float]]:
@@ -43,22 +36,11 @@ def read_all_task_values(group_dir: str) -> List[Tuple[str, str, float]]:
 
     :param filter_substring: has to be part of the dir name in results directory
 
-    :returns: List of tuples (benchmark_name, unitary_accuracy, federated_accuracy)
+    :returns: List of tuples (task_class, task_label, federated_accuracy)
     """
-    assert os.path.isdir(group_dir)
-
-    # get list of all directories which contain given substring
-    json_files = [
-        fname
-        for fname in storage.listdir_recursive(group_dir, relpath=False)
-        if fname.endswith("results.json")
-    ]
-
-    if not json_files:
-        raise Exception(f"No values results found in group_dir: {group_dir}")
-
+    task_results = GroupResult(group_dir).get_results()
     # Read accuracies from each file and return list of values in tuples
-    return [read_task_values(fname) for fname in json_files]
+    return [read_task_values(task_result) for task_result in task_results]
 
 
 def group_values_by_class(
@@ -81,12 +63,7 @@ def group_values_by_class(
     return grouped_values
 
 
-PlotValues = Tuple[str, List[float], Optional[List[int]]]
-XticksLocations = List[int]
-XticksLabels = List[str]
-
-
-def prepare_comparison_data(
+def prepare_aggregation_data(
     group_name: str
 ) -> Tuple[List[PlotValues], Optional[Tuple[XticksLocations, XticksLabels]]]:
     """Constructs and returns curves and xticks_args
@@ -96,10 +73,8 @@ def prepare_comparison_data(
 
     Returns:
         (
-            [
-                ("unitary", unitary_accuracies, indices),
-                ("federated", federated_accuracies, indices)
-            ],
+            [("unitary", unitary_accuracies, indices),
+            ("federated", federated_accuracies, indices)],
             (xticks_locations, xticks_labels))
         )
     """
@@ -125,7 +100,7 @@ def prepare_comparison_data(
     return (data, (indices, labels))
 
 
-def plot() -> str:
+def aggregate() -> str:
     """Plots IID and Non-IID dataset performance comparision
 
     :param data: List of tuples which represent (name, values, indices)
@@ -136,11 +111,11 @@ def plot() -> str:
     group_name = FLAGS.group_name
     fname = f"plot_{group_name}.png"
 
-    (data, xticks_args) = prepare_comparison_data(group_name)
+    (data, xticks_args) = prepare_aggregation_data(group_name)
 
     assert len(data) == 2, "Expecting a list of two curves"
 
-    fpath = mpl_plot(
+    fpath = plot(
         data,
         title="Max achieved accuracy for unitary and federated learning",
         xlabel="partitioning grade",
@@ -159,6 +134,6 @@ def plot() -> str:
     return fpath
 
 
-def app_run_plot():
+def app_run_aggregate():
     flags.mark_flag_as_required("group_name")
-    app.run(main=lambda _: plot())
+    app.run(main=lambda _: aggregate())

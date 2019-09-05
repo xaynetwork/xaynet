@@ -8,7 +8,7 @@ from . import task_accuracies
 
 
 @pytest.mark.integration
-def test_plot_accuracies(output_dir):
+def test_plot_task_accuracies(output_dir, group_name, monkeypatch):
     # Prepare
     data = [
         (
@@ -22,12 +22,19 @@ def test_plot_accuracies(output_dir):
             range(1, 12, 1),
         ),
     ]
-    fname = "myplot.png"
+    fname = f"plot_{group_name}.png"
     expected_filepath = os.path.join(output_dir, fname)
     expected_sha1 = "457baa8179f08f06c4e60213eb0bbbe79a4f9d3e"
 
+    def mock_prepare_aggregation_data(_: str):
+        return data
+
+    monkeypatch.setattr(
+        task_accuracies, "prepare_aggregation_data", mock_prepare_aggregation_data
+    )
+
     # Execute
-    actual_filepath = task_accuracies.plot(data=data, fname=fname)
+    actual_filepath = task_accuracies.aggregate()
 
     # If any error occurs we will be able to look at the plot. If the the ploting
     # logic is changed the file under this path can be used to get the new hash
