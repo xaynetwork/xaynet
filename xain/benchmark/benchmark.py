@@ -38,6 +38,15 @@ benchmarks: Dict[str, Benchmark] = {
         ],
         aggregation_name="flul-aggregation",
     ),
+    "flul-fashion-mnist-100p-noniid-02cpp": Benchmark(
+        tasks=[
+            UnitaryFashionMNISTTask(
+                dataset_name="fashion-mnist-100p-noniid-02cpp", partition_id=0
+            ),
+            FashionMNISTTask(dataset_name="fashion-mnist-100p-noniid-02cpp"),
+        ],
+        aggregation_name="flul-aggregation",
+    ),
     #
     # ##############################
     # Class Partitioning
