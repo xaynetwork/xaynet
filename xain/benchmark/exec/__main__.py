@@ -31,7 +31,6 @@ def main(_):
 
     # Write results
     res = {
-        "name": FLAGS.dataset,  # FIXME remove
         "group_name": FLAGS.group_name,
         "task_name": FLAGS.task_name,
         "dataset": FLAGS.dataset,

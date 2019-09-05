@@ -1,28 +1,13 @@
-import glob
 import os
 
 import boto3
 from absl import flags, logging
 
+from xain.helpers.storage import listdir_recursive
+
 FLAGS = flags.FLAGS
 
 client = boto3.client("s3")
-
-
-def listdir_recursive(dname: str):
-    """Lists all files found in {dname} with relative path
-
-    Args:
-        dname (str): Absolute path to directory
-
-    Returns:
-        List[str]: List of all files with relative path to dname
-    """
-    return [
-        os.path.relpath(fpath, dname)
-        for fpath in glob.glob(f"{dname}/**", recursive=True)
-        if os.path.isfile(fpath)
-    ]
 
 
 def push(group_name: str, task_name: str):
