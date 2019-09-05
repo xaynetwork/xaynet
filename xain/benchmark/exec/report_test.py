@@ -66,7 +66,7 @@ def test_read_all_task_values(monkeypatch, group_name, results_dir):
     actual_results = report.read_all_task_values(group_dir)
 
     # Assert
-    assert actual_results == expected_results
+    assert set(actual_results) == set(expected_results)
 
 
 @pytest.mark.integration
