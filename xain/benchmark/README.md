@@ -28,7 +28,7 @@ In `~/.aws`, place two config files: `config` and `credentials`. Then execute th
 export AWS_PROFILE=xain-xain
 ```
 
-### Running a suit
+### Running a benchmark suite
 
 ```shell
 $ python -m xain.benchmark --benchmark_name=BENCHMARK_NAME
