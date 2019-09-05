@@ -1,9 +1,9 @@
 from concurrent import futures
 
-import grpc
 import pytest
+import grpc
 
-from xain.grpc import helloworld_pb2, helloworld_pb2_grpc
+from xain.grpc import helloworld_pb2_grpc, helloworld_pb2
 from xain.grpc.greeter_server import Greeter
 
 
