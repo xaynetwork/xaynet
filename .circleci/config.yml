@@ -86,7 +86,7 @@ jobs:
           name: run tests benchmark
           command: |
             . venv/bin/activate
-            python -m xain.benchmark.exec --group_name=abc --task_name=def --dataset=fashion-mnist-100p-iid-balanced --model=blog_cnn --R=2 --E=2 --C=0.02 --B=64
+            python -m xain.benchmark.exec --group_name=ci-test-group --task_name=ci-test-task --dataset=fashion-mnist-100p-iid-balanced --model=blog_cnn --R=2 --E=2 --C=0.02 --B=64
 
 workflows:
   version: 2.1
