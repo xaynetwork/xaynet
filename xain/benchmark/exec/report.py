@@ -30,7 +30,7 @@ def get_task_label(data: Dict) -> str:
     return data["dataset"].split("-")[-1]
 
 
-def get_task_accuracy(data: dict) -> float:
+def get_task_accuracy(data: Dict) -> float:
     return data["acc"]
 
 
