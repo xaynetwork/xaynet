@@ -155,6 +155,76 @@ benchmarks: Dict[str, Benchmark] = {
     ),
     #
     # ##############################
+    # E: Small to high
+    # ##############################
+    #
+    "E-fashion-mnist-100p": Benchmark(
+        tasks=[
+            VisionTask(
+                dataset_name="fashion-mnist-100p-noniid-05cpp",
+                R=256,
+                E=1,
+                instance_cores=8,
+            ),
+            VisionTask(
+                dataset_name="fashion-mnist-100p-noniid-05cpp",
+                R=128,
+                E=2,
+                instance_cores=8,
+            ),
+            VisionTask(
+                dataset_name="fashion-mnist-100p-noniid-05cpp",
+                R=64,
+                E=4,
+                instance_cores=8,
+            ),
+            VisionTask(
+                dataset_name="fashion-mnist-100p-noniid-05cpp",
+                R=32,
+                E=8,
+                instance_cores=8,
+            ),
+            VisionTask(
+                dataset_name="fashion-mnist-100p-noniid-05cpp",
+                R=16,
+                E=16,
+                instance_cores=8,
+            ),
+            VisionTask(
+                dataset_name="fashion-mnist-100p-noniid-05cpp",
+                R=8,
+                E=32,
+                instance_cores=8,
+            ),
+            VisionTask(
+                dataset_name="fashion-mnist-100p-noniid-05cpp",
+                R=4,
+                E=64,
+                instance_cores=8,
+            ),
+            VisionTask(
+                dataset_name="fashion-mnist-100p-noniid-05cpp",
+                R=2,
+                E=128,
+                instance_cores=8,
+            ),
+            VisionTask(
+                dataset_name="fashion-mnist-100p-noniid-05cpp",
+                R=1,
+                E=256,
+                instance_cores=8,
+            ),
+            VisionTask(
+                dataset_name="fashion-mnist-100p-noniid-05cpp",
+                R=256,
+                E=1,
+                instance_cores=8,
+            ),
+        ],
+        aggregation_name="cpp-aggregation",
+    ),
+    #
+    # ##############################
     # End-To-End Tests
     # ##############################
     #
