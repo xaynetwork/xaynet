@@ -17,7 +17,7 @@ def read_task_values(task_result: TaskResult) -> Tuple[str, List[float], int]:
     Args:
         fname (str): path to results.json file containing required fields
 
-    Returns
+    Returns:
         task_class, accuracies, epochs (str, List[float], int): e.g. ("VisionTask", [0.12, 0.33], 5)
     """
     return (task_result.get_class(), task_result.get_accuracies(), task_result.get_E())
@@ -28,19 +28,18 @@ def read_all_task_values(group_dir: str) -> List[Tuple[str, List[float], int]]:
     Reads results directory for given group id and
     extracts values from results.json files
 
-    :param filter_substring: has to be part of the dir name in results directory
-
-    :returns: List of tuples (task_class, accuracies, epochs)
+    Args:
+        group_dir: path to directory to be read
     """
     task_results = GroupResult(group_dir).get_results()
     # Read accuracies from each file and return list of values in tuples
     return [read_task_values(task_result) for task_result in task_results]
 
 
-def build_plot_values(
-    task_class: str, task_accuracies: List[float], E: int
-) -> PlotValues:
+def build_plot_values(values: Tuple[str, List[float], int]) -> PlotValues:
     """Returns PlotValues with appropriate indices based on task class (Unitary or Federated)"""
+    task_class, task_accuracies, E = values
+
     if "Unitary" in task_class:
         indices = [i for i in range(1, len(task_accuracies) + 1, 1)]
     else:
@@ -68,10 +67,7 @@ def prepare_aggregation_data(group_name: str) -> List[PlotValues]:
     assert values, "No values for group found"
     assert len(values) == 2, "Expecting only two tasks"
 
-    data: List[PlotValues] = [
-        build_plot_values(task_class, task_accuracies, E)
-        for task_class, task_accuracies, E in values
-    ]
+    data: List[PlotValues] = list(map(build_plot_values, values))
 
     return data
 

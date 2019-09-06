@@ -33,9 +33,9 @@ def read_all_task_values(group_dir: str) -> List[Tuple[str, str, float]]:
     Reads results directory for given group id and
     extracts values from results.json files
 
-    :param filter_substring: has to be part of the dir name in results directory
+    Args:
+        group_dir (str): path to directory to be read
 
-    :returns: List of tuples (task_class, task_label, final_accuracy)
     """
     task_results = GroupResult(group_dir).get_results()
     # Read accuracies from each file and return list of values in tuples
