@@ -42,8 +42,7 @@ def _generate_100p_volume_distributions(
     bs: Dict[float, float]
 ) -> List[Tuple[float, List[int]]]:
     dists = []
-    for b in bs:
-        a = bs[b]
+    for b, a in bs.items():
         dist = _generate_volume_distribution(np.arange(100), a, b)
         dists.append((b, dist))
     return dists
