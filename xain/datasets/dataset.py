@@ -10,6 +10,7 @@ cifar10 = tf.keras.datasets.cifar10
 fashion_mnist = tf.keras.datasets.fashion_mnist
 
 config = {
+    # cpp datasets
     "cifar-10-100p-noniid-01cpp": {"keras_dataset": cifar10},
     "cifar-10-100p-noniid-02cpp": {"keras_dataset": cifar10},
     "cifar-10-100p-noniid-03cpp": {"keras_dataset": cifar10},
@@ -30,6 +31,27 @@ config = {
     "fashion-mnist-100p-noniid-08cpp": {"keras_dataset": fashion_mnist},
     "fashion-mnist-100p-noniid-09cpp": {"keras_dataset": fashion_mnist},
     "fashion-mnist-100p-iid-balanced": {"keras_dataset": fashion_mnist},
+    # volume based datasets
+    "cifar-10-100p-b1_000": {"keras_dataset": cifar10},
+    "cifar-10-100p-b1_005": {"keras_dataset": cifar10},
+    "cifar-10-100p-b1_010": {"keras_dataset": cifar10},
+    "cifar-10-100p-b1_015": {"keras_dataset": cifar10},
+    "cifar-10-100p-b1_020": {"keras_dataset": cifar10},
+    "cifar-10-100p-b1_025": {"keras_dataset": cifar10},
+    "cifar-10-100p-b1_030": {"keras_dataset": cifar10},
+    "cifar-10-100p-b1_035": {"keras_dataset": cifar10},
+    "cifar-10-100p-b1_040": {"keras_dataset": cifar10},
+    "cifar-10-100p-b1_045": {"keras_dataset": cifar10},
+    "fashion-mnist-100p-b1_000": {"keras_dataset": fashion_mnist},
+    "fashion-mnist-100p-b1_005": {"keras_dataset": fashion_mnist},
+    "fashion-mnist-100p-b1_010": {"keras_dataset": fashion_mnist},
+    "fashion-mnist-100p-b1_015": {"keras_dataset": fashion_mnist},
+    "fashion-mnist-100p-b1_020": {"keras_dataset": fashion_mnist},
+    "fashion-mnist-100p-b1_025": {"keras_dataset": fashion_mnist},
+    "fashion-mnist-100p-b1_030": {"keras_dataset": fashion_mnist},
+    "fashion-mnist-100p-b1_035": {"keras_dataset": fashion_mnist},
+    "fashion-mnist-100p-b1_040": {"keras_dataset": fashion_mnist},
+    "fashion-mnist-100p-b1_045": {"keras_dataset": fashion_mnist},
 }
 
 
