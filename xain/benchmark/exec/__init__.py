@@ -15,3 +15,5 @@ flags.DEFINE_integer("E", None, "Epochs of training in each round")
 flags.DEFINE_float("C", None, "Fraction of participants participating in each round")
 
 flags.DEFINE_integer("B", None, "Batch size")
+
+flags.DEFINE_integer("partition_id", None, "Partition ID for unitary training")

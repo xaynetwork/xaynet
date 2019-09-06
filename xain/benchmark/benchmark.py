@@ -1,7 +1,7 @@
 import os
 from tempfile import TemporaryDirectory
 from time import strftime
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from absl import flags, logging
 
@@ -33,7 +33,7 @@ benchmarks: Dict[str, Benchmark] = {
                 instance_cores=4,
             ),
             VisionTask(
-                dataset_name="fashion-mnist-100p-iid-balanced", instance_cores=4
+                dataset_name="fashion-mnist-100p-iid-balanced", instance_cores=8
             ),
         ],
         aggregation_name="flul-aggregation",
@@ -46,7 +46,7 @@ benchmarks: Dict[str, Benchmark] = {
                 instance_cores=4,
             ),
             VisionTask(
-                dataset_name="fashion-mnist-100p-noniid-02cpp", instance_cores=4
+                dataset_name="fashion-mnist-100p-noniid-02cpp", instance_cores=8
             ),
         ],
         aggregation_name="flul-aggregation",
@@ -62,7 +62,7 @@ benchmarks: Dict[str, Benchmark] = {
             VisionTask(
                 dataset_name="cifar-10-100p-iid-balanced",
                 model_name="resnet20",
-                instance_cores=16,
+                instance_cores=32,
             ),
         ],
         aggregation_name="flul-aggregation",
@@ -78,7 +78,7 @@ benchmarks: Dict[str, Benchmark] = {
             VisionTask(
                 dataset_name="cifar-10-100p-noniid-02cpp",
                 model_name="resnet20",
-                instance_cores=16,
+                instance_cores=32,
             ),
         ],
         aggregation_name="flul-aggregation",
@@ -237,6 +237,7 @@ def run_benchmark(benchmark_name: str):
             E=task.E,
             C=task.C,
             B=task.B,
+            partition_id=task.partition_id,
             instance_cores=task.instance_cores,
             timeout=task.timeout,
         )
@@ -258,6 +259,7 @@ def run_task(
     E: int,
     C: float,
     B: int,
+    partition_id: Optional[int],
     instance_cores: int,
     timeout: int,
 ):
@@ -276,6 +278,7 @@ def run_task(
         E=E,
         C=C,
         B=B,
+        partition_id=partition_id,
     )
 
 
