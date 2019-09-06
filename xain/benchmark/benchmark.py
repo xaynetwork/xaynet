@@ -102,12 +102,12 @@ benchmarks: Dict[str, Benchmark] = {
     "flul-cifar-10-100p-b1_045": Benchmark(
         tasks=[
             UnitaryVisionTask(
-                dataset_name="cifar-10-100p-b1_045", partition_id=0, instance_cores=4
+                dataset_name="cifar-10-100p-b1_045", partition_id=0, instance_cores=16
             ),
             UnitaryVisionTask(
-                dataset_name="cifar-10-100p-b1_045", partition_id=99, instance_cores=4
+                dataset_name="cifar-10-100p-b1_045", partition_id=99, instance_cores=16
             ),
-            VisionTask(dataset_name="cifar-10-100p-b1_045", instance_cores=8),
+            VisionTask(dataset_name="cifar-10-100p-b1_045", instance_cores=32),
         ],
         aggregation_name="flul-aggregation",
     ),
