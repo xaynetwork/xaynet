@@ -1,8 +1,9 @@
 import os
+from typing import List
 
 import tensorflow as tf
 
-from xain.generator import data
+from xain.generator import data, volume_distributions
 
 local_generator_datasets_dir = os.path.expanduser("~/.xain/generator/datasets")
 
@@ -12,7 +13,7 @@ keras_fashion_mnist = tf.keras.datasets.fashion_mnist
 # Makes from an int e.g. 5 => 05
 leftpad = lambda i: str(i).zfill(2)
 
-cifar10 = {
+cifar10_cpp = {
     **{
         f"cifar-10-100p-noniid-{leftpad(num_cpp)}cpp": {
             "keras_dataset": keras_cifar10,
@@ -50,7 +51,7 @@ cifar10 = {
     },
 }
 
-fashion_mnist = {
+fashion_mnist_cpp = {
     **{
         f"fashion-mnist-100p-noniid-{leftpad(num_cpp)}cpp": {
             "keras_dataset": keras_fashion_mnist,
@@ -103,4 +104,54 @@ fashion_mnist = {
     },
 }
 
-datasets = {**cifar10, **fashion_mnist}
+
+def b_to_str(b: float):
+    b_str = f"{b:<f}"
+    return b_str[:5].replace(".", "_")
+
+
+def dist_to_indicies(dist: List[int]) -> List[int]:
+    indices = [0] * len(dist)
+    for i, _ in enumerate(dist):
+        if i == 0:
+            indices[i] = dist[i]
+        else:
+            indices[i] = indices[i - 1] + dist[i]
+
+    assert indices[-1] == sum(dist)
+
+    # Exclude last element as indices only mark start of section
+    return indices[:-1]
+
+
+cifar10_volumes = {
+    f"cifar-10-100p-b{b_to_str(b)}": {
+        "keras_dataset": keras_cifar10,
+        "transformers": [data.random_shuffle],
+        "transformers_kwargs": {},
+        "num_partitions": dist_to_indicies(dist),
+        "validation_set_size": 5000,
+        "assert_dataset_origin": True,
+    }
+    for b, dist in volume_distributions.cifar_10_100p()
+}
+
+fashion_mnist_volumes = {
+    f"fashion-mnist-100p-b{b_to_str(b)}": {
+        "keras_dataset": keras_fashion_mnist,
+        "transformers": [data.random_shuffle],
+        "transformers_kwargs": {},
+        "num_partitions": dist_to_indicies(dist),
+        "validation_set_size": 6000,
+        "assert_dataset_origin": True,
+    }
+    for b, dist in volume_distributions.fashion_mnist_100p()
+}
+
+
+datasets = {
+    **cifar10_cpp,
+    **fashion_mnist_cpp,
+    **cifar10_volumes,
+    **fashion_mnist_volumes,
+}
