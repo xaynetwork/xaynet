@@ -31,11 +31,11 @@ bs_cifar_10: Dict[float, float] = {
 }
 
 
-def fashion_mnist_100p():
+def fashion_mnist_100p() -> List[Tuple[float, List[int]]]:
     return _generate_100p_volume_distributions(bs_fashion_mnist)
 
 
-def cifar_10_100p():
+def cifar_10_100p() -> List[Tuple[float, List[int]]]:
     return _generate_100p_volume_distributions(bs_cifar_10)
 
 
