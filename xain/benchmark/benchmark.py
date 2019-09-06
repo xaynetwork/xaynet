@@ -83,6 +83,34 @@ benchmarks: Dict[str, Benchmark] = {
         ],
         aggregation_name="flul-aggregation",
     ),
+    "flul-fashion-mnist-100p-b-1-045": Benchmark(
+        tasks=[
+            UnitaryVisionTask(
+                dataset_name="fashion-mnist-100p-b-1-045",
+                partition_id=0,
+                instance_cores=4,
+            ),
+            UnitaryVisionTask(
+                dataset_name="fashion-mnist-100p-b-1-045",
+                partition_id=99,
+                instance_cores=4,
+            ),
+            VisionTask(dataset_name="fashion-mnist-100p-b-1-045", instance_cores=8),
+        ],
+        aggregation_name="flul-aggregation",
+    ),
+    "flul-cifar-10-100p-b-1-045": Benchmark(
+        tasks=[
+            UnitaryVisionTask(
+                dataset_name="cifar-10-100p-b-1-045", partition_id=0, instance_cores=4
+            ),
+            UnitaryVisionTask(
+                dataset_name="cifar-10-100p-b-1-045", partition_id=99, instance_cores=4
+            ),
+            VisionTask(dataset_name="cifar-10-100p-b-1-045", instance_cores=8),
+        ],
+        aggregation_name="flul-aggregation",
+    ),
     #
     # ##############################
     # Class Partitioning
