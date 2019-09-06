@@ -1,5 +1,6 @@
 from typing import Dict, List, Tuple
 
+import matplotlib.pyplot as plt
 import numpy as np
 
 bs_fashion_mnist: Dict[float, float] = {
@@ -57,6 +58,18 @@ def _generate_volume_distribution(xs: np.ndarray, a: float, b: float) -> List[in
     return [int(exponential_decay(x, a=a, b=b)) for x in xs]
 
 
+def plot_fashion_mnist_dist():
+    dists = fashion_mnist_100p()
+    xs = np.arange(100)
+    plt.figure()
+    legend = []
+    for b, dist in dists:
+        legend.append(str(b))
+        plt.plot(xs, np.array(dist))
+    plt.legend(legend, loc="upper left")
+    plt.show()
+
+
 def brute_force_a_for_fashion_mnist():
     for b in [1.0, 1.005, 1.01, 1.015, 1.02, 1.025, 1.03, 1.035, 1.04, 1.045]:
         a = brute_force_a(np.arange(100), b, target=54_000)
@@ -89,3 +102,5 @@ if __name__ == "__main__":
     brute_force_a_for_fashion_mnist()
     print("CIFAR-10:")
     brute_force_a_for_cifar_10()
+    print("Plot Fashion-MNIST volume distributions")
+    plot_fashion_mnist_dist()
