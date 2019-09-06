@@ -16,8 +16,26 @@ bs_fashion_mnist: Dict[float, float] = {
 }
 
 
+bs_cifar_10: Dict[float, float] = {
+    1.0: 450.0,
+    1.005: 348.351,
+    1.01: 264.28,
+    1.015: 196.89999999999995,
+    1.02: 144.26099999999994,
+    1.025: 104.15400000000004,
+    1.03: 74.18436000000008,
+    1.035: 52.22250000000001,
+    1.04: 36.402,
+    1.045: 25.154300000000013,
+}
+
+
 def fashion_mnist_100p():
     return _generate_100p_volume_distributions(bs_fashion_mnist)
+
+
+def cifar_10_100p():
+    return _generate_100p_volume_distributions(bs_cifar_10)
 
 
 def _generate_100p_volume_distributions(
