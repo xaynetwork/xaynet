@@ -12,7 +12,9 @@ flags.DEFINE_string(
     "Local directory to store datasets in. Usually ~/.xain/datasets",
 )
 flags.DEFINE_string(
-    "datasets_repository", "http://xain-datasets.s3-website.eu-central-1.amazonaws.com", "Remote datasets repository."
+    "datasets_repository",
+    "http://xain-datasets.s3-website.eu-central-1.amazonaws.com",
+    "Remote datasets repository.",
 )
 flags.DEFINE_boolean(
     "fetch_datasets",
