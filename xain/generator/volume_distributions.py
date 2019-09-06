@@ -1,5 +1,6 @@
 from typing import Dict, List, Tuple
 
+import matplotlib.pyplot as plt
 import numpy as np
 
 bs_fashion_mnist: Dict[float, float] = {
@@ -38,6 +39,10 @@ def cifar_10_100p() -> List[Tuple[float, List[int]]]:
     return _generate_100p_volume_distributions(bs_cifar_10)
 
 
+def exponential_decay(x: int, a: float, b: float) -> float:
+    return a * (b ** x)
+
+
 def _generate_100p_volume_distributions(
     bs: Dict[float, float]
 ) -> List[Tuple[float, List[int]]]:
@@ -50,8 +55,52 @@ def _generate_100p_volume_distributions(
 
 def _generate_volume_distribution(xs: np.ndarray, a: float, b: float) -> List[int]:
     assert xs.ndim == 1
+    return [int(exponential_decay(x, a=a, b=b)) for x in xs]
 
-    def ed(x, a, b):
-        return a * (b ** x)
 
-    return [int(ed(x, a=a, b=b)) for x in xs]
+def plot_fashion_mnist_dist():
+    dists = fashion_mnist_100p()
+    xs = np.arange(100)
+    plt.figure()
+    legend = []
+    for b, dist in dists:
+        legend.append(str(b))
+        plt.plot(xs, np.array(dist))
+    plt.legend(legend, loc="upper left")
+    plt.show()
+
+
+def brute_force_a_for_fashion_mnist():
+    for b in [1.0, 1.005, 1.01, 1.015, 1.02, 1.025, 1.03, 1.035, 1.04, 1.045]:
+        a = brute_force_a(np.arange(100), b, target=54_000)
+        print(f"{b}: {a},")
+
+
+def brute_force_a_for_cifar_10():
+    for b in [1.0, 1.005, 1.01, 1.015, 1.02, 1.025, 1.03, 1.035, 1.04, 1.045]:
+        a = brute_force_a(np.arange(100), b, target=45_000)
+        print(f"{b}: {a},")
+
+
+# pylint: disable-msg=inconsistent-return-statements
+def brute_force_a(xs, b: float, target: int, step=1.0, start=1):
+    a_best = 1
+    for a in np.arange(start, target, step):
+        ys = [int(exponential_decay(x, a=a, b=b)) for x in xs]
+        sum_ys = sum(ys)
+        if sum_ys == target:
+            return a
+        if sum_ys < target:
+            a_best = a
+        else:
+            # Recursive step
+            return brute_force_a(xs, b, target, step / 10, start=a_best)
+
+
+if __name__ == "__main__":
+    print("Fashion-MNIST:")
+    brute_force_a_for_fashion_mnist()
+    print("CIFAR-10:")
+    brute_force_a_for_cifar_10()
+    print("Plot Fashion-MNIST volume distributions")
+    plot_fashion_mnist_dist()
