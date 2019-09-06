@@ -1,23 +1,16 @@
 import os
 from tempfile import TemporaryDirectory
 from time import strftime
-from typing import Callable, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from absl import flags, logging
 
-from xain.benchmark.aggregation import aggregation
 from xain.helpers import storage
 from xain.ops import docker, results, run
 
 from .task import Task, UnitaryVisionTask, VisionTask
 
 FLAGS = flags.FLAGS
-
-
-aggregations: Dict[str, Callable] = {
-    "flul-aggregation": aggregation.flul_aggregation,
-    "cpp-aggregation": aggregation.cpp_aggregation,
-}
 
 
 class Benchmark:
