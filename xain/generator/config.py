@@ -125,7 +125,6 @@ def dist_to_indicies(dist: List[int]) -> List[int]:
 
 
 cifar10_volumes = {
-    # FIXME str(i) should always have 3 nums after decimal
     f"cifar-10-100p-b{b_to_str(b)}": {
         "keras_dataset": keras_cifar10,
         "transformers": [data.random_shuffle],
