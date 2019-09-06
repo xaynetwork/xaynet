@@ -17,16 +17,27 @@ def main(_):
 
     # Execute training
     start = time.time()
-    hist, _, loss, acc = run.federated_training(
-        model_name=FLAGS.model,
-        xy_train_partitions=xy_train_partitions,
-        xy_val=xy_val,
-        xy_test=xy_test,
-        R=FLAGS.R,
-        E=FLAGS.E,
-        C=FLAGS.C,
-        B=FLAGS.B,
-    )
+    partition_id = FLAGS.partition_id
+    if partition_id is not None:  # Use only a single partition if required (unitary)
+        hist, loss, acc = run.unitary_training(
+            model_name=FLAGS.model,
+            xy_train=xy_train_partitions[partition_id],
+            xy_val=xy_val,
+            xy_test=xy_test,
+            E=FLAGS.E,
+            B=FLAGS.B,
+        )
+    else:
+        hist, _, loss, acc = run.federated_training(
+            model_name=FLAGS.model,
+            xy_train_partitions=xy_train_partitions,
+            xy_val=xy_val,
+            xy_test=xy_test,
+            R=FLAGS.R,
+            E=FLAGS.E,
+            C=FLAGS.C,
+            B=FLAGS.B,
+        )
     end = time.time()
 
     # Write results
@@ -39,6 +50,7 @@ def main(_):
         "E": FLAGS.E,
         "C": FLAGS.C,
         "B": FLAGS.B,
+        "partition_id": partition_id,
         "start": start,
         "end": end,
         "duration": end - start,
@@ -61,4 +73,5 @@ if __name__ == "__main__":
     flags.mark_flag_as_required("E")
     flags.mark_flag_as_required("C")
     flags.mark_flag_as_required("B")
+    # Note: Flag partition_id is not required (i.e. optional)
     app.run(main=main)
