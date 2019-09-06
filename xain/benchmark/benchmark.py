@@ -155,6 +155,41 @@ benchmarks: Dict[str, Benchmark] = {
     ),
     #
     # ##############################
+    # Volume Partitioning
+    # ##############################
+    #
+    "vol-fashion-mnist-100p": Benchmark(
+        tasks=[
+            VisionTask(dataset_name="fashion-mnist-100p-b-1-000", instance_cores=4),
+            VisionTask(dataset_name="fashion-mnist-100p-b-1-005", instance_cores=4),
+            VisionTask(dataset_name="fashion-mnist-100p-b-1-010", instance_cores=4),
+            VisionTask(dataset_name="fashion-mnist-100p-b-1-015", instance_cores=4),
+            VisionTask(dataset_name="fashion-mnist-100p-b-1-020", instance_cores=4),
+            VisionTask(dataset_name="fashion-mnist-100p-b-1-025", instance_cores=4),
+            VisionTask(dataset_name="fashion-mnist-100p-b-1-030", instance_cores=4),
+            VisionTask(dataset_name="fashion-mnist-100p-b-1-035", instance_cores=4),
+            VisionTask(dataset_name="fashion-mnist-100p-b-1-040", instance_cores=4),
+            VisionTask(dataset_name="fashion-mnist-100p-b-1-045", instance_cores=4),
+        ],
+        aggregation_name="vol-aggregation",
+    ),
+    "vol-cifar-10-100p": Benchmark(
+        tasks=[
+            VisionTask(dataset_name="cifar-10-100p-b-1-000", instance_cores=16),
+            VisionTask(dataset_name="cifar-10-100p-b-1-005", instance_cores=16),
+            VisionTask(dataset_name="cifar-10-100p-b-1-010", instance_cores=16),
+            VisionTask(dataset_name="cifar-10-100p-b-1-015", instance_cores=16),
+            VisionTask(dataset_name="cifar-10-100p-b-1-020", instance_cores=16),
+            VisionTask(dataset_name="cifar-10-100p-b-1-025", instance_cores=16),
+            VisionTask(dataset_name="cifar-10-100p-b-1-030", instance_cores=16),
+            VisionTask(dataset_name="cifar-10-100p-b-1-035", instance_cores=16),
+            VisionTask(dataset_name="cifar-10-100p-b-1-040", instance_cores=16),
+            VisionTask(dataset_name="cifar-10-100p-b-1-045", instance_cores=16),
+        ],
+        aggregation_name="vol-aggregation",
+    ),
+    #
+    # ##############################
     # E: Small to high
     # ##############################
     #
