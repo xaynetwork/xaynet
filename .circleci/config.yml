@@ -9,7 +9,7 @@ jobs:
       # Download and cache dependencies
       - restore_cache:
           keys:
-            - v3-dependencies-{{ checksum "setup.py" }}
+            - v3-dependencies-{{ checksum "setup.py" }}-{{ checksum "xain/config.py" }}
 
       - run:
           name: install dependencies
@@ -21,7 +21,7 @@ jobs:
       - save_cache:
           paths:
             - ./venv
-          key: v3-dependencies-{{ checksum "setup.py" }}
+          key: v3-dependencies-{{ checksum "setup.py" }}-{{ checksum "xain/config.py" }}
 
       - run:
           name: run tests
@@ -38,7 +38,7 @@ jobs:
       # Download and cache dependencies
       - restore_cache:
           keys:
-            - v3-dependencies-{{ checksum "setup.py" }}
+            - v3-dependencies-{{ checksum "setup.py" }}-{{ checksum "xain/config.py" }}
 
       - run:
           name: install dependencies
@@ -50,7 +50,7 @@ jobs:
       - save_cache:
           paths:
             - ./venv
-          key: v3-dependencies-{{ checksum "setup.py" }}
+          key: v3-dependencies-{{ checksum "setup.py" }}-{{ checksum "xain/config.py" }}
 
       - run:
           name: run tests slow
@@ -68,7 +68,7 @@ jobs:
       # Download and cache dependencies
       - restore_cache:
           keys:
-            - v3-dependencies-{{ checksum "setup.py" }}
+            - v3-dependencies-{{ checksum "setup.py" }}-{{ checksum "xain/config.py" }}
 
       - run:
           name: install dependencies
@@ -80,7 +80,7 @@ jobs:
       - save_cache:
           paths:
             - ./venv
-          key: v3-dependencies-{{ checksum "setup.py" }}
+          key: v3-dependencies-{{ checksum "setup.py" }}-{{ checksum "xain/config.py" }}
 
       - run:
           name: run tests benchmark

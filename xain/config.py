@@ -35,7 +35,10 @@ def init_config():
         "S3",
         "results_bucket",
         # Using an ENV variable here to we can set it on the CI as an environment variable
-        os.environ.get("S3_RESULTS_BUCKET", default="ACCESSIBLE_S3_BUCKET_FOR_RESULTS_TO_BE_UPLOADED")
+        os.environ.get(
+            "S3_RESULTS_BUCKET",
+            default="ACCESSIBLE_S3_BUCKET_FOR_RESULTS_TO_BE_UPLOADED",
+        ),
     )
 
     # Dataset config section
