@@ -55,7 +55,7 @@ def populated_results_dir(tmpdir):
 
 @pytest.yield_fixture
 def populated_S3_bucket():
-    bucket = FLAGS.S3_bucket
+    bucket = FLAGS.S3_results_bucket
 
     rnd_str = random_string(5)
     files = ["file_1.txt", "file_2.txt"]

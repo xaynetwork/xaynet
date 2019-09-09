@@ -1,3 +1,5 @@
+# Project specific files and directories
+config.cfg
 output/*
 results
 
