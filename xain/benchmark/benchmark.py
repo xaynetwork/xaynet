@@ -344,6 +344,9 @@ def build_task_name(task):
             str(task.E),
             str(task.C),
             str(task.B),
+            str(task.partition_id),
+            str(task.instance_cores),
+            str(task.timeout),
         ]
     )
 
@@ -355,6 +358,11 @@ def run_benchmark(benchmark_name: str):
     logging.info(f"Starting benchmark {benchmark_name}")
     benchmark = benchmarks[benchmark_name]
     group_name = f"group_{benchmark_name}_{strftime('%Y%m%dT%H%M')}"
+
+    task_names = set()
+    for task in benchmark.tasks:
+        task_names.add(build_task_name(task))
+    assert len(task_names) == len(benchmark.tasks), "Duplicate task names"
 
     # TODO Initiate tasks in parallel
     for task in benchmark.tasks:
