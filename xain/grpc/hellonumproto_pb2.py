@@ -21,7 +21,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='hellonumproto',
   syntax='proto3',
   serialized_options=None,
-  serialized_pb=_b('\n\x1dxain/grpc/hellonumproto.proto\x12\rhellonumproto\x1a\x1fnumproto/protobuf/ndarray.proto\"6\n\x0fNumProtoRequest\x12#\n\x03\x61rr\x18\x01 \x01(\x0b\x32\x16.xain.numproto.NDArray\"4\n\rNumProtoReply\x12#\n\x03\x61rr\x18\x01 \x01(\x0b\x32\x16.xain.numproto.NDArray2d\n\x0eNumProtoServer\x12R\n\x10SayHelloNumProto\x12\x1e.hellonumproto.NumProtoRequest\x1a\x1c.hellonumproto.NumProtoReply\"\x00\x62\x06proto3')
+  serialized_pb=_b('\n\x1dxain/grpc/hellonumproto.proto\x12\rhellonumproto\x1a\x1fnumproto/protobuf/ndarray.proto\":\n\x0fNumProtoRequest\x12\'\n\x03\x61rr\x18\x01 \x01(\x0b\x32\x1a.numproto.protobuf.NDArray\"8\n\rNumProtoReply\x12\'\n\x03\x61rr\x18\x01 \x01(\x0b\x32\x1a.numproto.protobuf.NDArray2d\n\x0eNumProtoServer\x12R\n\x10SayHelloNumProto\x12\x1e.hellonumproto.NumProtoRequest\x1a\x1c.hellonumproto.NumProtoReply\"\x00\x62\x06proto3')
   ,
   dependencies=[numproto_dot_protobuf_dot_ndarray__pb2.DESCRIPTOR,])
 
@@ -55,7 +55,7 @@ _NUMPROTOREQUEST = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=81,
-  serialized_end=135,
+  serialized_end=139,
 )
 
 
@@ -85,8 +85,8 @@ _NUMPROTOREPLY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=137,
-  serialized_end=189,
+  serialized_start=141,
+  serialized_end=197,
 )
 
 _NUMPROTOREQUEST.fields_by_name['arr'].message_type = numproto_dot_protobuf_dot_ndarray__pb2._NDARRAY
@@ -117,8 +117,8 @@ _NUMPROTOSERVER = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   serialized_options=None,
-  serialized_start=191,
-  serialized_end=291,
+  serialized_start=199,
+  serialized_end=299,
   methods=[
   _descriptor.MethodDescriptor(
     name='SayHelloNumProto',

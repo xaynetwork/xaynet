@@ -53,6 +53,7 @@ install_requires = [
     "faker==2.0.0",  # MIT License
     "grpcio==1.23.0",  # Apache License 2.0
     "protobuf==3.9.1",  # 3-Clause BSD License
+    "numproto==0.2.0",  # Apache License 2.0
 ]
 
 cpu_require = ["tensorflow==1.14.0"]  # Apache 2.0

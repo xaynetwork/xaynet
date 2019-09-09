@@ -9,10 +9,10 @@ service NumProtoServer {
 }
 
 message NumProtoRequest {
-  xain.numproto.NDArray arr = 1;
+  numproto.protobuf.NDArray arr = 1;
 }
 
 // The response message containing the greetings
 message NumProtoReply {
-  xain.numproto.NDArray arr = 1;
+  numproto.protobuf.NDArray arr = 1;
 }
