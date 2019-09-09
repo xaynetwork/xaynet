@@ -11,7 +11,7 @@ client = boto3.client("s3")
 
 
 def push(group_name: str, task_name: str, output_dir: str = None):
-    """Push everything in output directory to the S3_BUCKET on AWS S3
+    """Push everything in output directory to the S3_results_bucket on AWS S3
 
     Args:
         group_name (str)
@@ -22,7 +22,7 @@ def push(group_name: str, task_name: str, output_dir: str = None):
     if output_dir is None:
         output_dir = FLAGS.output_dir
 
-    bucket = FLAGS.S3_bucket
+    bucket = FLAGS.S3_results_bucket
 
     ignored_files = [".gitkeep", ".DS_Store"]
     files = listdir_recursive(output_dir)
@@ -51,7 +51,7 @@ def download():
     # Use results_dir which was passed via absl flags and defaults to
     # "git_root/results" and upload everything in it as results
     results_dir = FLAGS.results_dir
-    bucket = FLAGS.S3_bucket
+    bucket = FLAGS.S3_results_bucket
 
     # Get list of all files which where uploaded to the bucket which contain
     # the group_name => integration_test

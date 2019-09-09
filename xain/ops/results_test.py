@@ -18,7 +18,7 @@ client = boto3.client("s3")
 @pytest.mark.integration
 def test_push_results(populated_output_dir):
     # Prepare
-    bucket = FLAGS.S3_bucket
+    bucket = FLAGS.S3_results_bucket
     group_name = "integration_test"
     task_name = "".join(random.sample(string.ascii_lowercase, 5))
     # List all files which where in output directory

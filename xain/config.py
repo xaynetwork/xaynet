@@ -34,7 +34,8 @@ def init_config():
     config.set(
         "S3",
         "results_bucket",
-        "REPLACE_WITH_DEDICATED_BUCKET_FOR_RESULTS_TO_BE_UPLOADED",
+        # Using an ENV variable here to we can set it on the CI as an environment variable
+        os.environ.get("S3_RESULTS_BUCKET", default="ACCESSIBLE_S3_BUCKET_FOR_RESULTS_TO_BE_UPLOADED")
     )
 
     # Dataset config section
@@ -48,12 +49,6 @@ def init_config():
         "Dataset", "fetch_datasets", "True"
     )  # Indicates if datasets should be fetched from remote by default
 
-    # Benchmark config section
-    config.add_section("Benchmark")
-    config.set(
-        "Benchmark", "default_benchmark_name", "flul-fashion-mnist-100p-iid-balanced"
-    )
-
     with open(config_file, "w") as configfile:
         config.write(configfile)
 
@@ -62,7 +57,7 @@ def check_config_file_exists():
     return os.path.isfile(config_file)
 
 
-@lru_cache()
+@lru_cache()  # Using this to avoid loading file every time from disk
 def load():
     config = configparser.ConfigParser()
     config.read(config_file)

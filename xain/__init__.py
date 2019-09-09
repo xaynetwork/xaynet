@@ -23,7 +23,7 @@ flags.DEFINE_string(
 )
 
 flags.DEFINE_string(
-    "S3_bucket",
+    "S3_results_bucket",
     c.get("S3", "results_bucket", fallback=None),
     "Bucket name for the results to be uploaded to",
 )
