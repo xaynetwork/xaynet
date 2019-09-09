@@ -1,5 +1,6 @@
 import glob
 import sys
+import pathlib
 
 from setuptools import find_packages, setup
 from setuptools.command.develop import develop
@@ -13,13 +14,21 @@ class CustomDevelopCommand(develop):
     def run(self):
         # we need to import this here or else grpc_tools would have to be
         # installed in the system before we could run the setup.py
+        import numproto
         from grpc_tools import protoc
 
         develop.run(self)
 
+        # get the path of the numproto protofiles
+        # this will give us the path to the site-packages where numproto is
+        # installed
+        numproto_path = pathlib.Path(numproto.__path__[0]).parent
+
+
         proto_files = glob.glob("./protobuf/xain/grpc/*.proto")
         command = [
             "grpc_tools.protoc",
+            f"--proto_path={numproto_path}",
             "--proto_path=./protobuf",
             "--python_out=./",
             "--grpc_python_out=./",
