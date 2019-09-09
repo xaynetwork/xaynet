@@ -1,3 +1,4 @@
+import atexit
 import time
 
 from absl import app, flags
@@ -11,7 +12,16 @@ from . import run
 FLAGS = flags.FLAGS
 
 
+def after_main(group_name: str, task_name: str):
+    """Will run after main exists (successfully or otherwise)"""
+    # Push results once task has finished
+    results.push(group_name=group_name, task_name=task_name)
+
+
 def main(_):
+    # Set exit callback
+    atexit.register(after_main, group_name=FLAGS.group_name, task_name=FLAGS.task_name)
+
     # Load data
     xy_train_partitions, xy_val, xy_test = load_splits(FLAGS.dataset)
 
@@ -59,9 +69,6 @@ def main(_):
         "hist": hist,
     }
     storage.write_json(res, fname="results.json")
-
-    # Push results once task has finished
-    results.push(group_name=FLAGS.group_name, task_name=FLAGS.task_name)
 
 
 if __name__ == "__main__":
