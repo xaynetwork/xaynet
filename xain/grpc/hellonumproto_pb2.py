@@ -18,10 +18,10 @@ from numproto.protobuf import ndarray_pb2 as numproto_dot_protobuf_dot_ndarray__
 
 DESCRIPTOR = _descriptor.FileDescriptor(
   name='xain/grpc/hellonumproto.proto',
-  package='',
+  package='hellonumproto',
   syntax='proto3',
   serialized_options=None,
-  serialized_pb=_b('\n\x1dxain/grpc/hellonumproto.proto\x1a\x1fnumproto/protobuf/ndarray.proto\"1\n\x0fNumProtoRequest\x12\x1e\n\x03\x61rr\x18\x01 \x01(\x0b\x32\x11.numproto.NDArray\"/\n\rNumProtoReply\x12\x1e\n\x03\x61rr\x18\x01 \x01(\x0b\x32\x11.numproto.NDArray2H\n\x0eNumProtoServer\x12\x36\n\x10SayHelloNumProto\x12\x10.NumProtoRequest\x1a\x0e.NumProtoReply\"\x00\x62\x06proto3')
+  serialized_pb=_b('\n\x1dxain/grpc/hellonumproto.proto\x12\rhellonumproto\x1a\x1fnumproto/protobuf/ndarray.proto\"6\n\x0fNumProtoRequest\x12#\n\x03\x61rr\x18\x01 \x01(\x0b\x32\x16.xain.numproto.NDArray\"4\n\rNumProtoReply\x12#\n\x03\x61rr\x18\x01 \x01(\x0b\x32\x16.xain.numproto.NDArray2d\n\x0eNumProtoServer\x12R\n\x10SayHelloNumProto\x12\x1e.hellonumproto.NumProtoRequest\x1a\x1c.hellonumproto.NumProtoReply\"\x00\x62\x06proto3')
   ,
   dependencies=[numproto_dot_protobuf_dot_ndarray__pb2.DESCRIPTOR,])
 
@@ -30,13 +30,13 @@ DESCRIPTOR = _descriptor.FileDescriptor(
 
 _NUMPROTOREQUEST = _descriptor.Descriptor(
   name='NumProtoRequest',
-  full_name='NumProtoRequest',
+  full_name='hellonumproto.NumProtoRequest',
   filename=None,
   file=DESCRIPTOR,
   containing_type=None,
   fields=[
     _descriptor.FieldDescriptor(
-      name='arr', full_name='NumProtoRequest.arr', index=0,
+      name='arr', full_name='hellonumproto.NumProtoRequest.arr', index=0,
       number=1, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
@@ -54,20 +54,20 @@ _NUMPROTOREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=66,
-  serialized_end=115,
+  serialized_start=81,
+  serialized_end=135,
 )
 
 
 _NUMPROTOREPLY = _descriptor.Descriptor(
   name='NumProtoReply',
-  full_name='NumProtoReply',
+  full_name='hellonumproto.NumProtoReply',
   filename=None,
   file=DESCRIPTOR,
   containing_type=None,
   fields=[
     _descriptor.FieldDescriptor(
-      name='arr', full_name='NumProtoReply.arr', index=0,
+      name='arr', full_name='hellonumproto.NumProtoReply.arr', index=0,
       number=1, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
@@ -85,8 +85,8 @@ _NUMPROTOREPLY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=117,
-  serialized_end=164,
+  serialized_start=137,
+  serialized_end=189,
 )
 
 _NUMPROTOREQUEST.fields_by_name['arr'].message_type = numproto_dot_protobuf_dot_ndarray__pb2._NDARRAY
@@ -98,14 +98,14 @@ _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 NumProtoRequest = _reflection.GeneratedProtocolMessageType('NumProtoRequest', (_message.Message,), {
   'DESCRIPTOR' : _NUMPROTOREQUEST,
   '__module__' : 'xain.grpc.hellonumproto_pb2'
-  # @@protoc_insertion_point(class_scope:NumProtoRequest)
+  # @@protoc_insertion_point(class_scope:hellonumproto.NumProtoRequest)
   })
 _sym_db.RegisterMessage(NumProtoRequest)
 
 NumProtoReply = _reflection.GeneratedProtocolMessageType('NumProtoReply', (_message.Message,), {
   'DESCRIPTOR' : _NUMPROTOREPLY,
   '__module__' : 'xain.grpc.hellonumproto_pb2'
-  # @@protoc_insertion_point(class_scope:NumProtoReply)
+  # @@protoc_insertion_point(class_scope:hellonumproto.NumProtoReply)
   })
 _sym_db.RegisterMessage(NumProtoReply)
 
@@ -113,16 +113,16 @@ _sym_db.RegisterMessage(NumProtoReply)
 
 _NUMPROTOSERVER = _descriptor.ServiceDescriptor(
   name='NumProtoServer',
-  full_name='NumProtoServer',
+  full_name='hellonumproto.NumProtoServer',
   file=DESCRIPTOR,
   index=0,
   serialized_options=None,
-  serialized_start=166,
-  serialized_end=238,
+  serialized_start=191,
+  serialized_end=291,
   methods=[
   _descriptor.MethodDescriptor(
     name='SayHelloNumProto',
-    full_name='NumProtoServer.SayHelloNumProto',
+    full_name='hellonumproto.NumProtoServer.SayHelloNumProto',
     index=0,
     containing_service=None,
     input_type=_NUMPROTOREQUEST,

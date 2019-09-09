@@ -2,17 +2,17 @@ syntax = "proto3";
 
 import "numproto/protobuf/ndarray.proto";
 
-// package hellonumproto;
+package hellonumproto;
 
 service NumProtoServer {
   rpc SayHelloNumProto (NumProtoRequest) returns (NumProtoReply) {}
 }
 
 message NumProtoRequest {
-  numproto.NDArray arr = 1;
+  xain.numproto.NDArray arr = 1;
 }
 
 // The response message containing the greetings
 message NumProtoReply {
-  numproto.NDArray arr = 1;
+  xain.numproto.NDArray arr = 1;
 }

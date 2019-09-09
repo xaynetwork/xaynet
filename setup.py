@@ -1,6 +1,6 @@
 import glob
-import sys
 import pathlib
+import sys
 
 from setuptools import find_packages, setup
 from setuptools.command.develop import develop
@@ -23,7 +23,6 @@ class CustomDevelopCommand(develop):
         # this will give us the path to the site-packages where numproto is
         # installed
         numproto_path = pathlib.Path(numproto.__path__[0]).parent
-
 
         proto_files = glob.glob("./protobuf/xain/grpc/*.proto")
         command = [

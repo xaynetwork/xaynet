@@ -5,9 +5,8 @@ from xain.grpc import hellonumproto_pb2 as xain_dot_grpc_dot_hellonumproto__pb2
 
 
 class NumProtoServerStub(object):
-  """package hellonumproto;
-
-  """
+  # missing associated documentation comment in .proto file
+  pass
 
   def __init__(self, channel):
     """Constructor.
@@ -16,16 +15,15 @@ class NumProtoServerStub(object):
       channel: A grpc.Channel.
     """
     self.SayHelloNumProto = channel.unary_unary(
-        '/NumProtoServer/SayHelloNumProto',
+        '/hellonumproto.NumProtoServer/SayHelloNumProto',
         request_serializer=xain_dot_grpc_dot_hellonumproto__pb2.NumProtoRequest.SerializeToString,
         response_deserializer=xain_dot_grpc_dot_hellonumproto__pb2.NumProtoReply.FromString,
         )
 
 
 class NumProtoServerServicer(object):
-  """package hellonumproto;
-
-  """
+  # missing associated documentation comment in .proto file
+  pass
 
   def SayHelloNumProto(self, request, context):
     # missing associated documentation comment in .proto file
@@ -44,5 +42,5 @@ def add_NumProtoServerServicer_to_server(servicer, server):
       ),
   }
   generic_handler = grpc.method_handlers_generic_handler(
-      'NumProtoServer', rpc_method_handlers)
+      'hellonumproto.NumProtoServer', rpc_method_handlers)
   server.add_generic_rpc_handlers((generic_handler,))
