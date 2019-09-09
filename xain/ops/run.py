@@ -81,7 +81,12 @@ def ec2(image: str, timeout: int = 300, instance_cores=2, **kwargs):
         absl_flags += f"--{arg}={kwargs[arg]} "
         instance_name += f"{kwargs[arg]}_"
 
-    udata = user_data(image=image, timeout=timeout, flags=absl_flags)
+    udata = user_data(
+        image=image,
+        timeout=timeout,
+        S3_results_bucket=FLAGS.S3_results_bucket,
+        flags=absl_flags,
+    )
 
     client = boto3.client("ec2")
     run_response = client.run_instances(

@@ -1,7 +1,7 @@
 import re
 
 
-def user_data(image: str, timeout: int, flags: str):
+def user_data(image: str, timeout: int, S3_results_bucket: str, flags: str):
     """Generates EC2 instance user data script which is basically
     a bash script which will be executed as soon as the machine is
     up and running
@@ -29,6 +29,7 @@ def user_data(image: str, timeout: int, flags: str):
         "mkdir -p /opt/app/output",
         "cd /opt/app/",
         f"docker run \
+            -e S3_RESULTS_BUCKET={S3_results_bucket} \
             -v $(pwd)/output:/opt/app/output \
             {image} python -m xain.benchmark.exec {flags} >& $(pwd)/output/training.log",
         # Cancel previous shutdown and shutdown 1m after the job finishes
