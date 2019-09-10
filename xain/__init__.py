@@ -23,3 +23,5 @@ flags.DEFINE_string(
 flags.DEFINE_string(
     "S3_bucket", "xain-results", "Bucket name for the results to be uploaded to"
 )
+
+os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
