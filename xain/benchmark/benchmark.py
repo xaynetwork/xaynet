@@ -358,14 +358,8 @@ benchmarks: Dict[str, Benchmark] = {
                 E=256,
                 instance_cores=8,
             ),
-            VisionTask(
-                dataset_name="fashion-mnist-100p-noniid-05cpp",
-                R=256,
-                E=1,
-                instance_cores=8,
-            ),
         ],
-        aggregation_name="cpp-aggregation",
+        aggregation_name="flul-aggregation",
     ),
     #
     # ##############################
