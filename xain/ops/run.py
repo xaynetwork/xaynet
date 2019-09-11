@@ -31,8 +31,10 @@ def docker(image: str, timeout: int = 300, instance_cores=2, **kwargs):
     Args:
         image (str): docker image name
         timeout (int): timeout in minutes
-        instance_cores (int): number of cpu cores to be used, if num is to high os.cpu_count() will be used
-        **kwargs: Will be turned into "--{arg}={kwargs[arg]" format and passed to docker container
+        instance_cores (int): number of cpu cores to be used, if num is to high os.cpu_count()
+                              will be used
+        **kwargs: Will be turned into "--{arg}={kwargs[arg]" format and
+                  passed to docker container
     """
     instance_cores = (
         instance_cores if instance_cores <= os.cpu_count() else os.cpu_count()
