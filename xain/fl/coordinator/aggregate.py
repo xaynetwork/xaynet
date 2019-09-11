@@ -13,19 +13,20 @@ class Aggregator(ABC):
     def __init__(self):
         pass
 
-    def aggregate(self, thetas: List[KerasWeights]) -> KerasWeights:
+    def aggregate(self, thetas: List[Tuple[KerasWeights, int]]) -> KerasWeights:
         raise NotImplementedError()
 
 
 class IdentityAgg(Aggregator):
-    def aggregate(self, thetas: List[KerasWeights]) -> KerasWeights:
+    def aggregate(self, thetas: List[Tuple[KerasWeights, int]]) -> KerasWeights:
         assert len(thetas) == 1
-        return thetas[0]
+        return thetas[0][0]
 
 
 class WeightedAverageAgg(Aggregator):
-    def aggregate(self, thetas: List[KerasWeights]) -> KerasWeights:
-        return federated_averaging(thetas)
+    def aggregate(self, thetas: List[Tuple[KerasWeights, int]]) -> KerasWeights:
+        weight_matrices = [theta for theta, num_examples in thetas]
+        return federated_averaging(weight_matrices)
 
 
 class EvoAgg(Aggregator):
@@ -33,8 +34,9 @@ class EvoAgg(Aggregator):
         super().__init__()
         self.evaluator = evaluator
 
-    def aggregate(self, thetas: List[KerasWeights]) -> KerasWeights:
-        return evo_agg(thetas, self.evaluator, False)
+    def aggregate(self, thetas: List[Tuple[KerasWeights, int]]) -> KerasWeights:
+        weight_matrices = [theta for theta, num_examples in thetas]
+        return evo_agg(weight_matrices, self.evaluator, False)
 
 
 def federated_averaging(thetas: List[KerasWeights]) -> KerasWeights:

@@ -27,6 +27,7 @@ class Participant:
         self.model_provider = model_provider
         self.num_classes: int = num_classes
         self.batch_size: int = batch_size
+        self.num_examples = xy_train[0].shape[0]
         # Training set
         self.xy_train = xy_train
         self.steps_train: int = int(xy_train[0].shape[0] / batch_size)
@@ -36,14 +37,14 @@ class Participant:
 
     def train_round(
         self, theta: KerasWeights, epochs: int
-    ) -> Tuple[KerasWeights, KerasHistory]:
+    ) -> Tuple[Tuple[KerasWeights, int], KerasHistory]:
         logging.info("Participant {}: train_round START".format(self.cid))
         model = self.model_provider.init_model()
         model.set_weights(theta)
         hist: KerasHistory = self.fit(model, epochs)
         theta_prime = model.get_weights()
         logging.info("Participant {}: train_round FINISH".format(self.cid))
-        return theta_prime, hist
+        return (theta_prime, self.num_examples), hist
 
     def fit(self, model: tf.keras.Model, epochs: int) -> KerasHistory:
         ds_train = prep.init_ds_train(self.xy_train, self.num_classes, self.batch_size)
