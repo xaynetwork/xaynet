@@ -29,8 +29,12 @@ def docker(image: str, timeout: int = 300, instance_cores=2, **kwargs):
     number of absl flags to be passed to the docker container
 
     Args:
-        tag (str): docker image tag to be used
-        **kwargs: Will be turned into "--{arg}={kwargs[arg]" format and passed to docker container
+        image (str): docker image name
+        timeout (int): timeout in minutes
+        instance_cores (int): number of cpu cores to be used, if num is to high os.cpu_count()
+                              will be used
+        **kwargs: Will be turned into "--{arg}={kwargs[arg]" format and
+                  passed to docker container
     """
     instance_cores = (
         instance_cores if instance_cores <= os.cpu_count() else os.cpu_count()
@@ -74,7 +78,9 @@ def ec2(image: str, timeout: int = 300, instance_cores=2, **kwargs):
     - m5.24xlarge: 96 vCPU, 384 GB RAM
 
     Args:
-        instance_type (str): EC2 instance size to be used
+        image (str): docker image name
+        timeout (int): timeout in minutes
+        instance_cores (int): number of EC2 instance cpu cores
         **kwargs: Will be turned into "--{arg}={kwargs[arg]" format and passed to docker container
     """
     assert (
@@ -83,17 +89,18 @@ def ec2(image: str, timeout: int = 300, instance_cores=2, **kwargs):
     instance_type = cores[instance_cores]
 
     absl_flags = ""  # Will be passed to docker run in EC2 instance
-    instance_name = ""  # Will be used to make the instance easier identifyable
 
     for arg in kwargs:
         if kwargs[arg] is None:
             # Don't pass flags where arg has value None
             continue
         absl_flags += f"--{arg}={kwargs[arg]} "
-        instance_name += f"{kwargs[arg]}_"
 
     absl_flags = absl_flags.strip()
-    instance_name = instance_name.strip()
+
+    instance_name = (
+        f"{kwargs['group_name']}_{kwargs['task_name']}"
+    )  # Will be used to make the instance easier identifyable
 
     udata = user_data(
         image=image,

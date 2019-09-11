@@ -2,7 +2,13 @@ from absl import flags
 
 from xain.benchmark.net import model_fns
 
-flags.DEFINE_string("task_name", None, "")
+flags.DEFINE_string(
+    "task_name",
+    None,
+    "Mainly used for directory names and as a reference. If label not given used also for plots",
+)
+
+flags.DEFINE_string("task_label", None, "Label to be used in plots")
 
 flags.DEFINE_string("model", None, f"Model name, one of {[fn for fn in model_fns]}")
 

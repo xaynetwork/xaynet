@@ -11,19 +11,24 @@ from .results import GroupResult, TaskResult
 FLAGS = flags.FLAGS
 
 
-def read_task_values(task_result: TaskResult) -> Tuple[str, List[float], int]:
+def read_task_values(task_result: TaskResult) -> Tuple[bool, str, List[float], int]:
     """Reads unitary and federated accuracy from results.json
 
     Args:
         fname (str): path to results.json file containing required fields
 
     Returns:
-        task_class, accuracies, epochs (str, List[float], int): e.g. ("VisionTask", [0.12, 0.33], 5)
+        task_label, accuracies, epochs (str, List[float], int): e.g. ("VisionTask", [0.12, 0.33], 5)
     """
-    return (task_result.get_class(), task_result.get_accuracies(), task_result.get_E())
+    return (
+        task_result.is_unitary(),
+        task_result.get_label(),
+        task_result.get_accuracies(),
+        task_result.get_E(),
+    )
 
 
-def read_all_task_values(group_dir: str) -> List[Tuple[str, List[float], int]]:
+def read_all_task_values(group_dir: str) -> List[Tuple[bool, str, List[float], int]]:
     """
     Reads results directory for given group id and
     extracts values from results.json files
@@ -36,16 +41,16 @@ def read_all_task_values(group_dir: str) -> List[Tuple[str, List[float], int]]:
     return [read_task_values(task_result) for task_result in task_results]
 
 
-def build_plot_values(values: Tuple[str, List[float], int]) -> PlotValues:
+def build_plot_values(values: Tuple[bool, str, List[float], int]) -> PlotValues:
     """Returns PlotValues with appropriate indices based on task class (Unitary or Federated)"""
-    task_class, task_accuracies, E = values
+    is_unitary, task_label, task_accuracies, E = values
 
-    if "Unitary" in task_class:
+    if is_unitary:
         indices = [i for i in range(1, len(task_accuracies) + 1, 1)]
     else:
         indices = [i for i in range(E, len(task_accuracies) * E + 1, E)]
 
-    return (task_class, task_accuracies, indices)
+    return (task_label, task_accuracies, indices)
 
 
 def prepare_aggregation_data(group_name: str) -> List[PlotValues]:
@@ -80,7 +85,7 @@ def aggregate() -> str:
     :returns: Absolut path to saved plot
     """
     group_name = FLAGS.group_name
-    fname = f"plot_{group_name}.png"
+    fname = f"plot_task_accuracies_{group_name}.png"
 
     data = prepare_aggregation_data(group_name)
 

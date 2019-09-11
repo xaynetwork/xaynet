@@ -61,6 +61,8 @@ def plot(
 
     legend = []
 
+    data.sort(key=lambda c: c[0])
+
     for name, values, indices in data:
         legend.append(name)
 
