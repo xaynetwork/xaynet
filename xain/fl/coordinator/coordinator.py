@@ -9,7 +9,7 @@ from xain.datasets import prep
 from xain.fl.participant import ModelProvider, Participant
 from xain.types import KerasHistory, KerasWeights
 
-from .aggregate import Aggregator, WeightedAverageAgg
+from .aggregate import Aggregator, FederatedAveragingAgg
 
 
 class Coordinator:
@@ -30,7 +30,7 @@ class Coordinator:
         self.C = C
         self.E = E
         self.xy_val = xy_val
-        self.aggregator = aggregator if aggregator else WeightedAverageAgg()
+        self.aggregator = aggregator if aggregator else FederatedAveragingAgg()
 
     # Common initialization happens implicitly: By updating the participant weights to
     # match the coordinator weights ahead of every training round we achieve common

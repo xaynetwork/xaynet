@@ -23,10 +23,11 @@ class IdentityAgg(Aggregator):
         return thetas[0][0]
 
 
-class WeightedAverageAgg(Aggregator):
-    def aggregate(self, thetas: List[Tuple[KerasWeights, int]]) -> KerasWeights:
-        weight_matrices = [theta for theta, num_examples in thetas]
-        return federated_averaging(weight_matrices)
+class FederatedAveragingAgg(Aggregator):
+    def aggregate(self, theta_updates: List[Tuple[KerasWeights, int]]) -> KerasWeights:
+        thetas = [theta for theta, _ in theta_updates]
+        weighting = np.array([num_examples for _, num_examples in theta_updates])
+        return federated_averaging(thetas, weighting)
 
 
 class EvoAgg(Aggregator):
@@ -39,13 +40,7 @@ class EvoAgg(Aggregator):
         return evo_agg(weight_matrices, self.evaluator, False)
 
 
-def federated_averaging(thetas: List[KerasWeights]) -> KerasWeights:
-    # FIXME implement #examples-based weighting
-    weighting = np.ones((len(thetas),))
-    return weighted_federated_averaging(thetas, weighting)
-
-
-def weighted_federated_averaging(
+def federated_averaging(
     thetas: List[KerasWeights], weighting: np.ndarray
 ) -> KerasWeights:
     assert weighting.ndim == 1

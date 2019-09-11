@@ -28,8 +28,10 @@ def test_federated_averaging():  # pylint: disable=too-many-locals
         np.array([1.0, 1.0]),
     ]
 
+    weighting = np.ones((len(thetas)))
+
     # Execute
-    theta_actual = aggregate.federated_averaging(thetas)
+    theta_actual = aggregate.federated_averaging(thetas, weighting)
 
     # Assert
     assert len(theta_actual) == len(theta_expected)
