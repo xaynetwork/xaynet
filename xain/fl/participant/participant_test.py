@@ -1,6 +1,9 @@
 import numpy as np
 import pytest
 
+from xain.benchmark.net import model_fns
+
+from .model_provider import ModelProvider
 from .participant import Participant
 
 
@@ -25,3 +28,27 @@ def test_Participant_x_y_shape_invalid():
         pytest.fail("No AssertionError raised")
     except AssertionError:
         pass
+
+
+def test_Participant_num_examples():
+    # Prepare
+    num_examples_expected = 19
+    num_classes = 10
+    model_provider = ModelProvider(model_fns["blog_cnn"])
+    x = np.random.randint(
+        0, high=256, size=(num_examples_expected, 28, 28, 1), dtype=np.uint8
+    )
+    y = np.random.randint(
+        0, high=num_classes, size=(num_examples_expected), dtype=np.uint8
+    )
+    np.random.randint
+    participant = Participant(
+        0, model_provider, (x, y), (x, y), num_classes=num_classes, batch_size=16
+    )
+    weights = model_provider.init_model().get_weights()
+
+    # Execute
+    (_, num_examples_actual), _ = participant.train_round(weights, 2)
+
+    # Assert
+    assert num_examples_actual == num_examples_expected
