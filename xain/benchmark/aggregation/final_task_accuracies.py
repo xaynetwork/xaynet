@@ -1,7 +1,6 @@
 import os
 from typing import Dict, List, Optional, Tuple
 
-import numpy as np
 from absl import app, flags, logging
 
 from xain.types import PlotValues, XticksLabels, XticksLocations
@@ -46,8 +45,8 @@ def group_values_by_class(
     values: List[Tuple[bool, str, float]]
 ) -> Dict[str, List[Tuple[str, float]]]:
     # Group values by task_class
-    unitary_values = [v for v in values if v[0] == True]
-    federated_values = [v for v in values if v[0] == False]
+    unitary_values = [v for v in values if v[0]]
+    federated_values = [v for v in values if not v[0]]
 
     grouped_values = {
         "unitary": [(label, acc) for _, label, acc in unitary_values],

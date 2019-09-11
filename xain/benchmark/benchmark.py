@@ -494,7 +494,7 @@ benchmarks: Dict[str, Benchmark] = {
                 instance_cores=8,
             ),
         ],
-        aggregation_name="cpp-aggregation",
+        aggregation_name="flul-aggregation",
     ),
     #
     # ##############################
