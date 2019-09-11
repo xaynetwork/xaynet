@@ -31,6 +31,7 @@ class Coordinator:
         self.E = E
         self.xy_val = xy_val
         self.aggregator = aggregator if aggregator else FederatedAveragingAgg()
+        self.epoch = 0  # Count training epochs
 
     # Common initialization happens implicitly: By updating the participant weights to
     # match the coordinator weights ahead of every training round we achieve common
@@ -44,10 +45,10 @@ class Coordinator:
             # Determine who participates in this round
             num_indices = abs_C(self.C, self.num_participants())
             indices = self.controller.indices(num_indices)
-            msg = "Round {}/{}: Participants {}".format(r + 1, num_rounds, indices)
+            msg = f"Round {r+1}/{num_rounds}: Participants {indices}"
             logging.info(msg)
             # Train
-            histories = self.fit_round(indices)
+            histories = self.fit_round(indices, self.E)
             hist_ps.append(histories)
             # Evaluate
             val_loss, val_acc = self.evaluate(self.xy_val)
@@ -55,19 +56,20 @@ class Coordinator:
             hist_co["val_acc"].append(val_acc)
         return hist_co, hist_ps
 
-    def fit_round(self, indices: List[int]) -> List[KerasHistory]:
+    def fit_round(self, indices: List[int], E: int) -> List[KerasHistory]:
         theta = self.model.get_weights()
         participants = [self.participants[i] for i in indices]
         # Collect training results from the participants of this round
-        theta_updates, histories = self.train_local_concurrently(theta, participants)
+        theta_updates, histories = self.train_local_concurrently(theta, participants, E)
         # Aggregate training results
         theta_prime = self.aggregator.aggregate(theta_updates)
         # Update own model parameters
         self.model.set_weights(theta_prime)
+        self.epoch += E
         return histories
 
     def train_local_sequentially(
-        self, theta: KerasWeights, participants: List[Participant]
+        self, theta: KerasWeights, participants: List[Participant], E: int
     ) -> Tuple[List[Tuple[KerasWeights, int]], List[KerasHistory]]:
         """Train on each participant sequentially"""
         theta_updates: List[Tuple[KerasWeights, int]] = []
@@ -77,13 +79,15 @@ class Coordinator:
             # - Push current model parameters to this participant
             # - Train for a number of epochs
             # - Pull updated model parameters from participant
-            theta_update, hist = participant.train_round(theta, epochs=self.E)
+            theta_update, hist = participant.train_round(
+                theta, epochs=E, epoch_base=self.epoch
+            )
             theta_updates.append(theta_update)
             histories.append(hist)
         return theta_updates, histories
 
     def train_local_concurrently(
-        self, theta: KerasWeights, participants: List[Participant]
+        self, theta: KerasWeights, participants: List[Participant], E: int
     ) -> Tuple[List[Tuple[KerasWeights, int]], List[KerasHistory]]:
         """Train on each participant concurrently"""
         theta_updates: List[Tuple[KerasWeights, int]] = []
@@ -91,7 +95,8 @@ class Coordinator:
         # Wait for all futures to complete
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future_results = [
-                executor.submit(train_local, p, theta, self.E) for p in participants
+                executor.submit(train_local, p, theta, E, self.epoch)
+                for p in participants
             ]
             concurrent.futures.wait(future_results)
             for future in future_results:
@@ -111,8 +116,10 @@ class Coordinator:
         return len(self.participants)
 
 
-def train_local(p: Participant, theta: KerasWeights, epochs: int) -> KerasWeights:
-    theta_prime = p.train_round(theta, epochs=epochs)
+def train_local(
+    p: Participant, theta: KerasWeights, epochs: int, epoch_base: int
+) -> KerasWeights:
+    theta_prime = p.train_round(theta, epochs=epochs, epoch_base=epoch_base)
     return theta_prime
 
 

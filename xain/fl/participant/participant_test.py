@@ -48,7 +48,7 @@ def test_Participant_num_examples():
     weights = model_provider.init_model().get_weights()
 
     # Execute
-    (_, num_examples_actual), _ = participant.train_round(weights, 2)
+    (_, num_examples_actual), _ = participant.train_round(weights, 2, 0)
 
     # Assert
     assert num_examples_actual == num_examples_expected

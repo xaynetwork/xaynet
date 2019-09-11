@@ -29,10 +29,12 @@ def resnet20v2_compiled(
     lr_initial: float = 0.1,
     momentum: float = 0.9,
     k: float = 0.15,
+    epoch_base: int = 0,
 ) -> tf.keras.Model:
     model, _ = resnet(input_shape=(32, 32, 3), num_classes=10, version=2, n=2)
 
-    def exp_decay(epoch: int) -> float:
+    def exp_decay(epoch_optimizer: int) -> float:
+        epoch = epoch_base + epoch_optimizer
         return lr_initial * math.exp(-k * epoch)
 
     optimizer = tf.keras.optimizers.SGD(lr=exp_decay(0), momentum=momentum)
