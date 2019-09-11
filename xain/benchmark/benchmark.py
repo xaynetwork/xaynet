@@ -106,12 +106,18 @@ benchmarks: Dict[str, Benchmark] = {
     "flul-cifar-10-100p-b1_045": Benchmark(
         tasks=[
             UnitaryVisionTask(
-                dataset_name="cifar-10-100p-b1_045", partition_id=0, instance_cores=16
+                dataset_name="cifar-10-100p-b1_045",
+                B=16,
+                partition_id=0,
+                instance_cores=16,
             ),
             UnitaryVisionTask(
-                dataset_name="cifar-10-100p-b1_045", partition_id=99, instance_cores=16
+                dataset_name="cifar-10-100p-b1_045",
+                B=16,
+                partition_id=99,
+                instance_cores=16,
             ),
-            VisionTask(dataset_name="cifar-10-100p-b1_045", instance_cores=32),
+            VisionTask(dataset_name="cifar-10-100p-b1_045", B=16, instance_cores=32),
         ],
         aggregation_name="flul-aggregation",
     ),
@@ -192,16 +198,36 @@ benchmarks: Dict[str, Benchmark] = {
     #
     "vol-fashion-mnist-100p": Benchmark(
         tasks=[
-            VisionTask(dataset_name="fashion-mnist-100p-b1_000", instance_cores=4),
-            VisionTask(dataset_name="fashion-mnist-100p-b1_005", instance_cores=4),
-            VisionTask(dataset_name="fashion-mnist-100p-b1_010", instance_cores=4),
-            VisionTask(dataset_name="fashion-mnist-100p-b1_015", instance_cores=4),
-            VisionTask(dataset_name="fashion-mnist-100p-b1_020", instance_cores=4),
-            VisionTask(dataset_name="fashion-mnist-100p-b1_025", instance_cores=4),
-            VisionTask(dataset_name="fashion-mnist-100p-b1_030", instance_cores=4),
-            VisionTask(dataset_name="fashion-mnist-100p-b1_035", instance_cores=4),
-            VisionTask(dataset_name="fashion-mnist-100p-b1_040", instance_cores=4),
-            VisionTask(dataset_name="fashion-mnist-100p-b1_045", instance_cores=4),
+            VisionTask(
+                dataset_name="fashion-mnist-100p-b1_000", B=16, instance_cores=4
+            ),
+            VisionTask(
+                dataset_name="fashion-mnist-100p-b1_005", B=16, instance_cores=4
+            ),
+            VisionTask(
+                dataset_name="fashion-mnist-100p-b1_010", B=16, instance_cores=4
+            ),
+            VisionTask(
+                dataset_name="fashion-mnist-100p-b1_015", B=16, instance_cores=4
+            ),
+            VisionTask(
+                dataset_name="fashion-mnist-100p-b1_020", B=16, instance_cores=4
+            ),
+            VisionTask(
+                dataset_name="fashion-mnist-100p-b1_025", B=16, instance_cores=4
+            ),
+            VisionTask(
+                dataset_name="fashion-mnist-100p-b1_030", B=16, instance_cores=4
+            ),
+            VisionTask(
+                dataset_name="fashion-mnist-100p-b1_035", B=16, instance_cores=4
+            ),
+            VisionTask(
+                dataset_name="fashion-mnist-100p-b1_040", B=16, instance_cores=4
+            ),
+            VisionTask(
+                dataset_name="fashion-mnist-100p-b1_045", B=16, instance_cores=4
+            ),
         ],
         aggregation_name="vol-aggregation",
     ),
