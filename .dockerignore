@@ -1,3 +1,7 @@
+# Project
+results
+output
+
 # Pantsbuild
 .pants.d
 .pants.workdir.file_lock
