@@ -9,11 +9,11 @@ class TaskResult(ABC):
     def __init__(self, fname: str):
         self.data = storage.read_json(fname)
 
-    def get_class(self) -> str:
-        return self.data["task_name"].split("_")[0]
+    def get_name(self) -> str:
+        return self.data["task_name"]
 
     def get_label(self) -> str:
-        return self.data["dataset"].split("-")[-1]
+        return self.data["task_label"]
 
     def get_final_accuracy(self) -> float:
         return self.data["acc"]
@@ -23,6 +23,9 @@ class TaskResult(ABC):
 
     def get_E(self) -> int:
         return self.data["E"]
+
+    def is_unitary(self) -> bool:
+        return self.data["partition_id"] is not None
 
 
 class GroupResult(ABC):

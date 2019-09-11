@@ -26,6 +26,7 @@ def flul_aggregation():
 
 def cpp_aggregation():
     logging.info("cpp_aggregation started")
+    task_accuracies.aggregate()
     final_task_accuracies.aggregate()
 
 

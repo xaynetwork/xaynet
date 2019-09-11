@@ -54,6 +54,7 @@ def main(_):
     res = {
         "group_name": FLAGS.group_name,
         "task_name": FLAGS.task_name,
+        "task_label": FLAGS.task_label,
         "dataset": FLAGS.dataset,
         "model": FLAGS.model,
         "R": FLAGS.R,
