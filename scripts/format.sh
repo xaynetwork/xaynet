@@ -9,4 +9,4 @@ cd $DIR/../
 
 isort --indent=4 -rc setup.py conftest.py xain
 black --exclude "xain/grpc/.*_pb2.*" setup.py conftest.py xain
-clang-format -i -style=Google protobuf/xain/grpc/*.proto
+clang-format -style="{Language: Proto, BasedOnStyle: Google}" -i  protobuf/xain/grpc/*.proto
