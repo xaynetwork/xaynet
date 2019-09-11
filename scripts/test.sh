@@ -11,7 +11,7 @@ isort --check-only --indent=4 -rc setup.py conftest.py xain && echo "===> isort 
 black --check --exclude "xain/grpc/.*_pb2.*" setup.py conftest.py xain && echo "===> black says: well done <===" &&
 
 # check format of proto files
-clang-format protobuf/xain/grpc/*.proto | diff protobuf/xain/grpc/*.proto - && echo "===> clang-format says: well done <==="
+clang-format protobuf/xain/grpc/*.proto | diff protobuf/xain/grpc/*.proto - && echo "===> clang-format says: well done <===" &&
 
 # lint
 pylint --rcfile=pylint.ini xain && echo "===> pylint says: well done <===" &&
