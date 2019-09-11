@@ -12,7 +12,6 @@ message NumProtoRequest {
   numproto.protobuf.NDArray arr = 1;
 }
 
-// The response message containing the greetings
 message NumProtoReply {
   numproto.protobuf.NDArray arr = 1;
 }

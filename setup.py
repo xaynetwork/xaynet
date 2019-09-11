@@ -50,6 +50,7 @@ install_requires = [
     "botocore==1.12.220",  # Apache License 2.0
     "boto3==1.9.220",  # Apache License 2.0
     "awscli==1.16.230",  # Apache License 2.0
+    "faker==2.0.0",  # MIT License
     "grpcio==1.23.0",  # Apache License 2.0
     "protobuf==3.9.1",  # 3-Clause BSD License
     "numproto==0.2.0",  # Apache License 2.0
@@ -66,7 +67,6 @@ dev_require = [
     "astroid<=2.2.5",  # LGPL
     "isort==4.3.20",  # MIT
     "rope==0.14.0",  # GNU GPL
-    "faker==2.0.0",  # MIT License
     "pip-licenses==1.15.2",  # MIT License
     "grpcio-tools==1.23.0",  # Apache License 2.0
     "mypy-protobuf==1.15",  # Apache License 2.0
