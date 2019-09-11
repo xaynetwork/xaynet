@@ -17,7 +17,7 @@ jobs:
             python3 -m venv venv
             . venv/bin/activate
             ./scripts/setup.sh
-            sudo apt-get update && sudo apt-get install -y clang-format
+            sudo apt-get update && sudo apt-get install -y clang-format-8
 
       - save_cache:
           paths:
