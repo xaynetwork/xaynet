@@ -32,5 +32,5 @@ def cpp_aggregation():
 aggregations: Dict[str, Callable] = {
     "flul-aggregation": flul_aggregation,
     "cpp-aggregation": cpp_aggregation,
-    "vol-aggregation": cpp_aggregation,
+    "vol-aggregation": flul_aggregation,
 }

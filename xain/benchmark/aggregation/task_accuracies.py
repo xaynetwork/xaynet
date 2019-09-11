@@ -65,7 +65,6 @@ def prepare_aggregation_data(group_name: str) -> List[PlotValues]:
     values = read_all_task_values(group_dir=group_dir)
 
     assert values, "No values for group found"
-    assert len(values) == 2, "Expecting only two tasks"
 
     data: List[PlotValues] = list(map(build_plot_values, values))
 

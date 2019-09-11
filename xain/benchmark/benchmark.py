@@ -87,15 +87,19 @@ benchmarks: Dict[str, Benchmark] = {
         tasks=[
             UnitaryVisionTask(
                 dataset_name="fashion-mnist-100p-b1_045",
+                B=16,
                 partition_id=0,
                 instance_cores=4,
             ),
             UnitaryVisionTask(
                 dataset_name="fashion-mnist-100p-b1_045",
+                B=16,
                 partition_id=99,
                 instance_cores=4,
             ),
-            VisionTask(dataset_name="fashion-mnist-100p-b1_045", instance_cores=8),
+            VisionTask(
+                dataset_name="fashion-mnist-100p-b1_045", B=16, instance_cores=8
+            ),
         ],
         aggregation_name="flul-aggregation",
     ),
@@ -203,16 +207,66 @@ benchmarks: Dict[str, Benchmark] = {
     ),
     "vol-cifar-10-100p": Benchmark(
         tasks=[
-            VisionTask(dataset_name="cifar-10-100p-b1_000", instance_cores=16),
-            VisionTask(dataset_name="cifar-10-100p-b1_005", instance_cores=16),
-            VisionTask(dataset_name="cifar-10-100p-b1_010", instance_cores=16),
-            VisionTask(dataset_name="cifar-10-100p-b1_015", instance_cores=16),
-            VisionTask(dataset_name="cifar-10-100p-b1_020", instance_cores=16),
-            VisionTask(dataset_name="cifar-10-100p-b1_025", instance_cores=16),
-            VisionTask(dataset_name="cifar-10-100p-b1_030", instance_cores=16),
-            VisionTask(dataset_name="cifar-10-100p-b1_035", instance_cores=16),
-            VisionTask(dataset_name="cifar-10-100p-b1_040", instance_cores=16),
-            VisionTask(dataset_name="cifar-10-100p-b1_045", instance_cores=16),
+            VisionTask(
+                dataset_name="cifar-10-100p-b1_000",
+                model_name="resnet20",
+                B=16,
+                instance_cores=16,
+            ),
+            VisionTask(
+                dataset_name="cifar-10-100p-b1_005",
+                model_name="resnet20",
+                B=16,
+                instance_cores=16,
+            ),
+            VisionTask(
+                dataset_name="cifar-10-100p-b1_010",
+                model_name="resnet20",
+                B=16,
+                instance_cores=16,
+            ),
+            VisionTask(
+                dataset_name="cifar-10-100p-b1_015",
+                model_name="resnet20",
+                B=16,
+                instance_cores=16,
+            ),
+            VisionTask(
+                dataset_name="cifar-10-100p-b1_020",
+                model_name="resnet20",
+                B=16,
+                instance_cores=16,
+            ),
+            VisionTask(
+                dataset_name="cifar-10-100p-b1_025",
+                model_name="resnet20",
+                B=16,
+                instance_cores=16,
+            ),
+            VisionTask(
+                dataset_name="cifar-10-100p-b1_030",
+                model_name="resnet20",
+                B=16,
+                instance_cores=16,
+            ),
+            VisionTask(
+                dataset_name="cifar-10-100p-b1_035",
+                model_name="resnet20",
+                B=16,
+                instance_cores=16,
+            ),
+            VisionTask(
+                dataset_name="cifar-10-100p-b1_040",
+                model_name="resnet20",
+                B=16,
+                instance_cores=16,
+            ),
+            VisionTask(
+                dataset_name="cifar-10-100p-b1_045",
+                model_name="resnet20",
+                B=16,
+                instance_cores=16,
+            ),
         ],
         aggregation_name="vol-aggregation",
     ),
