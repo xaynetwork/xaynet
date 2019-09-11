@@ -2,7 +2,7 @@ version: 2.1
 jobs:
   tests:
     docker:
-      - image: circleci/python:3.7
+      - image: ubuntu:18.04
     steps:
       - checkout
 
@@ -14,10 +14,10 @@ jobs:
       - run:
           name: install dependencies
           command: |
+            sudo apt-get update && sudo apt-get install -y clang-format-8 python3.7
             python3 -m venv venv
             . venv/bin/activate
             ./scripts/setup.sh
-            sudo apt-get update && sudo apt-get install -y clang-format-8
 
       - save_cache:
           paths:
