@@ -87,15 +87,19 @@ benchmarks: Dict[str, Benchmark] = {
         tasks=[
             UnitaryVisionTask(
                 dataset_name="fashion-mnist-100p-b1_045",
+                B=16,
                 partition_id=0,
                 instance_cores=4,
             ),
             UnitaryVisionTask(
                 dataset_name="fashion-mnist-100p-b1_045",
+                B=16,
                 partition_id=99,
                 instance_cores=4,
             ),
-            VisionTask(dataset_name="fashion-mnist-100p-b1_045", instance_cores=8),
+            VisionTask(
+                dataset_name="fashion-mnist-100p-b1_045", B=16, instance_cores=8
+            ),
         ],
         aggregation_name="flul-aggregation",
     ),
