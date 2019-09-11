@@ -14,9 +14,10 @@ FLAGS = flags.FLAGS
 
 
 class Benchmark:
-    def __init__(self, tasks: List[Task], aggregation_name: str):
+    def __init__(self, tasks: List[Task], aggregation_name: str, runner: str = "ec2"):
         self.tasks = tasks
         self.aggregation_name = aggregation_name
+        self.runner = runner
 
 
 benchmarks: Dict[str, Benchmark] = {
@@ -407,16 +408,17 @@ def build_task_name(task):
 
 def run_benchmark(benchmark_name: str):
     logging.info(f"Building Docker image for benchmark {benchmark_name}")
-    docker_image_name = docker.build(should_push=True)
 
     logging.info(f"Starting benchmark {benchmark_name}")
     benchmark = benchmarks[benchmark_name]
     group_name = f"group_{benchmark_name}_{strftime('%Y%m%dT%H%M')}"
 
-    task_names = set()
-    for task in benchmark.tasks:
-        task_names.add(build_task_name(task))
+    task_names = {build_task_name(task) for task in benchmark.tasks}
+
     assert len(task_names) == len(benchmark.tasks), "Duplicate task names"
+
+    should_push = benchmark.runner == "ec2"
+    docker_image_name = docker.build(should_push=should_push)
 
     # TODO Initiate tasks in parallel
     for task in benchmark.tasks:
@@ -435,6 +437,7 @@ def run_benchmark(benchmark_name: str):
             partition_id=task.partition_id,
             instance_cores=task.instance_cores,
             timeout=task.timeout,
+            runner=benchmark.runner,
         )
 
     with TemporaryDirectory() as tmpdir:
@@ -457,10 +460,19 @@ def run_task(
     partition_id: Optional[int],
     instance_cores: int,
     timeout: int,
+    runner: str,  # one of ["ec2", "docker"]
 ):
     task_msg = f"{model}, {dataset}, {R}, {E}, {C}, {B}, {instance_cores}, {timeout}"
     logging.info(f"Attempting to run task on EC2: {task_msg}")
-    run.ec2(
+
+    if runner == "ec2":
+        r = run.ec2
+    elif runner == "docker":
+        r = run.docker
+    else:
+        raise Exception("Runner does not exist")
+
+    r(
         image=docker_image_name,
         timeout=timeout,
         instance_cores=instance_cores,
