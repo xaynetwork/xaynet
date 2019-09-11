@@ -27,3 +27,5 @@ flags.DEFINE_string(
     c.get("S3", "results_bucket", fallback=None),
     "Bucket name for the results to be uploaded to",
 )
+
+os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"

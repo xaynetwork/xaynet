@@ -1,10 +1,43 @@
 import glob
+import pathlib
 import sys
 
 from setuptools import find_packages, setup
+from setuptools.command.develop import develop
 
 if sys.version_info < (3, 6):
     sys.exit("Please use Python version 3.6 or higher.")
+
+
+# Handle protobuf
+class CustomDevelopCommand(develop):
+    def run(self):
+        # we need to import this here or else grpc_tools would have to be
+        # installed in the system before we could run the setup.py
+        import numproto
+        from grpc_tools import protoc
+
+        develop.run(self)
+
+        # get the path of the numproto protofiles
+        # this will give us the path to the site-packages where numproto is
+        # installed
+        numproto_path = pathlib.Path(numproto.__path__[0]).parent
+
+        proto_files = glob.glob("./protobuf/xain/grpc/*.proto")
+        command = [
+            "grpc_tools.protoc",
+            f"--proto_path={numproto_path}",
+            "--proto_path=./protobuf",
+            "--python_out=./",
+            "--grpc_python_out=./",
+            "--mypy_out=./",
+        ] + proto_files
+
+        print("Building proto_files {}".format(proto_files))
+        if protoc.main(command) != 0:
+            raise Exception("error: {} failed".format(command))
+
 
 # License comments according to `pip-licenses`
 
@@ -18,6 +51,9 @@ install_requires = [
     "boto3==1.9.220",  # Apache License 2.0
     "awscli==1.16.230",  # Apache License 2.0
     "faker==2.0.0",  # MIT License
+    "grpcio==1.23.0",  # Apache License 2.0
+    "protobuf==3.9.1",  # 3-Clause BSD License
+    "numproto==0.2.0",  # Apache License 2.0
 ]
 
 cpu_require = ["tensorflow==1.14.0"]  # Apache 2.0
@@ -32,6 +68,8 @@ dev_require = [
     "isort==4.3.20",  # MIT
     "rope==0.14.0",  # GNU GPL
     "pip-licenses==1.15.2",  # MIT License
+    "grpcio-tools==1.23.0",  # Apache License 2.0
+    "mypy-protobuf==1.15",  # Apache License 2.0
 ]
 
 tests_require = [
@@ -73,7 +111,7 @@ setup(
         "gpu": gpu_require,
         "dev": dev_require + tests_require,
     },
-    cmdclass={},
+    cmdclass={"develop": CustomDevelopCommand},
     entry_points={
         "console_scripts": [
             "pull_results=xain.ops.__main__:download",
