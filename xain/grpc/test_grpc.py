@@ -22,6 +22,7 @@ def greeter_server():
 
 
 # pylint: disable=W0613,W0621
+@pytest.mark.integration
 def test_greeter_server(greeter_server):
     with grpc.insecure_channel("localhost:50051") as channel:
         stub = hellonumproto_pb2_grpc.NumProtoServerStub(channel)
