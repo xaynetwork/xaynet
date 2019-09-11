@@ -1,8 +1,10 @@
 version: 2.1
 jobs:
+  # this job uses the ubuntu 18.04 docker image so that we have both
+  # clang-format-8+ and python3.7
   tests:
     docker:
-      - image: circleci/python:3.7
+      - image: ubuntu:18.04
     steps:
       - checkout
 
@@ -14,10 +16,11 @@ jobs:
       - run:
           name: install dependencies
           command: |
-            python3 -m venv venv
+            apt-get update && apt-get install -y clang-format-8 python3.7 python3-venv python3.7-venv
+            ln -s /usr/bin/clang-format-8 /usr/bin/clang-format
+            python3.7 -m venv venv
             . venv/bin/activate
             ./scripts/setup.sh
-            sudo apt-get update && sudo apt-get install -y clang-format
 
       - save_cache:
           paths:
