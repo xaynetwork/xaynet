@@ -3,7 +3,10 @@ from tensorflow.keras.layers import Conv2D, Dense, Flatten, Input, MaxPool2D
 
 
 def orig_cnn_compiled(
-    input_shape=(28, 28, 1), num_classes: int = 10, seed: int = 2017
+    input_shape=(28, 28, 1),
+    num_classes: int = 10,
+    seed: int = 2017,
+    epoch_base: int = 0,
 ) -> tf.keras.Model:
     # Kernel initializer
     ki = tf.keras.initializers.glorot_uniform(seed=seed)
