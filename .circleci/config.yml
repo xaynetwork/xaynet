@@ -17,6 +17,7 @@ jobs:
           name: install dependencies
           command: |
             apt-get update && apt-get install -y clang-format-8 python3.7 python3-venv python3.7-venv
+            ln -s /usr/bin/clang-format-8 /usr/bin/clang-format
             python3.7 -m venv venv
             . venv/bin/activate
             ./scripts/setup.sh
