@@ -1,3 +1,4 @@
+import os
 import subprocess
 from typing import Dict
 
@@ -5,7 +6,6 @@ import boto3
 from absl import flags, logging
 
 from xain.helpers import project
-from xain.ops.docker import get_image_name
 from xain.ops.ec2 import user_data
 
 FLAGS = flags.FLAGS
@@ -24,7 +24,7 @@ cores: Dict[int, str] = {
 }
 
 
-def docker(tag: str, **kwargs):
+def docker(image: str, timeout: int = 300, instance_cores=2, **kwargs):
     """Run train in docker while accepting an arbitrary
     number of absl flags to be passed to the docker container
 
@@ -32,18 +32,29 @@ def docker(tag: str, **kwargs):
         tag (str): docker image tag to be used
         **kwargs: Will be turned into "--{arg}={kwargs[arg]" format and passed to docker container
     """
+    instance_cores = (
+        instance_cores if instance_cores <= os.cpu_count() else os.cpu_count()
+    )
 
     command = [
         "docker",
         "run",
         "--rm",
-        get_image_name(tag),
+        "-d",
+        f"--stop-timeout={timeout}",
+        f"--cpus={instance_cores}",
+        "-e",
+        f"S3_RESULTS_BUCKET={FLAGS.S3_results_bucket}",
+        image,
         "python",
         "-m",
         "xain.benchmark.exec",
     ]
 
     for arg in kwargs:
+        if kwargs[arg] is None:
+            # Don't pass flags where arg has value None
+            continue
         command.append(f"--{arg}={kwargs[arg]}")
 
     subprocess.run(command, cwd=root_dir)
@@ -81,6 +92,9 @@ def ec2(image: str, timeout: int = 300, instance_cores=2, **kwargs):
         absl_flags += f"--{arg}={kwargs[arg]} "
         instance_name += f"{kwargs[arg]}_"
 
+    absl_flags = absl_flags.strip()
+    instance_name = instance_name.strip()
+
     udata = user_data(
         image=image,
         timeout=timeout,
@@ -110,12 +124,3 @@ def ec2(image: str, timeout: int = 300, instance_cores=2, **kwargs):
     )
     instance_id = run_response["Instances"][0]["InstanceId"]
     logging.info({"InstanceId": instance_id, "Name": instance_name})
-
-
-if __name__ == "__main__":
-    # FIXME replace with new mechanism
-    ec2(
-        image="693828385217.dkr.ecr.eu-central-1.amazonaws.com/xain:latest",
-        benchmark_name="fashion-mnist-100p-iid-balanced",
-        benchmark_type="fl",
-    )
