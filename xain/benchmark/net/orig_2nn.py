@@ -2,6 +2,7 @@ import tensorflow as tf
 from tensorflow.keras.layers import Dense, Flatten, Input
 
 
+# pylint: disable-msg=unused-argument
 def orig_2nn_compiled(
     input_shape=(28, 28, 1), num_classes=10, seed: int = 2017, epoch_base: int = 0
 ) -> tf.keras.Model:

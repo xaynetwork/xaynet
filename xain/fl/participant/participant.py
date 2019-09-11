@@ -41,7 +41,7 @@ class Participant:
         logging.info(
             f"Participant {self.cid}: train_round START (epoch_base: {epoch_base})"
         )
-        model = self.model_provider.init_model(epoch_base)
+        model = self.model_provider.init_model(epoch_base=epoch_base)
         model.set_weights(theta)
         hist: KerasHistory = self.fit(model, epochs)
         theta_prime = model.get_weights()

@@ -2,6 +2,7 @@ import tensorflow as tf
 from tensorflow.keras.layers import Conv2D, Dense, Flatten, Input, MaxPool2D
 
 
+# pylint: disable-msg=unused-argument
 def orig_cnn_compiled(
     input_shape=(28, 28, 1),
     num_classes: int = 10,

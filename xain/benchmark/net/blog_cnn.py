@@ -5,6 +5,7 @@ from tensorflow.keras.layers import Conv2D, Dense, Dropout, Flatten, MaxPool2D
 # https://medium.com/tensorflow/hello-deep-learning-fashion-mnist-with-keras-50fcff8cd74a
 
 
+# pylint: disable-msg=unused-argument
 def blog_cnn_compiled(
     input_shape=(28, 28, 1),
     num_classes: int = 10,
