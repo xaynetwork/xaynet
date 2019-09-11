@@ -47,7 +47,7 @@ class Coordinator:
             msg = "Round {}/{}: Participants {}".format(r + 1, num_rounds, indices)
             logging.info(msg)
             # Train
-            histories = self.fit_round(indices)  # TODO use return value (i.e. history)
+            histories = self.fit_round(indices)
             hist_ps.append(histories)
             # Evaluate
             val_loss, val_acc = self.evaluate(self.xy_val)
