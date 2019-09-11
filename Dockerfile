@@ -19,5 +19,6 @@ RUN python setup.py egg_info && \
     pip install $IR
 
 COPY xain xain
+COPY protobuf protobuf
 
 RUN pip install -e .
