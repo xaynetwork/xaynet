@@ -44,9 +44,7 @@ class Bucket:
         np.add.at(self.storage, [index_inc], 1)
 
 
-def cpp_partition_distribution(
-    num_classes: int, num_partitions: int, cpp: int
-) -> np.ndarray:
+def distribution(num_classes: int, num_partitions: int, cpp: int) -> np.ndarray:
     """
     :param num_classes: number of distinct unique classes
     :param num_partitions: number of partitions
