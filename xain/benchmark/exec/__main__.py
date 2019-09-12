@@ -41,7 +41,7 @@ def main(_):
             B=FLAGS.B,
         )
     else:
-        hist, _, loss, acc = run.federated_training(
+        hist, _, hist_volumes, loss, acc = run.federated_training(
             model_name=FLAGS.model,
             xy_train_partitions=xy_train_partitions,
             xy_val=xy_val,
@@ -71,6 +71,7 @@ def main(_):
         "loss": float(loss),
         "acc": float(acc),
         "hist": hist,
+        "hist_volumes": hist_volumes,
     }
     storage.write_json(res, fname="results.json")
 
