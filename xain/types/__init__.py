@@ -20,6 +20,7 @@ KerasWeights = List[ndarray]
 KerasHistory = Dict[str, List[float]]
 
 VolumeByClass = List[int]
+Metrics = Tuple[int, VolumeByClass]
 
 PlotValues = Tuple[str, List[float], Optional[List[int]]]
 XticksLocations = List[int]

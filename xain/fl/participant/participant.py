@@ -5,7 +5,7 @@ import tensorflow as tf
 from absl import logging
 
 from xain.datasets import prep
-from xain.types import KerasHistory, KerasWeights, VolumeByClass
+from xain.types import KerasHistory, KerasWeights, Metrics, VolumeByClass
 
 from . import ModelProvider
 
@@ -14,7 +14,7 @@ class Participant:
     # pylint: disable-msg=too-many-arguments
     def __init__(
         self,
-        cid: str,
+        cid: int,
         model_provider: ModelProvider,
         xy_train: Tuple[np.ndarray, np.ndarray],
         xy_val: Tuple[np.ndarray, np.ndarray],
@@ -56,7 +56,7 @@ class Participant:
             ds_train,
             epochs=epochs,
             validation_data=ds_val,
-            callbacks=[LoggingCallback(self.cid, logging.info)],
+            callbacks=[LoggingCallback(str(self.cid), logging.info)],
             shuffle=False,  # Shuffling is handled via tf.data.Dataset
             steps_per_epoch=self.steps_train,
             validation_steps=self.steps_val,
@@ -75,18 +75,22 @@ class Participant:
         loss, accuracy = model.evaluate(ds_val, steps=1, verbose=0)
         return loss, accuracy
 
-    def get_xy_train_volume_by_class(self) -> VolumeByClass:
-        counts = [0] * self.num_classes
+    def metrics(self) -> Metrics:
+        vol_by_class = xy_train_volume_by_class(self.num_classes, self.xy_train)
+        return (self.cid, vol_by_class)
 
-        _, y = self.xy_train
-        classes, counts_actual = np.unique(y, return_counts=True)
 
-        for c in classes:
-            # Cast explicitly to int so its later JSON serializable
-            # as other we will get a list of np objects of type int64
-            counts[c] = int(counts_actual[c])
+def xy_train_volume_by_class(num_classes: int, xy_train) -> VolumeByClass:
+    counts = [0] * num_classes
+    _, y = xy_train
+    classes, counts_actual = np.unique(y, return_counts=True)
 
-        return counts
+    for c in classes:
+        # Cast explicitly to int so its later JSON serializable
+        # as other we will get a list of np objects of type int64
+        counts[c] = int(counts_actual[c])
+
+    return counts
 
 
 def cast_to_float(hist) -> KerasHistory:

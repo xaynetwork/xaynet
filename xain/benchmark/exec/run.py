@@ -90,7 +90,7 @@ def federated_training(
     participants = []
     for cid, xy_train in enumerate(xy_train_partitions):
         participant = Participant(
-            str(cid), model_provider, xy_train, xy_val, num_classes=10, batch_size=B
+            cid, model_provider, xy_train, xy_val, num_classes=10, batch_size=B
         )
         participants.append(participant)
     num_participants = len(participants)
@@ -108,13 +108,13 @@ def federated_training(
     )
 
     # Train model
-    hist_co, hist_ps, hist_volumes = coordinator.fit(num_rounds=R)
+    hist_co, hist_ps, hist_metrics = coordinator.fit(num_rounds=R)
 
     # Evaluate final performance
     loss, acc = coordinator.evaluate(xy_test)
 
     # Report results
-    return hist_co, hist_ps, hist_volumes, loss, acc
+    return hist_co, hist_ps, hist_metrics, loss, acc
 
 
 # FIXME remove
