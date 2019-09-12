@@ -1,6 +1,23 @@
 from typing import Dict, List, Tuple
 
+import matplotlib
 import numpy as np
+from absl import app, flags, logging
+
+from xain.helpers import storage
+
+FLAGS = flags.FLAGS
+
+matplotlib.use("AGG")
+
+# To avoid issues with tkinter we need to set the renderer
+# for matplotlib before importing pyplot
+# As isort would move this line under the "import matplotlib"
+# We need to skip isort explicitly
+# pylint: disable-msg=wrong-import-position, wrong-import-order
+import matplotlib.pyplot as plt  # isort:skip
+
+FORMAT = "png"
 
 bs_fashion_mnist: Dict[float, float] = {
     1.0: 540.0,
@@ -101,3 +118,39 @@ def dist_to_indicies(dist: List[int]) -> List[int]:
 
     # Exclude last element as indices only mark start of section
     return indices[:-1]
+
+
+def plot_fashion_mnist_dist():
+    dists = fashion_mnist_100p()
+    xs = np.arange(100)
+    plt.figure()
+    legend = []
+    for b, dist in dists:
+        legend.append(str(b))
+        plt.plot(xs, np.array(dist))
+    plt.legend(legend, loc="upper left")
+
+    fname_abspath = storage.get_abspath(
+        "plot_fashion_mnist_partition_volume_dist", FLAGS.output_dir
+    )
+    plt.savefig(fname=fname_abspath, format=FORMAT)
+
+    # FIXME: Matplotlib is currently using agg, which is a non-GUI
+    #        backend, so cannot show the figure.
+    # plt.show()
+
+    return fname_abspath
+
+
+def main():
+    print("Fashion-MNIST:")
+    # brute_force_a_for_fashion_mnist()
+    print("CIFAR-10:")
+    # brute_force_a_for_cifar_10()
+    print("Plot Fashion-MNIST volume distributions")
+    fmd_fpath = plot_fashion_mnist_dist()
+    logging.info(f"Data plotted and saved in {fmd_fpath}")
+
+
+if __name__ == "__main__":
+    app.run(main=lambda _: main())

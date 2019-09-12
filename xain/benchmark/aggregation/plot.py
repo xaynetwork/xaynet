@@ -41,6 +41,8 @@ def plot(
     """
     assert fname is not None
 
+    # if fname is an absolute path use fname directly otherwise assume
+    # fname is filename and prepend output_dir
     fname_abspath = storage.get_abspath(fname, FLAGS.output_dir)
 
     plt.figure()
@@ -77,8 +79,6 @@ def plot(
     plt.tight_layout()
 
     if save:
-        # if fname is an absolute path use fname directly otherwise assume
-        # fname is filename and prepend output_dir
         plt.savefig(fname=fname_abspath, format=FORMAT)
     if show:
         plt.show()
