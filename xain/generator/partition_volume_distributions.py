@@ -144,9 +144,9 @@ def plot_fashion_mnist_dist():
 
 def main():
     print("Fashion-MNIST:")
-    # brute_force_a_for_fashion_mnist()
+    brute_force_a_for_fashion_mnist()
     print("CIFAR-10:")
-    # brute_force_a_for_cifar_10()
+    brute_force_a_for_cifar_10()
     print("Plot Fashion-MNIST volume distributions")
     fmd_fpath = plot_fashion_mnist_dist()
     logging.info(f"Data plotted and saved in {fmd_fpath}")
