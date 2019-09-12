@@ -5,7 +5,7 @@ import tensorflow as tf
 from absl import logging
 
 from xain.datasets import prep
-from xain.types import KerasHistory, KerasWeights
+from xain.types import KerasHistory, KerasWeights, VolumeByClass
 
 from . import ModelProvider
 
@@ -74,6 +74,19 @@ class Participant:
         # all examples in the validation set
         loss, accuracy = model.evaluate(ds_val, steps=1, verbose=0)
         return loss, accuracy
+
+    def get_xy_train_volume_by_class(self) -> VolumeByClass:
+        counts = [0] * self.num_classes
+
+        _, y = self.xy_train
+        classes, counts_actual = np.unique(y, return_counts=True)
+
+        for c in classes:
+            # Cast explicitly to int so its later JSON serializable
+            # as other we will get a list of np objects of type int64
+            counts[c] = int(counts_actual[c])
+
+        return counts
 
 
 def cast_to_float(hist) -> KerasHistory:

@@ -52,3 +52,21 @@ def test_Participant_num_examples():
 
     # Assert
     assert num_examples_actual == num_examples_expected
+
+
+def test_Participant_get_xy_train_volume_by_class():
+    # Prepare
+    num_classes = 5
+    m = None
+    x = np.zeros((4, 32, 32, 3), dtype=np.uint8)
+    y = np.array([0, 1, 2, 2], dtype=np.uint8)
+
+    y_volume_by_class_expected = [1, 1, 2, 0, 0]
+
+    # Execute
+    p = Participant(0, m, (x, y), (x, y), num_classes=num_classes, batch_size=32)
+
+    # Assert
+    y_volume_by_class_actual = p.get_xy_train_volume_by_class()
+
+    assert y_volume_by_class_actual == y_volume_by_class_expected
