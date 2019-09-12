@@ -146,7 +146,7 @@ def unitary_versus_federated(
 
     # Train CNN using federated learning on all partitions
     logging.info("Run federated learning using all partitions")
-    fl_hist, _, fl_loss, fl_acc = federated_training(
+    fl_hist, _, _, fl_loss, fl_acc = federated_training(
         model_name, xy_train_partitions, xy_val, xy_test, R=R, E=E, C=C, B=B
     )
 
