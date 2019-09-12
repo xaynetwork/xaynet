@@ -20,7 +20,10 @@ def after_main(group_name: str, task_name: str):
 
 def main(_):
     # Set exit callback
-    atexit.register(after_main, group_name=FLAGS.group_name, task_name=FLAGS.task_name)
+    if FLAGS.push_results:
+        atexit.register(
+            after_main, group_name=FLAGS.group_name, task_name=FLAGS.task_name
+        )
 
     # Load data
     xy_train_partitions, xy_val, xy_test = load_splits(FLAGS.dataset)
