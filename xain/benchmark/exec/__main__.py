@@ -20,7 +20,10 @@ def after_main(group_name: str, task_name: str):
 
 def main(_):
     # Set exit callback
-    atexit.register(after_main, group_name=FLAGS.group_name, task_name=FLAGS.task_name)
+    if FLAGS.push_results:
+        atexit.register(
+            after_main, group_name=FLAGS.group_name, task_name=FLAGS.task_name
+        )
 
     # Load data
     xy_train_partitions, xy_val, xy_test = load_splits(FLAGS.dataset)
@@ -28,6 +31,7 @@ def main(_):
     # Execute training
     start = time.time()
     partition_id = FLAGS.partition_id
+    hist_metrics = None  # For unitary training
     if partition_id is not None:  # Use only a single partition if required (unitary)
         hist, loss, acc = run.unitary_training(
             model_name=FLAGS.model,
@@ -38,7 +42,7 @@ def main(_):
             B=FLAGS.B,
         )
     else:
-        hist, _, loss, acc = run.federated_training(
+        hist, _, hist_metrics, loss, acc = run.federated_training(
             model_name=FLAGS.model,
             xy_train_partitions=xy_train_partitions,
             xy_val=xy_val,
@@ -68,6 +72,7 @@ def main(_):
         "loss": float(loss),
         "acc": float(acc),
         "hist": hist,
+        "hist_metrics": hist_metrics,
     }
     storage.write_json(res, fname="results.json")
 
