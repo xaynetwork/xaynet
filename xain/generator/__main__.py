@@ -11,10 +11,10 @@ def generate_dataset(dataset_name):
 
     c = config.datasets[dataset_name]
 
-    dataset = data.generate_splits(
+    dataset = data.create_federated_dataset(
+        keras_dataset=c["keras_dataset"],
         num_partitions=c["num_partitions"],
         validation_set_size=c["validation_set_size"],
-        keras_dataset=c["keras_dataset"],
         transformers=c["transformers"],
         transformers_kwargs=c["transformers_kwargs"],
     )
