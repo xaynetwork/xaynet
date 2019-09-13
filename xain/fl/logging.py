@@ -2,7 +2,8 @@
 
 import tensorflow as tf
 from absl import flags
-from tensorflow._api.v1.summary import FileWriter
+from tensorflow._api.v1.compat.v1 import Summary
+from tensorflow._api.v1.compat.v1.summary import FileWriter
 
 FLAGS = flags.FLAGS
 
@@ -20,7 +21,7 @@ def create_summary_writer(logdir: str) -> FileWriter:
         ~tf.summary.FileWriter: FileWriter object writing Summaries to event files.
     """
 
-    summary_writer = FileWriter(logdir=logdir, graph=tf.get_default_graph())
+    summary_writer = FileWriter(logdir=logdir, graph=tf.compat.v1.get_default_graph())
     return summary_writer
 
 
@@ -39,9 +40,9 @@ def write_summaries(
     """
 
     summary_writer.add_summary(
-        summary=tf.Summary(
+        summary=Summary(
             value=[
-                tf.Summary.Value(
+                Summary.Value(
                     tag=f"coordinator_{FLAGS.task_name}/val_acc", simple_value=val_acc
                 )
             ]
@@ -50,9 +51,9 @@ def write_summaries(
     )
 
     summary_writer.add_summary(
-        summary=tf.Summary(
+        summary=Summary(
             value=[
-                tf.Summary.Value(
+                Summary.Value(
                     tag=f"coordinator_{FLAGS.task_name}/val_loss", simple_value=val_loss
                 )
             ]
