@@ -13,6 +13,7 @@ DEFAULT_TIMEOUT = 60
 class Task(ABC):
     def __init__(
         self,
+        name: str,
         dataset_name: str,
         model_name: str,
         R: int,
@@ -22,7 +23,9 @@ class Task(ABC):
         partition_id: Optional[int] = None,
         instance_cores: int = DEFAULT_INSTANCE_CORES,
         timeout: int = DEFAULT_TIMEOUT,
+        label: Optional[str] = None,
     ):
+        self.name = name
         self.dataset_name = dataset_name
         self.model_name = model_name
         self.R = R
@@ -32,11 +35,13 @@ class Task(ABC):
         self.partition_id = partition_id
         self.instance_cores = instance_cores
         self.timeout = timeout
+        self.label = label if label is not None else name
 
 
 class VisionTask(Task):
     def __init__(
         self,
+        name: str,
         dataset_name: str,
         model_name="blog_cnn",
         R=DEFAULT_R,
@@ -45,8 +50,10 @@ class VisionTask(Task):
         B=DEFAULT_B,
         instance_cores=DEFAULT_INSTANCE_CORES,
         timeout: int = DEFAULT_TIMEOUT,
+        label: Optional[str] = None,
     ):
         super().__init__(
+            name=name,
             dataset_name=dataset_name,
             model_name=model_name,
             R=R,
@@ -55,12 +62,14 @@ class VisionTask(Task):
             B=B,
             instance_cores=instance_cores,
             timeout=timeout,
+            label=label,
         )
 
 
 class UnitaryVisionTask(Task):
     def __init__(
         self,
+        name: str,
         dataset_name: str,
         model_name="blog_cnn",
         E=DEFAULT_R * DEFAULT_E,
@@ -68,8 +77,10 @@ class UnitaryVisionTask(Task):
         partition_id: int = 0,
         instance_cores=DEFAULT_INSTANCE_CORES,
         timeout: int = DEFAULT_TIMEOUT,
+        label: Optional[str] = None,
     ):
         super().__init__(
+            name=name,
             dataset_name=dataset_name,
             model_name=model_name,
             R=1,
@@ -79,4 +90,5 @@ class UnitaryVisionTask(Task):
             partition_id=partition_id,
             instance_cores=instance_cores,
             timeout=timeout,
+            label=label,
         )

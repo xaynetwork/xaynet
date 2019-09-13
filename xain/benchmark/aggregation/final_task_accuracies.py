@@ -1,7 +1,6 @@
 import os
 from typing import Dict, List, Optional, Tuple
 
-import numpy as np
 from absl import app, flags, logging
 
 from xain.types import PlotValues, XticksLabels, XticksLocations
@@ -12,7 +11,7 @@ from .results import GroupResult, TaskResult
 FLAGS = flags.FLAGS
 
 
-def read_task_values(task_result: TaskResult) -> Tuple[str, str, float]:
+def read_task_values(task_result: TaskResult) -> Tuple[bool, str, float]:
     """Reads unitary and federated accuracy from results.json
 
     Args:
@@ -22,13 +21,13 @@ def read_task_values(task_result: TaskResult) -> Tuple[str, str, float]:
         class, label, final_accuracy (str, str, float): e.g. ("VisionTask", "cpp01", 0.92)
     """
     return (
-        task_result.get_class(),
+        task_result.is_unitary(),
         task_result.get_label(),
         task_result.get_final_accuracy(),
     )
 
 
-def read_all_task_values(group_dir: str) -> List[Tuple[str, str, float]]:
+def read_all_task_values(group_dir: str) -> List[Tuple[bool, str, float]]:
     """
     Reads results directory for given group id and
     extracts values from results.json files
@@ -43,21 +42,16 @@ def read_all_task_values(group_dir: str) -> List[Tuple[str, str, float]]:
 
 
 def group_values_by_class(
-    values: List[Tuple[str, str, float]]
+    values: List[Tuple[bool, str, float]]
 ) -> Dict[str, List[Tuple[str, float]]]:
-    # Get unique task classes
-    task_classes = np.unique([v[0] for v in values])
-
     # Group values by task_class
-    grouped_values: Dict[str, List[Tuple[str, float]]] = {
-        task_class: [] for task_class in task_classes
-    }
+    unitary_values = [v for v in values if v[0]]
+    federated_values = [v for v in values if not v[0]]
 
-    for task_class in task_classes:
-        filtered_values = [v for v in values if v[0] == task_class]
-        for value in filtered_values:
-            (_, label, acc) = value
-            grouped_values[task_class].append((label, acc))
+    grouped_values = {
+        "unitary": [(label, acc) for _, label, acc in unitary_values],
+        "federated": [(label, acc) for _, label, acc in federated_values],
+    }
 
     return grouped_values
 
@@ -108,7 +102,7 @@ def aggregate() -> str:
     :returns: Absolut path to saved plot
     """
     group_name = FLAGS.group_name
-    fname = f"plot_{group_name}.png"
+    fname = f"plot_final_task_accuracies_{group_name}.png"
 
     (data, xticks_args) = prepare_aggregation_data(group_name)
 

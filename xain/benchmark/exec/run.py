@@ -13,7 +13,7 @@ from xain.fl.coordinator import Coordinator, RandomController
 from xain.fl.coordinator.aggregate import Aggregator
 from xain.fl.participant import ModelProvider, Participant
 from xain.helpers import storage
-from xain.types import FederatedDatasetPartition, KerasHistory
+from xain.types import FederatedDatasetPartition, KerasHistory, VolumeByClass
 
 random.seed(0)
 np.random.seed(1)
@@ -75,7 +75,9 @@ def federated_training(
     C: float,
     B: int,
     aggregator: Aggregator = None,
-) -> Tuple[KerasHistory, List[List[KerasHistory]], float, float]:
+) -> Tuple[
+    KerasHistory, List[List[KerasHistory]], List[List[VolumeByClass]], float, float
+]:
     # Initialize participants and coordinator
     # Note that there is no need for common initialization at this point: Common
     # initialization will happen during the first few rounds because the coordinator will
@@ -88,7 +90,7 @@ def federated_training(
     participants = []
     for cid, xy_train in enumerate(xy_train_partitions):
         participant = Participant(
-            str(cid), model_provider, xy_train, xy_val, num_classes=10, batch_size=B
+            cid, model_provider, xy_train, xy_val, num_classes=10, batch_size=B
         )
         participants.append(participant)
     num_participants = len(participants)
@@ -106,13 +108,13 @@ def federated_training(
     )
 
     # Train model
-    hist_co, hist_ps = coordinator.fit(num_rounds=R)
+    hist_co, hist_ps, hist_metrics = coordinator.fit(num_rounds=R)
 
     # Evaluate final performance
     loss, acc = coordinator.evaluate(xy_test)
 
     # Report results
-    return hist_co, hist_ps, loss, acc
+    return hist_co, hist_ps, hist_metrics, loss, acc
 
 
 # FIXME remove
@@ -144,7 +146,7 @@ def unitary_versus_federated(
 
     # Train CNN using federated learning on all partitions
     logging.info("Run federated learning using all partitions")
-    fl_hist, _, fl_loss, fl_acc = federated_training(
+    fl_hist, _, _, fl_loss, fl_acc = federated_training(
         model_name, xy_train_partitions, xy_val, xy_test, R=R, E=E, C=C, B=B
     )
 

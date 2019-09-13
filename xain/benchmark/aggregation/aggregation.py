@@ -26,11 +26,12 @@ def flul_aggregation():
 
 def cpp_aggregation():
     logging.info("cpp_aggregation started")
+    task_accuracies.aggregate()
     final_task_accuracies.aggregate()
 
 
 aggregations: Dict[str, Callable] = {
     "flul-aggregation": flul_aggregation,
     "cpp-aggregation": cpp_aggregation,
-    "vol-aggregation": cpp_aggregation,
+    "vol-aggregation": flul_aggregation,
 }

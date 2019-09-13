@@ -1,11 +1,11 @@
-import os
-from typing import List
-
 import tensorflow as tf
 
-from xain.generator import data, volume_distributions
+from xain import config
+from xain.generator import data
+from xain.generator import partition_volume_distributions as pvd
+from xain.generator import transformer
 
-local_generator_datasets_dir = os.path.expanduser("~/.xain/generator/datasets")
+local_generator_datasets_dir = config.storage_dir.joinpath("generator/datasets")
 
 keras_cifar10 = tf.keras.datasets.cifar10
 keras_fashion_mnist = tf.keras.datasets.fashion_mnist
@@ -17,7 +17,7 @@ cifar10_cpp = {
     **{
         f"cifar-10-100p-noniid-{leftpad(num_cpp)}cpp": {
             "keras_dataset": keras_cifar10,
-            "transformers": [data.sorted_labels_sections_shuffle],
+            "transformers": [transformer.class_per_partition],
             "transformers_kwargs": [{"num_partitions": 100, "cpp": num_cpp}],
             "num_partitions": 100,
             "validation_set_size": 5000,
@@ -30,7 +30,7 @@ cifar10_cpp = {
     **{
         f"cifar-10-100p-noniid-{leftpad(num_cpp)}cpp": {
             "keras_dataset": keras_cifar10,
-            "transformers": [data.remove_balanced, data.sorted_labels_sections_shuffle],
+            "transformers": [data.remove_balanced, transformer.class_per_partition],
             "transformers_kwargs": [
                 {"num_remove": 200},
                 {"num_partitions": 100, "cpp": num_cpp},
@@ -43,7 +43,7 @@ cifar10_cpp = {
     },
     "cifar-10-100p-iid-balanced": {
         "keras_dataset": keras_cifar10,
-        "transformers": [data.balanced_labels_shuffle],
+        "transformers": [transformer.classes_balanced_randomized_per_partition],
         "transformers_kwargs": [{"num_partitions": 100}],
         "num_partitions": 100,
         "validation_set_size": 5000,
@@ -55,7 +55,7 @@ fashion_mnist_cpp = {
     **{
         f"fashion-mnist-100p-noniid-{leftpad(num_cpp)}cpp": {
             "keras_dataset": keras_fashion_mnist,
-            "transformers": [data.sorted_labels_sections_shuffle],
+            "transformers": [transformer.class_per_partition],
             "transformers_kwargs": [{"num_partitions": 100, "cpp": num_cpp}],
             "num_partitions": 100,
             "validation_set_size": 6000,
@@ -68,7 +68,7 @@ fashion_mnist_cpp = {
     # divisible by given CPP values
     "fashion-mnist-100p-noniid-07cpp": {
         "keras_dataset": keras_fashion_mnist,
-        "transformers": [data.remove_balanced, data.sorted_labels_sections_shuffle],
+        "transformers": [data.remove_balanced, transformer.class_per_partition],
         "transformers_kwargs": [
             # we need to remove 100 elements from the full xy_train so the
             # 540 examples per partition are reduced to 539 and therefore
@@ -82,7 +82,7 @@ fashion_mnist_cpp = {
     },
     "fashion-mnist-100p-noniid-08cpp": {
         "keras_dataset": keras_fashion_mnist,
-        "transformers": [data.remove_balanced, data.sorted_labels_sections_shuffle],
+        "transformers": [data.remove_balanced, transformer.class_per_partition],
         "transformers_kwargs": [
             # we need to remove 400 elements from the full xy_train so the
             # 540 examples per partition are reduced to 536 and therefore
@@ -96,7 +96,7 @@ fashion_mnist_cpp = {
     },
     "fashion-mnist-100p-iid-balanced": {
         "keras_dataset": keras_fashion_mnist,
-        "transformers": [data.balanced_labels_shuffle],
+        "transformers": [transformer.classes_balanced_randomized_per_partition],
         "transformers_kwargs": [{"num_partitions": 100}],
         "num_partitions": 100,
         "validation_set_size": 6000,
@@ -105,47 +105,28 @@ fashion_mnist_cpp = {
 }
 
 
-def b_to_str(b: float):
-    b_str = f"{b:<f}"
-    return b_str[:5].replace(".", "_")
-
-
-def dist_to_indicies(dist: List[int]) -> List[int]:
-    indices = [0] * len(dist)
-    for i, _ in enumerate(dist):
-        if i == 0:
-            indices[i] = dist[i]
-        else:
-            indices[i] = indices[i - 1] + dist[i]
-
-    assert indices[-1] == sum(dist)
-
-    # Exclude last element as indices only mark start of section
-    return indices[:-1]
-
-
 cifar10_volumes = {
-    f"cifar-10-100p-b{b_to_str(b)}": {
+    f"cifar-10-100p-b{pvd.b_to_str(b)}": {
         "keras_dataset": keras_cifar10,
-        "transformers": [data.random_shuffle],
+        "transformers": [transformer.random_shuffle],
         "transformers_kwargs": {},
-        "num_partitions": dist_to_indicies(dist),
+        "num_partitions": pvd.dist_to_indicies(dist),
         "validation_set_size": 5000,
         "assert_dataset_origin": True,
     }
-    for b, dist in volume_distributions.cifar_10_100p()
+    for b, dist in pvd.cifar_10_100p()
 }
 
 fashion_mnist_volumes = {
-    f"fashion-mnist-100p-b{b_to_str(b)}": {
+    f"fashion-mnist-100p-b{pvd.b_to_str(b)}": {
         "keras_dataset": keras_fashion_mnist,
-        "transformers": [data.random_shuffle],
+        "transformers": [transformer.random_shuffle],
         "transformers_kwargs": {},
-        "num_partitions": dist_to_indicies(dist),
+        "num_partitions": pvd.dist_to_indicies(dist),
         "validation_set_size": 6000,
         "assert_dataset_origin": True,
     }
-    for b, dist in volume_distributions.fashion_mnist_100p()
+    for b, dist in pvd.fashion_mnist_100p()
 }
 
 

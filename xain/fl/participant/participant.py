@@ -5,7 +5,7 @@ import tensorflow as tf
 from absl import logging
 
 from xain.datasets import prep
-from xain.types import KerasHistory, KerasWeights
+from xain.types import KerasHistory, KerasWeights, Metrics, VolumeByClass
 
 from . import ModelProvider
 
@@ -14,7 +14,7 @@ class Participant:
     # pylint: disable-msg=too-many-arguments
     def __init__(
         self,
-        cid: str,
+        cid: int,
         model_provider: ModelProvider,
         xy_train: Tuple[np.ndarray, np.ndarray],
         xy_val: Tuple[np.ndarray, np.ndarray],
@@ -27,6 +27,7 @@ class Participant:
         self.model_provider = model_provider
         self.num_classes: int = num_classes
         self.batch_size: int = batch_size
+        self.num_examples = xy_train[0].shape[0]
         # Training set
         self.xy_train = xy_train
         self.steps_train: int = int(xy_train[0].shape[0] / batch_size)
@@ -35,15 +36,17 @@ class Participant:
         self.steps_val: int = 1
 
     def train_round(
-        self, theta: KerasWeights, epochs: int
-    ) -> Tuple[KerasWeights, KerasHistory]:
-        logging.info("Participant {}: train_round START".format(self.cid))
-        model = self.model_provider.init_model()
+        self, theta: KerasWeights, epochs: int, epoch_base: int
+    ) -> Tuple[Tuple[KerasWeights, int], KerasHistory]:
+        logging.info(
+            f"Participant {self.cid}: train_round START (epoch_base: {epoch_base})"
+        )
+        model = self.model_provider.init_model(epoch_base=epoch_base)
         model.set_weights(theta)
         hist: KerasHistory = self.fit(model, epochs)
         theta_prime = model.get_weights()
         logging.info("Participant {}: train_round FINISH".format(self.cid))
-        return theta_prime, hist
+        return (theta_prime, self.num_examples), hist
 
     def fit(self, model: tf.keras.Model, epochs: int) -> KerasHistory:
         ds_train = prep.init_ds_train(self.xy_train, self.num_classes, self.batch_size)
@@ -53,7 +56,7 @@ class Participant:
             ds_train,
             epochs=epochs,
             validation_data=ds_val,
-            callbacks=[LoggingCallback(self.cid, logging.info)],
+            callbacks=[LoggingCallback(str(self.cid), logging.info)],
             shuffle=False,  # Shuffling is handled via tf.data.Dataset
             steps_per_epoch=self.steps_train,
             validation_steps=self.steps_val,
@@ -71,6 +74,23 @@ class Participant:
         # all examples in the validation set
         loss, accuracy = model.evaluate(ds_val, steps=1, verbose=0)
         return loss, accuracy
+
+    def metrics(self) -> Metrics:
+        vol_by_class = xy_train_volume_by_class(self.num_classes, self.xy_train)
+        return (self.cid, vol_by_class)
+
+
+def xy_train_volume_by_class(num_classes: int, xy_train) -> VolumeByClass:
+    counts = [0] * num_classes
+    _, y = xy_train
+    classes, counts_actual = np.unique(y, return_counts=True)
+
+    for c in classes:
+        # Cast explicitly to int so its later JSON serializable
+        # as other we will get a list of np objects of type int64
+        counts[c] = int(counts_actual[c])
+
+    return counts
 
 
 def cast_to_float(hist) -> KerasHistory:

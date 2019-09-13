@@ -2,13 +2,17 @@ import os
 
 from absl import flags
 
+import xain.config
+
 from .dataset import load_splits
+
+c = xain.config.load()
 
 FLAGS = flags.FLAGS
 
 flags.DEFINE_string(
     "local_datasets_dir",
-    os.path.expanduser("~/.xain/datasets"),
+    c.get("Path", "local_datasets_dir"),
     "Local directory to store datasets in. Usually ~/.xain/datasets",
 )
 flags.DEFINE_string(
