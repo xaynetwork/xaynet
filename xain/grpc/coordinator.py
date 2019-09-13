@@ -17,10 +17,14 @@ class Coordinator(coordinator_pb2_grpc.CoordinatorServicer):
         if self.n_participants < self.required_participants:
             response = coordinator_pb2.RendezvousResponse.ACCEPT
             self.n_participants += 1
-            print(f"Accepted participant # participants: {self.n_participants}")
+            print(
+                f"Accepted participant {context.peer()} # participants: {self.n_participants}"
+            )
         else:
             response = coordinator_pb2.RendezvousResponse.LATER
-            print(f"Rejected participant # participants: {self.n_participants}")
+            print(
+                f"Rejected participant {context.peer()} # participants: {self.n_participants}"
+            )
 
         return coordinator_pb2.RendezvousReply(response=response)
 
@@ -30,6 +34,8 @@ def serve():
     coordinator_pb2_grpc.add_CoordinatorServicer_to_server(Coordinator(), server)
     server.add_insecure_port("[::]:50051")
     server.start()
+
+    print("Coordinator waiting for connections...")
 
     try:
         while True:
