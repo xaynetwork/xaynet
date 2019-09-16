@@ -11,8 +11,8 @@ FLAGS = flags.FLAGS
 def create_summary_writer(logdir: str) -> FileWriter:
     """Creating a summary FileWriter.
 
-    Creates a FileWriter that create an event file in a given directory and add summaries and events to it.
-    The file contents are updated asynchronously.
+    Creates a FileWriter that create an event file in a given directory and add summaries and
+    events to it. The file contents are updated asynchronously.
 
     Args:
         logdir (str): Directory in which the tensorboard evnt log is written.
@@ -30,7 +30,8 @@ def write_summaries(
 ) -> None:
     """Adding summaries to an event file.
 
-    Adds validation loss and accuracy as scalar values, as well as the global step value to the event file.
+    Adds validation loss and accuracy as scalar values, as well as the global step value to the
+    event file.
 
     Args:
         summary_writer (~tf.summary.FileWriter): FileWriter object writing Summaries to event files.

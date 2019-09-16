@@ -18,6 +18,7 @@ FLAGS = flags.FLAGS
 
 class Coordinator:
     # pylint: disable-msg=too-many-arguments
+    # pylint: disable=too-many-instance-attributes
     def __init__(
         self,
         controller,

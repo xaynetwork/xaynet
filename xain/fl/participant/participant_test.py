@@ -41,7 +41,6 @@ def test_Participant_num_examples():
     y = np.random.randint(
         0, high=num_classes, size=(num_examples_expected), dtype=np.uint8
     )
-    np.random.randint
     participant = Participant(
         0, model_provider, (x, y), (x, y), num_classes=num_classes, batch_size=16
     )
