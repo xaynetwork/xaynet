@@ -7,7 +7,7 @@ from absl import flags, logging
 from numpy import ndarray
 
 from xain.datasets import prep
-from xain.fl.logging import create_summary_writer, write_summaries
+from xain.fl.logging.logging import create_summary_writer, write_summaries
 from xain.fl.participant import ModelProvider, Participant
 from xain.types import KerasHistory, KerasWeights, Metrics
 
