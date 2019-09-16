@@ -121,9 +121,10 @@ the console and open "localhost:6006" in a browser'.format(
             # - Push current model parameters to this participant
             # - Train for a number of epochs
             # - Pull updated model parameters from participant
-            theta_update, hist, metrics = participant.train_round(
+            theta_update, hist = participant.train_round(
                 theta, epochs=E, epoch_base=self.epoch
             )
+            metrics = participant.metrics()
             theta_updates.append(theta_update)
             histories.append(hist)
             train_metrics.append(metrics)
