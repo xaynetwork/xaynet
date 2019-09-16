@@ -13,7 +13,7 @@ from xain.fl.coordinator import Coordinator, RandomController
 from xain.fl.coordinator.aggregate import Aggregator
 from xain.fl.participant import ModelProvider, Participant
 from xain.helpers import storage
-from xain.types import FederatedDatasetPartition, KerasHistory, VolumeByClass
+from xain.types import FederatedDatasetPartition, KerasHistory, Metrics
 
 random.seed(0)
 np.random.seed(1)
@@ -75,9 +75,7 @@ def federated_training(
     C: float,
     B: int,
     aggregator: Aggregator = None,
-) -> Tuple[
-    KerasHistory, List[List[KerasHistory]], List[List[VolumeByClass]], float, float
-]:
+) -> Tuple[KerasHistory, List[List[KerasHistory]], List[List[Metrics]], float, float]:
     # Initialize participants and coordinator
     # Note that there is no need for common initialization at this point: Common
     # initialization will happen during the first few rounds because the coordinator will
