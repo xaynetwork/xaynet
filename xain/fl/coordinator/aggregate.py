@@ -24,10 +24,10 @@ class IdentityAgg(Aggregator):
 
 
 class FederatedAveragingAgg(Aggregator):
-    def aggregate(self, theta_updates: List[Tuple[KerasWeights, int]]) -> KerasWeights:
-        thetas = [theta for theta, _ in theta_updates]
-        weighting = np.array([num_examples for _, num_examples in theta_updates])
-        return federated_averaging(thetas, weighting)
+    def aggregate(self, thetas: List[Tuple[KerasWeights, int]]) -> KerasWeights:
+        theta_list = [theta for theta, _ in thetas]
+        weighting = np.array([num_examples for _, num_examples in thetas])
+        return federated_averaging(theta_list, weighting)
 
 
 class EvoAgg(Aggregator):
@@ -101,7 +101,9 @@ def compute_candidate(
     thetas: KerasWeights, evaluator: Evaluator
 ) -> Tuple[np.ndarray, KerasWeights, float, float]:
     weighting = random_weighting(len(thetas))
-    theta_prime_candidate = weighted_federated_averaging(thetas, weighting)
+    # TODO: Validate using of federated_averaging instead of not implemented
+    # weighted_federated_averaging
+    theta_prime_candidate = federated_averaging(thetas, weighting)
     loss, acc = evaluator.evaluate(theta_prime_candidate)
     return weighting, theta_prime_candidate, loss, acc
 

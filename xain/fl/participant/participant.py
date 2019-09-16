@@ -1,4 +1,4 @@
-from typing import Dict, List, Tuple
+from typing import Tuple
 
 import numpy as np
 import tensorflow as tf
@@ -12,6 +12,7 @@ from . import ModelProvider
 
 class Participant:
     # pylint: disable-msg=too-many-arguments
+    # pylint: disable=too-many-instance-attributes
     def __init__(
         self,
         cid: int,
@@ -41,7 +42,7 @@ class Participant:
         logging.info(
             f"Participant {self.cid}: train_round START (epoch_base: {epoch_base})"
         )
-        model = self.model_provider.init_model(epoch_base=epoch_base)
+        model = self.model_provider.init_model(epoch_base=epoch_base)  # type:ignore
         model.set_weights(theta)
         hist: KerasHistory = self.fit(model, epochs)
         theta_prime = model.get_weights()
@@ -106,6 +107,6 @@ class LoggingCallback(tf.keras.callbacks.Callback):
         self.cid = cid
         self.print_fn = print_fn
 
-    def on_epoch_end(self, epoch, logs={}):
+    def on_epoch_end(self, epoch, logs=None):
         msg = "CID {} epoch {}".format(self.cid, epoch)
         self.print_fn(msg)

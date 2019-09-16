@@ -1,19 +1,24 @@
 import concurrent.futures
-from typing import Callable, Dict, List, Optional, Tuple
+from pathlib import Path
+from typing import Callable, List, Optional, Tuple
 
 import tensorflow as tf
-from absl import logging
+from absl import flags, logging
 from numpy import ndarray
 
 from xain.datasets import prep
+from xain.fl.logging.logging import create_summary_writer, write_summaries
 from xain.fl.participant import ModelProvider, Participant
 from xain.types import KerasHistory, KerasWeights, Metrics
 
 from .aggregate import Aggregator, FederatedAveragingAgg
 
+FLAGS = flags.FLAGS
+
 
 class Coordinator:
     # pylint: disable-msg=too-many-arguments
+    # pylint: disable=too-many-instance-attributes
     def __init__(
         self,
         controller,
@@ -46,6 +51,12 @@ class Coordinator:
         # History of participant metrics in each round
         hist_metrics: List[List[Metrics]] = []
 
+        # Defining log directory and file writer for tensorboard logging
+        val_log_dir: str = str(
+            Path(FLAGS.output_dir).joinpath("tensorboard/coordinator")
+        )
+        summary_writer = create_summary_writer(logdir=val_log_dir)
+
         for r in range(num_rounds):
             # Determine who participates in this round
             num_indices = abs_C(self.C, self.num_participants())
@@ -60,8 +71,25 @@ class Coordinator:
 
             # Evaluate
             val_loss, val_acc = self.evaluate(self.xy_val)
+            # Writing validation loss and accuracy into summary
+            write_summaries(
+                summary_writer=summary_writer,
+                val_acc=val_acc,
+                val_loss=val_loss,
+                train_round=r,
+            )
             hist_co["val_loss"].append(val_loss)
             hist_co["val_acc"].append(val_acc)
+
+        logging.info(
+            "TensorBoard coordinator validation logs saved: {}".format(val_log_dir)
+        )
+        logging.info(
+            'Detailed analysis: call "tensorboard --logdir {}" from \
+the console and open "localhost:6006" in a browser'.format(
+                val_log_dir
+            )
+        )
 
         return hist_co, hist_ps, hist_metrics
 
