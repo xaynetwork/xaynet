@@ -1,0 +1,8 @@
+[package]
+name = "controller"
+version = "0.1.0"
+authors = ["The XAIN developers"]
+edition = "2018"
+
+[dependencies]
+async-std = "^0.99"
