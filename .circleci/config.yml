@@ -40,12 +40,6 @@ jobs:
       - checkout
 
       - run:
-          name: install dependencies
-          command: |
-              rustup install nightly
-              rustup default nightly
-
-      - run:
           name: run tests
           command: |
             ./scripts/test_rust.sh
