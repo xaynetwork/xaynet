@@ -101,8 +101,6 @@ def compute_candidate(
     thetas: KerasWeights, evaluator: Evaluator
 ) -> Tuple[np.ndarray, KerasWeights, float, float]:
     weighting = random_weighting(len(thetas))
-    # TODO: Validate using of federated_averaging instead of not implemented
-    # weighted_federated_averaging
     theta_prime_candidate = federated_averaging(thetas, weighting)
     loss, acc = evaluator.evaluate(theta_prime_candidate)
     return weighting, theta_prime_candidate, loss, acc

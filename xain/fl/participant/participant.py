@@ -7,7 +7,7 @@ from absl import logging
 from xain.datasets import prep
 from xain.types import KerasHistory, KerasWeights, Metrics, VolumeByClass
 
-from . import ModelProvider
+from .model_provider import ModelProvider
 
 
 class Participant:
@@ -108,5 +108,4 @@ class LoggingCallback(tf.keras.callbacks.Callback):
         self.print_fn = print_fn
 
     def on_epoch_end(self, epoch, logs=None):
-        msg = "CID {} epoch {}".format(self.cid, epoch)
-        self.print_fn(msg)
+        self.print_fn(f"CID {self.cid} epoch {epoch}")
