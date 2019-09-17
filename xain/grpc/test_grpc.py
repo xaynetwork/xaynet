@@ -14,7 +14,6 @@ from xain.grpc import (
     hellonumproto_pb2_grpc,
 )
 from xain.grpc.coordinator import Coordinator
-from xain.grpc.numproto_server import NumProtoServer
 
 
 # pylint: disable=W0613,W0621
