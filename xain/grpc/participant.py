@@ -1,7 +1,6 @@
 import time
 
 import grpc
-from google.protobuf import empty_pb2
 
 from xain.grpc import coordinator_pb2, coordinator_pb2_grpc
 
@@ -15,7 +14,7 @@ def run():
         response = coordinator_pb2.RendezvousResponse.LATER
 
         while response == coordinator_pb2.RendezvousResponse.LATER:
-            reply = stub.Rendezvous(empty_pb2.Empty())
+            reply = stub.Rendezvous(coordinator_pb2.RendezvousRequest())
             if reply.response == coordinator_pb2.RendezvousResponse.ACCEPT:
                 print("Participant received: ACCEPT")
             elif reply.response == coordinator_pb2.RendezvousResponse.LATER:

@@ -1,17 +1,17 @@
 syntax = "proto3";
 
-import "google/protobuf/empty.proto";
-
 package xain.protobuf.coordinator;
 
 service Coordinator {
-  rpc Rendezvous(google.protobuf.Empty) returns (RendezvousReply) {}
+  rpc Rendezvous(RendezvousRequest) returns (RendezvousReply) {}
 }
 
 enum RendezvousResponse {
   ACCEPT = 0;
   LATER = 1;
 }
+
+message RendezvousRequest {}
 
 message RendezvousReply {
   RendezvousResponse response = 1;

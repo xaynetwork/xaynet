@@ -14,7 +14,6 @@ from google.protobuf import symbol_database as _symbol_database
 _sym_db = _symbol_database.Default()
 
 
-from google.protobuf import empty_pb2 as google_dot_protobuf_dot_empty__pb2
 
 
 DESCRIPTOR = _descriptor.FileDescriptor(
@@ -22,9 +21,8 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='xain.protobuf.coordinator',
   syntax='proto3',
   serialized_options=None,
-  serialized_pb=_b('\n\x1bxain/grpc/coordinator.proto\x12\x19xain.protobuf.coordinator\x1a\x1bgoogle/protobuf/empty.proto\"R\n\x0fRendezvousReply\x12?\n\x08response\x18\x01 \x01(\x0e\x32-.xain.protobuf.coordinator.RendezvousResponse*+\n\x12RendezvousResponse\x12\n\n\x06\x41\x43\x43\x45PT\x10\x00\x12\t\n\x05LATER\x10\x01\x32\x61\n\x0b\x43oordinator\x12R\n\nRendezvous\x12\x16.google.protobuf.Empty\x1a*.xain.protobuf.coordinator.RendezvousReply\"\x00\x62\x06proto3')
-  ,
-  dependencies=[google_dot_protobuf_dot_empty__pb2.DESCRIPTOR,])
+  serialized_pb=_b('\n\x1bxain/grpc/coordinator.proto\x12\x19xain.protobuf.coordinator\"\x13\n\x11RendezvousRequest\"R\n\x0fRendezvousReply\x12?\n\x08response\x18\x01 \x01(\x0e\x32-.xain.protobuf.coordinator.RendezvousResponse*+\n\x12RendezvousResponse\x12\n\n\x06\x41\x43\x43\x45PT\x10\x00\x12\t\n\x05LATER\x10\x01\x32w\n\x0b\x43oordinator\x12h\n\nRendezvous\x12,.xain.protobuf.coordinator.RendezvousRequest\x1a*.xain.protobuf.coordinator.RendezvousReply\"\x00\x62\x06proto3')
+)
 
 _RENDEZVOUSRESPONSE = _descriptor.EnumDescriptor(
   name='RendezvousResponse',
@@ -43,8 +41,8 @@ _RENDEZVOUSRESPONSE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=171,
-  serialized_end=214,
+  serialized_start=163,
+  serialized_end=206,
 )
 _sym_db.RegisterEnumDescriptor(_RENDEZVOUSRESPONSE)
 
@@ -52,6 +50,30 @@ RendezvousResponse = enum_type_wrapper.EnumTypeWrapper(_RENDEZVOUSRESPONSE)
 ACCEPT = 0
 LATER = 1
 
+
+
+_RENDEZVOUSREQUEST = _descriptor.Descriptor(
+  name='RendezvousRequest',
+  full_name='xain.protobuf.coordinator.RendezvousRequest',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=58,
+  serialized_end=77,
+)
 
 
 _RENDEZVOUSREPLY = _descriptor.Descriptor(
@@ -80,14 +102,22 @@ _RENDEZVOUSREPLY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=87,
-  serialized_end=169,
+  serialized_start=79,
+  serialized_end=161,
 )
 
 _RENDEZVOUSREPLY.fields_by_name['response'].enum_type = _RENDEZVOUSRESPONSE
+DESCRIPTOR.message_types_by_name['RendezvousRequest'] = _RENDEZVOUSREQUEST
 DESCRIPTOR.message_types_by_name['RendezvousReply'] = _RENDEZVOUSREPLY
 DESCRIPTOR.enum_types_by_name['RendezvousResponse'] = _RENDEZVOUSRESPONSE
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
+
+RendezvousRequest = _reflection.GeneratedProtocolMessageType('RendezvousRequest', (_message.Message,), {
+  'DESCRIPTOR' : _RENDEZVOUSREQUEST,
+  '__module__' : 'xain.grpc.coordinator_pb2'
+  # @@protoc_insertion_point(class_scope:xain.protobuf.coordinator.RendezvousRequest)
+  })
+_sym_db.RegisterMessage(RendezvousRequest)
 
 RendezvousReply = _reflection.GeneratedProtocolMessageType('RendezvousReply', (_message.Message,), {
   'DESCRIPTOR' : _RENDEZVOUSREPLY,
@@ -104,15 +134,15 @@ _COORDINATOR = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   serialized_options=None,
-  serialized_start=216,
-  serialized_end=313,
+  serialized_start=208,
+  serialized_end=327,
   methods=[
   _descriptor.MethodDescriptor(
     name='Rendezvous',
     full_name='xain.protobuf.coordinator.Coordinator.Rendezvous',
     index=0,
     containing_service=None,
-    input_type=google_dot_protobuf_dot_empty__pb2._EMPTY,
+    input_type=_RENDEZVOUSREQUEST,
     output_type=_RENDEZVOUSREPLY,
     serialized_options=None,
   ),

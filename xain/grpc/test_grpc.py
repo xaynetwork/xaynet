@@ -4,7 +4,6 @@ from unittest import mock
 import grpc
 import numpy as np
 import pytest
-from google.protobuf import empty_pb2
 from numproto import ndarray_to_proto, proto_to_ndarray
 
 from xain.grpc import (
@@ -34,17 +33,17 @@ def test_greeter_server(greeter_server):
 
 @pytest.mark.integration
 def test_participant_rendezvous_accept(participant_stub, coordinator_service):
-    reply = participant_stub.Rendezvous(empty_pb2.Empty())
+    reply = participant_stub.Rendezvous(coordinator_pb2.RendezvousRequest())
 
     assert reply.response == coordinator_pb2.RendezvousResponse.ACCEPT
 
 
 def mocked_init(self, required_participants=10):
-    """Sets `n_participants` to be the same as `required_participants` so that
+    """Sets `num_accepted_participants` to be the same as `required_participants` so that
     the coordinator tells the client to try later.
     """
     self.required_participants = 10
-    self.n_participants = 10
+    self.num_accepted_participants = 10
 
 
 @pytest.mark.integration
@@ -57,7 +56,7 @@ def test_participant_rendezvous_later(participant_stub):
 
     server.start()
 
-    reply = participant_stub.Rendezvous(empty_pb2.Empty())
+    reply = participant_stub.Rendezvous(coordinator_pb2.RendezvousRequest())
 
     server.stop(0)
 
