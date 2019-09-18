@@ -4,7 +4,7 @@ import pytest
 from xain.benchmark.net import model_fns
 
 from .model_provider import ModelProvider
-from .participant import Participant
+from .participant import Participant, xy_train_volume_by_class
 
 
 def test_Participant_x_y_shape_valid():
@@ -73,3 +73,25 @@ def test_Participant_get_xy_train_volume_by_class():
 
     assert cid_actual == cid_expected
     assert y_volume_by_class_actual == y_volume_by_class_expected
+
+
+@pytest.mark.parametrize(
+    "num_classes_total, num_classes_in_partition", [(4, 1), (7, 5), (10, 10)]
+)
+def test_xy_train_volume_by_class(num_classes_total, num_classes_in_partition):
+    # Prepare
+    y_train = np.arange(num_classes_in_partition, dtype=np.int8)
+    x_train = np.ones((y_train.size))  # not relevant; only needed to avoid type errors
+    xy_train = (x_train, y_train)
+
+    # Execute
+    result = xy_train_volume_by_class(num_classes=num_classes_total, xy_train=xy_train)
+
+    # Assert
+    assert len(result) == num_classes_total
+    if num_classes_total == num_classes_in_partition:
+        # As each class is equal times present the set should contain only one element
+        assert set(result) == {1}
+    else:
+        # As each class is equal or zero times present the set should contain 1 and 0
+        assert set(result) == {0, 1}
