@@ -12,13 +12,18 @@ FLAGS = flags.FLAGS
 
 
 def read_task_values(task_result: TaskResult) -> Tuple[bool, str, List[float], int]:
-    """Reads unitary and federated accuracy from results.json
+    """Reads unitary and federated accuracy from results.json.
 
     Args:
-        fname (str): path to results.json file containing required fields
+        fname (str): Path to results.json file containing required fields.
+
+    Example:
+        >>> print(read_task_values(task_result))
+        (false, "VisionTask", [0.12, 0.33], 5)
 
     Returns:
-        task_label, accuracies, epochs (str, List[float], int): e.g. ("VisionTask", [0.12, 0.33], 5)
+        ~typing.Tuple[bool, str, ~typing.List[float], int]: Tuple consisting of information,
+            if the task is unitary or not, the task label, a list of accuracies and the epochs.
     """
     return (
         task_result.is_unitary(),
@@ -34,7 +39,16 @@ def read_all_task_values(group_dir: str) -> List[Tuple[bool, str, List[float], i
     extracts values from results.json files
 
     Args:
-        group_dir: path to directory to be read
+        group_dir (str): Path to group directory to be read.
+
+    Example:
+        >>> print(read_all_task_values(group_dir))
+        [(false, "VisionTask", [0.12, 0.33], 5), (true, "UnitaryTask", [0.23, 0.34], 2),...]
+
+    Returns:
+        ~typing.List[typing.Tuple[bool, str, ~typing.List[float], int]]: List of tuples consisting
+            of information, if the task is unitary or not, the task label, a list of accuracies and
+            the epochs.
     """
     task_results = GroupResult(group_dir).get_results()
     # Read accuracies from each file and return list of values in tuples
