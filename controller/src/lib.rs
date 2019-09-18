@@ -1,3 +1,7 @@
+mod aggregation;
+
+type ModelParams = ndarray::ArrayD<f64>;
+
 #[cfg(test)]
 mod tests {
     use std::{fs, path::PathBuf};
