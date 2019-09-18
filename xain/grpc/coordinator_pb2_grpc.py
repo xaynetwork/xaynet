@@ -19,6 +19,11 @@ class CoordinatorStub(object):
         request_serializer=xain_dot_grpc_dot_coordinator__pb2.RendezvousRequest.SerializeToString,
         response_deserializer=xain_dot_grpc_dot_coordinator__pb2.RendezvousReply.FromString,
         )
+    self.Heartbeat = channel.unary_unary(
+        '/xain.protobuf.coordinator.Coordinator/Heartbeat',
+        request_serializer=xain_dot_grpc_dot_coordinator__pb2.HeartbeatRequest.SerializeToString,
+        response_deserializer=xain_dot_grpc_dot_coordinator__pb2.HeartbeatReply.FromString,
+        )
 
 
 class CoordinatorServicer(object):
@@ -32,6 +37,13 @@ class CoordinatorServicer(object):
     context.set_details('Method not implemented!')
     raise NotImplementedError('Method not implemented!')
 
+  def Heartbeat(self, request, context):
+    # missing associated documentation comment in .proto file
+    pass
+    context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+    context.set_details('Method not implemented!')
+    raise NotImplementedError('Method not implemented!')
+
 
 def add_CoordinatorServicer_to_server(servicer, server):
   rpc_method_handlers = {
@@ -39,6 +51,11 @@ def add_CoordinatorServicer_to_server(servicer, server):
           servicer.Rendezvous,
           request_deserializer=xain_dot_grpc_dot_coordinator__pb2.RendezvousRequest.FromString,
           response_serializer=xain_dot_grpc_dot_coordinator__pb2.RendezvousReply.SerializeToString,
+      ),
+      'Heartbeat': grpc.unary_unary_rpc_method_handler(
+          servicer.Heartbeat,
+          request_deserializer=xain_dot_grpc_dot_coordinator__pb2.HeartbeatRequest.FromString,
+          response_serializer=xain_dot_grpc_dot_coordinator__pb2.HeartbeatReply.SerializeToString,
       ),
   }
   generic_handler = grpc.method_handlers_generic_handler(

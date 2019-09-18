@@ -30,6 +30,10 @@ class Coordinator(coordinator_pb2_grpc.CoordinatorServicer):
 
         return coordinator_pb2.RendezvousReply(response=response)
 
+    def Heartbeat(self, request, context):
+        print(f"Received: {type(request)} from {context.peer()}")
+        return coordinator_pb2.HeartbeatReply()
+
 
 def serve():
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))

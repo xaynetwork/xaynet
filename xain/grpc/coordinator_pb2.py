@@ -21,7 +21,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='xain.protobuf.coordinator',
   syntax='proto3',
   serialized_options=None,
-  serialized_pb=_b('\n\x1bxain/grpc/coordinator.proto\x12\x19xain.protobuf.coordinator\"\x13\n\x11RendezvousRequest\"R\n\x0fRendezvousReply\x12?\n\x08response\x18\x01 \x01(\x0e\x32-.xain.protobuf.coordinator.RendezvousResponse*+\n\x12RendezvousResponse\x12\n\n\x06\x41\x43\x43\x45PT\x10\x00\x12\t\n\x05LATER\x10\x01\x32w\n\x0b\x43oordinator\x12h\n\nRendezvous\x12,.xain.protobuf.coordinator.RendezvousRequest\x1a*.xain.protobuf.coordinator.RendezvousReply\"\x00\x62\x06proto3')
+  serialized_pb=_b('\n\x1bxain/grpc/coordinator.proto\x12\x19xain.protobuf.coordinator\"\x13\n\x11RendezvousRequest\"R\n\x0fRendezvousReply\x12?\n\x08response\x18\x01 \x01(\x0e\x32-.xain.protobuf.coordinator.RendezvousResponse\"\x12\n\x10HeartbeatRequest\"\x10\n\x0eHeartbeatReply*+\n\x12RendezvousResponse\x12\n\n\x06\x41\x43\x43\x45PT\x10\x00\x12\t\n\x05LATER\x10\x01\x32\xde\x01\n\x0b\x43oordinator\x12h\n\nRendezvous\x12,.xain.protobuf.coordinator.RendezvousRequest\x1a*.xain.protobuf.coordinator.RendezvousReply\"\x00\x12\x65\n\tHeartbeat\x12+.xain.protobuf.coordinator.HeartbeatRequest\x1a).xain.protobuf.coordinator.HeartbeatReply\"\x00\x62\x06proto3')
 )
 
 _RENDEZVOUSRESPONSE = _descriptor.EnumDescriptor(
@@ -41,8 +41,8 @@ _RENDEZVOUSRESPONSE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=163,
-  serialized_end=206,
+  serialized_start=201,
+  serialized_end=244,
 )
 _sym_db.RegisterEnumDescriptor(_RENDEZVOUSRESPONSE)
 
@@ -106,9 +106,59 @@ _RENDEZVOUSREPLY = _descriptor.Descriptor(
   serialized_end=161,
 )
 
+
+_HEARTBEATREQUEST = _descriptor.Descriptor(
+  name='HeartbeatRequest',
+  full_name='xain.protobuf.coordinator.HeartbeatRequest',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=163,
+  serialized_end=181,
+)
+
+
+_HEARTBEATREPLY = _descriptor.Descriptor(
+  name='HeartbeatReply',
+  full_name='xain.protobuf.coordinator.HeartbeatReply',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=183,
+  serialized_end=199,
+)
+
 _RENDEZVOUSREPLY.fields_by_name['response'].enum_type = _RENDEZVOUSRESPONSE
 DESCRIPTOR.message_types_by_name['RendezvousRequest'] = _RENDEZVOUSREQUEST
 DESCRIPTOR.message_types_by_name['RendezvousReply'] = _RENDEZVOUSREPLY
+DESCRIPTOR.message_types_by_name['HeartbeatRequest'] = _HEARTBEATREQUEST
+DESCRIPTOR.message_types_by_name['HeartbeatReply'] = _HEARTBEATREPLY
 DESCRIPTOR.enum_types_by_name['RendezvousResponse'] = _RENDEZVOUSRESPONSE
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
@@ -126,6 +176,20 @@ RendezvousReply = _reflection.GeneratedProtocolMessageType('RendezvousReply', (_
   })
 _sym_db.RegisterMessage(RendezvousReply)
 
+HeartbeatRequest = _reflection.GeneratedProtocolMessageType('HeartbeatRequest', (_message.Message,), {
+  'DESCRIPTOR' : _HEARTBEATREQUEST,
+  '__module__' : 'xain.grpc.coordinator_pb2'
+  # @@protoc_insertion_point(class_scope:xain.protobuf.coordinator.HeartbeatRequest)
+  })
+_sym_db.RegisterMessage(HeartbeatRequest)
+
+HeartbeatReply = _reflection.GeneratedProtocolMessageType('HeartbeatReply', (_message.Message,), {
+  'DESCRIPTOR' : _HEARTBEATREPLY,
+  '__module__' : 'xain.grpc.coordinator_pb2'
+  # @@protoc_insertion_point(class_scope:xain.protobuf.coordinator.HeartbeatReply)
+  })
+_sym_db.RegisterMessage(HeartbeatReply)
+
 
 
 _COORDINATOR = _descriptor.ServiceDescriptor(
@@ -134,8 +198,8 @@ _COORDINATOR = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   serialized_options=None,
-  serialized_start=208,
-  serialized_end=327,
+  serialized_start=247,
+  serialized_end=469,
   methods=[
   _descriptor.MethodDescriptor(
     name='Rendezvous',
@@ -144,6 +208,15 @@ _COORDINATOR = _descriptor.ServiceDescriptor(
     containing_service=None,
     input_type=_RENDEZVOUSREQUEST,
     output_type=_RENDEZVOUSREPLY,
+    serialized_options=None,
+  ),
+  _descriptor.MethodDescriptor(
+    name='Heartbeat',
+    full_name='xain.protobuf.coordinator.Coordinator.Heartbeat',
+    index=1,
+    containing_service=None,
+    input_type=_HEARTBEATREQUEST,
+    output_type=_HEARTBEATREPLY,
     serialized_options=None,
   ),
 ])
