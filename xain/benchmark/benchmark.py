@@ -553,7 +553,8 @@ def run_benchmark(benchmark_name: str):
 
     logging.info(f"Starting benchmark {benchmark_name}")
     benchmark = benchmarks[benchmark_name]
-    group_name = f"group_{benchmark_name}_{strftime('%Y%m%dT%H%M')}"
+
+    group_name = FLAGS.group_name or f"{strftime('%Y%m%dT%H%M')}_{benchmark_name}"
 
     task_names = {task.name for task in benchmark.tasks}
 
