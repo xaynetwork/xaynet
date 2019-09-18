@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 
 from xain.benchmark.net import model_fns
+from xain.datasets import load_splits
 
 from .model_provider import ModelProvider
 from .participant import Participant, xy_train_volume_by_class
@@ -95,3 +96,39 @@ def test_xy_train_volume_by_class(num_classes_total, num_classes_in_partition):
     else:
         # As each class is equal or zero times present the set should contain 1 and 0
         assert set(result) == {0, 1}
+
+
+@pytest.mark.slow
+@pytest.mark.integration
+def test_xy_train_volume_by_class_with_federated_dataset():
+    # Prepare
+    dataset_name = "fashion-mnist-100p-b1_045"
+    xy_partitions, _, _ = load_splits(dataset_name)
+    num_examples_expected = sum([x.shape[0] for x, _ in xy_partitions])
+
+    # We need to find out which classes are present in our dataset
+    # (actually we know it but making it a bit more adaptable in case we parameterize it)
+    all_classes = set()
+
+    for _, y_train in xy_partitions:
+        classes = np.unique(y_train)
+        for c in classes:
+            all_classes.add(c)
+
+    num_classes_total = len(all_classes)
+
+    results = []
+
+    # Execute
+    for xy_train in xy_partitions:
+        _, y_train = xy_train
+        r = xy_train_volume_by_class(num_classes=num_classes_total, xy_train=xy_train)
+        results.append(r)
+
+    # Assert
+    num_examples_actual = 0
+
+    for r in results:
+        num_examples_actual += sum(r)
+
+    assert num_examples_expected == num_examples_actual

@@ -86,10 +86,10 @@ def xy_train_volume_by_class(num_classes: int, xy_train) -> VolumeByClass:
     _, y = xy_train
     classes, counts_actual = np.unique(y, return_counts=True)
 
-    for c in classes:
+    for i_ca, c in enumerate(classes):
         # Cast explicitly to int so its later JSON serializable
         # as other we will get a list of np objects of type int64
-        counts[c] = int(counts_actual[c])
+        counts[c] = int(counts_actual[i_ca])
 
     return counts
 
