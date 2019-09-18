@@ -2,6 +2,9 @@
 
 set -e
 
+export RUSTFLAGS="-D warnings"
+export CARGO_INCREMENTAL=0
+
 cd controller
 cargo test
 
