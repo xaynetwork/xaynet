@@ -117,8 +117,6 @@ setup(
             "pull_results=xain.ops.__main__:download",
             "train_remote=xain.benchmark.__main__:main",
             "aggregate=xain.benchmark.aggregation.__main__:app_run_aggregate",
-            "aggregate_final_task_accuracies=xain.benchmark.aggregation.final_task_accuracies:app_run_aggregate",
-            "aggregate_task_accuracies=xain.benchmark.aggregation.task_accuracies:app_run_aggregate",
         ]
     },
 )
