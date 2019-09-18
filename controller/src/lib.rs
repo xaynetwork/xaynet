@@ -3,7 +3,7 @@ mod tests {
     use std::{fs, path::PathBuf};
 
     use ndarray::prelude::*;
-    use ndarray_npy::{ReadNpyExt, WriteNpyExt};
+    use ndarray_npy::ReadNpyExt;
 
     #[test]
     fn read_numpy_array() {
