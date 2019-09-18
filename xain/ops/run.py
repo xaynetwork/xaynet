@@ -11,16 +11,17 @@ from xain.ops.ec2 import user_data
 FLAGS = flags.FLAGS
 root_dir = project.root()
 
-
+# Note:
+# We actually would like to use the m5.large up to m5.24xlarge
+# but AWS is not easily willing to give us the increase without
+# asking again and again and again for limit increases.
+# Therefore we switches to using c4 which have higher default limits
 cores: Dict[int, str] = {
-    2: "m5.large",
-    4: "m5.xlarge",
-    8: "m5.2xlarge",
-    16: "m5.4xlarge",
-    32: "m5.8xlarge",
-    48: "m5.12xlarge",
-    64: "m5.16xlarge",
-    96: "m5.24xlarge",
+    2: "c4.large",
+    4: "c4.xlarge",
+    8: "c4.2xlarge",
+    16: "c4.4xlarge",
+    32: "c4.8xlarge",
 }
 
 
