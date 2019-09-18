@@ -156,121 +156,121 @@ benchmarks: Dict[str, Benchmark] = {
     "cpp-fashion-mnist-100p": Benchmark(
         tasks=[
             VisionTask(
-                name="unitary-01cpp",
-                label="01cpp",
-                dataset_name="fashion-mnist-100p-noniid-01cpp",
-                instance_cores=4,
-            ),
-            VisionTask(
-                name="unitary-02cpp",
-                label="02cpp",
-                dataset_name="fashion-mnist-100p-noniid-02cpp",
-                instance_cores=4,
-            ),
-            VisionTask(
-                name="unitary-03cpp",
-                label="03cpp",
-                dataset_name="fashion-mnist-100p-noniid-03cpp",
-                instance_cores=4,
-            ),
-            VisionTask(
-                name="unitary-04cpp",
-                label="04cpp",
-                dataset_name="fashion-mnist-100p-noniid-04cpp",
-                instance_cores=4,
-            ),
-            VisionTask(
-                name="unitary-05cpp",
-                label="05cpp",
-                dataset_name="fashion-mnist-100p-noniid-05cpp",
-                instance_cores=4,
-            ),
-            VisionTask(
-                name="unitary-06cpp",
-                label="06cpp",
-                dataset_name="fashion-mnist-100p-noniid-06cpp",
-                instance_cores=4,
-            ),
-            VisionTask(
-                name="unitary-07cpp",
-                label="07cpp",
-                dataset_name="fashion-mnist-100p-noniid-07cpp",
-                instance_cores=4,
-            ),
-            VisionTask(
-                name="unitary-08cpp",
-                label="08cpp",
-                dataset_name="fashion-mnist-100p-noniid-08cpp",
-                instance_cores=4,
-            ),
-            VisionTask(
-                name="unitary-09cpp",
-                label="09cpp",
-                dataset_name="fashion-mnist-100p-noniid-09cpp",
-                instance_cores=4,
-            ),
-            VisionTask(
-                name="unitary-balanced",
-                label="balanced",
-                dataset_name="fashion-mnist-100p-iid-balanced",
-                instance_cores=4,
-            ),
-            UnitaryVisionTask(
                 name="federated-01cpp",
                 label="01cpp",
                 dataset_name="fashion-mnist-100p-noniid-01cpp",
                 instance_cores=4,
             ),
-            UnitaryVisionTask(
+            VisionTask(
                 name="federated-02cpp",
                 label="02cpp",
                 dataset_name="fashion-mnist-100p-noniid-02cpp",
                 instance_cores=4,
             ),
-            UnitaryVisionTask(
+            VisionTask(
                 name="federated-03cpp",
                 label="03cpp",
                 dataset_name="fashion-mnist-100p-noniid-03cpp",
                 instance_cores=4,
             ),
-            UnitaryVisionTask(
+            VisionTask(
                 name="federated-04cpp",
                 label="04cpp",
                 dataset_name="fashion-mnist-100p-noniid-04cpp",
                 instance_cores=4,
             ),
-            UnitaryVisionTask(
+            VisionTask(
                 name="federated-05cpp",
                 label="05cpp",
                 dataset_name="fashion-mnist-100p-noniid-05cpp",
                 instance_cores=4,
             ),
-            UnitaryVisionTask(
+            VisionTask(
                 name="federated-06cpp",
                 label="06cpp",
                 dataset_name="fashion-mnist-100p-noniid-06cpp",
                 instance_cores=4,
             ),
-            UnitaryVisionTask(
+            VisionTask(
                 name="federated-07cpp",
                 label="07cpp",
                 dataset_name="fashion-mnist-100p-noniid-07cpp",
                 instance_cores=4,
             ),
-            UnitaryVisionTask(
+            VisionTask(
                 name="federated-08cpp",
                 label="08cpp",
                 dataset_name="fashion-mnist-100p-noniid-08cpp",
                 instance_cores=4,
             ),
-            UnitaryVisionTask(
+            VisionTask(
                 name="federated-09cpp",
                 label="09cpp",
                 dataset_name="fashion-mnist-100p-noniid-09cpp",
                 instance_cores=4,
             ),
-            UnitaryVisionTask(
+            VisionTask(
                 name="federated-balanced",
+                label="balanced",
+                dataset_name="fashion-mnist-100p-iid-balanced",
+                instance_cores=4,
+            ),
+            UnitaryVisionTask(
+                name="unitary-01cpp",
+                label="01cpp",
+                dataset_name="fashion-mnist-100p-noniid-01cpp",
+                instance_cores=4,
+            ),
+            UnitaryVisionTask(
+                name="unitary-02cpp",
+                label="02cpp",
+                dataset_name="fashion-mnist-100p-noniid-02cpp",
+                instance_cores=4,
+            ),
+            UnitaryVisionTask(
+                name="unitary-03cpp",
+                label="03cpp",
+                dataset_name="fashion-mnist-100p-noniid-03cpp",
+                instance_cores=4,
+            ),
+            UnitaryVisionTask(
+                name="unitary-04cpp",
+                label="04cpp",
+                dataset_name="fashion-mnist-100p-noniid-04cpp",
+                instance_cores=4,
+            ),
+            UnitaryVisionTask(
+                name="unitary-05cpp",
+                label="05cpp",
+                dataset_name="fashion-mnist-100p-noniid-05cpp",
+                instance_cores=4,
+            ),
+            UnitaryVisionTask(
+                name="unitary-06cpp",
+                label="06cpp",
+                dataset_name="fashion-mnist-100p-noniid-06cpp",
+                instance_cores=4,
+            ),
+            UnitaryVisionTask(
+                name="unitary-07cpp",
+                label="07cpp",
+                dataset_name="fashion-mnist-100p-noniid-07cpp",
+                instance_cores=4,
+            ),
+            UnitaryVisionTask(
+                name="unitary-08cpp",
+                label="08cpp",
+                dataset_name="fashion-mnist-100p-noniid-08cpp",
+                instance_cores=4,
+            ),
+            UnitaryVisionTask(
+                name="unitary-09cpp",
+                label="09cpp",
+                dataset_name="fashion-mnist-100p-noniid-09cpp",
+                instance_cores=4,
+            ),
+            UnitaryVisionTask(
+                name="unitary-balanced",
                 label="balanced",
                 dataset_name="fashion-mnist-100p-iid-balanced",
                 instance_cores=4,
