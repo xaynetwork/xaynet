@@ -130,16 +130,16 @@ def plot_fashion_mnist_dist():
         plt.plot(xs, np.array(dist))
     plt.legend(legend, loc="upper left")
 
-    fname_abspath = storage.get_abspath(
-        "plot_fashion_mnist_partition_volume_dist", FLAGS.output_dir
-    )
-    plt.savefig(fname=fname_abspath, format=FORMAT)
+    dname = storage.create_output_subdir("partition_volume_distributions")
+    fname = storage.fname_with_default_dir("plot_fashion_mnist", dname)
+
+    plt.savefig(fname=fname, format=FORMAT)
 
     # FIXME: Matplotlib is currently using agg, which is a non-GUI
     #        backend, so cannot show the figure.
     # plt.show()
 
-    return fname_abspath
+    return fname
 
 
 def main():
