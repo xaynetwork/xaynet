@@ -24,7 +24,7 @@ def benchmark_evolutionary_avg():
     # Run Federated Learning with evolutionary aggregation
     evaluator = Evaluator(orig_cnn_compiled(), xy_val)  # FIXME refactor
     aggregator = EvoAgg(evaluator)
-    _, _, _, loss_a, acc_a = run.federated_training(
+    _, _, _, _, loss_a, acc_a = run.federated_training(
         "blog_cnn",
         xy_parts,
         xy_val,
@@ -37,7 +37,7 @@ def benchmark_evolutionary_avg():
     )
 
     # Run Federated Learning with weighted average aggregation
-    _, _, _, loss_b, acc_b = run.federated_training(
+    _, _, _, _, loss_b, acc_b = run.federated_training(
         "blog_cnn",
         xy_parts,
         xy_val,
