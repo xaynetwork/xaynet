@@ -5,8 +5,8 @@ set -e
 export RUSTFLAGS="-D warnings"
 export CARGO_INCREMENTAL=0
 
-cd controller
+cd rust
 cargo test
 
 rustup component add rustfmt
-cargo fmt -- --check
+cargo fmt --all -- --check
