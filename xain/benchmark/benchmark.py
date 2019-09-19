@@ -38,7 +38,7 @@ benchmarks: Dict[str, Benchmark] = {
                 name="federated",
                 dataset_name="fashion-mnist-100p-iid-balanced",
                 instance_cores=16,
-                
+                timeout=120,
             ),
         ],
         aggregation_name="flul-aggregation",
@@ -161,70 +161,70 @@ benchmarks: Dict[str, Benchmark] = {
                 label="01cpp",
                 dataset_name="fashion-mnist-100p-noniid-01cpp",
                 instance_cores=16,
-                
+                timeout=180,
             ),
             VisionTask(
                 name="federated-02cpp",
                 label="02cpp",
                 dataset_name="fashion-mnist-100p-noniid-02cpp",
                 instance_cores=16,
-                
+                timeout=180,
             ),
             VisionTask(
                 name="federated-03cpp",
                 label="03cpp",
                 dataset_name="fashion-mnist-100p-noniid-03cpp",
                 instance_cores=16,
-                
+                timeout=180,
             ),
             VisionTask(
                 name="federated-04cpp",
                 label="04cpp",
                 dataset_name="fashion-mnist-100p-noniid-04cpp",
                 instance_cores=16,
-                
+                timeout=180,
             ),
             VisionTask(
                 name="federated-05cpp",
                 label="05cpp",
                 dataset_name="fashion-mnist-100p-noniid-05cpp",
                 instance_cores=16,
-                
+                timeout=180,
             ),
             VisionTask(
                 name="federated-06cpp",
                 label="06cpp",
                 dataset_name="fashion-mnist-100p-noniid-06cpp",
                 instance_cores=16,
-                
+                timeout=180,
             ),
             VisionTask(
                 name="federated-07cpp",
                 label="07cpp",
                 dataset_name="fashion-mnist-100p-noniid-07cpp",
                 instance_cores=16,
-                
+                timeout=180,
             ),
             VisionTask(
                 name="federated-08cpp",
                 label="08cpp",
                 dataset_name="fashion-mnist-100p-noniid-08cpp",
                 instance_cores=16,
-                
+                timeout=180,
             ),
             VisionTask(
                 name="federated-09cpp",
                 label="09cpp",
                 dataset_name="fashion-mnist-100p-noniid-09cpp",
                 instance_cores=16,
-                
+                timeout=180,
             ),
             VisionTask(
                 name="federated-balanced",
                 label="balanced",
                 dataset_name="fashion-mnist-100p-iid-balanced",
                 instance_cores=16,
-                
+                timeout=180,
             ),
             UnitaryVisionTask(
                 name="unitary-01cpp",
@@ -301,70 +301,70 @@ benchmarks: Dict[str, Benchmark] = {
                 dataset_name="fashion-mnist-100p-b1_000",
                 B=16,
                 instance_cores=16,
-                
+                timeout=180
             ),
             VisionTask(
                 name="b1_005",
                 dataset_name="fashion-mnist-100p-b1_005",
                 B=16,
                 instance_cores=16,
-                
+                timeout=180
             ),
             VisionTask(
                 name="b1_010",
                 dataset_name="fashion-mnist-100p-b1_010",
                 B=16,
                 instance_cores=16,
-                
+                timeout=180
             ),
             VisionTask(
                 name="b1_015",
                 dataset_name="fashion-mnist-100p-b1_015",
                 B=16,
                 instance_cores=16,
-                
+                timeout=180
             ),
             VisionTask(
                 name="b1_020",
                 dataset_name="fashion-mnist-100p-b1_020",
                 B=16,
                 instance_cores=16,
-                
+                timeout=180
             ),
             VisionTask(
                 name="b1_025",
                 dataset_name="fashion-mnist-100p-b1_025",
                 B=16,
                 instance_cores=16,
-                
+                timeout=180
             ),
             VisionTask(
                 name="b1_030",
                 dataset_name="fashion-mnist-100p-b1_030",
                 B=16,
                 instance_cores=16,
-                
+                timeout=180
             ),
             VisionTask(
                 name="b1_035",
                 dataset_name="fashion-mnist-100p-b1_035",
                 B=16,
                 instance_cores=16,
-                
+                timeout=180
             ),
             VisionTask(
                 name="b1_040",
                 dataset_name="fashion-mnist-100p-b1_040",
                 B=16,
                 instance_cores=16,
-                
+                timeout=180
             ),
             VisionTask(
                 name="b1_045",
                 dataset_name="fashion-mnist-100p-b1_045",
                 B=16,
                 instance_cores=16,
-                
+                timeout=180
             ),
         ],
         aggregation_name="vol-aggregation",
@@ -377,6 +377,7 @@ benchmarks: Dict[str, Benchmark] = {
                 model_name="resnet20",
                 B=16,
                 instance_cores=32,
+                timeout=180
             ),
             VisionTask(
                 name="b1_005",
@@ -384,6 +385,7 @@ benchmarks: Dict[str, Benchmark] = {
                 model_name="resnet20",
                 B=16,
                 instance_cores=32,
+                timeout=180
             ),
             VisionTask(
                 name="b1_010",
@@ -391,6 +393,7 @@ benchmarks: Dict[str, Benchmark] = {
                 model_name="resnet20",
                 B=16,
                 instance_cores=32,
+                timeout=180
             ),
             VisionTask(
                 name="b1_015",
@@ -398,6 +401,7 @@ benchmarks: Dict[str, Benchmark] = {
                 model_name="resnet20",
                 B=16,
                 instance_cores=32,
+                timeout=180
             ),
             VisionTask(
                 name="b1_020",
@@ -405,6 +409,7 @@ benchmarks: Dict[str, Benchmark] = {
                 model_name="resnet20",
                 B=16,
                 instance_cores=32,
+                timeout=180
             ),
             VisionTask(
                 name="b1_025",
@@ -412,6 +417,7 @@ benchmarks: Dict[str, Benchmark] = {
                 model_name="resnet20",
                 B=16,
                 instance_cores=32,
+                timeout=180
             ),
             VisionTask(
                 name="b1_030",
@@ -419,6 +425,7 @@ benchmarks: Dict[str, Benchmark] = {
                 model_name="resnet20",
                 B=16,
                 instance_cores=32,
+                timeout=180
             ),
             VisionTask(
                 name="b1_035",
@@ -426,6 +433,7 @@ benchmarks: Dict[str, Benchmark] = {
                 model_name="resnet20",
                 B=16,
                 instance_cores=32,
+                timeout=180
             ),
             VisionTask(
                 name="b1_040",
@@ -433,6 +441,7 @@ benchmarks: Dict[str, Benchmark] = {
                 model_name="resnet20",
                 B=16,
                 instance_cores=32,
+                timeout=180
             ),
             VisionTask(
                 name="b1_045",
@@ -440,6 +449,7 @@ benchmarks: Dict[str, Benchmark] = {
                 model_name="resnet20",
                 B=16,
                 instance_cores=32,
+                timeout=180
             ),
         ],
         aggregation_name="vol-aggregation",
@@ -457,7 +467,7 @@ benchmarks: Dict[str, Benchmark] = {
                 R=256,
                 E=1,
                 instance_cores=16,
-                
+                timeout=180,
             ),
             VisionTask(
                 name="R128_E2",
@@ -465,7 +475,7 @@ benchmarks: Dict[str, Benchmark] = {
                 R=128,
                 E=2,
                 instance_cores=16,
-                
+                timeout=120,
             ),
             VisionTask(
                 name="R64_E4",
