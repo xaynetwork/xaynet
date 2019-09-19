@@ -43,7 +43,7 @@ def plot(
 
     # if fname is an absolute path use fname directly otherwise assume
     # fname is filename and prepend output_dir
-    fname_abspath = storage.get_abspath(fname, FLAGS.output_dir)
+    fname_abspath = storage.fname_with_default_dir(fname, FLAGS.output_dir)
 
     plt.figure()
     plt.ylim(0.0, ylim_max)
