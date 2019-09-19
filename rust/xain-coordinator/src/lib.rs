@@ -1,6 +1,7 @@
 mod aggregation;
 
-type ModelParams = ndarray::ArrayD<f64>;
+type Tensor = ndarray::ArrayD<f64>;
+type Model = Vec<Tensor>;
 
 #[cfg(test)]
 mod tests {
