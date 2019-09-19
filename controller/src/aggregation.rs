@@ -1,5 +1,3 @@
-use ndarray::prelude::*;
-
 use crate::ModelParams;
 
 #[allow(unused)]
