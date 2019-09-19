@@ -50,15 +50,6 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
-name = "controller"
-version = "0.1.0"
-dependencies = [
- "async-std 0.99.5 (registry+https://github.com/rust-lang/crates.io-index)",
- "ndarray 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "ndarray-npy 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
 name = "crossbeam-channel"
 version = "0.3.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -408,6 +399,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "winapi 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "winapi-build 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "xain-coordinator"
+version = "0.1.0"
+dependencies = [
+ "async-std 0.99.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ndarray 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ndarray-npy 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [metadata]
