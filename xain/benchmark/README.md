@@ -77,7 +77,13 @@ $ plot_final_task_accuracies --group_name=GROUP_NAME
 
 ## Removing obsolete plots
 
-To remove **all** plots from S3:
+To remove a **single** benchmark result from S3:
+
+```shell
+aws s3 rm --recursive s3://xain-results/[group-name]
+```
+
+To remove **all** benchmark results from S3:
 
 ```shell
 aws s3 rm --recursive s3://xain-results
