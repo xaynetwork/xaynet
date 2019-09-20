@@ -69,10 +69,10 @@ class Participants:
         """
 
         with self._lock:
-            if len(self.participants) > 0:
+            if self.participants:
                 return min([p.heartbeat_expires for p in self.participants.values()])
-            else:
-                return time.time() + HEARTBEAT_TIME + HEARTBEAT_TIMEOUT
+
+        return time.time() + HEARTBEAT_TIME + HEARTBEAT_TIMEOUT
 
     def len(self):
         """Get the number of participants.
