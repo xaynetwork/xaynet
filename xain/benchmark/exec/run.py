@@ -1,6 +1,6 @@
 import random
 import time
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import tensorflow as tf
@@ -75,7 +75,14 @@ def federated_training(
     C: float,
     B: int,
     aggregator: Aggregator = None,
-) -> Tuple[KerasHistory, List[List[KerasHistory]], List[List[Metrics]], float, float]:
+) -> Tuple[
+    KerasHistory,
+    List[List[KerasHistory]],
+    List[List[Dict]],
+    List[List[Metrics]],
+    float,
+    float,
+]:
     # Initialize participants and coordinator
     # Note that there is no need for common initialization at this point: Common
     # initialization will happen during the first few rounds because the coordinator will
@@ -106,13 +113,13 @@ def federated_training(
     )
 
     # Train model
-    hist_co, hist_ps, hist_metrics = coordinator.fit(num_rounds=R)
+    hist_co, hist_ps, hist_opt_configs, hist_metrics = coordinator.fit(num_rounds=R)
 
     # Evaluate final performance
     loss, acc = coordinator.evaluate(xy_test)
 
     # Report results
-    return hist_co, hist_ps, hist_metrics, loss, acc
+    return hist_co, hist_ps, hist_opt_configs, hist_metrics, loss, acc
 
 
 # FIXME remove
@@ -144,7 +151,7 @@ def unitary_versus_federated(
 
     # Train CNN using federated learning on all partitions
     logging.info("Run federated learning using all partitions")
-    fl_hist, _, _, fl_loss, fl_acc = federated_training(
+    fl_hist, _, _, _, fl_loss, fl_acc = federated_training(
         model_name, xy_train_partitions, xy_val, xy_test, R=R, E=E, C=C, B=B
     )
 

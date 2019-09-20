@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Dict, Tuple
 
 import numpy as np
 import tensorflow as tf
@@ -38,7 +38,7 @@ class Participant:
 
     def train_round(
         self, theta: KerasWeights, epochs: int, epoch_base: int
-    ) -> Tuple[Tuple[KerasWeights, int], KerasHistory]:
+    ) -> Tuple[Tuple[KerasWeights, int], KerasHistory, Dict]:
         logging.info(
             f"Participant {self.cid}: train_round START (epoch_base: {epoch_base})"
         )
@@ -46,8 +46,10 @@ class Participant:
         model.set_weights(theta)
         hist: KerasHistory = self.fit(model, epochs)
         theta_prime = model.get_weights()
+        opt_config = model.optimizer.get_config()
+        opt_config = convert_numpy_types(opt_config)
         logging.info("Participant {}: train_round FINISH".format(self.cid))
-        return (theta_prime, self.num_examples), hist
+        return (theta_prime, self.num_examples), hist, opt_config
 
     def fit(self, model: tf.keras.Model, epochs: int) -> KerasHistory:
         ds_train = prep.init_ds_train(self.xy_train, self.num_classes, self.batch_size)
@@ -99,6 +101,13 @@ def cast_to_float(hist) -> KerasHistory:
         for index, number in enumerate(hist[key]):
             hist[key][index] = float(number)
     return hist
+
+
+def convert_numpy_types(opt_config: Dict) -> Dict:
+    for key in opt_config:
+        if isinstance(opt_config[key], np.float32):
+            opt_config[key] = opt_config[key].item()
+    return opt_config
 
 
 class LoggingCallback(tf.keras.callbacks.Callback):

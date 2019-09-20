@@ -29,8 +29,19 @@ def listdir_recursive(dname: str, relpath=True):
     return files
 
 
-def get_abspath(fname: str, dname: str = None) -> str:
+def create_output_subdir(dname: str) -> str:
+    if os.path.isabs(dname):
+        raise Exception("Please provide a relative directory name")
 
+    dname = os.path.join(FLAGS.output_dir, dname)
+
+    os.makedirs(dname, exist_ok=True)
+
+    return dname
+
+
+def fname_with_default_dir(fname: str, dname: str = None) -> str:
+    """Returns fname if its a absolute path otherwise joins it with dname"""
     if os.path.isabs(fname):
         return fname
 
@@ -41,12 +52,12 @@ def get_abspath(fname: str, dname: str = None) -> str:
 
 
 def write_json(results: Dict, fname: str):
-    fname = get_abspath(fname, FLAGS.output_dir)
+    fname = fname_with_default_dir(fname, FLAGS.output_dir)
     with open(fname, "w") as outfile:
         json.dump(results, outfile, indent=2, sort_keys=True)
 
 
 def read_json(fname: str):
-    fname = get_abspath(fname, FLAGS.output_dir)
+    fname = fname_with_default_dir(fname, FLAGS.output_dir)
     with open(fname, "r") as outfile:
         return json.loads(outfile.read())

@@ -1,3 +1,8 @@
+mod aggregation;
+
+type Tensor = ndarray::ArrayD<f64>;
+type Model = Vec<Tensor>;
+
 #[cfg(test)]
 mod tests {
     use std::{fs, path::PathBuf};

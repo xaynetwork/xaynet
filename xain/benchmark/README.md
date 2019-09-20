@@ -49,9 +49,9 @@ Then:
 1. List all running EC2 instances:
 
 ```shell
-$ AWS_PROFILE=xain-xain aws ec2 describe-instances  --filters Name=instance-state-code,Values=16 | jq '.Reservations[].Instances[].PublicIpAddress'
-"35.158.158.119"
-"18.185.67.166"
+$ AWS_PROFILE=xain-xain aws ec2 describe-instances  --filters Name=instance-state-code,Values=16 | jq '.Reservations[].Instances[] | "\(.Tags[].Value), \(.PublicIpAddress)"'
+InstanceName1, "35.158.158.119"
+OtherInstanceName2, "18.185.67.166"
 ```
 
 2. Connect to one of the running instances using ssh:
