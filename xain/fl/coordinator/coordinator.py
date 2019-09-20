@@ -9,7 +9,7 @@ from numpy import ndarray
 from xain.datasets import prep
 from xain.fl.logging.logging import create_summary_writer, write_summaries
 from xain.fl.participant import ModelProvider, Participant
-from xain.types import KerasHistory, Metrics, Theta
+from xain.types import History, Metrics, Theta
 
 from .aggregate import Aggregator, FederatedAveragingAgg
 
@@ -43,13 +43,11 @@ class Coordinator:
     # initialization.
     def fit(
         self, num_rounds: int
-    ) -> Tuple[
-        KerasHistory, List[List[KerasHistory]], List[List[Dict]], List[List[Metrics]]
-    ]:
+    ) -> Tuple[History, List[List[History]], List[List[Dict]], List[List[Metrics]]]:
         # Initialize history; history coordinator
-        hist_co: KerasHistory = {"val_loss": [], "val_acc": []}
+        hist_co: History = {"val_loss": [], "val_acc": []}
         # Train rounds; training history of selected participants
-        hist_ps: List[List[KerasHistory]] = []
+        hist_ps: List[List[History]] = []
         # History of optimizer configs in each round
         hist_opt_configs: List[List[Dict]] = []
         # History of participant metrics in each round
@@ -100,7 +98,7 @@ the console and open "localhost:6006" in a browser'.format(
 
     def fit_round(
         self, indices: List[int], E: int
-    ) -> Tuple[List[KerasHistory], List[Dict], List[Metrics]]:
+    ) -> Tuple[List[History], List[Dict], List[Metrics]]:
         theta = self.model.get_weights()
         participants = [self.participants[i] for i in indices]
         # Collect training results from the participants of this round
@@ -116,10 +114,10 @@ the console and open "localhost:6006" in a browser'.format(
 
     def train_local_sequentially(
         self, theta: Theta, participants: List[Participant], E: int
-    ) -> Tuple[List[Tuple[Theta, int]], List[KerasHistory], List[Dict], List[Metrics]]:
+    ) -> Tuple[List[Tuple[Theta, int]], List[History], List[Dict], List[Metrics]]:
         """Train on each participant sequentially"""
         theta_updates: List[Tuple[Theta, int]] = []
-        histories: List[KerasHistory] = []
+        histories: List[History] = []
         opt_configs: List[Dict] = []
         train_metrics: List[Metrics] = []
         for participant in participants:
@@ -139,10 +137,10 @@ the console and open "localhost:6006" in a browser'.format(
 
     def train_local_concurrently(
         self, theta: Theta, participants: List[Participant], E: int
-    ) -> Tuple[List[Tuple[Theta, int]], List[KerasHistory], List[Dict], List[Metrics]]:
+    ) -> Tuple[List[Tuple[Theta, int]], List[History], List[Dict], List[Metrics]]:
         """Train on each participant concurrently"""
         theta_updates: List[Tuple[Theta, int]] = []
-        histories: List[KerasHistory] = []
+        histories: List[History] = []
         opt_configs: List[Dict] = []
         train_metrics: List[Metrics] = []
         # Wait for all futures to complete
@@ -173,7 +171,7 @@ the console and open "localhost:6006" in a browser'.format(
 
 def train_local(
     p: Participant, theta: Theta, epochs: int, epoch_base: int
-) -> Tuple[Tuple[Theta, int], KerasHistory, Dict, Metrics]:
+) -> Tuple[Tuple[Theta, int], History, Dict, Metrics]:
     theta_update, history, opt_config = p.train_round(
         theta, epochs=epochs, epoch_base=epoch_base
     )

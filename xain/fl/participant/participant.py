@@ -5,7 +5,7 @@ import tensorflow as tf
 from absl import logging
 
 from xain.datasets import prep
-from xain.types import KerasHistory, Metrics, Theta, VolumeByClass
+from xain.types import History, Metrics, Theta, VolumeByClass
 
 from .model_provider import ModelProvider
 
@@ -40,7 +40,7 @@ class Participant:
 
     def train_round(
         self, theta: Theta, epochs: int, epoch_base: int
-    ) -> Tuple[Tuple[Theta, int], KerasHistory, Dict]:
+    ) -> Tuple[Tuple[Theta, int], History, Dict]:
         logging.info(
             f"Participant {self.cid}: train_round START (epoch_base: {epoch_base})"
         )
@@ -53,14 +53,14 @@ class Participant:
             callback_lr = tf.keras.callbacks.LearningRateScheduler(lr_fn)
             callbacks = [callback_lr]
 
-        hist: KerasHistory = self.fit(model, epochs, callbacks)
+        hist: History = self.fit(model, epochs, callbacks)
         theta_prime = model.get_weights()
         opt_config = model.optimizer.get_config()
         opt_config = convert_numpy_types(opt_config)
         logging.info("Participant {}: train_round FINISH".format(self.cid))
         return (theta_prime, self.num_examples), hist, opt_config
 
-    def fit(self, model: tf.keras.Model, epochs: int, callbacks: List) -> KerasHistory:
+    def fit(self, model: tf.keras.Model, epochs: int, callbacks: List) -> History:
         ds_train = prep.init_ds_train(self.xy_train, self.num_classes, self.batch_size)
         ds_val = prep.init_ds_val(self.xy_val, self.num_classes)
 
@@ -108,7 +108,7 @@ def xy_train_volume_by_class(num_classes: int, xy_train) -> VolumeByClass:
     return counts
 
 
-def cast_to_float(hist) -> KerasHistory:
+def cast_to_float(hist) -> History:
     for key in hist:
         for index, number in enumerate(hist[key]):
             hist[key][index] = float(number)
