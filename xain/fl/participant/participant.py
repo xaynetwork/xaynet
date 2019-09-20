@@ -1,4 +1,4 @@
-from typing import Dict, Tuple
+from typing import Dict, List, Tuple
 
 import numpy as np
 import tensorflow as tf
@@ -21,6 +21,7 @@ class Participant:
         xy_val: Tuple[np.ndarray, np.ndarray],
         num_classes: int,
         batch_size: int,
+        use_lr_fn: bool = True,
     ) -> None:
         assert xy_train[0].shape[0] == xy_train[1].shape[0]
         assert xy_val[0].shape[0] == xy_val[1].shape[0]
@@ -28,6 +29,7 @@ class Participant:
         self.model_provider = model_provider
         self.num_classes: int = num_classes
         self.batch_size: int = batch_size
+        self.use_lr_fn: bool = use_lr_fn
         self.num_examples = xy_train[0].shape[0]
         # Training set
         self.xy_train = xy_train
@@ -44,22 +46,32 @@ class Participant:
         )
         model = self.model_provider.init_model(epoch_base=epoch_base)  # type:ignore
         model.set_weights(theta)
-        hist: KerasHistory = self.fit(model, epochs)
+
+        callbacks: List = []
+        if self.use_lr_fn:
+            lr_fn = self.model_provider.init_lr_fn(epoch_base=epoch_base)  # type:ignore
+            callback_lr = tf.keras.callbacks.LearningRateScheduler(lr_fn)
+            callbacks = [callback_lr]
+
+        hist: KerasHistory = self.fit(model, epochs, callbacks)
         theta_prime = model.get_weights()
         opt_config = model.optimizer.get_config()
         opt_config = convert_numpy_types(opt_config)
         logging.info("Participant {}: train_round FINISH".format(self.cid))
         return (theta_prime, self.num_examples), hist, opt_config
 
-    def fit(self, model: tf.keras.Model, epochs: int) -> KerasHistory:
+    def fit(self, model: tf.keras.Model, epochs: int, callbacks: List) -> KerasHistory:
         ds_train = prep.init_ds_train(self.xy_train, self.num_classes, self.batch_size)
         ds_val = prep.init_ds_val(self.xy_val, self.num_classes)
+
+        callback_logging = LoggingCallback(str(self.cid), logging.info)
+        callbacks.append(callback_logging)
 
         hist = model.fit(
             ds_train,
             epochs=epochs,
             validation_data=ds_val,
-            callbacks=[LoggingCallback(str(self.cid), logging.info)],
+            callbacks=callbacks,
             shuffle=False,  # Shuffling is handled via tf.data.Dataset
             steps_per_epoch=self.steps_train,
             validation_steps=self.steps_val,

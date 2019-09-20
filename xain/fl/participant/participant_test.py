@@ -35,7 +35,7 @@ def test_Participant_num_examples():
     # Prepare
     num_examples_expected = 19
     num_classes = 10
-    model_provider = ModelProvider(model_fns["blog_cnn"])
+    model_provider = ModelProvider(model_fns["blog_cnn"], lr_fn_fn=None)
     x = np.random.randint(
         0, high=256, size=(num_examples_expected, 28, 28, 1), dtype=np.uint8
     )
@@ -43,7 +43,13 @@ def test_Participant_num_examples():
         0, high=num_classes, size=(num_examples_expected), dtype=np.uint8
     )
     participant = Participant(
-        0, model_provider, (x, y), (x, y), num_classes=num_classes, batch_size=16
+        0,
+        model_provider,
+        (x, y),
+        (x, y),
+        num_classes=num_classes,
+        batch_size=16,
+        use_lr_fn=False,
     )
     weights = model_provider.init_model().get_weights()
 
