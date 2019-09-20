@@ -7,7 +7,7 @@ import tensorflow as tf
 from absl import logging
 
 from xain.benchmark.aggregation import task_accuracies
-from xain.benchmark.net import load_model_fn
+from xain.benchmark.net import load_lr_fn_fn, load_model_fn
 from xain.datasets import load_splits
 from xain.fl.coordinator import Coordinator, RandomController
 from xain.fl.coordinator.aggregate import Aggregator
@@ -38,7 +38,8 @@ def unitary_training(
 ) -> Tuple[KerasHistory, float, float]:
 
     model_fn = load_model_fn(model_name)
-    model_provider = ModelProvider(model_fn=model_fn)
+    lr_fn_fn = load_lr_fn_fn(model_name)
+    model_provider = ModelProvider(model_fn=model_fn, lr_fn_fn=lr_fn_fn)
 
     # Initialize model and participant
     cid = 0
@@ -54,7 +55,7 @@ def unitary_training(
     theta = model.get_weights()
 
     # Train model
-    hist = participant.fit(model, E)
+    hist = participant.fit(model, E, [])
 
     # Evaluate final performance
     theta = model.get_weights()
@@ -89,7 +90,8 @@ def federated_training(
     # push its own weight to the respective participants of each training round.
 
     model_fn = load_model_fn(model_name)
-    model_provider = ModelProvider(model_fn=model_fn)
+    lr_fn_fn = load_lr_fn_fn(model_name)
+    model_provider = ModelProvider(model_fn=model_fn, lr_fn_fn=lr_fn_fn)
 
     # Init participants
     participants = []

@@ -2,7 +2,7 @@
 # pylint: skip-file
 
 import math
-from typing import Optional, Tuple
+from typing import Callable, Optional, Tuple
 
 import tensorflow as tf
 import tensorflow.keras as keras
@@ -19,29 +19,41 @@ from tensorflow.keras.layers import (
 from tensorflow.keras.models import Model
 from tensorflow.keras.regularizers import l2
 
+from . import lr_schedule
+
 L2_DEFAULT: float = 1e-4
 KERNEL_INITIALIZER_DEFAULT = "he_normal"
+
+DEFAULT_LR = 0.01
+DEFAULT_K = 0.025
 
 
 def resnet20v2_compiled(
     input_shape=(32, 32, 3),  # CIFAR
     num_classes=10,
-    lr_initial: float = 0.1,
+    lr_initial: float = DEFAULT_LR,
+    k: float = DEFAULT_K,
     momentum: float = 0.9,
-    k: float = 0.15,
     epoch_base: int = 0,
 ) -> tf.keras.Model:
     model, _ = resnet(input_shape=(32, 32, 3), num_classes=10, version=2, n=2)
 
-    def exp_decay(epoch_optimizer: int) -> float:
-        epoch = epoch_base + epoch_optimizer
-        return lr_initial * math.exp(-k * epoch)
+    # Compile model with exponential learning rate decay
+    lr_fn = resnet20v2_lr_fn(epoch_base=epoch_base)
+    optimizer = tf.keras.optimizers.SGD(lr=lr_fn(0), momentum=momentum)
 
-    optimizer = tf.keras.optimizers.SGD(lr=exp_decay(0), momentum=momentum)
     model.compile(
-        optimizer=optimizer, loss="categorical_crossentropy", metrics=["accuracy"]
+        optimizer=optimizer,
+        loss=tf.keras.losses.categorical_crossentropy,
+        metrics=["accuracy"],
     )
     return model
+
+
+def resnet20v2_lr_fn(
+    epoch_base: int, lr_initial: float = DEFAULT_LR, k: float = DEFAULT_K
+) -> Callable:
+    return lr_schedule.exp_decay_fn(epoch_base=epoch_base, lr_initial=lr_initial, k=k)
 
 
 def resnet(
