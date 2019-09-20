@@ -17,6 +17,10 @@ from xain.grpc import (
 from xain.grpc.coordinator import Coordinator, Participants, monitor_heartbeats
 from xain.grpc.participant import heartbeat
 
+# Some grpc tests fail on macos.
+# `pytestmark` when defined on a module will mark all tests in that module.
+# For more information check
+# http://doc.pytest.org/en/latest/skipping.html#skip-all-test-functions-of-a-class-or-module
 if sys.platform == "darwin":
     pytestmark = pytest.mark.xfail(reason="some grpc tests fail on macos")
 
