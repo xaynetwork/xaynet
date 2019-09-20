@@ -1,3 +1,4 @@
+import sys
 import threading
 from concurrent import futures
 from unittest import mock
@@ -16,6 +17,8 @@ from xain.grpc import (
 from xain.grpc.coordinator import Coordinator, Participants, monitor_heartbeats
 from xain.grpc.participant import heartbeat
 
+if sys.platform == "darwin":
+    pytestmark = pytest.mark.xfail(reason="some grpc tests fail on macos")
 
 # pylint: disable=W0613,W0621
 @pytest.mark.integration
@@ -53,7 +56,6 @@ def mocked_init(self, participants, required_participants=10):
 
 
 # TODO: Fix test so it also runs correctly on macos
-@pytest.mark.xfail
 @pytest.mark.integration
 @mock.patch("xain.grpc.coordinator.Coordinator.__init__", new=mocked_init)
 def test_participant_rendezvous_later(participant_stub):
