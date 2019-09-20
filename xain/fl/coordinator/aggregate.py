@@ -4,7 +4,7 @@ from typing import List, Tuple
 import numpy as np
 from absl import logging
 
-from xain.types import KerasWeights
+from xain.types import Theta
 
 from .evaluator import Evaluator
 
@@ -13,18 +13,18 @@ class Aggregator(ABC):
     def __init__(self):
         pass
 
-    def aggregate(self, thetas: List[Tuple[KerasWeights, int]]) -> KerasWeights:
+    def aggregate(self, thetas: List[Tuple[Theta, int]]) -> Theta:
         raise NotImplementedError()
 
 
 class IdentityAgg(Aggregator):
-    def aggregate(self, thetas: List[Tuple[KerasWeights, int]]) -> KerasWeights:
+    def aggregate(self, thetas: List[Tuple[Theta, int]]) -> Theta:
         assert len(thetas) == 1
         return thetas[0][0]
 
 
 class FederatedAveragingAgg(Aggregator):
-    def aggregate(self, thetas: List[Tuple[KerasWeights, int]]) -> KerasWeights:
+    def aggregate(self, thetas: List[Tuple[Theta, int]]) -> Theta:
         theta_list = [theta for theta, _ in thetas]
         weighting = np.array([num_examples for _, num_examples in thetas])
         return federated_averaging(theta_list, weighting)
@@ -35,18 +35,16 @@ class EvoAgg(Aggregator):
         super().__init__()
         self.evaluator = evaluator
 
-    def aggregate(self, thetas: List[Tuple[KerasWeights, int]]) -> KerasWeights:
+    def aggregate(self, thetas: List[Tuple[Theta, int]]) -> Theta:
         weight_matrices = [theta for theta, num_examples in thetas]
         return evo_agg(weight_matrices, self.evaluator, False)
 
 
-def federated_averaging(
-    thetas: List[KerasWeights], weighting: np.ndarray
-) -> KerasWeights:
+def federated_averaging(thetas: List[Theta], weighting: np.ndarray) -> Theta:
     assert weighting.ndim == 1
     assert len(thetas) == weighting.shape[0]
 
-    theta_avg: KerasWeights = thetas[0]
+    theta_avg: Theta = thetas[0]
     for w in theta_avg:
         w *= weighting[0]
 
@@ -62,9 +60,7 @@ def federated_averaging(
     return theta_avg
 
 
-def evo_agg(
-    thetas: List[KerasWeights], evaluator: Evaluator, verbose=False
-) -> KerasWeights:
+def evo_agg(thetas: List[Theta], evaluator: Evaluator, verbose=False) -> Theta:
     """
     - Init different weightings
     - Aggregate thetas according to those weightings ("candidates")
@@ -88,7 +84,7 @@ def evo_agg(
     return best_candidate
 
 
-def pick_best_candidate(candidates: List) -> KerasWeights:
+def pick_best_candidate(candidates: List) -> Theta:
     _, best_candidate, best_loss, _ = candidates[0]
     for _, candidate, loss, _ in candidates[1:]:
         if loss < best_loss:
@@ -98,8 +94,8 @@ def pick_best_candidate(candidates: List) -> KerasWeights:
 
 
 def compute_candidate(
-    thetas: KerasWeights, evaluator: Evaluator
-) -> Tuple[np.ndarray, KerasWeights, float, float]:
+    thetas: Theta, evaluator: Evaluator
+) -> Tuple[np.ndarray, Theta, float, float]:
     weighting = random_weighting(len(thetas))
     theta_prime_candidate = federated_averaging(thetas, weighting)
     loss, acc = evaluator.evaluate(theta_prime_candidate)

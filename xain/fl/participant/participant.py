@@ -5,7 +5,7 @@ import tensorflow as tf
 from absl import logging
 
 from xain.datasets import prep
-from xain.types import KerasHistory, KerasWeights, Metrics, VolumeByClass
+from xain.types import KerasHistory, Metrics, Theta, VolumeByClass
 
 from .model_provider import ModelProvider
 
@@ -39,8 +39,8 @@ class Participant:
         self.steps_val: int = 1
 
     def train_round(
-        self, theta: KerasWeights, epochs: int, epoch_base: int
-    ) -> Tuple[Tuple[KerasWeights, int], KerasHistory, Dict]:
+        self, theta: Theta, epochs: int, epoch_base: int
+    ) -> Tuple[Tuple[Theta, int], KerasHistory, Dict]:
         logging.info(
             f"Participant {self.cid}: train_round START (epoch_base: {epoch_base})"
         )
@@ -80,7 +80,7 @@ class Participant:
         return cast_to_float(hist.history)
 
     def evaluate(
-        self, theta: KerasWeights, xy_test: Tuple[np.ndarray, np.ndarray]
+        self, theta: Theta, xy_test: Tuple[np.ndarray, np.ndarray]
     ) -> Tuple[float, float]:
         model = self.model_provider.init_model()
         model.set_weights(theta)
