@@ -4,12 +4,11 @@ from typing import Callable, Dict, List, Optional, Tuple
 
 import tensorflow as tf
 from absl import flags, logging
-from numpy import ndarray
 
 from xain.datasets import prep
 from xain.fl.logging.logging import create_summary_writer, write_summaries
 from xain.fl.participant import ModelProvider, Participant
-from xain.types import History, Metrics, Theta
+from xain.types import FederatedDatasetPartition, History, Metrics, Theta
 
 from .aggregate import Aggregator, FederatedAveragingAgg
 
@@ -26,7 +25,7 @@ class Coordinator:
         participants: List[Participant],
         C: float,
         E: int,
-        xy_val: Tuple[ndarray, ndarray],
+        xy_val: FederatedDatasetPartition,
         aggregator: Optional[Aggregator] = None,
     ) -> None:
         self.controller = controller
@@ -158,7 +157,7 @@ the console and open "localhost:6006" in a browser'.format(
                 train_metrics.append(metrics)
         return theta_updates, histories, opt_configs, train_metrics
 
-    def evaluate(self, xy_val: Tuple[ndarray, ndarray]) -> Tuple[float, float]:
+    def evaluate(self, xy_val: FederatedDatasetPartition) -> Tuple[float, float]:
         ds_val = prep.init_ds_val(xy_val)
         # Assume the validation `tf.data.Dataset` to yield exactly one batch containing
         # all examples in the validation set
@@ -184,7 +183,7 @@ def abs_C(C: float, num_participants: int) -> int:
 
 
 def create_evalueate_fn(
-    orig_model: tf.keras.Model, xy_val: Tuple[ndarray, ndarray]
+    orig_model: tf.keras.Model, xy_val: FederatedDatasetPartition
 ) -> Callable[[Theta], Tuple[float, float]]:
     ds_val = prep.init_ds_val(xy_val)
     model = tf.keras.models.clone_model(orig_model)

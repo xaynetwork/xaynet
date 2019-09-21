@@ -1,15 +1,14 @@
 from typing import Tuple
 
-import numpy as np
 import tensorflow as tf
 
 from xain.datasets import prep
-from xain.types import Theta
+from xain.types import FederatedDatasetPartition, Theta
 
 
 class Evaluator:
     def __init__(
-        self, model: tf.keras.Model, xy_val: Tuple[np.ndarray, np.ndarray]
+        self, model: tf.keras.Model, xy_val: FederatedDatasetPartition
     ) -> None:
         self.model = model
         self.ds_val = prep.init_ds_val(xy_val)

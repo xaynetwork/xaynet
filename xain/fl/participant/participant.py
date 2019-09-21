@@ -5,7 +5,7 @@ import tensorflow as tf
 from absl import logging
 
 from xain.datasets import prep
-from xain.types import History, Metrics, Theta, VolumeByClass
+from xain.types import FederatedDatasetPartition, History, Metrics, Theta, VolumeByClass
 
 from .model_provider import ModelProvider
 
@@ -17,8 +17,8 @@ class Participant:
         self,
         cid: int,
         model_provider: ModelProvider,
-        xy_train: Tuple[np.ndarray, np.ndarray],
-        xy_val: Tuple[np.ndarray, np.ndarray],
+        xy_train: FederatedDatasetPartition,
+        xy_val: FederatedDatasetPartition,
         num_classes: int,
         batch_size: int,
         use_lr_fn: bool = True,
@@ -80,7 +80,7 @@ class Participant:
         return cast_to_float(hist.history)
 
     def evaluate(
-        self, theta: Theta, xy_test: Tuple[np.ndarray, np.ndarray]
+        self, theta: Theta, xy_test: FederatedDatasetPartition
     ) -> Tuple[float, float]:
         model = self.model_provider.init_model()
         model.set_weights(theta)
