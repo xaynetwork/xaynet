@@ -21,6 +21,22 @@ class TaskResult(ABC):
     def get_accuracies(self) -> List[float]:
         return self.data["hist"]["val_acc"]
 
+    def get_learning_rates(self) -> List[float]:
+        """Will extract learning rate in each round from hist_opt_configs
+        which has a List[List[Dict[str, any]]] type. Where the top level
+        list contains ROUNDS elements and the second level lists contain
+        number of participants dictionaries (one for each participant)"""
+        hist_opt_configs = self.data["hist_opt_configs"]
+
+        # We extract the learning rate only from the first participant
+        # as the participants share the same learning rate in each round
+        learning_rates = [
+            participants_in_round[0]["learning_rate"]
+            for participants_in_round in hist_opt_configs
+        ]
+
+        return learning_rates
+
     def get_E(self) -> int:
         return self.data["E"]
 
