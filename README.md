@@ -13,7 +13,9 @@ POLITE NOTE: We want to point out that running the benchmarks as described below
 XAIN requires the following tools to be installed:
 
 - [Python 3.6+](https://python.org/)
-- clang-format v8+ (on macOS: `brew install clang-format`)
+- [clang-format 8+](https://clang.llvm.org/docs/ClangFormat.html)
+  - Linux: `sudo apt install clang-format`
+  - macOS: `brew install clang-format`
 
 ### Clone Repository & Install XAIN
 
