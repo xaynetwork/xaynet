@@ -35,7 +35,7 @@ def plot(
 ) -> str:
     """
     :param data: List of tuples where each represents a line in the plot
-                 with tuple beeing (name, values, indices)
+                 with tuple beeing (name, values, Optional[indices])
 
     :returns: For save=True returns absolut path to saved file otherwise None
     """
