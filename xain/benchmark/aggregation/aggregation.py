@@ -3,7 +3,11 @@ from typing import Callable, Dict
 
 from absl import flags, logging
 
-from xain.benchmark.aggregation import final_task_accuracies, task_accuracies
+from xain.benchmark.aggregation import (
+    final_task_accuracies,
+    learning_rate,
+    task_accuracies,
+)
 from xain.helpers import storage
 
 FLAGS = flags.FLAGS
@@ -22,6 +26,7 @@ def aggregate():
 def flul_aggregation():
     logging.info("flul_aggregation started")
     task_accuracies.aggregate()
+    learning_rate.aggregate()
 
 
 def cpp_aggregation():
