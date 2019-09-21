@@ -16,8 +16,8 @@ FnameNDArrayTuple = Tuple[str, ndarray]
 
 Transition = Tuple[ndarray, Any, float, ndarray, bool]
 
-KerasWeights = List[ndarray]
-KerasHistory = Dict[str, List[float]]
+Theta = List[ndarray]
+History = Dict[str, List[float]]
 
 VolumeByClass = List[int]
 Metrics = Tuple[int, VolumeByClass]
