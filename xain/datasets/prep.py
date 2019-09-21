@@ -2,30 +2,26 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.data import Dataset
 
-from xain.types import FederatedDatasetPartition
+from xain.types import Partition
 
 AUTOTUNE = tf.data.experimental.AUTOTUNE
 SEED = 2017
 
 
 def init_ds_train(
-    xy: FederatedDatasetPartition, num_classes=10, batch_size=32, augmentation=False
+    xy: Partition, num_classes=10, batch_size=32, augmentation=False
 ) -> Dataset:
     return _init_ds(xy, num_classes, batch_size, augmentation, shuffle=True)
 
 
-def init_ds_val(xy: FederatedDatasetPartition, num_classes=10) -> Dataset:
+def init_ds_val(xy: Partition, num_classes=10) -> Dataset:
     batch_size = xy[0].shape[0]  # Return full dataset as one large batch
     return _init_ds(xy, num_classes, batch_size, augmentation=False, shuffle=False)
 
 
 # pylint: disable-msg=too-many-arguments
 def _init_ds(
-    xy: FederatedDatasetPartition,
-    num_classes: int,
-    batch_size: int,
-    augmentation: bool,
-    shuffle: bool,
+    xy: Partition, num_classes: int, batch_size: int, augmentation: bool, shuffle: bool
 ) -> Dataset:
     (x, y) = xy
     # Assume that each row in `x` corresponds to the same row in `y`

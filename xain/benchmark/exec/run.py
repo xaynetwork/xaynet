@@ -13,7 +13,7 @@ from xain.fl.coordinator import Coordinator, RandomController
 from xain.fl.coordinator.aggregate import Aggregator
 from xain.fl.participant import ModelProvider, Participant
 from xain.helpers import storage
-from xain.types import FederatedDatasetPartition, History, Metrics
+from xain.types import History, Metrics, Partition
 
 random.seed(0)
 np.random.seed(1)
@@ -30,9 +30,9 @@ DEFAULT_B = 64  # Batch size used by participants
 # pylint: disable-msg=too-many-locals,too-many-arguments
 def unitary_training(
     model_name: str,
-    xy_train: FederatedDatasetPartition,
-    xy_val: FederatedDatasetPartition,
-    xy_test: FederatedDatasetPartition,
+    xy_train: Partition,
+    xy_val: Partition,
+    xy_test: Partition,
     E: int,
     B: int,
 ) -> Tuple[History, float, float]:
@@ -68,9 +68,9 @@ def unitary_training(
 # pylint: disable-msg=too-many-locals,too-many-arguments
 def federated_training(
     model_name: str,
-    xy_train_partitions: List[FederatedDatasetPartition],
-    xy_val: FederatedDatasetPartition,
-    xy_test: FederatedDatasetPartition,
+    xy_train_partitions: List[Partition],
+    xy_val: Partition,
+    xy_test: Partition,
     R: int,
     E: int,
     C: float,
