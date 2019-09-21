@@ -116,8 +116,6 @@ def aggregate() -> str:
         xlabel="partitioning grade",
         ylabel="accuracy",
         fname=fname,
-        save=True,
-        show=False,
         ylim_max=1.0,
         xlim_max=12,
         xticks_args=xticks_args,

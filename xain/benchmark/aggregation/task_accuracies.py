@@ -99,8 +99,6 @@ def aggregate() -> str:
         title="Validation set accuracy for unitary and federated learning",
         ylabel="accuracy",
         fname=fname,
-        save=True,
-        show=False,
         ylim_max=1.0,
         xlim_max=xlim_max,
     )
