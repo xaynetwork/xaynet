@@ -32,6 +32,7 @@ def main(_):
     start = time.time()
     partition_id = FLAGS.partition_id
 
+    num_participants = 1  # For unitary training
     hist_opt_configs = None  # For unitary training
     hist_metrics = None  # For unitary training
 
@@ -55,6 +56,7 @@ def main(_):
             C=FLAGS.C,
             B=FLAGS.B,
         )
+        num_participants = len(xy_train_partitions)
     end = time.time()
 
     # Write results
@@ -77,6 +79,7 @@ def main(_):
         "hist": hist,
         "hist_opt_configs": hist_opt_configs,
         "hist_metrics": hist_metrics,
+        "num_participants": num_participants,
     }
     storage.write_json(res, fname="results.json")
 
