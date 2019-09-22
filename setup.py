@@ -119,6 +119,7 @@ setup(
             "aggregate=xain.benchmark.aggregation.__main__:app_run_aggregate",
             "aggregate_final_task_accuracies=xain.benchmark.aggregation.final_task_accuracies:app_run_aggregate",
             "aggregate_task_accuracies=xain.benchmark.aggregation.task_accuracies:app_run_aggregate",
+            "plot_participant_history=xain.benchmark.aggregation.participant_hist:app_run_participant",
         ]
     },
 )
