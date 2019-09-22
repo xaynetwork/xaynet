@@ -66,7 +66,10 @@ def prepare_aggregation_data(group_name: str) -> List[PlotValues]:
 
     assert labels_and_lrs, "No values for group found"
 
-    return [(label, lrs, list(range(len(lrs)))) for label, lrs in labels_and_lrs]
+    return [
+        (label, lrs, [i for i in range(1, len(lrs) + 1, 1)])
+        for label, lrs in labels_and_lrs
+    ]
 
 
 def aggregate() -> str:
