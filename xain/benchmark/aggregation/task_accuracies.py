@@ -34,9 +34,7 @@ def read_task_values(task_result: TaskResult) -> Tuple[bool, str, List[float], i
 
 
 def read_all_task_values(group_dir: str) -> List[Tuple[bool, str, List[float], int]]:
-    """
-    Reads results directory for given group id and
-    extracts values from results.json files
+    """Reads results directory for given group id and extracts values from results.json files.
 
     Args:
         group_dir (str): Path to group directory to be read.
