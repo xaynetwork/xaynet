@@ -55,8 +55,9 @@ def get_hist_metrics(group_name: str) -> List[Tuple[int, List[List[Metrics]]]]:
     group_dir: str = os.path.join(FLAGS.results_dir, group_name)
     task_results: List[TaskResult] = GroupResult(group_dir=group_dir).get_results()
 
-    metrics: List[Tuple[int, List[List[Metrics]]]] = [
-        read_hist_metrics(task_result=task_result)
+    # Extract metrics for each federated task result in group result
+    metrics: List[Tuple[int, str, List[List[Metrics]]]] = [
+        read_task_metrics(task_result=task_result)
         for task_result in task_results
         if task_result.is_unitary() is False
     ]
@@ -64,20 +65,35 @@ def get_hist_metrics(group_name: str) -> List[Tuple[int, List[List[Metrics]]]]:
     return metrics
 
 
-def heatmap_data(metric: Tuple[int, List[List[Metrics]]]) -> ndarray:
-    """TODO"""
+def heatmap_data(metric: Tuple[int, str, List[List[Metrics]]]) -> Tuple[str, ndarray]:
+    """Heatmap data for a given task metric.
 
-    train_rounds: int = len(metric[1])
+    Creates the heatmap data as participant x train rounds numpy matrix for a given task metric
+    and sets those matrix values to 1, that indices correspond to participant indices and train
+    rounds in the given task history metrics.
 
-    # creating heatmap matrix
-    # TODO: include how many participants are included in benchmark -> results.json
-    heat_map: ndarray = np.zeros((100, train_rounds))
+    Args:
+        metric (Tuple[int, List[List[Metrics]]]): Task metric consisting of number of participants
+            and hist metrics for a task.
 
-    rows = np.asarray(metric[1], dtype=object)[:, :, 0].astype(int)
-    columns = np.split(np.arange(train_rounds), train_rounds)
+    Returns:
+        ~typing.Tuple[str, numpy.ndarray]: Task label and participant x train rounds matrix with
+            value 1 for each participant indice
+    """
+
+    num_participants, task_label, hist_metrics = metric
+    train_rounds: int = len(hist_metrics)
+
+    # Create heatmap matrix with participants as rows and train rounds as columns
+    heat_map: ndarray = np.zeros((num_participants, train_rounds))
+
+    # Collect participants indices for each training round
+    rows: ndarray = np.asarray(hist_metrics, dtype=object)[:, :, 0].astype(int)
+    # Array of linspace training rounds, each wrapped into an array
+    columns: ndarray = np.split(np.arange(train_rounds), train_rounds)
     heat_map[rows, columns] = 1
 
-    return heat_map
+    return (task_label, heat_map)
 
 
 def plot_history_data(
@@ -132,6 +148,7 @@ def plot_history_data(
     ax.set_xticklabels(np.arange(1, x_max, 1))
     ax.set_yticklabels(np.arange(0, y_max, 5))
 
+    # Display only each 2nd x-axis tick label
     for x_tick_label in ax.xaxis.get_ticklabels()[::2]:
         x_tick_label.set_visible(False)
 
@@ -164,10 +181,22 @@ def plot_history_data(
     return file_name_abspath
 
 
-def read_hist_metrics(task_result: TaskResult) -> Tuple[int, List[List[Metrics]]]:
-    """TODO"""
+def read_task_metrics(task_result: TaskResult) -> Tuple[int, str, List[List[Metrics]]]:
+    """Get number of participants, task label and history metrics for a task result.
 
-    return (task_result.get_R(), task_result.get_hist_metrics())
+    Args:
+        task_result (TaskResult): Results data for a task.
+
+    Returns:
+        Tuple[int, str, List[List[Metrics]]]: Number of participants, task label and hist
+            metrics in a tuple.
+    """
+
+    return (
+        task_result.get_num_participants(),
+        task_result.get_label(),
+        task_result.get_hist_metrics(),
+    )
 
 
 def prepare_colormap(name: str) -> ListedColormap:
