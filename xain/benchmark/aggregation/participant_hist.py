@@ -20,7 +20,15 @@ FLAGS = flags.FLAGS
 
 
 def get_participant_history() -> List[str]:
-    """TODO"""
+    """Plot participant selection histories for group name flag.
+
+    For each task result in the group name flag extract the task metrics (number of
+    participants, task label, hist metrics), transform them into heatmap data as participant
+    indices x training rounds and plot/save them as participant selection history.
+
+    Returns:
+        ~typing.List[str]: File paths for saved plots.
+    """
 
     group_name: str = FLAGS.group_name
     file_name: str = "plot_participant_history_{}.png".format(group_name)
@@ -49,8 +57,18 @@ def get_participant_history() -> List[str]:
     return file_paths
 
 
-def get_hist_metrics(group_name: str) -> List[Tuple[int, List[List[Metrics]]]]:
-    """TODO"""
+def get_hist_metrics(group_name: str) -> List[Tuple[int, str, List[List[Metrics]]]]:
+    """Get the task metrics for a group name.
+
+    Extract number of participants, task label and hist metrics for each federated task
+    metric in a group name and put them into a list.
+
+    Args:
+        group_name (str): Group name for which metrics should be extracted.
+
+    Returns:
+        List[Tuple[int, str, List[List[Metrics]]]]: List of metrics for each task.
+    """
 
     group_dir: str = os.path.join(FLAGS.results_dir, group_name)
     task_results: List[TaskResult] = GroupResult(group_dir=group_dir).get_results()
