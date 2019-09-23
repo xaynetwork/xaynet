@@ -1,2 +1,5 @@
 [workspace]
-members = ["xain-coordinator"]
+members = [
+  "xain-coordinator",
+  "xain-proto",
+]

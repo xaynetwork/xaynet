@@ -1,0 +1,10 @@
+[package]
+name = "xain-proto"
+version = "0.1.0"
+authors = ["The XAIN developers"]
+edition = "2018"
+
+[dependencies]
+futures = "0.1.29"
+grpcio = "0.5.0-alpha.4"
+protobuf = "2.8.1"
