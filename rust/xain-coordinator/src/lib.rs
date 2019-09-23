@@ -1,7 +1,11 @@
 mod aggregation;
+pub mod training;
 
-type Tensor = ndarray::ArrayD<f64>;
+use ndarray::prelude::*;
+
+type Tensor = ArrayD<f64>;
 type Model = Vec<Tensor>;
+type ModelDim = Vec<IxDyn>;
 
 #[cfg(test)]
 mod tests {
