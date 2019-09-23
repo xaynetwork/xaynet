@@ -11,7 +11,7 @@ from matplotlib.colors import ListedColormap
 from numpy import ndarray
 
 from xain.benchmark.aggregation.results import GroupResult, TaskResult
-from xain.helpers.storage import get_abspath
+from xain.helpers.storage import create_output_subdir, fname_with_default_dir
 from xain.types import Metrics
 
 FORMAT = "png"
@@ -31,28 +31,34 @@ def get_participant_history() -> List[str]:
     """
 
     group_name: str = FLAGS.group_name
-    file_name: str = "plot_participant_history_{}.png".format(group_name)
+    dir_name: str = create_output_subdir(dname=group_name)
+    file_pre_name: str = fname_with_default_dir(
+        fname="plot_participant_history_{}.png", dname=dir_name
+    )
     file_paths: List[str] = list()
 
-    # getting history metrics data from results.json
-    hist_metrics: List[Tuple[int, List[List[Metrics]]]] = get_hist_metrics(
+    # Getting history metrics data from results.json
+    hist_metrics_group: List[Tuple[int, str, List[List[Metrics]]]] = get_hist_metrics(
         group_name=group_name
     )
 
-    #
-    matrices: List[ndarray] = list(map(heatmap_data, hist_metrics))
+    # Creates heatmap data for each task metric in group metrics
+    matrices: List[Tuple[str, ndarray]] = list(map(heatmap_data, hist_metrics_group))
 
-    for matrix in matrices:
+    for task_matrix in matrices:
+        label: str = task_matrix[0]
+        matrix: ndarray = task_matrix[1]
+
         file_path: str = plot_history_data(
             matrix=matrix,
             title="Participant Selection History",
-            file_name=file_name,
-            save=False,
-            show=True,
+            file_name=file_pre_name.format(label),
+            save=True,
+            show=False,
         )
         file_paths.append(file_path)
 
-    logging.info(f"Data plotted and saved in {file_path}")
+    logging.info(f"Task data plotted and saved in {file_paths}")
 
     return file_paths
 
@@ -141,7 +147,9 @@ def plot_history_data(
         str: File name of the plot as absolute path.
     """
 
-    file_name_abspath: str = get_abspath(fname=file_name, dname=FLAGS.output_dir)
+    file_name_abspath: str = fname_with_default_dir(
+        fname=file_name, dname=FLAGS.output_dir
+    )
 
     # Creating figure with subplot
     _, ax = plt.subplots(figsize=(11, 9))
