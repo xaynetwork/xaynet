@@ -12,9 +12,10 @@ if sys.version_info < (3, 6):
 # Handle protobuf
 class CustomDevelopCommand(develop):
     def run(self):
-        # we need to import this here or else grpc_tools would have to be
+        # we need to import this here or else these packages would have to be
         # installed in the system before we could run the setup.py
         import numproto
+        import grpc_tools
         from grpc_tools import protoc
 
         develop.run(self)
@@ -24,10 +25,16 @@ class CustomDevelopCommand(develop):
         # installed
         numproto_path = pathlib.Path(numproto.__path__[0]).parent
 
+        # get the path of grpc_tools protofiles
+        grpc_path = grpc_tools.__path__[0]
+
         proto_files = glob.glob("./protobuf/xain/grpc/*.proto")
         command = [
             "grpc_tools.protoc",
+            # path to numproto .proto files
             f"--proto_path={numproto_path}",
+            # path to google .proto fiels
+            f"--proto_path={grpc_path}/_proto",
             "--proto_path=./protobuf",
             "--python_out=./",
             "--grpc_python_out=./",
@@ -117,8 +124,6 @@ setup(
             "pull_results=xain.ops.__main__:download",
             "train_remote=xain.benchmark.__main__:main",
             "aggregate=xain.benchmark.aggregation.__main__:app_run_aggregate",
-            "aggregate_final_task_accuracies=xain.benchmark.aggregation.final_task_accuracies:app_run_aggregate",
-            "aggregate_task_accuracies=xain.benchmark.aggregation.task_accuracies:app_run_aggregate",
             "plot_participant_history=xain.benchmark.aggregation.participant_hist:app_run_participant",
         ]
     },

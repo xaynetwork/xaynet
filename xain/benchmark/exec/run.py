@@ -1,19 +1,19 @@
 import random
 import time
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import tensorflow as tf
 from absl import logging
 
 from xain.benchmark.aggregation import task_accuracies
-from xain.benchmark.net import load_model_fn
+from xain.benchmark.net import load_lr_fn_fn, load_model_fn
 from xain.datasets import load_splits
 from xain.fl.coordinator import Coordinator, RandomController
 from xain.fl.coordinator.aggregate import Aggregator
 from xain.fl.participant import ModelProvider, Participant
 from xain.helpers import storage
-from xain.types import FederatedDatasetPartition, KerasHistory, Metrics
+from xain.types import History, Metrics, Partition
 
 random.seed(0)
 np.random.seed(1)
@@ -30,15 +30,16 @@ DEFAULT_B = 64  # Batch size used by participants
 # pylint: disable-msg=too-many-locals,too-many-arguments
 def unitary_training(
     model_name: str,
-    xy_train: FederatedDatasetPartition,
-    xy_val: FederatedDatasetPartition,
-    xy_test: FederatedDatasetPartition,
+    xy_train: Partition,
+    xy_val: Partition,
+    xy_test: Partition,
     E: int,
     B: int,
-) -> Tuple[KerasHistory, float, float]:
+) -> Tuple[History, float, float]:
 
     model_fn = load_model_fn(model_name)
-    model_provider = ModelProvider(model_fn=model_fn)
+    lr_fn_fn = load_lr_fn_fn(model_name)
+    model_provider = ModelProvider(model_fn=model_fn, lr_fn_fn=lr_fn_fn)
 
     # Initialize model and participant
     cid = 0
@@ -54,7 +55,7 @@ def unitary_training(
     theta = model.get_weights()
 
     # Train model
-    hist = participant.fit(model, E)
+    hist = participant.fit(model, E, [])
 
     # Evaluate final performance
     theta = model.get_weights()
@@ -67,22 +68,25 @@ def unitary_training(
 # pylint: disable-msg=too-many-locals,too-many-arguments
 def federated_training(
     model_name: str,
-    xy_train_partitions: List[FederatedDatasetPartition],
-    xy_val: FederatedDatasetPartition,
-    xy_test: FederatedDatasetPartition,
+    xy_train_partitions: List[Partition],
+    xy_val: Partition,
+    xy_test: Partition,
     R: int,
     E: int,
     C: float,
     B: int,
     aggregator: Aggregator = None,
-) -> Tuple[KerasHistory, List[List[KerasHistory]], List[List[Metrics]], float, float]:
+) -> Tuple[
+    History, List[List[History]], List[List[Dict]], List[List[Metrics]], float, float
+]:
     # Initialize participants and coordinator
     # Note that there is no need for common initialization at this point: Common
     # initialization will happen during the first few rounds because the coordinator will
     # push its own weight to the respective participants of each training round.
 
     model_fn = load_model_fn(model_name)
-    model_provider = ModelProvider(model_fn=model_fn)
+    lr_fn_fn = load_lr_fn_fn(model_name)
+    model_provider = ModelProvider(model_fn=model_fn, lr_fn_fn=lr_fn_fn)
 
     # Init participants
     participants = []
@@ -106,13 +110,13 @@ def federated_training(
     )
 
     # Train model
-    hist_co, hist_ps, hist_metrics = coordinator.fit(num_rounds=R)
+    hist_co, hist_ps, hist_opt_configs, hist_metrics = coordinator.fit(num_rounds=R)
 
     # Evaluate final performance
     loss, acc = coordinator.evaluate(xy_test)
 
     # Report results
-    return hist_co, hist_ps, hist_metrics, loss, acc
+    return hist_co, hist_ps, hist_opt_configs, hist_metrics, loss, acc
 
 
 # FIXME remove
@@ -144,7 +148,7 @@ def unitary_versus_federated(
 
     # Train CNN using federated learning on all partitions
     logging.info("Run federated learning using all partitions")
-    fl_hist, _, _, fl_loss, fl_acc = federated_training(
+    fl_hist, _, _, _, fl_loss, fl_acc = federated_training(
         model_name, xy_train_partitions, xy_val, xy_test, R=R, E=E, C=C, B=B
     )
 

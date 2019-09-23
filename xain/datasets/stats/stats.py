@@ -2,7 +2,7 @@ from typing import Dict, List
 
 import numpy as np
 
-from xain.types import FederatedDataset, FederatedDatasetPartition
+from xain.types import FederatedDataset, Partition
 
 PartitionStat = Dict[str, List[int]]
 
@@ -73,7 +73,7 @@ class DSStats:
 
     @staticmethod
     def number_of_examples_per_label(
-        xy: FederatedDatasetPartition, possible_labels: List
+        xy: Partition, possible_labels: List
     ) -> PartitionStat:
         x, y = xy
 

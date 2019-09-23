@@ -1,4 +1,26 @@
-# See for details: https://docs.gitlab.com/ee/user/project/code_owners.html
+# See for details: https://help.github.com/en/articles/about-code-owners
 
-# We can specifiy a default match using wildcards:
+# Default code owners
 * @danieljanes @tanertopal @r-marques
+
+## CI config
+/.circleci/ @r-marques @tanertopal
+
+## Protobufs
+/protobuf/ @r-marques
+
+## Python packages
+/xain/benchmark/ @danieljanes @tanertopal
+/xain/datasets/ @tanertopal
+/xain/fl/ @danieljanes
+/xain/generator/ @tanertopal
+/xain/grpc/ @r-marques
+/xain/helpers/ @danieljanes @tanertopal
+/xain/ops/ @tanertopal
+/xain/types/ @danieljanes @tanertopal
+
+## Rust packages
+/rust/ @r-marques
+
+## Scripts
+/scripts/ @tanertopal

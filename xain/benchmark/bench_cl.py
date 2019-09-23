@@ -70,7 +70,7 @@ def bench_cl_ul(
 ):
     start = time.time()
     if use_coordinator:
-        hist, _, _, loss, acc = run.federated_training(
+        hist, _, _, _, loss, acc = run.federated_training(
             "blog_cnn", [xy_train], xy_val, xy_test, R=epochs, E=1, C=0, B=B
         )
     else:

@@ -3,6 +3,7 @@ from typing import List, Tuple
 
 from absl import app, flags, logging
 
+from xain.helpers import storage
 from xain.types import PlotValues
 
 from .plot import plot
@@ -97,7 +98,8 @@ def aggregate() -> str:
     :returns: Absolut path to saved plot
     """
     group_name = FLAGS.group_name
-    fname = f"plot_task_accuracies_{group_name}.png"
+    dname = storage.create_output_subdir(group_name)
+    fname = storage.fname_with_default_dir("plot_task_accuracies.png", dname)
 
     data = prepare_aggregation_data(group_name)
 
@@ -109,8 +111,6 @@ def aggregate() -> str:
         title="Validation set accuracy for unitary and federated learning",
         ylabel="accuracy",
         fname=fname,
-        save=True,
-        show=False,
         ylim_max=1.0,
         xlim_max=xlim_max,
     )

@@ -1,15 +1,14 @@
 import concurrent.futures
 from pathlib import Path
-from typing import Callable, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 import tensorflow as tf
 from absl import flags, logging
-from numpy import ndarray
 
 from xain.datasets import prep
 from xain.fl.logging.logging import create_summary_writer, write_summaries
 from xain.fl.participant import ModelProvider, Participant
-from xain.types import KerasHistory, KerasWeights, Metrics
+from xain.types import History, Metrics, Partition, Theta
 
 from .aggregate import Aggregator, FederatedAveragingAgg
 
@@ -26,7 +25,7 @@ class Coordinator:
         participants: List[Participant],
         C: float,
         E: int,
-        xy_val: Tuple[ndarray, ndarray],
+        xy_val: Partition,
         aggregator: Optional[Aggregator] = None,
     ) -> None:
         self.controller = controller
@@ -43,11 +42,13 @@ class Coordinator:
     # initialization.
     def fit(
         self, num_rounds: int
-    ) -> Tuple[KerasHistory, List[List[KerasHistory]], List[List[Metrics]]]:
+    ) -> Tuple[History, List[List[History]], List[List[Dict]], List[List[Metrics]]]:
         # Initialize history; history coordinator
-        hist_co: KerasHistory = {"val_loss": [], "val_acc": []}
+        hist_co: History = {"val_loss": [], "val_acc": []}
         # Train rounds; training history of selected participants
-        hist_ps: List[List[KerasHistory]] = []
+        hist_ps: List[List[History]] = []
+        # History of optimizer configs in each round
+        hist_opt_configs: List[List[Dict]] = []
         # History of participant metrics in each round
         hist_metrics: List[List[Metrics]] = []
 
@@ -65,8 +66,9 @@ class Coordinator:
             logging.info(msg)
 
             # Train
-            histories, train_metrics = self.fit_round(indices, self.E)
+            histories, opt_configs, train_metrics = self.fit_round(indices, self.E)
             hist_ps.append(histories)
+            hist_opt_configs.append(opt_configs)
             hist_metrics.append(train_metrics)
 
             # Evaluate
@@ -91,15 +93,15 @@ the console and open "localhost:6006" in a browser'.format(
             )
         )
 
-        return hist_co, hist_ps, hist_metrics
+        return hist_co, hist_ps, hist_opt_configs, hist_metrics
 
     def fit_round(
         self, indices: List[int], E: int
-    ) -> Tuple[List[KerasHistory], List[Metrics]]:
+    ) -> Tuple[List[History], List[Dict], List[Metrics]]:
         theta = self.model.get_weights()
         participants = [self.participants[i] for i in indices]
         # Collect training results from the participants of this round
-        theta_updates, histories, train_metrics = self.train_local_concurrently(
+        theta_updates, histories, opt_configs, train_metrics = self.train_local_concurrently(
             theta, participants, E
         )
         # Aggregate training results
@@ -107,35 +109,38 @@ the console and open "localhost:6006" in a browser'.format(
         # Update own model parameters
         self.model.set_weights(theta_prime)
         self.epoch += E
-        return histories, train_metrics
+        return histories, opt_configs, train_metrics
 
     def train_local_sequentially(
-        self, theta: KerasWeights, participants: List[Participant], E: int
-    ) -> Tuple[List[Tuple[KerasWeights, int]], List[KerasHistory], List[Metrics]]:
+        self, theta: Theta, participants: List[Participant], E: int
+    ) -> Tuple[List[Tuple[Theta, int]], List[History], List[Dict], List[Metrics]]:
         """Train on each participant sequentially"""
-        theta_updates: List[Tuple[KerasWeights, int]] = []
-        histories: List[KerasHistory] = []
+        theta_updates: List[Tuple[Theta, int]] = []
+        histories: List[History] = []
+        opt_configs: List[Dict] = []
         train_metrics: List[Metrics] = []
         for participant in participants:
             # Train one round on this particular participant:
             # - Push current model parameters to this participant
             # - Train for a number of epochs
             # - Pull updated model parameters from participant
-            theta_update, hist = participant.train_round(
+            theta_update, hist, opt_config = participant.train_round(
                 theta, epochs=E, epoch_base=self.epoch
             )
             metrics = participant.metrics()
             theta_updates.append(theta_update)
             histories.append(hist)
+            opt_configs.append(opt_config)
             train_metrics.append(metrics)
-        return theta_updates, histories, train_metrics
+        return theta_updates, histories, opt_configs, train_metrics
 
     def train_local_concurrently(
-        self, theta: KerasWeights, participants: List[Participant], E: int
-    ) -> Tuple[List[Tuple[KerasWeights, int]], List[KerasHistory], List[Metrics]]:
+        self, theta: Theta, participants: List[Participant], E: int
+    ) -> Tuple[List[Tuple[Theta, int]], List[History], List[Dict], List[Metrics]]:
         """Train on each participant concurrently"""
-        theta_updates: List[Tuple[KerasWeights, int]] = []
-        histories: List[KerasHistory] = []
+        theta_updates: List[Tuple[Theta, int]] = []
+        histories: List[History] = []
+        opt_configs: List[Dict] = []
         train_metrics: List[Metrics] = []
         # Wait for all futures to complete
         with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -145,13 +150,14 @@ the console and open "localhost:6006" in a browser'.format(
             ]
             concurrent.futures.wait(future_results)
             for future in future_results:
-                theta_update, hist, metrics = future.result()
+                theta_update, hist, opt_config, metrics = future.result()
                 theta_updates.append(theta_update)
                 histories.append(hist)
+                opt_configs.append(opt_config)
                 train_metrics.append(metrics)
-        return theta_updates, histories, train_metrics
+        return theta_updates, histories, opt_configs, train_metrics
 
-    def evaluate(self, xy_val: Tuple[ndarray, ndarray]) -> Tuple[float, float]:
+    def evaluate(self, xy_val: Partition) -> Tuple[float, float]:
         ds_val = prep.init_ds_val(xy_val)
         # Assume the validation `tf.data.Dataset` to yield exactly one batch containing
         # all examples in the validation set
@@ -163,11 +169,13 @@ the console and open "localhost:6006" in a browser'.format(
 
 
 def train_local(
-    p: Participant, theta: KerasWeights, epochs: int, epoch_base: int
-) -> Tuple[Tuple[KerasWeights, int], KerasHistory, Metrics]:
-    theta_update, history = p.train_round(theta, epochs=epochs, epoch_base=epoch_base)
+    p: Participant, theta: Theta, epochs: int, epoch_base: int
+) -> Tuple[Tuple[Theta, int], History, Dict, Metrics]:
+    theta_update, history, opt_config = p.train_round(
+        theta, epochs=epochs, epoch_base=epoch_base
+    )
     metrics = p.metrics()
-    return theta_update, history, metrics
+    return theta_update, history, opt_config, metrics
 
 
 def abs_C(C: float, num_participants: int) -> int:
@@ -175,8 +183,8 @@ def abs_C(C: float, num_participants: int) -> int:
 
 
 def create_evalueate_fn(
-    orig_model: tf.keras.Model, xy_val: Tuple[ndarray, ndarray]
-) -> Callable[[KerasWeights], Tuple[float, float]]:
+    orig_model: tf.keras.Model, xy_val: Partition
+) -> Callable[[Theta], Tuple[float, float]]:
     ds_val = prep.init_ds_val(xy_val)
     model = tf.keras.models.clone_model(orig_model)
     # FIXME refactor model compilation
@@ -186,7 +194,7 @@ def create_evalueate_fn(
         metrics=["accuracy"],
     )
 
-    def fn(theta: KerasWeights) -> Tuple[float, float]:
+    def fn(theta: Theta) -> Tuple[float, float]:
         model.set_weights(theta)
         # Assume the validation `tf.data.Dataset` to yield exactly one batch containing
         # all examples in the validation set

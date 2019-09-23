@@ -1,20 +1,17 @@
 from typing import Tuple
 
-import numpy as np
 import tensorflow as tf
 
 from xain.datasets import prep
-from xain.types import KerasWeights
+from xain.types import Partition, Theta
 
 
 class Evaluator:
-    def __init__(
-        self, model: tf.keras.Model, xy_val: Tuple[np.ndarray, np.ndarray]
-    ) -> None:
+    def __init__(self, model: tf.keras.Model, xy_val: Partition) -> None:
         self.model = model
         self.ds_val = prep.init_ds_val(xy_val)
 
-    def evaluate(self, theta: KerasWeights) -> Tuple[float, float]:
+    def evaluate(self, theta: Theta) -> Tuple[float, float]:
         self.model.set_weights(theta)
         # Assume the validation `tf.data.Dataset` to yield exactly one batch containing
         # all examples in the validation set
