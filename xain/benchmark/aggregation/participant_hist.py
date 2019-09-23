@@ -158,7 +158,7 @@ def plot_history_data(
     if save:
         plt.savefig(fname=file_name_abspath, format=FORMAT)
     if show:
-        plt.show()
+        plt.show(block=True)
     plt.close()
 
     return file_name_abspath
