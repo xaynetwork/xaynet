@@ -51,6 +51,15 @@ class TaskResult(ABC):
         return self.data["partition_id"] is not None
 
     def get_hist_metrics(self) -> List[List[Metrics]]:
+        """Get history metrics from a task result.
+
+        Extracts history metrics for each training round as list of
+        participant indice and VolumeByClass values.
+
+        Returns:
+            ~typing.List[~typing.List[Metrics]]: List of hist metrics for each training round.
+        """
+
         hist_metrics = [
             [tuple(metric) for metric in round_metric]
             for round_metric in self.data["hist_metrics"]
@@ -58,8 +67,14 @@ class TaskResult(ABC):
         # mypy is not able to handle list comprehension here correctly
         return cast(List[List[Metrics]], hist_metrics)
 
-    def get_R(self) -> int:
-        return self.data["R"]
+    def get_num_participants(self) -> int:
+        """Get the number of participants.
+
+        Returns:
+            int: Number of participants.
+        """
+
+        return self.data["num_participants"]
 
 
 class GroupResult(ABC):
