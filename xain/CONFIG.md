@@ -1,7 +1,7 @@
 # Configuration
 Currently configuration happens two fold.
 
-## `config.py`
+## `config.cfg`
 On the initial run of the library the `xain.config.init_config()` function
 will be executed and initialize a `config.cfg` file in the projects root directory. 
 If the user wants to run benchmarks and wants results to be uploaded to S3 he will need to replace the
