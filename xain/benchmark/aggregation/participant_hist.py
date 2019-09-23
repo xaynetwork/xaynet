@@ -15,7 +15,7 @@ from xain.types import Metrics
 FLAGS = flags.FLAGS
 
 
-def get_participant_history() -> List[str]:
+def participant_history() -> List[str]:
     """Plot participant selection histories for group name flag.
 
     For each task result in the group name flag extract the task metrics (number of
@@ -134,6 +134,6 @@ def read_task_metrics(task_result: TaskResult) -> Tuple[int, str, List[List[Metr
     )
 
 
-def app_run_participant():
+def app_run_participant_hist():
     flags.mark_flag_as_required("group_name")
-    app.run(main=lambda _: get_participant_history())
+    app.run(main=lambda _: participant_history())
