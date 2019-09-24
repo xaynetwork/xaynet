@@ -9,6 +9,11 @@ if sys.version_info < (3, 6):
     sys.exit("Please use Python version 3.6 or higher.")
 
 
+# get readme
+with open("README.md", "r") as fp:
+    readme = fp.read()
+
+
 # Handle protobuf
 class CustomDevelopCommand(develop):
     def run(self):
@@ -89,6 +94,8 @@ setup(
     name="xain",
     version="0.1.0",
     description="XAIN demonstrates automated architecture search in federated learning environments.",
+    long_description=readme,
+    long_description_content_type="text/markdown",
     url="https://github.com/xainag/xain",
     author=[
         "Daniel J. Beutel <daniel.beutel@xain.io>",
