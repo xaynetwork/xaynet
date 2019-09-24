@@ -68,9 +68,8 @@ install_requires = [
     "numproto==0.2.0",  # Apache License 2.0
     "grpcio-tools==1.23.0",  # Apache License 2.0
     "mypy-protobuf==1.15",  # Apache License 2.0
+    "tensorflow==1.14.0",  # Apache 2.0
 ]
-
-cpu_require = ["tensorflow==1.14.0"]  # Apache 2.0
 
 gpu_require = ["tensorflow-gpu==1.14.0"]  # Apache 2.0
 
@@ -121,7 +120,6 @@ setup(
     tests_require=tests_require,
     extras_require={
         "test": tests_require,
-        "cpu": cpu_require,
         "gpu": gpu_require,
         "dev": dev_require + tests_require,
     },
