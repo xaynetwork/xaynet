@@ -15,6 +15,11 @@ with open("xain/__version__.py") as fp:
     exec(fp.read(), version)
 
 
+# get readme
+with open("README.md", "r") as fp:
+    readme = fp.read()
+
+
 # Handle protobuf
 class CustomDevelopCommand(develop):
     def run(self):
@@ -67,11 +72,8 @@ install_requires = [
     "grpcio==1.23.0",  # Apache License 2.0
     "protobuf==3.9.1",  # 3-Clause BSD License
     "numproto==0.2.0",  # Apache License 2.0
-    "grpcio-tools==1.23.0",  # Apache License 2.0
-    "mypy-protobuf==1.15",  # Apache License 2.0
+    "tensorflow==1.14.0",  # Apache 2.0
 ]
-
-cpu_require = ["tensorflow==1.14.0"]  # Apache 2.0
 
 gpu_require = ["tensorflow-gpu==1.14.0"]  # Apache 2.0
 
@@ -83,6 +85,8 @@ dev_require = [
     "isort==4.3.20",  # MIT
     "rope==0.14.0",  # GNU GPL
     "pip-licenses==1.15.2",  # MIT License
+    "grpcio-tools==1.23.0",  # Apache License 2.0
+    "mypy-protobuf==1.15",  # Apache License 2.0
 ]
 
 tests_require = [
@@ -94,7 +98,9 @@ tests_require = [
 setup(
     name="xain",
     version=version["__version__"],
-    description="XAIN demonstrates automated architecture search in federated learning environments.",
+    description="XAIN is an open source framework for federated learning.",
+    long_description=readme,
+    long_description_content_type="text/markdown",
     url="https://github.com/xainag/xain",
     author=[
         "Daniel J. Beutel <daniel.beutel@xain.io>",
@@ -120,7 +126,6 @@ setup(
     tests_require=tests_require,
     extras_require={
         "test": tests_require,
-        "cpu": cpu_require,
         "gpu": gpu_require,
         "dev": dev_require + tests_require,
     },
