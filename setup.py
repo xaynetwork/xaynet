@@ -66,8 +66,6 @@ install_requires = [
     "grpcio==1.23.0",  # Apache License 2.0
     "protobuf==3.9.1",  # 3-Clause BSD License
     "numproto==0.2.0",  # Apache License 2.0
-    "grpcio-tools==1.23.0",  # Apache License 2.0
-    "mypy-protobuf==1.15",  # Apache License 2.0
     "tensorflow==1.14.0",  # Apache 2.0
 ]
 
@@ -81,6 +79,8 @@ dev_require = [
     "isort==4.3.20",  # MIT
     "rope==0.14.0",  # GNU GPL
     "pip-licenses==1.15.2",  # MIT License
+    "grpcio-tools==1.23.0",  # Apache License 2.0
+    "mypy-protobuf==1.15",  # Apache License 2.0
 ]
 
 tests_require = [
