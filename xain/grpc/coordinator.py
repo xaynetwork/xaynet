@@ -87,7 +87,7 @@ class Participants:
     def update_expires(self, participant_id):
         """Updates the heartbeat expiration time for a participant.
 
-        This is currently called by the `Coordinator` every time a participant sends an
+        This is currently called by the `Coordinator` every time a participant sends a
         heartbeat.
 
         Args:
@@ -103,7 +103,7 @@ class Participants:
 def monitor_heartbeats(participants, terminate_event):
     """Monitors the heartbeat of participants.
 
-    If an heartbeat expires the participant is removed from the list of participants.
+    If a heartbeat expires the participant is removed from the list of participants.
 
     Note:
         This is meant to be run inside a thread and expects a `threading.Event` to know when

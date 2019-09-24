@@ -51,10 +51,11 @@ def mocked_init(self, participants, required_participants=10):
     """Sets `num_accepted_participants` to be the same as `required_participants` so that
     the coordinator tells the client to try later.
     """
-    self.required_participants = 10
+    self.required_participants = required_participants
+
     # populate participants
     participants = Participants()
-    for i in range(10):
+    for i in range(required_participants):
         participants.add(str(i))
     self.participants = participants
 
