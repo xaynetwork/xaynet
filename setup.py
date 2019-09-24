@@ -9,6 +9,12 @@ if sys.version_info < (3, 6):
     sys.exit("Please use Python version 3.6 or higher.")
 
 
+# get version
+version = {}
+with open("xain/__version__.py") as fp:
+    exec(fp.read(), version)
+
+
 # Handle protobuf
 class CustomDevelopCommand(develop):
     def run(self):
@@ -87,7 +93,7 @@ tests_require = [
 
 setup(
     name="xain",
-    version="0.1.0",
+    version=version["__version__"],
     description="XAIN demonstrates automated architecture search in federated learning environments.",
     url="https://github.com/xainag/xain",
     author=[
