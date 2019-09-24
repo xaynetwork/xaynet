@@ -92,7 +92,7 @@ tests_require = [
 setup(
     name="xain",
     version="0.1.0",
-    description="XAIN demonstrates automated architecture search in federated learning environments.",
+    description="XAIN is an open source framework for federated learning.",
     long_description=readme,
     long_description_content_type="text/markdown",
     url="https://github.com/xainag/xain",
