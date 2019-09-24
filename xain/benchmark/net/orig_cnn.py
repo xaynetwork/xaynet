@@ -5,8 +5,8 @@ from tensorflow.keras.layers import Conv2D, Dense, Flatten, Input, MaxPool2D
 
 from . import lr_schedule
 
-DEFAULT_LR = 0.001
-DEFAULT_K = 0.025
+DEFAULT_LR = 0.002
+DEFAULT_K = 0.01
 
 
 # pylint: disable-msg=unused-argument
