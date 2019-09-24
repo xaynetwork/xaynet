@@ -89,16 +89,28 @@ def test_heartbeat(participant_stub, coordinator_service):
 
 @mock.patch("threading.Event.is_set", side_effect=[False, True])
 @mock.patch("time.sleep", return_value=None)
-def test_monitor_heartbeats(_mock_sleep, _mock_event):
+@mock.patch("xain.grpc.coordinator.Participants.remove")
+def test_monitor_heartbeats(mock_participants_remove, _mock_sleep, _mock_event):
     participants = Participants()
     participants.add("participant_1")
     participants.participants["participant_1"].heartbeat_expires = 0
-    participants.remove = mock.MagicMock(side_effect=participants.remove)
 
     terminate_event = threading.Event()
     monitor_heartbeats(participants, terminate_event)
 
-    participants.remove.assert_called_once_with("participant_1")
+    mock_participants_remove.assert_called_once_with("participant_1")
+
+
+@mock.patch("threading.Event.is_set", side_effect=[False, True])
+@mock.patch("time.sleep", return_value=None)
+def test_monitor_heartbeats_remove_participant(_mock_sleep, _mock_event):
+    participants = Participants()
+    participants.add("participant_1")
+    participants.participants["participant_1"].heartbeat_expires = 0
+
+    terminate_event = threading.Event()
+    monitor_heartbeats(participants, terminate_event)
+
     assert participants.len() == 0
 
 
