@@ -1,3 +1,5 @@
+import sys
+import threading
 from concurrent import futures
 from unittest import mock
 
@@ -12,8 +14,15 @@ from xain.grpc import (
     hellonumproto_pb2,
     hellonumproto_pb2_grpc,
 )
-from xain.grpc.coordinator import Coordinator
+from xain.grpc.coordinator import Coordinator, Participants, monitor_heartbeats
+from xain.grpc.participant import heartbeat
 
+# Some grpc tests fail on macos.
+# `pytestmark` when defined on a module will mark all tests in that module.
+# For more information check
+# http://doc.pytest.org/en/latest/skipping.html#skip-all-test-functions-of-a-class-or-module
+if sys.platform == "darwin":
+    pytestmark = pytest.mark.xfail(reason="some grpc tests fail on macos")
 
 # pylint: disable=W0613,W0621
 @pytest.mark.integration
@@ -38,28 +47,81 @@ def test_participant_rendezvous_accept(participant_stub, coordinator_service):
     assert reply.response == coordinator_pb2.RendezvousResponse.ACCEPT
 
 
-def mocked_init(self, required_participants=10):
+def mocked_init(self, participants, required_participants=10):
     """Sets `num_accepted_participants` to be the same as `required_participants` so that
     the coordinator tells the client to try later.
     """
-    self.required_participants = 10
-    self.num_accepted_participants = 10
+    self.required_participants = required_participants
+
+    # populate participants
+    participants = Participants()
+    for i in range(required_participants):
+        participants.add(str(i))
+    self.participants = participants
 
 
 # TODO: Fix test so it also runs correctly on macos
-@pytest.mark.xfail
 @pytest.mark.integration
 @mock.patch("xain.grpc.coordinator.Coordinator.__init__", new=mocked_init)
 def test_participant_rendezvous_later(participant_stub):
 
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
-    coordinator_pb2_grpc.add_CoordinatorServicer_to_server(Coordinator(), server)
+    coordinator_pb2_grpc.add_CoordinatorServicer_to_server(
+        Coordinator(Participants()), server
+    )
     server.add_insecure_port("localhost:50051")
-
     server.start()
 
     reply = participant_stub.Rendezvous(coordinator_pb2.RendezvousRequest())
-
     server.stop(0)
 
     assert reply.response == coordinator_pb2.RendezvousResponse.LATER
+
+
+@pytest.mark.integration
+def test_heartbeat(participant_stub, coordinator_service):
+    # first we need to rendezvous so that the participant is added to the list of participants
+    _ = participant_stub.Rendezvous(coordinator_pb2.RendezvousRequest())
+    reply = participant_stub.Heartbeat(coordinator_pb2.HeartbeatRequest())
+
+    assert reply == coordinator_pb2.HeartbeatReply()
+
+
+@mock.patch("threading.Event.is_set", side_effect=[False, True])
+@mock.patch("time.sleep", return_value=None)
+@mock.patch("xain.grpc.coordinator.Participants.remove")
+def test_monitor_heartbeats(mock_participants_remove, _mock_sleep, _mock_event):
+    participants = Participants()
+    participants.add("participant_1")
+    participants.participants["participant_1"].heartbeat_expires = 0
+
+    terminate_event = threading.Event()
+    monitor_heartbeats(participants, terminate_event)
+
+    mock_participants_remove.assert_called_once_with("participant_1")
+
+
+@mock.patch("threading.Event.is_set", side_effect=[False, True])
+@mock.patch("time.sleep", return_value=None)
+def test_monitor_heartbeats_remove_participant(_mock_sleep, _mock_event):
+    participants = Participants()
+    participants.add("participant_1")
+    participants.participants["participant_1"].heartbeat_expires = 0
+
+    terminate_event = threading.Event()
+    monitor_heartbeats(participants, terminate_event)
+
+    assert participants.len() == 0
+
+
+@mock.patch("threading.Event.is_set", side_effect=[False, False, True])
+@mock.patch("time.sleep", return_value=None)
+@mock.patch("xain.grpc.coordinator_pb2.HeartbeatRequest")
+def test_participant_heartbeat(mock_heartbeat_request, _mock_sleep, _mock_event):
+    channel = mock.MagicMock()
+    terminate_event = threading.Event()
+
+    heartbeat(channel, terminate_event)
+
+    # check that the heartbeat is sent exactly twice
+    mock_heartbeat_request.assert_has_calls([mock.call(), mock.call()])

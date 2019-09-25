@@ -26,7 +26,7 @@ FLAGS = flags.FLAGS
 def plot(
     data: List[PlotValues],
     title: Optional[str] = None,
-    xlabel: str = "epoch",
+    xlabel: str = "Epoch",
     ylabel: str = None,
     fname: Optional[str] = None,
     save: bool = True,

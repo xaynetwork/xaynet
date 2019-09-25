@@ -9,6 +9,17 @@ if sys.version_info < (3, 6):
     sys.exit("Please use Python version 3.6 or higher.")
 
 
+# get version
+version = {}
+with open("xain/__version__.py") as fp:
+    exec(fp.read(), version)
+
+
+# get readme
+with open("README.md", "r") as fp:
+    readme = fp.read()
+
+
 # Handle protobuf
 class CustomDevelopCommand(develop):
     def run(self):
@@ -61,11 +72,8 @@ install_requires = [
     "grpcio==1.23.0",  # Apache License 2.0
     "protobuf==3.9.1",  # 3-Clause BSD License
     "numproto==0.2.0",  # Apache License 2.0
-    "grpcio-tools==1.23.0",  # Apache License 2.0
-    "mypy-protobuf==1.15",  # Apache License 2.0
+    "tensorflow==1.14.0",  # Apache 2.0
 ]
-
-cpu_require = ["tensorflow==1.14.0"]  # Apache 2.0
 
 gpu_require = ["tensorflow-gpu==1.14.0"]  # Apache 2.0
 
@@ -77,6 +85,9 @@ dev_require = [
     "isort==4.3.20",  # MIT
     "rope==0.14.0",  # GNU GPL
     "pip-licenses==1.15.2",  # MIT License
+    "grpcio-tools==1.23.0",  # Apache License 2.0
+    "mypy-protobuf==1.15",  # Apache License 2.0
+    "twine==2.0.0",  # Apache License 2.0
 ]
 
 tests_require = [
@@ -87,8 +98,10 @@ tests_require = [
 
 setup(
     name="xain",
-    version="0.1.0",
-    description="XAIN demonstrates automated architecture search in federated learning environments.",
+    version=version["__version__"],
+    description="XAIN is an open source framework for federated learning.",
+    long_description=readme,
+    long_description_content_type="text/markdown",
     url="https://github.com/xainag/xain",
     author=[
         "Daniel J. Beutel <daniel.beutel@xain.io>",
@@ -100,8 +113,15 @@ setup(
     python_requires=">=3.6",
     classifiers=[
         "Development Status :: 3 - Alpha",
-        "Intended Audience :: Any Industry",
-        "Topic :: ML :: Machine Learning :: AI",
+        "Intended Audience :: Developers",
+        "Intended Audience :: Information Technology",
+        "Intended Audience :: Science/Research",
+        "Topic :: Scientific/Engineering",
+        "Topic :: Scientific/Engineering :: Artificial Intelligence",
+        "Topic :: Software Development",
+        "Topic :: Software Development :: Libraries",
+        "Topic :: Software Development :: Libraries :: Application Frameworks",
+        "Topic :: Software Development :: Libraries :: Python Modules",
         "License :: OSI Approved :: Apache Software License",
         "Programming Language :: Python :: 3 :: Only",
         "Programming Language :: Python :: 3.6",
@@ -114,7 +134,6 @@ setup(
     tests_require=tests_require,
     extras_require={
         "test": tests_require,
-        "cpu": cpu_require,
         "gpu": gpu_require,
         "dev": dev_require + tests_require,
     },
