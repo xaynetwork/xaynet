@@ -24,8 +24,8 @@ from . import lr_schedule
 L2_DEFAULT: float = 1e-4
 KERNEL_INITIALIZER_DEFAULT = "he_normal"
 
-DEFAULT_LR = 0.01
-DEFAULT_K = 0.025
+DEFAULT_LR = 0.1
+DEFAULT_K = 0.15
 
 
 def resnet20v2_compiled(

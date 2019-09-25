@@ -96,8 +96,8 @@ def aggregate() -> str:
 
     fpath = plot(
         data,
-        title="Validation set accuracy for unitary and federated learning",
-        ylabel="accuracy",
+        title="",  # TODO
+        ylabel="Validation Accuracy",
         fname=fname,
         ylim_max=1.0,
         xlim_max=xlim_max,
