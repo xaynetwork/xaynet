@@ -3,8 +3,12 @@ from typing import Callable, Dict
 
 from absl import flags, logging
 
-from xain.benchmark.aggregation import (final_task_accuracies, learning_rate,
-                                        participant_hist, task_accuracies)
+from xain.benchmark.aggregation import (
+    final_task_accuracies,
+    learning_rate,
+    participant_hist,
+    task_accuracies,
+)
 from xain.helpers import storage
 
 FLAGS = flags.FLAGS
