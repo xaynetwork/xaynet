@@ -4,20 +4,33 @@ The XAIN project is building a GDPR-compliance layer for machine learning. The a
 
 At present, the source code in this project demonstrates the effectiveness of our FedML implementation on well known benchmarks using a realistic deep learning model structure. We will soon add a link to details on those experiments.
 
-In the future, we will open source here a first minimal viable product for this layer. And we will add links to articles and papers that describe our approaches to networking, architcture, and privacy-perserving technology. We will also provide references to legal opinions about how and why our compliance layer for machine learning meets the demands of GDPR.
+In the future, we will open source here a first minimal viable product for this layer. And we will add links to articles and papers that describe our approaches to networking, architecture, and privacy-preserving technology. We will also provide references to legal opinions about how and why our compliance layer for machine learning meets the demands of GDPR.
 
 POLITE NOTE: We want to point out that running the benchmarks as described below is consuming considerable resources. XAIN cannot take any responsibilities for costs that arise for you when you execute these demanding machine-learning benchmarks.
 
 ## Quick Start
 
-XAIN requires the following tools to be installed:
+XAIN requires [Python 3.6+](https://python.org/). To install the `xain` package just run:
 
-- [Python 3.6+](https://python.org/)
+```shell
+$ pip install xain
+```
+
+XAIN can also be installed with GPU support through the `gpu` extra feature. To
+install the `xain` package with support for GPUs just run:
+
+```shell
+$ pip install xain[gpu]
+```
+
+## Install from source
+
+For development we require some extra system dependencies:
 - [clang-format 8+](https://clang.llvm.org/docs/ClangFormat.html)
   - Linux: `sudo apt install clang-format`
   - macOS: `brew install clang-format`
 
-### Clone Repository & Install XAIN
+### Clone Repository & Install XAIN in development mode
 
 To clone this repository and to install the XAIN project, please execute the following commands:
 
@@ -25,7 +38,7 @@ To clone this repository and to install the XAIN project, please execute the fol
 $ git clone https://github.com/xainag/xain.git
 $ cd xain
 
-$ pip install -e .[dev,cpu]
+$ pip install -e .[dev]
 ```
 
 ### Verify Installation

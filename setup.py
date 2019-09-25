@@ -87,6 +87,7 @@ dev_require = [
     "pip-licenses==1.15.2",  # MIT License
     "grpcio-tools==1.23.0",  # Apache License 2.0
     "mypy-protobuf==1.15",  # Apache License 2.0
+    "twine==2.0.0",  # Apache License 2.0
 ]
 
 tests_require = [
@@ -112,8 +113,15 @@ setup(
     python_requires=">=3.6",
     classifiers=[
         "Development Status :: 3 - Alpha",
-        "Intended Audience :: Any Industry",
-        "Topic :: ML :: Machine Learning :: AI",
+        "Intended Audience :: Developers",
+        "Intended Audience :: Information Technology",
+        "Intended Audience :: Science/Research",
+        "Topic :: Scientific/Engineering",
+        "Topic :: Scientific/Engineering :: Artificial Intelligence",
+        "Topic :: Software Development",
+        "Topic :: Software Development :: Libraries",
+        "Topic :: Software Development :: Libraries :: Application Frameworks",
+        "Topic :: Software Development :: Libraries :: Python Modules",
         "License :: OSI Approved :: Apache Software License",
         "Programming Language :: Python :: 3 :: Only",
         "Programming Language :: Python :: 3.6",
