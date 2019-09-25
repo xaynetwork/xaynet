@@ -124,7 +124,6 @@ setup(
             "pull_results=xain.ops.__main__:download",
             "train_remote=xain.benchmark.__main__:main",
             "aggregate=xain.benchmark.aggregation.__main__:app_run_aggregate",
-            "participant_history=xain.benchmark.aggregation.participant_hist:app_run_participant_hist",
         ]
     },
 )

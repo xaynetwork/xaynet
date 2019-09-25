@@ -8,6 +8,7 @@ from xain.benchmark.aggregation import (
     learning_rate,
     task_accuracies,
 )
+from xain.benchmark.aggregation.participant_hist import participant_history
 from xain.helpers import storage
 
 FLAGS = flags.FLAGS
@@ -27,12 +28,14 @@ def flul_aggregation():
     logging.info("flul_aggregation started")
     task_accuracies.aggregate()
     learning_rate.aggregate()
+    participant_history()
 
 
 def cpp_aggregation():
     logging.info("cpp_aggregation started")
     task_accuracies.aggregate()
     final_task_accuracies.aggregate()
+    participant_history()
 
 
 aggregations: Dict[str, Callable] = {
