@@ -4,6 +4,7 @@ package xain.protobuf.coordinator;
 
 service Coordinator {
   rpc Rendezvous(RendezvousRequest) returns (RendezvousReply) {}
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatReply) {}
 }
 
 enum RendezvousResponse {
@@ -16,3 +17,7 @@ message RendezvousRequest {}
 message RendezvousReply {
   RendezvousResponse response = 1;
 }
+
+message HeartbeatRequest {}
+
+message HeartbeatReply {}
