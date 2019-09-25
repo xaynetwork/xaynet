@@ -87,6 +87,7 @@ dev_require = [
     "pip-licenses==1.15.2",  # MIT License
     "grpcio-tools==1.23.0",  # Apache License 2.0
     "mypy-protobuf==1.15",  # Apache License 2.0
+    "twine==2.0.0",  # Apache License 2.0
 ]
 
 tests_require = [
