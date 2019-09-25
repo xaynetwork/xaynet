@@ -19,3 +19,13 @@ For reference, the possible headings are:
 
 
 ## [Unreleased]
+
+## [0.1.0] - 2019-09-25
+
+The first public release of **XAIN**
+
+### Added
+
+- FedML implementation on well known
+  [benchmarks](https://github.com/xainag/xain/tree/master/xain/benchmark) using
+  a realistic deep learning model structure.
