@@ -6,6 +6,7 @@ from absl import flags, logging
 from xain.benchmark.aggregation import (
     final_task_accuracies,
     learning_rate,
+    participant_hist,
     task_accuracies,
 )
 from xain.helpers import storage
@@ -27,12 +28,14 @@ def flul_aggregation():
     logging.info("flul_aggregation started")
     task_accuracies.aggregate()
     learning_rate.aggregate()
+    participant_hist.participant_history()
 
 
 def cpp_aggregation():
     logging.info("cpp_aggregation started")
     task_accuracies.aggregate()
     final_task_accuracies.aggregate()
+    participant_hist.participant_history()
 
 
 aggregations: Dict[str, Callable] = {

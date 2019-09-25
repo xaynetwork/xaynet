@@ -1,8 +1,9 @@
 import os
 from abc import ABC
-from typing import List, Optional
+from typing import List, Optional, cast
 
 from xain.helpers import storage
+from xain.types import Metrics
 
 
 class TaskResult(ABC):
@@ -48,6 +49,32 @@ class TaskResult(ABC):
 
     def is_unitary(self) -> bool:
         return self.data["partition_id"] is not None
+
+    def get_hist_metrics(self) -> List[List[Metrics]]:
+        """Get history metrics from a task result.
+
+        Extracts history metrics for each training round as list of
+        participant indice and VolumeByClass values.
+
+        Returns:
+            ~typing.List[~typing.List[Metrics]]: List of hist metrics for each training round.
+        """
+
+        hist_metrics = [
+            [tuple(metric) for metric in round_metric]
+            for round_metric in self.data["hist_metrics"]
+        ]
+        # mypy is not able to handle list comprehension here correctly
+        return cast(List[List[Metrics]], hist_metrics)
+
+    def get_num_participants(self) -> int:
+        """Get the number of participants.
+
+        Returns:
+            int: Number of participants.
+        """
+
+        return self.data["num_participants"]
 
 
 class GroupResult(ABC):
