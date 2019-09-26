@@ -1,3 +1,7 @@
+[![CircleCI](https://img.shields.io/circleci/build/github/xainag/xain/master?style=flat-square)](https://circleci.com/gh/xainag/xain/tree/master)
+[![PyPI](https://img.shields.io/pypi/v/xain?style=flat-square)](https://pypi.org/project/xain/)
+[![GitHub license](https://img.shields.io/github/license/xainag/xain?style=flat-square)](https://github.com/xainag/xain/blob/master/LICENSE)
+
 # XAIN
 
 The XAIN project is building a GDPR-compliance layer for machine learning. The approach relies on federated machine learning (FedML) as enabling technology that removes compliance-related adoption barriers of AI applications used in production.
