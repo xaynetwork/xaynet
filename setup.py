@@ -96,6 +96,8 @@ tests_require = [
     "pytest-watch==4.2.0",  # MIT
 ]
 
+docs_require = ["Sphinx==2.2.0"]  # BSD
+
 setup(
     name="xain",
     version=version["__version__"],
@@ -135,7 +137,8 @@ setup(
     extras_require={
         "test": tests_require,
         "gpu": gpu_require,
-        "dev": dev_require + tests_require,
+        "docs": docs_require,
+        "dev": dev_require + tests_require + docs_require,
     },
     cmdclass={"develop": CustomDevelopCommand},
     entry_points={

@@ -27,6 +27,10 @@ install the `xain` package with support for GPUs just run:
 $ pip install xain[gpu]
 ```
 
+### Running training sessions and benchmarks
+
+To run training sessions, see the [benchmark package](https://github.com/xainag/xain/tree/master/xain/benchmark)
+
 ## Install from source
 
 For development we require some extra system dependencies:
@@ -53,9 +57,18 @@ You can verify the installation by running the tests
 $ pytest
 ```
 
-### Running training sessions and benchmarks
+### Building the Documentation
 
-To run training sessions, see the [benchmark package](https://github.com/xainag/xain/tree/master/xain/benchmark)
+The project documentation resides under `docs/`. To build the documentation
+run:
+```shell
+$ cd docs/
+$ make html
+```
+
+The generated documentation will be under `docs/_build/html/`. You can open the
+root of the documentation by opening `docs/_build/html/index.html` on your
+favorite browser.
 
 ## Related Papers and Articles
 
