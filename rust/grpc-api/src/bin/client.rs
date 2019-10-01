@@ -4,24 +4,29 @@ use grpc_api::logging;
 
 use std::sync::Arc;
 
-use grpcio::{ChannelBuilder, EnvBuilder, ChannelCredentialsBuilder};
+use grpcio::{ChannelBuilder, EnvBuilder, ChannelCredentials, ChannelCredentialsBuilder};
 use xain_proto::coordinator::RendezvousRequest;
 use xain_proto::coordinator_grpc::CoordinatorClient;
 
-fn main() {
+fn load_certificates() -> ChannelCredentials {
     let root_cert = std::fs::read_to_string("certs/ca.cer").unwrap();
     let client_cert = std::fs::read_to_string("certs/client.cer").unwrap();
     let client_key = std::fs::read_to_string("certs/client.key").unwrap();
 
-    let channel_credentials = ChannelCredentialsBuilder::new()
+    ChannelCredentialsBuilder::new()
         .root_cert(root_cert.into_bytes())
         .cert(client_cert.into_bytes(), client_key.into_bytes())
-        .build();
+        .build()
+}
+
+fn main() {
+    let channel_credentials = load_certificates();
 
     let _guard = logging::init_log(None);
     let env = Arc::new(EnvBuilder::new().build());
     let ch = ChannelBuilder::new(env)
         .secure_connect("localhost:50051", channel_credentials);
+
     let client = CoordinatorClient::new(ch);
 
     let req = RendezvousRequest::new();
