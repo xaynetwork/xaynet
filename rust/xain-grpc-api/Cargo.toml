@@ -11,6 +11,7 @@ version = "0.5.0-alpha.4"
 
 [dependencies]
 xain-proto = { path = "../xain-proto"}
+xain-coordinator = { path = "../xain-coordinator" }
 futures = "0.1"
 slog = "2"
 slog-async = "2"
@@ -19,3 +20,7 @@ slog-stdlog = "2"
 slog-term = "2"
 log = "0.4"
 clap = "2"
+async-std = "^ 0.99"
+futures-channel-preview = "0.3.0-alpha.19"
+futures-util-preview = "0.3.0-alpha.19"
+ndarray = "*"

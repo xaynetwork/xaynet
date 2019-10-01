@@ -2,6 +2,7 @@ use log::info;
 
 use xain_grpc_api::logging;
 use xain_grpc_api::{CoordinatorService, NumProtoService};
+use xain_grpc_api::training_task::TrainingTask;
 
 use futures::sync::oneshot;
 use futures::Future;
@@ -13,6 +14,8 @@ use clap::{App, Arg};
 use std::io::Read;
 use std::sync::Arc;
 use std::{io, thread};
+
+use async_std::task;
 
 type ServerError = Box<dyn std::error::Error + Send + Sync>;
 
@@ -47,6 +50,7 @@ fn app() -> App<'static, 'static> {
             .takes_value(true))
 }
 
+
 fn main() -> Result<(), ServerError> {
     let args = app().get_matches();
 
@@ -56,8 +60,10 @@ fn main() -> Result<(), ServerError> {
 
     let env = Arc::new(Environment::new(2));
 
+    let (mut training_task, sender) = TrainingTask::create();
+
     let mut server = ServerBuilder::new(env)
-        .register_service(CoordinatorService::create())
+        .register_service(CoordinatorService::create(sender))
         .register_service(NumProtoService::create())
         .bind_secure("127.0.0.1", 50_051, server_credentials)
         .build()
@@ -68,6 +74,10 @@ fn main() -> Result<(), ServerError> {
     for &(ref host, port) in server.bind_addrs() {
         info!("listening on {}:{}", host, port);
     }
+
+    task::spawn(async move {
+        training_task.run().await
+    });
 
     let (tx, rx) = oneshot::channel();
     thread::spawn(move || {
