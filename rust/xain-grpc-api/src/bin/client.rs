@@ -1,6 +1,6 @@
 use log::info;
 
-use grpc_api::logging;
+use xain_grpc_api::logging;
 
 use std::sync::Arc;
 
@@ -9,6 +9,7 @@ use xain_proto::coordinator::RendezvousRequest;
 use xain_proto::coordinator_grpc::CoordinatorClient;
 
 fn load_certificates() -> ChannelCredentials {
+    // TODO: load certificates dynamically
     let root_cert = std::fs::read_to_string("certs/ca.cer").unwrap();
     let client_cert = std::fs::read_to_string("certs/client.cer").unwrap();
     let client_key = std::fs::read_to_string("certs/client.key").unwrap();
