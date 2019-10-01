@@ -9,19 +9,25 @@ use std::{io, thread};
 
 use futures::sync::oneshot;
 use futures::Future;
-use grpcio::{Environment, ServerBuilder, ServerCredentialsBuilder};
+use grpcio::{Environment, ServerBuilder, ServerCredentials, ServerCredentialsBuilder};
 
-fn main() {
+
+fn load_certificates() -> ServerCredentials {
     let root_cert = std::fs::read_to_string("certs/ca.cer").unwrap();
     let server_cert = std::fs::read_to_string("certs/server.cer").unwrap();
     let private_key = std::fs::read_to_string("certs/server.key").unwrap();
 
-    let server_credentials = ServerCredentialsBuilder::new()
+    ServerCredentialsBuilder::new()
         .root_cert(root_cert.into_bytes(), true)
         .add_cert(server_cert.into_bytes(), private_key.into_bytes())
-        .build();
+        .build()
+}
+
+fn main() {
+    let server_credentials = load_certificates();
 
     let _guard = logging::init_log(None);
+
     let env = Arc::new(Environment::new(1));
 
     let mut server = ServerBuilder::new(env)
