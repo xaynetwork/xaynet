@@ -2,4 +2,5 @@
 members = [
   "xain-coordinator",
   "xain-proto",
+  "grpc-api",
 ]

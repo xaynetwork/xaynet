@@ -1,0 +1,20 @@
+[package]
+name = "grpc-hello-world"
+version = "0.1.0"
+authors = ["Florian Gilcher <florian.gilcher@asquera.de>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies.grpcio]
+version = "0.5.0-alpha.4"
+
+[dependencies]
+xain-proto = { path = "../xain-proto"}
+futures = "*"
+slog = "*"
+slog-async = "*"
+slog-scope = "*"
+slog-stdlog = "*"
+slog-term = "*"
+log = "*"
