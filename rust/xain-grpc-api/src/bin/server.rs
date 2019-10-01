@@ -14,16 +14,18 @@ use std::io::Read;
 use std::sync::Arc;
 use std::{io, thread};
 
-fn load_certificates(args: &clap::ArgMatches) -> ServerCredentials {
-    // TODO: proper error handling
-    let root_cert = std::fs::read_to_string(args.value_of("root-cert").unwrap()).unwrap();
-    let server_cert = std::fs::read_to_string(args.value_of("server-cert").unwrap()).unwrap();
-    let private_key = std::fs::read_to_string(args.value_of("server-key").unwrap()).unwrap();
+type ServerError = Box<dyn std::error::Error + Send + Sync>;
 
-    ServerCredentialsBuilder::new()
+fn load_certificates(args: &clap::ArgMatches) -> Result<ServerCredentials, ServerError> {
+    // TODO: proper error handling
+    let root_cert = std::fs::read_to_string(args.value_of("root-cert").unwrap())?;
+    let server_cert = std::fs::read_to_string(args.value_of("server-cert").unwrap())?;
+    let private_key = std::fs::read_to_string(args.value_of("server-key").unwrap())?;
+
+    Ok(ServerCredentialsBuilder::new()
         .root_cert(root_cert.into_bytes(), true)
         .add_cert(server_cert.into_bytes(), private_key.into_bytes())
-        .build()
+        .build())
 }
 
 fn app() -> App<'static, 'static> {
@@ -33,19 +35,22 @@ fn app() -> App<'static, 'static> {
         .author("The XAIN developers")
         .arg(Arg::with_name("root-cert")
             .short("r")
+            .required(true)
             .takes_value(true))
         .arg(Arg::with_name("server-cert")
             .short("s")
+            .required(true)
             .takes_value(true))
         .arg(Arg::with_name("server-key")
             .short("k")
+            .required(true)
             .takes_value(true))
 }
 
-fn main() {
+fn main() -> Result<(), ServerError> {
     let args = app().get_matches();
 
-    let server_credentials = load_certificates(&args);
+    let server_credentials = load_certificates(&args)?;
 
     let _guard = logging::init_log(None);
 
@@ -72,4 +77,6 @@ fn main() {
     });
     let _ = rx.wait();
     let _ = server.shutdown().wait();
+
+    Ok(())
 }

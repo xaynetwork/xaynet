@@ -8,20 +8,45 @@ use grpcio::{ChannelBuilder, ChannelCredentials, ChannelCredentialsBuilder, EnvB
 use xain_proto::coordinator::RendezvousRequest;
 use xain_proto::coordinator_grpc::CoordinatorClient;
 
-fn load_certificates() -> ChannelCredentials {
-    // TODO: load certificates dynamically
-    let root_cert = std::fs::read_to_string("certs/ca.cer").unwrap();
-    let client_cert = std::fs::read_to_string("certs/client.cer").unwrap();
-    let client_key = std::fs::read_to_string("certs/client.key").unwrap();
+use clap::{App, Arg};
 
-    ChannelCredentialsBuilder::new()
+type AppError = Box<dyn std::error::Error + Send + Sync>;
+
+fn load_certificates(args: &clap::ArgMatches) -> Result<ChannelCredentials, AppError> {
+    // TODO: load certificates dynamically
+    let root_cert = std::fs::read_to_string(args.value_of("root-cert").unwrap())?;
+    let client_cert = std::fs::read_to_string(args.value_of("client-cert").unwrap())?;
+    let client_key = std::fs::read_to_string(args.value_of("client-key").unwrap())?;
+
+    Ok(ChannelCredentialsBuilder::new()
         .root_cert(root_cert.into_bytes())
         .cert(client_cert.into_bytes(), client_key.into_bytes())
-        .build()
+        .build())
 }
 
-fn main() {
-    let channel_credentials = load_certificates();
+fn app() -> App<'static, 'static> {
+    App::new("xain-coordinator-client")
+        .version("0.1")
+        .about("A coordinator client for testing the XAIN distributed ML framework!")
+        .author("The XAIN developers")
+        .arg(Arg::with_name("root-cert")
+            .short("r")
+            .required(true)
+            .takes_value(true))
+        .arg(Arg::with_name("client-cert")
+            .short("s")
+            .required(true)
+            .takes_value(true))
+        .arg(Arg::with_name("client-key")
+            .short("k")
+            .required(true)
+            .takes_value(true))
+}
+
+fn main() -> Result<(), AppError> {
+    let args = app().get_matches();
+
+    let channel_credentials = load_certificates(&args)?;
 
     let _guard = logging::init_log(None);
     let env = Arc::new(EnvBuilder::new().build());
@@ -32,4 +57,6 @@ fn main() {
     let req = RendezvousRequest::new();
     let reply = client.rendezvous(&req).expect("rpc");
     info!("Client received: {:?}", reply.get_response());
+
+    Ok(())
 }
