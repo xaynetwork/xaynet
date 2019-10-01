@@ -2,8 +2,7 @@ use xain_proto;
 
 use log::{info,error};
 
-#[path = "../log_util.rs"]
-mod log_util;
+use grpc_api::logging;
 
 use std::io::Read;
 use std::sync::Arc;
@@ -51,7 +50,7 @@ fn main() {
         .add_cert(server_cert.into_bytes(), private_key.into_bytes())
         .build();
 
-    let _guard = log_util::init_log(None);
+    let _guard = logging::init_log(None);
     let env = Arc::new(Environment::new(1));
     
     let coordinator_service =

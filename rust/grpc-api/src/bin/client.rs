@@ -1,7 +1,6 @@
 use log::info;
 
-#[path = "../log_util.rs"]
-mod log_util;
+use grpc_api::logging;
 
 use std::sync::Arc;
 
@@ -19,7 +18,7 @@ fn main() {
         .cert(client_cert.into_bytes(), client_key.into_bytes())
         .build();
 
-    let _guard = log_util::init_log(None);
+    let _guard = logging::init_log(None);
     let env = Arc::new(EnvBuilder::new().build());
     let ch = ChannelBuilder::new(env)
         .secure_connect("localhost:50051", channel_credentials);
