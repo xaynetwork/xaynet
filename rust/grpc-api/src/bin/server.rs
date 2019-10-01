@@ -28,7 +28,7 @@ fn main() {
 
     let _guard = logging::init_log(None);
 
-    let env = Arc::new(Environment::new(1));
+    let env = Arc::new(Environment::new(2));
 
     let mut server = ServerBuilder::new(env)
         .register_service(CoordinatorService::create())
