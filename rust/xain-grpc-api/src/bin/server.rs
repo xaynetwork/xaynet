@@ -1,23 +1,24 @@
 use log::info;
 
-use grpc_api::logging;
-use grpc_api::{CoordinatorService, NumProtoService};
+use xain_grpc_api::logging;
+use xain_grpc_api::{CoordinatorService, NumProtoService};
 
 use futures::sync::oneshot;
 use futures::Future;
 
 use grpcio::{Environment, ServerBuilder, ServerCredentials, ServerCredentialsBuilder};
 
-use clap::App;
+use clap::{App, Arg};
 
 use std::io::Read;
 use std::sync::Arc;
 use std::{io, thread};
 
-fn load_certificates() -> ServerCredentials {
-    let root_cert = std::fs::read_to_string("certs/ca.cer").unwrap();
-    let server_cert = std::fs::read_to_string("certs/server.cer").unwrap();
-    let private_key = std::fs::read_to_string("certs/server.key").unwrap();
+fn load_certificates(args: &clap::ArgMatches) -> ServerCredentials {
+    // TODO: proper error handling
+    let root_cert = std::fs::read_to_string(args.value_of("root-cert").unwrap()).unwrap();
+    let server_cert = std::fs::read_to_string(args.value_of("server-cert").unwrap()).unwrap();
+    let private_key = std::fs::read_to_string(args.value_of("server-key").unwrap()).unwrap();
 
     ServerCredentialsBuilder::new()
         .root_cert(root_cert.into_bytes(), true)
@@ -25,16 +26,26 @@ fn load_certificates() -> ServerCredentials {
         .build()
 }
 
-fn app() -> App {
+fn app() -> App<'static, 'static> {
     App::new("xain-coordinator")
-       .version("0.1")
-       .about("The coordinator for the XAIN distributed ML framework!")
-       .author("The XAIN developers")
-       .get_matches()
+        .version("0.1")
+        .about("The coordinator for the XAIN distributed ML framework!")
+        .author("The XAIN developers")
+        .arg(Arg::with_name("root-cert")
+            .short("r")
+            .takes_value(true))
+        .arg(Arg::with_name("server-cert")
+            .short("s")
+            .takes_value(true))
+        .arg(Arg::with_name("server-key")
+            .short("k")
+            .takes_value(true))
 }
 
 fn main() {
-    let server_credentials = load_certificates();
+    let args = app().get_matches();
+
+    let server_credentials = load_certificates(&args);
 
     let _guard = logging::init_log(None);
 
