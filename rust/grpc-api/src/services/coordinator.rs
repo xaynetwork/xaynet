@@ -1,6 +1,6 @@
 use log::error;
 
-use xain_proto::coordinator::{RendezvousRequest, RendezvousReply};
+use xain_proto::coordinator::{RendezvousReply, RendezvousRequest};
 use xain_proto::coordinator_grpc::{self, Coordinator};
 
 use futures::future::Future;
@@ -15,12 +15,15 @@ impl CoordinatorService {
 }
 
 impl Coordinator for CoordinatorService {
-    fn rendezvous(&mut self, ctx: ::grpcio::RpcContext, req: RendezvousRequest, sink: ::grpcio::UnarySink<RendezvousReply>) {
+    fn rendezvous(
+        &mut self,
+        ctx: ::grpcio::RpcContext,
+        req: RendezvousRequest,
+        sink: ::grpcio::UnarySink<RendezvousReply>,
+    ) {
         println!("Incoming request: {:?}", req);
         let reply = RendezvousReply::default();
-        let f = sink
-            .success(reply)
-            .map_err(move |e| error!("failed to reply {:?}: {:?}", req, e));
+        let f = sink.success(reply).map_err(move |e| error!("failed to reply {:?}: {:?}", req, e));
         ctx.spawn(f)
     }
 }

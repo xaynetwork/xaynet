@@ -4,7 +4,7 @@ use grpc_api::logging;
 
 use std::sync::Arc;
 
-use grpcio::{ChannelBuilder, EnvBuilder, ChannelCredentials, ChannelCredentialsBuilder};
+use grpcio::{ChannelBuilder, ChannelCredentials, ChannelCredentialsBuilder, EnvBuilder};
 use xain_proto::coordinator::RendezvousRequest;
 use xain_proto::coordinator_grpc::CoordinatorClient;
 
@@ -24,8 +24,7 @@ fn main() {
 
     let _guard = logging::init_log(None);
     let env = Arc::new(EnvBuilder::new().build());
-    let ch = ChannelBuilder::new(env)
-        .secure_connect("localhost:50051", channel_credentials);
+    let ch = ChannelBuilder::new(env).secure_connect("localhost:50051", channel_credentials);
 
     let client = CoordinatorClient::new(ch);
 
