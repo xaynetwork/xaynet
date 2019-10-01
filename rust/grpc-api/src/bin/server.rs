@@ -3,14 +3,16 @@ use log::info;
 use grpc_api::logging;
 use grpc_api::{CoordinatorService, NumProtoService};
 
+use futures::sync::oneshot;
+use futures::Future;
+
+use grpcio::{Environment, ServerBuilder, ServerCredentials, ServerCredentialsBuilder};
+
+use clap::App;
+
 use std::io::Read;
 use std::sync::Arc;
 use std::{io, thread};
-
-use futures::sync::oneshot;
-use futures::Future;
-use grpcio::{Environment, ServerBuilder, ServerCredentials, ServerCredentialsBuilder};
-
 
 fn load_certificates() -> ServerCredentials {
     let root_cert = std::fs::read_to_string("certs/ca.cer").unwrap();
@@ -21,6 +23,14 @@ fn load_certificates() -> ServerCredentials {
         .root_cert(root_cert.into_bytes(), true)
         .add_cert(server_cert.into_bytes(), private_key.into_bytes())
         .build()
+}
+
+fn app() -> App {
+    App::new("xain-coordinator")
+       .version("0.1")
+       .about("The coordinator for the XAIN distributed ML framework!")
+       .author("The XAIN developers")
+       .get_matches()
 }
 
 fn main() {
