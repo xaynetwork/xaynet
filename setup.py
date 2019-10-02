@@ -96,7 +96,7 @@ tests_require = [
     "pytest-watch==4.2.0",  # MIT
 ]
 
-docs_require = ["Sphinx==2.2.0"]  # BSD
+docs_require = ["Sphinx==2.2.0", "recommonmark==0.6.0"]
 
 setup(
     name="xain",
