@@ -19,7 +19,7 @@ XAIN: Federated Learning
 **XAIN** is an open source framework for federated learning.
 
 
-.. image:: https://www.xain.io/static/home-intro-10f893af9e0a3b821b404a003f0ff9ac.svg
+.. image:: _static/home.svg
 
 The XAIN project is building a GDPR-compliance layer for machine learning. The
 approach relies on federated machine learning (FedML) as enabling technology
