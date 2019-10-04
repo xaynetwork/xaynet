@@ -59,20 +59,24 @@ def endTraining(channel):
     print(f"Participant requests: theta' {nda1}, {nda2}; {num} examples")
     theta_prime = [ndarray_to_proto(nda1), ndarray_to_proto(nda2)]
     theta_update = coordinator_pb2.EndTrainingRequest.ThetaUpdate(
-        theta_prime=theta_prime, num_examples=num)
+        theta_prime=theta_prime, num_examples=num
+    )
     # history data
     k1, k2 = "aaa", "bbb"
     v1, v2 = [1.1, 2.1], [3.1, 4.1]
     print(f"History data: {k1}: {v1}; {k2}: {v2}")
-    his = {k1: coordinator_pb2.EndTrainingRequest.HistoryValue(values=v1),
-           k2: coordinator_pb2.EndTrainingRequest.HistoryValue(values=v2)}
+    his = {
+        k1: coordinator_pb2.EndTrainingRequest.HistoryValue(values=v1),
+        k2: coordinator_pb2.EndTrainingRequest.HistoryValue(values=v2),
+    }
     # metrics
     cid, vbc = 1, [3, 4, 5]
     print(f"Metrics: cid {cid}, vol by class {vbc}")
     met = coordinator_pb2.EndTrainingRequest.Metrics(cid=cid, vol_by_class=vbc)
     # assemble req
     req = coordinator_pb2.EndTrainingRequest(
-        theta_update=theta_update, history=his, metrics=met)
+        theta_update=theta_update, history=his, metrics=met
+    )
     # send request to end training
     reply = stub.EndTraining(req)
     print(f"Participant received: {type(reply)}")

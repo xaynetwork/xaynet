@@ -170,7 +170,8 @@ class Coordinator(coordinator_pb2_grpc.CoordinatorServicer):
         theta0 = [ndarray_to_proto(nda1), ndarray_to_proto(nda2)]
         # send reply
         return coordinator_pb2.StartTrainingReply(
-            theta=theta0, epochs=epochs, epoch_base=epoch_base)
+            theta=theta0, epochs=epochs, epoch_base=epoch_base
+        )
 
     def EndTraining(self, request, context):
         print(f"Received: {type(request)} from {context.peer()}")
