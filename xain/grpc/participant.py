@@ -2,6 +2,8 @@ import threading
 import time
 
 import grpc
+import numpy as np
+from numproto import ndarray_to_proto, proto_to_ndarray
 
 from xain.grpc import coordinator_pb2, coordinator_pb2_grpc
 
@@ -33,6 +35,49 @@ def rendezvous(channel):
         response = reply.response
 
 
+def startTraining(channel):
+    stub = coordinator_pb2_grpc.CoordinatorStub(channel)
+    req = coordinator_pb2.StartTrainingRequest()
+    # send request to start training
+    reply = stub.StartTraining(req)
+    print(f"Participant received: {type(reply)}")
+    theta, epochs, epoch_base = reply.theta, reply.epochs, reply.epoch_base
+    print(f"epochs: {epochs}, epoch_base: {epoch_base}")
+    # iterate over theta, deserialising and logging...
+    print(f"theta of type {type(theta)}:")
+    for proto_nda in theta:
+        nda = proto_to_ndarray(proto_nda)
+        print(f"{nda}")
+    # now simulate some training...
+
+
+def endTraining(channel):
+    stub = coordinator_pb2_grpc.CoordinatorStub(channel)
+    # build request starting with theta update
+    nda1, nda2 = np.arange(20, 30), np.arange(30, 40)
+    num = 2
+    print(f"Participant requests: theta' {nda1}, {nda2}; {num} examples")
+    theta_prime = [ndarray_to_proto(nda1), ndarray_to_proto(nda2)]
+    theta_update = coordinator_pb2.EndTrainingRequest.ThetaUpdate(
+        theta_prime=theta_prime, num_examples=num)
+    # history data
+    k1, k2 = "aaa", "bbb"
+    v1, v2 = [1.1, 2.1], [3.1, 4.1]
+    print(f"History data: {k1}: {v1}; {k2}: {v2}")
+    his = {k1: coordinator_pb2.EndTrainingRequest.HistoryValue(values=v1),
+           k2: coordinator_pb2.EndTrainingRequest.HistoryValue(values=v2)}
+    # metrics
+    cid, vbc = 1, [3, 4, 5]
+    print(f"Metrics: cid {cid}, vol by class {vbc}")
+    met = coordinator_pb2.EndTrainingRequest.Metrics(cid=cid, vol_by_class=vbc)
+    # assemble req
+    req = coordinator_pb2.EndTrainingRequest(
+        theta_update=theta_update, history=his, metrics=met)
+    # send request to end training
+    reply = stub.EndTraining(req)
+    print(f"Participant received: {type(reply)}")
+
+
 def run():
     # create a channel to the coordinator
     channel = grpc.insecure_channel("localhost:50051")
@@ -46,6 +91,10 @@ def run():
         target=heartbeat, args=(channel, terminate_event)
     )
     heartbeat_thread.start()
+
+    # do a training round
+    startTraining(channel)
+    endTraining(channel)
 
     try:
         # never returns unless there is an exception
