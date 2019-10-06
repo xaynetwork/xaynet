@@ -4,16 +4,19 @@ set -e
 cd "$(dirname "$0")"
 
 if ! [[ -x "$(command -v grpc_rust_plugin)" ]]; then
-    echo "Error: grpc_rust_plugin was not found"
-    echo
-    echo "To install, run: cargo install grpcio-compiler"
-    exit 1
+    cargo install grpcio-compiler --version 0.4.3
 fi
 
+if ! [[ -x "$(command -v protobuf-bin-gen-rust-do-not-use)" ]]; then
+    cargo install protobuf-codegen --version 2.8.1
+fi
+
+git submodule update --init --recursive
+
 proto_files="
-../../numproto/numproto/protobuf/ndarray.proto
 ../../protobuf/xain/grpc/coordinator.proto
 ../../protobuf/xain/grpc/hellonumproto.proto
+./numproto/numproto/protobuf/ndarray.proto
 "
 
 for proto in $proto_files; do
@@ -22,7 +25,7 @@ for proto in $proto_files; do
         --rust_out=$PWD/src \
         --grpc_out=$PWD/src \
         --plugin=protoc-gen-grpc=`which grpc_rust_plugin` \
-        --proto_path=../../numproto \
+        --proto_path=./numproto \
         --proto_path=../../protobuf/xain/grpc \
         $proto
 done
