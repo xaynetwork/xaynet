@@ -14,6 +14,7 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath('..'))
 
+
 # get version
 _version = {}
 with open("../xain/__version__.py") as fp:
@@ -40,6 +41,8 @@ release = _version["__version__"]
 # ones.
 extensions = [
     "recommonmark",
+    "sphinx.ext.napoleon",
+    "sphinx.ext.autodoc",
 ]
 
 source_suffix = {

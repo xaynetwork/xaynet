@@ -28,7 +28,7 @@ production.
 
 
 User Guide
-------------
+----------
 
 .. toctree::
    :maxdepth: 2
@@ -36,3 +36,12 @@ User Guide
    intro
    install
    quick
+
+
+API Documentation
+-----------------
+
+.. toctree::
+    :maxdepth: 1
+
+    _code_reference/index
