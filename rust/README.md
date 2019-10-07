@@ -13,6 +13,5 @@ The server project contains a set of certificates for local testing.
 ```sh
 $ cd xain-grpc-api
 $ cargo run --bin server -- -r certs/ca.cer -s certs/server.cer -k certs/server.key 
-$ cargo run --bin client -- -s certs/client.cer -k certs/client.key -r certs/ca.cer
+$ cargo run --bin client -- -r certs/ca.cer -s certs/client.cer -k certs/client.key
 ```
- 
