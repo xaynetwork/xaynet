@@ -40,6 +40,11 @@ jobs:
       - checkout
 
       - run:
+          name: install dependencies
+          command: |
+            apt-get update && apt-get install -y cmake
+
+      - run:
           name: run tests
           command: |
             ./scripts/test_rust.sh
