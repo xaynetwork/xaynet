@@ -35,7 +35,7 @@ def rendezvous(channel):
         response = reply.response
 
 
-def startTraining(channel):
+def start_training(channel):
     stub = coordinator_pb2_grpc.CoordinatorStub(channel)
     req = coordinator_pb2.StartTrainingRequest()
     # send request to start training
@@ -51,7 +51,7 @@ def startTraining(channel):
     # now simulate some training...
 
 
-def endTraining(channel):
+def end_training(channel):
     stub = coordinator_pb2_grpc.CoordinatorStub(channel)
     # build request starting with theta update
     nda1, nda2 = np.arange(20, 30), np.arange(30, 40)
@@ -97,8 +97,8 @@ def run():
     heartbeat_thread.start()
 
     # do a training round
-    startTraining(channel)
-    endTraining(channel)
+    start_training(channel)
+    end_training(channel)
 
     try:
         # never returns unless there is an exception
