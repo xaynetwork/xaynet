@@ -1,0 +1,3 @@
+[submodule "rust/xain-proto/numproto"]
+	path = rust/xain-proto/numproto
+	url = https://github.com/xainag/numproto.git
