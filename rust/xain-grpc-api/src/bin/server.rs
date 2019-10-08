@@ -33,18 +33,9 @@ fn app() -> App<'static, 'static> {
         .version("0.1")
         .about("The coordinator for the XAIN distributed ML framework!")
         .author("The XAIN developers")
-        .arg(Arg::with_name("root-cert")
-            .short("r")
-            .required(true)
-            .takes_value(true))
-        .arg(Arg::with_name("server-cert")
-            .short("s")
-            .required(true)
-            .takes_value(true))
-        .arg(Arg::with_name("server-key")
-            .short("k")
-            .required(true)
-            .takes_value(true))
+        .arg(Arg::with_name("root-cert").short("r").required(true).takes_value(true))
+        .arg(Arg::with_name("server-cert").short("s").required(true).takes_value(true))
+        .arg(Arg::with_name("server-key").short("k").required(true).takes_value(true))
 }
 
 fn main() -> Result<(), ServerError> {
