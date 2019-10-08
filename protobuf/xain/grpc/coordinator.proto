@@ -26,8 +26,6 @@ message HeartbeatRequest {}
 
 message HeartbeatReply {}
 
-/* TODO checkwhether int32 is ok... */
-
 message StartTrainingRequest {}
 
 message StartTrainingReply {
