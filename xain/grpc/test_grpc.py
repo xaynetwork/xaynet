@@ -15,7 +15,7 @@ from xain.grpc import (
     hellonumproto_pb2_grpc,
 )
 from xain.grpc.coordinator import Coordinator, Participants, monitor_heartbeats
-from xain.grpc.participant import heartbeat
+from xain.grpc.participant import heartbeat, start_training
 
 # Some grpc tests fail on macos.
 # `pytestmark` when defined on a module will mark all tests in that module.
@@ -125,3 +125,27 @@ def test_participant_heartbeat(mock_heartbeat_request, _mock_sleep, _mock_event)
 
     # check that the heartbeat is sent exactly twice
     mock_heartbeat_request.assert_has_calls([mock.call(), mock.call()])
+
+
+def training_init(self, participants, required_participants=10):
+    self.required_participants = required_participants
+    self.participants = participants
+    self.theta = [np.arange(10), np.arange(10, 20)]
+    self.epochs = 5
+    self.epoch_base = 2
+    self.theta_updates = []
+    self.histories = []
+    self.metricss = []
+
+
+@pytest.mark.integration
+@mock.patch("xain.grpc.coordinator.Coordinator.__init__", new=training_init)
+def test_start_training(coordinator_service):
+    with grpc.insecure_channel("localhost:50051") as channel:
+        theta, epochs, epoch_base = start_training(channel)
+
+        assert epochs == 5
+        assert epoch_base == 2
+        assert theta.len() == 2
+        assert np.array_equal(theta[0], np.arange(10))
+        assert np.array_equal(theta[1], np.arange(10, 20))

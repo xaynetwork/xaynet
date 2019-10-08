@@ -3,7 +3,6 @@ import time
 from typing import Tuple
 
 import grpc
-import numpy as np
 from numproto import ndarray_to_proto, proto_to_ndarray
 
 from xain.grpc import coordinator_pb2, coordinator_pb2_grpc
@@ -44,19 +43,11 @@ def start_training(channel) -> Tuple[Theta, int, int]:
     reply = stub.StartTraining(req)
     print(f"Participant received: {type(reply)}")
     theta, epochs, epoch_base = reply.theta, reply.epochs, reply.epoch_base
-    # print(f"epochs: {epochs}, epoch_base: {epoch_base}")
-    # iterate over theta, deserialising and logging...
-    # print(f"theta of type {type(theta)}:")
-    # for proto_nda in theta:
-    #     nda = proto_to_ndarray(proto_nda)
-    #     print(f"{nda}")
-    # now simulate some training...
     return [proto_to_ndarray(pnda) for pnda in theta], epochs, epoch_base
 
 
 def end_training(
-    channel,
-    theta_update: Tuple[Theta, int], history: History, metrics: Metrics
+    channel, theta_update: Tuple[Theta, int], history: History, metrics: Metrics
 ):
     stub = coordinator_pb2_grpc.CoordinatorStub(channel)
     # build request starting with theta update
@@ -69,8 +60,7 @@ def end_training(
     #     theta_prime=theta_prime, num_examples=num)
     theta, num = theta_update
     theta_update = coordinator_pb2.EndTrainingRequest.ThetaUpdate(
-        theta_prime=[ndarray_to_proto(nda) for nda in theta],
-        num_examples=num
+        theta_prime=[ndarray_to_proto(nda) for nda in theta], num_examples=num
     )
     # history data
 
@@ -81,8 +71,10 @@ def end_training(
     #     k1: coordinator_pb2.EndTrainingRequest.HistoryValue(values=v1),
     #     k2: coordinator_pb2.EndTrainingRequest.HistoryValue(values=v2),
     # }
-    h = {k: coordinator_pb2.EndTrainingRequest.HistoryValue(values=v)
-         for k, v in history.items()}
+    h = {
+        k: coordinator_pb2.EndTrainingRequest.HistoryValue(values=v)
+        for k, v in history.items()
+    }
     # metrics
 
     # cid, vbc = 1, [3, 4, 5]
@@ -112,24 +104,24 @@ def run():
     rendezvous(channel)
 
     # start the heartbeat in a different thread
-    # terminate_event = threading.Event()
-    # heartbeat_thread = threading.Thread(
-    #     target=heartbeat, args=(channel, terminate_event)
-    # )
-    # heartbeat_thread.start()
+    terminate_event = threading.Event()
+    heartbeat_thread = threading.Thread(
+        target=heartbeat, args=(channel, terminate_event)
+    )
+    heartbeat_thread.start()
 
     # sample training round
-    theta, epochs, epoch_base = start_training(channel)
+    theta, _, _ = start_training(channel)
     # end training with some default values; in actual training you'd pass
     # along the theta_update, history and metrics to end the round
     end_training(channel, (theta, 0), {}, (0, []))
 
-    # try:
-    #     # never returns unless there is an exception
-    #     heartbeat_thread.join()
-    # except KeyboardInterrupt:
-    #     terminate_event.set()
-    #     channel.close()
+    try:
+        # never returns unless there is an exception
+        heartbeat_thread.join()
+    except KeyboardInterrupt:
+        terminate_event.set()
+        channel.close()
 
 
 if __name__ == "__main__":

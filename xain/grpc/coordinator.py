@@ -4,11 +4,10 @@ from concurrent import futures
 from typing import List, Tuple
 
 import grpc
-import numpy as np
 from numproto import ndarray_to_proto, proto_to_ndarray
 
 from xain.grpc import coordinator_pb2, coordinator_pb2_grpc
-from xain.types import Theta, History, Metrics
+from xain.types import History, Metrics, Theta
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 HEARTBEAT_TIME = 10
@@ -137,8 +136,12 @@ def monitor_heartbeats(participants, terminate_event):
 
 class Coordinator(coordinator_pb2_grpc.CoordinatorServicer):
     def __init__(
-        self, participants, required_participants=10,
-        theta: Theta = [], epochs=0, epoch_base=0,
+        self,
+        participants,
+        required_participants=10,
+        theta: Theta = [],
+        epochs=0,
+        epoch_base=0,
     ):
         self.required_participants = required_participants
         self.participants = participants
@@ -176,13 +179,6 @@ class Coordinator(coordinator_pb2_grpc.CoordinatorServicer):
     def StartTraining(self, request, context):
         print(f"Received: {type(request)} from {context.peer()}")
         # prepare reply
-
-        # nda1, nda2 = np.arange(10), np.arange(10, 20)
-        # print(f"Coordinator replies with theta: {nda1}, {nda2}")
-        # epochs, epoch_base = 5, 2
-        # print(f"{epochs} epochs, base {epoch_base}")
-        # theta0 = [ndarray_to_proto(nda1), ndarray_to_proto(nda2)]
-
         theta_proto = [ndarray_to_proto(nda) for nda in self.theta]
         # send reply
         return coordinator_pb2.StartTrainingReply(
@@ -192,14 +188,8 @@ class Coordinator(coordinator_pb2_grpc.CoordinatorServicer):
     def EndTraining(self, request, context):
         print(f"Received: {type(request)} from {context.peer()}")
         tu, his, met = request.theta_update, request.history, request.metrics
-        # print(f"model: {type(tu)}, history: {type(his)}, metrics: {type(met)}")
         tp, num = tu.theta_prime, tu.num_examples
         cid, vbc = met.cid, met.vol_by_class
-        # print(f"theta prime of type {type(tp)} with {num} examples:")
-        # for proto_nda in tp:
-        #     nda = proto_to_ndarray(proto_nda)
-        #     print(f"{nda}")
-        # print(f"metrics of type {type(met)}: cid {cid}, vol by class {vbc}")
         # record the req data
         theta_update = [proto_to_ndarray(pnda) for pnda in tp], num
         self.theta_updates.append(theta_update)
