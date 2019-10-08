@@ -40,6 +40,11 @@ jobs:
       - checkout
 
       - run:
+          name: install dependencies
+          command: |
+            sudo apt-get update && sudo apt-get install -y cmake golang
+
+      - run:
           name: run tests
           command: |
             ./scripts/test_rust.sh
