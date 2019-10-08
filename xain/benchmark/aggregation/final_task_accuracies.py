@@ -67,7 +67,7 @@ def prepare_aggregation_data(
 
     Returns:
         A tuple containing a list of `PlotValues` and a list of tuples
-        containing (`XticksLocations`, `XticksLabes`)
+        containing (`XticksLocations`, `XticksLabels`)
 
     """
     group_dir = os.path.join(FLAGS.results_dir, group_name)
