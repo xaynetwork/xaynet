@@ -75,7 +75,7 @@ To plot final task accuracies in a group of tasks use
 
 ```shell
 $ pull_results
-$ plot_final_task_accuracies --group_name=GROUP_NAME
+$ aggregate --group_name GROUP_NAME
 ```
 
 ### Removing obsolete plots
