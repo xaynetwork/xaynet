@@ -60,17 +60,15 @@ def group_values_by_class(
 def prepare_aggregation_data(
     group_name: str
 ) -> Tuple[List[PlotValues], Optional[Tuple[XticksLocations, XticksLabels]]]:
-    """Constructs and returns curves and xticks_args
+    """Constructs and returns curves and xticks_args.
 
     Args:
         group_name (str): group name for which to construct the curves
 
     Returns:
-        (
-            [("unitary", unitary_accuracies, indices),
-            ("federated", federated_accuracies, indices)],
-            (xticks_locations, xticks_labels))
-        )
+        A tuple containing a list of `PlotValues` and a list of tuples
+        containing (`XticksLocations`, `XticksLabels`)
+
     """
     group_dir = os.path.join(FLAGS.results_dir, group_name)
     # List of tuples (benchmark_name, unitary_accuracy, federated_accuracy)

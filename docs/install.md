@@ -49,7 +49,7 @@ The project documentation resides under `docs/`. To build the documentation
 run:
 ```shell
 $ cd docs/
-$ make html
+$ make docs
 ```
 
 The generated documentation will be under `docs/_build/html/`. You can open the
