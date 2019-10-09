@@ -15,7 +15,7 @@ from xain.grpc import (
     hellonumproto_pb2_grpc,
 )
 from xain.grpc.coordinator import Coordinator, Participants, monitor_heartbeats
-from xain.grpc.participant import heartbeat, start_training, end_training
+from xain.grpc.participant import end_training, heartbeat, start_training
 
 # Some grpc tests fail on macos.
 # `pytestmark` when defined on a module will mark all tests in that module.
