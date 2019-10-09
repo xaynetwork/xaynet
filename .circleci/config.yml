@@ -109,6 +109,20 @@ jobs:
             . venv/bin/activate
             python -m xain.benchmark.exec --group_name=ci-test-group --task_name=ci-test-task --dataset=fashion-mnist-100p-iid-balanced --model=blog_cnn --R=2 --E=2 --C=0.02 --B=64
 
+  # Test if docker image can be build without failing
+  docker_build:
+    docker:
+      - image: circleci/python:3.7
+    steps:
+      - checkout
+      - setup_remote_docker:
+          docker_layer_caching: true
+      # Just trigger build and see if it completes successfully
+      # Later on we might push the image to a registry but right
+      # Now we just want to ensure a given change does not break
+      # The docker build
+      - run: docker build -t build-in-ci:$CIRCLE_BUILD_NUM .
+
 workflows:
   version: 2.1
   qa:
@@ -117,3 +131,4 @@ workflows:
       - tests_slow
       - tests_benchmark
       - tests_rust
+      - docker_build
