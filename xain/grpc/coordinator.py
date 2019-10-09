@@ -135,21 +135,22 @@ def monitor_heartbeats(participants, terminate_event):
 
 
 class Coordinator(coordinator_pb2_grpc.CoordinatorServicer):
+    # pylint: disable=too-many-instance-attributes
     def __init__(
         self,
         participants,
         required_participants=10,
-        theta: Theta = [],
+        theta: Theta = None,
         epochs=0,
         epoch_base=0,
     ):
         self.required_participants = required_participants
         self.participants = participants
-        # start-training reply data
+        # global model data (sent)
         self.theta = theta
         self.epochs = epochs
         self.epoch_base = epoch_base
-        # end-training request data
+        # local model data (received)
         self.theta_updates: List[Tuple[Theta, int]] = []
         self.histories: List[History] = []
         self.metricss: List[Metrics] = []
@@ -178,7 +179,7 @@ class Coordinator(coordinator_pb2_grpc.CoordinatorServicer):
 
     def StartTraining(self, request, context):
         print(f"Received: {type(request)} from {context.peer()}")
-        # prepare reply
+        # NOTE self.theta is assumed to be initialised
         theta_proto = [ndarray_to_proto(nda) for nda in self.theta]
         # send reply
         return coordinator_pb2.StartTrainingReply(
