@@ -11,7 +11,7 @@ The coordinator currently uses TLS client authentication for authenticating clie
 The server project contains a set of certificates for local testing.
 
 ```sh
-$ cd xain-grpc-api
+$ cd xain-grpc
 $ cargo run --bin server -- -r certs/ca.cer -s certs/server.cer -k certs/server.key 
 $ cargo run --bin client -- -r certs/ca.cer -s certs/client.cer -k certs/client.key
 ```

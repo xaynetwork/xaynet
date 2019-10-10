@@ -1,14 +1,12 @@
-use log::info;
-
-use xain_grpc_api::logging;
-
 use std::sync::Arc;
 
-use grpcio::{ChannelBuilder, ChannelCredentials, ChannelCredentialsBuilder, EnvBuilder};
-use xain_proto::coordinator::RendezvousRequest;
-use xain_proto::coordinator_grpc::CoordinatorClient;
-
 use clap::{App, Arg};
+use grpcio::{ChannelBuilder, ChannelCredentials, ChannelCredentialsBuilder, EnvBuilder};
+use log::info;
+
+use xain_grpc::logging;
+use xain_grpc::proto::coordinator::RendezvousRequest;
+use xain_grpc::proto::coordinator_grpc::CoordinatorClient;
 
 type AppError = Box<dyn std::error::Error + Send + Sync>;
 

@@ -13,6 +13,11 @@ fi
 
 git submodule update --init --recursive
 
+if ! [[ -d "./numproto" ]]; then
+    echo "error: git submodules are not present"
+    exit 1
+fi
+
 proto_files="
 ../../protobuf/xain/grpc/coordinator.proto
 ../../protobuf/xain/grpc/hellonumproto.proto
@@ -22,8 +27,8 @@ proto_files="
 for proto in $proto_files; do
     echo "Processing: $proto"
     protoc \
-        --rust_out=$PWD/src \
-        --grpc_out=$PWD/src \
+        --rust_out=$PWD/src/proto \
+        --grpc_out=$PWD/src/proto \
         --plugin=protoc-gen-grpc=`which grpc_rust_plugin` \
         --proto_path=./numproto \
         --proto_path=../../protobuf/xain/grpc \

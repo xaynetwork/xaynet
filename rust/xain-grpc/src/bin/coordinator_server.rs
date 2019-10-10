@@ -1,23 +1,23 @@
-use log::info;
-
-use xain_grpc_api::logging;
-use xain_grpc_api::{CoordinatorService, NumProtoService};
-
-use futures::sync::oneshot;
-use futures::Future;
-
-use grpcio::{Environment, ServerBuilder, ServerCredentials, ServerCredentialsBuilder};
-
-use clap::{App, Arg};
-
 use std::io::Read;
 use std::sync::Arc;
 use std::{io, thread};
 
+use clap::{App, Arg};
+use futures::future::Future;
+use futures::sync::oneshot;
+use grpcio::{Environment, ServerBuilder, ServerCredentials, ServerCredentialsBuilder};
+use log::error;
+use log::info;
+
+use xain_grpc::logging;
+use xain_grpc::proto::coordinator::{
+    HeartbeatReply, HeartbeatRequest, RendezvousReply, RendezvousRequest,
+};
+use xain_grpc::proto::coordinator_grpc::{self, Coordinator};
+
 type ServerError = Box<dyn std::error::Error + Send + Sync>;
 
 fn load_certificates(args: &clap::ArgMatches) -> Result<ServerCredentials, ServerError> {
-    // TODO: proper error handling
     let root_cert = std::fs::read_to_string(args.value_of("root-cert").unwrap())?;
     let server_cert = std::fs::read_to_string(args.value_of("server-cert").unwrap())?;
     let private_key = std::fs::read_to_string(args.value_of("server-key").unwrap())?;
@@ -38,6 +38,38 @@ fn app() -> App<'static, 'static> {
         .arg(Arg::with_name("server-key").short("k").required(true).takes_value(true))
 }
 
+#[derive(Clone)]
+pub struct CoordinatorService;
+
+impl CoordinatorService {
+    pub fn create() -> grpcio::Service {
+        coordinator_grpc::create_coordinator(CoordinatorService)
+    }
+}
+
+impl Coordinator for CoordinatorService {
+    fn rendezvous(
+        &mut self,
+        ctx: grpcio::RpcContext,
+        req: RendezvousRequest,
+        sink: grpcio::UnarySink<RendezvousReply>,
+    ) {
+        println!("Incoming request: {:?}", req);
+        let reply = RendezvousReply::default();
+        let f = sink.success(reply).map_err(move |e| error!("failed to reply {:?}: {:?}", req, e));
+        ctx.spawn(f)
+    }
+
+    fn heartbeat(
+        &mut self,
+        _ctx: grpcio::RpcContext,
+        _req: HeartbeatRequest,
+        _sink: grpcio::UnarySink<HeartbeatReply>,
+    ) {
+        unimplemented!()
+    }
+}
+
 fn main() -> Result<(), ServerError> {
     let args = app().get_matches();
 
@@ -49,7 +81,6 @@ fn main() -> Result<(), ServerError> {
 
     let mut server = ServerBuilder::new(env)
         .register_service(CoordinatorService::create())
-        .register_service(NumProtoService::create())
         .bind_secure("127.0.0.1", 50_051, server_credentials)
         .build()
         .unwrap();
