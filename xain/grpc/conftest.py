@@ -23,13 +23,11 @@ def greeter_server():
 @pytest.fixture
 def coordinator_service():
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
-    coordinator_pb2_grpc.add_CoordinatorServicer_to_server(
-        Coordinator(Participants()), server
-    )
+    coordinator = Coordinator(Participants())
+    coordinator_pb2_grpc.add_CoordinatorServicer_to_server(coordinator, server)
     server.add_insecure_port("localhost:50051")
-
     server.start()
-    yield
+    yield coordinator
     server.stop(0)
 
 
@@ -39,15 +37,3 @@ def participant_stub():
     stub = coordinator_pb2_grpc.CoordinatorStub(channel)
 
     return stub
-
-
-# similar to coordinator_service but yields the coordinator servicer
-@pytest.fixture
-def coordinator_servicer():
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
-    coordinator = Coordinator(Participants())
-    coordinator_pb2_grpc.add_CoordinatorServicer_to_server(coordinator, server)
-    server.add_insecure_port("localhost:50051")
-    server.start()
-    yield coordinator
-    server.stop(0)

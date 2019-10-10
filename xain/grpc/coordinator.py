@@ -147,7 +147,7 @@ class Coordinator(coordinator_pb2_grpc.CoordinatorServicer):
         self.required_participants = required_participants
         self.participants = participants
         # global model data (sent)
-        self.theta = theta
+        self.theta = [] if theta is None else theta
         self.epochs = epochs
         self.epoch_base = epoch_base
         # local model data (received)
@@ -179,7 +179,6 @@ class Coordinator(coordinator_pb2_grpc.CoordinatorServicer):
 
     def StartTraining(self, request, context):
         print(f"Received: {type(request)} from {context.peer()}")
-        # NOTE self.theta is assumed to be initialised
         theta_proto = [ndarray_to_proto(nda) for nda in self.theta]
         # send reply
         return coordinator_pb2.StartTrainingReply(
