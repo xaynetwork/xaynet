@@ -3,19 +3,29 @@ use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
+use async_std::task;
 use clap::{App, Arg};
 use futures::future::Future;
+use futures_channel::mpsc;
+use futures_util::stream::StreamExt;
 use grpcio::{Environment, ServerBuilder, ServerCredentialsBuilder};
 
+use xain_coordinator::training::{FromParticipant, InMessage};
 use xain_grpc::proto::coordinator::{
     HeartbeatReply, HeartbeatRequest, RendezvousReply, RendezvousRequest,
 };
 use xain_grpc::proto::coordinator_grpc::{create_coordinator, Coordinator};
+use xain_grpc::training_task::TrainingTask;
 
 type DynError = Box<dyn std::error::Error + Send + Sync>;
 
+type Sender<T> = mpsc::UnboundedSender<T>;
+type Receiver<T> = mpsc::UnboundedReceiver<T>;
+
 #[derive(Clone)]
-pub struct CoordinatorService;
+pub struct CoordinatorService {
+    sender: Sender<InMessage>,
+}
 
 impl Coordinator for CoordinatorService {
     fn rendezvous(
@@ -25,6 +35,10 @@ impl Coordinator for CoordinatorService {
         sink: grpcio::UnarySink<RendezvousReply>,
     ) {
         log::info!("Rendezvous");
+
+        self.sender
+            .unbounded_send(InMessage::Joined(FromParticipant { from: 1, payload: () }))
+            .unwrap();
 
         // Spawn a future that sends a reply.
         let fut = sink.success(RendezvousReply::default());
@@ -74,9 +88,15 @@ fn main() -> Result<(), DynError> {
     // Create gRPC event loop.
     let env = Arc::new(Environment::new(2));
 
+    // Start the training task.
+    let (mut training_task, sender) = TrainingTask::create();
+    task::spawn(async move {
+        training_task.run().await;
+    });
+
     // Start Coordinator server.
     let mut server = ServerBuilder::new(env)
-        .register_service(create_coordinator(CoordinatorService))
+        .register_service(create_coordinator(CoordinatorService { sender }))
         .bind_secure("127.0.0.1", 50_051, credentials)
         .build()?;
     server.start();
