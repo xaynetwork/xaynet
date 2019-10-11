@@ -138,6 +138,3 @@ dmypy.json
 # Editors
 .idea
 .vscode
-
-# rust
-rust/**/target
