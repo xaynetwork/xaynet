@@ -1,51 +1,50 @@
+use std::fs;
 use std::sync::Arc;
 
 use clap::{App, Arg};
-use grpcio::{ChannelBuilder, ChannelCredentials, ChannelCredentialsBuilder, EnvBuilder};
-use log::info;
+use grpcio::{ChannelBuilder, ChannelCredentialsBuilder, EnvBuilder};
 
-use xain_grpc::logging;
 use xain_grpc::proto::coordinator::RendezvousRequest;
 use xain_grpc::proto::coordinator_grpc::CoordinatorClient;
 
-type AppError = Box<dyn std::error::Error + Send + Sync>;
+type DynError = Box<dyn std::error::Error + Send + Sync>;
 
-fn load_certificates(args: &clap::ArgMatches) -> Result<ChannelCredentials, AppError> {
-    // TODO: load certificates dynamically
-    let root_cert = std::fs::read_to_string(args.value_of("root-cert").unwrap())?;
-    let client_cert = std::fs::read_to_string(args.value_of("client-cert").unwrap())?;
-    let client_key = std::fs::read_to_string(args.value_of("client-key").unwrap())?;
+fn main() -> Result<(), DynError> {
+    // Set up logging.
+    env_logger::Builder::new().filter_level(log::LevelFilter::Info).init();
+    grpcio::redirect_log();
 
-    Ok(ChannelCredentialsBuilder::new()
-        .root_cert(root_cert.into_bytes())
-        .cert(client_cert.into_bytes(), client_key.into_bytes())
-        .build())
-}
-
-fn app() -> App<'static, 'static> {
-    App::new("xain-coordinator-client")
+    // Parse arguments passed to the program.
+    let args = App::new("xain-coordinator-client")
         .version("0.1")
         .about("A coordinator client for testing the XAIN distributed ML framework!")
         .author("The XAIN developers")
         .arg(Arg::with_name("root-cert").short("r").required(true).takes_value(true))
         .arg(Arg::with_name("client-cert").short("s").required(true).takes_value(true))
         .arg(Arg::with_name("client-key").short("k").required(true).takes_value(true))
-}
+        .get_matches();
 
-fn main() -> Result<(), AppError> {
-    let args = app().get_matches();
+    // Load certificates.
+    let root_cert = fs::read_to_string(args.value_of("root-cert").unwrap())?;
+    let client_cert = fs::read_to_string(args.value_of("client-cert").unwrap())?;
+    let client_key = fs::read_to_string(args.value_of("client-key").unwrap())?;
+    let credentials = ChannelCredentialsBuilder::new()
+        .root_cert(root_cert.into_bytes())
+        .cert(client_cert.into_bytes(), client_key.into_bytes())
+        .build();
 
-    let channel_credentials = load_certificates(&args)?;
-
-    let _guard = logging::init_log(None);
+    // Create gRPC event loop.
     let env = Arc::new(EnvBuilder::new().build());
-    let ch = ChannelBuilder::new(env).secure_connect("localhost:50051", channel_credentials);
 
-    let client = CoordinatorClient::new(ch);
+    // Start Coordinator client.
+    let channel = ChannelBuilder::new(env).secure_connect("localhost:50051", credentials);
+    let client = CoordinatorClient::new(channel);
 
+    // Send a rendezvous request and wait for the reply.
     let req = RendezvousRequest::new();
-    let reply = client.rendezvous(&req).expect("rpc");
-    info!("Client received: {:?}", reply.get_response());
+    let reply = client.rendezvous(&req)?;
+    println!("Client sent rendezvous");
+    println!("Client received: {:?}", reply.get_response());
 
     Ok(())
 }

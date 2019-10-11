@@ -2,16 +2,13 @@
 
 The implemention of the XAIN coordinator in Rust.
 
-## Authentication
+Coordinator currently uses TLS client authentication for authenticating clients.
 
-The coordinator currently uses TLS client authentication for authenticating clients.
-
-## Running the Server and the test client
-
-The server project contains a set of certificates for local testing.
+To test Coordinator, run the following two commands in separate command lines:
 
 ```sh
-$ cd xain-grpc
-$ cargo run --bin server -- -r certs/ca.cer -s certs/server.cer -k certs/server.key 
-$ cargo run --bin client -- -r certs/ca.cer -s certs/client.cer -k certs/client.key
+cargo run --bin coordinator_server -- -r xain-grpc/certs/ca.cer -s xain-grpc/certs/server.cer -k xain-grpc/certs/server.key 
+cargo run --bin coordinator_client -- -r xain-grpc/certs/ca.cer -s xain-grpc/certs/client.cer -k xain-grpc/certs/client.key
 ```
+
+For more information, see the readme in [xain-grpc](xain-grpc).

@@ -4,9 +4,13 @@ use xain_grpc::proto::hellonumproto::NumProtoRequest;
 use xain_grpc::proto::hellonumproto_grpc::NumProtoServerClient;
 use xain_grpc::proto::ndarray::NDArray;
 
-type AppError = Box<dyn std::error::Error + Send + Sync>;
+type DynError = Box<dyn std::error::Error + Send + Sync>;
 
-fn main() -> Result<(), AppError> {
+fn main() -> Result<(), DynError> {
+    // Set up logging.
+    env_logger::Builder::new().filter_level(log::LevelFilter::Info).init();
+    grpcio::redirect_log();
+
     // Create a gRPC event loop.
     let env = Arc::new(grpcio::Environment::new(2));
 
