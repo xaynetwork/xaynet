@@ -11,17 +11,12 @@ if ! [[ -x "$(command -v protobuf-bin-gen-rust-do-not-use)" ]]; then
     cargo install protobuf-codegen --version 2.8.1
 fi
 
-git submodule update --init --recursive
-
-if ! [[ -d "./numproto" ]]; then
-    echo "error: git submodules are not present"
-    exit 1
-fi
+numproto=`pip3 show numproto | grep Location | sed -e 's/^Location: //'`
 
 proto_files="
 ../../protobuf/xain/grpc/coordinator.proto
 ../../protobuf/xain/grpc/hellonumproto.proto
-./numproto/numproto/protobuf/ndarray.proto
+$numproto/numproto/protobuf/ndarray.proto
 "
 
 for proto in $proto_files; do
@@ -30,7 +25,7 @@ for proto in $proto_files; do
         --rust_out=$PWD/src/proto \
         --grpc_out=$PWD/src/proto \
         --plugin=protoc-gen-grpc=`which grpc_rust_plugin` \
-        --proto_path=./numproto \
         --proto_path=../../protobuf/xain/grpc \
+        --proto_path=$numproto \
         $proto
 done
