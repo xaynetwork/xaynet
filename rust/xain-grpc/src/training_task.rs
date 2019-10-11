@@ -1,7 +1,9 @@
-use futures_channel::mpsc; 
+use futures_channel::mpsc;
 
-use xain_coordinator::training::{InMessage,Training,TrainingParams, IO, TimeoutToken, OutMessage};
 use std::time::Duration;
+use xain_coordinator::training::{
+    InMessage, OutMessage, TimeoutToken, Training, TrainingParams, IO,
+};
 
 use async_std::prelude::*;
 use ndarray::array;
