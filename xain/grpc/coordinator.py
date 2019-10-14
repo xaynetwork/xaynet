@@ -1,10 +1,13 @@
 import threading
 import time
 from concurrent import futures
+from typing import List, Tuple
 
 import grpc
+from numproto import ndarray_to_proto, proto_to_ndarray
 
 from xain.grpc import coordinator_pb2, coordinator_pb2_grpc
+from xain.types import History, Metrics, Theta
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 HEARTBEAT_TIME = 10
@@ -132,9 +135,25 @@ def monitor_heartbeats(participants, terminate_event):
 
 
 class Coordinator(coordinator_pb2_grpc.CoordinatorServicer):
-    def __init__(self, participants, required_participants=10):
+    # pylint: disable=too-many-instance-attributes
+    def __init__(
+        self,
+        participants,
+        required_participants=10,
+        theta: Theta = None,
+        epochs=0,
+        epoch_base=0,
+    ):
         self.required_participants = required_participants
         self.participants = participants
+        # global model data (sent)
+        self.theta = [] if theta is None else theta
+        self.epochs = epochs
+        self.epoch_base = epoch_base
+        # local model data (received)
+        self.theta_updates: List[Tuple[Theta, int]] = []
+        self.histories: List[History] = []
+        self.metricss: List[Metrics] = []
 
     def Rendezvous(self, request, context):
         if self.participants.len() < self.required_participants:
@@ -157,6 +176,27 @@ class Coordinator(coordinator_pb2_grpc.CoordinatorServicer):
         print(f"Received: {type(request)} from {context.peer()}")
         self.participants.update_expires(context.peer())
         return coordinator_pb2.HeartbeatReply()
+
+    def StartTraining(self, request, context):
+        print(f"Received: {type(request)} from {context.peer()}")
+        theta_proto = [ndarray_to_proto(nda) for nda in self.theta]
+        # send reply
+        return coordinator_pb2.StartTrainingReply(
+            theta=theta_proto, epochs=self.epochs, epoch_base=self.epoch_base
+        )
+
+    def EndTraining(self, request, context):
+        print(f"Received: {type(request)} from {context.peer()}")
+        tu, his, met = request.theta_update, request.history, request.metrics
+        tp, num = tu.theta_prime, tu.num_examples
+        cid, vbc = met.cid, met.vol_by_class
+        # record the req data
+        theta_update = [proto_to_ndarray(pnda) for pnda in tp], num
+        self.theta_updates.append(theta_update)
+        self.histories.append({k: list(hv.values) for k, hv in his.items()})
+        self.metricss.append((cid, list(vbc)))
+        # reply
+        return coordinator_pb2.EndTrainingReply()
 
 
 def serve():

@@ -15,7 +15,7 @@ from xain.grpc import (
     hellonumproto_pb2_grpc,
 )
 from xain.grpc.coordinator import Coordinator, Participants, monitor_heartbeats
-from xain.grpc.participant import heartbeat
+from xain.grpc.participant import end_training, heartbeat, start_training
 
 # Some grpc tests fail on macos.
 # `pytestmark` when defined on a module will mark all tests in that module.
@@ -125,3 +125,49 @@ def test_participant_heartbeat(mock_heartbeat_request, _mock_sleep, _mock_event)
 
     # check that the heartbeat is sent exactly twice
     mock_heartbeat_request.assert_has_calls([mock.call(), mock.call()])
+
+
+@pytest.mark.integration
+def test_start_training(coordinator_service):
+    test_theta = [np.arange(10), np.arange(10, 20)]
+    # set coordinator global model data
+    coordinator_service.epochs = 5
+    coordinator_service.epoch_base = 2
+    coordinator_service.theta = test_theta
+    # simulate a participant communicating with coordinator via channel
+    with grpc.insecure_channel("localhost:50051") as channel:
+        # call startTraining service method on coordinator
+        theta, epochs, epoch_base = start_training(channel)
+        # check global model received
+        assert epochs == 5
+        assert epoch_base == 2
+        np.testing.assert_equal(theta, test_theta)
+
+
+@pytest.mark.integration
+def test_end_training(coordinator_service):
+    assert not coordinator_service.theta_updates
+    assert not coordinator_service.histories
+    assert not coordinator_service.metricss
+    # simulate trained local model data
+    test_theta, num = [np.arange(20, 30), np.arange(30, 40)], 2
+    his = {"aaa": [1.1, 2.1], "bbb": [3.1, 4.1]}
+    mets = 1, [3, 4, 5]
+    with grpc.insecure_channel("localhost:50051") as channel:
+        # call endTraining service method on coordinator
+        end_training(channel, (test_theta, num), his, mets)
+    # check local model received...
+    assert len(coordinator_service.theta_updates) == 1
+    assert len(coordinator_service.histories) == 1
+    assert len(coordinator_service.metricss) == 1
+    # first the theta update
+    tu1, tu2 = coordinator_service.theta_updates[0]
+    assert tu2 == num
+    np.testing.assert_equal(tu1, test_theta)
+    # history values are *floats* so a naive assert == won't do
+    h = coordinator_service.histories[0]
+    assert h.keys() == his.keys()
+    for k, vals in his.items():
+        np.testing.assert_allclose(h[k], vals)
+    # finally metrics
+    assert coordinator_service.metricss[0] == mets

@@ -11,21 +11,21 @@ if ! [[ -x "$(command -v protobuf-bin-gen-rust-do-not-use)" ]]; then
     cargo install protobuf-codegen --version 2.8.1
 fi
 
-numproto=`pip3 show numproto | grep Location | sed -e 's/^Location: //'`
+NUMPROTO_DIR=`pip3 show numproto | grep Location | sed -e 's/^Location: //'`
 
-proto_files="
+PROTO_FILES="
 ../../protobuf/xain/grpc/coordinator.proto
 ../../protobuf/xain/grpc/hellonumproto.proto
-$numproto/numproto/protobuf/ndarray.proto
+$NUMPROTO_DIR/numproto/protobuf/ndarray.proto
 "
 
-for proto in $proto_files; do
+for proto in $PROTO_FILES; do
     echo "Processing: $proto"
     protoc \
         --rust_out=$PWD/src/proto \
         --grpc_out=$PWD/src/proto \
         --plugin=protoc-gen-grpc=`which grpc_rust_plugin` \
         --proto_path=../../protobuf/xain/grpc \
-        --proto_path=$numproto \
+        --proto_path=$NUMPROTO_DIR \
         $proto
 done
