@@ -16,7 +16,7 @@ NUMPROTO_DIR=`pip3 show numproto | grep Location | sed -e 's/^Location: //'`
 PROTO_FILES="
 ../../protobuf/xain/grpc/coordinator.proto
 ../../protobuf/xain/grpc/hellonumproto.proto
-$numproto/numproto/protobuf/ndarray.proto
+$NUMPROTO_DIR/numproto/protobuf/ndarray.proto
 "
 
 for proto in $PROTO_FILES; do
