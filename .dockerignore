@@ -1,6 +1,13 @@
 # Project
 results
 output
+docs
+
+# Rust
+rust
+
+# Git
+.git
 
 # Pantsbuild
 .pants.d

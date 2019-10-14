@@ -107,9 +107,9 @@ def resnet_layer(
     l2_factor=L2_DEFAULT,
     dropout: Optional[float] = None,
 ):
-    """2D Convolution-Batch Normalization-Activation stack builder
+    """2D Convolution-Batch Normalization-Activation stack builder.
 
-    # Arguments
+    Args:
         inputs (tensor): input tensor from input image or previous layer
         num_filters (int): Conv2D number of filters
         kernel_size (int): Conv2D square kernel dimensions
@@ -119,7 +119,7 @@ def resnet_layer(
         conv_first (bool): conv-bn-activation (True) or
             bn-activation-conv (False)
 
-    # Returns
+    Returns:
         x (tensor): tensor as input to the next layer
     """
     conv = Conv2D(
