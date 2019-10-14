@@ -13,7 +13,8 @@ $ python -m xain.benchmark.exec \
     --R=2 \
     --E=2 \
     --C=0.02 \
-    --B=64
+    --B=64 \
+    --nopush_results
 ```
 
 ## Benchmark Suites (using AWS EC2)
