@@ -3,7 +3,7 @@
 This crate holds Rust bindings generated from `.proto` files using a shell script:
 
 ```sh
-./generate.sh
+./generate-proto-bindings.sh
 ```
 
 Bindings are commited in this repository and we only need to re-run this script after modifying
