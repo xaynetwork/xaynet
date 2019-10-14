@@ -1,5 +1,5 @@
 [workspace]
 members = [
   "xain-coordinator",
-  "xain-proto",
+  "xain-grpc",
 ]

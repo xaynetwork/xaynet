@@ -310,6 +310,258 @@ impl ::protobuf::reflect::ProtobufValue for RendezvousReply {
     }
 }
 
+#[derive(PartialEq,Clone,Default)]
+pub struct HeartbeatRequest {
+    // special fields
+    pub unknown_fields: ::protobuf::UnknownFields,
+    pub cached_size: ::protobuf::CachedSize,
+}
+
+impl<'a> ::std::default::Default for &'a HeartbeatRequest {
+    fn default() -> &'a HeartbeatRequest {
+        <HeartbeatRequest as ::protobuf::Message>::default_instance()
+    }
+}
+
+impl HeartbeatRequest {
+    pub fn new() -> HeartbeatRequest {
+        ::std::default::Default::default()
+    }
+}
+
+impl ::protobuf::Message for HeartbeatRequest {
+    fn is_initialized(&self) -> bool {
+        true
+    }
+
+    fn merge_from(&mut self, is: &mut ::protobuf::CodedInputStream<'_>) -> ::protobuf::ProtobufResult<()> {
+        while !is.eof()? {
+            let (field_number, wire_type) = is.read_tag_unpack()?;
+            match field_number {
+                _ => {
+                    ::protobuf::rt::read_unknown_or_skip_group(field_number, wire_type, is, self.mut_unknown_fields())?;
+                },
+            };
+        }
+        ::std::result::Result::Ok(())
+    }
+
+    // Compute sizes of nested messages
+    #[allow(unused_variables)]
+    fn compute_size(&self) -> u32 {
+        let mut my_size = 0;
+        my_size += ::protobuf::rt::unknown_fields_size(self.get_unknown_fields());
+        self.cached_size.set(my_size);
+        my_size
+    }
+
+    fn write_to_with_cached_sizes(&self, os: &mut ::protobuf::CodedOutputStream<'_>) -> ::protobuf::ProtobufResult<()> {
+        os.write_unknown_fields(self.get_unknown_fields())?;
+        ::std::result::Result::Ok(())
+    }
+
+    fn get_cached_size(&self) -> u32 {
+        self.cached_size.get()
+    }
+
+    fn get_unknown_fields(&self) -> &::protobuf::UnknownFields {
+        &self.unknown_fields
+    }
+
+    fn mut_unknown_fields(&mut self) -> &mut ::protobuf::UnknownFields {
+        &mut self.unknown_fields
+    }
+
+    fn as_any(&self) -> &dyn (::std::any::Any) {
+        self as &dyn (::std::any::Any)
+    }
+    fn as_any_mut(&mut self) -> &mut dyn (::std::any::Any) {
+        self as &mut dyn (::std::any::Any)
+    }
+    fn into_any(self: Box<Self>) -> ::std::boxed::Box<dyn (::std::any::Any)> {
+        self
+    }
+
+    fn descriptor(&self) -> &'static ::protobuf::reflect::MessageDescriptor {
+        Self::descriptor_static()
+    }
+
+    fn new() -> HeartbeatRequest {
+        HeartbeatRequest::new()
+    }
+
+    fn descriptor_static() -> &'static ::protobuf::reflect::MessageDescriptor {
+        static mut descriptor: ::protobuf::lazy::Lazy<::protobuf::reflect::MessageDescriptor> = ::protobuf::lazy::Lazy {
+            lock: ::protobuf::lazy::ONCE_INIT,
+            ptr: 0 as *const ::protobuf::reflect::MessageDescriptor,
+        };
+        unsafe {
+            descriptor.get(|| {
+                let fields = ::std::vec::Vec::new();
+                ::protobuf::reflect::MessageDescriptor::new::<HeartbeatRequest>(
+                    "HeartbeatRequest",
+                    fields,
+                    file_descriptor_proto()
+                )
+            })
+        }
+    }
+
+    fn default_instance() -> &'static HeartbeatRequest {
+        static mut instance: ::protobuf::lazy::Lazy<HeartbeatRequest> = ::protobuf::lazy::Lazy {
+            lock: ::protobuf::lazy::ONCE_INIT,
+            ptr: 0 as *const HeartbeatRequest,
+        };
+        unsafe {
+            instance.get(HeartbeatRequest::new)
+        }
+    }
+}
+
+impl ::protobuf::Clear for HeartbeatRequest {
+    fn clear(&mut self) {
+        self.unknown_fields.clear();
+    }
+}
+
+impl ::std::fmt::Debug for HeartbeatRequest {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        ::protobuf::text_format::fmt(self, f)
+    }
+}
+
+impl ::protobuf::reflect::ProtobufValue for HeartbeatRequest {
+    fn as_ref(&self) -> ::protobuf::reflect::ProtobufValueRef {
+        ::protobuf::reflect::ProtobufValueRef::Message(self)
+    }
+}
+
+#[derive(PartialEq,Clone,Default)]
+pub struct HeartbeatReply {
+    // special fields
+    pub unknown_fields: ::protobuf::UnknownFields,
+    pub cached_size: ::protobuf::CachedSize,
+}
+
+impl<'a> ::std::default::Default for &'a HeartbeatReply {
+    fn default() -> &'a HeartbeatReply {
+        <HeartbeatReply as ::protobuf::Message>::default_instance()
+    }
+}
+
+impl HeartbeatReply {
+    pub fn new() -> HeartbeatReply {
+        ::std::default::Default::default()
+    }
+}
+
+impl ::protobuf::Message for HeartbeatReply {
+    fn is_initialized(&self) -> bool {
+        true
+    }
+
+    fn merge_from(&mut self, is: &mut ::protobuf::CodedInputStream<'_>) -> ::protobuf::ProtobufResult<()> {
+        while !is.eof()? {
+            let (field_number, wire_type) = is.read_tag_unpack()?;
+            match field_number {
+                _ => {
+                    ::protobuf::rt::read_unknown_or_skip_group(field_number, wire_type, is, self.mut_unknown_fields())?;
+                },
+            };
+        }
+        ::std::result::Result::Ok(())
+    }
+
+    // Compute sizes of nested messages
+    #[allow(unused_variables)]
+    fn compute_size(&self) -> u32 {
+        let mut my_size = 0;
+        my_size += ::protobuf::rt::unknown_fields_size(self.get_unknown_fields());
+        self.cached_size.set(my_size);
+        my_size
+    }
+
+    fn write_to_with_cached_sizes(&self, os: &mut ::protobuf::CodedOutputStream<'_>) -> ::protobuf::ProtobufResult<()> {
+        os.write_unknown_fields(self.get_unknown_fields())?;
+        ::std::result::Result::Ok(())
+    }
+
+    fn get_cached_size(&self) -> u32 {
+        self.cached_size.get()
+    }
+
+    fn get_unknown_fields(&self) -> &::protobuf::UnknownFields {
+        &self.unknown_fields
+    }
+
+    fn mut_unknown_fields(&mut self) -> &mut ::protobuf::UnknownFields {
+        &mut self.unknown_fields
+    }
+
+    fn as_any(&self) -> &dyn (::std::any::Any) {
+        self as &dyn (::std::any::Any)
+    }
+    fn as_any_mut(&mut self) -> &mut dyn (::std::any::Any) {
+        self as &mut dyn (::std::any::Any)
+    }
+    fn into_any(self: Box<Self>) -> ::std::boxed::Box<dyn (::std::any::Any)> {
+        self
+    }
+
+    fn descriptor(&self) -> &'static ::protobuf::reflect::MessageDescriptor {
+        Self::descriptor_static()
+    }
+
+    fn new() -> HeartbeatReply {
+        HeartbeatReply::new()
+    }
+
+    fn descriptor_static() -> &'static ::protobuf::reflect::MessageDescriptor {
+        static mut descriptor: ::protobuf::lazy::Lazy<::protobuf::reflect::MessageDescriptor> = ::protobuf::lazy::Lazy {
+            lock: ::protobuf::lazy::ONCE_INIT,
+            ptr: 0 as *const ::protobuf::reflect::MessageDescriptor,
+        };
+        unsafe {
+            descriptor.get(|| {
+                let fields = ::std::vec::Vec::new();
+                ::protobuf::reflect::MessageDescriptor::new::<HeartbeatReply>(
+                    "HeartbeatReply",
+                    fields,
+                    file_descriptor_proto()
+                )
+            })
+        }
+    }
+
+    fn default_instance() -> &'static HeartbeatReply {
+        static mut instance: ::protobuf::lazy::Lazy<HeartbeatReply> = ::protobuf::lazy::Lazy {
+            lock: ::protobuf::lazy::ONCE_INIT,
+            ptr: 0 as *const HeartbeatReply,
+        };
+        unsafe {
+            instance.get(HeartbeatReply::new)
+        }
+    }
+}
+
+impl ::protobuf::Clear for HeartbeatReply {
+    fn clear(&mut self) {
+        self.unknown_fields.clear();
+    }
+}
+
+impl ::std::fmt::Debug for HeartbeatReply {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        ::protobuf::text_format::fmt(self, f)
+    }
+}
+
+impl ::protobuf::reflect::ProtobufValue for HeartbeatReply {
+    fn as_ref(&self) -> ::protobuf::reflect::ProtobufValueRef {
+        ::protobuf::reflect::ProtobufValueRef::Message(self)
+    }
+}
+
 #[derive(Clone,PartialEq,Eq,Debug,Hash)]
 pub enum RendezvousResponse {
     ACCEPT = 0,
@@ -368,26 +620,33 @@ impl ::protobuf::reflect::ProtobufValue for RendezvousResponse {
 static file_descriptor_proto_data: &'static [u8] = b"\
     \n\x11coordinator.proto\x12\x19xain.protobuf.coordinator\"\x13\n\x11Rend\
     ezvousRequest\"\\\n\x0fRendezvousReply\x12I\n\x08response\x18\x01\x20\
-    \x01(\x0e2-.xain.protobuf.coordinator.RendezvousResponseR\x08response*+\
-    \n\x12RendezvousResponse\x12\n\n\x06ACCEPT\x10\0\x12\t\n\x05LATER\x10\
-    \x012w\n\x0bCoordinator\x12h\n\nRendezvous\x12,.xain.protobuf.coordinato\
-    r.RendezvousRequest\x1a*.xain.protobuf.coordinator.RendezvousReply\"\0J\
-    \xca\x02\n\x06\x12\x04\0\0\x11\x01\n\x08\n\x01\x0c\x12\x03\0\0\x12\n\x08\
-    \n\x01\x02\x12\x03\x02\x08!\n\n\n\x02\x06\0\x12\x04\x04\0\x06\x01\n\n\n\
-    \x03\x06\0\x01\x12\x03\x04\x08\x13\n\x0b\n\x04\x06\0\x02\0\x12\x03\x05\
-    \x02@\n\x0c\n\x05\x06\0\x02\0\x01\x12\x03\x05\x06\x10\n\x0c\n\x05\x06\0\
-    \x02\0\x02\x12\x03\x05\x11\"\n\x0c\n\x05\x06\0\x02\0\x03\x12\x03\x05-<\n\
-    \n\n\x02\x05\0\x12\x04\x08\0\x0b\x01\n\n\n\x03\x05\0\x01\x12\x03\x08\x05\
-    \x17\n\x0b\n\x04\x05\0\x02\0\x12\x03\t\x02\r\n\x0c\n\x05\x05\0\x02\0\x01\
-    \x12\x03\t\x02\x08\n\x0c\n\x05\x05\0\x02\0\x02\x12\x03\t\x0b\x0c\n\x0b\n\
-    \x04\x05\0\x02\x01\x12\x03\n\x02\x0c\n\x0c\n\x05\x05\0\x02\x01\x01\x12\
-    \x03\n\x02\x07\n\x0c\n\x05\x05\0\x02\x01\x02\x12\x03\n\n\x0b\n\t\n\x02\
-    \x04\0\x12\x03\r\0\x1c\n\n\n\x03\x04\0\x01\x12\x03\r\x08\x19\n\n\n\x02\
-    \x04\x01\x12\x04\x0f\0\x11\x01\n\n\n\x03\x04\x01\x01\x12\x03\x0f\x08\x17\
-    \n\x0b\n\x04\x04\x01\x02\0\x12\x03\x10\x02\"\n\r\n\x05\x04\x01\x02\0\x04\
-    \x12\x04\x10\x02\x0f\x19\n\x0c\n\x05\x04\x01\x02\0\x06\x12\x03\x10\x02\
-    \x14\n\x0c\n\x05\x04\x01\x02\0\x01\x12\x03\x10\x15\x1d\n\x0c\n\x05\x04\
-    \x01\x02\0\x03\x12\x03\x10\x20!b\x06proto3\
+    \x01(\x0e2-.xain.protobuf.coordinator.RendezvousResponseR\x08response\"\
+    \x12\n\x10HeartbeatRequest\"\x10\n\x0eHeartbeatReply*+\n\x12RendezvousRe\
+    sponse\x12\n\n\x06ACCEPT\x10\0\x12\t\n\x05LATER\x10\x012\xde\x01\n\x0bCo\
+    ordinator\x12h\n\nRendezvous\x12,.xain.protobuf.coordinator.RendezvousRe\
+    quest\x1a*.xain.protobuf.coordinator.RendezvousReply\"\0\x12e\n\tHeartbe\
+    at\x12+.xain.protobuf.coordinator.HeartbeatRequest\x1a).xain.protobuf.co\
+    ordinator.HeartbeatReply\"\0J\xaf\x03\n\x06\x12\x04\0\0\x16\x19\n\x08\n\
+    \x01\x0c\x12\x03\0\0\x12\n\x08\n\x01\x02\x12\x03\x02\x08!\n\n\n\x02\x06\
+    \0\x12\x04\x04\0\x07\x01\n\n\n\x03\x06\0\x01\x12\x03\x04\x08\x13\n\x0b\n\
+    \x04\x06\0\x02\0\x12\x03\x05\x02@\n\x0c\n\x05\x06\0\x02\0\x01\x12\x03\
+    \x05\x06\x10\n\x0c\n\x05\x06\0\x02\0\x02\x12\x03\x05\x11\"\n\x0c\n\x05\
+    \x06\0\x02\0\x03\x12\x03\x05-<\n\x0b\n\x04\x06\0\x02\x01\x12\x03\x06\x02\
+    =\n\x0c\n\x05\x06\0\x02\x01\x01\x12\x03\x06\x06\x0f\n\x0c\n\x05\x06\0\
+    \x02\x01\x02\x12\x03\x06\x10\x20\n\x0c\n\x05\x06\0\x02\x01\x03\x12\x03\
+    \x06+9\n\n\n\x02\x05\0\x12\x04\t\0\x0c\x01\n\n\n\x03\x05\0\x01\x12\x03\t\
+    \x05\x17\n\x0b\n\x04\x05\0\x02\0\x12\x03\n\x02\r\n\x0c\n\x05\x05\0\x02\0\
+    \x01\x12\x03\n\x02\x08\n\x0c\n\x05\x05\0\x02\0\x02\x12\x03\n\x0b\x0c\n\
+    \x0b\n\x04\x05\0\x02\x01\x12\x03\x0b\x02\x0c\n\x0c\n\x05\x05\0\x02\x01\
+    \x01\x12\x03\x0b\x02\x07\n\x0c\n\x05\x05\0\x02\x01\x02\x12\x03\x0b\n\x0b\
+    \n\t\n\x02\x04\0\x12\x03\x0e\0\x1c\n\n\n\x03\x04\0\x01\x12\x03\x0e\x08\
+    \x19\n\n\n\x02\x04\x01\x12\x04\x10\0\x12\x01\n\n\n\x03\x04\x01\x01\x12\
+    \x03\x10\x08\x17\n\x0b\n\x04\x04\x01\x02\0\x12\x03\x11\x02\"\n\r\n\x05\
+    \x04\x01\x02\0\x04\x12\x04\x11\x02\x10\x19\n\x0c\n\x05\x04\x01\x02\0\x06\
+    \x12\x03\x11\x02\x14\n\x0c\n\x05\x04\x01\x02\0\x01\x12\x03\x11\x15\x1d\n\
+    \x0c\n\x05\x04\x01\x02\0\x03\x12\x03\x11\x20!\n\t\n\x02\x04\x02\x12\x03\
+    \x14\0\x1b\n\n\n\x03\x04\x02\x01\x12\x03\x14\x08\x18\n\t\n\x02\x04\x03\
+    \x12\x03\x16\0\x19\n\n\n\x03\x04\x03\x01\x12\x03\x16\x08\x16b\x06proto3\
 ";
 
 static mut file_descriptor_proto_lazy: ::protobuf::lazy::Lazy<::protobuf::descriptor::FileDescriptorProto> = ::protobuf::lazy::Lazy {
