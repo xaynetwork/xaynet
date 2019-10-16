@@ -24,7 +24,7 @@ def test_plot_task_accuracies(output_dir, group_name, monkeypatch):
     ]
     fname = f"plot_task_accuracies.png"
     expected_filepath = os.path.join(output_dir, group_name, fname)
-    expected_sha1 = "e518e13c833654c625ea5a1055ab5fd2cbb5839f"
+    expected_sha1 = "54b9c71e6890fa3083029c88544a51ca4a2ad480"
 
     def mock_prepare_aggregation_data(_: str):
         return data
