@@ -127,11 +127,14 @@ def plot_fashion_mnist_dist():
     legend = []
     for b, dist in dists:
         legend.append(str(b))
-        plt.plot(xs, np.array(dist))
+        plt.plot(xs, np.array(dist), "o", markersize=1.0)
     plt.legend(legend, loc="upper left")
 
+    plt.xlabel("Partition ID")
+    plt.ylabel("Examples")
+
     dname = storage.create_output_subdir("partition_volume_distributions")
-    fname = storage.fname_with_default_dir("plot_fashion_mnist", dname)
+    fname = storage.fname_with_default_dir("plot-part-vol.png", dname)
 
     plt.savefig(fname=fname, format=FORMAT)
 

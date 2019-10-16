@@ -32,6 +32,7 @@ def plot(
     xlim_max: float = 40.0,
     xticks_args: Optional[Tuple[List[int], List[str]]] = None,
     legend_loc: str = "lower right",
+    vline: bool = False,
 ) -> str:
     """
     :param data: List of tuples where each represents a line in the plot
@@ -61,10 +62,12 @@ def plot(
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
 
-    legend = []
+    if vline:
+        plt.axvline(x=50.0)
 
     data.sort(key=lambda c: c[0])
 
+    legend = []
     for name, values, indices in data:
         legend.append(name)
 
