@@ -20,7 +20,7 @@ __pycache__/
 .Python
 build/
 develop-eggs/
-#dist/
+dist/
 downloads/
 eggs/
 .eggs/
@@ -78,6 +78,7 @@ instance/
 
 # Sphinx documentation
 docs/_build/
+docs/_code_reference/
 
 # PyBuilder
 target/
@@ -138,3 +139,6 @@ dmypy.json
 # Editors
 .idea
 .vscode
+
+# Testing certificates
+rust/xain-grpc/certs

@@ -38,6 +38,9 @@ pylint --rcfile=pylint.ini xain && echo "===> pylint says: well done <===" &&
 # type checks
 mypy --ignore-missing-imports xain && echo "===> mypy says: well done <===" &&
 
+# documentation checks
+(cd docs/ && SPHINXOPTS="-W" make docs) && echo "===> sphinx-build says: well done <===" &&
+
 # tests
 pytest -v && echo "===> pytest/unmarked says: well done <===" &&
 

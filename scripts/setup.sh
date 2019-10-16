@@ -9,4 +9,4 @@ cd $DIR/../
 
 pip install -U pip==19.2.3
 pip install -U setuptools==41.2.0
-pip install -e .[dev,cpu]
+pip install -e .[dev]

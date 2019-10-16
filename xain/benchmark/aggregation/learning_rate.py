@@ -53,12 +53,7 @@ def prepare_aggregation_data(group_name: str) -> List[PlotValues]:
         group_name (str): group name for which to construct the curves
 
     Returns:
-        (
-            [
-                ("task_name_1", learning_rates, indices)
-                ("task_name_2", learning_rates, indices)
-            ],
-        )
+        A list of `PlotValues`.
     """
     group_dir = os.path.join(FLAGS.results_dir, group_name)
     # List of tuples (benchmark_name, unitary_accuracy, federated_accuracy)
