@@ -50,8 +50,8 @@ def group_values_by_class(
     federated_values = [v for v in values if not v[0]]
 
     grouped_values = {
-        "unitary": [(label, acc) for _, label, acc in unitary_values],
-        "federated": [(label, acc) for _, label, acc in federated_values],
+        "Unitary": [(label, acc) for _, label, acc in unitary_values],
+        "Federated": [(label, acc) for _, label, acc in federated_values],
     }
 
     return grouped_values
@@ -112,7 +112,7 @@ def aggregate() -> str:
         data,
         title="",  # TODO
         xlabel="IID / Non-IID",
-        ylabel="Validation Accuracy",
+        ylabel="Accuracy",
         fname=fname,
         ylim_max=1.0,
         xlim_max=12,

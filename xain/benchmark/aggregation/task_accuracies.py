@@ -106,7 +106,7 @@ def aggregate() -> str:
     fpath = plot(
         data,
         title="",  # TODO
-        ylabel="Validation Accuracy",
+        ylabel="Accuracy",
         fname=fname,
         ylim_max=1.0,
         xlim_max=xlim_max,

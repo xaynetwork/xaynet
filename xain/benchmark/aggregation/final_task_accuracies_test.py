@@ -68,7 +68,7 @@ def test_plot_final_task_accuracies(output_dir, group_name, monkeypatch):
     ]
     fname = f"plot_final_task_accuracies.png"
     expected_filepath = os.path.join(output_dir, group_name, fname)
-    expected_sha1 = "a22bf09991b2c82a5f64f2f3c92bc5614c6513e8"
+    expected_sha1 = "09270962b7be7d8a92961603712b229bd107cdb3"
 
     xticks_locations = range(1, 12, 1)
     xticks_labels = [chr(i) for i in range(65, 77, 1)]  # A, B, ..., K
