@@ -1,29 +1,20 @@
-from typing import Dict, List, Tuple
-
-import pytest
-from numpy import ndarray
-
 from . import participant
 from .use_case import UseCase
 
 
-def test_start_fail():
-    with pytest.raises(Exception):
-        participant.start()
-
-
 def test_start():
     class MyUseCase(UseCase):
-        def __init__(self, model):
+        def __init__(self, model, *args, **kwargs):
+            super().__init__(model, *args, **kwargs)
             self.model = model
 
-        def set_weights():
+        def set_weights(self, weights):
             pass
 
-        def get_weights():
+        def get_weights(self):
             pass
 
-        def train():
+        def train(self):
             pass
 
     my_use_case = MyUseCase(model={})
