@@ -6,6 +6,7 @@ import tensorflow as tf
 from absl import flags, logging
 
 from xain.datasets import prep
+from xain.fl.coordinator.controller import Controller
 from xain.fl.logging.logging import create_summary_writer, write_summaries
 from xain.fl.participant import ModelProvider, Participant
 from xain.types import History, Metrics, Partition, Theta
@@ -201,3 +202,20 @@ def create_evalueate_fn(
         return model.evaluate(ds_val, steps=1)
 
     return fn
+
+
+class SimpleCoordinator:
+    def __init__(
+        self,
+        controller: Controller,
+        num_participants: int,
+        C: float,
+        E: int,
+        aggregator: Optional[Aggregator] = None,
+    ):
+        self.controller = controller
+        self.num_participants = num_participants
+        self.C = C
+        self.E = E
+        self.aggregator = aggregator if aggregator else FederatedAveragingAgg()
+        self.epoch = 0  # Count training epochs
