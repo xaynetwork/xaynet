@@ -110,7 +110,7 @@ class Participants:
             )
 
 
-def monitor_heartbeats(participants, terminate_event):
+def monitor_heartbeats(coordinator, terminate_event):
     """Monitors the heartbeat of participants.
 
     If a heartbeat expires the participant is removed from the list of participants.
@@ -120,115 +120,45 @@ def monitor_heartbeats(participants, terminate_event):
         it should terminate.
 
     Args:
-        participants (Participants): The participants to monitor.
+        participants (Coordinator): The participants to monitor.
     """
 
     while not terminate_event.is_set():
         print("Monitoring heartbeats")
         participants_to_remove = []
 
-        for participant in participants.participants.values():
+        for participant in coordinator.participants.participants.values():
             if participant.heartbeat_expires < time.time():
                 participants_to_remove.append(participant.participant_id)
 
         for participant_id in participants_to_remove:
-            participants.remove(participant_id)
+            coordinator.participants.remove(participant_id)
             print(f"Removing participant {participant_id}")
 
-        next_expiration = participants.next_expiration() - time.time()
+        next_expiration = coordinator.participants.next_expiration() - time.time()
 
         print(f"Monitoring heartbeats in {next_expiration:.2f}s")
         time.sleep(next_expiration)
 
 
-class Coordinator(coordinator_pb2_grpc.CoordinatorServicer):
-    # pylint: disable=too-many-instance-attributes
-    def __init__(
-        self,
-        participants,
-        required_participants=10,
-        theta: Theta = None,
-        epochs=0,
-        epoch_base=0,
-    ):
-        self.required_participants = required_participants
-        self.participants = participants
-
-        # global model data (sent)
-        self.theta = [] if theta is None else theta
-        self.epochs = epochs
-        self.epoch_base = epoch_base
-
-        # local model data (received)
-        self.theta_updates: List[Tuple[Theta, int]] = []
-        self.histories: List[History] = []
-        self.metricss: List[Metrics] = []
-
-        # state variables
-        self.state = STANDBY
-        self.round = 0
+class CoordinatorGrpc(coordinator_pb2_grpc.CoordinatorServicer):
+    def __init__(self, coordinator):
+        self.coordinator = coordinator
 
     def Rendezvous(self, request, context):
-        if self.participants.len() < self.required_participants:
-            response = coordinator_pb2.RendezvousResponse.ACCEPT
-            self.participants.add(context.peer())
-            print(
-                f"Accepted participant {context.peer()}"
-                f" # participants: {self.participants.len()}"
-            )
-        else:
-            # If state is STANDBY start a round
-            self.state = ROUND if self.state == STANDBY else self.state
-
-            response = coordinator_pb2.RendezvousResponse.LATER
-            print(
-                f"Rejected participant {context.peer()}"
-                f" # participants: {self.participants.len()}"
-            )
-
-        return coordinator_pb2.RendezvousReply(response=response)
+        return self.coordinator.on_message(request, context.peer())
 
     def Heartbeat(self, request, context):
-        print(f"Received: {type(request)} from {context.peer()}")
-        self.participants.update_expires(context.peer())
-
-        # send heartbeat reply advertising the current state
-        return coordinator_pb2.HeartbeatReply(state=self.state, round=self.round)
+        return self.coordinator.on_message(request, context.peer())
 
     def StartTraining(self, request, context):
-        print(f"Received: {type(request)} from {context.peer()}")
-
-        theta_proto = [ndarray_to_proto(nda) for nda in self.theta]
-
-        # set the state ROUND
-        # TODO: Update the round number
-        self.state = ROUND
-
-        # send reply
-        return coordinator_pb2.StartTrainingReply(
-            theta=theta_proto, epochs=self.epochs, epoch_base=self.epoch_base
-        )
+        return self.coordinator.on_message(request, context.peer())
 
     def EndTraining(self, request, context):
-        print(f"Received: {type(request)} from {context.peer()}")
-        tu, his, met = request.theta_update, request.history, request.metrics
-        tp, num = tu.theta_prime, tu.num_examples
-        cid, vbc = met.cid, met.vol_by_class
-        # record the req data
-        theta_update = [proto_to_ndarray(pnda) for pnda in tp], num
-        self.theta_updates.append(theta_update)
-        self.histories.append({k: list(hv.values) for k, hv in his.items()})
-        self.metricss.append((cid, list(vbc)))
-
-        # TODO: We need to check if all required participants called this method.
-        #       If so we need to run the aggregation and start a new round or
-        #       finish the training session
-
-        # reply
-        return coordinator_pb2.EndTrainingReply()
+        return self.coordinator.on_message(request, context.peer())
 
 
-class CoordinatorLogic:
+class Coordinator:
     def __init__(self, required_participants=10, theta=None, epochs=0, epoch_base=0):
         self.required_participants = required_participants
         self.participants = Participants()
@@ -319,15 +249,15 @@ class CoordinatorLogic:
 
 
 def serve():
-    participants = Participants()
+    coordinator = Coordinator()
     terminate_event = threading.Event()
     monitor_thread = threading.Thread(
-        target=monitor_heartbeats, args=(participants, terminate_event)
+        target=monitor_heartbeats, args=(coordinator, terminate_event)
     )
 
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     coordinator_pb2_grpc.add_CoordinatorServicer_to_server(
-        Coordinator(participants), server
+        CoordinatorGrpc(coordinator), server
     )
     server.add_insecure_port("[::]:50051")
     server.start()

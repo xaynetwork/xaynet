@@ -1,9 +1,9 @@
 from xain.grpc import coordinator_pb2
-from xain.grpc.coordinator import CoordinatorLogic
+from xain.grpc.coordinator import Coordinator
 
 
 def test_rendezvous_accept():
-    coordinator = CoordinatorLogic()
+    coordinator = Coordinator()
     result = coordinator.on_message(coordinator_pb2.RendezvousRequest(), "peer1")
 
     assert type(result) == coordinator_pb2.RendezvousReply
@@ -11,7 +11,7 @@ def test_rendezvous_accept():
 
 
 def test_rendezvous_later():
-    coordinator = CoordinatorLogic(required_participants=1)
+    coordinator = Coordinator(required_participants=1)
     coordinator.on_message(coordinator_pb2.RendezvousRequest(), "peer1")
     result = coordinator.on_message(coordinator_pb2.RendezvousRequest(), "peer2")
 
@@ -21,7 +21,7 @@ def test_rendezvous_later():
 
 def test_heartbeat_reply():
     # test that the coordinator replies with the correct state and round number
-    coordinator = CoordinatorLogic()
+    coordinator = Coordinator()
     coordinator.on_message(coordinator_pb2.RendezvousRequest(), "peer1")
     result = coordinator.on_message(coordinator_pb2.HeartbeatRequest(), "peer1")
 
@@ -41,7 +41,7 @@ def test_heartbeat_reply():
 def test_state_standby_round():
     # tests that the coordinator transitions from STANDBY to ROUND once enough participants
     # are connected
-    coordinator = CoordinatorLogic(required_participants=1)
+    coordinator = Coordinator(required_participants=1)
     coordinator.on_message(coordinator_pb2.RendezvousRequest(), "peer1")
 
     assert coordinator.state == coordinator_pb2.State.ROUND

@@ -14,7 +14,12 @@ from xain.grpc import (
     hellonumproto_pb2,
     hellonumproto_pb2_grpc,
 )
-from xain.grpc.coordinator import Coordinator, Participants, monitor_heartbeats
+from xain.grpc.coordinator import (
+    Coordinator,
+    CoordinatorGrpc,
+    Participants,
+    monitor_heartbeats,
+)
 from xain.grpc.participant import end_training, heartbeat, start_training
 
 # Some grpc tests fail on macos.
@@ -52,14 +57,14 @@ def test_participant_rendezvous_accept(participant_stub, coordinator_service):
 def test_participant_rendezvous_later(participant_stub):
 
     # populate participants
+    coordinator = Coordinator()
     required_participants = 10
-    participants = Participants()
     for i in range(required_participants):
-        participants.add(str(i))
+        coordinator.participants.add(str(i))
 
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
     coordinator_pb2_grpc.add_CoordinatorServicer_to_server(
-        Coordinator(participants, required_participants=required_participants), server
+        CoordinatorGrpc(coordinator), server
     )
     server.add_insecure_port("localhost:50051")
     server.start()

@@ -4,7 +4,7 @@ import grpc
 import pytest
 
 from xain.grpc import coordinator_pb2_grpc, hellonumproto_pb2_grpc
-from xain.grpc.coordinator import Coordinator, Participants
+from xain.grpc.coordinator import Coordinator, CoordinatorGrpc, Participants
 from xain.grpc.numproto_server import NumProtoServer
 
 
@@ -23,8 +23,9 @@ def greeter_server():
 @pytest.fixture
 def coordinator_service():
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
-    coordinator = Coordinator(Participants())
-    coordinator_pb2_grpc.add_CoordinatorServicer_to_server(coordinator, server)
+    coordinator = Coordinator()
+    coordinator_grpc = CoordinatorGrpc(coordinator)
+    coordinator_pb2_grpc.add_CoordinatorServicer_to_server(coordinator_grpc, server)
     server.add_insecure_port("localhost:50051")
     server.start()
     yield coordinator
