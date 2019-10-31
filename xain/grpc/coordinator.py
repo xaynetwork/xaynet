@@ -13,6 +13,13 @@ _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 HEARTBEAT_TIME = 10
 HEARTBEAT_TIMEOUT = 5
 
+# States
+STANDBY = 0
+ROUND = 1
+FINISHED = 2
+READY = 3
+TRAINING = 4
+
 
 class ParticipantContext:
     """Class to store state about each participant. Currently it only stores the `participant_id`
@@ -146,14 +153,20 @@ class Coordinator(coordinator_pb2_grpc.CoordinatorServicer):
     ):
         self.required_participants = required_participants
         self.participants = participants
+
         # global model data (sent)
         self.theta = [] if theta is None else theta
         self.epochs = epochs
         self.epoch_base = epoch_base
+
         # local model data (received)
         self.theta_updates: List[Tuple[Theta, int]] = []
         self.histories: List[History] = []
         self.metricss: List[Metrics] = []
+
+        # state variables
+        self.state = STANDBY
+        self.round = 0
 
     def Rendezvous(self, request, context):
         if self.participants.len() < self.required_participants:
@@ -164,6 +177,9 @@ class Coordinator(coordinator_pb2_grpc.CoordinatorServicer):
                 f" # participants: {self.participants.len()}"
             )
         else:
+            # If state is STANDBY start a round
+            self.state = ROUND if self.state == STANDBY else self.state
+
             response = coordinator_pb2.RendezvousResponse.LATER
             print(
                 f"Rejected participant {context.peer()}"
@@ -175,11 +191,19 @@ class Coordinator(coordinator_pb2_grpc.CoordinatorServicer):
     def Heartbeat(self, request, context):
         print(f"Received: {type(request)} from {context.peer()}")
         self.participants.update_expires(context.peer())
-        return coordinator_pb2.HeartbeatReply()
+
+        # send heartbeat reply advertising the current state
+        return coordinator_pb2.HeartbeatReply(state=self.state, round=self.round)
 
     def StartTraining(self, request, context):
         print(f"Received: {type(request)} from {context.peer()}")
+
         theta_proto = [ndarray_to_proto(nda) for nda in self.theta]
+
+        # set the state ROUND
+        # TODO: Update the round number
+        self.state = ROUND
+
         # send reply
         return coordinator_pb2.StartTrainingReply(
             theta=theta_proto, epochs=self.epochs, epoch_base=self.epoch_base
@@ -195,8 +219,103 @@ class Coordinator(coordinator_pb2_grpc.CoordinatorServicer):
         self.theta_updates.append(theta_update)
         self.histories.append({k: list(hv.values) for k, hv in his.items()})
         self.metricss.append((cid, list(vbc)))
+
+        # TODO: We need to check if all required participants called this method.
+        #       If so we need to run the aggregation and start a new round or
+        #       finish the training session
+
         # reply
         return coordinator_pb2.EndTrainingReply()
+
+
+class CoordinatorLogic:
+    def __init__(self, required_participants=10, theta=None, epochs=0, epoch_base=0):
+        self.required_participants = required_participants
+        self.participants = Participants()
+
+        # global model
+        self.theta = [] if theta is None else theta
+        self.epochs = epochs
+        self.epoch_base = epoch_base
+
+        # local model
+        self.theta_updates = []
+        self.histories = []
+        self.metricss = []
+
+        # state variables
+        self.state = STANDBY
+        self.round = 0
+
+    def on_message(self, message, peer_id):
+        print(f"Received: {type(message)} from {peer_id}")
+
+        if type(message) == coordinator_pb2.RendezvousRequest:
+            # Handle rendezvous
+
+            if self.participants.len() < self.required_participants:
+                response = coordinator_pb2.RendezvousResponse.ACCEPT
+                self.participants.add(peer_id)
+                print(
+                    f"Accepted participant {peer_id}"
+                    f" # participants: {self.participants.len()}"
+                )
+            else:
+                # If state is STANDBY start a round
+
+                response = coordinator_pb2.RendezvousResponse.LATER
+                print(
+                    f"Rejected participant {peer_id}"
+                    f" # participants: {self.participants.len()}"
+                )
+
+            # Change the state to ROUND if we are in STANDBY and already have enough participants
+            if (
+                self.state == STANDBY
+                and self.participants.len() == self.required_participants
+            ):
+                # TODO: We may need to make this update thread safe
+                self.state = ROUND
+
+            return coordinator_pb2.RendezvousReply(response=response)
+
+        elif type(message) == coordinator_pb2.HeartbeatRequest:
+            # Handle heartbeat
+
+            self.participants.update_expires(peer_id)
+
+            # send heartbeat reply advertising the current state
+            return coordinator_pb2.HeartbeatReply(state=self.state, round=self.round)
+
+        elif type(message) == coordinator_pb2.StartTrainingRequest:
+            # handle start training
+
+            # TODO: Check that the state == ROUND else raise exception
+            # TODO: Update the round number
+
+            theta_proto = [ndarray_to_proto(nda) for nda in self.theta]
+
+            return coordinator_pb2.StartTrainingReply(
+                theta=theta_proto, epochs=self.epochs, epoch_base=self.epoch_base
+            )
+
+        elif type(message) == coordinator_pb2.EndTrainingRequest:
+            # handle end training
+
+            tu, his, met = message.theta_update, message.history, message.metrics
+            tp, num = tu.theta_prime, tu.num_examples
+            cid, vbc = met.cid, met.vol_by_class
+            # record the req data
+            theta_update = [proto_to_ndarray(pnda) for pnda in tp], num
+            self.theta_updates.append(theta_update)
+            self.histories.append({k: list(hv.values) for k, hv in his.items()})
+            self.metricss.append((cid, list(vbc)))
+
+            # TODO: We need to check if all required participants called this method.
+            #       If so we need to run the aggregation and start a new round or
+            #       finish the training session
+
+            return coordinator_pb2.EndTrainingReply()
 
 
 def serve():

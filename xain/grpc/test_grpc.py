@@ -47,27 +47,19 @@ def test_participant_rendezvous_accept(participant_stub, coordinator_service):
     assert reply.response == coordinator_pb2.RendezvousResponse.ACCEPT
 
 
-def mocked_init(self, participants, required_participants=10):
-    """Sets `num_accepted_participants` to be the same as `required_participants` so that
-    the coordinator tells the client to try later.
-    """
-    self.required_participants = required_participants
+# TODO: Fix test so it also runs correctly on macos
+@pytest.mark.integration
+def test_participant_rendezvous_later(participant_stub):
 
     # populate participants
+    required_participants = 10
     participants = Participants()
     for i in range(required_participants):
         participants.add(str(i))
-    self.participants = participants
-
-
-# TODO: Fix test so it also runs correctly on macos
-@pytest.mark.integration
-@mock.patch("xain.grpc.coordinator.Coordinator.__init__", new=mocked_init)
-def test_participant_rendezvous_later(participant_stub):
 
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
     coordinator_pb2_grpc.add_CoordinatorServicer_to_server(
-        Coordinator(Participants()), server
+        Coordinator(participants, required_participants=required_participants), server
     )
     server.add_insecure_port("localhost:50051")
     server.start()
