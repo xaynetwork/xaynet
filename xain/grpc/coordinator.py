@@ -1,24 +1,16 @@
 import threading
 import time
 from concurrent import futures
-from typing import List, Tuple
 
 import grpc
 from numproto import ndarray_to_proto, proto_to_ndarray
 
+from xain.fl.coordinator.aggregate import FederatedAveragingAgg
 from xain.grpc import coordinator_pb2, coordinator_pb2_grpc
-from xain.types import History, Metrics, Theta
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 HEARTBEAT_TIME = 10
 HEARTBEAT_TIMEOUT = 5
-
-# States
-STANDBY = 0
-ROUND = 1
-FINISHED = 2
-READY = 3
-TRAINING = 4
 
 
 class ParticipantContext:
@@ -120,7 +112,7 @@ def monitor_heartbeats(coordinator, terminate_event):
         it should terminate.
 
     Args:
-        participants (Coordinator): The participants to monitor.
+        coordinator (xain.grpc.coordinator.Coordinator): The coordinator to monitor for heartbeats.
     """
 
     while not terminate_event.is_set():
@@ -159,9 +151,20 @@ class CoordinatorGrpc(coordinator_pb2_grpc.CoordinatorServicer):
 
 
 class Coordinator:
-    def __init__(self, required_participants=10, theta=None, epochs=0, epoch_base=0):
+    # pylint: disable-msg=too-many-instance-attributes
+    def __init__(
+        self,
+        num_rounds=10,
+        required_participants=10,
+        aggregator=None,
+        theta=None,
+        epochs=0,
+        epoch_base=0,
+    ):
         self.required_participants = required_participants
         self.participants = Participants()
+        self.num_rounds = num_rounds
+        self.aggregator = aggregator if aggregator else FederatedAveragingAgg()
 
         # global model
         self.theta = [] if theta is None else theta
@@ -174,13 +177,14 @@ class Coordinator:
         self.metricss = []
 
         # state variables
-        self.state = STANDBY
+        self.state = coordinator_pb2.State.STANDBY
         self.round = 0
 
     def on_message(self, message, peer_id):
         print(f"Received: {type(message)} from {peer_id}")
 
-        if type(message) == coordinator_pb2.RendezvousRequest:
+        # pylint: disable-msg=no-else-return
+        if isinstance(message, coordinator_pb2.RendezvousRequest):
             # Handle rendezvous
 
             if self.participants.len() < self.required_participants:
@@ -190,26 +194,24 @@ class Coordinator:
                     f"Accepted participant {peer_id}"
                     f" # participants: {self.participants.len()}"
                 )
-            else:
-                # If state is STANDBY start a round
 
+                # Change the state to ROUND if we are in STANDBY and already
+                # have enough participants
+                if self.participants.len() == self.required_participants:
+                    # TODO: We may need to make this update thread safe
+                    # TODO: Check if this is the best place to update the round
+                    self.state = coordinator_pb2.State.ROUND
+                    self.round = 1 if self.round == 0 else self.round
+            else:
                 response = coordinator_pb2.RendezvousResponse.LATER
                 print(
                     f"Rejected participant {peer_id}"
                     f" # participants: {self.participants.len()}"
                 )
 
-            # Change the state to ROUND if we are in STANDBY and already have enough participants
-            if (
-                self.state == STANDBY
-                and self.participants.len() == self.required_participants
-            ):
-                # TODO: We may need to make this update thread safe
-                self.state = ROUND
-
             return coordinator_pb2.RendezvousReply(response=response)
 
-        elif type(message) == coordinator_pb2.HeartbeatRequest:
+        elif isinstance(message, coordinator_pb2.HeartbeatRequest):
             # Handle heartbeat
 
             self.participants.update_expires(peer_id)
@@ -217,7 +219,7 @@ class Coordinator:
             # send heartbeat reply advertising the current state
             return coordinator_pb2.HeartbeatReply(state=self.state, round=self.round)
 
-        elif type(message) == coordinator_pb2.StartTrainingRequest:
+        elif isinstance(message, coordinator_pb2.StartTrainingRequest):
             # handle start training
 
             # TODO: Check that the state == ROUND else raise exception
@@ -229,7 +231,7 @@ class Coordinator:
                 theta=theta_proto, epochs=self.epochs, epoch_base=self.epoch_base
             )
 
-        elif type(message) == coordinator_pb2.EndTrainingRequest:
+        elif isinstance(message, coordinator_pb2.EndTrainingRequest):
             # handle end training
 
             tu, his, met = message.theta_update, message.history, message.metrics
@@ -241,11 +243,26 @@ class Coordinator:
             self.histories.append({k: list(hv.values) for k, hv in his.items()})
             self.metricss.append((cid, list(vbc)))
 
-            # TODO: We need to check if all required participants called this method.
-            #       If so we need to run the aggregation and start a new round or
-            #       finish the training session
+            # The round is over. Run the aggregation
+            if len(self.theta_updates) == self.required_participants:
+                print(f"Running aggregation for round {self.round}")
+                self.theta = self.aggregator.aggregate(self.theta_updates)
+
+                # update the round of finish the training session
+                if self.round == self.num_rounds:
+                    self.state = coordinator_pb2.State.FINISHED
+                else:
+                    self.round += 1
+
+                    # reinitialize local models
+                    self.theta_updates = []
+                    self.histories = []
+                    self.metricss = []
 
             return coordinator_pb2.EndTrainingReply()
+
+        else:
+            raise NotImplementedError
 
 
 def serve():
