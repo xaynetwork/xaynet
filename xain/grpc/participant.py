@@ -18,14 +18,19 @@ RETRY_TIMEOUT = 5
 HEARTBEAT_TIME = 10
 
 
-# TODO pull in heartbeat msg changes
 def heartbeat(channel, terminate_event, selected_event):
     stub = coordinator_pb2_grpc.CoordinatorStub(channel)
     while not terminate_event.is_set():
-        # TODO include state with req? complicates things...
+        # exchange a heartbeat
         reply = stub.Heartbeat(coordinator_pb2.HeartbeatRequest())
-        # TODO inspect reply... figure out whether to (un)set selected ev
         print(f"Participant received: {type(reply)}")
+        if reply.state == coordinator_pb2.State.FINISHED:
+            terminate_event.set()
+            return
+        elif reply.state == coordinator_pb2.State.ROUND:
+            # signal "round open" to main thread
+            selected_event.set()
+        selected_event.clear()
         time.sleep(HEARTBEAT_TIME)
 
 
@@ -56,12 +61,12 @@ def start_training(channel) -> Tuple[Theta, int, int]:
 
 
 def end_training(
-    channel, theta_update: Tuple[Theta, int], history: History, metrics: Metrics
+    channel, theta_n: Tuple[Theta, int], history: History, metrics: Metrics
 ):
     stub = coordinator_pb2_grpc.CoordinatorStub(channel)
     # build request starting with theta update
-    theta, num = theta_update
-    theta_update_p = coordinator_pb2.EndTrainingRequest.ThetaUpdate(
+    theta, num = theta_n
+    theta_n_proto = coordinator_pb2.EndTrainingRequest.ThetaUpdate(
         theta_prime=[ndarray_to_proto(nda) for nda in theta], num_examples=num
     )
     # history data
@@ -74,7 +79,7 @@ def end_training(
     m = coordinator_pb2.EndTrainingRequest.Metrics(cid=cid, vol_by_class=vbc)
     # assemble req
     req = coordinator_pb2.EndTrainingRequest(
-        theta_update=theta_update_p, history=h, metrics=m
+        theta_update=theta_n_proto, history=h, metrics=m
     )
     # send request to end training
     reply = stub.EndTraining(req)
@@ -94,17 +99,20 @@ def init_participant() -> Participant:
                        num_classes=10, batch_size=FLAGS.B)
 
 
-def standby(channel, participant: Participant, hb: threading.Thread):
-    # wait on hb until *selected* signal
-    # ...
+def standby(channel, participant: Participant, terminate, selected):
+    # wait on heartbeat until *selected* event signals
+    while not selected.wait(RETRY_TIMEOUT):
+        print(f"Not yet selected for round. Retrying in {RETRY_TIMEOUT}s")
     # ready:
     theta, epochs, base = start_training(channel)
     # training:
     theta_n, his, _dict = participant.train_round(theta, epochs, base)
+    # NOTE _dict is the opt_config - ignore for now
     met = participant.metrics()
     end_training(theta_n, his, met)
-    # back to standby
-    standby(channel, participant, hb)
+    # back to standby unless terminate event says otherwise
+    if not terminate.isSet():
+        standby(channel, participant, terminate, selected)
 
 
 def run():
@@ -118,20 +126,22 @@ def run():
 
     # start the heartbeat in a different thread
     terminate_event = threading.Event()
+    selected_event = threading.Event()
     heartbeat_thread = threading.Thread(
-        target=heartbeat, args=(channel, terminate_event)
+        target=heartbeat, args=(channel, terminate_event, selected_event)
     )
     heartbeat_thread.start()
 
     # standby:
-    standby(channel, p, heartbeat_thread)
+    standby(channel, p, terminate_event, selected_event)
 
-    try:
-        # never returns unless there is an exception
-        heartbeat_thread.join()
-    except KeyboardInterrupt:
-        terminate_event.set()
-        channel.close()
+    # try:
+    #     # never returns unless there is an exception
+    #     heartbeat_thread.join()
+    # except KeyboardInterrupt:
+    #     terminate_event.set()
+    #     channel.close()
+    print("shutting down...")
 
 
 if __name__ == "__main__":
