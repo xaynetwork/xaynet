@@ -2,8 +2,8 @@ import threading
 import time
 from typing import Tuple
 
-from absl import app, flags
 import grpc
+from absl import app, flags
 from numproto import ndarray_to_proto, proto_to_ndarray
 
 from xain.benchmark.net import load_lr_fn_fn, load_model_fn
@@ -95,8 +95,9 @@ def init_participant() -> Participant:
 
     cid = 0
     xy_train = xy_train_partitions[FLAGS.partition_id]
-    return Participant(cid, model_provider, xy_train, xy_val,
-                       num_classes=10, batch_size=FLAGS.B)
+    return Participant(
+        cid, model_provider, xy_train, xy_val, num_classes=10, batch_size=FLAGS.B
+    )
 
 
 def standby(channel, participant: Participant, terminate, selected):
