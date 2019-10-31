@@ -2,20 +2,29 @@ import threading
 import time
 from typing import Tuple
 
+from absl import app, flags
 import grpc
 from numproto import ndarray_to_proto, proto_to_ndarray
 
+from xain.benchmark.net import load_lr_fn_fn, load_model_fn
+from xain.datasets import load_splits
+from xain.fl.participant import ModelProvider, Participant
 from xain.grpc import coordinator_pb2, coordinator_pb2_grpc
 from xain.types import History, Metrics, Theta
+
+FLAGS = flags.FLAGS
 
 RETRY_TIMEOUT = 5
 HEARTBEAT_TIME = 10
 
 
-def heartbeat(channel, terminate_event):
+# TODO pull in heartbeat msg changes
+def heartbeat(channel, terminate_event, selected_event):
     stub = coordinator_pb2_grpc.CoordinatorStub(channel)
     while not terminate_event.is_set():
+        # TODO include state with req? complicates things...
         reply = stub.Heartbeat(coordinator_pb2.HeartbeatRequest())
+        # TODO inspect reply... figure out whether to (un)set selected ev
         print(f"Participant received: {type(reply)}")
         time.sleep(HEARTBEAT_TIME)
 
@@ -72,7 +81,35 @@ def end_training(
     print(f"Participant received: {type(reply)}")
 
 
+def init_participant() -> Participant:
+    xy_train_partitions, xy_val, _xy_test = load_splits(FLAGS.dataset)
+
+    model_fn = load_model_fn(FLAGS.model)
+    lr_fn_fn = load_lr_fn_fn(FLAGS.model)
+    model_provider = ModelProvider(model_fn, lr_fn_fn)
+
+    cid = 0
+    xy_train = xy_train_partitions[FLAGS.partition_id]
+    return Participant(cid, model_provider, xy_train, xy_val,
+                       num_classes=10, batch_size=FLAGS.B)
+
+
+def standby(channel, participant: Participant, hb: threading.Thread):
+    # wait on hb until *selected* signal
+    # ...
+    # ready:
+    theta, epochs, base = start_training(channel)
+    # training:
+    theta_n, his, _dict = participant.train_round(theta, epochs, base)
+    met = participant.metrics()
+    end_training(theta_n, his, met)
+    # back to standby
+    standby(channel, participant, hb)
+
+
 def run():
+    p = init_participant()
+
     # create a channel to the coordinator
     channel = grpc.insecure_channel("localhost:50051")
 
@@ -86,6 +123,9 @@ def run():
     )
     heartbeat_thread.start()
 
+    # standby:
+    standby(channel, p, heartbeat_thread)
+
     try:
         # never returns unless there is an exception
         heartbeat_thread.join()
@@ -95,4 +135,8 @@ def run():
 
 
 if __name__ == "__main__":
-    run()
+    flags.mark_flag_as_required("model")
+    flags.mark_flag_as_required("dataset")
+    flags.mark_flag_as_required("B")
+    flags.mark_flag_as_required("partition_id")
+    app.run(main=run)
