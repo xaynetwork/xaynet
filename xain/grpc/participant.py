@@ -27,9 +27,10 @@ def heartbeat(channel, terminate_event, selected_event):
         if reply.state == coordinator_pb2.State.FINISHED:
             terminate_event.set()
             return
-        elif reply.state == coordinator_pb2.State.ROUND:
+        if reply.state == coordinator_pb2.State.ROUND:
             # signal "round open" to main thread
             selected_event.set()
+        # not much to do for State.STANDBY
         selected_event.clear()
         time.sleep(HEARTBEAT_TIME)
 
@@ -110,7 +111,7 @@ def standby(channel, participant: Participant, terminate, selected):
     theta_n, his, _dict = participant.train_round(theta, epochs, base)
     # NOTE _dict is the opt_config - ignore for now
     met = participant.metrics()
-    end_training(theta_n, his, met)
+    end_training(channel, theta_n, his, met)
     # back to standby unless terminate event says otherwise
     if not terminate.isSet():
         standby(channel, participant, terminate, selected)
