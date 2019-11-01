@@ -22,9 +22,26 @@ message RendezvousReply {
   RendezvousResponse response = 1;
 }
 
-message HeartbeatRequest {}
+enum State {
+  STANDBY =
+      0;      // Set by the coordinator to signal there is no round in progress
+  ROUND = 1;  // Set by the coordinator to signal what round is currently in
+              // progress
+  FINISHED = 2;  // Set by the coordinator to signal that the session is over
+  READY = 3;     // Set by the participant to signal that it is ready for work
+  TRAINING =
+      4;  // Set by the participant to signal that it is currently training
+}
 
-message HeartbeatReply {}
+message HeartbeatRequest {
+  State state = 1;
+  int32 round = 2;
+}
+
+message HeartbeatReply {
+  State state = 1;
+  int32 round = 2;
+}
 
 message StartTrainingRequest {}
 
