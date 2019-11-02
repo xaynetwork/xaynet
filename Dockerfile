@@ -6,7 +6,7 @@ WORKDIR /opt/app
 RUN mkdir output
 
 # Upgrade pip and setuptools
-RUN pip install -U pip==19.2.3 setuptools==41.2.0
+RUN pip install -U pip==19.3.1 setuptools==41.6.0
 
 # First copy scripts and setup.py to install dependencies
 # and avoid reinstalling dependencies when only changing the code
