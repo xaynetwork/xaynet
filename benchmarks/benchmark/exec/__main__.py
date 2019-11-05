@@ -3,9 +3,9 @@ import time
 
 from absl import app, flags
 
+from benchmarks.ops import results
 from xain.datasets import load_splits
 from xain.helpers import storage
-from xain.ops import results
 
 from . import run
 
