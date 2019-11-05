@@ -132,7 +132,7 @@ setup(
         "Operating System :: MacOS :: MacOS X",
         "Operating System :: POSIX :: Linux",
     ],
-    packages=find_packages(exclude=["*_test.py"]),
+    packages=find_packages(where=".", exclude=["*_test.py"]),
     install_requires=install_requires,
     tests_require=tests_require,
     extras_require={
@@ -144,9 +144,9 @@ setup(
     cmdclass={"develop": CustomDevelopCommand},
     entry_points={
         "console_scripts": [
+            "train_remote=benchmarks.train_remote:main",
             "pull_results=xain.ops.__main__:download",
-            "train_remote=xain.benchmark.__main__:main",
-            "aggregate=xain.benchmark.aggregation.__main__:app_run_aggregate",
+            "aggregate=benchmarks.aggregate:main",
         ]
     },
 )

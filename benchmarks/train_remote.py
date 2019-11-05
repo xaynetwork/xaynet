@@ -1,6 +1,6 @@
 from absl import app, flags
 
-from . import benchmark
+from benchmarks.benchmark import benchmark
 
 FLAGS = flags.FLAGS
 
