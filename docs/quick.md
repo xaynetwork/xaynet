@@ -5,7 +5,7 @@
 To execute a training session locally:
 
 ```shell
-$ python -m xain.benchmark.exec \
+$ python -m benchmarks.benchmark.exec \
     --group_name=abc \
     --task_name=def \
     --dataset=fashion-mnist-100p-iid-balanced \
@@ -35,13 +35,13 @@ export AWS_PROFILE=xain-xain
 ### Running a benchmark suite
 
 ```shell
-$ python -m xain.benchmark --benchmark_name=BENCHMARK_NAME
+$ python -m benchmarks.benchmark --benchmark_name=BENCHMARK_NAME
 ```
 
 You can see valid benchmark names by using
 
 ```shell
-$ python -m xain.benchmark --helpfull
+$ python -m benchmarks.benchmark --helpfull
 ```
 
 ### Connect to running instances

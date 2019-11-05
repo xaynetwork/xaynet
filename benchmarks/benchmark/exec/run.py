@@ -6,8 +6,8 @@ import numpy as np
 import tensorflow as tf
 from absl import logging
 
-from xain.benchmark.aggregation import task_accuracies
-from xain.benchmark.net import load_lr_fn_fn, load_model_fn
+from benchmarks.benchmark.aggregation import task_accuracies
+from benchmarks.benchmark.net import load_lr_fn_fn, load_model_fn
 from xain.datasets import load_splits
 from xain.fl.coordinator import Coordinator, RandomController
 from xain.fl.coordinator.aggregate import Aggregator

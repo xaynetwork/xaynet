@@ -7,8 +7,8 @@ import numpy as np
 from absl import app, flags, logging
 from numpy import ndarray
 
-from xain.benchmark.aggregation.plot import plot_history_data
-from xain.benchmark.aggregation.results import GroupResult, TaskResult
+from benchmarks.benchmark.aggregation.plot import plot_history_data
+from benchmarks.benchmark.aggregation.results import GroupResult, TaskResult
 from xain.helpers.storage import create_output_subdir, fname_with_default_dir
 from xain.types import Metrics
 

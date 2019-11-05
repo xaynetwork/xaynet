@@ -1,12 +1,11 @@
 from absl import app, logging
 
-from xain.benchmark.net import orig_cnn_compiled
+from benchmarks.benchmark.exec import run
+from benchmarks.benchmark.net import orig_cnn_compiled
 from xain.datasets import load_splits
 from xain.fl.coordinator.aggregate import EvoAgg
 from xain.fl.coordinator.evaluator import Evaluator
 from xain.helpers import storage
-
-from .exec import run
 
 DEFAULT_R = 50
 DEFAULT_E = 1  # Number of training epochs in each round

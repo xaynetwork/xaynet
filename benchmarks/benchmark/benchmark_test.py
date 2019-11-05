@@ -1,9 +1,9 @@
-from xain.benchmark.net import model_fns
 from xain.datasets.dataset import config
 from xain.ops.run import cores
 
 from .aggregation.aggregation import aggregations
 from .benchmark import benchmarks
+from .net import model_fns
 
 
 def test_valid_aggregation_names():

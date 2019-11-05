@@ -6,8 +6,9 @@ import numpy
 import requests
 from absl import flags, logging
 
-from ..helpers.sha1 import checksum
-from ..types import FederatedDataset
+from xain.helpers.sha1 import checksum
+from xain.types import FederatedDataset
+
 from . import hashes
 
 FLAGS = flags.FLAGS
