@@ -90,6 +90,8 @@ dev_require = [
     "twine==2.0.0",  # Apache License 2.0
 ]
 
+examples_require = ["tensorflow==1.14.0"]  # Apache 2.0
+
 tests_require = [
     "pytest==4.6.2",  # MIT license
     "pytest-cov==2.7.1",  # MIT
@@ -140,6 +142,7 @@ setup(
         "gpu": gpu_require,
         "docs": docs_require,
         "dev": dev_require + tests_require + docs_require,
+        "examples": examples_require,
     },
     cmdclass={"develop": CustomDevelopCommand},
     entry_points={
