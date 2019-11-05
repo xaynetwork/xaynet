@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+service BidirectionalStream {
+  rpc Connect(stream ClientMessage) returns (stream ServerMessage) {}
+}
+
+message ClientMessage {
+  string uuid = 1;
+
+  oneof message {
+    float foo = 2;
+    float bar = 3;
+  }
+  
+}
+
+message ServerMessage {
+  message NestedMessage {
+    int32 foo = 1;
+    int32 bar = 2;
+  }
+
+  oneof message {
+    int32 for = 1;
+    NestedMessage bar = 2;
+  }
+}

@@ -1,0 +1,2 @@
+SERVER_ADDRESS = "[::]"
+PORT = 8080

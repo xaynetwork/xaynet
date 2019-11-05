@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+import "numproto/protobuf/ndarray.proto";
+
+service Coordinator {
+  rpc Train(stream ParticipantMessage) returns (stream CoordinatorMessage) {}
+}
+
+message ParticipantMessage {
+  string uuid = 1;
+  float progress = 2;
+}
+
+message CoordinatorMessage {
+  message TrainConfig {
+    repeated numproto.protobuf.NDArray theta = 1;
+    int32 epochs = 2;
+    int32 epoch_base = 3;
+  }
+
+  oneof message {
+    int32 reconnect_in = 2;
+    TrainConfig train_config = 3;
+  }
+}

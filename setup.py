@@ -39,7 +39,7 @@ class CustomDevelopCommand(develop):
         # get the path of grpc_tools protofiles
         grpc_path = grpc_tools.__path__[0]
 
-        proto_files = glob.glob("./protobuf/xain/grpc/*.proto")
+        proto_files = glob.glob("./protobuf/xain/**/*.proto")
         command = [
             "grpc_tools.protoc",
             # path to numproto .proto files
@@ -146,6 +146,8 @@ setup(
             "pull_results=xain.ops.__main__:download",
             "train_remote=xain.benchmark.__main__:main",
             "aggregate=xain.benchmark.aggregation.__main__:app_run_aggregate",
+            "start_coordinator=xain.network.coordinator:start_coordinator",
+            "start_participant=xain.network.participant:start_participant",
         ]
     },
 )
