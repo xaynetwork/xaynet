@@ -1,5 +1,5 @@
+from benchmarks.ops.run import cores
 from xain.datasets.dataset import config
-from xain.ops.run import cores
 
 from .aggregation.aggregation import aggregations
 from .benchmark import benchmarks
