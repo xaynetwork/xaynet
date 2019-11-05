@@ -1,8 +1,9 @@
 import numpy as np
 import pytest
 
-from ..conftest import create_mock_keras_dataset
-from ..types import FederatedDataset, KerasDataset
+from benchmarks.conftest import create_mock_keras_dataset
+from xain.types import FederatedDataset, KerasDataset
+
 from . import data
 
 
