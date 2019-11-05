@@ -12,7 +12,6 @@
 ## Python packages
 /xain/datasets/ @tanertopal
 /xain/fl/ @danieljanes
-/xain/generator/ @tanertopal
 /xain/grpc/ @r-marques
 /xain/helpers/ @danieljanes @tanertopal
 /xain/ops/ @tanertopal
@@ -20,6 +19,7 @@
 
 ## Benchmarks
 /benchmarks/benchmark/ @danieljanes @tanertopal
+/benchmarks/generator/ @tanertopal
 
 ## Rust packages
 /rust/ @r-marques @skade @stjepang @matklad @spacejam
