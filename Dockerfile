@@ -6,7 +6,7 @@ WORKDIR /opt/app
 RUN mkdir output
 
 # Upgrade pip and setuptools
-RUN pip install -U pip==19.3.1 setuptools==41.6.0
+RUN python -m pip install -U pip==19.3.1 setuptools==41.6.0
 
 # First copy scripts and setup.py to install dependencies
 # and avoid reinstalling dependencies when only changing the code
@@ -20,9 +20,9 @@ COPY README.md README.md
 RUN python setup.py egg_info && \
     LN=$(awk '/tensorflow/{ print NR; exit }' xain.egg-info/requires.txt) && \
     IR=$(head -n $LN xain.egg-info/requires.txt | awk '{gsub(/\[.+\]/,"");}1') && \
-    pip install $IR
+    python -m pip install $IR
 
 COPY xain xain
 COPY protobuf protobuf
 
-RUN pip install .
+RUN python -m pip install .

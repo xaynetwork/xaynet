@@ -11,7 +11,7 @@ if ! [[ -x "$(command -v protobuf-bin-gen-rust-do-not-use)" ]]; then
     cargo install protobuf-codegen --version 2.8.1
 fi
 
-NUMPROTO_DIR=`pip3 show numproto | grep Location | sed -e 's/^Location: //'`
+NUMPROTO_DIR=`python -m pip show numproto | grep Location | sed -e 's/^Location: //'`
 
 PROTO_FILES="
 ../../protobuf/xain/grpc/coordinator.proto
