@@ -101,7 +101,7 @@ def init_participant() -> Participant:
     )
 
 
-def standby(channel, participant: Participant, terminate, selected):
+def train_when_selected(channel, participant: Participant, selected):
     # wait on heartbeat until *selected* event signals
     while not selected.wait(RETRY_TIMEOUT):
         print(f"Not yet selected for round. Retrying in {RETRY_TIMEOUT}s")
@@ -113,8 +113,8 @@ def standby(channel, participant: Participant, terminate, selected):
     met = participant.metrics()
     end_training(channel, theta_n, his, met)
     # back to standby unless terminate event says otherwise
-    if not terminate.isSet():
-        standby(channel, participant, terminate, selected)
+    # if not terminate.isSet():
+    #     standby(channel, participant, terminate, selected)
 
 
 def run():
@@ -134,15 +134,16 @@ def run():
     )
     heartbeat_thread.start()
 
-    # standby:
-    standby(channel, p, terminate_event, selected_event)
+    while not terminate_event.is_set():
+        train_when_selected(channel, p, selected_event)
 
-    # try:
-    #     # never returns unless there is an exception
-    #     heartbeat_thread.join()
-    # except KeyboardInterrupt:
-    #     terminate_event.set()
-    #     channel.close()
+    try:
+        # never returns unless there is an exception
+        heartbeat_thread.join()
+    except KeyboardInterrupt:
+        terminate_event.set()
+        channel.close()
+
     print("shutting down...")
 
 
