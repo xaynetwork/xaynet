@@ -2,7 +2,7 @@ import os
 from abc import ABC
 from typing import List, Optional, cast
 
-from xain.helpers import storage
+from benchmarks.helpers import storage
 from xain.types import Metrics
 
 

@@ -13,7 +13,8 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 from absl import logging
 
-from xain.helpers import sha1, storage
+from benchmarks.helpers import storage
+from xain.helpers import sha1
 from xain.types import FederatedDataset, FnameNDArrayTuple
 
 

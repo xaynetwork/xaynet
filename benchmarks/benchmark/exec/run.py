@@ -8,11 +8,11 @@ from absl import logging
 
 from benchmarks.benchmark.aggregation import task_accuracies
 from benchmarks.benchmark.net import load_lr_fn_fn, load_model_fn
+from benchmarks.helpers import storage
 from xain.datasets import load_splits
 from xain.fl.coordinator import Coordinator, RandomController
 from xain.fl.coordinator.aggregate import Aggregator
 from xain.fl.participant import ModelProvider, Participant
-from xain.helpers import storage
 from xain.types import History, Metrics, Partition
 
 random.seed(0)

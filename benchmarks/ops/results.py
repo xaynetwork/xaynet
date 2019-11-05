@@ -3,7 +3,7 @@ import os
 import boto3
 from absl import flags, logging
 
-from xain.helpers.storage import listdir_recursive
+from benchmarks.helpers.storage import listdir_recursive
 
 FLAGS = flags.FLAGS
 

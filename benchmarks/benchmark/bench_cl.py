@@ -3,7 +3,7 @@ import time
 import tensorflow as tf
 from absl import app, logging
 
-from xain.helpers import storage
+from benchmarks.helpers import storage
 
 from .exec import run
 
