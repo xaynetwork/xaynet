@@ -9,7 +9,7 @@ from benchmarks.benchmark.aggregation import (
     participant_hist,
     task_accuracies,
 )
-from xain.helpers import storage
+from benchmarks.helpers import storage
 
 FLAGS = flags.FLAGS
 

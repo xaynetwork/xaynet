@@ -3,7 +3,7 @@ from typing import List, Optional, Tuple
 
 from absl import app, flags, logging
 
-from xain.helpers import storage
+from benchmarks.helpers import storage
 from xain.types import PlotValues
 
 from .plot import plot

@@ -5,8 +5,8 @@ from typing import Dict, List, Optional
 
 from absl import flags, logging
 
+from benchmarks.helpers import storage
 from benchmarks.ops import docker, results, run
-from xain.helpers import storage
 
 from .task import Task, UnitaryVisionTask, VisionTask
 

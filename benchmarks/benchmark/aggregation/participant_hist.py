@@ -9,7 +9,7 @@ from numpy import ndarray
 
 from benchmarks.benchmark.aggregation.plot import plot_history_data
 from benchmarks.benchmark.aggregation.results import GroupResult, TaskResult
-from xain.helpers.storage import create_output_subdir, fname_with_default_dir
+from benchmarks.helpers.storage import create_output_subdir, fname_with_default_dir
 from xain.types import Metrics
 
 FLAGS = flags.FLAGS
