@@ -1,11 +1,14 @@
 import threading
 import time
 from concurrent import futures
+from typing import Dict, List, Optional, Tuple
 
 import grpc
+import numpy as np
+from google.protobuf.interal.python_message import GeneratedProtocolMessageType
 from numproto import ndarray_to_proto, proto_to_ndarray
 
-from xain.fl.coordinator.aggregate import FederatedAveragingAgg
+from xain.fl.coordinator.aggregate import Aggregator, FederatedAveragingAgg
 from xain.grpc import coordinator_pb2, coordinator_pb2_grpc
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
@@ -21,7 +24,7 @@ class ParticipantContext:
     IDLE, RUNNING, ...
     """
 
-    def __init__(self, participant_id):
+    def __init__(self, participant_id: str) -> None:
         self.participant_id = participant_id
         self.heartbeat_expires = time.time() + HEARTBEAT_TIME + HEARTBEAT_TIMEOUT
 
@@ -32,11 +35,11 @@ class Participants:
     lock.
     """
 
-    def __init__(self):
-        self.participants = {}
+    def __init__(self) -> None:
+        self.participants: Dict[str, ParticipantContext] = {}
         self._lock = threading.Lock()
 
-    def add(self, participant_id):
+    def add(self, participant_id: str) -> None:
         """Adds a new participant to the list of participants.
 
         Args:
@@ -46,7 +49,7 @@ class Participants:
         with self._lock:
             self.participants[participant_id] = ParticipantContext(participant_id)
 
-    def remove(self, participant_id):
+    def remove(self, participant_id: str) -> None:
         """Removes a participant from the list of participants.
 
         This will be typically used after a participant is disconnected from the coordinator.
@@ -59,7 +62,7 @@ class Participants:
             if participant_id in self.participants:
                 del self.participants[participant_id]
 
-    def next_expiration(self):
+    def next_expiration(self) -> float:
         """Helper method to check what is the next heartbeat to expire.
 
         Currently being used by the `heartbeat_monitor` to check how long it should sleep until
@@ -76,7 +79,7 @@ class Participants:
 
         return time.time() + HEARTBEAT_TIME + HEARTBEAT_TIMEOUT
 
-    def len(self):
+    def len(self) -> int:
         """Get the number of participants.
 
         Returns:
@@ -86,7 +89,7 @@ class Participants:
         with self._lock:
             return len(self.participants)
 
-    def update_expires(self, participant_id):
+    def update_expires(self, participant_id: str) -> None:
         """Updates the heartbeat expiration time for a participant.
 
         This is currently called by the `Coordinator` every time a participant sends a
@@ -102,7 +105,9 @@ class Participants:
             )
 
 
-def monitor_heartbeats(coordinator, terminate_event):
+def monitor_heartbeats(
+    coordinator: Coordinator, terminate_event: threading.Event
+) -> None:
     """Monitors the heartbeat of participants.
 
     If a heartbeat expires the participant is removed from the list of participants.
@@ -134,19 +139,29 @@ def monitor_heartbeats(coordinator, terminate_event):
 
 
 class CoordinatorGrpc(coordinator_pb2_grpc.CoordinatorServicer):
-    def __init__(self, coordinator):
+    def __init__(self, coordinator: Coordinator):
         self.coordinator = coordinator
 
-    def Rendezvous(self, request, context):
+    def Rendezvous(
+        self, request: coordinator_pb2.RendezvousRequest, context: grpc.ServicerContext
+    ) -> coordinator_pb2.RendezvousReply:
         return self.coordinator.on_message(request, context.peer())
 
-    def Heartbeat(self, request, context):
+    def Heartbeat(
+        self, request: coordinator_pb2.HeartbeatRequest, context: grpc.ServicerContext
+    ) -> coordinator_pb2.HeartbeatReply:
         return self.coordinator.on_message(request, context.peer())
 
-    def StartTraining(self, request, context):
+    def StartTraining(
+        self,
+        request: coordinator_pb2.StartTrainingRequest,
+        context: grpc.ServicerContext,
+    ) -> coordinator_pb2.StartTrainingReply:
         return self.coordinator.on_message(request, context.peer())
 
-    def EndTraining(self, request, context):
+    def EndTraining(
+        self, request: coordinator_pb2.EndTrainingRequest, context: grpc.ServicerContext
+    ) -> coordinator_pb2.EndTrainingReply:
         return self.coordinator.on_message(request, context.peer())
 
 
@@ -154,33 +169,35 @@ class Coordinator:
     # pylint: disable-msg=too-many-instance-attributes
     def __init__(
         self,
-        num_rounds=10,
-        required_participants=10,
-        aggregator=None,
-        theta=None,
-        epochs=0,
-        epoch_base=0,
-    ):
+        num_rounds: int = 10,
+        required_participants: int = 10,
+        aggregator: Aggregator = None,
+        theta: List[np.ndarray] = [],
+        epochs: int = 0,
+        epoch_base: int = 0,
+    ) -> None:
         self.required_participants = required_participants
         self.participants = Participants()
         self.num_rounds = num_rounds
         self.aggregator = aggregator if aggregator else FederatedAveragingAgg()
 
         # global model
-        self.theta = [] if theta is None else theta
+        self.theta = theta
         self.epochs = epochs
         self.epoch_base = epoch_base
 
         # local model
-        self.theta_updates = []
-        self.histories = []
-        self.metricss = []
+        self.theta_updates: List[Tuple[List[np.ndarray], int]] = []
+        self.histories: List[Dict[str, List[float]]] = []
+        self.metricss: List[Tuple[int, List[int]]] = []
 
         # state variables
         self.state = coordinator_pb2.State.STANDBY
         self.round = 0
 
-    def on_message(self, message, peer_id):
+    def on_message(
+        self, message: GeneratedProtocolMessageType, peer_id: str
+    ) -> GeneratedProtocolMessageType:
         print(f"Received: {type(message)} from {peer_id}")
 
         # pylint: disable-msg=no-else-return
@@ -199,7 +216,6 @@ class Coordinator:
                 # have enough participants
                 if self.participants.len() == self.required_participants:
                     # TODO: We may need to make this update thread safe
-                    # TODO: Check if this is the best place to update the round
                     self.state = coordinator_pb2.State.ROUND
                     self.round = 1 if self.round == 0 else self.round
             else:
@@ -223,7 +239,6 @@ class Coordinator:
             # handle start training
 
             # TODO: Check that the state == ROUND else raise exception
-            # TODO: Update the round number
 
             theta_proto = [ndarray_to_proto(nda) for nda in self.theta]
 
@@ -248,7 +263,7 @@ class Coordinator:
                 print(f"Running aggregation for round {self.round}")
                 self.theta = self.aggregator.aggregate(self.theta_updates)
 
-                # update the round of finish the training session
+                # update the round or finish the training session
                 if self.round == self.num_rounds:
                     self.state = coordinator_pb2.State.FINISHED
                 else:
@@ -265,7 +280,7 @@ class Coordinator:
             raise NotImplementedError
 
 
-def serve():
+def serve() -> None:
     coordinator = Coordinator()
     terminate_event = threading.Event()
     monitor_thread = threading.Thread(
