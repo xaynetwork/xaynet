@@ -132,7 +132,9 @@ setup(
         "Operating System :: MacOS :: MacOS X",
         "Operating System :: POSIX :: Linux",
     ],
-    packages=find_packages(where=".", exclude=["benchmarks", "*_test.py"]),
+    packages=find_packages(
+        where=".", exclude=["benchmarks", "benchmarks.*", "*_test.py"]
+    ),
     install_requires=install_requires,
     tests_require=tests_require,
     extras_require={
