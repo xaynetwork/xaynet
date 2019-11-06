@@ -31,7 +31,7 @@ def user_data(image: str, timeout: int, S3_results_bucket: str, flags: str):
         f"docker run \
             -e S3_RESULTS_BUCKET={S3_results_bucket} \
             -v $(pwd)/output:/opt/app/output \
-            {image} python -m xain.benchmark.exec {flags} >& $(pwd)/output/training.log",
+            {image} python -m benchmarks.benchmark.exec {flags} >& $(pwd)/output/training.log",
         # Cancel previous shutdown and shutdown 1m after the job finishes
         # The machine is setup to terminate on shutdown
         "shutdown -c",
