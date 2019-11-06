@@ -84,6 +84,15 @@ def test_heartbeat(participant_stub, coordinator_service):
     assert reply == coordinator_pb2.HeartbeatReply()
 
 
+@pytest.mark.integration
+def test_heartbeat_denied(participant_stub, coordinator_service):
+    # heartbeat requests are only allowed if the participant has already
+    # rendezvous with the coordinator
+    with pytest.raises(grpc.RpcError):
+        reply = participant_stub.Heartbeat(coordinator_pb2.HeartbeatRequest())
+        assert reply.status_code == grpc.StatusCode.PERMISSION_DENIED
+
+
 @mock.patch("threading.Event.is_set", side_effect=[False, True])
 @mock.patch("time.sleep", return_value=None)
 @mock.patch("xain.grpc.coordinator.Participants.remove")
@@ -153,6 +162,15 @@ def test_start_training(coordinator_service):
 
 
 @pytest.mark.integration
+def test_start_training_denied(participant_stub, coordinator_service):
+    # heartbeat requests are only allowed if the participant has already
+    # rendezvous with the coordinator
+    with pytest.raises(grpc.RpcError):
+        reply = participant_stub.StartTraining(coordinator_pb2.StartTrainingRequest())
+        assert reply.status_code == grpc.StatusCode.PERMISSION_DENIED
+
+
+@pytest.mark.integration
 def test_end_training(coordinator_service):
     assert coordinator_service.coordinator.round.updates == {}
 
@@ -186,3 +204,24 @@ def test_end_training(coordinator_service):
 
     # finally metrics
     assert update["metrics"] == mets
+
+
+@pytest.mark.integration
+def test_end_training_duplicated_updates(coordinator_service, participant_stub):
+    # participant can only send updates once in a single round
+    participant_stub.Rendezvous(coordinator_pb2.RendezvousRequest())
+
+    participant_stub.EndTraining(coordinator_pb2.EndTrainingRequest())
+
+    with pytest.raises(grpc.RpcError):
+        reply = participant_stub.EndTraining(coordinator_pb2.EndTrainingRequest())
+        assert reply.status_code == grpc.StatusCode.ALREADY_EXISTS
+
+
+@pytest.mark.integration
+def test_end_training_denied(participant_stub, coordinator_service):
+    # heartbeat requests are only allowed if the participant has already
+    # rendezvous with the coordinator
+    with pytest.raises(grpc.RpcError):
+        reply = participant_stub.EndTraining(coordinator_pb2.EndTrainingRequest())
+        assert reply.status_code == grpc.StatusCode.PERMISSION_DENIED

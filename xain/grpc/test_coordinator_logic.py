@@ -3,7 +3,11 @@ import pytest
 from numproto import proto_to_ndarray
 
 from xain.grpc import coordinator_pb2
-from xain.grpc.coordinator import Coordinator
+from xain.grpc.coordinator import (
+    Coordinator,
+    DuplicatedUpdateError,
+    UnknownParticipantError,
+)
 
 
 def test_rendezvous_accept():
@@ -130,8 +134,14 @@ def test_wrong_participant():
     coordinator = Coordinator(required_participants=1)
     coordinator.on_message(coordinator_pb2.RendezvousRequest(), "peer1")
 
-    with pytest.raises(Exception):
+    with pytest.raises(UnknownParticipantError):
+        coordinator.on_message(coordinator_pb2.HeartbeatRequest(), "peer2")
+
+    with pytest.raises(UnknownParticipantError):
         coordinator.on_message(coordinator_pb2.StartTrainingRequest(), "peer2")
+
+    with pytest.raises(UnknownParticipantError):
+        coordinator.on_message(coordinator_pb2.EndTrainingRequest(), "peer2")
 
 
 def test_duplicated_update_submit():
@@ -143,5 +153,5 @@ def test_duplicated_update_submit():
 
     coordinator.on_message(coordinator_pb2.EndTrainingRequest(), "peer1")
 
-    with pytest.raises(Exception):
+    with pytest.raises(DuplicatedUpdateError):
         coordinator.on_message(coordinator_pb2.EndTrainingRequest(), "peer1")

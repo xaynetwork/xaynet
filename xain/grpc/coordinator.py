@@ -21,6 +21,20 @@ HEARTBEAT_TIME = 10
 HEARTBEAT_TIMEOUT = 5
 
 
+class DuplicatedUpdateError(Exception):
+    """Exception raised when the same participant tries to submit multiple
+    updates to the :class:`~.Coordinator` in the same :class:`~.Round`
+    """
+
+
+class UnknownParticipantError(Exception):
+    """Exception raised when a participant that is unknown to the
+    :class:`~.Coordinator` makes a request. Typically this means that a
+    participant tries to make a request before it has successfully rendezvous
+    with the :class:`~.Coordinator`.
+    """
+
+
 class ParticipantContext:
     """Class to store state about each participant. Currently it only stores the `participant_id`
     and the time when the next heartbeat_expires.
@@ -147,11 +161,13 @@ class Round:
             metrics (:obj:`tuple`): TODO
 
         Raises:
-            Exception: If the participant already submitted his update this round.
+            DuplicatedUpdateError: If the participant already submitted his update this round.
 
         """
         if participant_id in self.updates.keys():
-            raise Exception
+            raise DuplicatedUpdateError(
+                f"Participant {participant_id} already submitted the update for this round."
+            )
 
         self.updates[participant_id] = {
             "theta_update": theta_update,
@@ -268,6 +284,11 @@ class Coordinator:
 
         Returns:
             :class:`~.GeneratedProtocolMessageType`: The reply to be sent back to the peer.
+
+        Raises:
+            :class:`~UnknownParticipantError`: If it receives a request from an
+            unknown participant. Typically a participant that has not
+            rendezvous with the :class:`~.Coordinator`.
         """
         print(f"Received: {type(message)} from {peer_id}")
 
@@ -277,7 +298,10 @@ class Coordinator:
             not isinstance(message, coordinator_pb2.RendezvousRequest)
             and peer_id not in self.participants.participants.keys()
         ):
-            raise Exception
+            raise UnknownParticipantError(
+                f"Unknown participant {peer_id}. "
+                "Please try to rendezvous with the coordinator before making a request."
+            )
 
         # pylint: disable-msg=no-else-return
         if isinstance(message, coordinator_pb2.RendezvousRequest):
@@ -424,7 +448,12 @@ class CoordinatorGrpc(coordinator_pb2_grpc.CoordinatorServicer):
             coordinator is on. If a training session has not started yet the
             round number defaults to 0.
         """
-        return self.coordinator.on_message(request, context.peer())
+        try:
+            return self.coordinator.on_message(request, context.peer())
+        except UnknownParticipantError as error:
+            context.set_details(str(error))
+            context.set_code(grpc.StatusCode.PERMISSION_DENIED)
+            return coordinator_pb2.HeartbeatReply()
 
     def StartTraining(
         self,
@@ -447,7 +476,12 @@ class CoordinatorGrpc(coordinator_pb2_grpc.CoordinatorServicer):
             :class:`~.coordinator_pb2.StartTrainingReply`: The reply to the
             participant's request. The reply contains the global model weights.
             """
-        return self.coordinator.on_message(request, context.peer())
+        try:
+            return self.coordinator.on_message(request, context.peer())
+        except UnknownParticipantError as error:
+            context.set_details(str(error))
+            context.set_code(grpc.StatusCode.PERMISSION_DENIED)
+            return coordinator_pb2.StartTrainingReply()
 
     def EndTraining(
         self, request: coordinator_pb2.EndTrainingRequest, context: grpc.ServicerContext
@@ -470,7 +504,17 @@ class CoordinatorGrpc(coordinator_pb2_grpc.CoordinatorServicer):
             the :class:`~.Coordinator` successfully received the updated
             weights.
         """
-        return self.coordinator.on_message(request, context.peer())
+
+        try:
+            return self.coordinator.on_message(request, context.peer())
+        except DuplicatedUpdateError as error:
+            context.set_details(str(error))
+            context.set_code(grpc.StatusCode.ALREADY_EXISTS)
+            return coordinator_pb2.EndTrainingReply()
+        except UnknownParticipantError as error:
+            context.set_details(str(error))
+            context.set_code(grpc.StatusCode.PERMISSION_DENIED)
+            return coordinator_pb2.EndTrainingReply()
 
 
 def monitor_heartbeats(
