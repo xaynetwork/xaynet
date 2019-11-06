@@ -309,6 +309,14 @@ class Coordinator:
                 "Please try to rendezvous with the coordinator before making a request."
             )
 
+        # Unless this is a RendezvousRequest the coordinator should not accept messages
+        # from participants that have not been accepted
+        if (
+            not isinstance(message, coordinator_pb2.RendezvousRequest)
+            and peer_id not in self.participants.participants.keys()
+        ):
+            raise Exception
+
         # pylint: disable-msg=no-else-return
         if isinstance(message, coordinator_pb2.RendezvousRequest):
             # Handle rendezvous
