@@ -56,7 +56,7 @@ def docker(image: str, timeout: int = 300, instance_cores=2, **kwargs):
         image,
         "python",
         "-m",
-        "xain.benchmark.exec",
+        "benchmarks.benchmark.exec",
     ]
 
     for arg in kwargs:
