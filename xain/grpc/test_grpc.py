@@ -20,7 +20,7 @@ from xain.grpc.coordinator import (
     Participants,
     monitor_heartbeats,
 )
-from xain.grpc.participant import end_training, heartbeat, start_training
+from xain.grpc.participant import end_training, heartbeat, rendezvous, start_training
 
 # Some grpc tests fail on macos.
 # `pytestmark` when defined on a module will mark all tests in that module.
@@ -141,6 +141,8 @@ def test_start_training(coordinator_service):
 
     # simulate a participant communicating with coordinator via channel
     with grpc.insecure_channel("localhost:50051") as channel:
+        # we need to rendezvous before we can send any other requests
+        rendezvous(channel)
         # call startTraining service method on coordinator
         theta, epochs, epoch_base = start_training(channel)
 
@@ -152,9 +154,7 @@ def test_start_training(coordinator_service):
 
 @pytest.mark.integration
 def test_end_training(coordinator_service):
-    assert not coordinator_service.coordinator.theta_updates
-    assert not coordinator_service.coordinator.histories
-    assert not coordinator_service.coordinator.metricss
+    assert coordinator_service.coordinator.round.updates == {}
 
     # simulate trained local model data
     test_theta, num = [np.arange(20, 30), np.arange(30, 40)], 2
@@ -162,24 +162,27 @@ def test_end_training(coordinator_service):
     mets = 1, [3, 4, 5]
 
     with grpc.insecure_channel("localhost:50051") as channel:
+        # we first need to rendezvous before we can send any other request
+        rendezvous(channel)
         # call endTraining service method on coordinator
         end_training(channel, (test_theta, num), his, mets)
     # check local model received...
 
-    assert len(coordinator_service.coordinator.theta_updates) == 1
-    assert len(coordinator_service.coordinator.histories) == 1
-    assert len(coordinator_service.coordinator.metricss) == 1
+    assert len(coordinator_service.coordinator.round.updates) == 1
+
+    round_ = coordinator_service.coordinator.round
 
     # first the theta update
-    tu1, tu2 = coordinator_service.coordinator.theta_updates[0]
+    _, update = round_.updates.popitem()
+    tu1, tu2 = update["theta_update"]
     assert tu2 == num
     np.testing.assert_equal(tu1, test_theta)
 
     # history values are *floats* so a naive assert == won't do
-    h = coordinator_service.coordinator.histories[0]
+    h = update["history"]
     assert h.keys() == his.keys()
     for k, vals in his.items():
         np.testing.assert_allclose(h[k], vals)
 
     # finally metrics
-    assert coordinator_service.coordinator.metricss[0] == mets
+    assert update["metrics"] == mets

@@ -113,6 +113,75 @@ class Participants:
             )
 
 
+class Round:
+    """Class to manage the state of a single round.
+
+    This class contains the logic to handle all updates sent by the
+    participants during a round and does some sanity checks like preventing the
+    same participant to submit multiple updates during a single round.
+
+    Args:
+        required_participants(:obj:`int`): The minimum number of
+            participants required to perform a round.
+
+    """
+
+    def __init__(self, required_participants: int) -> None:
+        self.required_participants = required_participants
+        self.updates: Dict[str, Dict] = {}
+
+    def add_updates(
+        self,
+        participant_id: str,
+        theta_update: Tuple[List[np.ndarray], int],
+        history: Dict[str, List[float]],
+        metrics: Tuple[int, List[int]],
+    ) -> None:
+        """Valid a participant's update for the round.
+
+        Args:
+            participant_id (:obj:`str`): The id of the peer making the request.
+            theta_update (:obj:`tuple` of :obj:`list` of :class:`~numpy.ndarray`):
+                A tuple containing a list of updated weights.
+            history (:obj:`dict`): TODO
+            metrics (:obj:`tuple`): TODO
+
+        Raises:
+            Exception: If the participant already submitted his update this round.
+
+        """
+        if participant_id in self.updates.keys():
+            raise Exception
+
+        self.updates[participant_id] = {
+            "theta_update": theta_update,
+            "history": history,
+            "metrics": metrics,
+        }
+
+    def is_finished(self) -> bool:
+        """Check if all the required participants submitted their updates this round.
+
+        If all participants submitted their updates the round is considered finished.
+
+        Returns:
+            :obj:`bool`:: :obj:`True` if all participants submitted their
+            updates this round. :obj:`False` otherwise.
+        """
+        return len(self.updates) == self.required_participants
+
+    def get_theta_updates(self) -> List[Tuple[List[np.ndarray], int]]:
+        """Get a list of all participants theta updates.
+
+        This list will usually be used by the aggregation function.
+
+        Returns:
+            :obj:`list` of :obj:`tuple`: The list of theta updates from all
+            participants.
+        """
+        return [v["theta_update"] for k, v in self.updates.items()]
+
+
 class Coordinator:
     """Class implementing the main Coordinator logic. It is implemented as a
     state machine that reacts to received messages.
@@ -181,14 +250,12 @@ class Coordinator:
         self.epochs = epochs
         self.epoch_base = epoch_base
 
-        # local model
-        self.theta_updates: List[Tuple[List[np.ndarray], int]] = []
-        self.histories: List[Dict[str, List[float]]] = []
-        self.metricss: List[Tuple[int, List[int]]] = []
+        # round updates
+        self.round = Round(self.required_participants)
 
         # state variables
         self.state = coordinator_pb2.State.STANDBY
-        self.round = 0
+        self.current_round = 0
 
     def on_message(
         self, message: GeneratedProtocolMessageType, peer_id: str
@@ -203,6 +270,14 @@ class Coordinator:
             :class:`~.GeneratedProtocolMessageType`: The reply to be sent back to the peer.
         """
         print(f"Received: {type(message)} from {peer_id}")
+
+        # Unless this is a RendezvousRequest the coordinator should not accept messages
+        # from participants that have not been accepted
+        if (
+            not isinstance(message, coordinator_pb2.RendezvousRequest)
+            and peer_id not in self.participants.participants.keys()
+        ):
+            raise Exception
 
         # pylint: disable-msg=no-else-return
         if isinstance(message, coordinator_pb2.RendezvousRequest):
@@ -221,7 +296,9 @@ class Coordinator:
                 if self.participants.len() == self.required_participants:
                     # TODO: We may need to make this update thread safe
                     self.state = coordinator_pb2.State.ROUND
-                    self.round = 1 if self.round == 0 else self.round
+                    self.current_round = (
+                        1 if self.current_round == 0 else self.current_round
+                    )
             else:
                 response = coordinator_pb2.RendezvousResponse.LATER
                 print(
@@ -237,7 +314,9 @@ class Coordinator:
             self.participants.update_expires(peer_id)
 
             # send heartbeat reply advertising the current state
-            return coordinator_pb2.HeartbeatReply(state=self.state, round=self.round)
+            return coordinator_pb2.HeartbeatReply(
+                state=self.state, round=self.current_round
+            )
 
         elif isinstance(message, coordinator_pb2.StartTrainingRequest):
             # handle start training
@@ -256,27 +335,26 @@ class Coordinator:
             tu, his, met = message.theta_update, message.history, message.metrics
             tp, num = tu.theta_prime, tu.num_examples
             cid, vbc = met.cid, met.vol_by_class
+
             # record the req data
             theta_update = [proto_to_ndarray(pnda) for pnda in tp], num
-            self.theta_updates.append(theta_update)
-            self.histories.append({k: list(hv.values) for k, hv in his.items()})
-            self.metricss.append((cid, list(vbc)))
+            history = {k: list(hv.values) for k, hv in his.items()}
+            metrics = (cid, list(vbc))
+            self.round.add_updates(peer_id, theta_update, history, metrics)
 
             # The round is over. Run the aggregation
-            if len(self.theta_updates) == self.required_participants:
-                print(f"Running aggregation for round {self.round}")
-                self.theta = self.aggregator.aggregate(self.theta_updates)
+            if self.round.is_finished():
+                print(f"Running aggregation for round {self.current_round}")
+                self.theta = self.aggregator.aggregate(self.round.get_theta_updates())
 
                 # update the round or finish the training session
-                if self.round == self.num_rounds:
+                if self.current_round == self.num_rounds:
                     self.state = coordinator_pb2.State.FINISHED
                 else:
-                    self.round += 1
+                    self.current_round += 1
 
-                    # reinitialize local models
-                    self.theta_updates = []
-                    self.histories = []
-                    self.metricss = []
+                    # reinitialize the round
+                    self.round = Round(self.required_participants)
 
             return coordinator_pb2.EndTrainingReply()
 
