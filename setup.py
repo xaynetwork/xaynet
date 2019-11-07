@@ -60,14 +60,14 @@ class CustomDevelopCommand(develop):
 # License comments according to `pip-licenses`
 
 install_requires = [
-    "typing-extensions==3.7.4",  # PSF
-    "numpy==1.15.4",  # BSD
-    "absl-py==0.7.1",  # Apache 2.0
-    "requests==2.22.0",  # Apache 2.0
-    "grpcio==1.23.0",  # Apache License 2.0
-    "protobuf==3.9.1",  # 3-Clause BSD License
-    "numproto==0.2.0",  # Apache License 2.0
-    "tensorflow==1.14.0",  # Apache 2.0
+    "typing-extensions~=3.7",  # PSF
+    "numpy~=1.15",  # BSD
+    "absl-py~=0.7",  # Apache 2.0
+    "grpcio~=1.23",  # Apache License 2.0
+    "protobuf~=3.9",  # 3-Clause BSD License
+    "numproto~=0.2",  # Apache License 2.0
+    "requests==2.22.0",  # Apache 2.0  # TODO(XP-185) remove
+    "tensorflow==1.14.0",  # Apache 2.0  # TODO(XP-131) remove
 ]
 
 benchmarks_require = [
@@ -81,6 +81,7 @@ benchmarks_require = [
 gpu_require = ["tensorflow-gpu==1.14.0"]  # Apache 2.0
 
 dev_require = [
+    "grpcio-tools~=1.23",  # Apache License 2.0
     "black==19.3b0",  # MIT
     "mypy==0.720",  # MIT License
     "pylint==2.3.1",  # GPL
@@ -88,7 +89,6 @@ dev_require = [
     "isort==4.3.20",  # MIT
     "rope==0.14.0",  # GNU GPL
     "pip-licenses==1.15.2",  # MIT License
-    "grpcio-tools==1.23.0",  # Apache License 2.0
     "mypy-protobuf==1.15",  # Apache License 2.0
     "twine==2.0.0",  # Apache License 2.0
 ]
