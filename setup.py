@@ -64,17 +64,19 @@ install_requires = [
     "numpy==1.15.4",  # BSD
     "absl-py==0.7.1",  # Apache 2.0
     "requests==2.22.0",  # Apache 2.0
-    "botocore==1.12.220",  # Apache License 2.0
-    "boto3==1.9.220",  # Apache License 2.0
-    "awscli==1.16.230",  # Apache License 2.0
-    "faker==2.0.0",  # MIT License
     "grpcio==1.23.0",  # Apache License 2.0
     "protobuf==3.9.1",  # 3-Clause BSD License
     "numproto==0.2.0",  # Apache License 2.0
     "tensorflow==1.14.0",  # Apache 2.0
 ]
 
-benchmarks_require = ["matplotlib==3.1.1"]  # PSF
+benchmarks_require = [
+    "matplotlib==3.1.1",  # PSF
+    "botocore==1.12.220",  # Apache License 2.0
+    "boto3==1.9.220",  # Apache License 2.0
+    "awscli==1.16.230",  # Apache License 2.0
+    "faker==2.0.0",  # MIT License
+]
 
 gpu_require = ["tensorflow-gpu==1.14.0"]  # Apache 2.0
 

@@ -6,7 +6,8 @@ import boto3
 from absl import flags, logging
 
 from xain.helpers import project
-from xain.ops.ec2 import user_data
+
+from .ec2 import user_data
 
 FLAGS = flags.FLAGS
 root_dir = project.root()
