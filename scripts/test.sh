@@ -36,7 +36,7 @@ clang_format && echo "===> clang-format says: well done <===" &&
 pylint --rcfile=pylint.ini xain examples && echo "===> pylint says: well done <===" &&
 
 # type checks
-mypy --ignore-missing-imports xain examples && echo "===> mypy says: well done <===" &&
+mypy --ignore-missing-imports xain examples/* && echo "===> mypy says: well done <===" &&
 
 # documentation checks
 (cd docs/ && SPHINXOPTS="-W" make docs) && echo "===> sphinx-build says: well done <===" &&
