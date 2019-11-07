@@ -3,7 +3,7 @@ from typing import Callable, Dict
 
 from absl import flags, logging
 
-from xain.benchmark.aggregation import (
+from benchmarks.benchmark.aggregation import (
     final_task_accuracies,
     learning_rate,
     participant_hist,
@@ -43,3 +43,7 @@ aggregations: Dict[str, Callable] = {
     "cpp-aggregation": cpp_aggregation,
     "vol-aggregation": flul_aggregation,
 }
+
+
+def main(_):
+    aggregate()

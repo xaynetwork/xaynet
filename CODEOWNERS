@@ -10,7 +10,6 @@
 /protobuf/ @r-marques
 
 ## Python packages
-/xain/benchmark/ @danieljanes @tanertopal
 /xain/datasets/ @tanertopal
 /xain/fl/ @danieljanes
 /xain/generator/ @tanertopal
@@ -18,6 +17,9 @@
 /xain/helpers/ @danieljanes @tanertopal
 /xain/ops/ @tanertopal
 /xain/types/ @danieljanes @tanertopal
+
+## Benchmarks
+/benchmarks/benchmark/ @danieljanes @tanertopal
 
 ## Rust packages
 /rust/ @r-marques @skade @stjepang @matklad @spacejam

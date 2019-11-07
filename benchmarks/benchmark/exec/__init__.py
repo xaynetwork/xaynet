@@ -1,6 +1,6 @@
 from absl import flags
 
-from xain.benchmark.net import model_fns
+from benchmarks.benchmark.net import model_fns
 
 flags.DEFINE_string(
     "task_name",
