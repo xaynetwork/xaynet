@@ -399,6 +399,25 @@ class Coordinator:
         else:
             raise NotImplementedError
 
+    def remove_participant(self, participant_id: str) -> None:
+        """Remove a participant from the list of accepted participants.
+
+        This method is to be called when it is detected that a participant has
+        disconnected.
+
+        After a participant is removed if the number of remaining participants
+        is less than the number of required participants the
+        :class:`~.Coordinator` will transition to STANDBY state.
+
+        Args:
+            participant_id (:obj:`str`): The id of the participant to remove.
+        """
+        self.participants.remove(participant_id)
+        logger.info("Removing participant %s", participant_id)
+
+        if self.participants.len() < self.required_participants:
+            self.state = coordinator_pb2.State.STANDBY
+
 
 class CoordinatorGrpc(coordinator_pb2_grpc.CoordinatorServicer):
     """The Coordinator gRPC service.
@@ -557,8 +576,7 @@ def monitor_heartbeats(
                 participants_to_remove.append(participant.participant_id)
 
         for participant_id in participants_to_remove:
-            coordinator.participants.remove(participant_id)
-            logger.info("Removing participant %s", participant_id)
+            coordinator.remove_participant(participant_id)
 
         next_expiration = coordinator.participants.next_expiration() - time.time()
 

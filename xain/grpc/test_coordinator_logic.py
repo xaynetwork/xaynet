@@ -155,3 +155,19 @@ def test_duplicated_update_submit():
 
     with pytest.raises(DuplicatedUpdateError):
         coordinator.on_message(coordinator_pb2.EndTrainingRequest(), "peer1")
+
+
+def test_remove_participant():
+    coordinator = Coordinator(required_participants=1)
+    coordinator.on_message(coordinator_pb2.RendezvousRequest(), "peer1")
+
+    assert coordinator.state == coordinator_pb2.State.ROUND
+
+    coordinator.remove_participant("peer1")
+
+    assert coordinator.participants.len() == 0
+    assert coordinator.state == coordinator_pb2.State.STANDBY
+
+    coordinator.on_message(coordinator_pb2.RendezvousRequest(), "peer1")
+
+    assert coordinator.state == coordinator_pb2.State.ROUND

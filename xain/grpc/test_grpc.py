@@ -95,7 +95,7 @@ def test_heartbeat_denied(participant_stub, coordinator_service):
 
 @mock.patch("threading.Event.is_set", side_effect=[False, True])
 @mock.patch("time.sleep", return_value=None)
-@mock.patch("xain.grpc.coordinator.Participants.remove")
+@mock.patch("xain.grpc.coordinator.Coordinator.remove_participant")
 def test_monitor_heartbeats(mock_participants_remove, _mock_sleep, _mock_event):
     participants = Participants()
     participants.add("participant_1")
