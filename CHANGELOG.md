@@ -27,7 +27,7 @@ The first public release of **XAIN**
 ### Added
 
 - FedML implementation on well known
-  [benchmarks](https://github.com/xainag/xain/tree/master/xain/benchmark) using
+  [benchmarks](https://github.com/xainag/xain/tree/master/benchmarks/benchmark) using
   a realistic deep learning model structure.
 
 
