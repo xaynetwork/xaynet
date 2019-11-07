@@ -164,11 +164,21 @@ def test_start_training(coordinator_service):
 
 @pytest.mark.integration
 def test_start_training_denied(participant_stub, coordinator_service):
-    # heartbeat requests are only allowed if the participant has already
+    # start training requests are only allowed if the participant has already
     # rendezvous with the coordinator
     with pytest.raises(grpc.RpcError):
         reply = participant_stub.StartTraining(coordinator_pb2.StartTrainingRequest())
         assert reply.status_code == grpc.StatusCode.PERMISSION_DENIED
+
+
+@pytest.mark.integration
+def test_start_training_failed_precondition(participant_stub, coordinator_service):
+    # start training requests are only allowed if the coordinator is in the
+    # ROUND state
+    participant_stub.Rendezvous(coordinator_pb2.RendezvousRequest())
+    with pytest.raises(grpc.RpcError):
+        reply = participant_stub.StartTraining(coordinator_pb2.StartTrainingRequest())
+        assert reply.status_code == grpc.StatusCode.FAILED_PRECONDITION
 
 
 @pytest.mark.integration

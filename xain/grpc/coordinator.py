@@ -462,6 +462,10 @@ class Coordinator:
         Returns:
             :class:`~.coordinator_pb2.EndTrainingReply`: The reply to the participant.
         """
+
+        # TODO: Ideally we want to know for which round the participant is
+        # submitting the updates and raise an exception if it is the wrong
+        # round.
         tu, his, met = message.theta_update, message.history, message.metrics
         tp, num = tu.theta_prime, tu.num_examples
         cid, vbc = met.cid, met.vol_by_class
@@ -585,6 +589,10 @@ class CoordinatorGrpc(coordinator_pb2_grpc.CoordinatorServicer):
             context.set_details(str(error))
             context.set_code(grpc.StatusCode.PERMISSION_DENIED)
             return coordinator_pb2.StartTrainingReply()
+        except InvalidRequestError as error:
+            context.set_details(str(error))
+            context.set_Code(grpc.StatusCode.FAILED_PRECONDITION)
+            return coordinator_pb2.StartTrainingReply()
 
     def EndTraining(
         self, request: coordinator_pb2.EndTrainingRequest, context: grpc.ServicerContext
@@ -607,7 +615,6 @@ class CoordinatorGrpc(coordinator_pb2_grpc.CoordinatorServicer):
             the :class:`~.Coordinator` successfully received the updated
             weights.
         """
-
         try:
             return self.coordinator.on_message(request, context.peer())
         except DuplicatedUpdateError as error:
