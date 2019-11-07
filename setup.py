@@ -146,8 +146,8 @@ setup(
             "pull_results=xain.ops.__main__:download",
             "train_remote=xain.benchmark.__main__:main",
             "aggregate=xain.benchmark.aggregation.__main__:app_run_aggregate",
-            "start_coordinator=xain.network.coordinator:start_coordinator",
-            "start_participant=xain.network.participant:start_participant",
+            "start_coordinator=xain.network.coordinator:main",
+            "start_participant=xain.network.participant:main",
         ]
     },
 )

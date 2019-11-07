@@ -4,7 +4,7 @@ import grpc
 from xain.network import stream_pb2 as xain_dot_network_dot_stream__pb2
 
 
-class CoordinatorStub(object):
+class ClientManagerStub(object):
   # missing associated documentation comment in .proto file
   pass
 
@@ -14,18 +14,18 @@ class CoordinatorStub(object):
     Args:
       channel: A grpc.Channel.
     """
-    self.Train = channel.stream_stream(
-        '/Coordinator/Train',
-        request_serializer=xain_dot_network_dot_stream__pb2.ParticipantMessage.SerializeToString,
-        response_deserializer=xain_dot_network_dot_stream__pb2.CoordinatorMessage.FromString,
+    self.Connect = channel.stream_stream(
+        '/ClientManager/Connect',
+        request_serializer=xain_dot_network_dot_stream__pb2.ClientMessage.SerializeToString,
+        response_deserializer=xain_dot_network_dot_stream__pb2.ServerMessage.FromString,
         )
 
 
-class CoordinatorServicer(object):
+class ClientManagerServicer(object):
   # missing associated documentation comment in .proto file
   pass
 
-  def Train(self, request_iterator, context):
+  def Connect(self, request_iterator, context):
     # missing associated documentation comment in .proto file
     pass
     context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -33,14 +33,14 @@ class CoordinatorServicer(object):
     raise NotImplementedError('Method not implemented!')
 
 
-def add_CoordinatorServicer_to_server(servicer, server):
+def add_ClientManagerServicer_to_server(servicer, server):
   rpc_method_handlers = {
-      'Train': grpc.stream_stream_rpc_method_handler(
-          servicer.Train,
-          request_deserializer=xain_dot_network_dot_stream__pb2.ParticipantMessage.FromString,
-          response_serializer=xain_dot_network_dot_stream__pb2.CoordinatorMessage.SerializeToString,
+      'Connect': grpc.stream_stream_rpc_method_handler(
+          servicer.Connect,
+          request_deserializer=xain_dot_network_dot_stream__pb2.ClientMessage.FromString,
+          response_serializer=xain_dot_network_dot_stream__pb2.ServerMessage.SerializeToString,
       ),
   }
   generic_handler = grpc.method_handlers_generic_handler(
-      'Coordinator', rpc_method_handlers)
+      'ClientManager', rpc_method_handlers)
   server.add_generic_rpc_handlers((generic_handler,))

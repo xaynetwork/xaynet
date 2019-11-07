@@ -1,197 +1,144 @@
-import logging
 import os
-import random
 import threading
 import time
+from abc import ABC
 from concurrent import futures
-from uuid import uuid4
+from typing import Optional
 
 import grpc
-import numpy as np
-from numproto import ndarray_to_proto
 
-from xain.network import PORT, SERVER_ADDRESS, stream_pb2, stream_pb2_grpc
-
-# gRPC Debug Settings
-
-# GRPC_VERBOSITY Default gRPC logging verbosity - one of:
-#     DEBUG - log all gRPC messages
-#     INFO - log INFO and ERROR message
-#     ERROR - log only errors
-
-# GRPC_TRACE A comma separated list of tracers that provide additional insight into how gRPC C core is processing requests via debug logs. Available tracers include:
-#     api - traces api calls to the C core
-#     bdp_estimator - traces behavior of bdp estimation logic
-#     call_error - traces the possible errors contributing to final call status
-#     cares_resolver - traces operations of the c-ares based DNS resolver
-#     cares_address_sorting - traces operations of the c-ares based DNS resolver's resolved address sorter
-#     channel - traces operations on the C core channel stack
-#     client_channel_call - traces client channel call batch activity
-#     client_channel_routing - traces client channel call routing, including resolver and load balancing policy interaction
-#     compression - traces compression operations
-#     connectivity_state - traces connectivity state changes to channels
-#     cronet - traces state in the cronet transport engine
-#     executor - traces grpc's internal thread pool ('the executor')
-#     glb - traces the grpclb load balancer
-#     handshaker - traces handshaking state
-#     health_check_client - traces health checking client code
-#     http - traces state in the http2 transport engine
-#     http2_stream_state - traces all http2 stream state mutations.
-#     http1 - traces HTTP/1.x operations performed by gRPC
-#     inproc - traces the in-process transport
-#     flowctl - traces http2 flow control
-#     op_failure - traces error information when failure is pushed onto a completion queue
-#     pick_first - traces the pick first load balancing policy
-#     plugin_credentials - traces plugin credentials
-#     pollable_refcount - traces reference counting of 'pollable' objects (only in DEBUG)
-#     resource_quota - trace resource quota objects internals
-#     round_robin - traces the round_robin load balancing policy
-#     queue_pluck
-#     server_channel - lightweight trace of significant server channel events
-#     secure_endpoint - traces bytes flowing through encrypted channels
-#     subchannel - traces the connectivity state of subchannel
-#     timer - timers (alarms) in the grpc internals
-#     timer_check - more detailed trace of timer logic in grpc internals
-#     transport_security - traces metadata about secure channel establishment
-#     tcp - traces bytes in and out of a channel
-#     tsi - traces tsi transport security
-
+from xain.network import (
+    DEFAULT_PORT,
+    DEFAULT_SERVER_ADDRESS,
+    stream_pb2,
+    stream_pb2_grpc,
+)
 
 os.environ["GRPC_VERBOSITY"] = "debug"
-os.environ["GRPC_TRACE"] = "connectivity_state"
+# os.environ["GRPC_TRACE"] = "connectivity_state"
 
 
-class CoordinatorServicer(stream_pb2_grpc.CoordinatorServicer):
-    # pylint: disable=too-many-instance-attributes
+class ClientProxy(ABC):
+    """Proxy class for a class holding requests and awaiting responses"""
+
     def __init__(self):
-        self.participants = {}
-        self.uuid = uuid4().hex
-        self.num_rounds = 10
-        self.num_participants = 10
-        self.num_messages = 0
+        self.closed = None
 
-        self.E = 10
-        self.C = 0.2  # => required participants per round = 2
+        self.client_message = None
+        self.server_message = None
 
-        self.required_participants = int(self.num_participants * self.C)
+        self.client_message_event = threading.Event()
+        self.server_message_event = threading.Event()
 
-        self.current_round = 0
+    def process(self, client_message):
+        # print("New client message")
 
-        # Should always be self.num_participants * self.C
-        self.num_connected_participants = 0
+        # Set client request
+        self.client_message = client_message
+        self.client_message_event.set()
 
-        self.theta = [np.ones((1, 10))]
+        # Await server message and return
+        # print("Waiting for instruction")
+        self.server_message_event.wait()
+        res = self.server_message
 
-    def Train(self, request_iterator, context):
+        # Cleanup
+        self.client_message = None
+        self.server_message = None
+
+        self.client_message_event.clear()
+        self.server_message_event.clear()
+
+        return res
+
+    def close(self):
+        if self.closed:
+            raise Exception("ClientProxy is already closed")
+
+        self.closed = True
+
+    def run(
+        self, instruction: stream_pb2.ServerMessage, skip_response=False
+    ) -> Optional[stream_pb2.ClientMessage]:
+        if self.closed:
+            raise Exception("ClientProxy is already closed")
+
+        # Set instruction as server message
+        # print("Sending instruction")
+        self.server_message = instruction
+        self.server_message_event.set()
+
+        self.client_message_event.clear()
+
+        # print("Waiting for client message")
+
+        if skip_response:
+            return None
+
+        # Wait for response from client
+        self.client_message_event.wait()
+        res = self.client_message
+
+        return res
+
+
+class ClientManagerServicer(stream_pb2_grpc.ClientManagerServicer):
+    # pylint: disable=too-many-instance-attributes
+    def __init__(self, client_proxy_factory):
+        self.client_proxy_factory = client_proxy_factory
+        self.client_proxies = []
+
+    def Connect(self, request_iterator, context):
+        peer_id = context.peer()
+        client_proxy = self.client_proxy_factory()
+        self.client_proxies.append(client_proxy)
+
+        print(f"Client {peer_id} connected")
+
         def rpc_termination_callback():
-            # When connection is shut down reduce number of connected participants
-            self.num_connected_participants -= 1
-            print(f"Participants disconnected: {self.num_connected_participants}")
+            if client_proxy in self.client_proxies:
+                print(f"Delete peer {peer_id}")
+                self.client_proxies.remove(client_proxy)
+
+            print(f"Client {peer_id} disconnected")
 
         context.add_callback(rpc_termination_callback)
 
-        self.num_connected_participants += 1
+        for request in request_iterator:
+            response = client_proxy.process(request)
+            yield response
 
-        participant_init_message = next(request_iterator)
-        self.set_participant_last_seen(participant_init_message)
-
-        log_msg = f"Participants connected: {self.num_connected_participants}/{self.required_participants}"
-        print(log_msg)
-
-        if self.num_connected_participants > self.required_participants:
-            # now we assume ideal time = 10
-            yield self.create_reconnect_in_instruction()
-            return
-
-        # Wait for all participants to be connected
-        self.hold_connection_until_all_ready()
-
-        print(f"Starting training with {self.num_connected_participants} participants")
-
-        # Start training as we have enough participants connected
-        yield self.create_training_instruction()
-
-        for msg in request_iterator:
-            self.num_messages += 1
-            print(self.num_messages, msg.uuid, msg.progress)
-            # block_random_time(up_to_secs=0.1)
-
-        # IMPORTANT:
-        # A final message is needed as the client will only hold the connection
-        # open as long as there are outstanding messages in the server to be send
-        # After the final yield the client will immidiatly close its request_iterator
-        # even if the server did not consume all requests yet
-        yield self.create_reconnect_in_instruction()
-
-    def set_participant_last_seen(self, participant):
-        if participant.uuid not in self.participants:
-            self.participants[participant.uuid] = {}
-
-        self.participants[participant.uuid]["last_seen"] = time.time()
-
-    def hold_connection_until_all_ready(self):
+    def get_clients(self, min_num_clients, check_interval=1):
+        """Returns num_clients"""
         while True:
-            if self.num_connected_participants == self.required_participants:
+            open_client_proxies = [cp for cp in self.client_proxies if not cp.closed]
+            num_connected_clients = len(open_client_proxies)
+
+            if num_connected_clients >= min_num_clients:
                 break
-            time.sleep(0.1)
 
-        # Needed so each loop can check counts
-        time.sleep(0.1)
+            time.sleep(check_interval)
 
-    def create_reconnect_in_instruction(self):
-        secs = int(random.random() * 2)
-        return stream_pb2.CoordinatorMessage(reconnect_in=secs)
+        print(f"num_connected_clients: {num_connected_clients}/{min_num_clients}")
 
-    def create_training_instruction(self):
-        train_config = stream_pb2.CoordinatorMessage.TrainConfig(
-            theta=[ndarray_to_proto(nda) for nda in self.theta],
-            epochs=self.E,
-            epoch_base=self.current_round * self.E,
-        )
-        return stream_pb2.CoordinatorMessage(train_config=train_config)
+        return open_client_proxies
 
 
-def block_random_time(up_to_secs):
-    time.sleep(random.random() * up_to_secs)
-
-
-def start_coordinator():
-    terminate_event = threading.Event()
+def create_client_manager(
+    client_proxy_factory, server_address=DEFAULT_SERVER_ADDRESS, port=DEFAULT_PORT
+):
     server = grpc.server(
-        futures.ThreadPoolExecutor(max_workers=10),
-        options=(
-            # ("grpc.keepalive_time_ms", 1000 * 30),
-            # send keepalive ping every 30 min, default is 2 hours
-            # ("grpc.keepalive_timeout_ms", 5000),
-            # keepalive ping time out after 5 seconds, default is 20 seoncds
-            # ("grpc.keepalive_permit_without_calls", True),
-            # allow keepalive pings when there's no gRPC calls
-            # ("grpc.http2.max_pings_without_data", 0),
-            # allow unlimited amount of keepalive pings without data
-            # ("grpc.http2.min_time_between_pings_ms", 10000),
-            # allow grpc pings from client every 10 seconds
-            # ("grpc.http2.min_ping_interval_without_data_ms", 5000),
-            # allow grpc pings from client without data every 5 seconds
-        ),
+        futures.ThreadPoolExecutor(max_workers=10), maximum_concurrent_rpcs=100
     )
 
-    # Add Servicers to server
-    stream_pb2_grpc.add_CoordinatorServicer_to_server(CoordinatorServicer(), server)
+    servicer = ClientManagerServicer(client_proxy_factory=client_proxy_factory)
+    stream_pb2_grpc.add_ClientManagerServicer_to_server(servicer, server)
 
-    server.add_insecure_port(f"{SERVER_ADDRESS}:{PORT}")
+    server.add_insecure_port(f"{server_address}:{port}")
+
     server.start()
 
-    print(f"Coordinator started. Listening at {SERVER_ADDRESS}:{PORT}.")
+    print(f"Coordinator started. Listening at {server_address}:{port}.")
     print("Connection is insecure. No authentication enabled.")
 
-    try:
-        while True:
-            time.sleep(60)
-    except KeyboardInterrupt:
-        terminate_event.set()
-        server.stop(0)
-
-
-if __name__ == "__main__":
-    logging.basicConfig()
-    start_coordinator()
+    return server, servicer
