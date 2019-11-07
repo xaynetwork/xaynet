@@ -35,9 +35,19 @@ class DuplicatedUpdateError(Exception):
 
 class UnknownParticipantError(Exception):
     """Exception raised when a participant that is unknown to the
-    :class:`~.Coordinator` makes a request. Typically this means that a
-    participant tries to make a request before it has successfully rendezvous
-    with the :class:`~.Coordinator`.
+    :class:`~.Coordinator` makes a request.
+
+    Typically this means that a participant tries to make a request before it
+    has successfully rendezvous with the :class:`~.Coordinator`.
+    """
+
+
+class InvalidRequestError(Exception):
+    """Exception raised when the Coordinator receives and invalid request from a participant.
+
+    This can happen if the participant sends a request that is not allowed in a
+    give Coordinator state. For instance the Coordinator will only accept
+    StartTraining requests during a ROUND.
     """
 
 
@@ -297,6 +307,8 @@ class Coordinator:
             :class:`~UnknownParticipantError`: If it receives a request from an
             unknown participant. Typically a participant that has not
             rendezvous with the :class:`~.Coordinator`.
+            :class:`~InvalidRequestError`: If it receives a request that is not
+            allowed in the current :class:`~.Coordinator` state.
         """
         logger.debug("Received: %s from %s", type(message), participant_id)
 
@@ -355,7 +367,13 @@ class Coordinator:
         elif isinstance(message, coordinator_pb2.StartTrainingRequest):
             # handle start training
 
-            # TODO: Check that the state == ROUND else raise exception
+            # The coordinator should only accept StartTraining requests it is
+            # in the ROUND state.
+            if self.state != coordinator_pb2.State.ROUND:
+                raise InvalidRequestError(
+                    f"Participant {participant_id} sent a "
+                    "StartTrainingRequest outside of a round"
+                )
 
             theta_proto = [ndarray_to_proto(nda) for nda in self.theta]
 

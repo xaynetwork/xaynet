@@ -144,6 +144,7 @@ def test_start_training(coordinator_service):
     test_theta = [np.arange(10), np.arange(10, 20)]
 
     # set coordinator global model data
+    coordinator_service.coordinator.required_participants = 1
     coordinator_service.coordinator.epochs = 5
     coordinator_service.coordinator.epoch_base = 2
     coordinator_service.coordinator.theta = test_theta
