@@ -30,7 +30,7 @@ $ python -m pip install xain[gpu]
 ### Running training sessions and benchmarks
 
 To run training sessions, see the [benchmark
-package](https://github.com/xainag/xain/tree/master/xain/benchmark) and the
+package](https://github.com/xainag/xain/tree/master/benchmarks/benchmark) and the
 [benchmark
 documentation](https://github.com/xainag/xain/blob/master/docs/quick.md#training).
 
