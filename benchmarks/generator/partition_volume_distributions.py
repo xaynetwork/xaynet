@@ -4,7 +4,7 @@ import matplotlib
 import numpy as np
 from absl import app, flags, logging
 
-from xain.helpers import storage
+from benchmarks.helpers import storage
 
 FLAGS = flags.FLAGS
 
