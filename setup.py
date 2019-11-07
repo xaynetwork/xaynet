@@ -63,7 +63,6 @@ install_requires = [
     "typing-extensions==3.7.4",  # PSF
     "numpy==1.15.4",  # BSD
     "absl-py==0.7.1",  # Apache 2.0
-    "matplotlib==3.1.1",  # PSF
     "requests==2.22.0",  # Apache 2.0
     "botocore==1.12.220",  # Apache License 2.0
     "boto3==1.9.220",  # Apache License 2.0
@@ -74,6 +73,8 @@ install_requires = [
     "numproto==0.2.0",  # Apache License 2.0
     "tensorflow==1.14.0",  # Apache 2.0
 ]
+
+benchmarks_require = ["matplotlib==3.1.1"]  # PSF
 
 gpu_require = ["tensorflow-gpu==1.14.0"]  # Apache 2.0
 
@@ -141,7 +142,8 @@ setup(
         "test": tests_require,
         "gpu": gpu_require,
         "docs": docs_require,
-        "dev": dev_require + tests_require + docs_require,
+        "benchmarks": benchmarks_require,
+        "dev": dev_require + tests_require + benchmarks_require + docs_require,
     },
     cmdclass={"develop": CustomDevelopCommand},
     entry_points={
