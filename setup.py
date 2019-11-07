@@ -148,7 +148,11 @@ setup(
         "docs": docs_require,
         "benchmarks": benchmarks_require,
         "examples": examples_require,
-        "dev": dev_require + tests_require + benchmarks_require + docs_require + examples_require,
+        "dev": dev_require
+        + tests_require
+        + benchmarks_require
+        + docs_require
+        + examples_require,
     },
     cmdclass={"develop": CustomDevelopCommand},
     entry_points={
