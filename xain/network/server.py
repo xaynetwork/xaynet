@@ -22,7 +22,7 @@ class ClientProxy(ABC):
     """Proxy class for a class holding requests and awaiting responses"""
 
     def __init__(self):
-        self.closed = None
+        self.closed = False
 
         self.client_message = None
         self.server_message = None
@@ -31,25 +31,32 @@ class ClientProxy(ABC):
         self.server_message_event = threading.Event()
 
     def process(self, client_message):
-        # print("New client message")
-
+        """Starts processing of a client_message"""
         # Set client request
+        self.set_client_message(client_message)
+
+        # Await server message and store it as a return value
+        self.server_message_event.wait()
+
+        return self.server_message
+
+    def set_client_message(self, client_message):
+        # set message and unblock client_message_event.wait() calls
         self.client_message = client_message
         self.client_message_event.set()
 
-        # Await server message and return
-        # print("Waiting for instruction")
-        self.server_message_event.wait()
-        res = self.server_message
-
-        # Cleanup
-        self.client_message = None
+        # Clear server message so new instruction can be stored
         self.server_message = None
-
-        self.client_message_event.clear()
         self.server_message_event.clear()
 
-        return res
+    def set_server_message(self, server_message):
+        # set message and unblock server_message_event.wait() calls
+        self.server_message = server_message
+        self.server_message_event.set()
+
+        # Clear client message so new response can be stored
+        self.client_message = None
+        self.client_message_event.clear()
 
     def close(self):
         if self.closed:
@@ -65,10 +72,7 @@ class ClientProxy(ABC):
 
         # Set instruction as server message
         # print("Sending instruction")
-        self.server_message = instruction
-        self.server_message_event.set()
-
-        self.client_message_event.clear()
+        self.set_server_message(instruction)
 
         # print("Waiting for client message")
 
@@ -77,9 +81,8 @@ class ClientProxy(ABC):
 
         # Wait for response from client
         self.client_message_event.wait()
-        res = self.client_message
 
-        return res
+        return self.client_message
 
 
 class ClientManagerServicer(stream_pb2_grpc.ClientManagerServicer):
@@ -106,6 +109,7 @@ class ClientManagerServicer(stream_pb2_grpc.ClientManagerServicer):
 
         for request in request_iterator:
             response = client_proxy.process(request)
+            # Yielded proto message is send to client
             yield response
 
     def get_clients(self, min_num_clients, check_interval=1):

@@ -46,7 +46,7 @@ def fit():
     num_participants = 3
     num_required_participants = math.ceil(num_participants * C)
 
-    server, client_manager = create_client_manager(
+    _server, client_manager = create_client_manager(
         client_proxy_factory=participant_factory
     )
 
