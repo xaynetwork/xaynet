@@ -15,7 +15,9 @@ from xain.types import History, Metrics, Theta
 
 FLAGS = flags.FLAGS
 
-flags.DEFINE_string("model_name", None, f"Model name, one of {[fn for fn in model_fns]}")
+flags.DEFINE_string(
+    "model_name", None, f"Model name, one of {[fn for fn in model_fns]}"
+)
 flags.DEFINE_string("dataset_name", None, "Dataset name")
 flags.DEFINE_integer("batch_size", None, "Batch size")
 flags.DEFINE_integer("partition_iden", None, "Partition ID for unitary training")
@@ -109,7 +111,12 @@ def init_participant() -> Participant:
     cid = 0
     xy_train = xy_train_partitions[FLAGS.partition_iden]
     return Participant(
-        cid, model_provider, xy_train, xy_val, num_classes=10, batch_size=FLAGS.batch_size
+        cid,
+        model_provider,
+        xy_train,
+        xy_val,
+        num_classes=10,
+        batch_size=FLAGS.batch_size,
     )
 
 
