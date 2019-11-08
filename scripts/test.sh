@@ -27,7 +27,7 @@ cd $DIR/../
 isort --check-only --indent=4 -rc setup.py conftest.py benchmarks examples xain && echo "===> isort says: well done <===" &&
 
 # format code
-black --check --exclude "xain/grpc/.*_pb2.*" setup.py conftest.py benchmarks examples xain && echo "===> black says: well done <===" &&
+black --check --exclude "xain/.*/.*_pb2.*" setup.py conftest.py benchmarks examples xain && echo "===> black says: well done <===" &&
 
 # check format of proto files
 clang_format && echo "===> clang-format says: well done <===" &&
