@@ -31,20 +31,20 @@ class ParState(Enum):
     DONE = auto()
 
 
-# def heartbeat(channel, terminate_event, selected_event):
-#     stub = coordinator_pb2_grpc.CoordinatorStub(channel)
-#     while not terminate_event.is_set():
-#         # exchange a heartbeat
-#         reply = stub.Heartbeat(coordinator_pb2.HeartbeatRequest())
-#         print(f"Participant received: {type(reply)}")
-#         if reply.state == coordinator_pb2.State.FINISHED:
-#             terminate_event.set()
-#             return
-#         if reply.state == coordinator_pb2.State.ROUND:
-#             # signal "round open" to main thread
-#             selected_event.set()
-#         # not much to do for State.STANDBY (still waiting registrations)
-#         time.sleep(HEARTBEAT_TIME)
+def heartbeat(channel, terminate_event, selected_event):
+    stub = coordinator_pb2_grpc.CoordinatorStub(channel)
+    while not terminate_event.is_set():
+        # exchange a heartbeat
+        reply = stub.Heartbeat(coordinator_pb2.HeartbeatRequest())
+        print(f"Participant received: {type(reply)}")
+        if reply.state == coordinator_pb2.State.FINISHED:
+            terminate_event.set()
+            return
+        if reply.state == coordinator_pb2.State.ROUND:
+            # signal "round open" to main thread
+            selected_event.set()
+        # not much to do for State.STANDBY (still waiting registrations)
+        time.sleep(HEARTBEAT_TIME)
 
 
 def rendezvous(channel):
