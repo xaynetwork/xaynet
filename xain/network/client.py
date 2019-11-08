@@ -11,7 +11,7 @@ os.environ["GRPC_VERBOSITY"] = "debug"
 # os.environ["GRPC_TRACE"] = "connectivity_state"
 
 
-class RequestQueue(object):
+class RequestQueue:
     """Queue with capacity for a single request"""
 
     def __init__(self):
