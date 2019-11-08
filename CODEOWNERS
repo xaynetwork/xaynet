@@ -6,21 +6,23 @@
 ## CI config
 /.circleci/ @r-marques @tanertopal
 
+## Benchmarks
+/benchmarks/benchmark/ @danieljanes @tanertopal
+/benchmarks/generator/ @tanertopal
+/benchmarks/ops/ @tanertopal
+
 ## Protobufs
 /protobuf/ @r-marques
-
-## Python packages
-/xain/benchmark/ @danieljanes @tanertopal
-/xain/datasets/ @tanertopal
-/xain/fl/ @danieljanes
-/xain/generator/ @tanertopal
-/xain/grpc/ @r-marques
-/xain/helpers/ @danieljanes @tanertopal
-/xain/ops/ @tanertopal
-/xain/types/ @danieljanes @tanertopal
 
 ## Rust packages
 /rust/ @r-marques @skade @stjepang @matklad @spacejam
 
 ## Scripts
 /scripts/ @tanertopal
+
+## Python packages
+/xain/datasets/ @tanertopal
+/xain/fl/ @danieljanes
+/xain/grpc/ @r-marques
+/xain/helpers/ @danieljanes @tanertopal
+/xain/types/ @danieljanes @tanertopal

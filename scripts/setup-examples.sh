@@ -9,4 +9,4 @@ cd $DIR/../
 
 python -m pip install -U pip==19.3.1
 python -m pip install -U setuptools==41.6.0
-python -m pip install -e .[dev]
+python -m pip install .[examples]

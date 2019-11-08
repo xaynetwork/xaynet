@@ -63,16 +63,19 @@ install_requires = [
     "typing-extensions==3.7.4",  # PSF
     "numpy==1.15.4",  # BSD
     "absl-py==0.7.1",  # Apache 2.0
-    "matplotlib==3.1.1",  # PSF
     "requests==2.22.0",  # Apache 2.0
-    "botocore==1.12.220",  # Apache License 2.0
-    "boto3==1.9.220",  # Apache License 2.0
-    "awscli==1.16.230",  # Apache License 2.0
-    "faker==2.0.0",  # MIT License
     "grpcio==1.23.0",  # Apache License 2.0
     "protobuf==3.9.1",  # 3-Clause BSD License
     "numproto==0.2.0",  # Apache License 2.0
     "tensorflow==1.14.0",  # Apache 2.0
+]
+
+benchmarks_require = [
+    "matplotlib==3.1.1",  # PSF
+    "botocore==1.12.220",  # Apache License 2.0
+    "boto3==1.9.220",  # Apache License 2.0
+    "awscli==1.16.230",  # Apache License 2.0
+    "faker==2.0.0",  # MIT License
 ]
 
 gpu_require = ["tensorflow-gpu==1.14.0"]  # Apache 2.0
@@ -89,6 +92,8 @@ dev_require = [
     "mypy-protobuf==1.15",  # Apache License 2.0
     "twine==2.0.0",  # Apache License 2.0
 ]
+
+examples_require = ["tensorflow==1.14.0"]  # Apache 2.0
 
 tests_require = [
     "pytest==4.6.2",  # MIT license
@@ -128,24 +133,33 @@ setup(
         "Programming Language :: Python :: 3 :: Only",
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
         "Operating System :: MacOS :: MacOS X",
         "Operating System :: POSIX :: Linux",
     ],
-    packages=find_packages(exclude=["*_test.py"]),
+    packages=find_packages(
+        where=".", exclude=["benchmarks", "benchmarks.*", "*_test.py"]
+    ),
     install_requires=install_requires,
     tests_require=tests_require,
     extras_require={
         "test": tests_require,
         "gpu": gpu_require,
         "docs": docs_require,
-        "dev": dev_require + tests_require + docs_require,
+        "benchmarks": benchmarks_require,
+        "examples": examples_require,
+        "dev": dev_require
+        + tests_require
+        + benchmarks_require
+        + docs_require
+        + examples_require,
     },
     cmdclass={"develop": CustomDevelopCommand},
     entry_points={
         "console_scripts": [
+            "train_remote=benchmarks.train_remote:main",
             "pull_results=xain.ops.__main__:download",
-            "train_remote=xain.benchmark.__main__:main",
-            "aggregate=xain.benchmark.aggregation.__main__:app_run_aggregate",
+            "aggregate=benchmarks.aggregate:main",
             "start_coordinator=xain.network.coordinator:main",
             "start_participant=xain.network.participant:main",
         ]
