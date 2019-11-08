@@ -120,9 +120,8 @@ def test_monitor_heartbeats_remove_participant(_mock_sleep, _mock_event):
 def test_participant_heartbeat(mock_heartbeat_request, _mock_sleep, _mock_event):
     channel = mock.MagicMock()
     terminate_event = threading.Event()
-    selected_event = threading.Event()
 
-    heartbeat(channel, terminate_event, selected_event)
+    heartbeat(channel, terminate_event)
 
     # check that the heartbeat is sent exactly twice
     mock_heartbeat_request.assert_has_calls([mock.call(), mock.call()])
