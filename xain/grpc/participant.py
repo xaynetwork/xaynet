@@ -33,19 +33,11 @@ class ParState(Enum):
     DONE = auto()
 
 
-def heartbeat(channel, terminate_event, selected_event):
+def heartbeat(channel, terminate_event):
     stub = coordinator_pb2_grpc.CoordinatorStub(channel)
     while not terminate_event.is_set():
-        # exchange a heartbeat
         reply = stub.Heartbeat(coordinator_pb2.HeartbeatRequest())
         print(f"Participant received: {type(reply)}")
-        if reply.state == coordinator_pb2.State.FINISHED:
-            terminate_event.set()
-            return
-        if reply.state == coordinator_pb2.State.ROUND:
-            # signal "round open" to main thread
-            selected_event.set()
-        # not much to do for State.STANDBY (still waiting registrations)
         time.sleep(HEARTBEAT_TIME)
 
 
@@ -127,39 +119,6 @@ def training_round(channel, participant: Participant):
     # NOTE _dict is the opt_config - ignore for now
     met = participant.metrics()
     end_training(channel, theta_n, his, met)
-
-
-# def wait_selected(selected: threading.Event):
-#     # wait on heartbeat until *selected* event signals
-#     while not selected.wait(RETRY_TIMEOUT):
-#         print(f"Not yet selected for round. Retrying in {RETRY_TIMEOUT}s")
-#     selected.clear()
-
-
-# def run(part: Participant):
-#     # create (for now, insecure) channel to coordinator
-#     with grpc.insecure_channel("localhost:50051") as channel:
-#         rendezvous(channel)
-#         print("rendezvoused")
-
-#         # start heartbeat in different thread
-#         terminate_event = threading.Event()
-#         selected_event = threading.Event()
-#         heartbeat_thread = threading.Thread(
-#             target=heartbeat, args=(channel, terminate_event, selected_event)
-#         )
-#         heartbeat_thread.start()
-#         print("heartbeat started")
-
-#         # if get aborted in this thread at least signal heartbeat thread to finish
-#         try:
-#             while not terminate_event.is_set():
-#                 # standby:
-#                 wait_selected(selected_event)
-#                 # ready:
-#                 training_round(channel, part)
-#         except KeyboardInterrupt:
-#             terminate_event.set()
 
 
 def main(_argv):
