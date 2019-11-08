@@ -15,10 +15,10 @@ from xain.types import History, Metrics, Theta
 
 FLAGS = flags.FLAGS
 
-flags.DEFINE_string("model", None, f"Model name, one of {[fn for fn in model_fns]}")
-flags.DEFINE_string("dataset", None, "Dataset name")
-flags.DEFINE_integer("B", None, "Batch size")
-flags.DEFINE_integer("partition_id", None, "Partition ID for unitary training")
+flags.DEFINE_string("model_name", None, f"Model name, one of {[fn for fn in model_fns]}")
+flags.DEFINE_string("dataset_name", None, "Dataset name")
+flags.DEFINE_integer("batch_size", None, "Batch size")
+flags.DEFINE_integer("partition_iden", None, "Partition ID for unitary training")
 
 RETRY_TIMEOUT = 5
 HEARTBEAT_TIME = 10
@@ -100,16 +100,16 @@ def end_training(
 
 
 def init_participant() -> Participant:
-    xy_train_partitions, xy_val, _xy_test = load_splits(FLAGS.dataset)
+    xy_train_partitions, xy_val, _xy_test = load_splits(FLAGS.dataset_name)
 
-    model_fn = load_model_fn(FLAGS.model)
-    lr_fn_fn = load_lr_fn_fn(FLAGS.model)
+    model_fn = load_model_fn(FLAGS.model_name)
+    lr_fn_fn = load_lr_fn_fn(FLAGS.model_name)
     model_provider = ModelProvider(model_fn, lr_fn_fn)
 
     cid = 0
-    xy_train = xy_train_partitions[FLAGS.partition_id]
+    xy_train = xy_train_partitions[FLAGS.partition_iden]
     return Participant(
-        cid, model_provider, xy_train, xy_val, num_classes=10, batch_size=FLAGS.B
+        cid, model_provider, xy_train, xy_val, num_classes=10, batch_size=FLAGS.batch_size
     )
 
 
@@ -156,18 +156,18 @@ def training_round(channel, participant: Participant):
 
 
 def main(_argv):
-    print(f"model: {FLAGS.model}")
-    print(f"dataset: {FLAGS.dataset}")
-    print(f"B: {FLAGS.B}")
-    print(f"partition_id: {FLAGS.partition_id}")
+    print(f"model_name: {FLAGS.model_name}")
+    print(f"dataset_name: {FLAGS.dataset_name}")
+    print(f"batch_size: {FLAGS.batch_size}")
+    print(f"partition_iden: {FLAGS.partition_iden}")
     go(init_participant())
 
 
 if __name__ == "__main__":
-    flags.mark_flag_as_required("model")
-    flags.mark_flag_as_required("dataset")
-    flags.mark_flag_as_required("B")
-    flags.mark_flag_as_required("partition_id")
+    flags.mark_flag_as_required("model_name")
+    flags.mark_flag_as_required("dataset_name")
+    flags.mark_flag_as_required("batch_size")
+    flags.mark_flag_as_required("partition_iden")
     app.run(main)
 
 
@@ -181,7 +181,6 @@ class StateRecord:
         with self.cv:
             return self.state, self.round
 
-    # possibly useful for TRAINING -> POST_TRAINING
     def update(self, state):
         with self.cv:
             self.state = state
@@ -273,8 +272,11 @@ def begin_training(st, chan, part):
     st.update(ParState.POST_TRAINING)
     ps = st.wait_until_next_round()
     if ps == ParState.TRAINING:
+        # selected again
         begin_training(st, chan, part)
     elif ps == ParState.WAITING_FOR_SELECTION:
+        # not this time
         begin_selection_wait(st, chan, part)
     elif ps == ParState.DONE:
+        # that was the last round
         pass
