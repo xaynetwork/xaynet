@@ -644,8 +644,8 @@ def monitor_heartbeats(
             that this method should terminate.
     """
 
+    logger.info("Heartbeat monitor starting...")
     while not terminate_event.is_set():
-        logger.info("Heartbeat monitor starting...")
         participants_to_remove = []
 
         for participant in coordinator.participants.participants.values():
