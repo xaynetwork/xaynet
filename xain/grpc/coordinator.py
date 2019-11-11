@@ -155,7 +155,7 @@ class Coordinator:
         theta (:obj:`list` of :class:`~numpy.ndarray`, optional): The weights of
             the global model. Defaults to [].
         epochs (:obj:`int`, optional): TODO.  Defaults to 0.
-        epochs_base (:obj:`int`, optional): TODO. Defautls to 0.
+        epochs_base (:obj:`int`, optional): TODO. Defaults to 0.
     """
 
     # pylint: disable-msg=too-many-instance-attributes
@@ -302,9 +302,9 @@ class CoordinatorGrpc(coordinator_pb2_grpc.CoordinatorServicer):
     ) -> coordinator_pb2.RendezvousReply:
         """The Rendezvous gRPC method.
 
-        A participant contacts the coordinator and the coordinator adds the participant to
-        its list of participants. If the coordinator already has all the participants it
-        needs it tells the participant to try again later.
+        A participant contacts the coordinator and the coordinator adds the
+        participant to its list of participants. If the coordinator already has
+        all the participants it tells the participant to try again later.
 
         Args:
             request (:class:`~.coordinator_pb2.RendezvousRequest`): The participant's request.
@@ -386,7 +386,7 @@ class CoordinatorGrpc(coordinator_pb2_grpc.CoordinatorServicer):
 
         Returns:
             :class:`~.coordinator_pb2.EndTrainingReply`: The reply to the
-            participant's request. The reply is just and acknowledgment that
+            participant's request. The reply is just an acknowledgment that
             the :class:`~.Coordinator` successfully received the updated
             weights.
         """
@@ -406,7 +406,7 @@ def monitor_heartbeats(
 
     Args:
         coordinator (:class:`~.Coordinator`): The coordinator to monitor for heartbeats.
-        terminate_event (:class:`~threading.Event`): A threading even to signal
+        terminate_event (:class:`~threading.Event`): A threading event to signal
             that this method should terminate.
     """
 
@@ -431,7 +431,7 @@ def monitor_heartbeats(
 def serve() -> None:
     """Main method to start the gRPC service.
 
-    This methods just creates the :class:`~.Coordinator`, setups all threading
+    This methods just creates the :class:`~.Coordinator`, sets up all threading
     events and threads and configures and starts the gRPC service.
     """
     coordinator = Coordinator()

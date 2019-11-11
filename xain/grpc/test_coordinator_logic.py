@@ -45,6 +45,9 @@ def test_state_standby_round():
     # tests that the coordinator transitions from STANDBY to ROUND once enough participants
     # are connected
     coordinator = Coordinator(required_participants=1)
+
+    assert coordinator.state == coordinator_pb2.STANDBY
+
     coordinator.on_message(coordinator_pb2.RendezvousRequest(), "peer1")
 
     assert coordinator.state == coordinator_pb2.State.ROUND
@@ -75,14 +78,16 @@ def test_end_training():
 
 
 def test_end_training_round_update():
-    # Test that the round number is updated once all participants sent their updates
-    coordinator = Coordinator(required_participants=1)
+    # Test that the round number is updated once all participants send their updates
+    coordinator = Coordinator(required_participants=2)
     coordinator.on_message(coordinator_pb2.RendezvousRequest(), "peer1")
+    coordinator.on_message(coordinator_pb2.RendezvousRequest(), "peer2")
 
     # check that we are currently in round 1
     assert coordinator.round == 1
 
     coordinator.on_message(coordinator_pb2.EndTrainingRequest(), "peer1")
+    coordinator.on_message(coordinator_pb2.EndTrainingRequest(), "peer2")
 
     # check that round number was updated
     assert coordinator.round == 2
@@ -102,7 +107,7 @@ def test_end_training_reinitialize_local_models():
 
     coordinator.on_message(coordinator_pb2.EndTrainingRequest(), "peer2")
 
-    # once the second participant delivers its updates we the round ends and the local models
+    # once the second participant delivers its updates the round ends and the local models
     # are reinitialized
     assert coordinator.theta_updates == []
     assert coordinator.histories == []
