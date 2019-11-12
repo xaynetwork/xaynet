@@ -9,91 +9,112 @@ from xain.fl.coordinator import Coordinator, RandomController
 from xain.fl.coordinator.aggregate import FederatedAveragingAgg
 from xain.fl.participant import ModelProvider, Participant
 
-# TODO: this feels a bit hacky. it's the only flag that needs to be added here.
-#  any better solution?
+# Defining the 'task_name' flag here, to be used by the absl-py app.
 FLAGS = flags.FLAGS
 flags.DEFINE_string("task_name", None, "")
 
 
-# We first define some constants for this specific example
-
-# Specify a dataset name for this example
-# We will use a partitioned version of the Fashion MNIST dataset
-# Please see here: https://xainag.github.io/xain/
-
-# 100p means that the dataset is split into 100 partitions, which are IID
-# Each partition represents the dataset a single client stores locally
 DATASET_NAME = "fashion-mnist-100p-iid-balanced"
+"""Specifying a dataset name for this example.
 
-# Standard attributes of the Fashion MNIST dataset
+We will use a partitioned version of the Fashion MNIST dataset
+Please see here: https://xainag.github.io/xain/
+
+100p means that the dataset is split into 100 partitions, which are IID
+Each partition represents the dataset a single client stores locally.
+"""
+
 NUM_CLASSES = 10
 INPUT_SHAPE = (28, 28, 1)
+"""Standard attributes of the Fashion MNIST dataset.
+"""
 
-# R is the number of global rounds the model is going to be trained for
 R = 2
+"""int: Number of global rounds the model is going to be trained for.
+"""
 
-# E is the number of local epochs
-# Each Participant in a round will train the model with its local data for E epochs
 E = 2
+"""int: Number of local epochs.
 
-# C is the fraction of total clients that participate in a training round
+Each Participant in a round will train the model with its local data for E epochs.
+"""
+
 C = 0.02
+"""float: Fraction of total clients that participate in a training round.
+"""
 
-# B is the local batch size for a client update
 B = 10
+"""int: Local batch size for a client update.
+"""
 
 
 def main(_):
-    # Fetch the data
-    # xy_train_partitions: Each partition represents the local training dataset of a single client
-    # xy_validation: Contains the global validation data (shared by all participants)
-    # xy_test: Contains the global test data (shared by all participants)
+    """Main function that runs in the script.
+
+    This function fetches the data split into training partitions, validation and test
+    dataset. A Keras model is then declared and compiled, potential Participants are
+    initiated, as well as the Coordinator. We then call fit and evaluate on the
+    Coordinator and print some basic stats as well as final performance metrics.
+
+    Args:
+        None
+
+    Returns:
+        None
+    """
+
+    # Fetching the data.
+    # xy_train_partitions: Each partition is the local training dataset of a single client.
+    # xy_validation: Contains the global validation data (shared by all participants).
+    # xy_test: Contains the global test data (shared by all participants).
     xy_train_partitions, xy_validation, xy_test = load_splits(DATASET_NAME)
 
-    # Declare model architecture and compile Keras model
+    # Declaring model architecture and compiling Keras model.
     model_fn = create_and_compile_model
 
-    # Pass model and learning rate functions to ModelProvider
+    # Passing model and learning rate functions to ModelProvider.
     model_provider = ModelProvider(model_fn=model_fn, lr_fn_fn=learning_rate_fn)
 
-    # Init the Participant for each client.
-    # At this stage they are not yet selected for training
+    # Initiating the Participant for each client.
+    # At this stage they are not yet selected for training.
     potential_participants = init_participants(
         xy_train_partitions=xy_train_partitions,
         model_provider=model_provider,
         xy_validation=xy_validation,
     )
 
-    # Init the centralized Coordinator of the training
+    # Initiating the centralized Coordinator of the training.
     coordinator = init_coordinator(
         participants=potential_participants,
         model_provider=model_provider,
         xy_validation=xy_validation,
     )
 
-    # Printing some basic statistics
+    # Printing some basic statistics.
     print_dataset_stats(xy_train_partitions, xy_validation, xy_test)
 
-    # Calling fit on the coordinator starts the training
-    # and prints validation metrics after R rounds of federated learning are completed
+    # Calling fit on the coordinator starts the training.
+    # It prints validation metrics after R rounds of federated learning are completed.
     validation_metrics, _, _, _ = coordinator.fit(num_rounds=R)
     print_validation_metrics(validation_metrics)
 
-    # Evaluate the model with the test set
+    # Evaluating the model with the test set.
     loss, accuracy = coordinator.evaluate(xy_test)
 
-    # Print final test loss and accuracy
+    # Printing final test loss and accuracy.
     print(f"---\nTest completed!\nLoss: {loss} | Test accuracy: {accuracy}")
 
 
 def learning_rate_fn(epoch_base, lr_initial=0.002, k=0.01):
-    """
-    Specify the learning rate function, in this case with exponential decay.
+    """Specifies the learning rate function, in this case with exponential decay.
 
-    :param epoch_base: base epoch value
-    :param lr_initial: initial learning rate value
-    :param k: exponential decay constant
-    :return: decayed learning rate based on the epoch_optimizer
+    Args:
+        epoch_base: Base epoch value.
+        lr_initial: Initial learning rate value.
+        k: Exponential decay constant.
+
+    Returns:
+        Decayed learning rate based on epoch_optimizer.
     """
 
     def exp_decay(epoch_optimizer: int) -> float:
@@ -104,12 +125,13 @@ def learning_rate_fn(epoch_base, lr_initial=0.002, k=0.01):
 
 
 def create_and_compile_model(epoch_base=0):
-    """
-    This function contains the model architecture.
-    Once the architecture is specified, the model is compiled.
+    """Contains the model architecture and compiles it with Keras API.
 
-    :param epoch_base: base epoch value
-    :return: a compiled tf.keras.Model instance, with exponential learning rate decay
+    Args:
+        epoch_base: Base epoch value.
+
+    Returns:
+        A compiled tf.keras.Model instance, with exponential learning rate decay.
     """
 
     def add_convolution(filters, kernel_inizializer):
@@ -148,14 +170,21 @@ def create_and_compile_model(epoch_base=0):
 
 
 def init_participants(xy_train_partitions, model_provider, xy_validation):
-    """
-    Iterate through each partition (a client's training data) and init a Participant class.
+    """Initiates potential Participants.
 
-    :param xy_train_partitions: partitioned training data
-    :param model_provider: ModelProvider instance holding model and learning rate functions
-    :param xy_validation: validation dataset
-    :return: list of initiated Participant instances, one per client
+    Iterate through each partition (a client's training data) and
+    initiates a Participant instance.
+
+    Args:
+        xy_train_partitions: Partitioned training data.
+        model_provider: ModelProvider instance holding model and
+            learning rate functions.
+        xy_validation: Validation dataset.
+
+    Returns:
+        A list of initiated Participant instances, one per client.
     """
+
     potential_participants = []
     for client_id, xy_train in enumerate(xy_train_partitions):
         participant = Participant(
@@ -171,8 +200,7 @@ def init_participants(xy_train_partitions, model_provider, xy_validation):
 
 
 def init_coordinator(participants, model_provider, xy_validation):
-    """
-    This function initiates the Coordinator.
+    """Initiates the Coordinator.
 
     The controller will select the indices of the clients participating in the training.
     It is initialized with all the indices of the clients available.
@@ -185,11 +213,15 @@ def init_coordinator(participants, model_provider, xy_validation):
     - Send training jobs to each selected Participant,
     who will train its own local data for E local epochs.
 
-    :param participants: list of initiated Participant instances, one per client
-    :param model_provider: ModelProvider instance holding model and learning rate functions
-    :param xy_validation: validation dataset
-    :return: initiated Coordinator instance
+    Args:
+        participants: List of initiated Participant instances, one per client.
+        model_provider: ModelProvider instance holding model and learning rate functions.
+        xy_validation: Validation dataset.
+
+    Returns:
+        Initiated Coordinator instance.
     """
+
     num_clients = len(participants)
     controller = RandomController(num_clients)
 
@@ -208,14 +240,17 @@ def init_coordinator(participants, model_provider, xy_validation):
 
 
 def print_dataset_stats(xy_train_partitions, xy_validation, xy_test):
-    """
-    This function prints some preliminary stats to the terminal.
+    """Prints some preliminary stats to the terminal.
 
-    :param xy_train_partitions: partitioned training data
-    :param xy_validation: validation dataset
-    :param xy_test: test dataset
-    :return: None
+    Args:
+        xy_train_partitions: Partitioned training data.
+        xy_validation: Validation dataset.
+        xy_test: Test dataset.
+
+    Returns:
+        None
     """
+
     print(f"\nthere are {len(xy_train_partitions)} client/potential partitions")
     images_first_client, labels_first_client = xy_train_partitions[0]
     n_images, height, width = images_first_client.shape
@@ -230,12 +265,15 @@ def print_dataset_stats(xy_train_partitions, xy_validation, xy_test):
 
 
 def print_validation_metrics(validation_metrics):
-    """
-    Printing the validation metrics to the terminal.
+    """Prints the validation metrics to the terminal.
 
-    :param validation_metrics: dictionary containing loss and accuracy per each round
-    :return: None
+    Args:
+        validation_metrics: Dictionary containing loss and accuracy per each round.
+
+    Returns:
+        None
     """
+
     for round_id in range(R):
         print(
             f"validation round: {round_id + 1}: "
