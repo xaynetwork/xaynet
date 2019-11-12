@@ -30,17 +30,7 @@ class ClientProxy(ABC):
         self.client_message_event = threading.Event()
         self.server_message_event = threading.Event()
 
-    def process(self, client_message):
-        """Starts processing of a client_message"""
-        # Set client request
-        self.set_client_message(client_message)
-
-        # Await server message and store it as a return value
-        self.server_message_event.wait()
-
-        return self.server_message
-
-    def set_client_message(self, client_message):
+    def _set_client_message(self, client_message):
         # set message and unblock client_message_event.wait() calls
         self.client_message = client_message
         self.client_message_event.set()
@@ -49,7 +39,7 @@ class ClientProxy(ABC):
         self.server_message = None
         self.server_message_event.clear()
 
-    def set_server_message(self, server_message):
+    def _set_server_message(self, server_message):
         # set message and unblock server_message_event.wait() calls
         self.server_message = server_message
         self.server_message_event.set()
@@ -57,6 +47,16 @@ class ClientProxy(ABC):
         # Clear client message so new response can be stored
         self.client_message = None
         self.client_message_event.clear()
+
+    def process(self, client_message):
+        """Starts processing of a client_message"""
+        # Set client request
+        self._set_client_message(client_message)
+
+        # Await server message and store it as a return value
+        self.server_message_event.wait()
+
+        return self.server_message
 
     def close(self):
         if self.closed:
@@ -72,7 +72,7 @@ class ClientProxy(ABC):
 
         # Set instruction as server message
         # print("Sending instruction")
-        self.set_server_message(instruction)
+        self._set_server_message(instruction)
 
         # print("Waiting for client message")
 
@@ -108,9 +108,8 @@ class ClientManagerServicer(stream_pb2_grpc.ClientManagerServicer):
         context.add_callback(rpc_termination_callback)
 
         for request in request_iterator:
-            response = client_proxy.process(request)
             # Yielded proto message is send to client
-            yield response
+            yield client_proxy.process(request)
 
     def get_clients(self, min_num_clients, check_interval=1):
         """Returns num_clients"""
@@ -128,11 +127,19 @@ class ClientManagerServicer(stream_pb2_grpc.ClientManagerServicer):
         return open_client_proxies
 
 
+def keep_alive(server):
+    try:
+        while True:
+            time.sleep(86400)
+    except KeyboardInterrupt:
+        server.stop(0)
+
+
 def create_client_manager(
     client_proxy_factory, server_address=DEFAULT_SERVER_ADDRESS, port=DEFAULT_PORT
 ):
     server = grpc.server(
-        futures.ThreadPoolExecutor(max_workers=10), maximum_concurrent_rpcs=100
+        futures.ThreadPoolExecutor(max_workers=1), maximum_concurrent_rpcs=10000
     )
 
     servicer = ClientManagerServicer(client_proxy_factory=client_proxy_factory)
@@ -141,8 +148,12 @@ def create_client_manager(
     server.add_insecure_port(f"{server_address}:{port}")
 
     server.start()
+    # Pass server reference into thread where it will be kept alive
+    threading.Thread(
+        name="keep_alive(server)", target=keep_alive, args=(server,)
+    ).start()
 
     print(f"Coordinator started. Listening at {server_address}:{port}.")
     print("Connection is insecure. No authentication enabled.")
 
-    return server, servicer
+    return servicer

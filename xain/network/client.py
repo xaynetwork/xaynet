@@ -81,6 +81,7 @@ def connection(server_address=DEFAULT_SERVER_ADDRESS, port=DEFAULT_PORT):
         print(*args, **kwargs)
 
     channel.subscribe(on_channel_state_change)
+
     stub = stream_pb2_grpc.ClientManagerStub(channel)
 
     rqueue = RequestQueue()

@@ -1,4 +1,5 @@
 import math
+import random
 from typing import List, Tuple
 
 import numpy as np
@@ -43,12 +44,10 @@ def aggregate(thetas: List[List[np.ndarray]]):
 def fit():
     rounds = 10
     C = 0.6
-    num_participants = 3
+    num_participants = 300000
     num_required_participants = math.ceil(num_participants * C)
 
-    _server, client_manager = create_client_manager(
-        client_proxy_factory=participant_factory
-    )
+    client_manager = create_client_manager(client_proxy_factory=participant_factory)
 
     theta = [np.ones((1, 1)), np.ones((1, 1)), np.ones((1, 1))]
 
@@ -58,13 +57,16 @@ def fit():
 
         participants = client_manager.get_clients(min_num_clients=num_participants)
 
-        selected_participants = participants[:num_required_participants]
-        rejected_participants = participants[num_required_participants:]
+        # Randomly select {num_required_participants} participants
+        selected_participants = random.sample(participants, num_required_participants)
+        rejected_participants = [
+            p for p in participants if p not in selected_participants
+        ]
 
         print(selected_participants, rejected_participants)
 
         for p in rejected_participants:
-            p.reconnect(4)
+            p.reconnect(2)
 
         theta_updates = fit_round(participants=selected_participants, theta=theta)
 

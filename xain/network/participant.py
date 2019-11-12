@@ -45,11 +45,11 @@ def ml_training(instruction):
         t = t + 1
         new_thetas.append(t)
 
-    rounds = 10
+    epoch = 10
 
-    for i in range(rounds):
-        print(f"Training... {i+1}/{rounds}")
-        time.sleep(0.1)
+    for i in range(epoch):
+        print(f"Training... {i+1}/{epoch}")
+        time.sleep(0.01)
 
     train_result = stream_pb2.ClientMessage.TrainResult(
         theta=[ndarray_to_proto(nda) for nda in new_thetas]
