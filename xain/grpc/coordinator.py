@@ -123,7 +123,7 @@ class Coordinator:
         coordinator can receive are :class:`~.coordinator_pb2.RendezvousRequest`
         and :class:`~.coordinator_pb2.HeartbeatRequest`.
 
-        ROUND: A round is currently in progress. During a round the only
+        ROUND: A round is currently in progress. During a round the important
         messages the coordinator can receive are
         :class:`~.coordinator_pb2.StartTrainingRequest` and
         :class:`~.coordinator_pb2.EndTrainingRequest`.
@@ -154,9 +154,11 @@ class Coordinator:
             :class:`~.FederatedAveragingAgg`.
         theta (:obj:`list` of :class:`~numpy.ndarray`, optional): The weights of
             the global model. Defaults to [].
-        epochs (:obj:`int`, optional): TODO.  Defaults to 0.
-        epochs_base (:obj:`int`, optional): TODO. Defaults to 0.
-    """
+        epochs (:obj:`int`, optional): Number of training iterations local to
+            Participant.  Defaults to 0.
+        epochs_base (:obj:`int`, optional): Global number of epochs since last
+            round. Defaults to 0.
+        """
 
     # pylint: disable-msg=too-many-instance-attributes
     # pylint: disable-msg=dangerous-default-value

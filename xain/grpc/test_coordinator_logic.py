@@ -66,6 +66,9 @@ def test_start_training():
 
 
 def test_end_training():
+    # we need to participants so that we can check the status of the local update mid round
+    # with only one participant it wouldn't work because the local updates state is cleaned at
+    # the end of each round
     coordinator = Coordinator(required_participants=2)
     coordinator.on_message(coordinator_pb2.RendezvousRequest(), "peer1")
     coordinator.on_message(coordinator_pb2.RendezvousRequest(), "peer2")
