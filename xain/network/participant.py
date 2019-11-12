@@ -33,7 +33,7 @@ def train() -> Optional[int]:
 
 
 def init_message():
-    return stream_pb2.ClientMessage()
+    return stream_pb2.ParticipantMessage()
 
 
 def ml_training(instruction):
@@ -51,15 +51,15 @@ def ml_training(instruction):
         print(f"Training... {i+1}/{epoch}")
         time.sleep(0.01)
 
-    train_result = stream_pb2.ClientMessage.TrainResult(
+    train_result = stream_pb2.ParticipantMessage.TrainResult(
         theta=[ndarray_to_proto(nda) for nda in new_thetas]
     )
 
-    return stream_pb2.ClientMessage(result=train_result)
+    return stream_pb2.ParticipantMessage(result=train_result)
 
 
 def unkown_instuction_message():
-    return stream_pb2.ClientMessage(unknown_instruction=True)
+    return stream_pb2.ParticipantMessage(unknown_instruction=True)
 
 
 def main():

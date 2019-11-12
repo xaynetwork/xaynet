@@ -2,11 +2,11 @@ syntax = "proto3";
 
 import "numproto/protobuf/ndarray.proto";
 
-service ClientManager {
-  rpc Connect(stream ClientMessage) returns (stream ServerMessage) {}
+service ParticipantManager {
+  rpc Connect(stream ParticipantMessage) returns (stream CoordinatorMessage) {}
 }
 
-message ClientMessage {
+message ParticipantMessage {
   message TrainResult { repeated numproto.protobuf.NDArray theta = 1; }
 
   oneof request {
@@ -15,7 +15,7 @@ message ClientMessage {
   }
 }
 
-message ServerMessage {
+message CoordinatorMessage {
   message TrainConfig {
     repeated numproto.protobuf.NDArray theta = 1;
   }

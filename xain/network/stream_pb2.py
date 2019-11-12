@@ -21,22 +21,22 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='',
   syntax='proto3',
   serialized_options=None,
-  serialized_pb=_b('\n\x19xain/network/stream.proto\x1a\x1fnumproto/protobuf/ndarray.proto\"\xa1\x01\n\rClientMessage\x12,\n\x06result\x18\x01 \x01(\x0b\x32\x1a.ClientMessage.TrainResultH\x00\x12\x1d\n\x12unkown_instruction\x18\xe8\x07 \x01(\x08H\x00\x1a\x38\n\x0bTrainResult\x12)\n\x05theta\x18\x01 \x03(\x0b\x32\x1a.numproto.protobuf.NDArrayB\t\n\x07request\"\xa4\x01\n\rServerMessage\x12\x16\n\x0creconnect_in\x18\x01 \x01(\x05H\x00\x12\x32\n\x0ctrain_config\x18\x02 \x01(\x0b\x32\x1a.ServerMessage.TrainConfigH\x00\x1a\x38\n\x0bTrainConfig\x12)\n\x05theta\x18\x01 \x03(\x0b\x32\x1a.numproto.protobuf.NDArrayB\r\n\x0binstruction2@\n\rClientManager\x12/\n\x07\x43onnect\x12\x0e.ClientMessage\x1a\x0e.ServerMessage\"\x00(\x01\x30\x01\x62\x06proto3')
+  serialized_pb=_b('\n\x19xain/network/stream.proto\x1a\x1fnumproto/protobuf/ndarray.proto\"\xab\x01\n\x12ParticipantMessage\x12\x31\n\x06result\x18\x01 \x01(\x0b\x32\x1f.ParticipantMessage.TrainResultH\x00\x12\x1d\n\x12unkown_instruction\x18\xe8\x07 \x01(\x08H\x00\x1a\x38\n\x0bTrainResult\x12)\n\x05theta\x18\x01 \x03(\x0b\x32\x1a.numproto.protobuf.NDArrayB\t\n\x07request\"\xae\x01\n\x12\x43oordinatorMessage\x12\x16\n\x0creconnect_in\x18\x01 \x01(\x05H\x00\x12\x37\n\x0ctrain_config\x18\x02 \x01(\x0b\x32\x1f.CoordinatorMessage.TrainConfigH\x00\x1a\x38\n\x0bTrainConfig\x12)\n\x05theta\x18\x01 \x03(\x0b\x32\x1a.numproto.protobuf.NDArrayB\r\n\x0binstruction2O\n\x12ParticipantManager\x12\x39\n\x07\x43onnect\x12\x13.ParticipantMessage\x1a\x13.CoordinatorMessage\"\x00(\x01\x30\x01\x62\x06proto3')
   ,
   dependencies=[numproto_dot_protobuf_dot_ndarray__pb2.DESCRIPTOR,])
 
 
 
 
-_CLIENTMESSAGE_TRAINRESULT = _descriptor.Descriptor(
+_PARTICIPANTMESSAGE_TRAINRESULT = _descriptor.Descriptor(
   name='TrainResult',
-  full_name='ClientMessage.TrainResult',
+  full_name='ParticipantMessage.TrainResult',
   filename=None,
   file=DESCRIPTOR,
   containing_type=None,
   fields=[
     _descriptor.FieldDescriptor(
-      name='theta', full_name='ClientMessage.TrainResult.theta', index=0,
+      name='theta', full_name='ParticipantMessage.TrainResult.theta', index=0,
       number=1, type=11, cpp_type=10, label=3,
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
@@ -54,26 +54,26 @@ _CLIENTMESSAGE_TRAINRESULT = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=157,
-  serialized_end=213,
+  serialized_start=167,
+  serialized_end=223,
 )
 
-_CLIENTMESSAGE = _descriptor.Descriptor(
-  name='ClientMessage',
-  full_name='ClientMessage',
+_PARTICIPANTMESSAGE = _descriptor.Descriptor(
+  name='ParticipantMessage',
+  full_name='ParticipantMessage',
   filename=None,
   file=DESCRIPTOR,
   containing_type=None,
   fields=[
     _descriptor.FieldDescriptor(
-      name='result', full_name='ClientMessage.result', index=0,
+      name='result', full_name='ParticipantMessage.result', index=0,
       number=1, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='unkown_instruction', full_name='ClientMessage.unkown_instruction', index=1,
+      name='unkown_instruction', full_name='ParticipantMessage.unkown_instruction', index=1,
       number=1000, type=8, cpp_type=7, label=1,
       has_default_value=False, default_value=False,
       message_type=None, enum_type=None, containing_type=None,
@@ -82,7 +82,7 @@ _CLIENTMESSAGE = _descriptor.Descriptor(
   ],
   extensions=[
   ],
-  nested_types=[_CLIENTMESSAGE_TRAINRESULT, ],
+  nested_types=[_PARTICIPANTMESSAGE_TRAINRESULT, ],
   enum_types=[
   ],
   serialized_options=None,
@@ -91,23 +91,23 @@ _CLIENTMESSAGE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
     _descriptor.OneofDescriptor(
-      name='request', full_name='ClientMessage.request',
+      name='request', full_name='ParticipantMessage.request',
       index=0, containing_type=None, fields=[]),
   ],
   serialized_start=63,
-  serialized_end=224,
+  serialized_end=234,
 )
 
 
-_SERVERMESSAGE_TRAINCONFIG = _descriptor.Descriptor(
+_COORDINATORMESSAGE_TRAINCONFIG = _descriptor.Descriptor(
   name='TrainConfig',
-  full_name='ServerMessage.TrainConfig',
+  full_name='CoordinatorMessage.TrainConfig',
   filename=None,
   file=DESCRIPTOR,
   containing_type=None,
   fields=[
     _descriptor.FieldDescriptor(
-      name='theta', full_name='ServerMessage.TrainConfig.theta', index=0,
+      name='theta', full_name='CoordinatorMessage.TrainConfig.theta', index=0,
       number=1, type=11, cpp_type=10, label=3,
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
@@ -125,26 +125,26 @@ _SERVERMESSAGE_TRAINCONFIG = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=320,
-  serialized_end=376,
+  serialized_start=340,
+  serialized_end=396,
 )
 
-_SERVERMESSAGE = _descriptor.Descriptor(
-  name='ServerMessage',
-  full_name='ServerMessage',
+_COORDINATORMESSAGE = _descriptor.Descriptor(
+  name='CoordinatorMessage',
+  full_name='CoordinatorMessage',
   filename=None,
   file=DESCRIPTOR,
   containing_type=None,
   fields=[
     _descriptor.FieldDescriptor(
-      name='reconnect_in', full_name='ServerMessage.reconnect_in', index=0,
+      name='reconnect_in', full_name='CoordinatorMessage.reconnect_in', index=0,
       number=1, type=5, cpp_type=1, label=1,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='train_config', full_name='ServerMessage.train_config', index=1,
+      name='train_config', full_name='CoordinatorMessage.train_config', index=1,
       number=2, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
@@ -153,7 +153,7 @@ _SERVERMESSAGE = _descriptor.Descriptor(
   ],
   extensions=[
   ],
-  nested_types=[_SERVERMESSAGE_TRAINCONFIG, ],
+  nested_types=[_COORDINATORMESSAGE_TRAINCONFIG, ],
   enum_types=[
   ],
   serialized_options=None,
@@ -162,88 +162,88 @@ _SERVERMESSAGE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
     _descriptor.OneofDescriptor(
-      name='instruction', full_name='ServerMessage.instruction',
+      name='instruction', full_name='CoordinatorMessage.instruction',
       index=0, containing_type=None, fields=[]),
   ],
-  serialized_start=227,
-  serialized_end=391,
+  serialized_start=237,
+  serialized_end=411,
 )
 
-_CLIENTMESSAGE_TRAINRESULT.fields_by_name['theta'].message_type = numproto_dot_protobuf_dot_ndarray__pb2._NDARRAY
-_CLIENTMESSAGE_TRAINRESULT.containing_type = _CLIENTMESSAGE
-_CLIENTMESSAGE.fields_by_name['result'].message_type = _CLIENTMESSAGE_TRAINRESULT
-_CLIENTMESSAGE.oneofs_by_name['request'].fields.append(
-  _CLIENTMESSAGE.fields_by_name['result'])
-_CLIENTMESSAGE.fields_by_name['result'].containing_oneof = _CLIENTMESSAGE.oneofs_by_name['request']
-_CLIENTMESSAGE.oneofs_by_name['request'].fields.append(
-  _CLIENTMESSAGE.fields_by_name['unkown_instruction'])
-_CLIENTMESSAGE.fields_by_name['unkown_instruction'].containing_oneof = _CLIENTMESSAGE.oneofs_by_name['request']
-_SERVERMESSAGE_TRAINCONFIG.fields_by_name['theta'].message_type = numproto_dot_protobuf_dot_ndarray__pb2._NDARRAY
-_SERVERMESSAGE_TRAINCONFIG.containing_type = _SERVERMESSAGE
-_SERVERMESSAGE.fields_by_name['train_config'].message_type = _SERVERMESSAGE_TRAINCONFIG
-_SERVERMESSAGE.oneofs_by_name['instruction'].fields.append(
-  _SERVERMESSAGE.fields_by_name['reconnect_in'])
-_SERVERMESSAGE.fields_by_name['reconnect_in'].containing_oneof = _SERVERMESSAGE.oneofs_by_name['instruction']
-_SERVERMESSAGE.oneofs_by_name['instruction'].fields.append(
-  _SERVERMESSAGE.fields_by_name['train_config'])
-_SERVERMESSAGE.fields_by_name['train_config'].containing_oneof = _SERVERMESSAGE.oneofs_by_name['instruction']
-DESCRIPTOR.message_types_by_name['ClientMessage'] = _CLIENTMESSAGE
-DESCRIPTOR.message_types_by_name['ServerMessage'] = _SERVERMESSAGE
+_PARTICIPANTMESSAGE_TRAINRESULT.fields_by_name['theta'].message_type = numproto_dot_protobuf_dot_ndarray__pb2._NDARRAY
+_PARTICIPANTMESSAGE_TRAINRESULT.containing_type = _PARTICIPANTMESSAGE
+_PARTICIPANTMESSAGE.fields_by_name['result'].message_type = _PARTICIPANTMESSAGE_TRAINRESULT
+_PARTICIPANTMESSAGE.oneofs_by_name['request'].fields.append(
+  _PARTICIPANTMESSAGE.fields_by_name['result'])
+_PARTICIPANTMESSAGE.fields_by_name['result'].containing_oneof = _PARTICIPANTMESSAGE.oneofs_by_name['request']
+_PARTICIPANTMESSAGE.oneofs_by_name['request'].fields.append(
+  _PARTICIPANTMESSAGE.fields_by_name['unkown_instruction'])
+_PARTICIPANTMESSAGE.fields_by_name['unkown_instruction'].containing_oneof = _PARTICIPANTMESSAGE.oneofs_by_name['request']
+_COORDINATORMESSAGE_TRAINCONFIG.fields_by_name['theta'].message_type = numproto_dot_protobuf_dot_ndarray__pb2._NDARRAY
+_COORDINATORMESSAGE_TRAINCONFIG.containing_type = _COORDINATORMESSAGE
+_COORDINATORMESSAGE.fields_by_name['train_config'].message_type = _COORDINATORMESSAGE_TRAINCONFIG
+_COORDINATORMESSAGE.oneofs_by_name['instruction'].fields.append(
+  _COORDINATORMESSAGE.fields_by_name['reconnect_in'])
+_COORDINATORMESSAGE.fields_by_name['reconnect_in'].containing_oneof = _COORDINATORMESSAGE.oneofs_by_name['instruction']
+_COORDINATORMESSAGE.oneofs_by_name['instruction'].fields.append(
+  _COORDINATORMESSAGE.fields_by_name['train_config'])
+_COORDINATORMESSAGE.fields_by_name['train_config'].containing_oneof = _COORDINATORMESSAGE.oneofs_by_name['instruction']
+DESCRIPTOR.message_types_by_name['ParticipantMessage'] = _PARTICIPANTMESSAGE
+DESCRIPTOR.message_types_by_name['CoordinatorMessage'] = _COORDINATORMESSAGE
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
-ClientMessage = _reflection.GeneratedProtocolMessageType('ClientMessage', (_message.Message,), {
+ParticipantMessage = _reflection.GeneratedProtocolMessageType('ParticipantMessage', (_message.Message,), {
 
   'TrainResult' : _reflection.GeneratedProtocolMessageType('TrainResult', (_message.Message,), {
-    'DESCRIPTOR' : _CLIENTMESSAGE_TRAINRESULT,
+    'DESCRIPTOR' : _PARTICIPANTMESSAGE_TRAINRESULT,
     '__module__' : 'xain.network.stream_pb2'
-    # @@protoc_insertion_point(class_scope:ClientMessage.TrainResult)
+    # @@protoc_insertion_point(class_scope:ParticipantMessage.TrainResult)
     })
   ,
-  'DESCRIPTOR' : _CLIENTMESSAGE,
+  'DESCRIPTOR' : _PARTICIPANTMESSAGE,
   '__module__' : 'xain.network.stream_pb2'
-  # @@protoc_insertion_point(class_scope:ClientMessage)
+  # @@protoc_insertion_point(class_scope:ParticipantMessage)
   })
-_sym_db.RegisterMessage(ClientMessage)
-_sym_db.RegisterMessage(ClientMessage.TrainResult)
+_sym_db.RegisterMessage(ParticipantMessage)
+_sym_db.RegisterMessage(ParticipantMessage.TrainResult)
 
-ServerMessage = _reflection.GeneratedProtocolMessageType('ServerMessage', (_message.Message,), {
+CoordinatorMessage = _reflection.GeneratedProtocolMessageType('CoordinatorMessage', (_message.Message,), {
 
   'TrainConfig' : _reflection.GeneratedProtocolMessageType('TrainConfig', (_message.Message,), {
-    'DESCRIPTOR' : _SERVERMESSAGE_TRAINCONFIG,
+    'DESCRIPTOR' : _COORDINATORMESSAGE_TRAINCONFIG,
     '__module__' : 'xain.network.stream_pb2'
-    # @@protoc_insertion_point(class_scope:ServerMessage.TrainConfig)
+    # @@protoc_insertion_point(class_scope:CoordinatorMessage.TrainConfig)
     })
   ,
-  'DESCRIPTOR' : _SERVERMESSAGE,
+  'DESCRIPTOR' : _COORDINATORMESSAGE,
   '__module__' : 'xain.network.stream_pb2'
-  # @@protoc_insertion_point(class_scope:ServerMessage)
+  # @@protoc_insertion_point(class_scope:CoordinatorMessage)
   })
-_sym_db.RegisterMessage(ServerMessage)
-_sym_db.RegisterMessage(ServerMessage.TrainConfig)
+_sym_db.RegisterMessage(CoordinatorMessage)
+_sym_db.RegisterMessage(CoordinatorMessage.TrainConfig)
 
 
 
-_CLIENTMANAGER = _descriptor.ServiceDescriptor(
-  name='ClientManager',
-  full_name='ClientManager',
+_PARTICIPANTMANAGER = _descriptor.ServiceDescriptor(
+  name='ParticipantManager',
+  full_name='ParticipantManager',
   file=DESCRIPTOR,
   index=0,
   serialized_options=None,
-  serialized_start=393,
-  serialized_end=457,
+  serialized_start=413,
+  serialized_end=492,
   methods=[
   _descriptor.MethodDescriptor(
     name='Connect',
-    full_name='ClientManager.Connect',
+    full_name='ParticipantManager.Connect',
     index=0,
     containing_service=None,
-    input_type=_CLIENTMESSAGE,
-    output_type=_SERVERMESSAGE,
+    input_type=_PARTICIPANTMESSAGE,
+    output_type=_COORDINATORMESSAGE,
     serialized_options=None,
   ),
 ])
-_sym_db.RegisterServiceDescriptor(_CLIENTMANAGER)
+_sym_db.RegisterServiceDescriptor(_PARTICIPANTMANAGER)
 
-DESCRIPTOR.services_by_name['ClientManager'] = _CLIENTMANAGER
+DESCRIPTOR.services_by_name['ParticipantManager'] = _PARTICIPANTMANAGER
 
 # @@protoc_insertion_point(module_scope)

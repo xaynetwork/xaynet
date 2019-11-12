@@ -6,28 +6,31 @@ import numpy as np
 from numproto import ndarray_to_proto, proto_to_ndarray
 
 from xain.network import stream_pb2
-from xain.network.server import ClientProxy, create_client_manager
+from xain.network.server import ParticipantProxy, create_participant_manager
 
 
-class Participant(ClientProxy):
+class Participant:
     """Holds request until its anwered"""
 
+    def __init__(self):
+        self.proxy = ParticipantProxy()
+
     def train(self, theta):
-        instruction = stream_pb2.ServerMessage(
-            train_config=stream_pb2.ServerMessage.TrainConfig(
+        instruction = stream_pb2.CoordinatorMessage(
+            train_config=stream_pb2.CoordinatorMessage.TrainConfig(
                 theta=[ndarray_to_proto(nda) for nda in theta]
             )
         )
 
-        res = self.run(instruction)
+        res = self.proxy.run(instruction)
         theta = [proto_to_ndarray(nda) for nda in res.result.theta]
 
         return theta
 
     def reconnect(self, secs):
-        instruction = stream_pb2.ServerMessage(reconnect_in=secs)
-        self.run(instruction, skip_response=True)
-        self.close()
+        instruction = stream_pb2.CoordinatorMessage(reconnect_in=secs)
+        self.proxy.run(instruction, skip_response=True)
+        self.proxy.close()
 
 
 def participant_factory():
@@ -44,10 +47,12 @@ def aggregate(thetas: List[List[np.ndarray]]):
 def fit():
     rounds = 10
     C = 0.6
-    num_participants = 300000
+    num_participants = 3
     num_required_participants = math.ceil(num_participants * C)
 
-    client_manager = create_client_manager(client_proxy_factory=participant_factory)
+    participant_manager = create_participant_manager(
+        participant_factory=participant_factory
+    )
 
     theta = [np.ones((1, 1)), np.ones((1, 1)), np.ones((1, 1))]
 
@@ -55,7 +60,9 @@ def fit():
         print(f"Starting round: {i+1}/{rounds}")
         print("Waiting for participants")
 
-        participants = client_manager.get_clients(min_num_clients=num_participants)
+        participants = participant_manager.get_participants(
+            min_num_participants=num_participants
+        )
 
         # Randomly select {num_required_participants} participants
         selected_participants = random.sample(participants, num_required_participants)

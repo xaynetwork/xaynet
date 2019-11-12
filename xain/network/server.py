@@ -1,7 +1,6 @@
 import os
 import threading
 import time
-from abc import ABC
 from concurrent import futures
 from typing import Optional
 
@@ -18,113 +17,116 @@ os.environ["GRPC_VERBOSITY"] = "debug"
 # os.environ["GRPC_TRACE"] = "connectivity_state"
 
 
-class ClientProxy(ABC):
+class ParticipantProxy:
     """Proxy class for a class holding requests and awaiting responses"""
 
     def __init__(self):
         self.closed = False
 
-        self.client_message = None
+        self.participant_message = None
         self.server_message = None
 
-        self.client_message_event = threading.Event()
-        self.server_message_event = threading.Event()
+        self.participant_message_event = threading.Event()
+        self.coordinator_message_event = threading.Event()
 
-    def _set_client_message(self, client_message):
-        # set message and unblock client_message_event.wait() calls
-        self.client_message = client_message
-        self.client_message_event.set()
+    def _set_participant_message(self, participant_message):
+        # set message and unblock participant_message_event.wait() calls
+        self.participant_message = participant_message
+        self.participant_message_event.set()
 
         # Clear server message so new instruction can be stored
         self.server_message = None
-        self.server_message_event.clear()
+        self.coordinator_message_event.clear()
 
-    def _set_server_message(self, server_message):
-        # set message and unblock server_message_event.wait() calls
+    def _set_coordinator_message(self, server_message):
+        # set message and unblock coordinator_message_event.wait() calls
         self.server_message = server_message
-        self.server_message_event.set()
+        self.coordinator_message_event.set()
 
-        # Clear client message so new response can be stored
-        self.client_message = None
-        self.client_message_event.clear()
+        # Clear participant message so new response can be stored
+        self.participant_message = None
+        self.participant_message_event.clear()
 
-    def process(self, client_message):
-        """Starts processing of a client_message"""
-        # Set client request
-        self._set_client_message(client_message)
+    def process(self, participant_message):
+        """Starts processing of a participant_message"""
+        # Set participant request
+        self._set_participant_message(participant_message)
 
         # Await server message and store it as a return value
-        self.server_message_event.wait()
+        self.coordinator_message_event.wait()
 
         return self.server_message
 
     def close(self):
         if self.closed:
-            raise Exception("ClientProxy is already closed")
+            raise Exception("ParticipantProxy is already closed")
 
         self.closed = True
 
     def run(
-        self, instruction: stream_pb2.ServerMessage, skip_response=False
-    ) -> Optional[stream_pb2.ClientMessage]:
+        self, instruction: stream_pb2.CoordinatorMessage, skip_response=False
+    ) -> Optional[stream_pb2.ParticipantMessage]:
         if self.closed:
-            raise Exception("ClientProxy is already closed")
+            raise Exception("ParticipantProxy is already closed")
 
-        # Set instruction as server message
+        # Set instruction as coordinator message
         # print("Sending instruction")
-        self._set_server_message(instruction)
+        self._set_coordinator_message(instruction)
 
-        # print("Waiting for client message")
+        # print("Waiting for participant message")
 
         if skip_response:
             return None
 
-        # Wait for response from client
-        self.client_message_event.wait()
+        # Wait for response from participant
+        self.participant_message_event.wait()
 
-        return self.client_message
+        return self.participant_message
 
 
-class ClientManagerServicer(stream_pb2_grpc.ClientManagerServicer):
+class ParticipantManager(stream_pb2_grpc.ParticipantManagerServicer):
     # pylint: disable=too-many-instance-attributes
-    def __init__(self, client_proxy_factory):
-        self.client_proxy_factory = client_proxy_factory
-        self.client_proxies = []
+    def __init__(self, participant_factory):
+        self.participant_factory = participant_factory
+        self.participants = []
 
     def Connect(self, request_iterator, context):
         peer_id = context.peer()
-        client_proxy = self.client_proxy_factory()
-        self.client_proxies.append(client_proxy)
+        participant = self.participant_factory()
+        self.participants.append(participant)
 
-        print(f"Client {peer_id} connected")
+        print(f"Participant {peer_id} connected")
 
         def rpc_termination_callback():
-            if client_proxy in self.client_proxies:
+            if participant in self.participants:
                 print(f"Delete peer {peer_id}")
-                self.client_proxies.remove(client_proxy)
+                self.participants.remove(participant)
 
-            print(f"Client {peer_id} disconnected")
+            print(f"Participant {peer_id} disconnected")
 
         context.add_callback(rpc_termination_callback)
 
         for request in request_iterator:
             # Yielded proto message is send to client
-            yield client_proxy.process(request)
+            yield participant.proxy.process(request)
 
-    def get_clients(self, min_num_clients, check_interval=1):
-        """Returns num_clients"""
+    def get_participants(self, min_num_participants, check_interval=1):
+        """Returns num_participants"""
         while True:
-            open_client_proxies = [cp for cp in self.client_proxies if not cp.closed]
-            num_connected_clients = len(open_client_proxies)
+            open_participant_proxies = [
+                p for p in self.participants if not p.proxy.closed
+            ]
 
-            if num_connected_clients >= min_num_clients:
+            num_connected_participants = len(open_participant_proxies)
+
+            if num_connected_participants >= min_num_participants:
                 break
 
             time.sleep(check_interval)
 
-        print(f"num_connected_clients: {num_connected_clients}/{min_num_clients}")
+        print(f"num_connected: {num_connected_participants}/{min_num_participants}")
 
-        return open_client_proxies
+        return open_participant_proxies
 
 
 def keep_alive(server):
@@ -135,15 +137,15 @@ def keep_alive(server):
         server.stop(0)
 
 
-def create_client_manager(
-    client_proxy_factory, server_address=DEFAULT_SERVER_ADDRESS, port=DEFAULT_PORT
+def create_participant_manager(
+    participant_factory, server_address=DEFAULT_SERVER_ADDRESS, port=DEFAULT_PORT
 ):
     server = grpc.server(
-        futures.ThreadPoolExecutor(max_workers=1), maximum_concurrent_rpcs=10000
+        futures.ThreadPoolExecutor(max_workers=100), maximum_concurrent_rpcs=100
     )
 
-    servicer = ClientManagerServicer(client_proxy_factory=client_proxy_factory)
-    stream_pb2_grpc.add_ClientManagerServicer_to_server(servicer, server)
+    servicer = ParticipantManager(participant_factory=participant_factory)
+    stream_pb2_grpc.add_ParticipantManagerServicer_to_server(servicer, server)
 
     server.add_insecure_port(f"{server_address}:{port}")
 
