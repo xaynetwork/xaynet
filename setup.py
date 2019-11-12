@@ -91,6 +91,7 @@ dev_require = [
     "grpcio-tools==1.23.0",  # Apache License 2.0
     "mypy-protobuf==1.15",  # Apache License 2.0
     "twine==2.0.0",  # Apache License 2.0
+    "wheel==0.33.6",  # MIT
 ]
 
 examples_require = ["tensorflow==1.14.0"]  # Apache 2.0
