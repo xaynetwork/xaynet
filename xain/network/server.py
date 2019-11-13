@@ -39,7 +39,11 @@ class ParticipantProxy:
         self.coordinator_message_event.clear()
 
     def _set_coordinator_message(self, server_message):
-        # set message and unblock coordinator_message_event.wait() calls
+        """Sets coordinator message and unblocks all wait() calls on
+        coordinator_message_event. Also clears participant message and
+        blocks all wait calls for participant_message_event by clearing it
+        """
+        # Set message and unblock coordinator_message_event.wait() calls
         self.server_message = server_message
         self.coordinator_message_event.set()
 
@@ -48,7 +52,8 @@ class ParticipantProxy:
         self.participant_message_event.clear()
 
     def process(self, participant_message):
-        """Starts processing of a participant_message"""
+        """Sets participant message for processing and awaits
+        coordinator message to be returned"""
         # Set participant request
         self._set_participant_message(participant_message)
 
@@ -58,10 +63,14 @@ class ParticipantProxy:
         return self.server_message
 
     def close(self):
-        if self.closed:
-            raise Exception("ParticipantProxy is already closed")
-
+        """Closes the proxy and unblocks it. This method is idempotent. If the
+        proxy is alredy closed nothing further will happen"""
+        # Close and
         self.closed = True
+
+        # Unblock threads
+        self.participant_message_event.set()
+        self.coordinator_message_event.set()
 
     def run(
         self, instruction: stream_pb2.CoordinatorMessage, skip_response=False
@@ -89,24 +98,19 @@ class ParticipantManager(stream_pb2_grpc.ParticipantManagerServicer):
     def __init__(self, participant_factory):
         self.participant_factory = participant_factory
         self.participants = []
-        self.cv = threading.Condition()
 
     def Connect(self, request_iterator, context):
         peer_id = context.peer()
         participant = self.participant_factory()
         self.participants.append(participant)
 
-        with self.cv:
-            self.cv.notify()
-
-        print(f"Participant {peer_id} connected")
+        print(f"Participant {peer_id} connected ({len(self.participants)})")
 
         def rpc_termination_callback():
-            if participant in self.participants:
-                print(f"Delete peer {peer_id}")
-                self.participants.remove(participant)
-
             print(f"Participant {peer_id} disconnected")
+
+            participant.proxy.close()
+            self.participants.remove(participant)
 
         context.add_callback(rpc_termination_callback)
 
@@ -119,10 +123,10 @@ class ParticipantManager(stream_pb2_grpc.ParticipantManagerServicer):
         num_connected_participants = len(open_participant_proxies)
         return num_connected_participants >= min_num_participants
 
-    def get_participants(self, min_num_participants):
+    def get_participants(self, min_num_participants, check_interval=1):
         """Returns min_num_participants participants"""
-        with self.cv:
-            self.cv.wait_for(lambda: self.has_enough_participants(min_num_participants))
+        while not self.has_enough_participants(min_num_participants):
+            time.sleep(1)
 
         open_participant_proxies = [p for p in self.participants if not p.proxy.closed]
         return open_participant_proxies
@@ -139,10 +143,27 @@ def keep_alive(server):
 def create_participant_manager(
     participant_factory, server_address=DEFAULT_SERVER_ADDRESS, port=DEFAULT_PORT
 ):
-    server = grpc.server(
-        futures.ThreadPoolExecutor(max_workers=100), maximum_concurrent_rpcs=100
-    )
+    """Creates a participant manager instance inside a gRPC server and returns it
 
+    Args:
+        participant_factory (Callable): Function which returns a participant instance
+        server_address (string): host name of server as string e.g. "[::]"
+        port (int): server port
+
+    Returns:
+        servicer (ParticipantManager): Instance of participant manager
+    """
+
+    server = grpc.server(
+        futures.ThreadPoolExecutor(max_workers=100), maximum_concurrent_rpcs=200
+    )
+    """'max_workers' will set the number of parallel threads possible
+    'maximum_concurrent_rpcs' will set the number of concurrent threads meaning
+    if we are the 'max_workers' limit the connection of new streams will be blocked
+    until threads become free. 'maximum_concurrent_rpcs - max_workers' will basically
+    be the waiting line for incomming threads. Any incomming connection after the
+    waiting line is full will be rejected
+    """
     servicer = ParticipantManager(participant_factory=participant_factory)
     stream_pb2_grpc.add_ParticipantManagerServicer_to_server(servicer, server)
 
