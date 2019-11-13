@@ -1,4 +1,5 @@
 import math
+from typing import Callable, List
 
 import tensorflow as tf
 from absl import app, flags
@@ -8,6 +9,7 @@ from xain.datasets import load_splits
 from xain.fl.coordinator import Coordinator, RandomController
 from xain.fl.coordinator.aggregate import FederatedAveragingAgg
 from xain.fl.participant import ModelProvider, Participant
+from xain.types import Partition
 
 # Defining the 'task_name' flag here, to be used by the absl-py app.
 FLAGS = flags.FLAGS
@@ -17,7 +19,7 @@ flags.DEFINE_string("task_name", None, "")
 DATASET_NAME = "fashion-mnist-100p-iid-balanced"
 """Specifying a dataset name for this example.
 
-We will use a partitioned version of the Fashion MNIST dataset
+We will use a partitioned version of the Fashion MNIST dataset.
 Please see here: https://xainag.github.io/xain/
 
 100p means that the dataset is split into 100 partitions, which are IID
@@ -61,7 +63,9 @@ def main(_):
     # xy_train_partitions: Each partition is the local training dataset of a single client.
     # xy_validation: Contains the global validation data (shared by all participants).
     # xy_test: Contains the global test data (shared by all participants).
-    xy_train_partitions, xy_validation, xy_test = load_splits(DATASET_NAME)
+    xy_train_partitions, xy_validation, xy_test = load_splits(
+        "fashion-mnist-100p-iid-balanced"
+    )
 
     # Declaring model architecture and compiling Keras model.
     model_fn = create_and_compile_model
@@ -99,7 +103,9 @@ def main(_):
     print(f"---\nTest completed!\nLoss: {loss} | Test accuracy: {accuracy}")
 
 
-def learning_rate_fn(epoch_base, lr_initial=0.002, k=0.01):
+def learning_rate_fn(
+    epoch_base: int, lr_initial: float = 0.002, k: float = 0.01
+) -> Callable:
     """Specifies the learning rate function, in this case with exponential decay.
 
     Args:
@@ -118,7 +124,7 @@ def learning_rate_fn(epoch_base, lr_initial=0.002, k=0.01):
     return exp_decay
 
 
-def create_and_compile_model(epoch_base=0):
+def create_and_compile_model(epoch_base: int = 0) -> Callable[[], tf.keras.Model]:
     """Contains the model architecture and compiles it with Keras API.
 
     Args:
@@ -163,7 +169,11 @@ def create_and_compile_model(epoch_base=0):
     return model
 
 
-def init_participants(xy_train_partitions, model_provider, xy_validation):
+def init_participants(
+    xy_train_partitions: List[Partition],
+    model_provider: ModelProvider,
+    xy_validation: Partition,
+) -> List[Participant]:
     """Initiates potential Participants.
 
     Iterate through each partition (a client's training data) and
@@ -193,7 +203,11 @@ def init_participants(xy_train_partitions, model_provider, xy_validation):
     return potential_participants
 
 
-def init_coordinator(participants, model_provider, xy_validation):
+def init_coordinator(
+    participants: List[Participant],
+    model_provider: ModelProvider,
+    xy_validation: Partition,
+) -> Coordinator:
     """Initiates the Coordinator.
 
     The controller will select the indices of the clients participating in the training.
@@ -233,7 +247,9 @@ def init_coordinator(participants, model_provider, xy_validation):
     return coordinator
 
 
-def print_dataset_stats(xy_train_partitions, xy_validation, xy_test):
+def print_dataset_stats(
+    xy_train_partitions: List[Partition], xy_validation: Partition, xy_test: Partition
+):
     """Prints some preliminary stats to the terminal.
 
     Args:
@@ -255,7 +271,7 @@ def print_dataset_stats(xy_train_partitions, xy_validation, xy_test):
     print(f"the test set is made of {len(test_images)} images\n---")
 
 
-def print_validation_metrics(validation_metrics):
+def print_validation_metrics(validation_metrics: dict):
     """Prints the validation metrics to the terminal.
 
     Args:
