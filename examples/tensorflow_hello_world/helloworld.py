@@ -55,12 +55,6 @@ def main(_):
     dataset. A Keras model is then declared and compiled, potential Participants are
     initiated, as well as the Coordinator. We then call fit and evaluate on the
     Coordinator and print some basic stats as well as final performance metrics.
-
-    Args:
-        None
-
-    Returns:
-        None
     """
 
     # Fetching the data.
@@ -246,9 +240,6 @@ def print_dataset_stats(xy_train_partitions, xy_validation, xy_test):
         xy_train_partitions: Partitioned training data.
         xy_validation: Validation dataset.
         xy_test: Test dataset.
-
-    Returns:
-        None
     """
 
     print(f"\nthere are {len(xy_train_partitions)} client/potential partitions")
@@ -269,9 +260,6 @@ def print_validation_metrics(validation_metrics):
 
     Args:
         validation_metrics: Dictionary containing loss and accuracy per each round.
-
-    Returns:
-        None
     """
 
     for round_id in range(R):
