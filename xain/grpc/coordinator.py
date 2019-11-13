@@ -156,7 +156,7 @@ class Coordinator:
             the global model. Defaults to [].
         epochs (:obj:`int`, optional): Number of training iterations local to
             Participant.  Defaults to 0.
-        epochs_base (:obj:`int`, optional): Global number of epochs since last
+        epochs_base (:obj:`int`, optional): Global number of epochs as of last
             round. Defaults to 0.
         """
 
