@@ -65,7 +65,7 @@ install_requires = [
     "absl-py~=0.7",  # Apache 2.0
     "grpcio~=1.23",  # Apache License 2.0
     "protobuf~=3.9",  # 3-Clause BSD License
-    "numproto~=0.2",  # Apache License 2.0
+    "numproto~=0.3",  # Apache License 2.0
     "requests==2.22.0",  # Apache 2.0  # TODO(XP-185) remove
     "tensorflow==1.14.0",  # Apache 2.0  # TODO(XP-131) remove
 ]
