@@ -89,11 +89,15 @@ class ParticipantManager(stream_pb2_grpc.ParticipantManagerServicer):
     def __init__(self, participant_factory):
         self.participant_factory = participant_factory
         self.participants = []
+        self.cv = threading.Condition()
 
     def Connect(self, request_iterator, context):
         peer_id = context.peer()
         participant = self.participant_factory()
         self.participants.append(participant)
+
+        with self.cv:
+            self.cv.notify()
 
         print(f"Participant {peer_id} connected")
 
@@ -110,22 +114,17 @@ class ParticipantManager(stream_pb2_grpc.ParticipantManagerServicer):
             # Yielded proto message is send to client
             yield participant.proxy.process(request)
 
-    def get_participants(self, min_num_participants, check_interval=1):
-        """Returns num_participants"""
-        while True:
-            open_participant_proxies = [
-                p for p in self.participants if not p.proxy.closed
-            ]
+    def has_enough_participants(self, min_num_participants):
+        open_participant_proxies = [p for p in self.participants if not p.proxy.closed]
+        num_connected_participants = len(open_participant_proxies)
+        return num_connected_participants >= min_num_participants
 
-            num_connected_participants = len(open_participant_proxies)
+    def get_participants(self, min_num_participants):
+        """Returns min_num_participants participants"""
+        with self.cv:
+            self.cv.wait_for(lambda: self.has_enough_participants(min_num_participants))
 
-            if num_connected_participants >= min_num_participants:
-                break
-
-            time.sleep(check_interval)
-
-        print(f"num_connected: {num_connected_participants}/{min_num_participants}")
-
+        open_participant_proxies = [p for p in self.participants if not p.proxy.closed]
         return open_participant_proxies
 
 
