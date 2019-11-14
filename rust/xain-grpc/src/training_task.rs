@@ -24,7 +24,7 @@ impl IO for NullIO {
         println!("Outmessage: {:?}", msg);
         // ignore
     }
-    fn schedule_timeout(&mut self, duration: Duration) -> TimeoutToken {
+    fn schedule_timeout(&mut self, _duration: Duration) -> TimeoutToken {
         println!("Timeout Scheduled");
         TimeoutToken { on_cancel: Box::new(()) }
         // ignore
@@ -36,7 +36,7 @@ impl TrainingTask {
         let (sender, receiver) = mpsc::unbounded();
 
         let initial_model = vec![array![0.0, 0.0].into_dyn()];
-        let mut training = Training::new(TrainingParams {
+        let training = Training::new(TrainingParams {
             model_dim: vec![IxDyn(&[2])],
             initial_model: initial_model.clone(),
             n_participants: 1,
@@ -50,7 +50,7 @@ impl TrainingTask {
     pub async fn run(&mut self) {
         while let Some(message) = self.receiver.next().await {
             println!("Incoming Message: {:?}", message);
-            self.training.on_message(message, &mut NullIO);
+            self.training.on_message(message, &mut NullIO).unwrap();
         }
     }
 }

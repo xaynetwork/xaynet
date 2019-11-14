@@ -7,7 +7,6 @@ use async_std::task;
 use clap::{App, Arg};
 use futures::future::Future;
 use futures_channel::mpsc;
-use futures_util::stream::StreamExt;
 use grpcio::{Environment, ServerBuilder, ServerCredentialsBuilder};
 
 use xain_coordinator::training::{FromParticipant, InMessage};
@@ -20,6 +19,7 @@ use xain_grpc::training_task::TrainingTask;
 type DynError = Box<dyn std::error::Error + Send + Sync>;
 
 type Sender<T> = mpsc::UnboundedSender<T>;
+#[allow(dead_code)]
 type Receiver<T> = mpsc::UnboundedReceiver<T>;
 
 #[derive(Clone)]
