@@ -94,7 +94,7 @@ def test_end_training_round_update():
 
     coordinator.on_message(coordinator_pb2.EndTrainingRequest(), "peer1")
     # check we are still in round 1
-    assert coordinator.round == 1
+    assert coordinator.current_round == 1
     coordinator.on_message(coordinator_pb2.EndTrainingRequest(), "peer2")
 
     # check that round number was updated
