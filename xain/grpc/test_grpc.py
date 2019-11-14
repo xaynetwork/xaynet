@@ -14,7 +14,12 @@ from xain.grpc import (
     hellonumproto_pb2,
     hellonumproto_pb2_grpc,
 )
-from xain.grpc.coordinator import Coordinator, Participants, monitor_heartbeats
+from xain.grpc.coordinator import (
+    Coordinator,
+    CoordinatorGrpc,
+    Participants,
+    monitor_heartbeats,
+)
 from xain.grpc.participant import end_training, heartbeat, start_training
 
 # Some grpc tests fail on macos.
@@ -47,27 +52,19 @@ def test_participant_rendezvous_accept(participant_stub, coordinator_service):
     assert reply.response == coordinator_pb2.RendezvousResponse.ACCEPT
 
 
-def mocked_init(self, participants, required_participants=10):
-    """Sets `num_accepted_participants` to be the same as `required_participants` so that
-    the coordinator tells the client to try later.
-    """
-    self.required_participants = required_participants
-
-    # populate participants
-    participants = Participants()
-    for i in range(required_participants):
-        participants.add(str(i))
-    self.participants = participants
-
-
 # TODO: Fix test so it also runs correctly on macos
 @pytest.mark.integration
-@mock.patch("xain.grpc.coordinator.Coordinator.__init__", new=mocked_init)
 def test_participant_rendezvous_later(participant_stub):
+
+    # populate participants
+    coordinator = Coordinator()
+    required_participants = 10
+    for i in range(required_participants):
+        coordinator.participants.add(str(i))
 
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
     coordinator_pb2_grpc.add_CoordinatorServicer_to_server(
-        Coordinator(Participants()), server
+        CoordinatorGrpc(coordinator), server
     )
     server.add_insecure_port("localhost:50051")
     server.start()
@@ -95,8 +92,11 @@ def test_monitor_heartbeats(mock_participants_remove, _mock_sleep, _mock_event):
     participants.add("participant_1")
     participants.participants["participant_1"].heartbeat_expires = 0
 
+    coordinator = Coordinator()
+    coordinator.participants = participants
+
     terminate_event = threading.Event()
-    monitor_heartbeats(participants, terminate_event)
+    monitor_heartbeats(coordinator, terminate_event)
 
     mock_participants_remove.assert_called_once_with("participant_1")
 
@@ -108,8 +108,11 @@ def test_monitor_heartbeats_remove_participant(_mock_sleep, _mock_event):
     participants.add("participant_1")
     participants.participants["participant_1"].heartbeat_expires = 0
 
+    coordinator = Coordinator()
+    coordinator.participants = participants
+
     terminate_event = threading.Event()
-    monitor_heartbeats(participants, terminate_event)
+    monitor_heartbeats(coordinator, terminate_event)
 
     assert participants.len() == 0
 
@@ -130,44 +133,53 @@ def test_participant_heartbeat(mock_heartbeat_request, _mock_sleep, _mock_event)
 @pytest.mark.integration
 def test_start_training(coordinator_service):
     test_theta = [np.arange(10), np.arange(10, 20)]
+
     # set coordinator global model data
-    coordinator_service.epochs = 5
-    coordinator_service.epoch_base = 2
-    coordinator_service.theta = test_theta
+    coordinator_service.coordinator.epochs = 5
+    coordinator_service.coordinator.epoch_base = 2
+    coordinator_service.coordinator.theta = test_theta
+
     # simulate a participant communicating with coordinator via channel
     with grpc.insecure_channel("localhost:50051") as channel:
         # call startTraining service method on coordinator
         theta, epochs, epoch_base = start_training(channel)
-        # check global model received
-        assert epochs == 5
-        assert epoch_base == 2
-        np.testing.assert_equal(theta, test_theta)
+
+    # check global model received
+    assert epochs == 5
+    assert epoch_base == 2
+    np.testing.assert_equal(theta, test_theta)
 
 
 @pytest.mark.integration
 def test_end_training(coordinator_service):
-    assert not coordinator_service.theta_updates
-    assert not coordinator_service.histories
-    assert not coordinator_service.metricss
+    assert not coordinator_service.coordinator.theta_updates
+    assert not coordinator_service.coordinator.histories
+    assert not coordinator_service.coordinator.metricss
+
     # simulate trained local model data
     test_theta, num = [np.arange(20, 30), np.arange(30, 40)], 2
     his = {"aaa": [1.1, 2.1], "bbb": [3.1, 4.1]}
     mets = 1, [3, 4, 5]
+
     with grpc.insecure_channel("localhost:50051") as channel:
         # call endTraining service method on coordinator
         end_training(channel, (test_theta, num), his, mets)
     # check local model received...
-    assert len(coordinator_service.theta_updates) == 1
-    assert len(coordinator_service.histories) == 1
-    assert len(coordinator_service.metricss) == 1
+
+    assert len(coordinator_service.coordinator.theta_updates) == 1
+    assert len(coordinator_service.coordinator.histories) == 1
+    assert len(coordinator_service.coordinator.metricss) == 1
+
     # first the theta update
-    tu1, tu2 = coordinator_service.theta_updates[0]
+    tu1, tu2 = coordinator_service.coordinator.theta_updates[0]
     assert tu2 == num
     np.testing.assert_equal(tu1, test_theta)
+
     # history values are *floats* so a naive assert == won't do
-    h = coordinator_service.histories[0]
+    h = coordinator_service.coordinator.histories[0]
     assert h.keys() == his.keys()
     for k, vals in his.items():
         np.testing.assert_allclose(h[k], vals)
+
     # finally metrics
-    assert coordinator_service.metricss[0] == mets
+    assert coordinator_service.coordinator.metricss[0] == mets

@@ -23,14 +23,16 @@ message RendezvousReply {
 }
 
 enum State {
-  STANDBY =
-      0;      // Set by the coordinator to signal there is no round in progress
-  ROUND = 1;  // Set by the coordinator to signal what round is currently in
-              // progress
-  FINISHED = 2;  // Set by the coordinator to signal that the session is over
-  READY = 3;     // Set by the participant to signal that it is ready for work
-  TRAINING =
-      4;  // Set by the participant to signal that it is currently training
+  // Set by the coordinator to signal there is no round in progress
+  STANDBY = 0;
+  // Set by the coordinator to signal what round is currently in progress
+  ROUND = 1;
+  // Set by the coordinator to signal that the session is over
+  FINISHED = 2;
+  // Set by the participant to signal that it is ready for work
+  READY = 3;
+  // Set by the participant to signal that it is currently training
+  TRAINING = 4;
 }
 
 message HeartbeatRequest {
