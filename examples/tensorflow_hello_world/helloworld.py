@@ -63,9 +63,7 @@ def main(_):
     # xy_train_partitions: Each partition is the local training dataset of a single client.
     # xy_validation: Contains the global validation data (shared by all participants).
     # xy_test: Contains the global test data (shared by all participants).
-    xy_train_partitions, xy_validation, xy_test = load_splits(
-        "fashion-mnist-100p-iid-balanced"
-    )
+    xy_train_partitions, xy_validation, xy_test = load_splits(DATASET_NAME)
 
     # Declaring model architecture and compiling Keras model.
     model_fn = create_and_compile_model
