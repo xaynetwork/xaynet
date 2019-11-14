@@ -58,6 +58,16 @@ config = {
 def load_splits(
     dataset_name: str, get_local_datasets_dir=storage.default_get_local_datasets_dir
 ) -> FederatedDataset:
+    """Will load and return federated dataset
+
+        Args:
+            dataset_name (str): Name of dataset to be loaded. Valid names can be found
+                                in xain.datasets.dataset.config dict
+            get_local_datasets_dir (Callable): Function which returns the local_datasets_dir
+
+        Returns:
+            FederatedDataset
+    """
     return storage.load_splits(
         dataset_name=dataset_name, get_local_datasets_dir=get_local_datasets_dir
     )
