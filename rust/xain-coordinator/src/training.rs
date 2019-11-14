@@ -80,15 +80,15 @@ pub trait IO {
 
 /// Dropping `TimeoutToken` cancels the associated timeout.
 pub struct TimeoutToken {
-    pub on_cancel: Box<dyn Any>,
+    pub on_cancel: Box<dyn Any + Send + Sync>,
 }
 
 pub struct TrainingParams {
-    model_dim: ModelDim,
-    initial_model: Model,
-    n_participants: u32,
-    n_rounds: u32,
-    round_timeout: Duration,
+    pub model_dim: ModelDim,
+    pub initial_model: Model,
+    pub n_participants: u32,
+    pub n_rounds: u32,
+    pub round_timeout: Duration,
 }
 
 pub struct Training {
