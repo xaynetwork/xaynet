@@ -1,3 +1,12 @@
+"""Used as entry_point for console_script `aggregate` in `setup.py`.
+
+Expects the following flags:
+
+    - group_name
+
+Example:
+    aggregate --group_name=GROUP_NAME
+"""
 from absl import app, flags
 
 from benchmarks.benchmark.aggregation import aggregation

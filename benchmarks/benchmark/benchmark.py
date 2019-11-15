@@ -1,3 +1,5 @@
+"""Contains a set of benchmark scenarios expressed using a simple DSL.
+"""
 import os
 from tempfile import TemporaryDirectory
 from time import strftime
@@ -14,7 +16,17 @@ FLAGS = flags.FLAGS
 
 
 class Benchmark:
+    """DSL primitive used to represent a single benchmark scenario."""
+
     def __init__(self, tasks: List[Task], aggregation_name: str, runner: str = "ec2"):
+        """Initializes Benchmark.
+
+        Args:
+            tasks (List[Task]): List of tasks to be performed as part of the benchmark
+            aggregation_name (str): One of the aggregation names in
+                ~benchmarks.aggregation.aggregation.aggregations
+            runner (str): One of "ec2" or "docker"
+        """
         self.tasks = tasks
         self.aggregation_name = aggregation_name
         self.runner = runner
@@ -736,7 +748,7 @@ benchmarks: Dict[str, Benchmark] = {
 }
 
 
-def run_benchmark(benchmark_name: str):
+def _run_benchmark(benchmark_name: str):
     logging.info(f"Building Docker image for benchmark {benchmark_name}")
 
     logging.info(f"Starting benchmark {benchmark_name}")
@@ -755,7 +767,7 @@ def run_benchmark(benchmark_name: str):
     for task in benchmark.tasks:
         model_name = task.model_name
         dataset_name = task.dataset_name
-        run_task(
+        _run_task(
             docker_image_name=docker_image_name,
             group_name=group_name,
             task_name=task.name,
@@ -779,7 +791,7 @@ def run_benchmark(benchmark_name: str):
         results.push(group_name=group_name, task_name="", output_dir=tmpdir)
 
 
-def run_task(
+def _run_task(
     docker_image_name: str,
     group_name: str,
     task_name: str,
@@ -824,6 +836,9 @@ def run_task(
 
 
 def main(_):
+    """Used by ~benchmarks.train_remote.main to start a benchmark identified by
+        commandline flag `--benchmark_name`. Has to be invoked through abseil `app.run`.
+    """
     benchmark_name = FLAGS.benchmark_name
     assert benchmark_name in benchmarks
-    run_benchmark(benchmark_name=benchmark_name)
+    _run_benchmark(benchmark_name=benchmark_name)
