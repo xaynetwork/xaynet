@@ -1,8 +1,18 @@
 Network Architecture
 ====================
 
+.. literalinclude:: ../protobuf/xain/grpc/coordinator.proto
+    :language: proto
+
 Introduction
 ------------
+
+
+.. note::
+
+    This section should contain an overview of the network architecture
+    (coordinator, participant, grpc) mostly taken from the XP architecture
+    hackmd.
 
 **Participants:**
 - Clients
@@ -229,6 +239,11 @@ client side e.g. polling the coordinator for more tasks to perform.
 Coordinator
 -----------
 
+.. note::
+
+    This section should contain more specific details about the Coordinator
+    (state machine, implementation details)
+
 Supplementary thoughts about interaction between
 coordinator :math:`C` and a participant :math:`P`, given the gRPC-based
 setup described in *XP Network Architecture*. First let's consider the basic
@@ -269,6 +284,11 @@ structure.
 
 Participant
 -----------
+
+.. note::
+
+    This section should contain more specific details about the Participant
+    (state machine, implementation details, ...)
 
 Now the state transitions of a participant :math:`P`.
 
