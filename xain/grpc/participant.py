@@ -31,6 +31,7 @@ HEARTBEAT_TIME = 10
 class ParState(Enum):
     """Enumeration of Participant states.
     """
+
     WAITING_FOR_SELECTION = auto()
     TRAINING = auto()
     POST_TRAINING = auto()
