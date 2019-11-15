@@ -36,6 +36,7 @@ User Guide
    intro
    install
    quick
+   network_architecture
 
 
 API Documentation
