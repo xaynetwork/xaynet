@@ -1,8 +1,13 @@
 import numpy as np
+import pytest
 from numproto import proto_to_ndarray
 
 from xain.grpc import coordinator_pb2
-from xain.grpc.coordinator import Coordinator
+from xain.grpc.coordinator import (
+    Coordinator,
+    DuplicatedUpdateError,
+    UnknownParticipantError,
+)
 
 
 def test_rendezvous_accept():
@@ -34,7 +39,7 @@ def test_heartbeat_reply():
 
     # update the round and state of the coordinator and check again
     coordinator.state = coordinator_pb2.State.ROUND
-    coordinator.round = 10
+    coordinator.current_round = 10
     result = coordinator.on_message(coordinator_pb2.HeartbeatRequest(), "peer1")
 
     assert result.state == coordinator_pb2.State.ROUND
@@ -51,7 +56,7 @@ def test_state_standby_round():
     coordinator.on_message(coordinator_pb2.RendezvousRequest(), "peer1")
 
     assert coordinator.state == coordinator_pb2.State.ROUND
-    assert coordinator.round == 1
+    assert coordinator.current_round == 1
 
 
 def test_start_training():
@@ -75,9 +80,7 @@ def test_end_training():
 
     coordinator.on_message(coordinator_pb2.EndTrainingRequest(), "peer1")
 
-    assert len(coordinator.theta_updates) == 1
-    assert len(coordinator.histories) == 1
-    assert len(coordinator.metricss) == 1
+    assert len(coordinator.round.updates) == 1
 
 
 def test_end_training_round_update():
@@ -87,15 +90,15 @@ def test_end_training_round_update():
     coordinator.on_message(coordinator_pb2.RendezvousRequest(), "peer2")
 
     # check that we are currently in round 1
-    assert coordinator.round == 1
+    assert coordinator.current_round == 1
 
     coordinator.on_message(coordinator_pb2.EndTrainingRequest(), "peer1")
     # check we are still in round 1
-    assert coordinator.round == 1
+    assert coordinator.current_round == 1
     coordinator.on_message(coordinator_pb2.EndTrainingRequest(), "peer2")
 
     # check that round number was updated
-    assert coordinator.round == 2
+    assert coordinator.current_round == 2
 
 
 def test_end_training_reinitialize_local_models():
@@ -106,17 +109,13 @@ def test_end_training_reinitialize_local_models():
     coordinator.on_message(coordinator_pb2.EndTrainingRequest(), "peer1")
 
     # After one participant sends its updates we should have one update in the coordinator
-    assert len(coordinator.theta_updates) == 1
-    assert len(coordinator.histories) == 1
-    assert len(coordinator.metricss) == 1
+    assert len(coordinator.round.updates) == 1
 
     coordinator.on_message(coordinator_pb2.EndTrainingRequest(), "peer2")
 
     # once the second participant delivers its updates the round ends and the local models
     # are reinitialized
-    assert coordinator.theta_updates == []
-    assert coordinator.histories == []
-    assert coordinator.metricss == []
+    assert coordinator.round.updates == {}
 
 
 def test_training_finished():
@@ -128,3 +127,31 @@ def test_training_finished():
     coordinator.on_message(coordinator_pb2.EndTrainingRequest(), "peer1")
 
     assert coordinator.state == coordinator_pb2.State.FINISHED
+
+
+def test_wrong_participant():
+    # coordinator should not accept requests from participants that it has accepted
+    coordinator = Coordinator(required_participants=1)
+    coordinator.on_message(coordinator_pb2.RendezvousRequest(), "peer1")
+
+    with pytest.raises(UnknownParticipantError):
+        coordinator.on_message(coordinator_pb2.HeartbeatRequest(), "peer2")
+
+    with pytest.raises(UnknownParticipantError):
+        coordinator.on_message(coordinator_pb2.StartTrainingRequest(), "peer2")
+
+    with pytest.raises(UnknownParticipantError):
+        coordinator.on_message(coordinator_pb2.EndTrainingRequest(), "peer2")
+
+
+def test_duplicated_update_submit():
+    # the coordinator should not accept multiples updates from the same participant
+    # in the same round
+    coordinator = Coordinator(required_participants=2)
+    coordinator.on_message(coordinator_pb2.RendezvousRequest(), "peer1")
+    coordinator.on_message(coordinator_pb2.RendezvousRequest(), "peer2")
+
+    coordinator.on_message(coordinator_pb2.EndTrainingRequest(), "peer1")
+
+    with pytest.raises(DuplicatedUpdateError):
+        coordinator.on_message(coordinator_pb2.EndTrainingRequest(), "peer1")
