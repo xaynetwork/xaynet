@@ -6,4 +6,9 @@ root_dir = os.path.abspath(os.path.join(module_dir, "../../"))  # project root d
 
 
 def root() -> Path:
+    """Get project root directory
+    
+    Returns:
+        Path: path object for project root directory
+    """
     return Path(root_dir)
