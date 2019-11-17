@@ -1,7 +1,7 @@
 import os
 from typing import List, Optional, Tuple
 
-from absl import app, flags, logging
+from absl import flags, logging
 
 from benchmarks.helpers import storage
 from xain.types import PlotValues
@@ -12,7 +12,7 @@ from .results import GroupResult, TaskResult
 FLAGS = flags.FLAGS
 
 
-def read_task_values(task_result: TaskResult) -> Tuple[str, Optional[List[float]]]:
+def _read_task_values(task_result: TaskResult) -> Tuple[str, Optional[List[float]]]:
     """Reads unitary and federated accuracy from results.json
 
     Args:
@@ -35,7 +35,7 @@ def read_all_task_values(group_dir: str) -> List[Tuple[str, List[float]]]:
     """
     task_results = GroupResult(group_dir).get_results()
     # Reatur accuracies from each file and return list of values in tuples
-    all_tasks = [read_task_values(task_result) for task_result in task_results]
+    all_tasks = [_read_task_values(task_result) for task_result in task_results]
 
     federated_tasks = [
         (label, learning_rates)
@@ -46,7 +46,7 @@ def read_all_task_values(group_dir: str) -> List[Tuple[str, List[float]]]:
     return federated_tasks
 
 
-def prepare_aggregation_data(group_name: str) -> List[PlotValues]:
+def _prepare_aggregation_data(group_name: str) -> List[PlotValues]:
     """Constructs and returns learning rate curves
 
     Args:
@@ -69,17 +69,16 @@ def prepare_aggregation_data(group_name: str) -> List[PlotValues]:
 
 def aggregate() -> str:
     """Plots learning rate for federated tasks in a group
+    Expects FLAGS.group_name to be set
 
-    :param data: List of tuples which represent (name, values, indices)
-    :param fname: Filename of plot
-
-    :returns: Absolut path to saved plot
+    Returns:
+        str: Absolut path to saved plot
     """
     group_name = FLAGS.group_name
     dname = storage.create_output_subdir(group_name)
     fname = storage.fname_with_default_dir("plot_learning_rates.png", dname)
 
-    data = prepare_aggregation_data(group_name)
+    data = _prepare_aggregation_data(group_name)
 
     ylim_max: float = 0
     xlim_max = 0

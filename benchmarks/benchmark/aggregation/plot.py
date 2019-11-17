@@ -37,11 +37,16 @@ def plot(
     legend_loc: str = "lower right",
     vline: bool = False,
 ) -> str:
-    """
-    :param data: List of tuples where each represents a line in the plot
-                 with tuple beeing (name, values, Optional[indices])
+    """Wrapper for plt.plot so have uniform plots in the project
 
-    :returns: For save=True returns absolut path to saved file otherwise None
+    Args:
+        data (List[Tuple[name, values, Optional[indices]]]): List of tuples where each
+            represents a line in the plot with tuple
+            beeing (name, values, Optional[indices])
+        save (bool): Indicates if plot should be saved to disk. Defaults to True
+
+    Returns:
+        str: For save=True returns absolut path to saved file otherwise None
     """
     assert fname is not None
 

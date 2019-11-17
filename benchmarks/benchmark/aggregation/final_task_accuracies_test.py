@@ -38,7 +38,7 @@ def test_read_all_task_values(monkeypatch, group_name, results_dir):
         return task_result
 
     monkeypatch.setattr(
-        final_task_accuracies, "read_task_values", mock_read_task_values
+        final_task_accuracies, "_read_task_values", mock_read_task_values
     )
 
     # Execute
@@ -77,7 +77,9 @@ def test_plot_final_task_accuracies(output_dir, group_name, monkeypatch):
         return (data, (xticks_locations, xticks_labels))
 
     monkeypatch.setattr(
-        final_task_accuracies, "prepare_aggregation_data", mock_prepare_aggregation_data
+        final_task_accuracies,
+        "_prepare_aggregation_data",
+        mock_prepare_aggregation_data,
     )
 
     # Execute

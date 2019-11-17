@@ -30,7 +30,7 @@ def test_plot_task_accuracies(output_dir, group_name, monkeypatch):
         return data
 
     monkeypatch.setattr(
-        task_accuracies, "prepare_aggregation_data", mock_prepare_aggregation_data
+        task_accuracies, "_prepare_aggregation_data", mock_prepare_aggregation_data
     )
 
     # Execute

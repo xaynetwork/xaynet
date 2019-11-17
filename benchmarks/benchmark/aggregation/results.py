@@ -1,3 +1,7 @@
+"""Provides the classes TaskResult and GroupResult which wrap
+the results of a benchmark group and provide easy access to the
+results contained in the results.json files in each tasks results
+"""
 import os
 from abc import ABC
 from typing import List, Optional, cast
@@ -7,6 +11,8 @@ from xain.types import Metrics
 
 
 class TaskResult(ABC):
+    """Provides predictable access to task results"""
+
     def __init__(self, fname: str):
         self.data = storage.read_json(fname)
 
@@ -78,6 +84,8 @@ class TaskResult(ABC):
 
 
 class GroupResult(ABC):
+    """Provides predictable access to the results of all tasks in a group"""
+
     def __init__(self, group_dir: str):
         assert os.path.isdir(group_dir)
 
@@ -94,4 +102,11 @@ class GroupResult(ABC):
         self.task_results = [TaskResult(fname) for fname in json_files]
 
     def get_results(self) -> List[TaskResult]:
+        """Provides a list of TaskResult instances which will enable easy
+        access to the results of a benchmark scenario
+
+        Returns:
+            List[TaskResult]: Each item in the list corrosponds to one task in the
+                benchmark scenario
+        """
         return self.task_results

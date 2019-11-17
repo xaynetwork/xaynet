@@ -1,3 +1,6 @@
+"""Provides compositions of aggregation functions identified by unique names
+to be used in benchmark scenario configuration
+"""
 import os
 from typing import Callable, Dict
 
@@ -14,8 +17,8 @@ from benchmarks.helpers import storage
 FLAGS = flags.FLAGS
 
 
-def aggregate():
-    """Calls aggregation defined in group config.json"""
+def _aggregate():
+    """Calls aggregation defined in a benchmark groups config.json file"""
     fname = os.path.join(FLAGS.results_dir, FLAGS.group_name, "config.json")
     config = storage.read_json(fname)
 
@@ -24,14 +27,14 @@ def aggregate():
     aggregations[aggregation_name]()
 
 
-def flul_aggregation():
+def _flul_aggregation():
     logging.info("flul_aggregation started")
     task_accuracies.aggregate()
     learning_rate.aggregate()
     participant_hist.participant_history()
 
 
-def cpp_aggregation():
+def _cpp_aggregation():
     logging.info("cpp_aggregation started")
     task_accuracies.aggregate()
     final_task_accuracies.aggregate()
@@ -39,11 +42,15 @@ def cpp_aggregation():
 
 
 aggregations: Dict[str, Callable] = {
-    "flul-aggregation": flul_aggregation,
-    "cpp-aggregation": cpp_aggregation,
-    "vol-aggregation": flul_aggregation,
+    "flul-aggregation": _flul_aggregation,
+    "cpp-aggregation": _cpp_aggregation,
+    "vol-aggregation": _flul_aggregation,
 }
 
 
 def main(_):
-    aggregate()
+    """Used by ~benchmarks.aggregate.main to create an aggregation of benchmark results
+    identified  by the commandline flag `--group_name`. Has to be invoked through
+    abseil `app.run`.
+    """
+    _aggregate()
