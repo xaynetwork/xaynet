@@ -115,8 +115,3 @@ def aggregate() -> str:
     logging.info(f"Data plotted and saved in {fpath}")
 
     return fpath
-
-
-def app_run_aggregate():
-    flags.mark_flag_as_required("group_name")
-    app.run(main=lambda _: aggregate())
