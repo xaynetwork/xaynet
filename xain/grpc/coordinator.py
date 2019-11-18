@@ -160,7 +160,7 @@ class Round:
         """Valid a participant's update for the round.
 
         Args:
-            participant_id (:obj:`str`): The id of the peer making the request.
+            participant_id (:obj:`str`): The id of the participant making the request.
             theta_update (:obj:`tuple` of :obj:`list` of :class:`~numpy.ndarray`):
                 A tuple containing a list of updated weights.
             history (:obj:`dict`): TODO
@@ -279,33 +279,35 @@ class Coordinator:
         self.state = coordinator_pb2.State.STANDBY
         self.current_round = 0
 
+    # TODO: Already fixed on https://github.com/xainag/xain/pull/143
+    # pylint: disable-msg=too-many-branches
     def on_message(
-        self, message: GeneratedProtocolMessageType, peer_id: str
+        self, message: GeneratedProtocolMessageType, participant_id: str
     ) -> GeneratedProtocolMessageType:
         """Coordinator method that implements the state machine.
 
         Args:
             message (:class:`~.GeneratedProtocolMessageType`): A protobuf message.
-            peer_id (:obj:`str`): The id of the peer making the request.
+            participant_id (:obj:`str`): The id of the participant making the request.
 
         Returns:
-            :class:`~.GeneratedProtocolMessageType`: The reply to be sent back to the peer.
+            :class:`~.GeneratedProtocolMessageType`: The reply to be sent back to the participant.
 
         Raises:
             :class:`~UnknownParticipantError`: If it receives a request from an
             unknown participant. Typically a participant that has not
             rendezvous with the :class:`~.Coordinator`.
         """
-        logger.debug("Received: %s from %s", type(message), peer_id)
+        logger.debug("Received: %s from %s", type(message), participant_id)
 
         # Unless this is a RendezvousRequest the coordinator should not accept messages
         # from participants that have not been accepted
         if (
             not isinstance(message, coordinator_pb2.RendezvousRequest)
-            and peer_id not in self.participants.participants.keys()
+            and participant_id not in self.participants.participants.keys()
         ):
             raise UnknownParticipantError(
-                f"Unknown participant {peer_id}. "
+                f"Unknown participant {participant_id}. "
                 "Please try to rendezvous with the coordinator before making a request."
             )
 
@@ -315,9 +317,11 @@ class Coordinator:
 
             if self.participants.len() < self.required_participants:
                 response = coordinator_pb2.RendezvousResponse.ACCEPT
-                self.participants.add(peer_id)
+                self.participants.add(participant_id)
                 logger.info(
-                    "Accepted %s. Participants: %d", peer_id, self.participants.len()
+                    "Accepted %s. Participants: %d",
+                    participant_id,
+                    self.participants.len(),
                 )
 
                 # Change the state to ROUND if we are in STANDBY and already
@@ -332,7 +336,7 @@ class Coordinator:
                 response = coordinator_pb2.RendezvousResponse.LATER
                 logger.info(
                     "Reject participant %s. Participants: %d",
-                    peer_id,
+                    participant_id,
                     self.participants.len(),
                 )
 
@@ -341,7 +345,7 @@ class Coordinator:
         elif isinstance(message, coordinator_pb2.HeartbeatRequest):
             # Handle heartbeat
 
-            self.participants.update_expires(peer_id)
+            self.participants.update_expires(participant_id)
 
             # send heartbeat reply advertising the current state
             return coordinator_pb2.HeartbeatReply(
@@ -370,7 +374,7 @@ class Coordinator:
             theta_update = [proto_to_ndarray(pnda) for pnda in tp], num
             history = {k: list(hv.values) for k, hv in his.items()}
             metrics = (cid, list(vbc))
-            self.round.add_updates(peer_id, theta_update, history, metrics)
+            self.round.add_updates(participant_id, theta_update, history, metrics)
 
             # The round is over. Run the aggregation
             if self.round.is_finished():
@@ -390,6 +394,25 @@ class Coordinator:
 
         else:
             raise NotImplementedError
+
+    def remove_participant(self, participant_id: str) -> None:
+        """Remove a participant from the list of accepted participants.
+
+        This method is to be called when it is detected that a participant has
+        disconnected.
+
+        After a participant is removed if the number of remaining participants
+        is less than the number of required participants the
+        :class:`~.Coordinator` will transition to STANDBY state.
+
+        Args:
+            participant_id (:obj:`str`): The id of the participant to remove.
+        """
+        self.participants.remove(participant_id)
+        logger.info("Removing participant %s", participant_id)
+
+        if self.participants.len() < self.required_participants:
+            self.state = coordinator_pb2.State.STANDBY
 
 
 class CoordinatorGrpc(coordinator_pb2_grpc.CoordinatorServicer):
@@ -549,8 +572,7 @@ def monitor_heartbeats(
                 participants_to_remove.append(participant.participant_id)
 
         for participant_id in participants_to_remove:
-            coordinator.participants.remove(participant_id)
-            logger.info("Removing participant %s", participant_id)
+            coordinator.remove_participant(participant_id)
 
         next_expiration = coordinator.participants.next_expiration() - time.time()
 
