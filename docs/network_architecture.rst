@@ -324,25 +324,25 @@ also able to handle *selection*.
 
 .. mermaid::
 
-graph TB
-A( ) -.->|rendezvous| B(Wait for Selection)
-B -->|ROUND i| C(Training i)
-D -->|ROUND i+1| C
-C -.->|trained| D(Post-training i)
-D -->|FINISHED| E(Done)
-D -->|STANDBY| B
+   graph TB
+   A( ) -.->|rendezvous| B(Wait for Selection)
+   B -->|ROUND i| C(Training i)
+   D -->|ROUND i+1| C
+   C -.->|trained| D(Post-training i)
+   D -->|FINISHED| E(Done)
+   D -->|STANDBY| B
 
 
 
 After a successful rendezvous, :math:`P` is in **Wait for Selection**. :math:`P` waits in
 this state as long as it keeps receiving `STANDBY` heartbeats. At some round
-$i$, :math:`C` may select :math:`P` for the round by responding with a `ROUND` $i$
+$i$, :math:`C` may select :math:`P` for the round by responding with a `ROUND` :math:`i`
 heartbeat. At this point, :math:`P` moves to **Training** where the above sequence of
-training messages (`StartTraining` $\rightarrow \theta \rightarrow \theta'
-\rightarrow$ `EndTraining`) occur. Having received the `EndTraining` reply from
+training messages (`StartTraining` :math:`\rightarrow \theta \rightarrow \theta'
+\rightarrow` `EndTraining`) occur. Having received the `EndTraining` reply from
 :math:`C`, :math:`P` makes an "internal" transition to **Post-training** where it waits
 until the start of the next round. If it has been selected again, it will
-observe `ROUND` $i+1$. If not, it observes `STANDBY`. Alternatively, if round
-$i$ was the last, it instead sees `FINISHED` and :math:`P` is **Done**. Note that
+observe `ROUND` :math:`i+1`. If not, it observes `STANDBY`. Alternatively, if round
+:math:`i` was the last, it instead sees `FINISHED` and :math:`P` is **Done**. Note that
 `FINISHED` can also be observed from **Wait for Selection** but the transition
 from there to **Done** is omitted in the diagram just for sake of clarity.
