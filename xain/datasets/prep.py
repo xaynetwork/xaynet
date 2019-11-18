@@ -11,10 +11,31 @@ SEED = 2017
 def init_ds_train(
     xy: Partition, num_classes=10, batch_size=32, augmentation=False
 ) -> Dataset:
+    """Initializes federated train dataset partition. Will return a TensorFlow dataset.
+
+    Args:
+        xy (Partition): Tuple of two ndarrays corresponding to (examples, classes)
+        num_classes (int): Number of classes present in parition
+        batch_size (int): Number of examples in each batch
+        augmentation (bool): Enables automated augmentation of dataset e.g. random
+            cropping or random hue, saturation, brightness or contrast adjustment
+
+    Returns:
+        Dataset: TensorFlow dataset
+    """
     return _init_ds(xy, num_classes, batch_size, augmentation, shuffle=True)
 
 
 def init_ds_val(xy: Partition, num_classes=10) -> Dataset:
+    """Initializes validation partition. Will return a TensorFlow dataset.
+
+    Args:
+        xy (Partition): Tuple of two ndarrays corresponding to (examples, classes)
+        num_classes (int): Number of classes present in federated dataset partition
+
+    Returns:
+        Dataset: TensorFlow dataset
+    """
     batch_size = xy[0].shape[0]  # Return full dataset as one large batch
     return _init_ds(xy, num_classes, batch_size, augmentation=False, shuffle=False)
 
@@ -44,22 +65,42 @@ def _init_ds(
     # - Take random 32x32 (or 28x28) crop (after padding to 40x40 (or 32x32))
     # - Random horizontal flip
     if augmentation:
-        ds = augment_ds(ds, grayscale)
+        ds = _augment_ds(ds, grayscale)
     return batch_and_repeat(ds, batch_size, shuffle=shuffle, repeat=True)
 
 
 def to_dataset(x: np.ndarray, y: np.ndarray) -> Dataset:
+    """Creates a TensorFlow Dataset from two ndarrays
+
+    Args:
+        x (np.ndarray)
+        y (np.ndarray)
+
+    Returns:
+        Dataset
+    """
     return Dataset.from_tensor_slices((x, y))
 
 
 def prepare(ds: Dataset, num_classes: int) -> Dataset:
+    """Prepares dataset for training by
+    - Casting color channel values to float, divide by 255
+    - One-hot encode labels
+
+    Args:
+        ds (Dataset): TensorFlow Dataset
+        num_classes (int): Number of classes present in federated dataset partition
+
+    Returns:
+        Dataset
+    """
     ds = ds.map(lambda x, y: (x, _prep_cast_label(y)))
     ds = ds.map(lambda x, y: (_prep_cast_divide(x), y))
     ds = ds.map(lambda x, y: (x, _prep_one_hot(y, num_classes)))
     return ds
 
 
-def augment_ds(ds: Dataset, grayscale: bool) -> Dataset:
+def _augment_ds(ds: Dataset, grayscale: bool) -> Dataset:
     if not grayscale:
         ds = ds.map(
             lambda x, y: (_random_hue_saturation_brightness_contrast(x), y),
@@ -82,6 +123,19 @@ def augment_ds(ds: Dataset, grayscale: bool) -> Dataset:
 def batch_and_repeat(
     ds: Dataset, batch_size: int, shuffle: bool, repeat: bool
 ) -> Dataset:
+    """Helper method for to apply tensorflow shuffle, repeat and
+    batch (in this order)
+
+    Args:
+        ds (Dataset): Tensorflow Dataset
+        batch_size (int): Will call ds.batch(batch_size, drop_remainder=False)
+            if batch_size is greater zero
+        shuffle (int): Will call ds.shuffle(1024)
+        repeat (bool): Will call ds.repeat()
+
+    Returns:
+        Dataset
+    """
     ds = ds.prefetch(buffer_size=AUTOTUNE)
     if shuffle:
         ds = ds.shuffle(1024, seed=SEED)
