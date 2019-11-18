@@ -289,8 +289,6 @@ class Coordinator:
         self.state = coordinator_pb2.State.STANDBY
         self.current_round = 0
 
-    # TODO: Already fixed on https://github.com/xainag/xain/pull/143
-    # pylint: disable-msg=too-many-branches
     def on_message(
         self, message: GeneratedProtocolMessageType, participant_id: str
     ) -> GeneratedProtocolMessageType:
