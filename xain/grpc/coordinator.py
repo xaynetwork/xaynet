@@ -3,6 +3,7 @@
 This module implements the Coordinator state machine, the Coordinator gRPC
 service and helper class to keep state about the Participants.
 """
+import os
 import threading
 import time
 from concurrent import futures
@@ -15,6 +16,11 @@ from numproto import ndarray_to_proto, proto_to_ndarray
 
 from xain.fl.coordinator.aggregate import Aggregator, FederatedAveragingAgg
 from xain.grpc import coordinator_pb2, coordinator_pb2_grpc
+from xain.logger import get_logger
+
+logger = get_logger(
+    "xain.grpc.coordinator", level=os.environ.get("XAIN_LOGLEVEL", "INFO")
+)
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 HEARTBEAT_TIME = 10
@@ -290,7 +296,7 @@ class Coordinator:
             unknown participant. Typically a participant that has not
             rendezvous with the :class:`~.Coordinator`.
         """
-        print(f"Received: {type(message)} from {peer_id}")
+        logger.debug("Received: %s from %s", type(message), peer_id)
 
         # Unless this is a RendezvousRequest the coordinator should not accept messages
         # from participants that have not been accepted
@@ -310,9 +316,8 @@ class Coordinator:
             if self.participants.len() < self.required_participants:
                 response = coordinator_pb2.RendezvousResponse.ACCEPT
                 self.participants.add(peer_id)
-                print(
-                    f"Accepted participant {peer_id}"
-                    f" # participants: {self.participants.len()}"
+                logger.info(
+                    "Accepted %s. Participants: %d", peer_id, self.participants.len()
                 )
 
                 # Change the state to ROUND if we are in STANDBY and already
@@ -325,9 +330,10 @@ class Coordinator:
                     )
             else:
                 response = coordinator_pb2.RendezvousResponse.LATER
-                print(
-                    f"Rejected participant {peer_id}"
-                    f" # participants: {self.participants.len()}"
+                logger.info(
+                    "Reject participant %s. Participants: %d",
+                    peer_id,
+                    self.participants.len(),
                 )
 
             return coordinator_pb2.RendezvousReply(response=response)
@@ -368,7 +374,7 @@ class Coordinator:
 
             # The round is over. Run the aggregation
             if self.round.is_finished():
-                print(f"Running aggregation for round {self.current_round}")
+                logger.info("Running aggregation for round %d", self.current_round)
                 self.theta = self.aggregator.aggregate(self.round.get_theta_updates())
 
                 # update the round or finish the training session
@@ -535,7 +541,7 @@ def monitor_heartbeats(
     """
 
     while not terminate_event.is_set():
-        print("Monitoring heartbeats")
+        logger.info("Heartbeat monitor starting...")
         participants_to_remove = []
 
         for participant in coordinator.participants.participants.values():
@@ -544,11 +550,11 @@ def monitor_heartbeats(
 
         for participant_id in participants_to_remove:
             coordinator.participants.remove(participant_id)
-            print(f"Removing participant {participant_id}")
+            logger.info("Removing participant %s", participant_id)
 
         next_expiration = coordinator.participants.next_expiration() - time.time()
 
-        print(f"Monitoring heartbeats in {next_expiration:.2f}s")
+        logger.debug("Monitoring heartbeats in %.2f", next_expiration)
         time.sleep(next_expiration)
 
 
@@ -572,7 +578,7 @@ def serve() -> None:
     server.start()
     monitor_thread.start()
 
-    print("Coordinator waiting for connections...")
+    logger.info("Coordinator waiting for connections...")
 
     try:
         while True:

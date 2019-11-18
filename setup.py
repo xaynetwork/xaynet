@@ -62,7 +62,7 @@ class CustomDevelopCommand(develop):
 install_requires = [
     "typing-extensions~=3.7",  # PSF
     "numpy~=1.15",  # BSD
-    "absl-py~=0.7",  # Apache 2.0
+    "absl-py~=0.8",  # Apache 2.0
     "grpcio~=1.23",  # Apache License 2.0
     "protobuf~=3.9",  # 3-Clause BSD License
     "numproto~=0.3",  # Apache License 2.0
