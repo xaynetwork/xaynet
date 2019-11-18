@@ -311,17 +311,6 @@ class Coordinator:
                 "Please try to rendezvous with the coordinator before making a request."
             )
 
-        # Unless this is a RendezvousRequest the coordinator should not accept messages
-        # from participants that have not been accepted
-        if (
-            not isinstance(message, coordinator_pb2.RendezvousRequest)
-            and participant_id not in self.participants.participants.keys()
-        ):
-            raise UnknownParticipantError(
-                f"Unknown participant {participant_id}. "
-                "Please try to rendezvous with the coordinator before making a request."
-            )
-
         # pylint: disable-msg=no-else-return
         if isinstance(message, coordinator_pb2.RendezvousRequest):
             # Handle rendezvous
