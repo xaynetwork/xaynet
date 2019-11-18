@@ -1,3 +1,6 @@
+"""Provides implementations of a few standard neural network architectures and associated
+learning rate schedules.
+"""
 from typing import Callable, Dict
 
 import tensorflow as tf
@@ -23,6 +26,14 @@ lr_fns: Dict = {
 
 
 def load_model_fn(model_name: str) -> Callable[[], tf.keras.Model]:
+    """Returns a function which can be used to create a Keras model.
+
+    Args:
+        model_name (str): One of ~benchmarks.benchmark.net.model_fns
+
+    Returns:
+        Callable[[], tf.keras.Model]
+    """
     assert (
         model_name in model_fns
     ), f"Model name '{model_name}' not in {model_fns.keys()}"
@@ -30,5 +41,13 @@ def load_model_fn(model_name: str) -> Callable[[], tf.keras.Model]:
 
 
 def load_lr_fn_fn(model_name: str) -> Callable:
+    """Returns a function which can be used to obtain a learning rate schedule.
+
+    Args:
+        model_name (str): One of ~benchmarks.benchmark.net.lr_fns
+
+    Returns:
+        Callable
+    """
     assert model_name in lr_fns, f"Model name '{model_name}' not in {lr_fns.keys()}"
     return lr_fns[model_name]

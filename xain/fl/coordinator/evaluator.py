@@ -7,6 +7,8 @@ from xain.types import Partition, Theta
 
 
 class Evaluator:
+    """Evaluates the model performance on a given data partition."""
+
     def __init__(self, model: tf.keras.Model, xy_val: Partition) -> None:
         self.model = model
         self.ds_val = prep.init_ds_val(xy_val)

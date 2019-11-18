@@ -37,7 +37,7 @@ def test_plot_learning_rate(output_dir, group_name, monkeypatch):
         return data
 
     monkeypatch.setattr(
-        learning_rate, "prepare_aggregation_data", mock_prepare_aggregation_data
+        learning_rate, "_prepare_aggregation_data", mock_prepare_aggregation_data
     )
 
     # Execute

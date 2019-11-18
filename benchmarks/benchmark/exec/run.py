@@ -55,7 +55,7 @@ def unitary_training(
     theta = model.get_weights()
 
     # Train model
-    hist = participant.fit(model, E, [])
+    hist = participant._fit(model, E, [])  # pylint: disable-msg=protected-access
 
     # Evaluate final performance
     theta = model.get_weights()

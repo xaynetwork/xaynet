@@ -11,6 +11,8 @@ DEFAULT_TIMEOUT = 60
 
 # pylint: disable-msg=too-many-instance-attributes
 class Task(ABC):
+    """DSL primitive used to represent a single benchmark task."""
+
     def __init__(
         self,
         name: str,

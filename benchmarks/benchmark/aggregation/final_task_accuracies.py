@@ -1,7 +1,7 @@
 import os
 from typing import Dict, List, Optional, Tuple
 
-from absl import app, flags, logging
+from absl import flags, logging
 
 from benchmarks.helpers import storage
 from xain.types import PlotValues, XticksLabels, XticksLocations
@@ -12,7 +12,7 @@ from .results import GroupResult, TaskResult
 FLAGS = flags.FLAGS
 
 
-def read_task_values(task_result: TaskResult) -> Tuple[bool, str, float]:
+def _read_task_values(task_result: TaskResult) -> Tuple[bool, str, float]:
     """Reads unitary and federated accuracy from results.json
 
     Args:
@@ -39,7 +39,7 @@ def read_all_task_values(group_dir: str) -> List[Tuple[bool, str, float]]:
     """
     task_results = GroupResult(group_dir).get_results()
     # Read accuracies from each file and return list of values in tuples
-    return [read_task_values(task_result) for task_result in task_results]
+    return [_read_task_values(task_result) for task_result in task_results]
 
 
 def group_values_by_class(
@@ -57,7 +57,7 @@ def group_values_by_class(
     return grouped_values
 
 
-def prepare_aggregation_data(
+def _prepare_aggregation_data(
     group_name: str
 ) -> Tuple[List[PlotValues], Optional[Tuple[XticksLocations, XticksLabels]]]:
     """Constructs and returns curves and xticks_args.
@@ -94,17 +94,16 @@ def prepare_aggregation_data(
 
 def aggregate() -> str:
     """Plots IID and Non-IID dataset performance comparision
+    Expects FLAGS.group_name to be set
 
-    :param data: List of tuples which represent (name, values, indices)
-    :param fname: Filename of plot
-
-    :returns: Absolut path to saved plot
+    Returns:
+        str: Absolut path to saved plot
     """
     group_name = FLAGS.group_name
     dname = storage.create_output_subdir(group_name)
     fname = storage.fname_with_default_dir("plot_final_task_accuracies.png", dname)
 
-    (data, xticks_args) = prepare_aggregation_data(group_name)
+    (data, xticks_args) = _prepare_aggregation_data(group_name)
 
     assert len(data) == 2, "Expecting a list of two curves"
 
@@ -123,8 +122,3 @@ def aggregate() -> str:
     logging.info(f"Data plotted and saved in {fpath}")
 
     return fpath
-
-
-def app_run_aggregate():
-    flags.mark_flag_as_required("group_name")
-    app.run(main=lambda _: aggregate())

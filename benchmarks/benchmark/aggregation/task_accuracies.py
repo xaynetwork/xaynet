@@ -1,7 +1,7 @@
 import os
 from typing import List, Tuple
 
-from absl import app, flags, logging
+from absl import flags, logging
 
 from benchmarks.helpers import storage
 from xain.types import PlotValues
@@ -12,7 +12,7 @@ from .results import GroupResult, TaskResult
 FLAGS = flags.FLAGS
 
 
-def read_task_values(task_result: TaskResult) -> Tuple[bool, str, List[float], int]:
+def _read_task_values(task_result: TaskResult) -> Tuple[bool, str, List[float], int]:
     """Reads unitary and federated accuracy from results.json.
 
     Args:
@@ -51,7 +51,7 @@ def read_all_task_values(group_dir: str) -> List[Tuple[bool, str, List[float], i
     """
     task_results = GroupResult(group_dir).get_results()
     # Read accuracies from each file and return list of values in tuples
-    return [read_task_values(task_result) for task_result in task_results]
+    return [_read_task_values(task_result) for task_result in task_results]
 
 
 def build_plot_values(values: Tuple[bool, str, List[float], int]) -> PlotValues:
@@ -66,7 +66,7 @@ def build_plot_values(values: Tuple[bool, str, List[float], int]) -> PlotValues:
     return (task_label, task_accuracies, indices)
 
 
-def prepare_aggregation_data(group_name: str) -> List[PlotValues]:
+def _prepare_aggregation_data(group_name: str) -> List[PlotValues]:
     """Constructs and returns curves and xticks_args
 
     Args:
@@ -87,18 +87,17 @@ def prepare_aggregation_data(group_name: str) -> List[PlotValues]:
 
 
 def aggregate() -> str:
-    """
-    :param data: List of tuples where each represents a line in the plot
-                 with tuple beeing (name, values, indices)
-    :param fname: Filename of plot
+    """Plots task accuracies for all federated tasks in a group
+    Expects FLAGS.group_name to be set
 
-    :returns: Absolut path to saved plot
+    Returns:
+        str: Absolut path to saved plot
     """
     group_name = FLAGS.group_name
     dname = storage.create_output_subdir(group_name)
     fname = storage.fname_with_default_dir("plot_task_accuracies.png", dname)
 
-    data = prepare_aggregation_data(group_name)
+    data = _prepare_aggregation_data(group_name)
 
     # Take highest length of values list as xlim_max
     xlim_max = max([len(values) for _, values, _ in data]) + 1
@@ -115,8 +114,3 @@ def aggregate() -> str:
     logging.info(f"Data plotted and saved in {fpath}")
 
     return fpath
-
-
-def app_run_aggregate():
-    flags.mark_flag_as_required("group_name")
-    app.run(main=lambda _: aggregate())

@@ -1,3 +1,7 @@
+"""Extensive benchmark suite to evaluate convergence properties of federated learning
+in different settings. The main module in which those scenarious are configured is
+`benchmark.py`.
+"""
 from absl import flags
 
 from .benchmark import benchmarks

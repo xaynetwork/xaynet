@@ -5,7 +5,7 @@ import pytest
 from xain.datasets import load_splits
 
 # from .model_provider import ModelProvider  # FIXME refactor
-from .participant import Participant, xy_train_volume_by_class
+from .participant import Participant, _xy_train_volume_by_class
 
 
 def test_Participant_x_y_shape_valid():
@@ -93,7 +93,7 @@ def test_xy_train_volume_by_class(num_classes_total, num_classes_in_partition):
     xy_train = (x_train, y_train)
 
     # Execute
-    result = xy_train_volume_by_class(num_classes=num_classes_total, xy_train=xy_train)
+    result = _xy_train_volume_by_class(num_classes=num_classes_total, xy_train=xy_train)
 
     # Assert
     assert len(result) == num_classes_total
@@ -129,7 +129,7 @@ def test_xy_train_volume_by_class_with_federated_dataset():
     # Execute
     for xy_train in xy_partitions:
         _, y_train = xy_train
-        r = xy_train_volume_by_class(num_classes=num_classes_total, xy_train=xy_train)
+        r = _xy_train_volume_by_class(num_classes=num_classes_total, xy_train=xy_train)
         results.append(r)
 
     # Assert

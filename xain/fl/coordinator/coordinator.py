@@ -1,3 +1,7 @@
+"""Class Coordinator orchestrates federated learning over a number of participants
+using a selection strategy (implemented through Controller sub-class) and an aggregation
+method (implemented through Aggregator sub-class).
+"""
 import concurrent.futures
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
@@ -6,7 +10,6 @@ import tensorflow as tf
 from absl import flags, logging
 
 from xain.datasets import prep
-from xain.fl.coordinator.controller import Controller
 from xain.fl.logging.logging import create_summary_writer, write_summaries
 from xain.fl.participant import ModelProvider, Participant
 from xain.types import History, Metrics, Partition, Theta
@@ -17,6 +20,8 @@ FLAGS = flags.FLAGS
 
 
 class Coordinator:
+    """Central class of federated learning."""
+
     # pylint: disable-msg=too-many-arguments
     # pylint: disable=too-many-instance-attributes
     def __init__(
@@ -29,6 +34,18 @@ class Coordinator:
         xy_val: Partition,
         aggregator: Optional[Aggregator] = None,
     ) -> None:
+        """Initializes coordinator.
+
+        Args:
+            controller (Controller): Required selection strategy
+            model_provider (ModelProvider)
+            participants (List[Participant])
+            C (float): Fraction of participants selected in each round
+            E (int): Number of epochs in each round
+            xy_val (Partition): Validation data partition
+            aggregator (Optional[Aggregator] = None): Optional aggreation method, defaults
+                to FederatedAveragingAgg
+        """
         self.controller = controller
         self.model = model_provider.init_model()
         self.participants = participants
@@ -44,6 +61,14 @@ class Coordinator:
     def fit(
         self, num_rounds: int
     ) -> Tuple[History, List[List[History]], List[List[Dict]], List[List[Metrics]]]:
+        """Performs federated learning for a given number of rounds.
+
+        Args:
+            num_rounds (int): Number of rounds to run the federated learning
+
+        Returns:
+            Tuple[History, List[List[History]], List[List[Dict]], List[List[Metrics]]]
+        """
         # Initialize history; history coordinator
         hist_co: History = {"val_loss": [], "val_acc": []}
         # Train rounds; training history of selected participants
@@ -61,7 +86,7 @@ class Coordinator:
 
         for r in range(num_rounds):
             # Determine who participates in this round
-            num_indices = abs_C(self.C, self.num_participants())
+            num_indices = _abs_C(self.C, self.num_participants())
             indices = self.controller.indices(num_indices)
             msg = f"Round {r+1}/{num_rounds}: Participants {indices}"
             logging.info(msg)
@@ -99,6 +124,15 @@ the console and open "localhost:6006" in a browser'.format(
     def fit_round(
         self, indices: List[int], E: int
     ) -> Tuple[List[History], List[Dict], List[Metrics]]:
+        """Performs a single round of federated learning.
+
+        Args:
+            indices (List[int]): Selected indices for round.
+            E (int): Number of local epochs to train.
+
+        Returns:
+            Tuple[List[History], List[Dict], List[Metrics]]
+        """
         theta = self.model.get_weights()
         participants = [self.participants[i] for i in indices]
         # Collect training results from the participants of this round
@@ -115,7 +149,17 @@ the console and open "localhost:6006" in a browser'.format(
     def train_local_sequentially(
         self, theta: Theta, participants: List[Participant], E: int
     ) -> Tuple[List[Tuple[Theta, int]], List[History], List[Dict], List[Metrics]]:
-        """Train on each participant sequentially"""
+        """Train on each participant sequentially.
+
+        Args:
+            theta (Theta): Current global model parameters
+            participants (List[Participant]): Selected participants
+            E (int): Number of local training epochs
+
+        Returns:
+            Tuple[List[Tuple[Theta, int]], List[History], List[Dict], List[Metrics]]: Theta
+                primes, local training histories, optimizer configs, training metrics
+        """
         theta_updates: List[Tuple[Theta, int]] = []
         histories: List[History] = []
         opt_configs: List[Dict] = []
@@ -138,7 +182,17 @@ the console and open "localhost:6006" in a browser'.format(
     def train_local_concurrently(
         self, theta: Theta, participants: List[Participant], E: int
     ) -> Tuple[List[Tuple[Theta, int]], List[History], List[Dict], List[Metrics]]:
-        """Train on each participant concurrently"""
+        """Train on each participant concurrently.
+
+        Args:
+            theta (Theta): Current global model parameters
+            participants (List[Participant]): Selected participants
+            E (int): Number of local training epochs
+
+        Returns:
+            Tuple[List[Tuple[Theta, int]], List[History], List[Dict], List[Metrics]]: Theta
+                primes, local training histories, optimizer configs, training metrics
+        """
         theta_updates: List[Tuple[Theta, int]] = []
         histories: List[History] = []
         opt_configs: List[Dict] = []
@@ -146,7 +200,7 @@ the console and open "localhost:6006" in a browser'.format(
         # Wait for all futures to complete
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future_results = [
-                executor.submit(train_local, p, theta, E, self.epoch)
+                executor.submit(_train_local, p, theta, E, self.epoch)
                 for p in participants
             ]
             concurrent.futures.wait(future_results)
@@ -159,6 +213,14 @@ the console and open "localhost:6006" in a browser'.format(
         return theta_updates, histories, opt_configs, train_metrics
 
     def evaluate(self, xy_val: Partition) -> Tuple[float, float]:
+        """Evaluate the global model using the provided validation data.
+
+        Args:
+            xy_val (Partition)
+
+        Returns:
+            Tuple[float, float]: Loss and accuracy
+        """
         ds_val = prep.init_ds_val(xy_val)
         # Assume the validation `tf.data.Dataset` to yield exactly one batch containing
         # all examples in the validation set
@@ -166,10 +228,15 @@ the console and open "localhost:6006" in a browser'.format(
         return float(loss), float(accuracy)
 
     def num_participants(self) -> int:
+        """Returns number of participants
+
+        Returns:
+            int
+        """
         return len(self.participants)
 
 
-def train_local(
+def _train_local(
     p: Participant, theta: Theta, epochs: int, epoch_base: int
 ) -> Tuple[Tuple[Theta, int], History, Dict, Metrics]:
     theta_update, history, opt_config = p.train_round(
@@ -179,11 +246,11 @@ def train_local(
     return theta_update, history, opt_config, metrics
 
 
-def abs_C(C: float, num_participants: int) -> int:
+def _abs_C(C: float, num_participants: int) -> int:
     return int(min(num_participants, max(1, C * num_participants)))
 
 
-def create_evalueate_fn(
+def _create_evalueate_fn(
     orig_model: tf.keras.Model, xy_val: Partition
 ) -> Callable[[Theta], Tuple[float, float]]:
     ds_val = prep.init_ds_val(xy_val)
@@ -202,20 +269,3 @@ def create_evalueate_fn(
         return model.evaluate(ds_val, steps=1)
 
     return fn
-
-
-class SimpleCoordinator:
-    def __init__(
-        self,
-        controller: Controller,
-        num_participants: int,
-        C: float,
-        E: int,
-        aggregator: Optional[Aggregator] = None,
-    ):
-        self.controller = controller
-        self.num_participants = num_participants
-        self.C = C
-        self.E = E
-        self.aggregator = aggregator if aggregator else FederatedAveragingAgg()
-        self.epoch = 0  # Count training epochs
