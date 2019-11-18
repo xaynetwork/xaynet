@@ -44,4 +44,5 @@ API Documentation
 .. toctree::
     :maxdepth: 1
 
-    _code_reference/index
+    _code_reference_xain/index
+    _code_reference_benchmarks/index
