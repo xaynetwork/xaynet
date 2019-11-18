@@ -148,14 +148,12 @@ After a `train_round`, the coordinator also needs to invoke a participant's `met
 * `Metrics = Tuple[int, VolumeByClass]`
 * `VolumeByClass = List[int]`
 
-Useful comments from RM:
-
->We just need to keep in mind that with gRPC since the coordinator is the service all calls need to be initiated by the client. So we will need for the participant to poll the coordinator for the beginning of the round.
+We just need to keep in mind that with gRPC since the coordinator is the service all calls need to be initiated by the client. So we will need for the participant to poll the coordinator for the beginning of the round.
 Also if the client needs to send some metrics at the end of a round maybe the last two messages could be combined. The participant would send the updates and metrics in the same call
 
 ---
 
-### gRPC server side connection management
+**gRPC server side connection management**
 
 In the context of the _xain_ project the coordinator is responsible for keeping
 track of its connected participants that may be performing long running tasks.
@@ -320,3 +318,31 @@ or discarding any training already started). Or worse, if the connection with
 :math:`C` is lost, :math:`P` goes back to Discovery.
 
 
+The following is a more refined picture of the :math:`P` state machine. It focuses on
+the state transitions in response to heartbeat messages described above, and is
+also able to handle *selection*.
+
+.. mermaid::
+
+graph TB
+A( ) -.->|rendezvous| B(Wait for Selection)
+B -->|ROUND i| C(Training i)
+D -->|ROUND i+1| C
+C -.->|trained| D(Post-training i)
+D -->|FINISHED| E(Done)
+D -->|STANDBY| B
+
+
+
+After a successful rendezvous, :math:`P` is in **Wait for Selection**. :math:`P` waits in
+this state as long as it keeps receiving `STANDBY` heartbeats. At some round
+$i$, :math:`C` may select :math:`P` for the round by responding with a `ROUND` $i$
+heartbeat. At this point, :math:`P` moves to **Training** where the above sequence of
+training messages (`StartTraining` $\rightarrow \theta \rightarrow \theta'
+\rightarrow$ `EndTraining`) occur. Having received the `EndTraining` reply from
+:math:`C`, :math:`P` makes an "internal" transition to **Post-training** where it waits
+until the start of the next round. If it has been selected again, it will
+observe `ROUND` $i+1$. If not, it observes `STANDBY`. Alternatively, if round
+$i$ was the last, it instead sees `FINISHED` and :math:`P` is **Done**. Note that
+`FINISHED` can also be observed from **Wait for Selection** but the transition
+from there to **Done** is omitted in the diagram just for sake of clarity.
