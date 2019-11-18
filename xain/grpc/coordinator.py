@@ -279,6 +279,8 @@ class Coordinator:
         self.state = coordinator_pb2.State.STANDBY
         self.current_round = 0
 
+    # TODO: Already fixed on https://github.com/xainag/xain/pull/143
+    # pylint: disable-msg=too-many-branches
     def on_message(
         self, message: GeneratedProtocolMessageType, participant_id: str
     ) -> GeneratedProtocolMessageType:
@@ -313,7 +315,7 @@ class Coordinator:
         # from participants that have not been accepted
         if (
             not isinstance(message, coordinator_pb2.RendezvousRequest)
-            and peer_id not in self.participants.participants.keys()
+            and participant_id not in self.participants.participants.keys()
         ):
             raise Exception
 
