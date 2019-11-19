@@ -95,7 +95,7 @@ def test_heartbeat_denied(participant_stub, coordinator_service):
 
 @mock.patch("threading.Event.is_set", side_effect=[False, True])
 @mock.patch("time.sleep", return_value=None)
-@mock.patch("xain.grpc.coordinator.Participants.remove")
+@mock.patch("xain.grpc.coordinator.Coordinator.remove_participant")
 def test_monitor_heartbeats(mock_participants_remove, _mock_sleep, _mock_event):
     participants = Participants()
     participants.add("participant_1")
@@ -144,6 +144,7 @@ def test_start_training(coordinator_service):
     test_theta = [np.arange(10), np.arange(10, 20)]
 
     # set coordinator global model data
+    coordinator_service.coordinator.required_participants = 1
     coordinator_service.coordinator.epochs = 5
     coordinator_service.coordinator.epoch_base = 2
     coordinator_service.coordinator.theta = test_theta
@@ -163,11 +164,21 @@ def test_start_training(coordinator_service):
 
 @pytest.mark.integration
 def test_start_training_denied(participant_stub, coordinator_service):
-    # heartbeat requests are only allowed if the participant has already
+    # start training requests are only allowed if the participant has already
     # rendezvous with the coordinator
     with pytest.raises(grpc.RpcError):
         reply = participant_stub.StartTraining(coordinator_pb2.StartTrainingRequest())
         assert reply.status_code == grpc.StatusCode.PERMISSION_DENIED
+
+
+@pytest.mark.integration
+def test_start_training_failed_precondition(participant_stub, coordinator_service):
+    # start training requests are only allowed if the coordinator is in the
+    # ROUND state
+    participant_stub.Rendezvous(coordinator_pb2.RendezvousRequest())
+    with pytest.raises(grpc.RpcError):
+        reply = participant_stub.StartTraining(coordinator_pb2.StartTrainingRequest())
+        assert reply.status_code == grpc.StatusCode.FAILED_PRECONDITION
 
 
 @pytest.mark.integration
