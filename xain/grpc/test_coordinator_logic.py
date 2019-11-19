@@ -6,6 +6,7 @@ from xain.grpc import coordinator_pb2
 from xain.grpc.coordinator import (
     Coordinator,
     DuplicatedUpdateError,
+    InvalidRequestError,
     UnknownParticipantError,
 )
 
@@ -70,6 +71,16 @@ def test_start_training():
     received_theta = [proto_to_ndarray(nda) for nda in result.theta]
 
     np.testing.assert_equal(test_theta, received_theta)
+
+
+def start_training_wrong_state():
+    # if the coordinator receives a StartTraining request while not in the
+    # ROUND state it will raise an exception
+    coordinator = Coordinator(required_participants=2)
+    coordinator.on_message(coordinator_pb2.RendezvousRequest(), "participant1")
+
+    with pytest.raises(InvalidRequestError):
+        coordinator.on_message(coordinator_pb2.StartTrainingRequest(), "participant1")
 
 
 def test_end_training():

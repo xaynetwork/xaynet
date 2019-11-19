@@ -35,9 +35,19 @@ class DuplicatedUpdateError(Exception):
 
 class UnknownParticipantError(Exception):
     """Exception raised when a participant that is unknown to the
-    :class:`~.Coordinator` makes a request. Typically this means that a
-    participant tries to make a request before it has successfully rendezvous
-    with the :class:`~.Coordinator`.
+    :class:`~.Coordinator` makes a request.
+
+    Typically this means that a participant tries to make a request before it
+    has successfully rendezvous with the :class:`~.Coordinator`.
+    """
+
+
+class InvalidRequestError(Exception):
+    """Exception raised when the Coordinator receives and invalid request from a participant.
+
+    This can happen if the participant sends a request that is not allowed in a
+    give Coordinator state. For instance the Coordinator will only accept
+    StartTraining requests during a ROUND.
     """
 
 
@@ -279,8 +289,6 @@ class Coordinator:
         self.state = coordinator_pb2.State.STANDBY
         self.current_round = 0
 
-    # TODO: Already fixed on https://github.com/xainag/xain/pull/143
-    # pylint: disable-msg=too-many-branches
     def on_message(
         self, message: GeneratedProtocolMessageType, participant_id: str
     ) -> GeneratedProtocolMessageType:
@@ -297,6 +305,8 @@ class Coordinator:
             :class:`~UnknownParticipantError`: If it receives a request from an
             unknown participant. Typically a participant that has not
             rendezvous with the :class:`~.Coordinator`.
+            :class:`~InvalidRequestError`: If it receives a request that is not
+            allowed in the current :class:`~.Coordinator` state.
         """
         logger.debug("Received: %s from %s", type(message), participant_id)
 
@@ -314,83 +324,19 @@ class Coordinator:
         # pylint: disable-msg=no-else-return
         if isinstance(message, coordinator_pb2.RendezvousRequest):
             # Handle rendezvous
-
-            if self.participants.len() < self.required_participants:
-                response = coordinator_pb2.RendezvousResponse.ACCEPT
-                self.participants.add(participant_id)
-                logger.info(
-                    "Accepted %s. Participants: %d",
-                    participant_id,
-                    self.participants.len(),
-                )
-
-                # Change the state to ROUND if we are in STANDBY and already
-                # have enough participants
-                if self.participants.len() == self.required_participants:
-                    # TODO: We may need to make this update thread safe
-                    self.state = coordinator_pb2.State.ROUND
-                    self.current_round = (
-                        1 if self.current_round == 0 else self.current_round
-                    )
-            else:
-                response = coordinator_pb2.RendezvousResponse.LATER
-                logger.info(
-                    "Reject participant %s. Participants: %d",
-                    participant_id,
-                    self.participants.len(),
-                )
-
-            return coordinator_pb2.RendezvousReply(response=response)
+            return self._handle_rendezvous(message, participant_id)
 
         elif isinstance(message, coordinator_pb2.HeartbeatRequest):
             # Handle heartbeat
-
-            self.participants.update_expires(participant_id)
-
-            # send heartbeat reply advertising the current state
-            return coordinator_pb2.HeartbeatReply(
-                state=self.state, round=self.current_round
-            )
+            return self._handle_heartbeat(message, participant_id)
 
         elif isinstance(message, coordinator_pb2.StartTrainingRequest):
             # handle start training
-
-            # TODO: Check that the state == ROUND else raise exception
-
-            theta_proto = [ndarray_to_proto(nda) for nda in self.theta]
-
-            return coordinator_pb2.StartTrainingReply(
-                theta=theta_proto, epochs=self.epochs, epoch_base=self.epoch_base
-            )
+            return self._handle_start_training(message, participant_id)
 
         elif isinstance(message, coordinator_pb2.EndTrainingRequest):
             # handle end training
-
-            tu, his, met = message.theta_update, message.history, message.metrics
-            tp, num = tu.theta_prime, tu.num_examples
-            cid, vbc = met.cid, met.vol_by_class
-
-            # record the req data
-            theta_update = [proto_to_ndarray(pnda) for pnda in tp], num
-            history = {k: list(hv.values) for k, hv in his.items()}
-            metrics = (cid, list(vbc))
-            self.round.add_updates(participant_id, theta_update, history, metrics)
-
-            # The round is over. Run the aggregation
-            if self.round.is_finished():
-                logger.info("Running aggregation for round %d", self.current_round)
-                self.theta = self.aggregator.aggregate(self.round.get_theta_updates())
-
-                # update the round or finish the training session
-                if self.current_round == self.num_rounds:
-                    self.state = coordinator_pb2.State.FINISHED
-                else:
-                    self.current_round += 1
-
-                    # reinitialize the round
-                    self.round = Round(self.required_participants)
-
-            return coordinator_pb2.EndTrainingReply()
+            return self._handle_end_training(message, participant_id)
 
         else:
             raise NotImplementedError
@@ -413,6 +359,136 @@ class Coordinator:
 
         if self.participants.len() < self.required_participants:
             self.state = coordinator_pb2.State.STANDBY
+
+    def _handle_rendezvous(
+        self, _message: coordinator_pb2.RendezvousRequest, participant_id: str
+    ) -> coordinator_pb2.RendezvousReply:
+        """Handles a Rendezvous request.
+
+        Args:
+            _message (:class:`~.coordinator_pb2.RendezvousRequest`): The
+                request to handle. Currently not used.
+            participant_id (:obj:`str`): The id of the participant making the
+                request.
+
+        Returns:
+            :class:`~.coordinator_pb2.RendezvousReply`: The reply to the participant.
+        """
+        if self.participants.len() < self.required_participants:
+            response = coordinator_pb2.RendezvousResponse.ACCEPT
+            self.participants.add(participant_id)
+            logger.info(
+                "Accepted %s. Participants: %d", participant_id, self.participants.len()
+            )
+
+            # Change the state to ROUND if we are in STANDBY and already
+            # have enough participants
+            if self.participants.len() == self.required_participants:
+                # TODO: We may need to make this update thread safe
+                self.state = coordinator_pb2.State.ROUND
+                self.current_round = (
+                    1 if self.current_round == 0 else self.current_round
+                )
+        else:
+            response = coordinator_pb2.RendezvousResponse.LATER
+            logger.info(
+                "Reject participant %s. Participants: %d",
+                participant_id,
+                self.participants.len(),
+            )
+
+        return coordinator_pb2.RendezvousReply(response=response)
+
+    def _handle_heartbeat(
+        self, _message: coordinator_pb2.HeartbeatRequest, participant_id: str
+    ) -> coordinator_pb2.HeartbeatReply:
+        """Handles a Heartbeat request.
+
+        Args:
+            _message (:class:`~.coordinator_pb2.HeartbeatRequest`): The
+                request to handle. Currently not used.
+            participant_id (:obj:`str`): The id of the participant making the
+                request.
+
+        Returns:
+            :class:`~.coordinator_pb2.HeartbeatReply`: The reply to the participant.
+        """
+        self.participants.update_expires(participant_id)
+
+        # send heartbeat reply advertising the current state
+        return coordinator_pb2.HeartbeatReply(
+            state=self.state, round=self.current_round
+        )
+
+    def _handle_start_training(
+        self, _message: coordinator_pb2.StartTrainingRequest, participant_id: str
+    ) -> coordinator_pb2.StartTrainingReply:
+        """Handles a StartTraining request.
+
+        Args:
+            _message (:class:`~.coordinator_pb2.StartTrainingRequest`): The
+                request to handle. Currently not used.
+            participant_id (:obj:`str`): The id of the participant making the
+                request.
+
+        Returns:
+            :class:`~.coordinator_pb2.StartTrainingReply`: The reply to the participant.
+        """
+        # The coordinator should only accept StartTraining requests it is
+        # in the ROUND state.
+        if self.state != coordinator_pb2.State.ROUND:
+            raise InvalidRequestError(
+                f"Participant {participant_id} sent a "
+                "StartTrainingRequest outside of a round"
+            )
+
+        theta_proto = [ndarray_to_proto(nda) for nda in self.theta]
+
+        return coordinator_pb2.StartTrainingReply(
+            theta=theta_proto, epochs=self.epochs, epoch_base=self.epoch_base
+        )
+
+    def _handle_end_training(
+        self, message: coordinator_pb2.EndTrainingRequest, participant_id: str
+    ) -> coordinator_pb2.EndTrainingReply:
+        """Handles a EndTraining request.
+
+        Args:
+            message (:class:`~.coordinator_pb2.EndTrainingRequest`): The request to handle.
+            participant_id (:obj:`str`): The id of the participant making the request.
+
+        Returns:
+            :class:`~.coordinator_pb2.EndTrainingReply`: The reply to the participant.
+        """
+
+        # TODO: Ideally we want to know for which round the participant is
+        # submitting the updates and raise an exception if it is the wrong
+        # round.
+        tu, his, met = message.theta_update, message.history, message.metrics
+        tp, num = tu.theta_prime, tu.num_examples
+        cid, vbc = met.cid, met.vol_by_class
+
+        # record the req data
+        theta_update = [proto_to_ndarray(pnda) for pnda in tp], num
+        history = {k: list(hv.values) for k, hv in his.items()}
+        metrics = (cid, list(vbc))
+        self.round.add_updates(participant_id, theta_update, history, metrics)
+
+        # The round is over. Run the aggregation
+        if self.round.is_finished():
+            logger.info("Running aggregation for round %d", self.current_round)
+            self.theta = self.aggregator.aggregate(self.round.get_theta_updates())
+
+            # update the round or finish the training session
+            if self.current_round == self.num_rounds:
+                self.state = coordinator_pb2.State.FINISHED
+            else:
+                self.current_round += 1
+
+                # reinitialize the round
+                self.round = Round(self.required_participants)
+
+        return coordinator_pb2.EndTrainingReply()
 
 
 class CoordinatorGrpc(coordinator_pb2_grpc.CoordinatorServicer):
@@ -511,6 +587,10 @@ class CoordinatorGrpc(coordinator_pb2_grpc.CoordinatorServicer):
             context.set_details(str(error))
             context.set_code(grpc.StatusCode.PERMISSION_DENIED)
             return coordinator_pb2.StartTrainingReply()
+        except InvalidRequestError as error:
+            context.set_details(str(error))
+            context.set_Code(grpc.StatusCode.FAILED_PRECONDITION)
+            return coordinator_pb2.StartTrainingReply()
 
     def EndTraining(
         self, request: coordinator_pb2.EndTrainingRequest, context: grpc.ServicerContext
@@ -533,7 +613,6 @@ class CoordinatorGrpc(coordinator_pb2_grpc.CoordinatorServicer):
             the :class:`~.Coordinator` successfully received the updated
             weights.
         """
-
         try:
             return self.coordinator.on_message(request, context.peer())
         except DuplicatedUpdateError as error:
@@ -563,8 +642,8 @@ def monitor_heartbeats(
             that this method should terminate.
     """
 
+    logger.info("Heartbeat monitor starting...")
     while not terminate_event.is_set():
-        logger.info("Heartbeat monitor starting...")
         participants_to_remove = []
 
         for participant in coordinator.participants.participants.values():
