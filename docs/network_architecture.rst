@@ -1,54 +1,35 @@
 Network Architecture
 ====================
 
-.. literalinclude:: ../protobuf/xain/grpc/coordinator.proto
-    :language: proto
-
 Introduction
 ------------
 
 
-.. note::
+Federated Machine Learning is a distributed machine learning approach. In its
+simplest form it is composed of one *Coordinator* and a set of *Participants*.
 
-    This section should contain an overview of the network architecture
-    (coordinator, participant, grpc) mostly taken from the XP architecture
-    hackmd.
+The **Coordinator** is responsible for keeping any state required for the machine
+learning task, orchestrate the machine learning task across a set of
+*Participants*, and perform the *Aggregation* of the individual updates
+returned by the *Participants*.
 
-**Participants:**
-- Clients
-- Coordinator
+The **Participants** are mostly stateless process that receive from the
+*Coordinator* a global model and the machine learning task to execute. Once
+they finish executing the machine learning task they return to the
+*Coordinator* the updated model.
 
----
 
-Clients need a bi-directional communication channel with the coordinator.
+Federated Machine Learning Flow
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-There is no client to client communication.
-
-Coordinator just treats all clients equally and broadcasts it's messages to all
-clients.
-
-**Client -> Coordinator:**
-- rendezvous
-- heartbeat
-- updates
-
-**Coordinator -> Client:**
-- rendezvous
-- global model
-- task to execute
-
----
-
-**Flow:**
-
-1. Instantiate a coordinator with the task to execute the number of clients
-   required and the number of rounds to perform
+1. Instantiate a *Coordinator* with the task to execute the number of clients
+   required and the number of rounds to perform (and any other relevant information)
 
 .. code-block:: bash
 
     $ xain-coordinator fashion_mnist_100p_IID_balanced --clients=20 --rounds=50
 
-2. Instantiate the clients with the coordinator address. If the coordinator is
+2. Instantiate the *Participants* with the *Coordinator* address. If the *Coordinator* is
    not reachable just periodically try to reconnect.
 
 .. code-block:: bash
@@ -56,120 +37,85 @@ clients.
     $ xain-client ec2-198-51-100-1.compute-1.amazonaws.com --port=5000
 
 3. Rendezvous
-4. Once all necessary clients are connected, start the task:
-    a. coordinator sends global model
-    b. clients run the training
-    c. clients send the updates (and any other relevant information)
-5. Coordinator completes a round:
-    a. Wait for all client updates
-    b. aggregate
+4. Once all necessary *Participants* are connected, start a round:
+    a. *Coordinator* sends global model
+    b. *Participants* run the training
+    c. *Participants* send the updates (and any other relevant information)
+5. *Coordinator* completes a round:
+    a. Wait for all *Participants* updates
+    b. Run the *Aggregation* on the individual updates
     c. Repeat 4 and 5
-6. If any client gets disconnected during a round:
-    a. discard the round
-    b. wait for new clients to come back online until the necessary number of clients is met
-    c. resume the task
-7. Once all rounds are completed the coordinator can just exit
+6. If any *Participant* gets disconnected during a round:
+    a. Wait for new *Participants* to come back online until the necessary number of clients is met
+    b. Resume the task
+7. Once all rounds are completed the *Coordinator* can just exit
 
 
----
+Coordinator
+-----------
 
-**Rendezvous:**
+This section discusses the design and implementation details of the
+*Coordinator*.
 
-We can make it very simple in the beginning.
+**Requirements and Assumptions:**
 
-A client contacts the coordinator and the coordinator adds the client to its
-list of clients. If the coordinator already has all the clients it needs tell
-the client to try again later.
+* We need a bi-direction communication channel between *Participants* and *Coordinator*.
+* There is no need for a *Participant* to *Pariticipant* communication.
+* The *Pariticipants* run on the clients infrastructure. They should have low operation overhead.
+* We need to be agnostic of the machine learning framework used by the clients.
+* Keep in mind that the *Coordinator* may need to handle a large number of *Participants*.
 
----
+**Features that need to be provided by the Coordinator:**
 
-**Heartbeat:**
+* Ability for *Participants* to register with it.
+* Ability for *Participants* to retrieve the global model.
+* Ability for *Participants* to submit their updated model.
+* Ability for the *Coordinator* to orchestrate the training.
+* Ability to keep track of the liveness of *Participants*.
 
-Clients periodically send an heartbeat so that the coordinator can detect failures.
+gRPC and Protobuf
+^^^^^^^^^^^^^^^^^
 
-If using gRPC _streams_ maybe this is already provided out of the box.
+For the networking implementation we are using gRPC and for the data
+serialization we are using protobuf.
 
----
+The *Coordinator* is implemented as a gRPC service and provides 3 main methods.
 
-**Implementation:**
+A **Rendezvous** method that allows *Participants* to register with a
+*Coordinator*. When handling this call the *Coordinator* may create some state
+about the *Participant* in order to keep track of what the *Participant* is
+doing.
 
-The main goal is to just add networking the the existing code.
+A **StartTraining** method that allows *Participants* to get the current global
+model as well as signaling their intent to participate in a given round.
 
-The **client** implementation should be simple:
-- create a gRPC channel
-- run tasks sequentially
+A **EndTraining** method that allows *Participants* to submit their updated
+models after they finished their training task.
 
-The **coordinator** implementation is a bit more complicated since it needs to
-keep state about the current state of fedml training session and communicate
-with multiple clients simultaneously.
 
-I think that gRPC supports non-blocking or asynchronous calls so we may be able
-to do this a single thread/process which would greatly simplify the
-implementation. I'm sure there are examples out there on how to handle multiple
-concurrent clients.
+In order to remain agnostic to the machine learning framework *Participants*
+and *Coordinator* exchange models on the form of numpy arrays. How models are
+converted from a particular machine learning framework model into numpy arrays
+are outside the scope of this document. We do provide the `Numproto
+<https://github.com/xainag/numproto>`_ python package that performs
+serialization and deserialization of numpy arrays into and from protobuf.
 
----
 
-**Protobuf serialization:**
+gRPC Implementation Challenges
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Regarding the serialization of some data structures like numpy arrays an
-initial quick and dirty solution would to just marshal/pickle them into a byte
-array and then just send them as raw bytes or a string using protobuf
+**1. Keeping track of Participants liveness**
 
----
+The coordinator is responsible for keeping track of its connected participants
+that may be performing long running tasks.  In order to do that the coordinator
+needs to be capable to detect when a client gets disconnected. This does not
+seem to be easy to achieve with gRPC (at least not with the python
+implementation).
 
-**Messages between Coordinator and Participant:**
-
-To see what is exchanged, see the :code:`Coordinator` class e.g. the :code:`train_local`
-function
-
-.. code-block:: python
-
-    def train_local(
-        p: Participant, theta: KerasWeights, epochs: int, epoch_base: int
-    ) -> Tuple[Tuple[KerasWeights, int], KerasHistory, Metrics]:
-        theta_update, history = p.train_round(theta, epochs, epoch_base)
-        metrics = p.metrics()
-    return theta_update, history, metrics
-
-The participant needs from the coordinator
-
-* :code:`theta: KerasWeights` where :code:`KerasWeights = List[ndarray]`
-* :code:`epochs: int`
-* :code:`epoch_base: int`
-
-In return the participant sends back a tuple `theta_update, history` where
-
-* :code:`theta_update: Tuple[KerasWeights, int]`
-* :code:`history: KerasHistory` where :code:`KerasHistory = Dict[str, List[float]]`
-
-After a :code:`train_round`, the coordinator also needs to invoke a
-participant's :code:`metrics`. A :code:`Metrics` gets sent back, where
-
-* :code:`Metrics = Tuple[int, VolumeByClass]`
-* :code:`VolumeByClass = List[int]`
-
-We just need to keep in mind that with gRPC since the coordinator is the service
-all calls need to be initiated by the client. So we will need for the
-participant to poll the coordinator for the beginning of the round. Also if the
-client needs to send some metrics at the end of a round maybe the last two
-messages could be combined. The participant would send the updates and metrics
-in the same call
-
----
-
-**gRPC server side connection management**
-
-In the context of the _xain_ project the coordinator is responsible for keeping
-track of its connected participants that may be performing long running tasks.
-In order to do that the coordinator needs to be capable to detect when a client
-gets disconnected. This does not seem to be easy to achieve with gRPC (at least
-not with the python implementation).
-
-From a developers perspective gRPC behaves much like the request response pattern of a REST service. The server
-doesn't typically care much about the clients and doesn't keep state between
-calls. All calls are initiated by the client and the server simply servers the
-request and forgets about the client.
+From a developers perspective gRPC behaves much like the request response
+pattern of a REST service. The server doesn't typically care much about the
+clients and doesn't keep state between calls. All calls are initiated by the
+client and the server simply serves the request and forgets about the client.
 
 This also means that there really isn't much support for long standing
 connections. It's easy for a client to check the status of the connection to
@@ -177,22 +123,61 @@ the server but the opposite is not true.
 
 gRPC does use mechanisms from the underlying HTTP and TCP transport layers but
 these are internal details that aren't really exposed in the API. A developer
-can override the default timeouts but it's not clear to me at this point the
-effect they have. For more information check [using gRPC in
+can override the default timeouts but it's not clear from the available
+documentation the effect they have. For more information check [using gRPC in
 production](https://cs.mcgill.ca/~mxia3/2019/02/23/Using-gRPC-in-Production/).
 
+*Server-side timeouts configuration:*
+
+.. code-block:: python
+
+    server = grpc.server(
+        futures.ThreadPoolExecutor(max_workers=10),
+        options=(
+            ('grpc.keepalive_time_ms', 10000),
+            # send keepalive ping every 10 second, default is 2 hours
+            ('grpc.keepalive_timeout_ms', 5000),
+            # keepalive ping time out after 5 seconds, default is 20 seoncds
+            ('grpc.keepalive_permit_without_calls', True),
+            # allow keepalive pings when there's no gRPC calls
+            ('grpc.http2.max_pings_without_data', 0),
+            # allow unlimited amount of keepalive pings without data
+            ('grpc.http2.min_time_between_pings_ms', 10000),
+            # allow grpc pings from client every 10 seconds
+            ('grpc.http2.min_ping_interval_without_data_ms',  5000),
+            # allow grpc pings from client without data every 5 seconds
+        )
+    )
+
+*Client-side timeouts configuration:*
+
+.. code-block:: python
+
+    stub = Stub(
+          'localhost:50051', :this_channel_is_insecure,
+          channel_args: {
+            'grpc.keepalive_time_ms': 10000,
+            'grpc.keepalive_timeout_ms': 5000,
+            'grpc.keepalive_permit_without_calls': true,
+            'grpc.http2.max_pings_without_data': 0,
+            'grpc.http2.min_time_between_pings_ms':10000,
+            'grpc.http2.min_ping_interval_without_data_ms': 5000,
+          }
+      )
+
 It's also not clear how connections are handled internally. At least in the
-python library when opening a channel no connection is made to the server. The
-connection only happens when a method is actually called.
+python library when opening a channel no connection seems to be made to the
+server. The connection only happens when a method is actually called.
 
 With the provided APIs from the server side we can only do any logic from
 within a method call.
 
-So far the only way I found that allow us to keep track of client connections
-from the server side is to have the client calling a method that never returns.
-From within that method the server can either:
+From the python gRPC documentation there seems to be two ways that allow us to
+keep track of client connections from the server side is to have the client
+calling a method that never returns.  From within that method the server can
+either:
 
-**Add callback to get notified when an RPC call was terminated**
+*Add callback to get notified when an RPC call was terminated:*
 
 .. code-block:: python
 
@@ -204,10 +189,7 @@ From within that method the server can either:
 
         # rest of the method logic
 
-The problem with this approach is that if we are blocking the method, the
-method never really returns.
-
-**Periodically check if a the rcp call is active**
+*Periodically check if a the rcp call is active:*
 
 .. code-block:: python
 
@@ -217,11 +199,19 @@ method never really returns.
 
         # if we reach this point the client terminated the call
 
-The problem with this method is that we are wasting a thread **per** client
-just to check the client connection.
+The problem with these approaches is that we need to block the gRPC method call
+in order to keep track of the connection status. There are two problems with
+these long standing connections: we are wasting server resources to do nothing,
+and we need to deal with the underlying gRPC connection timeouts as described
+above.
 
+Ultimately we decided to just implement ourselves a simple heartbeat solution.
+The *Participants* periodically send a heartbeat to the *Coordinator*. If the
+*Coordinator* doesn't hear from a *Participant* after a pre-defined timeout if
+just considers the *Participant* to be down and removes the *Participant* from
+it's participant list.
 
-**Right now I'm more inclined into implementing our own heartbeat solution**
+*Heartbeat:*
 
 .. code-block:: python
 
@@ -235,52 +225,62 @@ just to check the client connection.
             if participant.expires < time.now() + KEEPALIVE_TIMEOUT:
                 # remove participant and perform any action necessary
 
-This heartbeat can in the future be combined with any polling required from the
-client side e.g. polling the coordinator for more tasks to perform.
+
+**2. Requests need to be initiated by the Participants**
+
+With gRPC since the *Coordinator* implements the gRPC server all calls need to
+be initiated by the client. So we will need for the *Participant* to implement
+some form of polling mechanisms to know when the *Coordinator* is ready to
+start a round. Again the same solutions as the previous point can be applied.
+
+One solution would be to block during a method call until the *Coordinator*
+initiates a round.
+
+The other solution that we eventually chose was to reuse the heartbeat
+mechanism to notify the *Participants* on when to start training. During the
+heartbeat messages the *Coordinator* advertises it's state with the
+*Participants*. When the *Participants* see that a new round has started they
+can request the global model and start their training task.
 
 
-Coordinator
------------
+Coordinator Logic Implementation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. note::
+Internally the *Coordinator* is implement as a state machine that reacts to
+messages sent by *Participants*.
 
-    This section should contain more specific details about the Coordinator
-    (state machine, implementation details)
-
-Supplementary thoughts about interaction between
-coordinator :math:`C` and a participant :math:`P`, given the gRPC-based
-setup described in *XP Network Architecture*. First let's consider the basic
-lifecycle of state transitions in :math:`C`. Let :math:`N` be the number of
-required participants.
+Supplementary thoughts about interaction between coordinator :math:`C` and a
+participant :math:`P`, given the gRPC-based setup described in above. First
+let's consider the basic lifecycle of state transitions in :math:`C`. Let
+:math:`N` be the number of required participants.
 
 .. mermaid::
 
     graph TB
-    A( ) -->|startup| B(Registration)
-    B -->|N Ps registered| C(Round open)
-    C -->|all Ps trained| D(Round closed)
-    D -->|more rounds| C
-    D -->|no more rounds| E( )
+    A( ) -->|startup| B(STANDY)
+    B -->|N Ps registered| C(ROUND N)
+    C -->|all Ps trained| D(ROUND N + 1)
+    D -->|no more rounds| E(FINISHED)
 
-Once :math:`C` starts up, it's in the **Registration** state, waiting for incoming
+Once :math:`C` starts up, it's in the **STANDBY** state, waiting for incoming
 connections from participants looking to rendezvous. Once :math:`N` have been
 registered, a number of these are selected for a training round. To simplify
 for now, assume all :math:`N` will participate.
 
-In the **Round open** state, :math:`C` starts to accept requests (from the
+In the **ROUND N** state, :math:`C` starts to accept requests (from the
 registered :math:`N`) to start training. Any further requests (from late
 entrants) to rendezvous are told to "try again later". For any :math:`P` that
 has started training, :math:`C` will also accept a subsequent request of it
 having finished training.
 
-Once all :math:`N` have finished training, :math:`C` closes the round. In the
-**Round closed** state, :math:`C` collects together all the trained data and
-aggregates them.  It either goes back to *Round open* if there are more rounds
-to go, or else it exits.
+Once all :math:`N` have finished training, :math:`C` collects together all the
+trained data and aggregates them generating a new global model.  It either
+increments the round and repeats, or if there are more rounds to go, it
+transitions to the **FINISHED** state signaling the participants to disconnect.
 
 So far we've only discussed the lifecycle of a *successful* interaction with
 all participants i.e. without faults, dropouts, etc. The true picture (taking
-into account of [fault tolerance](https://hackmd.io/gzGSJZ2xQTyERNjTpqguqg))
+into account of `fault tolerance <https://hackmd.io/gzGSJZ2xQTyERNjTpqguqg>`_)
 will be more complicated than above but this is still useful to give the basic
 structure.
 
