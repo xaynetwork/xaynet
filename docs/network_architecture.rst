@@ -4,6 +4,7 @@ Network Architecture
 Introduction
 ------------
 
+.. image:: _static/architecture.png
 
 Federated Machine Learning is a distributed machine learning approach. In its
 simplest form it is composed of one *Coordinator* and a set of *Participants*.
