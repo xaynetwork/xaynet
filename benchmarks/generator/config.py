@@ -1,3 +1,6 @@
+"""This module contains the federated dataset configs which are used by
+the ~benchmarks.generator.__main__.generate_dataset function
+"""
 import tensorflow as tf
 
 from benchmarks.generator import data

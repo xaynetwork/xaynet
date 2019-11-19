@@ -5,12 +5,21 @@ SEED = 851746
 
 
 class Bucket:
+    """Data structure which has an internal storage with unique items which can be
+    picked or exchanged as well as some helper methods to allow reading the current
+    state of the bucket.
+    """
+
     def __init__(self, num_classes: int, num_per_class: int, dtype=np.int8):
+        """Will initialize a bucket with its own random state as well a storage of numbers as a
+        ndarray with shape `(num_classes)` where each index contains the number `num_per_class`.
+        """
         self.dtype = dtype
         self.num_class = num_classes
 
-        # Let the bucket have its own RandomState although beware that each  bucket will have it
-        # initialized the same. Given a sequence of method calls the result will always be the same
+        # Let the bucket have its own RandomState although beware that each bucket will have it
+        # initialized the same (as long as the default seed is taken). Given a sequence of method
+        # calls the result will always be the same
         # pylint: disable=no-member
         self.rst = np.random.RandomState(seed=SEED)
 
@@ -18,17 +27,39 @@ class Bucket:
         self.storage = np.full((num_classes), num_per_class, dtype=self.dtype)
 
     def zero_indicies(self):
+        """Returns all indicies which don't have any items left.
+
+        Returns:
+            (ndarray): boolean numpy array of shape (num_classes) with shows which
+                index contains no more items
+        """
         return np.where(self.storage == 0)[0]
 
     def multi_indicies(self):
-        """Returns indices which have more than one section left"""
+        """Returns indices which have more than one item left
+
+        Returns:
+            (ndarray): boolean numpy array of shape (num_classes) which shows which
+                index still contain more than 1 item
+        """
+
         return np.where(self.storage > 1)[0]
 
     def has_distinct_sections(self, num_distinct_sections: int) -> bool:
+        """Return True if there are at least `num_distinct_sections` distinct items available.
+
+        Args:
+            num_distinct_sections (int): Number of items which should be still available
+        """
         possible_choices = np.flatnonzero(self.storage)
         return possible_choices.size >= num_distinct_sections
 
     def sample(self, num_distinct_sections: int):
+        """Returns `num_distinct_sections` distinct items still available in internal storage.
+
+        Args:
+            num_distinct_sections (int): Number of items to be returned
+        """
         possible_choices = np.flatnonzero(self.storage)
         choices = self.rst.choice(
             possible_choices, num_distinct_sections, replace=False
@@ -45,13 +76,27 @@ class Bucket:
 
 
 def distribution(num_classes: int, num_partitions: int, cpp: int) -> np.ndarray:
-    """
-    :param num_classes: number of distinct unique classes
-    :param num_partitions: number of partitions
-    :param cpp: number of classes per partition required
+    """Returns a unique distribution with `num_classes` and `num_partitions`.
 
-    :returns: parition distribution as an ndarray of shape (num_partitions, num_classes)
-              with ones at the locations where a section should be
+
+    Args:
+        num_classes (int): number of distinct unique classes
+        num_partitions (int): number of partitions
+        cpp (int): number of classes per partition required
+
+    Returns:
+        np.ndarray: parition distribution as an ndarray of shape (num_partitions, num_classes)
+              with ones at the indices where a section should be
+
+    Example:
+        For `distribution(num_classes=4, num_partitions=4, cpp=3)` you will get::
+
+            [
+                [1, 1, 1, 0],
+                [0, 1, 1, 1],
+                [1, 1, 0, 1],
+                [1, 0, 1, 1],
+            ]
     """
     # pylint: disable=no-member
     rst = np.random.RandomState(seed=SEED)
@@ -68,7 +113,7 @@ def distribution(num_classes: int, num_partitions: int, cpp: int) -> np.ndarray:
     bucket = Bucket(num_classes, num_per_class)
 
     for p in partitions:
-        # 1. Check if there are 5 distinct non-zero values in the bucket
+        # 1. Check if there are distinct non-zero values in the bucket
         while not bucket.has_distinct_sections(cpp):
             # Swap a section (which is available multiple times) from the bucket
             # with a section of a partition where that partition does not contain
