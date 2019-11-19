@@ -15,8 +15,8 @@ help:
 .PHONY: help Makefile
 
 docs:
-	sphinx-apidoc --doc-project "Code Reference XAIN" -f -d 3 --tocfile index -o ./_code_reference_xain/ ../xain/
-	sphinx-apidoc --doc-project "Code Reference Benchmarks" -f -d 3 --tocfile index -o ./_code_reference_benchmarks/ ../benchmarks/
+	sphinx-apidoc --doc-project "Code Reference XAIN" -f -d 3 --tocfile index -o ./_code_reference_xain/ ../xain/ ../xain/**_test.py
+	sphinx-apidoc --doc-project "Code Reference Benchmarks" -f -d 3 --tocfile index -o ./_code_reference_benchmarks/ ../benchmarks/ ../benchmarks/**_test.py
 	make html
 
 # Catch-all target: route all unknown targets to Sphinx using the new
