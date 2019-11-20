@@ -1,4 +1,5 @@
 import glob
+import os.path
 import pathlib
 import sys
 
@@ -8,15 +9,18 @@ from setuptools.command.develop import develop
 if sys.version_info < (3, 6):
     sys.exit("Please use Python version 3.6 or higher.")
 
+project_dir = os.path.dirname(os.path.abspath(__file__))
+version_file_path = os.path.join(project_dir, "xain/__version__.py")
+readme_file_path = os.path.join(project_dir, "README.md")
 
 # get version
 version = {}
-with open("xain/__version__.py") as fp:
+with open(version_file_path) as fp:
     exec(fp.read(), version)
 
 
 # get readme
-with open("README.md", "r") as fp:
+with open(readme_file_path, "r") as fp:
     readme = fp.read()
 
 
