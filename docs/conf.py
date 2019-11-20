@@ -45,6 +45,8 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.autodoc",
     "sphinx.ext.intersphinx",
+    "sphinx.ext.mathjax",
+    "sphinxcontrib.mermaid",
 ]
 
 source_suffix = {".rst": "restructuredtext", ".md": "markdown"}
