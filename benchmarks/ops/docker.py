@@ -24,7 +24,11 @@ def get_image_name(tag: str):
 
 
 def generate_unique_tag():
-    """Return a unique string with utc time and human readable part"""
+    """Return a unique string with utc time and human readable part
+
+    Returns:
+        str
+    """
 
     utc_time = strftime("%Y%m%dT%H%M")
     # pylint: disable=no-member

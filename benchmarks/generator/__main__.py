@@ -5,6 +5,12 @@ from xain.datasets import testing
 
 
 def generate_dataset(dataset_name):
+    """Creates a dataset and stores it in local generator datasets directory
+
+    Args:
+        dataset_name (str): Name of dataset to be generated. Has to be one of the keys
+            of ~benchmarks.generator.config.datasets
+    """
     logging.info("Starting dataset generation of {}".format(dataset_name))
 
     assert dataset_name in config.datasets, "Dataset not found in config"
@@ -32,6 +38,9 @@ def generate_dataset(dataset_name):
 
 
 def main(_):
+    """When called will loop through ~benchmarks.generator.config.datasets
+    and invoke generate_dataset for each dataset
+    """
     for dataset_name in config.datasets:
         generate_dataset(dataset_name)
 

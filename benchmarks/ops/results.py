@@ -16,6 +16,7 @@ def push(group_name: str, task_name: str, output_dir: str = None):
     Args:
         group_name (str)
         task_name (str)
+        output_dir (str): If None FLAGS.output_dir will be used
     """
     # If no output_dir was explicitly set use output_dir which was passed via absl flags
     # and defaults to "git_root/output" and upload everything in it as results

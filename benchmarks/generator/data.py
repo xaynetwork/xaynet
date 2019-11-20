@@ -9,6 +9,14 @@ from .transformer import classes_balanced_randomized_per_partition, sort_by_clas
 
 
 def load(keras_dataset) -> KerasDataset:
+    """Loads Keras Dataset in predictable form
+
+    Args:
+        keras_dataset (Dataset)
+
+    Returns:
+        Dataset
+    """
     (x_train, y_train), (x_test, y_test) = keras_dataset.load_data()
 
     y_train = y_train.reshape((y_train.shape[0],))

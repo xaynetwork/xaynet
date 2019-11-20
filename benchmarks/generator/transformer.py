@@ -9,9 +9,16 @@ from .class_per_partition_distribution import distribution as cpp_distribution
 SEED = 851746
 
 
-def transfomer_decorator(func: Callable):
+def transfomer_decorator(func: Callable) -> Callable:
     """The decorator will validate the input and result of any
-    transformer function it is applied to"""
+    transformer function it is applied to.
+
+    Args:
+        func (Callable): The function to be decorated
+
+    Returns:
+        Callable: Decorated function
+    """
 
     def wrapper(
         x: np.ndarray, y: np.ndarray, *args, **kwargs
@@ -34,6 +41,15 @@ def transfomer_decorator(func: Callable):
 
 @transfomer_decorator
 def random_shuffle(x: ndarray, y: ndarray) -> Tuple[ndarray, ndarray]:
+    """Will randomly shuffle x and y
+
+    Args:
+        x (ndarray)
+        y (ndarray)
+
+    Returns:
+        Tuple[ndarray, ndarray]
+    """
     # pylint: disable=no-member
     permutation = np.random.RandomState(seed=SEED).permutation(x.shape[0])
     x_shuffled = x[permutation]
@@ -45,7 +61,30 @@ def random_shuffle(x: ndarray, y: ndarray) -> Tuple[ndarray, ndarray]:
 def classes_balanced_randomized_per_partition(
     x: ndarray, y: ndarray, num_partitions=10
 ) -> Tuple[ndarray, ndarray]:
-    """Shuffles y so that only a each class is in each partition"""
+    """Shuffles dataset so that each partition has the same count of each
+    class equal times.
+
+    Args:
+        x (ndarray)
+        y (ndarray)
+        num_partitions (int): Number of partitions the dataset will later split into
+
+    Returns:
+        Tuple[ndarray, ndarray]
+
+    Example:
+        Assuming three classes with each 30 examples in the full dataset
+        and three paritions we will get::
+
+            [
+                [10, 10, 10]
+                [10, 10, 10]
+                [10, 10, 10]
+            ]
+
+        While each of the 30 examples per class is randomly placed in one
+        of the partitions.
+    """
     example_count = y.shape[0]
     section_size = int(example_count / num_partitions)
 
@@ -76,9 +115,14 @@ def classes_balanced_randomized_per_partition(
 
 @transfomer_decorator
 def sort_by_class(x: ndarray, y: ndarray) -> Tuple[ndarray, ndarray]:
-    """
-    Shuffles y so that only a single label is in each partition
-    Number of partitions will depend on number of unique labels
+    """Partitions examples by class.
+
+    Args:
+        x (ndarray)
+        y (ndarray)
+
+    Returns:
+        Tuple[ndarray, ndarray]
     """
     example_count = y.shape[0]
     partition_count = np.unique(y).shape[0]
@@ -100,10 +144,18 @@ def sort_by_class(x: ndarray, y: ndarray) -> Tuple[ndarray, ndarray]:
 def one_biased_class_per_partition(  # pylint: disable=R0914
     x: ndarray, y: ndarray, bias=1000
 ) -> Tuple[ndarray, ndarray]:
-    """
-    Shuffle y so that the labels are uniformly distributed in each section
+    """Shuffle y so that the labels are uniformly distributed in each section
     except one label which will have a bias. Considering the bias the rest
-    needs to be evenly divisible
+    needs to be evenly divisible.
+
+
+    Args:
+        x (ndarray)
+        y (ndarray)
+        bias (int): Bias one of the classes in each partition should have
+
+    Returns:
+        Tuple[ndarray, ndarray]
     """
     example_count = y.shape[0]
     # section_count is equal to number of unique labels
@@ -174,10 +226,17 @@ def one_biased_class_per_partition(  # pylint: disable=R0914
 def class_per_partition(  # pylint: disable=R0914
     x: ndarray, y: ndarray, num_partitions: int, cpp: int
 ) -> Tuple[ndarray, ndarray]:
-    """
-    Does the following:
-    1. Sort by label
-    2. Shuffles sections randomley
+    """Transforms dataset so that each partition contains {cpp} classes
+    in a balanced fashion.
+
+    Args:
+        x (ndarray)
+        y (ndarray)
+        num_partitions (int): number of partitions the dataset will have
+        cpp (int): classes per partition
+
+    Returns:
+        Tuple[ndarray, ndarray]
     """
     assert x.shape[0] % num_partitions == 0, (
         f"Number of examples ({x.shape[0]}) needs to be divisible by "

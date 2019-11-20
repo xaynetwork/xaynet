@@ -43,7 +43,8 @@ def test_cifar_10_distributions():
 )
 def test_brute_force_a(b, expected, target):
     # Execute
-    actual = pvd.brute_force_a(np.arange(100), b=b, target=target)
+    # pylint: disable-msg=protected-access
+    actual = pvd._brute_force_a(np.arange(100), b=b, target=target)
     # Assert
     assert actual == expected
 

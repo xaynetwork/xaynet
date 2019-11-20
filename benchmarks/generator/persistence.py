@@ -19,6 +19,16 @@ from xain.types import FederatedDataset, FnameNDArrayTuple
 
 
 def save(fname: str, data: np.ndarray, storage_dir: str):
+    """Stores an ndarray in storage_dir with as fname
+
+    Args:
+        fname (str): Filename
+        data: (np.ndarray): Data to store
+        storage_dir (str): Absolute path to directory in which data should be stored
+
+    Returns:
+        str: SHA1 checksum of stored file
+    """
     path = "{}/{}".format(storage_dir, fname)
     np.save(path, data)
 
@@ -30,6 +40,15 @@ def save(fname: str, data: np.ndarray, storage_dir: str):
 def dataset_to_fname_ndarray_tuple_list(
     dataset: FederatedDataset
 ) -> List[Tuple[str, np.ndarray]]:
+    """Transforms a FederatedDataset into a list of (filename, ndarray) tuples
+    so they can be easily stored on disk.
+
+    Args:
+        dataset (FederatedDataset): The dataset to be transformed
+
+    Returns:
+        List[Tuple[str, np.ndarray]]
+    """
     fname_ndarray_tuples: List[Tuple[str, np.ndarray]] = []
     xy_splits, xy_val, xy_test = dataset
 
@@ -49,16 +68,43 @@ def dataset_to_fname_ndarray_tuple_list(
 def to_fname_ndarray_tuple(
     suffix: str, xy: Tuple[np.ndarray, np.ndarray]
 ) -> List[FnameNDArrayTuple]:
+    """Given a suffix as well as a tuple of ndarrays a list of (filename, ndarray) tuples
+    with length two will be returned.
+
+    Args:
+        suffix (str)
+        xy (Tuple[np.ndarray, np.ndarray])
+
+    Returns:
+        List[FnameNDArrayTuple]
+
+    Example:
+        For `to_fname_ndarray_tuple(suffix="val", xy)` xy beeing a tuple of ndarrays the
+        result will be a list of length two as::
+
+            [
+                ("x_val.npy", xy[0]),
+                ("y_val.npy", xy[1]),
+            ]
+    """
     x, y = xy
 
-    name_x = "x_{}.npy".format(suffix)
-    name_y = "y_{}.npy".format(suffix)
+    name_x = f"x_{suffix}.npy"
+    name_y = f"y_{suffix}.npy"
 
     return [(name_x, x), (name_y, y)]
 
 
 def get_dataset_dir(dataset_name: str, local_generator_dir: str) -> str:
-    """Will return dataset directory and create it if its not already present"""
+    """Will return dataset directory and create it if its not already present
+
+    Args:
+        dataset_name (str)
+        local_generator_dir (str): Absolut path
+
+    Returns:
+        str: Absolut path to dataset_dir
+    """
     dataset_dir = os.path.join(local_generator_dir, dataset_name)
 
     if not os.path.isdir(dataset_dir):
@@ -68,6 +114,13 @@ def get_dataset_dir(dataset_name: str, local_generator_dir: str) -> str:
 
 
 def save_splits(dataset_name: str, dataset: FederatedDataset, local_generator_dir: str):
+    """Saves federated dataset to filesystem
+
+    Args:
+        dataset_name (str)
+        dataset (FederatedDataset)
+        local_generator_dir (str)
+    """
     fname_ndarray_tuple = dataset_to_fname_ndarray_tuple_list(dataset)
 
     dataset_dir = get_dataset_dir(

@@ -31,6 +31,9 @@ bs_fashion_mnist: Dict[float, float] = {
     1.04: 43.67599999999998,
     1.045: 30.181500000000014,
 }
+"""Parameters b, a (key, value) for ~._exponential_decay for FashionMNIST
+examples distribution. Can be calculated with ~._brute_force_a_for_fashion_mnist
+"""
 
 
 bs_cifar_10: Dict[float, float] = {
@@ -45,23 +48,48 @@ bs_cifar_10: Dict[float, float] = {
     1.04: 36.402,
     1.045: 25.154300000000013,
 }
+"""Parameters b, a (key, value) for ~._exponential_decay for CIFAR-10
+examples distribution. Can be calculated with ~._brute_force_a_for_cifar_10
+"""
 
 
 def fashion_mnist_100p() -> List[Tuple[float, List[int]]]:
+    """Returns the distribution of examples for a FashionMNIST dataset with 100 partitions
+
+    Returns:
+        List[Tuple[float, List[int]]]: List of tuples with (b, List[int]) where the list of
+            ints describes the number of examples in the partition at the index of the int
+    """
     return _generate_100p_volume_distributions(bs_fashion_mnist)
 
 
 def cifar_10_100p() -> List[Tuple[float, List[int]]]:
+    """Returns the distribution of examples for a CIFAR-10 dataset with 100 partitions
+
+    Returns:
+        List[Tuple[float, List[int]]]: List of tuples with (b, List[int]) where the list of
+            ints describes the number of examples in the partition at the index of the int
+    """
     return _generate_100p_volume_distributions(bs_cifar_10)
 
 
-def exponential_decay(x: int, a: float, b: float) -> float:
+def _exponential_decay(x: int, a: float, b: float) -> float:
     return a * (b ** x)
 
 
 def _generate_100p_volume_distributions(
     bs: Dict[float, float]
 ) -> List[Tuple[float, List[int]]]:
+    """Returns the distribution of examples for a dataset with 100 partitions
+
+    Args:
+        bs (Dict[float, float]): Dict key will be passed as `b` and value as `a`
+            to ~._exponential_decay function(x, a, b)
+
+    Returns:
+        List[Tuple[float, List[int]]]: List of tuples with (b, List[int]) where the list of
+            ints describes the number of examples in the partition at the index of the int
+    """
     dists = []
     for b, a in bs.items():
         dist = _generate_volume_distribution(np.arange(100), a, b)
@@ -71,26 +99,26 @@ def _generate_100p_volume_distributions(
 
 def _generate_volume_distribution(xs: np.ndarray, a: float, b: float) -> List[int]:
     assert xs.ndim == 1
-    return [int(exponential_decay(x, a=a, b=b)) for x in xs]
+    return [int(_exponential_decay(x, a=a, b=b)) for x in xs]
 
 
-def brute_force_a_for_fashion_mnist():
+def _brute_force_a_for_fashion_mnist():
     for b in [1.0, 1.005, 1.01, 1.015, 1.02, 1.025, 1.03, 1.035, 1.04, 1.045]:
-        a = brute_force_a(np.arange(100), b, target=54_000)
+        a = _brute_force_a(np.arange(100), b, target=54_000)
         print(f"{b}: {a},")
 
 
-def brute_force_a_for_cifar_10():
+def _brute_force_a_for_cifar_10():
     for b in [1.0, 1.005, 1.01, 1.015, 1.02, 1.025, 1.03, 1.035, 1.04, 1.045]:
-        a = brute_force_a(np.arange(100), b, target=45_000)
+        a = _brute_force_a(np.arange(100), b, target=45_000)
         print(f"{b}: {a},")
 
 
 # pylint: disable-msg=inconsistent-return-statements
-def brute_force_a(xs, b: float, target: int, step=1.0, start=1):
+def _brute_force_a(xs, b: float, target: int, step=1.0, start=1):
     a_best = 1
     for a in np.arange(start, target, step):
-        ys = [int(exponential_decay(x, a=a, b=b)) for x in xs]
+        ys = [int(_exponential_decay(x, a=a, b=b)) for x in xs]
         sum_ys = sum(ys)
         if sum_ys == target:
             return a
@@ -98,7 +126,7 @@ def brute_force_a(xs, b: float, target: int, step=1.0, start=1):
             a_best = a
         else:
             # Recursive step
-            return brute_force_a(xs, b, target, step / 10, start=a_best)
+            return _brute_force_a(xs, b, target, step / 10, start=a_best)
 
 
 def b_to_str(b: float):
@@ -120,7 +148,7 @@ def dist_to_indicies(dist: List[int]) -> List[int]:
     return indices[:-1]
 
 
-def plot_fashion_mnist_dist():
+def _plot_fashion_mnist_dist():
     dists = fashion_mnist_100p()
     xs = np.arange(100)
     plt.figure()
@@ -146,12 +174,15 @@ def plot_fashion_mnist_dist():
 
 
 def main():
+    """Calculates and prints a, b parameters for calculation of
+    volume distributions
+    """
     print("Fashion-MNIST:")
-    brute_force_a_for_fashion_mnist()
+    _brute_force_a_for_fashion_mnist()
     print("CIFAR-10:")
-    brute_force_a_for_cifar_10()
+    _brute_force_a_for_cifar_10()
     print("Plot Fashion-MNIST volume distributions")
-    fmd_fpath = plot_fashion_mnist_dist()
+    fmd_fpath = _plot_fashion_mnist_dist()
     logging.info(f"Data plotted and saved in {fmd_fpath}")
 
 
