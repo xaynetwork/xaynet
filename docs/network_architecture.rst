@@ -14,10 +14,10 @@ learning task, orchestrate the machine learning task across a set of
 *Participants*, and perform the *Aggregation* of the individual updates
 returned by the *Participants*.
 
-The **Participants** are mostly stateless process that receive from the
+The **Participants** are mostly stateless processes that receive from the
 *Coordinator* a global model and the machine learning task to execute. Once
-they finish executing the machine learning task they return to the
-*Coordinator* the updated model.
+they finish executing the machine learning task they return
+the updated model to the *Coordinator*.
 
 
 Federated Machine Learning Flow
@@ -28,6 +28,7 @@ Federated Machine Learning Flow
 
 .. code-block:: bash
 
+    # warning: updated since time of writing - do not attempt to run!
     $ xain-coordinator fashion_mnist_100p_IID_balanced --clients=20 --rounds=50
 
 2. Instantiate the *Participants* with the *Coordinator* address. If the *Coordinator* is
@@ -35,6 +36,7 @@ Federated Machine Learning Flow
 
 .. code-block:: bash
 
+    # warning: updated since time of writing - do not attempt to run!
     $ xain-client ec2-198-51-100-1.compute-1.amazonaws.com --port=5000
 
 3. Rendezvous
@@ -61,8 +63,8 @@ This section discusses the design and implementation details of the
 **Requirements and Assumptions:**
 
 * We need a bi-direction communication channel between *Participants* and *Coordinator*.
-* There is no need for a *Participant* to *Pariticipant* communication.
-* The *Pariticipants* run on the clients infrastructure. They should have low operation overhead.
+* There is no need for *Participant* to *Pariticipant* communication.
+* The *Pariticipants* run on the client infrastructure. They should have low operation overhead.
 * We need to be agnostic of the machine learning framework used by the clients.
 * Keep in mind that the *Coordinator* may need to handle a large number of *Participants*.
 
@@ -90,12 +92,12 @@ doing.
 A **StartTraining** method that allows *Participants* to get the current global
 model as well as signaling their intent to participate in a given round.
 
-A **EndTraining** method that allows *Participants* to submit their updated
+An **EndTraining** method that allows *Participants* to submit their updated
 models after they finished their training task.
 
 
 In order to remain agnostic to the machine learning framework *Participants*
-and *Coordinator* exchange models on the form of numpy arrays. How models are
+and *Coordinator* exchange models in the form of numpy arrays. How models are
 converted from a particular machine learning framework model into numpy arrays
 are outside the scope of this document. We do provide the `Numproto
 <https://github.com/xainag/numproto>`_ python package that performs
@@ -105,12 +107,12 @@ serialization and deserialization of numpy arrays into and from protobuf.
 gRPC Implementation Challenges
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-**1. Keeping track of Participants liveness**
+**1. Keeping track of Participant liveness**
 
 The coordinator is responsible for keeping track of its connected participants
 that may be performing long running tasks.  In order to do that the coordinator
 needs to be capable to detect when a client gets disconnected. This does not
-seem to be easy to achieve with gRPC (at least not with the python
+seem to be easy to achieve with gRPC (at least not with the Python
 implementation).
 
 From a developers perspective gRPC behaves much like the request response
@@ -157,7 +159,7 @@ production](https://cs.mcgill.ca/~mxia3/2019/02/23/Using-gRPC-in-Production/).
     stub = Stub(
           'localhost:50051', :this_channel_is_insecure,
           channel_args: {
-            'grpc.keepalive_time_ms': 10000,
+          'grpc.keepalive_time_ms': 10000,
             'grpc.keepalive_timeout_ms': 5000,
             'grpc.keepalive_permit_without_calls': true,
             'grpc.http2.max_pings_without_data': 0,
@@ -167,7 +169,7 @@ production](https://cs.mcgill.ca/~mxia3/2019/02/23/Using-gRPC-in-Production/).
       )
 
 It's also not clear how connections are handled internally. At least in the
-python library when opening a channel no connection seems to be made to the
+Python library when opening a channel no connection seems to be made to the
 server. The connection only happens when a method is actually called.
 
 With the provided APIs from the server side we can only do any logic from
@@ -239,7 +241,7 @@ initiates a round.
 
 The other solution that we eventually chose was to reuse the heartbeat
 mechanism to notify the *Participants* on when to start training. During the
-heartbeat messages the *Coordinator* advertises it's state with the
+heartbeat messages the *Coordinator* advertises its state with the
 *Participants*. When the *Participants* see that a new round has started they
 can request the global model and start their training task.
 
@@ -247,28 +249,26 @@ can request the global model and start their training task.
 Coordinator Logic Implementation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Internally the *Coordinator* is implement as a state machine that reacts to
-messages sent by *Participants*.
+Internally the *Coordinator* :math:`C` is implemented as a state machine that
+reacts to messages sent by *Participants* :math:`P`.
 
-Supplementary thoughts about interaction between coordinator :math:`C` and a
-participant :math:`P`, given the gRPC-based setup described in above. First
-let's consider the basic lifecycle of state transitions in :math:`C`. Let
+Let's consider the basic lifecycle of state transitions in :math:`C`. Let
 :math:`N` be the number of required participants.
 
 .. mermaid::
 
     graph TB
-    A( ) -->|startup| B(STANDY)
-    B -->|N Ps registered| C(ROUND N)
-    C -->|all Ps trained| D(ROUND N + 1)
-    D -->|no more rounds| E(FINISHED)
+    A( ) -->|startup| B(STANDBY)
+    B -->|N Ps registered| C(ROUND i)
+    C -->|next round i := i+1| C
+    C -->|no more rounds| D(FINISHED)
 
 Once :math:`C` starts up, it's in the **STANDBY** state, waiting for incoming
 connections from participants looking to rendezvous. Once :math:`N` have been
 registered, a number of these are selected for a training round. To simplify
 for now, assume all :math:`N` will participate.
 
-In the **ROUND N** state, :math:`C` starts to accept requests (from the
+In the **ROUND i** state, :math:`C` starts to accept requests (from the
 registered :math:`N`) to start training. Any further requests (from late
 entrants) to rendezvous are told to "try again later". For any :math:`P` that
 has started training, :math:`C` will also accept a subsequent request of it
@@ -289,53 +289,135 @@ structure.
 Participant
 -----------
 
+Participants are the workhorses of the federated learning platform. One would
+expect them to be spending a significant portion of their time computing trained
+models. But what exactly should be communicated between Participant :math:`P`
+and Coordinator :math:`C` in a training round?
+
+It helps to look at the following (simplified) code excerpt from the
+single-machine "prototype" :code:`fl/Coordinator`:
+
+.. code-block:: python
+
+    # note: code updated since time of writing but idea remains the same
+    def train_local(p, theta, epochs, epoch_base):
+        theta_update, history = p.train_round(theta, epochs, epoch_base)
+        metrics = p.metrics()
+        return theta_update, history, metrics
+
+To do its training, :math:`P` will invoke its own :code:`train_round` function.
+For this, it requires the following data (annotated with their types) from
+:math:`C`
+
+* :code:`theta: KerasWeights` where :code:`KerasWeights = List[ndarray]`
+* :code:`epochs: int`
+* :code:`epoch_base: int`
+
+In return :math:`P` sends back a pair of data
+
+* :code:`theta_update: Tuple[KerasWeights, int]`
+* :code:`history: KerasHistory` where :code:`KerasHistory = Dict[str, List[float]]`
+
+After a :code:`train_round`, :math:`C` also needs from :math:`P`
+a :code:`metrics` of type
+
+* :code:`Metrics = Tuple[int, VolumeByClass]` where :code:`VolumeByClass = List[int]`
+
 .. note::
 
-    This section should contain more specific details about the Participant
-    (state machine, implementation details, ...)
+    It is worth bearing in mind that since we are working with gRPC, all service
+    calls must be initiated by the client (as discussed above) i.e. :math:`P`. This
+    is completely unlike the code excerpt above, where it is naturally :math:`C`
+    that calls :math:`P`.
 
-Now the state transitions of a participant :math:`P`.
+    Also since :math:`P` in addition sends metrics at the end of a round, this and
+    the updated model can just as well be sent in the same message thus minimising
+    communication.
 
-.. mermaid::
+Training Round Data Messages
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-    graph TB
-    A( ) -->|startup| B(Discovery)
-    B -->|rendezvous'd| C(Standby)
-    C -->|selected| D(Ready)
-    D -->|model received| E(Training)
-    E -->|C ack updated model| C
+The above considerations lead to the following gRPC implementation for
+exchanging training data. The Coordinator exposes two service methods
+
+.. code-block:: proto
+
+   rpc StartTraining(StartTrainingRequest) returns (StartTrainingReply) {}
+   rpc EndTraining(EndTrainingRequest) returns (EndTrainingReply) {}
+
+where the request and reply data are given as the following protobuf messages:
+
+.. code-block:: proto
+
+   message StartTrainingRequest {}
+
+   message StartTrainingReply {
+       repeated numproto.protobuf.NDArray theta = 1;
+       int32 epochs = 2;
+       int32 epoch_base = 3;
+   }
+
+   message EndTrainingRequest {
+       ThetaUpdate theta_update = 1;
+       map<string, HistoryValue> history = 2;
+       Metrics metrics = 3;  /* also bundled here */
+   }
+
+   /* message defns for ThetaUpdate, HistoryValue, Metrics omitted */
+
+   message EndTrainingReply {}
 
 
+Note that while most of the Python data types to be exchanged can be
+"protobuf-erized" (and back), :code:`ndarray` requires more work. Fortunately we
+have the `numproto <https://github.com/xainag/numproto>`_ project to help with
+this conversion.
 
-Once :math:`P` starts up, it's in the **Discovery** state, looking for
-:math:`C` to rendezvous with. When this is successful, it's in **Standby**
-essentially until :math:`C` signals it's been selected to start training (in
-practice, :math:`P` would need to poll :math:`C` for this state change).
+Training Round Communication
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-In the next state, :math:`P` is **Ready** (to start training). It indicates this to
-:math:`C`, waiting for a model to train on in response. :math:`P` works on this in the
-**Training** state and indicates to :math:`C` when it's complete, sending along the
-updated model. :math:`P` goes back to Standby when :math:`C` acknowledges receipt.
+The communication is
+summarised in the following sequence diagram.
+In a training round, :math:`C` is in the state :code:`ROUND`. The selected
+participant :math:`P` is in :code:`TRAINING` state. The first message is by
+:math:`P` essentially kicks off the exchange. :math:`C` responds with the global
+model :math:`\theta` (and other data as specified in
+:code:`StartTrainingReply`). Then :math:`P` carries out the training locally.
+When complete, it sends the updated model :math:`\theta'` (and other metadata)
+back. :math:`C` responds with an acknowledgement.
 
-Again, this only shows the state transitions of the "success" case. The more
-refined picture will take account of various fault scenarios. For example, if
-:math:`C` decides to cancel the round, :math:`P` goes back to Standby (possibly cancelling
-or discarding any training already started). Or worse, if the connection with
-:math:`C` is lost, :math:`P` goes back to Discovery.
+.. image:: _static/sequence2.png
 
----
+**Participant Notification via Extended Heartbeat**
 
-The following is a more refined picture of the :math:`P` state machine. It focuses on
+In the above, how did :math:`P` detect the state change in :math:`C` to
+:code:`ROUND` given that there is no easy way for :math:`C` to send such
+notifications? As mentioned above in the discussion on the Coordinator, the
+heartbeat mechanism was extended for this purpose. Not only does it provide a
+liveness check on Participants, but it also doubles as a way for them to be
+"signalled" (with some variable delay) of state changes.
+
+In more detail, :math:`C` now populates responses to heartbeats with either
+:code:`ROUND` (training round in progress) or :code:`STANDBY` (not in progress).
+In the former case, a round number is also emitted. When all rounds are over,
+:math:`C` will respond with :code:`FINISHED`.
+
+
+Participant State Evolution
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The following is a refined picture of the :math:`P` state machine. It focuses on
 the state transitions in response to heartbeat messages described above, and is
-also able to handle *selection*.
+also able to handle *selection* (assuming the most obvious implementation of it in
+the Coordinator).
 
 .. mermaid::
 
    graph TB
    A( ) -.->|rendezvous| B(Wait for Selection)
-   B -->|ROUND i| C(Training i)
+   B -->|ROUND i| C(Training)
    D -->|ROUND i+1| C
-   C -.->|trained| D(Post-training i)
+   C -.->|trained| D(Post-training)
    D -->|FINISHED| E(Done)
    D -->|STANDBY| B
 
