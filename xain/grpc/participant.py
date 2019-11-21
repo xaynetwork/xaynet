@@ -144,7 +144,7 @@ def message_loop(chan, st, terminate):
         time.sleep(HEARTBEAT_TIME)
 
 
-def go(part):
+def go(part: Participant, coordinator_address: str):
     """Top-level function for the Participant state machine.
 
     After rendezvous and heartbeat initiation, the Participant is
@@ -163,7 +163,7 @@ def go(part):
     ]
     # use insecure channel for now
     with grpc.insecure_channel(
-        target="localhost:50051", options=options
+        target=coordinator_address, options=options
     ) as chan:  # thread-safe
         rendezvous(chan)
 

@@ -55,7 +55,7 @@ B = 10
 
 def run_participants(potential_participants):
     processes = [
-        mp.Process(target=go, args=(potential_participants[i],)) for i in range(3)
+        mp.Process(target=go, args=(potential_participants[i], "localhost:50051")) for i in range(3)
     ]
 
     for p in processes:
