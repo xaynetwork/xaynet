@@ -6,13 +6,13 @@ import tensorflow as tf
 from absl import app, flags
 from tensorflow.keras.layers import Conv2D, Dense, Flatten, Input, MaxPool2D
 
-from xain.datasets import load_splits
-from xain.fl.coordinator import Coordinator, RandomController
-from xain.fl.coordinator.aggregate import FederatedAveragingAgg
-from xain.fl.participant import ModelProvider, Participant
-from xain.types import Partition
+from xain_fl.datasets import load_splits
+from xain_fl.fl.coordinator import Coordinator, RandomController
+from xain_fl.fl.coordinator.aggregate import FederatedAveragingAgg
+from xain_fl.fl.participant import ModelProvider, Participant
+from xain_fl.types import Partition
 
-from xain.grpc.coordinator import Coordinator, serve
+from xain_fl.grpc.coordinator import Coordinator, serve
 
 NUM_CLASSES = 10
 INPUT_SHAPE = (28, 28, 1)

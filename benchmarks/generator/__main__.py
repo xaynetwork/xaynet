@@ -1,7 +1,7 @@
 from absl import app, logging
 
 from benchmarks.generator import config, data, persistence
-from xain.datasets import testing
+from xain_fl.datasets import testing
 
 
 def generate_dataset(dataset_name):

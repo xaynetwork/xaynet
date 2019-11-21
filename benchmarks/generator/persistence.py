@@ -14,8 +14,8 @@ import numpy as np
 from absl import logging
 
 from benchmarks.helpers import storage
-from xain.helpers import sha1
-from xain.types import FederatedDataset, FnameNDArrayTuple
+from xain_fl.helpers import sha1
+from xain_fl.types import FederatedDataset, FnameNDArrayTuple
 
 
 def save(fname: str, data: np.ndarray, storage_dir: str):

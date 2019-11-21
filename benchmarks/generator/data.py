@@ -3,7 +3,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 import numpy as np
 from numpy import ndarray
 
-from xain.types import FederatedDataset, KerasDataset
+from xain_fl.types import FederatedDataset, KerasDataset
 
 from .transformer import classes_balanced_randomized_per_partition, sort_by_class
 

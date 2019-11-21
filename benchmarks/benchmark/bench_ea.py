@@ -4,9 +4,9 @@ from absl import app, logging
 from benchmarks.benchmark.exec import run
 from benchmarks.benchmark.net import orig_cnn_compiled
 from benchmarks.helpers import storage
-from xain.datasets import load_splits
-from xain.fl.coordinator.aggregate import EvoAgg
-from xain.fl.coordinator.evaluator import Evaluator
+from xain_fl.datasets import load_splits
+from xain_fl.fl.coordinator.aggregate import EvoAgg
+from xain_fl.fl.coordinator.evaluator import Evaluator
 
 DEFAULT_R = 50
 DEFAULT_E = 1  # Number of training epochs in each round

@@ -3,8 +3,8 @@ import os
 import numpy as np
 import pytest
 
-from xain.helpers import sha1
-from xain.types import FederatedDataset
+from xain_fl.helpers import sha1
+from xain_fl.types import FederatedDataset
 
 from . import persistence
 
