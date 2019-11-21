@@ -18,6 +18,8 @@ from xain.fl.coordinator.aggregate import Aggregator, FederatedAveragingAgg
 from xain.grpc import coordinator_pb2, coordinator_pb2_grpc
 from xain.logger import get_logger
 
+os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
+
 logger = get_logger(
     "xain.grpc.coordinator", level=os.environ.get("XAIN_LOGLEVEL", "INFO")
 )
@@ -115,7 +117,7 @@ class Participants:
             if self.participants:
                 return min([p.heartbeat_expires for p in self.participants.values()])
 
-        return time.time() + HEARTBEAT_TIME + HEARTBEAT_TIMEOUT
+        return max(0, time.time() + HEARTBEAT_TIME + HEARTBEAT_TIMEOUT)
 
     def len(self) -> int:
         """Get the number of participants.
@@ -289,6 +291,8 @@ class Coordinator:
         self.state = coordinator_pb2.State.STANDBY
         self.current_round = 0
 
+        logger.debug("[%d] --->> [%d]: %d", self.state, self.state, self.current_round)
+
     def on_message(
         self, message: GeneratedProtocolMessageType, participant_id: str
     ) -> GeneratedProtocolMessageType:
@@ -358,6 +362,12 @@ class Coordinator:
         logger.info("Removing participant %s", participant_id)
 
         if self.participants.len() < self.required_participants:
+            logger.debug(
+                "[%d] --->> [%d]: %d",
+                self.state,
+                coordinator_pb2.State.STANDBY,
+                self.current_round,
+            )
             self.state = coordinator_pb2.State.STANDBY
 
     def _handle_rendezvous(
@@ -385,10 +395,16 @@ class Coordinator:
             # have enough participants
             if self.participants.len() == self.required_participants:
                 # TODO: We may need to make this update thread safe
-                self.state = coordinator_pb2.State.ROUND
                 self.current_round = (
                     1 if self.current_round == 0 else self.current_round
                 )
+                logger.debug(
+                    "[%d] --->> [%d]: %d",
+                    self.state,
+                    coordinator_pb2.State.ROUND,
+                    self.current_round,
+                )
+                self.state = coordinator_pb2.State.ROUND
         else:
             response = coordinator_pb2.RendezvousResponse.LATER
             logger.info(
@@ -481,9 +497,21 @@ class Coordinator:
 
             # update the round or finish the training session
             if self.current_round == self.num_rounds:
+                logger.debug(
+                    "[%d] --->> [%d]: %d",
+                    self.state,
+                    coordinator_pb2.State.FINISHED,
+                    self.current_round,
+                )
                 self.state = coordinator_pb2.State.FINISHED
             else:
                 self.current_round += 1
+                logger.debug(
+                    "[%d] --->> [%d]: %d",
+                    self.state,
+                    self.state,
+                    self.current_round,
+                )
 
                 # reinitialize the round
                 self.round = Round(self.required_participants)
@@ -659,19 +687,23 @@ def monitor_heartbeats(
         time.sleep(next_expiration)
 
 
-def serve() -> None:
+def serve(coordinator: Coordinator) -> None:
     """Main method to start the gRPC service.
 
     This methods just creates the :class:`~.Coordinator`, sets up all threading
     events and threads and configures and starts the gRPC service.
     """
-    coordinator = Coordinator()
     terminate_event = threading.Event()
     monitor_thread = threading.Thread(
         target=monitor_heartbeats, args=(coordinator, terminate_event)
     )
 
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    options = [
+        ("grpc.max_receive_message_length", -1),
+        ("grpc.max_send_message_length", -1),
+    ]
+
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10), options=options)
     coordinator_pb2_grpc.add_CoordinatorServicer_to_server(
         CoordinatorGrpc(coordinator), server
     )
@@ -690,4 +722,5 @@ def serve() -> None:
 
 
 if __name__ == "__main__":
-    serve()
+    coordinator = Coordinator()
+    serve(coordinator)
