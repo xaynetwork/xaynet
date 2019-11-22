@@ -41,7 +41,7 @@ def main():
         num_rounds=R, required_participants=3 * C, theta=theta, epochs=E
     )
 
-    serve(coordinator)
+    serve(coordinator, port=50052)
 
 
 def create_and_compile_model(epoch_base: int = 0) -> Callable[[], tf.keras.Model]:

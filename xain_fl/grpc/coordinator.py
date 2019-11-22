@@ -728,7 +728,7 @@ def monitor_heartbeats(
         time.sleep(next_expiration)
 
 
-def serve(coordinator: Coordinator) -> None:
+def serve(coordinator: Coordinator, host="[::]", port=50051) -> None:
     """Main method to start the gRPC service.
 
     This methods just creates the :class:`~.Coordinator`, sets up all threading
@@ -748,7 +748,8 @@ def serve(coordinator: Coordinator) -> None:
     coordinator_pb2_grpc.add_CoordinatorServicer_to_server(
         CoordinatorGrpc(coordinator), server
     )
-    server.add_insecure_port("[::]:50051")
+    print(f"{host}:{port}")
+    server.add_insecure_port(f"{host}:{port}")
     server.start()
     monitor_thread.start()
 
