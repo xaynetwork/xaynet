@@ -67,8 +67,8 @@ install_requires = [
     "typing-extensions~=3.7",  # PSF
     "numpy~=1.15",  # BSD
     "absl-py~=0.8",  # Apache 2.0
-    "grpcio~=1.23",  # Apache License 2.0
-    "protobuf~=3.9",  # 3-Clause BSD License
+    "grpcio==1.14.1",  # Apache License 2.0
+    "protobuf==3.6.1",  # 3-Clause BSD License
     "numproto~=0.3",  # Apache License 2.0
     "requests==2.22.0",  # Apache 2.0  # TODO(XP-185) remove
     "tensorflow==1.14.0",  # Apache 2.0  # TODO(XP-131) remove
@@ -86,7 +86,7 @@ benchmarks_require = [
 gpu_require = ["tensorflow-gpu==1.14.0"]  # Apache 2.0
 
 dev_require = [
-    "grpcio-tools~=1.23",  # Apache License 2.0
+    "grpcio-tools==1.14.1",  # Apache License 2.0
     "black==19.3b0",  # MIT
     "mypy==0.720",  # MIT License
     "pylint==2.3.1",  # GPL
