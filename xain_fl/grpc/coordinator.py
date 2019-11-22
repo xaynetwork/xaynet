@@ -18,6 +18,9 @@ from xain_fl.fl.coordinator.aggregate import Aggregator, FederatedAveragingAgg
 from xain_fl.grpc import coordinator_pb2, coordinator_pb2_grpc
 from xain_fl.logger import get_logger
 
+from xain_fl.grpc import metrics
+from influxdb import InfluxDBClient
+
 os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
 
 logger = get_logger(
@@ -293,6 +296,10 @@ class Coordinator:
 
         logger.debug("[%d] --->> [%d]: %d", self.state, self.state, self.current_round)
 
+        # influxdb metrics
+        self.influxdb_client = InfluxDBClient(metrics.INFLUXDB_HOST, metrics.INFLUXDB_PORT)
+        self.influxdb_client.create_database(metrics.INFLUXDB_DATABASE)
+
     def on_message(
         self, message: GeneratedProtocolMessageType, participant_id: str
     ) -> GeneratedProtocolMessageType:
@@ -360,6 +367,7 @@ class Coordinator:
         """
         self.participants.remove(participant_id)
         logger.info("Removing participant %s", participant_id)
+        metrics.write_number_of_participants(self.influxdb_client, self.participants.len())
 
         if self.participants.len() < self.required_participants:
             logger.debug(
@@ -390,6 +398,7 @@ class Coordinator:
             logger.info(
                 "Accepted %s. Participants: %d", participant_id, self.participants.len()
             )
+            metrics.write_number_of_participants(self.influxdb_client, self.participants.len())
 
             # Change the state to ROUND if we are in STANDBY and already
             # have enough participants

@@ -142,3 +142,5 @@ dmypy.json
 
 # Testing certificates
 rust/xain-grpc/certs
+
+*.npy
