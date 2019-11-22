@@ -241,7 +241,7 @@ def rendezvous(channel):
     """
     stub = coordinator_pb2_grpc.CoordinatorStub(channel)
 
-    response = coordinator_pb2.RendezvousResponse.LATER
+    response = coordinator_pb2.RendezvousResponse.Value('LATER')
 
     while response == coordinator_pb2.RendezvousResponse.LATER:
         reply = stub.Rendezvous(coordinator_pb2.RendezvousRequest())
