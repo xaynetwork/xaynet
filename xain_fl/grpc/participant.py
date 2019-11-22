@@ -24,7 +24,7 @@ flags.DEFINE_integer("batch_size", None, "Batch size")
 flags.DEFINE_integer("partition_iden", None, "Partition ID for unitary training")
 
 RETRY_TIMEOUT = 5
-HEARTBEAT_TIME = 10
+HEARTBEAT_TIME = 5
 
 
 class ParState(Enum):

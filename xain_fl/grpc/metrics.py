@@ -83,6 +83,34 @@ def write_participant_round(client, round_number, participant_id):
     return client.write_points([message], database=INFLUXDB_DATABASE)
 
 
+def write_participant_loss(client, loss, participant_id):
+    message = {
+        "measurement": "participant",
+        "tags": {
+            "host": participant_id
+        },
+        "time": current_time(),
+        "fields": {
+            "loss": loss
+        }
+    }
+    return client.write_points([message], database=INFLUXDB_DATABASE)
+
+
+def write_participant_accuracy(client, accuracy, participant_id):
+    message = {
+        "measurement": "participant",
+        "tags": {
+            "host": participant_id
+        },
+        "time": current_time(),
+        "fields": {
+            "accuracy": accuracy
+        }
+    }
+    return client.write_points([message], database=INFLUXDB_DATABASE)
+
+
 
 def test_metrics():
     client = InfluxDBClient(INFLUXDB_HOST, INFLUXDB_PORT)

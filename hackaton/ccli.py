@@ -15,7 +15,6 @@ def main() -> None:
         dest="num_rounds",
         default=2,
         type=int,
-        choices=range(1, 10),
         help="Number of global rounds the model is going to be trained for.",
     )
     parser.add_argument(

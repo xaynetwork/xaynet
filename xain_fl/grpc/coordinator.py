@@ -375,6 +375,10 @@ class Coordinator:
         self.participants.remove(participant_id)
         logger.info("Removing participant %s", participant_id)
 
+        influxdb_metrics.write_participant_state(
+            self.influxdb_client, 5, participant_id
+        )
+
         if self.participants.len() < self.required_participants:
             logger.debug(
                 "[%d] --->> [%d]: %d",
@@ -516,6 +520,18 @@ class Coordinator:
         theta_update = [proto_to_ndarray(pnda) for pnda in tp], num
         history = {k: list(hv.values) for k, hv in his.items()}
         metrics = (cid, list(vbc))
+        print(history)
+
+        for loss in history["loss"]:
+            influxdb_metrics.write_participant_loss(
+                self.influxdb_client, loss, participant_id
+            )
+
+        for accuracy in history["Accuracy_Weighted"]:
+            influxdb_metrics.write_participant_accuracy(
+                self.influxdb_client, accuracy, participant_id
+            )
+
         self.round.add_updates(participant_id, theta_update, history, metrics)
 
         # The round is over. Run the aggregation
