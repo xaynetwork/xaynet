@@ -367,7 +367,6 @@ class Coordinator:
         """
         self.participants.remove(participant_id)
         logger.info("Removing participant %s", participant_id)
-        metrics.write_number_of_participants(self.influxdb_client, self.participants.len())
 
         if self.participants.len() < self.required_participants:
             logger.debug(
@@ -398,7 +397,6 @@ class Coordinator:
             logger.info(
                 "Accepted %s. Participants: %d", participant_id, self.participants.len()
             )
-            metrics.write_number_of_participants(self.influxdb_client, self.participants.len())
 
             # Change the state to ROUND if we are in STANDBY and already
             # have enough participants
@@ -680,6 +678,8 @@ def monitor_heartbeats(
     """
 
     logger.info("Heartbeat monitor starting...")
+    influxdb_client = InfluxDBClient(metrics.INFLUXDB_HOST, metrics.INFLUXDB_PORT)
+    influxdb_client.create_database(metrics.INFLUXDB_DATABASE)
     while not terminate_event.is_set():
         participants_to_remove = []
 
@@ -693,6 +693,9 @@ def monitor_heartbeats(
         next_expiration = coordinator.participants.next_expiration() - time.time()
 
         logger.debug("Monitoring heartbeats in %.2f", next_expiration)
+
+        metrics.write_number_of_participants(influxdb_client, coordinator.participants.len())
+
         time.sleep(next_expiration)
 
 

@@ -26,6 +26,7 @@ def write_number_of_participants(client, number_of_participants):
     return client.write_points([message], database=INFLUXDB_DATABASE)
 
 
+
 def test_metrics():
     client = InfluxDBClient(INFLUXDB_HOST, INFLUXDB_PORT)
     client.create_database(INFLUXDB_DATABASE)
