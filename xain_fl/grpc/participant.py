@@ -9,7 +9,6 @@ import grpc
 from absl import app, flags
 from numproto import ndarray_to_proto, proto_to_ndarray
 
-from benchmarks.benchmark.net import load_lr_fn_fn, load_model_fn, model_fns
 from xain_fl.datasets import load_splits
 from xain_fl.fl.participant import ModelProvider, Participant
 from xain_fl.grpc import coordinator_pb2, coordinator_pb2_grpc
@@ -17,9 +16,9 @@ from xain_fl.types import History, Metrics, Theta
 
 FLAGS = flags.FLAGS
 
-flags.DEFINE_string(
-    "model_name", None, f"Model name, one of {[fn for fn in model_fns]}"
-)
+# flags.DEFINE_string(
+#     "model_name", None, f"Model name, one of {[fn for fn in model_fns]}"
+# )
 flags.DEFINE_string("dataset_name", None, "Dataset name")
 flags.DEFINE_integer("batch_size", None, "Batch size")
 flags.DEFINE_integer("partition_iden", None, "Partition ID for unitary training")
@@ -307,28 +306,28 @@ def end_training(
     print(f"Participant received: {type(reply)}")
 
 
-def init_participant() -> Participant:
-    """Initialises a local Participant configured with command line flags.
-
-    Returns:
-        obj:`Participant`: Participant object.
-    """
-    xy_train_partitions, xy_val, _xy_test = load_splits(FLAGS.dataset_name)
-
-    model_fn = load_model_fn(FLAGS.model_name)
-    lr_fn_fn = load_lr_fn_fn(FLAGS.model_name)
-    model_provider = ModelProvider(model_fn, lr_fn_fn)
-
-    cid = 0
-    xy_train = xy_train_partitions[FLAGS.partition_iden]
-    return Participant(
-        cid,
-        model_provider,
-        xy_train,
-        xy_val,
-        num_classes=10,
-        batch_size=FLAGS.batch_size,
-    )
+# def init_participant() -> Participant:
+#     """Initialises a local Participant configured with command line flags.
+# 
+#     Returns:
+#         obj:`Participant`: Participant object.
+#     """
+#     xy_train_partitions, xy_val, _xy_test = load_splits(FLAGS.dataset_name)
+# 
+#     model_fn = load_model_fn(FLAGS.model_name)
+#     lr_fn_fn = load_lr_fn_fn(FLAGS.model_name)
+#     model_provider = ModelProvider(model_fn, lr_fn_fn)
+# 
+#     cid = 0
+#     xy_train = xy_train_partitions[FLAGS.partition_iden]
+#     return Participant(
+#         cid,
+#         model_provider,
+#         xy_train,
+#         xy_val,
+#         num_classes=10,
+#         batch_size=FLAGS.batch_size,
+#     )
 
 
 def training_round(channel, participant: Participant):
@@ -354,7 +353,7 @@ def main(_argv):
     print(f"dataset_name: {FLAGS.dataset_name}")
     print(f"batch_size: {FLAGS.batch_size}")
     print(f"partition_iden: {FLAGS.partition_iden}")
-    go(init_participant())
+    # go(init_participant())
 
 
 if __name__ == "__main__":
