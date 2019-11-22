@@ -137,7 +137,11 @@ def message_loop(chan, st, terminate):
     """
     coord = coordinator_pb2_grpc.CoordinatorStub(chan)
     while not terminate.is_set():
-        req = coordinator_pb2.HeartbeatRequest()
+        if st.state in [ParState.WAITING_FOR_SELECTION, ParState.POST_TRAINING, ParState.DONE]:
+            state = coordinator_pb2.State.READY
+        else:
+            state = coordinator_pb2.State.TRAINING
+        req = coordinator_pb2.HeartbeatRequest(state=state, round=st.round)
         reply = coord.Heartbeat(req)
         transit(st, reply)
         time.sleep(HEARTBEAT_TIME)

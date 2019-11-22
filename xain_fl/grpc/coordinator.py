@@ -18,7 +18,7 @@ from xain_fl.fl.coordinator.aggregate import Aggregator, FederatedAveragingAgg
 from xain_fl.grpc import coordinator_pb2, coordinator_pb2_grpc
 from xain_fl.logger import get_logger
 
-from xain_fl.grpc import metrics
+from xain_fl.grpc import metrics as influxdb_metrics
 from influxdb import InfluxDBClient
 
 os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
@@ -297,8 +297,15 @@ class Coordinator:
         logger.debug("[%d] --->> [%d]: %d", self.state, self.state, self.current_round)
 
         # influxdb metrics
-        self.influxdb_client = InfluxDBClient(metrics.INFLUXDB_HOST, metrics.INFLUXDB_PORT)
-        self.influxdb_client.create_database(metrics.INFLUXDB_DATABASE)
+        self.influxdb_client = InfluxDBClient(
+            influxdb_metrics.INFLUXDB_HOST, influxdb_metrics.INFLUXDB_PORT
+        )
+        self.influxdb_client.create_database(influxdb_metrics.INFLUXDB_DATABASE)
+
+        influxdb_metrics.write_coordinator_state(self.influxdb_client, self.state)
+        influxdb_metrics.write_round_number(
+            self.influxdb_client, self.current_round, self.num_rounds
+        )
 
     def on_message(
         self, message: GeneratedProtocolMessageType, participant_id: str
@@ -376,6 +383,7 @@ class Coordinator:
                 self.current_round,
             )
             self.state = coordinator_pb2.State.STANDBY
+            influxdb_metrics.write_coordinator_state(self.influxdb_client, self.state)
 
     def _handle_rendezvous(
         self, _message: coordinator_pb2.RendezvousRequest, participant_id: str
@@ -412,6 +420,12 @@ class Coordinator:
                     self.current_round,
                 )
                 self.state = coordinator_pb2.State.ROUND
+                influxdb_metrics.write_coordinator_state(
+                    self.influxdb_client, self.state
+                )
+                influxdb_metrics.write_round_number(
+                    self.influxdb_client, self.current_round, self.num_rounds
+                )
         else:
             response = coordinator_pb2.RendezvousResponse.LATER
             logger.info(
@@ -423,7 +437,7 @@ class Coordinator:
         return coordinator_pb2.RendezvousReply(response=response)
 
     def _handle_heartbeat(
-        self, _message: coordinator_pb2.HeartbeatRequest, participant_id: str
+        self, message: coordinator_pb2.HeartbeatRequest, participant_id: str
     ) -> coordinator_pb2.HeartbeatReply:
         """Handles a Heartbeat request.
 
@@ -437,6 +451,13 @@ class Coordinator:
             :class:`~.coordinator_pb2.HeartbeatReply`: The reply to the participant.
         """
         self.participants.update_expires(participant_id)
+
+        influxdb_metrics.write_participant_state(
+            self.influxdb_client, message.state, participant_id
+        )
+        influxdb_metrics.write_participant_round(
+            self.influxdb_client, message.round, participant_id
+        )
 
         # send heartbeat reply advertising the current state
         return coordinator_pb2.HeartbeatReply(
@@ -511,17 +532,21 @@ class Coordinator:
                     self.current_round,
                 )
                 self.state = coordinator_pb2.State.FINISHED
+                influxdb_metrics.write_coordinator_state(
+                    self.influxdb_client, self.state
+                )
             else:
                 self.current_round += 1
                 logger.debug(
-                    "[%d] --->> [%d]: %d",
-                    self.state,
-                    self.state,
-                    self.current_round,
+                    "[%d] --->> [%d]: %d", self.state, self.state, self.current_round
                 )
 
                 # reinitialize the round
                 self.round = Round(self.required_participants)
+
+                influxdb_metrics.write_round_number(
+                    self.influxdb_client, self.current_round, self.num_rounds
+                )
 
         return coordinator_pb2.EndTrainingReply()
 
@@ -678,8 +703,10 @@ def monitor_heartbeats(
     """
 
     logger.info("Heartbeat monitor starting...")
-    influxdb_client = InfluxDBClient(metrics.INFLUXDB_HOST, metrics.INFLUXDB_PORT)
-    influxdb_client.create_database(metrics.INFLUXDB_DATABASE)
+    influxdb_client = InfluxDBClient(
+        influxdb_metrics.INFLUXDB_HOST, influxdb_metrics.INFLUXDB_PORT
+    )
+    influxdb_client.create_database(influxdb_metrics.INFLUXDB_DATABASE)
     while not terminate_event.is_set():
         participants_to_remove = []
 
@@ -694,7 +721,9 @@ def monitor_heartbeats(
 
         logger.debug("Monitoring heartbeats in %.2f", next_expiration)
 
-        metrics.write_number_of_participants(influxdb_client, coordinator.participants.len())
+        influxdb_metrics.write_number_of_participants(
+            influxdb_client, coordinator.participants.len()
+        )
 
         time.sleep(next_expiration)
 

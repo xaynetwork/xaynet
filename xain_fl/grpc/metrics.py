@@ -26,6 +26,63 @@ def write_number_of_participants(client, number_of_participants):
     return client.write_points([message], database=INFLUXDB_DATABASE)
 
 
+def write_round_number(client, round_number, total_rounds):
+    message = {
+        "measurement": "coordinator",
+        "tags": {
+            "host": "10.10.100.116:50051"
+        },
+        "time": current_time(),
+        "fields": {
+            "round_number": round_number,
+            "total_rounds": total_rounds,
+        }
+    }
+    return client.write_points([message], database=INFLUXDB_DATABASE)
+
+
+def write_coordinator_state(client, state):
+    message = {
+        "measurement": "coordinator",
+        "tags": {
+            "host": "10.10.100.116:50051"
+        },
+        "time": current_time(),
+        "fields": {
+            "state": state
+        }
+    }
+    return client.write_points([message], database=INFLUXDB_DATABASE)
+
+
+def write_participant_state(client, state, participant_id):
+    message = {
+        "measurement": "participant",
+        "tags": {
+            "host": participant_id
+        },
+        "time": current_time(),
+        "fields": {
+            "state": state
+        }
+    }
+    return client.write_points([message], database=INFLUXDB_DATABASE)
+
+
+def write_participant_round(client, round_number, participant_id):
+    message = {
+        "measurement": "participant",
+        "tags": {
+            "host": participant_id
+        },
+        "time": current_time(),
+        "fields": {
+            "round_number": round_number
+        }
+    }
+    return client.write_points([message], database=INFLUXDB_DATABASE)
+
+
 
 def test_metrics():
     client = InfluxDBClient(INFLUXDB_HOST, INFLUXDB_PORT)
