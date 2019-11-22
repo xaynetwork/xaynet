@@ -291,7 +291,7 @@ class Coordinator:
         self.round = Round(self.required_participants)
 
         # state variables
-        self.state = coordinator_pb2.State.STANDBY
+        self.state = coordinator_pb2.State.Value("STANDBY")
         self.current_round = 0
 
         logger.debug("[%d] --->> [%d]: %d", self.state, self.state, self.current_round)
@@ -379,10 +379,10 @@ class Coordinator:
             logger.debug(
                 "[%d] --->> [%d]: %d",
                 self.state,
-                coordinator_pb2.State.STANDBY,
+                coordinator_pb2.State.Value("STANDBY"),
                 self.current_round,
             )
-            self.state = coordinator_pb2.State.STANDBY
+            self.state = coordinator_pb2.State.Value("STANDBY")
             influxdb_metrics.write_coordinator_state(self.influxdb_client, self.state)
 
     def _handle_rendezvous(
@@ -400,7 +400,7 @@ class Coordinator:
             :class:`~.coordinator_pb2.RendezvousReply`: The reply to the participant.
         """
         if self.participants.len() < self.required_participants:
-            response = coordinator_pb2.RendezvousResponse.ACCEPT
+            response = coordinator_pb2.RendezvousResponse.Value("ACCEPT")
             self.participants.add(participant_id)
             logger.info(
                 "Accepted %s. Participants: %d", participant_id, self.participants.len()
@@ -416,10 +416,10 @@ class Coordinator:
                 logger.debug(
                     "[%d] --->> [%d]: %d",
                     self.state,
-                    coordinator_pb2.State.ROUND,
+                    coordinator_pb2.State.Value("ROUND"),
                     self.current_round,
                 )
-                self.state = coordinator_pb2.State.ROUND
+                self.state = coordinator_pb2.State.Value("ROUND")
                 influxdb_metrics.write_coordinator_state(
                     self.influxdb_client, self.state
                 )
@@ -427,7 +427,7 @@ class Coordinator:
                     self.influxdb_client, self.current_round, self.num_rounds
                 )
         else:
-            response = coordinator_pb2.RendezvousResponse.LATER
+            response = coordinator_pb2.RendezvousResponse.Value("LATER")
             logger.info(
                 "Reject participant %s. Participants: %d",
                 participant_id,
@@ -480,7 +480,7 @@ class Coordinator:
         """
         # The coordinator should only accept StartTraining requests it is
         # in the ROUND state.
-        if self.state != coordinator_pb2.State.ROUND:
+        if self.state != coordinator_pb2.State.Value("ROUND"):
             raise InvalidRequestError(
                 f"Participant {participant_id} sent a "
                 "StartTrainingRequest outside of a round"
@@ -528,10 +528,10 @@ class Coordinator:
                 logger.debug(
                     "[%d] --->> [%d]: %d",
                     self.state,
-                    coordinator_pb2.State.FINISHED,
+                    coordinator_pb2.State.Value("FINISHED"),
                     self.current_round,
                 )
-                self.state = coordinator_pb2.State.FINISHED
+                self.state = coordinator_pb2.State.Value("FINISHED")
                 influxdb_metrics.write_coordinator_state(
                     self.influxdb_client, self.state
                 )

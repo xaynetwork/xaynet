@@ -105,24 +105,24 @@ def transit(st, beat_reply):
     msg, r = beat_reply.state, beat_reply.round
     with st.cv:
         if st.state == ParState.WAITING_FOR_SELECTION:
-            if msg == coordinator_pb2.State.ROUND:
+            if msg == coordinator_pb2.State.Value("ROUND"):
                 st.state = ParState.TRAINING
                 st.round = r
                 st.cv.notify()
-            elif msg == coordinator_pb2.State.FINISHED:
+            elif msg == coordinator_pb2.State.Value("FINISHED"):
                 st.state = ParState.DONE
                 st.cv.notify()
         elif st.state == ParState.POST_TRAINING:
-            if msg == coordinator_pb2.State.STANDBY:
+            if msg == coordinator_pb2.State.Value("STANDBY"):
                 # not selected
                 st.state = ParState.WAITING_FOR_SELECTION
                 # prob ok to keep st.round as it is
                 st.cv.notify()
-            elif msg == coordinator_pb2.State.ROUND and r == st.round + 1:
+            elif msg == coordinator_pb2.State.Value("ROUND") and r == st.round + 1:
                 st.state = ParState.TRAINING
                 st.round = r
                 st.cv.notify()
-            elif msg == coordinator_pb2.State.FINISHED:
+            elif msg == coordinator_pb2.State.Value("FINISHED"):
                 st.state = ParState.DONE
                 st.cv.notify()
 
@@ -138,9 +138,9 @@ def message_loop(chan, st, terminate):
     coord = coordinator_pb2_grpc.CoordinatorStub(chan)
     while not terminate.is_set():
         if st.state in [ParState.WAITING_FOR_SELECTION, ParState.POST_TRAINING, ParState.DONE]:
-            state = coordinator_pb2.State.READY
+            state = coordinator_pb2.State.Value("READY")
         else:
-            state = coordinator_pb2.State.TRAINING
+            state = coordinator_pb2.State.Value("TRAINING")
         req = coordinator_pb2.HeartbeatRequest(state=state, round=st.round)
         reply = coord.Heartbeat(req)
         transit(st, reply)
@@ -241,13 +241,13 @@ def rendezvous(channel):
     """
     stub = coordinator_pb2_grpc.CoordinatorStub(channel)
 
-    response = coordinator_pb2.RendezvousResponse.Value('LATER')
+    response = coordinator_pb2.RendezvousResponse.Value("LATER")
 
-    while response == coordinator_pb2.RendezvousResponse.LATER:
+    while response == coordinator_pb2.RendezvousResponse.Value("LATER"):
         reply = stub.Rendezvous(coordinator_pb2.RendezvousRequest())
-        if reply.response == coordinator_pb2.RendezvousResponse.ACCEPT:
+        if reply.response == coordinator_pb2.RendezvousResponse.Value("ACCEPT"):
             print("Participant received: ACCEPT")
-        elif reply.response == coordinator_pb2.RendezvousResponse.LATER:
+        elif reply.response == coordinator_pb2.RendezvousResponse.Value("LATER"):
             print(f"Participant received: LATER. Retrying in {RETRY_TIMEOUT}s")
             time.sleep(RETRY_TIMEOUT)
 
