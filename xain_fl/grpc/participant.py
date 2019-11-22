@@ -14,6 +14,8 @@ from xain_fl.fl.participant import ModelProvider, Participant
 from xain_fl.grpc import coordinator_pb2, coordinator_pb2_grpc
 from xain_fl.types import History, Metrics, Theta
 
+from datetime import datetime
+
 FLAGS = flags.FLAGS
 
 # flags.DEFINE_string(
@@ -137,6 +139,8 @@ def message_loop(chan, st, terminate):
     """
     coord = coordinator_pb2_grpc.CoordinatorStub(chan)
     while not terminate.is_set():
+        start = datetime.today()
+        print(f"sending heartbeat {start}")
         if st.state in [ParState.WAITING_FOR_SELECTION, ParState.POST_TRAINING, ParState.DONE]:
             state = coordinator_pb2.State.Value("READY")
         else:
@@ -144,6 +148,8 @@ def message_loop(chan, st, terminate):
         req = coordinator_pb2.HeartbeatRequest(state=state, round=st.round)
         reply = coord.Heartbeat(req)
         transit(st, reply)
+        end = datetime.today() - start
+        print(f"ended sending heartbeat {end}")
         time.sleep(HEARTBEAT_TIME)
 
 
