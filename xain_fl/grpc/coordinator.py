@@ -29,7 +29,7 @@ logger = get_logger(
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 HEARTBEAT_TIME = 10
-HEARTBEAT_TIMEOUT = 5
+HEARTBEAT_TIMEOUT = 60
 
 
 class DuplicatedUpdateError(Exception):
@@ -334,6 +334,13 @@ class Coordinator:
             not isinstance(message, coordinator_pb2.RendezvousRequest)
             and participant_id not in self.participants.participants.keys()
         ):
+            logger.debug(
+                (
+                    "Unknown participant %s. "
+                    "Please try to rendezvous with the coordinator before making a request."
+                ),
+                participant_id,
+            )
             raise UnknownParticipantError(
                 f"Unknown participant {participant_id}. "
                 "Please try to rendezvous with the coordinator before making a request."

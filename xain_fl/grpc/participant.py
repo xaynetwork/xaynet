@@ -312,7 +312,10 @@ def end_training(
         theta_update=theta_n_proto, history=h, metrics=m
     )
     # send request to end training
-    reply = stub.EndTraining(req)
+    try:
+        reply = stub.EndTraining(req)
+    except grpc.RpcError as e:
+        print(f"gRPC Error {e}")
     print(f"Participant received: {type(reply)}")
 
 
