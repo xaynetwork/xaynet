@@ -111,30 +111,6 @@ def end_training(
     print(f"Participant received: {type(reply)}")
 
 
-# def init_participant() -> Participant:
-#     """Initialises a local Participant configured with command line flags.
-
-#     Returns:
-#         obj:`Participant`: Participant object.
-#     """
-#     xy_train_partitions, xy_val, _xy_test = load_splits(FLAGS.dataset_name)
-
-#     model_fn = load_model_fn(FLAGS.model_name)
-#     lr_fn_fn = load_lr_fn_fn(FLAGS.model_name)
-#     model_provider = ModelProvider(model_fn, lr_fn_fn)
-
-#     cid = 0
-#     xy_train = xy_train_partitions[FLAGS.partition_iden]
-#     return Participant(
-#         cid,
-#         model_provider,
-#         xy_train,
-#         xy_val,
-#         num_classes=10,
-#         batch_size=FLAGS.batch_size,
-#     )
-
-
 def training_round(channel, participant):
     """Initiates training round exchange with Coordinator.
 
@@ -151,22 +127,6 @@ def training_round(channel, participant):
     # NOTE _dict is the opt_config - ignore for now
     met = participant.metrics()
     end_training(channel, theta_n, his, met)
-
-
-# def main(_argv):
-#     print(f"model_name: {FLAGS.model_name}")
-#     print(f"dataset_name: {FLAGS.dataset_name}")
-#     print(f"batch_size: {FLAGS.batch_size}")
-#     print(f"partition_iden: {FLAGS.partition_iden}")
-#     go(init_participant())
-
-
-# if __name__ == "__main__":
-#     flags.mark_flag_as_required("model_name")
-#     flags.mark_flag_as_required("dataset_name")
-#     flags.mark_flag_as_required("batch_size")
-#     flags.mark_flag_as_required("partition_iden")
-#     app.run(main)
 
 
 class StateRecord:

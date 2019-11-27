@@ -62,11 +62,10 @@ def test_posttraining_to_training():
     hb.round = 0
     transit(st, hb)
     assert st.lookup() == start_state
-    # future round? not expecting this...
-    hb.round = 7
-    transit(st, hb)
-    assert st.lookup() == start_state
-    # next round - time to move
+    # NOTE a "future" round e.g. 7 would be unexpected under current assumptions
+    # it should be preceded by a STANDBY to indicate nonselection for round 6
+
+    # selected for next round
     hb.round = 6
     transit(st, hb)
     assert st.lookup() == (ParState.TRAINING, 6)
@@ -86,3 +85,16 @@ def test_posttraining_to_waiting():
     hb = coordinator_pb2.HeartbeatReply(state=coordinator_pb2.STANDBY)
     transit(st, hb)
     assert st.lookup() == (ParState.WAITING_FOR_SELECTION, 7)
+
+
+def test_restart_round():
+    # participant has done its training for round 8
+    st = StateRecord(state=ParState.POST_TRAINING, round=8)
+    hb = coordinator_pb2.HeartbeatReply(state=coordinator_pb2.STANDBY)
+    transit(st, hb)
+    assert st.lookup() == (ParState.WAITING_FOR_SELECTION, 8)
+    hb.state = coordinator_pb2.ROUND
+    # but still in round 8! => the round was restarted
+    transit(st, hb)
+    # re-do the training...
+    assert st.lookup() == (ParState.TRAINING, 8)
