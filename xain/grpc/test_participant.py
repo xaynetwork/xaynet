@@ -94,7 +94,8 @@ def test_restart_round():
     transit(st, hb)
     assert st.lookup() == (ParState.WAITING_FOR_SELECTION, 8)
     hb.state = coordinator_pb2.ROUND
-    # but still in round 8! => the round was restarted
+    hb.round = 8  # but still in round 8!
+    # => the round was restarted (under current assumptions)
     transit(st, hb)
-    # re-do the training...
+    # => re-do the training...
     assert st.lookup() == (ParState.TRAINING, 8)
