@@ -2,23 +2,38 @@ import concurrent.futures
 import os
 from typing import Tuple
 
-import numpy
+import numpy as np
 import requests
 from absl import flags, logging
 
-from ..helpers.sha1 import checksum
-from ..types import FederatedDataset
+from xain.helpers.sha1 import checksum
+from xain.types import FederatedDataset, Partition
+
 from . import hashes
 
 FLAGS = flags.FLAGS
 
 
 def default_get_local_datasets_dir():
+    """Returns absolute path to datasets directory
+
+    Returns
+        str: absolute datasets directory path
+    """
     return FLAGS.local_datasets_dir
 
 
 def get_dataset_dir(dataset_name: str, local_datasets_dir: str) -> str:
-    """Will return dataset directory and create it if its not already present"""
+    """Will return dataset directory and create it if its not already present
+
+    Args:
+        dataset_name (str)
+        local_datasets_dir (str)
+
+    Returns:
+        str: Absolute directory path to newly created datasets
+            directory in local datasets dir
+    """
     dataset_dir = os.path.join(local_datasets_dir, dataset_name)
 
     if not os.path.isdir(dataset_dir):
@@ -28,7 +43,12 @@ def get_dataset_dir(dataset_name: str, local_datasets_dir: str) -> str:
 
 
 def fetch_ndarray(url, fpath):
-    """Get file from fpath and store at fpath"""
+    """Downloads file from url and store at fpath
+
+    Args:
+        url (str): URL from which to download the ndarray file
+        fpath (str): Absolute path under which to store the file
+    """
     r = requests.get(url, stream=True)
 
     logging.info("Fetching file {}".format(url))
@@ -47,12 +67,15 @@ def load_ndarray(
 ):
     """Downloads dataset ndarray and loads from disk if already present
 
-    Parameters:
-    datasets_repository (str): datasets repository base URL
-    dataset_name (str): Name of dataset in repository
-    ndarray_name (str): ndarray name. Example: "x_00.npy"
-    local_datasets_dir (str): Directory in which all local datasets are stored
-    cleanup (bool): Cleanup file if it has the wrong hash
+    Args:
+        datasets_repository (str): datasets repository base URL
+        dataset_name (str): Name of dataset in repository
+        ndarray_name (str): ndarray name. Example: "x_00.npy"
+        local_datasets_dir (str): Directory in which all local datasets are stored
+        cleanup (bool): Cleanup file if it has the wrong hash
+
+    Returns:
+        np.ndarray: Loaded numpy ndarray
     """
     url = "{}/{}/{}".format(FLAGS.datasets_repository, dataset_name, ndarray_name)
 
@@ -78,7 +101,7 @@ def load_ndarray(
             )
         )
 
-    ndarray = numpy.load(fpath)
+    ndarray = np.load(fpath)
 
     return ndarray
 
@@ -88,7 +111,18 @@ def load_split(
     split_id: str,
     split_hashes: Tuple[str, str],
     local_datasets_dir=str,
-):
+) -> Partition:
+    """Downloads dataset partition and loads from disk if already present
+
+    Args:
+        dataset_name (str): Name of dataset in dataset repository
+        split_id (str): ndarray name. Example: "x_00.npy"
+        split_hashes (str, str): Tuple of hashes of x and y ndarray
+        local_datasets_dir (bool): Directory in which all local datasets are stored
+
+    Returns:
+        Partition: Federated Dataset Partition
+    """
     x_name = "x_{}.npy".format(split_id)
     x_hash = split_hashes[0]
 
@@ -115,6 +149,18 @@ def load_split(
 def load_splits(
     dataset_name: str, get_local_datasets_dir=default_get_local_datasets_dir
 ) -> FederatedDataset:
+    """Loads FederatedDataset from local datasets directory and from remote
+    datasets repository if not locally present
+
+    Args:
+        dataset_name (str): Name of dataset in repository
+        get_local_datasets_dir (Callable): Function which returns an absolute
+            path to datasets directory
+
+    Returns:
+        FederatedDataset
+    """
+
     xy_splits = []
     xy_val = (None, None)
     xy_test = (None, None)

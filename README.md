@@ -17,20 +17,20 @@ POLITE NOTE: We want to point out that running the benchmarks as described below
 XAIN requires [Python 3.6+](https://python.org/). To install the `xain` package just run:
 
 ```shell
-$ pip install xain
+$ python -m pip install xain
 ```
 
 XAIN can also be installed with GPU support through the `gpu` extra feature. To
 install the `xain` package with support for GPUs just run:
 
 ```shell
-$ pip install xain[gpu]
+$ python -m pip install xain[gpu]
 ```
 
 ### Running training sessions and benchmarks
 
 To run training sessions, see the [benchmark
-package](https://github.com/xainag/xain/tree/master/xain/benchmark) and the
+package](https://github.com/xainag/xain/tree/master/benchmarks/benchmark) and the
 [benchmark
 documentation](https://github.com/xainag/xain/blob/master/docs/quick.md#training).
 
@@ -49,7 +49,7 @@ To clone this repository and to install the XAIN project, please execute the fol
 $ git clone https://github.com/xainag/xain.git
 $ cd xain
 
-$ pip install -e .[dev]
+$ python -m pip install -e .[dev]
 ```
 
 ### Verify Installation

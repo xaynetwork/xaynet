@@ -1,3 +1,6 @@
+"""Class Participant handles local training in federated learning using its own
+data partition to refine the global model.
+"""
 from typing import Dict, List, Tuple
 
 import numpy as np
@@ -23,6 +26,18 @@ class Participant:
         batch_size: int,
         use_lr_fn: bool = True,
     ) -> None:
+        """Initializes the participant
+
+        Args:
+            cid (int): Participant identifier
+            model_provider (ModelProvider)
+            xy_train (Partition): Training data
+            xy_val (Partition): Validation data
+            num_classes (int): Number of classes (classification)
+            batch_size (int)
+            use_lr_fn (bool = True): Optional boolean to enable learning rate function,
+                defaults to True
+        """
         assert xy_train[0].shape[0] == xy_train[1].shape[0]
         assert xy_val[0].shape[0] == xy_val[1].shape[0]
         self.cid = cid
@@ -41,6 +56,18 @@ class Participant:
     def train_round(
         self, theta: Theta, epochs: int, epoch_base: int
     ) -> Tuple[Tuple[Theta, int], History, Dict]:
+        """Performs the responsibilities of a single participant in a single round
+            of federated learning.
+
+        Args:
+            theta (Theta): Current global model
+            epochs (int): Number of local training epochs
+            epoch_base (int): Number of globally performed epochs
+
+        Returns:
+            Tuple[Tuple[Theta, int], History, Dict]: Theta prime, local training history,
+                and optimizer configs
+        """
         logging.info(
             f"Participant {self.cid}: train_round START (epoch_base: {epoch_base})"
         )
@@ -53,14 +80,14 @@ class Participant:
             callback_lr = tf.keras.callbacks.LearningRateScheduler(lr_fn)
             callbacks = [callback_lr]
 
-        hist: History = self.fit(model, epochs, callbacks)
+        hist: History = self._fit(model, epochs, callbacks)
         theta_prime = model.get_weights()
         opt_config = model.optimizer.get_config()
-        opt_config = convert_numpy_types(opt_config)
+        opt_config = _convert_numpy_types(opt_config)
         logging.info("Participant {}: train_round FINISH".format(self.cid))
         return (theta_prime, self.num_examples), hist, opt_config
 
-    def fit(self, model: tf.keras.Model, epochs: int, callbacks: List) -> History:
+    def _fit(self, model: tf.keras.Model, epochs: int, callbacks: List) -> History:
         ds_train = prep.init_ds_train(self.xy_train, self.num_classes, self.batch_size)
         ds_val = prep.init_ds_val(self.xy_val, self.num_classes)
 
@@ -77,9 +104,18 @@ class Participant:
             validation_steps=self.steps_val,
             verbose=0,
         )
-        return cast_to_float(hist.history)
+        return _cast_to_float(hist.history)
 
     def evaluate(self, theta: Theta, xy_test: Partition) -> Tuple[float, float]:
+        """Evaluate the local model using the provided validation data.
+
+        Args:
+            theta (Theta)
+            xy_test (Partition)
+
+        Returns:
+            Tuple[float, float]: Loss and accuracy
+        """
         model = self.model_provider.init_model()
         model.set_weights(theta)
         ds_val = prep.init_ds_val(xy_test)
@@ -89,11 +125,16 @@ class Participant:
         return loss, accuracy
 
     def metrics(self) -> Metrics:
-        vol_by_class = xy_train_volume_by_class(self.num_classes, self.xy_train)
+        """Provides training metrics.
+
+        Returns:
+            (int, VolumeByClass)
+        """
+        vol_by_class = _xy_train_volume_by_class(self.num_classes, self.xy_train)
         return (self.cid, vol_by_class)
 
 
-def xy_train_volume_by_class(num_classes: int, xy_train) -> VolumeByClass:
+def _xy_train_volume_by_class(num_classes: int, xy_train) -> VolumeByClass:
     counts = [0] * num_classes
     _, y = xy_train
     classes, counts_actual = np.unique(y, return_counts=True)
@@ -106,14 +147,14 @@ def xy_train_volume_by_class(num_classes: int, xy_train) -> VolumeByClass:
     return counts
 
 
-def cast_to_float(hist) -> History:
+def _cast_to_float(hist) -> History:
     for key in hist:
         for index, number in enumerate(hist[key]):
             hist[key][index] = float(number)
     return hist
 
 
-def convert_numpy_types(opt_config: Dict) -> Dict:
+def _convert_numpy_types(opt_config: Dict) -> Dict:
     for key in opt_config:
         if isinstance(opt_config[key], np.float32):
             opt_config[key] = opt_config[key].item()
