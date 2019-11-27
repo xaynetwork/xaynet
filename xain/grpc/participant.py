@@ -6,23 +6,23 @@ from enum import Enum, auto
 from typing import Tuple
 
 import grpc
-from absl import app, flags
+# from absl import app, flags
 from numproto import ndarray_to_proto, proto_to_ndarray
 
-from xain.benchmark.net import load_lr_fn_fn, load_model_fn, model_fns
-from xain.datasets import load_splits
-from xain.fl.participant import ModelProvider, Participant
+# from xain.benchmark.net import load_lr_fn_fn, load_model_fn, model_fns
+# from xain.datasets import load_splits
+# from xain.fl.participant import ModelProvider, Participant
 from xain.grpc import coordinator_pb2, coordinator_pb2_grpc
 from xain.types import History, Metrics, Theta
 
-FLAGS = flags.FLAGS
+# FLAGS = flags.FLAGS
 
-flags.DEFINE_string(
-    "model_name", None, f"Model name, one of {[fn for fn in model_fns]}"
-)
-flags.DEFINE_string("dataset_name", None, "Dataset name")
-flags.DEFINE_integer("batch_size", None, "Batch size")
-flags.DEFINE_integer("partition_iden", None, "Partition ID for unitary training")
+# flags.DEFINE_string(
+#     "model_name", None, f"Model name, one of {[fn for fn in model_fns]}"
+# )
+# flags.DEFINE_string("dataset_name", None, "Dataset name")
+# flags.DEFINE_integer("batch_size", None, "Batch size")
+# flags.DEFINE_integer("partition_iden", None, "Partition ID for unitary training")
 
 RETRY_TIMEOUT = 5
 HEARTBEAT_TIME = 10
@@ -124,31 +124,31 @@ def end_training(
     print(f"Participant received: {type(reply)}")
 
 
-def init_participant() -> Participant:
-    """Initialises a local Participant configured with command line flags.
+# def init_participant() -> Participant:
+#     """Initialises a local Participant configured with command line flags.
 
-    Returns:
-        obj:`Participant`: Participant object.
-    """
-    xy_train_partitions, xy_val, _xy_test = load_splits(FLAGS.dataset_name)
+#     Returns:
+#         obj:`Participant`: Participant object.
+#     """
+#     xy_train_partitions, xy_val, _xy_test = load_splits(FLAGS.dataset_name)
 
-    model_fn = load_model_fn(FLAGS.model_name)
-    lr_fn_fn = load_lr_fn_fn(FLAGS.model_name)
-    model_provider = ModelProvider(model_fn, lr_fn_fn)
+#     model_fn = load_model_fn(FLAGS.model_name)
+#     lr_fn_fn = load_lr_fn_fn(FLAGS.model_name)
+#     model_provider = ModelProvider(model_fn, lr_fn_fn)
 
-    cid = 0
-    xy_train = xy_train_partitions[FLAGS.partition_iden]
-    return Participant(
-        cid,
-        model_provider,
-        xy_train,
-        xy_val,
-        num_classes=10,
-        batch_size=FLAGS.batch_size,
-    )
+#     cid = 0
+#     xy_train = xy_train_partitions[FLAGS.partition_iden]
+#     return Participant(
+#         cid,
+#         model_provider,
+#         xy_train,
+#         xy_val,
+#         num_classes=10,
+#         batch_size=FLAGS.batch_size,
+#     )
 
 
-def training_round(channel, participant: Participant):
+def training_round(channel, participant):
     """Initiates training round exchange with Coordinator.
 
     Begins with `start_training`. Then performs local training computation using
@@ -166,30 +166,30 @@ def training_round(channel, participant: Participant):
     end_training(channel, theta_n, his, met)
 
 
-def main(_argv):
-    print(f"model_name: {FLAGS.model_name}")
-    print(f"dataset_name: {FLAGS.dataset_name}")
-    print(f"batch_size: {FLAGS.batch_size}")
-    print(f"partition_iden: {FLAGS.partition_iden}")
-    go(init_participant())
+# def main(_argv):
+#     print(f"model_name: {FLAGS.model_name}")
+#     print(f"dataset_name: {FLAGS.dataset_name}")
+#     print(f"batch_size: {FLAGS.batch_size}")
+#     print(f"partition_iden: {FLAGS.partition_iden}")
+#     go(init_participant())
 
 
-if __name__ == "__main__":
-    flags.mark_flag_as_required("model_name")
-    flags.mark_flag_as_required("dataset_name")
-    flags.mark_flag_as_required("batch_size")
-    flags.mark_flag_as_required("partition_iden")
-    app.run(main)
+# if __name__ == "__main__":
+#     flags.mark_flag_as_required("model_name")
+#     flags.mark_flag_as_required("dataset_name")
+#     flags.mark_flag_as_required("batch_size")
+#     flags.mark_flag_as_required("partition_iden")
+#     app.run(main)
 
 
 class StateRecord:
     """Thread-safe record of Participant state and round number.
     """
 
-    def __init__(self):
+    def __init__(self, state=ParState.WAITING_FOR_SELECTION, round=0):
         self.cv = threading.Condition()
-        self.round = 0
-        self.state = ParState.WAITING_FOR_SELECTION
+        self.round = round
+        self.state = state
 
     def lookup(self):
         """Looks up the state and round number.
@@ -245,7 +245,6 @@ def transit(st, beat_reply):
     Args:
         st (obj:`StateRecord`): Participant state record to update.
         beat_reply (obj:`coordinator_pb2.HeartbeatReply`): Heartbeat from Coordinator.
-
     """
     msg, r = beat_reply.state, beat_reply.round
     with st.cv:
