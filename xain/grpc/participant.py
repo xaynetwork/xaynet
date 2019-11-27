@@ -173,6 +173,7 @@ class StateRecord:
     """Thread-safe record of Participant state and round number.
     """
 
+    # pylint: disable=W0622
     def __init__(self, state=ParState.WAITING_FOR_SELECTION, round=0):
         self.cv = threading.Condition()
         self.round = round
