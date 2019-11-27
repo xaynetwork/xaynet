@@ -1,5 +1,5 @@
-from xain.grpc.participant import StateRecord, ParState, transit
 from xain.grpc import coordinator_pb2
+from xain.grpc.participant import ParState, StateRecord, transit
 
 
 def test_from_start():

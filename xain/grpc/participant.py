@@ -6,6 +6,7 @@ from enum import Enum, auto
 from typing import Tuple
 
 import grpc
+
 # from absl import app, flags
 from numproto import ndarray_to_proto, proto_to_ndarray
 
