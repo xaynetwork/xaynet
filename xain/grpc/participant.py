@@ -6,24 +6,10 @@ from enum import Enum, auto
 from typing import Tuple
 
 import grpc
-
-# from absl import app, flags
 from numproto import ndarray_to_proto, proto_to_ndarray
 
-# from xain.benchmark.net import load_lr_fn_fn, load_model_fn, model_fns
-# from xain.datasets import load_splits
-# from xain.fl.participant import ModelProvider, Participant
 from xain.grpc import coordinator_pb2, coordinator_pb2_grpc
 from xain.types import History, Metrics, Theta
-
-# FLAGS = flags.FLAGS
-
-# flags.DEFINE_string(
-#     "model_name", None, f"Model name, one of {[fn for fn in model_fns]}"
-# )
-# flags.DEFINE_string("dataset_name", None, "Dataset name")
-# flags.DEFINE_integer("batch_size", None, "Batch size")
-# flags.DEFINE_integer("partition_iden", None, "Partition ID for unitary training")
 
 RETRY_TIMEOUT = 5
 HEARTBEAT_TIME = 10
