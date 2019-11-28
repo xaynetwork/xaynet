@@ -20,7 +20,13 @@ from xain.grpc.coordinator import (
     Participants,
     monitor_heartbeats,
 )
-from xain.grpc.participant import end_training, heartbeat, rendezvous, start_training
+from xain.grpc.participant import (
+    StateRecord,
+    end_training,
+    message_loop,
+    rendezvous,
+    start_training,
+)
 
 # Some grpc tests fail on macos.
 # `pytestmark` when defined on a module will mark all tests in that module.
@@ -132,8 +138,9 @@ def test_monitor_heartbeats_remove_participant(_mock_sleep, _mock_event):
 def test_participant_heartbeat(mock_heartbeat_request, _mock_sleep, _mock_event):
     channel = mock.MagicMock()
     terminate_event = threading.Event()
+    st = StateRecord()
 
-    heartbeat(channel, terminate_event)
+    message_loop(channel, st, terminate_event)
 
     # check that the heartbeat is sent exactly twice
     mock_heartbeat_request.assert_has_calls([mock.call(), mock.call()])
