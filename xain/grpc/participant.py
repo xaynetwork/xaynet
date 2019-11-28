@@ -25,15 +25,6 @@ class ParState(Enum):
     DONE = auto()
 
 
-# deprecated: see message_loop
-def heartbeat(channel, terminate_event):
-    stub = coordinator_pb2_grpc.CoordinatorStub(channel)
-    while not terminate_event.is_set():
-        reply = stub.Heartbeat(coordinator_pb2.HeartbeatRequest())
-        print(f"Participant received: {type(reply)}")
-        time.sleep(HEARTBEAT_TIME)
-
-
 def rendezvous(channel):
     """Starts a rendezvous exchange with Coordinator.
 
