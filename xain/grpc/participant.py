@@ -8,6 +8,7 @@ from typing import Tuple
 
 import grpc
 from numproto import ndarray_to_proto, proto_to_ndarray
+
 from xain.grpc import coordinator_pb2, coordinator_pb2_grpc
 from xain.logger import get_logger
 from xain.types import History, Metrics, Theta
