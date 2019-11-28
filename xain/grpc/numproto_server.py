@@ -4,6 +4,7 @@ from concurrent import futures
 
 import grpc
 from numproto import ndarray_to_proto, proto_to_ndarray
+
 from xain.grpc import hellonumproto_pb2, hellonumproto_pb2_grpc
 from xain.logger import get_logger
 

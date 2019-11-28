@@ -5,12 +5,14 @@ from typing import Tuple
 
 import grpc
 from numproto import ndarray_to_proto, proto_to_ndarray
+
 from xain.grpc import coordinator_pb2, coordinator_pb2_grpc
 from xain.logger import get_logger
 from xain.types import History, Metrics, Theta
 
 RETRY_TIMEOUT = 5
 HEARTBEAT_TIME = 10
+
 logger = get_logger(__name__, level=os.environ.get("XAIN_LOGLEVEL", "INFO"))
 
 
