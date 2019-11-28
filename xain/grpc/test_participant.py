@@ -14,10 +14,9 @@ def test_from_start():
 
 def test_waiting_to_training_i():
     st = StateRecord(state=ParState.WAITING_FOR_SELECTION)
-    i = 5
-    hb = coordinator_pb2.HeartbeatReply(state=coordinator_pb2.ROUND, round=i)
+    hb = coordinator_pb2.HeartbeatReply(state=coordinator_pb2.ROUND, round=1)
     transit(st, hb)
-    assert st.lookup() == (ParState.TRAINING, i)
+    assert st.lookup() == (ParState.TRAINING, 1)
     # should return immediately
     assert st.wait_until_selected_or_done() == ParState.TRAINING
 
@@ -78,6 +77,8 @@ def test_posttraining_to_done():
     hb = coordinator_pb2.HeartbeatReply(state=coordinator_pb2.FINISHED)
     transit(st, hb)
     assert st.lookup() == (ParState.DONE, 6)
+    # should return immediately
+    assert st.wait_until_next_round() == ParState.DONE
 
 
 def test_posttraining_to_waiting():
@@ -85,17 +86,21 @@ def test_posttraining_to_waiting():
     hb = coordinator_pb2.HeartbeatReply(state=coordinator_pb2.STANDBY)
     transit(st, hb)
     assert st.lookup() == (ParState.WAITING_FOR_SELECTION, 7)
+    # should return immediately
+    assert st.wait_until_next_round() == ParState.WAITING_FOR_SELECTION
 
 
 def test_restart_round():
     # participant has done its training for round 8
     st = StateRecord(state=ParState.POST_TRAINING, round=8)
+    # it's told to go into waiting
     hb = coordinator_pb2.HeartbeatReply(state=coordinator_pb2.STANDBY)
     transit(st, hb)
     assert st.lookup() == (ParState.WAITING_FOR_SELECTION, 8)
+    # and back again to training...
     hb.state = coordinator_pb2.ROUND
     hb.round = 8  # but still in round 8!
-    # => the round was restarted (under current assumptions)
+    # => interpret this as "round restarted" e.g. coordinator didn't receive update
     transit(st, hb)
     # => re-do the training...
     assert st.lookup() == (ParState.TRAINING, 8)
