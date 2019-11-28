@@ -3,7 +3,6 @@ import os
 import grpc
 import numpy as np
 from numproto import ndarray_to_proto, proto_to_ndarray
-
 from xain.grpc import hellonumproto_pb2, hellonumproto_pb2_grpc
 from xain.logger import get_logger
 
@@ -15,13 +14,13 @@ def run():
         stub = hellonumproto_pb2_grpc.NumProtoServerStub(channel)
 
         nda = np.arange(10)
-        logger.info("NumProto client sent:", ndarray=nda)
+        logger.info("NumProto client sent: %s", nda)
 
         response = stub.SayHelloNumProto(
             hellonumproto_pb2.NumProtoRequest(arr=ndarray_to_proto(nda))
         )
 
-    logger.info("NumProto client received:", ndarray=proto_to_ndarray(response.arr))
+    logger.info("NumProto client received: %s", proto_to_ndarray(response.arr))
 
 
 if __name__ == "__main__":

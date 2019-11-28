@@ -5,7 +5,6 @@ from typing import Tuple
 
 import grpc
 from numproto import ndarray_to_proto, proto_to_ndarray
-
 from xain.grpc import coordinator_pb2, coordinator_pb2_grpc
 from xain.logger import get_logger
 from xain.types import History, Metrics, Theta
@@ -19,7 +18,7 @@ def heartbeat(channel, terminate_event):
     stub = coordinator_pb2_grpc.CoordinatorStub(channel)
     while not terminate_event.is_set():
         reply = stub.Heartbeat(coordinator_pb2.HeartbeatRequest())
-        logger.info("Participant received:", type=type(reply))
+        logger.info("Participant received: %s", type(reply))
         time.sleep(HEARTBEAT_TIME)
 
 
@@ -44,7 +43,7 @@ def start_training(channel) -> Tuple[Theta, int, int]:
     req = coordinator_pb2.StartTrainingRequest()
     # send request to start training
     reply = stub.StartTraining(req)
-    logger.info("Participant received:", type=type(reply))
+    logger.info("Participant received: %s", type(reply))
     theta, epochs, epoch_base = reply.theta, reply.epochs, reply.epoch_base
     return [proto_to_ndarray(pnda) for pnda in theta], epochs, epoch_base
 
@@ -72,7 +71,7 @@ def end_training(
     )
     # send request to end training
     reply = stub.EndTraining(req)
-    logger.info("Participant received:", type=type(reply))
+    logger.info("Participant received: %s", type(reply))
 
 
 def run():

@@ -4,7 +4,6 @@ from concurrent import futures
 
 import grpc
 from numproto import ndarray_to_proto, proto_to_ndarray
-
 from xain.grpc import hellonumproto_pb2, hellonumproto_pb2_grpc
 from xain.logger import get_logger
 
@@ -15,10 +14,10 @@ logger = get_logger(__name__, level=os.environ.get("XAIN_LOGLEVEL", "INFO"))
 class NumProtoServer(hellonumproto_pb2_grpc.NumProtoServerServicer):
     def SayHelloNumProto(self, request, context):
         nda = proto_to_ndarray(request.arr)
-        logger.info("NumProto server received:", ndarray=nda)
+        logger.info("NumProto server received: %s", nda)
 
         nda *= 2
-        logger.info("NumProto server sent:", ndarray=nda)
+        logger.info("NumProto server sent: %s", nda)
         return hellonumproto_pb2.NumProtoReply(arr=ndarray_to_proto(nda))
 
 
