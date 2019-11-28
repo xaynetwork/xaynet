@@ -1,3 +1,4 @@
+import os
 import threading
 import time
 from typing import Tuple
@@ -6,17 +7,19 @@ import grpc
 from numproto import ndarray_to_proto, proto_to_ndarray
 
 from xain.grpc import coordinator_pb2, coordinator_pb2_grpc
+from xain.logger import get_logger
 from xain.types import History, Metrics, Theta
 
 RETRY_TIMEOUT = 5
 HEARTBEAT_TIME = 10
+logger = get_logger(__name__, level=os.environ.get("XAIN_LOGLEVEL", "INFO"))
 
 
 def heartbeat(channel, terminate_event):
     stub = coordinator_pb2_grpc.CoordinatorStub(channel)
     while not terminate_event.is_set():
         reply = stub.Heartbeat(coordinator_pb2.HeartbeatRequest())
-        print(f"Participant received: {type(reply)}")
+        logger.info("Participant received:", type=type(reply))
         time.sleep(HEARTBEAT_TIME)
 
 
@@ -28,9 +31,9 @@ def rendezvous(channel):
     while response == coordinator_pb2.RendezvousResponse.LATER:
         reply = stub.Rendezvous(coordinator_pb2.RendezvousRequest())
         if reply.response == coordinator_pb2.RendezvousResponse.ACCEPT:
-            print("Participant received: ACCEPT")
+            logger.info("Participant received: ACCEPT")
         elif reply.response == coordinator_pb2.RendezvousResponse.LATER:
-            print(f"Participant received: LATER. Retrying in {RETRY_TIMEOUT}s")
+            logger.info("Participant received: LATER. Retrying in %s", RETRY_TIMEOUT)
             time.sleep(RETRY_TIMEOUT)
 
         response = reply.response
@@ -41,7 +44,7 @@ def start_training(channel) -> Tuple[Theta, int, int]:
     req = coordinator_pb2.StartTrainingRequest()
     # send request to start training
     reply = stub.StartTraining(req)
-    print(f"Participant received: {type(reply)}")
+    logger.info("Participant received:", type=type(reply))
     theta, epochs, epoch_base = reply.theta, reply.epochs, reply.epoch_base
     return [proto_to_ndarray(pnda) for pnda in theta], epochs, epoch_base
 
@@ -69,7 +72,7 @@ def end_training(
     )
     # send request to end training
     reply = stub.EndTraining(req)
-    print(f"Participant received: {type(reply)}")
+    logger.info("Participant received:", type=type(reply))
 
 
 def run():

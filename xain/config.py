@@ -3,9 +3,8 @@ import os
 from functools import lru_cache
 from pathlib import Path
 
-from absl import logging
-
 from xain.helpers import project
+from xain.logger import get_logger
 
 # Storage dir for bigger files like the datasets
 storage_dir = Path.home().joinpath(".xain")
@@ -17,10 +16,12 @@ config_file = root_dir.joinpath("config.cfg")
 output_dir_default = root_dir.joinpath("output")
 results_dir_default = root_dir.joinpath("results")
 
+logger = get_logger(__name__, level=os.environ.get("XAIN_LOGLEVEL", "INFO"))
+
 
 def init_config():
     """Creates initial config file if non exists"""
-    logging.info(f"Initializing config in {config_file}")
+    logger.info("Initializing config in", config_file_path=config_file)
 
     config = configparser.ConfigParser()
 

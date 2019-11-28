@@ -1,4 +1,4 @@
-import logging
+import os
 import time
 from concurrent import futures
 
@@ -6,17 +6,19 @@ import grpc
 from numproto import ndarray_to_proto, proto_to_ndarray
 
 from xain.grpc import hellonumproto_pb2, hellonumproto_pb2_grpc
+from xain.logger import get_logger
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
+logger = get_logger(__name__, level=os.environ.get("XAIN_LOGLEVEL", "INFO"))
 
 
 class NumProtoServer(hellonumproto_pb2_grpc.NumProtoServerServicer):
     def SayHelloNumProto(self, request, context):
         nda = proto_to_ndarray(request.arr)
-        print("NumProto server received: {}".format(nda))
+        logger.info("NumProto server received:", ndarray=nda)
 
         nda *= 2
-        print("NumProto server sent: {}".format(nda))
+        logger.info("NumProto server sent:", ndarray=nda)
         return hellonumproto_pb2.NumProtoReply(arr=ndarray_to_proto(nda))
 
 
@@ -35,5 +37,4 @@ def serve():
 
 
 if __name__ == "__main__":
-    logging.basicConfig()
     serve()

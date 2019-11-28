@@ -4,14 +4,18 @@ from typing import Tuple
 
 import numpy as np
 import requests
-from absl import flags, logging
+from absl import flags
 
 from xain.helpers.sha1 import checksum
+from xain.logger import get_logger
 from xain.types import FederatedDataset, Partition
 
 from . import hashes
 
 FLAGS = flags.FLAGS
+
+
+logger = get_logger(__name__, level=os.environ.get("XAIN_LOGLEVEL", "INFO"))
 
 
 def default_get_local_datasets_dir():
@@ -51,7 +55,7 @@ def fetch_ndarray(url, fpath):
     """
     r = requests.get(url, stream=True)
 
-    logging.info("Fetching file {}".format(url))
+    logger.info("Fetching file", url=url)
 
     if r.status_code != 200:
         raise Exception("Received HTTP Status {} for url {}".format(r.status_code, url))

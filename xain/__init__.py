@@ -1,6 +1,6 @@
 import os
 
-from absl import flags, logging
+from absl import flags
 
 import xain.config
 

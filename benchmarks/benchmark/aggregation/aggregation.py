@@ -4,7 +4,7 @@ to be used in benchmark scenario configuration
 import os
 from typing import Callable, Dict
 
-from absl import flags, logging
+from absl import flags
 
 from benchmarks.benchmark.aggregation import (
     final_task_accuracies,
@@ -13,8 +13,12 @@ from benchmarks.benchmark.aggregation import (
     task_accuracies,
 )
 from benchmarks.helpers import storage
+from xain.logger import get_logger
 
 FLAGS = flags.FLAGS
+
+
+logger = get_logger(__name__, level=os.environ.get("XAIN_LOGLEVEL", "INFO"))
 
 
 def _aggregate():
@@ -28,14 +32,14 @@ def _aggregate():
 
 
 def _flul_aggregation():
-    logging.info("flul_aggregation started")
+    logger.info("flul_aggregation started")
     task_accuracies.aggregate()
     learning_rate.aggregate()
     participant_hist.participant_history()
 
 
 def _cpp_aggregation():
-    logging.info("cpp_aggregation started")
+    logger.info("cpp_aggregation started")
     task_accuracies.aggregate()
     final_task_accuracies.aggregate()
     participant_hist.participant_history()
