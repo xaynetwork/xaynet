@@ -100,7 +100,7 @@ def test_restart_round():
     # and back again to training...
     hb.state = coordinator_pb2.ROUND
     hb.round = 8  # but still in round 8!
-    # => interpret this as "round restarted" e.g. coordinator didn't receive update
+    # => interpret this as "round restarted" e.g. original theta was corrupt or something
     transit(st, hb)
     # => re-do the training...
     assert st.lookup() == (ParState.TRAINING, 8)
