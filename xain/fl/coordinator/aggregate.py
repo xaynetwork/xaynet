@@ -1,15 +1,18 @@
 """Provides an abstract base class Aggregator and multiple sub-classes
 such as FederatedAveragingAgg.
 """
+import os
 from abc import ABC, abstractmethod
 from typing import List, Tuple
 
 import numpy as np
-from absl import logging
 
+from xain.logger import get_logger
 from xain.types import Theta
 
 from .evaluator import Evaluator
+
+logger = get_logger(__name__, level=os.environ.get("XAIN_LOGLEVEL", "INFO"))
 
 
 class Aggregator(ABC):
@@ -63,7 +66,7 @@ class EvoAgg(Aggregator):
 
     def aggregate(self, thetas: List[Tuple[Theta, int]]) -> Theta:
         weight_matrices = [theta for theta, num_examples in thetas]
-        return evo_agg(weight_matrices, self.evaluator, False)
+        return evo_agg(weight_matrices, self.evaluator)
 
 
 def federated_averaging(thetas: List[Theta], weighting: np.ndarray) -> Theta:
@@ -97,7 +100,7 @@ def federated_averaging(thetas: List[Theta], weighting: np.ndarray) -> Theta:
     return theta_avg
 
 
-def evo_agg(thetas: List[Theta], evaluator: Evaluator, verbose=False) -> Theta:
+def evo_agg(thetas: List[Theta], evaluator: Evaluator) -> Theta:
     """Experimental
 
         - Init different weightings
@@ -110,12 +113,11 @@ def evo_agg(thetas: List[Theta], evaluator: Evaluator, verbose=False) -> Theta:
     theta_prime_candidates = []
     for i in range(3):
         candidate = _compute_candidate(thetas, evaluator)
-        if verbose:
-            logging.info(
-                "candidate {} (weighting {}): {} loss".format(
-                    i, candidate[0], candidate[2]
-                )
-            )
+
+        logger.debug(
+            "candidate %s (weighting %s): %s loss", i, candidate[0], candidate[2]
+        )
+
         theta_prime_candidates.append(candidate)
     # Return best candidate
     best_candidate = _pick_best_candidate(theta_prime_candidates)

@@ -3,20 +3,24 @@ using a selection strategy (implemented through Controller sub-class) and an agg
 method (implemented through Aggregator sub-class).
 """
 import concurrent.futures
+import os
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
 
 import tensorflow as tf
-from absl import flags, logging
+from absl import flags
 
 from xain.datasets import prep
 from xain.fl.logging.logging import create_summary_writer, write_summaries
 from xain.fl.participant import ModelProvider, Participant
+from xain.logger import get_logger
 from xain.types import History, Metrics, Partition, Theta
 
 from .aggregate import Aggregator, FederatedAveragingAgg
 
 FLAGS = flags.FLAGS
+
+logger = get_logger(__name__, level=os.environ.get("XAIN_LOGLEVEL", "INFO"))
 
 
 class Coordinator:
@@ -89,7 +93,7 @@ class Coordinator:
             num_indices = _abs_C(self.C, self.num_participants())
             indices = self.controller.indices(num_indices)
             msg = f"Round {r+1}/{num_rounds}: Participants {indices}"
-            logging.info(msg)
+            logger.info(msg)
 
             # Train
             histories, opt_configs, train_metrics = self.fit_round(indices, self.E)
@@ -109,14 +113,11 @@ class Coordinator:
             hist_co["val_loss"].append(val_loss)
             hist_co["val_acc"].append(val_acc)
 
-        logging.info(
-            "TensorBoard coordinator validation logs saved: {}".format(val_log_dir)
-        )
-        logging.info(
-            'Detailed analysis: call "tensorboard --logdir {}" from \
-the console and open "localhost:6006" in a browser'.format(
-                val_log_dir
-            )
+        logger.info("TensorBoard coordinator validation logs saved: %s", val_log_dir)
+        logger.info(
+            'Detailed analysis: call "tensorboard --logdir %s" from the \
+            console and open "localhost:6006" in a browser',
+            val_log_dir,
         )
 
         return hist_co, hist_ps, hist_opt_configs, hist_metrics

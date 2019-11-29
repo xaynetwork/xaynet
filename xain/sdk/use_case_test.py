@@ -15,6 +15,4 @@ def test_UseCase():
         def train(self):
             pass
 
-    use_case = MyUseCase()
-
-    print(use_case)
+    MyUseCase()

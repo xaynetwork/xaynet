@@ -4,10 +4,13 @@ import pytest
 from absl import flags
 
 from xain.helpers import sha1
+from xain.logger import get_logger
 
 from . import learning_rate
 
 FLAGS = flags.FLAGS
+
+logger = get_logger(__name__, level=os.environ.get("XAIN_LOGLEVEL", "INFO"))
 
 
 @pytest.mark.integration
@@ -46,7 +49,7 @@ def test_plot_learning_rate(output_dir, group_name, monkeypatch):
     # If any error occurs we will be able to look at the plot. If the the ploting
     # logic is changed the file under this path can be used to get the new hash
     # after evaluating the rendered plot
-    print(actual_filepath)
+    logger.info(actual_filepath)
 
     # Assert
     assert expected_filepath == actual_filepath

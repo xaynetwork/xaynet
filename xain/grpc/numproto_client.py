@@ -1,10 +1,13 @@
-import logging
+import os
 
 import grpc
 import numpy as np
 from numproto import ndarray_to_proto, proto_to_ndarray
 
 from xain.grpc import hellonumproto_pb2, hellonumproto_pb2_grpc
+from xain.logger import get_logger
+
+logger = get_logger(__name__, level=os.environ.get("XAIN_LOGLEVEL", "INFO"))
 
 
 def run():
@@ -12,14 +15,14 @@ def run():
         stub = hellonumproto_pb2_grpc.NumProtoServerStub(channel)
 
         nda = np.arange(10)
-        print("NumProto client sent: {}".format(nda))
+        logger.info("NumProto client sent: %s", nda)
 
         response = stub.SayHelloNumProto(
             hellonumproto_pb2.NumProtoRequest(arr=ndarray_to_proto(nda))
         )
-    print("NumProto client received: {}".format(proto_to_ndarray(response.arr)))
+
+    logger.info("NumProto client received: %s", proto_to_ndarray(response.arr))
 
 
 if __name__ == "__main__":
-    logging.basicConfig()
     run()

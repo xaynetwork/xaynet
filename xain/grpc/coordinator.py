@@ -18,9 +18,8 @@ from xain.fl.coordinator.aggregate import Aggregator, FederatedAveragingAgg
 from xain.grpc import coordinator_pb2, coordinator_pb2_grpc
 from xain.logger import get_logger
 
-logger = get_logger(
-    "xain.grpc.coordinator", level=os.environ.get("XAIN_LOGLEVEL", "INFO")
-)
+logger = get_logger(__name__, level=os.environ.get("XAIN_LOGLEVEL", "INFO"))
+
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 HEARTBEAT_TIME = 10
