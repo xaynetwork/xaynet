@@ -31,7 +31,6 @@ class ParState(Enum):
 
 def rendezvous(channel):
     """Starts a rendezvous exchange with Coordinator.
-
     Args:
         channel: gRPC channel to Coordinator.
     """
@@ -53,10 +52,8 @@ def rendezvous(channel):
 def start_training(channel) -> Tuple[Theta, int, int]:
     """Starts a training initiation exchange with Coordinator. Returns the decoded
     contents of the response from Coordinator.
-
     Args:
         channel: gRPC channel to Coordinator.
-
     Returns:
         obj:`Theta`: Global model to train on.
         obj:`int`: Number of epochs.
@@ -76,7 +73,6 @@ def end_training(
 ):
     """Starts a training completion exchange with Coordinator, sending a locally
     trained model and metadata.
-
     Args:
         channel: gRPC channel to Coordinator.
         theta_n (obj:`Tuple[Theta, int]`): Locally trained model.
@@ -108,10 +104,8 @@ def end_training(
 
 def training_round(channel, participant):
     """Initiates training round exchange with Coordinator.
-
     Begins with `start_training`. Then performs local training computation using
     `participant`. Finally, completes with `end_training`.
-
     Args:
         channel: gRPC channel to Coordinator.
         participant (obj:`Participant`): Local Participant.
@@ -136,7 +130,6 @@ class StateRecord:
 
     def lookup(self):
         """Looks up the state and round number.
-
         Returns:
             :obj:`Tuple[ParState, int]`: State and round number
         """
@@ -145,7 +138,6 @@ class StateRecord:
 
     def update(self, state):
         """Updates state.
-
         Args:
             state (:obj:`ParState`): State to update to.
         """
@@ -156,7 +148,6 @@ class StateRecord:
     def wait_until_selected_or_done(self):
         """Waits until Participant is in the state of having been selected for training
         (or is completely done).
-
         Returns:
             :obj:`ParState`: New state Participant is in.
         """
@@ -168,7 +159,6 @@ class StateRecord:
     def wait_until_next_round(self):
         """Waits until Participant is in a state indicating the start of the next round
         of training.
-
         Returns:
             :obj:`ParState`: New state Participant is in.
         """
@@ -184,7 +174,6 @@ class StateRecord:
 def transit(st, beat_reply):
     """Participant state transition function on a heartbeat response. Updates the
     state record `st`.
-
     Args:
         st (obj:`StateRecord`): Participant state record to update.
         beat_reply (obj:`coordinator_pb2.HeartbeatReply`): Heartbeat from Coordinator.
@@ -216,7 +205,6 @@ def transit(st, beat_reply):
 
 def message_loop(chan, st, terminate):
     """Periodically sends (and handles) heartbeat messages in a loop.
-
     Args:
         chan: gRPC channel to Coordinator.
         st (obj:`StateRecord`): Participant state record.
@@ -232,12 +220,10 @@ def message_loop(chan, st, terminate):
 
 def go(part):
     """Top-level function for the Participant state machine.
-
     After rendezvous and heartbeat initiation, the Participant is
     WAITING_FOR_SELECTION. When selected, it moves to TRAINING followed by
     POST_TRAINING. If selected again for the next round, it moves back to
     TRAINING, otherwise it is back to WAITING_FOR_SELECTION.
-
     Args:
         part (obj:`Participant`): Participant object for training computation.
     """
@@ -261,7 +247,6 @@ def go(part):
 
 def begin_selection_wait(st, chan, part):
     """Perform actions in Participant state WAITING_FOR_SELECTION.
-
     Args:
         st (obj:`StateRecord`): Participant state record.
         chan: gRPC channel to Coordinator.
@@ -277,7 +262,6 @@ def begin_selection_wait(st, chan, part):
 
 def begin_training(st, chan, part):
     """Perform actions in Participant state TRAINING and POST_TRAINING.
-
     Args:
         st (obj:`StateRecord`): Participant state record.
         chan: gRPC channel to Coordinator.
