@@ -18,7 +18,7 @@ Here we detail the process of creating a new Github release.
 
 1. Create and merge a pull request that:
    - increases the version number in
-     [`xain/__version__.py`](https://github.com/xainag/xain-fl/blob/master/xain-fl/__version__.py)
+     [`xain_fl/__version__.py`](https://github.com/xainag/xain-fl/blob/master/xain_fl/__version__.py)
      according the versioning schema.
    - updates the
      [`CHANGELOG.md`](https://github.com/xainag/xain-fl/blob/master/CHANGELOG.md)
