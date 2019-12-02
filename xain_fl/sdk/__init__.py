@@ -1,1 +1,1 @@
-"""Provides xain package SDK"""
+"""Provides xain-fl package SDK"""

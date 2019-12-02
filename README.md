@@ -1,5 +1,5 @@
 [![CircleCI](https://img.shields.io/circleci/build/github/xainag/xain-fl/master?style=flat-square)](https://circleci.com/gh/xainag/xain-fl/tree/master)
-[![PyPI](https://img.shields.io/pypi/v/xain?style=flat-square)](https://pypi.org/project/xain_fl/)
+[![PyPI](https://img.shields.io/pypi/v/xain-fl?style=flat-square)](https://pypi.org/project/xain-fl/)
 [![GitHub license](https://img.shields.io/github/license/xainag/xain-fl?style=flat-square)](https://github.com/xainag/xain-fl/blob/master/LICENSE)
 
 # XAIN
@@ -14,17 +14,17 @@ POLITE NOTE: We want to point out that running the benchmarks as described below
 
 ## Quick Start
 
-XAIN requires [Python 3.6+](https://python.org/). To install the `xain` package just run:
+XAIN requires [Python 3.6+](https://python.org/). To install the `xain-fl` package just run:
 
 ```shell
-$ python -m pip install xain
+$ python -m pip install xain-fl
 ```
 
 XAIN can also be installed with GPU support through the `gpu` extra feature. To
-install the `xain` package with support for GPUs just run:
+install the `xain-fl` package with support for GPUs just run:
 
 ```shell
-$ python -m pip install xain[gpu]
+$ python -m pip install xain-fl[gpu]
 ```
 
 ### Running training sessions and benchmarks
