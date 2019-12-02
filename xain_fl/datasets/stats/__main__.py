@@ -16,7 +16,7 @@ def main(_):
         with open(fname, "w") as f:
             s = DSStats(name=dataset_name, ds=load_splits(dataset_name)).__repr__()
 
-            # Don't log with xain.helper.logger as repl in DSStats expects to
+            # Don't log with xain_fl.logger as repl in DSStats expects to
             # be printed with print
             print(s)
 

@@ -1,11 +1,11 @@
-"""This module contains all the xain logging configuration"""
+"""This module contains custom logging configuration"""
 
 
 import logging
 
 
 def get_logger(name: str, level: str = "INFO") -> logging.Logger:
-    """Returns an instance of the xain logger.
+    """Returns an instance of the custom xain-fl logger.
 
     Args:
         name (:obj:`str`): The name of the logger. Typically `__name__`.

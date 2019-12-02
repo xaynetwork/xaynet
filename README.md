@@ -48,7 +48,7 @@ To clone this repository and to install the XAIN project, please execute the fol
 
 ```shell
 $ git clone https://github.com/xainag/xain-fl.git
-$ cd xain
+$ cd xain-fl
 
 $ python -m pip install -e .[dev]
 ```
