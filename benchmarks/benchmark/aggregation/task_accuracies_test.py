@@ -2,7 +2,7 @@ import os
 
 import pytest
 
-from xain.helpers import sha1
+from xain_fl.helpers import sha1
 
 from . import task_accuracies
 

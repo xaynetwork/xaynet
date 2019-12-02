@@ -6,22 +6,22 @@
 XAIN: Federated Learning
 ========================
 
-.. image:: https://img.shields.io/circleci/build/github/xainag/xain/master?style=flat-square
-    :target: https://circleci.com/gh/xainag/xain/tree/master
+.. image:: https://img.shields.io/circleci/build/github/xainag/xain-fl/master?style=flat-square
+    :target: https://circleci.com/gh/xainag/xain-fl/tree/master
 
 .. image:: https://img.shields.io/pypi/v/xain?style=flat-square
-    :target: https://pypi.org/project/xain/
+    :target: https://pypi.org/project/xain-fl/
 
-.. image:: https://img.shields.io/github/license/xainag/xain?style=flat-square
-    :target: https://github.com/xainag/xain/blob/master/LICENSE
+.. image:: https://img.shields.io/github/license/xainag/xain-fl?style=flat-square
+    :target: https://github.com/xainag/xain-fl/blob/master/LICENSE
 
 
-**XAIN** is an open source framework for federated learning.
+**XAIN FL** is an open source framework for federated learning.
 
 
 .. image:: _static/home.svg
 
-The XAIN project is building a GDPR-compliance layer for machine learning. The
+The XAIN FL project is building a GDPR-compliance layer for machine learning. The
 approach relies on federated machine learning (FedML) as enabling technology
 that removes compliance-related adoption barriers of AI applications used in
 production.
@@ -45,5 +45,5 @@ API Documentation
 .. toctree::
     :maxdepth: 1
 
-    _code_reference_xain/index
+    _code_reference_xain_fl/index
     _code_reference_benchmarks/index

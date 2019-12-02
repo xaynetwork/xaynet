@@ -3,8 +3,8 @@ import os
 import pytest
 from absl import flags
 
-from xain.helpers import sha1
-from xain.logger import get_logger
+from xain_fl.helpers import sha1
+from xain_fl.logger import get_logger
 
 from . import learning_rate
 

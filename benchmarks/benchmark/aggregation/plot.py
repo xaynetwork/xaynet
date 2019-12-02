@@ -7,7 +7,7 @@ from matplotlib.colors import ListedColormap
 from numpy import ndarray
 
 from benchmarks.helpers import storage
-from xain.types import PlotValues
+from xain_fl.types import PlotValues
 
 matplotlib.use("AGG")
 

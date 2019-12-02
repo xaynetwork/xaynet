@@ -6,7 +6,7 @@ import tensorflow as tf
 from benchmarks.generator import data
 from benchmarks.generator import partition_volume_distributions as pvd
 from benchmarks.generator import transformer
-from xain import config
+from xain_fl import config
 
 local_generator_datasets_dir = config.storage_dir.joinpath("generator/datasets")
 

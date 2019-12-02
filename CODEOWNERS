@@ -21,8 +21,8 @@
 /scripts/ @tanertopal @danieljanes
 
 ## Python packages
-/xain/datasets/ @tanertopal
-/xain/fl/ @danieljanes
-/xain/grpc/ @r-marques @finiteprods
-/xain/helpers/ @danieljanes @tanertopal
-/xain/types/ @danieljanes @tanertopal
+/xain_fl/datasets/ @tanertopal
+/xain_fl/fl/ @danieljanes
+/xain_fl/grpc/ @r-marques @finiteprods
+/xain_fl/helpers/ @danieljanes @tanertopal
+/xain_fl/types/ @danieljanes @tanertopal

@@ -1,6 +1,6 @@
-[![CircleCI](https://img.shields.io/circleci/build/github/xainag/xain/master?style=flat-square)](https://circleci.com/gh/xainag/xain/tree/master)
-[![PyPI](https://img.shields.io/pypi/v/xain?style=flat-square)](https://pypi.org/project/xain/)
-[![GitHub license](https://img.shields.io/github/license/xainag/xain?style=flat-square)](https://github.com/xainag/xain/blob/master/LICENSE)
+[![CircleCI](https://img.shields.io/circleci/build/github/xainag/xain-fl/master?style=flat-square)](https://circleci.com/gh/xainag/xain-fl/tree/master)
+[![PyPI](https://img.shields.io/pypi/v/xain?style=flat-square)](https://pypi.org/project/xain_fl/)
+[![GitHub license](https://img.shields.io/github/license/xainag/xain-fl?style=flat-square)](https://github.com/xainag/xain-fl/blob/master/LICENSE)
 
 # XAIN
 
@@ -30,13 +30,14 @@ $ python -m pip install xain[gpu]
 ### Running training sessions and benchmarks
 
 To run training sessions, see the [benchmark
-package](https://github.com/xainag/xain/tree/master/benchmarks/benchmark) and the
+package](https://github.com/xainag/xain-fl/tree/master/benchmarks/benchmark) and the
 [benchmark
-documentation](https://github.com/xainag/xain/blob/master/docs/quick.md#training).
+documentation](https://github.com/xainag/xain-fl/blob/master/docs/quick.md#training).
 
 ## Install from source
 
 For development we require some extra system dependencies:
+
 - [clang-format 8+](https://clang.llvm.org/docs/ClangFormat.html)
   - Linux: `sudo apt install clang-format`
   - macOS: `brew install clang-format`
@@ -46,7 +47,7 @@ For development we require some extra system dependencies:
 To clone this repository and to install the XAIN project, please execute the following commands:
 
 ```shell
-$ git clone https://github.com/xainag/xain.git
+$ git clone https://github.com/xainag/xain-fl.git
 $ cd xain
 
 $ python -m pip install -e .[dev]
@@ -64,6 +65,7 @@ $ pytest
 
 The project documentation resides under `docs/`. To build the documentation
 run:
+
 ```shell
 $ cd docs/
 $ make docs

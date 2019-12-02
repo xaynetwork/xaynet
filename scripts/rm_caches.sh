@@ -6,3 +6,5 @@ cd $DIR/../
 rm -rf .mypy_cache
 rm -rf .pytest_cache
 find . -type d -name __pycache__ -exec rm -r {} \+
+rm -rf docs/_code_reference_*
+rm -rf docs/_build
