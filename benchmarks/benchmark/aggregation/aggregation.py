@@ -13,7 +13,7 @@ from benchmarks.benchmark.aggregation import (
     task_accuracies,
 )
 from benchmarks.helpers import storage
-from xain.logger import get_logger
+from xain_fl.logger import get_logger
 
 FLAGS = flags.FLAGS
 
