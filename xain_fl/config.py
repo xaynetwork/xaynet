@@ -7,7 +7,7 @@ from xain_fl.helpers import project
 from xain_fl.logger import get_logger
 
 # Storage dir for bigger files like the datasets
-storage_dir = Path.home().joinpath(".xain")
+storage_dir = Path.home().joinpath(".xain-fl")
 datasets_dir_default = storage_dir.joinpath("datasets")
 
 # Local outputs and remote results

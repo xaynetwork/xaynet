@@ -13,7 +13,7 @@ FLAGS = flags.FLAGS
 flags.DEFINE_string(
     "local_datasets_dir",
     c.get("Path", "local_datasets_dir"),
-    "Local directory to store datasets in. Usually ~/.xain/datasets",
+    "Local directory to store datasets in. Usually ~/.xain-fl/datasets",
 )
 flags.DEFINE_string(
     "datasets_repository",
