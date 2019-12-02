@@ -162,7 +162,7 @@ class Round:
         self,
         participant_id: str,
         theta_update: Tuple[List[ndarray], int],
-        metrics: Dict[str, ndarray],
+        metrics: Dict[str, List[ndarray]],
     ) -> None:
         """Valid a participant's update for the round.
 
@@ -460,12 +460,14 @@ class Coordinator:
         # TODO: Ideally we want to know for which round the participant is
         # submitting the updates and raise an exception if it is the wrong
         # round.
-        tu, met = message.theta_update, message.metrics
+        tu, met = message.theta_update, message.metric
         tp, num = tu.theta_prime, tu.num_examples
 
         # record the req data
         theta_update = [proto_to_ndarray(pnda) for pnda in tp], num
-        metrics = {k: list(hv.values) for k, hv in met.items()}
+        metrics = {
+            k: [proto_to_ndarray(v) for v in mv.metrics] for k, mv in met.items()
+        }
         self.round.add_updates(participant_id, theta_update, metrics)
 
         # The round is over. Run the aggregation
