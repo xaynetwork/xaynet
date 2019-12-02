@@ -10,9 +10,9 @@ from concurrent import futures
 from typing import Dict, List, Optional, Tuple
 
 import grpc
-import numpy as np
 from google.protobuf.internal.python_message import GeneratedProtocolMessageType
 from numproto import ndarray_to_proto, proto_to_ndarray
+from numpy import ndarray
 
 from xain_fl.fl.coordinator.aggregate import Aggregator, FederatedAveragingAgg
 from xain_fl.grpc import coordinator_pb2, coordinator_pb2_grpc
@@ -150,21 +150,19 @@ class Round:
     same participant to submit multiple updates during a single round.
 
     Args:
-        required_participants(:obj:`int`): The minimum number of
-            participants required to perform a round.
-
+        required_participants (int): The minimum number of participants required to
+            perform a round.
     """
 
     def __init__(self, required_participants: int) -> None:
-        self.required_participants = required_participants
+        self.required_participants: int = required_participants
         self.updates: Dict[str, Dict] = {}
 
     def add_updates(
         self,
         participant_id: str,
-        theta_update: Tuple[List[np.ndarray], int],
-        history: Dict[str, List[float]],
-        metrics: Tuple[int, List[int]],
+        theta_update: Tuple[List[ndarray], int],
+        metrics: Dict[str, ndarray],
     ) -> None:
         """Valid a participant's update for the round.
 
@@ -172,13 +170,13 @@ class Round:
             participant_id (:obj:`str`): The id of the participant making the request.
             theta_update (:obj:`tuple` of :obj:`list` of :class:`~numpy.ndarray`):
                 A tuple containing a list of updated weights.
-            history (:obj:`dict`): TODO
-            metrics (:obj:`tuple`): TODO
+            metrics (:obj:`dict`): A dictionary containing metrics with the name and the value
+                as ndarray.
 
         Raises:
             DuplicatedUpdateError: If the participant already submitted his update this round.
-
         """
+
         if participant_id in self.updates.keys():
             raise DuplicatedUpdateError(
                 f"Participant {participant_id} already submitted the update for this round."
@@ -186,7 +184,6 @@ class Round:
 
         self.updates[participant_id] = {
             "theta_update": theta_update,
-            "history": history,
             "metrics": metrics,
         }
 
@@ -201,7 +198,7 @@ class Round:
         """
         return len(self.updates) == self.required_participants
 
-    def get_theta_updates(self) -> List[Tuple[List[np.ndarray], int]]:
+    def get_theta_updates(self) -> List[Tuple[List[ndarray], int]]:
         """Get a list of all participants theta updates.
 
         This list will usually be used by the aggregation function.
@@ -267,7 +264,7 @@ class Coordinator:
         num_rounds: int = 10,
         required_participants: int = 10,
         aggregator: Optional[Aggregator] = None,
-        theta: List[np.ndarray] = [],
+        theta: List[ndarray] = [],
         epochs: int = 0,
         epoch_base: int = 0,
     ) -> None:
@@ -463,15 +460,13 @@ class Coordinator:
         # TODO: Ideally we want to know for which round the participant is
         # submitting the updates and raise an exception if it is the wrong
         # round.
-        tu, his, met = message.theta_update, message.history, message.metrics
+        tu, met = message.theta_update, message.metrics
         tp, num = tu.theta_prime, tu.num_examples
-        cid, vbc = met.cid, met.vol_by_class
 
         # record the req data
         theta_update = [proto_to_ndarray(pnda) for pnda in tp], num
-        history = {k: list(hv.values) for k, hv in his.items()}
-        metrics = (cid, list(vbc))
-        self.round.add_updates(participant_id, theta_update, history, metrics)
+        metrics = {k: list(hv.values) for k, hv in met.items()}
+        self.round.add_updates(participant_id, theta_update, metrics)
 
         # The round is over. Run the aggregation
         if self.round.is_finished():
