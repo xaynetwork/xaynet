@@ -43,7 +43,7 @@ class CustomDevelopCommand(develop):
         # get the path of grpc_tools protofiles
         grpc_path = grpc_tools.__path__[0]
 
-        proto_files = glob.glob("./protobuf/xain/grpc/*.proto")
+        proto_files = glob.glob("./protobuf/xain_fl/grpc/*.proto")
         command = [
             "grpc_tools.protoc",
             # path to numproto .proto files
