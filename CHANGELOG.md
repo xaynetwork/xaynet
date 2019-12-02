@@ -32,3 +32,9 @@ The first public release of **XAIN**
 
 [unreleased]: https://github.com/xainag/xain-fl/pulls?utf8=%E2%9C%93&q=merged%3A%3E2019-09-25+
 [0.1.0]: https://github.com/xainag/xain-fl/pulls?utf8=%E2%9C%93&q=merged%3A%3C%3D2019-09-25+
+
+## [0.2.0] - 2019-12-02
+
+### Changed
+
+- Renamed package from xain to xain-fl
