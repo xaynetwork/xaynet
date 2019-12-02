@@ -5,7 +5,7 @@ from absl import app, flags
 
 from benchmarks.helpers import storage
 from benchmarks.ops import results
-from xain.datasets import load_splits
+from xain_fl.datasets import load_splits
 
 from . import run
 

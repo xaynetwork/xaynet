@@ -1,5 +1,5 @@
 from benchmarks.ops.run import cores
-from xain.datasets.dataset import config
+from xain_fl.datasets.dataset import config
 
 from .aggregation.aggregation import aggregations
 from .benchmark import benchmarks
@@ -34,7 +34,7 @@ def test_valid_model_names():
 
 def test_valid_dataset_names():
     """
-    Verify that all dataset names used in `Task` objects are available in `xain.datasets`
+    Verify that all dataset names used in `Task` objects are available in `xain_fl.datasets`
     """
 
     # Prepare
@@ -50,7 +50,7 @@ def test_valid_dataset_names():
 
 def test_valid_instance_cores():
     """
-    Verify that all dataset names used in `Task` objects are available in `xain.datasets`
+    Verify that all dataset names used in `Task` objects are available in `xain_fl.datasets`
     """
 
     # Prepare

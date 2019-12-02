@@ -5,7 +5,7 @@ from typing import Dict
 import boto3
 from absl import flags, logging
 
-from xain.helpers import project
+from xain_fl.helpers import project
 
 from .ec2 import user_data
 

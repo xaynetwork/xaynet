@@ -102,7 +102,7 @@ Package encapsulates most OPS related tasks.
 Run a task locally
 
 ```python
-from xain.ops import docker, run
+from xain_fl.ops import docker, run
 
 image_name = docker.build(should_push=True)
 run.docker(image_name=image_name, benchmark_name="fashion-mnist-100p-iid-balanced")
@@ -113,7 +113,7 @@ run.docker(image_name=image_name, benchmark_name="fashion-mnist-100p-iid-balance
 Run a task on EC2
 
 ```python
-from xain.ops import docker, run
+from xain_fl.ops import docker, run
 
 image_name = docker.build(should_push=True)
 run.ec2(
@@ -133,5 +133,5 @@ You can find all public methods of the package in its `api` module.
 **Example:**
 
 ```python
-from xain.datasets.api import cifar10_random_splits_10_load_split
+from xain_fl.datasets.api import cifar10_random_splits_10_load_split
 ```

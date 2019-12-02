@@ -1,4 +1,5 @@
 # Changelog
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a
@@ -17,7 +18,6 @@ For reference, the possible headings are:
 - `External Contributors` to list all external contributors.
 - `Notes` for notes regarding this particular release.
 
-
 ## [Unreleased]
 
 ## [0.1.0] - 2019-09-25
@@ -27,9 +27,8 @@ The first public release of **XAIN**
 ### Added
 
 - FedML implementation on well known
-  [benchmarks](https://github.com/xainag/xain/tree/master/benchmarks/benchmark) using
+  [benchmarks](https://github.com/xainag/xain-fl/tree/master/benchmarks/benchmark) using
   a realistic deep learning model structure.
 
-
-[Unreleased]: https://github.com/xainag/xain/pulls?utf8=%E2%9C%93&q=merged%3A%3E2019-09-25+
-[0.1.0]: https://github.com/xainag/xain/pulls?utf8=%E2%9C%93&q=merged%3A%3C%3D2019-09-25+
+[unreleased]: https://github.com/xainag/xain-fl/pulls?utf8=%E2%9C%93&q=merged%3A%3E2019-09-25+
+[0.1.0]: https://github.com/xainag/xain-fl/pulls?utf8=%E2%9C%93&q=merged%3A%3C%3D2019-09-25+

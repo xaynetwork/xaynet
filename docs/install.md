@@ -1,36 +1,37 @@
 # Installation of XAIN
 
-XAIN requires [Python 3.6+](https://python.org/).
+XAIN FL requires [Python 3.6+](https://python.org/).
 
 ## Install from PyPi package
 
-To install the `xain` package just run:
+To install the `xain_fl` package just run:
 
 ```shell
-$ python -m pip install xain
+$ python -m pip install xain_fl
 ```
 
-XAIN can also be installed with GPU support through the `gpu` extra feature. To
-install the `xain` package with support for GPUs just run:
+XAIN FL can also be installed with GPU support through the `gpu` extra feature. To
+install the `xain_fl` package with support for GPUs just run:
 
 ```shell
-$ python -m pip install xain[gpu]
+$ python -m pip install xain_fl[gpu]
 ```
 
 ## Install from source
 
 For development we require some extra system dependencies:
+
 - [clang-format 8+](https://clang.llvm.org/docs/ClangFormat.html)
   - Linux: `sudo apt install clang-format`
   - macOS: `brew install clang-format`
 
-### Clone Repository & Install XAIN in development mode
+### Clone Repository & Install XAIN FL in development mode
 
-To clone this repository and to install the XAIN project, please execute the following commands:
+To clone this repository and to install the XAIN FL project, please execute the following commands:
 
 ```shell
-$ git clone https://github.com/xainag/xain.git
-$ cd xain
+$ git clone https://github.com/xainag/xain-fl.git
+$ cd xain-fl
 
 $ python -m pip install -e .[dev]
 ```
@@ -47,6 +48,7 @@ $ pytest
 
 The project documentation resides under `docs/`. To build the documentation
 run:
+
 ```shell
 $ cd docs/
 $ make docs

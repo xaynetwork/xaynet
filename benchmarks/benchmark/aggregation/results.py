@@ -7,7 +7,7 @@ from abc import ABC
 from typing import List, Optional, cast
 
 from benchmarks.helpers import storage
-from xain.types import Metrics
+from xain_fl.types import Metrics
 
 
 class TaskResult(ABC):

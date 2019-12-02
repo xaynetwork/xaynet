@@ -6,7 +6,7 @@
 clang_format() {
     local_ret=0
 
-    for f in ./protobuf/xain/grpc/*.proto
+    for f in ./protobuf/xain_fl/grpc/*.proto
     do
         echo "Processing $f"
         clang-format -style="{Language: Proto, BasedOnStyle: Google}" $f | diff $f -
@@ -24,19 +24,19 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd $DIR/../
 
 # sort import
-isort --check-only --indent=4 -rc setup.py conftest.py benchmarks examples xain && echo "===> isort says: well done <===" &&
+isort --check-only --indent=4 -rc setup.py conftest.py benchmarks examples xain_fl && echo "===> isort says: well done <===" &&
 
 # format code
-black --check --exclude "xain/grpc/.*_pb2.*" setup.py conftest.py benchmarks examples xain && echo "===> black says: well done <===" &&
+black --check --exclude "xain_fl/grpc/.*_pb2.*" setup.py conftest.py benchmarks examples xain_fl && echo "===> black says: well done <===" &&
 
 # check format of proto files
 clang_format && echo "===> clang-format says: well done <===" &&
 
 # lint
-pylint --rcfile=pylint.ini benchmarks examples xain && echo "===> pylint says: well done <===" &&
+pylint --rcfile=pylint.ini benchmarks examples xain_fl && echo "===> pylint says: well done <===" &&
 
 # type checks
-mypy --ignore-missing-imports benchmarks examples/* xain && echo "===> mypy says: well done <===" &&
+mypy --ignore-missing-imports benchmarks examples/* xain_fl && echo "===> mypy says: well done <===" &&
 
 # documentation checks
 (cd docs/ && SPHINXOPTS="-W" make docs) && echo "===> sphinx-build says: well done <===" &&

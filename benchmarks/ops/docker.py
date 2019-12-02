@@ -5,7 +5,7 @@ from absl import app
 from faker import Faker
 from faker.providers import person
 
-from xain.helpers import project
+from xain_fl.helpers import project
 
 fake = Faker()
 fake.add_provider(person)
