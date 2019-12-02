@@ -79,6 +79,8 @@ def end_training(
         history (obj:`History`): History metadata.
         Metrics (obj:`Metrics`): Metrics metadata.
     """
+    # TODO:
+    # pylint: disable=no-member
     stub = coordinator_pb2_grpc.CoordinatorStub(channel)
     # build request starting with theta update
     theta, num = theta_n
@@ -100,6 +102,7 @@ def end_training(
     # send request to end training
     reply = stub.EndTraining(req)
     logger.info("Participant received: %s", type(reply))
+    # pylint: enable=no-member
 
 
 def training_round(channel, participant):
