@@ -10,7 +10,7 @@ if sys.version_info < (3, 6):
     sys.exit("Please use Python version 3.6 or higher.")
 
 project_dir = os.path.dirname(os.path.abspath(__file__))
-version_file_path = os.path.join(project_dir, "xain/__version__.py")
+version_file_path = os.path.join(project_dir, "xain_fl/__version__.py")
 readme_file_path = os.path.join(project_dir, "README.md")
 
 # get version
@@ -109,12 +109,12 @@ tests_require = [
 docs_require = ["Sphinx==2.2.0", "recommonmark==0.6.0", "sphinxcontrib-mermaid==0.3.1"]
 
 setup(
-    name="xain",
+    name="xain_fl",
     version=version["__version__"],
     description="XAIN is an open source framework for federated learning.",
     long_description=readme,
     long_description_content_type="text/markdown",
-    url="https://github.com/xainag/xain",
+    url="https://github.com/xainag/xain-fl",
     author=[
         "Daniel J. Beutel <daniel.beutel@xain.io>",
         "Taner Topal <taner.topal@xain.io>",
@@ -163,7 +163,7 @@ setup(
     entry_points={
         "console_scripts": [
             "train_remote=benchmarks.train_remote:main",
-            "pull_results=xain.ops.__main__:download",
+            "pull_results=xain_fl.ops.__main__:download",
             "aggregate=benchmarks.aggregate:main",
         ]
     },

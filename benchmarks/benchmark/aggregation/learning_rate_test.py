@@ -3,7 +3,7 @@ import os
 import pytest
 from absl import flags
 
-from xain.helpers import sha1
+from xain_fl.helpers import sha1
 
 from . import learning_rate
 

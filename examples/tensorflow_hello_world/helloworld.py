@@ -5,11 +5,11 @@ import tensorflow as tf
 from absl import app, flags
 from tensorflow.keras.layers import Conv2D, Dense, Flatten, Input, MaxPool2D
 
-from xain.datasets import load_splits
-from xain.fl.coordinator import Coordinator, RandomController
-from xain.fl.coordinator.aggregate import FederatedAveragingAgg
-from xain.fl.participant import ModelProvider, Participant
-from xain.types import Partition
+from xain_fl.datasets import load_splits
+from xain_fl.fl.coordinator import Coordinator, RandomController
+from xain_fl.fl.coordinator.aggregate import FederatedAveragingAgg
+from xain_fl.fl.participant import ModelProvider, Participant
+from xain_fl.types import Partition
 
 # Defining the 'task_name' flag here, to be used by the absl-py app.
 FLAGS = flags.FLAGS
@@ -20,7 +20,7 @@ DATASET_NAME = "fashion-mnist-100p-iid-balanced"
 """Specifying a dataset name for this example.
 
 We will use a partitioned version of the Fashion MNIST dataset.
-Please see here: https://xainag.github.io/xain/
+Please see here: https://xainag.github.io/xain-fl/
 
 100p means that the dataset is split into 100 partitions, which are IID
 Each partition represents the dataset a single client stores locally.

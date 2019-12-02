@@ -4,7 +4,7 @@ from typing import Dict, List, Optional, Tuple
 from absl import flags, logging
 
 from benchmarks.helpers import storage
-from xain.types import PlotValues, XticksLabels, XticksLocations
+from xain_fl.types import PlotValues, XticksLabels, XticksLocations
 
 from .plot import plot
 from .results import GroupResult, TaskResult

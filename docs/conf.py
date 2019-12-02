@@ -18,14 +18,14 @@ sys.path.insert(0, os.path.abspath(".."))
 
 # get version
 _version = {}
-with open("../xain/__version__.py") as fp:
+with open("../xain_fl/__version__.py") as fp:
     exec(fp.read(), _version)
 
 # -- Project information -----------------------------------------------------
 
-project = "XAIN"
-copyright = "2019, XAIN Contributors"
-author = "XAIN Contributors"
+project = "XAIN FL"
+copyright = "2019, XAIN FL Contributors"
+author = "XAIN FL Contributors"
 
 # The major project version, used as the replacement for |version|. For example,
 # for the Python documentation, this may be something like 2.6.
@@ -72,7 +72,7 @@ html_theme_options = {
     "logo": "brainy.svg",
     "github_banner": True,
     "github_user": "xainag",
-    "github_repo": "xain",
+    "github_repo": "xain-fl",
     "github_button": False,
     "sidebar_collapse": False,
 }

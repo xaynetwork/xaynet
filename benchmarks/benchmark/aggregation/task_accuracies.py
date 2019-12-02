@@ -4,7 +4,7 @@ from typing import List, Tuple
 from absl import flags, logging
 
 from benchmarks.helpers import storage
-from xain.types import PlotValues
+from xain_fl.types import PlotValues
 
 from .plot import plot
 from .results import GroupResult, TaskResult

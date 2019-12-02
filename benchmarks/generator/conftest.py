@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from benchmarks.conftest import create_mock_keras_dataset
-from xain.types import FederatedDataset, KerasDataset
+from xain_fl.types import FederatedDataset, KerasDataset
 
 from . import data
 
