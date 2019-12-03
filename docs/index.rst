@@ -15,8 +15,8 @@ XAIN: Federated Learning
 .. image:: https://img.shields.io/github/license/xainag/xain-fl?style=flat-square
     :target: https://github.com/xainag/xain-fl/blob/master/LICENSE
 
-.. image:: https://readthedocs.org/projects/xain/badge/?version=stable
-    :target: https://docs.xain.io/en/stable/?badge=stable
+.. image:: https://readthedocs.org/projects/xain/badge/?version=latest&style=flat-square
+    :target: https://docs.xain.io/en/latest/?badge=latest
     :alt: Documentation Status
 
 **XAIN FL** is an open source framework for federated learning.
