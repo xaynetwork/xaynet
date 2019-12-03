@@ -88,3 +88,47 @@ intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
     "numpy": ("https://docs.scipy.org/doc/numpy/", None),
 }
+
+
+def run_apidoc(_):
+    from sphinx.ext import apidoc
+
+    exclude = ["../xain_fl/**_test.py"]
+
+    argv = [
+        "--doc-project",
+        "Code Reference XAIN",
+        "-M",
+        "-f",
+        "-d",
+        "3",
+        "--tocfile",
+        "index",
+        "-o",
+        "./_code_reference_xain_fl/",
+        "../xain_fl/",
+    ] + exclude
+
+    apidoc.main(argv)
+
+    exclude_benchmark = ["../benchmarks/**_test.py"]
+
+    argv_benchmark = [
+        "--doc-project",
+        "Code Reference Benchmarks",
+        "-M",
+        "-f",
+        "-d",
+        "3",
+        "--tocfile",
+        "index",
+        "-o",
+        "./_code_reference_benchmarks/",
+        "../benchmarks/",
+    ] + exclude_benchmark
+
+    apidoc.main(argv_benchmark)
+
+
+def setup(app):
+    app.connect("builder-inited", run_apidoc)
