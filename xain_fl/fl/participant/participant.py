@@ -87,7 +87,7 @@ class Participant:
         theta_prime = model.get_weights()
         opt_config = model.optimizer.get_config()
         opt_config = _convert_numpy_types(opt_config)
-        logger.info(f"Participant {self.cid}: train_round FINISH")
+        logger.info("Participant: train_round FINISH", participant_cid=self.cid)
         return (theta_prime, self.num_examples), hist, opt_config
 
     def _fit(self, model: tf.keras.Model, epochs: int, callbacks: List) -> History:

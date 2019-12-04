@@ -132,7 +132,8 @@ def unitary_versus_federated(
     """
     :param C: Fraction of participants used in each round of training
     """
-    logging.info(f"Starting {benchmark_name}")
+    logging.info("Starting benchmark", benchmark_name=benchmark_name)
+
     xy_train_partitions, xy_val, xy_test = load_splits(dataset_name)
 
     start = time.time()
@@ -141,7 +142,9 @@ def unitary_versus_federated(
     # TODO train n models on all partitions
     partition_id = 0
     xy_train = xy_train_partitions[partition_id]
-    logging.info(f"Run unitary training using partition {partition_id}")
+
+    logging.info("Run unitary training using partition", partition_id=partition_id)
+
     ul_hist, ul_loss, ul_acc = unitary_training(
         model_name, xy_train, xy_val, xy_test, E=R * E, B=B
     )

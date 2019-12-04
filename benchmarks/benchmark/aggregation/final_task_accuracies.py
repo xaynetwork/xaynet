@@ -119,6 +119,6 @@ def aggregate() -> str:
         legend_loc="upper right",
     )
 
-    logging.info(f"Data plotted and saved in {fpath}")
+    logging.info("Data plotted and saved in file", filepath=fpath)
 
     return fpath

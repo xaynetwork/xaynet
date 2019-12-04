@@ -183,7 +183,7 @@ def main():
     _brute_force_a_for_cifar_10()
     print("Plot Fashion-MNIST volume distributions")
     fmd_fpath = _plot_fashion_mnist_dist()
-    logging.info(f"Data plotted and saved in {fmd_fpath}")
+    logging.info("Data plotted and saved in file", filepath=fmd_fpath)
 
 
 if __name__ == "__main__":

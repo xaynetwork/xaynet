@@ -44,7 +44,9 @@ def rendezvous(channel):
         if reply.response == coordinator_pb2.RendezvousResponse.ACCEPT:
             logger.info("Participant received: ACCEPT")
         elif reply.response == coordinator_pb2.RendezvousResponse.LATER:
-            logger.info(f"Participant received: LATER. Retrying in {RETRY_TIMEOUT}")
+            logger.info(
+                "Participant received: LATER. Retrying...", retry_timeout=RETRY_TIMEOUT
+            )
             time.sleep(RETRY_TIMEOUT)
 
         response = reply.response

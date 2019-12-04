@@ -111,6 +111,6 @@ def aggregate() -> str:
         xlim_max=xlim_max,
     )
 
-    logging.info(f"Data plotted and saved in {fpath}")
+    logging.info("Data plotted and saved in file", filepath=fpath)
 
     return fpath

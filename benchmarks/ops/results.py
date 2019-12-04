@@ -1,13 +1,17 @@
 import os
 
 import boto3
-from absl import flags, logging
+from absl import flags
 
 from benchmarks.helpers.storage import listdir_recursive
+from xain_fl.logger import get_logger
 
 FLAGS = flags.FLAGS
 
 client = boto3.client("s3")
+
+
+logger = get_logger(__name__, level=os.environ.get("XAIN_LOGLEVEL", "INFO"))
 
 
 def push(group_name: str, task_name: str, output_dir: str = None):
@@ -39,11 +43,16 @@ def push(group_name: str, task_name: str, output_dir: str = None):
         try:
             # Will throw an error if object does not exist
             client.head_object(Bucket=bucket, Key=key)
-            logging.info(f"{key} is already uploaded")
+            logger.info("Key is already uploaded", key=key)
         # TODO: fix this by using something similar to:
         # https://stackoverflow.com/questions/33842944/check-if-a-key-exists-in-a-bucket-in-s3-using-boto3
         except:
-            logging.info(f"Uploading {local_path} to {bucket} as {key}")
+            logger.info(
+                "Uploading file to bucket",
+                local_path=local_path,
+                bucket=bucket,
+                key=key,
+            )
             client.upload_file(local_path, bucket, key)
 
 
@@ -59,7 +68,7 @@ def download():
     all_objs = client.list_objects_v2(Bucket=bucket)
 
     if "Contents" not in all_objs:
-        logging.info("No results to download")
+        logger.info("No results to download")
         return
 
     actual_objs = [obj["Key"] for obj in all_objs["Contents"]]
@@ -75,5 +84,8 @@ def download():
             # Instead of checking just create with exist_ok
             os.makedirs(dname, exist_ok=True)
 
-            logging.info(f"Downloading {key} from {bucket} to {fname}")
+            logger.info(
+                "Downloading file from bucket", filename=fname, bucket=bucket, key=key
+            )
+
             client.download_file(Bucket=bucket, Key=key, Filename=fname)

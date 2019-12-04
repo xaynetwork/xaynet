@@ -21,7 +21,7 @@ logger = get_logger(__name__, level=os.environ.get("XAIN_LOGLEVEL", "INFO"))
 
 def init_config():
     """Creates initial config file if non exists"""
-    logger.info(f"Initializing config in {config_file}")
+    logger.info("Initializing config", config_file=config_file)
 
     config = configparser.ConfigParser()
 

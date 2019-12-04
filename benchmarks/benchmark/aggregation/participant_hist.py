@@ -54,7 +54,7 @@ def participant_history() -> List[str]:
         )
         file_paths.append(file_path)
 
-    logging.info(f"Task data plotted and saved in {file_paths}")
+    logging.info("Task data plotted and saved in file", filepath=file_paths)
 
     return file_paths
 

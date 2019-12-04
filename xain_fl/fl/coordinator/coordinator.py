@@ -113,10 +113,15 @@ class Coordinator:
             hist_co["val_loss"].append(val_loss)
             hist_co["val_acc"].append(val_acc)
 
-        logger.info(f"TensorBoard coordinator validation logs saved: {val_log_dir}")
         logger.info(
-            f'Detailed analysis: call "tensorboard --logdir {val_log_dir}" from the \
-            console and open "localhost:6006" in a browser'
+            "TensorBoard coordinator validation logs saved in directory",
+            val_log_dir=val_log_dir,
+        )
+        logger.info(
+            'Detailed analysis: call "tensorboard --logdir {}" from the \
+            console and open "localhost:6006" in a browser'.format(
+                val_log_dir
+            )
         )
 
         return hist_co, hist_ps, hist_opt_configs, hist_metrics

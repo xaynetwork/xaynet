@@ -307,7 +307,11 @@ class Coordinator:
             :class:`~InvalidRequestError`: If it receives a request that is not
             allowed in the current :class:`~.Coordinator` state.
         """
-        logger.debug(f"Received: {type(message)} from {participant_id}")
+        logger.debug(
+            "Received message from participant",
+            message_type=type(message),
+            participant_id=participant_id,
+        )
 
         # Unless this is a RendezvousRequest the coordinator should not accept messages
         # from participants that have not been accepted
@@ -354,7 +358,7 @@ class Coordinator:
             participant_id (:obj:`str`): The id of the participant to remove.
         """
         self.participants.remove(participant_id)
-        logger.info(f"Removing participant {participant_id}")
+        logger.info("Removing participant", participant_id=participant_id)
 
         if self.participants.len() < self.required_participants:
             self.state = coordinator_pb2.State.STANDBY
@@ -377,7 +381,9 @@ class Coordinator:
             response = coordinator_pb2.RendezvousResponse.ACCEPT
             self.participants.add(participant_id)
             logger.info(
-                f"Accepted {participant_id}. Participants: {self.participants.len()}"
+                "Accepted participant",
+                participant_id=participant_id,
+                current_participants_count=self.participants.len(),
             )
 
             # Change the state to ROUND if we are in STANDBY and already
@@ -391,7 +397,9 @@ class Coordinator:
         else:
             response = coordinator_pb2.RendezvousResponse.LATER
             logger.info(
-                f"Reject participant {participant_id}. Participants: {self.participants.len()}"
+                "Reject participant",
+                participant_id=participant_id,
+                current_participants_count=self.participants.len(),
             )
 
         return coordinator_pb2.RendezvousReply(response=response)
@@ -473,7 +481,9 @@ class Coordinator:
 
         # The round is over. Run the aggregation
         if self.round.is_finished():
-            logger.info(f"Running aggregation for round {self.current_round}")
+            logger.info(
+                "Running aggregation for round", current_round=self.current_round
+            )
             self.theta = self.aggregator.aggregate(self.round.get_theta_updates())
 
             # update the round or finish the training session
@@ -652,7 +662,7 @@ def monitor_heartbeats(
 
         next_expiration = coordinator.participants.next_expiration() - time.time()
 
-        logger.debug(f"Monitoring heartbeats in {next_expiration}")
+        logger.debug("Monitoring heartbeats", next_expiration=next_expiration)
         time.sleep(next_expiration)
 
 
@@ -663,6 +673,7 @@ def serve() -> None:
     events and threads and configures and starts the gRPC service.
     """
     coordinator = Coordinator()
+
     terminate_event = threading.Event()
     monitor_thread = threading.Thread(
         target=monitor_heartbeats, args=(coordinator, terminate_event)
