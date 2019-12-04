@@ -14,11 +14,6 @@ help:
 
 .PHONY: help Makefile
 
-docs:
-	sphinx-apidoc --doc-project "Code Reference XAIN" -M -f -d 3 --tocfile index -o ./_code_reference_xain_fl/ ../xain_fl/ ../xain_fl/**_test.py
-	sphinx-apidoc --doc-project "Code Reference Benchmarks" -M -f -d 3 --tocfile index -o ./_code_reference_benchmarks/ ../benchmarks/ ../benchmarks/**_test.py
-	make html
-
 # Catch-all target: route all unknown targets to Sphinx using the new
 # "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
 %: Makefile
