@@ -652,7 +652,7 @@ def monitor_heartbeats(
 
         next_expiration = coordinator.participants.next_expiration() - time.time()
 
-        logger.debug("Monitoring heartbeats in %.2f", next_expiration)
+        logger.debug(f"Monitoring heartbeats in {next_expiration}")
         time.sleep(next_expiration)
 
 
