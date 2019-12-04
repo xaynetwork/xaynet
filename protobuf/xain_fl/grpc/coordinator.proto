@@ -55,7 +55,7 @@ message StartTrainingReply {
 
 message EndTrainingRequest {
   ThetaUpdate theta_update = 1;
-  map<string, Metrics> metric = 2;
+  map<string, Metrics> metrics = 2;
 
   message ThetaUpdate {
     repeated numproto.protobuf.NDArray theta_prime = 1;

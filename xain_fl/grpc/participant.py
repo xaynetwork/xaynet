@@ -83,7 +83,7 @@ def end_training(
         history (obj:`History`): History metadata.
         Metrics (obj:`Metrics`): Metrics metadata.
     """
-    # TODO:
+
     # pylint: disable=no-member
     stub = coordinator_pb2_grpc.CoordinatorStub(channel)
     # build request starting with theta update

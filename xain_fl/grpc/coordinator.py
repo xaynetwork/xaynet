@@ -171,7 +171,7 @@ class Round:
             theta_update (:obj:`tuple` of :obj:`list` of :class:`~numpy.ndarray`):
                 A tuple containing a list of updated weights.
             metrics (:obj:`dict`): A dictionary containing metrics with the name and the value
-                as ndarray.
+                as list of ndarrays.
 
         Raises:
             DuplicatedUpdateError: If the participant already submitted his update this round.
@@ -460,7 +460,7 @@ class Coordinator:
         # TODO: Ideally we want to know for which round the participant is
         # submitting the updates and raise an exception if it is the wrong
         # round.
-        tu, met = message.theta_update, message.metric
+        tu, met = message.theta_update, message.metrics
         tp, num = tu.theta_prime, tu.num_examples
 
         # record the req data
