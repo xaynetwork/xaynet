@@ -72,7 +72,7 @@ class Participant:
                 and optimizer configs
         """
         logger.info(
-            "Participant %s: train_round START (epoch_base=%s)", self.cid, epoch_base
+            f"Participant {self.cid}: train_round START (epoch_base={epoch_base})"
         )
         model = self.model_provider.init_model(epoch_base=epoch_base)  # type:ignore
         model.set_weights(theta)
@@ -87,7 +87,7 @@ class Participant:
         theta_prime = model.get_weights()
         opt_config = model.optimizer.get_config()
         opt_config = _convert_numpy_types(opt_config)
-        logger.info("Participant %s: train_round FINISH", self.cid)
+        logger.info(f"Participant {self.cid}: train_round FINISH")
         return (theta_prime, self.num_examples), hist, opt_config
 
     def _fit(self, model: tf.keras.Model, epochs: int, callbacks: List) -> History:

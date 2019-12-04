@@ -55,7 +55,7 @@ def fetch_ndarray(url, fpath):
     """
     r = requests.get(url, stream=True)
 
-    logger.info("Fetching file %s", url)
+    logger.info(f"Fetching file {url}")
 
     if r.status_code != 200:
         raise Exception("Received HTTP Status {} for url {}".format(r.status_code, url))

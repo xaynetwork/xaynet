@@ -114,9 +114,7 @@ def evo_agg(thetas: List[Theta], evaluator: Evaluator) -> Theta:
     for i in range(3):
         candidate = _compute_candidate(thetas, evaluator)
 
-        logger.debug(
-            "candidate %s (weighting %s): %s loss", i, candidate[0], candidate[2]
-        )
+        logger.debug(f"candidate {i} (weighting {candidate[0]}): {candidate[2]} loss")
 
         theta_prime_candidates.append(candidate)
     # Return best candidate

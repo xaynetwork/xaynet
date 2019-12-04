@@ -44,7 +44,7 @@ def rendezvous(channel):
         if reply.response == coordinator_pb2.RendezvousResponse.ACCEPT:
             logger.info("Participant received: ACCEPT")
         elif reply.response == coordinator_pb2.RendezvousResponse.LATER:
-            logger.info("Participant received: LATER. Retrying in %s", RETRY_TIMEOUT)
+            logger.info(f"Participant received: LATER. Retrying in {RETRY_TIMEOUT}")
             time.sleep(RETRY_TIMEOUT)
 
         response = reply.response
@@ -66,7 +66,7 @@ def start_training(channel) -> Tuple[Theta, int, int]:
     req = coordinator_pb2.StartTrainingRequest()
     # send request to start training
     reply = stub.StartTraining(req)
-    logger.info("Participant received: %s", type(reply))
+    logger.info("Participant received", reply_type=type(reply))
     theta, epochs, epoch_base = reply.theta, reply.epochs, reply.epoch_base
     return [proto_to_ndarray(pnda) for pnda in theta], epochs, epoch_base
 
@@ -103,7 +103,7 @@ def end_training(
     )
     # send request to end training
     reply = stub.EndTraining(req)
-    logger.info("Participant received: %s", type(reply))
+    logger.info("Participant received", reply_type=type(reply))
 
 
 def training_round(channel, participant):

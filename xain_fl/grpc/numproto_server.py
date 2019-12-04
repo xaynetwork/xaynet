@@ -15,10 +15,10 @@ logger = get_logger(__name__, level=os.environ.get("XAIN_LOGLEVEL", "INFO"))
 class NumProtoServer(hellonumproto_pb2_grpc.NumProtoServerServicer):
     def SayHelloNumProto(self, request, context):
         nda = proto_to_ndarray(request.arr)
-        logger.info("NumProto server received: %s", nda)
+        logger.info("NumProto server received", nda=nda)
 
         nda *= 2
-        logger.info("NumProto server sent: %s", nda)
+        logger.info("NumProto server sent", nda=nda)
         return hellonumproto_pb2.NumProtoReply(arr=ndarray_to_proto(nda))
 
 

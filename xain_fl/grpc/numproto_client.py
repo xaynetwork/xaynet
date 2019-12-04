@@ -15,13 +15,13 @@ def run():
         stub = hellonumproto_pb2_grpc.NumProtoServerStub(channel)
 
         nda = np.arange(10)
-        logger.info("NumProto client sent: %s", nda)
+        logger.info("NumProto client sent", nda=nda)
 
         response = stub.SayHelloNumProto(
             hellonumproto_pb2.NumProtoRequest(arr=ndarray_to_proto(nda))
         )
 
-    logger.info("NumProto client received: %s", proto_to_ndarray(response.arr))
+    logger.info("NumProto client received", nda=proto_to_ndarray(response.arr))
 
 
 if __name__ == "__main__":
