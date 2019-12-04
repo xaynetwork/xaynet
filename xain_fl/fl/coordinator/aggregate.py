@@ -1,7 +1,6 @@
 """Provides an abstract base class Aggregator and multiple sub-classes
 such as FederatedAveragingAgg.
 """
-import os
 from abc import ABC, abstractmethod
 from typing import List, Tuple
 
@@ -12,7 +11,7 @@ from xain_fl.types import Theta
 
 from .evaluator import Evaluator
 
-logger = get_logger(__name__, level=os.environ.get("XAIN_LOGLEVEL", "INFO"))
+logger = get_logger(__name__)
 
 
 class Aggregator(ABC):
@@ -111,7 +110,7 @@ def evo_agg(thetas: List[Theta], evaluator: Evaluator) -> Theta:
     # Compute candidates
     # TODO in parallel, do:
     theta_prime_candidates = []
-    for i in range(3):
+    for _ in range(3):
         candidate = _compute_candidate(thetas, evaluator)
         logger.debug("Candidate metadata", weighting=candidate[0], loss=candidate[2])
 

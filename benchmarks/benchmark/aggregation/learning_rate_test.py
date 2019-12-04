@@ -10,7 +10,7 @@ from . import learning_rate
 
 FLAGS = flags.FLAGS
 
-logger = get_logger(__name__, level=os.environ.get("XAIN_LOGLEVEL", "INFO"))
+logger = get_logger(__name__)
 
 
 @pytest.mark.integration

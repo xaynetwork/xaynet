@@ -1,6 +1,5 @@
 """Module implementing the networked Participant using gRPC.
 """
-import os
 import threading
 import time
 from enum import Enum, auto
@@ -16,7 +15,7 @@ from xain_fl.types import History, Metrics, Theta
 RETRY_TIMEOUT = 5
 HEARTBEAT_TIME = 10
 
-logger = get_logger(__name__, level=os.environ.get("XAIN_LOGLEVEL", "INFO"))
+logger = get_logger(__name__)
 
 
 class ParState(Enum):

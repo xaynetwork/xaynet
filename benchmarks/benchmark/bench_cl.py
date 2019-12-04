@@ -2,11 +2,14 @@
 import time
 
 import tensorflow as tf
-from absl import app, logging
+from absl import app
 
 from benchmarks.helpers import storage
+from xain_fl.logger import get_logger
 
 from .exec import run
+
+logger = get_logger(__name__)
 
 B = 64
 
@@ -17,7 +20,7 @@ def bench_cl90(_):
     (a) the participant directly and (b) the coordinator with only one participant.
     Results should not vary apart from the expected non-determinism during training.
     """
-    logging.info("Starting CL on full Fashion-MNIST")
+    logger.info("Starting CL on full Fashion-MNIST")
     # Load original Fashion-MNIST
     xy_train, xy_val, xy_test = data(limit=False)
     bench_cl_ul(
@@ -45,7 +48,7 @@ def bench_ul80(_):
     only one participant. Results should not vary apart from the usual non-determinism
     during training.
     """
-    logging.info("Starting UL on 550-example Fashion-MNIST subset")
+    logger.info("Starting UL on 550-example Fashion-MNIST subset")
     # Load original Fashion-MNIST subset
     xy_train, xy_val, xy_test = data(limit=True)
     bench_cl_ul(

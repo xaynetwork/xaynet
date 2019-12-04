@@ -15,7 +15,7 @@ from . import hashes
 FLAGS = flags.FLAGS
 
 
-logger = get_logger(__name__, level=os.environ.get("XAIN_LOGLEVEL", "INFO"))
+logger = get_logger(__name__)
 
 
 def default_get_local_datasets_dir():

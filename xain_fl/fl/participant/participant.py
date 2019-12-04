@@ -1,7 +1,6 @@
 """Class Participant handles local training in federated learning using its own
 data partition to refine the global model.
 """
-import os
 from typing import Dict, List, Tuple
 
 import numpy as np
@@ -13,7 +12,7 @@ from xain_fl.types import History, Metrics, Partition, Theta, VolumeByClass
 
 from .model_provider import ModelProvider
 
-logger = get_logger(__name__, level=os.environ.get("XAIN_LOGLEVEL", "INFO"))
+logger = get_logger(__name__)
 
 
 class Participant:

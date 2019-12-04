@@ -1,4 +1,3 @@
-import os
 import time
 from concurrent import futures
 
@@ -9,7 +8,7 @@ from xain_fl.grpc import hellonumproto_pb2, hellonumproto_pb2_grpc
 from xain_fl.logger import get_logger
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
-logger = get_logger(__name__, level=os.environ.get("XAIN_LOGLEVEL", "INFO"))
+logger = get_logger(__name__)
 
 
 class NumProtoServer(hellonumproto_pb2_grpc.NumProtoServerServicer):

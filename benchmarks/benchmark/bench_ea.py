@@ -1,5 +1,5 @@
 """Experimental"""
-from absl import app, logging
+from absl import app
 
 from benchmarks.benchmark.exec import run
 from benchmarks.benchmark.net import orig_cnn_compiled
@@ -7,6 +7,10 @@ from benchmarks.helpers import storage
 from xain_fl.datasets import load_splits
 from xain_fl.fl.coordinator.aggregate import EvoAgg
 from xain_fl.fl.coordinator.evaluator import Evaluator
+from xain_fl.logger import get_logger
+
+logger = get_logger(__name__)
+
 
 DEFAULT_R = 50
 DEFAULT_E = 1  # Number of training epochs in each round
@@ -16,7 +20,7 @@ DEFAULT_B = 32  # Batch size used by participants
 
 def benchmark_evolutionary_avg():
     fn_name = benchmark_evolutionary_avg.__name__
-    logging.info("Starting {}".format(fn_name))
+    logger.info("Starting {}".format(fn_name))
 
     # Load dataset
     xy_parts, xy_val, xy_test = load_splits("fashion-mnist-100p-noniid-03cpp")
@@ -60,7 +64,7 @@ def benchmark_evolutionary_avg():
 
 def benchmark_evolutionary_avg_with_noise():
     fn_name = benchmark_evolutionary_avg.__name__
-    logging.info("Starting {}".format(fn_name))
+    logger.info("Starting {}".format(fn_name))
     raise NotImplementedError()
 
 

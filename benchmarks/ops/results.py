@@ -11,7 +11,7 @@ FLAGS = flags.FLAGS
 client = boto3.client("s3")
 
 
-logger = get_logger(__name__, level=os.environ.get("XAIN_LOGLEVEL", "INFO"))
+logger = get_logger(__name__)
 
 
 def push(group_name: str, task_name: str, output_dir: str = None):

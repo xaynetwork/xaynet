@@ -16,7 +16,7 @@ config_file = root_dir.joinpath("config.cfg")
 output_dir_default = root_dir.joinpath("output")
 results_dir_default = root_dir.joinpath("results")
 
-logger = get_logger(__name__, level=os.environ.get("XAIN_LOGLEVEL", "INFO"))
+logger = get_logger(__name__)
 
 
 def init_config():

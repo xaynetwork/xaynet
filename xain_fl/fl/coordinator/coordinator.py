@@ -3,7 +3,6 @@ using a selection strategy (implemented through Controller sub-class) and an agg
 method (implemented through Aggregator sub-class).
 """
 import concurrent.futures
-import os
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
 
@@ -20,7 +19,7 @@ from .aggregate import Aggregator, FederatedAveragingAgg
 
 FLAGS = flags.FLAGS
 
-logger = get_logger(__name__, level=os.environ.get("XAIN_LOGLEVEL", "INFO"))
+logger = get_logger(__name__)
 
 
 class Coordinator:

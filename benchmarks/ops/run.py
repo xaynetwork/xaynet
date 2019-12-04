@@ -3,11 +3,15 @@ import subprocess
 from typing import Dict
 
 import boto3
-from absl import flags, logging
+from absl import flags
 
 from xain_fl.helpers import project
+from xain_fl.logger import get_logger
 
 from .ec2 import user_data
+
+logger = get_logger(__name__)
+
 
 FLAGS = flags.FLAGS
 root_dir = project.root()
@@ -135,4 +139,4 @@ def ec2(image: str, timeout: int = 300, instance_cores=2, **kwargs):
         AdditionalInfo=absl_flags,  # Helpful to identify instance in EC2 UI
     )
     instance_id = run_response["Instances"][0]["InstanceId"]
-    logging.info({"InstanceId": instance_id, "Name": instance_name})
+    logger.info({"InstanceId": instance_id, "Name": instance_name})
