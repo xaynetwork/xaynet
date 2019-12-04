@@ -1,10 +1,11 @@
 """This module contains custom logging configuration"""
-
-
 import logging
+import sys
+
+import structlog
 
 
-def get_logger(name: str, level: str = "INFO") -> logging.Logger:
+def get_logger(name: str, level: str = "INFO") -> structlog.BoundLogger:
     """Returns an instance of the custom xain-fl logger.
 
     Args:
@@ -13,12 +14,27 @@ def get_logger(name: str, level: str = "INFO") -> logging.Logger:
             `ERROR`, `WARNING`, `INFO`, `DEBUG`. Defaults to `INFO`.
 
     Returns:
-        :class:`~logging.Logger`: Configured logger.
+        :class:`~structlog.BoundLogger`: Configured logger.
     """
 
-    logging.basicConfig(
-        format="[%(asctime)s] [%(levelname)s] (%(name)s) %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-        level=level,
+    logging.basicConfig(format="%(message)s", stream=sys.stdout, level=level)
+
+    structlog.configure(
+        processors=[
+            structlog.processors.StackInfoRenderer(),
+            structlog.dev.set_exc_info,
+            structlog.processors.format_exc_info,
+            structlog.stdlib.add_logger_name,
+            structlog.stdlib.add_log_level,
+            structlog.processors.TimeStamper(),
+            structlog.processors.JSONRenderer(indent=None, sort_keys=True),
+        ],
+        wrapper_class=structlog.BoundLogger,
+        context_class=dict,
+        logger_factory=structlog.stdlib.LoggerFactory(),
+        cache_logger_on_first_use=False,
     )
-    return logging.getLogger(name)
+
+    logger = structlog.get_logger(name)
+
+    return logger

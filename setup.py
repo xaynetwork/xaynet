@@ -72,6 +72,7 @@ install_requires = [
     "numproto~=0.3",  # Apache License 2.0
     "requests==2.22.0",  # Apache 2.0  # TODO(XP-185) remove
     "tensorflow==1.14.0",  # Apache 2.0  # TODO(XP-131) remove
+    "structlog==19.2.0",  # Apache License 2.0
 ]
 
 benchmarks_require = [
