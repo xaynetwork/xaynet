@@ -3,7 +3,6 @@
 This module implements the Coordinator state machine, the Coordinator gRPC
 service and helper class to keep state about the Participants.
 """
-import argparse
 import os
 import threading
 import time
