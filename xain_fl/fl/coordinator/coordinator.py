@@ -89,8 +89,7 @@ class Coordinator:
 
         for r in range(num_rounds):
             # Determine who participates in this round
-            num_indices = _abs_C(self.C, self.num_participants())
-            indices = self.controller.indices(num_indices)
+            indices = self.controller.select_ids()
             msg = f"Round {r+1}/{num_rounds}: Participants {indices}"
             logger.info(msg)
 
@@ -250,6 +249,7 @@ def _train_local(
     return theta_update, history, opt_config, metrics
 
 
+# TODO: legacy code, needs refactor
 def _abs_C(C: float, num_participants: int) -> int:
     return int(min(num_participants, max(1, C * num_participants)))
 
