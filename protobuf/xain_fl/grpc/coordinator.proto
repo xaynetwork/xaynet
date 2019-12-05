@@ -48,17 +48,17 @@ message HeartbeatReply {
 message StartTrainingRequest {}
 
 message StartTrainingReply {
-  repeated numproto.protobuf.NDArray theta = 1;
+  repeated numproto.protobuf.NDArray weights = 1;
   int32 epochs = 2;
   int32 epoch_base = 3;
 }
 
 message EndTrainingRequest {
-  ThetaUpdate theta_update = 1;
+  WeightUpdate weight_update = 1;
   map<string, Metrics> metrics = 2;
 
-  message ThetaUpdate {
-    repeated numproto.protobuf.NDArray theta_prime = 1;
+  message WeightUpdate {
+    repeated numproto.protobuf.NDArray weights = 1;
     int32 num_examples = 2;
   }
 

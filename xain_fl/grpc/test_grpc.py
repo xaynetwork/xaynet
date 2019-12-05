@@ -178,6 +178,7 @@ def test_start_training_denied(participant_stub, coordinator_service):
         assert reply.status_code == grpc.StatusCode.PERMISSION_DENIED
 
 
+@pytest.mark.skip("Skipping due to moving of the grpc participant as sdk to xain-sdk")
 @pytest.mark.integration
 def test_start_training_failed_precondition(participant_stub, coordinator_service):
     # start training requests are only allowed if the coordinator is in the
@@ -188,6 +189,7 @@ def test_start_training_failed_precondition(participant_stub, coordinator_servic
         assert reply.status_code == grpc.StatusCode.FAILED_PRECONDITION
 
 
+@pytest.mark.skip("Skipping due to moving of the grpc participant as sdk to xain-sdk")
 @pytest.mark.integration
 def test_end_training(coordinator_service):
     assert coordinator_service.coordinator.round.updates == {}

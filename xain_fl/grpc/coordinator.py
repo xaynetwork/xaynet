@@ -7,6 +7,7 @@ import os
 import threading
 import time
 from concurrent import futures
+from threading import Lock
 from typing import Dict, List, Optional, Tuple
 
 import grpc
@@ -63,8 +64,8 @@ class ParticipantContext:
     """
 
     def __init__(self, participant_id: str) -> None:
-        self.participant_id = participant_id
-        self.heartbeat_expires = time.time() + HEARTBEAT_TIME + HEARTBEAT_TIMEOUT
+        self.participant_id: str = participant_id
+        self.heartbeat_expires: float = time.time() + HEARTBEAT_TIME + HEARTBEAT_TIMEOUT
 
 
 class Participants:
@@ -75,7 +76,7 @@ class Participants:
 
     def __init__(self) -> None:
         self.participants: Dict[str, ParticipantContext] = {}
-        self._lock = threading.Lock()
+        self._lock: Lock = threading.Lock()
 
     def add(self, participant_id: str) -> None:
         """Adds a new participant to the list of participants.
@@ -161,14 +162,14 @@ class Round:
     def add_updates(
         self,
         participant_id: str,
-        theta_update: Tuple[List[ndarray], int],
+        weight_update: Tuple[List[ndarray], int],
         metrics: Dict[str, List[ndarray]],
     ) -> None:
         """Valid a participant's update for the round.
 
         Args:
             participant_id (:obj:`str`): The id of the participant making the request.
-            theta_update (:obj:`tuple` of :obj:`list` of :class:`~numpy.ndarray`):
+            weight_update (:obj:`tuple` of :obj:`list` of :class:`~numpy.ndarray`):
                 A tuple containing a list of updated weights.
             metrics (:obj:`dict`): A dictionary containing metrics with the name and the value
                 as list of ndarrays.
@@ -182,10 +183,7 @@ class Round:
                 f"Participant {participant_id} already submitted the update for this round."
             )
 
-        self.updates[participant_id] = {
-            "theta_update": theta_update,
-            "metrics": metrics,
-        }
+        self.updates[participant_id] = {"weight_update": weight_update, "metrics": metrics}
 
     def is_finished(self) -> bool:
         """Check if all the required participants submitted their updates this round.
@@ -198,16 +196,16 @@ class Round:
         """
         return len(self.updates) == self.required_participants
 
-    def get_theta_updates(self) -> List[Tuple[List[ndarray], int]]:
-        """Get a list of all participants theta updates.
+    def get_weight_updates(self) -> List[Tuple[List[ndarray], int]]:
+        """Get a list of all participants weight updates.
 
         This list will usually be used by the aggregation function.
 
         Returns:
-            :obj:`list` of :obj:`tuple`: The list of theta updates from all
+            :obj:`list` of :obj:`tuple`: The list of weight updates from all
             participants.
         """
-        return [v["theta_update"] for k, v in self.updates.items()]
+        return [v["weight_update"] for k, v in self.updates.items()]
 
 
 class Coordinator:
@@ -249,7 +247,7 @@ class Coordinator:
         aggregator: (:class:`~.Aggregator`, optional): The type of aggregation
             to perform at the end of each round. Defaults to
             :class:`~.FederatedAveragingAgg`.
-        theta (:obj:`list` of :class:`~numpy.ndarray`, optional): The weights of
+        weights (:obj:`list` of :class:`~numpy.ndarray`, optional): The weights of
             the global model. Defaults to [].
         epochs (:obj:`int`, optional): Number of training iterations local to
             Participant.  Defaults to 0.
@@ -264,26 +262,26 @@ class Coordinator:
         num_rounds: int = 10,
         required_participants: int = 10,
         aggregator: Optional[Aggregator] = None,
-        theta: List[ndarray] = [],
+        weights: List[ndarray] = [],
         epochs: int = 0,
         epoch_base: int = 0,
     ) -> None:
-        self.required_participants = required_participants
-        self.participants = Participants()
-        self.num_rounds = num_rounds
-        self.aggregator = aggregator if aggregator else FederatedAveragingAgg()
+        self.required_participants: int = required_participants
+        self.participants: Participants = Participants()
+        self.num_rounds: int = num_rounds
+        self.aggregator: Aggregator = aggregator if aggregator else FederatedAveragingAgg()
 
         # global model
-        self.theta = theta
-        self.epochs = epochs
-        self.epoch_base = epoch_base
+        self.weights: List[ndarray] = weights
+        self.epochs: int = epochs
+        self.epoch_base: int = epoch_base
 
         # round updates
-        self.round = Round(self.required_participants)
+        self.round: Round = Round(self.required_participants)
 
         # state variables
         self.state = coordinator_pb2.State.STANDBY
-        self.current_round = 0
+        self.current_round: int = 0
 
     def on_message(
         self, message: GeneratedProtocolMessageType, participant_id: str
@@ -373,24 +371,18 @@ class Coordinator:
         if self.participants.len() < self.required_participants:
             response = coordinator_pb2.RendezvousResponse.ACCEPT
             self.participants.add(participant_id)
-            logger.info(
-                "Accepted %s. Participants: %d", participant_id, self.participants.len()
-            )
+            logger.info("Accepted %s. Participants: %d", participant_id, self.participants.len())
 
             # Change the state to ROUND if we are in STANDBY and already
             # have enough participants
             if self.participants.len() == self.required_participants:
                 # TODO: We may need to make this update thread safe
                 self.state = coordinator_pb2.State.ROUND
-                self.current_round = (
-                    1 if self.current_round == 0 else self.current_round
-                )
+                self.current_round = 1 if self.current_round == 0 else self.current_round
         else:
             response = coordinator_pb2.RendezvousResponse.LATER
             logger.info(
-                "Reject participant %s. Participants: %d",
-                participant_id,
-                self.participants.len(),
+                "Reject participant %s. Participants: %d", participant_id, self.participants.len()
             )
 
         return coordinator_pb2.RendezvousReply(response=response)
@@ -412,9 +404,7 @@ class Coordinator:
         self.participants.update_expires(participant_id)
 
         # send heartbeat reply advertising the current state
-        return coordinator_pb2.HeartbeatReply(
-            state=self.state, round=self.current_round
-        )
+        return coordinator_pb2.HeartbeatReply(state=self.state, round=self.current_round)
 
     def _handle_start_training(
         self, _message: coordinator_pb2.StartTrainingRequest, participant_id: str
@@ -434,14 +424,13 @@ class Coordinator:
         # in the ROUND state.
         if self.state != coordinator_pb2.State.ROUND:
             raise InvalidRequestError(
-                f"Participant {participant_id} sent a "
-                "StartTrainingRequest outside of a round"
+                f"Participant {participant_id} sent a " "StartTrainingRequest outside of a round"
             )
 
-        theta_proto = [ndarray_to_proto(nda) for nda in self.theta]
+        weights_proto = [ndarray_to_proto(nda) for nda in self.weights]
 
         return coordinator_pb2.StartTrainingReply(
-            theta=theta_proto, epochs=self.epochs, epoch_base=self.epoch_base
+            weights=weights_proto, epochs=self.epochs, epoch_base=self.epoch_base
         )
 
     def _handle_end_training(
@@ -460,20 +449,21 @@ class Coordinator:
         # TODO: Ideally we want to know for which round the participant is
         # submitting the updates and raise an exception if it is the wrong
         # round.
-        tu, met = message.theta_update, message.metrics
-        tp, num = tu.theta_prime, tu.num_examples
+        # TODO: cast auf list of proto was in der funktion steht
+        tu, met = message.weight_update, message.metrics
+        tp, num = tu.weights, tu.num_examples
 
         # record the req data
-        theta_update = [proto_to_ndarray(pnda) for pnda in tp], num
-        metrics = {
+        weight_update = [proto_to_ndarray(pnda) for pnda in tp], num
+        metrics: Dict[str, List[ndarray]] = {
             k: [proto_to_ndarray(v) for v in mv.metrics] for k, mv in met.items()
         }
-        self.round.add_updates(participant_id, theta_update, metrics)
+        self.round.add_updates(participant_id, weight_update, metrics)
 
         # The round is over. Run the aggregation
         if self.round.is_finished():
             logger.info("Running aggregation for round %d", self.current_round)
-            self.theta = self.aggregator.aggregate(self.round.get_theta_updates())
+            self.weights = self.aggregator.aggregate(self.round.get_weight_updates())
 
             # update the round or finish the training session
             if self.current_round == self.num_rounds:
@@ -500,7 +490,7 @@ class CoordinatorGrpc(coordinator_pb2_grpc.CoordinatorServicer):
     """
 
     def __init__(self, coordinator: Coordinator):
-        self.coordinator = coordinator
+        self.coordinator: Coordinator = coordinator
 
     def Rendezvous(
         self, request: coordinator_pb2.RendezvousRequest, context: grpc.ServicerContext
@@ -557,9 +547,7 @@ class CoordinatorGrpc(coordinator_pb2_grpc.CoordinatorServicer):
             return coordinator_pb2.HeartbeatReply()
 
     def StartTraining(
-        self,
-        request: coordinator_pb2.StartTrainingRequest,
-        context: grpc.ServicerContext,
+        self, request: coordinator_pb2.StartTrainingRequest, context: grpc.ServicerContext
     ) -> coordinator_pb2.StartTrainingReply:
         """The StartTraining gRPC method.
 
@@ -621,9 +609,7 @@ class CoordinatorGrpc(coordinator_pb2_grpc.CoordinatorServicer):
             return coordinator_pb2.EndTrainingReply()
 
 
-def monitor_heartbeats(
-    coordinator: Coordinator, terminate_event: threading.Event
-) -> None:
+def monitor_heartbeats(coordinator: Coordinator, terminate_event: threading.Event) -> None:
     """Monitors the heartbeat of participants.
 
     If a heartbeat expires the participant is removed from the :class:`~.Participants`.
@@ -640,7 +626,7 @@ def monitor_heartbeats(
 
     logger.info("Heartbeat monitor starting...")
     while not terminate_event.is_set():
-        participants_to_remove = []
+        participants_to_remove: List[str] = []
 
         for participant in coordinator.participants.participants.values():
             if participant.heartbeat_expires < time.time():
@@ -649,7 +635,7 @@ def monitor_heartbeats(
         for participant_id in participants_to_remove:
             coordinator.remove_participant(participant_id)
 
-        next_expiration = coordinator.participants.next_expiration() - time.time()
+        next_expiration: float = coordinator.participants.next_expiration() - time.time()
 
         logger.debug("Monitoring heartbeats in %.2f", next_expiration)
         time.sleep(next_expiration)
@@ -661,16 +647,13 @@ def serve(coordinator: Coordinator, host: str = "[::]", port: int = 50051) -> No
     This methods just creates the :class:`~.Coordinator`, sets up all threading
     events and threads and configures and starts the gRPC service.
     """
-
     terminate_event = threading.Event()
     monitor_thread = threading.Thread(
         target=monitor_heartbeats, args=(coordinator, terminate_event)
     )
 
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    coordinator_pb2_grpc.add_CoordinatorServicer_to_server(
-        CoordinatorGrpc(coordinator), server
-    )
+    coordinator_pb2_grpc.add_CoordinatorServicer_to_server(CoordinatorGrpc(coordinator), server)
     server.add_insecure_port(f"{host}:{port}")
     server.start()
     monitor_thread.start()
