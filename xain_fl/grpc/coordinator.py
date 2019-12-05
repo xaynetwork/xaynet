@@ -716,7 +716,7 @@ def get_cmd_parameters():
     parser.add_argument(
         "-r",
         dest="num_rounds",
-        default=2,
+        default=10,
         type=int,
         help="Number of global rounds the model is going to be trained for.",
     )
@@ -732,7 +732,7 @@ def get_cmd_parameters():
     parser.add_argument(
         "-p",
         dest="num_participants",
-        default=2,
+        default=100,
         type=int,
         choices=range(1, 4),
         help="Number of participants.",
@@ -741,7 +741,9 @@ def get_cmd_parameters():
     parser.add_argument(
         "-c",
         dest="fraction",
-        default=1,
+        default=0.1,
+        type=float,
+        choices=[n / 1000 for n in range(1, 1001)],
         help="Fraction of total clients that participate in a training round.",
     )
 
