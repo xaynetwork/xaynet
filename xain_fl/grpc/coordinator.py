@@ -22,9 +22,9 @@ from xain_fl.logger import get_logger
 logger = get_logger(__name__, level=os.environ.get("XAIN_LOGLEVEL", "INFO"))
 
 
-_ONE_DAY_IN_SECONDS = 60 * 60 * 24
-HEARTBEAT_TIME = 10
-HEARTBEAT_TIMEOUT = 5
+_ONE_DAY_IN_SECONDS: int = 60 * 60 * 24
+HEARTBEAT_TIME: int = 10
+HEARTBEAT_TIMEOUT: int = 5
 
 
 class DuplicatedUpdateError(Exception):
