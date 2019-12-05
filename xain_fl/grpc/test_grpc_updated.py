@@ -204,7 +204,9 @@ def test_end_training(coordinator_service):
         # we first need to rendezvous before we can send any other request
         rendezvous(channel)
         # call endTraining service method on coordinator
-        end_training(channel, (test_weights, number_of_samples), metrics)
+        end_training(  # pylint: disable-msg=no-value-for-parameter
+            channel, (test_weights, number_of_samples), metrics
+        )
     # check local model received...
 
     assert len(coordinator_service.coordinator.round.updates) == 1
