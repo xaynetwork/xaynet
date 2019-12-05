@@ -718,6 +718,7 @@ def get_cmd_parameters():
         dest="num_rounds",
         default=10,
         type=int,
+        choices=range(1, 1000),
         help="Number of global rounds the model is going to be trained for.",
     )
 
@@ -734,7 +735,7 @@ def get_cmd_parameters():
         dest="num_participants",
         default=100,
         type=int,
-        choices=range(1, 4),
+        choices=range(1, 1_000_000),
         help="Number of participants.",
     )
 
