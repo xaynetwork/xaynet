@@ -108,7 +108,8 @@ def get_cmd_parameters():
         dest="fraction",
         default=0.1,
         type=type_fraction,
-        help="Fraction of total clients that participate in a training round. A float between 0 and 1",
+        help="Fraction of total clients that participate in a training round. \
+            A float between 0 and 1",
     )
 
     return parser.parse_args()
