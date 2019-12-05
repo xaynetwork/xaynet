@@ -116,14 +116,14 @@ def get_cmd_parameters():
 
 
 def main():
-    cp = get_cmd_parameters()
+    parameters = get_cmd_parameters()
 
     serve(
-        theta=list(np.load(cp.file, allow_pickle=True)),
-        num_rounds=cp.num_rounds,
-        num_epochs=cp.num_epochs,
-        num_participants=cp.num_participants,
-        fraction=cp.fraction,
+        theta=list(np.load(parameters.file, allow_pickle=True)),
+        num_rounds=parameters.num_rounds,
+        num_epochs=parameters.num_epochs,
+        num_participants=parameters.num_participants,
+        fraction=parameters.fraction,
     )
 
 
