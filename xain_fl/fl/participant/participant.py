@@ -71,7 +71,9 @@ class Participant:
                 and optimizer configs
         """
         logger.info(
-            f"Participant {self.cid}: train_round START (epoch_base={epoch_base})"
+            "Participant: train_round START",
+            participant_cid=self.cid,
+            epoch_base=epoch_base,
         )
         model = self.model_provider.init_model(epoch_base=epoch_base)  # type:ignore
         model.set_weights(theta)

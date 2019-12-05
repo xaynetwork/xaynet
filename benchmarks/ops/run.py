@@ -139,4 +139,6 @@ def ec2(image: str, timeout: int = 300, instance_cores=2, **kwargs):
         AdditionalInfo=absl_flags,  # Helpful to identify instance in EC2 UI
     )
     instance_id = run_response["Instances"][0]["InstanceId"]
-    logger.info({"InstanceId": instance_id, "Name": instance_name})
+    logger.info(
+        "Started EC2 instance", instance_id=instance_id, instance_name=instance_name
+    )
