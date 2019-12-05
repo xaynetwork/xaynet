@@ -11,7 +11,8 @@ from threading import Lock
 from typing import Dict, List, Optional, Tuple
 
 import grpc
-from google.protobuf.internal.python_message import GeneratedProtocolMessageType
+from google.protobuf.internal.python_message import \
+    GeneratedProtocolMessageType
 from numproto import ndarray_to_proto, proto_to_ndarray
 from numpy import ndarray
 
@@ -449,7 +450,6 @@ class Coordinator:
         # TODO: Ideally we want to know for which round the participant is
         # submitting the updates and raise an exception if it is the wrong
         # round.
-        # TODO: cast auf list of proto was in der funktion steht
         tu, met = message.weight_update, message.metrics
         tp, num = tu.weights, tu.num_examples
 
