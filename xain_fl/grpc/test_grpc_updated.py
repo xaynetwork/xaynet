@@ -1,3 +1,5 @@
+# TODO: Once the old grpc participant is removed, rename the module to `test_coordinator`.
+
 import sys
 import threading
 from concurrent import futures
@@ -58,7 +60,7 @@ def test_participant_rendezvous_accept(participant_stub, coordinator_service):
     assert reply.response == coordinator_pb2.RendezvousResponse.ACCEPT
 
 
-@pytest.mark.skip("Fix test so it also runs coorectly on macos")
+# TODO: Fix test so it also runs correctly on macos
 @pytest.mark.integration
 def test_participant_rendezvous_later(participant_stub):
 
@@ -146,28 +148,27 @@ def test_participant_heartbeat(mock_heartbeat_request, _mock_sleep, _mock_event)
     mock_heartbeat_request.assert_has_calls([mock.call(), mock.call()])
 
 
-@pytest.mark.skip("Skipping due to moving of the grpc participant as sdk to xain-sdk")
 @pytest.mark.integration
 def test_start_training(coordinator_service):
-    test_theta = [np.arange(10), np.arange(10, 20)]
+    test_weights = [np.arange(10), np.arange(10, 20)]
 
     # set coordinator global model data
     coordinator_service.coordinator.required_participants = 1
     coordinator_service.coordinator.epochs = 5
     coordinator_service.coordinator.epoch_base = 2
-    coordinator_service.coordinator.theta = test_theta
+    coordinator_service.coordinator.weights = test_weights
 
     # simulate a participant communicating with coordinator via channel
     with grpc.insecure_channel("localhost:50051") as channel:
         # we need to rendezvous before we can send any other requests
         rendezvous(channel)
         # call startTraining service method on coordinator
-        theta, epochs, epoch_base = start_training(channel)
+        weights, epochs, epoch_base = start_training(channel)
 
     # check global model received
     assert epochs == 5
     assert epoch_base == 2
-    np.testing.assert_equal(theta, test_theta)
+    np.testing.assert_equal(weights, test_weights)
 
 
 @pytest.mark.integration
@@ -196,35 +197,30 @@ def test_end_training(coordinator_service):
     assert coordinator_service.coordinator.round.updates == {}
 
     # simulate trained local model data
-    test_theta, num = [np.arange(20, 30), np.arange(30, 40)], 2
-    his = {"aaa": [1.1, 2.1], "bbb": [3.1, 4.1]}
-    mets = 1, [3, 4, 5]
+    test_weights, number_of_samples = [np.arange(20, 30), np.arange(30, 40)], 2
+    metrics = {"metric": [np.arange(10, 20), np.arange(5, 10)]}
 
     with grpc.insecure_channel("localhost:50051") as channel:
         # we first need to rendezvous before we can send any other request
         rendezvous(channel)
         # call endTraining service method on coordinator
-        end_training(channel, (test_theta, num), his, mets)
+        end_training(channel, (test_weights, number_of_samples), metrics)
     # check local model received...
 
     assert len(coordinator_service.coordinator.round.updates) == 1
 
     round_ = coordinator_service.coordinator.round
 
-    # first the theta update
+    # first the weights update
     _, update = round_.updates.popitem()
-    tu1, tu2 = update["theta_update"]
-    assert tu2 == num
-    np.testing.assert_equal(tu1, test_theta)
+    tu1, tu2 = update["weight_update"]
+    assert tu2 == number_of_samples
+    np.testing.assert_equal(tu1, test_weights)
 
-    # history values are *floats* so a naive assert == won't do
-    h = update["history"]
-    assert h.keys() == his.keys()
-    for k, vals in his.items():
-        np.testing.assert_allclose(h[k], vals)
-
-    # finally metrics
-    assert update["metrics"] == mets
+    m = update["metrics"]
+    assert m.keys() == metrics.keys()
+    for k, vals in metrics.items():
+        np.testing.assert_allclose(m[k], vals)
 
 
 @pytest.mark.integration

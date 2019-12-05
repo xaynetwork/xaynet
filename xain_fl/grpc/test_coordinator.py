@@ -1,6 +1,9 @@
+from typing import List
+
 import numpy as np
 import pytest
 from numproto import proto_to_ndarray
+from numpy import ndarray
 
 from xain_fl.grpc import coordinator_pb2
 from xain_fl.grpc.coordinator import (
@@ -9,14 +12,21 @@ from xain_fl.grpc.coordinator import (
     InvalidRequestError,
     UnknownParticipantError,
 )
+from xain_fl.grpc.coordinator_pb2 import (
+    RendezvousReply,
+    RendezvousRequest,
+    RendezvousResponse,
+)
 
 
 def test_rendezvous_accept():
-    coordinator = Coordinator()
-    result = coordinator.on_message(coordinator_pb2.RendezvousRequest(), "participant1")
+    coordinator: Coordinator = Coordinator()
+    result: RendezvousReply = coordinator.on_message(
+        RendezvousRequest(), "participant1"
+    )
 
-    assert isinstance(result, coordinator_pb2.RendezvousReply)
-    assert result.response == coordinator_pb2.RendezvousResponse.ACCEPT
+    assert isinstance(result, RendezvousReply)
+    assert result.response == RendezvousResponse.ACCEPT
 
 
 def test_rendezvous_later():
@@ -61,16 +71,18 @@ def test_state_standby_round():
 
 
 def test_start_training():
-    test_theta = [np.arange(10), np.arange(10, 20)]
-    coordinator = Coordinator(required_participants=1, theta=test_theta)
+    test_weights: List[ndarray] = [np.arange(10), np.arange(10, 20)]
+    coordinator: Coordinator = Coordinator(
+        required_participants=1, weights=test_weights
+    )
     coordinator.on_message(coordinator_pb2.RendezvousRequest(), "participant1")
 
     result = coordinator.on_message(
         coordinator_pb2.StartTrainingRequest(), "participant1"
     )
-    received_theta = [proto_to_ndarray(nda) for nda in result.theta]
+    received_weights = [proto_to_ndarray(nda) for nda in result.weights]
 
-    np.testing.assert_equal(test_theta, received_theta)
+    np.testing.assert_equal(test_weights, received_weights)
 
 
 def start_training_wrong_state():
