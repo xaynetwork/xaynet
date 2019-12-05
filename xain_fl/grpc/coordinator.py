@@ -3,6 +3,7 @@
 This module implements the Coordinator state machine, the Coordinator gRPC
 service and helper class to keep state about the Participants.
 """
+import argparse
 import os
 import threading
 import time
@@ -658,13 +659,26 @@ def monitor_heartbeats(
         time.sleep(next_expiration)
 
 
-def serve() -> None:
+def serve(
+    theta: List[np.ndarray],
+    num_rounds: int,
+    num_epochs: int,
+    num_participants: int,
+    fraction: float,
+) -> None:
     """Main method to start the gRPC service.
 
     This methods just creates the :class:`~.Coordinator`, sets up all threading
     events and threads and configures and starts the gRPC service.
     """
-    coordinator = Coordinator()
+
+    coordinator = Coordinator(
+        theta=theta,
+        num_rounds=num_rounds,
+        epochs=num_epochs,
+        required_participants=int(num_participants * fraction),
+    )
+
     terminate_event = threading.Event()
     monitor_thread = threading.Thread(
         target=monitor_heartbeats, args=(coordinator, terminate_event)
@@ -688,5 +702,59 @@ def serve() -> None:
         server.stop(0)
 
 
+def get_cmd_parameters():
+    # Allow various parameters to be passed via the commandline
+    parser = argparse.ArgumentParser(description="Coordinator CLI")
+
+    parser.add_argument(
+        "-f",
+        dest="file",
+        required=True,
+        help="Path to numpy ndarray file containing model weights",
+    )
+
+    parser.add_argument(
+        "-r",
+        dest="num_rounds",
+        default=2,
+        type=int,
+        help="Number of global rounds the model is going to be trained for.",
+    )
+
+    parser.add_argument(
+        "-e",
+        dest="num_epochs",
+        default=2,
+        choices=range(1, 10),
+        help="Fraction of total clients that participate in a training round.",
+    )
+
+    parser.add_argument(
+        "-p",
+        dest="num_participants",
+        default=2,
+        type=int,
+        choices=range(1, 4),
+        help="Number of participants.",
+    )
+
+    parser.add_argument(
+        "-c",
+        dest="fraction",
+        default=1,
+        help="Fraction of total clients that participate in a training round.",
+    )
+
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
-    serve()
+    cp = get_cmd_parameters()
+
+    serve(
+        theta=list(np.load(cp.file, allow_pickle=True)),
+        num_rounds=cp.num_rounds,
+        num_epochs=cp.num_epochs,
+        num_participants=cp.num_participants,
+        fraction=cp.fraction,
+    )
