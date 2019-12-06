@@ -95,10 +95,10 @@ def federated_training(
             cid, model_provider, xy_train, xy_val, num_classes=10, batch_size=B
         )
         participants.append(participant)
-    num_participants = len(participants)
+    participant_ids = [str(participant.cid) for participant in participants]
 
     # Init coordinator
-    controller = RandomController(num_participants)
+    controller = RandomController(participant_ids, fraction_of_participants=C)
     coordinator = Coordinator(
         controller,
         model_provider,
