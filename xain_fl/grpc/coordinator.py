@@ -6,16 +6,15 @@ service and helper class to keep state about the Participants.
 import threading
 import time
 from concurrent import futures
-from threading import Lock
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 import grpc
 from google.protobuf.internal.python_message import GeneratedProtocolMessageType
 from numproto import ndarray_to_proto, proto_to_ndarray
 from numpy import ndarray
 
-from xain_fl.fl.coordinator.controller import Controller, RandomController
-from xain_fl.fl.coordinator.aggregate import Aggregator, FederatedAveragingAgg
+from xain_fl.fl.coordinator.aggregate import FederatedAveragingAgg
+from xain_fl.fl.coordinator.controller import RandomController
 from xain_fl.grpc import coordinator_pb2, coordinator_pb2_grpc
 from xain_fl.logger import get_logger
 
@@ -271,6 +270,7 @@ class Coordinator:
         """
 
     # pylint: disable-msg=too-many-instance-attributes
+    # pylint: disable-msg=dangerous-default-value
     def __init__(
         self,
         num_rounds: int = 10,
@@ -286,7 +286,7 @@ class Coordinator:
         self.num_rounds = num_rounds
         self.aggregator = FederatedAveragingAgg()
         self.controller = RandomController(self.participants.ids())
-        self.minimum_connected_participants = self.calculate_minimum_connected_participants()
+        self.minimum_connected_participants = self.get_minimum_connected_participants()
 
         # global model
         self.weights: List[ndarray] = weights
@@ -300,7 +300,7 @@ class Coordinator:
         self.state = coordinator_pb2.State.STANDBY
         self.current_round: int = 0
 
-    def calculate_minimum_connected_participants(self) -> float:
+    def get_minimum_connected_participants(self) -> float:
         """Calculates how many participants are needed so that we can select
         a specific fraction of them.
 
@@ -463,9 +463,7 @@ class Coordinator:
             state = coordinator_pb2.State.STANDBY
 
         # send heartbeat reply advertising the current state
-        return coordinator_pb2.HeartbeatReply(
-            state=state, round=self.current_round
-        )
+        return coordinator_pb2.HeartbeatReply(state=state, round=self.current_round)
 
     def _handle_start_training(
         self, _message: coordinator_pb2.StartTrainingRequest, participant_id: str
