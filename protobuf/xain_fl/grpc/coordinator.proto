@@ -2,7 +2,7 @@ syntax = "proto3";
 
 import "numproto/protobuf/ndarray.proto";
 
-package xain_fl.protobuf.coordinator;
+package xain.protobuf.coordinator;
 
 service Coordinator {
   rpc Rendezvous(RendezvousRequest) returns (RendezvousReply) {}
