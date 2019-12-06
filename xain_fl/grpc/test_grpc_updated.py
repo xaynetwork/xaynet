@@ -1,4 +1,4 @@
-# TODO: Once the old grpc participant is removed, rename the module to `test_coordinator`.
+# TODO: Once the old grpc participant is removed, rename the module to `test_grpc`.
 
 import sys
 import threading

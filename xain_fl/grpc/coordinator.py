@@ -11,8 +11,7 @@ from threading import Lock
 from typing import Dict, List, Optional, Tuple
 
 import grpc
-from google.protobuf.internal.python_message import \
-    GeneratedProtocolMessageType
+from google.protobuf.internal.python_message import GeneratedProtocolMessageType
 from numproto import ndarray_to_proto, proto_to_ndarray
 from numpy import ndarray
 
