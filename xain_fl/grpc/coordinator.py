@@ -658,25 +658,12 @@ def monitor_heartbeats(
         time.sleep(next_expiration)
 
 
-def serve(
-    theta: List[np.ndarray],
-    num_rounds: int,
-    num_epochs: int,
-    num_participants: int,
-    fraction: float,
-) -> None:
+def serve(coordinator: Coordinator, host: str = "[::]", port: int = 50051) -> None:
     """Main method to start the gRPC service.
 
     This methods just creates the :class:`~.Coordinator`, sets up all threading
     events and threads and configures and starts the gRPC service.
     """
-
-    coordinator = Coordinator(
-        theta=theta,
-        num_rounds=num_rounds,
-        epochs=num_epochs,
-        required_participants=int(num_participants * fraction),
-    )
 
     terminate_event = threading.Event()
     monitor_thread = threading.Thread(
@@ -687,7 +674,7 @@ def serve(
     coordinator_pb2_grpc.add_CoordinatorServicer_to_server(
         CoordinatorGrpc(coordinator), server
     )
-    server.add_insecure_port("[::]:50051")
+    server.add_insecure_port(f"{host}:{port}")
     server.start()
     monitor_thread.start()
 

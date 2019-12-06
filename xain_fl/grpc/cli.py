@@ -7,7 +7,7 @@ import argparse
 
 import numpy as np
 
-from xain_fl.grpc.coordinator import serve
+from xain_fl.grpc.coordinator import Coordinator, serve
 
 
 def type_num_rounds(value):
@@ -72,6 +72,9 @@ def get_cmd_parameters():
     # Allow various parameters to be passed via the commandline
     parser = argparse.ArgumentParser(description="Coordinator CLI")
 
+    parser.add_argument("--host", dest="host", default="[::]", type=str, help="Host")
+    parser.add_argument("--port", dest="port", default=50051, type=int, help="Port")
+
     parser.add_argument(
         "-f",
         dest="file",
@@ -118,13 +121,14 @@ def get_cmd_parameters():
 def main():
     parameters = get_cmd_parameters()
 
-    serve(
+    coordinator = Coordinator(
         theta=list(np.load(parameters.file, allow_pickle=True)),
         num_rounds=parameters.num_rounds,
-        num_epochs=parameters.num_epochs,
-        num_participants=parameters.num_participants,
-        fraction=parameters.fraction,
+        epochs=parameters.num_epochs,
+        required_participants=int(parameters.num_participants * parameters.fraction),
     )
+
+    serve(coordinator=coordinator, host=parameters.host, port=parameters.port)
 
 
 if __name__ == "__main__":
