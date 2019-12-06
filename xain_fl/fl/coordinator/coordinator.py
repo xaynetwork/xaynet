@@ -122,7 +122,7 @@ class Coordinator:
         return hist_co, hist_ps, hist_opt_configs, hist_metrics
 
     def fit_round(
-        self, indices: List[int], E: int
+        self, indices: List[str], E: int
     ) -> Tuple[List[History], List[Dict], List[Metrics]]:
         """Performs a single round of federated learning.
 
@@ -134,7 +134,11 @@ class Coordinator:
             Tuple[List[History], List[Dict], List[Metrics]]
         """
         theta = self.model.get_weights()
-        participants = [self.participants[i] for i in indices]
+        participants = [
+            participant
+            for participant in self.participants
+            if str(participant.cid) in indices
+        ]
         # Collect training results from the participants of this round
         theta_updates, histories, opt_configs, train_metrics = self.train_local_concurrently(
             theta, participants, E
