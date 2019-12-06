@@ -135,7 +135,7 @@ class Participants:
         """
 
         with self._lock:
-            return [id for id, _ in self.participants.items()]
+            return list(self.participants.keys())
 
     def update_expires(self, participant_id: str) -> None:
         """Updates the heartbeat expiration time for a participant.
@@ -264,9 +264,6 @@ class Coordinator:
         fraction_of_participants (:obj:`float`, optional): The fraction of total
             connected participants to be selected in a single round. Defaults to 1.0,
             meaning that all connected participants will be selected.
-        aggregator (:class:`~.Aggregator`, optional): The type of aggregation
-            to perform at the end of each round. Defaults to
-            :class:`~.FederatedAveragingAgg`.
         theta (:obj:`list` of :class:`~numpy.ndarray`, optional): The weights of
             the global model. Defaults to [].
         epochs (:obj:`int`, optional): Number of training iterations local to
@@ -276,14 +273,11 @@ class Coordinator:
         """
 
     # pylint: disable-msg=too-many-instance-attributes
-    # pylint: disable-msg=dangerous-default-value
     def __init__(
         self,
         num_rounds: int = 10,
         minimum_participants_in_round: int = 1,
         fraction_of_participants: float = 1.0,
-        controller: Optional[Controller] = None,
-        aggregator: Optional[Aggregator] = None,
         theta: List[np.ndarray] = [],
         epochs: int = 0,
         epoch_base: int = 0,
@@ -292,9 +286,9 @@ class Coordinator:
         self.fraction_of_participants = fraction_of_participants
         self.participants = Participants()
         self.num_rounds = num_rounds
-        self.aggregator = aggregator if aggregator else FederatedAveragingAgg
-        self.controller = controller if controller else RandomController
-        self.minimum_connected_participants = self.minimum_participants_in_round // self.fraction_of_participants
+        self.aggregator = FederatedAveragingAgg()
+        self.controller = RandomController(self.participants.ids())
+        self.minimum_connected_participants = self.calculate_minimum_connected_participants()
 
         # global model
         self.theta = theta
@@ -307,6 +301,15 @@ class Coordinator:
         # state variables
         self.state = coordinator_pb2.State.STANDBY
         self.current_round = 0
+
+    def calculate_minimum_connected_participants(self) -> float:
+        """Calculates how many participants are needed so that we can select
+        a specific fraction of them.
+
+        Returns:
+            obj:`float`: Minimum number of participants needed to be connected to start a round.
+        """
+        return self.minimum_participants_in_round // self.fraction_of_participants
 
     def on_message(
         self, message: GeneratedProtocolMessageType, participant_id: str
@@ -382,9 +385,9 @@ class Coordinator:
     def select_participant_ids_and_init_round(self) -> None:
         """Initiates the Controller, selects ids and initiates a Round.
         """
-        self.controller(
+        self.controller = RandomController(
             participants_ids=self.participants.ids(),
-            fraction_of_participants=self.fraction_of_participants
+            fraction_of_participants=self.fraction_of_participants,
         )
         selected_ids = self.controller.select_ids()
         self.round = Round(selected_ids)
@@ -541,7 +544,6 @@ class CoordinatorGrpc(coordinator_pb2_grpc.CoordinatorServicer):
 
     Args:
         coordinator (:class:`~.Coordinator`): The Coordinator state machine.
-
     """
 
     def __init__(self, coordinator: Coordinator):
