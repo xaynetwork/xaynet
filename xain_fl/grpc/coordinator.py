@@ -665,13 +665,12 @@ def monitor_heartbeats(
         time.sleep(next_expiration)
 
 
-def serve() -> None:
+def serve(coordinator: Coordinator, host: str = "[::]", port: int = 50051) -> None:
     """Main method to start the gRPC service.
 
     This methods just creates the :class:`~.Coordinator`, sets up all threading
     events and threads and configures and starts the gRPC service.
     """
-    coordinator = Coordinator()
 
     terminate_event = threading.Event()
     monitor_thread = threading.Thread(
@@ -682,7 +681,7 @@ def serve() -> None:
     coordinator_pb2_grpc.add_CoordinatorServicer_to_server(
         CoordinatorGrpc(coordinator), server
     )
-    server.add_insecure_port("[::]:50051")
+    server.add_insecure_port(f"{host}:{port}")
     server.start()
     monitor_thread.start()
 
@@ -694,7 +693,3 @@ def serve() -> None:
     except KeyboardInterrupt:
         terminate_event.set()
         server.stop(0)
-
-
-if __name__ == "__main__":
-    serve()

@@ -4,17 +4,17 @@ XAIN FL requires [Python 3.6+](https://python.org/).
 
 ## Install from PyPi package
 
-To install the `xain_fl` package just run:
+To install the `xain-fl` package just run:
 
 ```shell
-$ python -m pip install xain_fl
+$ python -m pip install xain-fl
 ```
 
 XAIN FL can also be installed with GPU support through the `gpu` extra feature. To
-install the `xain_fl` package with support for GPUs just run:
+install the `xain-fl` package with support for GPUs just run:
 
 ```shell
-$ python -m pip install xain_fl[gpu]
+$ python -m pip install xain-fl[gpu]
 ```
 
 ## Install from source
