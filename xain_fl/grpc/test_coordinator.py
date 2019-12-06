@@ -59,6 +59,26 @@ def test_rendezvous_later_fraction_05():
     assert result.response == coordinator_pb2.RendezvousResponse.LATER
 
 
+def test_rendezvous_later_fraction_05():
+    coordinator = Coordinator(
+        minimum_participants_in_round=1,
+        fraction_of_participants=0.5,
+    )
+
+    # with 0.5 fraction it needs to accept at least two participants
+    coordinator.on_message(coordinator_pb2.RendezvousRequest(), "participant1")
+    result = coordinator.on_message(coordinator_pb2.RendezvousRequest(), "participant2")
+
+    assert isinstance(result, coordinator_pb2.RendezvousReply)
+    assert result.response == coordinator_pb2.RendezvousResponse.ACCEPT
+
+    # the third participant must receive LATER RendezvousResponse
+    result = coordinator.on_message(coordinator_pb2.RendezvousRequest(), "participant3")
+
+    assert isinstance(result, coordinator_pb2.RendezvousReply)
+    assert result.response == coordinator_pb2.RendezvousResponse.LATER
+
+
 def test_heartbeat_reply():
     # test that the coordinator replies with the correct state and round number
     coordinator = Coordinator(
