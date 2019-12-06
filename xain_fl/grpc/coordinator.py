@@ -270,6 +270,7 @@ class Coordinator:
         """
 
     # pylint: disable-msg=too-many-instance-attributes
+    # pylint: disable-msg=dangerous-default-value
     def __init__(
         self,
         num_rounds: int = 1,
