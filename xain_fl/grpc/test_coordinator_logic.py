@@ -21,8 +21,7 @@ def test_rendezvous_accept():
 
 def test_rendezvous_later_fraction_1():
     coordinator = Coordinator(
-        minimum_participants_in_round=1,
-        fraction_of_participants=1.0,
+        minimum_participants_in_round=1, fraction_of_participants=1.0
     )
     coordinator.on_message(coordinator_pb2.RendezvousRequest(), "participant1")
     result = coordinator.on_message(coordinator_pb2.RendezvousRequest(), "participant2")
@@ -33,8 +32,7 @@ def test_rendezvous_later_fraction_1():
 
 def test_rendezvous_later_fraction_05():
     coordinator = Coordinator(
-        minimum_participants_in_round=1,
-        fraction_of_participants=0.5,
+        minimum_participants_in_round=1, fraction_of_participants=0.5
     )
 
     # with 0.5 fraction it needs to accept at least two participants
@@ -54,8 +52,7 @@ def test_rendezvous_later_fraction_05():
 def test_heartbeat_reply():
     # test that the coordinator replies with the correct state and round number
     coordinator = Coordinator(
-        minimum_participants_in_round=2,
-        fraction_of_participants=1.0,
+        minimum_participants_in_round=2, fraction_of_participants=1.0
     )
     coordinator.on_message(coordinator_pb2.RendezvousRequest(), "participant1")
     result = coordinator.on_message(coordinator_pb2.HeartbeatRequest(), "participant1")
@@ -75,8 +72,7 @@ def test_coordinator_state_standby_round():
     # tests that the coordinator transitions from STANDBY to ROUND once enough participants
     # are connected
     coordinator = Coordinator(
-        minimum_participants_in_round=1,
-        fraction_of_participants=1.0,
+        minimum_participants_in_round=1, fraction_of_participants=1.0
     )
 
     assert coordinator.state == coordinator_pb2.STANDBY
@@ -90,9 +86,7 @@ def test_coordinator_state_standby_round():
 def test_start_training():
     test_theta = [np.arange(10), np.arange(10, 20)]
     coordinator = Coordinator(
-        minimum_participants_in_round=1,
-        fraction_of_participants=1.0,
-        theta=test_theta,
+        minimum_participants_in_round=1, fraction_of_participants=1.0, theta=test_theta
     )
     coordinator.on_message(coordinator_pb2.RendezvousRequest(), "participant1")
 
@@ -108,8 +102,7 @@ def start_training_wrong_state():
     # if the coordinator receives a StartTraining request while not in the
     # ROUND state it will raise an exception
     coordinator = Coordinator(
-        minimum_participants_in_round=2,
-        fraction_of_participants=1.0,
+        minimum_participants_in_round=2, fraction_of_participants=1.0
     )
     coordinator.on_message(coordinator_pb2.RendezvousRequest(), "participant1")
 
@@ -122,8 +115,7 @@ def test_end_training():
     # with only one participant it wouldn't work because the local updates state is cleaned at
     # the end of each round
     coordinator = Coordinator(
-        minimum_participants_in_round=2,
-        fraction_of_participants=1.0,
+        minimum_participants_in_round=2, fraction_of_participants=1.0
     )
     coordinator.on_message(coordinator_pb2.RendezvousRequest(), "participant1")
     coordinator.on_message(coordinator_pb2.RendezvousRequest(), "participant2")
@@ -136,8 +128,7 @@ def test_end_training():
 def test_end_training_round_update():
     # Test that the round number is updated once all participants sent their updates
     coordinator = Coordinator(
-        minimum_participants_in_round=2,
-        fraction_of_participants=1.0,
+        minimum_participants_in_round=2, fraction_of_participants=1.0
     )
     coordinator.on_message(coordinator_pb2.RendezvousRequest(), "participant1")
     coordinator.on_message(coordinator_pb2.RendezvousRequest(), "participant2")
@@ -156,8 +147,7 @@ def test_end_training_round_update():
 
 def test_end_training_reinitialize_local_models():
     coordinator = Coordinator(
-        minimum_participants_in_round=2,
-        fraction_of_participants=1.0,
+        minimum_participants_in_round=2, fraction_of_participants=1.0
     )
     coordinator.on_message(coordinator_pb2.RendezvousRequest(), "participant1")
     coordinator.on_message(coordinator_pb2.RendezvousRequest(), "participant2")
@@ -176,9 +166,7 @@ def test_end_training_reinitialize_local_models():
 
 def test_training_finished():
     coordinator = Coordinator(
-        minimum_participants_in_round=1,
-        fraction_of_participants=1.0,
-        num_rounds=2,
+        minimum_participants_in_round=1, fraction_of_participants=1.0, num_rounds=2
     )
     coordinator.on_message(coordinator_pb2.RendezvousRequest(), "participant1")
 
@@ -192,8 +180,7 @@ def test_training_finished():
 def test_wrong_participant():
     # coordinator should not accept requests from participants that it has not accepted
     coordinator = Coordinator(
-        minimum_participants_in_round=1,
-        fraction_of_participants=1.0,
+        minimum_participants_in_round=1, fraction_of_participants=1.0
     )
     coordinator.on_message(coordinator_pb2.RendezvousRequest(), "participant1")
 
@@ -211,8 +198,7 @@ def test_duplicated_update_submit():
     # the coordinator should not accept multiples updates from the same participant
     # in the same round
     coordinator = Coordinator(
-        minimum_participants_in_round=2,
-        fraction_of_participants=1.0,
+        minimum_participants_in_round=2, fraction_of_participants=1.0
     )
     coordinator.on_message(coordinator_pb2.RendezvousRequest(), "participant1")
     coordinator.on_message(coordinator_pb2.RendezvousRequest(), "participant2")
@@ -225,8 +211,7 @@ def test_duplicated_update_submit():
 
 def test_remove_participant():
     coordinator = Coordinator(
-        minimum_participants_in_round=1,
-        fraction_of_participants=1.0,
+        minimum_participants_in_round=1, fraction_of_participants=1.0
     )
     coordinator.on_message(coordinator_pb2.RendezvousRequest(), "participant1")
 
@@ -245,8 +230,7 @@ def test_remove_participant():
 def test_number_of_selected_participants():
     # test that the coordinator needs minimum 3 participants and selects 2 of them
     coordinator = Coordinator(
-        minimum_participants_in_round=2,
-        fraction_of_participants=0.6,
+        minimum_participants_in_round=2, fraction_of_participants=0.6
     )
     coordinator.on_message(coordinator_pb2.RendezvousRequest(), "participant1")
     coordinator.on_message(coordinator_pb2.RendezvousRequest(), "participant2")
@@ -262,12 +246,10 @@ def test_number_of_selected_participants():
     assert len(coordinator.round.participant_ids) == 2
 
 
-
 def test_correct_round_advertised_to_participants():
     # test that only selected participants receive ROUND state and the others STANDBY
     coordinator = Coordinator(
-        minimum_participants_in_round=1,
-        fraction_of_participants=0.5,
+        minimum_participants_in_round=1, fraction_of_participants=0.5
     )
     coordinator.on_message(coordinator_pb2.RendezvousRequest(), "participant1")
     coordinator.on_message(coordinator_pb2.RendezvousRequest(), "participant2")

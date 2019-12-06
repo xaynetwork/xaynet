@@ -19,7 +19,9 @@ class Controller(ABC):
             all participant ids will be selected.
     """
 
-    def __init__(self, participants_ids: List[str], fraction_of_participants: float = 1.0) -> None:
+    def __init__(
+        self, participants_ids: List[str], fraction_of_participants: float = 1.0
+    ) -> None:
         self.participants_ids = participants_ids
         self.fraction_of_participants = fraction_of_participants
         self.num_ids_to_select = self.get_num_ids_to_select()
@@ -30,7 +32,9 @@ class Controller(ABC):
         Returns:
             :obj:`int`: Number of participant ids to be selected
         """
-        raw_num_ids_to_select = len(self.participants_ids) * self.fraction_of_participants
+        raw_num_ids_to_select = (
+            len(self.participants_ids) * self.fraction_of_participants
+        )
         max_valid_value = max(1, np.ceil(raw_num_ids_to_select))
         minimum_valid_value = min(len(self.participants_ids), max_valid_value)
         return int(minimum_valid_value)
@@ -50,7 +54,5 @@ class RandomController(Controller):
 
     def select_ids(self) -> List[str]:
         return np.random.choice(
-            self.participants_ids,
-            size=self.num_ids_to_select,
-            replace=False,
+            self.participants_ids, size=self.num_ids_to_select, replace=False
         )
