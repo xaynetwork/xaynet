@@ -273,11 +273,11 @@ class Coordinator:
     # pylint: disable-msg=dangerous-default-value
     def __init__(
         self,
-        num_rounds: int = 10,
+        num_rounds: int = 1,
         minimum_participants_in_round: int = 1,
         fraction_of_participants: float = 1.0,
         theta: List[np.ndarray] = [],
-        epochs: int = 0,
+        epochs: int = 1,
         epoch_base: int = 0,
     ) -> None:
         self.minimum_participants_in_round = minimum_participants_in_round
@@ -300,14 +300,14 @@ class Coordinator:
         self.state = coordinator_pb2.State.STANDBY
         self.current_round: int = 0
 
-    def get_minimum_connected_participants(self) -> float:
+    def get_minimum_connected_participants(self) -> int:
         """Calculates how many participants are needed so that we can select
         a specific fraction of them.
 
         Returns:
-            obj:`float`: Minimum number of participants needed to be connected to start a round.
+            obj:`int`: Minimum number of participants needed to be connected to start a round.
         """
-        return self.minimum_participants_in_round // self.fraction_of_participants
+        return int(self.minimum_participants_in_round // self.fraction_of_participants)
 
     def on_message(
         self, message: GeneratedProtocolMessageType, participant_id: str
