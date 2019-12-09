@@ -85,7 +85,7 @@ def get_cmd_parameters():
     parser.add_argument(
         "-r",
         dest="num_rounds",
-        default=10,
+        default=1,
         type=type_num_rounds,
         help="Number of global rounds the model is going to be trained for.",
     )
@@ -93,7 +93,7 @@ def get_cmd_parameters():
     parser.add_argument(
         "-e",
         dest="num_epochs",
-        default=2,
+        default=1,
         type=type_num_epochs,
         help="Number of local epochs per round.",
     )
@@ -101,7 +101,7 @@ def get_cmd_parameters():
     parser.add_argument(
         "-p",
         dest="min_num_participants_in_round",
-        default=100,
+        default=1,
         type=type_min_num_participants_in_round,
         help="Minimum number of participants to be selected for a round.",
     )
@@ -109,7 +109,7 @@ def get_cmd_parameters():
     parser.add_argument(
         "-c",
         dest="fraction",
-        default=0.1,
+        default=1.0,
         type=type_fraction,
         help="Fraction of total clients that participate in a training round. \
             A float between 0 and 1",

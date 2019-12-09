@@ -128,7 +128,7 @@ def test_end_training():
 def test_end_training_round_update():
     # Test that the round number is updated once all participants sent their updates
     coordinator = Coordinator(
-        minimum_participants_in_round=2, fraction_of_participants=1.0
+        minimum_participants_in_round=2, fraction_of_participants=1.0, num_rounds=2
     )
     coordinator.on_message(coordinator_pb2.RendezvousRequest(), "participant1")
     coordinator.on_message(coordinator_pb2.RendezvousRequest(), "participant2")
@@ -147,7 +147,7 @@ def test_end_training_round_update():
 
 def test_end_training_reinitialize_local_models():
     coordinator = Coordinator(
-        minimum_participants_in_round=2, fraction_of_participants=1.0
+        minimum_participants_in_round=2, fraction_of_participants=1.0, num_rounds=2
     )
     coordinator.on_message(coordinator_pb2.RendezvousRequest(), "participant1")
     coordinator.on_message(coordinator_pb2.RendezvousRequest(), "participant2")
