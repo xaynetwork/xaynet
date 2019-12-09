@@ -449,13 +449,19 @@ class Coordinator:
         # TODO: Ideally we want to know for which round the participant is
         # submitting the updates and raise an exception if it is the wrong
         # round.
-        tu, met = message.weight_update, message.metrics
-        tp, num = tu.weights, tu.num_examples
+        weights_proto, number_samples, metrics_proto = (
+            message.weights,
+            message.number_samples,
+            message.metrics,
+        )
 
-        # record the req data
-        weight_update = [proto_to_ndarray(pnda) for pnda in tp], num
+        # record the request data
+        weight_update: Tuple[List[ndarray], int] = (
+            [proto_to_ndarray(pnda) for pnda in weights_proto],
+            number_samples,
+        )
         metrics: Dict[str, List[ndarray]] = {
-            k: [proto_to_ndarray(v) for v in mv.metrics] for k, mv in met.items()
+            k: [proto_to_ndarray(v) for v in mv.metrics] for k, mv in metrics_proto.items()
         }
         self.round.add_updates(participant_id, weight_update, metrics)
 

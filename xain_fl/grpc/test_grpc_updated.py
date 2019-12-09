@@ -1,4 +1,4 @@
-# TODO: Once the old grpc participant is removed, rename the module to `test_grpc`.
+# TODO: Once the old grpc participant is removed (XP-208), rename the module to `test_grpc`.
 
 import sys
 import threading
@@ -71,9 +71,7 @@ def test_participant_rendezvous_later(participant_stub):
         coordinator.participants.add(str(i))
 
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
-    coordinator_pb2_grpc.add_CoordinatorServicer_to_server(
-        CoordinatorGrpc(coordinator), server
-    )
+    coordinator_pb2_grpc.add_CoordinatorServicer_to_server(CoordinatorGrpc(coordinator), server)
     server.add_insecure_port("localhost:50051")
     server.start()
 
@@ -197,7 +195,7 @@ def test_end_training(coordinator_service):
     assert coordinator_service.coordinator.round.updates == {}
 
     # simulate trained local model data
-    test_weights, number_of_samples = [np.arange(20, 30), np.arange(30, 40)], 2
+    test_weights, number_samples = [np.arange(20, 30), np.arange(30, 40)], 2
     metrics = {"metric": [np.arange(10, 20), np.arange(5, 10)]}
 
     with grpc.insecure_channel("localhost:50051") as channel:
@@ -205,7 +203,7 @@ def test_end_training(coordinator_service):
         rendezvous(channel)
         # call endTraining service method on coordinator
         end_training(  # pylint: disable-msg=no-value-for-parameter
-            channel, (test_weights, number_of_samples), metrics
+            channel, test_weights, number_samples, metrics
         )
     # check local model received...
 
@@ -216,7 +214,7 @@ def test_end_training(coordinator_service):
     # first the weights update
     _, update = round_.updates.popitem()
     tu1, tu2 = update["weight_update"]
-    assert tu2 == number_of_samples
+    assert tu2 == number_samples
     np.testing.assert_equal(tu1, test_weights)
 
     m = update["metrics"]

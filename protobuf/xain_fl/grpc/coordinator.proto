@@ -54,13 +54,10 @@ message StartTrainingReply {
 }
 
 message EndTrainingRequest {
-  WeightUpdate weight_update = 1;
-  map<string, Metrics> metrics = 2;
-
-  message WeightUpdate {
-    repeated numproto.protobuf.NDArray weights = 1;
-    int32 num_examples = 2;
-  }
+  repeated numproto.protobuf.NDArray weights = 1;
+  // number of training examples
+  int32 number_samples = 2;
+  map<string, Metrics> metrics = 3;
 
   message Metrics {
     repeated numproto.protobuf.NDArray metrics = 1;
