@@ -14,6 +14,7 @@ from google.protobuf.internal.python_message import GeneratedProtocolMessageType
 from numproto import ndarray_to_proto, proto_to_ndarray
 from numpy import ndarray
 
+from xain_fl.fl.coordinator.controller import Controller, RandomController
 from xain_fl.fl.coordinator.aggregate import Aggregator, FederatedAveragingAgg
 from xain_fl.grpc import coordinator_pb2, coordinator_pb2_grpc
 from xain_fl.logger import get_logger
@@ -126,6 +127,16 @@ class Participants:
         with self._lock:
             return len(self.participants)
 
+    def ids(self) -> List[str]:
+        """Get the ids of the participants.
+
+        Returns:
+            :obj:`list` of :obj:`str`: The list of participant ids.
+        """
+
+        with self._lock:
+            return [id for id, _ in self.participants.items()]
+
     def update_expires(self, participant_id: str) -> None:
         """Updates the heartbeat expiration time for a participant.
 
@@ -150,12 +161,12 @@ class Round:
     same participant to submit multiple updates during a single round.
 
     Args:
-        required_participants (int): The minimum number of participants required to
-            perform a round.
+        participant_ids(:obj:`list` of :obj:`str`): The list of IDs of the participants
+            selected to participate in this round.
     """
 
-    def __init__(self, required_participants: int) -> None:
-        self.required_participants: int = required_participants
+    def __init__(self, participant_ids: List[str]) -> None:
+        self.participant_ids = participant_ids
         self.updates: Dict[str, Dict] = {}
 
     def add_updates(
@@ -196,7 +207,7 @@ class Round:
             :obj:`bool`:: :obj:`True` if all participants submitted their
             updates this round. :obj:`False` otherwise.
         """
-        return len(self.updates) == self.required_participants
+        return len(self.updates) == len(self.participant_ids)
 
     def get_weight_updates(self) -> List[Tuple[List[ndarray], int]]:
         """Get a list of all participants weight updates.
@@ -224,6 +235,8 @@ class Coordinator:
         messages the coordinator can receive are
         :class:`~.coordinator_pb2.StartTrainingRequest` and
         :class:`~.coordinator_pb2.EndTrainingRequest`.
+        Since participants are selected for rounds or not, they can be advertised
+        either ROUND or STANDBY accordingly.
 
         FINISHED: The training session has ended and participants should
         disconnect from the coordinator.
@@ -244,9 +257,12 @@ class Coordinator:
     Args:
         num_rounds (:obj:`int`, optional): The number of rounds of the training
             session. Defaults to 10.
-        required_participants(:obj:`int`, optional): The minimum number of
-            participants required to perform a round. Defaults to 10.
-        aggregator: (:class:`~.Aggregator`, optional): The type of aggregation
+        minimum_participants_in_round (:obj:`float`, optional): The minimum number of
+            participants that participate in a round. Defaults to 1.
+        fraction_of_participants (:obj:`float`, optional): The fraction of total
+            connected participants to be selected in a single round. Defaults to 1.0,
+            meaning that all connected participants will be selected.
+        aggregator (:class:`~.Aggregator`, optional): The type of aggregation
             to perform at the end of each round. Defaults to
             :class:`~.FederatedAveragingAgg`.
         weights (:obj:`list` of :class:`~numpy.ndarray`, optional): The weights of
@@ -262,16 +278,21 @@ class Coordinator:
     def __init__(
         self,
         num_rounds: int = 10,
-        required_participants: int = 10,
+        minimum_participants_in_round: int = 1,
+        fraction_of_participants: float = 1.0,
+        controller: Optional[Controller] = None,
         aggregator: Optional[Aggregator] = None,
         weights: List[ndarray] = [],
         epochs: int = 0,
         epoch_base: int = 0,
     ) -> None:
-        self.required_participants: int = required_participants
-        self.participants: Participants = Participants()
-        self.num_rounds: int = num_rounds
-        self.aggregator: Aggregator = aggregator if aggregator else FederatedAveragingAgg()
+        self.minimum_participants_in_round = minimum_participants_in_round
+        self.fraction_of_participants = fraction_of_participants
+        self.participants = Participants()
+        self.num_rounds = num_rounds
+        self.aggregator = aggregator if aggregator else FederatedAveragingAgg
+        self.controller = controller if controller else RandomController
+        self.minimum_connected_participants = self.minimum_participants_in_round // self.fraction_of_participants
 
         # global model
         self.weights: List[ndarray] = weights
@@ -279,7 +300,7 @@ class Coordinator:
         self.epoch_base: int = epoch_base
 
         # round updates
-        self.round: Round = Round(self.required_participants)
+        self.round = Round(self.participants.ids())
 
         # state variables
         self.state = coordinator_pb2.State.STANDBY
@@ -314,7 +335,7 @@ class Coordinator:
         # from participants that have not been accepted
         if (
             not isinstance(message, coordinator_pb2.RendezvousRequest)
-            and participant_id not in self.participants.participants.keys()
+            and participant_id not in self.participants.ids()
         ):
             raise UnknownParticipantError(
                 f"Unknown participant {participant_id}. "
@@ -347,9 +368,9 @@ class Coordinator:
         This method is to be called when it is detected that a participant has
         disconnected.
 
-        After a participant is removed if the number of remaining participants
-        is less than the number of required participants the
-        :class:`~.Coordinator` will transition to STANDBY state.
+        After a participant is removed, if the number of remaining participants
+        is less than the minimum number of participants that need to be connected,
+        the :class:`~.Coordinator` will transition to STANDBY state.
 
         Args:
             participant_id (:obj:`str`): The id of the participant to remove.
@@ -357,8 +378,18 @@ class Coordinator:
         self.participants.remove(participant_id)
         logger.info("Removing participant", participant_id=participant_id)
 
-        if self.participants.len() < self.required_participants:
+        if self.participants.len() < self.minimum_connected_participants:
             self.state = coordinator_pb2.State.STANDBY
+
+    def select_participant_ids_and_init_round(self) -> None:
+        """Initiates the Controller, selects ids and initiates a Round.
+        """
+        self.controller(
+            participants_ids=self.participants.ids(),
+            fraction_of_participants=self.fraction_of_participants
+        )
+        selected_ids = self.controller.select_ids()
+        self.round = Round(selected_ids)
 
     def _handle_rendezvous(
         self, _message: coordinator_pb2.RendezvousRequest, participant_id: str
@@ -374,7 +405,8 @@ class Coordinator:
         Returns:
             :class:`~.coordinator_pb2.RendezvousReply`: The reply to the participant.
         """
-        if self.participants.len() < self.required_participants:
+
+        if self.participants.len() < self.minimum_connected_participants:
             response = coordinator_pb2.RendezvousResponse.ACCEPT
             self.participants.add(participant_id)
             logger.info(
@@ -383,9 +415,11 @@ class Coordinator:
                 current_participants_count=self.participants.len(),
             )
 
-            # Change the state to ROUND if we are in STANDBY and already
-            # have enough participants
-            if self.participants.len() == self.required_participants:
+            # Select participants and change the state to ROUND if the latest added participant
+            # lets us meet the minimum number of connected participants
+            if self.participants.len() == self.minimum_connected_participants:
+                self.select_participant_ids_and_init_round()
+
                 # TODO: We may need to make this update thread safe
                 self.state = coordinator_pb2.State.ROUND
                 self.current_round = (
@@ -406,6 +440,9 @@ class Coordinator:
     ) -> coordinator_pb2.HeartbeatReply:
         """Handles a Heartbeat request.
 
+        It checks if a participant has been selected, if it has,
+        returns ROUND state to them, else STANDBY.
+
         Args:
             _message (:class:`~.coordinator_pb2.HeartbeatRequest`): The
                 request to handle. Currently not used.
@@ -417,9 +454,14 @@ class Coordinator:
         """
         self.participants.update_expires(participant_id)
 
+        if participant_id in self.round.participant_ids:
+            state = coordinator_pb2.State.ROUND
+        else:
+            state = coordinator_pb2.State.STANDBY
+
         # send heartbeat reply advertising the current state
         return coordinator_pb2.HeartbeatReply(
-            state=self.state, round=self.current_round
+            state=state, round=self.current_round
         )
 
     def _handle_start_training(
@@ -436,9 +478,11 @@ class Coordinator:
         Returns:
             :class:`~.coordinator_pb2.StartTrainingReply`: The reply to the participant.
         """
-        # The coordinator should only accept StartTraining requests it is
-        # in the ROUND state.
-        if self.state != coordinator_pb2.State.ROUND:
+        # The coordinator should only accept StartTraining requests if is
+        # in the ROUND state and when the participant has been selected for the round.
+        coordinator_not_in_a_round = self.state != coordinator_pb2.State.ROUND
+        participant_not_selected = participant_id not in self.round.participant_ids
+        if coordinator_not_in_a_round or participant_not_selected:
             raise InvalidRequestError(
                 f"Participant {participant_id} sent a "
                 "StartTrainingRequest outside of a round"
@@ -496,9 +540,8 @@ class Coordinator:
                 self.state = coordinator_pb2.State.FINISHED
             else:
                 self.current_round += 1
-
                 # reinitialize the round
-                self.round = Round(self.required_participants)
+                self.select_participant_ids_and_init_round()
 
         return coordinator_pb2.EndTrainingReply()
 
