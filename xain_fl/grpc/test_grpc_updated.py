@@ -148,6 +148,7 @@ def test_participant_heartbeat(mock_heartbeat_request, _mock_sleep, _mock_event)
     mock_heartbeat_request.assert_has_calls([mock.call(), mock.call()])
 
 
+@pytest.mark.skip("Skipping due to moving of the grpc participant as sdk to xain-sdk")
 @pytest.mark.integration
 def test_start_training(coordinator_service):
     test_weights = [np.arange(10), np.arange(10, 20)]
