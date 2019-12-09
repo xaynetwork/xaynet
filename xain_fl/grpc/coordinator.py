@@ -183,7 +183,10 @@ class Round:
                 f"Participant {participant_id} already submitted the update for this round."
             )
 
-        self.updates[participant_id] = {"weight_update": weight_update, "metrics": metrics}
+        self.updates[participant_id] = {
+            "weight_update": weight_update,
+            "metrics": metrics,
+        }
 
     def is_finished(self) -> bool:
         """Check if all the required participants submitted their updates this round.
@@ -371,18 +374,24 @@ class Coordinator:
         if self.participants.len() < self.required_participants:
             response = coordinator_pb2.RendezvousResponse.ACCEPT
             self.participants.add(participant_id)
-            logger.info("Accepted %s. Participants: %d", participant_id, self.participants.len())
+            logger.info(
+                "Accepted %s. Participants: %d", participant_id, self.participants.len()
+            )
 
             # Change the state to ROUND if we are in STANDBY and already
             # have enough participants
             if self.participants.len() == self.required_participants:
                 # TODO: We may need to make this update thread safe
                 self.state = coordinator_pb2.State.ROUND
-                self.current_round = 1 if self.current_round == 0 else self.current_round
+                self.current_round = (
+                    1 if self.current_round == 0 else self.current_round
+                )
         else:
             response = coordinator_pb2.RendezvousResponse.LATER
             logger.info(
-                "Reject participant %s. Participants: %d", participant_id, self.participants.len()
+                "Reject participant %s. Participants: %d",
+                participant_id,
+                self.participants.len(),
             )
 
         return coordinator_pb2.RendezvousReply(response=response)
@@ -404,7 +413,9 @@ class Coordinator:
         self.participants.update_expires(participant_id)
 
         # send heartbeat reply advertising the current state
-        return coordinator_pb2.HeartbeatReply(state=self.state, round=self.current_round)
+        return coordinator_pb2.HeartbeatReply(
+            state=self.state, round=self.current_round
+        )
 
     def _handle_start_training(
         self, _message: coordinator_pb2.StartTrainingRequest, participant_id: str
@@ -424,7 +435,8 @@ class Coordinator:
         # in the ROUND state.
         if self.state != coordinator_pb2.State.ROUND:
             raise InvalidRequestError(
-                f"Participant {participant_id} sent a " "StartTrainingRequest outside of a round"
+                f"Participant {participant_id} sent a "
+                "StartTrainingRequest outside of a round"
             )
 
         weights_proto = [ndarray_to_proto(nda) for nda in self.weights]
@@ -461,7 +473,8 @@ class Coordinator:
             number_samples,
         )
         metrics: Dict[str, List[ndarray]] = {
-            k: [proto_to_ndarray(v) for v in mv.metrics] for k, mv in metrics_proto.items()
+            k: [proto_to_ndarray(v) for v in mv.metrics]
+            for k, mv in metrics_proto.items()
         }
         self.round.add_updates(participant_id, weight_update, metrics)
 
@@ -552,7 +565,9 @@ class CoordinatorGrpc(coordinator_pb2_grpc.CoordinatorServicer):
             return coordinator_pb2.HeartbeatReply()
 
     def StartTraining(
-        self, request: coordinator_pb2.StartTrainingRequest, context: grpc.ServicerContext
+        self,
+        request: coordinator_pb2.StartTrainingRequest,
+        context: grpc.ServicerContext,
     ) -> coordinator_pb2.StartTrainingReply:
         """The StartTraining gRPC method.
 
@@ -614,7 +629,9 @@ class CoordinatorGrpc(coordinator_pb2_grpc.CoordinatorServicer):
             return coordinator_pb2.EndTrainingReply()
 
 
-def monitor_heartbeats(coordinator: Coordinator, terminate_event: threading.Event) -> None:
+def monitor_heartbeats(
+    coordinator: Coordinator, terminate_event: threading.Event
+) -> None:
     """Monitors the heartbeat of participants.
 
     If a heartbeat expires the participant is removed from the :class:`~.Participants`.
@@ -658,7 +675,9 @@ def serve(coordinator: Coordinator, host: str = "[::]", port: int = 50051) -> No
     )
 
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    coordinator_pb2_grpc.add_CoordinatorServicer_to_server(CoordinatorGrpc(coordinator), server)
+    coordinator_pb2_grpc.add_CoordinatorServicer_to_server(
+        CoordinatorGrpc(coordinator), server
+    )
     server.add_insecure_port(f"{host}:{port}")
     server.start()
     monitor_thread.start()

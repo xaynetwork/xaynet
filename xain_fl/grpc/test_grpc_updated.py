@@ -71,7 +71,9 @@ def test_participant_rendezvous_later(participant_stub):
         coordinator.participants.add(str(i))
 
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
-    coordinator_pb2_grpc.add_CoordinatorServicer_to_server(CoordinatorGrpc(coordinator), server)
+    coordinator_pb2_grpc.add_CoordinatorServicer_to_server(
+        CoordinatorGrpc(coordinator), server
+    )
     server.add_insecure_port("localhost:50051")
     server.start()
 
