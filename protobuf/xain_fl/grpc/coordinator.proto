@@ -55,7 +55,6 @@ message StartTrainingReply {
 
 message EndTrainingRequest {
   repeated numproto.protobuf.NDArray weights = 1;
-  // number of training examples
   int32 number_samples = 2;
   map<string, Metrics> metrics = 3;
 
