@@ -23,7 +23,9 @@ def greeter_server():
 @pytest.fixture
 def coordinator_service():
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
-    coordinator = Coordinator()
+    coordinator = Coordinator(
+        minimum_participants_in_round=10, fraction_of_participants=1.0
+    )
     coordinator_grpc = CoordinatorGrpc(coordinator)
     coordinator_pb2_grpc.add_CoordinatorServicer_to_server(coordinator_grpc, server)
     server.add_insecure_port("localhost:50051")
