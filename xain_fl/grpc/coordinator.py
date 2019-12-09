@@ -10,9 +10,9 @@ from concurrent import futures
 from typing import Dict, List, Tuple
 
 import grpc
-import numpy as np
 from google.protobuf.internal.python_message import GeneratedProtocolMessageType
 from numproto import ndarray_to_proto, proto_to_ndarray
+from numpy import ndarray
 
 from xain_fl.fl.coordinator.aggregate import FederatedAveragingAgg
 from xain_fl.fl.coordinator.controller import RandomController
@@ -22,9 +22,9 @@ from xain_fl.logger import get_logger
 logger = get_logger(__name__, level=os.environ.get("XAIN_LOGLEVEL", "INFO"))
 
 
-_ONE_DAY_IN_SECONDS = 60 * 60 * 24
-HEARTBEAT_TIME = 10
-HEARTBEAT_TIMEOUT = 5
+_ONE_DAY_IN_SECONDS: int = 60 * 60 * 24
+HEARTBEAT_TIME: int = 10
+HEARTBEAT_TIMEOUT: int = 5
 
 
 class DuplicatedUpdateError(Exception):
@@ -64,8 +64,8 @@ class ParticipantContext:
     """
 
     def __init__(self, participant_id: str) -> None:
-        self.participant_id = participant_id
-        self.heartbeat_expires = time.time() + HEARTBEAT_TIME + HEARTBEAT_TIMEOUT
+        self.participant_id: str = participant_id
+        self.heartbeat_expires: float = time.time() + HEARTBEAT_TIME + HEARTBEAT_TIMEOUT
 
 
 class Participants:
@@ -76,7 +76,7 @@ class Participants:
 
     def __init__(self) -> None:
         self.participants: Dict[str, ParticipantContext] = {}
-        self._lock = threading.Lock()
+        self._lock: Lock = threading.Lock()
 
     def add(self, participant_id: str) -> None:
         """Adds a new participant to the list of participants.
@@ -172,18 +172,17 @@ class Round:
     def add_updates(
         self,
         participant_id: str,
-        theta_update: Tuple[List[np.ndarray], int],
-        history: Dict[str, List[float]],
-        metrics: Tuple[int, List[int]],
+        weight_update: Tuple[List[ndarray], int],
+        metrics: Dict[str, List[ndarray]],
     ) -> None:
         """Valid a participant's update for the round.
 
         Args:
             participant_id (:obj:`str`): The id of the participant making the request.
-            theta_update (:obj:`tuple` of :obj:`list` of :class:`~numpy.ndarray`):
+            weight_update (:obj:`tuple` of :obj:`list` of :class:`~numpy.ndarray`):
                 A tuple containing a list of updated weights.
-            history (:obj:`dict`): TODO
-            metrics (:obj:`tuple`): TODO
+            metrics (:obj:`dict`): A dictionary containing metrics with the name and the value
+                as list of ndarrays.
 
         Raises:
             DuplicatedUpdateError: If the participant already submitted his update this round.
@@ -195,8 +194,7 @@ class Round:
             )
 
         self.updates[participant_id] = {
-            "theta_update": theta_update,
-            "history": history,
+            "weight_update": weight_update,
             "metrics": metrics,
         }
 
@@ -211,16 +209,16 @@ class Round:
         """
         return len(self.updates) == len(self.participant_ids)
 
-    def get_theta_updates(self) -> List[Tuple[List[np.ndarray], int]]:
-        """Get a list of all participants theta updates.
+    def get_weight_updates(self) -> List[Tuple[List[ndarray], int]]:
+        """Get a list of all participants weight updates.
 
         This list will usually be used by the aggregation function.
 
         Returns:
-            :obj:`list` of :obj:`tuple`: The list of theta updates from all
+            :obj:`list` of :obj:`tuple`: The list of weight updates from all
             participants.
         """
-        return [v["theta_update"] for k, v in self.updates.items()]
+        return [v["weight_update"] for k, v in self.updates.items()]
 
 
 class Coordinator:
@@ -292,16 +290,16 @@ class Coordinator:
         self.minimum_connected_participants = self.get_minimum_connected_participants()
 
         # global model
-        self.theta = theta
-        self.epochs = epochs
-        self.epoch_base = epoch_base
+        self.weights: List[ndarray] = weights
+        self.epochs: int = epochs
+        self.epoch_base: int = epoch_base
 
         # round updates
         self.round = Round(self.participants.ids())
 
         # state variables
         self.state = coordinator_pb2.State.STANDBY
-        self.current_round = 0
+        self.current_round: int = 0
 
     def get_minimum_connected_participants(self) -> int:
         """Calculates how many participants are needed so that we can select
@@ -486,10 +484,10 @@ class Coordinator:
                 "StartTrainingRequest outside of a round"
             )
 
-        theta_proto = [ndarray_to_proto(nda) for nda in self.theta]
+        weights_proto = [ndarray_to_proto(nda) for nda in self.weights]
 
         return coordinator_pb2.StartTrainingReply(
-            theta=theta_proto, epochs=self.epochs, epoch_base=self.epoch_base
+            weights=weights_proto, epochs=self.epochs, epoch_base=self.epoch_base
         )
 
     def _handle_end_training(
@@ -508,20 +506,27 @@ class Coordinator:
         # TODO: Ideally we want to know for which round the participant is
         # submitting the updates and raise an exception if it is the wrong
         # round.
-        tu, his, met = message.theta_update, message.history, message.metrics
-        tp, num = tu.theta_prime, tu.num_examples
-        cid, vbc = met.cid, met.vol_by_class
+        weights_proto, number_samples, metrics_proto = (
+            message.weights,
+            message.number_samples,
+            message.metrics,
+        )
 
-        # record the req data
-        theta_update = [proto_to_ndarray(pnda) for pnda in tp], num
-        history = {k: list(hv.values) for k, hv in his.items()}
-        metrics = (cid, list(vbc))
-        self.round.add_updates(participant_id, theta_update, history, metrics)
+        # record the request data
+        weight_update: Tuple[List[ndarray], int] = (
+            [proto_to_ndarray(pnda) for pnda in weights_proto],
+            number_samples,
+        )
+        metrics: Dict[str, List[ndarray]] = {
+            k: [proto_to_ndarray(v) for v in mv.metrics]
+            for k, mv in metrics_proto.items()
+        }
+        self.round.add_updates(participant_id, weight_update, metrics)
 
         # The round is over. Run the aggregation
         if self.round.is_finished():
             logger.info("Running aggregation for round %d", self.current_round)
-            self.theta = self.aggregator.aggregate(self.round.get_theta_updates())
+            self.weights = self.aggregator.aggregate(self.round.get_weight_updates())
 
             # update the round or finish the training session
             if self.current_round == self.num_rounds:
@@ -546,7 +551,7 @@ class CoordinatorGrpc(coordinator_pb2_grpc.CoordinatorServicer):
     """
 
     def __init__(self, coordinator: Coordinator):
-        self.coordinator = coordinator
+        self.coordinator: Coordinator = coordinator
 
     def Rendezvous(
         self, request: coordinator_pb2.RendezvousRequest, context: grpc.ServicerContext
@@ -686,7 +691,7 @@ def monitor_heartbeats(
 
     logger.info("Heartbeat monitor starting...")
     while not terminate_event.is_set():
-        participants_to_remove = []
+        participants_to_remove: List[str] = []
 
         for participant in coordinator.participants.participants.values():
             if participant.heartbeat_expires < time.time():
@@ -695,7 +700,7 @@ def monitor_heartbeats(
         for participant_id in participants_to_remove:
             coordinator.remove_participant(participant_id)
 
-        next_expiration = coordinator.participants.next_expiration() - time.time()
+        next_expiration: float = coordinator.participants.next_expiration() - time.time()
 
         logger.debug("Monitoring heartbeats in %.2f", next_expiration)
         time.sleep(next_expiration)
@@ -707,7 +712,6 @@ def serve(coordinator: Coordinator, host: str = "[::]", port: int = 50051) -> No
     This methods just creates the :class:`~.Coordinator`, sets up all threading
     events and threads and configures and starts the gRPC service.
     """
-
     terminate_event = threading.Event()
     monitor_thread = threading.Thread(
         target=monitor_heartbeats, args=(coordinator, terminate_event)

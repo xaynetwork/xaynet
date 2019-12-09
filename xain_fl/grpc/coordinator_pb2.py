@@ -22,7 +22,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='xain.protobuf.coordinator',
   syntax='proto3',
   serialized_options=None,
-  serialized_pb=_b('\n\x1exain_fl/grpc/coordinator.proto\x12\x19xain.protobuf.coordinator\x1a\x1fnumproto/protobuf/ndarray.proto\"\x13\n\x11RendezvousRequest\"R\n\x0fRendezvousReply\x12?\n\x08response\x18\x01 \x01(\x0e\x32-.xain.protobuf.coordinator.RendezvousResponse\"R\n\x10HeartbeatRequest\x12/\n\x05state\x18\x01 \x01(\x0e\x32 .xain.protobuf.coordinator.State\x12\r\n\x05round\x18\x02 \x01(\x05\"P\n\x0eHeartbeatReply\x12/\n\x05state\x18\x01 \x01(\x0e\x32 .xain.protobuf.coordinator.State\x12\r\n\x05round\x18\x02 \x01(\x05\"\x16\n\x14StartTrainingRequest\"c\n\x12StartTrainingReply\x12)\n\x05theta\x18\x01 \x03(\x0b\x32\x1a.numproto.protobuf.NDArray\x12\x0e\n\x06\x65pochs\x18\x02 \x01(\x05\x12\x12\n\nepoch_base\x18\x03 \x01(\x05\"\x8a\x04\n\x12\x45ndTrainingRequest\x12O\n\x0ctheta_update\x18\x01 \x01(\x0b\x32\x39.xain.protobuf.coordinator.EndTrainingRequest.ThetaUpdate\x12K\n\x07history\x18\x02 \x03(\x0b\x32:.xain.protobuf.coordinator.EndTrainingRequest.HistoryEntry\x12\x46\n\x07metrics\x18\x03 \x01(\x0b\x32\x35.xain.protobuf.coordinator.EndTrainingRequest.Metrics\x1aj\n\x0cHistoryEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12I\n\x05value\x18\x02 \x01(\x0b\x32:.xain.protobuf.coordinator.EndTrainingRequest.HistoryValue:\x02\x38\x01\x1aT\n\x0bThetaUpdate\x12/\n\x0btheta_prime\x18\x01 \x03(\x0b\x32\x1a.numproto.protobuf.NDArray\x12\x14\n\x0cnum_examples\x18\x02 \x01(\x05\x1a\x1e\n\x0cHistoryValue\x12\x0e\n\x06values\x18\x01 \x03(\x02\x1a,\n\x07Metrics\x12\x0b\n\x03\x63id\x18\x01 \x01(\x05\x12\x14\n\x0cvol_by_class\x18\x02 \x03(\x05\"\x12\n\x10\x45ndTrainingReply*+\n\x12RendezvousResponse\x12\n\n\x06\x41\x43\x43\x45PT\x10\x00\x12\t\n\x05LATER\x10\x01*F\n\x05State\x12\x0b\n\x07STANDBY\x10\x00\x12\t\n\x05ROUND\x10\x01\x12\x0c\n\x08\x46INISHED\x10\x02\x12\t\n\x05READY\x10\x03\x12\x0c\n\x08TRAINING\x10\x04\x32\xbe\x03\n\x0b\x43oordinator\x12h\n\nRendezvous\x12,.xain.protobuf.coordinator.RendezvousRequest\x1a*.xain.protobuf.coordinator.RendezvousReply\"\x00\x12\x65\n\tHeartbeat\x12+.xain.protobuf.coordinator.HeartbeatRequest\x1a).xain.protobuf.coordinator.HeartbeatReply\"\x00\x12q\n\rStartTraining\x12/.xain.protobuf.coordinator.StartTrainingRequest\x1a-.xain.protobuf.coordinator.StartTrainingReply\"\x00\x12k\n\x0b\x45ndTraining\x12-.xain.protobuf.coordinator.EndTrainingRequest\x1a+.xain.protobuf.coordinator.EndTrainingReply\"\x00\x62\x06proto3')
+  serialized_pb=_b('\n\x1exain_fl/grpc/coordinator.proto\x12\x19xain.protobuf.coordinator\x1a\x1fnumproto/protobuf/ndarray.proto\"\x13\n\x11RendezvousRequest\"R\n\x0fRendezvousReply\x12?\n\x08response\x18\x01 \x01(\x0e\x32-.xain.protobuf.coordinator.RendezvousResponse\"R\n\x10HeartbeatRequest\x12/\n\x05state\x18\x01 \x01(\x0e\x32 .xain.protobuf.coordinator.State\x12\r\n\x05round\x18\x02 \x01(\x05\"P\n\x0eHeartbeatReply\x12/\n\x05state\x18\x01 \x01(\x0e\x32 .xain.protobuf.coordinator.State\x12\r\n\x05round\x18\x02 \x01(\x05\"\x16\n\x14StartTrainingRequest\"e\n\x12StartTrainingReply\x12+\n\x07weights\x18\x01 \x03(\x0b\x32\x1a.numproto.protobuf.NDArray\x12\x0e\n\x06\x65pochs\x18\x02 \x01(\x05\x12\x12\n\nepoch_base\x18\x03 \x01(\x05\"\xc5\x02\n\x12\x45ndTrainingRequest\x12+\n\x07weights\x18\x01 \x03(\x0b\x32\x1a.numproto.protobuf.NDArray\x12\x16\n\x0enumber_samples\x18\x02 \x01(\x05\x12K\n\x07metrics\x18\x03 \x03(\x0b\x32:.xain.protobuf.coordinator.EndTrainingRequest.MetricsEntry\x1a\x65\n\x0cMetricsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\x44\n\x05value\x18\x02 \x01(\x0b\x32\x35.xain.protobuf.coordinator.EndTrainingRequest.Metrics:\x02\x38\x01\x1a\x36\n\x07Metrics\x12+\n\x07metrics\x18\x01 \x03(\x0b\x32\x1a.numproto.protobuf.NDArray\"\x12\n\x10\x45ndTrainingReply*+\n\x12RendezvousResponse\x12\n\n\x06\x41\x43\x43\x45PT\x10\x00\x12\t\n\x05LATER\x10\x01*F\n\x05State\x12\x0b\n\x07STANDBY\x10\x00\x12\t\n\x05ROUND\x10\x01\x12\x0c\n\x08\x46INISHED\x10\x02\x12\t\n\x05READY\x10\x03\x12\x0c\n\x08TRAINING\x10\x04\x32\xbe\x03\n\x0b\x43oordinator\x12h\n\nRendezvous\x12,.xain.protobuf.coordinator.RendezvousRequest\x1a*.xain.protobuf.coordinator.RendezvousReply\"\x00\x12\x65\n\tHeartbeat\x12+.xain.protobuf.coordinator.HeartbeatRequest\x1a).xain.protobuf.coordinator.HeartbeatReply\"\x00\x12q\n\rStartTraining\x12/.xain.protobuf.coordinator.StartTrainingRequest\x1a-.xain.protobuf.coordinator.StartTrainingReply\"\x00\x12k\n\x0b\x45ndTraining\x12-.xain.protobuf.coordinator.EndTrainingRequest\x1a+.xain.protobuf.coordinator.EndTrainingReply\"\x00\x62\x06proto3')
   ,
   dependencies=[numproto_dot_protobuf_dot_ndarray__pb2.DESCRIPTOR,])
 
@@ -43,8 +43,8 @@ _RENDEZVOUSRESPONSE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=1035,
-  serialized_end=1078,
+  serialized_start=840,
+  serialized_end=883,
 )
 _sym_db.RegisterEnumDescriptor(_RENDEZVOUSRESPONSE)
 
@@ -78,8 +78,8 @@ _STATE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=1080,
-  serialized_end=1150,
+  serialized_start=885,
+  serialized_end=955,
 )
 _sym_db.RegisterEnumDescriptor(_STATE)
 
@@ -257,7 +257,7 @@ _STARTTRAININGREPLY = _descriptor.Descriptor(
   containing_type=None,
   fields=[
     _descriptor.FieldDescriptor(
-      name='theta', full_name='xain.protobuf.coordinator.StartTrainingReply.theta', index=0,
+      name='weights', full_name='xain.protobuf.coordinator.StartTrainingReply.weights', index=0,
       number=1, type=11, cpp_type=10, label=3,
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
@@ -290,26 +290,26 @@ _STARTTRAININGREPLY = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=389,
-  serialized_end=488,
+  serialized_end=490,
 )
 
 
-_ENDTRAININGREQUEST_HISTORYENTRY = _descriptor.Descriptor(
-  name='HistoryEntry',
-  full_name='xain.protobuf.coordinator.EndTrainingRequest.HistoryEntry',
+_ENDTRAININGREQUEST_METRICSENTRY = _descriptor.Descriptor(
+  name='MetricsEntry',
+  full_name='xain.protobuf.coordinator.EndTrainingRequest.MetricsEntry',
   filename=None,
   file=DESCRIPTOR,
   containing_type=None,
   fields=[
     _descriptor.FieldDescriptor(
-      name='key', full_name='xain.protobuf.coordinator.EndTrainingRequest.HistoryEntry.key', index=0,
+      name='key', full_name='xain.protobuf.coordinator.EndTrainingRequest.MetricsEntry.key', index=0,
       number=1, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='value', full_name='xain.protobuf.coordinator.EndTrainingRequest.HistoryEntry.value', index=1,
+      name='value', full_name='xain.protobuf.coordinator.EndTrainingRequest.MetricsEntry.value', index=1,
       number=2, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
@@ -327,75 +327,8 @@ _ENDTRAININGREQUEST_HISTORYENTRY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=743,
-  serialized_end=849,
-)
-
-_ENDTRAININGREQUEST_THETAUPDATE = _descriptor.Descriptor(
-  name='ThetaUpdate',
-  full_name='xain.protobuf.coordinator.EndTrainingRequest.ThetaUpdate',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='theta_prime', full_name='xain.protobuf.coordinator.EndTrainingRequest.ThetaUpdate.theta_prime', index=0,
-      number=1, type=11, cpp_type=10, label=3,
-      has_default_value=False, default_value=[],
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR),
-    _descriptor.FieldDescriptor(
-      name='num_examples', full_name='xain.protobuf.coordinator.EndTrainingRequest.ThetaUpdate.num_examples', index=1,
-      number=2, type=5, cpp_type=1, label=1,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto3',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=851,
-  serialized_end=935,
-)
-
-_ENDTRAININGREQUEST_HISTORYVALUE = _descriptor.Descriptor(
-  name='HistoryValue',
-  full_name='xain.protobuf.coordinator.EndTrainingRequest.HistoryValue',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='values', full_name='xain.protobuf.coordinator.EndTrainingRequest.HistoryValue.values', index=0,
-      number=1, type=2, cpp_type=6, label=3,
-      has_default_value=False, default_value=[],
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto3',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=937,
-  serialized_end=967,
+  serialized_start=661,
+  serialized_end=762,
 )
 
 _ENDTRAININGREQUEST_METRICS = _descriptor.Descriptor(
@@ -406,15 +339,8 @@ _ENDTRAININGREQUEST_METRICS = _descriptor.Descriptor(
   containing_type=None,
   fields=[
     _descriptor.FieldDescriptor(
-      name='cid', full_name='xain.protobuf.coordinator.EndTrainingRequest.Metrics.cid', index=0,
-      number=1, type=5, cpp_type=1, label=1,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR),
-    _descriptor.FieldDescriptor(
-      name='vol_by_class', full_name='xain.protobuf.coordinator.EndTrainingRequest.Metrics.vol_by_class', index=1,
-      number=2, type=5, cpp_type=1, label=3,
+      name='metrics', full_name='xain.protobuf.coordinator.EndTrainingRequest.Metrics.metrics', index=0,
+      number=1, type=11, cpp_type=10, label=3,
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
@@ -431,8 +357,8 @@ _ENDTRAININGREQUEST_METRICS = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=969,
-  serialized_end=1013,
+  serialized_start=764,
+  serialized_end=818,
 )
 
 _ENDTRAININGREQUEST = _descriptor.Descriptor(
@@ -443,30 +369,30 @@ _ENDTRAININGREQUEST = _descriptor.Descriptor(
   containing_type=None,
   fields=[
     _descriptor.FieldDescriptor(
-      name='theta_update', full_name='xain.protobuf.coordinator.EndTrainingRequest.theta_update', index=0,
-      number=1, type=11, cpp_type=10, label=1,
-      has_default_value=False, default_value=None,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR),
-    _descriptor.FieldDescriptor(
-      name='history', full_name='xain.protobuf.coordinator.EndTrainingRequest.history', index=1,
-      number=2, type=11, cpp_type=10, label=3,
+      name='weights', full_name='xain.protobuf.coordinator.EndTrainingRequest.weights', index=0,
+      number=1, type=11, cpp_type=10, label=3,
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
+      name='number_samples', full_name='xain.protobuf.coordinator.EndTrainingRequest.number_samples', index=1,
+      number=2, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
       name='metrics', full_name='xain.protobuf.coordinator.EndTrainingRequest.metrics', index=2,
-      number=3, type=11, cpp_type=10, label=1,
-      has_default_value=False, default_value=None,
+      number=3, type=11, cpp_type=10, label=3,
+      has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
-  nested_types=[_ENDTRAININGREQUEST_HISTORYENTRY, _ENDTRAININGREQUEST_THETAUPDATE, _ENDTRAININGREQUEST_HISTORYVALUE, _ENDTRAININGREQUEST_METRICS, ],
+  nested_types=[_ENDTRAININGREQUEST_METRICSENTRY, _ENDTRAININGREQUEST_METRICS, ],
   enum_types=[
   ],
   serialized_options=None,
@@ -475,8 +401,8 @@ _ENDTRAININGREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=491,
-  serialized_end=1013,
+  serialized_start=493,
+  serialized_end=818,
 )
 
 
@@ -499,23 +425,20 @@ _ENDTRAININGREPLY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1015,
-  serialized_end=1033,
+  serialized_start=820,
+  serialized_end=838,
 )
 
 _RENDEZVOUSREPLY.fields_by_name['response'].enum_type = _RENDEZVOUSRESPONSE
 _HEARTBEATREQUEST.fields_by_name['state'].enum_type = _STATE
 _HEARTBEATREPLY.fields_by_name['state'].enum_type = _STATE
-_STARTTRAININGREPLY.fields_by_name['theta'].message_type = numproto_dot_protobuf_dot_ndarray__pb2._NDARRAY
-_ENDTRAININGREQUEST_HISTORYENTRY.fields_by_name['value'].message_type = _ENDTRAININGREQUEST_HISTORYVALUE
-_ENDTRAININGREQUEST_HISTORYENTRY.containing_type = _ENDTRAININGREQUEST
-_ENDTRAININGREQUEST_THETAUPDATE.fields_by_name['theta_prime'].message_type = numproto_dot_protobuf_dot_ndarray__pb2._NDARRAY
-_ENDTRAININGREQUEST_THETAUPDATE.containing_type = _ENDTRAININGREQUEST
-_ENDTRAININGREQUEST_HISTORYVALUE.containing_type = _ENDTRAININGREQUEST
+_STARTTRAININGREPLY.fields_by_name['weights'].message_type = numproto_dot_protobuf_dot_ndarray__pb2._NDARRAY
+_ENDTRAININGREQUEST_METRICSENTRY.fields_by_name['value'].message_type = _ENDTRAININGREQUEST_METRICS
+_ENDTRAININGREQUEST_METRICSENTRY.containing_type = _ENDTRAININGREQUEST
+_ENDTRAININGREQUEST_METRICS.fields_by_name['metrics'].message_type = numproto_dot_protobuf_dot_ndarray__pb2._NDARRAY
 _ENDTRAININGREQUEST_METRICS.containing_type = _ENDTRAININGREQUEST
-_ENDTRAININGREQUEST.fields_by_name['theta_update'].message_type = _ENDTRAININGREQUEST_THETAUPDATE
-_ENDTRAININGREQUEST.fields_by_name['history'].message_type = _ENDTRAININGREQUEST_HISTORYENTRY
-_ENDTRAININGREQUEST.fields_by_name['metrics'].message_type = _ENDTRAININGREQUEST_METRICS
+_ENDTRAININGREQUEST.fields_by_name['weights'].message_type = numproto_dot_protobuf_dot_ndarray__pb2._NDARRAY
+_ENDTRAININGREQUEST.fields_by_name['metrics'].message_type = _ENDTRAININGREQUEST_METRICSENTRY
 DESCRIPTOR.message_types_by_name['RendezvousRequest'] = _RENDEZVOUSREQUEST
 DESCRIPTOR.message_types_by_name['RendezvousReply'] = _RENDEZVOUSREPLY
 DESCRIPTOR.message_types_by_name['HeartbeatRequest'] = _HEARTBEATREQUEST
@@ -572,24 +495,10 @@ _sym_db.RegisterMessage(StartTrainingReply)
 
 EndTrainingRequest = _reflection.GeneratedProtocolMessageType('EndTrainingRequest', (_message.Message,), {
 
-  'HistoryEntry' : _reflection.GeneratedProtocolMessageType('HistoryEntry', (_message.Message,), {
-    'DESCRIPTOR' : _ENDTRAININGREQUEST_HISTORYENTRY,
+  'MetricsEntry' : _reflection.GeneratedProtocolMessageType('MetricsEntry', (_message.Message,), {
+    'DESCRIPTOR' : _ENDTRAININGREQUEST_METRICSENTRY,
     '__module__' : 'xain_fl.grpc.coordinator_pb2'
-    # @@protoc_insertion_point(class_scope:xain.protobuf.coordinator.EndTrainingRequest.HistoryEntry)
-    })
-  ,
-
-  'ThetaUpdate' : _reflection.GeneratedProtocolMessageType('ThetaUpdate', (_message.Message,), {
-    'DESCRIPTOR' : _ENDTRAININGREQUEST_THETAUPDATE,
-    '__module__' : 'xain_fl.grpc.coordinator_pb2'
-    # @@protoc_insertion_point(class_scope:xain.protobuf.coordinator.EndTrainingRequest.ThetaUpdate)
-    })
-  ,
-
-  'HistoryValue' : _reflection.GeneratedProtocolMessageType('HistoryValue', (_message.Message,), {
-    'DESCRIPTOR' : _ENDTRAININGREQUEST_HISTORYVALUE,
-    '__module__' : 'xain_fl.grpc.coordinator_pb2'
-    # @@protoc_insertion_point(class_scope:xain.protobuf.coordinator.EndTrainingRequest.HistoryValue)
+    # @@protoc_insertion_point(class_scope:xain.protobuf.coordinator.EndTrainingRequest.MetricsEntry)
     })
   ,
 
@@ -604,9 +513,7 @@ EndTrainingRequest = _reflection.GeneratedProtocolMessageType('EndTrainingReques
   # @@protoc_insertion_point(class_scope:xain.protobuf.coordinator.EndTrainingRequest)
   })
 _sym_db.RegisterMessage(EndTrainingRequest)
-_sym_db.RegisterMessage(EndTrainingRequest.HistoryEntry)
-_sym_db.RegisterMessage(EndTrainingRequest.ThetaUpdate)
-_sym_db.RegisterMessage(EndTrainingRequest.HistoryValue)
+_sym_db.RegisterMessage(EndTrainingRequest.MetricsEntry)
 _sym_db.RegisterMessage(EndTrainingRequest.Metrics)
 
 EndTrainingReply = _reflection.GeneratedProtocolMessageType('EndTrainingReply', (_message.Message,), {
@@ -617,7 +524,7 @@ EndTrainingReply = _reflection.GeneratedProtocolMessageType('EndTrainingReply', 
 _sym_db.RegisterMessage(EndTrainingReply)
 
 
-_ENDTRAININGREQUEST_HISTORYENTRY._options = None
+_ENDTRAININGREQUEST_METRICSENTRY._options = None
 
 _COORDINATOR = _descriptor.ServiceDescriptor(
   name='Coordinator',
@@ -625,8 +532,8 @@ _COORDINATOR = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   serialized_options=None,
-  serialized_start=1153,
-  serialized_end=1599,
+  serialized_start=958,
+  serialized_end=1404,
   methods=[
   _descriptor.MethodDescriptor(
     name='Rendezvous',

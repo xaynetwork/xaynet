@@ -1,5 +1,9 @@
 """Module implementing the networked Participant using gRPC.
 """
+
+# TODO: Currently, the participant is completely ignored in the mypy.ini, since the participant
+# will be removed anyways in XP-208.
+
 import os
 import threading
 import time
@@ -83,6 +87,8 @@ def end_training(
         history (obj:`History`): History metadata.
         Metrics (obj:`Metrics`): Metrics metadata.
     """
+
+    # pylint: disable=no-member
     stub = coordinator_pb2_grpc.CoordinatorStub(channel)
     # build request starting with theta update
     theta, num = theta_n
@@ -104,11 +110,11 @@ def end_training(
     # send request to end training
     reply = stub.EndTraining(req)
     logger.info("Participant received: %s", type(reply))
+    # pylint: enable=no-member
 
 
 def training_round(channel, participant):
     """Initiates training round exchange with Coordinator.
-
     Begins with `start_training`. Then performs local training computation using
     `participant`. Finally, completes with `end_training`.
 
@@ -232,7 +238,6 @@ def message_loop(chan, st, terminate):
 
 def go(part):
     """Top-level function for the Participant state machine.
-
     After rendezvous and heartbeat initiation, the Participant is
     WAITING_FOR_SELECTION. When selected, it moves to TRAINING followed by
     POST_TRAINING. If selected again for the next round, it moves back to
