@@ -48,29 +48,18 @@ message HeartbeatReply {
 message StartTrainingRequest {}
 
 message StartTrainingReply {
-  repeated numproto.protobuf.NDArray theta = 1;
+  repeated numproto.protobuf.NDArray weights = 1;
   int32 epochs = 2;
   int32 epoch_base = 3;
 }
 
 message EndTrainingRequest {
-  ThetaUpdate theta_update = 1;
-  map<string, HistoryValue> history = 2;
-  Metrics metrics = 3;
-
-  message ThetaUpdate {
-    repeated numproto.protobuf.NDArray theta_prime = 1;
-    int32 num_examples = 2;
-  }
-
-  /* protobuf doesn't like repeated as map values */
-  message HistoryValue {
-    repeated float values = 1;
-  }
+  repeated numproto.protobuf.NDArray weights = 1;
+  int32 number_samples = 2;
+  map<string, Metrics> metrics = 3;
 
   message Metrics {
-    int32 cid = 1;
-    repeated int32 vol_by_class = 2;
+    repeated numproto.protobuf.NDArray metrics = 1;
   }
 }
 

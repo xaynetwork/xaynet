@@ -122,7 +122,7 @@ def main():
     parameters = get_cmd_parameters()
 
     coordinator = Coordinator(
-        theta=list(np.load(parameters.file, allow_pickle=True)),
+        weights=list(np.load(parameters.file, allow_pickle=True)),
         num_rounds=parameters.num_rounds,
         epochs=parameters.num_epochs,
         required_participants=int(parameters.num_participants * parameters.fraction),
