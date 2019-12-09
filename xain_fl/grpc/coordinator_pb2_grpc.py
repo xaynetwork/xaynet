@@ -15,22 +15,22 @@ class CoordinatorStub(object):
       channel: A grpc.Channel.
     """
     self.Rendezvous = channel.unary_unary(
-        '/xain_fl.protobuf.coordinator.Coordinator/Rendezvous',
+        '/xain.protobuf.coordinator.Coordinator/Rendezvous',
         request_serializer=xain__fl_dot_grpc_dot_coordinator__pb2.RendezvousRequest.SerializeToString,
         response_deserializer=xain__fl_dot_grpc_dot_coordinator__pb2.RendezvousReply.FromString,
         )
     self.Heartbeat = channel.unary_unary(
-        '/xain_fl.protobuf.coordinator.Coordinator/Heartbeat',
+        '/xain.protobuf.coordinator.Coordinator/Heartbeat',
         request_serializer=xain__fl_dot_grpc_dot_coordinator__pb2.HeartbeatRequest.SerializeToString,
         response_deserializer=xain__fl_dot_grpc_dot_coordinator__pb2.HeartbeatReply.FromString,
         )
     self.StartTraining = channel.unary_unary(
-        '/xain_fl.protobuf.coordinator.Coordinator/StartTraining',
+        '/xain.protobuf.coordinator.Coordinator/StartTraining',
         request_serializer=xain__fl_dot_grpc_dot_coordinator__pb2.StartTrainingRequest.SerializeToString,
         response_deserializer=xain__fl_dot_grpc_dot_coordinator__pb2.StartTrainingReply.FromString,
         )
     self.EndTraining = channel.unary_unary(
-        '/xain_fl.protobuf.coordinator.Coordinator/EndTraining',
+        '/xain.protobuf.coordinator.Coordinator/EndTraining',
         request_serializer=xain__fl_dot_grpc_dot_coordinator__pb2.EndTrainingRequest.SerializeToString,
         response_deserializer=xain__fl_dot_grpc_dot_coordinator__pb2.EndTrainingReply.FromString,
         )
@@ -93,5 +93,5 @@ def add_CoordinatorServicer_to_server(servicer, server):
       ),
   }
   generic_handler = grpc.method_handlers_generic_handler(
-      'xain_fl.protobuf.coordinator.Coordinator', rpc_method_handlers)
+      'xain.protobuf.coordinator.Coordinator', rpc_method_handlers)
   server.add_generic_rpc_handlers((generic_handler,))
