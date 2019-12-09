@@ -1,5 +1,9 @@
 """Module implementing the networked Participant using gRPC.
 """
+
+# TODO: Currently, the participant is completely ignored in the mypy.ini, since the participant
+# will be removed anyways in XP-208.
+
 import os
 import threading
 import time
