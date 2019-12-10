@@ -10,12 +10,12 @@ from threading import Lock
 from typing import Dict, List, Tuple
 
 import grpc
-import numpy as np
 from google.protobuf.internal.python_message import GeneratedProtocolMessageType
 from numproto import ndarray_to_proto, proto_to_ndarray
+from numpy import ndarray
 
-from xain_fl.fl.coordinator.aggregate import FederatedAveragingAgg
-from xain_fl.fl.coordinator.controller import RandomController
+from xain_fl.fl.coordinator.aggregate import Aggregator, FederatedAveragingAgg
+from xain_fl.fl.coordinator.controller import Controller, RandomController
 from xain_fl.grpc import coordinator_pb2, coordinator_pb2_grpc
 from xain_fl.logger import get_logger
 
@@ -172,8 +172,8 @@ class Round:
     def add_updates(
         self,
         participant_id: str,
-        weight_update: Tuple[List[np.ndarray], int],
-        metrics: Dict[str, List[np.ndarray]],
+        weight_update: Tuple[List[ndarray], int],
+        metrics: Dict[str, List[ndarray]],
     ) -> None:
         """Valid a participant's update for the round.
 
@@ -209,7 +209,7 @@ class Round:
         """
         return len(self.updates) == len(self.participant_ids)
 
-    def get_weight_updates(self) -> List[Tuple[List[np.ndarray], int]]:
+    def get_weight_updates(self) -> List[Tuple[List[ndarray], int]]:
         """Get a list of all participants weight updates.
 
         This list will usually be used by the aggregation function.
@@ -257,7 +257,7 @@ class Coordinator:
     Args:
         num_rounds (:obj:`int`, optional): The number of rounds of the training
             session. Defaults to 10.
-        minimum_participants_in_round (:obj:`float`, optional): The minimum number of
+        minimum_participants_in_round (:obj:`int`, optional): The minimum number of
             participants that participate in a round. Defaults to 1.
         fraction_of_participants (:obj:`float`, optional): The fraction of total
             connected participants to be selected in a single round. Defaults to 1.0,
@@ -277,28 +277,28 @@ class Coordinator:
         num_rounds: int = 1,
         minimum_participants_in_round: int = 1,
         fraction_of_participants: float = 1.0,
-        weights: List[np.ndarray] = [],
+        weights: List[ndarray] = [],
         epochs: int = 1,
         epoch_base: int = 0,
     ) -> None:
-        self.minimum_participants_in_round = minimum_participants_in_round
-        self.fraction_of_participants = fraction_of_participants
-        self.participants = Participants()
-        self.num_rounds = num_rounds
-        self.aggregator = FederatedAveragingAgg()
-        self.controller = RandomController(self.participants.ids())
-        self.minimum_connected_participants = self.get_minimum_connected_participants()
+        self.minimum_participants_in_round: int = minimum_participants_in_round
+        self.fraction_of_participants: float = fraction_of_participants
+        self.participants: Participants = Participants()
+        self.num_rounds: int = num_rounds
+        self.aggregator: Aggregator = FederatedAveragingAgg()
+        self.controller: Controller = RandomController(self.participants.ids())
+        self.minimum_connected_participants: int = self.get_minimum_connected_participants()
 
         # global model
-        self.weights: List[np.ndarray] = weights
+        self.weights: List[ndarray] = weights
         self.epochs: int = epochs
         self.epoch_base: int = epoch_base
 
         # round updates
-        self.round = Round(self.participants.ids())
+        self.round: Round = Round(self.participants.ids())
 
         # state variables
-        self.state = coordinator_pb2.State.STANDBY
+        self.state: coordinator_pb2.State = coordinator_pb2.State.STANDBY
         self.current_round: int = 0
 
     def get_minimum_connected_participants(self) -> int:
@@ -519,11 +519,11 @@ class Coordinator:
         )
 
         # record the request data
-        weight_update: Tuple[List[np.ndarray], int] = (
+        weight_update: Tuple[List[ndarray], int] = (
             [proto_to_ndarray(pnda) for pnda in weights_proto],
             number_samples,
         )
-        metrics: Dict[str, List[np.ndarray]] = {
+        metrics: Dict[str, List[ndarray]] = {
             k: [proto_to_ndarray(v) for v in mv.metrics]
             for k, mv in metrics_proto.items()
         }
