@@ -253,7 +253,7 @@ def _train_local(
     return theta_update, history, opt_config, metrics
 
 
-# TODO: legacy code, needs refactor
+# TODO: legacy code, needs refactor: https://xainag.atlassian.net/browse/XP-292
 def _abs_C(C: float, num_participants: int) -> int:
     return int(min(num_participants, max(1, C * num_participants)))
 
