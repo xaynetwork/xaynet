@@ -7,12 +7,13 @@ import os
 import threading
 import time
 from concurrent import futures
+from threading import Lock
 from typing import Dict, List, Tuple
 
 import grpc
+import numpy as np
 from google.protobuf.internal.python_message import GeneratedProtocolMessageType
 from numproto import ndarray_to_proto, proto_to_ndarray
-from numpy import ndarray
 
 from xain_fl.fl.coordinator.aggregate import FederatedAveragingAgg
 from xain_fl.fl.coordinator.controller import RandomController
@@ -172,8 +173,8 @@ class Round:
     def add_updates(
         self,
         participant_id: str,
-        weight_update: Tuple[List[ndarray], int],
-        metrics: Dict[str, List[ndarray]],
+        weight_update: Tuple[List[np.ndarray], int],
+        metrics: Dict[str, List[np.ndarray]],
     ) -> None:
         """Valid a participant's update for the round.
 
@@ -209,7 +210,7 @@ class Round:
         """
         return len(self.updates) == len(self.participant_ids)
 
-    def get_weight_updates(self) -> List[Tuple[List[ndarray], int]]:
+    def get_weight_updates(self) -> List[Tuple[List[np.ndarray], int]]:
         """Get a list of all participants weight updates.
 
         This list will usually be used by the aggregation function.
@@ -277,7 +278,7 @@ class Coordinator:
         num_rounds: int = 1,
         minimum_participants_in_round: int = 1,
         fraction_of_participants: float = 1.0,
-        theta: List[np.ndarray] = [],
+        weights: List[np.ndarray] = [],
         epochs: int = 1,
         epoch_base: int = 0,
     ) -> None:
@@ -290,7 +291,7 @@ class Coordinator:
         self.minimum_connected_participants = self.get_minimum_connected_participants()
 
         # global model
-        self.weights: List[ndarray] = weights
+        self.weights: List[np.ndarray] = weights
         self.epochs: int = epochs
         self.epoch_base: int = epoch_base
 
@@ -513,11 +514,11 @@ class Coordinator:
         )
 
         # record the request data
-        weight_update: Tuple[List[ndarray], int] = (
+        weight_update: Tuple[List[np.ndarray], int] = (
             [proto_to_ndarray(pnda) for pnda in weights_proto],
             number_samples,
         )
-        metrics: Dict[str, List[ndarray]] = {
+        metrics: Dict[str, List[np.ndarray]] = {
             k: [proto_to_ndarray(v) for v in mv.metrics]
             for k, mv in metrics_proto.items()
         }
