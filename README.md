@@ -55,6 +55,20 @@ The generated documentation will be under `docs/_build/html/`. You can open the
 root of the documentation by opening `docs/_build/html/index.html` on your
 favorite browser.
 
+### Running the Coordinator locally
+
+To run the Coordinator on your local machine, use the command:
+
+```shell
+$ python xain_fl/grpc/cli.py -f test_array.npy
+```
+
+For more information about the CLI and its arguments, run:
+
+```shell
+$ python xain_fl/grpc/cli.py --help
+```
+
 ## Related Papers and Articles
 
 - [An introduction to XAIN’s GDPR-compliance Layer for Machine Learning](https://medium.com/xain/an-introduction-to-xains-gdpr-compliance-layer-for-machine-learning-f7c321b31b06)
