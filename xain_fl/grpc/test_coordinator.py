@@ -1,9 +1,6 @@
-from typing import List
-
 import numpy as np
 import pytest
 from numproto import proto_to_ndarray
-from numpy import ndarray
 
 from xain_fl.grpc import coordinator_pb2
 from xain_fl.grpc.coordinator import (
@@ -94,9 +91,11 @@ def test_coordinator_state_standby_round():
 
 
 def test_start_training():
-    test_theta = [np.arange(10), np.arange(10, 20)]
+    test_weights = [np.arange(10), np.arange(10, 20)]
     coordinator = Coordinator(
-        minimum_participants_in_round=1, fraction_of_participants=1.0, theta=test_theta
+        minimum_participants_in_round=1,
+        fraction_of_participants=1.0,
+        weights=test_weights,
     )
     coordinator.on_message(coordinator_pb2.RendezvousRequest(), "participant1")
 

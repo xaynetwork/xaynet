@@ -167,7 +167,7 @@ def test_start_training(coordinator_service):
     coord.fraction_of_participants = 1.0
     coord.epochs = 5
     coord.epoch_base = 2
-    coord.theta = test_theta
+    coord.weights = test_weights
     coord.minimum_connected_participants = coord.get_minimum_connected_participants()
 
     # simulate a participant communicating with coordinator via channel
