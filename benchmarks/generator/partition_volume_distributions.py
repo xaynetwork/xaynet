@@ -2,9 +2,13 @@ from typing import Dict, List, Tuple
 
 import matplotlib
 import numpy as np
-from absl import app, flags, logging
+from absl import app, flags
 
 from benchmarks.helpers import storage
+from xain_fl.logger import get_logger
+
+logger = get_logger(__name__)
+
 
 FLAGS = flags.FLAGS
 
@@ -183,7 +187,7 @@ def main():
     _brute_force_a_for_cifar_10()
     print("Plot Fashion-MNIST volume distributions")
     fmd_fpath = _plot_fashion_mnist_dist()
-    logging.info(f"Data plotted and saved in {fmd_fpath}")
+    logger.info("Data plotted and saved in file", filepath=fmd_fpath)
 
 
 if __name__ == "__main__":

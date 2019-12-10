@@ -15,7 +15,7 @@ from . import hashes
 FLAGS = flags.FLAGS
 
 
-logger = get_logger(__name__, level=os.environ.get("XAIN_LOGLEVEL", "INFO"))
+logger = get_logger(__name__)
 
 
 def default_get_local_datasets_dir():
@@ -55,7 +55,7 @@ def fetch_ndarray(url, fpath):
     """
     r = requests.get(url, stream=True)
 
-    logger.info("Fetching file %s", url)
+    logger.info("Fetching file from url", url=url)
 
     if r.status_code != 200:
         raise Exception("Received HTTP Status {} for url {}".format(r.status_code, url))

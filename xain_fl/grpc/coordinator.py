@@ -3,7 +3,6 @@
 This module implements the Coordinator state machine, the Coordinator gRPC
 service and helper class to keep state about the Participants.
 """
-import os
 import threading
 import time
 from concurrent import futures
@@ -19,7 +18,7 @@ from xain_fl.fl.coordinator.aggregate import Aggregator, FederatedAveragingAgg
 from xain_fl.grpc import coordinator_pb2, coordinator_pb2_grpc
 from xain_fl.logger import get_logger
 
-logger = get_logger(__name__, level=os.environ.get("XAIN_LOGLEVEL", "INFO"))
+logger = get_logger(__name__)
 
 
 _ONE_DAY_IN_SECONDS: int = 60 * 60 * 24
@@ -305,7 +304,11 @@ class Coordinator:
             :class:`~InvalidRequestError`: If it receives a request that is not
             allowed in the current :class:`~.Coordinator` state.
         """
-        logger.debug("Received: %s from %s", type(message), participant_id)
+        logger.debug(
+            "Received message from participant",
+            message_type=type(message),
+            participant_id=participant_id,
+        )
 
         # Unless this is a RendezvousRequest the coordinator should not accept messages
         # from participants that have not been accepted
@@ -352,7 +355,7 @@ class Coordinator:
             participant_id (:obj:`str`): The id of the participant to remove.
         """
         self.participants.remove(participant_id)
-        logger.info("Removing participant %s", participant_id)
+        logger.info("Removing participant", participant_id=participant_id)
 
         if self.participants.len() < self.required_participants:
             self.state = coordinator_pb2.State.STANDBY
@@ -375,7 +378,9 @@ class Coordinator:
             response = coordinator_pb2.RendezvousResponse.ACCEPT
             self.participants.add(participant_id)
             logger.info(
-                "Accepted %s. Participants: %d", participant_id, self.participants.len()
+                "Accepted participant",
+                participant_id=participant_id,
+                current_participants_count=self.participants.len(),
             )
 
             # Change the state to ROUND if we are in STANDBY and already
@@ -389,9 +394,9 @@ class Coordinator:
         else:
             response = coordinator_pb2.RendezvousResponse.LATER
             logger.info(
-                "Reject participant %s. Participants: %d",
-                participant_id,
-                self.participants.len(),
+                "Reject participant",
+                participant_id=participant_id,
+                current_participants_count=self.participants.len(),
             )
 
         return coordinator_pb2.RendezvousReply(response=response)
@@ -480,7 +485,10 @@ class Coordinator:
 
         # The round is over. Run the aggregation
         if self.round.is_finished():
-            logger.info("Running aggregation for round %d", self.current_round)
+            logger.info(
+                "Running aggregation for round", current_round=self.current_round
+            )
+
             self.weights = self.aggregator.aggregate(self.round.get_weight_updates())
 
             # update the round or finish the training session
@@ -659,7 +667,7 @@ def monitor_heartbeats(
 
         next_expiration: float = coordinator.participants.next_expiration() - time.time()
 
-        logger.debug("Monitoring heartbeats in %.2f", next_expiration)
+        logger.debug("Monitoring heartbeats", next_expiration=next_expiration)
         time.sleep(next_expiration)
 
 

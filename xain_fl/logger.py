@@ -1,24 +1,56 @@
-"""This module contains custom logging configuration"""
-
-
 import logging
+from typing import Any
+
+import structlog
+
+StructLogger = (
+    structlog._config.BoundLoggerLazyProxy  # pylint: disable=protected-access
+)
 
 
-def get_logger(name: str, level: str = "INFO") -> logging.Logger:
-    """Returns an instance of the custom xain-fl logger.
-
+def get_logger(
+    name: str, level: int = logging.INFO
+) -> structlog._config.BoundLoggerLazyProxy:  # pylint: disable=protected-access
+    """Wrap python logger with default configuration of structlog.
     Args:
-        name (:obj:`str`): The name of the logger. Typically `__name__`.
-        level (int): Threshold for this logger. Can be one of `CRITICAL`,
-            `ERROR`, `WARNING`, `INFO`, `DEBUG`. Defaults to `INFO`.
-
+        name (str): Identification name. For module name pass name=__name__.
+        level (int): Threshold for this logger. Defaults to logging.INFO.
     Returns:
-        :class:`~logging.Logger`: Configured logger.
+        Wrapped python logger with default configuration of structlog.
     """
+    AIMETRICS = 25  # pylint: disable=invalid-name
+    structlog.stdlib.AIMETRICS = AIMETRICS
+    structlog.stdlib._NAME_TO_LEVEL[  # pylint: disable=protected-access
+        "aimetrics"
+    ] = AIMETRICS
+    structlog.stdlib._LEVEL_TO_NAME[  # pylint: disable=protected-access
+        AIMETRICS
+    ] = "aimetrics"
+    logging.addLevelName(AIMETRICS, "aimetrics")
 
-    logging.basicConfig(
-        format="[%(asctime)s] [%(levelname)s] (%(name)s) %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-        level=level,
+    def aimetrics(self, msg: str, *args, **kw) -> Any:  # type: ignore
+        return self.log(AIMETRICS, msg, *args, **kw)
+
+    structlog.stdlib._FixedFindCallerLogger.aimetrics = (  # pylint: disable=protected-access
+        aimetrics
     )
-    return logging.getLogger(name)
+    structlog.stdlib.BoundLogger.aimetrics = aimetrics
+    structlog.configure(
+        processors=[
+            structlog.stdlib.add_log_level,
+            structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
+        ],
+        logger_factory=structlog.stdlib.LoggerFactory(),
+        wrapper_class=structlog.stdlib.BoundLogger,
+        cache_logger_on_first_use=True,
+    )
+    formatter = structlog.stdlib.ProcessorFormatter(
+        processor=structlog.processors.JSONRenderer(indent=2, sort_keys=True)
+    )
+    handler = logging.StreamHandler()
+    handler.setFormatter(formatter)
+    logger = logging.getLogger(name)
+    logger.addHandler(handler)
+    logger.setLevel(level)
+
+    return structlog.wrap_logger(logger)

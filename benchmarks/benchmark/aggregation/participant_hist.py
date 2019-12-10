@@ -4,15 +4,18 @@ import os
 from typing import List, Tuple
 
 import numpy as np
-from absl import app, flags, logging
+from absl import app, flags
 from numpy import ndarray
 
 from benchmarks.benchmark.aggregation.plot import plot_history_data
 from benchmarks.benchmark.aggregation.results import GroupResult, TaskResult
 from benchmarks.helpers.storage import create_output_subdir, fname_with_default_dir
+from xain_fl.logger import get_logger
 from xain_fl.types import Metrics
 
 FLAGS = flags.FLAGS
+
+logger = get_logger(__name__)
 
 
 def participant_history() -> List[str]:
@@ -54,7 +57,7 @@ def participant_history() -> List[str]:
         )
         file_paths.append(file_path)
 
-    logging.info(f"Task data plotted and saved in {file_paths}")
+    logger.info("Task data plotted and saved in file", filepath=file_paths)
 
     return file_paths
 

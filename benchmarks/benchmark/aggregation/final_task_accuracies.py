@@ -1,15 +1,19 @@
 import os
 from typing import Dict, List, Optional, Tuple
 
-from absl import flags, logging
+from absl import flags
 
 from benchmarks.helpers import storage
+from xain_fl.logger import get_logger
 from xain_fl.types import PlotValues, XticksLabels, XticksLocations
 
 from .plot import plot
 from .results import GroupResult, TaskResult
 
 FLAGS = flags.FLAGS
+
+
+logger = get_logger(__name__)
 
 
 def _read_task_values(task_result: TaskResult) -> Tuple[bool, str, float]:
@@ -119,6 +123,6 @@ def aggregate() -> str:
         legend_loc="upper right",
     )
 
-    logging.info(f"Data plotted and saved in {fpath}")
+    logger.info("Data plotted and saved in file", filepath=fpath)
 
     return fpath

@@ -5,12 +5,16 @@ from tempfile import TemporaryDirectory
 from time import strftime
 from typing import Dict, List, Optional
 
-from absl import flags, logging
+from absl import flags
 
 from benchmarks.helpers import storage
 from benchmarks.ops import docker, results, run
+from xain_fl.logger import get_logger
 
 from .task import Task, UnitaryVisionTask, VisionTask
+
+logger = get_logger(__name__)
+
 
 FLAGS = flags.FLAGS
 
@@ -749,9 +753,9 @@ benchmarks: Dict[str, Benchmark] = {
 
 
 def _run_benchmark(benchmark_name: str):
-    logging.info(f"Building Docker image for benchmark {benchmark_name}")
+    logger.info("Building Docker image for benchmark", benchmark_name=benchmark_name)
+    logger.info("Starting benchmark", benchmark_name=benchmark_name)
 
-    logging.info(f"Starting benchmark {benchmark_name}")
     benchmark = benchmarks[benchmark_name]
 
     group_name = FLAGS.group_name or f"{strftime('%Y%m%dT%H%M')}_{benchmark_name}"
@@ -808,7 +812,7 @@ def _run_task(
     runner: str,  # one of ["ec2", "docker"]
 ):
     task_msg = f"{model}, {dataset}, {R}, {E}, {C}, {B}, {instance_cores}, {timeout}"
-    logging.info(f"Attempting to run task on {runner}: {task_msg}")
+    logger.info("Attempting to run task", runner=runner, task_msg=task_msg)
 
     if runner == "ec2":
         r = run.ec2

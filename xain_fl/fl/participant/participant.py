@@ -1,7 +1,6 @@
 """Class Participant handles local training in federated learning using its own
 data partition to refine the global model.
 """
-import os
 from typing import Dict, List, Tuple
 
 import numpy as np
@@ -13,7 +12,7 @@ from xain_fl.types import History, Metrics, Partition, Theta, VolumeByClass
 
 from .model_provider import ModelProvider
 
-logger = get_logger(__name__, level=os.environ.get("XAIN_LOGLEVEL", "INFO"))
+logger = get_logger(__name__)
 
 
 class Participant:
@@ -72,7 +71,9 @@ class Participant:
                 and optimizer configs
         """
         logger.info(
-            "Participant %s: train_round START (epoch_base=%s)", self.cid, epoch_base
+            "Participant: train_round START",
+            participant_cid=self.cid,
+            epoch_base=epoch_base,
         )
         model = self.model_provider.init_model(epoch_base=epoch_base)  # type:ignore
         model.set_weights(theta)
@@ -87,7 +88,7 @@ class Participant:
         theta_prime = model.get_weights()
         opt_config = model.optimizer.get_config()
         opt_config = _convert_numpy_types(opt_config)
-        logger.info("Participant %s: train_round FINISH", self.cid)
+        logger.info("Participant: train_round FINISH", participant_cid=self.cid)
         return (theta_prime, self.num_examples), hist, opt_config
 
     def _fit(self, model: tf.keras.Model, epochs: int, callbacks: List) -> History:

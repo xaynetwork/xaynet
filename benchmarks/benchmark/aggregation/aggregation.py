@@ -18,7 +18,7 @@ from xain_fl.logger import get_logger
 FLAGS = flags.FLAGS
 
 
-logger = get_logger(__name__, level=os.environ.get("XAIN_LOGLEVEL", "INFO"))
+logger = get_logger(__name__)
 
 
 def _aggregate():

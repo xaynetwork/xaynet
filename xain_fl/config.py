@@ -16,12 +16,12 @@ config_file = root_dir.joinpath("config.cfg")
 output_dir_default = root_dir.joinpath("output")
 results_dir_default = root_dir.joinpath("results")
 
-logger = get_logger(__name__, level=os.environ.get("XAIN_LOGLEVEL", "INFO"))
+logger = get_logger(__name__)
 
 
 def init_config():
     """Creates initial config file if non exists"""
-    logger.info("Initializing config in %s", config_file)
+    logger.info("Initializing config", config_file=config_file)
 
     config = configparser.ConfigParser()
 
