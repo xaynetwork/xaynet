@@ -6,53 +6,31 @@
 
 # XAIN
 
-The XAIN project is building a GDPR-compliance layer for machine learning. The approach relies on federated machine learning (FedML) as enabling technology that removes compliance-related adoption barriers of AI applications used in production.
+The XAIN project is building a GDPR-compliance layer for machine learning. The approach relies on Federated Learning as enabling technology that allows to use in production AI application that are privacy compliant.
 
-At present, the source code in this project demonstrates the effectiveness of our FedML implementation on well known benchmarks using a realistic deep learning model structure. We will soon add a link to details on those experiments.
+Federated Learning also enables different use-cases that are not strictly privacy related such as connecting data lakes, reaching higher model performance in unbalanced datasets and utilising AI models on the edge.
 
-In the future, we will open source here a first minimal viable product for this layer. And we will add links to articles and papers that describe our approaches to networking, architecture, and privacy-preserving technology. We will also provide references to legal opinions about how and why our compliance layer for machine learning meets the demands of GDPR.
+This repository contains the source code for running the Coordinator. The Coordinator is the component of Federated Learning that selects the Participants for training and aggregates the models using federated averaging.
 
-POLITE NOTE: We want to point out that running the benchmarks as described below is consuming considerable resources. XAIN cannot take any responsibilities for costs that arise for you when you execute these demanding machine-learning benchmarks.
+The Participants run in a separate environment than the Coordinator and connect to it using an SDK. You can find [here](https://github.com/xainag/xain-sdk) the source code for it.
 
 ## Quick Start
 
-XAIN requires [Python 3.6+](https://python.org/). To install the `xain-fl` package just run:
+XAIN requires [Python 3.6.4+](https://python.org/). To install the `xain-fl` package just run:
 
 ```shell
 $ python -m pip install xain-fl
 ```
 
-XAIN can also be installed with GPU support through the `gpu` extra feature. To
-install the `xain-fl` package with support for GPUs just run:
-
-```shell
-$ python -m pip install xain-fl[gpu]
-```
-
-### Running training sessions and benchmarks
-
-To run training sessions, see the [benchmark
-package](https://github.com/xainag/xain-fl/tree/master/benchmarks/benchmark) and the
-[benchmark
-documentation](https://github.com/xainag/xain-fl/blob/master/docs/quick.md#training).
-
 ## Install from source
 
-For development we require some extra system dependencies:
-
-- [clang-format 8+](https://clang.llvm.org/docs/ClangFormat.html)
-  - Linux: `sudo apt install clang-format`
-  - macOS: `brew install clang-format`
-
-### Clone Repository & Install XAIN in development mode
-
-To clone this repository and to install the XAIN project, please execute the following commands:
+To clone this repository and to install the XAIN-FL project, please execute the following commands:
 
 ```shell
 $ git clone https://github.com/xainag/xain-fl.git
 $ cd xain-fl
 
-$ python -m pip install -e .[dev]
+$ sh scripts/setup.sh
 ```
 
 ### Verify Installation
@@ -76,6 +54,20 @@ $ make docs
 The generated documentation will be under `docs/_build/html/`. You can open the
 root of the documentation by opening `docs/_build/html/index.html` on your
 favorite browser.
+
+### Running the Coordinator locally
+
+To run the Coordinator on your local machine, use the command:
+
+```shell
+$ python xain_fl/grpc/cli.py -f test_array.npy
+```
+
+For more information about the CLI and its arguments, run:
+
+```shell
+$ python xain_fl/grpc/cli.py --help
+```
 
 ## Related Papers and Articles
 
