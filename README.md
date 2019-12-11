@@ -48,12 +48,16 @@ run:
 
 ```shell
 $ cd docs/
-$ make docs
+$ make html
 ```
 
 The generated documentation will be under `docs/_build/html/`. You can open the
 root of the documentation by opening `docs/_build/html/index.html` on your
-favorite browser.
+favorite browser or simply run the command:
+
+```shell
+$ make show
+```
 
 ### Running the Coordinator locally
 
