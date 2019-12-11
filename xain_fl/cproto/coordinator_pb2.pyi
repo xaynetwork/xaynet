@@ -9,9 +9,7 @@ from google.protobuf.internal.containers import (
     RepeatedCompositeFieldContainer as google___protobuf___internal___containers___RepeatedCompositeFieldContainer,
 )
 
-from google.protobuf.message import (
-    Message as google___protobuf___message___Message,
-)
+from google.protobuf.message import Message as google___protobuf___message___Message
 
 from numproto.protobuf.ndarray_pb2 import (
     NDArray as numproto___protobuf___ndarray_pb2___NDArray,
@@ -28,10 +26,7 @@ from typing import (
     cast as typing___cast,
 )
 
-from typing_extensions import (
-    Literal as typing_extensions___Literal,
-)
-
+from typing_extensions import Literal as typing_extensions___Literal
 
 class RendezvousResponse(int):
     DESCRIPTOR: google___protobuf___descriptor___EnumDescriptor = ...
@@ -47,6 +42,7 @@ class RendezvousResponse(int):
     def items(cls) -> typing___List[typing___Tuple[str, RendezvousResponse]]: ...
     ACCEPT = typing___cast(RendezvousResponse, 0)
     LATER = typing___cast(RendezvousResponse, 1)
+
 ACCEPT = typing___cast(RendezvousResponse, 0)
 LATER = typing___cast(RendezvousResponse, 1)
 
@@ -67,6 +63,7 @@ class State(int):
     FINISHED = typing___cast(State, 2)
     READY = typing___cast(State, 3)
     TRAINING = typing___cast(State, 4)
+
 STANDBY = typing___cast(State, 0)
 ROUND = typing___cast(State, 1)
 FINISHED = typing___cast(State, 2)
@@ -75,9 +72,7 @@ TRAINING = typing___cast(State, 4)
 
 class RendezvousRequest(google___protobuf___message___Message):
     DESCRIPTOR: google___protobuf___descriptor___Descriptor = ...
-
-    def __init__(self,
-        ) -> None: ...
+    def __init__(self,) -> None: ...
     @classmethod
     def FromString(cls, s: bytes) -> RendezvousRequest: ...
     def MergeFrom(self, other_msg: google___protobuf___message___Message) -> None: ...
@@ -85,64 +80,78 @@ class RendezvousRequest(google___protobuf___message___Message):
 
 class RendezvousReply(google___protobuf___message___Message):
     DESCRIPTOR: google___protobuf___descriptor___Descriptor = ...
-    response = ... # type: RendezvousResponse
-
-    def __init__(self,
-        *,
-        response : typing___Optional[RendezvousResponse] = None,
-        ) -> None: ...
+    response = ...  # type: RendezvousResponse
+    def __init__(
+        self, *, response: typing___Optional[RendezvousResponse] = None
+    ) -> None: ...
     @classmethod
     def FromString(cls, s: bytes) -> RendezvousReply: ...
     def MergeFrom(self, other_msg: google___protobuf___message___Message) -> None: ...
     def CopyFrom(self, other_msg: google___protobuf___message___Message) -> None: ...
     if sys.version_info >= (3,):
-        def ClearField(self, field_name: typing_extensions___Literal[u"response"]) -> None: ...
+        def ClearField(
+            self, field_name: typing_extensions___Literal["response"]
+        ) -> None: ...
     else:
-        def ClearField(self, field_name: typing_extensions___Literal[u"response",b"response"]) -> None: ...
+        def ClearField(
+            self, field_name: typing_extensions___Literal["response", b"response"]
+        ) -> None: ...
 
 class HeartbeatRequest(google___protobuf___message___Message):
     DESCRIPTOR: google___protobuf___descriptor___Descriptor = ...
-    state = ... # type: State
-    round = ... # type: int
-
-    def __init__(self,
+    state = ...  # type: State
+    round = ...  # type: int
+    def __init__(
+        self,
         *,
-        state : typing___Optional[State] = None,
-        round : typing___Optional[int] = None,
-        ) -> None: ...
+        state: typing___Optional[State] = None,
+        round: typing___Optional[int] = None,
+    ) -> None: ...
     @classmethod
     def FromString(cls, s: bytes) -> HeartbeatRequest: ...
     def MergeFrom(self, other_msg: google___protobuf___message___Message) -> None: ...
     def CopyFrom(self, other_msg: google___protobuf___message___Message) -> None: ...
     if sys.version_info >= (3,):
-        def ClearField(self, field_name: typing_extensions___Literal[u"round",u"state"]) -> None: ...
+        def ClearField(
+            self, field_name: typing_extensions___Literal["round", "state"]
+        ) -> None: ...
     else:
-        def ClearField(self, field_name: typing_extensions___Literal[u"round",b"round",u"state",b"state"]) -> None: ...
+        def ClearField(
+            self,
+            field_name: typing_extensions___Literal[
+                "round", b"round", "state", b"state"
+            ],
+        ) -> None: ...
 
 class HeartbeatReply(google___protobuf___message___Message):
     DESCRIPTOR: google___protobuf___descriptor___Descriptor = ...
-    state = ... # type: State
-    round = ... # type: int
-
-    def __init__(self,
+    state = ...  # type: State
+    round = ...  # type: int
+    def __init__(
+        self,
         *,
-        state : typing___Optional[State] = None,
-        round : typing___Optional[int] = None,
-        ) -> None: ...
+        state: typing___Optional[State] = None,
+        round: typing___Optional[int] = None,
+    ) -> None: ...
     @classmethod
     def FromString(cls, s: bytes) -> HeartbeatReply: ...
     def MergeFrom(self, other_msg: google___protobuf___message___Message) -> None: ...
     def CopyFrom(self, other_msg: google___protobuf___message___Message) -> None: ...
     if sys.version_info >= (3,):
-        def ClearField(self, field_name: typing_extensions___Literal[u"round",u"state"]) -> None: ...
+        def ClearField(
+            self, field_name: typing_extensions___Literal["round", "state"]
+        ) -> None: ...
     else:
-        def ClearField(self, field_name: typing_extensions___Literal[u"round",b"round",u"state",b"state"]) -> None: ...
+        def ClearField(
+            self,
+            field_name: typing_extensions___Literal[
+                "round", b"round", "state", b"state"
+            ],
+        ) -> None: ...
 
 class StartTrainingRequest(google___protobuf___message___Message):
     DESCRIPTOR: google___protobuf___descriptor___Descriptor = ...
-
-    def __init__(self,
-        ) -> None: ...
+    def __init__(self,) -> None: ...
     @classmethod
     def FromString(cls, s: bytes) -> StartTrainingRequest: ...
     def MergeFrom(self, other_msg: google___protobuf___message___Message) -> None: ...
@@ -150,99 +159,158 @@ class StartTrainingRequest(google___protobuf___message___Message):
 
 class StartTrainingReply(google___protobuf___message___Message):
     DESCRIPTOR: google___protobuf___descriptor___Descriptor = ...
-    epochs = ... # type: int
-    epoch_base = ... # type: int
-
+    epochs = ...  # type: int
+    epoch_base = ...  # type: int
     @property
-    def weights(self) -> google___protobuf___internal___containers___RepeatedCompositeFieldContainer[numproto___protobuf___ndarray_pb2___NDArray]: ...
-
-    def __init__(self,
+    def weights(
+        self
+    ) -> google___protobuf___internal___containers___RepeatedCompositeFieldContainer[
+        numproto___protobuf___ndarray_pb2___NDArray
+    ]: ...
+    def __init__(
+        self,
         *,
-        weights : typing___Optional[typing___Iterable[numproto___protobuf___ndarray_pb2___NDArray]] = None,
-        epochs : typing___Optional[int] = None,
-        epoch_base : typing___Optional[int] = None,
-        ) -> None: ...
+        weights: typing___Optional[
+            typing___Iterable[numproto___protobuf___ndarray_pb2___NDArray]
+        ] = None,
+        epochs: typing___Optional[int] = None,
+        epoch_base: typing___Optional[int] = None,
+    ) -> None: ...
     @classmethod
     def FromString(cls, s: bytes) -> StartTrainingReply: ...
     def MergeFrom(self, other_msg: google___protobuf___message___Message) -> None: ...
     def CopyFrom(self, other_msg: google___protobuf___message___Message) -> None: ...
     if sys.version_info >= (3,):
-        def ClearField(self, field_name: typing_extensions___Literal[u"epoch_base",u"epochs",u"weights"]) -> None: ...
+        def ClearField(
+            self,
+            field_name: typing_extensions___Literal["epoch_base", "epochs", "weights"],
+        ) -> None: ...
     else:
-        def ClearField(self, field_name: typing_extensions___Literal[u"epoch_base",b"epoch_base",u"epochs",b"epochs",u"weights",b"weights"]) -> None: ...
+        def ClearField(
+            self,
+            field_name: typing_extensions___Literal[
+                "epoch_base", b"epoch_base", "epochs", b"epochs", "weights", b"weights"
+            ],
+        ) -> None: ...
 
 class EndTrainingRequest(google___protobuf___message___Message):
     DESCRIPTOR: google___protobuf___descriptor___Descriptor = ...
     class MetricsEntry(google___protobuf___message___Message):
         DESCRIPTOR: google___protobuf___descriptor___Descriptor = ...
-        key = ... # type: typing___Text
-
+        key = ...  # type: typing___Text
         @property
         def value(self) -> EndTrainingRequest.Metrics: ...
-
-        def __init__(self,
+        def __init__(
+            self,
             *,
-            key : typing___Optional[typing___Text] = None,
-            value : typing___Optional[EndTrainingRequest.Metrics] = None,
-            ) -> None: ...
+            key: typing___Optional[typing___Text] = None,
+            value: typing___Optional[EndTrainingRequest.Metrics] = None,
+        ) -> None: ...
         @classmethod
         def FromString(cls, s: bytes) -> EndTrainingRequest.MetricsEntry: ...
-        def MergeFrom(self, other_msg: google___protobuf___message___Message) -> None: ...
-        def CopyFrom(self, other_msg: google___protobuf___message___Message) -> None: ...
+        def MergeFrom(
+            self, other_msg: google___protobuf___message___Message
+        ) -> None: ...
+        def CopyFrom(
+            self, other_msg: google___protobuf___message___Message
+        ) -> None: ...
         if sys.version_info >= (3,):
-            def HasField(self, field_name: typing_extensions___Literal[u"value"]) -> bool: ...
-            def ClearField(self, field_name: typing_extensions___Literal[u"key",u"value"]) -> None: ...
+            def HasField(
+                self, field_name: typing_extensions___Literal["value"]
+            ) -> bool: ...
+            def ClearField(
+                self, field_name: typing_extensions___Literal["key", "value"]
+            ) -> None: ...
         else:
-            def HasField(self, field_name: typing_extensions___Literal[u"value",b"value"]) -> bool: ...
-            def ClearField(self, field_name: typing_extensions___Literal[u"key",b"key",u"value",b"value"]) -> None: ...
-
+            def HasField(
+                self, field_name: typing_extensions___Literal["value", b"value"]
+            ) -> bool: ...
+            def ClearField(
+                self,
+                field_name: typing_extensions___Literal[
+                    "key", b"key", "value", b"value"
+                ],
+            ) -> None: ...
     class Metrics(google___protobuf___message___Message):
         DESCRIPTOR: google___protobuf___descriptor___Descriptor = ...
-
         @property
-        def metrics(self) -> google___protobuf___internal___containers___RepeatedCompositeFieldContainer[numproto___protobuf___ndarray_pb2___NDArray]: ...
-
-        def __init__(self,
+        def metrics(
+            self
+        ) -> google___protobuf___internal___containers___RepeatedCompositeFieldContainer[
+            numproto___protobuf___ndarray_pb2___NDArray
+        ]: ...
+        def __init__(
+            self,
             *,
-            metrics : typing___Optional[typing___Iterable[numproto___protobuf___ndarray_pb2___NDArray]] = None,
-            ) -> None: ...
+            metrics: typing___Optional[
+                typing___Iterable[numproto___protobuf___ndarray_pb2___NDArray]
+            ] = None,
+        ) -> None: ...
         @classmethod
         def FromString(cls, s: bytes) -> EndTrainingRequest.Metrics: ...
-        def MergeFrom(self, other_msg: google___protobuf___message___Message) -> None: ...
-        def CopyFrom(self, other_msg: google___protobuf___message___Message) -> None: ...
-        if sys.version_info >= (3,):
-            def ClearField(self, field_name: typing_extensions___Literal[u"metrics"]) -> None: ...
-        else:
-            def ClearField(self, field_name: typing_extensions___Literal[u"metrics",b"metrics"]) -> None: ...
-
-    number_samples = ... # type: int
-
-    @property
-    def weights(self) -> google___protobuf___internal___containers___RepeatedCompositeFieldContainer[numproto___protobuf___ndarray_pb2___NDArray]: ...
-
-    @property
-    def metrics(self) -> typing___MutableMapping[typing___Text, EndTrainingRequest.Metrics]: ...
-
-    def __init__(self,
-        *,
-        weights : typing___Optional[typing___Iterable[numproto___protobuf___ndarray_pb2___NDArray]] = None,
-        number_samples : typing___Optional[int] = None,
-        metrics : typing___Optional[typing___Mapping[typing___Text, EndTrainingRequest.Metrics]] = None,
+        def MergeFrom(
+            self, other_msg: google___protobuf___message___Message
         ) -> None: ...
+        def CopyFrom(
+            self, other_msg: google___protobuf___message___Message
+        ) -> None: ...
+        if sys.version_info >= (3,):
+            def ClearField(
+                self, field_name: typing_extensions___Literal["metrics"]
+            ) -> None: ...
+        else:
+            def ClearField(
+                self, field_name: typing_extensions___Literal["metrics", b"metrics"]
+            ) -> None: ...
+    number_samples = ...  # type: int
+    @property
+    def weights(
+        self
+    ) -> google___protobuf___internal___containers___RepeatedCompositeFieldContainer[
+        numproto___protobuf___ndarray_pb2___NDArray
+    ]: ...
+    @property
+    def metrics(
+        self
+    ) -> typing___MutableMapping[typing___Text, EndTrainingRequest.Metrics]: ...
+    def __init__(
+        self,
+        *,
+        weights: typing___Optional[
+            typing___Iterable[numproto___protobuf___ndarray_pb2___NDArray]
+        ] = None,
+        number_samples: typing___Optional[int] = None,
+        metrics: typing___Optional[
+            typing___Mapping[typing___Text, EndTrainingRequest.Metrics]
+        ] = None,
+    ) -> None: ...
     @classmethod
     def FromString(cls, s: bytes) -> EndTrainingRequest: ...
     def MergeFrom(self, other_msg: google___protobuf___message___Message) -> None: ...
     def CopyFrom(self, other_msg: google___protobuf___message___Message) -> None: ...
     if sys.version_info >= (3,):
-        def ClearField(self, field_name: typing_extensions___Literal[u"metrics",u"number_samples",u"weights"]) -> None: ...
+        def ClearField(
+            self,
+            field_name: typing_extensions___Literal[
+                "metrics", "number_samples", "weights"
+            ],
+        ) -> None: ...
     else:
-        def ClearField(self, field_name: typing_extensions___Literal[u"metrics",b"metrics",u"number_samples",b"number_samples",u"weights",b"weights"]) -> None: ...
+        def ClearField(
+            self,
+            field_name: typing_extensions___Literal[
+                "metrics",
+                b"metrics",
+                "number_samples",
+                b"number_samples",
+                "weights",
+                b"weights",
+            ],
+        ) -> None: ...
 
 class EndTrainingReply(google___protobuf___message___Message):
     DESCRIPTOR: google___protobuf___descriptor___Descriptor = ...
-
-    def __init__(self,
-        ) -> None: ...
+    def __init__(self,) -> None: ...
     @classmethod
     def FromString(cls, s: bytes) -> EndTrainingReply: ...
     def MergeFrom(self, other_msg: google___protobuf___message___Message) -> None: ...

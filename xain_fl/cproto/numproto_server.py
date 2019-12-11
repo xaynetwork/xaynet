@@ -4,10 +4,10 @@ from concurrent import futures
 import grpc
 from numproto import ndarray_to_proto, proto_to_ndarray
 
-from xain_fl.grpc import hellonumproto_pb2, hellonumproto_pb2_grpc
+from xain_fl.coordinator import _ONE_DAY_IN_SECONDS
+from xain_fl.cproto import hellonumproto_pb2, hellonumproto_pb2_grpc
 from xain_fl.logger import get_logger
 
-_ONE_DAY_IN_SECONDS = 60 * 60 * 24
 logger = get_logger(__name__)
 
 

@@ -3,9 +3,10 @@ from concurrent import futures
 import grpc
 import pytest
 
-from xain_fl.grpc import coordinator_pb2_grpc, hellonumproto_pb2_grpc
-from xain_fl.grpc.coordinator import Coordinator, CoordinatorGrpc
-from xain_fl.grpc.numproto_server import NumProtoServer
+from xain_fl.coordinator.coordinator import Coordinator
+from xain_fl.coordinator.coordinator_grpc import CoordinatorGrpc
+from xain_fl.cproto import coordinator_pb2_grpc, hellonumproto_pb2_grpc
+from xain_fl.cproto.numproto_server import NumProtoServer
 
 
 @pytest.fixture

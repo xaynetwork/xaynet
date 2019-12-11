@@ -7,7 +7,8 @@ import argparse
 
 import numpy as np
 
-from xain_fl.grpc.coordinator import Coordinator, serve
+from xain_fl.coordinator.coordinator import Coordinator
+from xain_fl.serve import serve
 
 
 def type_num_rounds(value):
