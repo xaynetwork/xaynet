@@ -7,6 +7,6 @@ learning. It consists of the following modules:
     - evaluator
 """
 
-from .aggregate import Aggregator
-from .controller import RandomController
-from .coordinator import Coordinator
+from xain_fl.fl.coordinator.aggregate import Aggregator
+from xain_fl.fl.coordinator.controller import RandomController
+from xain_fl.fl.coordinator.coordinator import Coordinator
