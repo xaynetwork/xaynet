@@ -67,13 +67,13 @@ $ make show
 To run the Coordinator on your local machine, use the command:
 
 ```shell
-$ python xain_fl/grpc/cli.py -f test_array.npy
+$ python xain_fl/cli.py -f test_array.npy
 ```
 
 For more information about the CLI and its arguments, run:
 
 ```shell
-$ python xain_fl/grpc/cli.py --help
+$ python xain_fl/cli.py --help
 ```
 
 ## Related Papers and Articles
