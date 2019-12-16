@@ -20,7 +20,8 @@ def monitor_heartbeats(
         :class:`~threading.Event`, to know when it should terminate.
 
     Args:
-        coordinator (:class:`~.Coordinator`): The coordinator to monitor for heartbeats.
+        coordinator (:class:`xain_fl.coordinator.coordinator.Coordinator`): The coordinator
+            to monitor for heartbeats.
         terminate_event (:class:`~threading.Event`): A threading event to signal
             that this method should terminate.
     """

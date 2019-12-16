@@ -17,8 +17,8 @@ logger = get_logger(__name__)
 def serve(coordinator: Coordinator, host: str = "[::]", port: int = 50051) -> None:
     """Main method to start the gRPC service.
 
-    This methods just creates the :class:`~.Coordinator`, sets up all threading
-    events and threads and configures and starts the gRPC service.
+    This methods just creates the :class:`xain_fl.coordinator.coordinator.Coordinator`,
+    sets up all threading events and threads and configures and starts the gRPC service.
     """
     terminate_event = threading.Event()
     monitor_thread = threading.Thread(

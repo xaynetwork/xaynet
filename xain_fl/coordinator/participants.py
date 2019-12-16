@@ -84,8 +84,8 @@ class Participants:
     def update_expires(self, participant_id: str) -> None:
         """Updates the heartbeat expiration time for a participant.
 
-        This is currently called by the :class:`~.Coordinator` every time a participant sends a
-        heartbeat.
+        This is currently called by the :class:`xain_fl.coordinator.coordinator.Coordinator`
+        every time a participant sends a heartbeat.
 
         Args:
             participant_id (:obj:`str`): The id of the participant to update the expire time.

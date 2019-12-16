@@ -1,15 +1,15 @@
 class DuplicatedUpdateError(Exception):
     """Exception raised when the same participant tries to submit multiple
-    updates to the :class:`~.Coordinator` in the same :class:`~.Round`
+    updates to the :class:`xain_fl.coordinator.coordinator.Coordinator` in the same :class:`~.Round`
     """
 
 
 class UnknownParticipantError(Exception):
     """Exception raised when a participant that is unknown to the
-    :class:`~.Coordinator` makes a request.
+    :class:`xain_fl.coordinator.coordinator.Coordinator` makes a request.
 
     Typically this means that a participant tries to make a request before it
-    has successfully rendezvous with the :class:`~.Coordinator`.
+    has successfully rendezvous with the :class:`xain_fl.coordinator.coordinator.Coordinator`.
     """
 
 

@@ -13,12 +13,13 @@ class CoordinatorGrpc(coordinator_pb2_grpc.CoordinatorServicer):
     """The Coordinator gRPC service.
 
     The main logic for the Coordinator is decoupled from gRPC and implemented in the
-    :class:`~.Coordinator` class. The gRPC message only handles client requests
-    and forwards the messages to :class:`~.Coordinator`.
+    :class:`xain_fl.coordinator.coordinator.Coordinator` class. The gRPC message only handles
+    client requests and forwards the messages to
+    :class:`xain_fl.coordinator.coordinator.Coordinator`.
 
     Args:
-        coordinator (:class:`~.Coordinator`): The Coordinator state machine.
-
+        coordinator (:class:`xain_fl.coordinator.coordinator.Coordinator`): The Coordinator
+         state machine.
     """
 
     def __init__(self, coordinator: Coordinator):
@@ -41,10 +42,10 @@ class CoordinatorGrpc(coordinator_pb2_grpc.CoordinatorServicer):
             :class:`~.coordinator_pb2.RendezvousReply`: The reply to the
             participant's request. The reply is an enum containing either:
 
-                ACCEPT: If the :class:`~.Coordinator` does not have enough
-                        participants.
-                LATER: If the :class:`~.Coordinator` already has enough
-                       participants.
+                ACCEPT: If the :class:`xain_fl.coordinator.coordinator.Coordinator`
+                    does not have enough participants.
+                LATER: If the :class:`xain_fl.coordinator.coordinator.Coordinator`
+                    already has enough participants.
         """
         return self.coordinator.on_message(request, context.peer())
 
@@ -85,8 +86,8 @@ class CoordinatorGrpc(coordinator_pb2_grpc.CoordinatorServicer):
     ) -> coordinator_pb2.StartTrainingReply:
         """The StartTraining gRPC method.
 
-        Once a participant is notified that the :class:`~.Coordinator` is in a round
-        (through the state advertised in the
+        Once a participant is notified that the :class:`xain_fl.coordinator.coordinator.Coordinator`
+        is in a round (through the state advertised in the
         :class:`~.coordinator_pb2.HeartbeatReply`), the participant should call this
         method in order to get the global model weights in order to start the
         training for the round.
@@ -116,20 +117,21 @@ class CoordinatorGrpc(coordinator_pb2_grpc.CoordinatorServicer):
         """The EndTraining gRPC method.
 
         Once a participant has finished the training for the round it calls this
-        method in order to submit to the :class:`~.Coordinator` the updated weights.
+        method in order to submit to the :class:`xain_fl.coordinator.coordinator.Coordinator`
+        the updated weights.
 
         Args:
             request (:class:`~.coordinator_pb2.EndTrainingRequest`): The
                 participant's request. The request contains the updated weights as
                 a result of the training as well as any metrics helpful for the
-                :class:`~.Coordinator`.
+                :class:`xain_fl.coordinator.coordinator.Coordinator`.
             context (:class:`~grpc.ServicerContext`): The context associated with the gRPC request.
 
         Returns:
             :class:`~.coordinator_pb2.EndTrainingReply`: The reply to the
             participant's request. The reply is just an acknowledgment that
-            the :class:`~.Coordinator` successfully received the updated
-            weights.
+            the :class:`xain_fl.coordinator.coordinator.Coordinator` successfully received
+            the updated weights.
         """
         try:
             return self.coordinator.on_message(request, context.peer())
