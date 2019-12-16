@@ -21,3 +21,7 @@ help:
 
 show:
 	open _build/html/index.html
+
+docs:
+	make clean
+	make html
