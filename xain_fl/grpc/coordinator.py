@@ -7,7 +7,7 @@ import threading
 import time
 from concurrent import futures
 from threading import Lock
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import grpc
 from google.protobuf.internal.python_message import GeneratedProtocolMessageType
@@ -268,6 +268,9 @@ class Coordinator:
             Participant.  Defaults to 0.
         epochs_base (:obj:`int`, optional): Global number of epochs as of last
             round. Defaults to 0.
+        aggregator: (:class:`~.Aggregator`, optional): The type of aggregation
+            to perform at the end of each round. Defaults to
+            :class:`~.FederatedAveragingAgg`.
         """
 
     # pylint: disable-msg=too-many-instance-attributes
@@ -280,12 +283,13 @@ class Coordinator:
         weights: List[ndarray] = [],
         epochs: int = 1,
         epoch_base: int = 0,
+        aggregator: Optional[Aggregator] = None,
     ) -> None:
         self.minimum_participants_in_round: int = minimum_participants_in_round
         self.fraction_of_participants: float = fraction_of_participants
         self.participants: Participants = Participants()
         self.num_rounds: int = num_rounds
-        self.aggregator: Aggregator = FederatedAveragingAgg()
+        self.aggregator: Aggregator = aggregator if aggregator else FederatedAveragingAgg()
         self.controller: Controller = RandomController(self.participants.ids())
         self.minimum_connected_participants: int = self.get_minimum_connected_participants()
 
@@ -389,7 +393,7 @@ class Coordinator:
         """Initiates the Controller, selects ids and initiates a Round.
         """
         self.controller = RandomController(
-            participants_ids=self.participants.ids(),
+            participant_ids=self.participants.ids(),
             fraction_of_participants=self.fraction_of_participants,
         )
         selected_ids = self.controller.select_ids()
@@ -480,7 +484,7 @@ class Coordinator:
         Returns:
             :class:`~.coordinator_pb2.StartTrainingReply`: The reply to the participant.
         """
-        # The coordinator should only accept StartTraining requests if is
+        # The coordinator should only accept StartTraining requests if it is
         # in the ROUND state and when the participant has been selected for the round.
         coordinator_not_in_a_round = self.state != coordinator_pb2.State.ROUND
         participant_not_selected = participant_id not in self.round.participant_ids

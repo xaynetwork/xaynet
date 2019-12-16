@@ -43,7 +43,11 @@ def test_rendezvous_later_fraction_05():
     )
 
     # with 0.5 fraction it needs to accept at least two participants
-    coordinator.on_message(coordinator_pb2.RendezvousRequest(), "participant1")
+    result = coordinator.on_message(coordinator_pb2.RendezvousRequest(), "participant1")
+
+    assert isinstance(result, coordinator_pb2.RendezvousReply)
+    assert result.response == coordinator_pb2.RendezvousResponse.ACCEPT
+
     result = coordinator.on_message(coordinator_pb2.RendezvousRequest(), "participant2")
 
     assert isinstance(result, coordinator_pb2.RendezvousReply)
@@ -54,25 +58,6 @@ def test_rendezvous_later_fraction_05():
 
     assert isinstance(result, coordinator_pb2.RendezvousReply)
     assert result.response == coordinator_pb2.RendezvousResponse.LATER
-
-
-def test_heartbeat_reply():
-    # test that the coordinator replies with the correct state and round number
-    coordinator = Coordinator(
-        minimum_participants_in_round=2, fraction_of_participants=1.0
-    )
-    coordinator.on_message(coordinator_pb2.RendezvousRequest(), "participant1")
-    result = coordinator.on_message(coordinator_pb2.HeartbeatRequest(), "participant1")
-
-    assert isinstance(result, coordinator_pb2.HeartbeatReply)
-    assert result.state == coordinator_pb2.State.STANDBY
-    assert result.round == 0
-
-    # update the round of the coordinator and check again
-    coordinator.current_round = 10
-    result = coordinator.on_message(coordinator_pb2.HeartbeatRequest(), "participant1")
-
-    assert result.round == 10
 
 
 def test_coordinator_state_standby_round():
@@ -242,12 +227,19 @@ def test_number_of_selected_participants():
         minimum_participants_in_round=2, fraction_of_participants=0.6
     )
     coordinator.on_message(coordinator_pb2.RendezvousRequest(), "participant1")
-    coordinator.on_message(coordinator_pb2.RendezvousRequest(), "participant2")
 
-    # the coordinator should not start a round but wait for a third
+    # the coordinator should wait for three participants to be connected before starting a round,
+    # and select participants. Before that coordinator.round.participant_ids is an empty list
     assert coordinator.minimum_connected_participants == 3
     assert coordinator.state == coordinator_pb2.State.STANDBY
+    assert coordinator.round.participant_ids == []
 
+    coordinator.on_message(coordinator_pb2.RendezvousRequest(), "participant2")
+
+    assert coordinator.state == coordinator_pb2.State.STANDBY
+    assert coordinator.round.participant_ids == []
+
+    # add the third participant
     coordinator.on_message(coordinator_pb2.RendezvousRequest(), "participant3")
 
     # now the coordinator must have started a round and selected 2 participants
@@ -263,13 +255,13 @@ def test_correct_round_advertised_to_participants():
     coordinator.on_message(coordinator_pb2.RendezvousRequest(), "participant1")
     coordinator.on_message(coordinator_pb2.RendezvousRequest(), "participant2")
 
-    for participant_id in coordinator.participants.ids():
-        result = coordinator.on_message(
-            coordinator_pb2.HeartbeatRequest(), participant_id
-        )
+    # override selected participant
+    coordinator.round.participant_ids = ["participant1"]
 
-        # a participant selected in a round will receive ROUND state, else STANDBY
-        if participant_id in coordinator.round.participant_ids:
-            assert result.state == coordinator_pb2.State.ROUND
-        else:
-            assert result.state == coordinator_pb2.State.STANDBY
+    # state ROUND will be advertised to participant1 (which has been selected)
+    result = coordinator.on_message(coordinator_pb2.HeartbeatRequest(), "participant1")
+    assert result.state == coordinator_pb2.State.ROUND
+
+    # state STANDBY will be advertised to participant2 (which has NOT been selected)
+    result = coordinator.on_message(coordinator_pb2.HeartbeatRequest(), "participant2")
+    assert result.state == coordinator_pb2.State.STANDBY
