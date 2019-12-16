@@ -14,9 +14,6 @@
 ## Protobufs
 /protobuf/ @r-marques
 
-## Rust packages
-/rust/ @r-marques @skade @stjepang @matklad @spacejam
-
 ## Scripts
 /scripts/ @tanertopal @danieljanes
 
