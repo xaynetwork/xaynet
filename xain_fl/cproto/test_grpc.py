@@ -109,7 +109,7 @@ def test_heartbeat_denied(participant_stub, coordinator_service):
 
 @mock.patch("threading.Event.is_set", side_effect=[False, True])
 @mock.patch("time.sleep", return_value=None)
-@mock.patch("xain_fl.grpc.coordinator.Coordinator.remove_participant")
+@mock.patch("xain_fl.coordinator.Coordinator.remove_participant")
 def test_monitor_heartbeats(mock_participants_remove, _mock_sleep, _mock_event):
     participants = Participants()
     participants.add("participant_1")
@@ -142,7 +142,7 @@ def test_monitor_heartbeats_remove_participant(_mock_sleep, _mock_event):
 
 @mock.patch("threading.Event.is_set", side_effect=[False, False, True])
 @mock.patch("time.sleep", return_value=None)
-@mock.patch("xain_fl.grpc.coordinator_pb2.HeartbeatRequest")
+@mock.patch("xain_fl.cproto.coordinator_pb2.HeartbeatRequest")
 def test_participant_heartbeat(mock_heartbeat_request, _mock_sleep, _mock_event):
     channel = mock.MagicMock()
     terminate_event = threading.Event()
