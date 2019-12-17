@@ -23,5 +23,6 @@ show:
 	open _build/html/index.html
 
 docs:
+	rm -rf _code_reference_*
 	make clean
 	make html
