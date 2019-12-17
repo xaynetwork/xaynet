@@ -9,4 +9,3 @@ cd $DIR/../
 
 isort --indent=4 -rc setup.py conftest.py benchmarks examples xain_fl docs/conf.py
 black --exclude "xain_fl/cproto/.*_pb2.*" setup.py conftest.py benchmarks examples xain_fl docs/conf.py
-clang-format -style="{Language: Proto, BasedOnStyle: Google}" -i  protobuf/xain_fl/cproto/*.proto

@@ -29,9 +29,6 @@ isort --check-only --indent=4 -rc setup.py conftest.py benchmarks examples xain_
 # format code
 black --check --exclude "xain_fl/cproto/.*_pb2.*" setup.py conftest.py benchmarks examples xain_fl && echo "===> black says: well done <===" &&
 
-# check format of proto files
-clang_format && echo "===> clang-format says: well done <===" &&
-
 # lint
 pylint --rcfile=pylint.ini benchmarks examples xain_fl && echo "===> pylint says: well done <===" &&
 
