@@ -1,6 +1,6 @@
 import threading
 import time
-from typing import Dict
+from typing import Dict, List
 
 from xain_fl.coordinator import HEARTBEAT_TIME, HEARTBEAT_TIMEOUT
 
@@ -12,7 +12,7 @@ class ParticipantContext:
     In the future we may store more information like in what state a participant is in e.g.
     IDLE, RUNNING, ...
 
-    Args:
+    Attributes:
         participant_id (:obj:`str`): The id of the participant. Typically a
             host:port or public key when using SSL.
     """
@@ -80,6 +80,16 @@ class Participants:
 
         with self._lock:
             return len(self.participants)
+
+    def ids(self) -> List[str]:
+        """Get the ids of the participants.
+
+        Returns:
+            :obj:`list` of :obj:`str`: The list of participant ids.
+        """
+
+        with self._lock:
+            return list(self.participants.keys())
 
     def update_expires(self, participant_id: str) -> None:
         """Updates the heartbeat expiration time for a participant.

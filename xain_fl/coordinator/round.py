@@ -7,18 +7,17 @@ from xain_fl.tools.exceptions import DuplicatedUpdateError
 
 class Round:
     """Class to manage the state of a single round.
-
     This class contains the logic to handle all updates sent by the
     participants during a round and does some sanity checks like preventing the
     same participant to submit multiple updates during a single round.
 
-    Args:
-        required_participants (int): The minimum number of participants required to
-            perform a round.
+    Attributes:
+        participant_ids(:obj:`list` of :obj:`str`): The list of IDs of the participants
+            selected to participate in this round.
     """
 
-    def __init__(self, required_participants: int) -> None:
-        self.required_participants: int = required_participants
+    def __init__(self, participant_ids: List[str]) -> None:
+        self.participant_ids = participant_ids
         self.updates: Dict[str, Dict] = {}
 
     def add_updates(
@@ -52,18 +51,16 @@ class Round:
 
     def is_finished(self) -> bool:
         """Check if all the required participants submitted their updates this round.
-
         If all participants submitted their updates the round is considered finished.
 
         Returns:
             :obj:`bool`:: :obj:`True` if all participants submitted their
             updates this round. :obj:`False` otherwise.
         """
-        return len(self.updates) == self.required_participants
+        return len(self.updates) == len(self.participant_ids)
 
     def get_weight_updates(self) -> List[Tuple[List[ndarray], int]]:
         """Get a list of all participants weight updates.
-
         This list will usually be used by the aggregation function.
 
         Returns:
