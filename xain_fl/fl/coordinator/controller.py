@@ -11,7 +11,7 @@ class Controller(ABC):
     """Abstract base class which provides an interface to the coordinator that
     enables different selection strategies.
 
-    Args:
+    Attributes:
         participant_ids (:obj:`list` of :obj:`str`): The list of IDs of the
             all the available participants, a subset of which will be selected.
         fraction_of_participants (:obj:`float`, optional): The fraction of total

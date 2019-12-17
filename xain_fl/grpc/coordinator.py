@@ -58,7 +58,7 @@ class ParticipantContext:
     In the future we may store more information like in what state a participant is in e.g.
     IDLE, RUNNING, ...
 
-    Args:
+    Attributes:
         participant_id (:obj:`str`): The id of the participant. Typically a
             host:port or public key when using SSL.
     """
@@ -160,7 +160,7 @@ class Round:
     participants during a round and does some sanity checks like preventing the
     same participant to submit multiple updates during a single round.
 
-    Args:
+    Attributes:
         participant_ids(:obj:`list` of :obj:`str`): The list of IDs of the participants
             selected to participate in this round.
     """
@@ -254,7 +254,13 @@ class Coordinator:
         :class:`~.coordinator_pb2.RendezvousRequest` is always allowed
         regardless of which state the coordinator is on.
 
-    Args:
+    Constants:
+        DEFAULT_AGGREGATOR (:class:`~.Aggregator`): if no Aggregator instance is provided
+            during initialisation, then :class:`~.FederatedAveragingAgg` in used.
+        DEFAULT_CONTROLLER (:class:`~.Controller`): if no Controller instance is provided
+            during initialisation, then :class:`~.RandomController` in used.
+
+    Attributes:
         num_rounds (:obj:`int`, optional): The number of rounds of the training
             session. Defaults to 10.
         minimum_participants_in_round (:obj:`int`, optional): The minimum number of
@@ -269,12 +275,17 @@ class Coordinator:
         epochs_base (:obj:`int`, optional): Global number of epochs as of last
             round. Defaults to 0.
         aggregator: (:class:`~.Aggregator`, optional): The type of aggregation
-            to perform at the end of each round. Defaults to
-            :class:`~.FederatedAveragingAgg`.
+            to perform at the end of each round. Defaults to :class:`~.FederatedAveragingAgg`.
+        controller: (:class:`~.Controller`, optional): Controls how the Participants
+            are selected at the start of each round. Defaults to :class:`~.RandomController`.
         """
 
     # pylint: disable-msg=too-many-instance-attributes
     # pylint: disable-msg=dangerous-default-value
+
+    DEFAULT_AGGREGATOR: Aggregator = FederatedAveragingAgg()
+    DEFAULT_CONTROLLER: Controller = RandomController(participant_ids=[])
+
     def __init__(
         self,
         num_rounds: int = 1,
@@ -284,13 +295,14 @@ class Coordinator:
         epochs: int = 1,
         epoch_base: int = 0,
         aggregator: Optional[Aggregator] = None,
+        controller: Optional[Controller] = None,
     ) -> None:
         self.minimum_participants_in_round: int = minimum_participants_in_round
         self.fraction_of_participants: float = fraction_of_participants
         self.participants: Participants = Participants()
         self.num_rounds: int = num_rounds
-        self.aggregator: Aggregator = aggregator if aggregator else FederatedAveragingAgg()
-        self.controller: Controller = RandomController(self.participants.ids())
+        self.aggregator: Aggregator = aggregator if aggregator else self.DEFAULT_AGGREGATOR
+        self.controller: Controller = controller if controller else self.DEFAULT_CONTROLLER
         self.minimum_connected_participants: int = self.get_minimum_connected_participants()
 
         # global model
@@ -559,7 +571,7 @@ class CoordinatorGrpc(coordinator_pb2_grpc.CoordinatorServicer):
     :class:`~.Coordinator` class. The gRPC message only handles client requests
     and forwards the messages to :class:`~.Coordinator`.
 
-    Args:
+    Attributes:
         coordinator (:class:`~.Coordinator`): The Coordinator state machine.
     """
 
