@@ -30,7 +30,7 @@ jobs:
 
       - name: black
         run: |
-          black --check --exclude "xain_fl/grpc/.*_pb2.*" \
+          black --check --exclude "xain_fl/cproto/.*_pb2.*" \
           setup.py conftest.py benchmarks examples xain_fl
 
       - name: isort
