@@ -139,6 +139,3 @@ dmypy.json
 # Editors
 .idea
 .vscode
-
-# Testing certificates
-rust/xain-grpc/certs

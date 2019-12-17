@@ -1,5 +1,0 @@
-[workspace]
-members = [
-  "xain-coordinator",
-  "xain-grpc",
-]
