@@ -38,7 +38,7 @@ def type_num_epochs(value):
     return ivalue
 
 
-def type_num_participants(value):
+def type_min_num_participants_in_round(value):
     ivalue = int(value)
 
     if ivalue <= 0:
@@ -53,7 +53,7 @@ def type_num_participants(value):
 
 
 def type_fraction(value):
-    ivalue = int(value)
+    ivalue = float(value)
 
     if ivalue <= 0:
         raise argparse.ArgumentTypeError(
@@ -85,7 +85,7 @@ def get_cmd_parameters():
     parser.add_argument(
         "-r",
         dest="num_rounds",
-        default=10,
+        default=1,
         type=type_num_rounds,
         help="Number of global rounds the model is going to be trained for.",
     )
@@ -93,23 +93,23 @@ def get_cmd_parameters():
     parser.add_argument(
         "-e",
         dest="num_epochs",
-        default=2,
+        default=1,
         type=type_num_epochs,
         help="Number of local epochs per round.",
     )
 
     parser.add_argument(
         "-p",
-        dest="num_participants",
-        default=100,
-        type=type_num_participants,
-        help="Number of participants.",
+        dest="min_num_participants_in_round",
+        default=1,
+        type=type_min_num_participants_in_round,
+        help="Minimum number of participants to be selected for a round.",
     )
 
     parser.add_argument(
         "-c",
         dest="fraction",
-        default=0.1,
+        default=1.0,
         type=type_fraction,
         help="Fraction of total clients that participate in a training round. \
             A float between 0 and 1",
@@ -125,7 +125,8 @@ def main():
         weights=list(np.load(parameters.file, allow_pickle=True)),
         num_rounds=parameters.num_rounds,
         epochs=parameters.num_epochs,
-        required_participants=int(parameters.num_participants * parameters.fraction),
+        minimum_participants_in_round=parameters.min_num_participants_in_round,
+        fraction_of_participants=parameters.fraction,
     )
 
     serve(coordinator=coordinator, host=parameters.host, port=parameters.port)

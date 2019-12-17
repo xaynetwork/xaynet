@@ -227,9 +227,8 @@ def init_coordinator(
     Returns:
         Initiated Coordinator instance.
     """
-
-    num_clients = len(participants)
-    controller = RandomController(num_clients)
+    participant_ids = [str(participant.cid) for participant in participants]
+    controller = RandomController(participant_ids, fraction_of_participants=C)
 
     aggregator = FederatedAveragingAgg()
 

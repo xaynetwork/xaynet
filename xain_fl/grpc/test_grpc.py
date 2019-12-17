@@ -66,7 +66,9 @@ def test_participant_rendezvous_accept(participant_stub, coordinator_service):
 def test_participant_rendezvous_later(participant_stub):
 
     # populate participants
-    coordinator = Coordinator()
+    coordinator = Coordinator(
+        minimum_participants_in_round=10, fraction_of_participants=1.0
+    )
     required_participants = 10
     for i in range(required_participants):
         coordinator.participants.add(str(i))
@@ -78,6 +80,7 @@ def test_participant_rendezvous_later(participant_stub):
     server.add_insecure_port("localhost:50051")
     server.start()
 
+    # try to rendezvous the 11th participant
     reply = participant_stub.Rendezvous(coordinator_pb2.RendezvousRequest())
     server.stop(0)
 
@@ -90,7 +93,11 @@ def test_heartbeat(participant_stub, coordinator_service):
     _ = participant_stub.Rendezvous(coordinator_pb2.RendezvousRequest())
     reply = participant_stub.Heartbeat(coordinator_pb2.HeartbeatRequest())
 
+    # the Coordinator is initialised in conftest.py::coordinator_service with 10 participants
+    # needed per round. so here we expect the HeartbeatReply to have State.STANDBY
+    # because we connected only one participant
     assert reply == coordinator_pb2.HeartbeatReply()
+    assert coordinator_service.coordinator.state == coordinator_pb2.State.STANDBY
 
 
 @pytest.mark.integration
@@ -154,11 +161,14 @@ def test_participant_heartbeat(mock_heartbeat_request, _mock_sleep, _mock_event)
 def test_start_training(coordinator_service):
     test_weights = [np.arange(10), np.arange(10, 20)]
 
-    # set coordinator global model data
-    coordinator_service.coordinator.required_participants = 1
-    coordinator_service.coordinator.epochs = 5
-    coordinator_service.coordinator.epoch_base = 2
-    coordinator_service.coordinator.weights = test_weights
+    # set coordinator global model and hyper-params so that it needs only 1 participant
+    coord = coordinator_service.coordinator
+    coord.minimum_participants_in_round = 1
+    coord.fraction_of_participants = 1.0
+    coord.epochs = 5
+    coord.epoch_base = 2
+    coord.weights = test_weights
+    coord.minimum_connected_participants = coord.get_minimum_connected_participants()
 
     # simulate a participant communicating with coordinator via channel
     with grpc.insecure_channel("localhost:50051") as channel:
@@ -185,8 +195,9 @@ def test_start_training_denied(participant_stub, coordinator_service):
 @pytest.mark.skip("Skipping due to moving of the grpc participant as sdk to xain-sdk")
 @pytest.mark.integration
 def test_start_training_failed_precondition(participant_stub, coordinator_service):
-    # start training requests are only allowed if the coordinator is in the
-    # ROUND state
+    # start training requests are only allowed if the coordinator is in ROUND state.
+    # Since we need 10 participants to be connected (see conftest.py::coordinator_service)
+    # the StartTrainingRequest is expected to fail
     participant_stub.Rendezvous(coordinator_pb2.RendezvousRequest())
     with pytest.raises(grpc.RpcError):
         reply = participant_stub.StartTraining(coordinator_pb2.StartTrainingRequest())

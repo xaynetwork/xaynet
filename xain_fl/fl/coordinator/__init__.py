@@ -2,11 +2,11 @@
 learning. It consists of the following modules:
 
     - coordinator
-    - aggreate
+    - aggregate
     - controller
     - evaluator
 """
 
-from .aggregate import Aggregator
-from .controller import RandomController, RoundRobinController
-from .coordinator import Coordinator
+from xain_fl.fl.coordinator.aggregate import Aggregator
+from xain_fl.fl.coordinator.controller import RandomController
+from xain_fl.fl.coordinator.coordinator import Coordinator

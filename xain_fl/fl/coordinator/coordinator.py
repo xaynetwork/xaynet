@@ -89,8 +89,7 @@ class Coordinator:
 
         for r in range(num_rounds):
             # Determine who participates in this round
-            num_indices = _abs_C(self.C, self.num_participants())
-            indices = self.controller.indices(num_indices)
+            indices = self.controller.select_ids()
             msg = f"Round {r+1}/{num_rounds}: Participants {indices}"
             logger.info(msg)
 
@@ -126,7 +125,7 @@ class Coordinator:
         return hist_co, hist_ps, hist_opt_configs, hist_metrics
 
     def fit_round(
-        self, indices: List[int], E: int
+        self, indices: List[str], E: int
     ) -> Tuple[List[History], List[Dict], List[Metrics]]:
         """Performs a single round of federated learning.
 
@@ -138,7 +137,11 @@ class Coordinator:
             Tuple[List[History], List[Dict], List[Metrics]]
         """
         theta = self.model.get_weights()
-        participants = [self.participants[i] for i in indices]
+        participants = [
+            participant
+            for participant in self.participants
+            if str(participant.cid) in indices
+        ]
         # Collect training results from the participants of this round
         theta_updates, histories, opt_configs, train_metrics = self.train_local_concurrently(
             theta, participants, E
@@ -250,6 +253,7 @@ def _train_local(
     return theta_update, history, opt_config, metrics
 
 
+# TODO: legacy code, needs refactor: https://xainag.atlassian.net/browse/XP-292
 def _abs_C(C: float, num_participants: int) -> int:
     return int(min(num_participants, max(1, C * num_participants)))
 
