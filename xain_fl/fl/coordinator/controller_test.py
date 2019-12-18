@@ -35,5 +35,5 @@ def test_select_from_empty_list():
     controller = RandomController(participant_ids, fraction_of_participants=1.0)
 
     # we expect numpy.random.choice() used in select_ids() to raise a ValueError
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, message="expected ValueError"):
         controller.select_ids()
