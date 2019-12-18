@@ -66,24 +66,12 @@ class CustomDevelopCommand(develop):
 install_requires = [
     "typing-extensions~=3.7",  # PSF
     "numpy~=1.15",  # BSD
-    "absl-py~=0.8",  # Apache 2.0
     "grpcio~=1.23",  # Apache License 2.0
     "protobuf~=3.9",  # 3-Clause BSD License
     "numproto~=0.3",  # Apache License 2.0
     "requests==2.22.0",  # Apache 2.0  # TODO(XP-185) remove
-    "tensorflow==1.14.0",  # Apache 2.0  # TODO(XP-131) remove
     "structlog==19.2.0",  # Apache License 2.0
 ]
-
-benchmarks_require = [
-    "matplotlib==3.1.1",  # PSF
-    "botocore==1.12.220",  # Apache License 2.0
-    "boto3==1.9.220",  # Apache License 2.0
-    "awscli==1.16.230",  # Apache License 2.0
-    "faker==2.0.0",  # MIT License
-]
-
-gpu_require = ["tensorflow-gpu==1.14.0"]  # Apache 2.0
 
 dev_require = [
     "grpcio-tools~=1.23",  # Apache License 2.0
@@ -98,8 +86,6 @@ dev_require = [
     "twine==2.0.0",  # Apache License 2.0
     "wheel==0.33.6",  # MIT
 ]
-
-examples_require = ["tensorflow==1.14.0"]  # Apache 2.0
 
 tests_require = [
     "pytest==4.6.2",  # MIT license
@@ -143,30 +129,14 @@ setup(
         "Operating System :: MacOS :: MacOS X",
         "Operating System :: POSIX :: Linux",
     ],
-    packages=find_packages(
-        where=".", exclude=["benchmarks", "benchmarks.*", "*_test.py"]
-    ),
+    packages=find_packages(where=".", exclude=["*_test.py"]),
     install_requires=install_requires,
     tests_require=tests_require,
     extras_require={
         "test": tests_require,
-        "gpu": gpu_require,
         "docs": docs_require,
-        "benchmarks": benchmarks_require,
-        "examples": examples_require,
-        "dev": dev_require
-        + tests_require
-        + benchmarks_require
-        + docs_require
-        + examples_require,
+        "dev": dev_require + tests_require + docs_require,
     },
     cmdclass={"develop": CustomDevelopCommand},
-    entry_points={
-        "console_scripts": [
-            "coordinator=xain_fl.cproto.cli:main",
-            "train_remote=benchmarks.train_remote:main",
-            "pull_results=xain_fl.ops.__main__:download",
-            "aggregate=benchmarks.aggregate:main",
-        ]
-    },
+    entry_points={"console_scripts": ["coordinator=xain_fl.cproto.cli:main"]},
 )
