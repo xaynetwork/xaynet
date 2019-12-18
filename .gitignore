@@ -1,13 +1,3 @@
-# Project specific files and directories
-config.cfg
-output/*
-results
-
-# Pantsbuild
-.pants.d
-.pants.workdir.file_lock
-.pants.workdir.file_lock.lock_message
-
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
