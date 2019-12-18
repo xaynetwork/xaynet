@@ -6,10 +6,11 @@
 
 # XAIN
 
-The XAIN project is building a GDPR-compliance layer for machine learning. The approach relies on Federated Learning
-as enabling technology that allows production AI applications to be fully privacy compliant.
+The XAIN project is building a privacy layer for machine learning so that AI projects can meet compliance such as
+GDPR and CCPA. The approach relies on Federated Learning as enabling technology that allows production AI
+applications to be fully privacy compliant.
 
-Federated Learning also enables different use-cases that are not strictly privacy related such as connecting data
+Federated Learning also enables different use-cases that are not strictly privacy related such as connecting data 
 lakes, reaching higher model performance in unbalanced datasets and utilising AI models on the edge.
 
 This repository contains the source code for running the Coordinator. The Coordinator is the component of Federated
