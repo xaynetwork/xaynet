@@ -160,7 +160,7 @@ class Coordinator:
 
         Args:
             theta (Theta): Current global model parameters
-            participants (List[Participant]): Selected participants
+            participants (List[xain_fl.fl.participant.Participant]): Selected participants
             E (int): Number of local training epochs
 
         Returns:
@@ -193,7 +193,7 @@ class Coordinator:
 
         Args:
             theta (Theta): Current global model parameters
-            participants (List[Participant]): Selected participants
+            participants (List[xain_fl.fl.participant.Participant]): Selected participants
             E (int): Number of local training epochs
 
         Returns:

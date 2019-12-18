@@ -14,19 +14,19 @@ from numproto import ndarray_to_proto, proto_to_ndarray
 from xain_fl.coordinator.coordinator import Coordinator
 from xain_fl.coordinator.coordinator_grpc import CoordinatorGrpc
 from xain_fl.coordinator.heartbeat import monitor_heartbeats
+from xain_fl.coordinator.participant_state_machine import (
+    StateRecord,
+    end_training,
+    message_loop,
+    rendezvous,
+    start_training,
+)
 from xain_fl.coordinator.participants import Participants
 from xain_fl.cproto import (
     coordinator_pb2,
     coordinator_pb2_grpc,
     hellonumproto_pb2,
     hellonumproto_pb2_grpc,
-)
-from xain_fl.cproto.participant import (
-    StateRecord,
-    end_training,
-    message_loop,
-    rendezvous,
-    start_training,
 )
 
 # Some grpc tests fail on macos.

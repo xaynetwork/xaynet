@@ -1,106 +1,140 @@
-from xain_fl.cproto import coordinator_pb2
-from xain_fl.cproto.participant import ParState, StateRecord, transit
+"""Tests for GRPC Participant."""
+
+from xain_fl.coordinator.participant_state_machine import ParState, StateRecord, transit
+from xain_fl.cproto.coordinator_pb2 import HeartbeatReply, State
 
 
-def test_from_start():
-    st = StateRecord()
-    assert st.lookup() == (ParState.WAITING_FOR_SELECTION, 0)
-    hb = coordinator_pb2.HeartbeatReply(state=coordinator_pb2.ROUND)
-    transit(st, hb)
-    assert st.lookup() == (ParState.TRAINING, 0)
+def test_from_start() -> None:
+    """Test start."""
+
+    state_record: StateRecord = StateRecord()
+    assert state_record.lookup() == (ParState.WAITING_FOR_SELECTION, 0)
+
+    heartbeat_reply: HeartbeatReply = HeartbeatReply(state=State.ROUND)
+    transit(state_record=state_record, heartbeat_reply=heartbeat_reply)
+    assert state_record.lookup() == (ParState.TRAINING, 0)
+
     # should return immediately
-    assert st.wait_until_selected_or_done() == ParState.TRAINING
+    assert state_record.wait_until_selected_or_done() == ParState.TRAINING
 
 
-def test_waiting_to_training_i():
-    st = StateRecord(state=ParState.WAITING_FOR_SELECTION)
-    hb = coordinator_pb2.HeartbeatReply(state=coordinator_pb2.ROUND, round=1)
-    transit(st, hb)
-    assert st.lookup() == (ParState.TRAINING, 1)
+def test_waiting_to_training_i() -> None:
+    """Test waiting to training."""
+
+    state_record: StateRecord = StateRecord(state=ParState.WAITING_FOR_SELECTION)
+    heartbeat_reply: HeartbeatReply = HeartbeatReply(state=State.ROUND, round=1)
+    transit(state_record=state_record, heartbeat_reply=heartbeat_reply)
+    assert state_record.lookup() == (ParState.TRAINING, 1)
+
     # should return immediately
-    assert st.wait_until_selected_or_done() == ParState.TRAINING
+    assert state_record.wait_until_selected_or_done() == ParState.TRAINING
 
 
-def test_waiting_to_done():
-    st = StateRecord(state=ParState.WAITING_FOR_SELECTION, round=2)
-    hb = coordinator_pb2.HeartbeatReply(state=coordinator_pb2.FINISHED)
-    transit(st, hb)
-    assert st.lookup() == (ParState.DONE, 2)
+def test_waiting_to_done() -> None:
+    """Test waiting to done."""
+
+    state_record = StateRecord(state=ParState.WAITING_FOR_SELECTION, round=2)
+    heartbeat_reply: HeartbeatReply = HeartbeatReply(state=State.FINISHED)
+    transit(state_record=state_record, heartbeat_reply=heartbeat_reply)
+    assert state_record.lookup() == (ParState.DONE, 2)
+
     # should return immediately
-    assert st.wait_until_selected_or_done() == ParState.DONE
+    assert state_record.wait_until_selected_or_done() == ParState.DONE
 
 
-def test_waiting_to_waiting():
-    st = StateRecord(state=ParState.WAITING_FOR_SELECTION, round=3)
-    hb = coordinator_pb2.HeartbeatReply(state=coordinator_pb2.STANDBY)
-    transit(st, hb)
-    assert st.lookup() == (ParState.WAITING_FOR_SELECTION, 3)
+def test_waiting_to_waiting() -> None:
+    """Test waiting to waiting."""
+
+    state_record: StateRecord = StateRecord(
+        state=ParState.WAITING_FOR_SELECTION, round=3
+    )
+    heartbeat_reply: HeartbeatReply = HeartbeatReply(state=State.STANDBY)
+    transit(state_record=state_record, heartbeat_reply=heartbeat_reply)
+    assert state_record.lookup() == (ParState.WAITING_FOR_SELECTION, 3)
 
 
-def test_training_to_training():
-    st = StateRecord(state=ParState.TRAINING, round=4)
-    start_state = st.lookup()
-    hb = coordinator_pb2.HeartbeatReply(state=coordinator_pb2.STANDBY)
-    transit(st, hb)
-    assert st.lookup() == start_state
-    hb.state = coordinator_pb2.ROUND
-    transit(st, hb)
-    assert st.lookup() == start_state
-    hb.state = coordinator_pb2.FINISHED
-    transit(st, hb)
-    assert st.lookup() == start_state
+def test_training_to_training() -> None:
+    """Test training to training."""
+
+    state_record: StateRecord = StateRecord(state=ParState.TRAINING, round=4)
+    start_state, round_num = state_record.lookup()
+    assert isinstance(start_state, ParState)
+    heartbeat_reply: HeartbeatReply = HeartbeatReply(state=State.STANDBY)
+    transit(state_record=state_record, heartbeat_reply=heartbeat_reply)
+    assert state_record.lookup() == (start_state, round_num)
+
+    heartbeat_reply.state = State.ROUND
+    transit(state_record=state_record, heartbeat_reply=heartbeat_reply)
+    assert state_record.lookup() == (start_state, round_num)
+
+    heartbeat_reply.state = State.FINISHED
+    transit(state_record=state_record, heartbeat_reply=heartbeat_reply)
+    assert state_record.lookup() == (start_state, round_num)
 
 
-def test_posttraining_to_training():
-    st = StateRecord(state=ParState.POST_TRAINING, round=5)
-    start_state = st.lookup()
-    hb = coordinator_pb2.HeartbeatReply(state=coordinator_pb2.ROUND, round=5)
-    transit(st, hb)
-    assert st.lookup() == start_state
+def test_posttraining_to_training() -> None:
+    """Test postraining to training."""
+
+    state_record: StateRecord = StateRecord(state=ParState.POST_TRAINING, round=5)
+    start_state, round_num = state_record.lookup()
+    assert isinstance(start_state, ParState)
+    heartbeat_reply: HeartbeatReply = HeartbeatReply(state=State.ROUND, round=5)
+    transit(state_record=state_record, heartbeat_reply=heartbeat_reply)
+    assert state_record.lookup() == (start_state, round_num)
+
     # old round? shouldn't affect me...
-    hb.round = 0
-    transit(st, hb)
-    assert st.lookup() == start_state
+    heartbeat_reply.round = 0
+    transit(state_record=state_record, heartbeat_reply=heartbeat_reply)
+    assert state_record.lookup() == (start_state, round_num)
+
     # NOTE a "future" round e.g. 7 would be unexpected under current assumptions
     # it should be preceded by a STANDBY to indicate nonselection for round 6
 
     # selected for next round
-    hb.round = 6
-    transit(st, hb)
-    assert st.lookup() == (ParState.TRAINING, 6)
+    heartbeat_reply.round = 6
+    transit(state_record=state_record, heartbeat_reply=heartbeat_reply)
+    assert state_record.lookup() == (ParState.TRAINING, 6)
+
     # should return immediately
-    assert st.wait_until_next_round() == ParState.TRAINING
+    assert state_record.wait_until_next_round() == ParState.TRAINING
 
 
-def test_posttraining_to_done():
-    st = StateRecord(state=ParState.POST_TRAINING, round=6)
-    hb = coordinator_pb2.HeartbeatReply(state=coordinator_pb2.FINISHED)
-    transit(st, hb)
-    assert st.lookup() == (ParState.DONE, 6)
+def test_posttraining_to_done() -> None:
+    """Test posttraining to done."""
+
+    state_record: StateRecord = StateRecord(state=ParState.POST_TRAINING, round=6)
+    heartbeat_reply: HeartbeatReply = HeartbeatReply(state=State.FINISHED)
+    transit(state_record=state_record, heartbeat_reply=heartbeat_reply)
+    assert state_record.lookup() == (ParState.DONE, 6)
     # should return immediately
-    assert st.wait_until_next_round() == ParState.DONE
+    assert state_record.wait_until_next_round() == ParState.DONE
 
 
-def test_posttraining_to_waiting():
-    st = StateRecord(state=ParState.POST_TRAINING, round=7)
-    hb = coordinator_pb2.HeartbeatReply(state=coordinator_pb2.STANDBY)
-    transit(st, hb)
-    assert st.lookup() == (ParState.WAITING_FOR_SELECTION, 7)
+def test_posttraining_to_waiting() -> None:
+    """Test posttraining to waiting."""
+
+    state_record: StateRecord = StateRecord(state=ParState.POST_TRAINING, round=7)
+    heartbeat_reply: HeartbeatReply = HeartbeatReply(state=State.STANDBY)
+    transit(state_record=state_record, heartbeat_reply=heartbeat_reply)
+    assert state_record.lookup() == (ParState.WAITING_FOR_SELECTION, 7)
     # should return immediately
-    assert st.wait_until_next_round() == ParState.WAITING_FOR_SELECTION
+    assert state_record.wait_until_next_round() == ParState.WAITING_FOR_SELECTION
 
 
-def test_restart_round():
+def test_restart_round() -> None:
+    """Test restart."""
+
     # participant has done its training for round 8
-    st = StateRecord(state=ParState.POST_TRAINING, round=8)
+    state_record: StateRecord = StateRecord(state=ParState.POST_TRAINING, round=8)
     # it's told to go into waiting
-    hb = coordinator_pb2.HeartbeatReply(state=coordinator_pb2.STANDBY)
-    transit(st, hb)
-    assert st.lookup() == (ParState.WAITING_FOR_SELECTION, 8)
+    heartbeat_reply: HeartbeatReply = HeartbeatReply(state=State.STANDBY)
+    transit(state_record=state_record, heartbeat_reply=heartbeat_reply)
+    assert state_record.lookup() == (ParState.WAITING_FOR_SELECTION, 8)
+
     # and back again to training...
-    hb.state = coordinator_pb2.ROUND
-    hb.round = 8  # but still in round 8!
+    heartbeat_reply.state = State.ROUND
+    heartbeat_reply.round = 8  # but still in round 8!
     # => interpret this as "round restarted" e.g. original theta was corrupt or something
-    transit(st, hb)
+    transit(state_record, heartbeat_reply)
     # => re-do the training...
-    assert st.lookup() == (ParState.TRAINING, 8)
+    assert state_record.lookup() == (ParState.TRAINING, 8)
