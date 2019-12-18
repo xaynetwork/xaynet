@@ -1,9 +1,9 @@
-name: Lint and test
+name: Lint and test (development)
 
 on:
   pull_request:
     branches:
-      - master
+      - development
 jobs:
   main:
     runs-on: ubuntu-18.04
@@ -20,7 +20,7 @@ jobs:
         uses: actions/cache@v1
         with:
           path: ~/.cache/pip
-          key: pip-${{ hashFiles('setup.py') }}
+          key: pip-dev-${{ hashFiles('setup.py') }}
 
       - name: Install dependencies
         run: |
