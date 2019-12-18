@@ -1,6 +1,6 @@
 import numpy as np
 
-from . import aggregate
+from xain_fl.fl.coordinator.aggregate import federated_averaging
 
 
 def test_federated_averaging():  # pylint: disable=too-many-locals
@@ -31,7 +31,7 @@ def test_federated_averaging():  # pylint: disable=too-many-locals
     weighting = np.ones((len(thetas)))
 
     # Execute
-    theta_actual = aggregate.federated_averaging(thetas, weighting)
+    theta_actual = federated_averaging(thetas, weighting)
 
     # Assert
     assert len(theta_actual) == len(theta_expected)
