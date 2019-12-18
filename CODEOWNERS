@@ -6,11 +6,6 @@
 ## CI config
 /.circleci/ @r-marques @tanertopal
 
-## Benchmarks
-/benchmarks/benchmark/ @danieljanes @tanertopal
-/benchmarks/generator/ @tanertopal
-/benchmarks/ops/ @tanertopal
-
 ## Protobufs
 /protobuf/ @r-marques
 
@@ -18,8 +13,4 @@
 /scripts/ @tanertopal @danieljanes
 
 ## Python packages
-/xain_fl/datasets/ @tanertopal
 /xain_fl/fl/ @danieljanes
-/xain_fl/grpc/ @r-marques @finiteprods
-/xain_fl/helpers/ @danieljanes @tanertopal
-/xain_fl/types/ @danieljanes @tanertopal
