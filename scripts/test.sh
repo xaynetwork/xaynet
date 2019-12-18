@@ -6,7 +6,7 @@
 clang_format() {
     local_ret=0
 
-    for f in ./protobuf/xain_fl/grpc/*.proto
+    for f in ./protobuf/xain_fl/cproto/*.proto
     do
         echo "Processing $f"
         clang-format -style="{Language: Proto, BasedOnStyle: Google}" $f | diff $f -
@@ -27,10 +27,7 @@ cd $DIR/../
 isort --check-only --indent=4 -rc setup.py conftest.py benchmarks examples xain_fl && echo "===> isort says: well done <===" &&
 
 # format code
-black --check --exclude "xain_fl/grpc/.*_pb2.*" setup.py conftest.py benchmarks examples xain_fl && echo "===> black says: well done <===" &&
-
-# check format of proto files
-clang_format && echo "===> clang-format says: well done <===" &&
+black --check --exclude "xain_fl/cproto/.*_pb2.*" setup.py conftest.py benchmarks examples xain_fl && echo "===> black says: well done <===" &&
 
 # lint
 pylint --rcfile=pylint.ini benchmarks examples xain_fl && echo "===> pylint says: well done <===" &&
