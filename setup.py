@@ -135,5 +135,5 @@ setup(
         "dev": dev_require + tests_require + docs_require,
     },
     cmdclass={"develop": CustomDevelopCommand},
-    entry_points={"console_scripts": ["coordinator=xain_fl.cproto.cli:main"]},
+    entry_points={"console_scripts": ["coordinator=xain_fl.cli:main"]},
 )
