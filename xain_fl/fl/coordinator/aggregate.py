@@ -85,7 +85,7 @@ def federated_averaging(thetas: List[Theta], weighting: np.ndarray) -> Theta:
     return theta_avg
 
 
-# TODO: decide how to continue with that
+# TODO: (XP-351) decide how to continue with that
 # class EvoAgg(Aggregator):
 #     """Experimental"""
 
