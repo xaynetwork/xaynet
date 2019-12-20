@@ -24,16 +24,16 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd $DIR/../
 
 # sort import
-isort --check-only --indent=4 -rc setup.py conftest.py benchmarks examples xain_fl && echo "===> isort says: well done <===" &&
+isort --check-only --indent=4 -rc setup.py conftest.py xain_fl && echo "===> isort says: well done <===" &&
 
 # format code
-black --check --exclude "xain_fl/cproto/.*_pb2.*" setup.py conftest.py benchmarks examples xain_fl && echo "===> black says: well done <===" &&
+black --check --exclude "xain_fl/cproto/.*_pb2.*" setup.py conftest.py xain_fl && echo "===> black says: well done <===" &&
 
 # lint
-pylint --rcfile=pylint.ini benchmarks examples xain_fl && echo "===> pylint says: well done <===" &&
+pylint --rcfile=pylint.ini xain_fl && echo "===> pylint says: well done <===" &&
 
 # type checks
-mypy benchmarks examples/* xain_fl && echo "===> mypy says: well done <===" &&
+mypy xain_fl && echo "===> mypy says: well done <===" &&
 
 # documentation checks
 (cd docs/ && SPHINXOPTS="-W" make docs) && echo "===> sphinx-build says: well done <===" &&

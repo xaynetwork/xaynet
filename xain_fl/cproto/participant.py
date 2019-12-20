@@ -13,8 +13,8 @@ import grpc
 from numproto import ndarray_to_proto, proto_to_ndarray
 
 from xain_fl.cproto import coordinator_pb2, coordinator_pb2_grpc
+from xain_fl.fl.types import History, Metrics, Theta
 from xain_fl.logger import get_logger
-from xain_fl.types import History, Metrics, Theta
 
 RETRY_TIMEOUT = 5
 HEARTBEAT_TIME = 10

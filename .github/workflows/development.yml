@@ -31,21 +31,20 @@ jobs:
       - name: black
         run: |
           black --check --exclude "xain_fl/cproto/.*_pb2.*" \
-          setup.py conftest.py benchmarks examples xain_fl
+          setup.py conftest.py xain_fl
 
       - name: isort
         run: |
-          isort --check-only --indent=4 -rc setup.py conftest.py benchmarks \
-          examples xain_fl
+          isort --check-only --indent=4 -rc setup.py conftest.py xain_fl
 
       - name: pylint
         run: |
-          pylint --rcfile=pylint.ini benchmarks examples xain_fl
+          pylint --rcfile=pylint.ini xain_fl
 
       - name: mypy
         continue-on-error: true
         run: |
-          mypy benchmarks examples/* xain_fl
+          mypy xain_fl
 
       - name: Sphinx check
         env:
