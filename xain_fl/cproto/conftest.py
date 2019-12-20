@@ -6,7 +6,7 @@ import pytest
 from xain_fl.coordinator.coordinator import Coordinator
 from xain_fl.coordinator.coordinator_grpc import CoordinatorGrpc
 from xain_fl.cproto import coordinator_pb2_grpc, hellonumproto_pb2_grpc
-from xain_fl.cproto.numproto_server import NumProtoServer
+from xain_fl.helloproto.numproto_server import NumProtoServer
 
 
 @pytest.fixture
