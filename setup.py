@@ -117,8 +117,7 @@ setup(
     long_description_content_type="text/markdown",
     url="https://github.com/xainag/xain-fl",
     author=[
-        "Daniel J. Beutel <daniel.beutel@xain.io>",
-        "Taner Topal <taner.topal@xain.io>",
+        "XAIN AG",
     ],
     author_email="services@xain.io",
     license="Apache License Version 2.0",
