@@ -111,23 +111,25 @@ def run_apidoc(_):
 
     apidoc.main(argv)
 
-    exclude_benchmark = ["../benchmarks/**_test.py"]
+    # TODO: (XP-350): Decide about benchmark documentation after moving benchmarks to
+    # separate repository
+    # exclude_benchmark = ["../benchmarks/**_test.py"]
 
-    argv_benchmark = [
-        "--doc-project",
-        "Code Reference Benchmarks",
-        "-M",
-        "-f",
-        "-d",
-        "3",
-        "--tocfile",
-        "index",
-        "-o",
-        "./_code_reference_benchmarks/",
-        "../benchmarks/",
-    ] + exclude_benchmark
+    # argv_benchmark = [
+    #     "--doc-project",
+    #     "Code Reference Benchmarks",
+    #     "-M",
+    #     "-f",
+    #     "-d",
+    #     "3",
+    #     "--tocfile",
+    #     "index",
+    #     "-o",
+    #     "./_code_reference_benchmarks/",
+    #     "../benchmarks/",
+    # ] + exclude_benchmark
 
-    apidoc.main(argv_benchmark)
+    # apidoc.main(argv_benchmark)
 
 
 def setup(app):
