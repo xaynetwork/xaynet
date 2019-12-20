@@ -1,5 +1,5 @@
+from xain_fl.coordinator.legacy_participant import ParState, StateRecord, transit
 from xain_fl.cproto import coordinator_pb2
-from xain_fl.cproto.participant import ParState, StateRecord, transit
 
 
 def test_from_start():

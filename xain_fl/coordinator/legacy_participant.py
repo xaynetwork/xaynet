@@ -1,8 +1,9 @@
 """Module implementing the networked Participant using gRPC.
 """
 
-# TODO: Currently, the participant is completely ignored in the mypy.ini, since the participant
-# will be removed anyways in XP-208.
+# TODO: this is an outdated version of the Participant state machine.
+# The updated version is being moved back here from `xain-sdk` as part of XP-241 (see updated DoD)
+# https://xainag.atlassian.net/browse/XP-241 , and this legacy participant will be removed
 
 import threading
 import time
