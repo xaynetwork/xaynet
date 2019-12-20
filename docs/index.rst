@@ -50,4 +50,3 @@ API Documentation
     :maxdepth: 1
 
     _code_reference_xain_fl/index
-    _code_reference_benchmarks/index
