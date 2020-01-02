@@ -9,5 +9,5 @@ jobs:
     runs-on: ubuntu-18.04
     steps:
       - name: logging
-        if: github.event.comment.body == "/run e2e"
+        if: github.event.comment.body == '/run e2e'
         run: echo "$GITHUB_REF"
