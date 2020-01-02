@@ -64,32 +64,32 @@ class CustomDevelopCommand(develop):
 # License comments according to `pip-licenses`
 
 install_requires = [
-    "typing-extensions~=3.7",  # PSF
-    "numpy~=1.15",  # BSD
-    "grpcio~=1.23",  # Apache License 2.0
-    "protobuf~=3.9",  # 3-Clause BSD License
-    "numproto~=0.3",  # Apache License 2.0
+    "typing-extensions==3.7.4.1",  # PSF
+    "numpy==1.15",  # BSD
+    "grpcio==1.23",  # Apache License 2.0
+    "protobuf==3.9",  # 3-Clause BSD License
+    "numproto==0.3",  # Apache License 2.0
     "requests==2.22.0",  # Apache 2.0  # TODO(XP-185) remove
     "structlog==19.2.0",  # Apache License 2.0
 ]
 
 dev_require = [
-    "grpcio-tools~=1.23",  # Apache License 2.0
-    "black==19.3b0",  # MIT
-    "mypy==0.720",  # MIT License
+    "grpcio-tools==1.23",  # Apache License 2.0
+    "black==19.10b0",  # MIT
+    "mypy==0.760",  # MIT License
     "pylint==2.3.1",  # GPL
-    "astroid<=2.2.5",  # LGPL
-    "isort==4.3.20",  # MIT
+    "astroid==2.2.5",  # LGPL
+    "isort==4.3.21",  # MIT
     "rope==0.14.0",  # GNU GPL
     "pip-licenses==1.15.2",  # MIT License
-    "mypy-protobuf==1.15",  # Apache License 2.0
+    "mypy-protobuf==1.16",  # Apache License 2.0
     "twine==2.0.0",  # Apache License 2.0
     "wheel==0.33.6",  # MIT
 ]
 
 tests_require = [
-    "pytest==4.6.2",  # MIT license
-    "pytest-cov==2.7.1",  # MIT
+    "pytest==5.3.2",  # MIT license
+    "pytest-cov==2.8.1",  # MIT
     "pytest-watch==4.2.0",  # MIT
 ]
 
