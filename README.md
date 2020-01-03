@@ -77,6 +77,39 @@ For more information about the CLI and its arguments, run:
 $ python xain_fl/cli.py --help
 ```
 
+### Run the Coordinator from a Docker image
+
+Development image
+---
+
+To run the coordinator's development image, first build the Docker image:
+
+```shell
+$ docker build -t xain-fl-dev -f dev.dockerfile .
+```
+
+Then run the image, mounting the directory as a Docker volume, and call the
+entrypoint:
+
+```shell
+$ docker run -v $(pwd):/app -v '/app/xain_fl.egg-info' xain-fl-dev coordinator
+```
+
+Release image
+---
+
+To run the coordinator's release image, first build it:
+
+```shell
+$ docker build -t xain-fl .
+```
+
+And then run it (this example assumes you'll want to use the default port):
+
+```shell
+$ docker run -p 50051:50051 xain-fl
+```
+
 ## Related Papers and Articles
 
 - [An introduction to XAIN’s GDPR-compliance Layer for Machine Learning](https://medium.com/xain/an-introduction-to-xains-gdpr-compliance-layer-for-machine-learning-f7c321b31b06)
