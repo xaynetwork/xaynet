@@ -6,11 +6,11 @@ from numpy import ndarray
 
 from xain_fl.coordinator.participants import Participants
 from xain_fl.coordinator.round import Round
-from xain_fl.cproto import coordinator_pb2
 from xain_fl.fl.coordinator.aggregate import Aggregator, FederatedAveragingAgg
 from xain_fl.fl.coordinator.controller import Controller, RandomController
 from xain_fl.logger import get_logger
 from xain_fl.tools.exceptions import InvalidRequestError, UnknownParticipantError
+from xain_proto.fl import coordinator_pb2
 
 logger = get_logger(__name__)
 
