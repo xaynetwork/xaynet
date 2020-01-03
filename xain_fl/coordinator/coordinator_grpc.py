@@ -1,4 +1,5 @@
 import grpc
+from xain_proto.fl import coordinator_pb2, coordinator_pb2_grpc
 
 from xain_fl.coordinator.coordinator import Coordinator
 from xain_fl.tools.exceptions import (
@@ -6,7 +7,6 @@ from xain_fl.tools.exceptions import (
     InvalidRequestError,
     UnknownParticipantError,
 )
-from xain_proto.fl import coordinator_pb2, coordinator_pb2_grpc
 
 
 class CoordinatorGrpc(coordinator_pb2_grpc.CoordinatorServicer):

@@ -1,9 +1,9 @@
 import grpc
 import numpy as np
 from numproto import ndarray_to_proto, proto_to_ndarray
+from xain_proto.fl import hellonumproto_pb2, hellonumproto_pb2_grpc
 
 from xain_fl.logger import get_logger
-from xain_proto.fl import hellonumproto_pb2, hellonumproto_pb2_grpc
 
 logger = get_logger(__name__)
 

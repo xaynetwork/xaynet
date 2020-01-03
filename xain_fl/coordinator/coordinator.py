@@ -3,6 +3,7 @@ from typing import Dict, List, Optional, Tuple
 from google.protobuf.internal.python_message import GeneratedProtocolMessageType
 from numproto import ndarray_to_proto, proto_to_ndarray
 from numpy import ndarray
+from xain_proto.fl import coordinator_pb2
 
 from xain_fl.coordinator.participants import Participants
 from xain_fl.coordinator.round import Round
@@ -10,7 +11,6 @@ from xain_fl.fl.coordinator.aggregate import Aggregator, FederatedAveragingAgg
 from xain_fl.fl.coordinator.controller import Controller, RandomController
 from xain_fl.logger import get_logger
 from xain_fl.tools.exceptions import InvalidRequestError, UnknownParticipantError
-from xain_proto.fl import coordinator_pb2
 
 logger = get_logger(__name__)
 
