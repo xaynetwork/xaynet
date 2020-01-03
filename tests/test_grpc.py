@@ -1,5 +1,5 @@
-# TODO: Once the old grpc participant is removed (XP-208), make sure to remove the
-# skipping of tests.
+# TODO: https://xainag.atlassian.net/browse/XP-241 will break this test
+# TODO: https://xainag.atlassian.net/browse/XP-373 will fix it again (please bear with us in the meantime)
 
 import sys
 import threading
@@ -14,6 +14,9 @@ from numproto import ndarray_to_proto, proto_to_ndarray
 from xain_fl.coordinator.coordinator import Coordinator
 from xain_fl.coordinator.coordinator_grpc import CoordinatorGrpc
 from xain_fl.coordinator.heartbeat import monitor_heartbeats
+
+# TODO: https://xainag.atlassian.net/browse/XP-373 will fix this below
+"""
 from xain_fl.coordinator.legacy_participant import (
     StateRecord,
     end_training,
@@ -21,6 +24,7 @@ from xain_fl.coordinator.legacy_participant import (
     rendezvous,
     start_training,
 )
+"""
 from xain_fl.coordinator.participants import Participants
 from xain_fl.cproto import (
     coordinator_pb2,
@@ -140,6 +144,8 @@ def test_monitor_heartbeats_remove_participant(_mock_sleep, _mock_event):
     assert participants.len() == 0
 
 
+# TODO: https://xainag.atlassian.net/browse/XP-373 will fix this below
+"""
 @mock.patch("threading.Event.is_set", side_effect=[False, False, True])
 @mock.patch("time.sleep", return_value=None)
 @mock.patch("xain_fl.cproto.coordinator_pb2.HeartbeatRequest")
@@ -152,8 +158,10 @@ def test_participant_heartbeat(mock_heartbeat_request, _mock_sleep, _mock_event)
 
     # check that the heartbeat is sent exactly twice
     mock_heartbeat_request.assert_has_calls([mock.call(), mock.call()])
+"""
 
-
+# TODO: https://xainag.atlassian.net/browse/XP-373 will fix this below
+"""
 @pytest.mark.skip("Skipping due to moving of the grpc participant as sdk to xain-sdk")
 @pytest.mark.integration
 def test_start_training(coordinator_service):
@@ -179,6 +187,7 @@ def test_start_training(coordinator_service):
     assert epochs == 5
     assert epoch_base == 2
     np.testing.assert_equal(weights, test_weights)
+"""
 
 
 @pytest.mark.integration
@@ -202,6 +211,8 @@ def test_start_training_failed_precondition(participant_stub, coordinator_servic
         assert reply.status_code == grpc.StatusCode.FAILED_PRECONDITION
 
 
+# TODO: https://xainag.atlassian.net/browse/XP-373 will fix this below
+"""
 @pytest.mark.skip("Skipping due to moving of the grpc participant as sdk to xain-sdk")
 @pytest.mark.integration
 def test_end_training(coordinator_service):
@@ -234,6 +245,7 @@ def test_end_training(coordinator_service):
     assert m.keys() == metrics.keys()
     for k, vals in metrics.items():
         np.testing.assert_allclose(m[k], vals)
+"""
 
 
 @pytest.mark.integration
