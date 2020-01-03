@@ -26,7 +26,7 @@ from xain_fl.coordinator.legacy_participant import (
 )
 """
 from xain_fl.coordinator.participants import Participants
-from xain_fl.cproto import (
+from xain_proto.fl import (
     coordinator_pb2,
     coordinator_pb2_grpc,
     hellonumproto_pb2,
@@ -148,7 +148,7 @@ def test_monitor_heartbeats_remove_participant(_mock_sleep, _mock_event):
 """
 @mock.patch("threading.Event.is_set", side_effect=[False, False, True])
 @mock.patch("time.sleep", return_value=None)
-@mock.patch("xain_fl.cproto.coordinator_pb2.HeartbeatRequest")
+@mock.patch("xain_proto.fl.coordinator_pb2.HeartbeatRequest")
 def test_participant_heartbeat(mock_heartbeat_request, _mock_sleep, _mock_event):
     channel = mock.MagicMock()
     terminate_event = threading.Event()

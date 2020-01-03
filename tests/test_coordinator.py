@@ -3,17 +3,12 @@ import pytest
 from numproto import proto_to_ndarray
 
 from xain_fl.coordinator.coordinator import Coordinator
-from xain_fl.cproto import coordinator_pb2
-from xain_fl.cproto.coordinator_pb2 import (
-    RendezvousReply,
-    RendezvousRequest,
-    RendezvousResponse,
-)
-from xain_fl.tools.exceptions import (
-    DuplicatedUpdateError,
-    InvalidRequestError,
-    UnknownParticipantError,
-)
+from xain_fl.tools.exceptions import (DuplicatedUpdateError,
+                                      InvalidRequestError,
+                                      UnknownParticipantError)
+from xain_proto.fl import coordinator_pb2
+from xain_proto.fl.coordinator_pb2 import (RendezvousReply, RendezvousRequest,
+                                           RendezvousResponse)
 
 
 def test_rendezvous_accept():
