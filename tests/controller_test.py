@@ -13,10 +13,8 @@ def test_random_controller():
         np.ceil(fraction * len(participant_ids)) for fraction in fractions
     ]
     for fraction, expected_length in zip(fractions, expected_lengths):
-        controller = RandomController(
-            participant_ids, fraction_of_participants=fraction
-        )
-        ids = controller.select_ids()
+        controller = RandomController(fraction_of_participants=fraction)
+        ids = controller.select_ids(participant_ids)
         set_ids = set(ids)
 
         # check that length of set_ids is as expected

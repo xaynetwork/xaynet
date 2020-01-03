@@ -76,7 +76,7 @@ class Coordinator:
     # pylint: disable-msg=dangerous-default-value
 
     DEFAULT_AGGREGATOR: Aggregator = FederatedAveragingAgg()
-    DEFAULT_CONTROLLER: Controller = RandomController(participant_ids=[])
+    DEFAULT_CONTROLLER: Controller = RandomController()
 
     def __init__(
         self,
@@ -187,13 +187,10 @@ class Coordinator:
             self.state = coordinator_pb2.State.STANDBY
 
     def select_participant_ids_and_init_round(self) -> None:
-        """Initiates the Controller, selects ids and initiates a Round.
+        """Selects the participant ids and initiates a Round.
         """
-        self.controller = RandomController(
-            participant_ids=self.participants.ids(),
-            fraction_of_participants=self.fraction_of_participants,
-        )
-        selected_ids = self.controller.select_ids()
+        self.controller.fraction_of_participants = self.fraction_of_participants
+        selected_ids = self.controller.select_ids(self.participants.ids())
         self.round = Round(selected_ids)
 
     def _handle_rendezvous(
