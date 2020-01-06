@@ -3,12 +3,12 @@ import time
 from concurrent import futures
 
 import grpc
+from xain_proto.fl import coordinator_pb2_grpc
 
 from xain_fl.coordinator import _ONE_DAY_IN_SECONDS
 from xain_fl.coordinator.coordinator import Coordinator
 from xain_fl.coordinator.coordinator_grpc import CoordinatorGrpc
 from xain_fl.coordinator.heartbeat import monitor_heartbeats
-from xain_fl.cproto import coordinator_pb2_grpc
 from xain_fl.logger import get_logger
 
 logger = get_logger(__name__)
