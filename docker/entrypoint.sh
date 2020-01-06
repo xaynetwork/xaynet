@@ -7,7 +7,6 @@ set -o nounset
 
 if [ $# -eq 0 ]; then
     exec coordinator -f test_array.npy --host ${HOST} --port ${PORT}
-    else
-        exec coordinator "$@"
-    esle
+else
+    exec coordinator "$@"
 fi
