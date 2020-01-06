@@ -4,7 +4,6 @@ RUN apk update && apk add python3-dev build-base
 
 WORKDIR /app
 COPY setup.py .
-COPY protobuf protobuf/
 COPY xain_fl xain_fl/
 COPY README.md .
 
