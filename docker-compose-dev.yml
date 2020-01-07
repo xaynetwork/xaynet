@@ -1,0 +1,40 @@
+version: "3.7"
+services:
+
+  minio:
+    image: minio/minio # Stable minio
+    volumes:
+      - minio-data:/data
+    networks:
+      - xain-fl
+    environment:
+      MINIO_ACCESS_KEY: minio
+      MINIO_SECRET_KEY: minio123
+    command: server /data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    ports:
+      - "9000:9000"
+
+  xain-fl:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    command: coordinator -f test_array.npy
+    volumes:
+      - '.:/app'
+      #  don't use the local egg-info, if one exists
+      - '/app/xain_fl.egg-info'
+    networks:
+      - xain-fl
+    ports:
+    - "50051:50051"
+
+volumes:
+  minio-data:
+
+networks:
+  xain-fl:
