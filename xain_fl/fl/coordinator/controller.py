@@ -19,6 +19,14 @@ class Controller(ABC):
     """
 
     def __init__(self, fraction_of_participants: float = 1.0) -> None:
+        """[summary]
+
+        [extended_summary]
+
+        Args:
+            fraction_of_participants (float): [description]. Defaults to 1.0.
+        """
+
         self.fraction_of_participants: float = fraction_of_participants
 
     def get_num_ids_to_select(self, len_participant_ids: int) -> int:
@@ -51,6 +59,14 @@ class Controller(ABC):
 
 
 class RandomController(Controller):
+    """[summary]
+
+    [extended_summary]
+
+    Args:
+        Controller ([type]): [description]
+    """
+
     def select_ids(self, participant_ids: List[str]) -> List[str]:
         """Randomly samples self.num_ids_to_select from the population of participants_ids,
         without replacement.
@@ -62,5 +78,6 @@ class RandomController(Controller):
         Returns:
             :obj:`list` of :obj:`str`: List of selected participant IDs
         """
+
         num_ids_to_select = self.get_num_ids_to_select(len(participant_ids))
         return np.random.choice(participant_ids, size=num_ids_to_select, replace=False)

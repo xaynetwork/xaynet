@@ -1,3 +1,5 @@
+"""XAIN FL gRPC Coordinator"""
+
 import grpc
 from xain_proto.fl import coordinator_pb2, coordinator_pb2_grpc
 
@@ -80,9 +82,7 @@ class CoordinatorGrpc(coordinator_pb2_grpc.CoordinatorServicer):
             return coordinator_pb2.HeartbeatReply()
 
     def StartTraining(
-        self,
-        request: coordinator_pb2.StartTrainingRequest,
-        context: grpc.ServicerContext,
+        self, request: coordinator_pb2.StartTrainingRequest, context: grpc.ServicerContext,
     ) -> coordinator_pb2.StartTrainingReply:
         """The StartTraining gRPC method.
 

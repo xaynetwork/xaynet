@@ -7,18 +7,21 @@ from typing import List, Tuple
 import numpy as np
 
 from xain_fl.fl.types import Theta
-from xain_fl.logger import get_logger
+from xain_fl.logger import get_logger, StructLogger
 
-logger = get_logger(__name__)
+logger: StructLogger = get_logger(__name__)
 
 
-class Aggregator(ABC):
+class Aggregator(ABC):  # pylint: disable=too-few-public-methods
     """Abstract base class which provides an interface to the coordinator that
     enables different aggregation implementations.
     """
 
     def __init__(self):
-        pass
+        """[summary]
+
+        [extended_summary]
+        """
 
     @abstractmethod
     def aggregate(self, thetas: List[Tuple[Theta, int]]) -> Theta:
@@ -34,7 +37,7 @@ class Aggregator(ABC):
         raise NotImplementedError()
 
 
-class IdentityAgg(Aggregator):
+class IdentityAgg(Aggregator):  # pylint: disable=too-few-public-methods
     """Provides identity aggregation, i.e. the aggregate method expects
     a list containing a single element and returns that element.
     """
@@ -45,7 +48,7 @@ class IdentityAgg(Aggregator):
         return thetas[0][0]
 
 
-class FederatedAveragingAgg(Aggregator):
+class FederatedAveragingAgg(Aggregator):  # pylint: disable=too-few-public-methods
     """Provides federated averaging aggregation, i.e. a weighted average."""
 
     def aggregate(self, thetas: List[Tuple[Theta, int]]) -> Theta:
@@ -70,17 +73,17 @@ def federated_averaging(thetas: List[Theta], weighting: np.ndarray) -> Theta:
     assert len(thetas) == weighting.shape[0]
 
     theta_avg: Theta = thetas[0]
-    for w in theta_avg:
-        w *= weighting[0]
+    for weights in theta_avg:
+        weights *= weighting[0]
 
     # Aggregate (weighted) updates
     for theta, update_weighting in zip(thetas[1:], weighting[1:]):
-        for w_index, w in enumerate(theta):
-            theta_avg[w_index] += update_weighting * w
+        for w_index, weights in enumerate(theta):
+            theta_avg[w_index] += update_weighting * weights
 
     weighting_sum = np.sum(weighting)
-    for w in theta_avg:
-        w /= weighting_sum
+    for weights in theta_avg:
+        weights /= weighting_sum
 
     return theta_avg
 

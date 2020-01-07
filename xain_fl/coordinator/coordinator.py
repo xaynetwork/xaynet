@@ -1,3 +1,5 @@
+"""XAIN FL Coordinator"""
+
 from typing import Dict, List, Optional, Tuple
 
 from google.protobuf.internal.python_message import GeneratedProtocolMessageType
@@ -9,14 +11,14 @@ from xain_fl.coordinator.participants import Participants
 from xain_fl.coordinator.round import Round
 from xain_fl.fl.coordinator.aggregate import Aggregator, FederatedAveragingAgg
 from xain_fl.fl.coordinator.controller import Controller, RandomController
-from xain_fl.logger import get_logger
+from xain_fl.logger import StructLogger, get_logger
 from xain_fl.tools.exceptions import InvalidRequestError, UnknownParticipantError
 
-logger = get_logger(__name__)
+logger: StructLogger = get_logger(__name__)
 
 
 # TODO: raise exceptions for invalid attribute values: https://xainag.atlassian.net/browse/XP-387
-class Coordinator:
+class Coordinator:  # pylint: disable=too-many-instance-attributes
     """Class implementing the main Coordinator logic. It is implemented as a
     state machine that reacts to received messages.
 
@@ -74,18 +76,15 @@ class Coordinator:
             are selected at the start of each round. Defaults to :class:`~.RandomController`.
         """
 
-    # pylint: disable-msg=too-many-instance-attributes
-    # pylint: disable-msg=dangerous-default-value
-
     DEFAULT_AGGREGATOR: Aggregator = FederatedAveragingAgg()
     DEFAULT_CONTROLLER: Controller = RandomController()
 
-    def __init__(
+    def __init__(  # pylint: disable=too-many-arguments,dangerous-default-value
         self,
         num_rounds: int = 1,
         minimum_participants_in_round: int = 1,
         fraction_of_participants: float = 1.0,
-        weights: List[ndarray] = [],
+        weights: List[ndarray] = [],  # TODO: change to non-dangerous default value
         epochs: int = 1,
         epoch_base: int = 0,
         aggregator: Optional[Aggregator] = None,
@@ -152,25 +151,23 @@ class Coordinator:
                 "Please try to rendezvous with the coordinator before making a request."
             )
 
-        # pylint: disable-msg=no-else-return
         if isinstance(message, coordinator_pb2.RendezvousRequest):
             # Handle rendezvous
             return self._handle_rendezvous(message, participant_id)
 
-        elif isinstance(message, coordinator_pb2.HeartbeatRequest):
+        if isinstance(message, coordinator_pb2.HeartbeatRequest):
             # Handle heartbeat
             return self._handle_heartbeat(message, participant_id)
 
-        elif isinstance(message, coordinator_pb2.StartTrainingRequest):
+        if isinstance(message, coordinator_pb2.StartTrainingRequest):
             # handle start training
             return self._handle_start_training(message, participant_id)
 
-        elif isinstance(message, coordinator_pb2.EndTrainingRequest):
+        if isinstance(message, coordinator_pb2.EndTrainingRequest):
             # handle end training
             return self._handle_end_training(message, participant_id)
 
-        else:
-            raise NotImplementedError
+        raise NotImplementedError
 
     def remove_participant(self, participant_id: str) -> None:
         """Remove a participant from the list of accepted participants.
@@ -224,9 +221,7 @@ class Coordinator:
 
                 # TODO: We may need to make this update thread safe
                 self.state = coordinator_pb2.State.ROUND
-                self.current_round = (
-                    1 if self.current_round == 0 else self.current_round
-                )
+                self.current_round = 1 if self.current_round == 0 else self.current_round
         else:
             response = coordinator_pb2.RendezvousResponse.LATER
             logger.info(
@@ -279,8 +274,7 @@ class Coordinator:
         participant_not_selected = participant_id not in self.round.participant_ids
         if coordinator_not_in_a_round or participant_not_selected:
             raise InvalidRequestError(
-                f"Participant {participant_id} sent a "
-                "StartTrainingRequest outside of a round"
+                f"Participant {participant_id} sent a " "StartTrainingRequest outside of a round"
             )
 
         weights_proto = [ndarray_to_proto(nda) for nda in self.weights]
@@ -315,16 +309,13 @@ class Coordinator:
             number_samples,
         )
         metrics: Dict[str, List[ndarray]] = {
-            k: [proto_to_ndarray(v) for v in mv.metrics]
-            for k, mv in metrics_proto.items()
+            k: [proto_to_ndarray(v) for v in mv.metrics] for k, mv in metrics_proto.items()
         }
         self.round.add_updates(participant_id, weight_update, metrics)
 
         # The round is over. Run the aggregation
         if self.round.is_finished():
-            logger.info(
-                "Running aggregation for round", current_round=self.current_round
-            )
+            logger.info("Running aggregation for round", current_round=self.current_round)
 
             self.weights = self.aggregator.aggregate(self.round.get_weight_updates())
 

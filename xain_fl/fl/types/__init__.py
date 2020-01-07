@@ -1,3 +1,5 @@
+"""XAIN FL types"""
+
 from typing import Dict, List, Tuple
 
 from numpy import ndarray

@@ -1,3 +1,6 @@
+"""XAIN FL exceptions"""
+
+
 class DuplicatedUpdateError(Exception):
     """Exception raised when the same participant tries to submit multiple
     updates to the :class:`xain_fl.coordinator.coordinator.Coordinator` in the same :class:`~.Round`
