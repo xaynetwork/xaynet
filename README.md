@@ -10,7 +10,7 @@ The XAIN project is building a privacy layer for machine learning so that AI pro
 GDPR and CCPA. The approach relies on Federated Learning as enabling technology that allows production AI
 applications to be fully privacy compliant.
 
-Federated Learning also enables different use-cases that are not strictly privacy related such as connecting data 
+Federated Learning also enables different use-cases that are not strictly privacy related such as connecting data
 lakes, reaching higher model performance in unbalanced datasets and utilising AI models on the edge.
 
 This repository contains the source code for running the Coordinator. The Coordinator is the component of Federated
@@ -28,21 +28,24 @@ $ python -m pip install xain-fl
 
 ## Install from source
 
-To clone this repository and to install the XAIN-FL project, please execute the following commands:
+Clone this repository:
 
 ```shell
-$ git clone https://github.com/xainag/xain-fl.git
-$ cd xain-fl
-
-$ sh scripts/setup.sh
+git clone https://github.com/xainag/xain-fl.git
 ```
 
-### Verify Installation
-
-You can verify the installation by running the tests
+Install this project with the `dev` profile (**NOTE**: it is
+recommended to install the project in a virtual environment):
 
 ```shell
-$ pytest
+cd xain-fl
+pip install -e '.[dev]'
+```
+
+Verify the installation by running the tests
+
+```shell
+pytest
 ```
 
 ### Building the Documentation
