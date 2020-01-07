@@ -1,3 +1,5 @@
+"""XAIN FL Participants"""
+
 import threading
 import time
 from typing import Dict, List
@@ -5,7 +7,7 @@ from typing import Dict, List
 from xain_fl.coordinator import HEARTBEAT_TIME, HEARTBEAT_TIMEOUT
 
 
-class ParticipantContext:
+class ParticipantContext:  # pylint: disable=too-few-public-methods
     """Class to store state about each participant. Currently it only stores the `participant_id`
     and the time when the next heartbeat_expires.
 

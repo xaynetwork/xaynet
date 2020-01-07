@@ -1,11 +1,11 @@
+"""XAIN FL structured logger"""
+
 import logging
 from typing import Any
 
 import structlog
 
-StructLogger = (
-    structlog._config.BoundLoggerLazyProxy  # pylint: disable=protected-access
-)
+StructLogger = structlog._config.BoundLoggerLazyProxy  # pylint: disable=protected-access
 
 
 def get_logger(
@@ -20,15 +20,11 @@ def get_logger(
     """
     AIMETRICS = 25  # pylint: disable=invalid-name
     structlog.stdlib.AIMETRICS = AIMETRICS
-    structlog.stdlib._NAME_TO_LEVEL[  # pylint: disable=protected-access
-        "aimetrics"
-    ] = AIMETRICS
-    structlog.stdlib._LEVEL_TO_NAME[  # pylint: disable=protected-access
-        AIMETRICS
-    ] = "aimetrics"
+    structlog.stdlib._NAME_TO_LEVEL["aimetrics"] = AIMETRICS  # pylint: disable=protected-access
+    structlog.stdlib._LEVEL_TO_NAME[AIMETRICS] = "aimetrics"  # pylint: disable=protected-access
     logging.addLevelName(AIMETRICS, "aimetrics")
 
-    def aimetrics(self, msg: str, *args, **kw) -> Any:  # type: ignore
+    def aimetrics(self, msg: str, *args: Any, **kw: Any) -> Any:
         return self.log(AIMETRICS, msg, *args, **kw)
 
     structlog.stdlib._FixedFindCallerLogger.aimetrics = (  # pylint: disable=protected-access

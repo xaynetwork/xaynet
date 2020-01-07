@@ -30,7 +30,7 @@ jobs:
 
       - name: black
         run: |
-          black --check setup.py conftest.py xain_fl
+          black --line-length 100 --check setup.py conftest.py xain_fl
 
       - name: isort
         run: |
@@ -38,7 +38,7 @@ jobs:
 
       - name: pylint
         run: |
-          pylint --rcfile=pylint.ini xain_fl
+          pylint --rcfile=.pylintrc xain_fl
 
       - name: mypy
         continue-on-error: true

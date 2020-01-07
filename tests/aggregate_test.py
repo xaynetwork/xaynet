@@ -1,9 +1,16 @@
+"""XAIN FL tests for coordinator aggregation"""
+
 import numpy as np
 
 from xain_fl.fl.coordinator.aggregate import federated_averaging
 
 
 def test_federated_averaging():  # pylint: disable=too-many-locals
+    """[summary]
+
+    [extended_summary]
+    """
+
     # Prepare:
     # - Three weight updates (u0, u1, u2)
     # - One layer in the model
@@ -11,17 +18,17 @@ def test_federated_averaging():  # pylint: disable=too-many-locals
 
     u0_l1_w0 = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
     u0_l1_w1 = np.ones((2))
-    u0 = [u0_l1_w0, u0_l1_w1]
+    u0_ = [u0_l1_w0, u0_l1_w1]
 
     u1_l1_w0 = np.array([[2.0, 3.0, 1.0], [4.0, 5.0, 6.0]])
     u1_l1_w1 = np.ones((2))
-    u1 = [u1_l1_w0, u1_l1_w1]
+    u1_ = [u1_l1_w0, u1_l1_w1]
 
     u2_l1_w0 = np.array([[3.0, 1.0, 2.0], [4.0, 5.0, 6.0]])
     u2_l1_w1 = np.ones((2))
-    u2 = [u2_l1_w0, u2_l1_w1]
+    u2_ = [u2_l1_w0, u2_l1_w1]
 
-    thetas = [u0, u1, u2]
+    thetas = [u0_, u1_, u2_]
 
     theta_expected = [
         np.array([[2.0, 2.0, 2.0], [4.0, 5.0, 6.0]]),

@@ -12,34 +12,75 @@ from xain_fl.serve import serve
 
 
 def type_num_rounds(value):
+    """[summary]
+
+    [extended_summary]
+
+    Args:
+        value ([type]): [description]
+
+    Returns:
+        [type]: [description]
+
+    Raises:
+        ~argparse.ArgumentTypeError: [description]
+        ~argparse.ArgumentTypeError: [description]
+    """
+
     ivalue = int(value)
 
     if ivalue <= 0:
         raise argparse.ArgumentTypeError("%s is an invalid positive int value" % value)
 
     if ivalue > 1_000:
-        raise argparse.ArgumentTypeError(
-            "%s More than 1_000 rounds is not supported" % value
-        )
+        raise argparse.ArgumentTypeError("%s More than 1_000 rounds is not supported" % value)
 
     return ivalue
 
 
 def type_num_epochs(value):
+    """[summary]
+
+    [extended_summary]
+
+    Args:
+        value ([type]): [description]
+
+    Returns:
+        [type]: [description]
+
+    Raises:
+        ~argparse.ArgumentTypeError: [description]
+        ~argparse.ArgumentTypeError: [description]
+    """
+
     ivalue = int(value)
 
     if ivalue <= 0:
         raise argparse.ArgumentTypeError("%s is an invalid positive int value" % value)
 
     if ivalue > 10_000:
-        raise argparse.ArgumentTypeError(
-            "%s More than 10_000 epochs is not supported" % value
-        )
+        raise argparse.ArgumentTypeError("%s More than 10_000 epochs is not supported" % value)
 
     return ivalue
 
 
 def type_min_num_participants_in_round(value):
+    """[summary]
+
+    [extended_summary]
+
+    Args:
+        value ([type]): [description]
+
+    Returns:
+        [type]: [description]
+
+    Raises:
+        ~argparse.ArgumentTypeError: [description]
+        ~argparse.ArgumentTypeError: [description]
+    """
+
     ivalue = int(value)
 
     if ivalue <= 0:
@@ -54,12 +95,25 @@ def type_min_num_participants_in_round(value):
 
 
 def type_fraction(value):
+    """[summary]
+
+    [extended_summary]
+
+    Args:
+        value ([type]): [description]
+
+    Returns:
+        [type]: [description]
+
+    Raises:
+        ~argparse.ArgumentTypeError: [description]
+        ~argparse.ArgumentTypeError: [description]
+    """
+
     ivalue = float(value)
 
     if ivalue <= 0:
-        raise argparse.ArgumentTypeError(
-            "%s is an invalid positive float value" % value
-        )
+        raise argparse.ArgumentTypeError("%s is an invalid positive float value" % value)
 
     if ivalue > 1:
         raise argparse.ArgumentTypeError(
@@ -70,6 +124,14 @@ def type_fraction(value):
 
 
 def get_cmd_parameters():
+    """[summary]
+
+    [extended_summary]
+
+    Returns:
+        [type]: [description]
+    """
+
     # Allow various parameters to be passed via the commandline
     parser = argparse.ArgumentParser(description="Coordinator CLI")
 
@@ -120,6 +182,11 @@ def get_cmd_parameters():
 
 
 def main():
+    """[summary]
+
+    [extended_summary]
+    """
+
     parameters = get_cmd_parameters()
 
     coordinator = Coordinator(

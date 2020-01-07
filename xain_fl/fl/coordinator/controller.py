@@ -19,9 +19,16 @@ class Controller(ABC):
             all participant ids will be selected.
     """
 
-    def __init__(
-        self, participant_ids: List[str], fraction_of_participants: float = 1.0
-    ) -> None:
+    def __init__(self, participant_ids: List[str], fraction_of_participants: float = 1.0) -> None:
+        """[summary]
+
+        [extended_summary]
+
+        Args:
+            participant_ids (~typing.List[str]): [description]
+            fraction_of_participants (float): [description]. Defaults to 1.0.
+        """
+
         self.participant_ids: List[str] = participant_ids
         self.fraction_of_participants: float = fraction_of_participants
         self.num_ids_to_select: int = self.get_num_ids_to_select()
@@ -32,9 +39,7 @@ class Controller(ABC):
         Returns:
             :obj:`int`: Number of participant ids to be selected
         """
-        raw_num_ids_to_select = (
-            len(self.participant_ids) * self.fraction_of_participants
-        )
+        raw_num_ids_to_select = len(self.participant_ids) * self.fraction_of_participants
         max_valid_value = max(1, np.ceil(raw_num_ids_to_select))
         minimum_valid_value = min(len(self.participant_ids), max_valid_value)
         return int(minimum_valid_value)
@@ -50,6 +55,11 @@ class Controller(ABC):
 
 
 class RandomController(Controller):
+    """[summary]
+
+    [extended_summary]
+    """
+
     def select_ids(self) -> List[str]:
         """Randomly samples self.num_ids_to_select from the population of participants_ids,
         without replacement.
@@ -57,6 +67,4 @@ class RandomController(Controller):
         Returns:
             :obj:`list` of :obj:`str`: List of selected participant ID's
         """
-        return np.random.choice(
-            self.participant_ids, size=self.num_ids_to_select, replace=False
-        )
+        return np.random.choice(self.participant_ids, size=self.num_ids_to_select, replace=False)
