@@ -41,11 +41,11 @@ class Controller(ABC):
         """Returns the selected indices of next round.
 
         Args:
-            participant_ids (:obj:`list` of :obj:`str`): The list of IDs of the
-                all the available participants, a subset of which will be selected.
+            participant_ids (:obj:`list` of :obj:`str`): The list of IDs of all the
+                available participants, a subset of which will be selected.
 
         Returns:
-            :obj:`list` of :obj:`str`: List of selected participant ID's
+            :obj:`list` of :obj:`str`: List of selected participant IDs
         """
         raise NotImplementedError("not implemented")
 
@@ -56,11 +56,11 @@ class RandomController(Controller):
         without replacement.
 
         Args:
-            participant_ids (:obj:`list` of :obj:`str`): The list of IDs of the
-                all the available participants, a subset of which will be selected.
+            participant_ids (:obj:`list` of :obj:`str`): The list of IDs of all the
+                available participants, a subset of which will be selected.
 
         Returns:
-            :obj:`list` of :obj:`str`: List of selected participant ID's
+            :obj:`list` of :obj:`str`: List of selected participant IDs
         """
         num_ids_to_select = self.get_num_ids_to_select(participant_ids)
         return np.random.choice(participant_ids, size=num_ids_to_select, replace=False)
