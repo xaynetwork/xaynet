@@ -7,6 +7,7 @@ from typing import List
 import numpy as np
 
 
+# TODO: raise exceptions for invalid attribute values: https://xainag.atlassian.net/browse/XP-387
 class Controller(ABC):
     """Abstract base class which provides an interface to the coordinator that
     enables different selection strategies.
@@ -14,7 +15,7 @@ class Controller(ABC):
     Attributes:
         fraction_of_participants (:obj:`float`, optional): The fraction of total
             participant ids to be selected. Defaults to 1.0, meaning that
-            all participant ids will be selected.
+            all participant ids will be selected. It must be in the (0.0, 1.0] interval.
     """
 
     def __init__(self, fraction_of_participants: float = 1.0) -> None:

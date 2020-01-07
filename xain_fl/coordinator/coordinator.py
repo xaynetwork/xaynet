@@ -15,6 +15,7 @@ from xain_fl.tools.exceptions import InvalidRequestError, UnknownParticipantErro
 logger = get_logger(__name__)
 
 
+# TODO: raise exceptions for invalid attribute values: https://xainag.atlassian.net/browse/XP-387
 class Coordinator:
     """Class implementing the main Coordinator logic. It is implemented as a
     state machine that reacts to received messages.
@@ -60,6 +61,7 @@ class Coordinator:
         fraction_of_participants (:obj:`float`, optional): The fraction of total
             connected participants to be selected in a single round. Defaults to 1.0,
             meaning that all connected participants will be selected.
+            It must be in the (0.0, 1.0] interval.
         weights (:obj:`list` of :class:`~numpy.ndarray`, optional): The weights of
             the global model. Defaults to [].
         epochs (:obj:`int`, optional): Number of training iterations local to
