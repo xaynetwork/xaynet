@@ -1,12 +1,12 @@
 version: "3.7"
 services:
 
-  minio:
+  minio-dev:
     image: minio/minio # Stable minio
     volumes:
       - minio-data:/data
     networks:
-      - xain-fl
+      - xain-fl-dev
     environment:
       MINIO_ACCESS_KEY: minio
       MINIO_SECRET_KEY: minio123
@@ -19,17 +19,20 @@ services:
     ports:
       - "9000:9000"
 
-  xain-fl:
+  xain-fl-dev:
     build:
       context: .
       dockerfile: Dockerfile.dev
     command: coordinator -f test_array.npy
     volumes:
-      - '.:/app'
       #  don't use the local egg-info, if one exists
-      - '/app/xain_fl.egg-info'
+      - /app/xain_fl.egg-info
+      - ./xain_fl:/app/xain_fl
+      - ${PWD}/setup.py:/app/setup.py
+      - ${PWD}/README.md:/app/README.md
+      - ${PWD}/test_array.npy:/app/test_array.npy
     networks:
-      - xain-fl
+      - xain-fl-dev
     ports:
     - "50051:50051"
 
@@ -37,4 +40,4 @@ volumes:
   minio-data:
 
 networks:
-  xain-fl:
+  xain-fl-dev:
