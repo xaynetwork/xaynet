@@ -30,11 +30,11 @@ jobs:
 
       - name: black
         run: |
-          black --check setup.py conftest.py xain_fl
+          black --check setup.py xain_fl
 
       - name: isort
         run: |
-          isort --check-only --indent=4 -rc setup.py conftest.py xain_fl
+          isort --check-only --indent=4 -rc setup.py xain_fl
 
       - name: pylint
         run: |
