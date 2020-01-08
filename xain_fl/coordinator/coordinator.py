@@ -15,6 +15,7 @@ from xain_fl.tools.exceptions import InvalidRequestError, UnknownParticipantErro
 logger = get_logger(__name__)
 
 
+# TODO: raise exceptions for invalid attribute values: https://xainag.atlassian.net/browse/XP-387
 class Coordinator:
     """Class implementing the main Coordinator logic. It is implemented as a
     state machine that reacts to received messages.
@@ -60,6 +61,7 @@ class Coordinator:
         fraction_of_participants (:obj:`float`, optional): The fraction of total
             connected participants to be selected in a single round. Defaults to 1.0,
             meaning that all connected participants will be selected.
+            It must be in the (0.0, 1.0] interval.
         weights (:obj:`list` of :class:`~numpy.ndarray`, optional): The weights of
             the global model. Defaults to [].
         epochs (:obj:`int`, optional): Number of training iterations local to
@@ -76,7 +78,7 @@ class Coordinator:
     # pylint: disable-msg=dangerous-default-value
 
     DEFAULT_AGGREGATOR: Aggregator = FederatedAveragingAgg()
-    DEFAULT_CONTROLLER: Controller = RandomController(participant_ids=[])
+    DEFAULT_CONTROLLER: Controller = RandomController()
 
     def __init__(
         self,
@@ -187,13 +189,10 @@ class Coordinator:
             self.state = coordinator_pb2.State.STANDBY
 
     def select_participant_ids_and_init_round(self) -> None:
-        """Initiates the Controller, selects ids and initiates a Round.
+        """Selects the participant ids and initiates a Round.
         """
-        self.controller = RandomController(
-            participant_ids=self.participants.ids(),
-            fraction_of_participants=self.fraction_of_participants,
-        )
-        selected_ids = self.controller.select_ids()
+        self.controller.fraction_of_participants = self.fraction_of_participants
+        selected_ids = self.controller.select_ids(self.participants.ids())
         self.round = Round(selected_ids)
 
     def _handle_rendezvous(
