@@ -1,7 +1,7 @@
 """XAIN FL numproto server"""
 
-import time
 from concurrent import futures
+import time
 
 import grpc
 from numproto import ndarray_to_proto, proto_to_ndarray

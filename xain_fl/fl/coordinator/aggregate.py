@@ -7,7 +7,7 @@ from typing import List, Tuple
 import numpy as np
 
 from xain_fl.fl.types import Theta
-from xain_fl.logger import get_logger, StructLogger
+from xain_fl.logger import StructLogger, get_logger
 
 logger: StructLogger = get_logger(__name__)
 
