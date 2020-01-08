@@ -1,6 +1,6 @@
-"""Provides an abstract base class Controller and multiple sub-classes
-such as CycleRandomController.
-"""
+"""Provides an abstract base class Controller and the RandomController
+currently used by the Coordinator."""
+
 from abc import ABC, abstractmethod
 from typing import List
 
@@ -14,26 +14,26 @@ class Controller(ABC):
 
     Attributes:
         fraction_of_participants (:obj:`float`, optional): The fraction of total
-            participant ids to be selected. Defaults to 1.0, meaning that
-            all participant ids will be selected. It must be in the (0.0, 1.0] interval.
+            participant IDs to be selected. Defaults to 1.0, meaning that
+            all participant IDs will be selected. It must be in the (0.0, 1.0] interval.
     """
 
     def __init__(self, fraction_of_participants: float = 1.0) -> None:
         self.fraction_of_participants: float = fraction_of_participants
 
-    def get_num_ids_to_select(self, participant_ids: List[str]) -> int:
-        """Calculates how many participant ids need to be selected.
+    def get_num_ids_to_select(self, len_participant_ids: int) -> int:
+        """Calculates how many participant IDs need to be selected.
 
         Args:
-            participant_ids (:obj:`list` of :obj:`str`): The list of IDs of the
-                all the available participants, to calculate its length.
+            len_participant_ids (:obj:`int`): The length of the list of IDs of all the
+                available participants.
 
         Returns:
-            :obj:`int`: Number of participant ids to be selected
+            :obj:`int`: Number of participant IDs to be selected
         """
-        raw_num_ids_to_select = len(participant_ids) * self.fraction_of_participants
+        raw_num_ids_to_select = len_participant_ids * self.fraction_of_participants
         max_valid_value = max(1, np.ceil(raw_num_ids_to_select))
-        minimum_valid_value = min(len(participant_ids), max_valid_value)
+        minimum_valid_value = min(len_participant_ids, max_valid_value)
         return int(minimum_valid_value)
 
     @abstractmethod
@@ -62,5 +62,5 @@ class RandomController(Controller):
         Returns:
             :obj:`list` of :obj:`str`: List of selected participant IDs
         """
-        num_ids_to_select = self.get_num_ids_to_select(participant_ids)
+        num_ids_to_select = self.get_num_ids_to_select(len(participant_ids))
         return np.random.choice(participant_ids, size=num_ids_to_select, replace=False)
