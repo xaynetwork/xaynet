@@ -82,13 +82,15 @@ $ python xain_fl/cli.py --help
 
 ### Run the Coordinator from a Docker image
 
+There are two docker-compose files, one for development and one for release.
+
 Development image
 ---
 
 To run the coordinator's development image, first build the Docker image:
 
 ```shell
-$ docker build -t xain-fl-dev -f dev.dockerfile .
+$ docker build -t xain-fl-dev -f Dockerfile.dev .
 ```
 
 Then run the image, mounting the directory as a Docker volume, and call the
@@ -111,6 +113,22 @@ And then run it (this example assumes you'll want to use the default port):
 
 ```shell
 $ docker run -p 50051:50051 xain-fl
+```
+
+### Docker-compose
+
+Development
+---
+
+```shell
+$ docker-compose -f docker-compose-dev.yml up
+```
+
+Release
+---
+
+```shell
+$ docker-compose up
 ```
 
 ## Related Papers and Articles
