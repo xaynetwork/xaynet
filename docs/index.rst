@@ -3,50 +3,12 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-XAIN: Federated Learning
-========================
-
-.. image:: https://img.shields.io/circleci/build/github/xainag/xain-fl/master?style=flat-square
-    :target: https://circleci.com/gh/xainag/xain-fl/tree/master
-
-.. image:: https://img.shields.io/pypi/v/xain-fl?style=flat-square
-    :target: https://pypi.org/project/xain-fl/
-
-.. image:: https://img.shields.io/github/license/xainag/xain-fl?style=flat-square
-    :target: https://github.com/xainag/xain-fl/blob/master/LICENSE
-
-.. image:: https://readthedocs.org/projects/xain/badge/?version=latest&style=flat-square
-    :target: https://docs.xain.io/en/latest/?badge=latest
-    :alt: Documentation Status
-
-**XAIN FL** is an open source framework for federated learning.
-
-
-.. image:: _static/platform-intro.svg
-    :class: intro-image
-
-The XAIN FL project is building a GDPR-compliance layer for machine learning. The
-approach relies on federated machine learning (FedML) as enabling technology
-that removes compliance-related adoption barriers of AI applications used in
-production.
-
-
-User Guide
-----------
+.. mdinclude:: README.md
 
 .. toctree::
    :maxdepth: 2
-
-   intro
-   install
-   quick
+   :hidden:
+   
+   README.md
    network_architecture
-
-
-API Documentation
------------------
-
-.. toctree::
-    :maxdepth: 1
-
-    _code_reference_xain_fl/index
+   _code_reference_xain_fl/index

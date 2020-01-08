@@ -51,7 +51,7 @@ tests_require = [
     "pytest-watch==4.2.0",  # MIT
 ]
 
-docs_require = ["Sphinx==2.2.1", "recommonmark==0.6.0", "sphinxcontrib-mermaid==0.3.1"]
+docs_require = ["Sphinx==2.2.1", "m2r", "sphinxcontrib-mermaid==0.3.1"]
 
 setup(
     name="xain_fl",

@@ -9,9 +9,11 @@
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
-#
+
 import os
 import sys
+
+from sphinx.ext import apidoc
 
 sys.path.insert(0, os.path.abspath(".."))
 
@@ -41,7 +43,7 @@ release = _version["__version__"]
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    "recommonmark",
+    "m2r",
     "sphinx.ext.napoleon",
     "sphinx.ext.autodoc",
     "sphinx.ext.intersphinx",
@@ -64,7 +66,7 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-#
+
 html_theme = "alabaster"
 
 # https://alabaster.readthedocs.io/en/latest/customization.html
@@ -91,9 +93,7 @@ intersphinx_mapping = {
 
 
 def run_apidoc(_):
-    from sphinx.ext import apidoc
-
-    exclude = ["../xain_fl/**_test.py"]
+    exclude = []
 
     argv = [
         "--doc-project",
