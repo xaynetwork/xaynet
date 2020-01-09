@@ -21,7 +21,7 @@ class Controller(ABC):
     def __init__(self, fraction_of_participants: float = 1.0) -> None:
         """[summary]
 
-        [extended_summary]
+        .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
 
         Args:
             fraction_of_participants (float): [description]. Defaults to 1.0.
@@ -61,7 +61,7 @@ class Controller(ABC):
 class RandomController(Controller):
     """[summary]
 
-    [extended_summary]
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
 
     Args:
         Controller ([type]): [description]

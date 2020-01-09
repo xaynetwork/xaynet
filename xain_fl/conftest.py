@@ -4,7 +4,7 @@
 def pytest_collection_modifyitems(items):
     """[summary]
 
-    [extended_summary]
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
 
     Args:
         items ([type]): [description]

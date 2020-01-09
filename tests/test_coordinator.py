@@ -17,7 +17,7 @@ from xain_fl.tools.exceptions import (
 def test_rendezvous_accept():
     """[summary]
 
-    [extended_summary]
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
     """
 
     coordinator: Coordinator = Coordinator()
@@ -30,7 +30,7 @@ def test_rendezvous_accept():
 def test_rendezvous_later_fraction_1():
     """[summary]
 
-    [extended_summary]
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
     """
 
     coordinator = Coordinator(minimum_participants_in_round=1, fraction_of_participants=1.0)
@@ -44,7 +44,7 @@ def test_rendezvous_later_fraction_1():
 def test_rendezvous_later_fraction_05():
     """[summary]
 
-    [extended_summary]
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
     """
 
     coordinator = Coordinator(minimum_participants_in_round=1, fraction_of_participants=0.5)
@@ -70,7 +70,7 @@ def test_rendezvous_later_fraction_05():
 def test_coordinator_state_standby_round():
     """[summary]
 
-    [extended_summary]
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
     """
 
     # tests that the coordinator transitions from STANDBY to ROUND once enough participants
@@ -88,7 +88,7 @@ def test_coordinator_state_standby_round():
 def test_start_training():
     """[summary]
 
-    [extended_summary]
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
     """
 
     test_weights = [np.arange(10), np.arange(10, 20)]
@@ -106,7 +106,7 @@ def test_start_training():
 def start_training_wrong_state():
     """[summary]
 
-    [extended_summary]
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
     """
 
     # if the coordinator receives a StartTraining request while not in the
@@ -121,7 +121,7 @@ def start_training_wrong_state():
 def test_end_training():
     """[summary]
 
-    [extended_summary]
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
     """
 
     # we need two participants so that we can check the status of the local update mid round
@@ -139,7 +139,7 @@ def test_end_training():
 def test_end_training_round_update():
     """[summary]
 
-    [extended_summary]
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
     """
 
     # Test that the round number is updated once all participants sent their updates
@@ -164,7 +164,7 @@ def test_end_training_round_update():
 def test_end_training_reinitialize_local_models():
     """[summary]
 
-    [extended_summary]
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
     """
 
     coordinator = Coordinator(
@@ -188,7 +188,7 @@ def test_end_training_reinitialize_local_models():
 def test_training_finished():
     """[summary]
 
-    [extended_summary]
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
     """
 
     coordinator = Coordinator(
@@ -206,7 +206,7 @@ def test_training_finished():
 def test_wrong_participant():
     """[summary]
 
-    [extended_summary]
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
     """
 
     # coordinator should not accept requests from participants that it has not accepted
@@ -226,7 +226,7 @@ def test_wrong_participant():
 def test_duplicated_update_submit():
     """[summary]
 
-    [extended_summary]
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
     """
 
     # the coordinator should not accept multiples updates from the same participant
@@ -244,7 +244,7 @@ def test_duplicated_update_submit():
 def test_remove_participant():
     """[summary]
 
-    [extended_summary]
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
     """
 
     coordinator = Coordinator(minimum_participants_in_round=1, fraction_of_participants=1.0)
@@ -265,7 +265,7 @@ def test_remove_participant():
 def test_number_of_selected_participants():
     """[summary]
 
-    [extended_summary]
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
     """
 
     # test that the coordinator needs minimum 3 participants and selects 2 of them
@@ -294,7 +294,7 @@ def test_number_of_selected_participants():
 def test_correct_round_advertised_to_participants():
     """[summary]
 
-    [extended_summary]
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
     """
 
     # test that only selected participants receive ROUND state and the others STANDBY

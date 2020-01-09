@@ -15,7 +15,7 @@ from xain_fl.helloproto.numproto_server import NumProtoServer
 def greeter_server():
     """[summary]
 
-    [extended_summary]
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
     """
 
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
@@ -30,7 +30,7 @@ def greeter_server():
 def coordinator_service():
     """[summary]
 
-    [extended_summary]
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
     """
 
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
@@ -47,7 +47,7 @@ def coordinator_service():
 def participant_stub():
     """[summary]
 
-    [extended_summary]
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
 
     Returns:
         [type]: [description]

@@ -20,7 +20,7 @@ class Aggregator(ABC):  # pylint: disable=too-few-public-methods
     def __init__(self):
         """[summary]
 
-        [extended_summary]
+        .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
         """
 
     @abstractmethod

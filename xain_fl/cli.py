@@ -14,7 +14,7 @@ from xain_fl.serve import serve
 def type_num_rounds(value):
     """[summary]
 
-    [extended_summary]
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
 
     Args:
         value ([type]): [description]
@@ -41,7 +41,7 @@ def type_num_rounds(value):
 def type_num_epochs(value):
     """[summary]
 
-    [extended_summary]
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
 
     Args:
         value ([type]): [description]
@@ -68,7 +68,7 @@ def type_num_epochs(value):
 def type_min_num_participants_in_round(value):
     """[summary]
 
-    [extended_summary]
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
 
     Args:
         value ([type]): [description]
@@ -97,7 +97,7 @@ def type_min_num_participants_in_round(value):
 def type_fraction(value):
     """[summary]
 
-    [extended_summary]
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
 
     Args:
         value ([type]): [description]
@@ -126,7 +126,7 @@ def type_fraction(value):
 def get_cmd_parameters():
     """[summary]
 
-    [extended_summary]
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
 
     Returns:
         [type]: [description]
@@ -184,7 +184,7 @@ def get_cmd_parameters():
 def main():
     """[summary]
 
-    [extended_summary]
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
     """
 
     parameters = get_cmd_parameters()

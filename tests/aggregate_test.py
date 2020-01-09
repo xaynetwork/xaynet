@@ -8,7 +8,7 @@ from xain_fl.fl.coordinator.aggregate import federated_averaging
 def test_federated_averaging():  # pylint: disable=too-many-locals
     """[summary]
 
-    [extended_summary]
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
     """
 
     # Prepare:

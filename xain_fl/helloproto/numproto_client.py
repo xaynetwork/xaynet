@@ -13,7 +13,7 @@ logger: StructLogger = get_logger(__name__)
 def run():
     """[summary]
 
-    [extended_summary]
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
     """
 
     with grpc.insecure_channel("localhost:50051") as channel:

@@ -47,7 +47,7 @@ if sys.platform == "darwin":
 def test_greeter_server(greeter_server):  # pylint: disable=unused-argument
     """[summary]
 
-    [extended_summary]
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
 
     Args:
         greeter_server ([type]): [description]
@@ -72,7 +72,7 @@ def test_participant_rendezvous_accept(  # pylint: disable=unused-argument
 ):
     """[summary]
 
-    [extended_summary]
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
 
     Args:
         participant_stub ([type]): [description]
@@ -89,7 +89,7 @@ def test_participant_rendezvous_accept(  # pylint: disable=unused-argument
 def test_participant_rendezvous_later(participant_stub):
     """[summary]
 
-    [extended_summary]
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
 
     Args:
         participant_stub ([type]): [description]
@@ -117,7 +117,7 @@ def test_participant_rendezvous_later(participant_stub):
 def test_heartbeat(participant_stub, coordinator_service):
     """[summary]
 
-    [extended_summary]
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
 
     Args:
         participant_stub ([type]): [description]
@@ -139,7 +139,7 @@ def test_heartbeat(participant_stub, coordinator_service):
 def test_heartbeat_denied(participant_stub, coordinator_service):  # pylint: disable=unused-argument
     """[summary]
 
-    [extended_summary]
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
 
     Args:
         participant_stub ([type]): [description]
@@ -159,7 +159,7 @@ def test_heartbeat_denied(participant_stub, coordinator_service):  # pylint: dis
 def test_monitor_heartbeats(mock_participants_remove, _mock_sleep, _mock_event):
     """[summary]
 
-    [extended_summary]
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
 
     Args:
         mock_participants_remove ([type]): [description]
@@ -185,7 +185,7 @@ def test_monitor_heartbeats(mock_participants_remove, _mock_sleep, _mock_event):
 def test_monitor_heartbeats_remove_participant(_mock_sleep, _mock_event):
     """[summary]
 
-    [extended_summary]
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
 
     Args:
         _mock_sleep ([type]): [description]
@@ -212,7 +212,7 @@ def test_monitor_heartbeats_remove_participant(_mock_sleep, _mock_event):
 # def test_participant_heartbeat(mock_heartbeat_request, _mock_sleep, _mock_event):
 #     """[summary]
 #
-#     [extended_summary]
+#     .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
 #
 #     Args:
 #         mock_heartbeat_request ([type]): [description]
@@ -235,7 +235,7 @@ def test_monitor_heartbeats_remove_participant(_mock_sleep, _mock_event):
 # def test_start_training(coordinator_service):
 #     """[summary]
 #
-#     [extended_summary]
+#     .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
 #
 #     Args:
 #         coordinator_service ([type]): [description]
@@ -271,7 +271,7 @@ def test_start_training_denied(  # pylint: disable=unused-argument
 ):
     """[summary]
 
-    [extended_summary]
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
 
     Args:
         participant_stub ([type]): [description]
@@ -292,7 +292,7 @@ def test_start_training_failed_precondition(  # pylint: disable=unused-argument
 ):
     """[summary]
 
-    [extended_summary]
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
 
     Args:
         participant_stub ([type]): [description]
@@ -314,7 +314,7 @@ def test_start_training_failed_precondition(  # pylint: disable=unused-argument
 # def test_end_training(coordinator_service):
 #     """[summary]
 #
-#     [extended_summary]
+#     .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
 #
 #     Args:
 #         coordinator_service ([type]): [description]
@@ -357,7 +357,7 @@ def test_end_training_duplicated_updates(  # pylint: disable=unused-argument
 ):
     """[summary]
 
-    [extended_summary]
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
 
     Args:
         coordinator_service ([type]): [description]
@@ -380,7 +380,7 @@ def test_end_training_denied(  # pylint: disable=unused-argument
 ):
     """[summary]
 
-    [extended_summary]
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
 
     Args:
         participant_stub ([type]): [description]

@@ -18,13 +18,13 @@ class NumProtoServer(  # pylint: disable=too-few-public-methods
 ):
     """[summary]
 
-    [extended_summary]
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
     """
 
     def SayHelloNumProto(self, request, context):
         """[summary]
 
-        [extended_summary]
+        .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
 
         Args:
             request ([type]): [description]
@@ -45,7 +45,7 @@ class NumProtoServer(  # pylint: disable=too-few-public-methods
 def serve():
     """[summary]
 
-    [extended_summary]
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
     """
 
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
