@@ -19,6 +19,33 @@ services:
     ports:
       - "9000:9000"
 
+  initial-buckets:
+    image: minio/mc
+    depends_on:
+      - minio-dev
+    environment:
+      MINIO_ACCESS_KEY: minio
+      MINIO_SECRET_KEY: minio123
+    networks:
+      - xain-fl-dev
+    entrypoint: >
+      /bin/sh -c "
+        echo Waiting for minio service to start...;
+        while ! nc -z minio-dev 9000;
+        do
+          sleep 1;
+        done;
+        echo Connected!;
+        mc config host add dev-minio http://minio-dev:9000 $${MINIO_ACCESS_KEY} $${MINIO_SECRET_KEY};
+        /usr/bin/mc mb -p dev-minio/xain-fl-temporary-weights;
+        /usr/bin/mc mb -p dev-minio/xain-fl-aggregated-weights;
+        /usr/bin/mc policy set upload dev-minio/xain-fl-temporary-weights;
+        /usr/bin/mc policy set download dev-minio/xain-fl-temporary-weights;
+        /usr/bin/mc policy set upload dev-minio/xain-fl-aggregated-weights;
+        /usr/bin/mc policy set download dev-minio/xain-fl-aggregated-weights;
+        exit 0;
+      "
+
   xain-fl-dev:
     build:
       context: .
