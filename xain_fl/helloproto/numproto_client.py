@@ -1,14 +1,21 @@
+"""XAIN FL numproto client"""
+
 import grpc
-import numpy as np
 from numproto import ndarray_to_proto, proto_to_ndarray
+import numpy as np
 from xain_proto.fl import hellonumproto_pb2, hellonumproto_pb2_grpc
 
-from xain_fl.logger import get_logger
+from xain_fl.logger import StructLogger, get_logger
 
-logger = get_logger(__name__)
+logger: StructLogger = get_logger(__name__)
 
 
 def run():
+    """[summary]
+
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
+    """
+
     with grpc.insecure_channel("localhost:50051") as channel:
         stub = hellonumproto_pb2_grpc.NumProtoServerStub(channel)
 

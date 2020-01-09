@@ -8,10 +8,10 @@ cd $DIR/../
 isort --check-only --indent=4 -rc setup.py xain_fl && echo "===> isort says: well done <===" &&
 
 # format code
-black --check setup.py xain_fl && echo "===> black says: well done <===" &&
+black --line-length 100 --check setup.py xain_fl && echo "===> black says: well done <===" &&
 
 # lint
-pylint --rcfile=pylint.ini xain_fl && echo "===> pylint says: well done <===" &&
+pylint --rcfile=.pylintrc xain_fl && echo "===> pylint says: well done <===" &&
 
 # type checks
 mypy xain_fl && echo "===> mypy says: well done <===" &&
