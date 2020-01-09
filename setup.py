@@ -28,7 +28,6 @@ install_requires = [
     "numpy==1.15",  # BSD
     "grpcio==1.23",  # Apache License 2.0
     "numproto==0.3",  # Apache License 2.0
-    "requests==2.22.0",  # Apache 2.0  # TODO(XP-185) remove
     "structlog==19.2.0",  # Apache License 2.0
     "xain-proto==0.1.0",  # Apache License 2.0
 ]
@@ -39,7 +38,6 @@ dev_require = [
     "pylint==2.3.1",  # GPL
     "astroid==2.2.5",  # LGPL
     "isort==4.3.21",  # MIT
-    "rope==0.14.0",  # GNU GPL
     "pip-licenses==1.15.2",  # MIT License
     "twine==2.0.0",  # Apache License 2.0
     "wheel==0.33.6",  # MIT
