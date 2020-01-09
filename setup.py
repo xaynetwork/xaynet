@@ -24,7 +24,6 @@ with open(readme_file_path, "r") as fp:
 # License comments according to `pip-licenses`
 
 install_requires = [
-    "typing-extensions==3.7.4.1",  # PSF
     "numpy==1.15",  # BSD
     "grpcio==1.23",  # Apache License 2.0
     "numproto==0.3",  # Apache License 2.0
@@ -41,6 +40,7 @@ dev_require = [
     "pip-licenses==1.15.2",  # MIT License
     "twine==2.0.0",  # Apache License 2.0
     "wheel==0.33.6",  # MIT
+    "typing-extensions==3.7.4.1",  # PSF
 ]
 
 tests_require = [
