@@ -15,6 +15,10 @@ from xain_proto.fl import (
     hellonumproto_pb2_grpc,
 )
 
+from xain_fl.coordinator.coordinator import Coordinator
+from xain_fl.coordinator.coordinator_grpc import CoordinatorGrpc
+from xain_fl.coordinator.heartbeat import monitor_heartbeats
+from xain_fl.coordinator.participants import Participants
 from xain_sdk.participant_state_machine import (
     StateRecord,
     end_training,
@@ -22,11 +26,6 @@ from xain_sdk.participant_state_machine import (
     rendezvous,
     start_training,
 )
-
-from xain_fl.coordinator.coordinator import Coordinator
-from xain_fl.coordinator.coordinator_grpc import CoordinatorGrpc
-from xain_fl.coordinator.heartbeat import monitor_heartbeats
-from xain_fl.coordinator.participants import Participants
 
 
 @pytest.mark.integration
@@ -304,7 +303,7 @@ def test_end_training(coordinator_service):
 
     # simulate trained local model data
     test_weights, number_samples = [np.arange(20, 30), np.arange(30, 40)], 2
-    test_metrics = {"metric": [np.arange(10, 20), np.arange(5, 10)]}
+    test_metrics = {"metric": np.arange(10, 20)}
 
     with grpc.insecure_channel("localhost:50051") as channel:
         # we first need to rendezvous before we can send any other request

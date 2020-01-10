@@ -297,20 +297,13 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         # TODO: Ideally we want to know for which round the participant is
         # submitting the updates and raise an exception if it is the wrong
         # round.
-        weights_proto, number_samples, metrics_proto = (
-            message.weights,
-            message.number_samples,
-            message.metrics,
-        )
 
         # record the request data
         weight_update: Tuple[List[ndarray], int] = (
-            [proto_to_ndarray(pnda) for pnda in weights_proto],
-            number_samples,
+            [proto_to_ndarray(pnda) for pnda in message.weights],
+            message.number_samples,
         )
-        metrics: Dict[str, List[ndarray]] = {
-            k: [proto_to_ndarray(v) for v in mv.metrics] for k, mv in metrics_proto.items()
-        }
+        metrics: Dict[str, ndarray] = {k: proto_to_ndarray(v) for k, v in message.metrics.items()}
         self.round.add_updates(participant_id, weight_update, metrics)
 
         # The round is over. Run the aggregation
