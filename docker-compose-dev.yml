@@ -33,7 +33,7 @@ services:
         echo Waiting for minio service to start...;
         while ! nc -z minio-dev 9000;
         do
-          sleep 1;
+          sleep 5;
         done;
         echo Connected!;
         mc config host add dev-minio http://minio-dev:9000 $${MINIO_ACCESS_KEY} $${MINIO_SECRET_KEY};
