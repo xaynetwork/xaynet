@@ -41,13 +41,13 @@ dev_require = [
     "twine==2.0.0",  # Apache License 2.0
     "wheel==0.33.6",  # MIT
     "typing-extensions==3.7.4.1",  # PSF
-    "xain-sdk @ git+https://github.com/xainag/xain-sdk.git@development#egg=xain_sdk-0.1.0",
 ]
 
 tests_require = [
     "pytest==5.3.2",  # MIT license
     "pytest-cov==2.8.1",  # MIT
     "pytest-watch==4.2.0",  # MIT
+    "xain-sdk @ git+https://github.com/xainag/xain-sdk.git@development#egg=xain_sdk-0.1.0",
 ]
 
 docs_require = ["Sphinx==2.2.1", "m2r==0.2.1", "sphinxcontrib-mermaid==0.3.1"]
