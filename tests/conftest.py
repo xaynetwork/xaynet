@@ -56,4 +56,6 @@ def participant_stub():
     channel = grpc.insecure_channel("localhost:50051")
     stub = coordinator_pb2_grpc.CoordinatorStub(channel)
 
-    return stub
+    yield stub
+
+    channel.close()
