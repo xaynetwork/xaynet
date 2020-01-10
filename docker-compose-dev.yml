@@ -43,7 +43,7 @@ services:
         /usr/bin/mc policy set download dev-minio/xain-fl-temporary-weights;
         /usr/bin/mc policy set upload dev-minio/xain-fl-aggregated-weights;
         /usr/bin/mc policy set download dev-minio/xain-fl-aggregated-weights;
-        exit 0;
+        /usr/bin/mc admin trace -v -e dev-minio;
       "
 
   xain-fl-dev:
