@@ -29,6 +29,8 @@ from xain_fl.coordinator.coordinator_grpc import CoordinatorGrpc
 from xain_fl.coordinator.heartbeat import monitor_heartbeats
 from xain_fl.coordinator.participants import Participants
 
+
+# TODO: it should be fixed with: https://xainag.atlassian.net/browse/XP-119
 # Some grpc tests fail on macos.
 # `pytestmark` when defined on a module will mark all tests in that module.
 # For more information check
@@ -315,14 +317,14 @@ def test_end_training(coordinator_service):
 
     # simulate trained local model data
     test_weights, number_samples = [np.arange(20, 30), np.arange(30, 40)], 2
-    metrics = {"metric": [np.arange(10, 20), np.arange(5, 10)]}
+    test_metrics = {"metric": [np.arange(10, 20), np.arange(5, 10)]}
 
     with grpc.insecure_channel("localhost:50051") as channel:
         # we first need to rendezvous before we can send any other request
         rendezvous(channel)
         # call endTraining service method on coordinator
         end_training(  # pylint: disable-msg=no-value-for-parameter
-            channel, test_weights, number_samples, metrics
+            channel, test_weights, number_samples, test_metrics
         )
     # check local model received...
 
@@ -331,15 +333,15 @@ def test_end_training(coordinator_service):
     round_ = coordinator_service.coordinator.round
 
     # first the weights update
-    _, update = round_.updates.popitem()
-    tu1, tu2 = update["weight_update"]
-    assert tu2 == number_samples
-    np.testing.assert_equal(tu1, test_weights)
+    _, round_update = round_.updates.popitem()
+    update_item1, update_item2 = round_update["weight_update"]
+    assert update_item2 == number_samples
+    np.testing.assert_equal(update_item1, test_weights)
 
-    met = update["metrics"]
-    assert met.keys() == metrics.keys()
-    for k, vals in metrics.items():
-        np.testing.assert_allclose(met[k], vals)
+    round_update_metrics = round_update["metrics"]
+    assert round_update_metrics.keys() == test_metrics.keys()
+    for key, values in test_metrics.items():
+        np.testing.assert_equal(round_update_metrics[key], values)
 
 
 @pytest.mark.integration

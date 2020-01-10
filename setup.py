@@ -41,6 +41,7 @@ dev_require = [
     "twine==2.0.0",  # Apache License 2.0
     "wheel==0.33.6",  # MIT
     "typing-extensions==3.7.4.1",  # PSF
+    "xain-sdk @ git+https://github.com/xainag/xain-sdk.git@development#egg=xain_sdk-0.1.0",
 ]
 
 tests_require = [
