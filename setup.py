@@ -48,7 +48,7 @@ tests_require = [
     "pytest==5.3.2",  # MIT license
     "pytest-cov==2.8.1",  # MIT
     "pytest-watch==4.2.0",  # MIT
-    "xain-sdk @ git+https://github.com/xainag/xain-sdk.git@development#egg=xain_sdk-0.1.0",
+    "xain-sdk @ git+https://github.com/xainag/xain-sdk.git@development#egg=xain_sdk-0.2.0",
 ]
 
 docs_require = ["Sphinx==2.2.1", "m2r==0.2.1", "sphinxcontrib-mermaid==0.3.1"]
