@@ -280,7 +280,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         weights_proto = [ndarray_to_proto(nda) for nda in self.weights]
 
         return coordinator_pb2.StartTrainingReply(
-            weights=weights_proto, epochs=self.epochs, epoch_base=self.epoch_base
+            weights=weights_proto, epochs=self.epochs, epoch_base=self.epoch_base,
         )
 
     def _handle_end_training(

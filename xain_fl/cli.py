@@ -8,6 +8,7 @@ import argparse
 import numpy as np
 
 from xain_fl.coordinator.coordinator import Coordinator
+from xain_fl.coordinator.store import Store, StoreConfig
 from xain_fl.serve import serve
 
 
@@ -178,6 +179,30 @@ def get_cmd_parameters():
             A float between 0 and 1",
     )
 
+    parser.add_argument(
+        "--storage-endpoint", required=True, type=str, help="URL to the storage service to use",
+    )
+
+    parser.add_argument(
+        "--storage-bucket",
+        required=True,
+        type=str,
+        help="Name of the bucket for storing the aggregated models",
+    )
+
+    parser.add_argument(
+        "--storage-key-id",
+        required=True,
+        type=str,
+        help="AWS access key ID to use to authenticate to the storage service",
+    )
+
+    parser.add_argument(
+        "--storage-secret-access-key",
+        required=True,
+        type=str,
+        help="AWS secret access to use to authenticate to the storage service",
+    )
     return parser.parse_args()
 
 
@@ -197,7 +222,15 @@ def main():
         fraction_of_participants=parameters.fraction,
     )
 
-    serve(coordinator=coordinator, host=parameters.host, port=parameters.port)
+    store_config = StoreConfig(
+        parameters.storage_endpoint,
+        parameters.storage_key_id,
+        parameters.storage_secret_access_key,
+        parameters.storage_bucket,
+    )
+    store = Store(store_config)
+
+    serve(coordinator=coordinator, store=store, host=parameters.host, port=parameters.port)
 
 
 if __name__ == "__main__":
