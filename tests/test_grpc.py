@@ -1,7 +1,6 @@
 """XAIN FL tests for gRPC coordinator"""
 
 from concurrent import futures
-import sys
 import threading
 from unittest import mock
 
@@ -28,17 +27,6 @@ from xain_fl.coordinator.coordinator import Coordinator
 from xain_fl.coordinator.coordinator_grpc import CoordinatorGrpc
 from xain_fl.coordinator.heartbeat import monitor_heartbeats
 from xain_fl.coordinator.participants import Participants
-
-
-# TODO: it should be fixed with: https://xainag.atlassian.net/browse/XP-119
-# Some grpc tests fail on macos.
-# `pytestmark` when defined on a module will mark all tests in that module.
-# For more information check
-# http://doc.pytest.org/en/latest/skipping.html#skip-all-test-functions-of-a-class-or-module
-if sys.platform == "darwin":
-    pytestmark = pytest.mark.xfail(  # pylint: disable=invalid-name
-        reason="some grpc tests fail on macos"
-    )
 
 
 @pytest.mark.integration
@@ -82,7 +70,6 @@ def test_participant_rendezvous_accept(  # pylint: disable=unused-argument
     assert reply.response == coordinator_pb2.RendezvousResponse.ACCEPT
 
 
-# TODO(XP-119): Fix test so it also runs correctly on macos
 @pytest.mark.integration
 def test_participant_rendezvous_later(participant_stub):
     """[summary]
