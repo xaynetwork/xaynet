@@ -26,7 +26,7 @@ class Round:
         self,
         participant_id: str,
         weight_update: Tuple[List[ndarray], int],
-        metrics: Dict[str, List[ndarray]],
+        metrics: Dict[str, ndarray],
     ) -> None:
         """Valid a participant's update for the round.
 

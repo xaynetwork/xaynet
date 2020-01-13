@@ -15,6 +15,10 @@ from xain_proto.fl import (
     hellonumproto_pb2_grpc,
 )
 
+from xain_fl.coordinator.coordinator import Coordinator
+from xain_fl.coordinator.coordinator_grpc import CoordinatorGrpc
+from xain_fl.coordinator.heartbeat import monitor_heartbeats
+from xain_fl.coordinator.participants import Participants
 from xain_sdk.participant_state_machine import (
     StateRecord,
     end_training,
@@ -22,11 +26,6 @@ from xain_sdk.participant_state_machine import (
     rendezvous,
     start_training,
 )
-
-from xain_fl.coordinator.coordinator import Coordinator
-from xain_fl.coordinator.coordinator_grpc import CoordinatorGrpc
-from xain_fl.coordinator.heartbeat import monitor_heartbeats
-from xain_fl.coordinator.participants import Participants
 
 
 @pytest.mark.integration
@@ -138,9 +137,9 @@ def test_heartbeat_denied(participant_stub, coordinator_service):  # pylint: dis
         assert reply.status_code == grpc.StatusCode.PERMISSION_DENIED
 
 
-@mock.patch("threading.Event.is_set", side_effect=[False, True])
-@mock.patch("time.sleep", return_value=None)
-@mock.patch("xain_fl.coordinator.coordinator.Coordinator.remove_participant")
+@mock.patch("xain_fl.coordinator.heartbeat.threading.Event.is_set", side_effect=[False, True])
+@mock.patch("xain_fl.coordinator.heartbeat.time.sleep", return_value=None)
+@mock.patch("xain_fl.coordinator.heartbeat.Coordinator.remove_participant")
 def test_monitor_heartbeats(mock_participants_remove, _mock_sleep, _mock_event):
     """[summary]
 
@@ -165,8 +164,8 @@ def test_monitor_heartbeats(mock_participants_remove, _mock_sleep, _mock_event):
     mock_participants_remove.assert_called_once_with("participant_1")
 
 
-@mock.patch("threading.Event.is_set", side_effect=[False, True])
-@mock.patch("time.sleep", return_value=None)
+@mock.patch("xain_fl.coordinator.heartbeat.threading.Event.is_set", side_effect=[False, True])
+@mock.patch("xain_fl.coordinator.heartbeat.time.sleep", return_value=None)
 def test_monitor_heartbeats_remove_participant(_mock_sleep, _mock_event):
     """[summary]
 
@@ -190,9 +189,11 @@ def test_monitor_heartbeats_remove_participant(_mock_sleep, _mock_event):
     assert participants.len() == 0
 
 
-@mock.patch("threading.Event.is_set", side_effect=[False, False, True])
-@mock.patch("time.sleep", return_value=None)
-@mock.patch("xain_proto.fl.coordinator_pb2.HeartbeatRequest")
+@mock.patch(
+    "xain_sdk.participant_state_machine.threading.Event.is_set", side_effect=[False, False, True]
+)
+@mock.patch("xain_sdk.participant_state_machine.time.sleep", return_value=None)
+@mock.patch("xain_sdk.participant_state_machine.HeartbeatRequest")
 def test_message_loop(mock_heartbeat_request, _mock_sleep, _mock_event):
     """[summary]
 
@@ -304,7 +305,7 @@ def test_end_training(coordinator_service):
 
     # simulate trained local model data
     test_weights, number_samples = [np.arange(20, 30), np.arange(30, 40)], 2
-    test_metrics = {"metric": [np.arange(10, 20), np.arange(5, 10)]}
+    test_metrics = {"metric": np.arange(10, 20)}
 
     with grpc.insecure_channel("localhost:50051") as channel:
         # we first need to rendezvous before we can send any other request
