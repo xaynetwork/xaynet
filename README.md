@@ -84,8 +84,7 @@ $ python xain_fl/cli.py --help
 
 There are two docker-compose files, one for development and one for release.
 
-Development image
----
+#### Development image
 
 To run the coordinator's development image, first build the Docker image:
 
@@ -100,8 +99,7 @@ entrypoint:
 $ docker run -v $(pwd):/app -v '/app/xain_fl.egg-info' xain-fl-dev coordinator
 ```
 
-Release image
----
+#### Release image
 
 To run the coordinator's release image, first build it:
 
@@ -117,15 +115,13 @@ $ docker run -p 50051:50051 xain-fl
 
 ### Docker-compose
 
-Development
----
+#### Development
 
 ```shell
 $ docker-compose -f docker-compose-dev.yml up
 ```
 
-Release
----
+#### Release
 
 ```shell
 $ docker-compose up
