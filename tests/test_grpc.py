@@ -1,7 +1,6 @@
 """XAIN FL tests for gRPC coordinator"""
 
 from concurrent import futures
-import sys
 import threading
 from unittest import mock
 
