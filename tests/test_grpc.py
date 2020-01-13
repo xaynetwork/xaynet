@@ -70,7 +70,6 @@ def test_participant_rendezvous_accept(  # pylint: disable=unused-argument
     assert reply.response == coordinator_pb2.RendezvousResponse.ACCEPT
 
 
-# TODO(XP-119): Fix test so it also runs correctly on macos
 @pytest.mark.integration
 def test_participant_rendezvous_later(participant_stub):
     """[summary]
