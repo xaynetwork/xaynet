@@ -19,6 +19,7 @@ from xain_sdk.participant_state_machine import (
     end_training,
     message_loop,
     rendezvous,
+    start_participant,
     start_training,
 )
 
@@ -447,3 +448,28 @@ def test_full_round(participant_stubs, coordinator_service):  # pylint: disable=
     assert reply == coordinator_pb2.EndTrainingReply()
     # Make sure we wrote the results for the given round
     coordinator_service.store.assert_wrote(1, coordinator_service.coordinator.weights)
+
+
+@pytest.mark.integration
+def test_integration(mock_coordinator_service):
+    """[summary]
+
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
+
+    Args:
+        mock_coordinator_service ([type]): [description]
+    """
+
+    init_theta = [np.arange(10), np.arange(10, 20)]
+    mock_coordinator_service.coordinator.theta = init_theta
+    with mock.patch("xain_sdk.participant.Participant") as mock_obj:
+        mock_local_part = mock_obj.return_value
+        mock_local_part.train_round.return_value = ([], 1), {}, {}
+        mock_local_part.metrics.return_value = 0, []
+
+        start_participant(mock_local_part, "localhost:50051")
+
+        coord = mock_coordinator_service.coordinator
+        assert coord.state == coordinator_pb2.State.FINISHED
+        assert coord.current_round == 2
+        np.testing.assert_equal(coord.theta, [np.arange(start=13, stop=32, step=2)])
