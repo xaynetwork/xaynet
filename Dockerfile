@@ -6,7 +6,7 @@ ENV PORT="50051"
 ENV PATH="/home/${USER}/.local/bin:${PATH}"
 
 RUN addgroup -S ${USER} && adduser -S ${USER} -G ${USER}
-RUN apk update && apk add python3-dev build-base
+RUN apk update && apk add python3-dev build-base git
 
 WORKDIR /app
 
@@ -14,7 +14,7 @@ COPY setup.py .
 COPY xain_fl xain_fl/
 COPY README.md .
 
-RUN pip install .
+RUN pip install -v .
 
 # Remove everything, including dot files
 RUN rm -rf ..?* .[!.]* *
