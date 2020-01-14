@@ -7,6 +7,6 @@ COPY setup.py .
 COPY xain_fl xain_fl/
 COPY README.md .
 
-RUN pip install -v -e .[dev]
+RUN pip install -v -e .
 
 CMD ["python3", "setup.py", "--fullname"]
