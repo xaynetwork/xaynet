@@ -65,7 +65,7 @@ class IdController(Controller):
 
     Args:
         Controller ([type]): [description]
-    ]"""
+    """
 
     def select_ids(self, participant_ids: List[str]) -> List[str]:
         """Selects all given participants.
