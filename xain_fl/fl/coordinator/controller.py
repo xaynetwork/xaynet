@@ -58,6 +58,29 @@ class Controller(ABC):
         raise NotImplementedError("not implemented")
 
 
+class IdController(Controller):
+    """[summary
+
+    ... todo: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
+
+    Args:
+        Controller ([type]): [description]
+    ]"""
+
+    def select_ids(self, participant_ids: List[str]) -> List[str]:
+        """Selects all given participants.
+
+        Args:
+            participant_ids (:obj:`list` of :obj:`str`): The list of IDs of all the
+                available participants, a subset of which will be selected.
+
+        Returns:
+            :obj:`list` of :obj:`str`: List of selected participant IDs
+        """
+
+        return participant_ids
+
+
 class RandomController(Controller):
     """[summary]
 
