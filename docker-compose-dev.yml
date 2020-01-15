@@ -10,7 +10,8 @@ services:
     environment:
       MINIO_ACCESS_KEY: minio
       MINIO_SECRET_KEY: minio123
-    command: server /data
+    command:
+        server /data
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 30s
@@ -47,10 +48,13 @@ services:
       "
 
   xain-fl-dev:
+    environment:
+      MINIO_ACCESS_KEY: minio
+      MINIO_SECRET_KEY: minio123
     build:
       context: .
       dockerfile: Dockerfile.dev
-    command: coordinator -f test_array.npy
+    command: sh -c "coordinator -f test_array.npy --storage-endpoint http://minio-dev:9000 --storage-key-id $${MINIO_ACCESS_KEY} --storage-secret-access-key $${MINIO_SECRET_KEY} --storage-bucket xain-fl-aggregated-weights"
     volumes:
       #  don't use the local egg-info, if one exists
       - /app/xain_fl.egg-info

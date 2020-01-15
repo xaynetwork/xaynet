@@ -4,6 +4,7 @@ import grpc
 from xain_proto.fl import coordinator_pb2, coordinator_pb2_grpc
 
 from xain_fl.coordinator.coordinator import Coordinator
+from xain_fl.coordinator.store import Store
 from xain_fl.tools.exceptions import (
     DuplicatedUpdateError,
     InvalidRequestError,
@@ -22,10 +23,15 @@ class CoordinatorGrpc(coordinator_pb2_grpc.CoordinatorServicer):
     Args:
         coordinator (:class:`xain_fl.coordinator.coordinator.Coordinator`): The Coordinator
          state machine.
+
+        store (:class:`xain_fl.coordinator.store.Store`): The Store in
+            which the coordinator fetches trained models from the
+            participants and to which it saves aggregated models.
     """
 
-    def __init__(self, coordinator: Coordinator):
+    def __init__(self, coordinator: Coordinator, store: Store):
         self.coordinator: Coordinator = coordinator
+        self.store: Store = store
 
     def Rendezvous(
         self, request: coordinator_pb2.RendezvousRequest, context: grpc.ServicerContext
@@ -134,7 +140,7 @@ class CoordinatorGrpc(coordinator_pb2_grpc.CoordinatorServicer):
             the updated weights.
         """
         try:
-            return self.coordinator.on_message(request, context.peer())
+            response = self.coordinator.on_message(request, context.peer())
         except DuplicatedUpdateError as error:
             context.set_details(str(error))
             context.set_code(grpc.StatusCode.ALREADY_EXISTS)
@@ -143,3 +149,7 @@ class CoordinatorGrpc(coordinator_pb2_grpc.CoordinatorServicer):
             context.set_details(str(error))
             context.set_code(grpc.StatusCode.PERMISSION_DENIED)
             return coordinator_pb2.EndTrainingReply()
+
+        if self.coordinator.state == coordinator_pb2.State.FINISHED:
+            self.store.write_weights(self.coordinator.current_round, self.coordinator.weights)
+        return response

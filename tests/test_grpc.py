@@ -14,11 +14,6 @@ from xain_proto.fl import (
     hellonumproto_pb2,
     hellonumproto_pb2_grpc,
 )
-
-from xain_fl.coordinator.coordinator import Coordinator
-from xain_fl.coordinator.coordinator_grpc import CoordinatorGrpc
-from xain_fl.coordinator.heartbeat import monitor_heartbeats
-from xain_fl.coordinator.participants import Participants
 from xain_sdk.participant_state_machine import (
     StateRecord,
     end_training,
@@ -26,6 +21,13 @@ from xain_sdk.participant_state_machine import (
     rendezvous,
     start_training,
 )
+
+from xain_fl.coordinator.coordinator import Coordinator
+from xain_fl.coordinator.coordinator_grpc import CoordinatorGrpc
+from xain_fl.coordinator.heartbeat import monitor_heartbeats
+from xain_fl.coordinator.participants import Participants
+
+from .store import TestStore
 
 
 @pytest.mark.integration
@@ -86,7 +88,10 @@ def test_participant_rendezvous_later(participant_stub):
         coordinator.participants.add(str(i))
 
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
-    coordinator_pb2_grpc.add_CoordinatorServicer_to_server(CoordinatorGrpc(coordinator), server)
+    store = TestStore()
+    coordinator_pb2_grpc.add_CoordinatorServicer_to_server(
+        CoordinatorGrpc(coordinator, store), server
+    )
     server.add_insecure_port("localhost:50051")
     server.start()
 
@@ -373,3 +378,72 @@ def test_end_training_denied(  # pylint: disable=unused-argument
     with pytest.raises(grpc.RpcError):
         reply = participant_stub.EndTraining(coordinator_pb2.EndTrainingRequest())
         assert reply.status_code == grpc.StatusCode.PERMISSION_DENIED
+
+
+@pytest.mark.integration
+def test_full_round(participant_stubs, coordinator_service):  # pylint: disable=unused-argument
+    """Run a complete round with multiple participants.
+    """
+    # Initialize the coordinator with dummy weights, otherwise, the
+    # aggregated weights at the end of the round are an empty array.
+    dummy_weights = np.ndarray([1, 2, 3, 4])
+    coordinator_service.coordinator.weights = dummy_weights
+    weights_proto = [ndarray_to_proto(nda) for nda in dummy_weights]
+
+    # Create 10 partipants
+    participants = [next(participant_stubs) for _ in range(0, 10)]
+
+    # 9 participants out of 10 connect to the coordinator, so it stays
+    # in STANDBY and accepts the connections.
+    for participant in participants[:-1]:
+        reply = participant.Rendezvous(coordinator_pb2.RendezvousRequest())
+        assert reply.response == coordinator_pb2.RendezvousResponse.ACCEPT
+
+        reply = participant.Heartbeat(coordinator_pb2.HeartbeatRequest())
+        assert reply == coordinator_pb2.HeartbeatReply(state=coordinator_pb2.State.STANDBY, round=0)
+
+    assert coordinator_service.coordinator.state == coordinator_pb2.STANDBY
+    assert coordinator_service.coordinator.current_round == 0
+
+    # The 10th participant connect, so the coordinator switches to ROUND>
+    last_participant = participants[-1]
+    reply = last_participant.Rendezvous(coordinator_pb2.RendezvousRequest())
+    assert reply.response == coordinator_pb2.RendezvousResponse.ACCEPT
+
+    assert coordinator_service.coordinator.state == coordinator_pb2.ROUND
+    assert coordinator_service.coordinator.current_round == 1
+
+    reply = last_participant.Heartbeat(coordinator_pb2.HeartbeatRequest())
+    assert reply == coordinator_pb2.HeartbeatReply(state=coordinator_pb2.State.ROUND, round=1)
+
+    # The initial 9 participants send another heatbeat request.
+    for participant in participants[:-1]:
+        reply = participant.Heartbeat(
+            coordinator_pb2.HeartbeatRequest(state=coordinator_pb2.State.STANDBY, round=0)
+        )
+    assert reply == coordinator_pb2.HeartbeatReply(state=coordinator_pb2.State.ROUND, round=1)
+
+    # The participants start training
+    for participant in participants:
+        reply = participant.StartTraining(coordinator_pb2.StartTrainingRequest())
+        assert reply == coordinator_pb2.StartTrainingReply(
+            weights=weights_proto,
+            epochs=coordinator_service.coordinator.epochs,
+            epoch_base=coordinator_service.coordinator.epoch_base,
+        )
+
+    # The first 9th participants end training
+    for participant in participants[:-1]:
+        reply = participant.EndTraining(
+            coordinator_pb2.EndTrainingRequest(weights=weights_proto, number_samples=1)
+        )
+        assert reply == coordinator_pb2.EndTrainingReply()
+
+    assert not coordinator_service.coordinator.round.is_finished()
+    coordinator_service.store.assert_didnt_write(1)
+
+    # The last participant finishes training
+    reply = last_participant.EndTraining(coordinator_pb2.EndTrainingRequest())
+    assert reply == coordinator_pb2.EndTrainingReply()
+    # Make sure we wrote the results for the given round
+    coordinator_service.store.assert_wrote(1, coordinator_service.coordinator.weights)
