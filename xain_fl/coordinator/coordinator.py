@@ -11,11 +11,10 @@ from xain_fl.coordinator.participants import Participants
 from xain_fl.coordinator.round import Round
 from xain_fl.fl.coordinator.aggregate import Aggregator, FederatedAveragingAgg
 from xain_fl.fl.coordinator.controller import Controller, RandomController
-from xain_fl.logger import StructLogger, get_logger, logging
+from xain_fl.logger import StructLogger, get_logger
 from xain_fl.tools.exceptions import InvalidRequestError, UnknownParticipantError
 
 logger: StructLogger = get_logger(__name__)
-logger.setLevel(logging.DEBUG)
 
 
 # TODO: raise exceptions for invalid attribute values: https://xainag.atlassian.net/browse/XP-387
