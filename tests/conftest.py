@@ -75,6 +75,7 @@ def mock_coordinator_service():
     monitor_thread.start()
     yield coordinator_grpc
     terminate_event.set()
+    monitor_thread.join()
     server.stop(0)
 
 
