@@ -235,9 +235,10 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
     def _handle_heartbeat(
         self, _message: coordinator_pb2.HeartbeatRequest, participant_id: str
     ) -> coordinator_pb2.HeartbeatReply:
-        """Handles a Heartbeat request.
-        It checks if a participant has been selected, if it has,
-        returns ROUND state to them, else STANDBY.
+        """Handles a Heartbeat request. Responds to the participant with:
+        FINISHED if coordinator is in state FINISHED,
+        ROUND    if the participant is selected for the current round,
+        STANDBY  if the participant is not selected for the current round.
         Args:
             _message (:class:`~.coordinator_pb2.HeartbeatRequest`): The
                 request to handle. Currently not used.

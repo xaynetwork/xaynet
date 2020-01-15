@@ -62,9 +62,6 @@ class IdController(Controller):
     """[summary
 
     ... todo: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
-
-    Args:
-        Controller ([type]): [description]
     """
 
     def select_ids(self, participant_ids: List[str]) -> List[str]:
