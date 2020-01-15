@@ -390,7 +390,7 @@ def test_start_participant(mock_coordinator_service):
     mock_coordinator_service.coordinator.weights = init_weight
 
     # mock a local participant with a constant train_round function
-    with mock.patch("xain_sdk.participant.Participant") as mock_obj:
+    with mock.patch("xain_sdk.participant_state_machine.Participant") as mock_obj:
         mock_local_part = mock_obj.return_value
         mock_local_part.train_round.return_value = init_weight, 1, {}
 
