@@ -165,6 +165,7 @@ class ConnectionManager:
         terminate_event = Event()
         thread = Thread(
             target=forward,
+            name=f"{host}:{port}<->{target_host}:{target_port}",
             args=(host, port, target_host, target_port, terminate_event),
             daemon=True,
         )
@@ -195,5 +196,10 @@ class ConnectionManager:
             threads.append(thread)
         for thread in threads:
             thread.join(timeout=1)
-            assert not thread.isAlive()
+            # FIXME: sometimes some threads don't terminate in CI, so
+            # we're dumping the stacktraces for all the current
+            # threads for debugging purpose.
+            if thread.isAlive():
+                faulthandler.dump_traceback()
+                raise Exception(f"Thread {thread.name} is still alive")
         self.forwarders = {}
