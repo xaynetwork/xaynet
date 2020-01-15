@@ -11,10 +11,11 @@ from xain_fl.coordinator.participants import Participants
 from xain_fl.coordinator.round import Round
 from xain_fl.fl.coordinator.aggregate import Aggregator, FederatedAveragingAgg
 from xain_fl.fl.coordinator.controller import Controller, RandomController
-from xain_fl.logger import StructLogger, get_logger
+from xain_fl.logger import StructLogger, get_logger, logging
 from xain_fl.tools.exceptions import InvalidRequestError, UnknownParticipantError
 
 logger: StructLogger = get_logger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
 # TODO: raise exceptions for invalid attribute values: https://xainag.atlassian.net/browse/XP-387
@@ -248,12 +249,21 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         """
         self.participants.update_expires(participant_id)
 
-        if participant_id in self.round.participant_ids:
-            state = coordinator_pb2.State.ROUND
+        if (
+            self.state == coordinator_pb2.State.FINISHED
+            or participant_id in self.round.participant_ids
+        ):
+            state = self.state
         else:
             state = coordinator_pb2.State.STANDBY
 
         # send heartbeat reply advertising the current state
+        logger.debug(
+            "Heartbeat response",
+            participant_id=participant_id,
+            message=state,
+            round=self.current_round,
+        )
         return coordinator_pb2.HeartbeatReply(state=state, round=self.current_round)
 
     def _handle_start_training(
@@ -314,6 +324,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
 
             # update the round or finish the training session
             if self.current_round == self.num_rounds:
+                logger.debug("Last round over", round=self.current_round)
                 self.state = coordinator_pb2.State.FINISHED
             else:
                 self.current_round += 1
