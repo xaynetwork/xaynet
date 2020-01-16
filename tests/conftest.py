@@ -2,8 +2,8 @@
 
 from concurrent import futures
 import threading
-
 from unittest import mock
+
 import grpc
 import pytest
 from xain_proto.fl import coordinator_pb2_grpc, hellonumproto_pb2_grpc
