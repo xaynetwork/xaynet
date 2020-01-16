@@ -22,11 +22,9 @@ with open(readme_file_path, "r") as fp:
 
 
 # License comments according to `pip-licenses`
-
 install_requires = [
     "numpy==1.15",  # BSD
     "grpcio==1.23",  # Apache License 2.0
-    "numproto==0.3",  # Apache License 2.0
     "structlog==19.2.0",  # Apache License 2.0
     # TODO: change xain-proto requirement to "xain-proto==0.2.0" once it is released
     "xain-proto @ git+https://github.com/xainag/xain-proto.git@c78e86584c205fb56b5c1f03f052e0b623dcd25d#egg=xain_proto-0.1.0&subdirectory=python",  # Apache License 2.0

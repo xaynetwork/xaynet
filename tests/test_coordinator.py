@@ -1,6 +1,5 @@
 """XAIN FL tests for coordinator"""
 
-from numproto import proto_to_ndarray
 import numpy as np
 import pytest
 from xain_proto.fl.coordinator_pb2 import (
@@ -12,6 +11,7 @@ from xain_proto.fl.coordinator_pb2 import (
     StartTrainingRoundRequest,
     State,
 )
+from xain_proto.numproto import proto_to_ndarray
 
 from xain_fl.coordinator.coordinator import Coordinator
 from xain_fl.tools.exceptions import (

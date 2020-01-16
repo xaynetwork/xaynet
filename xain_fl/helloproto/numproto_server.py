@@ -4,8 +4,8 @@ from concurrent import futures
 import time
 
 import grpc
-from numproto import ndarray_to_proto, proto_to_ndarray
 from xain_proto.fl import hellonumproto_pb2, hellonumproto_pb2_grpc
+from xain_proto.numproto import ndarray_to_proto, proto_to_ndarray
 
 from xain_fl.coordinator import _ONE_DAY_IN_SECONDS
 from xain_fl.logger import StructLogger, get_logger
