@@ -7,7 +7,8 @@ import typing
 
 import numpy as np
 
-from xain_fl.coordinator.store import Store, StoreConfig
+from xain_fl.config import StorageConfig
+from xain_fl.coordinator.store import Store
 
 
 class FakeS3Resource:
@@ -71,7 +72,12 @@ class TestStore(Store):
     #
     # pylint: disable=super-init-not-called
     def __init__(self):
-        self.config = StoreConfig("endpoint_url", "access_key_id", "secret_access_key", "bucket")
+        self.config = StorageConfig(
+            endpoint="endpoint",
+            access_key_id="access_key_id",
+            secret_access_key="secret_access_key",
+            bucket="bucket",
+        )
         self.s3 = FakeS3Resource()
 
     def assert_wrote(self, round: int, weights: np.ndarray):

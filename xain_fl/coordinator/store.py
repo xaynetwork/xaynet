@@ -5,25 +5,16 @@ import pickle
 import boto3
 from numpy import ndarray
 
-
-# pylint: disable=too-few-public-methods
-class StoreConfig:
-    def __init__(
-        self, endpoint_url: str, access_key_id: str, secret_access_key: str, bucket: str,
-    ):
-        self.endpoint_url = endpoint_url
-        self.access_key_id = access_key_id
-        self.secret_access_key = secret_access_key
-        self.bucket = bucket
+from xain_fl.config import StorageConfig
 
 
 class Store:
-    def __init__(self, config: StoreConfig):
+    def __init__(self, config: StorageConfig):
         self.config = config
         # pylint: disable=invalid-name
         self.s3 = boto3.resource(
             "s3",
-            endpoint_url=self.config.endpoint_url,
+            endpoint_url=self.config.endpoint,
             aws_access_key_id=self.config.access_key_id,
             aws_secret_access_key=self.config.secret_access_key,
             # FIXME: not sure what this should be for now

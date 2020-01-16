@@ -129,3 +129,7 @@ dmypy.json
 # Editors
 .idea
 .vscode
+
+# In the README, we document how to use custom config. Let's ignore
+# the files mentioned in that section
+custom_config.toml

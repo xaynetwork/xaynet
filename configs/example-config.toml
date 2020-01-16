@@ -1,0 +1,27 @@
+[server]
+# Address to listen on for incoming gRPC connections
+host = "localhost"
+# Port to listen on for incoming gRPC connections
+port = 50051
+
+[ai]
+# Number of global rounds the model is going to be trained for. This
+# must be a positive integer.
+rounds = 2
+# Number of local epochs per round
+epochs = 1
+# Minimum number of participants to be selected for a round.
+min_participants = 1
+# Fraction of total clients that participate in a training round. This
+# must be a float between 0 and 1.
+fraction_participants = 1.0
+
+[storage]
+# URL to the storage service to use
+endpoint = "http://minio-dev:9000"
+# Name of the bucket for storing the aggregated models
+bucket = "xain-fl-aggregated-weights"
+# AWS access key ID to use to authenticate to the storage service
+access_key_id = "minio"
+# AWS secret access to use to authenticate to the storage service
+secret_access_key = "minio123"
