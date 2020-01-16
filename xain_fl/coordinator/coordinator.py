@@ -235,9 +235,10 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
     def _handle_heartbeat(
         self, _message: coordinator_pb2.HeartbeatRequest, participant_id: str
     ) -> coordinator_pb2.HeartbeatReply:
-        """Handles a Heartbeat request.
-        It checks if a participant has been selected, if it has,
-        returns ROUND state to them, else STANDBY.
+        """Handles a Heartbeat request. Responds to the participant with:
+        FINISHED if coordinator is in state FINISHED,
+        ROUND    if the participant is selected for the current round,
+        STANDBY  if the participant is not selected for the current round.
         Args:
             _message (:class:`~.coordinator_pb2.HeartbeatRequest`): The
                 request to handle. Currently not used.
@@ -248,12 +249,21 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         """
         self.participants.update_expires(participant_id)
 
-        if participant_id in self.round.participant_ids:
-            state = coordinator_pb2.State.ROUND
+        if (
+            self.state == coordinator_pb2.State.FINISHED
+            or participant_id in self.round.participant_ids
+        ):
+            state = self.state
         else:
             state = coordinator_pb2.State.STANDBY
 
         # send heartbeat reply advertising the current state
+        logger.debug(
+            "Heartbeat response",
+            participant_id=participant_id,
+            message=state,
+            round=self.current_round,
+        )
         return coordinator_pb2.HeartbeatReply(state=state, round=self.current_round)
 
     def _handle_start_training(
@@ -314,6 +324,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
 
             # update the round or finish the training session
             if self.current_round == self.num_rounds:
+                logger.debug("Last round over", round=self.current_round)
                 self.state = coordinator_pb2.State.FINISHED
             else:
                 self.current_round += 1

@@ -19,6 +19,7 @@ from xain_sdk.participant_state_machine import (
     end_training,
     message_loop,
     rendezvous,
+    start_participant,
     start_training,
 )
 
@@ -447,3 +448,35 @@ def test_full_round(participant_stubs, coordinator_service):  # pylint: disable=
     assert reply == coordinator_pb2.EndTrainingReply()
     # Make sure we wrote the results for the given round
     coordinator_service.store.assert_wrote(1, coordinator_service.coordinator.weights)
+
+
+@pytest.mark.integration
+@pytest.mark.slow
+def test_start_participant(mock_coordinator_service):
+    """[summary]
+
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
+
+    Args:
+        mock_coordinator_service ([type]): [description]
+    """
+
+    init_weight = [np.arange(10), np.arange(10, 20)]
+    mock_coordinator_service.coordinator.weights = init_weight
+
+    # mock a local participant with a constant train_round function
+    with mock.patch("xain_sdk.participant_state_machine.Participant") as mock_obj:
+        mock_local_part = mock_obj.return_value
+        mock_local_part.train_round.return_value = init_weight, 1, {}
+
+        start_participant(mock_local_part, "localhost:50051")
+
+        coord = mock_coordinator_service.coordinator
+        assert coord.state == coordinator_pb2.State.FINISHED
+
+        # coordinator set to 2 round for good measure, but the resulting
+        # aggregated weights are the same as a single round
+        assert coord.current_round == 2
+
+        # expect weight aggregated by summation - see mock_coordinator_service
+        np.testing.assert_equal(coord.weights, [np.arange(start=10, stop=29, step=2)])

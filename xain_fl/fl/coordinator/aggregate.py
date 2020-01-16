@@ -48,6 +48,21 @@ class IdentityAgg(Aggregator):  # pylint: disable=too-few-public-methods
         return thetas[0][0]
 
 
+class ModelSumAgg(Aggregator):  # pylint: disable=too-few-public-methods
+    """Provides a sum-of-models aggregation."""
+
+    def aggregate(self, thetas: List[Tuple[Theta, int]]) -> Theta:
+        """Aggregates a given list of models by summation.
+
+        Args:
+            thetas (~typing.List[~xain_fl.fl.types.Theta]): List of thetas.
+
+        Returns:
+            ~xain_fl.fl.types.Theta: The aggregated model weights.
+        """
+        return [sum(th) for th, _ in thetas]
+
+
 class FederatedAveragingAgg(Aggregator):  # pylint: disable=too-few-public-methods
     """Provides federated averaging aggregation, i.e. a weighted average."""
 
