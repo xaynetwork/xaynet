@@ -451,6 +451,7 @@ def test_full_round(participant_stubs, coordinator_service):  # pylint: disable=
 
 
 @pytest.mark.integration
+@pytest.mark.slow
 def test_start_participant(mock_coordinator_service):
     """[summary]
 
@@ -472,7 +473,10 @@ def test_start_participant(mock_coordinator_service):
 
         coord = mock_coordinator_service.coordinator
         assert coord.state == coordinator_pb2.State.FINISHED
+
         # coordinator set to 2 round for good measure, but the resulting
         # aggregated weights are the same as a single round
         assert coord.current_round == 2
+
+        # expect weight aggregated by summation - see mock_coordinator_service
         np.testing.assert_equal(coord.weights, [np.arange(start=10, stop=29, step=2)])
