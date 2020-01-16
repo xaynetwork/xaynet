@@ -5,7 +5,18 @@ from typing import Dict, List, Optional, Tuple
 from google.protobuf.internal.python_message import GeneratedProtocolMessageType
 from numproto import ndarray_to_proto, proto_to_ndarray
 from numpy import ndarray
-from xain_proto.fl import coordinator_pb2
+from xain_proto.fl.coordinator_pb2 import (
+    EndTrainingRoundRequest,
+    EndTrainingRoundResponse,
+    HeartbeatRequest,
+    HeartbeatResponse,
+    RendezvousReply,
+    RendezvousRequest,
+    RendezvousResponse,
+    StartTrainingRoundRequest,
+    StartTrainingRoundResponse,
+    State,
+)
 
 from xain_fl.coordinator.participants import Participants
 from xain_fl.coordinator.round import Round
@@ -29,8 +40,8 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         and :class:`~.coordinator_pb2.HeartbeatRequest`.
         ROUND: A round is currently in progress. During a round the important
         messages the coordinator can receive are
-        :class:`~.coordinator_pb2.StartTrainingRequest` and
-        :class:`~.coordinator_pb2.EndTrainingRequest`.
+        :class:`~.coordinator_pb2.StartTrainingRoundRequest` and
+        :class:`~.coordinator_pb2.EndTrainingRoundRequest`.
         Since participants are selected for rounds or not, they can be advertised
         either ROUND or STANDBY accordingly.
         FINISHED: The training session has ended and participants should
@@ -107,7 +118,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         self.round: Round = Round(self.participants.ids())
 
         # state variables
-        self.state: coordinator_pb2.State = coordinator_pb2.State.STANDBY
+        self.state: State = State.STANDBY
         self.current_round: int = 0
 
     def get_minimum_connected_participants(self) -> int:
@@ -126,7 +137,8 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
             message (:class:`~.GeneratedProtocolMessageType`): A protobuf message.
             participant_id (:obj:`str`): The id of the participant making the request.
         Returns:
-            :class:`~.GeneratedProtocolMessageType`: The reply to be sent back to the participant.
+            :class:`~.GeneratedProtocolMessageType`: The response to be sent back to the
+            participant.
         Raises:
             :class:`~UnknownParticipantError`: If it receives a request from an
             unknown participant. Typically a participant that has not
@@ -143,7 +155,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         # Unless this is a RendezvousRequest the coordinator should not accept messages
         # from participants that have not been accepted
         if (
-            not isinstance(message, coordinator_pb2.RendezvousRequest)
+            not isinstance(message, RendezvousRequest)
             and participant_id not in self.participants.ids()
         ):
             raise UnknownParticipantError(
@@ -151,21 +163,21 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
                 "Please try to rendezvous with the coordinator before making a request."
             )
 
-        if isinstance(message, coordinator_pb2.RendezvousRequest):
+        if isinstance(message, RendezvousRequest):
             # Handle rendezvous
             return self._handle_rendezvous(message, participant_id)
 
-        if isinstance(message, coordinator_pb2.HeartbeatRequest):
+        if isinstance(message, HeartbeatRequest):
             # Handle heartbeat
             return self._handle_heartbeat(message, participant_id)
 
-        if isinstance(message, coordinator_pb2.StartTrainingRequest):
+        if isinstance(message, StartTrainingRoundRequest):
             # handle start training
-            return self._handle_start_training(message, participant_id)
+            return self._handle_start_training_round(message, participant_id)
 
-        if isinstance(message, coordinator_pb2.EndTrainingRequest):
+        if isinstance(message, EndTrainingRoundRequest):
             # handle end training
-            return self._handle_end_training(message, participant_id)
+            return self._handle_end_training_round(message, participant_id)
 
         raise NotImplementedError
 
@@ -183,7 +195,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         logger.info("Removing participant", participant_id=participant_id)
 
         if self.participants.len() < self.minimum_connected_participants:
-            self.state = coordinator_pb2.State.STANDBY
+            self.state = State.STANDBY
 
     def select_participant_ids_and_init_round(self) -> None:
         """Selects the participant ids and initiates a Round.
@@ -193,8 +205,8 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         self.round = Round(selected_ids)
 
     def _handle_rendezvous(
-        self, _message: coordinator_pb2.RendezvousRequest, participant_id: str
-    ) -> coordinator_pb2.RendezvousReply:
+        self, _message: RendezvousRequest, participant_id: str
+    ) -> RendezvousResponse:
         """Handles a Rendezvous request.
         Args:
             _message (:class:`~.coordinator_pb2.RendezvousRequest`): The
@@ -202,11 +214,11 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
             participant_id (:obj:`str`): The id of the participant making the
                 request.
         Returns:
-            :class:`~.coordinator_pb2.RendezvousReply`: The reply to the participant.
+            :class:`~.coordinator_pb2.RendezvousResponse`: The response to the participant.
         """
 
         if self.participants.len() < self.minimum_connected_participants:
-            response = coordinator_pb2.RendezvousResponse.ACCEPT
+            reply = RendezvousReply.ACCEPT
             self.participants.add(participant_id)
             logger.info(
                 "Accepted participant",
@@ -220,21 +232,21 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
                 self.select_participant_ids_and_init_round()
 
                 # TODO: We may need to make this update thread safe
-                self.state = coordinator_pb2.State.ROUND
+                self.state = State.ROUND
                 self.current_round = 1 if self.current_round == 0 else self.current_round
         else:
-            response = coordinator_pb2.RendezvousResponse.LATER
+            reply = RendezvousReply.LATER
             logger.info(
                 "Reject participant",
                 participant_id=participant_id,
                 current_participants_count=self.participants.len(),
             )
 
-        return coordinator_pb2.RendezvousReply(response=response)
+        return RendezvousResponse(reply=reply)
 
     def _handle_heartbeat(
-        self, _message: coordinator_pb2.HeartbeatRequest, participant_id: str
-    ) -> coordinator_pb2.HeartbeatReply:
+        self, _message: HeartbeatRequest, participant_id: str
+    ) -> HeartbeatResponse:
         """Handles a Heartbeat request. Responds to the participant with:
         FINISHED if coordinator is in state FINISHED,
         ROUND    if the participant is selected for the current round,
@@ -245,63 +257,61 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
             participant_id (:obj:`str`): The id of the participant making the
                 request.
         Returns:
-            :class:`~.coordinator_pb2.HeartbeatReply`: The reply to the participant.
+            :class:`~.coordinator_pb2.HeartbeatResponse`: The response to the participant.
         """
         self.participants.update_expires(participant_id)
 
-        if (
-            self.state == coordinator_pb2.State.FINISHED
-            or participant_id in self.round.participant_ids
-        ):
+        if self.state == State.FINISHED or participant_id in self.round.participant_ids:
             state = self.state
         else:
-            state = coordinator_pb2.State.STANDBY
+            state = State.STANDBY
 
-        # send heartbeat reply advertising the current state
+        # send heartbeat response advertising the current state
         logger.debug(
             "Heartbeat response",
             participant_id=participant_id,
             message=state,
             round=self.current_round,
         )
-        return coordinator_pb2.HeartbeatReply(state=state, round=self.current_round)
+        return HeartbeatResponse(state=state, round=self.current_round)
 
-    def _handle_start_training(
-        self, _message: coordinator_pb2.StartTrainingRequest, participant_id: str
-    ) -> coordinator_pb2.StartTrainingReply:
-        """Handles a StartTraining request.
+    def _handle_start_training_round(
+        self, _message: StartTrainingRoundRequest, participant_id: str
+    ) -> StartTrainingRoundResponse:
+        """Handles a StartTrainingRound request.
         Args:
-            _message (:class:`~.coordinator_pb2.StartTrainingRequest`): The
+            _message (:class:`~.coordinator_pb2.StartTrainingRoundRequest`): The
                 request to handle. Currently not used.
             participant_id (:obj:`str`): The id of the participant making the
                 request.
         Returns:
-            :class:`~.coordinator_pb2.StartTrainingReply`: The reply to the participant.
+            :class:`~.coordinator_pb2.StartTrainingRoundResponse`: The response to the participant.
         """
-        # The coordinator should only accept StartTraining requests if it is
+        # The coordinator should only accept StartTrainingRound requests if it is
         # in the ROUND state and when the participant has been selected for the round.
-        coordinator_not_in_a_round = self.state != coordinator_pb2.State.ROUND
+        coordinator_not_in_a_round = self.state != State.ROUND
         participant_not_selected = participant_id not in self.round.participant_ids
         if coordinator_not_in_a_round or participant_not_selected:
             raise InvalidRequestError(
-                f"Participant {participant_id} sent a " "StartTrainingRequest outside of a round"
+                f"Participant {participant_id} sent a "
+                "StartTrainingRoundRequest outside of a round"
             )
 
         weights_proto = [ndarray_to_proto(nda) for nda in self.weights]
 
-        return coordinator_pb2.StartTrainingReply(
+        return StartTrainingRoundResponse(
             weights=weights_proto, epochs=self.epochs, epoch_base=self.epoch_base,
         )
 
-    def _handle_end_training(
-        self, message: coordinator_pb2.EndTrainingRequest, participant_id: str
-    ) -> coordinator_pb2.EndTrainingReply:
-        """Handles a EndTraining request.
+    def _handle_end_training_round(
+        self, message: EndTrainingRoundRequest, participant_id: str
+    ) -> EndTrainingRoundResponse:
+        """Handles a EndTrainingRound request.
         Args:
-            message (:class:`~.coordinator_pb2.EndTrainingRequest`): The request to handle.
+            message (:class:`~.coordinator_pb2.EndTrainingRoundRequest`): The request to handle.
             participant_id (:obj:`str`): The id of the participant making the request.
         Returns:
-            :class:`~.coordinator_pb2.EndTrainingReply`: The reply to the participant.
+            :class:`~.coordinator_pb2.EndTrainingRoundResponse`: The response to the participant.
         """
 
         # TODO: Ideally we want to know for which round the participant is
@@ -325,10 +335,10 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
             # update the round or finish the training session
             if self.current_round == self.num_rounds:
                 logger.debug("Last round over", round=self.current_round)
-                self.state = coordinator_pb2.State.FINISHED
+                self.state = State.FINISHED
             else:
                 self.current_round += 1
                 # reinitialize the round
                 self.select_participant_ids_and_init_round()
 
-        return coordinator_pb2.EndTrainingReply()
+        return EndTrainingRoundResponse()
