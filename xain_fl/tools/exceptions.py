@@ -21,5 +21,5 @@ class InvalidRequestError(Exception):
 
     This can happen if the participant sends a request that is not allowed in a
     give Coordinator state. For instance the Coordinator will only accept
-    StartTraining requests during a ROUND.
+    StartTrainingRound requests during a ROUND.
     """

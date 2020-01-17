@@ -8,19 +8,27 @@ import grpc
 from numproto import ndarray_to_proto, proto_to_ndarray
 import numpy as np
 import pytest
-from xain_proto.fl import (
-    coordinator_pb2,
-    coordinator_pb2_grpc,
-    hellonumproto_pb2,
-    hellonumproto_pb2_grpc,
+from xain_proto.fl.coordinator_pb2 import (
+    EndTrainingRoundRequest,
+    EndTrainingRoundResponse,
+    HeartbeatRequest,
+    HeartbeatResponse,
+    RendezvousReply,
+    RendezvousRequest,
+    StartTrainingRoundRequest,
+    StartTrainingRoundResponse,
+    State,
 )
+from xain_proto.fl.coordinator_pb2_grpc import add_CoordinatorServicer_to_server
+from xain_proto.fl.hellonumproto_pb2 import NumProtoRequest
+from xain_proto.fl.hellonumproto_pb2_grpc import NumProtoServerStub
 from xain_sdk.participant_state_machine import (
     StateRecord,
-    end_training,
+    end_training_round,
     message_loop,
     rendezvous,
     start_participant,
-    start_training,
+    start_training_round,
 )
 
 from xain_fl.coordinator.coordinator import Coordinator
@@ -42,12 +50,10 @@ def test_greeter_server(greeter_server):  # pylint: disable=unused-argument
     """
 
     with grpc.insecure_channel("localhost:50051") as channel:
-        stub = hellonumproto_pb2_grpc.NumProtoServerStub(channel)
+        stub = NumProtoServerStub(channel)
 
         nda = np.arange(10)
-        response = stub.SayHelloNumProto(
-            hellonumproto_pb2.NumProtoRequest(arr=ndarray_to_proto(nda))
-        )
+        response = stub.SayHelloNumProto(NumProtoRequest(arr=ndarray_to_proto(nda)))
 
         response_nda = proto_to_ndarray(response.arr)
 
@@ -67,9 +73,9 @@ def test_participant_rendezvous_accept(  # pylint: disable=unused-argument
         coordinator_service ([type]): [description]
     """
 
-    reply = participant_stub.Rendezvous(coordinator_pb2.RendezvousRequest())
+    response = participant_stub.Rendezvous(RendezvousRequest())
 
-    assert reply.response == coordinator_pb2.RendezvousResponse.ACCEPT
+    assert response.reply == RendezvousReply.ACCEPT
 
 
 @pytest.mark.integration
@@ -90,17 +96,15 @@ def test_participant_rendezvous_later(participant_stub):
 
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
     store = TestStore()
-    coordinator_pb2_grpc.add_CoordinatorServicer_to_server(
-        CoordinatorGrpc(coordinator, store), server
-    )
+    add_CoordinatorServicer_to_server(CoordinatorGrpc(coordinator, store), server)
     server.add_insecure_port("localhost:50051")
     server.start()
 
     # try to rendezvous the 11th participant
-    reply = participant_stub.Rendezvous(coordinator_pb2.RendezvousRequest())
+    response = participant_stub.Rendezvous(RendezvousRequest())
     server.stop(0)
 
-    assert reply.response == coordinator_pb2.RendezvousResponse.LATER
+    assert response.reply == RendezvousReply.LATER
 
 
 @pytest.mark.integration
@@ -115,14 +119,14 @@ def test_heartbeat(participant_stub, coordinator_service):
     """
 
     # first we need to rendezvous so that the participant is added to the list of participants
-    _ = participant_stub.Rendezvous(coordinator_pb2.RendezvousRequest())
-    reply = participant_stub.Heartbeat(coordinator_pb2.HeartbeatRequest())
+    _ = participant_stub.Rendezvous(RendezvousRequest())
+    response = participant_stub.Heartbeat(HeartbeatRequest())
 
     # the Coordinator is initialised in conftest.py::coordinator_service with 10 participants
-    # needed per round. so here we expect the HeartbeatReply to have State.STANDBY
+    # needed per round. so here we expect the HeartbeatResponse to have State.STANDBY
     # because we connected only one participant
-    assert reply == coordinator_pb2.HeartbeatReply()
-    assert coordinator_service.coordinator.state == coordinator_pb2.State.STANDBY
+    assert response == HeartbeatResponse()
+    assert coordinator_service.coordinator.state == State.STANDBY
 
 
 @pytest.mark.integration
@@ -139,8 +143,8 @@ def test_heartbeat_denied(participant_stub, coordinator_service):  # pylint: dis
     # heartbeat requests are only allowed if the participant has already
     # rendezvous with the coordinator
     with pytest.raises(grpc.RpcError):
-        reply = participant_stub.Heartbeat(coordinator_pb2.HeartbeatRequest())
-        assert reply.status_code == grpc.StatusCode.PERMISSION_DENIED
+        response = participant_stub.Heartbeat(HeartbeatRequest())
+        assert response.status_code == grpc.StatusCode.PERMISSION_DENIED
 
 
 @mock.patch("xain_fl.coordinator.heartbeat.threading.Event.is_set", side_effect=[False, True])
@@ -222,7 +226,7 @@ def test_message_loop(mock_heartbeat_request, _mock_sleep, _mock_event):
 
 
 @pytest.mark.integration
-def test_start_training(coordinator_service):
+def test_start_training_round(coordinator_service):
     """[summary]
 
     .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
@@ -246,8 +250,8 @@ def test_start_training(coordinator_service):
     with grpc.insecure_channel("localhost:50051") as channel:
         # we need to rendezvous before we can send any other requests
         rendezvous(channel)
-        # call startTraining service method on coordinator
-        weights, epochs, epoch_base = start_training(channel)
+        # call StartTrainingRound service method on coordinator
+        weights, epochs, epoch_base = start_training_round(channel)
 
     # check global model received
     assert epochs == 5
@@ -256,7 +260,7 @@ def test_start_training(coordinator_service):
 
 
 @pytest.mark.integration
-def test_start_training_denied(  # pylint: disable=unused-argument
+def test_start_training_round_denied(  # pylint: disable=unused-argument
     participant_stub, coordinator_service
 ):
     """[summary]
@@ -271,12 +275,12 @@ def test_start_training_denied(  # pylint: disable=unused-argument
     # start training requests are only allowed if the participant has already
     # rendezvous with the coordinator
     with pytest.raises(grpc.RpcError):
-        reply = participant_stub.StartTraining(coordinator_pb2.StartTrainingRequest())
-        assert reply.status_code == grpc.StatusCode.PERMISSION_DENIED
+        response = participant_stub.StartTrainingRound(StartTrainingRoundRequest())
+        assert response.status_code == grpc.StatusCode.PERMISSION_DENIED
 
 
 @pytest.mark.integration
-def test_start_training_failed_precondition(  # pylint: disable=unused-argument
+def test_start_training_round_failed_precondition(  # pylint: disable=unused-argument
     participant_stub, coordinator_service
 ):
     """[summary]
@@ -290,15 +294,15 @@ def test_start_training_failed_precondition(  # pylint: disable=unused-argument
 
     # start training requests are only allowed if the coordinator is in ROUND state.
     # Since we need 10 participants to be connected (see conftest.py::coordinator_service)
-    # the StartTrainingRequest is expected to fail
-    participant_stub.Rendezvous(coordinator_pb2.RendezvousRequest())
+    # the StartTrainingRoundRequest is expected to fail
+    participant_stub.Rendezvous(RendezvousRequest())
     with pytest.raises(grpc.RpcError):
-        reply = participant_stub.StartTraining(coordinator_pb2.StartTrainingRequest())
-        assert reply.status_code == grpc.StatusCode.FAILED_PRECONDITION
+        response = participant_stub.StartTrainingRound(StartTrainingRoundRequest())
+        assert response.status_code == grpc.StatusCode.FAILED_PRECONDITION
 
 
 @pytest.mark.integration
-def test_end_training(coordinator_service):
+def test_end_training_round(coordinator_service):
     """[summary]
 
     .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
@@ -316,10 +320,8 @@ def test_end_training(coordinator_service):
     with grpc.insecure_channel("localhost:50051") as channel:
         # we first need to rendezvous before we can send any other request
         rendezvous(channel)
-        # call endTraining service method on coordinator
-        end_training(  # pylint: disable-msg=no-value-for-parameter
-            channel, test_weights, number_samples, test_metrics
-        )
+        # call EndTrainingRound service method on coordinator
+        end_training_round(channel, test_weights, number_samples, test_metrics)
     # check local model received...
 
     assert len(coordinator_service.coordinator.round.updates) == 1
@@ -339,7 +341,7 @@ def test_end_training(coordinator_service):
 
 
 @pytest.mark.integration
-def test_end_training_duplicated_updates(  # pylint: disable=unused-argument
+def test_end_training_round_duplicated_updates(  # pylint: disable=unused-argument
     coordinator_service, participant_stub
 ):
     """[summary]
@@ -352,17 +354,17 @@ def test_end_training_duplicated_updates(  # pylint: disable=unused-argument
     """
 
     # participant can only send updates once in a single round
-    participant_stub.Rendezvous(coordinator_pb2.RendezvousRequest())
+    participant_stub.Rendezvous(RendezvousRequest())
 
-    participant_stub.EndTraining(coordinator_pb2.EndTrainingRequest())
+    participant_stub.EndTrainingRound(EndTrainingRoundRequest())
 
     with pytest.raises(grpc.RpcError):
-        reply = participant_stub.EndTraining(coordinator_pb2.EndTrainingRequest())
-        assert reply.status_code == grpc.StatusCode.ALREADY_EXISTS
+        response = participant_stub.EndTrainingRound(EndTrainingRoundRequest())
+        assert response.status_code == grpc.StatusCode.ALREADY_EXISTS
 
 
 @pytest.mark.integration
-def test_end_training_denied(  # pylint: disable=unused-argument
+def test_end_training_round_denied(  # pylint: disable=unused-argument
     participant_stub, coordinator_service
 ):
     """[summary]
@@ -377,13 +379,15 @@ def test_end_training_denied(  # pylint: disable=unused-argument
     # heartbeat requests are only allowed if the participant has already
     # rendezvous with the coordinator
     with pytest.raises(grpc.RpcError):
-        reply = participant_stub.EndTraining(coordinator_pb2.EndTrainingRequest())
-        assert reply.status_code == grpc.StatusCode.PERMISSION_DENIED
+        response = participant_stub.EndTrainingRound(EndTrainingRoundRequest())
+        assert response.status_code == grpc.StatusCode.PERMISSION_DENIED
 
 
 @pytest.mark.integration
-def test_full_round(participant_stubs, coordinator_service):  # pylint: disable=unused-argument
-    """Run a complete round with multiple participants.
+def test_full_training_round(
+    participant_stubs, coordinator_service
+):  # pylint: disable=unused-argument
+    """Run a complete training round with multiple participants.
     """
     # Initialize the coordinator with dummy weights, otherwise, the
     # aggregated weights at the end of the round are an empty array.
@@ -397,37 +401,35 @@ def test_full_round(participant_stubs, coordinator_service):  # pylint: disable=
     # 9 participants out of 10 connect to the coordinator, so it stays
     # in STANDBY and accepts the connections.
     for participant in participants[:-1]:
-        reply = participant.Rendezvous(coordinator_pb2.RendezvousRequest())
-        assert reply.response == coordinator_pb2.RendezvousResponse.ACCEPT
+        response = participant.Rendezvous(RendezvousRequest())
+        assert response.reply == RendezvousReply.ACCEPT
 
-        reply = participant.Heartbeat(coordinator_pb2.HeartbeatRequest())
-        assert reply == coordinator_pb2.HeartbeatReply(state=coordinator_pb2.State.STANDBY, round=0)
+        response = participant.Heartbeat(HeartbeatRequest())
+        assert response == HeartbeatResponse(state=State.STANDBY, round=0)
 
-    assert coordinator_service.coordinator.state == coordinator_pb2.STANDBY
+    assert coordinator_service.coordinator.state == State.STANDBY
     assert coordinator_service.coordinator.current_round == 0
 
     # The 10th participant connect, so the coordinator switches to ROUND>
     last_participant = participants[-1]
-    reply = last_participant.Rendezvous(coordinator_pb2.RendezvousRequest())
-    assert reply.response == coordinator_pb2.RendezvousResponse.ACCEPT
+    response = last_participant.Rendezvous(RendezvousRequest())
+    assert response.reply == RendezvousReply.ACCEPT
 
-    assert coordinator_service.coordinator.state == coordinator_pb2.ROUND
+    assert coordinator_service.coordinator.state == State.ROUND
     assert coordinator_service.coordinator.current_round == 1
 
-    reply = last_participant.Heartbeat(coordinator_pb2.HeartbeatRequest())
-    assert reply == coordinator_pb2.HeartbeatReply(state=coordinator_pb2.State.ROUND, round=1)
+    response = last_participant.Heartbeat(HeartbeatRequest())
+    assert response == HeartbeatResponse(state=State.ROUND, round=1)
 
     # The initial 9 participants send another heatbeat request.
     for participant in participants[:-1]:
-        reply = participant.Heartbeat(
-            coordinator_pb2.HeartbeatRequest(state=coordinator_pb2.State.STANDBY, round=0)
-        )
-    assert reply == coordinator_pb2.HeartbeatReply(state=coordinator_pb2.State.ROUND, round=1)
+        response = participant.Heartbeat(HeartbeatRequest(state=State.STANDBY, round=0))
+    assert response == HeartbeatResponse(state=State.ROUND, round=1)
 
     # The participants start training
     for participant in participants:
-        reply = participant.StartTraining(coordinator_pb2.StartTrainingRequest())
-        assert reply == coordinator_pb2.StartTrainingReply(
+        response = participant.StartTrainingRound(StartTrainingRoundRequest())
+        assert response == StartTrainingRoundResponse(
             weights=weights_proto,
             epochs=coordinator_service.coordinator.epochs,
             epoch_base=coordinator_service.coordinator.epoch_base,
@@ -435,17 +437,17 @@ def test_full_round(participant_stubs, coordinator_service):  # pylint: disable=
 
     # The first 9th participants end training
     for participant in participants[:-1]:
-        reply = participant.EndTraining(
-            coordinator_pb2.EndTrainingRequest(weights=weights_proto, number_samples=1)
+        response = participant.EndTrainingRound(
+            EndTrainingRoundRequest(weights=weights_proto, number_samples=1)
         )
-        assert reply == coordinator_pb2.EndTrainingReply()
+        assert response == EndTrainingRoundResponse()
 
     assert not coordinator_service.coordinator.round.is_finished()
     coordinator_service.store.assert_didnt_write(1)
 
     # The last participant finishes training
-    reply = last_participant.EndTraining(coordinator_pb2.EndTrainingRequest())
-    assert reply == coordinator_pb2.EndTrainingReply()
+    response = last_participant.EndTrainingRound(EndTrainingRoundRequest())
+    assert response == EndTrainingRoundResponse()
     # Make sure we wrote the results for the given round
     coordinator_service.store.assert_wrote(1, coordinator_service.coordinator.weights)
 
@@ -472,7 +474,7 @@ def test_start_participant(mock_coordinator_service):
         start_participant(mock_local_part, "localhost:50051")
 
         coord = mock_coordinator_service.coordinator
-        assert coord.state == coordinator_pb2.State.FINISHED
+        assert coord.state == State.FINISHED
 
         # coordinator set to 2 round for good measure, but the resulting
         # aggregated weights are the same as a single round

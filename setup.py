@@ -29,7 +29,7 @@ install_requires = [
     "numproto==0.3",  # Apache License 2.0
     "structlog==19.2.0",  # Apache License 2.0
     # TODO: change xain-proto requirement to "xain-proto==0.2.0" once it is released
-    "xain-proto @ git+https://github.com/xainag/xain-proto.git@0e52b2fd1ceabbcccd443b05e2438a9ce0c65178#egg=xain_proto-0.2.0&subdirectory=python",  # Apache License 2.0
+    "xain-proto @ git+https://github.com/xainag/xain-proto.git@c78e86584c205fb56b5c1f03f052e0b623dcd25d#egg=xain_proto-0.1.0&subdirectory=python",  # Apache License 2.0
     "boto3==1.10.48",  # Apache License 2.0
 ]
 
@@ -49,7 +49,7 @@ tests_require = [
     "pytest==5.3.2",  # MIT license
     "pytest-cov==2.8.1",  # MIT
     "pytest-watch==4.2.0",  # MIT
-    "xain-sdk @ git+https://github.com/xainag/xain-sdk.git@development#egg=xain_sdk-0.2.0",
+    "xain-sdk @ git+https://github.com/xainag/xain-sdk.git@development#egg=xain_sdk-0.1.0",
 ]
 
 docs_require = ["Sphinx==2.2.1", "m2r==0.2.1", "sphinxcontrib-mermaid==0.3.1"]
