@@ -22,6 +22,7 @@ with open(readme_file_path, "r") as fp:
 
 
 # License comments according to `pip-licenses`
+
 install_requires = [
     "numpy==1.15",  # BSD
     "grpcio==1.23",  # Apache License 2.0
