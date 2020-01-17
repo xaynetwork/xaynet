@@ -85,7 +85,7 @@ setup(
         "Operating System :: MacOS :: MacOS X",
         "Operating System :: POSIX :: Linux",
     ],
-    packages=find_packages(where=".", exclude=["*_test.py"]),
+    packages=find_packages(exclude=["tests"]),
     install_requires=install_requires,
     tests_require=tests_require,
     extras_require={
