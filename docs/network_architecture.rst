@@ -192,7 +192,7 @@ either:
 
         # rest of the method logic
 
-*Periodically check if the rcp call is active:*
+*Periodically check if the rpc call is active:*
 
 .. code-block:: python
 
@@ -382,6 +382,21 @@ When complete, it sends the updated model :math:`\weights'` (and other metadata)
 back. :math:`C` responds with an acknowledgement.
 
 .. image:: _static/sequence2.png
+
+..
+    this comment is just here to keep the original markdown code of the above sequence diagram!
+    ```sequence
+    participant Coord. as C
+    participant Part. as P
+    Note left of C: ROUND
+    P->C: StartTrainingRound()
+    Note right of P: TRAINING
+    C->P: weights, ...
+    Note right of P: (local training)
+    P->C: EndTrainingRound(weights_update, ...)
+    C->P:
+    Note right of P: POST-TRAINING
+    ```
 
 **Participant Notification via Extended Heartbeat**
 
