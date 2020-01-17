@@ -1,9 +1,9 @@
 """XAIN FL numproto client"""
 
 import grpc
-from numproto import ndarray_to_proto, proto_to_ndarray
 import numpy as np
 from xain_proto.fl import hellonumproto_pb2, hellonumproto_pb2_grpc
+from xain_proto.numproto import ndarray_to_proto, proto_to_ndarray
 
 from xain_fl.logger import StructLogger, get_logger
 

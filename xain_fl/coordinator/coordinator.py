@@ -3,7 +3,6 @@
 from typing import Dict, List, Optional, Tuple
 
 from google.protobuf.internal.python_message import GeneratedProtocolMessageType
-from numproto import ndarray_to_proto, proto_to_ndarray
 from numpy import ndarray
 from xain_proto.fl.coordinator_pb2 import (
     EndTrainingRoundRequest,
@@ -17,6 +16,7 @@ from xain_proto.fl.coordinator_pb2 import (
     StartTrainingRoundResponse,
     State,
 )
+from xain_proto.numproto import ndarray_to_proto, proto_to_ndarray
 
 from xain_fl.coordinator.participants import Participants
 from xain_fl.coordinator.round import Round

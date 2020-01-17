@@ -5,7 +5,6 @@ import threading
 from unittest import mock
 
 import grpc
-from numproto import ndarray_to_proto, proto_to_ndarray
 import numpy as np
 import pytest
 from xain_proto.fl.coordinator_pb2 import (
@@ -22,6 +21,7 @@ from xain_proto.fl.coordinator_pb2 import (
 from xain_proto.fl.coordinator_pb2_grpc import add_CoordinatorServicer_to_server
 from xain_proto.fl.hellonumproto_pb2 import NumProtoRequest
 from xain_proto.fl.hellonumproto_pb2_grpc import NumProtoServerStub
+from xain_proto.numproto import ndarray_to_proto, proto_to_ndarray
 from xain_sdk.participant_state_machine import (
     StateRecord,
     end_training_round,

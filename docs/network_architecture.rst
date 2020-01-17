@@ -99,8 +99,8 @@ models after they finished their training task.
 In order to remain agnostic to the machine learning framework *Participants*
 and *Coordinator* exchange models in the form of numpy arrays. How models are
 converted from a particular machine learning framework model into numpy arrays
-are outside the scope of this document. We do provide the `Numproto
-<https://github.com/xainag/numproto>`_ python package that performs
+are outside the scope of this document. We do provide the `xain-proto
+<https://github.com/xainag/xain-proto>`_ python package that performs
 serialization and deserialization of numpy arrays into and from protobuf.
 
 
@@ -350,15 +350,15 @@ where the request and response data are given as the following protobuf messages
    message StartTrainingRoundRequest {}
 
    message StartTrainingRoundResponse {
-       repeated numproto.protobuf.NDArray weights = 1;
+       repeated xain_proto.numproto.NDArray weights = 1;
        int32 epochs = 2;
        int32 epoch_base = 3;
    }
 
    message EndTrainingRoundRequest {
-       repeated numproto.protobuf.NDArray weights = 1;
+       repeated xain_proto.numproto.NDArray weights = 1;
        int32 number_samples = 2;
-       map<string, numproto.protobuf.NDArray> metrics = 3;
+       map<string, xain_proto.numproto.NDArray> metrics = 3;
    }
 
    message EndTrainingRoundResponse {}
@@ -366,8 +366,9 @@ where the request and response data are given as the following protobuf messages
 
 Note that while most of the Python data types to be exchanged can be
 "protobuf-erized" (and back), :code:`ndarray` requires more work. Fortunately we
-have the `numproto <https://github.com/xainag/numproto>`_ project to help with
-this conversion.
+have the 
+`xain_proto/numproto <https://github.com/xainag/xain-proto/tree/master/python/xain_proto/numproto>`_
+project to help with this conversion.
 
 Training Round Communication
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
