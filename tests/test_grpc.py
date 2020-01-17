@@ -22,11 +22,6 @@ from xain_proto.fl.coordinator_pb2 import (
 from xain_proto.fl.coordinator_pb2_grpc import add_CoordinatorServicer_to_server
 from xain_proto.fl.hellonumproto_pb2 import NumProtoRequest
 from xain_proto.fl.hellonumproto_pb2_grpc import NumProtoServerStub
-
-from xain_fl.coordinator.coordinator import Coordinator
-from xain_fl.coordinator.coordinator_grpc import CoordinatorGrpc
-from xain_fl.coordinator.heartbeat import monitor_heartbeats
-from xain_fl.coordinator.participants import Participants
 from xain_sdk.participant_state_machine import (
     StateRecord,
     end_training_round,
@@ -35,6 +30,11 @@ from xain_sdk.participant_state_machine import (
     start_participant,
     start_training_round,
 )
+
+from xain_fl.coordinator.coordinator import Coordinator
+from xain_fl.coordinator.coordinator_grpc import CoordinatorGrpc
+from xain_fl.coordinator.heartbeat import monitor_heartbeats
+from xain_fl.coordinator.participants import Participants
 
 from .store import TestStore
 
