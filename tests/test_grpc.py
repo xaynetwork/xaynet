@@ -27,10 +27,7 @@ from xain_fl.coordinator.coordinator import Coordinator
 from xain_fl.coordinator.coordinator_grpc import CoordinatorGrpc
 from xain_fl.coordinator.heartbeat import monitor_heartbeats
 from xain_fl.coordinator.participants import Participants
-
-from .store import TestStore
-
-from xain_sdk.participant_state_machine import (  # isort:skip  # pylint: disable=wrong-import-order
+from xain_sdk.participant_state_machine import (
     StateRecord,
     end_training_round,
     message_loop,
@@ -38,6 +35,8 @@ from xain_sdk.participant_state_machine import (  # isort:skip  # pylint: disabl
     start_participant,
     start_training_round,
 )
+
+from .store import TestStore
 
 
 @pytest.mark.integration
