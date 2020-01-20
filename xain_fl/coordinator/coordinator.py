@@ -257,9 +257,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
             if self.participants.len() == self.minimum_connected_participants:
                 self.select_participant_ids_and_init_round()
 
-                # TODO: We may need to make this update thread safe
                 self.state = State.ROUND
-                self.current_round = 1 if self.current_round == 0 else self.current_round
         else:
             reply = RendezvousReply.LATER
             logger.info(
