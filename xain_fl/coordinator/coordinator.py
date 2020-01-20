@@ -45,8 +45,9 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
           the important messages the coordinator can receive are
           :class:`~.coordinator_pb2.StartTrainingRoundRequest` and
           :class:`~.coordinator_pb2.EndTrainingRoundRequest`.  Since
-          participants are selected for rounds or not, they can be
-          advertised either ROUND or STANDBY accordingly.
+          participants may or may not be selected for rounds, they can be
+          advertised accordingly with ROUND or STANDBY respectively.
+          Round numbers start from 0.
 
         - ``FINISHED``: The training session has ended and
           participants should disconnect from the coordinator.
@@ -57,7 +58,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
     The flow of the Coordinator:
 
         1. The coordinator is started and waits for enough participants to join. `STANDBY`.
-        2. Once enough participants are connected the coordinator starts the rounds. `ROUND N`.
+        2. Once enough participants are connected the coordinator starts the rounds. `ROUND`.
         3. Repeat step 2. for the given number of rounds
         4. The training session is over and the coordinator is ready to shutdown. `FINISHED`.
 
@@ -68,10 +69,10 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
 
     Args:
 
-        num_rounds: The number of rounds of the training session
+        num_rounds: The number of rounds of the training session.
 
         minimum_participants_in_round: The minimum number of
-            participants that participate in a round
+            participants that participate in a round.
 
         fraction_of_participants: The fraction of total connected
             participants to be selected in a single round. Defaults to
@@ -90,6 +91,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         controller: Controls how the Participants are selected at the
             start of each round. Defaults to
             :class:`~.RandomController`.
+
     """
 
     DEFAULT_AGGREGATOR: Aggregator = FederatedAveragingAgg()
@@ -365,7 +367,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
             self.weights = self.aggregator.aggregate(self.round.get_weight_updates())
 
             # update the round or finish the training session
-            if self.current_round == self.num_rounds:
+            if self.current_round >= self.num_rounds - 1:
                 logger.debug("Last round over", round=self.current_round)
                 self.state = State.FINISHED
             else:
