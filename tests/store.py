@@ -84,7 +84,7 @@ given round.
         """
         writes = self.s3.writes[str(round)]
         # Under normal conditions, we should write data exactly once
-        assert writes == 0, f"got {writes} writes for round {round}, expected 0"
+        assert writes == 1, f"got {writes} writes for round {round}, expected 1"
         # If the arrays contains `NaN` we cannot compare them, so we
         # replace them by zeros to do the comparison
         stored_array = np.nan_to_num(self.s3.fake_store[str(round)])
