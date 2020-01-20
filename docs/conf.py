@@ -50,6 +50,7 @@ extensions = [
     "sphinx.ext.mathjax",
     "sphinxcontrib.mermaid",
     "sphinx.ext.todo",
+    "sphinx_autodoc_typehints",
 ]
 
 source_suffix = {".rst": "restructuredtext", ".md": "markdown"}

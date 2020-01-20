@@ -51,7 +51,12 @@ tests_require = [
     "xain-sdk @ git+https://github.com/xainag/xain-sdk.git@development#egg=xain_sdk-0.1.0",
 ]
 
-docs_require = ["Sphinx==2.2.1", "m2r==0.2.1", "sphinxcontrib-mermaid==0.3.1"]
+docs_require = [
+    "Sphinx==2.2.1",
+    "m2r==0.2.1",
+    "sphinxcontrib-mermaid==0.3.1",
+    "sphinx-autodoc-typehints==1.10.3",  # MIT
+]
 
 setup(
     name="xain_fl",

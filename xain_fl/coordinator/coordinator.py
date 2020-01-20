@@ -34,61 +34,75 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
     state machine that reacts to received messages.
 
     The states of the Coordinator are:
-        STANDBY: The coordinator is in standby mode, typically when waiting for
-        participants to connect. In this mode the only messages that the
-        coordinator can receive are :class:`~.coordinator_pb2.RendezvousRequest`
-        and :class:`~.coordinator_pb2.HeartbeatRequest`.
-        ROUND: A round is currently in progress. During a round the important
-        messages the coordinator can receive are
-        :class:`~.coordinator_pb2.StartTrainingRoundRequest` and
-        :class:`~.coordinator_pb2.EndTrainingRoundRequest`.
-        Since participants are selected for rounds or not, they can be advertised
-        either ROUND or STANDBY accordingly.
-        FINISHED: The training session has ended and participants should
-        disconnect from the coordinator.
 
-    States are exchanged during heartbeats so that both coordinators and
-    participants can react to each others state change.
+        - ``STANDBY``: The coordinator is in standby mode, typically
+          when waiting for participants to connect. In this mode the
+          only messages that the coordinator can receive are
+          :class:`~.coordinator_pb2.RendezvousRequest` and
+          :class:`~.coordinator_pb2.HeartbeatRequest`.
+
+        - ``ROUND``: A round is currently in progress. During a round
+          the important messages the coordinator can receive are
+          :class:`~.coordinator_pb2.StartTrainingRoundRequest` and
+          :class:`~.coordinator_pb2.EndTrainingRoundRequest`.  Since
+          participants are selected for rounds or not, they can be
+          advertised either ROUND or STANDBY accordingly.
+
+        - ``FINISHED``: The training session has ended and
+          participants should disconnect from the coordinator.
+
+    States are exchanged during heartbeats so that both coordinators
+    and participants can react to each others state change.
 
     The flow of the Coordinator:
+
         1. The coordinator is started and waits for enough participants to join. `STANDBY`.
         2. Once enough participants are connected the coordinator starts the rounds. `ROUND N`.
         3. Repeat step 2. for the given number of rounds
         4. The training session is over and the coordinator is ready to shutdown. `FINISHED`.
 
     Note:
+
         :class:`~.coordinator_pb2.RendezvousRequest` is always allowed
         regardless of which state the coordinator is on.
 
-    Constants:
-        DEFAULT_AGGREGATOR (:class:`~.Aggregator`): if no Aggregator instance is provided
-            during initialisation, then :class:`~.FederatedAveragingAgg` in used.
-        DEFAULT_CONTROLLER (:class:`~.Controller`): if no Controller instance is provided
-            during initialisation, then :class:`~.RandomController` in used.
+    Args:
 
-    Attributes:
-        num_rounds (:obj:`int`, optional): The number of rounds of the training
-            session. Defaults to 10.
-        minimum_participants_in_round (:obj:`int`, optional): The minimum number of
-            participants that participate in a round. Defaults to 1.
-        fraction_of_participants (:obj:`float`, optional): The fraction of total
-            connected participants to be selected in a single round. Defaults to 1.0,
-            meaning that all connected participants will be selected.
-            It must be in the (0.0, 1.0] interval.
-        weights (:obj:`list` of :class:`~numpy.ndarray`, optional): The weights of
-            the global model. Defaults to [].
-        epochs (:obj:`int`, optional): Number of training iterations local to
-            Participant.  Defaults to 0.
-        epochs_base (:obj:`int`, optional): Global number of epochs as of last
-            round. Defaults to 0.
-        aggregator: (:class:`~.Aggregator`, optional): The type of aggregation
-            to perform at the end of each round. Defaults to :class:`~.FederatedAveragingAgg`.
-        controller: (:class:`~.Controller`, optional): Controls how the Participants
-            are selected at the start of each round. Defaults to :class:`~.RandomController`.
-        """
+        num_rounds: The number of rounds of the training session
+
+        minimum_participants_in_round: The minimum number of
+            participants that participate in a round
+
+        fraction_of_participants: The fraction of total connected
+            participants to be selected in a single round. Defaults to
+            1.0, meaning that all connected participants will be
+            selected. It must be in the (0.0, 1.0] interval.
+
+        weights: The weights of the global model.
+
+        epochs: Number of training iterations local to Participant.
+
+        epochs_base: Global number of epochs as of last round.
+
+        aggregator: The type of aggregation to perform at the end of
+            each round. Defaults to :class:`~.FederatedAveragingAgg`.
+
+        controller: Controls how the Participants are selected at the
+            start of each round. Defaults to
+            :class:`~.RandomController`.
+    """
 
     DEFAULT_AGGREGATOR: Aggregator = FederatedAveragingAgg()
+    """
+    if no Aggregator instance is provided during initialisation, then
+    :class:`~.FederatedAveragingAgg` in used.
+    """
+
     DEFAULT_CONTROLLER: Controller = RandomController()
+    """
+    if no Controller instance is provided during initialisation, then
+    :class:`~.RandomController` in used.
+    """
 
     def __init__(  # pylint: disable=too-many-arguments,dangerous-default-value
         self,
@@ -133,18 +147,24 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         self, message: GeneratedProtocolMessageType, participant_id: str
     ) -> GeneratedProtocolMessageType:
         """Coordinator method that implements the state machine.
+
         Args:
-            message (:class:`~.GeneratedProtocolMessageType`): A protobuf message.
-            participant_id (:obj:`str`): The id of the participant making the request.
+
+            message: A protobuf message.
+            participant_id: The id of the participant making the request.
+
         Returns:
-            :class:`~.GeneratedProtocolMessageType`: The response to be sent back to the
-            participant.
+
+            The response sent back to the participant.
+
         Raises:
-            :class:`~UnknownParticipantError`: If it receives a request from an
-            unknown participant. Typically a participant that has not
-            rendezvous with the :class:`~.Coordinator`.
-            :class:`~InvalidRequestError`: If it receives a request that is not
-            allowed in the current :class:`~.Coordinator` state.
+
+            UnknownParticipantError: If it receives a request from an
+                unknown participant. Typically a participant that has not
+                rendezvous with the :class:`~.Coordinator`.
+
+            InvalidRequestError: If it receives a request that is not
+                allowed in the current :class:`~.Coordinator` state.
         """
         logger.debug(
             "Received message from participant",
@@ -183,13 +203,17 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
 
     def remove_participant(self, participant_id: str) -> None:
         """Remove a participant from the list of accepted participants.
-        This method is to be called when it is detected that a participant has
-        disconnected.
-        After a participant is removed, if the number of remaining participants
-        is less than the minimum number of participants that need to be connected,
-        the :class:`~.Coordinator` will transition to STANDBY state.
+
+        This method is to be called when it is detected that a
+        participant has disconnected. After a participant is removed,
+        if the number of remaining participants is less than the
+        minimum number of participants that need to be connected, the
+        :class:`~.Coordinator` will transition to STANDBY state.
+
         Args:
-            participant_id (:obj:`str`): The id of the participant to remove.
+
+            participant_id: The id of the participant to remove.
+
         """
         self.participants.remove(participant_id)
         logger.info("Removing participant", participant_id=participant_id)
@@ -208,13 +232,15 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         self, _message: RendezvousRequest, participant_id: str
     ) -> RendezvousResponse:
         """Handles a Rendezvous request.
+
         Args:
-            _message (:class:`~.coordinator_pb2.RendezvousRequest`): The
-                request to handle. Currently not used.
-            participant_id (:obj:`str`): The id of the participant making the
-                request.
+
+            _message: The request to handle. Currently not used.
+            participant_id: The id of the participant making the request.
+
         Returns:
-            :class:`~.coordinator_pb2.RendezvousResponse`: The response to the participant.
+
+            The response to the participant.
         """
 
         if self.participants.len() < self.minimum_connected_participants:
@@ -247,17 +273,22 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
     def _handle_heartbeat(
         self, _message: HeartbeatRequest, participant_id: str
     ) -> HeartbeatResponse:
-        """Handles a Heartbeat request. Responds to the participant with:
-        FINISHED if coordinator is in state FINISHED,
-        ROUND    if the participant is selected for the current round,
-        STANDBY  if the participant is not selected for the current round.
+        """Handles a Heartbeat request.
+
+        Responds to the participant with:
+
+            - ``FINISHED``: if coordinator is in state FINISHED,
+            - ``ROUND``: if the participant is selected for the current round,
+            - ``STANDBY``: if the participant is not selected for the current round.
+
         Args:
-            _message (:class:`~.coordinator_pb2.HeartbeatRequest`): The
-                request to handle. Currently not used.
-            participant_id (:obj:`str`): The id of the participant making the
-                request.
+
+            _message: The request to handle. Currently not used.
+            participant_id: The id of the participant making the request.
+
         Returns:
-            :class:`~.coordinator_pb2.HeartbeatResponse`: The response to the participant.
+
+            The response to the participant.
         """
         self.participants.update_expires(participant_id)
 
@@ -279,11 +310,10 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         self, _message: StartTrainingRoundRequest, participant_id: str
     ) -> StartTrainingRoundResponse:
         """Handles a StartTrainingRound request.
+
         Args:
-            _message (:class:`~.coordinator_pb2.StartTrainingRoundRequest`): The
-                request to handle. Currently not used.
-            participant_id (:obj:`str`): The id of the participant making the
-                request.
+            _message: The request to handle. Currently not used.
+            participant_id: The id of the participant making the request.
         Returns:
             :class:`~.coordinator_pb2.StartTrainingRoundResponse`: The response to the participant.
         """
@@ -307,11 +337,15 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         self, message: EndTrainingRoundRequest, participant_id: str
     ) -> EndTrainingRoundResponse:
         """Handles a EndTrainingRound request.
+
         Args:
-            message (:class:`~.coordinator_pb2.EndTrainingRoundRequest`): The request to handle.
-            participant_id (:obj:`str`): The id of the participant making the request.
+
+            message: The request to handle.
+            participant_id: The id of the participant making the request.
+
         Returns:
-            :class:`~.coordinator_pb2.EndTrainingRoundResponse`: The response to the participant.
+
+            The response to the participant.
         """
 
         # TODO: Ideally we want to know for which round the participant is
