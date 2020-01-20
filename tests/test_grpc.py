@@ -410,21 +410,21 @@ def test_full_training_round(
     assert coordinator_service.coordinator.state == State.STANDBY
     assert coordinator_service.coordinator.current_round == 0
 
-    # The 10th participant connect, so the coordinator switches to ROUND>
+    # The 10th participant connects, so the coordinator switches to ROUND
     last_participant = participants[-1]
     response = last_participant.Rendezvous(RendezvousRequest())
     assert response.reply == RendezvousReply.ACCEPT
 
     assert coordinator_service.coordinator.state == State.ROUND
-    assert coordinator_service.coordinator.current_round == 1
+    assert coordinator_service.coordinator.current_round == 0
 
     response = last_participant.Heartbeat(HeartbeatRequest())
-    assert response == HeartbeatResponse(state=State.ROUND, round=1)
+    assert response == HeartbeatResponse(state=State.ROUND, round=0)
 
-    # The initial 9 participants send another heatbeat request.
+    # The initial 9 participants send another heartbeat request.
     for participant in participants[:-1]:
         response = participant.Heartbeat(HeartbeatRequest(state=State.STANDBY, round=0))
-    assert response == HeartbeatResponse(state=State.ROUND, round=1)
+    assert response == HeartbeatResponse(state=State.ROUND, round=0)
 
     # The participants start training
     for participant in participants:
@@ -435,7 +435,7 @@ def test_full_training_round(
             epoch_base=coordinator_service.coordinator.epoch_base,
         )
 
-    # The first 9th participants end training
+    # The first 9 participants end training
     for participant in participants[:-1]:
         response = participant.EndTrainingRound(
             EndTrainingRoundRequest(weights=weights_proto, number_samples=1)
@@ -476,9 +476,9 @@ def test_start_participant(mock_coordinator_service):
         coord = mock_coordinator_service.coordinator
         assert coord.state == State.FINISHED
 
-        # coordinator set to 2 round for good measure, but the resulting
+        # coordinator set to 2 rounds for good measure, but the resulting
         # aggregated weights are the same as a single round
-        assert coord.current_round == 2
+        assert coord.current_round == 1
 
         # expect weight aggregated by summation - see mock_coordinator_service
         np.testing.assert_equal(coord.weights, [np.arange(start=10, stop=29, step=2)])
