@@ -82,7 +82,7 @@ given round.
             weights (np.ndarray): weights to store
             round (int): round to which the weights belong
         """
-        writes = self.s3.writes[str(round)]
+        writes = self.s3.writes[str(round + 1)]
         # Under normal conditions, we should write data exactly once
         assert writes == 1, f"got {writes} writes for round {round}, expected 1"
         # If the arrays contains `NaN` we cannot compare them, so we
