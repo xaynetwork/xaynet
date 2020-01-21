@@ -449,7 +449,7 @@ def test_full_training_round(
     response = last_participant.EndTrainingRound(EndTrainingRoundRequest())
     assert response == EndTrainingRoundResponse()
     # Make sure we wrote the results for the given round
-    coordinator_service.store.assert_wrote(1, coordinator_service.coordinator.weights)
+    coordinator_service.store.assert_wrote(0, coordinator_service.coordinator.weights)
 
 
 @pytest.mark.integration
