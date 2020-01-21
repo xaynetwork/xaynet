@@ -89,7 +89,7 @@ def test_coordinator_state_standby_round():
     coordinator.on_message(RendezvousRequest(), "participant1")
 
     assert coordinator.state == State.ROUND
-    assert coordinator.current_round == 1
+    assert coordinator.current_round == 0
 
 
 def test_start_training_round():
@@ -156,16 +156,16 @@ def test_end_training_round_update():
     coordinator.on_message(RendezvousRequest(), "participant1")
     coordinator.on_message(RendezvousRequest(), "participant2")
 
-    # check that we are currently in round 1
-    assert coordinator.current_round == 1
+    # check that we are currently in round 0
+    assert coordinator.current_round == 0
 
     coordinator.on_message(EndTrainingRoundRequest(), "participant1")
-    # check we are still in round 1
-    assert coordinator.current_round == 1
+    # check we are still in round 0
+    assert coordinator.current_round == 0
     coordinator.on_message(EndTrainingRoundRequest(), "participant2")
 
     # check that round number was updated
-    assert coordinator.current_round == 2
+    assert coordinator.current_round == 1
 
 
 def test_end_training_round_reinitialize_local_models():
