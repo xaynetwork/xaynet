@@ -32,12 +32,12 @@ class CoordinatorGrpc(CoordinatorServicer):
     :class:`xain_fl.coordinator.coordinator.Coordinator`.
 
     Args:
-        coordinator (:class:`xain_fl.coordinator.coordinator.Coordinator`): The Coordinator
-         state machine.
 
-        store (:class:`xain_fl.coordinator.store.Store`): The Store in
-            which the coordinator fetches trained models from the
-            participants and to which it saves aggregated models.
+        coordinator: The Coordinator state machine.
+
+        store: The Store in which the coordinator fetches trained
+            models from the participants and to which it saves
+            aggregated models.
     """
 
     def __init__(self, coordinator: Coordinator, store: Store):
@@ -54,16 +54,21 @@ class CoordinatorGrpc(CoordinatorServicer):
         all the participants it tells the participant to try again later.
 
         Args:
-            request (:class:`~.coordinator_pb2.RendezvousRequest`): The participant's request.
-            context (:class:`~grpc.ServicerContext`): The context associated with the gRPC request.
+
+            request: The participant's request.
+            context: The context associated with the gRPC request.
 
         Returns:
-            :class:`~.coordinator_pb2.RendezvousResponse`: The response to the
-            participant's request. The response is an enum containing either:
 
-                ACCEPT: If the :class:`xain_fl.coordinator.coordinator.Coordinator`
-                    does not have enough participants.
-                LATER: If the :class:`xain_fl.coordinator.coordinator.Coordinator`
+            The response to the participant's request. The response is
+            an enum containing either:
+
+                - `ACCEPT`: If the
+                  :class:`xain_fl.coordinator.coordinator.Coordinator`
+                  does not have enough participants.
+
+                - `LATER`: If the
+                    :class:`xain_fl.coordinator.coordinator.Coordinator`
                     already has enough participants.
         """
         return self.coordinator.on_message(request, context.peer())
@@ -77,19 +82,20 @@ class CoordinatorGrpc(CoordinatorServicer):
         :class:`Coordinator` can detect failures.
 
         Args:
-            request (:class:`~.coordinator_pb2.HeartbeatRequest`): The
-                participant's request. The participant's request contains the
-                current :class:`~.coordinator_pb2.State` and round number the
+
+            request: The participant's request. The participant's
+                request contains the current
+                :class:`~.coordinator_pb2.State` and round number the
                 participant is on.
-            context (:class:`~grpc.ServicerContext`): The context associated
-                with the gRPC request.
+
+            context: The context associated with the gRPC request.
 
         Returns:
-            :class:`~.coordinator_pb2.HeartbeatResponse`: The response to the
-            participant's request. The response contains both the
-            :class:`~.coordinator_pb2.State` and the current round the
-            coordinator is on. If a training session has not started yet the
-            round number defaults to 0.
+
+            The response to the participant's request. The response
+            contains both the :class:`~.coordinator_pb2.State` and the
+            current round the coordinator is on. If a training session
+            has not started yet the round number defaults to 0.
         """
         try:
             return self.coordinator.on_message(request, context.peer())
@@ -110,14 +116,15 @@ class CoordinatorGrpc(CoordinatorServicer):
         training for the round.
 
         Args:
-            request (:class:`~.coordinator_pb2.StartTrainingRoundRequest`): The participant's
-                request.
-            context (:class:`~grpc.ServicerContext`): The context associated with the gRPC request.
+
+            request: The participant's request.
+            context: The context associated with the gRPC request.
 
         Returns:
-            :class:`~.coordinator_pb2.StartTrainingRoundResponse`: The response to the
-            participant's request. The response contains the global model weights.
-            """
+
+            The response to the participant's request. The response
+            contains the global model weights.
+        """
         try:
             return self.coordinator.on_message(request, context.peer())
         except UnknownParticipantError as error:
@@ -139,17 +146,20 @@ class CoordinatorGrpc(CoordinatorServicer):
         the updated weights.
 
         Args:
-            request (:class:`~.coordinator_pb2.EndTrainingRoundRequest`): The
-                participant's request. The request contains the updated weights as
-                a result of the training as well as any metrics helpful for the
+
+            request: The participant's request. The request contains
+                the updated weights as a result of the training as
+                well as any metrics helpful for the
                 :class:`xain_fl.coordinator.coordinator.Coordinator`.
-            context (:class:`~grpc.ServicerContext`): The context associated with the gRPC request.
+
+            context: The context associated with the gRPC request.
 
         Returns:
-            :class:`~.coordinator_pb2.EndTrainingRoundResponse`: The response to the
-            participant's request. The response is just an acknowledgment that
-            the :class:`xain_fl.coordinator.coordinator.Coordinator` successfully received
-            the updated weights.
+
+            The response to the participant's request. The response is
+            just an acknowledgment that the
+            :class:`xain_fl.coordinator.coordinator.Coordinator`
+            successfully received the updated weights.
         """
         try:
             response = self.coordinator.on_message(request, context.peer())

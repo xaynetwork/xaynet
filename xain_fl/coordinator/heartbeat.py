@@ -16,14 +16,16 @@ def monitor_heartbeats(coordinator: Coordinator, terminate_event: threading.Even
     If a heartbeat expires the participant is removed from the :class:`~.Participants`.
 
     Note:
+
         This is meant to be run inside a thread and expects an
         :class:`~threading.Event`, to know when it should terminate.
 
     Args:
-        coordinator (:class:`xain_fl.coordinator.coordinator.Coordinator`): The coordinator
-            to monitor for heartbeats.
-        terminate_event (:class:`~threading.Event`): A threading event to signal
-            that this method should terminate.
+
+        coordinator: The coordinator to monitor for heartbeats.
+
+        terminate_event: A threading event to signal that this method
+            should terminate.
     """
 
     logger.info("Heartbeat monitor starting...")
