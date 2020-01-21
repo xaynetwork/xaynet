@@ -20,6 +20,66 @@ For reference, the possible headings are:
 
 ## [Unreleased]
 
+## [0.3.0] - 2020-01-21
+
+- XP-505 cleanup docstrings in xain_fl.coordinator (#228)
+- XP-498 more generic shebangs (#229)
+- XP-510 allow for zero epochs on cli (#227)
+- XP-508 Replace circleci badge (#225)
+- XP-505 docstrings cleanup (#224)
+- XP-333 Replace numproto with xain-proto (#220)
+- XP-499 Remove conftest, exclude tests folder (#223)
+- XP-480 revise message names (#222)
+- XP-436 Reinstate FINISHED heartbeat from Coordinator (#219)
+- XP-308 store aggregated weights in S3 buckets (#215)
+- XP-308 store aggregated weights in S3 buckets (#215)
+- XP-422 ai metrics (#216)
+- XP-119 Fix gRPC testing setup so that it can run on macOS (#217)
+- XP-433 Fix docker headings (#218)
+- Xp 373 add sdk as dependency in fl (#214)
+- DO-49  Create initial buckets (#213)
+- XP-424 Remove unused packages (#212)
+- XP-271 fix pylint issues (#210)
+- XP-374 Clean up docs (#211)
+- DO-43  docker compose minio (#208)
+- XP-384 remove unused files (#209)
+- XP-357 make controller parametrisable (#201)
+- XP 273 scripts cleanup (#206)
+- XP-385 Fix docs badge (#204)
+- XP-354 Remove proto files (#200)
+- DO-17  Add Dockerfiles, dockerignore and docs (#202)
+- XP-241 remove legacy participant and sdk dir (#199)
+- XP-168 update setup.py (#191)
+- XP-261 move tests to own dir (#197)
+- XP-257 cleanup cproto dir (#198)
+- XP-265 move benchmarks to separate repo (#193)
+- XP-255 update codeowners and authors in setup (#195)
+- XP-255 update codeowners and authors in setup (#195)
+- XP-229 Update Readme.md (#189)
+- XP-337 Clean up docs before generation (#188)
+- XP-264 put coordinator as own package (#183)
+- XP-272 Archive rust code (#186)
+- Xp 238 add participant selection (#179)
+- XP-229 Update readme (#185)
+- XP-334 Add make docs into docs make file (#184)
+- XP-291 harmonize docs styles (#181)
+- XP-300 Update docs makefile (#180)
+- XP-228 Update readme (#178)
+- XP-248 use structlog (#173)
+- XP-207 model framework agnostic (#166)
+- XAIN-284 rename package name (#176)
+- XP-251 Add ability to pass params per cmd args to coordinator (#174)
+- XP-167 Add gitter badge (#171)
+- Hotfix badge versions and style (#170)
+- Integrate docs with readthedocs (#169)
+- add pull request template (#168)
+
+## [0.2.0] - 2019-12-02
+
+### Changed
+
+- Renamed package from xain to xain-fl
+
 ## [0.1.0] - 2019-09-25
 
 The first public release of **XAIN**
@@ -32,9 +92,3 @@ The first public release of **XAIN**
 
 [unreleased]: https://github.com/xainag/xain-fl/pulls?utf8=%E2%9C%93&q=merged%3A%3E2019-09-25+
 [0.1.0]: https://github.com/xainag/xain-fl/pulls?utf8=%E2%9C%93&q=merged%3A%3C%3D2019-09-25+
-
-## [0.2.0] - 2019-12-02
-
-### Changed
-
-- Renamed package from xain to xain-fl
