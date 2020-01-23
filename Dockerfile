@@ -1,28 +1,29 @@
-FROM python:3.6.8-slim
+FROM python:3.6-alpine
 
-WORKDIR /opt/app
+ENV USER="xain"
+ENV HOST="0.0.0.0"
+ENV PORT="50051"
+ENV PATH="/home/${USER}/.local/bin:${PATH}"
 
-# Create output directory as its expected
-RUN mkdir output
+RUN addgroup -S ${USER} && adduser -S ${USER} -G ${USER}
+RUN apk update && apk add python3-dev build-base git
 
-# Upgrade pip and setuptools
-RUN python -m pip install -U pip==19.3.1 setuptools==41.6.0
+WORKDIR /app
 
-# First copy scripts and setup.py to install dependencies
-# and avoid reinstalling dependencies when only changing the code
-COPY setup.py setup.py
+COPY setup.py .
+COPY xain_fl xain_fl/
+COPY README.md .
 
-# These files are needed for the setup.py to work
-COPY xain_fl/__version__.py xain_fl/__version__.py
-COPY README.md README.md
+RUN pip install -v .
 
-# Install only install_requires
-RUN python setup.py egg_info && \
-    LN=$(awk '/tensorflow/{ print NR; exit }' xain_fl.egg-info/requires.txt) && \
-    IR=$(head -n $LN xain_fl.egg-info/requires.txt | awk '{gsub(/\[.+\]/,"");}1') && \
-    python -m pip install $IR
+# Remove everything, including dot files
+RUN rm -rf ..?* .[!.]* *
 
-COPY xain_fl xain_fl
-COPY protobuf protobuf
+# Drop down to a non-root user
+USER ${USER}
 
-RUN python -m pip install .
+COPY --chown=${USER}:${USER} test_array.npy test_array.npy
+COPY --chown=${USER}:${USER} docker/entrypoint.sh entrypoint.sh
+RUN chmod +x entrypoint.sh
+
+ENTRYPOINT ["./entrypoint.sh"]

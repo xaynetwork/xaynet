@@ -9,9 +9,11 @@
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
-#
+
 import os
 import sys
+
+from sphinx.ext import apidoc
 
 sys.path.insert(0, os.path.abspath(".."))
 
@@ -41,12 +43,14 @@ release = _version["__version__"]
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    "recommonmark",
+    "m2r",
     "sphinx.ext.napoleon",
     "sphinx.ext.autodoc",
     "sphinx.ext.intersphinx",
     "sphinx.ext.mathjax",
     "sphinxcontrib.mermaid",
+    "sphinx.ext.todo",
+    "sphinx_autodoc_typehints",
 ]
 
 source_suffix = {".rst": "restructuredtext", ".md": "markdown"}
@@ -64,7 +68,7 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-#
+
 html_theme = "alabaster"
 
 # https://alabaster.readthedocs.io/en/latest/customization.html
@@ -87,13 +91,12 @@ html_static_path = ["_static"]
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
     "numpy": ("https://docs.scipy.org/doc/numpy/", None),
+    "grpc": ("https://grpc.github.io/grpc/python/", None),
 }
 
 
 def run_apidoc(_):
-    from sphinx.ext import apidoc
-
-    exclude = ["../xain_fl/**_test.py"]
+    exclude = []
 
     argv = [
         "--doc-project",
@@ -111,23 +114,25 @@ def run_apidoc(_):
 
     apidoc.main(argv)
 
-    exclude_benchmark = ["../benchmarks/**_test.py"]
+    # TODO: (XP-350): Decide about benchmark documentation after moving benchmarks to
+    # separate repository
+    # exclude_benchmark = ["../benchmarks/**_test.py"]
 
-    argv_benchmark = [
-        "--doc-project",
-        "Code Reference Benchmarks",
-        "-M",
-        "-f",
-        "-d",
-        "3",
-        "--tocfile",
-        "index",
-        "-o",
-        "./_code_reference_benchmarks/",
-        "../benchmarks/",
-    ] + exclude_benchmark
+    # argv_benchmark = [
+    #     "--doc-project",
+    #     "Code Reference Benchmarks",
+    #     "-M",
+    #     "-f",
+    #     "-d",
+    #     "3",
+    #     "--tocfile",
+    #     "index",
+    #     "-o",
+    #     "./_code_reference_benchmarks/",
+    #     "../benchmarks/",
+    # ] + exclude_benchmark
 
-    apidoc.main(argv_benchmark)
+    # apidoc.main(argv_benchmark)
 
 
 def setup(app):

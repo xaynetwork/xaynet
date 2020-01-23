@@ -1,3 +1,5 @@
+"""XAIN FL Participants"""
+
 import threading
 import time
 from typing import Dict, List
@@ -5,15 +7,16 @@ from typing import Dict, List
 from xain_fl.coordinator import HEARTBEAT_TIME, HEARTBEAT_TIMEOUT
 
 
-class ParticipantContext:
+class ParticipantContext:  # pylint: disable=too-few-public-methods
     """Class to store state about each participant. Currently it only stores the `participant_id`
     and the time when the next heartbeat_expires.
 
     In the future we may store more information like in what state a participant is in e.g.
-    IDLE, RUNNING, ...
+    `IDLE`, `RUNNING`, ...
 
-    Attributes:
-        participant_id (:obj:`str`): The id of the participant. Typically a
+    Args:
+
+        participant_id: The id of the participant. Typically a
             host:port or public key when using SSL.
     """
 
@@ -36,7 +39,8 @@ class Participants:
         """Adds a new participant to the list of participants.
 
         Args:
-            participant_id (:obj:`str`): The id of the participant to add.
+
+            participant_id: The id of the participant to add.
         """
 
         with self._lock:
@@ -45,10 +49,12 @@ class Participants:
     def remove(self, participant_id: str) -> None:
         """Removes a participant from the list of participants.
 
-        This will be typically used after a participant is disconnected from the coordinator.
+        This will be typically used after a participant is
+        disconnected from the coordinator.
 
         Args:
-            participant_id (:obj:`str`): The id of the participant to remove.
+
+            participant_id: The id of the participant to remove.
         """
 
         with self._lock:
@@ -62,7 +68,8 @@ class Participants:
         the next check.
 
         Returns:
-            :obj:`float`: The next heartbeat to expire.
+
+            The next heartbeat to expire.
         """
 
         with self._lock:
@@ -75,7 +82,8 @@ class Participants:
         """Get the number of participants.
 
         Returns:
-            :obj:`int`: The number of participants in the list.
+
+            The number of participants in the list.
         """
 
         with self._lock:
@@ -85,7 +93,8 @@ class Participants:
         """Get the ids of the participants.
 
         Returns:
-            :obj:`list` of :obj:`str`: The list of participant ids.
+
+            The list of participant ids.
         """
 
         with self._lock:
@@ -98,7 +107,8 @@ class Participants:
         every time a participant sends a heartbeat.
 
         Args:
-            participant_id (:obj:`str`): The id of the participant to update the expire time.
+
+            participant_id: The id of the participant to update the expire time.
         """
 
         with self._lock:

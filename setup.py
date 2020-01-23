@@ -1,10 +1,7 @@
-import glob
 import os.path
-import pathlib
 import sys
 
 from setuptools import find_packages, setup
-from setuptools.command.develop import develop
 
 if sys.version_info < (3, 6):
     sys.exit("Please use Python version 3.6 or higher.")
@@ -24,90 +21,41 @@ with open(readme_file_path, "r") as fp:
     readme = fp.read()
 
 
-# Handle protobuf
-class CustomDevelopCommand(develop):
-    def run(self):
-        # we need to import this here or else these packages would have to be
-        # installed in the system before we could run the setup.py
-        import numproto
-        import grpc_tools
-        from grpc_tools import protoc
-
-        develop.run(self)
-
-        # get the path of the numproto protofiles
-        # this will give us the path to the site-packages where numproto is
-        # installed
-        numproto_path = pathlib.Path(numproto.__path__[0]).parent
-
-        # get the path of grpc_tools protofiles
-        grpc_path = grpc_tools.__path__[0]
-
-        proto_files = glob.glob("./protobuf/xain_fl/cproto/*.proto")
-        command = [
-            "grpc_tools.protoc",
-            # path to numproto .proto files
-            f"--proto_path={numproto_path}",
-            # path to google .proto fiels
-            f"--proto_path={grpc_path}/_proto",
-            "--proto_path=./protobuf",
-            "--python_out=./",
-            "--grpc_python_out=./",
-            "--mypy_out=./",
-        ] + proto_files
-
-        print("Building proto_files {}".format(proto_files))
-        if protoc.main(command) != 0:
-            raise Exception("error: {} failed".format(command))
-
-
 # License comments according to `pip-licenses`
 
 install_requires = [
-    "typing-extensions~=3.7",  # PSF
-    "numpy~=1.15",  # BSD
-    "absl-py~=0.8",  # Apache 2.0
-    "grpcio~=1.23",  # Apache License 2.0
-    "protobuf~=3.9",  # 3-Clause BSD License
-    "numproto~=0.3",  # Apache License 2.0
-    "requests==2.22.0",  # Apache 2.0  # TODO(XP-185) remove
-    "tensorflow==1.14.0",  # Apache 2.0  # TODO(XP-131) remove
+    "numpy==1.15",  # BSD
+    "grpcio==1.23",  # Apache License 2.0
     "structlog==19.2.0",  # Apache License 2.0
+    "xain-proto==0.3.0",  # Apache License 2.0
+    "boto3==1.10.48",  # Apache License 2.0
 ]
-
-benchmarks_require = [
-    "matplotlib==3.1.1",  # PSF
-    "botocore==1.12.220",  # Apache License 2.0
-    "boto3==1.9.220",  # Apache License 2.0
-    "awscli==1.16.230",  # Apache License 2.0
-    "faker==2.0.0",  # MIT License
-]
-
-gpu_require = ["tensorflow-gpu==1.14.0"]  # Apache 2.0
 
 dev_require = [
-    "grpcio-tools~=1.23",  # Apache License 2.0
-    "black==19.3b0",  # MIT
-    "mypy==0.720",  # MIT License
+    "black==19.10b0",  # MIT
+    "mypy==0.760",  # MIT License
     "pylint==2.3.1",  # GPL
-    "astroid<=2.2.5",  # LGPL
-    "isort==4.3.20",  # MIT
-    "rope==0.14.0",  # GNU GPL
+    "astroid==2.2.5",  # LGPL
+    "isort==4.3.21",  # MIT
     "pip-licenses==1.15.2",  # MIT License
-    "mypy-protobuf==1.15",  # Apache License 2.0
     "twine==2.0.0",  # Apache License 2.0
     "wheel==0.33.6",  # MIT
+    "typing-extensions==3.7.4.1",  # PSF
 ]
-
-examples_require = ["tensorflow==1.14.0"]  # Apache 2.0
 
 tests_require = [
-    "pytest==4.6.2",  # MIT license
-    "pytest-cov==2.7.1",  # MIT
+    "pytest==5.3.2",  # MIT license
+    "pytest-cov==2.8.1",  # MIT
     "pytest-watch==4.2.0",  # MIT
+    "xain-sdk==0.3.0",  # Apache License 2.0
 ]
 
-docs_require = ["Sphinx==2.2.1", "recommonmark==0.6.0", "sphinxcontrib-mermaid==0.3.1"]
+docs_require = [
+    "Sphinx==2.2.1",
+    "m2r==0.2.1",
+    "sphinxcontrib-mermaid==0.3.1",
+    "sphinx-autodoc-typehints==1.10.3",  # MIT
+]
 
 setup(
     name="xain_fl",
@@ -116,10 +64,7 @@ setup(
     long_description=readme,
     long_description_content_type="text/markdown",
     url="https://github.com/xainag/xain-fl",
-    author=[
-        "Daniel J. Beutel <daniel.beutel@xain.io>",
-        "Taner Topal <taner.topal@xain.io>",
-    ],
+    author=["XAIN AG"],
     author_email="services@xain.io",
     license="Apache License Version 2.0",
     zip_safe=False,
@@ -143,30 +88,13 @@ setup(
         "Operating System :: MacOS :: MacOS X",
         "Operating System :: POSIX :: Linux",
     ],
-    packages=find_packages(
-        where=".", exclude=["benchmarks", "benchmarks.*", "*_test.py"]
-    ),
+    packages=find_packages(exclude=["tests"]),
     install_requires=install_requires,
     tests_require=tests_require,
     extras_require={
         "test": tests_require,
-        "gpu": gpu_require,
         "docs": docs_require,
-        "benchmarks": benchmarks_require,
-        "examples": examples_require,
-        "dev": dev_require
-        + tests_require
-        + benchmarks_require
-        + docs_require
-        + examples_require,
+        "dev": dev_require + tests_require + docs_require,
     },
-    cmdclass={"develop": CustomDevelopCommand},
-    entry_points={
-        "console_scripts": [
-            "coordinator=xain_fl.cproto.cli:main",
-            "train_remote=benchmarks.train_remote:main",
-            "pull_results=xain_fl.ops.__main__:download",
-            "aggregate=benchmarks.aggregate:main",
-        ]
-    },
+    entry_points={"console_scripts": ["coordinator=xain_fl.cli:main"]},
 )
