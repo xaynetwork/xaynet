@@ -1,6 +1,6 @@
 """XAIN FL Coordinator"""
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List
 
 from google.protobuf.internal.python_message import GeneratedProtocolMessageType
 from numpy import ndarray
@@ -20,7 +20,7 @@ from xain_proto.numproto import ndarray_to_proto, proto_to_ndarray
 
 from xain_fl.coordinator.participants import Participants
 from xain_fl.coordinator.round import Round
-from xain_fl.fl.coordinator.aggregate import Aggregator, FederatedAveragingAgg
+from xain_fl.fl.coordinator.aggregate import Aggregator, WeightedAverageAggregator
 from xain_fl.fl.coordinator.controller import Controller, RandomController
 from xain_fl.logger import StructLogger, get_logger
 from xain_fl.tools.exceptions import InvalidRequestError, UnknownParticipantError
@@ -86,24 +86,11 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         epochs_base: Global number of epochs as of last round.
 
         aggregator: The type of aggregation to perform at the end of
-            each round. Defaults to :class:`~.FederatedAveragingAgg`.
+            each round. Defaults to :class:`~.WeightedAverageAggregator`.
 
         controller: Controls how the Participants are selected at the
-            start of each round. Defaults to
-            :class:`~.RandomController`.
+            start of each round. Defaults to :class:`~.RandomController`.
 
-    """
-
-    DEFAULT_AGGREGATOR: Aggregator = FederatedAveragingAgg()
-    """
-    if no Aggregator instance is provided during initialisation, then
-    :class:`~.FederatedAveragingAgg` in used.
-    """
-
-    DEFAULT_CONTROLLER: Controller = RandomController()
-    """
-    if no Controller instance is provided during initialisation, then
-    :class:`~.RandomController` in used.
     """
 
     def __init__(  # pylint: disable=too-many-arguments,dangerous-default-value
@@ -114,15 +101,15 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         weights: List[ndarray] = [],  # TODO: change to non-dangerous default value
         epochs: int = 1,
         epoch_base: int = 0,
-        aggregator: Optional[Aggregator] = None,
-        controller: Optional[Controller] = None,
+        aggregator: Aggregator = WeightedAverageAggregator(),
+        controller: Controller = RandomController(),
     ) -> None:
         self.minimum_participants_in_round: int = minimum_participants_in_round
         self.fraction_of_participants: float = fraction_of_participants
         self.participants: Participants = Participants()
         self.num_rounds: int = num_rounds
-        self.aggregator: Aggregator = aggregator if aggregator else self.DEFAULT_AGGREGATOR
-        self.controller: Controller = controller if controller else self.DEFAULT_CONTROLLER
+        self.aggregator: Aggregator = aggregator
+        self.controller: Controller = controller
         self.minimum_connected_participants: int = self.get_minimum_connected_participants()
 
         # global model
@@ -353,18 +340,26 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         # round.
 
         # record the request data
-        weight_update: Tuple[List[ndarray], int] = (
-            [proto_to_ndarray(pnda) for pnda in message.weights],
-            message.number_samples,
-        )
+        model_weights: List[ndarray] = [proto_to_ndarray(pnda) for pnda in message.weights]
+        number_samples: int = message.number_samples
         metrics: Dict[str, ndarray] = {k: proto_to_ndarray(v) for k, v in message.metrics.items()}
-        self.round.add_updates(participant_id, weight_update, metrics)
+        self.round.add_updates(
+            participant_id=participant_id,
+            model_weights=model_weights,
+            aggregation_data=number_samples,
+            metrics=metrics,
+        )
 
         # The round is over. Run the aggregation
         if self.round.is_finished():
             logger.info("Running aggregation for round", current_round=self.current_round)
 
-            self.weights = self.aggregator.aggregate(self.round.get_weight_updates())
+            models_weights: List[List[ndarray]]
+            aggregation_data: List[int]
+            models_weights, aggregation_data = self.round.get_weight_updates()
+            self.weights = self.aggregator.aggregate(
+                models_weights=models_weights, aggregation_data=aggregation_data
+            )
 
             # update the round or finish the training session
             if self.current_round >= self.num_rounds - 1:
