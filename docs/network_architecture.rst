@@ -127,8 +127,8 @@ the server but the opposite is not true.
 gRPC does use mechanisms from the underlying HTTP and TCP transport layers but
 these are internal details that aren't really exposed in the API. A developer
 can override the default timeouts but it's not clear from the available
-documentation the effect they have. For more information check [using gRPC in
-production](https://cs.mcgill.ca/~mxia3/2019/02/23/Using-gRPC-in-Production/).
+documentation the effect they have. For more information check `using gRPC in
+production <https://cs.mcgill.ca/~mxia3/2019/02/23/Using-gRPC-in-Production/>`_.
 
 *Server-side timeouts configuration:*
 
