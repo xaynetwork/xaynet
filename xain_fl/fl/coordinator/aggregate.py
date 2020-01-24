@@ -94,7 +94,7 @@ class WeightedAverageAggregator(Aggregator):  # pylint: disable=too-few-public-m
             aggregation_data (List[int]): Meta data for model aggregation. Here it is expected to be
                 the number of train samples per set of model weights. If all numbers are zero, e.g.
                 in a 0th round for weight initialization, then all model weights are weighted
-                equally, i.e. the weighted average becomes an unweighted average.
+                equally.
 
         Returns:
             List[ndarray]: The aggregated model weights.
@@ -105,14 +105,20 @@ class WeightedAverageAggregator(Aggregator):  # pylint: disable=too-few-public-m
         if any(aggregation_data):
             aggregation_weights = np.array(aggregation_data) / np.sum(aggregation_data)
         else:
-            aggregation_weights = np.ones_like(aggregation_data)
+            aggregation_weights = np.ones_like(aggregation_data) / len(aggregation_data)
 
         # compute weighted average
         aggregated_model_weights: List[ndarray] = [
-            np.sum([model_weight * aggregation_weight for model_weight in model_weights_per_idx])
-            for model_weights_per_idx, aggregation_weight in zip(
-                zip(*mult_model_weights), aggregation_weights
+            np.sum(
+                [
+                    model_weight * aggregation_weight
+                    for model_weight, aggregation_weight in zip(
+                        model_weights_per_idx, aggregation_weights
+                    )
+                ],
+                axis=0,
             )
+            for model_weights_per_idx in zip(*mult_model_weights)
         ]
 
         return aggregated_model_weights
