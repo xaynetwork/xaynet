@@ -4,6 +4,11 @@ host = "localhost"
 # Port to listen on for incoming gRPC connections
 port = 50051
 
+[server.grpc_options]
+
+max_receive_message_length = -1
+max_send_message_length = -1
+
 [ai]
 # Number of global rounds the model is going to be trained for. This
 # must be a positive integer.
