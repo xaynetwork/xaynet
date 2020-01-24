@@ -71,7 +71,7 @@ $ make show
 To run the Coordinator on your local machine, use the command:
 
 ```shell
-$ python xain_fl/cli.py -f test_array.npy
+$ python xain_fl/cli.py --storage-endpoint <url_for_storage> --storage-key-id <id_for_storage> --storage-secret-access-key <password_for_storage> --storage-bucket <name_of_storage_bucket>
 ```
 
 For more information about the CLI and its arguments, run:

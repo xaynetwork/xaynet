@@ -377,9 +377,9 @@ The communication is summarised in the following sequence diagram.
 In a training round, :math:`C` is in the state :code:`ROUND`. The selected
 participant :math:`P` is in :code:`TRAINING` state. The first message is by
 :math:`P` essentially kicks off the exchange. :math:`C` responds with the global
-model :math:`\weights` (and other data as specified in
+model :math:`weights` (and other data as specified in
 :code:`StartTrainingRoundResponse`). Then :math:`P` carries out the training locally.
-When complete, it sends the updated model :math:`\weights'` (and other metadata)
+When complete, it sends the updated model :math:`weights'` (and other metadata)
 back. :math:`C` responds with an acknowledgement.
 
 .. image:: _static/sequence2.png
@@ -438,7 +438,7 @@ After a successful rendezvous, :math:`P` is in **Wait for Selection**. :math:`P`
 this state as long as it keeps receiving :code:`STANDBY` heartbeats. At some round
 :math:`i`, :math:`C` may select :math:`P` for the round by responding with a :code:`ROUND` :math:`i`
 heartbeat. At this point, :math:`P` moves to **Training** where the above sequence of
-training messages (:code:`StartTrainingRound` :math:`\rightarrow \weights \rightarrow \weights'
+training messages (:code:`StartTrainingRound` :math:`\rightarrow weights \rightarrow weights'
 \rightarrow` :code:`EndTrainingRound`) occur. Having received the :code:`EndTrainingRound` response from
 :math:`C`, :math:`P` makes an "internal" transition to **Post-training** where it waits
 until the start of the next round. If it has been selected again, it will
