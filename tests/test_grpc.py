@@ -314,7 +314,8 @@ def test_end_training_round(coordinator_service):
     assert coordinator_service.coordinator.round.updates == {}
 
     # simulate trained local model data
-    test_weights, number_samples = [np.arange(20, 30), np.arange(30, 40)], 2
+    test_weights = [np.arange(20, 30), np.arange(30, 40)]
+    number_samples = 2
     test_metrics = {"metric": np.arange(10, 20)}
 
     with grpc.insecure_channel("localhost:50051") as channel:
@@ -330,9 +331,8 @@ def test_end_training_round(coordinator_service):
 
     # first the weights update
     _, round_update = round_.updates.popitem()
-    update_item1, update_item2 = round_update["weight_update"]
-    assert update_item2 == number_samples
-    np.testing.assert_equal(update_item1, test_weights)
+    np.testing.assert_equal(round_update["model_weights"], test_weights)
+    assert round_update["aggregation_data"] == number_samples
 
     round_update_metrics = round_update["metrics"]
     assert round_update_metrics.keys() == test_metrics.keys()
