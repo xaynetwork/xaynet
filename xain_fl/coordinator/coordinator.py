@@ -363,7 +363,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
 
             # update the round or finish the training session
             if self.current_round >= self.num_rounds - 1:
-                logger.debug("Last round over", round=self.current_round)
+                logger.info("Last round over", round=self.current_round)
                 self.state = State.FINISHED
             else:
                 self.current_round += 1

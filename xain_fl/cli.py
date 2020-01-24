@@ -141,7 +141,7 @@ def get_cmd_parameters():
     parser.add_argument(
         "-r",
         dest="num_rounds",
-        default=1,
+        default=2,
         type=type_num_rounds,
         help="Number of global rounds the model is going to be trained for.",
     )
