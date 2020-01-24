@@ -1,142 +1,196 @@
-"""Provides an abstract base class Aggregator and multiple sub-classes
-such as FederatedAveragingAgg.
-"""
+"""Provides an abstract base class Aggregator and multiple sub-classes"""
+
 from abc import ABC, abstractmethod
-from typing import List, Tuple
+from typing import List
 
 import numpy as np
+from numpy import ndarray
 
-from xain_fl.fl.types import Theta
 from xain_fl.logger import StructLogger, get_logger
 
 logger: StructLogger = get_logger(__name__)
 
 
 class Aggregator(ABC):  # pylint: disable=too-few-public-methods
-    """Abstract base class which provides an interface to the coordinator that
-    enables different aggregation implementations.
-    """
+    """Abstract base class for model weights aggregation strategies."""
 
     def __init__(self):
-        """[summary]
-
-        .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
-        """
+        """Initialize the aggregator."""
 
     @abstractmethod
-    def aggregate(self, thetas: List[Tuple[Theta, int]]) -> Theta:
-        """Aggregates given a list of thetas and returns the aggregate.
+    def aggregate(
+        self, mult_model_weights: List[List[ndarray]], aggregation_data: List[int]
+    ) -> List[ndarray]:
+        """Aggregate the weights of multiple models.
 
         Args:
-            thetas (List[Tuple[Theta, int]]): List of tuples with theta and the number
-            of examples used to obtain theta.
+            mult_model_weights (List[List[ndarray]]): The weights of multiple models.
+            aggregation_data (List[int]): Meta data for model aggregation.
 
         Returns:
-            Theta
+            List[ndarray]: The aggregated model weights.
         """
+
         raise NotImplementedError()
 
 
-class IdentityAgg(Aggregator):  # pylint: disable=too-few-public-methods
-    """Provides identity aggregation, i.e. the aggregate method expects
-    a list containing a single element and returns that element.
-    """
+class IdentityAggregator(Aggregator):  # pylint: disable=too-few-public-methods
+    """Identity aggregation."""
 
-    def aggregate(self, thetas: List[Tuple[Theta, int]]) -> Theta:
-        """Accepts only a thetas list of length one."""
-        assert len(thetas) == 1
-        return thetas[0][0]
-
-
-class ModelSumAgg(Aggregator):  # pylint: disable=too-few-public-methods
-    """Provides a sum-of-models aggregation."""
-
-    def aggregate(self, thetas: List[Tuple[Theta, int]]) -> Theta:
-        """Aggregates a given list of models by summation.
+    def aggregate(
+        self, mult_model_weights: List[List[ndarray]], aggregation_data: List[int]
+    ) -> List[ndarray]:
+        """Identity aggregation only for one set of model weights.
 
         Args:
-            thetas (~typing.List[~xain_fl.fl.types.Theta]): List of thetas.
+            mult_model_weights (List[List[ndarray]]): The weights of multiple models. Must have only
+                one set of weights.
+            aggregation_data (List[int]): Meta data for model aggregation. Not used here.
 
         Returns:
-            ~xain_fl.fl.types.Theta: The aggregated model weights.
+            List[ndarray]: The identical model weights.
+
+        Raises:
+            ValueError: If more than one set of model weights is provided.
         """
-        return [sum(th) for th, _ in thetas]
+
+        if len(mult_model_weights) > 1:
+            raise ValueError("Invalid number of model weights!")
+
+        return mult_model_weights[0]
 
 
-class FederatedAveragingAgg(Aggregator):  # pylint: disable=too-few-public-methods
-    """Provides federated averaging aggregation, i.e. a weighted average."""
+class ModelSumAggregator(Aggregator):  # pylint: disable=too-few-public-methods
+    """Summation of models aggregation."""
 
-    def aggregate(self, thetas: List[Tuple[Theta, int]]) -> Theta:
-        theta_list = [theta for theta, _ in thetas]
-        weighting = np.array([num_examples for _, num_examples in thetas])
-        return federated_averaging(theta_list, weighting)
+    def aggregate(
+        self, mult_model_weights: List[List[ndarray]], aggregation_data: List[int]
+    ) -> List[ndarray]:
+        """Aggregate the weights of multiple models by summation.
+
+        Args:
+            mult_model_weights (List[List[ndarray]]): The weights of multiple models.
+            aggregation_data (List[int]): Meta data for model aggregation. Not used here.
+
+        Returns:
+            List[ndarray]: The aggregated model weights.
+        """
+
+        return [sum(model_weights) for model_weights in mult_model_weights]
 
 
-def federated_averaging(thetas: List[Theta], weighting: np.ndarray) -> Theta:
-    """Calculates weighted averages of provided list of thetas, as proposed by McMahan et al. in:
-        https://arxiv.org/abs/1602.05629
+class WeightedAverageAggregator(Aggregator):  # pylint: disable=too-few-public-methods
+    """Weighted average aggregation."""
 
-    Args:
-        thetas (List[Theta]): List of thetas.
-        weighting (np.ndarray): Describes relative weight of each theta. Required to be the
-            same length as argument thetas.
+    def aggregate(
+        self, mult_model_weights: List[List[ndarray]], aggregation_data: List[int]
+    ) -> List[ndarray]:
+        """Aggregate the weights of multiple models by weighted averages.
 
-    Returns:
-        Theta
-    """
-    assert weighting.ndim == 1
-    assert len(thetas) == weighting.shape[0]
+        Proposed by McMahan et al in: https://arxiv.org/abs/1602.05629
 
-    theta_avg: Theta = thetas[0]
-    for weights in theta_avg:
-        weights *= weighting[0]
+        Args:
+            mult_model_weights (List[List[ndarray]]): The weights of multiple models.
+            aggregation_data (List[int]): Meta data for model aggregation. Here it is expected to be
+                the number of train samples per set of model weights. If all numbers are zero, e.g.
+                in a 0th round for weight initialization, then all model weights are weighted
+                equally.
 
-    # Aggregate (weighted) updates
-    for theta, update_weighting in zip(thetas[1:], weighting[1:]):
-        for w_index, weights in enumerate(theta):
-            theta_avg[w_index] += update_weighting * weights
+        Returns:
+            List[ndarray]: The aggregated model weights.
+        """
 
-    weighting_sum = np.sum(weighting)
-    for weights in theta_avg:
-        weights /= weighting_sum
+        # get aggregation weights
+        aggregation_weights: ndarray
+        if any(aggregation_data):
+            aggregation_weights = np.array(aggregation_data) / np.sum(aggregation_data)
+        else:
+            aggregation_weights = np.ones_like(aggregation_data) / len(aggregation_data)
 
-    return theta_avg
+        # compute weighted average
+        aggregated_model_weights: List[ndarray] = [
+            np.sum(
+                [
+                    model_weight * aggregation_weight
+                    for model_weight, aggregation_weight in zip(
+                        model_weights_per_idx, aggregation_weights
+                    )
+                ],
+                axis=0,
+            )
+            for model_weights_per_idx in zip(*mult_model_weights)
+        ]
+
+        return aggregated_model_weights
 
 
 # TODO: (XP-351) decide how to continue with that
+# def federated_averaging(
+#     mult_model_weights: List[List[ndarray]], weighting: ndarray
+# ) -> List[ndarray]:
+#     """Calculates weighted averages of provided list of weight updates, as proposed by McMahan et
+#         al. in: https://arxiv.org/abs/1602.05629
+#
+#     Args:
+#         mult_model_weights (List[List[ndarray]]): List of model weight.
+#         weighting (ndarray): Describes relative weight of each model weight. Required to be the
+#             same length as argument mult_model_weights.
+#
+#     Returns:
+#         List[ndarray]: The aggregated model weights.
+#     """
+#
+#     assert weighting.ndim == 1
+#     assert len(mult_model_weights) == weighting.shape[0]
+#
+#     model_weights_avg: List[ndarray] = mult_model_weights[0]
+#     for weights in model_weights_avg:
+#         weights *= weighting[0]
+#
+#     # Aggregate (weighted) updates
+#     for weights, update_weighting in zip(mult_model_weights[1:], weighting[1:]):
+#         for w_index, weight in enumerate(weights):
+#             model_weights_avg[w_index] += update_weighting * weight
+#
+#     weighting_sum = np.sum(weighting)
+#     for weights in model_weights_avg:
+#         weights /= weighting_sum
+#
+#     return model_weights_avg
+
 # class EvoAgg(Aggregator):
 #     """Experimental"""
-
+#
 #     def __init__(self, evaluator: Evaluator):
 #         super().__init__()
 #         self.evaluator = evaluator
-
-#     def aggregate(self, thetas: List[Tuple[Theta, int]]) -> Theta:
-#         weight_matrices = [theta for theta, num_examples in thetas]
+#
+#     def aggregate(self, weight_updates: List[Tuple[List[ndarray], int]]) -> List[ndarray]:
+#         weight_matrices = [model_weights for model_weights, num_examples in weight_updates]
 #         return evo_agg(weight_matrices, self.evaluator)
 
-# def evo_agg(thetas: List[Theta], evaluator: Evaluator) -> Theta:
+# def evo_agg(weight_updates: List[List[ndarray]], evaluator: Evaluator) -> List[ndarray]:
 #     """Experimental
-
+#
 #         - Init different weightings
-#         - Aggregate thetas according to those weightings ("candidates")
+#         - Aggregate weight updates according to those weightings ("candidates")
 #         - Evaluate all candidates on the validation set
 #         - Pick (a) best candidate, or (b) average of n best candidates
 #     """
 #     # Compute candidates
 #     # TODO in parallel, do:
-#     theta_prime_candidates = []
+#     weights_prime_candidates = []
 #     for _ in range(3):
-#         candidate = _compute_candidate(thetas, evaluator)
+#         candidate = _compute_candidate(weight_updates, evaluator)
 #         logger.debug("Candidate metadata", weighting=candidate[0], loss=candidate[2])
-
-#         theta_prime_candidates.append(candidate)
+#
+#         weights_prime_candidates.append(candidate)
 #     # Return best candidate
-#     best_candidate = _pick_best_candidate(theta_prime_candidates)
+#     best_candidate = _pick_best_candidate(weights_prime_candidates)
 #     return best_candidate
 
 
-# def _pick_best_candidate(candidates: List) -> Theta:
+# def _pick_best_candidate(candidates: List) -> List[ndarray]:
 #     _, best_candidate, best_loss, _ = candidates[0]
 #     for _, candidate, loss, _ in candidates[1:]:
 #         if loss < best_loss:
@@ -146,13 +200,13 @@ def federated_averaging(thetas: List[Theta], weighting: np.ndarray) -> Theta:
 
 
 # def _compute_candidate(
-#     thetas: Theta, evaluator: Evaluator
-# ) -> Tuple[np.ndarray, Theta, float, float]:
-#     weighting = _random_weighting(len(thetas))
-#     theta_prime_candidate = federated_averaging(thetas, weighting)
-#     loss, acc = evaluator.evaluate(theta_prime_candidate)
-#     return weighting, theta_prime_candidate, loss, acc
+#     weight_updates: List[ndarray], evaluator: Evaluator
+# ) -> Tuple[ndarray, List[ndarray], float, float]:
+#     weighting = _random_weighting(len(weight_updates))
+#     weights_prime_candidate = federated_averaging(weight_updates, weighting)
+#     loss, acc = evaluator.evaluate(weights_prime_candidate)
+#     return weighting, weights_prime_candidate, loss, acc
 
 
-# def _random_weighting(num_weightings: int, low=0.5, high=1.5) -> np.ndarray:
+# def _random_weighting(num_weightings: int, low=0.5, high=1.5) -> ndarray:
 #     return np.random.uniform(low=low, high=high, size=(num_weightings,))

@@ -11,7 +11,7 @@ from xain_proto.fl import coordinator_pb2_grpc, hellonumproto_pb2_grpc
 from xain_fl.coordinator.coordinator import Coordinator
 from xain_fl.coordinator.coordinator_grpc import CoordinatorGrpc
 from xain_fl.coordinator.heartbeat import monitor_heartbeats
-from xain_fl.fl.coordinator.aggregate import ModelSumAgg
+from xain_fl.fl.coordinator.aggregate import ModelSumAggregator
 from xain_fl.fl.coordinator.controller import IdController
 from xain_fl.helloproto.numproto_server import NumProtoServer
 
@@ -60,7 +60,7 @@ def mock_coordinator_service():
     """
 
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
-    agg = ModelSumAgg()
+    agg = ModelSumAggregator()
     ctrl = IdController()
     coordinator = Coordinator(
         num_rounds=2,
