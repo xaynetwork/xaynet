@@ -1,6 +1,6 @@
 """XAIN FL Coordinator"""
 
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from google.protobuf.internal.python_message import GeneratedProtocolMessageType
 from numpy import ndarray
@@ -93,12 +93,12 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
 
     """
 
-    def __init__(  # pylint: disable=too-many-arguments,dangerous-default-value
+    def __init__(  # pylint: disable=too-many-arguments
         self,
         num_rounds: int = 1,
         minimum_participants_in_round: int = 1,
         fraction_of_participants: float = 1.0,
-        weights: List[ndarray] = [],  # TODO: change to non-dangerous default value
+        weights: Optional[List[ndarray]] = None,
         epochs: int = 1,
         epoch_base: int = 0,
         aggregator: Aggregator = WeightedAverageAggregator(),
@@ -113,7 +113,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         self.minimum_connected_participants: int = self.get_minimum_connected_participants()
 
         # global model
-        self.weights: List[ndarray] = weights
+        self.weights: List[ndarray] = weights if weights is not None else []
         self.epochs: int = epochs
         self.epoch_base: int = epoch_base
 
@@ -363,7 +363,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
 
             # update the round or finish the training session
             if self.current_round >= self.num_rounds - 1:
-                logger.debug("Last round over", round=self.current_round)
+                logger.info("Last round over", round=self.current_round)
                 self.state = State.FINISHED
             else:
                 self.current_round += 1

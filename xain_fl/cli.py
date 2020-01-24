@@ -3,9 +3,8 @@
 This module implements the Coordinator state machine, the Coordinator gRPC
 service and helper class to keep state about the Participants.
 """
-import argparse
 
-import numpy as np
+import argparse
 
 from xain_fl.coordinator.coordinator import Coordinator
 from xain_fl.coordinator.store import Store, StoreConfig
@@ -140,16 +139,9 @@ def get_cmd_parameters():
     parser.add_argument("--port", dest="port", default=50051, type=int, help="Port")
 
     parser.add_argument(
-        "-f",
-        dest="file",
-        required=True,
-        help="Path to numpy ndarray file containing model weights",
-    )
-
-    parser.add_argument(
         "-r",
         dest="num_rounds",
-        default=1,
+        default=2,
         type=type_num_rounds,
         help="Number of global rounds the model is going to be trained for.",
     )
@@ -215,7 +207,6 @@ def main():
     parameters = get_cmd_parameters()
 
     coordinator = Coordinator(
-        weights=list(np.load(parameters.file, allow_pickle=True)),
         num_rounds=parameters.num_rounds,
         epochs=parameters.num_epochs,
         minimum_participants_in_round=parameters.min_num_participants_in_round,

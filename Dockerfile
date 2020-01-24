@@ -22,7 +22,6 @@ RUN rm -rf ..?* .[!.]* *
 # Drop down to a non-root user
 USER ${USER}
 
-COPY --chown=${USER}:${USER} test_array.npy test_array.npy
 COPY --chown=${USER}:${USER} docker/entrypoint.sh entrypoint.sh
 RUN chmod +x entrypoint.sh
 
