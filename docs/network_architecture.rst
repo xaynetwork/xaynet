@@ -371,14 +371,15 @@ project to help with this conversion.
 Training Round Communication
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The communication is summarised in the following sequence diagram.
-In a training round, :math:`C` is in the state :code:`ROUND`. The selected
-participant :math:`P` is in the :code:`TRAINING` state (see state diagram later). The first message by
-:math:`P` essentially kicks off the exchange. :math:`C` responds with the global
-model :code:`weights` (and other data as specified in
-:code:`StartTrainingRoundResponse`). Then :math:`P` carries out the training locally.
-When complete, it sends the updated model :code:`weights_update` (and other metadata)
-back. :math:`C` responds with an acknowledgement.
+The communication is summarised in the following sequence diagram. In a training
+round, :math:`C` is in the state :code:`ROUND`. The selected participant
+:math:`P` is in the :code:`TRAINING` state (see
+:ref:`participant-state-evolution`). The first message by :math:`P` essentially
+kicks off the exchange. :math:`C` responds with the global model :code:`weights`
+(and other data as specified in :code:`StartTrainingRoundResponse`). Then
+:math:`P` carries out the training locally. When complete, it sends the updated
+model :code:`weights_update` (and other metadata) back. :math:`C` responds with
+an acknowledgement.
 
 .. image:: _static/sequence.png
 
@@ -411,6 +412,7 @@ In more detail, :math:`C` now populates responses to heartbeats with either
 In the former case, a round number is also emitted. When all rounds are over,
 :math:`C` will respond with :code:`FINISHED`.
 
+.. _participant-state-evolution:
 
 Participant State Evolution
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
