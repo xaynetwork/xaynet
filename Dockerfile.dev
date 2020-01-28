@@ -3,6 +3,7 @@ FROM python:3.6-alpine
 RUN apk update && apk add python3-dev build-base git
 
 WORKDIR /app
+
 # Some dependencies require a very long compilation: protobuf, numpy,
 # grpcio. To avoid having to re-install these packages every time, we
 # pre-install them so that they are cached.
@@ -18,10 +19,11 @@ RUN mkdir xain_fl && \
     python setup.py egg_info && \
     cat *.egg-info/requires.txt | grep -v '^\[' | uniq | pip install -r /dev/stdin
 
-RUN rm -rf xain_fl
-COPY xain_fl xain_fl/
+RUN rm -rf xain_fl README.md
 COPY README.md .
+COPY xain_fl xain_fl/
+RUN pip install -e .
 
-RUN pip install -v -e .
+COPY configs/xain-fl.toml /app/xain-fl.toml
 
-CMD ["python3", "setup.py", "--fullname"]
+CMD ["coordinator", "--config", "/app/xain-fl.toml"]

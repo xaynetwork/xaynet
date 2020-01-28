@@ -29,6 +29,9 @@ install_requires = [
     "structlog==19.2.0",  # Apache License 2.0
     "xain-proto==0.3.0",  # Apache License 2.0
     "boto3==1.10.48",  # Apache License 2.0
+    "toml==0.10.0",  # MIT
+    "schema~=0.7",  # MIT
+    "idna==2.8",  # BSD
 ]
 
 dev_require = [
@@ -96,5 +99,5 @@ setup(
         "docs": docs_require,
         "dev": dev_require + tests_require + docs_require,
     },
-    entry_points={"console_scripts": ["coordinator=xain_fl.cli:main"]},
+    entry_points={"console_scripts": ["coordinator=xain_fl.__main__:main"]},
 )

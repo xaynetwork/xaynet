@@ -48,19 +48,15 @@ services:
       "
 
   xain-fl-dev:
-    environment:
-      MINIO_ACCESS_KEY: minio
-      MINIO_SECRET_KEY: minio123
     build:
       context: .
       dockerfile: Dockerfile.dev
-    command: sh -c "coordinator --storage-endpoint http://minio-dev:9000 --storage-key-id $${MINIO_ACCESS_KEY} --storage-secret-access-key $${MINIO_SECRET_KEY} --storage-bucket xain-fl-aggregated-weights"
     volumes:
-      #  don't use the local egg-info, if one exists
-      - /app/xain_fl.egg-info
-      - ./xain_fl:/app/xain_fl
+      - /app/xain_fl.egg-info  #  don't use the local egg-info, if one exists
+      - ${PWD}/xain_fl:/app/xain_fl
       - ${PWD}/setup.py:/app/setup.py
       - ${PWD}/README.md:/app/README.md
+      - ${PWD}/configs/xain-fl.toml:/app/xain-fl.toml
     networks:
       - xain-fl-dev
     ports:
