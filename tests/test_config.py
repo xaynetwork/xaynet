@@ -16,7 +16,14 @@ def server_sample():
     """
     Return a valid "server" section
     """
-    return {"host": "localhost", "port": 50051}
+    return {
+        "host": "localhost",
+        "port": 50051,
+        "grpc_options": {
+            "grpc.max_receive_message_length": -1,
+            "grpc.max_send_message_length": -1,
+        },
+    }
 
 
 @pytest.fixture
@@ -65,6 +72,11 @@ def test_load_valid_config(config_sample):
 
     assert config.server.host == "localhost"
     assert config.server.port == 50051
+
+    assert config.server.grpc_options == [
+        ("grpc.max_receive_message_length", -1),
+        ("grpc.max_send_message_length", -1),
+    ]
 
     assert config.ai.rounds == 1
     assert config.ai.epochs == 1

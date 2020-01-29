@@ -200,7 +200,7 @@ SERVER_SCHEMA = Schema(
             int, error=error("server.port", "a valid port number")
         ),
         Optional("grpc_options", default=dict): Use(
-            lambda opt: list(opt.items()), error=error("server.grpc_options", "valid grpc options"),
+            lambda opt: list(opt.items()), error=error("server.grpc_options", "valid gRPC options"),
         ),
     }
 )
