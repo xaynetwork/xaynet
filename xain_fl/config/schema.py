@@ -264,12 +264,25 @@ LOGGING_SCHEMA = Schema(
     {Optional("level", default="info"): log_level("logging.level"),}
 )
 
+
+METRICS_SCHEMA = Schema(
+    {
+        "host": And(str, hostname_or_ip_address, error=error("metrics.host", "a valid hostname or ip address")),
+        "port": Use(int, error=error("metrics.port", "a valid port number")),
+        "user": Use(str, error=error("metrics.user", "a valid user")),
+        "password": Use(str, error=error("metrics.password", "a valid password")),
+        "db_name": Use(str, error=error("metrics.db_name", "a data base name")),
+    }
+)
+
+
 CONFIG_SCHEMA = Schema(
     {
         Optional("server", default=SERVER_SCHEMA.validate({})): SERVER_SCHEMA,
         "ai": AI_SCHEMA,
         "storage": STORAGE_SCHEMA,
         Optional("logging", default=LOGGING_SCHEMA.validate({})): LOGGING_SCHEMA,
+        "metrics": METRICS_SCHEMA
     }
 )
 
