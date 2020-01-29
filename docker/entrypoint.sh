@@ -6,7 +6,7 @@ set -o nounset
 # set -o xtrace
 
 if [ $# -eq 0 ]; then
-    exec coordinator -f ${CONFIG_FILE}
+    exec coordinator --config ${CONFIG_FILE}
 else
     exec coordinator "$@"
 fi
