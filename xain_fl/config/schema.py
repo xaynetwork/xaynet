@@ -229,11 +229,28 @@ STORAGE_SCHEMA = Schema(
     }
 )
 
+
+def log_level(key: str) -> Schema:
+    """Return a validator for logging levels
+
+    Args:
+
+        key: key of the configuration item
+    """
+    log_levels = ["notset", "debug", "info", "warning", "error", "critical"]
+    error_message = "one of: " + ", ".join(log_levels)
+    log_level_validator = lambda value: value in log_levels
+    return And(str, log_level_validator, error=error(key, error_message))
+
+
+LOGGING_SCHEMA = Schema({Optional("level", default="info"): log_level("logging.level"),})
+
 CONFIG_SCHEMA = Schema(
     {
         Optional("server", default=SERVER_SCHEMA.validate({})): SERVER_SCHEMA,
         "ai": AI_SCHEMA,
         "storage": STORAGE_SCHEMA,
+        Optional("logging", default=LOGGING_SCHEMA.validate({})): LOGGING_SCHEMA,
     }
 )
 
@@ -267,6 +284,9 @@ ServerConfig.__doc__ = "The server configuration: TLS, addresses for incoming co
 
 StorageConfig = create_class_from_schema("StorageConfig", STORAGE_SCHEMA)
 StorageConfig.__doc__ = "Storage related configuration: storage endpoints and credentials, etc."
+
+LoggingConfig = create_class_from_schema("LoggingConfig", LOGGING_SCHEMA)
+LoggingConfig.__doc__ = "Logging related configuration: log level, colors, etc."
 
 T = TypeVar("T", bound="Config")
 
@@ -362,10 +382,13 @@ class Config:
        assert config.storage.access_key_id == "my-key"
     """
 
-    def __init__(self, ai: NamedTuple, storage: NamedTuple, server: NamedTuple):
+    def __init__(
+        self, ai: NamedTuple, storage: NamedTuple, server: NamedTuple, logging: NamedTuple
+    ):
         self.ai = ai
         self.storage = storage
         self.server = server
+        self.logging = logging
 
     @classmethod
     def from_unchecked_dict(cls: Type[T], dictionary: Mapping[str, Any]) -> T:
@@ -396,6 +419,7 @@ class Config:
             AiConfig(**dictionary["ai"]),
             StorageConfig(**dictionary["storage"]),
             ServerConfig(**dictionary["server"]),
+            LoggingConfig(**dictionary["logging"]),
         )
 
     @classmethod

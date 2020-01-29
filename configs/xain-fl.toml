@@ -36,3 +36,8 @@ bucket = "xain-fl-aggregated-weights"
 access_key_id = "minio"
 # AWS secret access to use to authenticate to the storage service
 secret_access_key = "minio123"
+
+[logging]
+# The log level can be one of "notset", "debug", "info", "warning",
+# "error" and "critical". It defaults to "info".
+level = "info"

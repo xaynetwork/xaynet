@@ -1,7 +1,7 @@
 """XAIN FL structured logger"""
 
 import logging
-from typing import Any
+from typing import Any, Optional, Union
 
 import structlog
 
@@ -41,6 +41,20 @@ def configure_structlog():
     )
 
 
+def set_log_level(level: Union[str, int]):
+    """Set the log level on the root logger. Since by default, the root
+    logger log level is inherited by all the loggers, this is like
+    setting a default log level.
+
+    Args:
+
+        level: the log level, as documented in the `Python standard
+            library <https://docs.python.org/3/library/logging.html#levels>`_
+    """
+    root_logger = logging.getLogger()
+    root_logger.setLevel(level)
+
+
 def initialize_logging():
     """Set up logging
 
@@ -50,12 +64,14 @@ def initialize_logging():
 
 
 def get_logger(
-    name: str, level: int = logging.INFO
+    name: str, level: Optional[int] = None
 ) -> structlog._config.BoundLoggerLazyProxy:  # pylint: disable=protected-access
     """Wrap python logger with default configuration of structlog.
+
     Args:
-        name (str): Identification name. For module name pass name=__name__.
-        level (int): Threshold for this logger. Defaults to logging.INFO.
+        name: Identification name. For module name pass ``name=__name__``.
+        level: Threshold for this logger.
+
     Returns:
         Wrapped python logger with default configuration of structlog.
     """
@@ -66,6 +82,8 @@ def get_logger(
     handler.setFormatter(formatter)
     logger = logging.getLogger(name)
     logger.addHandler(handler)
-    logger.setLevel(level)
+
+    if level is not None:
+        logger.setLevel(level)
 
     return structlog.wrap_logger(logger)
