@@ -4,9 +4,13 @@ from datetime import datetime
 from typing import Dict
 
 from influxdb import InfluxDBClient
+from influxdb.client import InfluxDBClientError
 from numpy import ndarray
 
 from xain_fl.config import MetricsConfig
+from xain_fl.logger import StructLogger, get_logger
+
+logger: StructLogger = get_logger(__name__)
 
 
 def current_time():
@@ -58,4 +62,8 @@ class MetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-meth
             # "fields": {"state": state},
         }
 
-        return self.influx_client.write_points([metrics])
+        try:
+            return self.influx_client.write_points([metrics])
+        except InfluxDBClientError as err:
+            logger.warn("Invalid config", error=str(err))
+            return False
