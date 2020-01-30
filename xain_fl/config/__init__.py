@@ -8,6 +8,7 @@ from xain_fl.config.schema import (
     Config,
     InvalidConfig,
     LoggingConfig,
+    MetricsConfig,
     ServerConfig,
     StorageConfig,
 )
@@ -19,5 +20,6 @@ __all__ = [
     "LoggingConfig",
     "StorageConfig",
     "ServerConfig",
+    "MetricsConfig",
     "InvalidConfig",
 ]

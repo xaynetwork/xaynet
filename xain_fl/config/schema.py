@@ -267,7 +267,11 @@ LOGGING_SCHEMA = Schema(
 
 METRICS_SCHEMA = Schema(
     {
-        "host": And(str, hostname_or_ip_address, error=error("metrics.host", "a valid hostname or ip address")),
+        "host": And(
+            str,
+            hostname_or_ip_address,
+            error=error("metrics.host", "a valid hostname or ip address"),
+        ),
         "port": Use(int, error=error("metrics.port", "a valid port number")),
         "user": Use(str, error=error("metrics.user", "a valid user")),
         "password": Use(str, error=error("metrics.password", "a valid password")),
@@ -327,6 +331,9 @@ StorageConfig.__doc__ = (
 
 LoggingConfig = create_class_from_schema("LoggingConfig", LOGGING_SCHEMA)
 LoggingConfig.__doc__ = "Logging related configuration: log level, colors, etc."
+
+MetricsConfig = create_class_from_schema("MetricsConfig", METRICS_SCHEMA)
+MetricsConfig.__doc__ = "Storage related configuration: storage endpoints and credentials, etc."
 
 T = TypeVar("T", bound="Config")
 
