@@ -286,7 +286,7 @@ CONFIG_SCHEMA = Schema(
         "ai": AI_SCHEMA,
         "storage": STORAGE_SCHEMA,
         Optional("logging", default=LOGGING_SCHEMA.validate({})): LOGGING_SCHEMA,
-        "metrics": METRICS_SCHEMA
+        Optional("metrics"): METRICS_SCHEMA,
     }
 )
 
