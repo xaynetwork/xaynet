@@ -26,9 +26,9 @@ services:
     volumes:
       - redis-data:/data
     networks:
-      - xain-fl-dev
-    ports:
-      - "6379:6379"
+      - xain-fl
+    expose:
+      - "6379"
 
   xain-fl:
     build:
