@@ -30,6 +30,16 @@ services:
     expose:
       - "6379"
 
+  influxdb:
+    image: influxdb:1.7 # current stable version, v2 is in Beta
+    hostname: influxdb
+    volumes:
+      - influxdb-data:/var/lib/influxdb
+    networks:
+      - xain-fl
+    expose:
+      - "8086"
+
   xain-fl:
     build:
       context: .
@@ -42,6 +52,7 @@ services:
 volumes:
   minio-data:
   redis-data:
+  influxdb-data:
 
 networks:
   xain-fl:
