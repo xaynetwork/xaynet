@@ -19,6 +19,7 @@ from xain_proto.fl.coordinator_pb2 import (
 )
 from xain_proto.np import ndarray_to_proto, proto_to_ndarray
 
+from xain_fl.coordinator.metrics_store import ABCMetricsStore, MetricsStore, NoMetricsStore
 from xain_fl.coordinator.participants import Participants
 from xain_fl.coordinator.round import Round
 from xain_fl.coordinator.store import AbstractStore, NullObjectStore
@@ -101,6 +102,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         epoch_base: int = 0,
         aggregator: Aggregator = WeightedAverageAggregator(),
         controller: Controller = RandomController(),
+        metrics_store: ABCMetricsStore = NoMetricsStore(),
     ) -> None:
         self.store: AbstractStore = store
         self.minimum_participants_in_round: int = minimum_participants_in_round
@@ -117,7 +119,8 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         self.epoch_base: int = epoch_base
 
         # round updates
-        self.round: Round = Round(self.participants.ids())
+        self.metrics_store = metrics_store
+        self.round: Round = Round(self.participants.ids(), self.metrics_store)
 
         # state variables
         self.state: State = State.STANDBY
@@ -213,7 +216,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
 
         self.controller.fraction_of_participants = self.fraction_of_participants
         selected_ids = self.controller.select_ids(self.participants.ids())
-        self.round = Round(selected_ids)
+        self.round = Round(selected_ids, self.metrics_store)
 
     def _handle_rendezvous(
         self, _message: RendezvousRequest, participant_id: str

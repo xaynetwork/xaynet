@@ -32,6 +32,7 @@ install_requires = [
     "toml==0.10.0",  # MIT
     "schema~=0.7",  # MIT
     "idna==2.8",  # BSD
+    "influxdb==5.2.3",  # MIT
 ]
 
 dev_require = [
