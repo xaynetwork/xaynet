@@ -47,6 +47,17 @@ services:
         /usr/bin/mc admin trace -v -e dev-minio;
       "
 
+  redis:
+    image: redis:5 # current stable version, v6 out between March 2020 and May 2020
+    hostname: redis
+    entrypoint: /usr/local/bin/redis-server --appendonly yes --appendfsync everysec # using combination of RDB and AOF for persistence: https://redis.io/topics/persistence
+    volumes:
+      - redis-data:/data
+    networks:
+      - xain-fl-dev
+    ports:
+      - "6379:6379"
+
   xain-fl-dev:
     build:
       context: .
@@ -64,6 +75,7 @@ services:
 
 volumes:
   minio-data:
+  redis-data:
 
 networks:
   xain-fl-dev:
