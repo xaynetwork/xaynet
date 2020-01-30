@@ -433,7 +433,7 @@ class Config:
        assert config.storage.access_key_id == "my-key"
     """
 
-    def __init__(
+    def __init__(  # pylint: disable=too-many-arguments
         self,
         ai: NamedTuple,
         storage: NamedTuple,
