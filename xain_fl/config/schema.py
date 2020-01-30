@@ -275,7 +275,7 @@ METRICS_SCHEMA = Schema(
         "port": Use(int, error=error("metrics.port", "a valid port number")),
         "user": Use(str, error=error("metrics.user", "a valid user")),
         "password": Use(str, error=error("metrics.password", "a valid password")),
-        "db_name": Use(str, error=error("metrics.db_name", "a data base name")),
+        "db_name": Use(str, error=error("metrics.db_name", "a database name")),
     }
 )
 
