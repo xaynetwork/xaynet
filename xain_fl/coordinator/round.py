@@ -4,7 +4,6 @@ from typing import Dict, List, Tuple
 
 from numpy import ndarray
 
-from xain_fl.coordinator.metrics_store import ABCMetricsStore
 from xain_fl.tools.exceptions import DuplicatedUpdateError
 
 
@@ -19,10 +18,9 @@ class Round:
             to participate in this round.
     """
 
-    def __init__(self, participant_ids: List[str], metrics_store: ABCMetricsStore) -> None:
+    def __init__(self, participant_ids: List[str]) -> None:
         self.participant_ids = participant_ids
         self.updates: Dict[str, Dict] = {}
-        self.metrics_store = metrics_store
 
     def add_updates(
         self,
@@ -57,8 +55,6 @@ class Round:
             "aggregation_data": aggregation_data,
             "metrics": metrics,
         }
-
-        self.metrics_store.write_metrics(participant_id, metrics)
 
     def is_finished(self) -> bool:
         """Check if all the required participants submitted their updates this round.

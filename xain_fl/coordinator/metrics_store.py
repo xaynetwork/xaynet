@@ -13,26 +13,32 @@ def current_time():
     return datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-class ABCMetricsStore(ABC):  # pylint: disable=too-few-public-methods
+class AbstractMetricsStore(ABC):  # pylint: disable=too-few-public-methods
     """An abstract metric store."""
 
     @abstractmethod
-    def write_metrics(self, participant_id: str, metrics: Dict[str, ndarray]) -> None:
-        """
+    def write_metrics(self, participant_id: str, metrics: Dict[str, ndarray]) -> bool:
+        """ 
         Args:
 
-        participant_ids: The list of IDs of the participants selected
-            to participate in this round.
-        metrics :
+            participant_ids: The list of IDs of the participants selected
+                to participate in this round.
+            metrics: The metrics of the participant with the given participant_id. 
+
+        Returns: 
+        
+            True, on success, otherwise False.
         """
 
 
-class NoMetricsStore(ABCMetricsStore):  # pylint: disable=too-few-public-methods
-    def write_metrics(self, participant_id: str, metrics: Dict[str, ndarray]) -> None:
+class DummyMetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-methods
+    """A metric store that does nothing."""
+
+    def write_metrics(self, participant_id: str, metrics: Dict[str, ndarray]) -> bool:
         pass
 
 
-class MetricsStore(ABCMetricsStore):  # pylint: disable=too-few-public-methods
+class MetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-methods
     def __init__(self, config: MetricsConfig):
         self.config = config
         # pylint: disable=invalid-name
@@ -44,10 +50,10 @@ class MetricsStore(ABCMetricsStore):  # pylint: disable=too-few-public-methods
             self.config.db_name,
         )
 
-    def write_metrics(self, participant_id: str, metrics: Dict[str, ndarray]) -> None:
+    def write_metrics(self, participant_id: str, metrics: Dict[str, ndarray]) -> bool:
         metrics = {
             "measurement": "participant",
-            "tags": {"host": participant_id},
+            "tags": {"id": participant_id},
             "time": current_time(),
             # "fields": {"state": state},
         }

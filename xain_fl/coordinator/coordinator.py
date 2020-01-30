@@ -19,7 +19,7 @@ from xain_proto.fl.coordinator_pb2 import (
 )
 from xain_proto.np import ndarray_to_proto, proto_to_ndarray
 
-from xain_fl.coordinator.metrics_store import ABCMetricsStore, NoMetricsStore
+from xain_fl.coordinator.metrics_store import AbstractMetricsStore, DummyMetricsStore
 from xain_fl.coordinator.participants import Participants
 from xain_fl.coordinator.round import Round
 from xain_fl.coordinator.store import AbstractStore, NullObjectStore
@@ -102,7 +102,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         epoch_base: int = 0,
         aggregator: Aggregator = WeightedAverageAggregator(),
         controller: Controller = RandomController(),
-        metrics_store: ABCMetricsStore = NoMetricsStore(),
+        metrics_store: AbstractMetricsStore = DummyMetricsStore(),
     ) -> None:
         self.store: AbstractStore = store
         self.minimum_participants_in_round: int = minimum_participants_in_round
@@ -111,6 +111,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         self.num_rounds: int = num_rounds
         self.aggregator: Aggregator = aggregator
         self.controller: Controller = controller
+        self.metrics_store = metrics_store
         self.minimum_connected_participants: int = self.get_minimum_connected_participants()
 
         # global model
@@ -119,8 +120,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         self.epoch_base: int = epoch_base
 
         # round updates
-        self.metrics_store = metrics_store
-        self.round: Round = Round(self.participants.ids(), self.metrics_store)
+        self.round: Round = Round(self.participants.ids())
 
         # state variables
         self.state: State = State.STANDBY
@@ -216,7 +216,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
 
         self.controller.fraction_of_participants = self.fraction_of_participants
         selected_ids = self.controller.select_ids(self.participants.ids())
-        self.round = Round(selected_ids, self.metrics_store)
+        self.round = Round(selected_ids)
 
     def _handle_rendezvous(
         self, _message: RendezvousRequest, participant_id: str
@@ -348,6 +348,8 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
             aggregation_data=number_samples,
             metrics=metrics,
         )
+
+        self.metrics_store.write_metrics(participant_id, metrics)
 
         # The round is over. Run the aggregation
         if self.round.is_finished():
