@@ -15,7 +15,7 @@ from xain_proto.fl.coordinator_pb2 import (
 from xain_proto.fl.coordinator_pb2_grpc import CoordinatorServicer
 
 from xain_fl.coordinator.coordinator import Coordinator
-from xain_fl.coordinator.store import Store
+from xain_fl.coordinator.store import AbstractStore
 from xain_fl.tools.exceptions import (
     DuplicatedUpdateError,
     InvalidRequestError,
@@ -40,9 +40,9 @@ class CoordinatorGrpc(CoordinatorServicer):
             aggregated models.
     """
 
-    def __init__(self, coordinator: Coordinator, store: Store):
+    def __init__(self, coordinator: Coordinator, store: AbstractStore):
         self.coordinator: Coordinator = coordinator
-        self.store: Store = store
+        self.store: AbstractStore = store
 
     def Rendezvous(
         self, request: RendezvousRequest, context: grpc.ServicerContext

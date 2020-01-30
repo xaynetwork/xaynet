@@ -36,7 +36,7 @@ from xain_fl.coordinator.coordinator_grpc import CoordinatorGrpc
 from xain_fl.coordinator.heartbeat import monitor_heartbeats
 from xain_fl.coordinator.participants import Participants
 
-from .store import TestStore
+from .store import FakeS3Store
 
 
 @pytest.mark.integration
@@ -95,7 +95,7 @@ def test_participant_rendezvous_later(participant_stub):
         coordinator.participants.add(str(i))
 
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
-    store = TestStore()
+    store = FakeS3Store()
     add_CoordinatorServicer_to_server(CoordinatorGrpc(coordinator, store), server)
     server.add_insecure_port("localhost:50051")
     server.start()
