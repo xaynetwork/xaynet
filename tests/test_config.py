@@ -53,7 +53,17 @@ def storage_sample():
 
 
 @pytest.fixture
-def config_sample(server_sample, ai_sample, storage_sample):
+def logging_sample():
+    """
+    Return a valid "ai" section
+    """
+    return {
+        "level": "debug",
+    }
+
+
+@pytest.fixture
+def config_sample(server_sample, ai_sample, storage_sample, logging_sample):
     """
     Return a valid config
     """
@@ -61,7 +71,34 @@ def config_sample(server_sample, ai_sample, storage_sample):
         "ai": ai_sample,
         "server": server_sample,
         "storage": storage_sample,
+        "logging": logging_sample,
     }
+
+
+def test_default_logging_config(config_sample):
+    """Check that the config loads if the [logging] section is not
+    specified
+
+    """
+    del config_sample["logging"]
+    config = Config.from_unchecked_dict(config_sample)
+    assert config.logging.level == "info"
+
+    config_sample["logging"] = {}
+    config = Config.from_unchecked_dict(config_sample)
+    assert config.logging.level == "info"
+
+
+def test_invalid_logging_config(config_sample):
+    """Various negative cases for the [logging] section"""
+    config_sample["logging"] = {"level": "invalid"}
+
+    with AssertInvalid() as err:
+        Config.from_unchecked_dict(config_sample)
+
+    err.check_other(
+        "`logging.level`: value must be one of: notset, debug, info, warning, error, critical"
+    )
 
 
 def test_load_valid_config(config_sample):

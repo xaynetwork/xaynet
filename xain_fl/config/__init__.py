@@ -3,12 +3,20 @@ various configuration options exposed by the CLI and the toml config
 file."""
 
 from xain_fl.config.cli import get_cmd_parameters
-from xain_fl.config.schema import AiConfig, Config, InvalidConfig, ServerConfig, StorageConfig
+from xain_fl.config.schema import (
+    AiConfig,
+    Config,
+    InvalidConfig,
+    LoggingConfig,
+    ServerConfig,
+    StorageConfig,
+)
 
 __all__ = [
     "get_cmd_parameters",
     "Config",
     "AiConfig",
+    "LoggingConfig",
     "StorageConfig",
     "ServerConfig",
     "InvalidConfig",
