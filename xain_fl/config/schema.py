@@ -165,7 +165,7 @@ def abs_path(value: str) -> str:
     if not os.path.isabs(value):
         path = os.path.abspath(value)
         logger.warn(
-            "relative path will be converted to an absolute path", path=value, absolute_path=path
+            "relative path will be converted to an absolute path", path=value, absolute_path=path,
         )
         return path
     return value
@@ -198,6 +198,9 @@ SERVER_SCHEMA = Schema(
         Optional("host", default="localhost"): hostname_or_ip_address("server.host"),
         Optional("port", default=50051): Use(
             int, error=error("server.port", "a valid port number")
+        ),
+        Optional("grpc_options", default=dict): Use(
+            lambda opt: list(opt.items()), error=error("server.grpc_options", "valid gRPC options"),
         ),
     }
 )

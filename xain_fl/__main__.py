@@ -32,7 +32,7 @@ def main():
 
     store = Store(config.storage)
 
-    serve(coordinator=coordinator, store=store, host=config.server.host, port=config.server.port)
+    serve(coordinator=coordinator, store=store, server_config=config.server)
 
 
 main()

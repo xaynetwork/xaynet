@@ -7,6 +7,7 @@ import time
 import grpc
 from xain_proto.fl import coordinator_pb2_grpc
 
+from xain_fl.config import ServerConfig
 from xain_fl.coordinator import _ONE_DAY_IN_SECONDS
 from xain_fl.coordinator.coordinator import Coordinator
 from xain_fl.coordinator.coordinator_grpc import CoordinatorGrpc
@@ -17,7 +18,7 @@ from xain_fl.logger import StructLogger, get_logger
 logger: StructLogger = get_logger(__name__)
 
 
-def serve(coordinator: Coordinator, store: Store, host: str = "[::]", port: int = 50051) -> None:
+def serve(coordinator: Coordinator, store: Store, server_config: ServerConfig) -> None:
     """Main method to start the gRPC service.
 
     This methods just creates the :class:`xain_fl.coordinator.coordinator.Coordinator`,
@@ -28,11 +29,13 @@ def serve(coordinator: Coordinator, store: Store, host: str = "[::]", port: int 
         target=monitor_heartbeats, args=(coordinator, terminate_event)
     )
 
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    server = grpc.server(
+        futures.ThreadPoolExecutor(max_workers=10), options=server_config.grpc_options
+    )
     coordinator_pb2_grpc.add_CoordinatorServicer_to_server(
         CoordinatorGrpc(coordinator, store), server
     )
-    server.add_insecure_port(f"{host}:{port}")
+    server.add_insecure_port(f"{server_config.host}:{server_config.port}")
     server.start()
     monitor_thread.start()
 
