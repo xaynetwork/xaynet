@@ -12,13 +12,13 @@ from xain_fl.coordinator import _ONE_DAY_IN_SECONDS
 from xain_fl.coordinator.coordinator import Coordinator
 from xain_fl.coordinator.coordinator_grpc import CoordinatorGrpc
 from xain_fl.coordinator.heartbeat import monitor_heartbeats
-from xain_fl.coordinator.store import Store
+from xain_fl.coordinator.store import AbstractStore
 from xain_fl.logger import StructLogger, get_logger
 
 logger: StructLogger = get_logger(__name__)
 
 
-def serve(coordinator: Coordinator, store: Store, server_config: ServerConfig) -> None:
+def serve(coordinator: Coordinator, store: AbstractStore, server_config: ServerConfig) -> None:
     """Main method to start the gRPC service.
 
     This methods just creates the :class:`xain_fl.coordinator.coordinator.Coordinator`,

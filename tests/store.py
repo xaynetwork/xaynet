@@ -8,7 +8,7 @@ import typing
 import numpy as np
 
 from xain_fl.config import StorageConfig
-from xain_fl.coordinator.store import Store
+from xain_fl.coordinator.store import S3Store
 
 
 class FakeS3Resource:
@@ -62,9 +62,10 @@ class FakeS3Resource:
         self.reads[key] += 1
 
 
-class TestStore(Store):
-    """A partial mock of the `xain-fl.coordinator.store.Store` class that
-    does not perform any IO. Instead, data is stored in memory.
+class FakeS3Store(S3Store):
+    """A partial mock of the ``xain-fl.coordinator.store.S3Store`` class
+    that does not perform any IO. Instead, data is stored in memory.
+
     """
 
     # We DO NOT want to call the parent class __init__, since it tries

@@ -5,7 +5,7 @@ import sys
 
 from xain_fl.config import Config, InvalidConfig, get_cmd_parameters
 from xain_fl.coordinator.coordinator import Coordinator
-from xain_fl.coordinator.store import Store
+from xain_fl.coordinator.store import S3Store
 from xain_fl.logger import StructLogger, get_logger, initialize_logging
 from xain_fl.serve import serve
 
@@ -31,7 +31,7 @@ def main():
         fraction_of_participants=config.ai.fraction_participants,
     )
 
-    store = Store(config.storage)
+    store = S3Store(config.storage)
 
     serve(coordinator=coordinator, store=store, server_config=config.server)
 
