@@ -42,9 +42,11 @@ def coordinator_service():
     """
 
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
-    coordinator = Coordinator(minimum_participants_in_round=10, fraction_of_participants=1.0)
     store = FakeS3Store()
-    coordinator_grpc = CoordinatorGrpc(coordinator, store)
+    coordinator = Coordinator(
+        store=store, minimum_participants_in_round=10, fraction_of_participants=1.0
+    )
+    coordinator_grpc = CoordinatorGrpc(coordinator)
     coordinator_pb2_grpc.add_CoordinatorServicer_to_server(coordinator_grpc, server)
     server.add_insecure_port("localhost:50051")
     server.start()
@@ -62,16 +64,17 @@ def mock_coordinator_service():
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
     agg = ModelSumAggregator()
     ctrl = IdController()
-    coordinator = Coordinator(
-        num_rounds=2,
-        minimum_participants_in_round=1,
-        fraction_of_participants=1.0,
-        aggregator=agg,
-        controller=ctrl,
-    )
-    with mock.patch("xain_fl.coordinator.coordinator_grpc.AbstractStore") as mock_obj:
+    with mock.patch("xain_fl.coordinator.store.AbstractStore") as mock_obj:
         mock_store = mock_obj.return_value
-        coordinator_grpc = CoordinatorGrpc(coordinator, mock_store)
+        coordinator = Coordinator(
+            store=mock_store,
+            num_rounds=2,
+            minimum_participants_in_round=1,
+            fraction_of_participants=1.0,
+            aggregator=agg,
+            controller=ctrl,
+        )
+        coordinator_grpc = CoordinatorGrpc(coordinator)
         coordinator_pb2_grpc.add_CoordinatorServicer_to_server(coordinator_grpc, server)
         server.add_insecure_port("localhost:50051")
         server.start()

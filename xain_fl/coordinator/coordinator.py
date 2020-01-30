@@ -20,6 +20,7 @@ from xain_proto.numproto import ndarray_to_proto, proto_to_ndarray
 
 from xain_fl.coordinator.participants import Participants
 from xain_fl.coordinator.round import Round
+from xain_fl.coordinator.store import AbstractStore, DummyStore
 from xain_fl.fl.coordinator.aggregate import Aggregator, WeightedAverageAggregator
 from xain_fl.fl.coordinator.controller import Controller, RandomController
 from xain_fl.logger import StructLogger, get_logger
@@ -95,6 +96,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
 
     def __init__(  # pylint: disable=too-many-arguments
         self,
+        store: AbstractStore = DummyStore(),
         num_rounds: int = 1,
         minimum_participants_in_round: int = 1,
         fraction_of_participants: float = 1.0,
@@ -104,6 +106,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         aggregator: Aggregator = WeightedAverageAggregator(),
         controller: Controller = RandomController(),
     ) -> None:
+        self.store: AbstractStore = store
         self.minimum_participants_in_round: int = minimum_participants_in_round
         self.fraction_of_participants: float = fraction_of_participants
         self.participants: Participants = Participants()
@@ -360,6 +363,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
             self.weights = self.aggregator.aggregate(
                 mult_model_weights=mult_model_weights, aggregation_data=aggregation_data
             )
+            self.store.write_weights(self.current_round, self.weights)
 
             # update the round or finish the training session
             if self.current_round >= self.num_rounds - 1:

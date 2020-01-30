@@ -90,14 +90,15 @@ def test_participant_rendezvous_later(participant_stub):
     """
 
     # populate participants
-    coordinator = Coordinator(minimum_participants_in_round=10, fraction_of_participants=1.0)
+    coordinator = Coordinator(
+        store=FakeS3Store(), minimum_participants_in_round=10, fraction_of_participants=1.0
+    )
     required_participants = 10
     for i in range(required_participants):
         coordinator.participants.add(str(i))
 
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
-    store = FakeS3Store()
-    add_CoordinatorServicer_to_server(CoordinatorGrpc(coordinator, store), server)
+    add_CoordinatorServicer_to_server(CoordinatorGrpc(coordinator), server)
     server.add_insecure_port("localhost:50051")
     server.start()
 
@@ -474,13 +475,13 @@ def test_full_training_round(
         assert response == EndTrainingRoundResponse()
 
     assert not coordinator_service.coordinator.round.is_finished()
-    coordinator_service.store.assert_didnt_write(1)
+    coordinator_service.coordinator.store.assert_didnt_write(1)
 
     # The last participant finishes training
     response = last_participant.EndTrainingRound(EndTrainingRoundRequest())
     assert response == EndTrainingRoundResponse()
     # Make sure we wrote the results for the given round
-    coordinator_service.store.assert_wrote(0, coordinator_service.coordinator.weights)
+    coordinator_service.coordinator.store.assert_wrote(0, coordinator_service.coordinator.weights)
 
 
 @pytest.mark.integration

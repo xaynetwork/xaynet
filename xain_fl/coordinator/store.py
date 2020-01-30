@@ -42,6 +42,30 @@ class AbstractStore(abc.ABC):
         """
 
 
+class DummyStore(AbstractStore):
+    """A store that does nothing"""
+
+    def write_weights(self, _round: int, _weights: ndarray) -> None:
+        """A dummy method that has no effect.
+
+        Args:
+
+            _round: round number the weights correspond to. Not used.
+            _weights: weights to store. Not used.
+
+        """
+
+    def read_weights(self, _participant_id: str, _round: int) -> ndarray:
+        """A dummy method that has no effect.
+
+        Args:
+
+            _participant_id: ID of the participant's weights
+            _round: round number the weights correspond to
+
+        """
+
+
 class S3Store(AbstractStore):
     """A store for services that offer the AWS S3 API.
 
