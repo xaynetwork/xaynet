@@ -267,15 +267,19 @@ LOGGING_SCHEMA = Schema(
 
 METRICS_SCHEMA = Schema(
     {
-        "host": And(
+        Optional("host", default="localhost"): And(
             str,
             hostname_or_ip_address,
             error=error("metrics.host", "a valid hostname or ip address"),
         ),
-        "port": Use(int, error=error("metrics.port", "a valid port number")),
-        "user": Use(str, error=error("metrics.user", "a valid user")),
-        "password": Use(str, error=error("metrics.password", "a valid password")),
-        "db_name": Use(str, error=error("metrics.db_name", "a database name")),
+        Optional("port", default=8086): non_negative_integer("metrics.port"),
+        Optional("user", default="admin"): Use(str, error=error("metrics.user", "a valid user")),
+        Optional("password", default="admin"): Use(
+            str, error=error("metrics.password", "a valid password")
+        ),
+        Optional("db_name", default="metrics"): Use(
+            str, error=error("metrics.db_name", "a database name")
+        ),
     }
 )
 
@@ -286,7 +290,7 @@ CONFIG_SCHEMA = Schema(
         "ai": AI_SCHEMA,
         "storage": STORAGE_SCHEMA,
         Optional("logging", default=LOGGING_SCHEMA.validate({})): LOGGING_SCHEMA,
-        Optional("metrics"): METRICS_SCHEMA,
+        Optional("metrics", default=METRICS_SCHEMA.validate({})): METRICS_SCHEMA,
     }
 )
 
@@ -435,11 +439,13 @@ class Config:
         storage: NamedTuple,
         server: NamedTuple,
         logging: NamedTuple,
+        metrics: NamedTuple,
     ):
         self.ai = ai
         self.storage = storage
         self.server = server
         self.logging = logging
+        self.metrics = metrics
 
     @classmethod
     def from_unchecked_dict(cls: Type[T], dictionary: Mapping[str, Any]) -> T:
@@ -471,6 +477,7 @@ class Config:
             StorageConfig(**dictionary["storage"]),
             ServerConfig(**dictionary["server"]),
             LoggingConfig(**dictionary["logging"]),
+            MetricsConfig(**dictionary["metrics"]),
         )
 
     @classmethod

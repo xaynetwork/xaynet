@@ -13,7 +13,7 @@ def current_time():
     return datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-class ABCMetricsStore(ABC): # pylint: disable=too-few-public-methods
+class ABCMetricsStore(ABC):  # pylint: disable=too-few-public-methods
     """An abstract metric store."""
 
     @abstractmethod
@@ -27,12 +27,12 @@ class ABCMetricsStore(ABC): # pylint: disable=too-few-public-methods
         """
 
 
-class NoMetricsStore(ABCMetricsStore): # pylint: disable=too-few-public-methods
+class NoMetricsStore(ABCMetricsStore):  # pylint: disable=too-few-public-methods
     def write_metrics(self, participant_id: str, metrics: Dict[str, ndarray]) -> None:
         pass
 
 
-class MetricsStore(ABCMetricsStore): # pylint: disable=too-few-public-methods
+class MetricsStore(ABCMetricsStore):  # pylint: disable=too-few-public-methods
     def __init__(self, config: MetricsConfig):
         self.config = config
         # pylint: disable=invalid-name

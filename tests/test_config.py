@@ -27,6 +27,14 @@ def server_sample():
 
 
 @pytest.fixture
+def metrics_sample():
+    """
+    Return a valid "server" section
+    """
+    return {}
+
+
+@pytest.fixture
 def ai_sample():
     """
     Return a valid "ai" section
@@ -63,7 +71,7 @@ def logging_sample():
 
 
 @pytest.fixture
-def config_sample(server_sample, ai_sample, storage_sample, logging_sample):
+def config_sample(server_sample, ai_sample, storage_sample, logging_sample, metrics_sample):
     """
     Return a valid config
     """
@@ -72,6 +80,7 @@ def config_sample(server_sample, ai_sample, storage_sample, logging_sample):
         "server": server_sample,
         "storage": storage_sample,
         "logging": logging_sample,
+        "metrics": metrics_sample,
     }
 
 
