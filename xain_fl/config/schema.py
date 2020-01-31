@@ -208,8 +208,7 @@ def existing_file(
 SERVER_SCHEMA = Schema(
     {
         Optional("host", default="localhost"): hostname_or_ip_address("server.host"),
-        Optional("port", default=50051): non_negative_integer("server.port")
-        ,
+        Optional("port", default=50051): non_negative_integer("server.port"),
         Optional("grpc_options", default=dict): Use(
             lambda opt: list(opt.items()),
             error=error("server.grpc_options", "valid gRPC options"),

@@ -48,8 +48,10 @@ class NullObjectMetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-p
             True, on success, otherwise False.
         """
 
+
 class MetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-methods
     """A metric store that uses InfluxDB to store the metrics."""
+
     def __init__(self, config: MetricsConfig):
         self.config = config
         self.influx_client = InfluxDBClient(
