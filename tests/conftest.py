@@ -2,7 +2,6 @@
 
 from concurrent import futures
 import threading
-from unittest import mock
 
 import grpc
 import pytest
@@ -16,7 +15,6 @@ from xain_fl.fl.coordinator.controller import IdController
 from xain_fl.helloproto.numproto_server import NumProtoServer
 
 from .port_forwarding import ConnectionManager
-from .store import FakeS3Store
 
 
 @pytest.fixture
@@ -43,8 +41,7 @@ def coordinator_service():
 
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
     coordinator = Coordinator(minimum_participants_in_round=10, fraction_of_participants=1.0)
-    store = FakeS3Store()
-    coordinator_grpc = CoordinatorGrpc(coordinator, store)
+    coordinator_grpc = CoordinatorGrpc(coordinator)
     coordinator_pb2_grpc.add_CoordinatorServicer_to_server(coordinator_grpc, server)
     server.add_insecure_port("localhost:50051")
     server.start()
@@ -69,21 +66,19 @@ def mock_coordinator_service():
         aggregator=agg,
         controller=ctrl,
     )
-    with mock.patch("xain_fl.coordinator.coordinator_grpc.AbstractStore") as mock_obj:
-        mock_store = mock_obj.return_value
-        coordinator_grpc = CoordinatorGrpc(coordinator, mock_store)
-        coordinator_pb2_grpc.add_CoordinatorServicer_to_server(coordinator_grpc, server)
-        server.add_insecure_port("localhost:50051")
-        server.start()
-        terminate_event = threading.Event()
-        monitor_thread = threading.Thread(
-            target=monitor_heartbeats, args=(coordinator, terminate_event)
-        )
-        monitor_thread.start()
-        yield coordinator_grpc
-        terminate_event.set()
-        monitor_thread.join()
-        server.stop(0)
+    coordinator_grpc = CoordinatorGrpc(coordinator)
+    coordinator_pb2_grpc.add_CoordinatorServicer_to_server(coordinator_grpc, server)
+    server.add_insecure_port("localhost:50051")
+    server.start()
+    terminate_event = threading.Event()
+    monitor_thread = threading.Thread(
+        target=monitor_heartbeats, args=(coordinator, terminate_event)
+    )
+    monitor_thread.start()
+    yield coordinator_grpc
+    terminate_event.set()
+    monitor_thread.join()
+    server.stop(0)
 
 
 @pytest.fixture

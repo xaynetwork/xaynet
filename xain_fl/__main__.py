@@ -27,15 +27,14 @@ def main():
     set_log_level(config.logging.level.upper())
 
     coordinator = Coordinator(
+        store=S3Store(config.storage),
         num_rounds=config.ai.rounds,
         epochs=config.ai.epochs,
         minimum_participants_in_round=config.ai.min_participants,
         fraction_of_participants=config.ai.fraction_participants,
     )
 
-    store = S3Store(config.storage)
-
-    serve(coordinator=coordinator, store=store, server_config=config.server)
+    serve(coordinator=coordinator, server_config=config.server)
 
 
 main()

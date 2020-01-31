@@ -11,7 +11,7 @@ from xain_fl.config import StorageConfig
 from xain_fl.coordinator.store import S3Store
 
 
-class FakeS3Resource:
+class MockS3Resource:
     """Mock of the `xain-fl.coordinator.Store.s3` attribute.
 
     This class offers the same API than `boto3.S3.Client.bucket` but
@@ -62,7 +62,7 @@ class FakeS3Resource:
         self.reads[key] += 1
 
 
-class FakeS3Store(S3Store):
+class MockS3Store(S3Store):
     """A partial mock of the ``xain-fl.coordinator.store.S3Store`` class
     that does not perform any IO. Instead, data is stored in memory.
 
@@ -79,7 +79,7 @@ class FakeS3Store(S3Store):
             secret_access_key="secret_access_key",
             bucket="bucket",
         )
-        self.s3 = FakeS3Resource()
+        self.s3 = MockS3Resource()
 
     def assert_wrote(self, round: int, weights: np.ndarray):
         """Check that the given weights have been written to the store for the

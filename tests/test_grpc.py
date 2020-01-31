@@ -37,7 +37,7 @@ from xain_fl.coordinator.coordinator_grpc import CoordinatorGrpc
 from xain_fl.coordinator.heartbeat import monitor_heartbeats
 from xain_fl.coordinator.participants import ParticipantContext, Participants
 
-from .store import FakeS3Store
+from .store import MockS3Store
 
 
 @pytest.mark.integration
@@ -96,8 +96,7 @@ def test_participant_rendezvous_later(participant_stub):
         coordinator.participants.add(str(i))
 
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
-    store = FakeS3Store()
-    add_CoordinatorServicer_to_server(CoordinatorGrpc(coordinator, store), server)
+    add_CoordinatorServicer_to_server(CoordinatorGrpc(coordinator), server)
     server.add_insecure_port("localhost:50051")
     server.start()
 
@@ -415,11 +414,12 @@ def test_end_training_round_denied(  # pylint: disable=unused-argument
 
 
 @pytest.mark.integration
-def test_full_training_round(
-    participant_stubs, coordinator_service
-):  # pylint: disable=unused-argument
+def test_full_training_round(participant_stubs, coordinator_service):
     """Run a complete training round with multiple participants.
     """
+    # Use a MockS3Store so that we can also test the storage logic
+    coordinator_service.coordinator.store = MockS3Store()
+
     # Initialize the coordinator with dummy weights, otherwise, the
     # aggregated weights at the end of the round are an empty array.
     dummy_weights = np.ndarray([1, 2, 3, 4])
@@ -474,13 +474,13 @@ def test_full_training_round(
         assert response == EndTrainingRoundResponse()
 
     assert not coordinator_service.coordinator.round.is_finished()
-    coordinator_service.store.assert_didnt_write(1)
+    coordinator_service.coordinator.store.assert_didnt_write(1)
 
     # The last participant finishes training
     response = last_participant.EndTrainingRound(EndTrainingRoundRequest())
     assert response == EndTrainingRoundResponse()
     # Make sure we wrote the results for the given round
-    coordinator_service.store.assert_wrote(0, coordinator_service.coordinator.weights)
+    coordinator_service.coordinator.store.assert_wrote(0, coordinator_service.coordinator.weights)
 
 
 @pytest.mark.integration
