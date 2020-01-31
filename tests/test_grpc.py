@@ -148,17 +148,17 @@ def test_heartbeat_denied(participant_stub, coordinator_service):  # pylint: dis
 
 
 @mock.patch("xain_fl.coordinator.heartbeat.threading.Event.is_set", side_effect=[False, True])
-@mock.patch("xain_fl.coordinator.heartbeat.time.sleep", return_value=None)
+@mock.patch("xain_fl.coordinator.heartbeat.threading.Event.wait", return_value=None)
 @mock.patch("xain_fl.coordinator.heartbeat.Coordinator.remove_participant")
-def test_monitor_heartbeats(mock_participants_remove, _mock_sleep, _mock_event):
-    """[summary]
-
-    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
+def test_monitor_heartbeats(mock_participants_remove, _mock_event_wait, _mock_event_is_set):
+    """Test that when there is a participant with an expired heartbeat,
+    ``Coordinator.remove_participant`` is called exactly once.
 
     Args:
-        mock_participants_remove ([type]): [description]
-        _mock_sleep ([type]): [description]
-        _mock_event ([type]): [description]
+        mock_participants_remove: mock of ``Coordinator.remove_participant()``
+        _mock_evet_wait: mock of ``threading.Event.wait`` that does not block
+        _mock_event_is_set: mock of ``threading.Event.is_set``
+
     """
 
     participants = Participants()
@@ -175,15 +175,16 @@ def test_monitor_heartbeats(mock_participants_remove, _mock_sleep, _mock_event):
 
 
 @mock.patch("xain_fl.coordinator.heartbeat.threading.Event.is_set", side_effect=[False, True])
-@mock.patch("xain_fl.coordinator.heartbeat.time.sleep", return_value=None)
-def test_monitor_heartbeats_remove_participant(_mock_sleep, _mock_event):
-    """[summary]
-
-    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
+@mock.patch("xain_fl.coordinator.heartbeat.threading.Event.wait", return_value=None)
+def test_monitor_heartbeats_remove_participant(_mock_event_wait, _mock_event_is_set):
+    """Test that when the coordinator has exactly one participant with an
+    expired heartbeat, it is removed correctly.
 
     Args:
-        _mock_sleep ([type]): [description]
-        _mock_event ([type]): [description]
+
+        _mock_evet_wait: mock of ``threading.Event.wait`` that does not block
+        _mock_event_is_set: mock of ``threading.Event.is_set``
+
     """
 
     participants = Participants()
