@@ -1,5 +1,5 @@
 """XAIN FL tests for metric store"""
-
+# pylint: disable=redefined-outer-name
 from unittest import mock
 
 from influxdb import InfluxDBClient
@@ -28,7 +28,7 @@ def test_null_object_metrics_store_always_return_true(metrics_sample):
 
     no_metric_store = NullObjectMetricsStore()
 
-    assert no_metric_store.write_metrics("participant_id", metrics_sample) == True
+    assert no_metric_store.write_metrics("participant_id", metrics_sample)
 
 
 def test_transform_data(metrics_sample):
@@ -68,7 +68,9 @@ def test_transform_data(metrics_sample):
 
 @mock.patch.object(InfluxDBClient, "write_points", side_effect=Exception())
 def test_write_metrics_exception_handling(metrics_sample):
-    """Check that raised exceptions of the write_points method are caught in the write_metrics method."""
+    """Check that raised exceptions of the write_points method are caught in the write_metrics
+    method.
+    """
     metric_store = MetricsStore(MetricsConfig(host="", port=1, user="", password="", db_name=""))
 
-    assert metric_store.write_metrics("participant_id", metrics_sample) == False
+    assert not metric_store.write_metrics("participant_id", metrics_sample)
