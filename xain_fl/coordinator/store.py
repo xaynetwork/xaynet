@@ -42,7 +42,7 @@ class AbstractStore(abc.ABC):
         """
 
 
-class DummyStore(AbstractStore):
+class NullObjectStore(AbstractStore):
     """A store that does nothing"""
 
     def write_weights(self, _round: int, _weights: ndarray) -> None:

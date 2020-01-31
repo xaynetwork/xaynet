@@ -20,7 +20,7 @@ from xain_proto.numproto import ndarray_to_proto, proto_to_ndarray
 
 from xain_fl.coordinator.participants import Participants
 from xain_fl.coordinator.round import Round
-from xain_fl.coordinator.store import AbstractStore, DummyStore
+from xain_fl.coordinator.store import AbstractStore, NullObjectStore
 from xain_fl.fl.coordinator.aggregate import Aggregator, WeightedAverageAggregator
 from xain_fl.fl.coordinator.controller import Controller, RandomController
 from xain_fl.logger import StructLogger, get_logger
@@ -96,7 +96,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
 
     def __init__(  # pylint: disable=too-many-arguments
         self,
-        store: AbstractStore = DummyStore(),
+        store: AbstractStore = NullObjectStore(),
         num_rounds: int = 1,
         minimum_participants_in_round: int = 1,
         fraction_of_participants: float = 1.0,
