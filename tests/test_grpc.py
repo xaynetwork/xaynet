@@ -156,7 +156,7 @@ def test_monitor_heartbeats(mock_participants_remove, _mock_event_wait, _mock_ev
 
     Args:
         mock_participants_remove: mock of ``Coordinator.remove_participant()``
-        _mock_evet_wait: mock of ``threading.Event.wait`` that does not block
+        _mock_event_wait: mock of ``threading.Event.wait`` that does not block
         _mock_event_is_set: mock of ``threading.Event.is_set``
 
     """
