@@ -39,3 +39,7 @@ secret_access_key = "minio123"
 # The log level can be one of "notset", "debug", "info", "warning",
 # "error" and "critical". It defaults to "info".
 level = "debug"
+
+[metrics]
+# The hostname to connect ot InfluxDB.
+host = "influxdb"

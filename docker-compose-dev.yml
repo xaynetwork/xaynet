@@ -61,6 +61,8 @@ services:
   influxdb:
     image: influxdb:1.7 # current stable version, v2 is in Beta
     hostname: influxdb
+    environment:
+      INFLUXDB_DB: metrics
     volumes:
       - influxdb-data:/var/lib/influxdb
     networks:

@@ -208,9 +208,8 @@ def existing_file(
 SERVER_SCHEMA = Schema(
     {
         Optional("host", default="localhost"): hostname_or_ip_address("server.host"),
-        Optional("port", default=50051): Use(
-            int, error=error("server.port", "a valid port number")
-        ),
+        Optional("port", default=50051): non_negative_integer("server.port")
+        ,
         Optional("grpc_options", default=dict): Use(
             lambda opt: list(opt.items()),
             error=error("server.grpc_options", "valid gRPC options"),
@@ -273,8 +272,8 @@ METRICS_SCHEMA = Schema(
             error=error("metrics.host", "a valid hostname or ip address"),
         ),
         Optional("port", default=8086): non_negative_integer("metrics.port"),
-        Optional("user", default="admin"): Use(str, error=error("metrics.user", "a valid user")),
-        Optional("password", default="admin"): Use(
+        Optional("user", default="root"): Use(str, error=error("metrics.user", "a valid user")),
+        Optional("password", default="root"): Use(
             str, error=error("metrics.password", "a valid password")
         ),
         Optional("db_name", default="metrics"): Use(
@@ -337,7 +336,7 @@ LoggingConfig = create_class_from_schema("LoggingConfig", LOGGING_SCHEMA)
 LoggingConfig.__doc__ = "Logging related configuration: log level, colors, etc."
 
 MetricsConfig = create_class_from_schema("MetricsConfig", METRICS_SCHEMA)
-MetricsConfig.__doc__ = "Storage related configuration: storage endpoints and credentials, etc."
+MetricsConfig.__doc__ = "Metrics related configuration: InfluxDB host, InfluxDB port, etc."
 
 T = TypeVar("T", bound="Config")
 

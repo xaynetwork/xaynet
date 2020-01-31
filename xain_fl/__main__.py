@@ -5,6 +5,7 @@ import sys
 
 from xain_fl.config import Config, InvalidConfig, get_cmd_parameters
 from xain_fl.coordinator.coordinator import Coordinator
+from xain_fl.coordinator.metrics_store import MetricsStore
 from xain_fl.coordinator.store import S3Store
 from xain_fl.logger import StructLogger, get_logger, initialize_logging, set_log_level
 from xain_fl.serve import serve
@@ -32,6 +33,7 @@ def main():
         epochs=config.ai.epochs,
         minimum_participants_in_round=config.ai.min_participants,
         fraction_of_participants=config.ai.fraction_participants,
+        metrics_store=MetricsStore(config.metrics),
     )
 
     serve(coordinator=coordinator, server_config=config.server)

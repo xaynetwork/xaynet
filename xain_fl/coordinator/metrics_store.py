@@ -1,6 +1,6 @@
-# pylint: disable=missing-docstring
+"""XAIN FL Metric Store"""
+
 from abc import ABC, abstractmethod
-from calendar import timegm
 from datetime import datetime, timedelta
 from typing import Dict, List
 
@@ -18,11 +18,12 @@ class AbstractMetricsStore(ABC):  # pylint: disable=too-few-public-methods
 
     @abstractmethod
     def write_metrics(self, participant_id: str, metrics: Dict[str, ndarray]) -> bool:
-        """
+        """Write the participant metrics on behalf of the participant with the given participant_id
+        into a metric store.
+
         Args:
 
-            participant_ids: The list of IDs of the participants selected
-                to participate in this round.
+            participant_id: The ID of the participant.
             metrics: The metrics of the participant with the given participant_id.
 
         Returns:
@@ -35,10 +36,20 @@ class DummyMetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public
     """A metric store that does nothing."""
 
     def write_metrics(self, participant_id: str, metrics: Dict[str, ndarray]) -> bool:
-        pass
+        """A dummy method that has no effect.
 
+        Args:
+
+            participant_id: The ID of the participant.
+            metrics: The metrics of the participant with the given participant_id.
+
+        Returns:
+
+            True, on success, otherwise False.
+        """
 
 class MetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-methods
+    """A metric store that uses InfluxDB to store the metrics."""
     def __init__(self, config: MetricsConfig):
         self.config = config
         self.influx_client = InfluxDBClient(
@@ -50,9 +61,21 @@ class MetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-meth
         )
 
     def write_metrics(self, participant_id: str, metrics: Dict[str, ndarray]) -> bool:
+        """Write the participant metrics on behalf of the participant with the given participant_id
+        into InfluxDB.
+
+        Args:
+
+            participant_id: The ID of the participant.
+            metrics: The metrics of the participant with the given participant_id.
+
+        Returns:
+
+            True, on success, otherwise False.
+        """
+
         # FIXME: We will change the data format of the metrics message in a separate ticket.
         # The goal is, that coordinator doesn't need to transform the metrics anymore.
-
         influx_data_points = transform_metrics_to_influx_data_points(participant_id, metrics)
 
         try:
@@ -62,34 +85,40 @@ class MetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-meth
             return False
 
 
-def current_time_in_sec():
-    return timegm(datetime.utcnow().utctimetuple())
+def transform_metrics_to_influx_data_points(
+    participant_id: str, metrics: Dict[str, ndarray]
+) -> List[dict]:
+    """Transform the metrics of a participant into InfluxDB data points.
 
+    Arguments:
+        participant_id: The ID of the participant.
+        metrics: The metrics of the participant with the given participant_id.
 
-def format_date(total_seconds):
-    return datetime.fromtimestamp(total_seconds).strftime("%Y-%m-%dT%H:%M:%SZ")
+    Returns:
+        The metrics of the participant as InfluxDB data points.
+    """
 
-
-def transform_metrics_to_influx_data_points(participant_id: str, metrics: Dict[str, ndarray]):
-    first_epoch_in_sec = current_time_in_sec()
+    # Currently the metrics message does not contain any timestamps.
+    # We set a timestamp for each epoch data point with an interval of 1 sec.
+    first_epoch_time = datetime.now()
     data_points: List = []
 
-    for name, epoch_data_points in metrics.items():
-        next_epoch_time_in_sec = timedelta(seconds=first_epoch_in_sec)
+    for metric_name, epoch_data_points in metrics.items():
+        next_epoch_time = first_epoch_time
 
         for epoch_data_point in epoch_data_points:
             data_point = {
-                "measurement": f"participant.ai.{name}",
+                "measurement": f"participant.ai.{metric_name}",
                 "tags": {"id": participant_id},
-                "time": format_date(next_epoch_time_in_sec.total_seconds()),
+                "time": next_epoch_time,
                 "fields": {
-                    name: array2string(
+                    metric_name: array2string(
                         epoch_data_point, precision=8, suppress_small=True, floatmode="fixed"
                     )
                 },
             }
 
             data_points.append(data_point)
-            next_epoch_time_in_sec += timedelta(seconds=1)
+            next_epoch_time += timedelta(seconds=1)
 
     return data_points
