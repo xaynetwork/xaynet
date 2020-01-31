@@ -45,8 +45,9 @@ class NullObjectMetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-p
 
         Returns:
 
-            True, on success, otherwise False.
+            Always True.
         """
+        return True
 
 
 class MetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-methods

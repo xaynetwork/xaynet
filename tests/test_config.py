@@ -29,9 +29,15 @@ def server_sample():
 @pytest.fixture
 def metrics_sample():
     """
-    Return a valid "server" section
+    Return a valid "metrics" section
     """
-    return {}
+    return {
+        "host": "localhost",
+        "port": 8086,
+        "user": "root",
+        "password": "root",
+        "db_name": "metrics",
+    }
 
 
 @pytest.fixture
@@ -133,6 +139,12 @@ def test_load_valid_config(config_sample):
     assert config.storage.bucket == "aggregated_weights"
     assert config.storage.secret_access_key == "my-secret"
     assert config.storage.access_key_id == "my-key-id"
+
+    assert config.metrics.host == "localhost"
+    assert config.metrics.port == 8086
+    assert config.metrics.user == "root"
+    assert config.metrics.password == "root"
+    assert config.metrics.db_name == "metrics"
 
 
 def test_server_config_ip_address(config_sample, server_sample):
