@@ -32,7 +32,7 @@ def test_null_object_metrics_store_always_return_true(metrics_sample):
 
 
 def test_transform_data(metrics_sample):
-    """Test that a metric object is correctly transformed into influx data point structure."""
+    """Check that a metric object is correctly transformed into the influx data point structure."""
     actual_data_points = transform_metrics_to_influx_data_points("participant_id", metrics_sample)
     expected_data_points = [
         {
@@ -68,7 +68,7 @@ def test_transform_data(metrics_sample):
 
 @mock.patch.object(InfluxDBClient, "write_points", side_effect=Exception())
 def test_write_metrics_exception_handling(metrics_sample):
-    """Test that raised exceptions of the write_points method are caught."""
+    """Check that raised exceptions of the write_points method are caught in the write_metrics method."""
     metric_store = MetricsStore(MetricsConfig(host="", port=1, user="", password="", db_name=""))
 
     assert metric_store.write_metrics("participant_id", metrics_sample) == False
