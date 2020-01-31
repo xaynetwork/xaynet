@@ -37,4 +37,5 @@ def main():
     serve(coordinator=coordinator, server_config=config.server)
 
 
-main()
+if __name__ == "__main__":
+    main()
