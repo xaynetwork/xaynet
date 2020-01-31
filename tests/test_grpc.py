@@ -2,6 +2,7 @@
 
 from concurrent import futures
 import threading
+import time
 from unittest import mock
 
 import grpc
@@ -34,7 +35,7 @@ from xain_sdk.participant_state_machine import (
 from xain_fl.coordinator.coordinator import Coordinator
 from xain_fl.coordinator.coordinator_grpc import CoordinatorGrpc
 from xain_fl.coordinator.heartbeat import monitor_heartbeats
-from xain_fl.coordinator.participants import Participants
+from xain_fl.coordinator.participants import ParticipantContext, Participants
 
 from .store import FakeS3Store
 
@@ -197,6 +198,36 @@ def test_monitor_heartbeats_remove_participant(_mock_sleep, _mock_event):
     monitor_heartbeats(coordinator, terminate_event)
 
     assert participants.len() == 0
+
+
+@pytest.mark.slow
+def test_many_heartbeats_expire_in_short_interval():
+    """Make sure that heartbeat_monitor() works correctly under heavy
+    load. This test was added to reproduce
+    https://xainag.atlassian.net/browse/PB-104
+
+    """
+    participants = {}
+    for i in range(0, 100):
+        participant = ParticipantContext(str(i))
+        participant.heartbeat_expires = time.time() + 0.1 + i / 1000
+        participants[str(i)] = participant
+    coordinator = Coordinator()
+    coordinator.participants.participants = participants
+
+    terminate_event = threading.Event()
+
+    def terminate_heartbeats_monitor():
+        time.sleep(0.2)
+        terminate_event.set()
+
+    supervisor = threading.Thread(target=terminate_heartbeats_monitor, daemon=True)
+    supervisor.start()
+
+    monitor_heartbeats(coordinator, terminate_event)
+
+    supervisor.join(timeout=0.1)
+    assert not participants
 
 
 @mock.patch(
