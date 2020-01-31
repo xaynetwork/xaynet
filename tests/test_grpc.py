@@ -37,7 +37,7 @@ from xain_fl.coordinator.coordinator_grpc import CoordinatorGrpc
 from xain_fl.coordinator.heartbeat import monitor_heartbeats
 from xain_fl.coordinator.participants import ParticipantContext, Participants
 
-from .store import FakeS3Store
+from .store import MockS3Store
 
 
 @pytest.mark.integration
@@ -90,9 +90,7 @@ def test_participant_rendezvous_later(participant_stub):
     """
 
     # populate participants
-    coordinator = Coordinator(
-        store=FakeS3Store(), minimum_participants_in_round=10, fraction_of_participants=1.0
-    )
+    coordinator = Coordinator(minimum_participants_in_round=10, fraction_of_participants=1.0)
     required_participants = 10
     for i in range(required_participants):
         coordinator.participants.add(str(i))
@@ -416,11 +414,12 @@ def test_end_training_round_denied(  # pylint: disable=unused-argument
 
 
 @pytest.mark.integration
-def test_full_training_round(
-    participant_stubs, coordinator_service
-):  # pylint: disable=unused-argument
+def test_full_training_round(participant_stubs, coordinator_service):
     """Run a complete training round with multiple participants.
     """
+    # Use a MockS3Store so that we can also test the storage logic
+    coordinator_service.coordinator.store = MockS3Store()
+
     # Initialize the coordinator with dummy weights, otherwise, the
     # aggregated weights at the end of the round are an empty array.
     dummy_weights = np.ndarray([1, 2, 3, 4])
