@@ -1,4 +1,4 @@
-# An example configfiguration file. 
+# An example configfiguration file.
 # The values that are used for the optional keys correspond to their default values.
 
 # (Optional)
@@ -10,11 +10,11 @@ port = 50051
 
 # (Optional)
 [server.grpc_options]
-# More information about all available gRPC options can be found here: 
+# More information about all available gRPC options can be found here:
 # https://grpc.github.io/grpc/cpp/group__grpc__arg__keys.html#ga813f94f9ac3174571dd712c96cdbbdc1
 
 # Example
-# Maximum message length that the channel can receive. -1 means unlimited. 
+# Maximum message length that the channel can receive. -1 means unlimited.
 # "grpc.max_receive_message_length" = -1
 
 # (Required)
@@ -35,7 +35,9 @@ fraction_participants = 1.0
 # (Required) URL to the storage service to use
 endpoint = "http://minio-dev:9000"
 # (Required) Name of the bucket for storing the aggregated models
-bucket = "xain-fl-aggregated-weights"
+aggregated_weights_bucket = "xain-fl-aggregated-weights"
+# (Required) Name of the bucket for retrieving the participants models
+participants_bucket = "xain-fl-participants-weights"
 # (Required) AWS access key ID to use to authenticate to the storage service
 access_key_id = "minio"
 # (Required) AWS secret access to use to authenticate to the storage service

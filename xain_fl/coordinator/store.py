@@ -12,8 +12,13 @@ from numpy import ndarray
 from xain_fl.config import StorageConfig
 
 
-class AbstractStore(abc.ABC):
-    """An abstract class that defines the API a store must implement."""
+class AbstractAggregatedWeightsStore(abc.ABC):
+    # pylint: disable=too-few-public-methods
+
+    """An abstract class that defines the API for storing the aggregated
+    weights the coordinator computes.
+
+    """
 
     @abc.abstractmethod
     def write_weights(self, round: int, weights: ndarray) -> None:
@@ -24,9 +29,19 @@ class AbstractStore(abc.ABC):
             weights: The weights to store.
         """
 
+
+class AbstractParticipantsWeightsStore(abc.ABC):
+    # pylint: disable=too-few-public-methods
+
+    """An abstract class that defined the API for retrieving the weights
+    participants upload after their training round.
+
+    """
+
     @abc.abstractmethod
     def read_weights(self, participant_id: str, round: int) -> ndarray:
-        """Read the weights computed by the given participant for the given round.
+        """Retrieve the weights computed by the given participant for the
+        given round.
 
         Args:
             participant_id: ID of the participant's weights.
@@ -34,8 +49,8 @@ class AbstractStore(abc.ABC):
         """
 
 
-class NullObjectStore(AbstractStore):
-    """A store that does nothing."""
+class NullObjectStore(AbstractAggregatedWeightsStore, AbstractParticipantsWeightsStore):
+    """A store that does nothing"""
 
     def write_weights(self, round: int, weights: ndarray) -> None:
         """A dummy method that has no effect.
@@ -54,7 +69,8 @@ class NullObjectStore(AbstractStore):
         """
 
 
-class S3Store(AbstractStore):
+class S3Store:
+    # pylint: disable=too-few-public-methods
     """A store for services that offer the AWS S3 API.
 
     Args:
@@ -72,6 +88,15 @@ class S3Store(AbstractStore):
             region_name="dummy",
         )
 
+
+class AggregatedWeightsS3Store(AbstractAggregatedWeightsStore, S3Store):
+    # pylint: disable=too-few-public-methods
+
+    """``AbstractAggregatedWeightsStore`` implementor for AWS S3 storage
+    backend.
+
+    """
+
     def write_weights(self, round: int, weights: ndarray):
         """Store the given `weights`, corresponding to the given `round`.
 
@@ -79,9 +104,17 @@ class S3Store(AbstractStore):
             round: A round number the weights correspond to.
             weights: The weights to store.
         """
-
-        bucket = self.s3.Bucket(self.config.bucket)
+        bucket = self.s3.Bucket(self.config.aggregated_weights_bucket)
         bucket.put_object(Body=pickle.dumps(weights), Key=str(round))
+
+
+class ParticipantsWeightsS3Store(AbstractParticipantsWeightsStore, S3Store):
+    # pylint: disable=too-few-public-methods
+
+    """``AbstractParticipantsWeightsStore`` implementor for AWS S3 storage
+    backend.
+
+    """
 
     def read_weights(self, participant_id: str, round: int) -> ndarray:
         """Download the weights computed by the given participant for the given
@@ -89,16 +122,15 @@ class S3Store(AbstractStore):
 
         Args:
 
-            participant_id: ID of the participant's weights. Not used.
-            round: A round number the weights correspond to.
+            participant_id: ID of the participant's weights
+            round: round number the weights correspond to
 
         Return:
             The weights read from the S3 bucket.
         """
-
-        bucket = self.s3.Bucket(self.config.bucket)
+        bucket = self.s3.Bucket(self.config.participants_bucket)
         data = BytesIO()
-        bucket.download_fileobj(str(round), data)
+        bucket.download_fileobj(f"{participant_id}/{round}", data)
         # FIXME: not sure whether getvalue() copies the data. If so we
         # should probably prefer getbuffer() instead.
         return pickle.loads(data.getvalue())

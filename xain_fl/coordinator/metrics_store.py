@@ -41,12 +41,7 @@ class NullObjectMetricsStore(
 
             participant_id: The ID of the participant.
             metrics: The metrics of the participant with the given participant_id.
-
-        Returns:
-
-            Always True.
         """
-        return True
 
 
 class MetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-methods
