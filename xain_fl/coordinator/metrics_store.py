@@ -32,11 +32,11 @@ class AbstractMetricsStore(ABC):  # pylint: disable=too-few-public-methods
         """
 
 
-class DummyMetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-methods
+class NullObjectMetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-methods
     """A metric store that does nothing."""
 
     def write_metrics(self, participant_id: str, metrics: Dict[str, ndarray]) -> bool:
-        """A dummy method that has no effect.
+        """A method that has no effect.
 
         Args:
 

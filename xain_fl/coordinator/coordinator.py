@@ -19,7 +19,7 @@ from xain_proto.fl.coordinator_pb2 import (
 )
 from xain_proto.np import ndarray_to_proto, proto_to_ndarray
 
-from xain_fl.coordinator.metrics_store import AbstractMetricsStore, DummyMetricsStore
+from xain_fl.coordinator.metrics_store import AbstractMetricsStore, NullObjectMetricsStore
 from xain_fl.coordinator.participants import Participants
 from xain_fl.coordinator.round import Round
 from xain_fl.coordinator.store import AbstractStore, NullObjectStore
@@ -94,6 +94,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
     def __init__(  # pylint: disable=too-many-arguments
         self,
         store: AbstractStore = NullObjectStore(),
+        metrics_store: AbstractMetricsStore = NullObjectMetricsStore(),
         num_rounds: int = 1,
         minimum_participants_in_round: int = 1,
         fraction_of_participants: float = 1.0,
@@ -102,7 +103,6 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         epoch_base: int = 0,
         aggregator: Aggregator = WeightedAverageAggregator(),
         controller: Controller = RandomController(),
-        metrics_store: AbstractMetricsStore = DummyMetricsStore(),
     ) -> None:
         self.store: AbstractStore = store
         self.minimum_participants_in_round: int = minimum_participants_in_round
