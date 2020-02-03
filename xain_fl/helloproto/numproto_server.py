@@ -49,7 +49,9 @@ def serve():
     """
 
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    hellonumproto_pb2_grpc.add_NumProtoServerServicer_to_server(NumProtoServer(), server)
+    hellonumproto_pb2_grpc.add_NumProtoServerServicer_to_server(
+        NumProtoServer(), server
+    )
     server.add_insecure_port("[::]:50051")
     server.start()
     try:

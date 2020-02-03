@@ -28,7 +28,9 @@ def test_rendezvous_accept():
     """
 
     coordinator: Coordinator = Coordinator()
-    response: RendezvousResponse = coordinator.on_message(RendezvousRequest(), "participant1")
+    response: RendezvousResponse = coordinator.on_message(
+        RendezvousRequest(), "participant1"
+    )
 
     assert isinstance(response, RendezvousResponse)
     assert response.reply == RendezvousReply.ACCEPT
@@ -40,7 +42,9 @@ def test_rendezvous_later_fraction_1():
     .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
     """
 
-    coordinator = Coordinator(minimum_participants_in_round=1, fraction_of_participants=1.0)
+    coordinator = Coordinator(
+        minimum_participants_in_round=1, fraction_of_participants=1.0
+    )
     coordinator.on_message(RendezvousRequest(), "participant1")
     response = coordinator.on_message(RendezvousRequest(), "participant2")
 
@@ -54,7 +58,9 @@ def test_rendezvous_later_fraction_05():
     .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
     """
 
-    coordinator = Coordinator(minimum_participants_in_round=1, fraction_of_participants=0.5)
+    coordinator = Coordinator(
+        minimum_participants_in_round=1, fraction_of_participants=0.5
+    )
 
     # with 0.5 fraction it needs to accept at least two participants
     response = coordinator.on_message(RendezvousRequest(), "participant1")
@@ -82,7 +88,9 @@ def test_coordinator_state_standby_round():
 
     # tests that the coordinator transitions from STANDBY to ROUND once enough participants
     # are connected
-    coordinator = Coordinator(minimum_participants_in_round=1, fraction_of_participants=1.0)
+    coordinator = Coordinator(
+        minimum_participants_in_round=1, fraction_of_participants=1.0
+    )
 
     assert coordinator.state == State.STANDBY
 
@@ -100,7 +108,9 @@ def test_start_training_round():
 
     test_weights = [np.arange(10), np.arange(10, 20)]
     coordinator = Coordinator(
-        minimum_participants_in_round=1, fraction_of_participants=1.0, weights=test_weights,
+        minimum_participants_in_round=1,
+        fraction_of_participants=1.0,
+        weights=test_weights,
     )
     coordinator.on_message(RendezvousRequest(), "participant1")
 
@@ -118,7 +128,9 @@ def start_training_round_wrong_state():
 
     # if the coordinator receives a StartTrainingRound request while not in the
     # ROUND state it will raise an exception
-    coordinator = Coordinator(minimum_participants_in_round=2, fraction_of_participants=1.0)
+    coordinator = Coordinator(
+        minimum_participants_in_round=2, fraction_of_participants=1.0
+    )
     coordinator.on_message(RendezvousRequest(), "participant1")
 
     with pytest.raises(InvalidRequestError):
@@ -134,7 +146,9 @@ def test_end_training_round():
     # we need two participants so that we can check the status of the local update mid round
     # with only one participant it wouldn't work because the local updates state is cleaned at
     # the end of each round
-    coordinator = Coordinator(minimum_participants_in_round=2, fraction_of_participants=1.0)
+    coordinator = Coordinator(
+        minimum_participants_in_round=2, fraction_of_participants=1.0
+    )
     coordinator.on_message(RendezvousRequest(), "participant1")
     coordinator.on_message(RendezvousRequest(), "participant2")
 
@@ -217,7 +231,9 @@ def test_wrong_participant():
     """
 
     # coordinator should not accept requests from participants that it has not accepted
-    coordinator = Coordinator(minimum_participants_in_round=1, fraction_of_participants=1.0)
+    coordinator = Coordinator(
+        minimum_participants_in_round=1, fraction_of_participants=1.0
+    )
     coordinator.on_message(RendezvousRequest(), "participant1")
 
     with pytest.raises(UnknownParticipantError):
@@ -238,7 +254,9 @@ def test_duplicated_update_submit():
 
     # the coordinator should not accept multiples updates from the same participant
     # in the same round
-    coordinator = Coordinator(minimum_participants_in_round=2, fraction_of_participants=1.0)
+    coordinator = Coordinator(
+        minimum_participants_in_round=2, fraction_of_participants=1.0
+    )
     coordinator.on_message(RendezvousRequest(), "participant1")
     coordinator.on_message(RendezvousRequest(), "participant2")
 
@@ -254,7 +272,9 @@ def test_remove_participant():
     .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
     """
 
-    coordinator = Coordinator(minimum_participants_in_round=1, fraction_of_participants=1.0)
+    coordinator = Coordinator(
+        minimum_participants_in_round=1, fraction_of_participants=1.0
+    )
     coordinator.on_message(RendezvousRequest(), "participant1")
 
     assert coordinator.state == State.ROUND
@@ -276,7 +296,9 @@ def test_number_of_selected_participants():
     """
 
     # test that the coordinator needs minimum 3 participants and selects 2 of them
-    coordinator = Coordinator(minimum_participants_in_round=2, fraction_of_participants=0.6)
+    coordinator = Coordinator(
+        minimum_participants_in_round=2, fraction_of_participants=0.6
+    )
     coordinator.on_message(RendezvousRequest(), "participant1")
 
     # the coordinator should wait for three participants to be connected before starting a round,
@@ -305,7 +327,9 @@ def test_correct_round_advertised_to_participants():
     """
 
     # test that only selected participants receive ROUND state and the others STANDBY
-    coordinator = Coordinator(minimum_participants_in_round=1, fraction_of_participants=0.5)
+    coordinator = Coordinator(
+        minimum_participants_in_round=1, fraction_of_participants=0.5
+    )
     coordinator.on_message(RendezvousRequest(), "participant1")
     coordinator.on_message(RendezvousRequest(), "participant2")
 

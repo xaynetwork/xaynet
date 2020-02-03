@@ -10,7 +10,9 @@ from xain_fl.logger import StructLogger, get_logger
 logger: StructLogger = get_logger(__name__)
 
 
-def monitor_heartbeats(coordinator: Coordinator, terminate_event: threading.Event) -> None:
+def monitor_heartbeats(
+    coordinator: Coordinator, terminate_event: threading.Event
+) -> None:
     """Monitors the heartbeat of participants.
 
     If a heartbeat expires the participant is removed from the :class:`~.Participants`.

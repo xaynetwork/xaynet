@@ -5,7 +5,9 @@ from typing import Any, Optional, Union
 
 import structlog
 
-StructLogger = structlog._config.BoundLoggerLazyProxy  # pylint: disable=protected-access
+StructLogger = (
+    structlog._config.BoundLoggerLazyProxy  # pylint: disable=protected-access
+)
 
 
 def configure_aimetrics_logger():
@@ -15,8 +17,12 @@ def configure_aimetrics_logger():
     """
     AIMETRICS = 25  # pylint: disable=invalid-name
     structlog.stdlib.AIMETRICS = AIMETRICS
-    structlog.stdlib._NAME_TO_LEVEL["aimetrics"] = AIMETRICS  # pylint: disable=protected-access
-    structlog.stdlib._LEVEL_TO_NAME[AIMETRICS] = "aimetrics"  # pylint: disable=protected-access
+    structlog.stdlib._NAME_TO_LEVEL[  # pylint: disable=protected-access
+        "aimetrics"
+    ] = AIMETRICS
+    structlog.stdlib._LEVEL_TO_NAME[  # pylint: disable=protected-access
+        AIMETRICS
+    ] = "aimetrics"
     logging.addLevelName(AIMETRICS, "aimetrics")
 
     def aimetrics(self, msg: str, *args: Any, **kw: Any) -> Any:

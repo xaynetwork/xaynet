@@ -8,7 +8,7 @@ cd $DIR/../
 isort --check-only --indent=4 -rc setup.py xain_fl tests && echo "===> isort says: well done <===" &&
 
 # format code
-black --line-length 100 --check setup.py xain_fl tests && echo "===> black says: well done <===" &&
+black --check setup.py xain_fl tests && echo "===> black says: well done <===" &&
 
 # lint
 pylint --rcfile=.pylintrc xain_fl tests && echo "===> pylint says: well done <===" &&
