@@ -31,7 +31,7 @@ jobs:
 
       - name: black
         run: |
-          black --line-length 100 --check setup.py xain_fl tests
+          black --check setup.py xain_fl tests
 
       - name: isort
         run: |

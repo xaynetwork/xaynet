@@ -90,7 +90,9 @@ def test_participant_rendezvous_later(participant_stub):
     """
 
     # populate participants
-    coordinator = Coordinator(minimum_participants_in_round=10, fraction_of_participants=1.0)
+    coordinator = Coordinator(
+        minimum_participants_in_round=10, fraction_of_participants=1.0
+    )
     required_participants = 10
     for i in range(required_participants):
         coordinator.participants.add(str(i))
@@ -130,7 +132,9 @@ def test_heartbeat(participant_stub, coordinator_service):
 
 
 @pytest.mark.integration
-def test_heartbeat_denied(participant_stub, coordinator_service):  # pylint: disable=unused-argument
+def test_heartbeat_denied(
+    participant_stub, coordinator_service
+):  # pylint: disable=unused-argument
     """[summary]
 
     .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
@@ -147,10 +151,14 @@ def test_heartbeat_denied(participant_stub, coordinator_service):  # pylint: dis
         assert response.status_code == grpc.StatusCode.PERMISSION_DENIED
 
 
-@mock.patch("xain_fl.coordinator.heartbeat.threading.Event.is_set", side_effect=[False, True])
+@mock.patch(
+    "xain_fl.coordinator.heartbeat.threading.Event.is_set", side_effect=[False, True]
+)
 @mock.patch("xain_fl.coordinator.heartbeat.threading.Event.wait", return_value=None)
 @mock.patch("xain_fl.coordinator.heartbeat.Coordinator.remove_participant")
-def test_monitor_heartbeats(mock_participants_remove, _mock_event_wait, _mock_event_is_set):
+def test_monitor_heartbeats(
+    mock_participants_remove, _mock_event_wait, _mock_event_is_set
+):
     """Test that when there is a participant with an expired heartbeat,
     ``Coordinator.remove_participant`` is called exactly once.
 
@@ -174,7 +182,9 @@ def test_monitor_heartbeats(mock_participants_remove, _mock_event_wait, _mock_ev
     mock_participants_remove.assert_called_once_with("participant_1")
 
 
-@mock.patch("xain_fl.coordinator.heartbeat.threading.Event.is_set", side_effect=[False, True])
+@mock.patch(
+    "xain_fl.coordinator.heartbeat.threading.Event.is_set", side_effect=[False, True]
+)
 @mock.patch("xain_fl.coordinator.heartbeat.threading.Event.wait", return_value=None)
 def test_monitor_heartbeats_remove_participant(_mock_event_wait, _mock_event_is_set):
     """Test that when the coordinator has exactly one participant with an
@@ -231,7 +241,8 @@ def test_many_heartbeats_expire_in_short_interval():
 
 
 @mock.patch(
-    "xain_sdk.participant_state_machine.threading.Event.is_set", side_effect=[False, False, True]
+    "xain_sdk.participant_state_machine.threading.Event.is_set",
+    side_effect=[False, False, True],
 )
 @mock.patch("xain_sdk.participant_state_machine.time.sleep", return_value=None)
 @mock.patch("xain_sdk.participant_state_machine.HeartbeatRequest")
@@ -481,7 +492,9 @@ def test_full_training_round(participant_stubs, coordinator_service):
     response = last_participant.EndTrainingRound(EndTrainingRoundRequest())
     assert response == EndTrainingRoundResponse()
     # Make sure we wrote the results for the given round
-    coordinator_service.coordinator.store.assert_wrote(0, coordinator_service.coordinator.weights)
+    coordinator_service.coordinator.store.assert_wrote(
+        0, coordinator_service.coordinator.weights
+    )
 
 
 @pytest.mark.integration

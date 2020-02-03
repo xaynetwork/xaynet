@@ -50,7 +50,9 @@ def error(key: str, description: str) -> str:
     return f"Invalid `{key}`: value must be {description}"
 
 
-def positive_integer(key: str, expected_value: str = "a strictly positive integer") -> Schema:
+def positive_integer(
+    key: str, expected_value: str = "a strictly positive integer"
+) -> Schema:
     """Return a validator for strictly positive integers for the given
     configuration item.
 
@@ -63,7 +65,9 @@ def positive_integer(key: str, expected_value: str = "a strictly positive intege
     return And(int, lambda value: value > 0, error=error(key, expected_value))
 
 
-def non_negative_integer(key: str, expected_value: str = "a positive integer") -> Schema:
+def non_negative_integer(
+    key: str, expected_value: str = "a positive integer"
+) -> Schema:
     """Return a non-negative integer validator for the given configuration
     item.
 
@@ -151,7 +155,11 @@ def hostname_or_ip_address(
             value for this configuration item
 
     """
-    return And(str, Or(is_valid_hostname, is_valid_ip_address), error=error(key, expected_value),)
+    return And(
+        str,
+        Or(is_valid_hostname, is_valid_ip_address),
+        error=error(key, expected_value),
+    )
 
 
 def abs_path(value: str) -> str:
@@ -165,13 +173,17 @@ def abs_path(value: str) -> str:
     if not os.path.isabs(value):
         path = os.path.abspath(value)
         logger.warn(
-            "relative path will be converted to an absolute path", path=value, absolute_path=path,
+            "relative path will be converted to an absolute path",
+            path=value,
+            absolute_path=path,
         )
         return path
     return value
 
 
-def existing_file(key: str, expected_value: str = "a valid path to an existing file") -> Schema:
+def existing_file(
+    key: str, expected_value: str = "a valid path to an existing file"
+) -> Schema:
     """Return a validator for paths to an existing file for the given
     configuration item.
 
@@ -200,7 +212,8 @@ SERVER_SCHEMA = Schema(
             int, error=error("server.port", "a valid port number")
         ),
         Optional("grpc_options", default=dict): Use(
-            lambda opt: list(opt.items()), error=error("server.grpc_options", "valid gRPC options"),
+            lambda opt: list(opt.items()),
+            error=error("server.grpc_options", "valid gRPC options"),
         ),
     }
 )
@@ -209,7 +222,9 @@ AI_SCHEMA = Schema(
     {
         "rounds": positive_integer("ai.rounds"),
         "epochs": non_negative_integer("ai.epochs"),
-        Optional("min_participants", default=1): positive_integer("ai.min_participants"),
+        Optional("min_participants", default=1): positive_integer(
+            "ai.min_participants"
+        ),
         Optional("fraction_participants", default=1.0): And(
             Or(int, float),
             lambda value: 0 < value <= 1.0,
@@ -225,7 +240,9 @@ STORAGE_SCHEMA = Schema(
         "secret_access_key": Use(
             str, error=error("storage.secret_access_key", "a valid utf-8 string")
         ),
-        "access_key_id": Use(str, error=error("storage.access_key_id", "a valid utf-8 string")),
+        "access_key_id": Use(
+            str, error=error("storage.access_key_id", "a valid utf-8 string")
+        ),
     }
 )
 
@@ -243,7 +260,9 @@ def log_level(key: str) -> Schema:
     return And(str, log_level_validator, error=error(key, error_message))
 
 
-LOGGING_SCHEMA = Schema({Optional("level", default="info"): log_level("logging.level"),})
+LOGGING_SCHEMA = Schema(
+    {Optional("level", default="info"): log_level("logging.level"),}
+)
 
 CONFIG_SCHEMA = Schema(
     {
@@ -271,19 +290,27 @@ def create_class_from_schema(class_name: str, schema: Schema) -> Any:
     """
     # pylint: disable=protected-access
     keys = schema._schema.keys()
-    attributes = list(map(lambda key: key._schema if isinstance(key, Schema) else key, keys))
+    attributes = list(
+        map(lambda key: key._schema if isinstance(key, Schema) else key, keys)
+    )
     return namedtuple(class_name, attributes)
 
 
 # pylint: disable=invalid-name
 AiConfig = create_class_from_schema("AiConfig", AI_SCHEMA)
-AiConfig.__doc__ = "FL configuration: number of participant to each training round, etc."
+AiConfig.__doc__ = (
+    "FL configuration: number of participant to each training round, etc."
+)
 
 ServerConfig = create_class_from_schema("ServerConfig", SERVER_SCHEMA)
-ServerConfig.__doc__ = "The server configuration: TLS, addresses for incoming connections, etc."
+ServerConfig.__doc__ = (
+    "The server configuration: TLS, addresses for incoming connections, etc."
+)
 
 StorageConfig = create_class_from_schema("StorageConfig", STORAGE_SCHEMA)
-StorageConfig.__doc__ = "Storage related configuration: storage endpoints and credentials, etc."
+StorageConfig.__doc__ = (
+    "Storage related configuration: storage endpoints and credentials, etc."
+)
 
 LoggingConfig = create_class_from_schema("LoggingConfig", LOGGING_SCHEMA)
 LoggingConfig.__doc__ = "Logging related configuration: log level, colors, etc."
@@ -383,7 +410,11 @@ class Config:
     """
 
     def __init__(
-        self, ai: NamedTuple, storage: NamedTuple, server: NamedTuple, logging: NamedTuple
+        self,
+        ai: NamedTuple,
+        storage: NamedTuple,
+        server: NamedTuple,
+        logging: NamedTuple,
     ):
         self.ai = ai
         self.storage = storage
@@ -440,7 +471,9 @@ class Config:
         except FileNotFoundError as err:
             raise InvalidConfig(f"{path} not found") from err
         except PermissionError as err:
-            raise InvalidConfig(f"failed to read {path}: insufficient permissions") from err
+            raise InvalidConfig(
+                f"failed to read {path}: insufficient permissions"
+            ) from err
         except toml.TomlDecodeError as err:
             raise InvalidConfig(f"failed to decode {path}: {err}") from err
         except OSError as err:

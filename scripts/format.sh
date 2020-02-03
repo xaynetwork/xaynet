@@ -7,4 +7,4 @@ cd $DIR/../
 
 set -x
 isort --indent=4 -rc setup.py xain_fl tests
-black --line-length 100 setup.py xain_fl tests
+black setup.py xain_fl tests

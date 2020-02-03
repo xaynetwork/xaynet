@@ -171,7 +171,9 @@ def test_server_config_invalid_host(config_sample, server_sample):
         Config.from_unchecked_dict(config_sample)
 
     err.check_other(
-        re.compile("Invalid `server.host`: value must be a valid domain name or IP address")
+        re.compile(
+            "Invalid `server.host`: value must be a valid domain name or IP address"
+        )
     )
 
 

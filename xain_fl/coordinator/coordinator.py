@@ -343,9 +343,13 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         # round.
 
         # record the request data
-        model_weights: List[ndarray] = [proto_to_ndarray(pnda) for pnda in message.weights]
+        model_weights: List[ndarray] = [
+            proto_to_ndarray(pnda) for pnda in message.weights
+        ]
         number_samples: int = message.number_samples
-        metrics: Dict[str, ndarray] = {k: proto_to_ndarray(v) for k, v in message.metrics.items()}
+        metrics: Dict[str, ndarray] = {
+            k: proto_to_ndarray(v) for k, v in message.metrics.items()
+        }
         self.round.add_updates(
             participant_id=participant_id,
             model_weights=model_weights,
@@ -355,7 +359,9 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
 
         # The round is over. Run the aggregation
         if self.round.is_finished():
-            logger.info("Running aggregation for round", current_round=self.current_round)
+            logger.info(
+                "Running aggregation for round", current_round=self.current_round
+            )
 
             mult_model_weights: List[List[ndarray]]
             aggregation_data: List[int]
