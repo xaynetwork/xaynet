@@ -44,5 +44,6 @@ level = "info"
 
 
 [metrics]
+enable = true
 # The hostname to connect to InfluxDB.
 host = "influxdb"
