@@ -141,7 +141,7 @@ def test_load_valid_config(config_sample):
     assert config.storage.secret_access_key == "my-secret"
     assert config.storage.access_key_id == "my-key-id"
 
-    assert config.metrics.enable == False
+    assert config.metrics.enable is False
     assert config.metrics.host == "localhost"
     assert config.metrics.port == 8086
     assert config.metrics.user == "root"

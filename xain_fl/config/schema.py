@@ -24,7 +24,6 @@ configuration.
 
 from collections import namedtuple
 import ipaddress
-import os
 from typing import Any, Mapping, NamedTuple, Type, TypeVar
 import urllib
 
