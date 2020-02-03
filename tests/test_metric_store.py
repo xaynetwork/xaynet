@@ -71,6 +71,6 @@ def test_write_metrics_exception_handling(metrics_sample):
     """Check that raised exceptions of the write_points method are caught in the write_metrics
     method.
     """
-    metric_store = MetricsStore(MetricsConfig(host="", port=1, user="", password="", db_name=""))
+    metric_store = MetricsStore(MetricsConfig(enable=True, host="", port=1, user="", password="", db_name=""))
 
     assert not metric_store.write_metrics("participant_id", metrics_sample)
