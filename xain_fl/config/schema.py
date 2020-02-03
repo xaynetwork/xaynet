@@ -317,6 +317,12 @@ class Config:
         server: the configuration corresponding to the `[server]`
             section of the toml config file
 
+        logging: the configuration corresponding to the `[logging]`
+            section of the toml config file
+
+        metrics: the configuration corresponding to the `[metrics]`
+            section of the toml config file
+
     :Example:
 
     Here is a valid configuration:
