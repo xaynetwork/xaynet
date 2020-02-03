@@ -348,15 +348,15 @@ where the request and response data are given as the following protobuf messages
    message StartTrainingRoundRequest {}
 
    message StartTrainingRoundResponse {
-       repeated xain_proto.numproto.NDArray weights = 1;
+       repeated xain_proto.np.NDArray weights = 1;
        int32 epochs = 2;
        int32 epoch_base = 3;
    }
 
    message EndTrainingRoundRequest {
-       repeated xain_proto.numproto.NDArray weights = 1;
+       repeated xain_proto.np.NDArray weights = 1;
        int32 number_samples = 2;
-       map<string, xain_proto.numproto.NDArray> metrics = 3;
+       map<string, xain_proto.np.NDArray> metrics = 3;
    }
 
    message EndTrainingRoundResponse {}
@@ -365,7 +365,7 @@ where the request and response data are given as the following protobuf messages
 Note that while most of the Python data types to be exchanged can be
 "protobuf-erized" (and back), :code:`ndarray` requires more work. Fortunately we
 have the 
-`xain_proto/numproto <https://github.com/xainag/xain-proto/tree/master/python/xain_proto/numproto>`_
+`xain_proto/np <https://github.com/xainag/xain-proto/tree/master/python/xain_proto/np>`_
 project to help with this conversion.
 
 Training Round Communication

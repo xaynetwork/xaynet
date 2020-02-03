@@ -18,17 +18,15 @@ class Aggregator(ABC):  # pylint: disable=too-few-public-methods
         """Initialize the aggregator."""
 
     @abstractmethod
-    def aggregate(
-        self, mult_model_weights: List[List[ndarray]], aggregation_data: List[int]
-    ) -> List[ndarray]:
+    def aggregate(self, mult_model_weights: List[ndarray], aggregation_data: List[int]) -> ndarray:
         """Aggregate the weights of multiple models.
 
         Args:
-            mult_model_weights (List[List[ndarray]]): The weights of multiple models.
+            mult_model_weights (List[ndarray]): The weights of multiple models.
             aggregation_data (List[int]): Meta data for model aggregation.
 
         Returns:
-            List[ndarray]: The aggregated model weights.
+            ndarray: The aggregated model weights.
         """
 
         raise NotImplementedError()
@@ -37,18 +35,16 @@ class Aggregator(ABC):  # pylint: disable=too-few-public-methods
 class IdentityAggregator(Aggregator):  # pylint: disable=too-few-public-methods
     """Identity aggregation."""
 
-    def aggregate(
-        self, mult_model_weights: List[List[ndarray]], aggregation_data: List[int]
-    ) -> List[ndarray]:
+    def aggregate(self, mult_model_weights: List[ndarray], aggregation_data: List[int]) -> ndarray:
         """Identity aggregation only for one set of model weights.
 
         Args:
-            mult_model_weights (List[List[ndarray]]): The weights of multiple models. Must have only
+            mult_model_weights (List[ndarray]): The weights of multiple models. Must have only
                 one set of weights.
             aggregation_data (List[int]): Meta data for model aggregation. Not used here.
 
         Returns:
-            List[ndarray]: The identical model weights.
+            ndarray: The identical model weights.
 
         Raises:
             ValueError: If more than one set of model weights is provided.
@@ -63,41 +59,37 @@ class IdentityAggregator(Aggregator):  # pylint: disable=too-few-public-methods
 class ModelSumAggregator(Aggregator):  # pylint: disable=too-few-public-methods
     """Summation of models aggregation."""
 
-    def aggregate(
-        self, mult_model_weights: List[List[ndarray]], aggregation_data: List[int]
-    ) -> List[ndarray]:
+    def aggregate(self, mult_model_weights: List[ndarray], aggregation_data: List[int]) -> ndarray:
         """Aggregate the weights of multiple models by summation.
 
         Args:
-            mult_model_weights (List[List[ndarray]]): The weights of multiple models.
+            mult_model_weights (List[ndarray]): The weights of multiple models.
             aggregation_data (List[int]): Meta data for model aggregation. Not used here.
 
         Returns:
-            List[ndarray]: The aggregated model weights.
+            ndarray: The aggregated model weights.
         """
 
-        return [sum(model_weights) for model_weights in mult_model_weights]
+        return sum(mult_model_weights)
 
 
 class WeightedAverageAggregator(Aggregator):  # pylint: disable=too-few-public-methods
     """Weighted average aggregation."""
 
-    def aggregate(
-        self, mult_model_weights: List[List[ndarray]], aggregation_data: List[int]
-    ) -> List[ndarray]:
+    def aggregate(self, mult_model_weights: List[ndarray], aggregation_data: List[int]) -> ndarray:
         """Aggregate the weights of multiple models by weighted averages.
 
         Proposed by McMahan et al in: https://arxiv.org/abs/1602.05629
 
         Args:
-            mult_model_weights (List[List[ndarray]]): The weights of multiple models.
+            mult_model_weights (List[ndarray]): The weights of multiple models.
             aggregation_data (List[int]): Meta data for model aggregation. Here it is expected to be
                 the number of train samples per set of model weights. If all numbers are zero, e.g.
                 in a 0th round for weight initialization, then all model weights are weighted
                 equally.
 
         Returns:
-            List[ndarray]: The aggregated model weights.
+            ndarray: The aggregated model weights.
         """
 
         # get aggregation weights
@@ -108,53 +100,42 @@ class WeightedAverageAggregator(Aggregator):  # pylint: disable=too-few-public-m
             aggregation_weights = np.ones_like(aggregation_data) / len(aggregation_data)
 
         # compute weighted average
-        aggregated_model_weights: List[ndarray] = [
-            np.sum(
-                [
-                    model_weight * aggregation_weight
-                    for model_weight, aggregation_weight in zip(
-                        model_weights_per_idx, aggregation_weights
-                    )
-                ],
-                axis=0,
-            )
-            for model_weights_per_idx in zip(*mult_model_weights)
-        ]
+        aggregated_model_weights: ndarray = np.sum(
+            [
+                model_weight * aggregation_weight
+                for model_weight, aggregation_weight in zip(mult_model_weights, aggregation_weights)
+            ],
+            axis=0,
+        )
 
         return aggregated_model_weights
 
 
 # TODO: (XP-351) decide how to continue with that
-# def federated_averaging(
-#     mult_model_weights: List[List[ndarray]], weighting: ndarray
-# ) -> List[ndarray]:
+# def federated_averaging(mult_model_weights: List[ndarray], weighting: ndarray) -> ndarray:
 #     """Calculates weighted averages of provided list of weight updates, as proposed by McMahan et
 #         al. in: https://arxiv.org/abs/1602.05629
 #
 #     Args:
-#         mult_model_weights (List[List[ndarray]]): List of model weight.
+#         mult_model_weights (List[ndarray]): List of model weight.
 #         weighting (ndarray): Describes relative weight of each model weight. Required to be the
 #             same length as argument mult_model_weights.
 #
 #     Returns:
-#         List[ndarray]: The aggregated model weights.
+#         ndarray: The aggregated model weights.
 #     """
 #
 #     assert weighting.ndim == 1
 #     assert len(mult_model_weights) == weighting.shape[0]
 #
-#     model_weights_avg: List[ndarray] = mult_model_weights[0]
-#     for weights in model_weights_avg:
-#         weights *= weighting[0]
+#     model_weights_avg: ndarray = mult_model_weights[0] * weighting[0]
 #
 #     # Aggregate (weighted) updates
 #     for weights, update_weighting in zip(mult_model_weights[1:], weighting[1:]):
-#         for w_index, weight in enumerate(weights):
-#             model_weights_avg[w_index] += update_weighting * weight
+#         model_weights_avg += update_weighting * weights
 #
 #     weighting_sum = np.sum(weighting)
-#     for weights in model_weights_avg:
-#         weights /= weighting_sum
+#     model_weights_avg /= weighting_sum
 #
 #     return model_weights_avg
 
@@ -169,7 +150,7 @@ class WeightedAverageAggregator(Aggregator):  # pylint: disable=too-few-public-m
 #         weight_matrices = [model_weights for model_weights, num_examples in weight_updates]
 #         return evo_agg(weight_matrices, self.evaluator)
 
-# def evo_agg(weight_updates: List[List[ndarray]], evaluator: Evaluator) -> List[ndarray]:
+# def evo_agg(weight_updates: List[ndarray], evaluator: Evaluator) -> ndarray:
 #     """Experimental
 #
 #         - Init different weightings
@@ -201,7 +182,7 @@ class WeightedAverageAggregator(Aggregator):  # pylint: disable=too-few-public-m
 
 # def _compute_candidate(
 #     weight_updates: List[ndarray], evaluator: Evaluator
-# ) -> Tuple[ndarray, List[ndarray], float, float]:
+# ) -> Tuple[ndarray, ndarray, float, float]:
 #     weighting = _random_weighting(len(weight_updates))
 #     weights_prime_candidate = federated_averaging(weight_updates, weighting)
 #     loss, acc = evaluator.evaluate(weights_prime_candidate)

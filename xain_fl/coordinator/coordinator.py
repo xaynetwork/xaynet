@@ -1,8 +1,9 @@
 """XAIN FL Coordinator"""
 
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from google.protobuf.internal.python_message import GeneratedProtocolMessageType
+import numpy as np
 from numpy import ndarray
 from xain_proto.fl.coordinator_pb2 import (
     EndTrainingRoundRequest,
@@ -16,7 +17,7 @@ from xain_proto.fl.coordinator_pb2 import (
     StartTrainingRoundResponse,
     State,
 )
-from xain_proto.numproto import ndarray_to_proto, proto_to_ndarray
+from xain_proto.np import ndarray_to_proto, proto_to_ndarray
 
 from xain_fl.coordinator.participants import Participants
 from xain_fl.coordinator.round import Round
@@ -35,7 +36,6 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
     state machine that reacts to received messages.
 
     The states of the Coordinator are:
-
         - ``STANDBY``: The coordinator is in standby mode, typically
           when waiting for participants to connect. In this mode the
           only messages that the coordinator can receive are
@@ -57,19 +57,16 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
     and participants can react to each others state change.
 
     The flow of the Coordinator:
-
         1. The coordinator is started and waits for enough participants to join. `STANDBY`.
         2. Once enough participants are connected the coordinator starts the rounds. `ROUND`.
         3. Repeat step 2. for the given number of rounds
         4. The training session is over and the coordinator is ready to shutdown. `FINISHED`.
 
     Note:
-
         :class:`~.coordinator_pb2.RendezvousRequest` is always allowed
         regardless of which state the coordinator is on.
 
     Args:
-
         num_rounds: The number of rounds of the training session.
 
         minimum_participants_in_round: The minimum number of
@@ -91,7 +88,6 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
 
         controller: Controls how the Participants are selected at the
             start of each round. Defaults to :class:`~.RandomController`.
-
     """
 
     def __init__(  # pylint: disable=too-many-arguments
@@ -100,7 +96,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         num_rounds: int = 1,
         minimum_participants_in_round: int = 1,
         fraction_of_participants: float = 1.0,
-        weights: Optional[List[ndarray]] = None,
+        weights: ndarray = np.empty(shape=(0,)),
         epochs: int = 1,
         epoch_base: int = 0,
         aggregator: Aggregator = WeightedAverageAggregator(),
@@ -116,7 +112,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         self.minimum_connected_participants: int = self.get_minimum_connected_participants()
 
         # global model
-        self.weights: List[ndarray] = weights if weights is not None else []
+        self.weights: ndarray = weights
         self.epochs: int = epochs
         self.epoch_base: int = epoch_base
 
@@ -130,9 +126,11 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
     def get_minimum_connected_participants(self) -> int:
         """Calculates how many participants are needed so that we can select
         a specific fraction of them.
+
         Returns:
             obj:`int`: Minimum number of participants needed to be connected to start a round.
         """
+
         return int(self.minimum_participants_in_round // self.fraction_of_participants)
 
     def on_message(
@@ -141,16 +139,13 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         """Coordinator method that implements the state machine.
 
         Args:
-
             message: A protobuf message.
             participant_id: The id of the participant making the request.
 
         Returns:
-
             The response sent back to the participant.
 
         Raises:
-
             UnknownParticipantError: If it receives a request from an
                 unknown participant. Typically a participant that has not
                 rendezvous with the :class:`~.Coordinator`.
@@ -158,6 +153,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
             InvalidRequestError: If it receives a request that is not
                 allowed in the current :class:`~.Coordinator` state.
         """
+
         logger.debug(
             "Received message from participant",
             message_type=type(message),
@@ -203,10 +199,9 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         :class:`~.Coordinator` will transition to STANDBY state.
 
         Args:
-
             participant_id: The id of the participant to remove.
-
         """
+
         self.participants.remove(participant_id)
         logger.info("Removing participant", participant_id=participant_id)
 
@@ -214,8 +209,8 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
             self.state = State.STANDBY
 
     def select_participant_ids_and_init_round(self) -> None:
-        """Selects the participant ids and initiates a Round.
-        """
+        """Selects the participant ids and initiates a Round."""
+
         self.controller.fraction_of_participants = self.fraction_of_participants
         selected_ids = self.controller.select_ids(self.participants.ids())
         self.round = Round(selected_ids)
@@ -226,12 +221,10 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         """Handles a Rendezvous request.
 
         Args:
-
             _message: The request to handle. Currently not used.
             participant_id: The id of the participant making the request.
 
         Returns:
-
             The response to the participant.
         """
 
@@ -266,20 +259,18 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         """Handles a Heartbeat request.
 
         Responds to the participant with:
-
             - ``FINISHED``: if coordinator is in state FINISHED,
             - ``ROUND``: if the participant is selected for the current round,
             - ``STANDBY``: if the participant is not selected for the current round.
 
         Args:
-
             _message: The request to handle. Currently not used.
             participant_id: The id of the participant making the request.
 
         Returns:
-
             The response to the participant.
         """
+
         self.participants.update_expires(participant_id)
 
         if self.state == State.FINISHED or participant_id in self.round.participant_ids:
@@ -304,9 +295,11 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         Args:
             _message: The request to handle. Currently not used.
             participant_id: The id of the participant making the request.
+
         Returns:
             :class:`~.coordinator_pb2.StartTrainingRoundResponse`: The response to the participant.
         """
+
         # The coordinator should only accept StartTrainingRound requests if it is
         # in the ROUND state and when the participant has been selected for the round.
         coordinator_not_in_a_round = self.state != State.ROUND
@@ -317,10 +310,8 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
                 "StartTrainingRoundRequest outside of a round"
             )
 
-        weights_proto = [ndarray_to_proto(nda) for nda in self.weights]
-
         return StartTrainingRoundResponse(
-            weights=weights_proto, epochs=self.epochs, epoch_base=self.epoch_base,
+            weights=ndarray_to_proto(self.weights), epochs=self.epochs, epoch_base=self.epoch_base
         )
 
     def _handle_end_training_round(
@@ -329,12 +320,10 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         """Handles a EndTrainingRound request.
 
         Args:
-
             message: The request to handle.
             participant_id: The id of the participant making the request.
 
         Returns:
-
             The response to the participant.
         """
 
@@ -343,13 +332,9 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         # round.
 
         # record the request data
-        model_weights: List[ndarray] = [
-            proto_to_ndarray(pnda) for pnda in message.weights
-        ]
+        model_weights: ndarray = proto_to_ndarray(message.weights)
         number_samples: int = message.number_samples
-        metrics: Dict[str, ndarray] = {
-            k: proto_to_ndarray(v) for k, v in message.metrics.items()
-        }
+        metrics: Dict[str, ndarray] = {k: proto_to_ndarray(v) for k, v in message.metrics.items()}
         self.round.add_updates(
             participant_id=participant_id,
             model_weights=model_weights,
@@ -359,17 +344,15 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
 
         # The round is over. Run the aggregation
         if self.round.is_finished():
-            logger.info(
-                "Running aggregation for round", current_round=self.current_round
-            )
+            logger.info("Running aggregation for round", current_round=self.current_round)
 
-            mult_model_weights: List[List[ndarray]]
+            mult_model_weights: List[ndarray]
             aggregation_data: List[int]
             mult_model_weights, aggregation_data = self.round.get_weight_updates()
             self.weights = self.aggregator.aggregate(
                 mult_model_weights=mult_model_weights, aggregation_data=aggregation_data
             )
-            self.store.write_weights(self.current_round, self.weights)
+            self.store.write_weights(round=self.current_round, weights=self.weights)
 
             # update the round or finish the training session
             if self.current_round >= self.num_rounds - 1:
