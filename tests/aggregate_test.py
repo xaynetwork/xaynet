@@ -17,14 +17,14 @@
 #     u0_ = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 1.0, 1.0])
 #     u1_ = np.array([2.0, 3.0, 1.0, 4.0, 5.0, 6.0, 1.0, 1.0])
 #     u2_ = np.array([3.0, 1.0, 2.0, 4.0, 5.0, 6.0, 1.0, 1.0])
-#     mult_model_weights = [u0_, u1_, u2_]
+#     multiple_model_weights = [u0_, u1_, u2_]
 #
 #     model_weights_expected = np.array([2.0, 2.0, 2.0, 4.0, 5.0, 6.0, 1.0, 1.0])
 #
-#     weighting = np.ones((len(mult_model_weights)))
+#     weighting = np.ones((len(multiple_model_weights)))
 #
 #     # Execute
-#     model_weights_actual = federated_averaging(mult_model_weights, weighting)
+#     model_weights_actual = federated_averaging(multiple_model_weights, weighting)
 #
 #     # Assert
 #     assert len(model_weights_actual) == len(model_weights_expected)

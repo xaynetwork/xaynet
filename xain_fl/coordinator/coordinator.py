@@ -346,11 +346,11 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         if self.round.is_finished():
             logger.info("Running aggregation for round", current_round=self.current_round)
 
-            mult_model_weights: List[ndarray]
+            multiple_model_weights: List[ndarray]
             aggregation_data: List[int]
-            mult_model_weights, aggregation_data = self.round.get_weight_updates()
+            multiple_model_weights, aggregation_data = self.round.get_weight_updates()
             self.weights = self.aggregator.aggregate(
-                mult_model_weights=mult_model_weights, aggregation_data=aggregation_data
+                multiple_model_weights=multiple_model_weights, aggregation_data=aggregation_data
             )
             self.store.write_weights(round=self.current_round, weights=self.weights)
 
