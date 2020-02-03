@@ -162,47 +162,17 @@ def hostname_or_ip_address(
     )
 
 
-def abs_path(value: str) -> str:
-    """
-    If the given value is a relative path, return the corresponding absolute path.
-
-    Args:
-
-        value: a path
-    """
-    if not os.path.isabs(value):
-        path = os.path.abspath(value)
-        logger.warn(
-            "relative path will be converted to an absolute path",
-            path=value,
-            absolute_path=path,
-        )
-        return path
-    return value
-
-
-def existing_file(
-    key: str, expected_value: str = "a valid path to an existing file"
-) -> Schema:
-    """Return a validator for paths to an existing file for the given
-    configuration item.
+def log_level(key: str) -> Schema:
+    """Return a validator for logging levels
 
     Args:
 
         key: key of the configuration item
-        expected_value: description of the expected type of
-            value for this configuration item
-
     """
-
-    def validate_path(path):
-        path = abs_path(path)
-        if not os.path.isfile(path):
-            logger.error("File not found", path=path)
-            return False
-        return True
-
-    return And(str, validate_path, error=error(key, expected_value))
+    log_levels = ["notset", "debug", "info", "warning", "error", "critical"]
+    error_message = "one of: " + ", ".join(log_levels)
+    log_level_validator = lambda value: value in log_levels
+    return And(str, log_level_validator, error=error(key, error_message))
 
 
 SERVER_SCHEMA = Schema(
@@ -244,27 +214,12 @@ STORAGE_SCHEMA = Schema(
     }
 )
 
-
-def log_level(key: str) -> Schema:
-    """Return a validator for logging levels
-
-    Args:
-
-        key: key of the configuration item
-    """
-    log_levels = ["notset", "debug", "info", "warning", "error", "critical"]
-    error_message = "one of: " + ", ".join(log_levels)
-    log_level_validator = lambda value: value in log_levels
-    return And(str, log_level_validator, error=error(key, error_message))
-
-
-LOGGING_SCHEMA = Schema(
-    {Optional("level", default="info"): log_level("logging.level"),}
-)
+LOGGING_SCHEMA = Schema({Optional("level", default="info"): log_level("logging.level"),})
 
 
 METRICS_SCHEMA = Schema(
     {
+        Optional("enable", default=False): Use(bool, error=error("metrics.enable", "a boolean")),
         Optional("host", default="localhost"): And(
             str,
             hostname_or_ip_address,

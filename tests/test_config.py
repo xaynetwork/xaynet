@@ -27,20 +27,6 @@ def server_sample():
 
 
 @pytest.fixture
-def metrics_sample():
-    """
-    Return a valid "metrics" section
-    """
-    return {
-        "host": "localhost",
-        "port": 8086,
-        "user": "root",
-        "password": "root",
-        "db_name": "metrics",
-    }
-
-
-@pytest.fixture
 def ai_sample():
     """
     Return a valid "ai" section
@@ -69,10 +55,25 @@ def storage_sample():
 @pytest.fixture
 def logging_sample():
     """
-    Return a valid "ai" section
+    Return a valid "logging" section
     """
     return {
         "level": "debug",
+    }
+
+
+@pytest.fixture
+def metrics_sample():
+    """
+    Return a valid "metrics" section
+    """
+    return {
+        "enable": False,
+        "host": "localhost",
+        "port": 8086,
+        "user": "root",
+        "password": "root",
+        "db_name": "metrics",
     }
 
 
@@ -140,6 +141,7 @@ def test_load_valid_config(config_sample):
     assert config.storage.secret_access_key == "my-secret"
     assert config.storage.access_key_id == "my-key-id"
 
+    assert config.metrics.enable == False
     assert config.metrics.host == "localhost"
     assert config.metrics.port == 8086
     assert config.metrics.user == "root"

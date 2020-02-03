@@ -49,6 +49,8 @@ level = "info"
 
 # (Optional)
 [metrics]
+# (Optional) If `true`, store metrics in InfluxDB, otherwise not.
+enable = false
 # (Optional) The hostname to connect to InfluxDB.
 host = "localhost"
 # (Optional) The port of InfluxDB.
