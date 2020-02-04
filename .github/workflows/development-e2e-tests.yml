@@ -1,0 +1,13 @@
+name: Comment-based E2E test
+
+on:
+  pull_request_review_comment:
+    types: [created]
+
+jobs:
+  e2e:
+    runs-on: ubuntu-18.04
+    steps:
+      - name: logging
+        if: github.event.comment.body == '/run e2e'
+        run: echo "$GITHUB_REF"

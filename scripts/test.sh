@@ -1,39 +1,20 @@
-#!/bin/bash
-
-# clang-format does not provide a way to check the files.
-# This function iterates over a list of files and checks each one of them
-# for formatting errors
-clang_format() {
-    local_ret=0
-
-    for f in ./protobuf/xain_fl/cproto/*.proto
-    do
-        echo "Processing $f"
-        clang-format -style="{Language: Proto, BasedOnStyle: Google}" $f | diff $f -
-
-        if [ $? -ne 0 ] ; then
-            local local_ret=1
-        fi
-
-    done
-    return $local_ret
-}
+#!/usr/bin/env bash
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 cd $DIR/../
 
 # sort import
-isort --check-only --indent=4 -rc setup.py conftest.py benchmarks examples xain_fl && echo "===> isort says: well done <===" &&
+isort --check-only --indent=4 -rc setup.py xain_fl tests && echo "===> isort says: well done <===" &&
 
 # format code
-black --check --exclude "xain_fl/cproto/.*_pb2.*" setup.py conftest.py benchmarks examples xain_fl && echo "===> black says: well done <===" &&
+black --line-length 100 --check setup.py xain_fl tests && echo "===> black says: well done <===" &&
 
 # lint
-pylint --rcfile=pylint.ini benchmarks examples xain_fl && echo "===> pylint says: well done <===" &&
+pylint --rcfile=.pylintrc xain_fl tests && echo "===> pylint says: well done <===" &&
 
 # type checks
-mypy benchmarks examples/* xain_fl && echo "===> mypy says: well done <===" &&
+mypy xain_fl tests && echo "===> mypy says: well done <===" &&
 
 # documentation checks
 (cd docs/ && SPHINXOPTS="-W" make docs) && echo "===> sphinx-build says: well done <===" &&

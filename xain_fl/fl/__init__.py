@@ -2,6 +2,4 @@
 It consists the following subpackages:
 
     - `coordinator`
-    - `participant`
-    - `logging`
 """

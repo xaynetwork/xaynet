@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Exit immediately if a command exits with a non-zero status.
 set -e
@@ -11,10 +11,10 @@ cd $DIR/../
 
 if [ -f "$PRE_PUSH_HOOK" ]; then
     echo "$PRE_PUSH_HOOK exist"
-else 
+else
     echo "#!/bin/sh" >> $PRE_PUSH_HOOK
     echo "./scripts/test.sh" >> $PRE_PUSH_HOOK
-    
+
     chmod +x $PRE_PUSH_HOOK
 
     echo "$PRE_PUSH_HOOK created"

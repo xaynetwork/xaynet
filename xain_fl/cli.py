@@ -8,38 +8,80 @@ import argparse
 import numpy as np
 
 from xain_fl.coordinator.coordinator import Coordinator
+from xain_fl.coordinator.store import Store, StoreConfig
 from xain_fl.serve import serve
 
 
 def type_num_rounds(value):
+    """[summary]
+
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
+
+    Args:
+        value ([type]): [description]
+
+    Returns:
+        [type]: [description]
+
+    Raises:
+        ~argparse.ArgumentTypeError: [description]
+        ~argparse.ArgumentTypeError: [description]
+    """
+
     ivalue = int(value)
 
     if ivalue <= 0:
         raise argparse.ArgumentTypeError("%s is an invalid positive int value" % value)
 
     if ivalue > 1_000:
-        raise argparse.ArgumentTypeError(
-            "%s More than 1_000 rounds is not supported" % value
-        )
+        raise argparse.ArgumentTypeError("%s More than 1_000 rounds is not supported" % value)
 
     return ivalue
 
 
 def type_num_epochs(value):
+    """[summary]
+
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
+
+    Args:
+        value ([type]): [description]
+
+    Returns:
+        [type]: [description]
+
+    Raises:
+        ~argparse.ArgumentTypeError: [description]
+        ~argparse.ArgumentTypeError: [description]
+    """
+
     ivalue = int(value)
 
-    if ivalue <= 0:
+    if ivalue < 0:
         raise argparse.ArgumentTypeError("%s is an invalid positive int value" % value)
 
     if ivalue > 10_000:
-        raise argparse.ArgumentTypeError(
-            "%s More than 10_000 epochs is not supported" % value
-        )
+        raise argparse.ArgumentTypeError("%s More than 10_000 epochs is not supported" % value)
 
     return ivalue
 
 
 def type_min_num_participants_in_round(value):
+    """[summary]
+
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
+
+    Args:
+        value ([type]): [description]
+
+    Returns:
+        [type]: [description]
+
+    Raises:
+        ~argparse.ArgumentTypeError: [description]
+        ~argparse.ArgumentTypeError: [description]
+    """
+
     ivalue = int(value)
 
     if ivalue <= 0:
@@ -54,12 +96,25 @@ def type_min_num_participants_in_round(value):
 
 
 def type_fraction(value):
+    """[summary]
+
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
+
+    Args:
+        value ([type]): [description]
+
+    Returns:
+        [type]: [description]
+
+    Raises:
+        ~argparse.ArgumentTypeError: [description]
+        ~argparse.ArgumentTypeError: [description]
+    """
+
     ivalue = float(value)
 
     if ivalue <= 0:
-        raise argparse.ArgumentTypeError(
-            "%s is an invalid positive float value" % value
-        )
+        raise argparse.ArgumentTypeError("%s is an invalid positive float value" % value)
 
     if ivalue > 1:
         raise argparse.ArgumentTypeError(
@@ -70,6 +125,14 @@ def type_fraction(value):
 
 
 def get_cmd_parameters():
+    """[summary]
+
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
+
+    Returns:
+        [type]: [description]
+    """
+
     # Allow various parameters to be passed via the commandline
     parser = argparse.ArgumentParser(description="Coordinator CLI")
 
@@ -116,10 +179,39 @@ def get_cmd_parameters():
             A float between 0 and 1",
     )
 
+    parser.add_argument(
+        "--storage-endpoint", required=True, type=str, help="URL to the storage service to use",
+    )
+
+    parser.add_argument(
+        "--storage-bucket",
+        required=True,
+        type=str,
+        help="Name of the bucket for storing the aggregated models",
+    )
+
+    parser.add_argument(
+        "--storage-key-id",
+        required=True,
+        type=str,
+        help="AWS access key ID to use to authenticate to the storage service",
+    )
+
+    parser.add_argument(
+        "--storage-secret-access-key",
+        required=True,
+        type=str,
+        help="AWS secret access to use to authenticate to the storage service",
+    )
     return parser.parse_args()
 
 
 def main():
+    """[summary]
+
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
+    """
+
     parameters = get_cmd_parameters()
 
     coordinator = Coordinator(
@@ -130,7 +222,15 @@ def main():
         fraction_of_participants=parameters.fraction,
     )
 
-    serve(coordinator=coordinator, host=parameters.host, port=parameters.port)
+    store_config = StoreConfig(
+        parameters.storage_endpoint,
+        parameters.storage_key_id,
+        parameters.storage_secret_access_key,
+        parameters.storage_bucket,
+    )
+    store = Store(store_config)
+
+    serve(coordinator=coordinator, store=store, host=parameters.host, port=parameters.port)
 
 
 if __name__ == "__main__":
