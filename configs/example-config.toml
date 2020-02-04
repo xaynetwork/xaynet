@@ -10,7 +10,7 @@ port = 50051
 
 # (Optional)
 [server.grpc_options]
-# More information about all available gRPC options can be find here: 
+# More information about all available gRPC options can be found here: 
 # https://grpc.github.io/grpc/cpp/group__grpc__arg__keys.html#ga813f94f9ac3174571dd712c96cdbbdc1
 
 # Example
