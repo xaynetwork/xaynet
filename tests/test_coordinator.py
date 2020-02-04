@@ -11,7 +11,7 @@ from xain_proto.fl.coordinator_pb2 import (
     StartTrainingRoundRequest,
     State,
 )
-from xain_proto.numproto import proto_to_ndarray
+from xain_proto.np import proto_to_ndarray
 
 from xain_fl.coordinator.coordinator import Coordinator
 from xain_fl.tools.exceptions import (
@@ -106,7 +106,7 @@ def test_start_training_round():
     .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
     """
 
-    test_weights = [np.arange(10), np.arange(10, 20)]
+    test_weights = np.arange(10)
     coordinator = Coordinator(
         minimum_participants_in_round=1,
         fraction_of_participants=1.0,
@@ -115,7 +115,7 @@ def test_start_training_round():
     coordinator.on_message(RendezvousRequest(), "participant1")
 
     response = coordinator.on_message(StartTrainingRoundRequest(), "participant1")
-    received_weights = [proto_to_ndarray(nda) for nda in response.weights]
+    received_weights = proto_to_ndarray(response.weights)
 
     np.testing.assert_equal(test_weights, received_weights)
 

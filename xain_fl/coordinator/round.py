@@ -14,7 +14,6 @@ class Round:
     same participant to submit multiple updates during a single round.
 
     Args:
-
         participant_ids: The list of IDs of the participants selected
             to participate in this round.
     """
@@ -26,14 +25,13 @@ class Round:
     def add_updates(
         self,
         participant_id: str,
-        model_weights: List[ndarray],
+        model_weights: ndarray,
         aggregation_data: int,
         metrics: Dict[str, ndarray],
     ) -> None:
         """Valid a participant's update for the round.
 
         Args:
-
             participant_id: The id of the participant making the request.
 
             model_weights: The updated model weights.
@@ -44,7 +42,6 @@ class Round:
                 the value as list of ndarrays.
 
         Raises:
-
             DuplicatedUpdateError: If the participant already submitted his update this round.
         """
 
@@ -64,19 +61,17 @@ class Round:
         If all participants submitted their updates the round is considered finished.
 
         Returns:
-
             `True` if all participants submitted their updates this
             round. `False` otherwise.
         """
 
         return len(self.updates) == len(self.participant_ids)
 
-    def get_weight_updates(self) -> Tuple[List[List[ndarray]], List[int]]:
+    def get_weight_updates(self) -> Tuple[List[ndarray], List[int]]:
         """Get a list of all participants weight updates.
         This list will usually be used by the aggregation function.
 
         Returns:
-
             The lists of model weights and aggregation meta data from all participants.
         """
 

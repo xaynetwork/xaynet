@@ -20,9 +20,7 @@ from xain_proto.fl.coordinator_pb2 import (
     State,
 )
 from xain_proto.fl.coordinator_pb2_grpc import add_CoordinatorServicer_to_server
-from xain_proto.fl.hellonumproto_pb2 import NumProtoRequest
-from xain_proto.fl.hellonumproto_pb2_grpc import NumProtoServerStub
-from xain_proto.numproto import ndarray_to_proto, proto_to_ndarray
+from xain_proto.np import ndarray_to_proto
 from xain_sdk.participant_state_machine import (
     StateRecord,
     end_training_round,
@@ -38,27 +36,6 @@ from xain_fl.coordinator.heartbeat import monitor_heartbeats
 from xain_fl.coordinator.participants import ParticipantContext, Participants
 
 from .store import MockS3Store
-
-
-@pytest.mark.integration
-def test_greeter_server(greeter_server):  # pylint: disable=unused-argument
-    """[summary]
-
-    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
-
-    Args:
-        greeter_server ([type]): [description]
-    """
-
-    with grpc.insecure_channel("localhost:50051") as channel:
-        stub = NumProtoServerStub(channel)
-
-        nda = np.arange(10)
-        response = stub.SayHelloNumProto(NumProtoRequest(arr=ndarray_to_proto(nda)))
-
-        response_nda = proto_to_ndarray(response.arr)
-
-        assert np.array_equal(nda * 2, response_nda)
 
 
 @pytest.mark.integration
@@ -277,7 +254,7 @@ def test_start_training_round(coordinator_service):
         coordinator_service ([type]): [description]
     """
 
-    test_weights = [np.arange(10), np.arange(10, 20)]
+    test_weights = np.arange(10)
 
     # set coordinator global model and hyper-params so that it needs only 1 participant
     coord = coordinator_service.coordinator
@@ -356,7 +333,7 @@ def test_end_training_round(coordinator_service):
     assert coordinator_service.coordinator.round.updates == {}
 
     # simulate trained local model data
-    test_weights = [np.arange(20, 30), np.arange(30, 40)]
+    test_weights = np.arange(20)
     number_samples = 2
     test_metrics = {"metric": np.arange(10, 20)}
 
@@ -434,9 +411,9 @@ def test_full_training_round(participant_stubs, coordinator_service):
 
     # Initialize the coordinator with dummy weights, otherwise, the
     # aggregated weights at the end of the round are an empty array.
-    dummy_weights = np.ndarray([1, 2, 3, 4])
+    dummy_weights = np.array([1, 2, 3, 4])
     coordinator_service.coordinator.weights = dummy_weights
-    weights_proto = [ndarray_to_proto(nda) for nda in dummy_weights]
+    weights_proto = ndarray_to_proto(dummy_weights)
 
     # Create 10 partipants
     participants = [next(participant_stubs) for _ in range(0, 10)]
@@ -489,7 +466,9 @@ def test_full_training_round(participant_stubs, coordinator_service):
     coordinator_service.coordinator.store.assert_didnt_write(1)
 
     # The last participant finishes training
-    response = last_participant.EndTrainingRound(EndTrainingRoundRequest())
+    response = last_participant.EndTrainingRound(
+        EndTrainingRoundRequest(weights=weights_proto, number_samples=1)
+    )
     assert response == EndTrainingRoundResponse()
     # Make sure we wrote the results for the given round
     coordinator_service.coordinator.store.assert_wrote(
@@ -508,7 +487,7 @@ def test_start_participant(mock_coordinator_service):
         mock_coordinator_service ([type]): [description]
     """
 
-    init_weight = [np.arange(10), np.arange(10, 20)]
+    init_weight = np.arange(10)
     mock_coordinator_service.coordinator.weights = init_weight
 
     # mock a local participant with a constant train_round function
@@ -526,4 +505,4 @@ def test_start_participant(mock_coordinator_service):
         assert coord.current_round == 1
 
         # expect weight aggregated by summation - see mock_coordinator_service
-        np.testing.assert_equal(coord.weights, [np.arange(start=10, stop=29, step=2)])
+        np.testing.assert_equal(coord.weights, init_weight)

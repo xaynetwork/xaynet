@@ -5,33 +5,15 @@ import threading
 
 import grpc
 import pytest
-from xain_proto.fl import coordinator_pb2_grpc, hellonumproto_pb2_grpc
+from xain_proto.fl import coordinator_pb2_grpc
 
 from xain_fl.coordinator.coordinator import Coordinator
 from xain_fl.coordinator.coordinator_grpc import CoordinatorGrpc
 from xain_fl.coordinator.heartbeat import monitor_heartbeats
 from xain_fl.fl.coordinator.aggregate import ModelSumAggregator
 from xain_fl.fl.coordinator.controller import IdController
-from xain_fl.helloproto.numproto_server import NumProtoServer
 
 from .port_forwarding import ConnectionManager
-
-
-@pytest.fixture
-def greeter_server():
-    """[summary]
-
-    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
-    """
-
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
-    hellonumproto_pb2_grpc.add_NumProtoServerServicer_to_server(
-        NumProtoServer(), server
-    )
-    server.add_insecure_port("localhost:50051")
-    server.start()
-    yield
-    server.stop(0)
 
 
 @pytest.fixture
