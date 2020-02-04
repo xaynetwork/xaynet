@@ -79,7 +79,7 @@ class MetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-meth
             True, on success, otherwise False.
         """
 
-        # FIXME: We will change the data format of the metrics message in a separate ticket 
+        # FIXME: We will change the data format of the metrics message in a separate ticket
         # (PB-390). The goal is, that coordinator doesn't need to transform the metrics anymore.
         influx_data_points = transform_metrics_to_influx_data_points(
             participant_id, metrics
@@ -90,6 +90,7 @@ class MetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-meth
         except Exception as err:  # pylint: disable=broad-except
             logger.warn("Can not write metrics", error=str(err))
             return False
+
 
 # Check if ths function can be removed after PB-390 is done.
 def transform_metrics_to_influx_data_points(
@@ -107,7 +108,7 @@ def transform_metrics_to_influx_data_points(
 
     # Currently the metrics message does not contain any timestamps.
     # We set a timestamp for each epoch data point with an interval of 1 sec for the case,
-    # that the participant send metrics for more than 1 epoch per round. 
+    # that the participant send metrics for more than 1 epoch per round.
     # If we just use the same timestamp, all data points will group on a horizontal line.
     first_epoch_time = datetime.now()
     data_points: List = []
