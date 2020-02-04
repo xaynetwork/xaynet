@@ -24,7 +24,6 @@ configuration.
 
 from collections import namedtuple
 import ipaddress
-import os
 from typing import Any, Mapping, NamedTuple, Type, TypeVar
 import urllib
 
@@ -162,55 +161,23 @@ def hostname_or_ip_address(
     )
 
 
-def abs_path(value: str) -> str:
-    """
-    If the given value is a relative path, return the corresponding absolute path.
-
-    Args:
-
-        value: a path
-    """
-    if not os.path.isabs(value):
-        path = os.path.abspath(value)
-        logger.warn(
-            "relative path will be converted to an absolute path",
-            path=value,
-            absolute_path=path,
-        )
-        return path
-    return value
-
-
-def existing_file(
-    key: str, expected_value: str = "a valid path to an existing file"
-) -> Schema:
-    """Return a validator for paths to an existing file for the given
-    configuration item.
+def log_level(key: str) -> Schema:
+    """Return a validator for logging levels
 
     Args:
 
         key: key of the configuration item
-        expected_value: description of the expected type of
-            value for this configuration item
-
     """
-
-    def validate_path(path):
-        path = abs_path(path)
-        if not os.path.isfile(path):
-            logger.error("File not found", path=path)
-            return False
-        return True
-
-    return And(str, validate_path, error=error(key, expected_value))
+    log_levels = ["notset", "debug", "info", "warning", "error", "critical"]
+    error_message = "one of: " + ", ".join(log_levels)
+    log_level_validator = lambda value: value in log_levels
+    return And(str, log_level_validator, error=error(key, error_message))
 
 
 SERVER_SCHEMA = Schema(
     {
         Optional("host", default="localhost"): hostname_or_ip_address("server.host"),
-        Optional("port", default=50051): Use(
-            int, error=error("server.port", "a valid port number")
-        ),
+        Optional("port", default=50051): non_negative_integer("server.port"),
         Optional("grpc_options", default=dict): Use(
             lambda opt: list(opt.items()),
             error=error("server.grpc_options", "valid gRPC options"),
@@ -246,23 +213,34 @@ STORAGE_SCHEMA = Schema(
     }
 )
 
-
-def log_level(key: str) -> Schema:
-    """Return a validator for logging levels
-
-    Args:
-
-        key: key of the configuration item
-    """
-    log_levels = ["notset", "debug", "info", "warning", "error", "critical"]
-    error_message = "one of: " + ", ".join(log_levels)
-    log_level_validator = lambda value: value in log_levels
-    return And(str, log_level_validator, error=error(key, error_message))
-
-
 LOGGING_SCHEMA = Schema(
     {Optional("level", default="info"): log_level("logging.level"),}
 )
+
+
+METRICS_SCHEMA = Schema(
+    {
+        Optional("enable", default=False): Use(
+            bool, error=error("metrics.enable", "a boolean")
+        ),
+        Optional("host", default="localhost"): And(
+            str,
+            hostname_or_ip_address,
+            error=error("metrics.host", "a valid hostname or ip address"),
+        ),
+        Optional("port", default=8086): non_negative_integer("metrics.port"),
+        Optional("user", default="root"): Use(
+            str, error=error("metrics.user", "a valid user")
+        ),
+        Optional("password", default="root"): Use(
+            str, error=error("metrics.password", "a valid password")
+        ),
+        Optional("db_name", default="metrics"): Use(
+            str, error=error("metrics.db_name", "a database name")
+        ),
+    }
+)
+
 
 CONFIG_SCHEMA = Schema(
     {
@@ -270,6 +248,7 @@ CONFIG_SCHEMA = Schema(
         "ai": AI_SCHEMA,
         "storage": STORAGE_SCHEMA,
         Optional("logging", default=LOGGING_SCHEMA.validate({})): LOGGING_SCHEMA,
+        Optional("metrics", default=METRICS_SCHEMA.validate({})): METRICS_SCHEMA,
     }
 )
 
@@ -315,6 +294,11 @@ StorageConfig.__doc__ = (
 LoggingConfig = create_class_from_schema("LoggingConfig", LOGGING_SCHEMA)
 LoggingConfig.__doc__ = "Logging related configuration: log level, colors, etc."
 
+MetricsConfig = create_class_from_schema("MetricsConfig", METRICS_SCHEMA)
+MetricsConfig.__doc__ = (
+    "Metrics related configuration: InfluxDB host, InfluxDB port, etc."
+)
+
 T = TypeVar("T", bound="Config")
 
 
@@ -338,6 +322,12 @@ class Config:
             section of the toml config fil
 
         server: the configuration corresponding to the `[server]`
+            section of the toml config file
+
+        logging: the configuration corresponding to the `[logging]`
+            section of the toml config file
+
+        metrics: the configuration corresponding to the `[metrics]`
             section of the toml config file
 
     :Example:
@@ -409,17 +399,19 @@ class Config:
        assert config.storage.access_key_id == "my-key"
     """
 
-    def __init__(
+    def __init__(  # pylint: disable=too-many-arguments
         self,
         ai: NamedTuple,
         storage: NamedTuple,
         server: NamedTuple,
         logging: NamedTuple,
+        metrics: NamedTuple,
     ):
         self.ai = ai
         self.storage = storage
         self.server = server
         self.logging = logging
+        self.metrics = metrics
 
     @classmethod
     def from_unchecked_dict(cls: Type[T], dictionary: Mapping[str, Any]) -> T:
@@ -451,6 +443,7 @@ class Config:
             StorageConfig(**dictionary["storage"]),
             ServerConfig(**dictionary["server"]),
             LoggingConfig(**dictionary["logging"]),
+            MetricsConfig(**dictionary["metrics"]),
         )
 
     @classmethod

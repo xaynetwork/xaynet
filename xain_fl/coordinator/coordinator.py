@@ -19,6 +19,11 @@ from xain_proto.fl.coordinator_pb2 import (
 )
 from xain_proto.np import ndarray_to_proto, proto_to_ndarray
 
+from xain_fl.coordinator.metrics_store import (
+    AbstractMetricsStore,
+    MetricsStoreError,
+    NullObjectMetricsStore,
+)
 from xain_fl.coordinator.participants import Participants
 from xain_fl.coordinator.round import Round
 from xain_fl.coordinator.store import AbstractStore, NullObjectStore
@@ -93,6 +98,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
     def __init__(  # pylint: disable=too-many-arguments
         self,
         store: AbstractStore = NullObjectStore(),
+        metrics_store: AbstractMetricsStore = NullObjectMetricsStore(),
         num_rounds: int = 1,
         minimum_participants_in_round: int = 1,
         fraction_of_participants: float = 1.0,
@@ -109,6 +115,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         self.num_rounds: int = num_rounds
         self.aggregator: Aggregator = aggregator
         self.controller: Controller = controller
+        self.metrics_store = metrics_store
         self.minimum_connected_participants: int = self.get_minimum_connected_participants()
 
         # global model
@@ -345,6 +352,13 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
             aggregation_data=number_samples,
             metrics=metrics,
         )
+
+        try:
+            self.metrics_store.write_metrics(participant_id, metrics)
+        except MetricsStoreError as err:
+            logger.warn(
+                "Can not write metrics", participant_id=participant_id, error=repr(err)
+            )
 
         # The round is over. Run the aggregation
         if self.round.is_finished():
