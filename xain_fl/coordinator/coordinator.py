@@ -311,7 +311,9 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
             )
 
         return StartTrainingRoundResponse(
-            weights=ndarray_to_proto(self.weights), epochs=self.epochs, epoch_base=self.epoch_base
+            weights=ndarray_to_proto(self.weights),
+            epochs=self.epochs,
+            epoch_base=self.epoch_base,
         )
 
     def _handle_end_training_round(
@@ -334,7 +336,9 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         # record the request data
         model_weights: ndarray = proto_to_ndarray(message.weights)
         number_samples: int = message.number_samples
-        metrics: Dict[str, ndarray] = {k: proto_to_ndarray(v) for k, v in message.metrics.items()}
+        metrics: Dict[str, ndarray] = {
+            k: proto_to_ndarray(v) for k, v in message.metrics.items()
+        }
         self.round.add_updates(
             participant_id=participant_id,
             model_weights=model_weights,
@@ -344,13 +348,16 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
 
         # The round is over. Run the aggregation
         if self.round.is_finished():
-            logger.info("Running aggregation for round", current_round=self.current_round)
+            logger.info(
+                "Running aggregation for round", current_round=self.current_round
+            )
 
             multiple_model_weights: List[ndarray]
             aggregation_data: List[int]
             multiple_model_weights, aggregation_data = self.round.get_weight_updates()
             self.weights = self.aggregator.aggregate(
-                multiple_model_weights=multiple_model_weights, aggregation_data=aggregation_data
+                multiple_model_weights=multiple_model_weights,
+                aggregation_data=aggregation_data,
             )
             self.store.write_weights(round=self.current_round, weights=self.weights)
 

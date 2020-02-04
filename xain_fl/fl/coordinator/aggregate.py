@@ -110,7 +110,9 @@ class WeightedAverageAggregator(Aggregator):  # pylint: disable=too-few-public-m
         # compute weighted average
         scaled_model_weights: List[ndarray] = [
             model_weight * aggregation_weight
-            for model_weight, aggregation_weight in zip(multiple_model_weights, aggregation_weights)
+            for model_weight, aggregation_weight in zip(
+                multiple_model_weights, aggregation_weights
+            )
         ]
         aggregated_model_weights: ndarray = np.sum(scaled_model_weights, axis=0)
 
