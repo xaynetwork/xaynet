@@ -78,7 +78,9 @@ def metrics_sample():
 
 
 @pytest.fixture
-def config_sample(server_sample, ai_sample, storage_sample, logging_sample, metrics_sample):
+def config_sample(
+    server_sample, ai_sample, storage_sample, logging_sample, metrics_sample
+):
     """
     Return a valid config
     """

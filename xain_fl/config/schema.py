@@ -213,19 +213,25 @@ STORAGE_SCHEMA = Schema(
     }
 )
 
-LOGGING_SCHEMA = Schema({Optional("level", default="info"): log_level("logging.level"),})
+LOGGING_SCHEMA = Schema(
+    {Optional("level", default="info"): log_level("logging.level"),}
+)
 
 
 METRICS_SCHEMA = Schema(
     {
-        Optional("enable", default=False): Use(bool, error=error("metrics.enable", "a boolean")),
+        Optional("enable", default=False): Use(
+            bool, error=error("metrics.enable", "a boolean")
+        ),
         Optional("host", default="localhost"): And(
             str,
             hostname_or_ip_address,
             error=error("metrics.host", "a valid hostname or ip address"),
         ),
         Optional("port", default=8086): non_negative_integer("metrics.port"),
-        Optional("user", default="root"): Use(str, error=error("metrics.user", "a valid user")),
+        Optional("user", default="root"): Use(
+            str, error=error("metrics.user", "a valid user")
+        ),
         Optional("password", default="root"): Use(
             str, error=error("metrics.password", "a valid password")
         ),
@@ -289,7 +295,9 @@ LoggingConfig = create_class_from_schema("LoggingConfig", LOGGING_SCHEMA)
 LoggingConfig.__doc__ = "Logging related configuration: log level, colors, etc."
 
 MetricsConfig = create_class_from_schema("MetricsConfig", METRICS_SCHEMA)
-MetricsConfig.__doc__ = "Metrics related configuration: InfluxDB host, InfluxDB port, etc."
+MetricsConfig.__doc__ = (
+    "Metrics related configuration: InfluxDB host, InfluxDB port, etc."
+)
 
 T = TypeVar("T", bound="Config")
 

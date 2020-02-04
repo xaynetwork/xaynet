@@ -32,7 +32,9 @@ class AbstractMetricsStore(ABC):  # pylint: disable=too-few-public-methods
         """
 
 
-class NullObjectMetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-methods
+class NullObjectMetricsStore(
+    AbstractMetricsStore
+):  # pylint: disable=too-few-public-methods
     """A metric store that does nothing."""
 
     def write_metrics(self, participant_id: str, metrics: Dict[str, ndarray]) -> bool:
@@ -79,7 +81,9 @@ class MetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-meth
 
         # FIXME: We will change the data format of the metrics message in a separate ticket.
         # The goal is, that coordinator doesn't need to transform the metrics anymore.
-        influx_data_points = transform_metrics_to_influx_data_points(participant_id, metrics)
+        influx_data_points = transform_metrics_to_influx_data_points(
+            participant_id, metrics
+        )
 
         try:
             return self.influx_client.write_points(influx_data_points)
@@ -116,7 +120,10 @@ def transform_metrics_to_influx_data_points(
                 "time": next_epoch_time,
                 "fields": {
                     metric_name: array2string(
-                        epoch_data_point, precision=8, suppress_small=True, floatmode="fixed"
+                        epoch_data_point,
+                        precision=8,
+                        suppress_small=True,
+                        floatmode="fixed",
                     )
                 },
             }

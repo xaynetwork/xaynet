@@ -33,7 +33,9 @@ def test_null_object_metrics_store_always_return_true(metrics_sample):
 
 def test_transform_data(metrics_sample):
     """Check that a metric object is correctly transformed into the influx data point structure."""
-    actual_data_points = transform_metrics_to_influx_data_points("participant_id", metrics_sample)
+    actual_data_points = transform_metrics_to_influx_data_points(
+        "participant_id", metrics_sample
+    )
     expected_data_points = [
         {
             "measurement": "participant.ai.metric_1",
