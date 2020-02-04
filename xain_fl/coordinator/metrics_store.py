@@ -8,16 +8,13 @@ from influxdb import InfluxDBClient
 from numpy import array2string, ndarray
 
 from xain_fl.config import MetricsConfig
-from xain_fl.logger import StructLogger, get_logger
-
-logger: StructLogger = get_logger(__name__)
 
 
 class AbstractMetricsStore(ABC):  # pylint: disable=too-few-public-methods
     """An abstract metric store."""
 
     @abstractmethod
-    def write_metrics(self, participant_id: str, metrics: Dict[str, ndarray]) -> bool:
+    def write_metrics(self, participant_id: str, metrics: Dict[str, ndarray]) -> None:
         """Write the participant metrics on behalf of the participant with the given participant_id
         into a metric store.
 
@@ -37,7 +34,7 @@ class NullObjectMetricsStore(
 ):  # pylint: disable=too-few-public-methods
     """A metric store that does nothing."""
 
-    def write_metrics(self, participant_id: str, metrics: Dict[str, ndarray]) -> bool:
+    def write_metrics(self, participant_id: str, metrics: Dict[str, ndarray]) -> None:
         """A method that has no effect.
 
         Args:
