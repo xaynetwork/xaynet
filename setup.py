@@ -59,6 +59,13 @@ docs_require = [
     "m2r==0.2.1",
     "sphinxcontrib-mermaid==0.3.1",
     "sphinx-autodoc-typehints==1.10.3",  # MIT
+    # docutils is a transitive dependency for docs_requires and
+    # install_requires, which are handled sequentially by pip. If the
+    # docs_requires dependencies are handled first, `docutils~=0.16`
+    # gets installed, whereas install_requires depends on
+    # `docutils<0.16`. To prevent this from happening, we just pin the
+    # docutils version here.
+    "docutils < 0.16",
 ]
 
 setup(
