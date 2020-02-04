@@ -21,6 +21,7 @@ from xain_proto.np import ndarray_to_proto, proto_to_ndarray
 
 from xain_fl.coordinator.metrics_store import (
     AbstractMetricsStore,
+    MetricsStoreError,
     NullObjectMetricsStore,
 )
 from xain_fl.coordinator.participants import Participants
@@ -352,7 +353,12 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
             metrics=metrics,
         )
 
-        self.metrics_store.write_metrics(participant_id, metrics)
+        try:
+            self.metrics_store.write_metrics(participant_id, metrics)
+        except MetricsStoreError as err:
+            logger.warn(
+                "Can not write metrics", participant_id=participant_id, error=repr(err)
+            )
 
         # The round is over. Run the aggregation
         if self.round.is_finished():

@@ -65,7 +65,7 @@ class MetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-meth
             self.config.db_name,
         )
 
-    def write_metrics(self, participant_id: str, metrics: Dict[str, ndarray]) -> bool:
+    def write_metrics(self, participant_id: str, metrics: Dict[str, ndarray]) -> None:
         """Write the participant metrics on behalf of the participant with the given participant_id
         into InfluxDB.
 
@@ -77,6 +77,10 @@ class MetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-meth
         Returns:
 
             True, on success, otherwise False.
+
+        Raises:
+
+            MetricsStoreError: If the writing of the metrics to InfluxDB failed.
         """
 
         # FIXME: We will change the data format of the metrics message in a separate ticket
@@ -86,10 +90,9 @@ class MetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-meth
         )
 
         try:
-            return self.influx_client.write_points(influx_data_points)
+            self.influx_client.write_points(influx_data_points)
         except Exception as err:  # pylint: disable=broad-except
-            logger.warn("Can not write metrics", error=str(err))
-            return False
+            raise MetricsStoreError("Can not write metrics.") from err
 
 
 # Check if ths function can be removed after PB-390 is done.
@@ -135,3 +138,9 @@ def transform_metrics_to_influx_data_points(
             next_epoch_time += timedelta(seconds=1)
 
     return data_points
+
+
+class MetricsStoreError(Exception):
+    """
+    Raised when the writing of the metrics failed.
+    """

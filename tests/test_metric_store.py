@@ -9,6 +9,7 @@ import pytest
 from xain_fl.config import MetricsConfig
 from xain_fl.coordinator.metrics_store import (
     MetricsStore,
+    MetricsStoreError,
     NullObjectMetricsStore,
     transform_metrics_to_influx_data_points,
 )
@@ -76,5 +77,5 @@ def test_write_metrics_exception_handling(metrics_sample):
     metric_store = MetricsStore(
         MetricsConfig(enable=True, host="", port=1, user="", password="", db_name="")
     )
-
-    assert not metric_store.write_metrics("participant_id", metrics_sample)
+    with pytest.raises(MetricsStoreError):
+        metric_store.write_metrics("participant_id", metrics_sample)
