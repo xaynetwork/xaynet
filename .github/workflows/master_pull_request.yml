@@ -35,7 +35,7 @@ jobs:
 
       - name: isort
         run: |
-          isort --check-only --settings-path=.isort.cfg -rc setup.py xain_fl tests
+          isort --check-only --diff --settings-path=.isort.cfg -rc setup.py xain_fl tests
 
       - name: pylint
         run: |
