@@ -2,45 +2,52 @@
 
 from concurrent import futures
 import threading
-import time
 
 import grpc
 from xain_proto.fl import coordinator_pb2_grpc
 
-from xain_fl.coordinator import _ONE_DAY_IN_SECONDS
+from xain_fl.config import ServerConfig
 from xain_fl.coordinator.coordinator import Coordinator
 from xain_fl.coordinator.coordinator_grpc import CoordinatorGrpc
 from xain_fl.coordinator.heartbeat import monitor_heartbeats
-from xain_fl.coordinator.store import Store
 from xain_fl.logger import StructLogger, get_logger
 
 logger: StructLogger = get_logger(__name__)
 
 
-def serve(coordinator: Coordinator, store: Store, host: str = "[::]", port: int = 50051) -> None:
-    """Main method to start the gRPC service.
+def serve(coordinator: Coordinator, server_config: ServerConfig) -> None:
+    """Start a coordinator service and keep it running until an
+    interruption signal (``SIGINT``) is received.
 
-    This methods just creates the :class:`xain_fl.coordinator.coordinator.Coordinator`,
-    sets up all threading events and threads and configures and starts the gRPC service.
+    Args:
+
+        coordinator:
+            :class:`xain_fl.coordinator.coordinator.Coordinator`
+            instance to run
+
+        store:
+            client for the storage service used by the coordinator to
+            upload the aggregated weights and retrieve the
+            participants weights.
+
+        server_config:
+            server configuration: binding address, gRPC options, etc.
+
     """
-    terminate_event = threading.Event()
-    monitor_thread = threading.Thread(
-        target=monitor_heartbeats, args=(coordinator, terminate_event)
+    server = grpc.server(
+        futures.ThreadPoolExecutor(max_workers=10), options=server_config.grpc_options
     )
-
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     coordinator_pb2_grpc.add_CoordinatorServicer_to_server(
-        CoordinatorGrpc(coordinator, store), server
+        CoordinatorGrpc(coordinator), server
     )
-    server.add_insecure_port(f"{host}:{port}")
+    server.add_insecure_port(f"{server_config.host}:{server_config.port}")
     server.start()
-    monitor_thread.start()
 
     logger.info("Coordinator waiting for connections...")
 
+    terminate_event = threading.Event()
     try:
-        while True:
-            time.sleep(_ONE_DAY_IN_SECONDS)
+        monitor_heartbeats(coordinator, terminate_event)
     except KeyboardInterrupt:
         terminate_event.set()
         server.stop(0)

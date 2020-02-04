@@ -6,7 +6,7 @@ set -o nounset
 # set -o xtrace
 
 if [ $# -eq 0 ]; then
-    exec coordinator -f test_array.npy --host ${HOST} --port ${PORT}
+    exec coordinator --config ${CONFIG_FILE}
 else
     exec coordinator "$@"
 fi

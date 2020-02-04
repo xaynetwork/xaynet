@@ -10,12 +10,10 @@ from xain_proto.fl.coordinator_pb2 import (
     RendezvousResponse,
     StartTrainingRoundRequest,
     StartTrainingRoundResponse,
-    State,
 )
 from xain_proto.fl.coordinator_pb2_grpc import CoordinatorServicer
 
 from xain_fl.coordinator.coordinator import Coordinator
-from xain_fl.coordinator.store import Store
 from xain_fl.tools.exceptions import (
     DuplicatedUpdateError,
     InvalidRequestError,
@@ -34,15 +32,10 @@ class CoordinatorGrpc(CoordinatorServicer):
     Args:
 
         coordinator: The Coordinator state machine.
-
-        store: The Store in which the coordinator fetches trained
-            models from the participants and to which it saves
-            aggregated models.
     """
 
-    def __init__(self, coordinator: Coordinator, store: Store):
+    def __init__(self, coordinator: Coordinator):
         self.coordinator: Coordinator = coordinator
-        self.store: Store = store
 
     def Rendezvous(
         self, request: RendezvousRequest, context: grpc.ServicerContext
@@ -162,7 +155,7 @@ class CoordinatorGrpc(CoordinatorServicer):
             successfully received the updated weights.
         """
         try:
-            response = self.coordinator.on_message(request, context.peer())
+            return self.coordinator.on_message(request, context.peer())
         except DuplicatedUpdateError as error:
             context.set_details(str(error))
             context.set_code(grpc.StatusCode.ALREADY_EXISTS)
@@ -171,7 +164,3 @@ class CoordinatorGrpc(CoordinatorServicer):
             context.set_details(str(error))
             context.set_code(grpc.StatusCode.PERMISSION_DENIED)
             return EndTrainingRoundResponse()
-
-        if self.coordinator.state == State.FINISHED:
-            self.store.write_weights(self.coordinator.current_round, self.coordinator.weights)
-        return response

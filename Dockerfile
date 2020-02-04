@@ -4,6 +4,7 @@ ENV USER="xain"
 ENV HOST="0.0.0.0"
 ENV PORT="50051"
 ENV PATH="/home/${USER}/.local/bin:${PATH}"
+ENV CONFIG_FILE="/app/xain-fl.toml"
 
 RUN addgroup -S ${USER} && adduser -S ${USER} -G ${USER}
 RUN apk update && apk add python3-dev build-base git
@@ -19,10 +20,11 @@ RUN pip install -v .
 # Remove everything, including dot files
 RUN rm -rf ..?* .[!.]* *
 
+COPY configs/xain-fl.toml ${CONFIG_FILE}
+
 # Drop down to a non-root user
 USER ${USER}
 
-COPY --chown=${USER}:${USER} test_array.npy test_array.npy
 COPY --chown=${USER}:${USER} docker/entrypoint.sh entrypoint.sh
 RUN chmod +x entrypoint.sh
 

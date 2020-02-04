@@ -14,7 +14,6 @@ class Round:
     same participant to submit multiple updates during a single round.
 
     Args:
-
         participant_ids: The list of IDs of the participants selected
             to participate in this round.
     """
@@ -26,22 +25,23 @@ class Round:
     def add_updates(
         self,
         participant_id: str,
-        weight_update: Tuple[List[ndarray], int],
+        model_weights: ndarray,
+        aggregation_data: int,
         metrics: Dict[str, ndarray],
     ) -> None:
         """Valid a participant's update for the round.
 
         Args:
-
             participant_id: The id of the participant making the request.
 
-            weight_update: A tuple containing a list of updated weights.
+            model_weights: The updated model weights.
+
+            aggregation_data: Meta data for aggregation.
 
             metrics: A dictionary containing metrics with the name and
                 the value as list of ndarrays.
 
         Raises:
-
             DuplicatedUpdateError: If the participant already submitted his update this round.
         """
 
@@ -51,7 +51,8 @@ class Round:
             )
 
         self.updates[participant_id] = {
-            "weight_update": weight_update,
+            "model_weights": model_weights,
+            "aggregation_data": aggregation_data,
             "metrics": metrics,
         }
 
@@ -60,18 +61,21 @@ class Round:
         If all participants submitted their updates the round is considered finished.
 
         Returns:
-
             `True` if all participants submitted their updates this
             round. `False` otherwise.
         """
+
         return len(self.updates) == len(self.participant_ids)
 
-    def get_weight_updates(self) -> List[Tuple[List[ndarray], int]]:
+    def get_weight_updates(self) -> Tuple[List[ndarray], List[int]]:
         """Get a list of all participants weight updates.
         This list will usually be used by the aggregation function.
 
         Returns:
-
-            The list of weight updates from all participants.
+            The lists of model weights and aggregation meta data from all participants.
         """
-        return [v["weight_update"] for k, v in self.updates.items()]
+
+        return (
+            [v["model_weights"] for v in self.updates.values()],
+            [v["aggregation_data"] for v in self.updates.values()],
+        )

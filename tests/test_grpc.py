@@ -2,6 +2,7 @@
 
 from concurrent import futures
 import threading
+import time
 from unittest import mock
 
 import grpc
@@ -19,9 +20,7 @@ from xain_proto.fl.coordinator_pb2 import (
     State,
 )
 from xain_proto.fl.coordinator_pb2_grpc import add_CoordinatorServicer_to_server
-from xain_proto.fl.hellonumproto_pb2 import NumProtoRequest
-from xain_proto.fl.hellonumproto_pb2_grpc import NumProtoServerStub
-from xain_proto.numproto import ndarray_to_proto, proto_to_ndarray
+from xain_proto.np import ndarray_to_proto
 from xain_sdk.participant_state_machine import (
     StateRecord,
     end_training_round,
@@ -34,30 +33,9 @@ from xain_sdk.participant_state_machine import (
 from xain_fl.coordinator.coordinator import Coordinator
 from xain_fl.coordinator.coordinator_grpc import CoordinatorGrpc
 from xain_fl.coordinator.heartbeat import monitor_heartbeats
-from xain_fl.coordinator.participants import Participants
+from xain_fl.coordinator.participants import ParticipantContext, Participants
 
-from .store import TestStore
-
-
-@pytest.mark.integration
-def test_greeter_server(greeter_server):  # pylint: disable=unused-argument
-    """[summary]
-
-    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
-
-    Args:
-        greeter_server ([type]): [description]
-    """
-
-    with grpc.insecure_channel("localhost:50051") as channel:
-        stub = NumProtoServerStub(channel)
-
-        nda = np.arange(10)
-        response = stub.SayHelloNumProto(NumProtoRequest(arr=ndarray_to_proto(nda)))
-
-        response_nda = proto_to_ndarray(response.arr)
-
-        assert np.array_equal(nda * 2, response_nda)
+from .store import MockS3Store
 
 
 @pytest.mark.integration
@@ -89,14 +67,15 @@ def test_participant_rendezvous_later(participant_stub):
     """
 
     # populate participants
-    coordinator = Coordinator(minimum_participants_in_round=10, fraction_of_participants=1.0)
+    coordinator = Coordinator(
+        minimum_participants_in_round=10, fraction_of_participants=1.0
+    )
     required_participants = 10
     for i in range(required_participants):
         coordinator.participants.add(str(i))
 
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
-    store = TestStore()
-    add_CoordinatorServicer_to_server(CoordinatorGrpc(coordinator, store), server)
+    add_CoordinatorServicer_to_server(CoordinatorGrpc(coordinator), server)
     server.add_insecure_port("localhost:50051")
     server.start()
 
@@ -130,7 +109,9 @@ def test_heartbeat(participant_stub, coordinator_service):
 
 
 @pytest.mark.integration
-def test_heartbeat_denied(participant_stub, coordinator_service):  # pylint: disable=unused-argument
+def test_heartbeat_denied(
+    participant_stub, coordinator_service
+):  # pylint: disable=unused-argument
     """[summary]
 
     .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
@@ -147,18 +128,22 @@ def test_heartbeat_denied(participant_stub, coordinator_service):  # pylint: dis
         assert response.status_code == grpc.StatusCode.PERMISSION_DENIED
 
 
-@mock.patch("xain_fl.coordinator.heartbeat.threading.Event.is_set", side_effect=[False, True])
-@mock.patch("xain_fl.coordinator.heartbeat.time.sleep", return_value=None)
+@mock.patch(
+    "xain_fl.coordinator.heartbeat.threading.Event.is_set", side_effect=[False, True]
+)
+@mock.patch("xain_fl.coordinator.heartbeat.threading.Event.wait", return_value=None)
 @mock.patch("xain_fl.coordinator.heartbeat.Coordinator.remove_participant")
-def test_monitor_heartbeats(mock_participants_remove, _mock_sleep, _mock_event):
-    """[summary]
-
-    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
+def test_monitor_heartbeats(
+    mock_participants_remove, _mock_event_wait, _mock_event_is_set
+):
+    """Test that when there is a participant with an expired heartbeat,
+    ``Coordinator.remove_participant`` is called exactly once.
 
     Args:
-        mock_participants_remove ([type]): [description]
-        _mock_sleep ([type]): [description]
-        _mock_event ([type]): [description]
+        mock_participants_remove: mock of ``Coordinator.remove_participant()``
+        _mock_event_wait: mock of ``threading.Event.wait`` that does not block
+        _mock_event_is_set: mock of ``threading.Event.is_set``
+
     """
 
     participants = Participants()
@@ -174,16 +159,19 @@ def test_monitor_heartbeats(mock_participants_remove, _mock_sleep, _mock_event):
     mock_participants_remove.assert_called_once_with("participant_1")
 
 
-@mock.patch("xain_fl.coordinator.heartbeat.threading.Event.is_set", side_effect=[False, True])
-@mock.patch("xain_fl.coordinator.heartbeat.time.sleep", return_value=None)
-def test_monitor_heartbeats_remove_participant(_mock_sleep, _mock_event):
-    """[summary]
-
-    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
+@mock.patch(
+    "xain_fl.coordinator.heartbeat.threading.Event.is_set", side_effect=[False, True]
+)
+@mock.patch("xain_fl.coordinator.heartbeat.threading.Event.wait", return_value=None)
+def test_monitor_heartbeats_remove_participant(_mock_event_wait, _mock_event_is_set):
+    """Test that when the coordinator has exactly one participant with an
+    expired heartbeat, it is removed correctly.
 
     Args:
-        _mock_sleep ([type]): [description]
-        _mock_event ([type]): [description]
+
+        _mock_event_wait: mock of ``threading.Event.wait`` that does not block
+        _mock_event_is_set: mock of ``threading.Event.is_set``
+
     """
 
     participants = Participants()
@@ -199,8 +187,39 @@ def test_monitor_heartbeats_remove_participant(_mock_sleep, _mock_event):
     assert participants.len() == 0
 
 
+@pytest.mark.slow
+def test_many_heartbeats_expire_in_short_interval():
+    """Make sure that heartbeat_monitor() works correctly under heavy
+    load. This test was added to reproduce
+    https://xainag.atlassian.net/browse/PB-104
+
+    """
+    participants = {}
+    for i in range(0, 100):
+        participant = ParticipantContext(str(i))
+        participant.heartbeat_expires = time.time() + 0.1 + i / 1000
+        participants[str(i)] = participant
+    coordinator = Coordinator()
+    coordinator.participants.participants = participants
+
+    terminate_event = threading.Event()
+
+    def terminate_heartbeats_monitor():
+        time.sleep(0.2)
+        terminate_event.set()
+
+    supervisor = threading.Thread(target=terminate_heartbeats_monitor, daemon=True)
+    supervisor.start()
+
+    monitor_heartbeats(coordinator, terminate_event)
+
+    supervisor.join(timeout=0.1)
+    assert not participants
+
+
 @mock.patch(
-    "xain_sdk.participant_state_machine.threading.Event.is_set", side_effect=[False, False, True]
+    "xain_sdk.participant_state_machine.threading.Event.is_set",
+    side_effect=[False, False, True],
 )
 @mock.patch("xain_sdk.participant_state_machine.time.sleep", return_value=None)
 @mock.patch("xain_sdk.participant_state_machine.HeartbeatRequest")
@@ -235,7 +254,7 @@ def test_start_training_round(coordinator_service):
         coordinator_service ([type]): [description]
     """
 
-    test_weights = [np.arange(10), np.arange(10, 20)]
+    test_weights = np.arange(10)
 
     # set coordinator global model and hyper-params so that it needs only 1 participant
     coord = coordinator_service.coordinator
@@ -314,7 +333,8 @@ def test_end_training_round(coordinator_service):
     assert coordinator_service.coordinator.round.updates == {}
 
     # simulate trained local model data
-    test_weights, number_samples = [np.arange(20, 30), np.arange(30, 40)], 2
+    test_weights = np.arange(20)
+    number_samples = 2
     test_metrics = {"metric": np.arange(10, 20)}
 
     with grpc.insecure_channel("localhost:50051") as channel:
@@ -330,9 +350,8 @@ def test_end_training_round(coordinator_service):
 
     # first the weights update
     _, round_update = round_.updates.popitem()
-    update_item1, update_item2 = round_update["weight_update"]
-    assert update_item2 == number_samples
-    np.testing.assert_equal(update_item1, test_weights)
+    np.testing.assert_equal(round_update["model_weights"], test_weights)
+    assert round_update["aggregation_data"] == number_samples
 
     round_update_metrics = round_update["metrics"]
     assert round_update_metrics.keys() == test_metrics.keys()
@@ -384,16 +403,17 @@ def test_end_training_round_denied(  # pylint: disable=unused-argument
 
 
 @pytest.mark.integration
-def test_full_training_round(
-    participant_stubs, coordinator_service
-):  # pylint: disable=unused-argument
+def test_full_training_round(participant_stubs, coordinator_service):
     """Run a complete training round with multiple participants.
     """
+    # Use a MockS3Store so that we can also test the storage logic
+    coordinator_service.coordinator.store = MockS3Store()
+
     # Initialize the coordinator with dummy weights, otherwise, the
     # aggregated weights at the end of the round are an empty array.
-    dummy_weights = np.ndarray([1, 2, 3, 4])
+    dummy_weights = np.array([1, 2, 3, 4])
     coordinator_service.coordinator.weights = dummy_weights
-    weights_proto = [ndarray_to_proto(nda) for nda in dummy_weights]
+    weights_proto = ndarray_to_proto(dummy_weights)
 
     # Create 10 partipants
     participants = [next(participant_stubs) for _ in range(0, 10)]
@@ -410,21 +430,21 @@ def test_full_training_round(
     assert coordinator_service.coordinator.state == State.STANDBY
     assert coordinator_service.coordinator.current_round == 0
 
-    # The 10th participant connect, so the coordinator switches to ROUND>
+    # The 10th participant connects, so the coordinator switches to ROUND
     last_participant = participants[-1]
     response = last_participant.Rendezvous(RendezvousRequest())
     assert response.reply == RendezvousReply.ACCEPT
 
     assert coordinator_service.coordinator.state == State.ROUND
-    assert coordinator_service.coordinator.current_round == 1
+    assert coordinator_service.coordinator.current_round == 0
 
     response = last_participant.Heartbeat(HeartbeatRequest())
-    assert response == HeartbeatResponse(state=State.ROUND, round=1)
+    assert response == HeartbeatResponse(state=State.ROUND, round=0)
 
-    # The initial 9 participants send another heatbeat request.
+    # The initial 9 participants send another heartbeat request.
     for participant in participants[:-1]:
         response = participant.Heartbeat(HeartbeatRequest(state=State.STANDBY, round=0))
-    assert response == HeartbeatResponse(state=State.ROUND, round=1)
+    assert response == HeartbeatResponse(state=State.ROUND, round=0)
 
     # The participants start training
     for participant in participants:
@@ -435,7 +455,7 @@ def test_full_training_round(
             epoch_base=coordinator_service.coordinator.epoch_base,
         )
 
-    # The first 9th participants end training
+    # The first 9 participants end training
     for participant in participants[:-1]:
         response = participant.EndTrainingRound(
             EndTrainingRoundRequest(weights=weights_proto, number_samples=1)
@@ -443,13 +463,17 @@ def test_full_training_round(
         assert response == EndTrainingRoundResponse()
 
     assert not coordinator_service.coordinator.round.is_finished()
-    coordinator_service.store.assert_didnt_write(1)
+    coordinator_service.coordinator.store.assert_didnt_write(1)
 
     # The last participant finishes training
-    response = last_participant.EndTrainingRound(EndTrainingRoundRequest())
+    response = last_participant.EndTrainingRound(
+        EndTrainingRoundRequest(weights=weights_proto, number_samples=1)
+    )
     assert response == EndTrainingRoundResponse()
     # Make sure we wrote the results for the given round
-    coordinator_service.store.assert_wrote(1, coordinator_service.coordinator.weights)
+    coordinator_service.coordinator.store.assert_wrote(
+        0, coordinator_service.coordinator.weights
+    )
 
 
 @pytest.mark.integration
@@ -463,7 +487,7 @@ def test_start_participant(mock_coordinator_service):
         mock_coordinator_service ([type]): [description]
     """
 
-    init_weight = [np.arange(10), np.arange(10, 20)]
+    init_weight = np.arange(10)
     mock_coordinator_service.coordinator.weights = init_weight
 
     # mock a local participant with a constant train_round function
@@ -476,9 +500,9 @@ def test_start_participant(mock_coordinator_service):
         coord = mock_coordinator_service.coordinator
         assert coord.state == State.FINISHED
 
-        # coordinator set to 2 round for good measure, but the resulting
+        # coordinator set to 2 rounds for good measure, but the resulting
         # aggregated weights are the same as a single round
-        assert coord.current_round == 2
+        assert coord.current_round == 1
 
         # expect weight aggregated by summation - see mock_coordinator_service
-        np.testing.assert_equal(coord.weights, [np.arange(start=10, stop=29, step=2)])
+        np.testing.assert_equal(coord.weights, init_weight)

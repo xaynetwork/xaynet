@@ -127,8 +127,8 @@ the server but the opposite is not true.
 gRPC does use mechanisms from the underlying HTTP and TCP transport layers but
 these are internal details that aren't really exposed in the API. A developer
 can override the default timeouts but it's not clear from the available
-documentation the effect they have. For more information check [using gRPC in
-production](https://cs.mcgill.ca/~mxia3/2019/02/23/Using-gRPC-in-Production/).
+documentation the effect they have. For more information check `using gRPC in
+production <https://cs.mcgill.ca/~mxia3/2019/02/23/Using-gRPC-in-Production/>`_.
 
 *Server-side timeouts configuration:*
 
@@ -259,31 +259,29 @@ Let's consider the basic lifecycle of state transitions in :math:`C`. Let
 
     graph TB
     A( ) -->|startup| B(STANDBY)
-    B -->|N Ps registered| C(ROUND i)
-    C -->|next round i := i+1| C
+    B -->|N registered| C(ROUND)
+    C -->|dropout| B
+    C -->|next round| C
     C -->|no more rounds| D(FINISHED)
 
-Once :math:`C` starts up, it's in the **STANDBY** state, waiting for incoming
+Once :math:`C` starts up, it's in the **STANDBY** state and open for incoming
 connections from participants looking to rendezvous. Once :math:`N` have been
 registered, a number of these are selected for a training round. To simplify
 for now, assume all :math:`N` will participate.
 
-In the **ROUND i** state, :math:`C` starts to accept requests (from the
-registered :math:`N`) to start training. Any further requests (from late
-entrants) to rendezvous are told to "try again later". For any :math:`P` that
-has started training, :math:`C` will also accept a subsequent request of it
-having finished training.
+Starting from :math:`i=0`, in the **ROUND** :math:`i` state, :math:`C` starts to accept
+requests (from the registered :math:`N`) to start training for the :math:`i` th
+round. Any further requests from late entrants to rendezvous are told to "try
+again later". For any :math:`P` that has started training, :math:`C` will also
+accept a subsequent request of it having finished training. If there are
+dropouts, :math:`C` goes back to **STANDBY** and only resumes **ROUND** :math:`i` once
+registrations again reach :math:`N`.
 
-Once all :math:`N` have finished training, :math:`C` collects together all the
-trained data and aggregates them generating a new global model.  It either
-increments the round and repeats, or if there are no more rounds to go, it
-transitions to the **FINISHED** state signaling the participants to disconnect.
-
-So far we've only discussed the lifecycle of a *successful* interaction with
-all participants i.e. without faults, dropouts, etc. The true picture (taking
-into account `fault tolerance <https://hackmd.io/gzGSJZ2xQTyERNjTpqguqg>`_)
-will be more complicated than above but this is still useful to give the basic
-structure.
+Once all :math:`N` have finished training the :math:`i` th round, :math:`C`
+collects together all the trained data and aggregates them, generating a new
+global model. It either increments the round to :math:`i+1` and repeats, or if
+there are no more rounds to go, it transitions to the **FINISHED** state
+signaling the participants to disconnect.
 
 
 Participant
@@ -309,13 +307,13 @@ To do its training, :math:`P` will invoke its own :code:`train_round` function.
 For this, it requires the following data (annotated with their types) from
 :math:`C`
 
-* :code:`weights: List[ndarray]`
+* :code:`weights: ndarray`
 * :code:`epochs: int`
 * :code:`epoch_base: int`
 
 In return :math:`P` sends back a pair of data
 
-* :code:`weights_update: Tuple[List[ndarray], int]`
+* :code:`weights_update: Tuple[ndarray, int]`
 * :code:`history: Dict[str, List[float]]`
 
 After a :code:`train_round`, :math:`C` also needs from :math:`P`
@@ -335,7 +333,7 @@ a :code:`metrics` of type :code:`Dict[str, ndarray]`.
 Training Round Data Messages
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The above considerations lead to the following gRPC implementation for
+The above considerations lead to the following gRPC service definition for
 exchanging training data. The Coordinator exposes two service methods
 
 .. code-block:: proto
@@ -350,15 +348,15 @@ where the request and response data are given as the following protobuf messages
    message StartTrainingRoundRequest {}
 
    message StartTrainingRoundResponse {
-       repeated xain_proto.numproto.NDArray weights = 1;
+       xain_proto.np.NDArray weights = 1;
        int32 epochs = 2;
        int32 epoch_base = 3;
    }
 
    message EndTrainingRoundRequest {
-       repeated xain_proto.numproto.NDArray weights = 1;
+       xain_proto.np.NDArray weights = 1;
        int32 number_samples = 2;
-       map<string, xain_proto.numproto.NDArray> metrics = 3;
+       map<string, xain_proto.np.NDArray> metrics = 3;
    }
 
    message EndTrainingRoundResponse {}
@@ -367,22 +365,23 @@ where the request and response data are given as the following protobuf messages
 Note that while most of the Python data types to be exchanged can be
 "protobuf-erized" (and back), :code:`ndarray` requires more work. Fortunately we
 have the 
-`xain_proto/numproto <https://github.com/xainag/xain-proto/tree/master/python/xain_proto/numproto>`_
+`xain_proto/np <https://github.com/xainag/xain-proto/tree/master/python/xain_proto/np>`_
 project to help with this conversion.
 
 Training Round Communication
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The communication is summarised in the following sequence diagram.
-In a training round, :math:`C` is in the state :code:`ROUND`. The selected
-participant :math:`P` is in :code:`TRAINING` state. The first message is by
-:math:`P` essentially kicks off the exchange. :math:`C` responds with the global
-model :math:`\weights` (and other data as specified in
-:code:`StartTrainingRoundResponse`). Then :math:`P` carries out the training locally.
-When complete, it sends the updated model :math:`\weights'` (and other metadata)
-back. :math:`C` responds with an acknowledgement.
+The communication is summarised in the following sequence diagram. In a training
+round, :math:`C` is in the state :code:`ROUND`. The selected participant
+:math:`P` is in the :code:`TRAINING` state (see
+:ref:`participant-state-evolution`). The first message by :math:`P` essentially
+kicks off the exchange. :math:`C` responds with the global model :code:`weights`
+(and other data as specified in :code:`StartTrainingRoundResponse`). Then
+:math:`P` carries out the training locally. When complete, it sends the updated
+model :code:`weights_update` (and other metadata) back. :math:`C` responds with
+an acknowledgement.
 
-.. image:: _static/sequence2.png
+.. image:: _static/sequence.png
 
 ..
     this comment is just here to keep the original markdown code of the above sequence diagram!
@@ -393,10 +392,10 @@ back. :math:`C` responds with an acknowledgement.
     P->C: StartTrainingRound()
     Note right of P: TRAINING
     C->P: weights, ...
-    Note right of P: (local training)
+    Note right of P: weights -> weights_update
     P->C: EndTrainingRound(weights_update, ...)
     C->P:
-    Note right of P: POST-TRAINING
+    Note right of P: WAITING
     ```
 
 **Participant Notification via Extended Heartbeat**
@@ -409,40 +408,43 @@ liveness check on Participants, but it also doubles as a way for them to be
 "signalled" (with some variable delay) of state changes.
 
 In more detail, :math:`C` now populates responses to heartbeats with either
-:code:`ROUND` (training round in progress) or :code:`STANDBY` (not in progress).
+:code:`ROUND` (training round in progress) or :code:`STANDBY` (not in progress) during a round.
 In the former case, a round number is also emitted. When all rounds are over,
 :math:`C` will respond with :code:`FINISHED`.
 
+.. _participant-state-evolution:
 
 Participant State Evolution
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The following is a refined picture of the :math:`P` state machine. It focuses on
+The following is a description of the :math:`P` state machine. It focuses on
 the state transitions in response to heartbeat messages described above, and is
-also able to handle *selection* (assuming the most obvious implementation of it in
-the Coordinator).
+also able to handle *selection*.
 
 .. mermaid::
 
    graph TB
-   A( ) -.->|rendezvous| B(Wait for Selection)
-   B -->|ROUND i| C(Training)
-   D -->|ROUND i+1| C
-   C -.->|trained| D(Post-training)
-   D -->|FINISHED| E(Done)
-   D -->|STANDBY| B
+   A( ) -.->|rendezvous| B(WAITING i)
+   B -->|STANDBY| B
+   B -->|ROUND j>i| C(TRAINING j)
+   C -.->|trained i := j| B
+   B -->|FINISHED| D(DONE)
 
+In the **WAITING** :math:`i` state, the idea is that :math:`P` has already
+trained round :math:`i` locally and is waiting for selection by a :code:`ROUND`
+:math:`j` heartbeat for :math:`j>i`. At this point, it transitions to
+**TRAINING** :math:`j`. At the start, we initialise :math:`i=-1`.
 
+In **TRAINING** :math:`j`, the idea is that local training for round :math:`j`
+is in progress. Specifically, :math:`P` carries out the above communication
+sequence of messages with :math:`C`:
 
-After a successful rendezvous, :math:`P` is in **Wait for Selection**. :math:`P` waits in
-this state as long as it keeps receiving :code:`STANDBY` heartbeats. At some round
-:math:`i`, :math:`C` may select :math:`P` for the round by responding with a :code:`ROUND` :math:`i`
-heartbeat. At this point, :math:`P` moves to **Training** where the above sequence of
-training messages (:code:`StartTrainingRound` :math:`\rightarrow \weights \rightarrow \weights'
-\rightarrow` :code:`EndTrainingRound`) occur. Having received the :code:`EndTrainingRound` response from
-:math:`C`, :math:`P` makes an "internal" transition to **Post-training** where it waits
-until the start of the next round. If it has been selected again, it will
-observe :code:`ROUND` :math:`i+1`. If not, it observes :code:`STANDBY`. Alternatively, if round
-:math:`i` was the last, it instead sees :code:`FINISHED` and :math:`P` is **Done**. Note that
-:code:`FINISHED` can also be observed from **Wait for Selection** but the transition
-from there to **Done** is omitted in the diagram just for sake of clarity.
+* :code:`StartTrainingRound` :math:`\rightarrow` :code:`weights`
+  :math:`\rightarrow` :code:`weights_update` :math:`\rightarrow`
+  :code:`EndTrainingRound`
+
+Having received the :code:`EndTrainingRound` response from :math:`C` signifying
+the completion of this local round of training, :math:`P` makes an "internal"
+transition to **WAITING** :math:`j`.
+
+If :code:`FINISHED` is observed while **WAITING**, it moves to **DONE**.

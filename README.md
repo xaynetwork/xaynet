@@ -68,16 +68,17 @@ $ make show
 
 ### Running the Coordinator locally
 
-To run the Coordinator on your local machine, use the command:
+To run the Coordinator on your local machine, you can use the
+`example-config.toml` file:
 
 ```shell
-$ python xain_fl/cli.py -f test_array.npy
-```
+# If you have installed the xain_fl package,
+# the `coordinator` command should be directly available
+coordinator --config configs/example-config.toml
 
-For more information about the CLI and its arguments, run:
-
-```shell
-$ python xain_fl/cli.py --help
+# otherwise the coordinator can be started by executing the
+# `xain_fl` package:
+python xain_fl --config configs/example-config.toml
 ```
 
 ### Run the Coordinator from a Docker image
@@ -92,11 +93,26 @@ To run the coordinator's development image, first build the Docker image:
 $ docker build -t xain-fl-dev -f Dockerfile.dev .
 ```
 
-Then run the image, mounting the directory as a Docker volume, and call the
-entrypoint:
+Then run the image, mounting the directory as a Docker volume:
 
 ```shell
 $ docker run -v $(pwd):/app -v '/app/xain_fl.egg-info' xain-fl-dev coordinator
+```
+
+The command above uses a default configuration but you can also use a
+custom config file:
+
+For instance, if you have a `./custom_config.toml` file that you'd
+like to use, you can mount it in the container and run the coordinator
+with:
+
+```shell
+docker run \
+  -v $(pwd)/custom_config.toml:/custom_config.toml \
+  -v $(pwd):/app \
+  -v '/app/xain_fl.egg-info' \
+  xain-fl-dev \
+  coordinator --config /custom_config.toml
 ```
 
 #### Release image
@@ -115,10 +131,23 @@ $ docker run -p 50051:50051 xain-fl
 
 ### Docker-compose
 
+The coordinator needs a storage service that provides an AWS S3
+API. For development, we use `minio`. We provide `docker-compose`
+files that start coordinator container along with a `minio` container,
+and pre-populate the appropriate storage buckets.
+
 #### Development
 
+To start both the coordinator and the `minio` service use:
+
 ```shell
-$ docker-compose -f docker-compose-dev.yml up
+docker-compose -f docker-compose-dev.yml up
+```
+
+It is also possible to only start the storage service:
+
+```shell
+docker-compose -f docker-compose-dev.yml up minio-dev initial-buckets
 ```
 
 #### Release

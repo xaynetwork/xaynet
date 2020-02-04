@@ -47,21 +47,39 @@ services:
         /usr/bin/mc admin trace -v -e dev-minio;
       "
 
-  xain-fl-dev:
+  redis:
+    image: redis:5 # current stable version, v6 out between March 2020 and May 2020
+    hostname: redis
+    entrypoint: /usr/local/bin/redis-server --appendonly yes --appendfsync everysec # using combination of RDB and AOF for persistence: https://redis.io/topics/persistence
+    volumes:
+      - redis-data:/data
+    networks:
+      - xain-fl-dev
+    ports:
+      - "6379:6379"
+
+  influxdb:
+    image: influxdb:1.7 # current stable version, v2 is in Beta
+    hostname: influxdb
     environment:
-      MINIO_ACCESS_KEY: minio
-      MINIO_SECRET_KEY: minio123
+      INFLUXDB_DB: metrics
+    volumes:
+      - influxdb-data:/var/lib/influxdb
+    networks:
+      - xain-fl-dev
+    ports:
+      - "8086:8086"
+
+  xain-fl-dev:
     build:
       context: .
       dockerfile: Dockerfile.dev
-    command: sh -c "coordinator -f test_array.npy --storage-endpoint http://minio-dev:9000 --storage-key-id $${MINIO_ACCESS_KEY} --storage-secret-access-key $${MINIO_SECRET_KEY} --storage-bucket xain-fl-aggregated-weights"
     volumes:
-      #  don't use the local egg-info, if one exists
-      - /app/xain_fl.egg-info
-      - ./xain_fl:/app/xain_fl
+      - /app/xain_fl.egg-info  #  don't use the local egg-info, if one exists
+      - ${PWD}/xain_fl:/app/xain_fl
       - ${PWD}/setup.py:/app/setup.py
       - ${PWD}/README.md:/app/README.md
-      - ${PWD}/test_array.npy:/app/test_array.npy
+      - ${PWD}/configs/xain-fl.toml:/app/xain-fl.toml
     networks:
       - xain-fl-dev
     ports:
@@ -69,6 +87,8 @@ services:
 
 volumes:
   minio-data:
+  redis-data:
+  influxdb-data:
 
 networks:
   xain-fl-dev:

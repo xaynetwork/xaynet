@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - development
+
 jobs:
   development:
     runs-on: ubuntu-18.04
@@ -30,11 +31,11 @@ jobs:
 
       - name: black
         run: |
-          black --line-length 100 --check setup.py xain_fl tests
+          black --check setup.py xain_fl tests
 
       - name: isort
         run: |
-          isort --check-only --indent=4 -rc setup.py xain_fl tests
+          isort --check-only --settings-path=.isort.cfg -rc setup.py xain_fl tests
 
       - name: pylint
         run: |
