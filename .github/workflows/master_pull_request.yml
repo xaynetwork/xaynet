@@ -42,7 +42,6 @@ jobs:
           pylint --rcfile=.pylintrc xain_fl tests
 
       - name: mypy
-        continue-on-error: true
         run: |
           mypy xain_fl tests
 
