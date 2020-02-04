@@ -19,10 +19,7 @@ from xain_proto.fl.coordinator_pb2 import (
 )
 from xain_proto.np import ndarray_to_proto, proto_to_ndarray
 
-from xain_fl.coordinator.metrics_store import (
-    AbstractMetricsStore,
-    NullObjectMetricsStore,
-)
+from xain_fl.coordinator.metrics_store import AbstractMetricsStore, NullObjectMetricsStore
 from xain_fl.coordinator.participants import Participants
 from xain_fl.coordinator.round import Round
 from xain_fl.coordinator.store import AbstractStore, NullObjectStore
