@@ -71,7 +71,7 @@ install_requires = [
     "protobuf~=3.9",  # 3-Clause BSD License
     "numproto~=0.3",  # Apache License 2.0
     "requests==2.22.0",  # Apache 2.0  # TODO(XP-185) remove
-    "tensorflow==1.14.0",  # Apache 2.0  # TODO(XP-131) remove
+    "tensorflow==1.15.2",  # Apache 2.0  # TODO(XP-131) remove
     "structlog==19.2.0",  # Apache License 2.0
 ]
 
@@ -99,7 +99,7 @@ dev_require = [
     "wheel==0.33.6",  # MIT
 ]
 
-examples_require = ["tensorflow==1.14.0"]  # Apache 2.0
+examples_require = ["tensorflow==1.15.2"]  # Apache 2.0
 
 tests_require = [
     "pytest==4.6.2",  # MIT license
