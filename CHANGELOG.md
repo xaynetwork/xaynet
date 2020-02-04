@@ -20,6 +20,38 @@ For reference, the possible headings are:
 
 ## [Unreleased]
 
+## [0.4.0] - 2020-02-04
+
+Flatten model weights instead of using lists.
+Fix minor issues, update documentation.
+
+- PB-116: pin docutils version (#259) [Corentin Henry]
+- PB-119 update isort config and calls (#260) [janpetschexain]
+- PB-351 Store participant metrics (#244) [Robert Steiner]
+- Adjust isort config (#258) [Robert Steiner]
+- PB-366 flatten weights (#253) [janpetschexain]
+- PB-379 Update black setup (#255) [Anastasiia Tymoshchuk]
+- PB-387 simplify serve module (#251) [Corentin Henry]
+- PB-104: make the tests fast again (#252) [Corentin Henry]
+- PB-122: handle sigint properly (#250) [Corentin Henry]
+- PB-383 write aggregated weights after each round (#246) [Corentin Henry]
+- PB-104: Fix exception in monitor_hearbeats() (#248) [Corentin Henry]
+- DO-57 Update docker-compose files for provisioning InfluxDB (#249) [Ricardo Saffi Marques]
+- DO-59 Provision Redis 5.x for persisting states for the Coordinator (#247) [Ricardo Saffi Marques]
+- PB-381: make the log level configurable (#243) [Corentin Henry]
+- PB-382: cleanup storage (#245) [Corentin Henry]
+- PB-380: split get_logger() (#242) [Corentin Henry]
+- XP-332: grpc resource exhausted (#238) [Robert Steiner]
+- XP-456: fix coordinator command (#241) [Corentin Henry]
+- XP-485 Document revised state machine (#240) [kwok]
+- XP-456: replace CLI argument with a config file (#221) [Corentin Henry]
+- DO-48 :snowflake: :rocket: Build stable package on git tag with SemVer (#234) [Daniel Kravetz]
+- XP-407 update documentation (#239) [janpetschexain]
+- XP-406 remove numpy file cli (#237) [janpetschexain]
+- XP-544 fix aggregate module (#235) [janpetschexain]
+- DO-58: cache xain-fl dependencies in Docker (#232) [Corentin Henry]
+- XP-479 Start training rounds from 0 (#226) [kwok]
+
 ## [0.3.0] - 2020-01-21
 
 - XP-505 cleanup docstrings in xain_fl.coordinator (#228)
