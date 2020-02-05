@@ -62,7 +62,7 @@ class MockS3Resource:
         self.reads[key] += 1
 
 
-class MockS3Store(S3GlobalWeightsWriter):
+class MockS3Writer(S3GlobalWeightsWriter):
     """A partial mock of the
     ``xain-fl.coordinator.store.S3GlobalWeightsWriter`` class that
     does not perform any IO. Instead, data is stored in memory.
@@ -78,8 +78,8 @@ class MockS3Store(S3GlobalWeightsWriter):
             endpoint="endpoint",
             access_key_id="access_key_id",
             secret_access_key="secret_access_key",
-            aggregated_weights_bucket="bucket",
-            participants_bucket="bucket",
+            global_weights_bucket="bucket",
+            local_weights_bucket="bucket",
         )
         self.s3 = MockS3Resource()
 

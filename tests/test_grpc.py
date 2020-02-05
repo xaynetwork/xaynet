@@ -35,7 +35,7 @@ from xain_fl.coordinator.coordinator_grpc import CoordinatorGrpc
 from xain_fl.coordinator.heartbeat import monitor_heartbeats
 from xain_fl.coordinator.participants import ParticipantContext, Participants
 
-from .store import MockS3Store
+from .store import MockS3Writer
 
 
 @pytest.mark.integration
@@ -406,8 +406,8 @@ def test_end_training_round_denied(  # pylint: disable=unused-argument
 def test_full_training_round(participant_stubs, coordinator_service):
     """Run a complete training round with multiple participants.
     """
-    # Use a MockS3Store so that we can also test the storage logic
-    coordinator_service.coordinator.global_weights_writer = MockS3Store()
+    # Use a MockS3Writer so that we can also test the storage logic
+    coordinator_service.coordinator.global_weights_writer = MockS3Writer()
 
     # Initialize the coordinator with dummy weights, otherwise, the
     # aggregated weights at the end of the round are an empty array.

@@ -203,11 +203,11 @@ AI_SCHEMA = Schema(
 STORAGE_SCHEMA = Schema(
     {
         "endpoint": And(str, url, error=error("storage.endpoint", "a valid URL")),
-        "aggregated_weights_bucket": Use(
-            str, error=error("storage.aggregated_weights_bucket", "an S3 bucket name")
+        "global_weights_bucket": Use(
+            str, error=error("storage.global_weights_bucket", "an S3 bucket name")
         ),
-        "participants_bucket": Use(
-            str, error=error("storage.participants_bucket", "an S3 bucket name")
+        "local_weights_bucket": Use(
+            str, error=error("storage.local_weights_bucket", "an S3 bucket name")
         ),
         "secret_access_key": Use(
             str, error=error("storage.secret_access_key", "a valid utf-8 string")
@@ -273,11 +273,10 @@ def create_class_from_schema(class_name: str, schema: Schema) -> Any:
         A new class where attributes are the given schema's keys
     """
     # pylint: disable=protected-access
-    attributes = []
-    for key in schema._schema.keys():
-        if isinstance(key, Schema):
-            key = key._schema
-        attributes.append(key)
+    keys = schema._schema.keys()
+    attributes = list(
+        map(lambda key: key._schema if isinstance(key, Schema) else key, keys)
+    )
     return namedtuple(class_name, attributes)
 
 
@@ -375,10 +374,10 @@ class Config:
        endpoint = "http://localhost:9000"
 
        # Name of the bucket for storing the aggregated models
-       aggregated_weights_bucket = "aggregated_weights"
+       global_weights_bucket = "global_weights"
 
        # Name of the bucket where participants store their results
-       participants_bucket = "participants_weights"
+       local_weights_bucket = "local_weights"
 
        # AWS secret access to use to authenticate to the storage service
        secret_access_key = "my-secret"
@@ -403,8 +402,8 @@ class Config:
        assert config.ai.fraction_participants == 1.0
 
        assert config.storage.endpoint == "http://localhost:9000"
-       assert config.storage.aggregated_weights_bucket == "aggregated_weights"
-       assert config.storage.participants_bucket == "participants_weights"
+       assert config.storage.global_weights_bucket == "global_weights"
+       assert config.storage.local_weights_bucket == "local_weights"
        assert config.storage.secret_access_key == "my-access-key"
        assert config.storage.access_key_id == "my-key"
     """

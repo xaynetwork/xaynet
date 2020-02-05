@@ -78,11 +78,9 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
 
     Args:
 
-        global_weights_writer: service for storing aggregated
-            weights
+        global_weights_writer: service for storing global weights
 
-        local_weights_reader: service for retrieving the
-            participants weights
+        local_weights_reader: service for retrieving the local weights
 
         num_rounds: The number of rounds of the training session.
 
@@ -105,6 +103,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
 
         controller: Controls how the Participants are selected at the
             start of each round. Defaults to :class:`~.RandomController`.
+
     """
 
     def __init__(  # pylint: disable=too-many-arguments

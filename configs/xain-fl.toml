@@ -30,10 +30,10 @@ fraction_participants = 1.0
 [storage]
 # URL to the storage service to use
 endpoint = "http://minio-dev:9000"
-# Name of the bucket for storing the aggregated models
-aggregated_weights_bucket = "xain-fl-aggregated-weights"
-# Name of the bucket for retrieving the participants models
-participants_bucket = "xain-fl-participants-weights"
+# Name of the bucket for storing the global model weights
+global_weights_bucket = "xain-fl-aggregated-weights"
+# Name of the bucket for retrieving the local model weights
+local_weights_bucket = "xain-fl-participants-weights"
 # AWS access key ID to use to authenticate to the storage service
 access_key_id = "minio"
 # AWS secret access to use to authenticate to the storage service

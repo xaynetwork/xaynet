@@ -116,7 +116,7 @@ class S3GlobalWeightsWriter(AbstractGlobalWeightsWriter, S3BaseClass):
             round: A round number the weights correspond to.
             weights: The weights to store.
         """
-        bucket = self.s3.Bucket(self.config.aggregated_weights_bucket)
+        bucket = self.s3.Bucket(self.config.global_weights_bucket)
         bucket.put_object(Body=pickle.dumps(weights), Key=str(round))
 
 
