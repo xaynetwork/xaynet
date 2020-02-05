@@ -39,6 +39,28 @@ from xain_fl.coordinator.participants import ParticipantContext, Participants
 from .store import MockS3Writer
 
 
+@pytest.fixture
+def participant_config():
+    return {
+        "coordinator": {
+            "host": "localhost",
+            "port": 50051,
+            "grpc_options": {
+                "grpc.max_receive_message_length": -1,
+                "grpc.max_send_message_length": -1,
+            },
+        },
+        "storage": {
+            "enable": False,
+            "endpoint": "http://localhost:9000",
+            "bucket": "aggregated_weights",
+            "secret_access_key": "my-secret",
+            "access_key_id": "my-key-id",
+        },
+        "logging": {"level": "info",},
+    }
+
+
 @pytest.mark.integration
 def test_participant_rendezvous_accept(  # pylint: disable=unused-argument
     participant_stub, coordinator_service
@@ -479,7 +501,7 @@ def test_full_training_round(participant_stubs, coordinator_service):
 
 @pytest.mark.integration
 @pytest.mark.slow
-def test_start_participant(mock_coordinator_service):
+def test_start_participant(mock_coordinator_service, participant_config):
     """[summary]
 
     .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
@@ -496,26 +518,7 @@ def test_start_participant(mock_coordinator_service):
         mock_local_part = mock_obj.return_value
         mock_local_part.train_round.return_value = init_weight, 1, {}
 
-        config: Config = Config().from_valid_dict(
-            {
-                "coordinator": {
-                    "host": "localhost",
-                    "port": 50051,
-                    "grpc_options": {
-                        "grpc.max_receive_message_length": -1,
-                        "grpc.max_send_message_length": -1,
-                    },
-                },
-                "storage": {
-                    "enable": False,
-                    "endpoint": "http://localhost:9000",
-                    "bucket": "aggregated_weights",
-                    "secret_access_key": "my-secret",
-                    "access_key_id": "my-key-id",
-                },
-                "logging": {"level": "info",},
-            }
-        )
+        config: Config = Config.from_unchecked_dict(participant_config)
 
         start_participant(mock_local_part, config)
 
