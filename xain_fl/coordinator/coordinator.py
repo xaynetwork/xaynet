@@ -27,9 +27,10 @@ from xain_fl.coordinator.metrics_store import (
 from xain_fl.coordinator.participants import Participants
 from xain_fl.coordinator.round import Round
 from xain_fl.coordinator.store import (
-    AbstractAggregatedWeightsStore,
-    AbstractParticipantsWeightsStore,
-    NullObjectStore,
+    AbstractGlobalWeightsWriter,
+    AbstractLocalWeightsReader,
+    NullObjectGlobalWeightsWriter,
+    NullObjectLocalWeightsReader,
 )
 from xain_fl.fl.coordinator.aggregate import Aggregator, WeightedAverageAggregator
 from xain_fl.fl.coordinator.controller import Controller, RandomController
@@ -77,10 +78,10 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
 
     Args:
 
-        aggregated_weights_store: service for storing aggregated
+        global_weights_writer: service for storing aggregated
             weights
 
-        participants_weights_store: service for retrieving the
+        local_weights_reader: service for retrieving the
             participants weights
 
         num_rounds: The number of rounds of the training session.
@@ -109,8 +110,8 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
     def __init__(  # pylint: disable=too-many-arguments
         self,
         metrics_store: AbstractMetricsStore = NullObjectMetricsStore(),
-        aggregated_weights_store: AbstractAggregatedWeightsStore = NullObjectStore(),
-        participants_weights_store: AbstractParticipantsWeightsStore = NullObjectStore(),
+        global_weights_writer: AbstractGlobalWeightsWriter = NullObjectGlobalWeightsWriter(),
+        local_weights_reader: AbstractLocalWeightsReader = NullObjectLocalWeightsReader(),
         num_rounds: int = 1,
         minimum_participants_in_round: int = 1,
         fraction_of_participants: float = 1.0,
@@ -120,9 +121,9 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         aggregator: Aggregator = WeightedAverageAggregator(),
         controller: Controller = RandomController(),
     ) -> None:
-        self.aggregated_weights_store: AbstractAggregatedWeightsStore = aggregated_weights_store
+        self.global_weights_writer: AbstractGlobalWeightsWriter = global_weights_writer
         # pylint: disable=line-too-long
-        self.participants_weights_store: AbstractParticipantsWeightsStore = participants_weights_store
+        self.local_weights_reader: AbstractLocalWeightsReader = local_weights_reader
         self.minimum_participants_in_round: int = minimum_participants_in_round
         self.fraction_of_participants: float = fraction_of_participants
         self.participants: Participants = Participants()
@@ -378,9 +379,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         # anything, we actually get the participants weights through
         # self.round.add_updates(). Ultimatly, the weights will be
         # read from S3.
-        _ = self.participants_weights_store.read_weights(
-            participant_id, self.current_round
-        )
+        _ = self.local_weights_reader.read_weights(participant_id, self.current_round)
 
         # The round is over. Run the aggregation
         if self.round.is_finished():
@@ -395,9 +394,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
                 multiple_model_weights=multiple_model_weights,
                 aggregation_data=aggregation_data,
             )
-            self.aggregated_weights_store.write_weights(
-                self.current_round, self.weights
-            )
+            self.global_weights_writer.write_weights(self.current_round, self.weights)
 
             # update the round or finish the training session
             if self.current_round >= self.num_rounds - 1:

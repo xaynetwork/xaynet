@@ -407,7 +407,7 @@ def test_full_training_round(participant_stubs, coordinator_service):
     """Run a complete training round with multiple participants.
     """
     # Use a MockS3Store so that we can also test the storage logic
-    coordinator_service.coordinator.aggregated_weights_store = MockS3Store()
+    coordinator_service.coordinator.global_weights_writer = MockS3Store()
 
     # Initialize the coordinator with dummy weights, otherwise, the
     # aggregated weights at the end of the round are an empty array.
@@ -463,7 +463,7 @@ def test_full_training_round(participant_stubs, coordinator_service):
         assert response == EndTrainingRoundResponse()
 
     assert not coordinator_service.coordinator.round.is_finished()
-    coordinator_service.coordinator.aggregated_weights_store.assert_didnt_write(1)
+    coordinator_service.coordinator.global_weights_writer.assert_didnt_write(1)
 
     # The last participant finishes training
     response = last_participant.EndTrainingRound(
@@ -471,7 +471,7 @@ def test_full_training_round(participant_stubs, coordinator_service):
     )
     assert response == EndTrainingRoundResponse()
     # Make sure we wrote the results for the given round
-    coordinator_service.coordinator.aggregated_weights_store.assert_wrote(
+    coordinator_service.coordinator.global_weights_writer.assert_wrote(
         0, coordinator_service.coordinator.weights
     )
 

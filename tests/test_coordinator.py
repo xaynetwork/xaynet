@@ -139,7 +139,7 @@ def start_training_round_wrong_state():
         coordinator.on_message(StartTrainingRoundRequest(), "participant1")
 
 
-@mock.patch("xain_fl.coordinator.store.NullObjectStore.read_weights")
+@mock.patch("xain_fl.coordinator.store.NullObjectLocalWeightsReader.read_weights")
 def test_end_training_round(read_weights_mock):
     """Test handling of a `EndTrainingRoundRequest` message.
     """

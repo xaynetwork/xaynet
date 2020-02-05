@@ -12,7 +12,7 @@ from numpy import ndarray
 from xain_fl.config import StorageConfig
 
 
-class AbstractAggregatedWeightsStore(abc.ABC):
+class AbstractGlobalWeightsWriter(abc.ABC):
     # pylint: disable=too-few-public-methods
 
     """An abstract class that defines the API for storing the aggregated
@@ -30,7 +30,7 @@ class AbstractAggregatedWeightsStore(abc.ABC):
         """
 
 
-class AbstractParticipantsWeightsStore(abc.ABC):
+class AbstractLocalWeightsReader(abc.ABC):
     # pylint: disable=too-few-public-methods
 
     """An abstract class that defined the API for retrieving the weights
@@ -49,8 +49,12 @@ class AbstractParticipantsWeightsStore(abc.ABC):
         """
 
 
-class NullObjectStore(AbstractAggregatedWeightsStore, AbstractParticipantsWeightsStore):
-    """A store that does nothing"""
+class NullObjectGlobalWeightsWriter(AbstractGlobalWeightsWriter):
+    # pylint: disable=too-few-public-methods
+    """An implementation of ``AbstractGlobalWeightsWriter`` that does
+    nothing.
+
+    """
 
     def write_weights(self, round: int, weights: ndarray) -> None:
         """A dummy method that has no effect.
@@ -59,6 +63,13 @@ class NullObjectStore(AbstractAggregatedWeightsStore, AbstractParticipantsWeight
             round: A round number the weights correspond to. Not used.
             weights: The weights to store. Not used.
         """
+
+
+class NullObjectLocalWeightsReader(AbstractLocalWeightsReader):
+    # pylint: disable=too-few-public-methods
+    """An implementation of ``AbstractLocalWeightsReader`` that does
+    nothing.
+    """
 
     def read_weights(self, participant_id: str, round: int) -> ndarray:
         """A dummy method that has no effect.
@@ -69,12 +80,13 @@ class NullObjectStore(AbstractAggregatedWeightsStore, AbstractParticipantsWeight
         """
 
 
-class S3Store:
+class S3BaseClass:
     # pylint: disable=too-few-public-methods
-    """A store for services that offer the AWS S3 API.
+    """A base class for implementating AWS S3 clients.
 
     Args:
         config: the storage configuration (endpoint URL, credentials, etc.)
+
     """
 
     def __init__(self, config: StorageConfig):
@@ -89,10 +101,10 @@ class S3Store:
         )
 
 
-class AggregatedWeightsS3Store(AbstractAggregatedWeightsStore, S3Store):
+class S3GlobalWeightsWriter(AbstractGlobalWeightsWriter, S3BaseClass):
     # pylint: disable=too-few-public-methods
 
-    """``AbstractAggregatedWeightsStore`` implementor for AWS S3 storage
+    """``AbstractGlobalWeightsWriter`` implementor for AWS S3 storage
     backend.
 
     """
@@ -108,10 +120,10 @@ class AggregatedWeightsS3Store(AbstractAggregatedWeightsStore, S3Store):
         bucket.put_object(Body=pickle.dumps(weights), Key=str(round))
 
 
-class ParticipantsWeightsS3Store(AbstractParticipantsWeightsStore, S3Store):
+class S3LocalWeightsReader(AbstractLocalWeightsReader, S3BaseClass):
     # pylint: disable=too-few-public-methods
 
-    """``AbstractParticipantsWeightsStore`` implementor for AWS S3 storage
+    """``AbstractLocalWeightsReader`` implementor for AWS S3 storage
     backend.
 
     """
