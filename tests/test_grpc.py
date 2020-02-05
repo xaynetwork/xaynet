@@ -504,9 +504,9 @@ def test_full_training_round(participant_stubs, coordinator_service):
 
 @pytest.mark.integration
 @pytest.mark.slow
-def test_start_participant( # pylint: disable=redefined-outer-name
+def test_start_participant(  # pylint: disable=redefined-outer-name
     mock_coordinator_service, participant_config
-    ):
+):
     """[summary]
 
     .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
