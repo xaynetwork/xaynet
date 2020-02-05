@@ -20,6 +20,11 @@ For reference, the possible headings are:
 
 ## [Unreleased]
 
+## [0.5.0] - (UNRELEASED)
+
+Make Coordinator stateless.
+Fix found issues.
+
 ## [0.4.0] - 2020-02-04
 
 Flatten model weights instead of using lists.
