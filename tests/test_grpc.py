@@ -40,7 +40,10 @@ from .store import MockS3Writer
 
 
 @pytest.fixture
-def participant_config():
+def participant_config() -> dict:
+    """
+    Return a valid participant config.
+    """
     return {
         "coordinator": {
             "host": "localhost",
@@ -501,7 +504,9 @@ def test_full_training_round(participant_stubs, coordinator_service):
 
 @pytest.mark.integration
 @pytest.mark.slow
-def test_start_participant(mock_coordinator_service, participant_config):
+def test_start_participant( # pylint: disable=redefined-outer-name
+    mock_coordinator_service, participant_config
+    ):
     """[summary]
 
     .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
