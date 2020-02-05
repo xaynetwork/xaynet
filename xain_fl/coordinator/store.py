@@ -33,7 +33,7 @@ class AbstractGlobalWeightsWriter(abc.ABC):
 class AbstractLocalWeightsReader(abc.ABC):
     # pylint: disable=too-few-public-methods
 
-    """An abstract class that defined the API for retrieving the weights
+    """An abstract class that defines the API for retrieving the weights
     participants upload after their training round.
 
     """
