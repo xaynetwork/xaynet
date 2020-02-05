@@ -40,7 +40,7 @@ def main():
 
     coordinator = Coordinator(
         global_weights_writer=S3GlobalWeightsWriter(config.storage),
-        local_weights_reader=NullObjectLocalWeightsReader(config.storage),
+        local_weights_reader=NullObjectLocalWeightsReader(),
         num_rounds=config.ai.rounds,
         epochs=config.ai.epochs,
         minimum_participants_in_round=config.ai.min_participants,
