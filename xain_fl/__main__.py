@@ -10,7 +10,10 @@ from xain_fl.coordinator.metrics_store import (
     MetricsStore,
     NullObjectMetricsStore,
 )
-from xain_fl.coordinator.store import S3Store
+from xain_fl.coordinator.store import (
+    NullObjectLocalWeightsReader,
+    S3GlobalWeightsWriter,
+)
 from xain_fl.logger import StructLogger, get_logger, initialize_logging, set_log_level
 from xain_fl.serve import serve
 
@@ -36,7 +39,8 @@ def main():
         metrics_store = MetricsStore(config.metrics)
 
     coordinator = Coordinator(
-        store=S3Store(config.storage),
+        global_weights_writer=S3GlobalWeightsWriter(config.storage),
+        local_weights_reader=NullObjectLocalWeightsReader(),
         num_rounds=config.ai.rounds,
         epochs=config.ai.epochs,
         minimum_participants_in_round=config.ai.min_participants,

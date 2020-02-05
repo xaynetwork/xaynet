@@ -46,7 +46,8 @@ def storage_sample():
     """
     return {
         "endpoint": "http://localhost:9000",
-        "bucket": "aggregated_weights",
+        "global_weights_bucket": "aggregated_weights",
+        "local_weights_bucket": "participants_weights",
         "secret_access_key": "my-secret",
         "access_key_id": "my-key-id",
     }
@@ -139,7 +140,8 @@ def test_load_valid_config(config_sample):
     assert config.ai.fraction_participants == 1.0
 
     assert config.storage.endpoint == "http://localhost:9000"
-    assert config.storage.bucket == "aggregated_weights"
+    assert config.storage.global_weights_bucket == "aggregated_weights"
+    assert config.storage.local_weights_bucket == "participants_weights"
     assert config.storage.secret_access_key == "my-secret"
     assert config.storage.access_key_id == "my-key-id"
 

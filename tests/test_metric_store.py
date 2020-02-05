@@ -10,7 +10,6 @@ from xain_fl.config import MetricsConfig
 from xain_fl.coordinator.metrics_store import (
     MetricsStore,
     MetricsStoreError,
-    NullObjectMetricsStore,
     transform_metrics_to_influx_data_points,
 )
 
@@ -22,14 +21,6 @@ def metrics_sample():
         "metric_1": np.array([0.2, 0.44]),
         "metric_2": np.array([0.99, 0.55]),
     }
-
-
-def test_null_object_metrics_store_always_return_true(metrics_sample):
-    """Check that the null object metric store always retruns true."""
-
-    no_metric_store = NullObjectMetricsStore()
-
-    assert no_metric_store.write_metrics("participant_id", metrics_sample)
 
 
 def test_transform_data(metrics_sample):

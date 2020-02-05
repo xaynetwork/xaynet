@@ -25,11 +25,6 @@ def serve(coordinator: Coordinator, server_config: ServerConfig) -> None:
             :class:`xain_fl.coordinator.coordinator.Coordinator`
             instance to run
 
-        store:
-            client for the storage service used by the coordinator to
-            upload the aggregated weights and retrieve the
-            participants weights.
-
         server_config:
             server configuration: binding address, gRPC options, etc.
 

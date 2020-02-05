@@ -14,7 +14,7 @@ class AbstractMetricsStore(ABC):  # pylint: disable=too-few-public-methods
     """An abstract metric store."""
 
     @abstractmethod
-    def write_metrics(self, participant_id: str, metrics: Dict[str, ndarray]) -> bool:
+    def write_metrics(self, participant_id: str, metrics: Dict[str, ndarray]):
         """Write the participant metrics on behalf of the participant with the given participant_id
         into a metric store.
 
@@ -23,9 +23,9 @@ class AbstractMetricsStore(ABC):  # pylint: disable=too-few-public-methods
             participant_id: The ID of the participant.
             metrics: The metrics of the participant with the given participant_id.
 
-        Returns:
+        Raises:
 
-            True, on success, otherwise False.
+            MetricsStoreError: If the writing of the metrics to InfluxDB failed.
         """
 
 
@@ -34,19 +34,14 @@ class NullObjectMetricsStore(
 ):  # pylint: disable=too-few-public-methods
     """A metric store that does nothing."""
 
-    def write_metrics(self, participant_id: str, metrics: Dict[str, ndarray]) -> bool:
+    def write_metrics(self, participant_id: str, metrics: Dict[str, ndarray]):
         """A method that has no effect.
 
         Args:
 
             participant_id: The ID of the participant.
             metrics: The metrics of the participant with the given participant_id.
-
-        Returns:
-
-            Always True.
         """
-        return True
 
 
 class MetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-methods
@@ -62,7 +57,7 @@ class MetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-meth
             self.config.db_name,
         )
 
-    def write_metrics(self, participant_id: str, metrics: Dict[str, ndarray]) -> bool:
+    def write_metrics(self, participant_id: str, metrics: Dict[str, ndarray]):
         """Write the participant metrics on behalf of the participant with the given participant_id
         into InfluxDB.
 
@@ -70,10 +65,6 @@ class MetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-meth
 
             participant_id: The ID of the participant.
             metrics: The metrics of the participant with the given participant_id.
-
-        Returns:
-
-            True, on success, otherwise False.
 
         Raises:
 
@@ -90,8 +81,6 @@ class MetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-meth
             self.influx_client.write_points(influx_data_points)
         except Exception as err:  # pylint: disable=broad-except
             raise MetricsStoreError("Can not write metrics.") from err
-
-        return True
 
 
 # Check if ths function can be removed after PB-390 is done.

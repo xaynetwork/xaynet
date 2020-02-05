@@ -8,7 +8,7 @@ import typing
 import numpy as np
 
 from xain_fl.config import StorageConfig
-from xain_fl.coordinator.store import S3Store
+from xain_fl.coordinator.store import S3GlobalWeightsWriter
 
 
 class MockS3Resource:
@@ -62,9 +62,10 @@ class MockS3Resource:
         self.reads[key] += 1
 
 
-class MockS3Store(S3Store):
-    """A partial mock of the ``xain-fl.coordinator.store.S3Store`` class
-    that does not perform any IO. Instead, data is stored in memory.
+class MockS3Writer(S3GlobalWeightsWriter):
+    """A partial mock of the
+    ``xain-fl.coordinator.store.S3GlobalWeightsWriter`` class that
+    does not perform any IO. Instead, data is stored in memory.
 
     """
 
@@ -77,7 +78,8 @@ class MockS3Store(S3Store):
             endpoint="endpoint",
             access_key_id="access_key_id",
             secret_access_key="secret_access_key",
-            bucket="bucket",
+            global_weights_bucket="bucket",
+            local_weights_bucket="bucket",
         )
         self.s3 = MockS3Resource()
 

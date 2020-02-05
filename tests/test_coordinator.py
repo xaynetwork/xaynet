@@ -1,5 +1,7 @@
 """XAIN FL tests for coordinator"""
 
+from unittest import mock
+
 import numpy as np
 import pytest
 from xain_proto.fl.coordinator_pb2 import (
@@ -137,10 +139,9 @@ def start_training_round_wrong_state():
         coordinator.on_message(StartTrainingRoundRequest(), "participant1")
 
 
-def test_end_training_round():
-    """[summary]
-
-    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
+@mock.patch("xain_fl.coordinator.store.NullObjectLocalWeightsReader.read_weights")
+def test_end_training_round(read_weights_mock):
+    """Test handling of a `EndTrainingRoundRequest` message.
     """
 
     # we need two participants so that we can check the status of the local update mid round
@@ -155,6 +156,7 @@ def test_end_training_round():
     coordinator.on_message(EndTrainingRoundRequest(), "participant1")
 
     assert len(coordinator.round.updates) == 1
+    read_weights_mock.assert_called_once_with("participant1", 0)
 
 
 def test_end_training_round_update():
