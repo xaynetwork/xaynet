@@ -1,4 +1,4 @@
-name: Package release
+name: Build release package
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
       - v[0-9]+.[0-9]+.[0-9]+
 
 jobs:
-  main:
+  build_release_package:
     runs-on: ubuntu-18.04
     steps:
       - name: Checkout
@@ -35,7 +35,7 @@ jobs:
 
       - name: Output tag name
         id: get_tag_name
-        run: echo ::set-output name=TAG_NAME::${GITHUB_REF/refs\/tags\//}
+        run: echo ::set-output name=TAG_NAME::${GITHUB_REF##*/}
 
       - name: Upload packages
         uses: actions/upload-artifact@v1

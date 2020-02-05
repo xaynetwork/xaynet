@@ -5,7 +5,7 @@ on:
     types: [created]
 
 jobs:
-  e2e:
+  e2e_comment_trigger:
     runs-on: ubuntu-18.04
     steps:
       - name: logging

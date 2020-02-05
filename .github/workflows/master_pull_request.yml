@@ -6,7 +6,7 @@ on:
       - master
 
 jobs:
-  main:
+  master_lint_and_test:
     runs-on: ubuntu-18.04
     steps:
       - name: Checkout
@@ -35,14 +35,13 @@ jobs:
 
       - name: isort
         run: |
-          isort --check-only --settings-path=.isort.cfg -rc setup.py xain_fl tests
+          isort --check-only --diff --settings-path=.isort.cfg -rc setup.py xain_fl tests
 
       - name: pylint
         run: |
           pylint --rcfile=.pylintrc xain_fl tests
 
       - name: mypy
-        continue-on-error: true
         run: |
           mypy xain_fl tests
 
