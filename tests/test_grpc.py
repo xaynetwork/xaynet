@@ -247,7 +247,7 @@ def test_many_heartbeats_expire_in_short_interval():
     "xain_sdk.participant_state_machine.threading.Event.is_set",
     side_effect=[False, False, True],
 )
-@mock.patch("xain_sdk.participant_state_machine.time.sleep", return_value=None)
+@mock.patch("xain_sdk.participant_state_machine.threading.Event.wait", return_value=None)
 @mock.patch("xain_sdk.participant_state_machine.HeartbeatRequest")
 def test_message_loop(mock_heartbeat_request, _mock_sleep, _mock_event):
     """[summary]
