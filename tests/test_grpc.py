@@ -21,6 +21,7 @@ from xain_proto.fl.coordinator_pb2 import (
 )
 from xain_proto.fl.coordinator_pb2_grpc import add_CoordinatorServicer_to_server
 from xain_proto.np import ndarray_to_proto
+from xain_sdk.config import Config
 from xain_sdk.participant_state_machine import (
     StateRecord,
     end_training_round,
@@ -36,6 +37,31 @@ from xain_fl.coordinator.heartbeat import monitor_heartbeats
 from xain_fl.coordinator.participants import ParticipantContext, Participants
 
 from .store import MockS3Writer
+
+
+@pytest.fixture
+def participant_config() -> dict:
+    """
+    Return a valid participant config.
+    """
+    return {
+        "coordinator": {
+            "host": "localhost",
+            "port": 50051,
+            "grpc_options": {
+                "grpc.max_receive_message_length": -1,
+                "grpc.max_send_message_length": -1,
+            },
+        },
+        "storage": {
+            "enable": False,
+            "endpoint": "http://localhost:9000",
+            "bucket": "aggregated_weights",
+            "secret_access_key": "my-secret",
+            "access_key_id": "my-key-id",
+        },
+        "logging": {"level": "info",},
+    }
 
 
 @pytest.mark.integration
@@ -478,7 +504,9 @@ def test_full_training_round(participant_stubs, coordinator_service):
 
 @pytest.mark.integration
 @pytest.mark.slow
-def test_start_participant(mock_coordinator_service):
+def test_start_participant(  # pylint: disable=redefined-outer-name
+    mock_coordinator_service, participant_config
+):
     """[summary]
 
     .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
@@ -495,7 +523,9 @@ def test_start_participant(mock_coordinator_service):
         mock_local_part = mock_obj.return_value
         mock_local_part.train_round.return_value = init_weight, 1, {}
 
-        start_participant(mock_local_part, "localhost:50051")
+        config: Config = Config.from_unchecked_dict(participant_config)
+
+        start_participant(mock_local_part, config)
 
         coord = mock_coordinator_service.coordinator
         assert coord.state == State.FINISHED
