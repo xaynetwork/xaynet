@@ -6,7 +6,7 @@ on:
       - master
 
 jobs:
-  main:
+  master_lint_and_test:
     runs-on: ubuntu-18.04
     steps:
       - name: Checkout
