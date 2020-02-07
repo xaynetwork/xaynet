@@ -23,11 +23,7 @@ class Round:
         self.updates: Dict[str, Dict] = {}
 
     def add_updates(
-        self,
-        participant_id: str,
-        model_weights: ndarray,
-        aggregation_data: int,
-        metrics: Dict[str, ndarray],
+        self, participant_id: str, model_weights: ndarray, aggregation_data: int,
     ) -> None:
         """Valid a participant's update for the round.
 
@@ -37,9 +33,6 @@ class Round:
             model_weights: The updated model weights.
 
             aggregation_data: Meta data for aggregation.
-
-            metrics: A dictionary containing metrics with the name and
-                the value as list of ndarrays.
 
         Raises:
             DuplicatedUpdateError: If the participant already submitted his update this round.
@@ -53,7 +46,6 @@ class Round:
         self.updates[participant_id] = {
             "model_weights": model_weights,
             "aggregation_data": aggregation_data,
-            "metrics": metrics,
         }
 
     def is_finished(self) -> bool:

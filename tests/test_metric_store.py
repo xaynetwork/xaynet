@@ -1,63 +1,26 @@
 """XAIN FL tests for metric store"""
 # pylint: disable=redefined-outer-name
+import json
 from unittest import mock
 
 from influxdb import InfluxDBClient
-import numpy as np
 import pytest
 
 from xain_fl.config import MetricsConfig
-from xain_fl.coordinator.metrics_store import (
-    MetricsStore,
-    MetricsStoreError,
-    transform_metrics_to_influx_data_points,
-)
+from xain_fl.coordinator.metrics_store import MetricsStore, MetricsStoreError
 
 
 @pytest.fixture()
 def metrics_sample():
     """Return a valid metric object."""
-    return {
-        "metric_1": np.array([0.2, 0.44]),
-        "metric_2": np.array([0.99, 0.55]),
-    }
-
-
-def test_transform_data(metrics_sample):
-    """Check that a metric object is correctly transformed into the influx data point structure."""
-    actual_data_points = transform_metrics_to_influx_data_points(
-        "participant_id", metrics_sample
+    return json.dumps(
+        {
+            "measurement": "CPU utilization",
+            "time": "00:00:00",
+            "tags": {"id": "127.0.0.1:1345"},
+            "fields": {"CPU_1": 90.8, "CPU_2": 90, "CPU_3": "23", "CPU_4": 0.00,},
+        }
     )
-    expected_data_points = [
-        {
-            "measurement": "participant.ai.metric_1",
-            "tags": {"id": "participant_id"},
-            "fields": {"metric_1": "0.20000000"},
-        },
-        {
-            "measurement": "participant.ai.metric_1",
-            "tags": {"id": "participant_id"},
-            "fields": {"metric_1": "0.44000000"},
-        },
-        {
-            "measurement": "participant.ai.metric_2",
-            "tags": {"id": "participant_id"},
-            "fields": {"metric_2": "0.99000000"},
-        },
-        {
-            "measurement": "participant.ai.metric_2",
-            "tags": {"id": "participant_id"},
-            "fields": {"metric_2": "0.55000000"},
-        },
-    ]
-
-    for (actual_dp, expected_dp) in zip(actual_data_points, expected_data_points):
-        assert actual_dp["measurement"] == expected_dp["measurement"]
-        assert actual_dp["tags"] == expected_dp["tags"]
-        assert actual_dp["fields"] == expected_dp["fields"]
-
-    assert actual_data_points[0]["time"] == actual_data_points[2]["time"]
-    assert actual_data_points[1]["time"] == actual_data_points[3]["time"]
 
 
 @mock.patch.object(InfluxDBClient, "write_points", side_effect=Exception())
@@ -69,4 +32,4 @@ def test_write_metrics_exception_handling(metrics_sample):
         MetricsConfig(enable=True, host="", port=1, user="", password="", db_name="")
     )
     with pytest.raises(MetricsStoreError):
-        metric_store.write_metrics("participant_id", metrics_sample)
+        metric_store.write_metrics(metrics_sample)
