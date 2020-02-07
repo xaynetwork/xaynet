@@ -5,7 +5,11 @@ import json
 
 from influxdb import InfluxDBClient
 from jsonschema import validate
+
 from xain_fl.config import MetricsConfig
+from xain_fl.logger import StructLogger, get_logger
+
+logger: StructLogger = get_logger(__name__)
 
 
 class AbstractMetricsStore(ABC):  # pylint: disable=too-few-public-methods
@@ -58,7 +62,7 @@ class MetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-meth
                     "type": "object",
                     "properties": {
                         "measurement": {"type": "string"},
-                        "time": {"type": "string"},
+                        "time": {"type": "number"},
                         "tags": {
                             "type": "object",
                             "additionalProperties": {"type": "string"},
@@ -71,7 +75,6 @@ class MetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-meth
                     "required": ["measurement", "time", "fields"],
                 }
             ],
-            "additionalItems": False,
             "minItems": 1,
         }
 
@@ -92,6 +95,7 @@ class MetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-meth
             validate(instance=metrics, schema=self.schema)
             self.influx_client.write_points(metrics)
         except Exception as err:  # pylint: disable=broad-except
+            logger.error("Exception", err=repr(err))
             raise MetricsStoreError("Can not write metrics.") from err
 
 
