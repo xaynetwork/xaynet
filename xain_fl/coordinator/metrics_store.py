@@ -5,7 +5,6 @@ import json
 
 from influxdb import InfluxDBClient
 from jsonschema import validate
-
 from xain_fl.config import MetricsConfig
 
 
@@ -73,6 +72,7 @@ class MetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-meth
                 }
             ],
             "additionalItems": False,
+            "minItems": 1,
         }
 
     def write_metrics(self, metrics_as_json: str):

@@ -6,13 +6,12 @@ import threading
 
 import grpc
 import pytest
-from xain_proto.fl import coordinator_pb2_grpc
-
 from xain_fl.coordinator.coordinator import Coordinator
 from xain_fl.coordinator.coordinator_grpc import CoordinatorGrpc
 from xain_fl.coordinator.heartbeat import monitor_heartbeats
 from xain_fl.fl.coordinator.aggregate import ModelSumAggregator
 from xain_fl.fl.coordinator.controller import IdController
+from xain_proto.fl import coordinator_pb2_grpc
 
 from .port_forwarding import ConnectionManager
 
@@ -21,12 +20,14 @@ from .port_forwarding import ConnectionManager
 def metrics_sample():
     """Return a valid metric object."""
     return json.dumps(
-        {
-            "measurement": "CPU utilization",
-            "time": "00:00:00",
-            "tags": {"id": "127.0.0.1:1345"},
-            "fields": {"CPU_1": 90.8, "CPU_2": 90, "CPU_3": "23", "CPU_4": 0.00,},
-        }
+        [
+            {
+                "measurement": "CPU utilization",
+                "time": "00:00:00",
+                "tags": {"id": "127.0.0.1:1345"},
+                "fields": {"CPU_1": 90.8, "CPU_2": 90, "CPU_3": "23", "CPU_4": 0.00,},
+            }
+        ]
     )
 
 
