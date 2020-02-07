@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 import json
 
 from influxdb import InfluxDBClient
+from jsonschema import validate
 
 from xain_fl.config import MetricsConfig
 
@@ -13,16 +14,15 @@ class AbstractMetricsStore(ABC):  # pylint: disable=too-few-public-methods
 
     @abstractmethod
     def write_metrics(self, metrics_as_json: str):
-        """Write the participant metrics on behalf of the participant with the given participant_id
-        into a metric store.
+        """Write the participant metrics on behalf of the participant into a metric store.
 
         Args:
 
-            metrics_as_json: The metrics of the participant with the given participant_id.
+            metrics_as_json: The metrics of a specific participant.
 
         Raises:
 
-            MetricsStoreError: If the writing of the metrics to InfluxDB failed.
+            MetricsStoreError: If the writing of the metrics has failed.
         """
 
 
@@ -36,7 +36,7 @@ class NullObjectMetricsStore(
 
         Args:
 
-            metrics_as_json: The metrics of the participant with the given participant_id.
+            metrics_as_json: The metrics of a specific participant.
         """
 
 
@@ -52,23 +52,44 @@ class MetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-meth
             self.config.password,
             self.config.db_name,
         )
+        self.schema = {
+            "type": "array",
+            "items": [
+                {
+                    "type": "object",
+                    "properties": {
+                        "measurement": {"type": "string"},
+                        "time": {"type": "string"},
+                        "tags": {
+                            "type": "object",
+                            "additionalProperties": {"type": "string"},
+                        },
+                        "fields": {
+                            "type": "object",
+                            "additionalProperties": {"type": ["number", "string"]},
+                        },
+                    },
+                    "required": ["measurement", "time", "fields"],
+                }
+            ],
+            "additionalItems": False,
+        }
 
     def write_metrics(self, metrics_as_json: str):
-        """Write the participant metrics on behalf of the participant with the given participant_id
-        into InfluxDB.
+        """Write the participant metrics on behalf of the participant into InfluxDB.
 
         Args:
 
-            metrics_as_json: The metrics of the participant with the given participant_id.
+            metrics_as_json: The metrics of a specific participant.
 
         Raises:
 
-            MetricsStoreError: If the writing of the metrics to InfluxDB failed.
+            MetricsStoreError: If the writing of the metrics to InfluxDB has failed.
         """
 
-        metrics = json.loads(metrics_as_json)
-
         try:
+            metrics = json.loads(metrics_as_json)
+            validate(instance=metrics, schema=self.schema)
             self.influx_client.write_points(metrics)
         except Exception as err:  # pylint: disable=broad-except
             raise MetricsStoreError("Can not write metrics.") from err
@@ -76,5 +97,5 @@ class MetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-meth
 
 class MetricsStoreError(Exception):
     """
-    Raised when the writing of the metrics failed.
+    Raised when the writing of the metrics has failed.
     """
