@@ -1,6 +1,7 @@
 """XAIN FL conftest for cproto"""
 
 from concurrent import futures
+import json
 import threading
 
 import grpc
@@ -14,6 +15,19 @@ from xain_fl.fl.coordinator.aggregate import ModelSumAggregator
 from xain_fl.fl.coordinator.controller import IdController
 
 from .port_forwarding import ConnectionManager
+
+
+@pytest.fixture()
+def metrics_sample():
+    """Return a valid metric object."""
+    return json.dumps(
+        {
+            "measurement": "CPU utilization",
+            "time": "00:00:00",
+            "tags": {"id": "127.0.0.1:1345"},
+            "fields": {"CPU_1": 90.8, "CPU_2": 90, "CPU_3": "23", "CPU_4": 0.00,},
+        }
+    )
 
 
 @pytest.fixture
