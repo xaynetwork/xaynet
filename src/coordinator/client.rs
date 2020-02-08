@@ -4,13 +4,13 @@ use derive_more::Display;
 use std::{
     collections::{HashMap, HashSet},
     error::Error,
+    mem,
     time::Duration,
 };
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
 const HEARTBEAT_TIMEOUT: Duration = Duration::from_secs(10);
-const HEARTBEAT_TIME: Duration = Duration::from_secs(5);
 
 #[derive(Eq, PartialEq, Hash, Debug, Copy, Clone, Display)]
 /// A unique random client identifier
@@ -114,7 +114,7 @@ impl Clients {
 
     /// Return the state of the given client, whether it is active or
     /// not.
-    fn get_state(&self, id: &ClientId) -> ClientState {
+    pub fn get_state(&self, id: &ClientId) -> ClientState {
         let Self {
             waiting,
             selected,
@@ -156,17 +156,17 @@ impl Clients {
     /// Update the state of the given client. This is one very
     /// important but also quite tricky method to implement: getting
     /// it wrong would lead to inconsistencies with the state machine.
-    fn set_state(
+    pub fn set_state(
         &mut self,
         id: ClientId,
         new_state: ClientState,
-    ) -> Result<Option<HeartBeatTimer>, InvalidClientStateError> {
+    ) -> Result<Option<HeartBeatTimer>, InvalidClientStateTransition> {
         use ClientState::*;
 
         // First, check that the transition we're doing is valid.
         let current_state = self.get_state(&id);
         if !is_valid_transition(current_state, Selected) {
-            return Err(InvalidClientStateError(current_state, new_state));
+            return Err(InvalidClientStateTransition(current_state, new_state));
         }
         // otherwise we would have returned an error above
         assert!(self.contains(&id));
@@ -246,14 +246,34 @@ impl Clients {
     }
 
     /// Reset the heartbeat timer of the given client
-    fn reset_heartbeat(
-        &mut self,
-        id: &ClientId,
-        timeout: Duration,
-    ) -> Result<(), HeartBeatResetError> {
+    pub fn reset_heartbeat(&mut self, id: &ClientId) -> Result<(), HeartBeatResetError> {
         self.get_active_mut(id)
             .ok_or(HeartBeatResetError::ClientNotFound)?
-            .reset_heartbeat(timeout)
+            .reset_heartbeat(HEARTBEAT_TIMEOUT)
+    }
+
+    pub fn add(&mut self, id: ClientId) -> HeartBeatTimer {
+        let (client, heartbeat_timer) = self.new_active_client(id);
+        self.waiting.insert(id, client);
+        heartbeat_timer
+    }
+
+    pub fn remove(&mut self, id: &ClientId) -> Result<(), RemovedClientNotFound> {
+        self.remove_active(id)
+            .map(|_| ())
+            .or_else(|| self.remove_inactive(id))
+            .ok_or(RemovedClientNotFound(*id))
+    }
+
+    pub fn reset(&mut self) {
+        let selected = mem::replace(&mut self.selected, HashMap::new());
+        let ignored = mem::replace(&mut self.ignored, HashMap::new());
+        let done = mem::replace(&mut self.done, HashMap::new());
+
+        self.waiting.extend(selected);
+        self.waiting.extend(ignored);
+        self.waiting.extend(done);
+        self.done_and_inactive = HashSet::new();
     }
 }
 
@@ -275,13 +295,6 @@ pub enum HeartBeatResetError {
 
 impl Error for HeartBeatResetError {}
 
-/// Error returned when trying to update a client into an invalid state.
-#[derive(Debug, Display)]
-#[display(fmt = "invalid client state transition from {} to {}", _0, _1)]
-pub struct InvalidClientStateError(ClientState, ClientState);
-
-impl Error for InvalidClientStateError {}
-
 /// Return whether the transition from `current_state` to `new_state` is valid
 fn is_valid_transition(current_state: ClientState, new_state: ClientState) -> bool {
     use ClientState::*;
@@ -294,3 +307,17 @@ fn is_valid_transition(current_state: ClientState, new_state: ClientState) -> bo
             _ => false,
         }
 }
+
+/// Error returned when trying to update a client into an invalid state.
+#[derive(Debug, Display)]
+#[display(fmt = "invalid client state transition from {} to {}", _0, _1)]
+pub struct InvalidClientStateTransition(ClientState, ClientState);
+
+impl Error for InvalidClientStateTransition {}
+
+/// Error returned when trying to remove a client that doesn't exist
+#[derive(Debug, Display)]
+#[display(fmt = "cannot remove client {}: not found", _0)]
+pub struct RemovedClientNotFound(ClientId);
+
+impl Error for RemovedClientNotFound {}

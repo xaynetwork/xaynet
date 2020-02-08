@@ -5,7 +5,7 @@ use tokio::sync::oneshot;
 pub struct ResponseSender<R>(oneshot::Sender<R>);
 
 impl<R> ResponseSender<R> {
-    fn send(self, response: R) {
+    pub fn send(self, response: R) {
         self.0.send(response).unwrap_or_else(|_| {
             warn!("failed to send response: receiver shut down");
         })

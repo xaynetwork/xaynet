@@ -7,5 +7,5 @@ mod heartbeat;
 mod request;
 mod state_machine;
 
-// mod service;
+mod service;
 // pub use service::CoordinatorService;

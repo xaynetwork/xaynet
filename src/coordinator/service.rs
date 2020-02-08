@@ -46,7 +46,7 @@ where
     // start_training_expirations_rx: mpsc::UnboundedReceiver<ClientId>,
     // done_training_expirations_rx: mpsc::UnboundedReceiver<ClientId>,
     state_machine: StateMachine,
-    client: Clients,
+    clients: Clients,
     aggregator: A,
     selector: S,
     _phantom: PhantomData<T>,
@@ -86,14 +86,14 @@ where
                 let id = opt_id.unwrap_or_else(|| ClientId::new());
                 // Find the client status by ID, defaulting to
                 // Unknown.
-                let status = self.get_client_status(&id);
+                let status = self.clients.get_state(&id);
                 let response = self.state_machine.handle_rendez_vous(id, status);
                 sender.send(response);
             }
             Request::Heartbeat((id, sender)) => {
                 let response = self
                     .state_machine
-                    .handle_heartbeat(id, self.get_client_status(&id));
+                    .handle_heartbeat(id, self.clients.get_state(&id));
                 sender.send(response);
             }
         }
@@ -140,75 +140,46 @@ where
     A: Aggregator<T>,
     S: Selector,
 {
-    /// Create a new client and start its heartbeat timer.
     fn accept_client(&mut self, id: ClientId) {
-        let heartbeat_expirations_tx = self.heartbeat_expirations_tx.clone();
-        self.clients.new(id, heartbeat_reset_tx);
+        let heartbeat_timer = self.clients.add(id);
         tokio::spawn(heartbeat_timer);
     }
 
-    /// Remove the given client
-    fn handle_remove_node_event(&mut self, id: ClientId) {
-        let client = self.clients.remove(&id).expect("cannot remove client {}: not found");
-
+    fn remove_client(&mut self, id: ClientId) {
+        // If our implementation is correct, this should never return
+        // an error. If it does, our state is invalid, so it is OK to
+        // panic.
+        self.clients.remove(&id).expect("failed to remove client");
     }
 
-    fn handle_reset_heartbeat_timer_event(&mut self, id: ClientId) {
-        if let Some(client) = self.clients.get_mut(&id) {
-            if client.reset_heartbeat_timer(HEARTBEAT_TIMEOUT).is_err() {
-                self.clients.remove(&id);
-            }
-            return;
-        }
-        debug_assert!(
-            false,
-            "could not reset heartbeat timer for client {}: not found",
-            id
-        );
-        debug!(
-            "could not reset heartbeat timer for client {}: not found",
-            id
-        );
+    fn reset_all_clients(&mut self) {
+        self.clients.reset();
     }
 
-    fn handle_update_client_status_event(&mut self, id: ClientId, status: ClientStatus) {
-        match (self.get_client_status(&id), status) {
-            // It is an error to update the state of a client if it is
-            // already in that state. In itself, it has no
-            // consequence, but it should not happen so something is
-            // wrong.
-            (current, new) if current == new => {
-                panic!("updating client status with the same status {}", new);
-            }
-            // If the current client status is DoneAndInactive, we should
-            // already have it in `self.done_but_dead_clients` and we
-            // need to:
-            //
-            //  - remove it from `self.done_but_dead_clients`
-            //  - re-create a new client, spawn its timers, and add it
-            //    to `self.clients`
-            (ClientStatus::DoneAndInactive, _) => {
-                assert!(
-                    self.done_but_dead_clients.contains(&id),
-                    "DoneAndInactive client not found"
-                );
-                self.new_client(id, Some(status));
-            }
-            // If the client is unknown, we should not have it
-            (ClientStatus::Unknown, _) => {
-                assert!(
-                    status != ClientStatus::DoneAndInactive,
-                    "Unknown node cannot have status DoneAndInactive"
-                );
-                assert!(
-                    !self.clients.contains_key(&id),
-                    "Unknown node already exists"
-                );
-                assert!(
-                    !self.done_but_dead_clients.contains(&id),
-                    "Unknown node already exists as DoneAndInactive"
-                );
-            }
+    fn set_client_state(&mut self, id: ClientId, state: ClientState) {
+        self.clients
+            .set_state(id, state)
+            .expect("failed to update client state");
+    }
+
+    fn reset_heartbeat(&mut self, id: ClientId) {
+        match self.clients.reset_heartbeat(&id) {
+            Ok(()) => {}
+            Err(e) => match e {
+                // This can happen is we trigger the reset right when
+                // the reset occurs. In that case, we don't do
+                // anything: the client will be removed when we poll
+                // the expiration channel
+                HeartBeatResetError::Expired => {}
+                // This should not happen
+                HeartBeatResetError::ClientNotFound => panic!("{}", e),
+                // FIXME: we should remove the node, but our state
+                // machine doesn't support that yet, so we just return
+                // for now
+                HeartBeatResetError::BackPressure => {
+                    error!("seems like {} is flooding us with heartbeats", id)
+                }
+            },
         }
     }
 }

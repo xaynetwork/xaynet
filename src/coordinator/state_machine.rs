@@ -87,15 +87,19 @@ impl StateMachine {
         );
     }
 
-    pub fn handle_rendez_vous(&mut self, id: ClientId, status: ClientState) -> RendezVousResponse {
+    pub fn handle_rendez_vous(
+        &mut self,
+        id: ClientId,
+        client_state: ClientState,
+    ) -> RendezVousResponse {
         match self.state {
             State::Round | State::StandBy => {
-                match status {
+                match client_state {
                     ClientState::Unknown => {
                         // Accept new clients and make them selectable
                         self.incr_waiting();
                         self.events
-                            .push_back(Event::SetStatus(id, ClientState::Waiting));
+                            .push_back(Event::SetState(id, ClientState::Waiting));
                         RendezVousResponse::Accept
                     }
                     ClientState::Waiting => {
@@ -115,7 +119,7 @@ impl StateMachine {
                         // connectivity issue.
                         self.decr_selected();
                         self.events
-                            .push_back(Event::SetStatus(id, ClientState::Ignored));
+                            .push_back(Event::SetState(id, ClientState::Ignored));
                         RendezVousResponse::Accept
                     }
                     ClientState::DoneAndInactive | ClientState::Done => {
@@ -130,7 +134,7 @@ impl StateMachine {
                         // "Ignored", to exclude them from the
                         // selection process.
                         self.events
-                            .push_back(Event::SetStatus(id, ClientState::Ignored));
+                            .push_back(Event::SetState(id, ClientState::Ignored));
                         RendezVousResponse::Accept
                     }
                     ClientState::Ignored => RendezVousResponse::Accept,
@@ -147,10 +151,10 @@ impl StateMachine {
     pub fn handle_hearbeat_timeout(
         &mut self,
         id: ClientId,
-        status: ClientState,
+        client_state: ClientState,
     ) -> Result<(), InvalidStateError> {
         self.events.push_back(Event::Remove(id));
-        match status {
+        match client_state {
             ClientState::Selected => self.decr_selected(),
             ClientState::Waiting => self.decr_waiting(),
             ClientState::Unknown => {
@@ -173,9 +177,9 @@ impl StateMachine {
     pub fn handle_heartbeat(
         &mut self,
         id: ClientId,
-        status: ClientState,
-    ) -> Result<HeartBeatResponse, InvalidStateError> {
-        Ok(match (&self.state, status) {
+        client_state: ClientState,
+    ) -> HeartBeatResponse {
+        match (&self.state, client_state) {
             // Reject any client we don't know about. They must first
             // send a rendez-vous request to be recognized by the
             // coordinator.
@@ -185,22 +189,28 @@ impl StateMachine {
             // client has become inactive, it has to send a new
             // rendez-vous request and be accepted by the coordinator,
             // so we reject this heartbeat.
-            (_, ClientState::DoneAndInactive) => {
-                HeartBeatResponse::Reject
+            (_, ClientState::DoneAndInactive) => HeartBeatResponse::Reject,
+
+            (State::Finished, _) => {
+                self.events.push_back(Event::ResetHeartBeat(id));
+                HeartBeatResponse::Finish
             }
 
-            (State::Finished, _) => HeartBeatResponse::Finish,
-
             // Client that are waiting or done should stand by
-            (State::Round | State::StandBy, ClientState::Ignored | ClientState::Waiting | ClientState::Done) => {
+            (
+                State::Round | State::StandBy,
+                ClientState::Ignored | ClientState::Waiting | ClientState::Done,
+            ) => {
+                self.events.push_back(Event::ResetHeartBeat(id));
                 HeartBeatResponse::StandBy
             }
 
             // If the client has been selected, notify them.
             (State::StandBy | State::Round, ClientState::Selected) => {
+                self.events.push_back(Event::ResetHeartBeat(id));
                 HeartBeatResponse::Round(self.current_round)
             }
-        })
+        }
     }
 
     fn incr_selected(&mut self) {
@@ -297,7 +307,7 @@ pub enum ClientState {
 /// A trait that helps implementing the coordinator protocol by
 /// defining the methods that should be implemented in order to handle
 /// all the events the state machine can emit.
-trait StateMachineEventHandler {
+pub trait StateMachineEventHandler {
     /// Handle a [`Event::Accept`] event
     fn accept_client(&mut self, id: ClientId);
 
@@ -307,8 +317,8 @@ trait StateMachineEventHandler {
     /// Handle a [`Event::ResetAll`] event
     fn reset_all_clients(&mut self);
 
-    /// Handle a [`Event::SetStatus`] event
-    fn set_client_status(&mut self, id: ClientId, status: ClientState);
+    /// Handle a [`Event::SetState`] event
+    fn set_client_state(&mut self, id: ClientId, client_state: ClientState);
 
     /// Handle a [`Event::ResetHeartBeat`] event
     fn reset_heartbeat(&mut self, id: ClientId);
@@ -328,7 +338,7 @@ trait StateMachineEventHandler {
         match event {
             Event::Accept(id) => self.accept_client(id),
             Event::Remove(id) => self.remove_client(id),
-            Event::SetStatus(id, status) => self.set_client_status(id, status),
+            Event::SetState(id, client_state) => self.set_client_state(id, client_state),
             Event::ResetAll => self.reset_all_clients(),
             Event::ResetHeartBeat(id) => self.reset_heartbeat(id),
             Event::StartAggregation => self.start_aggregation(),
@@ -340,14 +350,14 @@ trait StateMachineEventHandler {
 /// Events emitted by the state machine
 pub enum Event {
     /// Accept the given client. This client becomes selectable, _ie_
-    /// has status [`ClientState::Waiting`].
+    /// has state [`ClientState::Waiting`].
     Accept(ClientId),
 
     /// Remove a client. This client becomes unknown [`ClientState::Unknown`].
     Remove(ClientId),
 
-    /// Update the given client's status.
-    SetStatus(ClientId, ClientState),
+    /// Update the given client's state.
+    SetState(ClientId, ClientState),
 
     /// Reset all the active clients to their default state:
     /// [`ClientState::Waiting`], and remove the inactive clients.
