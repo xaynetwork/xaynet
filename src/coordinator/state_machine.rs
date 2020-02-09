@@ -4,23 +4,31 @@ use std::error::Error;
 
 use crate::coordinator::client::ClientId;
 
-/// The state machine.
-pub struct StateMachine {
+#[derive(Eq, Debug, PartialEq, Default, Copy, Clone)]
+pub struct Counters {
+    /// Number of active clients waiting for being selected. These
+    /// clients are in the [`ClientState::Waiting`] state.
+    pub waiting: u32,
     /// Number of active client selected to take part to the current
     /// training round. These clients are in the
     /// [`ClientState::Selected`] state
-    selected_counter: u32,
-
+    pub selected: u32,
     /// Number of client selected to take part to the current training
     /// round that already finishe training.
-    done_counter: u32,
+    pub done: u32,
+    pub done_and_inactive: u32,
+    pub ignored: u32,
+}
 
-    done_and_inactive_counter: u32,
-    ignored_counter: u32,
+impl Counters {
+    pub fn new() -> Self {
+        Default::default()
+    }
+}
 
-    /// Number of active clients waiting for being selected. These
-    /// clients are in the [`ClientState::Waiting`] state.
-    waiting_counter: u32,
+/// The state machine.
+pub struct StateMachine {
+    counters: Counters,
 
     /// Whether all the round of training are done
     is_training_complete: bool,
@@ -41,15 +49,22 @@ impl StateMachine {
             return None;
         }
 
-        let total_participants =
-            self.selected_counter + self.done_counter + self.done_and_inactive_counter;
+        let Counters {
+            waiting,
+            selected,
+            done,
+            done_and_inactive,
+            ..
+        } = self.counters;
+
+        let total_participants = selected + done + done_and_inactive;
         if total_participants >= self.config.minimum_participants() {
             return None;
         }
 
         // We need to select more clients. But do we have enough
         // clients to perform the selection?
-        let total_clients = total_participants + self.waiting_counter;
+        let total_clients = total_participants + waiting;
         if total_clients < self.config.min_clients {
             return None;
         }
@@ -66,7 +81,7 @@ impl StateMachine {
     }
 
     fn is_end_of_round(&self) -> bool {
-        self.selected_counter == 0 && self.number_of_clients_to_select().is_none()
+        self.counters.selected == 0 && self.number_of_clients_to_select().is_none()
     }
 
     /// Emit an event
@@ -77,14 +92,13 @@ impl StateMachine {
 
 // public methods
 impl StateMachine {
+    pub fn counters(&self) -> Counters {
+        self.counters.clone()
+    }
     pub fn new(config: CoordinatorConfig) -> Self {
         Self {
             config,
-            selected_counter: 0,
-            done_counter: 0,
-            done_and_inactive_counter: 0,
-            ignored_counter: 0,
-            waiting_counter: 0,
+            counters: Counters::new(),
             is_training_complete: false,
             current_round: 0,
             events: VecDeque::new(),
@@ -95,8 +109,8 @@ impl StateMachine {
             while total_needed > 0 {
                 match candidates.next() {
                     Some((id, ClientState::Waiting)) => {
-                        self.selected_counter += 1;
-                        self.waiting_counter -= 1;
+                        self.counters.selected += 1;
+                        self.counters.waiting -= 1;
                         total_needed -= 1;
                         self.emit_event(Event::SetState(id, ClientState::Selected));
                     }
@@ -123,7 +137,7 @@ impl StateMachine {
         let response = match client_state {
             ClientState::Unknown => {
                 // Accept new clients and make them selectable
-                self.waiting_counter += 1;
+                self.counters.waiting += 1;
                 self.emit_event(Event::SetState(id, ClientState::Waiting));
                 RendezVousResponse::Accept
             }
@@ -142,8 +156,8 @@ impl StateMachine {
                 // and drop out once selected, while not
                 // penalizing honest clients that had a
                 // connectivity issue.
-                self.selected_counter -= 1;
-                self.ignored_counter += 1;
+                self.counters.selected -= 1;
+                self.counters.ignored += 1;
                 self.emit_event(Event::SetState(id, ClientState::Ignored));
                 RendezVousResponse::Accept
             }
@@ -158,7 +172,7 @@ impl StateMachine {
                 // we accept these clients but mark them as
                 // "Ignored", to exclude them from the
                 // selection process.
-                self.ignored_counter += 1;
+                self.counters.ignored += 1;
                 self.emit_event(Event::SetState(id, ClientState::Ignored));
                 RendezVousResponse::Accept
             }
@@ -172,8 +186,8 @@ impl StateMachine {
     pub fn hearbeat_timeout(&mut self, id: ClientId, client_state: ClientState) {
         self.emit_event(Event::Remove(id));
         match client_state {
-            ClientState::Selected => self.selected_counter -= 1,
-            ClientState::Waiting => self.waiting_counter -= 1,
+            ClientState::Selected => self.counters.selected -= 1,
+            ClientState::Waiting => self.counters.waiting -= 1,
             ClientState::Unknown => {
                 panic!("Unknown client {} does not have a heartbeat", id);
             }
@@ -182,10 +196,10 @@ impl StateMachine {
             }
             ClientState::Done => {
                 self.emit_event(Event::SetState(id, ClientState::DoneAndInactive));
-                self.done_and_inactive_counter += 1;
+                self.counters.done_and_inactive += 1;
             }
             ClientState::Ignored => {
-                self.ignored_counter -= 1;
+                self.counters.ignored -= 1;
             }
         }
         self.maybe_start_selection();
@@ -258,18 +272,18 @@ impl StateMachine {
         }
 
         if client_state == ClientState::Selected {
-            self.selected_counter -= 1;
-            self.done_counter += 1;
+            self.counters.selected -= 1;
+            self.counters.done += 1;
             if self.is_end_of_round() {
                 self.current_round += 1;
                 if self.current_round == self.config.rounds {
                     self.is_training_complete = true;
                 } else {
                     self.emit_event(Event::ResetAll);
-                    self.waiting_counter += self.done_counter;
-                    self.waiting_counter += self.ignored_counter;
-                    self.done_and_inactive_counter = 0;
-                    self.ignored_counter = 0;
+                    self.counters.waiting += self.counters.done;
+                    self.counters.waiting += self.counters.ignored;
+                    self.counters.done_and_inactive = 0;
+                    self.counters.ignored = 0;
                 }
             }
             self.maybe_start_selection();

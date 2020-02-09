@@ -86,6 +86,7 @@ where
     fn handle_state_machine_events(&mut self) {
         while let Some(event) = self.state_machine.next_event() {
             self.dispatch_event(event);
+            self.sanity_checks();
         }
     }
 
@@ -156,6 +157,10 @@ where
         }
 
         self.handle_state_machine_events();
+    }
+
+    fn sanity_checks(&self) {
+        assert_eq!(self.clients.get_counters(), self.state_machine.counters());
     }
 }
 

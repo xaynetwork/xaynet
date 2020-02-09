@@ -100,6 +100,16 @@ impl Clients {
         }
     }
 
+    pub fn get_counters(&self) -> Counters {
+        Counters {
+            waiting: self.waiting.len() as u32,
+            selected: self.selected.len() as u32,
+            done: self.done.len() as u32,
+            done_and_inactive: self.done_and_inactive.len() as u32,
+            ignored: self.ignored.len() as u32,
+        }
+    }
+
     /// Create a new active client and its associated timer. It is the
     /// caller's responsability to spawn the timer.
     fn new_active_client(&self, id: ClientId) -> (ActiveClient, HeartBeatTimer) {
