@@ -8,6 +8,9 @@ use tokio::sync::mpsc;
 pub struct CoordinatorHandle<T>(mpsc::Sender<Request<T>>);
 
 impl<T> CoordinatorHandle<T> {
+    pub fn new(requests_tx: mpsc::Sender<Request<T>>) -> Self {
+        Self(requests_tx)
+    }
     pub async fn rendez_vous(&mut self, id: Option<ClientId>) -> Result<RendezVousResponse, ()> {
         let (response_tx, response_rx) = response_channel::<RendezVousResponse>();
         let req: Request<T> = Request::RendezVous((id, response_tx));

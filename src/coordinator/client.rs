@@ -89,6 +89,17 @@ pub struct Clients {
 }
 
 impl Clients {
+    pub fn new(heartbeat_expirations_tx: mpsc::UnboundedSender<ClientId>) -> Self {
+        Self {
+            heartbeat_expirations_tx,
+            waiting: HashMap::new(),
+            selected: HashMap::new(),
+            done: HashMap::new(),
+            done_and_inactive: HashSet::new(),
+            ignored: HashMap::new(),
+        }
+    }
+
     /// Create a new active client and its associated timer. It is the
     /// caller's responsability to spawn the timer.
     fn new_active_client(&self, id: ClientId) -> (ActiveClient, HeartBeatTimer) {

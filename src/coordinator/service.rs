@@ -14,9 +14,11 @@
 use crate::coordinator::{Aggregator, Selector};
 
 use super::client::*;
+use super::handle::CoordinatorHandle;
 use super::request::*;
 use super::state_machine::{
-    ClientState, Event, StartTrainingResponse as RawStartTrainingResponse, StateMachine,
+    ClientState, CoordinatorConfig, Event, StartTrainingResponse as RawStartTrainingResponse,
+    StateMachine,
 };
 
 use tokio::sync::mpsc;
@@ -39,7 +41,7 @@ where
     T: Clone,
     S: Selector,
 {
-    requests: mpsc::Receiver<Request<T>>,
+    requests_rx: mpsc::Receiver<Request<T>>,
     heartbeat_expirations_rx: mpsc::UnboundedReceiver<ClientId>,
     // start_training_expirations_rx: mpsc::UnboundedReceiver<ClientId>,
     // done_training_expirations_rx: mpsc::UnboundedReceiver<ClientId>,
@@ -58,6 +60,28 @@ where
     T: Clone,
     S: Selector,
 {
+    pub fn new(
+        aggregator: A,
+        selector: S,
+        global_weights: T,
+        config: CoordinatorConfig,
+    ) -> (Self, CoordinatorHandle<T>) {
+        let (requests_tx, requests_rx) = mpsc::channel(2048);
+        let (heartbeat_expirations_tx, heartbeat_expirations_rx) = mpsc::unbounded_channel();
+
+        let coordinator = Self {
+            aggregator,
+            selector,
+            global_weights,
+            heartbeat_expirations_rx,
+            requests_rx,
+            clients: Clients::new(heartbeat_expirations_tx),
+            state_machine: StateMachine::new(config),
+            pending_selection: Vec::new(),
+        };
+        let handle = CoordinatorHandle::new(requests_tx);
+        (coordinator, handle)
+    }
     /// Handle the pending state machine events.
     fn handle_state_machine_events(&mut self) {
         while let Some(event) = self.state_machine.next_event() {
@@ -68,7 +92,7 @@ where
     /// Handle the incoming requests.
     fn poll_requests(&mut self, cx: &mut Context) -> Poll<Option<()>> {
         loop {
-            match ready!(Pin::new(&mut self.requests).poll_next(cx)) {
+            match ready!(Pin::new(&mut self.requests_rx).poll_next(cx)) {
                 Some(request) => {
                     self.handle_request(request);
                     self.handle_state_machine_events();
