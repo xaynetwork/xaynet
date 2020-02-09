@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use derive_more::Display;
 use std::collections::VecDeque;
 use std::error::Error;
@@ -19,17 +17,17 @@ pub struct StateMachine {
     /// Number of active client selected to take part to the current
     /// training round. These clients are in the
     /// [`ClientState::Selected`] state
-    clients_selected: u32,
+    selected_counter: u32,
 
     /// Number of client selected to take part to the current training
     /// round that already finishe training. These clients are either
     /// in the [`ClientState::Done`] if they are still active or
     /// [`ClientState::DoneAndInactive`] if they are not active anymore.
-    clients_done: u32,
+    done_counter: u32,
 
     /// Number of active clients waiting for being selected. These
     /// clients are in the [`ClientState::Waiting`] state.
-    clients_waiting: u32,
+    waiting_counter: u32,
 
     /// Current state of the coordinator
     state: State,
@@ -47,13 +45,13 @@ pub struct StateMachine {
 impl StateMachine {
     /// Return the number of _selected_ and _selectable_ clients.
     fn total_clients(&self) -> u32 {
-        self.clients_waiting + self.clients_selected + self.clients_done
+        self.waiting_counter + self.selected_counter + self.done_counter
     }
 
     /// Return the total number of clients that are taking part to the
     /// current round.
     fn total_participants(&self) -> u32 {
-        self.clients_selected + self.clients_done
+        self.selected_counter + self.done_counter
     }
 
     /// Return the ratio of clients that participate to the current round.
@@ -66,25 +64,60 @@ impl StateMachine {
     }
 
     /// Return `true` if there are enough participants to (re)start
-    /// the current round.
+    /// a training round.
     fn has_enough_participants(&self) -> bool {
         self.participants_ratio() >= self.config.participants_ratio
     }
 
-    /// Emit a transition event if necessary
-    fn maybe_transition(&mut self) {
-        let current_state = &self.state;
-        let has_enough_participants = self.has_enough_participants();
-        let did_enough_rounds = self.current_round > self.config.rounds;
-        // self.transition_event =
-        Some(
-            match (current_state, did_enough_rounds, has_enough_participants) {
-                (State::StandBy | State::Round, true, _) => State::Finished,
-                (State::StandBy, false, true) => State::Round,
-                (State::Round, false, false) => State::StandBy,
-                _ => return,
-            },
-        );
+    /// Return `true` is there are enough clients to (re)start a
+    /// training round
+    fn has_enough_clients(&self) -> bool {
+        self.total_clients() >= self.config.min_clients
+    }
+
+    fn should_start_selection(&self) -> bool {
+        self.state == State::StandBy && self.has_enough_clients() && !self.has_enough_participants()
+    }
+
+    fn should_continue_round(&self) -> bool {
+        self.state == State::Round
+            && (!self.has_enough_clients() || !self.has_enough_participants())
+    }
+
+    /// Check how many clients we have and how many of them are
+    /// currently selected. If necessary, update the state and/or
+    /// start a new selection round. The method should be called every
+    /// time a client is accepted by the coordinator or disconnects.
+    // FIXME: we should introduce hysteresis to prevent the state
+    // machine from constantly switching between StandBy and Round and
+    // performing selections when we are around the threshold for
+    // starting a round.
+    //
+    // FIXME2: if more clients connect, the ratio of participants goes
+    // down, so we'll have to select more participants. Here again we
+    // may need to introduce hysteresis. In our former Python
+    // implementation we "solved" this issue by preventing new clients
+    // to connect (rejecting Rendez-Vous while in a round), but it has
+    // its own downside: when we lose participants, we may not be able
+    // to re-run a selection right away because we may not have enough
+    // clients.
+    fn handle_counters_update(&mut self) {
+        match &self.state {
+            State::StandBy => {
+                if self.should_start_selection() {
+                    self.emit_event(Event::StartSelection(self.config.participants_ratio));
+                }
+            }
+            State::Round => {
+                if !self.should_continue_round() {
+                    self.state = State::StandBy;
+                }
+                if self.should_start_selection() {
+                    self.emit_event(Event::StartSelection(self.config.participants_ratio));
+                }
+            }
+            State::Finished => {}
+        }
     }
 
     pub fn handle_rendez_vous(
@@ -98,8 +131,7 @@ impl StateMachine {
                     ClientState::Unknown => {
                         // Accept new clients and make them selectable
                         self.incr_waiting();
-                        self.events
-                            .push_back(Event::SetState(id, ClientState::Waiting));
+                        self.emit_event(Event::SetState(id, ClientState::Waiting));
                         RendezVousResponse::Accept
                     }
                     ClientState::Waiting => {
@@ -118,8 +150,7 @@ impl StateMachine {
                         // penalizing honest clients that had a
                         // connectivity issue.
                         self.decr_selected();
-                        self.events
-                            .push_back(Event::SetState(id, ClientState::Ignored));
+                        self.emit_event(Event::SetState(id, ClientState::Ignored));
                         RendezVousResponse::Accept
                     }
                     ClientState::DoneAndInactive | ClientState::Done => {
@@ -133,15 +164,14 @@ impl StateMachine {
                         // we accept these clients but mark them as
                         // "Ignored", to exclude them from the
                         // selection process.
-                        self.events
-                            .push_back(Event::SetState(id, ClientState::Ignored));
+                        self.emit_event(Event::SetState(id, ClientState::Ignored));
                         RendezVousResponse::Accept
                     }
                     ClientState::Ignored => RendezVousResponse::Accept,
                 }
             }
             State::Finished => {
-                self.events.push_back(Event::Remove(id));
+                self.emit_event(Event::Remove(id));
                 RendezVousResponse::Reject
             }
         }
@@ -153,7 +183,7 @@ impl StateMachine {
         id: ClientId,
         client_state: ClientState,
     ) -> Result<(), InvalidStateError> {
-        self.events.push_back(Event::Remove(id));
+        self.emit_event(Event::Remove(id));
         match client_state {
             ClientState::Selected => self.decr_selected(),
             ClientState::Waiting => self.decr_waiting(),
@@ -192,7 +222,7 @@ impl StateMachine {
             (_, ClientState::DoneAndInactive) => HeartBeatResponse::Reject,
 
             (State::Finished, _) => {
-                self.events.push_back(Event::ResetHeartBeat(id));
+                self.emit_event(Event::ResetHeartBeat(id));
                 HeartBeatResponse::Finish
             }
 
@@ -201,59 +231,69 @@ impl StateMachine {
                 State::Round | State::StandBy,
                 ClientState::Ignored | ClientState::Waiting | ClientState::Done,
             ) => {
-                self.events.push_back(Event::ResetHeartBeat(id));
+                self.emit_event(Event::ResetHeartBeat(id));
                 HeartBeatResponse::StandBy
             }
 
             // If the client has been selected, notify them.
             (State::StandBy | State::Round, ClientState::Selected) => {
-                self.events.push_back(Event::ResetHeartBeat(id));
+                self.emit_event(Event::ResetHeartBeat(id));
                 HeartBeatResponse::Round(self.current_round)
             }
         }
     }
 
-    fn incr_selected(&mut self) {
-        if self.clients_selected > 0 {
-            self.clients_selected += 1;
-        }
-        self.maybe_transition();
-    }
-
+    /// Increment the counter for waiting clients and update the
+    /// state machine accordingly
     fn incr_waiting(&mut self) {
-        if self.clients_waiting > 0 {
-            self.clients_waiting += 1;
+        if self.waiting_counter > 0 {
+            self.waiting_counter += 1;
         }
-        self.maybe_transition();
+        self.handle_counters_update();
     }
 
-    fn incr_done(&mut self) {
-        if self.clients_done > 0 {
-            self.clients_done += 1;
-        }
-        self.maybe_transition();
-    }
-
-    fn decr_selected(&mut self) {
-        if self.clients_selected > 0 {
-            self.clients_selected -= 1;
-        } else {
-            panic!("tried to decrement null clients_selected counter");
-        }
-        self.maybe_transition();
-    }
-
+    /// Decrement the counter for waiting clients and update the
+    /// state machine accordingly
     fn decr_waiting(&mut self) {
-        if self.clients_waiting > 0 {
-            self.clients_waiting -= 1;
+        if self.waiting_counter > 0 {
+            self.waiting_counter -= 1;
         } else {
-            panic!("tried to decrement null clients_waiting counter");
+            panic!("tried to decrement null waiting_counter counter");
         }
-        self.maybe_transition();
+        self.handle_counters_update();
     }
 
+    /// Decrement the counter for selected clients and update the
+    /// state machine accordingly
+    fn decr_selected(&mut self) {
+        if self.selected_counter > 0 {
+            self.selected_counter -= 1;
+        } else {
+            panic!("tried to decrement null selected_counter counter");
+        }
+        self.handle_counters_update();
+    }
+
+    /// Retrieve the next event
     pub fn next_event(&mut self) -> Option<Event> {
         self.events.pop_front()
+    }
+
+    /// Emit an event
+    fn emit_event(&mut self, event: Event) {
+        self.events.push_back(event);
+    }
+
+    fn handle_selection_done(&mut self, newly_selected: u32) {
+        if self.waiting_counter < newly_selected {
+            panic!(
+                "{} clients selected but only {} clients waiting",
+                newly_selected, self.waiting_counter
+            );
+        }
+        self.selected_counter += newly_selected;
+        self.waiting_counter -= newly_selected;
+        self.handle_counters_update();
     }
 }
 
@@ -264,23 +304,39 @@ pub struct CoordinatorConfig {
     epoch: u32,
 }
 
+/// Response to a heartbeat
 pub enum HeartBeatResponse {
+    /// The client should stand by in its current state
     StandBy,
+
+    /// The coordinator has finished, and the client should disconnect
     Finish,
+
+    /// The client has been selected for the given round and should
+    /// start or continue training
     Round(u32),
+
+    /// The client has not been accepted by the coordinator yet and
+    /// should not send heartbeats
     Reject,
 }
 
+/// Response to a "start training" request.
 pub struct StartTrainingResponse {
     pub global_weights: f64,
     pub epochs: u32,
 }
 
+/// Response to a rendez-vous request
 pub enum RendezVousResponse {
+    /// The coordinator accepts the client
     Accept,
+
+    /// The coordinator rejects the client
     Reject,
 }
 
+/// Represent the state of a client, as seen by the state machine
 #[derive(Eq, PartialEq, Hash, Debug, Copy, Clone, Display)]
 pub enum ClientState {
     /// The client has not sent a rendez-vous request yet
@@ -329,7 +385,7 @@ pub trait StateMachineEventHandler {
     }
 
     /// Handle a [`Event::StartSelection`] event
-    fn start_selection(&mut self) {
+    fn start_selection(&mut self, ratio: f64) {
         unimplemented!()
     }
 
@@ -342,7 +398,7 @@ pub trait StateMachineEventHandler {
             Event::ResetAll => self.reset_all_clients(),
             Event::ResetHeartBeat(id) => self.reset_heartbeat(id),
             Event::StartAggregation => self.start_aggregation(),
-            Event::StartSelection => self.start_selection(),
+            Event::StartSelection(ratio) => self.start_selection(ratio),
         }
     }
 }
@@ -370,7 +426,7 @@ pub enum Event {
     StartAggregation,
 
     /// Start the selection process
-    StartSelection,
+    StartSelection(f64),
 }
 
 #[derive(Debug, Display)]
