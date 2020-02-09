@@ -17,7 +17,7 @@ use super::client::*;
 use super::request::*;
 use super::state_machine::*;
 
-use tokio::sync::{mpsc};
+use tokio::sync::mpsc;
 
 use futures::{ready, stream::Stream};
 
@@ -45,6 +45,7 @@ where
     clients: Clients,
     aggregator: A,
     selector: S,
+    pending_selection: Vec<ClientId>,
     _phantom: PhantomData<T>,
 }
 
@@ -53,7 +54,6 @@ where
     A: Aggregator<T>,
     S: Selector,
 {
-
     /// Handle the pending state machine events.
     fn handle_state_machine_events(&mut self) {
         while let Some(event) = self.state_machine.next_event() {
@@ -74,6 +74,7 @@ where
         }
     }
 
+    /// Handle a request
     fn handle_request(&mut self, request: Request) {
         match request {
             Request::RendezVous((opt_id, sender)) => {
@@ -84,17 +85,33 @@ where
                 // Find the client status by ID, defaulting to
                 // Unknown.
                 let status = self.clients.get_state(&id);
-                let response = self.state_machine.handle_rendez_vous(id, status);
+                let response = self.state_machine.rendez_vous(id, status);
                 sender.send(response);
             }
             Request::HeartBeat((id, sender)) => {
                 let response = self
                     .state_machine
-                    .handle_heartbeat(id, self.clients.get_state(&id));
+                    .heartbeat(id, self.clients.get_state(&id));
                 sender.send(response);
             }
         }
-        self.handle_state_machine_events()
+    }
+
+    fn apply_pending_selection(&mut self) {
+        let Self {
+            ref mut pending_selection,
+            ref mut state_machine,
+            ref mut clients,
+            ..
+        } = self;
+        if !pending_selection.is_empty() {
+            let mut chunk = pending_selection
+                .drain(0..100)
+                .map(|id| (id, clients.get_state(&id)));
+            state_machine.select(chunk);
+        }
+
+        self.handle_state_machine_events();
     }
 }
 
@@ -118,6 +135,8 @@ where
                 Poll::Pending => break,
             }
         }
+
+        pin.apply_pending_selection();
 
         Poll::Pending
     }
@@ -178,5 +197,18 @@ where
                 }
             },
         }
+    }
+
+    fn run_selection(&mut self, min_count: u32) {
+        if !self.pending_selection.is_empty() {
+            return;
+        }
+        let waiting = self.clients.iter_waiting();
+        let selected = self.clients.iter_selected();
+        self.pending_selection = self.selector.select(min_count as usize, waiting, selected);
+    }
+
+    fn run_aggregation(&mut self) {
+        let result = self.aggregator.aggregate();
     }
 }

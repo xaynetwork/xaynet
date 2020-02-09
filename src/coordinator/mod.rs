@@ -11,3 +11,4 @@ mod service;
 // pub use service::CoordinatorService;
 
 mod handle;
+pub use client::*;

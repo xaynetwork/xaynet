@@ -265,6 +265,17 @@ impl Clients {
             .ok_or(RemovedClientNotFound(*id))
     }
 
+    pub fn iter_waiting(&self) -> impl Iterator<Item = ClientId> + '_ {
+        self.waiting.keys().cloned()
+    }
+
+    pub fn iter_selected(&self) -> impl Iterator<Item = ClientId> + '_ {
+        let selected = self.selected.keys().cloned();
+        let done = self.done.keys().cloned();
+        let done_and_inactive = self.done_and_inactive.iter().cloned();
+        selected.chain(done).chain(done_and_inactive)
+    }
+
     pub fn reset(&mut self) {
         let selected = mem::replace(&mut self.selected, HashMap::new());
         let ignored = mem::replace(&mut self.ignored, HashMap::new());

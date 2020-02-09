@@ -101,11 +101,11 @@ impl StateMachine {
     // its own downside: when we lose participants, we may not be able
     // to re-run a selection right away because we may not have enough
     // clients.
-    fn handle_counters_update(&mut self) {
+    fn on_counter_update(&mut self) {
         match &self.state {
             State::StandBy => {
                 if self.should_start_selection() {
-                    self.emit_event(Event::StartSelection(self.config.participants_ratio));
+                    self.emit_event(Event::RunSelection(self.number_of_clients_to_select()));
                 }
             }
             State::Round => {
@@ -113,18 +113,95 @@ impl StateMachine {
                     self.state = State::StandBy;
                 }
                 if self.should_start_selection() {
-                    self.emit_event(Event::StartSelection(self.config.participants_ratio));
+                    self.emit_event(Event::RunSelection(self.number_of_clients_to_select()));
                 }
             }
             State::Finished => {}
         }
     }
+    fn number_of_clients_to_select(&self) -> u32 {
+        // FIXME: check rules for casting between floats,
+        // signed/unsigned integers, etc.  This i64 as u32 is probably
+        // not right.
+        let total_to_select =
+            f64::ceil(self.config.participants_ratio * self.total_clients() as f64) as i64 as u32;
+        assert!(total_to_select >= self.selected_counter);
+        total_to_select - self.selected_counter
+    }
+    /// Increment the counter for waiting clients and update the
+    /// state machine accordingly
+    fn incr_waiting(&mut self) {
+        if self.waiting_counter > 0 {
+            self.waiting_counter += 1;
+        }
+        self.on_counter_update()
+    }
 
-    pub fn handle_rendez_vous(
-        &mut self,
-        id: ClientId,
-        client_state: ClientState,
-    ) -> RendezVousResponse {
+    /// Decrement the counter for waiting clients and update the
+    /// state machine accordingly
+    fn decr_waiting(&mut self) {
+        if self.waiting_counter > 0 {
+            self.waiting_counter -= 1;
+        } else {
+            panic!("tried to decrement null waiting_counter counter");
+        }
+        self.on_counter_update()
+    }
+
+    /// Decrement the counter for selected clients and update the
+    /// state machine accordingly
+    fn decr_selected(&mut self) {
+        if self.selected_counter > 0 {
+            self.selected_counter -= 1;
+        } else {
+            panic!("tried to decrement null selected_counter counter");
+        }
+        self.on_counter_update()
+    }
+
+    /// Emit an event
+    fn emit_event(&mut self, event: Event) {
+        self.events.push_back(event);
+    }
+
+    /// Retrieve the next event
+    pub fn next_event(&mut self) -> Option<Event> {
+        self.events.pop_front()
+    }
+}
+
+// public methods
+impl StateMachine {
+    pub fn select(&mut self, mut candidates: impl Iterator<Item = (ClientId, ClientState)>) {
+        match self.state {
+            State::Finished | State::Round => {}
+            State::StandBy => {
+                let mut total_needed = self.number_of_clients_to_select();
+                while total_needed > 0 {
+                    match candidates.next() {
+                        Some((id, ClientState::Waiting)) => {
+                            self.selected_counter += 1;
+                            self.waiting_counter -= 1;
+                            total_needed -= 1;
+                            self.emit_event(Event::SetState(id, ClientState::Selected));
+                        }
+                        Some(_) => {}
+                        None => {
+                            break;
+                        }
+                    }
+                }
+                self.on_counter_update();
+            }
+        }
+    }
+
+    /// Handle a rendez-vous request for the given client.
+    ///
+    /// # Returns
+    ///
+    /// This method returns the response to send back to the client.
+    pub fn rendez_vous(&mut self, id: ClientId, client_state: ClientState) -> RendezVousResponse {
         match self.state {
             State::Round | State::StandBy => {
                 match client_state {
@@ -177,38 +254,28 @@ impl StateMachine {
         }
     }
 
-    /// Handle a heartbeat timeout.
-    pub fn handle_hearbeat_timeout(
-        &mut self,
-        id: ClientId,
-        client_state: ClientState,
-    ) -> Result<(), InvalidStateError> {
+    /// Handle a heartbeat timeout for the given client.
+    pub fn hearbeat_timeout(&mut self, id: ClientId, client_state: ClientState) {
         self.emit_event(Event::Remove(id));
         match client_state {
             ClientState::Selected => self.decr_selected(),
             ClientState::Waiting => self.decr_waiting(),
             ClientState::Unknown => {
-                return Err(InvalidStateError(format!(
-                    "Unknown client {} does not have a heartbeat",
-                    id
-                )))
+                panic!("Unknown client {} does not have a heartbeat", id);
             }
             ClientState::DoneAndInactive => {
-                return Err(InvalidStateError(format!(
-                    "Done and inactive client {} does not have a heartbeat",
-                    id
-                )))
+                panic!("Done and inactive client {} does not have a heartbeat", id);
             }
             _ => {}
         }
-        Ok(())
     }
 
-    pub fn handle_heartbeat(
-        &mut self,
-        id: ClientId,
-        client_state: ClientState,
-    ) -> HeartBeatResponse {
+    /// Handle a heartbeat for the given client.
+    ///
+    /// # Returns
+    ///
+    /// This method returns the response to send back to the client.
+    pub fn heartbeat(&mut self, id: ClientId, client_state: ClientState) -> HeartBeatResponse {
         match (&self.state, client_state) {
             // Reject any client we don't know about. They must first
             // send a rendez-vous request to be recognized by the
@@ -241,59 +308,6 @@ impl StateMachine {
                 HeartBeatResponse::Round(self.current_round)
             }
         }
-    }
-
-    /// Increment the counter for waiting clients and update the
-    /// state machine accordingly
-    fn incr_waiting(&mut self) {
-        if self.waiting_counter > 0 {
-            self.waiting_counter += 1;
-        }
-        self.handle_counters_update();
-    }
-
-    /// Decrement the counter for waiting clients and update the
-    /// state machine accordingly
-    fn decr_waiting(&mut self) {
-        if self.waiting_counter > 0 {
-            self.waiting_counter -= 1;
-        } else {
-            panic!("tried to decrement null waiting_counter counter");
-        }
-        self.handle_counters_update();
-    }
-
-    /// Decrement the counter for selected clients and update the
-    /// state machine accordingly
-    fn decr_selected(&mut self) {
-        if self.selected_counter > 0 {
-            self.selected_counter -= 1;
-        } else {
-            panic!("tried to decrement null selected_counter counter");
-        }
-        self.handle_counters_update();
-    }
-
-    /// Retrieve the next event
-    pub fn next_event(&mut self) -> Option<Event> {
-        self.events.pop_front()
-    }
-
-    /// Emit an event
-    fn emit_event(&mut self, event: Event) {
-        self.events.push_back(event);
-    }
-
-    fn handle_selection_done(&mut self, newly_selected: u32) {
-        if self.waiting_counter < newly_selected {
-            panic!(
-                "{} clients selected but only {} clients waiting",
-                newly_selected, self.waiting_counter
-            );
-        }
-        self.selected_counter += newly_selected;
-        self.waiting_counter -= newly_selected;
-        self.handle_counters_update();
     }
 }
 
@@ -379,15 +393,11 @@ pub trait StateMachineEventHandler {
     /// Handle a [`Event::ResetHeartBeat`] event
     fn reset_heartbeat(&mut self, id: ClientId);
 
-    /// Handle a [`Event::StartAggregation`] event
-    fn start_aggregation(&mut self) {
-        unimplemented!()
-    }
+    /// Handle a [`Event::RunAggregation`] event
+    fn run_aggregation(&mut self);
 
-    /// Handle a [`Event::StartSelection`] event
-    fn start_selection(&mut self, ratio: f64) {
-        unimplemented!()
-    }
+    /// Handle a [`Event::RunSelection`] event
+    fn run_selection(&mut self, min_count: u32);
 
     /// Dispatch an [`Event`] to the appropriate handler
     fn dispatch_event(&mut self, event: Event) {
@@ -397,8 +407,8 @@ pub trait StateMachineEventHandler {
             Event::SetState(id, client_state) => self.set_client_state(id, client_state),
             Event::ResetAll => self.reset_all_clients(),
             Event::ResetHeartBeat(id) => self.reset_heartbeat(id),
-            Event::StartAggregation => self.start_aggregation(),
-            Event::StartSelection(ratio) => self.start_selection(ratio),
+            Event::RunAggregation => self.run_aggregation(),
+            Event::RunSelection(min_count) => self.run_selection(min_count),
         }
     }
 }
@@ -423,13 +433,12 @@ pub enum Event {
     ResetHeartBeat(ClientId),
 
     /// Start the aggregation process
-    StartAggregation,
+    RunAggregation,
 
     /// Start the selection process
-    StartSelection(f64),
+    RunSelection(u32),
 }
 
 #[derive(Debug, Display)]
-#[display(fmt = "Invalid state machine state: {}", _0)]
-pub struct InvalidStateError(String);
-impl Error for InvalidStateError {}
+pub struct InvalidState;
+impl Error for InvalidState {}
