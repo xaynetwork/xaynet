@@ -11,21 +11,17 @@
 // Steps 5. and 7. are problematic, but how much? The race at step
 // 3. is very unlikely, but we may still run into it.
 
-#![allow(dead_code)]
-#![allow(unused_imports)]
 use crate::coordinator::{Aggregator, Selector};
 
 use super::client::*;
-use super::heartbeat::*;
 use super::request::*;
 use super::state_machine::*;
 
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::{mpsc};
 
 use futures::{ready, stream::Stream};
 
 use std::{
-    collections::{HashMap, HashSet},
     future::Future,
     marker::PhantomData,
     pin::Pin,
