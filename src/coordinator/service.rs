@@ -53,6 +53,7 @@ where
     A: Aggregator<T>,
     S: Selector,
 {
+
     /// Handle the pending state machine events.
     fn handle_state_machine_events(&mut self) {
         while let Some(event) = self.state_machine.next_event() {
@@ -86,7 +87,7 @@ where
                 let response = self.state_machine.handle_rendez_vous(id, status);
                 sender.send(response);
             }
-            Request::Heartbeat((id, sender)) => {
+            Request::HeartBeat((id, sender)) => {
                 let response = self
                     .state_machine
                     .handle_heartbeat(id, self.clients.get_state(&id));
