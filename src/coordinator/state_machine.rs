@@ -374,45 +374,6 @@ pub enum ClientState {
     Ignored,
 }
 
-/// A trait that helps implementing the coordinator protocol by
-/// defining the methods that should be implemented in order to handle
-/// all the events the state machine can emit.
-pub trait StateMachineEventHandler {
-    /// Handle a [`Event::Accept`] event
-    fn accept_client(&mut self, id: ClientId);
-
-    /// Handle a [`Event::Remove`] event
-    fn remove_client(&mut self, id: ClientId);
-
-    /// Handle a [`Event::ResetAll`] event
-    fn reset_all_clients(&mut self);
-
-    /// Handle a [`Event::SetState`] event
-    fn set_client_state(&mut self, id: ClientId, client_state: ClientState);
-
-    /// Handle a [`Event::ResetHeartBeat`] event
-    fn reset_heartbeat(&mut self, id: ClientId);
-
-    /// Handle a [`Event::RunAggregation`] event
-    fn run_aggregation(&mut self);
-
-    /// Handle a [`Event::RunSelection`] event
-    fn run_selection(&mut self, min_count: u32);
-
-    /// Dispatch an [`Event`] to the appropriate handler
-    fn dispatch_event(&mut self, event: Event) {
-        match event {
-            Event::Accept(id) => self.accept_client(id),
-            Event::Remove(id) => self.remove_client(id),
-            Event::SetState(id, client_state) => self.set_client_state(id, client_state),
-            Event::ResetAll => self.reset_all_clients(),
-            Event::ResetHeartBeat(id) => self.reset_heartbeat(id),
-            Event::RunAggregation => self.run_aggregation(),
-            Event::RunSelection(min_count) => self.run_selection(min_count),
-        }
-    }
-}
-
 /// Events emitted by the state machine
 pub enum Event {
     /// Accept the given client. This client becomes selectable, _ie_

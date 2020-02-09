@@ -142,25 +142,14 @@ where
     }
 }
 
-// We must be particularly careful in handling state machine events
-// because we have to keep our clients state in sync with the state
-// machine: inconsistencies between these two elements means that the
-// coordinator behavior is incorrect. To prevent that, these methods
-// contains a lot of assert! which will crash the coordinator when the
-// invariants we expect to be held are violated.
-//
-// This is a design choice where we privilege correctness over
-// robustness.
-impl<A, S, T> StateMachineEventHandler for CoordinatorService<A, S, T>
-where
-    A: Aggregator<T>,
-    S: Selector,
-{
+impl<A, S, T> CoordinatorService<A, S, T> {
+    /// Handle a [`Event::Accept`] event
     fn accept_client(&mut self, id: ClientId) {
         let heartbeat_timer = self.clients.add(id);
         tokio::spawn(heartbeat_timer);
     }
 
+    /// Handle a [`Event::Remove`] event
     fn remove_client(&mut self, id: ClientId) {
         // If our implementation is correct, this should never return
         // an error. If it does, our state is invalid, so it is OK to
@@ -168,16 +157,19 @@ where
         self.clients.remove(&id).expect("failed to remove client");
     }
 
+    /// Handle a [`Event::ResetAll`] event
     fn reset_all_clients(&mut self) {
         self.clients.reset();
     }
 
+    /// Handle a [`Event::SetState`] event
     fn set_client_state(&mut self, id: ClientId, state: ClientState) {
         self.clients
             .set_state(id, state)
             .expect("failed to update client state");
     }
 
+    /// Handle a [`Event::ResetHeartBeat`] event
     fn reset_heartbeat(&mut self, id: ClientId) {
         match self.clients.reset_heartbeat(&id) {
             Ok(()) => {}
@@ -199,6 +191,7 @@ where
         }
     }
 
+    /// Handle a [`Event::RunSelection`] event
     fn run_selection(&mut self, min_count: u32) {
         if !self.pending_selection.is_empty() {
             return;
@@ -208,7 +201,21 @@ where
         self.pending_selection = self.selector.select(min_count as usize, waiting, selected);
     }
 
+    /// Handle a [`Event::RunAggregation`] event
     fn run_aggregation(&mut self) {
         let result = self.aggregator.aggregate();
+    }
+
+    /// Dispatch an [`Event`] to the appropriate handler
+    fn dispatch_event(&mut self, event: Event) {
+        match event {
+            Event::Accept(id) => self.accept_client(id),
+            Event::Remove(id) => self.remove_client(id),
+            Event::SetState(id, client_state) => self.set_client_state(id, client_state),
+            Event::ResetAll => self.reset_all_clients(),
+            Event::ResetHeartBeat(id) => self.reset_heartbeat(id),
+            Event::RunAggregation => self.run_aggregation(),
+            Event::RunSelection(min_count) => self.run_selection(min_count),
+        }
     }
 }
