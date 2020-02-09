@@ -4,14 +4,6 @@ use std::error::Error;
 
 use crate::coordinator::client::ClientId;
 
-/// Current state of the state machine
-#[derive(Eq, PartialEq, Hash, Debug)]
-enum State {
-    StandBy,
-    Round,
-    Finished,
-}
-
 /// The state machine.
 pub struct StateMachine {
     /// Number of active client selected to take part to the current
@@ -20,17 +12,18 @@ pub struct StateMachine {
     selected_counter: u32,
 
     /// Number of client selected to take part to the current training
-    /// round that already finishe training. These clients are either
-    /// in the [`ClientState::Done`] if they are still active or
-    /// [`ClientState::DoneAndInactive`] if they are not active anymore.
+    /// round that already finishe training.
     done_counter: u32,
+
+    done_and_inactive_counter: u32,
+    ignored_counter: u32,
 
     /// Number of active clients waiting for being selected. These
     /// clients are in the [`ClientState::Waiting`] state.
     waiting_counter: u32,
 
-    /// Current state of the coordinator
-    state: State,
+    /// Whether all the round of training are done
+    is_training_complete: bool,
 
     /// Coordinator configuration
     config: CoordinatorConfig,
@@ -43,120 +36,37 @@ pub struct StateMachine {
 }
 
 impl StateMachine {
-    /// Return the number of _selected_ and _selectable_ clients.
-    fn total_clients(&self) -> u32 {
-        self.waiting_counter + self.selected_counter + self.done_counter
-    }
-
-    /// Return the total number of clients that are taking part to the
-    /// current round.
-    fn total_participants(&self) -> u32 {
-        self.selected_counter + self.done_counter
-    }
-
-    /// Return the ratio of clients that participate to the current round.
-    fn participants_ratio(&self) -> f64 {
-        if self.total_clients() == 0 {
-            0f64
-        } else {
-            f64::from(self.total_participants()) / f64::from(self.total_clients())
+    fn number_of_clients_to_select(&self) -> Option<u32> {
+        if self.is_training_complete {
+            return None;
         }
-    }
 
-    /// Return `true` if there are enough participants to (re)start
-    /// a training round.
-    fn has_enough_participants(&self) -> bool {
-        self.participants_ratio() >= self.config.participants_ratio
-    }
-
-    /// Return `true` is there are enough clients to (re)start a
-    /// training round
-    fn has_enough_clients(&self) -> bool {
-        self.total_clients() >= self.config.min_clients
-    }
-
-    fn should_start_selection(&self) -> bool {
-        self.state == State::StandBy && self.has_enough_clients() && !self.has_enough_participants()
-    }
-
-    fn should_continue_round(&self) -> bool {
-        self.state == State::Round
-            && (!self.has_enough_clients() || !self.has_enough_participants())
-    }
-
-    /// Check how many clients we have and how many of them are
-    /// currently selected. If necessary, update the state and/or
-    /// start a new selection round. The method should be called every
-    /// time a client is accepted by the coordinator or disconnects.
-    // FIXME: we should introduce hysteresis to prevent the state
-    // machine from constantly switching between StandBy and Round and
-    // performing selections when we are around the threshold for
-    // starting a round.
-    //
-    // FIXME2: if more clients connect, the ratio of participants goes
-    // down, so we'll have to select more participants. Here again we
-    // may need to introduce hysteresis. In our former Python
-    // implementation we "solved" this issue by preventing new clients
-    // to connect (rejecting Rendez-Vous while in a round), but it has
-    // its own downside: when we lose participants, we may not be able
-    // to re-run a selection right away because we may not have enough
-    // clients.
-    fn on_counter_update(&mut self) {
-        match &self.state {
-            State::StandBy => {
-                if self.should_start_selection() {
-                    self.emit_event(Event::RunSelection(self.number_of_clients_to_select()));
-                }
-            }
-            State::Round => {
-                if !self.should_continue_round() {
-                    self.state = State::StandBy;
-                }
-                if self.should_start_selection() {
-                    self.emit_event(Event::RunSelection(self.number_of_clients_to_select()));
-                }
-            }
-            State::Finished => {}
+        let total_participants =
+            self.selected_counter + self.done_counter + self.done_and_inactive_counter;
+        if total_participants >= self.config.minimum_participants() {
+            return None;
         }
-    }
-    fn number_of_clients_to_select(&self) -> u32 {
-        // FIXME: check rules for casting between floats,
-        // signed/unsigned integers, etc.  This i64 as u32 is probably
-        // not right.
+
+        // We need to select more clients. But do we have enough
+        // clients to perform the selection?
+        let total_clients = total_participants + self.waiting_counter;
+        if total_clients < self.config.min_clients {
+            return None;
+        }
+
         let total_to_select =
-            f64::ceil(self.config.participants_ratio * self.total_clients() as f64) as i64 as u32;
-        assert!(total_to_select >= self.selected_counter);
-        total_to_select - self.selected_counter
-    }
-    /// Increment the counter for waiting clients and update the
-    /// state machine accordingly
-    fn incr_waiting(&mut self) {
-        if self.waiting_counter > 0 {
-            self.waiting_counter += 1;
-        }
-        self.on_counter_update()
+            f64::ceil(self.config.participants_ratio * total_clients as f64) as i64 as u32;
+        Some(total_to_select - total_participants)
     }
 
-    /// Decrement the counter for waiting clients and update the
-    /// state machine accordingly
-    fn decr_waiting(&mut self) {
-        if self.waiting_counter > 0 {
-            self.waiting_counter -= 1;
-        } else {
-            panic!("tried to decrement null waiting_counter counter");
+    fn maybe_start_selection(&mut self) {
+        if let Some(count) = self.number_of_clients_to_select() {
+            self.emit_event(Event::RunSelection(count))
         }
-        self.on_counter_update()
     }
 
-    /// Decrement the counter for selected clients and update the
-    /// state machine accordingly
-    fn decr_selected(&mut self) {
-        if self.selected_counter > 0 {
-            self.selected_counter -= 1;
-        } else {
-            panic!("tried to decrement null selected_counter counter");
-        }
-        self.on_counter_update()
+    fn is_end_of_round(&self) -> bool {
+        self.selected_counter == 0 && self.number_of_clients_to_select().is_none()
     }
 
     /// Emit an event
@@ -167,28 +77,37 @@ impl StateMachine {
 
 // public methods
 impl StateMachine {
+    pub fn new(config: CoordinatorConfig) -> Self {
+        Self {
+            config,
+            selected_counter: 0,
+            done_counter: 0,
+            done_and_inactive_counter: 0,
+            ignored_counter: 0,
+            waiting_counter: 0,
+            is_training_complete: false,
+            current_round: 0,
+            events: VecDeque::new(),
+        }
+    }
     pub fn select(&mut self, mut candidates: impl Iterator<Item = (ClientId, ClientState)>) {
-        match self.state {
-            State::Finished | State::Round => {}
-            State::StandBy => {
-                let mut total_needed = self.number_of_clients_to_select();
-                while total_needed > 0 {
-                    match candidates.next() {
-                        Some((id, ClientState::Waiting)) => {
-                            self.selected_counter += 1;
-                            self.waiting_counter -= 1;
-                            total_needed -= 1;
-                            self.emit_event(Event::SetState(id, ClientState::Selected));
-                        }
-                        Some(_) => {}
-                        None => {
-                            break;
-                        }
+        if let Some(mut total_needed) = self.number_of_clients_to_select() {
+            while total_needed > 0 {
+                match candidates.next() {
+                    Some((id, ClientState::Waiting)) => {
+                        self.selected_counter += 1;
+                        self.waiting_counter -= 1;
+                        total_needed -= 1;
+                        self.emit_event(Event::SetState(id, ClientState::Selected));
+                    }
+                    Some(_) => {}
+                    None => {
+                        break;
                     }
                 }
-                self.on_counter_update();
             }
         }
+        self.maybe_start_selection();
     }
 
     /// Handle a rendez-vous request for the given client.
@@ -197,72 +116,79 @@ impl StateMachine {
     ///
     /// This method returns the response to send back to the client.
     pub fn rendez_vous(&mut self, id: ClientId, client_state: ClientState) -> RendezVousResponse {
-        match self.state {
-            State::Round | State::StandBy => {
-                match client_state {
-                    ClientState::Unknown => {
-                        // Accept new clients and make them selectable
-                        self.incr_waiting();
-                        self.emit_event(Event::SetState(id, ClientState::Waiting));
-                        RendezVousResponse::Accept
-                    }
-                    ClientState::Waiting => {
-                        // The client should not re-send a rendez-vous
-                        // request, but that can be the case if it got
-                        // re-started so let's accept the client again.
-                        RendezVousResponse::Accept
-                    }
-                    ClientState::Selected => {
-                        // A selected/training client should not send us
-                        // a rendez-vous request. Let's not rely on it
-                        // for that round but still accept it for the
-                        // next round. The idea is to mitigate attacks
-                        // when many clients connect to the coordinator
-                        // and drop out once selected, while not
-                        // penalizing honest clients that had a
-                        // connectivity issue.
-                        self.decr_selected();
-                        self.emit_event(Event::SetState(id, ClientState::Ignored));
-                        RendezVousResponse::Accept
-                    }
-                    ClientState::DoneAndInactive | ClientState::Done => {
-                        // A client that has finished training may send
-                        // us a rendez-vous request if it is
-                        // restarted. This is problematic because we
-                        // cannot put them back in the "Waiting"
-                        // state, otherwise they might be selected
-                        // again for the current training round, to
-                        // which they already participated. Therefore,
-                        // we accept these clients but mark them as
-                        // "Ignored", to exclude them from the
-                        // selection process.
-                        self.emit_event(Event::SetState(id, ClientState::Ignored));
-                        RendezVousResponse::Accept
-                    }
-                    ClientState::Ignored => RendezVousResponse::Accept,
-                }
-            }
-            State::Finished => {
-                self.emit_event(Event::Remove(id));
-                RendezVousResponse::Reject
-            }
+        if self.is_training_complete {
+            self.emit_event(Event::Remove(id));
+            return RendezVousResponse::Reject;
         }
+        let response = match client_state {
+            ClientState::Unknown => {
+                // Accept new clients and make them selectable
+                self.waiting_counter += 1;
+                self.emit_event(Event::SetState(id, ClientState::Waiting));
+                RendezVousResponse::Accept
+            }
+            ClientState::Waiting => {
+                // The client should not re-send a rendez-vous
+                // request, but that can be the case if it got
+                // re-started so let's accept the client again.
+                RendezVousResponse::Accept
+            }
+            ClientState::Selected => {
+                // A selected/training client should not send us
+                // a rendez-vous request. Let's not rely on it
+                // for that round but still accept it for the
+                // next round. The idea is to mitigate attacks
+                // when many clients connect to the coordinator
+                // and drop out once selected, while not
+                // penalizing honest clients that had a
+                // connectivity issue.
+                self.selected_counter -= 1;
+                self.ignored_counter += 1;
+                self.emit_event(Event::SetState(id, ClientState::Ignored));
+                RendezVousResponse::Accept
+            }
+            ClientState::DoneAndInactive | ClientState::Done => {
+                // A client that has finished training may send
+                // us a rendez-vous request if it is
+                // restarted. This is problematic because we
+                // cannot put them back in the "Waiting"
+                // state, otherwise they might be selected
+                // again for the current training round, to
+                // which they already participated. Therefore,
+                // we accept these clients but mark them as
+                // "Ignored", to exclude them from the
+                // selection process.
+                self.ignored_counter += 1;
+                self.emit_event(Event::SetState(id, ClientState::Ignored));
+                RendezVousResponse::Accept
+            }
+            ClientState::Ignored => RendezVousResponse::Accept,
+        };
+        self.maybe_start_selection();
+        response
     }
 
     /// Handle a heartbeat timeout for the given client.
     pub fn hearbeat_timeout(&mut self, id: ClientId, client_state: ClientState) {
         self.emit_event(Event::Remove(id));
         match client_state {
-            ClientState::Selected => self.decr_selected(),
-            ClientState::Waiting => self.decr_waiting(),
+            ClientState::Selected => self.selected_counter -= 1,
+            ClientState::Waiting => self.waiting_counter -= 1,
             ClientState::Unknown => {
                 panic!("Unknown client {} does not have a heartbeat", id);
             }
             ClientState::DoneAndInactive => {
                 panic!("Done and inactive client {} does not have a heartbeat", id);
             }
-            _ => {}
+            ClientState::Done => {
+                self.emit_event(Event::SetState(id, ClientState::DoneAndInactive));
+                self.done_and_inactive_counter += 1;
+            }
+            ClientState::Ignored => {
+                self.ignored_counter -= 1;
+            }
         }
+        self.maybe_start_selection();
     }
 
     /// Handle a heartbeat for the given client.
@@ -271,34 +197,30 @@ impl StateMachine {
     ///
     /// This method returns the response to send back to the client.
     pub fn heartbeat(&mut self, id: ClientId, client_state: ClientState) -> HeartBeatResponse {
-        match (&self.state, client_state) {
+        if self.is_training_complete {
+            self.emit_event(Event::ResetHeartBeat(id));
+            return HeartBeatResponse::Finish;
+        }
+        match client_state {
             // Reject any client we don't know about. They must first
             // send a rendez-vous request to be recognized by the
             // coordinator.
-            (_, ClientState::Unknown) => HeartBeatResponse::Reject,
+            ClientState::Unknown => HeartBeatResponse::Reject,
 
             // The client may have come back to life. But once a
             // client has become inactive, it has to send a new
             // rendez-vous request and be accepted by the coordinator,
             // so we reject this heartbeat.
-            (_, ClientState::DoneAndInactive) => HeartBeatResponse::Reject,
-
-            (State::Finished, _) => {
-                self.emit_event(Event::ResetHeartBeat(id));
-                HeartBeatResponse::Finish
-            }
+            ClientState::DoneAndInactive => HeartBeatResponse::Reject,
 
             // Client that are waiting or done should stand by
-            (
-                State::Round | State::StandBy,
-                ClientState::Ignored | ClientState::Waiting | ClientState::Done,
-            ) => {
+            ClientState::Ignored | ClientState::Waiting | ClientState::Done => {
                 self.emit_event(Event::ResetHeartBeat(id));
                 HeartBeatResponse::StandBy
             }
 
             // If the client has been selected, notify them.
-            (State::StandBy | State::Round, ClientState::Selected) => {
+            ClientState::Selected => {
                 self.emit_event(Event::ResetHeartBeat(id));
                 HeartBeatResponse::Round(self.current_round)
             }
@@ -311,17 +233,17 @@ impl StateMachine {
     ///
     /// This method returns the response to send back to the client.
     pub fn start_training(&mut self, client_state: ClientState) -> StartTrainingResponse {
-        match (&self.state, client_state) {
-            // FIXME: Can this be a vector for DoS attacks? In the
-            // "start training" response we send the latest aggregated
-            // model which can be big. If many selected clients send
-            // lots of "start training" request, we may end up serving
-            // gigabytes of data. One way to mitigate this could be to
-            // keep track of the clients that already sent such a
-            // request. These clients would be in the "Training"
-            // state.
-            (State::StandBy | State::Round, ClientState::Selected) => StartTrainingResponse::Accept,
-            _ => StartTrainingResponse::Reject,
+        // FIXME: Can this be a vector for DoS attacks? In the "start
+        // training" response we send the latest aggregated model
+        // which can be big. If many selected clients send lots of
+        // "start training" request, we may end up serving gigabytes
+        // of data. One way to mitigate this could be to keep track of
+        // the clients that already sent such a request. These clients
+        // would be in the "Training" state.
+        if client_state == ClientState::Selected && !self.is_training_complete {
+            StartTrainingResponse::Accept
+        } else {
+            StartTrainingResponse::Reject
         }
     }
 
@@ -331,9 +253,29 @@ impl StateMachine {
     ///
     /// This method returns the response to send back to the client.
     pub fn end_training(&mut self, client_state: ClientState) -> EndTrainingResponse {
-        match (&self.state, client_state) {
-            (State::StandBy | State::Round, ClientState::Selected) => EndTrainingResponse::Accept,
-            _ => EndTrainingResponse::Reject,
+        if self.is_training_complete {
+            return EndTrainingResponse::Reject;
+        }
+
+        if client_state == ClientState::Selected {
+            self.selected_counter -= 1;
+            self.done_counter += 1;
+            if self.is_end_of_round() {
+                self.current_round += 1;
+                if self.current_round == self.config.rounds {
+                    self.is_training_complete = true;
+                } else {
+                    self.emit_event(Event::ResetAll);
+                    self.waiting_counter += self.done_counter;
+                    self.waiting_counter += self.ignored_counter;
+                    self.done_and_inactive_counter = 0;
+                    self.ignored_counter = 0;
+                }
+            }
+            self.maybe_start_selection();
+            EndTrainingResponse::Accept
+        } else {
+            EndTrainingResponse::Reject
         }
     }
 
@@ -348,6 +290,12 @@ pub struct CoordinatorConfig {
     participants_ratio: f64,
     min_clients: u32,
     epoch: u32,
+}
+
+impl CoordinatorConfig {
+    fn minimum_participants(&self) -> u32 {
+        (self.participants_ratio * self.min_clients as f64) as i64 as u32
+    }
 }
 
 /// Response to a heartbeat
