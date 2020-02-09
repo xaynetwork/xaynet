@@ -1,21 +1,38 @@
-use super::request::{response_channel, Request};
-use super::state_machine::{HeartBeatResponse, RendezVousResponse};
 use super::client::ClientId;
+use super::request::{response_channel, Request};
+use super::request::{
+    EndTrainingResponse, HeartBeatResponse, RendezVousResponse, StartTrainingResponse,
+};
 use tokio::sync::mpsc;
 #[derive(Clone)]
-pub struct CoordinatorHandle(mpsc::Sender<Request>);
+pub struct CoordinatorHandle<T>(mpsc::Sender<Request<T>>);
 
-impl CoordinatorHandle {
-    pub async fn rendez_vous(&self, id: Option<ClientId>) -> Result<RendezVousResponse, ()> {
+impl<T> CoordinatorHandle<T> {
+    pub async fn rendez_vous(&mut self, id: Option<ClientId>) -> Result<RendezVousResponse, ()> {
         let (response_tx, response_rx) = response_channel::<RendezVousResponse>();
-        let req = Request::RendezVous((id, response_tx));
+        let req: Request<T> = Request::RendezVous((id, response_tx));
+        self.0.send(req).await.map_err(|_| ())?;
         response_rx.await
     }
 
-    pub async fn heartbeat(&self, id: ClientId) -> Result<HeartBeatResponse, ()> {
+    pub async fn heartbeat(&mut self, id: ClientId) -> Result<HeartBeatResponse, ()> {
         let (response_tx, response_rx) = response_channel::<HeartBeatResponse>();
-        let req = Request::HeartBeat((id, response_tx));
+        let req: Request<T> = Request::HeartBeat((id, response_tx));
+        self.0.send(req).await.map_err(|_| ())?;
         response_rx.await
     }
 
+    pub async fn start_training(&mut self, id: ClientId) -> Result<StartTrainingResponse<T>, ()> {
+        let (response_tx, response_rx) = response_channel::<StartTrainingResponse<T>>();
+        let req: Request<T> = Request::StartTraining((id, response_tx));
+        self.0.send(req).await.map_err(|_| ())?;
+        response_rx.await
+    }
+
+    pub async fn end_training(&mut self, id: ClientId) -> Result<EndTrainingResponse, ()> {
+        let (response_tx, response_rx) = response_channel::<EndTrainingResponse>();
+        let req: Request<T> = Request::EndTraining((id, response_tx));
+        self.0.send(req).await.map_err(|_| ())?;
+        response_rx.await
+    }
 }

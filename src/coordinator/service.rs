@@ -15,7 +15,9 @@ use crate::coordinator::{Aggregator, Selector};
 
 use super::client::*;
 use super::request::*;
-use super::state_machine::*;
+use super::state_machine::{
+    ClientState, Event, StartTrainingResponse as RawStartTrainingResponse, StateMachine,
+};
 
 use tokio::sync::mpsc;
 
@@ -23,7 +25,6 @@ use futures::{ready, stream::Stream};
 
 use std::{
     future::Future,
-    marker::PhantomData,
     pin::Pin,
     task::{Context, Poll},
     time::Duration,
@@ -35,9 +36,10 @@ const HEARTBEAT_TIME: Duration = Duration::from_secs(5);
 pub struct CoordinatorService<A, S, T>
 where
     A: Aggregator<T>,
+    T: Clone,
     S: Selector,
 {
-    requests: mpsc::Receiver<Request>,
+    requests: mpsc::Receiver<Request<T>>,
     heartbeat_expirations_rx: mpsc::UnboundedReceiver<ClientId>,
     // start_training_expirations_rx: mpsc::UnboundedReceiver<ClientId>,
     // done_training_expirations_rx: mpsc::UnboundedReceiver<ClientId>,
@@ -45,19 +47,21 @@ where
     clients: Clients,
     aggregator: A,
     selector: S,
+
     pending_selection: Vec<ClientId>,
-    _phantom: PhantomData<T>,
+    global_weights: T,
 }
 
 impl<A, S, T> CoordinatorService<A, S, T>
 where
     A: Aggregator<T>,
+    T: Clone,
     S: Selector,
 {
     /// Handle the pending state machine events.
     fn handle_state_machine_events(&mut self) {
         while let Some(event) = self.state_machine.next_event() {
-            <Self as StateMachineEventHandler>::dispatch_event(self, event);
+            self.dispatch_event(event);
         }
     }
 
@@ -75,7 +79,7 @@ where
     }
 
     /// Handle a request
-    fn handle_request(&mut self, request: Request) {
+    fn handle_request(&mut self, request: Request<T>) {
         match request {
             Request::RendezVous((opt_id, sender)) => {
                 // There can be no ID provided, if this is the first
@@ -86,12 +90,28 @@ where
                 // Unknown.
                 let status = self.clients.get_state(&id);
                 let response = self.state_machine.rendez_vous(id, status);
-                sender.send(response);
+                sender.send(response.into());
             }
             Request::HeartBeat((id, sender)) => {
                 let response = self
                     .state_machine
                     .heartbeat(id, self.clients.get_state(&id));
+                sender.send(response);
+            }
+            Request::StartTraining((id, sender)) => {
+                let response = match self
+                    .state_machine
+                    .start_training(self.clients.get_state(&id))
+                {
+                    RawStartTrainingResponse::Accept => {
+                        Ok(StartTrainingPayload::new(self.global_weights.clone()))
+                    }
+                    RawStartTrainingResponse::Reject => Err(()),
+                };
+                sender.send(response);
+            }
+            Request::EndTraining((id, sender)) => {
+                let response = self.state_machine.end_training(self.clients.get_state(&id));
                 sender.send(response);
             }
         }
@@ -105,7 +125,7 @@ where
             ..
         } = self;
         if !pending_selection.is_empty() {
-            let mut chunk = pending_selection
+            let chunk = pending_selection
                 .drain(0..100)
                 .map(|id| (id, clients.get_state(&id)));
             state_machine.select(chunk);
@@ -121,7 +141,7 @@ where
     // the selector ? Unless it is not ?
     A: Aggregator<T> + Unpin,
     S: Selector + Unpin,
-    T: Unpin,
+    T: Clone + Unpin,
 {
     type Output = ();
     fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
@@ -142,7 +162,12 @@ where
     }
 }
 
-impl<A, S, T> CoordinatorService<A, S, T> {
+impl<A, S, T> CoordinatorService<A, S, T>
+where
+    A: Aggregator<T>,
+    T: Clone,
+    S: Selector,
+{
     /// Handle a [`Event::Accept`] event
     fn accept_client(&mut self, id: ClientId) {
         let heartbeat_timer = self.clients.add(id);

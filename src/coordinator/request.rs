@@ -1,5 +1,5 @@
 use super::client::ClientId;
-use super::state_machine::*;
+use super::state_machine;
 use tokio::sync::oneshot;
 
 use std::{
@@ -18,7 +18,10 @@ pub fn response_channel<R>() -> (ResponseSender<R>, ResponseReceiver<R>) {
 impl<R> Future for ResponseReceiver<R> {
     type Output = Result<R, ()>;
     fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        Pin::new(&mut self.get_mut().0).as_mut().poll(cx).map_err(|_| ())
+        Pin::new(&mut self.get_mut().0)
+            .as_mut()
+            .poll(cx)
+            .map_err(|_| ())
     }
 }
 
@@ -34,10 +37,34 @@ impl<R> ResponseSender<R> {
 
 pub type RequestMessage<P, R> = (P, ResponseSender<R>);
 
+// rendez-vous
 pub type RendezVousRequest = Option<ClientId>;
-pub type HeartBeatRequest = ClientId;
+pub use state_machine::RendezVousResponse;
 
-pub enum Request {
+// heartbeat
+pub type HeartBeatRequest = ClientId;
+pub use state_machine::HeartBeatResponse;
+
+// start training
+pub type StartTrainingRequest = ClientId;
+pub type StartTrainingResponse<T> = Result<StartTrainingPayload<T>, ()>;
+pub struct StartTrainingPayload<T> {
+    global_weights: T,
+}
+
+impl<T> StartTrainingPayload<T> {
+    pub fn new(global_weights: T) -> Self {
+        Self { global_weights }
+    }
+}
+
+// end training
+pub type EndTrainingRequest = ClientId;
+pub use state_machine::EndTrainingResponse;
+
+pub enum Request<T> {
     RendezVous(RequestMessage<RendezVousRequest, RendezVousResponse>),
     HeartBeat(RequestMessage<HeartBeatRequest, HeartBeatResponse>),
+    StartTraining(RequestMessage<StartTrainingRequest, StartTrainingResponse<T>>),
+    EndTraining(RequestMessage<EndTrainingRequest, EndTrainingResponse>),
 }

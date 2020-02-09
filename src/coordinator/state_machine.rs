@@ -163,11 +163,6 @@ impl StateMachine {
     fn emit_event(&mut self, event: Event) {
         self.events.push_back(event);
     }
-
-    /// Retrieve the next event
-    pub fn next_event(&mut self) -> Option<Event> {
-        self.events.pop_front()
-    }
 }
 
 // public methods
@@ -309,6 +304,43 @@ impl StateMachine {
             }
         }
     }
+
+    /// Handle a start training request for the given client.
+    ///
+    /// # Returns
+    ///
+    /// This method returns the response to send back to the client.
+    pub fn start_training(&mut self, client_state: ClientState) -> StartTrainingResponse {
+        match (&self.state, client_state) {
+            // FIXME: Can this be a vector for DoS attacks? In the
+            // "start training" response we send the latest aggregated
+            // model which can be big. If many selected clients send
+            // lots of "start training" request, we may end up serving
+            // gigabytes of data. One way to mitigate this could be to
+            // keep track of the clients that already sent such a
+            // request. These clients would be in the "Training"
+            // state.
+            (State::StandBy | State::Round, ClientState::Selected) => StartTrainingResponse::Accept,
+            _ => StartTrainingResponse::Reject,
+        }
+    }
+
+    /// Handle an end training request for the given client.
+    ///
+    /// # Returns
+    ///
+    /// This method returns the response to send back to the client.
+    pub fn end_training(&mut self, client_state: ClientState) -> EndTrainingResponse {
+        match (&self.state, client_state) {
+            (State::StandBy | State::Round, ClientState::Selected) => EndTrainingResponse::Accept,
+            _ => EndTrainingResponse::Reject,
+        }
+    }
+
+    /// Retrieve the next event
+    pub fn next_event(&mut self) -> Option<Event> {
+        self.events.pop_front()
+    }
 }
 
 pub struct CoordinatorConfig {
@@ -336,10 +368,19 @@ pub enum HeartBeatResponse {
 }
 
 /// Response to a "start training" request.
-pub struct StartTrainingResponse {
-    pub global_weights: f64,
-    pub epochs: u32,
+pub enum StartTrainingResponse {
+    Reject,
+    Accept,
 }
+
+/// Response to a "end training" request.
+pub enum EndTrainingResponse {
+    Accept,
+    Reject,
+}
+//     pub global_weights: f64,
+//     pub epochs: u32,
+// }
 
 /// Response to a rendez-vous request
 pub enum RendezVousResponse {
