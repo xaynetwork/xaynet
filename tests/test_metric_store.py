@@ -17,7 +17,7 @@ def metrics_sample_empty():
 
 @pytest.fixture()
 def metrics_sample_invalid():
-    """Return a valid metric object."""
+    """Return a invalid metric object."""
     return json.dumps(
         [
             {
@@ -33,9 +33,7 @@ def metrics_sample_invalid():
 def test_valid_metric(
     write_points_mock, metrics_sample,
 ):  # pylint: disable=redefined-outer-name,unused-argument
-    """Check that raised exceptions of the write_points method are caught in the write_metrics
-    method.
-    """
+    """Check that write_points does not raise an exception on a valid metric object."""
     metric_store = MetricsStore(
         MetricsConfig(enable=True, host="", port=1, user="", password="", db_name="")
     )
