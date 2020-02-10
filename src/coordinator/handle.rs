@@ -1,7 +1,8 @@
 use super::client::ClientId;
 use super::request::{response_channel, Request};
 use super::request::{
-    EndTrainingResponse, HeartBeatResponse, RendezVousResponse, StartTrainingResponse, RendezVousRequest
+    EndTrainingResponse, HeartBeatResponse, RendezVousRequest, RendezVousResponse,
+    StartTrainingResponse,
 };
 use tokio::sync::mpsc;
 #[derive(Clone)]
@@ -11,7 +12,7 @@ impl<T> CoordinatorHandle<T> {
     pub fn new(requests_tx: mpsc::Sender<Request<T>>) -> Self {
         Self(requests_tx)
     }
-    pub async fn rendez_vous(&mut self, id: Option<ClientId>) -> Result<RendezVousResponse, ()> {
+    pub async fn rendez_vous(&mut self) -> Result<RendezVousResponse, ()> {
         let (response_tx, response_rx) = response_channel::<RendezVousResponse>();
         let req: Request<T> = Request::RendezVous((RendezVousRequest, response_tx));
         self.0.send(req).await.map_err(|_| ())?;
@@ -32,9 +33,13 @@ impl<T> CoordinatorHandle<T> {
         response_rx.await
     }
 
-    pub async fn end_training(&mut self, id: ClientId) -> Result<EndTrainingResponse, ()> {
+    pub async fn end_training(
+        &mut self,
+        id: ClientId,
+        weights: T,
+    ) -> Result<EndTrainingResponse, ()> {
         let (response_tx, response_rx) = response_channel::<EndTrainingResponse>();
-        let req: Request<T> = Request::EndTraining((id, response_tx));
+        let req: Request<T> = Request::EndTraining(((id, weights), response_tx));
         self.0.send(req).await.map_err(|_| ())?;
         response_rx.await
     }

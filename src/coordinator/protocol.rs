@@ -105,16 +105,20 @@ impl Protocol {
         }
     }
     pub fn select(&mut self, mut candidates: impl Iterator<Item = (ClientId, ClientState)>) {
+        debug!("processing candidates for selection");
         if let Some(mut total_needed) = self.number_of_clients_to_select() {
             while total_needed > 0 {
                 match candidates.next() {
                     Some((id, ClientState::Waiting)) => {
+                        debug!("selecting candidate {}", id);
                         self.counters.selected += 1;
                         self.counters.waiting -= 1;
                         total_needed -= 1;
                         self.emit_event(Event::SetState(id, ClientState::Selected));
                     }
-                    Some(_) => {}
+                    Some((id, _)) => {
+                        debug!("discarding candidate {}", id);
+                    }
                     None => {
                         break;
                     }
@@ -138,7 +142,7 @@ impl Protocol {
             ClientState::Unknown => {
                 // Accept new clients and make them selectable
                 self.counters.waiting += 1;
-                self.emit_event(Event::SetState(id, ClientState::Waiting));
+                self.emit_event(Event::Accept(id));
                 RendezVousResponse::Accept
             }
             ClientState::Waiting => {
@@ -266,23 +270,28 @@ impl Protocol {
     /// # Returns
     ///
     /// This method returns the response to send back to the client.
-    pub fn end_training(&mut self, client_state: ClientState) -> EndTrainingResponse {
+    pub fn end_training(&mut self, id: ClientId, client_state: ClientState) -> EndTrainingResponse {
         if self.is_training_complete {
             return EndTrainingResponse::Reject;
         }
 
         if client_state == ClientState::Selected {
+            info!("end training request accept");
+            self.emit_event(Event::SetState(id, ClientState::Done));
             self.counters.selected -= 1;
             self.counters.done += 1;
             if self.is_end_of_round() {
                 self.current_round += 1;
                 if self.current_round == self.config.rounds {
+                    info!("training complete");
                     self.is_training_complete = true;
                 } else {
+                    info!("round complete, resetting the clients");
                     self.emit_event(Event::ResetAll);
                     self.counters.waiting += self.counters.done;
                     self.counters.waiting += self.counters.ignored;
                     self.counters.done_and_inactive = 0;
+                    self.counters.done = 0;
                     self.counters.ignored = 0;
                 }
             }
@@ -331,14 +340,14 @@ pub enum HeartBeatResponse {
 }
 
 /// Response to a "start training" request.
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum StartTrainingResponse {
     Reject,
     Accept,
 }
 
 /// Response to a "end training" request.
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum EndTrainingResponse {
     Accept,
     Reject,

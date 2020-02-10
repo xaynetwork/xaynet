@@ -50,7 +50,10 @@ impl HeartBeatTimer {
     fn poll_resets(&mut self, cx: &mut Context) -> Poll<()> {
         loop {
             match ready!(Pin::new(&mut self.resets).poll_next(cx)) {
-                Some(duration) => self.timer = delay_for(duration),
+                Some(duration) => {
+                    self.timer = delay_for(duration);
+                    debug!("heartbeat timer reset");
+                }
                 None => return Poll::Ready(()),
             }
         }
@@ -66,10 +69,13 @@ impl HeartBeatTimer {
 impl Future for HeartBeatTimer {
     type Output = ();
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        trace!("polling heartbeat timer");
         if let Poll::Ready(()) = self.as_mut().poll_resets(cx) {
+            trace!("dropping heartbeat timer: reset channel closed");
             return Poll::Ready(());
         }
         if let Poll::Ready(()) = self.as_mut().poll_timer(cx) {
+            trace!("heartbeat timer expired");
             return Poll::Ready(());
         }
         Poll::Pending

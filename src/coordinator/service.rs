@@ -26,11 +26,7 @@ use std::{
     future::Future,
     pin::Pin,
     task::{Context, Poll},
-    time::Duration,
 };
-
-const HEARTBEAT_TIMEOUT: Duration = Duration::from_secs(10);
-const HEARTBEAT_TIME: Duration = Duration::from_secs(5);
 
 pub struct CoordinatorService<A, S, T>
 where
@@ -84,19 +80,32 @@ where
     fn handle_protocol_events(&mut self) {
         while let Some(event) = self.protocol.next_event() {
             self.dispatch_event(event);
-            self.sanity_checks();
         }
+        self.sanity_checks();
     }
 
     /// Handle the incoming requests.
-    fn poll_requests(&mut self, cx: &mut Context) -> Poll<Option<()>> {
+    fn poll_requests(&mut self, cx: &mut Context) -> Poll<()> {
         loop {
             match ready!(Pin::new(&mut self.requests_rx).poll_next(cx)) {
                 Some(request) => {
                     self.dispatch_request(request);
                     self.handle_protocol_events();
                 }
-                None => return Poll::Ready(None),
+                None => return Poll::Ready(()),
+            }
+        }
+    }
+
+    fn poll_heartbeat_expirations(&mut self, cx: &mut Context) -> Poll<()> {
+        loop {
+            match ready!(Pin::new(&mut self.heartbeat_expirations_rx).poll_next(cx)) {
+                Some(id) => {
+                    let state = self.clients.get_state(&id);
+                    self.protocol.hearbeat_timeout(id, state);
+                    self.handle_protocol_events();
+                }
+                None => return Poll::Ready(()),
             }
         }
     }
@@ -112,12 +121,11 @@ where
         if !pending_selection.is_empty() {
             info!("processing pending selection");
             let chunk = pending_selection
-                .drain(0..100)
+                .drain(0..::std::cmp::min(pending_selection.len(), 100))
                 .map(|id| (id, clients.get_state(&id)));
             protocol.select(chunk);
+            self.handle_protocol_events();
         }
-
-        self.handle_protocol_events();
     }
 
     fn sanity_checks(&self) {
@@ -168,9 +176,27 @@ where
     }
 
     /// Handle an end training request
-    fn end_training(&mut self, req: RequestMessage<EndTrainingRequest, EndTrainingResponse>) {
-        let (id, response_sender) = req;
-        let response = self.protocol.end_training(self.clients.get_state(&id));
+    // FIXME: the end training request should probably made to the
+    // aggregator directly, which would then ask the protocol whether
+    // it should accept the weights. Right now, handling these
+    // requests kinds of break our model where the requests are
+    // directly processed by the protocol and events are emitted in
+    // response.
+    //
+    // 1. Client      => Coordinator:   start training request
+    // 2. Coordinator => Aggregator:    coordinator sends token for the client
+    // 3. Coordinator => Client:        start training response with token + aggregator URL
+    // 4. Client      => Aggregator:    end training with weights + token
+    // 5. Aggregator  => Coordinator:   client uploaded their results
+    //
+    // Right now we just check the response returned by the protocol,
+    // and pass the weights to the aggregator assuming they are valid.
+    fn end_training(&mut self, req: RequestMessage<EndTrainingRequest<T>, EndTrainingResponse>) {
+        let ((id, weights), response_sender) = req;
+        let response = self.protocol.end_training(id, self.clients.get_state(&id));
+        if response == EndTrainingResponse::Accept {
+            self.aggregator.add_local_result(weights);
+        }
         response_sender.send(response);
     }
 
@@ -198,17 +224,17 @@ where
         trace!("polling Connection");
         let pin = self.get_mut();
 
-        loop {
-            match pin.poll_requests(cx) {
-                Poll::Ready(Some(())) => {}
-                Poll::Ready(None) => return Poll::Ready(()),
-                Poll::Pending => break,
-            }
-        }
-
         pin.apply_pending_selection();
 
-        Poll::Pending
+        match pin.poll_requests(cx) {
+            Poll::Ready(()) => return Poll::Ready(()),
+            Poll::Pending => {}
+        }
+
+        match pin.poll_heartbeat_expirations(cx) {
+            Poll::Ready(()) => Poll::Ready(()),
+            Poll::Pending => Poll::Pending,
+        }
     }
 }
 
@@ -278,9 +304,9 @@ where
         let selected = self.clients.iter_selected();
         info!(
             "running the selector (selecting at least {} clients)",
-            min_count,
+            count,
         );
-        self.pending_selection = self.selector.select(min_count as usize, waiting, selected);
+        self.pending_selection = self.selector.select(count as usize, waiting, selected);
         info!(
             "pending selection: {} clients",
             self.pending_selection.len()
@@ -289,7 +315,7 @@ where
 
     /// Handle a [`Event::RunAggregation`] event
     fn run_aggregation(&mut self) {
-        let result = self.aggregator.aggregate();
+        self.global_weights = self.aggregator.aggregate().unwrap();
     }
 
     /// Dispatch an [`Event`] to the appropriate handler

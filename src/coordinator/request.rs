@@ -54,11 +54,11 @@ pub use protocol::HeartBeatResponse;
 pub type StartTrainingRequest = ClientId;
 pub enum StartTrainingResponse<T> {
     Accept(StartTrainingPayload<T>),
-    Reject
+    Reject,
 }
 
 pub struct StartTrainingPayload<T> {
-    global_weights: T,
+    pub global_weights: T,
     // more stuff...
 }
 
@@ -75,12 +75,12 @@ impl<T> From<StartTrainingPayload<T>> for StartTrainingResponse<T> {
 }
 
 // end training
-pub type EndTrainingRequest = ClientId;
+pub type EndTrainingRequest<T> = (ClientId, T);
 pub use protocol::EndTrainingResponse;
 
 pub enum Request<T> {
     RendezVous(RequestMessage<RendezVousRequest, RendezVousResponse>),
     HeartBeat(RequestMessage<HeartBeatRequest, HeartBeatResponse>),
     StartTraining(RequestMessage<StartTrainingRequest, StartTrainingResponse<T>>),
-    EndTraining(RequestMessage<EndTrainingRequest, EndTrainingResponse>),
+    EndTraining(RequestMessage<EndTrainingRequest<T>, EndTrainingResponse>),
 }
