@@ -349,7 +349,7 @@ def test_start_training_round_failed_precondition(  # pylint: disable=unused-arg
 
 
 @pytest.mark.integration
-def test_end_training_round(coordinator_service):
+def test_end_training_round(coordinator_service, metrics_sample):
     """[summary]
 
     .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
@@ -363,13 +363,12 @@ def test_end_training_round(coordinator_service):
     # simulate trained local model data
     test_weights = np.arange(20)
     number_samples = 2
-    test_metrics = {"metric": np.arange(10, 20)}
 
     with grpc.insecure_channel("localhost:50051") as channel:
         # we first need to rendezvous before we can send any other request
         rendezvous(channel)
         # call EndTrainingRound service method on coordinator
-        end_training_round(channel, test_weights, number_samples, test_metrics)
+        end_training_round(channel, test_weights, number_samples, metrics_sample)
     # check local model received...
 
     assert len(coordinator_service.coordinator.round.updates) == 1
@@ -380,11 +379,6 @@ def test_end_training_round(coordinator_service):
     _, round_update = round_.updates.popitem()
     np.testing.assert_equal(round_update["model_weights"], test_weights)
     assert round_update["aggregation_data"] == number_samples
-
-    round_update_metrics = round_update["metrics"]
-    assert round_update_metrics.keys() == test_metrics.keys()
-    for key, values in test_metrics.items():
-        np.testing.assert_equal(round_update_metrics[key], values)
 
 
 @pytest.mark.integration
@@ -523,7 +517,7 @@ def test_start_participant(  # pylint: disable=redefined-outer-name
     # mock a local participant with a constant train_round function
     with mock.patch("xain_sdk.participant_state_machine.Participant") as mock_obj:
         mock_local_part = mock_obj.return_value
-        mock_local_part.train_round.return_value = init_weight, 1, {}
+        mock_local_part.train_round.return_value = init_weight, 1
 
         config: Config = Config.from_unchecked_dict(participant_config)
 
