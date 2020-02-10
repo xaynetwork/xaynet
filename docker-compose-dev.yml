@@ -80,10 +80,35 @@ services:
       # Can't properly provision a login theme
 #    volumes:
 #      - ${PWD}/xain-theme-keycloak:/opt/jboss/keycloak/themes
+#      - ${PWD}/xain-theme-keycloak/standalone.xml:/opt/jboss/keycloak/standalone/configuration/standalone.xml
     networks:
       - xain-fl-dev
     ports:
       - "8080:8080"
+
+  grafana:
+    image: grafana/grafana
+    depends_on:
+      - keycloak
+    hostname: grafana
+    ports:
+      - "3000:3000"
+    networks:
+      - xain-fl-dev
+    environment:
+      GF_AUTH_GENERIC_OAUTH_ENABLED: "true"
+      GF_AUTH_GENERIC_OAUTH_NAME: "OAuth"
+      GF_AUTH_GENERIC_OAUTH_CLIENT_ID: "grafana"
+      GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET: "c3fbd14d-dfe9-4dc3-9894-8a97bc6c6575"
+      GF_AUTH_GENERIC_OAUTH_ALLOW_SIGN_UP: "true"
+      GF_AUTH_GENERIC_OAUTH_SCOPES: "openid profile email"
+      #GF_AUTH_GENERIC_OAUTH_EMAIL_ATTRIBUTE_NAME: "email:primary"
+      GF_AUTH_GENERIC_OAUTH_AUTH_URL: "http://localhost:8080/auth/realms/master/protocol/openid-connect/auth"
+      GF_AUTH_GENERIC_OAUTH_TOKEN_URL: "http://keycloak:8080/auth/realms/master/protocol/openid-connect/token"
+      GF_AUTH_GENERIC_OAUTH_API_URL: "http://keycloak:8080/auth/realms/master/protocol/openid-connect/userinfo"
+#      GF_SERVER_ROOT_URL: "http://0.0.0.0:3000"
+      GF_SERVER_ENFORCE_DOMAIN: "false"
+
 
   xain-fl-dev:
     build:
