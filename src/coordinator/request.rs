@@ -1,5 +1,5 @@
 use super::client::ClientId;
-use super::state_machine;
+use super::protocol;
 use tokio::sync::oneshot;
 
 use std::{
@@ -38,18 +38,28 @@ impl<R> ResponseSender<R> {
 pub type RequestMessage<P, R> = (P, ResponseSender<R>);
 
 // rendez-vous
-pub type RendezVousRequest = Option<ClientId>;
-pub use state_machine::RendezVousResponse;
+#[derive(Debug)]
+pub struct RendezVousRequest;
+#[derive(Debug)]
+pub enum RendezVousResponse {
+    Accept(ClientId),
+    Reject,
+}
 
 // heartbeat
 pub type HeartBeatRequest = ClientId;
-pub use state_machine::HeartBeatResponse;
+pub use protocol::HeartBeatResponse;
 
 // start training
 pub type StartTrainingRequest = ClientId;
-pub type StartTrainingResponse<T> = Result<StartTrainingPayload<T>, ()>;
+pub enum StartTrainingResponse<T> {
+    Accept(StartTrainingPayload<T>),
+    Reject
+}
+
 pub struct StartTrainingPayload<T> {
     global_weights: T,
+    // more stuff...
 }
 
 impl<T> StartTrainingPayload<T> {
@@ -58,9 +68,15 @@ impl<T> StartTrainingPayload<T> {
     }
 }
 
+impl<T> From<StartTrainingPayload<T>> for StartTrainingResponse<T> {
+    fn from(value: StartTrainingPayload<T>) -> Self {
+        Self::Accept(value)
+    }
+}
+
 // end training
 pub type EndTrainingRequest = ClientId;
-pub use state_machine::EndTrainingResponse;
+pub use protocol::EndTrainingResponse;
 
 pub enum Request<T> {
     RendezVous(RequestMessage<RendezVousRequest, RendezVousResponse>),

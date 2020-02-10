@@ -1,7 +1,7 @@
 use super::client::ClientId;
 use super::request::{response_channel, Request};
 use super::request::{
-    EndTrainingResponse, HeartBeatResponse, RendezVousResponse, StartTrainingResponse,
+    EndTrainingResponse, HeartBeatResponse, RendezVousResponse, StartTrainingResponse, RendezVousRequest
 };
 use tokio::sync::mpsc;
 #[derive(Clone)]
@@ -13,7 +13,7 @@ impl<T> CoordinatorHandle<T> {
     }
     pub async fn rendez_vous(&mut self, id: Option<ClientId>) -> Result<RendezVousResponse, ()> {
         let (response_tx, response_rx) = response_channel::<RendezVousResponse>();
-        let req: Request<T> = Request::RendezVous((id, response_tx));
+        let req: Request<T> = Request::RendezVous((RendezVousRequest, response_tx));
         self.0.send(req).await.map_err(|_| ())?;
         response_rx.await
     }

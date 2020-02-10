@@ -5,10 +5,11 @@ mod selector;
 pub use selector::*;
 mod heartbeat;
 mod request;
-mod state_machine;
+mod protocol;
+pub use protocol::CoordinatorConfig;
 
 mod service;
-// pub use service::CoordinatorService;
+pub use service::CoordinatorService;
 
 mod handle;
 pub use client::*;

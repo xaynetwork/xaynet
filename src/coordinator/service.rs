@@ -15,11 +15,8 @@ use crate::coordinator::{Aggregator, Selector};
 
 use super::client::*;
 use super::handle::CoordinatorHandle;
+use super::protocol;
 use super::request::*;
-use super::state_machine::{
-    ClientState, CoordinatorConfig, Event, StartTrainingResponse as RawStartTrainingResponse,
-    StateMachine,
-};
 
 use tokio::sync::mpsc;
 
@@ -45,7 +42,7 @@ where
     heartbeat_expirations_rx: mpsc::UnboundedReceiver<ClientId>,
     // start_training_expirations_rx: mpsc::UnboundedReceiver<ClientId>,
     // done_training_expirations_rx: mpsc::UnboundedReceiver<ClientId>,
-    state_machine: StateMachine,
+    protocol: protocol::Protocol,
     clients: Clients,
     aggregator: A,
     selector: S,
@@ -64,7 +61,7 @@ where
         aggregator: A,
         selector: S,
         global_weights: T,
-        config: CoordinatorConfig,
+        config: protocol::CoordinatorConfig,
     ) -> (Self, CoordinatorHandle<T>) {
         let (requests_tx, requests_rx) = mpsc::channel(2048);
         let (heartbeat_expirations_tx, heartbeat_expirations_rx) = mpsc::unbounded_channel();
@@ -76,15 +73,16 @@ where
             heartbeat_expirations_rx,
             requests_rx,
             clients: Clients::new(heartbeat_expirations_tx),
-            state_machine: StateMachine::new(config),
+            protocol: protocol::Protocol::new(config),
             pending_selection: Vec::new(),
         };
         let handle = CoordinatorHandle::new(requests_tx);
         (coordinator, handle)
     }
+
     /// Handle the pending state machine events.
-    fn handle_state_machine_events(&mut self) {
-        while let Some(event) = self.state_machine.next_event() {
+    fn handle_protocol_events(&mut self) {
+        while let Some(event) = self.protocol.next_event() {
             self.dispatch_event(event);
             self.sanity_checks();
         }
@@ -95,8 +93,8 @@ where
         loop {
             match ready!(Pin::new(&mut self.requests_rx).poll_next(cx)) {
                 Some(request) => {
-                    self.handle_request(request);
-                    self.handle_state_machine_events();
+                    self.dispatch_request(request);
+                    self.handle_protocol_events();
                 }
                 None => return Poll::Ready(None),
             }
@@ -104,63 +102,86 @@ where
     }
 
     /// Handle a request
-    fn handle_request(&mut self, request: Request<T>) {
-        match request {
-            Request::RendezVous((opt_id, sender)) => {
-                // There can be no ID provided, if this is the first
-                // time the client sends a rendez-vous request. In
-                // that case we generate one.
-                let id = opt_id.unwrap_or_else(|| ClientId::new());
-                // Find the client status by ID, defaulting to
-                // Unknown.
-                let status = self.clients.get_state(&id);
-                let response = self.state_machine.rendez_vous(id, status);
-                sender.send(response.into());
-            }
-            Request::HeartBeat((id, sender)) => {
-                let response = self
-                    .state_machine
-                    .heartbeat(id, self.clients.get_state(&id));
-                sender.send(response);
-            }
-            Request::StartTraining((id, sender)) => {
-                let response = match self
-                    .state_machine
-                    .start_training(self.clients.get_state(&id))
-                {
-                    RawStartTrainingResponse::Accept => {
-                        Ok(StartTrainingPayload::new(self.global_weights.clone()))
-                    }
-                    RawStartTrainingResponse::Reject => Err(()),
-                };
-                sender.send(response);
-            }
-            Request::EndTraining((id, sender)) => {
-                let response = self.state_machine.end_training(self.clients.get_state(&id));
-                sender.send(response);
-            }
-        }
-    }
-
     fn apply_pending_selection(&mut self) {
         let Self {
             ref mut pending_selection,
-            ref mut state_machine,
+            ref mut protocol,
             ref mut clients,
             ..
         } = self;
         if !pending_selection.is_empty() {
+            info!("processing pending selection");
             let chunk = pending_selection
                 .drain(0..100)
                 .map(|id| (id, clients.get_state(&id)));
-            state_machine.select(chunk);
+            protocol.select(chunk);
         }
 
-        self.handle_state_machine_events();
+        self.handle_protocol_events();
     }
 
     fn sanity_checks(&self) {
-        assert_eq!(self.clients.get_counters(), self.state_machine.counters());
+        assert_eq!(self.clients.get_counters(), self.protocol.counters());
+    }
+}
+
+impl<A, S, T> CoordinatorService<A, S, T>
+where
+    A: Aggregator<T>,
+    T: Clone,
+    S: Selector,
+{
+    /// Handle a rendez-vous request
+    fn rendez_vous(&mut self, req: RequestMessage<RendezVousRequest, RendezVousResponse>) {
+        let (_, response_sender) = req;
+        let id = ClientId::new();
+        // This should be "Unknown" since we just created a
+        // new uuid.
+        let status = self.clients.get_state(&id);
+        let response = match self.protocol.rendez_vous(id, status) {
+            protocol::RendezVousResponse::Accept => RendezVousResponse::Accept(id),
+            protocol::RendezVousResponse::Reject => RendezVousResponse::Reject,
+        };
+        response_sender.send(response);
+    }
+
+    /// Handle a heartbeat request
+    fn heartbeat(&mut self, req: RequestMessage<HeartBeatRequest, HeartBeatResponse>) {
+        let (id, response_sender) = req;
+        let response = self.protocol.heartbeat(id, self.clients.get_state(&id));
+        response_sender.send(response);
+    }
+
+    /// Handle a start training request
+    fn start_training(
+        &mut self,
+        req: RequestMessage<StartTrainingRequest, StartTrainingResponse<T>>,
+    ) {
+        let (id, response_sender) = req;
+        let response = match self.protocol.start_training(self.clients.get_state(&id)) {
+            protocol::StartTrainingResponse::Accept => {
+                StartTrainingPayload::new(self.global_weights.clone()).into()
+            }
+            protocol::StartTrainingResponse::Reject => StartTrainingResponse::Reject,
+        };
+        response_sender.send(response);
+    }
+
+    /// Handle an end training request
+    fn end_training(&mut self, req: RequestMessage<EndTrainingRequest, EndTrainingResponse>) {
+        let (id, response_sender) = req;
+        let response = self.protocol.end_training(self.clients.get_state(&id));
+        response_sender.send(response);
+    }
+
+    /// Handle a request
+    fn dispatch_request(&mut self, request: Request<T>) {
+        match request {
+            Request::RendezVous(inner_request) => self.rendez_vous(inner_request),
+            Request::HeartBeat(inner_request) => self.heartbeat(inner_request),
+            Request::StartTraining(inner_request) => self.start_training(inner_request),
+            Request::EndTraining(inner_request) => self.end_training(inner_request),
+        }
     }
 }
 
@@ -217,7 +238,7 @@ where
     }
 
     /// Handle a [`Event::SetState`] event
-    fn set_client_state(&mut self, id: ClientId, state: ClientState) {
+    fn set_client_state(&mut self, id: ClientId, state: protocol::ClientState) {
         self.clients
             .set_state(id, state)
             .expect("failed to update client state");
@@ -247,12 +268,23 @@ where
 
     /// Handle a [`Event::RunSelection`] event
     fn run_selection(&mut self, min_count: u32) {
-        if !self.pending_selection.is_empty() {
+        if self.pending_selection.len() >= min_count as usize {
+            info!("Event::RunSelection event ignored: pending selection is large enough");
             return;
         }
+        let count = min_count as usize - self.pending_selection.len();
+
         let waiting = self.clients.iter_waiting();
         let selected = self.clients.iter_selected();
+        info!(
+            "running the selector (selecting at least {} clients)",
+            min_count,
+        );
         self.pending_selection = self.selector.select(min_count as usize, waiting, selected);
+        info!(
+            "pending selection: {} clients",
+            self.pending_selection.len()
+        );
     }
 
     /// Handle a [`Event::RunAggregation`] event
@@ -261,15 +293,17 @@ where
     }
 
     /// Dispatch an [`Event`] to the appropriate handler
-    fn dispatch_event(&mut self, event: Event) {
+    fn dispatch_event(&mut self, event: protocol::Event) {
+        use protocol::Event::*;
+        info!("handling protocol event {:?}", event);
         match event {
-            Event::Accept(id) => self.accept_client(id),
-            Event::Remove(id) => self.remove_client(id),
-            Event::SetState(id, client_state) => self.set_client_state(id, client_state),
-            Event::ResetAll => self.reset_all_clients(),
-            Event::ResetHeartBeat(id) => self.reset_heartbeat(id),
-            Event::RunAggregation => self.run_aggregation(),
-            Event::RunSelection(min_count) => self.run_selection(min_count),
+            Accept(id) => self.accept_client(id),
+            Remove(id) => self.remove_client(id),
+            SetState(id, client_state) => self.set_client_state(id, client_state),
+            ResetAll => self.reset_all_clients(),
+            ResetHeartBeat(id) => self.reset_heartbeat(id),
+            RunAggregation => self.run_aggregation(),
+            RunSelection(min_count) => self.run_selection(min_count),
         }
     }
 }

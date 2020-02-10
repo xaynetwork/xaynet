@@ -5,18 +5,14 @@ extern crate log;
 use derive_more::Display;
 
 mod coordinator;
-use coordinator::{Aggregator, ClientId, Selector};
+use coordinator::{Aggregator, ClientId, CoordinatorConfig, CoordinatorService, Selector};
 
-use rand::{rngs::ThreadRng, seq::IteratorRandom};
+use env_logger;
+use rand::seq::IteratorRandom;
 use std::iter::Iterator;
 
-pub struct RandomSelector(ThreadRng);
+pub struct RandomSelector;
 
-impl RandomSelector {
-    fn new() -> Self {
-        Self(rand::thread_rng())
-    }
-}
 impl Selector for RandomSelector {
     fn select(
         &mut self,
@@ -24,13 +20,20 @@ impl Selector for RandomSelector {
         waiting: impl Iterator<Item = ClientId>,
         _selected: impl Iterator<Item = ClientId>,
     ) -> Vec<ClientId> {
-        waiting.choose_multiple(&mut self.0, min_count)
+        waiting.choose_multiple(&mut rand::thread_rng(), min_count)
     }
 }
 
+#[derive(Debug, Default)]
 pub struct MeanAggregator {
     sum: u32,
     results_count: u32,
+}
+
+impl MeanAggregator {
+    fn new() -> Self {
+        Default::default()
+    }
 }
 
 #[derive(Debug, Display)]
@@ -52,4 +55,18 @@ impl Aggregator<u32> for MeanAggregator {
     }
 }
 
-fn main() {}
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    env_logger::init();
+    let config = CoordinatorConfig {
+        rounds: 10,
+        min_clients: 1,
+        participants_ratio: 1.0,
+    };
+    let (coordinator, mut handle) =
+        CoordinatorService::new(MeanAggregator::new(), RandomSelector, 0, config);
+    tokio::spawn(coordinator);
+    let uuid = handle.rendez_vous(None).await.unwrap();
+    handle.rendez_vous(None).await.unwrap();
+    Ok(())
+}

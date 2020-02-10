@@ -27,7 +27,7 @@ impl Counters {
 }
 
 /// The state machine.
-pub struct StateMachine {
+pub struct Protocol {
     counters: Counters,
 
     /// Whether all the round of training are done
@@ -43,7 +43,7 @@ pub struct StateMachine {
     events: VecDeque<Event>,
 }
 
-impl StateMachine {
+impl Protocol {
     fn number_of_clients_to_select(&self) -> Option<u32> {
         if self.is_training_complete {
             return None;
@@ -91,7 +91,7 @@ impl StateMachine {
 }
 
 // public methods
-impl StateMachine {
+impl Protocol {
     pub fn counters(&self) -> Counters {
         self.counters.clone()
     }
@@ -300,10 +300,10 @@ impl StateMachine {
 }
 
 pub struct CoordinatorConfig {
-    rounds: u32,
-    participants_ratio: f64,
-    min_clients: u32,
-    epoch: u32,
+    pub rounds: u32,
+    pub participants_ratio: f64,
+    pub min_clients: u32,
+    // epoch: u32,
 }
 
 impl CoordinatorConfig {
@@ -313,6 +313,7 @@ impl CoordinatorConfig {
 }
 
 /// Response to a heartbeat
+#[derive(Debug)]
 pub enum HeartBeatResponse {
     /// The client should stand by in its current state
     StandBy,
@@ -330,12 +331,14 @@ pub enum HeartBeatResponse {
 }
 
 /// Response to a "start training" request.
+#[derive(Debug)]
 pub enum StartTrainingResponse {
     Reject,
     Accept,
 }
 
 /// Response to a "end training" request.
+#[derive(Debug)]
 pub enum EndTrainingResponse {
     Accept,
     Reject,
@@ -345,6 +348,7 @@ pub enum EndTrainingResponse {
 // }
 
 /// Response to a rendez-vous request
+#[derive(Debug)]
 pub enum RendezVousResponse {
     /// The coordinator accepts the client
     Accept,
@@ -378,6 +382,7 @@ pub enum ClientState {
 }
 
 /// Events emitted by the state machine
+#[derive(Debug)]
 pub enum Event {
     /// Accept the given client. This client becomes selectable, _ie_
     /// has state [`ClientState::Waiting`].

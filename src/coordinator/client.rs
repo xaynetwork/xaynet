@@ -1,5 +1,5 @@
 use super::heartbeat::*;
-use super::state_machine::*;
+use super::protocol::*;
 use derive_more::Display;
 use std::{
     collections::{HashMap, HashSet},
@@ -186,11 +186,9 @@ impl Clients {
 
         // First, check that the transition we're doing is valid.
         let current_state = self.get_state(&id);
-        if !is_valid_transition(current_state, Selected) {
+        if !is_valid_transition(current_state, new_state) {
             return Err(InvalidClientStateTransition(current_state, new_state));
         }
-        // otherwise we would have returned an error above
-        assert!(self.contains(&id));
 
         if new_state == DoneAndInactive {
             // otherwise, we're doing a transition
@@ -204,7 +202,11 @@ impl Clients {
 
         let mut heartbeat_timer = None;
 
-        let client = if self.is_inactive(&id) {
+        let client = if !self.contains(&id) {
+            let (new_client, new_heartbeat_timer) = self.new_active_client(id);
+            *&mut heartbeat_timer = Some(new_heartbeat_timer);
+            new_client
+        } else if self.is_inactive(&id) {
             self.remove_inactive(&id);
             let (new_client, new_heartbeat_timer) = self.new_active_client(id);
             *&mut heartbeat_timer = Some(new_heartbeat_timer);
@@ -334,7 +336,8 @@ fn is_valid_transition(current_state: ClientState, new_state: ClientState) -> bo
             | (Waiting, Selected)               // Waiting->Selected
             | (Selected, Done | Ignored)        // Selected->Done, Selected->Ignored
             | (Done, Ignored | DoneAndInactive) // Done->Ignored, Done->DoneAndInactive
-            | (DoneAndInactive, Ignored)       // DoneAndInactive->Ignored
+            | (DoneAndInactive, Ignored)        // DoneAndInactive->Ignored
+            | (Unknown, Waiting)
                 => true,
             _ => false,
         }
