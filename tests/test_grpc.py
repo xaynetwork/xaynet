@@ -349,7 +349,6 @@ def test_start_training_round_failed_precondition(  # pylint: disable=unused-arg
 
 
 @pytest.mark.integration
-@pytest.mark.xfail
 def test_end_training_round(coordinator_service, metrics_sample):
     """[summary]
 
@@ -501,7 +500,6 @@ def test_full_training_round(participant_stubs, coordinator_service):
 
 @pytest.mark.integration
 @pytest.mark.slow
-@pytest.mark.xfail
 def test_start_participant(  # pylint: disable=redefined-outer-name
     mock_coordinator_service, participant_config
 ):
@@ -519,7 +517,7 @@ def test_start_participant(  # pylint: disable=redefined-outer-name
     # mock a local participant with a constant train_round function
     with mock.patch("xain_sdk.participant_state_machine.Participant") as mock_obj:
         mock_local_part = mock_obj.return_value
-        mock_local_part.train_round.return_value = init_weight, 1, {}
+        mock_local_part.train_round.return_value = init_weight, 1
 
         config: Config = Config.from_unchecked_dict(participant_config)
 
