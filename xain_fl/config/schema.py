@@ -31,10 +31,6 @@ import idna
 from schema import And, Optional, Or, Schema, SchemaError, Use
 import toml
 
-from xain_fl.logger import StructLogger, get_logger
-
-logger: StructLogger = get_logger(__name__)
-
 
 def error(key: str, description: str) -> str:
     """Return an error message for the given configuration item and
@@ -219,7 +215,15 @@ STORAGE_SCHEMA = Schema(
 )
 
 LOGGING_SCHEMA = Schema(
-    {Optional("level", default="info"): log_level("logging.level"),}
+    {
+        Optional("level", default="info"): log_level("logging.level"),
+        Optional("console", default=False): Use(
+            bool, error=error("logging.console", "a boolean")
+        ),
+        Optional("third_party", default=False): Use(
+            bool, error=error("logging.third_party", "a boolean")
+        ),
+    }
 )
 
 

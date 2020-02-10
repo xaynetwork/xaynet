@@ -42,7 +42,9 @@ secret_access_key = "minio123"
 [logging]
 # The log level can be one of "notset", "debug", "info", "warning",
 # "error" and "critical". It defaults to "info".
-level = "info"
+level = "debug"
+console = true
+third_party = false
 
 
 [metrics]

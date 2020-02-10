@@ -5,6 +5,7 @@ from typing import List
 from google.protobuf.internal.python_message import GeneratedProtocolMessageType
 import numpy as np
 from numpy import ndarray
+from structlog import get_logger
 from xain_proto.fl.coordinator_pb2 import (
     EndTrainingRoundRequest,
     EndTrainingRoundResponse,
@@ -34,7 +35,7 @@ from xain_fl.coordinator.store import (
 )
 from xain_fl.fl.coordinator.aggregate import Aggregator, WeightedAverageAggregator
 from xain_fl.fl.coordinator.controller import Controller, RandomController
-from xain_fl.logger import StructLogger, get_logger
+from xain_fl.logger import StructLogger
 from xain_fl.tools.exceptions import InvalidRequestError, UnknownParticipantError
 
 logger: StructLogger = get_logger(__name__)

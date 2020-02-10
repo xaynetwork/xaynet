@@ -5,8 +5,9 @@ from typing import List
 
 import numpy as np
 from numpy import ndarray
+from structlog import get_logger
 
-from xain_fl.logger import StructLogger, get_logger
+from xain_fl.logger import StructLogger
 
 logger: StructLogger = get_logger(__name__)
 

@@ -4,13 +4,14 @@ from concurrent import futures
 import threading
 
 import grpc
+from structlog import get_logger
 from xain_proto.fl import coordinator_pb2_grpc
 
 from xain_fl.config import ServerConfig
 from xain_fl.coordinator.coordinator import Coordinator
 from xain_fl.coordinator.coordinator_grpc import CoordinatorGrpc
 from xain_fl.coordinator.heartbeat import monitor_heartbeats
-from xain_fl.logger import StructLogger, get_logger
+from xain_fl.logger import StructLogger
 
 logger: StructLogger = get_logger(__name__)
 
