@@ -1,5 +1,6 @@
 use super::client::ClientId;
 use super::protocol;
+use derive_more::Display;
 use tokio::sync::oneshot;
 
 use std::{
@@ -8,6 +9,11 @@ use std::{
     task::{Context, Poll},
 };
 
+/// Error returned when a request fails due to the coordinator having shut down.
+#[derive(Debug, Display)]
+pub struct RequestError;
+
+impl ::std::error::Error for RequestError {}
 pub struct ResponseReceiver<R>(oneshot::Receiver<R>);
 
 pub fn response_channel<R>() -> (ResponseSender<R>, ResponseReceiver<R>) {
@@ -16,12 +22,12 @@ pub fn response_channel<R>() -> (ResponseSender<R>, ResponseReceiver<R>) {
 }
 
 impl<R> Future for ResponseReceiver<R> {
-    type Output = Result<R, ()>;
+    type Output = Result<R, RequestError>;
     fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         Pin::new(&mut self.get_mut().0)
             .as_mut()
             .poll(cx)
-            .map_err(|_| ())
+            .map_err(|_| RequestError)
     }
 }
 
