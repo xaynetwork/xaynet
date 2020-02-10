@@ -13,7 +13,7 @@ StructLogger = (
 )
 
 
-def configure_aimetrics_logger():
+def configure_aimetrics_logger() -> None:
     """Configure a logger named "aimetrics" with a configurable log
     level.
 
@@ -37,8 +37,14 @@ def configure_aimetrics_logger():
     structlog.stdlib.BoundLogger.aimetrics = aimetrics
 
 
-def add_pid_thread(_, __, event_dict):
-    """
+def add_pid_thread(_, __, event_dict) -> dict:
+    """Add the pid and the name of the thread to the event dict.
+
+     Args:
+        event_dict: The event dict of structlog.
+
+    Returns:
+        The updated event dict.
     """
     pid = os.getpid()
     thread = threading.current_thread().getName()
@@ -47,7 +53,11 @@ def add_pid_thread(_, __, event_dict):
 
 
 def configure_structlog(config: LoggingConfig) -> None:
-    """Set the structlog configuration"""
+    """Configure structlog.
+
+    Args:
+        config: The logging config.
+    """
 
     configure_aimetrics_logger()
 
