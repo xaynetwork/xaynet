@@ -451,6 +451,7 @@ def test_full_training_round(participant_stubs, coordinator_service):
 
     assert coordinator_service.coordinator.state == State.STANDBY
     assert coordinator_service.coordinator.current_round == 0
+    assert coordinator_service.coordinator.epoch_base == 0
 
     # The 10th participant connects, so the coordinator switches to ROUND
     last_participant = participants[-1]
@@ -459,6 +460,7 @@ def test_full_training_round(participant_stubs, coordinator_service):
 
     assert coordinator_service.coordinator.state == State.ROUND
     assert coordinator_service.coordinator.current_round == 0
+    assert coordinator_service.coordinator.epoch_base == 0
 
     response = last_participant.Heartbeat(HeartbeatRequest())
     assert response == HeartbeatResponse(state=State.ROUND, round=0)
