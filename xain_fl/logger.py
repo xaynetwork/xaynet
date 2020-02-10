@@ -104,7 +104,7 @@ def configure_structlog(config: LoggingConfig) -> None:
 
     if not config.third_party:
         # disable third party logger
-        for pkg_logger in logging.Logger.manager.loggerDict:
+        for pkg_logger in logging.Logger.manager.loggerDict:  # type: ignore
             logging.getLogger(pkg_logger).propagate = False
 
     handler = logging.StreamHandler()
