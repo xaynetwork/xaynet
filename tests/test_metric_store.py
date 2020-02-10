@@ -4,6 +4,7 @@ from unittest import mock
 
 from influxdb import InfluxDBClient
 import pytest
+
 from xain_fl.config import MetricsConfig
 from xain_fl.coordinator.metrics_store import MetricsStore, MetricsStoreError
 
