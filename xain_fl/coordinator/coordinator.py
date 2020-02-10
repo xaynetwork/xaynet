@@ -96,7 +96,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
 
         epochs: Number of training iterations local to Participant.
 
-        epochs_base: Global number of epochs as of last round.
+        epochs_base: The global epoch number for the start of the next training round.
 
         aggregator: The type of aggregation to perform at the end of
             each round. Defaults to :class:`~.WeightedAverageAggregator`.
@@ -397,6 +397,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
                 self.state = State.FINISHED
             else:
                 self.current_round += 1
+                self.epoch_base += self.epochs
                 # reinitialize the round
                 self.select_participant_ids_and_init_round()
 
