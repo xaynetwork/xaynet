@@ -5,9 +5,10 @@ import json
 
 from influxdb import InfluxDBClient
 from jsonschema import validate
+from structlog import get_logger
 
 from xain_fl.config import MetricsConfig
-from xain_fl.logger import StructLogger, get_logger
+from xain_fl.logger import StructLogger
 
 logger: StructLogger = get_logger(__name__)
 

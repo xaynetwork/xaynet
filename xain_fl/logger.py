@@ -1,16 +1,19 @@
 """XAIN FL structured logger"""
-
 import logging
-from typing import Any, Optional, Union
+import os
+import threading
+from typing import Any
 
 import structlog
+
+from xain_fl.config import LoggingConfig
 
 StructLogger = (
     structlog._config.BoundLoggerLazyProxy  # pylint: disable=protected-access
 )
 
 
-def configure_aimetrics_logger():
+def configure_aimetrics_logger() -> None:
     """Configure a logger named "aimetrics" with a configurable log
     level.
 
@@ -34,62 +37,78 @@ def configure_aimetrics_logger():
     structlog.stdlib.BoundLogger.aimetrics = aimetrics
 
 
-def configure_structlog():
-    """Set the structlog configuration"""
-    structlog.configure(
-        processors=[
-            structlog.stdlib.add_log_level,
-            structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
-        ],
-        logger_factory=structlog.stdlib.LoggerFactory(),
-        wrapper_class=structlog.stdlib.BoundLogger,
-        cache_logger_on_first_use=True,
-    )
+def add_pid_thread(_, __, event_dict) -> dict:
+    """Add the pid and the name of the thread to the event dict.
 
-
-def set_log_level(level: Union[str, int]):
-    """Set the log level on the root logger. Since by default, the root
-    logger log level is inherited by all the loggers, this is like
-    setting a default log level.
-
-    Args:
-
-        level: the log level, as documented in the `Python standard
-            library <https://docs.python.org/3/library/logging.html#levels>`_
-    """
-    root_logger = logging.getLogger()
-    root_logger.setLevel(level)
-
-
-def initialize_logging():
-    """Set up logging
-
-    """
-    configure_aimetrics_logger()
-    configure_structlog()
-
-
-def get_logger(
-    name: str, level: Optional[int] = None
-) -> structlog._config.BoundLoggerLazyProxy:  # pylint: disable=protected-access
-    """Wrap python logger with default configuration of structlog.
-
-    Args:
-        name: Identification name. For module name pass ``name=__name__``.
-        level: Threshold for this logger.
+     Args:
+        event_dict: The event dict of structlog.
 
     Returns:
-        Wrapped python logger with default configuration of structlog.
+        The updated event dict.
     """
-    formatter = structlog.stdlib.ProcessorFormatter(
-        processor=structlog.processors.JSONRenderer(indent=2, sort_keys=True)
-    )
+    pid = os.getpid()
+    thread = threading.current_thread().getName()
+    event_dict["pid_thread"] = f"{pid}-{thread}"
+    return event_dict
+
+
+def configure_structlog(config: LoggingConfig) -> None:
+    """Configure structlog.
+
+    Args:
+        config: The logging config.
+    """
+
+    configure_aimetrics_logger()
+
+    if config.console:
+        shared_processors = [
+            structlog.stdlib.add_logger_name,
+            structlog.stdlib.add_log_level,
+            structlog.stdlib.PositionalArgumentsFormatter(),
+            structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M.%S"),
+            add_pid_thread,
+            structlog.processors.StackInfoRenderer(),
+            structlog.processors.format_exc_info,
+        ]
+
+        structlog.configure(
+            processors=shared_processors
+            + [structlog.stdlib.ProcessorFormatter.wrap_for_formatter,],
+            context_class=dict,
+            logger_factory=structlog.stdlib.LoggerFactory(),
+            wrapper_class=structlog.stdlib.BoundLogger,
+            cache_logger_on_first_use=True,
+        )
+
+        formatter = structlog.stdlib.ProcessorFormatter(
+            processor=structlog.dev.ConsoleRenderer(),
+            foreign_pre_chain=shared_processors,
+        )
+    else:
+        shared_processors = [
+            structlog.stdlib.add_log_level,
+        ]
+        structlog.configure(
+            processors=shared_processors
+            + [structlog.stdlib.ProcessorFormatter.wrap_for_formatter,],
+            logger_factory=structlog.stdlib.LoggerFactory(),
+            wrapper_class=structlog.stdlib.BoundLogger,
+            cache_logger_on_first_use=True,
+        )
+
+        formatter = structlog.stdlib.ProcessorFormatter(
+            processor=structlog.processors.JSONRenderer(indent=2, sort_keys=True),
+            foreign_pre_chain=shared_processors,
+        )
+
+    if not config.third_party:
+        # disable third party logger
+        for pkg_logger in logging.Logger.manager.loggerDict:  # type: ignore
+            logging.getLogger(pkg_logger).propagate = False
+
     handler = logging.StreamHandler()
     handler.setFormatter(formatter)
-    logger = logging.getLogger(name)
-    logger.addHandler(handler)
-
-    if level is not None:
-        logger.setLevel(level)
-
-    return structlog.wrap_logger(logger)
+    root_logger = logging.getLogger()
+    root_logger.addHandler(handler)
+    root_logger.setLevel(config.level.upper())
