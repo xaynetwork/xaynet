@@ -1,9 +1,6 @@
 """
 Tests for the `xain_fl.config.Config` class.
 """
-# pytest's fixture pattern is based triggers pylint's
-# `redefined-outer-name` lint.
-# pylint: disable=redefined-outer-name
 import re
 
 import pytest
@@ -58,9 +55,7 @@ def logging_sample():
     """
     Return a valid "logging" section
     """
-    return {
-        "level": "debug",
-    }
+    return {"level": "debug", "console": True, "third_party": True}
 
 
 @pytest.fixture
@@ -81,7 +76,7 @@ def metrics_sample():
 @pytest.fixture
 def config_sample(
     server_sample, ai_sample, storage_sample, logging_sample, metrics_sample
-):
+):  # pylint: disable=redefined-outer-name
     """
     Return a valid config
     """
@@ -94,7 +89,7 @@ def config_sample(
     }
 
 
-def test_default_logging_config(config_sample):
+def test_default_logging_config(config_sample):  # pylint: disable=redefined-outer-name
     """Check that the config loads if the [logging] section is not
     specified
 
@@ -108,7 +103,7 @@ def test_default_logging_config(config_sample):
     assert config.logging.level == "info"
 
 
-def test_invalid_logging_config(config_sample):
+def test_invalid_logging_config(config_sample):  # pylint: disable=redefined-outer-name
     """Various negative cases for the [logging] section"""
     config_sample["logging"] = {"level": "invalid"}
 
@@ -120,7 +115,7 @@ def test_invalid_logging_config(config_sample):
     )
 
 
-def test_load_valid_config(config_sample):
+def test_load_valid_config(config_sample):  # pylint: disable=redefined-outer-name
     """
     Check that a valid config is loaded correctly
     """
@@ -152,8 +147,14 @@ def test_load_valid_config(config_sample):
     assert config.metrics.password == "root"
     assert config.metrics.db_name == "metrics"
 
+    assert config.logging.level == "debug"
+    assert config.logging.console is True
+    assert config.logging.third_party is True
 
-def test_server_config_ip_address(config_sample, server_sample):
+
+def test_server_config_ip_address(
+    config_sample, server_sample
+):  # pylint: disable=redefined-outer-name
     """Check that the config is loaded correctly when the `server.host`
     key is an IP address
 
@@ -171,7 +172,9 @@ def test_server_config_ip_address(config_sample, server_sample):
     assert config.server.host == server_sample["host"]
 
 
-def test_server_config_extra_key(config_sample, server_sample):
+def test_server_config_extra_key(
+    config_sample, server_sample
+):  # pylint: disable=redefined-outer-name
     """Check that the config is rejected when the server section contains
     an extra key
 
@@ -186,7 +189,9 @@ def test_server_config_extra_key(config_sample, server_sample):
     err.check_extra_key("extra-key")
 
 
-def test_server_config_invalid_host(config_sample, server_sample):
+def test_server_config_invalid_host(
+    config_sample, server_sample
+):  # pylint: disable=redefined-outer-name
     """Check that the config is rejected when the `server.host` key is
     invalid.
 
@@ -204,7 +209,9 @@ def test_server_config_invalid_host(config_sample, server_sample):
     )
 
 
-def test_server_config_valid_ipv6(config_sample, server_sample):
+def test_server_config_valid_ipv6(
+    config_sample, server_sample
+):  # pylint: disable=redefined-outer-name
     """Check some edge cases with IPv6 `server.host` key"""
     server_sample["host"] = "::"
     config_sample["server"] = server_sample
