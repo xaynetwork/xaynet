@@ -227,8 +227,10 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
             participant_id: The id of the participant to remove.
         """
 
-        self.participants.remove(participant_id)
         logger.info("Removing participant", participant_id=participant_id)
+        self.participants.remove(participant_id)
+        # remove from selected if necessary
+        self.round.remove_selected(participant_id)
 
         if self.participants.len() < self.minimum_connected_participants:
             self.state = State.STANDBY
@@ -239,6 +241,17 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         self.controller.fraction_of_participants = self.fraction_of_participants
         selected_ids = self.controller.select_ids(self.participants.ids())
         self.round = Round(selected_ids)
+
+    def select_outstanding(self) -> List[str]:
+        """Selects participant ids."""
+
+        selected = set(self.round.participant_ids)
+        num_outstanding = self.minimum_participants_in_round - len(selected)
+        pool = set(self.participants.ids()) - selected
+        frac = num_outstanding / len(pool)
+
+        self.controller.fraction_of_participants = frac
+        return self.controller.select_ids(list(pool))
 
     def _handle_rendezvous(
         self, _message: RendezvousRequest, participant_id: str
@@ -265,7 +278,10 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
             # Select participants and change the state to ROUND if the latest added participant
             # lets us meet the minimum number of connected participants
             if self.participants.len() == self.minimum_connected_participants:
-                self.select_participant_ids_and_init_round()
+                # select enough to fill round if needed
+                if len(self.round.participant_ids) < self.minimum_participants_in_round:
+                    ids = self.select_outstanding()
+                    self.round.add_selected(ids)
 
                 self.state = State.ROUND
         else:
