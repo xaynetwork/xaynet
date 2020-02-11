@@ -17,6 +17,7 @@ use super::client::*;
 use super::handle::CoordinatorHandle;
 use super::protocol;
 use super::request::*;
+use std::fmt::Debug;
 
 use tokio::sync::mpsc;
 
@@ -31,7 +32,7 @@ use std::{
 pub struct CoordinatorService<A, S, T>
 where
     A: Aggregator<T>,
-    T: Clone,
+    T: Clone + Debug,
     S: Selector,
 {
     requests_rx: mpsc::Receiver<Request<T>>,
@@ -50,7 +51,7 @@ where
 impl<A, S, T> CoordinatorService<A, S, T>
 where
     A: Aggregator<T>,
-    T: Clone,
+    T: Clone + Debug,
     S: Selector,
 {
     pub fn new(
@@ -136,7 +137,7 @@ where
 impl<A, S, T> CoordinatorService<A, S, T>
 where
     A: Aggregator<T>,
-    T: Clone,
+    T: Clone + Debug,
     S: Selector,
 {
     /// Handle a rendez-vous request
@@ -217,7 +218,7 @@ where
     // the selector ? Unless it is not ?
     A: Aggregator<T> + Unpin,
     S: Selector + Unpin,
-    T: Clone + Unpin,
+    T: Clone + Unpin + Debug,
 {
     type Output = ();
     fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
@@ -241,7 +242,7 @@ where
 impl<A, S, T> CoordinatorService<A, S, T>
 where
     A: Aggregator<T>,
-    T: Clone,
+    T: Clone + Debug,
     S: Selector,
 {
     /// Handle a [`Event::Accept`] event
@@ -316,6 +317,7 @@ where
     /// Handle a [`Event::RunAggregation`] event
     fn run_aggregation(&mut self) {
         self.global_weights = self.aggregator.aggregate().unwrap();
+        info!("aggrgation ran: {:?}", self.global_weights);
     }
 
     /// Dispatch an [`Event`] to the appropriate handler
