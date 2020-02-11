@@ -70,6 +70,21 @@ services:
     ports:
       - "8086:8086"
 
+  keycloak:
+    image: jboss/keycloak:8.0.2
+    hostname: keycloak
+    environment:
+      KEYCLOAK_USER: admin
+      KEYCLOAK_PASSWORD: adminadmin
+      DB_VENDOR: h2
+      # Can't properly provision a login theme
+#    volumes:
+#      - ${PWD}/xain-theme-keycloak:/opt/jboss/keycloak/themes
+    networks:
+      - xain-fl-dev
+    ports:
+      - "8080:8080"
+
   xain-fl-dev:
     build:
       context: .
