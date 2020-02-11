@@ -1,6 +1,6 @@
 """XAIN FL Coordinator"""
 
-from typing import Dict, List
+from typing import List
 
 from google.protobuf.internal.python_message import GeneratedProtocolMessageType
 import numpy as np
@@ -96,7 +96,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
 
         epochs: Number of training iterations local to Participant.
 
-        epochs_base: Global number of epochs as of last round.
+        epochs_base: The global epoch number for the start of the next training round.
 
         aggregator: The type of aggregation to perform at the end of
             each round. Defaults to :class:`~.WeightedAverageAggregator`.
@@ -357,18 +357,14 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         # record the request data
         model_weights: ndarray = proto_to_ndarray(message.weights)
         number_samples: int = message.number_samples
-        metrics: Dict[str, ndarray] = {
-            k: proto_to_ndarray(v) for k, v in message.metrics.items()
-        }
         self.round.add_updates(
             participant_id=participant_id,
             model_weights=model_weights,
             aggregation_data=number_samples,
-            metrics=metrics,
         )
 
         try:
-            self.metrics_store.write_metrics(participant_id, metrics)
+            self.metrics_store.write_metrics(message.metrics)
         except MetricsStoreError as err:
             logger.warn(
                 "Can not write metrics", participant_id=participant_id, error=repr(err)
@@ -401,6 +397,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
                 self.state = State.FINISHED
             else:
                 self.current_round += 1
+                self.epoch_base += self.epochs
                 # reinitialize the round
                 self.select_participant_ids_and_init_round()
 

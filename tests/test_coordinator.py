@@ -167,21 +167,27 @@ def test_end_training_round_update():
 
     # Test that the round number is updated once all participants sent their updates
     coordinator = Coordinator(
-        minimum_participants_in_round=2, fraction_of_participants=1.0, num_rounds=2
+        minimum_participants_in_round=2,
+        fraction_of_participants=1.0,
+        num_rounds=2,
+        epochs=3,
     )
     coordinator.on_message(RendezvousRequest(), "participant1")
     coordinator.on_message(RendezvousRequest(), "participant2")
 
     # check that we are currently in round 0
     assert coordinator.current_round == 0
+    assert coordinator.epoch_base == 0
 
     coordinator.on_message(EndTrainingRoundRequest(), "participant1")
     # check we are still in round 0
     assert coordinator.current_round == 0
+    assert coordinator.epoch_base == 0
     coordinator.on_message(EndTrainingRoundRequest(), "participant2")
 
     # check that round number was updated
     assert coordinator.current_round == 1
+    assert coordinator.epoch_base == 3
 
 
 def test_end_training_round_reinitialize_local_models():
