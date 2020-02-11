@@ -181,7 +181,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         logger.debug(
             "Received message from participant",
             message_type=message.DESCRIPTOR.name,
-            message_size_in_bytes=message.ByteSize(),
+            message_byte_size=message.ByteSize(),
             participant_id=participant_id,
         )
 
