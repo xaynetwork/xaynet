@@ -49,7 +49,6 @@ Fix minor issues, update documentation.
 Flatten model weights instead of using lists.
 Fix minor issues, update documentation.
 
-
 - PB-116: pin docutils version (#259) [Corentin Henry]
 - PB-119 update isort config and calls (#260) [janpetschexain]
 - PB-351 Store participant metrics (#244) [Robert Steiner]
