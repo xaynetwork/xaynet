@@ -20,15 +20,35 @@ For reference, the possible headings are:
 
 ## [Unreleased]
 
-## [0.5.0] - (UNRELEASED)
+## [0.5.0] - 2020-02-12
 
-Make Coordinator stateless.
-Fix found issues.
+Fix minor issues, update documentation.
+
+- PB-402 Add more logs (#281) [Robert Steiner]
+- DO-76 :whale: non alpine image (#287) [Daniel Kravetz]
+- PB-401 Add console renderer (#280) [Robert Steiner]
+- DO-80 :ambulance: Update dev Dockerfile to build gRPC (#286) [Daniel Kravetz]
+- DO-78 :sparkles: add grafana (#284) [Daniel Kravetz]
+- DO-66 :sparkles: Add keycloak (#283) [Daniel Kravetz]
+- PB-400 increment epoch base (#282) [janpetschexain]
+- PB-397 Simplify write metrics function (#279) [Robert Steiner]
+- PB-385 Fix xain-sdk test (#278) [Robert Steiner]
+- PB-352 Add sdk config (#272) [Robert Steiner]
+- Merge pull request #277 from xainag/master. [Daniel Kravetz]
+- Hotfix: update ci. [Daniel Kravetz]
+- DO-72 :art: Make CI name and feature consistent with other repos. [Daniel Kravetz]
+- DO-47 :newspaper: Build test package on release branch. [Daniel Kravetz]
+- PB-269: enable reading participants weights from S3 (#254) [Corentin Henry]
+- PB-363 Start new development cycle (#271) [Anastasiia Tymoshchuk]
+- PB-119 enable isort diff (#262) [janpetschexain]
+- PB-363 :gem: Release v0.4.0. [Daniel Kravetz]
+- DO-73 :green_heart: Disable continue_on_failure for CI jobs. Fix mypy. [Daniel Kravetz]
 
 ## [0.4.0] - 2020-02-04
 
 Flatten model weights instead of using lists.
 Fix minor issues, update documentation.
+
 
 - PB-116: pin docutils version (#259) [Corentin Henry]
 - PB-119 update isort config and calls (#260) [janpetschexain]
