@@ -148,7 +148,11 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         self.current_round: int = 0
         self.epochs_current_round: int = epochs
 
-        self._write_metrics_silently("State", self.state)
+        self._write_metrics_fail_silently("State", self.state)
+        self._write_metrics_fail_silently("Round", self.current_round)
+        self._write_metrics_fail_silently(
+            "Number of selected Participants", self.participants.len()
+        )
 
     def get_minimum_connected_participants(self) -> int:
         """Calculates how many participants are needed so that we can select
@@ -237,7 +241,11 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
 
         if self.participants.len() < self.minimum_connected_participants:
             self.state = State.STANDBY
-            self._write_metrics_silently("State", self.state)
+            self._write_metrics_fail_silently("State", self.state)
+
+        self._write_metrics_fail_silently(
+            "Number of selected Participants", self.participants.len()
+        )
 
     def select_participant_ids_and_init_round(self) -> None:
         """Selects the participant ids and initiates a Round."""
@@ -282,6 +290,9 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
                 participant_id=participant_id,
                 current_participants_count=self.participants.len(),
             )
+            self._write_metrics_fail_silently(
+                "Number of selected Participants", self.participants.len()
+            )
 
             # Select participants and change the state to ROUND if the latest added participant
             # lets us meet the minimum number of connected participants
@@ -292,7 +303,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
                     self.round.add_selected(ids)
 
                 self.state = State.ROUND
-                self._write_metrics_silently("State", self.state)
+                self._write_metrics_fail_silently("State", self.state)
         else:
             reply = RendezvousReply.LATER
             logger.info(
@@ -331,7 +342,6 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         else:
             state = State.STANDBY
 
-        # send heartbeat response advertising the current state
         logger.debug(
             "Heartbeat response",
             participant_id=participant_id,
@@ -339,6 +349,10 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
             round=self.current_round,
             current_participants_count=self.participants.len(),
         )
+        self._write_metrics_fail_silently(
+            "Number of selected Participants", self.participants.len()
+        )
+        # send heartbeat response advertising the current state
         return HeartbeatResponse(state=state, round=self.current_round)
 
     def _handle_start_training_round(
@@ -439,17 +453,18 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
             if self.current_round >= self.num_rounds - 1:
                 logger.info("Last round over", round=self.current_round)
                 self.state = State.FINISHED
-                self._write_metrics_silently("State", self.state)
+                self._write_metrics_fail_silently("State", self.state)
             else:
                 self.current_round += 1
                 self.epoch_base += self.epochs_current_round
+                self._write_metrics_fail_silently("Round", self.current_round)
                 # reinitialize the round
                 self.select_participant_ids_and_init_round()
 
         logger.debug("Send EndTrainingRoundResponse", participant_id=participant_id)
         return EndTrainingRoundResponse()
 
-    def _write_metrics_silently(self, metric, value, tags=None):
+    def _write_metrics_fail_silently(self, metric, value, tags=None):
         try:
             self.metrics_store.write_metrics(metric, value, tags)
         except MetricsStoreError as err:
