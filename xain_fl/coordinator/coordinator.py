@@ -277,8 +277,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
             )
 
         logger.debug(
-            "Send RendezvousResponse",
-            reply=_RENDEZVOUSREPLY.values_by_number[reply].name,
+            "Send RendezvousResponse", reply=pb_enum_to_str(_RENDEZVOUSREPLY, reply)
         )
         return RendezvousResponse(reply=reply)
 
@@ -311,7 +310,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         logger.debug(
             "Heartbeat response",
             participant_id=participant_id,
-            state=_STATE.values_by_number[state].name,
+            state=pb_enum_to_str(_STATE, state),
             round=self.current_round,
             current_participants_count=self.participants.len(),
         )
@@ -417,3 +416,16 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
 
         logger.debug("Send EndTrainingRoundResponse", participant_id=participant_id)
         return EndTrainingRoundResponse()
+
+
+def pb_enum_to_str(pb_enum, member_value: int) -> str:
+    """Return the human readable string of a enum member value.
+
+    Args:
+        pb_enum: The proto enum definition.
+        member_value:  The enum member value.
+    
+    Returns:
+        The human readable string of a enum member value.
+    """
+    return pb_enum.values_by_number[member_value].name
