@@ -1,11 +1,14 @@
 """XAIN FL Coordinator"""
 
-from typing import Dict, List
+from typing import List
 
 from google.protobuf.internal.python_message import GeneratedProtocolMessageType
 import numpy as np
 from numpy import ndarray
+from structlog import get_logger
 from xain_proto.fl.coordinator_pb2 import (
+    _RENDEZVOUSREPLY,
+    _STATE,
     EndTrainingRoundRequest,
     EndTrainingRoundResponse,
     HeartbeatRequest,
@@ -26,10 +29,15 @@ from xain_fl.coordinator.metrics_store import (
 )
 from xain_fl.coordinator.participants import Participants
 from xain_fl.coordinator.round import Round
-from xain_fl.coordinator.store import AbstractStore, NullObjectStore
+from xain_fl.coordinator.store import (
+    AbstractGlobalWeightsWriter,
+    AbstractLocalWeightsReader,
+    NullObjectGlobalWeightsWriter,
+    NullObjectLocalWeightsReader,
+)
 from xain_fl.fl.coordinator.aggregate import Aggregator, WeightedAverageAggregator
 from xain_fl.fl.coordinator.controller import Controller, RandomController
-from xain_fl.logger import StructLogger, get_logger
+from xain_fl.logger import StructLogger
 from xain_fl.tools.exceptions import InvalidRequestError, UnknownParticipantError
 
 logger: StructLogger = get_logger(__name__)
@@ -72,6 +80,11 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         regardless of which state the coordinator is on.
 
     Args:
+
+        global_weights_writer: service for storing global weights
+
+        local_weights_reader: service for retrieving the local weights
+
         num_rounds: The number of rounds of the training session.
 
         minimum_participants_in_round: The minimum number of
@@ -86,19 +99,21 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
 
         epochs: Number of training iterations local to Participant.
 
-        epochs_base: Global number of epochs as of last round.
+        epochs_base: The global epoch number for the start of the next training round.
 
         aggregator: The type of aggregation to perform at the end of
             each round. Defaults to :class:`~.WeightedAverageAggregator`.
 
         controller: Controls how the Participants are selected at the
             start of each round. Defaults to :class:`~.RandomController`.
+
     """
 
     def __init__(  # pylint: disable=too-many-arguments
         self,
-        store: AbstractStore = NullObjectStore(),
         metrics_store: AbstractMetricsStore = NullObjectMetricsStore(),
+        global_weights_writer: AbstractGlobalWeightsWriter = NullObjectGlobalWeightsWriter(),
+        local_weights_reader: AbstractLocalWeightsReader = NullObjectLocalWeightsReader(),
         num_rounds: int = 1,
         minimum_participants_in_round: int = 1,
         fraction_of_participants: float = 1.0,
@@ -108,7 +123,9 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         aggregator: Aggregator = WeightedAverageAggregator(),
         controller: Controller = RandomController(),
     ) -> None:
-        self.store: AbstractStore = store
+        self.global_weights_writer: AbstractGlobalWeightsWriter = global_weights_writer
+        # pylint: disable=line-too-long
+        self.local_weights_reader: AbstractLocalWeightsReader = local_weights_reader
         self.minimum_participants_in_round: int = minimum_participants_in_round
         self.fraction_of_participants: float = fraction_of_participants
         self.participants: Participants = Participants()
@@ -163,7 +180,8 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
 
         logger.debug(
             "Received message from participant",
-            message_type=type(message),
+            message_type=message.DESCRIPTOR.name,
+            message_byte_size=message.ByteSize(),
             participant_id=participant_id,
         )
 
@@ -258,6 +276,9 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
                 current_participants_count=self.participants.len(),
             )
 
+        logger.debug(
+            "Send RendezvousResponse", reply=pb_enum_to_str(_RENDEZVOUSREPLY, reply)
+        )
         return RendezvousResponse(reply=reply)
 
     def _handle_heartbeat(
@@ -289,8 +310,9 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         logger.debug(
             "Heartbeat response",
             participant_id=participant_id,
-            message=state,
+            state=pb_enum_to_str(_STATE, state),
             round=self.current_round,
+            current_participants_count=self.participants.len(),
         )
         return HeartbeatResponse(state=state, round=self.current_round)
 
@@ -317,6 +339,11 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
                 "StartTrainingRoundRequest outside of a round"
             )
 
+        logger.debug(
+            "Send StartTrainingRoundResponse",
+            epochs=self.epochs,
+            epoch_base=self.epoch_base,
+        )
         return StartTrainingRoundResponse(
             weights=ndarray_to_proto(self.weights),
             epochs=self.epochs,
@@ -343,22 +370,24 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         # record the request data
         model_weights: ndarray = proto_to_ndarray(message.weights)
         number_samples: int = message.number_samples
-        metrics: Dict[str, ndarray] = {
-            k: proto_to_ndarray(v) for k, v in message.metrics.items()
-        }
         self.round.add_updates(
             participant_id=participant_id,
             model_weights=model_weights,
             aggregation_data=number_samples,
-            metrics=metrics,
         )
 
         try:
-            self.metrics_store.write_metrics(participant_id, metrics)
+            self.metrics_store.write_metrics(message.metrics)
         except MetricsStoreError as err:
             logger.warn(
                 "Can not write metrics", participant_id=participant_id, error=repr(err)
             )
+
+        # FIXME(XP-515): For now, `read_weights()` doesn't do
+        # anything, we actually get the participants weights through
+        # self.round.add_updates(). Ultimatly, the weights will be
+        # read from S3.
+        _ = self.local_weights_reader.read_weights(participant_id, self.current_round)
 
         # The round is over. Run the aggregation
         if self.round.is_finished():
@@ -373,7 +402,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
                 multiple_model_weights=multiple_model_weights,
                 aggregation_data=aggregation_data,
             )
-            self.store.write_weights(round=self.current_round, weights=self.weights)
+            self.global_weights_writer.write_weights(self.current_round, self.weights)
 
             # update the round or finish the training session
             if self.current_round >= self.num_rounds - 1:
@@ -381,7 +410,22 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
                 self.state = State.FINISHED
             else:
                 self.current_round += 1
+                self.epoch_base += self.epochs
                 # reinitialize the round
                 self.select_participant_ids_and_init_round()
 
+        logger.debug("Send EndTrainingRoundResponse", participant_id=participant_id)
         return EndTrainingRoundResponse()
+
+
+def pb_enum_to_str(pb_enum, member_value: int) -> str:
+    """Return the human readable string of a enum member value.
+
+    Args:
+        pb_enum: The proto enum definition.
+        member_value:  The enum member value.
+
+    Returns:
+        The human readable string of a enum member value.
+    """
+    return pb_enum.values_by_number[member_value].name

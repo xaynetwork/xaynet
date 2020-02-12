@@ -3,6 +3,8 @@
 """
 import sys
 
+from structlog import get_logger
+
 from xain_fl.config import Config, InvalidConfig, get_cmd_parameters
 from xain_fl.coordinator.coordinator import Coordinator
 from xain_fl.coordinator.metrics_store import (
@@ -10,8 +12,11 @@ from xain_fl.coordinator.metrics_store import (
     MetricsStore,
     NullObjectMetricsStore,
 )
-from xain_fl.coordinator.store import S3Store
-from xain_fl.logger import StructLogger, get_logger, initialize_logging, set_log_level
+from xain_fl.coordinator.store import (
+    NullObjectLocalWeightsReader,
+    S3GlobalWeightsWriter,
+)
+from xain_fl.logger import StructLogger, configure_structlog
 from xain_fl.serve import serve
 
 logger: StructLogger = get_logger(__name__)
@@ -20,7 +25,6 @@ logger: StructLogger = get_logger(__name__)
 def main():
     """Start a coordinator instance
     """
-    initialize_logging()
 
     args = get_cmd_parameters()
     try:
@@ -29,14 +33,15 @@ def main():
         logger.error("Invalid config", error=str(err))
         sys.exit(1)
 
-    set_log_level(config.logging.level.upper())
+    configure_structlog(config.logging)
 
     metrics_store: AbstractMetricsStore = NullObjectMetricsStore()
     if config.metrics.enable:
         metrics_store = MetricsStore(config.metrics)
 
     coordinator = Coordinator(
-        store=S3Store(config.storage),
+        global_weights_writer=S3GlobalWeightsWriter(config.storage),
+        local_weights_reader=NullObjectLocalWeightsReader(),
         num_rounds=config.ai.rounds,
         epochs=config.ai.epochs,
         minimum_participants_in_round=config.ai.min_participants,

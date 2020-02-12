@@ -4,8 +4,10 @@ import threading
 import time
 from typing import List
 
+from structlog import get_logger
+
 from xain_fl.coordinator.coordinator import Coordinator
-from xain_fl.logger import StructLogger, get_logger
+from xain_fl.logger import StructLogger
 
 logger: StructLogger = get_logger(__name__)
 

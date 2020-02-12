@@ -21,6 +21,7 @@ from xain_proto.fl.coordinator_pb2 import (
 )
 from xain_proto.fl.coordinator_pb2_grpc import add_CoordinatorServicer_to_server
 from xain_proto.np import ndarray_to_proto
+from xain_sdk.config import Config
 from xain_sdk.participant_state_machine import (
     StateRecord,
     end_training_round,
@@ -35,7 +36,32 @@ from xain_fl.coordinator.coordinator_grpc import CoordinatorGrpc
 from xain_fl.coordinator.heartbeat import monitor_heartbeats
 from xain_fl.coordinator.participants import ParticipantContext, Participants
 
-from .store import MockS3Store
+from .store import MockS3Writer
+
+
+@pytest.fixture
+def participant_config() -> dict:
+    """
+    Return a valid participant config.
+    """
+    return {
+        "coordinator": {
+            "host": "localhost",
+            "port": 50051,
+            "grpc_options": {
+                "grpc.max_receive_message_length": -1,
+                "grpc.max_send_message_length": -1,
+            },
+        },
+        "storage": {
+            "enable": False,
+            "endpoint": "http://localhost:9000",
+            "bucket": "aggregated_weights",
+            "secret_access_key": "my-secret",
+            "access_key_id": "my-key-id",
+        },
+        "logging": {"level": "info",},
+    }
 
 
 @pytest.mark.integration
@@ -221,7 +247,9 @@ def test_many_heartbeats_expire_in_short_interval():
     "xain_sdk.participant_state_machine.threading.Event.is_set",
     side_effect=[False, False, True],
 )
-@mock.patch("xain_sdk.participant_state_machine.time.sleep", return_value=None)
+@mock.patch(
+    "xain_sdk.participant_state_machine.threading.Event.wait", return_value=None
+)
 @mock.patch("xain_sdk.participant_state_machine.HeartbeatRequest")
 def test_message_loop(mock_heartbeat_request, _mock_sleep, _mock_event):
     """[summary]
@@ -321,7 +349,7 @@ def test_start_training_round_failed_precondition(  # pylint: disable=unused-arg
 
 
 @pytest.mark.integration
-def test_end_training_round(coordinator_service):
+def test_end_training_round(coordinator_service, metrics_sample):
     """[summary]
 
     .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
@@ -335,13 +363,12 @@ def test_end_training_round(coordinator_service):
     # simulate trained local model data
     test_weights = np.arange(20)
     number_samples = 2
-    test_metrics = {"metric": np.arange(10, 20)}
 
     with grpc.insecure_channel("localhost:50051") as channel:
         # we first need to rendezvous before we can send any other request
         rendezvous(channel)
         # call EndTrainingRound service method on coordinator
-        end_training_round(channel, test_weights, number_samples, test_metrics)
+        end_training_round(channel, test_weights, number_samples, metrics_sample)
     # check local model received...
 
     assert len(coordinator_service.coordinator.round.updates) == 1
@@ -352,11 +379,6 @@ def test_end_training_round(coordinator_service):
     _, round_update = round_.updates.popitem()
     np.testing.assert_equal(round_update["model_weights"], test_weights)
     assert round_update["aggregation_data"] == number_samples
-
-    round_update_metrics = round_update["metrics"]
-    assert round_update_metrics.keys() == test_metrics.keys()
-    for key, values in test_metrics.items():
-        np.testing.assert_equal(round_update_metrics[key], values)
 
 
 @pytest.mark.integration
@@ -406,8 +428,8 @@ def test_end_training_round_denied(  # pylint: disable=unused-argument
 def test_full_training_round(participant_stubs, coordinator_service):
     """Run a complete training round with multiple participants.
     """
-    # Use a MockS3Store so that we can also test the storage logic
-    coordinator_service.coordinator.store = MockS3Store()
+    # Use a MockS3Writer so that we can also test the storage logic
+    coordinator_service.coordinator.global_weights_writer = MockS3Writer()
 
     # Initialize the coordinator with dummy weights, otherwise, the
     # aggregated weights at the end of the round are an empty array.
@@ -429,6 +451,7 @@ def test_full_training_round(participant_stubs, coordinator_service):
 
     assert coordinator_service.coordinator.state == State.STANDBY
     assert coordinator_service.coordinator.current_round == 0
+    assert coordinator_service.coordinator.epoch_base == 0
 
     # The 10th participant connects, so the coordinator switches to ROUND
     last_participant = participants[-1]
@@ -437,6 +460,7 @@ def test_full_training_round(participant_stubs, coordinator_service):
 
     assert coordinator_service.coordinator.state == State.ROUND
     assert coordinator_service.coordinator.current_round == 0
+    assert coordinator_service.coordinator.epoch_base == 0
 
     response = last_participant.Heartbeat(HeartbeatRequest())
     assert response == HeartbeatResponse(state=State.ROUND, round=0)
@@ -463,7 +487,7 @@ def test_full_training_round(participant_stubs, coordinator_service):
         assert response == EndTrainingRoundResponse()
 
     assert not coordinator_service.coordinator.round.is_finished()
-    coordinator_service.coordinator.store.assert_didnt_write(1)
+    coordinator_service.coordinator.global_weights_writer.assert_didnt_write(1)
 
     # The last participant finishes training
     response = last_participant.EndTrainingRound(
@@ -471,14 +495,16 @@ def test_full_training_round(participant_stubs, coordinator_service):
     )
     assert response == EndTrainingRoundResponse()
     # Make sure we wrote the results for the given round
-    coordinator_service.coordinator.store.assert_wrote(
+    coordinator_service.coordinator.global_weights_writer.assert_wrote(
         0, coordinator_service.coordinator.weights
     )
 
 
 @pytest.mark.integration
 @pytest.mark.slow
-def test_start_participant(mock_coordinator_service):
+def test_start_participant(  # pylint: disable=redefined-outer-name
+    mock_coordinator_service, participant_config
+):
     """[summary]
 
     .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
@@ -493,9 +519,11 @@ def test_start_participant(mock_coordinator_service):
     # mock a local participant with a constant train_round function
     with mock.patch("xain_sdk.participant_state_machine.Participant") as mock_obj:
         mock_local_part = mock_obj.return_value
-        mock_local_part.train_round.return_value = init_weight, 1, {}
+        mock_local_part.train_round.return_value = init_weight, 1
 
-        start_participant(mock_local_part, "localhost:50051")
+        config: Config = Config.from_unchecked_dict(participant_config)
+
+        start_participant(mock_local_part, config)
 
         coord = mock_coordinator_service.coordinator
         assert coord.state == State.FINISHED

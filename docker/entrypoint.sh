@@ -1,8 +1,6 @@
 #!/usr/bin/env sh
 
-set -o errexit
-set -o pipefail
-set -o nounset
+set -Eeuxo pipefail
 # set -o xtrace
 
 if [ $# -eq 0 ]; then

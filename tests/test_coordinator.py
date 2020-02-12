@@ -1,5 +1,7 @@
 """XAIN FL tests for coordinator"""
 
+from unittest import mock
+
 import numpy as np
 import pytest
 from xain_proto.fl.coordinator_pb2 import (
@@ -137,10 +139,9 @@ def start_training_round_wrong_state():
         coordinator.on_message(StartTrainingRoundRequest(), "participant1")
 
 
-def test_end_training_round():
-    """[summary]
-
-    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
+@mock.patch("xain_fl.coordinator.store.NullObjectLocalWeightsReader.read_weights")
+def test_end_training_round(read_weights_mock):
+    """Test handling of a `EndTrainingRoundRequest` message.
     """
 
     # we need two participants so that we can check the status of the local update mid round
@@ -155,6 +156,7 @@ def test_end_training_round():
     coordinator.on_message(EndTrainingRoundRequest(), "participant1")
 
     assert len(coordinator.round.updates) == 1
+    read_weights_mock.assert_called_once_with("participant1", 0)
 
 
 def test_end_training_round_update():
@@ -165,21 +167,27 @@ def test_end_training_round_update():
 
     # Test that the round number is updated once all participants sent their updates
     coordinator = Coordinator(
-        minimum_participants_in_round=2, fraction_of_participants=1.0, num_rounds=2
+        minimum_participants_in_round=2,
+        fraction_of_participants=1.0,
+        num_rounds=2,
+        epochs=3,
     )
     coordinator.on_message(RendezvousRequest(), "participant1")
     coordinator.on_message(RendezvousRequest(), "participant2")
 
     # check that we are currently in round 0
     assert coordinator.current_round == 0
+    assert coordinator.epoch_base == 0
 
     coordinator.on_message(EndTrainingRoundRequest(), "participant1")
     # check we are still in round 0
     assert coordinator.current_round == 0
+    assert coordinator.epoch_base == 0
     coordinator.on_message(EndTrainingRoundRequest(), "participant2")
 
     # check that round number was updated
     assert coordinator.current_round == 1
+    assert coordinator.epoch_base == 3
 
 
 def test_end_training_round_reinitialize_local_models():

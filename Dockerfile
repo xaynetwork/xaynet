@@ -1,4 +1,4 @@
-FROM python:3.6-alpine
+FROM python:3.6-slim
 
 ENV USER="xain"
 ENV HOST="0.0.0.0"
@@ -6,8 +6,8 @@ ENV PORT="50051"
 ENV PATH="/home/${USER}/.local/bin:${PATH}"
 ENV CONFIG_FILE="/app/xain-fl.toml"
 
-RUN addgroup -S ${USER} && adduser -S ${USER} -G ${USER}
-RUN apk update && apk add python3-dev build-base git
+RUN groupadd ${USER} && useradd -g ${USER} ${USER}
+RUN apt update -y && apt install -y python3-dev git
 
 WORKDIR /app
 

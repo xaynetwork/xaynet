@@ -27,12 +27,13 @@ install_requires = [
     "numpy==1.15",  # BSD
     "grpcio==1.23",  # Apache License 2.0
     "structlog==19.2.0",  # Apache License 2.0
-    "xain-proto==0.4.0",  # Apache License 2.0
+    "xain-proto==0.5.0",  # Apache License 2.0
     "boto3==1.10.48",  # Apache License 2.0
     "toml==0.10.0",  # MIT
     "schema~=0.7",  # MIT
     "idna==2.8",  # BSD
     "influxdb==5.2.3",  # MIT
+    "jsonschema==3.2.0",  # MIT
 ]
 
 dev_require = [
@@ -51,7 +52,7 @@ tests_require = [
     "pytest==5.3.2",  # MIT license
     "pytest-cov==2.8.1",  # MIT
     "pytest-watch==4.2.0",  # MIT
-    "xain-sdk==0.4.0",  # Apache License 2.0
+    "xain-sdk==0.5.0",  # Apache License 2.0
 ]
 
 docs_require = [

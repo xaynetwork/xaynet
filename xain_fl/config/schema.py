@@ -31,10 +31,6 @@ import idna
 from schema import And, Optional, Or, Schema, SchemaError, Use
 import toml
 
-from xain_fl.logger import StructLogger, get_logger
-
-logger: StructLogger = get_logger(__name__)
-
 
 def error(key: str, description: str) -> str:
     """Return an error message for the given configuration item and
@@ -203,7 +199,12 @@ AI_SCHEMA = Schema(
 STORAGE_SCHEMA = Schema(
     {
         "endpoint": And(str, url, error=error("storage.endpoint", "a valid URL")),
-        "bucket": Use(str, error=error("storage.endpoint", "an S3 bucket name")),
+        "global_weights_bucket": Use(
+            str, error=error("storage.global_weights_bucket", "an S3 bucket name")
+        ),
+        "local_weights_bucket": Use(
+            str, error=error("storage.local_weights_bucket", "an S3 bucket name")
+        ),
         "secret_access_key": Use(
             str, error=error("storage.secret_access_key", "a valid utf-8 string")
         ),
@@ -214,7 +215,15 @@ STORAGE_SCHEMA = Schema(
 )
 
 LOGGING_SCHEMA = Schema(
-    {Optional("level", default="info"): log_level("logging.level"),}
+    {
+        Optional("level", default="info"): log_level("logging.level"),
+        Optional("console", default=False): Use(
+            bool, error=error("logging.console", "a boolean")
+        ),
+        Optional("third_party", default=False): Use(
+            bool, error=error("logging.third_party", "a boolean")
+        ),
+    }
 )
 
 
@@ -369,7 +378,10 @@ class Config:
        endpoint = "http://localhost:9000"
 
        # Name of the bucket for storing the aggregated models
-       bucket = "aggregated_weights"
+       global_weights_bucket = "global_weights"
+
+       # Name of the bucket where participants store their results
+       local_weights_bucket = "local_weights"
 
        # AWS secret access to use to authenticate to the storage service
        secret_access_key = "my-secret"
@@ -394,7 +406,8 @@ class Config:
        assert config.ai.fraction_participants == 1.0
 
        assert config.storage.endpoint == "http://localhost:9000"
-       assert config.storage.bucket == "aggregated_weights"
+       assert config.storage.global_weights_bucket == "global_weights"
+       assert config.storage.local_weights_bucket == "local_weights"
        assert config.storage.secret_access_key == "my-access-key"
        assert config.storage.access_key_id == "my-key"
     """
