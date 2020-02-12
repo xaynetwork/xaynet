@@ -38,42 +38,42 @@ def test_valid_metric(
         MetricsConfig(enable=True, host="", port=1, user="", password="", db_name="")
     )
 
-    metric_store.write_metrics(metrics_sample)
+    metric_store.write_participant_ai_metrics(metrics_sample)
 
 
 @mock.patch.object(InfluxDBClient, "write_points", side_effect=Exception())
 def test_write_points_exception_handling(
     write_points_mock, metrics_sample,
 ):  # pylint: disable=redefined-outer-name,unused-argument
-    """Check that raised exceptions of the write_points method are caught in the write_metrics
+    """Check that raised exceptions of the write_points method are caught in the write_participant_ai_metrics
     method.
     """
     metric_store = MetricsStore(
         MetricsConfig(enable=True, host="", port=1, user="", password="", db_name="")
     )
     with pytest.raises(MetricsStoreError):
-        metric_store.write_metrics(metrics_sample)
+        metric_store.write_participant_ai_metrics(metrics_sample)
 
 
 def test_invalid_json_exception_handling():
-    """Check that raised exceptions of the write_points method are caught in the write_metrics
+    """Check that raised exceptions of the write_points method are caught in the write_participant_ai_metrics
     method.
     """
     metric_store = MetricsStore(
         MetricsConfig(enable=True, host="", port=1, user="", password="", db_name="")
     )
     with pytest.raises(MetricsStoreError):
-        metric_store.write_metrics('{"a": 1')
+        metric_store.write_participant_ai_metrics('{"a": 1')
 
     with pytest.raises(MetricsStoreError):
-        metric_store.write_metrics("{1: 1}")
+        metric_store.write_participant_ai_metrics("{1: 1}")
 
 
 @mock.patch.object(InfluxDBClient, "write_points", return_value=True)
 def test_empty_metrics_exception_handling(
     write_points_mock, metrics_sample_empty,
 ):  # pylint: disable=redefined-outer-name,unused-argument
-    """Check that raised exceptions of the write_points method are caught in the write_metrics
+    """Check that raised exceptions of the write_points method are caught in the write_participant_ai_metrics
     method.
     """
     metric_store = MetricsStore(
@@ -81,14 +81,14 @@ def test_empty_metrics_exception_handling(
     )
 
     with pytest.raises(MetricsStoreError):
-        metric_store.write_metrics(metrics_sample_empty)
+        metric_store.write_participant_ai_metrics(metrics_sample_empty)
 
 
 @mock.patch.object(InfluxDBClient, "write_points", return_value=True)
 def test_invalid_schema_exception_handling(
     write_points_mock, metrics_sample_invalid,
 ):  # pylint: disable=redefined-outer-name,unused-argument
-    """Check that raised exceptions of the write_points method are caught in the write_metrics
+    """Check that raised exceptions of the write_points method are caught in the write_participant_ai_metrics
     method.
     """
     metric_store = MetricsStore(
@@ -96,4 +96,4 @@ def test_invalid_schema_exception_handling(
     )
 
     with pytest.raises(MetricsStoreError):
-        metric_store.write_metrics(metrics_sample_invalid)
+        metric_store.write_participant_ai_metrics(metrics_sample_invalid)

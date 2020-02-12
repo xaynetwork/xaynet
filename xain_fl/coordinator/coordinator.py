@@ -148,6 +148,8 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         self.current_round: int = 0
         self.epochs_current_round: int = epochs
 
+        self._write_metrics_silently("State", self.state)
+
     def get_minimum_connected_participants(self) -> int:
         """Calculates how many participants are needed so that we can select
         a specific fraction of them.
@@ -235,6 +237,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
 
         if self.participants.len() < self.minimum_connected_participants:
             self.state = State.STANDBY
+            self._write_metrics_silently("State", self.state)
 
     def select_participant_ids_and_init_round(self) -> None:
         """Selects the participant ids and initiates a Round."""
@@ -289,6 +292,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
                     self.round.add_selected(ids)
 
                 self.state = State.ROUND
+                self._write_metrics_silently("State", self.state)
         else:
             reply = RendezvousReply.LATER
             logger.info(
@@ -404,7 +408,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
 
         try:
             if message.metrics != "[]":
-                self.metrics_store.write_metrics(message.metrics)
+                self.metrics_store.write_participant_ai_metrics(message.metrics)
         except MetricsStoreError as err:
             logger.warn(
                 "Can not write metrics", participant_id=participant_id, error=repr(err)
@@ -435,6 +439,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
             if self.current_round >= self.num_rounds - 1:
                 logger.info("Last round over", round=self.current_round)
                 self.state = State.FINISHED
+                self._write_metrics_silently("State", self.state)
             else:
                 self.current_round += 1
                 self.epoch_base += self.epochs_current_round
@@ -443,6 +448,12 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
 
         logger.debug("Send EndTrainingRoundResponse", participant_id=participant_id)
         return EndTrainingRoundResponse()
+
+    def _write_metrics_silently(self, metric, value, tags=None):
+        try:
+            self.metrics_store.write_metrics(metric, value, tags)
+        except MetricsStoreError as err:
+            logger.warn("Can not write metrics", error=repr(err))
 
 
 def pb_enum_to_str(pb_enum, member_value: int) -> str:

@@ -2,6 +2,7 @@
 
 from abc import ABC, abstractmethod
 import json
+import time
 
 from influxdb import InfluxDBClient
 from jsonschema import validate
@@ -17,7 +18,7 @@ class AbstractMetricsStore(ABC):  # pylint: disable=too-few-public-methods
     """An abstract metric store."""
 
     @abstractmethod
-    def write_metrics(self, metrics_as_json: str):
+    def write_participant_ai_metrics(self, metrics_as_json: str):
         """Write the participant metrics on behalf of the participant into a metric store.
 
         Args:
@@ -35,7 +36,7 @@ class NullObjectMetricsStore(
 ):  # pylint: disable=too-few-public-methods
     """A metric store that does nothing."""
 
-    def write_metrics(self, metrics_as_json: str):
+    def write_participant_ai_metrics(self, metrics_as_json: str):
         """A method that has no effect.
 
         Args:
@@ -79,7 +80,7 @@ class MetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-meth
             "minItems": 1,
         }
 
-    def write_metrics(self, metrics_as_json: str):
+    def write_participant_ai_metrics(self, metrics_as_json: str):
         """Write the participant metrics on behalf of the participant into InfluxDB.
 
         Args:
@@ -95,6 +96,24 @@ class MetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-meth
             metrics = json.loads(metrics_as_json)
             validate(instance=metrics, schema=self.schema)
             self.influx_client.write_points(metrics)
+        except Exception as err:  # pylint: disable=broad-except
+            logger.error("Exception", err=repr(err))
+            raise MetricsStoreError("Can not write metrics.") from err
+
+    def write_metrics(self, measurement: str, value, tags=None):
+        if not tags:
+            tags = {}
+
+        current_time: int = int(time.time() * 1_000_000_000)
+        metrics = {
+            "measurement": measurement,
+            "time": current_time,
+            "tags": tags,
+            "fields": {measurement: value},
+        }
+
+        try:
+            self.influx_client.write_points([metrics])
         except Exception as err:  # pylint: disable=broad-except
             logger.error("Exception", err=repr(err))
             raise MetricsStoreError("Can not write metrics.") from err
