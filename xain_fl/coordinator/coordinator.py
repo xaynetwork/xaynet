@@ -424,7 +424,7 @@ def pb_enum_to_str(pb_enum, member_value: int) -> str:
     Args:
         pb_enum: The proto enum definition.
         member_value:  The enum member value.
-    
+
     Returns:
         The human readable string of a enum member value.
     """
