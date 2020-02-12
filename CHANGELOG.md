@@ -20,6 +20,8 @@ For reference, the possible headings are:
 
 ## [Unreleased]
 
+## [0.6.0] - (UNRELEASED)
+
 ## [0.5.0] - 2020-02-12
 
 Fix minor issues, update documentation.
