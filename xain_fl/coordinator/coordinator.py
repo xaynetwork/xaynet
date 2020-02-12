@@ -7,6 +7,8 @@ import numpy as np
 from numpy import ndarray
 from structlog import get_logger
 from xain_proto.fl.coordinator_pb2 import (
+    _RENDEZVOUSREPLY,
+    _STATE,
     EndTrainingRoundRequest,
     EndTrainingRoundResponse,
     HeartbeatRequest,
@@ -178,7 +180,8 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
 
         logger.debug(
             "Received message from participant",
-            message_type=type(message),
+            message_type=message.DESCRIPTOR.name,
+            message_byte_size=message.ByteSize(),
             participant_id=participant_id,
         )
 
@@ -273,6 +276,9 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
                 current_participants_count=self.participants.len(),
             )
 
+        logger.debug(
+            "Send RendezvousResponse", reply=pb_enum_to_str(_RENDEZVOUSREPLY, reply)
+        )
         return RendezvousResponse(reply=reply)
 
     def _handle_heartbeat(
@@ -304,8 +310,9 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         logger.debug(
             "Heartbeat response",
             participant_id=participant_id,
-            message=state,
+            state=pb_enum_to_str(_STATE, state),
             round=self.current_round,
+            current_participants_count=self.participants.len(),
         )
         return HeartbeatResponse(state=state, round=self.current_round)
 
@@ -332,6 +339,11 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
                 "StartTrainingRoundRequest outside of a round"
             )
 
+        logger.debug(
+            "Send StartTrainingRoundResponse",
+            epochs=self.epochs,
+            epoch_base=self.epoch_base,
+        )
         return StartTrainingRoundResponse(
             weights=ndarray_to_proto(self.weights),
             epochs=self.epochs,
@@ -402,4 +414,18 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
                 # reinitialize the round
                 self.select_participant_ids_and_init_round()
 
+        logger.debug("Send EndTrainingRoundResponse", participant_id=participant_id)
         return EndTrainingRoundResponse()
+
+
+def pb_enum_to_str(pb_enum, member_value: int) -> str:
+    """Return the human readable string of a enum member value.
+
+    Args:
+        pb_enum: The proto enum definition.
+        member_value:  The enum member value.
+
+    Returns:
+        The human readable string of a enum member value.
+    """
+    return pb_enum.values_by_number[member_value].name
