@@ -1,6 +1,6 @@
 """XAIN FL Coordinator"""
 
-from typing import List
+from typing import Dict, List, Optional, Union
 
 from google.protobuf.internal.python_message import GeneratedProtocolMessageType
 import numpy as np
@@ -464,7 +464,12 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         logger.debug("Send EndTrainingRoundResponse", participant_id=participant_id)
         return EndTrainingRoundResponse()
 
-    def _write_metrics_fail_silently(self, metric, value, tags=None):
+    def _write_metrics_fail_silently(
+        self,
+        metric: str,
+        value: Union[str, int, float],
+        tags: Optional[Dict[str, str]] = None,
+    ):
         """
         Write the metrics to a metric store that are collected on the coordinator site.
         If a exception is raised, the exception will be caught and the error logged.

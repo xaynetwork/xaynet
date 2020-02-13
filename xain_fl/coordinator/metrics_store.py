@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 import json
 import time
-from typing import Optional, Union
+from typing import Dict, Optional, Union
 
 from influxdb import InfluxDBClient
 from jsonschema import validate
@@ -136,7 +136,10 @@ class MetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-meth
             raise MetricsStoreError("Can not write participant metrics.") from err
 
     def write_coordinator_metrics(
-        self, metric: str, value: Union[str, int, float], tags: Optional[dict] = None,
+        self,
+        metric: str,
+        value: Union[str, int, float],
+        tags: Optional[Dict[str, str]] = None,
     ):
         """
         Write the metrics to influxDB that are collected on the coordinator site.
