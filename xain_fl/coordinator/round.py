@@ -38,9 +38,10 @@ class Round:
             participant_id: id of participant to remove.
         """
 
-        self.participant_ids = [
-            id for id in self.participant_ids if id != participant_id
-        ]
+        try:
+            self.participant_ids.remove(participant_id)
+        except ValueError:
+            pass
 
     def add_updates(
         self, participant_id: str, model_weights: ndarray, aggregation_data: int,

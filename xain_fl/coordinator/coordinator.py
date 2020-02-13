@@ -243,7 +243,11 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         self.round = Round(selected_ids)
 
     def select_outstanding(self) -> List[str]:
-        """Selects participant ids."""
+        """Selects participants outstanding for the round."""
+
+        # the following preconditions should hold
+        assert(len(self.round.participant_ids) < self.minimum_participants_in_round)
+        assert(self.participants.len() == self.minimum_connected_participants)
 
         selected = set(self.round.participant_ids)
         num_outstanding = self.minimum_participants_in_round - len(selected)
