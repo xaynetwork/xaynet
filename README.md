@@ -1,4 +1,4 @@
-[![Workflow Lint and test (master)](https://github.com/xainag/xain-fl/workflows/Lint%20and%20test%20%28master%29/badge.svg)](https://github.com/xainag/xain-fl)
+[![Tests (master)](https://github.com/xainag/xain-fl/workflows/Lint%20and%20test%20%28master%29/badge.svg)](https://github.com/xainag/xain-fl/actions?query=workflow%3A%22Lint+and+test+%28master%29%22+branch%3Amaster)
 [![PyPI](https://img.shields.io/pypi/v/xain-fl)](https://pypi.org/project/xain-fl/)
 [![GitHub license](https://img.shields.io/github/license/xainag/xain-fl)](https://github.com/xainag/xain-fl/blob/master/LICENSE)
 [![Documentation Status](https://readthedocs.org/projects/xain-fl/badge/?version=latest)](https://xain-fl.readthedocs.io/en/latest/?badge=latest)
