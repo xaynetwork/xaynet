@@ -146,6 +146,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         # state variables
         self.state: State = State.STANDBY
         self.current_round: int = 0
+        self.epochs_current_round: int = epochs
 
     def get_minimum_connected_participants(self) -> int:
         """Calculates how many participants are needed so that we can select
@@ -339,14 +340,19 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
                 "StartTrainingRoundRequest outside of a round"
             )
 
+        if self.weights.size:
+            self.epochs_current_round = self.epochs
+        else:
+            self.epochs_current_round = 0
+
         logger.debug(
             "Send StartTrainingRoundResponse",
-            epochs=self.epochs,
+            epochs=self.epochs_current_round,
             epoch_base=self.epoch_base,
         )
         return StartTrainingRoundResponse(
             weights=ndarray_to_proto(self.weights),
-            epochs=self.epochs,
+            epochs=self.epochs_current_round,
             epoch_base=self.epoch_base,
         )
 
@@ -411,7 +417,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
                 self.state = State.FINISHED
             else:
                 self.current_round += 1
-                self.epoch_base += self.epochs
+                self.epoch_base += self.epochs_current_round
                 # reinitialize the round
                 self.select_participant_ids_and_init_round()
 
