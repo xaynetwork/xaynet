@@ -377,7 +377,8 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         )
 
         try:
-            self.metrics_store.write_metrics(message.metrics)
+            if message.metrics != "[]":
+                self.metrics_store.write_metrics(message.metrics)
         except MetricsStoreError as err:
             logger.warn(
                 "Can not write metrics", participant_id=participant_id, error=repr(err)
