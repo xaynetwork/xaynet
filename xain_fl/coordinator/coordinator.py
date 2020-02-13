@@ -465,10 +465,20 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         return EndTrainingRoundResponse()
 
     def _write_metrics_fail_silently(self, metric, value, tags=None):
+        """
+        Write the metrics to a metric store that are collected on the coordinator site.
+        If a exception is raised, the exception will be caught and the error logged.
+
+        Args:
+
+            metric: The name of metric.
+            value: The value of the metric.
+            tags: A dictionary to append optional metadata to the metric. Defaults to None.
+        """
         try:
-            self.metrics_store.write_metrics(metric, value, tags)
+            self.metrics_store.write_coordinator_metrics(metric, value, tags)
         except MetricsStoreError as err:
-            logger.warn("Can not write metrics", error=repr(err))
+            logger.warn("Can not write coordinator metrics", error=repr(err))
 
 
 def pb_enum_to_str(pb_enum, member_value: int) -> str:
