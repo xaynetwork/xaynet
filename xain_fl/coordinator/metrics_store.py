@@ -169,7 +169,7 @@ class MetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-meth
             self.influx_client.write_points([influx_point])
         except Exception as err:  # pylint: disable=broad-except
             logger.error("Exception", err=repr(err))
-            raise MetricsStoreError("Can not write participant metrics.") from err
+            raise MetricsStoreError("Can not write coordinator metrics.") from err
 
 
 class MetricsStoreError(Exception):
