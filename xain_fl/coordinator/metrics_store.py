@@ -34,15 +34,16 @@ class AbstractMetricsStore(ABC):  # pylint: disable=too-few-public-methods
 
     @abstractmethod
     def write_coordinator_metrics(
-        self, metric: str, value: Union[str, int, float], tags: Optional[dict] = None,
+        self,
+        metrics: Dict[str, Union[str, int, float]],
+        tags: Optional[Dict[str, str]] = None,
     ):
         """
         Write the metrics to a metric store that are collected on the coordinator site.
 
         Args:
 
-            metric: The name of metric.
-            value: The value of the metric.
+            metrics: A dictionary with the metric names as keys and the metric values as values.
             tags: A dictionary to append optional metadata to the metric. Defaults to None.
 
         Raises:
@@ -66,15 +67,16 @@ class NullObjectMetricsStore(
         """
 
     def write_coordinator_metrics(
-        self, metric: str, value: Union[str, int, float], tags: Optional[dict] = None,
+        self,
+        metrics: Dict[str, Union[str, int, float]],
+        tags: Optional[Dict[str, str]] = None,
     ):
         """
         A method that has no effect.
 
         Args:
 
-            metric: The name of metric.
-            value: The value of the metric.
+            metrics: A dictionary with the metric names as keys and the metric values as values.
             tags: A dictionary to append optional metadata to the metric. Defaults to None.
         """
 
@@ -137,17 +139,15 @@ class MetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-meth
 
     def write_coordinator_metrics(
         self,
-        metric: str,
-        value: Union[str, int, float],
+        metrics: Dict[str, Union[str, int, float]],
         tags: Optional[Dict[str, str]] = None,
     ):
         """
-        Write the metrics to influxDB that are collected on the coordinator site.
+        Write the metrics to InfluxDB that are collected on the coordinator site.
 
         Args:
 
-            metric: The name of metric.
-            value: The value of the metric.
+            metrics: A dictionary with the metric names as keys and the metric values as values.
             tags: A dictionary to append optional metadata to the metric. Defaults to None.
 
         Raises:
@@ -158,18 +158,18 @@ class MetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-meth
             tags = {}
 
         current_time: int = int(time.time() * 1_000_000_000)
-        metrics = {
-            "measurement": metric,
+        influx_point = {
+            "measurement": "coordinator",
             "time": current_time,
             "tags": tags,
-            "fields": {metric: value},
+            "fields": metrics,
         }
 
         try:
-            self.influx_client.write_points([metrics])
+            self.influx_client.write_points([influx_point])
         except Exception as err:  # pylint: disable=broad-except
             logger.error("Exception", err=repr(err))
-            raise MetricsStoreError("Can not write coordinator metrics.") from err
+            raise MetricsStoreError("Can not write participant metrics.") from err
 
 
 class MetricsStoreError(Exception):

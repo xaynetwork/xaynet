@@ -148,10 +148,12 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         self.current_round: int = 0
         self.epochs_current_round: int = epochs
 
-        self._write_metrics_fail_silently("State", self.state)
-        self._write_metrics_fail_silently("Round", self.current_round)
         self._write_metrics_fail_silently(
-            "Number of selected Participants", self.participants.len()
+            {
+                "state": self.state,
+                "round": self.current_round,
+                "number_of_selected_participants": self.participants.len(),
+            }
         )
 
     def get_minimum_connected_participants(self) -> int:
@@ -241,10 +243,10 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
 
         if self.participants.len() < self.minimum_connected_participants:
             self.state = State.STANDBY
-            self._write_metrics_fail_silently("State", self.state)
+            self._write_metrics_fail_silently({"state": self.state})
 
         self._write_metrics_fail_silently(
-            "Number of selected Participants", self.participants.len()
+            {"number_of_selected_participants": self.participants.len()}
         )
 
     def select_participant_ids_and_init_round(self) -> None:
@@ -291,7 +293,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
                 current_participants_count=self.participants.len(),
             )
             self._write_metrics_fail_silently(
-                "Number of selected Participants", self.participants.len()
+                {"number_of_selected_participants": self.participants.len()}
             )
 
             # Select participants and change the state to ROUND if the latest added participant
@@ -303,7 +305,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
                     self.round.add_selected(ids)
 
                 self.state = State.ROUND
-                self._write_metrics_fail_silently("State", self.state)
+                self._write_metrics_fail_silently({"state": self.state})
         else:
             reply = RendezvousReply.LATER
             logger.info(
@@ -350,7 +352,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
             current_participants_count=self.participants.len(),
         )
         self._write_metrics_fail_silently(
-            "Number of selected Participants", self.participants.len()
+            {"number_of_selected_participants": self.participants.len()}
         )
         # send heartbeat response advertising the current state
         return HeartbeatResponse(state=state, round=self.current_round)
@@ -453,11 +455,11 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
             if self.current_round >= self.num_rounds - 1:
                 logger.info("Last round over", round=self.current_round)
                 self.state = State.FINISHED
-                self._write_metrics_fail_silently("State", self.state)
+                self._write_metrics_fail_silently({"state": self.state})
             else:
                 self.current_round += 1
                 self.epoch_base += self.epochs_current_round
-                self._write_metrics_fail_silently("Round", self.current_round)
+                self._write_metrics_fail_silently({"round": self.current_round})
                 # reinitialize the round
                 self.select_participant_ids_and_init_round()
 
@@ -466,8 +468,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
 
     def _write_metrics_fail_silently(
         self,
-        metric: str,
-        value: Union[str, int, float],
+        metrics: Dict[str, Union[str, int, float]],
         tags: Optional[Dict[str, str]] = None,
     ):
         """
@@ -476,12 +477,11 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
 
         Args:
 
-            metric: The name of metric.
-            value: The value of the metric.
+            metrics: A dictionary with the metric names as keys and the metric values as values.
             tags: A dictionary to append optional metadata to the metric. Defaults to None.
         """
         try:
-            self.metrics_store.write_coordinator_metrics(metric, value, tags)
+            self.metrics_store.write_coordinator_metrics(metrics, tags)
         except MetricsStoreError as err:
             logger.warn("Can not write coordinator metrics", error=repr(err))
 
