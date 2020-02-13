@@ -18,8 +18,8 @@ from .port_forwarding import ConnectionManager
 
 
 @pytest.fixture()
-def metrics_sample():
-    """Return a valid metric object."""
+def participant_metrics_sample():
+    """Return a valid participant metric object."""
     return json.dumps(
         [
             {
@@ -36,6 +36,12 @@ def metrics_sample():
             },
         ]
     )
+
+
+@pytest.fixture()
+def coordinator_metrics_sample():
+    """Return a valid coordinator metric object."""
+    return {"state": 1, "round": 2, "number_of_selected_participants": 0}
 
 
 @pytest.fixture
