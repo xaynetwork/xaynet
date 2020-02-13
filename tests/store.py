@@ -6,9 +6,10 @@ import pickle
 import typing
 
 import numpy as np
+from xain_sdk.store import S3GlobalWeightsReader, S3LocalWeightsWriter
 
 from xain_fl.config import StorageConfig
-from xain_fl.coordinator.store import S3GlobalWeightsWriter
+from xain_fl.coordinator.store import S3GlobalWeightsWriter, S3LocalWeightsReader
 
 
 class MockS3Resource:
@@ -62,10 +63,11 @@ class MockS3Resource:
         self.reads[key] += 1
 
 
-class MockS3Writer(S3GlobalWeightsWriter):
+class MockS3Coordinator(S3GlobalWeightsWriter, S3LocalWeightsReader):
     """A partial mock of the
-    ``xain-fl.coordinator.store.S3GlobalWeightsWriter`` class that
-    does not perform any IO. Instead, data is stored in memory.
+    ``xain-fl.coordinator.store.S3GlobalWeightsWriter`` and
+    ``xain-fl.coordinator.store.S3LocalWeightsReader`` class that does
+    not perform any IO. Instead, data is stored in memory.
 
     """
 
@@ -73,32 +75,36 @@ class MockS3Writer(S3GlobalWeightsWriter):
     # to initialize a connection to a non-existent external resource
     #
     # pylint: disable=super-init-not-called
-    def __init__(self):
+    def __init__(self, mock_s3_resource):
         self.config = StorageConfig(
             endpoint="endpoint",
             access_key_id="access_key_id",
             secret_access_key="secret_access_key",
-            global_weights_bucket="bucket",
-            local_weights_bucket="bucket",
+            bucket="bucket",
         )
-        self.s3 = MockS3Resource()
+        self.s3 = mock_s3_resource
+
+    def assert_read(self, participant_id: str, round: int):
+        """Check that the local weights for participant ``participant_id`` at
+        round ``round`` were read exactly once.
+
+        """
+        key = f"{round}/{participant_id}"
+        reads = self.s3.reads[key]
+        assert reads == 1, f"got {reads} reads for round {key}, expected 1"
 
     def assert_wrote(self, round: int, weights: np.ndarray):
         """Check that the given weights have been written to the store for the
-given round.
+        given round.
 
         Args:
-            weights (np.ndarray): weights to store
-            round (int): round to which the weights belong
+            weights: weights to store
+            round: round to which the weights belong
         """
-        writes = self.s3.writes[str(round)]
+        writes = self.s3.writes[f"{round}/global"]
         # Under normal conditions, we should write data exactly once
         assert writes == 1, f"got {writes} writes for round {round}, expected 1"
-        # If the arrays contains `NaN` we cannot compare them, so we
-        # replace them by zeros to do the comparison
-        stored_array = np.nan_to_num(self.s3.fake_store[str(round)])
-        expected_array = np.nan_to_num(weights)
-        assert np.array_equal(stored_array, expected_array)
+        assert_ndarray_eq(self.s3.fake_store[f"{round}/global"], weights)
 
     def assert_didnt_write(self, round: int):
         """Check that the weights for the given round have NOT been written to the store.
@@ -107,4 +113,55 @@ given round.
             round (int): round to which the weights belong
 
         """
-        assert self.s3.writes[str(round)] == 0
+        assert self.s3.writes[f"{round}/global"] == 0
+
+
+class MockS3Participant(S3LocalWeightsWriter, S3GlobalWeightsReader):
+    """A partial mock of the ``xain_sdk.store.S3GlobalWeightsReader`` and
+    ``xain_sdk.store.S3LocalWeightsWriter`` class that does not
+    perform any IO. Instead, data is stored in memory.
+
+    """
+
+    def __init__(self, mock_s3_resource):
+        self.config = StorageConfig(
+            endpoint="endpoint",
+            access_key_id="access_key_id",
+            secret_access_key="secret_access_key",
+            bucket="bucket",
+        )
+        self.s3 = mock_s3_resource
+
+    def assert_wrote(self, participant_id: str, round: int, weights: np.ndarray):
+        """Check that the given weights have been written to the store for the
+        given round.
+
+        Args:
+            weights: weights to store
+            participant_id: ID of the participant
+            round: round to which the weights belong
+        """
+        key = f"{round}/{participant_id}"
+        writes = self.s3.writes[key]
+        assert writes == 1, f"got {writes} writes for {key}, expected 1"
+        assert_ndarray_eq(self.s3.fake_store[key], weights)
+
+    def assert_didnt_write(self, participant_id: str, round: int):
+        """Check that the weights for the given round have NOT been written to
+        the store.
+
+        Args:
+            participant_id: ID of the participant
+            round: round to which the weights belong
+
+        """
+        key = f"{round}/{participant_id}"
+        assert self.s3.writes[key] == 0
+
+
+def assert_ndarray_eq(nd_array1, nd_array2):
+    """Check that the two given numpy arrays are equal, ignoring NaN
+    values.
+
+    """
+    assert np.array_equal(np.nan_to_num(nd_array1), np.nan_to_num(nd_array2))

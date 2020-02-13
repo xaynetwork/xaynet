@@ -5,16 +5,122 @@ import json
 import threading
 
 import grpc
+import numpy as np
+from numpy import ndarray
 import pytest
 from xain_proto.fl import coordinator_pb2_grpc
+from xain_proto.fl.coordinator_pb2 import EndTrainingRoundRequest
 
 from xain_fl.coordinator.coordinator import Coordinator
 from xain_fl.coordinator.coordinator_grpc import CoordinatorGrpc
 from xain_fl.coordinator.heartbeat import monitor_heartbeats
-from xain_fl.fl.coordinator.aggregate import ModelSumAggregator
-from xain_fl.fl.coordinator.controller import IdController
+from xain_fl.coordinator.metrics_store import (
+    AbstractMetricsStore,
+    NullObjectMetricsStore,
+)
+from xain_fl.coordinator.store import (
+    AbstractGlobalWeightsWriter,
+    AbstractLocalWeightsReader,
+)
+from xain_fl.fl.coordinator.aggregate import (
+    Aggregator,
+    ModelSumAggregator,
+    WeightedAverageAggregator,
+)
+from xain_fl.fl.coordinator.controller import Controller, IdController, RandomController
 
 from .port_forwarding import ConnectionManager
+from .store import MockS3Coordinator, MockS3Participant, MockS3Resource
+
+# pylint: disable=redefined-outer-name
+
+
+@pytest.fixture(scope="function")
+def s3_mock_stores():
+    """
+    Create a fake S3 store
+    """
+
+    s3_resource = MockS3Resource()
+    participant_store = MockS3Participant(s3_resource)
+    coordinator_store = MockS3Coordinator(s3_resource)
+    return (coordinator_store, participant_store)
+
+
+@pytest.fixture(scope="function")
+def participant_store(s3_mock_stores):
+    """Return an object the participants can use to read the global
+    weights and write their local weights
+
+    """
+    return s3_mock_stores[1]
+
+
+@pytest.fixture(scope="function")
+def end_training_request(s3_mock_stores):
+    """A fixture that returns a function that can be used to send an
+    ``EndTrainingRequest`` to the coordinator.
+
+    """
+    participant_store = s3_mock_stores[1]
+
+    def wrapped(
+        coordinator: Coordinator,
+        participant_id: str,
+        round: int = 0,
+        weights: ndarray = ndarray([]),
+    ):
+        """Write the local weights for the given round and the given
+        participant, and send an ``EndTrainingRequest`` on behalf of
+        that participant.
+
+        """
+        participant_store.write_weights(participant_id, round, weights)
+        coordinator.on_message(
+            EndTrainingRoundRequest(participant_id=participant_id), participant_id
+        )
+
+    return wrapped
+
+
+@pytest.fixture(scope="function")
+def coordinator(s3_mock_stores):
+    """
+    A function that instantiate a new coordinator.
+    """
+    store: MockS3Coordinator = s3_mock_stores[0]
+    default_global_weights_writer: AbstractGlobalWeightsWriter = store
+    default_local_weights_reader: AbstractLocalWeightsReader = store
+
+    # pylint: disable=too-many-arguments
+    def wrapped(
+        global_weights_writer=default_global_weights_writer,
+        local_weights_reader=default_local_weights_reader,
+        metrics_store: AbstractMetricsStore = NullObjectMetricsStore(),
+        num_rounds: int = 1,
+        minimum_participants_in_round: int = 1,
+        fraction_of_participants: float = 1.0,
+        weights: ndarray = np.empty(shape=(0,)),
+        epochs: int = 1,
+        epoch_base: int = 0,
+        aggregator: Aggregator = WeightedAverageAggregator(),
+        controller: Controller = RandomController(),
+    ):
+        return Coordinator(
+            global_weights_writer,
+            local_weights_reader,
+            metrics_store=metrics_store,
+            num_rounds=num_rounds,
+            minimum_participants_in_round=minimum_participants_in_round,
+            fraction_of_participants=fraction_of_participants,
+            weights=weights,
+            epochs=epochs,
+            epoch_base=epoch_base,
+            aggregator=aggregator,
+            controller=controller,
+        )
+
+    return wrapped
 
 
 @pytest.fixture()
@@ -45,14 +151,14 @@ def coordinator_metrics_sample():
 
 
 @pytest.fixture
-def coordinator_service():
+def coordinator_service(coordinator):
     """[summary]
 
     .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
     """
 
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
-    coordinator = Coordinator(
+    coordinator = coordinator(
         minimum_participants_in_round=10, fraction_of_participants=1.0
     )
     coordinator_grpc = CoordinatorGrpc(coordinator)
@@ -64,7 +170,7 @@ def coordinator_service():
 
 
 @pytest.fixture
-def mock_coordinator_service():
+def mock_coordinator_service(coordinator):
     """[summary]
 
     .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
@@ -73,7 +179,7 @@ def mock_coordinator_service():
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
     agg = ModelSumAggregator()
     ctrl = IdController()
-    coordinator = Coordinator(
+    coordinator = coordinator(
         num_rounds=2,
         minimum_participants_in_round=1,
         fraction_of_participants=1.0,
