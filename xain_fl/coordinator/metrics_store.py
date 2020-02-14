@@ -134,7 +134,7 @@ class MetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-meth
             validate(instance=metrics, schema=self.schema)
             self.influx_client.write_points(metrics)
         except Exception as err:  # pylint: disable=broad-except
-            logger.error("Exception", err=repr(err))
+            logger.error("Exception", error=repr(err))
             raise MetricsStoreError("Can not write participant metrics.") from err
 
     def write_coordinator_metrics(
@@ -168,7 +168,7 @@ class MetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-meth
         try:
             self.influx_client.write_points([influx_point])
         except Exception as err:  # pylint: disable=broad-except
-            logger.error("Exception", err=repr(err))
+            logger.error("Exception", error=repr(err))
             raise MetricsStoreError("Can not write coordinator metrics.") from err
 
 
