@@ -39,6 +39,7 @@ def test_valid_participant_metrics(
     )
 
     metric_store.write_participant_metrics(participant_metrics_sample)
+    write_points_mock.assert_called_once()
 
 
 @mock.patch.object(InfluxDBClient, "write_points", side_effect=Exception())
@@ -55,7 +56,8 @@ def test_write_points_exception_handling_write_participant_metrics(
         metric_store.write_participant_metrics(participant_metrics_sample)
 
 
-def test_invalid_json_exception_handling():
+@mock.patch.object(InfluxDBClient, "write_points", return_value=True)
+def test_invalid_json_exception_handling(write_points_mock):
     """Check that raised exceptions of the write_points method are caught in the
     write_participant_metrics method."""
     metric_store = MetricsStore(
@@ -63,9 +65,11 @@ def test_invalid_json_exception_handling():
     )
     with pytest.raises(MetricsStoreError):
         metric_store.write_participant_metrics('{"a": 1')
+    write_points_mock.assert_not_called()
 
     with pytest.raises(MetricsStoreError):
         metric_store.write_participant_metrics("{1: 1}")
+    write_points_mock.assert_not_called()
 
 
 @mock.patch.object(InfluxDBClient, "write_points", return_value=True)
@@ -80,6 +84,7 @@ def test_empty_metrics_exception_handling(
 
     with pytest.raises(MetricsStoreError):
         metric_store.write_participant_metrics(empty_json_participant_metrics_sample)
+    write_points_mock.assert_not_called()
 
 
 @mock.patch.object(InfluxDBClient, "write_points", return_value=True)
@@ -94,6 +99,7 @@ def test_invalid_schema_exception_handling(
 
     with pytest.raises(MetricsStoreError):
         metric_store.write_participant_metrics(invalid_json_participant_metrics_sample)
+    write_points_mock.assert_not_called()
 
 
 @mock.patch.object(InfluxDBClient, "write_points", return_value=True)
@@ -106,6 +112,7 @@ def test_valid_coordinator_metrics(
     )
 
     metric_store.write_coordinator_metrics(coordinator_metrics_sample, tags={"1": "2"})
+    write_points_mock.assert_called_once()
 
 
 @mock.patch.object(InfluxDBClient, "write_points", side_effect=Exception())

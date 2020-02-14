@@ -473,7 +473,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
     ):
         """
         Write the metrics to a metric store that are collected on the coordinator site.
-        If a exception is raised, the exception will be caught and the error logged.
+        If an exception is raised, it will be caught and the error logged.
 
         Args:
 
