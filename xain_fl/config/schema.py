@@ -25,7 +25,8 @@ configuration.
 from collections import namedtuple
 import ipaddress
 from typing import Any, Mapping, NamedTuple, Type, TypeVar
-import urllib
+import urllib.error
+import urllib.parse
 
 import idna
 from schema import And, Optional, Or, Schema, SchemaError, Use
@@ -87,7 +88,7 @@ def url(key: str, expected_value: str = "a valid URL") -> Schema:
 
     """
 
-    def is_valid_url(value):
+    def is_valid_url(value: str) -> bool:
         try:
             parsed = urllib.parse.urlparse(value)
         except (ValueError, urllib.error.URLError):
@@ -279,7 +280,7 @@ def create_class_from_schema(class_name: str, schema: Schema) -> Any:
     # pylint: disable=protected-access
     keys = schema._schema.keys()
     attributes = list(
-        map(lambda key: key._schema if isinstance(key, Schema) else key, keys)
+        map(lambda key: key._schema if isinstance(key, Schema) else key, keys)  # type: ignore
     )
     return namedtuple(class_name, attributes)
 

@@ -15,7 +15,7 @@ logger: StructLogger = get_logger(__name__)
 class Aggregator(ABC):  # pylint: disable=too-few-public-methods
     """Abstract base class for model weights aggregation strategies."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the aggregator."""
 
     @abstractmethod

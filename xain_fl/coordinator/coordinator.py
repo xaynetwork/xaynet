@@ -2,6 +2,7 @@
 
 from typing import Dict, List, Optional, Union
 
+from google.protobuf.descriptor import EnumDescriptor
 from google.protobuf.internal.python_message import GeneratedProtocolMessageType
 import numpy as np
 from numpy import ndarray
@@ -489,7 +490,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
             logger.warn("Can not write coordinator metrics", error=repr(err))
 
 
-def pb_enum_to_str(pb_enum, member_value: int) -> str:
+def pb_enum_to_str(pb_enum: EnumDescriptor, member_value: int) -> str:
     """Return the human readable string of a enum member value.
 
     Args:
@@ -499,4 +500,5 @@ def pb_enum_to_str(pb_enum, member_value: int) -> str:
     Returns:
         The human readable string of a enum member value.
     """
-    return pb_enum.values_by_number[member_value].name
+    enum_in_str: str = pb_enum.values_by_number[member_value].name
+    return enum_in_str

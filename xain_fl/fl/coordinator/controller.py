@@ -123,4 +123,5 @@ class RandomController(Controller):
 
         num_ids_to_select = self.get_num_ids_to_select(len(participant_ids))
         ids = np.random.choice(participant_ids, size=num_ids_to_select, replace=False)
-        return ids.tolist()
+        list_ids: List[str] = ids.tolist()
+        return list_ids

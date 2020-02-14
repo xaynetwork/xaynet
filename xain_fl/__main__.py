@@ -22,7 +22,7 @@ from xain_fl.serve import serve
 logger: StructLogger = get_logger(__name__)
 
 
-def main():
+def main() -> None:
     """Start a coordinator instance
     """
 
@@ -36,16 +36,16 @@ def main():
     configure_structlog(config.logging)
 
     metrics_store: AbstractMetricsStore = NullObjectMetricsStore()
-    if config.metrics.enable:
+    if config.metrics.enable:  # type: ignore
         metrics_store = MetricsStore(config.metrics)
 
     coordinator = Coordinator(
         global_weights_writer=S3GlobalWeightsWriter(config.storage),
         local_weights_reader=NullObjectLocalWeightsReader(),
-        num_rounds=config.ai.rounds,
-        epochs=config.ai.epochs,
-        minimum_participants_in_round=config.ai.min_participants,
-        fraction_of_participants=config.ai.fraction_participants,
+        num_rounds=config.ai.rounds,  # type: ignore
+        epochs=config.ai.epochs,  # type: ignore
+        minimum_participants_in_round=config.ai.min_participants,  # type: ignore
+        fraction_of_participants=config.ai.fraction_participants,  # type: ignore
         metrics_store=metrics_store,
     )
 
