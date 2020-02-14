@@ -109,7 +109,7 @@ class S3GlobalWeightsWriter(AbstractGlobalWeightsWriter, S3BaseClass):
 
     """
 
-    def write_weights(self, round: int, weights: ndarray):
+    def write_weights(self, round: int, weights: ndarray) -> None:
         """Store the given `weights`, corresponding to the given `round`.
 
         Args:
