@@ -59,7 +59,7 @@ class Controller(ABC):
 
 
 class IdController(Controller):
-    """[summary
+    """[summary]
 
     ... todo: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
     """
@@ -76,6 +76,28 @@ class IdController(Controller):
         """
 
         return participant_ids
+
+
+class OrderController(Controller):
+    """[summary]
+
+    ... todo: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
+    """
+
+    def select_ids(self, participant_ids: List[str]) -> List[str]:
+        """Selects participants according to order.
+
+        Args:
+            participant_ids (:obj:`list` of :obj:`str`): The list of IDs of all the
+                available participants, a subset of which will be selected.
+
+        Returns:
+            :obj:`list` of :obj:`str`: List of selected participant IDs
+        """
+
+        num_ids_to_select = self.get_num_ids_to_select(len(participant_ids))
+        sorted_ids = sorted(participant_ids)
+        return sorted_ids[:num_ids_to_select]
 
 
 class RandomController(Controller):
@@ -100,4 +122,5 @@ class RandomController(Controller):
         """
 
         num_ids_to_select = self.get_num_ids_to_select(len(participant_ids))
-        return np.random.choice(participant_ids, size=num_ids_to_select, replace=False)
+        ids = np.random.choice(participant_ids, size=num_ids_to_select, replace=False)
+        return ids.tolist()

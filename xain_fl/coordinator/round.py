@@ -22,10 +22,31 @@ class Round:
         self.participant_ids = participant_ids
         self.updates: Dict[str, Dict] = {}
 
+    def add_selected(self, more_ids: List[str]) -> None:
+        """Add to the collection of selected participants.
+
+        Args:
+            more_ids: ids of participants to add.
+        """
+
+        self.participant_ids.extend(more_ids)
+
+    def remove_selected(self, participant_id: str) -> None:
+        """Remove from the collection of selected participants.
+
+        Args:
+            participant_id: id of participant to remove.
+        """
+
+        try:
+            self.participant_ids.remove(participant_id)
+        except ValueError:
+            pass
+
     def add_updates(
         self, participant_id: str, model_weights: ndarray, aggregation_data: int,
     ) -> None:
-        """Valid a participant's update for the round.
+        """Add a participant's update for the round.
 
         Args:
             participant_id: The id of the participant making the request.
@@ -57,7 +78,7 @@ class Round:
             round. `False` otherwise.
         """
 
-        return len(self.updates) == len(self.participant_ids)
+        return all(id in self.updates for id in self.participant_ids)
 
     def get_weight_updates(self) -> Tuple[List[ndarray], List[int]]:
         """Get a list of all participants weight updates.
@@ -67,7 +88,8 @@ class Round:
             The lists of model weights and aggregation meta data from all participants.
         """
 
+        updates = [self.updates[id] for id in self.participant_ids]
         return (
-            [v["model_weights"] for v in self.updates.values()],
-            [v["aggregation_data"] for v in self.updates.values()],
+            [upd["model_weights"] for upd in updates],
+            [upd["aggregation_data"] for upd in updates],
         )

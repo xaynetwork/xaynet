@@ -16,6 +16,7 @@ from xain_proto.fl.coordinator_pb2 import (
 from xain_proto.np import proto_to_ndarray
 
 from xain_fl.coordinator.coordinator import Coordinator
+from xain_fl.fl.coordinator.controller import OrderController
 from xain_fl.tools.exceptions import (
     DuplicatedUpdateError,
     InvalidRequestError,
@@ -274,7 +275,7 @@ def test_duplicated_update_submit():
         coordinator.on_message(EndTrainingRoundRequest(), "participant1")
 
 
-def test_remove_participant():
+def test_remove_selected_participant():
     """[summary]
 
     .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
@@ -285,16 +286,45 @@ def test_remove_participant():
     )
     coordinator.on_message(RendezvousRequest(), "participant1")
 
+    assert coordinator.participants.len() == 1
+    assert coordinator.round.participant_ids == ["participant1"]
     assert coordinator.state == State.ROUND
 
     coordinator.remove_participant("participant1")
 
     assert coordinator.participants.len() == 0
+    assert coordinator.round.participant_ids == []
     assert coordinator.state == State.STANDBY
 
     coordinator.on_message(RendezvousRequest(), "participant1")
 
+    assert coordinator.participants.len() == 1
+    assert coordinator.round.participant_ids == ["participant1"]
     assert coordinator.state == State.ROUND
+
+
+def test_remove_unselected_participant():
+    """[summary]
+
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
+    """
+
+    coordinator = Coordinator(
+        minimum_participants_in_round=1, fraction_of_participants=0.5
+    )
+    coordinator.on_message(RendezvousRequest(), "participant1")
+    coordinator.on_message(RendezvousRequest(), "participant2")
+
+    assert coordinator.participants.len() == 2
+    assert len(coordinator.round.participant_ids) == 1
+
+    # override selection
+    coordinator.round.participant_ids = ["participant1"]
+
+    coordinator.remove_participant("participant2")
+
+    assert coordinator.participants.len() == 1
+    assert coordinator.round.participant_ids == ["participant1"]
 
 
 def test_number_of_selected_participants():
@@ -351,3 +381,56 @@ def test_correct_round_advertised_to_participants():
     # state STANDBY will be advertised to participant2 (which has NOT been selected)
     response = coordinator.on_message(HeartbeatRequest(), "participant2")
     assert response.state == State.STANDBY
+
+
+def test_select_outstanding():
+    """[summary]
+
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
+    """
+
+    # setup: select first 3 of 4 in order per round
+    coordinator = Coordinator(
+        minimum_participants_in_round=3,
+        fraction_of_participants=0.75,
+        controller=OrderController(),
+    )
+    coordinator.on_message(RendezvousRequest(), "participant1")
+    coordinator.on_message(RendezvousRequest(), "participant2")
+    coordinator.on_message(RendezvousRequest(), "participant3")
+    coordinator.on_message(RendezvousRequest(), "participant4")
+
+    # 4 connected hence round starts
+    assert coordinator.state == State.ROUND
+    assert coordinator.participants.len() == 4
+    # selection is triggered: order-controller guarantees it's [P1, P2, P3]
+    assert coordinator.round.participant_ids == [
+        "participant1",
+        "participant2",
+        "participant3",
+    ]
+
+    coordinator.remove_participant("participant3")
+
+    # round pauses
+    assert coordinator.state == State.STANDBY
+    assert coordinator.participants.len() == 3
+    assert coordinator.round.participant_ids == ["participant1", "participant2"]
+
+    coordinator.remove_participant("participant1")
+
+    assert coordinator.participants.len() == 2
+    assert coordinator.round.participant_ids == ["participant2"]
+
+    coordinator.on_message(RendezvousRequest(), "participant5")
+    coordinator.on_message(RendezvousRequest(), "participant6")
+
+    # back up to 4 (P2, P4, P5, P6) so round resumes
+    assert coordinator.state == State.ROUND
+    assert coordinator.participants.len() == 4
+    # selection triggered: P2 still selected with 2 outstanding from [P4, P5, P6]
+    assert coordinator.round.participant_ids == [
+        "participant2",
+        "participant4",
+        "participant5",
+    ]
