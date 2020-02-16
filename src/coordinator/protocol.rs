@@ -282,6 +282,7 @@ impl Protocol {
             self.counters.done += 1;
             if self.is_end_of_round() {
                 self.current_round += 1;
+                self.emit_event(Event::RunAggregation);
                 if self.current_round == self.config.rounds {
                     info!("training complete");
                     self.is_training_complete = true;

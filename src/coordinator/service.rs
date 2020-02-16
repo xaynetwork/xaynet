@@ -196,7 +196,8 @@ where
         let ((id, weights), response_sender) = req;
         let response = self.protocol.end_training(id, self.clients.get_state(&id));
         if response == EndTrainingResponse::Accept {
-            self.aggregator.add_local_result(weights);
+            // FIXME: handle this
+            self.aggregator.add_local_result(weights).unwrap();
         }
         response_sender.send(response);
     }

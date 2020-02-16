@@ -19,15 +19,15 @@ use tokio::time::delay_for;
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
     let config = CoordinatorConfig {
-        rounds: 10,
-        min_clients: 1,
-        participants_ratio: 1.0,
+        rounds: 3,
+        min_clients: 3,
+        participants_ratio: 0.5,
     };
     let (coordinator, handle) =
         CoordinatorService::new(MeanAggregator::new(), RandomSelector, 0, config);
     tokio::spawn(coordinator);
 
-    for _ in 0..10000 {
+    for _ in 0..9 {
         let (client, heartbeat) = Client::new(handle.clone(), Box::new(train)).await.unwrap();
         tokio::spawn(heartbeat.start());
         tokio::spawn(client);
@@ -86,7 +86,8 @@ impl Aggregator<u32> for MeanAggregator {
 
 fn train(weights: u32) -> Pin<Box<dyn Future<Output = u32> + Send>> {
     Box::pin(async move {
-        delay_for(Duration::from_millis(10000)).await;
+        // sleep for 3 seconds to pretend training takes some time
+        delay_for(Duration::from_millis(3000)).await;
         let mut rng = rand::thread_rng();
         let random_increment: u8 = rng.gen();
         weights + random_increment as u32

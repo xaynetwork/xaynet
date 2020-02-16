@@ -13,22 +13,29 @@ use std::{
     time::Duration,
 };
 use tokio::{sync::mpsc, time::delay_for};
+use derive_more::Display;
 
 /// Represent the state of a client
-enum ClientState<T> {
+#[derive(Display)]
+pub enum ClientState<T> {
     /// The client is waiting to be selected
     Waiting,
 
+    #[display(fmt="StartTraining")]
     StartTraining(Pin<Box<dyn Future<Output = T> + Send>>),
 
     /// The client is currently training
+    #[display(fmt="Training")]
     Training(Pin<Box<dyn Future<Output = T> + Send>>),
 
     /// The client finished training and is waiting for its "end
     /// training" request to be handled
+    #[display(fmt="EntTraining")]
     EndTraining(Pin<Box<dyn Future<Output = ()> + Send>>),
 }
 
+#[derive(Display)]
+#[display(fmt = "Client(id={}, state={})", id, state)]
 pub struct Client<T> {
     handle: CoordinatorHandle<T>,
     state: ClientState<T>,
@@ -62,7 +69,7 @@ impl<T> HeartBeat<T> {
                         if let Err(_) = self.tx.send(response).await {
                             error!("heartbeat channel closed: client dropped");
                         }
-                        delay_for(Duration::from_millis(50)).await;
+                        delay_for(Duration::from_millis(1000)).await;
                     }
                 }
             }
@@ -167,17 +174,22 @@ where
             Poll::Ready(()) => return Poll::Ready(()),
             Poll::Pending => {}
         }
+        debug!("polling client {}", pin);
         match &mut pin.state {
             ClientState::StartTraining(f) => {
                 if let Poll::Ready(weights) = f.as_mut().poll(cx) {
+                    debug!("client {} entering Training state", pin.id);
                     pin.state = ClientState::Training(Box::pin((pin.train_function)(weights)));
+                } else {
+                    debug!("client {} still in StartTraining state", pin.id);
                 }
             }
             ClientState::Training(f) => {
                 if let Poll::Ready(result) = f.as_mut().poll(cx) {
-                    info!("done training, sending the results to the coordinator");
+                    info!("client {} done training, sending the results to the coordinator", pin.id);
                     let handle = pin.handle.clone();
                     let id = pin.id.clone();
+                    debug!("client {} entering EndTraining state", pin.id);
                     pin.state =
                         ClientState::EndTraining(Box::pin(async move {
                             handle.clone().end_training(id, result).map(|res| {
@@ -188,11 +200,16 @@ where
                             }
                         }).await
                         }));
+                } else {
+                    debug!("client {} still in Training state", pin.id);
                 }
             }
             ClientState::EndTraining(f) => {
                 if let Poll::Ready(_) = f.as_mut().poll(cx) {
+                    debug!("client {} back to Waiting state", pin.id);
                     pin.state = ClientState::Waiting;
+                } else {
+                    debug!("client {} still in EndTraining state", pin.id);
                 }
             }
             _ => {}
