@@ -38,7 +38,7 @@ install_requires = [
 
 dev_require = [
     "black==19.10b0",  # MIT
-    "mypy==0.760",  # MIT License
+    "mypy==0.761",  # MIT License
     "pylint==2.3.1",  # GPL
     "astroid==2.2.5",  # LGPL
     "isort==4.3.21",  # MIT

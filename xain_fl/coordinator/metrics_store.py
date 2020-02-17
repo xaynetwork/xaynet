@@ -19,7 +19,7 @@ class AbstractMetricsStore(ABC):  # pylint: disable=too-few-public-methods
     """An abstract metric store."""
 
     @abstractmethod
-    def write_participant_metrics(self, metrics_as_json: str):
+    def write_participant_metrics(self, metrics_as_json: str) -> None:
         """
         Write the participant metrics on behalf of the participant into a metric store.
 
@@ -37,7 +37,7 @@ class AbstractMetricsStore(ABC):  # pylint: disable=too-few-public-methods
         self,
         metrics: Dict[str, Union[str, int, float]],
         tags: Optional[Dict[str, str]] = None,
-    ):
+    ) -> None:
         """
         Write the metrics to a metric store that are collected on the coordinator site.
 
@@ -57,7 +57,7 @@ class NullObjectMetricsStore(
 ):  # pylint: disable=too-few-public-methods
     """A metric store that does nothing."""
 
-    def write_participant_metrics(self, metrics_as_json: str):
+    def write_participant_metrics(self, metrics_as_json: str) -> None:
         """
         A method that has no effect.
 
@@ -70,7 +70,7 @@ class NullObjectMetricsStore(
         self,
         metrics: Dict[str, Union[str, int, float]],
         tags: Optional[Dict[str, str]] = None,
-    ):
+    ) -> None:
         """
         A method that has no effect.
 
@@ -116,7 +116,7 @@ class MetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-meth
             "minItems": 1,
         }
 
-    def write_participant_metrics(self, metrics_as_json: str):
+    def write_participant_metrics(self, metrics_as_json: str) -> None:
         """
         Write the participant metrics on behalf of the participant into InfluxDB.
 
@@ -141,7 +141,7 @@ class MetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-meth
         self,
         metrics: Dict[str, Union[str, int, float]],
         tags: Optional[Dict[str, str]] = None,
-    ):
+    ) -> None:
         """
         Write the metrics to InfluxDB that are collected on the coordinator site.
 
