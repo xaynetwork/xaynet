@@ -475,6 +475,9 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         Write the metrics to a metric store that are collected on the coordinator site.
         If an exception is raised, it will be caught and the error logged.
 
+        FIXME: Helper function to make sure that the coordinator does not crash due to exception of
+        the metric store. Prober exception handling should be tackled in PB-125.
+
         Args:
 
             metrics: A dictionary with the metric names as keys and the metric values as values.
