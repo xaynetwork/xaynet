@@ -476,7 +476,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         If an exception is raised, it will be caught and the error logged.
 
         FIXME: Helper function to make sure that the coordinator does not crash due to exception of
-        the metric store. Prober exception handling should be tackled in PB-125.
+        the metric store. Proper exception handling should be tackled in PB-125.
 
         Args:
 
