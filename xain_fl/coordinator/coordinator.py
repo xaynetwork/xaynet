@@ -471,7 +471,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         self,
         metrics: Dict[str, Union[str, int, float]],
         tags: Optional[Dict[str, str]] = None,
-    ):
+    ) -> None:
         """
         Write the metrics to a metric store that are collected on the coordinator site.
         If an exception is raised, it will be caught and the error logged.
