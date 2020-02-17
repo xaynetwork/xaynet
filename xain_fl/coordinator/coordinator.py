@@ -247,6 +247,9 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
             self._write_metrics_fail_silently({"state": self.state})
 
         self._write_metrics_fail_silently(
+            {"participant_state": State.FINISHED}, tags={"id": participant_id}
+        )
+        self._write_metrics_fail_silently(
             {"number_of_selected_participants": self.participants.len()}
         )
 
@@ -321,7 +324,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         return RendezvousResponse(reply=reply)
 
     def _handle_heartbeat(
-        self, _message: HeartbeatRequest, participant_id: str
+        self, message: HeartbeatRequest, participant_id: str
     ) -> HeartbeatResponse:
         """Handles a Heartbeat request.
 
@@ -331,12 +334,16 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
             - ``STANDBY``: if the participant is not selected for the current round.
 
         Args:
-            _message: The request to handle. Currently not used.
+            message: The request to handle. Currently not used.
             participant_id: The id of the participant making the request.
 
         Returns:
             The response to the participant.
         """
+
+        self._write_metrics_fail_silently(
+            {"participant_state": message.state}, tags={"id": participant_id}
+        )
 
         self.participants.update_expires(participant_id)
 
