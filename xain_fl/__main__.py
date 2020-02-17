@@ -36,7 +36,7 @@ def main() -> None:
     configure_structlog(config.logging)
 
     metrics_store: AbstractMetricsStore = NullObjectMetricsStore()
-    if config.metrics.enable:  # type: ignore
+    if config.metrics.enable:
         metrics_store = MetricsStore(config.metrics)
 
     coordinator = Coordinator(
