@@ -111,6 +111,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.dev
+    depends_on:
+      - influxdb
     volumes:
       - /app/xain_fl.egg-info  #  don't use the local egg-info, if one exists
       - ${PWD}/xain_fl:/app/xain_fl

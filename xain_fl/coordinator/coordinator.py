@@ -1,6 +1,6 @@
 """XAIN FL Coordinator"""
 
-from typing import List
+from typing import Dict, List, Optional, Union
 
 from google.protobuf.internal.python_message import GeneratedProtocolMessageType
 import numpy as np
@@ -148,6 +148,14 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         self.current_round: int = 0
         self.epochs_current_round: int = epochs
 
+        self._write_metrics_fail_silently(
+            {
+                "state": self.state,
+                "round": self.current_round,
+                "number_of_selected_participants": self.participants.len(),
+            }
+        )
+
     def get_minimum_connected_participants(self) -> int:
         """Calculates how many participants are needed so that we can select
         a specific fraction of them.
@@ -235,6 +243,11 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
 
         if self.participants.len() < self.minimum_connected_participants:
             self.state = State.STANDBY
+            self._write_metrics_fail_silently({"state": self.state})
+
+        self._write_metrics_fail_silently(
+            {"number_of_selected_participants": self.participants.len()}
+        )
 
     def select_participant_ids_and_init_round(self) -> None:
         """Selects the participant ids and initiates a Round."""
@@ -279,6 +292,9 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
                 participant_id=participant_id,
                 current_participants_count=self.participants.len(),
             )
+            self._write_metrics_fail_silently(
+                {"number_of_selected_participants": self.participants.len()}
+            )
 
             # Select participants and change the state to ROUND if the latest added participant
             # lets us meet the minimum number of connected participants
@@ -289,6 +305,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
                     self.round.add_selected(ids)
 
                 self.state = State.ROUND
+                self._write_metrics_fail_silently({"state": self.state})
         else:
             reply = RendezvousReply.LATER
             logger.info(
@@ -327,7 +344,6 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         else:
             state = State.STANDBY
 
-        # send heartbeat response advertising the current state
         logger.debug(
             "Heartbeat response",
             participant_id=participant_id,
@@ -335,6 +351,10 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
             round=self.current_round,
             current_participants_count=self.participants.len(),
         )
+        self._write_metrics_fail_silently(
+            {"number_of_selected_participants": self.participants.len()}
+        )
+        # send heartbeat response advertising the current state
         return HeartbeatResponse(state=state, round=self.current_round)
 
     def _handle_start_training_round(
@@ -404,7 +424,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
 
         try:
             if message.metrics != "[]":
-                self.metrics_store.write_metrics(message.metrics)
+                self.metrics_store.write_participant_metrics(message.metrics)
         except MetricsStoreError as err:
             logger.warn(
                 "Can not write metrics", participant_id=participant_id, error=repr(err)
@@ -435,14 +455,38 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
             if self.current_round >= self.num_rounds - 1:
                 logger.info("Last round over", round=self.current_round)
                 self.state = State.FINISHED
+                self._write_metrics_fail_silently({"state": self.state})
             else:
                 self.current_round += 1
                 self.epoch_base += self.epochs_current_round
+                self._write_metrics_fail_silently({"round": self.current_round})
                 # reinitialize the round
                 self.select_participant_ids_and_init_round()
 
         logger.debug("Send EndTrainingRoundResponse", participant_id=participant_id)
         return EndTrainingRoundResponse()
+
+    def _write_metrics_fail_silently(
+        self,
+        metrics: Dict[str, Union[str, int, float]],
+        tags: Optional[Dict[str, str]] = None,
+    ):
+        """
+        Write the metrics to a metric store that are collected on the coordinator site.
+        If an exception is raised, it will be caught and the error logged.
+
+        FIXME: Helper function to make sure that the coordinator does not crash due to exception of
+        the metric store. Proper exception handling should be tackled in PB-125.
+
+        Args:
+
+            metrics: A dictionary with the metric names as keys and the metric values as values.
+            tags: A dictionary to append optional metadata to the metric. Defaults to None.
+        """
+        try:
+            self.metrics_store.write_coordinator_metrics(metrics, tags)
+        except MetricsStoreError as err:
+            logger.warn("Can not write coordinator metrics", error=repr(err))
 
 
 def pb_enum_to_str(pb_enum, member_value: int) -> str:
