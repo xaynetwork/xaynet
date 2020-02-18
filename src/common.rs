@@ -1,7 +1,7 @@
 use derive_more::Display;
 use uuid::Uuid;
 
-#[derive(Eq, PartialEq, Hash, Debug, Copy, Clone, Display, Serialize, Deserialize)]
+#[derive(Eq, PartialEq, Hash, Debug, Copy, Clone, Display, Serialize, Deserialize, Default)]
 /// A unique random client identifier
 pub struct ClientId(Uuid);
 
@@ -12,7 +12,7 @@ impl ClientId {
     }
 }
 
-#[derive(Eq, PartialEq, Hash, Debug, Copy, Clone, Display, Serialize, Deserialize)]
+#[derive(Eq, PartialEq, Hash, Debug, Copy, Clone, Display, Serialize, Deserialize, Default)]
 /// A unique random token
 pub struct Token(Uuid);
 

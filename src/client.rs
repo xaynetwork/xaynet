@@ -3,7 +3,8 @@ use futures::ready;
 use crate::{
     common::ClientId,
     coordinator::{
-        CoordinatorHandle, HeartBeatResponse, RendezVousResponse, StartTrainingResponse,
+        CoordinatorHandle, HeartBeatResponse, RendezVousResponse, RequestError,
+        StartTrainingResponse,
     },
 };
 use futures::{future::FutureExt, stream::Stream};
@@ -63,13 +64,13 @@ impl<T> HeartBeat<T> {
                         return;
                     }
                     Ok(HeartBeatResponse::Finish) | Ok(HeartBeatResponse::Reject) => {
-                        if let Err(_) = self.tx.send(HeartBeatResponse::Finish).await {
+                        if self.tx.send(HeartBeatResponse::Finish).await.is_err() {
                             error!("heartbeat channel closed: client dropped");
                         }
                         break;
                     }
                     Ok(response) => {
-                        if let Err(_) = self.tx.send(response).await {
+                        if self.tx.send(response).await.is_err() {
                             error!("heartbeat channel closed: client dropped");
                         }
                         delay_for(Duration::from_millis(1000)).await;
@@ -99,7 +100,7 @@ where
                 let client = Self {
                     handle: handle.clone(),
                     state: ClientState::Waiting,
-                    id: id.clone(),
+                    id,
                     heartbeat: rx,
                     train_function,
                 };
@@ -148,7 +149,7 @@ where
 
     fn start_training(&mut self) {
         let mut handle = self.handle.clone();
-        let id = self.id.clone();
+        let id = self.id;
         self.state = ClientState::StartTraining(Box::pin(async move {
             handle
                 .start_training(id)
@@ -159,7 +160,9 @@ where
                         // doesn't handle this for now.
                         panic!("start training response rejected");
                     }
-                    Err(_) => panic!("start training request failed: coordinator dropped"),
+                    Err(RequestError) => {
+                        panic!("start training request failed: coordinator dropped")
+                    }
                 })
                 .await
         }));
@@ -194,12 +197,12 @@ where
                         pin.id
                     );
                     let handle = pin.handle.clone();
-                    let id = pin.id.clone();
+                    let id = pin.id;
                     debug!("client {} entering EndTraining state", pin.id);
                     pin.state =
                         ClientState::EndTraining(Box::pin(async move {
                             handle.clone().end_training(id, result).map(|res| {
-                            if let Err(_) = res {
+                            if res.is_err() {
                                 error!("could not send end training request: coordinator stopped");
                             } else {
                                 trace!("received end training response")

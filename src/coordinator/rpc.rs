@@ -8,6 +8,8 @@ pub trait CoordinatorTarpc {
     async fn end_training(id: ClientId) -> Result<(), ()>;
 }
 
+// NOTE: the server is cloned on every request, so cloning should
+// remain cheap!
 #[derive(Clone)]
 pub struct CoordinatorTarpcServer {
     ids: mpsc::Sender<(ClientId, oneshot::Sender<()>)>,
@@ -16,15 +18,15 @@ pub struct CoordinatorTarpcServer {
 impl CoordinatorTarpc for CoordinatorTarpcServer {
     type EndTrainingFut = Pin<Box<dyn Future<Output = Result<(), ()>> + Send>>;
 
-    fn end_training(self, _: tarpc::context::Context, id: ClientId) -> Self::EndTrainingFut {
+    fn end_training(mut self, _: tarpc::context::Context, id: ClientId) -> Self::EndTrainingFut {
         let (tx, rx) = oneshot::channel();
-        let mut ids = self.ids.clone();
         // FIXME: the async block is here to force `ids` to be taken
         // by value instead of mutably borrowed, so that the future is
         // 'static. But I don't understand why the compiler forces us
         // to do that...
         Box::pin(async move {
-            ids.send((id, tx))
+            self.ids
+                .send((id, tx))
                 .map_err(|_| ())
                 .and_then(|_| rx.map_err(|_| ()))
                 .await

@@ -9,6 +9,8 @@ trait AggregatorTarpcService {
     async fn reset() -> Result<(), ()>;
 }
 
+// NOTE: the server is cloned on every request, so cloning should
+// remain cheap!
 #[derive(Clone)]
 struct AggregatorTarpcServer {
     ids: mpsc::Sender<((ClientId, Token), oneshot::Sender<()>)>,
@@ -19,30 +21,21 @@ impl AggregatorTarpcService for AggregatorTarpcServer {
     type SelectFut = Pin<Box<dyn Future<Output = Result<(), ()>> + Send>>;
     type ResetFut = Pin<Box<dyn Future<Output = Result<(), ()>> + Send>>;
 
-    fn select(self, _: tarpc::context::Context, id: ClientId, token: Token) -> Self::SelectFut {
+    fn select(mut self, _: tarpc::context::Context, id: ClientId, token: Token) -> Self::SelectFut {
         let (tx, rx) = oneshot::channel();
-        let mut ids = self.ids.clone();
-        // FIXME: the async block is here to force `ids` to be taken
-        // by value instead of mutably borrowed, so that the future is
-        // 'static. But I don't understand why the compiler forces us
-        // to do that...
         Box::pin(async move {
-            ids.send(((id, token), tx))
+            self.ids
+                .send(((id, token), tx))
                 .map_err(|_| ())
                 .and_then(|_| rx.map_err(|_| ()))
                 .await
         })
     }
 
-    fn reset(self, _: tarpc::context::Context) -> Self::ResetFut {
+    fn reset(mut self, _: tarpc::context::Context) -> Self::ResetFut {
         let (tx, rx) = oneshot::channel();
-        let mut reset = self.reset.clone();
-        // FIXME: the async block is here to force `ids` to be taken
-        // by value instead of mutably borrowed, so that the future is
-        // 'static. But I don't understand why the compiler forces us
-        // to do that...
         Box::pin(async move {
-            reset
+            self.reset
                 .send(((), tx))
                 .map_err(|_| ())
                 .and_then(|_| rx.map_err(|_| ()))

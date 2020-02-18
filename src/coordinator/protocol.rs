@@ -93,7 +93,7 @@ impl Protocol {
 // public methods
 impl Protocol {
     pub fn counters(&self) -> Counters {
-        self.counters.clone()
+        self.counters
     }
     pub fn new(config: CoordinatorConfig) -> Self {
         Self {

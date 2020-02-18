@@ -1,5 +1,6 @@
 use super::heartbeat::*;
 use super::protocol::*;
+use crate::common::ClientId;
 use derive_more::Display;
 use std::{
     collections::{HashMap, HashSet},
@@ -8,7 +9,6 @@ use std::{
     time::Duration,
 };
 use tokio::sync::mpsc;
-use crate::common::ClientId;
 
 const HEARTBEAT_TIMEOUT: Duration = Duration::from_secs(10);
 
@@ -196,7 +196,7 @@ impl Clients {
         let client = if self.is_inactive(&id) {
             self.remove_inactive(&id);
             let (new_client, new_heartbeat_timer) = self.new_active_client(id);
-            *&mut heartbeat_timer = Some(new_heartbeat_timer);
+            heartbeat_timer = Some(new_heartbeat_timer);
             new_client
         } else {
             assert!(self.is_active(&id));
