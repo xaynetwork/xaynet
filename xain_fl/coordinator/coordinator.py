@@ -247,7 +247,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
             self._write_coordinator_metrics_fail_silently({"state": self.state})
 
         self._write_participant_metrics_fail_silently(
-            {"participant_state": State.FINISHED}, tags={"id": participant_id}
+            {"state": State.FINISHED}, tags={"id": participant_id}
         )
         self._write_coordinator_metrics_fail_silently(
             {"number_of_selected_participants": self.participants.len()}
@@ -342,7 +342,8 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         """
 
         self._write_participant_metrics_fail_silently(
-            {"participant_state": message.state}, tags={"id": participant_id}
+            {"state": message.state, "round": message.round},
+            tags={"id": participant_id},
         )
 
         self.participants.update_expires(participant_id)
