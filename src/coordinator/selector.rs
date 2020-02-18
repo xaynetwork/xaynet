@@ -1,4 +1,4 @@
-use crate::coordinator::client::ClientId;
+use crate::common::ClientId;
 
 pub trait Selector {
     fn select(

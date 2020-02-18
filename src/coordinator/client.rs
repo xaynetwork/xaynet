@@ -8,20 +8,9 @@ use std::{
     time::Duration,
 };
 use tokio::sync::mpsc;
-use uuid::Uuid;
+use crate::common::ClientId;
 
 const HEARTBEAT_TIMEOUT: Duration = Duration::from_secs(10);
-
-#[derive(Eq, PartialEq, Hash, Debug, Copy, Clone, Display)]
-/// A unique random client identifier
-pub struct ClientId(Uuid);
-
-impl ClientId {
-    /// Return a new random client identifier
-    pub fn new() -> Self {
-        Self(Uuid::new_v4())
-    }
-}
 
 /// Represent an active client.
 struct ActiveClient {

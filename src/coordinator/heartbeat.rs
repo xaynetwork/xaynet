@@ -4,7 +4,7 @@ use tokio::{
     time::{delay_for, Delay},
 };
 
-use crate::coordinator::client::ClientId;
+use crate::common::ClientId;
 
 use std::{
     future::Future,

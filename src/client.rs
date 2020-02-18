@@ -1,11 +1,15 @@
 use futures::ready;
 
-use crate::coordinator::{
-    ClientId, CoordinatorHandle, HeartBeatResponse, RendezVousResponse, StartTrainingResponse,
+use crate::{
+    common::ClientId,
+    coordinator::{
+        CoordinatorHandle, HeartBeatResponse, RendezVousResponse, StartTrainingResponse,
+    },
 };
 use futures::{future::FutureExt, stream::Stream};
 use std::clone::Clone;
 
+use derive_more::Display;
 use std::{
     future::Future,
     pin::Pin,
@@ -13,7 +17,6 @@ use std::{
     time::Duration,
 };
 use tokio::{sync::mpsc, time::delay_for};
-use derive_more::Display;
 
 /// Represent the state of a client
 #[derive(Display)]
@@ -21,16 +24,16 @@ pub enum ClientState<T> {
     /// The client is waiting to be selected
     Waiting,
 
-    #[display(fmt="StartTraining")]
+    #[display(fmt = "StartTraining")]
     StartTraining(Pin<Box<dyn Future<Output = T> + Send>>),
 
     /// The client is currently training
-    #[display(fmt="Training")]
+    #[display(fmt = "Training")]
     Training(Pin<Box<dyn Future<Output = T> + Send>>),
 
     /// The client finished training and is waiting for its "end
     /// training" request to be handled
-    #[display(fmt="EntTraining")]
+    #[display(fmt = "EntTraining")]
     EndTraining(Pin<Box<dyn Future<Output = ()> + Send>>),
 }
 
@@ -186,7 +189,10 @@ where
             }
             ClientState::Training(f) => {
                 if let Poll::Ready(result) = f.as_mut().poll(cx) {
-                    info!("client {} done training, sending the results to the coordinator", pin.id);
+                    info!(
+                        "client {} done training, sending the results to the coordinator",
+                        pin.id
+                    );
                     let handle = pin.handle.clone();
                     let id = pin.id.clone();
                     debug!("client {} entering EndTraining state", pin.id);

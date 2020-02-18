@@ -15,3 +15,6 @@ pub use service::CoordinatorService;
 mod handle;
 pub use client::*;
 pub use handle::CoordinatorHandle;
+
+mod rpc;
+pub use rpc::{CoordinatorTarpcClient, CoordinatorTarpcServer};

@@ -17,6 +17,7 @@ use super::client::*;
 use super::handle::CoordinatorHandle;
 use super::protocol;
 use super::request::*;
+use crate::common::ClientId;
 use std::fmt::Debug;
 
 use tokio::sync::mpsc;

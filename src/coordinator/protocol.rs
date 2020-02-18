@@ -2,7 +2,7 @@ use derive_more::Display;
 use std::collections::VecDeque;
 use std::error::Error;
 
-use crate::coordinator::client::ClientId;
+use crate::common::ClientId;
 
 #[derive(Eq, Debug, PartialEq, Default, Copy, Clone)]
 pub struct Counters {

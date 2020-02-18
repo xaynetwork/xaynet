@@ -1,9 +1,9 @@
-use super::client::ClientId;
 use super::request::{response_channel, Request};
 use super::request::{
     EndTrainingResponse, HeartBeatResponse, RendezVousRequest, RendezVousResponse, RequestError,
     StartTrainingResponse,
 };
+use crate::common::ClientId;
 use std::clone::Clone;
 use tokio::sync::mpsc;
 

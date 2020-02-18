@@ -6,10 +6,14 @@ use derive_more::Display;
 
 use rand::seq::IteratorRandom;
 mod client;
+pub mod common;
 mod coordinator;
 
+use crate::{
+    common::ClientId,
+    coordinator::{Aggregator, CoordinatorConfig, CoordinatorService, Selector},
+};
 use client::Client;
-use coordinator::{Aggregator, ClientId, CoordinatorConfig, CoordinatorService, Selector};
 
 use rand::Rng;
 use std::{future::Future, pin::Pin, time::Duration};

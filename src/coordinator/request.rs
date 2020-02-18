@@ -1,4 +1,4 @@
-use super::client::ClientId;
+use crate::common::ClientId;
 use super::protocol;
 use derive_more::Display;
 use tokio::sync::oneshot;
