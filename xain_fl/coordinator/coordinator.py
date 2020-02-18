@@ -109,8 +109,8 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
 
     def __init__(  # pylint: disable=too-many-arguments
         self,
-        global_weights_writer,
-        local_weights_reader,
+        global_weights_writer: AbstractGlobalWeightsWriter,
+        local_weights_reader: AbstractLocalWeightsReader,
         metrics_store: AbstractMetricsStore = NullObjectMetricsStore(),
         num_rounds: int = 1,
         minimum_participants_in_round: int = 1,
