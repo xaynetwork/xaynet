@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 import json
 from json import JSONDecodeError
 import time
-from typing import Dict, Optional, Union
+from typing import Dict, List, Optional, Union
 
 from influxdb import InfluxDBClient
 from jsonschema import ValidationError, validate
@@ -244,15 +244,15 @@ class MetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-meth
             "fields": metrics,
         }
 
-        self._write_metrics(influx_data_point)
+        self._write_metrics([influx_data_point])
 
-    def _write_metrics(self, influx_point: dict) -> None:
+    def _write_metrics(self, influx_points: List[dict]) -> None:
         """
         Write the metrics to InfluxDB that are collected on the coordinator site.
 
         Args:
 
-            influx_point: A InfluxDB data point.
+            influx_points: InfluxDB data points.
 
         Raises:
 
@@ -260,7 +260,7 @@ class MetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-meth
         """
 
         try:
-            self.influx_client.write_points([influx_point])
+            self.influx_client.write_points(influx_points)
         except Exception as err:  # pylint: disable=broad-except
             logger.error("Exception", error=repr(err))
             raise MetricsStoreError("Can not write metrics.") from err

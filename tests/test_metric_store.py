@@ -46,7 +46,22 @@ def test_write_received_participant_metrics(
     )
 
     metric_store.write_received_participant_metrics(json_participant_metrics_sample)
-    write_points_mock.assert_called_once()
+    write_points_mock.assert_called_with(
+        [
+            {
+                "measurement": "participant",
+                "time": 1582017483 * 1_000_000_000,
+                "tags": {"id": "127.0.0.1:1345"},
+                "fields": {"CPU_1": 90.8, "CPU_2": 90, "CPU_3": "23", "CPU_4": 0.00,},
+            },
+            {
+                "measurement": "participant",
+                "time": 1582017484 * 1_000_000_000,
+                "tags": {"id": "127.0.0.1:1345"},
+                "fields": {"CPU_1": 90.8, "CPU_2": 90, "CPU_3": "23", "CPU_4": 0.00,},
+            },
+        ]
+    )
 
 
 @mock.patch.object(InfluxDBClient, "write_points", side_effect=Exception())

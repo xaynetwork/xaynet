@@ -24,13 +24,13 @@ def json_participant_metrics_sample():
         [
             {
                 "measurement": "participant",
-                "time": 1234326435,
+                "time": 1582017483 * 1_000_000_000,
                 "tags": {"id": "127.0.0.1:1345"},
                 "fields": {"CPU_1": 90.8, "CPU_2": 90, "CPU_3": "23", "CPU_4": 0.00,},
             },
             {
                 "measurement": "participant",
-                "time": 3542626236,
+                "time": 1582017484 * 1_000_000_000,
                 "tags": {"id": "127.0.0.1:1345"},
                 "fields": {"CPU_1": 90.8, "CPU_2": 90, "CPU_3": "23", "CPU_4": 0.00,},
             },
