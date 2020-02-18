@@ -23,13 +23,13 @@ def participant_metrics_sample():
     return json.dumps(
         [
             {
-                "measurement": "CPU utilization",
+                "measurement": "participant",
                 "time": 1234326435,
                 "tags": {"id": "127.0.0.1:1345"},
                 "fields": {"CPU_1": 90.8, "CPU_2": 90, "CPU_3": "23", "CPU_4": 0.00,},
             },
             {
-                "measurement": "CPU utilization",
+                "measurement": "participant",
                 "time": 3542626236,
                 "tags": {"id": "127.0.0.1:1345"},
                 "fields": {"CPU_1": 90.8, "CPU_2": 90, "CPU_3": "23", "CPU_4": 0.00,},

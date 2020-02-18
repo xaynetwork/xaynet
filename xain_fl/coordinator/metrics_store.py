@@ -99,7 +99,7 @@ class MetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-meth
                 {
                     "type": "object",
                     "properties": {
-                        "measurement": {"type": "string"},
+                        "measurement": {"const": "participant"},
                         "time": {"type": "number"},
                         "tags": {
                             "type": "object",
