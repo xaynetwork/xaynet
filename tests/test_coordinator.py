@@ -1,5 +1,6 @@
 """XAIN FL tests for coordinator"""
 
+import numpy as np
 from numpy import ndarray
 import pytest
 from xain_proto.fl.coordinator_pb2 import (
@@ -19,8 +20,6 @@ from xain_fl.tools.exceptions import (
     InvalidRequestError,
     UnknownParticipantError,
 )
-
-from .store import assert_ndarray_eq
 
 # pylint: disable=redefined-outer-name
 
@@ -141,7 +140,7 @@ def test_end_training_round(coordinator, end_training_request):
     # check that the coordinator read the correct local weights from the store
     coordinator.local_weights_reader.assert_read("participant1", 0)
     update = coordinator.round.updates["participant1"]
-    assert_ndarray_eq(update["model_weights"], local_weights)
+    np.testing.assert_array_equal(update["model_weights"], local_weights)
 
 
 def test_end_training_round_update(coordinator, end_training_request):

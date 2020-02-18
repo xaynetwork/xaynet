@@ -104,7 +104,7 @@ class MockS3Coordinator(S3GlobalWeightsWriter, S3LocalWeightsReader):
         writes = self.s3.writes[f"{round}/global"]
         # Under normal conditions, we should write data exactly once
         assert writes == 1, f"got {writes} writes for round {round}, expected 1"
-        assert_ndarray_eq(self.s3.fake_store[f"{round}/global"], weights)
+        np.testing.assert_array_equal(self.s3.fake_store[f"{round}/global"], weights)
 
     def assert_didnt_write(self, round: int):
         """Check that the weights for the given round have NOT been written to the store.
@@ -144,7 +144,7 @@ class MockS3Participant(S3LocalWeightsWriter, S3GlobalWeightsReader):
         key = f"{round}/{participant_id}"
         writes = self.s3.writes[key]
         assert writes == 1, f"got {writes} writes for {key}, expected 1"
-        assert_ndarray_eq(self.s3.fake_store[key], weights)
+        np.testing.assert_array_equal(self.s3.fake_store[key], weights)
 
     def assert_didnt_write(self, participant_id: str, round: int):
         """Check that the weights for the given round have NOT been written to
@@ -157,11 +157,3 @@ class MockS3Participant(S3LocalWeightsWriter, S3GlobalWeightsReader):
         """
         key = f"{round}/{participant_id}"
         assert self.s3.writes[key] == 0
-
-
-def assert_ndarray_eq(nd_array1, nd_array2):
-    """Check that the two given numpy arrays are equal, ignoring NaN
-    values.
-
-    """
-    assert np.array_equal(np.nan_to_num(nd_array1), np.nan_to_num(nd_array2))
