@@ -146,6 +146,9 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         self.current_round: int = 0
         self.epochs_current_round: int = epochs
 
+        # Write the weights for the initial round
+        self.global_weights_writer.write_weights(0, self.weights)
+
         self._write_metrics_fail_silently(
             "coordinator",
             {

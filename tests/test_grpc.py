@@ -537,6 +537,7 @@ def test_start_participant(  # pylint: disable=redefined-outer-name
     )
     mock_local_part = mocker.patch("xain_sdk.participant.Participant")
     mock_local_part.init_weights.return_value = init_weight
+    mock_local_part.train_round.return_value = init_weight, 1
     mock_local_part.dummy_id = "participant1"
 
     config: Config = Config.from_unchecked_dict(participant_config)
