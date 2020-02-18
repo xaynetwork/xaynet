@@ -2,9 +2,13 @@
 #![feature(bool_to_option)]
 #[macro_use]
 extern crate log;
+
+#[macro_use]
+extern crate serde;
 use derive_more::Display;
 
 use rand::seq::IteratorRandom;
+mod aggregator;
 mod client;
 pub mod common;
 mod coordinator;

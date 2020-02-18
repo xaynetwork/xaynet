@@ -5,7 +5,7 @@ authors = ["little-dude <corentinhenry@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-uuid = { version = "0.8", features = ["v4"] }
+uuid = { version = "0.8", features = ["v4", "serde"] }
 log = "0.4.8"
 futures = "0.3.2"
 tokio = { version = "0.2.11", features = ["full"] }
@@ -13,3 +13,5 @@ warp = "0.2.1"
 derive_more = { version = "0.99.2", default-features = false, features = ["display"] }
 rand = "0.7.3"
 env_logger = "0.7.1"
+tarpc = { version = "0.20.0", features = [ "full" ] }
+serde = { version = "1.0.104", features = ["derive"] }
