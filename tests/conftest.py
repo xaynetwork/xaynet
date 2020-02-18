@@ -18,7 +18,7 @@ from .port_forwarding import ConnectionManager
 
 
 @pytest.fixture()
-def participant_metrics_sample():
+def json_participant_metrics_sample():
     """Return a valid participant metric object."""
     return json.dumps(
         [
