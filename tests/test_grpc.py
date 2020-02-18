@@ -50,7 +50,6 @@ def participant_config() -> dict:
             },
         },
         "storage": {
-            "enable": False,
             "endpoint": "http://localhost:9000",
             "bucket": "aggregated_weights",
             "secret_access_key": "my-secret",
