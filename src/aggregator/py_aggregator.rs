@@ -1,4 +1,16 @@
-// FIXME: the code should be loaded from a file
+use futures::executor::block_on;
+use std::thread;
+use tokio::{
+    select,
+    sync::{
+        mpsc::{
+            unbounded_channel as channel, UnboundedReceiver as Receiver, UnboundedSender as Sender,
+        },
+        oneshot,
+    },
+};
+// FIXME: the code should be loaded from a file. This is just an
+// example to get going.
 static CODE: &'static str = r#"
 from typing import Optional
 import bz2
@@ -24,9 +36,7 @@ class Aggregator:
         return data
 
     def reset(self, global_weights: Optional[np.ndarray]) -> None:
-        if global_weights is None:
-            global_weights = DUMMY_WEIGHTS
-        self.weights = []
+        if global_weights is None: global_weights = DUMMY_WEIGHTS self.weights = []
 
     def get_global_weights(self) -> np.ndarray:
         data = bz2.compress(pickle.dumps(self.global_weights))
@@ -80,5 +90,58 @@ impl<'py> PyAggregator<'py> {
         let args = (py_bytes,);
         self.aggregator.call_method1(self.py, "reset", args)?;
         Ok(())
+    }
+}
+
+pub type Weights = Vec<u8>;
+pub type Request<T, U> = (T, oneshot::Sender<U>);
+pub type RequestRx<T, U> = Receiver<Request<T, U>>;
+pub type RequestTx<T, U> = Sender<Request<T, U>>;
+
+pub fn spawn_py_aggregator() -> PyAggregatorHandle {
+    let (aggregate_tx, aggregate_rx) = channel::<Request<(), Weights>>();
+    let (add_weights_tx, add_weights_rx) = channel::<Request<Weights, ()>>();
+    thread::spawn(move || block_on(py_aggregator(aggregate_rx, add_weights_rx)));
+    PyAggregatorHandle {
+        aggregate_requests: aggregate_tx,
+        add_weights_requests: add_weights_tx,
+    }
+}
+
+pub struct PyAggregatorHandle {
+    pub aggregate_requests: RequestTx<(), Weights>,
+    pub add_weights_requests: RequestTx<Weights, ()>,
+}
+
+async fn py_aggregator(
+    mut aggregate_requests: RequestRx<(), Weights>,
+    mut add_weights_requests: RequestRx<Weights, ()>,
+) {
+    let gil = Python::acquire_gil();
+    let py = gil.python();
+    let aggregator = PyAggregator::load(py).unwrap();
+
+    loop {
+        tokio::select! {
+            Some(((), resp_tx)) = aggregate_requests.recv() => {
+                let weights = aggregator.aggregate().unwrap();
+                if resp_tx.send(weights).is_err() {
+                    warn!("cannot send aggregate response, receiver has been dropped");
+                    return;
+                }
+
+            }
+            Some((weights, resp_tx)) = add_weights_requests.recv() => {
+                aggregator.add_weights(&weights[..]).unwrap();
+                if resp_tx.send(()).is_err() {
+                    warn!("cannot send add_weights response, receiver has been dropped");
+                    return;
+                }
+            }
+            else => {
+                warn!("one of the PyAggregator receivers was dropped");
+                return;
+            }
+        }
     }
 }
