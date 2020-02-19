@@ -1,5 +1,5 @@
 [package]
-name = "xain-coordinator"
+name = "xain-fl"
 version = "0.1.0"
 authors = ["little-dude <corentinhenry@gmail.com>"]
 edition = "2018"
