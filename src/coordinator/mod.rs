@@ -1,20 +1,5 @@
-mod aggregator;
-mod client;
-pub use aggregator::*;
-mod selector;
-pub use selector::*;
-mod heartbeat;
-mod request;
-pub use request::*;
-mod protocol;
-pub use protocol::CoordinatorConfig;
-
-mod service;
-pub use service::CoordinatorService;
-
-mod handle;
-pub use client::*;
-pub use handle::CoordinatorHandle;
-
+mod core;
 mod rpc;
-pub use rpc::{CoordinatorTarpcClient, CoordinatorTarpcServer};
+
+pub use self::core::*;
+pub use self::rpc::{RpcServer, RpcService, RpcServiceClient as RpcClient};

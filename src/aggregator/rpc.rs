@@ -8,83 +8,99 @@ use std::{
     pin::Pin,
     task::{Context, Poll},
 };
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::{
+    mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
+    oneshot::{channel, Sender},
+};
 
 #[tarpc::service]
-trait AggregatorTarpcService {
+/// Definition of the methods exposed by the aggregator RPC service.
+pub trait Service {
+    /// Notify the aggregator that the given client has been selected
+    /// and should use the given token to download the global weights
+    /// and upload their local weights.
     async fn select(id: ClientId, token: Token) -> Result<(), ()>;
+
+    /// Notify the aggregator that it should clear its pool of client
+    /// IDs and tokens. This should be called before starting a new
+    /// round.
     async fn reset() -> Result<(), ()>;
 }
 
 // NOTE: the server is cloned on every request, so cloning should
 // remain cheap!
 #[derive(Clone)]
-struct AggregatorTarpcServer {
-    select: mpsc::UnboundedSender<CoordinatorSelectRequest>,
-    reset: mpsc::UnboundedSender<CoordinatorResetRequest>,
+struct Server {
+    select: UnboundedSender<SelectRequest>,
+    reset: UnboundedSender<ResetRequest>,
 }
 
-impl AggregatorTarpcServer {
-    fn new() -> (Self, AggregatorTarpcServiceHandle) {
-        let (select_tx, select_rx) = mpsc::unbounded_channel::<CoordinatorSelectRequest>();
-        let (reset_tx, reset_rx) = mpsc::unbounded_channel::<CoordinatorResetRequest>();
+impl Server {
+    fn new() -> (Self, Handle) {
+        let (select_tx, select_rx) = unbounded_channel::<SelectRequest>();
+        let (reset_tx, reset_rx) = unbounded_channel::<ResetRequest>();
 
-        let server = AggregatorTarpcServer {
+        let server = Server {
             select: select_tx,
             reset: reset_tx,
         };
 
-        let handle = AggregatorTarpcServiceHandle::new(select_rx, reset_rx);
+        let handle = Handle::new(select_rx, reset_rx);
 
         (server, handle)
     }
 }
 
-type CoordinatorSelectRequest = ((ClientId, Token), oneshot::Sender<()>);
-type CoordinatorResetRequest = oneshot::Sender<()>;
+/// An incoming [`Service::select`] RPC request
+pub type SelectRequest = ((ClientId, Token), Sender<()>);
+/// An incoming [`Service::reset`] RPC request
+pub type ResetRequest = Sender<()>;
 
-enum CoordinatorRequest {
-    Select(CoordinatorSelectRequest),
-    Reset(CoordinatorResetRequest),
+/// An incoming RPC request
+pub enum Request {
+    /// An incoming [`Service::select`] RPC request
+    Select(SelectRequest),
+    /// An incoming [`Service::reset`] RPC request
+    Reset(ResetRequest),
 }
 
-struct AggregatorTarpcServiceHandle(Pin<Box<dyn Stream<Item = CoordinatorRequest>>>);
+/// A handle to receive the RPC requests received by the RPC
+/// [`Service`].
+pub struct Handle(Pin<Box<dyn Stream<Item = Request>>>);
 
-impl AggregatorTarpcServiceHandle {
+impl Handle {
     fn new(
-        select: mpsc::UnboundedReceiver<CoordinatorSelectRequest>,
-        reset: mpsc::UnboundedReceiver<CoordinatorResetRequest>,
+        select: UnboundedReceiver<SelectRequest>,
+        reset: UnboundedReceiver<ResetRequest>,
     ) -> Self {
         Self(Box::pin(
-            reset
-                .map(CoordinatorRequest::Reset)
-                .chain(select.map(CoordinatorRequest::Select)),
+            reset.map(Request::Reset).chain(select.map(Request::Select)),
         ))
     }
 }
 
-impl Stream for AggregatorTarpcServiceHandle {
-    type Item = CoordinatorRequest;
+impl Stream for Handle {
+    type Item = Request;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
         self.0.as_mut().poll_next(cx)
     }
 }
 
-impl AggregatorTarpcService for AggregatorTarpcServer {
+impl Service for Server {
     type SelectFut = Pin<Box<dyn Future<Output = Result<(), ()>> + Send>>;
     type ResetFut = Pin<Box<dyn Future<Output = Result<(), ()>> + Send>>;
 
-    fn select(mut self, _: tarpc::context::Context, id: ClientId, token: Token) -> Self::SelectFut {
-        let (tx, rx) = oneshot::channel();
+    fn select(self, _: tarpc::context::Context, id: ClientId, token: Token) -> Self::SelectFut {
+        let (tx, rx) = channel();
         Box::pin(async move {
             self.select.send(((id, token), tx)).map_err(|_| ())?;
             rx.map_err(|_| ()).await
         })
     }
 
-    fn reset(mut self, _: tarpc::context::Context) -> Self::ResetFut {
-        let (tx, rx) = oneshot::channel();
+    fn reset(self, _: tarpc::context::Context) -> Self::ResetFut {
+        let (tx, rx) = channel();
         Box::pin(async move {
             self.reset.send(tx).map_err(|_| ())?;
             rx.map_err(|_| ()).await

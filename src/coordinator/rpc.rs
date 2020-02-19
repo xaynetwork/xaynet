@@ -4,18 +4,18 @@ use std::{future::Future, pin::Pin};
 use tokio::sync::{mpsc, oneshot};
 
 #[tarpc::service]
-pub trait CoordinatorTarpc {
+pub trait RpcService {
     async fn end_training(id: ClientId) -> Result<(), ()>;
 }
 
 // NOTE: the server is cloned on every request, so cloning should
 // remain cheap!
 #[derive(Clone)]
-pub struct CoordinatorTarpcServer {
+pub struct RpcServer {
     ids: mpsc::Sender<(ClientId, oneshot::Sender<()>)>,
 }
 
-impl CoordinatorTarpc for CoordinatorTarpcServer {
+impl RpcService for RpcServer {
     type EndTrainingFut = Pin<Box<dyn Future<Output = Result<(), ()>> + Send>>;
 
     fn end_training(mut self, _: tarpc::context::Context, id: ClientId) -> Self::EndTrainingFut {

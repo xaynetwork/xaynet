@@ -1,3 +1,5 @@
-mod rpc;
-mod service;
-mod py_aggregator;
+#![allow(dead_code)]
+
+pub mod rpc;
+pub mod service;
+pub mod py_aggregator;

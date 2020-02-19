@@ -11,23 +11,23 @@
 // Steps 5. and 7. are problematic, but how much? The race at step
 // 3. is very unlikely, but we may still run into it.
 
-use crate::coordinator::{Aggregator, Selector};
-
-use super::client::*;
-use super::handle::CoordinatorHandle;
-use super::protocol;
-use super::request::*;
-use crate::common::ClientId;
-use std::fmt::Debug;
-
-use tokio::sync::mpsc;
-
-use futures::{ready, stream::Stream};
-
 use std::{
+    fmt::Debug,
     future::Future,
     pin::Pin,
     task::{Context, Poll},
+};
+
+use derive_more::Display;
+use futures::{ready, stream::Stream};
+use tokio::sync::{mpsc, oneshot};
+
+use crate::{
+    common::ClientId,
+    coordinator::core::{
+        client::{Clients, HeartBeatResetError},
+        protocol,
+    },
 };
 
 pub struct CoordinatorService<A, S, T>
@@ -224,7 +224,7 @@ where
 {
     type Output = ();
     fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        trace!("polling Connection");
+        trace!("polling CoordinatorService");
         let pin = self.get_mut();
 
         pin.apply_pending_selection();
@@ -336,4 +336,153 @@ where
             RunSelection(min_count) => self.run_selection(min_count),
         }
     }
+}
+
+/// Error returned when a request fails due to the coordinator having shut down.
+#[derive(Debug, Display)]
+pub struct RequestError;
+
+impl ::std::error::Error for RequestError {}
+
+pub struct ResponseReceiver<R>(oneshot::Receiver<R>);
+
+pub fn response_channel<R>() -> (ResponseSender<R>, ResponseReceiver<R>) {
+    let (tx, rx) = oneshot::channel::<R>();
+    (ResponseSender(tx), ResponseReceiver(rx))
+}
+
+impl<R> Future for ResponseReceiver<R> {
+    type Output = Result<R, RequestError>;
+    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        Pin::new(&mut self.get_mut().0)
+            .as_mut()
+            .poll(cx)
+            .map_err(|_| RequestError)
+    }
+}
+
+pub struct ResponseSender<R>(oneshot::Sender<R>);
+
+impl<R> ResponseSender<R> {
+    pub fn send(self, response: R) {
+        self.0.send(response).unwrap_or_else(|_| {
+            warn!("failed to send response: receiver shut down");
+        })
+    }
+}
+
+pub type RequestMessage<P, R> = (P, ResponseSender<R>);
+
+// rendez-vous
+#[derive(Debug)]
+pub struct RendezVousRequest;
+
+#[derive(Debug)]
+pub enum RendezVousResponse {
+    Accept(ClientId),
+    Reject,
+}
+
+// heartbeat
+pub type HeartBeatRequest = ClientId;
+pub use protocol::HeartBeatResponse;
+
+// start training
+pub type StartTrainingRequest = ClientId;
+pub enum StartTrainingResponse<T> {
+    Accept(StartTrainingPayload<T>),
+    Reject,
+}
+
+pub struct StartTrainingPayload<T> {
+    pub global_weights: T,
+    // more stuff...
+}
+
+impl<T> StartTrainingPayload<T> {
+    pub fn new(global_weights: T) -> Self {
+        Self { global_weights }
+    }
+}
+
+impl<T> From<StartTrainingPayload<T>> for StartTrainingResponse<T> {
+    fn from(value: StartTrainingPayload<T>) -> Self {
+        Self::Accept(value)
+    }
+}
+
+// end training
+pub type EndTrainingRequest<T> = (ClientId, T);
+pub use protocol::EndTrainingResponse;
+
+pub enum Request<T> {
+    RendezVous(RequestMessage<RendezVousRequest, RendezVousResponse>),
+    HeartBeat(RequestMessage<HeartBeatRequest, HeartBeatResponse>),
+    StartTraining(RequestMessage<StartTrainingRequest, StartTrainingResponse<T>>),
+    EndTraining(RequestMessage<EndTrainingRequest<T>, EndTrainingResponse>),
+}
+
+pub struct CoordinatorHandle<T>(mpsc::Sender<Request<T>>);
+
+impl<T> Clone for CoordinatorHandle<T> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
+impl<T> CoordinatorHandle<T> {
+    pub fn new(requests_tx: mpsc::Sender<Request<T>>) -> Self {
+        Self(requests_tx)
+    }
+
+    pub async fn rendez_vous(&mut self) -> Result<RendezVousResponse, RequestError> {
+        let (resp_tx, resp_rx) = response_channel::<RendezVousResponse>();
+        let req: Request<T> = Request::RendezVous((RendezVousRequest, resp_tx));
+        self.0.send(req).await.map_err(|_| RequestError)?;
+        resp_rx.await
+    }
+
+    pub async fn heartbeat(&mut self, id: ClientId) -> Result<HeartBeatResponse, RequestError> {
+        let (resp_tx, resp_rx) = response_channel::<HeartBeatResponse>();
+        let req: Request<T> = Request::HeartBeat((id, resp_tx));
+        self.0.send(req).await.map_err(|_| RequestError)?;
+        resp_rx.await
+    }
+
+    pub async fn start_training(
+        &mut self,
+        id: ClientId,
+    ) -> Result<StartTrainingResponse<T>, RequestError> {
+        let (resp_tx, resp_rx) = response_channel::<StartTrainingResponse<T>>();
+        let req: Request<T> = Request::StartTraining((id, resp_tx));
+        self.0.send(req).await.map_err(|_| RequestError)?;
+        resp_rx.await
+    }
+
+    pub async fn end_training(
+        &mut self,
+        id: ClientId,
+        weights: T,
+    ) -> Result<EndTrainingResponse, RequestError> {
+        let (resp_tx, resp_rx) = response_channel::<EndTrainingResponse>();
+        let req: Request<T> = Request::EndTraining(((id, weights), resp_tx));
+        self.0.send(req).await.map_err(|_| RequestError)?;
+        resp_rx.await
+    }
+}
+
+pub trait Selector {
+    fn select(
+        &mut self,
+        min_count: usize,
+        waiting: impl Iterator<Item = ClientId>,
+        selected: impl Iterator<Item = ClientId>,
+    ) -> Vec<ClientId>;
+}
+
+pub trait Aggregator<T> {
+    type Error: ::std::error::Error;
+
+    fn add_local_result(&mut self, result: T) -> Result<(), Self::Error>;
+    fn aggregate(&mut self) -> Result<T, Self::Error>;
 }

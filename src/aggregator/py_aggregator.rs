@@ -122,7 +122,7 @@ async fn py_aggregator(
     let aggregator = PyAggregator::load(py).unwrap();
 
     loop {
-        tokio::select! {
+        select! {
             Some(((), resp_tx)) = aggregate_requests.recv() => {
                 let weights = aggregator.aggregate().unwrap();
                 if resp_tx.send(weights).is_err() {
