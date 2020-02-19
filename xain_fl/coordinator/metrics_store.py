@@ -2,11 +2,12 @@
 
 from abc import ABC, abstractmethod
 import json
+from json import JSONDecodeError
 import time
-from typing import Dict, Optional, Union
+from typing import Dict, List, Optional, Union
 
 from influxdb import InfluxDBClient
-from jsonschema import validate
+from jsonschema import ValidationError, validate
 from structlog import get_logger
 
 from xain_fl.config import MetricsConfig
@@ -15,11 +16,11 @@ from xain_fl.logger import StructLogger
 logger: StructLogger = get_logger(__name__)
 
 
-class AbstractMetricsStore(ABC):  # pylint: disable=too-few-public-methods
+class AbstractMetricsStore(ABC):
     """An abstract metric store."""
 
     @abstractmethod
-    def write_participant_metrics(self, metrics_as_json: str) -> None:
+    def write_received_participant_metrics(self, metrics_as_json: str) -> None:
         """
         Write the participant metrics on behalf of the participant into a metric store.
 
@@ -33,31 +34,27 @@ class AbstractMetricsStore(ABC):  # pylint: disable=too-few-public-methods
         """
 
     @abstractmethod
-    def write_coordinator_metrics(
+    def write_metrics(
         self,
+        owner: str,
         metrics: Dict[str, Union[str, int, float]],
         tags: Optional[Dict[str, str]] = None,
     ) -> None:
         """
-        Write the metrics to a metric store that are collected on the coordinator site.
+        Write metrics into a metric store.
 
         Args:
 
+            owner: The name of the owner of the metrics e.g. coordinator or participant.
             metrics: A dictionary with the metric names as keys and the metric values as values.
             tags: A dictionary to append optional metadata to the metric. Defaults to None.
-
-        Raises:
-
-            MetricsStoreError: If the writing of the metrics to InfluxDB has failed.
         """
 
 
-class NullObjectMetricsStore(
-    AbstractMetricsStore
-):  # pylint: disable=too-few-public-methods
+class NullObjectMetricsStore(AbstractMetricsStore):
     """A metric store that does nothing."""
 
-    def write_participant_metrics(self, metrics_as_json: str) -> None:
+    def write_received_participant_metrics(self, metrics_as_json: str) -> None:
         """
         A method that has no effect.
 
@@ -66,8 +63,9 @@ class NullObjectMetricsStore(
             metrics_as_json: The metrics of a specific participant.
         """
 
-    def write_coordinator_metrics(
+    def write_metrics(
         self,
+        owner: str,
         metrics: Dict[str, Union[str, int, float]],
         tags: Optional[Dict[str, str]] = None,
     ) -> None:
@@ -76,12 +74,13 @@ class NullObjectMetricsStore(
 
         Args:
 
+            owner: The name of the owner of the metrics e.g. coordinator or participant.
             metrics: A dictionary with the metric names as keys and the metric values as values.
             tags: A dictionary to append optional metadata to the metric. Defaults to None.
         """
 
 
-class MetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-methods
+class MetricsStore(AbstractMetricsStore):
     """A metric store that uses InfluxDB to store the metrics."""
 
     def __init__(self, config: MetricsConfig):
@@ -116,7 +115,7 @@ class MetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-meth
             "minItems": 1,
         }
 
-    def write_participant_metrics(self, metrics_as_json: str) -> None:
+    def write_received_participant_metrics(self, metrics_as_json: str) -> None:
         """
         Write the participant metrics on behalf of the participant into InfluxDB.
 
@@ -132,13 +131,15 @@ class MetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-meth
         try:
             metrics = json.loads(metrics_as_json)
             validate(instance=metrics, schema=self.schema)
-            self.influx_client.write_points(metrics)
-        except Exception as err:  # pylint: disable=broad-except
+        except (ValidationError, JSONDecodeError) as err:
             logger.error("Exception", error=repr(err))
             raise MetricsStoreError("Can not write participant metrics.") from err
+        else:
+            self._write_metrics(metrics)
 
-    def write_coordinator_metrics(
+    def write_metrics(
         self,
+        owner: str,
         metrics: Dict[str, Union[str, int, float]],
         tags: Optional[Dict[str, str]] = None,
     ) -> None:
@@ -147,6 +148,7 @@ class MetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-meth
 
         Args:
 
+            owner: The name of the owner of the metrics e.g. coordinator or participant.
             metrics: A dictionary with the metric names as keys and the metric values as values.
             tags: A dictionary to append optional metadata to the metric. Defaults to None.
 
@@ -154,22 +156,38 @@ class MetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-meth
 
             MetricsStoreError: If the writing of the metrics to InfluxDB has failed.
         """
+
         if not tags:
             tags = {}
 
         current_time: int = int(time.time() * 1_000_000_000)
-        influx_point = {
-            "measurement": "coordinator",
+        influx_data_point = {
+            "measurement": owner,
             "time": current_time,
             "tags": tags,
             "fields": metrics,
         }
 
+        self._write_metrics([influx_data_point])
+
+    def _write_metrics(self, influx_points: List[dict]) -> None:
+        """
+        Write the metrics to InfluxDB that are collected on the coordinator site.
+
+        Args:
+
+            influx_points: InfluxDB data points.
+
+        Raises:
+
+            MetricsStoreError: If the writing of the metrics to InfluxDB has failed.
+        """
+
         try:
-            self.influx_client.write_points([influx_point])
+            self.influx_client.write_points(influx_points)
         except Exception as err:  # pylint: disable=broad-except
             logger.error("Exception", error=repr(err))
-            raise MetricsStoreError("Can not write coordinator metrics.") from err
+            raise MetricsStoreError("Can not write metrics.") from err
 
 
 class MetricsStoreError(Exception):

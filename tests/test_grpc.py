@@ -349,7 +349,7 @@ def test_start_training_round_failed_precondition(  # pylint: disable=unused-arg
 
 
 @pytest.mark.integration
-def test_end_training_round(coordinator_service, participant_metrics_sample):
+def test_end_training_round(coordinator_service, json_participant_metrics_sample):
     """[summary]
 
     .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
@@ -369,7 +369,7 @@ def test_end_training_round(coordinator_service, participant_metrics_sample):
         rendezvous(channel)
         # call EndTrainingRound service method on coordinator
         end_training_round(
-            channel, test_weights, number_samples, participant_metrics_sample
+            channel, test_weights, number_samples, json_participant_metrics_sample
         )
     # check local model received...
 
