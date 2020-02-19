@@ -20,7 +20,7 @@ impl CoordinatorTarpc for CoordinatorTarpcServer {
 
     fn end_training(mut self, _: tarpc::context::Context, id: ClientId) -> Self::EndTrainingFut {
         let (tx, rx) = oneshot::channel();
-        // FIXME: the async block is here to force `ids` to be taken
+        // FIXME: the async block is here to force `self.ids` to be taken
         // by value instead of mutably borrowed, so that the future is
         // 'static. But I don't understand why the compiler forces us
         // to do that...
