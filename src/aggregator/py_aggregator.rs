@@ -1,5 +1,4 @@
-#![feature(bool_to_option)]
-
+// FIXME: the code should be loaded from a file
 static CODE: &'static str = r#"
 from typing import Optional
 import bz2
@@ -38,16 +37,6 @@ use pyo3::{
     types::{PyBytes, PyModule},
     PyObject, PyResult, Python, ToPyObject,
 };
-
-fn main() -> Result<(), ()> {
-    let gil = Python::acquire_gil();
-    let py = gil.python();
-    main_(py).map_err(|e| {
-        // We can't display python error type via ::std::fmt::Display,
-        // so print error here manually.
-        e.print_and_set_sys_last_vars(py);
-    })
-}
 
 pub struct PyAggregator<'py> {
     py: Python<'py>,
@@ -92,15 +81,4 @@ impl<'py> PyAggregator<'py> {
         self.aggregator.call_method1(self.py, "reset", args)?;
         Ok(())
     }
-}
-
-fn main_(py: Python) -> PyResult<()> {
-    let py_aggregator = PyAggregator::load(py)?;
-    let x = py_aggregator.get_global_weights()?;
-    println!("{:?}", x);
-    if py_aggregator.add_weights(&x[..])?.is_err() {
-        panic!("add weights failed!");
-    }
-
-    Ok(())
 }
