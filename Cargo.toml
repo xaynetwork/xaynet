@@ -5,9 +5,9 @@ authors = ["little-dude <corentinhenry@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-uuid = { version = "0.8", features = ["v4", "serde"] }
+uuid = { version = "0.8.1", features = ["v4", "serde"] }
 log = "0.4.8"
-futures = "0.3.2"
+futures = "0.3.4"
 tokio = { version = "0.2.11", features = ["full"] }
 warp = "0.2.1"
 derive_more = { version = "0.99.2", default-features = false, features = ["display"] }
