@@ -3,7 +3,26 @@
 This repo contains a proof of concept implementation of the
 coordinator in Rust.
 
-## Design choices
+
+## Architecture
+
+This aggregator handles very different types of requests than the
+coordinator itself: weight distribution involves streaming high
+volumes of data over the network, and aggregation involves periodic
+CPU intensive tasks.
+
+For these reasons, we're trying to make it a separate service that
+communicates with the coordinator via a RPC. Here is how we envision
+weights distribution with the aggregator service:
+
+![weights distribution sequence diagram](./_images/aggregator_service.png)
+
+Here is a diagram of the various component and how they interact with
+each other:
+
+![architecture diagram](./_images/architecture.png)
+
+## Design choices (partially outdated)
 
 ### Asynchronous IO
 
@@ -54,7 +73,7 @@ much data with the coordinator (only the IDs of the clients that have
 been selected)
 
 
-### separation of the API layer
+### Separation of the API layer
 
 Currently we external API. However implement one, whether it is ReST
 or gRPC should not impact the protocol implementation. All that is
