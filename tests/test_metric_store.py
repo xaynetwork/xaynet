@@ -138,8 +138,8 @@ def test_write_coordinator_metrics(
         MetricsConfig(enable=True, host="", port=1, user="", password="", db_name="")
     )
 
-    metric_store.write_coordinator_metrics(
-        coordinator_metrics_sample, tags={"meta_data": "1"}
+    metric_store.write_metrics(
+        "coordinator", coordinator_metrics_sample, tags={"meta_data": "1"}
     )
 
     write_points_mock.assert_called_with(
@@ -169,7 +169,7 @@ def test_write_coordinator_metrics_write_points_exception(
         MetricsConfig(enable=True, host="", port=1, user="", password="", db_name="")
     )
     with pytest.raises(MetricsStoreError):
-        metric_store.write_coordinator_metrics(coordinator_metrics_sample)
+        metric_store.write_metrics("coordinator", coordinator_metrics_sample)
 
 
 @mock.patch("xain_fl.coordinator.metrics_store.time.time", return_value=1582017483.0)
@@ -182,8 +182,8 @@ def test_write_participant_metrics(
         MetricsConfig(enable=True, host="", port=1, user="", password="", db_name="")
     )
 
-    metric_store.write_participant_metrics(
-        participant_metrics_sample, tags={"id": "1234-1234-1234"}
+    metric_store.write_metrics(
+        "participant", participant_metrics_sample, tags={"id": "1234-1234-1234"}
     )
 
     write_points_mock.assert_called_with(
@@ -209,4 +209,4 @@ def test_write_participant_metrics_write_points_exception(
         MetricsConfig(enable=True, host="", port=1, user="", password="", db_name="")
     )
     with pytest.raises(MetricsStoreError):
-        metric_store.write_participant_metrics(participant_metrics_sample)
+        metric_store.write_metrics("participant", participant_metrics_sample)

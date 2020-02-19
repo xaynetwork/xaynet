@@ -34,43 +34,20 @@ class AbstractMetricsStore(ABC):
         """
 
     @abstractmethod
-    def write_coordinator_metrics(
+    def write_metrics(
         self,
+        owner: str,
         metrics: Dict[str, Union[str, int, float]],
         tags: Optional[Dict[str, str]] = None,
     ) -> None:
         """
-        Write the metrics to a metric store that are collected on the coordinator site and owned by
-        the coordinator.
+        Write metrics into a metric store.
 
         Args:
 
+            owner: The name of the owner of the metrics e.g. coordinator or participant.
             metrics: A dictionary with the metric names as keys and the metric values as values.
             tags: A dictionary to append optional metadata to the metric. Defaults to None.
-
-        Raises:
-
-            MetricsStoreError: If the writing of the metrics to InfluxDB has failed.
-        """
-
-    @abstractmethod
-    def write_participant_metrics(
-        self,
-        metrics: Dict[str, Union[str, int, float]],
-        tags: Optional[Dict[str, str]] = None,
-    ) -> None:
-        """
-        Write the metrics to a metric store that are collected on the coordinator site and owned by
-        a participant.
-
-        Args:
-
-            metrics: A dictionary with the metric names as keys and the metric values as values.
-            tags: A dictionary to append optional metadata to the metric. Defaults to None.
-
-        Raises:
-
-            MetricsStoreError: If the writing of the metrics to InfluxDB has failed.
         """
 
 
@@ -86,8 +63,9 @@ class NullObjectMetricsStore(AbstractMetricsStore):
             metrics_as_json: The metrics of a specific participant.
         """
 
-    def write_coordinator_metrics(
+    def write_metrics(
         self,
+        owner: str,
         metrics: Dict[str, Union[str, int, float]],
         tags: Optional[Dict[str, str]] = None,
     ) -> None:
@@ -96,26 +74,13 @@ class NullObjectMetricsStore(AbstractMetricsStore):
 
         Args:
 
-            metrics: A dictionary with the metric names as keys and the metric values as values.
-            tags: A dictionary to append optional metadata to the metric. Defaults to None.
-        """
-
-    def write_participant_metrics(
-        self,
-        metrics: Dict[str, Union[str, int, float]],
-        tags: Optional[Dict[str, str]] = None,
-    ) -> None:
-        """
-        A method that has no effect.
-
-        Args:
-
+            owner: The name of the owner of the metrics e.g. coordinator or participant.
             metrics: A dictionary with the metric names as keys and the metric values as values.
             tags: A dictionary to append optional metadata to the metric. Defaults to None.
         """
 
 
-class MetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-methods
+class MetricsStore(AbstractMetricsStore):
     """A metric store that uses InfluxDB to store the metrics."""
 
     def __init__(self, config: MetricsConfig):
@@ -172,50 +137,9 @@ class MetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-meth
         else:
             self._write_metrics(metrics)
 
-    def write_participant_metrics(
-        self,
-        metrics: Dict[str, Union[str, int, float]],
-        tags: Optional[Dict[str, str]] = None,
-    ) -> None:
-        """
-        Write the metrics to InfluxDB that are collected on the coordinator site and owned by a
-        participant.
-
-        Args:
-
-            metrics: A dictionary with the metric names as keys and the metric values as values.
-            tags: A dictionary to append optional metadata to the metric. Defaults to None.
-
-        Raises:
-
-            MetricsStoreError: If the writing of the metrics to InfluxDB has failed.
-        """
-        self.write_metrics("participant", metrics, tags)
-
-    def write_coordinator_metrics(
-        self,
-        metrics: Dict[str, Union[str, int, float]],
-        tags: Optional[Dict[str, str]] = None,
-    ) -> None:
-        """
-        Write the metrics to InfluxDB that are collected on the coordinator site and owned by the
-        coordinator.
-
-        Args:
-
-            metrics: A dictionary with the metric names as keys and the metric values as values.
-            tags: A dictionary to append optional metadata to the metric. Defaults to None.
-
-        Raises:
-
-            MetricsStoreError: If the writing of the metrics to InfluxDB has failed.
-        """
-
-        self.write_metrics("coordinator", metrics, tags)
-
     def write_metrics(
         self,
-        measurement: str,
+        owner: str,
         metrics: Dict[str, Union[str, int, float]],
         tags: Optional[Dict[str, str]] = None,
     ) -> None:
@@ -224,7 +148,7 @@ class MetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-meth
 
         Args:
 
-            measurement: The name of the measurement.
+            owner: The name of the owner of the metrics e.g. coordinator or participant.
             metrics: A dictionary with the metric names as keys and the metric values as values.
             tags: A dictionary to append optional metadata to the metric. Defaults to None.
 
@@ -238,7 +162,7 @@ class MetricsStore(AbstractMetricsStore):  # pylint: disable=too-few-public-meth
 
         current_time: int = int(time.time() * 1_000_000_000)
         influx_data_point = {
-            "measurement": measurement,
+            "measurement": owner,
             "time": current_time,
             "tags": tags,
             "fields": metrics,
