@@ -86,7 +86,7 @@ def end_training_request(s3_mock_stores):
 @pytest.fixture(scope="function")
 def coordinator(s3_mock_stores):
     """
-    A function that instantiate a new coordinator.
+    A function that instantiates a new coordinator.
     """
     store: MockS3Coordinator = s3_mock_stores[0]
     default_global_weights_writer: AbstractGlobalWeightsWriter = store
