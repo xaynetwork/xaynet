@@ -431,7 +431,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         #
         # FIXME(PB-436): handle the case where the participant didn't
         # send a participant ID, or sent an invalid one. Reading from
-        # storage will fail in that case, and we hshould gracefully
+        # storage will fail in that case, and we should gracefully
         # handle this by removing the participant.
         fake_participant_id: str = message.participant_id
         logger.debug("downloading results", participant_id=participant_id)
