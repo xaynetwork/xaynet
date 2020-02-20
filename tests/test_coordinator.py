@@ -294,6 +294,29 @@ def test_remove_selected_participant(coordinator):
     assert coordinator.state == State.ROUND
 
 
+def test_remove_unselected_participant(coordinator):
+    """[summary]
+
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
+    """
+    coordinator = coordinator(
+        minimum_participants_in_round=1, fraction_of_participants=0.5
+    )
+    coordinator.on_message(RendezvousRequest(), "participant1")
+    coordinator.on_message(RendezvousRequest(), "participant2")
+
+    assert coordinator.participants.len() == 2
+    assert len(coordinator.round.participant_ids) == 1
+
+    # override selection
+    coordinator.round.participant_ids = ["participant1"]
+
+    coordinator.remove_participant("participant2")
+
+    assert coordinator.participants.len() == 1
+    assert coordinator.round.participant_ids == ["participant1"]
+
+
 def test_number_of_selected_participants(coordinator):
     """[summary]
 
