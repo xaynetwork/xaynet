@@ -265,7 +265,8 @@ def test_message_loop(mock_heartbeat_request, _mock_sleep, _mock_event):
     message_loop(channel, state_record, terminate_event)
 
     # check that the heartbeat is sent exactly twice
-    mock_heartbeat_request.assert_has_calls([mock.call(), mock.call()])
+    expected_call = mock.call(round=-1, state=State.READY)
+    mock_heartbeat_request.assert_has_calls([expected_call, expected_call])
 
 
 @pytest.mark.integration
