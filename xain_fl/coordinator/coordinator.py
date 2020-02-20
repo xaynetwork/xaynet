@@ -21,7 +21,6 @@ from xain_proto.fl.coordinator_pb2 import (
     StartTrainingRoundResponse,
     State,
 )
-from xain_proto.np import ndarray_to_proto, proto_to_ndarray
 
 from xain_fl.coordinator.metrics_store import (
     AbstractMetricsStore,
@@ -33,8 +32,6 @@ from xain_fl.coordinator.round import Round
 from xain_fl.coordinator.store import (
     AbstractGlobalWeightsWriter,
     AbstractLocalWeightsReader,
-    NullObjectGlobalWeightsWriter,
-    NullObjectLocalWeightsReader,
 )
 from xain_fl.fl.coordinator.aggregate import Aggregator, WeightedAverageAggregator
 from xain_fl.fl.coordinator.controller import Controller, RandomController
@@ -112,9 +109,9 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
 
     def __init__(  # pylint: disable=too-many-arguments
         self,
+        global_weights_writer: AbstractGlobalWeightsWriter,
+        local_weights_reader: AbstractLocalWeightsReader,
         metrics_store: AbstractMetricsStore = NullObjectMetricsStore(),
-        global_weights_writer: AbstractGlobalWeightsWriter = NullObjectGlobalWeightsWriter(),
-        local_weights_reader: AbstractLocalWeightsReader = NullObjectLocalWeightsReader(),
         num_rounds: int = 1,
         minimum_participants_in_round: int = 1,
         fraction_of_participants: float = 1.0,
@@ -148,6 +145,9 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         self.state: State = State.STANDBY
         self.current_round: int = 0
         self.epochs_current_round: int = epochs
+
+        # Write the weights for the initial round
+        self.global_weights_writer.write_weights(0, self.weights)
 
         self._write_metrics_fail_silently(
             "coordinator",
@@ -403,9 +403,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
             epoch_base=self.epoch_base,
         )
         return StartTrainingRoundResponse(
-            weights=ndarray_to_proto(self.weights),
-            epochs=self.epochs_current_round,
-            epoch_base=self.epoch_base,
+            epochs=self.epochs_current_round, epoch_base=self.epoch_base,
         )
 
     def _handle_end_training_round(
@@ -425,8 +423,22 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         # submitting the updates and raise an exception if it is the wrong
         # round.
 
-        # record the request data
-        model_weights: ndarray = proto_to_ndarray(message.weights)
+        # HACK: Participants are currently not aware of the ID the
+        # coordinator uses to identify them, so they generate a UUID
+        # and use it to upload their results. The EndTrainingMessage
+        # contains that UUID, so that the coordinator can retrieve the
+        # weights.
+        #
+        # FIXME(PB-436): handle the case where the participant didn't
+        # send a participant ID, or sent an invalid one. Reading from
+        # storage will fail in that case, and we should gracefully
+        # handle this by removing the participant.
+        fake_participant_id: str = message.participant_id
+        logger.debug("downloading results", participant_id=participant_id)
+        model_weights: ndarray = self.local_weights_reader.read_weights(
+            fake_participant_id, self.current_round
+        )
+        logger.debug("done downloading results", participant_id=participant_id)
         number_samples: int = message.number_samples
         self.round.add_updates(
             participant_id=participant_id,
@@ -442,12 +454,6 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
                 "Can not write metrics", participant_id=participant_id, error=repr(err)
             )
 
-        # FIXME(XP-515): For now, `read_weights()` doesn't do
-        # anything, we actually get the participants weights through
-        # self.round.add_updates(). Ultimatly, the weights will be
-        # read from S3.
-        _ = self.local_weights_reader.read_weights(participant_id, self.current_round)
-
         # The round is over. Run the aggregation
         if self.round.is_finished():
             logger.info(
@@ -461,7 +467,9 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
                 multiple_model_weights=multiple_model_weights,
                 aggregation_data=aggregation_data,
             )
-            self.global_weights_writer.write_weights(self.current_round, self.weights)
+            self.global_weights_writer.write_weights(
+                self.current_round + 1, self.weights
+            )
 
             # update the round or finish the training session
             if self.current_round >= self.num_rounds - 1:

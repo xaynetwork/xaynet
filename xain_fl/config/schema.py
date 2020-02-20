@@ -200,12 +200,7 @@ AI_SCHEMA = Schema(
 STORAGE_SCHEMA = Schema(
     {
         "endpoint": And(str, url, error=error("storage.endpoint", "a valid URL")),
-        "global_weights_bucket": Use(
-            str, error=error("storage.global_weights_bucket", "an S3 bucket name")
-        ),
-        "local_weights_bucket": Use(
-            str, error=error("storage.local_weights_bucket", "an S3 bucket name")
-        ),
+        "bucket": Use(str, error=error("storage.bucket", "an S3 bucket name")),
         "secret_access_key": Use(
             str, error=error("storage.secret_access_key", "a valid utf-8 string")
         ),
@@ -378,11 +373,8 @@ class Config:
        # URL to the storage service to use
        endpoint = "http://localhost:9000"
 
-       # Name of the bucket for storing the aggregated models
-       global_weights_bucket = "global_weights"
-
-       # Name of the bucket where participants store their results
-       local_weights_bucket = "local_weights"
+       # Name of the bucket for storing the models
+       bucket = "weights"
 
        # AWS secret access to use to authenticate to the storage service
        secret_access_key = "my-secret"

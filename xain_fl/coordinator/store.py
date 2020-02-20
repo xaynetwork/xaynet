@@ -49,37 +49,6 @@ class AbstractLocalWeightsReader(abc.ABC):
         """
 
 
-class NullObjectGlobalWeightsWriter(AbstractGlobalWeightsWriter):
-    # pylint: disable=too-few-public-methods
-    """An implementation of ``AbstractGlobalWeightsWriter`` that does
-    nothing.
-
-    """
-
-    def write_weights(self, round: int, weights: ndarray) -> None:
-        """A dummy method that has no effect.
-
-        Args:
-            round: A round number the weights correspond to. Not used.
-            weights: The weights to store. Not used.
-        """
-
-
-class NullObjectLocalWeightsReader(AbstractLocalWeightsReader):
-    # pylint: disable=too-few-public-methods
-    """An implementation of ``AbstractLocalWeightsReader`` that does
-    nothing.
-    """
-
-    def read_weights(self, participant_id: str, round: int) -> ndarray:
-        """A dummy method that has no effect.
-
-        Args:
-            participant_id: ID of the participant's weights. Not used.
-            round: A round number the weights correspond to. Not used.
-        """
-
-
 class S3BaseClass:
     # pylint: disable=too-few-public-methods
     """A base class for implementating AWS S3 clients.
@@ -116,8 +85,8 @@ class S3GlobalWeightsWriter(AbstractGlobalWeightsWriter, S3BaseClass):
             round: A round number the weights correspond to.
             weights: The weights to store.
         """
-        bucket = self.s3.Bucket(self.config.global_weights_bucket)
-        bucket.put_object(Body=pickle.dumps(weights), Key=str(round))
+        bucket = self.s3.Bucket(self.config.bucket)
+        bucket.put_object(Body=pickle.dumps(weights), Key=f"{round}/global")
 
 
 class S3LocalWeightsReader(AbstractLocalWeightsReader, S3BaseClass):
@@ -140,9 +109,9 @@ class S3LocalWeightsReader(AbstractLocalWeightsReader, S3BaseClass):
         Return:
             The weights read from the S3 bucket.
         """
-        bucket = self.s3.Bucket(self.config.participants_bucket)
+        bucket = self.s3.Bucket(self.config.bucket)
         data = BytesIO()
-        bucket.download_fileobj(f"{participant_id}/{round}", data)
+        bucket.download_fileobj(f"{round}/{participant_id}", data)
         # FIXME: not sure whether getvalue() copies the data. If so we
         # should probably prefer getbuffer() instead.
         return pickle.loads(data.getvalue())

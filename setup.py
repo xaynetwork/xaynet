@@ -27,7 +27,7 @@ install_requires = [
     "numpy==1.15",  # BSD
     "grpcio==1.23",  # Apache License 2.0
     "structlog==19.2.0",  # Apache License 2.0
-    "xain-proto==0.5.0",  # Apache License 2.0
+    "xain-proto @ git+https://github.com/xainag/xain-proto.git@PB-159-use-s3-for-transfering-weights#egg=xain_proto-0.6.0&subdirectory=python",  # Apache License 2.0
     "boto3==1.10.48",  # Apache License 2.0
     "toml==0.10.0",  # MIT
     "schema~=0.7",  # MIT
@@ -52,7 +52,8 @@ tests_require = [
     "pytest==5.3.2",  # MIT license
     "pytest-cov==2.8.1",  # MIT
     "pytest-watch==4.2.0",  # MIT
-    "xain-sdk @ git+https://github.com/xainag/xain-sdk.git@development",  # Apache License 2.0
+    "pytest-mock==2.0.0",  # MIT
+    "xain-sdk@ git+https://github.com/xainag/xain-sdk.git@PB-159-use-s3-for-transfering-weights#egg=xain_sdk-0.6.0",  # Apache License 2.0
 ]
 
 docs_require = [
