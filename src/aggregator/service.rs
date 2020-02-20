@@ -16,17 +16,36 @@ use crate::{
 use futures::{ready, stream::Stream};
 use tokio::sync::mpsc;
 
+/// A future that orchestrates the entire aggregator service.
 struct Service<A>
 where
     A: Aggregator,
 {
+    /// Clients that the coordinator selected for the current
+    /// round. They can use their unique token to download the global
+    /// weights and upload their own local results once they finished
+    /// training.
     known_ids: HashMap<ClientId, Token>,
+
+    /// The latest global weights as computed by the aggregator.
     global_weights: Arc<Vec<u8>>,
+
+    /// The aggregator itself, which handles the weights or performs
+    /// the aggregations.
     aggregator: A,
+
+    /// A client for the coordinator RPC service.
     coordinator: coordinator::RpcClient,
 
+    /// If the coordinator has open a connection to the aggregator's
+    /// RPC server, the incoming requests are forwarded to this
+    /// handle.
     rpc_requests: Option<RpcHandle>,
 
+    /// The aggregator RPC server only accepts one client at a time,
+    /// since we expect a single coordinator instance to connect. When
+    /// a new connection is open, the `RpcHandle` for that new client
+    /// is received from this channel.
     incoming_rpc_connections: mpsc::Receiver<RpcHandle>,
     // http_requests: aggregator::http::Handle,
 }
@@ -55,9 +74,13 @@ where
     A: Aggregator,
 {
     fn poll_rpc_requests(&mut self, cx: &mut Context) -> Poll<()> {
+        trace!("polling RPC requests");
+
         if self.rpc_requests.is_none() {
+            trace!("no active RPC connection");
             return Poll::Pending;
         }
+
         let mut stream = Pin::new(self.rpc_requests.as_mut().unwrap());
         loop {
             match ready!(stream.as_mut().poll_next(cx)) {
@@ -75,9 +98,17 @@ where
                         return Poll::Ready(());
                     }
                 }
-                None => return Poll::Ready(()),
+                // The coordinator client disconnected. If the
+                // coordinator reconnect to the RPC server, a new
+                // RpcHandle will be forwarded to us.
+                None => break,
             }
         }
+        // The RpcHandle is of no use now. We'll have to wait for a
+        // new one, when a client reconnects.
+        debug!("RPC connection lost, now waiting for a new connection");
+        self.rpc_requests = None;
+        return Poll::Ready(());
     }
 }
 
