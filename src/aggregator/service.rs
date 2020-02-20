@@ -8,12 +8,13 @@ use std::{
 };
 
 use crate::{
-    aggregator::rpc,
+    aggregator::rpc::{RpcHandle, RpcRequest},
     common::{ClientId, Token},
     coordinator,
 };
 
 use futures::{ready, stream::Stream};
+use tokio::sync::mpsc;
 
 struct Service<A>
 where
@@ -23,7 +24,10 @@ where
     global_weights: Arc<Vec<u8>>,
     aggregator: A,
     coordinator: coordinator::RpcClient,
-    rpc_requests: rpc::Handle,
+
+    rpc_requests: Option<RpcHandle>,
+
+    incoming_rpc_connections: mpsc::Receiver<RpcHandle>,
     // http_requests: aggregator::http::Handle,
 }
 
@@ -51,17 +55,20 @@ where
     A: Aggregator,
 {
     fn poll_rpc_requests(&mut self, cx: &mut Context) -> Poll<()> {
-        let mut stream = Pin::new(&mut self.rpc_requests);
+        if self.rpc_requests.is_none() {
+            return Poll::Pending;
+        }
+        let mut stream = Pin::new(self.rpc_requests.as_mut().unwrap());
         loop {
             match ready!(stream.as_mut().poll_next(cx)) {
-                Some(rpc::Request::Select(((id, token), resp_tx))) => {
+                Some(RpcRequest::Select(((id, token), resp_tx))) => {
                     self.known_ids.insert(id, token);
                     if resp_tx.send(()).is_err() {
                         warn!("aggregator RPC service finished");
                         return Poll::Ready(());
                     }
                 }
-                Some(rpc::Request::Reset(resp_tx)) => {
+                Some(RpcRequest::Reset(resp_tx)) => {
                     self.known_ids = HashMap::new();
                     if resp_tx.send(()).is_err() {
                         warn!("aggregator RPC service finished");
