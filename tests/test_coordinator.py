@@ -218,7 +218,7 @@ def test_training_finished(coordinator, end_training_request):
     coordinator.on_message(RendezvousRequest(), "participant1")
 
     # Deliver results for 2 rounds
-    end_training_request(coordinator, "participant1")
+    end_training_request(coordinator, "participant1", round=0)
     end_training_request(coordinator, "participant1", round=1)
 
     assert coordinator.state == State.FINISHED
