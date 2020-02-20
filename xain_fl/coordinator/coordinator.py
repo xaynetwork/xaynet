@@ -423,7 +423,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         # submitting the updates and raise an exception if it is the wrong
         # round.
 
-        # HACK: Participants are currently not aware of they ID the
+        # HACK: Participants are currently not aware of the ID the
         # coordinator uses to identify them, so they generate a UUID
         # and use it to upload their results. The EndTrainingMessage
         # contains that UUID, so that the coordinator can retrieve the
