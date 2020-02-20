@@ -491,9 +491,7 @@ def test_full_training_round(participant_stubs, coordinator_service, participant
     coordinator_service.coordinator.global_weights_writer.assert_didnt_write(1)
 
     # The last participant finishes training
-
-    # pylint: disable=undefined-loop-variable
-    participant_id = f"participant{i+1}"
+    participant_id = f"participant9"
     participant_store.write_weights(participant_id, 0, weights)
     response = last_participant.EndTrainingRound(
         EndTrainingRoundRequest(participant_id=participant_id, number_samples=1)
