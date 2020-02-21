@@ -45,8 +45,8 @@ def main() -> None:
         fraction_of_participants=config.ai.fraction_participants,  # type: ignore
         metrics_store=metrics_store,
         participants=Participants(
-            heartbeat_time=config.server.heartbeat_time,
-            heartbeat_timeout=config.server.heartbeat_timeout,
+            heartbeat_time=config.server.heartbeat_time,  # type: ignore
+            heartbeat_timeout=config.server.heartbeat_timeout,  # type: ignore
         ),
     )
 
