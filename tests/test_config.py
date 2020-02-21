@@ -20,6 +20,7 @@ def server_sample():
             "grpc.max_receive_message_length": -1,
             "grpc.max_send_message_length": -1,
         },
+        "thread_pool_workers": 11,
     }
 
 
@@ -122,11 +123,11 @@ def test_load_valid_config(config_sample):  # pylint: disable=redefined-outer-na
 
     assert config.server.host == "localhost"
     assert config.server.port == 50051
-
     assert config.server.grpc_options == [
         ("grpc.max_receive_message_length", -1),
         ("grpc.max_send_message_length", -1),
     ]
+    assert config.server.thread_pool_workers == 11
 
     assert config.ai.rounds == 1
     assert config.ai.epochs == 1
