@@ -120,13 +120,14 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         epoch_base: int = 0,
         aggregator: Aggregator = WeightedAverageAggregator(),
         controller: Controller = RandomController(),
+        participants: Participants = None,
     ) -> None:
         self.global_weights_writer: AbstractGlobalWeightsWriter = global_weights_writer
         # pylint: disable=line-too-long
         self.local_weights_reader: AbstractLocalWeightsReader = local_weights_reader
         self.minimum_participants_in_round: int = minimum_participants_in_round
         self.fraction_of_participants: float = fraction_of_participants
-        self.participants: Participants = Participants()
+        self.participants: Participants = participants or Participants()
         self.num_rounds: int = num_rounds
         self.aggregator: Aggregator = aggregator
         self.controller: Controller = controller

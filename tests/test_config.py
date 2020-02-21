@@ -21,6 +21,8 @@ def server_sample():
             "grpc.max_send_message_length": -1,
         },
         "thread_pool_workers": 11,
+        "heartbeat_time": 11,
+        "heartbeat_timeout": 6,
     }
 
 
@@ -128,6 +130,8 @@ def test_load_valid_config(config_sample):  # pylint: disable=redefined-outer-na
         ("grpc.max_send_message_length", -1),
     ]
     assert config.server.thread_pool_workers == 11
+    assert config.server.heartbeat_time == 11
+    assert config.server.heartbeat_timeout == 6
 
     assert config.ai.rounds == 1
     assert config.ai.epochs == 1
