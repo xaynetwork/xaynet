@@ -6,7 +6,7 @@ import sys
 from structlog import get_logger
 
 from xain_fl.config import Config, InvalidConfig, get_cmd_parameters
-from xain_fl.coordinator.coordinator import Coordinator
+from xain_fl.coordinator.coordinator import Coordinator, Participants
 from xain_fl.coordinator.metrics_store import (
     AbstractMetricsStore,
     MetricsStore,
@@ -44,6 +44,10 @@ def main() -> None:
         minimum_participants_in_round=config.ai.min_participants,  # type: ignore
         fraction_of_participants=config.ai.fraction_participants,  # type: ignore
         metrics_store=metrics_store,
+        participants=Participants(
+            heartbeat_time=config.server.heartbeat_time,
+            heartbeat_timeout=config.server.heartbeat_timeout,
+        ),
     )
 
     serve(coordinator=coordinator, server_config=config.server)

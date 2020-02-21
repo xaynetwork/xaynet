@@ -9,6 +9,10 @@ host = "localhost"
 port = 50051
 # (Optional) The maximum number of gRPC thread pool workers
 thread_pool_workers = 10
+# (Optional) The heartbeat time in seconds
+heartbeat_time = 10
+# (Optional) The heartbeat timeout in seconds
+heartbeat_timeout = 5
 
 # (Optional)
 [server.grpc_options]

@@ -182,6 +182,12 @@ SERVER_SCHEMA = Schema(
         Optional("thread_pool_workers", default=10): positive_integer(
             "server.thread_pool_workers"
         ),
+        Optional("heartbeat_time", default=10): positive_integer(
+            "server.heartbeat_time"
+        ),
+        Optional("heartbeat_timeout", default=5): positive_integer(
+            "server.heartbeat_timeout"
+        ),
     }
 )
 

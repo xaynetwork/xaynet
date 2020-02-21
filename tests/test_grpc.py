@@ -218,7 +218,7 @@ def test_many_heartbeats_expire_in_short_interval(coordinator):
     """
     participants = {}
     for i in range(0, 100):
-        participant = ParticipantContext(str(i))
+        participant = ParticipantContext(str(i), 10, 5)
         participant.heartbeat_expires = time.time() + 0.1 + i / 1000
         participants[str(i)] = participant
     coordinator = coordinator()
