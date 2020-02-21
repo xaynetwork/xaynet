@@ -31,7 +31,8 @@ def serve(coordinator: Coordinator, server_config: ServerConfig) -> None:
 
     """
     server = grpc.server(
-        futures.ThreadPoolExecutor(max_workers=10), options=server_config.grpc_options
+        futures.ThreadPoolExecutor(max_workers=server_config.thread_pool_workers),
+        options=server_config.grpc_options,
     )
     coordinator_pb2_grpc.add_CoordinatorServicer_to_server(
         CoordinatorGrpc(coordinator), server

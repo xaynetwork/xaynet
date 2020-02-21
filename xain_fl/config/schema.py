@@ -179,6 +179,9 @@ SERVER_SCHEMA = Schema(
             lambda opt: list(opt.items()),
             error=error("server.grpc_options", "valid gRPC options"),
         ),
+        Optional("thread_pool_workers", default=10): positive_integer(
+            "server.thread_pool_workers"
+        ),
     }
 )
 
