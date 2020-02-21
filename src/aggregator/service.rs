@@ -2,6 +2,7 @@ use std::{
     collections::HashMap,
     error::Error,
     future::Future,
+    marker::PhantomData,
     pin::Pin,
     sync::Arc,
     task::{Context, Poll},
@@ -17,7 +18,7 @@ use futures::{ready, stream::Stream};
 use tokio::sync::mpsc;
 
 /// A future that orchestrates the entire aggregator service.
-struct Service<A>
+pub struct AggregatorService<A>
 where
     A: Aggregator,
 {
@@ -30,13 +31,15 @@ where
     /// The latest global weights as computed by the aggregator.
     global_weights: Arc<Vec<u8>>,
 
-    /// The aggregator itself, which handles the weights or performs
-    /// the aggregations.
-    aggregator: A,
+    // /// The aggregator itself, which handles the weights or performs
+    // /// the aggregations.
+    // aggregator: A,
+    //
+    // TMP: only needed until we uncomment the aggregator attribute
+    aggregator: PhantomData<A>,
 
-    /// A client for the coordinator RPC service.
-    coordinator: coordinator::RpcClient,
-
+    // /// A client for the coordinator RPC service.
+    // coordinator: coordinator::RpcClient,
     /// If the coordinator has open a connection to the aggregator's
     /// RPC server, the incoming requests are forwarded to this
     /// handle.
@@ -58,7 +61,7 @@ where
 #[async_trait]
 /// This trait defines the methods that an aggregator should
 /// implement.
-trait Aggregator {
+pub trait Aggregator {
     type Error: Error;
 
     /// Check the validity of the given weights and if they are valid,
@@ -69,10 +72,19 @@ trait Aggregator {
     async fn aggregate(&mut self) -> Result<Vec<u8>, Self::Error>;
 }
 
-impl<A> Service<A>
+impl<A> AggregatorService<A>
 where
     A: Aggregator,
 {
+    pub fn new(rpc_connections: mpsc::Receiver<RpcHandle>) -> Self {
+        Self {
+            known_ids: HashMap::new(),
+            global_weights: Arc::new(vec![]),
+            rpc_connections,
+            rpc_requests: None,
+            aggregator: PhantomData,
+        }
+    }
     fn poll_rpc_requests(&mut self, cx: &mut Context) {
         trace!("polling RPC requests");
 
@@ -129,14 +141,17 @@ where
     }
 }
 
-impl<A> Future for Service<A>
+impl<A> Future for AggregatorService<A>
 where
     A: Aggregator + Unpin,
 {
     type Output = ();
     fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         let pin = self.get_mut();
-        ready!(pin.poll_rpc_connections(cx));
+        if let Poll::Ready(_) = pin.poll_rpc_connections(cx) {
+            warn!("rpc server dropped, exiting");
+            return Poll::Ready(());
+        }
         pin.poll_rpc_requests(cx);
         Poll::Pending
     }
