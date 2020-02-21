@@ -69,7 +69,7 @@ pub enum RpcRequest {
 
 /// A handle to receive the RPC requests received by the RPC
 /// [`RpcService`].
-pub struct RpcHandle(Pin<Box<dyn Stream<Item = RpcRequest>>>);
+pub struct RpcHandle(Pin<Box<dyn Stream<Item = RpcRequest> + Send>>);
 
 impl RpcHandle {
     fn new(
@@ -77,7 +77,9 @@ impl RpcHandle {
         reset: mpsc::UnboundedReceiver<RpcResetRequest>,
     ) -> Self {
         Self(Box::pin(
-            reset.map(RpcRequest::Reset).chain(select.map(RpcRequest::Select)),
+            reset
+                .map(RpcRequest::Reset)
+                .chain(select.map(RpcRequest::Select)),
         ))
     }
 }
@@ -109,6 +111,12 @@ impl RpcService for RpcServer {
             rx.map_err(|_| ()).await
         })
     }
+}
+
+pub fn spawn_rpc() -> mpsc::Receiver<RpcHandle> {
+    let (tx, rx) = mpsc::channel(1);
+    tokio::spawn(run_rpc(tx).map_err(|e| error!("RPC worker finished with an error: {}", e)));
+    rx
 }
 
 /// Start an RPC server that accepts only one connection at a time.
