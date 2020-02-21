@@ -33,6 +33,8 @@ pub trait RpcService {
 // NOTE: the server is cloned on every request, so cloning should
 // remain cheap!
 #[derive(Clone)]
+/// A server that serves a single client. A new `RpcServer` is created
+/// for each new client.
 struct RpcServer {
     select: mpsc::UnboundedSender<RpcSelectRequest>,
     reset: mpsc::UnboundedSender<RpcResetRequest>,
@@ -113,13 +115,15 @@ impl RpcService for RpcServer {
     }
 }
 
+/// Spawn an RPC server and return a stream of `RpcHandle`. A new
+/// `RpcHandle` is yielded for each new connection.
 pub fn spawn_rpc() -> mpsc::Receiver<RpcHandle> {
     let (tx, rx) = mpsc::channel(1);
     tokio::spawn(run_rpc(tx).map_err(|e| error!("RPC worker finished with an error: {}", e)));
     rx
 }
 
-/// Start an RPC server that accepts only one connection at a time.
+/// Run an RPC server that accepts only one connection at a time.
 async fn run_rpc(mut rpc_handle_tx: mpsc::Sender<RpcHandle>) -> ::std::io::Result<()> {
     // FIXME: this should obviously be configurable
     let listen_addr = "127.0.0.1:50052";
