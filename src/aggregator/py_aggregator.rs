@@ -11,7 +11,7 @@ use tokio::{
 };
 // FIXME: the code should be loaded from a file. This is just an
 // example to get going.
-static CODE: &'static str = r#"
+static CODE: &str = r#"
 from typing import Optional
 import bz2
 import numpy as np
@@ -132,7 +132,7 @@ async fn py_aggregator(
 
             }
             Some((weights, resp_tx)) = add_weights_requests.recv() => {
-                aggregator.add_weights(&weights[..]).unwrap();
+                aggregator.add_weights(&weights[..]).unwrap().unwrap();
                 if resp_tx.send(()).is_err() {
                     warn!("cannot send add_weights response, receiver has been dropped");
                     return;

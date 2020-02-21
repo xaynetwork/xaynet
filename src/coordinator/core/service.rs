@@ -19,60 +19,85 @@ use std::{
 };
 
 use derive_more::Display;
-use futures::{ready, stream::Stream};
-use tokio::sync::{mpsc, oneshot};
+use futures::{future::TryFutureExt, ready, stream::Stream};
+use tokio::{
+    net::ToSocketAddrs,
+    sync::{mpsc, oneshot},
+};
 
 use crate::{
-    common::ClientId,
-    coordinator::core::{
-        client::{Clients, HeartBeatResetError},
-        protocol,
+    aggregator,
+    common::{ClientId, Token},
+    coordinator::{
+        core::{
+            client::{Clients, HeartBeatResetError},
+            protocol,
+        },
+        rpc,
     },
 };
 
-pub struct CoordinatorService<A, S, T>
+use tarpc::context::current as rpc_context;
+
+pub struct CoordinatorService<S, T>
 where
-    A: Aggregator<T>,
-    T: Clone + Debug,
     S: Selector,
+    T: ToSocketAddrs + Send + Sync + 'static + Clone + Unpin,
 {
-    requests_rx: mpsc::Receiver<Request<T>>,
+    /// Incoming requests from the clients
+    requests_rx: mpsc::Receiver<Request>,
+
+    /// HeartBeat timers that expired
     heartbeat_expirations_rx: mpsc::UnboundedReceiver<ClientId>,
     // start_training_expirations_rx: mpsc::UnboundedReceiver<ClientId>,
     // done_training_expirations_rx: mpsc::UnboundedReceiver<ClientId>,
+    /// Protocol state machine
     protocol: protocol::Protocol,
+
+    /// Clients states
     clients: Clients,
-    aggregator: A,
+
+    /// Type that performs the selection
     selector: S,
 
+    /// RPC client for the aggregator service.
+    aggregator_rpc: aggregator::rpc::Connection<T>,
+
+    /// Channel for receiving the RPC requests from the aggregator
+    rpc_requests: rpc::RequestReceiver,
+
+    /// IDs of the clients that the selector picked, but that the
+    /// protocol doesn't know yet. The reason for this pending
+    /// selection is to apply the selection by small chunks instead of
+    /// all at once, in order to not block the executor, if a huge
+    /// amount of clients are selected.
     pending_selection: Vec<ClientId>,
-    global_weights: T,
 }
 
-impl<A, S, T> CoordinatorService<A, S, T>
+impl<S, T> CoordinatorService<S, T>
 where
-    A: Aggregator<T>,
-    T: Clone + Debug,
     S: Selector,
+    T: ToSocketAddrs + Send + Sync + 'static + Clone + Unpin,
 {
-    pub fn new(
-        aggregator: A,
+    pub fn new<U: ToSocketAddrs + Send + Sync + 'static>(
         selector: S,
-        global_weights: T,
         config: protocol::CoordinatorConfig,
-    ) -> (Self, CoordinatorHandle<T>) {
+        rpc_listen_addr: U,
+        aggregator_rpc_addr: T,
+    ) -> (Self, CoordinatorHandle) {
         let (requests_tx, requests_rx) = mpsc::channel(2048);
         let (heartbeat_expirations_tx, heartbeat_expirations_rx) = mpsc::unbounded_channel();
 
+        let rpc_requests = rpc::run(rpc_listen_addr);
         let coordinator = Self {
-            aggregator,
             selector,
-            global_weights,
             heartbeat_expirations_rx,
             requests_rx,
             clients: Clients::new(heartbeat_expirations_tx),
             protocol: protocol::Protocol::new(config),
             pending_selection: Vec::new(),
+            aggregator_rpc: aggregator::rpc::Connection::new(aggregator_rpc_addr),
+            rpc_requests,
         };
         let handle = CoordinatorHandle::new(requests_tx);
         (coordinator, handle)
@@ -112,6 +137,19 @@ where
         }
     }
 
+    fn poll_rpc_requests(&mut self, cx: &mut Context) -> Poll<()> {
+        loop {
+            match ready!(Pin::new(&mut self.rpc_requests).poll_next(cx)) {
+                Some((id, success)) => {
+                    let state = self.clients.get_state(&id);
+                    self.protocol.end_training(id, success, state);
+                    self.handle_protocol_events();
+                }
+                None => return Poll::Ready(()),
+            }
+        }
+    }
+
     /// Handle a request
     fn apply_pending_selection(&mut self) {
         let Self {
@@ -135,15 +173,14 @@ where
     }
 }
 
-impl<A, S, T> CoordinatorService<A, S, T>
+impl<S, T> CoordinatorService<S, T>
 where
-    A: Aggregator<T>,
-    T: Clone + Debug,
     S: Selector,
+    T: ToSocketAddrs + Send + Sync + 'static + Clone + Unpin,
 {
     /// Handle a rendez-vous request
     fn rendez_vous(&mut self, req: RequestMessage<RendezVousRequest, RendezVousResponse>) {
-        let (_, response_sender) = req;
+        let (_, response_tx) = req;
         let id = ClientId::new();
         // This should be "Unknown" since we just created a
         // new uuid.
@@ -152,75 +189,77 @@ where
             protocol::RendezVousResponse::Accept => RendezVousResponse::Accept(id),
             protocol::RendezVousResponse::Reject => RendezVousResponse::Reject,
         };
-        response_sender.send(response);
+        response_tx.send(response);
     }
 
     /// Handle a heartbeat request
     fn heartbeat(&mut self, req: RequestMessage<HeartBeatRequest, HeartBeatResponse>) {
-        let (id, response_sender) = req;
+        let (id, response_tx) = req;
         let response = self.protocol.heartbeat(id, self.clients.get_state(&id));
-        response_sender.send(response);
+        response_tx.send(response);
     }
 
     /// Handle a start training request
-    fn start_training(
-        &mut self,
-        req: RequestMessage<StartTrainingRequest, StartTrainingResponse<T>>,
-    ) {
-        let (id, response_sender) = req;
-        let response = match self.protocol.start_training(self.clients.get_state(&id)) {
-            protocol::StartTrainingResponse::Accept => {
-                StartTrainingPayload::new(self.global_weights.clone()).into()
+    fn start_training(&mut self, req: RequestMessage<StartTrainingRequest, StartTrainingResponse>) {
+        let (id, response_tx) = req;
+        match self.protocol.start_training(self.clients.get_state(&id)) {
+            protocol::StartTrainingResponse::Reject => {
+                response_tx.send(StartTrainingResponse::Reject)
             }
-            protocol::StartTrainingResponse::Reject => StartTrainingResponse::Reject,
-        };
-        response_sender.send(response);
-    }
+            protocol::StartTrainingResponse::Accept => {
+                if !self.aggregator_rpc.is_up() {
+                    // FIXME: like above, we should return an error
+                    // instead of just dropping the response channel.
+                    warn!("no connection to the aggregator, cannot send token");
+                    return;
+                }
 
-    /// Handle an end training request
-    // FIXME: the end training request should probably made to the
-    // aggregator directly, which would then ask the protocol whether
-    // it should accept the weights. Right now, handling these
-    // requests kinds of break our model where the requests are
-    // directly processed by the protocol and events are emitted in
-    // response.
-    //
-    // 1. Client      => Coordinator:   start training request
-    // 2. Coordinator => Aggregator:    coordinator sends token for the client
-    // 3. Coordinator => Client:        start training response with token + aggregator URL
-    // 4. Client      => Aggregator:    end training with weights + token
-    // 5. Aggregator  => Coordinator:   client uploaded their results
-    //
-    // Right now we just check the response returned by the protocol,
-    // and pass the weights to the aggregator assuming they are valid.
-    fn end_training(&mut self, req: RequestMessage<EndTrainingRequest<T>, EndTrainingResponse>) {
-        let ((id, weights), response_sender) = req;
-        let response = self.protocol.end_training(id, self.clients.get_state(&id));
-        if response == EndTrainingResponse::Accept {
-            // FIXME: handle this
-            self.aggregator.add_local_result(weights).unwrap();
+                let (mut rpc_client, mut rpc_down_tx) = self.aggregator_rpc.get_client().unwrap();
+
+                tokio::spawn(async move {
+                    let token = Token::new();
+                    // FIXME: upon RPC failure or if the aggregator
+                    // returns an error, we currently just drop the
+                    // response channel. For the sake of clarity,
+                    // maybe we should probably return a proper error
+                    // instead.
+                    match rpc_client.select(rpc_context(), id, token).await {
+                        Ok(result) => {
+                            if result.is_ok() {
+                                response_tx.send(StartTrainingResponse::Accept(
+                                    // FIXME: don't hardcode this
+                                    "http://localhost:8080".into(),
+                                    token,
+                                ));
+                            }
+                        }
+                        Err(e) => {
+                            warn!("failed to send start training request: io error: {}", e);
+                            // Notify the CoordinatorService that this client is
+                            // disconnected, so that it tried to initiate a new
+                            // connection.
+                            let _ = rpc_down_tx.send(()).await;
+                        }
+                    }
+                });
+            }
         }
-        response_sender.send(response);
     }
 
     /// Handle a request
-    fn dispatch_request(&mut self, request: Request<T>) {
+    fn dispatch_request(&mut self, request: Request) {
         match request {
             Request::RendezVous(inner_request) => self.rendez_vous(inner_request),
             Request::HeartBeat(inner_request) => self.heartbeat(inner_request),
             Request::StartTraining(inner_request) => self.start_training(inner_request),
-            Request::EndTraining(inner_request) => self.end_training(inner_request),
         }
     }
 }
 
-impl<A, S, T> Future for CoordinatorService<A, S, T>
+impl<S, T> Future for CoordinatorService<S, T>
 where
-    // FIXME: I guess it's OK to require Unpin for the aggregator and
-    // the selector ? Unless it is not ?
-    A: Aggregator<T> + Unpin,
     S: Selector + Unpin,
-    T: Clone + Unpin + Debug,
+    T: ToSocketAddrs + Send + Sync + 'static + Clone + Unpin,
 {
     type Output = ();
     fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
@@ -235,17 +274,21 @@ where
         }
 
         match pin.poll_heartbeat_expirations(cx) {
+            Poll::Ready(()) => return Poll::Ready(()),
+            Poll::Pending => {}
+        }
+
+        match pin.poll_rpc_requests(cx) {
             Poll::Ready(()) => Poll::Ready(()),
             Poll::Pending => Poll::Pending,
         }
     }
 }
 
-impl<A, S, T> CoordinatorService<A, S, T>
+impl<S, T> CoordinatorService<S, T>
 where
-    A: Aggregator<T>,
-    T: Clone + Debug,
     S: Selector,
+    T: ToSocketAddrs + Send + Sync + 'static + Clone + Unpin,
 {
     /// Handle a [`Event::Accept`] event
     fn accept_client(&mut self, id: ClientId) {
@@ -318,8 +361,7 @@ where
 
     /// Handle a [`Event::RunAggregation`] event
     fn run_aggregation(&mut self) {
-        self.global_weights = self.aggregator.aggregate().unwrap();
-        info!("aggrgation ran: {:?}", self.global_weights);
+        unimplemented!()
     }
 
     /// Dispatch an [`Event`] to the appropriate handler
@@ -373,7 +415,6 @@ impl<R> ResponseSender<R> {
 
 pub type RequestMessage<P, R> = (P, ResponseSender<R>);
 
-// rendez-vous
 #[derive(Debug)]
 pub struct RendezVousRequest;
 
@@ -383,68 +424,44 @@ pub enum RendezVousResponse {
     Reject,
 }
 
-// heartbeat
 pub type HeartBeatRequest = ClientId;
 pub use protocol::HeartBeatResponse;
 
-// start training
 pub type StartTrainingRequest = ClientId;
-pub enum StartTrainingResponse<T> {
-    Accept(StartTrainingPayload<T>),
+pub enum StartTrainingResponse {
+    Accept(String, Token),
     Reject,
 }
 
-pub struct StartTrainingPayload<T> {
-    pub global_weights: T,
-    // more stuff...
-}
-
-impl<T> StartTrainingPayload<T> {
-    pub fn new(global_weights: T) -> Self {
-        Self { global_weights }
-    }
-}
-
-impl<T> From<StartTrainingPayload<T>> for StartTrainingResponse<T> {
-    fn from(value: StartTrainingPayload<T>) -> Self {
-        Self::Accept(value)
-    }
-}
-
-// end training
-pub type EndTrainingRequest<T> = (ClientId, T);
-pub use protocol::EndTrainingResponse;
-
-pub enum Request<T> {
+pub enum Request {
     RendezVous(RequestMessage<RendezVousRequest, RendezVousResponse>),
     HeartBeat(RequestMessage<HeartBeatRequest, HeartBeatResponse>),
-    StartTraining(RequestMessage<StartTrainingRequest, StartTrainingResponse<T>>),
-    EndTraining(RequestMessage<EndTrainingRequest<T>, EndTrainingResponse>),
+    StartTraining(RequestMessage<StartTrainingRequest, StartTrainingResponse>),
 }
 
-pub struct CoordinatorHandle<T>(mpsc::Sender<Request<T>>);
+pub struct CoordinatorHandle(mpsc::Sender<Request>);
 
-impl<T> Clone for CoordinatorHandle<T> {
+impl Clone for CoordinatorHandle {
     fn clone(&self) -> Self {
         Self(self.0.clone())
     }
 }
 
-impl<T> CoordinatorHandle<T> {
-    pub fn new(requests_tx: mpsc::Sender<Request<T>>) -> Self {
+impl CoordinatorHandle {
+    pub fn new(requests_tx: mpsc::Sender<Request>) -> Self {
         Self(requests_tx)
     }
 
     pub async fn rendez_vous(&mut self) -> Result<RendezVousResponse, RequestError> {
         let (resp_tx, resp_rx) = response_channel::<RendezVousResponse>();
-        let req: Request<T> = Request::RendezVous((RendezVousRequest, resp_tx));
+        let req: Request = Request::RendezVous((RendezVousRequest, resp_tx));
         self.0.send(req).await.map_err(|_| RequestError)?;
         resp_rx.await
     }
 
     pub async fn heartbeat(&mut self, id: ClientId) -> Result<HeartBeatResponse, RequestError> {
         let (resp_tx, resp_rx) = response_channel::<HeartBeatResponse>();
-        let req: Request<T> = Request::HeartBeat((id, resp_tx));
+        let req: Request = Request::HeartBeat((id, resp_tx));
         self.0.send(req).await.map_err(|_| RequestError)?;
         resp_rx.await
     }
@@ -452,20 +469,9 @@ impl<T> CoordinatorHandle<T> {
     pub async fn start_training(
         &mut self,
         id: ClientId,
-    ) -> Result<StartTrainingResponse<T>, RequestError> {
-        let (resp_tx, resp_rx) = response_channel::<StartTrainingResponse<T>>();
-        let req: Request<T> = Request::StartTraining((id, resp_tx));
-        self.0.send(req).await.map_err(|_| RequestError)?;
-        resp_rx.await
-    }
-
-    pub async fn end_training(
-        &mut self,
-        id: ClientId,
-        weights: T,
-    ) -> Result<EndTrainingResponse, RequestError> {
-        let (resp_tx, resp_rx) = response_channel::<EndTrainingResponse>();
-        let req: Request<T> = Request::EndTraining(((id, weights), resp_tx));
+    ) -> Result<StartTrainingResponse, RequestError> {
+        let (resp_tx, resp_rx) = response_channel::<StartTrainingResponse>();
+        let req: Request = Request::StartTraining((id, resp_tx));
         self.0.send(req).await.map_err(|_| RequestError)?;
         resp_rx.await
     }
@@ -478,11 +484,4 @@ pub trait Selector {
         waiting: impl Iterator<Item = ClientId>,
         selected: impl Iterator<Item = ClientId>,
     ) -> Vec<ClientId>;
-}
-
-pub trait Aggregator<T> {
-    type Error: ::std::error::Error;
-
-    fn add_local_result(&mut self, result: T) -> Result<(), Self::Error>;
-    fn aggregate(&mut self) -> Result<T, Self::Error>;
 }

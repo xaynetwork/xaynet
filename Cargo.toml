@@ -18,3 +18,4 @@ serde = { version = "1.0.104", features = [ "derive" ] }
 pyo3 = "0.9.0-alpha.1"
 async-trait = "0.1.24"
 tokio-serde = { version = "0.6.0", features = [ "json" ] }
+futures-retry = "0.4.0"

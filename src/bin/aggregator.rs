@@ -2,10 +2,7 @@
 extern crate async_trait;
 use futures::future;
 
-use xain_fl::aggregator::{
-    rpc::spawn_rpc,
-    service::{Aggregator, AggregatorService},
-};
+use xain_fl::aggregator::service::{Aggregator, AggregatorService};
 
 #[tokio::main]
 async fn main() {
@@ -14,8 +11,7 @@ async fn main() {
 
 async fn _main() {
     env_logger::init();
-    let rpc_connections = spawn_rpc();
-    let aggregator = AggregatorService::<DummyAggregator>::new(rpc_connections);
+    let aggregator = AggregatorService::new(DummyAggregator, "localhost:6666", "localhost:5555");
     aggregator.await;
 }
 

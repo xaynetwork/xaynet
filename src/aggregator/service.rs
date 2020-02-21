@@ -2,25 +2,26 @@ use std::{
     collections::HashMap,
     error::Error,
     future::Future,
-    marker::PhantomData,
     pin::Pin,
     sync::Arc,
     task::{Context, Poll},
 };
 
 use crate::{
-    aggregator::rpc::{RpcHandle, RpcRequest},
+    aggregator::rpc,
     common::{ClientId, Token},
     coordinator,
 };
 
+use tokio::net::ToSocketAddrs;
+
 use futures::{ready, stream::Stream};
-use tokio::sync::mpsc;
 
 /// A future that orchestrates the entire aggregator service.
-pub struct AggregatorService<A>
+pub struct AggregatorService<A, T>
 where
     A: Aggregator,
+    T: ToSocketAddrs + Send + Sync + 'static + Clone + Unpin,
 {
     /// Clients that the coordinator selected for the current
     /// round. They can use their unique token to download the global
@@ -33,23 +34,11 @@ where
 
     // /// The aggregator itself, which handles the weights or performs
     // /// the aggregations.
-    // aggregator: A,
-    //
-    // TMP: only needed until we uncomment the aggregator attribute
-    aggregator: PhantomData<A>,
+    aggregator: A,
 
-    // /// A client for the coordinator RPC service.
-    // coordinator: coordinator::RpcClient,
-    /// If the coordinator has open a connection to the aggregator's
-    /// RPC server, the incoming requests are forwarded to this
-    /// handle.
-    rpc_requests: Option<RpcHandle>,
-
-    /// The aggregator RPC server only accepts one client at a time,
-    /// since we expect a single coordinator instance to connect. When
-    /// a new connection is open, the `RpcHandle` for that new client
-    /// is received from this channel.
-    rpc_connections: mpsc::Receiver<RpcHandle>,
+    ///// A client for the coordinator RPC service.
+    coordinator_rpc: coordinator::rpc::Connection<T>,
+    rpc_requests: rpc::RequestReceiver,
     // http_requests: aggregator::http::Handle,
 }
 
@@ -72,68 +61,49 @@ pub trait Aggregator {
     async fn aggregate(&mut self) -> Result<Vec<u8>, Self::Error>;
 }
 
-impl<A> AggregatorService<A>
+impl<A, T> AggregatorService<A, T>
 where
     A: Aggregator,
+    T: ToSocketAddrs + Send + Sync + 'static + Clone + Unpin,
 {
-    pub fn new(rpc_connections: mpsc::Receiver<RpcHandle>) -> Self {
+    pub fn new<U: ToSocketAddrs + Send + Sync + 'static>(
+        aggregator: A,
+        rpc_listen_addr: U,
+        coordinator_rpc_addr: T,
+    ) -> Self {
+        let rpc_requests = rpc::run(rpc_listen_addr);
         Self {
+            aggregator,
+            rpc_requests,
+            coordinator_rpc: coordinator::rpc::Connection::new(coordinator_rpc_addr),
             known_ids: HashMap::new(),
             global_weights: Arc::new(vec![]),
-            rpc_connections,
-            rpc_requests: None,
-            aggregator: PhantomData,
         }
     }
-    fn poll_rpc_requests(&mut self, cx: &mut Context) {
+
+    fn poll_rpc_requests(&mut self, cx: &mut Context) -> Poll<()> {
         trace!("polling RPC requests");
 
-        if self.rpc_requests.is_none() {
-            trace!("no active RPC connection");
-            return;
-        }
-
-        let mut stream = Pin::new(self.rpc_requests.as_mut().unwrap());
+        let mut stream = Pin::new(&mut self.rpc_requests);
         loop {
-            match stream.as_mut().poll_next(cx) {
-                Poll::Ready(Some(RpcRequest::Select(((id, token), resp_tx)))) => {
+            match ready!(stream.as_mut().poll_next(cx)) {
+                Some(rpc::Request::Select(((id, token), resp_tx))) => {
                     self.known_ids.insert(id, token);
                     if resp_tx.send(()).is_err() {
-                        warn!("aggregator RPC service finished");
-                        return;
+                        warn!("RPC connection shut down, cannot send response back");
                     }
                 }
-                Poll::Ready(Some(RpcRequest::Reset(resp_tx))) => {
+                Some(rpc::Request::Reset(resp_tx)) => {
                     self.known_ids = HashMap::new();
                     if resp_tx.send(()).is_err() {
-                        warn!("aggregator RPC service finished");
-                        return;
+                        warn!("RPC connection shut down, cannot send response back");
                     }
                 }
                 // The coordinator client disconnected. If the
                 // coordinator reconnect to the RPC server, a new
-                // RpcHandle will be forwarded to us.
-                Poll::Ready(None) => {
-                    debug!("RPC connection lost, now waiting for a new connection");
-                    // The RpcHandle is of no use now. We'll have to wait for a
-                    // new one, when a client reconnects.
-                    self.rpc_requests = None;
-                    return;
-                }
-                Poll::Pending => return,
-            }
-        }
-    }
-
-    fn poll_rpc_connections(&mut self, cx: &mut Context) -> Poll<()> {
-        let mut stream = Pin::new(&mut self.rpc_connections);
-        loop {
-            match ready!(stream.as_mut().poll_next(cx)) {
-                Some(handle) => {
-                    debug!("new RPC connection");
-                    self.rpc_requests = Some(handle);
-                }
+                // AggregatorRpcHandle will be forwarded to us.
                 None => {
+                    warn!("RPC server shut down");
                     return Poll::Ready(());
                 }
             }
@@ -141,18 +111,14 @@ where
     }
 }
 
-impl<A> Future for AggregatorService<A>
+impl<A, T> Future for AggregatorService<A, T>
 where
     A: Aggregator + Unpin,
+    T: ToSocketAddrs + Send + Sync + 'static + Clone + Unpin,
 {
     type Output = ();
     fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         let pin = self.get_mut();
-        if let Poll::Ready(_) = pin.poll_rpc_connections(cx) {
-            warn!("rpc server dropped, exiting");
-            return Poll::Ready(());
-        }
-        pin.poll_rpc_requests(cx);
-        Poll::Pending
+        pin.poll_rpc_requests(cx)
     }
 }
