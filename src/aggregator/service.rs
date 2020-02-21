@@ -46,7 +46,7 @@ where
     /// since we expect a single coordinator instance to connect. When
     /// a new connection is open, the `RpcHandle` for that new client
     /// is received from this channel.
-    incoming_rpc_connections: mpsc::Receiver<RpcHandle>,
+    rpc_connections: mpsc::Receiver<RpcHandle>,
     // http_requests: aggregator::http::Handle,
 }
 
@@ -73,42 +73,59 @@ impl<A> Service<A>
 where
     A: Aggregator,
 {
-    fn poll_rpc_requests(&mut self, cx: &mut Context) -> Poll<()> {
+    fn poll_rpc_requests(&mut self, cx: &mut Context) {
         trace!("polling RPC requests");
 
         if self.rpc_requests.is_none() {
             trace!("no active RPC connection");
-            return Poll::Pending;
+            return;
         }
 
         let mut stream = Pin::new(self.rpc_requests.as_mut().unwrap());
         loop {
-            match ready!(stream.as_mut().poll_next(cx)) {
-                Some(RpcRequest::Select(((id, token), resp_tx))) => {
+            match stream.as_mut().poll_next(cx) {
+                Poll::Ready(Some(RpcRequest::Select(((id, token), resp_tx)))) => {
                     self.known_ids.insert(id, token);
                     if resp_tx.send(()).is_err() {
                         warn!("aggregator RPC service finished");
-                        return Poll::Ready(());
+                        return;
                     }
                 }
-                Some(RpcRequest::Reset(resp_tx)) => {
+                Poll::Ready(Some(RpcRequest::Reset(resp_tx))) => {
                     self.known_ids = HashMap::new();
                     if resp_tx.send(()).is_err() {
                         warn!("aggregator RPC service finished");
-                        return Poll::Ready(());
+                        return;
                     }
                 }
                 // The coordinator client disconnected. If the
                 // coordinator reconnect to the RPC server, a new
                 // RpcHandle will be forwarded to us.
-                None => break,
+                Poll::Ready(None) => {
+                    debug!("RPC connection lost, now waiting for a new connection");
+                    // The RpcHandle is of no use now. We'll have to wait for a
+                    // new one, when a client reconnects.
+                    self.rpc_requests = None;
+                    return;
+                }
+                Poll::Pending => return,
             }
         }
-        // The RpcHandle is of no use now. We'll have to wait for a
-        // new one, when a client reconnects.
-        debug!("RPC connection lost, now waiting for a new connection");
-        self.rpc_requests = None;
-        return Poll::Ready(());
+    }
+
+    fn poll_rpc_connections(&mut self, cx: &mut Context) -> Poll<()> {
+        let mut stream = Pin::new(&mut self.rpc_connections);
+        loop {
+            match ready!(stream.as_mut().poll_next(cx)) {
+                Some(handle) => {
+                    debug!("new RPC connection");
+                    self.rpc_requests = Some(handle);
+                }
+                None => {
+                    return Poll::Ready(());
+                }
+            }
+        }
     }
 }
 
@@ -118,6 +135,9 @@ where
 {
     type Output = ();
     fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        unimplemented!()
+        let pin = self.get_mut();
+        ready!(pin.poll_rpc_connections(cx));
+        pin.poll_rpc_requests(cx);
+        Poll::Pending
     }
 }
