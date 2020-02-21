@@ -155,11 +155,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
 
         self._write_metrics_fail_silently(
             "coordinator",
-            {
-                "state": State.STANDBY,
-                "round": 0,
-                "number_of_selected_participants": 0,
-            },
+            {"state": State.STANDBY, "round": 0, "number_of_selected_participants": 0,},
         )
 
     def get_minimum_connected_participants(self) -> int:
@@ -305,8 +301,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
                 current_participants_count=parts_len,
             )
             self._write_metrics_fail_silently(
-                "coordinator",
-                {"number_of_selected_participants": parts_len},
+                "coordinator", {"number_of_selected_participants": parts_len},
             )
 
             # Select participants and change the state to ROUND if the latest added participant
@@ -359,7 +354,10 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         self.participants.update_expires(participant_id)
 
         current_state = self.session.get_state()
-        if current_state == State.FINISHED or participant_id in self.round.participant_ids:
+        if (
+            current_state == State.FINISHED
+            or participant_id in self.round.participant_ids
+        ):
             state = current_state
         else:
             state = State.STANDBY
@@ -468,9 +466,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
 
         # The round is over. Run the aggregation
         if self.round.is_finished():
-            logger.info(
-                "Running aggregation for round", current_round=current_round
-            )
+            logger.info("Running aggregation for round", current_round=current_round)
 
             multiple_model_weights: List[ndarray]
             aggregation_data: List[int]
@@ -480,15 +476,15 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
                 aggregation_data=aggregation_data,
             )
             self.session.set_weights(weights)
-            self.global_weights_writer.write_weights(
-                current_round + 1, weights
-            )
+            self.global_weights_writer.write_weights(current_round + 1, weights)
 
             # update the round or finish the training session
             if current_round >= self.num_rounds - 1:
                 logger.info("Last round over", round=current_round)
                 self.session.set_state(State.FINISHED)
-                self._write_metrics_fail_silently("coordinator", {"state": State.FINISHED})
+                self._write_metrics_fail_silently(
+                    "coordinator", {"state": State.FINISHED}
+                )
             else:
                 self.session.next_round()
                 self.session.add_epochs(self.epochs_current_round)

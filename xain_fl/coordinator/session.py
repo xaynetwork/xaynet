@@ -14,7 +14,9 @@ class Session:
     ... TODO
     """
 
-    def __init__(self, state: State, current_round: int, epoch_base: int, weights: ndarray) -> None:
+    def __init__(
+        self, state: State, current_round: int, epoch_base: int, weights: ndarray
+    ) -> None:
         """TODO"""
         self._state = state
         self._current_round = current_round
