@@ -29,6 +29,7 @@ from xain_fl.coordinator.metrics_store import (
 )
 from xain_fl.coordinator.participants import Participants
 from xain_fl.coordinator.round import Round
+from xain_fl.coordinator.session import Session
 from xain_fl.coordinator.store import (
     AbstractGlobalWeightsWriter,
     AbstractLocalWeightsReader,
@@ -134,27 +135,30 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         self.minimum_connected_participants: int = self.get_minimum_connected_participants()
 
         # global model
-        self.weights: ndarray = weights
+        # self.weights: ndarray = weights
         self.epochs: int = epochs
-        self.epoch_base: int = epoch_base
+        # self.epoch_base: int = epoch_base
 
         # round updates
         self.round: Round = Round(self.participants.ids())
 
         # state variables
-        self.state: State = State.STANDBY
-        self.current_round: int = 0
+        # self.state: State = State.STANDBY
+        # self.current_round: int = 0
         self.epochs_current_round: int = epochs
 
+        # session state
+        self.session: Session = Session(State.STANDBY, 0, epoch_base, weights)
+
         # Write the weights for the initial round
-        self.global_weights_writer.write_weights(0, self.weights)
+        self.global_weights_writer.write_weights(0, weights)
 
         self._write_metrics_fail_silently(
             "coordinator",
             {
-                "state": self.state,
-                "round": self.current_round,
-                "number_of_selected_participants": self.participants.len(),
+                "state": State.STANDBY,
+                "round": 0,
+                "number_of_selected_participants": 0,
             },
         )
 
@@ -243,15 +247,16 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         # remove from selected if necessary
         self.round.remove_selected(participant_id)
 
-        if self.participants.len() < self.minimum_connected_participants:
-            self.state = State.STANDBY
-            self._write_metrics_fail_silently("coordinator", {"state": self.state})
+        parts_len = self.participants.len()
+        if parts_len < self.minimum_connected_participants:
+            self.session.set_state(State.STANDBY)
+            self._write_metrics_fail_silently("coordinator", {"state": State.STANDBY})
 
         self._write_metrics_fail_silently(
             "participant", {"state": State.FINISHED}, tags={"id": participant_id}
         )
         self._write_metrics_fail_silently(
-            "coordinator", {"number_of_selected_participants": self.participants.len()}
+            "coordinator", {"number_of_selected_participants": parts_len}
         )
 
     def select_participant_ids_and_init_round(self) -> None:
@@ -264,11 +269,12 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
     def select_outstanding(self) -> List[str]:
         """Selects participants outstanding for the round."""
 
+        selected = set(self.round.participant_ids)
+
         # the following preconditions should hold
-        assert len(self.round.participant_ids) < self.minimum_participants_in_round
+        assert len(selected) < self.minimum_participants_in_round
         assert self.participants.len() == self.minimum_connected_participants
 
-        selected = set(self.round.participant_ids)
         num_outstanding = self.minimum_participants_in_round - len(selected)
         pool = set(self.participants.ids()) - selected
         frac = num_outstanding / len(pool)
@@ -289,35 +295,36 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
             The response to the participant.
         """
 
-        if self.participants.len() < self.minimum_connected_participants:
+        parts_len = self.participants.len()
+        if parts_len < self.minimum_connected_participants:
             reply = RendezvousReply.ACCEPT
             self.participants.add(participant_id)
             logger.info(
                 "Accepted participant",
                 participant_id=participant_id,
-                current_participants_count=self.participants.len(),
+                current_participants_count=parts_len,
             )
             self._write_metrics_fail_silently(
                 "coordinator",
-                {"number_of_selected_participants": self.participants.len()},
+                {"number_of_selected_participants": parts_len},
             )
 
             # Select participants and change the state to ROUND if the latest added participant
             # lets us meet the minimum number of connected participants
-            if self.participants.len() == self.minimum_connected_participants:
+            if parts_len == self.minimum_connected_participants:
                 # select enough to fill round if needed
                 if len(self.round.participant_ids) < self.minimum_participants_in_round:
                     ids = self.select_outstanding()
                     self.round.add_selected(ids)
 
-                self.state = State.ROUND
-                self._write_metrics_fail_silently("coordinator", {"state": self.state})
+                self.session.set_state(State.ROUND)
+                self._write_metrics_fail_silently("coordinator", {"state": State.ROUND})
         else:
             reply = RendezvousReply.LATER
             logger.info(
                 "Reject participant",
                 participant_id=participant_id,
-                current_participants_count=self.participants.len(),
+                current_participants_count=parts_len,
             )
 
         logger.debug(
@@ -351,23 +358,25 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
 
         self.participants.update_expires(participant_id)
 
-        if self.state == State.FINISHED or participant_id in self.round.participant_ids:
-            state = self.state
+        current_state = self.session.get_state()
+        if current_state == State.FINISHED or participant_id in self.round.participant_ids:
+            state = current_state
         else:
             state = State.STANDBY
 
+        current_round = self.session.get_round()
         logger.debug(
             "Heartbeat response",
             participant_id=participant_id,
             state=pb_enum_to_str(_STATE, state),
-            round=self.current_round,
+            round=current_round,
             current_participants_count=self.participants.len(),
         )
         self._write_metrics_fail_silently(
             "coordinator", {"number_of_selected_participants": self.participants.len()}
         )
         # send heartbeat response advertising the current state
-        return HeartbeatResponse(state=state, round=self.current_round)
+        return HeartbeatResponse(state=state, round=current_round)
 
     def _handle_start_training_round(
         self, _message: StartTrainingRoundRequest, participant_id: str
@@ -384,7 +393,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
 
         # The coordinator should only accept StartTrainingRound requests if it is
         # in the ROUND state and when the participant has been selected for the round.
-        coordinator_not_in_a_round = self.state != State.ROUND
+        coordinator_not_in_a_round = self.session.get_state() != State.ROUND
         participant_not_selected = participant_id not in self.round.participant_ids
         if coordinator_not_in_a_round or participant_not_selected:
             raise InvalidRequestError(
@@ -392,18 +401,20 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
                 "StartTrainingRoundRequest outside of a round"
             )
 
-        if self.weights.size:
+        weights = self.session.get_weights()
+        if weights.size:
             self.epochs_current_round = self.epochs
         else:
             self.epochs_current_round = 0
 
+        epoch_base = self.session.get_epoch_base()
         logger.debug(
             "Send StartTrainingRoundResponse",
             epochs=self.epochs_current_round,
-            epoch_base=self.epoch_base,
+            epoch_base=epoch_base,
         )
         return StartTrainingRoundResponse(
-            epochs=self.epochs_current_round, epoch_base=self.epoch_base,
+            epochs=self.epochs_current_round, epoch_base=epoch_base,
         )
 
     def _handle_end_training_round(
@@ -433,10 +444,11 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         # send a participant ID, or sent an invalid one. Reading from
         # storage will fail in that case, and we should gracefully
         # handle this by removing the participant.
+        current_round = self.session.get_round()
         fake_participant_id: str = message.participant_id
         logger.debug("downloading results", participant_id=participant_id)
         model_weights: ndarray = self.local_weights_reader.read_weights(
-            fake_participant_id, self.current_round
+            fake_participant_id, current_round
         )
         logger.debug("done downloading results", participant_id=participant_id)
         number_samples: int = message.number_samples
@@ -457,30 +469,31 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         # The round is over. Run the aggregation
         if self.round.is_finished():
             logger.info(
-                "Running aggregation for round", current_round=self.current_round
+                "Running aggregation for round", current_round=current_round
             )
 
             multiple_model_weights: List[ndarray]
             aggregation_data: List[int]
             multiple_model_weights, aggregation_data = self.round.get_weight_updates()
-            self.weights = self.aggregator.aggregate(
+            weights = self.aggregator.aggregate(
                 multiple_model_weights=multiple_model_weights,
                 aggregation_data=aggregation_data,
             )
+            self.session.set_weights(weights)
             self.global_weights_writer.write_weights(
-                self.current_round + 1, self.weights
+                current_round + 1, weights
             )
 
             # update the round or finish the training session
-            if self.current_round >= self.num_rounds - 1:
-                logger.info("Last round over", round=self.current_round)
-                self.state = State.FINISHED
-                self._write_metrics_fail_silently("coordinator", {"state": self.state})
+            if current_round >= self.num_rounds - 1:
+                logger.info("Last round over", round=current_round)
+                self.session.set_state(State.FINISHED)
+                self._write_metrics_fail_silently("coordinator", {"state": State.FINISHED})
             else:
-                self.current_round += 1
-                self.epoch_base += self.epochs_current_round
+                self.session.next_round()
+                self.session.add_epochs(self.epochs_current_round)
                 self._write_metrics_fail_silently(
-                    "coordinator", {"round": self.current_round}
+                    "coordinator", {"round": current_round + 1}
                 )
                 # reinitialize the round
                 self.select_participant_ids_and_init_round()
