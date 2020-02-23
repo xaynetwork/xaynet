@@ -1,6 +1,5 @@
 use std::{
     collections::HashMap,
-    error::Error,
     future::Future,
     pin::Pin,
     sync::Arc,
@@ -13,7 +12,7 @@ use crate::{
     coordinator,
 };
 
-use tokio::net::ToSocketAddrs;
+use tokio::{net::ToSocketAddrs, sync::oneshot};
 
 use futures::{ready, stream::Stream};
 
@@ -42,11 +41,20 @@ where
     // /// the aggregations.
     aggregator: A,
 
-    ///// A client for the coordinator RPC service.
+    /// A client for the coordinator RPC service.
     coordinator_rpc: Option<coordinator::rpc::Client>,
+
+    /// A future that resolved to an RPC client. If is only necessary
+    /// to poll it when the aggregator starts, until the first
+    /// connection is established. After that, `coordinator_rpc` is
+    /// set and the client automatically attempts to reconnect if the
+    /// connection goes down.
     coordinator_rpc_connection: Option<coordinator::rpc::ConnectFuture>,
+
+    /// RPC requests from the coordinator.
     rpc_requests: rpc::RequestReceiver,
     // http_requests: aggregator::http::Handle,
+    aggregation_future: Option<AggregationFuture<A>>,
 }
 
 // struct HttpServiceHandle {
@@ -54,18 +62,26 @@ where
 //     end_training_requests: mpsc::Receiver<(Token, Vec<u8>)>,
 // }
 
+// FIXME: the futures returned by the `aggregate` method needs to be
+// stored but it's not 'static since if take `&mut self`. For now we
+// work around this by requiring + Clone + Send + Sync + 'static on
+// the aggregator trait but that doens't seem like a good solution.
 #[async_trait]
 /// This trait defines the methods that an aggregator should
 /// implement.
 pub trait Aggregator {
-    type Error: Error;
+    // FIXME: we should obviously require the Error bound, but for now
+    // it's convenient to be able to use () as error type
+    type Error;
+    type AggregateFut: Future<Output = Result<Vec<u8>, Self::Error>> + Unpin;
+    // type Error: Error;
 
     /// Check the validity of the given weights and if they are valid,
     /// add them to the set of weights to aggregate.
     async fn add_weights(&mut self, weights: Vec<u8>) -> Result<(), Self::Error>;
 
     /// Run the aggregator and return the result.
-    async fn aggregate(&mut self) -> Result<Vec<u8>, Self::Error>;
+    fn aggregate(&mut self) -> Self::AggregateFut;
 }
 
 impl<A> AggregatorService<A>
@@ -90,6 +106,7 @@ where
             )),
             allowed_ids: HashMap::new(),
             global_weights: Arc::new(vec![]),
+            aggregation_future: None,
         }
     }
 
@@ -108,10 +125,13 @@ where
                 }
                 Some(rpc::Request::Aggregate(resp_tx)) => {
                     info!("handling rpc request: aggregate");
+                    // reset the known IDs.
                     self.allowed_ids = HashMap::new();
-                    if resp_tx.send(()).is_err() {
-                        warn!("RPC connection shut down, cannot send response back");
-                    }
+
+                    self.aggregation_future = Some(AggregationFuture {
+                        future: self.aggregator.aggregate(),
+                        response_tx: resp_tx,
+                    });
                 }
                 // The coordinator client disconnected. If the
                 // coordinator reconnect to the RPC server, a new
@@ -123,6 +143,40 @@ where
             }
         }
     }
+
+    // FIXME: AAAAAAHHHHHHHHHH this is horrible.
+    fn poll_aggregation(&mut self, cx: &mut Context) -> Poll<()> {
+        let done = if let Some(ref mut fut) = self.aggregation_future {
+            match ready!(Pin::new(&mut fut.future).poll(cx)) {
+                Ok(weights) => {
+                    self.global_weights = Arc::new(weights);
+                }
+                Err(_) => {
+                    // FIXME: we should return an error to the coordinator
+                }
+            }
+            true
+        } else {
+            false
+        };
+        if done {
+            self.aggregation_future
+                .take()
+                .unwrap()
+                .response_tx
+                .send(())
+                .unwrap();
+        }
+        Poll::Pending
+    }
+}
+
+struct AggregationFuture<A>
+where
+    A: Aggregator,
+{
+    future: A::AggregateFut,
+    response_tx: oneshot::Sender<()>,
 }
 
 impl<A> Future for AggregatorService<A>

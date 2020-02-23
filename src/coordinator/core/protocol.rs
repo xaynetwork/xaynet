@@ -102,6 +102,7 @@ impl Protocol {
             config,
             counters: Counters::new(),
             is_training_complete: false,
+            waiting_for_aggregation: false,
             current_round: 0,
             events: VecDeque::new(),
         }
@@ -278,7 +279,6 @@ impl Protocol {
                 self.counters.done += 1;
 
                 if self.is_end_of_round() {
-                    self.current_round += 1;
                     self.emit_event(Event::RunAggregation);
                     self.waiting_for_aggregation = true;
                     if self.current_round == self.config.rounds {
@@ -302,11 +302,14 @@ impl Protocol {
         }
     }
 
-    pub fn end_aggregation(&mut self) {
+    pub fn end_aggregation(&mut self, success: bool) {
         if !self.waiting_for_aggregation {
             panic!("not waiting for aggregation");
         }
         self.waiting_for_aggregation = false;
+        if success {
+            self.current_round += 1;
+        }
     }
 
     /// Retrieve the next event

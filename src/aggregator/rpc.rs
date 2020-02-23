@@ -4,7 +4,6 @@ use futures::{
     ready,
     stream::{Stream, StreamExt},
 };
-use futures_retry::{FutureRetry, RetryPolicy};
 use std::{
     future::Future,
     io, iter,

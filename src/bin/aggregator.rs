@@ -1,6 +1,6 @@
 #[macro_use]
 extern crate async_trait;
-use futures::future;
+use futures::future::{ready, Ready};
 
 use xain_fl::aggregator::service::{Aggregator, AggregatorService};
 
@@ -20,11 +20,12 @@ struct DummyAggregator;
 #[async_trait]
 impl Aggregator for DummyAggregator {
     type Error = ::std::io::Error;
+    type AggregateFut = Ready<Result<Vec<u8>, Self::Error>>;
 
     async fn add_weights(&mut self, _weights: Vec<u8>) -> Result<(), Self::Error> {
-        future::ready(Ok(())).await
+        ready(Ok(())).await
     }
-    async fn aggregate(&mut self) -> Result<Vec<u8>, Self::Error> {
-        future::ready(Ok(Vec::<u8>::new())).await
+    fn aggregate(&mut self) -> Self::AggregateFut {
+        ready(Ok(Vec::<u8>::new()))
     }
 }

@@ -19,7 +19,7 @@ use std::{
 };
 
 use derive_more::Display;
-use futures::{future::TryFutureExt, ready, stream::Stream};
+use futures::{ready, stream::Stream};
 use tokio::{
     net::ToSocketAddrs,
     sync::{mpsc, oneshot},
@@ -39,6 +39,31 @@ use crate::{
 
 use tarpc::context::current as rpc_context;
 
+struct AggregationFuture(Pin<Box<dyn Future<Output = Result<(), ()>>>>);
+
+impl Future for AggregationFuture {
+    type Output = Result<(), ()>;
+    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        self.get_mut().0.as_mut().poll(cx)
+    }
+}
+
+impl AggregationFuture {
+    fn new(rpc_client: aggregator::rpc::Client) -> Self {
+        Self(Box::pin(async move { run_aggregation(rpc_client).await }))
+    }
+}
+
+async fn run_aggregation(mut rpc_client: aggregator::rpc::Client) -> Result<(), ()> {
+    match rpc_client.aggregate(rpc_context()).await {
+        Ok(result) => result.map_err(|()| warn!("aggregator failed to perform aggregation")),
+        Err(e) => {
+            warn!("failed to send aggregation request: io error: {}", e);
+            Err(())
+        }
+    }
+}
+
 pub struct CoordinatorService<S>
 where
     S: Selector,
@@ -47,9 +72,13 @@ where
     requests_rx: mpsc::Receiver<Request>,
 
     /// HeartBeat timers that expired
-    heartbeat_expirations_rx: mpsc::UnboundedReceiver<ClientId>,
+    // FIXME: we should have timeouts for start training and
+    // end training as well:
+    //
     // start_training_expirations_rx: mpsc::UnboundedReceiver<ClientId>,
     // done_training_expirations_rx: mpsc::UnboundedReceiver<ClientId>,
+    heartbeat_expirations_rx: mpsc::UnboundedReceiver<ClientId>,
+
     /// Protocol state machine
     protocol: protocol::Protocol,
 
@@ -59,9 +88,19 @@ where
     /// Type that performs the selection
     selector: S,
 
-    /// RPC client for the aggregator service.
+    /// RPC client for the aggregator service. The RPC client
+    /// automatically tried to reconnect when the connection shuts
+    /// down, so after the initial connection, it is always available.
     aggregator_rpc: Option<aggregator::rpc::Client>,
+
+    /// Future for the initial connection to the aggregator. Once this
+    /// future finishes, it returns a client that is stored in the
+    /// `aggregator_rpc` attribute.
     aggregator_rpc_connection: Option<aggregator::rpc::ConnectFuture>,
+
+    /// Future that resolve when the aggregator finishes the
+    /// aggregation.
+    aggregation_future: Option<AggregationFuture>,
 
     /// Channel for receiving the RPC requests from the aggregator
     rpc_requests: rpc::RequestReceiver,
@@ -102,6 +141,7 @@ where
             aggregator_rpc_connection: Some(aggregator::rpc::ConnectFuture::new(
                 aggregator_rpc_addr,
             )),
+            aggregation_future: None,
             rpc_requests,
         };
         let handle = CoordinatorHandle::new(requests_tx);
@@ -127,6 +167,25 @@ where
                 None => return Poll::Ready(()),
             }
         }
+    }
+
+    /// If there is an aggregation request running, poll the
+    /// corresponding future
+    fn poll_aggregation(&mut self, cx: &mut Context) -> Poll<()> {
+        if let Some(ref mut fut) = self.aggregation_future {
+            match ready!(Pin::new(fut).poll(cx)) {
+                // FIXME: there are lots of things to think about
+                // when aggregation has failed. Currently the
+                // protocol just doesn't increment the round
+                // number. But we also need to make sure that the
+                // aggregators is reset and that the global weights
+                // are not updated.
+                Ok(()) => self.protocol.end_aggregation(true),
+                Err(()) => self.protocol.end_aggregation(false),
+            }
+            self.aggregation_future = None;
+        }
+        Poll::Pending
     }
 
     fn poll_heartbeat_expirations(&mut self, cx: &mut Context) -> Poll<()> {
@@ -293,7 +352,12 @@ where
         }
 
         match pin.poll_rpc_requests(cx) {
-            Poll::Ready(()) => Poll::Ready(()),
+            Poll::Ready(()) => return Poll::Ready(()),
+            Poll::Pending => {}
+        }
+
+        match pin.poll_aggregation(cx) {
+            Poll::Ready(()) => return Poll::Ready(()),
             Poll::Pending => Poll::Pending,
         }
     }
@@ -374,7 +438,12 @@ where
 
     /// Handle a [`Event::RunAggregation`] event
     fn run_aggregation(&mut self) {
-        unimplemented!()
+        match self.aggregator_rpc {
+            Some(ref client) => {
+                self.aggregation_future = Some(AggregationFuture::new(client.clone()))
+            }
+            None => self.protocol.end_aggregation(false),
+        }
     }
 
     /// Dispatch an [`Event`] to the appropriate handler

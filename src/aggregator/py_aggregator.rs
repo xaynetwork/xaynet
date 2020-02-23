@@ -1,5 +1,5 @@
 use futures::executor::block_on;
-use std::thread;
+use std::{future::Future, pin::Pin, thread};
 use tokio::{
     select,
     sync::{
@@ -9,6 +9,8 @@ use tokio::{
         oneshot,
     },
 };
+
+use crate::aggregator::service::Aggregator;
 // FIXME: the code should be loaded from a file. This is just an
 // example to get going.
 static CODE: &str = r#"
@@ -113,6 +115,30 @@ pub struct PyAggregatorHandle {
     pub add_weights_requests: RequestTx<Weights, ()>,
 }
 
+#[async_trait]
+impl Aggregator for PyAggregatorHandle {
+    type Error = ();
+    type AggregateFut = Pin<Box<dyn Future<Output = Result<Vec<u8>, ()>>>>;
+
+    async fn add_weights(&mut self, weights: Vec<u8>) -> Result<(), ()> {
+        let (tx, rx) = oneshot::channel::<()>();
+        self.add_weights_requests
+            .send((weights, tx))
+            .map_err(|_| ())?;
+        rx.await.map_err(|_| ())
+    }
+
+    fn aggregate(&mut self) -> Self::AggregateFut {
+        let (tx, rx) = oneshot::channel::<Vec<u8>>();
+        let aggregate_requests = self.aggregate_requests.clone();
+        Box::pin(async move {
+            aggregate_requests.send(((), tx)).map_err(|_| ())?;
+            rx.await.map_err(|_| ())
+        })
+    }
+}
+
+// FIXME: remove the unwraps
 async fn py_aggregator(
     mut aggregate_requests: RequestRx<(), Weights>,
     mut add_weights_requests: RequestRx<Weights, ()>,
