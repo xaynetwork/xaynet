@@ -41,11 +41,13 @@ pub struct Protocol {
 
     /// Events emitted by the state machine
     events: VecDeque<Event>,
+
+    waiting_for_aggregation: bool,
 }
 
 impl Protocol {
     fn number_of_clients_to_select(&self) -> Option<u32> {
-        if self.is_training_complete {
+        if self.is_training_complete || self.waiting_for_aggregation {
             return None;
         }
 
@@ -264,7 +266,8 @@ impl Protocol {
     ///
     /// This method returns the response to send back to the client.
     pub fn end_training(&mut self, id: ClientId, success: bool, client_state: ClientState) {
-        if self.is_training_complete {
+        if self.is_training_complete || self.waiting_for_aggregation {
+            warn!("got unexpected end training request");
             return;
         }
 
@@ -277,6 +280,7 @@ impl Protocol {
                 if self.is_end_of_round() {
                     self.current_round += 1;
                     self.emit_event(Event::RunAggregation);
+                    self.waiting_for_aggregation = true;
                     if self.current_round == self.config.rounds {
                         info!("training complete");
                         self.is_training_complete = true;
@@ -296,6 +300,13 @@ impl Protocol {
             }
             self.maybe_start_selection();
         }
+    }
+
+    pub fn end_aggregation(&mut self) {
+        if !self.waiting_for_aggregation {
+            panic!("not waiting for aggregation");
+        }
+        self.waiting_for_aggregation = false;
     }
 
     /// Retrieve the next event
