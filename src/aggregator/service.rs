@@ -100,12 +100,14 @@ where
         loop {
             match ready!(stream.as_mut().poll_next(cx)) {
                 Some(rpc::Request::Select(((id, token), resp_tx))) => {
+                    info!("handling rpc request: select {}", id);
                     self.allowed_ids.insert(id, token);
                     if resp_tx.send(()).is_err() {
                         warn!("RPC connection shut down, cannot send response back");
                     }
                 }
                 Some(rpc::Request::Reset(resp_tx)) => {
+                    info!("handling rpc request: reset");
                     self.allowed_ids = HashMap::new();
                     if resp_tx.send(()).is_err() {
                         warn!("RPC connection shut down, cannot send response back");
@@ -129,6 +131,7 @@ where
 {
     type Output = ();
     fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        trace!("polling AggregatorService");
         let pin = self.get_mut();
 
         // This only runs when the aggregator starts
@@ -149,6 +152,7 @@ where
         if let Poll::Ready(_) = pin.poll_rpc_requests(cx) {
             return Poll::Ready(());
         }
+
         Poll::Pending
     }
 }
