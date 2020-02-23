@@ -106,8 +106,8 @@ where
                         warn!("RPC connection shut down, cannot send response back");
                     }
                 }
-                Some(rpc::Request::Reset(resp_tx)) => {
-                    info!("handling rpc request: reset");
+                Some(rpc::Request::Aggregate(resp_tx)) => {
+                    info!("handling rpc request: aggregate");
                     self.allowed_ids = HashMap::new();
                     if resp_tx.send(()).is_err() {
                         warn!("RPC connection shut down, cannot send response back");

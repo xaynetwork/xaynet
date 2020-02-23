@@ -39,7 +39,7 @@ mod inner {
         /// Notify the aggregator that it should clear its pool of client
         /// IDs and tokens. This should be called before starting a new
         /// round.
-        async fn reset() -> Result<(), ()>;
+        async fn aggregate() -> Result<(), ()>;
     }
 }
 
@@ -52,20 +52,20 @@ pub use inner::{Rpc, RpcClient as Client};
 /// for each new client.
 struct Server {
     select: mpsc::UnboundedSender<SelectRequest>,
-    reset: mpsc::UnboundedSender<ResetRequest>,
+    aggregate: mpsc::UnboundedSender<AggregateRequest>,
 }
 
 impl Server {
     fn new() -> (Self, RequestStream) {
         let (select_tx, select_rx) = mpsc::unbounded_channel::<SelectRequest>();
-        let (reset_tx, reset_rx) = mpsc::unbounded_channel::<ResetRequest>();
+        let (aggregate_tx, aggregate_rx) = mpsc::unbounded_channel::<AggregateRequest>();
 
         let server = Server {
             select: select_tx,
-            reset: reset_tx,
+            aggregate: aggregate_tx,
         };
 
-        let handle = RequestStream::new(select_rx, reset_rx);
+        let handle = RequestStream::new(select_rx, aggregate_rx);
 
         (server, handle)
     }
@@ -73,15 +73,15 @@ impl Server {
 
 /// An incoming [`AggregatorRpc::select`] RPC request
 pub type SelectRequest = ((ClientId, Token), oneshot::Sender<()>);
-/// An incoming [`AggregatorRpc::reset`] RPC request
-pub type ResetRequest = oneshot::Sender<()>;
+/// An incoming [`AggregatorRpc::aggregate`] RPC request
+pub type AggregateRequest = oneshot::Sender<()>;
 
 /// An incoming RPC request
 pub enum Request {
     /// An incoming [`AggregatorRpc::select`] RPC request
     Select(SelectRequest),
-    /// An incoming [`AggregatorRpc::reset`] RPC request
-    Reset(ResetRequest),
+    /// An incoming [`AggregatorRpc::aggregate`] RPC request
+    Aggregate(AggregateRequest),
 }
 
 /// A handle to receive the RPC requests received by the RPC
@@ -91,10 +91,10 @@ pub struct RequestStream(Pin<Box<dyn Stream<Item = Request> + Send>>);
 impl RequestStream {
     fn new(
         select: mpsc::UnboundedReceiver<SelectRequest>,
-        reset: mpsc::UnboundedReceiver<ResetRequest>,
+        aggregate: mpsc::UnboundedReceiver<AggregateRequest>,
     ) -> Self {
         Self(Box::pin(
-            reset.map(Request::Reset).chain(select.map(Request::Select)),
+            aggregate.map(Request::Aggregate).chain(select.map(Request::Select)),
         ))
     }
 }
@@ -109,7 +109,7 @@ impl Stream for RequestStream {
 
 impl Rpc for Server {
     type SelectFut = Pin<Box<dyn Future<Output = Result<(), ()>> + Send>>;
-    type ResetFut = Pin<Box<dyn Future<Output = Result<(), ()>> + Send>>;
+    type AggregateFut = Pin<Box<dyn Future<Output = Result<(), ()>> + Send>>;
 
     fn select(self, _: tarpc::context::Context, id: ClientId, token: Token) -> Self::SelectFut {
         let (tx, rx) = oneshot::channel();
@@ -119,10 +119,10 @@ impl Rpc for Server {
         })
     }
 
-    fn reset(self, _: tarpc::context::Context) -> Self::ResetFut {
+    fn aggregate(self, _: tarpc::context::Context) -> Self::AggregateFut {
         let (tx, rx) = oneshot::channel();
         Box::pin(async move {
-            self.reset.send(tx).map_err(|_| ())?;
+            self.aggregate.send(tx).map_err(|_| ())?;
             rx.map_err(|_| ()).await
         })
     }
