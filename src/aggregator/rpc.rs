@@ -7,14 +7,16 @@ use futures::{
 use futures_retry::{FutureRetry, RetryPolicy};
 use std::{
     future::Future,
-    io,
+    io, iter,
     pin::Pin,
     task::{Context, Poll},
     time::Duration,
 };
+use stubborn_io::{ReconnectOptions, StubbornTcpStream};
 use tarpc::{
+    client::Config,
     rpc::server::{BaseChannel, Channel},
-    serde_transport::tcp::listen,
+    serde_transport::{tcp::listen, Transport},
 };
 
 use tokio::{
@@ -176,25 +178,15 @@ impl Stream for RequestReceiver {
 
 /// A future that keeps trying to connect to the `AggregatorRpc` at the
 /// given address.
-pub async fn client_connect<A: ToSocketAddrs + Unpin + Clone>(addr: A) -> io::Result<Client> {
-    let transport = FutureRetry::new(
-        move || tarpc::serde_transport::tcp::connect(addr.clone(), Json::default()),
-        move |e: io::Error| -> RetryPolicy<io::Error> {
-            match e.kind() {
-                io::ErrorKind::Interrupted
-                | io::ErrorKind::ConnectionRefused
-                | io::ErrorKind::ConnectionReset
-                | io::ErrorKind::ConnectionAborted
-                | io::ErrorKind::NotConnected
-                | io::ErrorKind::BrokenPipe => RetryPolicy::Repeat,
-                io::ErrorKind::PermissionDenied => RetryPolicy::ForwardError(e),
-                _ => RetryPolicy::WaitRetry(Duration::from_millis(1000)),
-            }
-        },
-    )
-    .await?;
-
-    Client::new(tarpc::client::Config::default(), transport).spawn()
+pub async fn client_connect<A: ToSocketAddrs + Unpin + Clone + Send + Sync + 'static>(
+    addr: A,
+) -> io::Result<Client> {
+    let reconnect_opts = ReconnectOptions::new()
+        .with_exit_if_first_connect_fails(false)
+        .with_retries_generator(|| iter::repeat(Duration::from_secs(1)));
+    let tcp_stream = StubbornTcpStream::connect_with_options(addr, reconnect_opts).await?;
+    let transport = Transport::from((tcp_stream, Json::default()));
+    Client::new(Config::default(), transport).spawn()
 }
 
 pub struct ConnectFuture(Pin<Box<dyn Future<Output = io::Result<Client>> + Send>>);
@@ -208,6 +200,7 @@ impl ConnectFuture {
 impl Future for ConnectFuture {
     type Output = io::Result<Client>;
     fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        trace!("polling ConnectFuture");
         Pin::new(&mut self.get_mut().0).poll(cx)
     }
 }
@@ -242,72 +235,4 @@ async fn _run<A: ToSocketAddrs + Send + Sync + 'static>(
         }
     }
     Ok(())
-}
-
-pub struct Connection<A>
-where
-    A: ToSocketAddrs + Clone + Unpin + Send + Sync + 'static,
-{
-    addr: A,
-    state: ConnectionState,
-}
-
-enum ConnectionState {
-    Connected(Client, mpsc::Sender<()>, mpsc::Receiver<()>),
-    Connecting(ConnectFuture),
-}
-
-impl<A> Connection<A>
-where
-    A: ToSocketAddrs + Clone + Unpin + Send + Sync + 'static,
-{
-    pub fn new(addr: A) -> Self {
-        Self {
-            addr: addr.clone(),
-            state: ConnectionState::Connecting(ConnectFuture::new(addr)),
-        }
-    }
-    pub fn get_client(&self) -> Option<(Client, mpsc::Sender<()>)> {
-        if let ConnectionState::Connected(client, tx, _) = &self.state {
-            Some((client.clone(), tx.clone()))
-        } else {
-            None
-        }
-    }
-    pub fn is_up(&self) -> bool {
-        self.get_client().is_some()
-    }
-}
-
-impl<A> Future for Connection<A>
-where
-    A: ToSocketAddrs + Clone + Unpin + Send + Sync + 'static,
-{
-    type Output = ();
-    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        let pin = self.get_mut();
-        loop {
-            match &mut pin.state {
-                ConnectionState::Connected(_, _, ref mut disconnections) => {
-                    if let Some(()) = ready!(Pin::new(disconnections).poll_next(cx)) {
-                        pin.state =
-                            ConnectionState::Connecting(ConnectFuture::new(pin.addr.clone()))
-                    } else {
-                        // This can only happen if all the senders are dropped, but we own one of them
-                        unreachable!()
-                    }
-                }
-                ConnectionState::Connecting(ref mut fut) => match ready!(Pin::new(fut).poll(cx)) {
-                    Ok(client) => {
-                        let (tx, rx) = mpsc::channel(1);
-                        pin.state = ConnectionState::Connected(client, tx, rx);
-                    }
-                    Err(e) => {
-                        error!("failed to connect to the aggregator RPC service: {:?}", e);
-                        return Poll::Ready(());
-                    }
-                },
-            }
-        }
-    }
 }

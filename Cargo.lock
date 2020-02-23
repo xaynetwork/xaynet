@@ -1347,6 +1347,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "stubborn-io"
+version = "0.1.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bb7bea734dd89ab17ca44382deb475ac18a277714bb6fb19603726bbdeb4b93b"
+dependencies = [
+ "bytes 0.5.4",
+ "log 0.4.8",
+ "mio",
+ "tokio",
+]
+
+[[package]]
 name = "syn"
 version = "0.15.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1758,6 +1770,7 @@ dependencies = [
  "pyo3",
  "rand 0.7.3",
  "serde",
+ "stubborn-io",
  "tarpc",
  "tokio",
  "tokio-serde",

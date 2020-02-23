@@ -39,10 +39,9 @@ use crate::{
 
 use tarpc::context::current as rpc_context;
 
-pub struct CoordinatorService<S, T>
+pub struct CoordinatorService<S>
 where
     S: Selector,
-    T: ToSocketAddrs + Send + Sync + 'static + Clone + Unpin,
 {
     /// Incoming requests from the clients
     requests_rx: mpsc::Receiver<Request>,
@@ -61,7 +60,8 @@ where
     selector: S,
 
     /// RPC client for the aggregator service.
-    aggregator_rpc: aggregator::rpc::Connection<T>,
+    aggregator_rpc: Option<aggregator::rpc::Client>,
+    aggregator_rpc_connection: Option<aggregator::rpc::ConnectFuture>,
 
     /// Channel for receiving the RPC requests from the aggregator
     rpc_requests: rpc::RequestReceiver,
@@ -74,12 +74,14 @@ where
     pending_selection: Vec<ClientId>,
 }
 
-impl<S, T> CoordinatorService<S, T>
+impl<S> CoordinatorService<S>
 where
     S: Selector,
-    T: ToSocketAddrs + Send + Sync + 'static + Clone + Unpin,
 {
-    pub fn new<U: ToSocketAddrs + Send + Sync + 'static>(
+    pub fn new<
+        T: Clone + ToSocketAddrs + Send + Sync + 'static + Unpin,
+        U: ToSocketAddrs + Send + Sync + 'static,
+    >(
         selector: S,
         config: protocol::CoordinatorConfig,
         rpc_listen_addr: U,
@@ -96,7 +98,10 @@ where
             clients: Clients::new(heartbeat_expirations_tx),
             protocol: protocol::Protocol::new(config),
             pending_selection: Vec::new(),
-            aggregator_rpc: aggregator::rpc::Connection::new(aggregator_rpc_addr),
+            aggregator_rpc: None,
+            aggregator_rpc_connection: Some(aggregator::rpc::ConnectFuture::new(
+                aggregator_rpc_addr,
+            )),
             rpc_requests,
         };
         let handle = CoordinatorHandle::new(requests_tx);
@@ -173,10 +178,9 @@ where
     }
 }
 
-impl<S, T> CoordinatorService<S, T>
+impl<S> CoordinatorService<S>
 where
     S: Selector,
-    T: ToSocketAddrs + Send + Sync + 'static + Clone + Unpin,
 {
     /// Handle a rendez-vous request
     fn rendez_vous(&mut self, req: RequestMessage<RendezVousRequest, RendezVousResponse>) {
@@ -207,14 +211,14 @@ where
                 response_tx.send(StartTrainingResponse::Reject)
             }
             protocol::StartTrainingResponse::Accept => {
-                if !self.aggregator_rpc.is_up() {
+                if !self.aggregator_rpc.is_some() {
                     // FIXME: like above, we should return an error
                     // instead of just dropping the response channel.
                     warn!("no connection to the aggregator, cannot send token");
                     return;
                 }
 
-                let (mut rpc_client, mut rpc_down_tx) = self.aggregator_rpc.get_client().unwrap();
+                let mut rpc_client = self.aggregator_rpc.clone().unwrap();
 
                 tokio::spawn(async move {
                     let token = Token::new();
@@ -235,10 +239,6 @@ where
                         }
                         Err(e) => {
                             warn!("failed to send start training request: io error: {}", e);
-                            // Notify the CoordinatorService that this client is
-                            // disconnected, so that it tried to initiate a new
-                            // connection.
-                            let _ = rpc_down_tx.send(()).await;
                         }
                     }
                 });
@@ -256,15 +256,29 @@ where
     }
 }
 
-impl<S, T> Future for CoordinatorService<S, T>
+impl<S> Future for CoordinatorService<S>
 where
     S: Selector + Unpin,
-    T: ToSocketAddrs + Send + Sync + 'static + Clone + Unpin,
 {
     type Output = ();
     fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         trace!("polling CoordinatorService");
         let pin = self.get_mut();
+
+        // This only runs when the coordinator starts
+        if let Some(ref mut connection) = pin.aggregator_rpc_connection {
+            match Pin::new(connection).poll(cx) {
+                Poll::Ready(Ok(client)) => {
+                    pin.aggregator_rpc = Some(client);
+                    pin.aggregator_rpc_connection = None;
+                }
+                Poll::Ready(Err(e)) => {
+                    error!("failed to connect RPC client: {}", e);
+                    return Poll::Ready(());
+                }
+                _ => {}
+            }
+        }
 
         pin.apply_pending_selection();
 
@@ -285,10 +299,9 @@ where
     }
 }
 
-impl<S, T> CoordinatorService<S, T>
+impl<S> CoordinatorService<S>
 where
     S: Selector,
-    T: ToSocketAddrs + Send + Sync + 'static + Clone + Unpin,
 {
     /// Handle a [`Event::Accept`] event
     fn accept_client(&mut self, id: ClientId) {
