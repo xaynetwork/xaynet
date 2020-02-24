@@ -9,7 +9,7 @@ services:
     volumes:
       - influxdb-data:/var/lib/influxdb
     networks:
-      - coordinator-rs-dev
+      - xain-fl-rs
     ports:
       - "8086:8086"
 
@@ -21,7 +21,7 @@ services:
       KEYCLOAK_PASSWORD: adminadmin
       DB_VENDOR: h2
     networks:
-      - coordinator-rs-dev
+      - xain-fl-rs
     ports:
       - "8080:8080"
 
@@ -33,7 +33,7 @@ services:
     ports:
       - "3000:3000"
     networks:
-      - coordinator-rs-dev
+      - xain-fl-rs
     environment:
       GF_AUTH_GENERIC_OAUTH_ENABLED: "true"
       GF_AUTH_GENERIC_OAUTH_NAME: "OAuth"
@@ -53,10 +53,23 @@ services:
     depends_on:
       - influxdb
     networks:
-      - coordinator-rs-dev
+      - xain-fl-rs
+    ports:
+      - "5555:5555"
+
+  aggregator-rs:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    depends_on:
+      - influxdb
+    networks:
+      - xain-fl-rs
+    ports:
+      - "6666:6666"
 
 volumes:
   influxdb-data:
 
 networks:
-  coordinator-rs-dev:
+  xain-fl-rs:
