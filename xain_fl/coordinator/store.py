@@ -1,7 +1,8 @@
-"""This module provides classes for weights storage. It currently only
-works with services that provide the AWS S3 APIs.
+"""This module provides classes for weights storage.
 
+It currently only works with services that provide the AWS S3 APIs.
 """
+
 import abc
 from io import BytesIO
 import pickle
@@ -12,13 +13,8 @@ from numpy import ndarray
 from xain_fl.config import StorageConfig
 
 
-class AbstractGlobalWeightsWriter(abc.ABC):
-    # pylint: disable=too-few-public-methods
-
-    """An abstract class that defines the API for storing the aggregated
-    weights the coordinator computes.
-
-    """
+class AbstractGlobalWeightsWriter(abc.ABC):  # pylint: disable=too-few-public-methods
+    """Storing the aggregated weights which the coordinator computes."""
 
     @abc.abstractmethod
     def write_weights(self, round: int, weights: ndarray) -> None:
@@ -30,18 +26,12 @@ class AbstractGlobalWeightsWriter(abc.ABC):
         """
 
 
-class AbstractLocalWeightsReader(abc.ABC):
-    # pylint: disable=too-few-public-methods
-
-    """An abstract class that defines the API for retrieving the weights
-    participants upload after their training round.
-
-    """
+class AbstractLocalWeightsReader(abc.ABC):  # pylint: disable=too-few-public-methods
+    """Retrieving the weights participants upload after their training round."""
 
     @abc.abstractmethod
     def read_weights(self, participant_id: str, round: int) -> ndarray:
-        """Retrieve the weights computed by the given participant for the
-        given round.
+        """Retrieve the weights computed by the given participant for the given round.
 
         Args:
             participant_id: ID of the participant's weights.
@@ -49,13 +39,11 @@ class AbstractLocalWeightsReader(abc.ABC):
         """
 
 
-class S3BaseClass:
-    # pylint: disable=too-few-public-methods
+class S3BaseClass:  # pylint: disable=too-few-public-methods
     """A base class for implementating AWS S3 clients.
 
     Args:
-        config: the storage configuration (endpoint URL, credentials, etc.)
-
+        config: The storage configuration (endpoint URL, credentials, etc.).
     """
 
     def __init__(self, config: StorageConfig):
@@ -70,13 +58,10 @@ class S3BaseClass:
         )
 
 
-class S3GlobalWeightsWriter(AbstractGlobalWeightsWriter, S3BaseClass):
-    # pylint: disable=too-few-public-methods
-
-    """``AbstractGlobalWeightsWriter`` implementor for AWS S3 storage
-    backend.
-
-    """
+class S3GlobalWeightsWriter(  # pylint: disable=too-few-public-methods
+    AbstractGlobalWeightsWriter, S3BaseClass
+):
+    """Storing the aggregated weights which the coordinator computes in AWS S3."""
 
     def write_weights(self, round: int, weights: ndarray) -> None:
         """Store the given `weights`, corresponding to the given `round`.
@@ -85,30 +70,27 @@ class S3GlobalWeightsWriter(AbstractGlobalWeightsWriter, S3BaseClass):
             round: A round number the weights correspond to.
             weights: The weights to store.
         """
+
         bucket = self.s3.Bucket(self.config.bucket)
         bucket.put_object(Body=pickle.dumps(weights), Key=f"{round}/global")
 
 
-class S3LocalWeightsReader(AbstractLocalWeightsReader, S3BaseClass):
-    # pylint: disable=too-few-public-methods
-
-    """``AbstractLocalWeightsReader`` implementor for AWS S3 storage
-    backend.
-
-    """
+class S3LocalWeightsReader(  # pylint: disable=too-few-public-methods
+    AbstractLocalWeightsReader, S3BaseClass
+):
+    """Retrieving the weights participants upload from AWS S3."""
 
     def read_weights(self, participant_id: str, round: int) -> ndarray:
-        """Download the weights computed by the given participant for the given
-        round, from an S3 bucket.
+        """Download the weights from a S3 bucket.
 
         Args:
-
-            participant_id: ID of the participant's weights
-            round: round number the weights correspond to
+            participant_id: The ID of the participant whos weights shall be read.
+            round: Round number the weights correspond to.
 
         Return:
             The weights read from the S3 bucket.
         """
+
         bucket = self.s3.Bucket(self.config.bucket)
         data = BytesIO()
         bucket.download_fileobj(f"{round}/{participant_id}", data)

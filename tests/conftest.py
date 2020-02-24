@@ -132,13 +132,13 @@ def json_participant_metrics_sample():
                 "measurement": "participant",
                 "time": 1582017483 * 1_000_000_000,
                 "tags": {"id": "127.0.0.1:1345"},
-                "fields": {"CPU_1": 90.8, "CPU_2": 90, "CPU_3": "23", "CPU_4": 0.00,},
+                "fields": {"CPU_1": 90.8, "CPU_2": 90, "CPU_3": "23", "CPU_4": 0.00},
             },
             {
                 "measurement": "participant",
                 "time": 1582017484 * 1_000_000_000,
                 "tags": {"id": "127.0.0.1:1345"},
-                "fields": {"CPU_1": 90.8, "CPU_2": 90, "CPU_3": "23", "CPU_4": 0.00,},
+                "fields": {"CPU_1": 90.8, "CPU_2": 90, "CPU_3": "23", "CPU_4": 0.00},
             },
         ]
     )
@@ -154,7 +154,7 @@ def coordinator_metrics_sample():
 def coordinator_service(coordinator):
     """[summary]
 
-    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
+    .. todo:: PB-50: Advance docstrings.
     """
 
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
@@ -173,7 +173,7 @@ def coordinator_service(coordinator):
 def mock_coordinator_service(coordinator):
     """[summary]
 
-    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
+    .. todo:: PB-50: Advance docstrings.
     """
 
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
@@ -205,7 +205,7 @@ def mock_coordinator_service(coordinator):
 def participant_stub():
     """[summary]
 
-    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
+    .. todo:: PB-50: Advance docstrings.
 
     Returns:
         [type]: [description]

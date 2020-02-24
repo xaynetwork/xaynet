@@ -1,4 +1,4 @@
-"""XAIN FL gRPC Coordinator."""
+"""XAIN FL gRPC Coordinator"""
 
 import grpc
 from xain_proto.fl.coordinator_pb2 import (
@@ -84,7 +84,7 @@ class CoordinatorGrpc(CoordinatorServicer):
             return HeartbeatResponse()
 
     def StartTrainingRound(
-        self, request: StartTrainingRoundRequest, context: grpc.ServicerContext,
+        self, request: StartTrainingRoundRequest, context: grpc.ServicerContext
     ) -> StartTrainingRoundResponse:
         """The StartTrainingRound gRPC method.
 

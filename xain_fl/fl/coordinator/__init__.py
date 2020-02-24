@@ -1,6 +1,6 @@
-"""Contains coordinator logic which runs the central server in federated
-learning. It consists of the following modules:
+"""Contains coordinator logic which runs the central server in federated learning.
 
+It consists of the following modules:
     - aggregate
     - controller
 """

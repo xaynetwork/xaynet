@@ -6,16 +6,16 @@ from typing import Dict, List
 
 
 class ParticipantContext:  # pylint: disable=too-few-public-methods
-    """Class to store state about each participant. Currently it only stores the `participant_id`
-    and the time when the next heartbeat_expires.
+    """Class to store state about each participant.
 
-    In the future we may store more information like in what state a participant is in e.g.
-    `IDLE`, `RUNNING`, ...
+    Currently it only stores the id of the participant and the time when the next
+    heartbeat expires. In the future we may store more information like in what state a
+    participant is in e.g. `IDLE`, `RUNNING`, ...
 
     Args:
-
-        participant_id: The id of the participant. Typically a
-            host:port or public key when using SSL.
+        participant_id: The id of the participant. Typically a host:port or public key
+            when using SSL.
+        heartbeat_expires: The point in time when the heartbeat will expire.
     """
 
     def __init__(
@@ -26,9 +26,11 @@ class ParticipantContext:  # pylint: disable=too-few-public-methods
 
 
 class Participants:
-    """This class provides some useful methods to handle all the participants
-    connected to a coordinator in a thread safe manner by protecting access to
-    the participants list with a lock.
+    """Manage the connected participants.
+
+    This class provides some useful methods to handle all the participants connected to
+    a coordinator in a thread safe manner by protecting access to the participants list
+    with a lock.
     """
 
     def __init__(self, heartbeat_time: int = 10, heartbeat_timeout: int = 5) -> None:
@@ -38,10 +40,9 @@ class Participants:
         self.heartbeat_timeout = heartbeat_timeout
 
     def add(self, participant_id: str) -> None:
-        """Adds a new participant to the list of participants.
+        """Add a new participant to the list of participants.
 
         Args:
-
             participant_id: The id of the participant to add.
         """
 
@@ -51,13 +52,12 @@ class Participants:
             )
 
     def remove(self, participant_id: str) -> None:
-        """Removes a participant from the list of participants.
+        """Remove a participant from the list of participants.
 
-        This will be typically used after a participant is
-        disconnected from the coordinator.
+        This will be typically used after a participant is disconnected from the
+        coordinator.
 
         Args:
-
             participant_id: The id of the participant to remove.
         """
 
@@ -68,11 +68,10 @@ class Participants:
     def next_expiration(self) -> float:
         """Helper method to check what is the next heartbeat to expire.
 
-        Currently being used by the `heartbeat_monitor` to check how long it should sleep until
-        the next check.
+        Currently being used by the `heartbeat_monitor` to check how long it should
+        sleep until the next check.
 
         Returns:
-
             The next heartbeat to expire.
         """
 
@@ -86,7 +85,6 @@ class Participants:
         """Get the number of participants.
 
         Returns:
-
             The number of participants in the list.
         """
 
@@ -97,7 +95,6 @@ class Participants:
         """Get the ids of the participants.
 
         Returns:
-
             The list of participant ids.
         """
 
@@ -105,13 +102,12 @@ class Participants:
             return list(self.participants.keys())
 
     def update_expires(self, participant_id: str) -> None:
-        """Updates the heartbeat expiration time for a participant.
+        """Update the heartbeat expiration time for a participant.
 
-        This is currently called by the :class:`xain_fl.coordinator.coordinator.Coordinator`
-        every time a participant sends a heartbeat.
+        This is currently called by the coordinator every time a participant sends a
+        heartbeat.
 
         Args:
-
             participant_id: The id of the participant to update the expire time.
         """
 

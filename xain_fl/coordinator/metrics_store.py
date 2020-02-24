@@ -21,16 +21,10 @@ class AbstractMetricsStore(ABC):
 
     @abstractmethod
     def write_received_participant_metrics(self, metrics_as_json: str) -> None:
-        """
-        Write the participant metrics on behalf of the participant into a metric store.
+        """Write the participant metrics on their behalf into a metric store.
 
         Args:
-
             metrics_as_json: The metrics of a specific participant.
-
-        Raises:
-
-            MetricsStoreError: If the writing of the metrics has failed.
         """
 
     @abstractmethod
@@ -40,14 +34,14 @@ class AbstractMetricsStore(ABC):
         metrics: Dict[str, Union[str, int, float]],
         tags: Optional[Dict[str, str]] = None,
     ) -> None:
-        """
-        Write metrics into a metric store.
+        """Write metrics into a metric store.
 
         Args:
-
             owner: The name of the owner of the metrics e.g. coordinator or participant.
-            metrics: A dictionary with the metric names as keys and the metric values as values.
-            tags: A dictionary to append optional metadata to the metric. Defaults to None.
+            metrics: A dictionary with the metric names as keys and the metric values as
+                values.
+            tags: A dictionary to append optional metadata to the metric. Defaults to
+                None.
         """
 
 
@@ -55,11 +49,9 @@ class NullObjectMetricsStore(AbstractMetricsStore):
     """A metric store that does nothing."""
 
     def write_received_participant_metrics(self, metrics_as_json: str) -> None:
-        """
-        A method that has no effect.
+        """A method that has no effect.
 
         Args:
-
             metrics_as_json: The metrics of a specific participant.
         """
 
@@ -69,14 +61,14 @@ class NullObjectMetricsStore(AbstractMetricsStore):
         metrics: Dict[str, Union[str, int, float]],
         tags: Optional[Dict[str, str]] = None,
     ) -> None:
-        """
-        A method that has no effect.
+        """A method that has no effect.
 
         Args:
-
             owner: The name of the owner of the metrics e.g. coordinator or participant.
-            metrics: A dictionary with the metric names as keys and the metric values as values.
-            tags: A dictionary to append optional metadata to the metric. Defaults to None.
+            metrics: A dictionary with the metric names as keys and the metric values as
+                values.
+            tags: A dictionary to append optional metadata to the metric. Defaults to
+                None.
         """
 
 
@@ -116,15 +108,12 @@ class MetricsStore(AbstractMetricsStore):
         }
 
     def write_received_participant_metrics(self, metrics_as_json: str) -> None:
-        """
-        Write the participant metrics on behalf of the participant into InfluxDB.
+        """Write the participant metrics on behalf of the participant into InfluxDB.
 
         Args:
-
             metrics_as_json: The metrics of a specific participant.
 
         Raises:
-
             MetricsStoreError: If the writing of the metrics to InfluxDB has failed.
         """
 
@@ -143,18 +132,14 @@ class MetricsStore(AbstractMetricsStore):
         metrics: Dict[str, Union[str, int, float]],
         tags: Optional[Dict[str, str]] = None,
     ) -> None:
-        """
-        Write the metrics to InfluxDB that are collected on the coordinator site.
+        """Write the metrics to InfluxDB that are collected on the coordinator site.
 
         Args:
-
             owner: The name of the owner of the metrics e.g. coordinator or participant.
-            metrics: A dictionary with the metric names as keys and the metric values as values.
-            tags: A dictionary to append optional metadata to the metric. Defaults to None.
-
-        Raises:
-
-            MetricsStoreError: If the writing of the metrics to InfluxDB has failed.
+            metrics: A dictionary with the metric names as keys and the metric values as
+                values.
+            tags: A dictionary to append optional metadata to the metric. Defaults to
+                None.
         """
 
         if not tags:
@@ -171,15 +156,12 @@ class MetricsStore(AbstractMetricsStore):
         self._write_metrics([influx_data_point])
 
     def _write_metrics(self, influx_points: List[dict]) -> None:
-        """
-        Write the metrics to InfluxDB that are collected on the coordinator site.
+        """Write the metrics to InfluxDB that are collected on the coordinator site.
 
         Args:
-
             influx_points: InfluxDB data points.
 
         Raises:
-
             MetricsStoreError: If the writing of the metrics to InfluxDB has failed.
         """
 
@@ -191,6 +173,4 @@ class MetricsStore(AbstractMetricsStore):
 
 
 class MetricsStoreError(Exception):
-    """
-    Raised when the writing of the metrics has failed.
-    """
+    """Raised when the writing of the metrics has failed."""

@@ -1,4 +1,4 @@
-"""Provides an abstract base class Aggregator and multiple sub-classes"""
+"""Abstract Aggregator and multiple sub-classes."""
 
 from abc import ABC, abstractmethod
 from typing import List
@@ -25,11 +25,11 @@ class Aggregator(ABC):  # pylint: disable=too-few-public-methods
         """Aggregate the weights of multiple models.
 
         Args:
-            multiple_model_weights (List[ndarray]): The weights of multiple models.
-            aggregation_data (List[int]): Meta data for model aggregation.
+            multiple_model_weights: The weights of multiple models.
+            aggregation_data: Meta data for model aggregation.
 
         Returns:
-            ndarray: The aggregated model weights.
+            The aggregated model weights.
         """
 
         raise NotImplementedError()
@@ -44,12 +44,12 @@ class IdentityAggregator(Aggregator):  # pylint: disable=too-few-public-methods
         """Identity aggregation only for one set of model weights.
 
         Args:
-            multiple_model_weights (List[ndarray]): The weights of multiple models. Must have only
-                one set of weights.
-            aggregation_data (List[int]): Meta data for model aggregation. Not used here.
+            multiple_model_weights: The weights of multiple models. Must have only one
+                set of weights.
+            aggregation_data: Meta data for model aggregation. Not used here.
 
         Returns:
-            ndarray: The identical model weights.
+            The identical model weights.
 
         Raises:
             ValueError: If more than one set of model weights is provided.
@@ -70,11 +70,11 @@ class ModelSumAggregator(Aggregator):  # pylint: disable=too-few-public-methods
         """Aggregate the weights of multiple models by summation.
 
         Args:
-            multiple_model_weights (List[ndarray]): The weights of multiple models.
-            aggregation_data (List[int]): Meta data for model aggregation. Not used here.
+            multiple_model_weights: The weights of multiple models.
+            aggregation_data: Meta data for model aggregation. Not used here.
 
         Returns:
-            ndarray: The aggregated model weights.
+            The aggregated model weights.
         """
 
         return sum(multiple_model_weights)
@@ -91,14 +91,14 @@ class WeightedAverageAggregator(Aggregator):  # pylint: disable=too-few-public-m
         Proposed by McMahan et al in: https://arxiv.org/abs/1602.05629
 
         Args:
-            multiple_model_weights (List[ndarray]): The weights of multiple models.
-            aggregation_data (List[int]): Meta data for model aggregation. Here it is expected to be
-                the number of train samples per set of model weights. If all numbers are zero, e.g.
-                in a 0th round for weight initialization, then all model weights are weighted
-                equally.
+            multiple_model_weights: The weights of multiple models.
+            aggregation_data: Meta data for model aggregation. Here it is expected to be
+                the number of train samples per set of model weights. If all numbers are
+                zero, e.g. in a round for weight initialization, then all model weights
+                are weighted equally.
 
         Returns:
-            ndarray: The aggregated model weights.
+            The aggregated model weights.
         """
 
         # get aggregation weights
@@ -126,12 +126,12 @@ class WeightedAverageAggregator(Aggregator):  # pylint: disable=too-few-public-m
 #         al. in: https://arxiv.org/abs/1602.05629
 #
 #     Args:
-#         multiple_model_weights (List[ndarray]): List of model weight.
-#         weighting (ndarray): Describes relative weight of each model weight. Required to be the
+#         multiple_model_weights: List of model weight.
+#         weighting: Describes relative weight of each model weight. Required to be the
 #             same length as argument multiple_model_weights.
 #
 #     Returns:
-#         ndarray: The aggregated model weights.
+#         The aggregated model weights.
 #     """
 #
 #     assert weighting.ndim == 1

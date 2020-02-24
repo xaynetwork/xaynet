@@ -27,7 +27,7 @@ from xain_fl.tools.exceptions import (
 def test_rendezvous_accept(coordinator):
     """[summary]
 
-    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
+    .. todo:: PB-50: Advance docstrings.
     """
 
     coordinator: Coordinator = coordinator()
@@ -42,7 +42,7 @@ def test_rendezvous_accept(coordinator):
 def test_rendezvous_later_fraction_1(coordinator):
     """[summary]
 
-    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
+    .. todo:: PB-50: Advance docstrings.
     """
 
     coordinator = coordinator(
@@ -58,7 +58,7 @@ def test_rendezvous_later_fraction_1(coordinator):
 def test_rendezvous_later_fraction_05(coordinator):
     """[summary]
 
-    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
+    .. todo:: PB-50: Advance docstrings.
     """
 
     coordinator = coordinator(
@@ -86,7 +86,7 @@ def test_rendezvous_later_fraction_05(coordinator):
 def test_coordinator_state_standby_round(coordinator):
     """[summary]
 
-    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
+    .. todo:: PB-50: Advance docstrings.
     """
 
     # tests that the coordinator transitions from STANDBY to ROUND once enough participants
@@ -106,7 +106,7 @@ def test_coordinator_state_standby_round(coordinator):
 def start_training_round_wrong_state(coordinator):
     """[summary]
 
-    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
+    .. todo:: PB-50: Advance docstrings.
     """
 
     # if the coordinator receives a StartTrainingRound request while not in the
@@ -185,7 +185,7 @@ def test_end_training_round_reinitialize_local_models(
 ):
     """[summary]
 
-    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
+    .. todo:: PB-50: Advance docstrings.
     """
 
     coordinator = coordinator(
@@ -209,7 +209,7 @@ def test_end_training_round_reinitialize_local_models(
 def test_training_finished(coordinator, end_training_request):
     """[summary]
 
-    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
+    .. todo:: PB-50: Advance docstrings.
     """
 
     coordinator = coordinator(
@@ -227,7 +227,7 @@ def test_training_finished(coordinator, end_training_request):
 def test_wrong_participant(coordinator):
     """[summary]
 
-    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
+    .. todo:: PB-50: Advance docstrings.
     """
 
     # coordinator should not accept requests from participants that it has not accepted
@@ -249,7 +249,7 @@ def test_wrong_participant(coordinator):
 def test_duplicated_update_submit(coordinator, end_training_request):
     """[summary]
 
-    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
+    .. todo:: PB-50: Advance docstrings.
     """
 
     # the coordinator should not accept multiples updates from the same participant
@@ -269,7 +269,7 @@ def test_duplicated_update_submit(coordinator, end_training_request):
 def test_remove_selected_participant(coordinator):
     """[summary]
 
-    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
+    .. todo:: PB-50: Advance docstrings.
     """
 
     coordinator = coordinator(
@@ -297,7 +297,7 @@ def test_remove_selected_participant(coordinator):
 def test_remove_unselected_participant(coordinator):
     """[summary]
 
-    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
+    .. todo:: PB-50: Advance docstrings.
     """
     coordinator = coordinator(
         minimum_participants_in_round=1, fraction_of_participants=0.5
@@ -320,7 +320,7 @@ def test_remove_unselected_participant(coordinator):
 def test_number_of_selected_participants(coordinator):
     """[summary]
 
-    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
+    .. todo:: PB-50: Advance docstrings.
     """
 
     # test that the coordinator needs minimum 3 participants and selects 2 of them
@@ -351,7 +351,7 @@ def test_number_of_selected_participants(coordinator):
 def test_correct_round_advertised_to_participants(coordinator):
     """[summary]
 
-    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
+    .. todo:: PB-50: Advance docstrings.
     """
 
     # test that only selected participants receive ROUND state and the others STANDBY
@@ -376,7 +376,7 @@ def test_correct_round_advertised_to_participants(coordinator):
 def test_select_outstanding(coordinator):
     """[summary]
 
-    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
+    .. todo:: PB-50: Advance docstrings.
     """
 
     # setup: select first 3 of 4 in order per round

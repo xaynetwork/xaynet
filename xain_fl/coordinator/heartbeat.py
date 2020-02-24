@@ -15,21 +15,18 @@ logger: StructLogger = get_logger(__name__)
 def monitor_heartbeats(
     coordinator: Coordinator, terminate_event: threading.Event
 ) -> None:
-    """Monitors the heartbeat of participants.
+    """Monitor the heartbeat of participants.
 
-    If a heartbeat expires the participant is removed from the :class:`~.Participants`.
+    If a heartbeat expires the participant is removed from the list of registered
+    participants.
 
     Note:
-
-        This is meant to be run inside a thread and expects an
-        :class:`~threading.Event`, to know when it should terminate.
+        This is meant to be run inside a thread and expects an ``Event``, to know when
+        it should terminate.
 
     Args:
-
         coordinator: The coordinator to monitor for heartbeats.
-
-        terminate_event: A threading event to signal that this method
-            should terminate.
+        terminate_event: A threading event to signal that this method should terminate.
     """
 
     logger.info("Heartbeat monitor starting...")
