@@ -46,7 +46,8 @@ services:
       GF_AUTH_GENERIC_OAUTH_API_URL: "http://keycloak:8080/auth/realms/master/protocol/openid-connect/userinfo"
       GF_SERVER_ENFORCE_DOMAIN: "false"
 
-  coordinator-rs:
+  coordinator:
+    command: coordinator
     build:
       context: .
       dockerfile: Dockerfile.dev
@@ -57,7 +58,7 @@ services:
     ports:
       - "5555:5555"
 
-  aggregator-rs:
+  aggregator:
     command: aggregator
     build:
       context: .

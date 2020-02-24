@@ -38,6 +38,7 @@ RUN cargo vendor > .cargo/config
 
 COPY ./src src
 RUN cargo build
-RUN cargo install --path .
+RUN mv ./target/debug/aggregator /bin/aggregator
+RUN mv ./target/debug/coordinator /bin/coordinator
 
-CMD ["coordinator"]
+ENV RUST_LOG=debug
