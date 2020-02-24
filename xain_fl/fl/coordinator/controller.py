@@ -6,7 +6,7 @@ from typing import List
 import numpy as np
 
 
-# TODO: raise exceptions for invalid attribute values: https://xainag.atlassian.net/browse/XP-387
+# TODO(XP-387): raise exceptions for invalid attribute values
 class Controller(ABC):
     """An interface to the coordinator that enables different selection strategies.
 

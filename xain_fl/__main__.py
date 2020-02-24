@@ -1,6 +1,5 @@
-"""This module is the entrypoint to start a new coordinator instance.
+"""The entrypoint to start a new coordinator instance."""
 
-"""
 import sys
 
 from structlog import get_logger
@@ -20,8 +19,7 @@ logger: StructLogger = get_logger(__name__)
 
 
 def main() -> None:
-    """Start a coordinator instance
-    """
+    """Start a coordinator instance."""
 
     args = get_cmd_parameters()
     try:

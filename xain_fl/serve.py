@@ -17,19 +17,15 @@ logger: StructLogger = get_logger(__name__)
 
 
 def serve(coordinator: Coordinator, server_config: ServerConfig) -> None:
-    """Start a coordinator service and keep it running until an
-    interruption signal (``SIGINT``) is received.
+    """Start a coordinator service.
+
+    It will be running until an interruption signal (``SIGINT``) is received.
 
     Args:
-
-        coordinator:
-            :class:`xain_fl.coordinator.coordinator.Coordinator`
-            instance to run
-
-        server_config:
-            server configuration: binding address, gRPC options, etc.
-
+        coordinator: The instance to run.
+        server_config: The server configuration (binding address, gRPC options, etc.).
     """
+
     server = grpc.server(
         futures.ThreadPoolExecutor(max_workers=server_config.thread_pool_workers),
         options=server_config.grpc_options,

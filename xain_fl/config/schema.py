@@ -288,7 +288,10 @@ def create_class_from_schema(class_name: str, schema: Schema) -> Any:
     # pylint: disable=protected-access
     keys = schema._schema.keys()
     attributes = list(
-        map(lambda key: key._schema if isinstance(key, Schema) else key, keys)  # type: ignore
+        map(
+            lambda key: key._schema if isinstance(key, Schema) else key,  # type: ignore
+            keys,
+        )
     )
     return namedtuple(class_name, attributes)
 
@@ -452,7 +455,7 @@ class Config:
     @classmethod
     def from_valid_dict(cls: Type[T], dictionary: Mapping[str, Any]) -> T:
         """Create a configuration from a valid dictionary.
-        
+
         Create a `Config` instance for the given dictionary, assuming it contains a
         valid configuration.
 
@@ -486,8 +489,8 @@ class Config:
         """
 
         try:
-            with open(path, "r") as f:
-                raw_config = toml.load(f)
+            with open(path, "r") as file:
+                raw_config = toml.load(file)
         except IsADirectoryError as err:
             raise InvalidConfigError(f"{path} is a directory") from err
         except FileNotFoundError as err:

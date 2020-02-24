@@ -477,6 +477,9 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         logger.debug("Send EndTrainingRoundResponse", participant_id=participant_id)
         return EndTrainingRoundResponse()
 
+    # FIXME(PB-125): Helper function to make sure that the coordinator does not crash
+    # due to exception of the metric store. Proper exception handling should be tackled
+    # in PB-125.
     def _write_metrics_fail_silently(
         self,
         owner: str,
@@ -487,10 +490,6 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
 
         The metrics are collected on the coordinator site and owned by the given owner.
         If an exception is raised, it will be caught and the error logged.
-
-        FIXME: Helper function to make sure that the coordinator does not crash due to
-        exception of the metric store. Proper exception handling should be tackled in
-        PB-125.
 
         Args:
             owner: The name of the owner of the metrics e.g. coordinator or participant.

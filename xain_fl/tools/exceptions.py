@@ -2,24 +2,27 @@
 
 
 class DuplicatedUpdateError(Exception):
-    """Exception raised when the same participant tries to submit multiple
-    updates to the :class:`xain_fl.coordinator.coordinator.Coordinator` in the same :class:`~.Round`
+    """Exception for resubmitted updates.
+
+    Raised when the same participant tries to submit multiple updates to the coordinator
+    in the same round.
     """
 
 
 class UnknownParticipantError(Exception):
-    """Exception raised when a participant that is unknown to the
-    :class:`xain_fl.coordinator.coordinator.Coordinator` makes a request.
+    """Exception for unknown participants.
 
-    Typically this means that a participant tries to make a request before it
-    has successfully rendezvous with the :class:`xain_fl.coordinator.coordinator.Coordinator`.
+    Raised when a participant that is unknown to the coordinator makes a request.
+    Typically this means that a participant tries to make a request before it has
+    successfully rendezvous'd with the coordinator.
     """
 
 
 class InvalidRequestError(Exception):
-    """Exception raised when the Coordinator receives and invalid request from a participant.
+    """Exception for invalid requests.
 
-    This can happen if the participant sends a request that is not allowed in a
-    give Coordinator state. For instance the Coordinator will only accept
-    StartTrainingRound requests during a ROUND.
+    Raised when the Coordinator receives and invalid request from a participant. This
+    can happen if the participant sends a request that is not allowed in a given
+    coordinator state. For instance the coordinator will only accept StartTrainingRound
+    requests during a ROUND.
     """

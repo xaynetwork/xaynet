@@ -1,4 +1,5 @@
 """XAIN FL structured logger"""
+
 import logging
 import os
 import threading
@@ -14,10 +15,8 @@ StructLogger = (
 
 
 def configure_aimetrics_logger() -> None:
-    """Configure a logger named "aimetrics" with a configurable log
-    level.
+    """Configure a logger named "aimetrics" with a configurable log level."""
 
-    """
     AIMETRICS = 25  # pylint: disable=invalid-name
     structlog.stdlib.AIMETRICS = AIMETRICS
     structlog.stdlib._NAME_TO_LEVEL[  # pylint: disable=protected-access
@@ -46,6 +45,7 @@ def add_pid_thread(_, __, event_dict: dict) -> dict:  # type: ignore
     Returns:
         The updated event dict.
     """
+
     pid = os.getpid()
     thread = threading.current_thread().getName()
     event_dict["pid_thread"] = f"{pid}-{thread}"
@@ -74,7 +74,7 @@ def configure_structlog(config: LoggingConfig) -> None:
 
         structlog.configure(
             processors=shared_processors
-            + [structlog.stdlib.ProcessorFormatter.wrap_for_formatter,],
+            + [structlog.stdlib.ProcessorFormatter.wrap_for_formatter],
             context_class=dict,
             logger_factory=structlog.stdlib.LoggerFactory(),
             wrapper_class=structlog.stdlib.BoundLogger,
@@ -86,12 +86,10 @@ def configure_structlog(config: LoggingConfig) -> None:
             foreign_pre_chain=shared_processors,
         )
     else:
-        shared_processors = [
-            structlog.stdlib.add_log_level,
-        ]
+        shared_processors = [structlog.stdlib.add_log_level]
         structlog.configure(
             processors=shared_processors
-            + [structlog.stdlib.ProcessorFormatter.wrap_for_formatter,],
+            + [structlog.stdlib.ProcessorFormatter.wrap_for_formatter],
             logger_factory=structlog.stdlib.LoggerFactory(),
             wrapper_class=structlog.stdlib.BoundLogger,
             cache_logger_on_first_use=True,
