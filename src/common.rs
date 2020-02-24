@@ -1,5 +1,6 @@
 use derive_more::Display;
-use uuid::Uuid;
+use std::str::FromStr;
+use uuid::{self, Uuid};
 
 #[derive(Eq, PartialEq, Hash, Debug, Copy, Clone, Display, Serialize, Deserialize, Default)]
 /// A unique random client identifier
@@ -12,9 +13,23 @@ impl ClientId {
     }
 }
 
+impl FromStr for ClientId {
+    type Err = uuid::Error;
+    fn from_str(uuid_str: &str) -> Result<Self, Self::Err> {
+        Ok(Self(Uuid::from_str(uuid_str)?))
+    }
+}
+
 #[derive(Eq, PartialEq, Hash, Debug, Copy, Clone, Display, Serialize, Deserialize, Default)]
 /// A unique random token
 pub struct Token(Uuid);
+
+impl FromStr for Token {
+    type Err = uuid::Error;
+    fn from_str(uuid_str: &str) -> Result<Self, Self::Err> {
+        Ok(Self(Uuid::from_str(uuid_str)?))
+    }
+}
 
 impl Token {
     /// Return a new random token

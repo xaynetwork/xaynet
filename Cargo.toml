@@ -20,3 +20,4 @@ async-trait = "0.1.24"
 tokio-serde = { version = "0.6.0", features = [ "json" ] }
 futures-retry = "0.4.0"
 stubborn-io = "0.1.8"
+bytes = "0.5.4"

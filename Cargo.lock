@@ -1762,6 +1762,7 @@ name = "xain-fl"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "bytes 0.5.4",
  "derive_more",
  "env_logger",
  "futures",

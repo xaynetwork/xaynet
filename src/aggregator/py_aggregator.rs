@@ -1,3 +1,4 @@
+use bytes::Bytes;
 use futures::executor::block_on;
 use std::{future::Future, pin::Pin, thread};
 use tokio::{
@@ -62,18 +63,20 @@ impl<'py> PyAggregator<'py> {
         Ok(Self { py, aggregator })
     }
 
-    pub fn aggregate(&self) -> PyResult<Vec<u8>> {
+    pub fn aggregate(&self) -> PyResult<Bytes> {
         Ok(self
             .aggregator
             .call_method0(self.py, "aggregate")?
-            .extract(self.py)?)
+            .extract::<Vec<u8>>(self.py)
+            .map(Bytes::from)?)
     }
 
-    pub fn get_global_weights(&self) -> PyResult<Vec<u8>> {
+    pub fn get_global_weights(&self) -> PyResult<Bytes> {
         Ok(self
             .aggregator
             .call_method0(self.py, "get_global_weights")?
-            .extract(self.py)?)
+            .extract::<Vec<u8>>(self.py)
+            .map(Bytes::from)?)
     }
 
     pub fn add_weights(&self, local_weights: &[u8]) -> PyResult<Result<(), ()>> {
@@ -95,7 +98,7 @@ impl<'py> PyAggregator<'py> {
     }
 }
 
-pub type Weights = Vec<u8>;
+pub type Weights = Bytes;
 pub type Request<T, U> = (T, oneshot::Sender<U>);
 pub type RequestRx<T, U> = Receiver<Request<T, U>>;
 pub type RequestTx<T, U> = Sender<Request<T, U>>;
@@ -118,9 +121,9 @@ pub struct PyAggregatorHandle {
 #[async_trait]
 impl Aggregator for PyAggregatorHandle {
     type Error = ();
-    type AggregateFut = Pin<Box<dyn Future<Output = Result<Vec<u8>, ()>>>>;
+    type AggregateFut = Pin<Box<dyn Future<Output = Result<Bytes, ()>>>>;
 
-    async fn add_weights(&mut self, weights: Vec<u8>) -> Result<(), ()> {
+    async fn add_weights(&mut self, weights: Bytes) -> Result<(), ()> {
         let (tx, rx) = oneshot::channel::<()>();
         self.add_weights_requests
             .send((weights, tx))
@@ -129,7 +132,7 @@ impl Aggregator for PyAggregatorHandle {
     }
 
     fn aggregate(&mut self) -> Self::AggregateFut {
-        let (tx, rx) = oneshot::channel::<Vec<u8>>();
+        let (tx, rx) = oneshot::channel::<Bytes>();
         let aggregate_requests = self.aggregate_requests.clone();
         Box::pin(async move {
             aggregate_requests.send(((), tx)).map_err(|_| ())?;

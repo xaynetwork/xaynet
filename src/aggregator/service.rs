@@ -1,8 +1,8 @@
+use bytes::Bytes;
 use std::{
     collections::HashMap,
     future::Future,
     pin::Pin,
-    sync::Arc,
     task::{Context, Poll},
 };
 
@@ -44,7 +44,7 @@ where
     // for testing because we can simulate client with just
     // AggregatorHandles. But maybe that's just another layer of
     // complexity that is not worth it.
-    global_weights: Arc<Vec<u8>>,
+    global_weights: Bytes,
 
     /// The aggregator itself, which handles the weights or performs
     /// the aggregations.
@@ -77,12 +77,12 @@ pub trait Aggregator {
     // FIXME: we should obviously require the Error bound, but for now
     // it's convenient to be able to use () as error type
     type Error;
-    type AggregateFut: Future<Output = Result<Vec<u8>, Self::Error>> + Unpin;
+    type AggregateFut: Future<Output = Result<Bytes, Self::Error>> + Unpin;
     // type Error: Error;
 
     /// Check the validity of the given weights and if they are valid,
     /// add them to the set of weights to aggregate.
-    async fn add_weights(&mut self, weights: Vec<u8>) -> Result<(), Self::Error>;
+    async fn add_weights(&mut self, weights: Bytes) -> Result<(), Self::Error>;
 
     /// Run the aggregator and return the result.
     fn aggregate(&mut self) -> Self::AggregateFut;
@@ -109,7 +109,7 @@ where
                 coordinator_rpc_addr,
             )),
             allowed_ids: HashMap::new(),
-            global_weights: Arc::new(vec![]),
+            global_weights: Bytes::new(),
             aggregation_future: None,
         }
     }
@@ -156,7 +156,7 @@ where
         {
             match Pin::new(&mut future).poll(cx) {
                 Poll::Ready(Ok(weights)) => {
-                    self.global_weights = Arc::new(weights);
+                    self.global_weights = weights;
                     if response_tx.send(()).is_err() {
                         error!("failed to send aggregation response to RPC task: receiver dropped");
                     }
@@ -225,13 +225,14 @@ where
 
 struct Credentials(ClientId, Token);
 
-struct AggregatorServiceHandle {
-    local_weights: mpsc::UnboundedSender<(Credentials, Vec<u8>)>,
-    global_weights: mpsc::UnboundedSender<(Credentials, oneshot::Sender<Vec<u8>>)>,
+#[derive(Clone)]
+pub struct AggregatorServiceHandle {
+    local_weights: mpsc::UnboundedSender<(Credentials, Bytes)>,
+    global_weights: mpsc::UnboundedSender<(Credentials, oneshot::Sender<Bytes>)>,
 }
 
 impl AggregatorServiceHandle {
-    async fn get_global_weights(&self, id: ClientId, token: Token) -> Option<Vec<u8>> {
+    pub async fn get_global_weights(&self, id: ClientId, token: Token) -> Option<Bytes> {
         let (tx, rx) = oneshot::channel();
         if self
             .global_weights
@@ -244,7 +245,7 @@ impl AggregatorServiceHandle {
         rx.await.ok()
     }
 
-    async fn set_local_weights(&self, id: ClientId, token: Token, weights: Vec<u8>) {
+    pub async fn set_local_weights(&self, id: ClientId, token: Token, weights: Bytes) {
         let _ = self
             .local_weights
             .clone()
