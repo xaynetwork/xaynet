@@ -275,7 +275,8 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         frac = num_outstanding / len(pool)
 
         self.controller.fraction_of_participants = frac
-        return self.controller.select_ids(list(pool))
+        outstanding: List[str] = self.controller.select_ids(list(pool))
+        return outstanding
 
     def _handle_rendezvous(
         self, _message: RendezvousRequest, participant_id: str
