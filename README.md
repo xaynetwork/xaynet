@@ -78,3 +78,24 @@ been selected)
 Currently we external API. However implement one, whether it is ReST
 or gRPC should not impact the protocol implementation. All that is
 needed for such an external API is a `CoordinatorHandle`.
+
+
+## Running the Coordinator/ Aggregator locally
+
+**Coordinator**
+
+```bash
+cargo run --bin coordinator
+```
+
+**Aggregator**
+
+```bash
+cargo run --bin aggregator
+```
+
+### Docker-compose
+
+```bash
+docker-compose -f docker-compose-dev.yml up
+```
