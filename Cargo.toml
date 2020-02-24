@@ -21,3 +21,11 @@ tokio-serde = { version = "0.6.0", features = [ "json" ] }
 futures-retry = "0.4.0"
 stubborn-io = "0.1.8"
 bytes = "0.5.4"
+
+[[bin]]
+name = "coordinator"
+path = "src/bin/coordinator.rs"
+
+[[bin]]
+name = "aggregator"
+path = "src/bin/aggregator.rs"
