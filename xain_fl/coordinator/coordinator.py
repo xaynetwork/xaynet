@@ -1,4 +1,4 @@
-"""XAIN FL Coordinator"""
+"""XAIN FL Coordinator."""
 
 from typing import Dict, List, Optional, Union
 
@@ -43,68 +43,54 @@ logger: StructLogger = get_logger(__name__)
 
 # TODO: raise exceptions for invalid attribute values: https://xainag.atlassian.net/browse/XP-387
 class Coordinator:  # pylint: disable=too-many-instance-attributes
-    """Class implementing the main Coordinator logic. It is implemented as a
-    state machine that reacts to received messages.
+    """The main Coordinator logic, a state machine that reacts to received messages.
 
     The states of the Coordinator are:
-        - ``STANDBY``: The coordinator is in standby mode, typically
-          when waiting for participants to connect. In this mode the
-          only messages that the coordinator can receive are
-          :class:`~.coordinator_pb2.RendezvousRequest` and
-          :class:`~.coordinator_pb2.HeartbeatRequest`.
+        - ``STANDBY``: The coordinator is in standby mode, typically when waiting for
+            participants to connect. In this mode the only messages that the coordinator
+            can receive are ``RendezvousRequest`` and ``HeartbeatRequest``.
 
-        - ``ROUND``: A round is currently in progress. During a round
-          the important messages the coordinator can receive are
-          :class:`~.coordinator_pb2.StartTrainingRoundRequest` and
-          :class:`~.coordinator_pb2.EndTrainingRoundRequest`.  Since
-          participants may or may not be selected for rounds, they can be
-          advertised accordingly with ROUND or STANDBY respectively.
-          Round numbers start from 0.
+        - ``ROUND``: A round is currently in progress. During a round the important
+            messages the coordinator can receive are ``StartTrainingRoundRequest`` and
+            ``EndTrainingRoundRequest``. Since participants may or may not be selected
+            for rounds, they can be advertised accordingly with ROUND or STANDBY
+            respectively. Round numbers start from 0.
 
-        - ``FINISHED``: The training session has ended and
-          participants should disconnect from the coordinator.
+        - ``FINISHED``: The training session has ended and participants should
+            disconnect from the coordinator.
 
-    States are exchanged during heartbeats so that both coordinators
-    and participants can react to each others state change.
+    States are exchanged during heartbeats so that both coordinators and participants
+    can react to each others state change.
 
     The flow of the Coordinator:
-        1. The coordinator is started and waits for enough participants to join. `STANDBY`.
-        2. Once enough participants are connected the coordinator starts the rounds. `ROUND`.
-        3. Repeat step 2. for the given number of rounds
-        4. The training session is over and the coordinator is ready to shutdown. `FINISHED`.
+        1. The coordinator is started and waits for enough participants to join.
+            ``STANDBY``.
+        2. Once enough participants are connected the coordinator starts the rounds.
+            ``ROUND``.
+        3. Repeat step 2. for the given number of rounds.
+        4. The training session is over and the coordinator is ready to shutdown.
+            ``FINISHED``.
 
     Note:
-        :class:`~.coordinator_pb2.RendezvousRequest` is always allowed
-        regardless of which state the coordinator is on.
+        ``RendezvousRequest`` is always allowed regardless of which state the
+        coordinator is on.
 
     Args:
-
-        global_weights_writer: service for storing global weights
-
-        local_weights_reader: service for retrieving the local weights
-
+        global_weights_writer: A service for storing global weights.
+        local_weights_reader: A service for retrieving the local weights.
         num_rounds: The number of rounds of the training session.
-
-        minimum_participants_in_round: The minimum number of
-            participants that participate in a round.
-
-        fraction_of_participants: The fraction of total connected
-            participants to be selected in a single round. Defaults to
-            1.0, meaning that all connected participants will be
-            selected. It must be in the (0.0, 1.0] interval.
-
+        minimum_participants_in_round: The minimum number of participants that
+            participate in a round.
+        fraction_of_participants: The fraction of total connected participants to be
+            selected in a single round. Defaults to 1.0, meaning that all connected
+            participants will be selected. It must be in the (0.0, 1.0] interval.
         weights: The weights of the global model.
-
         epochs: Number of training iterations local to Participant.
-
         epochs_base: The global epoch number for the start of the next training round.
-
-        aggregator: The type of aggregation to perform at the end of
-            each round. Defaults to :class:`~.WeightedAverageAggregator`.
-
-        controller: Controls how the Participants are selected at the
-            start of each round. Defaults to :class:`~.RandomController`.
-
+        aggregator: The type of aggregation to perform at the end of each round.
+            Defaults to ``WeightedAverageAggregator``.
+        controller: Controls how the Participants are selected at the start of each
+            round. Defaults to ``RandomController``.
     """
 
     def __init__(  # pylint: disable=too-many-arguments
@@ -123,7 +109,6 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         participants: Participants = None,
     ) -> None:
         self.global_weights_writer: AbstractGlobalWeightsWriter = global_weights_writer
-        # pylint: disable=line-too-long
         self.local_weights_reader: AbstractLocalWeightsReader = local_weights_reader
         self.minimum_participants_in_round: int = minimum_participants_in_round
         self.fraction_of_participants: float = fraction_of_participants
@@ -160,11 +145,12 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         )
 
     def get_minimum_connected_participants(self) -> int:
-        """Calculates how many participants are needed so that we can select
-        a specific fraction of them.
+        """Calculate how many participants are needed at least.
+
+        This is required such that we can select a specific fraction of them.
 
         Returns:
-            obj:`int`: Minimum number of participants needed to be connected to start a round.
+            Minimum number of participants needed to be connected to start a round.
         """
 
         return int(self.minimum_participants_in_round // self.fraction_of_participants)
@@ -182,12 +168,10 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
             The response sent back to the participant.
 
         Raises:
-            UnknownParticipantError: If it receives a request from an
-                unknown participant. Typically a participant that has not
-                rendezvous with the :class:`~.Coordinator`.
-
-            InvalidRequestError: If it receives a request that is not
-                allowed in the current :class:`~.Coordinator` state.
+            UnknownParticipantError: If it receives a request from an unknown
+                participant. Typically a participant that has not rendezvous with the
+                coordinator.
+            NotImplementedError: If an unknown message type is received.
         """
 
         logger.debug(
@@ -229,11 +213,10 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
     def remove_participant(self, participant_id: str) -> None:
         """Remove a participant from the list of accepted participants.
 
-        This method is to be called when it is detected that a
-        participant has disconnected. After a participant is removed,
-        if the number of remaining participants is less than the
-        minimum number of participants that need to be connected, the
-        :class:`~.Coordinator` will transition to STANDBY state.
+        This method is to be called when it is detected that a participant has
+        disconnected. After a participant is removed, if the number of remaining
+        participants is less than the minimum number of participants that need to be
+        connected, the coordinator will transition to STANDBY state.
 
         Args:
             participant_id: The id of the participant to remove.
@@ -256,14 +239,18 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         )
 
     def select_participant_ids_and_init_round(self) -> None:
-        """Selects the participant ids and initiates a Round."""
+        """Select the participant ids and initiate a Round."""
 
         self.controller.fraction_of_participants = self.fraction_of_participants
         selected_ids = self.controller.select_ids(self.participants.ids())
         self.round = Round(selected_ids)
 
     def select_outstanding(self) -> List[str]:
-        """Selects participants outstanding for the round."""
+        """Selects participants outstanding for the round.
+
+        Returns:
+            The selected participants.
+        """
 
         # the following preconditions should hold
         assert len(self.round.participant_ids) < self.minimum_participants_in_round
@@ -281,7 +268,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
     def _handle_rendezvous(
         self, _message: RendezvousRequest, participant_id: str
     ) -> RendezvousResponse:
-        """Handles a Rendezvous request.
+        """Handle a Rendezvous request.
 
         Args:
             _message: The request to handle. Currently not used.
@@ -330,7 +317,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
     def _handle_heartbeat(
         self, message: HeartbeatRequest, participant_id: str
     ) -> HeartbeatResponse:
-        """Handles a Heartbeat request.
+        """Handle a Heartbeat request.
 
         Responds to the participant with:
             - ``FINISHED``: if coordinator is in state FINISHED,
@@ -374,14 +361,14 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
     def _handle_start_training_round(
         self, _message: StartTrainingRoundRequest, participant_id: str
     ) -> StartTrainingRoundResponse:
-        """Handles a StartTrainingRound request.
+        """Handle a StartTrainingRound request.
 
         Args:
             _message: The request to handle. Currently not used.
             participant_id: The id of the participant making the request.
 
         Returns:
-            :class:`~.coordinator_pb2.StartTrainingRoundResponse`: The response to the participant.
+            The response to the participant.
         """
 
         # The coordinator should only accept StartTrainingRound requests if it is
@@ -405,13 +392,13 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
             epoch_base=self.epoch_base,
         )
         return StartTrainingRoundResponse(
-            epochs=self.epochs_current_round, epoch_base=self.epoch_base,
+            epochs=self.epochs_current_round, epoch_base=self.epoch_base
         )
 
     def _handle_end_training_round(
         self, message: EndTrainingRoundRequest, participant_id: str
     ) -> EndTrainingRoundResponse:
-        """Handles a EndTrainingRound request.
+        """Handle a EndTrainingRound request.
 
         Args:
             message: The request to handle.
@@ -496,19 +483,21 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         metrics: Dict[str, Union[str, int, float]],
         tags: Optional[Dict[str, str]] = None,
     ) -> None:
-        """
-        Write the metrics to a metric store that are collected on the coordinator site and owned by
-        the given owner.
+        """Write the metrics to a metric store.
+
+        The metrics are collected on the coordinator site and owned by the given owner.
         If an exception is raised, it will be caught and the error logged.
 
-        FIXME: Helper function to make sure that the coordinator does not crash due to exception of
-        the metric store. Proper exception handling should be tackled in PB-125.
+        FIXME: Helper function to make sure that the coordinator does not crash due to
+        exception of the metric store. Proper exception handling should be tackled in
+        PB-125.
 
         Args:
-
             owner: The name of the owner of the metrics e.g. coordinator or participant.
-            metrics: A dictionary with the metric names as keys and the metric values as values.
-            tags: A dictionary to append optional metadata to the metric. Defaults to None.
+            metrics: A dictionary with the metric names as keys and the metric values as
+                values.
+            tags: A dictionary to append optional metadata to the metric. Defaults to
+                None.
         """
 
         try:
@@ -527,5 +516,6 @@ def pb_enum_to_str(pb_enum: EnumDescriptor, member_value: int) -> str:
     Returns:
         The human readable string of a enum member value.
     """
+
     enum_in_str: str = pb_enum.values_by_number[member_value].name
     return enum_in_str
