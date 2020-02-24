@@ -12,11 +12,21 @@ use crate::{
     coordinator,
 };
 
-use tokio::{net::ToSocketAddrs, sync::oneshot};
+use tokio::{
+    net::ToSocketAddrs,
+    sync::{mpsc, oneshot},
+};
 
 use futures::{ready, stream::Stream};
 
 /// A future that orchestrates the entire aggregator service.
+// TODO: maybe add a HashSet or HashMap of clients who already
+// uploaded their weights to prevent a client from uploading weights
+// multiple times. Or we could just remove that ID from the
+// `allowed_ids` map.
+
+// TODO: maybe add a HashSet for clients that are already
+// downloading/uploading, to prevent DoS attacks.
 pub struct AggregatorService<A>
 where
     A: Aggregator,
@@ -27,18 +37,15 @@ where
     /// training.
     allowed_ids: HashMap<ClientId, Token>,
 
-    // TODO: maybe add a HashSet or HashMap of clients who already
-    // uploaded their weights to prevent a client from uploading
-    // weights multiple times. Or we could just remove that ID from
-    // the `allowed_ids` map.
-
-    // TODO: maybe add a HashSet for clients that are already
-    // downloading/uploading, to prevent DoS attacks.
     /// The latest global weights as computed by the aggregator.
+    // NOTE: We could store this directly in the task that handles the
+    // HTTP requests. But having it here makes it easier to bypass the
+    // HTTP layer, which is convenient for testing because we can
+    // simulate client with just AggregatorHandles.
     global_weights: Arc<Vec<u8>>,
 
-    // /// The aggregator itself, which handles the weights or performs
-    // /// the aggregations.
+    /// The aggregator itself, which handles the weights or performs
+    /// the aggregations.
     aggregator: A,
 
     /// A client for the coordinator RPC service.
@@ -56,11 +63,6 @@ where
     // http_requests: aggregator::http::Handle,
     aggregation_future: Option<AggregationFuture<A>>,
 }
-
-// struct HttpServiceHandle {
-//     start_training_requests: mpsc::Receiver<(Token, oneshot::Sender<Arc<Vec<u8>>>)>,
-//     end_training_requests: mpsc::Receiver<(Token, Vec<u8>)>,
-// }
 
 // FIXME: the futures returned by the `aggregate` method needs to be
 // stored but it's not 'static since if take `&mut self`. For now we
@@ -144,30 +146,38 @@ where
         }
     }
 
-    // FIXME: AAAAAAHHHHHHHHHH this is horrible.
     fn poll_aggregation(&mut self, cx: &mut Context) -> Poll<()> {
-        let done = if let Some(ref mut fut) = self.aggregation_future {
-            match ready!(Pin::new(&mut fut.future).poll(cx)) {
-                Ok(weights) => {
+        if let Some(AggregationFuture {
+            mut future,
+            response_tx,
+        }) = self.aggregation_future.take()
+        {
+            match Pin::new(&mut future).poll(cx) {
+                Poll::Ready(Ok(weights)) => {
                     self.global_weights = Arc::new(weights);
+                    if response_tx.send(()).is_err() {
+                        error!("failed to send aggregation response to RPC task: receiver dropped");
+                    }
+                    Poll::Ready(())
                 }
-                Err(_) => {
-                    // FIXME: we should return an error to the coordinator
+                Poll::Ready(Err(_)) => {
+                    // no need to send a response. By dropping the
+                    // `response_tx` channel, the RPC task will send
+                    // an error.
+                    error!("aggregation failed");
+                    Poll::Ready(())
+                }
+                Poll::Pending => {
+                    self.aggregation_future = Some(AggregationFuture {
+                        future,
+                        response_tx,
+                    });
+                    Poll::Pending
                 }
             }
-            true
         } else {
-            false
-        };
-        if done {
-            self.aggregation_future
-                .take()
-                .unwrap()
-                .response_tx
-                .send(())
-                .unwrap();
+            Poll::Pending
         }
-        Poll::Pending
     }
 }
 
@@ -209,4 +219,9 @@ where
 
         Poll::Pending
     }
+}
+
+struct HttpServiceHandle {
+    start_training_requests: mpsc::Receiver<(Token, oneshot::Sender<Arc<Vec<u8>>>)>,
+    end_training_requests: mpsc::Receiver<(Token, Vec<u8>)>,
 }
