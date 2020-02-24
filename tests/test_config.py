@@ -5,7 +5,7 @@ import re
 
 import pytest
 
-from xain_fl.config import Config, InvalidConfig
+from xain_fl.config import Config, InvalidConfigError
 
 
 @pytest.fixture
@@ -229,7 +229,7 @@ def test_server_config_valid_ipv6(
 
 # Adapted from unittest's assertRaises
 class AssertInvalid:
-    """A context manager that checks that an `xainfl.config.InvalidConfig`
+    """A context manager that checks that an `xainfl.config.InvalidConfigError`
     exception is raised, and provides helpers to perform checks on the
     exception.
 
@@ -244,7 +244,7 @@ class AssertInvalid:
     def __exit__(self, exc_type, exc_value, _tb):
         if exc_type is None:
             raise Exception("Did not get an exception")
-        if not isinstance(exc_value, InvalidConfig):
+        if not isinstance(exc_value, InvalidConfigError):
             # let this unexpected exception be re-raised
             return False
 

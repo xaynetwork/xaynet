@@ -5,7 +5,7 @@ import sys
 
 from structlog import get_logger
 
-from xain_fl.config import Config, InvalidConfig, get_cmd_parameters
+from xain_fl.config import Config, InvalidConfigError, get_cmd_parameters
 from xain_fl.coordinator.coordinator import Coordinator, Participants
 from xain_fl.coordinator.metrics_store import (
     AbstractMetricsStore,
@@ -26,7 +26,7 @@ def main() -> None:
     args = get_cmd_parameters()
     try:
         config = Config.load(args.config)
-    except InvalidConfig as err:
+    except InvalidConfigError as err:
         logger.error("Invalid config", error=str(err))
         sys.exit(1)
 

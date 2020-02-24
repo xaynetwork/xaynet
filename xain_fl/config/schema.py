@@ -1,7 +1,4 @@
-"""This module provides helpers for reading and validating the TOML
-configuration.
-
-"""
+"""Helpers for reading and validating the TOML configuration."""
 
 # Implementation notes:
 # =====================
@@ -34,58 +31,65 @@ import toml
 
 
 def error(key: str, description: str) -> str:
-    """Return an error message for the given configuration item and
-    description of the expected value type.
+    """Get an error message for configuration items.
 
     Args:
+        key: Key of the configuration item.
+        description: Description of the expected type of value for this configuration
+            item.
 
-        key (str): key of the configuration item
-        description (str): description of the expected type of value
-            for this configuration item
+    Returns:
+        The error message for the given configuration item and description of the
+        expected value type.
     """
+
     return f"Invalid `{key}`: value must be {description}"
 
 
 def positive_integer(
     key: str, expected_value: str = "a strictly positive integer"
 ) -> Schema:
-    """Return a validator for strictly positive integers for the given
-    configuration item.
+    """Get a validator for strictly positive integers.
 
     Args:
+        key: Key of the configuration item.
+        expected_value: Description of the expected type of value for this configuration
+            item. Defaults to "a strictly positive integer".
 
-        key (str): key of the configuration item
-        expected_value (str): description of the expected type of
-            value for this configuration item
+    Returns:
+        A validator for strictly positive integers for the given configuration item.
     """
+
     return And(int, lambda value: value > 0, error=error(key, expected_value))
 
 
 def non_negative_integer(
     key: str, expected_value: str = "a positive integer"
 ) -> Schema:
-    """Return a non-negative integer validator for the given configuration
-    item.
+    """Get a validator for non-negative integers.
 
     Args:
+        key: Key of the configuration item.
+        expected_value: Description of the expected type of value for this configuration
+            item. Defaults to "a positive integer".
 
-        key: key of the configuration item
-        expected_value: description of the expected type of
-            value for this configuration item
-
+    Returns:
+        A non-negative integer validator for the given configuration item.
     """
+
     return And(int, lambda value: value >= 0, error=error(key, expected_value))
 
 
 def url(key: str, expected_value: str = "a valid URL") -> Schema:
-    """Return a URL validator for the given configuration item.
+    """Get a validator for URLs.
 
     Args:
+        key: Key of the configuration item.
+        expected_value: Description of the expected type of value for this configuration
+            item. Defaults to "a valid URL".
 
-        key: key of the configuration item
-        expected_value: description of the expected type of
-            value for this configuration item
-
+    Returns:
+        An URL validator for the given configuration item.
     """
 
     def is_valid_url(value: str) -> bool:
@@ -101,17 +105,15 @@ def url(key: str, expected_value: str = "a valid URL") -> Schema:
 
 
 def is_valid_hostname(value: str) -> bool:
-    """Return whether the given string is a valid hostname
+    """Check whether the given string is a valid hostname.
 
     Args:
-
-        value: string to check
+        value: String to check.
 
     Returns:
-
-        `True` if the given value is a valid hostname, `False`
-        otherwise
+        `True` if the given value is a valid hostname, `False` otherwise.
     """
+
     try:
         idna.encode(value)
     except idna.IDNAError:
@@ -120,17 +122,15 @@ def is_valid_hostname(value: str) -> bool:
 
 
 def is_valid_ip_address(value: str) -> bool:
-    """Return whether the given string is a valid IP address
+    """Check whether the given string is a valid IP address.
 
     Args:
-
-        value: string to check
+        value: String to check.
 
     Returns:
-
-        `True` if the given value is a valid IP address, `False`
-        otherwise
+        `True` if the given value is a valid IP address, `False` otherwise.
     """
+
     try:
         ipaddress.ip_address(value)
     except ipaddress.AddressValueError:
@@ -141,16 +141,17 @@ def is_valid_ip_address(value: str) -> bool:
 def hostname_or_ip_address(
     key: str, expected_value: str = "a valid domain name or IP address"
 ) -> Schema:
-    """Return a hostname or IP address validator for the given
-    configuration item.
+    """Get a validator for a hostname or IP address.
 
     Args:
+        key: Key of the configuration item.
+        expected_value: Description of the expected type of value for this configuration
+            item. Defaults to "a valid domain name or IP address".
 
-        key: key of the configuration item
-        expected_value: description of the expected type of
-            value for this configuration item
-
+    Returns:
+        A hostname or IP address validator for the given configuration item.
     """
+
     return And(
         str,
         Or(is_valid_hostname, is_valid_ip_address),
@@ -159,12 +160,15 @@ def hostname_or_ip_address(
 
 
 def log_level(key: str) -> Schema:
-    """Return a validator for logging levels
+    """Get a validator for logging levels.
 
     Args:
+        key: Key of the configuration item.
 
-        key: key of the configuration item
+    Returns:
+        A validator for logging levels.
     """
+
     log_levels = ["notset", "debug", "info", "warning", "error", "critical"]
     error_message = "one of: " + ", ".join(log_levels)
     log_level_validator = lambda value: value in log_levels
@@ -268,19 +272,19 @@ CONFIG_SCHEMA = Schema(
 
 
 def create_class_from_schema(class_name: str, schema: Schema) -> Any:
+    """Create a class from a schema.
 
-    """Create a class named `class_name` from the given `schema`, where
-    the attributes of the new class are the schema's keys.
+    Create a class named `class_name` from the given `schema`, where the attributes of
+    the new class are the schema's keys.
 
     Args:
-
-        class_name: name of the class to create
-        schema: schema from which to create the class
+        class_name: Name of the class to create.
+        schema: Schema from which to create the class.
 
     Returns:
-
-        A new class where attributes are the given schema's keys
+        A new class where attributes are the given schema's keys.
     """
+
     # pylint: disable=protected-access
     keys = schema._schema.keys()
     attributes = list(
@@ -314,104 +318,98 @@ MetricsConfig.__doc__ = (
 )
 
 T = TypeVar("T", bound="Config")
+# pylint: enable=invalid-name
 
 
 class Config:
     """The coordinator configuration.
 
-    Configuration is split in three sections: `Config.ai` for items
-    directly related to the FL protocol, `Config.server` for the
-    server infrastructure, and `Config.storage` for storage related
-    items.
+    Configuration is split in three sections: `Config.ai` for items directly related to
+    the FL protocol, `Config.server` for the server infrastructure, and `Config.storage`
+    for storage related items.
 
-    The configuration is usually loaded from a dictionary the `Config`
-    attributes map to the dictionary keys.
+    The configuration is usually loaded from a dictionary the `Config` attributes map to
+    the dictionary keys.
 
     Args:
+        ai: The configuration corresponding to the `[ai]` section of the toml config
+            file.
+        storage: The configuration corresponding to the `[storage]` section of the toml
+            config file.
+        server: The configuration corresponding to the `[server]` section of the toml
+            config file.
+        logging: The configuration corresponding to the `[logging]` section of the toml
+            config file.
+        metrics: The configuration corresponding to the `[metrics]` section of the toml
+            config file.
 
-        ai: the configuration corresponding to the `[ai]` section of
-            the toml config file
+    Examples:
+        Here is a valid configuration:
 
-        storage: the configuration corresponding to the `[storage]`
-            section of the toml config fil
+        .. code-block:: toml
 
-        server: the configuration corresponding to the `[server]`
-            section of the toml config file
+            # This section correspond to the `Config.server` attribute
+            [server]
 
-        logging: the configuration corresponding to the `[logging]`
-            section of the toml config file
-
-        metrics: the configuration corresponding to the `[metrics]`
-            section of the toml config file
-
-    :Example:
-
-    Here is a valid configuration:
-
-    .. code-block:: toml
-
-       # This section correspond to the `Config.server` attribute
-       [server]
-
-       # Address to listen on for incoming gRPC connections
-       host = "[::]"
-       # Port to listen on for incoming gRPC connections
-       port = 50051
+            # Address to listen on for incoming gRPC connections
+            host = "[::]"
+            # Port to listen on for incoming gRPC connections
+            port = 50051
 
 
-       # This section corresponds to the `Config.ai` attribute
-       [ai]
+            # This section corresponds to the `Config.ai` attribute
+            [ai]
 
-       # Number of global rounds the model is going to be trained for. This
-       # must be a positive integer.
-       rounds = 1
+            # Number of global rounds the model is going to be trained for. This
+            # must be a positive integer.
+            rounds = 1
 
-       # Number of local epochs per round
-       epochs = 1
+            # Number of local epochs per round
+            epochs = 1
 
-       # Minimum number of participants to be selected for a round.
-       min_participants = 1
+            # Minimum number of participants to be selected for a round.
+            min_participants = 1
 
-       # Fraction of total clients that participate in a training round. This
-       # must be a float between 0 and 1.
-       fraction_participants = 1.0
+            # Fraction of total clients that participate in a training round. This
+            # must be a float between 0 and 1.
+            fraction_participants = 1.0
 
-       # This section corresponds to the `Config.storage` attribute
-       [storage]
+            # This section corresponds to the `Config.storage` attribute
+            [storage]
 
-       # URL to the storage service to use
-       endpoint = "http://localhost:9000"
+            # URL to the storage service to use
+            endpoint = "http://localhost:9000"
 
-       # Name of the bucket for storing the models
-       bucket = "weights"
+            # Name of the bucket for storing the models
+            bucket = "weights"
 
-       # AWS secret access to use to authenticate to the storage service
-       secret_access_key = "my-secret"
+            # AWS secret access to use to authenticate to the storage service
+            secret_access_key = "my-secret"
 
-       # AWS access key ID to use to authenticate to the storage service
-       access_key_id = "my-key-id"
+            # AWS access key ID to use to authenticate to the storage service
+            access_key_id = "my-key-id"
 
-    This config file can be loaded and used as follows:
+        This config file can be loaded and used as follows:
 
-    .. code-block:: python
+        .. code-block:: python
 
-       from xain_fl.config import Config
+            from xain_fl.config import Config
 
-       config = Config.load("example_config.toml")
+            config = Config.load("example_config.toml")
 
-       assert config.server.host == "[::]"
-       assert config.server.port == 50051
+            assert config.server.host == "[::]"
+            assert config.server.port == 50051
 
-       assert config.ai.rounds == 1
-       assert config.ai.epochs == 1
-       assert config.ai.min_participants == 1
-       assert config.ai.fraction_participants == 1.0
+            assert config.ai.rounds == 1
+            assert config.ai.epochs == 1
+            assert config.ai.min_participants == 1
+            assert config.ai.fraction_participants == 1.0
 
-       assert config.storage.endpoint == "http://localhost:9000"
-       assert config.storage.global_weights_bucket == "global_weights"
-       assert config.storage.local_weights_bucket == "local_weights"
-       assert config.storage.secret_access_key == "my-access-key"
-       assert config.storage.access_key_id == "my-key"
+            assert config.storage.endpoint == "http://localhost:9000"
+            assert config.storage.global_weights_bucket == "global_weights"
+            assert config.storage.local_weights_bucket == "local_weights"
+            assert config.storage.secret_access_key == "my-access-key"
+            assert config.storage.access_key_id == "my-key"
     """
 
     def __init__(  # pylint: disable=too-many-arguments
@@ -422,7 +420,7 @@ class Config:
         logging: NamedTuple,
         metrics: NamedTuple,
     ):
-        self.ai = ai
+        self.ai = ai  # pylint: disable=invalid-name
         self.storage = storage
         self.server = server
         self.logging = logging
@@ -430,29 +428,41 @@ class Config:
 
     @classmethod
     def from_unchecked_dict(cls: Type[T], dictionary: Mapping[str, Any]) -> T:
-        """Check if the given dictionary contains a valid configuration, and
-        if so, create a `Config` instance from it.
+        """Create a configuration from an unchecked dictionary.
+
+        Check if the given dictionary contains a valid configuration, and if so, create
+        a `Config` instance from it.
 
         Args:
+            dictionary: A dictionary containing the configuration.
 
-            dictionary: a dictionary containing the configuration
+        Returns:
+            The configuration.
+
+        Raises:
+            InvalidConfigError: If the dictionary is invalid.
         """
+
         try:
             valid_config = CONFIG_SCHEMA.validate(dictionary)
         except SchemaError as err:
-            raise InvalidConfig(err.code) from err
+            raise InvalidConfigError(err.code) from err
         return cls.from_valid_dict(valid_config)
 
     @classmethod
     def from_valid_dict(cls: Type[T], dictionary: Mapping[str, Any]) -> T:
-        """Create a `Config` instance for the given dictionary, assuming it
-        contains a valid configuration
+        """Create a configuration from a valid dictionary.
+        
+        Create a `Config` instance for the given dictionary, assuming it contains a
+        valid configuration.
 
         Args:
+            dictionary: A dictionary containing the configuration
 
-            dictionary: a dictionary containing the configuration
-
+        Returns:
+            The configuration.
         """
+
         return cls(
             AiConfig(**dictionary["ai"]),
             StorageConfig(**dictionary["storage"]),
@@ -463,33 +473,35 @@ class Config:
 
     @classmethod
     def load(cls: Type[T], path: str) -> T:
-        """Read the config file from the given path, check that it contains a
-        valid configuration, and return the corresponding `Config`
-        instance.
+        """Load a configuration.
+
+        Read the config file from the given path, check that it contains a valid
+        configuration, and return the corresponding `Config` instance.
 
         Args:
+            path: Path to a configuration file.
 
-            path: path to a configuration file
+        Returns:
+            The configuration.
         """
+
         try:
             with open(path, "r") as f:
                 raw_config = toml.load(f)
         except IsADirectoryError as err:
-            raise InvalidConfig(f"{path} is a directory") from err
+            raise InvalidConfigError(f"{path} is a directory") from err
         except FileNotFoundError as err:
-            raise InvalidConfig(f"{path} not found") from err
+            raise InvalidConfigError(f"{path} not found") from err
         except PermissionError as err:
-            raise InvalidConfig(
+            raise InvalidConfigError(
                 f"failed to read {path}: insufficient permissions"
             ) from err
         except toml.TomlDecodeError as err:
-            raise InvalidConfig(f"failed to decode {path}: {err}") from err
+            raise InvalidConfigError(f"failed to decode {path}: {err}") from err
         except OSError as err:
-            raise InvalidConfig(str(err)) from err
+            raise InvalidConfigError(str(err)) from err
         return cls.from_unchecked_dict(raw_config)
 
 
-class InvalidConfig(ValueError):
-    """
-    Exception raised upon trying to load an invalid configuration
-    """
+class InvalidConfigError(ValueError):
+    """Exception raised upon trying to load an invalid configuration."""

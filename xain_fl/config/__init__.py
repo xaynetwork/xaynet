@@ -1,12 +1,14 @@
-"""This package provides the logic for reading and validating the
-various configuration options exposed by the CLI and the toml config
-file."""
+"""Read and validate configurations.
+
+This package provides the logic for reading and validating the various configuration
+options exposed by the CLI and the toml config file.
+"""
 
 from xain_fl.config.cli import get_cmd_parameters
 from xain_fl.config.schema import (
     AiConfig,
     Config,
-    InvalidConfig,
+    InvalidConfigError,
     LoggingConfig,
     MetricsConfig,
     ServerConfig,
@@ -21,5 +23,5 @@ __all__ = [
     "StorageConfig",
     "ServerConfig",
     "MetricsConfig",
-    "InvalidConfig",
+    "InvalidConfigError",
 ]
