@@ -39,9 +39,11 @@ where
 
     /// The latest global weights as computed by the aggregator.
     // NOTE: We could store this directly in the task that handles the
-    // HTTP requests. But having it here makes it easier to bypass the
-    // HTTP layer, which is convenient for testing because we can
-    // simulate client with just AggregatorHandles.
+    // HTTP requests. I initially though that having it here would
+    // make it easier to bypass the HTTP layer, which is convenient
+    // for testing because we can simulate client with just
+    // AggregatorHandles. But maybe that's just another layer of
+    // complexity that is not worth it.
     global_weights: Arc<Vec<u8>>,
 
     /// The aggregator itself, which handles the weights or performs
@@ -221,7 +223,31 @@ where
     }
 }
 
-struct HttpServiceHandle {
-    start_training_requests: mpsc::Receiver<(Token, oneshot::Sender<Arc<Vec<u8>>>)>,
-    end_training_requests: mpsc::Receiver<(Token, Vec<u8>)>,
+struct Credentials(ClientId, Token);
+
+struct AggregatorServiceHandle {
+    local_weights: mpsc::UnboundedSender<(Credentials, Vec<u8>)>,
+    global_weights: mpsc::UnboundedSender<(Credentials, oneshot::Sender<Vec<u8>>)>,
+}
+
+impl AggregatorServiceHandle {
+    async fn get_global_weights(&self, id: ClientId, token: Token) -> Option<Vec<u8>> {
+        let (tx, rx) = oneshot::channel();
+        if self
+            .global_weights
+            .clone()
+            .send((Credentials(id, token), tx))
+            .is_err()
+        {
+            return None;
+        }
+        rx.await.ok()
+    }
+
+    async fn set_local_weights(&self, id: ClientId, token: Token, weights: Vec<u8>) {
+        let _ = self
+            .local_weights
+            .clone()
+            .send((Credentials(id, token), weights));
+    }
 }
