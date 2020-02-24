@@ -58,6 +58,7 @@ services:
       - "5555:5555"
 
   aggregator-rs:
+    command: aggregator
     build:
       context: .
       dockerfile: Dockerfile.dev

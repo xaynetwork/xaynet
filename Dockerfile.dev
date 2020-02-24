@@ -30,7 +30,14 @@ RUN set -eux; \
     rm -rf /var/lib/apt/lists/*;
 
 WORKDIR /usr/src/coordinator
-COPY . .
+# https://benjamincongdon.me/blog/2019/12/04/Fast-Rust-Docker-Builds-with-cargo-vendor/
+COPY Cargo.lock .
+COPY Cargo.toml . 
+RUN mkdir .cargo
+RUN cargo vendor > .cargo/config
+
+COPY ./src src
+RUN cargo build
 RUN cargo install --path .
 
 CMD ["coordinator"]
