@@ -72,7 +72,7 @@ key-value stores, and the key for global weights is
 Then, the participant trains. Once done, it uploads its local weights
 to the S3 bucket (3). The key is ``<round_number>/<participant_id>``.
 
-Finally (4), the participant sends it's ``EndTrainingRequest``. Before
+Finally (4), the participant sends its ``EndTrainingRoundRequest``. Before
 answering, the coordinator retrieves the local weights the participant
 has uploaded.
 
