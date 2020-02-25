@@ -5,10 +5,9 @@ import numpy as np
 from xain_fl.fl.coordinator.controller import RandomController
 
 
-def test_random_controller():
-    """Tests that the length of selected ids is correct and that
-    there's no replacement.
-    """
+def test_random_controller() -> None:
+    """Test that the length of selected ids is correct and without replacement."""
+
     participant_ids = ["a", "b", "c", "d", "e", "f", "g"]
     fractions = np.arange(0.25, 1, 0.25)
     expected_lengths = [

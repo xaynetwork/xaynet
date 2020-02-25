@@ -1,7 +1,8 @@
+"""This module provides logic to perform port forwarding.
+
+We use this to artificially open new TCP connections when creating gRPC clients.
 """
-This module provides logic to perform port forwarding. We use this to
-artificially open new TCP connections when creating gRPC clients.
-"""
+
 from errno import EBADF, ECONNRESET, ENOTCONN
 import faulthandler
 import socket
@@ -11,18 +12,20 @@ from threading import Event, Thread
 BUFFER_SIZE = 4096
 
 
-def transfer_worker(src, dst, terminate_event):
-    """A worker that reads data from the `src` socket and forwards it to
-    the `dst` socket.
+def transfer_worker(
+    src: socket.socket, dst: socket.socket, terminate_event: Event
+) -> None:
+    """A worker to transfer data.
+
+    It reads data from the `src` socket and forwards it to the `dst` socket.
 
     Args:
-
-        src (socket.socket): source socket
-        dst (socket.socket): destination socket
-        terminate_event (Event): event used to tell the caller that
-            the `src` socket is closed
-
+        src: The source socket.
+        dst: The destination socket.
+        terminate_event: The event used to tell the caller that the `src` socket is
+            closed.
     """
+
     while True:
         try:
             # Block until there's data to read OR the connection
@@ -48,36 +51,39 @@ def transfer_worker(src, dst, terminate_event):
             raise
 
 
-def forward(host, port, target_host, target_port, terminate_event):
-    """Set up a TCP socket listening on host:port. Once a connection is
-    established, open a connection to target_host:target_port and
-    forward data both way.
+def forward(
+    host: str, port: str, target_host: str, target_port: str, terminate_event: Event
+) -> None:
+    """Transfer data over an established connection.
 
-    # Example
+    Set up a TCP socket listening on host:port. Once a connection is established, open a
+    connection to target_host:target_port and forward data both way.
 
-    ```python
-    >>> forward("localhost", 8080, "localhost", 80)
-    ```
+    Examples:
+        ```python
+        >>> forward("localhost", 8080, "localhost", 80)
+        ```
 
-    has the same effect than:
+        has the same effect than:
 
-    ```shell
-    socat tcp-listen:8080,reuseaddr,fork tcp:localhost:80
-    ```
+        ```shell
+        socat tcp-listen:8080,reuseaddr,fork tcp:localhost:80
+        ```
 
     Args:
-
-        host (str): hostname or ip address for listening
-        port (str): port number for listening
-        target_host (str): hostname of ip address to establish a
-            connection with
-        target_port (str): port number to establish a connection to
-            connection with
-        terminate_event (Event): when this event is set, this function:
+        host: Hostname or ip address for listening.
+        port: Port number for listening.
+        target_host: Hostname of ip address to establish a connection with.
+        target_port: Port number to establish a connection to connection with.
+        terminate_event: When this event is set, this function:
             - closes the sockets it opened
             - waits for the two `transfer_worker()` threads to finish
             - returns
+
+    Raises:
+        OSError: If shutting down the socket fails.
     """
+
     # Set up a server socket that will wait for incoming connections
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -142,26 +148,21 @@ def forward(host, port, target_host, target_port, terminate_event):
 
 
 class ConnectionManager:
-    """
-    Manage multiple forwarding workers.
-    """
+    """Manage multiple forwarding workers."""
 
     def __init__(self):
         self.forwarders = {}
 
-    def start(self, host, port, target_host, target_port):
+    def start(self, host: str, port: str, target_host: str, target_port: str) -> None:
         """Start a new forwarding worker.
 
         Args:
-
-            host (str): hostname or ip address for listening
-            port (str): port number for listening
-            target_host (str): hostname of ip address to establish a
-                connection with
-            target_port (str): port number to establish a connection
-                to connection with
-
+            host: Hostname or ip address for listening.
+            port: Port number for listening.
+            target_host: Hostname of ip address to establish a connection with.
+            target_port: Port number to establish a connection to connection with.
         """
+
         terminate_event = Event()
         thread = Thread(
             target=forward,
@@ -172,23 +173,25 @@ class ConnectionManager:
         thread.start()
         self.forwarders[(host, port)] = (terminate_event, thread)
 
-    def stop(self, host, port):
-        """Stop the forwarding worker listening on the given host and port
+    def stop(self, host: str, port: str) -> None:
+        """Stop the forwarding worker listening on the given host and port.
 
         Args:
-            host (str): hostname or ip address the worker is listening
-                on
-            port (str): port number the worker is listening on
-
+            host: Hostname or ip address the worker is listening on.
+            port: Port number the worker is listening on.
         """
+
         terminate_event, thread = self.forwarders.pop((host, port))
         terminate_event.set()
         thread.join(timeout=5)
 
-    def stop_all(self):
+    def stop_all(self) -> None:
+        """Stop all the forwarding workers.
+
+        Raises:
+            Exception: If joining of threads fails.
         """
-        Stop all the forwarding workers
-        """
+
         threads = []
         for (host, port) in self.forwarders:
             terminate_event, thread = self.forwarders[(host, port)]

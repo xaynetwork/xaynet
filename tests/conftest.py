@@ -3,6 +3,7 @@
 from concurrent import futures
 import json
 import threading
+from typing import Callable, Dict, Generator, Tuple
 
 import grpc
 import numpy as np
@@ -36,9 +37,11 @@ from .store import MockS3Coordinator, MockS3Participant, MockS3Resource
 
 
 @pytest.fixture(scope="function")
-def s3_mock_stores():
-    """
-    Create a fake S3 store
+def s3_mock_stores() -> Tuple[MockS3Coordinator, MockS3Participant]:
+    """Create fake S3 stores.
+
+    Returns:
+        A mocked store for the coordinator and participant.
     """
 
     s3_resource = MockS3Resource()
@@ -48,20 +51,37 @@ def s3_mock_stores():
 
 
 @pytest.fixture(scope="function")
-def participant_store(s3_mock_stores):
-    """Return an object the participants can use to read the global
-    weights and write their local weights
+def participant_store(
+    s3_mock_stores: Tuple[MockS3Coordinator, MockS3Participant]
+) -> MockS3Participant:
+    """Create a fake S3 store for the participant.
 
+    Args:
+        s3_mock_stores: The mocked S3 stores.
+
+    Returns:
+        The mocked store for the participant.
     """
+
     return s3_mock_stores[1]
 
 
 @pytest.fixture(scope="function")
-def end_training_request(s3_mock_stores):
-    """A fixture that returns a function that can be used to send an
-    ``EndTrainingRequest`` to the coordinator.
+def end_training_request(
+    s3_mock_stores: Tuple[MockS3Coordinator, MockS3Participant]
+) -> Callable:
+    """A fixture to send an EndTrainingRequest to the coordinator.
 
+    Write the local weights for the given round and the given participant, and send an
+    EndTrainingRequest on behalf of that participant.
+
+    Args:
+        s3_mock_stores: The mocked S3 stores.
+
+    Returns:
+        A function that can be used to send and EndTrainingRequest to the coordinator.
     """
+
     participant_store = s3_mock_stores[1]
 
     def wrapped(
@@ -70,11 +90,6 @@ def end_training_request(s3_mock_stores):
         round: int = 0,
         weights: ndarray = ndarray([]),
     ):
-        """Write the local weights for the given round and the given
-        participant, and send an ``EndTrainingRequest`` on behalf of
-        that participant.
-
-        """
         participant_store.write_weights(participant_id, round, weights)
         coordinator.on_message(
             EndTrainingRoundRequest(participant_id=participant_id), participant_id
@@ -84,16 +99,23 @@ def end_training_request(s3_mock_stores):
 
 
 @pytest.fixture(scope="function")
-def coordinator(s3_mock_stores):
+def coordinator(
+    s3_mock_stores: Tuple[MockS3Coordinator, MockS3Participant]
+) -> Callable:
+    """Instantiate a new coordinator.
+
+    Args:
+        s3_mock_stores: The mocked S3 stores.
+
+    Returns:
+        A function to create a new coordinator.
     """
-    A function that instantiates a new coordinator.
-    """
+
     store: MockS3Coordinator = s3_mock_stores[0]
     default_global_weights_writer: AbstractGlobalWeightsWriter = store
     default_local_weights_reader: AbstractLocalWeightsReader = store
 
-    # pylint: disable=too-many-arguments
-    def wrapped(
+    def wrapped(  # pylint: disable=too-many-arguments
         global_weights_writer=default_global_weights_writer,
         local_weights_reader=default_local_weights_reader,
         metrics_store: AbstractMetricsStore = NullObjectMetricsStore(),
@@ -124,8 +146,13 @@ def coordinator(s3_mock_stores):
 
 
 @pytest.fixture()
-def json_participant_metrics_sample():
-    """Return a valid participant metric object."""
+def json_participant_metrics_sample() -> str:
+    """Create a valid participant metric object.
+
+    Returns:
+        The metric sample as a JSON string.
+    """
+
     return json.dumps(
         [
             {
@@ -145,16 +172,27 @@ def json_participant_metrics_sample():
 
 
 @pytest.fixture()
-def coordinator_metrics_sample():
-    """Return a valid coordinator metric object."""
+def coordinator_metrics_sample() -> Dict:
+    """Create a valid coordinator metric object.
+
+    Returns:
+        The metric sample as a dictionary.
+    """
+
     return {"state": 1, "round": 2, "number_of_selected_participants": 0}
 
 
 @pytest.fixture
-def coordinator_service(coordinator):
+def coordinator_service(coordinator: Callable) -> Generator:
     """[summary]
 
     .. todo:: PB-50: Advance docstrings.
+
+    Args:
+        coordinator: [description].
+
+    Returns:
+        [description].
     """
 
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
@@ -170,10 +208,16 @@ def coordinator_service(coordinator):
 
 
 @pytest.fixture
-def mock_coordinator_service(coordinator):
+def mock_coordinator_service(coordinator: Callable) -> Generator:
     """[summary]
 
     .. todo:: PB-50: Advance docstrings.
+
+    Args:
+        coordinator: [description].
+
+    Returns:
+        [description].
     """
 
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
@@ -202,13 +246,13 @@ def mock_coordinator_service(coordinator):
 
 
 @pytest.fixture
-def participant_stub():
+def participant_stub() -> Generator:
     """[summary]
 
     .. todo:: PB-50: Advance docstrings.
 
     Returns:
-        [type]: [description]
+        [description].
     """
 
     channel = grpc.insecure_channel("localhost:50051")
@@ -219,10 +263,13 @@ def participant_stub():
     channel.close()
 
 
-def port_generator():
+def port_generator() -> Generator:
     """A generator that yields incrementing port numbers.
 
+    Returns:
+        The generator for incrementing port numbers.
     """
+
     port = 50052
     while True:
         yield port
@@ -230,11 +277,14 @@ def port_generator():
 
 
 @pytest.fixture
-def participant_stubs():
+def participant_stubs() -> Generator:
     """Generator that yields functions instantiate participant stubs.
+
     Each participant creates a new TCP connection, so that they get a
     different participant ID.
 
+    Returns:
+        The generator for participant stubs.
     """
 
     ports = port_generator()
