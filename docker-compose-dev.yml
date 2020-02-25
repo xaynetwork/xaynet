@@ -47,24 +47,28 @@ services:
       GF_SERVER_ENFORCE_DOMAIN: "false"
 
   coordinator:
-    command: coordinator
+    command: coordinator -c /bin/config.toml
     build:
       context: .
       dockerfile: Dockerfile.dev
     depends_on:
       - influxdb
+    volumes:
+      - ${PWD}/configs/dev-local-coordinator.toml:/bin/config.toml
     networks:
       - xain-fl-rs
     ports:
       - "5555:5555"
 
   aggregator:
-    command: aggregator
+    command: aggregator -c /bin/config.toml
     build:
       context: .
       dockerfile: Dockerfile.dev
     depends_on:
       - influxdb
+    volumes:
+      - ${PWD}/configs/dev-local-aggregator.toml:/bin/config.toml
     networks:
       - xain-fl-rs
     ports:
