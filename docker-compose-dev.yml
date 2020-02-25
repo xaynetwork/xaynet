@@ -54,7 +54,7 @@ services:
     depends_on:
       - influxdb
     volumes:
-      - ${PWD}/configs/dev-local-coordinator.toml:/bin/config.toml
+      - ${PWD}/configs/dev-docker-coordinator.toml:/bin/config.toml
     networks:
       - xain-fl-rs
     ports:
@@ -68,7 +68,7 @@ services:
     depends_on:
       - influxdb
     volumes:
-      - ${PWD}/configs/dev-local-aggregator.toml:/bin/config.toml
+      - ${PWD}/configs/dev-docker-aggregator.toml:/bin/config.toml
     networks:
       - xain-fl-rs
     ports:

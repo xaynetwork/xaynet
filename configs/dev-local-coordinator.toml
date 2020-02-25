@@ -1,8 +1,8 @@
 log_level = "debug"
 
 [api]
-bind_address = "0.0.0.0:8080"
+bind_address = "localhost:8080"
 
 [rpc]
-bind_address = "0.0.0.0:5555"
-aggregator_address = "aggregator:6666"
+bind_address = "localhost:5555"
+aggregator_address = "localhost:6666"
