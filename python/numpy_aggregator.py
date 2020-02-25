@@ -3,10 +3,10 @@ import bz2
 import numpy as np
 import pickle
 
-DUMMY_WEIGHTS = np.ndarray([1,2,3])
+DUMMY_WEIGHTS = np.ndarray([1, 2, 3])
+
 
 class Aggregator:
-
     def __init__(self):
         self.global_weights = DUMMY_WEIGHTS
         self.weights = []
