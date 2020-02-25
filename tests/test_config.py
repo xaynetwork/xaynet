@@ -1,7 +1,7 @@
-"""
-Tests for the `xain_fl.config.Config` class.
-"""
+"""Tests for the `xain_fl.config.Config` class."""
+
 import re
+from typing import Any, Dict, Optional, Pattern, Type
 
 import pytest
 
@@ -9,10 +9,13 @@ from xain_fl.config import Config, InvalidConfigError
 
 
 @pytest.fixture
-def server_sample():
+def server_sample() -> Dict:
+    """Create a valid "server" section.
+
+    Returns:
+        A server configuration.
     """
-    Return a valid "server" section
-    """
+
     return {
         "host": "localhost",
         "port": 50051,
@@ -27,10 +30,13 @@ def server_sample():
 
 
 @pytest.fixture
-def ai_sample():
+def ai_sample() -> Dict:
+    """Create a valid "ai" section.
+
+    Returns:
+        An ai configuration.
     """
-    Return a valid "ai" section
-    """
+
     return {
         "rounds": 1,
         "epochs": 1,
@@ -40,10 +46,13 @@ def ai_sample():
 
 
 @pytest.fixture
-def storage_sample():
+def storage_sample() -> Dict:
+    """Create a valid "storage" section.
+
+    Returns:
+        A storage configuration.
     """
-    Return a valid "storage" section
-    """
+
     return {
         "endpoint": "http://localhost:9000",
         "bucket": "bucket",
@@ -53,18 +62,24 @@ def storage_sample():
 
 
 @pytest.fixture
-def logging_sample():
+def logging_sample() -> Dict:
+    """Create a valid "logging" section.
+
+    Returns:
+        A logging configuration.
     """
-    Return a valid "logging" section
-    """
+
     return {"level": "debug", "console": True, "third_party": True}
 
 
 @pytest.fixture
-def metrics_sample():
+def metrics_sample() -> Dict:
+    """Create a valid "metrics" section.
+
+    Returns:
+        A metrics configuration.
     """
-    Return a valid "metrics" section
-    """
+
     return {
         "enable": False,
         "host": "localhost",
@@ -76,12 +91,15 @@ def metrics_sample():
 
 
 @pytest.fixture
-def config_sample(
+def config_sample(  # pylint: disable=redefined-outer-name
     server_sample, ai_sample, storage_sample, logging_sample, metrics_sample
-):  # pylint: disable=redefined-outer-name
+) -> Dict:
+    """Create a valid config.
+
+    Returns:
+        A configuration.
     """
-    Return a valid config
-    """
+
     return {
         "ai": ai_sample,
         "server": server_sample,
@@ -91,11 +109,11 @@ def config_sample(
     }
 
 
-def test_default_logging_config(config_sample):  # pylint: disable=redefined-outer-name
-    """Check that the config loads if the [logging] section is not
-    specified
+def test_default_logging_config(  # pylint: disable=redefined-outer-name
+    config_sample: Dict
+) -> None:
+    """Check that the config loads if the [logging] section is not specified."""
 
-    """
     del config_sample["logging"]
     config = Config.from_unchecked_dict(config_sample)
     assert config.logging.level == "info"
@@ -105,8 +123,11 @@ def test_default_logging_config(config_sample):  # pylint: disable=redefined-out
     assert config.logging.level == "info"
 
 
-def test_invalid_logging_config(config_sample):  # pylint: disable=redefined-outer-name
-    """Various negative cases for the [logging] section"""
+def test_invalid_logging_config(  # pylint: disable=redefined-outer-name
+    config_sample: Dict
+) -> None:
+    """Various negative cases for the [logging] section."""
+
     config_sample["logging"] = {"level": "invalid"}
 
     with AssertInvalid() as err:
@@ -117,10 +138,11 @@ def test_invalid_logging_config(config_sample):  # pylint: disable=redefined-out
     )
 
 
-def test_load_valid_config(config_sample):  # pylint: disable=redefined-outer-name
-    """
-    Check that a valid config is loaded correctly
-    """
+def test_load_valid_config(  # pylint: disable=redefined-outer-name
+    config_sample: Dict
+) -> None:
+    """Check that a valid config is loaded correctly."""
+
     config = Config.from_unchecked_dict(config_sample)
 
     assert config.server.host == "localhost"
@@ -155,13 +177,11 @@ def test_load_valid_config(config_sample):  # pylint: disable=redefined-outer-na
     assert config.logging.third_party is True
 
 
-def test_server_config_ip_address(
-    config_sample, server_sample
-):  # pylint: disable=redefined-outer-name
-    """Check that the config is loaded correctly when the `server.host`
-    key is an IP address
+def test_server_config_ip_address(  # pylint: disable=redefined-outer-name
+    config_sample: Dict, server_sample: Dict
+) -> None:
+    """Check that the config is loaded correctly for IP addresses."""
 
-    """
     # Ipv4 host
     server_sample["host"] = "1.2.3.4"
     config_sample["server"] = server_sample
@@ -175,13 +195,11 @@ def test_server_config_ip_address(
     assert config.server.host == server_sample["host"]
 
 
-def test_server_config_extra_key(
-    config_sample, server_sample
-):  # pylint: disable=redefined-outer-name
-    """Check that the config is rejected when the server section contains
-    an extra key
+def test_server_config_extra_key(  # pylint: disable=redefined-outer-name
+    config_sample: Dict, server_sample: Dict
+) -> None:
+    """Check that the config is rejected if the server section contains an extra key."""
 
-    """
     server_sample["extra-key"] = "foo"
     config_sample["server"] = server_sample
 
@@ -192,13 +210,11 @@ def test_server_config_extra_key(
     err.check_extra_key("extra-key")
 
 
-def test_server_config_invalid_host(
-    config_sample, server_sample
-):  # pylint: disable=redefined-outer-name
-    """Check that the config is rejected when the `server.host` key is
-    invalid.
+def test_server_config_invalid_host(  # pylint: disable=redefined-outer-name
+    config_sample: Dict, server_sample: Dict
+) -> None:
+    """Check that the config is rejected when the `server.host` key is invalid."""
 
-    """
     server_sample["host"] = 1.0
     config_sample["server"] = server_sample
 
@@ -212,10 +228,11 @@ def test_server_config_invalid_host(
     )
 
 
-def test_server_config_valid_ipv6(
-    config_sample, server_sample
-):  # pylint: disable=redefined-outer-name
+def test_server_config_valid_ipv6(  # pylint: disable=redefined-outer-name
+    config_sample: Dict, server_sample: Dict
+) -> None:
     """Check some edge cases with IPv6 `server.host` key"""
+
     server_sample["host"] = "::"
     config_sample["server"] = server_sample
     config = Config.from_unchecked_dict(config_sample)
@@ -229,10 +246,10 @@ def test_server_config_valid_ipv6(
 
 # Adapted from unittest's assertRaises
 class AssertInvalid:
-    """A context manager that checks that an `xainfl.config.InvalidConfigError`
-    exception is raised, and provides helpers to perform checks on the
-    exception.
+    """A context manager for the InvalidConfigError exception.
 
+    It that checks that an `xainfl.config.InvalidConfigError` exception is raised, and
+    provides helpers to perform checks on the exception.
     """
 
     def __init__(self):
@@ -241,7 +258,9 @@ class AssertInvalid:
     def __enter__(self):
         return self
 
-    def __exit__(self, exc_type, exc_value, _tb):
+    def __exit__(
+        self, exc_type: Optional[Type[Exception]], exc_value: Exception, _tb: Any
+    ) -> bool:
         if exc_type is None:
             raise Exception("Did not get an exception")
         if not isinstance(exc_value, InvalidConfigError):
@@ -252,22 +271,19 @@ class AssertInvalid:
 
         return True
 
-    def check_section(self, section):
-        """Check that the error message mentions the given section of the
-        configuration file.
-
-        """
+    def check_section(self, section: str) -> None:
+        """Check that the error message mentions the section of the config file."""
 
         needle = re.compile(f"Key '{section}' error:")
         assert re.search(needle, self.message)
 
-    def check_extra_key(self, key):
-        """Check that the error mentions the given configuration key"""
+    def check_extra_key(self, key: str) -> None:
+        """Check that the error mentions the given configuration key."""
+
         needle = re.compile(f"Wrong key '{key}' in")
         assert re.search(needle, self.message)
 
-    def check_other(self, needle):
-        """Check that the error message matches the given pattern.
+    def check_other(self, needle: Pattern) -> None:
+        """Check that the error message matches the given pattern."""
 
-        """
         assert re.search(needle, self.message)

@@ -121,7 +121,7 @@ class MockS3Coordinator(S3GlobalWeightsWriter, S3LocalWeightsReader):
 
 class MockS3Participant(S3LocalWeightsWriter, S3GlobalWeightsReader):
     """A mocked S3 store for the participant.
-    
+
     A partial mock of the ``xain_sdk.store.S3GlobalWeightsReader`` and
     ``xain_sdk.store.S3LocalWeightsWriter`` class that does not perform any IO.
     Instead, data is stored in memory.
