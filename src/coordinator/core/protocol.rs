@@ -1,8 +1,7 @@
 use derive_more::Display;
-use std::collections::VecDeque;
-use std::error::Error;
+use std::{collections::VecDeque, error::Error};
 
-use crate::common::ClientId;
+use crate::{common::ClientId, coordinator::api::models::HeartBeatResponse};
 
 #[derive(Eq, Debug, PartialEq, Default, Copy, Clone)]
 pub struct Counters {
@@ -329,24 +328,6 @@ impl CoordinatorConfig {
     fn minimum_participants(&self) -> u32 {
         (self.participants_ratio * self.min_clients as f64) as i64 as u32
     }
-}
-
-/// Response to a heartbeat
-#[derive(Debug)]
-pub enum HeartBeatResponse {
-    /// The client should stand by in its current state
-    StandBy,
-
-    /// The coordinator has finished, and the client should disconnect
-    Finish,
-
-    /// The client has been selected for the given round and should
-    /// start or continue training
-    Round(u32),
-
-    /// The client has not been accepted by the coordinator yet and
-    /// should not send heartbeats
-    Reject,
 }
 
 /// Response to a "start training" request.

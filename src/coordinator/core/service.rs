@@ -29,6 +29,7 @@ use crate::{
     aggregator,
     common::{ClientId, Token},
     coordinator::{
+        api::models::{HeartBeatResponse, RendezVousResponse, StartTrainingResponse},
         core::{
             client::{Clients, HeartBeatResetError},
             protocol,
@@ -242,7 +243,7 @@ where
     S: Selector,
 {
     /// Handle a rendez-vous request
-    fn rendez_vous(&mut self, req: RequestMessage<RendezVousRequest, RendezVousResponse>) {
+    fn rendez_vous(&mut self, req: RequestMessage<(), RendezVousResponse>) {
         let (_, response_tx) = req;
         let id = ClientId::new();
         // This should be "Unknown" since we just created a
@@ -256,14 +257,14 @@ where
     }
 
     /// Handle a heartbeat request
-    fn heartbeat(&mut self, req: RequestMessage<HeartBeatRequest, HeartBeatResponse>) {
+    fn heartbeat(&mut self, req: RequestMessage<ClientId, HeartBeatResponse>) {
         let (id, response_tx) = req;
         let response = self.protocol.heartbeat(id, self.clients.get_state(&id));
         response_tx.send(response);
     }
 
     /// Handle a start training request
-    fn start_training(&mut self, req: RequestMessage<StartTrainingRequest, StartTrainingResponse>) {
+    fn start_training(&mut self, req: RequestMessage<ClientId, StartTrainingResponse>) {
         let (id, response_tx) = req;
         match self.protocol.start_training(self.clients.get_state(&id)) {
             protocol::StartTrainingResponse::Reject => {
@@ -497,28 +498,10 @@ impl<R> ResponseSender<R> {
 
 pub type RequestMessage<P, R> = (P, ResponseSender<R>);
 
-#[derive(Debug)]
-pub struct RendezVousRequest;
-
-#[derive(Debug)]
-pub enum RendezVousResponse {
-    Accept(ClientId),
-    Reject,
-}
-
-pub type HeartBeatRequest = ClientId;
-pub use protocol::HeartBeatResponse;
-
-pub type StartTrainingRequest = ClientId;
-pub enum StartTrainingResponse {
-    Accept(String, Token),
-    Reject,
-}
-
 pub enum Request {
-    RendezVous(RequestMessage<RendezVousRequest, RendezVousResponse>),
-    HeartBeat(RequestMessage<HeartBeatRequest, HeartBeatResponse>),
-    StartTraining(RequestMessage<StartTrainingRequest, StartTrainingResponse>),
+    RendezVous(RequestMessage<(), RendezVousResponse>),
+    HeartBeat(RequestMessage<ClientId, HeartBeatResponse>),
+    StartTraining(RequestMessage<ClientId, StartTrainingResponse>),
 }
 
 pub struct CoordinatorHandle(mpsc::Sender<Request>);
@@ -536,7 +519,7 @@ impl CoordinatorHandle {
 
     pub async fn rendez_vous(&mut self) -> Result<RendezVousResponse, RequestError> {
         let (resp_tx, resp_rx) = response_channel::<RendezVousResponse>();
-        let req: Request = Request::RendezVous((RendezVousRequest, resp_tx));
+        let req: Request = Request::RendezVous(((), resp_tx));
         self.0.send(req).await.map_err(|_| RequestError)?;
         resp_rx.await
     }

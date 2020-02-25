@@ -35,7 +35,7 @@ async fn serve(handle: AggregatorServiceHandle) {
             },
         );
 
-    let mut listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let mut listener = TcpListener::bind("0.0.0.0:8081").await.unwrap();
     warp::serve(download_global_weights.or(upload_local_weights))
         .run_incoming(listener.incoming())
         .await
