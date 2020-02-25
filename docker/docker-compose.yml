@@ -49,12 +49,12 @@ services:
   coordinator:
     command: coordinator -c /bin/config.toml
     build:
-      context: .
-      dockerfile: Dockerfile.dev
+      context: ..
+      dockerfile: docker/Dockerfile
     depends_on:
       - influxdb
     volumes:
-      - ${PWD}/configs/dev-docker-coordinator.toml:/bin/config.toml
+      - ${PWD}/docker/coordinator.toml:/bin/config.toml
     networks:
       - xain-fl-rs
     ports:
@@ -63,12 +63,12 @@ services:
   aggregator:
     command: aggregator -c /bin/config.toml
     build:
-      context: .
-      dockerfile: Dockerfile.dev
+      context: ..
+      dockerfile: docker/Dockerfile
     depends_on:
       - influxdb
     volumes:
-      - ${PWD}/configs/dev-docker-aggregator.toml:/bin/config.toml
+      - ${PWD}/docker/aggregator.toml:/bin/config.toml
     networks:
       - xain-fl-rs
     ports:

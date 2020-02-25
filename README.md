@@ -85,17 +85,17 @@ needed for such an external API is a `CoordinatorHandle`.
 **Coordinator**
 
 ```bash
-cargo run --bin coordinator
+cargo run --bin coordinator -- -c configs/dev-coordinator.toml
 ```
 
 **Aggregator**
 
 ```bash
-cargo run --bin aggregator
+cargo run --bin aggregator -- -c configs/dev-aggregator.toml
 ```
 
 ### Docker-compose
 
 ```bash
-docker-compose -f docker-compose-dev.yml up
+docker-compose -f docker/docker-compose.yml up --build
 ```

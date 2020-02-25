@@ -32,7 +32,7 @@ RUN set -eux; \
 WORKDIR /usr/src/coordinator
 # https://benjamincongdon.me/blog/2019/12/04/Fast-Rust-Docker-Builds-with-cargo-vendor/
 COPY Cargo.lock .
-COPY Cargo.toml . 
+COPY Cargo.toml .
 RUN mkdir .cargo
 RUN cargo vendor > .cargo/config
 
@@ -40,5 +40,3 @@ COPY ./src src
 RUN cargo build
 RUN mv ./target/debug/aggregator /bin/aggregator
 RUN mv ./target/debug/coordinator /bin/coordinator
-
-ENV RUST_LOG=debug
