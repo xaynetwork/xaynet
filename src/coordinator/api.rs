@@ -39,7 +39,7 @@ pub mod models {
     }
 }
 
-async fn serve(handle: CoordinatorHandle) {
+pub async fn serve(bind_address: &str, handle: CoordinatorHandle) {
     let handle = warp::any().map(move || handle.clone());
 
     let heartbeat = warp::get()
@@ -72,8 +72,11 @@ async fn serve(handle: CoordinatorHandle) {
             }
         });
 
-    let mut listener = TcpListener::bind("0.0.0.0:8080").await.unwrap();
-    warp::serve(heartbeat.or(rendez_vous).or(start_training))
+    let mut listener = TcpListener::bind(bind_address).await.unwrap();
+
+    info!("starting HTTP server on {}", bind_address);
+    let log = warp::log("http");
+    warp::serve(heartbeat.or(rendez_vous).or(start_training).with(log))
         .run_incoming(listener.incoming())
         .await
 }

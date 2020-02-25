@@ -12,7 +12,10 @@ use futures::future::{ready, Ready};
 
 use clap::{App, Arg};
 
-use xain_fl::aggregator::service::{Aggregator, AggregatorService};
+use xain_fl::aggregator::{
+    api,
+    service::{Aggregator, AggregatorService},
+};
 
 #[tokio::main]
 async fn main() {
@@ -35,11 +38,12 @@ async fn main() {
 }
 
 async fn _main(settings: Settings) {
-    let aggregator = AggregatorService::new(
-        DummyAggregator,
-        settings.rpc.bind_address,
-        settings.rpc.coordinator_address,
-    );
+    let Settings { rpc, api, .. } = settings;
+
+    let (aggregator, handle) =
+        AggregatorService::new(DummyAggregator, rpc.bind_address, rpc.coordinator_address);
+
+    tokio::spawn(async move { api::serve(&api.bind_address, handle).await });
     aggregator.await;
 }
 

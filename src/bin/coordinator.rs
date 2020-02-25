@@ -7,7 +7,10 @@ use std::env;
 
 use xain_fl::{
     common::ClientId,
-    coordinator::core::{CoordinatorConfig, CoordinatorService, Selector},
+    coordinator::{
+        api,
+        core::{CoordinatorConfig, CoordinatorService, Selector},
+    },
 };
 
 #[tokio::main]
@@ -36,12 +39,17 @@ async fn _main(settings: Settings) {
         min_clients: 3,
         participants_ratio: 0.5,
     };
-    let (coordinator, _handle) = CoordinatorService::new(
+    let Settings { rpc, api, .. } = settings;
+
+    let (coordinator, handle) = CoordinatorService::new(
         RandomSelector,
         config,
-        settings.rpc.bind_address,
-        settings.rpc.aggregator_address,
+        rpc.bind_address,
+        rpc.aggregator_address,
     );
+
+    tokio::spawn(async move { api::serve(&api.bind_address, handle).await });
+
     coordinator.await;
 }
 

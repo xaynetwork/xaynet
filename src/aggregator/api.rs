@@ -9,7 +9,7 @@ use warp::{
     Filter,
 };
 
-async fn serve(handle: AggregatorServiceHandle) {
+pub async fn serve(bind_address: &str, handle: AggregatorServiceHandle) {
     let handle = warp::any().map(move || handle.clone());
 
     let download_global_weights = warp::get()
@@ -17,7 +17,8 @@ async fn serve(handle: AggregatorServiceHandle) {
         .and(warp::path::param::<Token>())
         .and(handle.clone())
         .and_then(|id, token, handle: AggregatorServiceHandle| async move {
-            match handle.get_global_weights(id, token).await {
+            debug!("received download request for {}", id);
+            match handle.download(id, token).await {
                 Some(weights) => Ok(Response::builder().body(weights)),
                 None => Err(warp::reject::not_found()),
             }
@@ -30,13 +31,17 @@ async fn serve(handle: AggregatorServiceHandle) {
         .and(handle.clone())
         .and_then(
             |id, token, weights, handle: AggregatorServiceHandle| async move {
-                handle.set_local_weights(id, token, weights).await;
+                debug!("received upload request for {}", id);
+                handle.upload(id, token, weights).await;
                 Ok(StatusCode::OK) as Result<_, warp::reject::Rejection>
             },
         );
 
-    let mut listener = TcpListener::bind("0.0.0.0:8081").await.unwrap();
-    warp::serve(download_global_weights.or(upload_local_weights))
+    let mut listener = TcpListener::bind(bind_address).await.unwrap();
+
+    info!("starting HTTP server on {}", bind_address);
+    let log = warp::log("http");
+    warp::serve(download_global_weights.or(upload_local_weights).with(log))
         .run_incoming(listener.incoming())
         .await
 }

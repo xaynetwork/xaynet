@@ -11,13 +11,17 @@ use crate::{
     common::{ClientId, Token},
     coordinator,
 };
+use derive_more::From;
 
 use tokio::{
     net::ToSocketAddrs,
     sync::{mpsc, oneshot},
 };
 
-use futures::{ready, stream::Stream};
+use futures::{
+    ready,
+    stream::{Stream, StreamExt},
+};
 
 /// A future that orchestrates the entire aggregator service.
 // TODO: maybe add a HashSet or HashMap of clients who already
@@ -62,8 +66,9 @@ where
 
     /// RPC requests from the coordinator.
     rpc_requests: rpc::RequestReceiver,
-    // http_requests: aggregator::http::Handle,
     aggregation_future: Option<AggregationFuture<A>>,
+
+    api_requests: RequestReceiver,
 }
 
 // FIXME: the futures returned by the `aggregate` method needs to be
@@ -99,9 +104,10 @@ where
         aggregator: A,
         rpc_listen_addr: U,
         coordinator_rpc_addr: T,
-    ) -> Self {
+    ) -> (Self, AggregatorServiceHandle) {
         let rpc_requests = rpc::run(rpc_listen_addr);
-        Self {
+        let (handle, api_requests) = AggregatorServiceHandle::new();
+        let service = Self {
             aggregator,
             rpc_requests,
             coordinator_rpc: None,
@@ -111,7 +117,9 @@ where
             allowed_ids: HashMap::new(),
             global_weights: Bytes::new(),
             aggregation_future: None,
-        }
+            api_requests,
+        };
+        (service, handle)
     }
 
     fn poll_rpc_requests(&mut self, cx: &mut Context) -> Poll<()> {
@@ -227,15 +235,50 @@ struct Credentials(ClientId, Token);
 
 #[derive(Clone)]
 pub struct AggregatorServiceHandle {
-    local_weights: mpsc::UnboundedSender<(Credentials, Bytes)>,
-    global_weights: mpsc::UnboundedSender<(Credentials, oneshot::Sender<Bytes>)>,
+    upload_requests: mpsc::UnboundedSender<(Credentials, Bytes)>,
+    download_requests: mpsc::UnboundedSender<(Credentials, oneshot::Sender<Bytes>)>,
 }
 
 impl AggregatorServiceHandle {
-    pub async fn get_global_weights(&self, id: ClientId, token: Token) -> Option<Bytes> {
+    fn new() -> (Self, RequestReceiver) {
+        let (upload_tx, upload_rx) = mpsc::unbounded_channel::<(Credentials, Bytes)>();
+        let (download_tx, download_rx) =
+            mpsc::unbounded_channel::<(Credentials, oneshot::Sender<Bytes>)>();
+        let handle = Self {
+            upload_requests: upload_tx,
+            download_requests: download_tx,
+        };
+        let request_receiver = RequestReceiver::new(upload_rx, download_rx);
+        (handle, request_receiver)
+    }
+}
+
+pub struct RequestReceiver(Pin<Box<dyn Stream<Item = Request> + Send>>);
+
+#[derive(From)]
+enum Request {
+    Upload(Credentials, Bytes),
+    Download(Credentials, oneshot::Sender<Bytes>),
+}
+
+impl RequestReceiver {
+    fn new(
+        upload_requests: mpsc::UnboundedReceiver<(Credentials, Bytes)>,
+        download_requests: mpsc::UnboundedReceiver<(Credentials, oneshot::Sender<Bytes>)>,
+    ) -> Self {
+        Self(Box::pin(
+            download_requests
+                .map(Request::from)
+                .chain(upload_requests.map(Request::from)),
+        ))
+    }
+}
+
+impl AggregatorServiceHandle {
+    pub async fn download(&self, id: ClientId, token: Token) -> Option<Bytes> {
         let (tx, rx) = oneshot::channel();
         if self
-            .global_weights
+            .download_requests
             .clone()
             .send((Credentials(id, token), tx))
             .is_err()
@@ -245,9 +288,9 @@ impl AggregatorServiceHandle {
         rx.await.ok()
     }
 
-    pub async fn set_local_weights(&self, id: ClientId, token: Token, weights: Bytes) {
+    pub async fn upload(&self, id: ClientId, token: Token, weights: Bytes) {
         let _ = self
-            .local_weights
+            .upload_requests
             .clone()
             .send((Credentials(id, token), weights));
     }
