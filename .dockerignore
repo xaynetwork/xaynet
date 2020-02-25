@@ -9,8 +9,8 @@
 *.pyd
 *.pyo
 
-Dockerfile.dev
-docker-compose-dev.yml
+Dockerfile
+docker-compose.yml
 
 target
 shell.nix
