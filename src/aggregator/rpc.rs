@@ -93,7 +93,9 @@ impl RequestStream {
         aggregate: mpsc::UnboundedReceiver<AggregateRequest>,
     ) -> Self {
         Self(Box::pin(
-            aggregate.map(Request::Aggregate).chain(select.map(Request::Select)),
+            aggregate
+                .map(Request::Aggregate)
+                .chain(select.map(Request::Select)),
         ))
     }
 }

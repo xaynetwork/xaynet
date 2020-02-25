@@ -1,0 +1,8 @@
+log_level = "debug"
+
+[api]
+bind_address = "localhost:8080"
+
+[rpc]
+bind_address = "localhost:5555"
+coordinator_address = "localhost:6666"

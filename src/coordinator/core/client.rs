@@ -1,5 +1,4 @@
-use super::heartbeat::*;
-use super::protocol::*;
+use super::{heartbeat::*, protocol::*};
 use crate::common::ClientId;
 use derive_more::Display;
 use std::{
