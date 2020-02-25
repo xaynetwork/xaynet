@@ -1,0 +1,17 @@
+
+.git
+.github
+
+**/__pycache__
+*,cover
+*.log
+*.pyc
+*.pyd
+*.pyo
+
+Dockerfile.dev
+docker-compose-dev.yml
+
+target
+shell.nix
+_images
