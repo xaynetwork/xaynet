@@ -46,7 +46,7 @@ impl MetricStore for InfluxDBMetricStore<'_> {
             measurement.add_field(name, value);
         }
 
-        self.client.write_one(measurement, None);
+        self.client.write_one(measurement, None).poll();
     }
 
     fn write_with_tags(
@@ -63,7 +63,7 @@ impl MetricStore for InfluxDBMetricStore<'_> {
             measurement.add_tag(name, value);
         }
 
-        self.client.write_one(measurement, None);
+        self.client.write_one(measurement, None).poll();
     }
 }
 
