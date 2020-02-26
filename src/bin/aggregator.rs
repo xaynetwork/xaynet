@@ -23,11 +23,16 @@ async fn main() {
             Arg::with_name("config")
                 .short("c")
                 .takes_value(true)
+                .required(true)
                 .help("path to the config file"),
         )
         .get_matches();
     let config_file = matches.value_of("config").unwrap();
-    let settings = Settings::new(config_file).unwrap();
+
+    let settings = Settings::new(config_file).unwrap_or_else(|err| {
+        eprintln!("Problem parsing configuration file: {}", err);
+        process::exit(1);
+    });
     env::set_var("RUST_LOG", &settings.log_level);
     env_logger::init();
 
