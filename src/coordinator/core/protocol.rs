@@ -1,7 +1,10 @@
 use derive_more::Display;
 use std::{collections::VecDeque, error::Error};
 
-use crate::{common::ClientId, coordinator::api::models::HeartBeatResponse};
+use crate::{
+    common::ClientId,
+    coordinator::{api::models::HeartBeatResponse, settings::FederatedLearningSettings},
+};
 
 #[derive(Eq, Debug, PartialEq, Default, Copy, Clone)]
 pub struct Counters {
@@ -33,7 +36,7 @@ pub struct Protocol {
     is_training_complete: bool,
 
     /// Coordinator configuration
-    config: CoordinatorConfig,
+    settings: FederatedLearningSettings,
 
     /// Current training round
     current_round: u32,
@@ -59,19 +62,19 @@ impl Protocol {
         } = self.counters;
 
         let total_participants = selected + done + done_and_inactive;
-        if total_participants >= self.config.minimum_participants() {
+        if total_participants >= self.settings.minimum_participants() {
             return None;
         }
 
         // We need to select more clients. But do we have enough
         // clients to perform the selection?
         let total_clients = total_participants + waiting;
-        if total_clients < self.config.min_clients {
+        if total_clients < self.settings.min_clients {
             return None;
         }
 
         let total_to_select =
-            f64::ceil(self.config.participants_ratio * total_clients as f64) as i64 as u32;
+            f64::ceil(self.settings.participants_ratio * total_clients as f64) as i64 as u32;
         Some(total_to_select - total_participants)
     }
 
@@ -96,9 +99,9 @@ impl Protocol {
     pub fn counters(&self) -> Counters {
         self.counters
     }
-    pub fn new(config: CoordinatorConfig) -> Self {
+    pub fn new(settings: FederatedLearningSettings) -> Self {
         Self {
-            config,
+            settings,
             counters: Counters::new(),
             is_training_complete: false,
             waiting_for_aggregation: false,
@@ -280,7 +283,7 @@ impl Protocol {
                 if self.is_end_of_round() {
                     self.emit_event(Event::RunAggregation);
                     self.waiting_for_aggregation = true;
-                    if self.current_round == self.config.rounds {
+                    if self.current_round == self.settings.rounds {
                         info!("training complete");
                         self.is_training_complete = true;
                     } else {
@@ -317,14 +320,7 @@ impl Protocol {
     }
 }
 
-pub struct CoordinatorConfig {
-    pub rounds: u32,
-    pub participants_ratio: f64,
-    pub min_clients: u32,
-    // epoch: u32,
-}
-
-impl CoordinatorConfig {
+impl FederatedLearningSettings {
     fn minimum_participants(&self) -> u32 {
         (self.participants_ratio * self.min_clients as f64) as i64 as u32
     }

@@ -35,6 +35,7 @@ use crate::{
             protocol,
         },
         rpc,
+        settings::FederatedLearningSettings,
     },
 };
 
@@ -89,6 +90,9 @@ where
     /// Type that performs the selection
     selector: S,
 
+    /// URL of the aggregator for clients to download/upload model weights
+    aggregator_url: String,
+
     /// RPC client for the aggregator service. The RPC client
     /// automatically tried to reconnect when the connection shuts
     /// down, so after the initial connection, it is always available.
@@ -123,7 +127,8 @@ where
         U: ToSocketAddrs + Send + Sync + 'static,
     >(
         selector: S,
-        config: protocol::CoordinatorConfig,
+        fl_settings: FederatedLearningSettings,
+        aggregator_url: String,
         rpc_listen_addr: U,
         aggregator_rpc_addr: T,
     ) -> (Self, CoordinatorHandle) {
@@ -136,13 +141,14 @@ where
             heartbeat_expirations_rx,
             requests_rx,
             clients: Clients::new(heartbeat_expirations_tx),
-            protocol: protocol::Protocol::new(config),
+            protocol: protocol::Protocol::new(fl_settings),
             pending_selection: Vec::new(),
             aggregator_rpc: None,
             aggregator_rpc_connection: Some(aggregator::rpc::ConnectFuture::new(
                 aggregator_rpc_addr,
             )),
             aggregation_future: None,
+            aggregator_url,
             rpc_requests,
         };
         let handle = CoordinatorHandle::new(requests_tx);
@@ -193,6 +199,7 @@ where
         loop {
             match ready!(Pin::new(&mut self.heartbeat_expirations_rx).poll_next(cx)) {
                 Some(id) => {
+                    info!("heartbeat expired: {}", id);
                     let state = self.clients.get_state(&id);
                     self.protocol.hearbeat_timeout(id, state);
                     self.handle_protocol_events();
@@ -279,6 +286,7 @@ where
                 }
 
                 let mut rpc_client = self.aggregator_rpc.clone().unwrap();
+                let url = self.aggregator_url.clone();
 
                 tokio::spawn(async move {
                     let token = Token::new();
@@ -290,11 +298,7 @@ where
                     match rpc_client.select(rpc_context(), id, token).await {
                         Ok(result) => {
                             if result.is_ok() {
-                                response_tx.send(StartTrainingResponse::Accept(
-                                    // FIXME: don't hardcode this
-                                    "http://localhost:8080".into(),
-                                    token,
-                                ));
+                                response_tx.send(StartTrainingResponse::Accept(url, token));
                             }
                         }
                         Err(e) => {

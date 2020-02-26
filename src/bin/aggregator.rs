@@ -1,13 +1,9 @@
 #[macro_use]
 extern crate async_trait;
 
-#[macro_use]
-extern crate serde;
-
 use std::env;
 
 use bytes::Bytes;
-use config::{Config, ConfigError};
 use futures::future::{ready, Ready};
 
 use clap::{App, Arg};
@@ -15,6 +11,7 @@ use clap::{App, Arg};
 use xain_fl::aggregator::{
     api,
     service::{Aggregator, AggregatorService},
+    settings::Settings,
 };
 
 #[tokio::main]
@@ -59,31 +56,5 @@ impl Aggregator for DummyAggregator {
     }
     fn aggregate(&mut self) -> Self::AggregateFut {
         ready(Ok(Bytes::new()))
-    }
-}
-
-#[derive(Debug, Deserialize)]
-struct Settings {
-    log_level: String,
-    api: ApiSettings,
-    rpc: RpcSettings,
-}
-
-#[derive(Debug, Deserialize)]
-struct ApiSettings {
-    bind_address: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct RpcSettings {
-    bind_address: String,
-    coordinator_address: String,
-}
-
-impl Settings {
-    pub fn new(path: &str) -> Result<Self, ConfigError> {
-        let mut s = Config::new();
-        s.merge(config::File::with_name(path)).unwrap();
-        s.try_into()
     }
 }

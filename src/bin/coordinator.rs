@@ -1,7 +1,4 @@
-#[macro_use]
-extern crate serde;
 use clap::{App, Arg};
-use config::{Config, ConfigError};
 use rand::seq::IteratorRandom;
 use std::env;
 use std::process;
@@ -11,7 +8,8 @@ use xain_fl::{
     common::ClientId,
     coordinator::{
         api,
-        core::{CoordinatorConfig, CoordinatorService, Selector},
+        core::{CoordinatorService, Selector},
+        settings::Settings,
     },
 };
 
@@ -41,16 +39,18 @@ async fn main() {
 }
 
 async fn _main(settings: Settings) {
-    let config = CoordinatorConfig {
-        rounds: 3,
-        min_clients: 3,
-        participants_ratio: 0.5,
-    };
-    let Settings { rpc, api, .. } = settings;
+    let Settings {
+        rpc,
+        api,
+        federated_learning,
+        aggregator_url,
+        ..
+    } = settings;
 
     let (coordinator, handle) = CoordinatorService::new(
         RandomSelector,
-        config,
+        federated_learning,
+        aggregator_url,
         rpc.bind_address,
         rpc.aggregator_address,
     );
@@ -70,31 +70,5 @@ impl Selector for RandomSelector {
         _selected: impl Iterator<Item = ClientId>,
     ) -> Vec<ClientId> {
         waiting.choose_multiple(&mut rand::thread_rng(), min_count)
-    }
-}
-
-#[derive(Debug, Deserialize)]
-struct Settings {
-    log_level: String,
-    api: ApiSettings,
-    rpc: RpcSettings,
-}
-
-#[derive(Debug, Deserialize)]
-struct ApiSettings {
-    bind_address: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct RpcSettings {
-    bind_address: String,
-    aggregator_address: String,
-}
-
-impl Settings {
-    pub fn new(path: &str) -> Result<Self, ConfigError> {
-        let mut s = Config::new();
-        s.merge(config::File::with_name(path))?;
-        s.try_into()
     }
 }
