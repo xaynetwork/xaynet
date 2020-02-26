@@ -14,7 +14,7 @@ with open(version_file_path) as fp:
 with open(readme_file_path, "r") as fp:
     readme = fp.read()
 
-install_requires = ["requests"]
+install_requires = ["requests", "logzero"]
 
 dev_require = [
     "black",

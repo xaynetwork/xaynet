@@ -1,9 +1,9 @@
+# pylint: disable=missing-docstring,invalid-name
 import urllib
 import logging
 import requests
 
-LOG = logging.getLogger("http")
-
+from logzero import logger  as LOG
 
 def log_headers(headers):
     for (name, value) in headers.items():
