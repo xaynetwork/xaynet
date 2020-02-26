@@ -2,7 +2,7 @@ log_level = "debug"
 aggregator_url = "http://localhost:8081"
 
 [api]
-bind_address = "0.0.0.0:8080"
+bind_address = "0.0.0.0:8081"
 
 [rpc]
 bind_address = "0.0.0.0:5555"

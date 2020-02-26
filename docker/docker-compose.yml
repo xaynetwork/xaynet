@@ -59,6 +59,7 @@ services:
       - xain-fl-rs
     ports:
       - "5555:5555"
+      - "8081:8081"
 
   aggregator:
     command: aggregator -c /bin/config.toml
@@ -73,6 +74,7 @@ services:
       - xain-fl-rs
     ports:
       - "6666:6666"
+      - "8082:8082"
 
 volumes:
   influxdb-data:
