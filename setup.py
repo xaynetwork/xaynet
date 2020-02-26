@@ -27,7 +27,7 @@ install_requires = [
     "numpy==1.15",  # BSD
     "grpcio==1.23",  # Apache License 2.0
     "structlog==19.2.0",  # Apache License 2.0
-    "xain-proto==0.5.0",  # Apache License 2.0
+    "xain-proto==0.6.0",  # Apache License 2.0
     "boto3==1.10.48",  # Apache License 2.0
     "toml==0.10.0",  # MIT
     "schema~=0.7",  # MIT
@@ -38,7 +38,7 @@ install_requires = [
 
 dev_require = [
     "black==19.10b0",  # MIT
-    "mypy==0.760",  # MIT License
+    "mypy==0.761",  # MIT License
     "pylint==2.3.1",  # GPL
     "astroid==2.2.5",  # LGPL
     "isort==4.3.21",  # MIT
@@ -52,7 +52,8 @@ tests_require = [
     "pytest==5.3.2",  # MIT license
     "pytest-cov==2.8.1",  # MIT
     "pytest-watch==4.2.0",  # MIT
-    "xain-sdk==0.5.0",  # Apache License 2.0
+    "pytest-mock==2.0.0",  # MIT
+    "xain-sdk==0.6.0",  # Apache License 2.0
 ]
 
 docs_require = [

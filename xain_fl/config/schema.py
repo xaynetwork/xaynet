@@ -25,7 +25,8 @@ configuration.
 from collections import namedtuple
 import ipaddress
 from typing import Any, Mapping, NamedTuple, Type, TypeVar
-import urllib
+import urllib.error
+import urllib.parse
 
 import idna
 from schema import And, Optional, Or, Schema, SchemaError, Use
@@ -87,7 +88,7 @@ def url(key: str, expected_value: str = "a valid URL") -> Schema:
 
     """
 
-    def is_valid_url(value):
+    def is_valid_url(value: str) -> bool:
         try:
             parsed = urllib.parse.urlparse(value)
         except (ValueError, urllib.error.URLError):
@@ -178,6 +179,15 @@ SERVER_SCHEMA = Schema(
             lambda opt: list(opt.items()),
             error=error("server.grpc_options", "valid gRPC options"),
         ),
+        Optional("thread_pool_workers", default=10): positive_integer(
+            "server.thread_pool_workers"
+        ),
+        Optional("heartbeat_time", default=10): positive_integer(
+            "server.heartbeat_time"
+        ),
+        Optional("heartbeat_timeout", default=5): positive_integer(
+            "server.heartbeat_timeout"
+        ),
     }
 )
 
@@ -199,12 +209,7 @@ AI_SCHEMA = Schema(
 STORAGE_SCHEMA = Schema(
     {
         "endpoint": And(str, url, error=error("storage.endpoint", "a valid URL")),
-        "global_weights_bucket": Use(
-            str, error=error("storage.global_weights_bucket", "an S3 bucket name")
-        ),
-        "local_weights_bucket": Use(
-            str, error=error("storage.local_weights_bucket", "an S3 bucket name")
-        ),
+        "bucket": Use(str, error=error("storage.bucket", "an S3 bucket name")),
         "secret_access_key": Use(
             str, error=error("storage.secret_access_key", "a valid utf-8 string")
         ),
@@ -279,7 +284,7 @@ def create_class_from_schema(class_name: str, schema: Schema) -> Any:
     # pylint: disable=protected-access
     keys = schema._schema.keys()
     attributes = list(
-        map(lambda key: key._schema if isinstance(key, Schema) else key, keys)
+        map(lambda key: key._schema if isinstance(key, Schema) else key, keys)  # type: ignore
     )
     return namedtuple(class_name, attributes)
 
@@ -377,11 +382,8 @@ class Config:
        # URL to the storage service to use
        endpoint = "http://localhost:9000"
 
-       # Name of the bucket for storing the aggregated models
-       global_weights_bucket = "global_weights"
-
-       # Name of the bucket where participants store their results
-       local_weights_bucket = "local_weights"
+       # Name of the bucket for storing the models
+       bucket = "weights"
 
        # AWS secret access to use to authenticate to the storage service
        secret_access_key = "my-secret"

@@ -28,7 +28,7 @@ def configure_aimetrics_logger() -> None:
     ] = "aimetrics"
     logging.addLevelName(AIMETRICS, "aimetrics")
 
-    def aimetrics(self, msg: str, *args: Any, **kw: Any) -> Any:
+    def aimetrics(self, msg: str, *args: Any, **kw: Any) -> Any:  # type: ignore
         return self.log(AIMETRICS, msg, *args, **kw)
 
     structlog.stdlib._FixedFindCallerLogger.aimetrics = (  # pylint: disable=protected-access
@@ -37,7 +37,7 @@ def configure_aimetrics_logger() -> None:
     structlog.stdlib.BoundLogger.aimetrics = aimetrics
 
 
-def add_pid_thread(_, __, event_dict) -> dict:
+def add_pid_thread(_, __, event_dict: dict) -> dict:  # type: ignore
     """Add the pid and the name of the thread to the event dict.
 
      Args:

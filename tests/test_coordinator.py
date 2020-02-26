@@ -1,8 +1,7 @@
 """XAIN FL tests for coordinator"""
 
-from unittest import mock
-
 import numpy as np
+from numpy import ndarray
 import pytest
 from xain_proto.fl.coordinator_pb2 import (
     EndTrainingRoundRequest,
@@ -13,23 +12,25 @@ from xain_proto.fl.coordinator_pb2 import (
     StartTrainingRoundRequest,
     State,
 )
-from xain_proto.np import proto_to_ndarray
 
 from xain_fl.coordinator.coordinator import Coordinator
+from xain_fl.fl.coordinator.controller import OrderController
 from xain_fl.tools.exceptions import (
     DuplicatedUpdateError,
     InvalidRequestError,
     UnknownParticipantError,
 )
 
+# pylint: disable=redefined-outer-name
 
-def test_rendezvous_accept():
+
+def test_rendezvous_accept(coordinator):
     """[summary]
 
     .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
     """
 
-    coordinator: Coordinator = Coordinator()
+    coordinator: Coordinator = coordinator()
     response: RendezvousResponse = coordinator.on_message(
         RendezvousRequest(), "participant1"
     )
@@ -38,13 +39,13 @@ def test_rendezvous_accept():
     assert response.reply == RendezvousReply.ACCEPT
 
 
-def test_rendezvous_later_fraction_1():
+def test_rendezvous_later_fraction_1(coordinator):
     """[summary]
 
     .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
     """
 
-    coordinator = Coordinator(
+    coordinator = coordinator(
         minimum_participants_in_round=1, fraction_of_participants=1.0
     )
     coordinator.on_message(RendezvousRequest(), "participant1")
@@ -54,13 +55,13 @@ def test_rendezvous_later_fraction_1():
     assert response.reply == RendezvousReply.LATER
 
 
-def test_rendezvous_later_fraction_05():
+def test_rendezvous_later_fraction_05(coordinator):
     """[summary]
 
     .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
     """
 
-    coordinator = Coordinator(
+    coordinator = coordinator(
         minimum_participants_in_round=1, fraction_of_participants=0.5
     )
 
@@ -82,7 +83,7 @@ def test_rendezvous_later_fraction_05():
     assert response.reply == RendezvousReply.LATER
 
 
-def test_coordinator_state_standby_round():
+def test_coordinator_state_standby_round(coordinator):
     """[summary]
 
     .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
@@ -90,7 +91,7 @@ def test_coordinator_state_standby_round():
 
     # tests that the coordinator transitions from STANDBY to ROUND once enough participants
     # are connected
-    coordinator = Coordinator(
+    coordinator = coordinator(
         minimum_participants_in_round=1, fraction_of_participants=1.0
     )
 
@@ -102,27 +103,7 @@ def test_coordinator_state_standby_round():
     assert coordinator.current_round == 0
 
 
-def test_start_training_round():
-    """[summary]
-
-    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
-    """
-
-    test_weights = np.arange(10)
-    coordinator = Coordinator(
-        minimum_participants_in_round=1,
-        fraction_of_participants=1.0,
-        weights=test_weights,
-    )
-    coordinator.on_message(RendezvousRequest(), "participant1")
-
-    response = coordinator.on_message(StartTrainingRoundRequest(), "participant1")
-    received_weights = proto_to_ndarray(response.weights)
-
-    np.testing.assert_equal(test_weights, received_weights)
-
-
-def start_training_round_wrong_state():
+def start_training_round_wrong_state(coordinator):
     """[summary]
 
     .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
@@ -130,7 +111,7 @@ def start_training_round_wrong_state():
 
     # if the coordinator receives a StartTrainingRound request while not in the
     # ROUND state it will raise an exception
-    coordinator = Coordinator(
+    coordinator = coordinator(
         minimum_participants_in_round=2, fraction_of_participants=1.0
     )
     coordinator.on_message(RendezvousRequest(), "participant1")
@@ -139,39 +120,42 @@ def start_training_round_wrong_state():
         coordinator.on_message(StartTrainingRoundRequest(), "participant1")
 
 
-@mock.patch("xain_fl.coordinator.store.NullObjectLocalWeightsReader.read_weights")
-def test_end_training_round(read_weights_mock):
+def test_end_training_round(coordinator, end_training_request):
     """Test handling of a `EndTrainingRoundRequest` message.
     """
 
     # we need two participants so that we can check the status of the local update mid round
     # with only one participant it wouldn't work because the local updates state is cleaned at
     # the end of each round
-    coordinator = Coordinator(
+    coordinator = coordinator(
         minimum_participants_in_round=2, fraction_of_participants=1.0
     )
     coordinator.on_message(RendezvousRequest(), "participant1")
     coordinator.on_message(RendezvousRequest(), "participant2")
 
-    coordinator.on_message(EndTrainingRoundRequest(), "participant1")
+    local_weights = ndarray([1, 2, 3])
+    end_training_request(coordinator, "participant1", 0, local_weights)
 
     assert len(coordinator.round.updates) == 1
-    read_weights_mock.assert_called_once_with("participant1", 0)
+    # check that the coordinator read the correct local weights from the store
+    coordinator.local_weights_reader.assert_read("participant1", 0)
+    update = coordinator.round.updates["participant1"]
+    np.testing.assert_array_equal(update["model_weights"], local_weights)
 
 
-def test_end_training_round_update():
-    """[summary]
+def test_end_training_round_update(coordinator, end_training_request):
+    """Test that the round number is updated once all participants sent
+    their updates
 
-    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
     """
 
-    # Test that the round number is updated once all participants sent their updates
-    coordinator = Coordinator(
+    coordinator = coordinator(
         minimum_participants_in_round=2,
         fraction_of_participants=1.0,
         num_rounds=2,
         epochs=3,
     )
+
     coordinator.on_message(RendezvousRequest(), "participant1")
     coordinator.on_message(RendezvousRequest(), "participant2")
 
@@ -179,67 +163,75 @@ def test_end_training_round_update():
     assert coordinator.current_round == 0
     assert coordinator.epoch_base == 0
 
-    coordinator.on_message(EndTrainingRoundRequest(), "participant1")
+    # Pretend participant1 sent their result to s3 and then sent an
+    # EndTraining request
+    end_training_request(coordinator, "participant1")
+
     # check we are still in round 0
     assert coordinator.current_round == 0
     assert coordinator.epoch_base == 0
-    coordinator.on_message(EndTrainingRoundRequest(), "participant2")
+
+    # Pretend participant2 sent their result to s3, and then sent an
+    # EndTraining request
+    end_training_request(coordinator, "participant2")
 
     # check that round number was updated
     assert coordinator.current_round == 1
     assert coordinator.epoch_base == 3
 
 
-def test_end_training_round_reinitialize_local_models():
+def test_end_training_round_reinitialize_local_models(
+    coordinator, end_training_request
+):
     """[summary]
 
     .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
     """
 
-    coordinator = Coordinator(
+    coordinator = coordinator(
         minimum_participants_in_round=2, fraction_of_participants=1.0, num_rounds=2
     )
     coordinator.on_message(RendezvousRequest(), "participant1")
     coordinator.on_message(RendezvousRequest(), "participant2")
 
-    coordinator.on_message(EndTrainingRoundRequest(), "participant1")
+    end_training_request(coordinator, "participant1")
 
     # After one participant sends its updates we should have one update in the coordinator
     assert len(coordinator.round.updates) == 1
 
-    coordinator.on_message(EndTrainingRoundRequest(), "participant2")
+    end_training_request(coordinator, "participant2")
 
     # once the second participant delivers its updates the round ends and the local models
     # are reinitialized
     assert coordinator.round.updates == {}
 
 
-def test_training_finished():
+def test_training_finished(coordinator, end_training_request):
     """[summary]
 
     .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
     """
 
-    coordinator = Coordinator(
+    coordinator = coordinator(
         minimum_participants_in_round=1, fraction_of_participants=1.0, num_rounds=2
     )
     coordinator.on_message(RendezvousRequest(), "participant1")
 
     # Deliver results for 2 rounds
-    coordinator.on_message(EndTrainingRoundRequest(), "participant1")
-    coordinator.on_message(EndTrainingRoundRequest(), "participant1")
+    end_training_request(coordinator, "participant1", round=0)
+    end_training_request(coordinator, "participant1", round=1)
 
     assert coordinator.state == State.FINISHED
 
 
-def test_wrong_participant():
+def test_wrong_participant(coordinator):
     """[summary]
 
     .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
     """
 
     # coordinator should not accept requests from participants that it has not accepted
-    coordinator = Coordinator(
+    coordinator = coordinator(
         minimum_participants_in_round=1, fraction_of_participants=1.0
     )
     coordinator.on_message(RendezvousRequest(), "participant1")
@@ -254,7 +246,7 @@ def test_wrong_participant():
         coordinator.on_message(EndTrainingRoundRequest(), "participant2")
 
 
-def test_duplicated_update_submit():
+def test_duplicated_update_submit(coordinator, end_training_request):
     """[summary]
 
     .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
@@ -262,49 +254,77 @@ def test_duplicated_update_submit():
 
     # the coordinator should not accept multiples updates from the same participant
     # in the same round
-    coordinator = Coordinator(
+    coordinator = coordinator(
         minimum_participants_in_round=2, fraction_of_participants=1.0
     )
     coordinator.on_message(RendezvousRequest(), "participant1")
     coordinator.on_message(RendezvousRequest(), "participant2")
 
-    coordinator.on_message(EndTrainingRoundRequest(), "participant1")
+    end_training_request(coordinator, "participant1")
 
     with pytest.raises(DuplicatedUpdateError):
-        coordinator.on_message(EndTrainingRoundRequest(), "participant1")
+        end_training_request(coordinator, "participant1")
 
 
-def test_remove_participant():
+def test_remove_selected_participant(coordinator):
     """[summary]
 
     .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
     """
 
-    coordinator = Coordinator(
+    coordinator = coordinator(
         minimum_participants_in_round=1, fraction_of_participants=1.0
     )
     coordinator.on_message(RendezvousRequest(), "participant1")
 
+    assert coordinator.participants.len() == 1
+    assert coordinator.round.participant_ids == ["participant1"]
     assert coordinator.state == State.ROUND
 
     coordinator.remove_participant("participant1")
 
     assert coordinator.participants.len() == 0
+    assert coordinator.round.participant_ids == []
     assert coordinator.state == State.STANDBY
 
     coordinator.on_message(RendezvousRequest(), "participant1")
 
+    assert coordinator.participants.len() == 1
+    assert coordinator.round.participant_ids == ["participant1"]
     assert coordinator.state == State.ROUND
 
 
-def test_number_of_selected_participants():
+def test_remove_unselected_participant(coordinator):
+    """[summary]
+
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
+    """
+    coordinator = coordinator(
+        minimum_participants_in_round=1, fraction_of_participants=0.5
+    )
+    coordinator.on_message(RendezvousRequest(), "participant1")
+    coordinator.on_message(RendezvousRequest(), "participant2")
+
+    assert coordinator.participants.len() == 2
+    assert len(coordinator.round.participant_ids) == 1
+
+    # override selection
+    coordinator.round.participant_ids = ["participant1"]
+
+    coordinator.remove_participant("participant2")
+
+    assert coordinator.participants.len() == 1
+    assert coordinator.round.participant_ids == ["participant1"]
+
+
+def test_number_of_selected_participants(coordinator):
     """[summary]
 
     .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
     """
 
     # test that the coordinator needs minimum 3 participants and selects 2 of them
-    coordinator = Coordinator(
+    coordinator = coordinator(
         minimum_participants_in_round=2, fraction_of_participants=0.6
     )
     coordinator.on_message(RendezvousRequest(), "participant1")
@@ -328,14 +348,14 @@ def test_number_of_selected_participants():
     assert len(coordinator.round.participant_ids) == 2
 
 
-def test_correct_round_advertised_to_participants():
+def test_correct_round_advertised_to_participants(coordinator):
     """[summary]
 
     .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
     """
 
     # test that only selected participants receive ROUND state and the others STANDBY
-    coordinator = Coordinator(
+    coordinator = coordinator(
         minimum_participants_in_round=1, fraction_of_participants=0.5
     )
     coordinator.on_message(RendezvousRequest(), "participant1")
@@ -351,3 +371,56 @@ def test_correct_round_advertised_to_participants():
     # state STANDBY will be advertised to participant2 (which has NOT been selected)
     response = coordinator.on_message(HeartbeatRequest(), "participant2")
     assert response.state == State.STANDBY
+
+
+def test_select_outstanding(coordinator):
+    """[summary]
+
+    .. todo:: Advance docstrings (https://xainag.atlassian.net/browse/XP-425)
+    """
+
+    # setup: select first 3 of 4 in order per round
+    coordinator = coordinator(
+        minimum_participants_in_round=3,
+        fraction_of_participants=0.75,
+        controller=OrderController(),
+    )
+    coordinator.on_message(RendezvousRequest(), "participant1")
+    coordinator.on_message(RendezvousRequest(), "participant2")
+    coordinator.on_message(RendezvousRequest(), "participant3")
+    coordinator.on_message(RendezvousRequest(), "participant4")
+
+    # 4 connected hence round starts
+    assert coordinator.state == State.ROUND
+    assert coordinator.participants.len() == 4
+    # selection is triggered: order-controller guarantees it's [P1, P2, P3]
+    assert coordinator.round.participant_ids == [
+        "participant1",
+        "participant2",
+        "participant3",
+    ]
+
+    coordinator.remove_participant("participant3")
+
+    # round pauses
+    assert coordinator.state == State.STANDBY
+    assert coordinator.participants.len() == 3
+    assert coordinator.round.participant_ids == ["participant1", "participant2"]
+
+    coordinator.remove_participant("participant1")
+
+    assert coordinator.participants.len() == 2
+    assert coordinator.round.participant_ids == ["participant2"]
+
+    coordinator.on_message(RendezvousRequest(), "participant5")
+    coordinator.on_message(RendezvousRequest(), "participant6")
+
+    # back up to 4 (P2, P4, P5, P6) so round resumes
+    assert coordinator.state == State.ROUND
+    assert coordinator.participants.len() == 4
+    # selection triggered: P2 still selected with 2 outstanding from [P4, P5, P6]
+    assert coordinator.round.participant_ids == [
+        "participant2",
+        "participant4",
+        "participant5",
+    ]

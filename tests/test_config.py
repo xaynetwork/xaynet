@@ -20,6 +20,9 @@ def server_sample():
             "grpc.max_receive_message_length": -1,
             "grpc.max_send_message_length": -1,
         },
+        "thread_pool_workers": 11,
+        "heartbeat_time": 11,
+        "heartbeat_timeout": 6,
     }
 
 
@@ -43,8 +46,7 @@ def storage_sample():
     """
     return {
         "endpoint": "http://localhost:9000",
-        "global_weights_bucket": "aggregated_weights",
-        "local_weights_bucket": "participants_weights",
+        "bucket": "bucket",
         "secret_access_key": "my-secret",
         "access_key_id": "my-key-id",
     }
@@ -123,11 +125,13 @@ def test_load_valid_config(config_sample):  # pylint: disable=redefined-outer-na
 
     assert config.server.host == "localhost"
     assert config.server.port == 50051
-
     assert config.server.grpc_options == [
         ("grpc.max_receive_message_length", -1),
         ("grpc.max_send_message_length", -1),
     ]
+    assert config.server.thread_pool_workers == 11
+    assert config.server.heartbeat_time == 11
+    assert config.server.heartbeat_timeout == 6
 
     assert config.ai.rounds == 1
     assert config.ai.epochs == 1
@@ -135,8 +139,7 @@ def test_load_valid_config(config_sample):  # pylint: disable=redefined-outer-na
     assert config.ai.fraction_participants == 1.0
 
     assert config.storage.endpoint == "http://localhost:9000"
-    assert config.storage.global_weights_bucket == "aggregated_weights"
-    assert config.storage.local_weights_bucket == "participants_weights"
+    assert config.storage.bucket == "bucket"
     assert config.storage.secret_access_key == "my-secret"
     assert config.storage.access_key_id == "my-key-id"
 

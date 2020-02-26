@@ -53,6 +53,74 @@ Federated Machine Learning Flow
     b. Resume the task
 7. Once all rounds are completed the *Coordinator* can just exit
 
+Model weights distribution
+--------------------------
+
+Models can be massive (several dozens of megabytes), and protobuf is
+not suited for exchanging such data. Instead, the participants and the
+coordinator use an S3 bucket to exchange their weights. The exact
+mechanism is represented by the sequence diagram below.
+
+At the beginning of a round (1) the selected participants send a
+``StartTrainingRound`` request.
+
+Once it receives a response, the participant fetches the weights for
+the current global model from the S3 store (2). S3 buckets are
+key-value stores, and the key for global weights is
+``<round>/global``.
+
+Then, the participant trains. Once done, it uploads its local weights
+to the S3 bucket (3). The key is ``<round>/<participant_id>``.
+
+Finally (4), the participant sends its ``EndTrainingRoundRequest``. Before
+answering, the coordinator retrieves the local weights the participant
+has uploaded.
+
+.. code::
+
+        P                                C                      Store
+    1.  |   StartTrainingRoundRequest    |                        |
+        | -----------------------------> |                        |
+        |   StartTrainingRoundResponse   |                        |
+        | <----------------------------- |                        |
+        |                                |                        |
+        |                Get global weights (key="round/global")  |
+    2.  | ------------------------------------------------------> |
+        |                         Global weights                  |
+        | <------------------------------------------------------ |
+        |                                |                        |
+        | [train...]                     |                        |
+        |                                |                        |
+    3.  |       Set local weights (key="round/participant")       |
+        | ------------------------------------------------------> |
+        |                               Ok                        |
+        | <------------------------------------------------------ |
+        |                                |                        |
+    4.  |   EndTrainingRoundRequest      |                        |
+        | -----------------------------> | Get local weights (key="round/participant")
+        |                                | ---------------------> |
+        |                                | Local weights          |
+        |  EndTrainingRoundResponse      | <--------------------- |
+        | <----------------------------- |                        |
+
+At the end of the round, the coordinator writes the weights to the s3
+bucket, using the next upcoming round number as key (see the sequence
+diagram below).
+
+.. code::
+
+    P                                C                      Store
+    |   EndTrainingRoundRequest      |                        |
+    | -----------------------------> | Get local weights (key="round/participant")
+    |                                | ---------------------> |
+    |                                | Local weights          |
+    |  EndTrainingRoundResponse      | <--------------------> |
+    | <----------------------------- |                        |
+    |                                |                        |
+    |                                | Set global weights (key="round+1/participant")
+    |                                | ---------------------> |
+    |                                | Ok                     |
+    |                                | <--------------------- |
 
 Coordinator
 -----------
@@ -89,12 +157,12 @@ A **Rendezvous** method that allows *Participants* to register with a
 about the *Participant* in order to keep track of what the *Participant* is
 doing.
 
-A **StartTrainingRound** method that allows *Participants* to get the current global
-model as well as signaling their intent to participate in a given round.
+A **StartTrainingRound** method that allows *Participants* to retrieve
+the current global model as well as signaling their intent to
+participate in a given round.
 
 An **EndTrainingRound** method that allows *Participants* to submit their updated
 models after they finished their training task.
-
 
 In order to remain agnostic to the machine learning framework *Participants*
 and *Coordinator* exchange models in the form of numpy arrays. How models are
@@ -347,26 +415,20 @@ where the request and response data are given as the following protobuf messages
 
    message StartTrainingRoundRequest {}
 
+
    message StartTrainingRoundResponse {
-       xain_proto.np.NDArray weights = 1;
-       int32 epochs = 2;
-       int32 epoch_base = 3;
+       int32 epochs = 1;
+       int32 epoch_base = 2;
    }
 
    message EndTrainingRoundRequest {
-       xain_proto.np.NDArray weights = 1;
+       string participant_id = 1;
        int32 number_samples = 2;
-       map<string, xain_proto.np.NDArray> metrics = 3;
+       string metrics = 3;
    }
 
    message EndTrainingRoundResponse {}
 
-
-Note that while most of the Python data types to be exchanged can be
-"protobuf-erized" (and back), :code:`ndarray` requires more work. Fortunately we
-have the 
-`xain_proto/np <https://github.com/xainag/xain-proto/tree/master/python/xain_proto/np>`_
-project to help with this conversion.
 
 Training Round Communication
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

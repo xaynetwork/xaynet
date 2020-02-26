@@ -38,12 +38,9 @@ services:
         done;
         echo Connected!;
         mc config host add dev-minio http://minio-dev:9000 $${MINIO_ACCESS_KEY} $${MINIO_SECRET_KEY};
-        /usr/bin/mc mb -p dev-minio/xain-fl-temporary-weights;
-        /usr/bin/mc mb -p dev-minio/xain-fl-aggregated-weights;
-        /usr/bin/mc policy set upload dev-minio/xain-fl-temporary-weights;
-        /usr/bin/mc policy set download dev-minio/xain-fl-temporary-weights;
-        /usr/bin/mc policy set upload dev-minio/xain-fl-aggregated-weights;
-        /usr/bin/mc policy set download dev-minio/xain-fl-aggregated-weights;
+        /usr/bin/mc mb -p dev-minio/xain-fl;
+        /usr/bin/mc policy set upload dev-minio/xain-fl;
+        /usr/bin/mc policy set download dev-minio/xain-fl;
         /usr/bin/mc admin trace -v -e dev-minio;
       "
 
@@ -111,6 +108,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.dev
+    depends_on:
+      - influxdb
     volumes:
       - /app/xain_fl.egg-info  #  don't use the local egg-info, if one exists
       - ${PWD}/xain_fl:/app/xain_fl

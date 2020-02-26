@@ -4,8 +4,6 @@ import threading
 import time
 from typing import Dict, List
 
-from xain_fl.coordinator import HEARTBEAT_TIME, HEARTBEAT_TIMEOUT
-
 
 class ParticipantContext:  # pylint: disable=too-few-public-methods
     """Class to store state about each participant. Currently it only stores the `participant_id`
@@ -20,9 +18,11 @@ class ParticipantContext:  # pylint: disable=too-few-public-methods
             host:port or public key when using SSL.
     """
 
-    def __init__(self, participant_id: str) -> None:
+    def __init__(
+        self, participant_id: str, heartbeat_time: int, heartbeat_timeout: int
+    ) -> None:
         self.participant_id: str = participant_id
-        self.heartbeat_expires: float = time.time() + HEARTBEAT_TIME + HEARTBEAT_TIMEOUT
+        self.heartbeat_expires: float = time.time() + heartbeat_time + heartbeat_timeout
 
 
 class Participants:
@@ -31,9 +31,11 @@ class Participants:
     the participants list with a lock.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, heartbeat_time: int = 10, heartbeat_timeout: int = 5) -> None:
         self.participants: Dict[str, ParticipantContext] = {}
         self._lock: threading.Lock = threading.Lock()
+        self.heartbeat_time = heartbeat_time
+        self.heartbeat_timeout = heartbeat_timeout
 
     def add(self, participant_id: str) -> None:
         """Adds a new participant to the list of participants.
@@ -44,7 +46,9 @@ class Participants:
         """
 
         with self._lock:
-            self.participants[participant_id] = ParticipantContext(participant_id)
+            self.participants[participant_id] = ParticipantContext(
+                participant_id, self.heartbeat_time, self.heartbeat_timeout
+            )
 
     def remove(self, participant_id: str) -> None:
         """Removes a participant from the list of participants.
@@ -76,7 +80,7 @@ class Participants:
             if self.participants:
                 return min([p.heartbeat_expires for p in self.participants.values()])
 
-        return time.time() + HEARTBEAT_TIME + HEARTBEAT_TIMEOUT
+        return time.time() + self.heartbeat_time + self.heartbeat_timeout
 
     def len(self) -> int:
         """Get the number of participants.
@@ -113,5 +117,5 @@ class Participants:
 
         with self._lock:
             self.participants[participant_id].heartbeat_expires = (
-                time.time() + HEARTBEAT_TIME + HEARTBEAT_TIMEOUT
+                time.time() + self.heartbeat_time + self.heartbeat_timeout
             )

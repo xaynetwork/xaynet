@@ -1,7 +1,8 @@
 """XAIN FL Coordinator"""
 
-from typing import List
+from typing import Dict, List, Optional, Union
 
+from google.protobuf.descriptor import EnumDescriptor
 from google.protobuf.internal.python_message import GeneratedProtocolMessageType
 import numpy as np
 from numpy import ndarray
@@ -20,7 +21,6 @@ from xain_proto.fl.coordinator_pb2 import (
     StartTrainingRoundResponse,
     State,
 )
-from xain_proto.np import ndarray_to_proto, proto_to_ndarray
 
 from xain_fl.coordinator.metrics_store import (
     AbstractMetricsStore,
@@ -32,8 +32,6 @@ from xain_fl.coordinator.round import Round
 from xain_fl.coordinator.store import (
     AbstractGlobalWeightsWriter,
     AbstractLocalWeightsReader,
-    NullObjectGlobalWeightsWriter,
-    NullObjectLocalWeightsReader,
 )
 from xain_fl.fl.coordinator.aggregate import Aggregator, WeightedAverageAggregator
 from xain_fl.fl.coordinator.controller import Controller, RandomController
@@ -111,9 +109,9 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
 
     def __init__(  # pylint: disable=too-many-arguments
         self,
+        global_weights_writer: AbstractGlobalWeightsWriter,
+        local_weights_reader: AbstractLocalWeightsReader,
         metrics_store: AbstractMetricsStore = NullObjectMetricsStore(),
-        global_weights_writer: AbstractGlobalWeightsWriter = NullObjectGlobalWeightsWriter(),
-        local_weights_reader: AbstractLocalWeightsReader = NullObjectLocalWeightsReader(),
         num_rounds: int = 1,
         minimum_participants_in_round: int = 1,
         fraction_of_participants: float = 1.0,
@@ -122,13 +120,14 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         epoch_base: int = 0,
         aggregator: Aggregator = WeightedAverageAggregator(),
         controller: Controller = RandomController(),
+        participants: Participants = None,
     ) -> None:
         self.global_weights_writer: AbstractGlobalWeightsWriter = global_weights_writer
         # pylint: disable=line-too-long
         self.local_weights_reader: AbstractLocalWeightsReader = local_weights_reader
         self.minimum_participants_in_round: int = minimum_participants_in_round
         self.fraction_of_participants: float = fraction_of_participants
-        self.participants: Participants = Participants()
+        self.participants: Participants = participants or Participants()
         self.num_rounds: int = num_rounds
         self.aggregator: Aggregator = aggregator
         self.controller: Controller = controller
@@ -146,6 +145,19 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         # state variables
         self.state: State = State.STANDBY
         self.current_round: int = 0
+        self.epochs_current_round: int = epochs
+
+        # Write the weights for the initial round
+        self.global_weights_writer.write_weights(0, self.weights)
+
+        self._write_metrics_fail_silently(
+            "coordinator",
+            {
+                "state": self.state,
+                "round": self.current_round,
+                "number_of_selected_participants": self.participants.len(),
+            },
+        )
 
     def get_minimum_connected_participants(self) -> int:
         """Calculates how many participants are needed so that we can select
@@ -227,11 +239,21 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
             participant_id: The id of the participant to remove.
         """
 
-        self.participants.remove(participant_id)
         logger.info("Removing participant", participant_id=participant_id)
+        self.participants.remove(participant_id)
+        # remove from selected if necessary
+        self.round.remove_selected(participant_id)
 
         if self.participants.len() < self.minimum_connected_participants:
             self.state = State.STANDBY
+            self._write_metrics_fail_silently("coordinator", {"state": self.state})
+
+        self._write_metrics_fail_silently(
+            "participant", {"state": State.FINISHED}, tags={"id": participant_id}
+        )
+        self._write_metrics_fail_silently(
+            "coordinator", {"number_of_selected_participants": self.participants.len()}
+        )
 
     def select_participant_ids_and_init_round(self) -> None:
         """Selects the participant ids and initiates a Round."""
@@ -239,6 +261,22 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         self.controller.fraction_of_participants = self.fraction_of_participants
         selected_ids = self.controller.select_ids(self.participants.ids())
         self.round = Round(selected_ids)
+
+    def select_outstanding(self) -> List[str]:
+        """Selects participants outstanding for the round."""
+
+        # the following preconditions should hold
+        assert len(self.round.participant_ids) < self.minimum_participants_in_round
+        assert self.participants.len() == self.minimum_connected_participants
+
+        selected = set(self.round.participant_ids)
+        num_outstanding = self.minimum_participants_in_round - len(selected)
+        pool = set(self.participants.ids()) - selected
+        frac = num_outstanding / len(pool)
+
+        self.controller.fraction_of_participants = frac
+        outstanding: List[str] = self.controller.select_ids(list(pool))
+        return outstanding
 
     def _handle_rendezvous(
         self, _message: RendezvousRequest, participant_id: str
@@ -261,13 +299,21 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
                 participant_id=participant_id,
                 current_participants_count=self.participants.len(),
             )
+            self._write_metrics_fail_silently(
+                "coordinator",
+                {"number_of_selected_participants": self.participants.len()},
+            )
 
             # Select participants and change the state to ROUND if the latest added participant
             # lets us meet the minimum number of connected participants
             if self.participants.len() == self.minimum_connected_participants:
-                self.select_participant_ids_and_init_round()
+                # select enough to fill round if needed
+                if len(self.round.participant_ids) < self.minimum_participants_in_round:
+                    ids = self.select_outstanding()
+                    self.round.add_selected(ids)
 
                 self.state = State.ROUND
+                self._write_metrics_fail_silently("coordinator", {"state": self.state})
         else:
             reply = RendezvousReply.LATER
             logger.info(
@@ -282,7 +328,7 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         return RendezvousResponse(reply=reply)
 
     def _handle_heartbeat(
-        self, _message: HeartbeatRequest, participant_id: str
+        self, message: HeartbeatRequest, participant_id: str
     ) -> HeartbeatResponse:
         """Handles a Heartbeat request.
 
@@ -292,12 +338,18 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
             - ``STANDBY``: if the participant is not selected for the current round.
 
         Args:
-            _message: The request to handle. Currently not used.
+            message: The request to handle. Currently not used.
             participant_id: The id of the participant making the request.
 
         Returns:
             The response to the participant.
         """
+
+        self._write_metrics_fail_silently(
+            "participant",
+            {"state": message.state, "round": message.round},
+            tags={"id": participant_id},
+        )
 
         self.participants.update_expires(participant_id)
 
@@ -306,7 +358,6 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         else:
             state = State.STANDBY
 
-        # send heartbeat response advertising the current state
         logger.debug(
             "Heartbeat response",
             participant_id=participant_id,
@@ -314,6 +365,10 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
             round=self.current_round,
             current_participants_count=self.participants.len(),
         )
+        self._write_metrics_fail_silently(
+            "coordinator", {"number_of_selected_participants": self.participants.len()}
+        )
+        # send heartbeat response advertising the current state
         return HeartbeatResponse(state=state, round=self.current_round)
 
     def _handle_start_training_round(
@@ -339,15 +394,18 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
                 "StartTrainingRoundRequest outside of a round"
             )
 
+        if self.weights.size:
+            self.epochs_current_round = self.epochs
+        else:
+            self.epochs_current_round = 0
+
         logger.debug(
             "Send StartTrainingRoundResponse",
-            epochs=self.epochs,
+            epochs=self.epochs_current_round,
             epoch_base=self.epoch_base,
         )
         return StartTrainingRoundResponse(
-            weights=ndarray_to_proto(self.weights),
-            epochs=self.epochs,
-            epoch_base=self.epoch_base,
+            epochs=self.epochs_current_round, epoch_base=self.epoch_base,
         )
 
     def _handle_end_training_round(
@@ -367,8 +425,22 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         # submitting the updates and raise an exception if it is the wrong
         # round.
 
-        # record the request data
-        model_weights: ndarray = proto_to_ndarray(message.weights)
+        # HACK: Participants are currently not aware of the ID the
+        # coordinator uses to identify them, so they generate a UUID
+        # and use it to upload their results. The EndTrainingMessage
+        # contains that UUID, so that the coordinator can retrieve the
+        # weights.
+        #
+        # FIXME(PB-436): handle the case where the participant didn't
+        # send a participant ID, or sent an invalid one. Reading from
+        # storage will fail in that case, and we should gracefully
+        # handle this by removing the participant.
+        fake_participant_id: str = message.participant_id
+        logger.debug("downloading results", participant_id=participant_id)
+        model_weights: ndarray = self.local_weights_reader.read_weights(
+            fake_participant_id, self.current_round
+        )
+        logger.debug("done downloading results", participant_id=participant_id)
         number_samples: int = message.number_samples
         self.round.add_updates(
             participant_id=participant_id,
@@ -377,17 +449,12 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         )
 
         try:
-            self.metrics_store.write_metrics(message.metrics)
+            if message.metrics != "[]":
+                self.metrics_store.write_received_participant_metrics(message.metrics)
         except MetricsStoreError as err:
             logger.warn(
                 "Can not write metrics", participant_id=participant_id, error=repr(err)
             )
-
-        # FIXME(XP-515): For now, `read_weights()` doesn't do
-        # anything, we actually get the participants weights through
-        # self.round.add_updates(). Ultimatly, the weights will be
-        # read from S3.
-        _ = self.local_weights_reader.read_weights(participant_id, self.current_round)
 
         # The round is over. Run the aggregation
         if self.round.is_finished():
@@ -402,23 +469,55 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
                 multiple_model_weights=multiple_model_weights,
                 aggregation_data=aggregation_data,
             )
-            self.global_weights_writer.write_weights(self.current_round, self.weights)
+            self.global_weights_writer.write_weights(
+                self.current_round + 1, self.weights
+            )
 
             # update the round or finish the training session
             if self.current_round >= self.num_rounds - 1:
                 logger.info("Last round over", round=self.current_round)
                 self.state = State.FINISHED
+                self._write_metrics_fail_silently("coordinator", {"state": self.state})
             else:
                 self.current_round += 1
-                self.epoch_base += self.epochs
+                self.epoch_base += self.epochs_current_round
+                self._write_metrics_fail_silently(
+                    "coordinator", {"round": self.current_round}
+                )
                 # reinitialize the round
                 self.select_participant_ids_and_init_round()
 
         logger.debug("Send EndTrainingRoundResponse", participant_id=participant_id)
         return EndTrainingRoundResponse()
 
+    def _write_metrics_fail_silently(
+        self,
+        owner: str,
+        metrics: Dict[str, Union[str, int, float]],
+        tags: Optional[Dict[str, str]] = None,
+    ) -> None:
+        """
+        Write the metrics to a metric store that are collected on the coordinator site and owned by
+        the given owner.
+        If an exception is raised, it will be caught and the error logged.
 
-def pb_enum_to_str(pb_enum, member_value: int) -> str:
+        FIXME: Helper function to make sure that the coordinator does not crash due to exception of
+        the metric store. Proper exception handling should be tackled in PB-125.
+
+        Args:
+
+            owner: The name of the owner of the metrics e.g. coordinator or participant.
+            metrics: A dictionary with the metric names as keys and the metric values as values.
+            tags: A dictionary to append optional metadata to the metric. Defaults to None.
+        """
+
+        try:
+            self.metrics_store.write_metrics(owner, metrics, tags)
+        except MetricsStoreError as err:
+            logger.warn("Can not write metrics", error=repr(err), owner=owner)
+
+
+def pb_enum_to_str(pb_enum: EnumDescriptor, member_value: int) -> str:
     """Return the human readable string of a enum member value.
 
     Args:
@@ -428,4 +527,5 @@ def pb_enum_to_str(pb_enum, member_value: int) -> str:
     Returns:
         The human readable string of a enum member value.
     """
-    return pb_enum.values_by_number[member_value].name
+    enum_in_str: str = pb_enum.values_by_number[member_value].name
+    return enum_in_str
