@@ -94,10 +94,7 @@ struct RpcSettings {
 impl Settings {
     pub fn new(path: &str) -> Result<Self, ConfigError> {
         let mut s = Config::new();
-        match s.merge(config::File::with_name(path)) {
-            Err(err) => return Err(err),
-            Ok(_) => ()
-        };
+        s.merge(config::File::with_name(path))?;
         s.try_into()
     }
 }
