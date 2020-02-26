@@ -30,6 +30,9 @@ def test_rendezvous_accept(coordinator: Callable) -> None:
     """[summary]
 
     .. todo:: PB-50: Advance docstrings.
+
+    Args:
+        coordinator: A fixture to create a new coordinator.
     """
 
     coord: Coordinator = coordinator()
@@ -43,6 +46,9 @@ def test_rendezvous_later_fraction_1(coordinator: Callable) -> None:
     """[summary]
 
     .. todo:: PB-50: Advance docstrings.
+
+    Args:
+        coordinator: A fixture to create a new coordinator.
     """
 
     coord = coordinator(minimum_participants_in_round=1, fraction_of_participants=1.0)
@@ -57,6 +63,9 @@ def test_rendezvous_later_fraction_05(coordinator: Callable) -> None:
     """[summary]
 
     .. todo:: PB-50: Advance docstrings.
+
+    Args:
+        coordinator: A fixture to create a new coordinator.
     """
 
     coord = coordinator(minimum_participants_in_round=1, fraction_of_participants=0.5)
@@ -83,6 +92,9 @@ def test_coordinator_state_standby_round(coordinator: Callable) -> None:
     """[summary]
 
     .. todo:: PB-50: Advance docstrings.
+
+    Args:
+        coordinator: A fixture to create a new coordinator.
     """
 
     # tests that the coordinator transitions from STANDBY to ROUND once enough participants
@@ -101,6 +113,9 @@ def start_training_round_wrong_state(coordinator: Callable) -> None:
     """[summary]
 
     .. todo:: PB-50: Advance docstrings.
+
+    Args:
+        coordinator: A fixture to create a new coordinator.
     """
 
     # if the coordinator receives a StartTrainingRound request while not in the
@@ -115,7 +130,13 @@ def start_training_round_wrong_state(coordinator: Callable) -> None:
 def test_end_training_round(
     coordinator: Callable, end_training_request: Callable
 ) -> None:
-    """Test handling of a `EndTrainingRoundRequest` message."""
+    """Test handling of a `EndTrainingRoundRequest` message.
+
+    Args:
+        coordinator: A fixture to create a new coordinator.
+        end_training_request: A fixture to send an EndTrainingRoundRequest to the
+            coordinator.
+    """
 
     # we need two participants so that we can check the status of the local update mid round
     # with only one participant it wouldn't work because the local updates state is cleaned at
@@ -137,7 +158,13 @@ def test_end_training_round(
 def test_end_training_round_update(
     coordinator: Callable, end_training_request: Callable
 ) -> None:
-    """Test that the round number is updated once all participants sent their update."""
+    """Test that the round number is updated once all participants sent their update.
+
+    Args:
+        coordinator: A fixture to create a new coordinator.
+        end_training_request: A fixture to send an EndTrainingRoundRequest to the
+            coordinator.
+    """
 
     coord = coordinator(
         minimum_participants_in_round=2,
@@ -176,6 +203,11 @@ def test_end_training_round_reinitialize_local_models(
     """[summary]
 
     .. todo:: PB-50: Advance docstrings.
+
+    Args:
+        coordinator: A fixture to create a new coordinator.
+        end_training_request: A fixture to send an EndTrainingRoundRequest to the
+            coordinator.
     """
 
     coord = coordinator(
@@ -202,6 +234,11 @@ def test_training_finished(
     """[summary]
 
     .. todo:: PB-50: Advance docstrings.
+
+    Args:
+        coordinator: A fixture to create a new coordinator.
+        end_training_request: A fixture to send an EndTrainingRoundRequest to the
+            coordinator.
     """
 
     coord = coordinator(
@@ -220,6 +257,9 @@ def test_wrong_participant(coordinator: Callable) -> None:
     """[summary]
 
     .. todo:: PB-50: Advance docstrings.
+
+    Args:
+        coordinator: A fixture to create a new coordinator.
     """
 
     # coordinator should not accept requests from participants that it has not accepted
@@ -242,6 +282,11 @@ def test_duplicated_update_submit(
     """[summary]
 
     .. todo:: PB-50: Advance docstrings.
+
+    Args:
+        coordinator: A fixture to create a new coordinator.
+        end_training_request: A fixture to send an EndTrainingRoundRequest to the
+            coordinator.
     """
 
     # the coordinator should not accept multiples updates from the same participant
@@ -260,6 +305,9 @@ def test_remove_selected_participant(coordinator: Callable) -> None:
     """[summary]
 
     .. todo:: PB-50: Advance docstrings.
+
+    Args:
+        coordinator: A fixture to create a new coordinator.
     """
 
     coord = coordinator(minimum_participants_in_round=1, fraction_of_participants=1.0)
@@ -286,6 +334,9 @@ def test_remove_unselected_participant(coordinator: Callable) -> None:
     """[summary]
 
     .. todo:: PB-50: Advance docstrings.
+
+    Args:
+        coordinator: A fixture to create a new coordinator.
     """
 
     coord = coordinator(minimum_participants_in_round=1, fraction_of_participants=0.5)
@@ -308,6 +359,9 @@ def test_number_of_selected_participants(coordinator: Callable) -> None:
     """[summary]
 
     .. todo:: PB-50: Advance docstrings.
+
+    Args:
+        coordinator: A fixture to create a new coordinator.
     """
 
     # test that the coordinator needs minimum 3 participants and selects 2 of them
@@ -337,6 +391,9 @@ def test_correct_round_advertised_to_participants(coordinator: Callable) -> None
     """[summary]
 
     .. todo:: PB-50: Advance docstrings.
+
+    Args:
+        coordinator: A fixture to create a new coordinator.
     """
 
     # test that only selected participants receive ROUND state and the others STANDBY
@@ -360,6 +417,9 @@ def test_select_outstanding(coordinator: Callable) -> None:
     """[summary]
 
     .. todo:: PB-50: Advance docstrings.
+
+    Args:
+        coordinator: A fixture to create a new coordinator.
     """
 
     # setup: select first 3 of 4 in order per round

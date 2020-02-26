@@ -57,7 +57,12 @@ def participant_metrics_sample() -> Dict:
 def test_write_received_participant_metrics(  # pylint: disable=redefined-outer-name
     write_points_mock: mock.MagicMock, json_participant_metrics_sample: str
 ) -> None:
-    """Test test_write_received_participant_metrics method."""
+    """Test test_write_received_participant_metrics method.
+
+    Args:
+        write_points_mock: A magic mock of writing to the database.
+        json_participant_metrics_sample: A valid participant metric object.
+    """
 
     metric_store = MetricsStore(
         MetricsConfig(enable=True, host="", port=1, user="", password="", db_name="")
@@ -90,6 +95,10 @@ def test_write_received_participant_metrics_write_points_exception(  # pylint: d
 
     Check that raised exceptions of the write_points method are re-raised as
     MetricsStoreError in the write_received_participant_metrics method.
+
+    Args:
+        write_points_mock: A magic mock of writing to the database.
+        json_participant_metrics_sample: A valid participant metric object.
     """
 
     metric_store = MetricsStore(
@@ -101,12 +110,16 @@ def test_write_received_participant_metrics_write_points_exception(  # pylint: d
 
 @mock.patch.object(InfluxDBClient, "write_points", return_value=True)
 def test_write_received_participant_metrics_invalid_json_exception(
-    write_points_mock: mock.MagicMock
+    write_points_mock: mock.MagicMock,
 ) -> None:
     """Test for metric exceptions during writing.
 
     Check that raised exceptions of the write_points method are re-raised as
-    MetricsStoreError in the write_received_participant_metrics method."""
+    MetricsStoreError in the write_received_participant_metrics method.
+
+    Args:
+        write_points_mock: A magic mock of writing to the database.
+    """
 
     metric_store = MetricsStore(
         MetricsConfig(enable=True, host="", port=1, user="", password="", db_name="")
@@ -128,6 +141,10 @@ def test_write_received_participant_metrics_empty_metrics_exception(  # pylint: 
 
     Check that raised exceptions of the write_points method are re-raised as
     MetricsStoreError in the write_received_participant_metrics method.
+
+    Args:
+        write_points_mock: A magic mock of writing to the database.
+        empty_json_participant_metrics_sample: An empty participant metric string.
     """
 
     metric_store = MetricsStore(
@@ -149,6 +166,10 @@ def test_write_received_participant_metrics_invalid_schema_exception(  # pylint:
 
     Check that raised exceptions of the write_points method are re-raised as
     MetricsStoreError in the write_received_participant_metrics method.
+
+    Args:
+        write_points_mock: A magic mock of writing to the database.
+        empty_json_participant_metrics_sample: An invalid participant metric string.
     """
 
     metric_store = MetricsStore(
@@ -169,7 +190,13 @@ def test_write_coordinator_metrics(  # pylint: disable=redefined-outer-name,unus
     time_mock: mock.MagicMock,
     coordinator_metrics_sample: Dict,
 ) -> None:
-    """Test write_coordinator_metrics method."""
+    """Test write_coordinator_metrics method.
+
+    Args:
+        write_points_mock: A magic mock of writing to the database.
+        time_mock: A magic mock of time stamps.
+        coordinator_metrics_sample: A valid coordinator metric object.
+    """
 
     metric_store = MetricsStore(
         MetricsConfig(enable=True, host="", port=1, user="", password="", db_name="")
@@ -203,6 +230,10 @@ def test_write_coordinator_metrics_write_points_exception(  # pylint: disable=re
 
     Check that raised exceptions of the write_points method are re-raised as
     MetricsStoreError in the write_coordinator_metrics method.
+
+    Args:
+        write_points_mock: A magic mock of writing to the database.
+        coordinator_metrics_sample: A valid coordinator metric object.
     """
 
     metric_store = MetricsStore(
@@ -219,7 +250,13 @@ def test_write_participant_metrics(  # pylint: disable=redefined-outer-name,unus
     time_mock: mock.MagicMock,
     participant_metrics_sample: Dict,
 ) -> None:
-    """Test write_participant_metrics method."""
+    """Test write_participant_metrics method.
+
+    Args:
+        write_points_mock: A magic mock of writing to the database.
+        time_mock: A magic mock of time stamps.
+        participant_metrics_sample: A valid participant metric object.
+    """
 
     metric_store = MetricsStore(
         MetricsConfig(enable=True, host="", port=1, user="", password="", db_name="")
@@ -243,12 +280,16 @@ def test_write_participant_metrics(  # pylint: disable=redefined-outer-name,unus
 
 @mock.patch.object(InfluxDBClient, "write_points", side_effect=Exception())
 def test_write_participant_metrics_write_points_exception(  # pylint: disable=redefined-outer-name,unused-argument
-    write_points_mock: mock.MagicMock, participant_metrics_sample: mock.MagicMock
+    write_points_mock: mock.MagicMock, participant_metrics_sample: Dict
 ) -> None:
     """Test for metric exceptions during writing.
 
     Check that raised exceptions of the write_points method are re-raised as
     MetricsStoreError in the write_participant_metrics method.
+
+    Args:
+        write_points_mock: A magic mock of writing to the database.
+        participant_metrics_sample: A valid participant metric object.
     """
 
     metric_store = MetricsStore(

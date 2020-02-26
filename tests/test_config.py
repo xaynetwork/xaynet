@@ -1,7 +1,7 @@
 """Tests for the `xain_fl.config.Config` class."""
 
 import re
-from typing import Any, Dict, Optional, Pattern, Type
+from typing import Any, Dict, Optional, Pattern, Type, Union
 
 import pytest
 
@@ -110,7 +110,7 @@ def config_sample(  # pylint: disable=redefined-outer-name
 
 
 def test_default_logging_config(  # pylint: disable=redefined-outer-name
-    config_sample: Dict
+    config_sample: Dict,
 ) -> None:
     """Check that the config loads if the [logging] section is not specified.
 
@@ -128,7 +128,7 @@ def test_default_logging_config(  # pylint: disable=redefined-outer-name
 
 
 def test_invalid_logging_config(  # pylint: disable=redefined-outer-name
-    config_sample: Dict
+    config_sample: Dict,
 ) -> None:
     """Various negative cases for the [logging] section.
 
@@ -147,7 +147,7 @@ def test_invalid_logging_config(  # pylint: disable=redefined-outer-name
 
 
 def test_load_valid_config(  # pylint: disable=redefined-outer-name
-    config_sample: Dict
+    config_sample: Dict,
 ) -> None:
     """Check that a valid config is loaded correctly.
 
@@ -345,7 +345,7 @@ class AssertInvalid:
         needle = re.compile(f"Wrong key '{key}' in")
         assert re.search(needle, self.message)
 
-    def check_other(self, needle: Pattern) -> None:
+    def check_other(self, needle: Union[str, Pattern]) -> None:
         """Check that the error message matches the given pattern.
 
         Args:

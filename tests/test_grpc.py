@@ -74,6 +74,11 @@ def test_participant_rendezvous_accept(  # pylint: disable=unused-argument
     """[summary]
 
     .. todo:: PB-50: Advance docstrings.
+
+    Args:
+        participant_stub: A fixture to create a local coordinator gRPC stub for a
+            participant.
+        coordinator_service: [description].
     """
 
     response = cast(CoordinatorStub, participant_stub).Rendezvous(RendezvousRequest())
@@ -88,6 +93,11 @@ def test_participant_rendezvous_later(
     """[summary]
 
     .. todo:: PB-50: Advance docstrings.
+
+    Args:
+        coordinator: A fixture to create a new coordinator.
+        participant_stub: A fixture to create a local coordinator gRPC stub for a
+            participant.
     """
 
     # populate participants
@@ -113,6 +123,11 @@ def test_heartbeat(participant_stub: Generator, coordinator_service: Generator):
     """[summary]
 
     .. todo:: PB-50: Advance docstrings.
+
+    Args:
+        participant_stub: A fixture to create a local coordinator gRPC stub for a
+            participant.
+        coordinator_service: [description].
     """
 
     # first we need to rendezvous so that the participant is added to the list of participants
@@ -133,6 +148,11 @@ def test_heartbeat_denied(  # pylint: disable=unused-argument
     """[summary]
 
     .. todo:: PB-50: Advance docstrings.
+
+    Args:
+        participant_stub: A fixture to create a local coordinator gRPC stub for a
+            participant.
+        coordinator_service: [description].
     """
 
     # heartbeat requests are only allowed if the participant has already
@@ -147,6 +167,10 @@ def test_monitor_heartbeats(mocker: mock.MagicMock, coordinator: Callable) -> No
 
     Test that when there is a participant with an expired heartbeat,
     ``Coordinator.remove_participant`` is called exactly once.
+
+    Args:
+        mocker: A magic mocker.
+        coordinator: A fixture to create a new coordinator.
     """
 
     mock_remove_participant = mocker.patch(
@@ -180,6 +204,10 @@ def test_monitor_heartbeats_remove_participant(
 
     Test that when the coordinator has exactly one participant with an expired
     heartbeat, it is removed correctly.
+
+    Args:
+        coordinator: A fixture to create a new coordinator.
+        mocker: A magic mocker.
     """
 
     mocker.patch(
@@ -209,6 +237,9 @@ def test_many_heartbeats_expire_in_short_interval(coordinator: Callable) -> None
 
     Make sure that heartbeat_monitor() works correctly under heavy load. This test was
     added to reproduce PB-104.
+
+    Args:
+        coordinator: A fixture to create a new coordinator.
     """
 
     participants = {}
@@ -250,6 +281,11 @@ def test_message_loop(
     """[summary]
 
     .. todo:: PB-50: Advance docstrings.
+
+    Args:
+        mock_heartbeat_request: A magic mock for the heartbeat.
+        _mock_sleep: A magic mock for the waiting event.
+        _mock_event: A magic mock for the terminate event.
     """
 
     channel = mock.MagicMock()
@@ -269,6 +305,9 @@ def test_start_training_round(coordinator_service: Generator):
     """[summary]
 
     .. todo:: PB-50: Advance docstrings.
+
+    Args:
+        coordinator_service: [description].
     """
 
     test_weights = np.arange(10)
@@ -301,6 +340,11 @@ def test_start_training_round_denied(  # pylint: disable=unused-argument
     """[summary]
 
     .. todo:: PB-50: Advance docstrings.
+
+    Args:
+        participant_stub: A fixture to create a local coordinator gRPC stub for a
+            participant.
+        coordinator_service: [description].
     """
 
     # start training requests are only allowed if the participant has already
@@ -319,6 +363,11 @@ def test_start_training_round_failed_precondition(  # pylint: disable=unused-arg
     """[summary]
 
     .. todo:: PB-50: Advance docstrings.
+
+    Args:
+        participant_stub: A fixture to create a local coordinator gRPC stub for a
+            participant.
+        coordinator_service: [description].
     """
 
     # start training requests are only allowed if the coordinator is in ROUND state.
@@ -341,6 +390,11 @@ def test_end_training_round(
     """[summary]
 
     .. todo:: PB-50: Advance docstrings.
+
+    Args:
+        coordinator_service: [description].
+        json_participant_metrics_sample: A valid participant metric object.
+        participant_store: A mocked S3 store for the participant.
     """
 
     assert cast(CoordinatorGrpc, coordinator_service).coordinator.round.updates == {}
@@ -380,6 +434,12 @@ def test_end_training_round_duplicated_updates(  # pylint: disable=unused-argume
     """[summary]
 
     .. todo:: PB-50: Advance docstrings.
+
+    Args:
+        coordinator_service: [description].
+        participant_stub: A fixture to create a local coordinator gRPC stub for a
+            participant.
+        participant_store: A mocked S3 store for the participant.
     """
 
     # participant can only send updates once in a single round
@@ -404,6 +464,11 @@ def test_end_training_round_denied(  # pylint: disable=unused-argument
     """[summary]
 
     .. todo:: PB-50: Advance docstrings.
+
+    Args:
+        participant_stub: A fixture to create a local coordinator gRPC stub for a
+            participant.
+        coordinator_service: [description].
     """
 
     # heartbeat requests are only allowed if the participant has already
@@ -421,7 +486,14 @@ def test_full_training_round(
     coordinator_service: Generator,
     participant_store: MockS3Participant,
 ) -> None:
-    """Run a complete training round with multiple participants."""
+    """Run a complete training round with multiple participants.
+
+    Args:
+        participant_stub: A fixture to create a local coordinator gRPC stub for a
+            participant.
+        coordinator_service: [description].
+        participant_store: A mocked S3 store for the participant.
+    """
 
     weights = np.ndarray([1, 2, 3, 4])
     cast(CoordinatorGrpc, coordinator_service).coordinator.weights = weights
@@ -515,6 +587,12 @@ def test_start_participant(  # pylint: disable=redefined-outer-name
     """[summary]
 
     .. todo:: PB-50: Advance docstrings.
+
+    Args:
+        mock_coordinator_service: A fixture to create a local coordinator gRPC service.
+        participant_config: A valid participant configuration.
+        mocker: A magic mocker.
+        participant_store: A mocked S3 store for the participant.
     """
 
     init_weight = np.arange(10)

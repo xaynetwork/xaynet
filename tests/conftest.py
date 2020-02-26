@@ -70,7 +70,7 @@ def participant_store(
 def end_training_request(
     s3_mock_stores: Tuple[MockS3Coordinator, MockS3Participant]
 ) -> Callable:
-    """A fixture to send an EndTrainingRequest to the coordinator.
+    """A fixture to send an EndTrainingRoundRequest to the coordinator.
 
     Write the local weights for the given round and the given participant, and send an
     EndTrainingRequest on behalf of that participant.
