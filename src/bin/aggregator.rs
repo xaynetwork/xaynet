@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate async_trait;
 
-use std::env;
+use std::{env, process};
 
 use bytes::Bytes;
 use futures::future::{ready, Ready};
