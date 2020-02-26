@@ -1,4 +1,5 @@
 log_level = "debug"
+aggregator_url = "http://localhost:8081"
 
 [api]
 bind_address = "0.0.0.0:8080"
@@ -6,3 +7,8 @@ bind_address = "0.0.0.0:8080"
 [rpc]
 bind_address = "0.0.0.0:5555"
 aggregator_address = "aggregator:6666"
+
+[federated_learning]
+rounds = 10
+participants_ratio = 0.5
+min_clients = 5
