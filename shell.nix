@@ -21,7 +21,7 @@ stdenv.mkDerivation rec {
       virtualenv $VENV
     fi
     source ./$VENV/bin/activate
-    pip install -U -e './python/[dev]'
+    # pip install -U -e './python/[dev]'
 
     export PYTHONPATH=`pwd`/$VENV/${python.sitePackages}/:$PYTHONPATH
     export LD_LIBRARY_PATH=${lib.makeLibraryPath [ stdenv.cc.cc ]}
