@@ -20,7 +20,25 @@ For reference, the possible headings are:
 
 ## [Unreleased]
 
-## [0.6.0] - (UNRELEASED)
+## [0.6.0] - 2020-02-26
+
+- HOTFIX add disclaimer (#309) [janpetschexain]
+- PB-314: document the new weight exchange mechanism (#308) [Corentin Henry]
+- PB-407 add more debug level logging (#303) [janpetschexain]
+- PB-44 add heartbeat time and timeout to config (#305) [Robert Steiner]
+- PB-423 lock round access (#304) [kwok]
+- PB-439 Make thread pool workers configurable (#302) [Robert Steiner]
+- PB-159: update xain-{proto,sdk} dependencies to the right branch (#301) [Corentin Henry]
+- PB-159: remove weights from gRPC messages (#298) [Corentin Henry]
+- PB-431 send participant state to influxdb (#300) [Robert Steiner]
+- PB-434 separate metrics (#296) [Robert Steiner]
+- PB-406 :snowflake: Configure mypy (#297) [Anastasiia Tymoshchuk]
+- PB-428 send coordinator states (#292) [Robert Steiner]
+- PB-425 split weight init from training (#295) [janpetschexain]
+- PB-398 Round resumption in Coordinator (#285) [kwok]
+- Merge pull request #294 from xainag/master. [Daniel Kravetz]
+- Hotfix: PB-432 :pencil: :books: Update test badge and CI to reflect changes. [Daniel Kravetz]
+- PB-417 Start new development cycle (#291) [Anastasiia Tymoshchuk, kwok]
 
 ## [0.5.0] - 2020-02-12
 
