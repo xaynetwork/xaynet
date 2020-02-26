@@ -20,6 +20,8 @@ For reference, the possible headings are:
 
 ## [Unreleased]
 
+## [0.7.0] - (Unreleased)
+
 ## [0.6.0] - 2020-02-26
 
 - HOTFIX add disclaimer (#309) [janpetschexain]
