@@ -13,3 +13,4 @@ extern crate async_trait;
 pub mod aggregator;
 pub mod common;
 pub mod coordinator;
+pub mod metric_store;

@@ -1,29 +1,17 @@
 extern crate influent;
 
-use influent::client::http::HttpClient;
-use influent::client::{Client, Credentials, ClientError};
-use influent::create_client;
-use influent::measurement::{Measurement, Value};
+use core::future::Future;
+use influxdb::{Client, Error, Query, Timestamp, Type, WriteQuery};
 
 pub enum MetricOwner {
     Coordinator,
     Participant,
 }
 
-pub trait MetricStore {
-    fn write(&self, metrics_owner: MetricOwner, fields: Vec<(String, Value)>);
-    fn write_with_tags(
-        &self,
-        metrics_owner: MetricOwner,
-        fields: Vec<(String, Value)>,
-        tags: Vec<(String, String)>,
-    );
-}
-
-impl InfluxDBMetricStore<'_> {
-    pub fn new<'a>(credentials: Credentials<'a>, hosts: Vec<&'a str>) -> InfluxDBMetricStore<'a> {
+impl InfluxDBMetricStore {
+    pub fn new(host: &str, db_name: &str) -> InfluxDBMetricStore {
         InfluxDBMetricStore {
-            client: create_client(credentials, hosts),
+            client: Client::new(host, db_name),
         }
     }
 
@@ -33,38 +21,43 @@ impl InfluxDBMetricStore<'_> {
             MetricOwner::Participant => "participant",
         }
     }
-}
 
-pub struct InfluxDBMetricStore<'a> {
-    client: HttpClient<'a>,
-}
+    async fn write(&self, metrics_owner: MetricOwner, fields: Vec<(String, Type)>) -> () {
+        let write_query: WriteQuery =
+            Query::write_query(Timestamp::Now, self.metrics_owner_to_string(metrics_owner));
+        let write_query = write_query.add_field("d", 12);
 
-impl MetricStore for InfluxDBMetricStore<'_> {
-    fn write(&self, metrics_owner: MetricOwner, fields: Vec<(String, Value)>) {
-        let mut measurement = Measurement::new(self.metrics_owner_to_string(metrics_owner));
-        for (name, value) in fields {
-            measurement.add_field(name, value);
-        }
+        // for (name, value) in fields {
+        //     let write_query = write_query.add_field(name, value);
+        // };
 
-        self.client.write_one(measurement, None).poll();
+        // // Submit the query to InfluxDB.
+        let res = self.client.query(&write_query).await;
     }
 
-    fn write_with_tags(
-        &self,
-        metrics_owner: MetricOwner,
-        fields: Vec<(String, Value)>,
-        tags: Vec<(String, String)>,
-    ) {
-        let mut measurement = Measurement::new(self.metrics_owner_to_string(metrics_owner));
-        for (name, value) in fields {
-            measurement.add_field(name, value);
-        }
-        for (name, value) in tags {
-            measurement.add_tag(name, value);
-        }
+    //  fn write_with_tags(
+    //     &self,
+    //     metrics_owner: MetricOwner,
+    //     fields: Vec<(String, Type)>,
+    //     tags: Vec<(String, String)>,
+    // ) -> Future<Output = Type>{
+    //     let mut write_query = Query::write_query(Timestamp::Now, self.metrics_owner_to_string(metrics_owner));
 
-        self.client.write_one(measurement, None).poll();
-    }
+    //     for (name, value) in fields {
+    //         write_query.add_field(name, value);
+    //     }
+
+    //     for (name, value) in tags {
+    //         write_query.add_tag(name, value);
+    //     }
+
+    // Submit the query to InfluxDB.
+    // self.client.query(&write_query)
+    // }
+}
+
+pub struct InfluxDBMetricStore {
+    client: Client,
 }
 
 #[cfg(test)]
@@ -73,30 +66,30 @@ mod tests {
 
     #[test]
     fn write() {
-        let credentials = Credentials {
-            username: "root",
-            password: "root",
-            database: "metrics",
-        };
-        let hosts = vec!["http://localhost:8086"];
+        // let credentials = Credentials {
+        //     username: "root",
+        //     password: "root",
+        //     database: "metrics",
+        // };
+        // let hosts = vec!["http://localhost:8086"];
 
-        let metric_store = InfluxDBMetricStore::new( credentials, hosts);
-        let fields = vec![(String::from("CPU"), Value::Integer(123))];
-        metric_store.write(MetricOwner::Coordinator, fields);
+        // let metric_store = InfluxDBMetricStore::new(credentials, hosts);
+        // let fields = vec![(String::from("CPU"), Value::Integer(123))];
+        // metric_store.write(MetricOwner::Coordinator, fields);
     }
 
     #[test]
     fn write_with_tags() {
-        let credentials = Credentials {
-            username: "root",
-            password: "root",
-            database: "metrics",
-        };
-        let hosts = vec!["http://localhost:8086"];
+        // let credentials = Credentials {
+        //     username: "root",
+        //     password: "root",
+        //     database: "metrics",
+        // };
+        // let hosts = vec!["http://localhost:8086"];
 
-        let metric_store = InfluxDBMetricStore::new( credentials, hosts);
-        let fields = vec![(String::from("CPU"), Value::Integer(123))];
-        let tags = vec![(String::from("ID"), String::from("1234-1234-1234-1234"))];
-        metric_store.write_with_tags(MetricOwner::Coordinator, fields, tags);
+        // let metric_store = InfluxDBMetricStore::new(credentials, hosts);
+        // let fields = vec![(String::from("CPU"), Value::Integer(123))];
+        // let tags = vec![(String::from("ID"), String::from("1234-1234-1234-1234"))];
+        // metric_store.write_with_tags(MetricOwner::Coordinator, fields, tags);
     }
 }
