@@ -139,6 +139,7 @@ impl Protocol {
     ///
     /// This method returns the response to send back to the client.
     pub fn rendez_vous(&mut self, id: ClientId, client_state: ClientState) -> RendezVousResponse {
+        info!("rendez vous: {}({})", id, client_state);
         if self.is_training_complete {
             self.emit_event(Event::Remove(id));
             return RendezVousResponse::Reject;
@@ -193,6 +194,7 @@ impl Protocol {
 
     /// Handle a heartbeat timeout for the given client.
     pub fn hearbeat_timeout(&mut self, id: ClientId, client_state: ClientState) {
+        info!("heartbeat timeout: {}({})", id, client_state);
         self.emit_event(Event::Remove(id));
         match client_state {
             ClientState::Selected => self.counters.selected -= 1,
@@ -220,6 +222,7 @@ impl Protocol {
     ///
     /// This method returns the response to send back to the client.
     pub fn heartbeat(&mut self, id: ClientId, client_state: ClientState) -> HeartBeatResponse {
+        info!("heartbeat: {}({})", id, client_state);
         if self.is_training_complete {
             self.emit_event(Event::ResetHeartBeat(id));
             return HeartBeatResponse::Finish;
@@ -257,8 +260,10 @@ impl Protocol {
     /// This method returns the response to send back to the client.
     pub fn start_training(&mut self, client_state: ClientState) -> StartTrainingResponse {
         if client_state == ClientState::Selected && !self.is_training_complete {
+            info!("accepting start training request");
             StartTrainingResponse::Accept
         } else {
+            info!("rejecting start training request");
             StartTrainingResponse::Reject
         }
     }
@@ -269,6 +274,10 @@ impl Protocol {
     ///
     /// This method returns the response to send back to the client.
     pub fn end_training(&mut self, id: ClientId, success: bool, client_state: ClientState) {
+        info!(
+            "end training request: {}({}) (success={})",
+            id, client_state, success
+        );
         if self.is_training_complete || self.waiting_for_aggregation {
             warn!("got unexpected end training request");
             return;
