@@ -4,6 +4,8 @@ use clap::{App, Arg};
 use config::{Config, ConfigError};
 use rand::seq::IteratorRandom;
 use std::env;
+use std::process;
+
 
 use xain_fl::{
     common::ClientId,
@@ -22,11 +24,16 @@ async fn main() {
             Arg::with_name("config")
                 .short("c")
                 .takes_value(true)
-                .help("path to the config file"),
+                .required(true)
+                .help("Path to the config file"),
         )
         .get_matches();
     let config_file = matches.value_of("config").unwrap();
-    let settings = Settings::new(config_file).unwrap();
+
+    let settings = Settings::new(config_file).unwrap_or_else(|err| {
+        eprintln!("Problem parsing configuration file: {}", err);
+        process::exit(1);
+    });
     env::set_var("RUST_LOG", &settings.log_level);
     env_logger::init();
 
@@ -87,7 +94,7 @@ struct RpcSettings {
 impl Settings {
     pub fn new(path: &str) -> Result<Self, ConfigError> {
         let mut s = Config::new();
-        s.merge(config::File::with_name(path)).unwrap();
+        s.merge(config::File::with_name(path))?;
         s.try_into()
     }
 }
