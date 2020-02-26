@@ -22,6 +22,13 @@ class Round:
     """
 
     def __init__(self, participant_ids: List[str]) -> None:
+        """Initialize the round state.
+
+        Args:
+            participant_ids: The list of IDs of the participants selected to participate
+                in this round.
+        """
+
         self.participant_ids = participant_ids
         self.updates: Dict[str, Dict] = {}
         self._lock: threading.Lock = threading.Lock()

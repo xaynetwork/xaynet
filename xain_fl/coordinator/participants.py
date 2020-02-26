@@ -31,9 +31,24 @@ class Participants:
     This class provides some useful methods to handle all the participants connected to
     a coordinator in a thread safe manner by protecting access to the participants list
     with a lock.
+
+    Args:
+        participants: A map from participant IDs to contexts.
+        heartbeat_time: The time in seconds until the next expected heartbeat.
+        heartbeat_timeout: The time in seconds to abort after the next expected
+            heartbeat.
     """
 
     def __init__(self, heartbeat_time: int = 10, heartbeat_timeout: int = 5) -> None:
+        """Initialize the set of connected participants.
+
+        Args:
+            heartbeat_time: The time in seconds until the next expected heartbeat.
+                Defaults to 10.
+            heartbeat_timeout: The time in seconds to abort after the next expected
+                heartbeat. Defaults to 5.
+        """
+
         self.participants: Dict[str, ParticipantContext] = {}
         self._lock: threading.Lock = threading.Lock()
         self.heartbeat_time = heartbeat_time

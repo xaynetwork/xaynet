@@ -12,8 +12,8 @@ class Controller(ABC):
 
     Attributes:
         fraction_of_participants: The fraction of total participant IDs to be selected.
-            Defaults to 1.0, meaning that all participant IDs will be selected. It must
-            be in the (0.0, 1.0] interval.
+            It must be in the (0.0, 1.0] interval, ranging from no to all participants
+            being selected.
     """
 
     def __init__(self, fraction_of_participants: float = 1.0) -> None:

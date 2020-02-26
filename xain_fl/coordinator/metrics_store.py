@@ -73,7 +73,13 @@ class NullObjectMetricsStore(AbstractMetricsStore):
 
 
 class MetricsStore(AbstractMetricsStore):
-    """A metric store that uses InfluxDB to store the metrics."""
+    """A metric store that uses InfluxDB to store the metrics.
+    
+    Args:
+        config: A metric configuration.
+        influx_client: An InfluxDB database client.
+        schema: A schema to validate incomming metrics.
+    """
 
     def __init__(self, config: MetricsConfig):
         self.config = config

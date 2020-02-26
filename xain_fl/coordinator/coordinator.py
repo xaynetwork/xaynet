@@ -46,30 +46,30 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
     """The main Coordinator logic, a state machine that reacts to received messages.
 
     The states of the Coordinator are:
-        - ``STANDBY``: The coordinator is in standby mode, typically when waiting for
-            participants to connect. In this mode the only messages that the coordinator
-            can receive are ``RendezvousRequest`` and ``HeartbeatRequest``.
+      - ``STANDBY``: The coordinator is in standby mode, typically when waiting for
+        participants to connect. In this mode the only messages that the coordinator can
+        receive are ``RendezvousRequest`` and ``HeartbeatRequest``.
 
-        - ``ROUND``: A round is currently in progress. During a round the important
-            messages the coordinator can receive are ``StartTrainingRoundRequest`` and
-            ``EndTrainingRoundRequest``. Since participants may or may not be selected
-            for rounds, they can be advertised accordingly with ROUND or STANDBY
-            respectively. Round numbers start from 0.
+      - ``ROUND``: A round is currently in progress. During a round the important
+        messages the coordinator can receive are ``StartTrainingRoundRequest`` and
+        ``EndTrainingRoundRequest``. Since participants may or may not be selected
+        for rounds, they can be advertised accordingly with ROUND or STANDBY
+        respectively. Round numbers start from 0.
 
-        - ``FINISHED``: The training session has ended and participants should
-            disconnect from the coordinator.
+      - ``FINISHED``: The training session has ended and participants should
+        disconnect from the coordinator.
 
     States are exchanged during heartbeats so that both coordinators and participants
     can react to each others state change.
 
     The flow of the Coordinator:
-        1. The coordinator is started and waits for enough participants to join.
-            ``STANDBY``.
-        2. Once enough participants are connected the coordinator starts the rounds.
-            ``ROUND``.
-        3. Repeat step 2. for the given number of rounds.
-        4. The training session is over and the coordinator is ready to shutdown.
-            ``FINISHED``.
+     1. ``STANDBY``: The coordinator is started and waits for enough participants to
+        join.
+     2. ``ROUND``: Once enough participants are connected the coordinator starts the
+        rounds.
+     3. Repeat step 2. for the given number of rounds.
+     4. ``FINISHED``: The training session is over and the coordinator is ready to
+        shutdown.
 
     Note:
         ``RendezvousRequest`` is always allowed regardless of which state the
@@ -78,19 +78,27 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
     Args:
         global_weights_writer: A service for storing global weights.
         local_weights_reader: A service for retrieving the local weights.
+        metrics_store: A service for storing metrics.
         num_rounds: The number of rounds of the training session.
         minimum_participants_in_round: The minimum number of participants that
             participate in a round.
         fraction_of_participants: The fraction of total connected participants to be
-            selected in a single round. Defaults to 1.0, meaning that all connected
-            participants will be selected. It must be in the (0.0, 1.0] interval.
-        weights: The weights of the global model.
-        epochs: Number of training iterations local to Participant.
-        epochs_base: The global epoch number for the start of the next training round.
+            selected in a single round. Must be in the (0.0, 1.0] interval, ranging from
+            no to all connected participants are selected.
         aggregator: The type of aggregation to perform at the end of each round.
-            Defaults to ``WeightedAverageAggregator``.
         controller: Controls how the Participants are selected at the start of each
-            round. Defaults to ``RandomController``.
+            round.
+        participants: The set of registered participants.
+        minimum_connected_participants: The minimum number of participants that must be
+            connected for training.
+        weights: The weights of the global model.
+        epochs: The number of training iterations per training round.
+        epoch_base: The global epoch number for the start of the next training round.
+        round: The state of the training round.
+        state: The state of the coordinator state machine.
+        current_round: The current training round.
+        epochs_current_round: The number of training epochs for the current training
+            round.
     """
 
     def __init__(  # pylint: disable=too-many-arguments
@@ -108,15 +116,38 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
         controller: Controller = RandomController(),
         participants: Participants = None,
     ) -> None:
+        """Initialize the coordinator state machine.
+
+        Args:
+            global_weights_writer: A service for storing global weights.
+            local_weights_reader: A service for retrieving the local weights.
+            metrics_store: A service for storing metrics. Defaults to
+                NullObjectMetricsStore().
+            num_rounds: The number of rounds of the training session. Defaults to 1.
+            minimum_participants_in_round: The minimum number of participants that
+                participate in a round. Defaults to 1.
+            fraction_of_participants: The fraction of total connected participants to be
+                selected in a single round. Defaults to 1.0.
+            weights: The weights of the global model. Defaults to np.empty(shape=(0,)).
+            epochs: The number of training iterations per training round. Defaults to 1.
+            epoch_base: The global epoch number for the start of the next training
+                round. Defaults to 0.
+            aggregator: The type of aggregation to perform at the end of each round.
+                Defaults to WeightedAverageAggregator().
+            controller: Controls how the Participants are selected at the start of each
+                round. Defaults to RandomController().
+            participants: The set of registered participants. Defaults to None.
+        """
+
         self.global_weights_writer: AbstractGlobalWeightsWriter = global_weights_writer
         self.local_weights_reader: AbstractLocalWeightsReader = local_weights_reader
+        self.metrics_store = metrics_store
+        self.num_rounds: int = num_rounds
         self.minimum_participants_in_round: int = minimum_participants_in_round
         self.fraction_of_participants: float = fraction_of_participants
-        self.participants: Participants = participants or Participants()
-        self.num_rounds: int = num_rounds
         self.aggregator: Aggregator = aggregator
         self.controller: Controller = controller
-        self.metrics_store = metrics_store
+        self.participants: Participants = participants or Participants()
         self.minimum_connected_participants: int = self.get_minimum_connected_participants()
 
         # global model
@@ -291,8 +322,8 @@ class Coordinator:  # pylint: disable=too-many-instance-attributes
                 {"number_of_selected_participants": self.participants.len()},
             )
 
-            # Select participants and change the state to ROUND if the latest added participant
-            # lets us meet the minimum number of connected participants
+            # Select participants and change the state to ROUND if the latest added
+            # participant lets us meet the minimum number of connected participants
             if self.participants.len() == self.minimum_connected_participants:
                 # select enough to fill round if needed
                 if len(self.round.participant_ids) < self.minimum_participants_in_round:

@@ -92,9 +92,20 @@ def metrics_sample() -> Dict:
 
 @pytest.fixture
 def config_sample(  # pylint: disable=redefined-outer-name
-    server_sample, ai_sample, storage_sample, logging_sample, metrics_sample
+    server_sample: Dict,
+    ai_sample: Dict,
+    storage_sample: Dict,
+    logging_sample: Dict,
+    metrics_sample: Dict,
 ) -> Dict:
     """Create a valid config.
+
+    Args:
+        server_sample: A valid server configuration.
+        ai_sample: A valid ai configuration.
+        storage_sample: A valid storage configuration.
+        logging_sample: A valid logging configuration.
+        metrics_sample: A valid metric configuration.
 
     Returns:
         A configuration.
