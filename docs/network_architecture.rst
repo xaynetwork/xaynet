@@ -70,7 +70,7 @@ key-value stores, and the key for global weights is
 ``<round>/global``.
 
 Then, the participant trains. Once done, it uploads its local weights
-to the S3 bucket (3). The key is ``<round_number>/<participant_id>``.
+to the S3 bucket (3). The key is ``<round>/<participant_id>``.
 
 Finally (4), the participant sends its ``EndTrainingRoundRequest``. Before
 answering, the coordinator retrieves the local weights the participant
@@ -100,7 +100,7 @@ has uploaded.
         | -----------------------------> | Get local weights (key="round/participant")
         |                                | ---------------------> |
         |                                | Local weights          |
-        |  EndTrainingRoundResponse      | <--------------------> |
+        |  EndTrainingRoundResponse      | <--------------------- |
         | <----------------------------- |                        |
 
 At the end of the round, the coordinator writes the weights to the s3
@@ -120,7 +120,7 @@ diagram below).
     |                                | Set global weights (key="round+1/participant")
     |                                | ---------------------> |
     |                                | Ok                     |
-    |                                | <--------------------> |
+    |                                | <--------------------- |
 
 Coordinator
 -----------
@@ -424,7 +424,7 @@ where the request and response data are given as the following protobuf messages
    message EndTrainingRoundRequest {
        string participant_id = 1;
        int32 number_samples = 2;
-       map<string, xain_proto.np.NDArray> metrics = 3;
+       string metrics = 3;
    }
 
    message EndTrainingRoundResponse {}
