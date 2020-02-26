@@ -491,7 +491,7 @@ class Config:
 
         Raises:
             InvalidConfigError: If the path or the dictionary loaded from the path is
-                invalid. 
+                invalid.
         """
 
         try:
