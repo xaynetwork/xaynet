@@ -26,3 +26,10 @@ class InvalidRequestError(Exception):
     coordinator state. For instance the coordinator will only accept StartTrainingRound
     requests during a ROUND.
     """
+
+
+class InvalidConfigError(Exception):
+    """Exception for invalid configurations.
+
+    Raised upon trying to load an invalid configuration.
+    """

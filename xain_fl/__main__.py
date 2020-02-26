@@ -4,7 +4,7 @@ import sys
 
 from structlog import get_logger
 
-from xain_fl.config import Config, InvalidConfigError, get_cmd_parameters
+from xain_fl.config import Config, get_cmd_parameters
 from xain_fl.coordinator.coordinator import Coordinator, Participants
 from xain_fl.coordinator.metrics_store import (
     AbstractMetricsStore,
@@ -14,6 +14,7 @@ from xain_fl.coordinator.metrics_store import (
 from xain_fl.coordinator.store import S3GlobalWeightsWriter, S3LocalWeightsReader
 from xain_fl.logger import StructLogger, configure_structlog
 from xain_fl.serve import serve
+from xain_fl.tools.exceptions import InvalidConfigError
 
 logger: StructLogger = get_logger(__name__)
 

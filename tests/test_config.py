@@ -5,7 +5,8 @@ from typing import Any, Dict, Optional, Pattern, Type, Union
 
 import pytest
 
-from xain_fl.config import Config, InvalidConfigError
+from xain_fl.config import Config
+from xain_fl.tools.exceptions import InvalidConfigError
 
 
 @pytest.fixture

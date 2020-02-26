@@ -29,6 +29,8 @@ import idna
 from schema import And, Optional, Or, Schema, SchemaError, Use
 import toml
 
+from xain_fl.tools.exceptions import InvalidConfigError
+
 
 def error(key: str, description: str) -> str:
     """Get an error message for configuration items.
@@ -486,6 +488,10 @@ class Config:
 
         Returns:
             The configuration.
+
+        Raises:
+            InvalidConfigError: If the path or the dictionary loaded from the path is
+                invalid. 
         """
 
         try:
@@ -504,7 +510,3 @@ class Config:
         except OSError as err:
             raise InvalidConfigError(str(err)) from err
         return cls.from_unchecked_dict(raw_config)
-
-
-class InvalidConfigError(ValueError):
-    """Exception raised upon trying to load an invalid configuration."""

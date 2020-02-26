@@ -8,7 +8,6 @@ from xain_fl.config.cli import get_cmd_parameters
 from xain_fl.config.schema import (
     AiConfig,
     Config,
-    InvalidConfigError,
     LoggingConfig,
     MetricsConfig,
     ServerConfig,
@@ -23,5 +22,4 @@ __all__ = [
     "StorageConfig",
     "ServerConfig",
     "MetricsConfig",
-    "InvalidConfigError",
 ]
