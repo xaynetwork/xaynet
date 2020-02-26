@@ -1,8 +1,6 @@
 use clap::{App, Arg};
 use rand::seq::IteratorRandom;
-use std::env;
-use std::process;
-
+use std::{env, process};
 
 use xain_fl::{
     common::ClientId,

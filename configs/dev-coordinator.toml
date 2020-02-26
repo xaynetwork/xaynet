@@ -12,3 +12,4 @@ aggregator_address = "localhost:6666"
 rounds = 10
 participants_ratio = 0.5
 min_clients = 5
+heartbeat_timeout = 15

@@ -14,6 +14,7 @@ pub struct FederatedLearningSettings {
     pub rounds: u32,
     pub participants_ratio: f64,
     pub min_clients: u32,
+    pub heartbeat_timeout: u64,
     // epoch: u32,
 }
 

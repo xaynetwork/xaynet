@@ -74,10 +74,14 @@ pub struct Clients {
     heartbeat_expirations_tx: mpsc::UnboundedSender<ClientId>,
     // start_training_expirations_tx: mpsc::UnvoundedSender<ClientId>,
     // done_training_expirations_tx: mpsc::UnboundedSender<ClientId>,
+    heartbeat_timeout: Duration,
 }
 
 impl Clients {
-    pub fn new(heartbeat_expirations_tx: mpsc::UnboundedSender<ClientId>) -> Self {
+    pub fn new(
+        heartbeat_expirations_tx: mpsc::UnboundedSender<ClientId>,
+        heartbeat_timeout: Duration,
+    ) -> Self {
         Self {
             heartbeat_expirations_tx,
             waiting: HashMap::new(),
@@ -85,6 +89,7 @@ impl Clients {
             done: HashMap::new(),
             done_and_inactive: HashSet::new(),
             ignored: HashMap::new(),
+            heartbeat_timeout,
         }
     }
 
@@ -115,7 +120,7 @@ impl Clients {
     ) -> HeartBeatTimer {
         HeartBeatTimer::new(
             id,
-            HEARTBEAT_TIMEOUT,
+            self.heartbeat_timeout,
             self.heartbeat_expirations_tx.clone(),
             resets_rx,
         )

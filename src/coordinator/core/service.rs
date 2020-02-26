@@ -16,6 +16,7 @@ use std::{
     future::Future,
     pin::Pin,
     task::{Context, Poll},
+    time::Duration,
 };
 
 use derive_more::Display;
@@ -135,12 +136,13 @@ where
         let (requests_tx, requests_rx) = mpsc::channel(2048);
         let (heartbeat_expirations_tx, heartbeat_expirations_rx) = mpsc::unbounded_channel();
 
+        let heartbeat_timeout = Duration::from_secs(fl_settings.heartbeat_timeout);
         let rpc_requests = rpc::run(rpc_listen_addr);
         let coordinator = Self {
             selector,
             heartbeat_expirations_rx,
             requests_rx,
-            clients: Clients::new(heartbeat_expirations_tx),
+            clients: Clients::new(heartbeat_expirations_tx, heartbeat_timeout),
             protocol: protocol::Protocol::new(fl_settings),
             pending_selection: Vec::new(),
             aggregator_rpc: None,
