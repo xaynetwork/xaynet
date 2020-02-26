@@ -60,7 +60,7 @@ def participant_store(
         s3_mock_stores: The mocked S3 stores.
 
     Returns:
-        The mocked store for the participant.
+        The mocked S3 store for the participant.
     """
 
     return s3_mock_stores[1]
@@ -189,7 +189,7 @@ def coordinator_service(coordinator: Callable) -> Generator:
     .. todo:: PB-50: Advance docstrings.
 
     Args:
-        coordinator: [description].
+        coordinator: A function to create a coordinator.
 
     Returns:
         [description].
@@ -209,15 +209,13 @@ def coordinator_service(coordinator: Callable) -> Generator:
 
 @pytest.fixture
 def mock_coordinator_service(coordinator: Callable) -> Generator:
-    """[summary]
-
-    .. todo:: PB-50: Advance docstrings.
+    """Create a local coordinator gRPC service.
 
     Args:
-        coordinator: [description].
+        coordinator: A function to create a coordinator.
 
     Returns:
-        [description].
+        A generated coordinator service.
     """
 
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
@@ -247,12 +245,10 @@ def mock_coordinator_service(coordinator: Callable) -> Generator:
 
 @pytest.fixture
 def participant_stub() -> Generator:
-    """[summary]
-
-    .. todo:: PB-50: Advance docstrings.
+    """Create a local coordinator gRPC stub for a participant.
 
     Returns:
-        [description].
+        A generated coordinator stub.
     """
 
     channel = grpc.insecure_channel("localhost:50051")

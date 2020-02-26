@@ -6,7 +6,7 @@
 # from xain_fl.fl.coordinator.aggregate import federated_averaging
 #
 #
-# def test_federated_averaging():  # pylint: disable=too-many-locals
+# def test_federated_averaging() -> None:
 #     """Test for `federated_averaging()`."""
 #
 #     # Prepare:
