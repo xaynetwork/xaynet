@@ -4,6 +4,12 @@
 [![Documentation Status](https://readthedocs.org/projects/xain-fl/badge/?version=latest)](https://xain-fl.readthedocs.io/en/latest/?badge=latest)
 [![Gitter chat](https://badges.gitter.im/xainag.png)](https://gitter.im/xainag)
 
+---
+
+**Disclaimer: This is work-in-progress and not production-ready, expect errors to occur! Use at your own risk! Do not use for any security related issues!**
+
+---
+
 # XAIN
 
 The XAIN project is building a privacy layer for machine learning so that AI projects can meet compliance such as
