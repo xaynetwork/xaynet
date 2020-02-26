@@ -19,10 +19,6 @@ from xain_fl.coordinator.metrics_store import (
     AbstractMetricsStore,
     NullObjectMetricsStore,
 )
-from xain_fl.coordinator.store import (
-    AbstractGlobalWeightsWriter,
-    AbstractLocalWeightsReader,
-)
 from xain_fl.fl.coordinator.aggregate import (
     Aggregator,
     ModelSumAggregator,
@@ -112,8 +108,8 @@ def coordinator(
     """
 
     store: MockS3Coordinator = s3_mock_stores[0]
-    default_global_weights_writer: AbstractGlobalWeightsWriter = store
-    default_local_weights_reader: AbstractLocalWeightsReader = store
+    default_global_weights_writer: MockS3Coordinator = store
+    default_local_weights_reader: MockS3Coordinator = store
 
     def wrapped(  # pylint: disable=too-many-arguments
         global_weights_writer=default_global_weights_writer,
@@ -196,10 +192,8 @@ def coordinator_service(coordinator: Callable) -> Generator:
     """
 
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
-    coordinator = coordinator(
-        minimum_participants_in_round=10, fraction_of_participants=1.0
-    )
-    coordinator_grpc = CoordinatorGrpc(coordinator)
+    coord = coordinator(minimum_participants_in_round=10, fraction_of_participants=1.0)
+    coordinator_grpc = CoordinatorGrpc(coord)
     coordinator_pb2_grpc.add_CoordinatorServicer_to_server(coordinator_grpc, server)
     server.add_insecure_port("localhost:50051")
     server.start()
@@ -221,20 +215,20 @@ def mock_coordinator_service(coordinator: Callable) -> Generator:
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
     agg = ModelSumAggregator()
     ctrl = IdController()
-    coordinator = coordinator(
+    coord = coordinator(
         num_rounds=2,
         minimum_participants_in_round=1,
         fraction_of_participants=1.0,
         aggregator=agg,
         controller=ctrl,
     )
-    coordinator_grpc = CoordinatorGrpc(coordinator)
+    coordinator_grpc = CoordinatorGrpc(coord)
     coordinator_pb2_grpc.add_CoordinatorServicer_to_server(coordinator_grpc, server)
     server.add_insecure_port("localhost:50051")
     server.start()
     terminate_event = threading.Event()
     monitor_thread = threading.Thread(
-        target=monitor_heartbeats, args=(coordinator, terminate_event)
+        target=monitor_heartbeats, args=(coord, terminate_event)
     )
     monitor_thread.start()
     yield coordinator_grpc

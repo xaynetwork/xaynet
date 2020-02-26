@@ -34,7 +34,7 @@ from xain_sdk.participant_state_machine import (
     start_training_round,
 )
 
-from tests.store import MockS3Participant
+from tests.store import MockS3Coordinator, MockS3Participant
 from xain_fl.coordinator.coordinator_grpc import CoordinatorGrpc
 from xain_fl.coordinator.heartbeat import monitor_heartbeats
 from xain_fl.coordinator.participants import ParticipantContext, Participants
@@ -550,15 +550,17 @@ def test_full_training_round(
         )
         assert response == EndTrainingRoundResponse()
         cast(
-            CoordinatorGrpc, coordinator_service
-        ).coordinator.local_weights_reader.assert_read(participant_id, 0)
+            MockS3Coordinator,
+            cast(CoordinatorGrpc, coordinator_service).coordinator.local_weights_reader,
+        ).assert_read(participant_id, 0)
 
     assert not cast(
         CoordinatorGrpc, coordinator_service
     ).coordinator.round.is_finished()
     cast(
-        CoordinatorGrpc, coordinator_service
-    ).coordinator.global_weights_writer.assert_didnt_write(1)
+        MockS3Coordinator,
+        cast(CoordinatorGrpc, coordinator_service).coordinator.global_weights_writer,
+    ).assert_didnt_write(1)
 
     # The last participant finishes training
     participant_id = f"participant9"
@@ -570,10 +572,9 @@ def test_full_training_round(
 
     # Make sure we wrote the results for the given round
     cast(
-        CoordinatorGrpc, coordinator_service
-    ).coordinator.global_weights_writer.assert_wrote(
-        1, cast(CoordinatorGrpc, coordinator_service).coordinator.weights
-    )
+        MockS3Coordinator,
+        cast(CoordinatorGrpc, coordinator_service).coordinator.global_weights_writer,
+    ).assert_wrote(1, cast(CoordinatorGrpc, coordinator_service).coordinator.weights)
 
 
 @pytest.mark.integration

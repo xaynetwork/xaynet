@@ -46,7 +46,7 @@ class S3BaseClass:  # pylint: disable=too-few-public-methods
         config: The storage configuration (endpoint URL, credentials, etc.).
     """
 
-    def __init__(self, config: StorageConfig):
+    def __init__(self, config: StorageConfig) -> None:
         self.config = config
         self.s3 = boto3.resource(  # pylint: disable=invalid-name
             "s3",

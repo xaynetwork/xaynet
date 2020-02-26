@@ -2,7 +2,7 @@
 
 from collections import defaultdict
 import pickle
-import typing
+from typing import IO, DefaultDict, Dict
 
 import numpy as np
 from xain_sdk.store import S3GlobalWeightsReader, S3LocalWeightsWriter
@@ -18,13 +18,13 @@ class MockS3Resource:
     writes data in memory and keeps track of the reads and writes.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         # fake store where data gets written to
-        self.fake_store = {}
+        self.fake_store: Dict = {}
         # count the writes for each key in the store
-        self.writes = defaultdict(lambda: 0)
+        self.writes: DefaultDict = defaultdict(lambda: 0)
         # count the reads for each key in the store
-        self.reads = defaultdict(lambda: 0)
+        self.reads: DefaultDict = defaultdict(lambda: 0)
 
     # The names come from the `boto3` API we're mocking
     def Bucket(self, _name: str) -> "MockS3Resource":  # pylint: disable=invalid-name
@@ -52,7 +52,7 @@ class MockS3Resource:
         self.fake_store[Key] = pickle.loads(Body)
         self.writes[Key] += 1
 
-    def download_fileobj(self, key: str, buf: typing.IO) -> None:
+    def download_fileobj(self, key: str, buf: IO) -> None:
         """Mock of the `boto3.S3.Client.download_fileobj` method.
 
         Args:
@@ -75,7 +75,7 @@ class MockS3Coordinator(S3GlobalWeightsWriter, S3LocalWeightsReader):
 
     # We DO NOT want to call the parent class __init__, since it tries
     # to initialize a connection to a non-existent external resource
-    def __init__(self, mock_s3_resource):
+    def __init__(self, mock_s3_resource: MockS3Resource) -> None:
         self.config = StorageConfig(
             endpoint="endpoint",
             access_key_id="access_key_id",
@@ -127,7 +127,7 @@ class MockS3Participant(S3LocalWeightsWriter, S3GlobalWeightsReader):
     Instead, data is stored in memory.
     """
 
-    def __init__(self, mock_s3_resource):
+    def __init__(self, mock_s3_resource: MockS3Resource) -> None:
         self.config = StorageConfig(
             endpoint="endpoint",
             access_key_id="access_key_id",

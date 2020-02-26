@@ -131,11 +131,11 @@ def test_default_logging_config(  # pylint: disable=redefined-outer-name
 
     del config_sample["logging"]
     config = Config.from_unchecked_dict(config_sample)
-    assert config.logging.level == "info"
+    assert config.logging.level == "info"  # type: ignore
 
     config_sample["logging"] = {}
     config = Config.from_unchecked_dict(config_sample)
-    assert config.logging.level == "info"
+    assert config.logging.level == "info"  # type: ignore
 
 
 def test_invalid_logging_config(  # pylint: disable=redefined-outer-name
@@ -168,36 +168,36 @@ def test_load_valid_config(  # pylint: disable=redefined-outer-name
 
     config = Config.from_unchecked_dict(config_sample)
 
-    assert config.server.host == "localhost"
-    assert config.server.port == 50051
-    assert config.server.grpc_options == [
+    assert config.server.host == "localhost"  # type: ignore
+    assert config.server.port == 50051  # type: ignore
+    assert config.server.grpc_options == [  # type: ignore
         ("grpc.max_receive_message_length", -1),
         ("grpc.max_send_message_length", -1),
     ]
-    assert config.server.thread_pool_workers == 11
-    assert config.server.heartbeat_time == 11
-    assert config.server.heartbeat_timeout == 6
+    assert config.server.thread_pool_workers == 11  # type: ignore
+    assert config.server.heartbeat_time == 11  # type: ignore
+    assert config.server.heartbeat_timeout == 6  # type: ignore
 
-    assert config.ai.rounds == 1
-    assert config.ai.epochs == 1
-    assert config.ai.min_participants == 1
-    assert config.ai.fraction_participants == 1.0
+    assert config.ai.rounds == 1  # type: ignore
+    assert config.ai.epochs == 1  # type: ignore
+    assert config.ai.min_participants == 1  # type: ignore
+    assert config.ai.fraction_participants == 1.0  # type: ignore
 
-    assert config.storage.endpoint == "http://localhost:9000"
-    assert config.storage.bucket == "bucket"
-    assert config.storage.secret_access_key == "my-secret"
-    assert config.storage.access_key_id == "my-key-id"
+    assert config.storage.endpoint == "http://localhost:9000"  # type: ignore
+    assert config.storage.bucket == "bucket"  # type: ignore
+    assert config.storage.secret_access_key == "my-secret"  # type: ignore
+    assert config.storage.access_key_id == "my-key-id"  # type: ignore
 
-    assert config.metrics.enable is False
-    assert config.metrics.host == "localhost"
-    assert config.metrics.port == 8086
-    assert config.metrics.user == "root"
-    assert config.metrics.password == "root"
-    assert config.metrics.db_name == "metrics"
+    assert config.metrics.enable is False  # type: ignore
+    assert config.metrics.host == "localhost"  # type: ignore
+    assert config.metrics.port == 8086  # type: ignore
+    assert config.metrics.user == "root"  # type: ignore
+    assert config.metrics.password == "root"  # type: ignore
+    assert config.metrics.db_name == "metrics"  # type: ignore
 
-    assert config.logging.level == "debug"
-    assert config.logging.console is True
-    assert config.logging.third_party is True
+    assert config.logging.level == "debug"  # type: ignore
+    assert config.logging.console is True  # type: ignore
+    assert config.logging.third_party is True  # type: ignore
 
 
 def test_server_config_ip_address(  # pylint: disable=redefined-outer-name
@@ -214,13 +214,13 @@ def test_server_config_ip_address(  # pylint: disable=redefined-outer-name
     server_sample["host"] = "1.2.3.4"
     config_sample["server"] = server_sample
     config = Config.from_unchecked_dict(config_sample)
-    assert config.server.host == server_sample["host"]
+    assert config.server.host == server_sample["host"]  # type: ignore
 
     # Ipv6 host
     server_sample["host"] = "::1"
     config_sample["server"] = server_sample
     config = Config.from_unchecked_dict(config_sample)
-    assert config.server.host == server_sample["host"]
+    assert config.server.host == server_sample["host"]  # type: ignore
 
 
 def test_server_config_extra_key(  # pylint: disable=redefined-outer-name
@@ -279,12 +279,12 @@ def test_server_config_valid_ipv6(  # pylint: disable=redefined-outer-name
     server_sample["host"] = "::"
     config_sample["server"] = server_sample
     config = Config.from_unchecked_dict(config_sample)
-    assert config.server.host == server_sample["host"]
+    assert config.server.host == server_sample["host"]  # type: ignore
 
     server_sample["host"] = "fe80::"
     config_sample["server"] = server_sample
     config = Config.from_unchecked_dict(config_sample)
-    assert config.server.host == server_sample["host"]
+    assert config.server.host == server_sample["host"]  # type: ignore
 
 
 # Adapted from unittest's assertRaises
