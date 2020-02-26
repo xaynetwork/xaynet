@@ -74,7 +74,7 @@ class NullObjectMetricsStore(AbstractMetricsStore):
 
 class MetricsStore(AbstractMetricsStore):
     """A metric store that uses InfluxDB to store the metrics.
-    
+
     Args:
         config: A metric configuration.
         influx_client: An InfluxDB database client.
