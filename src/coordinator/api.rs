@@ -42,8 +42,8 @@ pub mod models {
 pub async fn serve(bind_address: &str, handle: CoordinatorHandle) {
     let handle = warp::any().map(move || handle.clone());
 
-    let heartbeat = warp::get()
-        .and(warp::path::param::<ClientId>())
+    let heartbeat = warp::path!("heartbeat" / ClientId)
+        .and(warp::get())
         .and(handle.clone())
         .and_then(|id, mut handle: CoordinatorHandle| async move {
             match handle.heartbeat(id).await {
@@ -52,18 +52,18 @@ pub async fn serve(bind_address: &str, handle: CoordinatorHandle) {
             }
         });
 
-    let rendez_vous =
-        warp::get()
-            .and(handle.clone())
-            .and_then(|mut handle: CoordinatorHandle| async move {
-                match handle.rendez_vous().await {
-                    Ok(response) => Ok(warp::reply::json(&response)),
-                    Err(_) => Err(warp::reject::not_found()),
-                }
-            });
+    let rendez_vous = warp::path!("rendez_vous")
+        .and(warp::get())
+        .and(handle.clone())
+        .and_then(|mut handle: CoordinatorHandle| async move {
+            match handle.rendez_vous().await {
+                Ok(response) => Ok(warp::reply::json(&response)),
+                Err(_) => Err(warp::reject::not_found()),
+            }
+        });
 
-    let start_training = warp::get()
-        .and(warp::path::param::<ClientId>())
+    let start_training = warp::path!("start_training" / ClientId)
+        .and(warp::get())
         .and(handle.clone())
         .and_then(|id, mut handle: CoordinatorHandle| async move {
             match handle.start_training(id).await {
