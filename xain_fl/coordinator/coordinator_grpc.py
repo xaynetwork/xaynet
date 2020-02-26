@@ -51,8 +51,8 @@ class CoordinatorGrpc(CoordinatorServicer):
         Returns:
             The response to the participant's request. The response is an enum
             containing either:
-                - `ACCEPT`: If the coordinator does not have enough participants.
-                - `LATER`: If the coordinator already has enough participants.
+              - `ACCEPT`: If the coordinator does not have enough participants.
+              - `LATER`: If the coordinator already has enough participants.
         """
 
         return self.coordinator.on_message(request, context.peer())
