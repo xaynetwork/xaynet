@@ -3,7 +3,7 @@ use std::{collections::VecDeque, error::Error};
 
 use crate::{
     common::ClientId,
-    coordinator::{api::models::HeartBeatResponse, settings::FederatedLearningSettings},
+    coordinator::{models::HeartBeatResponse, settings::FederatedLearningSettings},
 };
 
 #[derive(Eq, Debug, PartialEq, Default, Copy, Clone)]

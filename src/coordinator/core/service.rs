@@ -30,11 +30,11 @@ use crate::{
     aggregator,
     common::{ClientId, Token},
     coordinator::{
-        api::models::{HeartBeatResponse, RendezVousResponse, StartTrainingResponse},
         core::{
             client::{Clients, HeartBeatResetError},
             protocol,
         },
+        models::{HeartBeatResponse, RendezVousResponse, StartTrainingResponse},
         rpc,
         settings::FederatedLearningSettings,
     },
