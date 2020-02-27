@@ -318,7 +318,6 @@ where
 
     /// Handle a request
     fn dispatch_request(&mut self, request: Request) {
-        info!("handling request: {:?}", request);
         match request {
             Request::RendezVous(inner_request) => self.rendez_vous(inner_request),
             Request::HeartBeat(inner_request) => self.heartbeat(inner_request),
