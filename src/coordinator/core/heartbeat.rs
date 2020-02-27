@@ -17,6 +17,7 @@ struct ExpirationNotifier(Option<(ClientId, mpsc::UnboundedSender<ClientId>)>);
 
 impl ExpirationNotifier {
     fn run(&mut self) {
+        trace!("ExpirationNotifier running");
         if let Some((id, channel)) = self.0.take() {
             channel.send(id).unwrap_or_else(|_| {
                 warn!("failed to send timer expiration notification: channel is closed")

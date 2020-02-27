@@ -2,8 +2,10 @@
 import json
 import urllib
 import requests
+import logging
 
-from logzero import logger as LOG
+
+LOG = logging.getLogger("participant")
 
 
 def log_headers(headers):
@@ -103,6 +105,9 @@ class CoordinatorClient:
 
     def rendez_vous(self):
         return json.loads(self.http.get("rendez_vous").text)
+
+    def start_training(self):
+        return json.loads(self.http.get("start_training/{id}").text)
 
 
 class AggregatorClient:

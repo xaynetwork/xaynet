@@ -11,8 +11,10 @@ import numpy as np
 from numpy import ndarray
 from .http import AggregatorClient, CoordinatorClient
 
-from logzero import logger as LOG
+import logging
 
+
+LOG=logging.getLogger("http")
 
 class Participant(ABC):
     def __init__(self) -> None:
@@ -30,11 +32,11 @@ class Participant(ABC):
 
 
 class DummyParticipant(Participant):
-    def train_round(self):
-        pass
+    def train_round(self, weights: ndarray, _epochs: int, _epoch_base: int):
+        return weights
 
     def init_weights(self):
-        pass
+        np.ndarray([1, 2, 3, 4])
 
 
 class State(enum.Enum):

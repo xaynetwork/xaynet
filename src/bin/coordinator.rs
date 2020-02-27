@@ -30,8 +30,10 @@ async fn main() {
         eprintln!("Problem parsing configuration file: {}", err);
         process::exit(1);
     });
+
     env::set_var("RUST_LOG", &settings.log_level);
-    env_logger::init();
+    let mut builder = env_logger::Builder::from_default_env();
+    builder.format_timestamp_micros().init();
 
     _main(settings).await;
 }
