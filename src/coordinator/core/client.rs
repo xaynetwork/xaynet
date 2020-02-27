@@ -9,8 +9,6 @@ use std::{
 };
 use tokio::sync::mpsc;
 
-const HEARTBEAT_TIMEOUT: Duration = Duration::from_secs(10);
-
 /// Represent an active client.
 struct ActiveClient {
     /// Channel for resetting this client's heartbeat timer
@@ -261,9 +259,10 @@ impl Clients {
 
     /// Reset the heartbeat timer of the given client
     pub fn reset_heartbeat(&mut self, id: &ClientId) -> Result<(), HeartBeatResetError> {
+        let duration = self.heartbeat_timeout.clone();
         self.get_active_mut(id)
             .ok_or(HeartBeatResetError::ClientNotFound)?
-            .reset_heartbeat(HEARTBEAT_TIMEOUT)
+            .reset_heartbeat(duration)
     }
 
     pub fn add(&mut self, id: ClientId) -> HeartBeatTimer {

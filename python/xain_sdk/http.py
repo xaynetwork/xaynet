@@ -1,9 +1,10 @@
 # pylint: disable=missing-docstring,invalid-name
+import json
 import urllib
-import logging
 import requests
 
-from logzero import logger  as LOG
+from logzero import logger as LOG
+
 
 def log_headers(headers):
     for (name, value) in headers.items():
@@ -13,8 +14,10 @@ def log_headers(headers):
 def log_request(req):
     LOG.info(">>> %s %s", req.method, req.url)
     log_headers(req.headers)
-    if req.body:
-        LOG.info(req.body.decode("utf-8"))
+    content_type = req.headers.get('content-type')
+    if content_type == 'application/json':
+        parsed = json.loads(req.body.decode("utf-8"))
+        LOG.info(json.dumps(parsed, indent=4))
 
 
 def log_response(resp):
@@ -24,9 +27,10 @@ def log_response(resp):
         logger = LOG.warning
     logger("<<< %s %s [%s]", resp.request.method, resp.request.url, resp.status_code)
     log_headers(resp.headers)
-    if resp.text:
-        LOG.info(resp.text)
-
+    content_type = resp.headers.get('content-type')
+    if content_type == 'application/json':
+        parsed = json.loads(resp.text)
+        LOG.info(json.dumps(parsed, indent=4))
 
 class HttpClient:
     def __init__(self, url):
@@ -60,7 +64,8 @@ class HttpClient:
         req = self.build_req("GET", path, **kwargs)
         return self.send(req, status=status)
 
-    def headers(self):
+    @staticmethod
+    def headers():
         headers = {}
         return headers
 
@@ -89,19 +94,25 @@ class ApiError(Exception):
         super().__init__(self.error, *args, **kwargs)
 
 
-class XainClient:
-    def __init__(self, url, id=None):
+class CoordinatorClient:
+    def __init__(self, url):
         self.http = HttpClient(url)
-        self._id = id
 
-    @property
-    def id(self):
-        return self._id if self._id else ""
-
-    def heartbeat(self):
-        resp = self.http.get(f"heartbeat/{self.id}")
-        return resp.text
+    def heartbeat(self, id):
+        return json.loads(self.http.get(f"heartbeat/{id}").text)
 
     def rendez_vous(self):
-        resp = self.http.get("rendez_vous")
-        return resp.text
+        return json.loads(self.http.get("rendez_vous").text)
+
+
+class AggregatorClient:
+    def __init__(self, url):
+        self.http = HttpClient(url)
+
+    def download(self, id, token):
+        resp = self.http.get(f"{id}/{token}")
+        return resp
+
+    def upload(self, id, token, weights):
+        resp = self.http.post(f"{id}/{token}", body=weights)
+        return resp

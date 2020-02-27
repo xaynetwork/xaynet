@@ -167,6 +167,7 @@ where
 
     /// Handle the incoming requests.
     fn poll_requests(&mut self, cx: &mut Context) -> Poll<()> {
+        trace!("polling requests");
         loop {
             match ready!(Pin::new(&mut self.requests_rx).poll_next(cx)) {
                 Some(request) => {
@@ -201,7 +202,7 @@ where
         loop {
             match ready!(Pin::new(&mut self.heartbeat_expirations_rx).poll_next(cx)) {
                 Some(id) => {
-                    info!("heartbeat expired: {}", id);
+                    debug!("heartbeat expired: {}", id);
                     let state = self.clients.get_state(&id);
                     self.protocol.hearbeat_timeout(id, state);
                     self.handle_protocol_events();
@@ -233,7 +234,7 @@ where
             ..
         } = self;
         if !pending_selection.is_empty() {
-            info!("processing pending selection");
+            debug!("processing pending selection");
             let chunk = pending_selection
                 .drain(0..::std::cmp::min(pending_selection.len(), 100))
                 .map(|id| (id, clients.get_state(&id)));
@@ -253,6 +254,7 @@ where
 {
     /// Handle a rendez-vous request
     fn rendez_vous(&mut self, req: RequestMessage<(), RendezVousResponse>) {
+        debug!("handling rendez-vous request");
         let (_, response_tx) = req;
         let id = ClientId::new();
         // This should be "Unknown" since we just created a
@@ -267,6 +269,7 @@ where
 
     /// Handle a heartbeat request
     fn heartbeat(&mut self, req: RequestMessage<ClientId, HeartBeatResponse>) {
+        debug!("handling heartbeat request");
         let (id, response_tx) = req;
         let response = self.protocol.heartbeat(id, self.clients.get_state(&id));
         response_tx.send(response);
@@ -274,6 +277,7 @@ where
 
     /// Handle a start training request
     fn start_training(&mut self, req: RequestMessage<ClientId, StartTrainingResponse>) {
+        debug!("handling start training request");
         let (id, response_tx) = req;
         match self.protocol.start_training(self.clients.get_state(&id)) {
             protocol::StartTrainingResponse::Reject => {
@@ -314,6 +318,7 @@ where
 
     /// Handle a request
     fn dispatch_request(&mut self, request: Request) {
+        info!("handling request: {:?}", request);
         match request {
             Request::RendezVous(inner_request) => self.rendez_vous(inner_request),
             Request::HeartBeat(inner_request) => self.heartbeat(inner_request),
@@ -531,9 +536,13 @@ impl CoordinatorHandle {
     }
 
     pub async fn heartbeat(&mut self, id: ClientId) -> Result<HeartBeatResponse, RequestError> {
+        trace!("notifying service about hearbeat from {}", id);
         let (resp_tx, resp_rx) = response_channel::<HeartBeatResponse>();
         let req: Request = Request::HeartBeat((id, resp_tx));
-        self.0.send(req).await.map_err(|_| RequestError)?;
+        self.0.send(req).await.map_err(|_| {
+            error!("failed to send heartbeat request to CoordinatorService");
+            RequestError
+        })?;
         resp_rx.await
     }
 

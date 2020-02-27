@@ -48,6 +48,7 @@ impl HeartBeatTimer {
     }
 
     fn poll_resets(&mut self, cx: &mut Context) -> Poll<()> {
+        trace!("polling reset");
         loop {
             match ready!(Pin::new(&mut self.resets).poll_next(cx)) {
                 Some(duration) => {
