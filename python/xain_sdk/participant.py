@@ -87,7 +87,17 @@ class StateRecord:
 
     def wait_until_selected_or_done(self) -> State:
         self.assert_locked()
+        # wait() releases the lock. It's fine to set the `locked`
+        # attribute, because until wait() runs, the lock won't be
+        # released so no other thread will try to access this attribute.
+        #
+        # It's also fine to re-set the attribute to True afterward,
+        # because this thread will hold the lock at this point.
+        #
+        # FIXME: explain better why this it is safe
+        self.locked = False
         self.cond.wait_for(lambda: self.state in {State.TRAINING, State.DONE})
+        self.locked = True
         return self.state
 
 
@@ -108,7 +118,12 @@ class InternalParticipant:
         while True:
             with self.state_record:
                 self.state_record.wait_until_selected_or_done()
-                return
+                state, round = self.state_record.lookup()
+                if state == State.DONE:
+                    return
+                elif state == State.TRAINING:
+                    self.coordinator.start_training(self.id)
+                    from IPython import embed; embed()
 
     def rendez_vous(self):
         self.id = self.coordinator.rendez_vous()["id"]

@@ -106,8 +106,8 @@ class CoordinatorClient:
     def rendez_vous(self):
         return json.loads(self.http.get("rendez_vous").text)
 
-    def start_training(self):
-        return json.loads(self.http.get("start_training/{id}").text)
+    def start_training(self, id):
+        return json.loads(self.http.get(f"start_training/{id}").text)
 
 
 class AggregatorClient:
