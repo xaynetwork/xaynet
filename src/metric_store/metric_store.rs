@@ -63,37 +63,26 @@ impl InfluxDBMetricStore {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
+
     use super::*;
+    use tokio; 
 
-    #[test]
-    fn write() {
-        // let credentials = Credentials {
-        //     username: "root",
-        //     password: "root",
-        //     database: "metrics",
-        // };
-        // let hosts = vec!["http://localhost:8086"];
+    #[tokio::test]
+    async fn test_write_metrics() {
+        let metric_store = InfluxDBMetricStore::new("http://localhost:8086", "metrics");
+        let fields = vec![(String::from("CPU"), Type::SignedInteger(1))];
 
-        // let metric_store = InfluxDBMetricStore::new(credentials, hosts);
-        // let fields = vec![(String::from("CPU"), Value::Integer(123))];
-        // metric_store.write(MetricOwner::Coordinator, fields);
+        metric_store.write(MetricOwner::Coordinator, fields).await;
     }
 
-    #[test]
-    fn write_with_tags() {
-        // let credentials = Credentials {
-        //     username: "root",
-        //     password: "root",
-        //     database: "metrics",
-        // };
-        // let hosts = vec!["http://localhost:8086"];
+    #[tokio::test]
+    async fn test_write_metrics_with_tags() {
+        let metric_store = InfluxDBMetricStore::new("http://localhost:8086", "metrics");
+        let fields = vec![(String::from("CPU"), Type::SignedInteger(123))];
+        let tags = vec![(String::from("ID"), String::from("1234-1234-1234-1234"))];
 
-        // let metric_store = InfluxDBMetricStore::new(credentials, hosts);
-        // let fields = vec![(String::from("CPU"), Value::Integer(123))];
-        // let tags = vec![(String::from("ID"), String::from("1234-1234-1234-1234"))];
-        // metric_store.write_with_tags(MetricOwner::Coordinator, fields, tags);
+        metric_store.write_with_tags(MetricOwner::Coordinator, fields, tags).await;
     }
 }
