@@ -1,11 +1,12 @@
-extern crate influent;
-
-use core::future::Future;
-use influxdb::{Client, Error, Query, Timestamp, Type, WriteQuery};
+use influxdb::{Client, Query, Timestamp, Type, WriteQuery};
 
 pub enum MetricOwner {
     Coordinator,
     Participant,
+}
+
+pub struct InfluxDBMetricStore {
+    client: Client,
 }
 
 impl InfluxDBMetricStore {
@@ -23,42 +24,45 @@ impl InfluxDBMetricStore {
     }
 
     async fn write(&self, metrics_owner: MetricOwner, fields: Vec<(String, Type)>) -> () {
-        let write_query: WriteQuery =
+        let mut write_query: WriteQuery =
             Query::write_query(Timestamp::Now, self.metrics_owner_to_string(metrics_owner));
-        let write_query = write_query.add_field("d", 12);
 
-        // for (name, value) in fields {
-        //     let write_query = write_query.add_field(name, value);
-        // };
+        for (name, value) in fields {
+            write_query = write_query.add_field(name, value);
+        }
 
-        // // Submit the query to InfluxDB.
-        let res = self.client.query(&write_query).await;
+        // Submit the query to InfluxDB.
+        match self.client.query(&write_query).await {
+            Err(err) => eprintln!("{:?}", err),
+            _  => ()
+        };
     }
 
-    //  fn write_with_tags(
-    //     &self,
-    //     metrics_owner: MetricOwner,
-    //     fields: Vec<(String, Type)>,
-    //     tags: Vec<(String, String)>,
-    // ) -> Future<Output = Type>{
-    //     let mut write_query = Query::write_query(Timestamp::Now, self.metrics_owner_to_string(metrics_owner));
+    async fn write_with_tags(
+        &self,
+        metrics_owner: MetricOwner,
+        fields: Vec<(String, Type)>,
+        tags: Vec<(String, String)>,
+    ) -> () {
+        let mut write_query =
+            Query::write_query(Timestamp::Now, self.metrics_owner_to_string(metrics_owner));
 
-    //     for (name, value) in fields {
-    //         write_query.add_field(name, value);
-    //     }
+        for (name, value) in fields {
+            write_query = write_query.add_field(name, value);
+        }
 
-    //     for (name, value) in tags {
-    //         write_query.add_tag(name, value);
-    //     }
+        for (name, value) in tags {
+            write_query = write_query.add_tag(name, value);
+        }
 
-    // Submit the query to InfluxDB.
-    // self.client.query(&write_query)
-    // }
+        //Submit the query to InfluxDB.
+        match self.client.query(&write_query).await {
+            Err(err) => eprintln!("{:?}", err),
+            _  => ()
+        };
+    }
 }
 
-pub struct InfluxDBMetricStore {
-    client: Client,
-}
 
 #[cfg(test)]
 mod tests {
