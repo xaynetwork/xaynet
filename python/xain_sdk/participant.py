@@ -14,48 +14,20 @@ from .http import AggregatorClient, CoordinatorClient
 from logzero import logger as LOG
 
 
-
 class Participant(ABC):
-    """An abstract participant for federated learning.
-    """
-
     def __init__(self) -> None:
-        """Initialize a participant."""
-
         super(Participant, self).__init__()
 
     @abstractmethod
     def init_weights(self) -> ndarray:
-        """Initialize the weights of a model.
-
-        The model weights are freshly initialized according to the participant's model
-        definition and are returned without training.
-
-        Returns:
-            The newly initialized model weights.
-        """
+        pass
 
     @abstractmethod
     def train_round(
         self, weights: ndarray, epochs: int, epoch_base: int
     ) -> Tuple[ndarray, int]:
-        """Train a model in a federated learning round.
+        pass
 
-        A model is given in terms of its weights and the model is trained on the
-        participant's dataset for a number of epochs. The weights of the updated model
-        are returned in combination with the number of samples of the train dataset.
-
-        Any metrics that should be returned to the coordinator must be gathered via the
-        participant's update_metrics() utility method per epoch.
-
-        Args:
-            weights: The weights of the model to be trained.
-            epochs: The number of epochs to be trained.
-            epoch_base: The global training epoch number.
-
-        Returns:
-            The updated model weights and the number of training samples.
-        """
 
 class DummyParticipant(Participant):
     def train_round(self):
@@ -118,7 +90,9 @@ class StateRecord:
 
 
 class InternalParticipant:
-    def __init__(self, coordinator_url: str, participant: Participant = DummyParticipant()):
+    def __init__(
+        self, coordinator_url: str, participant: Participant = DummyParticipant()
+    ):
         self.state_record = StateRecord()
         self.participant = participant
         self.coordinator = CoordinatorClient(coordinator_url)
@@ -132,7 +106,7 @@ class InternalParticipant:
         while True:
             with self.state_record:
                 self.state_record.wait_until_selected_or_done()
-                return;
+                return
 
     def rendez_vous(self):
         self.id = self.coordinator.rendez_vous()["id"]
@@ -140,7 +114,9 @@ class InternalParticipant:
 
     def start_heartbeat(self):
         coordinator = deepcopy(self.coordinator)
-        self.heartbeat_thread = HeartBeatWorker(coordinator, self.id, self.state_record, self.exit_event)
+        self.heartbeat_thread = HeartBeatWorker(
+            coordinator, self.id, self.state_record, self.exit_event
+        )
         self.heartbeat_thread.start()
 
 
