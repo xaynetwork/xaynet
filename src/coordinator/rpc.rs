@@ -47,6 +47,7 @@ impl Rpc for Server {
         id: ClientId,
         success: bool,
     ) -> Self::EndTrainingFut {
+        trace!("received end training request");
         if self.end_training.send((id, success)).is_err() {
             error!("failed to forward RPC request to AggregatorService: broken channel");
         };
@@ -83,6 +84,7 @@ impl Stream for RequestStream {
     type Item = EndTrainingRequest;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+        trace!("polling RequestStream");
         self.0.as_mut().poll_next(cx)
     }
 }
@@ -111,6 +113,8 @@ impl Stream for RequestReceiver {
     type Item = EndTrainingRequest;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+        trace!("polling RequestReceiver");
+
         let Self {
             ref mut requests,
             ref mut connections,
@@ -119,20 +123,39 @@ impl Stream for RequestReceiver {
         // If we have a requests channel poll it
         if let Some(stream) = requests {
             if let Some(item) = ready!(Pin::new(stream).poll_next(cx)) {
+                trace!("RequestStream: received new request");
                 return Poll::Ready(Some(item));
             } else {
+                debug!("RequestStream closed");
                 *requests = None;
             }
         }
 
-        // We don't have a requests channel, so poll the connections
-        // channel to get a new one.
+        trace!("no RequestStream, polling the RequestStream receiver");
         let mut pin = Pin::new(connections);
+
         loop {
             if let Some(mut stream) = ready!(pin.as_mut().poll_next(cx)) {
-                if let Some(item) = ready!(Pin::new(&mut stream).poll_next(cx)) {
-                    *requests = Some(stream);
-                    return Poll::Ready(Some(item));
+                trace!("received new RequeStream, polling it");
+                match Pin::new(&mut stream).poll_next(cx) {
+                    Poll::Ready(Some(item)) => {
+                        trace!("RequestStream: received new request");
+                        *requests = Some(stream);
+                        return Poll::Ready(Some(item));
+                    }
+                    Poll::Ready(None) => {
+                        // This is suspect, let's log a warning here
+                        warn!("RequestStream: closed already ???");
+                    }
+                    Poll::Pending => {
+                        // This should be the most common case
+                        trace!("RequestStream: no request yet");
+                        *requests = Some(stream);
+                        // Note that it is important not to return
+                        // here. We MUST poll the `connections` future
+                        // until it returns Pending, if we want the
+                        // executor to wakes the task up later!
+                    }
                 }
             } else {
                 return Poll::Ready(None);

@@ -2,7 +2,7 @@ use crate::common::{ClientId, Token};
 use futures::{
     future::TryFutureExt,
     ready,
-    stream::{Stream, StreamExt},
+    stream::{Stream},
 };
 use std::{
     future::Future,
@@ -20,6 +20,7 @@ use tarpc::{
 
 use tokio::{
     net::ToSocketAddrs,
+    stream::StreamExt,
     sync::{mpsc, oneshot},
 };
 use tokio_serde::formats::Json;
@@ -95,7 +96,7 @@ impl RequestStream {
         Self(Box::pin(
             aggregate
                 .map(Request::Aggregate)
-                .chain(select.map(Request::Select)),
+                .merge(select.map(Request::Select)),
         ))
     }
 }
@@ -104,6 +105,7 @@ impl Stream for RequestStream {
     type Item = Request;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+        trace!("polling RequestStream");
         self.0.as_mut().poll_next(cx)
     }
 }
@@ -113,6 +115,7 @@ impl Rpc for Server {
     type AggregateFut = Pin<Box<dyn Future<Output = Result<(), ()>> + Send>>;
 
     fn select(self, _: tarpc::context::Context, id: ClientId, token: Token) -> Self::SelectFut {
+        debug!("received select request");
         let (tx, rx) = oneshot::channel();
         Box::pin(async move {
             self.select.send(((id, token), tx)).map_err(|_| ())?;
@@ -121,6 +124,7 @@ impl Rpc for Server {
     }
 
     fn aggregate(self, _: tarpc::context::Context) -> Self::AggregateFut {
+        debug!("received aggregate request");
         let (tx, rx) = oneshot::channel();
         Box::pin(async move {
             self.aggregate.send(tx).map_err(|_| ())?;
@@ -147,6 +151,8 @@ impl Stream for RequestReceiver {
     type Item = Request;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+        trace!("polling RequestReceiver");
+
         let Self {
             ref mut requests,
             ref mut connections,
@@ -155,20 +161,39 @@ impl Stream for RequestReceiver {
         // If we have a requests channel poll it
         if let Some(stream) = requests {
             if let Some(item) = ready!(Pin::new(stream).poll_next(cx)) {
+                trace!("RequestStream: received new request");
                 return Poll::Ready(Some(item));
             } else {
+                debug!("RequestStream closed");
                 *requests = None;
             }
         }
 
-        // We don't have a requests channel, so poll the connections
-        // channel to get a new one.
+        trace!("no RequestStream, polling the RequestStream receiver");
         let mut pin = Pin::new(connections);
+
         loop {
             if let Some(mut stream) = ready!(pin.as_mut().poll_next(cx)) {
-                if let Some(item) = ready!(Pin::new(&mut stream).poll_next(cx)) {
-                    *requests = Some(stream);
-                    return Poll::Ready(Some(item));
+                trace!("received new RequeStream, polling it");
+                match Pin::new(&mut stream).poll_next(cx) {
+                    Poll::Ready(Some(item)) => {
+                        trace!("RequestStream: received new request");
+                        *requests = Some(stream);
+                        return Poll::Ready(Some(item));
+                    }
+                    Poll::Ready(None) => {
+                        // This is suspect, let's log a warning here
+                        warn!("RequestStream: closed already ???");
+                    }
+                    Poll::Pending => {
+                        // This should be the most common case
+                        trace!("RequestStream: no request yet");
+                        *requests = Some(stream);
+                        // Note that it is important not to return
+                        // here. We MUST poll the `connections` future
+                        // until it returns Pending, if we want the
+                        // executor to wakes the task up later!
+                    }
                 }
             } else {
                 return Poll::Ready(None);

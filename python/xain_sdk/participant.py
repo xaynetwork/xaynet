@@ -123,7 +123,8 @@ class InternalParticipant:
                     return
                 elif state == State.TRAINING:
                     self.coordinator.start_training(self.id)
-                    from IPython import embed; embed()
+                    self.exit_event.set()
+                    return
 
     def rendez_vous(self):
         self.id = self.coordinator.rendez_vous()["id"]
