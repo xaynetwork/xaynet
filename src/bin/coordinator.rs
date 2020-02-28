@@ -9,6 +9,7 @@ use xain_fl::{
         core::{CoordinatorService, Selector},
         settings::Settings,
     },
+    metric_store::metric_store::{InfluxDBMetricStore},
 };
 
 #[tokio::main]
@@ -44,6 +45,7 @@ async fn _main(settings: Settings) {
         api,
         federated_learning,
         aggregator_url,
+        metric_store,
         ..
     } = settings;
 
@@ -53,6 +55,10 @@ async fn _main(settings: Settings) {
         aggregator_url,
         rpc.bind_address,
         rpc.aggregator_address,
+        InfluxDBMetricStore::new(
+            &metric_store.database_url[..],
+            &metric_store.database_name[..],
+        ),
     );
 
     tokio::spawn(async move { api::serve(&api.bind_address, handle).await });

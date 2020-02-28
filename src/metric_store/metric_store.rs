@@ -31,7 +31,7 @@ impl InfluxDBMetricStore {
         }
     }
 
-    async fn write(&self, metrics_owner: MetricOwner, fields: Vec<(String, Type)>) -> () {
+    pub async fn write(&self, metrics_owner: MetricOwner, fields: Vec<(String, Type)>) -> () {
         let mut write_query: WriteQuery =
             Query::write_query(Timestamp::Now, metrics_owner.to_string());
 
@@ -46,7 +46,7 @@ impl InfluxDBMetricStore {
             .map_err(|e| error!("{}", e));
     }
 
-    async fn write_with_tags(
+    pub async fn write_with_tags(
         &self,
         metrics_owner: MetricOwner,
         fields: Vec<(String, Type)>,
@@ -67,6 +67,12 @@ impl InfluxDBMetricStore {
             .query(&write_query)
             .await
             .map_err(|e| error!("{}", e));
+    }
+}
+
+impl Clone for InfluxDBMetricStore {
+    fn clone(&self) -> InfluxDBMetricStore {
+        InfluxDBMetricStore::new(self.client.database_url(), self.client.database_name())
     }
 }
 
