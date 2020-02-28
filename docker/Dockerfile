@@ -12,6 +12,8 @@ RUN set -eux; \
         gcc \
         libc6-dev \
         wget \
+        libssl-dev \
+        pkg-config \
         ; \
     \
     url="https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init"; \

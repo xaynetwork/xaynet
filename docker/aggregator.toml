@@ -1,7 +1,7 @@
 log_level = "debug"
 
 [api]
-bind_address = "0.0.0.0:8081"
+bind_address = "0.0.0.0:8082"
 
 [rpc]
 bind_address = "0.0.0.0:6666"
