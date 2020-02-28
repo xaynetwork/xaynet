@@ -11,6 +11,7 @@ use crate::{
     common::{ClientId, Token},
     coordinator,
 };
+
 use derive_more::From;
 
 use tokio::{
@@ -122,6 +123,33 @@ where
         (service, handle)
     }
 
+    /// Handle the incoming requests.
+    fn poll_api_requests(&mut self, cx: &mut Context) -> Poll<()> {
+        trace!("polling requests");
+        loop {
+            match ready!(Pin::new(&mut self.api_requests).poll_next(cx)) {
+                Some(request) => self.dispatch_request(request),
+                None => return Poll::Ready(()),
+            }
+        }
+    }
+
+    fn dispatch_request(&mut self, request: Request) {
+        match request {
+            Request::Upload(Credentials(id, token), bytes) => unimplemented!(),
+            Request::Download(Credentials(id, token), response_tx) => {
+                if self
+                    .allowed_ids
+                    .get(&id)
+                    .map(|expected_token| token == *expected_token)
+                    .unwrap_or(false)
+                {
+                    let _ = response_tx.send(self.global_weights.clone());
+                }
+            }
+        }
+    }
+
     fn poll_rpc_requests(&mut self, cx: &mut Context) -> Poll<()> {
         trace!("polling RPC requests");
 
@@ -227,11 +255,14 @@ where
             return Poll::Ready(());
         }
 
+        if let Poll::Ready(_) = pin.poll_api_requests(cx) {
+            return Poll::Ready(());
+        }
         Poll::Pending
     }
 }
 
-struct Credentials(ClientId, Token);
+pub struct Credentials(ClientId, Token);
 
 #[derive(Clone)]
 pub struct AggregatorServiceHandle {
@@ -255,8 +286,16 @@ impl AggregatorServiceHandle {
 
 pub struct RequestReceiver(Pin<Box<dyn Stream<Item = Request> + Send>>);
 
+impl Stream for RequestReceiver {
+    type Item = Request;
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+        self.0.as_mut().poll_next(cx)
+    }
+}
+
 #[derive(From)]
-enum Request {
+pub enum Request {
     Upload(Credentials, Bytes),
     Download(Credentials, oneshot::Sender<Bytes>),
 }

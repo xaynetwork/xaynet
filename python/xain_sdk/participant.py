@@ -9,12 +9,13 @@ import uuid
 
 import numpy as np
 from numpy import ndarray
-from .http import AggregatorClient, CoordinatorClient
+from .http import AggregatorClient, CoordinatorClient, AnonymousCoordinatorClient
 
 import logging
 
 
-LOG=logging.getLogger("http")
+LOG = logging.getLogger("http")
+
 
 class Participant(ABC):
     def __init__(self) -> None:
@@ -107,8 +108,10 @@ class InternalParticipant:
     ):
         self.state_record = StateRecord()
         self.participant = participant
-        self.coordinator = CoordinatorClient(coordinator_url)
-        self.aggregator = None
+
+        self.anonymous_client = AnonymousCoordinatorClient(coordinator_url)
+        self.coordinator_client = None
+        self.aggregator_client = None
 
         self.exit_event = threading.Event()
         self.heartbeat_thread = None
@@ -119,21 +122,22 @@ class InternalParticipant:
             with self.state_record:
                 self.state_record.wait_until_selected_or_done()
                 state, round = self.state_record.lookup()
-                if state == State.DONE:
-                    return
-                elif state == State.TRAINING:
-                    self.coordinator.start_training(self.id)
-                    self.exit_event.set()
-                    return
+            if state == State.DONE:
+                return
+            elif state == State.TRAINING:
+                self.aggregator_client = self.coordinator_client.start_training()
+                weights = self.aggregator_client.download()
+                return
+            else:
+                raise Exception(f"Invalid state: {state}")
 
     def rendez_vous(self):
-        self.id = self.coordinator.rendez_vous()["id"]
+        self.coordinator_client = self.anonymous_client.rendez_vous()
         self.start_heartbeat()
 
     def start_heartbeat(self):
-        coordinator = deepcopy(self.coordinator)
         self.heartbeat_thread = HeartBeatWorker(
-            coordinator, self.id, self.state_record, self.exit_event
+            deepcopy(self.coordinator_client), self.state_record, self.exit_event
         )
         self.heartbeat_thread.start()
 
@@ -141,19 +145,17 @@ class InternalParticipant:
 class HeartBeatWorker(threading.Thread):
     def __init__(
         self,
-        coordinator: CoordinatorClient,
-        id: str,
+        coordinator_client: CoordinatorClient,
         state_record: StateRecord,
         exit_event: threading.Event,
     ):
-        self.coordinator = coordinator
-        self.id = id
+        self.coordinator_client = coordinator_client
         self.state_record = state_record
         self.exit_event = exit_event
-        super(HeartBeatWorker, self).__init__(name=f"heartbeat({self.id})", daemon=True)
+        super(HeartBeatWorker, self).__init__(daemon=True)
 
     def run(self):
-        LOG.debug("thread %s starting", self.name)
+        LOG.debug("heartbeat thread starting")
         try:
             while True:
                 self.heartbeat()
@@ -166,7 +168,7 @@ class HeartBeatWorker(threading.Thread):
             return
 
     def heartbeat(self):
-        resp = self.coordinator.heartbeat(self.id)
+        resp = self.coordinator_client.heartbeat()
 
         with self.state_record as state_record:
             current_state, current_round = state_record.lookup()

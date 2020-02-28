@@ -96,28 +96,48 @@ class ApiError(Exception):
         super().__init__(self.error, *args, **kwargs)
 
 
-class CoordinatorClient:
+class AnonymousCoordinatorClient:
     def __init__(self, url):
+        self.url = url
         self.http = HttpClient(url)
 
-    def heartbeat(self, id):
-        return json.loads(self.http.get(f"heartbeat/{id}").text)
-
     def rendez_vous(self):
-        return json.loads(self.http.get("rendez_vous").text)
+        id = json.loads(self.http.get("rendez_vous").text)["id"]
+        return CoordinatorClient(self.url, id)
 
-    def start_training(self, id):
-        return json.loads(self.http.get(f"start_training/{id}").text)
+class CoordinatorClient:
+    def __init__(self, url, id):
+        self.url = url
+        self.http = HttpClient(url)
+        self.id = id
+
+    def heartbeat(self):
+        return json.loads(self.http.get(f"heartbeat/{self.id}").text)
+
+    def start_training(self):
+        resp = json.loads(self.http.get(f"start_training/{self.id}").text)
+        url = resp["url"]
+        token = resp["token"]
+        return AggregatorClient(url, self.id, token)
 
 
 class AggregatorClient:
-    def __init__(self, url):
+    def __init__(self, url, id, token):
+        self.url = url
         self.http = HttpClient(url)
+        self.id = id
+        self.token = token
 
-    def download(self, id, token):
-        resp = self.http.get(f"{id}/{token}")
+    def download(self):
+        resp = self.http.get(f"{self.id}/{self.token}")
         return resp
 
-    def upload(self, id, token, weights):
-        resp = self.http.post(f"{id}/{token}", body=weights)
+    def upload(self, weights):
+        resp = self.http.post(f"{self.id}/{self.token}", body=weights)
         return resp
+
+class Clients:
+    def __init__(self):
+        self.coordinator = None
+        self.aggregator = None
+        self.anonymous = None
