@@ -23,6 +23,7 @@ stubborn-io = "0.1.8"
 bytes = "0.5.4"
 config = "0.10.1"
 clap = "2.33.0"
+influxdb = "0.0.6"
 
 [[bin]]
 name = "coordinator"
