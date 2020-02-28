@@ -6,6 +6,8 @@ stdenv.mkDerivation rec {
     pkgs.latest.rustChannels.nightly.rust
     pkgs.cargo-edit
     pkgs.rustfmt
+    pkgs.openssl
+    pkgs.pkg-config
     python37Packages.numpy
     python37Packages.ipython
     python37Packages.virtualenv
