@@ -1,4 +1,4 @@
-log_level = "debug"
+log_level = "trace"
 
 [api]
 bind_address = "localhost:8081"

@@ -201,7 +201,7 @@ where
         }
     }
 
-    fn poll_aggregation(&mut self, cx: &mut Context) -> Poll<()> {
+    fn poll_aggregation(&mut self, cx: &mut Context) {
         if let Some(AggregationFuture {
             mut future,
             response_tx,
@@ -213,25 +213,20 @@ where
                     if response_tx.send(()).is_err() {
                         error!("failed to send aggregation response to RPC task: receiver dropped");
                     }
-                    Poll::Ready(())
                 }
                 Poll::Ready(Err(_)) => {
                     // no need to send a response. By dropping the
                     // `response_tx` channel, the RPC task will send
                     // an error.
                     error!("aggregation failed");
-                    Poll::Ready(())
                 }
                 Poll::Pending => {
                     self.aggregation_future = Some(AggregationFuture {
                         future,
                         response_tx,
                     });
-                    Poll::Pending
                 }
             }
-        } else {
-            Poll::Pending
         }
     }
 }
@@ -275,6 +270,9 @@ where
         if let Poll::Ready(_) = pin.poll_api_rx(cx) {
             return Poll::Ready(());
         }
+
+        pin.poll_aggregation(cx);
+
         Poll::Pending
     }
 }

@@ -39,7 +39,9 @@ class Aggregator:
         return data
 
     def reset(self, global_weights: Optional[np.ndarray]) -> None:
-        if global_weights is None: global_weights = DUMMY_WEIGHTS self.weights = []
+        if global_weights is None:
+            global_weights = DUMMY_WEIGHTS
+        self.weights = []
 
     def get_global_weights(self) -> np.ndarray:
         data = bz2.compress(pickle.dumps(self.global_weights))
@@ -58,17 +60,22 @@ pub struct PyAggregator<'py> {
 
 impl<'py> PyAggregator<'py> {
     pub fn load(py: Python<'py>) -> PyResult<Self> {
-        let module = PyModule::from_code(py, CODE, "aggregator.py", "aggregator")?;
-        let aggregator = module.call0("Aggregator")?.to_object(py);
+        let module = PyModule::from_code(py, CODE, "aggregator.py", "aggregator")
+            .map_err(|e| e.print(py))
+            .unwrap();
+        let aggregator = module.call0("Aggregator").unwrap().to_object(py);
         Ok(Self { py, aggregator })
     }
 
     pub fn aggregate(&self) -> PyResult<Bytes> {
-        Ok(self
+        info!("PyAggregator: running aggregation");
+        let result = self
             .aggregator
             .call_method0(self.py, "aggregate")?
             .extract::<Vec<u8>>(self.py)
-            .map(Bytes::from)?)
+            .map(Bytes::from)?;
+        info!("PyAggregator: finished aggregation");
+        Ok(result)
     }
 
     pub fn get_global_weights(&self) -> PyResult<Bytes> {
@@ -80,14 +87,17 @@ impl<'py> PyAggregator<'py> {
     }
 
     pub fn add_weights(&self, local_weights: &[u8]) -> PyResult<Result<(), ()>> {
+        info!("PyAggregator: adding weights");
         let py_bytes = PyBytes::new(self.py, local_weights);
         let args = (py_bytes,);
-        Ok(self
+        let result = self
             .aggregator
             .call_method1(self.py, "add_weights", args)?
             .extract::<bool>(self.py)?
             .then_some(())
-            .ok_or(()))
+            .ok_or(());
+        info!("PyAggregator: done adding weights");
+        Ok(result)
     }
 
     pub fn reset(&self, global_weights: &[u8]) -> PyResult<()> {
