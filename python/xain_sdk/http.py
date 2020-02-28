@@ -16,8 +16,8 @@ def log_headers(headers):
 def log_request(req):
     LOG.info(">>> %s %s", req.method, req.url)
     log_headers(req.headers)
-    content_type = req.headers.get('content-type')
-    if content_type == 'application/json':
+    content_type = req.headers.get("content-type")
+    if content_type == "application/json":
         parsed = json.loads(req.body.decode("utf-8"))
         LOG.info(json.dumps(parsed, indent=4))
 
@@ -29,10 +29,11 @@ def log_response(resp):
         logger = LOG.warning
     logger("<<< %s %s [%s]", resp.request.method, resp.request.url, resp.status_code)
     log_headers(resp.headers)
-    content_type = resp.headers.get('content-type')
-    if content_type == 'application/json':
+    content_type = resp.headers.get("content-type")
+    if content_type == "application/json":
         parsed = json.loads(resp.text)
         LOG.info(json.dumps(parsed, indent=4))
+
 
 class HttpClient:
     def __init__(self, url):
@@ -105,6 +106,7 @@ class AnonymousCoordinatorClient:
         id = json.loads(self.http.get("rendez_vous").text)["id"]
         return CoordinatorClient(self.url, id)
 
+
 class CoordinatorClient:
     def __init__(self, url, id):
         self.url = url
@@ -135,6 +137,7 @@ class AggregatorClient:
     def upload(self, weights: bytes):
         resp = self.http.post(f"{self.id}/{self.token}", data=weights)
         return resp
+
 
 class Clients:
     def __init__(self):
