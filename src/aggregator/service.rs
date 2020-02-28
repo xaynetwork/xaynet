@@ -16,13 +16,11 @@ use derive_more::From;
 
 use tokio::{
     net::ToSocketAddrs,
+    stream::StreamExt,
     sync::{mpsc, oneshot},
 };
 
-use futures::{
-    ready,
-    stream::{Stream, StreamExt},
-};
+use futures::{ready, stream::Stream};
 
 /// A future that orchestrates the entire aggregator service.
 // TODO: maybe add a HashSet or HashMap of clients who already
@@ -66,14 +64,14 @@ where
     coordinator_rpc_connection: Option<coordinator::rpc::ConnectFuture>,
 
     /// RPC requests from the coordinator.
-    rpc_requests: rpc::RequestReceiver,
+    rpc_rx: rpc::RpcRx,
 
     aggregation_future: Option<AggregationFuture<A>>,
 
     add_weights_results_tx: mpsc::UnboundedSender<Result<(), A::Error>>,
     add_weights_results_rx: mpsc::UnboundedReceiver<Result<(), A::Error>>,
 
-    api_requests: RequestReceiver,
+    api_rx: ApiRx,
 }
 
 /// This trait defines the methods that an aggregator should
@@ -106,12 +104,12 @@ where
         rpc_listen_addr: U,
         coordinator_rpc_addr: T,
     ) -> (Self, AggregatorServiceHandle) {
-        let rpc_requests = rpc::run(rpc_listen_addr);
-        let (handle, api_requests) = AggregatorServiceHandle::new();
+        let rpc_rx = rpc::run(rpc_listen_addr);
+        let (handle, api_rx) = AggregatorServiceHandle::new();
         let (add_weights_results_tx, add_weights_results_rx) = mpsc::unbounded_channel();
         let service = Self {
             aggregator,
-            rpc_requests,
+            rpc_rx,
             coordinator_rpc: None,
             coordinator_rpc_connection: Some(coordinator::rpc::ConnectFuture::new(
                 coordinator_rpc_addr,
@@ -119,7 +117,7 @@ where
             allowed_ids: HashMap::new(),
             global_weights: Bytes::new(),
             aggregation_future: None,
-            api_requests,
+            api_rx,
             add_weights_results_tx,
             add_weights_results_rx,
         };
@@ -127,10 +125,10 @@ where
     }
 
     /// Handle the incoming requests.
-    fn poll_api_requests(&mut self, cx: &mut Context) -> Poll<()> {
-        trace!("polling requests");
+    fn poll_api_rx(&mut self, cx: &mut Context) -> Poll<()> {
+        trace!("polling API requests");
         loop {
-            match ready!(Pin::new(&mut self.api_requests).poll_next(cx)) {
+            match ready!(Pin::new(&mut self.api_rx).poll_next(cx)) {
                 Some(request) => self.dispatch_request(request),
                 None => return Poll::Ready(()),
             }
@@ -140,6 +138,7 @@ where
     fn dispatch_request(&mut self, request: Request) {
         match request {
             Request::Download(Credentials(id, token), response_tx) => {
+                debug!("handling download request for {}", id);
                 if self
                     .allowed_ids
                     .get(&id)
@@ -150,6 +149,7 @@ where
                 }
             }
             Request::Upload(Credentials(id, token), bytes) => {
+                debug!("handling upload request for {}", id);
                 if self
                     .allowed_ids
                     .get(&id)
@@ -167,10 +167,10 @@ where
         }
     }
 
-    fn poll_rpc_requests(&mut self, cx: &mut Context) -> Poll<()> {
+    fn poll_rpc_rx(&mut self, cx: &mut Context) -> Poll<()> {
         trace!("polling RPC requests");
 
-        let mut stream = Pin::new(&mut self.rpc_requests);
+        let mut stream = Pin::new(&mut self.rpc_rx);
         loop {
             match ready!(stream.as_mut().poll_next(cx)) {
                 Some(rpc::Request::Select(((id, token), resp_tx))) => {
@@ -268,11 +268,11 @@ where
             }
         }
 
-        if let Poll::Ready(_) = pin.poll_rpc_requests(cx) {
+        if let Poll::Ready(_) = pin.poll_rpc_rx(cx) {
             return Poll::Ready(());
         }
 
-        if let Poll::Ready(_) = pin.poll_api_requests(cx) {
+        if let Poll::Ready(_) = pin.poll_api_rx(cx) {
             return Poll::Ready(());
         }
         Poll::Pending
@@ -288,7 +288,7 @@ pub struct AggregatorServiceHandle {
 }
 
 impl AggregatorServiceHandle {
-    fn new() -> (Self, RequestReceiver) {
+    fn new() -> (Self, ApiRx) {
         let (upload_tx, upload_rx) = mpsc::unbounded_channel::<(Credentials, Bytes)>();
         let (download_tx, download_rx) =
             mpsc::unbounded_channel::<(Credentials, oneshot::Sender<Bytes>)>();
@@ -296,18 +296,32 @@ impl AggregatorServiceHandle {
             upload_requests: upload_tx,
             download_requests: download_tx,
         };
-        let request_receiver = RequestReceiver::new(upload_rx, download_rx);
+        let request_receiver = ApiRx::new(upload_rx, download_rx);
         (handle, request_receiver)
     }
 }
 
-pub struct RequestReceiver(Pin<Box<dyn Stream<Item = Request> + Send>>);
+pub struct ApiRx(Pin<Box<dyn Stream<Item = Request> + Send>>);
 
-impl Stream for RequestReceiver {
+impl Stream for ApiRx {
     type Item = Request;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+        trace!("polling ApiRx");
         self.0.as_mut().poll_next(cx)
+    }
+}
+
+impl ApiRx {
+    fn new(
+        upload_requests: mpsc::UnboundedReceiver<(Credentials, Bytes)>,
+        download_requests: mpsc::UnboundedReceiver<(Credentials, oneshot::Sender<Bytes>)>,
+    ) -> Self {
+        Self(Box::pin(
+            download_requests
+                .map(Request::from)
+                .merge(upload_requests.map(Request::from)),
+        ))
     }
 }
 
@@ -317,37 +331,29 @@ pub enum Request {
     Download(Credentials, oneshot::Sender<Bytes>),
 }
 
-impl RequestReceiver {
-    fn new(
-        upload_requests: mpsc::UnboundedReceiver<(Credentials, Bytes)>,
-        download_requests: mpsc::UnboundedReceiver<(Credentials, oneshot::Sender<Bytes>)>,
-    ) -> Self {
-        Self(Box::pin(
-            download_requests
-                .map(Request::from)
-                .chain(upload_requests.map(Request::from)),
-        ))
-    }
-}
-
 impl AggregatorServiceHandle {
     pub async fn download(&self, id: ClientId, token: Token) -> Option<Bytes> {
+        trace!("AggregatorServiceHandle forwarding download request");
         let (tx, rx) = oneshot::channel();
         if self
             .download_requests
-            .clone()
             .send((Credentials(id, token), tx))
             .is_err()
         {
+            warn!("AggregatorServiceHandle: failed to send download request: channel closed");
             return None;
         }
         rx.await.ok()
     }
 
     pub async fn upload(&self, id: ClientId, token: Token, weights: Bytes) {
-        let _ = self
+        trace!("AggregatorServiceHandle forwarding upload request");
+        if self
             .upload_requests
-            .clone()
-            .send((Credentials(id, token), weights));
+            .send((Credentials(id, token), weights))
+            .is_err()
+        {
+            warn!("AggregatorServiceHandle: failed to send download request: channel closed");
+        }
     }
 }

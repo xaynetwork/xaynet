@@ -109,7 +109,7 @@ where
     aggregation_future: Option<AggregationFuture>,
 
     /// Channel for receiving the RPC requests from the aggregator
-    rpc_requests: rpc::RequestReceiver,
+    rpc_rx: rpc::RpcRx,
 
     /// IDs of the clients that the selector picked, but that the
     /// protocol doesn't know yet. The reason for this pending
@@ -137,7 +137,7 @@ where
         let (heartbeat_expirations_tx, heartbeat_expirations_rx) = mpsc::unbounded_channel();
 
         let heartbeat_timeout = Duration::from_secs(fl_settings.heartbeat_timeout);
-        let rpc_requests = rpc::run(rpc_listen_addr);
+        let rpc_rx = rpc::run(rpc_listen_addr);
         let coordinator = Self {
             selector,
             heartbeat_expirations_rx,
@@ -151,7 +151,7 @@ where
             )),
             aggregation_future: None,
             aggregator_url,
-            rpc_requests,
+            rpc_rx,
         };
         let handle = CoordinatorHandle::new(requests_tx);
         (coordinator, handle)
@@ -212,9 +212,9 @@ where
         }
     }
 
-    fn poll_rpc_requests(&mut self, cx: &mut Context) -> Poll<()> {
+    fn poll_rpc_rx(&mut self, cx: &mut Context) -> Poll<()> {
         loop {
-            match ready!(Pin::new(&mut self.rpc_requests).poll_next(cx)) {
+            match ready!(Pin::new(&mut self.rpc_rx).poll_next(cx)) {
                 Some((id, success)) => {
                     let state = self.clients.get_state(&id);
                     self.protocol.end_training(id, success, state);
@@ -362,7 +362,7 @@ where
             Poll::Pending => {}
         }
 
-        match pin.poll_rpc_requests(cx) {
+        match pin.poll_rpc_rx(cx) {
             Poll::Ready(()) => return Poll::Ready(()),
             Poll::Pending => {}
         }

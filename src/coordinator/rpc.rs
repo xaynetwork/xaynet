@@ -91,7 +91,7 @@ impl Stream for RequestStream {
 
 /// A handle to receive the RPC requests made to the coordinator by
 /// the aggregator.
-pub struct RequestReceiver {
+pub struct RpcRx {
     /// A channel that receives RPC requests from the aggregator.
     requests: Option<RequestStream>,
 
@@ -100,7 +100,7 @@ pub struct RequestReceiver {
     connections: mpsc::Receiver<RequestStream>,
 }
 
-impl RequestReceiver {
+impl RpcRx {
     fn new(connections: mpsc::Receiver<RequestStream>) -> Self {
         Self {
             requests: None,
@@ -109,11 +109,11 @@ impl RequestReceiver {
     }
 }
 
-impl Stream for RequestReceiver {
+impl Stream for RpcRx {
     type Item = EndTrainingRequest;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-        trace!("polling RequestReceiver");
+        trace!("polling RpcRx");
 
         let Self {
             ref mut requests,
@@ -191,10 +191,10 @@ impl Future for ConnectFuture {
 
 /// Spawn an RPC server and return a stream of `RequestStream`. A new
 /// `RequestStream` is yielded for each new connection.
-pub fn run<A: ToSocketAddrs + Send + Sync + 'static>(addr: A) -> RequestReceiver {
+pub fn run<A: ToSocketAddrs + Send + Sync + 'static>(addr: A) -> RpcRx {
     let (tx, rx) = mpsc::channel(1);
     tokio::spawn(_run(addr, tx).map_err(|e| error!("RPC worker finished with an error: {}", e)));
-    RequestReceiver::new(rx)
+    RpcRx::new(rx)
 }
 
 /// Run an RPC server that accepts only one connection at a time.
