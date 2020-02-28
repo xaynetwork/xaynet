@@ -51,13 +51,13 @@ async fn _main(settings: Settings) {
 
 struct DummyAggregator;
 
-#[async_trait]
 impl Aggregator for DummyAggregator {
     type Error = ::std::io::Error;
     type AggregateFut = Ready<Result<Bytes, Self::Error>>;
+    type AddWeightsFut = Ready<Result<(), Self::Error>>;
 
-    async fn add_weights(&mut self, _weights: Bytes) -> Result<(), Self::Error> {
-        ready(Ok(())).await
+    fn add_weights(&mut self, _weights: Bytes) -> Self::AddWeightsFut {
+        ready(Ok(()))
     }
     fn aggregate(&mut self) -> Self::AggregateFut {
         ready(Ok(Bytes::new()))

@@ -67,28 +67,28 @@ where
 
     /// RPC requests from the coordinator.
     rpc_requests: rpc::RequestReceiver,
+
     aggregation_future: Option<AggregationFuture<A>>,
+
+    add_weights_results_tx: mpsc::UnboundedSender<Result<(), A::Error>>,
+    add_weights_results_rx: mpsc::UnboundedReceiver<Result<(), A::Error>>,
 
     api_requests: RequestReceiver,
 }
 
-// FIXME: the futures returned by the `aggregate` method needs to be
-// stored but it's not 'static since if take `&mut self`. For now we
-// work around this by requiring + Clone + Send + Sync + 'static on
-// the aggregator trait but that doens't seem like a good solution.
-#[async_trait]
 /// This trait defines the methods that an aggregator should
 /// implement.
 pub trait Aggregator {
     // FIXME: we should obviously require the Error bound, but for now
     // it's convenient to be able to use () as error type
-    type Error;
-    type AggregateFut: Future<Output = Result<Bytes, Self::Error>> + Unpin;
+    type Error: Send + 'static;
     // type Error: Error;
+    type AggregateFut: Future<Output = Result<Bytes, Self::Error>> + Unpin;
+    type AddWeightsFut: Future<Output = Result<(), Self::Error>> + Unpin + Send + 'static;
 
     /// Check the validity of the given weights and if they are valid,
     /// add them to the set of weights to aggregate.
-    async fn add_weights(&mut self, weights: Bytes) -> Result<(), Self::Error>;
+    fn add_weights(&mut self, weights: Bytes) -> Self::AddWeightsFut;
 
     /// Run the aggregator and return the result.
     fn aggregate(&mut self) -> Self::AggregateFut;
@@ -108,6 +108,7 @@ where
     ) -> (Self, AggregatorServiceHandle) {
         let rpc_requests = rpc::run(rpc_listen_addr);
         let (handle, api_requests) = AggregatorServiceHandle::new();
+        let (add_weights_results_tx, add_weights_results_rx) = mpsc::unbounded_channel();
         let service = Self {
             aggregator,
             rpc_requests,
@@ -119,6 +120,8 @@ where
             global_weights: Bytes::new(),
             aggregation_future: None,
             api_requests,
+            add_weights_results_tx,
+            add_weights_results_rx,
         };
         (service, handle)
     }
@@ -136,7 +139,6 @@ where
 
     fn dispatch_request(&mut self, request: Request) {
         match request {
-            Request::Upload(Credentials(id, token), bytes) => unimplemented!(),
             Request::Download(Credentials(id, token), response_tx) => {
                 if self
                     .allowed_ids
@@ -145,6 +147,21 @@ where
                     .unwrap_or(false)
                 {
                     let _ = response_tx.send(self.global_weights.clone());
+                }
+            }
+            Request::Upload(Credentials(id, token), bytes) => {
+                if self
+                    .allowed_ids
+                    .get(&id)
+                    .map(|expected_token| token == *expected_token)
+                    .unwrap_or(false)
+                {
+                    let tx = self.add_weights_results_tx.clone();
+                    let fut = self.aggregator.add_weights(bytes);
+                    tokio::spawn(async move {
+                        let result = fut.await;
+                        tx.send(result).map_err(|_| ())
+                    });
                 }
             }
         }

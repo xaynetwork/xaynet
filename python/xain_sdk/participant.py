@@ -1,3 +1,5 @@
+import pickle
+import bz2
 from copy import deepcopy
 import json
 import enum
@@ -126,7 +128,10 @@ class InternalParticipant:
                 return
             elif state == State.TRAINING:
                 self.aggregator_client = self.coordinator_client.start_training()
-                weights = self.aggregator_client.download()
+                global_weights = self.aggregator_client.download()
+                local_weights = self.participant.train_round(global_weights, 0, 0)
+                data = bz2.compress(pickle.dumps(local_weights))
+                self.aggregator_client.upload(data)
                 return
             else:
                 raise Exception(f"Invalid state: {state}")

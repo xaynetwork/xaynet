@@ -118,17 +118,18 @@ pub struct PyAggregatorHandle {
     pub add_weights_requests: RequestTx<Weights, ()>,
 }
 
-#[async_trait]
 impl Aggregator for PyAggregatorHandle {
     type Error = ();
     type AggregateFut = Pin<Box<dyn Future<Output = Result<Bytes, ()>>>>;
+    type AddWeightsFut = Pin<Box<dyn Future<Output = Result<(), ()>> + Send>>;
 
-    async fn add_weights(&mut self, weights: Bytes) -> Result<(), ()> {
+    fn add_weights(&mut self, weights: Bytes) -> Self::AddWeightsFut {
         let (tx, rx) = oneshot::channel::<()>();
-        self.add_weights_requests
-            .send((weights, tx))
-            .map_err(|_| ())?;
-        rx.await.map_err(|_| ())
+        let add_weights_requests = self.add_weights_requests.clone();
+        Box::pin(async move {
+            add_weights_requests.send((weights, tx)).map_err(|_| ())?;
+            rx.await.map_err(|_| ())
+        })
     }
 
     fn aggregate(&mut self) -> Self::AggregateFut {
