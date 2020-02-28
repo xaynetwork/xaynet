@@ -12,14 +12,13 @@ use std::{
     time::Duration,
 };
 use stubborn_io::{ReconnectOptions, StubbornTcpStream};
-use tokio::{net::ToSocketAddrs, sync::mpsc};
-use tokio_serde::formats::Json;
-
 use tarpc::{
     client::Config,
     rpc::server::{BaseChannel, Channel},
     serde_transport::{tcp::listen, Transport},
 };
+use tokio::{net::ToSocketAddrs, sync::mpsc};
+use tokio_serde::formats::Json;
 
 mod inner {
     use crate::common::ClientId;
@@ -174,6 +173,7 @@ pub async fn client_connect<A: ToSocketAddrs + Unpin + Clone + Send + Sync + 'st
     let transport = Transport::from((tcp_stream, Json::default()));
     Client::new(Config::default(), transport).spawn()
 }
+
 pub struct ConnectFuture(Pin<Box<dyn Future<Output = io::Result<Client>> + Send>>);
 
 impl ConnectFuture {

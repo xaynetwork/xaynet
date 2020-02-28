@@ -1,26 +1,23 @@
+use crate::{
+    aggregator::rpc,
+    common::{ClientId, Token},
+    coordinator,
+};
 use bytes::Bytes;
+use derive_more::From;
+use futures::{ready, stream::Stream};
 use std::{
     collections::HashMap,
     future::Future,
     pin::Pin,
     task::{Context, Poll},
 };
-
-use crate::{
-    aggregator::rpc,
-    common::{ClientId, Token},
-    coordinator,
-};
-
-use derive_more::From;
-
+use tarpc::context::current as rpc_context;
 use tokio::{
     net::ToSocketAddrs,
     stream::StreamExt,
     sync::{mpsc, oneshot},
 };
-
-use futures::{ready, stream::Stream};
 
 /// A future that orchestrates the entire aggregator service.
 // TODO: maybe add a HashSet or HashMap of clients who already
@@ -54,22 +51,19 @@ where
     aggregator: A,
 
     /// A client for the coordinator RPC service.
-    coordinator_rpc: Option<coordinator::rpc::Client>,
+    rpc_client: Option<coordinator::rpc::Client>,
 
     /// A future that resolved to an RPC client. If is only necessary
     /// to poll it when the aggregator starts, until the first
-    /// connection is established. After that, `coordinator_rpc` is
+    /// connection is established. After that, `rpc_client` is
     /// set and the client automatically attempts to reconnect if the
     /// connection goes down.
-    coordinator_rpc_connection: Option<coordinator::rpc::ConnectFuture>,
+    rpc_client_connection: Option<coordinator::rpc::ConnectFuture>,
 
     /// RPC requests from the coordinator.
     rpc_rx: rpc::RpcRx,
 
     aggregation_future: Option<AggregationFuture<A>>,
-
-    add_weights_results_tx: mpsc::UnboundedSender<Result<(), A::Error>>,
-    add_weights_results_rx: mpsc::UnboundedReceiver<Result<(), A::Error>>,
 
     api_rx: ApiRx,
 }
@@ -79,7 +73,7 @@ where
 pub trait Aggregator {
     // FIXME: we should obviously require the Error bound, but for now
     // it's convenient to be able to use () as error type
-    type Error: Send + 'static;
+    type Error: Send + 'static + Sync;
     // type Error: Error;
     type AggregateFut: Future<Output = Result<Bytes, Self::Error>> + Unpin;
     type AddWeightsFut: Future<Output = Result<(), Self::Error>> + Unpin + Send + 'static;
@@ -106,20 +100,15 @@ where
     ) -> (Self, AggregatorServiceHandle) {
         let rpc_rx = rpc::run(rpc_listen_addr);
         let (handle, api_rx) = AggregatorServiceHandle::new();
-        let (add_weights_results_tx, add_weights_results_rx) = mpsc::unbounded_channel();
         let service = Self {
             aggregator,
             rpc_rx,
-            coordinator_rpc: None,
-            coordinator_rpc_connection: Some(coordinator::rpc::ConnectFuture::new(
-                coordinator_rpc_addr,
-            )),
+            rpc_client: None,
+            rpc_client_connection: Some(coordinator::rpc::ConnectFuture::new(coordinator_rpc_addr)),
             allowed_ids: HashMap::new(),
             global_weights: Bytes::new(),
             aggregation_future: None,
             api_rx,
-            add_weights_results_tx,
-            add_weights_results_rx,
         };
         (service, handle)
     }
@@ -150,19 +139,30 @@ where
             }
             Request::Upload(Credentials(id, token), bytes) => {
                 debug!("handling upload request for {}", id);
-                if self
+                let accept_upload = self
                     .allowed_ids
                     .get(&id)
                     .map(|expected_token| token == *expected_token)
-                    .unwrap_or(false)
-                {
-                    let tx = self.add_weights_results_tx.clone();
-                    let fut = self.aggregator.add_weights(bytes);
-                    tokio::spawn(async move {
-                        let result = fut.await;
-                        tx.send(result).map_err(|_| ())
-                    });
+                    .unwrap_or(false);
+
+                if !accept_upload || self.rpc_client.is_none() {
+                    return;
                 }
+
+                let mut rpc_client = self.rpc_client.clone().unwrap();
+                let fut = self.aggregator.add_weights(bytes);
+                tokio::spawn(async move {
+                    let result = fut.await;
+                    rpc_client
+                        .end_training(rpc_context(), id, result.is_ok())
+                        .await
+                        .map_err(|e| {
+                            warn!(
+                                "failed to send end training request to the coordinator: {}",
+                                e
+                            );
+                        })
+                });
             }
         }
     }
@@ -254,11 +254,11 @@ where
         let pin = self.get_mut();
 
         // This only runs when the aggregator starts
-        if let Some(ref mut connection) = pin.coordinator_rpc_connection {
+        if let Some(ref mut connection) = pin.rpc_client_connection {
             match Pin::new(connection).poll(cx) {
                 Poll::Ready(Ok(client)) => {
-                    pin.coordinator_rpc = Some(client);
-                    pin.coordinator_rpc_connection = None;
+                    pin.rpc_client = Some(client);
+                    pin.rpc_client_connection = None;
                 }
                 Poll::Ready(Err(e)) => {
                     error!("failed to connect RPC client: {}", e);
