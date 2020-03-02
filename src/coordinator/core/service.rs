@@ -194,6 +194,7 @@ where
                 Err(()) => self.protocol.end_aggregation(false),
             }
             self.aggregation_future = None;
+            self.handle_protocol_events();
         }
         Poll::Pending
     }
