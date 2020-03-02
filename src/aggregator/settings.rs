@@ -5,6 +5,19 @@ pub struct Settings {
     pub log_level: String,
     pub api: ApiSettings,
     pub rpc: RpcSettings,
+    pub aggregation: AggregationSettings,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AggregationSettings {
+    Python(PythonAggregatorSettings),
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PythonAggregatorSettings {
+    pub module: String,
+    pub class: String,
 }
 
 #[derive(Debug, Deserialize)]

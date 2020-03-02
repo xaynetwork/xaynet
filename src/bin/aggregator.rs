@@ -1,7 +1,10 @@
 use clap::{App, Arg};
 use std::{env, process};
 use xain_fl::aggregator::{
-    api, py_aggregator::spawn_py_aggregator, service::AggregatorService, settings::Settings,
+    api,
+    py_aggregator::spawn_py_aggregator,
+    service::AggregatorService,
+    settings::{AggregationSettings, PythonAggregatorSettings, Settings},
 };
 
 #[tokio::main]
@@ -30,12 +33,21 @@ async fn main() {
 }
 
 async fn _main(settings: Settings) {
-    let Settings { rpc, api, .. } = settings;
+    let Settings {
+        rpc,
+        api,
+        aggregation,
+        ..
+    } = settings;
 
-    let py_aggregator = spawn_py_aggregator();
-    let (aggregator, handle) =
-        AggregatorService::new(py_aggregator, rpc.bind_address, rpc.coordinator_address);
+    let aggregator = match aggregation {
+        AggregationSettings::Python(python_aggregator_settings) => {
+            spawn_py_aggregator(python_aggregator_settings)
+        }
+    };
+    let (service, handle) =
+        AggregatorService::new(aggregator, rpc.bind_address, rpc.coordinator_address);
 
     tokio::spawn(async move { api::serve(&api.bind_address, handle).await });
-    aggregator.await;
+    service.await;
 }

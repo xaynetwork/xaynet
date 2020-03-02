@@ -11,43 +11,7 @@ use tokio::{
     },
 };
 
-use crate::aggregator::service::Aggregator;
-// FIXME: the code should be loaded from a file. This is just an
-// example to get going.
-static CODE: &str = r#"
-from typing import Optional
-import bz2
-import numpy as np
-import pickle
-
-DUMMY_WEIGHTS = np.ndarray([1,2,3])
-
-class Aggregator:
-
-    def __init__(self):
-        self.global_weights = DUMMY_WEIGHTS
-        self.weights = []
-
-    def add_weights(self, data: bytes) -> bool:
-        weights = pickle.loads(bz2.decompress(data))
-        self.weights.append(weights)
-        return True
-
-    def aggregate(self) -> bytes:
-        # Do nothing for now, just return the global weights
-        data = bz2.compress(pickle.dumps(self.global_weights))
-        return data
-
-    def reset(self, global_weights: Optional[np.ndarray]) -> None:
-        if global_weights is None:
-            global_weights = DUMMY_WEIGHTS
-        self.weights = []
-
-    def get_global_weights(self) -> np.ndarray:
-        data = bz2.compress(pickle.dumps(self.global_weights))
-        return data
-"#;
-
+use crate::aggregator::{service::Aggregator, settings::PythonAggregatorSettings};
 use pyo3::{
     types::{PyBytes, PyModule},
     PyObject, PyResult, Python, ToPyObject,
@@ -59,11 +23,12 @@ pub struct PyAggregator<'py> {
 }
 
 impl<'py> PyAggregator<'py> {
-    pub fn load(py: Python<'py>) -> PyResult<Self> {
-        let module = PyModule::from_code(py, CODE, "aggregator.py", "aggregator")
+    pub fn load(py: Python<'py>, settings: PythonAggregatorSettings) -> PyResult<Self> {
+        // FIXME: make this configurable
+        let module = PyModule::import(py, &settings.module)
             .map_err(|e| e.print(py))
             .unwrap();
-        let aggregator = module.call0("Aggregator").unwrap().to_object(py);
+        let aggregator = module.call0(&settings.class).unwrap().to_object(py);
         Ok(Self { py, aggregator })
     }
 
@@ -113,10 +78,10 @@ pub type Request<T, U> = (T, oneshot::Sender<U>);
 pub type RequestRx<T, U> = Receiver<Request<T, U>>;
 pub type RequestTx<T, U> = Sender<Request<T, U>>;
 
-pub fn spawn_py_aggregator() -> PyAggregatorHandle {
+pub fn spawn_py_aggregator(settings: PythonAggregatorSettings) -> PyAggregatorHandle {
     let (aggregate_tx, aggregate_rx) = channel::<Request<(), Weights>>();
     let (add_weights_tx, add_weights_rx) = channel::<Request<Weights, ()>>();
-    thread::spawn(move || block_on(py_aggregator(aggregate_rx, add_weights_rx)));
+    thread::spawn(move || block_on(py_aggregator(settings, aggregate_rx, add_weights_rx)));
     PyAggregatorHandle {
         aggregate_requests: aggregate_tx,
         add_weights_requests: add_weights_tx,
@@ -154,12 +119,13 @@ impl Aggregator for PyAggregatorHandle {
 
 // FIXME: remove the unwraps
 async fn py_aggregator(
+    settings: PythonAggregatorSettings,
     mut aggregate_requests: RequestRx<(), Weights>,
     mut add_weights_requests: RequestRx<Weights, ()>,
 ) {
     let gil = Python::acquire_gil();
     let py = gil.python();
-    let aggregator = PyAggregator::load(py).unwrap();
+    let aggregator = PyAggregator::load(py, settings).unwrap();
 
     loop {
         select! {

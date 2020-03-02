@@ -1,5 +1,9 @@
 log_level = "trace"
 
+[aggregation.python]
+module = "xain_fl_aggregator.dummy"
+class = "Aggregator"
+
 [api]
 bind_address = "localhost:8082"
 

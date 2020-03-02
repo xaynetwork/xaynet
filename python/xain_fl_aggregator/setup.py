@@ -1,10 +1,17 @@
+from glob import glob
+
+from os.path import splitext
+
+from os.path import basename
+from os.path import dirname
+from os.path import join
 import os.path
 import sys
 
-from setuptools import find_packages, setup
+from setuptools import setup, find_packages
 
 project_dir = os.path.dirname(os.path.abspath(__file__))
-version_file_path = os.path.join(project_dir, "xain_sdk/__version__.py")
+version_file_path = os.path.join(project_dir, "xain_fl_aggregator/__version__.py")
 readme_file_path = os.path.join(project_dir, "README.md")
 
 version = {}
@@ -14,7 +21,7 @@ with open(version_file_path) as fp:
 with open(readme_file_path, "r") as fp:
     readme = fp.read()
 
-install_requires = ["requests", "numpy"]
+install_requires = ["numpy"]
 
 dev_require = [
     "black",
@@ -31,7 +38,7 @@ tests_require = [
 docs_require = []
 
 setup(
-    name="xain-sdk",
+    name="xain_fl_aggregator",
     version=version["__version__"],
     description="XAIN is an open source framework for federated learning.",
     long_description=readme,
@@ -41,8 +48,9 @@ setup(
     author_email="services@xain.io",
     license="Apache License Version 2.0",
     python_requires=">=3.6",
-    install_requires=install_requires,
     packages=find_packages(),
+    include_package_data=True,
+    install_requires=install_requires,
     tests_require=tests_require,
     extras_require={
         "test": tests_require,
