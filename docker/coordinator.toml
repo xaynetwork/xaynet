@@ -1,5 +1,5 @@
 log_level = "debug"
-aggregator_url = "http://localhost:8081"
+aggregator_url = "http://localhost:8082"
 
 [api]
 bind_address = "0.0.0.0:8081"
