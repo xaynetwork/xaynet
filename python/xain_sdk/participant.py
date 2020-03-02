@@ -8,6 +8,7 @@ import threading
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Tuple, TypeVar, cast
 import uuid
+from requests.exceptions import ConnectionError
 
 import numpy as np
 from numpy import ndarray
@@ -32,14 +33,6 @@ class Participant(ABC):
         self, weights: ndarray, epochs: int, epoch_base: int
     ) -> Tuple[ndarray, int]:
         pass
-
-
-class DummyParticipant(Participant):
-    def train_round(self, weights: ndarray, _epochs: int, _epoch_base: int):
-        return weights
-
-    def init_weights(self):
-        np.ndarray([1, 2, 3, 4])
 
 
 class State(enum.Enum):
@@ -105,9 +98,7 @@ class StateRecord:
 
 
 class InternalParticipant:
-    def __init__(
-        self, coordinator_url: str, participant: Participant = DummyParticipant()
-    ):
+    def __init__(self, coordinator_url: str, participant: Participant):
         self.state_record = StateRecord()
         self.participant = participant
 
@@ -132,12 +123,19 @@ class InternalParticipant:
                 local_weights = self.participant.train_round(global_weights, 0, 0)
                 data = bz2.compress(pickle.dumps(local_weights))
                 self.aggregator_client.upload(data)
-                return
-            else:
-                raise Exception(f"Invalid state: {state}")
+                with self.state_record:
+                    self.state_record.update_state(State.WAITING)
 
     def rendez_vous(self):
-        self.coordinator_client = self.anonymous_client.rendez_vous()
+        try:
+            self.coordinator_client = self.anonymous_client.rendez_vous()
+        except ConnectionError as e:
+            LOG.error("rendez vous failed: %s", e)
+            raise ParticipantError("Rendez-vous request failed")
+        except InterruptedError:
+            LOG.warn("exiting: interrupt signal caught")
+            sys.exit(0)
+
         self.start_heartbeat()
 
     def start_heartbeat(self):
@@ -165,10 +163,10 @@ class HeartBeatWorker(threading.Thread):
             while True:
                 self.heartbeat()
                 if self.exit_event.wait(timeout=5):
-                    LOG.info("thread %s: exiting")
+                    LOG.debug("heartbeat worker exiting: exit flag set in main thead")
                     return
         except:
-            LOG.exception("error while send heartbeat, exiting")
+            LOG.exception("error while sending heartbeat, exiting")
             self.exit_event.set()
             return
 
@@ -196,3 +194,6 @@ class HeartBeatWorker(threading.Thread):
                     state_record.set_state(State.TRAINING)
                 if current_round != round:
                     state_record.set_round(round)
+
+class ParticipantError(Exception):
+    pass
