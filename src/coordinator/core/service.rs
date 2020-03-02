@@ -183,6 +183,7 @@ where
     /// corresponding future
     fn poll_aggregation(&mut self, cx: &mut Context) -> Poll<()> {
         if let Some(ref mut fut) = self.aggregation_future {
+            trace!("polling aggregation future");
             match ready!(Pin::new(fut).poll(cx)) {
                 // FIXME: there are lots of things to think about
                 // when aggregation has failed. Currently the
@@ -190,8 +191,14 @@ where
                 // number. But we also need to make sure that the
                 // aggregators is reset and that the global weights
                 // are not updated.
-                Ok(()) => self.protocol.end_aggregation(true),
-                Err(()) => self.protocol.end_aggregation(false),
+                Ok(()) => {
+                    info!("aggregation finished successfully");
+                    self.protocol.end_aggregation(true);
+                }
+                Err(()) => {
+                    info!("aggregation failed");
+                    self.protocol.end_aggregation(false);
+                }
             }
             self.aggregation_future = None;
             self.handle_protocol_events();
