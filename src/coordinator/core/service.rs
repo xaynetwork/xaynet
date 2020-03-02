@@ -12,6 +12,7 @@
 // 3. is very unlikely, but we may still run into it.
 
 use std::{
+    convert::TryInto,
     fmt::Debug,
     future::Future,
     pin::Pin,
@@ -21,6 +22,7 @@ use std::{
 
 use derive_more::Display;
 use futures::{ready, stream::Stream};
+use influxdb::Type;
 use tokio::{
     net::ToSocketAddrs,
     sync::{mpsc, oneshot},
@@ -38,6 +40,7 @@ use crate::{
         rpc,
         settings::FederatedLearningSettings,
     },
+    metric_store::metric_store::{InfluxDBMetricStore, MetricOwner},
 };
 
 use tarpc::context::current as rpc_context;
@@ -117,6 +120,9 @@ where
     /// all at once, in order to not block the executor, if a huge
     /// amount of clients are selected.
     pending_selection: Vec<ClientId>,
+
+    ///Metric Store
+    metric_store: InfluxDBMetricStore,
 }
 
 impl<S> CoordinatorService<S>
@@ -132,6 +138,7 @@ where
         aggregator_url: String,
         rpc_listen_addr: U,
         aggregator_rpc_addr: T,
+        metric_store: InfluxDBMetricStore,
     ) -> (Self, CoordinatorHandle) {
         let (requests_tx, requests_rx) = mpsc::channel(2048);
         let (heartbeat_expirations_tx, heartbeat_expirations_rx) = mpsc::unbounded_channel();
@@ -152,6 +159,7 @@ where
             aggregation_future: None,
             aggregator_url,
             rpc_rx,
+            metric_store,
         };
         let handle = CoordinatorHandle::new(requests_tx);
         (coordinator, handle)
@@ -280,6 +288,29 @@ where
         debug!("handling heartbeat request");
         let (id, response_tx) = req;
         let response = self.protocol.heartbeat(id, self.clients.get_state(&id));
+
+        let metric_store = self.metric_store.clone();
+        let counter_selected = self.protocol.counters().selected;
+        let counter_waiting = self.protocol.counters().waiting;
+
+        tokio::spawn(async move {
+            metric_store
+                .write(
+                    MetricOwner::Coordinator,
+                    vec![
+                        (
+                            String::from("number_of_selected_participants"),
+                            Type::SignedInteger(counter_selected.try_into().unwrap()),
+                        ),
+                        (
+                            String::from("number_of_waiting_participants"),
+                            Type::SignedInteger(counter_waiting.try_into().unwrap()),
+                        ),
+                    ],
+                )
+                .await;
+        });
+
         response_tx.send(response);
     }
 

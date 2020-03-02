@@ -6,6 +6,7 @@ pub struct Settings {
     pub aggregator_url: String,
     pub api: ApiSettings,
     pub rpc: RpcSettings,
+    pub metric_store: MetricStoreSettings,
     pub federated_learning: FederatedLearningSettings,
 }
 
@@ -21,6 +22,12 @@ pub struct FederatedLearningSettings {
 #[derive(Debug, Deserialize)]
 pub struct ApiSettings {
     pub bind_address: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct MetricStoreSettings {
+    pub database_url: String,
+    pub database_name: String,
 }
 
 #[derive(Debug, Deserialize)]

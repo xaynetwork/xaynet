@@ -20,6 +20,7 @@ impl ToString for MetricOwner {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct InfluxDBMetricStore {
     client: Client,
 }
@@ -31,7 +32,7 @@ impl InfluxDBMetricStore {
         }
     }
 
-    async fn write(&self, metrics_owner: MetricOwner, fields: Vec<(String, Type)>) -> () {
+    pub async fn write(&self, metrics_owner: MetricOwner, fields: Vec<(String, Type)>) -> () {
         let mut write_query: WriteQuery =
             Query::write_query(Timestamp::Now, metrics_owner.to_string());
 
@@ -46,7 +47,7 @@ impl InfluxDBMetricStore {
             .map_err(|e| error!("{}", e));
     }
 
-    async fn write_with_tags(
+    pub async fn write_with_tags(
         &self,
         metrics_owner: MetricOwner,
         fields: Vec<(String, Type)>,
