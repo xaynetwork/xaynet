@@ -292,18 +292,13 @@ impl Protocol {
                 if self.is_end_of_round() {
                     self.emit_event(Event::RunAggregation);
                     self.waiting_for_aggregation = true;
-                    if self.current_round == self.settings.rounds {
-                        info!("training complete");
-                        self.is_training_complete = true;
-                    } else {
-                        info!("round complete, resetting the clients");
-                        self.emit_event(Event::ResetAll);
-                        self.counters.waiting += self.counters.done;
-                        self.counters.waiting += self.counters.ignored;
-                        self.counters.done_and_inactive = 0;
-                        self.counters.done = 0;
-                        self.counters.ignored = 0;
-                    }
+                    info!("round complete, resetting the clients");
+                    self.emit_event(Event::ResetAll);
+                    self.counters.waiting += self.counters.done;
+                    self.counters.waiting += self.counters.ignored;
+                    self.counters.done_and_inactive = 0;
+                    self.counters.done = 0;
+                    self.counters.ignored = 0;
                 }
             } else {
                 self.emit_event(Event::SetState(id, ClientState::Ignored));
@@ -321,6 +316,13 @@ impl Protocol {
         self.waiting_for_aggregation = false;
         if success {
             self.current_round += 1;
+        }
+        if self.current_round == self.settings.rounds {
+            info!("training complete");
+            self.is_training_complete = true;
+        } else {
+            info!("aggregation finished, proceeding to start a new round");
+            self.maybe_start_selection();
         }
     }
 
