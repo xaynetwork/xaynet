@@ -292,6 +292,10 @@ where
         let metric_store = self.metric_store.clone();
         let counter_selected = self.protocol.counters().selected;
         let counter_waiting = self.protocol.counters().waiting;
+        let counter_done = self.protocol.counters().done;
+        let counter_done_inactive = self.protocol.counters().done_and_inactive;
+        let counter_ignored = self.protocol.counters().ignored;
+        let current_round =  self.protocol.get_current_round();
 
         tokio::spawn(async move {
             metric_store
@@ -305,6 +309,22 @@ where
                         (
                             String::from("number_of_waiting_participants"),
                             Type::SignedInteger(counter_waiting.try_into().unwrap()),
+                        ),
+                        (
+                            String::from("number_of_done_participants"),
+                            Type::SignedInteger(counter_done.try_into().unwrap()),
+                        ),
+                        (
+                            String::from("number_of_done_inactive_participants"),
+                            Type::SignedInteger(counter_done_inactive.try_into().unwrap()),
+                        ),
+                        (
+                            String::from("number_of_ignored_participants"),
+                            Type::SignedInteger(counter_ignored.try_into().unwrap()),
+                        ),
+                        (
+                            String::from("round"),
+                            Type::UnsignedInteger(current_round as u64),
                         ),
                     ],
                 )

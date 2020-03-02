@@ -5,24 +5,24 @@ authors = ["little-dude <corentinhenry@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-uuid = { version = "0.8.1", features = ["v4", "serde"] }
-log = "0.4.8"
-futures = "0.3.4"
-tokio = { version = "0.2.11", features = ["full"] }
-warp = "0.2.1"
-derive_more = { version = "0.99.2", default-features = false, features = [ "display", "from" ] }
-rand = "0.7.3"
-env_logger = "0.7.1"
-tarpc = { version = "0.20.0", features = [ "full" ] }
-serde = { version = "1.0.104", features = [ "derive" ] }
-pyo3 = "0.9.0-alpha.1"
-tokio-serde = { version = "0.6.0", features = [ "json" ] }
-futures-retry = "0.4.0"
-stubborn-io = "0.1.8"
-bytes = "0.5.4"
-config = "0.10.1"
-clap = "2.33.0"
-influxdb = "0.0.6"
+uuid = { version = "0.8.1", features = ["v4", "serde"] } 											# Apache-2.0 OR MIT
+log = "0.4.8" 																						# Apache-2.0 OR MIT
+futures = "0.3.4"																					# Apache-2.0 OR MIT
+tokio = { version = "0.2.11", features = ["full"] }													# MIT
+warp = "0.2.1"																						# MIT
+derive_more = { version = "0.99.2", default-features = false, features = [ "display", "from" ] }	# MIT
+rand = "0.7.3"																						# Apache-2.0 OR MIT
+env_logger = "0.7.1"																				# Apache-2.0 OR MIT
+tarpc = { version = "0.20.0", features = [ "full" ] }												# MIT
+serde = { version = "1.0.104", features = [ "derive" ] }											# Apache-2.0 OR MIT
+pyo3 = "0.9.0-alpha.1"																				# Apache-2.0
+tokio-serde = { version = "0.6.0", features = [ "json" ] }											# Apache-2.0 OR MIT
+futures-retry = "0.4.0"																				# Apache-2.0 OR MIT
+stubborn-io = "0.1.8"																				# MIT
+bytes = "0.5.4"																						# MIT
+config = "0.10.1"																					# Apache-2.0 OR MIT
+clap = "2.33.0"																						# MIT
+influxdb = "0.0.6"																					# MIT
 
 [[bin]]
 name = "coordinator"
