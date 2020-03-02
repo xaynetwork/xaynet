@@ -20,6 +20,7 @@ impl ToString for MetricOwner {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct InfluxDBMetricStore {
     client: Client,
 }
@@ -67,12 +68,6 @@ impl InfluxDBMetricStore {
             .query(&write_query)
             .await
             .map_err(|e| error!("{}", e));
-    }
-}
-
-impl Clone for InfluxDBMetricStore {
-    fn clone(&self) -> InfluxDBMetricStore {
-        InfluxDBMetricStore::new(self.client.database_url(), self.client.database_name())
     }
 }
 
