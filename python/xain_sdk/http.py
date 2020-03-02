@@ -132,11 +132,10 @@ class AggregatorClient:
 
     def download(self):
         resp = self.http.get(f"{self.id}/{self.token}")
-        return resp
+        return resp.content
 
     def upload(self, weights: bytes):
-        resp = self.http.post(f"{self.id}/{self.token}", data=weights)
-        return resp
+        self.http.post(f"{self.id}/{self.token}", data=weights)
 
 
 class Clients:

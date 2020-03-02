@@ -14,4 +14,4 @@ class DummyParticipant(Participant):
 
 if __name__ == "__main__":
     dummy_participant = DummyParticipant()
-    run_participant("http://localhost:8080", dummy_participant)
+    run_participant("http://localhost:8081", dummy_participant)
