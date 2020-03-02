@@ -1,5 +1,9 @@
 log_level = "debug"
 
+[aggregation.python]
+module = "xain_aggregators.dummy"
+class = "Aggregator"
+
 [api]
 bind_address = "0.0.0.0:8082"
 

@@ -11,7 +11,7 @@ import sys
 from setuptools import setup, find_packages
 
 project_dir = os.path.dirname(os.path.abspath(__file__))
-version_file_path = os.path.join(project_dir, "xain_fl_aggregator/__version__.py")
+version_file_path = os.path.join(project_dir, "xain_aggregators/__version__.py")
 readme_file_path = os.path.join(project_dir, "README.md")
 
 version = {}
@@ -38,7 +38,7 @@ tests_require = [
 docs_require = []
 
 setup(
-    name="xain_fl_aggregator",
+    name="xain_aggregators",
     version=version["__version__"],
     description="XAIN is an open source framework for federated learning.",
     long_description=readme,

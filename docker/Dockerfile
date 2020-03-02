@@ -42,3 +42,6 @@ COPY ./src src
 RUN cargo build
 RUN mv ./target/debug/aggregator /bin/aggregator
 RUN mv ./target/debug/coordinator /bin/coordinator
+
+COPY python/aggregators .
+RUN pip install aggregators

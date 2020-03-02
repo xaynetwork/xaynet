@@ -1,7 +1,7 @@
 log_level = "trace"
 
 [aggregation.python]
-module = "xain_fl_aggregator.dummy"
+module = "xain_aggregators.dummy"
 class = "Aggregator"
 
 [api]

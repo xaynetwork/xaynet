@@ -199,5 +199,6 @@ class HeartBeatWorker(threading.Thread):
                 if current_round != round:
                     state_record.set_round(round)
 
+
 class ParticipantError(Exception):
     pass
