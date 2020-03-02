@@ -315,7 +315,8 @@ impl Protocol {
 
     pub fn end_aggregation(&mut self, success: bool) {
         if !self.waiting_for_aggregation {
-            panic!("not waiting for aggregation");
+            error!("not waiting for aggregation");
+            return;
         }
         self.waiting_for_aggregation = false;
         if success {
