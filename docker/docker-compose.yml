@@ -64,22 +64,6 @@ services:
     labels:
       org.label-schema.group: "monitoring"
 
-  alertmanager:
-    image: prom/alertmanager:v0.20.0
-    container_name: alertmanager
-    volumes:
-      - ${PWD}/docker/alertmanager:/etc/alertmanager
-    command:
-      - '--config.file=/etc/alertmanager/config.yml'
-      - '--storage.path=/alertmanager'
-    restart: unless-stopped
-    expose:
-      - 9093
-    networks:
-      - xain-fl-rs
-    labels:
-      org.label-schema.group: "monitoring"
-
   nodeexporter:
     image: prom/node-exporter:v0.18.1
     container_name: nodeexporter
