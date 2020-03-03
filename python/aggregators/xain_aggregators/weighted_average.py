@@ -1,9 +1,10 @@
-from .aggregator import AggregatorABC
-import numpy as np
-from typing import Optional, List
-import pickle
-
 import logging
+import pickle
+from typing import List, Optional
+
+import numpy as np
+
+from .aggregator import AggregatorABC
 
 LOG = logging.getLogger("PythonWeightedAverageAggregator")
 
@@ -18,8 +19,8 @@ class Aggregator(AggregatorABC):
     def add_weights(self, data: bytes) -> bool:
         LOG.info("adding weights (len = %d)", len(data))
 
-        number_of_samples = int.from_bytes(data[..4], byteorder="big")
-        weights = pickle.loads(data[4..])
+        number_of_samples = int.from_bytes(data[:4], byteorder="big")
+        weights = pickle.loads(data[4:])
 
         self.aggregation_data.append(number_of_samples)
         self.weights.append(weights)
@@ -30,9 +31,13 @@ class Aggregator(AggregatorABC):
         LOG.info("starting aggregation (%d models)", len(self.weights))
         aggregation_weights: np.ndarray
         if any(self.aggregation_data):
-            aggregation_weights = np.array(self.aggregation_data) / np.sum(self.aggregation_data)
+            aggregation_weights = np.array(self.aggregation_data) / np.sum(
+                self.aggregation_data
+            )
         else:
-            aggregation_weights = np.ones_like(self.aggregation_data) / len(self.aggregation_data)
+            aggregation_weights = np.ones_like(self.aggregation_data) / len(
+                self.aggregation_data
+            )
 
         scaled_model_weights: List[np.ndarray] = [
             model_weight * aggregation_weight

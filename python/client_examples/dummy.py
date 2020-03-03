@@ -1,7 +1,6 @@
-from xain_sdk import Participant, run_participant
-
 import numpy as np
 from numpy import ndarray
+from xain_sdk import Participant, run_participant
 
 
 class DummyParticipant(Participant):

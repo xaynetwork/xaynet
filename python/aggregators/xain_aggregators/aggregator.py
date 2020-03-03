@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import List
+from typing import Optional
+
 
 class AggregatorABC(ABC):
-
     @abstractmethod
     def aggregate(self) -> bytes:
         raise NotImplementedError()

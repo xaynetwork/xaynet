@@ -1,20 +1,19 @@
-import pickle
-from copy import deepcopy
-import json
-import enum
-import time
-import threading
 from abc import ABC, abstractmethod
+from copy import deepcopy
+import enum
+import json
+import logging
+import pickle
+import threading
+import time
 from typing import Any, Dict, List, Tuple, TypeVar, cast
 import uuid
-from requests.exceptions import ConnectionError
 
 import numpy as np
 from numpy import ndarray
-from .http import AggregatorClient, CoordinatorClient, AnonymousCoordinatorClient
+from requests.exceptions import ConnectionError
 
-import logging
-
+from .http import AggregatorClient, AnonymousCoordinatorClient, CoordinatorClient
 
 LOG = logging.getLogger("http")
 

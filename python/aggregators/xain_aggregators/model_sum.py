@@ -1,9 +1,10 @@
-from .aggregator import AggregatorABC
-import numpy as np
-from typing import Optional, List
-import pickle
-
 import logging
+import pickle
+from typing import List, Optional
+
+import numpy as np
+
+from .aggregator import AggregatorABC
 
 LOG = logging.getLogger("PythonModelSumAggregator")
 

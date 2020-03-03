@@ -1,9 +1,9 @@
 # pylint: disable=missing-docstring,invalid-name
 import json
-import urllib
-import requests
 import logging
+import urllib
 
+import requests
 
 LOG = logging.getLogger("participant")
 

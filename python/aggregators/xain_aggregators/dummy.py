@@ -1,13 +1,14 @@
-from .aggregator import AggregatorABC
-from typing import Optional
-import numpy as np
 import pickle
+from typing import Optional
+
+import numpy as np
+
+from .aggregator import AggregatorABC
 
 DUMMY_WEIGHTS = np.ndarray([1, 2, 3])
 
 
 class Aggregator(AggregatorABC):
-
     def __init__(self):
         self.global_weights = DUMMY_WEIGHTS
         self.weights = []

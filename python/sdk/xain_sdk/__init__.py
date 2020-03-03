@@ -1,7 +1,8 @@
 """Provides xain package SDK"""
 
-from .participant import Participant, ParticipantError
 import sys
+
+from .participant import Participant, ParticipantError
 
 
 def run_participant(participant: Participant, coordinator_url: str):

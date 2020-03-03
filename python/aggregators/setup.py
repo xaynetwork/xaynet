@@ -1,14 +1,7 @@
-from glob import glob
-
-from os.path import splitext
-
-from os.path import basename
-from os.path import dirname
-from os.path import join
+# pylint: disable=exec-used,invalid-name
 import os.path
-import sys
 
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 project_dir = os.path.dirname(os.path.abspath(__file__))
 version_file_path = os.path.join(project_dir, "xain_aggregators/__version__.py")
