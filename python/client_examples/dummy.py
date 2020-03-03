@@ -1,11 +1,20 @@
 import pickle
+from typing import TypeVar
+
 import numpy as np
 from numpy import ndarray
-from xain_sdk import Participant, run_participant, TrainingInputABC, TrainingResultABC
+from xain_sdk import (
+    ParticipantABC,
+    TrainingInputABC,
+    TrainingResultABC,
+    run_participant,
+)
+
+# pylint: disable=invalid-name
+T = TypeVar("T", bound="TrainingInput")
 
 
 class TrainingInput(TrainingInputABC):
-
     def __init__(self, weights: ndarray):
         self.weights = weights
 
@@ -18,7 +27,6 @@ class TrainingInput(TrainingInputABC):
 
 
 class TrainingResult(TrainingResultABC):
-
     def __init__(self, weights: ndarray):
         self.weights = weights
 
@@ -26,7 +34,7 @@ class TrainingResult(TrainingResultABC):
         return pickle.dumps(self.weights)
 
 
-class DummyParticipant(Participant):
+class Participant(ParticipantABC):
     def train_round(self, training_input: TrainingInput) -> TrainingResult:
         return training_input.weights
 
@@ -35,5 +43,4 @@ class DummyParticipant(Participant):
 
 
 if __name__ == "__main__":
-    dummy_participant = DummyParticipant()
-    run_participant("http://localhost:8081", dummy_participant)
+    run_participant("http://localhost:8081", Participant())

@@ -1,10 +1,10 @@
-import sys
 from abc import ABC, abstractmethod
 from copy import deepcopy
 import enum
 import json
 import logging
 import pickle
+import sys
 import threading
 import time
 from typing import Any, Dict, List, Tuple, TypeVar, cast
@@ -15,15 +15,14 @@ from numpy import ndarray
 from requests.exceptions import ConnectionError
 
 from .http import AggregatorClient, AnonymousCoordinatorClient, CoordinatorClient
-from .interfaces import TrainingResultABC, TrainingInputABC
+from .interfaces import TrainingInputABC, TrainingResultABC
 
 LOG = logging.getLogger("http")
 
 
-
-class Participant(ABC):
+class ParticipantABC(ABC):
     def __init__(self) -> None:
-        super(Participant, self).__init__()
+        super(ParticipantABC, self).__init__()
 
     @abstractmethod
     def init_weights(self) -> TrainingResultABC:
@@ -31,6 +30,10 @@ class Participant(ABC):
 
     @abstractmethod
     def train_round(self, training_input: TrainingInputABC) -> TrainingResultABC:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def deserialize_training_input(self, data: bytes) -> TrainingInputABC:
         raise NotImplementedError()
 
 
@@ -97,7 +100,7 @@ class StateRecord:
 
 
 class InternalParticipant:
-    def __init__(self, coordinator_url: str, participant: Participant):
+    def __init__(self, coordinator_url: str, participant: ParticipantABC):
         self.state_record = StateRecord()
         self.participant = participant
 
@@ -120,7 +123,8 @@ class InternalParticipant:
 
             if state == State.TRAINING:
                 self.aggregator_client = self.coordinator_client.start_training()
-                training_input = self.aggregator_client.download()
+                data = self.aggregator_client.download()
+                training_input = self.participant.deserialize_training_input(data)
 
                 if training_input.is_initialization_round():
                     result = self.participant.init_weights()
@@ -128,7 +132,7 @@ class InternalParticipant:
                     result = self.participant.train_round(training_input)
                     assert isinstance(result, TrainingResultABC)
 
-                self.aggregator_client.upload(result)
+                self.aggregator_client.upload(result.tobytes())
 
                 with self.state_record:
                     self.state_record.set_state(State.WAITING)
@@ -187,7 +191,7 @@ class HeartBeatWorker(threading.Thread):
             # FIXME: The API should return proper JSON that would
             # make this much cleaner
             if state == "stand_by" and current_state != State.WAITING:
-                state_record.set_state(State.STAND_BY)
+                state_record.set_state(State.WAITING)
 
             elif state == "finish" and current_state != State.DONE:
                 state_record.set_state(State.DONE)

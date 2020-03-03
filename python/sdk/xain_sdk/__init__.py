@@ -2,10 +2,13 @@
 
 import sys
 
-from .participant import Participant, ParticipantError
+from .interfaces import TrainingInputABC, TrainingResultABC
+from .participant import ParticipantABC, ParticipantError
 
 
-def run_participant(participant: Participant, coordinator_url: str):
+def run_participant(
+    participant: ParticipantABC, coordinator_url: str,
+):
     from .utils import configure_logging
     from .participant import InternalParticipant
 
@@ -15,3 +18,6 @@ def run_participant(participant: Participant, coordinator_url: str):
         internal_participant.run()
     except ParticipantError:
         sys.exit(1)
+
+
+__all__ = ["TrainingInputABC", "TrainingResultABC"]

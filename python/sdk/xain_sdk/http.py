@@ -5,8 +5,6 @@ import urllib
 
 import requests
 
-from .interfaces import TrainingInputABC, TrainingResultABC
-
 LOG = logging.getLogger("participant")
 
 
@@ -132,12 +130,11 @@ class AggregatorClient:
         self.id = id
         self.token = token
 
-    def download(self) -> TrainingInputABC:
+    def download(self) -> bytes:
         resp = self.http.get(f"{self.id}/{self.token}")
-        return TrainingInputABC.frombytes(resp.content)
+        return resp.content
 
-    def upload(self, result: TrainingResultABC):
-        data = result.tobytes()
+    def upload(self, data: bytes):
         self.http.post(f"{self.id}/{self.token}", data=data)
 
 
