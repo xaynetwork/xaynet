@@ -8,6 +8,7 @@ stdenv.mkDerivation rec {
     pkgs.rustfmt
     pkgs.openssl
     pkgs.pkg-config
+    pkgs.gperftools
     python37Packages.numpy
     python37Packages.ipython
     python37Packages.virtualenv
@@ -27,5 +28,13 @@ stdenv.mkDerivation rec {
 
     export PYTHONPATH=`pwd`/$VENV/${python.sitePackages}/:$PYTHONPATH
     export LD_LIBRARY_PATH=${lib.makeLibraryPath [ stdenv.cc.cc ]}
+    export LIBTCMALLOC_PATH=${lib.makeLibraryPath [ pkgs.gperftools ]}/libtcmalloc.so
+    
+    # This is to profile memory usage in the aggregator. See:
+    # https://stackoverflow.com/questions/38254937/how-do-i-debug-a-memory-issue-in-rust
+    #
+    # LD_PRELOAD="$LIBTCMALLOC_PATH" HEAPPROFILE=./profile ./target/debug/aggregator -c configs/dev-aggregator.toml 
+    # pprof --gv ./path/to/exe /tmp/profile/profile.0100.heap
+
   '';
 }
