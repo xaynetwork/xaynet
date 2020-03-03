@@ -1,38 +1,40 @@
-import pickle
-import bz2
-from copy import deepcopy
-import json
-import enum
-import time
-import threading
 from abc import ABC, abstractmethod
+from copy import deepcopy
+import enum
+import json
+import logging
+import pickle
+import sys
+import threading
+import time
 from typing import Any, Dict, List, Tuple, TypeVar, cast
 import uuid
-from requests.exceptions import ConnectionError
 
 import numpy as np
 from numpy import ndarray
-from .http import AggregatorClient, CoordinatorClient, AnonymousCoordinatorClient
+from requests.exceptions import ConnectionError
 
-import logging
-
+from .http import AggregatorClient, AnonymousCoordinatorClient, CoordinatorClient
+from .interfaces import TrainingInputABC, TrainingResultABC
 
 LOG = logging.getLogger("http")
 
 
-class Participant(ABC):
+class ParticipantABC(ABC):
     def __init__(self) -> None:
-        super(Participant, self).__init__()
+        super(ParticipantABC, self).__init__()
 
     @abstractmethod
-    def init_weights(self) -> ndarray:
-        pass
+    def init_weights(self) -> TrainingResultABC:
+        raise NotImplementedError()
 
     @abstractmethod
-    def train_round(
-        self, weights: ndarray, epochs: int, epoch_base: int
-    ) -> Tuple[ndarray, int]:
-        pass
+    def train_round(self, training_input: TrainingInputABC) -> TrainingResultABC:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def deserialize_training_input(self, data: bytes) -> TrainingInputABC:
+        raise NotImplementedError()
 
 
 class State(enum.Enum):
@@ -98,7 +100,7 @@ class StateRecord:
 
 
 class InternalParticipant:
-    def __init__(self, coordinator_url: str, participant: Participant):
+    def __init__(self, coordinator_url: str, participant: ParticipantABC):
         self.state_record = StateRecord()
         self.participant = participant
 
@@ -114,30 +116,35 @@ class InternalParticipant:
         while True:
             with self.state_record:
                 self.state_record.wait_until_selected_or_done()
-                state, round = self.state_record.lookup()
+                state, _ = self.state_record.lookup()
+
             if state == State.DONE:
                 return
-            elif state == State.TRAINING:
+
+            if state == State.TRAINING:
                 self.aggregator_client = self.coordinator_client.start_training()
                 data = self.aggregator_client.download()
-                if data:
-                    global_weights = pickle.loads(bz2.decompress(data))
+                training_input = self.participant.deserialize_training_input(data)
+
+                if training_input.is_initialization_round():
+                    result = self.participant.init_weights()
                 else:
-                    global_weights = self.participant.init_weights()
-                local_weights = self.participant.train_round(global_weights, 0, 0)
-                data = bz2.compress(pickle.dumps(local_weights))
-                self.aggregator_client.upload(data)
+                    result = self.participant.train_round(training_input)
+                    assert isinstance(result, TrainingResultABC)
+
+                self.aggregator_client.upload(result.tobytes())
+
                 with self.state_record:
                     self.state_record.set_state(State.WAITING)
 
     def rendez_vous(self):
         try:
             self.coordinator_client = self.anonymous_client.rendez_vous()
-        except ConnectionError as e:
-            LOG.error("rendez vous failed: %s", e)
+        except ConnectionError as err:
+            LOG.error("rendez vous failed: %s", err)
             raise ParticipantError("Rendez-vous request failed")
         except InterruptedError:
-            LOG.warn("exiting: interrupt signal caught")
+            LOG.warning("exiting: interrupt signal caught")
             sys.exit(0)
 
         self.start_heartbeat()
@@ -184,7 +191,7 @@ class HeartBeatWorker(threading.Thread):
             # FIXME: The API should return proper JSON that would
             # make this much cleaner
             if state == "stand_by" and current_state != State.WAITING:
-                state_record.set_state(State.STAND_BY)
+                state_record.set_state(State.WAITING)
 
             elif state == "finish" and current_state != State.DONE:
                 state_record.set_state(State.DONE)

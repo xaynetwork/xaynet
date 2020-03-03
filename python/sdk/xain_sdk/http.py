@@ -1,9 +1,9 @@
 # pylint: disable=missing-docstring,invalid-name
 import json
-import urllib
-import requests
 import logging
+import urllib
 
+import requests
 
 LOG = logging.getLogger("participant")
 
@@ -130,12 +130,12 @@ class AggregatorClient:
         self.id = id
         self.token = token
 
-    def download(self):
+    def download(self) -> bytes:
         resp = self.http.get(f"{self.id}/{self.token}")
         return resp.content
 
-    def upload(self, weights: bytes):
-        self.http.post(f"{self.id}/{self.token}", data=weights)
+    def upload(self, data: bytes):
+        self.http.post(f"{self.id}/{self.token}", data=data)
 
 
 class Clients:
