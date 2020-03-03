@@ -1,5 +1,4 @@
 import pickle
-import bz2
 from copy import deepcopy
 import json
 import enum
@@ -121,11 +120,11 @@ class InternalParticipant:
                 self.aggregator_client = self.coordinator_client.start_training()
                 data = self.aggregator_client.download()
                 if data:
-                    global_weights = pickle.loads(bz2.decompress(data))
+                    global_weights = pickle.loads(data)
                 else:
                     global_weights = self.participant.init_weights()
                 local_weights = self.participant.train_round(global_weights, 0, 0)
-                data = bz2.compress(pickle.dumps(local_weights))
+                data = pickle.dumps(local_weights)
                 self.aggregator_client.upload(data)
                 with self.state_record:
                     self.state_record.set_state(State.WAITING)
