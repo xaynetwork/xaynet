@@ -13,39 +13,6 @@ services:
     ports:
       - "8086:8086"
 
-  keycloak:
-    image: jboss/keycloak:8.0.2
-    hostname: keycloak
-    environment:
-      KEYCLOAK_USER: admin
-      KEYCLOAK_PASSWORD: adminadmin
-      DB_VENDOR: h2
-    networks:
-      - xain-fl-rs
-    ports:
-      - "8080:8080"
-
-  grafana:
-    image: grafana/grafana
-    depends_on:
-      - keycloak
-    hostname: grafana
-    ports:
-      - "3000:3000"
-    networks:
-      - xain-fl-rs
-    environment:
-      GF_AUTH_GENERIC_OAUTH_ENABLED: "true"
-      GF_AUTH_GENERIC_OAUTH_NAME: "OAuth"
-      GF_AUTH_GENERIC_OAUTH_CLIENT_ID: "grafana"
-      GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET: "c3fbd14d-dfe9-4dc3-9894-8a97bc6c6575"
-      GF_AUTH_GENERIC_OAUTH_ALLOW_SIGN_UP: "true"
-      GF_AUTH_GENERIC_OAUTH_SCOPES: "openid profile email"
-      GF_AUTH_GENERIC_OAUTH_AUTH_URL: "http://localhost:8080/auth/realms/master/protocol/openid-connect/auth"
-      GF_AUTH_GENERIC_OAUTH_TOKEN_URL: "http://keycloak:8080/auth/realms/master/protocol/openid-connect/token"
-      GF_AUTH_GENERIC_OAUTH_API_URL: "http://keycloak:8080/auth/realms/master/protocol/openid-connect/userinfo"
-      GF_SERVER_ENFORCE_DOMAIN: "false"
-
   coordinator:
     command: coordinator -c /bin/config.toml
     build:
@@ -76,8 +43,115 @@ services:
       - "6666:6666"
       - "8082:8082"
 
+  prometheus:
+    image: prom/prometheus:v2.16.0
+    container_name: prometheus
+    volumes:
+      - ${PWD}/docker/prometheus:/etc/prometheus
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+    expose:
+      - 9090
+    networks:
+      - xain-fl-rs
+    labels:
+      org.label-schema.group: "monitoring"
+
+  nodeexporter:
+    image: prom/node-exporter:v0.18.1
+    container_name: nodeexporter
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.ignored-mount-points=^/(sys|proc|dev|host|etc)($$|/)'
+    restart: unless-stopped
+    expose:
+      - 9100
+    networks:
+      - xain-fl-rs
+    labels:
+      org.label-schema.group: "monitoring"
+
+  cadvisor:
+    image: gcr.io/google-containers/cadvisor:v0.34.0
+    container_name: cadvisor
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      #- /cgroup:/cgroup:ro #doesn't work on MacOS only for Linux
+    restart: unless-stopped
+    expose:
+      - 8080
+    networks:
+      - xain-fl-rs
+    labels:
+      org.label-schema.group: "monitoring"
+
+  grafana:
+    image: grafana/grafana:6.6.2
+    container_name: grafana
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ${PWD}/docker/grafana/provisioning:/etc/grafana/provisioning
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    restart: unless-stopped
+    expose:
+      - 3000
+    networks:
+      - xain-fl-rs
+    labels:
+      org.label-schema.group: "monitoring"
+
+  pushgateway:
+    image: prom/pushgateway:v1.1.0
+    container_name: pushgateway
+    restart: unless-stopped
+    expose:
+      - 9091
+    networks:
+      - xain-fl-rs
+    labels:
+      org.label-schema.group: "monitoring"
+
+  caddy:
+    image: stefanprodan/caddy
+    container_name: caddy
+    ports:
+      - "3000:3000"
+      - "9090:9090"
+      - "9091:9091"
+    volumes:
+      - ${PWD}/docker/caddy:/etc/caddy
+    environment:
+      - ADMIN_USER=admin
+      - ADMIN_PASSWORD=admin
+    restart: unless-stopped
+    networks:
+      - xain-fl-rs
+    labels:
+      org.label-schema.group: "monitoring"
+
 volumes:
   influxdb-data:
+  prometheus_data: {}
+  grafana_data: {}
 
 networks:
   xain-fl-rs:
