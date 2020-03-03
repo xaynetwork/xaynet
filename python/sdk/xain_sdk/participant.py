@@ -1,3 +1,4 @@
+import sys
 from abc import ABC, abstractmethod
 from copy import deepcopy
 import enum
@@ -14,8 +15,10 @@ from numpy import ndarray
 from requests.exceptions import ConnectionError
 
 from .http import AggregatorClient, AnonymousCoordinatorClient, CoordinatorClient
+from .interfaces import TrainingResultABC, TrainingInputABC
 
 LOG = logging.getLogger("http")
+
 
 
 class Participant(ABC):
@@ -23,14 +26,12 @@ class Participant(ABC):
         super(Participant, self).__init__()
 
     @abstractmethod
-    def init_weights(self) -> ndarray:
-        pass
+    def init_weights(self) -> TrainingResultABC:
+        raise NotImplementedError()
 
     @abstractmethod
-    def train_round(
-        self, weights: ndarray, epochs: int, epoch_base: int
-    ) -> Tuple[ndarray, int]:
-        pass
+    def train_round(self, training_input: TrainingInputABC) -> TrainingResultABC:
+        raise NotImplementedError()
 
 
 class State(enum.Enum):
@@ -112,30 +113,34 @@ class InternalParticipant:
         while True:
             with self.state_record:
                 self.state_record.wait_until_selected_or_done()
-                state, round = self.state_record.lookup()
+                state, _ = self.state_record.lookup()
+
             if state == State.DONE:
                 return
-            elif state == State.TRAINING:
+
+            if state == State.TRAINING:
                 self.aggregator_client = self.coordinator_client.start_training()
-                data = self.aggregator_client.download()
-                if data:
-                    global_weights = pickle.loads(data)
+                training_input = self.aggregator_client.download()
+
+                if training_input.is_initialization_round():
+                    result = self.participant.init_weights()
                 else:
-                    global_weights = self.participant.init_weights()
-                local_weights = self.participant.train_round(global_weights, 0, 0)
-                data = pickle.dumps(local_weights)
-                self.aggregator_client.upload(data)
+                    result = self.participant.train_round(training_input)
+                    assert isinstance(result, TrainingResultABC)
+
+                self.aggregator_client.upload(result)
+
                 with self.state_record:
                     self.state_record.set_state(State.WAITING)
 
     def rendez_vous(self):
         try:
             self.coordinator_client = self.anonymous_client.rendez_vous()
-        except ConnectionError as e:
-            LOG.error("rendez vous failed: %s", e)
+        except ConnectionError as err:
+            LOG.error("rendez vous failed: %s", err)
             raise ParticipantError("Rendez-vous request failed")
         except InterruptedError:
-            LOG.warn("exiting: interrupt signal caught")
+            LOG.warning("exiting: interrupt signal caught")
             sys.exit(0)
 
         self.start_heartbeat()
