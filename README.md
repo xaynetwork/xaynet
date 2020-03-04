@@ -64,9 +64,3 @@ cargo run --bin aggregator -- -c configs/dev-aggregator.toml
 ```bash
 docker-compose -f docker/docker-compose.yml up --build
 ```
-
-By default, the docker images use debug builds. To use a release build, run:
-
-```bash
-docker-compose -f docker/docker-compose.yml -f docker/docker-compose-release.yml up --build
-```

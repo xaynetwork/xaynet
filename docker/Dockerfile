@@ -16,6 +16,7 @@ RUN set -eux; \
         wget \
         libssl-dev \
         pkg-config \
+        valgrind \
         ; \
     \
     url="https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init"; \
