@@ -10,8 +10,8 @@ aggregator_address = "aggregator:6666"
 
 [federated_learning]
 rounds = 10
-participants_ratio = 1
-min_clients = 1
+participants_ratio = 0.8
+min_clients = 50
 heartbeat_timeout = 15
 
 [metric_store]
