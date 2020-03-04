@@ -24,6 +24,16 @@ each other:
 
 ## Running the Coordinator/ Aggregator locally
 
+### Examples
+
+To run the tensorflow example:
+
+```bash
+pip install python/sdk
+pip install tensorflow==1.15.2
+python python/client_examples/tf.py
+```
+
 ### Coordinator
 
 ```bash
