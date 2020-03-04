@@ -12,7 +12,7 @@
 Dockerfile
 docker-compose.yml
 
-target
+rust/target
 shell.nix
 _images
 configs

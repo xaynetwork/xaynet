@@ -35,12 +35,12 @@ RUN set -eux; \
 
 WORKDIR /usr/src/coordinator
 # https://benjamincongdon.me/blog/2019/12/04/Fast-Rust-Docker-Builds-with-cargo-vendor/
-COPY Cargo.lock .
-COPY Cargo.toml .
+COPY rust/Cargo.lock .
+COPY rust/Cargo.toml .
 RUN mkdir .cargo
 RUN cargo vendor > .cargo/config
 
-COPY ./src src
+COPY rust/src src
 COPY ./docker/compile.sh .
 RUN bash compile.sh
 
