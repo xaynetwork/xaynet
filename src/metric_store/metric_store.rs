@@ -32,7 +32,7 @@ impl InfluxDBMetricStore {
         }
     }
 
-    pub async fn write(&self, metrics_owner: MetricOwner, fields: Vec<(String, Type)>) -> () {
+    pub async fn write(&self, metrics_owner: MetricOwner, fields: Vec<(&'static str, Type)>) -> () {
         let mut write_query: WriteQuery =
             Query::write_query(Timestamp::Now, metrics_owner.to_string());
 

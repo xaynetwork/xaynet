@@ -330,6 +330,10 @@ impl Protocol {
     pub fn next_event(&mut self) -> Option<Event> {
         self.events.pop_front()
     }
+
+    pub fn get_current_round(&self) -> u32 {
+        self.current_round
+    }
 }
 
 impl FederatedLearningSettings {
