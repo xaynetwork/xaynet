@@ -1,0 +1,36 @@
+version: "3.7"
+services:
+
+  coordinator:
+    command: coordinator -c /bin/config.toml
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+          RELEASE_BUILD: "true"
+    depends_on:
+      - influxdb
+    volumes:
+      - ${PWD}/configs/docker-release-coordinator.toml:/bin/config.toml
+    networks:
+      - xain-fl-rs
+    ports:
+      - "5555:5555"
+      - "8081:8081"
+
+  aggregator:
+    command: aggregator -c /bin/config.toml
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+          RELEASE_BUILD: "true"
+    depends_on:
+      - influxdb
+    volumes:
+      - ${PWD}/configs/docker-release-aggregator.toml:/bin/config.toml
+    networks:
+      - xain-fl-rs
+    ports:
+      - "6666:6666"
+      - "8082:8082"

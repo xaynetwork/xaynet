@@ -1,5 +1,7 @@
 FROM python:3.7.6-slim-buster
 
+ARG RELEASE_BUILD=false
+
 # Install rust nightly
 ENV RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \
@@ -39,9 +41,8 @@ RUN mkdir .cargo
 RUN cargo vendor > .cargo/config
 
 COPY ./src src
-RUN cargo build
-RUN mv ./target/debug/aggregator /bin/aggregator
-RUN mv ./target/debug/coordinator /bin/coordinator
+COPY ./docker/compile.sh .
+RUN bash compile.sh
 
 COPY python/aggregators aggregators/
 RUN pip install aggregators/
