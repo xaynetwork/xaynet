@@ -50,8 +50,8 @@ impl InfluxDBMetricStore {
     pub async fn write_with_tags(
         &self,
         metrics_owner: MetricOwner,
-        fields: Vec<(String, Type)>,
-        tags: Vec<(String, String)>,
+        fields: Vec<(&'static str, Type)>,
+        tags: Vec<(&'static str, &'static str)>,
     ) -> () {
         let mut write_query = Query::write_query(Timestamp::Now, metrics_owner.to_string());
 
@@ -80,7 +80,7 @@ mod tests {
     #[tokio::test]
     async fn test_write_metrics() {
         let metric_store = InfluxDBMetricStore::new("http://localhost:8086", "metrics");
-        let fields = vec![(String::from("CPU"), Type::SignedInteger(1))];
+        let fields = vec![("cpu", Type::SignedInteger(1))];
 
         metric_store.write(MetricOwner::Coordinator, fields).await;
     }
@@ -88,8 +88,8 @@ mod tests {
     #[tokio::test]
     async fn test_write_metrics_with_tags() {
         let metric_store = InfluxDBMetricStore::new("http://localhost:8086", "metrics");
-        let fields = vec![(String::from("CPU"), Type::SignedInteger(123))];
-        let tags = vec![(String::from("ID"), String::from("1234-1234-1234-1234"))];
+        let fields = vec![("cpu", Type::SignedInteger(123))];
+        let tags = vec![("id", "1234-1234-1234-1234")];
 
         metric_store
             .write_with_tags(MetricOwner::Coordinator, fields, tags)
