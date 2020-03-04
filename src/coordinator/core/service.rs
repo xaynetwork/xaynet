@@ -303,27 +303,27 @@ where
                     MetricOwner::Coordinator,
                     vec![
                         (
-                            String::from("number_of_selected_participants"),
+                            "number_of_selected_participants",
                             Type::SignedInteger(counter_selected.try_into().unwrap()),
                         ),
                         (
-                            String::from("number_of_waiting_participants"),
+                            "number_of_waiting_participants",
                             Type::SignedInteger(counter_waiting.try_into().unwrap()),
                         ),
                         (
-                            String::from("number_of_done_participants"),
+                            "number_of_done_participants",
                             Type::SignedInteger(counter_done.try_into().unwrap()),
                         ),
                         (
-                            String::from("number_of_done_inactive_participants"),
+                            "number_of_done_inactive_participants",
                             Type::SignedInteger(counter_done_inactive.try_into().unwrap()),
                         ),
                         (
-                            String::from("number_of_ignored_participants"),
+                            "number_of_ignored_participants",
                             Type::SignedInteger(counter_ignored.try_into().unwrap()),
                         ),
                         (
-                            String::from("round"),
+                            "round",
                             Type::UnsignedInteger(current_round as u64),
                         ),
                     ],
