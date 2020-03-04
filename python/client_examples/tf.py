@@ -177,16 +177,25 @@ class Participant(ParticipantABC):
 def main() -> None:
     """Entry point to start a participant."""
 
+    # 50M
+    # participant = Participant(
+    #     features=600,
+    #     units=20000,
+    #     categories=25,
+    #     train_samples=20800,
+    #     val_samples=2600,
+    #     test_samples=2600,
+    #     batch_size=64,
+    # )
     participant = Participant(
-        features=600,
-        units=20000,
-        categories=25,
-        train_samples=20800,
-        val_samples=2600,
-        test_samples=2600,
-        batch_size=64,
+        features=120,
+        units=2000,
+        categories=4,
+        train_samples=2000,
+        val_samples=250,
+        test_samples=250,
+        batch_size=16,
     )
-
     run_participant("http://localhost:8081", participant)
 
 
