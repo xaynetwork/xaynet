@@ -118,6 +118,8 @@ class CoordinatorClient:
 
     def start_training(self):
         resp = json.loads(self.http.get(f"start_training/{self.id}").text)
+        if not resp["ok"]:
+            raise StartTrainingRejected()
         url = resp["url"]
         token = resp["token"]
         return AggregatorClient(url, self.id, token)
@@ -143,3 +145,7 @@ class Clients:
         self.coordinator = None
         self.aggregator = None
         self.anonymous = None
+
+
+class StartTrainingRejected(Exception):
+    pass

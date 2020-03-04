@@ -14,7 +14,7 @@ import numpy as np
 from numpy import ndarray
 from requests.exceptions import ConnectionError
 
-from .http import AggregatorClient, AnonymousCoordinatorClient, CoordinatorClient
+from .http import AggregatorClient, AnonymousCoordinatorClient, CoordinatorClient, StartTrainingRejected
 from .interfaces import TrainingInputABC, TrainingResultABC
 
 LOG = logging.getLogger("http")
@@ -122,7 +122,13 @@ class InternalParticipant:
                 return
 
             if state == State.TRAINING:
-                self.aggregator_client = self.coordinator_client.start_training()
+                try:
+                    self.aggregator_client = self.coordinator_client.start_training()
+                except StartTrainingRejected:
+                    LOG.warning("start training request rejected")
+                    with self.state_record:
+                        self.state_record.set_state(State.WAITING)
+
                 data = self.aggregator_client.download()
                 training_input = self.participant.deserialize_training_input(data)
 
