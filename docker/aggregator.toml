@@ -1,7 +1,7 @@
 log_level = "debug"
 
 [aggregation.python]
-module = "xain_aggregators.dummy"
+module = "xain_aggregators.weighted_average"
 class = "Aggregator"
 
 [api]
