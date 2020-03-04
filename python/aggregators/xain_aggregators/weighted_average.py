@@ -46,6 +46,8 @@ class Aggregator(AggregatorABC):
             )
         ]
         self.global_weights = np.sum(scaled_model_weights, axis=0)
+        self.weights = []
+        self.aggregation_data = []
         LOG.info("finished aggregation")
         return self.get_global_weights()
 
