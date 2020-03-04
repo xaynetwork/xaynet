@@ -1,4 +1,4 @@
-log_level = "debug"
+log_level = "trace"
 aggregator_url = "http://localhost:8082"
 
 [api]
