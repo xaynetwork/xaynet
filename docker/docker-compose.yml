@@ -18,6 +18,7 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
+    image: docker_coordinator:debug
     depends_on:
       - influxdb
     volumes:
@@ -33,6 +34,7 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
+    image: docker_aggregator:debug
     depends_on:
       - influxdb
     volumes:
