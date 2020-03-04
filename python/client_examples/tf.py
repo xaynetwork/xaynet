@@ -1,6 +1,5 @@
 import pickle
 from typing import List, Tuple, TypeVar
-
 # pylint: disable=import-error
 import numpy as np
 from numpy import ndarray
@@ -94,7 +93,7 @@ class Participant(ParticipantABC):
         # return the updated model weights and the number of training samples
         return TrainingResult(self.get_tensorflow_weights(), self.train_samples)
 
-    def init_weights(self) -> np.ndarray:
+    def init_weights(self) -> TrainingResult:
         self.init_model()
         return TrainingResult(self.get_tensorflow_weights(), 0)
 
