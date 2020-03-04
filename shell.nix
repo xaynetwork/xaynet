@@ -8,10 +8,13 @@ stdenv.mkDerivation rec {
     pkgs.rustfmt
     pkgs.openssl
     pkgs.pkg-config
-    pkgs.gperftools
     python37Packages.numpy
     python37Packages.ipython
     python37Packages.virtualenv
+    # profiling and visualization
+    pkgs.gperftools
+    pkgs.graphviz
+    pkgs.gv
   ];
   RUST_BACKTRACE = 1;
   src = null;
