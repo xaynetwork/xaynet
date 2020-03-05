@@ -16,7 +16,6 @@ RUN set -eux; \
         wget \
         libssl-dev \
         pkg-config \
-        valgrind \
         ; \
     \
     url="https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init"; \
@@ -33,6 +32,11 @@ RUN set -eux; \
         wget \
         ; \
     rm -rf /var/lib/apt/lists/*;
+
+# Install dev tools
+RUN apt-get update; \
+    apt-get install -y valgrind \
+    ;
 
 WORKDIR /usr/src/coordinator
 # https://benjamincongdon.me/blog/2019/12/04/Fast-Rust-Docker-Builds-with-cargo-vendor/
