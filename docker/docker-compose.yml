@@ -14,7 +14,7 @@ services:
       - "8086:8086"
 
   coordinator:
-    command: valgrind --leak-check=full --show-leak-kinds=all coordinator -c /bin/config.toml
+    command: coordinator -c /bin/config.toml
     build:
       context: ..
       dockerfile: docker/Dockerfile
@@ -30,7 +30,7 @@ services:
       - "8081:8081"
 
   aggregator:
-    command: valgrind --leak-check=full --show-leak-kinds=all aggregator -c /bin/config.toml
+    command: aggregator -c /bin/config.toml
     build:
       context: ..
       dockerfile: docker/Dockerfile
