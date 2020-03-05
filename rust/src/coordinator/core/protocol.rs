@@ -263,7 +263,10 @@ impl Protocol {
             info!("accepting start training request");
             StartTrainingResponse::Accept
         } else {
-            info!("rejecting start training request (client state = {}, training_complete = {}", client_state, self.is_training_complete);
+            info!(
+                "rejecting start training request (client state = {}, training_complete = {}",
+                client_state, self.is_training_complete
+            );
             StartTrainingResponse::Reject
         }
     }

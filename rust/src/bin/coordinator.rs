@@ -9,7 +9,7 @@ use xain_fl::{
         core::{CoordinatorService, Selector},
         settings::Settings,
     },
-    metric_store::metric_store::{InfluxDBMetricStore},
+    metric_store::metric_store::InfluxDBMetricStore,
 };
 
 #[tokio::main]

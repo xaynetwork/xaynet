@@ -295,7 +295,7 @@ where
         let counter_done = self.protocol.counters().done;
         let counter_done_inactive = self.protocol.counters().done_and_inactive;
         let counter_ignored = self.protocol.counters().ignored;
-        let current_round =  self.protocol.get_current_round();
+        let current_round = self.protocol.get_current_round();
 
         tokio::spawn(async move {
             metric_store
@@ -322,10 +322,7 @@ where
                             "number_of_ignored_participants",
                             Type::SignedInteger(counter_ignored.try_into().unwrap()),
                         ),
-                        (
-                            "round",
-                            Type::UnsignedInteger(current_round as u64),
-                        ),
+                        ("round", Type::UnsignedInteger(current_round as u64)),
                     ],
                 )
                 .await;
