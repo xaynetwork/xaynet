@@ -90,6 +90,7 @@ class Participant(  # pylint: disable=too-few-public-methods,too-many-instance-a
         self.trainset_x = trainset.drop("Y", axis=1)
         self.trainset_y = trainset["Y"]
         self.testset_x = testset.drop("Y", axis=1)
+        self.testset_x = self.testset_x.drop(self.testset_x.columns[0], axis=1)
         self.testset_y = testset["Y"]
         self.model = Regressor(len(self.trainset_x.columns))
         self.shapes: List[Tuple[int, ...]] = self.get_tensorflow_shapes()
