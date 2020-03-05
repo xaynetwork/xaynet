@@ -417,20 +417,18 @@ pub enum Event {
 pub struct InvalidState;
 impl Error for InvalidState {}
 
-
 #[cfg(test)]
 mod tests {
 
     use super::*;
-    use crate::{    common::ClientId,
-        coordinator::settings::FederatedLearningSettings};
+    use crate::{common::ClientId, coordinator::settings::FederatedLearningSettings};
 
     #[test]
     fn test_new() {
         let fl_settings = FederatedLearningSettings {
-            rounds : 1,
-            participants_ratio : 1.0,
-            min_clients : 1,
+            rounds: 1,
+            participants_ratio: 1.0,
+            min_clients: 1,
             heartbeat_timeout: 15,
         };
 
@@ -439,7 +437,9 @@ mod tests {
         let counters = protocol.counters();
 
         // Counters
-        let expected = Counters {..Default::default() };
+        let expected = Counters {
+            ..Default::default()
+        };
         assert_eq!(counters, expected);
 
         // Event Queue
@@ -449,19 +449,22 @@ mod tests {
     #[test]
     fn test_rendez_vous_new_client() {
         let fl_settings = FederatedLearningSettings {
-            rounds : 1,
-            participants_ratio : 1.0,
-            min_clients : 1,
+            rounds: 1,
+            participants_ratio: 1.0,
+            min_clients: 1,
             heartbeat_timeout: 15,
         };
         let mut protocol = Protocol::new(fl_settings);
 
         let client_id = ClientId::new();
-        let resp = protocol.rendez_vous(client_id,  ClientState::Unknown);
+        let resp = protocol.rendez_vous(client_id, ClientState::Unknown);
         let counters = protocol.counters();
 
         // Counters
-        let expected = Counters { waiting: 1, ..Default::default() };
+        let expected = Counters {
+            waiting: 1,
+            ..Default::default()
+        };
         assert_eq!(counters, expected);
 
         // Response
@@ -476,24 +479,27 @@ mod tests {
     #[test]
     fn test_rendez_vous_waiting_client_re_send_rendez_vous() {
         let fl_settings = FederatedLearningSettings {
-            rounds : 1,
-            participants_ratio : 1.0,
-            min_clients : 1,
+            rounds: 1,
+            participants_ratio: 1.0,
+            min_clients: 1,
             heartbeat_timeout: 15,
         };
 
         let mut protocol = Protocol::new(fl_settings);
         let client_id = ClientId::new();
-        protocol.rendez_vous(client_id,  ClientState::Unknown);
+        protocol.rendez_vous(client_id, ClientState::Unknown);
 
         // Counters
         assert_eq!(1, protocol.counters().waiting);
 
-        let resp = protocol.rendez_vous(client_id,  ClientState::Waiting);
+        let resp = protocol.rendez_vous(client_id, ClientState::Waiting);
         let counters = protocol.counters();
 
         // Counters
-        let expected = Counters { waiting: 1, ..Default::default() };
+        let expected = Counters {
+            waiting: 1,
+            ..Default::default()
+        };
         assert_eq!(counters, expected);
 
         // Response
@@ -503,100 +509,124 @@ mod tests {
     #[test]
     fn test_rendez_vous_selected_client_re_send_rendez_vous() {
         let fl_settings = FederatedLearningSettings {
-            rounds : 1,
-            participants_ratio : 1.0,
-            min_clients : 1,
+            rounds: 1,
+            participants_ratio: 1.0,
+            min_clients: 1,
             heartbeat_timeout: 15,
         };
 
         let mut protocol = Protocol::new(fl_settings);
         let client_id = ClientId::new();
-        protocol.rendez_vous(client_id,  ClientState::Unknown);
-        
+        protocol.rendez_vous(client_id, ClientState::Unknown);
+
         // Counters
         assert_eq!(1, protocol.counters().waiting);
 
         // Event Queue
         assert_eq!(protocol.next_event().unwrap(), Event::Accept(client_id));
 
-        let candidates = vec![(client_id,  ClientState::Waiting)];
+        let candidates = vec![(client_id, ClientState::Waiting)];
         protocol.select(candidates.into_iter());
         let counters = protocol.counters();
 
         // Counters
-        let expected = Counters { selected: 1, ..Default::default() };
+        let expected = Counters {
+            selected: 1,
+            ..Default::default()
+        };
         assert_eq!(counters, expected);
 
         // Event Queue
         assert_eq!(protocol.next_event().unwrap(), Event::RunSelection(1));
-        assert_eq!(protocol.next_event().unwrap(), Event::SetState(client_id, ClientState::Selected));
+        assert_eq!(
+            protocol.next_event().unwrap(),
+            Event::SetState(client_id, ClientState::Selected)
+        );
 
-        let resp = protocol.rendez_vous(client_id,  ClientState::Selected);
+        let resp = protocol.rendez_vous(client_id, ClientState::Selected);
         let counters = protocol.counters();
 
         // Counters
-        let expected = Counters { ignored: 1, ..Default::default() };
-        assert_eq!(counters, expected);        
+        let expected = Counters {
+            ignored: 1,
+            ..Default::default()
+        };
+        assert_eq!(counters, expected);
 
         // Response
         assert_eq!(RendezVousResponse::Accept, resp);
 
         // Event Queue
-        assert_eq!(protocol.next_event().unwrap(), Event::SetState(client_id, ClientState::Ignored));
+        assert_eq!(
+            protocol.next_event().unwrap(),
+            Event::SetState(client_id, ClientState::Ignored)
+        );
         assert!(protocol.next_event().is_none());
     }
 
     #[test]
     fn test_rendez_vous_done_client_re_send_rendez_vous() {
         let fl_settings = FederatedLearningSettings {
-            rounds : 1,
-            participants_ratio : 1.0,
-            min_clients : 1,
+            rounds: 1,
+            participants_ratio: 1.0,
+            min_clients: 1,
             heartbeat_timeout: 15,
         };
 
         let mut protocol = Protocol::new(fl_settings);
         let client_id = ClientId::new();
-        let resp = protocol.rendez_vous(client_id,  ClientState::Done);
+        let resp = protocol.rendez_vous(client_id, ClientState::Done);
 
         let counters = protocol.counters();
 
         // Counters
-        let expected = Counters { ignored: 1, ..Default::default() };
-        assert_eq!(counters, expected);     
-
-        // Response
-        assert_eq!(RendezVousResponse::Accept, resp);
-
-        // Event Queue
-        assert_eq!(protocol.next_event().unwrap(), Event::SetState(client_id, ClientState::Ignored));
-        assert!(protocol.next_event().is_none());
-    }
-
-    #[test]
-    fn test_rendez_vous_done_inactive_client_re_send_rendez_vous() {
-        let fl_settings = FederatedLearningSettings {
-            rounds : 1,
-            participants_ratio : 1.0,
-            min_clients : 1,
-            heartbeat_timeout: 15,
+        let expected = Counters {
+            ignored: 1,
+            ..Default::default()
         };
-
-        let mut protocol = Protocol::new(fl_settings);
-        let client_id = ClientId::new();
-        let resp = protocol.rendez_vous(client_id,  ClientState::DoneAndInactive);
-
-        let counters = protocol.counters();
-
-        // Counters
-        let expected = Counters { ignored: 1, ..Default::default() };
         assert_eq!(counters, expected);
 
         // Response
         assert_eq!(RendezVousResponse::Accept, resp);
 
         // Event Queue
-        assert_eq!(protocol.next_event().unwrap(), Event::SetState(client_id, ClientState::Ignored));
+        assert_eq!(
+            protocol.next_event().unwrap(),
+            Event::SetState(client_id, ClientState::Ignored)
+        );
+        assert!(protocol.next_event().is_none());
+    }
+
+    #[test]
+    fn test_rendez_vous_done_inactive_client_re_send_rendez_vous() {
+        let fl_settings = FederatedLearningSettings {
+            rounds: 1,
+            participants_ratio: 1.0,
+            min_clients: 1,
+            heartbeat_timeout: 15,
+        };
+
+        let mut protocol = Protocol::new(fl_settings);
+        let client_id = ClientId::new();
+        let resp = protocol.rendez_vous(client_id, ClientState::DoneAndInactive);
+
+        let counters = protocol.counters();
+
+        // Counters
+        let expected = Counters {
+            ignored: 1,
+            ..Default::default()
+        };
+        assert_eq!(counters, expected);
+
+        // Response
+        assert_eq!(RendezVousResponse::Accept, resp);
+
+        // Event Queue
+        assert_eq!(
+            protocol.next_event().unwrap(),
+            Event::SetState(client_id, ClientState::Ignored)
+        );
         assert!(protocol.next_event().is_none());
     }
 }
