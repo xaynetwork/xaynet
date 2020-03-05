@@ -5,7 +5,7 @@ import urllib
 
 import requests
 
-LOG = logging.getLogger("participant")
+LOG = logging.getLogger("xain-sdk.http")
 
 
 def log_headers(headers):

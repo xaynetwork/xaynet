@@ -114,32 +114,43 @@ class InternalParticipant:
     def run(self):
         self.rendez_vous()
         while True:
+            LOG.info("waiting for being selected")
             with self.state_record:
                 self.state_record.wait_until_selected_or_done()
                 state, _ = self.state_record.lookup()
 
             if state == State.DONE:
+                LOG.info("state changed: DONE")
                 return
 
             if state == State.TRAINING:
+                LOG.info("state changed: TRAINING")
                 try:
+                    LOG.info("requesting training information to the coordinator")
                     self.aggregator_client = self.coordinator_client.start_training()
                 except StartTrainingRejected:
                     LOG.warning("start training request rejected")
                     with self.state_record:
                         self.state_record.set_state(State.WAITING)
 
+                LOG.info("downloading global weights from the aggregator")
                 data = self.aggregator_client.download()
+                LOG.info("retrieved training data (length: %d bytes)", len(data))
                 training_input = self.participant.deserialize_training_input(data)
 
                 if training_input.is_initialization_round():
+                    LOG.info("initializing the weights")
                     result = self.participant.init_weights()
                 else:
+                    LOG.info("training")
                     result = self.participant.train_round(training_input)
                     assert isinstance(result, TrainingResultABC)
+                    LOG.info("training finished")
 
+                LOG.info("sending the local weights to the aggregator")
                 self.aggregator_client.upload(result.tobytes())
 
+                LOG.info("going back to WAITING state")
                 with self.state_record:
                     self.state_record.set_state(State.WAITING)
 
