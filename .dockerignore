@@ -9,10 +9,11 @@
 *.pyd
 *.pyo
 
-Dockerfile
-docker-compose.yml
-
+**/.ignore
+**/shell.nix
+**/.envrc
 rust/target
-shell.nix
+python/client_examples
+python/sdk
+configs/
 _images
-configs

@@ -22,7 +22,7 @@ stdenv.mkDerivation rec {
     # Allow the use of wheels.
     SOURCE_DATE_EPOCH=$(date +%s)
 
-    VENV=.${name}
+    VENV=.ignore/${name}
     if test ! -d $VENV; then
       virtualenv $VENV
     fi
