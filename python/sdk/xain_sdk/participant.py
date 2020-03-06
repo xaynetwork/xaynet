@@ -100,7 +100,7 @@ class StateRecord:
 
 
 class InternalParticipant:
-    def __init__(self, coordinator_url: str, participant: ParticipantABC):
+    def __init__(self, participant: ParticipantABC, coordinator_url: str):
         self.state_record = StateRecord()
         self.participant = participant
 
