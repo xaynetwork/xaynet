@@ -318,6 +318,7 @@ impl Protocol {
         }
         self.waiting_for_aggregation = false;
         if success {
+            self.emit_event(Event::EndRound(self.current_round));
             self.current_round += 1;
         }
         if self.current_round == self.settings.rounds {
@@ -332,10 +333,6 @@ impl Protocol {
     /// Retrieve the next event
     pub fn next_event(&mut self) -> Option<Event> {
         self.events.pop_front()
-    }
-
-    pub fn get_current_round(&self) -> u32 {
-        self.current_round
     }
 }
 
@@ -411,6 +408,9 @@ pub enum Event {
 
     /// Start the selection process
     RunSelection(u32),
+
+    /// Indicates the end of a round
+    EndRound(u32),
 }
 
 #[derive(Debug, Display)]

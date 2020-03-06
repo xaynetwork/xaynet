@@ -12,6 +12,8 @@ services:
       - xain-fl-rs
     ports:
       - "8086:8086"
+    labels:
+      org.label-schema.group: "monitoring"
 
   coordinator:
     command: coordinator -c /bin/config.toml
@@ -151,7 +153,7 @@ services:
       org.label-schema.group: "monitoring"
 
 volumes:
-  influxdb-data:
+  influxdb-data: {}
   prometheus_data: {}
   grafana_data: {}
 

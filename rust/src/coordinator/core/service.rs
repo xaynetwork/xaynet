@@ -11,9 +11,7 @@
 // Steps 5. and 7. are problematic, but how much? The race at step
 // 3. is very unlikely, but we may still run into it.
 
-use crate::metric_store::metric_store::Metric;
 use std::{
-    convert::TryInto,
     fmt::Debug,
     future::Future,
     pin::Pin,
@@ -42,7 +40,7 @@ use crate::{
         rpc,
         settings::FederatedLearningSettings,
     },
-    metric_store::metric_store::MetricOwner,
+    metric_store::metric_store::{Metric, MetricOwner},
 };
 
 use tarpc::context::current as rpc_context;
@@ -291,40 +289,6 @@ where
         let (id, response_tx) = req;
         let response = self.protocol.heartbeat(id, self.clients.get_state(&id));
 
-        let counter_selected = self.protocol.counters().selected;
-        let counter_waiting = self.protocol.counters().waiting;
-        let counter_done = self.protocol.counters().done;
-        let counter_done_inactive = self.protocol.counters().done_and_inactive;
-        let counter_ignored = self.protocol.counters().ignored;
-        let current_round = self.protocol.get_current_round();
-
-        let _ = self.metrics_tx.send(Metric(
-            MetricOwner::Coordinator,
-            vec![
-                (
-                    "number_of_selected_participants",
-                    Type::SignedInteger(counter_selected.try_into().unwrap()),
-                ),
-                (
-                    "number_of_waiting_participants",
-                    Type::SignedInteger(counter_waiting.try_into().unwrap()),
-                ),
-                (
-                    "number_of_done_participants",
-                    Type::SignedInteger(counter_done.try_into().unwrap()),
-                ),
-                (
-                    "number_of_done_inactive_participants",
-                    Type::SignedInteger(counter_done_inactive.try_into().unwrap()),
-                ),
-                (
-                    "number_of_ignored_participants",
-                    Type::SignedInteger(counter_ignored.try_into().unwrap()),
-                ),
-                ("round", Type::UnsignedInteger(current_round as u64)),
-            ],
-        ));
-
         response_tx.send(response);
     }
 
@@ -510,6 +474,41 @@ where
         }
     }
 
+    fn write_counter_metrics(&self) {
+        let _ = self.metrics_tx.send(Metric(
+            MetricOwner::Coordinator,
+            vec![
+                (
+                    "number_of_selected_participants",
+                    Type::SignedInteger(self.protocol.counters().selected as i64),
+                ),
+                (
+                    "number_of_waiting_participants",
+                    Type::SignedInteger(self.protocol.counters().waiting as i64),
+                ),
+                (
+                    "number_of_done_participants",
+                    Type::SignedInteger(self.protocol.counters().done as i64),
+                ),
+                (
+                    "number_of_done_inactive_participants",
+                    Type::SignedInteger(self.protocol.counters().done_and_inactive as i64),
+                ),
+                (
+                    "number_of_ignored_participants",
+                    Type::SignedInteger(self.protocol.counters().ignored as i64),
+                ),
+            ],
+        ));
+    }
+
+    fn write_round_metric(&self, round: u32) {
+        let _ = self.metrics_tx.send(Metric(
+            MetricOwner::Coordinator,
+            vec![("round", Type::UnsignedInteger(round as u64))],
+        ));
+    }
+
     /// Dispatch an [`Event`] to the appropriate handler
     fn dispatch_event(&mut self, event: protocol::Event) {
         use protocol::Event::*;
@@ -522,6 +521,15 @@ where
             ResetHeartBeat(id) => self.reset_heartbeat(id),
             RunAggregation => self.run_aggregation(),
             RunSelection(min_count) => self.run_selection(min_count),
+            EndRound(_) => (),
+        }
+
+        match event {
+            Accept(_) => self.write_counter_metrics(),
+            Remove(_) => self.write_counter_metrics(),
+            SetState(_, _) => self.write_counter_metrics(),
+            EndRound(round) => self.write_round_metric(round),
+            _ => (),
         }
     }
 }
