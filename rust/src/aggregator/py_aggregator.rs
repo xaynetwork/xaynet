@@ -14,61 +14,82 @@ use tokio::{
 use crate::aggregator::{service::Aggregator, settings::PythonAggregatorSettings};
 use pyo3::{
     types::{PyBytes, PyModule},
-    PyObject, PyResult, Python, ToPyObject,
+    GILGuard, PyObject, PyResult, Python, ToPyObject,
 };
 
-pub struct PyAggregator<'py> {
-    py: Python<'py>,
+pub struct PyAggregator {
+    gil: Option<GILGuard>,
     aggregator: PyObject,
 }
 
-impl<'py> PyAggregator<'py> {
-    pub fn load(py: Python<'py>, settings: PythonAggregatorSettings) -> PyResult<Self> {
+impl PyAggregator {
+    pub fn load(settings: PythonAggregatorSettings) -> PyResult<Self> {
+        let gil = Python::acquire_gil();
+        let py = gil.python();
         // FIXME: make this configurable
         let module = PyModule::import(py, &settings.module)
             .map_err(|e| e.print(py))
             .unwrap();
         let aggregator = module.call0(&settings.class).unwrap().to_object(py);
-        Ok(Self { py, aggregator })
+        Ok(Self {
+            gil: Some(gil),
+            aggregator,
+        })
     }
 
-    pub fn aggregate(&self) -> PyResult<Bytes> {
+    pub fn aggregate(&mut self) -> PyResult<Bytes> {
         info!("PyAggregator: running aggregation");
+        let py = self.get_py();
         let result = self
             .aggregator
-            .call_method0(self.py, "aggregate")?
-            .extract::<Vec<u8>>(self.py)
+            .call_method0(py, "aggregate")?
+            .extract::<Vec<u8>>(py)
             .map(Bytes::from)?;
         info!("PyAggregator: finished aggregation");
+        self.re_acquire_gil();
         Ok(result)
     }
 
+    /// Release the GIL so that python's garbage collector runs
+    fn re_acquire_gil(&mut self) {
+        self.gil = None;
+        self.gil = Some(Python::acquire_gil());
+    }
+
     pub fn get_global_weights(&self) -> PyResult<Bytes> {
+        let py = self.get_py();
         Ok(self
             .aggregator
-            .call_method0(self.py, "get_global_weights")?
-            .extract::<Vec<u8>>(self.py)
+            .call_method0(py, "get_global_weights")?
+            .extract::<Vec<u8>>(py)
             .map(Bytes::from)?)
     }
 
     pub fn add_weights(&self, local_weights: &[u8]) -> PyResult<Result<(), ()>> {
         info!("PyAggregator: adding weights");
-        let py_bytes = PyBytes::new(self.py, local_weights);
+        let py = self.get_py();
+        let py_bytes = PyBytes::new(py, local_weights);
         let args = (py_bytes,);
         let result = self
             .aggregator
-            .call_method1(self.py, "add_weights", args)?
-            .extract::<bool>(self.py)?
+            .call_method1(py, "add_weights", args)?
+            .extract::<bool>(py)?
             .then_some(())
             .ok_or(());
         info!("PyAggregator: done adding weights");
         Ok(result)
     }
 
-    pub fn reset(&self, global_weights: &[u8]) -> PyResult<()> {
-        let py_bytes = PyBytes::new(self.py, global_weights);
+    pub fn get_py(&self) -> Python<'_> {
+        self.gil.as_ref().unwrap().python()
+    }
+
+    pub fn reset(&mut self, global_weights: &[u8]) -> PyResult<()> {
+        let py = self.get_py();
+        let py_bytes = PyBytes::new(py, global_weights);
         let args = (py_bytes,);
-        self.aggregator.call_method1(self.py, "reset", args)?;
+        self.aggregator.call_method1(py, "reset", args)?;
+        self.re_acquire_gil();
         Ok(())
     }
 }
@@ -123,14 +144,12 @@ async fn py_aggregator(
     mut aggregate_requests: RequestRx<(), Weights>,
     mut add_weights_requests: RequestRx<Weights, ()>,
 ) {
-    let gil = Python::acquire_gil();
-    let py = gil.python();
-    let aggregator = PyAggregator::load(py, settings).unwrap();
+    let mut aggregator = PyAggregator::load(settings).unwrap();
 
     loop {
         select! {
             Some(((), resp_tx)) = aggregate_requests.recv() => {
-                let weights = aggregator.aggregate().unwrap();
+                let weights = aggregator.aggregate().map_err(|e| error!("{:?}", e)).unwrap();
                 if resp_tx.send(weights).is_err() {
                     warn!("cannot send aggregate response, receiver has been dropped");
                     return;

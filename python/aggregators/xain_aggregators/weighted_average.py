@@ -11,6 +11,7 @@ LOG = logging.getLogger("PythonWeightedAverageAggregator")
 
 class Aggregator(AggregatorABC):
     def __init__(self):
+        logging.basicConfig(level=logging.INFO)
         LOG.info("initializing aggregator")
         self.global_weights: np.ndarray = None
         self.weights: List[np.ndarray] = []

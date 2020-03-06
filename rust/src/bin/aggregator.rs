@@ -4,7 +4,7 @@ use xain_fl::aggregator::{
     api,
     py_aggregator::spawn_py_aggregator,
     service::AggregatorService,
-    settings::{AggregationSettings, PythonAggregatorSettings, Settings},
+    settings::{AggregationSettings, Settings},
 };
 
 #[tokio::main]
