@@ -33,7 +33,7 @@ The class attributes are:
 After downloading and unpacking the data, run:
 
 ```
-prepare-regression-data --data-directory data/ --number-of-participants 100
+split-data --data-directory data/ --number-of-participants 10
 ```
 
 
@@ -80,6 +80,12 @@ self.model = Regressor(len(self.trainset_x.columns))
 self.shapes = self.get_tensorflow_shapes(model=self.model.model)
 self.flattened = self.get_tensorflow_weights(model=self.model.model)
 self.number_samples = len(trainset)
+```
+
+To start a participant run:
+
+```
+run-participant --data-directory data/
 ```
 
 
