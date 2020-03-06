@@ -9,7 +9,7 @@ use xain_fl::{
         core::{CoordinatorService, Selector},
         settings::Settings,
     },
-    metric_store::metric_store::InfluxDBMetricStore,
+    metric_store::metric_store::{run_metricstore, InfluxDBMetricStore},
 };
 
 #[tokio::main]
@@ -49,19 +49,23 @@ async fn _main(settings: Settings) {
         ..
     } = settings;
 
+    let (influx_client, metric_sender) = InfluxDBMetricStore::new(
+        &metric_store.database_url[..],
+        &metric_store.database_name[..],
+    );
+
     let (coordinator, handle) = CoordinatorService::new(
         RandomSelector,
         federated_learning,
         aggregator_url,
         rpc.bind_address,
         rpc.aggregator_address,
-        InfluxDBMetricStore::new(
-            &metric_store.database_url[..],
-            &metric_store.database_name[..],
-        ),
+        metric_sender,
     );
 
     tokio::spawn(async move { api::serve(&api.bind_address, handle).await });
+
+    tokio::spawn(async move { run_metricstore(influx_client).await });
 
     coordinator.await;
 }

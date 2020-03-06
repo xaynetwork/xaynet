@@ -11,6 +11,7 @@
 // Steps 5. and 7. are problematic, but how much? The race at step
 // 3. is very unlikely, but we may still run into it.
 
+use crate::metric_store::metric_store::Metric;
 use std::{
     convert::TryInto,
     fmt::Debug,
@@ -19,6 +20,7 @@ use std::{
     task::{Context, Poll},
     time::Duration,
 };
+use tokio::sync::mpsc::UnboundedSender;
 
 use derive_more::Display;
 use futures::{ready, stream::Stream};
@@ -40,7 +42,7 @@ use crate::{
         rpc,
         settings::FederatedLearningSettings,
     },
-    metric_store::metric_store::{InfluxDBMetricStore, MetricOwner},
+    metric_store::metric_store::MetricOwner,
 };
 
 use tarpc::context::current as rpc_context;
@@ -122,7 +124,7 @@ where
     pending_selection: Vec<ClientId>,
 
     ///Metric Store
-    metric_store: InfluxDBMetricStore,
+    metrics_tx: UnboundedSender<Metric>,
 }
 
 impl<S> CoordinatorService<S>
@@ -138,7 +140,7 @@ where
         aggregator_url: String,
         rpc_listen_addr: U,
         aggregator_rpc_addr: T,
-        metric_store: InfluxDBMetricStore,
+        metrics_tx: UnboundedSender<Metric>,
     ) -> (Self, CoordinatorHandle) {
         let (requests_tx, requests_rx) = mpsc::channel(2048);
         let (heartbeat_expirations_tx, heartbeat_expirations_rx) = mpsc::unbounded_channel();
@@ -159,7 +161,7 @@ where
             aggregation_future: None,
             aggregator_url,
             rpc_rx,
-            metric_store,
+            metrics_tx,
         };
         let handle = CoordinatorHandle::new(requests_tx);
         (coordinator, handle)
@@ -289,7 +291,6 @@ where
         let (id, response_tx) = req;
         let response = self.protocol.heartbeat(id, self.clients.get_state(&id));
 
-        let metric_store = self.metric_store.clone();
         let counter_selected = self.protocol.counters().selected;
         let counter_waiting = self.protocol.counters().waiting;
         let counter_done = self.protocol.counters().done;
@@ -297,36 +298,32 @@ where
         let counter_ignored = self.protocol.counters().ignored;
         let current_round = self.protocol.get_current_round();
 
-        tokio::spawn(async move {
-            metric_store
-                .write(
-                    MetricOwner::Coordinator,
-                    vec![
-                        (
-                            "number_of_selected_participants",
-                            Type::SignedInteger(counter_selected.try_into().unwrap()),
-                        ),
-                        (
-                            "number_of_waiting_participants",
-                            Type::SignedInteger(counter_waiting.try_into().unwrap()),
-                        ),
-                        (
-                            "number_of_done_participants",
-                            Type::SignedInteger(counter_done.try_into().unwrap()),
-                        ),
-                        (
-                            "number_of_done_inactive_participants",
-                            Type::SignedInteger(counter_done_inactive.try_into().unwrap()),
-                        ),
-                        (
-                            "number_of_ignored_participants",
-                            Type::SignedInteger(counter_ignored.try_into().unwrap()),
-                        ),
-                        ("round", Type::UnsignedInteger(current_round as u64)),
-                    ],
-                )
-                .await;
-        });
+        let _ = self.metrics_tx.send(Metric(
+            MetricOwner::Coordinator,
+            vec![
+                (
+                    "number_of_selected_participants",
+                    Type::SignedInteger(counter_selected.try_into().unwrap()),
+                ),
+                (
+                    "number_of_waiting_participants",
+                    Type::SignedInteger(counter_waiting.try_into().unwrap()),
+                ),
+                (
+                    "number_of_done_participants",
+                    Type::SignedInteger(counter_done.try_into().unwrap()),
+                ),
+                (
+                    "number_of_done_inactive_participants",
+                    Type::SignedInteger(counter_done_inactive.try_into().unwrap()),
+                ),
+                (
+                    "number_of_ignored_participants",
+                    Type::SignedInteger(counter_ignored.try_into().unwrap()),
+                ),
+                ("round", Type::UnsignedInteger(current_round as u64)),
+            ],
+        ));
 
         response_tx.send(response);
     }
