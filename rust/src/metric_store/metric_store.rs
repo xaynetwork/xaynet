@@ -66,29 +66,3 @@ impl InfluxDBMetricStore {
         )
     }
 }
-
-// #[cfg(test)]
-// mod tests {
-
-//     use super::*;
-//     use tokio;
-
-//     #[tokio::test]
-//     async fn test_write_metrics() {
-//         let metric_store = InfluxDBMetricStore::new("http://localhost:8086", "metrics");
-//         let fields = vec![("cpu", Type::SignedInteger(1))];
-
-//         metric_store.write(MetricOwner::Coordinator, fields).await;
-//     }
-
-//     #[tokio::test]
-//     async fn test_write_metrics_with_tags() {
-//         let metric_store = InfluxDBMetricStore::new("http://localhost:8086", "metrics");
-//         let fields = vec![("cpu", Type::SignedInteger(123))];
-//         let tags = vec![("id", "1234-1234-1234-1234")];
-
-//         metric_store
-//             .write_with_tags(MetricOwner::Coordinator, fields, tags)
-//             .await;
-//     }
-// }
