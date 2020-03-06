@@ -70,3 +70,13 @@ By default, the docker images use debug builds. To use a release build, run:
 ```bash
 docker-compose -f docker/docker-compose.yml -f docker/docker-compose-release.yml up --build
 ```
+
+To check if the coordinator or the aggregator are leaking memory, run:
+
+```bash
+docker-compose -f docker/docker-compose.yml -f docker/docker-compose-valgrind.yml up --build
+
+# To see the logs, run:
+docker logs docker_coordinator_1
+docker logs docker_aggregator_1
+```

@@ -33,6 +33,11 @@ RUN set -eux; \
         ; \
     rm -rf /var/lib/apt/lists/*;
 
+# Install dev tools
+RUN apt-get update; \
+    apt-get install -y valgrind \
+    ;
+
 WORKDIR /usr/src/coordinator
 # https://benjamincongdon.me/blog/2019/12/04/Fast-Rust-Docker-Builds-with-cargo-vendor/
 COPY rust/Cargo.lock .

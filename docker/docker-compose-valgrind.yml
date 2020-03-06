@@ -1,0 +1,34 @@
+version: "3.7"
+services:
+
+  coordinator:
+    command: valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes coordinator -c /bin/config.toml
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: docker_coordinator:valgrind
+    depends_on:
+      - influxdb
+    volumes:
+      - ${PWD}/configs/docker-dev-coordinator.toml:/bin/config.toml
+    networks:
+      - xain-fl-rs
+    ports:
+      - "5555:5555"
+      - "8081:8081"
+
+  aggregator:
+    command: valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes aggregator -c /bin/config.toml
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: docker_aggregator:valgrind
+    depends_on:
+      - influxdb
+    volumes:
+      - ${PWD}/configs/docker-dev-aggregator.toml:/bin/config.toml
+    networks:
+      - xain-fl-rs
+    ports:
+      - "6666:6666"
+      - "8082:8082"
