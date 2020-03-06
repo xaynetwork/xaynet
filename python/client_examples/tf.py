@@ -83,11 +83,13 @@ class Participant(ParticipantABC):
             weights=training_input.weights, shapes=self.model_shapes
         )
 
-        # FIXME: the epoch should come from the aggregator but I don't
-        # understand what it is exactly. According to Jan it's only
-        # used for metrics so I think it's ok to hardcode this to 10.
-        for _ in range(0, 10):
-            self.model.fit(x=self.trainset, verbose=2, shuffle=False)
+        # Uncomment this if you want to train the model. However, this
+        # is a dummy example with random data so there's no point in
+        # actually training.
+        #
+        # epochs = 10
+        # for _ in range(0, epochs):
+        #     self.model.fit(x=self.trainset, verbose=2, shuffle=False)
 
         # return the updated model weights and the number of training samples
         return TrainingResult(self.get_tensorflow_weights(), self.train_samples)
