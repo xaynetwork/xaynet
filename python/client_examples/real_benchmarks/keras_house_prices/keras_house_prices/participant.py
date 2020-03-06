@@ -176,7 +176,7 @@ def main() -> None:
     )
     args = parser.parse_args()
     participant = Participant(args.data_directory)
-    run_participant("http://localhost:8081", participant)
+    run_participant(participant, "http://localhost:8081")
 
 
 if __name__ == "__main__":

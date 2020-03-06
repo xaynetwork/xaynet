@@ -197,7 +197,7 @@ def main() -> None:
         test_samples=250,
         batch_size=16,
     )
-    run_participant("http://localhost:8081", participant)
+    run_participant(participant, "http://localhost:8081")
 
 
 if __name__ == "__main__":
