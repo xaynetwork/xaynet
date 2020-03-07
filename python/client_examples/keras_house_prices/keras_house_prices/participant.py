@@ -50,29 +50,35 @@ class TrainingResult(TrainingResultABC):
 class Participant(  # pylint: disable=too-few-public-methods,too-many-instance-attributes
     ParticipantABC
 ):
-    """An example of a PyTorch implementation of a participant for federated learning.
+    """An example of a Keras implementation of a participant for federated
+    learning.
 
-    The attributes for the model and the datasets are only for convenience, they might as well be
-    loaded elsewhere.
+    The attributes for the model and the datasets are only for
+    convenience, they might as well be loaded elsewhere.
 
     Attributes:
+
         model: The model to be trained.
-        trainset_x (pd.dataframe): A dataset for training.
-        trainset_y (pd.dataframe): Labels for training.
-        testset_x (pd.dataframe): A dataset for test.
-        testset_y (pd.dataframe): Labels for test.
-        number_samples (int): The number of samples in the training dataset.
-        flattened (np.ndarray): flattened vector of models weights
-        shape (np.ndarray): CNN model architecture
-        indices (np.ndarray): indices of split points in the flattened vector
+        trainset_x: A dataset for training.
+        trainset_y: Labels for training.
+        testset_x: A dataset for test.
+        testset_y: Labels for test.
+        number_samples: The number of samples in the training dataset.
+        flattened: flattened vector of models weights
+        shape: CNN model architecture
+        indices: indices of split points in the flattened vector
+
     """
 
     def __init__(self, dataset_dir: str) -> None:
         """Initialize the custom participant.
 
-        The model and the datasets are defined here only for convenience, they might as well be
-        loaded in the `train_round()` method on the fly. Due to the nature of this example, the
-        model is a simple dense neural network and the datasets are randomly generated.
+        The model and the datasets are defined here only for
+        convenience, they might as well be loaded in the
+        ``train_round()`` method on the fly. Due to the nature of this
+        example, the model is a simple dense neural network and the
+        datasets are randomly generated.
+
         """
 
         super(Participant, self).__init__()
@@ -100,11 +106,14 @@ class Participant(  # pylint: disable=too-few-public-methods,too-many-instance-a
     def init_weights(self) -> TrainingResult:
         """Initialize the weights of a model.
 
-        The model weights are freshly initialized according to the participant's model
-        definition and are returned without training.
+        The model weights are freshly initialized according to the
+        participant's model definition and are returned without
+        training.
 
         Returns:
+
             The newly initialized model weights.
+
         """
 
         self.model = Regressor(len(self.trainset_x.columns))
@@ -114,15 +123,19 @@ class Participant(  # pylint: disable=too-few-public-methods,too-many-instance-a
     def train_round(self, training_input: TrainingInput) -> TrainingResult:
         """Train a model in a federated learning round.
 
-        A model is given in terms of its weights and the model is trained on the
-        participant's dataset for a number of epochs. The weights of the updated model
-        are returned in combination with the number of samples of the train dataset.
+        A model is given in terms of its weights and the model is
+        trained on the participant's dataset for a number of
+        epochs. The weights of the updated model are returned in
+        combination with the number of samples of the train dataset.
 
         Args:
+
             training_input: The weights of the model to be trained.
 
         Returns:
+
             The updated model weights and the number of training samples.
+
         """
 
         # FIXME: what should this be???

@@ -13,30 +13,16 @@ LOG = logging.getLogger(__name__)
 
 
 class RegressionData(DataHandler):
-    """Subclass inheriting from DataHandler that implements the abstract method,
-    which are testcase-specific.
+    """Data processing logic that is specific to the house prices dataset.
+
     """
 
-    def __init__(self, data_directory: str, **kwargs) -> None:
-        super(RegressionData, self).__init__(data_directory, "regression", **kwargs)
-
-    # TODO: we will fully automate this with AP-68
-    def download_data(self):
-        """Implementation of the DataHandler::download_data abstract method."""
-        LOG.info(
-            "skipping download, assuming files are available locally at {}".format(
-                self.data_dir
-            )
+    def __init__(
+        self, data_directory: str, homogeneity: str, n_participants: int
+    ) -> None:
+        super(RegressionData, self).__init__(
+            data_directory, homogeneity=homogeneity, n_participants=n_participants
         )
-
-    def read_data(self) -> None:
-        """Implementation of the DataHandler::read_data abstract method.
-
-        Find the train_set CSV file and load it into DataHandler.dataframe.
-        """
-
-        self.train_df: pd.DataFrame = pd.read_csv(self.train_file_path, index_col=None)
-        self.train_df.drop("Id", axis=1, inplace=True)
 
     def fill_nan(self) -> None:
         """Filling missing data in the dataframe."""
@@ -98,7 +84,7 @@ class RegressionData(DataHandler):
         no_nulls_in_dataset = not self.train_df.isnull().values.any()
         if no_nulls_in_dataset:
             LOG.info("No missing values")
-            LOG.info("data shape is {}".format(self.train_df.shape))
+            LOG.info("data shape is %s", self.train_df.shape)
 
     def hot_encoding(self) -> None:
         """Hot encoding of the categorical features."""
@@ -106,7 +92,7 @@ class RegressionData(DataHandler):
         self.train_df: pd.DataFrame = pd.get_dummies(
             self.train_df, dummy_na=True, drop_first=True
         )
-        LOG.info("data shape is {}".format(self.train_df.shape))
+        LOG.info("data shape is %s", self.train_df.shape)
 
     def scaling(self) -> None:
         """Scales the features in minmax way and the process in log(1+x)."""
@@ -120,12 +106,11 @@ class RegressionData(DataHandler):
         )
         self.train_df[cols] = train
 
-    def preprocess_data(self):
-        """Implementation of the DataHandler::preprocess_data abstract method.
+    def preprocess_data(self) -> None:
+        """Call methods that execute the preprocessing.
 
-        Call methods that execute the preprocessing.
         """
-
+        self.train_df.drop("Id", axis=1, inplace=True)
         self.fill_nan()
         self.hot_encoding()
         self.scaling()
@@ -149,8 +134,6 @@ def main() -> None:
     args = parser.parse_args()
 
     regression_data = RegressionData(
-        data_directory=args.data_directory,
-        homogeneity="total_split",
-        n_participants=args.number_of_participants,
+        args.data_directory, "total_split", args.number_of_participants,
     )
     regression_data.run()
