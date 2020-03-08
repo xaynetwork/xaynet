@@ -21,6 +21,8 @@ impl ToString for MetricOwner {
     }
 }
 
+pub struct Metric(pub MetricOwner, pub Vec<(&'static str, Type)>);
+
 pub struct InfluxDBMetricStore {
     client: Client,
     receiver: UnboundedReceiver<Metric>,
@@ -51,8 +53,6 @@ pub async fn run_metricstore(mut influx_client: InfluxDBMetricStore) {
         }
     }
 }
-
-pub struct Metric(pub MetricOwner, pub Vec<(&'static str, Type)>);
 
 impl InfluxDBMetricStore {
     pub fn new(host: &str, db_name: &str) -> (InfluxDBMetricStore, UnboundedSender<Metric>) {
