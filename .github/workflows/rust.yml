@@ -56,8 +56,7 @@ jobs:
 
       - name: cargo clippy
         working-directory: ./rust
-        # For now, allow this to fail
-        run: cargo clippy -- -D warnings || true
+        run: cargo clippy -- -D warnings
 
   rustfmt:
     name: rustfmt
