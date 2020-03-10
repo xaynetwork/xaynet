@@ -832,4 +832,134 @@ mod tests {
         assert_eq!(protocol.next_event().unwrap(), Event::Remove(client_id));
         assert!(protocol.next_event().is_none());
     }
+
+    #[test]
+    fn test_heartbeat_unknown_participant() {
+        let fl_settings = FederatedLearningSettings {
+            rounds: 1,
+            participants_ratio: 1.0,
+            min_clients: 1,
+            heartbeat_timeout: 15,
+        };
+        let mut protocol = Protocol::new(fl_settings);
+        let client_id = ClientId::new();
+
+        let resp = protocol.heartbeat(client_id, ClientState::Ignored);
+
+        // Response
+        assert_eq!(HeartBeatResponse::Reject, resp);
+        // Event Queue
+        assert!(protocol.next_event().is_none());
+    }
+
+    #[test]
+    fn test_heartbeat_done_and_inactive_participant() {
+        let fl_settings = FederatedLearningSettings {
+            rounds: 1,
+            participants_ratio: 1.0,
+            min_clients: 1,
+            heartbeat_timeout: 15,
+        };
+        let mut protocol = Protocol::new(fl_settings);
+        let client_id = ClientId::new();
+
+        let resp = protocol.heartbeat(client_id, ClientState::DoneAndInactive);
+
+        // Response
+        assert_eq!(HeartBeatResponse::Reject, resp);
+        // Event Queue
+        assert!(protocol.next_event().is_none());
+    }
+
+    #[test]
+    fn test_heartbeat_ignore_participant() {
+        let fl_settings = FederatedLearningSettings {
+            rounds: 1,
+            participants_ratio: 1.0,
+            min_clients: 1,
+            heartbeat_timeout: 15,
+        };
+        let mut protocol = Protocol::new(fl_settings);
+        let client_id = ClientId::new();
+
+        let resp = protocol.heartbeat(client_id, ClientState::Ignored);
+
+        // Response
+        assert_eq!(HeartBeatResponse::StandBy, resp);
+        // Event Queue
+        assert_eq!(
+            protocol.next_event().unwrap(),
+            Event::ResetHeartBeat(client_id)
+        );
+        assert!(protocol.next_event().is_none());
+    }
+
+    #[test]
+    fn test_heartbeat_waiting_participant() {
+        let fl_settings = FederatedLearningSettings {
+            rounds: 1,
+            participants_ratio: 1.0,
+            min_clients: 1,
+            heartbeat_timeout: 15,
+        };
+        let mut protocol = Protocol::new(fl_settings);
+        let client_id = ClientId::new();
+
+        let resp = protocol.heartbeat(client_id, ClientState::Waiting);
+
+        // Response
+        assert_eq!(HeartBeatResponse::StandBy, resp);
+        // Event Queue
+        assert_eq!(
+            protocol.next_event().unwrap(),
+            Event::ResetHeartBeat(client_id)
+        );
+        assert!(protocol.next_event().is_none());
+    }
+
+    #[test]
+    fn test_heartbeat_done_participant() {
+        let fl_settings = FederatedLearningSettings {
+            rounds: 1,
+            participants_ratio: 1.0,
+            min_clients: 1,
+            heartbeat_timeout: 15,
+        };
+        let mut protocol = Protocol::new(fl_settings);
+        let client_id = ClientId::new();
+
+        let resp = protocol.heartbeat(client_id, ClientState::Done);
+
+        // Response
+        assert_eq!(HeartBeatResponse::StandBy, resp);
+        // Event Queue
+        assert_eq!(
+            protocol.next_event().unwrap(),
+            Event::ResetHeartBeat(client_id)
+        );
+        assert!(protocol.next_event().is_none());
+    }
+
+    #[test]
+    fn test_heartbeat_selected_participant() {
+        let fl_settings = FederatedLearningSettings {
+            rounds: 1,
+            participants_ratio: 1.0,
+            min_clients: 1,
+            heartbeat_timeout: 15,
+        };
+        let mut protocol = Protocol::new(fl_settings);
+        let client_id = ClientId::new();
+
+        let resp = protocol.heartbeat(client_id, ClientState::Selected);
+
+        // Response
+        assert_eq!(HeartBeatResponse::Round(1), resp);
+        // Event Queue
+        assert_eq!(
+            protocol.next_event().unwrap(),
+            Event::ResetHeartBeat(client_id)
+        );
+        assert!(protocol.next_event().is_none());
+    }
 }
