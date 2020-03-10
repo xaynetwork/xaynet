@@ -844,7 +844,7 @@ mod tests {
         let mut protocol = Protocol::new(fl_settings);
         let client_id = ClientId::new();
 
-        let resp = protocol.heartbeat(client_id, ClientState::Ignored);
+        let resp = protocol.heartbeat(client_id, ClientState::Unknown);
 
         // Response
         assert_eq!(HeartBeatResponse::Reject, resp);
@@ -954,7 +954,7 @@ mod tests {
         let resp = protocol.heartbeat(client_id, ClientState::Selected);
 
         // Response
-        assert_eq!(HeartBeatResponse::Round(1), resp);
+        assert_eq!(HeartBeatResponse::Round(0), resp);
         // Event Queue
         assert_eq!(
             protocol.next_event().unwrap(),
