@@ -629,4 +629,207 @@ mod tests {
         );
         assert!(protocol.next_event().is_none());
     }
+
+    #[test]
+    fn test_hearbeat_timeout_waiting_participant() {
+        let fl_settings = FederatedLearningSettings {
+            rounds: 1,
+            participants_ratio: 1.0,
+            min_clients: 1,
+            heartbeat_timeout: 15,
+        };
+        let mut protocol = Protocol::new(fl_settings);
+        let client_id = ClientId::new();
+
+        let _ = protocol.rendez_vous(client_id, ClientState::Unknown);
+        let counters = protocol.counters();
+
+        // Counters
+        let expected = Counters {
+            waiting: 1,
+            ..Default::default()
+        };
+        assert_eq!(counters, expected);
+
+        protocol.hearbeat_timeout(client_id, ClientState::Waiting);
+
+        let counters = protocol.counters();
+
+        // Counters
+        let expected = Counters {
+            waiting: 0,
+            ..Default::default()
+        };
+        assert_eq!(counters, expected);
+
+        // Event Queue
+        assert_eq!(protocol.next_event().unwrap(), Event::Accept(client_id));
+        assert_eq!(protocol.next_event().unwrap(), Event::RunSelection(1));
+        assert_eq!(protocol.next_event().unwrap(), Event::Remove(client_id));
+        assert!(protocol.next_event().is_none());
+    }
+
+    #[test]
+    fn test_hearbeat_timeout_selected_participant() {
+        let fl_settings = FederatedLearningSettings {
+            rounds: 1,
+            participants_ratio: 1.0,
+            min_clients: 1,
+            heartbeat_timeout: 15,
+        };
+        let mut protocol = Protocol::new(fl_settings);
+        let client_id = ClientId::new();
+
+        let _ = protocol.rendez_vous(client_id, ClientState::Unknown);
+        let candidates = vec![(client_id, ClientState::Waiting)];
+        protocol.select(candidates.into_iter());
+        let counters = protocol.counters();
+
+        // Counters
+        let expected = Counters {
+            selected: 1,
+            ..Default::default()
+        };
+        assert_eq!(counters, expected);
+
+        protocol.hearbeat_timeout(client_id, ClientState::Selected);
+
+        let counters = protocol.counters();
+
+        // Counters
+        let expected = Counters {
+            selected: 0,
+            ..Default::default()
+        };
+        assert_eq!(counters, expected);
+
+        // Event Queue
+        assert_eq!(protocol.next_event().unwrap(), Event::Accept(client_id));
+        assert_eq!(protocol.next_event().unwrap(), Event::RunSelection(1));
+        assert_eq!(
+            protocol.next_event().unwrap(),
+            Event::SetState(client_id, ClientState::Selected)
+        );
+        assert_eq!(protocol.next_event().unwrap(), Event::Remove(client_id));
+        assert!(protocol.next_event().is_none());
+    }
+
+    #[test]
+    #[ignore = "FIXME: should not panic, should not emit event"]
+    fn test_hearbeat_timeout_unknown_participant() {
+        let fl_settings = FederatedLearningSettings {
+            rounds: 1,
+            participants_ratio: 1.0,
+            min_clients: 1,
+            heartbeat_timeout: 15,
+        };
+        let mut protocol = Protocol::new(fl_settings);
+        let client_id = ClientId::new();
+
+        protocol.hearbeat_timeout(client_id, ClientState::Unknown);
+
+        let counters = protocol.counters();
+
+        // Counters
+        let expected = Counters {
+            ..Default::default()
+        };
+        assert_eq!(counters, expected);
+
+        // Event Queue
+        assert!(protocol.next_event().is_none());
+    }
+
+    #[test]
+    #[ignore = "FIXME: should not panic, should not emit event"]
+    fn test_hearbeat_timeout_done_and_inactive_participant() {
+        let fl_settings = FederatedLearningSettings {
+            rounds: 1,
+            participants_ratio: 1.0,
+            min_clients: 1,
+            heartbeat_timeout: 15,
+        };
+        let mut protocol = Protocol::new(fl_settings);
+        let client_id = ClientId::new();
+
+        protocol.hearbeat_timeout(client_id, ClientState::DoneAndInactive);
+
+        let counters = protocol.counters();
+
+        // Counters
+        let expected = Counters {
+            ..Default::default()
+        };
+        assert_eq!(counters, expected);
+
+        // Event Queue
+        assert!(protocol.next_event().is_none());
+    }
+
+    #[test]
+    fn test_hearbeat_timeout_done_participant() {
+        let fl_settings = FederatedLearningSettings {
+            rounds: 1,
+            participants_ratio: 1.0,
+            min_clients: 1,
+            heartbeat_timeout: 15,
+        };
+        let mut protocol = Protocol::new(fl_settings);
+        let client_id = ClientId::new();
+
+        protocol.counters = Counters {
+            done: 1,
+            ..Default::default()
+        };
+
+        protocol.hearbeat_timeout(client_id, ClientState::Done);
+        let counters = protocol.counters();
+
+        // Counters
+        let expected = Counters {
+            done: 1, // <- Not sure about this. Shouldn't it be 0?
+            done_and_inactive: 1,
+            ..Default::default()
+        };
+        assert_eq!(counters, expected);
+
+        // Event Queue
+        assert_eq!(protocol.next_event().unwrap(), Event::Remove(client_id));
+        assert_eq!(
+            protocol.next_event().unwrap(),
+            Event::SetState(client_id, ClientState::DoneAndInactive)
+        );
+        assert!(protocol.next_event().is_none());
+    }
+
+    #[test]
+    fn test_hearbeat_timeout_ignore_participant() {
+        let fl_settings = FederatedLearningSettings {
+            rounds: 1,
+            participants_ratio: 1.0,
+            min_clients: 1,
+            heartbeat_timeout: 15,
+        };
+        let mut protocol = Protocol::new(fl_settings);
+        let client_id = ClientId::new();
+
+        protocol.counters = Counters {
+            ignored: 1,
+            ..Default::default()
+        };
+
+        protocol.hearbeat_timeout(client_id, ClientState::Ignored);
+        let counters = protocol.counters();
+
+        // Counters
+        let expected = Counters {
+            ignored: 0,
+            ..Default::default()
+        };
+        assert_eq!(counters, expected);
+
+        // Event Queue
+        assert_eq!(protocol.next_event().unwrap(), Event::Remove(client_id));
+        assert!(protocol.next_event().is_none());
+    }
 }
