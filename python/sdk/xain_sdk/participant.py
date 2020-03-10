@@ -1,29 +1,20 @@
 from abc import ABC, abstractmethod
 from copy import deepcopy
 import enum
-import json
 import logging
-import pickle
 import sys
 import threading
-import time
-from typing import Any, Dict, List, Tuple, TypeVar, cast
-import uuid
+from typing import Tuple
 
-import numpy as np
-from numpy import ndarray
 from requests.exceptions import ConnectionError
 
-from .http import AggregatorClient, AnonymousCoordinatorClient, CoordinatorClient, StartTrainingRejected
+from .http import AnonymousCoordinatorClient, CoordinatorClient, StartTrainingRejected
 from .interfaces import TrainingInputABC, TrainingResultABC
 
 LOG = logging.getLogger("http")
 
 
 class ParticipantABC(ABC):
-    def __init__(self) -> None:
-        super(ParticipantABC, self).__init__()
-
     @abstractmethod
     def init_weights(self) -> TrainingResultABC:
         raise NotImplementedError()
@@ -193,7 +184,7 @@ class HeartBeatWorker(threading.Thread):
                 if self.exit_event.wait(timeout=5):
                     LOG.debug("heartbeat worker exiting: exit flag set in main thead")
                     return
-        except:
+        except Exception:  # pylint: disable=broad-except
             LOG.exception("error while sending heartbeat, exiting")
             self.exit_event.set()
             return

@@ -9,8 +9,10 @@ from .participant import ParticipantABC, ParticipantError
 def run_participant(
     participant: ParticipantABC, coordinator_url: str,
 ):
-    from .utils import configure_logging
-    from .participant import InternalParticipant
+    from .utils import configure_logging  # pylint: disable=import-outside-toplevel
+    from .participant import (  # pylint: disable=import-outside-toplevel
+        InternalParticipant,
+    )
 
     configure_logging()
     internal_participant = InternalParticipant(participant, coordinator_url)
