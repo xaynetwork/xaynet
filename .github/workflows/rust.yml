@@ -19,6 +19,8 @@ jobs:
 
       - name: cargo check
         working-directory: ./rust
+        env:
+            RUSTFLAGS: "-D warnings"
         run: cargo check
 
   test:
@@ -38,6 +40,8 @@ jobs:
 
       - name: cargo test
         working-directory: ./rust
+        env:
+            RUSTFLAGS: "-D warnings"
         run: cargo test
 
   clippy:
