@@ -1,5 +1,6 @@
 use clap::{App, Arg};
 use std::{env, process};
+use tokio::signal::ctrl_c;
 use xain_fl::aggregator::{
     api,
     py_aggregator::spawn_py_aggregator,
@@ -66,6 +67,13 @@ async fn _main(settings: Settings) {
         }
         _ = api_task_handle => {
             info!("shutting down: API task terminated");
+        }
+        result = ctrl_c() => {
+            match result {
+                Ok(()) => info!("shutting down: received SIGINT"),
+                Err(e) => error!("shutting down: error while waiting for SIGINT: {}", e),
+
+            }
         }
     }
 }
