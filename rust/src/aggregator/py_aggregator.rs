@@ -1,14 +1,12 @@
 use anyhow::{Context, Result};
 use bytes::Bytes;
-use futures::{executor::block_on, TryFutureExt};
+use futures::executor::block_on;
 use std::{future::Future, pin::Pin, thread};
 use thiserror::Error;
 use tokio::{
     select,
     sync::{
-        mpsc::{
-            unbounded_channel as channel, UnboundedReceiver as Receiver, UnboundedSender as Sender,
-        },
+        mpsc::{channel, unbounded_channel, Receiver, UnboundedReceiver, UnboundedSender},
         oneshot,
     },
 };
@@ -157,22 +155,32 @@ impl PyAggregator {
 
 pub type Weights = Bytes;
 pub type Request<T, U> = (T, oneshot::Sender<U>);
-pub type RequestRx<T, U> = Receiver<Request<T, U>>;
-pub type RequestTx<T, U> = Sender<Request<T, U>>;
+pub type RequestRx<T, U> = UnboundedReceiver<Request<T, U>>;
+pub type RequestTx<T, U> = UnboundedSender<Request<T, U>>;
 
-pub fn spawn_py_aggregator(settings: PythonAggregatorSettings) -> PyAggregatorHandle {
-    let (aggregate_tx, aggregate_rx) = channel::<Request<(), Weights>>();
-    let (add_weights_tx, add_weights_rx) = channel::<Request<Weights, ()>>();
+pub fn spawn_py_aggregator(
+    settings: PythonAggregatorSettings,
+) -> (PyAggregatorHandle, Receiver<()>) {
+    let (aggregate_tx, aggregate_rx) = unbounded_channel::<Request<(), Weights>>();
+    let (add_weights_tx, add_weights_rx) = unbounded_channel::<Request<Weights, ()>>();
+    let (mut shutdown_tx, shutdown_rx) = channel::<()>(1);
+
     thread::spawn(move || {
-        block_on(
-            py_aggregator(settings, aggregate_rx, add_weights_rx)
-                .map_err(|e| error!("py_aggregator failure: {}", e)),
-        )
+        block_on(async move {
+            if let Err(e) = py_aggregator(settings, aggregate_rx, add_weights_rx).await {
+                error!("py_aggregator failure: {}", e);
+            }
+            if shutdown_tx.send(()).await.is_err() {
+                warn!("py_aggregator: could not send shutdown signal (receiver is closed)");
+            }
+        });
     });
-    PyAggregatorHandle {
+
+    let handle = PyAggregatorHandle {
         aggregate_requests: aggregate_tx,
         add_weights_requests: add_weights_tx,
-    }
+    };
+    (handle, shutdown_rx)
 }
 
 pub struct PyAggregatorHandle {

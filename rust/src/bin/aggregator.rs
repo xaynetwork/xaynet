@@ -6,6 +6,8 @@ use xain_fl::aggregator::{
     service::AggregatorService,
     settings::{AggregationSettings, Settings},
 };
+#[macro_use]
+extern crate log;
 
 #[tokio::main]
 async fn main() {
@@ -40,14 +42,30 @@ async fn _main(settings: Settings) {
         ..
     } = settings;
 
-    let aggregator = match aggregation {
+    let (aggregator, mut shutdown_rx) = match aggregation {
         AggregationSettings::Python(python_aggregator_settings) => {
             spawn_py_aggregator(python_aggregator_settings)
         }
     };
+
     let (service, handle) =
         AggregatorService::new(aggregator, rpc.bind_address, rpc.coordinator_address);
 
-    tokio::spawn(async move { api::serve(&api.bind_address, handle).await });
-    service.await;
+    // Spawn the task that provides the public HTTP API.
+    let api_task_handle = tokio::spawn(async move { api::serve(&api.bind_address, handle).await });
+    // Spawn the task that waits for the aggregator running in a
+    // background thread to finish.
+    let aggregator_task_handle = tokio::spawn(async move { shutdown_rx.recv().await });
+
+    tokio::select! {
+        _ = service => {
+            info!("shutting down: AggregatorService terminated");
+        }
+        _ = aggregator_task_handle => {
+            info!("shutting down: Aggregator terminated");
+        }
+        _ = api_task_handle => {
+            info!("shutting down: API task terminated");
+        }
+    }
 }
