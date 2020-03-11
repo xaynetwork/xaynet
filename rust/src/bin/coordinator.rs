@@ -1,12 +1,18 @@
+#[macro_use]
+extern crate log;
+
 use clap::{App, Arg};
 use rand::seq::IteratorRandom;
 use std::{env, process};
+use tokio::sync::mpsc;
 
 use xain_fl::{
+    aggregator,
     common::ClientId,
     coordinator::{
         api,
         core::{CoordinatorService, Selector},
+        rpc,
         settings::Settings,
     },
     metric_store::influxdb::{run_metricstore, InfluxDBMetricStore},
@@ -49,25 +55,47 @@ async fn _main(settings: Settings) {
         ..
     } = settings;
 
+    let (rpc_request_stream_tx, rpc_request_stream_rx) = mpsc::channel(1);
+    // It is important to start the RPC server before starting an RPC
+    // client, because if both the aggregator and the coordinator
+    // attempt to connect to each other before the servers are
+    // started, we end up in a deadlock.
+    let rpc_server_task_handle =
+        tokio::spawn(rpc::serve(rpc.bind_address.clone(), rpc_request_stream_tx));
+    let rpc_requests = rpc::RpcRequestsMux::new(rpc_request_stream_rx);
+    let rpc_client = aggregator::rpc::client_connect(rpc.aggregator_address.clone())
+        .await
+        .unwrap();
+
     let (influx_client, metric_sender) = InfluxDBMetricStore::new(
         &metric_store.database_url[..],
         &metric_store.database_name[..],
     );
 
-    let (coordinator, handle) = CoordinatorService::new(
+    let _ = tokio::spawn(async move { run_metricstore(influx_client).await });
+
+    let (service, handle) = CoordinatorService::new(
         RandomSelector,
         federated_learning,
         aggregator_url,
-        rpc.bind_address,
-        rpc.aggregator_address,
+        rpc_client,
+        rpc_requests,
         metric_sender,
     );
 
-    tokio::spawn(async move { api::serve(&api.bind_address, handle).await });
+    let api_task_handle = tokio::spawn(async move { api::serve(&api.bind_address, handle).await });
 
-    tokio::spawn(async move { run_metricstore(influx_client).await });
-
-    coordinator.await;
+    tokio::select! {
+        _ = service => {
+            info!("shutting down: CoordinatorService terminated");
+        }
+        _ = api_task_handle => {
+            info!("shutting down: API task terminated");
+        }
+        _ = rpc_server_task_handle => {
+            info!("shutting down: RPC server task terminated");
+        }
+    }
 }
 
 pub struct RandomSelector;

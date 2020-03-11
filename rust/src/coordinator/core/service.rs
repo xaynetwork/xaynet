@@ -23,10 +23,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use derive_more::Display;
 use futures::{ready, stream::Stream};
 use influxdb::Type;
-use tokio::{
-    net::ToSocketAddrs,
-    sync::{mpsc, oneshot},
-};
+use tokio::sync::{mpsc, oneshot};
 
 use crate::{
     aggregator,
@@ -100,19 +97,14 @@ where
     /// RPC client for the aggregator service. The RPC client
     /// automatically tried to reconnect when the connection shuts
     /// down, so after the initial connection, it is always available.
-    aggregator_rpc: Option<aggregator::rpc::Client>,
-
-    /// Future for the initial connection to the aggregator. Once this
-    /// future finishes, it returns a client that is stored in the
-    /// `aggregator_rpc` attribute.
-    aggregator_rpc_connection: Option<aggregator::rpc::ConnectFuture>,
+    rpc_client: aggregator::rpc::Client,
 
     /// Future that resolve when the aggregator finishes the
     /// aggregation.
     aggregation_future: Option<AggregationFuture>,
 
     /// Channel for receiving the RPC requests from the aggregator
-    rpc_rx: rpc::RpcRx,
+    rpc_requests: rpc::RpcRequestsMux,
 
     /// IDs of the clients that the selector picked, but that the
     /// protocol doesn't know yet. The reason for this pending
@@ -129,22 +121,18 @@ impl<S> CoordinatorService<S>
 where
     S: Selector,
 {
-    pub fn new<
-        T: Clone + ToSocketAddrs + Send + Sync + 'static + Unpin,
-        U: ToSocketAddrs + Send + Sync + 'static,
-    >(
+    pub fn new(
         selector: S,
         fl_settings: FederatedLearningSettings,
         aggregator_url: String,
-        rpc_listen_addr: U,
-        aggregator_rpc_addr: T,
+        rpc_client: aggregator::rpc::Client,
+        rpc_requests: rpc::RpcRequestsMux,
         metrics_tx: UnboundedSender<Metric>,
     ) -> (Self, CoordinatorHandle) {
         let (requests_tx, requests_rx) = mpsc::channel(2048);
         let (heartbeat_expirations_tx, heartbeat_expirations_rx) = mpsc::unbounded_channel();
 
         let heartbeat_timeout = Duration::from_secs(fl_settings.heartbeat_timeout);
-        let rpc_rx = rpc::run(rpc_listen_addr);
         let coordinator = Self {
             selector,
             heartbeat_expirations_rx,
@@ -152,13 +140,10 @@ where
             clients: Clients::new(heartbeat_expirations_tx, heartbeat_timeout),
             protocol: protocol::Protocol::new(fl_settings),
             pending_selection: Vec::new(),
-            aggregator_rpc: None,
-            aggregator_rpc_connection: Some(aggregator::rpc::ConnectFuture::new(
-                aggregator_rpc_addr,
-            )),
+            rpc_client,
             aggregation_future: None,
             aggregator_url,
-            rpc_rx,
+            rpc_requests,
             metrics_tx,
         };
         let handle = CoordinatorHandle::new(requests_tx);
@@ -228,9 +213,9 @@ where
         }
     }
 
-    fn poll_rpc_rx(&mut self, cx: &mut Context) -> Poll<()> {
+    fn poll_rpc_requests(&mut self, cx: &mut Context) -> Poll<()> {
         loop {
-            match ready!(Pin::new(&mut self.rpc_rx).poll_next(cx)) {
+            match ready!(Pin::new(&mut self.rpc_requests).poll_next(cx)) {
                 Some((id, success)) => {
                     let state = self.clients.get_state(&id);
                     self.protocol.end_training(id, success, state);
@@ -301,14 +286,7 @@ where
                 response_tx.send(StartTrainingResponse::Reject)
             }
             protocol::StartTrainingResponse::Accept => {
-                if self.aggregator_rpc.is_none() {
-                    // FIXME: like above, we should return an error
-                    // instead of just dropping the response channel.
-                    warn!("no connection to the aggregator, cannot send token");
-                    return;
-                }
-
-                let mut rpc_client = self.aggregator_rpc.clone().unwrap();
+                let mut rpc_client = self.rpc_client.clone();
                 let url = self.aggregator_url.clone();
 
                 tokio::spawn(async move {
@@ -352,21 +330,6 @@ where
         trace!("polling CoordinatorService");
         let pin = self.get_mut();
 
-        // This only runs when the coordinator starts
-        if let Some(ref mut connection) = pin.aggregator_rpc_connection {
-            match Pin::new(connection).poll(cx) {
-                Poll::Ready(Ok(client)) => {
-                    pin.aggregator_rpc = Some(client);
-                    pin.aggregator_rpc_connection = None;
-                }
-                Poll::Ready(Err(e)) => {
-                    error!("failed to connect RPC client: {}", e);
-                    return Poll::Ready(());
-                }
-                _ => {}
-            }
-        }
-
         pin.apply_pending_selection();
 
         match pin.poll_requests(cx) {
@@ -379,7 +342,7 @@ where
             Poll::Pending => {}
         }
 
-        match pin.poll_rpc_rx(cx) {
+        match pin.poll_rpc_requests(cx) {
             Poll::Ready(()) => return Poll::Ready(()),
             Poll::Pending => {}
         }
@@ -466,12 +429,7 @@ where
 
     /// Handle a [`Event::RunAggregation`] event
     fn run_aggregation(&mut self) {
-        match self.aggregator_rpc {
-            Some(ref client) => {
-                self.aggregation_future = Some(AggregationFuture::new(client.clone()))
-            }
-            None => self.protocol.end_aggregation(false),
-        }
+        self.aggregation_future = Some(AggregationFuture::new(self.rpc_client.clone()))
     }
 
     fn write_counter_metrics(&self) {
