@@ -281,20 +281,23 @@ pub struct Credentials(ClientId, Token);
 
 #[derive(Clone)]
 pub struct AggregatorServiceHandle {
-    upload_requests: mpsc::UnboundedSender<(Credentials, Bytes)>,
-    download_requests: mpsc::UnboundedSender<(Credentials, oneshot::Sender<Bytes>)>,
+    upload_requests_tx: mpsc::UnboundedSender<(Credentials, Bytes)>,
+    download_requests_tx: mpsc::UnboundedSender<(Credentials, oneshot::Sender<Bytes>)>,
 }
 
 impl AggregatorServiceHandle {
     fn new() -> (Self, ApiRx) {
-        let (upload_tx, upload_rx) = mpsc::unbounded_channel::<(Credentials, Bytes)>();
-        let (download_tx, download_rx) =
+        let (upload_requests_tx, upload_requests_rx) =
+            mpsc::unbounded_channel::<(Credentials, Bytes)>();
+
+        let (download_requests_tx, download_requests_rx) =
             mpsc::unbounded_channel::<(Credentials, oneshot::Sender<Bytes>)>();
+
         let handle = Self {
-            upload_requests: upload_tx,
-            download_requests: download_tx,
+            upload_requests_tx,
+            download_requests_tx,
         };
-        let request_receiver = ApiRx::new(upload_rx, download_rx);
+        let request_receiver = ApiRx::new(upload_requests_rx, download_requests_rx);
         (handle, request_receiver)
     }
 }
@@ -312,13 +315,13 @@ impl Stream for ApiRx {
 
 impl ApiRx {
     fn new(
-        upload_requests: mpsc::UnboundedReceiver<(Credentials, Bytes)>,
-        download_requests: mpsc::UnboundedReceiver<(Credentials, oneshot::Sender<Bytes>)>,
+        upload_requests_rx: mpsc::UnboundedReceiver<(Credentials, Bytes)>,
+        download_requests_rx: mpsc::UnboundedReceiver<(Credentials, oneshot::Sender<Bytes>)>,
     ) -> Self {
         Self(Box::pin(
-            download_requests
+            download_requests_rx
                 .map(Request::from)
-                .merge(upload_requests.map(Request::from)),
+                .merge(upload_requests_rx.map(Request::from)),
         ))
     }
 }
@@ -334,7 +337,7 @@ impl AggregatorServiceHandle {
         trace!("AggregatorServiceHandle forwarding download request");
         let (tx, rx) = oneshot::channel();
         if self
-            .download_requests
+            .download_requests_tx
             .send((Credentials(id, token), tx))
             .is_err()
         {
@@ -347,7 +350,7 @@ impl AggregatorServiceHandle {
     pub async fn upload(&self, id: ClientId, token: Token, weights: Bytes) {
         trace!("AggregatorServiceHandle forwarding upload request");
         if self
-            .upload_requests
+            .upload_requests_tx
             .send((Credentials(id, token), weights))
             .is_err()
         {
