@@ -1,1 +1,1 @@
-pub mod metric_store;
+pub mod influxdb;

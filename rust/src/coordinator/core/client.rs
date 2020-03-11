@@ -259,7 +259,7 @@ impl Clients {
 
     /// Reset the heartbeat timer of the given client
     pub fn reset_heartbeat(&mut self, id: &ClientId) -> Result<(), HeartBeatResetError> {
-        let duration = self.heartbeat_timeout.clone();
+        let duration = self.heartbeat_timeout;
         self.get_active_mut(id)
             .ok_or(HeartBeatResetError::ClientNotFound)?
             .reset_heartbeat(duration)

@@ -40,7 +40,7 @@ use crate::{
         rpc,
         settings::FederatedLearningSettings,
     },
-    metric_store::metric_store::{Metric, MetricOwner},
+    metric_store::influxdb::{Metric, MetricOwner},
 };
 
 use tarpc::context::current as rpc_context;
@@ -301,7 +301,7 @@ where
                 response_tx.send(StartTrainingResponse::Reject)
             }
             protocol::StartTrainingResponse::Accept => {
-                if !self.aggregator_rpc.is_some() {
+                if self.aggregator_rpc.is_none() {
                     // FIXME: like above, we should return an error
                     // instead of just dropping the response channel.
                     warn!("no connection to the aggregator, cannot send token");
@@ -385,7 +385,7 @@ where
         }
 
         match pin.poll_aggregation(cx) {
-            Poll::Ready(()) => return Poll::Ready(()),
+            Poll::Ready(()) => Poll::Ready(()),
             Poll::Pending => Poll::Pending,
         }
     }
