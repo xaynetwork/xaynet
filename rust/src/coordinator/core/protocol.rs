@@ -436,13 +436,11 @@ mod tests {
 
         let counters = protocol.counters();
 
-        // Counters
         let expected = Counters {
             ..Default::default()
         };
         assert_eq!(counters, expected);
 
-        // Event Queue
         assert!(protocol.next_event().is_none());
     }
 
@@ -460,17 +458,14 @@ mod tests {
         let resp = protocol.rendez_vous(client_id, ClientState::Unknown);
         let counters = protocol.counters();
 
-        // Counters
         let expected = Counters {
             waiting: 1,
             ..Default::default()
         };
         assert_eq!(counters, expected);
 
-        // Response
         assert_eq!(RendezVousResponse::Accept, resp);
 
-        // Event Queue
         assert_eq!(protocol.next_event().unwrap(), Event::Accept(client_id));
         assert_eq!(protocol.next_event().unwrap(), Event::RunSelection(1));
         assert!(protocol.next_event().is_none());
@@ -489,20 +484,17 @@ mod tests {
         let client_id = ClientId::new();
         protocol.rendez_vous(client_id, ClientState::Unknown);
 
-        // Counters
         assert_eq!(1, protocol.counters().waiting);
 
         let resp = protocol.rendez_vous(client_id, ClientState::Waiting);
         let counters = protocol.counters();
 
-        // Counters
         let expected = Counters {
             waiting: 1,
             ..Default::default()
         };
         assert_eq!(counters, expected);
 
-        // Response
         assert_eq!(RendezVousResponse::Accept, resp);
     }
 
@@ -519,24 +511,20 @@ mod tests {
         let client_id = ClientId::new();
         protocol.rendez_vous(client_id, ClientState::Unknown);
 
-        // Counters
         assert_eq!(1, protocol.counters().waiting);
 
-        // Event Queue
         assert_eq!(protocol.next_event().unwrap(), Event::Accept(client_id));
 
         let candidates = vec![(client_id, ClientState::Waiting)];
         protocol.select(candidates.into_iter());
         let counters = protocol.counters();
 
-        // Counters
         let expected = Counters {
             selected: 1,
             ..Default::default()
         };
         assert_eq!(counters, expected);
 
-        // Event Queue
         assert_eq!(protocol.next_event().unwrap(), Event::RunSelection(1));
         assert_eq!(
             protocol.next_event().unwrap(),
@@ -546,17 +534,14 @@ mod tests {
         let resp = protocol.rendez_vous(client_id, ClientState::Selected);
         let counters = protocol.counters();
 
-        // Counters
         let expected = Counters {
             ignored: 1,
             ..Default::default()
         };
         assert_eq!(counters, expected);
 
-        // Response
         assert_eq!(RendezVousResponse::Accept, resp);
 
-        // Event Queue
         assert_eq!(
             protocol.next_event().unwrap(),
             Event::SetState(client_id, ClientState::Ignored)
@@ -579,17 +564,14 @@ mod tests {
 
         let counters = protocol.counters();
 
-        // Counters
         let expected = Counters {
             ignored: 1,
             ..Default::default()
         };
         assert_eq!(counters, expected);
 
-        // Response
         assert_eq!(RendezVousResponse::Accept, resp);
 
-        // Event Queue
         assert_eq!(
             protocol.next_event().unwrap(),
             Event::SetState(client_id, ClientState::Ignored)
@@ -612,17 +594,14 @@ mod tests {
 
         let counters = protocol.counters();
 
-        // Counters
         let expected = Counters {
             ignored: 1,
             ..Default::default()
         };
         assert_eq!(counters, expected);
 
-        // Response
         assert_eq!(RendezVousResponse::Accept, resp);
 
-        // Event Queue
         assert_eq!(
             protocol.next_event().unwrap(),
             Event::SetState(client_id, ClientState::Ignored)
@@ -644,7 +623,6 @@ mod tests {
         let _ = protocol.rendez_vous(client_id, ClientState::Unknown);
         let counters = protocol.counters();
 
-        // Counters
         let expected = Counters {
             waiting: 1,
             ..Default::default()
@@ -655,14 +633,12 @@ mod tests {
 
         let counters = protocol.counters();
 
-        // Counters
         let expected = Counters {
             waiting: 0,
             ..Default::default()
         };
         assert_eq!(counters, expected);
 
-        // Event Queue
         assert_eq!(protocol.next_event().unwrap(), Event::Accept(client_id));
         assert_eq!(protocol.next_event().unwrap(), Event::RunSelection(1));
         assert_eq!(protocol.next_event().unwrap(), Event::Remove(client_id));
@@ -685,7 +661,6 @@ mod tests {
         protocol.select(candidates.into_iter());
         let counters = protocol.counters();
 
-        // Counters
         let expected = Counters {
             selected: 1,
             ..Default::default()
@@ -696,14 +671,12 @@ mod tests {
 
         let counters = protocol.counters();
 
-        // Counters
         let expected = Counters {
             selected: 0,
             ..Default::default()
         };
         assert_eq!(counters, expected);
 
-        // Event Queue
         assert_eq!(protocol.next_event().unwrap(), Event::Accept(client_id));
         assert_eq!(protocol.next_event().unwrap(), Event::RunSelection(1));
         assert_eq!(
@@ -730,13 +703,11 @@ mod tests {
 
         let counters = protocol.counters();
 
-        // Counters
         let expected = Counters {
             ..Default::default()
         };
         assert_eq!(counters, expected);
 
-        // Event Queue
         assert!(protocol.next_event().is_none());
     }
 
@@ -756,13 +727,11 @@ mod tests {
 
         let counters = protocol.counters();
 
-        // Counters
         let expected = Counters {
             ..Default::default()
         };
         assert_eq!(counters, expected);
 
-        // Event Queue
         assert!(protocol.next_event().is_none());
     }
 
@@ -785,7 +754,6 @@ mod tests {
         protocol.heartbeat_timeout(client_id, ClientState::Done);
         let counters = protocol.counters();
 
-        // Counters
         let expected = Counters {
             done: 1, // <- Not sure about this. Shouldn't it be 0?
             done_and_inactive: 1,
@@ -793,7 +761,6 @@ mod tests {
         };
         assert_eq!(counters, expected);
 
-        // Event Queue
         assert_eq!(protocol.next_event().unwrap(), Event::Remove(client_id));
         assert_eq!(
             protocol.next_event().unwrap(),
@@ -821,14 +788,12 @@ mod tests {
         protocol.heartbeat_timeout(client_id, ClientState::Ignored);
         let counters = protocol.counters();
 
-        // Counters
         let expected = Counters {
             ignored: 0,
             ..Default::default()
         };
         assert_eq!(counters, expected);
 
-        // Event Queue
         assert_eq!(protocol.next_event().unwrap(), Event::Remove(client_id));
         assert!(protocol.next_event().is_none());
     }
@@ -846,9 +811,7 @@ mod tests {
 
         let resp = protocol.heartbeat(client_id, ClientState::Unknown);
 
-        // Response
         assert_eq!(HeartBeatResponse::Reject, resp);
-        // Event Queue
         assert!(protocol.next_event().is_none());
     }
 
@@ -865,9 +828,7 @@ mod tests {
 
         let resp = protocol.heartbeat(client_id, ClientState::DoneAndInactive);
 
-        // Response
         assert_eq!(HeartBeatResponse::Reject, resp);
-        // Event Queue
         assert!(protocol.next_event().is_none());
     }
 
@@ -884,9 +845,7 @@ mod tests {
 
         let resp = protocol.heartbeat(client_id, ClientState::Ignored);
 
-        // Response
         assert_eq!(HeartBeatResponse::StandBy, resp);
-        // Event Queue
         assert_eq!(
             protocol.next_event().unwrap(),
             Event::ResetHeartBeat(client_id)
@@ -907,9 +866,7 @@ mod tests {
 
         let resp = protocol.heartbeat(client_id, ClientState::Waiting);
 
-        // Response
         assert_eq!(HeartBeatResponse::StandBy, resp);
-        // Event Queue
         assert_eq!(
             protocol.next_event().unwrap(),
             Event::ResetHeartBeat(client_id)
@@ -930,9 +887,7 @@ mod tests {
 
         let resp = protocol.heartbeat(client_id, ClientState::Done);
 
-        // Response
         assert_eq!(HeartBeatResponse::StandBy, resp);
-        // Event Queue
         assert_eq!(
             protocol.next_event().unwrap(),
             Event::ResetHeartBeat(client_id)
@@ -953,9 +908,7 @@ mod tests {
 
         let resp = protocol.heartbeat(client_id, ClientState::Selected);
 
-        // Response
         assert_eq!(HeartBeatResponse::Round(0), resp);
-        // Event Queue
         assert_eq!(
             protocol.next_event().unwrap(),
             Event::ResetHeartBeat(client_id)
@@ -987,10 +940,8 @@ mod tests {
         for state in client_states.iter() {
             let resp = protocol.heartbeat(client_id, *state);
 
-            // Response
             assert_eq!(HeartBeatResponse::Finish, resp);
 
-            // Event Queue
             assert_eq!(
                 protocol.next_event().unwrap(),
                 Event::ResetHeartBeat(client_id)
@@ -1012,7 +963,6 @@ mod tests {
 
         let resp = protocol.start_training(ClientState::Selected);
 
-        // Response
         assert_eq!(StartTrainingResponse::Accept, resp);
     }
 
@@ -1029,7 +979,6 @@ mod tests {
 
         let resp = protocol.start_training(ClientState::Selected);
 
-        // Response
         assert_eq!(StartTrainingResponse::Reject, resp);
     }
 
@@ -1053,7 +1002,6 @@ mod tests {
         for state in client_states.iter() {
             let resp = protocol.start_training(*state);
 
-            // Response
             assert_eq!(StartTrainingResponse::Reject, resp);
         }
     }
