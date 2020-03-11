@@ -999,4 +999,62 @@ mod tests {
 
         assert!(protocol.next_event().is_none());
     }
+
+    #[test]
+    fn test_start_training_selected_participant() {
+        let fl_settings = FederatedLearningSettings {
+            rounds: 1,
+            participants_ratio: 1.0,
+            min_clients: 1,
+            heartbeat_timeout: 15,
+        };
+        let mut protocol = Protocol::new(fl_settings);
+
+        let resp = protocol.start_training(ClientState::Selected);
+
+        // Response
+        assert_eq!(StartTrainingResponse::Accept, resp);
+    }
+
+    #[test]
+    fn test_start_training_selected_participant_training_complete() {
+        let fl_settings = FederatedLearningSettings {
+            rounds: 1,
+            participants_ratio: 1.0,
+            min_clients: 1,
+            heartbeat_timeout: 15,
+        };
+        let mut protocol = Protocol::new(fl_settings);
+        protocol.is_training_complete = true;
+
+        let resp = protocol.start_training(ClientState::Selected);
+
+        // Response
+        assert_eq!(StartTrainingResponse::Reject, resp);
+    }
+
+    #[test]
+    fn test_start_training_with_not_selected_participant() {
+        let fl_settings = FederatedLearningSettings {
+            rounds: 1,
+            participants_ratio: 1.0,
+            min_clients: 1,
+            heartbeat_timeout: 15,
+        };
+        let mut protocol = Protocol::new(fl_settings);
+
+        let client_states = vec![
+            ClientState::Unknown,
+            ClientState::Ignored,
+            ClientState::Done,
+            ClientState::DoneAndInactive,
+            ClientState::Waiting,
+        ];
+        for state in client_states.iter() {
+            let resp = protocol.start_training(*state);
+
+            // Response
+            assert_eq!(StartTrainingResponse::Reject, resp);
+        }
+    }
 }
