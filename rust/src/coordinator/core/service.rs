@@ -205,7 +205,7 @@ where
                 Some(id) => {
                     debug!("heartbeat expired: {}", id);
                     let state = self.clients.get_state(&id);
-                    self.protocol.hearbeat_timeout(id, state);
+                    self.protocol.heartbeat_timeout(id, state);
                     self.handle_protocol_events();
                 }
                 None => return Poll::Ready(()),
@@ -554,7 +554,7 @@ impl CoordinatorHandle {
     }
 
     pub async fn heartbeat(&mut self, id: ClientId) -> Result<HeartBeatResponse, RequestError> {
-        trace!("notifying service about hearbeat from {}", id);
+        trace!("notifying service about heartbeat from {}", id);
         let (resp_tx, resp_rx) = response_channel::<HeartBeatResponse>();
         let req: Request = Request::HeartBeat((id, resp_tx));
         self.0.send(req).await.map_err(|_| {

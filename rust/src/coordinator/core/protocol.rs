@@ -193,7 +193,7 @@ impl Protocol {
     }
 
     /// Handle a heartbeat timeout for the given client.
-    pub fn hearbeat_timeout(&mut self, id: ClientId, client_state: ClientState) {
+    pub fn heartbeat_timeout(&mut self, id: ClientId, client_state: ClientState) {
         info!("heartbeat timeout: {}({})", id, client_state);
         self.emit_event(Event::Remove(id));
         match client_state {
@@ -400,7 +400,7 @@ pub enum Event {
     /// [`ClientState::Waiting`], and remove the inactive clients.
     ResetAll,
 
-    /// Reset the hearbeat timer for the given client
+    /// Reset the heartbeat timer for the given client
     ResetHeartBeat(ClientId),
 
     /// Start the aggregation process
@@ -631,7 +631,7 @@ mod tests {
     }
 
     #[test]
-    fn test_hearbeat_timeout_waiting_participant() {
+    fn test_heartbeat_timeout_waiting_participant() {
         let fl_settings = FederatedLearningSettings {
             rounds: 1,
             participants_ratio: 1.0,
@@ -651,7 +651,7 @@ mod tests {
         };
         assert_eq!(counters, expected);
 
-        protocol.hearbeat_timeout(client_id, ClientState::Waiting);
+        protocol.heartbeat_timeout(client_id, ClientState::Waiting);
 
         let counters = protocol.counters();
 
@@ -670,7 +670,7 @@ mod tests {
     }
 
     #[test]
-    fn test_hearbeat_timeout_selected_participant() {
+    fn test_heartbeat_timeout_selected_participant() {
         let fl_settings = FederatedLearningSettings {
             rounds: 1,
             participants_ratio: 1.0,
@@ -692,7 +692,7 @@ mod tests {
         };
         assert_eq!(counters, expected);
 
-        protocol.hearbeat_timeout(client_id, ClientState::Selected);
+        protocol.heartbeat_timeout(client_id, ClientState::Selected);
 
         let counters = protocol.counters();
 
@@ -716,7 +716,7 @@ mod tests {
 
     #[test]
     #[ignore = "FIXME: should not panic, should not emit event"]
-    fn test_hearbeat_timeout_unknown_participant() {
+    fn test_heartbeat_timeout_unknown_participant() {
         let fl_settings = FederatedLearningSettings {
             rounds: 1,
             participants_ratio: 1.0,
@@ -726,7 +726,7 @@ mod tests {
         let mut protocol = Protocol::new(fl_settings);
         let client_id = ClientId::new();
 
-        protocol.hearbeat_timeout(client_id, ClientState::Unknown);
+        protocol.heartbeat_timeout(client_id, ClientState::Unknown);
 
         let counters = protocol.counters();
 
@@ -742,7 +742,7 @@ mod tests {
 
     #[test]
     #[ignore = "FIXME: should not panic, should not emit event"]
-    fn test_hearbeat_timeout_done_and_inactive_participant() {
+    fn test_heartbeat_timeout_done_and_inactive_participant() {
         let fl_settings = FederatedLearningSettings {
             rounds: 1,
             participants_ratio: 1.0,
@@ -752,7 +752,7 @@ mod tests {
         let mut protocol = Protocol::new(fl_settings);
         let client_id = ClientId::new();
 
-        protocol.hearbeat_timeout(client_id, ClientState::DoneAndInactive);
+        protocol.heartbeat_timeout(client_id, ClientState::DoneAndInactive);
 
         let counters = protocol.counters();
 
@@ -767,7 +767,7 @@ mod tests {
     }
 
     #[test]
-    fn test_hearbeat_timeout_done_participant() {
+    fn test_heartbeat_timeout_done_participant() {
         let fl_settings = FederatedLearningSettings {
             rounds: 1,
             participants_ratio: 1.0,
@@ -782,7 +782,7 @@ mod tests {
             ..Default::default()
         };
 
-        protocol.hearbeat_timeout(client_id, ClientState::Done);
+        protocol.heartbeat_timeout(client_id, ClientState::Done);
         let counters = protocol.counters();
 
         // Counters
@@ -803,7 +803,7 @@ mod tests {
     }
 
     #[test]
-    fn test_hearbeat_timeout_ignore_participant() {
+    fn test_heartbeat_timeout_ignore_participant() {
         let fl_settings = FederatedLearningSettings {
             rounds: 1,
             participants_ratio: 1.0,
@@ -818,7 +818,7 @@ mod tests {
             ..Default::default()
         };
 
-        protocol.hearbeat_timeout(client_id, ClientState::Ignored);
+        protocol.heartbeat_timeout(client_id, ClientState::Ignored);
         let counters = protocol.counters();
 
         // Counters
@@ -960,6 +960,43 @@ mod tests {
             protocol.next_event().unwrap(),
             Event::ResetHeartBeat(client_id)
         );
+        assert!(protocol.next_event().is_none());
+    }
+
+    #[test]
+    fn test_heartbeat_training_complete() {
+        let fl_settings = FederatedLearningSettings {
+            rounds: 1,
+            participants_ratio: 1.0,
+            min_clients: 1,
+            heartbeat_timeout: 15,
+        };
+        let mut protocol = Protocol::new(fl_settings);
+        let client_id = ClientId::new();
+
+        protocol.is_training_complete = true;
+
+        let client_states = vec![
+            ClientState::Unknown,
+            ClientState::Ignored,
+            ClientState::Done,
+            ClientState::DoneAndInactive,
+            ClientState::Selected,
+            ClientState::Waiting,
+        ];
+        for state in client_states.iter() {
+            let resp = protocol.heartbeat(client_id, *state);
+
+            // Response
+            assert_eq!(HeartBeatResponse::Finish, resp);
+
+            // Event Queue
+            assert_eq!(
+                protocol.next_event().unwrap(),
+                Event::ResetHeartBeat(client_id)
+            );
+        }
+
         assert!(protocol.next_event().is_none());
     }
 }
