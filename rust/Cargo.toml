@@ -23,6 +23,8 @@ bytes = "0.5.4"																						# MIT
 config = "0.10.1"																					# Apache-2.0 OR MIT
 clap = "2.33.0"																						# MIT
 influxdb = "0.0.6"																					# MIT
+thiserror = "1.0.11"
+anyhow = "1.0.26"
 
 [[bin]]
 name = "coordinator"
