@@ -964,6 +964,7 @@ mod tests {
         let resp = protocol.start_training(ClientState::Selected);
 
         assert_eq!(StartTrainingResponse::Accept, resp);
+        assert!(protocol.next_event().is_none());
     }
 
     #[test]
@@ -980,6 +981,7 @@ mod tests {
         let resp = protocol.start_training(ClientState::Selected);
 
         assert_eq!(StartTrainingResponse::Reject, resp);
+        assert!(protocol.next_event().is_none());
     }
 
     #[test]
@@ -1004,5 +1006,158 @@ mod tests {
 
             assert_eq!(StartTrainingResponse::Reject, resp);
         }
+        assert!(protocol.next_event().is_none());
+    }
+
+    #[test]
+    fn test_end_training_is_training_complete() {
+        let fl_settings = FederatedLearningSettings {
+            rounds: 1,
+            participants_ratio: 1.0,
+            min_clients: 1,
+            heartbeat_timeout: 15,
+        };
+        let mut protocol = Protocol::new(fl_settings);
+        let client_id = ClientId::new();
+
+        protocol.is_training_complete = true;
+
+        protocol.end_training(client_id, true, ClientState::Selected);
+    }
+
+    #[test]
+    fn test_end_training_waiting_for_aggregation() {
+        let fl_settings = FederatedLearningSettings {
+            rounds: 1,
+            participants_ratio: 1.0,
+            min_clients: 1,
+            heartbeat_timeout: 15,
+        };
+        let mut protocol = Protocol::new(fl_settings);
+        let client_id = ClientId::new();
+
+        protocol.waiting_for_aggregation = true;
+
+        protocol.end_training(client_id, true, ClientState::Selected);
+        assert!(protocol.next_event().is_none());
+    }
+
+    #[test]
+    fn test_end_training_selected_participant_success_not_last_round() {
+        let fl_settings = FederatedLearningSettings {
+            rounds: 1,
+            participants_ratio: 1.0,
+            min_clients: 1,
+            heartbeat_timeout: 15,
+        };
+        let mut protocol = Protocol::new(fl_settings);
+        let client_id = ClientId::new();
+
+        protocol.counters = Counters {
+            waiting: 0,
+            selected: 2,
+            done: 5,
+            done_and_inactive: 3,
+            ignored: 2,
+        };
+
+        protocol.end_training(client_id, true, ClientState::Selected);
+
+        let counters = protocol.counters();
+        let expected = Counters {
+            waiting: 0,
+            selected: 1,
+            done: 6,
+            done_and_inactive: 3,
+            ignored: 2,
+        };
+        assert_eq!(counters, expected);
+
+        assert_eq!(
+            protocol.next_event().unwrap(),
+            Event::SetState(client_id, ClientState::Done)
+        );
+
+        assert!(protocol.next_event().is_none());
+    }
+
+    #[test]
+    fn test_end_training_selected_participant_success_last_round() {
+        let fl_settings = FederatedLearningSettings {
+            rounds: 1,
+            participants_ratio: 1.0,
+            min_clients: 1,
+            heartbeat_timeout: 15,
+        };
+        let mut protocol = Protocol::new(fl_settings);
+        let client_id = ClientId::new();
+
+        protocol.counters = Counters {
+            waiting: 0,
+            selected: 1,
+            done: 5,
+            done_and_inactive: 3,
+            ignored: 2,
+        };
+
+        protocol.end_training(client_id, true, ClientState::Selected);
+
+        let counters = protocol.counters();
+        let expected = Counters {
+            waiting: 1 + 5 + 2,
+            selected: 0,
+            done: 0,
+            done_and_inactive: 0,
+            ignored: 0,
+        };
+        assert_eq!(counters, expected);
+
+        assert_eq!(
+            protocol.next_event().unwrap(),
+            Event::SetState(client_id, ClientState::Done)
+        );
+        assert_eq!(protocol.next_event().unwrap(), Event::RunAggregation);
+        assert_eq!(protocol.next_event().unwrap(), Event::ResetAll);
+
+        assert!(protocol.next_event().is_none());
+    }
+
+    #[test]
+    fn test_end_training_selected_participant_no_success() {
+        let fl_settings = FederatedLearningSettings {
+            rounds: 1,
+            participants_ratio: 1.0,
+            min_clients: 1,
+            heartbeat_timeout: 15,
+        };
+        let mut protocol = Protocol::new(fl_settings);
+        let client_id = ClientId::new();
+
+        protocol.counters = Counters {
+            waiting: 0,
+            selected: 2,
+            done: 5,
+            done_and_inactive: 3,
+            ignored: 2,
+        };
+
+        protocol.end_training(client_id, false, ClientState::Selected);
+
+        let counters = protocol.counters();
+        let expected = Counters {
+            waiting: 0,
+            selected: 1,
+            done: 5,
+            done_and_inactive: 3,
+            ignored: 3,
+        };
+        assert_eq!(counters, expected);
+
+        assert_eq!(
+            protocol.next_event().unwrap(),
+            Event::SetState(client_id, ClientState::Ignored)
+        );
+
+        assert!(protocol.next_event().is_none());
     }
 }
