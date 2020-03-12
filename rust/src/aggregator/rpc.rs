@@ -80,8 +80,9 @@ pub enum Request {
     Aggregate(AggregateRequest),
 }
 
-/// A handle to receive the RPC requests received by the RPC
-/// [`AggregatorRpc`].
+/// Stream of requests made to an RPC server instance. A `Server` is
+/// spawned for each client that connects, so a distinct
+/// `RequestStream` is created for each client.
 pub struct RequestStream(Pin<Box<dyn Stream<Item = Request> + Send>>);
 
 impl RequestStream {
@@ -129,29 +130,36 @@ impl Rpc for Server {
     }
 }
 
-pub struct RpcRx {
+/// RPC requests are received via [`RequestStream`] streams, but a
+/// distinct [`RequestStream`] is created for each client that
+/// connects. `RpcRequestsMux` multiplexes multiple
+/// `RequestStreams`: it consumes each `RequestStream` created by the
+/// RPC server task, sequentially.
+pub struct RpcRequestsMux {
     requests: Option<RequestStream>,
-    connections: mpsc::Receiver<RequestStream>,
+    streams: mpsc::Receiver<RequestStream>,
 }
 
-impl RpcRx {
-    fn new(connections: mpsc::Receiver<RequestStream>) -> Self {
+impl RpcRequestsMux {
+    /// Create a new `RpcRequestMux` that will process the
+    /// `RequestStream`s produced by the given receiver.
+    pub fn new(streams: mpsc::Receiver<RequestStream>) -> Self {
         Self {
             requests: None,
-            connections,
+            streams,
         }
     }
 }
 
-impl Stream for RpcRx {
+impl Stream for RpcRequestsMux {
     type Item = Request;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-        trace!("polling RpcRx");
+        trace!("polling RpcRequestsMux");
 
         let Self {
             ref mut requests,
-            ref mut connections,
+            ref mut streams,
         } = self.get_mut();
 
         // If we have a requests channel poll it
@@ -166,7 +174,7 @@ impl Stream for RpcRx {
         }
 
         trace!("no RequestStream, polling the RequestStream receiver");
-        let mut pin = Pin::new(connections);
+        let mut pin = Pin::new(streams);
 
         loop {
             if let Some(mut stream) = ready!(pin.as_mut().poll_next(cx)) {
@@ -186,7 +194,7 @@ impl Stream for RpcRx {
                         trace!("RequestStream: no request yet");
                         *requests = Some(stream);
                         // Note that it is important not to return
-                        // here. We MUST poll the `connections` future
+                        // here. We MUST poll the `streams` future
                         // until it returns Pending, if we want the
                         // executor to wakes the task up later!
                     }
@@ -211,34 +219,10 @@ pub async fn client_connect<A: ToSocketAddrs + Unpin + Clone + Send + Sync + 'st
     Client::new(Config::default(), transport).spawn()
 }
 
-pub struct ConnectFuture(Pin<Box<dyn Future<Output = io::Result<Client>> + Send>>);
-
-impl ConnectFuture {
-    pub fn new<A: ToSocketAddrs + Clone + Unpin + Send + Sync + 'static>(addr: A) -> Self {
-        Self(Box::pin(client_connect(addr)))
-    }
-}
-
-impl Future for ConnectFuture {
-    type Output = io::Result<Client>;
-    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        trace!("polling ConnectFuture");
-        Pin::new(&mut self.get_mut().0).poll(cx)
-    }
-}
-
-/// Spawn an RPC server and return a stream of `RequestStream`. A new
-/// `RequestStream` is yielded for each new connection.
-pub fn run<A: ToSocketAddrs + Send + Sync + 'static>(addr: A) -> RpcRx {
-    let (tx, rx) = mpsc::channel(1);
-    tokio::spawn(_run(addr, tx).map_err(|e| error!("RPC worker finished with an error: {}", e)));
-    RpcRx::new(rx)
-}
-
-/// Run an RPC server that accepts only one connection at a time.
-async fn _run<A: ToSocketAddrs + Send + Sync + 'static>(
+/// Run an RPC server that processes only one connection at a time.
+pub async fn serve<A: ToSocketAddrs + Send + Sync + 'static>(
     addr: A,
-    mut rpc_handle_tx: mpsc::Sender<RequestStream>,
+    mut request_stream_tx: mpsc::Sender<RequestStream>,
 ) -> ::std::io::Result<()> {
     let mut listener = listen(addr, Json::default).await?;
 
@@ -247,7 +231,7 @@ async fn _run<A: ToSocketAddrs + Send + Sync + 'static>(
             Ok(transport) => {
                 let channel = BaseChannel::with_defaults(transport);
                 let (server, handle) = Server::new();
-                if rpc_handle_tx.send(handle).await.is_err() {
+                if request_stream_tx.send(handle).await.is_err() {
                     continue;
                 }
                 let handler = channel.respond_with(server.serve());

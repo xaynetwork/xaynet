@@ -1,11 +1,15 @@
 use clap::{App, Arg};
 use std::{env, process};
-use tokio::signal::ctrl_c;
-use xain_fl::aggregator::{
-    api,
-    py_aggregator::spawn_py_aggregator,
-    service::AggregatorService,
-    settings::{AggregationSettings, Settings},
+use tokio::{signal::ctrl_c, sync::mpsc};
+use xain_fl::{
+    aggregator::{
+        api,
+        py_aggregator::spawn_py_aggregator,
+        rpc,
+        service::AggregatorService,
+        settings::{AggregationSettings, Settings},
+    },
+    coordinator,
 };
 #[macro_use]
 extern crate log;
@@ -43,20 +47,33 @@ async fn _main(settings: Settings) {
         ..
     } = settings;
 
+    let (rpc_request_stream_tx, rpc_request_stream_rx) = mpsc::channel(1);
+    // It is important to start the RPC server before starting an RPC
+    // client, because if both the aggregator and the coordinator
+    // attempt to connect to each other before the servers are
+    // started, we end up in a deadlock.
+    let rpc_server_task_handle =
+        tokio::spawn(rpc::serve(rpc.bind_address.clone(), rpc_request_stream_tx));
+    let rpc_requests = rpc::RpcRequestsMux::new(rpc_request_stream_rx);
+
+    let rpc_client = coordinator::rpc::client_connect(rpc.coordinator_address.clone())
+        .await
+        .unwrap();
+
     let (aggregator, mut shutdown_rx) = match aggregation {
         AggregationSettings::Python(python_aggregator_settings) => {
             spawn_py_aggregator(python_aggregator_settings)
         }
     };
 
-    let (service, handle) =
-        AggregatorService::new(aggregator, rpc.bind_address, rpc.coordinator_address);
-
-    // Spawn the task that provides the public HTTP API.
-    let api_task_handle = tokio::spawn(async move { api::serve(&api.bind_address, handle).await });
     // Spawn the task that waits for the aggregator running in a
     // background thread to finish.
     let aggregator_task_handle = tokio::spawn(async move { shutdown_rx.recv().await });
+
+    let (service, handle) = AggregatorService::new(aggregator, rpc_client, rpc_requests);
+
+    // Spawn the task that provides the public HTTP API.
+    let api_task_handle = tokio::spawn(async move { api::serve(&api.bind_address, handle).await });
 
     tokio::select! {
         _ = service => {
@@ -67,6 +84,9 @@ async fn _main(settings: Settings) {
         }
         _ = api_task_handle => {
             info!("shutting down: API task terminated");
+        }
+        _ = rpc_server_task_handle => {
+            info!("shutting down: RPC server task terminated");
         }
         result = ctrl_c() => {
             match result {

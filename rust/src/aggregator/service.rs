@@ -14,7 +14,6 @@ use std::{
 };
 use tarpc::context::current as rpc_context;
 use tokio::{
-    net::ToSocketAddrs,
     stream::StreamExt,
     sync::{mpsc, oneshot},
 };
@@ -51,17 +50,10 @@ where
     aggregator: A,
 
     /// A client for the coordinator RPC service.
-    rpc_client: Option<coordinator::rpc::Client>,
-
-    /// A future that resolved to an RPC client. If is only necessary
-    /// to poll it when the aggregator starts, until the first
-    /// connection is established. After that, `rpc_client` is
-    /// set and the client automatically attempts to reconnect if the
-    /// connection goes down.
-    rpc_client_connection: Option<coordinator::rpc::ConnectFuture>,
+    rpc_client: coordinator::rpc::Client,
 
     /// RPC requests from the coordinator.
-    rpc_rx: rpc::RpcRx,
+    rpc_requests: rpc::RpcRequestsMux,
 
     aggregation_future: Option<AggregationFuture<A>>,
 
@@ -90,21 +82,16 @@ impl<A> AggregatorService<A>
 where
     A: Aggregator,
 {
-    pub fn new<
-        T: Clone + ToSocketAddrs + Send + Sync + 'static + Unpin,
-        U: ToSocketAddrs + Send + Sync + 'static,
-    >(
+    pub fn new(
         aggregator: A,
-        rpc_listen_addr: U,
-        coordinator_rpc_addr: T,
+        rpc_client: coordinator::rpc::Client,
+        rpc_requests: rpc::RpcRequestsMux,
     ) -> (Self, AggregatorServiceHandle) {
-        let rpc_rx = rpc::run(rpc_listen_addr);
         let (handle, api_rx) = AggregatorServiceHandle::new();
         let service = Self {
             aggregator,
-            rpc_rx,
-            rpc_client: None,
-            rpc_client_connection: Some(coordinator::rpc::ConnectFuture::new(coordinator_rpc_addr)),
+            rpc_requests,
+            rpc_client,
             allowed_ids: HashMap::new(),
             global_weights: Bytes::new(),
             aggregation_future: None,
@@ -145,11 +132,11 @@ where
                     .map(|expected_token| token == *expected_token)
                     .unwrap_or(false);
 
-                if !accept_upload || self.rpc_client.is_none() {
+                if !accept_upload {
                     return;
                 }
 
-                let mut rpc_client = self.rpc_client.clone().unwrap();
+                let mut rpc_client = self.rpc_client.clone();
                 let fut = self.aggregator.add_weights(bytes);
                 tokio::spawn(async move {
                     let result = fut.await;
@@ -167,10 +154,10 @@ where
         }
     }
 
-    fn poll_rpc_rx(&mut self, cx: &mut Context) -> Poll<()> {
+    fn poll_rpc_requests(&mut self, cx: &mut Context) -> Poll<()> {
         trace!("polling RPC requests");
 
-        let mut stream = Pin::new(&mut self.rpc_rx);
+        let mut stream = Pin::new(&mut self.rpc_requests);
         loop {
             match ready!(stream.as_mut().poll_next(cx)) {
                 Some(rpc::Request::Select(((id, token), resp_tx))) => {
@@ -248,22 +235,7 @@ where
         trace!("polling AggregatorService");
         let pin = self.get_mut();
 
-        // This only runs when the aggregator starts
-        if let Some(ref mut connection) = pin.rpc_client_connection {
-            match Pin::new(connection).poll(cx) {
-                Poll::Ready(Ok(client)) => {
-                    pin.rpc_client = Some(client);
-                    pin.rpc_client_connection = None;
-                }
-                Poll::Ready(Err(e)) => {
-                    error!("failed to connect RPC client: {}", e);
-                    return Poll::Ready(());
-                }
-                _ => {}
-            }
-        }
-
-        if let Poll::Ready(_) = pin.poll_rpc_rx(cx) {
+        if let Poll::Ready(_) = pin.poll_rpc_requests(cx) {
             return Poll::Ready(());
         }
 
