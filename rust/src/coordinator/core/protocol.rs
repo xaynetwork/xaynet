@@ -1160,4 +1160,167 @@ mod tests {
 
         assert!(protocol.next_event().is_none());
     }
+
+    #[test]
+    fn test_end_training_selected_participant_no_success_run_selection() {
+        let fl_settings = FederatedLearningSettings {
+            rounds: 1,
+            participants_ratio: 1.0,
+            min_clients: 15,
+            heartbeat_timeout: 15,
+        };
+        let mut protocol = Protocol::new(fl_settings);
+        let client_id = ClientId::new();
+
+        protocol.counters = Counters {
+            waiting: 6,
+            selected: 2,
+            done: 5,
+            done_and_inactive: 3,
+            ignored: 2,
+        };
+
+        protocol.end_training(client_id, false, ClientState::Selected);
+
+        let counters = protocol.counters();
+        let expected = Counters {
+            waiting: 6,
+            selected: 1,
+            done: 5,
+            done_and_inactive: 3,
+            ignored: 3,
+        };
+        assert_eq!(counters, expected);
+
+        assert_eq!(
+            protocol.next_event().unwrap(),
+            Event::SetState(client_id, ClientState::Ignored)
+        );
+        assert_eq!(protocol.next_event().unwrap(), Event::RunSelection(6));
+        assert!(protocol.next_event().is_none());
+    }
+
+    #[test]
+    fn test_end_aggregation_not_waiting_for_aggregation() {
+        let fl_settings = FederatedLearningSettings {
+            rounds: 1,
+            participants_ratio: 1.0,
+            min_clients: 1,
+            heartbeat_timeout: 15,
+        };
+        let mut protocol = Protocol::new(fl_settings);
+
+        protocol.end_aggregation(false);
+
+        assert!(protocol.next_event().is_none());
+    }
+
+    #[test]
+    fn test_end_aggregation_waiting_for_aggregation_success_not_last_round() {
+        let fl_settings = FederatedLearningSettings {
+            rounds: 2,
+            participants_ratio: 1.0,
+            min_clients: 1,
+            heartbeat_timeout: 15,
+        };
+        let mut protocol = Protocol::new(fl_settings);
+
+        protocol.counters = Counters {
+            selected: 1,
+            ..Default::default()
+        };
+        protocol.waiting_for_aggregation = true;
+
+        protocol.end_aggregation(true);
+
+        assert_eq!(protocol.waiting_for_aggregation, false);
+        assert_eq!(protocol.next_event().unwrap(), Event::EndRound(0));
+        assert_eq!(protocol.current_round, 1);
+        assert_eq!(protocol.is_training_complete, false);
+        assert!(protocol.next_event().is_none());
+    }
+
+    #[test]
+    fn test_end_aggregation_waiting_for_aggregation_success_last_round() {
+        let fl_settings = FederatedLearningSettings {
+            rounds: 1,
+            participants_ratio: 1.0,
+            min_clients: 1,
+            heartbeat_timeout: 15,
+        };
+        let mut protocol = Protocol::new(fl_settings);
+
+        protocol.counters = Counters {
+            selected: 1,
+            ..Default::default()
+        };
+        protocol.waiting_for_aggregation = true;
+
+        protocol.end_aggregation(true);
+
+        assert_eq!(protocol.waiting_for_aggregation, false);
+        assert_eq!(protocol.next_event().unwrap(), Event::EndRound(0));
+        assert_eq!(protocol.current_round, 1);
+        assert_eq!(protocol.is_training_complete, true);
+        assert!(protocol.next_event().is_none());
+    }
+
+    #[test]
+    fn test_end_aggregation_waiting_for_aggregation_no_success_not_last_round() {
+        let fl_settings = FederatedLearningSettings {
+            rounds: 2,
+            participants_ratio: 1.0,
+            min_clients: 1,
+            heartbeat_timeout: 15,
+        };
+        let mut protocol = Protocol::new(fl_settings);
+
+        protocol.counters = Counters {
+            selected: 1,
+            ..Default::default()
+        };
+        protocol.waiting_for_aggregation = true;
+
+        protocol.end_aggregation(false);
+
+        assert_eq!(protocol.waiting_for_aggregation, false);
+        assert_eq!(protocol.is_training_complete, false);
+        assert!(protocol.next_event().is_none());
+    }
+
+    #[test]
+    fn test_end_aggregation_waiting_for_aggregation_no_success_last_round() {
+        // Can this case occur?
+        // Ff the aggregation is not successful, the current_round will not be updated.
+        //
+        // in end_aggregation:
+        //
+        //     if success {
+        //         self.emit_event(Event::EndRound(self.current_round));
+        //         self.current_round += 1;
+        //     }
+        //     if self.current_round == self.settings.rounds {
+        //         info!("training complete");
+        //         self.is_training_complete = true;
+        //     } 
+        let fl_settings = FederatedLearningSettings {
+            rounds: 1,
+            participants_ratio: 1.0,
+            min_clients: 1,
+            heartbeat_timeout: 15,
+        };
+        let mut protocol = Protocol::new(fl_settings);
+
+        protocol.counters = Counters {
+            selected: 1,
+            ..Default::default()
+        };
+        protocol.waiting_for_aggregation = true;
+        protocol.current_round = 1;
+        protocol.end_aggregation(false);
+
+        assert_eq!(protocol.waiting_for_aggregation, false);
+        assert_eq!(protocol.is_training_complete, true);
+        assert!(protocol.next_event().is_none());
+    }
 }
