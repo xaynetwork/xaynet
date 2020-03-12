@@ -11,6 +11,7 @@ stdenv.mkDerivation rec {
     python37Packages.numpy
     python37Packages.ipython
     python37Packages.virtualenv
+    docker-compose
     # profiling and visualization
     pkgs.gperftools
     pkgs.graphviz
