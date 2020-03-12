@@ -1103,7 +1103,7 @@ mod tests {
     #[test]
     fn test_end_aggregation_waiting_for_aggregation_no_success_last_round() {
         // Can this case occur?
-        // Ff the aggregation is not successful, the current_round will not be updated.
+        // If the aggregation is not successful, the current_round will not be updated.
         //
         // in end_aggregation:
         //
