@@ -1129,4 +1129,80 @@ mod tests {
         assert_eq!(protocol.is_training_complete, true);
         assert!(protocol.next_event().is_none());
     }
+
+    fn create_participant(protocol: &mut Protocol) -> ClientId {
+        let new_client = ClientId::new();
+        protocol.rendez_vous(new_client, ClientState::Unknown);
+        new_client
+    }
+
+    fn drop_participant(protocol: &mut Protocol, client_id: ClientId, state: ClientState) {
+        protocol.heartbeat_timeout(client_id, state)
+    }
+
+    fn select_and_start_training(
+        protocol: &mut Protocol,
+        candidates: Vec<(ClientId, ClientState)>,
+    ) {
+        let number_of_candidates = candidates.len();
+
+        protocol.select(candidates.into_iter());
+
+        for _ in 0..number_of_candidates {
+            protocol.start_training(ClientState::Selected);
+        }
+    }
+
+    fn end_training(protocol: &mut Protocol, candidates: Vec<(ClientId, ClientState)>) {
+        for (client_id, _) in candidates.into_iter() {
+            protocol.end_training(client_id, true, ClientState::Selected);
+        }
+    }
+
+    #[test]
+    fn test_case_1() {
+        // Simple test case with two particpants and two rounds.
+        // After the last round the coordinator should response with a StartTrainingResponse::Reject
+        // for each new start_training request.
+        let n_of_rounds = 2;
+        let n_of_clients = 2;
+
+        let settings = FederatedLearningSettings {
+            rounds: n_of_rounds,
+            participants_ratio: 1.0,
+            min_clients: n_of_clients,
+            heartbeat_timeout: 15,
+        };
+
+        let mut protocol = Protocol::new(settings);
+        let mut clients: Vec<(ClientId, ClientState)> = vec![];
+        for _ in 0..n_of_clients {
+            clients.push((create_participant(&mut protocol), ClientState::Waiting))
+        }
+
+        for round in 0..n_of_rounds {
+            select_and_start_training(&mut protocol, clients.clone());
+            let counters = protocol.counters();
+            let expected = Counters {
+                selected: 2,
+                ..Default::default()
+            };
+            assert_eq!(counters, expected);
+
+            end_training(&mut protocol, clients.clone());
+            let counters = protocol.counters();
+            let expected = Counters {
+                waiting: 2,
+                ..Default::default()
+            };
+            assert_eq!(counters, expected);
+            assert_eq!(protocol.current_round, round);
+
+            protocol.end_aggregation(true);
+            assert_eq!(protocol.current_round, round + 1);
+        }
+
+        let try_start_after_last_round = protocol.start_training(ClientState::Selected);
+        assert_eq!(try_start_after_last_round, StartTrainingResponse::Reject);
+    }
 }
