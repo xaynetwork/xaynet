@@ -641,7 +641,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "FIXME: should not panic, should not emit event"]
+    #[should_panic]
     fn test_heartbeat_timeout_unknown_participant() {
         let mut protocol = Protocol::new(get_default_fl_settings());
         let client_id = ClientId::new();
@@ -658,7 +658,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "FIXME: should not panic, should not emit event"]
+    #[should_panic]
     fn test_heartbeat_timeout_done_and_inactive_participant() {
         let mut protocol = Protocol::new(get_default_fl_settings());
         let client_id = ClientId::new();
