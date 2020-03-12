@@ -17,7 +17,6 @@ tarpc = { version = "0.20.0", features = [ "full" ] }
 serde = { version = "1.0.104", features = [ "derive" ] }
 pyo3 = "0.9.0-alpha.1"
 tokio-serde = { version = "0.6.0", features = [ "json" ] }
-futures-retry = "0.5.0"
 stubborn-io = "0.1.8"
 bytes = "0.5.4"
 config = "0.10.1"

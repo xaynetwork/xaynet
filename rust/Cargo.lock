@@ -426,17 +426,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "futures-retry"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "759bfe7464299589f02197a973e0e01f17c4cdcef87b454579af8b0629ba7420"
-dependencies = [
- "futures",
- "pin-project",
- "tokio",
-]
-
-[[package]]
 name = "futures-sink"
 version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2353,7 +2342,6 @@ dependencies = [
  "derive_more",
  "env_logger",
  "futures",
- "futures-retry",
  "influxdb",
  "log 0.4.8",
  "pyo3",
