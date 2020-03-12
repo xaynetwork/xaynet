@@ -423,49 +423,43 @@ mod tests {
     use super::*;
     use crate::{common::ClientId, coordinator::settings::FederatedLearningSettings};
 
-    #[test]
-    fn test_new() {
-        let fl_settings = FederatedLearningSettings {
+    fn get_default_fl_settings() -> FederatedLearningSettings {
+        FederatedLearningSettings {
             rounds: 1,
             participants_ratio: 1.0,
             min_clients: 1,
             heartbeat_timeout: 15,
-        };
+        }
+    }
 
-        let mut protocol = Protocol::new(fl_settings);
+    #[test]
+    fn test_new() {
+        let mut protocol = Protocol::new(get_default_fl_settings());
 
         let counters = protocol.counters();
-
         let expected = Counters {
             ..Default::default()
         };
-        assert_eq!(counters, expected);
 
+        assert_eq!(counters, expected);
         assert!(protocol.next_event().is_none());
     }
 
     #[test]
     fn test_rendez_vous_new_client() {
-        let fl_settings = FederatedLearningSettings {
-            rounds: 1,
-            participants_ratio: 1.0,
-            min_clients: 1,
-            heartbeat_timeout: 15,
-        };
-        let mut protocol = Protocol::new(fl_settings);
-
+        let mut protocol = Protocol::new(get_default_fl_settings());
         let client_id = ClientId::new();
-        let resp = protocol.rendez_vous(client_id, ClientState::Unknown);
-        let counters = protocol.counters();
 
+        let resp = protocol.rendez_vous(client_id, ClientState::Unknown);
+
+        let counters = protocol.counters();
         let expected = Counters {
             waiting: 1,
             ..Default::default()
         };
+
         assert_eq!(counters, expected);
-
         assert_eq!(RendezVousResponse::Accept, resp);
-
         assert_eq!(protocol.next_event().unwrap(), Event::Accept(client_id));
         assert_eq!(protocol.next_event().unwrap(), Event::RunSelection(1));
         assert!(protocol.next_event().is_none());
@@ -473,58 +467,46 @@ mod tests {
 
     #[test]
     fn test_rendez_vous_waiting_client_re_send_rendez_vous() {
-        let fl_settings = FederatedLearningSettings {
-            rounds: 1,
-            participants_ratio: 1.0,
-            min_clients: 1,
-            heartbeat_timeout: 15,
-        };
-
-        let mut protocol = Protocol::new(fl_settings);
+        let mut protocol = Protocol::new(get_default_fl_settings());
         let client_id = ClientId::new();
+
         protocol.rendez_vous(client_id, ClientState::Unknown);
 
         assert_eq!(1, protocol.counters().waiting);
 
         let resp = protocol.rendez_vous(client_id, ClientState::Waiting);
-        let counters = protocol.counters();
 
+        let counters = protocol.counters();
         let expected = Counters {
             waiting: 1,
             ..Default::default()
         };
-        assert_eq!(counters, expected);
 
+        assert_eq!(counters, expected);
         assert_eq!(RendezVousResponse::Accept, resp);
     }
 
     #[test]
     fn test_rendez_vous_selected_client_re_send_rendez_vous() {
-        let fl_settings = FederatedLearningSettings {
-            rounds: 1,
-            participants_ratio: 1.0,
-            min_clients: 1,
-            heartbeat_timeout: 15,
-        };
-
-        let mut protocol = Protocol::new(fl_settings);
+        let mut protocol = Protocol::new(get_default_fl_settings());
         let client_id = ClientId::new();
+
         protocol.rendez_vous(client_id, ClientState::Unknown);
 
         assert_eq!(1, protocol.counters().waiting);
-
         assert_eq!(protocol.next_event().unwrap(), Event::Accept(client_id));
 
         let candidates = vec![(client_id, ClientState::Waiting)];
-        protocol.select(candidates.into_iter());
-        let counters = protocol.counters();
 
+        protocol.select(candidates.into_iter());
+
+        let counters = protocol.counters();
         let expected = Counters {
             selected: 1,
             ..Default::default()
         };
-        assert_eq!(counters, expected);
 
+        assert_eq!(counters, expected);
         assert_eq!(protocol.next_event().unwrap(), Event::RunSelection(1));
         assert_eq!(
             protocol.next_event().unwrap(),
@@ -532,16 +514,15 @@ mod tests {
         );
 
         let resp = protocol.rendez_vous(client_id, ClientState::Selected);
-        let counters = protocol.counters();
 
+        let counters = protocol.counters();
         let expected = Counters {
             ignored: 1,
             ..Default::default()
         };
+
         assert_eq!(counters, expected);
-
         assert_eq!(RendezVousResponse::Accept, resp);
-
         assert_eq!(
             protocol.next_event().unwrap(),
             Event::SetState(client_id, ClientState::Ignored)
@@ -551,27 +532,19 @@ mod tests {
 
     #[test]
     fn test_rendez_vous_done_client_re_send_rendez_vous() {
-        let fl_settings = FederatedLearningSettings {
-            rounds: 1,
-            participants_ratio: 1.0,
-            min_clients: 1,
-            heartbeat_timeout: 15,
-        };
-
-        let mut protocol = Protocol::new(fl_settings);
+        let mut protocol = Protocol::new(get_default_fl_settings());
         let client_id = ClientId::new();
+
         let resp = protocol.rendez_vous(client_id, ClientState::Done);
 
         let counters = protocol.counters();
-
         let expected = Counters {
             ignored: 1,
             ..Default::default()
         };
+
         assert_eq!(counters, expected);
-
         assert_eq!(RendezVousResponse::Accept, resp);
-
         assert_eq!(
             protocol.next_event().unwrap(),
             Event::SetState(client_id, ClientState::Ignored)
@@ -581,27 +554,19 @@ mod tests {
 
     #[test]
     fn test_rendez_vous_done_inactive_client_re_send_rendez_vous() {
-        let fl_settings = FederatedLearningSettings {
-            rounds: 1,
-            participants_ratio: 1.0,
-            min_clients: 1,
-            heartbeat_timeout: 15,
-        };
-
-        let mut protocol = Protocol::new(fl_settings);
+        let mut protocol = Protocol::new(get_default_fl_settings());
         let client_id = ClientId::new();
+
         let resp = protocol.rendez_vous(client_id, ClientState::DoneAndInactive);
 
         let counters = protocol.counters();
-
         let expected = Counters {
             ignored: 1,
             ..Default::default()
         };
+
         assert_eq!(counters, expected);
-
         assert_eq!(RendezVousResponse::Accept, resp);
-
         assert_eq!(
             protocol.next_event().unwrap(),
             Event::SetState(client_id, ClientState::Ignored)
@@ -611,34 +576,28 @@ mod tests {
 
     #[test]
     fn test_heartbeat_timeout_waiting_participant() {
-        let fl_settings = FederatedLearningSettings {
-            rounds: 1,
-            participants_ratio: 1.0,
-            min_clients: 1,
-            heartbeat_timeout: 15,
-        };
-        let mut protocol = Protocol::new(fl_settings);
+        let mut protocol = Protocol::new(get_default_fl_settings());
         let client_id = ClientId::new();
 
         let _ = protocol.rendez_vous(client_id, ClientState::Unknown);
-        let counters = protocol.counters();
 
+        let counters = protocol.counters();
         let expected = Counters {
             waiting: 1,
             ..Default::default()
         };
+
         assert_eq!(counters, expected);
 
         protocol.heartbeat_timeout(client_id, ClientState::Waiting);
 
         let counters = protocol.counters();
-
         let expected = Counters {
             waiting: 0,
             ..Default::default()
         };
-        assert_eq!(counters, expected);
 
+        assert_eq!(counters, expected);
         assert_eq!(protocol.next_event().unwrap(), Event::Accept(client_id));
         assert_eq!(protocol.next_event().unwrap(), Event::RunSelection(1));
         assert_eq!(protocol.next_event().unwrap(), Event::Remove(client_id));
@@ -647,36 +606,30 @@ mod tests {
 
     #[test]
     fn test_heartbeat_timeout_selected_participant() {
-        let fl_settings = FederatedLearningSettings {
-            rounds: 1,
-            participants_ratio: 1.0,
-            min_clients: 1,
-            heartbeat_timeout: 15,
-        };
-        let mut protocol = Protocol::new(fl_settings);
+        let mut protocol = Protocol::new(get_default_fl_settings());
         let client_id = ClientId::new();
-
         let _ = protocol.rendez_vous(client_id, ClientState::Unknown);
         let candidates = vec![(client_id, ClientState::Waiting)];
-        protocol.select(candidates.into_iter());
-        let counters = protocol.counters();
 
+        protocol.select(candidates.into_iter());
+
+        let counters = protocol.counters();
         let expected = Counters {
             selected: 1,
             ..Default::default()
         };
+
         assert_eq!(counters, expected);
 
         protocol.heartbeat_timeout(client_id, ClientState::Selected);
 
         let counters = protocol.counters();
-
         let expected = Counters {
             selected: 0,
             ..Default::default()
         };
-        assert_eq!(counters, expected);
 
+        assert_eq!(counters, expected);
         assert_eq!(protocol.next_event().unwrap(), Event::Accept(client_id));
         assert_eq!(protocol.next_event().unwrap(), Event::RunSelection(1));
         assert_eq!(
@@ -690,77 +643,56 @@ mod tests {
     #[test]
     #[ignore = "FIXME: should not panic, should not emit event"]
     fn test_heartbeat_timeout_unknown_participant() {
-        let fl_settings = FederatedLearningSettings {
-            rounds: 1,
-            participants_ratio: 1.0,
-            min_clients: 1,
-            heartbeat_timeout: 15,
-        };
-        let mut protocol = Protocol::new(fl_settings);
+        let mut protocol = Protocol::new(get_default_fl_settings());
         let client_id = ClientId::new();
 
         protocol.heartbeat_timeout(client_id, ClientState::Unknown);
 
         let counters = protocol.counters();
-
         let expected = Counters {
             ..Default::default()
         };
-        assert_eq!(counters, expected);
 
+        assert_eq!(counters, expected);
         assert!(protocol.next_event().is_none());
     }
 
     #[test]
     #[ignore = "FIXME: should not panic, should not emit event"]
     fn test_heartbeat_timeout_done_and_inactive_participant() {
-        let fl_settings = FederatedLearningSettings {
-            rounds: 1,
-            participants_ratio: 1.0,
-            min_clients: 1,
-            heartbeat_timeout: 15,
-        };
-        let mut protocol = Protocol::new(fl_settings);
+        let mut protocol = Protocol::new(get_default_fl_settings());
         let client_id = ClientId::new();
 
         protocol.heartbeat_timeout(client_id, ClientState::DoneAndInactive);
 
         let counters = protocol.counters();
-
         let expected = Counters {
             ..Default::default()
         };
-        assert_eq!(counters, expected);
 
+        assert_eq!(counters, expected);
         assert!(protocol.next_event().is_none());
     }
 
     #[test]
     fn test_heartbeat_timeout_done_participant() {
-        let fl_settings = FederatedLearningSettings {
-            rounds: 1,
-            participants_ratio: 1.0,
-            min_clients: 1,
-            heartbeat_timeout: 15,
-        };
-        let mut protocol = Protocol::new(fl_settings);
+        let mut protocol = Protocol::new(get_default_fl_settings());
         let client_id = ClientId::new();
-
         protocol.counters = Counters {
             done: 1,
             ..Default::default()
         };
 
         protocol.heartbeat_timeout(client_id, ClientState::Done);
-        let counters = protocol.counters();
 
+        let counters = protocol.counters();
         let expected = Counters {
             done: 1, // <- Not sure about this. Shouldn't it be 0?
             done_and_inactive: 1,
             ..Default::default()
         };
-        assert_eq!(counters, expected);
 
+        assert_eq!(counters, expected);
         assert_eq!(protocol.next_event().unwrap(), Event::Remove(client_id));
         assert_eq!(
             protocol.next_event().unwrap(),
@@ -771,42 +703,29 @@ mod tests {
 
     #[test]
     fn test_heartbeat_timeout_ignore_participant() {
-        let fl_settings = FederatedLearningSettings {
-            rounds: 1,
-            participants_ratio: 1.0,
-            min_clients: 1,
-            heartbeat_timeout: 15,
-        };
-        let mut protocol = Protocol::new(fl_settings);
+        let mut protocol = Protocol::new(get_default_fl_settings());
         let client_id = ClientId::new();
-
         protocol.counters = Counters {
             ignored: 1,
             ..Default::default()
         };
 
         protocol.heartbeat_timeout(client_id, ClientState::Ignored);
-        let counters = protocol.counters();
 
+        let counters = protocol.counters();
         let expected = Counters {
             ignored: 0,
             ..Default::default()
         };
-        assert_eq!(counters, expected);
 
+        assert_eq!(counters, expected);
         assert_eq!(protocol.next_event().unwrap(), Event::Remove(client_id));
         assert!(protocol.next_event().is_none());
     }
 
     #[test]
     fn test_heartbeat_unknown_participant() {
-        let fl_settings = FederatedLearningSettings {
-            rounds: 1,
-            participants_ratio: 1.0,
-            min_clients: 1,
-            heartbeat_timeout: 15,
-        };
-        let mut protocol = Protocol::new(fl_settings);
+        let mut protocol = Protocol::new(get_default_fl_settings());
         let client_id = ClientId::new();
 
         let resp = protocol.heartbeat(client_id, ClientState::Unknown);
@@ -817,13 +736,7 @@ mod tests {
 
     #[test]
     fn test_heartbeat_done_and_inactive_participant() {
-        let fl_settings = FederatedLearningSettings {
-            rounds: 1,
-            participants_ratio: 1.0,
-            min_clients: 1,
-            heartbeat_timeout: 15,
-        };
-        let mut protocol = Protocol::new(fl_settings);
+        let mut protocol = Protocol::new(get_default_fl_settings());
         let client_id = ClientId::new();
 
         let resp = protocol.heartbeat(client_id, ClientState::DoneAndInactive);
@@ -834,13 +747,7 @@ mod tests {
 
     #[test]
     fn test_heartbeat_ignore_participant() {
-        let fl_settings = FederatedLearningSettings {
-            rounds: 1,
-            participants_ratio: 1.0,
-            min_clients: 1,
-            heartbeat_timeout: 15,
-        };
-        let mut protocol = Protocol::new(fl_settings);
+        let mut protocol = Protocol::new(get_default_fl_settings());
         let client_id = ClientId::new();
 
         let resp = protocol.heartbeat(client_id, ClientState::Ignored);
@@ -855,13 +762,7 @@ mod tests {
 
     #[test]
     fn test_heartbeat_waiting_participant() {
-        let fl_settings = FederatedLearningSettings {
-            rounds: 1,
-            participants_ratio: 1.0,
-            min_clients: 1,
-            heartbeat_timeout: 15,
-        };
-        let mut protocol = Protocol::new(fl_settings);
+        let mut protocol = Protocol::new(get_default_fl_settings());
         let client_id = ClientId::new();
 
         let resp = protocol.heartbeat(client_id, ClientState::Waiting);
@@ -876,13 +777,7 @@ mod tests {
 
     #[test]
     fn test_heartbeat_done_participant() {
-        let fl_settings = FederatedLearningSettings {
-            rounds: 1,
-            participants_ratio: 1.0,
-            min_clients: 1,
-            heartbeat_timeout: 15,
-        };
-        let mut protocol = Protocol::new(fl_settings);
+        let mut protocol = Protocol::new(get_default_fl_settings());
         let client_id = ClientId::new();
 
         let resp = protocol.heartbeat(client_id, ClientState::Done);
@@ -897,13 +792,7 @@ mod tests {
 
     #[test]
     fn test_heartbeat_selected_participant() {
-        let fl_settings = FederatedLearningSettings {
-            rounds: 1,
-            participants_ratio: 1.0,
-            min_clients: 1,
-            heartbeat_timeout: 15,
-        };
-        let mut protocol = Protocol::new(fl_settings);
+        let mut protocol = Protocol::new(get_default_fl_settings());
         let client_id = ClientId::new();
 
         let resp = protocol.heartbeat(client_id, ClientState::Selected);
@@ -918,17 +807,9 @@ mod tests {
 
     #[test]
     fn test_heartbeat_training_complete() {
-        let fl_settings = FederatedLearningSettings {
-            rounds: 1,
-            participants_ratio: 1.0,
-            min_clients: 1,
-            heartbeat_timeout: 15,
-        };
-        let mut protocol = Protocol::new(fl_settings);
+        let mut protocol = Protocol::new(get_default_fl_settings());
         let client_id = ClientId::new();
-
         protocol.is_training_complete = true;
-
         let client_states = vec![
             ClientState::Unknown,
             ClientState::Ignored,
@@ -937,29 +818,22 @@ mod tests {
             ClientState::Selected,
             ClientState::Waiting,
         ];
+
         for state in client_states.iter() {
             let resp = protocol.heartbeat(client_id, *state);
 
             assert_eq!(HeartBeatResponse::Finish, resp);
-
             assert_eq!(
                 protocol.next_event().unwrap(),
                 Event::ResetHeartBeat(client_id)
             );
         }
-
         assert!(protocol.next_event().is_none());
     }
 
     #[test]
     fn test_start_training_selected_participant() {
-        let fl_settings = FederatedLearningSettings {
-            rounds: 1,
-            participants_ratio: 1.0,
-            min_clients: 1,
-            heartbeat_timeout: 15,
-        };
-        let mut protocol = Protocol::new(fl_settings);
+        let mut protocol = Protocol::new(get_default_fl_settings());
 
         let resp = protocol.start_training(ClientState::Selected);
 
@@ -969,13 +843,7 @@ mod tests {
 
     #[test]
     fn test_start_training_selected_participant_training_complete() {
-        let fl_settings = FederatedLearningSettings {
-            rounds: 1,
-            participants_ratio: 1.0,
-            min_clients: 1,
-            heartbeat_timeout: 15,
-        };
-        let mut protocol = Protocol::new(fl_settings);
+        let mut protocol = Protocol::new(get_default_fl_settings());
         protocol.is_training_complete = true;
 
         let resp = protocol.start_training(ClientState::Selected);
@@ -986,14 +854,7 @@ mod tests {
 
     #[test]
     fn test_start_training_with_not_selected_participant() {
-        let fl_settings = FederatedLearningSettings {
-            rounds: 1,
-            participants_ratio: 1.0,
-            min_clients: 1,
-            heartbeat_timeout: 15,
-        };
-        let mut protocol = Protocol::new(fl_settings);
-
+        let mut protocol = Protocol::new(get_default_fl_settings());
         let client_states = vec![
             ClientState::Unknown,
             ClientState::Ignored,
@@ -1001,6 +862,7 @@ mod tests {
             ClientState::DoneAndInactive,
             ClientState::Waiting,
         ];
+
         for state in client_states.iter() {
             let resp = protocol.start_training(*state);
 
@@ -1011,15 +873,8 @@ mod tests {
 
     #[test]
     fn test_end_training_is_training_complete() {
-        let fl_settings = FederatedLearningSettings {
-            rounds: 1,
-            participants_ratio: 1.0,
-            min_clients: 1,
-            heartbeat_timeout: 15,
-        };
-        let mut protocol = Protocol::new(fl_settings);
+        let mut protocol = Protocol::new(get_default_fl_settings());
         let client_id = ClientId::new();
-
         protocol.is_training_complete = true;
 
         protocol.end_training(client_id, true, ClientState::Selected);
@@ -1027,32 +882,19 @@ mod tests {
 
     #[test]
     fn test_end_training_waiting_for_aggregation() {
-        let fl_settings = FederatedLearningSettings {
-            rounds: 1,
-            participants_ratio: 1.0,
-            min_clients: 1,
-            heartbeat_timeout: 15,
-        };
-        let mut protocol = Protocol::new(fl_settings);
+        let mut protocol = Protocol::new(get_default_fl_settings());
         let client_id = ClientId::new();
-
         protocol.waiting_for_aggregation = true;
 
         protocol.end_training(client_id, true, ClientState::Selected);
+
         assert!(protocol.next_event().is_none());
     }
 
     #[test]
     fn test_end_training_selected_participant_success_not_last_round() {
-        let fl_settings = FederatedLearningSettings {
-            rounds: 1,
-            participants_ratio: 1.0,
-            min_clients: 1,
-            heartbeat_timeout: 15,
-        };
-        let mut protocol = Protocol::new(fl_settings);
+        let mut protocol = Protocol::new(get_default_fl_settings());
         let client_id = ClientId::new();
-
         protocol.counters = Counters {
             waiting: 0,
             selected: 2,
@@ -1071,27 +913,19 @@ mod tests {
             done_and_inactive: 3,
             ignored: 2,
         };
-        assert_eq!(counters, expected);
 
+        assert_eq!(counters, expected);
         assert_eq!(
             protocol.next_event().unwrap(),
             Event::SetState(client_id, ClientState::Done)
         );
-
         assert!(protocol.next_event().is_none());
     }
 
     #[test]
     fn test_end_training_selected_participant_success_last_round() {
-        let fl_settings = FederatedLearningSettings {
-            rounds: 1,
-            participants_ratio: 1.0,
-            min_clients: 1,
-            heartbeat_timeout: 15,
-        };
-        let mut protocol = Protocol::new(fl_settings);
+        let mut protocol = Protocol::new(get_default_fl_settings());
         let client_id = ClientId::new();
-
         protocol.counters = Counters {
             waiting: 0,
             selected: 1,
@@ -1110,29 +944,21 @@ mod tests {
             done_and_inactive: 0,
             ignored: 0,
         };
-        assert_eq!(counters, expected);
 
+        assert_eq!(counters, expected);
         assert_eq!(
             protocol.next_event().unwrap(),
             Event::SetState(client_id, ClientState::Done)
         );
         assert_eq!(protocol.next_event().unwrap(), Event::RunAggregation);
         assert_eq!(protocol.next_event().unwrap(), Event::ResetAll);
-
         assert!(protocol.next_event().is_none());
     }
 
     #[test]
     fn test_end_training_selected_participant_no_success() {
-        let fl_settings = FederatedLearningSettings {
-            rounds: 1,
-            participants_ratio: 1.0,
-            min_clients: 1,
-            heartbeat_timeout: 15,
-        };
-        let mut protocol = Protocol::new(fl_settings);
+        let mut protocol = Protocol::new(get_default_fl_settings());
         let client_id = ClientId::new();
-
         protocol.counters = Counters {
             waiting: 0,
             selected: 2,
@@ -1151,13 +977,12 @@ mod tests {
             done_and_inactive: 3,
             ignored: 3,
         };
-        assert_eq!(counters, expected);
 
+        assert_eq!(counters, expected);
         assert_eq!(
             protocol.next_event().unwrap(),
             Event::SetState(client_id, ClientState::Ignored)
         );
-
         assert!(protocol.next_event().is_none());
     }
 
@@ -1202,13 +1027,7 @@ mod tests {
 
     #[test]
     fn test_end_aggregation_not_waiting_for_aggregation() {
-        let fl_settings = FederatedLearningSettings {
-            rounds: 1,
-            participants_ratio: 1.0,
-            min_clients: 1,
-            heartbeat_timeout: 15,
-        };
-        let mut protocol = Protocol::new(fl_settings);
+        let mut protocol = Protocol::new(get_default_fl_settings());
 
         protocol.end_aggregation(false);
 
@@ -1242,14 +1061,7 @@ mod tests {
 
     #[test]
     fn test_end_aggregation_waiting_for_aggregation_success_last_round() {
-        let fl_settings = FederatedLearningSettings {
-            rounds: 1,
-            participants_ratio: 1.0,
-            min_clients: 1,
-            heartbeat_timeout: 15,
-        };
-        let mut protocol = Protocol::new(fl_settings);
-
+        let mut protocol = Protocol::new(get_default_fl_settings());
         protocol.counters = Counters {
             selected: 1,
             ..Default::default()
@@ -1302,14 +1114,8 @@ mod tests {
         //     if self.current_round == self.settings.rounds {
         //         info!("training complete");
         //         self.is_training_complete = true;
-        //     } 
-        let fl_settings = FederatedLearningSettings {
-            rounds: 1,
-            participants_ratio: 1.0,
-            min_clients: 1,
-            heartbeat_timeout: 15,
-        };
-        let mut protocol = Protocol::new(fl_settings);
+        //     }
+        let mut protocol = Protocol::new(get_default_fl_settings());
 
         protocol.counters = Counters {
             selected: 1,
