@@ -1175,7 +1175,7 @@ mod tests {
         };
 
         let mut protocol = Protocol::new(settings);
-        let mut clients: Vec<(ClientId, ClientState)> = vec![];
+        let mut clients = Vec::new();
         for _ in 0..n_of_clients {
             clients.push((create_participant(&mut protocol), ClientState::Waiting))
         }
