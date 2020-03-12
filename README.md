@@ -24,16 +24,6 @@ each other:
 
 ## Running the Coordinator/ Aggregator locally
 
-### Examples
-
-To run the tensorflow example:
-
-```bash
-pip install python/sdk
-pip install tensorflow==1.15.2
-python python/client_examples/tf.py
-```
-
 ### Coordinator
 
 ```bash
@@ -80,3 +70,56 @@ docker-compose -f docker/docker-compose.yml -f docker/docker-compose-valgrind.ym
 docker logs docker_coordinator_1
 docker logs docker_aggregator_1
 ```
+
+### Running the python examples
+
+The examples are under [`./python/client_examples`](./python/client_examples).
+
+#### `dummy.py`
+
+Install the SDK: `pip install -e python/sdk`, then run the example:
+
+```
+cd python/client_examples
+python dummy.py \
+    --number-of-participants 1 \
+    --coordinator-url http://localhost:8081 \
+    --model-size 10
+```
+
+#### `keras_house_prices`
+
+**All the commands in this section are run from the
+`python/client_examples/keras_house_prices` directory.**
+
+1. Install the SDK and the example:
+
+```
+pip install -e ../../sdk
+pip install -e .
+```
+
+2. Download the dataset from Kaggle:
+   https://www.kaggle.com/c/house-prices-advanced-regression-techniques/data
+
+3. Extract the data (into
+   `python/client_examples/keras_house_prices/data/` here, but the
+   location doesn't matter):
+
+```
+(cd ./data ; unzip house-prices-advanced-regression-techniques.zip)
+```
+
+4. Prepare the data:
+
+```
+split-data --data-directory data --number-of-participants 10
+```
+
+5. Run one participant:
+
+```
+run-participant --data-directory data
+```
+
+6. Repeat the previous step to run more participants
