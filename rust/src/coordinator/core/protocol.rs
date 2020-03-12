@@ -1136,10 +1136,6 @@ mod tests {
         new_client
     }
 
-    fn drop_participant(protocol: &mut Protocol, client_id: ClientId, state: ClientState) {
-        protocol.heartbeat_timeout(client_id, state)
-    }
-
     fn select_and_start_training(
         protocol: &mut Protocol,
         candidates: Vec<(ClientId, ClientState)>,
