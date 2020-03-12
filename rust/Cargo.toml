@@ -8,8 +8,8 @@ edition = "2018"
 uuid = { version = "0.8.1", features = ["v4", "serde"] }
 log = "0.4.8"
 futures = "0.3.4"
-tokio = { version = "0.2.13", features = ["full"] }
-warp = "0.2.2"
+tokio = { version = "0.2.13", features = ["rt-core", "rt-threaded", "tcp", "time", "macros", "signal", "sync", "stream"] }
+warp = { version = "0.2.2", default-features = false, features = ["multipart"] }
 derive_more = { version = "0.99.3", default-features = false, features = [ "display", "from" ] }
 rand = "0.7.3"
 env_logger = "0.7.1"
@@ -19,7 +19,7 @@ pyo3 = "0.9.0-alpha.1"
 tokio-serde = { version = "0.6.0", features = [ "json" ] }
 stubborn-io = "0.1.8"
 bytes = "0.5.4"
-config = "0.10.1"
+config = { version = "0.10.1", default-features = false, features = [ "toml" ] }
 clap = "2.33.0"
 influxdb = "0.0.6"
 thiserror = "1.0.11"
