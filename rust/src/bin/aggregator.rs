@@ -1,6 +1,7 @@
 use clap::{App, Arg};
 use std::{env, process};
 use tokio::{signal::ctrl_c, sync::mpsc};
+use tracing_subscriber;
 use xain_fl::{
     aggregator::{
         api,
@@ -34,7 +35,7 @@ async fn main() {
         process::exit(1);
     });
     env::set_var("RUST_LOG", &settings.log_level);
-    env_logger::init();
+    tracing_subscriber::fmt::init();
 
     _main(settings).await;
 }

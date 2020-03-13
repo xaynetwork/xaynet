@@ -5,6 +5,7 @@ use clap::{App, Arg};
 use rand::seq::IteratorRandom;
 use std::{env, process};
 use tokio::sync::mpsc;
+use tracing_subscriber;
 
 use xain_fl::{
     aggregator,
@@ -39,8 +40,7 @@ async fn main() {
     });
 
     env::set_var("RUST_LOG", &settings.log_level);
-    let mut builder = env_logger::Builder::from_default_env();
-    builder.format_timestamp_micros().init();
+    tracing_subscriber::fmt::init();
 
     _main(settings).await;
 }
