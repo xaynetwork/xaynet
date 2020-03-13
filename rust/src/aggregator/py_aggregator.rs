@@ -268,3 +268,21 @@ pub enum PyAggregatorError {
     #[error("an unknown error occured while calling Python code: {0}")]
     Unknown(&'static str),
 }
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn test_py_aggregator_load() {
+        let settings = PythonAggregatorSettings {
+            module: String::from("xain_aggregators.weighted_average"),
+            class: String::from("Aggregator"),
+        };
+
+        let res = PyAggregator::load(settings);
+
+        assert!(res.is_ok());
+    }
+}
