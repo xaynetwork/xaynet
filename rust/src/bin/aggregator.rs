@@ -1,7 +1,7 @@
 use clap::{App, Arg};
 use std::{env, process};
 use tokio::{signal::ctrl_c, sync::mpsc};
-use tracing_subscriber;
+use tracing_subscriber::{fmt::time::ChronoUtc, FmtSubscriber};
 use xain_fl::{
     aggregator::{
         api,
@@ -35,7 +35,8 @@ async fn main() {
         process::exit(1);
     });
     env::set_var("RUST_LOG", &settings.log_level);
-    tracing_subscriber::fmt::init();
+
+    configure_tracing();
 
     _main(settings).await;
 }
@@ -97,4 +98,12 @@ async fn _main(settings: Settings) {
             }
         }
     }
+}
+
+fn configure_tracing() {
+    let subscriber = FmtSubscriber::builder()
+        .with_ansi(true)
+        .with_timer(ChronoUtc::rfc3339())
+        .finish();
+    tracing::subscriber::set_global_default(subscriber).expect("failed to setup tracing");
 }
