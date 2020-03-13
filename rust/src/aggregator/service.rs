@@ -157,26 +157,9 @@ where
     fn poll_rpc_requests(&mut self, cx: &mut Context) -> Poll<()> {
         trace!("polling RPC requests");
 
-        let mut stream = Pin::new(&mut self.rpc_requests);
         loop {
-            match ready!(stream.as_mut().poll_next(cx)) {
-                Some(rpc::Request::Select(((id, token), resp_tx))) => {
-                    info!("handling rpc request: select {}", id);
-                    self.allowed_ids.insert(id, token);
-                    if resp_tx.send(()).is_err() {
-                        warn!("RPC connection shut down, cannot send response back");
-                    }
-                }
-                Some(rpc::Request::Aggregate(resp_tx)) => {
-                    info!("handling rpc request: aggregate");
-                    // reset the known IDs.
-                    self.allowed_ids = HashMap::new();
-
-                    self.aggregation_future = Some(AggregationFuture {
-                        future: self.aggregator.aggregate(),
-                        response_tx: resp_tx,
-                    });
-                }
+            match ready!(Pin::new(&mut self.rpc_requests).poll_next(cx)) {
+                Some(rpc_request) => self.handle_rpc_request(rpc_request),
                 // The coordinator client disconnected. If the
                 // coordinator reconnect to the RPC server, a new
                 // AggregatorRpcHandle will be forwarded to us.
@@ -184,6 +167,37 @@ where
                     warn!("RPC server shut down");
                     return Poll::Ready(());
                 }
+            }
+        }
+    }
+
+    fn handle_rpc_request(&mut self, request: rpc::Request) {
+        let span = trace_span!("handle_rpc_request");
+        let _ = span.enter();
+        use rpc::Request::*;
+        info!(request=%request, "handling RPC request");
+        match request {
+            Select(select_request) => {
+                let rpc::SelectRequest {
+                    id,
+                    token,
+                    response_tx,
+                } = select_request;
+
+                info!(client = %id, "handling select request");
+                self.allowed_ids.insert(id, token);
+                if response_tx.send(()).is_err() {
+                    warn!(client = %id, "RPC connection shut down, cannot send response back", );
+                }
+            }
+            Aggregate(rpc::AggregateRequest { response_tx }) => {
+                info!("handling aggregate request");
+                self.allowed_ids = HashMap::new();
+
+                self.aggregation_future = Some(AggregationFuture {
+                    future: self.aggregator.aggregate(),
+                    response_tx,
+                });
             }
         }
     }
