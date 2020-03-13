@@ -1,4 +1,5 @@
 use crate::common::{ClientId, Token};
+use derive_more::Display;
 use futures::{future::TryFutureExt, ready, stream::Stream};
 use std::{
     future::Future,
@@ -68,15 +69,29 @@ impl Server {
 }
 
 /// An incoming [`AggregatorRpc::select`] RPC request
-pub type SelectRequest = ((ClientId, Token), oneshot::Sender<()>);
+#[derive(Display)]
+#[display(fmt = "Select({})", id)]
+pub struct SelectRequest {
+    pub id: ClientId,
+    pub token: Token,
+    pub response_tx: oneshot::Sender<()>,
+}
+
 /// An incoming [`AggregatorRpc::aggregate`] RPC request
-pub type AggregateRequest = oneshot::Sender<()>;
+#[derive(Display)]
+#[display(fmt = "Aggregate")]
+pub struct AggregateRequest {
+    pub response_tx: oneshot::Sender<()>,
+}
 
 /// An incoming RPC request
+#[derive(Display)]
 pub enum Request {
     /// An incoming [`AggregatorRpc::select`] RPC request
+    #[display(fmt = "{}", _0)]
     Select(SelectRequest),
     /// An incoming [`AggregatorRpc::aggregate`] RPC request
+    #[display(fmt = "{}", _0)]
     Aggregate(AggregateRequest),
 }
 
@@ -113,19 +128,27 @@ impl Rpc for Server {
 
     fn select(self, _: tarpc::context::Context, id: ClientId, token: Token) -> Self::SelectFut {
         debug!("received select request");
-        let (tx, rx) = oneshot::channel();
+        let (response_tx, response_rx) = oneshot::channel();
         Box::pin(async move {
-            self.select.send(((id, token), tx)).map_err(|_| ())?;
-            rx.map_err(|_| ()).await
+            self.select
+                .send(SelectRequest {
+                    id,
+                    token,
+                    response_tx,
+                })
+                .map_err(|_| ())?;
+            response_rx.map_err(|_| ()).await
         })
     }
 
     fn aggregate(self, _: tarpc::context::Context) -> Self::AggregateFut {
         debug!("received aggregate request");
-        let (tx, rx) = oneshot::channel();
+        let (response_tx, response_rx) = oneshot::channel();
         Box::pin(async move {
-            self.aggregate.send(tx).map_err(|_| ())?;
-            rx.map_err(|_| ()).await
+            self.aggregate
+                .send(AggregateRequest { response_tx })
+                .map_err(|_| ())?;
+            response_rx.map_err(|_| ()).await
         })
     }
 }
