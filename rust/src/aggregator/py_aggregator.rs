@@ -274,6 +274,10 @@ mod tests {
 
     use super::*;
 
+    fn get_weights() -> &'static [u8] {
+        b"\x00\x00\x00\x00\x80\x03cnumpy.core.multiarray\n_reconstruct\nq\x00cnumpy\nndarray\nq\x01K\x00\x85q\x02C\x01bq\x03\x87q\x04Rq\x05(K\x01K\n\x85q\x06cnumpy\ndtype\nq\x07X\x02\x00\x00\x00i8q\x08K\x00K\x01\x87q\tRq\n(K\x03X\x01\x00\x00\x00<q\x0bNNNJ\xff\xff\xff\xffJ\xff\xff\xff\xffK\x00tq\x0cb\x89CP\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00q\rtq\x0eb."
+    }
+
     #[test]
     fn test_py_aggregator_load() {
         // Load a new PyAggregator with valid settings.
@@ -324,7 +328,7 @@ mod tests {
     }
     #[test]
     fn test_py_aggregator_add_weights() {
-        // Call the add_weights method of an aggregator with a valid weight array.
+        // Call the add_weights method of an aggregator with an valid weight array.
         let settings = PythonAggregatorSettings {
             module: String::from("xain_aggregators.weighted_average"),
             class: String::from("Aggregator"),
@@ -339,10 +343,58 @@ mod tests {
         // weights = np.array([1] * 10)
         // training_result_data = int(0).to_bytes(4, byteorder="big") + pickle.dumps(weights)
         // print(training_result_data)
-        let weights = b"\x00\x00\x00\x00\x80\x03cnumpy.core.multiarray\n_reconstruct\nq\x00cnumpy\nndarray\nq\x01K\x00\x85q\x02C\x01bq\x03\x87q\x04Rq\x05(K\x01K\n\x85q\x06cnumpy\ndtype\nq\x07X\x02\x00\x00\x00i8q\x08K\x00K\x01\x87q\tRq\n(K\x03X\x01\x00\x00\x00<q\x0bNNNJ\xff\xff\xff\xffJ\xff\xff\xff\xffK\x00tq\x0cb\x89CP\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00q\rtq\x0eb.";
-
+        let weights = get_weights();
         let res = aggregator.add_weights(&weights[..]);
         assert!(res.is_ok());
         assert_eq!(res.ok().unwrap().ok(), Some(()));
+    }
+
+    #[test]
+    fn test_py_aggregator_add_weights_invaild_data() {
+        // Call the add_weights method of an aggregator with invaild data.
+        let settings = PythonAggregatorSettings {
+            module: String::from("xain_aggregators.weighted_average"),
+            class: String::from("Aggregator"),
+        };
+
+        let aggregator = PyAggregator::load(settings).unwrap();
+
+        let weights = [1, 2, 3, 4];
+
+        let res = aggregator.add_weights(&weights[..]);
+        assert!(res.is_err());
+        assert_eq!(
+            "call to `Aggregator.add_weights()` resulted in an exception".to_string(),
+            res.err().unwrap().to_string()
+        );
+    }
+
+    #[test]
+    fn test_py_aggregator_aggregate() {
+        // Call the aggregate method of an aggregator and verify that the aggregate function returns
+        // the right result.
+        let settings = PythonAggregatorSettings {
+            module: String::from("xain_aggregators.weighted_average"),
+            class: String::from("Aggregator"),
+        };
+
+        let mut aggregator = PyAggregator::load(settings).unwrap();
+
+        let weights = get_weights();
+
+        let _ = aggregator.add_weights(&weights[..]);
+
+        let res = aggregator.aggregate();
+
+        // aggregate returns an array of floats instead of integers.
+        //
+        // How to create the array via Python:
+        // import pickle
+        // import numpy as np
+        // weights = np.array([1.] * 10)
+        // print(pickle.dumps(weights))
+        let expect = b"\x80\x03cnumpy.core.multiarray\n_reconstruct\nq\x00cnumpy\nndarray\nq\x01K\x00\x85q\x02C\x01bq\x03\x87q\x04Rq\x05(K\x01K\n\x85q\x06cnumpy\ndtype\nq\x07X\x02\x00\x00\x00f8q\x08K\x00K\x01\x87q\tRq\n(K\x03X\x01\x00\x00\x00<q\x0bNNNJ\xff\xff\xff\xffJ\xff\xff\xff\xffK\x00tq\x0cb\x89CP\x00\x00\x00\x00\x00\x00\xf0?\x00\x00\x00\x00\x00\x00\xf0?\x00\x00\x00\x00\x00\x00\xf0?\x00\x00\x00\x00\x00\x00\xf0?\x00\x00\x00\x00\x00\x00\xf0?\x00\x00\x00\x00\x00\x00\xf0?\x00\x00\x00\x00\x00\x00\xf0?\x00\x00\x00\x00\x00\x00\xf0?\x00\x00\x00\x00\x00\x00\xf0?\x00\x00\x00\x00\x00\x00\xf0?q\rtq\x0eb.";
+        assert!(res.is_ok());
+        assert_eq!(res.ok().unwrap()[..], expect[..]);
     }
 }
