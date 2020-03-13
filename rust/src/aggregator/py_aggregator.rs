@@ -276,6 +276,7 @@ mod tests {
 
     #[test]
     fn test_py_aggregator_load() {
+        // Load a new PyAggregator with valid settings.
         let settings = PythonAggregatorSettings {
             module: String::from("xain_aggregators.weighted_average"),
             class: String::from("Aggregator"),
@@ -284,5 +285,64 @@ mod tests {
         let res = PyAggregator::load(settings);
 
         assert!(res.is_ok());
+    }
+
+    #[test]
+    fn test_py_aggregator_load_module_not_found() {
+        // Try to load a PyAggregator with a module that does not exist.
+        // The returned value should be an error.
+        let settings = PythonAggregatorSettings {
+            module: String::from("no_module"),
+            class: String::from("Aggregator"),
+        };
+
+        let res = PyAggregator::load(settings);
+
+        assert!(res.is_err());
+        assert_eq!(
+            "failed to load python module `no_module`".to_string(),
+            res.err().unwrap().to_string()
+        );
+    }
+
+    #[test]
+    fn test_py_aggregator_load_class_not_found() {
+        // Try to load a PyAggregator with a class that does not exist within the module.
+        // The returned value should be an error.
+        let settings = PythonAggregatorSettings {
+            module: String::from("xain_aggregators.weighted_average"),
+            class: String::from("no_class"),
+        };
+
+        let res = PyAggregator::load(settings);
+
+        assert!(res.is_err());
+        assert_eq!(
+            "failed to load python class `xain_aggregators.weighted_average.no_class`".to_string(),
+            res.err().unwrap().to_string()
+        );
+    }
+    #[test]
+    fn test_py_aggregator_add_weights() {
+        // Call the add_weights method of an aggregator with a valid weight array.
+        let settings = PythonAggregatorSettings {
+            module: String::from("xain_aggregators.weighted_average"),
+            class: String::from("Aggregator"),
+        };
+
+        let aggregator = PyAggregator::load(settings).unwrap();
+
+        // How to create a weights array via Python:
+        //
+        // import pickle
+        // import numpy as np
+        // weights = np.array([1] * 10)
+        // training_result_data = int(0).to_bytes(4, byteorder="big") + pickle.dumps(weights)
+        // print(training_result_data)
+        let weights = b"\x00\x00\x00\x00\x80\x03cnumpy.core.multiarray\n_reconstruct\nq\x00cnumpy\nndarray\nq\x01K\x00\x85q\x02C\x01bq\x03\x87q\x04Rq\x05(K\x01K\n\x85q\x06cnumpy\ndtype\nq\x07X\x02\x00\x00\x00i8q\x08K\x00K\x01\x87q\tRq\n(K\x03X\x01\x00\x00\x00<q\x0bNNNJ\xff\xff\xff\xffJ\xff\xff\xff\xffK\x00tq\x0cb\x89CP\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00q\rtq\x0eb.";
+
+        let res = aggregator.add_weights(&weights[..]);
+        assert!(res.is_ok());
+        assert_eq!(res.ok().unwrap().ok(), Some(()));
     }
 }
