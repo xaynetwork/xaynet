@@ -281,6 +281,7 @@ mod tests {
     #[test]
     fn test_py_aggregator_load() {
         // Load a new PyAggregator with valid settings.
+
         let settings = PythonAggregatorSettings {
             module: String::from("xain_aggregators.weighted_average"),
             class: String::from("Aggregator"),
@@ -295,6 +296,7 @@ mod tests {
     fn test_py_aggregator_load_module_not_found() {
         // Try to load a PyAggregator with a module that does not exist.
         // The returned value should be an error.
+
         let settings = PythonAggregatorSettings {
             module: String::from("no_module"),
             class: String::from("Aggregator"),
@@ -313,6 +315,7 @@ mod tests {
     fn test_py_aggregator_load_class_not_found() {
         // Try to load a PyAggregator with a class that does not exist within the module.
         // The returned value should be an error.
+
         let settings = PythonAggregatorSettings {
             module: String::from("xain_aggregators.weighted_average"),
             class: String::from("no_class"),
@@ -328,7 +331,9 @@ mod tests {
     }
     #[test]
     fn test_py_aggregator_add_weights() {
-        // Call the add_weights method of an aggregator with an valid weight array.
+        // Load a new PythonAggregator and call the add_weights method of an aggregator with an
+        // valid weight array.
+
         let settings = PythonAggregatorSettings {
             module: String::from("xain_aggregators.weighted_average"),
             class: String::from("Aggregator"),
@@ -350,8 +355,10 @@ mod tests {
     }
 
     #[test]
-    fn test_py_aggregator_add_weights_invaild_data() {
-        // Call the add_weights method of an aggregator with invaild data.
+    fn test_py_aggregator_add_weights_invalid_data() {
+        // Load a new PythonAggregator and call the add_weights method with invalid data.
+        // The returned value should be an error.
+
         let settings = PythonAggregatorSettings {
             module: String::from("xain_aggregators.weighted_average"),
             class: String::from("Aggregator"),
@@ -371,8 +378,10 @@ mod tests {
 
     #[test]
     fn test_py_aggregator_aggregate() {
-        // Call the aggregate method of an aggregator and verify that the aggregate function returns
-        // the right result.
+        // Load a new PythonAggregator and call the add_weights method with valid weight data.
+        // Call the aggregate method of the aggregator and verify that the returned value and the
+        // weight data are equal.
+
         let settings = PythonAggregatorSettings {
             module: String::from("xain_aggregators.weighted_average"),
             class: String::from("Aggregator"),
@@ -396,5 +405,162 @@ mod tests {
         let expect = b"\x80\x03cnumpy.core.multiarray\n_reconstruct\nq\x00cnumpy\nndarray\nq\x01K\x00\x85q\x02C\x01bq\x03\x87q\x04Rq\x05(K\x01K\n\x85q\x06cnumpy\ndtype\nq\x07X\x02\x00\x00\x00f8q\x08K\x00K\x01\x87q\tRq\n(K\x03X\x01\x00\x00\x00<q\x0bNNNJ\xff\xff\xff\xffJ\xff\xff\xff\xffK\x00tq\x0cb\x89CP\x00\x00\x00\x00\x00\x00\xf0?\x00\x00\x00\x00\x00\x00\xf0?\x00\x00\x00\x00\x00\x00\xf0?\x00\x00\x00\x00\x00\x00\xf0?\x00\x00\x00\x00\x00\x00\xf0?\x00\x00\x00\x00\x00\x00\xf0?\x00\x00\x00\x00\x00\x00\xf0?\x00\x00\x00\x00\x00\x00\xf0?\x00\x00\x00\x00\x00\x00\xf0?\x00\x00\x00\x00\x00\x00\xf0?q\rtq\x0eb.";
         assert!(res.is_ok());
         assert_eq!(res.ok().unwrap()[..], expect[..]);
+    }
+
+    #[test]
+    fn test_py_aggregator_aggregate_without_calling_add_weights() {
+        // Load a new PythonAggregator and call the aggregate method of the aggregator without
+        // calling the add_weights method before.
+        // The return value should be 0.0.
+
+        let settings = PythonAggregatorSettings {
+            module: String::from("xain_aggregators.weighted_average"),
+            class: String::from("Aggregator"),
+        };
+
+        let mut aggregator = PyAggregator::load(settings).unwrap();
+
+        let res = aggregator.aggregate();
+
+        let expect = b"\x80\x03cnumpy.core.multiarray\nscalar\nq\x00cnumpy\ndtype\nq\x01X\x02\x00\x00\x00f8q\x02K\x00K\x01\x87q\x03Rq\x04(K\x03X\x01\x00\x00\x00<q\x05NNNJ\xff\xff\xff\xffJ\xff\xff\xff\xffK\x00tq\x06bC\x08\x00\x00\x00\x00\x00\x00\x00\x00q\x07\x86q\x08Rq\t.";
+        assert!(res.is_ok());
+        assert_eq!(res.ok().unwrap()[..], expect[..]);
+    }
+
+    #[test]
+    fn test_py_aggregator_aggregate_with_error_on_add_weights() {
+        // Load a new PythonAggregator and call the add_weights method with invalid weight data.
+        // Call the aggregate method of the aggregator and verify that the aggregate method returns
+        // the value 0.0.
+
+        let settings = PythonAggregatorSettings {
+            module: String::from("xain_aggregators.weighted_average"),
+            class: String::from("Aggregator"),
+        };
+
+        let mut aggregator = PyAggregator::load(settings).unwrap();
+
+        let weights = [1, 2, 3, 4];
+
+        let res = aggregator.add_weights(&weights[..]);
+        assert!(res.is_err());
+
+        let res = aggregator.aggregate();
+
+        // represents 0.0
+        let expect = b"\x80\x03cnumpy.core.multiarray\nscalar\nq\x00cnumpy\ndtype\nq\x01X\x02\x00\x00\x00f8q\x02K\x00K\x01\x87q\x03Rq\x04(K\x03X\x01\x00\x00\x00<q\x05NNNJ\xff\xff\xff\xffJ\xff\xff\xff\xffK\x00tq\x06bC\x08\x00\x00\x00\x00\x00\x00\x00\x00q\x07\x86q\x08Rq\t.";
+        assert!(res.is_ok());
+        assert_eq!(res.ok().unwrap()[..], expect[..]);
+    }
+
+    #[test]
+    fn test_py_aggregator_get_global_weights() {
+        // Load a new PythonAggregator and call the add_weights method with valid weight data.
+        // Call the aggregate method of the aggregator and verify that the returned value and the
+        // weight data are equal.
+        // Call the get_global_weights method of the aggregator and verify that the returned value
+        // and the weight data are equal.
+
+        let settings = PythonAggregatorSettings {
+            module: String::from("xain_aggregators.weighted_average"),
+            class: String::from("Aggregator"),
+        };
+
+        let mut aggregator = PyAggregator::load(settings).unwrap();
+
+        let weights = get_weights();
+
+        let _ = aggregator.add_weights(&weights[..]);
+
+        let res = aggregator.aggregate();
+
+        // represents np.array([1.] * 10)
+        let expect = b"\x80\x03cnumpy.core.multiarray\n_reconstruct\nq\x00cnumpy\nndarray\nq\x01K\x00\x85q\x02C\x01bq\x03\x87q\x04Rq\x05(K\x01K\n\x85q\x06cnumpy\ndtype\nq\x07X\x02\x00\x00\x00f8q\x08K\x00K\x01\x87q\tRq\n(K\x03X\x01\x00\x00\x00<q\x0bNNNJ\xff\xff\xff\xffJ\xff\xff\xff\xffK\x00tq\x0cb\x89CP\x00\x00\x00\x00\x00\x00\xf0?\x00\x00\x00\x00\x00\x00\xf0?\x00\x00\x00\x00\x00\x00\xf0?\x00\x00\x00\x00\x00\x00\xf0?\x00\x00\x00\x00\x00\x00\xf0?\x00\x00\x00\x00\x00\x00\xf0?\x00\x00\x00\x00\x00\x00\xf0?\x00\x00\x00\x00\x00\x00\xf0?\x00\x00\x00\x00\x00\x00\xf0?\x00\x00\x00\x00\x00\x00\xf0?q\rtq\x0eb.";
+        assert!(res.is_ok());
+        assert_eq!(res.ok().unwrap()[..], expect[..]);
+
+        let res = aggregator.get_global_weights();
+        assert!(res.is_ok());
+        assert_eq!(res.ok().unwrap()[..], expect[..]);
+    }
+
+    #[test]
+    fn test_py_aggregator_get_global_weights_without_calling_add_weights() {
+        // Load a new PythonAggregator and call the get_global_weights method of the aggregator
+        // without calling the add_weights or the aggregate method before.
+        // The return value should be "None".
+
+        let settings = PythonAggregatorSettings {
+            module: String::from("xain_aggregators.weighted_average"),
+            class: String::from("Aggregator"),
+        };
+
+        let aggregator = PyAggregator::load(settings).unwrap();
+
+        // represents "None"
+        let expect = b"\x80\x03N.";
+        let res = aggregator.get_global_weights();
+        assert!(res.is_ok());
+        assert_eq!(res.ok().unwrap()[..], expect[..]);
+    }
+
+    #[test]
+    fn test_py_aggregator_reset() {
+        // Load a new PythonAggregator and set the global weights to
+        // [1., 1., 1., 1., 1., 1., 1., 1., 1., 1.,] via the methods add_weights and aggregate.
+        // Reset the global weights data to [2., 2., 2., 2., 2., 2., 2., 2., 2., 2.,] via the
+        // reset method of the aggregator. Verify that get_global_weights returns the same data
+        // as we passed to the reset method.
+
+        let settings = PythonAggregatorSettings {
+            module: String::from("xain_aggregators.weighted_average"),
+            class: String::from("Aggregator"),
+        };
+
+        let mut aggregator = PyAggregator::load(settings).unwrap();
+
+        let weights = get_weights();
+        let _ = aggregator.add_weights(&weights[..]);
+        let _ = aggregator.aggregate();
+
+        // import numpy as np
+        // import pickle
+        // weights = np.array([2.] * 10)
+        // print(pickle.dumps(weights))
+        let global_weights = b"\x80\x03cnumpy.core.multiarray\n_reconstruct\nq\x00cnumpy\nndarray\nq\x01K\x00\x85q\x02C\x01bq\x03\x87q\x04Rq\x05(K\x01K\n\x85q\x06cnumpy\ndtype\nq\x07X\x02\x00\x00\x00f8q\x08K\x00K\x01\x87q\tRq\n(K\x03X\x01\x00\x00\x00<q\x0bNNNJ\xff\xff\xff\xffJ\xff\xff\xff\xffK\x00tq\x0cb\x89CP\x00\x00\x00\x00\x00\x00\x00@\x00\x00\x00\x00\x00\x00\x00@\x00\x00\x00\x00\x00\x00\x00@\x00\x00\x00\x00\x00\x00\x00@\x00\x00\x00\x00\x00\x00\x00@\x00\x00\x00\x00\x00\x00\x00@\x00\x00\x00\x00\x00\x00\x00@\x00\x00\x00\x00\x00\x00\x00@\x00\x00\x00\x00\x00\x00\x00@\x00\x00\x00\x00\x00\x00\x00@q\rtq\x0eb.";
+
+        let res = aggregator.reset(&global_weights[..]);
+        assert!(res.is_ok());
+        assert_eq!(res.ok(), Some(()));
+        assert_eq!(
+            aggregator.get_global_weights().ok().unwrap()[..],
+            global_weights[..]
+        );
+    }
+
+    #[test]
+    fn test_py_aggregator_reset_invalid_global_weights() {
+        // Load a new PythonAggregator and call the reset method with invalid data.
+        // The returned value should be an error.
+
+        let settings = PythonAggregatorSettings {
+            module: String::from("xain_aggregators.weighted_average"),
+            class: String::from("Aggregator"),
+        };
+
+        let mut aggregator = PyAggregator::load(settings).unwrap();
+
+        let weights = get_weights();
+        let _ = aggregator.add_weights(&weights[..]);
+        let _ = aggregator.aggregate();
+
+        let global_weights = [1, 2, 3, 4];
+
+        let res = aggregator.reset(&global_weights[..]);
+        assert!(res.is_err());
+        assert_eq!(
+            "call to `Aggregator.reset()` resulted in an exception".to_string(),
+            res.err().unwrap().to_string()
+        );
     }
 }
