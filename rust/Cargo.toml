@@ -6,13 +6,11 @@ edition = "2018"
 
 [dependencies]
 uuid = { version = "0.8.1", features = ["v4", "serde"] }
-log = "0.4.8"
 futures = "0.3.4"
 tokio = { version = "0.2.13", features = ["rt-core", "rt-threaded", "tcp", "time", "macros", "signal", "sync", "stream"] }
 warp = { version = "0.2.2", default-features = false, features = ["multipart"] }
 derive_more = { version = "0.99.3", default-features = false, features = [ "display", "from" ] }
 rand = "0.7.3"
-env_logger = "0.7.1"
 tarpc = { version = "0.20.0", features = [ "full" ] }
 serde = { version = "1.0.104", features = [ "derive" ] }
 pyo3 = "0.9.0-alpha.1"

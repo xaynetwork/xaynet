@@ -1,5 +1,5 @@
 #[macro_use]
-extern crate log;
+extern crate tracing;
 
 use clap::{App, Arg};
 use rand::seq::IteratorRandom;

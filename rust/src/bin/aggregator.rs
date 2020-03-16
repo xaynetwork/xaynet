@@ -1,7 +1,7 @@
 use clap::{App, Arg};
 use std::{env, process};
 use tokio::{signal::ctrl_c, sync::mpsc};
-use tracing_subscriber::{fmt::time::ChronoUtc, FmtSubscriber};
+use tracing_subscriber::{filter::EnvFilter, fmt::time::ChronoUtc, FmtSubscriber};
 use xain_fl::{
     aggregator::{
         api,
@@ -13,7 +13,7 @@ use xain_fl::{
     coordinator,
 };
 #[macro_use]
-extern crate log;
+extern crate tracing;
 
 #[tokio::main]
 async fn main() {
@@ -104,6 +104,7 @@ fn configure_tracing() {
     let subscriber = FmtSubscriber::builder()
         .with_ansi(true)
         .with_timer(ChronoUtc::rfc3339())
+        .with_env_filter(EnvFilter::from_default_env())
         .finish();
     tracing::subscriber::set_global_default(subscriber).expect("failed to setup tracing");
 }
