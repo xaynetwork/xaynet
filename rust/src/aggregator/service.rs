@@ -203,30 +203,33 @@ where
     }
 
     fn poll_aggregation(&mut self, cx: &mut Context) {
-        if let Some(AggregationFuture {
+        let future = if let Some(future) = self.aggregation_future.take() {
+            future
+        } else {
+            return;
+        };
+        let AggregationFuture {
             mut future,
             response_tx,
-        }) = self.aggregation_future.take()
-        {
-            match Pin::new(&mut future).poll(cx) {
-                Poll::Ready(Ok(weights)) => {
-                    self.global_weights = weights;
-                    if response_tx.send(()).is_err() {
-                        error!("failed to send aggregation response to RPC task: receiver dropped");
-                    }
+        } = future;
+        match Pin::new(&mut future).poll(cx) {
+            Poll::Ready(Ok(weights)) => {
+                self.global_weights = weights;
+                if response_tx.send(()).is_err() {
+                    error!("failed to send aggregation response to RPC task: receiver dropped");
                 }
-                Poll::Ready(Err(_)) => {
-                    // no need to send a response. By dropping the
-                    // `response_tx` channel, the RPC task will send
-                    // an error.
-                    error!("aggregation failed");
-                }
-                Poll::Pending => {
-                    self.aggregation_future = Some(AggregationFuture {
-                        future,
-                        response_tx,
-                    });
-                }
+            }
+            Poll::Ready(Err(_)) => {
+                // no need to send a response. By dropping the
+                // `response_tx` channel, the RPC task will send
+                // an error.
+                error!("aggregation failed");
+            }
+            Poll::Pending => {
+                self.aggregation_future = Some(AggregationFuture {
+                    future,
+                    response_tx,
+                });
             }
         }
     }
