@@ -3,13 +3,13 @@ extern crate tracing;
 
 use clap::{App, Arg};
 use rand::seq::IteratorRandom;
-use std::{env, process};
-use tokio::sync::mpsc;
-use tracing_subscriber;
+use std::process;
+use tokio::{signal::ctrl_c, sync::mpsc};
+use tracing_futures::Instrument;
 
 use xain_fl::{
     aggregator,
-    common::ClientId,
+    common::{client::ClientId, logging},
     coordinator::{
         api,
         core::{CoordinatorService, Selector},
@@ -39,10 +39,10 @@ async fn main() {
         process::exit(1);
     });
 
-    env::set_var("RUST_LOG", &settings.log_level);
-    tracing_subscriber::fmt::init();
+    logging::configure(settings.logging.clone());
 
-    _main(settings).await;
+    let span = trace_span!("root");
+    _main(settings).instrument(span).await;
 }
 
 async fn _main(settings: Settings) {
@@ -63,7 +63,9 @@ async fn _main(settings: Settings) {
     let rpc_server_task_handle =
         tokio::spawn(rpc::serve(rpc.bind_address.clone(), rpc_request_stream_tx));
     let rpc_requests = rpc::RpcRequestsMux::new(rpc_request_stream_rx);
+    let rpc_client_span = trace_span!("rpc_client");
     let rpc_client = aggregator::rpc::client_connect(rpc.aggregator_address.clone())
+        .instrument(rpc_client_span.clone())
         .await
         .unwrap();
 
@@ -83,10 +85,13 @@ async fn _main(settings: Settings) {
         metric_sender,
     );
 
-    let api_task_handle = tokio::spawn(async move { api::serve(&api.bind_address, handle).await });
+    let api_task_handle = tokio::spawn(
+        async move { api::serve(&api.bind_address, handle).await }
+            .instrument(trace_span!("api_server")),
+    );
 
     tokio::select! {
-        _ = service => {
+        _ = service.instrument(trace_span!("service")) => {
             info!("shutting down: CoordinatorService terminated");
         }
         _ = api_task_handle => {
@@ -94,6 +99,13 @@ async fn _main(settings: Settings) {
         }
         _ = rpc_server_task_handle => {
             info!("shutting down: RPC server task terminated");
+        }
+        result = ctrl_c() => {
+            match result {
+                Ok(()) => info!("shutting down: received SIGINT"),
+                Err(e) => error!("shutting down: error while waiting for SIGINT: {}", e),
+
+            }
         }
     }
 }

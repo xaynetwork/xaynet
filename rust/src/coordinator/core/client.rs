@@ -1,5 +1,5 @@
 use super::{heartbeat::*, protocol::*};
-use crate::common::ClientId;
+use crate::common::client::ClientId;
 use derive_more::Display;
 use std::{
     collections::{HashMap, HashSet},

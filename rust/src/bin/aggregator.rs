@@ -1,7 +1,7 @@
 use clap::{App, Arg};
-use std::{env, process};
+use std::process;
 use tokio::{signal::ctrl_c, sync::mpsc};
-use tracing_subscriber::{filter::EnvFilter, fmt::time::ChronoUtc, FmtSubscriber};
+use tracing_futures::Instrument;
 use xain_fl::{
     aggregator::{
         api,
@@ -10,6 +10,7 @@ use xain_fl::{
         service::AggregatorService,
         settings::{AggregationSettings, Settings},
     },
+    common::logging,
     coordinator,
 };
 #[macro_use]
@@ -34,11 +35,11 @@ async fn main() {
         eprintln!("Problem parsing configuration file: {}", err);
         process::exit(1);
     });
-    env::set_var("RUST_LOG", &settings.log_level);
 
-    configure_tracing();
+    logging::configure(settings.logging.clone());
 
-    _main(settings).await;
+    let span = trace_span!("root");
+    _main(settings).instrument(span).await;
 }
 
 async fn _main(settings: Settings) {
@@ -54,11 +55,17 @@ async fn _main(settings: Settings) {
     // client, because if both the aggregator and the coordinator
     // attempt to connect to each other before the servers are
     // started, we end up in a deadlock.
-    let rpc_server_task_handle =
-        tokio::spawn(rpc::serve(rpc.bind_address.clone(), rpc_request_stream_tx));
+    let rpc_server_address = rpc.bind_address.clone();
+    let rpc_server_task_handle = tokio::spawn(
+        async move { rpc::serve(rpc_server_address, rpc_request_stream_tx).await }
+            .instrument(trace_span!("rpc_server")),
+    );
+
     let rpc_requests = rpc::RpcRequestsMux::new(rpc_request_stream_rx);
 
+    let rpc_client_span = trace_span!("rpc_client");
     let rpc_client = coordinator::rpc::client_connect(rpc.coordinator_address.clone())
+        .instrument(rpc_client_span.clone())
         .await
         .unwrap();
 
@@ -75,10 +82,13 @@ async fn _main(settings: Settings) {
     let (service, handle) = AggregatorService::new(aggregator, rpc_client, rpc_requests);
 
     // Spawn the task that provides the public HTTP API.
-    let api_task_handle = tokio::spawn(async move { api::serve(&api.bind_address, handle).await });
+    let api_task_handle = tokio::spawn(
+        async move { api::serve(&api.bind_address, handle).await }
+            .instrument(trace_span!("api_server")),
+    );
 
     tokio::select! {
-        _ = service => {
+        _ = service.instrument(trace_span!("service")) => {
             info!("shutting down: AggregatorService terminated");
         }
         _ = aggregator_task_handle => {
@@ -98,13 +108,4 @@ async fn _main(settings: Settings) {
             }
         }
     }
-}
-
-fn configure_tracing() {
-    let subscriber = FmtSubscriber::builder()
-        .with_ansi(true)
-        .with_timer(ChronoUtc::rfc3339())
-        .with_env_filter(EnvFilter::from_default_env())
-        .finish();
-    tracing::subscriber::set_global_default(subscriber).expect("failed to setup tracing");
 }

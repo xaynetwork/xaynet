@@ -1,6 +1,6 @@
-use crate::common::{ClientId, Token};
+use crate::common::client::{ClientId, Token};
 use derive_more::Display;
-use futures::{future::TryFutureExt, ready, stream::Stream};
+use futures::{ready, stream::Stream};
 use std::{
     future::Future,
     io, iter,
@@ -14,6 +14,7 @@ use tarpc::{
     rpc::server::{BaseChannel, Channel},
     serde_transport::{tcp::listen, Transport},
 };
+use tracing_futures::Instrument;
 
 use tokio::{
     net::ToSocketAddrs,
@@ -23,7 +24,7 @@ use tokio::{
 use tokio_serde::formats::Json;
 
 mod inner {
-    use crate::common::{ClientId, Token};
+    use crate::common::client::{ClientId, Token};
 
     #[tarpc::service]
     /// Definition of the methods exposed by the aggregator RPC service.
@@ -127,29 +128,51 @@ impl Rpc for Server {
     type AggregateFut = Pin<Box<dyn Future<Output = Result<(), ()>> + Send>>;
 
     fn select(self, _: tarpc::context::Context, id: ClientId, token: Token) -> Self::SelectFut {
-        debug!("received select request");
+        debug!("handling select request");
         let (response_tx, response_rx) = oneshot::channel();
-        Box::pin(async move {
-            self.select
-                .send(SelectRequest {
-                    id,
-                    token,
-                    response_tx,
-                })
-                .map_err(|_| ())?;
-            response_rx.map_err(|_| ()).await
-        })
+
+        let span = trace_span!("rpc_select_handler", client_id = %id);
+        Box::pin(
+            async move {
+                trace!("forwarding request");
+                self.select
+                    .send(SelectRequest {
+                        id,
+                        token,
+                        response_tx,
+                    })
+                    .map_err(|_| warn!("could not forward request: channel full or closed"))?;
+                trace!("awaiting for the response");
+                let response = response_rx
+                    .await
+                    .map_err(|_recv_err| warn!("failed to receive response: channel closed"));
+                trace!("received response");
+                response
+            }
+            .instrument(span),
+        )
     }
 
     fn aggregate(self, _: tarpc::context::Context) -> Self::AggregateFut {
-        debug!("received aggregate request");
+        debug!("handling aggregate request");
         let (response_tx, response_rx) = oneshot::channel();
-        Box::pin(async move {
-            self.aggregate
-                .send(AggregateRequest { response_tx })
-                .map_err(|_| ())?;
-            response_rx.map_err(|_| ()).await
-        })
+
+        let span = trace_span!("rpc_aggregate_handler");
+        Box::pin(
+            async move {
+                trace!("forwarding request");
+                self.aggregate
+                    .send(AggregateRequest { response_tx })
+                    .map_err(|_| warn!("could not forward request: channel full or closed"))?;
+                trace!("awaiting for the response");
+                let response = response_rx
+                    .await
+                    .map_err(|_recv_err| warn!("failed to receive response: channel closed"));
+                trace!("received response");
+                response
+            }
+            .instrument(span),
+        )
     }
 }
 
@@ -177,44 +200,45 @@ impl RpcRequestsMux {
 impl Stream for RpcRequestsMux {
     type Item = Request;
 
+    #[allow(clippy::cognitive_complexity)]
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-        trace!("polling RpcRequestsMux");
-
         let Self {
             ref mut requests,
             ref mut streams,
         } = self.get_mut();
 
+        trace!("polling");
+
         // If we have a requests channel poll it
         if let Some(stream) = requests {
             if let Some(item) = ready!(Pin::new(stream).poll_next(cx)) {
-                trace!("RequestStream: received new request");
+                trace!("new request from request stream");
                 return Poll::Ready(Some(item));
             } else {
-                debug!("RequestStream closed");
+                debug!("request stream closed");
                 *requests = None;
             }
         }
 
-        trace!("no RequestStream, polling the RequestStream receiver");
+        trace!("no request stream, checking if there is a new request stream ready");
         let mut pin = Pin::new(streams);
 
         loop {
             if let Some(mut stream) = ready!(pin.as_mut().poll_next(cx)) {
-                trace!("received new RequeStream, polling it");
+                trace!("received new request stream, polling it");
                 match Pin::new(&mut stream).poll_next(cx) {
                     Poll::Ready(Some(item)) => {
-                        trace!("RequestStream: received new request");
+                        trace!("received new request");
                         *requests = Some(stream);
                         return Poll::Ready(Some(item));
                     }
                     Poll::Ready(None) => {
                         // This is suspect, let's log a warning here
-                        warn!("RequestStream: closed already ???");
+                        warn!("request stream closed already ???");
                     }
                     Poll::Pending => {
                         // This should be the most common case
-                        trace!("RequestStream: no request yet");
+                        trace!("no request yet");
                         *requests = Some(stream);
                         // Note that it is important not to return
                         // here. We MUST poll the `streams` future
@@ -258,7 +282,11 @@ pub async fn serve<A: ToSocketAddrs + Send + Sync + 'static>(
                     continue;
                 }
                 let handler = channel.respond_with(server.serve());
-                handler.execute().await;
+                handler
+                    .execute()
+                    // FIXME: add peer to span
+                    .instrument(trace_span!("rpc_handler"))
+                    .await;
             }
             Err(e) => error!("failed to accept RPC connection: {:?}", e),
         }
