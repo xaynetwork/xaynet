@@ -24,15 +24,20 @@ each other:
 
 ## Running the Coordinator/ Aggregator locally
 
-There are two gotchas to keep in mind for compiling the project:
-
-- the project currently requires rust nightly
-- the `cargo` command must be run from within the `rust/` directory.
+The project currently requires rust nightly so the nightly toolchain must be
+installed to compile the project.
 
 ### Coordinator
 
+The `cargo` command can be run either from the `./rust` directory, or from the
+repository's root, in which case the `--manifest-path` must be specified.
+
 ```bash
+# If in ./rust
 cargo run --bin coordinator -- -c ../configs/dev-coordinator.toml
+
+# Or if at the repo's root
+cargo run --bin coordinator --manifest-path rust/Cargo.toml -- -c configs/dev-coordinator.toml
 ```
 
 ### Aggregator
@@ -43,15 +48,19 @@ these aggregators can be found in `python/aggregators`. In
 order to use them that package must be installed:
 
 ```bash
-pip install python/aggregators/xain_aggregators
+pip install python/aggregators
 # or for development:
-pip install -e python/aggregators/xain_aggregators
+pip install -e python/aggregators
 ```
 
 Then the aggregator can be started with:
 
 ```bash
+# If in ./rust
 cargo run --bin aggregator -- -c ../configs/dev-aggregator.toml
+
+# Or if at the repo's root
+cargo run --bin aggregator --manifest-path rust/Cargo.toml -- -c configs/dev-aggregator.toml
 ```
 
 ### Docker-compose
@@ -138,8 +147,9 @@ run-participant --data-directory data
 
 __Solution:__
 
+Make sure that you install the module globally and not within a virtualenv.
+
 ```shell
-# Make sure that you install the module globally and not within a virtualenv.
 cd python/
 pip install aggregators/
 ```
