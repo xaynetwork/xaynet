@@ -24,10 +24,15 @@ each other:
 
 ## Running the Coordinator/ Aggregator locally
 
+There are two gotchas to keep in mind for compiling the project:
+
+- the project currently requires rust nightly
+- the `cargo` command must be run from within the `rust/` directory.
+
 ### Coordinator
 
 ```bash
-cargo run --bin coordinator -- -c configs/dev-coordinator.toml
+cargo run --bin coordinator -- -c ../configs/dev-coordinator.toml
 ```
 
 ### Aggregator
@@ -46,7 +51,7 @@ pip install -e python/aggregators/xain_aggregators
 Then the aggregator can be started with:
 
 ```bash
-cargo run --bin aggregator -- -c configs/dev-aggregator.toml
+cargo run --bin aggregator -- -c ../configs/dev-aggregator.toml
 ```
 
 ### Docker-compose
