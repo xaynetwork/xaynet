@@ -128,3 +128,18 @@ run-participant --data-directory data
 ```
 
 6. Repeat the previous step to run more participants
+
+
+## Troubleshooting 
+
+### py_aggregator.rs tests are failing on macOS
+
+**Error: `ModuleNotFoundError: No module named 'xain_aggregators'`**
+
+__Solution:__
+
+```shell
+# Make sure that you install the module globally and not within a virtualenv.
+cd python/
+pip install aggregators/
+```
