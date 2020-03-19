@@ -1,13 +1,13 @@
 use clap::{App, Arg};
 use std::process;
-use tokio::{signal::ctrl_c, sync::mpsc};
+use tokio::signal::ctrl_c;
 use tracing_futures::Instrument;
 use xain_fl::{
     aggregator::{
         api,
         py_aggregator::spawn_py_aggregator,
         rpc,
-        service::AggregatorService,
+        service::{Service, ServiceHandle},
         settings::{AggregationSettings, Settings},
     },
     common::logging,
@@ -50,18 +50,10 @@ async fn _main(settings: Settings) {
         ..
     } = settings;
 
-    let (rpc_request_stream_tx, rpc_request_stream_rx) = mpsc::channel(1);
-    // It is important to start the RPC server before starting an RPC
-    // client, because if both the aggregator and the coordinator
-    // attempt to connect to each other before the servers are
-    // started, we end up in a deadlock.
-    let rpc_server_address = rpc.bind_address.clone();
-    let rpc_server_task_handle = tokio::spawn(
-        async move { rpc::serve(rpc_server_address, rpc_request_stream_tx).await }
-            .instrument(trace_span!("rpc_server")),
-    );
-
-    let rpc_requests = rpc::RpcRequestsMux::new(rpc_request_stream_rx);
+    let (service_handle, service_requests) = ServiceHandle::new();
+    let rpc_server = rpc::serve(rpc.bind_address.clone(), service_handle.clone())
+        .instrument(trace_span!("rpc_server"));
+    let rpc_server_task_handle = tokio::spawn(rpc_server);
 
     let rpc_client_span = trace_span!("rpc_client");
     let rpc_client = coordinator::rpc::client_connect(rpc.coordinator_address.clone())
@@ -79,17 +71,17 @@ async fn _main(settings: Settings) {
     // background thread to finish.
     let aggregator_task_handle = tokio::spawn(async move { shutdown_rx.recv().await });
 
-    let (service, handle) = AggregatorService::new(aggregator, rpc_client, rpc_requests);
-
     // Spawn the task that provides the public HTTP API.
     let api_task_handle = tokio::spawn(
-        async move { api::serve(&api.bind_address, handle).await }
+        async move { api::serve(&api.bind_address, service_handle.clone()).await }
             .instrument(trace_span!("api_server")),
     );
 
+    let service = Service::new(aggregator, rpc_client, service_requests);
+
     tokio::select! {
         _ = service.instrument(trace_span!("service")) => {
-            info!("shutting down: AggregatorService terminated");
+            info!("shutting down: Service terminated");
         }
         _ = aggregator_task_handle => {
             info!("shutting down: Aggregator terminated");

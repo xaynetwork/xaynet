@@ -1,19 +1,19 @@
 use crate::{
     common::client::ClientId,
-    coordinator::{core::CoordinatorHandle, models::json::*},
+    coordinator::{core::ServiceHandle, models::json::*},
 };
 use tokio::net::TcpListener;
 use tracing_futures::Instrument;
 use warp::Filter;
 
-pub async fn serve(bind_address: &str, handle: CoordinatorHandle) {
+pub async fn serve(bind_address: &str, handle: ServiceHandle) {
     let handle = warp::any().map(move || handle.clone());
     let parent_span = tracing::Span::current();
 
     let heartbeat = warp::path!("heartbeat" / ClientId)
         .and(warp::get())
         .and(handle.clone())
-        .and_then(move |id, mut handle: CoordinatorHandle| {
+        .and_then(move |id, handle: ServiceHandle| {
             let span =
                 trace_span!(parent: parent_span.clone(), "api_heartbeat_request", client_id = %id);
             async move {
@@ -29,7 +29,7 @@ pub async fn serve(bind_address: &str, handle: CoordinatorHandle) {
     let rendez_vous = warp::path!("rendez_vous")
         .and(warp::get())
         .and(handle.clone())
-        .and_then(move |mut handle: CoordinatorHandle| {
+        .and_then(move |handle: ServiceHandle| {
             let span = trace_span!(parent: parent_span.clone(), "api_rendez_vous_request");
             async move {
                 match handle.rendez_vous().await {
@@ -44,7 +44,7 @@ pub async fn serve(bind_address: &str, handle: CoordinatorHandle) {
     let start_training = warp::path!("start_training" / ClientId)
         .and(warp::get())
         .and(handle.clone())
-        .and_then(move |id, mut handle: CoordinatorHandle| {
+        .and_then(move |id, handle: ServiceHandle| {
             let span =
                 trace_span!(parent: parent_span.clone(), "api_start_training_request", client_id = %id);
             async move {

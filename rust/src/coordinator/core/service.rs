@@ -1,46 +1,33 @@
-// Notes about a potential flaw in our current implementation
-//
-// 1. client restarts just becore sending an heartbeat and sends rdv request
-// 2. state machine emit event to accept but ignore the client
-// 3. we reset the client's heartbeat but the client's heartbeat expires just before (this kind of race is possible)
-// 4. we remove the client
-// 5. subsequent heartbeats are rejected.
-// 6. the client restarts
-// 7. we accept the client and make it selectable => this can be a problem if the client already took part to the round.
-//
-// Steps 5. and 7. are problematic, but how much? The race at step
-// 3. is very unlikely, but we may still run into it.
-
-use std::{
-    fmt::Debug,
-    future::Future,
-    pin::Pin,
-    task::{Context, Poll},
-    time::Duration,
-};
-use tokio::sync::mpsc::UnboundedSender;
-
-use derive_more::Display;
-use futures::{ready, stream::Stream};
-use influxdb::Type;
-use tokio::sync::{mpsc, oneshot};
-
 use crate::{
     aggregator,
-    common::client::{ClientId, Token},
+    common::client::{ClientId, Credentials, Token},
     coordinator::{
         core::{
             client::{Clients, HeartBeatResetError},
             protocol,
         },
         models::{HeartBeatResponse, RendezVousResponse, StartTrainingResponse},
-        rpc,
         settings::FederatedLearningSettings,
     },
     metric_store::influxdb::{Metric, MetricOwner},
 };
-
+use derive_more::From;
+use futures::{ready, stream::Stream};
+use influxdb::Type;
+use std::{
+    future::Future,
+    pin::Pin,
+    task::{Context, Poll},
+    time::Duration,
+};
 use tarpc::context::current as rpc_context;
+use tokio::{
+    stream::StreamExt,
+    sync::{
+        mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
+        oneshot,
+    },
+};
 
 struct AggregationFuture(Pin<Box<dyn Future<Output = Result<(), ()>>>>);
 
@@ -67,20 +54,17 @@ async fn run_aggregation(mut rpc_client: aggregator::rpc::Client) -> Result<(), 
     }
 }
 
-pub struct CoordinatorService<S>
+pub struct Service<S>
 where
     S: Selector,
 {
-    /// Incoming requests from the clients
-    requests_rx: mpsc::Receiver<Request>,
-
     /// HeartBeat timers that expired
     // FIXME: we should have timeouts for start training and
     // end training as well:
     //
-    // start_training_expirations_rx: mpsc::UnboundedReceiver<ClientId>,
-    // done_training_expirations_rx: mpsc::UnboundedReceiver<ClientId>,
-    heartbeat_expirations_rx: mpsc::UnboundedReceiver<ClientId>,
+    // start_training_expirations_rx: UnboundedReceiver<ClientId>,
+    // done_training_expirations_rx: UnboundedReceiver<ClientId>,
+    heartbeat_expirations_rx: UnboundedReceiver<ClientId>,
 
     /// Protocol state machine
     protocol: protocol::Protocol,
@@ -103,8 +87,7 @@ where
     /// aggregation.
     aggregation_future: Option<AggregationFuture>,
 
-    /// Channel for receiving the RPC requests from the aggregator
-    rpc_requests: rpc::RpcRequestsMux,
+    requests: ServiceRequests,
 
     /// IDs of the clients that the selector picked, but that the
     /// protocol doesn't know yet. The reason for this pending
@@ -117,7 +100,7 @@ where
     metrics_tx: UnboundedSender<Metric>,
 }
 
-impl<S> CoordinatorService<S>
+impl<S> Service<S>
 where
     S: Selector,
 {
@@ -126,28 +109,24 @@ where
         fl_settings: FederatedLearningSettings,
         aggregator_url: String,
         rpc_client: aggregator::rpc::Client,
-        rpc_requests: rpc::RpcRequestsMux,
+        requests: ServiceRequests,
         metrics_tx: UnboundedSender<Metric>,
-    ) -> (Self, CoordinatorHandle) {
-        let (requests_tx, requests_rx) = mpsc::channel(2048);
-        let (heartbeat_expirations_tx, heartbeat_expirations_rx) = mpsc::unbounded_channel();
+    ) -> Self {
+        let (heartbeat_expirations_tx, heartbeat_expirations_rx) = unbounded_channel();
 
         let heartbeat_timeout = Duration::from_secs(fl_settings.heartbeat_timeout);
-        let coordinator = Self {
+        Self {
             selector,
             heartbeat_expirations_rx,
-            requests_rx,
             clients: Clients::new(heartbeat_expirations_tx, heartbeat_timeout),
             protocol: protocol::Protocol::new(fl_settings),
             pending_selection: Vec::new(),
             rpc_client,
             aggregation_future: None,
             aggregator_url,
-            rpc_requests,
+            requests,
             metrics_tx,
-        };
-        let handle = CoordinatorHandle::new(requests_tx);
-        (coordinator, handle)
+        }
     }
 
     /// Handle the pending state machine events.
@@ -162,14 +141,102 @@ where
     fn poll_requests(&mut self, cx: &mut Context) -> Poll<()> {
         trace!("polling requests");
         loop {
-            match ready!(Pin::new(&mut self.requests_rx).poll_next(cx)) {
+            match ready!(Pin::new(&mut self.requests).poll_next(cx)) {
                 Some(request) => {
-                    self.dispatch_request(request);
+                    self.handle_request(request);
                     self.handle_protocol_events();
                 }
                 None => return Poll::Ready(()),
             }
         }
+    }
+
+    /// Handle a request
+    fn handle_request(&mut self, request: Request) {
+        match request {
+            Request::RendezVous(req) => self.handle_rendez_vous_request(req),
+            Request::HeartBeat(req) => self.handle_heartbeat_request(req),
+            Request::StartTraining(req) => self.handle_start_training_request(req),
+            Request::EndTraining(req) => self.handle_end_training_request(req),
+        }
+    }
+    /// Handle a rendez-vous request
+    fn handle_rendez_vous_request(&mut self, req: RendezVousRequest) {
+        debug!("handling rendez-vous request");
+        let RendezVousRequest { response_tx } = req;
+        let id = ClientId::new();
+        // This should be "Unknown" since we just created a
+        // new uuid.
+        let status = self.clients.get_state(&id);
+        let response = match self.protocol.rendez_vous(id, status) {
+            protocol::RendezVousResponse::Accept => RendezVousResponse::Accept(id),
+            protocol::RendezVousResponse::Reject => RendezVousResponse::Reject,
+        };
+        if response_tx.send(response).is_err() {
+            warn!("failed to send response back: channel closed");
+        }
+    }
+
+    /// Handle a heartbeat request
+    fn handle_heartbeat_request(&mut self, req: HeartBeatRequest) {
+        debug!("handling heartbeat request");
+        let HeartBeatRequest { id, response_tx } = req;
+        let response = self.protocol.heartbeat(id, self.clients.get_state(&id));
+
+        if response_tx.send(response).is_err() {
+            warn!("failed to send response back: channel closed");
+        }
+    }
+
+    /// Handle a start training request
+    fn handle_start_training_request(&mut self, req: StartTrainingRequest) {
+        debug!("handling start training request");
+        let StartTrainingRequest { id, response_tx } = req;
+        match self.protocol.start_training(self.clients.get_state(&id)) {
+            protocol::StartTrainingResponse::Reject => {
+                if response_tx.send(StartTrainingResponse::Reject).is_err() {
+                    warn!("failed to send response back: channel closed");
+                }
+            }
+            protocol::StartTrainingResponse::Accept => {
+                let mut rpc_client = self.rpc_client.clone();
+                let url = self.aggregator_url.clone();
+
+                tokio::spawn(async move {
+                    let token = Token::new();
+                    let credentials = Credentials(id, token);
+                    // FIXME: upon RPC failure or if the aggregator
+                    // returns an error, we currently just drop the
+                    // response channel. For the sake of clarity,
+                    // maybe we should probably return a proper error
+                    // instead.
+                    match rpc_client.select(rpc_context(), credentials).await {
+                        Ok(Ok(_)) => {
+                            if response_tx
+                                .send(StartTrainingResponse::Accept(url, token))
+                                .is_err()
+                            {
+                                warn!("failed to send response back: channel closed");
+                            };
+                        }
+                        Ok(Err(_)) => {
+                            warn!("select request failed");
+                        }
+                        Err(e) => {
+                            warn!("failed to send start training request: io error: {}", e);
+                        }
+                    }
+                });
+            }
+        }
+    }
+
+    /// Handle a start training request
+    fn handle_end_training_request(&mut self, req: EndTrainingRequest) {
+        debug!("handling end training request");
+        let EndTrainingRequest { id, success } = req;
+        let state = self.clients.get_state(&id);
+        self.protocol.end_training(id, success, state);
     }
 
     /// If there is an aggregation request running, poll the
@@ -213,19 +280,6 @@ where
         }
     }
 
-    fn poll_rpc_requests(&mut self, cx: &mut Context) -> Poll<()> {
-        loop {
-            match ready!(Pin::new(&mut self.rpc_requests).poll_next(cx)) {
-                Some((id, success)) => {
-                    let state = self.clients.get_state(&id);
-                    self.protocol.end_training(id, success, state);
-                    self.handle_protocol_events();
-                }
-                None => return Poll::Ready(()),
-            }
-        }
-    }
-
     /// Handle a request
     fn apply_pending_selection(&mut self) {
         let Self {
@@ -249,85 +303,13 @@ where
     }
 }
 
-impl<S> CoordinatorService<S>
-where
-    S: Selector,
-{
-    /// Handle a rendez-vous request
-    fn rendez_vous(&mut self, req: RequestMessage<(), RendezVousResponse>) {
-        debug!("handling rendez-vous request");
-        let (_, response_tx) = req;
-        let id = ClientId::new();
-        // This should be "Unknown" since we just created a
-        // new uuid.
-        let status = self.clients.get_state(&id);
-        let response = match self.protocol.rendez_vous(id, status) {
-            protocol::RendezVousResponse::Accept => RendezVousResponse::Accept(id),
-            protocol::RendezVousResponse::Reject => RendezVousResponse::Reject,
-        };
-        response_tx.send(response);
-    }
-
-    /// Handle a heartbeat request
-    fn heartbeat(&mut self, req: RequestMessage<ClientId, HeartBeatResponse>) {
-        debug!("handling heartbeat request");
-        let (id, response_tx) = req;
-        let response = self.protocol.heartbeat(id, self.clients.get_state(&id));
-
-        response_tx.send(response);
-    }
-
-    /// Handle a start training request
-    fn start_training(&mut self, req: RequestMessage<ClientId, StartTrainingResponse>) {
-        debug!("handling start training request");
-        let (id, response_tx) = req;
-        match self.protocol.start_training(self.clients.get_state(&id)) {
-            protocol::StartTrainingResponse::Reject => {
-                response_tx.send(StartTrainingResponse::Reject)
-            }
-            protocol::StartTrainingResponse::Accept => {
-                let mut rpc_client = self.rpc_client.clone();
-                let url = self.aggregator_url.clone();
-
-                tokio::spawn(async move {
-                    let token = Token::new();
-                    // FIXME: upon RPC failure or if the aggregator
-                    // returns an error, we currently just drop the
-                    // response channel. For the sake of clarity,
-                    // maybe we should probably return a proper error
-                    // instead.
-                    match rpc_client.select(rpc_context(), id, token).await {
-                        Ok(result) => {
-                            if result.is_ok() {
-                                response_tx.send(StartTrainingResponse::Accept(url, token));
-                            }
-                        }
-                        Err(e) => {
-                            warn!("failed to send start training request: io error: {}", e);
-                        }
-                    }
-                });
-            }
-        }
-    }
-
-    /// Handle a request
-    fn dispatch_request(&mut self, request: Request) {
-        match request {
-            Request::RendezVous(inner_request) => self.rendez_vous(inner_request),
-            Request::HeartBeat(inner_request) => self.heartbeat(inner_request),
-            Request::StartTraining(inner_request) => self.start_training(inner_request),
-        }
-    }
-}
-
-impl<S> Future for CoordinatorService<S>
+impl<S> Future for Service<S>
 where
     S: Selector + Unpin,
 {
     type Output = ();
     fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        trace!("polling CoordinatorService");
+        trace!("polling Service");
         let pin = self.get_mut();
 
         pin.apply_pending_selection();
@@ -342,11 +324,6 @@ where
             Poll::Pending => {}
         }
 
-        match pin.poll_rpc_requests(cx) {
-            Poll::Ready(()) => return Poll::Ready(()),
-            Poll::Pending => {}
-        }
-
         match pin.poll_aggregation(cx) {
             Poll::Ready(()) => Poll::Ready(()),
             Poll::Pending => Poll::Pending,
@@ -354,7 +331,7 @@ where
     }
 }
 
-impl<S> CoordinatorService<S>
+impl<S> Service<S>
 where
     S: Selector,
 {
@@ -492,86 +469,136 @@ where
     }
 }
 
-/// Error returned when a request fails due to the coordinator having shut down.
-#[derive(Debug, Display)]
 pub struct RequestError;
 
-impl ::std::error::Error for RequestError {}
+pub struct ServiceRequests(Pin<Box<dyn Stream<Item = Request> + Send>>);
 
-pub struct ResponseReceiver<R>(oneshot::Receiver<R>);
+impl Stream for ServiceRequests {
+    type Item = Request;
 
-pub fn response_channel<R>() -> (ResponseSender<R>, ResponseReceiver<R>) {
-    let (tx, rx) = oneshot::channel::<R>();
-    (ResponseSender(tx), ResponseReceiver(rx))
-}
-
-impl<R> Future for ResponseReceiver<R> {
-    type Output = Result<R, RequestError>;
-    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        Pin::new(&mut self.get_mut().0)
-            .as_mut()
-            .poll(cx)
-            .map_err(|_| RequestError)
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+        trace!("polling ServiceRequests");
+        self.0.as_mut().poll_next(cx)
     }
 }
 
-pub struct ResponseSender<R>(oneshot::Sender<R>);
+impl ServiceRequests {
+    fn new(
+        rendez_vous: UnboundedReceiver<RendezVousRequest>,
+        start_training: UnboundedReceiver<StartTrainingRequest>,
+        end_training: UnboundedReceiver<EndTrainingRequest>,
+        heartbeat: UnboundedReceiver<HeartBeatRequest>,
+    ) -> Self {
+        let stream = rendez_vous
+            .map(Request::from)
+            .merge(start_training.map(Request::from))
+            .merge(end_training.map(Request::from))
+            .merge(heartbeat.map(Request::from));
+        Self(Box::pin(stream))
+    }
+}
 
-impl<R> ResponseSender<R> {
-    pub fn send(self, response: R) {
-        self.0.send(response).unwrap_or_else(|_| {
-            warn!("failed to send response: receiver shut down");
+#[derive(From)]
+pub enum Request {
+    RendezVous(RendezVousRequest),
+    HeartBeat(HeartBeatRequest),
+    StartTraining(StartTrainingRequest),
+    EndTraining(EndTrainingRequest),
+}
+
+#[derive(From)]
+pub struct RendezVousRequest {
+    response_tx: oneshot::Sender<RendezVousResponse>,
+}
+
+#[derive(From)]
+pub struct HeartBeatRequest {
+    id: ClientId,
+    response_tx: oneshot::Sender<HeartBeatResponse>,
+}
+
+#[derive(From)]
+pub struct StartTrainingRequest {
+    id: ClientId,
+    response_tx: oneshot::Sender<StartTrainingResponse>,
+}
+
+#[derive(From)]
+pub struct EndTrainingRequest {
+    id: ClientId,
+    success: bool,
+}
+
+#[derive(Clone)]
+pub struct ServiceHandle {
+    rendez_vous: UnboundedSender<RendezVousRequest>,
+    start_training: UnboundedSender<StartTrainingRequest>,
+    end_training: UnboundedSender<EndTrainingRequest>,
+    heartbeat: UnboundedSender<HeartBeatRequest>,
+}
+
+impl ServiceHandle {
+    pub fn new() -> (Self, ServiceRequests) {
+        let (rendez_vous_tx, rendez_vous_rx) = unbounded_channel::<RendezVousRequest>();
+        let (start_training_tx, start_training_rx) = unbounded_channel::<StartTrainingRequest>();
+        let (end_training_tx, end_training_rx) = unbounded_channel::<EndTrainingRequest>();
+        let (heartbeat_tx, heartbeat_rx) = unbounded_channel::<HeartBeatRequest>();
+
+        let handle = Self {
+            rendez_vous: rendez_vous_tx,
+            start_training: start_training_tx,
+            heartbeat: heartbeat_tx,
+            end_training: end_training_tx,
+        };
+        let service_requests = ServiceRequests::new(
+            rendez_vous_rx,
+            start_training_rx,
+            end_training_rx,
+            heartbeat_rx,
+        );
+        (handle, service_requests)
+    }
+    pub async fn rendez_vous(&self) -> Result<RendezVousResponse, RequestError> {
+        let (tx, rx) = oneshot::channel();
+        Self::send_request(RendezVousRequest::from(tx), &self.rendez_vous);
+        rx.await.map_err(|_| {
+            warn!("could not receive response: channel closed");
+            RequestError
         })
     }
-}
 
-pub type RequestMessage<P, R> = (P, ResponseSender<R>);
-
-pub enum Request {
-    RendezVous(RequestMessage<(), RendezVousResponse>),
-    HeartBeat(RequestMessage<ClientId, HeartBeatResponse>),
-    StartTraining(RequestMessage<ClientId, StartTrainingResponse>),
-}
-
-pub struct CoordinatorHandle(mpsc::Sender<Request>);
-
-impl Clone for CoordinatorHandle {
-    fn clone(&self) -> Self {
-        Self(self.0.clone())
-    }
-}
-
-impl CoordinatorHandle {
-    pub fn new(requests_tx: mpsc::Sender<Request>) -> Self {
-        Self(requests_tx)
-    }
-
-    pub async fn rendez_vous(&mut self) -> Result<RendezVousResponse, RequestError> {
-        let (resp_tx, resp_rx) = response_channel::<RendezVousResponse>();
-        let req: Request = Request::RendezVous(((), resp_tx));
-        self.0.send(req).await.map_err(|_| RequestError)?;
-        resp_rx.await
-    }
-
-    pub async fn heartbeat(&mut self, id: ClientId) -> Result<HeartBeatResponse, RequestError> {
-        trace!("notifying service about heartbeat from {}", id);
-        let (resp_tx, resp_rx) = response_channel::<HeartBeatResponse>();
-        let req: Request = Request::HeartBeat((id, resp_tx));
-        self.0.send(req).await.map_err(|_| {
-            error!("failed to send heartbeat request to CoordinatorService");
+    pub async fn heartbeat(&self, id: ClientId) -> Result<HeartBeatResponse, RequestError> {
+        let (tx, rx) = oneshot::channel();
+        Self::send_request(HeartBeatRequest::from((id, tx)), &self.heartbeat);
+        rx.await.map_err(|_| {
+            warn!("could not receive response: channel closed");
             RequestError
-        })?;
-        resp_rx.await
+        })
     }
 
     pub async fn start_training(
-        &mut self,
+        &self,
         id: ClientId,
     ) -> Result<StartTrainingResponse, RequestError> {
-        let (resp_tx, resp_rx) = response_channel::<StartTrainingResponse>();
-        let req: Request = Request::StartTraining((id, resp_tx));
-        self.0.send(req).await.map_err(|_| RequestError)?;
-        resp_rx.await
+        let (tx, rx) = oneshot::channel();
+        Self::send_request(StartTrainingRequest::from((id, tx)), &self.start_training);
+        rx.await.map_err(|_| {
+            warn!("could not receive response: channel closed");
+            RequestError
+        })
+    }
+
+    pub async fn end_training(&self, id: ClientId, success: bool) {
+        Self::send_request(EndTrainingRequest::from((id, success)), &self.end_training);
+    }
+
+    fn send_request<P>(payload: P, chan: &UnboundedSender<P>) {
+        trace!("send request to the service");
+        if chan.send(payload).is_err() {
+            warn!("failed to send request: channel closed");
+            return;
+        }
+        trace!("request sent");
     }
 }
 

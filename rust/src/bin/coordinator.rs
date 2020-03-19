@@ -4,7 +4,7 @@ extern crate tracing;
 use clap::{App, Arg};
 use rand::seq::IteratorRandom;
 use std::process;
-use tokio::{signal::ctrl_c, sync::mpsc};
+use tokio::signal::ctrl_c;
 use tracing_futures::Instrument;
 
 use xain_fl::{
@@ -12,7 +12,7 @@ use xain_fl::{
     common::{client::ClientId, logging},
     coordinator::{
         api,
-        core::{CoordinatorService, Selector},
+        core::{Selector, Service, ServiceHandle},
         rpc,
         settings::Settings,
     },
@@ -55,20 +55,20 @@ async fn _main(settings: Settings) {
         ..
     } = settings;
 
-    let (rpc_request_stream_tx, rpc_request_stream_rx) = mpsc::channel(1);
-    // It is important to start the RPC server before starting an RPC
-    // client, because if both the aggregator and the coordinator
-    // attempt to connect to each other before the servers are
-    // started, we end up in a deadlock.
-    let rpc_server_task_handle =
-        tokio::spawn(rpc::serve(rpc.bind_address.clone(), rpc_request_stream_tx));
-    let rpc_requests = rpc::RpcRequestsMux::new(rpc_request_stream_rx);
-    let rpc_client_span = trace_span!("rpc_client");
+    let (service_handle, service_requests) = ServiceHandle::new();
+
+    // Start the RPC server
+    let rpc_server = rpc::serve(rpc.bind_address.clone(), service_handle.clone())
+        .instrument(trace_span!("rpc_server"));
+    let rpc_server_task_handle = tokio::spawn(rpc_server);
+
+    // Start the RPC client
     let rpc_client = aggregator::rpc::client_connect(rpc.aggregator_address.clone())
-        .instrument(rpc_client_span.clone())
+        .instrument(trace_span!("rpc_client"))
         .await
         .unwrap();
 
+    // Start the metric store
     let (influx_client, metric_sender) = InfluxDBMetricStore::new(
         &metric_store.database_url[..],
         &metric_store.database_name[..],
@@ -76,25 +76,28 @@ async fn _main(settings: Settings) {
 
     let _ = tokio::spawn(async move { run_metricstore(influx_client).await });
 
-    let (service, handle) = CoordinatorService::new(
+    // Start the api server
+    let api_server_task_handle = tokio::spawn(
+        async move { api::serve(api.bind_address.as_str(), service_handle.clone()).await }
+            .instrument(trace_span!("api_server")),
+    );
+
+    // Create the service
+    let service = Service::new(
         RandomSelector,
         federated_learning,
         aggregator_url,
         rpc_client,
-        rpc_requests,
+        service_requests,
         metric_sender,
     );
 
-    let api_task_handle = tokio::spawn(
-        async move { api::serve(&api.bind_address, handle).await }
-            .instrument(trace_span!("api_server")),
-    );
-
+    // Run the service, and wait for one of the tasks to terminate
     tokio::select! {
         _ = service.instrument(trace_span!("service")) => {
             info!("shutting down: CoordinatorService terminated");
         }
-        _ = api_task_handle => {
+        _ = api_server_task_handle => {
             info!("shutting down: API task terminated");
         }
         _ = rpc_server_task_handle => {
