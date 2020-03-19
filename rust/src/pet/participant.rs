@@ -1,4 +1,7 @@
-use sodiumoxide::{box_, init, sealedbox, sign};
+use sodiumoxide::{
+    crypto::{box_, sealedbox, sign},
+    init,
+};
 
 /// # Construct the "sum" message.
 /// Generate an ephemeral asymmetric key pair and encrypt the message parts. Eligibility
@@ -14,10 +17,10 @@ use sodiumoxide::{box_, init, sealedbox, sign};
 /// - `part_sign_pk`: The public key for signatures of the participant.
 ///
 /// ## Returns
-/// The ephemeral key pair and the encrypted "sum" message as `Ok(_)`.
+/// The ephemeral key pair and the encrypted "sum" message as `Ok((pk, sk, m))`.
 ///
 /// ## Raises
-/// - `Err(_)`: If initialization of the CSPRNG fails.
+/// - `Err(())`: If initialization of the CSPRNG fails.
 pub fn compose_sum_message(
     coord_encr_pk: &box_::PublicKey,
     part_encr_pk: &box_::PublicKey,
@@ -28,11 +31,11 @@ pub fn compose_sum_message(
     let _ = init()?;
 
     // generate ephemeral key pair
-    (part_ephm_pk, part_ephm_sk) = box_::gen_keypair();
+    let (part_ephm_pk, part_ephm_sk) = box_::gen_keypair();
 
     // encrypt message parts
-    key = box_::precompute(&coord_encr_pk, &part_encr_sk);
-    nonce = [
+    let key = box_::precompute(&coord_encr_pk, &part_encr_sk);
+    let nonce = [
         box_::gen_nonce(),
         box_::gen_nonce(),
         box_::gen_nonce(),
@@ -75,5 +78,5 @@ pub fn compose_sum_message(
         .concat(),
     ];
 
-    (part_ephm_pk, part_ephm_sk, message)
+    Ok((part_ephm_pk, part_ephm_sk, message))
 }
