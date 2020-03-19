@@ -1,2 +1,2 @@
-pub mod compose;
-pub mod validate;
+pub mod coordinator;
+pub mod participant;
