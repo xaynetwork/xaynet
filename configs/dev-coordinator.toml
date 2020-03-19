@@ -1,5 +1,8 @@
-log_level = "trace"
 aggregator_url = "http://localhost:8082"
+
+[logging]
+level = "trace"
+telemetry = { jaeger_endpoint = "127.0.0.1:6831", service_name = "coordinator" }
 
 [api]
 bind_address = "localhost:8081"

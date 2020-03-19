@@ -27,7 +27,7 @@ use tokio::sync::{mpsc, oneshot};
 
 use crate::{
     aggregator,
-    common::{ClientId, Token},
+    common::client::{ClientId, Token},
     coordinator::{
         core::{
             client::{Clients, HeartBeatResetError},

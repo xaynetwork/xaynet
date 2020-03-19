@@ -6,13 +6,11 @@ edition = "2018"
 
 [dependencies]
 uuid = { version = "0.8.1", features = ["v4", "serde"] }
-log = "0.4.8"
 futures = "0.3.4"
 tokio = { version = "0.2.13", features = ["rt-core", "rt-threaded", "tcp", "time", "macros", "signal", "sync", "stream"] }
 warp = { version = "0.2.2", default-features = false, features = ["multipart"] }
 derive_more = { version = "0.99.3", default-features = false, features = [ "display", "from" ] }
 rand = "0.7.3"
-env_logger = "0.7.1"
 tarpc = { version = "0.20.0", features = [ "full" ] }
 serde = { version = "1.0.104", features = [ "derive" ] }
 pyo3 = "0.9.0-alpha.1"
@@ -24,6 +22,13 @@ clap = "2.33.0"
 influxdb = "0.0.6"
 thiserror = "1.0.11"
 anyhow = "1.0.26"
+tracing = "0.1.13"
+tracing-subscriber = "0.2.3"
+tracing-log = "0.1.1"
+tracing-futures = "0.2.3"
+opentelemetry = { version = "0.2.0", optional = true }
+tracing-opentelemetry = { version = "0.2.0", optional = true }
+opentelemetry-jaeger = { version = "0.1.0", optional = true }
 
 [[bin]]
 name = "coordinator"
@@ -32,3 +37,7 @@ path = "src/bin/coordinator.rs"
 [[bin]]
 name = "aggregator"
 path = "src/bin/aggregator.rs"
+
+[features]
+default = []
+telemetry = [ "opentelemetry", "tracing-opentelemetry", "opentelemetry-jaeger"]

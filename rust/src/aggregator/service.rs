@@ -1,6 +1,6 @@
 use crate::{
     aggregator::rpc,
-    common::{ClientId, Token},
+    common::client::{ClientId, Token},
     coordinator,
 };
 use bytes::Bytes;
@@ -17,6 +17,7 @@ use tokio::{
     stream::StreamExt,
     sync::{mpsc, oneshot},
 };
+use tracing_futures::Instrument;
 
 /// A future that orchestrates the entire aggregator service.
 // TODO: maybe add a HashSet or HashMap of clients who already
@@ -105,16 +106,19 @@ where
         trace!("polling API requests");
         loop {
             match ready!(Pin::new(&mut self.api_rx).poll_next(cx)) {
-                Some(request) => self.dispatch_request(request),
-                None => return Poll::Ready(()),
+                Some(request) => self.handle_api_request(request),
+                None => {
+                    trace!("no more API request to handle");
+                    return Poll::Ready(());
+                }
             }
         }
     }
 
-    fn dispatch_request(&mut self, request: Request) {
+    fn handle_api_request(&mut self, request: Request) {
         match request {
             Request::Download(Credentials(id, token), response_tx) => {
-                debug!("handling download request for {}", id);
+                debug!("handling download request");
                 if self
                     .allowed_ids
                     .get(&id)
@@ -122,10 +126,12 @@ where
                     .unwrap_or(false)
                 {
                     let _ = response_tx.send(self.global_weights.clone());
+                } else {
+                    debug!("rejecting download request");
                 }
             }
             Request::Upload(Credentials(id, token), bytes) => {
-                debug!("handling upload request for {}", id);
+                debug!("handling upload request");
                 let accept_upload = self
                     .allowed_ids
                     .get(&id)
@@ -133,23 +139,28 @@ where
                     .unwrap_or(false);
 
                 if !accept_upload {
+                    debug!("rejecting upload request");
                     return;
                 }
 
                 let mut rpc_client = self.rpc_client.clone();
                 let fut = self.aggregator.add_weights(bytes);
-                tokio::spawn(async move {
-                    let result = fut.await;
-                    rpc_client
-                        .end_training(rpc_context(), id, result.is_ok())
-                        .await
-                        .map_err(|e| {
-                            warn!(
-                                "failed to send end training request to the coordinator: {}",
-                                e
-                            );
-                        })
-                });
+                tokio::spawn(
+                    async move {
+                        let result = fut.await;
+                        debug!("sending end training request to the coordinator");
+                        rpc_client
+                            .end_training(rpc_context(), id, result.is_ok())
+                            .await
+                            .map_err(|e| {
+                                warn!(
+                                    "failed to send end training request to the coordinator: {}",
+                                    e
+                                );
+                            })
+                    }
+                    .instrument(trace_span!("end_training_rpc_request")),
+                );
             }
         }
     }
@@ -157,26 +168,9 @@ where
     fn poll_rpc_requests(&mut self, cx: &mut Context) -> Poll<()> {
         trace!("polling RPC requests");
 
-        let mut stream = Pin::new(&mut self.rpc_requests);
         loop {
-            match ready!(stream.as_mut().poll_next(cx)) {
-                Some(rpc::Request::Select(((id, token), resp_tx))) => {
-                    info!("handling rpc request: select {}", id);
-                    self.allowed_ids.insert(id, token);
-                    if resp_tx.send(()).is_err() {
-                        warn!("RPC connection shut down, cannot send response back");
-                    }
-                }
-                Some(rpc::Request::Aggregate(resp_tx)) => {
-                    info!("handling rpc request: aggregate");
-                    // reset the known IDs.
-                    self.allowed_ids = HashMap::new();
-
-                    self.aggregation_future = Some(AggregationFuture {
-                        future: self.aggregator.aggregate(),
-                        response_tx: resp_tx,
-                    });
-                }
+            match ready!(Pin::new(&mut self.rpc_requests).poll_next(cx)) {
+                Some(rpc_request) => self.handle_rpc_request(rpc_request),
                 // The coordinator client disconnected. If the
                 // coordinator reconnect to the RPC server, a new
                 // AggregatorRpcHandle will be forwarded to us.
@@ -188,31 +182,72 @@ where
         }
     }
 
+    fn handle_rpc_request(&mut self, request: rpc::Request) {
+        use rpc::Request::*;
+        debug!("handling RPC request");
+        match request {
+            Select(select_request) => {
+                let rpc::SelectRequest {
+                    id,
+                    token,
+                    response_tx,
+                } = select_request;
+                info!("handling select request");
+                self.allowed_ids.insert(id, token);
+                if response_tx.send(()).is_err() {
+                    warn!(client = %id, "RPC connection shut down, cannot send response back", );
+                }
+            }
+            Aggregate(rpc::AggregateRequest { response_tx }) => {
+                info!("handling aggregate request");
+                self.allowed_ids = HashMap::new();
+
+                self.aggregation_future = Some(AggregationFuture {
+                    future: self.aggregator.aggregate(),
+                    response_tx,
+                });
+            }
+        }
+    }
+
+    #[allow(clippy::cognitive_complexity)]
     fn poll_aggregation(&mut self, cx: &mut Context) {
-        if let Some(AggregationFuture {
+        // Check if we're waiting for an aggregation, ie whether
+        // there's a future to poll.
+        let future = if let Some(future) = self.aggregation_future.take() {
+            future
+        } else {
+            trace!("no aggregation future running: skipping polling");
+            return;
+        };
+
+        trace!("polling aggregation future");
+
+        let AggregationFuture {
             mut future,
             response_tx,
-        }) = self.aggregation_future.take()
-        {
-            match Pin::new(&mut future).poll(cx) {
-                Poll::Ready(Ok(weights)) => {
-                    self.global_weights = weights;
-                    if response_tx.send(()).is_err() {
-                        error!("failed to send aggregation response to RPC task: receiver dropped");
-                    }
+        } = future;
+
+        match Pin::new(&mut future).poll(cx) {
+            Poll::Ready(Ok(weights)) => {
+                info!("aggregation result is available, settings global weights");
+                self.global_weights = weights;
+                if response_tx.send(()).is_err() {
+                    error!("failed to send aggregation response to RPC task: receiver dropped");
                 }
-                Poll::Ready(Err(_)) => {
-                    // no need to send a response. By dropping the
-                    // `response_tx` channel, the RPC task will send
-                    // an error.
-                    error!("aggregation failed");
-                }
-                Poll::Pending => {
-                    self.aggregation_future = Some(AggregationFuture {
-                        future,
-                        response_tx,
-                    });
-                }
+            }
+            Poll::Ready(Err(_)) => {
+                // no need to send a response. By dropping the
+                // `response_tx` channel, the RPC task will send
+                // an error.
+                error!("aggregation failed");
+            }
+            Poll::Pending => {
+                debug!("aggregation future still running");
+                self.aggregation_future = Some(AggregationFuture {
+                    future,
+                    response_tx,
+                });
             }
         }
     }
@@ -233,6 +268,7 @@ where
     type Output = ();
     fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         trace!("polling AggregatorService");
+
         let pin = self.get_mut();
 
         if let Poll::Ready(_) = pin.poll_rpc_requests(cx) {
@@ -306,27 +342,31 @@ pub enum Request {
 
 impl AggregatorServiceHandle {
     pub async fn download(&self, id: ClientId, token: Token) -> Option<Bytes> {
-        trace!("AggregatorServiceHandle forwarding download request");
+        trace!("forwarding download request");
+
         let (tx, rx) = oneshot::channel();
         if self
             .download_requests_tx
             .send((Credentials(id, token), tx))
             .is_err()
         {
-            warn!("AggregatorServiceHandle: failed to send download request: channel closed");
+            warn!("failed to send download request: channel closed");
             return None;
         }
+        trace!("forwarded download request, awaiting for response");
+
         rx.await.ok()
     }
 
     pub async fn upload(&self, id: ClientId, token: Token, weights: Bytes) {
-        trace!("AggregatorServiceHandle forwarding upload request");
+        trace!("forwarding upload request");
+
         if self
             .upload_requests_tx
             .send((Credentials(id, token), weights))
             .is_err()
         {
-            warn!("AggregatorServiceHandle: failed to send download request: channel closed");
+            warn!("failed to send upload request: channel closed");
         }
     }
 }

@@ -1,4 +1,4 @@
-use crate::common::{ClientId, Token};
+use crate::common::client::{ClientId, Token};
 
 /// Response to a heartbeat
 #[derive(Debug)]
@@ -35,7 +35,7 @@ pub mod json {
 
     mod rendez_vous {
         use super::RendezVousResponse;
-        use crate::common::ClientId;
+        use crate::common::client::ClientId;
 
         #[derive(Serialize)]
         pub struct RendezVousResponseJson {
@@ -104,7 +104,7 @@ pub mod json {
 
     mod start_training {
         use super::StartTrainingResponse;
-        use crate::common::Token;
+        use crate::common::client::Token;
 
         #[derive(Serialize)]
         pub struct StartTrainingResponseJson {

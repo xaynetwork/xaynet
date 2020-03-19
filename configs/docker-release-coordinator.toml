@@ -1,5 +1,8 @@
-log_level = "debug"
 aggregator_url = "http://10.10.100.9:8082"
+
+[logging]
+level = "debug"
+telemetry = { jaeger_endpoint = "jaeger:6831", service_name = "coordinator" }
 
 [api]
 bind_address = "0.0.0.0:8081"

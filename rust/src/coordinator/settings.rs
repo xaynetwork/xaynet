@@ -1,8 +1,9 @@
+use crate::common::settings::LoggingSettings;
 use config::{Config, ConfigError};
 
 #[derive(Debug, Deserialize)]
 pub struct Settings {
-    pub log_level: String,
+    pub logging: LoggingSettings,
     pub aggregator_url: String,
     pub api: ApiSettings,
     pub rpc: RpcSettings,

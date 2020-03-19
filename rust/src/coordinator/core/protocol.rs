@@ -2,7 +2,7 @@ use derive_more::Display;
 use std::{collections::VecDeque, error::Error};
 
 use crate::{
-    common::ClientId,
+    common::client::ClientId,
     coordinator::{models::HeartBeatResponse, settings::FederatedLearningSettings},
 };
 
@@ -421,7 +421,7 @@ impl Error for InvalidState {}
 mod tests {
 
     use super::*;
-    use crate::{common::ClientId, coordinator::settings::FederatedLearningSettings};
+    use crate::{common::client::ClientId, coordinator::settings::FederatedLearningSettings};
 
     #[test]
     fn test_new() {

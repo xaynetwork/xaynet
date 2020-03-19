@@ -1,4 +1,6 @@
-log_level = "trace"
+[logging]
+level = "trace"
+telemetry = { jaeger_endpoint = "jaeger:6831", service_name = "aggregator" }
 
 [aggregation.python]
 module = "xain_aggregators.weighted_average"
