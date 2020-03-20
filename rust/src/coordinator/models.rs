@@ -1,7 +1,7 @@
 use crate::common::client::{ClientId, Token};
 
 /// Response to a heartbeat
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum HeartBeatResponse {
     /// The client should stand by in its current state
     StandBy,

@@ -193,7 +193,7 @@ impl Protocol {
     }
 
     /// Handle a heartbeat timeout for the given client.
-    pub fn hearbeat_timeout(&mut self, id: ClientId, client_state: ClientState) {
+    pub fn heartbeat_timeout(&mut self, id: ClientId, client_state: ClientState) {
         info!("heartbeat timeout: {}({})", id, client_state);
         self.emit_event(Event::Remove(id));
         match client_state {
@@ -400,7 +400,7 @@ pub enum Event {
     /// [`ClientState::Waiting`], and remove the inactive clients.
     ResetAll,
 
-    /// Reset the hearbeat timer for the given client
+    /// Reset the heartbeat timer for the given client
     ResetHeartBeat(ClientId),
 
     /// Start the aggregation process
@@ -423,120 +423,96 @@ mod tests {
     use super::*;
     use crate::{common::client::ClientId, coordinator::settings::FederatedLearningSettings};
 
-    #[test]
-    fn test_new() {
-        let fl_settings = FederatedLearningSettings {
-            rounds: 1,
+    fn get_default_fl_settings() -> FederatedLearningSettings {
+        FederatedLearningSettings {
+            rounds: 2,
             participants_ratio: 1.0,
             min_clients: 1,
             heartbeat_timeout: 15,
-        };
-
-        let mut protocol = Protocol::new(fl_settings);
-
-        let counters = protocol.counters();
-
-        // Counters
-        let expected = Counters {
-            ..Default::default()
-        };
-        assert_eq!(counters, expected);
-
-        // Event Queue
-        assert!(protocol.next_event().is_none());
+        }
     }
 
     #[test]
-    fn test_rendez_vous_new_client() {
-        let fl_settings = FederatedLearningSettings {
-            rounds: 1,
-            participants_ratio: 1.0,
-            min_clients: 1,
-            heartbeat_timeout: 15,
-        };
-        let mut protocol = Protocol::new(fl_settings);
+    fn test_new() {
+        let mut protocol = Protocol::new(get_default_fl_settings());
 
-        let client_id = ClientId::new();
-        let resp = protocol.rendez_vous(client_id, ClientState::Unknown);
         let counters = protocol.counters();
+        let expected = Counters {
+            ..Default::default()
+        };
 
-        // Counters
+        assert_eq!(counters, expected);
+        assert!(protocol.next_event().is_none());
+    }
+
+    /// Test the outcome of single rendez-vous request
+    #[test]
+    fn test_rendez_vous_new_client() {
+        let mut protocol = Protocol::new(get_default_fl_settings());
+        let client_id = ClientId::new();
+
+        let resp = protocol.rendez_vous(client_id, ClientState::Unknown);
+
+        let counters = protocol.counters();
         let expected = Counters {
             waiting: 1,
             ..Default::default()
         };
+
         assert_eq!(counters, expected);
-
-        // Response
         assert_eq!(RendezVousResponse::Accept, resp);
-
-        // Event Queue
         assert_eq!(protocol.next_event().unwrap(), Event::Accept(client_id));
         assert_eq!(protocol.next_event().unwrap(), Event::RunSelection(1));
         assert!(protocol.next_event().is_none());
     }
 
+    /// Test the outcome of a rendez-vous request from a client that
+    /// already sent a rendez-vous request but has not yet been selected
     #[test]
     fn test_rendez_vous_waiting_client_re_send_rendez_vous() {
-        let fl_settings = FederatedLearningSettings {
-            rounds: 1,
-            participants_ratio: 1.0,
-            min_clients: 1,
-            heartbeat_timeout: 15,
-        };
-
-        let mut protocol = Protocol::new(fl_settings);
+        let mut protocol = Protocol::new(get_default_fl_settings());
         let client_id = ClientId::new();
+
         protocol.rendez_vous(client_id, ClientState::Unknown);
 
-        // Counters
         assert_eq!(1, protocol.counters().waiting);
 
         let resp = protocol.rendez_vous(client_id, ClientState::Waiting);
-        let counters = protocol.counters();
 
-        // Counters
+        let counters = protocol.counters();
         let expected = Counters {
             waiting: 1,
             ..Default::default()
         };
-        assert_eq!(counters, expected);
 
-        // Response
+        assert_eq!(counters, expected);
         assert_eq!(RendezVousResponse::Accept, resp);
     }
 
+    /// Test the outcome of a rendez-vous request from a client that
+    /// already sent a rendez-vous request and has already been
+    /// selected
     #[test]
     fn test_rendez_vous_selected_client_re_send_rendez_vous() {
-        let fl_settings = FederatedLearningSettings {
-            rounds: 1,
-            participants_ratio: 1.0,
-            min_clients: 1,
-            heartbeat_timeout: 15,
-        };
-
-        let mut protocol = Protocol::new(fl_settings);
+        let mut protocol = Protocol::new(get_default_fl_settings());
         let client_id = ClientId::new();
+
         protocol.rendez_vous(client_id, ClientState::Unknown);
 
-        // Counters
         assert_eq!(1, protocol.counters().waiting);
-
-        // Event Queue
         assert_eq!(protocol.next_event().unwrap(), Event::Accept(client_id));
 
         let candidates = vec![(client_id, ClientState::Waiting)];
-        protocol.select(candidates.into_iter());
-        let counters = protocol.counters();
 
-        // Counters
+        protocol.select(candidates.into_iter());
+
+        let counters = protocol.counters();
         let expected = Counters {
             selected: 1,
             ..Default::default()
         };
-        assert_eq!(counters, expected);
 
-        // Event Queue
+        assert_eq!(counters, expected);
         assert_eq!(protocol.next_event().unwrap(), Event::RunSelection(1));
         assert_eq!(
             protocol.next_event().unwrap(),
@@ -544,19 +520,15 @@ mod tests {
         );
 
         let resp = protocol.rendez_vous(client_id, ClientState::Selected);
-        let counters = protocol.counters();
 
-        // Counters
+        let counters = protocol.counters();
         let expected = Counters {
             ignored: 1,
             ..Default::default()
         };
+
         assert_eq!(counters, expected);
-
-        // Response
         assert_eq!(RendezVousResponse::Accept, resp);
-
-        // Event Queue
         assert_eq!(
             protocol.next_event().unwrap(),
             Event::SetState(client_id, ClientState::Ignored)
@@ -564,32 +536,24 @@ mod tests {
         assert!(protocol.next_event().is_none());
     }
 
+    /// Test the outcome of a rendez-vous request from a client that
+    /// already sent a rendez-vous request, has been selected and then
+    /// finished training.
     #[test]
     fn test_rendez_vous_done_client_re_send_rendez_vous() {
-        let fl_settings = FederatedLearningSettings {
-            rounds: 1,
-            participants_ratio: 1.0,
-            min_clients: 1,
-            heartbeat_timeout: 15,
-        };
-
-        let mut protocol = Protocol::new(fl_settings);
+        let mut protocol = Protocol::new(get_default_fl_settings());
         let client_id = ClientId::new();
+
         let resp = protocol.rendez_vous(client_id, ClientState::Done);
 
         let counters = protocol.counters();
-
-        // Counters
         let expected = Counters {
             ignored: 1,
             ..Default::default()
         };
+
         assert_eq!(counters, expected);
-
-        // Response
         assert_eq!(RendezVousResponse::Accept, resp);
-
-        // Event Queue
         assert_eq!(
             protocol.next_event().unwrap(),
             Event::SetState(client_id, ClientState::Ignored)
@@ -597,36 +561,705 @@ mod tests {
         assert!(protocol.next_event().is_none());
     }
 
+    /// Test the outcome of a rendez-vous request from a client that
+    /// the protocol ignores. Usually a client is ignored when it got
+    /// selected at some point, but then dropped out or did something
+    /// un-expected.
     #[test]
     fn test_rendez_vous_done_inactive_client_re_send_rendez_vous() {
-        let fl_settings = FederatedLearningSettings {
-            rounds: 1,
-            participants_ratio: 1.0,
-            min_clients: 1,
-            heartbeat_timeout: 15,
-        };
-
-        let mut protocol = Protocol::new(fl_settings);
+        let mut protocol = Protocol::new(get_default_fl_settings());
         let client_id = ClientId::new();
+
         let resp = protocol.rendez_vous(client_id, ClientState::DoneAndInactive);
 
         let counters = protocol.counters();
-
-        // Counters
         let expected = Counters {
             ignored: 1,
             ..Default::default()
         };
+
         assert_eq!(counters, expected);
-
-        // Response
         assert_eq!(RendezVousResponse::Accept, resp);
-
-        // Event Queue
         assert_eq!(
             protocol.next_event().unwrap(),
             Event::SetState(client_id, ClientState::Ignored)
         );
         assert!(protocol.next_event().is_none());
+    }
+
+    /// Test the outcome of a heartbeat timeout for a client that has
+    /// not yet been selected.
+    #[test]
+    fn test_heartbeat_timeout_waiting_participant() {
+        let mut protocol = Protocol::new(get_default_fl_settings());
+        let client_id = ClientId::new();
+
+        let _ = protocol.rendez_vous(client_id, ClientState::Unknown);
+
+        let counters = protocol.counters();
+        let expected = Counters {
+            waiting: 1,
+            ..Default::default()
+        };
+
+        assert_eq!(counters, expected);
+
+        protocol.heartbeat_timeout(client_id, ClientState::Waiting);
+
+        let counters = protocol.counters();
+        let expected = Counters {
+            waiting: 0,
+            ..Default::default()
+        };
+
+        assert_eq!(counters, expected);
+        assert_eq!(protocol.next_event().unwrap(), Event::Accept(client_id));
+        assert_eq!(protocol.next_event().unwrap(), Event::RunSelection(1));
+        assert_eq!(protocol.next_event().unwrap(), Event::Remove(client_id));
+        assert!(protocol.next_event().is_none());
+    }
+
+    /// Test the outcome of a heartbeat timeout for a client that has
+    /// already been selected.
+    #[test]
+    fn test_heartbeat_timeout_selected_participant() {
+        let mut protocol = Protocol::new(get_default_fl_settings());
+        let client_id = ClientId::new();
+        let _ = protocol.rendez_vous(client_id, ClientState::Unknown);
+        let candidates = vec![(client_id, ClientState::Waiting)];
+
+        protocol.select(candidates.into_iter());
+
+        let counters = protocol.counters();
+        let expected = Counters {
+            selected: 1,
+            ..Default::default()
+        };
+
+        assert_eq!(counters, expected);
+
+        protocol.heartbeat_timeout(client_id, ClientState::Selected);
+
+        let counters = protocol.counters();
+        let expected = Counters {
+            selected: 0,
+            ..Default::default()
+        };
+
+        assert_eq!(counters, expected);
+        assert_eq!(protocol.next_event().unwrap(), Event::Accept(client_id));
+        assert_eq!(protocol.next_event().unwrap(), Event::RunSelection(1));
+        assert_eq!(
+            protocol.next_event().unwrap(),
+            Event::SetState(client_id, ClientState::Selected)
+        );
+        assert_eq!(protocol.next_event().unwrap(), Event::Remove(client_id));
+        assert!(protocol.next_event().is_none());
+    }
+
+    /// Test the outcome of a heartbeat timeout for a client that
+    /// isn't known by the protocol. In practice this should never
+    /// happen, because the coordinator should have not started a
+    /// timer for an unknown client. Therefore, this test expects a
+    /// panic.
+    #[test]
+    #[should_panic]
+    fn test_heartbeat_timeout_unknown_participant() {
+        let mut protocol = Protocol::new(get_default_fl_settings());
+        let client_id = ClientId::new();
+
+        protocol.heartbeat_timeout(client_id, ClientState::Unknown);
+
+        let counters = protocol.counters();
+        let expected = Counters {
+            ..Default::default()
+        };
+
+        assert_eq!(counters, expected);
+        assert!(protocol.next_event().is_none());
+    }
+
+    /// Test the outcome of a heartbeat timeout for a client that
+    /// finished training and dropped out. In practice this should
+    /// never happen, because after the client dropped out, its timer
+    /// should have expired already, which is how we detected the
+    /// drop-out in the first place. Therefore, this test expects a
+    /// panic.
+    #[test]
+    #[should_panic]
+    fn test_heartbeat_timeout_done_and_inactive_participant() {
+        let mut protocol = Protocol::new(get_default_fl_settings());
+        let client_id = ClientId::new();
+
+        protocol.heartbeat_timeout(client_id, ClientState::DoneAndInactive);
+
+        let counters = protocol.counters();
+        let expected = Counters {
+            ..Default::default()
+        };
+
+        assert_eq!(counters, expected);
+        assert!(protocol.next_event().is_none());
+    }
+
+    /// Test the outcome of a heartbeat timeout for a client that
+    /// finished training.
+    #[test]
+    fn test_heartbeat_timeout_done_participant() {
+        let mut protocol = Protocol::new(get_default_fl_settings());
+        let client_id = ClientId::new();
+        protocol.counters = Counters {
+            done: 1,
+            ..Default::default()
+        };
+
+        protocol.heartbeat_timeout(client_id, ClientState::Done);
+
+        let counters = protocol.counters();
+        let expected = Counters {
+            done: 1, // <- Not sure about this. Shouldn't it be 0?
+            done_and_inactive: 1,
+            ..Default::default()
+        };
+
+        assert_eq!(counters, expected);
+        assert_eq!(protocol.next_event().unwrap(), Event::Remove(client_id));
+        assert_eq!(
+            protocol.next_event().unwrap(),
+            Event::SetState(client_id, ClientState::DoneAndInactive)
+        );
+        assert!(protocol.next_event().is_none());
+    }
+
+    /// Test the outcome of a heartbeat timeout for a client that the
+    /// protocol ignores.
+    #[test]
+    fn test_heartbeat_timeout_ignore_participant() {
+        let mut protocol = Protocol::new(get_default_fl_settings());
+        let client_id = ClientId::new();
+        protocol.counters = Counters {
+            ignored: 1,
+            ..Default::default()
+        };
+
+        protocol.heartbeat_timeout(client_id, ClientState::Ignored);
+
+        let counters = protocol.counters();
+        let expected = Counters {
+            ignored: 0,
+            ..Default::default()
+        };
+
+        assert_eq!(counters, expected);
+        assert_eq!(protocol.next_event().unwrap(), Event::Remove(client_id));
+        assert!(protocol.next_event().is_none());
+    }
+
+    /// Test the outcome of a heartbeat from a client that the
+    /// protocol doesn't know about.
+    #[test]
+    fn test_heartbeat_unknown_participant() {
+        let mut protocol = Protocol::new(get_default_fl_settings());
+        let client_id = ClientId::new();
+
+        let resp = protocol.heartbeat(client_id, ClientState::Unknown);
+
+        assert_eq!(HeartBeatResponse::Reject, resp);
+        assert!(protocol.next_event().is_none());
+    }
+
+    /// Test the outcome of a heartbeat from a client that finished
+    /// training and dropped out already.
+    #[test]
+    fn test_heartbeat_done_and_inactive_participant() {
+        let mut protocol = Protocol::new(get_default_fl_settings());
+        let client_id = ClientId::new();
+
+        let resp = protocol.heartbeat(client_id, ClientState::DoneAndInactive);
+
+        assert_eq!(HeartBeatResponse::Reject, resp);
+        assert!(protocol.next_event().is_none());
+    }
+
+    /// Test the outcome of a heartbeat from a client that the
+    /// protocol ignores. Usually a client is ignored when it got
+    /// selected at some point, but then dropped out or did something
+    /// un-expected.
+    #[test]
+    fn test_heartbeat_ignore_participant() {
+        let mut protocol = Protocol::new(get_default_fl_settings());
+        let client_id = ClientId::new();
+
+        let resp = protocol.heartbeat(client_id, ClientState::Ignored);
+
+        assert_eq!(HeartBeatResponse::StandBy, resp);
+        assert_eq!(
+            protocol.next_event().unwrap(),
+            Event::ResetHeartBeat(client_id)
+        );
+        assert!(protocol.next_event().is_none());
+    }
+
+    /// Test the outcome of a heartbeat from a client has not been
+    /// selected yet.
+    #[test]
+    fn test_heartbeat_waiting_participant() {
+        let mut protocol = Protocol::new(get_default_fl_settings());
+        let client_id = ClientId::new();
+
+        let resp = protocol.heartbeat(client_id, ClientState::Waiting);
+
+        assert_eq!(HeartBeatResponse::StandBy, resp);
+        assert_eq!(
+            protocol.next_event().unwrap(),
+            Event::ResetHeartBeat(client_id)
+        );
+        assert!(protocol.next_event().is_none());
+    }
+
+    /// Test the outcome of a heartbeat from a client that finished
+    /// training and is still active (ie didn't drop out).
+    #[test]
+    fn test_heartbeat_done_participant() {
+        let mut protocol = Protocol::new(get_default_fl_settings());
+        let client_id = ClientId::new();
+
+        let resp = protocol.heartbeat(client_id, ClientState::Done);
+
+        assert_eq!(HeartBeatResponse::StandBy, resp);
+        assert_eq!(
+            protocol.next_event().unwrap(),
+            Event::ResetHeartBeat(client_id)
+        );
+        assert!(protocol.next_event().is_none());
+    }
+
+    /// Test the outcome of a heartbeat from a client that has been
+    /// selected but hasn't finished training yet.
+    #[test]
+    fn test_heartbeat_selected_participant() {
+        let mut protocol = Protocol::new(get_default_fl_settings());
+        let client_id = ClientId::new();
+
+        let resp = protocol.heartbeat(client_id, ClientState::Selected);
+
+        assert_eq!(HeartBeatResponse::Round(0), resp);
+        assert_eq!(
+            protocol.next_event().unwrap(),
+            Event::ResetHeartBeat(client_id)
+        );
+        assert!(protocol.next_event().is_none());
+    }
+
+    /// Test the outcome of a heartbeat from a client in any state
+    /// after all the rounds have been completed already.
+    #[test]
+    fn test_heartbeat_training_complete() {
+        let mut protocol = Protocol::new(get_default_fl_settings());
+        let client_id = ClientId::new();
+        protocol.is_training_complete = true;
+        let client_states = vec![
+            ClientState::Unknown,
+            ClientState::Ignored,
+            ClientState::Done,
+            ClientState::DoneAndInactive,
+            ClientState::Selected,
+            ClientState::Waiting,
+        ];
+
+        for state in client_states.iter() {
+            let resp = protocol.heartbeat(client_id, *state);
+
+            assert_eq!(HeartBeatResponse::Finish, resp);
+            assert_eq!(
+                protocol.next_event().unwrap(),
+                Event::ResetHeartBeat(client_id)
+            );
+        }
+        assert!(protocol.next_event().is_none());
+    }
+
+    /// Test the outcome of a start training request from a client
+    /// that has been selected and has not finished training.
+    #[test]
+    fn test_start_training_selected_participant() {
+        let mut protocol = Protocol::new(get_default_fl_settings());
+
+        let resp = protocol.start_training(ClientState::Selected);
+
+        assert_eq!(StartTrainingResponse::Accept, resp);
+        assert!(protocol.next_event().is_none());
+    }
+
+    /// Test the outcome of a start training request from a client
+    /// that has been selected and has already finished training.
+    #[test]
+    fn test_start_training_selected_participant_training_complete() {
+        let mut protocol = Protocol::new(get_default_fl_settings());
+        protocol.is_training_complete = true;
+
+        let resp = protocol.start_training(ClientState::Selected);
+
+        assert_eq!(StartTrainingResponse::Reject, resp);
+        assert!(protocol.next_event().is_none());
+    }
+
+    /// Test the outcome of a start training request from a client
+    /// that has not been selected.
+    #[test]
+    fn test_start_training_with_not_selected_participant() {
+        let mut protocol = Protocol::new(get_default_fl_settings());
+        let client_states = vec![
+            ClientState::Unknown,
+            ClientState::Ignored,
+            ClientState::Done,
+            ClientState::DoneAndInactive,
+            ClientState::Waiting,
+        ];
+
+        for state in client_states.iter() {
+            let resp = protocol.start_training(*state);
+
+            assert_eq!(StartTrainingResponse::Reject, resp);
+        }
+        assert!(protocol.next_event().is_none());
+    }
+
+    /// Test the outcome of a valid end training request when all the
+    /// rounds have already been completed. An end training request is
+    /// valid when it is for a participant that has been selected and
+    /// has not finished training yet.
+    #[test]
+    fn test_end_training_is_training_complete() {
+        let mut protocol = Protocol::new(get_default_fl_settings());
+        let client_id = ClientId::new();
+        protocol.is_training_complete = true;
+
+        protocol.end_training(client_id, true, ClientState::Selected);
+        // FIXME: add checks
+    }
+
+    /// Test the outcome of a valid end training request while the
+    /// protocol is waiting for an ongoing aggregation to finish. An
+    /// end training request is valid when it is for a participant
+    /// that has been selected and has not finished training yet.
+    #[test]
+    fn test_end_training_waiting_for_aggregation() {
+        let mut protocol = Protocol::new(get_default_fl_settings());
+        let client_id = ClientId::new();
+        protocol.waiting_for_aggregation = true;
+
+        protocol.end_training(client_id, true, ClientState::Selected);
+
+        assert!(protocol.next_event().is_none());
+    }
+
+    /// Test the outcome of a valid end training request when the
+    /// protocol is still waiting for several clients to finish
+    /// training (ie this end training request isn't the one that
+    /// completes the current round). An end training request is valid
+    /// when it is for a participant that has been selected and has
+    /// not finished training yet.
+    #[test]
+    fn test_end_training_selected_participant_success_not_last_round() {
+        let mut protocol = Protocol::new(get_default_fl_settings());
+        let client_id = ClientId::new();
+        protocol.counters = Counters {
+            waiting: 0,
+            selected: 2,
+            done: 5,
+            done_and_inactive: 3,
+            ignored: 2,
+        };
+
+        protocol.end_training(client_id, true, ClientState::Selected);
+
+        let counters = protocol.counters();
+        let expected = Counters {
+            waiting: 0,
+            selected: 1,
+            done: 6,
+            done_and_inactive: 3,
+            ignored: 2,
+        };
+
+        assert_eq!(counters, expected);
+        assert_eq!(
+            protocol.next_event().unwrap(),
+            Event::SetState(client_id, ClientState::Done)
+        );
+        assert!(protocol.next_event().is_none());
+    }
+
+    /// Test the outcome of a valid end training request that
+    /// completes the current round. An end training request is valid
+    /// when it is for a participant that has been selected and has
+    /// not finished training yet.
+    #[test]
+    fn test_end_training_selected_participant_success_last_round() {
+        let mut protocol = Protocol::new(get_default_fl_settings());
+        // rounds start at 0. The settings specify two rounds, so the
+        // last round correspond to current_round = 1
+        protocol.current_round = 1;
+        let client_id = ClientId::new();
+        protocol.counters = Counters {
+            waiting: 0,
+            selected: 1,
+            done: 5,
+            done_and_inactive: 3,
+            ignored: 2,
+        };
+
+        protocol.end_training(client_id, true, ClientState::Selected);
+
+        let counters = protocol.counters();
+        let expected = Counters {
+            waiting: 1 + 5 + 2,
+            selected: 0,
+            done: 0,
+            done_and_inactive: 0,
+            ignored: 0,
+        };
+
+        assert_eq!(counters, expected);
+        assert_eq!(
+            protocol.next_event().unwrap(),
+            Event::SetState(client_id, ClientState::Done)
+        );
+        assert_eq!(protocol.next_event().unwrap(), Event::RunAggregation);
+        assert_eq!(protocol.next_event().unwrap(), Event::ResetAll);
+        assert!(protocol.next_event().is_none());
+    }
+
+    /// Test the outcome of a valid end training request that has been
+    /// rejected by the aggregator. It is still valid in the sense
+    /// that it corresponds to a client for which the protocol expects
+    /// an end training request.
+    #[test]
+    fn test_end_training_selected_participant_no_success() {
+        let mut protocol = Protocol::new(get_default_fl_settings());
+        let client_id = ClientId::new();
+        protocol.counters = Counters {
+            waiting: 0,
+            selected: 2,
+            done: 5,
+            done_and_inactive: 3,
+            ignored: 2,
+        };
+
+        protocol.end_training(client_id, false, ClientState::Selected);
+
+        let counters = protocol.counters();
+        let expected = Counters {
+            waiting: 0,
+            selected: 1,
+            done: 5,
+            done_and_inactive: 3,
+            ignored: 3,
+        };
+
+        assert_eq!(counters, expected);
+        assert_eq!(
+            protocol.next_event().unwrap(),
+            Event::SetState(client_id, ClientState::Ignored)
+        );
+        assert!(protocol.next_event().is_none());
+    }
+
+    /// Test the outcome of a valid end training request that has been
+    /// rejected by the aggregator, and that should trigger a new
+    /// selection.
+    #[test]
+    fn test_end_training_selected_participant_no_success_run_selection() {
+        let fl_settings = FederatedLearningSettings {
+            rounds: 1,
+            participants_ratio: 1.0,
+            min_clients: 15,
+            heartbeat_timeout: 15,
+        };
+        let mut protocol = Protocol::new(fl_settings);
+        let client_id = ClientId::new();
+        protocol.counters = Counters {
+            waiting: 6,
+            selected: 2,
+            done: 5,
+            done_and_inactive: 3,
+            ignored: 2,
+        };
+
+        protocol.end_training(client_id, false, ClientState::Selected);
+
+        let counters = protocol.counters();
+        let expected = Counters {
+            waiting: 6,
+            selected: 1,
+            done: 5,
+            done_and_inactive: 3,
+            ignored: 3,
+        };
+        assert_eq!(counters, expected);
+        assert_eq!(
+            protocol.next_event().unwrap(),
+            Event::SetState(client_id, ClientState::Ignored)
+        );
+        assert_eq!(protocol.next_event().unwrap(), Event::RunSelection(6));
+        assert!(protocol.next_event().is_none());
+    }
+
+    /// Test the outcome of calling `end_aggregation` while there's
+    /// not ongoing aggregation.
+    #[test]
+    fn test_end_aggregation_not_waiting_for_aggregation() {
+        let mut protocol = Protocol::new(get_default_fl_settings());
+        protocol.end_aggregation(false);
+        assert!(protocol.next_event().is_none());
+    }
+
+    /// Test the outcome of an aggregation completion.
+    #[test]
+    fn test_end_aggregation_waiting_for_aggregation_success_not_last_round() {
+        let mut protocol = Protocol::new(get_default_fl_settings());
+        protocol.counters = Counters {
+            selected: 1,
+            ..Default::default()
+        };
+        protocol.waiting_for_aggregation = true;
+        protocol.end_aggregation(true);
+
+        assert_eq!(protocol.waiting_for_aggregation, false);
+        assert_eq!(protocol.next_event().unwrap(), Event::EndRound(0));
+        assert_eq!(protocol.current_round, 1);
+        assert_eq!(protocol.is_training_complete, false);
+        assert!(protocol.next_event().is_none());
+    }
+
+    /// Test the outcome of an aggregation completion in the last round.
+    #[test]
+    fn test_end_aggregation_waiting_for_aggregation_success_last_round() {
+        let mut protocol = Protocol::new(get_default_fl_settings());
+        protocol.counters = Counters {
+            selected: 1,
+            ..Default::default()
+        };
+        // rounds start at 0. The settings specify two rounds, so the
+        // last round correspond to current_round = 1
+        protocol.current_round = 1;
+        protocol.waiting_for_aggregation = true;
+        protocol.end_aggregation(true);
+
+        assert_eq!(protocol.waiting_for_aggregation, false);
+        assert_eq!(protocol.current_round, 2);
+        assert_eq!(protocol.is_training_complete, true);
+        assert_eq!(protocol.next_event().unwrap(), Event::EndRound(1));
+        assert!(protocol.next_event().is_none());
+    }
+
+    /// Test the outcome of an aggregation failure.
+    #[test]
+    fn test_end_aggregation_waiting_for_aggregation_no_success_not_last_round() {
+        let mut protocol = Protocol::new(get_default_fl_settings());
+        protocol.counters = Counters {
+            selected: 1,
+            ..Default::default()
+        };
+        protocol.waiting_for_aggregation = true;
+        protocol.end_aggregation(false);
+
+        assert_eq!(protocol.waiting_for_aggregation, false);
+        assert_eq!(protocol.is_training_complete, false);
+        assert!(protocol.next_event().is_none());
+    }
+
+    /// Test the outcome of an aggregation failure in the last round.
+    #[test]
+    fn test_end_aggregation_waiting_for_aggregation_no_success_last_round() {
+        let mut protocol = Protocol::new(get_default_fl_settings());
+        protocol.counters = Counters {
+            selected: 1,
+            ..Default::default()
+        };
+        // rounds start at 0. The settings specify two rounds, so the
+        // last round correspond to current_round = 1
+        protocol.current_round = 1;
+        protocol.waiting_for_aggregation = true;
+        protocol.end_aggregation(false);
+
+        assert_eq!(protocol.waiting_for_aggregation, false);
+        assert_eq!(protocol.is_training_complete, false);
+        assert_eq!(protocol.current_round, 1);
+        assert!(protocol.next_event().is_none());
+    }
+
+    fn create_participant(protocol: &mut Protocol) -> ClientId {
+        let new_client = ClientId::new();
+        protocol.rendez_vous(new_client, ClientState::Unknown);
+        new_client
+    }
+
+    fn select_and_start_training(
+        protocol: &mut Protocol,
+        candidates: Vec<(ClientId, ClientState)>,
+    ) {
+        let number_of_candidates = candidates.len();
+
+        protocol.select(candidates.into_iter());
+
+        for _ in 0..number_of_candidates {
+            protocol.start_training(ClientState::Selected);
+        }
+    }
+
+    fn end_training(protocol: &mut Protocol, candidates: Vec<(ClientId, ClientState)>) {
+        for (client_id, _) in candidates.into_iter() {
+            protocol.end_training(client_id, true, ClientState::Selected);
+        }
+    }
+
+    /// Simple test case with two particpants and two rounds.  After
+    /// the last round the coordinator should response with a
+    /// StartTrainingResponse::Reject for each new start_training
+    /// request.
+    #[test]
+    fn test_case_1() {
+        let n_of_rounds = 2;
+        let n_of_clients = 2;
+
+        let settings = FederatedLearningSettings {
+            rounds: n_of_rounds,
+            participants_ratio: 1.0,
+            min_clients: n_of_clients,
+            heartbeat_timeout: 15,
+        };
+
+        let mut protocol = Protocol::new(settings);
+        let mut clients = Vec::new();
+        for _ in 0..n_of_clients {
+            clients.push((create_participant(&mut protocol), ClientState::Waiting))
+        }
+
+        for round in 0..n_of_rounds {
+            select_and_start_training(&mut protocol, clients.clone());
+            let counters = protocol.counters();
+            let expected = Counters {
+                selected: 2,
+                ..Default::default()
+            };
+            assert_eq!(counters, expected);
+
+            end_training(&mut protocol, clients.clone());
+            let counters = protocol.counters();
+            let expected = Counters {
+                waiting: 2,
+                ..Default::default()
+            };
+            assert_eq!(counters, expected);
+            assert_eq!(protocol.current_round, round);
+
+            protocol.end_aggregation(true);
+            assert_eq!(protocol.current_round, round + 1);
+        }
+
+        let try_start_after_last_round = protocol.start_training(ClientState::Selected);
+        assert_eq!(try_start_after_last_round, StartTrainingResponse::Reject);
     }
 }
