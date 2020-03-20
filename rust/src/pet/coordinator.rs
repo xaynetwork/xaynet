@@ -1,4 +1,4 @@
-use std::{collections::HashMap, iter::Iterator, ops::Range};
+use std::{collections::HashMap, iter::Iterator};
 
 use sodiumoxide::crypto::{box_, sealedbox, sign};
 
@@ -6,17 +6,25 @@ use super::{utils::is_eligible, PetError};
 
 pub struct SumMessageBuffer(Vec<u8>);
 pub struct UpdateMessageBuffer(Vec<u8>);
+pub struct Sum2MessageBuffer(Vec<u8>);
 pub struct SealedBoxBuffer(Vec<u8>);
 pub struct SumBoxBuffer(Vec<u8>);
 pub struct UpdateBoxBuffer(Vec<u8>);
+pub struct Sum2BoxBuffer(Vec<u8>);
 
+#[allow(dead_code)] // temporary
 pub struct SumMessage {
     sum_encr_pk: box_::PublicKey,
     sum_ephm_pk: box_::PublicKey,
 }
+#[allow(dead_code)] // temporary
 pub struct UpdateMessage {
     model_url: Vec<u8>,
     dict_seed: HashMap<box_::PublicKey, Vec<u8>>,
+}
+#[allow(dead_code)] // temporary
+pub struct Sum2Message {
+    mask_url: Vec<u8>,
 }
 
 impl SumMessageBuffer {
@@ -61,19 +69,36 @@ impl UpdateMessageBuffer {
     }
 }
 
-impl SealedBoxBuffer {
-    pub fn new(message: Result<Vec<u8>, ()>) -> Result<Self, PetError> {
-        if let Ok(msg) = message {
-            if msg.len() != 69 {
-                return Err(PetError::InvalidMessage);
-            }
-            if &msg[64..69] != b"round" {
-                return Err(PetError::InvalidMessage);
-            }
-            Ok(Self(msg))
-        } else {
-            Err(PetError::InvalidMessage)
+impl Sum2MessageBuffer {
+    pub fn new(message: Vec<u8>) -> Result<Self, PetError> {
+        if message.len() != 321 {
+            return Err(PetError::InvalidMessage);
         }
+        Ok(Self(message))
+    }
+
+    pub fn get_sealedbox(&self) -> &[u8] {
+        &self.0[0..117]
+    }
+
+    pub fn get_nonce(&self) -> Result<box_::Nonce, PetError> {
+        box_::Nonce::from_slice(&self.0[117..141]).ok_or(PetError::InvalidMessage)
+    }
+
+    pub fn get_box(&self) -> &[u8] {
+        &self.0[141..321]
+    }
+}
+
+impl SealedBoxBuffer {
+    pub fn new(message: Vec<u8>) -> Result<Self, PetError> {
+        if message.len() != 69 {
+            return Err(PetError::InvalidMessage);
+        }
+        if &message[64..69] != b"round" {
+            return Err(PetError::InvalidMessage);
+        }
+        Ok(Self(message))
     }
 
     pub fn get_part_encr_pk(&self) -> Result<box_::PublicKey, PetError> {
@@ -86,23 +111,19 @@ impl SealedBoxBuffer {
 }
 
 impl SumBoxBuffer {
-    pub fn new(message: Result<Vec<u8>, ()>) -> Result<Self, PetError> {
-        if let Ok(msg) = message {
-            if msg.len() != 163 {
-                return Err(PetError::InvalidMessage);
-            }
-            if &msg[128..131] != b"sum" {
-                return Err(PetError::InvalidMessage);
-            }
-            Ok(Self(msg))
-        } else {
-            Err(PetError::InvalidMessage)
+    pub fn new(message: Vec<u8>) -> Result<Self, PetError> {
+        if message.len() != 163 {
+            return Err(PetError::InvalidMessage);
         }
+        if &message[128..131] != b"sum" {
+            return Err(PetError::InvalidMessage);
+        }
+        Ok(Self(message))
     }
 
     // dummy
-    pub fn get_certificate(&self) -> &[u8] {
-        &self.0[0..0]
+    pub fn get_certificate(&self) -> Vec<u8> {
+        self.0[0..0].to_vec()
     }
 
     pub fn get_signature_sum(&self) -> Result<sign::Signature, PetError> {
@@ -115,23 +136,19 @@ impl SumBoxBuffer {
 }
 
 impl UpdateBoxBuffer {
-    pub fn new(message: Result<Vec<u8>, ()>, dict_sum_len: usize) -> Result<Self, PetError> {
-        if let Ok(msg) = message {
-            if msg.len() != 166 + 112 * dict_sum_len {
-                return Err(PetError::InvalidMessage);
-            }
-            if &msg[128..134] != b"update" {
-                return Err(PetError::InvalidMessage);
-            }
-            Ok(Self(msg))
-        } else {
-            Err(PetError::InvalidMessage)
+    pub fn new(message: Vec<u8>, dict_sum_len: usize) -> Result<Self, PetError> {
+        if message.len() != 166 + 112 * dict_sum_len {
+            return Err(PetError::InvalidMessage);
         }
+        if &message[128..134] != b"update" {
+            return Err(PetError::InvalidMessage);
+        }
+        Ok(Self(message))
     }
 
     // dummy
-    pub fn get_certificate(&self) -> &[u8] {
-        &self.0[0..0]
+    pub fn get_certificate(&self) -> Vec<u8> {
+        self.0[0..0].to_vec()
     }
 
     pub fn get_signature_sum(&self) -> Result<sign::Signature, PetError> {
@@ -164,6 +181,31 @@ impl UpdateBoxBuffer {
     }
 }
 
+impl Sum2BoxBuffer {
+    pub fn new(message: Vec<u8>) -> Result<Self, PetError> {
+        if message.len() != 164 {
+            return Err(PetError::InvalidMessage);
+        }
+        if &message[128..132] != b"sum2" {
+            return Err(PetError::InvalidMessage);
+        }
+        Ok(Self(message))
+    }
+
+    // dummy
+    pub fn get_certificate(&self) -> Vec<u8> {
+        self.0[0..0].to_vec()
+    }
+
+    pub fn get_signature_sum(&self) -> Result<sign::Signature, PetError> {
+        sign::Signature::from_slice(&self.0[0..64]).ok_or(PetError::InvalidMessage)
+    }
+
+    pub fn get_mask_url(&self) -> Vec<u8> {
+        self.0[132..164].to_vec()
+    }
+}
+
 impl SumMessage {
     /// Decrypt and validate the message from a "sum" participant to get an item for the
     /// dictionary of "sum" participants.
@@ -177,25 +219,22 @@ impl SumMessage {
         let msg = SumMessageBuffer::new(message)?;
 
         // get public keys
-        let sealedbox = SealedBoxBuffer::new(sealedbox::open(
-            msg.get_sealedbox(),
-            coord_encr_pk,
-            coord_encr_sk,
-        ))?;
-        let sum_encr_pk = sealedbox.get_part_encr_pk()?;
+        let sbox = SealedBoxBuffer::new(
+            sealedbox::open(msg.get_sealedbox(), coord_encr_pk, coord_encr_sk)
+                .or(Err(PetError::InvalidMessage))?,
+        )?;
+        let sum_encr_pk = sbox.get_part_encr_pk()?;
 
         // get ephemeral key
         let nonce = msg.get_nonce()?;
-        let sumbox = SumBoxBuffer::new(box_::open(
-            msg.get_box(),
-            &nonce,
-            &sum_encr_pk,
-            coord_encr_sk,
-        ))?;
-        Self::validate_certificate(sumbox.get_certificate())?;
+        let sumbox = SumBoxBuffer::new(
+            box_::open(msg.get_box(), &nonce, &sum_encr_pk, coord_encr_sk)
+                .or(Err(PetError::InvalidMessage))?,
+        )?;
+        Self::validate_certificate(&sumbox.get_certificate())?;
         Self::validate_signature(
             &sumbox.get_signature_sum()?,
-            &sealedbox.get_part_sign_pk()?,
+            &sbox.get_part_sign_pk()?,
             round_seed,
             round_sum,
         )?;
@@ -208,21 +247,21 @@ impl SumMessage {
     }
 
     // dummy
-    fn validate_certificate(certificate: &[u8]) -> Result<(), PetError> {
-        if certificate != b"" {
+    fn validate_certificate(certificate: &Vec<u8>) -> Result<(), PetError> {
+        if *certificate != b"" {
             return Err(PetError::InvalidMessage);
         }
         Ok(())
     }
 
     fn validate_signature(
-        sig: &sign::Signature,
+        sig_sum: &sign::Signature,
         sign_pk: &sign::PublicKey,
         seed: &[u8],
         sum: f64,
     ) -> Result<(), PetError> {
-        if sign::verify_detached(sig, &[seed, &b"sum"[..]].concat(), sign_pk)
-            && is_eligible(&sig.0[..], sum).ok_or(PetError::InvalidMessage)?
+        if sign::verify_detached(sig_sum, &[seed, &b"sum"[..]].concat(), sign_pk)
+            && is_eligible(&sig_sum.0[..], sum).ok_or(PetError::InvalidMessage)?
         {
             Ok(())
         } else {
@@ -246,12 +285,11 @@ impl UpdateMessage {
         let msg = UpdateMessageBuffer::new(message, dict_sum_len)?;
 
         // get public keys
-        let sealedbox = SealedBoxBuffer::new(sealedbox::open(
-            msg.get_sealedbox(),
-            coord_encr_pk,
-            coord_encr_sk,
-        ))?;
-        let sum_encr_pk = sealedbox.get_part_encr_pk()?;
+        let sbox = SealedBoxBuffer::new(
+            sealedbox::open(msg.get_sealedbox(), coord_encr_pk, coord_encr_sk)
+                .or(Err(PetError::InvalidMessage))?,
+        )?;
+        let sum_encr_pk = sbox.get_part_encr_pk()?;
 
         // get model url and dictionary of encrypted seeds
         let nonce = msg.get_nonce()?;
@@ -261,14 +299,15 @@ impl UpdateMessage {
                 &nonce,
                 &sum_encr_pk,
                 coord_encr_sk,
-            ),
+            )
+            .or(Err(PetError::InvalidMessage))?,
             dict_sum_len,
         )?;
-        Self::validate_certificate(updatebox.get_certificate())?;
+        Self::validate_certificate(&updatebox.get_certificate())?;
         Self::validate_signature(
             &updatebox.get_signature_sum()?,
             &updatebox.get_signature_update()?,
-            &sealedbox.get_part_sign_pk()?,
+            &sbox.get_part_sign_pk()?,
             round_seed,
             round_sum,
             round_update,
@@ -283,8 +322,8 @@ impl UpdateMessage {
     }
 
     // dummy
-    fn validate_certificate(certificate: &[u8]) -> Result<(), PetError> {
-        if certificate != b"" {
+    fn validate_certificate(certificate: &Vec<u8>) -> Result<(), PetError> {
+        if *certificate != b"" {
             return Err(PetError::InvalidMessage);
         }
         Ok(())
@@ -302,6 +341,67 @@ impl UpdateMessage {
             && sign::verify_detached(sig_update, &[seed, &b"update"[..]].concat(), sign_pk)
             && !is_eligible(&sig_sum.0[..], sum).ok_or(PetError::InvalidMessage)?
             && is_eligible(&sig_update.0[..], update).ok_or(PetError::InvalidMessage)?
+        {
+            Ok(())
+        } else {
+            Err(PetError::InvalidMessage)
+        }
+    }
+}
+
+impl Sum2Message {
+    /// Decrypt and validate the message parts from a "sum" participant to get the url
+    /// to the global mask.
+    pub fn validate(
+        message: Vec<u8>,
+        coord_encr_pk: &box_::PublicKey,
+        coord_encr_sk: &box_::SecretKey,
+        round_seed: &[u8],
+        round_sum: f64,
+    ) -> Result<Self, PetError> {
+        let msg = Sum2MessageBuffer::new(message)?;
+
+        // get public keys
+        let sbox = SealedBoxBuffer::new(
+            sealedbox::open(msg.get_sealedbox(), coord_encr_pk, coord_encr_sk)
+                .or(Err(PetError::InvalidMessage))?,
+        )?;
+        let sum_encr_pk = sbox.get_part_encr_pk()?;
+
+        // get ephemeral key
+        let nonce = msg.get_nonce()?;
+        let sumbox = Sum2BoxBuffer::new(
+            box_::open(msg.get_box(), &nonce, &sum_encr_pk, coord_encr_sk)
+                .or(Err(PetError::InvalidMessage))?,
+        )?;
+        Self::validate_certificate(&sumbox.get_certificate())?;
+        Self::validate_signature(
+            &sumbox.get_signature_sum()?,
+            &sbox.get_part_sign_pk()?,
+            round_seed,
+            round_sum,
+        )?;
+        let mask_url = sumbox.get_mask_url();
+
+        Ok(Self { mask_url })
+    }
+
+    // dummy
+    fn validate_certificate(certificate: &Vec<u8>) -> Result<(), PetError> {
+        if *certificate != b"" {
+            return Err(PetError::InvalidMessage);
+        }
+        Ok(())
+    }
+
+    fn validate_signature(
+        sig_sum: &sign::Signature,
+        sign_pk: &sign::PublicKey,
+        seed: &[u8],
+        sum: f64,
+    ) -> Result<(), PetError> {
+        if sign::verify_detached(sig_sum, &[seed, &b"sum"[..]].concat(), sign_pk)
+            && is_eligible(&sig_sum.0[..], sum).ok_or(PetError::InvalidMessage)?
         {
             Ok(())
         } else {
