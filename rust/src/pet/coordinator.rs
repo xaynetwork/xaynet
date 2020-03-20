@@ -247,8 +247,8 @@ impl SumMessage {
     }
 
     // dummy
-    fn validate_certificate(certificate: &Vec<u8>) -> Result<(), PetError> {
-        if *certificate != b"" {
+    fn validate_certificate(certificate: &[u8]) -> Result<(), PetError> {
+        if certificate != b"" {
             return Err(PetError::InvalidMessage);
         }
         Ok(())
@@ -322,8 +322,8 @@ impl UpdateMessage {
     }
 
     // dummy
-    fn validate_certificate(certificate: &Vec<u8>) -> Result<(), PetError> {
-        if *certificate != b"" {
+    fn validate_certificate(certificate: &[u8]) -> Result<(), PetError> {
+        if certificate != b"" {
             return Err(PetError::InvalidMessage);
         }
         Ok(())
@@ -387,8 +387,8 @@ impl Sum2Message {
     }
 
     // dummy
-    fn validate_certificate(certificate: &Vec<u8>) -> Result<(), PetError> {
-        if *certificate != b"" {
+    fn validate_certificate(certificate: &[u8]) -> Result<(), PetError> {
+        if certificate != b"" {
             return Err(PetError::InvalidMessage);
         }
         Ok(())
