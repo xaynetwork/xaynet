@@ -216,6 +216,7 @@ class HeartBeatWorker(threading.Thread):
                 state_record.set_state(State.DONE)
 
             elif state == "reject":
+                LOG.error("hearbeat rejected")
                 state_record.set_state(State.DONE)
 
             elif state == "round":
