@@ -460,9 +460,7 @@ where
         }
 
         match event {
-            Accept(_) => self.write_counter_metrics(),
-            Remove(_) => self.write_counter_metrics(),
-            SetState(_, _) => self.write_counter_metrics(),
+            Accept(_) | Remove(_) | SetState(_, _) => self.write_counter_metrics(),
             EndRound(round) => self.write_round_metric(round),
             _ => (),
         }
