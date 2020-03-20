@@ -44,9 +44,9 @@ class Participant(ParticipantABC):
         return self.training_result
 
 
-def participant_worker(participant, url, exit_event):
+def participant_worker(participant, url, heartbeat_frequency, exit_event):
     try:
-        run_participant(participant, url)
+        run_participant(participant, url, heartbeat_frequency=heartbeat_frequency)
     except KeyboardInterrupt:
         exit_event.set()
         return
@@ -57,14 +57,21 @@ def participant_worker(participant, url, exit_event):
         return
 
 
-def main(size: int, number_of_participants: int, coordinator_url: str) -> None:
+def main(
+    size: int,
+    number_of_participants: int,
+    coordinator_url: str,
+    heartbeat_frequency: int,
+) -> None:
     """Entry point to start a participant."""
     weights = np.array([1] * size)
     training_result_data = int(0).to_bytes(4, byteorder="big") + pickle.dumps(weights)
 
     if number_of_participants < 2:
         participant = Participant(training_result_data)
-        run_participant(participant, coordinator_url)
+        run_participant(
+            participant, coordinator_url, heartbeat_frequency=heartbeat_frequency
+        )
     else:
         exit_event = threading.Event()
         threads = []
@@ -72,7 +79,7 @@ def main(size: int, number_of_participants: int, coordinator_url: str) -> None:
             participant = Participant(training_result_data)
             thread = threading.Thread(
                 target=participant_worker,
-                args=(participant, coordinator_url, exit_event),
+                args=(participant, coordinator_url, heartbeat_frequency, exit_event),
             )
             thread.daemon = True
             thread.start()
@@ -101,5 +108,16 @@ if __name__ == "__main__":
         default=125_000,
         help="Number of weights to use",
     )
+    parser.add_argument(
+        "--heartbeat-frequency",
+        type=float,
+        default=1,
+        help="Frequency of the heartbeat in seconds",
+    )
     args = parser.parse_args()
-    main(args.model_size, args.number_of_participants, args.coordinator_url)
+    main(
+        args.model_size,
+        args.number_of_participants,
+        args.coordinator_url,
+        args.heartbeat_frequency,
+    )
