@@ -445,6 +445,7 @@ mod tests {
         assert!(protocol.next_event().is_none());
     }
 
+    /// Test the outcome of single rendez-vous request
     #[test]
     fn test_rendez_vous_new_client() {
         let mut protocol = Protocol::new(get_default_fl_settings());
@@ -465,6 +466,8 @@ mod tests {
         assert!(protocol.next_event().is_none());
     }
 
+    /// Test the outcome of a rendez-vous request from a client that
+    /// already sent a rendez-vous request but has not yet been selected
     #[test]
     fn test_rendez_vous_waiting_client_re_send_rendez_vous() {
         let mut protocol = Protocol::new(get_default_fl_settings());
@@ -486,6 +489,9 @@ mod tests {
         assert_eq!(RendezVousResponse::Accept, resp);
     }
 
+    /// Test the outcome of a rendez-vous request from a client that
+    /// already sent a rendez-vous request and has already been
+    /// selected
     #[test]
     fn test_rendez_vous_selected_client_re_send_rendez_vous() {
         let mut protocol = Protocol::new(get_default_fl_settings());
@@ -530,6 +536,9 @@ mod tests {
         assert!(protocol.next_event().is_none());
     }
 
+    /// Test the outcome of a rendez-vous request from a client that
+    /// already sent a rendez-vous request, has been selected and then
+    /// finished training.
     #[test]
     fn test_rendez_vous_done_client_re_send_rendez_vous() {
         let mut protocol = Protocol::new(get_default_fl_settings());
@@ -552,6 +561,10 @@ mod tests {
         assert!(protocol.next_event().is_none());
     }
 
+    /// Test the outcome of a rendez-vous request from a client that
+    /// the protocol ignores. Usually a client is ignored when it got
+    /// selected at some point, but then dropped out or did something
+    /// un-expected.
     #[test]
     fn test_rendez_vous_done_inactive_client_re_send_rendez_vous() {
         let mut protocol = Protocol::new(get_default_fl_settings());
@@ -574,6 +587,8 @@ mod tests {
         assert!(protocol.next_event().is_none());
     }
 
+    /// Test the outcome of a heartbeat timeout for a client that has
+    /// not yet been selected.
     #[test]
     fn test_heartbeat_timeout_waiting_participant() {
         let mut protocol = Protocol::new(get_default_fl_settings());
@@ -604,6 +619,8 @@ mod tests {
         assert!(protocol.next_event().is_none());
     }
 
+    /// Test the outcome of a heartbeat timeout for a client that has
+    /// already been selected.
     #[test]
     fn test_heartbeat_timeout_selected_participant() {
         let mut protocol = Protocol::new(get_default_fl_settings());
@@ -640,6 +657,11 @@ mod tests {
         assert!(protocol.next_event().is_none());
     }
 
+    /// Test the outcome of a heartbeat timeout for a client that
+    /// isn't known by the protocol. In practice this should never
+    /// happen, because the coordinator should have not started a
+    /// timer for an unknown client. Therefore, this test expects a
+    /// panic.
     #[test]
     #[should_panic]
     fn test_heartbeat_timeout_unknown_participant() {
@@ -657,6 +679,12 @@ mod tests {
         assert!(protocol.next_event().is_none());
     }
 
+    /// Test the outcome of a heartbeat timeout for a client that
+    /// finished training and dropped out. In practice this should
+    /// never happen, because after the client dropped out, its timer
+    /// should have expired already, which is how we detected the
+    /// drop-out in the first place. Therefore, this test expects a
+    /// panic.
     #[test]
     #[should_panic]
     fn test_heartbeat_timeout_done_and_inactive_participant() {
@@ -674,6 +702,8 @@ mod tests {
         assert!(protocol.next_event().is_none());
     }
 
+    /// Test the outcome of a heartbeat timeout for a client that
+    /// finished training.
     #[test]
     fn test_heartbeat_timeout_done_participant() {
         let mut protocol = Protocol::new(get_default_fl_settings());
@@ -701,6 +731,8 @@ mod tests {
         assert!(protocol.next_event().is_none());
     }
 
+    /// Test the outcome of a heartbeat timeout for a client that the
+    /// protocol ignores.
     #[test]
     fn test_heartbeat_timeout_ignore_participant() {
         let mut protocol = Protocol::new(get_default_fl_settings());
@@ -723,6 +755,8 @@ mod tests {
         assert!(protocol.next_event().is_none());
     }
 
+    /// Test the outcome of a heartbeat from a client that the
+    /// protocol doesn't know about.
     #[test]
     fn test_heartbeat_unknown_participant() {
         let mut protocol = Protocol::new(get_default_fl_settings());
@@ -734,6 +768,8 @@ mod tests {
         assert!(protocol.next_event().is_none());
     }
 
+    /// Test the outcome of a heartbeat from a client that finished
+    /// training and dropped out already.
     #[test]
     fn test_heartbeat_done_and_inactive_participant() {
         let mut protocol = Protocol::new(get_default_fl_settings());
@@ -745,6 +781,10 @@ mod tests {
         assert!(protocol.next_event().is_none());
     }
 
+    /// Test the outcome of a heartbeat from a client that the
+    /// protocol ignores. Usually a client is ignored when it got
+    /// selected at some point, but then dropped out or did something
+    /// un-expected.
     #[test]
     fn test_heartbeat_ignore_participant() {
         let mut protocol = Protocol::new(get_default_fl_settings());
@@ -760,6 +800,8 @@ mod tests {
         assert!(protocol.next_event().is_none());
     }
 
+    /// Test the outcome of a heartbeat from a client has not been
+    /// selected yet.
     #[test]
     fn test_heartbeat_waiting_participant() {
         let mut protocol = Protocol::new(get_default_fl_settings());
@@ -775,6 +817,8 @@ mod tests {
         assert!(protocol.next_event().is_none());
     }
 
+    /// Test the outcome of a heartbeat from a client that finished
+    /// training and is still active (ie didn't drop out).
     #[test]
     fn test_heartbeat_done_participant() {
         let mut protocol = Protocol::new(get_default_fl_settings());
@@ -790,6 +834,8 @@ mod tests {
         assert!(protocol.next_event().is_none());
     }
 
+    /// Test the outcome of a heartbeat from a client that has been
+    /// selected but hasn't finished training yet.
     #[test]
     fn test_heartbeat_selected_participant() {
         let mut protocol = Protocol::new(get_default_fl_settings());
@@ -805,6 +851,8 @@ mod tests {
         assert!(protocol.next_event().is_none());
     }
 
+    /// Test the outcome of a heartbeat from a client in any state
+    /// after all the rounds have been completed already.
     #[test]
     fn test_heartbeat_training_complete() {
         let mut protocol = Protocol::new(get_default_fl_settings());
@@ -831,6 +879,8 @@ mod tests {
         assert!(protocol.next_event().is_none());
     }
 
+    /// Test the outcome of a start training request from a client
+    /// that has been selected and has not finished training.
     #[test]
     fn test_start_training_selected_participant() {
         let mut protocol = Protocol::new(get_default_fl_settings());
@@ -841,6 +891,8 @@ mod tests {
         assert!(protocol.next_event().is_none());
     }
 
+    /// Test the outcome of a start training request from a client
+    /// that has been selected and has already finished training.
     #[test]
     fn test_start_training_selected_participant_training_complete() {
         let mut protocol = Protocol::new(get_default_fl_settings());
@@ -852,6 +904,8 @@ mod tests {
         assert!(protocol.next_event().is_none());
     }
 
+    /// Test the outcome of a start training request from a client
+    /// that has not been selected.
     #[test]
     fn test_start_training_with_not_selected_participant() {
         let mut protocol = Protocol::new(get_default_fl_settings());
@@ -871,6 +925,10 @@ mod tests {
         assert!(protocol.next_event().is_none());
     }
 
+    /// Test the outcome of a valid end training request when all the
+    /// rounds have already been completed. An end training request is
+    /// valid when it is for a participant that has been selected and
+    /// has not finished training yet.
     #[test]
     fn test_end_training_is_training_complete() {
         let mut protocol = Protocol::new(get_default_fl_settings());
@@ -878,8 +936,13 @@ mod tests {
         protocol.is_training_complete = true;
 
         protocol.end_training(client_id, true, ClientState::Selected);
+        // FIXME: add checks
     }
 
+    /// Test the outcome of a valid end training request while the
+    /// protocol is waiting for an ongoing aggregation to finish. An
+    /// end training request is valid when it is for a participant
+    /// that has been selected and has not finished training yet.
     #[test]
     fn test_end_training_waiting_for_aggregation() {
         let mut protocol = Protocol::new(get_default_fl_settings());
@@ -891,6 +954,12 @@ mod tests {
         assert!(protocol.next_event().is_none());
     }
 
+    /// Test the outcome of a valid end training request when the
+    /// protocol is still waiting for several clients to finish
+    /// training (ie this end training request isn't the one that
+    /// completes the current round). An end training request is valid
+    /// when it is for a participant that has been selected and has
+    /// not finished training yet.
     #[test]
     fn test_end_training_selected_participant_success_not_last_round() {
         let mut protocol = Protocol::new(get_default_fl_settings());
@@ -922,6 +991,10 @@ mod tests {
         assert!(protocol.next_event().is_none());
     }
 
+    /// Test the outcome of a valid end training request that
+    /// completes the current round. An end training request is valid
+    /// when it is for a participant that has been selected and has
+    /// not finished training yet.
     #[test]
     fn test_end_training_selected_participant_success_last_round() {
         let mut protocol = Protocol::new(get_default_fl_settings());
@@ -955,6 +1028,10 @@ mod tests {
         assert!(protocol.next_event().is_none());
     }
 
+    /// Test the outcome of a valid end training request that has been
+    /// rejected by the aggregator. It is still valid in the sense
+    /// that it corresponds to a client for which the protocol expects
+    /// an end training request.
     #[test]
     fn test_end_training_selected_participant_no_success() {
         let mut protocol = Protocol::new(get_default_fl_settings());
@@ -986,6 +1063,9 @@ mod tests {
         assert!(protocol.next_event().is_none());
     }
 
+    /// Test the outcome of a valid end training request that has been
+    /// rejected by the aggregator, and that should trigger a new
+    /// selection.
     #[test]
     fn test_end_training_selected_participant_no_success_run_selection() {
         let fl_settings = FederatedLearningSettings {
@@ -1025,6 +1105,8 @@ mod tests {
         assert!(protocol.next_event().is_none());
     }
 
+    /// Test the outcome of calling `end_aggregation` while there's
+    /// not ongoing aggregation.
     #[test]
     fn test_end_aggregation_not_waiting_for_aggregation() {
         let mut protocol = Protocol::new(get_default_fl_settings());
@@ -1034,6 +1116,7 @@ mod tests {
         assert!(protocol.next_event().is_none());
     }
 
+    /// Test the outcome of an aggregation completion.
     #[test]
     fn test_end_aggregation_waiting_for_aggregation_success_not_last_round() {
         let fl_settings = FederatedLearningSettings {
@@ -1059,6 +1142,7 @@ mod tests {
         assert!(protocol.next_event().is_none());
     }
 
+    /// Test the outcome of an aggregation completion in the last round.
     #[test]
     fn test_end_aggregation_waiting_for_aggregation_success_last_round() {
         let mut protocol = Protocol::new(get_default_fl_settings());
@@ -1077,6 +1161,7 @@ mod tests {
         assert!(protocol.next_event().is_none());
     }
 
+    /// Test the outcome of an aggregation failure.
     #[test]
     fn test_end_aggregation_waiting_for_aggregation_no_success_not_last_round() {
         let fl_settings = FederatedLearningSettings {
@@ -1100,6 +1185,7 @@ mod tests {
         assert!(protocol.next_event().is_none());
     }
 
+    /// Test the outcome of an aggregation failure in the last round.
     #[test]
     fn test_end_aggregation_waiting_for_aggregation_no_success_last_round() {
         // Can this case occur?
@@ -1155,11 +1241,12 @@ mod tests {
         }
     }
 
+    /// Simple test case with two particpants and two rounds.  After
+    /// the last round the coordinator should response with a
+    /// StartTrainingResponse::Reject for each new start_training
+    /// request.
     #[test]
     fn test_case_1() {
-        // Simple test case with two particpants and two rounds.
-        // After the last round the coordinator should response with a StartTrainingResponse::Reject
-        // for each new start_training request.
         let n_of_rounds = 2;
         let n_of_clients = 2;
 
