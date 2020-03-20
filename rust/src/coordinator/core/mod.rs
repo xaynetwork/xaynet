@@ -3,4 +3,4 @@ mod heartbeat;
 mod protocol;
 mod service;
 
-pub use self::service::{CoordinatorHandle, CoordinatorService, RequestError, Selector};
+pub use self::service::{RequestError, Selector, Service, ServiceHandle};

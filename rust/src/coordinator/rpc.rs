@@ -1,22 +1,12 @@
-use crate::common::client::ClientId;
-use futures::{
-    future::{self, Ready},
-    ready,
-    stream::{Stream, StreamExt},
-};
-use std::{
-    io, iter,
-    pin::Pin,
-    task::{Context, Poll},
-    time::Duration,
-};
+use crate::{common::client::ClientId, coordinator::core::ServiceHandle};
+use std::{future::Future, io, iter, pin::Pin, time::Duration};
 use stubborn_io::{ReconnectOptions, StubbornTcpStream};
 use tarpc::{
     client::Config,
     rpc::server::{BaseChannel, Channel},
     serde_transport::{tcp::listen, Transport},
 };
-use tokio::{net::ToSocketAddrs, sync::mpsc};
+use tokio::{net::ToSocketAddrs, stream::StreamExt};
 use tokio_serde::formats::Json;
 use tracing_futures::Instrument;
 
@@ -27,18 +17,10 @@ mod inner {
         async fn end_training(id: ClientId, success: bool);
     }
 }
-
 pub use inner::{Rpc, RpcClient as Client};
 
-// NOTE: the server is cloned on every request, so cloning should
-// remain cheap!
-#[derive(Clone)]
-pub struct Server {
-    end_training: mpsc::UnboundedSender<EndTrainingRequest>,
-}
-
 impl Rpc for Server {
-    type EndTrainingFut = Ready<()>;
+    type EndTrainingFut = Pin<Box<dyn Future<Output = ()> + Send>>;
 
     fn end_training(
         self,
@@ -47,133 +29,15 @@ impl Rpc for Server {
         success: bool,
     ) -> Self::EndTrainingFut {
         debug!("handling end training request");
-
         let span = trace_span!("rpc_end_training_handler", client_id = %id, success = &success);
-        let _guard = span.enter();
-        trace!("forwarding request");
-        if self.end_training.send((id, success)).is_err() {
-            warn!("could not forward request: channel full or closed");
-        };
-        future::ready(())
+        Box::pin(async move { self.0.end_training(id, success).await }.instrument(span))
     }
 }
 
-impl Server {
-    fn new() -> (Self, RequestStream) {
-        let (end_training_tx, end_training_rx) = mpsc::unbounded_channel::<EndTrainingRequest>();
-        let server = Server {
-            end_training: end_training_tx,
-        };
-
-        let handle = RequestStream::new(end_training_rx);
-
-        (server, handle)
-    }
-}
-
-/// An incoming [`Rpc::end_training`] RPC request
-pub type EndTrainingRequest = (ClientId, bool);
-
-/// Stream of requests made to an RPC server instance. A `Server` is
-/// spawned for each client that connects, so a distinct
-/// `RequestStream` is created for each client.
-pub struct RequestStream(Pin<Box<dyn Stream<Item = EndTrainingRequest> + Send>>);
-
-impl RequestStream {
-    fn new(end_training: mpsc::UnboundedReceiver<EndTrainingRequest>) -> Self {
-        Self(Box::pin(end_training))
-    }
-}
-
-impl Stream for RequestStream {
-    type Item = EndTrainingRequest;
-
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-        trace!("polling RequestStream");
-        self.0.as_mut().poll_next(cx)
-    }
-}
-
-/// RPC requests are received via [`RequestStream`] streams, but a
-/// distinct [`RequestStream`] is created for each client that
-/// connects. `RpcRequestsMux` multiplexes multiple
-/// `RequestStreams`: it consumes each `RequestStream` created by the
-/// RPC server task, sequentially.
-pub struct RpcRequestsMux {
-    requests: Option<RequestStream>,
-    streams: mpsc::Receiver<RequestStream>,
-    span: tracing::Span,
-}
-
-impl RpcRequestsMux {
-    /// Create a new `RpcRequestMux` that will process the
-    /// `RequestStream`s produced by the given receiver.
-    pub fn new(streams: mpsc::Receiver<RequestStream>) -> Self {
-        Self {
-            requests: None,
-            streams,
-            span: trace_span!("RpcRequestMux"),
-        }
-    }
-}
-
-impl Stream for RpcRequestsMux {
-    type Item = EndTrainingRequest;
-
-    #[allow(clippy::cognitive_complexity)]
-    fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-        let Self {
-            ref mut requests,
-            ref mut streams,
-            ref span,
-        } = self.get_mut();
-
-        let _guard = span.enter();
-        trace!("polling");
-
-        // If we have a requests channel poll it
-        if let Some(stream) = requests {
-            if let Some(item) = ready!(Pin::new(stream).poll_next(cx)) {
-                trace!("new request from request stream");
-                return Poll::Ready(Some(item));
-            } else {
-                debug!("request stream closed");
-                *requests = None;
-            }
-        }
-
-        trace!("no request stream, checking if there is a new request stream ready");
-        let mut pin = Pin::new(streams);
-
-        loop {
-            if let Some(mut stream) = ready!(pin.as_mut().poll_next(cx)) {
-                trace!("received new request stream, polling it");
-                match Pin::new(&mut stream).poll_next(cx) {
-                    Poll::Ready(Some(item)) => {
-                        trace!("received new request");
-                        *requests = Some(stream);
-                        return Poll::Ready(Some(item));
-                    }
-                    Poll::Ready(None) => {
-                        // This is suspect, let's log a warning here
-                        warn!("request stream closed already ???");
-                    }
-                    Poll::Pending => {
-                        // This should be the most common case
-                        trace!("no request yet");
-                        *requests = Some(stream);
-                        // Note that it is important not to return
-                        // here. We MUST poll the `streams` future
-                        // until it returns Pending, if we want the
-                        // executor to wakes the task up later!
-                    }
-                }
-            } else {
-                return Poll::Ready(None);
-            }
-        }
-    }
-}
+/// A server that serves a single client. A new `Server` is created
+/// for each new client.
+#[derive(Clone)]
+struct Server(ServiceHandle);
 
 pub async fn client_connect<A: ToSocketAddrs + Unpin + Clone + Send + Sync + 'static>(
     addr: A,
@@ -186,10 +50,10 @@ pub async fn client_connect<A: ToSocketAddrs + Unpin + Clone + Send + Sync + 'st
     Client::new(Config::default(), transport).spawn()
 }
 
-/// Run an RPC server that accepts only one connection at a time.
+/// Run an RPC server that processes only one connection at a time.
 pub async fn serve<A: ToSocketAddrs + Send + Sync + 'static>(
     addr: A,
-    mut request_stream_tx: mpsc::Sender<RequestStream>,
+    service_handle: ServiceHandle,
 ) -> ::std::io::Result<()> {
     let mut listener = listen(addr, Json::default).await?;
 
@@ -197,10 +61,7 @@ pub async fn serve<A: ToSocketAddrs + Send + Sync + 'static>(
         match accept_result {
             Ok(transport) => {
                 let channel = BaseChannel::with_defaults(transport);
-                let (server, handle) = Server::new();
-                if request_stream_tx.send(handle).await.is_err() {
-                    continue;
-                }
+                let server = Server(service_handle.clone());
                 let handler = channel.respond_with(server.serve());
                 handler
                     .execute()
