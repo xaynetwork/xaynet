@@ -1,6 +1,9 @@
 use crate::{
     aggregator,
-    common::client::{ClientId, Credentials, Token},
+    common::{
+        client::{ClientId, Credentials, Token},
+        metric_store::influxdb::{Metric, MetricOwner},
+    },
     coordinator::{
         core::{
             client::{Clients, HeartBeatResetError},
@@ -9,7 +12,6 @@ use crate::{
         models::{HeartBeatResponse, RendezVousResponse, StartTrainingResponse},
         settings::FederatedLearningSettings,
     },
-    metric_store::influxdb::{Metric, MetricOwner},
 };
 use derive_more::From;
 use futures::{ready, stream::Stream};

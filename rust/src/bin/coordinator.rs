@@ -9,7 +9,11 @@ use tracing_futures::Instrument;
 
 use xain_fl::{
     aggregator,
-    common::{client::ClientId, logging},
+    common::{
+        client::ClientId,
+        logging,
+        metric_store::influxdb::{run_metricstore, InfluxDBMetricStore},
+    },
     coordinator::{
         api,
         core::{Selector, Service, ServiceHandle},
@@ -18,7 +22,6 @@ use xain_fl::{
             ApiSettings, FederatedLearningSettings, MetricStoreSettings, RpcSettings, Settings,
         },
     },
-    metric_store::influxdb::{run_metricstore, InfluxDBMetricStore},
 };
 
 #[tokio::main]
