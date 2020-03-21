@@ -1,9 +1,8 @@
+#[cfg(feature = "influx_metrics")]
+use crate::common::metric_store::influxdb::{Metric, MetricOwner};
 use crate::{
     aggregator,
-    common::{
-        client::{ClientId, Credentials, Token},
-        metric_store::influxdb::{Metric, MetricOwner},
-    },
+    common::client::{ClientId, Credentials, Token},
     coordinator::{
         core::{
             client::{Clients, HeartBeatResetError},
@@ -15,6 +14,7 @@ use crate::{
 };
 use derive_more::From;
 use futures::{ready, stream::Stream};
+#[cfg(feature = "influx_metrics")]
 use influxdb::Type;
 use std::{
     future::Future,
@@ -98,6 +98,7 @@ where
     /// amount of clients are selected.
     pending_selection: Vec<ClientId>,
 
+    #[cfg(feature = "influx_metrics")]
     ///Metric Store
     metrics_tx: Option<UnboundedSender<Metric>>,
 }
@@ -112,7 +113,7 @@ where
         aggregator_url: String,
         rpc_client: aggregator::rpc::Client,
         requests: ServiceRequests,
-        metrics_tx: Option<UnboundedSender<Metric>>,
+        #[cfg(feature = "influx_metrics")] metrics_tx: Option<UnboundedSender<Metric>>,
     ) -> Self {
         let (heartbeat_expirations_tx, heartbeat_expirations_rx) = unbounded_channel();
 
@@ -127,6 +128,7 @@ where
             aggregation_future: None,
             aggregator_url,
             requests,
+            #[cfg(feature = "influx_metrics")]
             metrics_tx,
         }
     }
@@ -411,6 +413,7 @@ where
         self.aggregation_future = Some(AggregationFuture::new(self.rpc_client.clone()))
     }
 
+    #[cfg(feature = "influx_metrics")]
     fn write_counter_metrics(&self) {
         self.metrics_tx.as_ref().map(|tx| {
             let _ = tx.send(Metric(
@@ -441,6 +444,7 @@ where
         });
     }
 
+    #[cfg(feature = "influx_metrics")]
     fn write_round_metric(&self, round: u32) {
         self.metrics_tx.as_ref().map(|tx| {
             let _ = tx.send(Metric(
@@ -465,6 +469,7 @@ where
             EndRound(_) => (),
         }
 
+        #[cfg(feature = "influx_metrics")]
         match event {
             Accept(_) | Remove(_) | SetState(_, _) => self.write_counter_metrics(),
             EndRound(round) => self.write_round_metric(round),

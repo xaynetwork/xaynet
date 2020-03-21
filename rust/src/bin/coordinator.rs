@@ -7,20 +7,20 @@ use std::process;
 use tokio::signal::ctrl_c;
 use tracing_futures::Instrument;
 
+#[cfg(feature = "influx_metrics")]
+use xain_fl::{
+    common::metric_store::influxdb::{run_metricstore, InfluxDBMetricStore},
+    coordinator::settings::MetricStoreSettings,
+};
+
 use xain_fl::{
     aggregator,
-    common::{
-        client::ClientId,
-        logging,
-        metric_store::influxdb::{run_metricstore, InfluxDBMetricStore},
-    },
+    common::{client::ClientId, logging},
     coordinator::{
         api,
         core::{Selector, Service, ServiceHandle},
         rpc,
-        settings::{
-            ApiSettings, FederatedLearningSettings, MetricStoreSettings, RpcSettings, Settings,
-        },
+        settings::{ApiSettings, FederatedLearningSettings, RpcSettings, Settings},
     },
 };
 
@@ -49,6 +49,7 @@ async fn main() {
         api,
         federated_learning,
         aggregator_url,
+        #[cfg(feature = "influx_metrics")]
         metric_store,
         logging,
         ..
@@ -56,9 +57,16 @@ async fn main() {
     logging::configure(logging);
 
     let span = trace_span!("root");
-    _main(rpc, api, federated_learning, aggregator_url, metric_store)
-        .instrument(span)
-        .await;
+    _main(
+        rpc,
+        api,
+        federated_learning,
+        aggregator_url,
+        #[cfg(feature = "influx_metrics")]
+        metric_store,
+    )
+    .instrument(span)
+    .await;
 }
 
 async fn _main(
@@ -66,7 +74,7 @@ async fn _main(
     api: ApiSettings,
     federated_learning: FederatedLearningSettings,
     aggregator_url: String,
-    metric_store: Option<MetricStoreSettings>,
+    #[cfg(feature = "influx_metrics")] metric_store: Option<MetricStoreSettings>,
 ) {
     let (service_handle, service_requests) = ServiceHandle::new();
 
@@ -81,6 +89,7 @@ async fn _main(
         .await
         .unwrap();
 
+    #[cfg(feature = "influx_metrics")]
     let metric_sender = if let Some(metric_store) = metric_store {
         // Start the metric store
         let (influx_client, metric_sender) = InfluxDBMetricStore::new(
@@ -107,6 +116,7 @@ async fn _main(
         aggregator_url,
         rpc_client,
         service_requests,
+        #[cfg(feature = "influx_metrics")]
         metric_sender,
     );
 
