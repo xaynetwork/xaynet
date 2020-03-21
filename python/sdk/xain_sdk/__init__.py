@@ -18,10 +18,7 @@ def run_participant(
     internal_participant = InternalParticipant(
         participant, coordinator_url, heartbeat_frequency
     )
-    try:
-        internal_participant.run()
-    except ParticipantError:
-        sys.exit(1)
+    internal_participant.run()
 
 
 __all__ = ["TrainingInputABC", "TrainingResultABC"]

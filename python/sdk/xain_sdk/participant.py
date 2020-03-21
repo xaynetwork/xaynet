@@ -4,11 +4,16 @@ import enum
 import logging
 import sys
 import threading
-from typing import Tuple
+from typing import Optional, Tuple
 
 from requests.exceptions import ConnectionError
 
-from .http import AnonymousCoordinatorClient, CoordinatorClient, StartTrainingRejected
+from .http import (
+    AggregatorClient,
+    AnonymousCoordinatorClient,
+    CoordinatorClient,
+    StartTrainingRejected,
+)
 from .interfaces import TrainingInputABC, TrainingResultABC
 
 LOG = logging.getLogger("http")
@@ -102,54 +107,72 @@ class InternalParticipant:
         self.heartbeat_frequency = heartbeat_frequency
 
         self.anonymous_client = AnonymousCoordinatorClient(coordinator_url)
-        self.coordinator_client = None
-        self.aggregator_client = None
+        self.coordinator_client: Optional[CoordinatorClient] = None
+        self.aggregator_client: Optional[AggregatorClient] = None
 
         self.exit_event = threading.Event()
         self.heartbeat_thread = None
 
-    def run(self):
+    def run(self) -> None:
+        try:
+            self._run()
+        except InterruptedError:
+            LOG.warning("exiting: interrupt signal caught")
+            self.exit_event.set()
+            sys.exit(0)
+
+    def _run(self) -> None:
         self.rendez_vous()
-        while True:
+        while not self.exit_event.is_set():
             LOG.info("waiting for being selected")
             with self.state_record:
                 self.state_record.wait_until_selected_or_done()
-                state, _ = self.state_record.lookup()
+                new_state, _ = self.state_record.lookup()
 
-            if state == State.DONE:
+            if new_state == State.DONE:
                 LOG.info("state changed: DONE")
+                self.exit_event.set()
                 return
 
-            if state == State.TRAINING:
+            if new_state == State.TRAINING:
                 LOG.info("state changed: TRAINING")
-                try:
-                    LOG.info("requesting training information to the coordinator")
-                    self.aggregator_client = self.coordinator_client.start_training()
-                except StartTrainingRejected:
-                    LOG.warning("start training request rejected")
-                    with self.state_record:
-                        self.state_record.set_state(State.WAITING)
+                self.train()
+                continue
 
-                LOG.info("downloading global weights from the aggregator")
-                data = self.aggregator_client.download()
-                LOG.info("retrieved training data (length: %d bytes)", len(data))
-                training_input = self.participant.deserialize_training_input(data)
+            raise ParticipantError(f"unexpected state: {new_state}")
 
-                if training_input.is_initialization_round():
-                    LOG.info("initializing the weights")
-                    result = self.participant.init_weights()
-                else:
-                    LOG.info("training")
-                    result = self.participant.train_round(training_input)
-                    assert isinstance(result, TrainingResultABC)
-                    LOG.info("training finished")
+    def train(self) -> None:
+        try:
+            LOG.info("requesting training information to the coordinator")
+            assert self.coordinator_client is not None
+            self.aggregator_client = self.coordinator_client.start_training()
+        except StartTrainingRejected:
+            LOG.warning("start training request rejected")
+            with self.state_record:
+                self.state_record.set_state(State.WAITING)
 
-                LOG.info("sending the local weights to the aggregator")
-                self.aggregator_client.upload(result.tobytes())
+        LOG.info("downloading global weights from the aggregator")
+        assert self.aggregator_client is not None
+        data = self.aggregator_client.download()
+        LOG.info("retrieved training data (length: %d bytes)", len(data))
+        training_input = self.participant.deserialize_training_input(data)
 
-                LOG.info("going back to WAITING state")
-                with self.state_record:
-                    self.state_record.set_state(State.WAITING)
+        if training_input.is_initialization_round():
+            LOG.info("initializing the weights")
+            result = self.participant.init_weights()
+        else:
+            LOG.info("training")
+            result = self.participant.train_round(training_input)
+            assert isinstance(result, TrainingResultABC)
+            LOG.info("training finished")
+
+        LOG.info("sending the local weights to the aggregator")
+        assert self.aggregator_client is not None
+        self.aggregator_client.upload(result.tobytes())
+
+        LOG.info("going back to WAITING state")
+        with self.state_record:
+            self.state_record.set_state(State.WAITING)
 
     def rendez_vous(self):
         try:
@@ -157,10 +180,6 @@ class InternalParticipant:
         except ConnectionError as err:
             LOG.error("rendez vous failed: %s", err)
             raise ParticipantError("Rendez-vous request failed")
-        except InterruptedError:
-            LOG.warning("exiting: interrupt signal caught")
-            sys.exit(0)
-
         self.start_heartbeat()
 
     def start_heartbeat(self):
@@ -197,7 +216,8 @@ class HeartBeatWorker(threading.Thread):
                     return
         except Exception:  # pylint: disable=broad-except
             LOG.exception("error while sending heartbeat, exiting")
-            self.exit_event.set()
+            with self.state_record as state_record:
+                state_record.set_state(State.DONE)
             return
 
     def heartbeat(self):

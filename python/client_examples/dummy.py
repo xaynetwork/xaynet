@@ -1,7 +1,7 @@
-import logging
-import threading
 import argparse
+import logging
 import pickle
+import threading
 
 # pylint: disable=import-error
 import numpy as np
@@ -49,12 +49,12 @@ def participant_worker(participant, url, heartbeat_frequency, exit_event):
         run_participant(participant, url, heartbeat_frequency=heartbeat_frequency)
     except KeyboardInterrupt:
         exit_event.set()
-        return
     # pylint: disable=bare-except
     except:
         LOG.exception("participant exited with an error")
         exit_event.set()
-        return
+    else:
+        exit_event.set()
 
 
 def main(
@@ -72,20 +72,30 @@ def main(
         run_participant(
             participant, coordinator_url, heartbeat_frequency=heartbeat_frequency
         )
-    else:
-        exit_event = threading.Event()
-        threads = []
-        for _ in range(0, number_of_participants):
-            participant = Participant(training_result_data)
-            thread = threading.Thread(
-                target=participant_worker,
-                args=(participant, coordinator_url, heartbeat_frequency, exit_event),
-            )
-            thread.daemon = True
-            thread.start()
-            threads.append(thread)
-        exit_event.wait()
+        return
 
+    exit_event = threading.Event()
+    threads = []
+    for _ in range(0, number_of_participants):
+        participant = Participant(training_result_data)
+        thread = threading.Thread(
+            target=participant_worker,
+            args=(participant, coordinator_url, heartbeat_frequency, exit_event),
+        )
+        thread.daemon = True
+        thread.start()
+        threads.append(thread)
+
+    def join_threads():
+        for thread in threads:
+            thread.join()
+        LOG.info("all participants finished")
+        exit_event.set()
+
+    monitor = threading.Thread(target=join_threads)
+    monitor.daemon = True
+    monitor.start()
+    exit_event.wait()
 
 if __name__ == "__main__":
     # pylint: disable=invalid-name
