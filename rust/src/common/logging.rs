@@ -56,7 +56,7 @@ mod telemetry {
         let fmt_subscriber = FmtSubscriber::builder()
             .with_ansi(true)
             .with_timer(ChronoUtc::rfc3339())
-            .with_max_level(settings.level)
+            .with_env_filter(settings.filter)
             .finish();
 
         if let Some(telemetry_settings) = settings.telemetry {
