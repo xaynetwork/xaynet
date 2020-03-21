@@ -14,7 +14,9 @@ use xain_fl::{
         api,
         core::{Selector, Service, ServiceHandle},
         rpc,
-        settings::Settings,
+        settings::{
+            ApiSettings, FederatedLearningSettings, MetricStoreSettings, RpcSettings, Settings,
+        },
     },
     metric_store::influxdb::{run_metricstore, InfluxDBMetricStore},
 };
@@ -39,22 +41,30 @@ async fn main() {
         process::exit(1);
     });
 
-    logging::configure(settings.logging.clone());
-
-    let span = trace_span!("root");
-    _main(settings).instrument(span).await;
-}
-
-async fn _main(settings: Settings) {
     let Settings {
         rpc,
         api,
         federated_learning,
         aggregator_url,
         metric_store,
+        logging,
         ..
     } = settings;
+    logging::configure(logging);
 
+    let span = trace_span!("root");
+    _main(rpc, api, federated_learning, aggregator_url, metric_store)
+        .instrument(span)
+        .await;
+}
+
+async fn _main(
+    rpc: RpcSettings,
+    api: ApiSettings,
+    federated_learning: FederatedLearningSettings,
+    aggregator_url: String,
+    metric_store: MetricStoreSettings,
+) {
     let (service_handle, service_requests) = ServiceHandle::new();
 
     // Start the RPC server

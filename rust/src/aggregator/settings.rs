@@ -9,24 +9,24 @@ pub struct Settings {
     pub aggregation: AggregationSettings,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AggregationSettings {
     Python(PythonAggregatorSettings),
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize)]
 pub struct PythonAggregatorSettings {
     pub module: String,
     pub class: String,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize)]
 pub struct ApiSettings {
     pub bind_address: String,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize)]
 pub struct RpcSettings {
     pub bind_address: String,
     pub coordinator_address: String,
