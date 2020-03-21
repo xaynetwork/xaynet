@@ -141,7 +141,6 @@ impl Protocol {
     pub fn rendez_vous(&mut self, id: ClientId, client_state: ClientState) -> RendezVousResponse {
         info!("rendez vous: {}({})", id, client_state);
         if self.is_training_complete {
-            self.emit_event(Event::Remove(id));
             return RendezVousResponse::Reject;
         }
         let response = match client_state {
