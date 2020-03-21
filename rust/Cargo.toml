@@ -43,3 +43,4 @@ path = "src/bin/aggregator.rs"
 default = []
 telemetry = [ "opentelemetry", "tracing-opentelemetry", "opentelemetry-jaeger"]
 influx_metrics = [ "influxdb" ]
+all = [ "telemetry", "influx_metrics"]

@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        features: [default, telemetry]
+        features: [default, telemetry, influx_metrics, all]
       fail-fast: true
     steps:
       - uses: actions/checkout@master
