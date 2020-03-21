@@ -44,13 +44,21 @@ async fn main() {
         process::exit(1);
     });
 
+    #[rustfmt::skip]
     let Settings {
         rpc,
         api,
         federated_learning,
         aggregator_url,
         #[cfg(feature = "influx_metrics")]
-        metric_store,
+        // FIXME: when compiling without the `influx_metrics` feature,
+        // rustc emits a warning about this variable being
+        // unused. That looks like a bug, so we silence rustc by
+        // prefixing the variable name with an underscore.
+        //
+        // Also, rustfmt doesn't really like this syntax, so we
+        // disable it here
+        metric_store: _metric_store,
         logging,
         ..
     } = settings;
@@ -63,7 +71,7 @@ async fn main() {
         federated_learning,
         aggregator_url,
         #[cfg(feature = "influx_metrics")]
-        metric_store,
+        _metric_store,
     )
     .instrument(span)
     .await;
