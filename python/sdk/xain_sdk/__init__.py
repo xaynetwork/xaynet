@@ -7,7 +7,7 @@ from .participant import ParticipantABC, ParticipantError
 
 
 def run_participant(
-    participant: ParticipantABC, coordinator_url: str,
+    participant: ParticipantABC, coordinator_url: str, heartbeat_frequency: float = 1
 ):
     from .utils import configure_logging  # pylint: disable=import-outside-toplevel
     from .participant import (  # pylint: disable=import-outside-toplevel
@@ -15,7 +15,9 @@ def run_participant(
     )
 
     configure_logging()
-    internal_participant = InternalParticipant(participant, coordinator_url)
+    internal_participant = InternalParticipant(
+        participant, coordinator_url, heartbeat_frequency
+    )
     try:
         internal_participant.run()
     except ParticipantError:

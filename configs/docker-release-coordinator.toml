@@ -1,4 +1,4 @@
-aggregator_url = "http://10.10.100.9:8082"
+aggregator_url = "http://localhost:8082"
 
 [logging]
 level = "debug"
@@ -14,8 +14,8 @@ aggregator_address = "aggregator:6666"
 [federated_learning]
 rounds = 100
 participants_ratio = 0.8
-min_clients = 1000
-heartbeat_timeout = 15
+min_clients = 100
+heartbeat_timeout = 5
 
 [metric_store]
 database_url = "http://influxdb:8086"
