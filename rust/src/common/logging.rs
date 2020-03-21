@@ -6,7 +6,7 @@ pub fn configure(settings: LoggingSettings) {
     let fmt_subscriber = FmtSubscriber::builder()
         .with_ansi(true)
         .with_timer(ChronoUtc::rfc3339())
-        .with_max_level(settings.level)
+        .with_env_filter(settings.filter)
         .finish();
     // Set the previously created subscriber as the global subscriber
     tracing::subscriber::set_global_default(fmt_subscriber).expect("failed to setup tracing");

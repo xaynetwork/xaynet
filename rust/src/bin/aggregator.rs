@@ -8,7 +8,7 @@ use xain_fl::{
         py_aggregator::spawn_py_aggregator,
         rpc,
         service::{Service, ServiceHandle},
-        settings::{AggregationSettings, Settings},
+        settings::{AggregationSettings, ApiSettings, RpcSettings, Settings},
     },
     common::logging,
     coordinator,
@@ -36,20 +36,20 @@ async fn main() {
         process::exit(1);
     });
 
-    logging::configure(settings.logging.clone());
-
-    let span = trace_span!("root");
-    _main(settings).instrument(span).await;
-}
-
-async fn _main(settings: Settings) {
     let Settings {
         rpc,
         api,
         aggregation,
-        ..
+        logging,
     } = settings;
 
+    logging::configure(logging);
+
+    let span = trace_span!("root");
+    _main(rpc, api, aggregation).instrument(span).await;
+}
+
+async fn _main(rpc: RpcSettings, api: ApiSettings, aggregation: AggregationSettings) {
     let (service_handle, service_requests) = ServiceHandle::new();
     let rpc_server = rpc::serve(rpc.bind_address.clone(), service_handle.clone())
         .instrument(trace_span!("rpc_server"));
