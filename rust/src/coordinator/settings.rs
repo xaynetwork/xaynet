@@ -7,7 +7,7 @@ pub struct Settings {
     pub aggregator_url: String,
     pub api: ApiSettings,
     pub rpc: RpcSettings,
-    pub metric_store: MetricStoreSettings,
+    pub metric_store: Option<MetricStoreSettings>,
     pub federated_learning: FederatedLearningSettings,
 }
 

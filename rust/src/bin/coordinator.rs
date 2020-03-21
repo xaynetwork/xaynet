@@ -66,7 +66,7 @@ async fn _main(
     api: ApiSettings,
     federated_learning: FederatedLearningSettings,
     aggregator_url: String,
-    metric_store: MetricStoreSettings,
+    metric_store: Option<MetricStoreSettings>,
 ) {
     let (service_handle, service_requests) = ServiceHandle::new();
 
@@ -81,13 +81,18 @@ async fn _main(
         .await
         .unwrap();
 
-    // Start the metric store
-    let (influx_client, metric_sender) = InfluxDBMetricStore::new(
-        &metric_store.database_url[..],
-        &metric_store.database_name[..],
-    );
+    let metric_sender = if let Some(metric_store) = metric_store {
+        // Start the metric store
+        let (influx_client, metric_sender) = InfluxDBMetricStore::new(
+            &metric_store.database_url[..],
+            &metric_store.database_name[..],
+        );
 
-    let _ = tokio::spawn(async move { run_metricstore(influx_client).await });
+        let _ = tokio::spawn(async move { run_metricstore(influx_client).await });
+        Some(metric_sender)
+    } else {
+        None
+    };
 
     // Start the api server
     let api_server_task_handle = tokio::spawn(
