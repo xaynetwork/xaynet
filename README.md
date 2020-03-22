@@ -97,7 +97,7 @@ Install the SDK: `pip install -e python/sdk`, then run the example:
 cd python/client_examples
 python dummy.py \
     --number-of-participants 1 \
-    --heartbeat-frequency 0.3 \
+    --heartbeat-period 0.3 \
     --coordinator-url http://localhost:8081 \
     --model-size 1kB \
     --verbose
