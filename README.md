@@ -97,8 +97,10 @@ Install the SDK: `pip install -e python/sdk`, then run the example:
 cd python/client_examples
 python dummy.py \
     --number-of-participants 1 \
+    --heartbeat-frequency 0.3 \
     --coordinator-url http://localhost:8081 \
-    --model-size 10
+    --model-size 1kB \
+    --verbose
 ```
 
 #### `keras_house_prices`
@@ -139,7 +141,7 @@ run-participant --data-directory data
 6. Repeat the previous step to run more participants
 
 
-## Troubleshooting 
+## Troubleshooting
 
 ### py_aggregator.rs tests are failing on macOS
 
