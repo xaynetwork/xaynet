@@ -11,5 +11,6 @@ do
     run-participant \
         --data-directory data \
         --coordinator-url http://localhost:8081 \
+        --write-performance-metrics "perf_${i}" \
         &
 done

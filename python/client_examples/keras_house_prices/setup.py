@@ -19,6 +19,7 @@ setup(
         "scipy==1.4.1",
         "tensorflow==1.15.2",
         "numpy~=1.15",
+        "tabulate~=0.8",
     ],
     extras_require={"dev": ["black", "mypy", "pylint", "isort", "pip-licenses",]},
     entry_points={
