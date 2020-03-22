@@ -58,6 +58,33 @@ def participant_worker(participant, url, heartbeat_frequency, exit_event):
         exit_event.set()
 
 
+ARRAY_LENGTHS_BY_SIZE = {
+    "100B": 0,  # 159 B
+    "1kB": 218,  # 1042 B
+    "1MB": 264_000,  # 1_056_165 B
+    "5MB": 1_310_000,  # 5_240_165 B
+    "10MB": 13_108_000,  # 52_432_165 B
+    "50MB": 26_215_000,  # 104_860_165 B
+}
+
+
+def generate_training_data(size) -> bytes:
+    """Generate the data sent to the aggregator after training"""
+    array_length = ARRAY_LENGTHS_BY_SIZE[size]
+    weights = np.ones((array_length,), dtype=np.float32)
+    return int(0).to_bytes(4, byteorder="big") + pickle.dumps(weights)
+
+
+def human_readable_size(size):
+    if size < 1024:
+        return f"{size}B"
+    if size < 1024 * 1024:
+        kb_size = round(size / 1024, 2)
+        return f"{kb_size}kB"
+    mb_size = round(size / (1024 * 1024), 2)
+    return f"{mb_size}MB"
+
+
 def main(
     size: int,
     number_of_participants: int,
@@ -65,8 +92,8 @@ def main(
     heartbeat_frequency: int,
 ) -> None:
     """Entry point to start a participant."""
-    weights = np.array([1] * size)
-    training_result_data = int(0).to_bytes(4, byteorder="big") + pickle.dumps(weights)
+    training_result_data = generate_training_data(size)
+    LOG.info("training data size: %s", human_readable_size(len(training_result_data)))
 
     if number_of_participants < 2:
         participant = Participant(training_result_data)
@@ -98,12 +125,14 @@ def main(
     monitor.start()
     exit_event.wait()
 
+
 if __name__ == "__main__":
     # pylint: disable=invalid-name
     logging.basicConfig(
-        format='%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s',
+        format="%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s",
         level=logging.DEBUG,
-        datefmt='%Y-%m-%d %H:%M:%S')
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
 
     parser = argparse.ArgumentParser(description="Run dummy participants")
     parser.add_argument(
@@ -117,10 +146,10 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--model-size",
-        type=int,
-        # The default value corresponds roughly to a payload of 1MB
-        default=125_000,
-        help="Number of weights to use",
+        choices=["100B", "1kB", "1MB", "5MB", "10MB", "50MB"],
+        type=str,
+        default="1kB",
+        help="Size of the model to send to the aggregator",
     )
     parser.add_argument(
         "--heartbeat-frequency",
@@ -129,16 +158,14 @@ if __name__ == "__main__":
         help="Frequency of the heartbeat in seconds",
     )
     parser.add_argument(
-        "--verbose",
-        action="store_true",
-        help="Log the HTTP requests",
+        "--verbose", action="store_true", help="Log the HTTP requests",
     )
     args = parser.parse_args()
 
     if args.verbose:
-        configure_logging(level=logging.DEBUG,log_http_requests=True)
+        configure_logging(level=logging.DEBUG, log_http_requests=True)
     else:
-        configure_logging(level=logging.INFO ,log_http_requests=False)
+        configure_logging(level=logging.INFO, log_http_requests=False)
 
     main(
         args.model_size,
