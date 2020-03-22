@@ -9,6 +9,7 @@ from xain_sdk import (
     ParticipantABC,
     TrainingInputABC,
     TrainingResultABC,
+    configure_logging,
     run_participant,
 )
 
@@ -99,7 +100,10 @@ def main(
 
 if __name__ == "__main__":
     # pylint: disable=invalid-name
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(
+        format='%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s',
+        level=logging.DEBUG,
+        datefmt='%Y-%m-%d %H:%M:%S')
 
     parser = argparse.ArgumentParser(description="Run dummy participants")
     parser.add_argument(
@@ -124,7 +128,18 @@ if __name__ == "__main__":
         default=1,
         help="Frequency of the heartbeat in seconds",
     )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Log the HTTP requests",
+    )
     args = parser.parse_args()
+
+    if args.verbose:
+        configure_logging(level=logging.DEBUG,log_http_requests=True)
+    else:
+        configure_logging(level=logging.INFO ,log_http_requests=False)
+
     main(
         args.model_size,
         args.number_of_participants,
