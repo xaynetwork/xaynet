@@ -163,9 +163,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.verbose:
-        configure_logging(level=logging.DEBUG, log_http_requests=True)
+        configure_logging(log_http_requests=True)
     else:
-        configure_logging(level=logging.INFO, log_http_requests=False)
+        configure_logging(log_http_requests=False)
 
     main(
         args.model_size,
