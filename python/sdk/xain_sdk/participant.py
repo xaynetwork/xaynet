@@ -100,11 +100,11 @@ class InternalParticipant:
         self,
         participant: ParticipantABC,
         coordinator_url: str,
-        heartbeat_frequency: float,
+        heartbeat_period: float,
     ):
         self.state_record = StateRecord()
         self.participant = participant
-        self.heartbeat_frequency = heartbeat_frequency
+        self.heartbeat_period = heartbeat_period
 
         self.anonymous_client = AnonymousCoordinatorClient(coordinator_url)
         self.coordinator_client: Optional[CoordinatorClient] = None
@@ -187,7 +187,7 @@ class InternalParticipant:
             deepcopy(self.coordinator_client),
             self.state_record,
             self.exit_event,
-            self.heartbeat_frequency,
+            self.heartbeat_period,
         )
         self.heartbeat_thread.start()
 
@@ -198,12 +198,12 @@ class HeartBeatWorker(threading.Thread):
         coordinator_client: CoordinatorClient,
         state_record: StateRecord,
         exit_event: threading.Event,
-        heartbeat_frequency: float,
+        heartbeat_period: float,
     ):
         self.coordinator_client = coordinator_client
         self.state_record = state_record
         self.exit_event = exit_event
-        self.heartbeat_frequency = heartbeat_frequency
+        self.heartbeat_period = heartbeat_period
         super(HeartBeatWorker, self).__init__(daemon=True)
 
     def run(self):
@@ -211,7 +211,7 @@ class HeartBeatWorker(threading.Thread):
         try:
             while True:
                 self.heartbeat()
-                if self.exit_event.wait(timeout=self.heartbeat_frequency):
+                if self.exit_event.wait(timeout=self.heartbeat_period):
                     LOG.debug("heartbeat worker exiting: exit flag set in main thead")
                     return
         except Exception:  # pylint: disable=broad-except

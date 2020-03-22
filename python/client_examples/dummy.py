@@ -45,9 +45,9 @@ class Participant(ParticipantABC):
         return self.training_result
 
 
-def participant_worker(participant, url, heartbeat_frequency, exit_event):
+def participant_worker(participant, url, heartbeat_period, exit_event):
     try:
-        run_participant(participant, url, heartbeat_frequency=heartbeat_frequency)
+        run_participant(participant, url, heartbeat_period=heartbeat_period)
     except KeyboardInterrupt:
         exit_event.set()
     # pylint: disable=bare-except
@@ -89,7 +89,7 @@ def main(
     size: int,
     number_of_participants: int,
     coordinator_url: str,
-    heartbeat_frequency: int,
+    heartbeat_period: int,
 ) -> None:
     """Entry point to start a participant."""
     training_result_data = generate_training_data(size)
@@ -98,7 +98,7 @@ def main(
     if number_of_participants < 2:
         participant = Participant(training_result_data)
         run_participant(
-            participant, coordinator_url, heartbeat_frequency=heartbeat_frequency
+            participant, coordinator_url, heartbeat_period=heartbeat_period
         )
         return
 
@@ -108,7 +108,7 @@ def main(
         participant = Participant(training_result_data)
         thread = threading.Thread(
             target=participant_worker,
-            args=(participant, coordinator_url, heartbeat_frequency, exit_event),
+            args=(participant, coordinator_url, heartbeat_period, exit_event),
         )
         thread.daemon = True
         thread.start()
@@ -152,10 +152,10 @@ if __name__ == "__main__":
         help="Size of the model to send to the aggregator",
     )
     parser.add_argument(
-        "--heartbeat-frequency",
+        "--heartbeat-period",
         type=float,
         default=1,
-        help="Frequency of the heartbeat in seconds",
+        help="Heartbeat period in seconds",
     )
     parser.add_argument(
         "--verbose", action="store_true", help="Log the HTTP requests",
@@ -171,5 +171,5 @@ if __name__ == "__main__":
         args.model_size,
         args.number_of_participants,
         args.coordinator_url,
-        args.heartbeat_frequency,
+        args.heartbeat_period,
     )

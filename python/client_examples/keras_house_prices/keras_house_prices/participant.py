@@ -204,10 +204,10 @@ def main() -> None:
         "--coordinator-url", type=str, required=True, help="URL of the coordinator",
     )
     parser.add_argument(
-        "--heartbeat-frequency",
+        "--heartbeat-period",
         type=float,
         default=1,
-        help="Frequency of the heartbeat in seconds",
+        help="Heartbeat period in seconds",
     )
     args = parser.parse_args()
 
@@ -225,7 +225,7 @@ def main() -> None:
 
     participant = Participant(args.data_directory)
     run_participant(
-        participant, args.coordinator_url, heartbeat_frequency=args.heartbeat_frequency
+        participant, args.coordinator_url, heartbeat_period=args.heartbeat_period
     )
 
     table = tabulate(participant.performance_metrics, headers=["Loss", "R²"])
