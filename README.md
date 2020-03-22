@@ -140,6 +140,13 @@ run-participant --data-directory data
 
 6. Repeat the previous step to run more participants
 
+Steps 5. and 6. can be combined through the `run.sh` script, which
+takes a number of participants to run as argument. To run 10
+participants:
+
+```bash
+./run.sh 10
+```
 
 ## Troubleshooting
 
