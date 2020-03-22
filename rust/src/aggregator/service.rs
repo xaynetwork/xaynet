@@ -110,6 +110,7 @@ where
             }
         }
     }
+
     fn handle_download_request(&mut self, request: DownloadRequest) {
         debug!("handling download request");
         let DownloadRequest {
