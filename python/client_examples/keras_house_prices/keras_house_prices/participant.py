@@ -13,6 +13,7 @@ from xain_sdk import (
     ParticipantABC,
     TrainingInputABC,
     TrainingResultABC,
+    configure_logging,
     run_participant,
 )
 
@@ -187,9 +188,36 @@ def main() -> None:
         type=str,
         help="path to the directory that contains the data",
     )
+    parser.add_argument(
+        "--verbose", action="store_true", help="Log the HTTP requests",
+    )
+    parser.add_argument(
+        "--coordinator-url", type=str, required=True, help="URL of the coordinator",
+    )
+    parser.add_argument(
+        "--heartbeat-frequency",
+        type=float,
+        default=1,
+        help="Frequency of the heartbeat in seconds",
+    )
     args = parser.parse_args()
+
+    # pylint: disable=invalid-name
+    logging.basicConfig(
+        format="%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s",
+        level=logging.DEBUG,
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+    if args.verbose:
+        configure_logging(level=logging.DEBUG, log_http_requests=True)
+    else:
+        configure_logging(level=logging.INFO, log_http_requests=False)
+
     participant = Participant(args.data_directory)
-    run_participant(participant, "http://localhost:8081")
+    run_participant(
+        participant, args.coordinator_url, heartbeat_frequency=args.heartbeat_frequency
+    )
 
 
 if __name__ == "__main__":
