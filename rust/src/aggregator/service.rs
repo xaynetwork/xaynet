@@ -124,7 +124,7 @@ where
         {
             let _ = response_tx.send(self.global_weights.clone());
         } else {
-            debug!("rejecting download request");
+            warn!("rejecting download request");
         }
     }
 
@@ -138,7 +138,7 @@ where
             .unwrap_or(false);
 
         if !accept_upload {
-            debug!("rejecting upload request");
+            warn!("rejecting upload request");
             return;
         }
 
