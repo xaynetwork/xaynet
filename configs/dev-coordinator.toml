@@ -1,0 +1,18 @@
+aggregator_url = "http://localhost:8082"
+
+[logging]
+filter = "info,xain_fl=debug"
+telemetry = { jaeger_endpoint = "127.0.0.1:6831", service_name = "coordinator" }
+
+[api]
+bind_address = "localhost:8081"
+
+[rpc]
+bind_address = "localhost:5555"
+aggregator_address = "localhost:6666"
+
+[federated_learning]
+rounds = 10
+participants_ratio = 1
+min_clients = 1
+heartbeat_timeout = 15
