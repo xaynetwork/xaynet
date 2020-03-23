@@ -1,3 +1,5 @@
+#[cfg(feature = "influx_metrics")]
+use crate::common::metric_store::influxdb::{Metric, MetricOwner};
 use crate::{
     aggregator,
     common::client::{ClientId, Credentials, Token},
@@ -9,10 +11,10 @@ use crate::{
         models::{HeartBeatResponse, RendezVousResponse, StartTrainingResponse},
         settings::FederatedLearningSettings,
     },
-    metric_store::influxdb::{Metric, MetricOwner},
 };
 use derive_more::From;
 use futures::{ready, stream::Stream};
+#[cfg(feature = "influx_metrics")]
 use influxdb::Type;
 use std::{
     future::Future,
@@ -96,8 +98,9 @@ where
     /// amount of clients are selected.
     pending_selection: Vec<ClientId>,
 
+    #[cfg(feature = "influx_metrics")]
     ///Metric Store
-    metrics_tx: UnboundedSender<Metric>,
+    metrics_tx: Option<UnboundedSender<Metric>>,
 }
 
 impl<S> Service<S>
@@ -110,7 +113,7 @@ where
         aggregator_url: String,
         rpc_client: aggregator::rpc::Client,
         requests: ServiceRequests,
-        metrics_tx: UnboundedSender<Metric>,
+        #[cfg(feature = "influx_metrics")] metrics_tx: Option<UnboundedSender<Metric>>,
     ) -> Self {
         let (heartbeat_expirations_tx, heartbeat_expirations_rx) = unbounded_channel();
 
@@ -125,6 +128,7 @@ where
             aggregation_future: None,
             aggregator_url,
             requests,
+            #[cfg(feature = "influx_metrics")]
             metrics_tx,
         }
     }
@@ -409,39 +413,45 @@ where
         self.aggregation_future = Some(AggregationFuture::new(self.rpc_client.clone()))
     }
 
+    #[cfg(feature = "influx_metrics")]
     fn write_counter_metrics(&self) {
-        let _ = self.metrics_tx.send(Metric(
-            MetricOwner::Coordinator,
-            vec![
-                (
-                    "number_of_selected_participants",
-                    Type::SignedInteger(self.protocol.counters().selected as i64),
-                ),
-                (
-                    "number_of_waiting_participants",
-                    Type::SignedInteger(self.protocol.counters().waiting as i64),
-                ),
-                (
-                    "number_of_done_participants",
-                    Type::SignedInteger(self.protocol.counters().done as i64),
-                ),
-                (
-                    "number_of_done_inactive_participants",
-                    Type::SignedInteger(self.protocol.counters().done_and_inactive as i64),
-                ),
-                (
-                    "number_of_ignored_participants",
-                    Type::SignedInteger(self.protocol.counters().ignored as i64),
-                ),
-            ],
-        ));
+        self.metrics_tx.as_ref().map(|tx| {
+            let _ = tx.send(Metric(
+                MetricOwner::Coordinator,
+                vec![
+                    (
+                        "number_of_selected_participants",
+                        Type::SignedInteger(self.protocol.counters().selected as i64),
+                    ),
+                    (
+                        "number_of_waiting_participants",
+                        Type::SignedInteger(self.protocol.counters().waiting as i64),
+                    ),
+                    (
+                        "number_of_done_participants",
+                        Type::SignedInteger(self.protocol.counters().done as i64),
+                    ),
+                    (
+                        "number_of_done_inactive_participants",
+                        Type::SignedInteger(self.protocol.counters().done_and_inactive as i64),
+                    ),
+                    (
+                        "number_of_ignored_participants",
+                        Type::SignedInteger(self.protocol.counters().ignored as i64),
+                    ),
+                ],
+            ));
+        });
     }
 
+    #[cfg(feature = "influx_metrics")]
     fn write_round_metric(&self, round: u32) {
-        let _ = self.metrics_tx.send(Metric(
-            MetricOwner::Coordinator,
-            vec![("round", Type::UnsignedInteger(round as u64))],
-        ));
+        self.metrics_tx.as_ref().map(|tx| {
+            let _ = tx.send(Metric(
+                MetricOwner::Coordinator,
+                vec![("round", Type::UnsignedInteger(round as u64))],
+            ));
+        });
     }
 
     /// Dispatch an [`Event`] to the appropriate handler
@@ -459,6 +469,7 @@ where
             EndRound(_) => (),
         }
 
+        #[cfg(feature = "influx_metrics")]
         match event {
             Accept(_) | Remove(_) | SetState(_, _) => self.write_counter_metrics(),
             EndRound(round) => self.write_round_metric(round),

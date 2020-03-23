@@ -19,13 +19,14 @@ stubborn-io = "0.1.8"
 bytes = "0.5.4"
 config = { version = "0.10.1", default-features = false, features = [ "toml" ] }
 clap = "2.33.0"
-influxdb = "0.0.6"
 thiserror = "1.0.11"
 anyhow = "1.0.26"
 tracing = "0.1.13"
 tracing-subscriber = "0.2.3"
 tracing-log = "0.1.1"
 tracing-futures = "0.2.3"
+
+influxdb = { version = "0.0.6", optional = true }
 opentelemetry = { version = "0.2.0", optional = true }
 tracing-opentelemetry = { version = "0.2.0", optional = true }
 opentelemetry-jaeger = { version = "0.1.0", optional = true }
@@ -41,3 +42,5 @@ path = "src/bin/aggregator.rs"
 [features]
 default = []
 telemetry = [ "opentelemetry", "tracing-opentelemetry", "opentelemetry-jaeger"]
+influx_metrics = [ "influxdb" ]
+all = [ "telemetry", "influx_metrics"]

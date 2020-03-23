@@ -7,7 +7,11 @@ pub struct Settings {
     pub aggregator_url: String,
     pub api: ApiSettings,
     pub rpc: RpcSettings,
-    pub metric_store: MetricStoreSettings,
+    // Note that we don't hide this behind a
+    // #[cfg(feature="influx_metrics")] because we want the config
+    // files to keep working independently of the features supported
+    // by the binary.
+    pub metric_store: Option<MetricStoreSettings>,
     pub federated_learning: FederatedLearningSettings,
 }
 

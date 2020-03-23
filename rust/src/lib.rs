@@ -10,4 +10,3 @@ extern crate serde;
 pub mod aggregator;
 pub mod common;
 pub mod coordinator;
-pub mod metric_store;

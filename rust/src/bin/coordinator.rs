@@ -7,6 +7,12 @@ use std::process;
 use tokio::signal::ctrl_c;
 use tracing_futures::Instrument;
 
+#[cfg(feature = "influx_metrics")]
+use xain_fl::{
+    common::metric_store::influxdb::{run_metricstore, InfluxDBMetricStore},
+    coordinator::settings::MetricStoreSettings,
+};
+
 use xain_fl::{
     aggregator,
     common::{client::ClientId, logging},
@@ -14,11 +20,8 @@ use xain_fl::{
         api,
         core::{Selector, Service, ServiceHandle},
         rpc,
-        settings::{
-            ApiSettings, FederatedLearningSettings, MetricStoreSettings, RpcSettings, Settings,
-        },
+        settings::{ApiSettings, FederatedLearningSettings, RpcSettings, Settings},
     },
-    metric_store::influxdb::{run_metricstore, InfluxDBMetricStore},
 };
 
 #[tokio::main]
@@ -41,21 +44,37 @@ async fn main() {
         process::exit(1);
     });
 
+    #[rustfmt::skip]
     let Settings {
         rpc,
         api,
         federated_learning,
         aggregator_url,
-        metric_store,
+        #[cfg(feature = "influx_metrics")]
+        // FIXME: when compiling without the `influx_metrics` feature,
+        // rustc emits a warning about this variable being
+        // unused. That looks like a bug, so we silence rustc by
+        // prefixing the variable name with an underscore.
+        //
+        // Also, rustfmt doesn't really like this syntax, so we
+        // disable it here
+        metric_store: _metric_store,
         logging,
         ..
     } = settings;
     logging::configure(logging);
 
     let span = trace_span!("root");
-    _main(rpc, api, federated_learning, aggregator_url, metric_store)
-        .instrument(span)
-        .await;
+    _main(
+        rpc,
+        api,
+        federated_learning,
+        aggregator_url,
+        #[cfg(feature = "influx_metrics")]
+        _metric_store,
+    )
+    .instrument(span)
+    .await;
 }
 
 async fn _main(
@@ -63,7 +82,7 @@ async fn _main(
     api: ApiSettings,
     federated_learning: FederatedLearningSettings,
     aggregator_url: String,
-    metric_store: MetricStoreSettings,
+    #[cfg(feature = "influx_metrics")] metric_store: Option<MetricStoreSettings>,
 ) {
     let (service_handle, service_requests) = ServiceHandle::new();
 
@@ -78,13 +97,19 @@ async fn _main(
         .await
         .unwrap();
 
-    // Start the metric store
-    let (influx_client, metric_sender) = InfluxDBMetricStore::new(
-        &metric_store.database_url[..],
-        &metric_store.database_name[..],
-    );
+    #[cfg(feature = "influx_metrics")]
+    let metric_sender = if let Some(metric_store) = metric_store {
+        // Start the metric store
+        let (influx_client, metric_sender) = InfluxDBMetricStore::new(
+            &metric_store.database_url[..],
+            &metric_store.database_name[..],
+        );
 
-    let _ = tokio::spawn(async move { run_metricstore(influx_client).await });
+        let _ = tokio::spawn(async move { run_metricstore(influx_client).await });
+        Some(metric_sender)
+    } else {
+        None
+    };
 
     // Start the api server
     let api_server_task_handle = tokio::spawn(
@@ -99,6 +124,7 @@ async fn _main(
         aggregator_url,
         rpc_client,
         service_requests,
+        #[cfg(feature = "influx_metrics")]
         metric_sender,
     );
 

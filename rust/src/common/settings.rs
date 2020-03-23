@@ -4,6 +4,10 @@ use tracing_subscriber::filter::EnvFilter;
 
 #[derive(Debug, Deserialize)]
 pub struct LoggingSettings {
+    // Note that we don't hide this behind a
+    // #[cfg(feature="telemetry")] because we want the config files to
+    // keep working independently of the features supported by the
+    // binary.
     pub telemetry: Option<TelemetrySettings>,
     #[serde(default = "default_env_filter")]
     #[serde(deserialize_with = "deserialize_env_filter")]
