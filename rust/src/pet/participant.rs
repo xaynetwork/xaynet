@@ -31,15 +31,12 @@ impl Message {
 
     pub fn check_task(&self, part_sign_sk: &sign::SecretKey) -> Result<(Vec<u8>, Task), PetError> {
         let signature = [
-            sign::sign_detached(&[&self.round_seed[..], &b"sum"[..]].concat(), part_sign_sk)
-                .0
-                .to_vec(),
-            sign::sign_detached(
+            &sign::sign_detached(&[&self.round_seed[..], &b"sum"[..]].concat(), part_sign_sk).0[..],
+            &sign::sign_detached(
                 &[&self.round_seed[..], &b"update"[..]].concat(),
                 part_sign_sk,
             )
-            .0
-            .to_vec(),
+            .0[..],
         ]
         .concat();
         if is_eligible(&signature[0..64], self.round_sum).ok_or(PetError::InvalidMessage)? {
@@ -186,6 +183,7 @@ impl Message {
 
         // encrypt message parts
         let nonce = box_::gen_nonce();
+
         let message = [
             sealedbox::seal(
                 // 48 bytes +
