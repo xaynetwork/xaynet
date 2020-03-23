@@ -9,10 +9,12 @@ from typing import List, Tuple, TypeVar
 
 import numpy as np
 import pandas as pd
+from tabulate import tabulate
 from xain_sdk import (
     ParticipantABC,
     TrainingInputABC,
     TrainingResultABC,
+    configure_logging,
     run_participant,
 )
 
@@ -67,6 +69,7 @@ class Participant(  # pylint: disable=too-few-public-methods,too-many-instance-a
         flattened: flattened vector of models weights
         shape: CNN model architecture
         indices: indices of split points in the flattened vector
+        performance_metrics: metrics collected after each round of training
 
     """
 
@@ -102,6 +105,7 @@ class Participant(  # pylint: disable=too-few-public-methods,too-many-instance-a
         self.shapes: List[Tuple[int, ...]] = self.get_tensorflow_shapes()
         self.flattened: np.ndarray = self.get_tensorflow_weights()
         self.number_samples = len(trainset)
+        self.performance_metrics: List[Tuple[float, float]] = []
 
     def init_weights(self) -> TrainingResult:
         """Initialize the weights of a model.
@@ -147,6 +151,7 @@ class Participant(  # pylint: disable=too-few-public-methods,too-many-instance-a
         r_squared: float
         loss, r_squared = self.model.evaluate_on_test(self.testset_x, self.testset_y)
         LOG.info("loss = %f, R² = %f", loss, r_squared)
+        self.performance_metrics.append((loss, r_squared))
 
         self.flattened = self.get_tensorflow_weights()
         return TrainingResult(self.flattened, self.number_samples)
@@ -183,13 +188,52 @@ def main() -> None:
     """Entry point to start a participant."""
     parser = argparse.ArgumentParser(description="Prepare data for regression")
     parser.add_argument(
+        "--write-performance-metrics",
+        type=str,
+        help="Path to a file where the participant will write performance metrics",
+    )
+    parser.add_argument(
         "--data-directory",
         type=str,
         help="path to the directory that contains the data",
     )
+    parser.add_argument(
+        "--verbose", action="store_true", help="Log the HTTP requests",
+    )
+    parser.add_argument(
+        "--coordinator-url", type=str, required=True, help="URL of the coordinator",
+    )
+    parser.add_argument(
+        "--heartbeat-period",
+        type=float,
+        default=1,
+        help="Heartbeat period in seconds",
+    )
     args = parser.parse_args()
+
+    # pylint: disable=invalid-name
+    logging.basicConfig(
+        format="%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s",
+        level=logging.DEBUG,
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+    if args.verbose:
+        configure_logging( log_http_requests=True)
+    else:
+        configure_logging(log_http_requests=False)
+
     participant = Participant(args.data_directory)
-    run_participant(participant, "http://localhost:8081")
+    run_participant(
+        participant, args.coordinator_url, heartbeat_period=args.heartbeat_period
+    )
+
+    table = tabulate(participant.performance_metrics, headers=["Loss", "R²"])
+    if args.write_performance_metrics:
+        with open(args.write_performance_metrics, "w") as f:
+            f.write(table)
+    else:
+        print(table)
 
 
 if __name__ == "__main__":

@@ -97,8 +97,10 @@ Install the SDK: `pip install -e python/sdk`, then run the example:
 cd python/client_examples
 python dummy.py \
     --number-of-participants 1 \
+    --heartbeat-period 0.3 \
     --coordinator-url http://localhost:8081 \
-    --model-size 10
+    --model-size 1kB \
+    --verbose
 ```
 
 #### `keras_house_prices`
@@ -127,7 +129,7 @@ pip install -e .
 4. Prepare the data:
 
 ```
-split-data --data-directory data --number-of-participants 10
+split-data --data-directory data --number-of-participants 10 --coordinator_url http://localhost:8081
 ```
 
 5. Run one participant:
@@ -138,8 +140,15 @@ run-participant --data-directory data
 
 6. Repeat the previous step to run more participants
 
+Steps 5. and 6. can be combined through the `run.sh` script, which
+takes a number of participants to run as argument. To run 10
+participants:
 
-## Troubleshooting 
+```bash
+./run.sh 10
+```
+
+## Troubleshooting
 
 ### py_aggregator.rs tests are failing on macOS
 
