@@ -6,7 +6,15 @@ use crate::{
     coordinator::{models::HeartBeatResponse, settings::FederatedLearningSettings},
 };
 
-#[derive(Eq, Debug, PartialEq, Default, Copy, Clone)]
+#[derive(Eq, Debug, PartialEq, Default, Copy, Clone, Display)]
+#[display(
+    fmt = "Counters(waiting={} selected={} done={} done_and_inactive={} ignored={})",
+    waiting,
+    selected,
+    done,
+    done_and_inactive,
+    ignored
+)]
 pub struct Counters {
     /// Number of active clients waiting for being selected. These
     /// clients are in the [`ClientState::Waiting`] state.
@@ -79,7 +87,9 @@ impl Protocol {
     }
 
     fn maybe_start_selection(&mut self) {
+        debug!(counters = %self.counters, "checking is more participants should be selected");
         if let Some(count) = self.number_of_clients_to_select() {
+            info!(counters = %self.counters, "selecting {} additional participants", count);
             self.emit_event(Event::RunSelection(count))
         }
     }
@@ -99,6 +109,7 @@ impl Protocol {
     pub fn counters(&self) -> Counters {
         self.counters
     }
+
     pub fn new(settings: FederatedLearningSettings) -> Self {
         Self {
             settings,
@@ -294,7 +305,10 @@ impl Protocol {
                 if self.is_end_of_round() {
                     self.emit_event(Event::RunAggregation);
                     self.waiting_for_aggregation = true;
-                    info!("round complete, resetting the clients");
+                    info!(
+                        counters = %self.counters,
+                        "round complete, resetting the clients"
+                    );
                     self.emit_event(Event::ResetAll);
                     self.counters.waiting += self.counters.done;
                     self.counters.waiting += self.counters.ignored;
@@ -305,6 +319,7 @@ impl Protocol {
             } else {
                 self.emit_event(Event::SetState(id, ClientState::Ignored));
                 self.counters.ignored += 1;
+                info!(counters = %self.counters, "training failed, ignoring participant");
             }
             self.maybe_start_selection();
         }
