@@ -29,22 +29,27 @@ impl Message {
         }
     }
 
+    pub fn compute_signature(&self, part_sign_sk: &sign::SecretKey) -> Vec<u8> {
+        let sum_data = [&self.round_seed[..], b"sum"].concat();
+        let sum_signature = sign::sign_detached(&sum_data, part_sign_sk);
+
+        let update_data = [&self.round_seed[..], b"update"].concat();
+        let update_signature = sign::sign_detached(&update_data, part_sign_sk);
+
+        [&sum_signature[..], &update_signature[..]].concat()
+    }
+
     pub fn check_task(&self, part_sign_sk: &sign::SecretKey) -> Result<(Vec<u8>, Task), PetError> {
-        let signature = [
-            &sign::sign_detached(&[&self.round_seed[..], &b"sum"[..]].concat(), part_sign_sk).0[..],
-            &sign::sign_detached(
-                &[&self.round_seed[..], &b"update"[..]].concat(),
-                part_sign_sk,
-            )
-            .0[..],
-        ]
-        .concat();
+        let signature = self.compute_signature(part_sign_sk);
+
         if is_eligible(&signature[0..64], self.round_sum).ok_or(PetError::InvalidMessage)? {
             return Ok((signature, Task::Sum));
         }
+
         if is_eligible(&signature[64..128], self.round_update).ok_or(PetError::InvalidMessage)? {
             return Ok((signature, Task::Update));
         }
+
         Ok((signature, Task::None))
     }
 
