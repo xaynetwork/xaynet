@@ -71,7 +71,7 @@ pub async fn run_metricstore(mut influxdb_connector: InfluxDBConnector) {
                     Measurement::Round(round) => round.into_query("coordinator"),
                     Measurement::Counter(counter) => counter.into_query("coordinator"),
                 };
-                influxdb_connector
+                let _ = influxdb_connector
                     .client
                     .query(&query)
                     .await
