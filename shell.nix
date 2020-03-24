@@ -1,8 +1,15 @@
 with import <nixpkgs> { };
-
-stdenv.mkDerivation rec {
+let
+  nixpkgs_with_rust_analyzer = import (fetchGit {
+    name = "nixpkgs_with_rust_analyzer";
+    url = "https://github.com/oxalica/nixpkgs/";
+    ref = "rust-analyzer";
+    rev = "bde9289415bae0e62e67072e22f5666da4c3a9f5";
+  }) { };
+in stdenv.mkDerivation rec {
   name = "xain-fl";
   buildInputs = [
+    nixpkgs_with_rust_analyzer.rust-analyzer
     pkgs.latest.rustChannels.nightly.rust
     pkgs.cargo-edit
     pkgs.cargo-tree
