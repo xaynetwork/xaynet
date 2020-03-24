@@ -1,17 +1,17 @@
 #![allow(dead_code)] // temporary
 
-use std::collections::HashMap;
+use std::{collections::HashMap, default::Default};
 
 use sodiumoxide::{
+    self,
     crypto::{box_, sealedbox, sign},
-    init,
     randombytes::randombytes,
 };
 
 use super::{utils::is_eligible, PetError};
 
 /// Tasks of a participant.
-pub enum Task {
+enum Task {
     Sum,
     Update,
     None,
@@ -35,27 +35,11 @@ pub struct Participant {
 }
 
 impl Participant {
-    pub fn new() -> Self {
-        let (encr_pk, encr_sk) = box_::gen_keypair();
-        let (sign_pk, sign_sk) = sign::gen_keypair();
-        let ephm_pk = box_::PublicKey([0_u8; box_::PUBLICKEYBYTES]);
-        let ephm_sk = box_::SecretKey([0_u8; box_::SECRETKEYBYTES]);
-        let certificate: Vec<u8> = Vec::new();
-        let signature_sum = sign::Signature([0_u8; sign::SIGNATUREBYTES]);
-        let signature_update = sign::Signature([0_u8; sign::SIGNATUREBYTES]);
-        let task = Task::None;
-        Self {
-            encr_pk,
-            encr_sk,
-            sign_pk,
-            sign_sk,
-            ephm_pk,
-            ephm_sk,
-            certificate,
-            signature_sum,
-            signature_update,
-            task,
-        }
+    pub fn new() -> Result<Self, PetError> {
+        // crucial: must be called before anything else in this module
+        sodiumoxide::init()
+            .and(Ok(Default::default()))
+            .or(Err(PetError::InvalidMessage))
     }
 
     /// Compute the "sum" and "update" signatures.
@@ -82,6 +66,31 @@ impl Participant {
     }
 }
 
+impl Default for Participant {
+    fn default() -> Self {
+        let (encr_pk, encr_sk) = box_::gen_keypair();
+        let (sign_pk, sign_sk) = sign::gen_keypair();
+        let ephm_pk = box_::PublicKey([0_u8; box_::PUBLICKEYBYTES]);
+        let ephm_sk = box_::SecretKey([0_u8; box_::SECRETKEYBYTES]);
+        let certificate: Vec<u8> = Vec::new();
+        let signature_sum = sign::Signature([0_u8; sign::SIGNATUREBYTES]);
+        let signature_update = sign::Signature([0_u8; sign::SIGNATUREBYTES]);
+        let task = Task::None;
+        Self {
+            encr_pk,
+            encr_sk,
+            sign_pk,
+            sign_sk,
+            ephm_pk,
+            ephm_sk,
+            certificate,
+            signature_sum,
+            signature_update,
+            task,
+        }
+    }
+}
+
 /// Buffer and wrap the asymmetrically encrypted part of a "sum/update/sum2" message.
 pub struct SealedBoxBuffer(Vec<u8>);
 
@@ -97,10 +106,9 @@ impl SealedBoxBuffer {
         ) // 69 bytes in total
     }
 
-    pub fn seal(&self, coord_encr_pk: &box_::PublicKey) -> Result<Vec<u8>, PetError> {
-        init().or(Err(PetError::InvalidMessage))?;
+    pub fn seal(&self, coord_encr_pk: &box_::PublicKey) -> Vec<u8> {
         let sbox = sealedbox::seal(&self.0[..], coord_encr_pk); // 48 + 69 bytes
-        Ok(sbox) // 117 bytes in total
+        sbox // 117 bytes in total
     }
 }
 
@@ -126,15 +134,10 @@ impl SumBoxBuffer {
         ) // 163 bytes in total
     }
 
-    pub fn seal(
-        &self,
-        coord_encr_pk: &box_::PublicKey,
-        part_encr_sk: &box_::SecretKey,
-    ) -> Result<Vec<u8>, PetError> {
-        init().or(Err(PetError::InvalidMessage))?;
+    pub fn seal(&self, coord_encr_pk: &box_::PublicKey, part_encr_sk: &box_::SecretKey) -> Vec<u8> {
         let nonce = box_::gen_nonce(); // 24 bytes
         let sumbox = box_::seal(&self.0[..], &nonce, coord_encr_pk, part_encr_sk); // 16 + 163 bytes
-        Ok([nonce.0.to_vec(), sumbox].concat()) // 203 bytes in total
+        [nonce.0.to_vec(), sumbox].concat() // 203 bytes in total
     }
 }
 
@@ -162,15 +165,10 @@ impl UpdateBoxBuffer {
         ) // 166 + 112 * dict_sum.len() bytes in total
     }
 
-    pub fn seal(
-        &self,
-        coord_encr_pk: &box_::PublicKey,
-        part_encr_sk: &box_::SecretKey,
-    ) -> Result<Vec<u8>, PetError> {
-        init().or(Err(PetError::InvalidMessage))?;
+    pub fn seal(&self, coord_encr_pk: &box_::PublicKey, part_encr_sk: &box_::SecretKey) -> Vec<u8> {
         let nonce = box_::gen_nonce(); // 24 bytes
         let updatebox = box_::seal(&self.0[..], &nonce, coord_encr_pk, part_encr_sk); // 16 + 166 + 112 * dict_sum.len() bytes
-        Ok([nonce.0.to_vec(), updatebox].concat()) // 206 + 112 * dict_sum.len() bytes in total
+        [nonce.0.to_vec(), updatebox].concat() // 206 + 112 * dict_sum.len() bytes in total
     }
 }
 
@@ -196,15 +194,10 @@ impl Sum2BoxBuffer {
         ) // 164 bytes in total
     }
 
-    pub fn seal(
-        &self,
-        coord_encr_pk: &box_::PublicKey,
-        part_encr_sk: &box_::SecretKey,
-    ) -> Result<Vec<u8>, PetError> {
-        init().or(Err(PetError::InvalidMessage))?;
+    pub fn seal(&self, coord_encr_pk: &box_::PublicKey, part_encr_sk: &box_::SecretKey) -> Vec<u8> {
         let nonce = box_::gen_nonce(); // 24 bytes
         let sum2box = box_::seal(&self.0[..], &nonce, coord_encr_pk, part_encr_sk); // 16 + 164 bytes
-        Ok([nonce.0.to_vec(), sum2box].concat()) // 204 bytes in total
+        [nonce.0.to_vec(), sum2box].concat() // 204 bytes in total
     }
 }
 
@@ -255,39 +248,39 @@ impl Sum2MessageBuffer {
 
 /// Compose and encrypt a "sum" message. Get an ephemeral asymmetric key pair.
 pub struct SumMessage {
+    message: SumMessageBuffer,
     part_ephm_pk: box_::PublicKey,
     part_ephm_sk: box_::SecretKey,
-    message: SumMessageBuffer,
 }
 
 impl SumMessage {
-    pub fn compose(part: &Participant, coord_encr_pk: &box_::PublicKey) -> Result<Self, PetError> {
+    pub fn compose(part: &Participant, coord_encr_pk: &box_::PublicKey) -> Self {
         // generate ephemeral key pair
-        init().or(Err(PetError::InvalidMessage))?;
         let (part_ephm_pk, part_ephm_sk) = box_::gen_keypair();
 
         // encrypt message parts
-        let sbox = SealedBoxBuffer::new(&part.encr_pk, &part.sign_pk).seal(coord_encr_pk)?;
+        let sbox = SealedBoxBuffer::new(&part.encr_pk, &part.sign_pk).seal(coord_encr_pk);
         let sumbox = SumBoxBuffer::new(
             &part.certificate,
             &part.signature_sum,
             &part.signature_update,
             &part_ephm_pk,
         )
-        .seal(coord_encr_pk, &part.encr_sk)?;
+        .seal(coord_encr_pk, &part.encr_sk);
         let message = SumMessageBuffer::new(&sbox, &sumbox);
-        Ok(Self {
+
+        Self {
+            message,
             part_ephm_pk,
             part_ephm_sk,
-            message,
-        })
+        }
     }
 }
 
 /// Compose and encrypt an "update" message. Get a seed of a local model mask.
 pub struct UpdateMessage {
-    mask_seed: Vec<u8>,
     message: UpdateMessageBuffer,
+    mask_seed: Vec<u8>,
 }
 
 impl UpdateMessage {
@@ -295,9 +288,8 @@ impl UpdateMessage {
         part: &Participant,
         coord_encr_pk: &box_::PublicKey,
         dict_sum: &HashMap<box_::PublicKey, box_::PublicKey>,
-    ) -> Result<Self, PetError> {
+    ) -> Self {
         // mask the local model
-        init().or(Err(PetError::InvalidMessage))?;
         let mask_seed = randombytes(32_usize);
         let model_url = randombytes(32_usize); // dummy
 
@@ -309,7 +301,7 @@ impl UpdateMessage {
         } // 112 * dict_sum.len() bytes in total
 
         // encrypt message parts
-        let sbox = SealedBoxBuffer::new(&part.encr_pk, &part.sign_pk).seal(coord_encr_pk)?;
+        let sbox = SealedBoxBuffer::new(&part.encr_pk, &part.sign_pk).seal(coord_encr_pk);
         let updatebox = UpdateBoxBuffer::new(
             &part.certificate,
             &part.signature_sum,
@@ -317,16 +309,17 @@ impl UpdateMessage {
             &model_url,
             &dict_seed,
         )
-        .seal(coord_encr_pk, &part.encr_sk)?;
+        .seal(coord_encr_pk, &part.encr_sk);
         let message = UpdateMessageBuffer::new(&sbox, &updatebox);
-        Ok(Self { mask_seed, message })
+
+        Self { message, mask_seed }
     }
 }
 
 /// Compose and encrypt a "sum" message. Get an url of a global mask.
 pub struct Sum2Message {
-    mask_url: Vec<u8>,
     message: Sum2MessageBuffer,
+    mask_url: Vec<u8>,
 }
 
 impl Sum2Message {
@@ -335,9 +328,6 @@ impl Sum2Message {
         coord_encr_pk: &box_::PublicKey,
         dict_seed: &HashMap<box_::PublicKey, HashMap<box_::PublicKey, Vec<u8>>>,
     ) -> Result<Self, PetError> {
-        // initialize csprng
-        init().or(Err(PetError::InvalidMessage))?;
-
         // compute global mask
         let mut seeds: Vec<Vec<u8>> = Vec::new();
         for seed in dict_seed
@@ -355,15 +345,16 @@ impl Sum2Message {
         let mask_url = randombytes(32_usize); // dummy
 
         // encrypt message parts
-        let sbox = SealedBoxBuffer::new(&part.encr_pk, &part.sign_pk).seal(coord_encr_pk)?;
+        let sbox = SealedBoxBuffer::new(&part.encr_pk, &part.sign_pk).seal(coord_encr_pk);
         let sum2box = Sum2BoxBuffer::new(
             &part.certificate,
             &part.signature_sum,
             &part.signature_update,
             &mask_url,
         )
-        .seal(coord_encr_pk, &part.encr_sk)?;
+        .seal(coord_encr_pk, &part.encr_sk);
         let message = Sum2MessageBuffer::new(&sbox, &sum2box);
-        Ok(Self { mask_url, message })
+
+        Ok(Self { message, mask_url })
     }
 }
