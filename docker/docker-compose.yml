@@ -116,8 +116,8 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_USERS_ALLOW_SIGN_UP=false
     restart: unless-stopped
-    expose:
-      - 3000
+    ports:
+      - "3000:3000"
     networks:
       - xain-fl-rs
     labels:
@@ -129,24 +129,6 @@ services:
     restart: unless-stopped
     expose:
       - 9091
-    networks:
-      - xain-fl-rs
-    labels:
-      org.label-schema.group: "monitoring"
-
-  caddy:
-    image: stefanprodan/caddy
-    container_name: caddy
-    ports:
-      - "3000:3000"
-      - "9090:9090"
-      - "9091:9091"
-    volumes:
-      - ${PWD}/docker/caddy:/etc/caddy
-    environment:
-      - ADMIN_USER=admin
-      - ADMIN_PASSWORD=admin
-    restart: unless-stopped
     networks:
       - xain-fl-rs
     labels:
