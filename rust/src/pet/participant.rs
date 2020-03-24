@@ -59,7 +59,7 @@ impl Participant {
     }
 
     /// Compute the "sum" and "update" signatures.
-    pub fn compute_signature(&mut self, round_seed: &[u8]) -> () {
+    pub fn compute_signature(&mut self, round_seed: &[u8]) {
         self.signature_sum = sign::sign_detached(&[round_seed, b"sum"].concat(), &self.sign_sk);
         self.signature_update =
             sign::sign_detached(&[round_seed, b"update"].concat(), &self.sign_sk);
