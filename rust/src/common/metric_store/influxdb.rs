@@ -66,22 +66,17 @@ impl From<CounterMeasurement> for Measurement {
 pub async fn run_metricstore(mut influxdb_connector: InfluxDBConnector) {
     loop {
         match influxdb_connector.receiver.recv().await {
-            Some(measurement) => match measurement {
-                Measurement::Round(round) => {
-                    influxdb_connector
-                        .client
-                        .query(&round.into_query("coordinator"))
-                        .await
-                        .map_err(|e| eprintln!("{}", e));
-                }
-                Measurement::Counter(counter) => {
-                    influxdb_connector
-                        .client
-                        .query(&counter.into_query("coordinator"))
-                        .await
-                        .map_err(|e| eprintln!("{}", e));
-                }
-            },
+            Some(measurement) => {
+                let query = match measurement {
+                    Measurement::Round(round) => round.into_query("coordinator"),
+                    Measurement::Counter(counter) => counter.into_query("coordinator"),
+                };
+                influxdb_connector
+                    .client
+                    .query(&query)
+                    .await
+                    .map_err(|e| eprintln!("{}", e));
+            }
             None => {
                 warn!("All senders have been dropped!");
                 return;
