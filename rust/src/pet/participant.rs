@@ -1,3 +1,5 @@
+#![allow(dead_code)] // temporary
+
 use std::collections::HashMap;
 
 use sodiumoxide::{
@@ -159,7 +161,6 @@ impl Sum2MessageBuffer {
     }
 }
 
-#[allow(dead_code)] // temporary
 pub struct SumMessage {
     part_ephm_pk: box_::PublicKey,
     part_ephm_sk: box_::SecretKey,
@@ -194,7 +195,6 @@ impl SumMessage {
     }
 }
 
-#[allow(dead_code)] // temporary
 pub struct UpdateMessage {
     mask_seed: Vec<u8>,
     message: UpdateMessageBuffer,
@@ -234,7 +234,6 @@ impl UpdateMessage {
     }
 }
 
-#[allow(dead_code)] // temporary
 pub struct Sum2Message {
     mask_url: Vec<u8>,
     message: Sum2MessageBuffer,
