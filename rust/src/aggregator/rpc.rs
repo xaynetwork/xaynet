@@ -28,7 +28,42 @@ mod inner {
     }
 }
 
-pub use inner::{Rpc, RpcClient as Client};
+pub use inner::Rpc;
+
+#[cfg(test)]
+mod mocks {
+    pub use super::*;
+
+    use futures::future;
+    use mockall::mock;
+    use std::io;
+    use tarpc::{client::Config, context::Context, rpc::Transport};
+
+    mock! {
+        pub NewClient {
+            fn spawn(self) -> io::Result<MockRpcClient>;
+        }
+    }
+
+    mock! {
+        pub RpcClient {
+            fn new<T: Transport<(), ()> + 'static>(config: Config, transport: T) -> MockNewClient;
+            fn select(&mut self, ctx: Context, credentials: Credentials) -> future::Ready<io::Result<Result<(), ()>>>;
+            fn aggregate(&mut self, ctx: Context) -> future::Ready<io::Result<Result<(), ()>>>;
+        }
+    }
+
+    impl Clone for MockRpcClient {
+        fn clone(&self) -> Self {
+            Self::default()
+        }
+    }
+}
+
+#[cfg(not(test))]
+pub use inner::RpcClient as Client;
+#[cfg(test)]
+pub use mocks::MockRpcClient as Client;
 
 /// A server that serves a single client. A new `Server` is created
 /// for each new client.
