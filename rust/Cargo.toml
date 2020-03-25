@@ -1,7 +1,7 @@
 [package]
 name = "xain-fl"
 version = "0.7.0"
-authors = ["XAIN AG <info@xain.io>"]
+authors = ["XAIN AG <engineering@xain.io>"]
 edition = "2018"
 
 [dependencies]

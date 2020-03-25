@@ -39,7 +39,7 @@ setup(
     long_description_content_type="text/markdown",
     url="https://github.com/xainag/xain-sdk",
     author=["XAIN AG"],
-    author_email="services@xain.io",
+    author_email="engineering@xain.io",
     license="Apache License Version 2.0",
     python_requires=">=3.6",
     install_requires=install_requires,
