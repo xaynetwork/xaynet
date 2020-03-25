@@ -4,6 +4,7 @@ use crate::{
 };
 use tokio::net::TcpListener;
 use tracing_futures::Instrument;
+use warp::http::method::Method;
 use warp::{
     http::{Response, StatusCode},
     Filter,
@@ -28,7 +29,8 @@ pub async fn serve(bind_address: &str, handle: ServiceHandle) {
                 }
             }
             .instrument(span)
-        });
+        })
+        .with(warp::cors().allow_any_origin().allow_method(Method::GET));
 
     let parent_span = tracing::Span::current();
     let upload_local_weights = warp::post()
@@ -46,7 +48,8 @@ pub async fn serve(bind_address: &str, handle: ServiceHandle) {
                 Ok(StatusCode::OK) as Result<_, warp::reject::Rejection>
             }
             .instrument(span)
-        });
+        })
+        .with(warp::cors().allow_any_origin().allow_method(Method::POST));
 
     let mut listener = TcpListener::bind(bind_address).await.unwrap();
 

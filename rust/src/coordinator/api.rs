@@ -58,7 +58,7 @@ pub async fn serve(bind_address: &str, handle: ServiceHandle) {
                     Err(_) => Err(warp::reject::not_found()),
                 }
             }.instrument(span)
-        });
+        }).with(warp::cors().allow_any_origin().allow_method(Method::GET));
 
     let mut listener = TcpListener::bind(bind_address).await.unwrap();
 
