@@ -4,7 +4,7 @@ use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
 pub enum Measurement {
     Round(RoundMeasurement),
-    Counter(CounterMeasurement),
+    Counters(CountersMeasurement),
 }
 
 #[derive(InfluxDbWriteable)]
@@ -29,7 +29,7 @@ impl From<RoundMeasurement> for Measurement {
 }
 
 #[derive(InfluxDbWriteable)]
-pub struct CounterMeasurement {
+pub struct CountersMeasurement {
     time: DateTime<Utc>,
     number_of_selected_participants: u32,
     number_of_waiting_participants: u32,
@@ -38,15 +38,15 @@ pub struct CounterMeasurement {
     number_of_ignored_participants: u32,
 }
 
-impl CounterMeasurement {
+impl CountersMeasurement {
     pub fn new(
         number_of_selected_participants: u32,
         number_of_waiting_participants: u32,
         number_of_done_participants: u32,
         number_of_done_inactive_participants: u32,
         number_of_ignored_participants: u32,
-    ) -> CounterMeasurement {
-        CounterMeasurement {
+    ) -> CountersMeasurement {
+        CountersMeasurement {
             time: Timestamp::Now.into(),
             number_of_selected_participants,
             number_of_waiting_participants,
@@ -57,9 +57,9 @@ impl CounterMeasurement {
     }
 }
 
-impl From<CounterMeasurement> for Measurement {
-    fn from(value: CounterMeasurement) -> Self {
-        Self::Counter(value)
+impl From<CountersMeasurement> for Measurement {
+    fn from(value: CountersMeasurement) -> Self {
+        Self::Counters(value)
     }
 }
 
@@ -69,13 +69,13 @@ pub async fn run_metricstore(mut influxdb_connector: InfluxDBConnector) {
             Some(measurement) => {
                 let query = match measurement {
                     Measurement::Round(round) => round.into_query("coordinator"),
-                    Measurement::Counter(counter) => counter.into_query("coordinator"),
+                    Measurement::Counters(counter) => counter.into_query("coordinator"),
                 };
                 let _ = influxdb_connector
                     .client
                     .query(&query)
                     .await
-                    .map_err(|e| eprintln!("{}", e));
+                    .map_err(|e| error!("{}", e));
             }
             None => {
                 warn!("All senders have been dropped!");

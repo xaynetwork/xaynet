@@ -1,5 +1,5 @@
 #[cfg(feature = "influx_metrics")]
-use crate::common::metric_store::influxdb::{CounterMeasurement, Measurement, RoundMeasurement};
+use crate::common::metric_store::influxdb::{CountersMeasurement, Measurement, RoundMeasurement};
 use crate::{
     aggregator,
     common::client::{ClientId, Credentials, Token},
@@ -415,7 +415,7 @@ where
     fn write_counter_metrics(&self) {
         self.metrics_tx.as_ref().map(|tx| {
             let _ = tx.send(
-                CounterMeasurement::new(
+                CountersMeasurement::new(
                     self.protocol.counters().selected,
                     self.protocol.counters().waiting,
                     self.protocol.counters().done,
