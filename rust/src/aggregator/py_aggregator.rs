@@ -190,7 +190,7 @@ pub struct PyAggregatorHandle {
 
 impl Aggregator for PyAggregatorHandle {
     type Error = ();
-    type AggregateFut = Pin<Box<dyn Future<Output = Result<Bytes, ()>>>>;
+    type AggregateFut = Pin<Box<dyn Future<Output = Result<Bytes, ()>> + Send>>;
     type AddWeightsFut = Pin<Box<dyn Future<Output = Result<(), ()>> + Send>>;
 
     fn add_weights(&mut self, weights: Bytes) -> Self::AddWeightsFut {

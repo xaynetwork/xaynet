@@ -28,7 +28,12 @@ mod inner {
     }
 }
 
-pub use inner::{Rpc, RpcClient as Client};
+pub use inner::Rpc;
+
+#[cfg(test)]
+pub use crate::tests::lib::rpc::aggregator::Client;
+#[cfg(not(test))]
+pub use inner::RpcClient as Client;
 
 /// A server that serves a single client. A new `Server` is created
 /// for each new client.
