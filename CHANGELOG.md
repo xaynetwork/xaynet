@@ -20,6 +20,12 @@ For reference, the possible headings are:
 
 ## [Unreleased]
 
+## [0.7.0] - 2020-03-25
+
+On this release we archived the Python code under the `legacy` folder and shifted the development to Rust.
+This release has many breaking changes from the previous versions.
+More details will be made available through the updated README.md of the repository.
+
 ## [0.6.0] - 2020-02-26
 
 - HOTFIX add disclaimer (#309) [janpetschexain]
