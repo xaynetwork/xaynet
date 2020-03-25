@@ -6,7 +6,7 @@ edition = "2018"
 description = "The XAIN project is building a privacy layer for machine learning so that AI projects can meet compliance such as GDPR and CCPA. The approach relies on Federated Learning as enabling technology that allows production AI applications to be fully privacy compliant."
 license = "Apache-2.0"
 license-file = "../LICENSE"
-keywords = ["federated-learning", "fl"
+keywords = ["federated-learning", "fl"]
 repository = "https://github.com/xainag/xain-fl/"
 homepage = "https://xain.io/"
 
