@@ -24,7 +24,7 @@ pub struct Coordinator {
 
 impl Coordinator {
     pub fn new() -> Result<Self, PetError> {
-        // crucial: must be called before anything else in this module
+        // crucial: init must be called before anything else in this module
         sodiumoxide::init()
             .and(Ok(Default::default()))
             .or(Err(PetError::InvalidMessage))
@@ -47,8 +47,48 @@ impl Default for Coordinator {
     }
 }
 
+// Message access with buffers:
+//
+// SumMessage
+//  └-> SumMessageBuffer
+//       ├-> SealedBox
+//       |    └-> SealedBoxBuffer
+//       |         ├-> encr_pk
+//       |         └-> sign_pk
+//       └-> SumBox
+//            └-> SumBoxBuffer
+//                 ├-> certificate
+//                 ├-> signature_sum
+//                 └-> ephm_pk
+//
+// UpdateMessage
+//  └-> SumMessageBuffer
+//       ├-> SealedBox
+//       |    └-> SealedBoxBuffer
+//       |         ├-> encr_pk
+//       |         └-> sign_pk
+//       └-> UpdateBox
+//            └-> UpdateBoxBuffer
+//                 ├-> certificate
+//                 ├-> signature_sum
+//                 ├-> signature_update
+//                 ├-> model_url
+//                 └-> dict_seed
+//
+// Sum2Message
+//  └-> Sum2MessageBuffer
+//       ├-> SealedBox
+//       |    └-> SealedBoxBuffer
+//       |         ├-> encr_pk
+//       |         └-> sign_pk
+//       └-> Sum2Box
+//            └-> Sum2BoxBuffer
+//                 ├-> certificate
+//                 ├-> signature_sum
+//                 └-> mask_url
+
 /// Buffer and access an encrypted "sum" message.
-pub struct SumMessageBuffer<'a>(&'a [u8]);
+struct SumMessageBuffer<'a>(&'a [u8]);
 
 impl<'a> SumMessageBuffer<'a> {
     const SEALEDBOX_RANGE: Range<usize> = 0..117;
@@ -56,13 +96,13 @@ impl<'a> SumMessageBuffer<'a> {
     const BOX_RANGE: Range<usize> = 141..320;
     const MESSAGE_LENGTH: usize = 320;
 
-    pub fn new(message: &'a [u8]) -> Result<Self, PetError> {
+    fn new(message: &'a [u8]) -> Result<Self, PetError> {
         (message.len() == Self::MESSAGE_LENGTH)
             .then_some(Self(message))
             .ok_or(PetError::InvalidMessage)
     }
 
-    pub fn open_sealedbox(
+    fn open_sealedbox(
         &self,
         coord_encr_pk: &box_::PublicKey,
         coord_encr_sk: &box_::SecretKey,
@@ -71,7 +111,7 @@ impl<'a> SumMessageBuffer<'a> {
             .or(Err(PetError::InvalidMessage))
     }
 
-    pub fn open_box(
+    fn open_box(
         &self,
         part_encr_pk: &box_::PublicKey,
         coord_encr_sk: &box_::SecretKey,
@@ -87,7 +127,7 @@ impl<'a> SumMessageBuffer<'a> {
 }
 
 /// Buffer and access an encrypted "update" message.
-pub struct UpdateMessageBuffer<'a>(&'a [u8], Range<usize>);
+struct UpdateMessageBuffer<'a>(&'a [u8], Range<usize>);
 
 impl<'a> UpdateMessageBuffer<'a> {
     const SEALEDBOX_RANGE: Range<usize> = 0..117;
@@ -97,7 +137,7 @@ impl<'a> UpdateMessageBuffer<'a> {
     const DICT_SEED_ITEM_LENGTH: usize = 112;
     const MESSAGE_LENGTH_WO_DICT_SEED: usize = 323;
 
-    pub fn new(message: &'a [u8], dict_sum_length: usize) -> Result<Self, PetError> {
+    fn new(message: &'a [u8], dict_sum_length: usize) -> Result<Self, PetError> {
         let box_range = Self::BOX_START
             ..Self::BOX_END_WO_DICT_SEED + Self::DICT_SEED_ITEM_LENGTH * dict_sum_length;
         let message_length =
@@ -107,7 +147,7 @@ impl<'a> UpdateMessageBuffer<'a> {
             .ok_or(PetError::InvalidMessage)
     }
 
-    pub fn open_sealedbox(
+    fn open_sealedbox(
         &self,
         coord_encr_pk: &box_::PublicKey,
         coord_encr_sk: &box_::SecretKey,
@@ -116,7 +156,7 @@ impl<'a> UpdateMessageBuffer<'a> {
             .or(Err(PetError::InvalidMessage))
     }
 
-    pub fn open_box(
+    fn open_box(
         &self,
         part_encr_pk: &box_::PublicKey,
         coord_encr_sk: &box_::SecretKey,
@@ -132,7 +172,7 @@ impl<'a> UpdateMessageBuffer<'a> {
 }
 
 /// Buffer and access an encrypted "sum2" message.
-pub struct Sum2MessageBuffer<'a>(&'a [u8]);
+struct Sum2MessageBuffer<'a>(&'a [u8]);
 
 impl<'a> Sum2MessageBuffer<'a> {
     const SEALEDBOX_RANGE: Range<usize> = 0..117;
@@ -140,13 +180,13 @@ impl<'a> Sum2MessageBuffer<'a> {
     const BOX_RANGE: Range<usize> = 141..321;
     const MESSAGE_LENGTH: usize = 321;
 
-    pub fn new(message: &'a [u8]) -> Result<Self, PetError> {
+    fn new(message: &'a [u8]) -> Result<Self, PetError> {
         (message.len() == Self::MESSAGE_LENGTH)
             .then_some(Self(message))
             .ok_or(PetError::InvalidMessage)
     }
 
-    pub fn open_sealedbox(
+    fn open_sealedbox(
         &self,
         coord_encr_pk: &box_::PublicKey,
         coord_encr_sk: &box_::SecretKey,
@@ -155,7 +195,7 @@ impl<'a> Sum2MessageBuffer<'a> {
             .or(Err(PetError::InvalidMessage))
     }
 
-    pub fn open_box(
+    fn open_box(
         &self,
         part_encr_pk: &box_::PublicKey,
         coord_encr_sk: &box_::SecretKey,
@@ -171,7 +211,7 @@ impl<'a> Sum2MessageBuffer<'a> {
 }
 
 /// Buffer and access the asymmetrically decrypted part of a "sum/update/sum2" message.
-pub struct SealedBoxBuffer<'a>(&'a [u8]);
+struct SealedBoxBuffer<'a>(&'a [u8]);
 
 impl<'a> SealedBoxBuffer<'a> {
     const ROUND_RANGE: Range<usize> = 0..5;
@@ -179,23 +219,23 @@ impl<'a> SealedBoxBuffer<'a> {
     const SIGN_PK_RANGE: Range<usize> = 37..69;
     const MESSAGE_LENGTH: usize = 69;
 
-    pub fn new(message: &'a [u8]) -> Result<Self, PetError> {
+    fn new(message: &'a [u8]) -> Result<Self, PetError> {
         (message.len() == Self::MESSAGE_LENGTH && &message[Self::ROUND_RANGE] == b"round")
             .then_some(Self(message))
             .ok_or(PetError::InvalidMessage)
     }
 
-    pub fn get_part_encr_pk(&self) -> Result<box_::PublicKey, PetError> {
+    fn get_part_encr_pk(&self) -> Result<box_::PublicKey, PetError> {
         box_::PublicKey::from_slice(&self.0[Self::ENCR_PK_RANGE]).ok_or(PetError::InvalidMessage)
     }
 
-    pub fn get_part_sign_pk(&self) -> Result<sign::PublicKey, PetError> {
+    fn get_part_sign_pk(&self) -> Result<sign::PublicKey, PetError> {
         sign::PublicKey::from_slice(&self.0[Self::SIGN_PK_RANGE]).ok_or(PetError::InvalidMessage)
     }
 }
 
 /// Buffer and access the symmetrically decrypted part of a "sum" message.
-pub struct SumBoxBuffer<'a>(&'a [u8]);
+struct SumBoxBuffer<'a>(&'a [u8]);
 
 impl<'a> SumBoxBuffer<'a> {
     const SUM_RANGE: Range<usize> = 0..3;
@@ -205,28 +245,28 @@ impl<'a> SumBoxBuffer<'a> {
     const EPHM_PK_RANGE: Range<usize> = 131..163;
     const MESSAGE_LENGTH: usize = 163;
 
-    pub fn new(message: &'a [u8]) -> Result<Self, PetError> {
+    fn new(message: &'a [u8]) -> Result<Self, PetError> {
         (message.len() == Self::MESSAGE_LENGTH && &message[Self::SUM_RANGE] == b"sum")
             .then_some(Self(message))
             .ok_or(PetError::InvalidMessage)
     }
 
     // dummy
-    pub fn get_certificate(&self) -> Vec<u8> {
+    fn get_certificate(&self) -> Vec<u8> {
         self.0[Self::CERTIFICATE_RANGE].to_vec()
     }
 
-    pub fn get_signature_sum(&self) -> Result<sign::Signature, PetError> {
+    fn get_signature_sum(&self) -> Result<sign::Signature, PetError> {
         sign::Signature::from_slice(&self.0[Self::SIGN_SUM_RANGE]).ok_or(PetError::InvalidMessage)
     }
 
-    pub fn get_part_ephm_pk(&self) -> Result<box_::PublicKey, PetError> {
+    fn get_part_ephm_pk(&self) -> Result<box_::PublicKey, PetError> {
         box_::PublicKey::from_slice(&self.0[Self::EPHM_PK_RANGE]).ok_or(PetError::InvalidMessage)
     }
 }
 
 /// Buffer and access the symmetrically decrypted part of an "update" message.
-pub struct UpdateBoxBuffer<'a>(&'a [u8], usize, Range<usize>);
+struct UpdateBoxBuffer<'a>(&'a [u8], usize, Range<usize>);
 
 impl<'a> UpdateBoxBuffer<'a> {
     const UPDATE_RANGE: Range<usize> = 0..6;
@@ -239,7 +279,7 @@ impl<'a> UpdateBoxBuffer<'a> {
     const DICT_SEED_ITEM_LENGTH: usize = 112;
     const MESSAGE_LENGTH_WO_DICT_SEED: usize = 166;
 
-    pub fn new(message: &'a [u8], dict_sum_length: usize) -> Result<Self, PetError> {
+    fn new(message: &'a [u8], dict_sum_length: usize) -> Result<Self, PetError> {
         let dict_seed_range = Self::DICT_SEED_START
             ..Self::DICT_SEED_START + Self::DICT_SEED_ITEM_LENGTH * dict_sum_length;
         let message_length =
@@ -250,24 +290,24 @@ impl<'a> UpdateBoxBuffer<'a> {
     }
 
     // dummy
-    pub fn get_certificate(&self) -> Vec<u8> {
+    fn get_certificate(&self) -> Vec<u8> {
         self.0[Self::CERTIFICATE_RANGE].to_vec()
     }
 
-    pub fn get_signature_sum(&self) -> Result<sign::Signature, PetError> {
+    fn get_signature_sum(&self) -> Result<sign::Signature, PetError> {
         sign::Signature::from_slice(&self.0[Self::SIGN_SUM_RANGE]).ok_or(PetError::InvalidMessage)
     }
 
-    pub fn get_signature_update(&self) -> Result<sign::Signature, PetError> {
+    fn get_signature_update(&self) -> Result<sign::Signature, PetError> {
         sign::Signature::from_slice(&self.0[Self::SIGN_UPDATE_RANGE])
             .ok_or(PetError::InvalidMessage)
     }
 
-    pub fn get_model_url(&self) -> Vec<u8> {
+    fn get_model_url(&self) -> Vec<u8> {
         self.0[Self::MODEL_URL_RANGE].to_vec()
     }
 
-    pub fn get_dict_seed(&self) -> Result<HashMap<box_::PublicKey, Vec<u8>>, PetError> {
+    fn get_dict_seed(&self) -> Result<HashMap<box_::PublicKey, Vec<u8>>, PetError> {
         // map "sum" participants to encrypted seeds
         let mut dict_seed: HashMap<box_::PublicKey, Vec<u8>> = HashMap::new();
         for i in (self.2.clone()).step_by(Self::DICT_SEED_ITEM_LENGTH) {
@@ -284,7 +324,7 @@ impl<'a> UpdateBoxBuffer<'a> {
 }
 
 /// Buffer and access the symmetrically decrypted part of a "sum2" message.
-pub struct Sum2BoxBuffer<'a>(&'a [u8]);
+struct Sum2BoxBuffer<'a>(&'a [u8]);
 
 impl<'a> Sum2BoxBuffer<'a> {
     const SUM2_RANGE: Range<usize> = 0..4;
@@ -294,22 +334,22 @@ impl<'a> Sum2BoxBuffer<'a> {
     const MASK_URL_RANGE: Range<usize> = 132..164;
     const MESSAGE_LENGTH: usize = 164;
 
-    pub fn new(message: &'a [u8]) -> Result<Self, PetError> {
+    fn new(message: &'a [u8]) -> Result<Self, PetError> {
         (message.len() == Self::MESSAGE_LENGTH && &message[Self::SUM2_RANGE] == b"sum2")
             .then_some(Self(message))
             .ok_or(PetError::InvalidMessage)
     }
 
     // dummy
-    pub fn get_certificate(&self) -> Vec<u8> {
+    fn get_certificate(&self) -> Vec<u8> {
         self.0[Self::CERTIFICATE_RANGE].to_vec()
     }
 
-    pub fn get_signature_sum(&self) -> Result<sign::Signature, PetError> {
+    fn get_signature_sum(&self) -> Result<sign::Signature, PetError> {
         sign::Signature::from_slice(&self.0[Self::SIGN_SUM_RANGE]).ok_or(PetError::InvalidMessage)
     }
 
-    pub fn get_mask_url(&self) -> Vec<u8> {
+    fn get_mask_url(&self) -> Vec<u8> {
         self.0[Self::MASK_URL_RANGE].to_vec()
     }
 }
@@ -317,8 +357,8 @@ impl<'a> Sum2BoxBuffer<'a> {
 /// Decrypt and validate a "sum" message. Get an item for the dictionary of "sum"
 /// participants.
 pub struct SumMessage {
-    part_encr_pk: box_::PublicKey,
-    part_ephm_pk: box_::PublicKey,
+    pub part_encr_pk: box_::PublicKey,
+    pub part_ephm_pk: box_::PublicKey,
 }
 
 impl SumMessage {
@@ -372,8 +412,8 @@ impl SumMessage {
 /// Decrypt and validate an "update" message. Get a url to a masked local model and
 /// items for the dictionary of encrypted seeds.
 pub struct UpdateMessage {
-    model_url: Vec<u8>,
-    dict_seed: HashMap<box_::PublicKey, Vec<u8>>,
+    pub model_url: Vec<u8>,
+    pub dict_seed: HashMap<box_::PublicKey, Vec<u8>>,
 }
 
 impl UpdateMessage {
@@ -437,7 +477,7 @@ impl UpdateMessage {
 
 /// Decrypt and validate a "sum" message. Get an url to a global mask.
 pub struct Sum2Message {
-    mask_url: Vec<u8>,
+    pub mask_url: Vec<u8>,
 }
 
 impl Sum2Message {
