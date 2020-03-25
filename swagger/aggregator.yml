@@ -1,0 +1,76 @@
+swagger: "2.0"
+info:
+  description: ""
+  version: "1.0.0"
+  title: "XAIN FL Aggregator API"
+  contact:
+    email: "engineering@xain.io"
+  license:
+    name: "Apache 2.0"
+    url: "http://www.apache.org/licenses/LICENSE-2.0.html"
+host: "localhost:8082"
+tags:
+- name: "Aggregator"
+  description: "Aggregator API"
+schemes:
+- "http"
+paths:
+  /{client_id}/{client_token}:
+    get:
+      tags:
+      - "Aggregator"
+      summary: ""
+      description: ""
+      parameters:
+      - name: "client_id"
+        in: "path"
+        description: "ID of the client"
+        required: true
+        type: "string"
+      - name: "client_token"
+        in: "path"
+        description: "Aggregator token of the client"
+        required: true
+        type: "string"
+      responses:
+        200:
+          description: "successful operation"
+          schema:
+            $ref: "#/definitions/Weights"
+        404:
+          description: ""
+    post:
+      tags:
+      - "Aggregator"
+      summary: ""
+      description: ""
+      parameters:
+      - name: "client_id"
+        in: "path"
+        description: "ID of the client"
+        required: true
+        type: "string"
+      - name: "client_token"
+        in: "path"
+        description: "Aggregator token of the client"
+        required: true
+        type: "string"
+      - in: "body"
+        name: "body"
+        description: "ID of the client"
+        required: true
+        schema:
+          $ref: "#/definitions/Weights"
+      responses:
+        200:
+          description: "successful operation"
+        404:
+          description: ""
+
+definitions:
+  Weights:
+    type: "string"
+    format: binary
+externalDocs:
+  description: "Find out more about XAIN FL"
+  url: "https://docs.xain.io/"

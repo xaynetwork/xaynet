@@ -1,0 +1,119 @@
+swagger: "2.0"
+info:
+  description: ""
+  version: "1.0.0"
+  title: "XAIN FL Coordinator API"
+  contact:
+    email: "engineering@xain.io"
+  license:
+    name: "Apache 2.0"
+    url: "http://www.apache.org/licenses/LICENSE-2.0.html"
+host: "localhost:8081"
+tags:
+- name: "Coordinator"
+  description: "Coordinator API"
+schemes:
+- "http"
+paths:
+  /rendez_vous:
+    get:
+      tags:
+      - "Coordinator"
+      consumes:
+      - "application/json"
+      produces:
+      - "application/json"
+      responses:
+        200:
+          description: "successful operation"
+          schema:
+            $ref: "#/definitions/RendezVousResponse"
+        404:
+          description: ""
+  /heartbeat/{client_id}:
+    get:
+      tags:
+      - "Coordinator"
+      summary: ""
+      description: ""
+      consumes:
+      - "application/json"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "client_id"
+        in: "path"
+        description: "ID of the client"
+        required: true
+        type: "string"
+      responses:
+        200:
+          description: "successful operation"
+          schema:
+            $ref: "#/definitions/HeartBeatResponse"
+        404:
+          description: "Client unknown"
+  /start_training/{client_id}:
+    get:
+      tags:
+      - "Coordinator"
+      summary: ""
+      description: ""
+      consumes:
+      - "application/json"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "client_id"
+        in: "path"
+        description: "ID of the client"
+        required: true
+        type: "string"
+      responses:
+        200:
+          description: "successful operation"
+          schema:
+            $ref: "#/definitions/StartTrainingResponse"
+        404:
+          description: ""
+definitions:
+  RendezVousResponse:
+    type: "object"
+    properties:
+      id:
+        type: "string"
+        description: "Client ID"
+        example: "1fa2f908-83e2-4f92-80e1-4baee0bf25a5"
+      ok:
+        type: "boolean"
+        description: ""
+  HeartBeatResponse:
+    type: "object"
+    properties:
+      round:
+        type: "integer"
+        description: "Current round of the coordinator"
+        format: "int32"
+      state:
+        type: "string"
+        description: "Current coordinator state"
+        enum:
+        - "stand_by"
+        - "finish"
+        - "round"
+        - "reject"
+  StartTrainingResponse:
+    type: "object"
+    properties:
+      url:
+        type: "string"
+        description: "The URL of the aggregator"
+      token:
+        type: "string"
+        description: "Token for the aggregator service"
+      ok:
+        type: "boolean"
+        description: ""
+externalDocs:
+  description: "Find out more about XAIN FL"
+  url: "https://docs.xain.io/"
