@@ -9,7 +9,7 @@ use tracing_futures::Instrument;
 
 #[cfg(feature = "influx_metrics")]
 use xain_fl::{
-    common::metric_store::influxdb::{run_metricstore, InfluxDBMetricStore},
+    common::metric_store::influxdb::{run_metricstore, InfluxDBConnector},
     coordinator::settings::MetricStoreSettings,
 };
 
@@ -100,7 +100,7 @@ async fn _main(
     #[cfg(feature = "influx_metrics")]
     let metric_sender = if let Some(metric_store) = metric_store {
         // Start the metric store
-        let (influx_client, metric_sender) = InfluxDBMetricStore::new(
+        let (influx_client, metric_sender) = InfluxDBConnector::new(
             &metric_store.database_url[..],
             &metric_store.database_name[..],
         );

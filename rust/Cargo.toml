@@ -32,7 +32,8 @@ tracing-subscriber = "0.2.3"
 tracing-log = "0.1.1"
 tracing-futures = "0.2.3"
 
-influxdb = { version = "0.0.6", optional = true }
+influxdb = { version = "0.1.0", features = ["derive"], optional = true }
+chrono = { version = "0.4", features = ["serde"], optional = true }
 opentelemetry = { version = "0.2.0", optional = true }
 tracing-opentelemetry = { version = "0.2.0", optional = true }
 opentelemetry-jaeger = { version = "0.1.0", optional = true }
@@ -48,5 +49,5 @@ path = "src/bin/aggregator.rs"
 [features]
 default = []
 telemetry = [ "opentelemetry", "tracing-opentelemetry", "opentelemetry-jaeger"]
-influx_metrics = [ "influxdb" ]
+influx_metrics = [ "influxdb" , "chrono"]
 all = [ "telemetry", "influx_metrics"]
