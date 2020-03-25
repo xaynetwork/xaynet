@@ -4,6 +4,7 @@ use crate::{
 };
 use tokio::net::TcpListener;
 use tracing_futures::Instrument;
+use warp::http::method::Method;
 use warp::Filter;
 
 pub async fn serve(bind_address: &str, handle: ServiceHandle) {
@@ -23,7 +24,8 @@ pub async fn serve(bind_address: &str, handle: ServiceHandle) {
                 }
             }
             .instrument(span)
-        });
+        }) // #TODO remove cors. enabled only for testing the swagger files.
+        .with(warp::cors().allow_any_origin().allow_method(Method::GET));
 
     let parent_span = tracing::Span::current();
     let rendez_vous = warp::path!("rendez_vous")
@@ -38,7 +40,8 @@ pub async fn serve(bind_address: &str, handle: ServiceHandle) {
                 }
             }
             .instrument(span)
-        });
+        })
+        .with(warp::cors().allow_any_origin().allow_method(Method::GET));
 
     let parent_span = tracing::Span::current();
     let start_training = warp::path!("start_training" / ClientId)
