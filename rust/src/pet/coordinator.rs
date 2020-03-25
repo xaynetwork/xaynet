@@ -62,7 +62,7 @@ impl Default for Coordinator {
 //                 └-> ephm_pk
 //
 // UpdateMessage
-//  └-> SumMessageBuffer
+//  └-> UpdateMessageBuffer
 //       ├-> SealedBox
 //       |    └-> SealedBoxBuffer
 //       |         ├-> encr_pk

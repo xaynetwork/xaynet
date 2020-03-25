@@ -103,7 +103,7 @@ impl Default for Participant {
 // ephm_pk ----------┤                |
 //                   └-> SumBoxBuffer |
 //                        └-> SumBox -┤
-//                                    └-> SumMessageBuffer
+//                                    └-> MessageBuffer
 //                                         └-> SumMessage
 //
 // encr_pk -┐
@@ -117,7 +117,7 @@ impl Default for Participant {
 // dict_seed---------┤                   |
 //                   └-> UpdateBoxBuffer |
 //                        └-> UpdateBox -┤
-//                                       └-> UpdateMessageBuffer
+//                                       └-> MessageBuffer
 //                                            └-> UpdateMessage
 //
 // encr_pk -┐
@@ -130,166 +130,137 @@ impl Default for Participant {
 // mask_url ---------┤                 |
 //                   └-> Sum2BoxBuffer |
 //                        └-> Sum2Box -┤
-//                                     └-> Sum2MessageBuffer
+//                                     └-> MessageBuffer
 //                                          └-> Sum2Message
 
 /// Buffer and wrap the asymmetrically encrypted part of a "sum/update/sum2" message.
-struct SealedBoxBuffer(Vec<u8>);
+struct SealedBoxBuffer<'a>(&'a [u8], &'a [u8], &'a [u8]);
 
-impl SealedBoxBuffer {
-    fn new(encr_pk: &box_::PublicKey, sign_pk: &sign::PublicKey) -> Self {
+impl<'a> SealedBoxBuffer<'a> {
+    fn new(encr_pk: &'a box_::PublicKey, sign_pk: &'a sign::PublicKey) -> Self {
         Self(
-            [
-                b"round",       // 5 bytes
-                &encr_pk.0[..], // 32 bytes
-                &sign_pk.0[..], // 32 bytes
-            ]
-            .concat(),
+            b"round",       // 5 bytes
+            &encr_pk.0[..], // 32 bytes
+            &sign_pk.0[..], // 32 bytes
         ) // 69 bytes in total
     }
 
     fn seal(&self, coord_encr_pk: &box_::PublicKey) -> Vec<u8> {
-        sealedbox::seal(&self.0[..], coord_encr_pk) // 48 + 69 bytes, 117 bytes in total
+        sealedbox::seal(&[self.0, self.1, self.2].concat(), coord_encr_pk) // 48 + 69 bytes, 117 bytes in total
     }
 }
 
 /// Buffer and wrap the symmetrically encrypted part of a "sum" message.
-struct SumBoxBuffer(Vec<u8>);
+struct SumBoxBuffer<'a>(&'a [u8], &'a [u8], &'a [u8], &'a [u8], &'a [u8]);
 
-impl SumBoxBuffer {
+impl<'a> SumBoxBuffer<'a> {
     fn new(
-        certificate: &[u8],
-        signature_sum: &sign::Signature,
-        signature_update: &sign::Signature,
-        ephm_pk: &box_::PublicKey,
+        certificate: &'a [u8],
+        signature_sum: &'a sign::Signature,
+        signature_update: &'a sign::Signature,
+        ephm_pk: &'a box_::PublicKey,
     ) -> Self {
         Self(
-            [
-                b"sum",                  // 3 bytes
-                certificate,             // 0 bytes (dummy)
-                &signature_sum.0[..],    // 64 bytes
-                &signature_update.0[..], // 64 bytes
-                &ephm_pk.0[..],          // 32 bytes
-            ]
-            .concat(),
+            b"sum",                  // 3 bytes
+            certificate,             // 0 bytes (dummy)
+            &signature_sum.0[..],    // 64 bytes
+            &signature_update.0[..], // 64 bytes
+            &ephm_pk.0[..],          // 32 bytes
         ) // 163 bytes in total
     }
 
     fn seal(&self, coord_encr_pk: &box_::PublicKey, part_encr_sk: &box_::SecretKey) -> Vec<u8> {
         let nonce = box_::gen_nonce(); // 24 bytes
-        let sumbox = box_::seal(&self.0[..], &nonce, coord_encr_pk, part_encr_sk); // 16 + 163 bytes
+        let sumbox = box_::seal(
+            &[self.0, self.1, self.2, self.3, self.4].concat(),
+            &nonce,
+            coord_encr_pk,
+            part_encr_sk,
+        ); // 16 + 163 bytes
         [nonce.0.to_vec(), sumbox].concat() // 203 bytes in total
     }
 }
 
 /// Buffer and wrap the symmetrically encrypted part of an "update" message.
-struct UpdateBoxBuffer(Vec<u8>);
+struct UpdateBoxBuffer<'a>(&'a [u8], &'a [u8], &'a [u8], &'a [u8], &'a [u8], &'a [u8]);
 
-impl UpdateBoxBuffer {
+impl<'a> UpdateBoxBuffer<'a> {
     fn new(
-        certificate: &[u8],
-        signature_sum: &sign::Signature,
-        signature_update: &sign::Signature,
-        model_url: &[u8],
-        dict_seed: &[u8],
+        certificate: &'a [u8],
+        signature_sum: &'a sign::Signature,
+        signature_update: &'a sign::Signature,
+        model_url: &'a [u8],
+        dict_seed: &'a [u8],
     ) -> Self {
         Self(
-            [
-                b"update",               // 6 bytes
-                certificate,             // 0 bytes (dummy)
-                &signature_sum.0[..],    // 64 bytes
-                &signature_update.0[..], // 64 bytes
-                model_url,               // 32 bytes (dummy)
-                dict_seed,               // 112 * dict_sum.len() bytes
-            ]
-            .concat(),
+            b"update",               // 6 bytes
+            certificate,             // 0 bytes (dummy)
+            &signature_sum.0[..],    // 64 bytes
+            &signature_update.0[..], // 64 bytes
+            model_url,               // 32 bytes (dummy)
+            dict_seed,               // 112 * dict_sum.len() bytes
         ) // 166 + 112 * dict_sum.len() bytes in total
     }
 
     fn seal(&self, coord_encr_pk: &box_::PublicKey, part_encr_sk: &box_::SecretKey) -> Vec<u8> {
         let nonce = box_::gen_nonce(); // 24 bytes
-        let updatebox = box_::seal(&self.0[..], &nonce, coord_encr_pk, part_encr_sk); // 16 + 166 + 112 * dict_sum.len() bytes
+        let updatebox = box_::seal(
+            &[self.0, self.1, self.2, self.3, self.4, self.5].concat(),
+            &nonce,
+            coord_encr_pk,
+            part_encr_sk,
+        ); // 16 + 166 + 112 * dict_sum.len() bytes
         [nonce.0.to_vec(), updatebox].concat() // 206 + 112 * dict_sum.len() bytes in total
     }
 }
 
 /// Buffer and wrap the symmetrically encrypted part of a "sum2" message.
-struct Sum2BoxBuffer(Vec<u8>);
+struct Sum2BoxBuffer<'a>(&'a [u8], &'a [u8], &'a [u8], &'a [u8], &'a [u8]);
 
-impl Sum2BoxBuffer {
+impl<'a> Sum2BoxBuffer<'a> {
     fn new(
-        certificate: &[u8],
-        signature_sum: &sign::Signature,
-        signature_update: &sign::Signature,
-        mask_url: &[u8],
+        certificate: &'a [u8],
+        signature_sum: &'a sign::Signature,
+        signature_update: &'a sign::Signature,
+        mask_url: &'a [u8],
     ) -> Self {
         Self(
-            [
-                &b"sum2"[..],            // 4 bytes
-                certificate,             // 0 bytes (dummy)
-                &signature_sum.0[..],    // 64 bytes
-                &signature_update.0[..], // 64 bytes
-                mask_url,                // 32 bytes (dummy)
-            ]
-            .concat(),
+            &b"sum2"[..],            // 4 bytes
+            certificate,             // 0 bytes (dummy)
+            &signature_sum.0[..],    // 64 bytes
+            &signature_update.0[..], // 64 bytes
+            mask_url,                // 32 bytes (dummy)
         ) // 164 bytes in total
     }
 
     fn seal(&self, coord_encr_pk: &box_::PublicKey, part_encr_sk: &box_::SecretKey) -> Vec<u8> {
         let nonce = box_::gen_nonce(); // 24 bytes
-        let sum2box = box_::seal(&self.0[..], &nonce, coord_encr_pk, part_encr_sk); // 16 + 164 bytes
+        let sum2box = box_::seal(
+            &[self.0, self.1, self.2, self.3, self.4].concat(),
+            &nonce,
+            coord_encr_pk,
+            part_encr_sk,
+        ); // 16 + 164 bytes
         [nonce.0.to_vec(), sum2box].concat() // 204 bytes in total
     }
 }
 
-/// Buffer and wrap an encrypted "sum" message.
-struct SumMessageBuffer(Vec<u8>);
+/// Buffer and wrap an encrypted "sum/update/sum2" message.
+struct MessageBuffer<'a>(&'a [u8], &'a [u8]);
 
-impl SumMessageBuffer {
-    fn new(sealedbox: &[u8], sumbox: &[u8]) -> Self {
-        Self(
-            [
-                sealedbox, // 117 bytes
-                sumbox,    // 203 bytes
-            ]
-            .concat(),
-        ) // 320 bytes in total
+impl<'a> MessageBuffer<'a> {
+    fn new(sealedbox: &'a [u8], box__: &'a [u8]) -> Self {
+        Self(sealedbox, box__)
     }
-}
 
-/// Buffer and wrap an encrypted "update" message.
-struct UpdateMessageBuffer(Vec<u8>);
-
-impl UpdateMessageBuffer {
-    fn new(sealedbox: &[u8], updatebox: &[u8]) -> Self {
-        Self(
-            [
-                sealedbox, // 117 bytes
-                updatebox, // 206 + 112 * dict_sum.len() bytes
-            ]
-            .concat(),
-        ) // 323 + 112 * dict_sum.len() bytes in total
-    }
-}
-
-/// Buffer and wrap an encrypted "sum2" message.
-struct Sum2MessageBuffer(Vec<u8>);
-
-impl Sum2MessageBuffer {
-    fn new(sealedbox: &[u8], sum2box: &[u8]) -> Self {
-        Self(
-            [
-                sealedbox, // 117 bytes
-                sum2box,   // 204 bytes
-            ]
-            .concat(),
-        ) // 321 bytes in total
+    fn seal(&self) -> Vec<u8> {
+        [self.0, self.1].concat()
     }
 }
 
 /// Compose and encrypt a "sum" message. Get an ephemeral asymmetric key pair.
 pub struct SumMessage {
-    message: SumMessageBuffer,
+    message: Vec<u8>,
     part_ephm_pk: box_::PublicKey,
     part_ephm_sk: box_::SecretKey,
 }
@@ -308,7 +279,7 @@ impl SumMessage {
             &part_ephm_pk,
         )
         .seal(coord_encr_pk, &part.encr_sk);
-        let message = SumMessageBuffer::new(&sbox, &sumbox);
+        let message = MessageBuffer::new(&sbox, &sumbox).seal();
 
         Self {
             message,
@@ -320,7 +291,7 @@ impl SumMessage {
 
 /// Compose and encrypt an "update" message. Get a seed of a local model mask.
 pub struct UpdateMessage {
-    message: UpdateMessageBuffer,
+    message: Vec<u8>,
     mask_seed: Vec<u8>,
 }
 
@@ -351,7 +322,7 @@ impl UpdateMessage {
             &dict_seed,
         )
         .seal(coord_encr_pk, &part.encr_sk);
-        let message = UpdateMessageBuffer::new(&sbox, &updatebox);
+        let message = MessageBuffer::new(&sbox, &updatebox).seal();
 
         Self { message, mask_seed }
     }
@@ -359,7 +330,7 @@ impl UpdateMessage {
 
 /// Compose and encrypt a "sum" message. Get an url of a global mask.
 pub struct Sum2Message {
-    message: Sum2MessageBuffer,
+    message: Vec<u8>,
     mask_url: Vec<u8>,
 }
 
@@ -394,7 +365,7 @@ impl Sum2Message {
             &mask_url,
         )
         .seal(coord_encr_pk, &part.encr_sk);
-        let message = Sum2MessageBuffer::new(&sbox, &sum2box);
+        let message = MessageBuffer::new(&sbox, &sum2box).seal();
 
         Ok(Self { message, mask_url })
     }
