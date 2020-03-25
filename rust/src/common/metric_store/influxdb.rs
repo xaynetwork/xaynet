@@ -1,10 +1,19 @@
 use chrono::{DateTime, Utc};
-use influxdb::{Client, InfluxDbWriteable, Timestamp};
+use influxdb::{Client, InfluxDbWriteable, Timestamp, WriteQuery};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
 pub enum Measurement {
     Round(RoundMeasurement),
     Counters(CountersMeasurement),
+}
+
+impl InfluxDbWriteable for Measurement {
+    fn into_query<I: Into<String>>(self, name: I) -> WriteQuery {
+        match self {
+            Self::Round(round) => round.into_query(name),
+            Self::Counters(counters) => counters.into_query(name),
+        }
+    }
 }
 
 #[derive(InfluxDbWriteable)]
@@ -67,13 +76,9 @@ pub async fn run_metricstore(mut influxdb_connector: InfluxDBConnector) {
     loop {
         match influxdb_connector.receiver.recv().await {
             Some(measurement) => {
-                let query = match measurement {
-                    Measurement::Round(round) => round.into_query("coordinator"),
-                    Measurement::Counters(counter) => counter.into_query("coordinator"),
-                };
                 let _ = influxdb_connector
                     .client
-                    .query(&query)
+                    .query(&measurement.into_query("coordinator"))
                     .await
                     .map_err(|e| error!("{}", e));
             }
