@@ -10,3 +10,6 @@ extern crate serde;
 pub mod aggregator;
 pub mod common;
 pub mod coordinator;
+
+#[cfg(test)]
+mod tests;
