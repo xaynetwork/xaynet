@@ -10,19 +10,19 @@ info:
     url: "http://www.apache.org/licenses/LICENSE-2.0.html"
 host: "localhost:8081"
 tags:
-- name: "Coordinator"
-  description: "Coordinator API"
+  - name: "Coordinator"
+    description: "Coordinator API"
 schemes:
-- "http"
+  - "http"
 paths:
   /rendez_vous:
     get:
       tags:
-      - "Coordinator"
+        - "Coordinator"
       consumes:
-      - "application/json"
+        - "application/json"
       produces:
-      - "application/json"
+        - "application/json"
       responses:
         200:
           description: "successful operation"
@@ -33,19 +33,19 @@ paths:
   /heartbeat/{client_id}:
     get:
       tags:
-      - "Coordinator"
+        - "Coordinator"
       summary: ""
       description: ""
       consumes:
-      - "application/json"
+        - "application/json"
       produces:
-      - "application/json"
+        - "application/json"
       parameters:
-      - name: "client_id"
-        in: "path"
-        description: "ID of the client"
-        required: true
-        type: "string"
+        - name: "client_id"
+          in: "path"
+          description: "ID of the client"
+          required: true
+          type: "string"
       responses:
         200:
           description: "successful operation"
@@ -56,19 +56,19 @@ paths:
   /start_training/{client_id}:
     get:
       tags:
-      - "Coordinator"
+        - "Coordinator"
       summary: ""
       description: ""
       consumes:
-      - "application/json"
+        - "application/json"
       produces:
-      - "application/json"
+        - "application/json"
       parameters:
-      - name: "client_id"
-        in: "path"
-        description: "ID of the client"
-        required: true
-        type: "string"
+        - name: "client_id"
+          in: "path"
+          description: "ID of the client"
+          type: "string"
+          required: true
       responses:
         200:
           description: "successful operation"
@@ -94,23 +94,26 @@ definitions:
         type: "integer"
         description: "Current round of the coordinator"
         format: "int32"
+        minimum: 0
       state:
         type: "string"
         description: "Current coordinator state"
         enum:
-        - "stand_by"
-        - "finish"
-        - "round"
-        - "reject"
+          - "stand_by"
+          - "finish"
+          - "round"
+          - "reject"
   StartTrainingResponse:
     type: "object"
     properties:
       url:
         type: "string"
         description: "The URL of the aggregator"
+        example: "http://localhost:8082"
       token:
         type: "string"
         description: "Token for the aggregator service"
+        example: "2e8700a6-390d-411f-977b-9aa3bebc13e9"
       ok:
         type: "boolean"
         description: ""
