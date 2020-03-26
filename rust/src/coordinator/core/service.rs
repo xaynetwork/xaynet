@@ -31,7 +31,7 @@ use tokio::{
     },
 };
 
-struct AggregationFuture(Pin<Box<dyn Future<Output = Result<(), ()>>>>);
+struct AggregationFuture(Pin<Box<dyn Future<Output = Result<(), ()>> + Send>>);
 
 impl Future for AggregationFuture {
     type Output = Result<(), ()>;
