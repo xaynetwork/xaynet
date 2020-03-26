@@ -478,6 +478,7 @@ where
     }
 }
 
+#[derive(Debug)]
 pub struct RequestError;
 
 pub struct ServiceRequests(Pin<Box<dyn Stream<Item = Request> + Send>>);

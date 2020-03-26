@@ -35,7 +35,7 @@ mod mocks {
     }
 
     mock! {
-        pub Client {
+        pub RpcClient {
             fn new<T: Transport<(), ()> + 'static>(config: Config, transport: T) -> MockNewClient;
             fn end_training(&mut self, ctx: Context, id: ClientId, success: bool) -> future::Ready<io::Result<()>>;
         }
