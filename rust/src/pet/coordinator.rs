@@ -13,13 +13,13 @@ use super::{utils::is_eligible, PetError};
 /// A coordinator in the PET protocol layer.
 pub struct Coordinator {
     // credentials
-    encr_pk: box_::PublicKey,
-    encr_sk: box_::SecretKey,
+    pub encr_pk: box_::PublicKey, // 32 bytes
+    encr_sk: box_::SecretKey,     // 32 bytes
 
     // round parameters
     sum: f64,
     update: f64,
-    seed: Vec<u8>,
+    seed: Vec<u8>, // 32 bytes
 }
 
 impl Coordinator {
