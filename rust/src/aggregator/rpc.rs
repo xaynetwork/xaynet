@@ -31,65 +31,9 @@ mod inner {
 pub use inner::Rpc;
 
 #[cfg(test)]
-mod mocks {
-    pub use super::*;
-
-    use futures::future;
-    use mockall::mock;
-    use std::{
-        io,
-        sync::{Arc, Mutex, MutexGuard},
-    };
-use std::ops::Deref;
-    use tarpc::{client::Config, context::Context, rpc::Transport};
-
-    mock! {
-        pub NewClient {
-            fn spawn(self) -> io::Result<RpcClient>;
-        }
-    }
-
-    mock! {
-        pub RpcClient {
-            fn new<T: Transport<(), ()> + 'static>(config: Config, transport: T) -> MockNewClient;
-            fn select(&mut self, ctx: Context, credentials: Credentials) -> future::Ready<io::Result<Result<(), ()>>>;
-            fn aggregate(&mut self, ctx: Context) -> future::Ready<io::Result<Result<(), ()>>>;
-        }
-    }
-
-    #[derive(Clone)]
-    pub struct RpcClient(pub Arc<Mutex<MockRpcClient>>);
-
-    impl RpcClient {
-        pub fn new<T: Transport<(), ()> + 'static>(config: Config, transport: T) -> MockNewClient {
-            MockNewClient::default()
-        }
-        pub fn select(
-            &mut self,
-            ctx: Context,
-            credentials: Credentials,
-        ) -> future::Ready<io::Result<Result<(), ()>>> {
-            self.0.lock().unwrap().select(ctx, credentials)
-        }
-        pub fn aggregate(&mut self, ctx: Context) -> future::Ready<io::Result<Result<(), ()>>> {
-            self.0.lock().unwrap().aggregate(ctx)
-        }
-        pub fn mock(&self) -> MutexGuard<MockRpcClient> {
-            self.0.lock().unwrap()
-        }
-    }
-    impl From<MockRpcClient> for RpcClient {
-        fn from(mock: MockRpcClient) -> Self {
-            Self(Arc::new(Mutex::new(mock)))
-        }
-    }
-
-}
-
+pub use crate::tests::mocks::rpc::aggregator::Client;
 #[cfg(not(test))]
 pub use inner::RpcClient as Client;
-#[cfg(test)]
-pub use mocks::{MockRpcClient as MockClient, RpcClient as Client};
 
 /// A server that serves a single client. A new `Server` is created
 /// for each new client.
