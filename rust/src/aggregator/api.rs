@@ -4,9 +4,8 @@ use crate::{
 };
 use tokio::net::TcpListener;
 use tracing_futures::Instrument;
-use warp::http::method::Method;
 use warp::{
-    http::{header::CONTENT_TYPE, Response, StatusCode},
+    http::{header::CONTENT_TYPE, method::Method, Response, StatusCode},
     Filter,
 };
 
@@ -59,7 +58,7 @@ pub async fn serve(bind_address: &str, handle: ServiceHandle) {
         .with(
             warp::cors()
                 .allow_any_origin()
-                .allow_methods(vec![Method::POST])
+                .allow_method(Method::POST)
                 // Allow the "content-typ" header which is requested in the CORS preflight request.
                 // Without this header, we will get an CORS error in the swagger ui.
                 .allow_header(CONTENT_TYPE),
