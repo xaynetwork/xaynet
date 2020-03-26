@@ -17,7 +17,41 @@ mod inner {
         async fn end_training(id: ClientId, success: bool);
     }
 }
-pub use inner::{Rpc, RpcClient as Client};
+pub use inner::Rpc;
+
+#[cfg(test)]
+mod mocks {
+    pub use super::*;
+
+    use futures::future;
+    use mockall::mock;
+    use std::io;
+    use tarpc::{client::Config, context::Context, rpc::Transport};
+
+    mock! {
+        pub NewClient {
+            fn spawn(self) -> io::Result<MockRpcClient>;
+        }
+    }
+
+    mock! {
+        pub Client {
+            fn new<T: Transport<(), ()> + 'static>(config: Config, transport: T) -> MockNewClient;
+            fn end_training(&mut self, ctx: Context, id: ClientId, success: bool) -> future::Ready<io::Result<()>>;
+        }
+    }
+
+    impl Clone for MockRpcClient {
+        fn clone(&self) -> Self {
+            Self::default()
+        }
+    }
+}
+
+#[cfg(not(test))]
+pub use inner::RpcClient as Client;
+#[cfg(test)]
+pub use mocks::MockRpcClient as Client;
 
 impl Rpc for Server {
     type EndTrainingFut = Pin<Box<dyn Future<Output = ()> + Send>>;
