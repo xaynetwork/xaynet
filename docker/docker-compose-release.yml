@@ -5,9 +5,7 @@ services:
     command: coordinator -c /bin/config.toml
     build:
       context: ..
-      dockerfile: docker/Dockerfile
-      args:
-          RELEASE_BUILD: "true"
+      dockerfile: docker/Dockerfile.release
     image: docker_coordinator:release
     depends_on:
       - influxdb
@@ -23,7 +21,7 @@ services:
     command: aggregator -c /bin/config.toml
     build:
       context: ..
-      dockerfile: docker/Dockerfile
+      dockerfile: docker/Dockerfile.release
       args:
           RELEASE_BUILD: "true"
     image: docker_aggregator:release

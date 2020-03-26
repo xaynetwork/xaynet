@@ -1,0 +1,21 @@
+FROM python:3.7.6-slim-buster AS builder
+
+# Install Rust nightly
+ENV RUSTUP_HOME=/usr/local/rustup \
+    CARGO_HOME=/usr/local/cargo \
+    PATH=/usr/local/cargo/bin:$PATH
+COPY docker/install_rust.sh .
+RUN bash ./install_rust.sh
+
+COPY rust/Cargo.lock .
+COPY rust/Cargo.toml .
+COPY rust/src src
+RUN cargo build --release --features=telemetry,influx_metrics
+
+
+FROM python:3.7.6-slim-buster
+
+COPY --from=builder /target/release/aggregator /bin/aggregator
+COPY --from=builder /target/release/coordinator /bin/coordinator
+COPY python/aggregators aggregators/
+RUN pip install aggregators/
