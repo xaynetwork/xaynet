@@ -88,15 +88,15 @@ impl Default for Coordinator {
 //                 └-> mask_url
 
 /// Buffer and access an encrypted "sum" message.
-struct SumMessageBuffer<'a>(&'a [u8]);
+struct SumMessageBuffer<'msg>(&'msg [u8]);
 
-impl<'a> SumMessageBuffer<'a> {
+impl<'msg> SumMessageBuffer<'msg> {
     const SEALEDBOX_RANGE: Range<usize> = 0..117;
     const NONCE_RANGE: Range<usize> = 117..141;
     const BOX_RANGE: Range<usize> = 141..320;
     const MESSAGE_LENGTH: usize = 320;
 
-    fn new(message: &'a [u8]) -> Result<Self, PetError> {
+    fn new(message: &'msg [u8]) -> Result<Self, PetError> {
         (message.len() == Self::MESSAGE_LENGTH)
             .then_some(Self(message))
             .ok_or(PetError::InvalidMessage)
@@ -127,9 +127,9 @@ impl<'a> SumMessageBuffer<'a> {
 }
 
 /// Buffer and access an encrypted "update" message.
-struct UpdateMessageBuffer<'a>(&'a [u8], Range<usize>);
+struct UpdateMessageBuffer<'msg>(&'msg [u8], Range<usize>);
 
-impl<'a> UpdateMessageBuffer<'a> {
+impl<'msg> UpdateMessageBuffer<'msg> {
     const SEALEDBOX_RANGE: Range<usize> = 0..117;
     const NONCE_RANGE: Range<usize> = 117..141;
     const BOX_START: usize = 141;
@@ -137,7 +137,7 @@ impl<'a> UpdateMessageBuffer<'a> {
     const DICT_SEED_ITEM_LENGTH: usize = 112;
     const MESSAGE_LENGTH_WO_DICT_SEED: usize = 323;
 
-    fn new(message: &'a [u8], dict_sum_length: usize) -> Result<Self, PetError> {
+    fn new(message: &'msg [u8], dict_sum_length: usize) -> Result<Self, PetError> {
         let box_range = Self::BOX_START
             ..Self::BOX_END_WO_DICT_SEED + Self::DICT_SEED_ITEM_LENGTH * dict_sum_length;
         let message_length =
@@ -172,15 +172,15 @@ impl<'a> UpdateMessageBuffer<'a> {
 }
 
 /// Buffer and access an encrypted "sum2" message.
-struct Sum2MessageBuffer<'a>(&'a [u8]);
+struct Sum2MessageBuffer<'msg>(&'msg [u8]);
 
-impl<'a> Sum2MessageBuffer<'a> {
+impl<'msg> Sum2MessageBuffer<'msg> {
     const SEALEDBOX_RANGE: Range<usize> = 0..117;
     const NONCE_RANGE: Range<usize> = 117..141;
     const BOX_RANGE: Range<usize> = 141..321;
     const MESSAGE_LENGTH: usize = 321;
 
-    fn new(message: &'a [u8]) -> Result<Self, PetError> {
+    fn new(message: &'msg [u8]) -> Result<Self, PetError> {
         (message.len() == Self::MESSAGE_LENGTH)
             .then_some(Self(message))
             .ok_or(PetError::InvalidMessage)
@@ -211,15 +211,15 @@ impl<'a> Sum2MessageBuffer<'a> {
 }
 
 /// Buffer and access the asymmetrically decrypted part of a "sum/update/sum2" message.
-struct SealedBoxBuffer<'a>(&'a [u8]);
+struct SealedBoxBuffer<'sbox>(&'sbox [u8]);
 
-impl<'a> SealedBoxBuffer<'a> {
+impl<'sbox> SealedBoxBuffer<'sbox> {
     const ROUND_RANGE: Range<usize> = 0..5;
     const ENCR_PK_RANGE: Range<usize> = 5..37;
     const SIGN_PK_RANGE: Range<usize> = 37..69;
     const MESSAGE_LENGTH: usize = 69;
 
-    fn new(message: &'a [u8]) -> Result<Self, PetError> {
+    fn new(message: &'sbox [u8]) -> Result<Self, PetError> {
         (message.len() == Self::MESSAGE_LENGTH && &message[Self::ROUND_RANGE] == b"round")
             .then_some(Self(message))
             .ok_or(PetError::InvalidMessage)
@@ -235,9 +235,9 @@ impl<'a> SealedBoxBuffer<'a> {
 }
 
 /// Buffer and access the symmetrically decrypted part of a "sum" message.
-struct SumBoxBuffer<'a>(&'a [u8]);
+struct SumBoxBuffer<'box__>(&'box__ [u8]);
 
-impl<'a> SumBoxBuffer<'a> {
+impl<'box__> SumBoxBuffer<'box__> {
     const SUM_RANGE: Range<usize> = 0..3;
     const CERTIFICATE_RANGE: Range<usize> = 3..3;
     const SIGN_SUM_RANGE: Range<usize> = 3..67;
@@ -245,7 +245,7 @@ impl<'a> SumBoxBuffer<'a> {
     const EPHM_PK_RANGE: Range<usize> = 131..163;
     const MESSAGE_LENGTH: usize = 163;
 
-    fn new(message: &'a [u8]) -> Result<Self, PetError> {
+    fn new(message: &'box__ [u8]) -> Result<Self, PetError> {
         (message.len() == Self::MESSAGE_LENGTH && &message[Self::SUM_RANGE] == b"sum")
             .then_some(Self(message))
             .ok_or(PetError::InvalidMessage)
@@ -266,9 +266,9 @@ impl<'a> SumBoxBuffer<'a> {
 }
 
 /// Buffer and access the symmetrically decrypted part of an "update" message.
-struct UpdateBoxBuffer<'a>(&'a [u8], usize, Range<usize>);
+struct UpdateBoxBuffer<'box__>(&'box__ [u8], usize, Range<usize>);
 
-impl<'a> UpdateBoxBuffer<'a> {
+impl<'box__> UpdateBoxBuffer<'box__> {
     const UPDATE_RANGE: Range<usize> = 0..6;
     const CERTIFICATE_RANGE: Range<usize> = 6..6;
     const SIGN_SUM_RANGE: Range<usize> = 6..70;
@@ -279,7 +279,7 @@ impl<'a> UpdateBoxBuffer<'a> {
     const DICT_SEED_ITEM_LENGTH: usize = 112;
     const MESSAGE_LENGTH_WO_DICT_SEED: usize = 166;
 
-    fn new(message: &'a [u8], dict_sum_length: usize) -> Result<Self, PetError> {
+    fn new(message: &'box__ [u8], dict_sum_length: usize) -> Result<Self, PetError> {
         let dict_seed_range = Self::DICT_SEED_START
             ..Self::DICT_SEED_START + Self::DICT_SEED_ITEM_LENGTH * dict_sum_length;
         let message_length =
@@ -324,9 +324,9 @@ impl<'a> UpdateBoxBuffer<'a> {
 }
 
 /// Buffer and access the symmetrically decrypted part of a "sum2" message.
-struct Sum2BoxBuffer<'a>(&'a [u8]);
+struct Sum2BoxBuffer<'box__>(&'box__ [u8]);
 
-impl<'a> Sum2BoxBuffer<'a> {
+impl<'box__> Sum2BoxBuffer<'box__> {
     const SUM2_RANGE: Range<usize> = 0..4;
     const CERTIFICATE_RANGE: Range<usize> = 4..4;
     const SIGN_SUM_RANGE: Range<usize> = 4..68;
@@ -334,7 +334,7 @@ impl<'a> Sum2BoxBuffer<'a> {
     const MASK_URL_RANGE: Range<usize> = 132..164;
     const MESSAGE_LENGTH: usize = 164;
 
-    fn new(message: &'a [u8]) -> Result<Self, PetError> {
+    fn new(message: &'box__ [u8]) -> Result<Self, PetError> {
         (message.len() == Self::MESSAGE_LENGTH && &message[Self::SUM2_RANGE] == b"sum2")
             .then_some(Self(message))
             .ok_or(PetError::InvalidMessage)

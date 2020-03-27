@@ -134,10 +134,10 @@ impl Default for Participant {
 //                                          └-> Sum2Message
 
 /// Buffer and wrap the asymmetrically encrypted part of a "sum/update/sum2" message.
-struct SealedBoxBuffer<'a>(&'a [u8], &'a [u8], &'a [u8]);
+struct SealedBoxBuffer<'tag, 'encr_key, 'sign_key>(&'tag [u8], &'encr_key [u8], &'sign_key [u8]);
 
-impl<'a> SealedBoxBuffer<'a> {
-    fn new(encr_pk: &'a box_::PublicKey, sign_pk: &'a sign::PublicKey) -> Self {
+impl<'tag, 'encr_key, 'sign_key> SealedBoxBuffer<'tag, 'encr_key, 'sign_key> {
+    fn new(encr_pk: &'encr_key box_::PublicKey, sign_pk: &'sign_key sign::PublicKey) -> Self {
         Self(
             b"round",       // 5 bytes
             &encr_pk.0[..], // 32 bytes
@@ -151,14 +151,20 @@ impl<'a> SealedBoxBuffer<'a> {
 }
 
 /// Buffer and wrap the symmetrically encrypted part of a "sum" message.
-struct SumBoxBuffer<'a>(&'a [u8], &'a [u8], &'a [u8], &'a [u8], &'a [u8]);
+struct SumBoxBuffer<'tag, 'cert, 'sign_, 'ephm_key>(
+    &'tag [u8],
+    &'cert [u8],
+    &'sign_ [u8],
+    &'sign_ [u8],
+    &'ephm_key [u8],
+);
 
-impl<'a> SumBoxBuffer<'a> {
+impl<'tag, 'cert, 'sign_, 'ephm_key> SumBoxBuffer<'tag, 'cert, 'sign_, 'ephm_key> {
     fn new(
-        certificate: &'a [u8],
-        signature_sum: &'a sign::Signature,
-        signature_update: &'a sign::Signature,
-        ephm_pk: &'a box_::PublicKey,
+        certificate: &'cert [u8],
+        signature_sum: &'sign_ sign::Signature,
+        signature_update: &'sign_ sign::Signature,
+        ephm_pk: &'ephm_key box_::PublicKey,
     ) -> Self {
         Self(
             b"sum",                  // 3 bytes
@@ -182,15 +188,22 @@ impl<'a> SumBoxBuffer<'a> {
 }
 
 /// Buffer and wrap the symmetrically encrypted part of an "update" message.
-struct UpdateBoxBuffer<'a>(&'a [u8], &'a [u8], &'a [u8], &'a [u8], &'a [u8], &'a [u8]);
+struct UpdateBoxBuffer<'tag, 'cert, 'sign_, 'url, 'dict>(
+    &'tag [u8],
+    &'cert [u8],
+    &'sign_ [u8],
+    &'sign_ [u8],
+    &'url [u8],
+    &'dict [u8],
+);
 
-impl<'a> UpdateBoxBuffer<'a> {
+impl<'tag, 'cert, 'sign_, 'url, 'dict> UpdateBoxBuffer<'tag, 'cert, 'sign_, 'url, 'dict> {
     fn new(
-        certificate: &'a [u8],
-        signature_sum: &'a sign::Signature,
-        signature_update: &'a sign::Signature,
-        model_url: &'a [u8],
-        dict_seed: &'a [u8],
+        certificate: &'cert [u8],
+        signature_sum: &'sign_ sign::Signature,
+        signature_update: &'sign_ sign::Signature,
+        model_url: &'url [u8],
+        dict_seed: &'dict [u8],
     ) -> Self {
         Self(
             b"update",               // 6 bytes
@@ -215,14 +228,20 @@ impl<'a> UpdateBoxBuffer<'a> {
 }
 
 /// Buffer and wrap the symmetrically encrypted part of a "sum2" message.
-struct Sum2BoxBuffer<'a>(&'a [u8], &'a [u8], &'a [u8], &'a [u8], &'a [u8]);
+struct Sum2BoxBuffer<'tag, 'cert, 'sign_, 'url>(
+    &'tag [u8],
+    &'cert [u8],
+    &'sign_ [u8],
+    &'sign_ [u8],
+    &'url [u8],
+);
 
-impl<'a> Sum2BoxBuffer<'a> {
+impl<'tag, 'cert, 'sign_, 'url> Sum2BoxBuffer<'tag, 'cert, 'sign_, 'url> {
     fn new(
-        certificate: &'a [u8],
-        signature_sum: &'a sign::Signature,
-        signature_update: &'a sign::Signature,
-        mask_url: &'a [u8],
+        certificate: &'cert [u8],
+        signature_sum: &'sign_ sign::Signature,
+        signature_update: &'sign_ sign::Signature,
+        mask_url: &'url [u8],
     ) -> Self {
         Self(
             &b"sum2"[..],            // 4 bytes
@@ -246,10 +265,10 @@ impl<'a> Sum2BoxBuffer<'a> {
 }
 
 /// Buffer and wrap an encrypted "sum/update/sum2" message.
-struct MessageBuffer<'a>(&'a [u8], &'a [u8]);
+struct MessageBuffer<'sbox, 'box___>(&'sbox [u8], &'box___ [u8]);
 
-impl<'a> MessageBuffer<'a> {
-    fn new(sealedbox: &'a [u8], box__: &'a [u8]) -> Self {
+impl<'sbox, 'box___> MessageBuffer<'sbox, 'box___> {
+    fn new(sealedbox: &'sbox [u8], box__: &'box___ [u8]) -> Self {
         Self(sealedbox, box__)
     }
 
@@ -349,8 +368,8 @@ impl Sum2Message {
         {
             seeds.append(&mut vec![sealedbox::open(
                 seed,
-                &part.encr_pk,
-                &part.encr_sk,
+                &part.ephm_pk,
+                &part.ephm_sk,
             )
             .or(Err(PetError::InvalidMessage))?]);
         }
