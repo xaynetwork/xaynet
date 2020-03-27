@@ -177,6 +177,7 @@ checksum = "80094f509cf8b5ae86a4966a39b3ff66cd7e2a3e594accec3743ff3fabeab5b2"
 dependencies = [
  "num-integer",
  "num-traits",
+ "serde",
  "time",
 ]
 
@@ -652,15 +653,30 @@ dependencies = [
 
 [[package]]
 name = "influxdb"
-version = "0.0.6"
+version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4701006cb67ca7b147445617edc2541daeb1bad06921476b9c5e5dfef1e6ea27"
+checksum = "ec8ecb29ede5eb57f1cb62c537732c55b1caba53c084967339d7a0e96892363c"
 dependencies = [
+ "chrono",
  "failure",
  "futures",
+ "influxdb_derive",
+ "lazy_static",
+ "regex",
  "reqwest",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "influxdb_derive"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "40a1bad2298b111aa99a98141f7307cec2dab604ca8fa6bb3f2f8a389c6ec34a"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -2345,6 +2361,7 @@ version = "0.8.0"
 dependencies = [
  "anyhow",
  "bytes",
+ "chrono",
  "clap",
  "config",
  "derive_more",
