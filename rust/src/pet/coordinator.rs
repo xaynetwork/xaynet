@@ -53,7 +53,7 @@ impl Default for Coordinator {
         let (encr_pk, encr_sk) = box_::gen_keypair();
         let sum = 0.01_f64;
         let update = 0.1_f64;
-        let seed = randombytes(32_usize);
+        let seed = randombytes(32);
         let dict_sum = HashMap::new();
         let dict_seed = HashMap::new();
         Self {
@@ -108,14 +108,15 @@ impl Default for Coordinator {
 //                 ├-> signature_sum
 //                 └-> mask_url
 
+#[derive(Debug)]
 /// Buffer and access an encrypted "sum" message.
 struct SumMessageBuffer<'msg>(&'msg [u8]);
 
 impl<'msg> SumMessageBuffer<'msg> {
     const SEALEDBOX_RANGE: Range<usize> = 0..117;
     const NONCE_RANGE: Range<usize> = 117..141;
-    const BOX_RANGE: Range<usize> = 141..320;
-    const MESSAGE_LENGTH: usize = 320;
+    const BOX_RANGE: Range<usize> = 141..256;
+    const MESSAGE_LENGTH: usize = 256;
 
     fn new(message: &'msg [u8]) -> Result<Self, PetError> {
         (message.len() == Self::MESSAGE_LENGTH)
@@ -147,6 +148,7 @@ impl<'msg> SumMessageBuffer<'msg> {
     }
 }
 
+#[derive(Debug)]
 /// Buffer and access an encrypted "update" message.
 struct UpdateMessageBuffer<'msg>(&'msg [u8], Range<usize>);
 
@@ -192,14 +194,15 @@ impl<'msg> UpdateMessageBuffer<'msg> {
     }
 }
 
+#[derive(Debug)]
 /// Buffer and access an encrypted "sum2" message.
 struct Sum2MessageBuffer<'msg>(&'msg [u8]);
 
 impl<'msg> Sum2MessageBuffer<'msg> {
     const SEALEDBOX_RANGE: Range<usize> = 0..117;
     const NONCE_RANGE: Range<usize> = 117..141;
-    const BOX_RANGE: Range<usize> = 141..321;
-    const MESSAGE_LENGTH: usize = 321;
+    const BOX_RANGE: Range<usize> = 141..257;
+    const MESSAGE_LENGTH: usize = 257;
 
     fn new(message: &'msg [u8]) -> Result<Self, PetError> {
         (message.len() == Self::MESSAGE_LENGTH)
@@ -231,6 +234,7 @@ impl<'msg> Sum2MessageBuffer<'msg> {
     }
 }
 
+#[derive(Debug)]
 /// Buffer and access the asymmetrically decrypted part of a "sum/update/sum2" message.
 struct SealedBoxBuffer<'sbox>(&'sbox [u8]);
 
@@ -255,6 +259,7 @@ impl<'sbox> SealedBoxBuffer<'sbox> {
     }
 }
 
+#[derive(Debug)]
 /// Buffer and access the symmetrically decrypted part of a "sum" message.
 struct SumBoxBuffer<'box__>(&'box__ [u8]);
 
@@ -262,9 +267,8 @@ impl<'box__> SumBoxBuffer<'box__> {
     const SUM_RANGE: Range<usize> = 0..3;
     const CERTIFICATE_RANGE: Range<usize> = 3..3;
     const SIGN_SUM_RANGE: Range<usize> = 3..67;
-    const SIGN_UPDATE_RANGE: Range<usize> = 67..131;
-    const EPHM_PK_RANGE: Range<usize> = 131..163;
-    const MESSAGE_LENGTH: usize = 163;
+    const EPHM_PK_RANGE: Range<usize> = 67..99;
+    const MESSAGE_LENGTH: usize = 99;
 
     fn new(message: &'box__ [u8]) -> Result<Self, PetError> {
         (message.len() == Self::MESSAGE_LENGTH && &message[Self::SUM_RANGE] == b"sum")
@@ -286,8 +290,9 @@ impl<'box__> SumBoxBuffer<'box__> {
     }
 }
 
+#[derive(Debug)]
 /// Buffer and access the symmetrically decrypted part of an "update" message.
-struct UpdateBoxBuffer<'box__>(&'box__ [u8], usize, Range<usize>);
+struct UpdateBoxBuffer<'box__>(&'box__ [u8], Range<usize>);
 
 impl<'box__> UpdateBoxBuffer<'box__> {
     const UPDATE_RANGE: Range<usize> = 0..6;
@@ -306,7 +311,7 @@ impl<'box__> UpdateBoxBuffer<'box__> {
         let message_length =
             Self::MESSAGE_LENGTH_WO_DICT_SEED + Self::DICT_SEED_ITEM_LENGTH * dict_sum_length;
         (message.len() == message_length && &message[Self::UPDATE_RANGE] == b"update")
-            .then_some(Self(message, dict_sum_length, dict_seed_range))
+            .then_some(Self(message, dict_seed_range))
             .ok_or(PetError::InvalidMessage)
     }
 
@@ -331,19 +336,18 @@ impl<'box__> UpdateBoxBuffer<'box__> {
     fn get_dict_seed(&self) -> Result<HashMap<box_::PublicKey, Vec<u8>>, PetError> {
         // map "sum" participants to encrypted seeds
         let mut dict_seed: HashMap<box_::PublicKey, Vec<u8>> = HashMap::new();
-        for i in (self.2.clone()).step_by(Self::DICT_SEED_ITEM_LENGTH) {
+        for i in (self.1.clone()).step_by(Self::DICT_SEED_ITEM_LENGTH) {
             dict_seed.insert(
                 box_::PublicKey::from_slice(&self.0[i..i + Self::DICT_SEED_KEY_LENGTH])
                     .ok_or(PetError::InvalidMessage)?,
                 self.0[i + Self::DICT_SEED_KEY_LENGTH..i + Self::DICT_SEED_ITEM_LENGTH].to_vec(),
             );
         }
-        (dict_seed.len() == self.1)
-            .then_some(dict_seed)
-            .ok_or(PetError::InvalidMessage)
+        Ok(dict_seed)
     }
 }
 
+#[derive(Debug)]
 /// Buffer and access the symmetrically decrypted part of a "sum2" message.
 struct Sum2BoxBuffer<'box__>(&'box__ [u8]);
 
@@ -351,9 +355,8 @@ impl<'box__> Sum2BoxBuffer<'box__> {
     const SUM2_RANGE: Range<usize> = 0..4;
     const CERTIFICATE_RANGE: Range<usize> = 4..4;
     const SIGN_SUM_RANGE: Range<usize> = 4..68;
-    const SIGN_UPDATE_RANGE: Range<usize> = 68..132;
-    const MASK_URL_RANGE: Range<usize> = 132..164;
-    const MESSAGE_LENGTH: usize = 164;
+    const MASK_URL_RANGE: Range<usize> = 68..100;
+    const MESSAGE_LENGTH: usize = 100;
 
     fn new(message: &'box__ [u8]) -> Result<Self, PetError> {
         (message.len() == Self::MESSAGE_LENGTH && &message[Self::SUM2_RANGE] == b"sum2")
@@ -375,6 +378,7 @@ impl<'box__> Sum2BoxBuffer<'box__> {
     }
 }
 
+#[derive(Debug)]
 /// An item for the dictionary of "sum" participants.
 pub struct SumMessage {
     pub part_encr_pk: box_::PublicKey, // 32 bytes
@@ -430,6 +434,7 @@ impl SumMessage {
     }
 }
 
+#[derive(Debug)]
 /// An url for a masked local model and items for the dictionary of encrypted masking seeds.
 pub struct UpdateMessage {
     pub model_url: Vec<u8>,                           // 32 bytes (dummy)
@@ -493,6 +498,7 @@ impl UpdateMessage {
     }
 }
 
+#[derive(Debug)]
 /// An url for a mask of a global model.
 pub struct Sum2Message {
     pub mask_url: Vec<u8>,
@@ -541,5 +547,339 @@ impl Sum2Message {
             && is_eligible(sign_sum, sum).ok_or(PetError::InvalidMessage)?)
         .then_some(())
         .ok_or(PetError::InvalidMessage)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::pet::participant::Participant;
+
+    #[test]
+    fn test_coordinator() {
+        // new
+        let coord = Coordinator::new().unwrap();
+        assert_eq!(coord.encr_pk, coord.encr_sk.public_key());
+        assert_eq!(coord.encr_sk.as_ref().len(), 32);
+        assert_eq!(coord.sum, 0.01_f64);
+        assert_eq!(coord.update, 0.1_f64);
+        assert_eq!(coord.seed.len(), 32);
+        assert_eq!(coord.dict_sum, HashMap::new());
+        assert_eq!(coord.dict_seed, HashMap::new());
+    }
+
+    #[test]
+    fn test_summessagebuffer() {
+        let coord = Coordinator::new().unwrap();
+        let mut part = Participant::new().unwrap();
+
+        // new
+        let msg = part.compose_sum_message(&coord.encr_pk).message;
+        let buf = SumMessageBuffer::new(&msg).unwrap();
+        assert_eq!(buf.0, msg.as_slice());
+
+        // new error: invalid message length
+        assert_eq!(
+            SumMessageBuffer::new(&vec![0_u8; 0]).unwrap_err(),
+            PetError::InvalidMessage
+        );
+
+        // open sealedbox
+        let msg = buf.open_sealedbox(&coord.encr_pk, &coord.encr_sk).unwrap();
+        assert_eq!(msg.len(), 69);
+
+        // open sealedbox error: invalid sealedbox
+        assert_eq!(
+            SumMessageBuffer::new(&vec![0_u8; 256])
+                .unwrap()
+                .open_sealedbox(&coord.encr_pk, &coord.encr_sk)
+                .unwrap_err(),
+            PetError::InvalidMessage
+        );
+
+        // open box
+        let msg = buf.open_box(&part.encr_pk, &coord.encr_sk).unwrap();
+        assert_eq!(msg.len(), 99);
+
+        // open box error: invalid box
+        assert_eq!(
+            SumMessageBuffer::new(&vec![0_u8; 256])
+                .unwrap()
+                .open_box(&part.encr_pk, &coord.encr_sk)
+                .unwrap_err(),
+            PetError::InvalidMessage
+        );
+    }
+
+    #[test]
+    fn test_updatemessagebuffer() {
+        let coord = Coordinator::new().unwrap();
+        let part = Participant::new().unwrap();
+
+        // new
+        let msg = part
+            .compose_update_message(
+                &coord.encr_pk,
+                &[(
+                    box_::PublicKey::from_slice(randombytes(32).as_slice()).unwrap(),
+                    box_::PublicKey::from_slice(randombytes(32).as_slice()).unwrap(),
+                )]
+                .iter()
+                .cloned()
+                .collect(),
+            )
+            .message;
+        let buf = UpdateMessageBuffer::new(&msg, 1).unwrap();
+        assert_eq!(buf.0, msg.as_slice());
+        assert_eq!(buf.1, 141..435);
+
+        // new error: invalid message length
+        assert_eq!(
+            UpdateMessageBuffer::new(&vec![0_u8; 0], 0).unwrap_err(),
+            PetError::InvalidMessage
+        );
+
+        // open sealedbox
+        let msg = buf.open_sealedbox(&coord.encr_pk, &coord.encr_sk).unwrap();
+        assert_eq!(msg.len(), 69);
+
+        // open sealedbox error: invalid sealedbox
+        assert_eq!(
+            UpdateMessageBuffer::new(&vec![0_u8; 323], 0)
+                .unwrap()
+                .open_sealedbox(&coord.encr_pk, &coord.encr_sk)
+                .unwrap_err(),
+            PetError::InvalidMessage
+        );
+
+        // open box
+        let msg = buf.open_box(&part.encr_pk, &coord.encr_sk).unwrap();
+        assert_eq!(msg.len(), 278);
+
+        // open box error: invalid box
+        assert_eq!(
+            UpdateMessageBuffer::new(&vec![0_u8; 323], 0)
+                .unwrap()
+                .open_box(&part.encr_pk, &coord.encr_sk)
+                .unwrap_err(),
+            PetError::InvalidMessage
+        );
+    }
+
+    #[test]
+    fn test_sum2messagebuffer() {
+        let coord = Coordinator::new().unwrap();
+        let mut part = Participant::new().unwrap();
+        part.compose_sum_message(&coord.encr_pk);
+
+        // new
+        let msg = part
+            .compose_sum2_message(
+                &coord.encr_pk,
+                &[(
+                    box_::PublicKey::from_slice(part.encr_pk.as_ref()).unwrap(),
+                    [(
+                        box_::PublicKey::from_slice(randombytes(32).as_slice()).unwrap(),
+                        sealedbox::seal(randombytes(32).as_slice(), &part.ephm_pk),
+                    )]
+                    .iter()
+                    .cloned()
+                    .collect(),
+                )]
+                .iter()
+                .cloned()
+                .collect(),
+            )
+            .unwrap()
+            .message;
+        let buf = Sum2MessageBuffer::new(&msg).unwrap();
+        assert_eq!(buf.0, msg.as_slice());
+
+        // new error: invalid message length
+        assert_eq!(
+            Sum2MessageBuffer::new(&vec![0_u8; 0]).unwrap_err(),
+            PetError::InvalidMessage
+        );
+
+        // open sealedbox
+        let msg = buf.open_sealedbox(&coord.encr_pk, &coord.encr_sk).unwrap();
+        assert_eq!(msg.len(), 69);
+
+        // open sealedbox error: invalid sealedbox
+        assert_eq!(
+            Sum2MessageBuffer::new(&vec![0_u8; 257])
+                .unwrap()
+                .open_sealedbox(&coord.encr_pk, &coord.encr_sk)
+                .unwrap_err(),
+            PetError::InvalidMessage
+        );
+
+        // open box
+        let msg = buf.open_box(&part.encr_pk, &coord.encr_sk).unwrap();
+        assert_eq!(msg.len(), 100);
+
+        // open box error: invalid box
+        assert_eq!(
+            Sum2MessageBuffer::new(&vec![0_u8; 257])
+                .unwrap()
+                .open_box(&part.encr_pk, &coord.encr_sk)
+                .unwrap_err(),
+            PetError::InvalidMessage
+        );
+    }
+
+    #[test]
+    fn test_sealedboxbuffer() {
+        // new
+        let encr_pk = box_::PublicKey::from_slice(randombytes(32).as_slice()).unwrap();
+        let sign_pk = sign::PublicKey::from_slice(randombytes(32).as_slice()).unwrap();
+        let msg = [b"round", encr_pk.as_ref(), sign_pk.as_ref()].concat();
+        let buf = SealedBoxBuffer::new(&msg).unwrap();
+        assert_eq!(buf.0, msg.as_slice());
+
+        // new error: invalid message length
+        assert_eq!(
+            SealedBoxBuffer::new(&vec![0_u8; 0]).unwrap_err(),
+            PetError::InvalidMessage
+        );
+
+        // new error: invalid message tag
+        assert_eq!(
+            SealedBoxBuffer::new(&vec![0_u8; 69]).unwrap_err(),
+            PetError::InvalidMessage
+        );
+
+        // get part encr pk
+        let pk = buf.get_part_encr_pk().unwrap();
+        assert_eq!(pk, encr_pk);
+
+        // get part sign pk
+        let pk = buf.get_part_sign_pk().unwrap();
+        assert_eq!(pk, sign_pk);
+    }
+
+    #[test]
+    fn test_sumboxbuffer() {
+        // new
+        let sign_sum = sign::Signature::from_slice(randombytes(64).as_slice()).unwrap();
+        let ephm_pk = box_::PublicKey::from_slice(randombytes(32).as_slice()).unwrap();
+        let msg = [b"sum", sign_sum.as_ref(), ephm_pk.as_ref()].concat();
+        let buf = SumBoxBuffer::new(&msg).unwrap();
+        assert_eq!(buf.0, msg.as_slice());
+
+        // new error: invalid message length
+        assert_eq!(
+            SumBoxBuffer::new(&vec![0_u8; 0]).unwrap_err(),
+            PetError::InvalidMessage
+        );
+
+        // new error: invalid message tag
+        assert_eq!(
+            SumBoxBuffer::new(&vec![0_u8; 99]).unwrap_err(),
+            PetError::InvalidMessage
+        );
+
+        // get certificate
+        let msg = buf.get_certificate();
+        assert_eq!(msg, vec![0_u8; 0]);
+
+        // get signature sum
+        let msg = buf.get_signature_sum().unwrap();
+        assert_eq!(msg, sign_sum);
+
+        // get part ephm pk
+        let msg = buf.get_part_ephm_pk().unwrap();
+        assert_eq!(msg, ephm_pk);
+    }
+
+    #[test]
+    fn test_updateboxbuffer() {
+        // new
+        let sign_sum = sign::Signature::from_slice(randombytes(64).as_slice()).unwrap();
+        let sign_update = sign::Signature::from_slice(randombytes(64).as_slice()).unwrap();
+        let model_url = randombytes(32);
+        let dict_seed_key = box_::PublicKey::from_slice(randombytes(32).as_slice()).unwrap();
+        let dict_seed_value = randombytes(80);
+        let dict_seed = [(dict_seed_key, dict_seed_value.clone())]
+            .iter()
+            .cloned()
+            .collect();
+        let msg = [
+            b"update",
+            sign_sum.as_ref(),
+            sign_update.as_ref(),
+            model_url.as_slice(),
+            dict_seed_key.as_ref(),
+            dict_seed_value.as_slice(),
+        ]
+        .concat();
+        let buf = UpdateBoxBuffer::new(&msg, 1).unwrap();
+        assert_eq!(buf.0, msg.as_slice());
+
+        // new error: invalid message length
+        assert_eq!(
+            UpdateBoxBuffer::new(&vec![0_u8; 0], 0).unwrap_err(),
+            PetError::InvalidMessage
+        );
+
+        // new error: invalid message tag
+        assert_eq!(
+            UpdateBoxBuffer::new(&vec![0_u8; 278], 1).unwrap_err(),
+            PetError::InvalidMessage
+        );
+
+        // get certificate
+        let msg = buf.get_certificate();
+        assert_eq!(msg, vec![0_u8; 0]);
+
+        // get signature sum
+        let msg = buf.get_signature_sum().unwrap();
+        assert_eq!(msg, sign_sum);
+
+        // get signature update
+        let msg = buf.get_signature_update().unwrap();
+        assert_eq!(msg, sign_update);
+
+        // get model url
+        let msg = buf.get_model_url();
+        assert_eq!(msg, model_url);
+
+        // get dict seed
+        let msg = buf.get_dict_seed().unwrap();
+        assert_eq!(msg, dict_seed);
+    }
+
+    #[test]
+    fn test_sum2boxbuffer() {
+        // new
+        let sign_sum = sign::Signature::from_slice(randombytes(64).as_slice()).unwrap();
+        let mask_url = randombytes(32);
+        let msg = [b"sum2", sign_sum.as_ref(), mask_url.as_slice()].concat();
+        let buf = Sum2BoxBuffer::new(&msg).unwrap();
+        assert_eq!(buf.0, msg.as_slice());
+
+        // new error: invalid message length
+        assert_eq!(
+            Sum2BoxBuffer::new(&vec![0_u8; 0]).unwrap_err(),
+            PetError::InvalidMessage
+        );
+
+        // new error: invalid message tag
+        assert_eq!(
+            Sum2BoxBuffer::new(&vec![0_u8; 100]).unwrap_err(),
+            PetError::InvalidMessage
+        );
+
+        // get certificate
+        let msg = buf.get_certificate();
+        assert_eq!(msg, vec![0_u8; 0]);
+
+        // get signature sum
+        let msg = buf.get_signature_sum().unwrap();
+        assert_eq!(msg, sign_sum);
+
+        // get mask url
+        let msg = buf.get_mask_url();
+        assert_eq!(msg, mask_url);
     }
 }
