@@ -35,16 +35,16 @@ impl Coordinator {
     }
 
     /// Validate and handle a message.
-    pub fn validate_message(&self, message: &[u8]) -> Result<(), PetError> {
+    pub fn validate_message(&self, message: &[u8]) -> Result<usize, PetError> {
         if SumMessage::validate(self, message).is_ok() {
             // placeholder: handle result
-            Ok(())
+            Ok(1)
         } else if UpdateMessage::validate(self, message).is_ok() {
             // placeholder: handle result
-            Ok(())
+            Ok(2)
         } else if Sum2Message::validate(self, message).is_ok() {
             // placeholder: handle result
-            Ok(())
+            Ok(3)
         } else {
             // unknown message type
             Err(PetError::InvalidMessage)
