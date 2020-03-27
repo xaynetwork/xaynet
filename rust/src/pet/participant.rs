@@ -40,7 +40,7 @@ impl Participant {
         // crucial: init must be called before anything else in this module
         sodiumoxide::init()
             .and(Ok(Default::default()))
-            .or(Err(PetError::InvalidMessage))
+            .or(Err(PetError::InsufficientSystemEntropy))
     }
 
     /// Compute the "sum" and "update" signatures.
@@ -64,6 +64,29 @@ impl Participant {
             self.task = Task::None;
             Ok(())
         }
+    }
+
+    /// Compose a "sum" message.
+    pub fn compose_sum_message(&mut self, coord_encr_pk: &box_::PublicKey) -> SumMessage {
+        SumMessage::compose(self, coord_encr_pk)
+    }
+
+    /// Compose an "update" message.
+    pub fn compose_update_message(
+        &self,
+        coord_encr_pk: &box_::PublicKey,
+        dict_sum: &HashMap<box_::PublicKey, box_::PublicKey>,
+    ) -> UpdateMessage {
+        UpdateMessage::compose(self, coord_encr_pk, dict_sum)
+    }
+
+    /// Compose a "sum2" message.
+    pub fn compose_sum2_message(
+        &self,
+        coord_encr_pk: &box_::PublicKey,
+        dict_seed: &HashMap<box_::PublicKey, HashMap<box_::PublicKey, Vec<u8>>>,
+    ) -> Result<Sum2Message, PetError> {
+        Sum2Message::compose(self, coord_encr_pk, dict_seed)
     }
 }
 
@@ -278,13 +301,15 @@ impl<'sbox, 'box___> MessageBuffer<'sbox, 'box___> {
     }
 }
 
-/// Compose and encrypt a "sum" message. Get an ephemeral asymmetric key pair.
+/// A "sum" message.
 pub struct SumMessage {
-    message: Vec<u8>,
+    pub message: Vec<u8>, // 320 bytes
 }
 
 impl SumMessage {
-    pub fn compose(part: &mut Participant, coord_encr_pk: &box_::PublicKey) -> Self {
+    /// Generate an ephemeral asymmetric key pair and encrypt the "sum" message parts. Eligibility
+    /// for the "sum" task should be checked beforehand.
+    fn compose(part: &mut Participant, coord_encr_pk: &box_::PublicKey) -> Self {
         // generate ephemeral key pair
         let (ephm_pk, ephm_sk) = box_::gen_keypair();
         part.ephm_pk = ephm_pk;
@@ -305,14 +330,16 @@ impl SumMessage {
     }
 }
 
-/// Compose and encrypt an "update" message. Get a seed of a local model mask.
+/// An "update" message and a seed for a mask of a local model.
 pub struct UpdateMessage {
-    message: Vec<u8>,
-    mask_seed: Vec<u8>,
+    pub message: Vec<u8>,   // 323 + 112 * dict_sum.len() bytes
+    pub mask_seed: Vec<u8>, // 32 bytes
 }
 
 impl UpdateMessage {
-    pub fn compose(
+    /// Mask a trained local model, create a dictionary of encrypted masking seeds and encrypt the
+    /// "update" message parts. Eligibility for the "update" task should be checked beforehand.
+    fn compose(
         part: &Participant,
         coord_encr_pk: &box_::PublicKey,
         dict_sum: &HashMap<box_::PublicKey, box_::PublicKey>,
@@ -345,14 +372,16 @@ impl UpdateMessage {
 }
 
 #[derive(Debug)]
-/// Compose and encrypt a "sum" message. Get an url of a global mask.
+/// A "sum2" message and an url for a mask of a global model.
 pub struct Sum2Message {
-    message: Vec<u8>,
-    mask_url: Vec<u8>,
+    pub message: Vec<u8>,  // 321 bytes
+    pub mask_url: Vec<u8>, // 32 bytes (dummy)
 }
 
 impl Sum2Message {
-    pub fn compose(
+    /// Compute a global mask from all local masks and encrypt the "sum2" message parts. Eligibility
+    /// for the "sum" task should be checked beforehand.
+    fn compose(
         part: &Participant,
         coord_encr_pk: &box_::PublicKey,
         dict_seed: &HashMap<box_::PublicKey, HashMap<box_::PublicKey, Vec<u8>>>,
@@ -417,29 +446,29 @@ mod tests {
         );
 
         // check task
-        let ell_sig = sign::Signature([
+        let sign_ell = sign::Signature([
             229, 191, 74, 163, 113, 6, 242, 191, 255, 225, 40, 89, 210, 94, 25, 50, 44, 129, 155,
             241, 99, 64, 25, 212, 157, 235, 102, 95, 115, 18, 158, 115, 253, 136, 178, 223, 4, 47,
             54, 162, 236, 78, 126, 114, 205, 217, 250, 163, 223, 149, 31, 65, 179, 179, 60, 64, 34,
             1, 78, 245, 1, 50, 165, 47,
         ]);
-        let inell_sig = sign::Signature([
+        let sign_inell = sign::Signature([
             15, 107, 81, 84, 105, 246, 165, 81, 76, 125, 140, 172, 113, 85, 51, 173, 119, 123, 78,
             114, 249, 182, 135, 212, 134, 38, 125, 153, 120, 45, 179, 55, 116, 155, 205, 51, 247,
             37, 78, 147, 63, 231, 28, 61, 251, 41, 48, 239, 125, 0, 129, 126, 194, 123, 183, 11,
             215, 220, 1, 225, 248, 131, 64, 242,
         ]);
-        part.signature_sum = ell_sig.clone();
-        part.signature_update = inell_sig.clone();
+        part.signature_sum = sign_ell.clone();
+        part.signature_update = sign_inell.clone();
         part.check_task(0.5_f64, 0.5_f64).unwrap();
         assert_eq!(part.task, Task::Sum);
-        part.signature_update = ell_sig.clone();
+        part.signature_update = sign_ell.clone();
         part.check_task(0.5_f64, 0.5_f64).unwrap();
         assert_eq!(part.task, Task::Sum);
-        part.signature_sum = inell_sig.clone();
+        part.signature_sum = sign_inell.clone();
         part.check_task(0.5_f64, 0.5_f64).unwrap();
         assert_eq!(part.task, Task::Update);
-        part.signature_update = inell_sig.clone();
+        part.signature_update = sign_inell.clone();
         part.check_task(0.5_f64, 0.5_f64).unwrap();
         assert_eq!(part.task, Task::None);
     }

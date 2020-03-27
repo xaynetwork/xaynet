@@ -4,5 +4,6 @@ pub mod utils;
 
 #[derive(Debug, PartialEq)]
 pub enum PetError {
+    InsufficientSystemEntropy,
     InvalidMessage,
 }

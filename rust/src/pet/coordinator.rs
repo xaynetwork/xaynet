@@ -20,6 +20,10 @@ pub struct Coordinator {
     sum: f64,
     update: f64,
     seed: Vec<u8>, // 32 bytes
+
+    // dictionaries
+    dict_sum: HashMap<box_::PublicKey, box_::PublicKey>,
+    dict_seed: HashMap<box_::PublicKey, HashMap<box_::PublicKey, Vec<u8>>>,
 }
 
 impl Coordinator {
@@ -27,7 +31,20 @@ impl Coordinator {
         // crucial: init must be called before anything else in this module
         sodiumoxide::init()
             .and(Ok(Default::default()))
-            .or(Err(PetError::InvalidMessage))
+            .or(Err(PetError::InsufficientSystemEntropy))
+    }
+
+    /// Validate and handle a message.
+    pub fn validate_message(&self, message: &[u8]) -> Result<(), PetError> {
+        if let Ok(_) = SumMessage::validate(self, message) {
+            Ok(()) // placeholder: deal with result
+        } else if let Ok(_) = UpdateMessage::validate(self, message) {
+            Ok(()) // placeholder: deal with result
+        } else if let Ok(_) = Sum2Message::validate(self, message) {
+            Ok(()) // placeholder: deal with result
+        } else {
+            Err(PetError::InvalidMessage)
+        }
     }
 }
 
@@ -37,12 +54,16 @@ impl Default for Coordinator {
         let sum = 0.01_f64;
         let update = 0.1_f64;
         let seed = randombytes(32_usize);
+        let dict_sum = HashMap::new();
+        let dict_seed = HashMap::new();
         Self {
             encr_pk,
             encr_sk,
             sum,
             update,
             seed,
+            dict_sum,
+            dict_seed,
         }
     }
 }
@@ -354,15 +375,15 @@ impl<'box__> Sum2BoxBuffer<'box__> {
     }
 }
 
-/// Decrypt and validate a "sum" message. Get an item for the dictionary of "sum"
-/// participants.
+/// An item for the dictionary of "sum" participants.
 pub struct SumMessage {
-    pub part_encr_pk: box_::PublicKey,
-    pub part_ephm_pk: box_::PublicKey,
+    pub part_encr_pk: box_::PublicKey, // 32 bytes
+    pub part_ephm_pk: box_::PublicKey, // 32 bytes
 }
 
 impl SumMessage {
-    pub fn validate(message: &[u8], coord: &Coordinator) -> Result<Self, PetError> {
+    /// Decrypt and validate a "sum" message. Get an item for the dictionary of "sum" participants.
+    fn validate(coord: &Coordinator, message: &[u8]) -> Result<Self, PetError> {
         let msg_buf = SumMessageBuffer::new(message)?;
 
         // get public keys
@@ -409,20 +430,17 @@ impl SumMessage {
     }
 }
 
-/// Decrypt and validate an "update" message. Get a url to a masked local model and
-/// items for the dictionary of encrypted seeds.
+/// An url for a masked local model and items for the dictionary of encrypted masking seeds.
 pub struct UpdateMessage {
-    pub model_url: Vec<u8>,
-    pub dict_seed: HashMap<box_::PublicKey, Vec<u8>>,
+    pub model_url: Vec<u8>,                           // 32 bytes (dummy)
+    pub dict_seed: HashMap<box_::PublicKey, Vec<u8>>, // 112 * dict_sum.len() bytes
 }
 
 impl UpdateMessage {
-    pub fn validate(
-        message: &[u8],
-        dict_sum_len: usize,
-        coord: &Coordinator,
-    ) -> Result<Self, PetError> {
-        let msg_buf = UpdateMessageBuffer::new(message, dict_sum_len)?;
+    /// Decrypt and validate an "update" message. Get an url to a masked local model and items for
+    /// the dictionary of encrypted seeds.
+    fn validate(coord: &Coordinator, message: &[u8]) -> Result<Self, PetError> {
+        let msg_buf = UpdateMessageBuffer::new(message, coord.dict_sum.len())?;
 
         // get public keys
         let sbox = msg_buf.open_sealedbox(&coord.encr_pk, &coord.encr_sk)?;
@@ -432,7 +450,7 @@ impl UpdateMessage {
 
         // get model url and dictionary of encrypted seeds
         let updatebox = msg_buf.open_box(&part_encr_pk, &coord.encr_sk)?;
-        let box_buf = UpdateBoxBuffer::new(&updatebox, dict_sum_len)?;
+        let box_buf = UpdateBoxBuffer::new(&updatebox, coord.dict_sum.len())?;
         Self::validate_certificate(&box_buf.get_certificate())?;
         Self::validate_signature(
             &box_buf.get_signature_sum()?,
@@ -475,13 +493,14 @@ impl UpdateMessage {
     }
 }
 
-/// Decrypt and validate a "sum" message. Get an url to a global mask.
+/// An url for a mask of a global model.
 pub struct Sum2Message {
     pub mask_url: Vec<u8>,
 }
 
 impl Sum2Message {
-    pub fn validate(message: &[u8], coord: &Coordinator) -> Result<Self, PetError> {
+    /// Decrypt and validate a "sum2" message. Get an url for a global mask.
+    fn validate(coord: &Coordinator, message: &[u8]) -> Result<Self, PetError> {
         let msg_buf = Sum2MessageBuffer::new(message)?;
 
         // get public keys
