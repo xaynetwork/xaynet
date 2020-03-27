@@ -51,18 +51,13 @@ impl Participant {
     }
 
     /// Check eligibility for a task.
-    pub fn check_task(&mut self, round_sum: f64, round_update: f64) -> Result<(), PetError> {
-        if is_eligible(&self.signature_sum, round_sum).ok_or(PetError::InvalidMessage)? {
+    pub fn check_task(&mut self, round_sum: f64, round_update: f64) {
+        if is_eligible(&self.signature_sum, round_sum) {
             self.task = Task::Sum;
-            Ok(())
-        } else if is_eligible(&self.signature_update, round_update)
-            .ok_or(PetError::InvalidMessage)?
-        {
+        } else if is_eligible(&self.signature_update, round_update) {
             self.task = Task::Update;
-            Ok(())
         } else {
             self.task = Task::None;
-            Ok(())
         }
     }
 
@@ -437,16 +432,16 @@ mod tests {
         ]);
         part.signature_sum = sign_ell.clone();
         part.signature_update = sign_inell.clone();
-        part.check_task(0.5_f64, 0.5_f64).unwrap();
+        part.check_task(0.5_f64, 0.5_f64);
         assert_eq!(part.task, Task::Sum);
         part.signature_update = sign_ell.clone();
-        part.check_task(0.5_f64, 0.5_f64).unwrap();
+        part.check_task(0.5_f64, 0.5_f64);
         assert_eq!(part.task, Task::Sum);
         part.signature_sum = sign_inell.clone();
-        part.check_task(0.5_f64, 0.5_f64).unwrap();
+        part.check_task(0.5_f64, 0.5_f64);
         assert_eq!(part.task, Task::Update);
         part.signature_update = sign_inell.clone();
-        part.check_task(0.5_f64, 0.5_f64).unwrap();
+        part.check_task(0.5_f64, 0.5_f64);
         assert_eq!(part.task, Task::None);
     }
 

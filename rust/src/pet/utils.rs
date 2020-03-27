@@ -6,13 +6,21 @@ use sodiumoxide::crypto::{hash::sha256, sign};
 
 /// Compute the floating point representation of the hashed signature and ensure that it
 /// is below the given threshold: int(hash(signature)) / (2**hashbits - 1) <= threshold.
-pub fn is_eligible(signature: &sign::Signature, threshold: f64) -> Option<bool> {
-    (0_f64 <= threshold && threshold <= 1_f64).then_some(
+pub fn is_eligible(signature: &sign::Signature, threshold: f64) -> bool {
+    if threshold < 0_f64 {
+        false
+    } else if threshold > 1_f64 {
+        true
+    } else {
         Ratio::new(
-            BigUint::from_bytes_be(&sha256::hash(&signature.0[..]).0[..]).to_bigint()?,
-            BigUint::from_bytes_be(&[255_u8; 32][..]).to_bigint()?,
-        ) <= Ratio::from_float(threshold)?,
-    )
+            BigUint::from_bytes_be(&sha256::hash(&signature.0[..]).0[..])
+                .to_bigint()
+                .unwrap(),
+            BigUint::from_bytes_be(&[255_u8; 32][..])
+                .to_bigint()
+                .unwrap(),
+        ) <= Ratio::from_float(threshold).unwrap()
+    }
 }
 
 #[cfg(test)]
@@ -28,7 +36,7 @@ mod tests {
             54, 162, 236, 78, 126, 114, 205, 217, 250, 163, 223, 149, 31, 65, 179, 179, 60, 64, 34,
             1, 78, 245, 1, 50, 165, 47,
         ]);
-        assert_eq!(is_eligible(&sig, 0.5_f64), Some(true));
+        assert_eq!(is_eligible(&sig, 0.5_f64), true);
 
         // ineligible signature
         let sig = sign::Signature([
@@ -37,10 +45,6 @@ mod tests {
             37, 78, 147, 63, 231, 28, 61, 251, 41, 48, 239, 125, 0, 129, 126, 194, 123, 183, 11,
             215, 220, 1, 225, 248, 131, 64, 242,
         ]);
-        assert_eq!(is_eligible(&sig, 0.5_f64), Some(false));
-
-        // invalid thresholds
-        assert_eq!(is_eligible(&sig, -0.1_f64), None);
-        assert_eq!(is_eligible(&sig, 1.1_f64), None);
+        assert_eq!(is_eligible(&sig, 0.5_f64), false);
     }
 }

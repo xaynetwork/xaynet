@@ -37,12 +37,16 @@ impl Coordinator {
     /// Validate and handle a message.
     pub fn validate_message(&self, message: &[u8]) -> Result<(), PetError> {
         if let Ok(_) = SumMessage::validate(self, message) {
-            Ok(()) // placeholder: deal with result
+            // placeholder: handle result
+            Ok(())
         } else if let Ok(_) = UpdateMessage::validate(self, message) {
-            Ok(()) // placeholder: deal with result
+            // placeholder: handle result
+            Ok(())
         } else if let Ok(_) = Sum2Message::validate(self, message) {
-            Ok(()) // placeholder: deal with result
+            // placeholder: handle result
+            Ok(())
         } else {
+            // unknown message type
             Err(PetError::InvalidMessage)
         }
     }
@@ -186,7 +190,7 @@ impl<'msg> UpdateMessageBuffer<'msg> {
     ) -> Result<Vec<u8>, PetError> {
         box_::open(
             &self.0[self.1.clone()],
-            &box_::Nonce::from_slice(&self.0[Self::NONCE_RANGE]).ok_or(PetError::InvalidMessage)?,
+            &box_::Nonce::from_slice(&self.0[Self::NONCE_RANGE]).unwrap(),
             part_encr_pk,
             coord_encr_sk,
         )
@@ -226,7 +230,7 @@ impl<'msg> Sum2MessageBuffer<'msg> {
     ) -> Result<Vec<u8>, PetError> {
         box_::open(
             &self.0[Self::BOX_RANGE],
-            &box_::Nonce::from_slice(&self.0[Self::NONCE_RANGE]).ok_or(PetError::InvalidMessage)?,
+            &box_::Nonce::from_slice(&self.0[Self::NONCE_RANGE]).unwrap(),
             part_encr_pk,
             coord_encr_sk,
         )
@@ -250,12 +254,12 @@ impl<'sbox> SealedBoxBuffer<'sbox> {
             .ok_or(PetError::InvalidMessage)
     }
 
-    fn get_part_encr_pk(&self) -> Result<box_::PublicKey, PetError> {
-        box_::PublicKey::from_slice(&self.0[Self::ENCR_PK_RANGE]).ok_or(PetError::InvalidMessage)
+    fn get_part_encr_pk(&self) -> box_::PublicKey {
+        box_::PublicKey::from_slice(&self.0[Self::ENCR_PK_RANGE]).unwrap()
     }
 
-    fn get_part_sign_pk(&self) -> Result<sign::PublicKey, PetError> {
-        sign::PublicKey::from_slice(&self.0[Self::SIGN_PK_RANGE]).ok_or(PetError::InvalidMessage)
+    fn get_part_sign_pk(&self) -> sign::PublicKey {
+        sign::PublicKey::from_slice(&self.0[Self::SIGN_PK_RANGE]).unwrap()
     }
 }
 
@@ -281,12 +285,12 @@ impl<'box__> SumBoxBuffer<'box__> {
         self.0[Self::CERTIFICATE_RANGE].to_vec()
     }
 
-    fn get_signature_sum(&self) -> Result<sign::Signature, PetError> {
-        sign::Signature::from_slice(&self.0[Self::SIGN_SUM_RANGE]).ok_or(PetError::InvalidMessage)
+    fn get_signature_sum(&self) -> sign::Signature {
+        sign::Signature::from_slice(&self.0[Self::SIGN_SUM_RANGE]).unwrap()
     }
 
-    fn get_part_ephm_pk(&self) -> Result<box_::PublicKey, PetError> {
-        box_::PublicKey::from_slice(&self.0[Self::EPHM_PK_RANGE]).ok_or(PetError::InvalidMessage)
+    fn get_part_ephm_pk(&self) -> box_::PublicKey {
+        box_::PublicKey::from_slice(&self.0[Self::EPHM_PK_RANGE]).unwrap()
     }
 }
 
@@ -320,30 +324,28 @@ impl<'box__> UpdateBoxBuffer<'box__> {
         self.0[Self::CERTIFICATE_RANGE].to_vec()
     }
 
-    fn get_signature_sum(&self) -> Result<sign::Signature, PetError> {
-        sign::Signature::from_slice(&self.0[Self::SIGN_SUM_RANGE]).ok_or(PetError::InvalidMessage)
+    fn get_signature_sum(&self) -> sign::Signature {
+        sign::Signature::from_slice(&self.0[Self::SIGN_SUM_RANGE]).unwrap()
     }
 
-    fn get_signature_update(&self) -> Result<sign::Signature, PetError> {
-        sign::Signature::from_slice(&self.0[Self::SIGN_UPDATE_RANGE])
-            .ok_or(PetError::InvalidMessage)
+    fn get_signature_update(&self) -> sign::Signature {
+        sign::Signature::from_slice(&self.0[Self::SIGN_UPDATE_RANGE]).unwrap()
     }
 
     fn get_model_url(&self) -> Vec<u8> {
         self.0[Self::MODEL_URL_RANGE].to_vec()
     }
 
-    fn get_dict_seed(&self) -> Result<HashMap<box_::PublicKey, Vec<u8>>, PetError> {
+    fn get_dict_seed(&self) -> HashMap<box_::PublicKey, Vec<u8>> {
         // map "sum" participants to encrypted seeds
         let mut dict_seed: HashMap<box_::PublicKey, Vec<u8>> = HashMap::new();
         for i in (self.1.clone()).step_by(Self::DICT_SEED_ITEM_LENGTH) {
             dict_seed.insert(
-                box_::PublicKey::from_slice(&self.0[i..i + Self::DICT_SEED_KEY_LENGTH])
-                    .ok_or(PetError::InvalidMessage)?,
+                box_::PublicKey::from_slice(&self.0[i..i + Self::DICT_SEED_KEY_LENGTH]).unwrap(),
                 self.0[i + Self::DICT_SEED_KEY_LENGTH..i + Self::DICT_SEED_ITEM_LENGTH].to_vec(),
             );
         }
-        Ok(dict_seed)
+        dict_seed
     }
 }
 
@@ -369,8 +371,8 @@ impl<'box__> Sum2BoxBuffer<'box__> {
         self.0[Self::CERTIFICATE_RANGE].to_vec()
     }
 
-    fn get_signature_sum(&self) -> Result<sign::Signature, PetError> {
-        sign::Signature::from_slice(&self.0[Self::SIGN_SUM_RANGE]).ok_or(PetError::InvalidMessage)
+    fn get_signature_sum(&self) -> sign::Signature {
+        sign::Signature::from_slice(&self.0[Self::SIGN_SUM_RANGE]).unwrap()
     }
 
     fn get_mask_url(&self) -> Vec<u8> {
@@ -393,20 +395,20 @@ impl SumMessage {
         // get public keys
         let sbox = msg_buf.open_sealedbox(&coord.encr_pk, &coord.encr_sk)?;
         let sbox_buf = SealedBoxBuffer::new(&sbox)?;
-        let part_encr_pk = sbox_buf.get_part_encr_pk()?;
-        let part_sign_pk = sbox_buf.get_part_sign_pk()?;
+        let part_encr_pk = sbox_buf.get_part_encr_pk();
+        let part_sign_pk = sbox_buf.get_part_sign_pk();
 
         // get ephemeral key
         let sumbox = msg_buf.open_box(&part_encr_pk, &coord.encr_sk)?;
         let box_buf = SumBoxBuffer::new(&sumbox)?;
         Self::validate_certificate(&box_buf.get_certificate())?;
         Self::validate_signature(
-            &box_buf.get_signature_sum()?,
+            &box_buf.get_signature_sum(),
             &part_sign_pk,
             &coord.seed,
             coord.sum,
         )?;
-        let part_ephm_pk = box_buf.get_part_ephm_pk()?;
+        let part_ephm_pk = box_buf.get_part_ephm_pk();
 
         Ok(Self {
             part_encr_pk,
@@ -428,7 +430,7 @@ impl SumMessage {
         sum: f64,
     ) -> Result<(), PetError> {
         (sign::verify_detached(sign_sum, &[seed, b"sum"].concat(), sign_pk)
-            && is_eligible(sign_sum, sum).ok_or(PetError::InvalidMessage)?)
+            && is_eligible(sign_sum, sum))
         .then_some(())
         .ok_or(PetError::InvalidMessage)
     }
@@ -450,23 +452,23 @@ impl UpdateMessage {
         // get public keys
         let sbox = msg_buf.open_sealedbox(&coord.encr_pk, &coord.encr_sk)?;
         let sbox_buf = SealedBoxBuffer::new(&sbox)?;
-        let part_encr_pk = sbox_buf.get_part_encr_pk()?;
-        let part_sign_pk = sbox_buf.get_part_sign_pk()?;
+        let part_encr_pk = sbox_buf.get_part_encr_pk();
+        let part_sign_pk = sbox_buf.get_part_sign_pk();
 
         // get model url and dictionary of encrypted seeds
         let updatebox = msg_buf.open_box(&part_encr_pk, &coord.encr_sk)?;
         let box_buf = UpdateBoxBuffer::new(&updatebox, coord.dict_sum.len())?;
         Self::validate_certificate(&box_buf.get_certificate())?;
         Self::validate_signature(
-            &box_buf.get_signature_sum()?,
-            &box_buf.get_signature_update()?,
+            &box_buf.get_signature_sum(),
+            &box_buf.get_signature_update(),
             &part_sign_pk,
             &coord.seed,
             coord.sum,
             coord.update,
         )?;
         let model_url = box_buf.get_model_url();
-        let dict_seed = box_buf.get_dict_seed()?;
+        let dict_seed = box_buf.get_dict_seed();
 
         Ok(Self {
             model_url,
@@ -491,8 +493,8 @@ impl UpdateMessage {
     ) -> Result<(), PetError> {
         (sign::verify_detached(sign_sum, &[seed, b"sum"].concat(), sign_pk)
             && sign::verify_detached(sign_update, &[seed, b"update"].concat(), sign_pk)
-            && !is_eligible(sign_sum, sum).ok_or(PetError::InvalidMessage)?
-            && is_eligible(sign_update, update).ok_or(PetError::InvalidMessage)?)
+            && !is_eligible(sign_sum, sum)
+            && is_eligible(sign_update, update))
         .then_some(())
         .ok_or(PetError::InvalidMessage)
     }
@@ -512,15 +514,15 @@ impl Sum2Message {
         // get public keys
         let sbox = msg_buf.open_sealedbox(&coord.encr_pk, &coord.encr_sk)?;
         let sbox_buf = SealedBoxBuffer::new(&sbox)?;
-        let part_encr_pk = sbox_buf.get_part_encr_pk()?;
-        let part_sign_pk = sbox_buf.get_part_sign_pk()?;
+        let part_encr_pk = sbox_buf.get_part_encr_pk();
+        let part_sign_pk = sbox_buf.get_part_sign_pk();
 
         // get ephemeral key
         let sum2box = msg_buf.open_box(&part_encr_pk, &coord.encr_sk)?;
         let box_buf = Sum2BoxBuffer::new(&sum2box)?;
         Self::validate_certificate(&box_buf.get_certificate())?;
         Self::validate_signature(
-            &box_buf.get_signature_sum()?,
+            &box_buf.get_signature_sum(),
             &part_sign_pk,
             &coord.seed,
             coord.sum,
@@ -544,7 +546,7 @@ impl Sum2Message {
         sum: f64,
     ) -> Result<(), PetError> {
         (sign::verify_detached(sign_sum, &[seed, b"sum"].concat(), sign_pk)
-            && is_eligible(sign_sum, sum).ok_or(PetError::InvalidMessage)?)
+            && is_eligible(sign_sum, sum))
         .then_some(())
         .ok_or(PetError::InvalidMessage)
     }
@@ -750,11 +752,11 @@ mod tests {
         );
 
         // get part encr pk
-        let pk = buf.get_part_encr_pk().unwrap();
+        let pk = buf.get_part_encr_pk();
         assert_eq!(pk, encr_pk);
 
         // get part sign pk
-        let pk = buf.get_part_sign_pk().unwrap();
+        let pk = buf.get_part_sign_pk();
         assert_eq!(pk, sign_pk);
     }
 
@@ -784,11 +786,11 @@ mod tests {
         assert_eq!(msg, vec![0_u8; 0]);
 
         // get signature sum
-        let msg = buf.get_signature_sum().unwrap();
+        let msg = buf.get_signature_sum();
         assert_eq!(msg, sign_sum);
 
         // get part ephm pk
-        let msg = buf.get_part_ephm_pk().unwrap();
+        let msg = buf.get_part_ephm_pk();
         assert_eq!(msg, ephm_pk);
     }
 
@@ -833,11 +835,11 @@ mod tests {
         assert_eq!(msg, vec![0_u8; 0]);
 
         // get signature sum
-        let msg = buf.get_signature_sum().unwrap();
+        let msg = buf.get_signature_sum();
         assert_eq!(msg, sign_sum);
 
         // get signature update
-        let msg = buf.get_signature_update().unwrap();
+        let msg = buf.get_signature_update();
         assert_eq!(msg, sign_update);
 
         // get model url
@@ -845,7 +847,7 @@ mod tests {
         assert_eq!(msg, model_url);
 
         // get dict seed
-        let msg = buf.get_dict_seed().unwrap();
+        let msg = buf.get_dict_seed();
         assert_eq!(msg, dict_seed);
     }
 
@@ -875,7 +877,7 @@ mod tests {
         assert_eq!(msg, vec![0_u8; 0]);
 
         // get signature sum
-        let msg = buf.get_signature_sum().unwrap();
+        let msg = buf.get_signature_sum();
         assert_eq!(msg, sign_sum);
 
         // get mask url
