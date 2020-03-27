@@ -24,7 +24,7 @@ pub async fn serve(bind_address: &str, handle: ServiceHandle) {
                 }
             }
             .instrument(span)
-        }) // #TODO remove cors. enabled only for testing the swagger files.
+        })
         .with(warp::cors().allow_any_origin().allow_method(Method::GET));
 
     let parent_span = tracing::Span::current();
