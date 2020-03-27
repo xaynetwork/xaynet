@@ -1,7 +1,6 @@
 openapi: 3.0.1
 info:
   title: XAIN FL Aggregator API
-  description: ""
   contact:
     email: engineering@xain.io
   license:
@@ -15,7 +14,7 @@ servers:
   - url: http://localhost:8082/
 tags:
   - name: Aggregator
-    description: Aggregator API
+    description: API of the aggregator service
 paths:
   /{client_id}/{client_token}:
     get:
@@ -26,24 +25,26 @@ paths:
           in: path
           description: ID of the client
           required: true
+          example: 1fa2f908-83e2-4f92-80e1-4baee0bf25a5
           schema:
             type: string
         - name: client_token
           in: path
-          description: Aggregator token of the client
+          description: API token of the client
           required: true
+          example: 2e8700a6-390d-411f-977b-9aa3bebc13e9
           schema:
             type: string
       responses:
         200:
-          description: successful operation
+          description: weights of the global model
           content:
             application/octet-stream:
               schema:
                 type: string
                 format: binary
         404:
-          description: ""
+          description: client unknown
           content: {}
     post:
       tags:
@@ -53,16 +54,18 @@ paths:
           in: path
           description: ID of the client
           required: true
+          example: 1fa2f908-83e2-4f92-80e1-4baee0bf25a5
           schema:
             type: string
         - name: client_token
           in: path
-          description: Aggregator token of the client
+          description: API token of the client
           required: true
+          example: 2e8700a6-390d-411f-977b-9aa3bebc13e9
           schema:
             type: string
       requestBody:
-        required: true
+        description: weights of the local model
         content:
           application/octet-stream:
             schema:
@@ -73,6 +76,6 @@ paths:
           description: successful operation
           content: {}
         404:
-          description: ""
+          description: client unknown
           content: {}
 components: {}
