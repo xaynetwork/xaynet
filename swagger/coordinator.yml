@@ -6,7 +6,7 @@ info:
   license:
     name: Apache 2.0
     url: http://www.apache.org/licenses/LICENSE-2.0.html
-  version: 1.0.0
+  version: 0.7.0
 externalDocs:
   description: Find out more about XAIN FL
   url: https://docs.xain.io/
@@ -40,7 +40,7 @@ paths:
           description: ID of the client
           required: true
           schema:
-            type: string
+            $ref: "#/components/schemas/ClientID"
       responses:
         200:
           description: heartbeat confirmed
@@ -61,10 +61,10 @@ paths:
           description: ID of the client
           required: true
           schema:
-            type: string
+            $ref: "#/components/schemas/ClientID"
       responses:
         200:
-          description: client is selected for training round
+          description: get information for fetching the latest global model
           content:
             application/json:
               schema:
@@ -74,27 +74,31 @@ paths:
           content: {}
 components:
   schemas:
+    ClientID:
+      description: client ID
+      type: string
+      format: uuid
+      example: 1fa2f908-83e2-4f92-80e1-4baee0bf25a5
     RendezVousResponse:
       type: object
       properties:
         id:
-          type: string
-          description: client ID
-          example: 1fa2f908-83e2-4f92-80e1-4baee0bf25a5
+          $ref: "#/components/schemas/ClientID"
         ok:
+          description: "Whether the rendez-vous was accepted (`true`) or rejected (`false`) by the coordinator. A participant that has been rejected should not try to recontact the coordinator."
           type: boolean
-          description: ""
     HeartBeatResponse:
       type: object
       properties:
         round:
-          minimum: 0
-          type: integer
           description: current round of the coordinator
+          type: integer
           format: int32
+          minimum: 0
+          nullable: true
         state:
-          type: string
           description: current state of the coordinator
+          type: string
           enum:
             - stand_by
             - finish
@@ -104,13 +108,17 @@ components:
       type: object
       properties:
         url:
-          type: string
           description: URL of the aggregator service API
+          type: string
+          format: url
+          nullable: true
           example: http://localhost:8082
         token:
+          description: URL of the aggregator service API
           type: string
-          description: client API token for the aggregator service
+          format: uuid
+          nullable: true
           example: 2e8700a6-390d-411f-977b-9aa3bebc13e9
         ok:
-          type: boolean
           description: ""
+          type: boolean

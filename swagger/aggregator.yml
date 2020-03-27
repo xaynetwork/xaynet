@@ -6,7 +6,7 @@ info:
   license:
     name: Apache 2.0
     url: http://www.apache.org/licenses/LICENSE-2.0.html
-  version: 1.0.0
+  version: 0.7.0
 externalDocs:
   description: Find out more about XAIN FL
   url: https://docs.xain.io/
@@ -25,16 +25,14 @@ paths:
           in: path
           description: ID of the client
           required: true
-          example: 1fa2f908-83e2-4f92-80e1-4baee0bf25a5
           schema:
-            type: string
+            $ref: "#/components/schemas/ClientID"
         - name: client_token
           in: path
           description: API token of the client
           required: true
-          example: 2e8700a6-390d-411f-977b-9aa3bebc13e9
           schema:
-            type: string
+            $ref: "#/components/schemas/ClientToken"
       responses:
         200:
           description: weights of the global model
@@ -54,16 +52,14 @@ paths:
           in: path
           description: ID of the client
           required: true
-          example: 1fa2f908-83e2-4f92-80e1-4baee0bf25a5
           schema:
-            type: string
+            $ref: "#/components/schemas/ClientID"
         - name: client_token
           in: path
           description: API token of the client
           required: true
-          example: 2e8700a6-390d-411f-977b-9aa3bebc13e9
           schema:
-            type: string
+            $ref: "#/components/schemas/ClientToken"
       requestBody:
         description: weights of the local model
         content:
@@ -78,4 +74,15 @@ paths:
         404:
           description: client unknown
           content: {}
-components: {}
+components:
+  schemas:
+    ClientID:
+      description: client ID
+      type: string
+      format: uuid
+      example: 1fa2f908-83e2-4f92-80e1-4baee0bf25a5
+    ClientToken:
+      description: client API token
+      type: string
+      format: uuid
+      example: 2e8700a6-390d-411f-977b-9aa3bebc13e9
