@@ -91,7 +91,7 @@ components:
       type: object
       properties:
         round:
-          description: current round of the coordinator
+          description: If non-null, this field indicates that the participant has been selected for the given round.
           type: integer
           format: int32
           minimum: 0
@@ -114,7 +114,7 @@ components:
           nullable: true
           example: http://localhost:8082
         token:
-          description: URL of the aggregator service API
+          description: client API token for the aggregator service
           type: string
           format: uuid
           nullable: true
