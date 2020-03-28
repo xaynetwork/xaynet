@@ -2,7 +2,6 @@
 
 import sys
 
-from .interfaces import TrainingInputABC, TrainingResultABC
 from .participant import ParticipantABC, ParticipantError
 from .utils import configure_logging
 
@@ -20,4 +19,4 @@ def run_participant(
     internal_participant.run()
 
 
-__all__ = ["TrainingInputABC", "TrainingResultABC", "configure_logging"]
+__all__ = ["configure_logging"]

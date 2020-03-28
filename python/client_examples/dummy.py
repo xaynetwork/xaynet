@@ -5,44 +5,24 @@ import threading
 
 # pylint: disable=import-error
 import numpy as np
-from xain_sdk import (
-    ParticipantABC,
-    TrainingInputABC,
-    TrainingResultABC,
-    configure_logging,
-    run_participant,
-)
+from xain_sdk import ParticipantABC, configure_logging, run_participant
 
 LOG = logging.getLogger(__name__)
 
 
-class TrainingInput(TrainingInputABC):
-    def is_initialization_round(self) -> bool:
-        return False
-
-
-class TrainingResult(TrainingResultABC):
-    def __init__(self, data: bytes):
-        self.data = data
-
-    def tobytes(self) -> bytes:
-        return self.data
-
-
 class Participant(ParticipantABC):
     def __init__(self, model: bytes) -> None:
-        self.training_input = TrainingInput()
-        self.training_result = TrainingResult(model)
+        self.model = model
         super(Participant, self).__init__()
 
-    def deserialize_training_input(self, data: bytes) -> TrainingInput:
-        return self.training_input
+    def deserialize_training_input(self, data: bytes) -> bytes:
+        return data
 
-    def train_round(self, training_input: TrainingInput) -> TrainingResult:
-        return self.training_result
+    def serialize_training_result(self, _result: bytes) -> bytes:
+        return self.model
 
-    def init_weights(self) -> TrainingResult:
-        return self.training_result
+    def train_round(self, training_input: bytes) -> bytes:
+        return self.model
 
 
 def participant_worker(participant, url, heartbeat_period, exit_event):
@@ -86,10 +66,7 @@ def human_readable_size(size):
 
 
 def main(
-    size: int,
-    number_of_participants: int,
-    coordinator_url: str,
-    heartbeat_period: int,
+    size: int, number_of_participants: int, coordinator_url: str, heartbeat_period: int,
 ) -> None:
     """Entry point to start a participant."""
     training_result_data = generate_training_data(size)
@@ -97,9 +74,7 @@ def main(
 
     if number_of_participants < 2:
         participant = Participant(training_result_data)
-        run_participant(
-            participant, coordinator_url, heartbeat_period=heartbeat_period
-        )
+        run_participant(participant, coordinator_url, heartbeat_period=heartbeat_period)
         return
 
     exit_event = threading.Event()
@@ -152,10 +127,7 @@ if __name__ == "__main__":
         help="Size of the model to send to the aggregator",
     )
     parser.add_argument(
-        "--heartbeat-period",
-        type=float,
-        default=1,
-        help="Heartbeat period in seconds",
+        "--heartbeat-period", type=float, default=1, help="Heartbeat period in seconds",
     )
     parser.add_argument(
         "--verbose", action="store_true", help="Log the HTTP requests",

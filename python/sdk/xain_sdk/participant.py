@@ -4,7 +4,7 @@ import enum
 import logging
 import sys
 import threading
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple, TypeVar
 
 from requests.exceptions import ConnectionError
 
@@ -14,22 +14,24 @@ from .http import (
     CoordinatorClient,
     StartTrainingRejected,
 )
-from .interfaces import TrainingInputABC, TrainingResultABC
 
 LOG = logging.getLogger("http")
+
+TrainingResult = TypeVar("TrainingResult")
+TrainingInput = TypeVar("TrainingInput")
 
 
 class ParticipantABC(ABC):
     @abstractmethod
-    def init_weights(self) -> TrainingResultABC:
+    def train_round(self, training_input: TrainingInput) -> TrainingResult:
         raise NotImplementedError()
 
     @abstractmethod
-    def train_round(self, training_input: TrainingInputABC) -> TrainingResultABC:
+    def serialize_training_result(self, training_result: TrainingResult) -> bytes:
         raise NotImplementedError()
 
     @abstractmethod
-    def deserialize_training_input(self, data: bytes) -> TrainingInputABC:
+    def deserialize_training_input(self, data: bytes) -> TrainingInput:
         raise NotImplementedError()
 
 
@@ -155,20 +157,32 @@ class InternalParticipant:
         assert self.aggregator_client is not None
         data = self.aggregator_client.download()
         LOG.info("retrieved training data (length: %d bytes)", len(data))
-        training_input = self.participant.deserialize_training_input(data)
+        try:
+            training_input: Any = self.participant.deserialize_training_input(data)
+        except InterruptedError:
+            raise
+        except Exception as exc:
+            raise DeserializationError() from exc
 
-        if training_input.is_initialization_round():
-            LOG.info("initializing the weights")
-            result = self.participant.init_weights()
-        else:
-            LOG.info("training")
-            result = self.participant.train_round(training_input)
-            assert isinstance(result, TrainingResultABC)
-            LOG.info("training finished")
+        LOG.info("training")
+        try:
+            result: Any = self.participant.train_round(training_input)
+        except InterruptedError:
+            raise
+        except Exception as exc:
+            raise TrainingError() from exc
+        LOG.info("training finished")
 
         LOG.info("sending the local weights to the aggregator")
         assert self.aggregator_client is not None
-        self.aggregator_client.upload(result.tobytes())
+        try:
+            data = self.participant.serialize_training_result(result)
+        except InterruptedError:
+            raise
+        except Exception as exc:
+            raise SerializationError() from exc
+
+        self.aggregator_client.upload(data)
 
         LOG.info("going back to WAITING state")
         with self.state_record:
@@ -248,4 +262,16 @@ class HeartBeatWorker(threading.Thread):
 
 
 class ParticipantError(Exception):
+    pass
+
+
+class TrainingError(ParticipantError):
+    pass
+
+
+class DeserializationError(ParticipantError):
+    pass
+
+
+class SerializationError(ParticipantError):
     pass

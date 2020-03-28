@@ -1,5 +1,5 @@
 """Wrapper for tensorflow regression neural network."""
-from typing import Tuple
+from typing import List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -56,3 +56,24 @@ class Regressor:
         r_squared: float = r2_score(y_test, y_pred)
         test_loss: float = self.model.evaluate(x_test, y_test)
         return test_loss, r_squared
+
+    def get_shapes(self) -> List[Tuple[int, ...]]:
+        return [weight.shape for weight in self.model.get_weights()]
+
+    def get_weights(self) -> np.ndarray:
+        return np.concatenate(self.model.get_weights(), axis=None)
+
+    def set_weights(self, weights: np.ndarray,) -> None:
+        shapes = self.get_shapes()
+        # expand the flat weights
+        indices: np.ndarray = np.cumsum([np.prod(shape) for shape in shapes])
+        tensorflow_weights: List[np.ndarray] = np.split(
+            weights, indices_or_sections=indices
+        )
+        tensorflow_weights = [
+            np.reshape(weight, newshape=shape)
+            for weight, shape in zip(tensorflow_weights, shapes)
+        ]
+
+        # apply the weights to the tensorflow model
+        self.model.set_weights(tensorflow_weights)
