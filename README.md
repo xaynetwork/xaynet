@@ -129,7 +129,7 @@ pip install -e .
 4. Prepare the data:
 
 ```
-split-data --data-directory data --number-of-participants 10 --coordinator_url http://localhost:8081
+split-data --data-directory data --number-of-participants 10
 ```
 
 5. Run one participant:
