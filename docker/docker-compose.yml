@@ -151,6 +151,23 @@ services:
     networks:
       - xain-fl-rs
 
+  swagger:
+    image: swaggerapi/swagger-ui
+    environment:
+      - SWAGGER_JSON=/coordinator.yml
+    volumes:
+      - ${PWD}/swagger/coordinator.yml:/coordinator.yml
+      # The run script copies the specified file of "SWAGGER_JSON" (in our case coordinator.yml)
+      # to /usr/share/nginx/html. It is not possible to specify a directory here.
+      # (https://github.com/swagger-api/swagger-ui/blob/master/docker/run.sh)
+      # We mount the aggregator.yml directly into this directory so that we can
+      # access both yml files in the swagger ui.
+      - ${PWD}/swagger/aggregator.yml:/usr/share/nginx/html/aggregator.yml
+    ports:
+      - 80:8080
+    networks:
+      - xain-fl-rs
+
 volumes:
   influxdb-data: {}
   prometheus_data: {}

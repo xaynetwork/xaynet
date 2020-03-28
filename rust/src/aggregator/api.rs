@@ -5,7 +5,7 @@ use crate::{
 use tokio::net::TcpListener;
 use tracing_futures::Instrument;
 use warp::{
-    http::{Response, StatusCode},
+    http::{header::CONTENT_TYPE, method::Method, Response, StatusCode},
     Filter,
 };
 
@@ -28,7 +28,15 @@ pub async fn serve(bind_address: &str, handle: ServiceHandle) {
                 }
             }
             .instrument(span)
-        });
+        })
+        .with(warp::cors().allow_any_origin().allow_method(Method::GET))
+        // We need to send the this content type back, otherwise the swagger ui does not understand
+        // that the data is binary data.
+        // Without the "content-type", swagger will show the data as text.
+        .with(warp::reply::with::header(
+            "Content-Type",
+            "application/octet-stream",
+        ));
 
     let parent_span = tracing::Span::current();
     let upload_local_weights = warp::post()
@@ -46,7 +54,15 @@ pub async fn serve(bind_address: &str, handle: ServiceHandle) {
                 Ok(StatusCode::OK) as Result<_, warp::reject::Rejection>
             }
             .instrument(span)
-        });
+        })
+        .with(
+            warp::cors()
+                .allow_any_origin()
+                .allow_method(Method::POST)
+                // Allow the "content-typ" header which is requested in the CORS preflight request.
+                // Without this header, we will get an CORS error in the swagger ui.
+                .allow_header(CONTENT_TYPE),
+        );
 
     let mut listener = TcpListener::bind(bind_address).await.unwrap();
 

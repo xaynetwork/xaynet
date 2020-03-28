@@ -1,0 +1,124 @@
+openapi: 3.0.1
+info:
+  title: XAIN FL Coordinator API
+  contact:
+    email: engineering@xain.io
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  version: 0.7.0
+externalDocs:
+  description: Find out more about XAIN FL
+  url: https://docs.xain.io/
+servers:
+  - url: http://localhost:8081/
+tags:
+  - name: Coordinator
+    description: API of the coordinator service
+paths:
+  /rendez_vous:
+    get:
+      tags:
+        - Coordinator
+      responses:
+        200:
+          description: client accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RendezVousResponse"
+        404:
+          description: ""
+          content: {}
+  /heartbeat/{client_id}:
+    get:
+      tags:
+        - Coordinator
+      parameters:
+        - name: client_id
+          in: path
+          description: ID of the client
+          required: true
+          schema:
+            $ref: "#/components/schemas/ClientID"
+      responses:
+        200:
+          description: heartbeat confirmed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HeartBeatResponse"
+        404:
+          description: client unknown
+          content: {}
+  /start_training/{client_id}:
+    get:
+      tags:
+        - Coordinator
+      parameters:
+        - name: client_id
+          in: path
+          description: ID of the client
+          required: true
+          schema:
+            $ref: "#/components/schemas/ClientID"
+      responses:
+        200:
+          description: get information for fetching the latest global model
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StartTrainingResponse"
+        404:
+          description: ""
+          content: {}
+components:
+  schemas:
+    ClientID:
+      description: client ID
+      type: string
+      format: uuid
+      example: 1fa2f908-83e2-4f92-80e1-4baee0bf25a5
+    RendezVousResponse:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/ClientID"
+        ok:
+          description: "Whether the rendez-vous was accepted (`true`) or rejected (`false`) by the coordinator. A participant that has been rejected should not try to recontact the coordinator."
+          type: boolean
+    HeartBeatResponse:
+      type: object
+      properties:
+        round:
+          description: If non-null, this field indicates that the participant has been selected for the given round.
+          type: integer
+          format: int32
+          minimum: 0
+          nullable: true
+        state:
+          description: current state of the coordinator
+          type: string
+          enum:
+            - stand_by
+            - finish
+            - round
+            - reject
+    StartTrainingResponse:
+      type: object
+      properties:
+        url:
+          description: URL of the aggregator service API
+          type: string
+          format: url
+          nullable: true
+          example: http://localhost:8082
+        token:
+          description: client API token for the aggregator service
+          type: string
+          format: uuid
+          nullable: true
+          example: 2e8700a6-390d-411f-977b-9aa3bebc13e9
+        ok:
+          description: ""
+          type: boolean
