@@ -29,7 +29,7 @@ use tokio::{
     },
 };
 
-struct AggregationFuture(Pin<Box<dyn Future<Output = Result<(), ()>>>>);
+struct AggregationFuture(Pin<Box<dyn Future<Output = Result<(), ()>> + Send>>);
 
 impl Future for AggregationFuture {
     type Output = Result<(), ()>;
@@ -458,6 +458,7 @@ where
     }
 }
 
+#[derive(Debug)]
 pub struct RequestError;
 
 pub struct ServiceRequests(Pin<Box<dyn Stream<Item = Request> + Send>>);
