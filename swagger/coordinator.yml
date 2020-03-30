@@ -23,7 +23,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PublishRoundMessage'
+                $ref: "#/components/schemas/PublishRoundMessage"
   /sum:
     post:
       description: PET Step 4 (receive "sum" message)
@@ -33,12 +33,12 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SumMessage'
+              $ref: "#/components/schemas/SumMessage"
       responses:
         200:
           description: OK
         400:
-          description: PET Error 
+          description: PET Error
     get:
       description: PET Step 8 publish "sum" participants
       responses:
@@ -47,7 +47,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PublishSumParticipantsMessage'
+                $ref: "#/components/schemas/PublishSumParticipantsMessage"
         400:
           description: PET Error
   /update:
@@ -59,12 +59,12 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateMessage'
+              $ref: "#/components/schemas/UpdateMessage"
       responses:
         200:
           description: OK
         400:
-          description: PET Error 
+          description: PET Error
     get:
       description: PET Step 11 publish encrypted seeds
       responses:
@@ -73,7 +73,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PublishEncryptedSeedsMessage'
+                $ref: "#/components/schemas/PublishEncryptedSeedsMessage"
         400:
           description: PET Error
   /sum2:
@@ -85,12 +85,12 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Sum2Message'
+              $ref: "#/components/schemas/Sum2Message"
       responses:
         200:
           description: OK
         400:
-          description: PET Error 
+          description: PET Error
 
 components:
   schemas:
@@ -102,23 +102,11 @@ components:
           description: ""
           type: string
           format: binary
-        part_ephm_pk:
-          description: ""
-          type: string
-          format: binary
-        part_ephm_sk:
-          description: ""
-          type: string
-          format: binary
     UpdateMessage:
       description: Update message
       type: object
       properties:
         message:
-          description: ""
-          type: string
-          format: binary
-        mask_seed:
           description: ""
           type: string
           format: binary
@@ -130,10 +118,6 @@ components:
           description: ""
           type: string
           format: binary
-        mask_url:
-          description: ""
-          type: string
-          format: url
     PublishRoundMessage:
       type: object
       properties:
@@ -163,5 +147,5 @@ components:
         additionalProperties:
           type: string
         example:
-          sum_encr_pk_1: {update_encr_pk_1 : seed}
-          sum_encr_pk_2: {update_encr_pk_2 : seed}
+          sum_encr_pk_1: { update_encr_pk_1: seed }
+          sum_encr_pk_2: { update_encr_pk_2: seed }
