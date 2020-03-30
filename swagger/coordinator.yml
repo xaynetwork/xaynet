@@ -51,7 +51,7 @@ paths:
         200:
           description: OK
     get:
-      description: PET Step 8 publish "sum" participants
+      description: PET Step 8 (publish "sum" participants)
       responses:
         200:
           description: OK
@@ -79,7 +79,7 @@ paths:
         200:
           description: OK
     get:
-      description: PET Step 11 publish encrypted seeds
+      description: PET Step 11 (publish encrypted seeds)
       responses:
         200:
           description: OK
