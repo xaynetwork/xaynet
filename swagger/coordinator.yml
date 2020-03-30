@@ -99,14 +99,28 @@ components:
       type: object
       properties:
         message:
-          description: ""
-          type: string
-          format: binary
+          type: object
+          properties:
+            ephm_key_box:
+              type: string
+              format: binary
+            sum_box:
+              type: string
+              format: binary
     UpdateMessage:
       description: Update message
       type: object
       properties:
         message:
+          type: object
+          properties:
+            s_box:
+              type: string
+              format: binary
+            update_box:
+              type: string
+              format: binary
+        mask_seed:
           description: ""
           type: string
           format: binary
@@ -115,9 +129,18 @@ components:
       type: object
       properties:
         message:
+          type: object
+          properties:
+            s_box:
+              type: string
+              format: binary
+            sum2_box:
+              type: string
+              format: binary
+        mask_url:
           description: ""
           type: string
-          format: binary
+          format: url
     PublishRoundMessage:
       type: object
       properties:
