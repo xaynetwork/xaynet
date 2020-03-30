@@ -4,7 +4,7 @@ import sys
 
 from .interfaces import TrainingInputABC, TrainingResultABC
 from .participant import ParticipantABC, ParticipantError
-from .utils import configure_logging  # pylint: disable=import-outside-toplevel
+from .utils import configure_logging
 
 
 def run_participant(
