@@ -1,9 +1,9 @@
 """Tensorflow Keras regression test case"""
 
 import argparse
+from io import BytesIO
 import logging
 import os
-import pickle
 import random
 from typing import List, Optional, Tuple
 
@@ -112,13 +112,19 @@ class Participant(  # pylint: disable=too-few-public-methods,too-many-instance-a
     def deserialize_training_input(self, data: bytes) -> Optional[np.ndarray]:
         if not data:
             return None
-        return pickle.loads(data)
+
+        reader = BytesIO(data)
+        return np.load(reader, allow_pickle=False)
 
     def serialize_training_result(
         self, training_result: Tuple[np.ndarray, int]
     ) -> bytes:
         (weights, number_of_samples) = training_result
-        return number_of_samples.to_bytes(4, byteorder="big") + pickle.dumps(weights)
+
+        writer = BytesIO()
+        writer.write(number_of_samples.to_bytes(4, byteorder="big"))
+        np.save(writer, weights, allow_pickle=False)
+        return writer.getbuffer()[:]
 
 
 def main() -> None:

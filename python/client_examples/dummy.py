@@ -1,6 +1,6 @@
 import argparse
+from io import BytesIO
 import logging
-import pickle
 import threading
 
 # pylint: disable=import-error
@@ -48,14 +48,19 @@ ARRAY_LENGTHS_BY_SIZE = {
 }
 
 
-def generate_training_data(size) -> bytes:
+def generate_training_result(size: str) -> bytes:
     """Generate the data sent to the aggregator after training"""
+    # Create the array
     array_length = ARRAY_LENGTHS_BY_SIZE[size]
     weights = np.ones((array_length,), dtype=np.float32)
-    return int(0).to_bytes(4, byteorder="big") + pickle.dumps(weights)
+    # Serialize the array
+    writer = BytesIO()
+    writer.write(int(0).to_bytes(4, byteorder="big"))
+    np.save(writer, weights, allow_pickle=False)
+    return writer.getvalue()
 
 
-def human_readable_size(size):
+def human_readable_size(size: int) -> str:
     if size < 1024:
         return f"{size}B"
     if size < 1024 * 1024:
@@ -66,10 +71,10 @@ def human_readable_size(size):
 
 
 def main(
-    size: int, number_of_participants: int, coordinator_url: str, heartbeat_period: int,
+    size: str, number_of_participants: int, coordinator_url: str, heartbeat_period: int,
 ) -> None:
     """Entry point to start a participant."""
-    training_result_data = generate_training_data(size)
+    training_result_data = generate_training_result(size)
     LOG.info("training data size: %s", human_readable_size(len(training_result_data)))
 
     if number_of_participants < 2:
@@ -89,7 +94,7 @@ def main(
         thread.start()
         threads.append(thread)
 
-    def join_threads():
+    def join_threads() -> None:
         for thread in threads:
             thread.join()
         LOG.info("all participants finished")

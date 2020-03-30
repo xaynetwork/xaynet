@@ -1,5 +1,5 @@
+from io import BytesIO
 import logging
-import pickle
 from typing import List, Optional
 
 import numpy as np
@@ -10,15 +10,15 @@ LOG = logging.getLogger("PythonModelSumAggregator")
 
 
 class Aggregator(AggregatorABC):
-    def __init__(self):
+    def __init__(self) -> None:
         LOG.info("initializing aggregator")
         self.global_weights: np.ndarray = None
         self.weights: List[np.ndarray] = []
 
     def add_weights(self, data: bytes) -> bool:
         LOG.info("adding weights (len = %d)", len(data))
-        # FIXME: perform some checks here
-        weights = pickle.loads(data)
+        reader = BytesIO(data)
+        weights = np.load(reader, allow_pickle=False)
         self.weights.append(weights)
         return True
 
@@ -33,10 +33,14 @@ class Aggregator(AggregatorABC):
         if global_weights is None:
             self.global_weights = None
         else:
-            self.global_weights = pickle.loads(global_weights)
+            reader = BytesIO(global_weights)
+            self.global_weights = np.load(reader)
         self.weights = []
 
     def get_global_weights(self) -> bytes:
         LOG.info("returning global weights")
-        data = pickle.dumps(self.global_weights)
-        return data
+        writer = BytesIO()
+        np.save(writer, self.global_weights, allow_pickle=False)
+        # We cannot use getvalue here because it copies the buffer.
+        # getbuffer will not as long as the data is not modified.
+        return writer.getbuffer()[:]
