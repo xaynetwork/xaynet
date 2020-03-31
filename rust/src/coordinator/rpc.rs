@@ -17,7 +17,13 @@ mod inner {
         async fn end_training(id: ClientId, success: bool);
     }
 }
-pub use inner::{Rpc, RpcClient as Client};
+
+pub use inner::Rpc;
+
+#[cfg(test)]
+pub use crate::tests::lib::rpc::coordinator::Client;
+#[cfg(not(test))]
+pub use inner::RpcClient as Client;
 
 impl Rpc for Server {
     type EndTrainingFut = Pin<Box<dyn Future<Output = ()> + Send>>;
