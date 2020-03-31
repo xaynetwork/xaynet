@@ -117,6 +117,8 @@ components:
             round_box:
               type: string
               format: byte
+              minLength: 65
+              maxLength: 65
             sum_box:
               type: string
               format: byte
@@ -136,6 +138,8 @@ components:
             round_box:
               type: string
               format: byte
+              minLength: 65
+              maxLength: 65
             update_box:
               type: string
               format: byte
@@ -161,6 +165,8 @@ components:
             round_box:
               type: string
               format: byte
+              minLength: 65
+              maxLength: 65
             sum2_box:
               type: string
               format: byte
