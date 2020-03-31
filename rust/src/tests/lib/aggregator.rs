@@ -3,7 +3,7 @@ use crate::{
     common::client::Credentials,
 };
 use bytes::Bytes;
-use std::{future::Future, pin::Pin};
+use futures::future;
 
 #[derive(Clone)]
 pub struct ServiceHandle(InnerServiceHandle);
@@ -21,18 +21,18 @@ impl ByteAggregator {
 impl Aggregator for ByteAggregator {
     type Error = ();
 
-    type AddWeightsFut = Pin<Box<dyn Future<Output = Result<(), ()>> + Send>>;
-    type AggregateFut = Pin<Box<dyn Future<Output = Result<Bytes, ()>> + Send>>;
+    type AddWeightsFut = future::Ready<Result<(), ()>>;
+    type AggregateFut = future::Ready<Result<Bytes, ()>>;
 
     fn add_weights(&mut self, weights: Bytes) -> Self::AddWeightsFut {
         weights.into_iter().for_each(|el| self.weights.push(el));
-        Box::pin(async move { Ok(()) })
+        future::ready(Ok(()))
     }
 
     fn aggregate(&mut self) -> Self::AggregateFut {
         self.weights.sort();
         let global_weights = Bytes::copy_from_slice(&self.weights[..]);
-        Box::pin(async move { Ok(global_weights) })
+        future::ready(Ok(global_weights))
     }
 }
 
