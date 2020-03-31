@@ -25,7 +25,7 @@ impl Aggregator for ByteAggregator {
     type AggregateFut = future::Ready<Result<Bytes, ()>>;
 
     fn add_weights(&mut self, weights: Bytes) -> Self::AddWeightsFut {
-        weights.into_iter().for_each(|el| self.weights.push(el));
+        self.weights.extend(weights.into_iter());
         future::ready(Ok(()))
     }
 
