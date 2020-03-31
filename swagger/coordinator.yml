@@ -106,7 +106,9 @@ components:
     PublicKey:
       description: A public key.
       type: string
-      format: binary
+      format: byte
+      minLength: 32
+      maxLength: 32
     SumMessage:
       description: Sum message
       type: object
@@ -116,10 +118,10 @@ components:
           properties:
             round_box:
               type: string
-              format: binary
+              format: byte
             sum_box:
               type: string
-              format: binary
+              format: byte
     UpdateMessage:
       description: Update message
       type: object
@@ -129,14 +131,14 @@ components:
           properties:
             round_box:
               type: string
-              format: binary
+              format: byte
             update_box:
               type: string
-              format: binary
+              format: byte
         mask_seed:
           description: "The encrypted seed."
           type: string
-          format: binary
+          format: byte
     Sum2Message:
       description: Sum2 message
       type: object
@@ -146,36 +148,51 @@ components:
           properties:
             round_box:
               type: string
-              format: binary
+              format: byte
             sum2_box:
               type: string
-              format: binary
+              format: byte
         mask_url:
-          description: "The URL which points to the global mask. The aggregator can use this URL to fetch the global mask."
+          description: The URL that points to the global mask. The aggregator can use this URL to fetch the global mask.
           type: string
           format: url
     PublishRoundMessage:
       type: object
       properties:
         coord_pk:
-          $ref: "#/components/schemas/PublicKey"
+          description: The public key of the coordinator.
+          type: string
+          format: byte
+          minLength: 32
+          maxLength: 32
         sum:
           description: The sum threshold of the current round.
           type: number
           format: float
+          minimum: 0
+          maximum: 1
         update:
           description: The update threshold of the current round.
           type: number
           format: float
+          minimum: 0
+          maximum: 1
         seed:
           description: The seed of the current round.
           type: string
           format: bytes
+          minLength: 32
+          maxLength: 32
+        global_model_url:
+          description: The URL that points to the global model. Participants can use this URL to fetch the global model. On the first round, the value of the URL will be null.
+          type: string
+          format: url
+          nullable: true
     PublishSumParticipantsMessage:
       type: object
       additionalProperties:
         type: string
-        format: binary
+        format: byte
         example:
           part_pk_1: part_pk_fresh_1
           part_pk_2: part_pk_fresh_2
@@ -186,4 +203,4 @@ components:
           type: array
           items:
             type: string
-            format: binary
+            format: byte
