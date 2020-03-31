@@ -48,6 +48,9 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PublishSumParticipantsMessage"
+              example:
+                part_pk_1: part_pk_fresh_1
+                part_pk_2: part_pk_fresh_2
         400:
           description: PET Error
   /participant/update:
@@ -84,6 +87,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PublishEncryptedSeedsMessage"
+              example:
+                part_pk_1: [seed_1, seed_2]
         400:
           description: PET Error
   /participant/sum2:
@@ -208,19 +213,19 @@ components:
           nullable: true
     PublishSumParticipantsMessage:
       type: object
+      nullable: true
+      description: The will be null if the coordinator is not yet ready.
       additionalProperties:
         type: string
         format: byte
-        example:
-          part_pk_1: part_pk_fresh_1
-          part_pk_2: part_pk_fresh_2
     PublishEncryptedSeedsMessage:
       type: object
-      properties:
-        seeds:
-          type: array
-          items:
-            type: string
-            format: byte
-            minLength: 32
-            maxLength: 32
+      nullable: true
+      description: The will be null if the coordinator is not yet ready.
+      additionalProperties:
+        type: array
+        items:
+          type: string
+          format: byte
+          minLength: 32
+          maxLength: 32
