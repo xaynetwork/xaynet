@@ -28,7 +28,6 @@ paths:
     post:
       description: PET Step 4 (send "sum" message)
       requestBody:
-        description: ""
         required: true
         content:
           application/json:
@@ -55,7 +54,6 @@ paths:
     post:
       description: PET Step 9 (send "update" message)
       requestBody:
-        description: ""
         required: true
         content:
           application/json:
@@ -75,7 +73,10 @@ paths:
           in: path
           required: true
           schema:
-            $ref: "#/components/schemas/PublicKey"
+            type: string
+            format: byte
+            minLength: 32
+            maxLength: 32
       responses:
         200:
           description: OK
@@ -89,7 +90,6 @@ paths:
     post:
       description: PET Step 12 (send "update" message)
       requestBody:
-        description: ""
         required: true
         content:
           application/json:
@@ -100,21 +100,19 @@ paths:
           description: OK
         400:
           description: PET Error
-
 components:
   schemas:
-    PublicKey:
-      description: A public key.
-      type: string
-      format: byte
-      minLength: 32
-      maxLength: 32
     SumMessage:
       description: Sum message
       type: object
+      required:
+        - message
       properties:
         message:
           type: object
+          required:
+            - round_box
+            - sum_box
           properties:
             round_box:
               type: string
@@ -125,9 +123,15 @@ components:
     UpdateMessage:
       description: Update message
       type: object
+      required:
+        - message
+        - mask_seed
       properties:
         message:
           type: object
+          required:
+            - round_box
+            - update_box
           properties:
             round_box:
               type: string
@@ -139,12 +143,20 @@ components:
           description: "The encrypted seed."
           type: string
           format: byte
+          minLength: 32
+          maxLength: 32
     Sum2Message:
       description: Sum2 message
       type: object
+      required:
+        - message
+        - mask_url
       properties:
         message:
           type: object
+          required:
+            - round_box
+            - sum2_box
           properties:
             round_box:
               type: string
@@ -180,7 +192,7 @@ components:
         seed:
           description: The seed of the current round.
           type: string
-          format: bytes
+          format: byte
           minLength: 32
           maxLength: 32
         global_model_url:
@@ -204,3 +216,5 @@ components:
           items:
             type: string
             format: byte
+            minLength: 32
+            maxLength: 32
