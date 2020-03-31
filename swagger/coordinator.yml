@@ -26,7 +26,7 @@ paths:
                 $ref: "#/components/schemas/PublishRoundMessage"
   /participant/sum:
     post:
-      description: PET Step 4 (receive "sum" message)
+      description: PET Step 4 (send "sum" message)
       requestBody:
         description: ""
         required: true
@@ -53,7 +53,7 @@ paths:
           description: PET Error
   /participant/update:
     post:
-      description: PET Step 9 (receive "update" message)
+      description: PET Step 9 (send "update" message)
       requestBody:
         description: ""
         required: true
@@ -87,7 +87,7 @@ paths:
           description: PET Error
   /participant/sum2:
     post:
-      description: PET Step 12 (receive "update" message)
+      description: PET Step 12 (send "update" message)
       requestBody:
         description: ""
         required: true
@@ -114,7 +114,7 @@ components:
         message:
           type: object
           properties:
-            ephm_key_box:
+            round_box:
               type: string
               format: binary
             sum_box:
@@ -127,14 +127,14 @@ components:
         message:
           type: object
           properties:
-            s_box:
+            round_box:
               type: string
               format: binary
             update_box:
               type: string
               format: binary
         mask_seed:
-          description: ""
+          description: "The encrypted seed."
           type: string
           format: binary
     Sum2Message:
@@ -144,14 +144,14 @@ components:
         message:
           type: object
           properties:
-            s_box:
+            round_box:
               type: string
               format: binary
             sum2_box:
               type: string
               format: binary
         mask_url:
-          description: ""
+          description: "The URL which points to the global mask. The aggregator can use this URL to fetch the global mask."
           type: string
           format: url
     PublishRoundMessage:
