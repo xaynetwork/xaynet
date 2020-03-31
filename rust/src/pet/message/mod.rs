@@ -17,36 +17,64 @@ const SUM_TAG: u8 = 101;
 const UPDATE_TAG: u8 = 102;
 const SUM2_TAG: u8 = 103;
 const TAG_RANGE: Range<usize> = 0..1;
+const CERTIFICATE_RANGE: Range<usize> = 1..1;
+const SIGN_SUM_RANGE: Range<usize> = 1..65;
 
 const ROUNDBOX_RANGE: Range<usize> = 0..117;
 const NONCE_RANGE: Range<usize> = 117..141;
 const MESSAGEBOX_START: usize = 141;
 
-enum MessageBox {
+trait BufferRef<'a> {
+    fn bytes(&self) -> &'a [u8];
+
+    fn tag(&self) -> &'a [u8] {
+        &self.bytes()[TAG_RANGE]
+    }
+
+    fn certificate(&self) -> &'a [u8] {
+        &self.bytes()[CERTIFICATE_RANGE]
+    }
+
+    fn signature_sum(&self) -> &'a [u8] {
+        &self.bytes()[SIGN_SUM_RANGE]
+    }
+}
+
+trait BufferMut {
+    fn bytes_mut(&mut self) -> &mut [u8];
+
+    fn tag_mut(&mut self) -> &mut [u8] {
+        &mut self.bytes_mut()[TAG_RANGE]
+    }
+
+    fn certificate_mut(&mut self) -> &mut [u8] {
+        &mut self.bytes_mut()[CERTIFICATE_RANGE]
+    }
+
+    fn signature_sum_mut(&mut self) -> &mut [u8] {
+        &mut self.bytes_mut()[SIGN_SUM_RANGE]
+    }
+}
+
+enum MsgBox {
     Sum(SumBox),
-    Update(UpdateBox, usize),
+    Update(UpdateBox),
     Sum2(Sum2Box),
 }
 
 struct Message {
     roundbox: RoundBox,
-    messagebox: MessageBox,
+    messagebox: MsgBox,
 }
 
 impl Message {
-    fn seal(
-        &self,
-        coord_encr_pk: &box_::PublicKey,
-        part_encr_sk: &box_::SecretKey,
-    ) -> Result<Vec<u8>, PetError> {
-        let roundbox = self.roundbox.seal(coord_encr_pk)?;
+    fn seal(&self, coord_encr_pk: &box_::PublicKey, part_encr_sk: &box_::SecretKey) -> Vec<u8> {
+        let roundbox = self.roundbox.seal(coord_encr_pk);
         let messagebox = match self.messagebox {
-            MessageBox::Sum(ref sumbox) => sumbox.seal(coord_encr_pk, part_encr_sk)?,
-            MessageBox::Update(ref updatebox, dict_sum_length) => {
-                updatebox.seal(coord_encr_pk, part_encr_sk, dict_sum_length)?
-            }
-            MessageBox::Sum2(ref sum2box) => sum2box.seal(coord_encr_pk, part_encr_sk)?,
+            MsgBox::Sum(ref sumbox) => sumbox.seal(coord_encr_pk, part_encr_sk),
+            MsgBox::Update(ref updatebox) => updatebox.seal(coord_encr_pk, part_encr_sk),
+            MsgBox::Sum2(ref sum2box) => sum2box.seal(coord_encr_pk, part_encr_sk),
         };
-        Ok([roundbox, messagebox].concat())
+        [roundbox, messagebox].concat()
     }
 }

@@ -15,9 +15,17 @@ struct RoundBoxBuffer<T> {
     bytes: T,
 }
 
+impl RoundBoxBuffer<Vec<u8>> {
+    fn new(len: usize) -> Self {
+        Self {
+            bytes: vec![0_u8; len],
+        }
+    }
+}
+
 impl<T: AsRef<[u8]>> RoundBoxBuffer<T> {
-    fn new(bytes: T) -> Result<Self, PetError> {
-        (bytes.as_ref().len() == MESSAGE_LENGTH)
+    fn from(bytes: T, len: usize) -> Result<Self, PetError> {
+        (bytes.as_ref().len() == len)
             .then_some(Self { bytes })
             .ok_or(PetError::InvalidMessage)
     }
@@ -57,25 +65,24 @@ pub struct RoundBox {
 }
 
 impl RoundBox {
-    pub fn serialize(&self, bytes: &mut [u8]) -> Result<(), PetError> {
-        let mut buffer = RoundBoxBuffer::new(bytes)?;
+    pub fn serialize(&self) -> Vec<u8> {
+        let mut buffer = RoundBoxBuffer::new(MESSAGE_LENGTH);
         buffer.tag_mut().copy_from_slice([ROUND_TAG; 1].as_ref());
         buffer.encr_pk_mut().copy_from_slice(self.encr_pk.as_ref());
         buffer.sign_pk_mut().copy_from_slice(self.sign_pk.as_ref());
-        Ok(())
+        buffer.bytes
     }
 
     pub fn deserialize(bytes: &[u8]) -> Result<Self, PetError> {
-        let buffer = RoundBoxBuffer::new(bytes)?;
+        let buffer = RoundBoxBuffer::from(bytes, MESSAGE_LENGTH)?;
         let encr_pk = box_::PublicKey::from_slice(buffer.encr_pk()).unwrap();
         let sign_pk = sign::PublicKey::from_slice(buffer.sign_pk()).unwrap();
         Ok(Self { encr_pk, sign_pk })
     }
 
-    pub fn seal(&self, encr_pk: &box_::PublicKey) -> Result<Vec<u8>, PetError> {
-        let mut bytes = vec![0_u8; MESSAGE_LENGTH];
-        self.serialize(&mut bytes)?;
-        Ok(sealedbox::seal(&bytes, encr_pk))
+    pub fn seal(&self, encr_pk: &box_::PublicKey) -> Vec<u8> {
+        let bytes = self.serialize();
+        sealedbox::seal(&bytes, encr_pk)
     }
 
     pub fn open(
