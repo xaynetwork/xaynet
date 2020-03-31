@@ -47,6 +47,10 @@ class Aggregator(AggregatorABC):
             )
         ]
         self.global_weights = np.sum(scaled_model_weights, axis=0)
+        # If global_weights is a scalar, make it a one dimensional
+        # array
+        if self.global_weights.shape == ():
+            self.global_weights = np.array([self.global_weights])
         self.weights = []
         self.aggregation_data = []
         LOG.info("finished aggregation")
@@ -59,11 +63,14 @@ class Aggregator(AggregatorABC):
         else:
             reader = BytesIO(global_weights)
             self.global_weights = np.load(reader, allow_pickle=False)
+
         self.weights = []
         self.aggregation_data = []
 
     def get_global_weights(self) -> bytes:
         LOG.info("returning global weights")
+        if self.global_weights is None:
+            return b""
         writer = BytesIO()
         np.save(writer, self.global_weights, allow_pickle=False)
         # We cannot use getvalue here because it copies the buffer.
