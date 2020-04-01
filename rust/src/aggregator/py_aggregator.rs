@@ -1,4 +1,3 @@
-use anyhow::{Context, Result};
 use bytes::Bytes;
 use futures::executor::block_on;
 use std::{future::Future, pin::Pin, thread};
@@ -23,7 +22,7 @@ pub struct PyAggregator {
 }
 
 impl PyAggregator {
-    pub fn load(settings: PythonAggregatorSettings) -> Result<Self> {
+    pub fn load(settings: PythonAggregatorSettings) -> Result<Self, PyAggregatorError> {
         let gil = Python::acquire_gil();
         let py = gil.python();
         let module = PyModule::import(py, &settings.module).map_err(|e| {
@@ -51,7 +50,7 @@ impl PyAggregator {
         })
     }
 
-    pub fn aggregate(&mut self) -> Result<Bytes> {
+    pub fn aggregate(&mut self) -> Result<Bytes, PyAggregatorError> {
         info!("PyAggregator: running aggregation");
         let py = self.get_py();
         let result = self
@@ -95,7 +94,7 @@ impl PyAggregator {
             .map(Bytes::from)?)
     }
 
-    pub fn add_weights(&self, local_weights: &[u8]) -> Result<::std::result::Result<(), ()>> {
+    pub fn add_weights(&self, local_weights: &[u8]) -> Result<(), PyAggregatorError> {
         info!("PyAggregator: adding weights");
         let py = self.get_py();
         let py_bytes = PyBytes::new(py, local_weights);
@@ -134,7 +133,7 @@ impl PyAggregator {
         self.gil.as_ref().unwrap().python()
     }
 
-    pub fn reset(&mut self, global_weights: &[u8]) -> Result<()> {
+    pub fn reset(&mut self, global_weights: &[u8]) -> Result<(), PyAggregatorError> {
         let py = self.get_py();
         let py_bytes = PyBytes::new(py, global_weights);
         let args = (py_bytes,);
@@ -153,7 +152,6 @@ impl PyAggregator {
     }
 }
 
-pub type Weights = Bytes;
 pub type Request<T, U> = (T, oneshot::Sender<U>);
 pub type RequestRx<T, U> = UnboundedReceiver<Request<T, U>>;
 pub type RequestTx<T, U> = UnboundedSender<Request<T, U>>;
@@ -161,15 +159,21 @@ pub type RequestTx<T, U> = UnboundedSender<Request<T, U>>;
 pub fn spawn_py_aggregator(
     settings: PythonAggregatorSettings,
 ) -> (PyAggregatorHandle, Receiver<()>) {
-    let (aggregate_tx, aggregate_rx) = unbounded_channel::<Request<(), Weights>>();
-    let (add_weights_tx, add_weights_rx) = unbounded_channel::<Request<Weights, ()>>();
+    let (aggregate_tx, aggregate_rx) =
+        unbounded_channel::<Request<(), Result<Bytes, PyAggregatorError>>>();
+
+    let (add_weights_tx, add_weights_rx) =
+        unbounded_channel::<Request<Bytes, Result<(), PyAggregatorError>>>();
+
     let (mut shutdown_tx, shutdown_rx) = channel::<()>(1);
 
     thread::spawn(move || {
         block_on(async move {
-            if let Err(e) = py_aggregator(settings, aggregate_rx, add_weights_rx).await {
-                error!("py_aggregator failure: {}", e);
-            }
+            py_aggregator(settings, aggregate_rx, add_weights_rx)
+                .await
+                .map_err(|e| {
+                    error!(error=%e, "py_aggregator terminated with an error");
+                });
             if shutdown_tx.send(()).await.is_err() {
                 warn!("py_aggregator: could not send shutdown signal (receiver is closed)");
             }
@@ -184,45 +188,53 @@ pub fn spawn_py_aggregator(
 }
 
 pub struct PyAggregatorHandle {
-    pub aggregate_requests: RequestTx<(), Weights>,
-    pub add_weights_requests: RequestTx<Weights, ()>,
+    pub aggregate_requests: RequestTx<(), Result<Bytes, PyAggregatorError>>,
+    pub add_weights_requests: RequestTx<Bytes, Result<(), PyAggregatorError>>,
 }
 
 impl Aggregator for PyAggregatorHandle {
-    type Error = ();
-    type AggregateFut = Pin<Box<dyn Future<Output = Result<Bytes, ()>> + Send>>;
-    type AddWeightsFut = Pin<Box<dyn Future<Output = Result<(), ()>> + Send>>;
+    type Error = PyAggregatorHandleError;
+    type AggregateFut = Pin<Box<dyn Future<Output = Result<Bytes, Self::Error>> + Send>>;
+    type AddWeightsFut = Pin<Box<dyn Future<Output = Result<(), Self::Error>> + Send>>;
 
     fn add_weights(&mut self, weights: Bytes) -> Self::AddWeightsFut {
-        let (tx, rx) = oneshot::channel::<()>();
+        let (tx, rx) = oneshot::channel::<Result<(), PyAggregatorError>>();
         let add_weights_requests = self.add_weights_requests.clone();
         Box::pin(async move {
-            add_weights_requests.send((weights, tx)).map_err(|_| ())?;
-            rx.await.map_err(|_| ())
+            add_weights_requests
+                .send((weights, tx))
+                .map_err(|_| TransmitError::Request)?;
+            rx.await
+                .map_err(|_| TransmitError::Response)?
+                .map_err(From::from)
         })
     }
 
     fn aggregate(&mut self) -> Self::AggregateFut {
-        let (tx, rx) = oneshot::channel::<Bytes>();
+        let (tx, rx) = oneshot::channel::<Result<Bytes, PyAggregatorError>>();
         let aggregate_requests = self.aggregate_requests.clone();
         Box::pin(async move {
-            aggregate_requests.send(((), tx)).map_err(|_| ())?;
-            rx.await.map_err(|_| ())
+            aggregate_requests
+                .send(((), tx))
+                .map_err(|_| TransmitError::Request)?;
+            rx.await
+                .map_err(|_| TransmitError::Response)?
+                .map_err(From::from)
         })
     }
 }
 
 async fn py_aggregator(
     settings: PythonAggregatorSettings,
-    mut aggregate_requests: RequestRx<(), Weights>,
-    mut add_weights_requests: RequestRx<Weights, ()>,
-) -> Result<()> {
+    mut aggregate_requests: RequestRx<(), Result<Bytes, PyAggregatorError>>,
+    mut add_weights_requests: RequestRx<Bytes, Result<(), PyAggregatorError>>,
+) -> Result<(), PyAggregatorError> {
     let mut aggregator = PyAggregator::load(settings)?;
 
     loop {
         select! {
             Some(((), resp_tx)) = aggregate_requests.recv() => {
-                let weights = aggregator.aggregate().context("aggregation failed")?;
+                let weights = aggregator.aggregate();
                 if resp_tx.send(weights).is_err() {
                     warn!("cannot send aggregate response: receiver is closed");
                     break;
@@ -230,10 +242,8 @@ async fn py_aggregator(
 
             }
             Some((weights, resp_tx)) = add_weights_requests.recv() => {
-                // FIXME: don't unwrap here. We need to send the
-                // result.
-                aggregator.add_weights(&weights[..]).context("failed to add weights")?.unwrap();
-                if resp_tx.send(()).is_err() {
+                let res = aggregator.add_weights(&weights[..]);
+                if resp_tx.send(res).is_err() {
                     warn!("cannot send add_weights response: receiver is closed");
                     break;
                 }
@@ -258,13 +268,33 @@ async fn py_aggregator(
 }
 
 #[derive(Error, Debug)]
+pub enum PyAggregatorHandleError {
+    #[error("failed to send request or receive response")]
+    Handle(#[from] TransmitError),
+
+    #[error("request failed: {0}")]
+    Request(#[from] PyAggregatorError),
+}
+
+#[derive(Error, Debug)]
+pub enum TransmitError {
+    #[error("failed to send request to PyAggregator")]
+    Request,
+    #[error("failed to receive response from PyAggregator")]
+    Response,
+}
+
+#[derive(Error, Debug)]
 pub enum PyAggregatorError {
     #[error("failed to load python module `{0}`")]
     LoadModule(String),
+
     #[error("failed to load python class `{0}.{1}`")]
     LoadClass(String, String),
+
     #[error("call to `Aggregator.{0}()` resulted in an exception")]
     Call(&'static str),
+
     #[error("an unknown error occured while calling Python code: {0}")]
     Unknown(&'static str),
 }
