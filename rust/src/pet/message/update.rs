@@ -96,6 +96,7 @@ impl<T: AsMut<[u8]>> UpdateBoxBuffer<T> {
     }
 }
 
+#[derive(Clone)]
 /// Encryption and decryption of update boxes.
 pub struct UpdateBox {
     certificate: Vec<u8>,
@@ -106,6 +107,23 @@ pub struct UpdateBox {
 }
 
 impl UpdateBox {
+    /// Create an update box.
+    pub fn new(
+        certificate: &[u8],
+        signature_sum: &sign::Signature,
+        signature_update: &sign::Signature,
+        model_url: &[u8],
+        dict_seed: &HashMap<box_::PublicKey, Vec<u8>>,
+    ) -> Self {
+        Self {
+            certificate: Vec::from(certificate),
+            signature_sum: signature_sum.clone(),
+            signature_update: signature_update.clone(),
+            model_url: Vec::from(model_url),
+            dict_seed: dict_seed.clone(),
+        }
+    }
+
     /// Serialize the seed dictionary field of the update box to bytes.
     fn serialize_dict_seed(&self) -> Vec<u8> {
         let mut bytes: Vec<u8> = Vec::new();
@@ -143,7 +161,7 @@ impl MessageBox for UpdateBox {
     /// Serialize the update box to bytes.
     fn serialize(&self) -> Vec<u8> {
         let mut buffer = UpdateBoxBuffer::new(self.len());
-        buffer.tag_mut().copy_from_slice([UPDATE_TAG; 1].as_ref());
+        buffer.tag_mut().copy_from_slice([UPDATE_TAG].as_ref());
         buffer.certificate_mut().copy_from_slice(&self.certificate);
         buffer
             .signature_sum_mut()
@@ -162,6 +180,9 @@ impl MessageBox for UpdateBox {
     /// update box length `exp_len`.
     fn deserialize(bytes: &[u8], exp_len: usize) -> Result<Self, PetError> {
         let buffer = UpdateBoxBuffer::from(bytes, exp_len)?;
+        (buffer.tag() == [UPDATE_TAG])
+            .then_some(())
+            .ok_or(PetError::InvalidMessage)?;
         let certificate = buffer.certificate().to_vec();
         let signature_sum = sign::Signature::from_slice(buffer.signature_sum()).unwrap();
         let signature_update = sign::Signature::from_slice(buffer.signature_update()).unwrap();

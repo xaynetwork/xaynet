@@ -4,11 +4,15 @@ use std::{collections::HashMap, default::Default};
 
 use sodiumoxide::{
     self,
-    crypto::{box_, sealedbox, sign},
+    crypto::{box_, hash::sha256, sealedbox, sign},
     randombytes::randombytes,
 };
 
-use super::{utils::is_eligible, PetError};
+use super::{
+    message::{round::RoundBox, sum::SumBox, sum2::Sum2Box, update::UpdateBox, Message},
+    utils::is_eligible,
+    PetError,
+};
 
 #[derive(Debug, PartialEq)]
 /// Tasks of a participant.
@@ -61,9 +65,40 @@ impl Participant {
         }
     }
 
+    /// Generate an ephemeral key pair.
+    fn gen_ephm_keypair(&mut self) {
+        let (ephm_pk, ephm_sk) = box_::gen_keypair();
+        self.ephm_pk = ephm_pk;
+        self.ephm_sk = ephm_sk;
+    }
+
     /// Compose a "sum" message.
-    pub fn compose_sum_message(&mut self, coord_encr_pk: &box_::PublicKey) -> SumMessage {
-        SumMessage::compose(self, coord_encr_pk)
+    pub fn compose_sum_message(&mut self, coord_encr_pk: &box_::PublicKey) -> Vec<u8> {
+        self.gen_ephm_keypair();
+        Message::new(
+            &RoundBox::new(&self.encr_pk, &self.sign_pk),
+            &SumBox::new(&self.certificate, &self.signature_sum, &self.ephm_pk),
+        )
+        .seal(coord_encr_pk, &self.encr_sk)
+    }
+
+    /// Mask a local model (dummy). Returns the mask seed and the model url.
+    fn mask_model() -> (Vec<u8>, Vec<u8>) {
+        (randombytes(32), randombytes(32))
+    }
+
+    // Create the dictionary of encrypted masking seeds from a dictionary of sum participants and
+    // the mask seed.
+    fn create_dict_seed(
+        dict_sum: &HashMap<box_::PublicKey, box_::PublicKey>,
+        mask_seed: &[u8],
+    ) -> HashMap<box_::PublicKey, Vec<u8>> {
+        dict_sum
+            .iter()
+            .map(|(sum_encr_pk, sum_ephm_pk)| {
+                (sum_encr_pk.clone(), sealedbox::seal(mask_seed, sum_ephm_pk))
+            })
+            .collect()
     }
 
     /// Compose an "update" message.
@@ -71,8 +106,38 @@ impl Participant {
         &self,
         coord_encr_pk: &box_::PublicKey,
         dict_sum: &HashMap<box_::PublicKey, box_::PublicKey>,
-    ) -> UpdateMessage {
-        UpdateMessage::compose(self, coord_encr_pk, dict_sum)
+    ) -> Vec<u8> {
+        let (mask_seed, model_url) = Self::mask_model();
+        let dict_seed = Self::create_dict_seed(dict_sum, &mask_seed);
+        Message::new(
+            &RoundBox::new(&self.encr_pk, &self.sign_pk),
+            &UpdateBox::new(
+                &self.certificate,
+                &self.signature_sum,
+                &self.signature_update,
+                &model_url,
+                &dict_seed,
+            ),
+        )
+        .seal(coord_encr_pk, &self.encr_sk)
+    }
+
+    /// Compute a global mask from local mask seeds (dummy). Returns the mask url.
+    fn compute_global_mask(
+        &self,
+        dict_seed: &HashMap<box_::PublicKey, HashMap<box_::PublicKey, Vec<u8>>>,
+    ) -> Result<Vec<u8>, PetError> {
+        let seeds = dict_seed
+            .get(&self.encr_pk)
+            .ok_or(PetError::InvalidMessage)?
+            .values()
+            .map(|seed| {
+                sealedbox::open(seed, &self.ephm_pk, &self.ephm_sk)
+                    .or(Err(PetError::InvalidMessage))
+            })
+            .collect::<Result<Vec<Vec<u8>>, PetError>>()?;
+        let model_url = sha256::hash(&seeds.into_iter().flatten().collect::<Vec<u8>>());
+        Ok(model_url.as_ref().to_vec())
     }
 
     /// Compose a "sum2" message.
@@ -80,8 +145,13 @@ impl Participant {
         &self,
         coord_encr_pk: &box_::PublicKey,
         dict_seed: &HashMap<box_::PublicKey, HashMap<box_::PublicKey, Vec<u8>>>,
-    ) -> Result<Sum2Message, PetError> {
-        Sum2Message::compose(self, coord_encr_pk, dict_seed)
+    ) -> Result<Vec<u8>, PetError> {
+        let mask_url = self.compute_global_mask(dict_seed)?;
+        Ok(Message::new(
+            &RoundBox::new(&self.encr_pk, &self.sign_pk),
+            &Sum2Box::new(&self.certificate, &self.signature_sum, &mask_url),
+        )
+        .seal(coord_encr_pk, &self.encr_sk))
     }
 }
 

@@ -1,9 +1,9 @@
 #![allow(dead_code)] // temporary
 
-mod round;
-mod sum;
-mod sum2;
-mod update;
+pub mod round;
+pub mod sum;
+pub mod sum2;
+pub mod update;
 
 use std::ops::Range;
 
@@ -25,7 +25,8 @@ const SIGN_SUM_RANGE: Range<usize> = 1..65;
 
 // message field ranges
 const ROUNDBOX_RANGE: Range<usize> = 0..117;
-const MESSAGEBOX_START: usize = 117;
+const NONCE_RANGE: Range<usize> = 117..141;
+const MESSAGEBOX_START: usize = 141;
 
 /// Immutable buffer access to common message box fields.
 trait MessageBoxBufferRef<'a> {
@@ -70,7 +71,7 @@ trait MessageBoxBufferMut {
 }
 
 /// Encryption and decryption of message boxes.
-pub trait MessageBox: Sized {
+pub trait MessageBox: Sized + Clone {
     /// Get the length of the serialized message box.
     fn len(&self) -> usize;
 
@@ -86,24 +87,26 @@ pub trait MessageBox: Sized {
     fn deserialize(bytes: &[u8], exp_len: usize) -> Result<Self, PetError>;
 
     /// Encrypt the message box.
-    fn seal(&self, coord_encr_pk: &box_::PublicKey, part_encr_sk: &box_::SecretKey) -> Vec<u8> {
+    fn seal(
+        &self,
+        coord_encr_pk: &box_::PublicKey,
+        part_encr_sk: &box_::SecretKey,
+    ) -> (box_::Nonce, Vec<u8>) {
         let bytes = self.serialize();
         let nonce = box_::gen_nonce();
         let sumbox = box_::seal(&bytes, &nonce, coord_encr_pk, part_encr_sk);
-        [nonce.as_ref(), &sumbox].concat()
+        (nonce, sumbox)
     }
 
     /// Decrypt a message box. Fails if the `bytes` don't conform to a valid encrypted message box.
     fn open(
         bytes: &[u8],
+        nonce: &box_::Nonce,
         coord_encr_pk: &box_::PublicKey,
         coord_encr_sk: &box_::SecretKey,
         exp_len: usize,
     ) -> Result<Self, PetError> {
-        let nonce = (bytes.len() >= box_::NONCEBYTES)
-            .then_some(box_::Nonce::from_slice(&bytes[0..box_::NONCEBYTES]).unwrap())
-            .ok_or(PetError::InvalidMessage)?;
-        let bytes = box_::open(bytes, &nonce, coord_encr_pk, coord_encr_sk)
+        let bytes = box_::open(bytes, nonce, coord_encr_pk, coord_encr_sk)
             .or(Err(PetError::InvalidMessage))?;
         Self::deserialize(&bytes, exp_len)
     }
@@ -139,6 +142,11 @@ impl<'a, T: AsRef<[u8]> + ?Sized> MessageBuffer<&'a T> {
         &self.bytes.as_ref()[ROUNDBOX_RANGE]
     }
 
+    /// Access the nonce field of the message buffer by reference.
+    fn nonce(&self) -> &'a [u8] {
+        &self.bytes.as_ref()[NONCE_RANGE]
+    }
+
     /// Access the message box field of the message buffer by reference.
     fn message_box(&self) -> &'a [u8] {
         &self.bytes.as_ref()[MESSAGEBOX_START..]
@@ -149,6 +157,11 @@ impl<T: AsMut<[u8]>> MessageBuffer<T> {
     /// Access the round box field of the message buffer by mutable reference.
     fn round_box_mut(&mut self) -> &mut [u8] {
         &mut self.bytes.as_mut()[ROUNDBOX_RANGE]
+    }
+
+    /// Access the nonce field of the message buffer by mutable reference.
+    fn nonce_mut(&mut self) -> &mut [u8] {
+        &mut self.bytes.as_mut()[NONCE_RANGE]
     }
 
     /// Access the message box field of the message buffer by mutable reference.
@@ -164,6 +177,14 @@ pub struct Message<T: MessageBox> {
 }
 
 impl<T: MessageBox> Message<T> {
+    /// Create a message.
+    pub fn new(roundbox: &RoundBox, messagebox: &T) -> Self {
+        Self {
+            roundbox: (*roundbox).clone(),
+            messagebox: messagebox.clone(),
+        }
+    }
+
     /// Get the length of the serialized encrypted message.
     pub fn len(&self) -> usize {
         sealedbox::SEALBYTES
@@ -185,32 +206,34 @@ impl<T: MessageBox> Message<T> {
 
     /// Get the expected length of a message box from the expected length of a serialized encrypted
     /// message.
-    pub fn msg_box_exp_len(exp_len: usize) -> usize {
+    fn msg_box_exp_len(exp_len: usize) -> usize {
         exp_len - sealedbox::SEALBYTES - RoundBox::exp_len() - box_::NONCEBYTES - box_::MACBYTES
     }
 
     /// Serialize the encrypted message to bytes.
-    pub fn serialize(&self, roundbox: &[u8], messagebox: &[u8]) -> Vec<u8> {
+    fn serialize(&self, roundbox: &[u8], nonce: &box_::Nonce, messagebox: &[u8]) -> Vec<u8> {
         let mut buffer = MessageBuffer::new(self.len());
         buffer.round_box_mut().copy_from_slice(roundbox);
+        buffer.nonce_mut().copy_from_slice(nonce.as_ref());
         buffer.message_box_mut().copy_from_slice(messagebox);
         buffer.bytes
     }
 
     /// Deserialize an encrypted message from bytes. Fails if the `bytes` don't conform to the
     /// expected encrypted message length `exp_len`.
-    pub fn deserialize(bytes: &[u8], exp_len: usize) -> Result<(&[u8], &[u8]), PetError> {
+    fn deserialize(bytes: &[u8], exp_len: usize) -> Result<(&[u8], box_::Nonce, &[u8]), PetError> {
         let buffer = MessageBuffer::from(bytes, exp_len)?;
         let roundbox = buffer.round_box();
+        let nonce = box_::Nonce::from_slice(buffer.nonce()).unwrap();
         let messagebox = buffer.message_box();
-        Ok((roundbox, messagebox))
+        Ok((roundbox, nonce, messagebox))
     }
 
     /// Encrypt the message.
     pub fn seal(&self, coord_encr_pk: &box_::PublicKey, part_encr_sk: &box_::SecretKey) -> Vec<u8> {
         let roundbox = self.roundbox.seal(coord_encr_pk);
-        let messagebox = self.messagebox.seal(coord_encr_pk, part_encr_sk);
-        self.serialize(&roundbox, &messagebox)
+        let (nonce, messagebox) = self.messagebox.seal(coord_encr_pk, part_encr_sk);
+        self.serialize(&roundbox, &nonce, &messagebox)
     }
 
     /// Decrypt a message. Fails if the `bytes` don't conform to a valid encrypted message.
@@ -220,10 +243,11 @@ impl<T: MessageBox> Message<T> {
         coord_encr_sk: &box_::SecretKey,
         exp_len: usize,
     ) -> Result<Self, PetError> {
-        let (roundbox, messagebox) = Self::deserialize(bytes, exp_len)?;
+        let (roundbox, nonce, messagebox) = Self::deserialize(bytes, exp_len)?;
         let roundbox = RoundBox::open(roundbox, coord_encr_pk, coord_encr_sk)?;
         let messagebox = T::open(
             messagebox,
+            &nonce,
             coord_encr_pk,
             coord_encr_sk,
             Self::msg_box_exp_len(exp_len),

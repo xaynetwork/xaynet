@@ -63,11 +63,23 @@ impl<T: AsMut<[u8]>> Sum2BoxBuffer<T> {
     }
 }
 
+#[derive(Clone)]
 /// Encryption and decryption of sum2 boxes.
 pub struct Sum2Box {
     certificate: Vec<u8>,
     signature_sum: sign::Signature,
     mask_url: Vec<u8>,
+}
+
+impl Sum2Box {
+    /// Create a sum2 box.
+    pub fn new(certificate: &[u8], signature_sum: &sign::Signature, mask_url: &[u8]) -> Self {
+        Self {
+            certificate: Vec::from(certificate),
+            signature_sum: signature_sum.clone(),
+            mask_url: Vec::from(mask_url),
+        }
+    }
 }
 
 impl MessageBox for Sum2Box {
@@ -97,6 +109,9 @@ impl MessageBox for Sum2Box {
     /// box length `len`.
     fn deserialize(bytes: &[u8], exp_len: usize) -> Result<Self, PetError> {
         let buffer = Sum2BoxBuffer::from(bytes, exp_len)?;
+        (buffer.tag() == [SUM2_TAG])
+            .then_some(())
+            .ok_or(PetError::InvalidMessage)?;
         let certificate = buffer.certificate().to_vec();
         let signature_sum = sign::Signature::from_slice(buffer.signature_sum()).unwrap();
         let mask_url = buffer.mask_url().to_vec();

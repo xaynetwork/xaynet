@@ -70,6 +70,7 @@ impl<T: AsMut<[u8]>> RoundBoxBuffer<T> {
     }
 }
 
+#[derive(Clone)]
 /// Encryption and decryption of round boxes.
 pub struct RoundBox {
     encr_pk: box_::PublicKey,
@@ -77,6 +78,14 @@ pub struct RoundBox {
 }
 
 impl RoundBox {
+    /// Create a round box.
+    pub fn new(encr_pk: &box_::PublicKey, sign_pk: &sign::PublicKey) -> Self {
+        Self {
+            encr_pk: encr_pk.clone(),
+            sign_pk: sign_pk.clone(),
+        }
+    }
+
     /// Get the length of the serialized round box.
     pub fn len() -> usize {
         MESSAGE_LENGTH
@@ -88,7 +97,7 @@ impl RoundBox {
     }
 
     /// Serialize the round box to bytes.
-    pub fn serialize(&self) -> Vec<u8> {
+    fn serialize(&self) -> Vec<u8> {
         let mut buffer = RoundBoxBuffer::new(Self::len());
         buffer.tag_mut().copy_from_slice([ROUND_TAG; 1].as_ref());
         buffer.encr_pk_mut().copy_from_slice(self.encr_pk.as_ref());
@@ -98,27 +107,29 @@ impl RoundBox {
 
     /// Deserialize a round box from bytes. Fails if the `bytes` don't conform to the expected
     /// round box length.
-    pub fn deserialize(bytes: &[u8]) -> Result<Self, PetError> {
+    fn deserialize(bytes: &[u8]) -> Result<Self, PetError> {
         let buffer = RoundBoxBuffer::from(bytes, Self::exp_len())?;
+        (buffer.tag() == [ROUND_TAG])
+            .then_some(())
+            .ok_or(PetError::InvalidMessage)?;
         let encr_pk = box_::PublicKey::from_slice(buffer.encr_pk()).unwrap();
         let sign_pk = sign::PublicKey::from_slice(buffer.sign_pk()).unwrap();
         Ok(Self { encr_pk, sign_pk })
     }
 
     /// Encrypt the round box.
-    pub fn seal(&self, coord_encr_pk: &box_::PublicKey) -> Vec<u8> {
+    pub fn seal(&self, encr_pk: &box_::PublicKey) -> Vec<u8> {
         let bytes = self.serialize();
-        sealedbox::seal(&bytes, coord_encr_pk)
+        sealedbox::seal(&bytes, encr_pk)
     }
 
     /// Decrypt a round box. Fails if the `bytes` don't conform to a valid encrypted round box.
     pub fn open(
         bytes: &[u8],
-        coord_encr_pk: &box_::PublicKey,
-        coord_encr_sk: &box_::SecretKey,
+        encr_pk: &box_::PublicKey,
+        encr_sk: &box_::SecretKey,
     ) -> Result<Self, PetError> {
-        let bytes = sealedbox::open(bytes, coord_encr_pk, coord_encr_sk)
-            .or(Err(PetError::InvalidMessage))?;
+        let bytes = sealedbox::open(bytes, encr_pk, encr_sk).or(Err(PetError::InvalidMessage))?;
         Self::deserialize(&bytes)
     }
 }

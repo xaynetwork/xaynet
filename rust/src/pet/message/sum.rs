@@ -63,11 +63,27 @@ impl<T: AsMut<[u8]>> SumBoxBuffer<T> {
     }
 }
 
+#[derive(Clone)]
 /// Encryption and decryption of sum boxes boxes.
 pub struct SumBox {
     certificate: Vec<u8>,
     signature_sum: sign::Signature,
     ephm_pk: box_::PublicKey,
+}
+
+impl SumBox {
+    /// Create a sum box.
+    pub fn new(
+        certificate: &[u8],
+        signature_sum: &sign::Signature,
+        ephm_pk: &box_::PublicKey,
+    ) -> Self {
+        Self {
+            certificate: Vec::from(certificate),
+            signature_sum: signature_sum.clone(),
+            ephm_pk: ephm_pk.clone(),
+        }
+    }
 }
 
 impl MessageBox for SumBox {
@@ -84,7 +100,7 @@ impl MessageBox for SumBox {
     /// Serialize the sum box to bytes.
     fn serialize(&self) -> Vec<u8> {
         let mut buffer = SumBoxBuffer::new(self.len());
-        buffer.tag_mut().copy_from_slice([SUM_TAG; 1].as_ref());
+        buffer.tag_mut().copy_from_slice([SUM_TAG].as_ref());
         buffer.certificate_mut().copy_from_slice(&self.certificate);
         buffer
             .signature_sum_mut()
@@ -97,6 +113,9 @@ impl MessageBox for SumBox {
     /// length `exp_len`.
     fn deserialize(bytes: &[u8], exp_len: usize) -> Result<Self, PetError> {
         let buffer = SumBoxBuffer::from(bytes, exp_len)?;
+        (buffer.tag() == [SUM_TAG])
+            .then_some(())
+            .ok_or(PetError::InvalidMessage)?;
         let certificate = buffer.certificate().to_vec();
         let signature_sum = sign::Signature::from_slice(buffer.signature_sum()).unwrap();
         let ephm_pk = box_::PublicKey::from_slice(buffer.ephm_pk()).unwrap();
