@@ -4,27 +4,19 @@ use std::{collections::HashMap, ops::Range};
 
 use sodiumoxide::crypto::{box_, sign};
 
-use super::{MessageBox, MessageBoxBufferMut, MessageBoxBufferRef, UPDATE_TAG};
+use super::{MsgBoxBufMut, MsgBoxBufRef, MsgBoxDecr, MsgBoxEncr, UPDATE_TAG};
 use crate::pet::PetError;
 
 // update box field ranges
-const SIGN_UPDATE_RANGE: Range<usize> = 65..129;
-const MODEL_URL_RANGE: Range<usize> = 129..161;
+const SIGN_UPDATE_RANGE: Range<usize> = 65..129; // 64 bytes
+const MODEL_URL_RANGE: Range<usize> = 129..161; // 32 bytes
 const DICT_SEED_START: usize = 161;
-const DICT_SEED_KEY_LENGTH: usize = 32;
-const DICT_SEED_ITEM_LENGTH: usize = 112;
-
-fn dict_seed_range(dict_seed_end: usize) -> Range<usize> {
-    DICT_SEED_START..dict_seed_end
-}
-
-fn message_length(dict_length: usize) -> usize {
-    DICT_SEED_START + DICT_SEED_ITEM_LENGTH * dict_length
-}
+const DICT_SEED_KEY_LENGTH: usize = 32; // 32 bytes
+const DICT_SEED_ITEM_LENGTH: usize = 112; // 112 bytes
 
 /// Mutable and immutable buffer access to update box fields.
-struct UpdateBoxBuffer<T> {
-    bytes: T,
+struct UpdateBoxBuffer<B> {
+    bytes: B,
 }
 
 impl UpdateBoxBuffer<Vec<u8>> {
@@ -36,49 +28,48 @@ impl UpdateBoxBuffer<Vec<u8>> {
     }
 }
 
-impl<T: AsRef<[u8]>> UpdateBoxBuffer<T> {
+impl<B: AsRef<[u8]>> UpdateBoxBuffer<B> {
     /// Create an update box buffer from `bytes`. Fails if the `bytes` don't conform to the expected
     /// update box length `exp_len`.
-    fn from(bytes: T, exp_len: usize) -> Result<Self, PetError> {
+    fn from(bytes: B, exp_len: usize) -> Result<Self, PetError> {
         (bytes.as_ref().len() == exp_len)
             .then_some(Self { bytes })
             .ok_or(PetError::InvalidMessage)
     }
 }
 
-impl<'a, T: AsRef<[u8]> + ?Sized> MessageBoxBufferRef<'a> for UpdateBoxBuffer<&'a T> {
+impl<'b, B: AsRef<[u8]> + ?Sized> MsgBoxBufRef<'b> for UpdateBoxBuffer<&'b B> {
     /// Access the update box buffer by reference.
-    fn bytes(&self) -> &'a [u8] {
+    fn bytes(&self) -> &'b [u8] {
         self.bytes.as_ref()
     }
 }
 
-impl<'a, T: AsRef<[u8]> + ?Sized> UpdateBoxBuffer<&'a T> {
+impl<'b, B: AsRef<[u8]> + ?Sized> UpdateBoxBuffer<&'b B> {
     /// Access the update signature field of the update box buffer by reference.
-    fn signature_update(&self) -> &'a [u8] {
+    fn signature_update(&self) -> &'b [u8] {
         &self.bytes()[SIGN_UPDATE_RANGE]
     }
 
     /// Access the model url field of the update box buffer by reference.
-    fn model_url(&self) -> &'a [u8] {
+    fn model_url(&self) -> &'b [u8] {
         &self.bytes()[MODEL_URL_RANGE]
     }
 
     /// Access the seed dictionary field of the update box buffer by reference.
-    fn dict_seed(&self) -> &'a [u8] {
-        let dict_seed_end = self.bytes().len();
-        &self.bytes()[dict_seed_range(dict_seed_end)]
+    fn dict_seed(&self) -> &'b [u8] {
+        &self.bytes()[DICT_SEED_START..]
     }
 }
 
-impl<T: AsMut<[u8]>> MessageBoxBufferMut for UpdateBoxBuffer<T> {
+impl<B: AsMut<[u8]>> MsgBoxBufMut for UpdateBoxBuffer<B> {
     /// Access the update box buffer by mutable reference.
     fn bytes_mut(&mut self) -> &mut [u8] {
         self.bytes.as_mut()
     }
 }
 
-impl<T: AsMut<[u8]>> UpdateBoxBuffer<T> {
+impl<B: AsMut<[u8]>> UpdateBoxBuffer<B> {
     /// Access the update signature field of the update box buffer by mutable reference.
     fn signature_update_mut(&mut self) -> &mut [u8] {
         &mut self.bytes_mut()[SIGN_UPDATE_RANGE]
@@ -91,36 +82,34 @@ impl<T: AsMut<[u8]>> UpdateBoxBuffer<T> {
 
     /// Access the seed dictionary field of the update box buffer by mutable reference.
     fn dict_seed_mut(&mut self) -> &mut [u8] {
-        let dict_seed_end = self.bytes_mut().len();
-        &mut self.bytes_mut()[dict_seed_range(dict_seed_end)]
+        &mut self.bytes_mut()[DICT_SEED_START..]
     }
 }
 
-#[derive(Clone)]
 /// Encryption and decryption of update boxes.
-pub struct UpdateBox {
-    certificate: Vec<u8>,
-    signature_sum: sign::Signature,
-    signature_update: sign::Signature,
-    model_url: Vec<u8>,
-    dict_seed: HashMap<box_::PublicKey, Vec<u8>>,
+pub struct UpdateBox<C, S, M, D> {
+    certificate: C,
+    signature_sum: S,
+    signature_update: S,
+    model_url: M,
+    dict_seed: D,
 }
 
-impl UpdateBox {
+impl<'b> UpdateBox<&'b [u8], &'b sign::Signature, &'b [u8], &'b HashMap<box_::PublicKey, Vec<u8>>> {
     /// Create an update box.
     pub fn new(
-        certificate: &[u8],
-        signature_sum: &sign::Signature,
-        signature_update: &sign::Signature,
-        model_url: &[u8],
-        dict_seed: &HashMap<box_::PublicKey, Vec<u8>>,
+        certificate: &'b [u8],
+        signature_sum: &'b sign::Signature,
+        signature_update: &'b sign::Signature,
+        model_url: &'b [u8],
+        dict_seed: &'b HashMap<box_::PublicKey, Vec<u8>>,
     ) -> Self {
         Self {
-            certificate: Vec::from(certificate),
-            signature_sum: signature_sum.clone(),
-            signature_update: signature_update.clone(),
-            model_url: Vec::from(model_url),
-            dict_seed: dict_seed.clone(),
+            certificate,
+            signature_sum,
+            signature_update,
+            model_url,
+            dict_seed,
         }
     }
 
@@ -133,7 +122,35 @@ impl UpdateBox {
         }
         bytes
     }
+}
 
+impl MsgBoxEncr for UpdateBox<&[u8], &sign::Signature, &[u8], &HashMap<box_::PublicKey, Vec<u8>>> {
+    /// Get the length of the serialized update box.
+    fn len(&self) -> usize {
+        // 161 + 112 * len(dict_seed) bytes
+        1 + 0 + 2 * sign::SIGNATUREBYTES + 32 + DICT_SEED_ITEM_LENGTH * self.dict_seed.len()
+    }
+
+    /// Serialize the update box to bytes.
+    fn serialize(&self) -> Vec<u8> {
+        let mut buffer = UpdateBoxBuffer::new(self.len());
+        buffer.tag_mut().copy_from_slice([UPDATE_TAG].as_ref());
+        buffer.certificate_mut().copy_from_slice(self.certificate);
+        buffer
+            .signature_sum_mut()
+            .copy_from_slice((*self.signature_sum).as_ref());
+        buffer
+            .signature_update_mut()
+            .copy_from_slice((*self.signature_update).as_ref());
+        buffer.model_url_mut().copy_from_slice(self.model_url);
+        buffer
+            .dict_seed_mut()
+            .copy_from_slice(&self.serialize_dict_seed());
+        buffer.bytes
+    }
+}
+
+impl UpdateBox<Vec<u8>, sign::Signature, Vec<u8>, HashMap<box_::PublicKey, Vec<u8>>> {
     /// Deserialize the seed dictionary field of the update box from bytes.
     fn deserialize_dict_seed(bytes: &[u8]) -> HashMap<box_::PublicKey, Vec<u8>> {
         let mut dict_seed: HashMap<box_::PublicKey, Vec<u8>> = HashMap::new();
@@ -147,33 +164,14 @@ impl UpdateBox {
     }
 }
 
-impl MessageBox for UpdateBox {
-    /// Get the length of the serialized update box.
-    fn len(&self) -> usize {
-        DICT_SEED_START + DICT_SEED_ITEM_LENGTH * self.dict_seed.len()
-    }
-
-    /// Get the expected length of a serialized update box.
+impl MsgBoxDecr
+    for UpdateBox<Vec<u8>, sign::Signature, Vec<u8>, HashMap<box_::PublicKey, Vec<u8>>>
+{
+    /// Get the expected length of a serialized update box, where `param` is the length of the
+    /// dictionary of sum participants.
     fn exp_len(param: Option<usize>) -> usize {
-        DICT_SEED_START + DICT_SEED_ITEM_LENGTH * param.unwrap()
-    }
-
-    /// Serialize the update box to bytes.
-    fn serialize(&self) -> Vec<u8> {
-        let mut buffer = UpdateBoxBuffer::new(self.len());
-        buffer.tag_mut().copy_from_slice([UPDATE_TAG].as_ref());
-        buffer.certificate_mut().copy_from_slice(&self.certificate);
-        buffer
-            .signature_sum_mut()
-            .copy_from_slice(self.signature_sum.as_ref());
-        buffer
-            .signature_update_mut()
-            .copy_from_slice(self.signature_update.as_ref());
-        buffer.model_url_mut().copy_from_slice(&self.model_url);
-        buffer
-            .dict_seed_mut()
-            .copy_from_slice(&self.serialize_dict_seed());
-        buffer.bytes
+        // 161 + 112 * len(dict_sum) bytes
+        1 + 0 + 2 * sign::SIGNATUREBYTES + 32 + DICT_SEED_ITEM_LENGTH * param.unwrap()
     }
 
     /// Deserialize an update box from bytes. Fails if the `bytes` don't conform to the expected

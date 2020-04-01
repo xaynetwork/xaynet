@@ -4,16 +4,15 @@ use std::ops::Range;
 
 use sodiumoxide::crypto::{box_, sign};
 
-use super::{MessageBox, MessageBoxBufferMut, MessageBoxBufferRef, SUM_TAG};
+use super::{MsgBoxBufMut, MsgBoxBufRef, MsgBoxDecr, MsgBoxEncr, SUM_TAG};
 use crate::pet::PetError;
 
 // sum box field ranges
-const EPHM_PK_RANGE: Range<usize> = 65..97;
-const MESSAGE_LENGTH: usize = 97;
+const EPHM_PK_RANGE: Range<usize> = 65..97; // 32 bytes
 
 /// Mutable and immutable buffer access to sum box fields.
-struct SumBoxBuffer<T> {
-    bytes: T,
+struct SumBoxBuffer<B> {
+    bytes: B,
 }
 
 impl SumBoxBuffer<Vec<u8>> {
@@ -25,76 +24,70 @@ impl SumBoxBuffer<Vec<u8>> {
     }
 }
 
-impl<T: AsRef<[u8]>> SumBoxBuffer<T> {
+impl<B: AsRef<[u8]>> SumBoxBuffer<B> {
     /// Create a sum box buffer from `bytes`. Fails if the `bytes` don't conform to the expected
     /// sum box length `exp_len`.
-    fn from(bytes: T, exp_len: usize) -> Result<Self, PetError> {
+    fn from(bytes: B, exp_len: usize) -> Result<Self, PetError> {
         (bytes.as_ref().len() == exp_len)
             .then_some(Self { bytes })
             .ok_or(PetError::InvalidMessage)
     }
 }
 
-impl<'a, T: AsRef<[u8]> + ?Sized> MessageBoxBufferRef<'a> for SumBoxBuffer<&'a T> {
+impl<'b, B: AsRef<[u8]> + ?Sized> MsgBoxBufRef<'b> for SumBoxBuffer<&'b B> {
     /// Access the sum box buffer by reference.
-    fn bytes(&self) -> &'a [u8] {
+    fn bytes(&self) -> &'b [u8] {
         self.bytes.as_ref()
     }
 }
 
-impl<'a, T: AsRef<[u8]> + ?Sized> SumBoxBuffer<&'a T> {
+impl<'b, B: AsRef<[u8]> + ?Sized> SumBoxBuffer<&'b B> {
     /// Access the public ephemeral key field of the sum box buffer by reference.
-    fn ephm_pk(&self) -> &'a [u8] {
+    fn ephm_pk(&self) -> &'b [u8] {
         &self.bytes()[EPHM_PK_RANGE]
     }
 }
 
-impl<T: AsMut<[u8]>> MessageBoxBufferMut for SumBoxBuffer<T> {
+impl<B: AsMut<[u8]>> MsgBoxBufMut for SumBoxBuffer<B> {
     /// Access the sum box buffer by mutable reference.
     fn bytes_mut(&mut self) -> &mut [u8] {
         self.bytes.as_mut()
     }
 }
 
-impl<T: AsMut<[u8]>> SumBoxBuffer<T> {
+impl<B: AsMut<[u8]>> SumBoxBuffer<B> {
     /// Access the public ephemeral key field of the sum box buffer by mutable reference.
     fn ephm_pk_mut(&mut self) -> &mut [u8] {
         &mut self.bytes_mut()[EPHM_PK_RANGE]
     }
 }
 
-#[derive(Clone)]
 /// Encryption and decryption of sum boxes boxes.
-pub struct SumBox {
-    certificate: Vec<u8>,
-    signature_sum: sign::Signature,
-    ephm_pk: box_::PublicKey,
+pub struct SumBox<C, S, E> {
+    certificate: C,
+    signature_sum: S,
+    ephm_pk: E,
 }
 
-impl SumBox {
+impl<'b> SumBox<&'b [u8], &'b sign::Signature, &'b box_::PublicKey> {
     /// Create a sum box.
     pub fn new(
-        certificate: &[u8],
-        signature_sum: &sign::Signature,
-        ephm_pk: &box_::PublicKey,
+        certificate: &'b [u8],
+        signature_sum: &'b sign::Signature,
+        ephm_pk: &'b box_::PublicKey,
     ) -> Self {
         Self {
-            certificate: Vec::from(certificate),
-            signature_sum: signature_sum.clone(),
-            ephm_pk: ephm_pk.clone(),
+            certificate,
+            signature_sum,
+            ephm_pk,
         }
     }
 }
 
-impl MessageBox for SumBox {
+impl MsgBoxEncr for SumBox<&[u8], &sign::Signature, &box_::PublicKey> {
     /// Get the length of the serialized sum box.
     fn len(&self) -> usize {
-        MESSAGE_LENGTH
-    }
-
-    /// Get the expected length of a serialized sum box.
-    fn exp_len(_: Option<usize>) -> usize {
-        MESSAGE_LENGTH
+        1 + 0 + sign::SIGNATUREBYTES + box_::PUBLICKEYBYTES // 97 bytes
     }
 
     /// Serialize the sum box to bytes.
@@ -107,6 +100,13 @@ impl MessageBox for SumBox {
             .copy_from_slice(self.signature_sum.as_ref());
         buffer.ephm_pk_mut().copy_from_slice(self.ephm_pk.as_ref());
         buffer.bytes
+    }
+}
+
+impl MsgBoxDecr for SumBox<Vec<u8>, sign::Signature, box_::PublicKey> {
+    /// Get the expected length of a serialized sum box.
+    fn exp_len(_: Option<usize>) -> usize {
+        1 + 0 + sign::SIGNATUREBYTES + box_::PUBLICKEYBYTES // 97 bytes
     }
 
     /// Deserialize a sum box from bytes. Fails if the `bytes` don't conform to the expected sum box

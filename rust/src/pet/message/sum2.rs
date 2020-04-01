@@ -4,16 +4,15 @@ use std::ops::Range;
 
 use sodiumoxide::crypto::sign;
 
-use super::{MessageBox, MessageBoxBufferMut, MessageBoxBufferRef, SUM2_TAG};
+use super::{MsgBoxBufMut, MsgBoxBufRef, MsgBoxDecr, MsgBoxEncr, SUM2_TAG};
 use crate::pet::PetError;
 
 // sum2 box field ranges
-const MASK_URL_RANGE: Range<usize> = 65..97;
-const MESSAGE_LENGTH: usize = 97;
+const MASK_URL_RANGE: Range<usize> = 65..97; // 32 bytes
 
 /// Mutable and immutable buffer access to sum2 box fields.
-struct Sum2BoxBuffer<T> {
-    bytes: T,
+struct Sum2BoxBuffer<B> {
+    bytes: B,
 }
 
 impl Sum2BoxBuffer<Vec<u8>> {
@@ -25,84 +24,89 @@ impl Sum2BoxBuffer<Vec<u8>> {
     }
 }
 
-impl<T: AsRef<[u8]>> Sum2BoxBuffer<T> {
+impl<B: AsRef<[u8]>> Sum2BoxBuffer<B> {
     /// Create a sum2 box buffer from `bytes`. Fails if the `bytes` don't conform to the expected
     /// sum2 box length `exp_len`.
-    fn from(bytes: T, exp_len: usize) -> Result<Self, PetError> {
+    fn from(bytes: B, exp_len: usize) -> Result<Self, PetError> {
         (bytes.as_ref().len() == exp_len)
             .then_some(Self { bytes })
             .ok_or(PetError::InvalidMessage)
     }
 }
 
-impl<'a, T: AsRef<[u8]> + ?Sized> MessageBoxBufferRef<'a> for Sum2BoxBuffer<&'a T> {
+impl<'b, B: AsRef<[u8]> + ?Sized> MsgBoxBufRef<'b> for Sum2BoxBuffer<&'b B> {
     /// Access the sum2 box buffer by reference.
-    fn bytes(&self) -> &'a [u8] {
+    fn bytes(&self) -> &'b [u8] {
         self.bytes.as_ref()
     }
 }
 
-impl<'a, T: AsRef<[u8]> + ?Sized> Sum2BoxBuffer<&'a T> {
+impl<'b, B: AsRef<[u8]> + ?Sized> Sum2BoxBuffer<&'b B> {
     /// Access the mask url field of the sum2 box buffer by reference.
-    fn mask_url(&self) -> &'a [u8] {
+    fn mask_url(&self) -> &'b [u8] {
         &self.bytes()[MASK_URL_RANGE]
     }
 }
 
-impl<T: AsMut<[u8]>> MessageBoxBufferMut for Sum2BoxBuffer<T> {
+impl<B: AsMut<[u8]>> MsgBoxBufMut for Sum2BoxBuffer<B> {
     /// Access the sum2 box buffer by mutable reference.
     fn bytes_mut(&mut self) -> &mut [u8] {
         self.bytes.as_mut()
     }
 }
 
-impl<T: AsMut<[u8]>> Sum2BoxBuffer<T> {
+impl<B: AsMut<[u8]>> Sum2BoxBuffer<B> {
     /// Access the mask url field of the sum2 box buffer by mutable reference.
     fn mask_url_mut(&mut self) -> &mut [u8] {
         &mut self.bytes_mut()[MASK_URL_RANGE]
     }
 }
 
-#[derive(Clone)]
 /// Encryption and decryption of sum2 boxes.
-pub struct Sum2Box {
-    certificate: Vec<u8>,
-    signature_sum: sign::Signature,
-    mask_url: Vec<u8>,
+pub struct Sum2Box<C, S, M> {
+    certificate: C,
+    signature_sum: S,
+    mask_url: M,
 }
 
-impl Sum2Box {
+impl<'b> Sum2Box<&'b [u8], &'b sign::Signature, &'b [u8]> {
     /// Create a sum2 box.
-    pub fn new(certificate: &[u8], signature_sum: &sign::Signature, mask_url: &[u8]) -> Self {
+    pub fn new(
+        certificate: &'b [u8],
+        signature_sum: &'b sign::Signature,
+        mask_url: &'b [u8],
+    ) -> Self {
         Self {
-            certificate: Vec::from(certificate),
-            signature_sum: signature_sum.clone(),
-            mask_url: Vec::from(mask_url),
+            certificate,
+            signature_sum,
+            mask_url,
         }
     }
 }
 
-impl MessageBox for Sum2Box {
+impl MsgBoxEncr for Sum2Box<&[u8], &sign::Signature, &[u8]> {
     /// Get the length of the serialized sum2 box.
     fn len(&self) -> usize {
-        MESSAGE_LENGTH
-    }
-
-    /// Get the expected length of a serialized sum2 box.
-    fn exp_len(_: Option<usize>) -> usize {
-        MESSAGE_LENGTH
+        1 + 0 + sign::SIGNATUREBYTES + 32 // 97 bytes
     }
 
     /// Serialize the sum2 box to bytes.
     fn serialize(&self) -> Vec<u8> {
         let mut buffer = Sum2BoxBuffer::new(self.len());
         buffer.tag_mut().copy_from_slice([SUM2_TAG; 1].as_ref());
-        buffer.certificate_mut().copy_from_slice(&self.certificate);
+        buffer.certificate_mut().copy_from_slice(self.certificate);
         buffer
             .signature_sum_mut()
-            .copy_from_slice(self.signature_sum.as_ref());
-        buffer.mask_url_mut().copy_from_slice(&self.mask_url);
+            .copy_from_slice((*self.signature_sum).as_ref());
+        buffer.mask_url_mut().copy_from_slice(self.mask_url);
         buffer.bytes
+    }
+}
+
+impl MsgBoxDecr for Sum2Box<Vec<u8>, sign::Signature, Vec<u8>> {
+    /// Get the expected length of a serialized sum2 box.
+    fn exp_len(_: Option<usize>) -> usize {
+        1 + 0 + sign::SIGNATUREBYTES + 32 // 97 bytes
     }
 
     /// Deserialize a sum2 box from bytes. Fails if the `bytes` don't conform to the expected sum2
