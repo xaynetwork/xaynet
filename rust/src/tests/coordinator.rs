@@ -50,7 +50,7 @@ async fn full_cycle_1_round_1_participant() {
     rpc_client
         .mock()
         .expect_select()
-        .returning(|_, _| future::ready(Ok(Ok(()))));
+        .returning(|_, _| future::ready(Ok(())));
 
     let (url, _token) = service_handle.start_training_accepted(id).await;
     assert_eq!(&url, AGGREGATOR_URL);
@@ -63,7 +63,7 @@ async fn full_cycle_1_round_1_participant() {
     rpc_client
         .mock()
         .expect_aggregate()
-        .returning(|_| future::ready(Ok(Ok(()))));
+        .returning(|_| future::ready(Ok(())));
 
     service_handle.end_training(id, true).await;
     loop {

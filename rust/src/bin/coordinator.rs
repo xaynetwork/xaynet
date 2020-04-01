@@ -92,7 +92,7 @@ async fn _main(
     let rpc_server_task_handle = tokio::spawn(rpc_server);
 
     // Start the RPC client
-    let rpc_client = aggregator::rpc::client_connect(rpc.aggregator_address.clone())
+    let rpc_client = aggregator::rpc::Client::connect(rpc.aggregator_address.clone())
         .instrument(trace_span!("rpc_client"))
         .await
         .unwrap();

@@ -11,7 +11,7 @@ use bytes::Bytes;
 use futures::future;
 use tokio::task::JoinHandle;
 
-fn start_service() -> (Client, ServiceHandle, JoinHandle<()>) {
+fn start_service() -> (Client, ServiceHandle<ByteAggregator>, JoinHandle<()>) {
     // Make it easy to debug this test by setting the `TEST_LOGS`
     // environment variable
     enable_logging();
@@ -35,7 +35,10 @@ async fn test_aggregation() {
     assert!(res.is_ok());
 
     let data = Bytes::from_static(b"1111");
-    service_handle.upload(client_1_credentials, data).await;
+    service_handle
+        .upload(client_1_credentials, data)
+        .await
+        .unwrap();
 
     rpc_client
         .mock()
@@ -47,7 +50,10 @@ async fn test_aggregation() {
     assert!(res.is_ok());
 
     let data = Bytes::from_static(b"2222");
-    service_handle.upload(client_2_credentials, data).await;
+    service_handle
+        .upload(client_2_credentials, data)
+        .await
+        .unwrap();
 
     rpc_client
         .mock()

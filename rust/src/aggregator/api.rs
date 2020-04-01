@@ -1,5 +1,5 @@
 use crate::{
-    aggregator::service::ServiceHandle,
+    aggregator::service::{Aggregator, ServiceHandle},
     common::client::{ClientId, Credentials, Token},
 };
 use tokio::net::TcpListener;
@@ -9,7 +9,7 @@ use warp::{
     Filter,
 };
 
-pub async fn serve(bind_address: &str, handle: ServiceHandle) {
+pub async fn serve<A: Aggregator + 'static>(bind_address: &str, handle: ServiceHandle<A>) {
     let handle = warp::any().map(move || handle.clone());
     let parent_span = tracing::Span::current();
 
@@ -17,14 +17,14 @@ pub async fn serve(bind_address: &str, handle: ServiceHandle) {
         .and(warp::path::param::<ClientId>())
         .and(warp::path::param::<Token>())
         .and(handle.clone())
-        .and_then(move |id, token, handle: ServiceHandle| {
+        .and_then(move |id, token, handle: ServiceHandle<A>| {
             let span =
                 trace_span!(parent: parent_span.clone(), "api_download_request", client_id = %id);
             async move {
                 debug!("received download request");
                 match handle.download(Credentials(id, token)).await {
-                    Some(weights) => Ok(Response::builder().body(weights)),
-                    None => Err(warp::reject::not_found()),
+                    Ok(weights) => Ok(Response::builder().body(weights)),
+                    Err(_) => Err(warp::reject::not_found()),
                 }
             }
             .instrument(span)
@@ -44,14 +44,16 @@ pub async fn serve(bind_address: &str, handle: ServiceHandle) {
         .and(warp::path::param::<Token>())
         .and(warp::body::bytes())
         .and(handle.clone())
-        .and_then(move |id, token, weights, handle: ServiceHandle| {
+        .and_then(move |id, token, weights, handle: ServiceHandle<A>| {
             let span =
                 trace_span!(parent: parent_span.clone(), "api_upload_request", client_id = %id);
 
             async move {
                 debug!("received upload request");
-                handle.upload(Credentials(id, token), weights).await;
-                Ok(StatusCode::OK) as Result<_, warp::reject::Rejection>
+                match handle.upload(Credentials(id, token), weights).await {
+                    Ok(()) => Ok(StatusCode::OK),
+                    Err(_) => Err(warp::reject::not_found()),
+                }
             }
             .instrument(span)
         })

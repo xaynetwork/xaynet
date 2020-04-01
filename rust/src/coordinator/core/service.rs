@@ -39,18 +39,12 @@ impl Future for AggregationFuture {
 }
 
 impl AggregationFuture {
-    fn new(rpc_client: aggregator::rpc::Client) -> Self {
-        Self(Box::pin(async move { run_aggregation(rpc_client).await }))
-    }
-}
-
-async fn run_aggregation(mut rpc_client: aggregator::rpc::Client) -> Result<(), ()> {
-    match rpc_client.aggregate(rpc_context()).await {
-        Ok(result) => result.map_err(|()| warn!("aggregator failed to perform aggregation")),
-        Err(e) => {
-            warn!("failed to send aggregation request: io error: {}", e);
-            Err(())
-        }
+    fn new(mut rpc_client: aggregator::rpc::Client) -> Self {
+        Self(Box::pin(async move {
+            rpc_client.aggregate(rpc_context()).await.map_err(|e| {
+                error!(error=%e, "failed to perform aggregation");
+            })
+        }))
     }
 }
 
@@ -213,7 +207,7 @@ where
                     // maybe we should probably return a proper error
                     // instead.
                     match rpc_client.select(rpc_context(), credentials).await {
-                        Ok(Ok(_)) => {
+                        Ok(()) => {
                             if response_tx
                                 .send(StartTrainingResponse::Accept(url, token))
                                 .is_err()
@@ -221,11 +215,8 @@ where
                                 warn!("failed to send response back: channel closed");
                             };
                         }
-                        Ok(Err(_)) => {
-                            warn!("select request failed");
-                        }
                         Err(e) => {
-                            warn!("failed to send start training request: io error: {}", e);
+                            warn!(error=%e, "select request failed");
                         }
                     }
                 });
