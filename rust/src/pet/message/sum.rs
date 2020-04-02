@@ -85,6 +85,7 @@ impl<'b> SumBox<&'b [u8], &'b sign::Signature, &'b box_::PublicKey> {
 }
 
 impl MsgBoxEncr for SumBox<&[u8], &sign::Signature, &box_::PublicKey> {
+    #[allow(clippy::identity_op)] // temporary
     /// Get the length of the serialized sum box.
     fn len(&self) -> usize {
         1 + 0 + sign::SIGNATUREBYTES + box_::PUBLICKEYBYTES // 97 bytes
@@ -121,6 +122,7 @@ impl SumBox<Vec<u8>, sign::Signature, box_::PublicKey> {
 }
 
 impl MsgBoxDecr for SumBox<Vec<u8>, sign::Signature, box_::PublicKey> {
+    #[allow(clippy::identity_op)] // temporary
     /// Get the expected length of a serialized sum box.
     fn exp_len(_: Option<usize>) -> usize {
         1 + 0 + sign::SIGNATUREBYTES + box_::PUBLICKEYBYTES // 97 bytes

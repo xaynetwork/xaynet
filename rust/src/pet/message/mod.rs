@@ -70,6 +70,7 @@ trait MsgBoxBufMut {
     }
 }
 
+#[allow(clippy::len_without_is_empty)]
 /// Encryption of message boxes.
 pub trait MsgBoxEncr {
     /// Get the length of the serialized message box.
@@ -174,6 +175,7 @@ pub struct Message<E, S, M> {
     pub message_box: M,
 }
 
+#[allow(clippy::len_without_is_empty)]
 impl<'m, M: MsgBoxEncr> Message<&'m box_::PublicKey, &'m sign::PublicKey, M> {
     /// Create a message.
     pub fn new(

@@ -179,6 +179,7 @@ impl Coordinator {
         self.dict_sum.insert(*encr_pk, *ephm_pk);
     }
 
+    #[allow(clippy::unit_arg)]
     /// Freeze the sum dictionary.
     fn freeze_dict_sum(&mut self) -> Result<(), PetError> {
         (self.dict_sum.len() >= self.min_sum)
@@ -192,6 +193,7 @@ impl Coordinator {
             .ok_or(PetError::InsufficientParticipants)
     }
 
+    #[allow(clippy::unit_arg)]
     /// Update the seed dictionary.
     fn update_dict_seed(
         &mut self,

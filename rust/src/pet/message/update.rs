@@ -95,6 +95,7 @@ pub struct UpdateBox<C, S, M, D> {
     dict_seed: D,
 }
 
+#[allow(clippy::implicit_hasher)]
 impl<'b> UpdateBox<&'b [u8], &'b sign::Signature, &'b [u8], &'b HashMap<box_::PublicKey, Vec<u8>>> {
     /// Create an update box.
     pub fn new(
@@ -122,7 +123,9 @@ impl<'b> UpdateBox<&'b [u8], &'b sign::Signature, &'b [u8], &'b HashMap<box_::Pu
     }
 }
 
+#[allow(clippy::implicit_hasher)]
 impl MsgBoxEncr for UpdateBox<&[u8], &sign::Signature, &[u8], &HashMap<box_::PublicKey, Vec<u8>>> {
+    #[allow(clippy::identity_op)] // temporary
     /// Get the length of the serialized update box.
     fn len(&self) -> usize {
         // 161 + 112 * len(dict_seed) bytes
@@ -148,6 +151,7 @@ impl MsgBoxEncr for UpdateBox<&[u8], &sign::Signature, &[u8], &HashMap<box_::Pub
     }
 }
 
+#[allow(clippy::implicit_hasher)]
 impl UpdateBox<Vec<u8>, sign::Signature, Vec<u8>, HashMap<box_::PublicKey, Vec<u8>>> {
     /// Deserialize the seed dictionary field of the update box from bytes.
     fn deserialize_dict_seed(bytes: &[u8]) -> HashMap<box_::PublicKey, Vec<u8>> {
@@ -188,9 +192,11 @@ impl UpdateBox<Vec<u8>, sign::Signature, Vec<u8>, HashMap<box_::PublicKey, Vec<u
     }
 }
 
+#[allow(clippy::implicit_hasher)]
 impl MsgBoxDecr
     for UpdateBox<Vec<u8>, sign::Signature, Vec<u8>, HashMap<box_::PublicKey, Vec<u8>>>
 {
+    #[allow(clippy::identity_op)] // temporary
     /// Get the expected length of a serialized update box, where `param` is the length of the
     /// dictionary of sum participants.
     fn exp_len(param: Option<usize>) -> usize {

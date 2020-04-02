@@ -85,6 +85,7 @@ impl<'b> Sum2Box<&'b [u8], &'b sign::Signature, &'b [u8]> {
 }
 
 impl MsgBoxEncr for Sum2Box<&[u8], &sign::Signature, &[u8]> {
+    #[allow(clippy::identity_op)] // temporary
     /// Get the length of the serialized sum2 box.
     fn len(&self) -> usize {
         1 + 0 + sign::SIGNATUREBYTES + 32 // 97 bytes
@@ -121,6 +122,7 @@ impl Sum2Box<Vec<u8>, sign::Signature, Vec<u8>> {
 }
 
 impl MsgBoxDecr for Sum2Box<Vec<u8>, sign::Signature, Vec<u8>> {
+    #[allow(clippy::identity_op)] // temporary
     /// Get the expected length of a serialized sum2 box.
     fn exp_len(_: Option<usize>) -> usize {
         1 + 0 + sign::SIGNATUREBYTES + 32 // 97 bytes
