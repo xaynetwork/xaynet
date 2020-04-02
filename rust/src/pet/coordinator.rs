@@ -188,7 +188,6 @@ impl Coordinator {
                     .keys()
                     .map(|pk| (*pk, HashMap::new()))
                     .collect();
-                ()
             })
             .ok_or(PetError::InsufficientParticipants)
     }
@@ -208,7 +207,6 @@ impl Coordinator {
                     .unwrap()
                     .insert(*encr_pk, seed.clone());
             });
-            ()
         })
         .ok_or(PetError::InvalidMessage)
     }
