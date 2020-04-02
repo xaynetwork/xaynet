@@ -46,7 +46,7 @@ paths:
         200:
           description: OK
         400:
-          description: PET Error
+          description: PET protocol error
   /broadcast/sum:
     get:
       tags:
@@ -62,8 +62,8 @@ paths:
               example:
                 part_pk_1: part_pk_fresh_1
                 part_pk_2: part_pk_fresh_2
-        400:
-          description: PET Error
+        204:
+          description: If the coordinator can't yet provide the content, the response body will be empty.
   /participant/update:
     post:
       tags:
@@ -79,7 +79,7 @@ paths:
         200:
           description: OK
         400:
-          description: PET Error
+          description: PET protocol error
   /broadcast/seeds/{encr_pk}:
     get:
       tags:
@@ -104,8 +104,8 @@ paths:
                 $ref: "#/components/schemas/PublishEncryptedSeedsMessage"
               example:
                 part_pk_1: [seed_1, seed_2]
-        400:
-          description: PET Error
+        204:
+          description: If the coordinator can't yet provide the content, the response body will be empty.
   /participant/sum2:
     post:
       tags:
@@ -121,7 +121,7 @@ paths:
         200:
           description: OK
         400:
-          description: PET Error
+          description: PET protocol error
   /global_model:
     get:
       tags:
@@ -181,7 +181,7 @@ components:
               type: string
               format: byte
         mask_seed:
-          description: "The encrypted seed."
+          description: The encrypted seed.
           type: string
           format: byte
           minLength: 32
@@ -221,19 +221,19 @@ components:
           minLength: 32
           maxLength: 32
         sum:
-          description: The sum threshold of the current round.
+          description: The expected fraction of participants selected for computing the unmasking sum.
           type: number
           format: float
           minimum: 0
           maximum: 1
         update:
-          description: The update threshold of the current round.
+          description: The expected fraction of participants selected for submitting an updated local model for aggregation.
           type: number
           format: float
           minimum: 0
           maximum: 1
         seed:
-          description: The seed of the current round.
+          description: Is a random block of bits used for the selection of participants.
           type: string
           format: byte
           minLength: 32
@@ -245,15 +245,11 @@ components:
           nullable: true
     PublishSumParticipantsMessage:
       type: object
-      nullable: true
-      description: The will be null if the coordinator is not yet ready.
       additionalProperties:
         type: string
         format: byte
     PublishEncryptedSeedsMessage:
       type: object
-      nullable: true
-      description: The will be null if the coordinator is not yet ready.
       additionalProperties:
         type: array
         items:
