@@ -1,48 +1,28 @@
 import argparse
+from io import BytesIO
 import logging
-import pickle
 import threading
 
 # pylint: disable=import-error
 import numpy as np
-from xain_sdk import (
-    ParticipantABC,
-    TrainingInputABC,
-    TrainingResultABC,
-    configure_logging,
-    run_participant,
-)
+from xain_sdk import ParticipantABC, configure_logging, run_participant
 
 LOG = logging.getLogger(__name__)
 
 
-class TrainingInput(TrainingInputABC):
-    def is_initialization_round(self) -> bool:
-        return False
-
-
-class TrainingResult(TrainingResultABC):
-    def __init__(self, data: bytes):
-        self.data = data
-
-    def tobytes(self) -> bytes:
-        return self.data
-
-
 class Participant(ParticipantABC):
     def __init__(self, model: bytes) -> None:
-        self.training_input = TrainingInput()
-        self.training_result = TrainingResult(model)
+        self.model = model
         super(Participant, self).__init__()
 
-    def deserialize_training_input(self, data: bytes) -> TrainingInput:
-        return self.training_input
+    def deserialize_training_input(self, data: bytes) -> bytes:
+        return data
 
-    def train_round(self, training_input: TrainingInput) -> TrainingResult:
-        return self.training_result
+    def serialize_training_result(self, _result: bytes) -> bytes:
+        return self.model
 
-    def init_weights(self) -> TrainingResult:
-        return self.training_result
+    def train_round(self, training_input: bytes) -> bytes:
+        return self.model
 
 
 def participant_worker(participant, url, heartbeat_period, exit_event):
@@ -68,14 +48,19 @@ ARRAY_LENGTHS_BY_SIZE = {
 }
 
 
-def generate_training_data(size) -> bytes:
+def generate_training_result(size: str) -> bytes:
     """Generate the data sent to the aggregator after training"""
+    # Create the array
     array_length = ARRAY_LENGTHS_BY_SIZE[size]
     weights = np.ones((array_length,), dtype=np.float32)
-    return int(0).to_bytes(4, byteorder="big") + pickle.dumps(weights)
+    # Serialize the array
+    writer = BytesIO()
+    writer.write(int(0).to_bytes(4, byteorder="big"))
+    np.save(writer, weights, allow_pickle=False)
+    return writer.getvalue()
 
 
-def human_readable_size(size):
+def human_readable_size(size: int) -> str:
     if size < 1024:
         return f"{size}B"
     if size < 1024 * 1024:
@@ -86,20 +71,15 @@ def human_readable_size(size):
 
 
 def main(
-    size: int,
-    number_of_participants: int,
-    coordinator_url: str,
-    heartbeat_period: int,
+    size: str, number_of_participants: int, coordinator_url: str, heartbeat_period: int,
 ) -> None:
     """Entry point to start a participant."""
-    training_result_data = generate_training_data(size)
+    training_result_data = generate_training_result(size)
     LOG.info("training data size: %s", human_readable_size(len(training_result_data)))
 
     if number_of_participants < 2:
         participant = Participant(training_result_data)
-        run_participant(
-            participant, coordinator_url, heartbeat_period=heartbeat_period
-        )
+        run_participant(participant, coordinator_url, heartbeat_period=heartbeat_period)
         return
 
     exit_event = threading.Event()
@@ -114,7 +94,7 @@ def main(
         thread.start()
         threads.append(thread)
 
-    def join_threads():
+    def join_threads() -> None:
         for thread in threads:
             thread.join()
         LOG.info("all participants finished")
@@ -152,10 +132,7 @@ if __name__ == "__main__":
         help="Size of the model to send to the aggregator",
     )
     parser.add_argument(
-        "--heartbeat-period",
-        type=float,
-        default=1,
-        help="Heartbeat period in seconds",
+        "--heartbeat-period", type=float, default=1, help="Heartbeat period in seconds",
     )
     parser.add_argument(
         "--verbose", action="store_true", help="Log the HTTP requests",

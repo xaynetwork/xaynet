@@ -1,5 +1,5 @@
+from io import BytesIO
 import logging
-import pickle
 from typing import List, Optional
 
 import numpy as np
@@ -10,7 +10,7 @@ LOG = logging.getLogger("PythonWeightedAverageAggregator")
 
 
 class Aggregator(AggregatorABC):
-    def __init__(self):
+    def __init__(self) -> None:
         logging.basicConfig(level=logging.INFO)
         LOG.info("initializing aggregator")
         self.global_weights: np.ndarray = None
@@ -21,7 +21,7 @@ class Aggregator(AggregatorABC):
         LOG.info("adding weights (len = %d)", len(data))
 
         number_of_samples = int.from_bytes(data[:4], byteorder="big")
-        weights = pickle.loads(data[4:])
+        weights = np.load(BytesIO(data[4:]), allow_pickle=False)
 
         self.aggregation_data.append(number_of_samples)
         self.weights.append(weights)
@@ -47,6 +47,10 @@ class Aggregator(AggregatorABC):
             )
         ]
         self.global_weights = np.sum(scaled_model_weights, axis=0)
+        # If global_weights is a scalar, make it a one dimensional
+        # array
+        if self.global_weights.shape == ():
+            self.global_weights = np.array([self.global_weights])
         self.weights = []
         self.aggregation_data = []
         LOG.info("finished aggregation")
@@ -57,11 +61,18 @@ class Aggregator(AggregatorABC):
         if global_weights is None:
             self.global_weights = None
         else:
-            self.global_weights = pickle.loads(global_weights)
+            reader = BytesIO(global_weights)
+            self.global_weights = np.load(reader, allow_pickle=False)
+
         self.weights = []
         self.aggregation_data = []
 
     def get_global_weights(self) -> bytes:
         LOG.info("returning global weights")
-        data = pickle.dumps(self.global_weights)
-        return data
+        if self.global_weights is None:
+            return b""
+        writer = BytesIO()
+        np.save(writer, self.global_weights, allow_pickle=False)
+        # We cannot use getvalue here because it copies the buffer.
+        # getbuffer will not as long as the data is not modified.
+        return writer.getbuffer()[:]

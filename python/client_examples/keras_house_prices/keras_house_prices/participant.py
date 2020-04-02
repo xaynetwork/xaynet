@@ -1,52 +1,20 @@
 """Tensorflow Keras regression test case"""
 
 import argparse
+from io import BytesIO
 import logging
 import os
-import pickle
 import random
-from typing import List, Tuple, TypeVar
+from typing import List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 from tabulate import tabulate
-from xain_sdk import (
-    ParticipantABC,
-    TrainingInputABC,
-    TrainingResultABC,
-    configure_logging,
-    run_participant,
-)
+from xain_sdk import ParticipantABC, configure_logging, run_participant
 
 from keras_house_prices.regressor import Regressor
 
 LOG = logging.getLogger(__name__)
-
-# pylint: disable=invalid-name
-T = TypeVar("T", bound="TrainingInput")
-
-
-class TrainingInput(TrainingInputABC):
-    def __init__(self, weights: np.ndarray):
-        self.weights = weights
-
-    @staticmethod
-    def frombytes(data: bytes) -> T:
-        weights = pickle.loads(data)
-        return TrainingInput(weights)
-
-    def is_initialization_round(self) -> bool:
-        return self.weights is None
-
-
-class TrainingResult(TrainingResultABC):
-    def __init__(self, weights: np.ndarray, number_of_samples: int):
-        self.weights = weights
-        self.number_of_samples = number_of_samples
-
-    def tobytes(self) -> bytes:
-        data = self.number_of_samples.to_bytes(4, byteorder="big")
-        return data + pickle.dumps(self.weights)
 
 
 class Participant(  # pylint: disable=too-few-public-methods,too-many-instance-attributes
@@ -60,71 +28,49 @@ class Participant(  # pylint: disable=too-few-public-methods,too-many-instance-a
 
     Attributes:
 
-        model: The model to be trained.
+        regressor: The model to be trained.
         trainset_x: A dataset for training.
         trainset_y: Labels for training.
         testset_x: A dataset for test.
         testset_y: Labels for test.
         number_samples: The number of samples in the training dataset.
-        flattened: flattened vector of models weights
-        shape: CNN model architecture
-        indices: indices of split points in the flattened vector
         performance_metrics: metrics collected after each round of training
 
     """
 
     def __init__(self, dataset_dir: str) -> None:
-        """Initialize the custom participant.
+        """Initialize a custom participant.
+        """
+        super(Participant, self).__init__()
+        self.load_random_dataset(dataset_dir)
+        self.regressor = Regressor(len(self.trainset_x.columns))
+        self.performance_metrics: List[Tuple[float, float]] = []
 
-        The model and the datasets are defined here only for
-        convenience, they might as well be loaded in the
-        ``train_round()`` method on the fly. Due to the nature of this
-        example, the model is a simple dense neural network and the
-        datasets are randomly generated.
+    def load_random_dataset(self, dataset_dir: str) -> None:
+        """Load a random dataset from the data directory
 
         """
-
-        super(Participant, self).__init__()
-        # define or load a model to be trained
         i = random.randrange(0, 10, 1)
 
         LOG.info("Train on sample number %d", i)
-        trainset_filename = f"data_part_{i}.csv"
-        testset_filename = "test.csv"
-        trainset_file_path = os.path.join(dataset_dir, "split_data", trainset_filename)
-        testset_file_path = os.path.join(dataset_dir, testset_filename)
+        trainset_file_path = os.path.join(
+            dataset_dir, "split_data", f"data_part_{i}.csv"
+        )
 
         trainset = pd.read_csv(trainset_file_path, index_col=None)
-        testset = pd.read_csv(testset_file_path, index_col=None)
         self.trainset_x = trainset.drop("Y", axis=1)
         self.trainset_y = trainset["Y"]
-        self.testset_x = testset.drop("Y", axis=1)
-        self.testset_x = self.testset_x.drop(self.testset_x.columns[0], axis=1)
+        self.number_of_samples = len(trainset)
+
+        testset_file_path = os.path.join(dataset_dir, "test.csv")
+        testset = pd.read_csv(testset_file_path, index_col=None)
+        testset_x = testset.drop("Y", axis=1)
+        self.testset_x: pd.DataFrame = testset_x.drop(testset_x.columns[0], axis=1)
         self.testset_y = testset["Y"]
-        self.model = Regressor(len(self.trainset_x.columns))
-        self.shapes: List[Tuple[int, ...]] = self.get_tensorflow_shapes()
-        self.flattened: np.ndarray = self.get_tensorflow_weights()
-        self.number_samples = len(trainset)
-        self.performance_metrics: List[Tuple[float, float]] = []
 
-    def init_weights(self) -> TrainingResult:
-        """Initialize the weights of a model.
-
-        The model weights are freshly initialized according to the
-        participant's model definition and are returned without
-        training.
-
-        Returns:
-
-            The newly initialized model weights.
-
-        """
-
-        self.model = Regressor(len(self.trainset_x.columns))
-        self.flattened = self.get_tensorflow_weights()
-        return TrainingResult(self.flattened, 0)
-
-    def train_round(self, training_input: TrainingInput) -> TrainingResult:
+    def train_round(
+        self, training_input: Optional[np.ndarray]
+    ) -> Tuple[np.ndarray, int]:
         """Train a model in a federated learning round.
 
         A model is given in terms of its weights and the model is
@@ -134,54 +80,51 @@ class Participant(  # pylint: disable=too-few-public-methods,too-many-instance-a
 
         Args:
 
-            training_input: The weights of the model to be trained.
+            weights: The weights of the model to be trained.
 
         Returns:
 
             The updated model weights and the number of training samples.
 
         """
+        if training_input is None:
+            # This is the first round: the coordinator doesn't have a
+            # global model yet, so we need to initialize the weights
+            self.regressor = Regressor(len(self.trainset_x.columns))
+            return (self.regressor.get_weights(), 0)
 
-        # FIXME: what should this be???
+        weights = training_input
+        # FIXME: what should this be?
         epochs = 10
-        self.set_tensorflow_weights(weights=training_input.weights, shapes=self.shapes)
-        self.model.train_n_epochs(epochs, self.trainset_x, self.trainset_y)
+        self.regressor.set_weights(weights)
+        self.regressor.train_n_epochs(epochs, self.trainset_x, self.trainset_y)
 
         loss: float
         r_squared: float
-        loss, r_squared = self.model.evaluate_on_test(self.testset_x, self.testset_y)
+        loss, r_squared = self.regressor.evaluate_on_test(
+            self.testset_x, self.testset_y
+        )
         LOG.info("loss = %f, R² = %f", loss, r_squared)
         self.performance_metrics.append((loss, r_squared))
 
-        self.flattened = self.get_tensorflow_weights()
-        return TrainingResult(self.flattened, self.number_samples)
+        return (self.regressor.get_weights(), self.number_of_samples)
 
-    def deserialize_training_input(self, data: bytes) -> TrainingInput:
+    def deserialize_training_input(self, data: bytes) -> Optional[np.ndarray]:
         if not data:
-            return TrainingInput(None)
-        return TrainingInput.frombytes(data)
+            return None
 
-    def get_tensorflow_shapes(self) -> List[Tuple[int, ...]]:
-        return [weight.shape for weight in self.model.model.get_weights()]
+        reader = BytesIO(data)
+        return np.load(reader, allow_pickle=False)
 
-    def get_tensorflow_weights(self) -> np.ndarray:
-        return np.concatenate(self.model.model.get_weights(), axis=None)
+    def serialize_training_result(
+        self, training_result: Tuple[np.ndarray, int]
+    ) -> bytes:
+        (weights, number_of_samples) = training_result
 
-    def set_tensorflow_weights(
-        self, weights: np.ndarray, shapes: List[Tuple[int, ...]]
-    ) -> None:
-        # expand the flat weights
-        indices: np.ndarray = np.cumsum([np.prod(shape) for shape in shapes])
-        tensorflow_weights: List[np.ndarray] = np.split(
-            weights, indices_or_sections=indices
-        )
-        tensorflow_weights = [
-            np.reshape(weight, newshape=shape)
-            for weight, shape in zip(tensorflow_weights, shapes)
-        ]
-
-        # apply the weights to the tensorflow model
-        self.model.model.set_weights(tensorflow_weights)
+        writer = BytesIO()
+        writer.write(number_of_samples.to_bytes(4, byteorder="big"))
+        np.save(writer, weights, allow_pickle=False)
+        return writer.getbuffer()[:]
 
 
 def main() -> None:
@@ -204,10 +147,7 @@ def main() -> None:
         "--coordinator-url", type=str, required=True, help="URL of the coordinator",
     )
     parser.add_argument(
-        "--heartbeat-period",
-        type=float,
-        default=1,
-        help="Heartbeat period in seconds",
+        "--heartbeat-period", type=float, default=1, help="Heartbeat period in seconds",
     )
     args = parser.parse_args()
 
@@ -219,7 +159,7 @@ def main() -> None:
     )
 
     if args.verbose:
-        configure_logging( log_http_requests=True)
+        configure_logging(log_http_requests=True)
     else:
         configure_logging(log_http_requests=False)
 
