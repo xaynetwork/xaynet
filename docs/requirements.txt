@@ -1,0 +1,5 @@
+    Sphinx~=2.2
+    m2r~=0.2
+    sphinxcontrib-mermaid~=0.3
+    sphinxcontrib-openapi~=0.6.0
+    toml~=0.10.0

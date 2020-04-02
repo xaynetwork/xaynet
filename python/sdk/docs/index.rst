@@ -19,4 +19,5 @@ Resources:
 
    self
    tutorial
+   api/index
    _api_reference/index

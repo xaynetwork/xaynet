@@ -87,7 +87,7 @@ docker logs docker_aggregator_1
 
 ### Running the python examples
 
-The examples are under [`./python/client_examples`](./python/client_examples).
+The examples are under [./python/client_examples](./python/client_examples).
 
 #### `dummy.py`
 
@@ -106,7 +106,7 @@ python dummy.py \
 #### `keras_house_prices`
 
 **All the commands in this section are run from the
-`python/client_examples/keras_house_prices` directory.**
+python/client_examples/keras_house_prices directory.**
 
 1. Install the SDK and the example:
 
@@ -152,7 +152,7 @@ participants:
 
 ### py_aggregator.rs tests are failing on macOS
 
-**Error: `ModuleNotFoundError: No module named 'xain_aggregators'`**
+**Error: ModuleNotFoundError: No module named 'xain_aggregators'**
 
 __Solution:__
 
