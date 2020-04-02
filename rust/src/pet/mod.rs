@@ -7,4 +7,5 @@ pub mod utils;
 pub enum PetError {
     InsufficientSystemEntropy,
     InvalidMessage,
+    InsufficientParticipants,
 }

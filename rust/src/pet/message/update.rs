@@ -115,12 +115,10 @@ impl<'b> UpdateBox<&'b [u8], &'b sign::Signature, &'b [u8], &'b HashMap<box_::Pu
 
     /// Serialize the seed dictionary field of the update box to bytes.
     fn serialize_dict_seed(&self) -> Vec<u8> {
-        let mut bytes: Vec<u8> = Vec::new();
-        for (key, seed) in self.dict_seed.iter() {
-            bytes.extend_from_slice(key.as_ref());
-            bytes.extend_from_slice(seed);
-        }
-        bytes
+        self.dict_seed
+            .iter()
+            .flat_map(|(pk, seed)| [pk.as_ref(), seed].concat())
+            .collect::<Vec<u8>>()
     }
 }
 
@@ -138,10 +136,10 @@ impl MsgBoxEncr for UpdateBox<&[u8], &sign::Signature, &[u8], &HashMap<box_::Pub
         buffer.certificate_mut().copy_from_slice(self.certificate);
         buffer
             .signature_sum_mut()
-            .copy_from_slice((*self.signature_sum).as_ref());
+            .copy_from_slice(self.signature_sum.as_ref());
         buffer
             .signature_update_mut()
-            .copy_from_slice((*self.signature_update).as_ref());
+            .copy_from_slice(self.signature_update.as_ref());
         buffer.model_url_mut().copy_from_slice(self.model_url);
         buffer
             .dict_seed_mut()
@@ -153,14 +151,40 @@ impl MsgBoxEncr for UpdateBox<&[u8], &sign::Signature, &[u8], &HashMap<box_::Pub
 impl UpdateBox<Vec<u8>, sign::Signature, Vec<u8>, HashMap<box_::PublicKey, Vec<u8>>> {
     /// Deserialize the seed dictionary field of the update box from bytes.
     fn deserialize_dict_seed(bytes: &[u8]) -> HashMap<box_::PublicKey, Vec<u8>> {
-        let mut dict_seed: HashMap<box_::PublicKey, Vec<u8>> = HashMap::new();
-        for idx in (0..bytes.len()).step_by(DICT_SEED_ITEM_LENGTH) {
-            dict_seed.insert(
-                box_::PublicKey::from_slice(&bytes[idx..idx + DICT_SEED_KEY_LENGTH]).unwrap(),
-                bytes[idx + DICT_SEED_KEY_LENGTH..idx + DICT_SEED_ITEM_LENGTH].to_vec(),
-            );
-        }
-        dict_seed
+        bytes
+            .chunks_exact(DICT_SEED_ITEM_LENGTH)
+            .map(|chunk| {
+                (
+                    box_::PublicKey::from_slice(&chunk[0..DICT_SEED_KEY_LENGTH]).unwrap(),
+                    chunk[DICT_SEED_KEY_LENGTH..DICT_SEED_ITEM_LENGTH].to_vec(),
+                )
+            })
+            .collect()
+    }
+
+    /// Get a reference to the certificate.
+    pub fn certificate(&self) -> &[u8] {
+        &self.certificate
+    }
+
+    /// Get a reference to the sum signature.
+    pub fn signature_sum(&self) -> &sign::Signature {
+        &self.signature_sum
+    }
+
+    /// Get a reference to the update signature.
+    pub fn signature_update(&self) -> &sign::Signature {
+        &self.signature_update
+    }
+
+    /// Get a reference to the model url.
+    pub fn model_url(&self) -> &[u8] {
+        &self.model_url
+    }
+
+    /// Get a reference to the seed dictionary.
+    pub fn dict_seed(&self) -> &HashMap<box_::PublicKey, Vec<u8>> {
+        &self.dict_seed
     }
 }
 

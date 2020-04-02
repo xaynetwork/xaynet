@@ -239,6 +239,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b3a71ab494c0b5b860bdc8407ae08978052417070c2ced38573a9157ad75b8ac"
 
 [[package]]
+name = "counter"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d84b66ce02c964fa8047286289b36797ce48a52a44034e013ce3e5219b6cb360"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
 name = "crc32fast"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2535,6 +2544,7 @@ dependencies = [
  "bytes",
  "clap",
  "config",
+ "counter",
  "derive_more",
  "futures",
  "influxdb",

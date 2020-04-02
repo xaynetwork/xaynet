@@ -90,12 +90,8 @@ impl<'b> RoundBox<&'b box_::PublicKey, &'b sign::PublicKey> {
     fn serialize(&self) -> Vec<u8> {
         let mut buffer = RoundBoxBuffer::new(Self::len());
         buffer.tag_mut().copy_from_slice([ROUND_TAG; 1].as_ref());
-        buffer
-            .encr_pk_mut()
-            .copy_from_slice((*self.encr_pk).as_ref());
-        buffer
-            .sign_pk_mut()
-            .copy_from_slice((*self.sign_pk).as_ref());
+        buffer.encr_pk_mut().copy_from_slice(self.encr_pk.as_ref());
+        buffer.sign_pk_mut().copy_from_slice(self.sign_pk.as_ref());
         buffer.bytes
     }
 
@@ -132,5 +128,15 @@ impl RoundBox<box_::PublicKey, sign::PublicKey> {
     ) -> Result<Self, PetError> {
         let bytes = sealedbox::open(bytes, pk, sk).or(Err(PetError::InvalidMessage))?;
         Self::deserialize(&bytes)
+    }
+
+    /// Get a reference to the public encryption key.
+    pub fn encr_pk(&self) -> &box_::PublicKey {
+        &self.encr_pk
+    }
+
+    /// Get a reference to the public signature key.
+    pub fn sign_pk(&self) -> &sign::PublicKey {
+        &self.sign_pk
     }
 }

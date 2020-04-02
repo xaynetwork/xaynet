@@ -5,11 +5,11 @@ pub mod sum;
 pub mod sum2;
 pub mod update;
 
-use std::ops::Range;
+use std::{collections::HashMap, ops::Range};
 
 use sodiumoxide::crypto::{box_, sealedbox, sign};
 
-use self::round::RoundBox;
+use self::{round::RoundBox, sum::SumBox, sum2::Sum2Box, update::UpdateBox};
 use crate::pet::PetError;
 
 // box tags
@@ -170,8 +170,8 @@ impl<B: AsMut<[u8]>> MessageBuffer<B> {
 
 /// Encryption and decryption of messages.
 pub struct Message<E, S, M> {
-    round_box: RoundBox<E, S>,
-    message_box: M,
+    pub round_box: RoundBox<E, S>,
+    pub message_box: M,
 }
 
 impl<'m, M: MsgBoxEncr> Message<&'m box_::PublicKey, &'m sign::PublicKey, M> {
@@ -216,7 +216,7 @@ impl<'m, M: MsgBoxEncr> Message<&'m box_::PublicKey, &'m sign::PublicKey, M> {
 impl<M: MsgBoxDecr> Message<box_::PublicKey, sign::PublicKey, M> {
     /// Get the expected length of a serialized encrypted message. Optional dependence on an
     /// external parameter.
-    pub fn exp_len(&self, param: Option<usize>) -> usize {
+    pub fn exp_len(param: Option<usize>) -> usize {
         // 113 / 177 + 112 * len(dict_sum) / 113 bytes for sum/update/sum2
         sealedbox::SEALBYTES
             + RoundBox::exp_len()
@@ -255,5 +255,87 @@ impl<M: MsgBoxDecr> Message<box_::PublicKey, sign::PublicKey, M> {
             round_box,
             message_box,
         })
+    }
+
+    /// Get a reference to the public encryption key.
+    pub fn encr_pk(&self) -> &box_::PublicKey {
+        self.round_box.encr_pk()
+    }
+
+    /// Get a reference to the public signature key.
+    pub fn sign_pk(&self) -> &sign::PublicKey {
+        self.round_box.sign_pk()
+    }
+}
+
+// alias for message decryption
+pub type SumMessage =
+    Message<box_::PublicKey, sign::PublicKey, SumBox<Vec<u8>, sign::Signature, box_::PublicKey>>;
+pub type UpdateMessage = Message<
+    box_::PublicKey,
+    sign::PublicKey,
+    UpdateBox<Vec<u8>, sign::Signature, Vec<u8>, HashMap<box_::PublicKey, Vec<u8>>>,
+>;
+pub type Sum2Message =
+    Message<box_::PublicKey, sign::PublicKey, Sum2Box<Vec<u8>, sign::Signature, Vec<u8>>>;
+
+impl SumMessage {
+    /// Get a reference to the certificate.
+    pub fn certificate(&self) -> &[u8] {
+        self.message_box.certificate()
+    }
+
+    /// Get a reference to the sum signature.
+    pub fn signature_sum(&self) -> &sign::Signature {
+        self.message_box.signature_sum()
+    }
+
+    /// Get a reference to the public ephemeral key.
+    pub fn ephm_pk(&self) -> &box_::PublicKey {
+        self.message_box.ephm_pk()
+    }
+}
+
+impl UpdateMessage {
+    /// Get a reference to the certificate.
+    pub fn certificate(&self) -> &[u8] {
+        self.message_box.certificate()
+    }
+
+    /// Get a reference to the sum signature.
+    pub fn signature_sum(&self) -> &sign::Signature {
+        self.message_box.signature_sum()
+    }
+
+    /// Get a reference to the update signature.
+    pub fn signature_update(&self) -> &sign::Signature {
+        self.message_box.signature_update()
+    }
+
+    /// Get a reference to the model url.
+    pub fn model_url(&self) -> &[u8] {
+        self.message_box.model_url()
+    }
+
+    /// Get a reference to the seed dictionary.
+    pub fn dict_seed(&self) -> &HashMap<box_::PublicKey, Vec<u8>> {
+        self.message_box.dict_seed()
+    }
+}
+
+impl Sum2Message {
+    /// Get a reference to the certificate.
+    pub fn certificate(&self) -> &[u8] {
+        self.message_box.certificate()
+    }
+
+    /// Get a reference to the sum signature.
+    pub fn signature_sum(&self) -> &sign::Signature {
+        self.message_box.signature_sum()
+    }
+
+    /// Get a reference to the mask url.
+    pub fn mask_url(&self) -> &[u8] {
+        self.message_box.mask_url()
     }
 }

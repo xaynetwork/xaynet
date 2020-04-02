@@ -103,6 +103,23 @@ impl MsgBoxEncr for SumBox<&[u8], &sign::Signature, &box_::PublicKey> {
     }
 }
 
+impl SumBox<Vec<u8>, sign::Signature, box_::PublicKey> {
+    /// Get a reference to the certificate.
+    pub fn certificate(&self) -> &[u8] {
+        &self.certificate
+    }
+
+    /// Get a reference to the sum signature.
+    pub fn signature_sum(&self) -> &sign::Signature {
+        &self.signature_sum
+    }
+
+    /// Get a reference to the public ephemeral key.
+    pub fn ephm_pk(&self) -> &box_::PublicKey {
+        &self.ephm_pk
+    }
+}
+
 impl MsgBoxDecr for SumBox<Vec<u8>, sign::Signature, box_::PublicKey> {
     /// Get the expected length of a serialized sum box.
     fn exp_len(_: Option<usize>) -> usize {

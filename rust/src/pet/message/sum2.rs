@@ -97,9 +97,26 @@ impl MsgBoxEncr for Sum2Box<&[u8], &sign::Signature, &[u8]> {
         buffer.certificate_mut().copy_from_slice(self.certificate);
         buffer
             .signature_sum_mut()
-            .copy_from_slice((*self.signature_sum).as_ref());
+            .copy_from_slice(self.signature_sum.as_ref());
         buffer.mask_url_mut().copy_from_slice(self.mask_url);
         buffer.bytes
+    }
+}
+
+impl Sum2Box<Vec<u8>, sign::Signature, Vec<u8>> {
+    /// Get a reference to the certificate.
+    pub fn certificate(&self) -> &[u8] {
+        &self.certificate
+    }
+
+    /// Get a reference to the sum signature.
+    pub fn signature_sum(&self) -> &sign::Signature {
+        &self.signature_sum
+    }
+
+    /// Get a reference to the mask url.
+    pub fn mask_url(&self) -> &[u8] {
+        &self.mask_url
     }
 }
 
