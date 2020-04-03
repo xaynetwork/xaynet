@@ -195,8 +195,8 @@ mod tests {
         // bytes
         let buf = RoundBoxBuffer::from(&bytes, 65).unwrap();
         let mut buf_mut = RoundBoxBuffer::from(&mut bytes_mut, 65).unwrap();
-        assert_eq!(buf.bytes(), &bytes_[0..65]);
-        assert_eq!(buf_mut.bytes_mut(), &mut bytes_mut_[0..65]);
+        assert_eq!(buf.bytes(), &bytes_[..]);
+        assert_eq!(buf_mut.bytes_mut(), &mut bytes_mut_[..]);
 
         // tag
         assert_eq!(buf.tag(), &bytes_[0..1]);
@@ -252,10 +252,7 @@ mod tests {
             PetError::InvalidMessage
         );
         assert_eq!(
-            RoundBox::deserialize(
-                &[[0_u8; 1].as_ref(), encr_pk.as_ref(), sign_pk.as_ref()].concat()
-            )
-            .unwrap_err(),
+            RoundBox::deserialize(&vec![0_u8; 65]).unwrap_err(),
             PetError::InvalidMessage
         );
 

@@ -165,20 +165,21 @@ mod tests {
         assert_eq!(SumBoxBuffer::new(10).bytes, vec![0_u8; 10]);
 
         // from
-        let bytes = randombytes(97);
+        let len = 97;
+        let bytes = randombytes(len);
         let bytes_ = bytes.clone();
         let mut bytes_mut = bytes.clone();
         let mut bytes_mut_ = bytes.clone();
         assert_eq!(
-            SumBoxBuffer::from(bytes.clone(), 97).unwrap().bytes,
+            SumBoxBuffer::from(bytes.clone(), len).unwrap().bytes,
             bytes.clone()
         );
         assert_eq!(
-            SumBoxBuffer::from(&bytes, 97).unwrap().bytes as *const Vec<u8>,
+            SumBoxBuffer::from(&bytes, len).unwrap().bytes as *const Vec<u8>,
             &bytes as *const Vec<u8>
         );
         assert_eq!(
-            SumBoxBuffer::from(&mut bytes_mut, 97).unwrap().bytes as *mut Vec<u8>,
+            SumBoxBuffer::from(&mut bytes_mut, len).unwrap().bytes as *mut Vec<u8>,
             &mut bytes_mut as *mut Vec<u8>
         );
         assert_eq!(
@@ -187,10 +188,10 @@ mod tests {
         );
 
         // bytes
-        let buf = SumBoxBuffer::from(&bytes, 97).unwrap();
-        let mut buf_mut = SumBoxBuffer::from(&mut bytes_mut, 97).unwrap();
-        assert_eq!(buf.bytes(), &bytes_[0..97]);
-        assert_eq!(buf_mut.bytes_mut(), &mut bytes_mut_[0..97]);
+        let buf = SumBoxBuffer::from(&bytes, len).unwrap();
+        let mut buf_mut = SumBoxBuffer::from(&mut bytes_mut, len).unwrap();
+        assert_eq!(buf.bytes(), &bytes_[..]);
+        assert_eq!(buf_mut.bytes_mut(), &mut bytes_mut_[..]);
 
         // tag
         assert_eq!(buf.tag(), &bytes_[0..1]);
@@ -215,7 +216,7 @@ mod tests {
         let certificate = Vec::<u8>::new();
         let signature_sum = &sign::Signature::from_slice(&randombytes(64)).unwrap();
         let ephm_pk = &box_::PublicKey::from_slice(&randombytes(32)).unwrap();
-        let sbox = SumBox::new(certificate.as_slice(), signature_sum, ephm_pk);
+        let sbox = SumBox::new(&certificate, signature_sum, ephm_pk);
         assert_eq!(sbox.certificate, certificate.as_slice());
         assert_eq!(
             sbox.signature_sum as *const sign::Signature,
@@ -245,7 +246,8 @@ mod tests {
     #[test]
     fn test_sumbox_val() {
         // exp len
-        assert_eq!(SumBox::exp_len(None), 97);
+        let len = 97;
+        assert_eq!(SumBox::exp_len(None), len);
 
         // deserialize
         let certificate = Vec::<u8>::new();
@@ -263,23 +265,13 @@ mod tests {
             signature_sum,
             ephm_pk,
         };
-        assert_eq!(SumBox::deserialize(&bytes, 97).unwrap(), sbox);
+        assert_eq!(SumBox::deserialize(&bytes, len).unwrap(), sbox);
         assert_eq!(
-            SumBox::deserialize(&vec![0_u8; 10], 97).unwrap_err(),
+            SumBox::deserialize(&vec![0_u8; 10], len).unwrap_err(),
             PetError::InvalidMessage
         );
         assert_eq!(
-            SumBox::deserialize(
-                &[
-                    [0_u8; 1].as_ref(),
-                    certificate.as_slice(),
-                    signature_sum.as_ref(),
-                    ephm_pk.as_ref()
-                ]
-                .concat(),
-                97
-            )
-            .unwrap_err(),
+            SumBox::deserialize(&vec![0_u8; len], len).unwrap_err(),
             PetError::InvalidMessage
         );
 
@@ -294,7 +286,7 @@ mod tests {
     }
 
     #[test]
-    fn test_roundbox() {
+    fn test_sumbox() {
         let certificate = Vec::<u8>::new();
         let signature_sum = sign::Signature::from_slice(&randombytes(64)).unwrap();
         let ephm_pk = box_::PublicKey::from_slice(&randombytes(32)).unwrap();
