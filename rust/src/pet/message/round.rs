@@ -177,19 +177,19 @@ mod tests {
         let mut bytes_mut_ = bytes.clone();
         assert_eq!(
             RoundBoxBuffer::from(bytes.clone(), 65).unwrap().bytes,
-            bytes.clone()
+            bytes.clone(),
         );
         assert_eq!(
             RoundBoxBuffer::from(&bytes, 65).unwrap().bytes as *const Vec<u8>,
-            &bytes as *const Vec<u8>
+            &bytes as *const Vec<u8>,
         );
         assert_eq!(
             RoundBoxBuffer::from(&mut bytes_mut, 65).unwrap().bytes as *mut Vec<u8>,
-            &mut bytes_mut as *mut Vec<u8>
+            &mut bytes_mut as *mut Vec<u8>,
         );
         assert_eq!(
             RoundBoxBuffer::from(&bytes, 10).unwrap_err(),
-            PetError::InvalidMessage
+            PetError::InvalidMessage,
         );
 
         // bytes
@@ -219,11 +219,11 @@ mod tests {
         let rbox = RoundBox::new(encr_pk, sign_pk);
         assert_eq!(
             rbox.encr_pk as *const box_::PublicKey,
-            encr_pk as *const box_::PublicKey
+            encr_pk as *const box_::PublicKey,
         );
         assert_eq!(
             rbox.sign_pk as *const sign::PublicKey,
-            sign_pk as *const sign::PublicKey
+            sign_pk as *const sign::PublicKey,
         );
 
         // len
@@ -232,7 +232,7 @@ mod tests {
         // serialize
         assert_eq!(
             rbox.serialize(),
-            [[100_u8; 1].as_ref(), encr_pk.as_ref(), sign_pk.as_ref()].concat()
+            [[100_u8; 1].as_ref(), encr_pk.as_ref(), sign_pk.as_ref()].concat(),
         );
     }
 
@@ -249,11 +249,11 @@ mod tests {
         assert_eq!(RoundBox::deserialize(&bytes).unwrap(), rbox);
         assert_eq!(
             RoundBox::deserialize(&vec![0_u8; 10]).unwrap_err(),
-            PetError::InvalidMessage
+            PetError::InvalidMessage,
         );
         assert_eq!(
             RoundBox::deserialize(&vec![0_u8; 65]).unwrap_err(),
-            PetError::InvalidMessage
+            PetError::InvalidMessage,
         );
 
         // encr pk

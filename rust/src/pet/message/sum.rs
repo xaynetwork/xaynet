@@ -155,7 +155,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_roundbox_field_ranges() {
+    fn test_sumbox_field_ranges() {
         assert_eq!(EPHM_PK_RANGE.end - EPHM_PK_RANGE.start, 32);
     }
 
@@ -172,19 +172,19 @@ mod tests {
         let mut bytes_mut_ = bytes.clone();
         assert_eq!(
             SumBoxBuffer::from(bytes.clone(), len).unwrap().bytes,
-            bytes.clone()
+            bytes.clone(),
         );
         assert_eq!(
             SumBoxBuffer::from(&bytes, len).unwrap().bytes as *const Vec<u8>,
-            &bytes as *const Vec<u8>
+            &bytes as *const Vec<u8>,
         );
         assert_eq!(
             SumBoxBuffer::from(&mut bytes_mut, len).unwrap().bytes as *mut Vec<u8>,
-            &mut bytes_mut as *mut Vec<u8>
+            &mut bytes_mut as *mut Vec<u8>,
         );
         assert_eq!(
             SumBoxBuffer::from(&bytes, 10).unwrap_err(),
-            PetError::InvalidMessage
+            PetError::InvalidMessage,
         );
 
         // bytes
@@ -220,11 +220,11 @@ mod tests {
         assert_eq!(sbox.certificate, certificate.as_slice());
         assert_eq!(
             sbox.signature_sum as *const sign::Signature,
-            signature_sum as *const sign::Signature
+            signature_sum as *const sign::Signature,
         );
         assert_eq!(
             sbox.ephm_pk as *const box_::PublicKey,
-            ephm_pk as *const box_::PublicKey
+            ephm_pk as *const box_::PublicKey,
         );
 
         // len
@@ -237,9 +237,9 @@ mod tests {
                 [101_u8; 1].as_ref(),
                 certificate.as_slice(),
                 signature_sum.as_ref(),
-                ephm_pk.as_ref()
+                ephm_pk.as_ref(),
             ]
-            .concat()
+            .concat(),
         );
     }
 
@@ -268,11 +268,11 @@ mod tests {
         assert_eq!(SumBox::deserialize(&bytes, len).unwrap(), sbox);
         assert_eq!(
             SumBox::deserialize(&vec![0_u8; 10], len).unwrap_err(),
-            PetError::InvalidMessage
+            PetError::InvalidMessage,
         );
         assert_eq!(
             SumBox::deserialize(&vec![0_u8; len], len).unwrap_err(),
-            PetError::InvalidMessage
+            PetError::InvalidMessage,
         );
 
         // certificate
@@ -298,8 +298,8 @@ mod tests {
             SumBox {
                 certificate,
                 signature_sum,
-                ephm_pk
-            }
+                ephm_pk,
+            },
         );
     }
 }

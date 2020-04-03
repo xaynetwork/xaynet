@@ -243,6 +243,7 @@ mod tests {
     fn test_updatebox_field_ranges() {
         assert_eq!(SIGN_UPDATE_RANGE.end - SIGN_UPDATE_RANGE.start, 64);
         assert_eq!(MODEL_URL_RANGE.end - MODEL_URL_RANGE.start, 32);
+        assert_eq!(DICT_SEED_START, 161);
         assert_eq!(DICT_SEED_KEY_LENGTH, 32);
         assert_eq!(DICT_SEED_ITEM_LENGTH, 112);
     }
@@ -261,19 +262,19 @@ mod tests {
         let mut bytes_mut_ = bytes.clone();
         assert_eq!(
             UpdateBoxBuffer::from(bytes.clone(), len).unwrap().bytes,
-            bytes.clone()
+            bytes.clone(),
         );
         assert_eq!(
             UpdateBoxBuffer::from(&bytes, len).unwrap().bytes as *const Vec<u8>,
-            &bytes as *const Vec<u8>
+            &bytes as *const Vec<u8>,
         );
         assert_eq!(
             UpdateBoxBuffer::from(&mut bytes_mut, len).unwrap().bytes as *mut Vec<u8>,
-            &mut bytes_mut as *mut Vec<u8>
+            &mut bytes_mut as *mut Vec<u8>,
         );
         assert_eq!(
             UpdateBoxBuffer::from(&bytes, 10).unwrap_err(),
-            PetError::InvalidMessage
+            PetError::InvalidMessage,
         );
 
         // bytes
@@ -333,16 +334,16 @@ mod tests {
         assert_eq!(ubox.certificate, certificate.as_slice());
         assert_eq!(
             ubox.signature_sum as *const sign::Signature,
-            signature_sum as *const sign::Signature
+            signature_sum as *const sign::Signature,
         );
         assert_eq!(
             ubox.signature_update as *const sign::Signature,
-            signature_update as *const sign::Signature
+            signature_update as *const sign::Signature,
         );
         assert_eq!(ubox.model_url, model_url.as_slice());
         assert_eq!(
             ubox.dict_seed as *const HashMap<box_::PublicKey, Vec<u8>>,
-            dict_seed as *const HashMap<box_::PublicKey, Vec<u8>>
+            dict_seed as *const HashMap<box_::PublicKey, Vec<u8>>,
         );
 
         // len
@@ -370,7 +371,7 @@ mod tests {
                 model_url.as_slice(),
                 vec_seed.as_slice(),
             ]
-            .concat()
+            .concat(),
         );
     }
 
@@ -424,11 +425,11 @@ mod tests {
         assert_eq!(UpdateBox::deserialize(&bytes, len).unwrap(), ubox);
         assert_eq!(
             UpdateBox::deserialize(&vec![0_u8; 10], len).unwrap_err(),
-            PetError::InvalidMessage
+            PetError::InvalidMessage,
         );
         assert_eq!(
             UpdateBox::deserialize(&vec![0_u8; len], len).unwrap_err(),
-            PetError::InvalidMessage
+            PetError::InvalidMessage,
         );
 
         // certificate
@@ -479,8 +480,8 @@ mod tests {
                 signature_sum,
                 signature_update,
                 model_url,
-                dict_seed
-            }
+                dict_seed,
+            },
         );
     }
 }
