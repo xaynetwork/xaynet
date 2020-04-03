@@ -63,7 +63,7 @@ impl<B: AsMut<[u8]>> Sum2BoxBuffer<B> {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 /// Encryption and decryption of sum2 boxes.
 pub struct Sum2Box<C, S, M> {
     certificate: C,
@@ -257,12 +257,15 @@ mod tests {
             mask_url.as_slice(),
         ]
         .concat();
-        let sbox = Sum2Box {
-            certificate: certificate.clone(),
-            signature_sum,
-            mask_url: mask_url.clone(),
-        };
-        assert_eq!(Sum2Box::deserialize(&bytes, len).unwrap(), sbox);
+        let sbox = Sum2Box::deserialize(&bytes, len).unwrap();
+        assert_eq!(
+            sbox,
+            Sum2Box {
+                certificate: certificate.clone(),
+                signature_sum,
+                mask_url: mask_url.clone(),
+            },
+        );
         assert_eq!(
             Sum2Box::deserialize(&vec![0_u8; 10], len).unwrap_err(),
             PetError::InvalidMessage,

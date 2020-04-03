@@ -87,7 +87,7 @@ impl<B: AsMut<[u8]>> UpdateBoxBuffer<B> {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 /// Encryption and decryption of update boxes.
 pub struct UpdateBox<C, S, M, D> {
     certificate: C,
@@ -415,14 +415,17 @@ mod tests {
             vec_seed.as_slice(),
         ]
         .concat();
-        let ubox = UpdateBox {
-            certificate: certificate.clone(),
-            signature_sum,
-            signature_update,
-            model_url: model_url.clone(),
-            dict_seed: dict_seed.clone(),
-        };
-        assert_eq!(UpdateBox::deserialize(&bytes, len).unwrap(), ubox);
+        let ubox = UpdateBox::deserialize(&bytes, len).unwrap();
+        assert_eq!(
+            ubox,
+            UpdateBox {
+                certificate: certificate.clone(),
+                signature_sum,
+                signature_update,
+                model_url: model_url.clone(),
+                dict_seed: dict_seed.clone(),
+            },
+        );
         assert_eq!(
             UpdateBox::deserialize(&vec![0_u8; 10], len).unwrap_err(),
             PetError::InvalidMessage,

@@ -80,7 +80,7 @@ impl<B: AsMut<[u8]>> RoundBoxBuffer<B> {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 /// Encryption and decryption of round boxes.
 pub struct RoundBox<E, S> {
     encr_pk: E,
@@ -245,8 +245,8 @@ mod tests {
         let encr_pk = box_::PublicKey::from_slice(&randombytes(32)).unwrap();
         let sign_pk = sign::PublicKey::from_slice(&randombytes(32)).unwrap();
         let bytes = [[100_u8; 1].as_ref(), encr_pk.as_ref(), sign_pk.as_ref()].concat();
-        let rbox = RoundBox { encr_pk, sign_pk };
-        assert_eq!(RoundBox::deserialize(&bytes).unwrap(), rbox);
+        let rbox = RoundBox::deserialize(&bytes).unwrap();
+        assert_eq!(rbox, RoundBox { encr_pk, sign_pk });
         assert_eq!(
             RoundBox::deserialize(&vec![0_u8; 10]).unwrap_err(),
             PetError::InvalidMessage,

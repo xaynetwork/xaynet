@@ -111,6 +111,7 @@ pub trait MsgBoxDecr: Sized {
     }
 }
 
+#[derive(Debug)]
 /// Mutable and immutable buffer access to encrypted message fields.
 struct MessageBuffer<B> {
     bytes: B,
@@ -136,43 +137,54 @@ impl<B: AsRef<[u8]>> MessageBuffer<B> {
 }
 
 impl<'b, B: AsRef<[u8]> + ?Sized> MessageBuffer<&'b B> {
+    /// Access the message buffer by reference.
+    fn bytes(&self) -> &'b [u8] {
+        self.bytes.as_ref()
+    }
+
     /// Access the round box field of the message buffer by reference.
     fn round_box(&self) -> &'b [u8] {
-        &self.bytes.as_ref()[ROUNDBOX_RANGE]
+        &self.bytes()[ROUNDBOX_RANGE]
     }
 
     /// Access the nonce field of the message buffer by reference.
     fn nonce(&self) -> &'b [u8] {
-        &self.bytes.as_ref()[NONCE_RANGE]
+        &self.bytes()[NONCE_RANGE]
     }
 
     /// Access the message box field of the message buffer by reference.
     fn message_box(&self) -> &'b [u8] {
-        &self.bytes.as_ref()[MESSAGEBOX_START..]
+        &self.bytes()[MESSAGEBOX_START..]
     }
 }
 
 impl<B: AsMut<[u8]>> MessageBuffer<B> {
+    /// Access the message buffer by mutable reference.
+    fn bytes_mut(&mut self) -> &mut [u8] {
+        self.bytes.as_mut()
+    }
+
     /// Access the round box field of the message buffer by mutable reference.
     fn round_box_mut(&mut self) -> &mut [u8] {
-        &mut self.bytes.as_mut()[ROUNDBOX_RANGE]
+        &mut self.bytes_mut()[ROUNDBOX_RANGE]
     }
 
     /// Access the nonce field of the message buffer by mutable reference.
     fn nonce_mut(&mut self) -> &mut [u8] {
-        &mut self.bytes.as_mut()[NONCE_RANGE]
+        &mut self.bytes_mut()[NONCE_RANGE]
     }
 
     /// Access the message box field of the message buffer by mutable reference.
     fn message_box_mut(&mut self) -> &mut [u8] {
-        &mut self.bytes.as_mut()[MESSAGEBOX_START..]
+        &mut self.bytes_mut()[MESSAGEBOX_START..]
     }
 }
 
+#[derive(Debug, PartialEq)]
 /// Encryption and decryption of messages.
 pub struct Message<E, S, M> {
-    pub round_box: RoundBox<E, S>,
-    pub message_box: M,
+    round_box: RoundBox<E, S>,
+    message_box: M,
 }
 
 #[allow(clippy::len_without_is_empty)]
@@ -190,7 +202,7 @@ impl<'m, M: MsgBoxEncr> Message<&'m box_::PublicKey, &'m sign::PublicKey, M> {
 
     /// Get the length of the serialized encrypted message.
     pub fn len(&self) -> usize {
-        // 113 / 177 + 112 * len(dict_seed) / 113 bytes for sum/update/sum2
+        // 250 / 314 + 112 * len(dict_seed) / 250 bytes for sum/update/sum2
         sealedbox::SEALBYTES
             + self.round_box.len()
             + box_::NONCEBYTES
@@ -219,7 +231,7 @@ impl<M: MsgBoxDecr> Message<box_::PublicKey, sign::PublicKey, M> {
     /// Get the expected length of a serialized encrypted message. Optional dependence on an
     /// external parameter.
     pub fn exp_len(param: Option<usize>) -> usize {
-        // 113 / 177 + 112 * len(dict_sum) / 113 bytes for sum/update/sum2
+        // 250 / 314 + 112 * len(dict_sum) / 250 bytes for sum/update/sum2
         sealedbox::SEALBYTES
             + RoundBox::exp_len()
             + box_::NONCEBYTES
@@ -340,5 +352,289 @@ impl Sum2Message {
     /// Get a reference to the mask url.
     pub fn mask_url(&self) -> &[u8] {
         self.message_box.mask_url()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::iter;
+
+    use sodiumoxide::randombytes::{randombytes, randombytes_uniform};
+
+    use super::*;
+
+    #[test]
+    fn test_box_tags() {
+        assert_eq!(ROUND_TAG, 100);
+        assert_eq!(SUM_TAG, 101);
+        assert_eq!(UPDATE_TAG, 102);
+        assert_eq!(SUM2_TAG, 103);
+    }
+
+    #[test]
+    fn test_msgbox_field_ranges() {
+        assert_eq!(TAG_RANGE.end - TAG_RANGE.start, 1);
+        assert_eq!(CERTIFICATE_RANGE.end - CERTIFICATE_RANGE.start, 0);
+        assert_eq!(SIGN_SUM_RANGE.end - SIGN_SUM_RANGE.start, 64);
+    }
+
+    #[test]
+    fn test_msg_field_ranges() {
+        assert_eq!(ROUNDBOX_RANGE.end - ROUNDBOX_RANGE.start, 113);
+        assert_eq!(NONCE_RANGE.end - NONCE_RANGE.start, 24);
+        assert_eq!(MESSAGEBOX_START, 137);
+    }
+
+    #[test]
+    fn test_messagebuffer() {
+        // new
+        assert_eq!(MessageBuffer::new(10).bytes, vec![0_u8; 10]);
+
+        // from
+        let len = 153;
+        let bytes = randombytes(len);
+        let bytes_ = bytes.clone();
+        let mut bytes_mut = bytes.clone();
+        let mut bytes_mut_ = bytes.clone();
+        assert_eq!(
+            MessageBuffer::from(bytes.clone(), len).unwrap().bytes,
+            bytes.clone(),
+        );
+        assert_eq!(
+            MessageBuffer::from(&bytes, len).unwrap().bytes as *const Vec<u8>,
+            &bytes as *const Vec<u8>,
+        );
+        assert_eq!(
+            MessageBuffer::from(&mut bytes_mut, len).unwrap().bytes as *mut Vec<u8>,
+            &mut bytes_mut as *mut Vec<u8>,
+        );
+        assert_eq!(
+            MessageBuffer::from(&bytes, 10).unwrap_err(),
+            PetError::InvalidMessage,
+        );
+
+        // bytes
+        let buf = MessageBuffer::from(&bytes, len).unwrap();
+        let mut buf_mut = MessageBuffer::from(&mut bytes_mut, len).unwrap();
+        assert_eq!(buf.bytes(), &bytes_[..]);
+        assert_eq!(buf_mut.bytes_mut(), &mut bytes_mut_[..]);
+
+        // round box
+        assert_eq!(buf.round_box(), &bytes_[0..113]);
+        assert_eq!(buf_mut.round_box_mut(), &mut bytes_mut_[0..113]);
+
+        // nonce
+        assert_eq!(buf.nonce(), &bytes_[113..137]);
+        assert_eq!(buf_mut.nonce_mut(), &mut bytes_mut_[113..137]);
+
+        // message box
+        assert_eq!(buf.message_box(), &bytes_[137..153]);
+        assert_eq!(buf_mut.message_box_mut(), &mut bytes_mut_[137..153]);
+    }
+
+    #[test]
+    fn test_summessage() {
+        // new
+        let encr_pk = &box_::PublicKey::from_slice(&randombytes(32)).unwrap();
+        let sign_pk = &sign::PublicKey::from_slice(&randombytes(32)).unwrap();
+        let rbox = RoundBox::new(encr_pk, sign_pk);
+        let certificate = Vec::<u8>::new();
+        let signature_sum = &sign::Signature::from_slice(&randombytes(64)).unwrap();
+        let ephm_pk = &box_::PublicKey::from_slice(&randombytes(32)).unwrap();
+        let sbox = SumBox::new(&certificate, signature_sum, ephm_pk);
+        let msg = Message::new(rbox.clone(), sbox.clone());
+        assert_eq!(msg.round_box, rbox);
+        assert_eq!(msg.message_box, sbox);
+
+        // len
+        let len = 250;
+        assert_eq!(msg.len(), len);
+        assert_eq!(SumMessage::exp_len(None), len);
+
+        // serialize
+        let (pk, sk) = box_::gen_keypair();
+        let rbox = rbox.seal(&pk);
+        let (nonce, sbox) = sbox.seal(&pk, &sk);
+        let msg = msg.serialize(rbox.clone(), nonce.clone(), sbox.clone());
+        assert_eq!(
+            msg,
+            [rbox.as_slice(), nonce.as_ref(), sbox.as_slice()].concat(),
+        );
+
+        // deserialize
+        let msg = SumMessage::deserialize(&msg, len).unwrap();
+        assert_eq!(msg.0, rbox.as_slice());
+        assert_eq!(msg.1, nonce);
+        assert_eq!(msg.2, sbox.as_slice());
+        assert_eq!(
+            SumMessage::deserialize(&vec![0_u8; 10], len).unwrap_err(),
+            PetError::InvalidMessage,
+        );
+        let msg = SumMessage {
+            round_box: RoundBox::open(msg.0, &pk, &sk).unwrap(),
+            message_box: SumBox::open(msg.2, &msg.1, &pk, &sk, SumBox::exp_len(None)).unwrap(),
+        };
+
+        // encr pk
+        assert_eq!(msg.encr_pk(), encr_pk);
+
+        // sign pk
+        assert_eq!(msg.sign_pk(), sign_pk);
+
+        // certificate
+        assert_eq!(msg.certificate(), certificate.as_slice());
+
+        // signature sum
+        assert_eq!(msg.signature_sum(), signature_sum);
+
+        // ephm pk
+        assert_eq!(msg.ephm_pk(), ephm_pk);
+    }
+
+    #[test]
+    fn test_updatemessage_ref() {
+        // new
+        let encr_pk = &box_::PublicKey::from_slice(&randombytes(32)).unwrap();
+        let sign_pk = &sign::PublicKey::from_slice(&randombytes(32)).unwrap();
+        let rbox = RoundBox::new(encr_pk, sign_pk);
+        let dict_sum_len = randombytes_uniform(10) as usize;
+        let certificate = Vec::<u8>::new();
+        let signature_sum = &sign::Signature::from_slice(&randombytes(64)).unwrap();
+        let signature_update = &sign::Signature::from_slice(&randombytes(64)).unwrap();
+        let model_url = randombytes(32);
+        let dict_seed = &iter::repeat_with(|| {
+            (
+                box_::PublicKey::from_slice(&randombytes(32)).unwrap(),
+                randombytes(80),
+            )
+        })
+        .take(dict_sum_len)
+        .collect();
+        let ubox = UpdateBox::new(
+            &certificate,
+            signature_sum,
+            signature_update,
+            &model_url,
+            dict_seed,
+        );
+        let msg = Message::new(rbox.clone(), ubox.clone());
+        assert_eq!(msg.round_box, rbox);
+        assert_eq!(msg.message_box, ubox);
+
+        // len
+        let len = 314 + 112 * dict_sum_len;
+        assert_eq!(msg.len(), len);
+        assert_eq!(UpdateMessage::exp_len(Some(dict_sum_len)), len);
+
+        // serialize
+        let (pk, sk) = box_::gen_keypair();
+        let rbox = rbox.seal(&pk);
+        let (nonce, ubox) = ubox.seal(&pk, &sk);
+        let msg = msg.serialize(rbox.clone(), nonce.clone(), ubox.clone());
+        assert_eq!(
+            msg,
+            [rbox.as_slice(), nonce.as_ref(), ubox.as_slice()].concat(),
+        );
+
+        // deserialize
+        let msg = UpdateMessage::deserialize(&msg, len).unwrap();
+        assert_eq!(msg.0, rbox.as_slice());
+        assert_eq!(msg.1, nonce);
+        assert_eq!(msg.2, ubox.as_slice());
+        assert_eq!(
+            UpdateMessage::deserialize(&vec![0_u8; 10], len).unwrap_err(),
+            PetError::InvalidMessage,
+        );
+        let msg = UpdateMessage {
+            round_box: RoundBox::open(msg.0, &pk, &sk).unwrap(),
+            message_box: UpdateBox::open(
+                msg.2,
+                &msg.1,
+                &pk,
+                &sk,
+                UpdateBox::exp_len(Some(dict_sum_len)),
+            )
+            .unwrap(),
+        };
+
+        // encr pk
+        assert_eq!(msg.encr_pk(), encr_pk);
+
+        // sign pk
+        assert_eq!(msg.sign_pk(), sign_pk);
+
+        // certificate
+        assert_eq!(msg.certificate(), certificate.as_slice());
+
+        // signature sum
+        assert_eq!(msg.signature_sum(), signature_sum);
+
+        // signature update
+        assert_eq!(msg.signature_update(), signature_update);
+
+        // model url
+        assert_eq!(msg.model_url(), model_url.as_slice());
+
+        // dict seed
+        assert_eq!(msg.dict_seed(), dict_seed);
+    }
+
+    #[test]
+    fn test_sum2message_ref() {
+        // new
+        let encr_pk = &box_::PublicKey::from_slice(&randombytes(32)).unwrap();
+        let sign_pk = &sign::PublicKey::from_slice(&randombytes(32)).unwrap();
+        let rbox = RoundBox::new(encr_pk, sign_pk);
+        let certificate = Vec::<u8>::new();
+        let signature_sum = &sign::Signature::from_slice(&randombytes(64)).unwrap();
+        let mask_url = randombytes(32);
+        let sbox = Sum2Box::new(&certificate, signature_sum, &mask_url);
+        let msg = Message::new(rbox.clone(), sbox.clone());
+        assert_eq!(msg.round_box, rbox);
+        assert_eq!(msg.message_box, sbox);
+
+        // len
+        let len = 250;
+        assert_eq!(msg.len(), len);
+        assert_eq!(Sum2Message::exp_len(None), len);
+
+        // serialize
+        let (pk, sk) = box_::gen_keypair();
+        let rbox = rbox.seal(&pk);
+        let (nonce, sbox) = sbox.seal(&pk, &sk);
+        let msg = msg.serialize(rbox.clone(), nonce.clone(), sbox.clone());
+        assert_eq!(
+            msg,
+            [rbox.as_slice(), nonce.as_ref(), sbox.as_slice()].concat(),
+        );
+
+        // deserialize
+        let msg = Sum2Message::deserialize(&msg, len).unwrap();
+        assert_eq!(msg.0, rbox.as_slice());
+        assert_eq!(msg.1, nonce);
+        assert_eq!(msg.2, sbox.as_slice());
+        assert_eq!(
+            Sum2Message::deserialize(&vec![0_u8; 10], len).unwrap_err(),
+            PetError::InvalidMessage,
+        );
+        let msg = Sum2Message {
+            round_box: RoundBox::open(msg.0, &pk, &sk).unwrap(),
+            message_box: Sum2Box::open(msg.2, &msg.1, &pk, &sk, Sum2Box::exp_len(None)).unwrap(),
+        };
+
+        // encr pk
+        assert_eq!(msg.encr_pk(), encr_pk);
+
+        // sign pk
+        assert_eq!(msg.sign_pk(), sign_pk);
+
+        // certificate
+        assert_eq!(msg.certificate(), certificate.as_slice());
+
+        // signature sum
+        assert_eq!(msg.signature_sum(), signature_sum);
+
+        // mask url
+        assert_eq!(msg.mask_url(), mask_url.as_slice());
     }
 }

@@ -63,7 +63,7 @@ impl<B: AsMut<[u8]>> SumBoxBuffer<B> {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 /// Encryption and decryption of sum boxes boxes.
 pub struct SumBox<C, S, E> {
     certificate: C,
@@ -260,12 +260,15 @@ mod tests {
             ephm_pk.as_ref(),
         ]
         .concat();
-        let sbox = SumBox {
-            certificate: certificate.clone(),
-            signature_sum,
-            ephm_pk,
-        };
-        assert_eq!(SumBox::deserialize(&bytes, len).unwrap(), sbox);
+        let sbox = SumBox::deserialize(&bytes, len).unwrap();
+        assert_eq!(
+            sbox,
+            SumBox {
+                certificate: certificate.clone(),
+                signature_sum,
+                ephm_pk,
+            },
+        );
         assert_eq!(
             SumBox::deserialize(&vec![0_u8; 10], len).unwrap_err(),
             PetError::InvalidMessage,
