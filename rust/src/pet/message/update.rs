@@ -125,11 +125,14 @@ impl<'b> UpdateBox<&'b [u8], &'b sign::Signature, &'b [u8], &'b HashMap<box_::Pu
 
 #[allow(clippy::implicit_hasher)]
 impl MsgBoxEncr for UpdateBox<&[u8], &sign::Signature, &[u8], &HashMap<box_::PublicKey, Vec<u8>>> {
-    #[allow(clippy::identity_op)] // temporary
     /// Get the length of the serialized update box.
     fn len(&self) -> usize {
         // 161 + 112 * len(dict_seed) bytes
-        1 + 0 + 2 * sign::SIGNATUREBYTES + 32 + DICT_SEED_ITEM_LENGTH * self.dict_seed.len()
+        1 + self.certificate.len()
+            + self.signature_sum.as_ref().len()
+            + self.signature_update.as_ref().len()
+            + self.model_url.len()
+            + DICT_SEED_ITEM_LENGTH * self.dict_seed.len()
     }
 
     /// Serialize the update box to bytes.

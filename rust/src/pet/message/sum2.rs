@@ -85,10 +85,10 @@ impl<'b> Sum2Box<&'b [u8], &'b sign::Signature, &'b [u8]> {
 }
 
 impl MsgBoxEncr for Sum2Box<&[u8], &sign::Signature, &[u8]> {
-    #[allow(clippy::identity_op)] // temporary
     /// Get the length of the serialized sum2 box.
     fn len(&self) -> usize {
-        1 + 0 + sign::SIGNATUREBYTES + 32 // 97 bytes
+        // 97 bytes
+        1 + self.certificate.len() + self.signature_sum.as_ref().len() + self.mask_url.len()
     }
 
     /// Serialize the sum2 box to bytes.

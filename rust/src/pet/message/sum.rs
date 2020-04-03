@@ -85,10 +85,10 @@ impl<'b> SumBox<&'b [u8], &'b sign::Signature, &'b box_::PublicKey> {
 }
 
 impl MsgBoxEncr for SumBox<&[u8], &sign::Signature, &box_::PublicKey> {
-    #[allow(clippy::identity_op)] // temporary
     /// Get the length of the serialized sum box.
     fn len(&self) -> usize {
-        1 + 0 + sign::SIGNATUREBYTES + box_::PUBLICKEYBYTES // 97 bytes
+        // 97 bytes
+        1 + self.certificate.len() + self.signature_sum.as_ref().len() + self.ephm_pk.as_ref().len()
     }
 
     /// Serialize the sum box to bytes.

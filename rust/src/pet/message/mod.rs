@@ -192,7 +192,7 @@ impl<'m, M: MsgBoxEncr> Message<&'m box_::PublicKey, &'m sign::PublicKey, M> {
     pub fn len(&self) -> usize {
         // 113 / 177 + 112 * len(dict_seed) / 113 bytes for sum/update/sum2
         sealedbox::SEALBYTES
-            + RoundBox::len()
+            + self.round_box.len()
             + box_::NONCEBYTES
             + box_::MACBYTES
             + self.message_box.len()
@@ -270,16 +270,8 @@ impl<M: MsgBoxDecr> Message<box_::PublicKey, sign::PublicKey, M> {
     }
 }
 
-// alias for message decryption
 pub type SumMessage =
     Message<box_::PublicKey, sign::PublicKey, SumBox<Vec<u8>, sign::Signature, box_::PublicKey>>;
-pub type UpdateMessage = Message<
-    box_::PublicKey,
-    sign::PublicKey,
-    UpdateBox<Vec<u8>, sign::Signature, Vec<u8>, HashMap<box_::PublicKey, Vec<u8>>>,
->;
-pub type Sum2Message =
-    Message<box_::PublicKey, sign::PublicKey, Sum2Box<Vec<u8>, sign::Signature, Vec<u8>>>;
 
 impl SumMessage {
     /// Get a reference to the certificate.
@@ -297,6 +289,12 @@ impl SumMessage {
         self.message_box.ephm_pk()
     }
 }
+
+pub type UpdateMessage = Message<
+    box_::PublicKey,
+    sign::PublicKey,
+    UpdateBox<Vec<u8>, sign::Signature, Vec<u8>, HashMap<box_::PublicKey, Vec<u8>>>,
+>;
 
 impl UpdateMessage {
     /// Get a reference to the certificate.
@@ -324,6 +322,9 @@ impl UpdateMessage {
         self.message_box.dict_seed()
     }
 }
+
+pub type Sum2Message =
+    Message<box_::PublicKey, sign::PublicKey, Sum2Box<Vec<u8>, sign::Signature, Vec<u8>>>;
 
 impl Sum2Message {
     /// Get a reference to the certificate.
