@@ -142,3 +142,16 @@ Make sure that you install the module globally and not within a virtualenv.
 cd python/
 pip install aggregators/
 ```
+
+**Error: ImportError: ... Symbol not found: ...**
+
+__Solution:__
+
+If you installed python via `pyenv` and the error message `Symbol not found` appears, you may have
+to reinstall Python with the `--enable-shared` option:
+
+`env PYTHON_CONFIGURE_OPTS="--enable-shared" pyenv install 3.7.6`
+
+Next, run `cargo clean` to remove the old build artifacts. After that, all tests should pass.
+
+
