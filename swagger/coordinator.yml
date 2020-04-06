@@ -146,71 +146,26 @@ components:
         - message
       properties:
         message:
-          type: object
-          required:
-            - round_box
-            - sum_box
-          properties:
-            round_box:
-              type: string
-              format: byte
-              minLength: 65
-              maxLength: 65
-            sum_box:
-              type: string
-              format: byte
+          type: string
+          format: byte
     UpdateMessage:
       description: Update message
       type: object
       required:
         - message
-        - mask_seed
       properties:
         message:
-          type: object
-          required:
-            - round_box
-            - update_box
-          properties:
-            round_box:
-              type: string
-              format: byte
-              minLength: 65
-              maxLength: 65
-            update_box:
-              type: string
-              format: byte
-        mask_seed:
-          description: The encrypted seed.
           type: string
           format: byte
-          minLength: 32
-          maxLength: 32
     Sum2Message:
       description: Sum2 message
       type: object
       required:
         - message
-        - mask_url
       properties:
         message:
-          type: object
-          required:
-            - round_box
-            - sum2_box
-          properties:
-            round_box:
-              type: string
-              format: byte
-              minLength: 65
-              maxLength: 65
-            sum2_box:
-              type: string
-              format: byte
-        mask_url:
-          description: The URL that points to the global mask. The aggregator can use this URL to fetch the global mask.
           type: string
-          format: url
+          format: byte
     PublishRoundMessage:
       type: object
       properties:
