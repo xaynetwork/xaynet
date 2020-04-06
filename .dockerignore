@@ -16,4 +16,5 @@ rust/target
 python/client_examples
 python/sdk
 configs/
+docs/
 _images
