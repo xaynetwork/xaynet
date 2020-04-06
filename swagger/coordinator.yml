@@ -1,6 +1,7 @@
 openapi: 3.0.1
 info:
   title: XAIN FL Coordinator API
+  description: PET version
   contact:
     email: engineering@xain.io
   license:
@@ -15,110 +16,199 @@ servers:
 tags:
   - name: Coordinator
     description: API of the coordinator service
+  - name: Aggregator
+    description: API of the aggregator service
 paths:
-  /rendez_vous:
+  /broadcast/round:
     get:
       tags:
         - Coordinator
+      description: PET Step 1, 2 (publish coord_pk, sum, update, seed)
       responses:
         200:
-          description: client accepted
+          description: OK
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/RendezVousResponse"
-        404:
-          description: ""
-          content: {}
-  /heartbeat/{client_id}:
+                $ref: "#/components/schemas/PublishRoundMessage"
+  /participant/sum:
+    post:
+      tags:
+        - Coordinator
+      description: PET Step 4 (send "sum" message)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SumMessage"
+      responses:
+        200:
+          description: OK
+        400:
+          description: PET protocol error
+  /broadcast/sum:
     get:
       tags:
         - Coordinator
+      description: PET Step 8 publish "sum" participants
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublishSumParticipantsMessage"
+              example:
+                part_pk_1: part_pk_fresh_1
+                part_pk_2: part_pk_fresh_2
+        204:
+          description: If the coordinator can't yet provide the content, the response body will be empty.
+  /participant/update:
+    post:
+      tags:
+        - Coordinator
+      description: PET Step 9 (send "update" message)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMessage"
+      responses:
+        200:
+          description: OK
+        400:
+          description: PET protocol error
+  /broadcast/seeds/{encr_pk}:
+    get:
+      tags:
+        - Coordinator
+      description: PET Step 11 publish encrypted seeds
       parameters:
-        - name: client_id
+        - name: encr_pk
+          description: The public key for asymmetric encryption of the participant.
           in: path
-          description: ID of the client
           required: true
           schema:
-            $ref: "#/components/schemas/ClientID"
+            type: string
+            format: byte
+            minLength: 32
+            maxLength: 32
       responses:
         200:
-          description: heartbeat confirmed
+          description: OK
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HeartBeatResponse"
-        404:
-          description: client unknown
-          content: {}
-  /start_training/{client_id}:
-    get:
+                $ref: "#/components/schemas/PublishEncryptedSeedsMessage"
+              example:
+                part_pk_1: [seed_1, seed_2]
+        204:
+          description: If the coordinator can't yet provide the content, the response body will be empty.
+  /participant/sum2:
+    post:
       tags:
         - Coordinator
-      parameters:
-        - name: client_id
-          in: path
-          description: ID of the client
-          required: true
-          schema:
-            $ref: "#/components/schemas/ClientID"
+      description: PET Step 12 (send "update" message)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Sum2Message"
       responses:
         200:
-          description: get information for fetching the latest global model
+          description: OK
+        400:
+          description: PET protocol error
+  /global_model:
+    get:
+      tags:
+        - Aggregator
+      description: Download the global model
+      responses:
+        200:
+          description: OK
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/StartTrainingResponse"
+                type: string
+                format: byte
         404:
-          description: ""
-          content: {}
+          description: model not found
 components:
   schemas:
-    ClientID:
-      description: client ID
-      type: string
-      format: uuid
-      example: 1fa2f908-83e2-4f92-80e1-4baee0bf25a5
-    RendezVousResponse:
+    SumMessage:
+      description: Sum message
       type: object
+      required:
+        - message
       properties:
-        id:
-          $ref: "#/components/schemas/ClientID"
-        ok:
-          description: "Whether the rendez-vous was accepted (`true`) or rejected (`false`) by the coordinator. A participant that has been rejected should not try to recontact the coordinator."
-          type: boolean
-    HeartBeatResponse:
-      type: object
-      properties:
-        round:
-          description: If non-null, this field indicates that the participant has been selected for the given round.
-          type: integer
-          format: int32
-          minimum: 0
-          nullable: true
-        state:
-          description: current state of the coordinator
+        message:
           type: string
-          enum:
-            - stand_by
-            - finish
-            - round
-            - reject
-    StartTrainingResponse:
+          format: byte
+    UpdateMessage:
+      description: Update message
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          format: byte
+    Sum2Message:
+      description: Sum2 message
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          format: byte
+    PublishRoundMessage:
       type: object
       properties:
-        url:
-          description: URL of the aggregator service API
+        coord_pk:
+          description: The public key of the coordinator.
+          type: string
+          format: byte
+          minLength: 32
+          maxLength: 32
+        sum:
+          description: The expected fraction of participants selected for computing the unmasking sum.
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        update:
+          description: The expected fraction of participants selected for submitting an updated local model for aggregation.
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        seed:
+          description: Is a random block of bits used for the selection of participants.
+          type: string
+          format: byte
+          minLength: 32
+          maxLength: 32
+        global_model_url:
+          description: The URL that points to the global model. Participants can use this URL to fetch the global model. On the first round, the value of the URL will be null.
           type: string
           format: url
           nullable: true
-          example: http://localhost:8082
-        token:
-          description: client API token for the aggregator service
+    PublishSumParticipantsMessage:
+      type: object
+      additionalProperties:
+        type: string
+        format: byte
+    PublishEncryptedSeedsMessage:
+      type: object
+      additionalProperties:
+        type: array
+        items:
           type: string
-          format: uuid
-          nullable: true
-          example: 2e8700a6-390d-411f-977b-9aa3bebc13e9
-        ok:
-          description: ""
-          type: boolean
+          format: byte
+          minLength: 80
+          maxLength: 80
