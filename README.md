@@ -1,69 +1,30 @@
-# Coordinator
+# XAIN Federated Learning
 
-This repo contains a proof of concept implementation of the
-coordinator in Rust.
+This repository contains the source code of the XAIN Federated
+Learning platform.
 
+XAIN provides privacy-preserving technology dedicated to keep the data
+used for the training of AI projects private. Our privacy engine for
+machine learning is compliant with data privacy regulations such as
+GDPR and CCPA. It offers a simple and scalable multi-party computation
+based on federated learning that reflects technical and regulatory
+needs of commercial AI projects.
 
-## Architecture
+## Resources
 
-This aggregator handles very different types of requests than the
-coordinator itself: weight distribution involves streaming high
-volumes of data over the network, and aggregation involves periodic
-CPU intensive tasks.
+- [Whitepaper](https://www.xain.io/federated-learning-technology)
+- [Source code](https://github.com/xainag/xain-fl/)
+- [Rest API reference](https://xain-fl.readthedocs.io/en/latest/api)
+- [Docker images](https://hub.docker.com/r/xain/xain-fl/)
+- The platform backend is written in Rust. The `xain-fl` crate is [published on crates.io](https://crates.io/crates/xain-fl) and documentation is available [on docs.rs](https://docs.rs/xain-fl/0.7.0/xain_fl/)
+- We provide a Python SDK to write Federated Learning participants in Python. The package can be found [is published on pypi.org](https://pypi.org/project/xain-sdk/) and the documentation [is hosted on readthedocs.io](https://xain-fl.readthedocs.io/projects/xain-sdk/en/latest/)
 
-For these reasons, we're trying to make it a separate service that
-communicates with the coordinator via a RPC. Here is how we envision
-weights distribution with the aggregator service:
+# Running the platform
 
-![weights distribution sequence diagram](./_images/aggregator_service.png)
+There are two ways to run the backend: using docker, or by compiling
+the binaries manually.
 
-Here is a diagram of the various component and how they interact with
-each other:
-
-![architecture diagram](./_images/architecture.png)
-
-## Running the Coordinator/ Aggregator locally
-
-The project currently requires rust nightly so the nightly toolchain must be
-installed to compile the project.
-
-### Coordinator
-
-The `cargo` command can be run either from the `./rust` directory, or from the
-repository's root, in which case the `--manifest-path` must be specified.
-
-```bash
-# If in ./rust
-cargo run --bin coordinator -- -c ../configs/dev-coordinator.toml
-
-# Or if at the repo's root
-cargo run --bin coordinator --manifest-path rust/Cargo.toml -- -c configs/dev-coordinator.toml
-```
-
-### Aggregator
-
-The aggregator can be configured to use different backends for
-aggregation. Currently, only python aggregators are supported. Some of
-these aggregators can be found in `python/aggregators`. In
-order to use them that package must be installed:
-
-```bash
-pip install python/aggregators
-# or for development:
-pip install -e python/aggregators
-```
-
-Then the aggregator can be started with:
-
-```bash
-# If in ./rust
-cargo run --bin aggregator -- -c ../configs/dev-aggregator.toml
-
-# Or if at the repo's root
-cargo run --bin aggregator --manifest-path rust/Cargo.toml -- -c configs/dev-aggregator.toml
-```
-
-### Docker-compose
+## Using `docker-compose`
 
 ```bash
 docker-compose -f docker/docker-compose.yml up --build
@@ -85,7 +46,47 @@ docker logs docker_coordinator_1
 docker logs docker_aggregator_1
 ```
 
-### Running the python examples
+## Building the project manually
+
+The project currently requires rust nightly so the nightly toolchain
+must be installed to compile the project.
+
+The `cargo` command can be run either from the `./rust` directory, or
+from the repository's root, in which case the `--manifest-path` must
+be specified.
+
+The coordinator can be built and started with:
+
+```bash
+# If in ./rust
+cargo run --bin coordinator -- -c ../configs/dev-coordinator.toml
+
+# Or if at the repo's root
+cargo run --bin coordinator --manifest-path rust/Cargo.toml -- -c configs/dev-coordinator.toml
+```
+
+The aggregator can be configured to use different backends for
+aggregation. Currently, only python aggregators are supported. Some of
+these aggregators can be found in `python/aggregators`. In order to
+use them that package must be installed:
+
+```bash
+pip install python/aggregators
+# or for development:
+pip install -e python/aggregators
+```
+
+Then the aggregator can be started with:
+
+```bash
+# If in ./rust
+cargo run --bin aggregator -- -c ../configs/dev-aggregator.toml
+
+# Or if at the repo's root
+cargo run --bin aggregator --manifest-path rust/Cargo.toml -- -c configs/dev-aggregator.toml
+```
+
+# Running the python examples
 
 The examples are under [./python/client_examples](./python/client_examples).
 
