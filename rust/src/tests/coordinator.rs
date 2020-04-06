@@ -85,7 +85,7 @@ async fn dropout_1_participant_during_training() {
     };
     let (rpc_client, service_handle, _join_handle) = start_service(settings);
 
-    // Create one client. Since min_clients is 2, the heartbeat response should be `StandBy`.
+    // Create first client. Since min_clients is 2, the heartbeat response should be `StandBy`.
     let id_1 = service_handle.rendez_vous_accepted().await;
     let hb_resp = service_handle.heartbeat(id_1).await;
     assert_eq!(hb_resp, HeartBeatResponse::StandBy);
