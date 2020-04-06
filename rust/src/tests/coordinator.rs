@@ -133,7 +133,7 @@ async fn dropout_1_participant_during_training() {
         .returning(|_| future::ready(Ok(Ok(()))));
     service_handle.end_training(id_1, true).await;
 
-    // Create a third client. The third customer should be selected by the coordinator and
+    // Create a third client. The third client should be selected by the coordinator and
     // be able to participate in the training session.
     let id_3 = service_handle.rendez_vous_accepted().await;
     let round = service_handle.heartbeat_selected(id_3).await;
