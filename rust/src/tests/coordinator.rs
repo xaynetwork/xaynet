@@ -135,25 +135,25 @@ async fn dropout_1_participant_during_training() {
 
     // Create a third client. The third customer should be selected by the coordinator and
     // be able to participate in the training session.
-    let id_2 = service_handle.rendez_vous_accepted().await;
-    let round = service_handle.heartbeat_selected(id_2).await;
+    let id_3 = service_handle.rendez_vous_accepted().await;
+    let round = service_handle.heartbeat_selected(id_3).await;
     assert_eq!(round, 0);
     rpc_client
         .mock()
         .expect_select()
         .returning(|_, _| future::ready(Ok(Ok(()))));
-    let (url, _token) = service_handle.start_training_accepted(id_2).await;
+    let (url, _token) = service_handle.start_training_accepted(id_3).await;
     assert_eq!(&url, AGGREGATOR_URL);
     rpc_client
         .mock()
         .expect_aggregate()
         .returning(|_| future::ready(Ok(Ok(()))));
-    service_handle.end_training(id_2, true).await;
+    service_handle.end_training(id_3, true).await;
 
     // After the third client finished training, the coordinator should return the heartbeat
     // response `Finish`.
     loop {
-        match service_handle.heartbeat(id_2).await {
+        match service_handle.heartbeat(id_3).await {
             HeartBeatResponse::StandBy => sleep_ms(10).await,
             HeartBeatResponse::Finish => break,
             _ => panic!("expected StandBy or Finish"),
