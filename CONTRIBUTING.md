@@ -154,4 +154,4 @@ to reinstall Python with the `--enable-shared` option:
 
 Next, run `cargo clean` to remove the old build artifacts. After that, all tests should pass.
 
-
+[You can find more information about the solution here.](https://github.com/PyO3/pyo3/issues/742#issuecomment-577332616)
