@@ -81,7 +81,7 @@ async fn dropout_1_participant_during_training() {
         rounds: 1,
         participants_ratio: 1.0,
         min_clients: 2,
-        heartbeat_timeout: 5,
+        heartbeat_timeout: 1,
     };
     let (rpc_client, service_handle, _join_handle) = start_service(settings);
 
@@ -116,21 +116,13 @@ async fn dropout_1_participant_during_training() {
     // Here we reset only the heartbeat of the first client and wait until the
     // heartbeat timeout of the second client has been reached.
     service_handle.heartbeat(id_1).await;
-    sleep_ms(2500).await;
+    sleep_ms(500).await;
     service_handle.heartbeat(id_1).await;
-    sleep_ms(2500).await;
+    sleep_ms(500).await;
     service_handle.heartbeat(id_1).await;
     // The second client should be dropped.
 
-    // pretend the first client trained and sent its weights to the
-    // aggregator. The aggregator now sends an end training requests
-    // to the coordinator RPC server that we fake with the
-    // service_handle. The service should then trigger the aggregation
-    // and reject subsequent heartbeats and rendez-vous
-    rpc_client
-        .mock()
-        .expect_aggregate()
-        .returning(|_| future::ready(Ok(Ok(()))));
+    // The first client finished training.
     service_handle.end_training(id_1, true).await;
 
     // Create a third client. The third client should be selected by the coordinator and
@@ -144,17 +136,29 @@ async fn dropout_1_participant_during_training() {
         .returning(|_, _| future::ready(Ok(Ok(()))));
     let (url, _token) = service_handle.start_training_accepted(id_3).await;
     assert_eq!(&url, AGGREGATOR_URL);
+
+    // Let's simulate that the second client tries to reconnect to the coordinator.
+    let id_2 = service_handle.rendez_vous_accepted().await;
+
+    // The second client should be accepted but not re-selected (for current round)
+    // by the coordinator.
+    let hb_resp = service_handle.heartbeat(id_2).await;
+    assert_eq!(hb_resp, HeartBeatResponse::StandBy);
+
+    // The third client finished training.
+    service_handle.end_training(id_3, true).await;
+
+    // Trigger aggregation.
     rpc_client
         .mock()
         .expect_aggregate()
         .returning(|_| future::ready(Ok(Ok(()))));
-    service_handle.end_training(id_3, true).await;
 
     // After the third client finished training, the coordinator should return the heartbeat
     // response `Finish`.
     loop {
         match service_handle.heartbeat(id_3).await {
-            HeartBeatResponse::StandBy => sleep_ms(10).await,
+            HeartBeatResponse::Round(_) => sleep_ms(10).await,
             HeartBeatResponse::Finish => break,
             _ => panic!("expected StandBy or Finish"),
         }
