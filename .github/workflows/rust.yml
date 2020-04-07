@@ -54,11 +54,25 @@ jobs:
           pip install aggregators/
         working-directory: ./python
 
-      - name: cargo test
+      - name: build tests
         working-directory: ./rust
         env:
             RUSTFLAGS: "-D warnings"
-        run: cargo test --features ${{ matrix.features }}
+        run: cargo test --features ${{ matrix.features }} --no-run
+
+      - name: non Python tests
+        working-directory: ./rust
+        env:
+            RUSTFLAGS: "-D warnings"
+        run: cargo test --features ${{ matrix.features }} -- --skip aggregator::py_aggregator
+
+      - name: Python tests
+        working-directory: ./rust
+        env:
+            RUSTFLAGS: "-D warnings"
+        # We have to run the Python tests in a single thread,
+        # because of: https://github.com/PyO3/pyo3/issues/288
+        run: cargo test --features ${{ matrix.features }} -- aggregator::py_aggregator --test-threads=1
 
   clippy:
     name: rust-clippy

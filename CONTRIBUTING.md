@@ -155,3 +155,16 @@ to reinstall Python with the `--enable-shared` option:
 Next, run `cargo clean` to remove the old build artifacts. After that, all tests should pass.
 
 [You can find more information about the solution here.](https://github.com/PyO3/pyo3/issues/742#issuecomment-577332616)
+
+**`cargo test` fails with SIGSEGV: invalid memory reference**
+
+This is a known issue with `pyo3`: https://github.com/PyO3/pyo3/issues/288
+
+__Solution:__
+
+Run the tests with:
+
+```none
+cargo test -- --test-threads=1
+```
+
