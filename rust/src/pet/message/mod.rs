@@ -1,5 +1,3 @@
-#![allow(dead_code)] // temporary
-
 pub mod round;
 pub mod sum;
 pub mod sum2;

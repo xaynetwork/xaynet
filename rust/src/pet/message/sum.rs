@@ -1,5 +1,3 @@
-#![allow(dead_code)] // temporary
-
 use std::ops::Range;
 
 use sodiumoxide::crypto::{box_, sign};
