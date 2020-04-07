@@ -85,6 +85,7 @@ pub struct RoundBox<E, S> {
     sign_pk: S,
 }
 
+#[allow(clippy::len_without_is_empty)]
 impl<'b> RoundBox<&'b box_::PublicKey, &'b sign::PublicKey> {
     /// Create a round box.
     pub fn new(encr_pk: &'b box_::PublicKey, sign_pk: &'b sign::PublicKey) -> Self {
