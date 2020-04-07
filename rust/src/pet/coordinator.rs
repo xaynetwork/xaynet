@@ -48,11 +48,13 @@ pub struct Coordinator {
 
 impl Default for Coordinator {
     fn default() -> Self {
-        let (encr_pk, encr_sk) = box_::gen_keypair();
-        let (sign_pk, sign_sk) = sign::gen_keypair();
+        let encr_pk = box_::PublicKey([0_u8; box_::PUBLICKEYBYTES]);
+        let encr_sk = box_::SecretKey([0_u8; box_::SECRETKEYBYTES]);
+        let sign_pk = sign::PublicKey([0_u8; sign::PUBLICKEYBYTES]);
+        let sign_sk = sign::SecretKey([0_u8; sign::SECRETKEYBYTES]);
         let sum = 0.01_f64;
         let update = 0.1_f64;
-        let seed = randombytes(32);
+        let seed = vec![0_u8; 32];
         let min_sum = 1_usize;
         let min_update = 3_usize;
         let phase = Phase::Idle;
@@ -81,9 +83,18 @@ impl Coordinator {
     /// Create a coordinator. Fails if there is insufficient system entropy to generate secrets.
     pub fn new() -> Result<Self, PetError> {
         // crucial: init must be called before anything else in this module
-        sodiumoxide::init()
-            .and(Ok(Default::default()))
-            .or(Err(PetError::InsufficientSystemEntropy))
+        sodiumoxide::init().or(Err(PetError::InsufficientSystemEntropy))?;
+        let (encr_pk, encr_sk) = box_::gen_keypair();
+        let (sign_pk, sign_sk) = sign::gen_keypair();
+        let seed = randombytes(32);
+        Ok(Self {
+            encr_pk,
+            encr_sk,
+            sign_pk,
+            sign_sk,
+            seed,
+            ..Default::default()
+        })
     }
 
     /// Validate and handle a sum message.
