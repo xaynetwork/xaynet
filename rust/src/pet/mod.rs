@@ -1,4 +1,5 @@
 pub mod coordinator;
+pub mod message;
 pub mod participant;
 pub mod utils;
 
@@ -6,4 +7,5 @@ pub mod utils;
 pub enum PetError {
     InsufficientSystemEntropy,
     InvalidMessage,
+    InsufficientParticipants,
 }
