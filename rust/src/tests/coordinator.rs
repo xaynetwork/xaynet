@@ -103,11 +103,11 @@ async fn dropout_1_participant_during_training() {
     rpc_client
         .mock()
         .expect_select()
-        .returning(|_, _| future::ready(Ok(Ok(()))));
+        .returning(|_, _| future::ready(Ok(())));
     rpc_client
         .mock()
         .expect_select()
-        .returning(|_, _| future::ready(Ok(Ok(()))));
+        .returning(|_, _| future::ready(Ok(())));
     let (url, _token) = service_handle.start_training_accepted(id_1).await;
     assert_eq!(&url, AGGREGATOR_URL);
     let (url, _token) = service_handle.start_training_accepted(id_2).await;
@@ -133,7 +133,7 @@ async fn dropout_1_participant_during_training() {
     rpc_client
         .mock()
         .expect_select()
-        .returning(|_, _| future::ready(Ok(Ok(()))));
+        .returning(|_, _| future::ready(Ok(())));
     let (url, _token) = service_handle.start_training_accepted(id_3).await;
     assert_eq!(&url, AGGREGATOR_URL);
 
@@ -152,15 +152,15 @@ async fn dropout_1_participant_during_training() {
     rpc_client
         .mock()
         .expect_aggregate()
-        .returning(|_| future::ready(Ok(Ok(()))));
+        .returning(|_| future::ready(Ok(())));
 
     // After the third client finished training, the coordinator should return the heartbeat
     // response `Finish`.
     loop {
         match service_handle.heartbeat(id_3).await {
-            HeartBeatResponse::Round(_) => sleep_ms(10).await,
+            HeartBeatResponse::StandBy | HeartBeatResponse::Round(_) => sleep_ms(10).await,
             HeartBeatResponse::Finish => break,
-            _ => panic!("expected StandBy or Finish"),
+            _ => panic!("expected StandBy, Round or Finish"),
         }
     }
 }
