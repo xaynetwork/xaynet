@@ -7,11 +7,13 @@ use derive_more::From;
 use futures::{ready, stream::Stream};
 use std::{
     collections::HashMap,
+    error::Error,
     future::Future,
     pin::Pin,
     task::{Context, Poll},
 };
 use tarpc::context::current as rpc_context;
+use thiserror::Error;
 use tokio::{
     stream::StreamExt,
     sync::{
@@ -55,7 +57,7 @@ where
     /// A client for the coordinator RPC service.
     rpc_client: coordinator::rpc::Client,
 
-    requests: ServiceRequests,
+    requests: ServiceRequests<A>,
 
     aggregation_future: Option<AggregationFuture<A>>,
 }
@@ -63,10 +65,7 @@ where
 /// This trait defines the methods that an aggregator should
 /// implement.
 pub trait Aggregator {
-    // FIXME: we should obviously require the Error bound, but for now
-    // it's convenient to be able to use () as error type
-    type Error: Send + 'static + Sync;
-    // type Error: Error;
+    type Error: Error + Send + 'static + Sync;
     type AggregateFut: Future<Output = Result<Bytes, Self::Error>> + Unpin;
     type AddWeightsFut: Future<Output = Result<(), Self::Error>> + Unpin + Send + 'static;
 
@@ -85,7 +84,7 @@ where
     pub fn new(
         aggregator: A,
         rpc_client: coordinator::rpc::Client,
-        requests: ServiceRequests,
+        requests: ServiceRequests<A>,
     ) -> Self {
         Self {
             aggregator,
@@ -123,9 +122,10 @@ where
             .map(|expected_token| credentials.token() == expected_token)
             .unwrap_or(false)
         {
-            let _ = response_tx.send(self.global_weights.clone());
+            let _ = response_tx.send(Ok(self.global_weights.clone()));
         } else {
             warn!("rejecting download request");
+            let _ = response_tx.send(Err(DownloadError::Unauthorized));
         }
     }
 
@@ -163,7 +163,7 @@ where
         );
     }
 
-    fn handle_request(&mut self, request: Request) {
+    fn handle_request(&mut self, request: Request<A>) {
         match request {
             Request::Download(req) => self.handle_download_request(req),
             Request::Upload(req) => self.handle_upload_request(req),
@@ -172,7 +172,7 @@ where
         }
     }
 
-    fn handle_aggregate_request(&mut self, request: AggregateRequest) {
+    fn handle_aggregate_request(&mut self, request: AggregateRequest<A>) {
         info!("handling aggregate request");
         let AggregateRequest { response_tx } = request;
         self.allowed_ids = HashMap::new();
@@ -182,7 +182,7 @@ where
             response_tx,
         });
     }
-    fn handle_select_request(&mut self, request: SelectRequest) {
+    fn handle_select_request(&mut self, request: SelectRequest<A>) {
         info!("handling select request");
         let SelectRequest {
             credentials,
@@ -190,7 +190,7 @@ where
         } = request;
         let (id, token) = credentials.into_parts();
         self.allowed_ids.insert(id, token);
-        if response_tx.send(()).is_err() {
+        if response_tx.send(Ok(())).is_err() {
             warn!("failed to send reponse: channel closed");
         }
     }
@@ -213,19 +213,15 @@ where
             response_tx,
         } = future;
 
-        match Pin::new(&mut future).poll(cx) {
+        let result = match Pin::new(&mut future).poll(cx) {
             Poll::Ready(Ok(weights)) => {
-                info!("aggregation result is available, settings global weights");
+                info!("aggregation succeeded, settings global weights");
                 self.global_weights = weights;
-                if response_tx.send(()).is_err() {
-                    error!("failed to send aggregation response to RPC task: receiver dropped");
-                }
+                Ok(())
             }
-            Poll::Ready(Err(_)) => {
-                // no need to send a response. By dropping the
-                // `response_tx` channel, the RPC task will send
-                // an error.
-                error!("aggregation failed");
+            Poll::Ready(Err(e)) => {
+                error!(error = %e, "aggregation failed");
+                Err(e)
             }
             Poll::Pending => {
                 debug!("aggregation future still running");
@@ -233,7 +229,11 @@ where
                     future,
                     response_tx,
                 });
+                return;
             }
+        };
+        if response_tx.send(result).is_err() {
+            error!("failed to send aggregation response to RPC task: receiver dropped");
         }
     }
 }
@@ -243,7 +243,7 @@ where
     A: Aggregator,
 {
     future: A::AggregateFut,
-    response_tx: oneshot::Sender<()>,
+    response_tx: oneshot::Sender<Result<(), A::Error>>,
 }
 
 impl<A> Future for Service<A>
@@ -266,10 +266,15 @@ where
     }
 }
 
-pub struct ServiceRequests(Pin<Box<dyn Stream<Item = Request> + Send>>);
+pub struct ServiceRequests<A>(Pin<Box<dyn Stream<Item = Request<A>> + Send>>)
+where
+    A: Aggregator;
 
-impl Stream for ServiceRequests {
-    type Item = Request;
+impl<A> Stream for ServiceRequests<A>
+where
+    A: Aggregator,
+{
+    type Item = Request<A>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
         trace!("polling ServiceRequests");
@@ -277,12 +282,15 @@ impl Stream for ServiceRequests {
     }
 }
 
-impl ServiceRequests {
+impl<A> ServiceRequests<A>
+where
+    A: Aggregator + 'static,
+{
     fn new(
         upload: UnboundedReceiver<UploadRequest>,
         download: UnboundedReceiver<DownloadRequest>,
-        aggregate: UnboundedReceiver<AggregateRequest>,
-        select: UnboundedReceiver<SelectRequest>,
+        aggregate: UnboundedReceiver<AggregateRequest<A>>,
+        select: UnboundedReceiver<SelectRequest<A>>,
     ) -> Self {
         let stream = download
             .map(Request::from)
@@ -302,42 +310,72 @@ pub struct UploadRequest {
 #[derive(From)]
 pub struct DownloadRequest {
     credentials: Credentials,
-    response_tx: oneshot::Sender<Bytes>,
+    response_tx: oneshot::Sender<Result<Bytes, DownloadError>>,
 }
 
 #[derive(From)]
-pub struct AggregateRequest {
-    response_tx: oneshot::Sender<()>,
+pub struct AggregateRequest<A>
+where
+    A: Aggregator,
+{
+    response_tx: oneshot::Sender<Result<(), A::Error>>,
 }
 
 #[derive(From)]
-pub struct SelectRequest {
+pub struct SelectRequest<A>
+where
+    A: Aggregator,
+{
     credentials: Credentials,
-    response_tx: oneshot::Sender<()>,
+    response_tx: oneshot::Sender<Result<(), A::Error>>,
 }
 
 #[derive(From)]
-pub enum Request {
+pub enum Request<A>
+where
+    A: Aggregator,
+{
     Upload(UploadRequest),
     Download(DownloadRequest),
-    Aggregate(AggregateRequest),
-    Select(SelectRequest),
+    Aggregate(AggregateRequest<A>),
+    Select(SelectRequest<A>),
 }
 
-#[derive(Clone)]
-pub struct ServiceHandle {
+pub struct ServiceHandle<A>
+where
+    A: Aggregator,
+{
     upload: UnboundedSender<UploadRequest>,
     download: UnboundedSender<DownloadRequest>,
-    aggregate: UnboundedSender<AggregateRequest>,
-    select: UnboundedSender<SelectRequest>,
+    aggregate: UnboundedSender<AggregateRequest<A>>,
+    select: UnboundedSender<SelectRequest<A>>,
 }
 
-impl ServiceHandle {
-    pub fn new() -> (Self, ServiceRequests) {
+// We implement Clone manually because it can only be derived if A:
+// Clone, which we don't want.
+impl<A> Clone for ServiceHandle<A>
+where
+    A: Aggregator,
+{
+    fn clone(&self) -> Self {
+        Self {
+            upload: self.upload.clone(),
+            download: self.download.clone(),
+            aggregate: self.aggregate.clone(),
+            select: self.select.clone(),
+        }
+    }
+}
+
+impl<A> ServiceHandle<A>
+where
+    A: Aggregator + 'static,
+{
+    pub fn new() -> (Self, ServiceRequests<A>) {
         let (upload_tx, upload_rx) = unbounded_channel::<UploadRequest>();
         let (download_tx, download_rx) = unbounded_channel::<DownloadRequest>();
-        let (aggregate_tx, aggregate_rx) = unbounded_channel::<AggregateRequest>();
-        let (select_tx, select_rx) = unbounded_channel::<SelectRequest>();
+        let (aggregate_tx, aggregate_rx) = unbounded_channel::<AggregateRequest<A>>();
+        let (select_tx, select_rx) = unbounded_channel::<SelectRequest<A>>();
 
         let handle = Self {
             upload: upload_tx,
@@ -349,38 +387,91 @@ impl ServiceHandle {
             ServiceRequests::new(upload_rx, download_rx, aggregate_rx, select_rx);
         (handle, service_requests)
     }
-    pub async fn download(&self, credentials: Credentials) -> Option<Bytes> {
-        let (tx, rx) = oneshot::channel();
+    pub async fn download(
+        &self,
+        credentials: Credentials,
+    ) -> Result<Bytes, ServiceError<DownloadError>> {
+        let (tx, rx) = oneshot::channel::<Result<Bytes, DownloadError>>();
         let request = DownloadRequest::from((credentials, tx));
-        Self::send_request(request, &self.download);
-        rx.await.ok()
+        Self::send_request(request, &self.download)?;
+        Self::recv_response(rx)
+            .await?
+            .map_err(ServiceError::Request)
     }
 
-    pub async fn upload(&self, credentials: Credentials, data: Bytes) {
+    pub async fn upload(
+        &self,
+        credentials: Credentials,
+        data: Bytes,
+    ) -> Result<(), ServiceError<UploadError>> {
         let request = UploadRequest::from((credentials, data));
-        Self::send_request(request, &self.upload);
+        Self::send_request(request, &self.upload)?;
+        Ok(())
     }
 
-    pub async fn aggregate(&self) -> Result<(), ()> {
-        let (tx, rx) = oneshot::channel();
-        Self::send_request(AggregateRequest::from(tx), &self.aggregate);
-        rx.await
-            .map_err(|_| warn!("could not receive response: channel closed"))
+    pub async fn aggregate(&self) -> Result<(), ServiceError<A::Error>> {
+        let (tx, rx) = oneshot::channel::<Result<(), A::Error>>();
+        Self::send_request(AggregateRequest::from(tx), &self.aggregate)?;
+        Self::recv_response(rx)
+            .await?
+            .map_err(ServiceError::Request)
     }
 
-    pub async fn select(&self, credentials: Credentials) -> Result<(), ()> {
-        let (tx, rx) = oneshot::channel();
-        Self::send_request(SelectRequest::from((credentials, tx)), &self.select);
-        rx.await
-            .map_err(|_| warn!("could not receive response: channel closed"))
+    pub async fn select(&self, credentials: Credentials) -> Result<(), ServiceError<A::Error>> {
+        let (tx, rx) = oneshot::channel::<Result<(), A::Error>>();
+        Self::send_request(SelectRequest::from((credentials, tx)), &self.select)?;
+        Self::recv_response(rx)
+            .await?
+            .map_err(ServiceError::Request)
     }
 
-    fn send_request<P>(payload: P, chan: &UnboundedSender<P>) {
+    fn send_request<P>(payload: P, tx: &UnboundedSender<P>) -> Result<(), ChannelError> {
         trace!("send request to the service");
-        if chan.send(payload).is_err() {
+        if tx.send(payload).is_err() {
             warn!("failed to send request: channel closed");
-            return;
+            Err(ChannelError::Request)
+        } else {
+            trace!("request sent");
+            Ok(())
         }
-        trace!("request sent");
     }
+
+    async fn recv_response<R>(rx: oneshot::Receiver<R>) -> Result<R, ChannelError> {
+        rx.await.map_err(|_| {
+            warn!("could not receive response: channel closed");
+            ChannelError::Response
+        })
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum DownloadError {
+    #[error("the user does not have the proper permissions")]
+    Unauthorized,
+}
+
+#[derive(Error, Debug)]
+pub enum UploadError {
+    #[error("the user does not have the proper permissions")]
+    Unauthorized,
+}
+
+#[derive(Error, Debug)]
+pub enum ServiceError<E>
+where
+    E: Error,
+{
+    #[error("failed to send the request or receive the response")]
+    Handle(#[from] ChannelError),
+
+    #[error("request failed: {0}")]
+    Request(E),
+}
+
+#[derive(Error, Debug)]
+pub enum ChannelError {
+    #[error("failed to send request to Service")]
+    Request,
+    #[error("failed to receive the response from Service")]
+    Response,
 }

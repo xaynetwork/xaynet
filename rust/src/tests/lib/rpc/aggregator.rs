@@ -1,4 +1,4 @@
-use crate::common::client::Credentials;
+use crate::{aggregator::rpc::ServerError, common::client::Credentials};
 use futures::future;
 use mockall::mock;
 use std::{
@@ -17,9 +17,9 @@ mock! {
     pub Client {
         fn new<T: Transport<(), ()> + 'static>(config: Config, transport: T) -> MockNewClient;
 
-        fn select(&mut self, ctx: Context, credentials: Credentials) -> future::Ready<io::Result<Result<(), ()>>>;
+        fn select(&mut self, ctx: Context, credentials: Credentials) -> future::Ready<Result<(), ServerError<String>>>;
 
-        fn aggregate(&mut self, ctx: Context) -> future::Ready<io::Result<Result<(), ()>>>;
+        fn aggregate(&mut self, ctx: Context) -> future::Ready<Result<(), ServerError<String>>>;
     }
 }
 
@@ -53,12 +53,12 @@ impl Client {
         &mut self,
         ctx: Context,
         credentials: Credentials,
-    ) -> future::Ready<io::Result<Result<(), ()>>> {
+    ) -> future::Ready<Result<(), ServerError<String>>> {
         self.mock().select(ctx, credentials)
     }
 
     /// Get the inner `MockClient`'s `aggregate` method.
-    pub fn aggregate(&mut self, ctx: Context) -> future::Ready<io::Result<Result<(), ()>>> {
+    pub fn aggregate(&mut self, ctx: Context) -> future::Ready<Result<(), ServerError<String>>> {
         self.mock().aggregate(ctx)
     }
 

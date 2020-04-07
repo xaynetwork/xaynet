@@ -1,7 +1,6 @@
-use anyhow::{Context, Result};
 use bytes::Bytes;
 use futures::executor::block_on;
-use std::{future::Future, pin::Pin, thread};
+use std::{error::Error, future::Future, pin::Pin, thread};
 use thiserror::Error;
 use tokio::{
     select,
@@ -23,7 +22,7 @@ pub struct PyAggregator {
 }
 
 impl PyAggregator {
-    pub fn load(settings: PythonAggregatorSettings) -> Result<Self> {
+    pub fn load(settings: PythonAggregatorSettings) -> Result<Self, PythonError> {
         let gil = Python::acquire_gil();
         let py = gil.python();
         let module = PyModule::import(py, &settings.module).map_err(|e| {
@@ -32,7 +31,7 @@ impl PyAggregator {
             // stderr. See: https://github.com/PyO3/pyo3/issues/592
             // and https://github.com/PyO3/pyo3/issues/682
             e.print(py);
-            PyAggregatorError::LoadModule(settings.module.clone())
+            PythonError::LoadModule(settings.module.clone())
         })?;
         let aggregator = module
             .call0(&settings.class)
@@ -42,7 +41,7 @@ impl PyAggregator {
                 // stderr. See: https://github.com/PyO3/pyo3/issues/592
                 // and https://github.com/PyO3/pyo3/issues/682
                 e.print(py);
-                PyAggregatorError::LoadClass(settings.module.clone(), settings.class.clone())
+                PythonError::LoadClass(settings.module.clone(), settings.class.clone())
             })?
             .to_object(py);
         Ok(Self {
@@ -51,8 +50,8 @@ impl PyAggregator {
         })
     }
 
-    pub fn aggregate(&mut self) -> Result<Bytes> {
-        info!("PyAggregator: running aggregation");
+    pub fn aggregate(&mut self) -> Result<Bytes, PyAggregatorError<AggregationFailed>> {
+        info!("running aggregation");
         let py = self.get_py();
         let result = self
             .aggregator
@@ -63,7 +62,7 @@ impl PyAggregator {
                 // stderr. See: https://github.com/PyO3/pyo3/issues/592
                 // and https://github.com/PyO3/pyo3/issues/682
                 e.print(py);
-                PyAggregatorError::Call("aggregate")
+                PyAggregatorError::<AggregationFailed>::from(PythonError::Call("aggregate"))
             })?
             .extract::<Vec<u8>>(py)
             .map(Bytes::from)
@@ -73,9 +72,9 @@ impl PyAggregator {
                 // stderr. See: https://github.com/PyO3/pyo3/issues/592
                 // and https://github.com/PyO3/pyo3/issues/682
                 e.print(py);
-                PyAggregatorError::Unknown("Failed to convert Python `bytes` into Rust `Vec<u8>`")
+                PythonError::Cast("bytes", "Vec<u8>")
             })?;
-        info!("PyAggregator: finished aggregation");
+        info!("finished aggregation");
         self.re_acquire_gil();
         Ok(result)
     }
@@ -95,13 +94,15 @@ impl PyAggregator {
             .map(Bytes::from)?)
     }
 
-    pub fn add_weights(&self, local_weights: &[u8]) -> Result<::std::result::Result<(), ()>> {
-        info!("PyAggregator: adding weights");
+    pub fn add_weights(
+        &self,
+        local_weights: &[u8],
+    ) -> Result<(), PyAggregatorError<InvalidWeights>> {
+        info!("adding weights");
         let py = self.get_py();
         let py_bytes = PyBytes::new(py, local_weights);
         let args = (py_bytes,);
-        let result = self
-            .aggregator
+        self.aggregator
             .call_method1(py, "add_weights", args)
             .map_err(|e| {
                 // Currently, there is no easy way to convert `PyErr` into
@@ -109,7 +110,7 @@ impl PyAggregator {
                 // stderr. See: https://github.com/PyO3/pyo3/issues/592
                 // and https://github.com/PyO3/pyo3/issues/682
                 e.print(py);
-                PyAggregatorError::Call("add_weights")
+                PyAggregatorError::<InvalidWeights>::from(PythonError::Call("add_weights"))
             })?
             .extract::<bool>(py)
             .map_err(|e| {
@@ -118,12 +119,12 @@ impl PyAggregator {
                 // stderr. See: https://github.com/PyO3/pyo3/issues/592
                 // and https://github.com/PyO3/pyo3/issues/682
                 e.print(py);
-                PyAggregatorError::Unknown("Failed to convert Python `bool` into Rust `bool`")
+                PyAggregatorError::from(PythonError::Cast("bool", "bool"))
             })?
             .then_some(())
-            .ok_or(());
-        info!("PyAggregator: done adding weights");
-        Ok(result)
+            .ok_or(PyAggregatorError::Request(InvalidWeights))?;
+        info!("Done adding weights");
+        Ok(())
     }
 
     pub fn get_py(&self) -> Python<'_> {
@@ -134,7 +135,7 @@ impl PyAggregator {
         self.gil.as_ref().unwrap().python()
     }
 
-    pub fn reset(&mut self, global_weights: &[u8]) -> Result<()> {
+    pub fn reset(&mut self, global_weights: &[u8]) -> Result<(), PythonError> {
         info!("resetting weights");
         let py = self.get_py();
         let py_bytes = PyBytes::new(py, global_weights);
@@ -147,14 +148,13 @@ impl PyAggregator {
                 // stderr. See: https://github.com/PyO3/pyo3/issues/592
                 // and https://github.com/PyO3/pyo3/issues/682
                 e.print(py);
-                PyAggregatorError::Call("reset")
+                PythonError::Call("reset")
             })?;
         self.re_acquire_gil();
         Ok(())
     }
 }
 
-pub type Weights = Bytes;
 pub type Request<T, U> = (T, oneshot::Sender<U>);
 pub type RequestRx<T, U> = UnboundedReceiver<Request<T, U>>;
 pub type RequestTx<T, U> = UnboundedSender<Request<T, U>>;
@@ -162,15 +162,21 @@ pub type RequestTx<T, U> = UnboundedSender<Request<T, U>>;
 pub fn spawn_py_aggregator(
     settings: PythonAggregatorSettings,
 ) -> (PyAggregatorHandle, Receiver<()>) {
-    let (aggregate_tx, aggregate_rx) = unbounded_channel::<Request<(), Weights>>();
-    let (add_weights_tx, add_weights_rx) = unbounded_channel::<Request<Weights, ()>>();
+    let (aggregate_tx, aggregate_rx) =
+        unbounded_channel::<Request<(), Result<Bytes, PyAggregatorError<AggregationFailed>>>>();
+
+    let (add_weights_tx, add_weights_rx) =
+        unbounded_channel::<Request<Bytes, Result<(), PyAggregatorError<InvalidWeights>>>>();
+
     let (mut shutdown_tx, shutdown_rx) = channel::<()>(1);
 
     thread::spawn(move || {
         block_on(async move {
-            if let Err(e) = py_aggregator(settings, aggregate_rx, add_weights_rx).await {
-                error!("py_aggregator failure: {}", e);
-            }
+            let _ = py_aggregator(settings, aggregate_rx, add_weights_rx)
+                .await
+                .map_err(|e| {
+                    error!(error=%e, "py_aggregator terminated with an error");
+                });
             if shutdown_tx.send(()).await.is_err() {
                 warn!("py_aggregator: could not send shutdown signal (receiver is closed)");
             }
@@ -185,45 +191,53 @@ pub fn spawn_py_aggregator(
 }
 
 pub struct PyAggregatorHandle {
-    pub aggregate_requests: RequestTx<(), Weights>,
-    pub add_weights_requests: RequestTx<Weights, ()>,
+    pub aggregate_requests: RequestTx<(), Result<Bytes, PyAggregatorError<AggregationFailed>>>,
+    pub add_weights_requests: RequestTx<Bytes, Result<(), PyAggregatorError<InvalidWeights>>>,
 }
 
 impl Aggregator for PyAggregatorHandle {
-    type Error = ();
-    type AggregateFut = Pin<Box<dyn Future<Output = Result<Bytes, ()>> + Send>>;
-    type AddWeightsFut = Pin<Box<dyn Future<Output = Result<(), ()>> + Send>>;
+    type Error = PyAggregatorHandleError;
+    type AggregateFut = Pin<Box<dyn Future<Output = Result<Bytes, Self::Error>> + Send>>;
+    type AddWeightsFut = Pin<Box<dyn Future<Output = Result<(), Self::Error>> + Send>>;
 
     fn add_weights(&mut self, weights: Bytes) -> Self::AddWeightsFut {
-        let (tx, rx) = oneshot::channel::<()>();
+        let (tx, rx) = oneshot::channel::<Result<(), PyAggregatorError<InvalidWeights>>>();
         let add_weights_requests = self.add_weights_requests.clone();
         Box::pin(async move {
-            add_weights_requests.send((weights, tx)).map_err(|_| ())?;
-            rx.await.map_err(|_| ())
+            add_weights_requests
+                .send((weights, tx))
+                .map_err(|_| ChannelError::Request)?;
+            rx.await
+                .map_err(|_| ChannelError::Response)?
+                .map_err(From::from)
         })
     }
 
     fn aggregate(&mut self) -> Self::AggregateFut {
-        let (tx, rx) = oneshot::channel::<Bytes>();
+        let (tx, rx) = oneshot::channel::<Result<Bytes, PyAggregatorError<AggregationFailed>>>();
         let aggregate_requests = self.aggregate_requests.clone();
         Box::pin(async move {
-            aggregate_requests.send(((), tx)).map_err(|_| ())?;
-            rx.await.map_err(|_| ())
+            aggregate_requests
+                .send(((), tx))
+                .map_err(|_| ChannelError::Request)?;
+            rx.await
+                .map_err(|_| ChannelError::Response)?
+                .map_err(From::from)
         })
     }
 }
 
 async fn py_aggregator(
     settings: PythonAggregatorSettings,
-    mut aggregate_requests: RequestRx<(), Weights>,
-    mut add_weights_requests: RequestRx<Weights, ()>,
-) -> Result<()> {
+    mut aggregate_requests: RequestRx<(), Result<Bytes, PyAggregatorError<AggregationFailed>>>,
+    mut add_weights_requests: RequestRx<Bytes, Result<(), PyAggregatorError<InvalidWeights>>>,
+) -> Result<(), PythonError> {
     let mut aggregator = PyAggregator::load(settings)?;
 
     loop {
         select! {
             Some(((), resp_tx)) = aggregate_requests.recv() => {
-                let weights = aggregator.aggregate().context("aggregation failed")?;
+                let weights = aggregator.aggregate();
                 if resp_tx.send(weights).is_err() {
                     warn!("cannot send aggregate response: receiver is closed");
                     break;
@@ -231,10 +245,8 @@ async fn py_aggregator(
 
             }
             Some((weights, resp_tx)) = add_weights_requests.recv() => {
-                // FIXME: don't unwrap here. We need to send the
-                // result.
-                aggregator.add_weights(&weights[..]).context("failed to add weights")?.unwrap();
-                if resp_tx.send(()).is_err() {
+                let res = aggregator.add_weights(&weights[..]);
+                if resp_tx.send(res).is_err() {
                     warn!("cannot send add_weights response: receiver is closed");
                     break;
                 }
@@ -259,15 +271,72 @@ async fn py_aggregator(
 }
 
 #[derive(Error, Debug)]
-pub enum PyAggregatorError {
-    #[error("failed to load python module `{0}`")]
-    LoadModule(String),
-    #[error("failed to load python class `{0}.{1}`")]
-    LoadClass(String, String),
-    #[error("call to `Aggregator.{0}()` resulted in an exception")]
+#[error("the aggregation failed")]
+pub struct AggregationFailed;
+
+#[derive(Error, Debug)]
+#[error("the weights are invalid and were rejected by the aggregator")]
+pub struct InvalidWeights;
+
+#[derive(Error, Debug)]
+pub enum PyAggregatorError<E>
+where
+    E: Error,
+{
+    #[error("error while executing Python code: {0}")]
+    Python(#[from] PythonError),
+    #[error("request failed: {0}")]
+    Request(E),
+}
+
+#[derive(Error, Debug)]
+pub enum PyAggregatorHandleError {
+    #[error("failed to send the request or receive the response")]
+    Handle(#[from] ChannelError),
+
+    #[error("error while executing Python code")]
+    Python(#[from] PythonError),
+
+    #[error("request failed: {0}")]
+    Request(String),
+}
+
+impl<E> From<PyAggregatorError<E>> for PyAggregatorHandleError
+where
+    E: Error,
+{
+    fn from(e: PyAggregatorError<E>) -> Self {
+        match e {
+            PyAggregatorError::Python(inner) => Self::Python(inner),
+            PyAggregatorError::Request(inner) => Self::Request(format!("{}", inner)),
+        }
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum ChannelError {
+    #[error("failed to send request to PyAggregator")]
+    Request,
+    #[error("failed to receive response from PyAggregator")]
+    Response,
+}
+
+#[derive(Error, Debug)]
+pub enum PythonError {
+    #[error("call to `{0}` resulted in an exception")]
     Call(&'static str),
+
+    #[error("failed to convert Python `{0}` into Rust `{1}`")]
+    Cast(&'static str, &'static str),
+
     #[error("an unknown error occured while calling Python code: {0}")]
     Unknown(&'static str),
+
+    #[error("failed to load python module `{0}`")]
+    LoadModule(String),
+
+    #[error("failed to load python class `{0}.{1}`")]
+    LoadClass(String, String),
 }
 
 #[cfg(test)]
@@ -376,7 +445,7 @@ res = list(np.load(reader, allow_pickle=False))
     fn test_py_aggregator_add_weights() {
         let aggregator = spawn_weighted_average_aggregator();
         let data = generate_serialized_weights(1);
-        let _ = aggregator.add_weights(&data[..]).unwrap().unwrap();
+        let _ = aggregator.add_weights(&data[..]).unwrap();
     }
 
     /// Load a new `PythonAggregator` and call the `add_weights`
@@ -391,7 +460,8 @@ res = list(np.load(reader, allow_pickle=False))
         let res = aggregator.add_weights(&weights[..]);
         assert!(res.is_err());
         assert_eq!(
-            "call to `Aggregator.add_weights()` resulted in an exception".to_string(),
+            "error while executing Python code: call to `add_weights` resulted in an exception"
+                .to_string(),
             res.err().unwrap().to_string()
         );
     }
@@ -454,7 +524,7 @@ res = list(np.load(reader, allow_pickle=False))
         let mut aggregator = spawn_weighted_average_aggregator();
 
         let data = generate_serialized_weights(1);
-        let _ = aggregator.add_weights(&data[..]).unwrap().unwrap();
+        let _ = aggregator.add_weights(&data[..]).unwrap();
         let _ = aggregator.aggregate().unwrap();
 
         let raw = aggregator.get_global_weights().unwrap();
@@ -504,7 +574,7 @@ res = list(np.load(reader, allow_pickle=False))
         let mut aggregator = spawn_weighted_average_aggregator();
         let res = aggregator.reset(&[1, 2, 3, 4][..]);
         assert_eq!(
-            "call to `Aggregator.reset()` resulted in an exception".to_string(),
+            "call to `reset` resulted in an exception".to_string(),
             res.err().unwrap().to_string()
         );
     }
