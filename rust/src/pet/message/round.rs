@@ -1,5 +1,3 @@
-#![allow(dead_code)] // temporary
-
 use std::ops::Range;
 
 use sodiumoxide::crypto::{box_, sealedbox, sign};
@@ -11,6 +9,7 @@ use crate::pet::PetError;
 const ENCR_PK_RANGE: Range<usize> = 1..33; // 32 bytes
 const SIGN_PK_RANGE: Range<usize> = 33..65; // 32 bytes
 
+#[derive(Debug)]
 /// Mutable and immutable buffer access to round box fields.
 struct RoundBoxBuffer<B> {
     bytes: B,
@@ -36,45 +35,57 @@ impl<B: AsRef<[u8]>> RoundBoxBuffer<B> {
 }
 
 impl<'b, B: AsRef<[u8]> + ?Sized> RoundBoxBuffer<&'b B> {
+    /// Access the round box buffer by reference.
+    fn bytes(&self) -> &'b [u8] {
+        self.bytes.as_ref()
+    }
+
     /// Access the tag field of the round box buffer by reference.
     fn tag(&self) -> &'b [u8] {
-        &self.bytes.as_ref()[TAG_RANGE]
+        &self.bytes()[TAG_RANGE]
     }
 
     /// Access the public encryption key field of the round box buffer by reference.
     fn encr_pk(&self) -> &'b [u8] {
-        &self.bytes.as_ref()[ENCR_PK_RANGE]
+        &self.bytes()[ENCR_PK_RANGE]
     }
 
     /// Access the public signature key field of the round box buffer by reference.
     fn sign_pk(&self) -> &'b [u8] {
-        &self.bytes.as_ref()[SIGN_PK_RANGE]
+        &self.bytes()[SIGN_PK_RANGE]
     }
 }
 
 impl<B: AsMut<[u8]>> RoundBoxBuffer<B> {
+    /// Access the round box buffer by mutable reference.
+    fn bytes_mut(&mut self) -> &mut [u8] {
+        self.bytes.as_mut()
+    }
+
     /// Access the tag field of the round box buffer by mutable reference.
     fn tag_mut(&mut self) -> &mut [u8] {
-        &mut self.bytes.as_mut()[TAG_RANGE]
+        &mut self.bytes_mut()[TAG_RANGE]
     }
 
     /// Access the public encryption key field of the round box buffer by mutable reference.
     fn encr_pk_mut(&mut self) -> &mut [u8] {
-        &mut self.bytes.as_mut()[ENCR_PK_RANGE]
+        &mut self.bytes_mut()[ENCR_PK_RANGE]
     }
 
     /// Access the public signature key field of the round box buffer by mutable reference.
     fn sign_pk_mut(&mut self) -> &mut [u8] {
-        &mut self.bytes.as_mut()[SIGN_PK_RANGE]
+        &mut self.bytes_mut()[SIGN_PK_RANGE]
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
 /// Encryption and decryption of round boxes.
 pub struct RoundBox<E, S> {
     encr_pk: E,
     sign_pk: S,
 }
 
+#[allow(clippy::len_without_is_empty)]
 impl<'b> RoundBox<&'b box_::PublicKey, &'b sign::PublicKey> {
     /// Create a round box.
     pub fn new(encr_pk: &'b box_::PublicKey, sign_pk: &'b sign::PublicKey) -> Self {
@@ -82,13 +93,13 @@ impl<'b> RoundBox<&'b box_::PublicKey, &'b sign::PublicKey> {
     }
 
     /// Get the length of the serialized round box.
-    pub fn len() -> usize {
-        1 + box_::PUBLICKEYBYTES + sign::PUBLICKEYBYTES // 65 bytes
+    pub fn len(&self) -> usize {
+        1 + self.encr_pk.as_ref().len() + self.sign_pk.as_ref().len() // 65 bytes
     }
 
     /// Serialize the round box to bytes.
     fn serialize(&self) -> Vec<u8> {
-        let mut buffer = RoundBoxBuffer::new(Self::len());
+        let mut buffer = RoundBoxBuffer::new(self.len());
         buffer.tag_mut().copy_from_slice([ROUND_TAG; 1].as_ref());
         buffer.encr_pk_mut().copy_from_slice(self.encr_pk.as_ref());
         buffer.sign_pk_mut().copy_from_slice(self.sign_pk.as_ref());
@@ -138,5 +149,126 @@ impl RoundBox<box_::PublicKey, sign::PublicKey> {
     /// Get a reference to the public signature key.
     pub fn sign_pk(&self) -> &sign::PublicKey {
         &self.sign_pk
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use sodiumoxide::randombytes::randombytes;
+
+    use super::*;
+
+    #[test]
+    fn test_roundbox_field_ranges() {
+        assert_eq!(ENCR_PK_RANGE.end - ENCR_PK_RANGE.start, 32);
+        assert_eq!(SIGN_PK_RANGE.end - SIGN_PK_RANGE.start, 32);
+    }
+
+    #[test]
+    fn test_roundboxbuffer() {
+        // new
+        assert_eq!(RoundBoxBuffer::new(10).bytes, vec![0_u8; 10]);
+
+        // from
+        let bytes = randombytes(65);
+        let bytes_ = bytes.clone();
+        let mut bytes_mut = bytes.clone();
+        let mut bytes_mut_ = bytes.clone();
+        assert_eq!(
+            RoundBoxBuffer::from(bytes.clone(), 65).unwrap().bytes,
+            bytes.clone(),
+        );
+        assert_eq!(
+            RoundBoxBuffer::from(&bytes, 65).unwrap().bytes as *const Vec<u8>,
+            &bytes as *const Vec<u8>,
+        );
+        assert_eq!(
+            RoundBoxBuffer::from(&mut bytes_mut, 65).unwrap().bytes as *mut Vec<u8>,
+            &mut bytes_mut as *mut Vec<u8>,
+        );
+        assert_eq!(
+            RoundBoxBuffer::from(&bytes, 10).unwrap_err(),
+            PetError::InvalidMessage,
+        );
+
+        // bytes
+        let buf = RoundBoxBuffer::from(&bytes, 65).unwrap();
+        let mut buf_mut = RoundBoxBuffer::from(&mut bytes_mut, 65).unwrap();
+        assert_eq!(buf.bytes(), &bytes_[..]);
+        assert_eq!(buf_mut.bytes_mut(), &mut bytes_mut_[..]);
+
+        // tag
+        assert_eq!(buf.tag(), &bytes_[0..1]);
+        assert_eq!(buf_mut.tag_mut(), &mut bytes_mut_[0..1]);
+
+        // encr pk
+        assert_eq!(buf.encr_pk(), &bytes_[1..33]);
+        assert_eq!(buf_mut.encr_pk_mut(), &mut bytes_mut_[1..33]);
+
+        // sign pk
+        assert_eq!(buf.sign_pk(), &bytes_[33..65]);
+        assert_eq!(buf_mut.sign_pk_mut(), &mut bytes_mut_[33..65]);
+    }
+
+    #[test]
+    fn test_roundbox_ref() {
+        // new
+        let encr_pk = &box_::PublicKey::from_slice(&randombytes(32)).unwrap();
+        let sign_pk = &sign::PublicKey::from_slice(&randombytes(32)).unwrap();
+        let rbox = RoundBox::new(encr_pk, sign_pk);
+        assert_eq!(
+            rbox.encr_pk as *const box_::PublicKey,
+            encr_pk as *const box_::PublicKey,
+        );
+        assert_eq!(
+            rbox.sign_pk as *const sign::PublicKey,
+            sign_pk as *const sign::PublicKey,
+        );
+
+        // len
+        assert_eq!(rbox.len(), 65);
+
+        // serialize
+        assert_eq!(
+            rbox.serialize(),
+            [[100_u8; 1].as_ref(), encr_pk.as_ref(), sign_pk.as_ref()].concat(),
+        );
+    }
+
+    #[test]
+    fn test_roundbox_val() {
+        // exp len
+        assert_eq!(RoundBox::exp_len(), 65);
+
+        // deserialize
+        let encr_pk = box_::PublicKey::from_slice(&randombytes(32)).unwrap();
+        let sign_pk = sign::PublicKey::from_slice(&randombytes(32)).unwrap();
+        let bytes = [[100_u8; 1].as_ref(), encr_pk.as_ref(), sign_pk.as_ref()].concat();
+        let rbox = RoundBox::deserialize(&bytes).unwrap();
+        assert_eq!(rbox, RoundBox { encr_pk, sign_pk });
+        assert_eq!(
+            RoundBox::deserialize(&vec![0_u8; 10]).unwrap_err(),
+            PetError::InvalidMessage,
+        );
+        assert_eq!(
+            RoundBox::deserialize(&vec![0_u8; 65]).unwrap_err(),
+            PetError::InvalidMessage,
+        );
+
+        // encr pk
+        assert_eq!(rbox.encr_pk(), &encr_pk);
+
+        // sign pk
+        assert_eq!(rbox.sign_pk(), &sign_pk);
+    }
+
+    #[test]
+    fn test_roundbox() {
+        let encr_pk = box_::PublicKey::from_slice(&randombytes(32)).unwrap();
+        let sign_pk = sign::PublicKey::from_slice(&randombytes(32)).unwrap();
+        let (pk, sk) = box_::gen_keypair();
+        let bytes = RoundBox::new(&encr_pk, &sign_pk).seal(&pk);
+        let rbox = RoundBox::open(&bytes, &pk, &sk).unwrap();
+        assert_eq!(rbox, RoundBox { encr_pk, sign_pk });
     }
 }
