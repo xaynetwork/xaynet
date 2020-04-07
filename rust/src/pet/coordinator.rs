@@ -1,887 +1,325 @@
 #![allow(dead_code)] // temporary
 
-use std::{collections::HashMap, default::Default, iter::Iterator, ops::Range};
+use std::{collections::HashMap, default::Default};
 
+use counter::Counter;
 use sodiumoxide::{
     self,
-    crypto::{box_, sealedbox, sign},
+    crypto::{box_, hash::sha256, sign},
     randombytes::randombytes,
 };
 
-use super::{utils::is_eligible, PetError};
+use super::{
+    message::{Sum2Message, SumMessage, UpdateMessage},
+    utils::is_eligible,
+    PetError,
+};
+
+#[derive(Debug, PartialEq)]
+/// Round phases of a coordinator.
+enum Phase {
+    Idle,
+    Sum,
+    Update,
+    Sum2,
+}
 
 /// A coordinator in the PET protocol layer.
 pub struct Coordinator {
     // credentials
-    pub encr_pk: box_::PublicKey, // 32 bytes
-    encr_sk: box_::SecretKey,     // 32 bytes
+    encr_pk: box_::PublicKey, // 32 bytes
+    encr_sk: box_::SecretKey, // 32 bytes
+    sign_pk: sign::PublicKey, // 32 bytes
+    sign_sk: sign::SecretKey, // 64 bytes
 
     // round parameters
     sum: f64,
     update: f64,
     seed: Vec<u8>, // 32 bytes
+    min_sum: usize,
+    min_update: usize,
+    phase: Phase,
 
     // dictionaries
     dict_sum: HashMap<box_::PublicKey, box_::PublicKey>,
     dict_seed: HashMap<box_::PublicKey, HashMap<box_::PublicKey, Vec<u8>>>,
-}
-
-impl Coordinator {
-    pub fn new() -> Result<Self, PetError> {
-        // crucial: init must be called before anything else in this module
-        sodiumoxide::init()
-            .and(Ok(Default::default()))
-            .or(Err(PetError::InsufficientSystemEntropy))
-    }
-
-    /// Validate and handle a message.
-    pub fn validate_message(&self, message: &[u8]) -> Result<usize, PetError> {
-        if SumMessage::validate(self, message).is_ok() {
-            // placeholder: handle result
-            Ok(1)
-        } else if UpdateMessage::validate(self, message).is_ok() {
-            // placeholder: handle result
-            Ok(2)
-        } else if Sum2Message::validate(self, message).is_ok() {
-            // placeholder: handle result
-            Ok(3)
-        } else {
-            // unknown message type
-            Err(PetError::InvalidMessage)
-        }
-    }
+    masks: Counter<Vec<u8>>,
 }
 
 impl Default for Coordinator {
     fn default() -> Self {
-        let (encr_pk, encr_sk) = box_::gen_keypair();
+        let encr_pk = box_::PublicKey([0_u8; box_::PUBLICKEYBYTES]);
+        let encr_sk = box_::SecretKey([0_u8; box_::SECRETKEYBYTES]);
+        let sign_pk = sign::PublicKey([0_u8; sign::PUBLICKEYBYTES]);
+        let sign_sk = sign::SecretKey([0_u8; sign::SECRETKEYBYTES]);
         let sum = 0.01_f64;
         let update = 0.1_f64;
-        let seed = randombytes(32);
+        let seed = vec![0_u8; 32];
+        let min_sum = 1_usize;
+        let min_update = 3_usize;
+        let phase = Phase::Idle;
         let dict_sum = HashMap::new();
         let dict_seed = HashMap::new();
+        let masks = Counter::new();
         Self {
             encr_pk,
             encr_sk,
+            sign_pk,
+            sign_sk,
             sum,
             update,
             seed,
+            min_sum,
+            min_update,
+            phase,
             dict_sum,
             dict_seed,
+            masks,
         }
     }
 }
 
-// Message access with buffers:
-//
-// SumMessage
-//  └-> SumMessageBuffer
-//       ├-> SealedBox
-//       |    └-> SealedBoxBuffer
-//       |         ├-> encr_pk
-//       |         └-> sign_pk
-//       └-> SumBox
-//            └-> SumBoxBuffer
-//                 ├-> certificate
-//                 ├-> signature_sum
-//                 └-> ephm_pk
-//
-// UpdateMessage
-//  └-> UpdateMessageBuffer
-//       ├-> SealedBox
-//       |    └-> SealedBoxBuffer
-//       |         ├-> encr_pk
-//       |         └-> sign_pk
-//       └-> UpdateBox
-//            └-> UpdateBoxBuffer
-//                 ├-> certificate
-//                 ├-> signature_sum
-//                 ├-> signature_update
-//                 ├-> model_url
-//                 └-> dict_seed
-//
-// Sum2Message
-//  └-> Sum2MessageBuffer
-//       ├-> SealedBox
-//       |    └-> SealedBoxBuffer
-//       |         ├-> encr_pk
-//       |         └-> sign_pk
-//       └-> Sum2Box
-//            └-> Sum2BoxBuffer
-//                 ├-> certificate
-//                 ├-> signature_sum
-//                 └-> mask_url
-
-#[derive(Debug)]
-/// Buffer and access an encrypted "sum" message.
-struct SumMessageBuffer<'msg>(&'msg [u8]);
-
-impl<'msg> SumMessageBuffer<'msg> {
-    const SEALEDBOX_RANGE: Range<usize> = 0..117;
-    const NONCE_RANGE: Range<usize> = 117..141;
-    const BOX_RANGE: Range<usize> = 141..256;
-    const MESSAGE_LENGTH: usize = 256;
-
-    fn new(message: &'msg [u8]) -> Result<Self, PetError> {
-        (message.len() == Self::MESSAGE_LENGTH)
-            .then_some(Self(message))
-            .ok_or(PetError::InvalidMessage)
-    }
-
-    fn open_sealedbox(
-        &self,
-        coord_encr_pk: &box_::PublicKey,
-        coord_encr_sk: &box_::SecretKey,
-    ) -> Result<Vec<u8>, PetError> {
-        sealedbox::open(&self.0[Self::SEALEDBOX_RANGE], coord_encr_pk, coord_encr_sk)
-            .or(Err(PetError::InvalidMessage))
-    }
-
-    fn open_box(
-        &self,
-        part_encr_pk: &box_::PublicKey,
-        coord_encr_sk: &box_::SecretKey,
-    ) -> Result<Vec<u8>, PetError> {
-        box_::open(
-            &self.0[Self::BOX_RANGE],
-            &box_::Nonce::from_slice(&self.0[Self::NONCE_RANGE]).ok_or(PetError::InvalidMessage)?,
-            part_encr_pk,
-            coord_encr_sk,
-        )
-        .or(Err(PetError::InvalidMessage))
-    }
-}
-
-#[derive(Debug)]
-/// Buffer and access an encrypted "update" message.
-struct UpdateMessageBuffer<'msg>(&'msg [u8], Range<usize>);
-
-impl<'msg> UpdateMessageBuffer<'msg> {
-    const SEALEDBOX_RANGE: Range<usize> = 0..117;
-    const NONCE_RANGE: Range<usize> = 117..141;
-    const BOX_START: usize = 141;
-    const BOX_END_WO_DICT_SEED: usize = 323;
-    const DICT_SEED_ITEM_LENGTH: usize = 112;
-    const MESSAGE_LENGTH_WO_DICT_SEED: usize = 323;
-
-    fn new(message: &'msg [u8], dict_sum_length: usize) -> Result<Self, PetError> {
-        let box_range = Self::BOX_START
-            ..Self::BOX_END_WO_DICT_SEED + Self::DICT_SEED_ITEM_LENGTH * dict_sum_length;
-        let message_length =
-            Self::MESSAGE_LENGTH_WO_DICT_SEED + Self::DICT_SEED_ITEM_LENGTH * dict_sum_length;
-        (message.len() == message_length)
-            .then_some(Self(message, box_range))
-            .ok_or(PetError::InvalidMessage)
-    }
-
-    fn open_sealedbox(
-        &self,
-        coord_encr_pk: &box_::PublicKey,
-        coord_encr_sk: &box_::SecretKey,
-    ) -> Result<Vec<u8>, PetError> {
-        sealedbox::open(&self.0[Self::SEALEDBOX_RANGE], coord_encr_pk, coord_encr_sk)
-            .or(Err(PetError::InvalidMessage))
-    }
-
-    fn open_box(
-        &self,
-        part_encr_pk: &box_::PublicKey,
-        coord_encr_sk: &box_::SecretKey,
-    ) -> Result<Vec<u8>, PetError> {
-        box_::open(
-            &self.0[self.1.clone()],
-            &box_::Nonce::from_slice(&self.0[Self::NONCE_RANGE]).unwrap(),
-            part_encr_pk,
-            coord_encr_sk,
-        )
-        .or(Err(PetError::InvalidMessage))
-    }
-}
-
-#[derive(Debug)]
-/// Buffer and access an encrypted "sum2" message.
-struct Sum2MessageBuffer<'msg>(&'msg [u8]);
-
-impl<'msg> Sum2MessageBuffer<'msg> {
-    const SEALEDBOX_RANGE: Range<usize> = 0..117;
-    const NONCE_RANGE: Range<usize> = 117..141;
-    const BOX_RANGE: Range<usize> = 141..257;
-    const MESSAGE_LENGTH: usize = 257;
-
-    fn new(message: &'msg [u8]) -> Result<Self, PetError> {
-        (message.len() == Self::MESSAGE_LENGTH)
-            .then_some(Self(message))
-            .ok_or(PetError::InvalidMessage)
-    }
-
-    fn open_sealedbox(
-        &self,
-        coord_encr_pk: &box_::PublicKey,
-        coord_encr_sk: &box_::SecretKey,
-    ) -> Result<Vec<u8>, PetError> {
-        sealedbox::open(&self.0[Self::SEALEDBOX_RANGE], coord_encr_pk, coord_encr_sk)
-            .or(Err(PetError::InvalidMessage))
-    }
-
-    fn open_box(
-        &self,
-        part_encr_pk: &box_::PublicKey,
-        coord_encr_sk: &box_::SecretKey,
-    ) -> Result<Vec<u8>, PetError> {
-        box_::open(
-            &self.0[Self::BOX_RANGE],
-            &box_::Nonce::from_slice(&self.0[Self::NONCE_RANGE]).unwrap(),
-            part_encr_pk,
-            coord_encr_sk,
-        )
-        .or(Err(PetError::InvalidMessage))
-    }
-}
-
-#[derive(Debug)]
-/// Buffer and access the asymmetrically decrypted part of a "sum/update/sum2" message.
-struct SealedBoxBuffer<'sbox>(&'sbox [u8]);
-
-impl<'sbox> SealedBoxBuffer<'sbox> {
-    const ROUND_RANGE: Range<usize> = 0..5;
-    const ENCR_PK_RANGE: Range<usize> = 5..37;
-    const SIGN_PK_RANGE: Range<usize> = 37..69;
-    const MESSAGE_LENGTH: usize = 69;
-
-    fn new(message: &'sbox [u8]) -> Result<Self, PetError> {
-        (message.len() == Self::MESSAGE_LENGTH && &message[Self::ROUND_RANGE] == b"round")
-            .then_some(Self(message))
-            .ok_or(PetError::InvalidMessage)
-    }
-
-    fn get_part_encr_pk(&self) -> box_::PublicKey {
-        box_::PublicKey::from_slice(&self.0[Self::ENCR_PK_RANGE]).unwrap()
-    }
-
-    fn get_part_sign_pk(&self) -> sign::PublicKey {
-        sign::PublicKey::from_slice(&self.0[Self::SIGN_PK_RANGE]).unwrap()
-    }
-}
-
-#[derive(Debug)]
-/// Buffer and access the symmetrically decrypted part of a "sum" message.
-struct SumBoxBuffer<'box__>(&'box__ [u8]);
-
-impl<'box__> SumBoxBuffer<'box__> {
-    const SUM_RANGE: Range<usize> = 0..3;
-    const CERTIFICATE_RANGE: Range<usize> = 3..3;
-    const SIGN_SUM_RANGE: Range<usize> = 3..67;
-    const EPHM_PK_RANGE: Range<usize> = 67..99;
-    const MESSAGE_LENGTH: usize = 99;
-
-    fn new(message: &'box__ [u8]) -> Result<Self, PetError> {
-        (message.len() == Self::MESSAGE_LENGTH && &message[Self::SUM_RANGE] == b"sum")
-            .then_some(Self(message))
-            .ok_or(PetError::InvalidMessage)
-    }
-
-    // dummy
-    fn get_certificate(&self) -> Vec<u8> {
-        self.0[Self::CERTIFICATE_RANGE].to_vec()
-    }
-
-    fn get_signature_sum(&self) -> sign::Signature {
-        sign::Signature::from_slice(&self.0[Self::SIGN_SUM_RANGE]).unwrap()
-    }
-
-    fn get_part_ephm_pk(&self) -> box_::PublicKey {
-        box_::PublicKey::from_slice(&self.0[Self::EPHM_PK_RANGE]).unwrap()
-    }
-}
-
-#[derive(Debug)]
-/// Buffer and access the symmetrically decrypted part of an "update" message.
-struct UpdateBoxBuffer<'box__>(&'box__ [u8], Range<usize>);
-
-impl<'box__> UpdateBoxBuffer<'box__> {
-    const UPDATE_RANGE: Range<usize> = 0..6;
-    const CERTIFICATE_RANGE: Range<usize> = 6..6;
-    const SIGN_SUM_RANGE: Range<usize> = 6..70;
-    const SIGN_UPDATE_RANGE: Range<usize> = 70..134;
-    const MODEL_URL_RANGE: Range<usize> = 134..166;
-    const DICT_SEED_START: usize = 166;
-    const DICT_SEED_KEY_LENGTH: usize = 32;
-    const DICT_SEED_ITEM_LENGTH: usize = 112;
-    const MESSAGE_LENGTH_WO_DICT_SEED: usize = 166;
-
-    fn new(message: &'box__ [u8], dict_sum_length: usize) -> Result<Self, PetError> {
-        let dict_seed_range = Self::DICT_SEED_START
-            ..Self::DICT_SEED_START + Self::DICT_SEED_ITEM_LENGTH * dict_sum_length;
-        let message_length =
-            Self::MESSAGE_LENGTH_WO_DICT_SEED + Self::DICT_SEED_ITEM_LENGTH * dict_sum_length;
-        (message.len() == message_length && &message[Self::UPDATE_RANGE] == b"update")
-            .then_some(Self(message, dict_seed_range))
-            .ok_or(PetError::InvalidMessage)
-    }
-
-    // dummy
-    fn get_certificate(&self) -> Vec<u8> {
-        self.0[Self::CERTIFICATE_RANGE].to_vec()
-    }
-
-    fn get_signature_sum(&self) -> sign::Signature {
-        sign::Signature::from_slice(&self.0[Self::SIGN_SUM_RANGE]).unwrap()
-    }
-
-    fn get_signature_update(&self) -> sign::Signature {
-        sign::Signature::from_slice(&self.0[Self::SIGN_UPDATE_RANGE]).unwrap()
-    }
-
-    fn get_model_url(&self) -> Vec<u8> {
-        self.0[Self::MODEL_URL_RANGE].to_vec()
-    }
-
-    fn get_dict_seed(&self) -> HashMap<box_::PublicKey, Vec<u8>> {
-        // map "sum" participants to encrypted seeds
-        let mut dict_seed: HashMap<box_::PublicKey, Vec<u8>> = HashMap::new();
-        for i in (self.1.clone()).step_by(Self::DICT_SEED_ITEM_LENGTH) {
-            dict_seed.insert(
-                box_::PublicKey::from_slice(&self.0[i..i + Self::DICT_SEED_KEY_LENGTH]).unwrap(),
-                self.0[i + Self::DICT_SEED_KEY_LENGTH..i + Self::DICT_SEED_ITEM_LENGTH].to_vec(),
-            );
-        }
-        dict_seed
-    }
-}
-
-#[derive(Debug)]
-/// Buffer and access the symmetrically decrypted part of a "sum2" message.
-struct Sum2BoxBuffer<'box__>(&'box__ [u8]);
-
-impl<'box__> Sum2BoxBuffer<'box__> {
-    const SUM2_RANGE: Range<usize> = 0..4;
-    const CERTIFICATE_RANGE: Range<usize> = 4..4;
-    const SIGN_SUM_RANGE: Range<usize> = 4..68;
-    const MASK_URL_RANGE: Range<usize> = 68..100;
-    const MESSAGE_LENGTH: usize = 100;
-
-    fn new(message: &'box__ [u8]) -> Result<Self, PetError> {
-        (message.len() == Self::MESSAGE_LENGTH && &message[Self::SUM2_RANGE] == b"sum2")
-            .then_some(Self(message))
-            .ok_or(PetError::InvalidMessage)
-    }
-
-    // dummy
-    fn get_certificate(&self) -> Vec<u8> {
-        self.0[Self::CERTIFICATE_RANGE].to_vec()
-    }
-
-    fn get_signature_sum(&self) -> sign::Signature {
-        sign::Signature::from_slice(&self.0[Self::SIGN_SUM_RANGE]).unwrap()
-    }
-
-    fn get_mask_url(&self) -> Vec<u8> {
-        self.0[Self::MASK_URL_RANGE].to_vec()
-    }
-}
-
-#[derive(Debug)]
-/// An item for the dictionary of "sum" participants.
-pub struct SumMessage {
-    pub part_encr_pk: box_::PublicKey, // 32 bytes
-    pub part_ephm_pk: box_::PublicKey, // 32 bytes
-}
-
-impl SumMessage {
-    /// Decrypt and validate a "sum" message. Get an item for the dictionary of "sum" participants.
-    fn validate(coord: &Coordinator, message: &[u8]) -> Result<Self, PetError> {
-        let msg_buf = SumMessageBuffer::new(message)?;
-
-        // get public keys
-        let sbox = msg_buf.open_sealedbox(&coord.encr_pk, &coord.encr_sk)?;
-        let sbox_buf = SealedBoxBuffer::new(&sbox)?;
-        let part_encr_pk = sbox_buf.get_part_encr_pk();
-        let part_sign_pk = sbox_buf.get_part_sign_pk();
-
-        // get ephemeral key
-        let sumbox = msg_buf.open_box(&part_encr_pk, &coord.encr_sk)?;
-        let box_buf = SumBoxBuffer::new(&sumbox)?;
-        Self::validate_certificate(&box_buf.get_certificate())?;
-        Self::validate_signature(
-            &box_buf.get_signature_sum(),
-            &part_sign_pk,
-            &coord.seed,
-            coord.sum,
-        )?;
-        let part_ephm_pk = box_buf.get_part_ephm_pk();
-
+impl Coordinator {
+    /// Create a coordinator. Fails if there is insufficient system entropy to generate secrets.
+    pub fn new() -> Result<Self, PetError> {
+        // crucial: init must be called before anything else in this module
+        sodiumoxide::init().or(Err(PetError::InsufficientSystemEntropy))?;
+        let (encr_pk, encr_sk) = box_::gen_keypair();
+        let (sign_pk, sign_sk) = sign::gen_keypair();
+        let seed = randombytes(32);
         Ok(Self {
-            part_encr_pk,
-            part_ephm_pk,
+            encr_pk,
+            encr_sk,
+            sign_pk,
+            sign_sk,
+            seed,
+            ..Default::default()
         })
     }
 
-    // dummy
+    /// Validate and handle a sum message.
+    pub fn validate_sum_message(&mut self, message: &[u8]) -> Result<(), PetError> {
+        (self.phase == Phase::Sum)
+            .then_some(())
+            .ok_or(PetError::InvalidMessage)?;
+        let msg = SumMessage::open(
+            message,
+            &self.encr_pk,
+            &self.encr_sk,
+            SumMessage::exp_len(None),
+        )?;
+        Self::validate_certificate(msg.certificate())?;
+        self.validate_task_sum(msg.signature_sum(), msg.sign_pk())?;
+        self.update_dict_sum(msg.encr_pk(), msg.ephm_pk());
+        Ok(())
+    }
+
+    /// Validate and handle an update message.
+    pub fn validate_update_message(&mut self, message: &[u8]) -> Result<(), PetError> {
+        let msg = UpdateMessage::open(
+            message,
+            &self.encr_pk,
+            &self.encr_sk,
+            UpdateMessage::exp_len(Some(self.dict_sum.len())),
+        )?;
+        Self::validate_certificate(msg.certificate())?;
+        self.validate_task_update(msg.signature_sum(), msg.signature_update(), msg.sign_pk())?;
+        self.update_dict_seed(msg.encr_pk(), msg.dict_seed())?;
+        Ok(())
+    }
+
+    /// Validate and handle a sum2 message.
+    pub fn validate_sum2_message(&mut self, message: &[u8]) -> Result<(), PetError> {
+        let msg = Sum2Message::open(
+            message,
+            &self.encr_pk,
+            &self.encr_sk,
+            Sum2Message::exp_len(None),
+        )?;
+        Self::validate_certificate(msg.certificate())?;
+        self.validate_task_sum(msg.signature_sum(), msg.sign_pk())?;
+        self.update_masks(msg.mask_url());
+        Ok(())
+    }
+
+    /// Validate a certificate (dummy).
     fn validate_certificate(certificate: &[u8]) -> Result<(), PetError> {
         (certificate == b"")
             .then_some(())
             .ok_or(PetError::InvalidMessage)
     }
 
-    fn validate_signature(
-        sign_sum: &sign::Signature,
+    /// Validate a sum signature and its implied task.
+    fn validate_task_sum(
+        &self,
+        signature_sum: &sign::Signature,
         sign_pk: &sign::PublicKey,
-        seed: &[u8],
-        sum: f64,
     ) -> Result<(), PetError> {
-        (sign::verify_detached(sign_sum, &[seed, b"sum"].concat(), sign_pk)
-            && is_eligible(sign_sum, sum))
+        (sign::verify_detached(
+            signature_sum,
+            &[self.seed.as_slice(), b"sum"].concat(),
+            sign_pk,
+        ) && is_eligible(signature_sum, self.sum))
         .then_some(())
         .ok_or(PetError::InvalidMessage)
     }
-}
 
-#[derive(Debug)]
-/// An url for a masked local model and items for the dictionary of encrypted masking seeds.
-pub struct UpdateMessage {
-    pub model_url: Vec<u8>,                           // 32 bytes (dummy)
-    pub dict_seed: HashMap<box_::PublicKey, Vec<u8>>, // 112 * dict_sum.len() bytes
-}
+    /// Validate an update signature and its implied task.
+    fn validate_task_update(
+        &self,
+        signature_sum: &sign::Signature,
+        signature_update: &sign::Signature,
+        sign_pk: &sign::PublicKey,
+    ) -> Result<(), PetError> {
+        (sign::verify_detached(
+            signature_sum,
+            &[self.seed.as_slice(), b"sum"].concat(),
+            sign_pk,
+        ) && sign::verify_detached(
+            signature_update,
+            &[self.seed.as_slice(), b"update"].concat(),
+            sign_pk,
+        ) && !is_eligible(signature_sum, self.sum)
+            && is_eligible(signature_update, self.update))
+        .then_some(())
+        .ok_or(PetError::InvalidMessage)
+    }
 
-impl UpdateMessage {
-    /// Decrypt and validate an "update" message. Get an url to a masked local model and items for
-    /// the dictionary of encrypted seeds.
-    fn validate(coord: &Coordinator, message: &[u8]) -> Result<Self, PetError> {
-        let msg_buf = UpdateMessageBuffer::new(message, coord.dict_sum.len())?;
+    /// Update the sum dictionary.
+    fn update_dict_sum(&mut self, encr_pk: &box_::PublicKey, ephm_pk: &box_::PublicKey) {
+        self.dict_sum.insert(*encr_pk, *ephm_pk);
+    }
 
-        // get public keys
-        let sbox = msg_buf.open_sealedbox(&coord.encr_pk, &coord.encr_sk)?;
-        let sbox_buf = SealedBoxBuffer::new(&sbox)?;
-        let part_encr_pk = sbox_buf.get_part_encr_pk();
-        let part_sign_pk = sbox_buf.get_part_sign_pk();
+    #[allow(clippy::unit_arg)]
+    /// Freeze the sum dictionary.
+    fn freeze_dict_sum(&mut self) -> Result<(), PetError> {
+        (self.dict_sum.len() >= self.min_sum)
+            .then_some({
+                self.dict_seed = self
+                    .dict_sum
+                    .keys()
+                    .map(|pk| (*pk, HashMap::new()))
+                    .collect();
+            })
+            .ok_or(PetError::InsufficientParticipants)
+    }
 
-        // get model url and dictionary of encrypted seeds
-        let updatebox = msg_buf.open_box(&part_encr_pk, &coord.encr_sk)?;
-        let box_buf = UpdateBoxBuffer::new(&updatebox, coord.dict_sum.len())?;
-        Self::validate_certificate(&box_buf.get_certificate())?;
-        Self::validate_signature(
-            &box_buf.get_signature_sum(),
-            &box_buf.get_signature_update(),
-            &part_sign_pk,
-            &coord.seed,
-            coord.sum,
-            coord.update,
-        )?;
-        let model_url = box_buf.get_model_url();
-        let dict_seed = box_buf.get_dict_seed();
-
-        Ok(Self {
-            model_url,
-            dict_seed,
+    #[allow(clippy::unit_arg)]
+    /// Update the seed dictionary.
+    fn update_dict_seed(
+        &mut self,
+        encr_pk: &box_::PublicKey,
+        dict_seed: &HashMap<box_::PublicKey, Vec<u8>>,
+    ) -> Result<(), PetError> {
+        (dict_seed.len() == self.dict_sum.len()
+            && dict_seed.keys().all(|pk| self.dict_sum.contains_key(pk)))
+        .then_some({
+            dict_seed.iter().for_each(|(pk, seed)| {
+                self.dict_seed
+                    .get_mut(pk)
+                    .unwrap()
+                    .insert(*encr_pk, seed.clone());
+            });
         })
-    }
-
-    // dummy
-    fn validate_certificate(certificate: &[u8]) -> Result<(), PetError> {
-        (certificate == b"")
-            .then_some(())
-            .ok_or(PetError::InvalidMessage)
-    }
-
-    fn validate_signature(
-        sign_sum: &sign::Signature,
-        sign_update: &sign::Signature,
-        sign_pk: &sign::PublicKey,
-        seed: &[u8],
-        sum: f64,
-        update: f64,
-    ) -> Result<(), PetError> {
-        (sign::verify_detached(sign_sum, &[seed, b"sum"].concat(), sign_pk)
-            && sign::verify_detached(sign_update, &[seed, b"update"].concat(), sign_pk)
-            && !is_eligible(sign_sum, sum)
-            && is_eligible(sign_update, update))
-        .then_some(())
         .ok_or(PetError::InvalidMessage)
     }
-}
 
-#[derive(Debug)]
-/// An url for a mask of a global model.
-pub struct Sum2Message {
-    pub mask_url: Vec<u8>,
-}
-
-impl Sum2Message {
-    /// Decrypt and validate a "sum2" message. Get an url for a global mask.
-    fn validate(coord: &Coordinator, message: &[u8]) -> Result<Self, PetError> {
-        let msg_buf = Sum2MessageBuffer::new(message)?;
-
-        // get public keys
-        let sbox = msg_buf.open_sealedbox(&coord.encr_pk, &coord.encr_sk)?;
-        let sbox_buf = SealedBoxBuffer::new(&sbox)?;
-        let part_encr_pk = sbox_buf.get_part_encr_pk();
-        let part_sign_pk = sbox_buf.get_part_sign_pk();
-
-        // get ephemeral key
-        let sum2box = msg_buf.open_box(&part_encr_pk, &coord.encr_sk)?;
-        let box_buf = Sum2BoxBuffer::new(&sum2box)?;
-        Self::validate_certificate(&box_buf.get_certificate())?;
-        Self::validate_signature(
-            &box_buf.get_signature_sum(),
-            &part_sign_pk,
-            &coord.seed,
-            coord.sum,
-        )?;
-        let mask_url = box_buf.get_mask_url();
-
-        Ok(Self { mask_url })
-    }
-
-    // dummy
-    fn validate_certificate(certificate: &[u8]) -> Result<(), PetError> {
-        (certificate == b"")
-            .then_some(())
-            .ok_or(PetError::InvalidMessage)
-    }
-
-    fn validate_signature(
-        sign_sum: &sign::Signature,
-        sign_pk: &sign::PublicKey,
-        seed: &[u8],
-        sum: f64,
-    ) -> Result<(), PetError> {
-        (sign::verify_detached(sign_sum, &[seed, b"sum"].concat(), sign_pk)
-            && is_eligible(sign_sum, sum))
+    /// Freeze the seed dictionary.
+    fn freeze_dict_seed(&mut self) -> Result<(), PetError> {
+        (self
+            .dict_seed
+            .values()
+            .all(|dict| dict.len() >= self.min_update))
         .then_some(())
-        .ok_or(PetError::InvalidMessage)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::pet::participant::Participant;
-
-    #[test]
-    fn test_coordinator() {
-        // new
-        let coord = Coordinator::new().unwrap();
-        assert_eq!(coord.encr_pk, coord.encr_sk.public_key());
-        assert_eq!(coord.encr_sk.as_ref().len(), 32);
-        assert_eq!(coord.sum, 0.01_f64);
-        assert_eq!(coord.update, 0.1_f64);
-        assert_eq!(coord.seed.len(), 32);
-        assert_eq!(coord.dict_sum, HashMap::new());
-        assert_eq!(coord.dict_seed, HashMap::new());
+        .ok_or(PetError::InsufficientParticipants)
     }
 
-    #[test]
-    fn test_summessagebuffer() {
-        let coord = Coordinator::new().unwrap();
-        let mut part = Participant::new().unwrap();
-
-        // new
-        let msg = part.compose_sum_message(&coord.encr_pk).message;
-        let buf = SumMessageBuffer::new(&msg).unwrap();
-        assert_eq!(buf.0, msg.as_slice());
-
-        // new error: invalid message length
-        assert_eq!(
-            SumMessageBuffer::new(&vec![0_u8; 0]).unwrap_err(),
-            PetError::InvalidMessage
-        );
-
-        // open sealedbox
-        let msg = buf.open_sealedbox(&coord.encr_pk, &coord.encr_sk).unwrap();
-        assert_eq!(msg.len(), 69);
-
-        // open sealedbox error: invalid sealedbox
-        assert_eq!(
-            SumMessageBuffer::new(&vec![0_u8; 256])
-                .unwrap()
-                .open_sealedbox(&coord.encr_pk, &coord.encr_sk)
-                .unwrap_err(),
-            PetError::InvalidMessage
-        );
-
-        // open box
-        let msg = buf.open_box(&part.encr_pk, &coord.encr_sk).unwrap();
-        assert_eq!(msg.len(), 99);
-
-        // open box error: invalid box
-        assert_eq!(
-            SumMessageBuffer::new(&vec![0_u8; 256])
-                .unwrap()
-                .open_box(&part.encr_pk, &coord.encr_sk)
-                .unwrap_err(),
-            PetError::InvalidMessage
-        );
+    /// Update the mask dictionary.
+    fn update_masks(&mut self, mask_url: &[u8]) {
+        self.masks += mask_url
+            .chunks_exact(mask_url.len())
+            .map(|mask| mask.to_vec());
     }
 
-    #[test]
-    fn test_updatemessagebuffer() {
-        let coord = Coordinator::new().unwrap();
-        let part = Participant::new().unwrap();
+    /// Freeze the mask dictionary.
+    fn freeze_masks(&self) -> Result<Vec<u8>, PetError> {
+        let counts = self.masks.most_common();
+        (counts.iter().map(|(_, count)| count).sum::<usize>() >= self.min_sum
+            && (counts.len() == 1 || counts[0].1 > counts[1].1))
+            .then_some(counts[0].0.clone())
+            .ok_or(PetError::InsufficientParticipants)
+    }
 
-        // new
-        let msg = part
-            .compose_update_message(
-                &coord.encr_pk,
-                &[(
-                    box_::PublicKey::from_slice(randombytes(32).as_slice()).unwrap(),
-                    box_::PublicKey::from_slice(randombytes(32).as_slice()).unwrap(),
-                )]
-                .iter()
-                .cloned()
-                .collect(),
+    /// Update the sum round parameter (dummy).
+    fn update_round_sum(&mut self) {}
+
+    /// Update the update round parameter (dummy).
+    fn update_round_update(&mut self) {}
+
+    /// Update the seed round parameter.
+    fn update_round_seed(&mut self) {
+        self.seed = sha256::hash(
+            sign::sign_detached(
+                &[
+                    self.seed.as_slice(),
+                    &self.sum.to_le_bytes(),
+                    &self.update.to_le_bytes(),
+                ]
+                .concat(),
+                &self.sign_sk,
             )
-            .message;
-        let buf = UpdateMessageBuffer::new(&msg, 1).unwrap();
-        assert_eq!(buf.0, msg.as_slice());
-        assert_eq!(buf.1, 141..435);
-
-        // new error: invalid message length
-        assert_eq!(
-            UpdateMessageBuffer::new(&vec![0_u8; 0], 0).unwrap_err(),
-            PetError::InvalidMessage
-        );
-
-        // open sealedbox
-        let msg = buf.open_sealedbox(&coord.encr_pk, &coord.encr_sk).unwrap();
-        assert_eq!(msg.len(), 69);
-
-        // open sealedbox error: invalid sealedbox
-        assert_eq!(
-            UpdateMessageBuffer::new(&vec![0_u8; 323], 0)
-                .unwrap()
-                .open_sealedbox(&coord.encr_pk, &coord.encr_sk)
-                .unwrap_err(),
-            PetError::InvalidMessage
-        );
-
-        // open box
-        let msg = buf.open_box(&part.encr_pk, &coord.encr_sk).unwrap();
-        assert_eq!(msg.len(), 278);
-
-        // open box error: invalid box
-        assert_eq!(
-            UpdateMessageBuffer::new(&vec![0_u8; 323], 0)
-                .unwrap()
-                .open_box(&part.encr_pk, &coord.encr_sk)
-                .unwrap_err(),
-            PetError::InvalidMessage
-        );
+            .as_ref(),
+        )
+        .as_ref()
+        .to_vec();
     }
 
-    #[test]
-    fn test_sum2messagebuffer() {
-        let coord = Coordinator::new().unwrap();
-        let mut part = Participant::new().unwrap();
-        part.compose_sum_message(&coord.encr_pk);
-
-        // new
-        let msg = part
-            .compose_sum2_message(
-                &coord.encr_pk,
-                &[(
-                    box_::PublicKey::from_slice(part.encr_pk.as_ref()).unwrap(),
-                    [(
-                        box_::PublicKey::from_slice(randombytes(32).as_slice()).unwrap(),
-                        sealedbox::seal(randombytes(32).as_slice(), &part.ephm_pk),
-                    )]
-                    .iter()
-                    .cloned()
-                    .collect(),
-                )]
-                .iter()
-                .cloned()
-                .collect(),
-            )
-            .unwrap()
-            .message;
-        let buf = Sum2MessageBuffer::new(&msg).unwrap();
-        assert_eq!(buf.0, msg.as_slice());
-
-        // new error: invalid message length
-        assert_eq!(
-            Sum2MessageBuffer::new(&vec![0_u8; 0]).unwrap_err(),
-            PetError::InvalidMessage
-        );
-
-        // open sealedbox
-        let msg = buf.open_sealedbox(&coord.encr_pk, &coord.encr_sk).unwrap();
-        assert_eq!(msg.len(), 69);
-
-        // open sealedbox error: invalid sealedbox
-        assert_eq!(
-            Sum2MessageBuffer::new(&vec![0_u8; 257])
-                .unwrap()
-                .open_sealedbox(&coord.encr_pk, &coord.encr_sk)
-                .unwrap_err(),
-            PetError::InvalidMessage
-        );
-
-        // open box
-        let msg = buf.open_box(&part.encr_pk, &coord.encr_sk).unwrap();
-        assert_eq!(msg.len(), 100);
-
-        // open box error: invalid box
-        assert_eq!(
-            Sum2MessageBuffer::new(&vec![0_u8; 257])
-                .unwrap()
-                .open_box(&part.encr_pk, &coord.encr_sk)
-                .unwrap_err(),
-            PetError::InvalidMessage
-        );
+    /// Clear the round dictionaries.
+    fn clear_round_dicts(&mut self) {
+        self.dict_sum = HashMap::new();
+        self.dict_seed = HashMap::new();
+        self.masks = Counter::new();
     }
 
-    #[test]
-    fn test_sealedboxbuffer() {
-        // new
-        let encr_pk = box_::PublicKey::from_slice(randombytes(32).as_slice()).unwrap();
-        let sign_pk = sign::PublicKey::from_slice(randombytes(32).as_slice()).unwrap();
-        let msg = [b"round", encr_pk.as_ref(), sign_pk.as_ref()].concat();
-        let buf = SealedBoxBuffer::new(&msg).unwrap();
-        assert_eq!(buf.0, msg.as_slice());
-
-        // new error: invalid message length
-        assert_eq!(
-            SealedBoxBuffer::new(&vec![0_u8; 0]).unwrap_err(),
-            PetError::InvalidMessage
-        );
-
-        // new error: invalid message tag
-        assert_eq!(
-            SealedBoxBuffer::new(&vec![0_u8; 69]).unwrap_err(),
-            PetError::InvalidMessage
-        );
-
-        // get part encr pk
-        let pk = buf.get_part_encr_pk();
-        assert_eq!(pk, encr_pk);
-
-        // get part sign pk
-        let pk = buf.get_part_sign_pk();
-        assert_eq!(pk, sign_pk);
+    /// Generate fresh round credentials.
+    fn gen_round_keypairs(&mut self) {
+        let (encr_pk, encr_sk) = box_::gen_keypair();
+        self.encr_pk = encr_pk;
+        self.encr_sk = encr_sk;
+        let (sign_pk, sign_sk) = sign::gen_keypair();
+        self.sign_pk = sign_pk;
+        self.sign_sk = sign_sk;
     }
 
-    #[test]
-    fn test_sumboxbuffer() {
-        // new
-        let sign_sum = sign::Signature::from_slice(randombytes(64).as_slice()).unwrap();
-        let ephm_pk = box_::PublicKey::from_slice(randombytes(32).as_slice()).unwrap();
-        let msg = [b"sum", sign_sum.as_ref(), ephm_pk.as_ref()].concat();
-        let buf = SumBoxBuffer::new(&msg).unwrap();
-        assert_eq!(buf.0, msg.as_slice());
-
-        // new error: invalid message length
-        assert_eq!(
-            SumBoxBuffer::new(&vec![0_u8; 0]).unwrap_err(),
-            PetError::InvalidMessage
-        );
-
-        // new error: invalid message tag
-        assert_eq!(
-            SumBoxBuffer::new(&vec![0_u8; 99]).unwrap_err(),
-            PetError::InvalidMessage
-        );
-
-        // get certificate
-        let msg = buf.get_certificate();
-        assert_eq!(msg, vec![0_u8; 0]);
-
-        // get signature sum
-        let msg = buf.get_signature_sum();
-        assert_eq!(msg, sign_sum);
-
-        // get part ephm pk
-        let msg = buf.get_part_ephm_pk();
-        assert_eq!(msg, ephm_pk);
+    /// Update the coordinator to start a round and proceed to the sum phase.
+    pub fn start_round(&mut self) {
+        self.update_round_sum();
+        self.update_round_update();
+        self.update_round_seed();
+        self.clear_round_dicts();
+        self.gen_round_keypairs();
+        self.phase = Phase::Sum;
     }
 
-    #[test]
-    fn test_updateboxbuffer() {
-        // new
-        let sign_sum = sign::Signature::from_slice(randombytes(64).as_slice()).unwrap();
-        let sign_update = sign::Signature::from_slice(randombytes(64).as_slice()).unwrap();
-        let model_url = randombytes(32);
-        let dict_seed_key = box_::PublicKey::from_slice(randombytes(32).as_slice()).unwrap();
-        let dict_seed_value = randombytes(80);
-        let dict_seed = [(dict_seed_key, dict_seed_value.clone())]
-            .iter()
-            .cloned()
-            .collect();
-        let msg = [
-            b"update",
-            sign_sum.as_ref(),
-            sign_update.as_ref(),
-            model_url.as_slice(),
-            dict_seed_key.as_ref(),
-            dict_seed_value.as_slice(),
-        ]
-        .concat();
-        let buf = UpdateBoxBuffer::new(&msg, 1).unwrap();
-        assert_eq!(buf.0, msg.as_slice());
-
-        // new error: invalid message length
-        assert_eq!(
-            UpdateBoxBuffer::new(&vec![0_u8; 0], 0).unwrap_err(),
-            PetError::InvalidMessage
-        );
-
-        // new error: invalid message tag
-        assert_eq!(
-            UpdateBoxBuffer::new(&vec![0_u8; 278], 1).unwrap_err(),
-            PetError::InvalidMessage
-        );
-
-        // get certificate
-        let msg = buf.get_certificate();
-        assert_eq!(msg, vec![0_u8; 0]);
-
-        // get signature sum
-        let msg = buf.get_signature_sum();
-        assert_eq!(msg, sign_sum);
-
-        // get signature update
-        let msg = buf.get_signature_update();
-        assert_eq!(msg, sign_update);
-
-        // get model url
-        let msg = buf.get_model_url();
-        assert_eq!(msg, model_url);
-
-        // get dict seed
-        let msg = buf.get_dict_seed();
-        assert_eq!(msg, dict_seed);
+    /// End the sum phase and proceed to the update phase.
+    pub fn end_phase_sum(&mut self) -> Result<(), PetError> {
+        self.freeze_dict_sum()?;
+        self.phase = Phase::Update;
+        Ok(())
     }
 
-    #[test]
-    fn test_sum2boxbuffer() {
-        // new
-        let sign_sum = sign::Signature::from_slice(randombytes(64).as_slice()).unwrap();
-        let mask_url = randombytes(32);
-        let msg = [b"sum2", sign_sum.as_ref(), mask_url.as_slice()].concat();
-        let buf = Sum2BoxBuffer::new(&msg).unwrap();
-        assert_eq!(buf.0, msg.as_slice());
+    /// End the update phase and proceed to the sum2 phase.
+    pub fn end_phase_update(&mut self) -> Result<(), PetError> {
+        self.freeze_dict_seed()?;
+        self.phase = Phase::Sum2;
+        Ok(())
+    }
 
-        // new error: invalid message length
-        assert_eq!(
-            Sum2BoxBuffer::new(&vec![0_u8; 0]).unwrap_err(),
-            PetError::InvalidMessage
-        );
-
-        // new error: invalid message tag
-        assert_eq!(
-            Sum2BoxBuffer::new(&vec![0_u8; 100]).unwrap_err(),
-            PetError::InvalidMessage
-        );
-
-        // get certificate
-        let msg = buf.get_certificate();
-        assert_eq!(msg, vec![0_u8; 0]);
-
-        // get signature sum
-        let msg = buf.get_signature_sum();
-        assert_eq!(msg, sign_sum);
-
-        // get mask url
-        let msg = buf.get_mask_url();
-        assert_eq!(msg, mask_url);
+    /// Freeze the globals masks to end the sum2 phase and proceed to the idle phase to end the
+    /// round. Returns the unique global mask url.
+    pub fn end_phase_sum2(&mut self) -> Result<Vec<u8>, PetError> {
+        let mask_url = self.freeze_masks()?;
+        self.phase = Phase::Idle;
+        Ok(mask_url)
     }
 }
