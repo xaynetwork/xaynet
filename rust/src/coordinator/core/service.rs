@@ -154,6 +154,7 @@ where
             Request::HeartBeat(req) => self.handle_heartbeat_request(req),
             Request::StartTraining(req) => self.handle_start_training_request(req),
             Request::EndTraining(req) => self.handle_end_training_request(req),
+            Request::Reset(_) => debug!("handle reset request"),
         }
     }
     /// Handle a rendez-vous request
@@ -469,12 +470,14 @@ impl ServiceRequests {
         start_training: UnboundedReceiver<StartTrainingRequest>,
         end_training: UnboundedReceiver<EndTrainingRequest>,
         heartbeat: UnboundedReceiver<HeartBeatRequest>,
+        reset: UnboundedReceiver<ResetRequest>,
     ) -> Self {
         let stream = rendez_vous
             .map(Request::from)
             .merge(start_training.map(Request::from))
             .merge(end_training.map(Request::from))
-            .merge(heartbeat.map(Request::from));
+            .merge(heartbeat.map(Request::from))
+            .merge(reset.map(Request::from));
         Self(Box::pin(stream))
     }
 }
@@ -485,6 +488,7 @@ pub enum Request {
     HeartBeat(HeartBeatRequest),
     StartTraining(StartTrainingRequest),
     EndTraining(EndTrainingRequest),
+    Reset(ResetRequest),
 }
 
 #[derive(From)]
@@ -510,12 +514,15 @@ pub struct EndTrainingRequest {
     success: bool,
 }
 
+pub struct ResetRequest;
+
 #[derive(Clone)]
 pub struct ServiceHandle {
     rendez_vous: UnboundedSender<RendezVousRequest>,
     start_training: UnboundedSender<StartTrainingRequest>,
     end_training: UnboundedSender<EndTrainingRequest>,
     heartbeat: UnboundedSender<HeartBeatRequest>,
+    reset: UnboundedSender<ResetRequest>,
 }
 
 impl ServiceHandle {
@@ -524,18 +531,21 @@ impl ServiceHandle {
         let (start_training_tx, start_training_rx) = unbounded_channel::<StartTrainingRequest>();
         let (end_training_tx, end_training_rx) = unbounded_channel::<EndTrainingRequest>();
         let (heartbeat_tx, heartbeat_rx) = unbounded_channel::<HeartBeatRequest>();
+        let (reset_tx, reset_rx) = unbounded_channel::<ResetRequest>();
 
         let handle = Self {
             rendez_vous: rendez_vous_tx,
             start_training: start_training_tx,
             heartbeat: heartbeat_tx,
             end_training: end_training_tx,
+            reset: reset_tx,
         };
         let service_requests = ServiceRequests::new(
             rendez_vous_rx,
             start_training_rx,
             end_training_rx,
             heartbeat_rx,
+            reset_rx,
         );
         (handle, service_requests)
     }
@@ -571,6 +581,10 @@ impl ServiceHandle {
 
     pub async fn end_training(&self, id: ClientId, success: bool) {
         Self::send_request(EndTrainingRequest::from((id, success)), &self.end_training);
+    }
+
+    pub async fn reset(&self) {
+        Self::send_request(ResetRequest, &self.reset);
     }
 
     fn send_request<P>(payload: P, chan: &UnboundedSender<P>) {

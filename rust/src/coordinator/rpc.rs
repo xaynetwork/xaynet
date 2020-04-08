@@ -15,6 +15,8 @@ mod inner {
     #[tarpc::service]
     pub trait Rpc {
         async fn end_training(id: ClientId, success: bool);
+
+        async fn reset();
     }
 }
 
@@ -27,6 +29,7 @@ pub use inner::RpcClient as Client;
 
 impl Rpc for Server {
     type EndTrainingFut = Pin<Box<dyn Future<Output = ()> + Send>>;
+    type ResetFut = Pin<Box<dyn Future<Output = ()> + Send>>;
 
     fn end_training(
         self,
@@ -37,6 +40,12 @@ impl Rpc for Server {
         debug!("handling end training request");
         let span = trace_span!("rpc_end_training_handler", client_id = %id, success = &success);
         Box::pin(async move { self.0.end_training(id, success).await }.instrument(span))
+    }
+
+    fn reset(self, _: tarpc::context::Context) -> Self::ResetFut {
+        debug!("handling reset request");
+        let span = trace_span!("rpc_reset_handler");
+        Box::pin(async move { self.0.reset().await }.instrument(span))
     }
 }
 
