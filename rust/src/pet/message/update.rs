@@ -252,7 +252,7 @@ mod tests {
         assert_eq!(UpdateBoxBuffer::new(10).bytes, vec![0_u8; 10]);
 
         // from
-        let dict_sum_len = randombytes_uniform(10) as usize;
+        let dict_sum_len = 1 + randombytes_uniform(10) as usize;
         let len = 161 + 112 * dict_sum_len;
         let bytes = randombytes(len);
         let bytes_ = bytes.clone();
@@ -309,7 +309,7 @@ mod tests {
     #[test]
     fn test_updatebox_ref() {
         // new
-        let dict_sum_len = randombytes_uniform(10) as usize;
+        let dict_sum_len = 1 + randombytes_uniform(10) as usize;
         let certificate = Vec::<u8>::new();
         let signature_sum = &sign::Signature::from_slice(&randombytes(64)).unwrap();
         let signature_update = &sign::Signature::from_slice(&randombytes(64)).unwrap();
@@ -376,7 +376,7 @@ mod tests {
     #[test]
     fn test_updatebox_val() {
         // exp len
-        let dict_sum_len = randombytes_uniform(10) as usize;
+        let dict_sum_len = 1 + randombytes_uniform(10) as usize;
         let len = 161 + 112 * dict_sum_len;
         assert_eq!(UpdateBox::exp_len(Some(dict_sum_len)), len);
 
@@ -451,7 +451,7 @@ mod tests {
 
     #[test]
     fn test_updatebox() {
-        let dict_sum_len = randombytes_uniform(10) as usize;
+        let dict_sum_len = 1 + randombytes_uniform(10) as usize;
         let certificate = Vec::<u8>::new();
         let signature_sum = sign::Signature::from_slice(&randombytes(64)).unwrap();
         let signature_update = sign::Signature::from_slice(&randombytes(64)).unwrap();

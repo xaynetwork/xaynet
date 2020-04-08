@@ -1,6 +1,9 @@
 #![allow(dead_code)] // temporary
 
-use std::{collections::HashMap, default::Default};
+use std::{
+    collections::{HashMap, HashSet},
+    default::Default,
+};
 
 use counter::Counter;
 use sodiumoxide::{
@@ -211,8 +214,8 @@ impl Coordinator {
         encr_pk: &box_::PublicKey,
         dict_seed: &HashMap<box_::PublicKey, Vec<u8>>,
     ) -> Result<(), PetError> {
-        (dict_seed.len() == self.dict_sum.len()
-            && dict_seed.keys().all(|pk| self.dict_sum.contains_key(pk)))
+        (dict_seed.keys().collect::<HashSet<&box_::PublicKey>>()
+            == self.dict_sum.keys().collect::<HashSet<&box_::PublicKey>>())
         .then_some({
             dict_seed.iter().for_each(|(pk, seed)| {
                 self.dict_seed
