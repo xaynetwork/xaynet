@@ -2,10 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a
-Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to
-the [Python form of Semantic
-Versioning](https://www.python.org/dev/peps/pep-0440/).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to the [Python form of Semantic Versioning](https://www.python.org/dev/peps/pep-0440/).
 
 For reference, the possible headings are:
 
@@ -18,7 +15,35 @@ For reference, the possible headings are:
 - `External Contributors` to list all external contributors.
 - `Notes` for notes regarding this particular release.
 
-## [Unreleased]
+## [unreleased]
+
+## [0.8.0] - 2020-04-08
+
+### Added
+
+- New tutorial for the Python SDK (https://github.com/xainag/xain-fl/pull/355)
+- Swagger description of the REST API (https://github.com/xainag/xain-fl/pull/345), and is published at https://xain-fl.readthedocs.io/en/latest/ (https://github.com/xainag/xain-fl/pull/358)
+- The Python examples now accepts additional parameters (model size, heartbeat period, verbosity, etc.) (https://github.com/xainag/xain-fl/pull/351)
+- Publish docker images to dockerhub
+
+### Security
+
+- Stop using `pickle` for messages serialization
+  (https://github.com/xainag/xain-fl/pull/355). `pickle` is insecure
+  and can lead to remote code execution. Instead, the default
+  aggregator uses `numpy.save()`.
+
+### Fixed
+
+- The documentation has been updated at https://xain-fl.readthedocs.io/en/latest/ (https://github.com/xainag/xain-fl/pull/358)
+- Document aggregator error on Darwin platform (https://github.com/xainag/xain-fl/pull/365/files)
+
+### Changed
+
+- Simplified the Python SDK API (https://github.com/xainag/xain-fl/pull/355)
+- Added unit tests for the coordinator and aggregator (https://github.com/xainag/xain-fl/pull/353), (https://github.com/xainag/xain-fl/pull/352)
+- Refactor the metrics store (https://github.com/xainag/xain-fl/pull/340)
+- Speed up the docker builds (https://github.com/xainag/xain-fl/pull/348)
 
 ## [0.7.0] - 2020-03-25
 
