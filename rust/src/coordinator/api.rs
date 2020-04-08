@@ -4,8 +4,7 @@ use crate::{
 };
 use tokio::net::TcpListener;
 use tracing_futures::Instrument;
-use warp::http::method::Method;
-use warp::Filter;
+use warp::{http::method::Method, Filter};
 
 pub async fn serve(bind_address: &str, handle: ServiceHandle) {
     let handle = warp::any().map(move || handle.clone());

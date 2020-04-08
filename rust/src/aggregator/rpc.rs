@@ -13,10 +13,11 @@ use std::{
     time::Duration,
 };
 use stubborn_io::{ReconnectOptions, StubbornTcpStream};
-use tarpc::{client::Config, context::Context, serde_transport::Transport};
 use tarpc::{
+    client::Config,
+    context::Context,
     rpc::server::{BaseChannel, Channel},
-    serde_transport::tcp::listen,
+    serde_transport::{tcp::listen, Transport},
 };
 use thiserror::Error;
 use tokio::{net::ToSocketAddrs, stream::StreamExt};
