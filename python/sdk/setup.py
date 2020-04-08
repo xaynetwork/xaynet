@@ -29,13 +29,8 @@ tests_require = [
     "pytest",
 ]
 
-docs_require = [
-    "Sphinx~=2.2",
-    "m2r~=0.2",
-    "sphinxcontrib-mermaid~=0.3",
-    "sphinx-autodoc-typehints~=1.10",
-    "docutils~=0.16",
-]
+with open("doc-requirements.txt", "r") as f:
+    docs_require = [line for line in f.readlines() if not line.startswith("#")]
 
 setup(
     name="xain-sdk",
