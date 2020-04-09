@@ -197,21 +197,19 @@ impl Coordinator {
         self.dict_sum.insert(*encr_pk, *ephm_pk);
     }
 
-    #[allow(clippy::unit_arg)]
     /// Freeze the sum dictionary. Fails due to insufficient sum participants.
     fn freeze_dict_sum(&mut self) -> Result<(), PetError> {
         (self.dict_sum.len() >= self.min_sum)
-            .then_some({
+            .then(|| {
                 self.dict_seed = self
                     .dict_sum
                     .keys()
-                    .map(|pk| (*pk, HashMap::new()))
+                    .map(|pk| (*pk, HashMap::<box_::PublicKey, Vec<u8>>::new()))
                     .collect();
             })
             .ok_or(PetError::InsufficientParticipants)
     }
 
-    #[allow(clippy::unit_arg)]
     /// Update the seed dictionary.
     fn update_dict_seed(
         &mut self,
@@ -220,7 +218,7 @@ impl Coordinator {
     ) -> Result<(), PetError> {
         (dict_seed.keys().collect::<HashSet<&box_::PublicKey>>()
             == self.dict_sum.keys().collect::<HashSet<&box_::PublicKey>>())
-        .then_some({
+        .then(|| {
             dict_seed.iter().for_each(|(pk, seed)| {
                 self.dict_seed
                     .get_mut(pk)
@@ -248,12 +246,13 @@ impl Coordinator {
             .map(|mask| mask.to_vec());
     }
 
-    /// Freeze the mask dictionary. Fails due to insufficient sum participants.
+    /// Freeze the mask dictionary. Returns a unique mask. Fails due to insufficient sum
+    /// participants.
     fn freeze_masks(&self) -> Result<Vec<u8>, PetError> {
         let counts = self.masks.most_common();
         (counts.iter().map(|(_, count)| count).sum::<usize>() >= self.min_sum
             && (counts.len() == 1 || counts[0].1 > counts[1].1))
-            .then_some(counts[0].0.clone())
+            .then(|| counts[0].0.clone())
             .ok_or(PetError::InsufficientParticipants)
     }
 
@@ -348,6 +347,10 @@ impl Coordinator {
 
 #[cfg(test)]
 mod tests {
+    use std::iter;
+
+    use sodiumoxide::{crypto::sealedbox, randombytes::randombytes_uniform};
+
     use super::*;
 
     #[test]
@@ -480,6 +483,115 @@ mod tests {
             coord.validate_task_update(&signature_sum, &signature_update, &sign_pk),
             Err(PetError::InvalidMessage)
         );
+
+        // update & freeze dict sum
+        let sum = iter::repeat_with(|| {
+            (
+                box_::PublicKey::from_slice(&randombytes(32)).unwrap(),
+                box_::PublicKey::from_slice(&randombytes(32)).unwrap(),
+            )
+        })
+        .take(coord.min_sum + randombytes_uniform(10) as usize)
+        .collect::<Vec<(box_::PublicKey, box_::PublicKey)>>();
+        assert!(coord.dict_sum.is_empty());
+        assert_eq!(
+            coord.freeze_dict_sum(),
+            Err(PetError::InsufficientParticipants)
+        );
+        sum.iter().for_each(|(sum_encr_pk, sum_ephm_pk)| {
+            coord.update_dict_sum(sum_encr_pk, sum_ephm_pk);
+        });
+        assert_eq!(
+            coord.dict_sum,
+            sum.iter()
+                .cloned()
+                .collect::<HashMap<box_::PublicKey, box_::PublicKey>>(),
+        );
+        assert!(coord.dict_seed.is_empty());
+        assert_eq!(coord.freeze_dict_sum(), Ok(()));
+        assert_eq!(
+            coord.dict_seed,
+            sum.iter()
+                .map(|(sum_encr_pk, _)| (*sum_encr_pk, HashMap::new()))
+                .collect(),
+        );
+
+        // update & freeze dict seed
+        let update = iter::repeat_with(|| {
+            (
+                box_::PublicKey::from_slice(&randombytes(32)).unwrap(),
+                randombytes(32),
+            )
+        })
+        .take(coord.min_update + randombytes_uniform(10) as usize)
+        .collect::<Vec<(box_::PublicKey, Vec<u8>)>>()
+        .iter()
+        .map(|(upd_encr_pk, seed)| {
+            (
+                *upd_encr_pk,
+                sum.iter()
+                    .map(|(sum_encr_pk, sum_ephm_pk)| {
+                        (*sum_encr_pk, sealedbox::seal(seed, sum_ephm_pk))
+                    })
+                    .collect::<HashMap<box_::PublicKey, Vec<u8>>>(),
+            )
+        })
+        .collect::<Vec<(box_::PublicKey, HashMap<box_::PublicKey, Vec<u8>>)>>();
+        assert_eq!(
+            coord.freeze_dict_seed(),
+            Err(PetError::InsufficientParticipants)
+        );
+        update.iter().for_each(|(upd_encr_pk, dict_seed)| {
+            coord.update_dict_seed(upd_encr_pk, dict_seed).unwrap();
+        });
+        assert_eq!(
+            coord.dict_seed,
+            sum.iter()
+                .map(|(sum_encr_pk, _)| (
+                    *sum_encr_pk,
+                    update
+                        .iter()
+                        .map(|(upd_encr_pk, dict_seed)| (
+                            *upd_encr_pk,
+                            dict_seed.get(sum_encr_pk).unwrap().clone()
+                        ))
+                        .collect::<HashMap<box_::PublicKey, Vec<u8>>>()
+                ))
+                .collect::<HashMap<box_::PublicKey, HashMap<box_::PublicKey, Vec<u8>>>>(),
+        );
+
+        // update & freeze masks
+        let masks = iter::repeat_with(|| randombytes(32))
+            .take(coord.dict_sum.len())
+            .collect::<Vec<Vec<u8>>>();
+        assert_eq!(
+            coord.freeze_masks().unwrap_err(),
+            PetError::InsufficientParticipants
+        );
+        masks.iter().for_each(|mask| coord.update_masks(mask));
+        assert_eq!(
+            coord.freeze_masks().unwrap_err(),
+            PetError::InsufficientParticipants
+        );
+        coord.masks.clear();
+        let masks = [
+            iter::repeat(randombytes(32))
+                .take((coord.dict_sum.len() - 1).max(1))
+                .collect::<Vec<Vec<u8>>>(),
+            vec![randombytes(32)],
+        ]
+        .concat();
+        masks.iter().for_each(|mask| coord.update_masks(mask));
+        assert_eq!(coord.freeze_masks().unwrap(), masks[0]);
+
+        // clear round dicts
+        assert!(!coord.dict_sum.is_empty());
+        assert!(!coord.dict_seed.is_empty());
+        assert!(!coord.masks.is_empty());
+        coord.clear_round_dicts();
+        assert!(coord.dict_sum.is_empty());
+        assert!(coord.dict_seed.is_empty());
+        assert!(coord.masks.is_empty());
 
         // gen round keypair
         coord.gen_round_keypair();
