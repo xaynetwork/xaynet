@@ -574,13 +574,10 @@ mod tests {
             PetError::InsufficientParticipants
         );
         coord.masks.clear();
-        let masks = [
-            iter::repeat(randombytes(32))
-                .take((coord.dict_sum.len() - 1).max(1))
-                .collect::<Vec<Vec<u8>>>(),
-            vec![randombytes(32)],
-        ]
-        .concat();
+        let masks = match coord.dict_sum.len() {
+            len @ 0..=2 => vec![randombytes(32); len],
+            len => [vec![randombytes(32); len - 1], vec![randombytes(32); 1]].concat(),
+        };
         masks.iter().for_each(|mask| coord.update_masks(mask));
         assert_eq!(coord.freeze_masks().unwrap(), masks[0]);
 
@@ -613,5 +610,35 @@ mod tests {
                 176, 115, 38, 118, 221, 130, 246, 133, 212, 254, 46, 248, 222, 71
             ]
         );
+
+        // proceed phase
+        assert_eq!(coord.phase, Phase::Idle);
+        assert_eq!(coord.proceed_phase().unwrap(), ());
+        assert_eq!(coord.phase, Phase::Sum);
+        assert_eq!(
+            coord.proceed_phase().unwrap_err(),
+            PetError::InsufficientParticipants
+        );
+        sum.iter().for_each(|(sum_encr_pk, sum_ephm_pk)| {
+            coord.update_dict_sum(sum_encr_pk, sum_ephm_pk);
+        });
+        assert_eq!(coord.proceed_phase().unwrap(), ());
+        assert_eq!(coord.phase, Phase::Update);
+        assert_eq!(
+            coord.proceed_phase().unwrap_err(),
+            PetError::InsufficientParticipants
+        );
+        update.iter().for_each(|(upd_encr_pk, dict_seed)| {
+            coord.update_dict_seed(upd_encr_pk, dict_seed).unwrap();
+        });
+        assert_eq!(coord.proceed_phase().unwrap(), ());
+        assert_eq!(coord.phase, Phase::Sum2);
+        assert_eq!(
+            coord.proceed_phase().unwrap_err(),
+            PetError::InsufficientParticipants
+        );
+        masks.iter().for_each(|mask| coord.update_masks(mask));
+        assert_eq!(coord.proceed_phase().unwrap(), ());
+        assert_eq!(coord.phase, Phase::Idle);
     }
 }
