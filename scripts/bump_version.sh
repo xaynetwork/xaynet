@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+COLOR_DEFAULT=$(tput sgr0)
+COLOR_RED=$(tput setaf 1)
+COLOR_GREEN=$(tput setaf 2)
+COLOR_YELLOW=$(tput setaf 3)
 
 WORKDIR="$(git rev-parse --show-toplevel)"
 # Save the git HEAD before running the script
@@ -18,6 +22,18 @@ MAJOR=
 MINOR=
 PATCH=
 
+info() {
+    echo -e "${COLOR_GREEN}$*${COLOR_DEFAULT}"
+}
+
+warn() {
+    echo -e "${COLOR_YELLOW}$*${COLOR_DEFAULT}"
+}
+
+err() {
+    echo -e "${COLOR_RED}$*${COLOR_DEFAULT}"
+}
+
 # Return the new version number
 version() {
     echo "${MAJOR}.${MINOR}.${PATCH}"
@@ -35,10 +51,10 @@ fetch_latest_version() {
 
     PREV_TAG=$(git describe --tags --abbrev=0)
     PREV_TAGGED_COMMIT=$(git rev-list -n 1 "${PREV_TAG}")
-    echo "latest tag found: ${PREV_TAG} (commit ${PREV_TAGGED_COMMIT})"
+    info "latest tag found: ${PREV_TAG} (commit ${PREV_TAGGED_COMMIT})"
 
     if ! [[ ${PREV_TAG} =~ ${tag_regex} ]] ; then
-        echo "error: invalid tag ${PREV_TAG}" >&2
+        err "Invalid tag ${PREV_TAG}" >&2
         exit 1
     fi
 
@@ -55,9 +71,9 @@ fetch_latest_version() {
 # does, error out.
 check_workdir_is_clean() {
     if [ -z "$(git status --untracked-files=no --porcelain)" ]; then
-        echo "git working directory is clean, continuing"
+        info "git working directory is clean, continuing"
     else
-        echo "git working directory is dirty, aborting" 2>&1
+        info "git working directory is dirty, aborting" 2>&1
         exit 1
     fi
 }
@@ -68,11 +84,11 @@ ask_yes_or_no() {
     select yn in "Yes" "No"; do
         case $yn in
             Yes )
-                echo "continuing"
+                info "continuing"
                 break
                 ;;
             No )
-                echo "aborting" 2>&1
+                err "aborting" 2>&1
                 exit 1
                 ;;
         esac
@@ -83,7 +99,7 @@ ask_yes_or_no() {
 # if necessary
 disclaimer() {
     cat << EOF
-***********************************
+${COLOR_YELLOW}***********************************
         IMPORTANT
 ***********************************
 
@@ -98,7 +114,8 @@ This script will:
 2. Make sure that the CHANGELOG.md file was updated since this tag was pushed
 3. Update the version number in various files in the repository, and commit
    these changes
-4. Create a new annotated tag
+4. Build the python packages so that they are ready to be pushed
+5. Check that the rust crate is ready to be published${COLOR_DEFAULT}
 
 EOF
 }
@@ -135,12 +152,14 @@ check_changelog_was_updated() {
     }
 
     if [ "$(diff | wc -l)" -eq 0 ] ; then
-        echo "error: the CHANGELOG has not been updated since ${PREV_TAG}" 2>&1
+        err "The CHANGELOG has not been updated since ${PREV_TAG}" 2>&1
+        err "Please update the CHANGELOG"
+        exit 1
     fi
 
-    echo "The CHANGELOG has been updated since ${PREV_TAG}"
+    info "The CHANGELOG has been updated since ${PREV_TAG}"
     diff
-    echo "Does the change above look correct for v$(version)"
+    info "Does the change above look correct for v$(version)"
     ask_yes_or_no
 }
 
@@ -149,7 +168,7 @@ set_version_in_file() {
     local sed_expr=${1}
     local file=${2}
 
-    echo "Setting version to $(version) in ${file}"
+    info "Setting version to $(version) in ${file}"
     sed -i "${sed_expr}" "${file}"
 }
 
@@ -174,28 +193,39 @@ update_versions() {
 
 
     if [ "$(git --no-pager diff | wc -l)" -eq 0 ] ; then
-        echo "No changes were made, it seems that the version files were already updated to $(version)"
-        echo "Do you want to continue?"
+        warn "No changes were made, it seems that the version files were already updated to $(version)"
+        warn "Do you want to continue?"
         ask_yes_or_no
     else
         git --no-pager diff
-        echo "Do you want to commit the changes above?"
+        warn "Do you want to commit the changes above?"
         ask_yes_or_no
         git add rust/Cargo.toml python/sdk/xain_sdk/__version__.py python/aggregators/xain_aggregators/__version__.py swagger/*.yml
         git commit -m "bump version $(prev_version) -> $(version)"
     fi
 }
 
-build_python_package() {
-    echo "Building python package at $(pwd)"
+python_publish_dry_run() {
+    info "Building python package at $(pwd)"
     python setup.py sdist bdist_wheel
-    echo "Python package at $(pwd) built successfully"
+    info "Python package at $(pwd) built successfully"
+
+    info "Trying to upload package at $(pwd) to test.pypi.org"
+    if ! twine upload --repository testpypi dist/* ; then
+        cat <<EOF 2>&1
+${COLOR_RED}error: Failed to upload package at $(pwd) to test.pypi.org
+error: Check your pypi configuration (see: https://packaging.python.org/guides/using-testpypi/#setting-up-testpypi-in-pypirc)
+error: This error is not fatal, so continuing anyway${COLOR_DEFAULT}
+EOF
+    fi
+    sleep 3  # Just to give the time to read the message above
+    info "Python package at $(pwd) uploaded successfully"
 }
 
 cargo_publish_dry_run() {
-    echo "Checking that the Rust package is ready to be published"
+    info "Checking that the Rust package is ready to be published"
     cargo publish --dry-run
-    echo "The Rust package is ready to be published"
+    info "The Rust package is ready to be published"
 }
 
 main() {
@@ -230,7 +260,7 @@ main() {
                 exit 0
                 ;;
             *)
-                echo "error: unsupported argument \"$1\"" 2>&1
+                err "Unsupported argument \"$1\"" 2>&1
                 usage
                 exit 1
                 ;;
@@ -255,38 +285,34 @@ main() {
     fi
 
     if [ "$(prev_version)" = "$(version)" ] ; then
-        echo "error: new version is the same than previous version" 2>&1
+        err "New version is the same than previous version" 2>&1
         exit 1
     fi
 
-    echo "Bumping version from $(prev_version) to $(version)"
+    info "Bumping version from $(prev_version) to $(version)"
     ask_yes_or_no
 
     update_versions
     check_changelog_was_updated
 
-    (cd python/sdk && build_python_package)
-    (cd python/aggregators && build_python_package)
+    (cd python/sdk && python_publish_dry_run)
+    (cd python/aggregators && python_publish_dry_run)
     (cd rust && cargo_publish_dry_run)
 
-    echo "Tagging ${HEAD} as \"v$(version)\""
-    git tag -a "v$(version)" -m "release v$(version)"
-
-    echo "Done!"
+    info "Done!"
 
     cat << EOF
-You can now publish the Python packages:
+${COLOR_GREEN}You can now open a Pull Request for the version bump (and the CHANGELOG update if any)
+Once it is merged, fetch the latest master branch and tag it:
+
+     git tag -a v$(version) -m "release v$(version)"
+     git push <remote> v$(version)
+
+Then, publish the Python and Rust packages:
 
     (cd python/sdk && twine upload dist/*)
     (cd python/aggregators && twine upload dist/*)
-
-And publish the Rust package:
-
-    (cd rust && cargo publish)
-
-Finally: push the new tag to Github:
-
-    git push <remote> master --tags
+    (cd rust && cargo publish)${COLOR_DEFAULT}
 
 EOF
 }
