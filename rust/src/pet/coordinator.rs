@@ -43,10 +43,10 @@ pub struct Coordinator {
     min_update: usize,
     phase: Phase,
 
-    // dictionaries
+    // round dictionaries
     dict_sum: HashMap<box_::PublicKey, box_::PublicKey>,
     dict_seed: HashMap<box_::PublicKey, HashMap<box_::PublicKey, Vec<u8>>>,
-    masks: Counter<Vec<u8>>,
+    dict_mask: Counter<Vec<u8>>,
 }
 
 impl Default for Coordinator {
@@ -63,7 +63,7 @@ impl Default for Coordinator {
         let phase = Phase::Idle;
         let dict_sum = HashMap::new();
         let dict_seed = HashMap::new();
-        let masks = Counter::new();
+        let dict_mask = Counter::new();
         Self {
             encr_pk,
             encr_sk,
@@ -77,7 +77,7 @@ impl Default for Coordinator {
             phase,
             dict_sum,
             dict_seed,
-            masks,
+            dict_mask,
         }
     }
 }
@@ -145,7 +145,7 @@ impl Coordinator {
         )?;
         Self::validate_certificate(msg.certificate())?;
         self.validate_task_sum(msg.signature_sum(), msg.sign_pk())?;
-        self.update_masks(msg.mask_url());
+        self.update_dict_mask(msg.mask_url());
         Ok(())
     }
 
@@ -240,16 +240,16 @@ impl Coordinator {
     }
 
     /// Update the mask dictionary.
-    fn update_masks(&mut self, mask_url: &[u8]) {
-        self.masks += mask_url
+    fn update_dict_mask(&mut self, mask_url: &[u8]) {
+        self.dict_mask += mask_url
             .chunks_exact(mask_url.len())
             .map(|mask| mask.to_vec());
     }
 
     /// Freeze the mask dictionary. Returns a unique mask. Fails due to insufficient sum
     /// participants.
-    fn freeze_masks(&self) -> Result<Vec<u8>, PetError> {
-        let counts = self.masks.most_common();
+    fn freeze_dict_mask(&self) -> Result<Vec<u8>, PetError> {
+        let counts = self.dict_mask.most_common();
         (counts.iter().map(|(_, count)| count).sum::<usize>() >= self.min_sum
             && (counts.len() == 1 || counts[0].1 > counts[1].1))
             .then(|| counts[0].0.clone())
@@ -262,8 +262,8 @@ impl Coordinator {
         self.dict_sum.shrink_to_fit();
         self.dict_seed.clear();
         self.dict_seed.shrink_to_fit();
-        self.masks.clear();
-        self.masks.shrink_to_fit();
+        self.dict_mask.clear();
+        self.dict_mask.shrink_to_fit();
     }
 
     /// Generate fresh round credentials.
@@ -310,7 +310,7 @@ impl Coordinator {
         }
     }
 
-    /// Update the coordinator to start a round and proceed to the sum phase.
+    /// End the idle phase and proceed to the sum phase to start the round.
     fn proceed_phase_sum(&mut self) {
         self.gen_round_keypair();
         self.phase = Phase::Sum;
@@ -332,10 +332,10 @@ impl Coordinator {
         Ok(())
     }
 
-    /// Freeze the globals masks to end the sum2 phase and proceed to the idle phase to end the
-    /// round. Fails due to insufficient sum participants.
+    /// End the sum2 phase and proceed to the idle phase to end the round. Fails due to insufficient
+    /// sum participants.
     fn proceed_phase_idle(&mut self) -> Result<(), PetError> {
-        let _mask_url = self.freeze_masks()?;
+        let _mask_url = self.freeze_dict_mask()?;
         self.clear_round_dicts();
         self.update_round_sum();
         self.update_round_update();
@@ -355,8 +355,7 @@ mod tests {
 
     #[test]
     fn test_coordinator() {
-        // new
-        let mut coord = Coordinator::new().unwrap();
+        let coord = Coordinator::new().unwrap();
         assert_eq!(coord.encr_pk, box_::PublicKey([0_u8; 32]));
         assert_eq!(coord.encr_sk, box_::SecretKey([0_u8; 32]));
         assert_eq!(coord.sign_pk, coord.sign_sk.public_key());
@@ -369,9 +368,12 @@ mod tests {
         assert_eq!(coord.phase, Phase::Idle);
         assert_eq!(coord.dict_sum, HashMap::new());
         assert_eq!(coord.dict_seed, HashMap::new());
-        assert_eq!(coord.masks, Counter::new());
+        assert_eq!(coord.dict_mask, Counter::new());
+    }
 
-        // validate task sum
+    #[test]
+    fn test_validate_task_sum() {
+        let mut coord = Coordinator::new().unwrap();
         coord.seed = vec![
             229, 16, 164, 40, 138, 161, 23, 161, 175, 102, 13, 103, 229, 229, 163, 56, 184, 250,
             190, 44, 91, 69, 246, 222, 64, 101, 139, 22, 126, 6, 103, 238,
@@ -399,10 +401,17 @@ mod tests {
         ]);
         assert_eq!(
             coord.validate_task_sum(&signature_sum, &sign_pk),
-            Err(PetError::InvalidMessage)
+            Err(PetError::InvalidMessage),
         );
+    }
 
-        // validate task update
+    #[test]
+    fn test_validate_task_update() {
+        let mut coord = Coordinator::new().unwrap();
+        coord.seed = vec![
+            229, 16, 164, 40, 138, 161, 23, 161, 175, 102, 13, 103, 229, 229, 163, 56, 184, 250,
+            190, 44, 91, 69, 246, 222, 64, 101, 139, 22, 126, 6, 103, 238,
+        ];
         let signature_sum = sign::Signature([
             184, 138, 175, 209, 149, 211, 214, 237, 125, 97, 56, 97, 206, 13, 111, 107, 227, 146,
             40, 41, 210, 179, 5, 83, 113, 185, 6, 3, 221, 135, 128, 74, 20, 120, 102, 182, 16, 138,
@@ -421,7 +430,7 @@ mod tests {
         ]);
         assert_eq!(
             coord.validate_task_update(&signature_sum, &signature_update, &sign_pk),
-            Ok(())
+            Ok(()),
         );
         let signature_sum = sign::Signature([
             136, 94, 175, 83, 39, 171, 196, 102, 225, 111, 39, 28, 104, 51, 34, 117, 112, 178, 165,
@@ -441,7 +450,7 @@ mod tests {
         ]);
         assert_eq!(
             coord.validate_task_update(&signature_sum, &signature_update, &sign_pk),
-            Err(PetError::InvalidMessage)
+            Err(PetError::InvalidMessage),
         );
         let signature_sum = sign::Signature([
             70, 46, 99, 192, 150, 169, 206, 133, 91, 206, 219, 205, 228, 255, 57, 96, 186, 64, 63,
@@ -461,7 +470,7 @@ mod tests {
         ]);
         assert_eq!(
             coord.validate_task_update(&signature_sum, &signature_update, &sign_pk),
-            Err(PetError::InvalidMessage)
+            Err(PetError::InvalidMessage),
         );
         let signature_sum = sign::Signature([
             186, 136, 94, 177, 248, 84, 83, 97, 83, 183, 242, 20, 93, 90, 21, 159, 238, 90, 82,
@@ -481,121 +490,170 @@ mod tests {
         ]);
         assert_eq!(
             coord.validate_task_update(&signature_sum, &signature_update, &sign_pk),
-            Err(PetError::InvalidMessage)
+            Err(PetError::InvalidMessage),
         );
+    }
 
-        // update & freeze dict sum
-        let sum = iter::repeat_with(|| {
+    fn auxiliary_sum(min_sum: usize) -> HashMap<box_::PublicKey, box_::PublicKey> {
+        iter::repeat_with(|| {
             (
                 box_::PublicKey::from_slice(&randombytes(32)).unwrap(),
                 box_::PublicKey::from_slice(&randombytes(32)).unwrap(),
             )
         })
-        .take(coord.min_sum + randombytes_uniform(10) as usize)
-        .collect::<Vec<(box_::PublicKey, box_::PublicKey)>>();
+        .take(min_sum + randombytes_uniform(10) as usize)
+        .collect()
+    }
+
+    #[test]
+    fn test_dict_sum() {
+        // update
+        let mut coord = Coordinator::new().unwrap();
         assert!(coord.dict_sum.is_empty());
         assert_eq!(
             coord.freeze_dict_sum(),
-            Err(PetError::InsufficientParticipants)
+            Err(PetError::InsufficientParticipants),
         );
-        sum.iter().for_each(|(sum_encr_pk, sum_ephm_pk)| {
-            coord.update_dict_sum(sum_encr_pk, sum_ephm_pk);
-        });
-        assert_eq!(
-            coord.dict_sum,
-            sum.iter()
-                .cloned()
-                .collect::<HashMap<box_::PublicKey, box_::PublicKey>>(),
-        );
+        let dict_sum = auxiliary_sum(coord.min_sum);
+        for (encr_pk, ephm_pk) in dict_sum.iter() {
+            coord.update_dict_sum(encr_pk, ephm_pk);
+        }
+        assert_eq!(coord.dict_sum, dict_sum);
+
+        // freeze
         assert!(coord.dict_seed.is_empty());
         assert_eq!(coord.freeze_dict_sum(), Ok(()));
         assert_eq!(
             coord.dict_seed,
-            sum.iter()
-                .map(|(sum_encr_pk, _)| (*sum_encr_pk, HashMap::new()))
+            dict_sum
+                .iter()
+                .map(|(encr_pk, _)| (*encr_pk, HashMap::new()))
                 .collect(),
         );
+    }
 
-        // update & freeze dict seed
-        let update = iter::repeat_with(|| {
-            (
-                box_::PublicKey::from_slice(&randombytes(32)).unwrap(),
-                randombytes(32),
-            )
+    fn auxiliary_update(
+        min_sum: usize,
+        min_update: usize,
+    ) -> (
+        HashMap<box_::PublicKey, box_::PublicKey>,
+        Vec<(box_::PublicKey, HashMap<box_::PublicKey, Vec<u8>>)>,
+        HashMap<box_::PublicKey, HashMap<box_::PublicKey, Vec<u8>>>,
+    ) {
+        let dict_sum = auxiliary_sum(min_sum);
+        let updates = iter::repeat_with(|| {
+            let seed = randombytes(32);
+            let upd_encr_pk = box_::PublicKey::from_slice(&randombytes(32)).unwrap();
+            let upd_dict_seed = dict_sum
+                .iter()
+                .map(|(sum_encr_pk, sum_ephm_pk)| {
+                    (*sum_encr_pk, sealedbox::seal(&seed, sum_ephm_pk))
+                })
+                .collect::<HashMap<box_::PublicKey, Vec<u8>>>();
+            (upd_encr_pk, upd_dict_seed)
         })
-        .take(coord.min_update + randombytes_uniform(10) as usize)
-        .collect::<Vec<(box_::PublicKey, Vec<u8>)>>()
-        .iter()
-        .map(|(upd_encr_pk, seed)| {
-            (
-                *upd_encr_pk,
-                sum.iter()
-                    .map(|(sum_encr_pk, sum_ephm_pk)| {
-                        (*sum_encr_pk, sealedbox::seal(seed, sum_ephm_pk))
-                    })
-                    .collect::<HashMap<box_::PublicKey, Vec<u8>>>(),
-            )
-        })
+        .take(min_update + randombytes_uniform(10) as usize)
         .collect::<Vec<(box_::PublicKey, HashMap<box_::PublicKey, Vec<u8>>)>>();
+        let dict_seed = dict_sum
+            .iter()
+            .map(|(sum_encr_pk, _)| {
+                (
+                    *sum_encr_pk,
+                    updates
+                        .iter()
+                        .map(|(upd_encr_pk, dict_seed)| {
+                            (*upd_encr_pk, dict_seed.get(sum_encr_pk).unwrap().clone())
+                        })
+                        .collect::<HashMap<box_::PublicKey, Vec<u8>>>(),
+                )
+            })
+            .collect::<HashMap<box_::PublicKey, HashMap<box_::PublicKey, Vec<u8>>>>();
+        (dict_sum, updates, dict_seed)
+    }
+
+    #[test]
+    fn test_dict_seed() {
+        // update
+        let mut coord = Coordinator::new().unwrap();
+        let (dict_sum, updates, dict_seed) = auxiliary_update(coord.min_sum, coord.min_update);
+        coord.dict_sum = dict_sum;
+        coord.freeze_dict_sum().unwrap();
         assert_eq!(
             coord.freeze_dict_seed(),
-            Err(PetError::InsufficientParticipants)
+            Err(PetError::InsufficientParticipants),
         );
-        update.iter().for_each(|(upd_encr_pk, dict_seed)| {
-            coord.update_dict_seed(upd_encr_pk, dict_seed).unwrap();
-        });
-        assert_eq!(
-            coord.dict_seed,
-            sum.iter()
-                .map(|(sum_encr_pk, _)| (
-                    *sum_encr_pk,
-                    update
-                        .iter()
-                        .map(|(upd_encr_pk, dict_seed)| (
-                            *upd_encr_pk,
-                            dict_seed.get(sum_encr_pk).unwrap().clone()
-                        ))
-                        .collect::<HashMap<box_::PublicKey, Vec<u8>>>()
-                ))
-                .collect::<HashMap<box_::PublicKey, HashMap<box_::PublicKey, Vec<u8>>>>(),
-        );
+        for (encr_pk, dict_seed) in updates.iter() {
+            coord.update_dict_seed(encr_pk, dict_seed).unwrap();
+        }
+        assert_eq!(coord.dict_seed, dict_seed);
 
-        // update & freeze masks
-        let masks = iter::repeat_with(|| randombytes(32))
-            .take(coord.dict_sum.len())
-            .collect::<Vec<Vec<u8>>>();
-        assert_eq!(
-            coord.freeze_masks().unwrap_err(),
-            PetError::InsufficientParticipants
-        );
-        masks.iter().for_each(|mask| coord.update_masks(mask));
-        assert_eq!(
-            coord.freeze_masks().unwrap_err(),
-            PetError::InsufficientParticipants
-        );
-        coord.masks.clear();
-        let masks = match coord.dict_sum.len() {
+        // freeze
+        assert_eq!(coord.freeze_dict_seed(), Ok(()));
+    }
+
+    fn auxiliary_mask(min_sum: usize) -> (Vec<Vec<u8>>, Counter<Vec<u8>>) {
+        let masks = match min_sum + randombytes_uniform(10) as usize {
             len @ 0..=2 => vec![randombytes(32); len],
             len => [vec![randombytes(32); len - 1], vec![randombytes(32); 1]].concat(),
         };
-        masks.iter().for_each(|mask| coord.update_masks(mask));
-        assert_eq!(coord.freeze_masks().unwrap(), masks[0]);
+        let dict_mask = masks.iter().cloned().collect::<Counter<Vec<u8>>>();
+        (masks, dict_mask)
+    }
 
-        // clear round dicts
-        assert!(!coord.dict_sum.is_empty());
-        assert!(!coord.dict_seed.is_empty());
-        assert!(!coord.masks.is_empty());
+    #[test]
+    fn test_dict_mask() {
+        // update
+        let mut coord = Coordinator::new().unwrap();
+        assert_eq!(
+            coord.freeze_dict_mask().unwrap_err(),
+            PetError::InsufficientParticipants,
+        );
+        let (masks, dict_mask) = auxiliary_mask(coord.min_sum);
+        for mask in masks.iter() {
+            coord.update_dict_mask(mask);
+        }
+        assert_eq!(coord.dict_mask, dict_mask);
+
+        // freeze
+        assert_eq!(
+            coord.freeze_dict_mask().unwrap(),
+            dict_mask.most_common()[0].0,
+        );
+
+        // not unique
+        coord.dict_mask = iter::repeat_with(|| randombytes(32))
+            .take((coord.min_sum + randombytes_uniform(10) as usize).max(2))
+            .collect::<Counter<Vec<u8>>>();
+        assert_eq!(
+            coord.freeze_dict_mask().unwrap_err(),
+            PetError::InsufficientParticipants,
+        );
+    }
+
+    #[test]
+    fn test_clear_round_dicts() {
+        let mut coord = Coordinator::new().unwrap();
         coord.clear_round_dicts();
         assert!(coord.dict_sum.is_empty());
         assert!(coord.dict_seed.is_empty());
-        assert!(coord.masks.is_empty());
+        assert!(coord.dict_mask.is_empty());
+    }
 
-        // gen round keypair
+    #[test]
+    fn test_gen_round_keypair() {
+        let mut coord = Coordinator::new().unwrap();
         coord.gen_round_keypair();
         assert_eq!(coord.encr_pk, coord.encr_sk.public_key());
         assert_eq!(coord.encr_sk.as_ref().len(), 32);
+    }
 
-        // update round seed
+    #[test]
+    fn test_update_round_seed() {
+        let mut coord = Coordinator::new().unwrap();
+        coord.seed = vec![
+            229, 16, 164, 40, 138, 161, 23, 161, 175, 102, 13, 103, 229, 229, 163, 56, 184, 250,
+            190, 44, 91, 69, 246, 222, 64, 101, 139, 22, 126, 6, 103, 238,
+        ];
         coord.sign_sk = sign::SecretKey([
             72, 252, 162, 60, 90, 28, 214, 96, 4, 116, 71, 105, 97, 164, 192, 175, 210, 83, 50, 92,
             173, 243, 60, 238, 50, 162, 252, 216, 74, 15, 123, 76, 251, 186, 123, 178, 160, 3, 175,
@@ -607,38 +665,54 @@ mod tests {
             coord.seed,
             vec![
                 5, 13, 221, 236, 217, 108, 126, 186, 152, 180, 111, 173, 45, 124, 140, 79, 1, 239,
-                176, 115, 38, 118, 221, 130, 246, 133, 212, 254, 46, 248, 222, 71
-            ]
+                176, 115, 38, 118, 221, 130, 246, 133, 212, 254, 46, 248, 222, 71,
+            ],
         );
+    }
 
-        // proceed phase
+    #[test]
+    fn test_proceed_phase() {
+        let mut coord = Coordinator::new().unwrap();
+        let (dict_sum, _, dict_seed) = auxiliary_update(coord.min_sum, coord.min_update);
+        let (_, dict_mask) = auxiliary_mask(coord.min_sum);
         assert_eq!(coord.phase, Phase::Idle);
+
+        // proceed phase sum
         assert_eq!(coord.proceed_phase().unwrap(), ());
+        assert_ne!(coord.encr_pk, box_::PublicKey([0_u8; 32]));
+        assert_ne!(coord.encr_sk, box_::SecretKey([0_u8; 32]));
         assert_eq!(coord.phase, Phase::Sum);
         assert_eq!(
             coord.proceed_phase().unwrap_err(),
-            PetError::InsufficientParticipants
+            PetError::InsufficientParticipants,
         );
-        sum.iter().for_each(|(sum_encr_pk, sum_ephm_pk)| {
-            coord.update_dict_sum(sum_encr_pk, sum_ephm_pk);
-        });
+        coord.dict_sum = dict_sum;
+
+        // proceed phase update
         assert_eq!(coord.proceed_phase().unwrap(), ());
         assert_eq!(coord.phase, Phase::Update);
         assert_eq!(
             coord.proceed_phase().unwrap_err(),
-            PetError::InsufficientParticipants
+            PetError::InsufficientParticipants,
         );
-        update.iter().for_each(|(upd_encr_pk, dict_seed)| {
-            coord.update_dict_seed(upd_encr_pk, dict_seed).unwrap();
-        });
+        coord.dict_seed = dict_seed;
+
+        // proceed phase sum2
         assert_eq!(coord.proceed_phase().unwrap(), ());
         assert_eq!(coord.phase, Phase::Sum2);
         assert_eq!(
             coord.proceed_phase().unwrap_err(),
-            PetError::InsufficientParticipants
+            PetError::InsufficientParticipants,
         );
-        masks.iter().for_each(|mask| coord.update_masks(mask));
+        coord.dict_mask = dict_mask;
+
+        // proceed phase idle
+        let seed = coord.seed.clone();
         assert_eq!(coord.proceed_phase().unwrap(), ());
+        assert!(coord.dict_sum.is_empty());
+        assert!(coord.dict_seed.is_empty());
+        assert!(coord.dict_mask.is_empty());
+        assert_ne!(coord.seed, seed);
         assert_eq!(coord.phase, Phase::Idle);
     }
 }

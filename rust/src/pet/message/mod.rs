@@ -490,7 +490,7 @@ mod tests {
     }
 
     #[test]
-    fn test_updatemessage_ref() {
+    fn test_updatemessage() {
         // new
         let encr_pk = &box_::PublicKey::from_slice(&randombytes(32)).unwrap();
         let sign_pk = &sign::PublicKey::from_slice(&randombytes(32)).unwrap();
@@ -578,7 +578,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sum2message_ref() {
+    fn test_sum2message() {
         // new
         let encr_pk = &box_::PublicKey::from_slice(&randombytes(32)).unwrap();
         let sign_pk = &sign::PublicKey::from_slice(&randombytes(32)).unwrap();

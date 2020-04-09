@@ -36,7 +36,7 @@ mod tests {
             54, 162, 236, 78, 126, 114, 205, 217, 250, 163, 223, 149, 31, 65, 179, 179, 60, 64, 34,
             1, 78, 245, 1, 50, 165, 47,
         ]);
-        assert_eq!(is_eligible(&sig, 0.5_f64), true);
+        assert!(is_eligible(&sig, 0.5_f64));
 
         // ineligible signature
         let sig = sign::Signature([
@@ -45,6 +45,6 @@ mod tests {
             37, 78, 147, 63, 231, 28, 61, 251, 41, 48, 239, 125, 0, 129, 126, 194, 123, 183, 11,
             215, 220, 1, 225, 248, 131, 64, 242,
         ]);
-        assert_eq!(is_eligible(&sig, 0.5_f64), false);
+        assert!(!is_eligible(&sig, 0.5_f64));
     }
 }
