@@ -99,9 +99,9 @@ impl Coordinator {
 
     /// Validate and handle a sum message.
     pub fn validate_sum_message(&mut self, message: &[u8]) -> Result<(), PetError> {
-        (self.phase == Phase::Sum)
-            .then_some(())
-            .ok_or(PetError::InvalidMessage)?;
+        if self.phase == Phase::Sum {
+            return Err(PetError::InvalidMessage);
+        }
         let msg = SumMessage::open(
             message,
             &self.encr_pk,
@@ -144,9 +144,10 @@ impl Coordinator {
 
     /// Validate a certificate (dummy).
     fn validate_certificate(certificate: &[u8]) -> Result<(), PetError> {
-        (certificate == b"")
-            .then_some(())
-            .ok_or(PetError::InvalidMessage)
+        if certificate == b"" {
+            return Ok(());
+        }
+        Err(PetError::InvalidMessage)
     }
 
     /// Validate a sum signature and its implied task.
@@ -155,13 +156,18 @@ impl Coordinator {
         signature_sum: &sign::Signature,
         sign_pk: &sign::PublicKey,
     ) -> Result<(), PetError> {
-        (sign::verify_detached(
+        if !sign::verify_detached(
             signature_sum,
             &[self.seed.as_slice(), b"sum"].concat(),
             sign_pk,
-        ) && is_eligible(signature_sum, self.sum))
-        .then_some(())
-        .ok_or(PetError::InvalidMessage)
+        ) {
+            return Err(PetError::InvalidMessage);
+        }
+
+        if !is_eligible(signature_sum, self.sum) {
+            return Err(PetError::InvalidMessage);
+        }
+        Ok(())
     }
 
     /// Validate an update signature and its implied task.
@@ -171,18 +177,26 @@ impl Coordinator {
         signature_update: &sign::Signature,
         sign_pk: &sign::PublicKey,
     ) -> Result<(), PetError> {
-        (sign::verify_detached(
+        if !sign::verify_detached(
             signature_sum,
             &[self.seed.as_slice(), b"sum"].concat(),
             sign_pk,
-        ) && sign::verify_detached(
+        ) {
+            return Err(PetError::InvalidMessage);
+        }
+
+        if !sign::verify_detached(
             signature_update,
             &[self.seed.as_slice(), b"update"].concat(),
             sign_pk,
-        ) && !is_eligible(signature_sum, self.sum)
-            && is_eligible(signature_update, self.update))
-        .then_some(())
-        .ok_or(PetError::InvalidMessage)
+        ) {
+            return Err(PetError::InvalidMessage);
+        }
+
+        if is_eligible(signature_sum, self.sum) || !is_eligible(signature_update, self.update) {
+            return Err(PetError::InvalidMessage);
+        }
+        Ok(())
     }
 
     /// Update the sum dictionary.
@@ -193,15 +207,15 @@ impl Coordinator {
     #[allow(clippy::unit_arg)]
     /// Freeze the sum dictionary.
     fn freeze_dict_sum(&mut self) -> Result<(), PetError> {
-        (self.dict_sum.len() >= self.min_sum)
-            .then_some({
-                self.dict_seed = self
-                    .dict_sum
-                    .keys()
-                    .map(|pk| (*pk, HashMap::new()))
-                    .collect();
-            })
-            .ok_or(PetError::InsufficientParticipants)
+        if self.dict_sum.len() >= self.min_sum {
+            self.dict_seed = self
+                .dict_sum
+                .keys()
+                .map(|pk| (*pk, HashMap::new()))
+                .collect();
+            return Ok(());
+        }
+        Err(PetError::InsufficientParticipants)
     }
 
     #[allow(clippy::unit_arg)]
@@ -211,27 +225,41 @@ impl Coordinator {
         encr_pk: &box_::PublicKey,
         dict_seed: &HashMap<box_::PublicKey, Vec<u8>>,
     ) -> Result<(), PetError> {
-        (dict_seed.len() == self.dict_sum.len()
-            && dict_seed.keys().all(|pk| self.dict_sum.contains_key(pk)))
-        .then_some({
-            dict_seed.iter().for_each(|(pk, seed)| {
-                self.dict_seed
-                    .get_mut(pk)
-                    .unwrap()
-                    .insert(*encr_pk, seed.clone());
-            });
-        })
-        .ok_or(PetError::InvalidMessage)
+        if dict_seed.len() != self.dict_sum.len() {
+            return Err(PetError::InvalidMessage);
+        }
+
+        if dict_seed.keys().all(|pk| self.dict_sum.contains_key(pk)) {
+            return Err(PetError::InvalidMessage);
+        }
+
+        for (pk, seed) in dict_seed.iter() {
+            self.dict_seed
+                .get_mut(pk)
+                // UNWRAP_SAFE: It is fine to unwrap because:
+                //
+                //   - we checked just above that self.dict_sum has
+                //     all the keys
+                //   - self.dict_seed has the same keys than
+                //     self.dict_sum, since free_dict_sum()
+                //     populated it.
+                .unwrap()
+                .insert(*encr_pk, seed.clone());
+        }
+
+        Ok(())
     }
 
     /// Freeze the seed dictionary.
     fn freeze_dict_seed(&mut self) -> Result<(), PetError> {
-        (self
+        if self
             .dict_seed
             .values()
-            .all(|dict| dict.len() >= self.min_update))
-        .then_some(())
-        .ok_or(PetError::InsufficientParticipants)
+            .all(|dict| dict.len() >= self.min_update)
+        {
+            return Ok(());
+        }
+        Err(PetError::InsufficientParticipants)
     }
 
     /// Update the mask dictionary.
@@ -244,10 +272,11 @@ impl Coordinator {
     /// Freeze the mask dictionary.
     fn freeze_masks(&self) -> Result<Vec<u8>, PetError> {
         let counts = self.masks.most_common();
-        (counts.iter().map(|(_, count)| count).sum::<usize>() >= self.min_sum
-            && (counts.len() == 1 || counts[0].1 > counts[1].1))
-            .then_some(counts[0].0.clone())
-            .ok_or(PetError::InsufficientParticipants)
+        let sum = counts.iter().map(|(_, count)| count).sum::<usize>();
+        if sum >= self.min_sum && (counts.len() == 1 || counts[0].1 > counts[1].1) {
+            return Ok(counts[0].0.clone());
+        }
+        Err(PetError::InsufficientParticipants)
     }
 
     /// Update the sum round parameter (dummy).
