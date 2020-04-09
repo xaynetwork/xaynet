@@ -101,7 +101,7 @@ impl Participant {
     }
 
     /// Compose a sum message.
-    pub fn compose_sum_message(&mut self, coord_encr_pk: &box_::PublicKey) -> Vec<u8> {
+    pub fn compose_message_sum(&mut self, coord_encr_pk: &box_::PublicKey) -> Vec<u8> {
         self.gen_ephm_keypair();
         Message::new(
             RoundBox::new(&self.encr_pk, &self.sign_pk),
@@ -111,7 +111,7 @@ impl Participant {
     }
 
     /// Compose an update message.
-    pub fn compose_update_message(
+    pub fn compose_message_update(
         &self,
         coord_encr_pk: &box_::PublicKey,
         dict_sum: &HashMap<box_::PublicKey, box_::PublicKey>,
@@ -132,7 +132,7 @@ impl Participant {
     }
 
     /// Compose a sum2 message.
-    pub fn compose_sum2_message(
+    pub fn compose_message_sum2(
         &self,
         coord_encr_pk: &box_::PublicKey,
         dict_seed: &HashMap<box_::PublicKey, HashMap<box_::PublicKey, Vec<u8>>>,

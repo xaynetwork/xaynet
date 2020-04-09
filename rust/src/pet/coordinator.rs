@@ -87,12 +87,9 @@ impl Coordinator {
     pub fn new() -> Result<Self, PetError> {
         // crucial: init must be called before anything else in this module
         sodiumoxide::init().or(Err(PetError::InsufficientSystemEntropy))?;
-        let (encr_pk, encr_sk) = box_::gen_keypair();
         let (sign_pk, sign_sk) = sign::gen_keypair();
         let seed = randombytes(32);
         Ok(Self {
-            encr_pk,
-            encr_sk,
             sign_pk,
             sign_sk,
             seed,
@@ -100,11 +97,18 @@ impl Coordinator {
         })
     }
 
+    /// Validate and handle a sum, update or sum2 message.
+    pub fn validate_message(&mut self, message: &[u8]) -> Result<(), PetError> {
+        match self.phase {
+            Phase::Idle => Err(PetError::InvalidMessage),
+            Phase::Sum => self.validate_message_sum(message),
+            Phase::Update => self.validate_message_update(message),
+            Phase::Sum2 => self.validate_message_sum2(message),
+        }
+    }
+
     /// Validate and handle a sum message.
-    pub fn validate_sum_message(&mut self, message: &[u8]) -> Result<(), PetError> {
-        (self.phase == Phase::Sum)
-            .then_some(())
-            .ok_or(PetError::InvalidMessage)?;
+    fn validate_message_sum(&mut self, message: &[u8]) -> Result<(), PetError> {
         let msg = SumMessage::open(
             message,
             &self.encr_pk,
@@ -118,7 +122,7 @@ impl Coordinator {
     }
 
     /// Validate and handle an update message.
-    pub fn validate_update_message(&mut self, message: &[u8]) -> Result<(), PetError> {
+    fn validate_message_update(&mut self, message: &[u8]) -> Result<(), PetError> {
         let msg = UpdateMessage::open(
             message,
             &self.encr_pk,
@@ -132,7 +136,7 @@ impl Coordinator {
     }
 
     /// Validate and handle a sum2 message.
-    pub fn validate_sum2_message(&mut self, message: &[u8]) -> Result<(), PetError> {
+    fn validate_message_sum2(&mut self, message: &[u8]) -> Result<(), PetError> {
         let msg = Sum2Message::open(
             message,
             &self.encr_pk,
@@ -194,7 +198,7 @@ impl Coordinator {
     }
 
     #[allow(clippy::unit_arg)]
-    /// Freeze the sum dictionary.
+    /// Freeze the sum dictionary. Fails due to insufficient sum participants.
     fn freeze_dict_sum(&mut self) -> Result<(), PetError> {
         (self.dict_sum.len() >= self.min_sum)
             .then_some({
@@ -227,7 +231,7 @@ impl Coordinator {
         .ok_or(PetError::InvalidMessage)
     }
 
-    /// Freeze the seed dictionary.
+    /// Freeze the seed dictionary. Fails due to insufficient update participants.
     fn freeze_dict_seed(&mut self) -> Result<(), PetError> {
         (self
             .dict_seed
@@ -244,13 +248,30 @@ impl Coordinator {
             .map(|mask| mask.to_vec());
     }
 
-    /// Freeze the mask dictionary.
+    /// Freeze the mask dictionary. Fails due to insufficient sum participants.
     fn freeze_masks(&self) -> Result<Vec<u8>, PetError> {
         let counts = self.masks.most_common();
         (counts.iter().map(|(_, count)| count).sum::<usize>() >= self.min_sum
             && (counts.len() == 1 || counts[0].1 > counts[1].1))
             .then_some(counts[0].0.clone())
             .ok_or(PetError::InsufficientParticipants)
+    }
+
+    /// Clear the round dictionaries.
+    fn clear_round_dicts(&mut self) {
+        self.dict_sum.clear();
+        self.dict_sum.shrink_to_fit();
+        self.dict_seed.clear();
+        self.dict_seed.shrink_to_fit();
+        self.masks.clear();
+        self.masks.shrink_to_fit();
+    }
+
+    /// Generate fresh round credentials.
+    fn gen_round_keypair(&mut self) {
+        let (encr_pk, encr_sk) = box_::gen_keypair();
+        self.encr_pk = encr_pk;
+        self.encr_sk = encr_sk;
     }
 
     /// Update the sum round parameter (dummy).
@@ -277,52 +298,208 @@ impl Coordinator {
         .to_vec();
     }
 
-    /// Clear the round dictionaries.
-    fn clear_round_dicts(&mut self) {
-        self.dict_sum = HashMap::new();
-        self.dict_seed = HashMap::new();
-        self.masks = Counter::new();
-    }
-
-    /// Generate fresh round credentials.
-    fn gen_round_keypairs(&mut self) {
-        let (encr_pk, encr_sk) = box_::gen_keypair();
-        self.encr_pk = encr_pk;
-        self.encr_sk = encr_sk;
-        let (sign_pk, sign_sk) = sign::gen_keypair();
-        self.sign_pk = sign_pk;
-        self.sign_sk = sign_sk;
+    /// Proceed to the next phase. Fails due to insufficient participants.
+    pub fn proceed_phase(&mut self) -> Result<(), PetError> {
+        match self.phase {
+            Phase::Idle => {
+                self.proceed_phase_sum();
+                Ok(())
+            }
+            Phase::Sum => self.proceed_phase_update(),
+            Phase::Update => self.proceed_phase_sum2(),
+            Phase::Sum2 => self.proceed_phase_idle(),
+        }
     }
 
     /// Update the coordinator to start a round and proceed to the sum phase.
-    pub fn start_round(&mut self) {
-        self.update_round_sum();
-        self.update_round_update();
-        self.update_round_seed();
-        self.clear_round_dicts();
-        self.gen_round_keypairs();
+    fn proceed_phase_sum(&mut self) {
+        self.gen_round_keypair();
         self.phase = Phase::Sum;
     }
 
-    /// End the sum phase and proceed to the update phase.
-    pub fn end_phase_sum(&mut self) -> Result<(), PetError> {
+    /// End the sum phase and proceed to the update phase. Fails due to insufficient sum
+    /// participants.
+    fn proceed_phase_update(&mut self) -> Result<(), PetError> {
         self.freeze_dict_sum()?;
         self.phase = Phase::Update;
         Ok(())
     }
 
-    /// End the update phase and proceed to the sum2 phase.
-    pub fn end_phase_update(&mut self) -> Result<(), PetError> {
+    /// End the update phase and proceed to the sum2 phase. Fails due to insufficient update
+    /// participants.
+    fn proceed_phase_sum2(&mut self) -> Result<(), PetError> {
         self.freeze_dict_seed()?;
         self.phase = Phase::Sum2;
         Ok(())
     }
 
     /// Freeze the globals masks to end the sum2 phase and proceed to the idle phase to end the
-    /// round. Returns the unique global mask url.
-    pub fn end_phase_sum2(&mut self) -> Result<Vec<u8>, PetError> {
-        let mask_url = self.freeze_masks()?;
+    /// round. Fails due to insufficient sum participants.
+    fn proceed_phase_idle(&mut self) -> Result<(), PetError> {
+        let _mask_url = self.freeze_masks()?;
+        self.clear_round_dicts();
+        self.update_round_sum();
+        self.update_round_update();
+        self.update_round_seed();
         self.phase = Phase::Idle;
-        Ok(mask_url)
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_coordinator() {
+        // new
+        let mut coord = Coordinator::new().unwrap();
+        assert_eq!(coord.encr_pk, box_::PublicKey([0_u8; 32]));
+        assert_eq!(coord.encr_sk, box_::SecretKey([0_u8; 32]));
+        assert_eq!(coord.sign_pk, coord.sign_sk.public_key());
+        assert_eq!(coord.sign_sk.as_ref().len(), 64);
+        assert!(coord.sum >= 0. && coord.sum <= 1.);
+        assert!(coord.update >= 0. && coord.update <= 1.);
+        assert_eq!(coord.seed.len(), 32);
+        assert!(coord.min_sum >= 1);
+        assert!(coord.min_update >= 3);
+        assert_eq!(coord.phase, Phase::Idle);
+        assert_eq!(coord.dict_sum, HashMap::new());
+        assert_eq!(coord.dict_seed, HashMap::new());
+        assert_eq!(coord.masks, Counter::new());
+
+        // validate task sum
+        coord.seed = vec![
+            229, 16, 164, 40, 138, 161, 23, 161, 175, 102, 13, 103, 229, 229, 163, 56, 184, 250,
+            190, 44, 91, 69, 246, 222, 64, 101, 139, 22, 126, 6, 103, 238,
+        ];
+        let signature_sum = sign::Signature([
+            106, 152, 91, 255, 122, 191, 159, 252, 180, 225, 105, 182, 30, 16, 99, 187, 220, 139,
+            88, 105, 112, 224, 167, 249, 76, 12, 108, 182, 144, 208, 55, 80, 191, 47, 246, 87, 213,
+            158, 237, 197, 199, 181, 91, 232, 197, 136, 230, 155, 56, 106, 217, 129, 200, 31, 113,
+            254, 148, 234, 134, 152, 173, 69, 51, 13,
+        ]);
+        let sign_pk = sign::PublicKey([
+            130, 93, 138, 240, 229, 140, 60, 97, 160, 189, 208, 185, 248, 206, 146, 160, 53, 173,
+            146, 163, 35, 233, 191, 177, 72, 121, 136, 23, 32, 241, 181, 165,
+        ]);
+        assert_eq!(coord.validate_task_sum(&signature_sum, &sign_pk), Ok(()));
+        let signature_sum = sign::Signature([
+            237, 143, 229, 127, 38, 65, 45, 145, 131, 233, 178, 250, 81, 211, 224, 103, 236, 91,
+            82, 56, 19, 186, 236, 134, 19, 124, 16, 54, 148, 121, 206, 31, 71, 2, 11, 90, 41, 183,
+            56, 58, 216, 3, 199, 181, 195, 118, 43, 185, 173, 25, 62, 186, 146, 14, 147, 24, 14,
+            191, 118, 202, 185, 124, 125, 9,
+        ]);
+        let sign_pk = sign::PublicKey([
+            121, 99, 230, 84, 169, 21, 227, 76, 114, 4, 61, 21, 68, 153, 79, 43, 111, 201, 28, 152,
+            111, 145, 208, 17, 156, 93, 67, 74, 56, 40, 202, 149,
+        ]);
+        assert_eq!(
+            coord.validate_task_sum(&signature_sum, &sign_pk),
+            Err(PetError::InvalidMessage)
+        );
+
+        // validate task update
+        let signature_sum = sign::Signature([
+            184, 138, 175, 209, 149, 211, 214, 237, 125, 97, 56, 97, 206, 13, 111, 107, 227, 146,
+            40, 41, 210, 179, 5, 83, 113, 185, 6, 3, 221, 135, 128, 74, 20, 120, 102, 182, 16, 138,
+            58, 94, 7, 128, 151, 50, 10, 107, 253, 73, 126, 36, 244, 141, 254, 34, 113, 71, 196,
+            127, 18, 96, 223, 176, 67, 10,
+        ]);
+        let signature_update = sign::Signature([
+            71, 51, 166, 220, 84, 170, 245, 60, 139, 79, 238, 74, 172, 122, 130, 47, 188, 168, 114,
+            237, 210, 210, 234, 7, 123, 88, 73, 173, 174, 187, 82, 140, 41, 6, 44, 202, 255, 180,
+            36, 186, 170, 97, 164, 155, 93, 21, 136, 114, 208, 246, 158, 254, 242, 12, 217, 148,
+            27, 206, 44, 52, 204, 55, 4, 13,
+        ]);
+        let sign_pk = sign::PublicKey([
+            106, 233, 139, 112, 104, 250, 253, 242, 74, 19, 188, 176, 211, 198, 17, 98, 132, 9,
+            220, 253, 191, 119, 159, 138, 134, 250, 244, 193, 58, 244, 218, 231,
+        ]);
+        assert_eq!(
+            coord.validate_task_update(&signature_sum, &signature_update, &sign_pk),
+            Ok(())
+        );
+        let signature_sum = sign::Signature([
+            136, 94, 175, 83, 39, 171, 196, 102, 225, 111, 39, 28, 104, 51, 34, 117, 112, 178, 165,
+            134, 128, 184, 131, 67, 73, 244, 98, 0, 133, 12, 111, 60, 215, 19, 237, 197, 96, 110,
+            27, 196, 205, 3, 201, 112, 30, 24, 109, 145, 30, 62, 169, 130, 113, 35, 253, 194, 148,
+            111, 151, 203, 238, 109, 223, 13,
+        ]);
+        let signature_update = sign::Signature([
+            189, 170, 55, 119, 59, 71, 14, 211, 117, 167, 110, 79, 44, 160, 171, 199, 43, 77, 147,
+            65, 121, 172, 77, 248, 81, 62, 66, 111, 235, 209, 131, 188, 5, 117, 123, 81, 204, 136,
+            205, 213, 28, 248, 46, 39, 83, 80, 66, 3, 77, 224, 60, 248, 231, 216, 241, 224, 87,
+            170, 120, 214, 43, 106, 188, 13,
+        ]);
+        let sign_pk = sign::PublicKey([
+            221, 242, 188, 27, 163, 226, 152, 164, 43, 89, 154, 78, 26, 54, 35, 233, 129, 245, 131,
+            251, 251, 154, 171, 121, 207, 58, 134, 201, 185, 31, 80, 181,
+        ]);
+        assert_eq!(
+            coord.validate_task_update(&signature_sum, &signature_update, &sign_pk),
+            Err(PetError::InvalidMessage)
+        );
+        let signature_sum = sign::Signature([
+            70, 46, 99, 192, 150, 169, 206, 133, 91, 206, 219, 205, 228, 255, 57, 96, 186, 64, 63,
+            79, 109, 112, 192, 225, 238, 41, 5, 27, 213, 91, 83, 60, 219, 81, 227, 101, 30, 12, 36,
+            87, 37, 57, 64, 184, 146, 129, 217, 215, 212, 43, 77, 255, 202, 93, 150, 25, 147, 50,
+            63, 93, 8, 83, 33, 14,
+        ]);
+        let signature_update = sign::Signature([
+            222, 204, 229, 157, 200, 187, 57, 66, 40, 158, 76, 184, 105, 1, 221, 122, 119, 110,
+            115, 98, 119, 189, 130, 222, 8, 83, 69, 80, 107, 230, 18, 58, 180, 198, 160, 115, 111,
+            173, 147, 182, 89, 197, 14, 138, 199, 64, 28, 34, 51, 98, 32, 219, 138, 252, 133, 139,
+            219, 212, 207, 133, 61, 79, 200, 7,
+        ]);
+        let sign_pk = sign::PublicKey([
+            63, 238, 181, 248, 155, 69, 222, 175, 198, 46, 148, 78, 39, 51, 249, 250, 45, 157, 92,
+            1, 18, 43, 24, 199, 144, 235, 245, 85, 63, 225, 151, 120,
+        ]);
+        assert_eq!(
+            coord.validate_task_update(&signature_sum, &signature_update, &sign_pk),
+            Err(PetError::InvalidMessage)
+        );
+        let signature_sum = sign::Signature([
+            186, 136, 94, 177, 248, 84, 83, 97, 83, 183, 242, 20, 93, 90, 21, 159, 238, 90, 82,
+            254, 87, 74, 53, 23, 199, 27, 224, 156, 113, 252, 66, 90, 167, 109, 166, 89, 80, 96,
+            216, 227, 177, 218, 216, 59, 239, 169, 132, 33, 91, 108, 26, 163, 159, 233, 34, 208, 7,
+            19, 106, 175, 193, 253, 47, 14,
+        ]);
+        let signature_update = sign::Signature([
+            146, 127, 108, 132, 170, 89, 77, 240, 50, 81, 109, 30, 120, 212, 65, 155, 132, 147,
+            199, 86, 136, 204, 184, 14, 162, 107, 45, 215, 73, 129, 214, 79, 160, 249, 118, 47,
+            116, 140, 91, 200, 226, 203, 166, 35, 54, 24, 148, 124, 113, 154, 131, 141, 122, 25,
+            26, 224, 175, 60, 221, 27, 252, 234, 245, 15,
+        ]);
+        let sign_pk = sign::PublicKey([
+            147, 43, 34, 245, 84, 183, 114, 36, 243, 153, 91, 4, 75, 52, 247, 250, 86, 96, 127,
+            106, 222, 191, 119, 72, 208, 88, 242, 40, 178, 151, 8, 7,
+        ]);
+        assert_eq!(
+            coord.validate_task_update(&signature_sum, &signature_update, &sign_pk),
+            Err(PetError::InvalidMessage)
+        );
+
+        // gen round keypair
+        coord.gen_round_keypair();
+        assert_eq!(coord.encr_pk, coord.encr_sk.public_key());
+        assert_eq!(coord.encr_sk.as_ref().len(), 32);
+
+        // update round seed
+        coord.sign_sk = sign::SecretKey([
+            72, 252, 162, 60, 90, 28, 214, 96, 4, 116, 71, 105, 97, 164, 192, 175, 210, 83, 50, 92,
+            173, 243, 60, 238, 50, 162, 252, 216, 74, 15, 123, 76, 251, 186, 123, 178, 160, 3, 175,
+            105, 175, 22, 238, 84, 120, 212, 110, 176, 51, 184, 143, 13, 55, 12, 87, 249, 142, 121,
+            243, 62, 250, 97, 137, 153,
+        ]);
+        coord.update_round_seed();
+        assert_eq!(
+            coord.seed,
+            vec![
+                5, 13, 221, 236, 217, 108, 126, 186, 152, 180, 111, 173, 45, 124, 140, 79, 1, 239,
+                176, 115, 38, 118, 221, 130, 246, 133, 212, 254, 46, 248, 222, 71
+            ]
+        );
     }
 }
