@@ -3,7 +3,7 @@ extern crate tracing;
 
 use clap::{App, Arg};
 use rand::seq::IteratorRandom;
-use std::process;
+use std::{path::Path, process};
 use tokio::signal::ctrl_c;
 use tracing_futures::Instrument;
 
@@ -84,6 +84,19 @@ async fn _main(
     aggregator_url: String,
     #[cfg(feature = "influx_metrics")] metric_store: Option<MetricStoreSettings>,
 ) {
+    let exit_file_path = "./exit_state.lock";
+
+    let exit_state = get_last_exit_state(exit_file_path)
+        .await
+        .expect("Error reading last exit state:");
+
+    match exit_state {
+        ExitState::Dirty(r) => warn!("Dirty exit on round {}. Try to sync with aggregator.", r),
+        ExitState::Clean => info!("Clean start"),
+        // start rpc()
+        // How do we update the round number? using channels?
+    }
+
     let (service_handle, service_requests) = ServiceHandle::new();
 
     // Start the RPC server
@@ -92,10 +105,18 @@ async fn _main(
     let rpc_server_task_handle = tokio::spawn(rpc_server);
 
     // Start the RPC client
-    let rpc_client = aggregator::rpc::Client::connect(rpc.aggregator_address.clone())
-        .instrument(trace_span!("rpc_client"))
-        .await
-        .unwrap();
+    let rpc_client = tokio::select! {
+        client = aggregator::rpc::Client::connect(rpc.aggregator_address.clone()).instrument(trace_span!("rpc_client")) => {client.unwrap()}
+        result = ctrl_c() => {
+            match result {
+                Ok(()) => {info!("shutting down: received SIGINT");
+                mark_clean_exit(exit_file_path).await; // on clean exit, remove file
+            },
+                Err(e) => error!("shutting down: error while waiting for SIGINT: {}", e),
+            }
+            return
+        }
+    };
 
     #[cfg(feature = "influx_metrics")]
     let metric_sender = if let Some(metric_store) = metric_store {
@@ -141,12 +162,48 @@ async fn _main(
         }
         result = ctrl_c() => {
             match result {
-                Ok(()) => info!("shutting down: received SIGINT"),
+                Ok(()) => {info!("shutting down: received SIGINT");
+                mark_clean_exit(exit_file_path).await; // on clean exit, remove file
+            },
                 Err(e) => error!("shutting down: error while waiting for SIGINT: {}", e),
 
             }
         }
     }
+}
+
+enum ExitState {
+    Clean,
+    Dirty(u32),
+}
+
+async fn get_last_exit_state(
+    path: &str,
+) -> Result<ExitState, Box<dyn std::error::Error + 'static>> {
+    let path = Path::new(path);
+
+    if path.exists() {
+        // the coordinator exited dirty
+        let contents = tokio::fs::read(path).await?;
+        let last_round_number = String::from_utf8_lossy(&contents);
+        if last_round_number.is_empty() {
+            // the coordinator exited on round zero
+            return Ok(ExitState::Dirty(0));
+        }
+
+        Ok(ExitState::Dirty(last_round_number.parse()?))
+    } else {
+        // the coordinator exited clean
+        tokio::fs::File::create(path).await?;
+        Ok(ExitState::Clean)
+    }
+}
+
+async fn mark_clean_exit(path: &str) {
+    let path = Path::new(path);
+    tokio::fs::remove_file(path)
+        .await
+        .expect("Cannot remove exit_state file:");
 }
 
 pub struct RandomSelector;
