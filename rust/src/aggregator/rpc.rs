@@ -175,6 +175,10 @@ impl Client {
             .map_err(ClientError::from)
             .and_then(|res| future::ready(res.map_err(ClientError::from)))
     }
+
+    pub async fn reset(&mut self, ctx: Context) {
+        let _ = self.0.reset(ctx).await;
+    }
 }
 
 /// A server that serves a single client. A new `Server` is created
