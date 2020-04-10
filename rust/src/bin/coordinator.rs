@@ -9,16 +9,16 @@ use tracing_futures::Instrument;
 
 #[cfg(feature = "influx_metrics")]
 use xain_fl::{
+    aggregator,
     common::metric_store::influxdb::{run_metricstore, InfluxDBConnector},
     coordinator::settings::MetricStoreSettings,
 };
-
 use xain_fl::{
     aggregator,
     common::{
         client::ClientId,
         logging,
-        service_recovery::{get_last_exit_state, mark_clean_exit, ExitState},
+        recover_service::{FileRecoverService, RecoverService},
     },
     coordinator::{
         api,
@@ -88,18 +88,17 @@ async fn _main(
     aggregator_url: String,
     #[cfg(feature = "influx_metrics")] metric_store: Option<MetricStoreSettings>,
 ) {
-    let exit_file_path = "./exit_state.lock";
-
-    let exit_state = get_last_exit_state(exit_file_path)
+    let recover_service = FileRecoverService::init("./exit_state.lock", false)
         .await
         .expect("Error reading last exit state:");
 
-    match exit_state {
-        ExitState::Dirty(r) => warn!("Dirty exit on round {}. Try to sync with aggregator.", r),
-        ExitState::Clean => info!("Clean start"),
-        // start rpc()
-        // How do we update the round number? using channels?
-    }
+    // Start the RPC client
+    let rpc_client = aggregator::rpc::Client::connect(rpc.aggregator_address.clone())
+        .instrument(trace_span!("rpc_client"))
+        .await
+        .unwrap();
+
+    // recover_service.sync(&mut rpc_client).await;
 
     let (service_handle, service_requests) = ServiceHandle::new();
 
@@ -107,20 +106,6 @@ async fn _main(
     let rpc_server = rpc::serve(rpc.bind_address.clone(), service_handle.clone())
         .instrument(trace_span!("rpc_server"));
     let rpc_server_task_handle = tokio::spawn(rpc_server);
-
-    // Start the RPC client
-    let rpc_client = tokio::select! {
-        client = aggregator::rpc::Client::connect(rpc.aggregator_address.clone()).instrument(trace_span!("rpc_client")) => {client.unwrap()}
-        result = ctrl_c() => {
-            match result {
-                Ok(()) => {info!("shutting down: received SIGINT");
-                mark_clean_exit(exit_file_path).await; // on clean exit, remove file
-            },
-                Err(e) => error!("shutting down: error while waiting for SIGINT: {}", e),
-            }
-            return
-        }
-    };
 
     #[cfg(feature = "influx_metrics")]
     let metric_sender = if let Some(metric_store) = metric_store {
@@ -167,7 +152,7 @@ async fn _main(
         result = ctrl_c() => {
             match result {
                 Ok(()) => {info!("shutting down: received SIGINT");
-                mark_clean_exit(exit_file_path).await; // on clean exit, remove file
+                recover_service.on_clean_exit().await; // on clean exit, remove file
             },
                 Err(e) => error!("shutting down: error while waiting for SIGINT: {}", e),
 

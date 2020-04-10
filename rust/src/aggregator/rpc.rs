@@ -1,8 +1,9 @@
 #![cfg_attr(test, allow(unused_imports))]
 use crate::{
     aggregator::service::{Aggregator, ServiceError, ServiceHandle},
-    common::client::Credentials,
+    common::{client::Credentials, recover_service::SyncRequest},
 };
+use async_trait::async_trait;
 use futures::future::{self, TryFutureExt};
 use std::{
     error::Error,
@@ -175,8 +176,11 @@ impl Client {
             .map_err(ClientError::from)
             .and_then(|res| future::ready(res.map_err(ClientError::from)))
     }
+}
 
-    pub async fn reset(&mut self, ctx: Context) {
+#[async_trait]
+impl SyncRequest for Client {
+    async fn reset(&mut self, ctx: Context) {
         let _ = self.0.reset(ctx).await;
     }
 }
