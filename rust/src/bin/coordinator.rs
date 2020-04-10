@@ -3,7 +3,7 @@ extern crate tracing;
 
 use clap::{App, Arg};
 use rand::seq::IteratorRandom;
-use std::{path::Path, process};
+use std::process;
 use tokio::signal::ctrl_c;
 use tracing_futures::Instrument;
 
@@ -15,7 +15,11 @@ use xain_fl::{
 
 use xain_fl::{
     aggregator,
-    common::{client::ClientId, logging},
+    common::{
+        client::ClientId,
+        logging,
+        service_recovery::{get_last_exit_state, mark_clean_exit, ExitState},
+    },
     coordinator::{
         api,
         core::{Selector, Service, ServiceHandle},
@@ -170,40 +174,6 @@ async fn _main(
             }
         }
     }
-}
-
-enum ExitState {
-    Clean,
-    Dirty(u32),
-}
-
-async fn get_last_exit_state(
-    path: &str,
-) -> Result<ExitState, Box<dyn std::error::Error + 'static>> {
-    let path = Path::new(path);
-
-    if path.exists() {
-        // the coordinator exited dirty
-        let contents = tokio::fs::read(path).await?;
-        let last_round_number = String::from_utf8_lossy(&contents);
-        if last_round_number.is_empty() {
-            // the coordinator exited on round zero
-            return Ok(ExitState::Dirty(0));
-        }
-
-        Ok(ExitState::Dirty(last_round_number.parse()?))
-    } else {
-        // the coordinator exited clean
-        tokio::fs::File::create(path).await?;
-        Ok(ExitState::Clean)
-    }
-}
-
-async fn mark_clean_exit(path: &str) {
-    let path = Path::new(path);
-    tokio::fs::remove_file(path)
-        .await
-        .expect("Cannot remove exit_state file:");
 }
 
 pub struct RandomSelector;
