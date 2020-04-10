@@ -169,6 +169,7 @@ where
             Request::Upload(req) => self.handle_upload_request(req),
             Request::Select(req) => self.handle_select_request(req),
             Request::Aggregate(req) => self.handle_aggregate_request(req),
+            Request::Reset(_) => debug!("handle reset request"),
         }
     }
 
@@ -291,12 +292,14 @@ where
         download: UnboundedReceiver<DownloadRequest>,
         aggregate: UnboundedReceiver<AggregateRequest<A>>,
         select: UnboundedReceiver<SelectRequest<A>>,
+        reset: UnboundedReceiver<ResetRequest>,
     ) -> Self {
         let stream = download
             .map(Request::from)
             .merge(upload.map(Request::from))
             .merge(aggregate.map(Request::from))
-            .merge(select.map(Request::from));
+            .merge(select.map(Request::from))
+            .merge(reset.map(Request::from));
         Self(Box::pin(stream))
     }
 }
@@ -330,6 +333,8 @@ where
     response_tx: oneshot::Sender<Result<(), A::Error>>,
 }
 
+pub struct ResetRequest;
+
 #[derive(From)]
 pub enum Request<A>
 where
@@ -339,6 +344,7 @@ where
     Download(DownloadRequest),
     Aggregate(AggregateRequest<A>),
     Select(SelectRequest<A>),
+    Reset(ResetRequest),
 }
 
 pub struct ServiceHandle<A>
@@ -349,6 +355,7 @@ where
     download: UnboundedSender<DownloadRequest>,
     aggregate: UnboundedSender<AggregateRequest<A>>,
     select: UnboundedSender<SelectRequest<A>>,
+    reset: UnboundedSender<ResetRequest>,
 }
 
 // We implement Clone manually because it can only be derived if A:
@@ -363,6 +370,7 @@ where
             download: self.download.clone(),
             aggregate: self.aggregate.clone(),
             select: self.select.clone(),
+            reset: self.reset.clone(),
         }
     }
 }
@@ -376,15 +384,17 @@ where
         let (download_tx, download_rx) = unbounded_channel::<DownloadRequest>();
         let (aggregate_tx, aggregate_rx) = unbounded_channel::<AggregateRequest<A>>();
         let (select_tx, select_rx) = unbounded_channel::<SelectRequest<A>>();
+        let (reset_tx, reset_rx) = unbounded_channel::<ResetRequest>();
 
         let handle = Self {
             upload: upload_tx,
             download: download_tx,
             aggregate: aggregate_tx,
             select: select_tx,
+            reset: reset_tx,
         };
         let service_requests =
-            ServiceRequests::new(upload_rx, download_rx, aggregate_rx, select_rx);
+            ServiceRequests::new(upload_rx, download_rx, aggregate_rx, select_rx, reset_rx);
         (handle, service_requests)
     }
     pub async fn download(
@@ -423,6 +433,10 @@ where
         Self::recv_response(rx)
             .await?
             .map_err(ServiceError::Request)
+    }
+
+    pub async fn reset(&self) {
+        let _ = Self::send_request(ResetRequest, &self.reset);
     }
 
     fn send_request<P>(payload: P, tx: &UnboundedSender<P>) -> Result<(), ChannelError> {

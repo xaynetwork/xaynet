@@ -71,7 +71,7 @@ pub enum ClientError<E>
 where
     E: Display + Debug,
 {
-    #[error("an error occured in the RPC layer: {0}")]
+    #[error("an error occurred in the RPC layer: {0}")]
     Rpc(#[from] io::Error),
 
     #[error("the aggregator failed to process the request")]
@@ -126,6 +126,8 @@ mod inner {
         /// IDs and tokens. This should be called before starting a new
         /// round.
         async fn aggregate() -> Result<(), ServerError<String>>;
+
+        async fn reset();
     }
 }
 
@@ -196,6 +198,7 @@ where
 {
     type SelectFut = Pin<Box<dyn Future<Output = Result<(), ServerError<String>>> + Send>>;
     type AggregateFut = Pin<Box<dyn Future<Output = Result<(), ServerError<String>>> + Send>>;
+    type ResetFut = Pin<Box<dyn Future<Output = ()> + Send>>;
 
     fn select(self, _: tarpc::context::Context, credentials: Credentials) -> Self::SelectFut {
         debug!("handling select request");
@@ -221,6 +224,12 @@ where
             }
             .instrument(span),
         )
+    }
+
+    fn reset(self, _: tarpc::context::Context) -> Self::ResetFut {
+        debug!("handling reset request");
+        let span = trace_span!("rpc_handler");
+        Box::pin(async move { self.0.reset().await }.instrument(span))
     }
 }
 
