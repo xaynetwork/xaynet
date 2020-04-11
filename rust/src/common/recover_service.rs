@@ -1,12 +1,5 @@
-use std::path::Path;
-use tarpc::context::{current as rpc_context, Context};
-
 use async_trait::async_trait;
-
-#[async_trait]
-pub trait SyncRequest {
-    async fn reset(&mut self, ctx: Context);
-}
+use std::path::Path;
 
 #[derive(Clone, Copy)]
 pub enum ExitState {
@@ -17,38 +10,41 @@ pub enum ExitState {
 #[async_trait]
 pub trait RecoverService {
     fn get_exit_state(&self) -> ExitState;
-    async fn sync<C: SyncRequest + Send>(&self, rpc_client: &mut C);
     async fn on_clean_exit(self);
 }
-
+#[derive(Clone)]
 pub struct FileRecoverService {
-    exit_file_path: String,
-    dirty: bool,
+    failure_lock_path: String,
     exit_state: ExitState,
 }
 
 impl FileRecoverService {
     pub async fn init<S: Into<String>>(
-        exit_file_path: S,
+        failure_lock_path: S,
         dirty: bool,
     ) -> Result<Self, Box<dyn std::error::Error + 'static>> {
-        let exit_file_path = exit_file_path.into();
-        let exit_state = Self::read_exit_state(&exit_file_path.clone()).await?;
+        let failure_lock_path = failure_lock_path.into();
+        let exit_state = Self::read_exit_state(&failure_lock_path[..], dirty).await?;
 
         Ok(Self {
-            exit_file_path: exit_file_path,
-            dirty,
+            failure_lock_path: failure_lock_path,
             exit_state,
         })
     }
 
     async fn read_exit_state(
-        exit_file_path: &str,
+        failure_lock_path: &str,
+        dirty: bool,
     ) -> Result<ExitState, Box<dyn std::error::Error + 'static>> {
-        let exit_file_path = Path::new(exit_file_path);
-        if exit_file_path.exists() {
+        let failure_lock_path = Path::new(failure_lock_path);
+        if failure_lock_path.exists() {
             // the coordinator exited dirty
-            let contents = tokio::fs::read(exit_file_path).await?;
+            if dirty {
+                debug!("Ignored dirty state.");
+                return Ok(ExitState::Clean);
+            }
+
+            let contents = tokio::fs::read(failure_lock_path).await?;
             let last_round_number = String::from_utf8_lossy(&contents);
             if last_round_number.is_empty() {
                 // the coordinator exited on round zero
@@ -58,13 +54,13 @@ impl FileRecoverService {
             Ok(ExitState::Dirty(last_round_number.parse()?))
         } else {
             // the coordinator exited clean
-            tokio::fs::File::create(exit_file_path).await?;
+            tokio::fs::File::create(failure_lock_path).await?;
             Ok(ExitState::Clean)
         }
     }
 
     async fn remove_exit_file(&self) -> Result<(), std::io::Error> {
-        tokio::fs::remove_file(&self.exit_file_path).await
+        tokio::fs::remove_file(&self.failure_lock_path).await
     }
 }
 
@@ -72,25 +68,6 @@ impl FileRecoverService {
 impl RecoverService for FileRecoverService {
     fn get_exit_state(&self) -> ExitState {
         self.exit_state
-    }
-
-    async fn sync<C: SyncRequest + Send>(&self, rpc_client: &mut C) {
-        match self.get_exit_state() {
-            ExitState::Dirty(r) => {
-                warn!("Dirty exit on round {}", r);
-                if self.dirty {
-                    info!("Skip sync with aggregator");
-                    self.remove_exit_file()
-                        .await
-                        .expect("Cannot remove exit_state file:");
-                } else {
-                    info!("Try to sync with aggregator...");
-                    rpc_client.reset(rpc_context()).await;
-                    info!("Success");
-                }
-            }
-            ExitState::Clean => info!("Clean start"),
-        }
     }
 
     async fn on_clean_exit(self) {

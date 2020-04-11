@@ -1,9 +1,8 @@
 #![cfg_attr(test, allow(unused_imports))]
 use crate::{
     aggregator::service::{Aggregator, ServiceError, ServiceHandle},
-    common::{client::Credentials, recover_service::SyncRequest},
+    common::{client::Credentials, sync::SyncRequest},
 };
-use async_trait::async_trait;
 use futures::future::{self, TryFutureExt};
 use std::{
     error::Error,
@@ -21,11 +20,11 @@ use tarpc::{
     serde_transport::{tcp::listen, Transport},
 };
 use thiserror::Error;
-use tokio::{net::ToSocketAddrs, stream::StreamExt};
+use tokio::{net::ToSocketAddrs, stream::StreamExt, sync::mpsc::UnboundedSender};
 use tokio_serde::formats::Json;
 use tracing_futures::Instrument;
-
 /// Error returned by the RPC server.
+
 #[derive(Error, Serialize, Deserialize, Debug)]
 pub enum ServerError<E>
 where
@@ -128,7 +127,7 @@ mod inner {
         /// round.
         async fn aggregate() -> Result<(), ServerError<String>>;
 
-        async fn reset();
+        async fn sync();
     }
 }
 
@@ -145,10 +144,12 @@ pub struct Client(inner::RpcClient);
 impl Client {
     pub async fn connect<A: ToSocketAddrs + Unpin + Clone + Send + Sync + 'static>(
         addr: A,
+        on_disconnect: impl Fn() + 'static + Send + Sync,
     ) -> io::Result<Self> {
         let reconnect_opts = ReconnectOptions::new()
             .with_exit_if_first_connect_fails(false)
-            .with_retries_generator(|| iter::repeat(Duration::from_secs(1)));
+            .with_retries_generator(|| iter::repeat(Duration::from_secs(1)))
+            .with_on_disconnect_callback(on_disconnect);
         let tcp_stream = StubbornTcpStream::connect_with_options(addr, reconnect_opts).await?;
         let transport = Transport::from((tcp_stream, Json::default()));
         Ok(Self(
@@ -176,18 +177,15 @@ impl Client {
             .map_err(ClientError::from)
             .and_then(|res| future::ready(res.map_err(ClientError::from)))
     }
-}
 
-#[async_trait]
-impl SyncRequest for Client {
-    async fn reset(&mut self, ctx: Context) {
-        let _ = self.0.reset(ctx).await;
+    pub async fn sync(&mut self, ctx: Context) {
+        let _ = self.0.sync(ctx).await;
     }
 }
 
 /// A server that serves a single client. A new `Server` is created
 /// for each new client.
-pub struct Server<A>(ServiceHandle<A>)
+pub struct Server<A>(ServiceHandle<A>, UnboundedSender<SyncRequest>)
 where
     A: Aggregator;
 
@@ -196,7 +194,7 @@ where
     A: Aggregator,
 {
     fn clone(&self) -> Self {
-        Self(self.0.clone())
+        Self(self.0.clone(), self.1.clone())
     }
 }
 
@@ -206,7 +204,7 @@ where
 {
     type SelectFut = Pin<Box<dyn Future<Output = Result<(), ServerError<String>>> + Send>>;
     type AggregateFut = Pin<Box<dyn Future<Output = Result<(), ServerError<String>>> + Send>>;
-    type ResetFut = Pin<Box<dyn Future<Output = ()> + Send>>;
+    type SyncFut = Pin<Box<dyn Future<Output = ()> + Send>>;
 
     fn select(self, _: tarpc::context::Context, credentials: Credentials) -> Self::SelectFut {
         debug!("handling select request");
@@ -234,15 +232,24 @@ where
         )
     }
 
-    fn reset(self, _: tarpc::context::Context) -> Self::ResetFut {
+    fn sync(self, _: tarpc::context::Context) -> Self::SyncFut {
         debug!("handling reset request");
         let span = trace_span!("rpc_handler");
-        Box::pin(async move { self.0.reset().await }.instrument(span))
+        Box::pin(
+            async move {
+                let _ = self.1.send(SyncRequest::External);
+            }
+            .instrument(span),
+        )
     }
 }
 
 /// Run an RPC server that processes only one connection at a time.
-pub async fn serve<A, T>(addr: T, service_handle: ServiceHandle<A>) -> ::std::io::Result<()>
+pub async fn serve<A, T>(
+    addr: T,
+    service_handle: ServiceHandle<A>,
+    sync_tx: UnboundedSender<SyncRequest>,
+) -> ::std::io::Result<()>
 where
     A: Aggregator + 'static,
     T: ToSocketAddrs + Send + Sync + 'static,
@@ -253,7 +260,7 @@ where
         match accept_result {
             Ok(transport) => {
                 let channel = BaseChannel::with_defaults(transport);
-                let server = Server(service_handle.clone());
+                let server = Server(service_handle.clone(), sync_tx.clone());
                 let handler = channel.respond_with(server.serve());
                 handler
                     .execute()

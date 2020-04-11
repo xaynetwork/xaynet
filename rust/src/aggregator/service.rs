@@ -1,7 +1,11 @@
 use crate::{
-    common::client::{ClientId, Credentials, Token},
+    common::{
+        client::{ClientId, Credentials, Token},
+        sync::{ProcessSync, SyncRequest},
+    },
     coordinator,
 };
+use async_trait::async_trait;
 use bytes::Bytes;
 use derive_more::From;
 use futures::{ready, stream::Stream};
@@ -169,7 +173,16 @@ where
             Request::Upload(req) => self.handle_upload_request(req),
             Request::Select(req) => self.handle_select_request(req),
             Request::Aggregate(req) => self.handle_aggregate_request(req),
-            Request::Reset(_) => debug!("handle reset request"),
+            Request::Reset(req) => match req {
+                SyncRequest::External => info!("Handle external sync request"),
+                SyncRequest::Internal => {
+                    info!("Handle internal sync request");
+                    let mut rpc_client = self.rpc_client.clone();
+                    tokio::spawn(async move {
+                        let _ = rpc_client.sync(rpc_context()).await;
+                    });
+                }
+            },
         }
     }
 
@@ -292,7 +305,7 @@ where
         download: UnboundedReceiver<DownloadRequest>,
         aggregate: UnboundedReceiver<AggregateRequest<A>>,
         select: UnboundedReceiver<SelectRequest<A>>,
-        reset: UnboundedReceiver<ResetRequest>,
+        reset: UnboundedReceiver<SyncRequest>,
     ) -> Self {
         let stream = download
             .map(Request::from)
@@ -333,8 +346,6 @@ where
     response_tx: oneshot::Sender<Result<(), A::Error>>,
 }
 
-pub struct ResetRequest;
-
 #[derive(From)]
 pub enum Request<A>
 where
@@ -344,7 +355,7 @@ where
     Download(DownloadRequest),
     Aggregate(AggregateRequest<A>),
     Select(SelectRequest<A>),
-    Reset(ResetRequest),
+    Reset(SyncRequest),
 }
 
 pub struct ServiceHandle<A>
@@ -355,7 +366,7 @@ where
     download: UnboundedSender<DownloadRequest>,
     aggregate: UnboundedSender<AggregateRequest<A>>,
     select: UnboundedSender<SelectRequest<A>>,
-    reset: UnboundedSender<ResetRequest>,
+    reset: UnboundedSender<SyncRequest>,
 }
 
 // We implement Clone manually because it can only be derived if A:
@@ -384,7 +395,7 @@ where
         let (download_tx, download_rx) = unbounded_channel::<DownloadRequest>();
         let (aggregate_tx, aggregate_rx) = unbounded_channel::<AggregateRequest<A>>();
         let (select_tx, select_rx) = unbounded_channel::<SelectRequest<A>>();
-        let (reset_tx, reset_rx) = unbounded_channel::<ResetRequest>();
+        let (reset_tx, reset_rx) = unbounded_channel::<SyncRequest>();
 
         let handle = Self {
             upload: upload_tx,
@@ -435,9 +446,7 @@ where
             .map_err(ServiceError::Request)
     }
 
-    pub async fn reset(&self) {
-        let _ = Self::send_request(ResetRequest, &self.reset);
-    }
+    pub async fn reset(&self) {}
 
     fn send_request<P>(payload: P, tx: &UnboundedSender<P>) -> Result<(), ChannelError> {
         trace!("send request to the service");
@@ -455,6 +464,16 @@ where
             warn!("could not receive response: channel closed");
             ChannelError::Response
         })
+    }
+}
+
+#[async_trait]
+impl<A> ProcessSync for ServiceHandle<A>
+where
+    A: Aggregator + 'static,
+{
+    async fn reset(&self, req: SyncRequest) {
+        let _ = Self::send_request(req, &self.reset);
     }
 }
 

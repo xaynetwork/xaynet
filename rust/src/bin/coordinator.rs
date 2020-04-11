@@ -4,6 +4,7 @@ extern crate tracing;
 use clap::{App, Arg};
 use rand::seq::IteratorRandom;
 use std::process;
+
 use tokio::signal::ctrl_c;
 use tracing_futures::Instrument;
 
@@ -18,7 +19,7 @@ use xain_fl::{
     common::{
         client::ClientId,
         logging,
-        recover_service::{FileRecoverService, RecoverService},
+        sync::{run_sync_handle, SyncHandle, SyncRequest},
     },
     coordinator::{
         api,
@@ -88,24 +89,37 @@ async fn _main(
     aggregator_url: String,
     #[cfg(feature = "influx_metrics")] metric_store: Option<MetricStoreSettings>,
 ) {
-    let recover_service = FileRecoverService::init("./exit_state.lock", false)
-        .await
-        .expect("Error reading last exit state:");
-
-    // Start the RPC client
-    let rpc_client = aggregator::rpc::Client::connect(rpc.aggregator_address.clone())
-        .instrument(trace_span!("rpc_client"))
-        .await
-        .unwrap();
-
-    // recover_service.sync(&mut rpc_client).await;
+    // let recover_service = FileRecoverService::init("./dirty.lock", false)
+    //     .await
+    //     .expect("Error reading last exit state:");
 
     let (service_handle, service_requests) = ServiceHandle::new();
 
+    let (sync_handle, sync_tx) = SyncHandle::new(service_handle.clone());
+
+    // Start the RPC client
+    let sync_tx_closure = sync_tx.clone();
+    let rpc_client = aggregator::rpc::Client::connect(rpc.aggregator_address.clone(), move || {
+        let sync_tx_closure = sync_tx_closure.clone();
+        tokio::spawn(async move {
+            let _ = sync_tx_closure.send(SyncRequest::Internal);
+        });
+    })
+    .instrument(trace_span!("rpc_client"))
+    .await
+    .unwrap();
+
     // Start the RPC server
-    let rpc_server = rpc::serve(rpc.bind_address.clone(), service_handle.clone())
-        .instrument(trace_span!("rpc_server"));
+    let rpc_server = rpc::serve(
+        rpc.bind_address.clone(),
+        service_handle.clone(),
+        sync_tx.clone(),
+    )
+    .instrument(trace_span!("rpc_server"));
     let rpc_server_task_handle = tokio::spawn(rpc_server);
+
+    // Start sync handler
+    tokio::spawn(async move { run_sync_handle(sync_handle).await });
 
     #[cfg(feature = "influx_metrics")]
     let metric_sender = if let Some(metric_store) = metric_store {
@@ -152,10 +166,9 @@ async fn _main(
         result = ctrl_c() => {
             match result {
                 Ok(()) => {info!("shutting down: received SIGINT");
-                recover_service.on_clean_exit().await; // on clean exit, remove file
+                //recover_service.on_clean_exit().await; // on clean exit, remove file
             },
                 Err(e) => error!("shutting down: error while waiting for SIGINT: {}", e),
-
             }
         }
     }

@@ -1,4 +1,7 @@
-use crate::{common::client::ClientId, coordinator::core::ServiceHandle};
+use crate::{
+    common::{client::ClientId, sync::SyncRequest},
+    coordinator::core::ServiceHandle,
+};
 use std::{future::Future, io, iter, pin::Pin, time::Duration};
 use stubborn_io::{ReconnectOptions, StubbornTcpStream};
 use tarpc::{
@@ -6,7 +9,7 @@ use tarpc::{
     rpc::server::{BaseChannel, Channel},
     serde_transport::{tcp::listen, Transport},
 };
-use tokio::{net::ToSocketAddrs, stream::StreamExt};
+use tokio::{net::ToSocketAddrs, stream::StreamExt, sync::mpsc::UnboundedSender};
 use tokio_serde::formats::Json;
 use tracing_futures::Instrument;
 
@@ -16,7 +19,7 @@ mod inner {
     pub trait Rpc {
         async fn end_training(id: ClientId, success: bool);
 
-        async fn reset();
+        async fn sync();
     }
 }
 
@@ -29,7 +32,7 @@ pub use inner::RpcClient as Client;
 
 impl Rpc for Server {
     type EndTrainingFut = Pin<Box<dyn Future<Output = ()> + Send>>;
-    type ResetFut = Pin<Box<dyn Future<Output = ()> + Send>>;
+    type SyncFut = Pin<Box<dyn Future<Output = ()> + Send>>;
 
     fn end_training(
         self,
@@ -42,24 +45,31 @@ impl Rpc for Server {
         Box::pin(async move { self.0.end_training(id, success).await }.instrument(span))
     }
 
-    fn reset(self, _: tarpc::context::Context) -> Self::ResetFut {
+    fn sync(self, _: tarpc::context::Context) -> Self::SyncFut {
         debug!("handling reset request");
         let span = trace_span!("rpc_reset_handler");
-        Box::pin(async move { self.0.reset().await }.instrument(span))
+        Box::pin(
+            async move {
+                let _ = self.1.send(SyncRequest::External);
+            }
+            .instrument(span),
+        )
     }
 }
 
 /// A server that serves a single client. A new `Server` is created
 /// for each new client.
 #[derive(Clone)]
-struct Server(ServiceHandle);
+struct Server(ServiceHandle, UnboundedSender<SyncRequest>);
 
 pub async fn client_connect<A: ToSocketAddrs + Unpin + Clone + Send + Sync + 'static>(
     addr: A,
+    on_disconnect: impl Fn() + 'static + Send + Sync,
 ) -> io::Result<Client> {
     let reconnect_opts = ReconnectOptions::new()
         .with_exit_if_first_connect_fails(false)
-        .with_retries_generator(|| iter::repeat(Duration::from_secs(1)));
+        .with_retries_generator(|| iter::repeat(Duration::from_secs(1)))
+        .with_on_disconnect_callback(on_disconnect);
     let tcp_stream = StubbornTcpStream::connect_with_options(addr, reconnect_opts).await?;
     let transport = Transport::from((tcp_stream, Json::default()));
     Client::new(Config::default(), transport).spawn()
@@ -69,6 +79,7 @@ pub async fn client_connect<A: ToSocketAddrs + Unpin + Clone + Send + Sync + 'st
 pub async fn serve<A: ToSocketAddrs + Send + Sync + 'static>(
     addr: A,
     service_handle: ServiceHandle,
+    sync_tx: UnboundedSender<SyncRequest>,
 ) -> ::std::io::Result<()> {
     let mut listener = listen(addr, Json::default).await?;
 
@@ -76,7 +87,7 @@ pub async fn serve<A: ToSocketAddrs + Send + Sync + 'static>(
         match accept_result {
             Ok(transport) => {
                 let channel = BaseChannel::with_defaults(transport);
-                let server = Server(service_handle.clone());
+                let server = Server(service_handle.clone(), sync_tx.clone());
                 let handler = channel.respond_with(server.serve());
                 handler
                     .execute()

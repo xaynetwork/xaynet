@@ -13,6 +13,9 @@ use xain_fl::{
     common::logging,
     coordinator,
 };
+
+use xain_fl::common::sync::{run_sync_handle, SyncHandle, SyncRequest};
+
 #[macro_use]
 extern crate tracing;
 
@@ -51,15 +54,31 @@ async fn main() {
 
 async fn _main(rpc: RpcSettings, api: ApiSettings, aggregation: AggregationSettings) {
     let (service_handle, service_requests) = ServiceHandle::new();
-    let rpc_server = rpc::serve(rpc.bind_address.clone(), service_handle.clone())
-        .instrument(trace_span!("rpc_server"));
+
+    let (sync_handle, sync_tx) = SyncHandle::new(service_handle.clone());
+
+    let rpc_server = rpc::serve(
+        rpc.bind_address.clone(),
+        service_handle.clone(),
+        sync_tx.clone(),
+    )
+    .instrument(trace_span!("rpc_server"));
     let rpc_server_task_handle = tokio::spawn(rpc_server);
 
     let rpc_client_span = trace_span!("rpc_client");
-    let rpc_client = coordinator::rpc::client_connect(rpc.coordinator_address.clone())
-        .instrument(rpc_client_span.clone())
-        .await
-        .unwrap();
+    let sync_tx_closure = sync_tx.clone();
+    let rpc_client = coordinator::rpc::client_connect(rpc.coordinator_address.clone(), move || {
+        let sync_tx_closure = sync_tx_closure.clone();
+        tokio::spawn(async move {
+            let _ = sync_tx_closure.send(SyncRequest::Internal);
+        });
+    })
+    .instrument(rpc_client_span.clone())
+    .await
+    .unwrap();
+
+    // Start sync handler
+    tokio::spawn(async move { run_sync_handle(sync_handle).await });
 
     let (aggregator, mut shutdown_rx) = match aggregation {
         AggregationSettings::Python(python_aggregator_settings) => {

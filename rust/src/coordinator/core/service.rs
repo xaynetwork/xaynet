@@ -2,7 +2,10 @@
 use crate::common::metric_store::influxdb::{CountersMeasurement, Measurement, RoundMeasurement};
 use crate::{
     aggregator,
-    common::client::{ClientId, Credentials, Token},
+    common::{
+        client::{ClientId, Credentials, Token},
+        sync::{ProcessSync, SyncRequest},
+    },
     coordinator::{
         core::{
             client::{Clients, HeartBeatResetError},
@@ -12,6 +15,7 @@ use crate::{
         settings::FederatedLearningSettings,
     },
 };
+use async_trait::async_trait;
 use derive_more::From;
 use futures::{ready, stream::Stream};
 use std::{
@@ -154,7 +158,16 @@ where
             Request::HeartBeat(req) => self.handle_heartbeat_request(req),
             Request::StartTraining(req) => self.handle_start_training_request(req),
             Request::EndTraining(req) => self.handle_end_training_request(req),
-            Request::Reset(_) => debug!("handle reset request"),
+            Request::Reset(req) => match req {
+                SyncRequest::External => info!("Handle external sync request"),
+                SyncRequest::Internal => {
+                    info!("Handle internal sync request");
+                    let mut rpc_client = self.rpc_client.clone();
+                    tokio::spawn(async move {
+                        rpc_client.sync(rpc_context()).await;
+                    });
+                }
+            },
         }
     }
     /// Handle a rendez-vous request
@@ -470,7 +483,7 @@ impl ServiceRequests {
         start_training: UnboundedReceiver<StartTrainingRequest>,
         end_training: UnboundedReceiver<EndTrainingRequest>,
         heartbeat: UnboundedReceiver<HeartBeatRequest>,
-        reset: UnboundedReceiver<ResetRequest>,
+        reset: UnboundedReceiver<SyncRequest>,
     ) -> Self {
         let stream = rendez_vous
             .map(Request::from)
@@ -488,7 +501,7 @@ pub enum Request {
     HeartBeat(HeartBeatRequest),
     StartTraining(StartTrainingRequest),
     EndTraining(EndTrainingRequest),
-    Reset(ResetRequest),
+    Reset(SyncRequest),
 }
 
 #[derive(From)]
@@ -514,15 +527,13 @@ pub struct EndTrainingRequest {
     success: bool,
 }
 
-pub struct ResetRequest;
-
 #[derive(Clone)]
 pub struct ServiceHandle {
     rendez_vous: UnboundedSender<RendezVousRequest>,
     start_training: UnboundedSender<StartTrainingRequest>,
     end_training: UnboundedSender<EndTrainingRequest>,
     heartbeat: UnboundedSender<HeartBeatRequest>,
-    reset: UnboundedSender<ResetRequest>,
+    reset: UnboundedSender<SyncRequest>,
 }
 
 impl ServiceHandle {
@@ -531,7 +542,7 @@ impl ServiceHandle {
         let (start_training_tx, start_training_rx) = unbounded_channel::<StartTrainingRequest>();
         let (end_training_tx, end_training_rx) = unbounded_channel::<EndTrainingRequest>();
         let (heartbeat_tx, heartbeat_rx) = unbounded_channel::<HeartBeatRequest>();
-        let (reset_tx, reset_rx) = unbounded_channel::<ResetRequest>();
+        let (reset_tx, reset_rx) = unbounded_channel::<SyncRequest>();
 
         let handle = Self {
             rendez_vous: rendez_vous_tx,
@@ -583,10 +594,6 @@ impl ServiceHandle {
         Self::send_request(EndTrainingRequest::from((id, success)), &self.end_training);
     }
 
-    pub async fn reset(&self) {
-        Self::send_request(ResetRequest, &self.reset);
-    }
-
     fn send_request<P>(payload: P, chan: &UnboundedSender<P>) {
         trace!("send request to the service");
         if chan.send(payload).is_err() {
@@ -594,6 +601,13 @@ impl ServiceHandle {
             return;
         }
         trace!("request sent");
+    }
+}
+
+#[async_trait]
+impl ProcessSync for ServiceHandle {
+    async fn reset(&self, req: SyncRequest) {
+        Self::send_request(req, &self.reset);
     }
 }
 
