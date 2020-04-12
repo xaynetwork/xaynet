@@ -1,7 +1,7 @@
 use crate::{
     common::{
         client::{ClientId, Credentials, Token},
-        sync::{ProcessSync, SyncRequest},
+        sync::{ProcessSync, SyncTasks},
     },
     coordinator,
 };
@@ -64,6 +64,8 @@ where
     requests: ServiceRequests<A>,
 
     aggregation_future: Option<AggregationFuture<A>>,
+
+    in_sync: bool,
 }
 
 /// This trait defines the methods that an aggregator should
@@ -97,6 +99,7 @@ where
             allowed_ids: HashMap::new(),
             global_weights: Bytes::new(),
             aggregation_future: None,
+            in_sync: false,
         }
     }
 
@@ -169,20 +172,12 @@ where
 
     fn handle_request(&mut self, request: Request<A>) {
         match request {
-            Request::Download(req) => self.handle_download_request(req),
-            Request::Upload(req) => self.handle_upload_request(req),
-            Request::Select(req) => self.handle_select_request(req),
-            Request::Aggregate(req) => self.handle_aggregate_request(req),
-            Request::Reset(req) => match req {
-                SyncRequest::External => info!("Handle external sync request"),
-                SyncRequest::Internal => {
-                    info!("Handle internal sync request");
-                    let mut rpc_client = self.rpc_client.clone();
-                    tokio::spawn(async move {
-                        let _ = rpc_client.sync(rpc_context()).await;
-                    });
-                }
-            },
+            Request::Download(req) if !self.in_sync => self.handle_download_request(req),
+            Request::Upload(req) if !self.in_sync => self.handle_upload_request(req),
+            Request::Select(req) if !self.in_sync => self.handle_select_request(req),
+            Request::Aggregate(req) if !self.in_sync => self.handle_aggregate_request(req),
+            Request::Sync(req) => self.handle_sync_request(req),
+            _ => warn!("In sync! Discard request."),
         }
     }
 
@@ -196,6 +191,7 @@ where
             response_tx,
         });
     }
+
     fn handle_select_request(&mut self, request: SelectRequest<A>) {
         info!("handling select request");
         let SelectRequest {
@@ -205,7 +201,25 @@ where
         let (id, token) = credentials.into_parts();
         self.allowed_ids.insert(id, token);
         if response_tx.send(Ok(())).is_err() {
-            warn!("failed to send reponse: channel closed");
+            warn!("failed to send response: channel closed");
+        }
+    }
+
+    /// Handle a reset request
+    fn handle_sync_request(&mut self, req: SyncTasks) {
+        match req {
+            SyncTasks::Enter => {
+                info!("enter sync");
+                self.in_sync = true;
+            }
+            SyncTasks::Reset => {
+                info!("handling reset");
+                self.allowed_ids = HashMap::new();
+            }
+            SyncTasks::Exit => {
+                info!("exit sync");
+                self.in_sync = false;
+            }
         }
     }
 
@@ -305,14 +319,14 @@ where
         download: UnboundedReceiver<DownloadRequest>,
         aggregate: UnboundedReceiver<AggregateRequest<A>>,
         select: UnboundedReceiver<SelectRequest<A>>,
-        reset: UnboundedReceiver<SyncRequest>,
+        sync: UnboundedReceiver<SyncTasks>,
     ) -> Self {
         let stream = download
             .map(Request::from)
             .merge(upload.map(Request::from))
             .merge(aggregate.map(Request::from))
             .merge(select.map(Request::from))
-            .merge(reset.map(Request::from));
+            .merge(sync.map(Request::from));
         Self(Box::pin(stream))
     }
 }
@@ -355,7 +369,7 @@ where
     Download(DownloadRequest),
     Aggregate(AggregateRequest<A>),
     Select(SelectRequest<A>),
-    Reset(SyncRequest),
+    Sync(SyncTasks),
 }
 
 pub struct ServiceHandle<A>
@@ -366,7 +380,7 @@ where
     download: UnboundedSender<DownloadRequest>,
     aggregate: UnboundedSender<AggregateRequest<A>>,
     select: UnboundedSender<SelectRequest<A>>,
-    reset: UnboundedSender<SyncRequest>,
+    sync: UnboundedSender<SyncTasks>,
 }
 
 // We implement Clone manually because it can only be derived if A:
@@ -381,7 +395,7 @@ where
             download: self.download.clone(),
             aggregate: self.aggregate.clone(),
             select: self.select.clone(),
-            reset: self.reset.clone(),
+            sync: self.sync.clone(),
         }
     }
 }
@@ -395,17 +409,17 @@ where
         let (download_tx, download_rx) = unbounded_channel::<DownloadRequest>();
         let (aggregate_tx, aggregate_rx) = unbounded_channel::<AggregateRequest<A>>();
         let (select_tx, select_rx) = unbounded_channel::<SelectRequest<A>>();
-        let (reset_tx, reset_rx) = unbounded_channel::<SyncRequest>();
+        let (sync_tx, sync_rx) = unbounded_channel::<SyncTasks>();
 
         let handle = Self {
             upload: upload_tx,
             download: download_tx,
             aggregate: aggregate_tx,
             select: select_tx,
-            reset: reset_tx,
+            sync: sync_tx,
         };
         let service_requests =
-            ServiceRequests::new(upload_rx, download_rx, aggregate_rx, select_rx, reset_rx);
+            ServiceRequests::new(upload_rx, download_rx, aggregate_rx, select_rx, sync_rx);
         (handle, service_requests)
     }
     pub async fn download(
@@ -472,8 +486,16 @@ impl<A> ProcessSync for ServiceHandle<A>
 where
     A: Aggregator + 'static,
 {
-    async fn reset(&self, req: SyncRequest) {
-        let _ = Self::send_request(req, &self.reset);
+    async fn enter_sync(&self) {
+        Self::send_request(SyncTasks::Enter, &self.sync);
+    }
+
+    async fn reset(&self) {
+        Self::send_request(SyncTasks::Reset, &self.sync);
+    }
+
+    async fn exit_sync(&self) {
+        Self::send_request(SyncTasks::Exit, &self.sync);
     }
 }
 

@@ -1,15 +1,20 @@
 use crate::{
-    common::{client::ClientId, sync::SyncRequest},
+    common::{
+        client::ClientId,
+        sync::{SendReset, SyncHandle, SyncRequest},
+    },
     coordinator::core::ServiceHandle,
 };
+use async_trait::async_trait;
 use std::{future::Future, io, iter, pin::Pin, time::Duration};
 use stubborn_io::{ReconnectOptions, StubbornTcpStream};
 use tarpc::{
     client::Config,
+    context::Context,
     rpc::server::{BaseChannel, Channel},
     serde_transport::{tcp::listen, Transport},
 };
-use tokio::{net::ToSocketAddrs, stream::StreamExt, sync::mpsc::UnboundedSender};
+use tokio::{net::ToSocketAddrs, stream::StreamExt};
 use tokio_serde::formats::Json;
 use tracing_futures::Instrument;
 
@@ -20,6 +25,13 @@ mod inner {
         async fn end_training(id: ClientId, success: bool);
 
         async fn sync();
+    }
+}
+
+#[async_trait]
+impl SendReset for inner::RpcClient {
+    async fn reset(&mut self, ctx: Context) -> std::io::Result<()> {
+        self.sync(ctx).await
     }
 }
 
@@ -50,7 +62,7 @@ impl Rpc for Server {
         let span = trace_span!("rpc_reset_handler");
         Box::pin(
             async move {
-                let _ = self.1.send(SyncRequest::External);
+                let _ = self.1.sync(SyncRequest::ExternalRequest).await;
             }
             .instrument(span),
         )
@@ -60,7 +72,7 @@ impl Rpc for Server {
 /// A server that serves a single client. A new `Server` is created
 /// for each new client.
 #[derive(Clone)]
-struct Server(ServiceHandle, UnboundedSender<SyncRequest>);
+struct Server(ServiceHandle, SyncHandle);
 
 pub async fn client_connect<A: ToSocketAddrs + Unpin + Clone + Send + Sync + 'static>(
     addr: A,
@@ -79,7 +91,7 @@ pub async fn client_connect<A: ToSocketAddrs + Unpin + Clone + Send + Sync + 'st
 pub async fn serve<A: ToSocketAddrs + Send + Sync + 'static>(
     addr: A,
     service_handle: ServiceHandle,
-    sync_tx: UnboundedSender<SyncRequest>,
+    sync_handle: SyncHandle,
 ) -> ::std::io::Result<()> {
     let mut listener = listen(addr, Json::default).await?;
 
@@ -87,7 +99,7 @@ pub async fn serve<A: ToSocketAddrs + Send + Sync + 'static>(
         match accept_result {
             Ok(transport) => {
                 let channel = BaseChannel::with_defaults(transport);
-                let server = Server(service_handle.clone(), sync_tx.clone());
+                let server = Server(service_handle.clone(), sync_handle.clone());
                 let handler = channel.respond_with(server.serve());
                 handler
                     .execute()

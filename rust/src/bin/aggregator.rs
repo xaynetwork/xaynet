@@ -10,11 +10,13 @@ use xain_fl::{
         service::{Service, ServiceHandle},
         settings::{AggregationSettings, ApiSettings, RpcSettings, Settings},
     },
-    common::logging,
+    common::{
+        logging,
+        state::StateHandle,
+        sync::{SyncHandle, SyncRequest, SyncService},
+    },
     coordinator,
 };
-
-use xain_fl::common::sync::{run_sync_handle, SyncHandle, SyncRequest};
 
 #[macro_use]
 extern crate tracing;
@@ -55,22 +57,26 @@ async fn main() {
 async fn _main(rpc: RpcSettings, api: ApiSettings, aggregation: AggregationSettings) {
     let (service_handle, service_requests) = ServiceHandle::new();
 
-    let (sync_handle, sync_tx) = SyncHandle::new(service_handle.clone());
+    let (state_handle, _) = StateHandle::new();
+    //let state_service = StateService::new("./state.lock", state_requests);
+    let (sync_handle, sync_requests) = SyncHandle::new();
 
     let rpc_server = rpc::serve(
         rpc.bind_address.clone(),
         service_handle.clone(),
-        sync_tx.clone(),
+        sync_handle.clone(),
     )
     .instrument(trace_span!("rpc_server"));
     let rpc_server_task_handle = tokio::spawn(rpc_server);
 
     let rpc_client_span = trace_span!("rpc_client");
-    let sync_tx_closure = sync_tx.clone();
+    let sync_handle_closure = sync_handle.clone();
     let rpc_client = coordinator::rpc::client_connect(rpc.coordinator_address.clone(), move || {
-        let sync_tx_closure = sync_tx_closure.clone();
+        let sync_handle_closure = sync_handle_closure.clone();
         tokio::spawn(async move {
-            let _ = sync_tx_closure.send(SyncRequest::Internal);
+            let _ = sync_handle_closure
+                .sync(SyncRequest::RPCClientDisconnect)
+                .await;
         });
     })
     .instrument(rpc_client_span.clone())
@@ -78,7 +84,12 @@ async fn _main(rpc: RpcSettings, api: ApiSettings, aggregation: AggregationSetti
     .unwrap();
 
     // Start sync handler
-    tokio::spawn(async move { run_sync_handle(sync_handle).await });
+    let sync_service = SyncService::new(
+        service_handle.clone(),
+        rpc_client.clone(),
+        state_handle.clone(),
+        sync_requests,
+    );
 
     let (aggregator, mut shutdown_rx) = match aggregation {
         AggregationSettings::Python(python_aggregator_settings) => {
@@ -110,6 +121,9 @@ async fn _main(rpc: RpcSettings, api: ApiSettings, aggregation: AggregationSetti
         }
         _ = rpc_server_task_handle => {
             info!("shutting down: RPC server task terminated");
+        }
+        _ = sync_service => {
+            info!("shutting down: Sync service task terminated");
         }
         result = ctrl_c() => {
             match result {

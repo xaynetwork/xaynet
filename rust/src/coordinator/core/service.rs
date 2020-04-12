@@ -5,7 +5,7 @@ use crate::{
     common::{
         client::{ClientId, Credentials, Token},
         state::{State, StateHandle},
-        sync::{ProcessSync, SyncRequest},
+        sync::{ProcessSync, SyncTasks},
     },
     coordinator::{
         core::{
@@ -97,6 +97,8 @@ where
 
     state_handle: StateHandle,
 
+    in_sync: bool,
+
     #[cfg(feature = "influx_metrics")]
     ///Metric Store
     metrics_tx: Option<UnboundedSender<Measurement>>,
@@ -129,6 +131,7 @@ where
             aggregator_url,
             requests,
             state_handle,
+            in_sync: false,
             #[cfg(feature = "influx_metrics")]
             metrics_tx,
         }
@@ -139,7 +142,7 @@ where
         while let Some(event) = self.protocol.next_event() {
             self.dispatch_event(event);
         }
-        self.sanity_checks();
+        //self.sanity_checks();
     }
 
     /// Handle the incoming requests.
@@ -159,22 +162,15 @@ where
     /// Handle a request
     fn handle_request(&mut self, request: Request) {
         match request {
-            Request::RendezVous(req) => self.handle_rendez_vous_request(req),
-            Request::HeartBeat(req) => self.handle_heartbeat_request(req),
-            Request::StartTraining(req) => self.handle_start_training_request(req),
-            Request::EndTraining(req) => self.handle_end_training_request(req),
-            Request::Reset(req) => match req {
-                SyncRequest::External => info!("Handle external sync request"),
-                SyncRequest::Internal => {
-                    info!("Handle internal sync request");
-                    let mut rpc_client = self.rpc_client.clone();
-                    tokio::spawn(async move {
-                        rpc_client.sync(rpc_context()).await;
-                    });
-                }
-            },
+            Request::RendezVous(req) if !self.in_sync => self.handle_rendez_vous_request(req),
+            Request::HeartBeat(req) if !self.in_sync => self.handle_heartbeat_request(req),
+            Request::StartTraining(req) if !self.in_sync => self.handle_start_training_request(req),
+            Request::EndTraining(req) if !self.in_sync => self.handle_end_training_request(req),
+            Request::Sync(req) => self.handle_sync_request(req),
+            _ => warn!("In sync! Discard request."),
         }
     }
+
     /// Handle a rendez-vous request
     fn handle_rendez_vous_request(&mut self, req: RendezVousRequest) {
         debug!("handling rendez-vous request");
@@ -243,12 +239,30 @@ where
         }
     }
 
-    /// Handle a start training request
+    /// Handle a end training request
     fn handle_end_training_request(&mut self, req: EndTrainingRequest) {
         debug!("handling end training request");
         let EndTrainingRequest { id, success } = req;
         let state = self.clients.get_state(&id);
         self.protocol.end_training(id, success, state);
+    }
+
+    /// Handle a sync request
+    fn handle_sync_request(&mut self, req: SyncTasks) {
+        match req {
+            SyncTasks::Enter => {
+                info!("enter sync");
+                self.in_sync = true;
+            }
+            SyncTasks::Reset => {
+                info!("handling reset");
+                self.clients.reset();
+            }
+            SyncTasks::Exit => {
+                info!("exit sync");
+                self.in_sync = false;
+            }
+        }
     }
 
     /// If there is an aggregation request running, poll the
@@ -488,14 +502,14 @@ impl ServiceRequests {
         start_training: UnboundedReceiver<StartTrainingRequest>,
         end_training: UnboundedReceiver<EndTrainingRequest>,
         heartbeat: UnboundedReceiver<HeartBeatRequest>,
-        reset: UnboundedReceiver<SyncRequest>,
+        sync: UnboundedReceiver<SyncTasks>,
     ) -> Self {
         let stream = rendez_vous
             .map(Request::from)
             .merge(start_training.map(Request::from))
             .merge(end_training.map(Request::from))
             .merge(heartbeat.map(Request::from))
-            .merge(reset.map(Request::from));
+            .merge(sync.map(Request::from));
         Self(Box::pin(stream))
     }
 }
@@ -506,7 +520,7 @@ pub enum Request {
     HeartBeat(HeartBeatRequest),
     StartTraining(StartTrainingRequest),
     EndTraining(EndTrainingRequest),
-    Reset(SyncRequest),
+    Sync(SyncTasks),
 }
 
 #[derive(From)]
@@ -538,7 +552,7 @@ pub struct ServiceHandle {
     start_training: UnboundedSender<StartTrainingRequest>,
     end_training: UnboundedSender<EndTrainingRequest>,
     heartbeat: UnboundedSender<HeartBeatRequest>,
-    reset: UnboundedSender<SyncRequest>,
+    sync: UnboundedSender<SyncTasks>,
 }
 
 impl ServiceHandle {
@@ -547,21 +561,21 @@ impl ServiceHandle {
         let (start_training_tx, start_training_rx) = unbounded_channel::<StartTrainingRequest>();
         let (end_training_tx, end_training_rx) = unbounded_channel::<EndTrainingRequest>();
         let (heartbeat_tx, heartbeat_rx) = unbounded_channel::<HeartBeatRequest>();
-        let (reset_tx, reset_rx) = unbounded_channel::<SyncRequest>();
+        let (sync_tx, sync_rx) = unbounded_channel::<SyncTasks>();
 
         let handle = Self {
             rendez_vous: rendez_vous_tx,
             start_training: start_training_tx,
             heartbeat: heartbeat_tx,
             end_training: end_training_tx,
-            reset: reset_tx,
+            sync: sync_tx,
         };
         let service_requests = ServiceRequests::new(
             rendez_vous_rx,
             start_training_rx,
             end_training_rx,
             heartbeat_rx,
-            reset_rx,
+            sync_rx,
         );
         (handle, service_requests)
     }
@@ -611,8 +625,16 @@ impl ServiceHandle {
 
 #[async_trait]
 impl ProcessSync for ServiceHandle {
-    async fn reset(&self, req: SyncRequest) {
-        Self::send_request(req, &self.reset);
+    async fn enter_sync(&self) {
+        Self::send_request(SyncTasks::Enter, &self.sync);
+    }
+
+    async fn reset(&self) {
+        Self::send_request(SyncTasks::Reset, &self.sync);
+    }
+
+    async fn exit_sync(&self) {
+        Self::send_request(SyncTasks::Exit, &self.sync);
     }
 }
 

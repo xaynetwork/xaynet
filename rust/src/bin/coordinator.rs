@@ -20,7 +20,7 @@ use xain_fl::{
         client::ClientId,
         logging,
         state::{StateHandle, StateService},
-        sync::{run_sync_handle, SyncHandle, SyncRequest},
+        sync::{SyncHandle, SyncRequest, SyncService},
     },
     coordinator::{
         api,
@@ -90,23 +90,19 @@ async fn _main(
     aggregator_url: String,
     #[cfg(feature = "influx_metrics")] metric_store: Option<MetricStoreSettings>,
 ) {
-    // let recover_service = FileRecoverService::init("./dirty.lock", false)
-    //     .await
-    //     .expect("Error reading last exit state:");
-
     let (service_handle, service_requests) = ServiceHandle::new();
 
     let (state_handle, state_requests) = StateHandle::new();
     let state_service = StateService::new("./state.lock", state_requests);
 
-    let (sync_handle, sync_tx) = SyncHandle::new(service_handle.clone());
+    let (sync_handle, sync_requests) = SyncHandle::new();
 
     // Start the RPC client
-    let sync_tx_closure = sync_tx.clone();
+    let sync_handle_closure = sync_handle.clone();
     let rpc_client = aggregator::rpc::Client::connect(rpc.aggregator_address.clone(), move || {
-        let sync_tx_closure = sync_tx_closure.clone();
+        let sync_tx_closure = sync_handle_closure.clone();
         tokio::spawn(async move {
-            let _ = sync_tx_closure.send(SyncRequest::Internal);
+            let _ = sync_tx_closure.sync(SyncRequest::RPCClientDisconnect).await;
         });
     })
     .instrument(trace_span!("rpc_client"))
@@ -117,13 +113,18 @@ async fn _main(
     let rpc_server = rpc::serve(
         rpc.bind_address.clone(),
         service_handle.clone(),
-        sync_tx.clone(),
+        sync_handle.clone(),
     )
     .instrument(trace_span!("rpc_server"));
     let rpc_server_task_handle = tokio::spawn(rpc_server);
 
     // Start sync handler
-    tokio::spawn(async move { run_sync_handle(sync_handle).await });
+    let sync_service = SyncService::new(
+        service_handle.clone(),
+        rpc_client.clone(),
+        state_handle.clone(),
+        sync_requests,
+    );
 
     #[cfg(feature = "influx_metrics")]
     let metric_sender = if let Some(metric_store) = metric_store {
@@ -167,6 +168,9 @@ async fn _main(
         }
         _ = rpc_server_task_handle => {
             info!("shutting down: RPC server task terminated");
+        }
+        _ = sync_service => {
+            info!("shutting down: Sync service task terminated");
         }
         _ = state_service => {
             info!("shutting down: State service task terminated");
