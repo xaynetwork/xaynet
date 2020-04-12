@@ -4,6 +4,7 @@ use crate::{
     aggregator,
     common::{
         client::{ClientId, Credentials, Token},
+        state::{State, StateHandle},
         sync::{ProcessSync, SyncRequest},
     },
     coordinator::{
@@ -94,6 +95,8 @@ where
     /// amount of clients are selected.
     pending_selection: Vec<ClientId>,
 
+    state_handle: StateHandle,
+
     #[cfg(feature = "influx_metrics")]
     ///Metric Store
     metrics_tx: Option<UnboundedSender<Measurement>>,
@@ -109,6 +112,7 @@ where
         aggregator_url: String,
         rpc_client: aggregator::rpc::Client,
         requests: ServiceRequests,
+        state_handle: StateHandle,
         #[cfg(feature = "influx_metrics")] metrics_tx: Option<UnboundedSender<Measurement>>,
     ) -> Self {
         let (heartbeat_expirations_tx, heartbeat_expirations_rx) = unbounded_channel();
@@ -124,6 +128,7 @@ where
             aggregation_future: None,
             aggregator_url,
             requests,
+            state_handle,
             #[cfg(feature = "influx_metrics")]
             metrics_tx,
         }
@@ -451,7 +456,7 @@ where
             ResetHeartBeat(id) => self.reset_heartbeat(id),
             RunAggregation => self.run_aggregation(),
             RunSelection(min_count) => self.run_selection(min_count),
-            EndRound(_) => (),
+            EndRound(round) => self.state_handle.write(State { round }),
         }
 
         #[cfg(feature = "influx_metrics")]

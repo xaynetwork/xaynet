@@ -19,6 +19,7 @@ use xain_fl::{
     common::{
         client::ClientId,
         logging,
+        state::{StateHandle, StateService},
         sync::{run_sync_handle, SyncHandle, SyncRequest},
     },
     coordinator::{
@@ -95,6 +96,9 @@ async fn _main(
 
     let (service_handle, service_requests) = ServiceHandle::new();
 
+    let (state_handle, state_requests) = StateHandle::new();
+    let state_service = StateService::new("./state.lock", state_requests);
+
     let (sync_handle, sync_tx) = SyncHandle::new(service_handle.clone());
 
     // Start the RPC client
@@ -148,6 +152,7 @@ async fn _main(
         aggregator_url,
         rpc_client,
         service_requests,
+        state_handle,
         #[cfg(feature = "influx_metrics")]
         metric_sender,
     );
@@ -162,6 +167,9 @@ async fn _main(
         }
         _ = rpc_server_task_handle => {
             info!("shutting down: RPC server task terminated");
+        }
+        _ = state_service => {
+            info!("shutting down: State service task terminated");
         }
         result = ctrl_c() => {
             match result {

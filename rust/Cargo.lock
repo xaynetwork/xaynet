@@ -2480,6 +2480,7 @@ dependencies = [
  "pyo3",
  "rand 0.7.3",
  "serde",
+ "serde_json",
  "stubborn-io",
  "tarpc",
  "thiserror",

@@ -4,4 +4,5 @@ pub mod logging;
 pub mod metric_store;
 pub mod recover_service;
 pub mod settings;
+pub mod state;
 pub mod sync;
