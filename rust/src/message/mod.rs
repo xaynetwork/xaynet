@@ -8,7 +8,7 @@ use std::{collections::HashMap, ops::Range};
 use sodiumoxide::crypto::{box_, sealedbox, sign};
 
 use self::{round::RoundBox, sum::SumBox, sum2::Sum2Box, update::UpdateBox};
-use crate::pet::PetError;
+use crate::PetError;
 
 // box tags
 const ROUND_TAG: u8 = 100;

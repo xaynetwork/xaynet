@@ -3,7 +3,7 @@ use std::{collections::HashMap, ops::Range};
 use sodiumoxide::crypto::{box_, sign};
 
 use super::{MsgBoxBufMut, MsgBoxBufRef, MsgBoxDecr, MsgBoxEncr, UPDATE_TAG};
-use crate::pet::PetError;
+use crate::PetError;
 
 // update box field ranges
 const SIGN_UPDATE_RANGE: Range<usize> = 65..129; // 64 bytes

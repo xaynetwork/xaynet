@@ -15,6 +15,7 @@ pub fn is_eligible(signature: &sign::Signature, threshold: f64) -> bool {
         Ratio::new(
             BigUint::from_bytes_be(&sha256::hash(&signature.0[..]).0[..])
                 .to_bigint()
+                // FIXME: can we unwrap here?
                 .unwrap(),
             BigUint::from_bytes_be(&[255_u8; 32][..])
                 .to_bigint()

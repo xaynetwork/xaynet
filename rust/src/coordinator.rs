@@ -18,9 +18,9 @@ use super::{
     PetError,
 };
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 /// Round phases of a coordinator.
-enum Phase {
+pub enum Phase {
     Idle,
     Sum,
     Update,
@@ -115,6 +115,7 @@ impl Coordinator {
             &self.encr_sk,
             SumMessage::exp_len(None),
         )?;
+
         Self::validate_certificate(msg.certificate())?;
         self.validate_task_sum(msg.signature_sum(), msg.sign_pk())?;
         self.update_dict_sum(msg.encr_pk(), msg.ephm_pk());
@@ -342,6 +343,16 @@ impl Coordinator {
         self.update_round_seed();
         self.phase = Phase::Idle;
         Ok(())
+    }
+
+    pub fn round_parameters(&self) -> RoundParameters {
+        RoundParameters {
+            sum: self.sum,
+            update: self.update,
+            seed: self.seed.clone(),
+            encr_pk: self.encr_pk.clone(),
+            sign_pk: self.sign_pk.clone(),
+        }
     }
 }
 
@@ -715,4 +726,21 @@ mod tests {
         assert_ne!(coord.seed, seed);
         assert_eq!(coord.phase, Phase::Idle);
     }
+}
+
+pub struct RoundParameters {
+    /// Fraction of participants to be selected for the sum task
+    pub sum: f64,
+
+    /// Fraction of participants to be selected for the update task
+    pub update: f64,
+
+    /// The coordinator public key for encryption
+    pub encr_pk: box_::PublicKey,
+
+    /// The coordinator public key for signing
+    pub sign_pk: sign::PublicKey,
+
+    /// The random seed
+    pub seed: Vec<u8>,
 }

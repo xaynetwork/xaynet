@@ -3,7 +3,7 @@ use std::ops::Range;
 use sodiumoxide::crypto::{box_, sealedbox, sign};
 
 use super::{ROUND_TAG, TAG_RANGE};
-use crate::pet::PetError;
+use crate::PetError;
 
 // round box field ranges
 const ENCR_PK_RANGE: Range<usize> = 1..33; // 32 bytes
