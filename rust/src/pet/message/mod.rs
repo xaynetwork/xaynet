@@ -490,12 +490,12 @@ mod tests {
     }
 
     #[test]
-    fn test_updatemessage_ref() {
+    fn test_updatemessage() {
         // new
         let encr_pk = &box_::PublicKey::from_slice(&randombytes(32)).unwrap();
         let sign_pk = &sign::PublicKey::from_slice(&randombytes(32)).unwrap();
         let rbox = RoundBox::new(encr_pk, sign_pk);
-        let dict_sum_len = randombytes_uniform(10) as usize;
+        let dict_sum_len = 1 + randombytes_uniform(10) as usize;
         let certificate = Vec::<u8>::new();
         let signature_sum = &sign::Signature::from_slice(&randombytes(64)).unwrap();
         let signature_update = &sign::Signature::from_slice(&randombytes(64)).unwrap();
@@ -578,7 +578,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sum2message_ref() {
+    fn test_sum2message() {
         // new
         let encr_pk = &box_::PublicKey::from_slice(&randombytes(32)).unwrap();
         let sign_pk = &sign::PublicKey::from_slice(&randombytes(32)).unwrap();
