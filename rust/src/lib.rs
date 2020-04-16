@@ -20,4 +20,5 @@ pub enum PetError {
     InsufficientSystemEntropy,
     InvalidMessage,
     InsufficientParticipants,
+    AmbiguousMasks,
 }
