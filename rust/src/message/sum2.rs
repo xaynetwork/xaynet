@@ -6,7 +6,7 @@ use super::{MsgBoxBufMut, MsgBoxBufRef, MsgBoxDecr, MsgBoxEncr, SUM2_TAG};
 use crate::PetError;
 
 // sum2 box field ranges
-const MASK_URL_RANGE: Range<usize> = 65..97; // 32 bytes
+const MASK_HASH_RANGE: Range<usize> = 65..97; // 32 bytes
 
 #[derive(Debug)]
 /// Mutable and immutable buffer access to sum2 box fields.
@@ -42,8 +42,8 @@ impl<'b, B: AsRef<[u8]> + ?Sized> MsgBoxBufRef<'b> for Sum2BoxBuffer<&'b B> {
 
 impl<'b, B: AsRef<[u8]> + ?Sized> Sum2BoxBuffer<&'b B> {
     /// Access the mask url field of the sum2 box buffer by reference.
-    fn mask_url(&self) -> &'b [u8] {
-        &self.bytes()[MASK_URL_RANGE]
+    fn mask_hash(&self) -> &'b [u8] {
+        &self.bytes()[MASK_HASH_RANGE]
     }
 }
 
@@ -56,8 +56,8 @@ impl<B: AsMut<[u8]>> MsgBoxBufMut for Sum2BoxBuffer<B> {
 
 impl<B: AsMut<[u8]>> Sum2BoxBuffer<B> {
     /// Access the mask url field of the sum2 box buffer by mutable reference.
-    fn mask_url_mut(&mut self) -> &mut [u8] {
-        &mut self.bytes_mut()[MASK_URL_RANGE]
+    fn mask_hash_mut(&mut self) -> &mut [u8] {
+        &mut self.bytes_mut()[MASK_HASH_RANGE]
     }
 }
 
@@ -66,7 +66,7 @@ impl<B: AsMut<[u8]>> Sum2BoxBuffer<B> {
 pub struct Sum2Box<C, S, M> {
     certificate: C,
     signature_sum: S,
-    mask_url: M,
+    mask_hash: M,
 }
 
 impl<'b> Sum2Box<&'b [u8], &'b sign::Signature, &'b [u8]> {
@@ -74,12 +74,12 @@ impl<'b> Sum2Box<&'b [u8], &'b sign::Signature, &'b [u8]> {
     pub fn new(
         certificate: &'b [u8],
         signature_sum: &'b sign::Signature,
-        mask_url: &'b [u8],
+        mask_hash: &'b [u8],
     ) -> Self {
         Self {
             certificate,
             signature_sum,
-            mask_url,
+            mask_hash,
         }
     }
 }
@@ -88,7 +88,7 @@ impl MsgBoxEncr for Sum2Box<&[u8], &sign::Signature, &[u8]> {
     /// Get the length of the serialized sum2 box.
     fn len(&self) -> usize {
         // 97 bytes
-        1 + self.certificate.len() + self.signature_sum.as_ref().len() + self.mask_url.len()
+        1 + self.certificate.len() + self.signature_sum.as_ref().len() + self.mask_hash.len()
     }
 
     /// Serialize the sum2 box to bytes.
@@ -99,7 +99,7 @@ impl MsgBoxEncr for Sum2Box<&[u8], &sign::Signature, &[u8]> {
         buffer
             .signature_sum_mut()
             .copy_from_slice(self.signature_sum.as_ref());
-        buffer.mask_url_mut().copy_from_slice(self.mask_url);
+        buffer.mask_hash_mut().copy_from_slice(self.mask_hash);
         buffer.bytes
     }
 }
@@ -116,8 +116,8 @@ impl Sum2Box<Vec<u8>, sign::Signature, Vec<u8>> {
     }
 
     /// Get a reference to the mask url.
-    pub fn mask_url(&self) -> &[u8] {
-        &self.mask_url
+    pub fn mask_hash(&self) -> &[u8] {
+        &self.mask_hash
     }
 }
 
@@ -137,11 +137,11 @@ impl MsgBoxDecr for Sum2Box<Vec<u8>, sign::Signature, Vec<u8>> {
             .ok_or(PetError::InvalidMessage)?;
         let certificate = buffer.certificate().to_vec();
         let signature_sum = sign::Signature::from_slice(buffer.signature_sum()).unwrap();
-        let mask_url = buffer.mask_url().to_vec();
+        let mask_hash = buffer.mask_hash().to_vec();
         Ok(Self {
             certificate,
             signature_sum,
-            mask_url,
+            mask_hash,
         })
     }
 }
@@ -154,7 +154,7 @@ mod tests {
 
     #[test]
     fn test_sum2box_field_ranges() {
-        assert_eq!(MASK_URL_RANGE.end - MASK_URL_RANGE.start, 32);
+        assert_eq!(MASK_HASH_RANGE.end - MASK_HASH_RANGE.start, 32);
     }
 
     #[test]
@@ -204,8 +204,8 @@ mod tests {
         assert_eq!(buf_mut.signature_sum_mut(), &mut bytes_mut_[1..65]);
 
         // ephm pk
-        assert_eq!(buf.mask_url(), &bytes_[65..97]);
-        assert_eq!(buf_mut.mask_url_mut(), &mut bytes_mut_[65..97]);
+        assert_eq!(buf.mask_hash(), &bytes_[65..97]);
+        assert_eq!(buf_mut.mask_hash_mut(), &mut bytes_mut_[65..97]);
     }
 
     #[test]
@@ -213,14 +213,14 @@ mod tests {
         // new
         let certificate = Vec::<u8>::new();
         let signature_sum = &sign::Signature::from_slice(&randombytes(64)).unwrap();
-        let mask_url = randombytes(32);
-        let sbox = Sum2Box::new(&certificate, signature_sum, &mask_url);
+        let mask_hash = randombytes(32);
+        let sbox = Sum2Box::new(&certificate, signature_sum, &mask_hash);
         assert_eq!(sbox.certificate, certificate.as_slice());
         assert_eq!(
             sbox.signature_sum as *const sign::Signature,
             signature_sum as *const sign::Signature,
         );
-        assert_eq!(sbox.mask_url, mask_url.as_slice());
+        assert_eq!(sbox.mask_hash, mask_hash.as_slice());
 
         // len
         assert_eq!(sbox.len(), 97);
@@ -232,7 +232,7 @@ mod tests {
                 [103_u8; 1].as_ref(),
                 certificate.as_slice(),
                 signature_sum.as_ref(),
-                mask_url.as_slice(),
+                mask_hash.as_slice(),
             ]
             .concat(),
         );
@@ -247,12 +247,12 @@ mod tests {
         // deserialize
         let certificate = Vec::<u8>::new();
         let signature_sum = sign::Signature::from_slice(&randombytes(64)).unwrap();
-        let mask_url = randombytes(32);
+        let mask_hash = randombytes(32);
         let bytes = [
             [103_u8; 1].as_ref(),
             certificate.as_slice(),
             signature_sum.as_ref(),
-            mask_url.as_slice(),
+            mask_hash.as_slice(),
         ]
         .concat();
         let sbox = Sum2Box::deserialize(&bytes, len).unwrap();
@@ -261,7 +261,7 @@ mod tests {
             Sum2Box {
                 certificate: certificate.clone(),
                 signature_sum,
-                mask_url: mask_url.clone(),
+                mask_hash: mask_hash.clone(),
             },
         );
         assert_eq!(
@@ -280,23 +280,23 @@ mod tests {
         assert_eq!(sbox.signature_sum(), &signature_sum);
 
         // mask url
-        assert_eq!(sbox.mask_url(), mask_url.as_slice());
+        assert_eq!(sbox.mask_hash(), mask_hash.as_slice());
     }
 
     #[test]
     fn test_sum2box() {
         let certificate = Vec::<u8>::new();
         let signature_sum = sign::Signature::from_slice(&randombytes(64)).unwrap();
-        let mask_url = randombytes(32);
+        let mask_hash = randombytes(32);
         let (pk, sk) = box_::gen_keypair();
-        let (nonce, bytes) = Sum2Box::new(&certificate, &signature_sum, &mask_url).seal(&pk, &sk);
+        let (nonce, bytes) = Sum2Box::new(&certificate, &signature_sum, &mask_hash).seal(&pk, &sk);
         let sbox = Sum2Box::open(&bytes, &nonce, &pk, &sk, 97).unwrap();
         assert_eq!(
             sbox,
             Sum2Box {
                 certificate,
                 signature_sum,
-                mask_url,
+                mask_hash,
             },
         );
     }

@@ -146,7 +146,7 @@ impl Coordinator {
         )?;
         Self::validate_certificate(msg.certificate())?;
         self.validate_task_sum(msg.signature_sum(), msg.sign_pk())?;
-        self.update_dict_mask(msg.mask_url());
+        self.update_dict_mask(msg.mask_hash());
         Ok(())
     }
 
@@ -241,9 +241,9 @@ impl Coordinator {
     }
 
     /// Update the mask dictionary.
-    fn update_dict_mask(&mut self, mask_url: &[u8]) {
-        self.dict_mask += mask_url
-            .chunks_exact(mask_url.len())
+    fn update_dict_mask(&mut self, mask_hash: &[u8]) {
+        self.dict_mask += mask_hash
+            .chunks_exact(mask_hash.len())
             .map(|mask| mask.to_vec());
     }
 
@@ -336,7 +336,7 @@ impl Coordinator {
     /// End the sum2 phase and proceed to the idle phase to end the round. Fails due to insufficient
     /// sum participants.
     fn proceed_phase_idle(&mut self) -> Result<(), PetError> {
-        let _mask_url = self.freeze_dict_mask()?;
+        let _mask_hash = self.freeze_dict_mask()?;
         self.clear_round_dicts();
         self.update_round_sum();
         self.update_round_update();
