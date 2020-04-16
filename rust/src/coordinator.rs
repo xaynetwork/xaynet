@@ -350,8 +350,8 @@ impl Coordinator {
             sum: self.sum,
             update: self.update,
             seed: self.seed.clone(),
-            encr_pk: self.encr_pk.clone(),
-            sign_pk: self.sign_pk.clone(),
+            encr_pk: self.encr_pk,
+            sign_pk: self.sign_pk,
         }
     }
 }
