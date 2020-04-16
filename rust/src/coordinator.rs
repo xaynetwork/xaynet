@@ -3,6 +3,7 @@
 use std::{
     collections::{HashMap, HashSet},
     default::Default,
+    iter,
 };
 
 use counter::Counter;
@@ -242,9 +243,7 @@ impl Coordinator {
 
     /// Update the mask dictionary.
     fn update_dict_mask(&mut self, mask_hash: &[u8]) {
-        self.dict_mask += mask_hash
-            .chunks_exact(mask_hash.len())
-            .map(|mask| mask.to_vec());
+        self.dict_mask.update(iter::once(mask_hash.to_vec()))
     }
 
     /// Freeze the mask dictionary. Returns a unique mask. Fails due to insufficient sum
