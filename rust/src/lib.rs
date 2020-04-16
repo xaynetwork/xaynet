@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+#![allow(unused_imports)]
 #![feature(or_patterns)]
 #![feature(bool_to_option)]
 
@@ -7,10 +9,15 @@ extern crate tracing;
 #[macro_use]
 extern crate serde;
 
-pub mod aggregator;
-pub mod common;
 pub mod coordinator;
-pub mod pet;
+pub mod message;
+pub mod participant;
+pub mod service;
+pub mod utils;
 
-#[cfg(test)]
-mod tests;
+#[derive(Debug, PartialEq)]
+pub enum PetError {
+    InsufficientSystemEntropy,
+    InvalidMessage,
+    InsufficientParticipants,
+}

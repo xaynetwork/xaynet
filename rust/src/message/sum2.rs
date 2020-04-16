@@ -3,7 +3,7 @@ use std::ops::Range;
 use sodiumoxide::crypto::sign;
 
 use super::{MsgBoxBufMut, MsgBoxBufRef, MsgBoxDecr, MsgBoxEncr, SUM2_TAG};
-use crate::pet::PetError;
+use crate::PetError;
 
 // sum2 box field ranges
 const MASK_URL_RANGE: Range<usize> = 65..97; // 32 bytes

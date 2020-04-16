@@ -3,7 +3,7 @@ use std::ops::Range;
 use sodiumoxide::crypto::{box_, sign};
 
 use super::{MsgBoxBufMut, MsgBoxBufRef, MsgBoxDecr, MsgBoxEncr, SUM_TAG};
-use crate::pet::PetError;
+use crate::PetError;
 
 // sum box field ranges
 const EPHM_PK_RANGE: Range<usize> = 65..97; // 32 bytes
