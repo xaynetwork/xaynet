@@ -98,17 +98,17 @@ impl Coordinator {
     }
 
     /// Validate and handle a sum, update or sum2 message.
-    pub fn validate_message(&mut self, message: &[u8]) -> Result<(), PetError> {
+    pub fn handle_message(&mut self, message: &[u8]) -> Result<(), PetError> {
         match self.phase {
             Phase::Idle => Err(PetError::InvalidMessage),
-            Phase::Sum => self.validate_message_sum(message),
-            Phase::Update => self.validate_message_update(message),
-            Phase::Sum2 => self.validate_message_sum2(message),
+            Phase::Sum => self.handle_message_sum(message),
+            Phase::Update => self.handle_message_update(message),
+            Phase::Sum2 => self.handle_message_sum2(message),
         }
     }
 
     /// Validate and handle a sum message.
-    fn validate_message_sum(&mut self, message: &[u8]) -> Result<(), PetError> {
+    fn handle_message_sum(&mut self, message: &[u8]) -> Result<(), PetError> {
         let msg = SumMessage::open(
             message,
             &self.encr_pk,
@@ -123,7 +123,7 @@ impl Coordinator {
     }
 
     /// Validate and handle an update message.
-    fn validate_message_update(&mut self, message: &[u8]) -> Result<(), PetError> {
+    fn handle_message_update(&mut self, message: &[u8]) -> Result<(), PetError> {
         let msg = UpdateMessage::open(
             message,
             &self.encr_pk,
@@ -137,7 +137,7 @@ impl Coordinator {
     }
 
     /// Validate and handle a sum2 message.
-    fn validate_message_sum2(&mut self, message: &[u8]) -> Result<(), PetError> {
+    fn handle_message_sum2(&mut self, message: &[u8]) -> Result<(), PetError> {
         let msg = Sum2Message::open(
             message,
             &self.encr_pk,
