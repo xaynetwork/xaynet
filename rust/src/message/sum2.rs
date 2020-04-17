@@ -1,303 +1,317 @@
 use std::ops::Range;
 
-use sodiumoxide::crypto::sign;
+use sodiumoxide::crypto::{box_, sealedbox, sign};
 
-use super::{MsgBoxBufMut, MsgBoxBufRef, MsgBoxDecr, MsgBoxEncr, SUM2_TAG};
+use super::{MessageBuffer, CERTIFICATE_BYTES, SUM2_TAG, TAG_BYTES};
 use crate::PetError;
 
-// sum2 box field ranges
-const MASK_HASH_RANGE: Range<usize> = 65..97; // 32 bytes
+// sum2 message buffer field ranges
+const MASK_BYTES: usize = 32;
+const MASK_RANGE: Range<usize> = 193..225; // 32 bytes
 
 #[derive(Debug)]
-/// Mutable and immutable buffer access to sum2 box fields.
-struct Sum2BoxBuffer<B> {
+/// Access to sum2 message buffer fields.
+struct Sum2MessageBuffer<B> {
     bytes: B,
 }
 
-impl Sum2BoxBuffer<Vec<u8>> {
-    /// Create an empty sum2 box buffer of size `len`.
+impl Sum2MessageBuffer<Vec<u8>> {
+    /// Create an empty sum2 message buffer of size `len`.
     fn new(len: usize) -> Self {
         Self {
             bytes: vec![0_u8; len],
         }
     }
-}
 
-impl<B: AsRef<[u8]>> Sum2BoxBuffer<B> {
-    /// Create a sum2 box buffer from `bytes`. Fails if the `bytes` don't conform to the expected
-    /// sum2 box length `exp_len`.
-    fn from(bytes: B, exp_len: usize) -> Result<Self, PetError> {
-        (bytes.as_ref().len() == exp_len)
-            .then_some(Self { bytes })
-            .ok_or(PetError::InvalidMessage)
+    /// Create a sum2 message buffer from `bytes`. Fails if the `bytes` don't conform to the
+    /// expected sum2 message length `exp_len`.
+    fn from(bytes: Vec<u8>, exp_len: usize) -> Result<Self, PetError> {
+        if bytes.len() != exp_len {
+            return Err(PetError::InvalidMessage);
+        }
+        Ok(Self { bytes })
     }
 }
 
-impl<'b, B: AsRef<[u8]> + ?Sized> MsgBoxBufRef<'b> for Sum2BoxBuffer<&'b B> {
-    /// Access the sum2 box buffer by reference.
-    fn bytes(&self) -> &'b [u8] {
+impl<B: AsRef<[u8]> + AsMut<[u8]>> MessageBuffer for Sum2MessageBuffer<B> {
+    /// Get a reference to the sum2 message buffer.
+    fn bytes<'b>(&'b self) -> &'b [u8] {
         self.bytes.as_ref()
     }
-}
 
-impl<'b, B: AsRef<[u8]> + ?Sized> Sum2BoxBuffer<&'b B> {
-    /// Access the mask url field of the sum2 box buffer by reference.
-    fn mask_hash(&self) -> &'b [u8] {
-        &self.bytes()[MASK_HASH_RANGE]
-    }
-}
-
-impl<B: AsMut<[u8]>> MsgBoxBufMut for Sum2BoxBuffer<B> {
-    /// Access the sum2 box buffer by mutable reference.
+    /// Get a mutable reference to the sum2 message buffer.
     fn bytes_mut(&mut self) -> &mut [u8] {
         self.bytes.as_mut()
     }
 }
 
-impl<B: AsMut<[u8]>> Sum2BoxBuffer<B> {
-    /// Access the mask url field of the sum2 box buffer by mutable reference.
-    fn mask_hash_mut(&mut self) -> &mut [u8] {
-        &mut self.bytes_mut()[MASK_HASH_RANGE]
+impl<B: AsRef<[u8]> + AsMut<[u8]>> Sum2MessageBuffer<B> {
+    /// Get a reference to the mask field of the sum2 message buffer.
+    fn mask<'b>(&'b self) -> &'b [u8] {
+        &self.bytes()[MASK_RANGE]
+    }
+
+    /// Get a mutable reference to the mask field of the sum2 message buffer.
+    fn mask_mut(&mut self) -> &mut [u8] {
+        &mut self.bytes_mut()[MASK_RANGE]
     }
 }
 
 #[derive(Clone, Debug, PartialEq)]
-/// Encryption and decryption of sum2 boxes.
-pub struct Sum2Box<C, S, M> {
+/// Encryption and decryption of sum2 messages.
+pub struct Sum2Message<K, C, S, M> {
+    sign_pk: K,
     certificate: C,
-    signature_sum: S,
-    mask_hash: M,
+    sum_signature: S,
+    mask: M,
 }
 
-impl<'b> Sum2Box<&'b [u8], &'b sign::Signature, &'b [u8]> {
-    /// Create a sum2 box.
-    pub fn new(
-        certificate: &'b [u8],
-        signature_sum: &'b sign::Signature,
-        mask_hash: &'b [u8],
-    ) -> Self {
+impl<K, C, S, M> Sum2Message<K, C, S, M> {
+    /// Create a sum2 message from its parts.
+    pub fn from(sign_pk: K, certificate: C, sum_signature: S, mask: M) -> Self {
         Self {
+            sign_pk,
             certificate,
-            signature_sum,
-            mask_hash,
+            sum_signature,
+            mask,
         }
     }
+
+    /// Get the expected length of a serialized sum2 message.
+    const fn exp_len() -> usize {
+        sign::SIGNATUREBYTES
+            + TAG_BYTES
+            + box_::PUBLICKEYBYTES
+            + sign::PUBLICKEYBYTES
+            + CERTIFICATE_BYTES
+            + sign::SIGNATUREBYTES
+            + MASK_BYTES
+    }
 }
 
-impl MsgBoxEncr for Sum2Box<&[u8], &sign::Signature, &[u8]> {
-    /// Get the length of the serialized sum2 box.
-    fn len(&self) -> usize {
-        // 97 bytes
-        1 + self.certificate.len() + self.signature_sum.as_ref().len() + self.mask_hash.len()
-    }
-
-    /// Serialize the sum2 box to bytes.
-    fn serialize(&self) -> Vec<u8> {
-        let mut buffer = Sum2BoxBuffer::new(self.len());
-        buffer.tag_mut().copy_from_slice([SUM2_TAG; 1].as_ref());
+impl Sum2Message<&sign::PublicKey, &Vec<u8>, &sign::Signature, &Vec<u8>> {
+    /// Serialize the sum2 message into a buffer.
+    fn serialize(&self, buffer: &mut Sum2MessageBuffer<Vec<u8>>, encr_pk: &box_::PublicKey) {
+        buffer.tag_mut().copy_from_slice(&[SUM2_TAG]);
+        buffer.encr_pk_mut().copy_from_slice(encr_pk.as_ref());
+        buffer.sign_pk_mut().copy_from_slice(self.sign_pk.as_ref());
         buffer.certificate_mut().copy_from_slice(self.certificate);
         buffer
-            .signature_sum_mut()
-            .copy_from_slice(self.signature_sum.as_ref());
-        buffer.mask_hash_mut().copy_from_slice(self.mask_hash);
-        buffer.bytes
+            .sum_signature_mut()
+            .copy_from_slice(self.sum_signature.as_ref());
+        buffer.mask_mut().copy_from_slice(self.mask);
+    }
+
+    /// Sign and encrypt the sum2message.
+    pub fn seal(&self, sign_sk: &sign::SecretKey, encr_pk: &box_::PublicKey) -> Vec<u8> {
+        let mut buffer = Sum2MessageBuffer::new(Self::exp_len());
+        self.serialize(&mut buffer, encr_pk);
+        let signature = sign::sign_detached(buffer.message(), sign_sk);
+        buffer.signature_mut().copy_from_slice(signature.as_ref());
+        sealedbox::seal(buffer.bytes(), encr_pk)
     }
 }
 
-impl Sum2Box<Vec<u8>, sign::Signature, Vec<u8>> {
+impl Sum2Message<sign::PublicKey, Vec<u8>, sign::Signature, Vec<u8>> {
+    /// Deserialize a sum2 message from a buffer. Fails if the `buffer` doesn't conform to the
+    /// expected sum2 message length `exp_len`.
+    fn deserialize(buffer: Sum2MessageBuffer<Vec<u8>>) -> Self {
+        // safe unwraps: lengths of `buffer` slices are guaranteed by constants
+        let sign_pk = sign::PublicKey::from_slice(buffer.sign_pk()).unwrap();
+        let certificate = buffer.certificate().to_vec();
+        let sum_signature = sign::Signature::from_slice(buffer.sum_signature()).unwrap();
+        let mask = buffer.mask().to_vec();
+        Self {
+            sign_pk,
+            certificate,
+            sum_signature,
+            mask,
+        }
+    }
+
+    /// Decrypt and verify a sum2 message. Fails if decryption or validation fails.
+    pub fn open(
+        bytes: &[u8],
+        encr_pk: &box_::PublicKey,
+        encr_sk: &box_::SecretKey,
+    ) -> Result<Self, PetError> {
+        let buffer = Sum2MessageBuffer::from(
+            sealedbox::open(bytes, encr_pk, encr_sk).or(Err(PetError::InvalidMessage))?,
+            Self::exp_len(),
+        )?;
+        if buffer.tag() != [SUM2_TAG]
+            || buffer.encr_pk() != encr_pk.as_ref()
+            || !sign::verify_detached(
+                // safe unwraps: lengths of `buffer` slices are guaranteed by constants
+                &sign::Signature::from_slice(buffer.signature()).unwrap(),
+                buffer.message(),
+                &sign::PublicKey::from_slice(buffer.sign_pk()).unwrap(),
+            )
+        {
+            return Err(PetError::InvalidMessage);
+        }
+        Ok(Self::deserialize(buffer))
+    }
+
+    /// Get a reference to the public signature key.
+    pub fn sign_pk(&self) -> &sign::PublicKey {
+        &self.sign_pk
+    }
+
     /// Get a reference to the certificate.
-    pub fn certificate(&self) -> &[u8] {
+    pub fn certificate(&self) -> &Vec<u8> {
         &self.certificate
     }
 
     /// Get a reference to the sum signature.
-    pub fn signature_sum(&self) -> &sign::Signature {
-        &self.signature_sum
+    pub fn sum_signature(&self) -> &sign::Signature {
+        &self.sum_signature
     }
 
-    /// Get a reference to the mask url.
-    pub fn mask_hash(&self) -> &[u8] {
-        &self.mask_hash
-    }
-}
-
-impl MsgBoxDecr for Sum2Box<Vec<u8>, sign::Signature, Vec<u8>> {
-    #[allow(clippy::identity_op)] // temporary
-    /// Get the expected length of a serialized sum2 box.
-    fn exp_len(_: Option<usize>) -> usize {
-        1 + 0 + sign::SIGNATUREBYTES + 32 // 97 bytes
-    }
-
-    /// Deserialize a sum2 box from bytes. Fails if the `bytes` don't conform to the expected sum2
-    /// box length `len`.
-    fn deserialize(bytes: &[u8], exp_len: usize) -> Result<Self, PetError> {
-        let buffer = Sum2BoxBuffer::from(bytes, exp_len)?;
-        (buffer.tag() == [SUM2_TAG])
-            .then_some(())
-            .ok_or(PetError::InvalidMessage)?;
-        let certificate = buffer.certificate().to_vec();
-        let signature_sum = sign::Signature::from_slice(buffer.signature_sum()).unwrap();
-        let mask_hash = buffer.mask_hash().to_vec();
-        Ok(Self {
-            certificate,
-            signature_sum,
-            mask_hash,
-        })
+    /// Get a reference to the mask.
+    pub fn mask(&self) -> &Vec<u8> {
+        &self.mask
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use sodiumoxide::{crypto::box_, randombytes::randombytes};
+    use sodiumoxide::randombytes::randombytes;
 
-    use super::*;
+    use super::{
+        super::{CERTIFICATE_RANGE, SIGN_PK_RANGE, SUM_SIGNATURE_RANGE},
+        *,
+    };
 
     #[test]
-    fn test_sum2box_field_ranges() {
-        assert_eq!(MASK_HASH_RANGE.end - MASK_HASH_RANGE.start, 32);
+    fn test_ranges() {
+        assert_eq!(MASK_RANGE.end - MASK_RANGE.start, MASK_BYTES);
     }
 
     #[test]
-    fn test_sum2boxbuffer() {
+    fn test_sum2messagebuffer() {
         // new
-        assert_eq!(Sum2BoxBuffer::new(10).bytes, vec![0_u8; 10]);
+        assert_eq!(Sum2MessageBuffer::new(10).bytes, vec![0_u8; 10]);
 
         // from
-        let len = 97;
-        let bytes = randombytes(len);
-        let bytes_ = bytes.clone();
-        let mut bytes_mut = bytes.clone();
-        let mut bytes_mut_ = bytes.clone();
+        let mut bytes = randombytes(225);
+        let mut buffer = Sum2MessageBuffer::from(bytes.clone(), 225).unwrap();
+        assert_eq!(buffer.bytes, bytes);
         assert_eq!(
-            Sum2BoxBuffer::from(bytes.clone(), len).unwrap().bytes,
-            bytes.clone(),
-        );
-        assert_eq!(
-            Sum2BoxBuffer::from(&bytes, len).unwrap().bytes as *const Vec<u8>,
-            &bytes as *const Vec<u8>,
-        );
-        assert_eq!(
-            Sum2BoxBuffer::from(&mut bytes_mut, len).unwrap().bytes as *mut Vec<u8>,
-            &mut bytes_mut as *mut Vec<u8>,
-        );
-        assert_eq!(
-            Sum2BoxBuffer::from(&bytes, 10).unwrap_err(),
+            Sum2MessageBuffer::from(bytes.clone(), 10).unwrap_err(),
             PetError::InvalidMessage,
         );
 
-        // bytes
-        let buf = Sum2BoxBuffer::from(&bytes, len).unwrap();
-        let mut buf_mut = Sum2BoxBuffer::from(&mut bytes_mut, len).unwrap();
-        assert_eq!(buf.bytes(), &bytes_[..]);
-        assert_eq!(buf_mut.bytes_mut(), &mut bytes_mut_[..]);
-
-        // tag
-        assert_eq!(buf.tag(), &bytes_[0..1]);
-        assert_eq!(buf_mut.tag_mut(), &mut bytes_mut_[0..1]);
-
-        // certificate
-        assert_eq!(buf.certificate(), &bytes_[1..1]);
-        assert_eq!(buf_mut.certificate_mut(), &mut bytes_mut_[1..1]);
-
-        // signature sum
-        assert_eq!(buf.signature_sum(), &bytes_[1..65]);
-        assert_eq!(buf_mut.signature_sum_mut(), &mut bytes_mut_[1..65]);
-
-        // ephm pk
-        assert_eq!(buf.mask_hash(), &bytes_[65..97]);
-        assert_eq!(buf_mut.mask_hash_mut(), &mut bytes_mut_[65..97]);
+        // mask
+        assert_eq!(buffer.mask(), &bytes[MASK_RANGE]);
+        assert_eq!(buffer.mask_mut(), &mut bytes[MASK_RANGE]);
     }
 
     #[test]
-    fn test_sum2box_ref() {
-        // new
-        let certificate = Vec::<u8>::new();
-        let signature_sum = &sign::Signature::from_slice(&randombytes(64)).unwrap();
-        let mask_hash = randombytes(32);
-        let sbox = Sum2Box::new(&certificate, signature_sum, &mask_hash);
-        assert_eq!(sbox.certificate, certificate.as_slice());
+    fn test_sum2message_serialize() {
+        // from
+        let sign_pk = &sign::PublicKey::from_slice(&randombytes(32)).unwrap();
+        let certificate = &Vec::<u8>::new();
+        let sum_signature = &sign::Signature::from_slice(&randombytes(64)).unwrap();
+        let mask = &randombytes(32);
+        let msg = Sum2Message::from(sign_pk, certificate, sum_signature, mask);
         assert_eq!(
-            sbox.signature_sum as *const sign::Signature,
-            signature_sum as *const sign::Signature,
+            msg.sign_pk as *const sign::PublicKey,
+            sign_pk as *const sign::PublicKey,
         );
-        assert_eq!(sbox.mask_hash, mask_hash.as_slice());
-
-        // len
-        assert_eq!(sbox.len(), 97);
+        assert_eq!(
+            msg.certificate as *const Vec<u8>,
+            certificate as *const Vec<u8>,
+        );
+        assert_eq!(
+            msg.sum_signature as *const sign::Signature,
+            sum_signature as *const sign::Signature,
+        );
+        assert_eq!(msg.mask as *const Vec<u8>, mask as *const Vec<u8>,);
 
         // serialize
-        assert_eq!(
-            sbox.serialize(),
-            [
-                [103_u8; 1].as_ref(),
-                certificate.as_slice(),
-                signature_sum.as_ref(),
-                mask_hash.as_slice(),
-            ]
-            .concat(),
-        );
+        let mut buffer = Sum2MessageBuffer::new(225);
+        let encr_pk = box_::PublicKey::from_slice(&randombytes(32)).unwrap();
+        msg.serialize(&mut buffer, &encr_pk);
+        assert_eq!(buffer.tag(), &[SUM2_TAG]);
+        assert_eq!(buffer.sign_pk(), sign_pk.as_ref());
+        assert_eq!(buffer.encr_pk(), encr_pk.as_ref());
+        assert_eq!(buffer.certificate(), certificate.as_slice());
+        assert_eq!(buffer.sum_signature(), sum_signature.as_ref());
+        assert_eq!(buffer.mask(), mask.as_slice());
     }
 
     #[test]
-    fn test_sum2box_val() {
-        // exp len
-        let len = 97;
-        assert_eq!(Sum2Box::exp_len(None), len);
-
+    fn test_sum2message_deserialize() {
         // deserialize
-        let certificate = Vec::<u8>::new();
-        let signature_sum = sign::Signature::from_slice(&randombytes(64)).unwrap();
-        let mask_hash = randombytes(32);
-        let bytes = [
-            [103_u8; 1].as_ref(),
-            certificate.as_slice(),
-            signature_sum.as_ref(),
-            mask_hash.as_slice(),
-        ]
-        .concat();
-        let sbox = Sum2Box::deserialize(&bytes, len).unwrap();
+        let bytes = randombytes(225);
+        let buffer = Sum2MessageBuffer::from(bytes.clone(), 225).unwrap();
+        let msg = Sum2Message::deserialize(buffer);
         assert_eq!(
-            sbox,
-            Sum2Box {
-                certificate: certificate.clone(),
-                signature_sum,
-                mask_hash: mask_hash.clone(),
-            },
+            msg.sign_pk(),
+            &sign::PublicKey::from_slice(&bytes[SIGN_PK_RANGE]).unwrap(),
         );
+        assert_eq!(msg.certificate(), &bytes[CERTIFICATE_RANGE].to_vec());
         assert_eq!(
-            Sum2Box::deserialize(&vec![0_u8; 10], len).unwrap_err(),
-            PetError::InvalidMessage,
+            msg.sum_signature(),
+            &sign::Signature::from_slice(&bytes[SUM_SIGNATURE_RANGE]).unwrap(),
         );
-        assert_eq!(
-            Sum2Box::deserialize(&vec![0_u8; len], len).unwrap_err(),
-            PetError::InvalidMessage,
-        );
-
-        // certificate
-        assert_eq!(sbox.certificate(), certificate.as_slice());
-
-        // signature sum
-        assert_eq!(sbox.signature_sum(), &signature_sum);
-
-        // mask url
-        assert_eq!(sbox.mask_hash(), mask_hash.as_slice());
+        assert_eq!(msg.mask(), &bytes[MASK_RANGE].to_vec());
     }
 
     #[test]
-    fn test_sum2box() {
+    fn test_sum2message() {
+        // seal
+        let (sign_pk, sign_sk) = sign::gen_keypair();
         let certificate = Vec::<u8>::new();
-        let signature_sum = sign::Signature::from_slice(&randombytes(64)).unwrap();
-        let mask_hash = randombytes(32);
-        let (pk, sk) = box_::gen_keypair();
-        let (nonce, bytes) = Sum2Box::new(&certificate, &signature_sum, &mask_hash).seal(&pk, &sk);
-        let sbox = Sum2Box::open(&bytes, &nonce, &pk, &sk, 97).unwrap();
+        let sum_signature = sign::Signature::from_slice(&randombytes(64)).unwrap();
+        let mask = randombytes(32);
+        let (encr_pk, encr_sk) = box_::gen_keypair();
+        let bytes = Sum2Message::from(&sign_pk, &certificate, &sum_signature, &mask)
+            .seal(&sign_sk, &encr_pk);
+
+        // open
+        let msg = Sum2Message::open(&bytes, &encr_pk, &encr_sk).unwrap();
+        assert_eq!(msg.sign_pk(), &sign_pk);
+        assert_eq!(msg.certificate(), &certificate);
+        assert_eq!(msg.sum_signature(), &sum_signature);
+        assert_eq!(msg.mask(), &mask);
+
+        // wrong signature
+        let mut buffer = Sum2MessageBuffer::new(225);
+        let msg = Sum2Message::from(&sign_pk, &certificate, &sum_signature, &mask);
+        msg.serialize(&mut buffer, &encr_pk);
+        let bytes = sealedbox::seal(buffer.bytes(), &encr_pk);
         assert_eq!(
-            sbox,
-            Sum2Box {
-                certificate,
-                signature_sum,
-                mask_hash,
-            },
+            Sum2Message::open(&bytes, &encr_pk, &encr_sk).unwrap_err(),
+            PetError::InvalidMessage,
+        );
+
+        // wrong receiver
+        msg.serialize(
+            &mut buffer,
+            &box_::PublicKey::from_slice(&randombytes(32)).unwrap(),
+        );
+        let bytes = sealedbox::seal(buffer.bytes(), &encr_pk);
+        assert_eq!(
+            Sum2Message::open(&bytes, &encr_pk, &encr_sk).unwrap_err(),
+            PetError::InvalidMessage,
+        );
+
+        // wrong tag
+        buffer.tag_mut().copy_from_slice(&[0_u8]);
+        let bytes = sealedbox::seal(buffer.bytes(), &encr_pk);
+        assert_eq!(
+            Sum2Message::open(&bytes, &encr_pk, &encr_sk).unwrap_err(),
+            PetError::InvalidMessage,
+        );
+
+        // wrong length
+        let buffer = Sum2MessageBuffer::new(10);
+        let bytes = sealedbox::seal(buffer.bytes(), &encr_pk);
+        assert_eq!(
+            Sum2Message::open(&bytes, &encr_pk, &encr_sk).unwrap_err(),
+            PetError::InvalidMessage,
         );
     }
 }

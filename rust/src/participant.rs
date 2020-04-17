@@ -1,5 +1,3 @@
-#![allow(dead_code)] // temporary
-
 use std::{collections::HashMap, default::Default};
 
 use sodiumoxide::{
@@ -9,7 +7,7 @@ use sodiumoxide::{
 };
 
 use super::{
-    message::{round::RoundBox, sum::SumBox, sum2::Sum2Box, update::UpdateBox, Message},
+    message::{sum::SumMessage, sum2::Sum2Message, update::UpdateMessage},
     utils::is_eligible,
     PetError,
 };
@@ -25,15 +23,13 @@ enum Task {
 /// A participant in the PET protocol layer.
 pub struct Participant {
     // credentials
-    encr_pk: box_::PublicKey,          // 32 bytes
-    encr_sk: box_::SecretKey,          // 32 bytes
     sign_pk: sign::PublicKey,          // 32 bytes
     sign_sk: sign::SecretKey,          // 64 bytes
     ephm_pk: box_::PublicKey,          // 32 bytes
     ephm_sk: box_::SecretKey,          // 32 bytes
     certificate: Vec<u8>,              // 0 bytes (dummy)
-    signature_sum: sign::Signature,    // 64 bytes
-    signature_update: sign::Signature, // 64 bytes
+    sum_signature: sign::Signature,    // 64 bytes
+    update_signature: sign::Signature, // 64 bytes
 
     // round parameters
     task: Task,
@@ -41,26 +37,22 @@ pub struct Participant {
 
 impl Default for Participant {
     fn default() -> Self {
-        let encr_pk = box_::PublicKey([0_u8; box_::PUBLICKEYBYTES]);
-        let encr_sk = box_::SecretKey([0_u8; box_::SECRETKEYBYTES]);
         let sign_pk = sign::PublicKey([0_u8; sign::PUBLICKEYBYTES]);
         let sign_sk = sign::SecretKey([0_u8; sign::SECRETKEYBYTES]);
         let ephm_pk = box_::PublicKey([0_u8; box_::PUBLICKEYBYTES]);
         let ephm_sk = box_::SecretKey([0_u8; box_::SECRETKEYBYTES]);
         let certificate = Vec::<u8>::new();
-        let signature_sum = sign::Signature([0_u8; sign::SIGNATUREBYTES]);
-        let signature_update = sign::Signature([0_u8; sign::SIGNATUREBYTES]);
+        let sum_signature = sign::Signature([0_u8; sign::SIGNATUREBYTES]);
+        let update_signature = sign::Signature([0_u8; sign::SIGNATUREBYTES]);
         let task = Task::None;
         Self {
-            encr_pk,
-            encr_sk,
             sign_pk,
             sign_sk,
             ephm_pk,
             ephm_sk,
             certificate,
-            signature_sum,
-            signature_update,
+            sum_signature,
+            update_signature,
             task,
         }
     }
@@ -71,11 +63,8 @@ impl Participant {
     pub fn new() -> Result<Self, PetError> {
         // crucial: init must be called before anything else in this module
         sodiumoxide::init().or(Err(PetError::InsufficientSystemEntropy))?;
-        let (encr_pk, encr_sk) = box_::gen_keypair();
         let (sign_pk, sign_sk) = sign::gen_keypair();
         Ok(Self {
-            encr_pk,
-            encr_sk,
             sign_pk,
             sign_sk,
             ..Default::default()
@@ -84,16 +73,16 @@ impl Participant {
 
     /// Compute the sum and update signatures.
     pub fn compute_signatures(&mut self, round_seed: &[u8]) {
-        self.signature_sum = sign::sign_detached(&[round_seed, b"sum"].concat(), &self.sign_sk);
-        self.signature_update =
+        self.sum_signature = sign::sign_detached(&[round_seed, b"sum"].concat(), &self.sign_sk);
+        self.update_signature =
             sign::sign_detached(&[round_seed, b"update"].concat(), &self.sign_sk);
     }
 
     /// Check eligibility for a task.
     pub fn check_task(&mut self, round_sum: f64, round_update: f64) {
-        if is_eligible(&self.signature_sum, round_sum) {
+        if is_eligible(&self.sum_signature, round_sum) {
             self.task = Task::Sum;
-        } else if is_eligible(&self.signature_update, round_update) {
+        } else if is_eligible(&self.update_signature, round_update) {
             self.task = Task::Update;
         } else {
             self.task = Task::None;
@@ -101,49 +90,48 @@ impl Participant {
     }
 
     /// Compose a sum message.
-    pub fn compose_message_sum(&mut self, coord_encr_pk: &box_::PublicKey) -> Vec<u8> {
+    pub fn compose_sum_message(&mut self, coord_encr_pk: &box_::PublicKey) -> Vec<u8> {
         self.gen_ephm_keypair();
-        Message::new(
-            RoundBox::new(&self.encr_pk, &self.sign_pk),
-            SumBox::new(&self.certificate, &self.signature_sum, &self.ephm_pk),
+        SumMessage::from(
+            &self.sign_pk,
+            &self.certificate,
+            &self.sum_signature,
+            &self.ephm_pk,
         )
-        .seal(coord_encr_pk, &self.encr_sk)
+        .seal(&self.sign_sk, coord_encr_pk)
     }
 
     /// Compose an update message.
-    pub fn compose_message_update(
+    pub fn compose_update_message(
         &self,
         coord_encr_pk: &box_::PublicKey,
-        dict_sum: &HashMap<box_::PublicKey, box_::PublicKey>,
+        sum_dict: &HashMap<sign::PublicKey, box_::PublicKey>,
     ) -> Vec<u8> {
-        let (mask_seed, model_url) = Self::mask_model();
-        let dict_seed = Self::create_dict_seed(dict_sum, &mask_seed);
-        Message::new(
-            RoundBox::new(&self.encr_pk, &self.sign_pk),
-            UpdateBox::new(
-                &self.certificate,
-                &self.signature_sum,
-                &self.signature_update,
-                &model_url,
-                &dict_seed,
-            ),
+        let (mask_seed, masked_model) = Self::mask_model();
+        let seed_dict = Self::create_seed_dict(sum_dict, &mask_seed);
+        UpdateMessage::from(
+            &self.sign_pk,
+            &self.certificate,
+            &self.sum_signature,
+            &self.update_signature,
+            &masked_model,
+            &seed_dict,
         )
-        .seal(coord_encr_pk, &self.encr_sk)
+        .seal(&self.sign_sk, coord_encr_pk)
     }
 
     /// Compose a sum2 message.
-    pub fn compose_message_sum2(
+    pub fn compose_sum2_message(
         &self,
         coord_encr_pk: &box_::PublicKey,
-        dict_seed: &HashMap<box_::PublicKey, HashMap<box_::PublicKey, Vec<u8>>>,
+        seed_dict: &HashMap<sign::PublicKey, HashMap<sign::PublicKey, Vec<u8>>>,
     ) -> Result<Vec<u8>, PetError> {
-        let mask_seeds = self.get_seeds(dict_seed)?;
-        let mask_hash = self.compute_global_mask(mask_seeds);
-        Ok(Message::new(
-            RoundBox::new(&self.encr_pk, &self.sign_pk),
-            Sum2Box::new(&self.certificate, &self.signature_sum, &mask_hash),
+        let mask_seeds = self.get_seeds(seed_dict)?;
+        let mask = self.compute_global_mask(mask_seeds);
+        Ok(
+            Sum2Message::from(&self.sign_pk, &self.certificate, &self.sum_signature, &mask)
+                .seal(&self.sign_sk, coord_encr_pk),
         )
-        .seal(coord_encr_pk, &self.encr_sk))
     }
 
     /// Generate an ephemeral key pair.
@@ -153,29 +141,29 @@ impl Participant {
         self.ephm_sk = ephm_sk;
     }
 
-    /// Mask a local model (dummy). Returns the mask seed and the model url.
+    /// Mask a local model (dummy). Returns the mask seed and the masked model.
     fn mask_model() -> (Vec<u8>, Vec<u8>) {
         (randombytes(32), randombytes(32))
     }
 
-    // Create a mask seed dictionary from a sum dictionary.
-    fn create_dict_seed(
-        dict_sum: &HashMap<box_::PublicKey, box_::PublicKey>,
+    // Create a seed dictionary from a sum dictionary.
+    fn create_seed_dict(
+        sum_dict: &HashMap<sign::PublicKey, box_::PublicKey>,
         mask_seed: &[u8],
-    ) -> HashMap<box_::PublicKey, Vec<u8>> {
-        dict_sum
+    ) -> HashMap<sign::PublicKey, Vec<u8>> {
+        sum_dict
             .iter()
-            .map(|(encr_pk, ephm_pk)| (*encr_pk, sealedbox::seal(mask_seed, ephm_pk)))
+            .map(|(sign_pk, ephm_pk)| (*sign_pk, sealedbox::seal(mask_seed, ephm_pk)))
             .collect()
     }
 
     /// Get the mask seeds from the seed dictionary.
     fn get_seeds(
         &self,
-        dict_seed: &HashMap<box_::PublicKey, HashMap<box_::PublicKey, Vec<u8>>>,
+        seed_dict: &HashMap<sign::PublicKey, HashMap<sign::PublicKey, Vec<u8>>>,
     ) -> Result<Vec<Vec<u8>>, PetError> {
-        dict_seed
-            .get(&self.encr_pk)
+        seed_dict
+            .get(&self.sign_pk)
             .ok_or(PetError::InvalidMessage)?
             .values()
             .map(|seed| {
@@ -185,7 +173,7 @@ impl Participant {
             .collect()
     }
 
-    /// Compute a global mask from local mask seeds (dummy). Returns the mask url.
+    /// Compute a global mask from local mask seeds (dummy). Returns the mask.
     fn compute_global_mask(&self, mask_seeds: Vec<Vec<u8>>) -> Vec<u8> {
         sha256::hash(&mask_seeds.into_iter().flatten().collect::<Vec<u8>>())
             .as_ref()
@@ -204,15 +192,13 @@ mod tests {
     #[test]
     fn test_participant() {
         let part = Participant::new().unwrap();
-        assert_eq!(part.encr_pk, part.encr_sk.public_key());
-        assert_eq!(part.encr_sk.as_ref().len(), 32);
         assert_eq!(part.sign_pk, part.sign_sk.public_key());
         assert_eq!(part.sign_sk.as_ref().len(), 64);
         assert_eq!(part.ephm_pk, box_::PublicKey([0_u8; 32]));
         assert_eq!(part.ephm_sk, box_::SecretKey([0_u8; 32]));
         assert_eq!(part.certificate, Vec::<u8>::new());
-        assert_eq!(part.signature_sum, sign::Signature([0_u8; 64]));
-        assert_eq!(part.signature_update, sign::Signature([0_u8; 64]));
+        assert_eq!(part.sum_signature, sign::Signature([0_u8; 64]));
+        assert_eq!(part.update_signature, sign::Signature([0_u8; 64]));
         assert_eq!(part.task, Task::None);
     }
 
@@ -222,12 +208,12 @@ mod tests {
         let round_seed = randombytes(32);
         part.compute_signatures(&round_seed);
         assert!(sign::verify_detached(
-            &part.signature_sum,
+            &part.sum_signature,
             &[round_seed.as_slice(), b"sum"].concat(),
             &part.sign_pk,
         ));
         assert!(sign::verify_detached(
-            &part.signature_update,
+            &part.update_signature,
             &[round_seed.as_slice(), b"update"].concat(),
             &part.sign_pk,
         ));
@@ -236,29 +222,29 @@ mod tests {
     #[test]
     fn test_check_task() {
         let mut part = Participant::new().unwrap();
-        let sign_ell = sign::Signature([
+        let elligible_signature = sign::Signature([
             229, 191, 74, 163, 113, 6, 242, 191, 255, 225, 40, 89, 210, 94, 25, 50, 44, 129, 155,
             241, 99, 64, 25, 212, 157, 235, 102, 95, 115, 18, 158, 115, 253, 136, 178, 223, 4, 47,
             54, 162, 236, 78, 126, 114, 205, 217, 250, 163, 223, 149, 31, 65, 179, 179, 60, 64, 34,
             1, 78, 245, 1, 50, 165, 47,
         ]);
-        let sign_inell = sign::Signature([
+        let inelligible_signature = sign::Signature([
             15, 107, 81, 84, 105, 246, 165, 81, 76, 125, 140, 172, 113, 85, 51, 173, 119, 123, 78,
             114, 249, 182, 135, 212, 134, 38, 125, 153, 120, 45, 179, 55, 116, 155, 205, 51, 247,
             37, 78, 147, 63, 231, 28, 61, 251, 41, 48, 239, 125, 0, 129, 126, 194, 123, 183, 11,
             215, 220, 1, 225, 248, 131, 64, 242,
         ]);
-        part.signature_sum = sign_ell;
-        part.signature_update = sign_inell;
+        part.sum_signature = elligible_signature;
+        part.update_signature = inelligible_signature;
         part.check_task(0.5_f64, 0.5_f64);
         assert_eq!(part.task, Task::Sum);
-        part.signature_update = sign_ell;
+        part.update_signature = elligible_signature;
         part.check_task(0.5_f64, 0.5_f64);
         assert_eq!(part.task, Task::Sum);
-        part.signature_sum = sign_inell;
+        part.sum_signature = inelligible_signature;
         part.check_task(0.5_f64, 0.5_f64);
         assert_eq!(part.task, Task::Update);
-        part.signature_update = sign_inell;
+        part.update_signature = inelligible_signature;
         part.check_task(0.5_f64, 0.5_f64);
         assert_eq!(part.task, Task::None);
     }
@@ -272,28 +258,28 @@ mod tests {
     }
 
     #[test]
-    fn test_create_dict_seed() {
+    fn test_create_seed_dict() {
         let (mask_seed, _) = Participant::mask_model();
-        let dict_ephm = iter::repeat_with(|| box_::gen_keypair())
+        let ephm_dict = iter::repeat_with(|| box_::gen_keypair())
             .take(1 + randombytes_uniform(10) as usize)
             .collect::<HashMap<box_::PublicKey, box_::SecretKey>>();
-        let dict_sum = dict_ephm
+        let sum_dict = ephm_dict
             .iter()
             .map(|(sum_ephm_pk, _)| {
                 (
-                    box_::PublicKey::from_slice(&randombytes(32)).unwrap(),
+                    sign::PublicKey::from_slice(&randombytes(32)).unwrap(),
                     *sum_ephm_pk,
                 )
             })
             .collect();
-        let dict_seed = Participant::create_dict_seed(&dict_sum, &mask_seed);
+        let seed_dict = Participant::create_seed_dict(&sum_dict, &mask_seed);
         assert_eq!(
-            dict_seed.keys().collect::<HashSet<&box_::PublicKey>>(),
-            dict_sum.keys().collect::<HashSet<&box_::PublicKey>>(),
+            seed_dict.keys().collect::<HashSet<&sign::PublicKey>>(),
+            sum_dict.keys().collect::<HashSet<&sign::PublicKey>>(),
         );
-        assert!(dict_seed.iter().all(|(upd_encr_pk, seed)| {
-            let sum_ephm_pk = dict_sum.get(upd_encr_pk).unwrap();
-            let sum_ephm_sk = dict_ephm.get(sum_ephm_pk).unwrap();
+        assert!(seed_dict.iter().all(|(upd_sign_pk, seed)| {
+            let sum_ephm_pk = sum_dict.get(upd_sign_pk).unwrap();
+            let sum_ephm_sk = ephm_dict.get(sum_ephm_pk).unwrap();
             mask_seed == sealedbox::open(seed, sum_ephm_pk, sum_ephm_sk).unwrap()
         }));
     }
@@ -305,23 +291,23 @@ mod tests {
         let mask_seeds = iter::repeat_with(|| randombytes(32))
             .take(1 + randombytes_uniform(10) as usize)
             .collect::<HashSet<Vec<u8>>>();
-        let dict_seed = [(
-            part.encr_pk,
+        let seed_dict = [(
+            part.sign_pk,
             mask_seeds
                 .iter()
                 .map(|seed| {
                     (
-                        box_::PublicKey::from_slice(&randombytes(32)).unwrap(),
+                        sign::PublicKey::from_slice(&randombytes(32)).unwrap(),
                         sealedbox::seal(seed, &part.ephm_pk),
                     )
                 })
-                .collect::<HashMap<box_::PublicKey, Vec<u8>>>(),
+                .collect::<HashMap<sign::PublicKey, Vec<u8>>>(),
         )]
         .iter()
         .cloned()
-        .collect::<HashMap<box_::PublicKey, HashMap<box_::PublicKey, Vec<u8>>>>();
+        .collect::<HashMap<sign::PublicKey, HashMap<sign::PublicKey, Vec<u8>>>>();
         assert_eq!(
-            part.get_seeds(&dict_seed)
+            part.get_seeds(&seed_dict)
                 .unwrap()
                 .into_iter()
                 .collect::<HashSet<Vec<u8>>>(),
