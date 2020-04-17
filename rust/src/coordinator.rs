@@ -3,6 +3,7 @@
 use std::{
     collections::{HashMap, HashSet},
     default::Default,
+    iter,
 };
 
 use counter::Counter;
@@ -98,17 +99,17 @@ impl Coordinator {
     }
 
     /// Validate and handle a sum, update or sum2 message.
-    pub fn validate_message(&mut self, message: &[u8]) -> Result<(), PetError> {
+    pub fn handle_message(&mut self, message: &[u8]) -> Result<(), PetError> {
         match self.phase {
             Phase::Idle => Err(PetError::InvalidMessage),
-            Phase::Sum => self.validate_message_sum(message),
-            Phase::Update => self.validate_message_update(message),
-            Phase::Sum2 => self.validate_message_sum2(message),
+            Phase::Sum => self.handle_message_sum(message),
+            Phase::Update => self.handle_message_update(message),
+            Phase::Sum2 => self.handle_message_sum2(message),
         }
     }
 
     /// Validate and handle a sum message.
-    fn validate_message_sum(&mut self, message: &[u8]) -> Result<(), PetError> {
+    fn handle_message_sum(&mut self, message: &[u8]) -> Result<(), PetError> {
         let msg = SumMessage::open(
             message,
             &self.encr_pk,
@@ -123,7 +124,7 @@ impl Coordinator {
     }
 
     /// Validate and handle an update message.
-    fn validate_message_update(&mut self, message: &[u8]) -> Result<(), PetError> {
+    fn handle_message_update(&mut self, message: &[u8]) -> Result<(), PetError> {
         let msg = UpdateMessage::open(
             message,
             &self.encr_pk,
@@ -137,7 +138,7 @@ impl Coordinator {
     }
 
     /// Validate and handle a sum2 message.
-    fn validate_message_sum2(&mut self, message: &[u8]) -> Result<(), PetError> {
+    fn handle_message_sum2(&mut self, message: &[u8]) -> Result<(), PetError> {
         let msg = Sum2Message::open(
             message,
             &self.encr_pk,
@@ -146,7 +147,7 @@ impl Coordinator {
         )?;
         Self::validate_certificate(msg.certificate())?;
         self.validate_task_sum(msg.signature_sum(), msg.sign_pk())?;
-        self.update_dict_mask(msg.mask_url());
+        self.update_dict_mask(msg.mask_hash());
         Ok(())
     }
 
@@ -198,17 +199,13 @@ impl Coordinator {
         self.dict_sum.insert(*encr_pk, *ephm_pk);
     }
 
-    /// Freeze the sum dictionary. Fails due to insufficient sum participants.
-    fn freeze_dict_sum(&mut self) -> Result<(), PetError> {
-        (self.dict_sum.len() >= self.min_sum)
-            .then(|| {
-                self.dict_seed = self
-                    .dict_sum
-                    .keys()
-                    .map(|pk| (*pk, HashMap::<box_::PublicKey, Vec<u8>>::new()))
-                    .collect();
-            })
-            .ok_or(PetError::InsufficientParticipants)
+    /// Freeze the sum dictionary.
+    fn freeze_dict_sum(&mut self) {
+        self.dict_seed = self
+            .dict_sum
+            .keys()
+            .map(|pk| (*pk, HashMap::<box_::PublicKey, Vec<u8>>::new()))
+            .collect();
     }
 
     /// Update the seed dictionary.
@@ -230,31 +227,20 @@ impl Coordinator {
         .ok_or(PetError::InvalidMessage)
     }
 
-    /// Freeze the seed dictionary. Fails due to insufficient update participants.
-    fn freeze_dict_seed(&mut self) -> Result<(), PetError> {
-        (self
-            .dict_seed
-            .values()
-            .all(|dict| dict.len() >= self.min_update))
-        .then_some(())
-        .ok_or(PetError::InsufficientParticipants)
-    }
-
     /// Update the mask dictionary.
-    fn update_dict_mask(&mut self, mask_url: &[u8]) {
-        self.dict_mask += mask_url
-            .chunks_exact(mask_url.len())
-            .map(|mask| mask.to_vec());
+    fn update_dict_mask(&mut self, mask_hash: &[u8]) {
+        self.dict_mask.update(iter::once(mask_hash.to_vec()))
     }
 
-    /// Freeze the mask dictionary. Returns a unique mask. Fails due to insufficient sum
-    /// participants.
+    /// Freeze the mask dictionary.
     fn freeze_dict_mask(&self) -> Result<Vec<u8>, PetError> {
         let counts = self.dict_mask.most_common();
-        (counts.iter().map(|(_, count)| count).sum::<usize>() >= self.min_sum
-            && (counts.len() == 1 || counts[0].1 > counts[1].1))
-            .then(|| counts[0].0.clone())
-            .ok_or(PetError::InsufficientParticipants)
+
+        if counts.len() == 1 || counts[0].1 > counts[1].1 {
+            Ok(counts[0].0.clone())
+        } else {
+            Err(PetError::AmbiguousMasks)
+        }
     }
 
     /// Clear the round dictionaries.
@@ -298,16 +284,26 @@ impl Coordinator {
         .to_vec();
     }
 
-    /// Proceed to the next phase. Fails due to insufficient participants.
-    pub fn proceed_phase(&mut self) -> Result<(), PetError> {
+    /// Check whether the coordinator is ready to transition to the
+    /// next phase. If so, proceed to the next phase.
+    pub fn maybe_transition(&mut self) {
         match self.phase {
-            Phase::Idle => {
-                self.proceed_phase_sum();
-                Ok(())
+            Phase::Idle => self.proceed_phase_sum(),
+            Phase::Sum => {
+                if self.has_enough_sums() {
+                    self.proceed_phase_update();
+                }
             }
-            Phase::Sum => self.proceed_phase_update(),
-            Phase::Update => self.proceed_phase_sum2(),
-            Phase::Sum2 => self.proceed_phase_idle(),
+            Phase::Update => {
+                if self.has_enough_updates() {
+                    self.proceed_phase_sum2();
+                }
+            }
+            Phase::Sum2 => {
+                if self.has_enough_masks() {
+                    self.proceed_phase_idle();
+                }
+            }
         }
     }
 
@@ -317,32 +313,60 @@ impl Coordinator {
         self.phase = Phase::Sum;
     }
 
-    /// End the sum phase and proceed to the update phase. Fails due to insufficient sum
-    /// participants.
-    fn proceed_phase_update(&mut self) -> Result<(), PetError> {
-        self.freeze_dict_sum()?;
+    /// Check whether there are enough sum participants for starting
+    /// the update phase.
+    fn has_enough_sums(&self) -> bool {
+        self.dict_sum.len() >= self.min_sum
+    }
+
+    /// Check whether there are enough update participants for
+    /// starting the sum2 phase.
+    fn has_enough_updates(&self) -> bool {
+        self.dict_seed
+            .values()
+            .next()
+            .map(|dict| dict.len() >= self.min_update)
+            .unwrap_or(false)
+    }
+
+    /// Check whether enough sum participants submitted the mask they
+    /// are supposed to compute.
+    fn has_enough_masks(&self) -> bool {
+        let mask_count = self
+            .dict_mask
+            .most_common()
+            .iter()
+            .map(|(_, count)| count)
+            .sum::<usize>();
+        mask_count >= self.min_sum
+    }
+
+    /// End the sum phase and proceed to the update phase.
+    fn proceed_phase_update(&mut self) {
+        self.freeze_dict_sum();
         self.phase = Phase::Update;
-        Ok(())
     }
 
-    /// End the update phase and proceed to the sum2 phase. Fails due to insufficient update
-    /// participants.
-    fn proceed_phase_sum2(&mut self) -> Result<(), PetError> {
-        self.freeze_dict_seed()?;
+    /// End the update phase and proceed to the sum2 phase.
+    fn proceed_phase_sum2(&mut self) {
         self.phase = Phase::Sum2;
-        Ok(())
     }
 
-    /// End the sum2 phase and proceed to the idle phase to end the round. Fails due to insufficient
-    /// sum participants.
-    fn proceed_phase_idle(&mut self) -> Result<(), PetError> {
-        let _mask_url = self.freeze_dict_mask()?;
+    /// End the sum2 phase and proceed to the idle phase to end the round.
+    fn proceed_phase_idle(&mut self) {
+        match self.freeze_dict_mask() {
+            Ok(_mask_hash) => {
+                info!("round finished successfully");
+            }
+            Err(_) => {
+                error!("round failed");
+            }
+        }
         self.clear_round_dicts();
         self.update_round_sum();
         self.update_round_update();
         self.update_round_seed();
         self.phase = Phase::Idle;
-        Ok(())
     }
 
     pub fn round_parameters(&self) -> RoundParameters {
@@ -354,6 +378,23 @@ impl Coordinator {
             sign_pk: self.sign_pk,
         }
     }
+}
+
+pub struct RoundParameters {
+    /// Fraction of participants to be selected for the sum task
+    pub sum: f64,
+
+    /// Fraction of participants to be selected for the update task
+    pub update: f64,
+
+    /// The coordinator public key for encryption
+    pub encr_pk: box_::PublicKey,
+
+    /// The coordinator public key for signing
+    pub sign_pk: sign::PublicKey,
+
+    /// The random seed
+    pub seed: Vec<u8>,
 }
 
 #[cfg(test)]
@@ -512,28 +553,31 @@ mod tests {
                 box_::PublicKey::from_slice(&randombytes(32)).unwrap(),
             )
         })
-        .take(min_sum + randombytes_uniform(10) as usize)
+        .take(min_sum)
         .collect()
     }
 
     #[test]
     fn test_dict_sum() {
-        // update
         let mut coord = Coordinator::new().unwrap();
+        coord.min_sum = 3;
+        coord.min_update = 3;
+        coord.maybe_transition(); // start the sum phase
+        assert_eq!(coord.phase, Phase::Sum);
         assert!(coord.dict_sum.is_empty());
-        assert_eq!(
-            coord.freeze_dict_sum(),
-            Err(PetError::InsufficientParticipants),
-        );
+
+        // Artifically add just enough sum participants
         let dict_sum = auxiliary_sum(coord.min_sum);
         for (encr_pk, ephm_pk) in dict_sum.iter() {
+            assert!(!coord.has_enough_sums());
             coord.update_dict_sum(encr_pk, ephm_pk);
         }
         assert_eq!(coord.dict_sum, dict_sum);
-
-        // freeze
         assert!(coord.dict_seed.is_empty());
-        assert_eq!(coord.freeze_dict_sum(), Ok(()));
+        assert!(coord.has_enough_sums());
+
+        coord.maybe_transition(); // finish the sum phase
+        assert_eq!(coord.phase, Phase::Update);
         assert_eq!(
             coord.dict_seed,
             dict_sum
@@ -552,6 +596,7 @@ mod tests {
         HashMap<box_::PublicKey, HashMap<box_::PublicKey, Vec<u8>>>,
     ) {
         let dict_sum = auxiliary_sum(min_sum);
+
         let updates = iter::repeat_with(|| {
             let seed = randombytes(32);
             let upd_encr_pk = box_::PublicKey::from_slice(&randombytes(32)).unwrap();
@@ -563,8 +608,9 @@ mod tests {
                 .collect::<HashMap<box_::PublicKey, Vec<u8>>>();
             (upd_encr_pk, upd_dict_seed)
         })
-        .take(min_update + randombytes_uniform(10) as usize)
+        .take(min_update)
         .collect::<Vec<(box_::PublicKey, HashMap<box_::PublicKey, Vec<u8>>)>>();
+
         let dict_seed = dict_sum
             .iter()
             .map(|(sum_encr_pk, _)| {
@@ -584,60 +630,70 @@ mod tests {
 
     #[test]
     fn test_dict_seed() {
-        // update
         let mut coord = Coordinator::new().unwrap();
+        coord.min_sum = 3;
+        coord.min_update = 3;
+        coord.maybe_transition(); // start the sum phase
+
+        // artificially populate the sum dictionary
         let (dict_sum, updates, dict_seed) = auxiliary_update(coord.min_sum, coord.min_update);
         coord.dict_sum = dict_sum;
-        coord.freeze_dict_sum().unwrap();
-        assert_eq!(
-            coord.freeze_dict_seed(),
-            Err(PetError::InsufficientParticipants),
-        );
+
+        coord.maybe_transition(); // start the update phase
+        assert_eq!(coord.phase, Phase::Update);
+        assert!(!coord.has_enough_updates());
+
+        // simulate update participants sending their seeds dictionary
         for (encr_pk, dict_seed) in updates.iter() {
+            assert!(!coord.has_enough_updates());
             coord.update_dict_seed(encr_pk, dict_seed).unwrap();
         }
         assert_eq!(coord.dict_seed, dict_seed);
+        assert!(coord.has_enough_updates());
 
-        // freeze
-        assert_eq!(coord.freeze_dict_seed(), Ok(()));
+        coord.maybe_transition(); // finish the update phase
+        assert_eq!(coord.phase, Phase::Sum2);
     }
 
     fn auxiliary_mask(min_sum: usize) -> (Vec<Vec<u8>>, Counter<Vec<u8>>) {
-        let masks = match min_sum + randombytes_uniform(10) as usize {
-            len @ 0..=2 => vec![randombytes(32); len],
-            len => [vec![randombytes(32); len - 1], vec![randombytes(32); 1]].concat(),
-        };
+        let masks = [vec![randombytes(32); min_sum - 1], vec![randombytes(32); 1]].concat();
         let dict_mask = masks.iter().cloned().collect::<Counter<Vec<u8>>>();
         (masks, dict_mask)
     }
 
     #[test]
     fn test_dict_mask() {
-        // update
         let mut coord = Coordinator::new().unwrap();
-        assert_eq!(
-            coord.freeze_dict_mask().unwrap_err(),
-            PetError::InsufficientParticipants,
-        );
+        coord.min_sum = 3;
+        coord.min_update = 3;
+        coord.phase = Phase::Sum2;
+
+        // Pretend we received enough masks
         let (masks, dict_mask) = auxiliary_mask(coord.min_sum);
         for mask in masks.iter() {
             coord.update_dict_mask(mask);
         }
         assert_eq!(coord.dict_mask, dict_mask);
-
-        // freeze
+        assert!(coord.has_enough_masks());
         assert_eq!(
             coord.freeze_dict_mask().unwrap(),
             dict_mask.most_common()[0].0,
         );
+    }
 
-        // not unique
+    #[test]
+    fn test_dict_mask_fail() {
+        let mut coord = Coordinator::new().unwrap();
+        coord.min_sum = 3;
+        coord.min_update = 3;
+        coord.phase = Phase::Sum2;
+
         coord.dict_mask = iter::repeat_with(|| randombytes(32))
-            .take((coord.min_sum + randombytes_uniform(10) as usize).max(2))
+            .take(coord.min_sum)
             .collect::<Counter<Vec<u8>>>();
         assert_eq!(
             coord.freeze_dict_mask().unwrap_err(),
-            PetError::InsufficientParticipants,
+            PetError::AmbiguousMasks,
         );
     }
 
@@ -682,65 +738,56 @@ mod tests {
     }
 
     #[test]
-    fn test_proceed_phase() {
+    fn test_transitions() {
         let mut coord = Coordinator::new().unwrap();
+        coord.min_sum = 3;
+        coord.min_update = 3;
+
         let (dict_sum, _, dict_seed) = auxiliary_update(coord.min_sum, coord.min_update);
         let (_, dict_mask) = auxiliary_mask(coord.min_sum);
         assert_eq!(coord.phase, Phase::Idle);
 
-        // proceed phase sum
-        assert_eq!(coord.proceed_phase().unwrap(), ());
+        coord.maybe_transition();
+        assert_eq!(coord.phase, Phase::Sum);
         assert_ne!(coord.encr_pk, box_::PublicKey([0_u8; 32]));
         assert_ne!(coord.encr_sk, box_::SecretKey([0_u8; 32]));
+
+        coord.maybe_transition();
+        // We didn't add any participant so the state should remain
+        // unchanged
         assert_eq!(coord.phase, Phase::Sum);
-        assert_eq!(
-            coord.proceed_phase().unwrap_err(),
-            PetError::InsufficientParticipants,
-        );
+
+        // Pretend we have enough participants, and transition
+        // again. This time, the state should change.
         coord.dict_sum = dict_sum;
-
-        // proceed phase update
-        assert_eq!(coord.proceed_phase().unwrap(), ());
+        coord.maybe_transition();
         assert_eq!(coord.phase, Phase::Update);
-        assert_eq!(
-            coord.proceed_phase().unwrap_err(),
-            PetError::InsufficientParticipants,
-        );
+
+        // We didn't add any update so the state should remain
+        // unchanged
+        coord.maybe_transition();
+        assert_eq!(coord.phase, Phase::Update);
+
+        // Pretend we received enough updates and transition. This
+        // time the state should change.
         coord.dict_seed = dict_seed;
-
-        // proceed phase sum2
-        assert_eq!(coord.proceed_phase().unwrap(), ());
+        coord.maybe_transition();
         assert_eq!(coord.phase, Phase::Sum2);
-        assert_eq!(
-            coord.proceed_phase().unwrap_err(),
-            PetError::InsufficientParticipants,
-        );
-        coord.dict_mask = dict_mask;
 
-        // proceed phase idle
+        // We didn't add any mask so the state should remain unchanged
+        coord.maybe_transition();
+        assert_eq!(coord.phase, Phase::Sum2);
+
+        // Pretend we received enough masks and transition. This time
+        // the state should change and we should be back to the
+        // beginning: Phase::Idle.
+        coord.dict_mask = dict_mask;
         let seed = coord.seed.clone();
-        assert_eq!(coord.proceed_phase().unwrap(), ());
+        coord.maybe_transition();
+        assert_eq!(coord.phase, Phase::Idle);
         assert!(coord.dict_sum.is_empty());
         assert!(coord.dict_seed.is_empty());
         assert!(coord.dict_mask.is_empty());
         assert_ne!(coord.seed, seed);
-        assert_eq!(coord.phase, Phase::Idle);
     }
-}
-
-pub struct RoundParameters {
-    /// Fraction of participants to be selected for the sum task
-    pub sum: f64,
-
-    /// Fraction of participants to be selected for the update task
-    pub update: f64,
-
-    /// The coordinator public key for encryption
-    pub encr_pk: box_::PublicKey,
-
-    /// The coordinator public key for signing
-    pub sign_pk: sign::PublicKey,
-
-    /// The random seed
-    pub seed: Vec<u8>,
 }

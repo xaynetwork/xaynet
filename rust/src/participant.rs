@@ -138,10 +138,10 @@ impl Participant {
         dict_seed: &HashMap<box_::PublicKey, HashMap<box_::PublicKey, Vec<u8>>>,
     ) -> Result<Vec<u8>, PetError> {
         let mask_seeds = self.get_seeds(dict_seed)?;
-        let mask_url = self.compute_global_mask(mask_seeds);
+        let mask_hash = self.compute_global_mask(mask_seeds);
         Ok(Message::new(
             RoundBox::new(&self.encr_pk, &self.sign_pk),
-            Sum2Box::new(&self.certificate, &self.signature_sum, &mask_url),
+            Sum2Box::new(&self.certificate, &self.signature_sum, &mask_hash),
         )
         .seal(coord_encr_pk, &self.encr_sk))
     }

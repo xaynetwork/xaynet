@@ -348,8 +348,8 @@ impl Sum2Message {
     }
 
     /// Get a reference to the mask url.
-    pub fn mask_url(&self) -> &[u8] {
-        self.message_box.mask_url()
+    pub fn mask_hash(&self) -> &[u8] {
+        self.message_box.mask_hash()
     }
 }
 
@@ -585,8 +585,8 @@ mod tests {
         let rbox = RoundBox::new(encr_pk, sign_pk);
         let certificate = Vec::<u8>::new();
         let signature_sum = &sign::Signature::from_slice(&randombytes(64)).unwrap();
-        let mask_url = randombytes(32);
-        let sbox = Sum2Box::new(&certificate, signature_sum, &mask_url);
+        let mask_hash = randombytes(32);
+        let sbox = Sum2Box::new(&certificate, signature_sum, &mask_hash);
         let msg = Message::new(rbox.clone(), sbox.clone());
         assert_eq!(msg.round_box, rbox);
         assert_eq!(msg.message_box, sbox);
@@ -633,6 +633,6 @@ mod tests {
         assert_eq!(msg.signature_sum(), signature_sum);
 
         // mask url
-        assert_eq!(msg.mask_url(), mask_url.as_slice());
+        assert_eq!(msg.mask_hash(), mask_hash.as_slice());
     }
 }

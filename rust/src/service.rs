@@ -56,14 +56,9 @@ impl Service {
         }
     }
 
-    // TODO/FIXME:
-    //
-    // when we fail to handle a message, we should send back and error
-    // so that the participant is informed. One problem currently is
-    // that the `validate` methods don't return specific errors.
     /// Handle a message
     fn handle_message(&mut self, buffer: Vec<u8>) {
-        let _ = self.coordinator.validate_message(&buffer[..]);
+        let _ = self.coordinator.handle_message(&buffer[..]);
     }
 }
 
