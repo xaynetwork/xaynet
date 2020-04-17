@@ -38,7 +38,7 @@ impl Sum2MessageBuffer<Vec<u8>> {
 
 impl<B: AsRef<[u8]> + AsMut<[u8]>> MessageBuffer for Sum2MessageBuffer<B> {
     /// Get a reference to the sum2 message buffer.
-    fn bytes<'b>(&'b self) -> &'b [u8] {
+    fn bytes(&'_ self) -> &'_ [u8] {
         self.bytes.as_ref()
     }
 
@@ -50,7 +50,7 @@ impl<B: AsRef<[u8]> + AsMut<[u8]>> MessageBuffer for Sum2MessageBuffer<B> {
 
 impl<B: AsRef<[u8]> + AsMut<[u8]>> Sum2MessageBuffer<B> {
     /// Get a reference to the mask field of the sum2 message buffer.
-    fn mask<'b>(&'b self) -> &'b [u8] {
+    fn mask(&'_ self) -> &'_ [u8] {
         &self.bytes()[MASK_RANGE]
     }
 

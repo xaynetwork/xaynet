@@ -54,7 +54,7 @@ impl<B: AsRef<[u8]> + AsMut<[u8]>> MessageBuffer for UpdateMessageBuffer<B> {
 
 impl<B: AsRef<[u8]> + AsMut<[u8]>> UpdateMessageBuffer<B> {
     /// Get a reference to the update signature field of the update message buffer.
-    fn update_signature<'b>(&'b self) -> &'b [u8] {
+    fn update_signature(&'_ self) -> &'_ [u8] {
         &self.bytes()[UPDATE_SIGNATURE_RANGE]
     }
 
@@ -64,7 +64,7 @@ impl<B: AsRef<[u8]> + AsMut<[u8]>> UpdateMessageBuffer<B> {
     }
 
     /// Get a reference to the masked model field of the update message buffer.
-    fn masked_model<'b>(&'b self) -> &'b [u8] {
+    fn masked_model(&'_ self) -> &'_ [u8] {
         &self.bytes()[MASKED_MODEL_RANGE]
     }
 
@@ -74,7 +74,7 @@ impl<B: AsRef<[u8]> + AsMut<[u8]>> UpdateMessageBuffer<B> {
     }
 
     /// Get a reference to the local seed dictionary field of the update message buffer.
-    fn local_seed_dict<'b>(&'b self) -> &'b [u8] {
+    fn local_seed_dict(&'_ self) -> &'_ [u8] {
         &self.bytes()[LOCAL_SEED_DICT_START..]
     }
 

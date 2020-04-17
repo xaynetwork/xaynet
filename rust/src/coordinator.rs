@@ -231,7 +231,7 @@ impl Coordinator {
     fn freeze_mask_dict(&self) -> Result<MaskHash, PetError> {
         let counts = self.mask_dict.most_common();
         if counts.len() == 1 || counts[0].1 > counts[1].1 {
-            Ok(counts[0].0.clone())
+            Ok(counts[0].0)
         } else {
             Err(PetError::AmbiguousMasks)
         }

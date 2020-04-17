@@ -23,13 +23,13 @@ const SUM_SIGNATURE_RANGE: Range<usize> = 129..193; // 64 bytes
 /// Access to common message buffer fields.
 pub trait MessageBuffer: Sized {
     /// Get a reference to the message buffer.
-    fn bytes<'b>(&'b self) -> &'b [u8];
+    fn bytes(&'_ self) -> &'_ [u8];
 
     /// Get a mutable reference to the message buffer.
     fn bytes_mut(&mut self) -> &mut [u8];
 
     /// Get a reference to the signature field of the message buffer.
-    fn signature<'b>(&'b self) -> &'b [u8] {
+    fn signature(&'_ self) -> &'_ [u8] {
         &self.bytes()[SIGNATURE_RANGE]
     }
 
@@ -39,7 +39,7 @@ pub trait MessageBuffer: Sized {
     }
 
     /// Get a reference to the message field of the message buffer.
-    fn message<'b>(&'b self) -> &'b [u8] {
+    fn message(&'_ self) -> &'_ [u8] {
         &self.bytes()[MESSAGE_START..]
     }
 
@@ -49,7 +49,7 @@ pub trait MessageBuffer: Sized {
     }
 
     /// Get a reference to the tag field of the message buffer.
-    fn tag<'b>(&'b self) -> &'b [u8] {
+    fn tag(&'_ self) -> &'_ [u8] {
         &self.bytes()[TAG_RANGE]
     }
 
@@ -59,7 +59,7 @@ pub trait MessageBuffer: Sized {
     }
 
     /// Get a reference to the coordinator public key field of the message buffer.
-    fn coord_pk<'b>(&'b self) -> &'b [u8] {
+    fn coord_pk(&'_ self) -> &'_ [u8] {
         &self.bytes()[COORD_PK_RANGE]
     }
 
@@ -69,7 +69,7 @@ pub trait MessageBuffer: Sized {
     }
 
     /// Get a reference to the participant public key field of the message buffer.
-    fn part_pk<'b>(&'b self) -> &'b [u8] {
+    fn part_pk(&'_ self) -> &'_ [u8] {
         &self.bytes()[PART_PK_RANGE]
     }
 
@@ -79,7 +79,7 @@ pub trait MessageBuffer: Sized {
     }
 
     /// Get a reference to the certificate field of the message buffer.
-    fn certificate<'b>(&'b self) -> &'b [u8] {
+    fn certificate(&'_ self) -> &'_ [u8] {
         &self.bytes()[CERTIFICATE_RANGE]
     }
 
@@ -89,7 +89,7 @@ pub trait MessageBuffer: Sized {
     }
 
     /// Get a reference to the sum signature field of the message buffer.
-    fn sum_signature<'b>(&'b self) -> &'b [u8] {
+    fn sum_signature(&'_ self) -> &'_ [u8] {
         &self.bytes()[SUM_SIGNATURE_RANGE]
     }
 

@@ -37,7 +37,7 @@ impl SumMessageBuffer<Vec<u8>> {
 
 impl<B: AsRef<[u8]> + AsMut<[u8]>> MessageBuffer for SumMessageBuffer<B> {
     /// Get a reference to the sum message buffer.
-    fn bytes<'b>(&'b self) -> &'b [u8] {
+    fn bytes(&'_ self) -> &'_ [u8] {
         self.bytes.as_ref()
     }
 
@@ -49,7 +49,7 @@ impl<B: AsRef<[u8]> + AsMut<[u8]>> MessageBuffer for SumMessageBuffer<B> {
 
 impl<B: AsRef<[u8]> + AsMut<[u8]>> SumMessageBuffer<B> {
     /// Get a reference to the public ephemeral key field of the sum message buffer.
-    fn ephm_pk<'b>(&'b self) -> &'b [u8] {
+    fn ephm_pk(&'_ self) -> &'_ [u8] {
         &self.bytes()[EPHM_PK_RANGE]
     }
 
