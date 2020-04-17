@@ -59,7 +59,7 @@ impl TryFrom<&[u8]> for MaskSeed {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 /// An encrypted mask seed.
 pub struct EncrMaskSeed(Vec<u8>);
 

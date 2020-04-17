@@ -1,4 +1,5 @@
-use std::{default::Default, iter};
+use std::{collections::VecDeque, default::Default, iter};
+use thiserror::Error;
 
 use counter::Counter;
 use sodiumoxide::{self, crypto::hash::sha256, randombytes::randombytes};
@@ -10,8 +11,9 @@ use crate::{
     utils::is_eligible,
     CoordinatorPublicKey,
     CoordinatorSecretKey,
+    InitError,
     LocalSeedDict,
-    ParticipantPublicKey,
+    MaskHash,
     ParticipantTaskSignature,
     PetError,
     SeedDict,
@@ -21,8 +23,16 @@ use crate::{
     UpdateParticipantPublicKey,
 };
 
-/// A 32-byte hash that identifies a model mask computed by a sum participant.
-pub type MaskHash = sha256::Digest;
+/// Error that occurs when the current round fails
+#[derive(Debug, Eq, PartialEq)]
+pub enum RoundFailed {
+    /// Round failed because ambiguous masks were computed by
+    /// a majority of sum participants
+    AmbiguousMasks,
+    /// Round failed because no mask hash was selected by any sum
+    /// participant
+    NoMask,
+}
 
 /// A dictionary created during the sum2 phase of the protocol. It counts the model masks
 /// represented by their hashes.
@@ -58,6 +68,29 @@ pub struct Coordinator {
     seed_dict: SeedDict,
     /// Dictionary built during the sum2 phase.
     mask_dict: MaskDict,
+
+    /// Events emitted by the state machine
+    events: VecDeque<ProtocolEvent>,
+}
+
+/// Events the protocol emits.
+#[derive(Debug, PartialEq)]
+pub enum ProtocolEvent {
+    /// The round starts with the given parameters. The coordinator is
+    /// now in the sum phase.
+    StartSum(RoundParameters),
+
+    /// The sum phase finished and produced the given sum
+    /// dictionary. The coordinator is now in the update phase.
+    StartUpdate(SumDict),
+
+    /// The update phase finished and produced the given seed
+    /// dictionary. The coordinator is now in the sum2 phase.
+    StartSum2(SeedDict),
+
+    /// The sum2 phase finished and produced the given mask seed. The
+    /// coordinator is now back to the idle phase.
+    EndRound(Option<MaskHash>),
 }
 
 impl Default for Coordinator {
@@ -73,6 +106,7 @@ impl Default for Coordinator {
         let sum_dict = SumDict::new();
         let seed_dict = SeedDict::new();
         let mask_dict = MaskDict::new();
+        let events = VecDeque::new();
         Self {
             pk,
             sk,
@@ -85,20 +119,31 @@ impl Default for Coordinator {
             sum_dict,
             seed_dict,
             mask_dict,
+            events,
         }
     }
 }
 
 impl Coordinator {
     /// Create a coordinator. Fails if there is insufficient system entropy to generate secrets.
-    pub fn new() -> Result<Self, PetError> {
+    pub fn new() -> Result<Self, InitError> {
         // crucial: init must be called before anything else in this module
-        sodiumoxide::init().or(Err(PetError::InsufficientSystemEntropy))?;
+        sodiumoxide::init().or(Err(InitError))?;
         let seed = randombytes(32);
         Ok(Self {
             seed,
             ..Default::default()
         })
+    }
+
+    /// Emit an event
+    pub fn emit_event(&mut self, event: ProtocolEvent) {
+        self.events.push_back(event);
+    }
+
+    /// Retrieve the next event
+    pub fn next_event(&mut self) -> Option<ProtocolEvent> {
+        self.events.pop_front()
     }
 
     /// Validate and handle a sum, update or sum2 message.
@@ -226,12 +271,15 @@ impl Coordinator {
     }
 
     /// Freeze the mask dictionary.
-    fn freeze_mask_dict(&self) -> Result<MaskHash, PetError> {
+    fn freeze_mask_dict(&self) -> Result<MaskHash, RoundFailed> {
         let counts = self.mask_dict.most_common();
-        if counts.len() == 1 || counts[0].1 > counts[1].1 {
-            Ok(counts[0].0)
+
+        if counts.is_empty() {
+            Err(RoundFailed::NoMask)
+        } else if counts.len() > 1 && counts[0].1 == counts[1].1 {
+            Err(RoundFailed::AmbiguousMasks)
         } else {
-            Err(PetError::AmbiguousMasks)
+            Ok(counts[0].0)
         }
     }
 
@@ -275,20 +323,26 @@ impl Coordinator {
     /// Transition to the next phase if the protocol conditions are satisfied.
     pub fn try_phase_transition(&mut self) {
         match self.phase {
-            Phase::Idle => self.proceed_sum_phase(),
+            Phase::Idle => {
+                self.proceed_sum_phase();
+                self.try_phase_transition();
+            }
             Phase::Sum => {
                 if self.has_enough_sums() {
                     self.proceed_update_phase();
+                    self.try_phase_transition();
                 }
             }
             Phase::Update => {
                 if self.has_enough_seeds() {
                     self.proceed_sum2_phase();
+                    self.try_phase_transition();
                 }
             }
             Phase::Sum2 => {
                 if self.has_enough_masks() {
                     self.proceed_idle_phase();
+                    self.try_phase_transition();
                 }
             }
         }
@@ -323,31 +377,46 @@ impl Coordinator {
 
     /// End the idle phase and proceed to the sum phase to start the round.
     fn proceed_sum_phase(&mut self) {
+        info!("going to sum phase");
         self.gen_round_keypair();
         self.phase = Phase::Sum;
+        self.emit_event(ProtocolEvent::StartSum(self.round_parameters()));
     }
 
     /// End the sum phase and proceed to the update phase.
     fn proceed_update_phase(&mut self) {
+        info!("going to update phase");
         self.freeze_sum_dict();
         self.phase = Phase::Update;
+        self.emit_event(ProtocolEvent::StartUpdate(self.sum_dict.clone()));
     }
 
     /// End the update phase and proceed to the sum2 phase.
     fn proceed_sum2_phase(&mut self) {
+        info!("going to sum2 phase");
         self.phase = Phase::Sum2;
+        self.emit_event(ProtocolEvent::StartSum2(self.seed_dict.clone()));
     }
 
     /// End the sum2 phase and proceed to the idle phase to end the round.
     fn proceed_idle_phase(&mut self) {
-        match self.freeze_mask_dict() {
-            Ok(_mask_hash) => {
-                info!("round finished successfully");
-            }
-            Err(_) => {
-                error!("round failed");
-            }
-        }
+        info!("going to idle phase");
+        let outcome = self.freeze_mask_dict().ok();
+        self.emit_event(ProtocolEvent::EndRound(outcome));
+        self.start_new_round();
+    }
+
+    /// Cancel the current round and restart a new one
+    pub fn reset(&mut self) {
+        self.events.clear();
+        self.emit_event(ProtocolEvent::EndRound(None));
+        self.start_new_round();
+        self.try_phase_transition();
+    }
+
+    /// Prepare the coordinator for a new round and go back to the
+    /// initial phase
+    fn start_new_round(&mut self) {
         self.clear_round_dicts();
         self.update_round_thresholds();
         self.update_round_seed();
@@ -364,6 +433,7 @@ impl Coordinator {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub struct RoundParameters {
     /// The coordinator public key for encryption.
     pub pk: CoordinatorPublicKey,
@@ -546,9 +616,17 @@ mod tests {
         let mut coord = Coordinator::new().unwrap();
         coord.min_sum = 3;
         coord.min_update = 3;
-
-        // start the sum phase
-        coord.try_phase_transition();
+        coord.try_phase_transition(); // start the sum phase
+        assert_eq!(
+            coord.next_event().unwrap(),
+            ProtocolEvent::StartSum(RoundParameters {
+                sum: 0.01,
+                update: 0.1,
+                seed: coord.seed.clone(),
+                pk: coord.pk,
+            })
+        );
+        assert!(coord.next_event().is_none());
         assert_eq!(coord.phase, Phase::Sum);
         assert!(coord.sum_dict.is_empty());
 
@@ -562,8 +640,12 @@ mod tests {
         assert!(coord.seed_dict.is_empty());
         assert!(coord.has_enough_sums());
 
-        // finish the sum phase
-        coord.try_phase_transition();
+        coord.try_phase_transition(); // finish the sum phase
+        assert_eq!(
+            coord.next_event().unwrap(),
+            ProtocolEvent::StartUpdate(sum_dict.clone())
+        );
+        assert!(coord.next_event().is_none());
         assert_eq!(coord.phase, Phase::Update);
         assert_eq!(
             coord.seed_dict,
@@ -616,12 +698,16 @@ mod tests {
         coord.min_sum = 3;
         coord.min_update = 3;
         coord.try_phase_transition(); // start the sum phase
+        assert!(coord.next_event().is_some());
+        assert!(coord.next_event().is_none());
 
         // artificially populate the sum dictionary
         let (sum_dict, updates, seed_dict) = auxiliary_update(coord.min_sum, coord.min_update);
         coord.sum_dict = sum_dict;
 
         coord.try_phase_transition(); // start the update phase
+        assert!(coord.next_event().is_some());
+        assert!(coord.next_event().is_none());
         assert_eq!(coord.phase, Phase::Update);
         assert!(!coord.has_enough_seeds());
 
@@ -634,6 +720,11 @@ mod tests {
         assert!(coord.has_enough_seeds());
 
         coord.try_phase_transition(); // finish the update phase
+        assert_eq!(
+            coord.next_event().unwrap(),
+            ProtocolEvent::StartSum2(seed_dict)
+        );
+        assert!(coord.next_event().is_none());
         assert_eq!(coord.phase, Phase::Sum2);
     }
 
@@ -683,7 +774,7 @@ mod tests {
             .collect::<MaskDict>();
         assert_eq!(
             coord.freeze_mask_dict().unwrap_err(),
-            PetError::AmbiguousMasks,
+            RoundFailed::AmbiguousMasks,
         );
     }
 
@@ -734,8 +825,19 @@ mod tests {
         let (sum_dict, _, seed_dict) = auxiliary_update(coord.min_sum, coord.min_update);
         let (_, mask_dict) = auxiliary_mask(coord.min_sum);
         assert_eq!(coord.phase, Phase::Idle);
+        assert!(coord.next_event().is_none());
 
         coord.try_phase_transition();
+        assert_eq!(
+            coord.next_event().unwrap(),
+            ProtocolEvent::StartSum(RoundParameters {
+                sum: 0.01,
+                update: 0.1,
+                seed: coord.seed.clone(),
+                pk: coord.pk,
+            })
+        );
+        assert!(coord.next_event().is_none());
         assert_eq!(coord.phase, Phase::Sum);
         assert_ne!(coord.pk, PublicEncryptKey::zeroed());
         assert_ne!(coord.sk, SecretEncryptKey::zeroed());
@@ -743,36 +845,63 @@ mod tests {
         coord.try_phase_transition();
         // We didn't add any participant so the state should remain
         // unchanged
+        assert!(coord.next_event().is_none());
         assert_eq!(coord.phase, Phase::Sum);
 
         // Pretend we have enough participants, and transition
         // again. This time, the state should change.
-        coord.sum_dict = sum_dict;
+        coord.sum_dict = sum_dict.clone();
         coord.try_phase_transition();
+        assert_eq!(
+            coord.next_event().unwrap(),
+            ProtocolEvent::StartUpdate(sum_dict)
+        );
+        assert!(coord.next_event().is_none());
         assert_eq!(coord.phase, Phase::Update);
 
         // We didn't add any update so the state should remain
         // unchanged
         coord.try_phase_transition();
+        assert!(coord.next_event().is_none());
         assert_eq!(coord.phase, Phase::Update);
 
         // Pretend we received enough updates and transition. This
         // time the state should change.
-        coord.seed_dict = seed_dict;
+        coord.seed_dict = seed_dict.clone();
         coord.try_phase_transition();
+        assert_eq!(
+            coord.next_event().unwrap(),
+            ProtocolEvent::StartSum2(seed_dict)
+        );
+        assert!(coord.next_event().is_none());
         assert_eq!(coord.phase, Phase::Sum2);
 
         // We didn't add any mask so the state should remain unchanged
         coord.try_phase_transition();
+        assert!(coord.next_event().is_none());
         assert_eq!(coord.phase, Phase::Sum2);
 
         // Pretend we received enough masks and transition. This time
-        // the state should change and we should be back to the
-        // beginning: Phase::Idle.
+        // the state should change and we should restart a round
+        let chosen_seed = mask_dict.most_common().into_iter().next().unwrap().0;
         coord.mask_dict = mask_dict;
         let seed = coord.seed.clone();
         coord.try_phase_transition();
-        assert_eq!(coord.phase, Phase::Idle);
+        assert_eq!(
+            coord.next_event().unwrap(),
+            ProtocolEvent::EndRound(Some(chosen_seed))
+        );
+        assert_eq!(
+            coord.next_event().unwrap(),
+            ProtocolEvent::StartSum(RoundParameters {
+                sum: 0.01,
+                update: 0.1,
+                seed: coord.seed.clone(),
+                pk: coord.pk,
+            })
+        );
+        assert_eq!(coord.phase, Phase::Sum);
+        assert!(coord.next_event().is_none());
         assert!(coord.sum_dict.is_empty());
         assert!(coord.seed_dict.is_empty());
         assert!(coord.mask_dict.is_empty());

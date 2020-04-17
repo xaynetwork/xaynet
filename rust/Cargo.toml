@@ -37,6 +37,7 @@ chrono = { version = "0.4", features = ["serde"], optional = true }
 opentelemetry = { version = "0.2.0", optional = true }
 tracing-opentelemetry = { version = "0.2.0", optional = true }
 opentelemetry-jaeger = { version = "0.1.0", optional = true }
+bincode = "1.2.1"
 
 [dev-dependencies]
 mockall = "0.6.0"
