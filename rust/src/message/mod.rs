@@ -15,8 +15,8 @@ const CERTIFICATE_BYTES: usize = 0;
 const SIGNATURE_RANGE: Range<usize> = 0..64; // 64 bytes
 const MESSAGE_START: usize = 64;
 const TAG_RANGE: Range<usize> = 64..65; // 1 byte
-const ENCR_PK_RANGE: Range<usize> = 65..97; // 32 bytes
-const SIGN_PK_RANGE: Range<usize> = 97..129; // 32 bytes
+const COORD_PK_RANGE: Range<usize> = 65..97; // 32 bytes
+const PART_PK_RANGE: Range<usize> = 97..129; // 32 bytes
 const CERTIFICATE_RANGE: Range<usize> = 129..129; // 0 bytes (dummy)
 const SUM_SIGNATURE_RANGE: Range<usize> = 129..193; // 64 bytes
 
@@ -58,24 +58,24 @@ pub trait MessageBuffer: Sized {
         &mut self.bytes_mut()[TAG_RANGE]
     }
 
-    /// Get a reference to the public encryption key field of the message buffer.
-    fn encr_pk<'b>(&'b self) -> &'b [u8] {
-        &self.bytes()[ENCR_PK_RANGE]
+    /// Get a reference to the coordinator public key field of the message buffer.
+    fn coord_pk<'b>(&'b self) -> &'b [u8] {
+        &self.bytes()[COORD_PK_RANGE]
     }
 
-    /// Get a mutable reference to the public encryption key field of the message buffer.
-    fn encr_pk_mut(&mut self) -> &mut [u8] {
-        &mut self.bytes_mut()[ENCR_PK_RANGE]
+    /// Get a mutable reference to the coordinator public key field of the message buffer.
+    fn coord_pk_mut(&mut self) -> &mut [u8] {
+        &mut self.bytes_mut()[COORD_PK_RANGE]
     }
 
-    /// Get a reference to the public signature key field of the message buffer.
-    fn sign_pk<'b>(&'b self) -> &'b [u8] {
-        &self.bytes()[SIGN_PK_RANGE]
+    /// Get a reference to the participant public key field of the message buffer.
+    fn part_pk<'b>(&'b self) -> &'b [u8] {
+        &self.bytes()[PART_PK_RANGE]
     }
 
-    /// Get a mutable reference to the public signature key field of the message buffer.
-    fn sign_pk_mut(&mut self) -> &mut [u8] {
-        &mut self.bytes_mut()[SIGN_PK_RANGE]
+    /// Get a mutable reference to the participant public key field of the message buffer.
+    fn part_pk_mut(&mut self) -> &mut [u8] {
+        &mut self.bytes_mut()[PART_PK_RANGE]
     }
 
     /// Get a reference to the certificate field of the message buffer.
@@ -116,11 +116,11 @@ mod tests {
         );
         assert_eq!(TAG_RANGE.end - TAG_RANGE.start, TAG_BYTES);
         assert_eq!(
-            ENCR_PK_RANGE.end - ENCR_PK_RANGE.start,
+            COORD_PK_RANGE.end - COORD_PK_RANGE.start,
             box_::PUBLICKEYBYTES,
         );
         assert_eq!(
-            SIGN_PK_RANGE.end - SIGN_PK_RANGE.start,
+            PART_PK_RANGE.end - PART_PK_RANGE.start,
             sign::PUBLICKEYBYTES,
         );
         assert_eq!(
@@ -170,13 +170,13 @@ mod tests {
         assert_eq!(buffer.tag(), &bytes[64..65]);
         assert_eq!(buffer.tag_mut(), &mut bytes[64..65]);
 
-        // encr pk
-        assert_eq!(buffer.encr_pk(), &bytes[65..97]);
-        assert_eq!(buffer.encr_pk_mut(), &mut bytes[65..97]);
+        // coordinator pk
+        assert_eq!(buffer.coord_pk(), &bytes[65..97]);
+        assert_eq!(buffer.coord_pk_mut(), &mut bytes[65..97]);
 
-        // sign pk
-        assert_eq!(buffer.sign_pk(), &bytes[97..129]);
-        assert_eq!(buffer.sign_pk_mut(), &mut bytes[97..129]);
+        // participant pk
+        assert_eq!(buffer.part_pk(), &bytes[97..129]);
+        assert_eq!(buffer.part_pk_mut(), &mut bytes[97..129]);
 
         // certificate
         assert_eq!(buffer.certificate(), &bytes[129..129]);
