@@ -200,7 +200,7 @@ impl<'m, M: MsgBoxEncr> Message<&'m box_::PublicKey, &'m sign::PublicKey, M> {
 
     /// Get the length of the serialized encrypted message.
     pub fn len(&self) -> usize {
-        // 250 / 314 + 112 * len(dict_seed) / 250 bytes for sum/update/sum2
+        // 250 / 314 + 112 * len(local_dict_seed) / 250 bytes for sum/update/sum2
         sealedbox::SEALBYTES
             + self.round_box.len()
             + box_::NONCEBYTES
@@ -328,7 +328,7 @@ impl UpdateMessage {
     }
 
     /// Get a reference to the seed dictionary.
-    pub fn dict_seed(&self) -> &HashMap<box_::PublicKey, Vec<u8>> {
+    pub fn local_dict_seed(&self) -> &HashMap<box_::PublicKey, Vec<u8>> {
         self.message_box.dict_seed()
     }
 }
@@ -500,7 +500,7 @@ mod tests {
         let signature_sum = &sign::Signature::from_slice(&randombytes(64)).unwrap();
         let signature_update = &sign::Signature::from_slice(&randombytes(64)).unwrap();
         let model_url = randombytes(32);
-        let dict_seed = &iter::repeat_with(|| {
+        let local_dict_seed = &iter::repeat_with(|| {
             (
                 box_::PublicKey::from_slice(&randombytes(32)).unwrap(),
                 randombytes(80),
@@ -513,7 +513,7 @@ mod tests {
             signature_sum,
             signature_update,
             &model_url,
-            dict_seed,
+            local_dict_seed,
         );
         let msg = Message::new(rbox.clone(), ubox.clone());
         assert_eq!(msg.round_box, rbox);
@@ -574,7 +574,7 @@ mod tests {
         assert_eq!(msg.model_url(), model_url.as_slice());
 
         // dict seed
-        assert_eq!(msg.dict_seed(), dict_seed);
+        assert_eq!(msg.local_dict_seed(), local_dict_seed);
     }
 
     #[test]
