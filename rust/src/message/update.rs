@@ -42,7 +42,7 @@ impl UpdateMessageBuffer<Vec<u8>> {
 
 impl<B: AsRef<[u8]> + AsMut<[u8]>> MessageBuffer for UpdateMessageBuffer<B> {
     /// Get a reference to the update message buffer.
-    fn bytes<'b>(&'b self) -> &'b [u8] {
+    fn bytes(&'_ self) -> &'_ [u8] {
         self.bytes.as_ref()
     }
 
