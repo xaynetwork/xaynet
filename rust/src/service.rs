@@ -1,4 +1,5 @@
 use crate::coordinator::{Coordinator, RoundParameters};
+use derive_more::From;
 use sodiumoxide::crypto::box_;
 use std::{
     collections::HashMap,
@@ -63,6 +64,7 @@ impl Service {
 }
 
 /// An event handled by the coordinator
+#[derive(From)]
 pub enum Event {
     /// A message from a participant.
     Message(Message),
@@ -79,27 +81,6 @@ pub enum Event {
     /// A request to retrieve the masking seeds dictionary for the
     /// given participant.
     SeedDict(SeedDictRequest),
-}
-
-impl From<RoundParametersRequest> for Event {
-    fn from(req: RoundParametersRequest) -> Self {
-        Self::RoundParameters(req)
-    }
-}
-impl From<SumDictRequest> for Event {
-    fn from(req: SumDictRequest) -> Self {
-        Self::SumDict(req)
-    }
-}
-impl From<SeedDictRequest> for Event {
-    fn from(req: SeedDictRequest) -> Self {
-        Self::SeedDict(req)
-    }
-}
-impl From<Message> for Event {
-    fn from(msg: Message) -> Self {
-        Self::Message(msg)
-    }
 }
 
 /// Event for an incoming message from a participant
