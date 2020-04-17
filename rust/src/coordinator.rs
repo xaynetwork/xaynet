@@ -36,8 +36,8 @@ type SumDict = HashMap<SumParticipantPublicKey, SumParticipantEphemeralPublicKey
 type UpdateParticipantPublicKey = box_::PublicKey;
 
 /// Seed dictionaries are sent by update participants. They contain
-/// the participant's seed, encrypted with the public key of each sum
-/// participant.
+/// the participant's seed, encrypted with the ephemeral public key of
+/// each sum participant.
 type SeedDict = HashMap<SumParticipantPublicKey, EncryptedMaskingSeed>;
 
 /// The update dictionary is built from the seed dictionaries sent by
@@ -50,8 +50,8 @@ type UpdateDict =
 /// the ephemeral public key of a sum participant
 pub type EncryptedMaskingSeed = Vec<u8>;
 
-/// A 32 bytes hash of that identifies a model mask computed by an
-/// update participant.
+/// A 32 bytes hash of that identifies a model mask computed by a sum
+/// participant.
 pub type MaskHash = Vec<u8>;
 
 #[derive(Debug, PartialEq, Copy, Clone)]
