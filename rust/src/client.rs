@@ -1,5 +1,5 @@
-use extern crate::service::Handle;
-use extern crate::participant::Participant;
+use crate::service::Handle;
+use crate::participant::Participant;
 
 /// TODO
 pub struct Client {
