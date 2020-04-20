@@ -1,8 +1,8 @@
-use std::ops::Range;
+use std::{borrow::Borrow, ops::Range};
 
 use sodiumoxide::crypto::{box_, sealedbox, sign};
 
-use super::{MessageBuffer, CERTIFICATE_BYTES, TAG_BYTES, UPDATE_TAG};
+use super::{Certificate, MessageBuffer, CERTIFICATE_BYTES, TAG_BYTES, UPDATE_TAG};
 use crate::{
     CoordinatorPublicKey, CoordinatorSecretKey, LocalSeedDict, ParticipantTaskSignature, PetError,
     UpdateParticipantPublicKey, UpdateParticipantSecretKey,
@@ -86,7 +86,14 @@ impl<B: AsRef<[u8]> + AsMut<[u8]>> UpdateMessageBuffer<B> {
 
 #[derive(Clone, Debug, PartialEq)]
 /// Encryption and decryption of update messages.
-pub struct UpdateMessage<K, C, S, M, D> {
+pub struct UpdateMessage<K, C, S, M, D>
+where
+    K: Borrow<UpdateParticipantPublicKey>,
+    C: Borrow<Certificate>,
+    S: Borrow<ParticipantTaskSignature>,
+    M: Borrow<Vec<u8>>,
+    D: Borrow<LocalSeedDict>,
+{
     pk: K,
     certificate: C,
     sum_signature: S,
@@ -95,9 +102,16 @@ pub struct UpdateMessage<K, C, S, M, D> {
     local_seed_dict: D,
 }
 
-impl<K, C, S, M, D> UpdateMessage<K, C, S, M, D> {
+impl<K, C, S, M, D> UpdateMessage<K, C, S, M, D>
+where
+    K: Borrow<UpdateParticipantPublicKey>,
+    C: Borrow<Certificate>,
+    S: Borrow<ParticipantTaskSignature>,
+    M: Borrow<Vec<u8>>,
+    D: Borrow<LocalSeedDict>,
+{
     /// Create an update message from its parts.
-    pub fn from(
+    pub fn new(
         pk: K,
         certificate: C,
         sum_signature: S,
@@ -127,21 +141,11 @@ impl<K, C, S, M, D> UpdateMessage<K, C, S, M, D> {
             + MASKED_MODEL_BYTES
             + LOCAL_SEED_DICT_ITEM_LENGTH * dict_length
     }
-}
 
-#[allow(clippy::implicit_hasher)]
-impl
-    UpdateMessage<
-        &UpdateParticipantPublicKey,
-        &Vec<u8>,
-        &ParticipantTaskSignature,
-        &Vec<u8>,
-        &LocalSeedDict,
-    >
-{
     /// Serialize the local seed dictionary into bytes.
     fn serialize_local_seed_dict(&self) -> Vec<u8> {
         self.local_seed_dict
+            .borrow()
             .iter()
             .flat_map(|(pk, seed)| [pk.as_ref(), seed].concat())
             .collect::<Vec<u8>>()
@@ -150,16 +154,22 @@ impl
     /// Serialize the update message into a buffer.
     fn serialize(&self, buffer: &mut UpdateMessageBuffer<Vec<u8>>, pk: &CoordinatorPublicKey) {
         buffer.tag_mut().copy_from_slice(&[UPDATE_TAG]);
-        buffer.coord_pk_mut().copy_from_slice(pk.as_ref());
-        buffer.part_pk_mut().copy_from_slice(self.pk.as_ref());
-        buffer.certificate_mut().copy_from_slice(self.certificate);
+        buffer.coord_pk_mut().copy_from_slice(pk.borrow().as_ref());
+        buffer
+            .part_pk_mut()
+            .copy_from_slice(self.pk.borrow().as_ref());
+        buffer
+            .certificate_mut()
+            .copy_from_slice(self.certificate.borrow().as_ref());
         buffer
             .sum_signature_mut()
-            .copy_from_slice(self.sum_signature.as_ref());
+            .copy_from_slice(self.sum_signature.borrow().as_ref());
         buffer
             .update_signature_mut()
-            .copy_from_slice(self.update_signature.as_ref());
-        buffer.masked_model_mut().copy_from_slice(self.masked_model);
+            .copy_from_slice(self.update_signature.borrow().as_ref());
+        buffer
+            .masked_model_mut()
+            .copy_from_slice(self.masked_model.borrow().as_ref());
         buffer
             .local_seed_dict_mut()
             .copy_from_slice(&self.serialize_local_seed_dict());
@@ -167,7 +177,8 @@ impl
 
     /// Sign and encrypt the update message.
     pub fn seal(&self, sk: &UpdateParticipantSecretKey, pk: &CoordinatorPublicKey) -> Vec<u8> {
-        let mut buffer = UpdateMessageBuffer::new(Self::exp_len(self.local_seed_dict.len()));
+        let mut buffer =
+            UpdateMessageBuffer::new(Self::exp_len(self.local_seed_dict.borrow().len()));
         self.serialize(&mut buffer, pk);
         let signature = sign::sign_detached(buffer.message(), sk);
         buffer.signature_mut().copy_from_slice(signature.as_ref());
@@ -175,11 +186,10 @@ impl
     }
 }
 
-#[allow(clippy::implicit_hasher)]
 impl
     UpdateMessage<
         UpdateParticipantPublicKey,
-        Vec<u8>,
+        Certificate,
         ParticipantTaskSignature,
         Vec<u8>,
         LocalSeedDict,
@@ -204,7 +214,7 @@ impl
     fn deserialize(buffer: UpdateMessageBuffer<Vec<u8>>) -> Self {
         // safe unwraps: lengths of `buffer` slices are guaranteed by constants
         let pk = sign::PublicKey::from_slice(buffer.part_pk()).unwrap();
-        let certificate = buffer.certificate().to_vec();
+        let certificate = buffer.certificate().to_vec().into();
         let sum_signature = sign::Signature::from_slice(buffer.sum_signature()).unwrap();
         let update_signature = sign::Signature::from_slice(buffer.update_signature()).unwrap();
         let masked_model = buffer.masked_model().to_vec();
@@ -250,7 +260,7 @@ impl
     }
 
     /// Get a reference to the certificate.
-    pub fn certificate(&self) -> &Vec<u8> {
+    pub fn certificate(&self) -> &Certificate {
         &self.certificate
     }
 

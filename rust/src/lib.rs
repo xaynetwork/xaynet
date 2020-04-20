@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 #![feature(or_patterns)]
+#![feature(const_fn)]
 
 #[macro_use]
 extern crate tracing;

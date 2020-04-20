@@ -7,7 +7,7 @@ use sodiumoxide::{
 };
 
 use crate::{
-    message::{sum::SumMessage, sum2::Sum2Message, update::UpdateMessage},
+    message::{sum::SumMessage, sum2::Sum2Message, update::UpdateMessage, Certificate},
     utils::is_eligible,
     CoordinatorPublicKey, LocalSeedDict, ParticipantPublicKey, ParticipantSecretKey,
     ParticipantTaskSignature, PetError, SeedDict, SumDict, SumParticipantEphemeralPublicKey,
@@ -29,7 +29,7 @@ pub struct Participant {
     sk: ParticipantSecretKey,                   // 64 bytes
     ephm_pk: SumParticipantEphemeralPublicKey,  // 32 bytes
     ephm_sk: SumParticipantEphemeralSecretKey,  // 32 bytes
-    certificate: Vec<u8>,                       // 0 bytes (dummy)
+    certificate: Certificate,                   // 0 bytes (dummy)
     sum_signature: ParticipantTaskSignature,    // 64 bytes
     update_signature: ParticipantTaskSignature, // 64 bytes
 
@@ -43,7 +43,7 @@ impl Default for Participant {
         let sk = sign::SecretKey([0_u8; sign::SECRETKEYBYTES]);
         let ephm_pk = box_::PublicKey([0_u8; box_::PUBLICKEYBYTES]);
         let ephm_sk = box_::SecretKey([0_u8; box_::SECRETKEYBYTES]);
-        let certificate = Vec::<u8>::new();
+        let certificate = Certificate(vec![]);
         let sum_signature = sign::Signature([0_u8; sign::SIGNATUREBYTES]);
         let update_signature = sign::Signature([0_u8; sign::SIGNATUREBYTES]);
         let task = Task::None;
@@ -93,7 +93,7 @@ impl Participant {
     /// Compose a sum message.
     pub fn compose_sum_message(&mut self, pk: &CoordinatorPublicKey) -> Vec<u8> {
         self.gen_ephm_keypair();
-        SumMessage::from(
+        SumMessage::new(
             &self.pk,
             &self.certificate,
             &self.sum_signature,
@@ -106,7 +106,7 @@ impl Participant {
     pub fn compose_update_message(&self, pk: &CoordinatorPublicKey, sum_dict: &SumDict) -> Vec<u8> {
         let (mask_seed, masked_model) = Self::mask_model();
         let local_seed_dict = Self::create_local_seed_dict(sum_dict, &mask_seed);
-        UpdateMessage::from(
+        UpdateMessage::new(
             &self.pk,
             &self.certificate,
             &self.sum_signature,
@@ -126,7 +126,7 @@ impl Participant {
         let mask_seeds = self.get_seeds(seed_dict)?;
         let mask = self.compute_global_mask(mask_seeds);
         Ok(
-            Sum2Message::from(&self.pk, &self.certificate, &self.sum_signature, &mask)
+            Sum2Message::new(&self.pk, &self.certificate, &self.sum_signature, &mask)
                 .seal(&self.sk, pk),
         )
     }

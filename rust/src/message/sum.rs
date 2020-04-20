@@ -1,8 +1,8 @@
-use std::ops::Range;
+use std::{borrow::Borrow, ops::Range};
 
 use sodiumoxide::crypto::{box_, sealedbox, sign};
 
-use super::{MessageBuffer, CERTIFICATE_BYTES, SUM_TAG, TAG_BYTES};
+use super::{Certificate, MessageBuffer, CERTIFICATE_BYTES, SUM_TAG, TAG_BYTES};
 use crate::{
     CoordinatorPublicKey, CoordinatorSecretKey, ParticipantTaskSignature, PetError,
     SumParticipantEphemeralPublicKey, SumParticipantPublicKey, SumParticipantSecretKey,
@@ -61,16 +61,28 @@ impl<B: AsRef<[u8]> + AsMut<[u8]>> SumMessageBuffer<B> {
 
 #[derive(Clone, Debug, PartialEq)]
 /// Encryption and decryption of sum messages.
-pub struct SumMessage<K, C, S, E> {
+pub struct SumMessage<K, C, S, E>
+where
+    K: Borrow<SumParticipantPublicKey>,
+    C: Borrow<Certificate>,
+    S: Borrow<ParticipantTaskSignature>,
+    E: Borrow<SumParticipantEphemeralPublicKey>,
+{
     pk: K,
     certificate: C,
     sum_signature: S,
     ephm_pk: E,
 }
 
-impl<K, C, S, E> SumMessage<K, C, S, E> {
+impl<K, C, S, E> SumMessage<K, C, S, E>
+where
+    K: Borrow<SumParticipantPublicKey>,
+    C: Borrow<Certificate>,
+    S: Borrow<ParticipantTaskSignature>,
+    E: Borrow<SumParticipantEphemeralPublicKey>,
+{
     /// Create a sum message from its parts.
-    pub fn from(pk: K, certificate: C, sum_signature: S, ephm_pk: E) -> Self {
+    pub fn new(pk: K, certificate: C, sum_signature: S, ephm_pk: E) -> Self {
         Self {
             pk,
             certificate,
@@ -89,26 +101,22 @@ impl<K, C, S, E> SumMessage<K, C, S, E> {
             + sign::SIGNATUREBYTES
             + box_::PUBLICKEYBYTES
     }
-}
 
-impl
-    SumMessage<
-        &SumParticipantPublicKey,
-        &Vec<u8>,
-        &ParticipantTaskSignature,
-        &SumParticipantEphemeralPublicKey,
-    >
-{
-    /// Serialize the sum message into a buffer.
     fn serialize(&self, buffer: &mut SumMessageBuffer<Vec<u8>>, pk: &CoordinatorPublicKey) {
         buffer.tag_mut().copy_from_slice(&[SUM_TAG]);
         buffer.coord_pk_mut().copy_from_slice(pk.as_ref());
-        buffer.part_pk_mut().copy_from_slice(self.pk.as_ref());
-        buffer.certificate_mut().copy_from_slice(self.certificate);
+        buffer
+            .certificate_mut()
+            .copy_from_slice(self.certificate.borrow().as_ref());
+        buffer
+            .part_pk_mut()
+            .copy_from_slice(self.pk.borrow().as_ref());
         buffer
             .sum_signature_mut()
-            .copy_from_slice(self.sum_signature.as_ref());
-        buffer.ephm_pk_mut().copy_from_slice(self.ephm_pk.as_ref());
+            .copy_from_slice(self.sum_signature.borrow().as_ref());
+        buffer
+            .ephm_pk_mut()
+            .copy_from_slice(self.ephm_pk.borrow().as_ref());
     }
 
     /// Sign and encrypt the sum message.
@@ -124,7 +132,7 @@ impl
 impl
     SumMessage<
         SumParticipantPublicKey,
-        Vec<u8>,
+        Certificate,
         ParticipantTaskSignature,
         SumParticipantEphemeralPublicKey,
     >
@@ -134,7 +142,7 @@ impl
     fn deserialize(buffer: SumMessageBuffer<Vec<u8>>) -> Self {
         // safe unwraps: lengths of `buffer` slices are guaranteed by constants
         let pk = sign::PublicKey::from_slice(buffer.part_pk()).unwrap();
-        let certificate = buffer.certificate().to_vec();
+        let certificate = Certificate(vec![]);
         let sum_signature = sign::Signature::from_slice(buffer.sum_signature()).unwrap();
         let ephm_pk = box_::PublicKey::from_slice(buffer.ephm_pk()).unwrap();
         Self {
@@ -175,7 +183,7 @@ impl
     }
 
     /// Get a reference to the certificate.
-    pub fn certificate(&self) -> &Vec<u8> {
+    pub fn certificate(&self) -> &Certificate {
         &self.certificate
     }
 
