@@ -25,6 +25,7 @@ pub struct MaskSeed(Vec<u8>);
 impl MaskSeed {
     pub const BYTES: usize = 32;
 
+    #[allow(clippy::new_without_default)]
     /// Create a mask seed.
     pub fn new() -> Self {
         Self(randombytes(Self::BYTES))
