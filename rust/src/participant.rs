@@ -43,7 +43,7 @@ impl Default for Participant {
         let sk = sign::SecretKey([0_u8; sign::SECRETKEYBYTES]);
         let ephm_pk = box_::PublicKey([0_u8; box_::PUBLICKEYBYTES]);
         let ephm_sk = box_::SecretKey([0_u8; box_::SECRETKEYBYTES]);
-        let certificate = Certificate(vec![]);
+        let certificate = Vec::<u8>::new().into();
         let sum_signature = sign::Signature([0_u8; sign::SIGNATUREBYTES]);
         let update_signature = sign::Signature([0_u8; sign::SIGNATUREBYTES]);
         let task = Task::None;
@@ -93,7 +93,7 @@ impl Participant {
     /// Compose a sum message.
     pub fn compose_sum_message(&mut self, pk: &CoordinatorPublicKey) -> Vec<u8> {
         self.gen_ephm_keypair();
-        SumMessage::new(
+        SumMessage::from_parts(
             &self.pk,
             &self.certificate,
             &self.sum_signature,
@@ -106,7 +106,7 @@ impl Participant {
     pub fn compose_update_message(&self, pk: &CoordinatorPublicKey, sum_dict: &SumDict) -> Vec<u8> {
         let (mask_seed, masked_model) = Self::mask_model();
         let local_seed_dict = Self::create_local_seed_dict(sum_dict, &mask_seed);
-        UpdateMessage::new(
+        UpdateMessage::from_parts(
             &self.pk,
             &self.certificate,
             &self.sum_signature,
@@ -126,7 +126,7 @@ impl Participant {
         let mask_seeds = self.get_seeds(seed_dict)?;
         let mask = self.compute_global_mask(mask_seeds);
         Ok(
-            Sum2Message::new(&self.pk, &self.certificate, &self.sum_signature, &mask)
+            Sum2Message::from_parts(&self.pk, &self.certificate, &self.sum_signature, &mask)
                 .seal(&self.sk, pk),
         )
     }
@@ -190,7 +190,7 @@ mod tests {
         assert_eq!(part.sk.as_ref().len(), 64);
         assert_eq!(part.ephm_pk, box_::PublicKey([0_u8; 32]));
         assert_eq!(part.ephm_sk, box_::SecretKey([0_u8; 32]));
-        assert_eq!(part.certificate, Vec::<u8>::new());
+        assert_eq!(part.certificate, Vec::<u8>::new().into());
         assert_eq!(part.sum_signature, sign::Signature([0_u8; 64]));
         assert_eq!(part.update_signature, sign::Signature([0_u8; 64]));
         assert_eq!(part.task, Task::None);

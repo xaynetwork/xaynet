@@ -20,8 +20,9 @@ const PART_PK_RANGE: Range<usize> = 97..129; // 32 bytes
 const CERTIFICATE_RANGE: Range<usize> = 129..129; // 0 bytes (dummy)
 const SUM_SIGNATURE_RANGE: Range<usize> = 129..193; // 64 bytes
 
+#[derive(Debug, PartialEq)]
 /// A dummy type that represents a certificate.
-pub struct Certificate(pub Vec<u8>);
+pub struct Certificate(Vec<u8>);
 
 impl AsRef<[u8]> for Certificate {
     fn as_ref(&self) -> &[u8] {
@@ -35,8 +36,14 @@ impl From<Vec<u8>> for Certificate {
     }
 }
 
+impl From<&[u8]> for Certificate {
+    fn from(slice: &[u8]) -> Self {
+        Self(slice.to_vec())
+    }
+}
+
 /// Access to common message buffer fields.
-pub trait MessageBuffer: Sized {
+trait MessageBuffer: Sized {
     /// Get a reference to the message buffer.
     fn bytes(&'_ self) -> &'_ [u8];
 

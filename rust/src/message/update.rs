@@ -32,7 +32,7 @@ impl UpdateMessageBuffer<Vec<u8>> {
 
     /// Create an update message buffer from `bytes`. Fails if the `bytes` don't conform to the
     /// expected update message length `exp_len`.
-    fn from(bytes: Vec<u8>, exp_len: usize) -> Result<Self, PetError> {
+    fn try_from(bytes: Vec<u8>, exp_len: usize) -> Result<Self, PetError> {
         if bytes.len() != exp_len {
             return Err(PetError::InvalidMessage);
         }
@@ -111,7 +111,7 @@ where
     D: Borrow<LocalSeedDict>,
 {
     /// Create an update message from its parts.
-    pub fn new(
+    pub fn from_parts(
         pk: K,
         certificate: C,
         sum_signature: S,
@@ -214,7 +214,7 @@ impl
     fn deserialize(buffer: UpdateMessageBuffer<Vec<u8>>) -> Self {
         // safe unwraps: lengths of `buffer` slices are guaranteed by constants
         let pk = sign::PublicKey::from_slice(buffer.part_pk()).unwrap();
-        let certificate = buffer.certificate().to_vec().into();
+        let certificate = buffer.certificate().into();
         let sum_signature = sign::Signature::from_slice(buffer.sum_signature()).unwrap();
         let update_signature = sign::Signature::from_slice(buffer.update_signature()).unwrap();
         let masked_model = buffer.masked_model().to_vec();
@@ -236,7 +236,7 @@ impl
         sk: &CoordinatorSecretKey,
         sum_dict_length: usize,
     ) -> Result<Self, PetError> {
-        let buffer = UpdateMessageBuffer::from(
+        let buffer = UpdateMessageBuffer::try_from(
             sealedbox::open(bytes, pk, sk).or(Err(PetError::InvalidMessage))?,
             Self::exp_len(sum_dict_length),
         )?;
@@ -313,14 +313,14 @@ mod tests {
         // new
         assert_eq!(UpdateMessageBuffer::new(10).bytes, vec![0_u8; 10]);
 
-        // from
+        // try from
         let sum_dict_length = 1 + randombytes_uniform(10) as usize;
         let mut bytes = randombytes(289 + 112 * sum_dict_length);
         let mut buffer =
-            UpdateMessageBuffer::from(bytes.clone(), 289 + 112 * sum_dict_length).unwrap();
+            UpdateMessageBuffer::try_from(bytes.clone(), 289 + 112 * sum_dict_length).unwrap();
         assert_eq!(buffer.bytes, bytes);
         assert_eq!(
-            UpdateMessageBuffer::from(bytes.clone(), 10).unwrap_err(),
+            UpdateMessageBuffer::try_from(bytes.clone(), 10).unwrap_err(),
             PetError::InvalidMessage,
         );
 
@@ -345,10 +345,10 @@ mod tests {
 
     #[test]
     fn test_updatemessage_serialize() {
-        // from
+        // from parts
         let sum_dict_length = 1 + randombytes_uniform(10) as usize;
         let pk = &sign::PublicKey::from_slice(&randombytes(32)).unwrap();
-        let certificate = &Vec::<u8>::new();
+        let certificate = &Vec::<u8>::new().into();
         let sum_signature = &sign::Signature::from_slice(&randombytes(64)).unwrap();
         let update_signature = &sign::Signature::from_slice(&randombytes(64)).unwrap();
         let masked_model = &randombytes(32);
@@ -360,7 +360,7 @@ mod tests {
         })
         .take(sum_dict_length)
         .collect();
-        let msg = UpdateMessage::from(
+        let msg = UpdateMessage::from_parts(
             pk,
             certificate,
             sum_signature,
@@ -373,8 +373,8 @@ mod tests {
             pk as *const sign::PublicKey,
         );
         assert_eq!(
-            msg.certificate as *const Vec<u8>,
-            certificate as *const Vec<u8>,
+            msg.certificate as *const Certificate,
+            certificate as *const Certificate,
         );
         assert_eq!(
             msg.sum_signature as *const sign::Signature,
@@ -419,7 +419,7 @@ mod tests {
         assert_eq!(buffer.tag(), &[UPDATE_TAG]);
         assert_eq!(buffer.coord_pk(), coord_pk.as_ref());
         assert_eq!(buffer.part_pk(), pk.as_ref());
-        assert_eq!(buffer.certificate(), certificate.as_slice());
+        assert_eq!(buffer.certificate(), certificate.as_ref());
         assert_eq!(buffer.sum_signature(), sum_signature.as_ref());
         assert_eq!(buffer.update_signature(), update_signature.as_ref());
         assert_eq!(buffer.masked_model(), masked_model.as_slice());
@@ -446,13 +446,14 @@ mod tests {
 
         // deserialize
         let bytes = randombytes(289 + 112 * sum_dict_length);
-        let buffer = UpdateMessageBuffer::from(bytes.clone(), 289 + 112 * sum_dict_length).unwrap();
+        let buffer =
+            UpdateMessageBuffer::try_from(bytes.clone(), 289 + 112 * sum_dict_length).unwrap();
         let msg = UpdateMessage::deserialize(buffer);
         assert_eq!(
             msg.pk(),
             &sign::PublicKey::from_slice(&bytes[PART_PK_RANGE]).unwrap(),
         );
-        assert_eq!(msg.certificate(), &bytes[CERTIFICATE_RANGE].to_vec());
+        assert_eq!(msg.certificate(), &bytes[CERTIFICATE_RANGE].into());
         assert_eq!(
             msg.sum_signature(),
             &sign::Signature::from_slice(&bytes[SUM_SIGNATURE_RANGE]).unwrap(),
@@ -473,7 +474,7 @@ mod tests {
         // seal
         let sum_dict_length = 1 + randombytes_uniform(10) as usize;
         let (pk, sk) = sign::gen_keypair();
-        let certificate = Vec::<u8>::new();
+        let certificate = Vec::<u8>::new().into();
         let sum_signature = sign::Signature::from_slice(&randombytes(64)).unwrap();
         let update_signature = sign::Signature::from_slice(&randombytes(64)).unwrap();
         let masked_model = randombytes(32);
@@ -486,7 +487,7 @@ mod tests {
         .take(sum_dict_length)
         .collect();
         let (coord_pk, coord_sk) = box_::gen_keypair();
-        let bytes = UpdateMessage::from(
+        let bytes = UpdateMessage::from_parts(
             &pk,
             &certificate,
             &sum_signature,
@@ -507,7 +508,7 @@ mod tests {
 
         // wrong signature
         let mut buffer = UpdateMessageBuffer::new(289 + 112 * sum_dict_length);
-        let msg = UpdateMessage::from(
+        let msg = UpdateMessage::from_parts(
             &pk,
             &certificate,
             &sum_signature,
