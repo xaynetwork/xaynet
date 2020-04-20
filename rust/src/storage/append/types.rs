@@ -1,11 +1,30 @@
-use crate::coordinator::{
-    Coordinator, EncryptedMaskingSeed, SumDict, SumParticipantEphemeralPublicKey,
-    SumParticipantPublicKey,
+use crate::{
+    coordinator::{Coordinator, EncryptedMaskingSeed, MaskHash, SumDict, SumParticipantPublicKey},
+    storage::error::*,
 };
+use counter::Counter;
 use data_encoding::HEXUPPER;
 use redis::ToRedisArgs;
 use sodiumoxide::crypto::box_;
-use std::{collections::HashMap, convert::TryFrom, str::FromStr};
+use std::{
+    collections::HashMap,
+    convert::{From, TryFrom},
+    iter,
+    str::FromStr,
+};
+
+fn public_key_to_hex(pk: &box_::PublicKey) -> String {
+    HEXUPPER.encode(pk.as_ref())
+}
+
+fn hex_to_public_key(hex: &String) -> Result<box_::PublicKey, StoreError> {
+    HEXUPPER
+        .decode(hex.as_bytes())
+        .map_err(|_| StoreError::Convert)
+        .and_then(|pk_as_vec| {
+            box_::PublicKey::from_slice(pk_as_vec.as_slice()).ok_or(StoreError::Convert)
+        })
+}
 
 #[derive(Debug)]
 pub struct CoordinatorPartialState {
@@ -20,22 +39,6 @@ pub struct CoordinatorPartialState {
     min_update: usize,
     phase: String,
 }
-
-#[derive(Debug)]
-pub struct CoordinatorPartialStateResult(
-    pub  (
-        Option<String>,
-        Option<String>,
-        Option<String>,
-        Option<String>,
-        Option<String>,
-        Option<String>,
-        Option<String>,
-        Option<usize>,
-        Option<usize>,
-        Option<String>,
-    ),
-);
 
 impl CoordinatorPartialState {
     pub fn to_args(&self) -> Vec<(impl ToRedisArgs, impl ToRedisArgs)> {
@@ -86,20 +89,37 @@ impl From<&Coordinator> for CoordinatorPartialState {
     }
 }
 
+pub struct CoordinatorPartialStateResult(
+    pub  (
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<usize>,
+        Option<usize>,
+        Option<String>,
+    ),
+);
+
 impl TryFrom<CoordinatorPartialStateResult> for CoordinatorPartialState {
-    type Error = Box<dyn std::error::Error + 'static>;
+    type Error = StoreError;
     fn try_from(result: CoordinatorPartialStateResult) -> Result<Self, Self::Error> {
         Ok(Self {
-            encr_pk: (result.0).0.ok_or(StoreError::Read)?,
-            encr_sk: (result.0).1.ok_or(StoreError::Read)?,
-            sign_pk: (result.0).2.ok_or(StoreError::Read)?,
-            sign_sk: (result.0).3.ok_or(StoreError::Read)?,
-            sum: f64::from_str(&(result.0).4.ok_or(StoreError::Read)?)?,
-            update: f64::from_str(&(result.0).5.ok_or(StoreError::Read)?)?,
-            seed: (result.0).6.ok_or(StoreError::Read)?,
-            min_sum: (result.0).7.ok_or(StoreError::Read)?,
-            min_update: (result.0).8.ok_or(StoreError::Read)?,
-            phase: (result.0).9.ok_or(StoreError::Read)?,
+            encr_pk: (result.0).0.ok_or(StoreError::Convert)?,
+            encr_sk: (result.0).1.ok_or(StoreError::Convert)?,
+            sign_pk: (result.0).2.ok_or(StoreError::Convert)?,
+            sign_sk: (result.0).3.ok_or(StoreError::Convert)?,
+            sum: f64::from_str(&(result.0).4.ok_or(StoreError::Convert)?)
+                .map_err(|_| StoreError::Convert)?,
+            update: f64::from_str(&(result.0).5.ok_or(StoreError::Convert)?)
+                .map_err(|_| StoreError::Convert)?,
+            seed: (result.0).6.ok_or(StoreError::Convert)?,
+            min_sum: (result.0).7.ok_or(StoreError::Convert)?,
+            min_update: (result.0).8.ok_or(StoreError::Convert)?,
+            phase: (result.0).9.ok_or(StoreError::Convert)?,
         })
     }
 }
@@ -108,25 +128,20 @@ pub struct SumDictEntry(pub box_::PublicKey, pub box_::PublicKey);
 
 impl SumDictEntry {
     pub fn to_args(&self) -> (String, String) {
-        (
-            HEXUPPER.encode(&self.0.as_ref()),
-            HEXUPPER.encode(&self.1.as_ref()),
-        )
+        (public_key_to_hex(&self.0), public_key_to_hex(&self.1))
     }
 }
 
 pub struct SumDictResult(pub Vec<(String, String)>);
 
 impl TryFrom<SumDictResult> for SumDict {
-    type Error = Box<dyn std::error::Error + 'static>;
+    type Error = StoreError;
     fn try_from(result: SumDictResult) -> Result<Self, Self::Error> {
         let mut sum_dict: SumDict = HashMap::new();
         for (k, v) in result.0.iter() {
-            let new_k = box_::PublicKey::from_slice(HEXUPPER.decode(&k.as_bytes())?.as_slice())
-                .ok_or(StoreError::Read)?;
-            let new_v = box_::PublicKey::from_slice(HEXUPPER.decode(&v.as_bytes())?.as_slice())
-                .ok_or(StoreError::Read)?;
-            sum_dict.insert(new_k, new_v);
+            let sum_pk = hex_to_public_key(&k)?;
+            let sum_epk = hex_to_public_key(&v)?;
+            sum_dict.insert(sum_pk, sum_epk);
         }
         Ok(sum_dict)
     }
@@ -139,23 +154,24 @@ impl SeedDictEntry {
         let sub_dict = &self
             .1
             .iter()
-            .map(|(k, v)| (HEXUPPER.encode(&k.as_ref()), HEXUPPER.encode(&v)))
+            .map(|(updated_pk, seed)| (public_key_to_hex(&updated_pk), HEXUPPER.encode(&seed)))
             .collect::<Vec<(String, String)>>();
-        (HEXUPPER.encode(&self.0.as_ref()), sub_dict.to_vec())
+        (public_key_to_hex(&self.0), sub_dict.to_vec())
     }
 }
 
-pub struct SeedDictEntryResult(pub Vec<(String, String)>);
+pub struct SeedDictValueEntryResult(pub Vec<(String, String)>);
 
-impl TryFrom<SeedDictEntryResult> for HashMap<SumParticipantPublicKey, EncryptedMaskingSeed> {
-    type Error = Box<dyn std::error::Error + 'static>;
-    fn try_from(result: SeedDictEntryResult) -> Result<Self, Self::Error> {
+impl TryFrom<SeedDictValueEntryResult> for HashMap<SumParticipantPublicKey, EncryptedMaskingSeed> {
+    type Error = StoreError;
+    fn try_from(result: SeedDictValueEntryResult) -> Result<Self, Self::Error> {
         let mut sub_dict: HashMap<SumParticipantPublicKey, EncryptedMaskingSeed> = HashMap::new();
         for (k, v) in result.0.iter() {
-            let new_k = box_::PublicKey::from_slice(HEXUPPER.decode(&k.as_bytes())?.as_slice())
-                .ok_or(StoreError::Read)?;
-            let new_v = HEXUPPER.decode(&v.as_bytes())?;
-            sub_dict.insert(new_k, new_v);
+            let updated_pk = hex_to_public_key(&k)?;
+            let seed = HEXUPPER
+                .decode(&v.as_bytes())
+                .map_err(|_| StoreError::Convert)?;
+            sub_dict.insert(updated_pk, seed);
         }
         Ok(sub_dict)
     }
@@ -164,11 +180,10 @@ impl TryFrom<SeedDictEntryResult> for HashMap<SumParticipantPublicKey, Encrypted
 pub struct SeedDictKeyResult(pub String);
 
 impl TryFrom<SeedDictKeyResult> for SumParticipantPublicKey {
-    type Error = Box<dyn std::error::Error + 'static>;
+    type Error = StoreError;
     fn try_from(result: SeedDictKeyResult) -> Result<Self, Self::Error> {
-        let key = box_::PublicKey::from_slice(HEXUPPER.decode(&result.0.as_bytes())?.as_slice())
-            .ok_or(StoreError::Read)?;
-        Ok(key)
+        let sum_pk = hex_to_public_key(&result.0)?;
+        Ok(sum_pk)
     }
 }
 
@@ -180,33 +195,18 @@ impl MaskDictEntry {
     }
 }
 
-use std::{convert::From, error::Error, fmt};
+pub struct MaskDictResult(pub Vec<String>);
 
-#[derive(Debug)] // Allow the use of "{:?}" format specifier
-enum StoreError {
-    Read,
-}
-
-// Allow the use of "{}" format specifier
-impl fmt::Display for StoreError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            StoreError::Read => write!(f, "Read Error!",),
+impl TryFrom<MaskDictResult> for Counter<MaskHash> {
+    type Error = StoreError;
+    fn try_from(result: MaskDictResult) -> Result<Self, Self::Error> {
+        let mut counter: Counter<MaskHash> = Counter::new();
+        for v in result.0.iter() {
+            let mask_hash = HEXUPPER
+                .decode(&v.as_bytes())
+                .map_err(|_| StoreError::Convert)?;
+            counter.update(iter::once(mask_hash.to_vec()))
         }
-    }
-}
-
-// Allow this type to be treated like an error
-impl Error for StoreError {
-    fn description(&self) -> &str {
-        match *self {
-            StoreError::Read => "Read failed!",
-        }
-    }
-
-    fn cause(&self) -> Option<&Error> {
-        match *self {
-            StoreError::Read => None,
-        }
+        Ok(counter)
     }
 }

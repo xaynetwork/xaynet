@@ -1,17 +1,15 @@
 use crate::{
     coordinator::{
-        Coordinator, EncryptedMaskingSeed, SeedDict, SumDict, SumParticipantEphemeralPublicKey,
-        SumParticipantPublicKey, UpdateParticipantPublicKey,
+        EncryptedMaskingSeed, MaskHash, SeedDict, SumDict, SumParticipantPublicKey,
+        UpdateParticipantPublicKey,
     },
     storage::append::types::{
-        CoordinatorPartialState, CoordinatorPartialStateResult, MaskDictEntry, SeedDictEntry,
-        SeedDictEntryResult, SeedDictKeyResult, SumDictEntry, SumDictResult,
+        CoordinatorPartialState, CoordinatorPartialStateResult, MaskDictEntry, MaskDictResult,
+        SeedDictEntry, SeedDictKeyResult, SeedDictValueEntryResult, SumDictEntry, SumDictResult,
     },
 };
-use redis::{
-    aio::MultiplexedConnection, AsyncCommands, Client, ErrorKind, FromRedisValue, RedisError,
-    RedisResult,
-};
+use counter::Counter;
+use redis::{aio::MultiplexedConnection, AsyncCommands, Client, RedisError, RedisResult};
 use std::{collections::HashMap, convert::TryFrom};
 
 #[derive(Clone)]
@@ -81,13 +79,20 @@ impl RedisStore {
                 .connection
                 .hgetall(format!("seed_dict:{}", &sum_key))
                 .await?;
-            let sub_dict: HashMap<SumParticipantPublicKey, EncryptedMaskingSeed> =
-                HashMap::try_from(SeedDictEntryResult(seed_dict_fields))?;
+            let sub_dict: HashMap<UpdateParticipantPublicKey, EncryptedMaskingSeed> =
+                HashMap::try_from(SeedDictValueEntryResult(seed_dict_fields))?;
             let key = SumParticipantPublicKey::try_from(SeedDictKeyResult(sum_key))?;
             seed_dict.insert(key, sub_dict);
         }
 
         Ok(seed_dict)
+    }
+
+    async fn get_mask_dict(
+        &mut self,
+    ) -> Result<Counter<MaskHash>, Box<dyn std::error::Error + 'static>> {
+        let result = MaskDictResult(self.connection.smembers("mask_dict").await?);
+        Ok(Counter::<MaskHash>::try_from(result)?)
     }
 
     async fn schedule_snapshot(&mut self) -> RedisResult<()> {
