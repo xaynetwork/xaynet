@@ -2,12 +2,17 @@ use std::default::Default;
 
 use sodiumoxide::{
     self,
-    crypto::{box_, hash::sha256, sealedbox, sign},
+    crypto::{box_, sign},
     randombytes::randombytes,
 };
 
 use crate::{
-    message::{sum::SumMessage, sum2::Sum2Message, update::UpdateMessage, Certificate},
+    message::{
+        sum::SumMessage,
+        sum2::{Mask, Sum2Message},
+        update::{MaskSeed, MaskedModel, UpdateMessage},
+        Certificate,
+    },
     utils::is_eligible,
     CoordinatorPublicKey, LocalSeedDict, ParticipantPublicKey, ParticipantSecretKey,
     ParticipantTaskSignature, PetError, SeedDict, SumDict, SumParticipantEphemeralPublicKey,
@@ -138,37 +143,34 @@ impl Participant {
         self.ephm_sk = ephm_sk;
     }
 
-    /// Mask a local model (dummy). Returns the mask seed and the masked model.
-    fn mask_model() -> (Vec<u8>, Vec<u8>) {
-        (randombytes(32), randombytes(32))
+    /// Generate a mask seed and mask a local model (dummy).
+    fn mask_model() -> (MaskSeed, MaskedModel) {
+        let mask_seed = MaskSeed::new();
+        let masked_model = randombytes(32).into(); // dummy
+        (mask_seed, masked_model)
     }
 
     // Create a local seed dictionary from a sum dictionary.
-    fn create_local_seed_dict(sum_dict: &SumDict, mask_seed: &[u8]) -> LocalSeedDict {
+    fn create_local_seed_dict(sum_dict: &SumDict, mask_seed: &MaskSeed) -> LocalSeedDict {
         sum_dict
             .iter()
-            .map(|(pk, ephm_pk)| (*pk, sealedbox::seal(mask_seed, ephm_pk)))
+            .map(|(pk, ephm_pk)| (*pk, mask_seed.seal(ephm_pk)))
             .collect()
     }
 
     /// Get the mask seeds from the seed dictionary.
-    fn get_seeds(&self, seed_dict: &SeedDict) -> Result<Vec<Vec<u8>>, PetError> {
+    fn get_seeds(&self, seed_dict: &SeedDict) -> Result<Vec<MaskSeed>, PetError> {
         seed_dict
             .get(&self.pk)
             .ok_or(PetError::InvalidMessage)?
             .values()
-            .map(|seed| {
-                sealedbox::open(seed, &self.ephm_pk, &self.ephm_sk)
-                    .or(Err(PetError::InvalidMessage))
-            })
+            .map(|seed| seed.open(&self.ephm_pk, &self.ephm_sk))
             .collect()
     }
 
-    /// Compute a global mask from local mask seeds (dummy). Returns the mask.
-    fn compute_global_mask(&self, mask_seeds: Vec<Vec<u8>>) -> Vec<u8> {
-        sha256::hash(&mask_seeds.into_iter().flatten().collect::<Vec<u8>>())
-            .as_ref()
-            .to_vec()
+    /// Compute a global mask from local mask seeds (dummy).
+    fn compute_global_mask(&self, _mask_seeds: Vec<MaskSeed>) -> Mask {
+        randombytes(32).into() // dummy
     }
 }
 
@@ -274,7 +276,7 @@ mod tests {
         assert!(seed_dict.iter().all(|(pk, seed)| {
             let ephm_pk = sum_dict.get(pk).unwrap();
             let ephm_sk = ephm_dict.get(ephm_pk).unwrap();
-            mask_seed == sealedbox::open(seed, ephm_pk, ephm_sk).unwrap()
+            mask_seed == seed.open(ephm_pk, ephm_sk).unwrap()
         }));
     }
 
@@ -282,7 +284,7 @@ mod tests {
     fn test_get_seeds() {
         let mut part = Participant::new().unwrap();
         part.gen_ephm_keypair();
-        let mask_seeds = iter::repeat_with(|| randombytes(32))
+        let mask_seeds = iter::repeat_with(|| MaskSeed::new())
             .take(1 + randombytes_uniform(10) as usize)
             .collect::<HashSet<_>>();
         let seed_dict = [(
@@ -292,7 +294,7 @@ mod tests {
                 .map(|seed| {
                     (
                         sign::PublicKey::from_slice(&randombytes(32)).unwrap(),
-                        sealedbox::seal(seed, &part.ephm_pk),
+                        seed.seal(&part.ephm_pk),
                     )
                 })
                 .collect(),

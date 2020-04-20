@@ -8,7 +8,12 @@ use sodiumoxide::{
 };
 
 use crate::{
-    message::{sum::SumMessage, sum2::Sum2Message, update::UpdateMessage, Certificate},
+    message::{
+        sum::SumMessage,
+        sum2::{Mask, Sum2Message},
+        update::UpdateMessage,
+        Certificate,
+    },
     utils::is_eligible,
     CoordinatorPublicKey, CoordinatorSecretKey, LocalSeedDict, ParticipantTaskSignature, PetError,
     SeedDict, SumDict, SumParticipantEphemeralPublicKey, SumParticipantPublicKey,
@@ -116,10 +121,15 @@ impl Coordinator {
 
     /// Validate and handle an update message.
     fn handle_update_message(&mut self, bytes: &[u8]) -> Result<(), PetError> {
-        let msg = UpdateMessage::open(bytes, &self.pk, &self.sk, self.sum_dict.len())?;
+        let msg = UpdateMessage::open(bytes, &self.pk, &self.sk)?;
+        if msg.local_seed_dict().keys().collect::<HashSet<_>>()
+            != self.sum_dict.keys().collect::<HashSet<_>>()
+        {
+            return Err(PetError::InvalidMessage);
+        }
         Self::validate_certificate(msg.certificate())?;
         self.validate_update_task(msg.sum_signature(), msg.update_signature(), msg.pk())?;
-        self.add_local_seed_dict(msg.pk(), msg.local_seed_dict())?;
+        self.add_local_seed_dict(msg.pk(), msg.local_seed_dict());
         Ok(())
     }
 
@@ -204,26 +214,19 @@ impl Coordinator {
         &mut self,
         pk: &UpdateParticipantPublicKey,
         local_seed_dict: &LocalSeedDict,
-    ) -> Result<(), PetError> {
-        if local_seed_dict.keys().collect::<HashSet<_>>()
-            == self.sum_dict.keys().collect::<HashSet<_>>()
-        {
-            for (sum_pk, seed) in local_seed_dict {
-                // safe unwrap: existence of `sum_pk` is guaranteed by `freeze_sum_dict()`
-                self.seed_dict
-                    .get_mut(sum_pk)
-                    .unwrap()
-                    .insert(*pk, seed.clone());
-            }
-            Ok(())
-        } else {
-            Err(PetError::InvalidMessage)
+    ) {
+        for (sum_pk, seed) in local_seed_dict {
+            // safe unwrap: existence of `sum_pk` is guaranteed by `freeze_sum_dict()`
+            self.seed_dict
+                .get_mut(sum_pk)
+                .unwrap()
+                .insert(*pk, seed.clone());
         }
     }
 
     /// Add a hashed mask to the mask dictionary.
-    fn add_mask_hash(&mut self, mask: &[u8]) {
-        let mask_hash = sha256::hash(mask);
+    fn add_mask_hash(&mut self, mask: &Mask) {
+        let mask_hash = sha256::hash(mask.as_ref());
         self.mask_dict.update(iter::once(mask_hash));
     }
 
@@ -254,11 +257,8 @@ impl Coordinator {
         self.sk = sk;
     }
 
-    /// Update the sum round parameter (dummy).
-    fn update_round_sum(&mut self) {}
-
-    /// Update the update round parameter (dummy).
-    fn update_round_update(&mut self) {}
+    /// Update the round threshold parameters (dummy).
+    fn update_round_thresholds(&mut self) {}
 
     /// Update the seed round parameter.
     fn update_round_seed(&mut self) {
@@ -353,8 +353,7 @@ impl Coordinator {
             }
         }
         self.clear_round_dicts();
-        self.update_round_sum();
-        self.update_round_update();
+        self.update_round_thresholds();
         self.update_round_seed();
         self.phase = Phase::Idle;
     }
@@ -387,9 +386,8 @@ pub struct RoundParameters {
 mod tests {
     use std::{collections::HashMap, iter};
 
-    use sodiumoxide::crypto::sealedbox;
-
     use super::*;
+    use crate::message::update::MaskSeed;
 
     #[test]
     fn test_coordinator() {
@@ -408,7 +406,7 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_task_sum() {
+    fn test_validate_sum_task() {
         let mut coord = Coordinator::new().unwrap();
         coord.seed = vec![
             229, 16, 164, 40, 138, 161, 23, 161, 175, 102, 13, 103, 229, 229, 163, 56, 184, 250,
@@ -442,7 +440,7 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_task_update() {
+    fn test_validate_update_task() {
         let mut coord = Coordinator::new().unwrap();
         coord.seed = vec![
             229, 16, 164, 40, 138, 161, 23, 161, 175, 102, 13, 103, 229, 229, 163, 56, 184, 250,
@@ -550,7 +548,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dict_sum() {
+    fn test_sum_dict() {
         let mut coord = Coordinator::new().unwrap();
         coord.min_sum = 3;
         coord.min_update = 3;
@@ -583,11 +581,11 @@ mod tests {
     }
 
     fn generate_update(sum_dict: &SumDict) -> (UpdateParticipantPublicKey, LocalSeedDict) {
-        let seed = randombytes(32);
+        let seed = MaskSeed::new();
         let pk = sign::PublicKey::from_slice(&randombytes(32)).unwrap();
         let local_seed_dict = sum_dict
             .iter()
-            .map(|(sum_pk, sum_ephm_pk)| (*sum_pk, sealedbox::seal(&seed, sum_ephm_pk)))
+            .map(|(sum_pk, sum_ephm_pk)| (*sum_pk, seed.seal(sum_ephm_pk)))
             .collect::<LocalSeedDict>();
         (pk, local_seed_dict)
     }
@@ -619,7 +617,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dict_seed() {
+    fn test_seed_dict() {
         let mut coord = Coordinator::new().unwrap();
         coord.min_sum = 3;
         coord.min_update = 3;
@@ -636,7 +634,7 @@ mod tests {
         // simulate update participants sending their seeds dictionary
         for (pk, local_seed_dict) in updates.iter() {
             assert!(!coord.has_enough_seeds());
-            coord.add_local_seed_dict(pk, local_seed_dict).unwrap();
+            coord.add_local_seed_dict(pk, local_seed_dict);
         }
         assert_eq!(coord.seed_dict, seed_dict);
         assert!(coord.has_enough_seeds());
@@ -645,18 +643,22 @@ mod tests {
         assert_eq!(coord.phase, Phase::Sum2);
     }
 
-    fn auxiliary_mask(min_sum: usize) -> (Vec<Vec<u8>>, MaskDict) {
+    fn auxiliary_mask(min_sum: usize) -> (Vec<Mask>, MaskDict) {
         // this doesn't work for `min_sum == 0` and `min_sum == 2`
-        let masks = [vec![randombytes(32); min_sum - 1], vec![randombytes(32); 1]].concat();
+        let masks = [
+            vec![Mask::from(randombytes(32)); min_sum - 1],
+            vec![Mask::from(randombytes(32)); 1],
+        ]
+        .concat();
         let mask_dict = masks
             .iter()
-            .map(|mask| sha256::hash(mask))
+            .map(|mask| sha256::hash(mask.as_ref()))
             .collect::<MaskDict>();
         (masks, mask_dict)
     }
 
     #[test]
-    fn test_dict_mask() {
+    fn test_mask_dict() {
         let mut coord = Coordinator::new().unwrap();
         coord.min_sum = 3;
         coord.min_update = 3;
@@ -676,7 +678,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dict_mask_fail() {
+    fn test_mask_dict_fail() {
         let mut coord = Coordinator::new().unwrap();
         coord.min_sum = 3;
         coord.min_update = 3;
