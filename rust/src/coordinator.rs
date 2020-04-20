@@ -8,7 +8,7 @@ use sodiumoxide::{
 };
 
 use crate::{
-    message::{sum::SumMessage, sum2::Sum2Message, update::UpdateMessage},
+    message::{sum::SumMessage, sum2::Sum2Message, update::UpdateMessage, Certificate},
     utils::is_eligible,
     CoordinatorPublicKey, CoordinatorSecretKey, LocalSeedDict, ParticipantTaskSignature, PetError,
     SeedDict, SumDict, SumParticipantEphemeralPublicKey, SumParticipantPublicKey,
@@ -136,8 +136,8 @@ impl Coordinator {
     }
 
     /// Validate a certificate (dummy).
-    fn validate_certificate(certificate: &[u8]) -> Result<(), PetError> {
-        if certificate == b"" {
+    fn validate_certificate(certificate: &Certificate) -> Result<(), PetError> {
+        if certificate.as_ref() == b"" {
             Ok(())
         } else {
             Err(PetError::InvalidMessage)
