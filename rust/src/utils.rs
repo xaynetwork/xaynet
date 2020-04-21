@@ -2,11 +2,13 @@ use num::{
     bigint::{BigUint, ToBigInt},
     rational::Ratio,
 };
-use sodiumoxide::crypto::{hash::sha256, sign};
+use sodiumoxide::crypto::hash::sha256;
+
+use crate::ParticipantTaskSignature;
 
 /// Compute the floating point representation of the hashed signature and ensure that it
 /// is below the given threshold: int(hash(signature)) / (2**hashbits - 1) <= threshold.
-pub fn is_eligible(signature: &sign::Signature, threshold: f64) -> bool {
+pub fn is_eligible(signature: &ParticipantTaskSignature, threshold: f64) -> bool {
     if threshold < 0_f64 {
         false
     } else if threshold > 1_f64 {
@@ -26,6 +28,8 @@ pub fn is_eligible(signature: &sign::Signature, threshold: f64) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use sodiumoxide::crypto::sign;
+
     use super::*;
 
     #[test]
