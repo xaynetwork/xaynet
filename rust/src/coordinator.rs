@@ -1,4 +1,4 @@
-use std::{collections::HashSet, default::Default, iter};
+use std::{default::Default, iter};
 
 use counter::Counter;
 use sodiumoxide::{
@@ -122,14 +122,9 @@ impl Coordinator {
     /// Validate and handle an update message.
     fn handle_update_message(&mut self, bytes: &[u8]) -> Result<(), PetError> {
         let msg = UpdateMessage::open(bytes, &self.pk, &self.sk)?;
-        if msg.local_seed_dict().keys().collect::<HashSet<_>>()
-            != self.sum_dict.keys().collect::<HashSet<_>>()
-        {
-            return Err(PetError::InvalidMessage);
-        }
         Self::validate_certificate(msg.certificate())?;
         self.validate_update_task(msg.sum_signature(), msg.update_signature(), msg.pk())?;
-        self.add_local_seed_dict(msg.pk(), msg.local_seed_dict());
+        self.add_local_seed_dict(msg.pk(), msg.local_seed_dict())?;
         Ok(())
     }
 
@@ -191,7 +186,7 @@ impl Coordinator {
         }
     }
 
-    /// Add a sum participant
+    /// Add a sum participant to the sum dictionary.
     fn add_sum_participant(
         &mut self,
         pk: &SumParticipantPublicKey,
@@ -209,18 +204,27 @@ impl Coordinator {
             .collect();
     }
 
-    /// Add a local seed dictionary to the seed dictionary.
+    /// Add a local seed dictionary to the seed dictionary. Fails if it contains invalid keys.
     fn add_local_seed_dict(
         &mut self,
         pk: &UpdateParticipantPublicKey,
         local_seed_dict: &LocalSeedDict,
-    ) {
-        for (sum_pk, seed) in local_seed_dict {
-            // safe unwrap: existence of `sum_pk` is guaranteed by `freeze_sum_dict()`
-            self.seed_dict
-                .get_mut(sum_pk)
-                .unwrap()
-                .insert(*pk, seed.clone());
+    ) -> Result<(), PetError> {
+        if local_seed_dict.keys().len() == self.sum_dict.keys().len()
+            && local_seed_dict
+                .keys()
+                .all(|pk| self.sum_dict.contains_key(pk))
+        {
+            for (sum_pk, seed) in local_seed_dict {
+                // safe unwrap: existence of `sum_pk` is guaranteed by `freeze_sum_dict()`
+                self.seed_dict
+                    .get_mut(sum_pk)
+                    .unwrap()
+                    .insert(*pk, seed.clone());
+            }
+            Ok(())
+        } else {
+            Err(PetError::InvalidMessage)
         }
     }
 
@@ -384,8 +388,6 @@ pub struct RoundParameters {
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap, iter};
-
     use super::*;
     use crate::message::update::MaskSeed;
 
@@ -575,7 +577,7 @@ mod tests {
             coord.seed_dict,
             sum_dict
                 .iter()
-                .map(|(pk, _)| (*pk, HashMap::new()))
+                .map(|(pk, _)| (*pk, LocalSeedDict::new()))
                 .collect(),
         );
     }
@@ -634,7 +636,7 @@ mod tests {
         // simulate update participants sending their seeds dictionary
         for (pk, local_seed_dict) in updates.iter() {
             assert!(!coord.has_enough_seeds());
-            coord.add_local_seed_dict(pk, local_seed_dict);
+            coord.add_local_seed_dict(pk, local_seed_dict).unwrap();
         }
         assert_eq!(coord.seed_dict, seed_dict);
         assert!(coord.has_enough_seeds());

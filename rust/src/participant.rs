@@ -176,10 +176,7 @@ impl Participant {
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        collections::{HashMap, HashSet},
-        iter,
-    };
+    use std::{collections::HashMap, iter};
 
     use sodiumoxide::randombytes::randombytes_uniform;
 
@@ -258,7 +255,8 @@ mod tests {
         let (mask_seed, _) = Participant::mask_model();
         let ephm_dict = iter::repeat_with(|| box_::gen_keypair())
             .take(1 + randombytes_uniform(10) as usize)
-            .collect::<HashMap<box_::PublicKey, box_::SecretKey>>();
+            .collect::<HashMap<SumParticipantEphemeralPublicKey, SumParticipantEphemeralSecretKey>>(
+            );
         let sum_dict = ephm_dict
             .iter()
             .map(|(ephm_pk, _)| {
@@ -269,10 +267,8 @@ mod tests {
             })
             .collect();
         let seed_dict = Participant::create_local_seed_dict(&sum_dict, &mask_seed);
-        assert_eq!(
-            seed_dict.keys().collect::<HashSet<_>>(),
-            sum_dict.keys().collect::<HashSet<_>>(),
-        );
+        assert_eq!(seed_dict.keys().len(), sum_dict.keys().len());
+        assert!(seed_dict.keys().all(|pk| sum_dict.contains_key(pk)));
         assert!(seed_dict.iter().all(|(pk, seed)| {
             let ephm_pk = sum_dict.get(pk).unwrap();
             let ephm_sk = ephm_dict.get(ephm_pk).unwrap();
@@ -286,7 +282,7 @@ mod tests {
         part.gen_ephm_keypair();
         let mask_seeds = iter::repeat_with(|| MaskSeed::new())
             .take(1 + randombytes_uniform(10) as usize)
-            .collect::<HashSet<_>>();
+            .collect::<Vec<_>>();
         let seed_dict = [(
             part.pk,
             mask_seeds
@@ -302,15 +298,13 @@ mod tests {
         .iter()
         .cloned()
         .collect();
+        assert!(part
+            .get_seeds(&seed_dict)
+            .unwrap()
+            .iter()
+            .eq(mask_seeds.iter()));
         assert_eq!(
-            part.get_seeds(&seed_dict)
-                .unwrap()
-                .into_iter()
-                .collect::<HashSet<_>>(),
-            mask_seeds.into_iter().collect::<HashSet<_>>(),
-        );
-        assert_eq!(
-            part.get_seeds(&HashMap::new()).unwrap_err(),
+            part.get_seeds(&SeedDict::new()).unwrap_err(),
             PetError::InvalidMessage,
         );
     }
