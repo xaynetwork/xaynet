@@ -1,4 +1,4 @@
-use std::{borrow::Borrow, convert::TryFrom, ops::Range};
+use std::{borrow::Borrow, convert::TryFrom, default::Default, ops::Range};
 
 use sodiumoxide::crypto::{box_, sealedbox, sign};
 
@@ -18,6 +18,24 @@ use crate::{
 /// Access to sum message buffer fields.
 struct SumMessageBuffer<B> {
     bytes: B,
+    certificate_range: Range<usize>,
+    sum_signature_range: Range<usize>,
+    ephm_pk_range: Range<usize>,
+}
+
+impl Default for SumMessageBuffer<Vec<u8>> {
+    fn default() -> Self {
+        let bytes = Vec::<u8>::new();
+        let certificate_range = 0..0;
+        let sum_signature_range = 0..0;
+        let ephm_pk_range = 0..0;
+        Self {
+            bytes,
+            certificate_range,
+            sum_signature_range,
+            ephm_pk_range,
+        }
+    }
 }
 
 impl SumMessageBuffer<Vec<u8>> {
@@ -25,6 +43,7 @@ impl SumMessageBuffer<Vec<u8>> {
     fn new(len: usize) -> Self {
         Self {
             bytes: vec![0_u8; len],
+            ..Default::default()
         }
     }
 }
@@ -34,10 +53,22 @@ impl TryFrom<Vec<u8>> for SumMessageBuffer<Vec<u8>> {
 
     /// Create a sum message buffer from `bytes`. Fails if the length of the input is invalid.
     fn try_from(bytes: Vec<u8>) -> Result<Self, Self::Error> {
-        let buffer = Self { bytes };
-        if buffer.len() >= buffer.certificate_len_range().end
-            && buffer.len() == buffer.ephm_pk_range().end
-        {
+        let mut buffer = Self {
+            bytes,
+            ..Default::default()
+        };
+        let mut offset = buffer.certificate_len_range().end;
+        if buffer.len() >= offset {
+            buffer.certificate_range = offset..offset + buffer.certificate_bytes();
+            offset = buffer.certificate_range().end;
+            buffer.sum_signature_range = offset..offset + SIGNATURE_BYTES;
+            offset = buffer.sum_signature_range().end;
+            buffer.ephm_pk_range = offset..offset + PK_BYTES;
+            offset = buffer.ephm_pk_range().end;
+        } else {
+            return Err(PetError::InvalidMessage);
+        }
+        if buffer.len() == offset {
             Ok(buffer)
         } else {
             Err(PetError::InvalidMessage)
@@ -55,12 +86,22 @@ impl<B: AsRef<[u8]> + AsMut<[u8]>> MessageBuffer for SumMessageBuffer<B> {
     fn bytes_mut(&mut self) -> &mut [u8] {
         self.bytes.as_mut()
     }
+
+    /// Get the range of the certificate field.
+    fn certificate_range(&self) -> Range<usize> {
+        self.certificate_range.clone()
+    }
+
+    /// Get the range of the sum signature field.
+    fn sum_signature_range(&self) -> Range<usize> {
+        self.sum_signature_range.clone()
+    }
 }
 
 impl<B: AsRef<[u8]> + AsMut<[u8]>> SumMessageBuffer<B> {
     /// Get the range of the public ephemeral key field.
     fn ephm_pk_range(&self) -> Range<usize> {
-        self.sum_signature_range().end..self.sum_signature_range().end + PK_BYTES
+        self.ephm_pk_range.clone()
     }
 
     /// Get a reference to the public ephemeral key field.
@@ -127,15 +168,21 @@ where
         buffer
             .part_pk_mut()
             .copy_from_slice(self.pk.borrow().as_ref());
+        let mut offset = buffer.certificate_len_range().end;
+        buffer.certificate_range = offset..offset + buffer.certificate_bytes();
         buffer
             .certificate_len_mut()
             .copy_from_slice(&self.certificate.borrow().len().to_le_bytes());
         buffer
             .certificate_mut()
             .copy_from_slice(self.certificate.borrow().as_ref());
+        offset = buffer.certificate_range().end;
+        buffer.sum_signature_range = offset..offset + SIGNATURE_BYTES;
         buffer
             .sum_signature_mut()
             .copy_from_slice(self.sum_signature.borrow().as_ref());
+        offset = buffer.sum_signature_range().end;
+        buffer.ephm_pk_range = offset..offset + PK_BYTES;
         buffer
             .ephm_pk_mut()
             .copy_from_slice(self.ephm_pk.borrow().as_ref());
@@ -235,14 +282,7 @@ mod tests {
     }
 
     #[test]
-    fn test_summessagebuffer_ranges() {
-        let bytes = auxiliary_bytes();
-        let buffer = SumMessageBuffer { bytes };
-        assert_eq!(buffer.ephm_pk_range(), 193 + LEN_BYTES..225 + LEN_BYTES);
-    }
-
-    #[test]
-    fn test_summessagebuffer_fields() {
+    fn test_summessagebuffer() {
         // new
         assert_eq!(SumMessageBuffer::new(10).bytes, vec![0_u8; 10]);
 

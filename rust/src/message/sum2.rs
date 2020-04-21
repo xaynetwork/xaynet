@@ -1,6 +1,7 @@
 use std::{
     borrow::Borrow,
     convert::{TryFrom, TryInto},
+    default::Default,
     ops::Range,
 };
 
@@ -53,6 +54,27 @@ impl From<&[u8]> for Mask {
 /// Access to sum2 message buffer fields.
 struct Sum2MessageBuffer<B> {
     bytes: B,
+    certificate_range: Range<usize>,
+    sum_signature_range: Range<usize>,
+    mask_len_range: Range<usize>,
+    mask_range: Range<usize>,
+}
+
+impl Default for Sum2MessageBuffer<Vec<u8>> {
+    fn default() -> Self {
+        let bytes = Vec::<u8>::new();
+        let certificate_range = 0..0;
+        let sum_signature_range = 0..0;
+        let mask_len_range = 0..0;
+        let mask_range = 0..0;
+        Self {
+            bytes,
+            certificate_range,
+            sum_signature_range,
+            mask_len_range,
+            mask_range,
+        }
+    }
 }
 
 impl Sum2MessageBuffer<Vec<u8>> {
@@ -60,6 +82,7 @@ impl Sum2MessageBuffer<Vec<u8>> {
     fn new(len: usize) -> Self {
         Self {
             bytes: vec![0_u8; len],
+            ..Default::default()
         }
     }
 }
@@ -69,11 +92,28 @@ impl TryFrom<Vec<u8>> for Sum2MessageBuffer<Vec<u8>> {
 
     /// Create a sum2 message buffer from `bytes`. Fails if the length of the input is invalid.
     fn try_from(bytes: Vec<u8>) -> Result<Self, Self::Error> {
-        let buffer = Self { bytes };
-        if buffer.len() >= buffer.certificate_len_range().end
-            && buffer.len() >= buffer.mask_len_range().end
-            && buffer.len() == buffer.mask_range().end
-        {
+        let mut buffer = Self {
+            bytes,
+            ..Default::default()
+        };
+        let mut offset = buffer.certificate_len_range().end;
+        if buffer.len() >= offset {
+            buffer.certificate_range = offset..offset + buffer.certificate_bytes();
+            offset = buffer.certificate_range().end;
+            buffer.sum_signature_range = offset..offset + SIGNATURE_BYTES;
+            offset = buffer.sum_signature_range().end;
+            buffer.mask_len_range = offset..offset + LEN_BYTES;
+            offset = buffer.mask_len_range().end;
+        } else {
+            return Err(PetError::InvalidMessage);
+        }
+        if buffer.len() >= offset {
+            buffer.mask_range = offset..offset + buffer.mask_bytes();
+            offset = buffer.mask_range().end;
+        } else {
+            return Err(PetError::InvalidMessage);
+        }
+        if buffer.len() == offset {
             Ok(buffer)
         } else {
             Err(PetError::InvalidMessage)
@@ -91,12 +131,22 @@ impl<B: AsRef<[u8]> + AsMut<[u8]>> MessageBuffer for Sum2MessageBuffer<B> {
     fn bytes_mut(&mut self) -> &mut [u8] {
         self.bytes.as_mut()
     }
+
+    /// Get the range of the certificate field.
+    fn certificate_range(&self) -> Range<usize> {
+        self.certificate_range.clone()
+    }
+
+    /// Get the range of the sum signature field.
+    fn sum_signature_range(&self) -> Range<usize> {
+        self.sum_signature_range.clone()
+    }
 }
 
 impl<B: AsRef<[u8]> + AsMut<[u8]>> Sum2MessageBuffer<B> {
     /// Get the range of the mask length field.
     fn mask_len_range(&self) -> Range<usize> {
-        self.sum_signature_range().end..self.sum_signature_range().end + LEN_BYTES
+        self.mask_len_range.clone()
     }
 
     /// Get a reference to the mask length field.
@@ -119,7 +169,7 @@ impl<B: AsRef<[u8]> + AsMut<[u8]>> Sum2MessageBuffer<B> {
 
     /// Get the range of the mask field.
     fn mask_range(&self) -> Range<usize> {
-        self.mask_len_range().end..self.mask_len_range().end + self.mask_bytes()
+        self.mask_range.clone()
     }
 
     /// Get a reference to the mask field.
@@ -190,15 +240,23 @@ where
         buffer
             .certificate_len_mut()
             .copy_from_slice(&self.certificate.borrow().len().to_le_bytes());
+        let mut offset = buffer.certificate_len_range().end;
+        buffer.certificate_range = offset..offset + buffer.certificate_bytes();
         buffer
             .certificate_mut()
             .copy_from_slice(self.certificate.borrow().as_ref());
+        offset = buffer.certificate_range().end;
+        buffer.sum_signature_range = offset..offset + SIGNATURE_BYTES;
         buffer
             .sum_signature_mut()
             .copy_from_slice(self.sum_signature.borrow().as_ref());
+        offset = buffer.sum_signature_range().end;
+        buffer.mask_len_range = offset..offset + LEN_BYTES;
         buffer
             .mask_len_mut()
             .copy_from_slice(&self.mask.borrow().len().to_le_bytes());
+        offset = buffer.mask_len_range().end;
+        buffer.mask_range = offset..offset + buffer.mask_bytes();
         buffer
             .mask_mut()
             .copy_from_slice(self.mask.borrow().as_ref());
@@ -293,17 +351,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sum2messagebuffer_ranges() {
-        let bytes = auxiliary_bytes();
-        let buffer = Sum2MessageBuffer { bytes };
-        assert_eq!(
-            buffer.mask_range(),
-            193 + 2 * LEN_BYTES..225 + 2 * LEN_BYTES,
-        );
-    }
-
-    #[test]
-    fn test_sum2messagebuffer_fields() {
+    fn test_sum2messagebuffer() {
         // new
         assert_eq!(Sum2MessageBuffer::new(10).bytes, vec![0_u8; 10]);
 

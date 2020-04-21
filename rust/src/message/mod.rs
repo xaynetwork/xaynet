@@ -53,7 +53,7 @@ trait MessageBuffer: Sized {
 
     /// Get the range of the message field.
     fn message_range(&self) -> RangeFrom<usize> {
-        self.signature_range().end..
+        SIGNATURE_BYTES..
     }
 
     /// Get a reference to the message field.
@@ -70,7 +70,8 @@ trait MessageBuffer: Sized {
 
     /// Get the range of the tag field.
     fn tag_range(&self) -> Range<usize> {
-        self.signature_range().end..self.signature_range().end + TAG_BYTES
+        let offset = SIGNATURE_BYTES;
+        offset..offset + TAG_BYTES
     }
 
     /// Get a reference to the tag field.
@@ -87,7 +88,8 @@ trait MessageBuffer: Sized {
 
     /// Get the range of the coordinator public key field.
     fn coord_pk_range(&self) -> Range<usize> {
-        self.tag_range().end..self.tag_range().end + PK_BYTES
+        let offset = SIGNATURE_BYTES + TAG_BYTES;
+        offset..offset + PK_BYTES
     }
 
     /// Get a reference to the coordinator public key field.
@@ -104,7 +106,8 @@ trait MessageBuffer: Sized {
 
     /// Get the range of the participant public key field.
     fn part_pk_range(&self) -> Range<usize> {
-        self.coord_pk_range().end..self.coord_pk_range().end + PK_BYTES
+        let offset = SIGNATURE_BYTES + TAG_BYTES + PK_BYTES;
+        offset..offset + PK_BYTES
     }
 
     /// Get a reference to the participant public key field.
@@ -121,7 +124,8 @@ trait MessageBuffer: Sized {
 
     /// Get the range of the certificate length field.
     fn certificate_len_range(&self) -> Range<usize> {
-        self.part_pk_range().end..self.part_pk_range().end + LEN_BYTES
+        let offset = SIGNATURE_BYTES + TAG_BYTES + PK_BYTES + PK_BYTES;
+        offset..offset + LEN_BYTES
     }
 
     /// Get a reference to the certificate length field.
@@ -143,10 +147,11 @@ trait MessageBuffer: Sized {
     }
 
     /// Get the range of the certificate field.
-    fn certificate_range(&self) -> Range<usize> {
-        self.certificate_len_range().end
-            ..self.certificate_len_range().end + self.certificate_bytes()
-    }
+    fn certificate_range(&self) -> Range<usize>;
+    //  {
+    //     let offset = SIGNATURE_BYTES + TAG_BYTES + PK_BYTES + PK_BYTES + LEN_BYTES;
+    //     offset..offset + self.certificate_bytes()
+    // }
 
     /// Get a reference to the certificate field.
     fn certificate(&'_ self) -> &'_ [u8] {
@@ -161,9 +166,16 @@ trait MessageBuffer: Sized {
     }
 
     /// Get the range of the sum signature field.
-    fn sum_signature_range(&self) -> Range<usize> {
-        self.certificate_range().end..self.certificate_range().end + SIGNATURE_BYTES
-    }
+    fn sum_signature_range(&self) -> Range<usize>;
+    //  {
+    //     let offset = SIGNATURE_BYTES
+    //         + TAG_BYTES
+    //         + PK_BYTES
+    //         + PK_BYTES
+    //         + LEN_BYTES
+    //         + self.certificate_bytes();
+    //     offset..offset + SIGNATURE_BYTES
+    // }
 
     /// Get a reference to the sum signature field.
     fn sum_signature(&'_ self) -> &'_ [u8] {
@@ -196,6 +208,16 @@ mod tests {
         fn bytes_mut(&mut self) -> &mut [u8] {
             self.bytes.as_mut()
         }
+
+        fn certificate_range(&self) -> Range<usize> {
+            let offset = SIGNATURE_BYTES + TAG_BYTES + PK_BYTES + PK_BYTES + LEN_BYTES;
+            offset..offset
+        }
+
+        fn sum_signature_range(&self) -> Range<usize> {
+            let offset = SIGNATURE_BYTES + TAG_BYTES + PK_BYTES + PK_BYTES + LEN_BYTES;
+            offset..offset + SIGNATURE_BYTES
+        }
     }
 
     fn auxiliary_bytes() -> Vec<u8> {
@@ -208,32 +230,18 @@ mod tests {
     }
 
     #[test]
-    fn test_messagebuffer_ranges() {
-        // constants
+    fn test_constants() {
+        // just to make sure that the constants were not changed accidentally, because a lot of
+        // assumptions are based on those
         assert_eq!(SIGNATURE_BYTES, sign::SIGNATUREBYTES);
         assert_eq!(TAG_BYTES, 1);
         assert_eq!(PK_BYTES, box_::PUBLICKEYBYTES);
         assert_eq!(PK_BYTES, sign::PUBLICKEYBYTES);
-        assert_eq!(LEN_BYTES, LEN_BYTES);
-
-        // ranges
-        let bytes = auxiliary_bytes();
-        let buffer = TestMessageBuffer { bytes };
-        assert_eq!(buffer.signature_range(), ..64);
-        assert_eq!(buffer.message_range(), 64..);
-        assert_eq!(buffer.tag_range(), 64..65);
-        assert_eq!(buffer.coord_pk_range(), 65..97);
-        assert_eq!(buffer.part_pk_range(), 97..129);
-        assert_eq!(buffer.certificate_len_range(), 129..129 + LEN_BYTES);
-        assert_eq!(buffer.certificate_range(), 129 + LEN_BYTES..129 + LEN_BYTES);
-        assert_eq!(
-            buffer.sum_signature_range(),
-            129 + LEN_BYTES..193 + LEN_BYTES,
-        );
+        assert_eq!(LEN_BYTES, mem::size_of::<usize>());
     }
 
     #[test]
-    fn test_messagebuffer_fields() {
+    fn test_messagebuffer() {
         let mut bytes = auxiliary_bytes();
         let mut buffer = TestMessageBuffer {
             bytes: bytes.clone(),
