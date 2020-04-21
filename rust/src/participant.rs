@@ -176,7 +176,10 @@ impl Participant {
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap, iter};
+    use std::{
+        collections::{HashMap, HashSet},
+        iter,
+    };
 
     use sodiumoxide::randombytes::randombytes_uniform;
 
@@ -298,11 +301,13 @@ mod tests {
         .iter()
         .cloned()
         .collect();
-        assert!(part
-            .get_seeds(&seed_dict)
-            .unwrap()
-            .iter()
-            .eq(mask_seeds.iter()));
+        assert_eq!(
+            part.get_seeds(&seed_dict)
+                .unwrap()
+                .into_iter()
+                .collect::<HashSet<_>>(),
+            mask_seeds.into_iter().collect::<HashSet<_>>(),
+        );
         assert_eq!(
             part.get_seeds(&SeedDict::new()).unwrap_err(),
             PetError::InvalidMessage,
