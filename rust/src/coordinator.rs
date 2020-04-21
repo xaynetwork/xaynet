@@ -15,8 +15,15 @@ use crate::{
         Certificate,
     },
     utils::is_eligible,
-    CoordinatorPublicKey, CoordinatorSecretKey, LocalSeedDict, ParticipantTaskSignature, PetError,
-    SeedDict, SumDict, SumParticipantEphemeralPublicKey, SumParticipantPublicKey,
+    CoordinatorPublicKey,
+    CoordinatorSecretKey,
+    LocalSeedDict,
+    ParticipantTaskSignature,
+    PetError,
+    SeedDict,
+    SumDict,
+    SumParticipantEphemeralPublicKey,
+    SumParticipantPublicKey,
     UpdateParticipantPublicKey,
 };
 

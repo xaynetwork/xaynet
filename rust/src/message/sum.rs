@@ -4,8 +4,13 @@ use sodiumoxide::crypto::{box_, sealedbox, sign};
 
 use super::{Certificate, MessageBuffer, LEN_BYTES, PK_BYTES, SIGNATURE_BYTES, SUM_TAG, TAG_BYTES};
 use crate::{
-    CoordinatorPublicKey, CoordinatorSecretKey, ParticipantTaskSignature, PetError,
-    SumParticipantEphemeralPublicKey, SumParticipantPublicKey, SumParticipantSecretKey,
+    CoordinatorPublicKey,
+    CoordinatorSecretKey,
+    ParticipantTaskSignature,
+    PetError,
+    SumParticipantEphemeralPublicKey,
+    SumParticipantPublicKey,
+    SumParticipantSecretKey,
 };
 
 #[derive(Clone, Debug)]

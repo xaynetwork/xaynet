@@ -7,11 +7,21 @@ use std::{
 use sodiumoxide::crypto::{sealedbox, sign};
 
 use super::{
-    Certificate, MessageBuffer, LEN_BYTES, PK_BYTES, SIGNATURE_BYTES, SUM2_TAG, TAG_BYTES,
+    Certificate,
+    MessageBuffer,
+    LEN_BYTES,
+    PK_BYTES,
+    SIGNATURE_BYTES,
+    SUM2_TAG,
+    TAG_BYTES,
 };
 use crate::{
-    CoordinatorPublicKey, CoordinatorSecretKey, ParticipantTaskSignature, PetError,
-    SumParticipantPublicKey, SumParticipantSecretKey,
+    CoordinatorPublicKey,
+    CoordinatorSecretKey,
+    ParticipantTaskSignature,
+    PetError,
+    SumParticipantPublicKey,
+    SumParticipantSecretKey,
 };
 
 #[derive(Clone, Debug, PartialEq)]
