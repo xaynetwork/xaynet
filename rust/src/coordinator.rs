@@ -8,11 +8,8 @@ use sodiumoxide::{
 };
 
 use crate::{
-    message::{
-        sum::SumMessage,
-        sum2::{Mask, Sum2Message},
-        update::UpdateMessage,
-    },
+    mask::Mask,
+    message::{sum::SumMessage, sum2::Sum2Message, update::UpdateMessage},
     utils::is_eligible,
     CoordinatorPublicKey,
     CoordinatorSecretKey,

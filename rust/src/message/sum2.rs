@@ -10,6 +10,7 @@ use sodiumoxide::crypto::{sealedbox, sign};
 use super::{MessageBuffer, LEN_BYTES, PK_BYTES, SIGNATURE_BYTES, SUM2_TAG, TAG_BYTES};
 use crate::{
     certificate::Certificate,
+    mask::Mask,
     CoordinatorPublicKey,
     CoordinatorSecretKey,
     ParticipantTaskSignature,
@@ -17,38 +18,6 @@ use crate::{
     SumParticipantPublicKey,
     SumParticipantSecretKey,
 };
-
-#[derive(Clone, Debug, PartialEq)]
-/// A mask. (TODO: move this to the masking module later on.)
-pub struct Mask(Vec<u8>);
-
-impl Mask {
-    /// Get the length of the mask.
-    fn len(&self) -> usize {
-        self.0.len()
-    }
-}
-
-impl AsRef<[u8]> for Mask {
-    /// Get a reference to the mask.
-    fn as_ref(&self) -> &[u8] {
-        self.0.as_slice()
-    }
-}
-
-impl From<Vec<u8>> for Mask {
-    /// Create a mask from bytes.
-    fn from(bytes: Vec<u8>) -> Self {
-        Self(bytes)
-    }
-}
-
-impl From<&[u8]> for Mask {
-    /// Create a mask from a slice of bytes.
-    fn from(slice: &[u8]) -> Self {
-        Self(slice.to_vec())
-    }
-}
 
 #[derive(Clone, Debug)]
 /// Access to sum2 message buffer fields.

@@ -112,6 +112,38 @@ impl TryFrom<&[u8]> for EncrMaskSeed {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
+/// A mask.
+pub struct Mask(Vec<u8>);
+
+impl Mask {
+    /// Get the length of the mask.
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+}
+
+impl AsRef<[u8]> for Mask {
+    /// Get a reference to the mask.
+    fn as_ref(&self) -> &[u8] {
+        self.0.as_slice()
+    }
+}
+
+impl From<Vec<u8>> for Mask {
+    /// Create a mask from bytes.
+    fn from(bytes: Vec<u8>) -> Self {
+        Self(bytes)
+    }
+}
+
+impl From<&[u8]> for Mask {
+    /// Create a mask from a slice of bytes.
+    fn from(slice: &[u8]) -> Self {
+        Self(slice.to_vec())
+    }
+}
+
 #[derive(Debug, PartialEq)]
 /// A masked model.
 pub struct MaskedModel(Vec<u8>);

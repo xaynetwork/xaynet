@@ -8,12 +8,8 @@ use sodiumoxide::{
 
 use crate::{
     certificate::Certificate,
-    mask::{MaskSeed, MaskedModel},
-    message::{
-        sum::SumMessage,
-        sum2::{Mask, Sum2Message},
-        update::UpdateMessage,
-    },
+    mask::{Mask, MaskSeed, MaskedModel},
+    message::{sum::SumMessage, sum2::Sum2Message, update::UpdateMessage},
     utils::is_eligible,
     CoordinatorPublicKey,
     LocalSeedDict,
