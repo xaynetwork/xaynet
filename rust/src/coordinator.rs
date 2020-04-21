@@ -386,7 +386,7 @@ pub struct RoundParameters {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::message::update::MaskSeed;
+    use crate::mask::MaskSeed;
 
     #[test]
     fn test_coordinator() {

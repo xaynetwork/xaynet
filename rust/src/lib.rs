@@ -21,7 +21,7 @@ use std::collections::HashMap;
 
 use sodiumoxide::crypto::{box_, sign};
 
-use crate::message::update::EncrMaskSeed;
+use crate::mask::EncrMaskSeed;
 
 #[derive(Debug, PartialEq)]
 /// PET protocol errors.
