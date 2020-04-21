@@ -6,16 +6,9 @@ use std::{
 
 use sodiumoxide::crypto::{sealedbox, sign};
 
-use super::{
-    Certificate,
-    MessageBuffer,
-    LEN_BYTES,
-    PK_BYTES,
-    SIGNATURE_BYTES,
-    SUM2_TAG,
-    TAG_BYTES,
-};
+use super::{MessageBuffer, LEN_BYTES, PK_BYTES, SIGNATURE_BYTES, SUM2_TAG, TAG_BYTES};
 use crate::{
+    certificate::Certificate,
     CoordinatorPublicKey,
     CoordinatorSecretKey,
     ParticipantTaskSignature,
@@ -339,7 +332,7 @@ mod tests {
     fn test_sum2message_serialize() {
         // from parts
         let pk = &sign::PublicKey::from_slice(&randombytes(32)).unwrap();
-        let certificate = &Vec::<u8>::new().into();
+        let certificate = &Certificate::new();
         let sum_signature = &sign::Signature::from_slice(&randombytes(64)).unwrap();
         let mask = &randombytes(32).into();
         let msg = Sum2Message::from_parts(pk, certificate, sum_signature, mask);
@@ -394,7 +387,7 @@ mod tests {
     fn test_sum2message() {
         // seal
         let (pk, sk) = sign::gen_keypair();
-        let certificate = Vec::<u8>::new().into();
+        let certificate = Certificate::new();
         let sum_signature = sign::Signature::from_slice(&randombytes(64)).unwrap();
         let mask = randombytes(32).into();
         let (coord_pk, coord_sk) = box_::gen_keypair();

@@ -9,16 +9,9 @@ use sodiumoxide::{
     randombytes::randombytes,
 };
 
-use super::{
-    Certificate,
-    MessageBuffer,
-    LEN_BYTES,
-    PK_BYTES,
-    SIGNATURE_BYTES,
-    TAG_BYTES,
-    UPDATE_TAG,
-};
+use super::{MessageBuffer, LEN_BYTES, PK_BYTES, SIGNATURE_BYTES, TAG_BYTES, UPDATE_TAG};
 use crate::{
+    certificate::Certificate,
     CoordinatorPublicKey,
     CoordinatorSecretKey,
     LocalSeedDict,
@@ -617,7 +610,7 @@ mod tests {
         // from parts
         let sum_dict_len = 1 + randombytes_uniform(10) as usize;
         let pk = &sign::PublicKey::from_slice(&randombytes(32)).unwrap();
-        let certificate = &Vec::<u8>::new().into();
+        let certificate = &Certificate::new();
         let sum_signature = &sign::Signature::from_slice(&randombytes(64)).unwrap();
         let update_signature = &sign::Signature::from_slice(&randombytes(64)).unwrap();
         let masked_model = &randombytes(32).into();
@@ -746,7 +739,7 @@ mod tests {
         // seal
         let sum_dict_len = 1 + randombytes_uniform(10) as usize;
         let (pk, sk) = sign::gen_keypair();
-        let certificate = Vec::<u8>::new().into();
+        let certificate = Certificate::new();
         let sum_signature = sign::Signature::from_slice(&randombytes(64)).unwrap();
         let update_signature = sign::Signature::from_slice(&randombytes(64)).unwrap();
         let masked_model = randombytes(32).into();

@@ -21,38 +21,6 @@ const TAG_BYTES: usize = 1;
 const PK_BYTES: usize = sign::PUBLICKEYBYTES;
 const LEN_BYTES: usize = mem::size_of::<usize>();
 
-#[derive(Debug, PartialEq)]
-/// A dummy type that represents a certificate.
-pub struct Certificate(Vec<u8>);
-
-impl Certificate {
-    /// Get the length of the certificate.
-    fn len(&self) -> usize {
-        self.0.len()
-    }
-}
-
-impl AsRef<[u8]> for Certificate {
-    /// Get a reference to the certificate.
-    fn as_ref(&self) -> &[u8] {
-        self.0.as_slice()
-    }
-}
-
-impl From<Vec<u8>> for Certificate {
-    /// Create a certificate from bytes.
-    fn from(bytes: Vec<u8>) -> Self {
-        Self(bytes)
-    }
-}
-
-impl From<&[u8]> for Certificate {
-    /// Create a certificate from a slice of bytes.
-    fn from(slice: &[u8]) -> Self {
-        Self(slice.to_vec())
-    }
-}
-
 /// Access to common message buffer fields.
 trait MessageBuffer: Sized {
     /// Get a reference to the message buffer.

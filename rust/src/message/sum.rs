@@ -2,8 +2,9 @@ use std::{borrow::Borrow, convert::TryFrom, ops::Range};
 
 use sodiumoxide::crypto::{box_, sealedbox, sign};
 
-use super::{Certificate, MessageBuffer, LEN_BYTES, PK_BYTES, SIGNATURE_BYTES, SUM_TAG, TAG_BYTES};
+use super::{MessageBuffer, LEN_BYTES, PK_BYTES, SIGNATURE_BYTES, SUM_TAG, TAG_BYTES};
 use crate::{
+    certificate::Certificate,
     CoordinatorPublicKey,
     CoordinatorSecretKey,
     ParticipantTaskSignature,
@@ -264,7 +265,7 @@ mod tests {
     fn test_summessage_serialize() {
         // from parts
         let pk = &sign::PublicKey::from_slice(&randombytes(32)).unwrap();
-        let certificate = &Vec::<u8>::new().into();
+        let certificate = &Certificate::new();
         let sum_signature = &sign::Signature::from_slice(&randombytes(64)).unwrap();
         let ephm_pk = &box_::PublicKey::from_slice(&randombytes(32)).unwrap();
         let msg = SumMessage::from_parts(pk, certificate, sum_signature, ephm_pk);
@@ -324,7 +325,7 @@ mod tests {
     fn test_summessage() {
         // seal
         let (pk, sk) = sign::gen_keypair();
-        let certificate = Vec::<u8>::new().into();
+        let certificate = Certificate::new();
         let sum_signature = sign::Signature::from_slice(&randombytes(64)).unwrap();
         let ephm_pk = box_::PublicKey::from_slice(&randombytes(32)).unwrap();
         let (coord_pk, coord_sk) = box_::gen_keypair();

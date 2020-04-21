@@ -9,7 +9,9 @@ extern crate tracing;
 #[macro_use]
 extern crate serde;
 
+pub mod certificate;
 pub mod coordinator;
+pub mod mask;
 pub mod message;
 pub mod participant;
 pub mod service;

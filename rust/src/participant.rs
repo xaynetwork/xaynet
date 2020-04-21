@@ -7,11 +7,11 @@ use sodiumoxide::{
 };
 
 use crate::{
+    certificate::Certificate,
     message::{
         sum::SumMessage,
         sum2::{Mask, Sum2Message},
         update::{MaskSeed, MaskedModel, UpdateMessage},
-        Certificate,
     },
     utils::is_eligible,
     CoordinatorPublicKey,
@@ -55,7 +55,7 @@ impl Default for Participant {
         let sk = sign::SecretKey([0_u8; sign::SECRETKEYBYTES]);
         let ephm_pk = box_::PublicKey([0_u8; box_::PUBLICKEYBYTES]);
         let ephm_sk = box_::SecretKey([0_u8; box_::SECRETKEYBYTES]);
-        let certificate = Vec::<u8>::new().into();
+        let certificate = Certificate::new();
         let sum_signature = sign::Signature([0_u8; sign::SIGNATUREBYTES]);
         let update_signature = sign::Signature([0_u8; sign::SIGNATUREBYTES]);
         let task = Task::None;
@@ -199,7 +199,7 @@ mod tests {
         assert_eq!(part.sk.as_ref().len(), 64);
         assert_eq!(part.ephm_pk, box_::PublicKey([0_u8; 32]));
         assert_eq!(part.ephm_sk, box_::SecretKey([0_u8; 32]));
-        assert_eq!(part.certificate, Vec::<u8>::new().into());
+        assert_eq!(part.certificate, Certificate::new());
         assert_eq!(part.sum_signature, sign::Signature([0_u8; 64]));
         assert_eq!(part.update_signature, sign::Signature([0_u8; 64]));
         assert_eq!(part.task, Task::None);
