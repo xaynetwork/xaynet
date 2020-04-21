@@ -26,7 +26,7 @@ fn hex_to_public_key(hex: &String) -> Result<box_::PublicKey, StoreError> {
         })
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct CoordinatorPartialState {
     encr_pk: String,
     encr_sk: String,
@@ -127,6 +127,12 @@ impl TryFrom<CoordinatorPartialStateResult> for CoordinatorPartialState {
 pub struct SumDictEntry(pub box_::PublicKey, pub box_::PublicKey);
 
 impl SumDictEntry {
+    pub fn key() -> &'static str {
+        "sum_dict"
+    }
+}
+
+impl SumDictEntry {
     pub fn to_args(&self) -> (String, String) {
         (public_key_to_hex(&self.0), public_key_to_hex(&self.1))
     }
@@ -150,11 +156,17 @@ impl TryFrom<SumDictResult> for SumDict {
 pub struct SeedDictEntry(pub box_::PublicKey, pub HashMap<box_::PublicKey, Vec<u8>>);
 
 impl SeedDictEntry {
+    pub fn key() -> &'static str {
+        "seed_dict"
+    }
+}
+
+impl SeedDictEntry {
     pub fn to_args(&self) -> (String, Vec<(String, String)>) {
         let sub_dict = &self
             .1
             .iter()
-            .map(|(updated_pk, seed)| (public_key_to_hex(&updated_pk), HEXUPPER.encode(&seed)))
+            .map(|(update_pk, seed)| (public_key_to_hex(&update_pk), HEXUPPER.encode(&seed)))
             .collect::<Vec<(String, String)>>();
         (public_key_to_hex(&self.0), sub_dict.to_vec())
     }
@@ -167,11 +179,11 @@ impl TryFrom<SeedDictValueEntryResult> for HashMap<SumParticipantPublicKey, Encr
     fn try_from(result: SeedDictValueEntryResult) -> Result<Self, Self::Error> {
         let mut sub_dict: HashMap<SumParticipantPublicKey, EncryptedMaskingSeed> = HashMap::new();
         for (k, v) in result.0.iter() {
-            let updated_pk = hex_to_public_key(&k)?;
+            let update_pk = hex_to_public_key(&k)?;
             let seed = HEXUPPER
                 .decode(&v.as_bytes())
                 .map_err(|_| StoreError::Convert)?;
-            sub_dict.insert(updated_pk, seed);
+            sub_dict.insert(update_pk, seed);
         }
         Ok(sub_dict)
     }
@@ -192,6 +204,12 @@ pub struct MaskDictEntry(pub Vec<u8>);
 impl MaskDictEntry {
     pub fn to_args(&self) -> String {
         HEXUPPER.encode(&self.0.as_ref())
+    }
+}
+
+impl MaskDictEntry {
+    pub fn key() -> &'static str {
+        "mask_dict"
     }
 }
 

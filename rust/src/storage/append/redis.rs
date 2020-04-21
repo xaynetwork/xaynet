@@ -27,7 +27,7 @@ impl RedisStore {
 
     async fn set_partial_coordinator_state(
         &mut self,
-        partial_state: CoordinatorPartialState,
+        partial_state: &CoordinatorPartialState,
     ) -> RedisResult<()> {
         self.connection
             .set_multiple(&partial_state.to_args())
@@ -35,23 +35,29 @@ impl RedisStore {
         Ok(())
     }
 
-    async fn set_sum_dict_entry(&mut self, entry: SumDictEntry) -> RedisResult<()> {
-        let entry = entry.to_args();
-        self.connection.hset("sum_dict", entry.0, entry.1).await?;
-        Ok(())
-    }
-
-    async fn set_seed_dict_entry(&mut self, entry: SeedDictEntry) -> RedisResult<()> {
-        let entry = entry.to_args();
-        self.connection.sadd("seed_dict", &entry.0).await?;
+    async fn set_sum_dict_entry(&mut self, entry: &SumDictEntry) -> RedisResult<()> {
+        let (sum_pk, sum_epk) = entry.to_args();
         self.connection
-            .hset_multiple(format!("seed_dict:{}", &entry.0), &entry.1)
+            .hset(SumDictEntry::key(), sum_pk, sum_epk)
             .await?;
         Ok(())
     }
 
-    async fn set_mask_dict_entry(&mut self, entry: MaskDictEntry) -> RedisResult<()> {
-        self.connection.sadd("mask_dict", &entry.to_args()).await?;
+    async fn set_seed_dict_entry(&mut self, entry: &SeedDictEntry) -> RedisResult<()> {
+        let (sum_pk, seeds_map) = entry.to_args();
+        // Add sum_pk to a set of sum_pks
+        self.connection.sadd(SeedDictEntry::key(), &sum_pk).await?;
+        // Add seeds_map to a hashmap with the key seed_dict:<sum_pk>
+        self.connection
+            .hset_multiple(format!("{}:{}", &SeedDictEntry::key(), &sum_pk), &seeds_map)
+            .await?;
+        Ok(())
+    }
+
+    async fn set_mask_dict_entry(&mut self, entry: &MaskDictEntry) -> RedisResult<()> {
+        self.connection
+            .sadd(MaskDictEntry::key(), &entry.to_args())
+            .await?;
         Ok(())
     }
 
@@ -66,18 +72,19 @@ impl RedisStore {
     }
 
     async fn get_sum_dict(&mut self) -> Result<SumDict, Box<dyn std::error::Error + 'static>> {
-        let result: SumDictResult = SumDictResult(self.connection.hgetall("sum_dict").await?);
+        let result: SumDictResult =
+            SumDictResult(self.connection.hgetall(SumDictEntry::key()).await?);
         Ok(SumDict::try_from(result)?)
     }
 
     async fn get_seed_dict(&mut self) -> Result<SeedDict, Box<dyn std::error::Error + 'static>> {
-        let seed_dict_keys: Vec<String> = self.connection.smembers("seed_dict").await?;
+        let seed_dict_keys: Vec<String> = self.connection.smembers(SeedDictEntry::key()).await?;
 
         let mut seed_dict: SeedDict = HashMap::new();
         for sum_key in seed_dict_keys.into_iter() {
             let seed_dict_fields: Vec<(String, String)> = self
                 .connection
-                .hgetall(format!("seed_dict:{}", &sum_key))
+                .hgetall(format!("{}:{}", &SeedDictEntry::key(), &sum_key))
                 .await?;
             let sub_dict: HashMap<UpdateParticipantPublicKey, EncryptedMaskingSeed> =
                 HashMap::try_from(SeedDictValueEntryResult(seed_dict_fields))?;
@@ -91,7 +98,7 @@ impl RedisStore {
     async fn get_mask_dict(
         &mut self,
     ) -> Result<Counter<MaskHash>, Box<dyn std::error::Error + 'static>> {
-        let result = MaskDictResult(self.connection.smembers("mask_dict").await?);
+        let result = MaskDictResult(self.connection.smembers(MaskDictEntry::key()).await?);
         Ok(Counter::<MaskHash>::try_from(result)?)
     }
 
@@ -117,57 +124,90 @@ mod tests {
     use super::RedisStore;
     use crate::{
         coordinator::{
-            Coordinator, EncryptedMaskingSeed, SeedDict, SumDict, SumParticipantEphemeralPublicKey,
-            SumParticipantPublicKey, UpdateParticipantPublicKey,
+            Coordinator, EncryptedMaskingSeed, MaskHash, SeedDict, SumDict,
+            SumParticipantEphemeralPublicKey, SumParticipantPublicKey, UpdateParticipantPublicKey,
         },
         storage::append::types::*,
     };
+    use counter::Counter;
     use redis::RedisResult;
     use sodiumoxide::{crypto::box_, randombytes::randombytes};
-    use std::{collections::HashMap, time::Instant};
+    use std::{collections::HashMap, iter, time::Instant};
 
     #[tokio::test]
-    async fn test_basic() {
-        // create new coordinator
-        let coordinator = Coordinator::new().unwrap();
+    async fn test_set_get_partial_coordinator_state() {
         let mut store = RedisStore::new("redis://127.0.0.1/").await.unwrap();
-
         store.clear_all().await.unwrap();
 
-        store
-            .set_partial_coordinator_state(CoordinatorPartialState::from(&coordinator))
-            .await
-            .unwrap();
+        // create new coordinator
+        let coordinator = Coordinator::new().unwrap();
+        let expect = CoordinatorPartialState::from(&coordinator);
 
-        let read = store.get_partial_coordinator_state().await.unwrap();
-        println!("Coordinator: {:?}", read);
+        store.set_partial_coordinator_state(&expect).await.unwrap();
+        let get = store.get_partial_coordinator_state().await.unwrap();
+
+        assert_eq!(expect, get);
+    }
+
+    #[tokio::test]
+    async fn test_set_get_sum_dict() {
+        let mut store = RedisStore::new("redis://127.0.0.1/").await.unwrap();
+        store.clear_all().await.unwrap();
 
         let sum_participant_pk = box_::PublicKey([0_u8; box_::PUBLICKEYBYTES]);
-        let sum_participant_epk = box_::PublicKey([0_u8; box_::PUBLICKEYBYTES]);
-        let mut result: SumDict = HashMap::new();
-        result.insert(sum_participant_pk, sum_participant_epk);
+        let sum_participant_epk = box_::PublicKey([1_u8; box_::PUBLICKEYBYTES]);
+        let mut expect: SumDict = HashMap::new();
+        expect.insert(sum_participant_pk, sum_participant_epk);
 
         store
-            .set_sum_dict_entry(SumDictEntry(sum_participant_pk, sum_participant_epk))
+            .set_sum_dict_entry(&SumDictEntry(sum_participant_pk, sum_participant_epk))
             .await
             .unwrap();
-        let sum_dict = store.get_sum_dict().await.unwrap();
+        let get = store.get_sum_dict().await.unwrap();
 
-        println!("Sum dict: {:?}", &sum_dict);
-        assert_eq!(result, sum_dict);
+        assert_eq!(expect, get);
+    }
 
-        let mut result_sub: HashMap<SumParticipantPublicKey, EncryptedMaskingSeed> = HashMap::new();
-        result_sub.insert(sum_participant_pk, randombytes(80));
-        let mut result: SeedDict = HashMap::new();
-        result.insert(sum_participant_pk, result_sub.clone());
+    #[tokio::test]
+    async fn test_set_get_seed_dict() {
+        let mut store = RedisStore::new("redis://127.0.0.1/").await.unwrap();
+        store.clear_all().await.unwrap();
+
+        let sum_participant_pk = box_::PublicKey([0_u8; box_::PUBLICKEYBYTES]);
+        let update_participant_pk = box_::PublicKey([1_u8; box_::PUBLICKEYBYTES]);
+        let seed = randombytes(80);
+
+        let mut seeds_map: HashMap<UpdateParticipantPublicKey, EncryptedMaskingSeed> =
+            HashMap::new();
+        seeds_map.insert(update_participant_pk, seed);
+
+        let mut expect: SeedDict = HashMap::new();
+        expect.insert(sum_participant_pk, seeds_map.clone());
 
         store
-            .set_seed_dict_entry(SeedDictEntry(sum_participant_pk, result_sub))
+            .set_seed_dict_entry(&SeedDictEntry(sum_participant_pk, seeds_map))
             .await
             .unwrap();
+        let get = store.get_seed_dict().await.unwrap();
 
-        let seed_dict = store.get_seed_dict().await.unwrap();
-        println!("Seed dict: {:?}", seed_dict);
+        assert_eq!(expect, get);
+    }
+
+    #[tokio::test]
+    async fn test_set_get_mask_dict() {
+        let mut store = RedisStore::new("redis://127.0.0.1/").await.unwrap();
+        store.clear_all().await.unwrap();
+
+        let mask_hash = randombytes(80);
+        let expect: Counter<MaskHash> = Counter::init(iter::once(mask_hash.clone()));
+
+        store
+            .set_mask_dict_entry(&MaskDictEntry(mask_hash))
+            .await
+            .unwrap();
+        let get = store.get_mask_dict().await.unwrap();
+
+        assert_eq!(expect, get);
     }
 
     // #[tokio::test]
