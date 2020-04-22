@@ -45,7 +45,6 @@ pub enum Phase {
 }
 
 /// A coordinator in the PET protocol layer.
-#[derive(Clone, Debug)]
 pub struct Coordinator {
     // credentials
     pk: CoordinatorPublicKey, // 32 bytes

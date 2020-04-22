@@ -1,7 +1,16 @@
-use crate::coordinator::{MaskHash, Phase, SeedDict, SumDict};
+use crate::{
+    coordinator::{MaskHash, Phase, SeedDict, SumDict},
+    storage::redis,
+};
 use counter::Counter;
 use sodiumoxide::crypto::{box_, sign};
 use std::collections::HashMap;
+use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
+
+// pub struct StorageService {
+//     store: RedisStore,
+//     service_req_rx: UnboundedReceiver<CoordinatorStateRequest>,
+// }
 
 // Service API
 pub enum StoreRequests {

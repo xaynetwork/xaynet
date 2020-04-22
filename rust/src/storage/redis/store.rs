@@ -13,7 +13,7 @@ pub struct RedisStore {
 }
 
 impl RedisStore {
-    async fn new<S: Into<String>>(url: S) -> Result<Self, RedisError> {
+    pub async fn new<S: Into<String>>(url: S) -> Result<Self, RedisError> {
         let client = Client::open(url.into())?;
         let connection = client.get_multiplexed_tokio_connection().await?;
 
@@ -36,6 +36,20 @@ impl RedisStore {
         let (sum_pk, sum_epk) = serialize_sum_dict_entry(&entry)?;
         self.connection
             .hset(RedisKeys::sum_dict(), sum_pk, sum_epk)
+            .await?;
+        Ok(())
+    }
+
+    pub async fn set_sum_dict_entry_batch(
+        &mut self,
+        entries: &Vec<SumDictEntry>,
+    ) -> Result<(), Box<dyn std::error::Error + 'static>> {
+        let mut batch: Vec<(Vec<u8>, Vec<u8>)> = Vec::new();
+        for entry in entries.iter() {
+            batch.push(serialize_sum_dict_entry(entry)?)
+        }
+        self.connection
+            .hset_multiple(RedisKeys::sum_dict(), &batch)
             .await?;
         Ok(())
     }
@@ -83,7 +97,7 @@ impl RedisStore {
         Ok(deserialize_sum_dict(&result)?)
     }
 
-    async fn get_seed_dict(
+    pub async fn get_seed_dict(
         &mut self,
     ) -> Result<SeedDictResult, Box<dyn std::error::Error + 'static>> {
         let seed_dict_keys: Vec<Vec<u8>> = self.connection.smembers(RedisKeys::seed_dict()).await?;
@@ -212,17 +226,27 @@ mod tests {
         assert_eq!(expect, get);
     }
 
-    #[tokio::test]
+    #[tokio::test(max_threads = 4)]
     async fn test_set_100k_seed_dict_join() {
         let mut store = RedisStore::new("redis://127.0.0.1/").await.unwrap();
         //store.clear_all().await.unwrap();
 
-        async fn gen_set_fut(rs: &RedisStore) -> Result<(), Box<dyn std::error::Error + 'static>> {
+        let keys: Vec<box_::PublicKey> = (0..100_000)
+            .map(|_| {
+                let (pk, _) = box_::gen_keypair();
+                pk
+            })
+            .collect();
+
+        async fn gen_set_fut(
+            rs: &RedisStore,
+            pk: box_::PublicKey,
+        ) -> Result<(), Box<dyn std::error::Error + 'static>> {
             let mut red = rs.clone();
-            let (pk, _) = box_::gen_keypair();
+
             red.set_sum_dict_entry(&SumDictEntry(pk, pk)).await
         }
-        let set_fut = (0..10_000).map(|_| gen_set_fut(&store));
+        let set_fut = keys.into_iter().map(|pk| gen_set_fut(&store, pk));
 
         let now = Instant::now();
         let _ = future::try_join_all(set_fut).await.unwrap();

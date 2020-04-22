@@ -12,7 +12,7 @@ homepage = "https://xain.io/"
 [dependencies]
 uuid = { version = "0.8.1", features = ["v4", "serde"] }
 futures = "0.3.4"
-tokio = { version = "0.2.13", features = ["rt-core", "rt-threaded", "tcp", "time", "macros", "signal", "sync", "stream",] }
+tokio = { version = "0.2.18", features = ["rt-core", "rt-threaded", "tcp", "time", "macros", "signal", "sync", "stream"] }
 derive_more = { version = "0.99.3", default-features = false, features = [ "display", "from" ] }
 rand = "0.7.3"
 tarpc = { version = "0.20.0", features = [ "full" ] }
