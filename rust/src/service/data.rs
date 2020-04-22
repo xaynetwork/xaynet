@@ -1,4 +1,3 @@
-use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
@@ -7,11 +6,9 @@ use crate::{
     service::handle::{SerializedSeedDict, SerializedSumDict},
     MaskHash,
     SeedDict,
-    SumDict,
     SumParticipantPublicKey,
 };
 use derive_more::From;
-use sodiumoxide::crypto::box_;
 use std::{collections::HashMap, sync::Arc};
 
 /// Data that the service keeps track of.

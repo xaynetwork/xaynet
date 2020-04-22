@@ -4,22 +4,12 @@ use crate::{
 };
 use derive_more::From;
 use futures::ready;
-use sodiumoxide::crypto::box_;
 use std::{
-    collections::HashMap,
-    error::Error,
     future::Future,
     pin::Pin,
-    sync::Arc,
     task::{Context, Poll},
 };
-use tokio::{
-    stream::Stream,
-    sync::{
-        mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
-        oneshot,
-    },
-};
+use tokio::stream::Stream;
 
 mod data;
 mod handle;

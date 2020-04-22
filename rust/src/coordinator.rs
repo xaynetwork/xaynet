@@ -45,7 +45,7 @@ pub enum RoundFailed {
 /// A dictionary created during the sum2 phase of the protocol. It counts the model masks.
 pub type MaskDict = HashMap<Mask, usize>;
 
-#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Serialize, Deserialize)]
 /// Round phases of a coordinator.
 pub enum Phase {
     Idle,
@@ -621,9 +621,28 @@ impl MaskCoordinators<i64> for Coordinator<i64> {
             Err(RoundFailed::NoModel)
         }
     }
+
+    pub fn state(&self) -> CoordinatorState {
+        CoordinatorState {
+            sk: self.sk.clone(),
+            round_parameters: self.round_parameters(),
+            min_sum: self.min_sum,
+            min_update: self.min_update,
+            phase: self.phase,
+        }
+    }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+pub struct CoordinatorState {
+    pub sk: CoordinatorSecretKey,
+    pub round_parameters: RoundParameters,
+    pub min_sum: usize,
+    pub min_update: usize,
+    pub phase: Phase,
+}
+
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct RoundParameters {
     /// The coordinator public key for encryption.
     pub pk: CoordinatorPublicKey,
