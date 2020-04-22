@@ -116,6 +116,7 @@ impl TryFrom<&[u8]> for EncrMaskSeed {
 /// A mask.
 pub struct Mask(Vec<u8>);
 
+#[allow(clippy::len_without_is_empty)]
 impl Mask {
     /// Get the length of the mask.
     pub fn len(&self) -> usize {
@@ -148,6 +149,7 @@ impl From<&[u8]> for Mask {
 /// A masked model.
 pub struct MaskedModel(Vec<u8>);
 
+#[allow(clippy::len_without_is_empty)]
 impl MaskedModel {
     /// Get the length of the masked model.
     pub fn len(&self) -> usize {

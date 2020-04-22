@@ -4,7 +4,9 @@ use crate::PetError;
 /// A dummy certificate.
 pub struct Certificate(Vec<u8>);
 
+#[allow(clippy::len_without_is_empty)]
 impl Certificate {
+    #[allow(clippy::new_without_default)]
     /// Create a certificate
     pub fn new() -> Self {
         Self(vec![0_u8; 32])
@@ -17,7 +19,7 @@ impl Certificate {
 
     /// Validate a certificate
     pub fn validate(&self) -> Result<(), PetError> {
-        if self.as_ref() == &[0_u8; 32] {
+        if self.as_ref() == [0_u8; 32] {
             Ok(())
         } else {
             Err(PetError::InvalidMessage)
