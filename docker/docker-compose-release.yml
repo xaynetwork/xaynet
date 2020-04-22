@@ -27,6 +27,9 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile.release
+      args:
+        RELEASE_BUILD: "true"
+
     image: docker_coordinator:release
     depends_on:
       - influxdb
@@ -43,6 +46,8 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile.release
+      args:
+        RELEASE_BUILD: "true"
     image: docker_aggregator:release
     depends_on:
       - influxdb
