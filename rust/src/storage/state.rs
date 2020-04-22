@@ -1,9 +1,17 @@
 use crate::{
-    coordinator::{MaskHash, Phase, SeedDict, SumDict},
+    coordinator::{MaskDict, MaskHash, Phase},
     storage::redis,
+    CoordinatorPublicKey,
+    CoordinatorSecretKey,
+    EncrMaskSeed,
+    LocalSeedDict,
+    SeedDict,
+    SumDict,
+    SumParticipantEphemeralPublicKey,
+    SumParticipantPublicKey,
+    UpdateParticipantPublicKey,
 };
-use counter::Counter;
-use sodiumoxide::crypto::{box_, sign};
+
 use std::collections::HashMap;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
@@ -28,10 +36,8 @@ pub enum StoreRequests {
 
 #[derive(Debug, PartialEq)]
 pub enum CoordinatorState {
-    EncrPk(box_::PublicKey),
-    EncrSk(box_::SecretKey),
-    SignPk(sign::PublicKey),
-    SignSk(sign::SecretKey),
+    EncrPk(CoordinatorPublicKey),
+    EncrSk(CoordinatorSecretKey),
     Sum(f64),
     Update(f64),
     Seed(Vec<u8>),
@@ -44,8 +50,6 @@ pub enum CoordinatorState {
 pub enum CoordinatorStateRequest {
     EncrPk,
     EncrSk,
-    SignPk,
-    SignSk,
     Sum,
     Update,
     Seed,
@@ -55,22 +59,26 @@ pub enum CoordinatorStateRequest {
     Round,
 }
 
-pub struct SumDictEntry(pub box_::PublicKey, pub box_::PublicKey);
-pub struct SeedDictEntry(pub box_::PublicKey, pub HashMap<box_::PublicKey, Vec<u8>>);
-pub struct MaskDictEntry(pub Vec<u8>);
+pub struct SumDictEntry(
+    pub SumParticipantPublicKey,
+    pub SumParticipantEphemeralPublicKey,
+);
+pub struct SeedDictEntry(
+    pub SumParticipantPublicKey,
+    pub HashMap<UpdateParticipantPublicKey, EncrMaskSeed>,
+);
+pub struct MaskDictEntry(pub MaskHash);
 
 pub type CoordinatorPartialStateResult = CoordinatorPartialState;
 pub type SumDictResult = SumDict;
 pub type SeedDictResult = SeedDict;
-pub type SubSeedDictResult = HashMap<box_::PublicKey, Vec<u8>>;
-pub type MaskDictResult = Counter<MaskHash>;
+pub type SubSeedDictResult = HashMap<UpdateParticipantPublicKey, EncrMaskSeed>;
+pub type MaskDictResult = MaskDict;
 
 #[derive(Debug, PartialEq)]
 pub struct CoordinatorPartialState {
-    pub(crate) encr_pk: box_::PublicKey,
-    pub(crate) encr_sk: box_::SecretKey,
-    pub(crate) sign_pk: sign::PublicKey,
-    pub(crate) sign_sk: sign::SecretKey,
+    pub(crate) encr_pk: CoordinatorPublicKey,
+    pub(crate) encr_sk: CoordinatorSecretKey,
     pub(crate) sum: f64,
     pub(crate) update: f64,
     pub(crate) seed: Vec<u8>,

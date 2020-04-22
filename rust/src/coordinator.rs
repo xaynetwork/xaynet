@@ -8,7 +8,6 @@ use sodiumoxide::{
 };
 
 use crate::{
-    coordserde::serde::{serde_counter, serde_sodiumoxide::*},
     message::{
         sum::SumMessage,
         sum2::{Mask, Sum2Message},

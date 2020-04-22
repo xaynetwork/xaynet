@@ -1,7 +1,14 @@
 use super::serde::*;
 use crate::storage::state::{
-    CoordinatorState, CoordinatorStateRequest, MaskDictEntry, MaskDictResult, SeedDictEntry,
-    SeedDictResult, SubSeedDictResult, SumDictEntry, SumDictResult,
+    CoordinatorState,
+    CoordinatorStateRequest,
+    MaskDictEntry,
+    MaskDictResult,
+    SeedDictEntry,
+    SeedDictResult,
+    SubSeedDictResult,
+    SumDictEntry,
+    SumDictResult,
 };
 
 use redis::{aio::MultiplexedConnection, AsyncCommands, Client, RedisError, RedisResult};
@@ -106,7 +113,7 @@ impl RedisStore {
         for sum_pk_as_bin in seed_dict_keys.into_iter() {
             let sub_seed_dict = self.get_sub_seed_dict(&sum_pk_as_bin).await?;
 
-            let sum_pk = deserialize_seed_dict_key(&sum_pk_as_bin)?;
+            let sum_pk = deserialize_sum_pk(&sum_pk_as_bin)?;
             seed_dict.insert(sum_pk, sub_seed_dict);
         }
 
@@ -154,24 +161,32 @@ mod tests {
     use crate::{
         coordinator::Phase,
         storage::state::{
-            CoordinatorState, CoordinatorStateRequest, MaskDictEntry, MaskDictResult,
-            SeedDictEntry, SeedDictResult, SubSeedDictResult, SumDictEntry, SumDictResult,
+            CoordinatorState,
+            CoordinatorStateRequest,
+            MaskDictEntry,
+            MaskDictResult,
+            SeedDictEntry,
+            SeedDictResult,
+            SubSeedDictResult,
+            SumDictEntry,
+            SumDictResult,
         },
+        EncrMaskSeed,
     };
     use counter::Counter;
     use futures::*;
     use sodiumoxide::{
-        crypto::{box_, sign},
+        crypto::{box_, hash::sha256, sign},
         randombytes::randombytes,
     };
-    use std::{collections::HashMap, iter, time::Instant};
+    use std::{collections::HashMap, convert::TryFrom, iter, time::Instant};
 
     #[tokio::test]
     async fn test_set_get_sum_dict() {
         let mut store = RedisStore::new("redis://127.0.0.1/").await.unwrap();
         //store.clear_all().await.unwrap();
 
-        let sum_participant_pk = box_::PublicKey([0_u8; box_::PUBLICKEYBYTES]);
+        let sum_participant_pk = sign::PublicKey([0_u8; box_::PUBLICKEYBYTES]);
         let sum_participant_epk = box_::PublicKey([1_u8; box_::PUBLICKEYBYTES]);
         let mut expect: SumDictResult = HashMap::new();
         expect.insert(sum_participant_pk, sum_participant_epk);
@@ -190,9 +205,9 @@ mod tests {
         let mut store = RedisStore::new("redis://127.0.0.1/").await.unwrap();
         //store.clear_all().await.unwrap();
 
-        let sum_participant_pk = box_::PublicKey([0_u8; box_::PUBLICKEYBYTES]);
-        let update_participant_pk = box_::PublicKey([1_u8; box_::PUBLICKEYBYTES]);
-        let seed = randombytes(80);
+        let sum_participant_pk = sign::PublicKey([0_u8; box_::PUBLICKEYBYTES]);
+        let update_participant_pk = sign::PublicKey([1_u8; box_::PUBLICKEYBYTES]);
+        let seed = EncrMaskSeed::try_from(randombytes(80)).unwrap();
 
         let mut seeds_map: SubSeedDictResult = HashMap::new();
         seeds_map.insert(update_participant_pk, seed);
@@ -214,7 +229,7 @@ mod tests {
         let mut store = RedisStore::new("redis://127.0.0.1/").await.unwrap();
         //store.clear_all().await.unwrap();
 
-        let mask_hash = randombytes(80);
+        let mask_hash = sha256::hash(&randombytes(80));
         let expect: MaskDictResult = Counter::init(iter::once(mask_hash.clone()));
 
         store
@@ -226,44 +241,48 @@ mod tests {
         assert_eq!(expect, get);
     }
 
-    #[tokio::test(max_threads = 4)]
-    async fn test_set_100k_seed_dict_join() {
-        let mut store = RedisStore::new("redis://127.0.0.1/").await.unwrap();
-        //store.clear_all().await.unwrap();
+    // #[tokio::test(max_threads = 4)]
+    // async fn test_set_100k_seed_dict_join() {
+    //     let mut store = RedisStore::new("redis://127.0.0.1/").await.unwrap();
+    //     //store.clear_all().await.unwrap();
 
-        let keys: Vec<box_::PublicKey> = (0..100_000)
-            .map(|_| {
-                let (pk, _) = box_::gen_keypair();
-                pk
-            })
-            .collect();
+    //     let keys: Vec<(sign::PublicKey, box_::PublicKey)> = (0..100_000)
+    //         .map(|_| {
+    //             let (pk, _) = sign::gen_keypair();
+    //             let (epk, _) = box_::gen_keypair();
+    //             (pk, epk)
+    //         })
+    //         .collect();
 
-        async fn gen_set_fut(
-            rs: &RedisStore,
-            pk: box_::PublicKey,
-        ) -> Result<(), Box<dyn std::error::Error + 'static>> {
-            let mut red = rs.clone();
+    //     async fn gen_set_fut(
+    //         rs: &RedisStore,
+    //         pk: sign::PublicKey,
+    //         epk: box_::PublicKey,
+    //     ) -> Result<(), Box<dyn std::error::Error + 'static>> {
+    //         let mut red = rs.clone();
 
-            red.set_sum_dict_entry(&SumDictEntry(pk, pk)).await
-        }
-        let set_fut = keys.into_iter().map(|pk| gen_set_fut(&store, pk));
+    //         red.set_sum_dict_entry(&SumDictEntry(pk, epk)).await
+    //     }
+    //     let set_fut = keys
+    //         .into_iter()
+    //         .map(|(pk, epk)| gen_set_fut(&store, pk, epk));
 
-        let now = Instant::now();
-        let _ = future::try_join_all(set_fut).await.unwrap();
-        let new_now = Instant::now();
-        println!(
-            "Time writing 10k seed dict entries {:?}",
-            new_now.duration_since(now)
-        );
+    //     let now = Instant::now();
+    //     let _ = future::try_join_all(set_fut).await.unwrap();
+    //     let new_now = Instant::now();
+    //     println!(
+    //         "Time writing 10k seed dict entries {:?}",
+    //         new_now.duration_since(now)
+    //     );
 
-        let now = Instant::now();
-        store.get_seed_dict().await.unwrap();
-        let new_now = Instant::now();
-        println!(
-            "Time reading 10k seed dict entries {:?}",
-            new_now.duration_since(now)
-        );
-    }
+    //     let now = Instant::now();
+    //     store.get_seed_dict().await.unwrap();
+    //     let new_now = Instant::now();
+    //     println!(
+    //         "Time reading 10k seed dict entries {:?}",
+    //         new_now.duration_since(now)
+    //     );
+    // }
 
     #[tokio::test]
     async fn test_set_get_encr_pk() {
@@ -291,38 +310,6 @@ mod tests {
         store.set_coordinator_state(&expect).await.unwrap();
         let get = store
             .get_coordinator_state(&CoordinatorStateRequest::EncrSk)
-            .await
-            .unwrap();
-
-        assert_eq!(expect, get);
-    }
-
-    #[tokio::test]
-    async fn test_set_get_sign_pk() {
-        let mut store = RedisStore::new("redis://127.0.0.1/").await.unwrap();
-
-        let pk = sign::PublicKey([0_u8; sign::PUBLICKEYBYTES]);
-        let expect = CoordinatorState::SignPk(pk);
-
-        store.set_coordinator_state(&expect).await.unwrap();
-        let get = store
-            .get_coordinator_state(&CoordinatorStateRequest::SignPk)
-            .await
-            .unwrap();
-
-        assert_eq!(expect, get);
-    }
-
-    #[tokio::test]
-    async fn test_set_get_sign_sk() {
-        let mut store = RedisStore::new("redis://127.0.0.1/").await.unwrap();
-
-        let (_, sk) = sign::gen_keypair();
-        let expect = CoordinatorState::SignSk(sk);
-
-        store.set_coordinator_state(&expect).await.unwrap();
-        let get = store
-            .get_coordinator_state(&CoordinatorStateRequest::SignSk)
             .await
             .unwrap();
 
