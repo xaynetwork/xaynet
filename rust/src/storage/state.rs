@@ -1,48 +1,71 @@
-use crate::coordinator::Coordinator;
-use async_trait::async_trait;
-use std::error::Error;
+use crate::coordinator::{MaskHash, Phase, SeedDict, SumDict};
+use counter::Counter;
+use sodiumoxide::crypto::{box_, sign};
+use std::collections::HashMap;
 
-// Dummy struct for the real Aggregator struct
-pub mod aggregator {
+// Service API
+pub enum StoreRequests {
+    WriteCoordinatorState(CoordinatorState),
+    // WriteMultiCoordinatorState(Vec<CoordinatorState>),
+    WriteSumDictEntry(SumDictEntry),
+    WriteSeedDictEntry(SeedDictEntry),
+    WriteMaskDictEntry(MaskDictEntry),
 
-    #[derive(Clone, Serialize, Deserialize, Debug)]
-    pub struct Aggregator {
-        pub global_model: String,
-    }
+    ReadCoordinatorPartialState(CoordinatorStateRequest), // -> CoordinatorPartialStateResult
+    ReadSumDict,                                          // -> SumDictResult
+    ReadSeedDict,                                         // -> SeedDictResult
+    ReadMaskDict,                                         // -> MaskDictResult
 }
 
-use crate::storage::state::Snapshot::Aggregator;
-
-pub enum Snapshot {
-    Coordinator(Coordinator),
-    Aggregator(aggregator::Aggregator),
+#[derive(Debug, PartialEq)]
+pub enum CoordinatorState {
+    EncrPk(box_::PublicKey),
+    EncrSk(box_::SecretKey),
+    SignPk(sign::PublicKey),
+    SignSk(sign::SecretKey),
+    Sum(f64),
+    Update(f64),
+    Seed(Vec<u8>),
+    MinSum(usize),
+    MinUpdate(usize),
+    Phase(Phase),
+    Round(u64),
 }
 
-pub enum SnapshotType {
-    Coordinator,
-    Aggregator,
+pub enum CoordinatorStateRequest {
+    EncrPk,
+    EncrSk,
+    SignPk,
+    SignSk,
+    Sum,
+    Update,
+    Seed,
+    MinSum,
+    MinUpdate,
+    Phase,
+    Round,
 }
 
-impl From<&Coordinator> for Snapshot {
-    fn from(coordinator: &Coordinator) -> Self {
-        Self::Coordinator(coordinator.clone())
-    }
-}
+pub struct SumDictEntry(pub box_::PublicKey, pub box_::PublicKey);
+pub struct SeedDictEntry(pub box_::PublicKey, pub HashMap<box_::PublicKey, Vec<u8>>);
+pub struct MaskDictEntry(pub Vec<u8>);
 
-impl From<aggregator::Aggregator> for Snapshot {
-    fn from(aggregator: aggregator::Aggregator) -> Self {
-        Self::Aggregator(aggregator.clone())
-    }
-}
-#[async_trait]
-pub trait GenericSnapshotHandler {
-    async fn snapshot(
-        &self,
-        snapshot: Snapshot,
-    ) -> Result<(), Box<dyn std::error::Error + 'static>>;
+pub type CoordinatorPartialStateResult = CoordinatorPartialState;
+pub type SumDictResult = SumDict;
+pub type SeedDictResult = SeedDict;
+pub type SubSeedDictResult = HashMap<box_::PublicKey, Vec<u8>>;
+pub type MaskDictResult = Counter<MaskHash>;
 
-    async fn restore(
-        &self,
-        snapshot_type: SnapshotType,
-    ) -> Result<Snapshot, Box<dyn std::error::Error + 'static>>;
+#[derive(Debug, PartialEq)]
+pub struct CoordinatorPartialState {
+    pub(crate) encr_pk: box_::PublicKey,
+    pub(crate) encr_sk: box_::SecretKey,
+    pub(crate) sign_pk: sign::PublicKey,
+    pub(crate) sign_sk: sign::SecretKey,
+    pub(crate) sum: f64,
+    pub(crate) update: f64,
+    pub(crate) seed: Vec<u8>,
+    pub(crate) min_sum: usize,
+    pub(crate) min_update: usize,
+    pub(crate) phase: Phase,
 }

@@ -12,7 +12,7 @@ homepage = "https://xain.io/"
 [dependencies]
 uuid = { version = "0.8.1", features = ["v4", "serde"] }
 futures = "0.3.4"
-tokio = { version = "0.2.13", features = ["rt-core", "rt-threaded", "tcp", "time", "macros", "signal", "sync", "stream", "fs",] }
+tokio = { version = "0.2.13", features = ["rt-core", "rt-threaded", "tcp", "time", "macros", "signal", "sync", "stream",] }
 derive_more = { version = "0.99.3", default-features = false, features = [ "display", "from" ] }
 rand = "0.7.3"
 tarpc = { version = "0.20.0", features = [ "full" ] }
@@ -32,9 +32,9 @@ sodiumoxide = "0.2.5"
 num = "0.2.1"
 counter = "0.4.3"
 async-trait = "0.1.30"
-serde_json = "1.0"
 data-encoding = "2.2.0"
 redis = {version= "0.15.1", features= ["tokio-rt-core"]}
+rmp-serde = "0.14.3"
 
 influxdb = { version = "0.1.0", features = ["derive"], optional = true }
 chrono = { version = "0.4", features = ["serde"], optional = true }
