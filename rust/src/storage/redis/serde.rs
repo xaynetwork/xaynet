@@ -1,16 +1,13 @@
-use crate::{
-    coordinator::MaskDict,
-    storage::state::{
-        CoordinatorState,
-        CoordinatorState::*,
-        CoordinatorStateRequest,
-        MaskDictEntry,
-        MaskDictResult,
-        SeedDictEntry,
-        SubSeedDictResult,
-        SumDictEntry,
-        SumDictResult,
-    },
+use crate::storage::state::{
+    CoordinatorState,
+    CoordinatorState::*,
+    CoordinatorStateRequest,
+    MaskDictEntry,
+    MaskDictResult,
+    SeedDictEntry,
+    SubSeedDictResult,
+    SumDictEntry,
+    SumDictResult,
 };
 
 use crate::SumParticipantPublicKey;
@@ -25,14 +22,14 @@ pub fn serialize_coordinator_state(
     state: &CoordinatorState,
 ) -> Result<(&str, Vec<u8>), Box<dyn std::error::Error + 'static>> {
     let se_value = match state {
-        EncrPk(enc_pk) => {
+        CoordPk(coord_pk) => {
             let mut se_value = Vec::new();
-            enc_pk.serialize(&mut Serializer::new(&mut se_value))?;
+            coord_pk.serialize(&mut Serializer::new(&mut se_value))?;
             se_value
         }
-        EncrSk(enc_sk) => {
+        CoordSk(coord_sk) => {
             let mut se_value = Vec::new();
-            enc_sk.serialize(&mut Serializer::new(&mut se_value))?;
+            coord_sk.serialize(&mut Serializer::new(&mut se_value))?;
             se_value
         }
         Sum(sum) => {
@@ -79,13 +76,13 @@ pub fn deserialize_coordinator_state(
     value: &Vec<u8>,
 ) -> Result<CoordinatorState, Box<dyn std::error::Error + 'static>> {
     let result = match state_type {
-        CoordinatorStateRequest::EncrPk => {
+        CoordinatorStateRequest::CoordPk => {
             let de_value = rmps::from_read_ref(value)?;
-            CoordinatorState::EncrPk(de_value)
+            CoordinatorState::CoordPk(de_value)
         }
-        CoordinatorStateRequest::EncrSk => {
+        CoordinatorStateRequest::CoordSk => {
             let de_value = rmps::from_read_ref(value)?;
-            CoordinatorState::EncrSk(de_value)
+            CoordinatorState::CoordSk(de_value)
         }
         CoordinatorStateRequest::Sum => {
             let de_value = rmps::from_read_ref(value)?;
@@ -194,7 +191,7 @@ pub fn serialize_mask_dict_entry(
 pub fn deserialize_mask_dict(
     se_mask_dict: &Vec<Vec<u8>>,
 ) -> Result<MaskDictResult, Box<dyn std::error::Error + 'static>> {
-    let mut mask_dict: MaskDict = Counter::new();
+    let mut mask_dict: MaskDictResult = Counter::new();
 
     for se_mask_hash in se_mask_dict.iter() {
         let mask_hash = rmps::from_read_ref(se_mask_hash)?;
@@ -224,8 +221,8 @@ impl RedisKeys {
 
     pub fn from_coordinator_state(state: &CoordinatorState) -> &'static str {
         match state {
-            CoordinatorState::EncrPk(_) => "enc_pk",
-            CoordinatorState::EncrSk(_) => "enc_sk",
+            CoordinatorState::CoordPk(_) => "coord_pk",
+            CoordinatorState::CoordSk(_) => "coord_sk",
             CoordinatorState::Sum(_) => "sum",
             CoordinatorState::Update(_) => "update",
             CoordinatorState::Seed(_) => "seed",
@@ -238,8 +235,8 @@ impl RedisKeys {
 
     pub fn from_coordinator_state_request(request: &CoordinatorStateRequest) -> &'static str {
         match request {
-            CoordinatorStateRequest::EncrPk => "enc_pk",
-            CoordinatorStateRequest::EncrSk => "enc_sk",
+            CoordinatorStateRequest::CoordPk => "coord_pk",
+            CoordinatorStateRequest::CoordSk => "coord_sk",
             CoordinatorStateRequest::Sum => "sum",
             CoordinatorStateRequest::Update => "update",
             CoordinatorStateRequest::Seed => "seed",

@@ -229,7 +229,7 @@ mod tests {
         let mut store = RedisStore::new("redis://127.0.0.1/").await.unwrap();
         //store.clear_all().await.unwrap();
 
-        let mask_hash = sha256::hash(&randombytes(80));
+        let mask_hash = sha256::hash(&[0_u8; 100]);
         let expect: MaskDictResult = Counter::init(iter::once(mask_hash.clone()));
 
         store
@@ -285,15 +285,15 @@ mod tests {
     // }
 
     #[tokio::test]
-    async fn test_set_get_encr_pk() {
+    async fn test_set_get_coord_pk() {
         let mut store = RedisStore::new("redis://127.0.0.1/").await.unwrap();
 
         let pk = box_::PublicKey([0_u8; box_::PUBLICKEYBYTES]);
-        let expect = CoordinatorState::EncrPk(pk);
+        let expect = CoordinatorState::CoordPk(pk);
 
         store.set_coordinator_state(&expect).await.unwrap();
         let get = store
-            .get_coordinator_state(&CoordinatorStateRequest::EncrPk)
+            .get_coordinator_state(&CoordinatorStateRequest::CoordPk)
             .await
             .unwrap();
 
@@ -301,15 +301,15 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_set_get_encr_sk() {
+    async fn test_set_get_coord_sk() {
         let mut store = RedisStore::new("redis://127.0.0.1/").await.unwrap();
 
         let (_, sk) = box_::gen_keypair();
-        let expect = CoordinatorState::EncrSk(sk);
+        let expect = CoordinatorState::CoordSk(sk);
 
         store.set_coordinator_state(&expect).await.unwrap();
         let get = store
-            .get_coordinator_state(&CoordinatorStateRequest::EncrSk)
+            .get_coordinator_state(&CoordinatorStateRequest::CoordSk)
             .await
             .unwrap();
 

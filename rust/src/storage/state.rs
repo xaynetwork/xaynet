@@ -36,8 +36,8 @@ pub enum StoreRequests {
 
 #[derive(Debug, PartialEq)]
 pub enum CoordinatorState {
-    EncrPk(CoordinatorPublicKey),
-    EncrSk(CoordinatorSecretKey),
+    CoordPk(CoordinatorPublicKey),
+    CoordSk(CoordinatorSecretKey),
     Sum(f64),
     Update(f64),
     Seed(Vec<u8>),
@@ -48,8 +48,8 @@ pub enum CoordinatorState {
 }
 
 pub enum CoordinatorStateRequest {
-    EncrPk,
-    EncrSk,
+    CoordPk,
+    CoordSk,
     Sum,
     Update,
     Seed,
@@ -77,8 +77,8 @@ pub type MaskDictResult = MaskDict;
 
 #[derive(Debug, PartialEq)]
 pub struct CoordinatorPartialState {
-    pub(crate) encr_pk: CoordinatorPublicKey,
-    pub(crate) encr_sk: CoordinatorSecretKey,
+    pub(crate) pk: CoordinatorPublicKey,
+    pub(crate) sk: CoordinatorSecretKey,
     pub(crate) sum: f64,
     pub(crate) update: f64,
     pub(crate) seed: Vec<u8>,
