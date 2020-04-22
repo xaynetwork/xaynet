@@ -1,11 +1,35 @@
 version: "3.7"
+
+volumes:
+  influxdb-data: {}
+
+networks:
+  xain-fl-rs:
+
 services:
+
+  influxdb:
+    image: influxdb:1.7 # current stable version, v2 is in Beta
+    hostname: influxdb
+    environment:
+      INFLUXDB_DB: metrics
+    volumes:
+      - influxdb-data:/var/lib/influxdb
+    networks:
+      - xain-fl-rs
+    ports:
+      - "8086:8086"
+    labels:
+      org.label-schema.group: "monitoring"
 
   coordinator:
     command: coordinator -c /bin/config.toml
     build:
       context: ..
       dockerfile: docker/Dockerfile.release
+      args:
+        RELEASE_BUILD: "true"
+
     image: docker_coordinator:release
     depends_on:
       - influxdb
@@ -23,7 +47,7 @@ services:
       context: ..
       dockerfile: docker/Dockerfile.release
       args:
-          RELEASE_BUILD: "true"
+        RELEASE_BUILD: "true"
     image: docker_aggregator:release
     depends_on:
       - influxdb
