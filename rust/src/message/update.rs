@@ -1,13 +1,12 @@
 use std::{
     borrow::Borrow,
     convert::{TryFrom, TryInto},
-    default::Default,
     ops::Range,
 };
 
 use sodiumoxide::crypto::{sealedbox, sign};
 
-use super::{MessageBuffer, LEN_BYTES, PK_BYTES, SIGNATURE_BYTES, TAG_BYTES, UPDATE_TAG};
+use super::{MessageBuffer, Tag, LEN_BYTES, PK_BYTES, SIGNATURE_BYTES};
 use crate::{
     certificate::Certificate,
     mask::{EncrMaskSeed, MaskedModel},
@@ -16,8 +15,6 @@ use crate::{
     LocalSeedDict,
     ParticipantTaskSignature,
     PetError,
-    SumParticipantEphemeralPublicKey,
-    SumParticipantEphemeralSecretKey,
     UpdateParticipantPublicKey,
     UpdateParticipantSecretKey,
 };
@@ -27,43 +24,31 @@ use crate::{
 struct UpdateMessageBuffer<B> {
     bytes: B,
     certificate_range: Range<usize>,
-    sum_signature_range: Range<usize>,
-    update_signature_range: Range<usize>,
-    masked_model_len_range: Range<usize>,
     masked_model_range: Range<usize>,
-    local_seed_dict_len_range: Range<usize>,
     local_seed_dict_range: Range<usize>,
 }
 
-impl Default for UpdateMessageBuffer<Vec<u8>> {
-    fn default() -> Self {
-        let bytes = Vec::<u8>::new();
-        let certificate_range = 0..0;
-        let sum_signature_range = 0..0;
-        let update_signature_range = 0..0;
-        let masked_model_len_range = 0..0;
-        let masked_model_range = 0..0;
-        let local_seed_dict_len_range = 0..0;
-        let local_seed_dict_range = 0..0;
+impl UpdateMessageBuffer<Vec<u8>> {
+    /// Create an empty update message buffer.
+    fn new(certificate_len: usize, masked_model_len: usize, local_seed_dict_len: usize) -> Self {
+        let bytes = [
+            vec![0_u8; Self::UPDATE_SIGNATURE_RANGE.end],
+            certificate_len.to_le_bytes().to_vec(),
+            masked_model_len.to_le_bytes().to_vec(),
+            local_seed_dict_len.to_le_bytes().to_vec(),
+            vec![0_u8; certificate_len + masked_model_len + local_seed_dict_len],
+        ]
+        .concat();
+        let certificate_range = Self::LOCAL_SEED_DICT_LEN_RANGE.end
+            ..Self::LOCAL_SEED_DICT_LEN_RANGE.end + certificate_len;
+        let masked_model_range = certificate_range.end..certificate_range.end + masked_model_len;
+        let local_seed_dict_range =
+            masked_model_range.end..masked_model_range.end + local_seed_dict_len;
         Self {
             bytes,
             certificate_range,
-            sum_signature_range,
-            update_signature_range,
-            masked_model_len_range,
             masked_model_range,
-            local_seed_dict_len_range,
             local_seed_dict_range,
-        }
-    }
-}
-
-impl UpdateMessageBuffer<Vec<u8>> {
-    /// Create an empty update message buffer of size `len`.
-    fn new(len: usize) -> Self {
-        Self {
-            bytes: vec![0_u8; len],
-            ..Default::default()
         }
     }
 }
@@ -75,38 +60,29 @@ impl TryFrom<Vec<u8>> for UpdateMessageBuffer<Vec<u8>> {
     fn try_from(bytes: Vec<u8>) -> Result<Self, Self::Error> {
         let mut buffer = Self {
             bytes,
-            ..Default::default()
+            certificate_range: 0..0,
+            masked_model_range: 0..0,
+            local_seed_dict_range: 0..0,
         };
-        let mut offset = buffer.certificate_len_range().end;
-        if buffer.len() >= offset {
-            buffer.certificate_range = offset..offset + buffer.certificate_bytes();
-            offset = buffer.certificate_range().end;
-            buffer.sum_signature_range = offset..offset + SIGNATURE_BYTES;
-            offset = buffer.sum_signature_range().end;
-            buffer.update_signature_range = offset..offset + SIGNATURE_BYTES;
-            offset = buffer.update_signature_range().end;
-            buffer.masked_model_len_range = offset..offset + LEN_BYTES;
-            offset = buffer.masked_model_len_range().end;
+        if buffer.len() >= Self::LOCAL_SEED_DICT_LEN_RANGE.end {
+            // safe unwraps: lengths of slices are guaranteed by constants
+            buffer.certificate_range = Self::LOCAL_SEED_DICT_LEN_RANGE.end
+                ..Self::LOCAL_SEED_DICT_LEN_RANGE.end
+                    + usize::from_le_bytes(buffer.certificate_len().try_into().unwrap());
+            buffer.masked_model_range = buffer.certificate_range.end
+                ..buffer.certificate_range.end
+                    + usize::from_le_bytes(buffer.masked_model_len().try_into().unwrap());
+            buffer.local_seed_dict_range = buffer.masked_model_range.end
+                ..buffer.masked_model_range.end
+                    + usize::from_le_bytes(buffer.local_seed_dict_len().try_into().unwrap());
         } else {
             return Err(PetError::InvalidMessage);
         }
-        if buffer.len() >= offset {
-            buffer.masked_model_range = offset..offset + buffer.masked_model_bytes();
-            offset = buffer.masked_model_range().end;
-            buffer.local_seed_dict_len_range = offset..offset + LEN_BYTES;
-            offset = buffer.local_seed_dict_len_range().end;
-        } else {
-            return Err(PetError::InvalidMessage);
-        }
-        if buffer.len() >= offset
-            && buffer.local_seed_dict_bytes() % (PK_BYTES + EncrMaskSeed::BYTES) == 0
+        if buffer.len() == buffer.local_seed_dict_range.end
+            && (buffer.local_seed_dict_range.end - buffer.local_seed_dict_range.start)
+                % (PK_BYTES + EncrMaskSeed::BYTES)
+                == 0
         {
-            buffer.local_seed_dict_range = offset..offset + buffer.local_seed_dict_bytes();
-            offset = buffer.local_seed_dict_range().end;
-        } else {
-            return Err(PetError::InvalidMessage);
-        }
-        if buffer.len() == offset {
             Ok(buffer)
         } else {
             Err(PetError::InvalidMessage)
@@ -115,185 +91,136 @@ impl TryFrom<Vec<u8>> for UpdateMessageBuffer<Vec<u8>> {
 }
 
 impl<B: AsRef<[u8]> + AsMut<[u8]>> MessageBuffer for UpdateMessageBuffer<B> {
-    /// Get a reference to the update message buffer.
+    /// Get a reference to the message buffer.
     fn bytes(&'_ self) -> &'_ [u8] {
         self.bytes.as_ref()
     }
 
-    /// Get a mutable reference to the update message buffer.
+    /// Get a mutable reference to the message buffer.
     fn bytes_mut(&mut self) -> &mut [u8] {
         self.bytes.as_mut()
-    }
-
-    /// Get the range of the certificate field.
-    fn certificate_range(&self) -> Range<usize> {
-        self.certificate_range.clone()
-    }
-
-    /// Get the range of the sum signature field.
-    fn sum_signature_range(&self) -> Range<usize> {
-        self.sum_signature_range.clone()
     }
 }
 
 impl<B: AsRef<[u8]> + AsMut<[u8]>> UpdateMessageBuffer<B> {
     /// Get the range of the update signature field.
-    fn update_signature_range(&self) -> Range<usize> {
-        self.update_signature_range.clone()
-    }
+    const UPDATE_SIGNATURE_RANGE: Range<usize> =
+        Self::SUM_SIGNATURE_RANGE.end..Self::SUM_SIGNATURE_RANGE.end + SIGNATURE_BYTES;
+
+    /// Get the range of the certificate length field.
+    const CERTIFICATE_LEN_RANGE: Range<usize> =
+        Self::UPDATE_SIGNATURE_RANGE.end..Self::UPDATE_SIGNATURE_RANGE.end + LEN_BYTES;
+
+    /// Get the range of the masked model length field.
+    const MASKED_MODEL_LEN_RANGE: Range<usize> =
+        Self::CERTIFICATE_LEN_RANGE.end..Self::CERTIFICATE_LEN_RANGE.end + LEN_BYTES;
+
+    /// Get the range of the local seed dictionary length field.
+    const LOCAL_SEED_DICT_LEN_RANGE: Range<usize> =
+        Self::MASKED_MODEL_LEN_RANGE.end..Self::MASKED_MODEL_LEN_RANGE.end + LEN_BYTES;
 
     /// Get a reference to the update signature field.
     fn update_signature(&'_ self) -> &'_ [u8] {
-        let range = self.update_signature_range();
-        &self.bytes()[range]
+        &self.bytes()[Self::UPDATE_SIGNATURE_RANGE]
     }
 
     /// Get a mutable reference to the update signature field.
     fn update_signature_mut(&mut self) -> &mut [u8] {
-        let range = self.update_signature_range();
-        &mut self.bytes_mut()[range]
+        &mut self.bytes_mut()[Self::UPDATE_SIGNATURE_RANGE]
     }
 
-    /// Get the range of the masked model length field.
-    fn masked_model_len_range(&self) -> Range<usize> {
-        self.masked_model_len_range.clone()
+    /// Get a reference to the certificate length field.
+    fn certificate_len(&'_ self) -> &'_ [u8] {
+        &self.bytes()[Self::CERTIFICATE_LEN_RANGE]
+    }
+
+    /// Get a reference to the certificate field.
+    fn certificate(&'_ self) -> &'_ [u8] {
+        &self.bytes()[self.certificate_range.clone()]
+    }
+
+    /// Get a mutable reference to the certificate field.
+    fn certificate_mut(&mut self) -> &mut [u8] {
+        let range = self.certificate_range.clone();
+        &mut self.bytes_mut()[range]
     }
 
     /// Get a reference to the masked model length field.
     fn masked_model_len(&'_ self) -> &'_ [u8] {
-        let range = self.masked_model_len_range();
-        &self.bytes()[range]
-    }
-
-    /// Get a mutable reference to the masked model length field.
-    fn masked_model_len_mut(&mut self) -> &mut [u8] {
-        let range = self.masked_model_len_range();
-        &mut self.bytes_mut()[range]
-    }
-
-    /// Get the number of bytes of the masked model field.
-    fn masked_model_bytes(&self) -> usize {
-        // safe unwrap: length of slice is guaranteed by constants
-        usize::from_le_bytes(self.masked_model_len().try_into().unwrap())
-    }
-
-    /// Get the range of the masked model field.
-    fn masked_model_range(&self) -> Range<usize> {
-        self.masked_model_range.clone()
+        &self.bytes()[Self::MASKED_MODEL_LEN_RANGE]
     }
 
     /// Get a reference to the masked model field.
     fn masked_model(&'_ self) -> &'_ [u8] {
-        let range = self.masked_model_range();
-        &self.bytes()[range]
+        &self.bytes()[self.masked_model_range.clone()]
     }
 
     /// Get a mutable reference to the masked model field.
     fn masked_model_mut(&mut self) -> &mut [u8] {
-        let range = self.masked_model_range();
+        let range = self.masked_model_range.clone();
         &mut self.bytes_mut()[range]
-    }
-
-    /// Get the range of the local seed dictionary length field.
-    fn local_seed_dict_len_range(&self) -> Range<usize> {
-        self.local_seed_dict_len_range.clone()
     }
 
     /// Get a reference to the local seed dictionary length field.
     fn local_seed_dict_len(&'_ self) -> &'_ [u8] {
-        let range = self.local_seed_dict_len_range();
-        &self.bytes()[range]
-    }
-
-    /// Get a mutable reference to the local seed dictionary length field.
-    fn local_seed_dict_len_mut(&mut self) -> &mut [u8] {
-        let range = self.local_seed_dict_len_range();
-        &mut self.bytes_mut()[range]
-    }
-
-    /// Get the number of bytes of the local seed dictionary field.
-    fn local_seed_dict_bytes(&self) -> usize {
-        // safe unwrap: length of slice is guaranteed by constants
-        usize::from_le_bytes(self.local_seed_dict_len().try_into().unwrap())
-    }
-
-    /// Get the range of the local seed dictionary field.
-    fn local_seed_dict_range(&self) -> Range<usize> {
-        self.local_seed_dict_range.clone()
+        &self.bytes()[Self::LOCAL_SEED_DICT_LEN_RANGE]
     }
 
     /// Get a reference to the local seed dictionary field.
     fn local_seed_dict(&'_ self) -> &'_ [u8] {
-        let range = self.local_seed_dict_range();
-        &self.bytes()[range]
+        &self.bytes()[self.local_seed_dict_range.clone()]
     }
 
     /// Get a mutable reference to the local seed dictionary field.
     fn local_seed_dict_mut(&mut self) -> &mut [u8] {
-        let range = self.local_seed_dict_range();
+        let range = self.local_seed_dict_range.clone();
         &mut self.bytes_mut()[range]
     }
 }
 
 #[derive(Clone, Debug, PartialEq)]
 /// Encryption and decryption of update messages.
-pub struct UpdateMessage<K, C, S, M, D>
+pub struct UpdateMessage<K, S, C, M, D>
 where
     K: Borrow<UpdateParticipantPublicKey>,
-    C: Borrow<Certificate>,
     S: Borrow<ParticipantTaskSignature>,
+    C: Borrow<Certificate>,
     M: Borrow<MaskedModel>,
     D: Borrow<LocalSeedDict>,
 {
     pk: K,
-    certificate: C,
     sum_signature: S,
     update_signature: S,
+    certificate: C,
     masked_model: M,
     local_seed_dict: D,
 }
 
-impl<K, C, S, M, D> UpdateMessage<K, C, S, M, D>
+impl<K, S, C, M, D> UpdateMessage<K, S, C, M, D>
 where
     K: Borrow<UpdateParticipantPublicKey>,
-    C: Borrow<Certificate>,
     S: Borrow<ParticipantTaskSignature>,
+    C: Borrow<Certificate>,
     M: Borrow<MaskedModel>,
     D: Borrow<LocalSeedDict>,
 {
     /// Create an update message from its parts.
     pub fn from_parts(
         pk: K,
-        certificate: C,
         sum_signature: S,
         update_signature: S,
+        certificate: C,
         masked_model: M,
         local_seed_dict: D,
     ) -> Self {
         Self {
             pk,
-            certificate,
             sum_signature,
             update_signature,
+            certificate,
             masked_model,
             local_seed_dict,
         }
-    }
-
-    /// Get the length of a serialized update message.
-    fn len(&self) -> usize {
-        SIGNATURE_BYTES
-            + TAG_BYTES
-            + PK_BYTES
-            + PK_BYTES
-            + LEN_BYTES
-            + self.certificate.borrow().len()
-            + SIGNATURE_BYTES
-            + SIGNATURE_BYTES
-            + LEN_BYTES
-            + self.masked_model.borrow().len()
-            + LEN_BYTES
-            + (PK_BYTES + EncrMaskSeed::BYTES) * self.local_seed_dict.borrow().len()
     }
 
     /// Serialize the local seed dictionary into bytes.
@@ -306,47 +233,30 @@ where
     }
 
     /// Serialize the update message into a buffer.
-    fn serialize(&self, buffer: &mut UpdateMessageBuffer<Vec<u8>>, pk: &CoordinatorPublicKey) {
-        buffer.tag_mut().copy_from_slice(&[UPDATE_TAG]);
+    fn serialize<B: AsRef<[u8]> + AsMut<[u8]>>(
+        &self,
+        buffer: &mut UpdateMessageBuffer<B>,
+        pk: &CoordinatorPublicKey,
+    ) {
+        buffer
+            .tag_mut()
+            .copy_from_slice([Tag::Update as u8].as_ref());
         buffer.coord_pk_mut().copy_from_slice(pk.borrow().as_ref());
         buffer
             .part_pk_mut()
             .copy_from_slice(self.pk.borrow().as_ref());
         buffer
-            .certificate_len_mut()
-            .copy_from_slice(&self.certificate.borrow().len().to_le_bytes());
-        let mut offset = buffer.certificate_len_range().end;
-        buffer.certificate_range = offset..offset + buffer.certificate_bytes();
-        buffer
-            .certificate_mut()
-            .copy_from_slice(self.certificate.borrow().as_ref());
-        offset = buffer.certificate_range().end;
-        buffer.sum_signature_range = offset..offset + SIGNATURE_BYTES;
-        buffer
             .sum_signature_mut()
             .copy_from_slice(self.sum_signature.borrow().as_ref());
-        offset = buffer.sum_signature_range().end;
-        buffer.update_signature_range = offset..offset + SIGNATURE_BYTES;
         buffer
             .update_signature_mut()
             .copy_from_slice(self.update_signature.borrow().as_ref());
-        offset = buffer.update_signature_range().end;
-        buffer.masked_model_len_range = offset..offset + LEN_BYTES;
         buffer
-            .masked_model_len_mut()
-            .copy_from_slice(&self.masked_model.borrow().len().to_le_bytes());
-        offset = buffer.masked_model_len_range().end;
-        buffer.masked_model_range = offset..offset + buffer.masked_model_bytes();
+            .certificate_mut()
+            .copy_from_slice(self.certificate.borrow().as_ref());
         buffer
             .masked_model_mut()
             .copy_from_slice(self.masked_model.borrow().as_ref());
-        offset = buffer.masked_model_range().end;
-        buffer.local_seed_dict_len_range = offset..offset + LEN_BYTES;
-        buffer.local_seed_dict_len_mut().copy_from_slice(
-            &((PK_BYTES + EncrMaskSeed::BYTES) * self.local_seed_dict.borrow().len()).to_le_bytes(),
-        );
-        offset = buffer.local_seed_dict_len_range().end;
-        buffer.local_seed_dict_range = offset..offset + buffer.local_seed_dict_bytes();
         buffer
             .local_seed_dict_mut()
             .copy_from_slice(&self.serialize_local_seed_dict());
@@ -354,7 +264,11 @@ where
 
     /// Sign and encrypt the update message.
     pub fn seal(&self, sk: &UpdateParticipantSecretKey, pk: &CoordinatorPublicKey) -> Vec<u8> {
-        let mut buffer = UpdateMessageBuffer::new(self.len());
+        let mut buffer = UpdateMessageBuffer::new(
+            self.certificate.borrow().len(),
+            self.masked_model.borrow().len(),
+            self.local_seed_dict.borrow().len() * (PK_BYTES + EncrMaskSeed::BYTES),
+        );
         self.serialize(&mut buffer, pk);
         let signature = sign::sign_detached(buffer.message(), sk);
         buffer.signature_mut().copy_from_slice(signature.as_ref());
@@ -365,8 +279,8 @@ where
 impl
     UpdateMessage<
         UpdateParticipantPublicKey,
-        Certificate,
         ParticipantTaskSignature,
+        Certificate,
         MaskedModel,
         LocalSeedDict,
     >
@@ -389,16 +303,16 @@ impl
     fn deserialize(buffer: UpdateMessageBuffer<Vec<u8>>) -> Self {
         // safe unwraps: lengths of slices are guaranteed by constants
         let pk = sign::PublicKey::from_slice(buffer.part_pk()).unwrap();
-        let certificate = buffer.certificate().into();
         let sum_signature = sign::Signature::from_slice(buffer.sum_signature()).unwrap();
         let update_signature = sign::Signature::from_slice(buffer.update_signature()).unwrap();
+        let certificate = buffer.certificate().into();
         let masked_model = buffer.masked_model().into();
         let local_seed_dict = Self::deserialize_local_seed_dict(buffer.local_seed_dict());
         Self {
             pk,
-            certificate,
             sum_signature,
             update_signature,
+            certificate,
             masked_model,
             local_seed_dict,
         }
@@ -413,7 +327,7 @@ impl
         let buffer = UpdateMessageBuffer::try_from(
             sealedbox::open(bytes, pk, sk).or(Err(PetError::InvalidMessage))?,
         )?;
-        if buffer.tag() == [UPDATE_TAG]
+        if buffer.tag() == [Tag::Update as u8]
             && buffer.coord_pk() == pk.as_ref()
             && sign::verify_detached(
                 // safe unwraps: lengths of slices are guaranteed by constants
@@ -433,11 +347,6 @@ impl
         &self.pk
     }
 
-    /// Get a reference to the certificate.
-    pub fn certificate(&self) -> &Certificate {
-        &self.certificate
-    }
-
     /// Get a reference to the sum signature.
     pub fn sum_signature(&self) -> &ParticipantTaskSignature {
         &self.sum_signature
@@ -446,6 +355,11 @@ impl
     /// Get a reference to the update signature.
     pub fn update_signature(&self) -> &ParticipantTaskSignature {
         &self.update_signature
+    }
+
+    /// Get a reference to the certificate.
+    pub fn certificate(&self) -> &Certificate {
+        &self.certificate
     }
 
     /// Get a reference to the masked model.
@@ -469,59 +383,140 @@ mod tests {
     };
 
     use super::*;
+    use crate::message::TAG_BYTES;
 
     fn auxiliary_bytes(sum_dict_len: usize) -> Vec<u8> {
         [
-            randombytes(129).as_slice(),
-            &(0 as usize).to_le_bytes(),
-            randombytes(128).as_slice(),
-            &(32 as usize).to_le_bytes(),
-            randombytes(32).as_slice(),
-            &(112 * sum_dict_len as usize).to_le_bytes(),
-            randombytes(112 * sum_dict_len).as_slice(),
+            randombytes(257),
+            (32 as usize).to_le_bytes().to_vec(),
+            (32 as usize).to_le_bytes().to_vec(),
+            (112 * sum_dict_len as usize).to_le_bytes().to_vec(),
+            randombytes(64 + 112 * sum_dict_len),
         ]
         .concat()
     }
 
-    #[test]
-    fn test_updatemessagebuffer() {
-        // new
-        assert_eq!(UpdateMessageBuffer::new(10).bytes, vec![0_u8; 10]);
+    type MB = UpdateMessageBuffer<Vec<u8>>;
 
-        // try from
+    #[test]
+    fn test_updatemessagebuffer_ranges() {
+        assert_eq!(MB::SIGNATURE_RANGE, ..SIGNATURE_BYTES);
+        assert_eq!(MB::MESSAGE_RANGE, SIGNATURE_BYTES..);
+        assert_eq!(MB::TAG_RANGE, 64..64 + TAG_BYTES);
+        assert_eq!(MB::COORD_PK_RANGE, 65..65 + PK_BYTES);
+        assert_eq!(MB::PART_PK_RANGE, 97..97 + PK_BYTES);
+        assert_eq!(MB::SUM_SIGNATURE_RANGE, 129..129 + SIGNATURE_BYTES);
+        assert_eq!(MB::UPDATE_SIGNATURE_RANGE, 193..193 + SIGNATURE_BYTES);
+        assert_eq!(MB::CERTIFICATE_LEN_RANGE, 257..257 + LEN_BYTES);
         assert_eq!(
-            UpdateMessageBuffer::try_from(vec![0_u8; 10]).unwrap_err(),
-            PetError::InvalidMessage,
+            MB::MASKED_MODEL_LEN_RANGE,
+            257 + LEN_BYTES..257 + 2 * LEN_BYTES,
+        );
+        assert_eq!(
+            MB::LOCAL_SEED_DICT_LEN_RANGE,
+            257 + 2 * LEN_BYTES..257 + 3 * LEN_BYTES,
         );
         let sum_dict_len = 1 + randombytes_uniform(10) as usize;
+        let buffer = UpdateMessageBuffer::new(32, 32, 112 * sum_dict_len);
+        assert_eq!(
+            buffer.certificate_range,
+            257 + 3 * LEN_BYTES..257 + 3 * LEN_BYTES + 32,
+        );
+        assert_eq!(
+            buffer.masked_model_range,
+            257 + 3 * LEN_BYTES + 32..257 + 3 * LEN_BYTES + 32 + 32,
+        );
+        assert_eq!(
+            buffer.local_seed_dict_range,
+            257 + 3 * LEN_BYTES + 32 + 32..257 + 3 * LEN_BYTES + 32 + 32 + 112 * sum_dict_len,
+        );
+    }
+
+    #[test]
+    fn test_updatemessagebuffer_fields() {
+        // new
+        let sum_dict_len = 1 + randombytes_uniform(10) as usize;
+        assert_eq!(
+            UpdateMessageBuffer::new(32, 32, 112 * sum_dict_len).bytes,
+            [
+                vec![0_u8; 257],
+                (32 as usize).to_le_bytes().to_vec(),
+                (32 as usize).to_le_bytes().to_vec(),
+                (112 * sum_dict_len as usize).to_le_bytes().to_vec(),
+                vec![0_u8; 64 + 112 * sum_dict_len],
+            ]
+            .concat(),
+        );
+
+        // try from
         let mut bytes = auxiliary_bytes(sum_dict_len);
         let mut buffer = UpdateMessageBuffer::try_from(bytes.clone()).unwrap();
         assert_eq!(buffer.bytes, bytes);
+        assert_eq!(
+            UpdateMessageBuffer::try_from(vec![0_u8; 0]).unwrap_err(),
+            PetError::InvalidMessage,
+        );
+
+        // length
+        assert_eq!(buffer.len(), 321 + 112 * sum_dict_len + 3 * LEN_BYTES);
+
+        // signature
+        assert_eq!(buffer.signature(), &bytes[MB::SIGNATURE_RANGE]);
+        assert_eq!(buffer.signature_mut(), &mut bytes[MB::SIGNATURE_RANGE]);
+
+        // message
+        assert_eq!(buffer.message(), &bytes[MB::MESSAGE_RANGE]);
+
+        // tag
+        assert_eq!(buffer.tag(), &bytes[MB::TAG_RANGE]);
+        assert_eq!(buffer.tag_mut(), &mut bytes[MB::TAG_RANGE]);
+
+        // coordinator pk
+        assert_eq!(buffer.coord_pk(), &bytes[MB::COORD_PK_RANGE]);
+        assert_eq!(buffer.coord_pk_mut(), &mut bytes[MB::COORD_PK_RANGE]);
+
+        // participant pk
+        assert_eq!(buffer.part_pk(), &bytes[MB::PART_PK_RANGE]);
+        assert_eq!(buffer.part_pk_mut(), &mut bytes[MB::PART_PK_RANGE]);
+
+        // sum signature
+        assert_eq!(buffer.sum_signature(), &bytes[MB::SUM_SIGNATURE_RANGE]);
+        assert_eq!(
+            buffer.sum_signature_mut(),
+            &mut bytes[MB::SUM_SIGNATURE_RANGE],
+        );
 
         // update signature
-        let range = buffer.update_signature_range();
-        assert_eq!(buffer.update_signature(), &bytes[range.clone()]);
-        assert_eq!(buffer.update_signature_mut(), &mut bytes[range]);
+        assert_eq!(
+            buffer.update_signature(),
+            &bytes[MB::UPDATE_SIGNATURE_RANGE],
+        );
+        assert_eq!(
+            buffer.update_signature_mut(),
+            &mut bytes[MB::UPDATE_SIGNATURE_RANGE],
+        );
 
-        // masked model length
-        let range = buffer.masked_model_len_range();
-        assert_eq!(buffer.masked_model_len(), &bytes[range.clone()]);
-        assert_eq!(buffer.masked_model_len_mut(), &mut bytes[range]);
-        assert_eq!(buffer.masked_model_bytes(), 32);
+        // certificate
+        assert_eq!(buffer.certificate_len(), &bytes[MB::CERTIFICATE_LEN_RANGE]);
+        let range = buffer.certificate_range.clone();
+        assert_eq!(buffer.certificate(), &bytes[range.clone()]);
+        assert_eq!(buffer.certificate_mut(), &mut bytes[range]);
 
         // masked model
-        let range = buffer.masked_model_range();
+        assert_eq!(
+            buffer.masked_model_len(),
+            &bytes[MB::MASKED_MODEL_LEN_RANGE],
+        );
+        let range = buffer.masked_model_range.clone();
         assert_eq!(buffer.masked_model(), &bytes[range.clone()]);
         assert_eq!(buffer.masked_model_mut(), &mut bytes[range]);
 
-        // local seed dictionary length
-        let range = buffer.local_seed_dict_len_range();
-        assert_eq!(buffer.local_seed_dict_len(), &bytes[range.clone()]);
-        assert_eq!(buffer.local_seed_dict_len_mut(), &mut bytes[range]);
-        assert_eq!(buffer.local_seed_dict_bytes(), 112 * sum_dict_len);
-
         // local seed dictionary
-        let range = buffer.local_seed_dict_range();
+        assert_eq!(
+            buffer.local_seed_dict_len(),
+            &bytes[MB::LOCAL_SEED_DICT_LEN_RANGE],
+        );
+        let range = buffer.local_seed_dict_range.clone();
         assert_eq!(buffer.local_seed_dict(), &bytes[range.clone()]);
         assert_eq!(buffer.local_seed_dict_mut(), &mut bytes[range]);
     }
@@ -531,9 +526,9 @@ mod tests {
         // from parts
         let sum_dict_len = 1 + randombytes_uniform(10) as usize;
         let pk = &sign::PublicKey::from_slice(&randombytes(32)).unwrap();
-        let certificate = &Certificate::new();
         let sum_signature = &sign::Signature::from_slice(&randombytes(64)).unwrap();
         let update_signature = &sign::Signature::from_slice(&randombytes(64)).unwrap();
+        let certificate = &Certificate::new();
         let masked_model = &randombytes(32).into();
         let local_seed_dict = &iter::repeat_with(|| {
             (
@@ -545,19 +540,15 @@ mod tests {
         .collect();
         let msg = UpdateMessage::from_parts(
             pk,
-            certificate,
             sum_signature,
             update_signature,
+            certificate,
             masked_model,
             local_seed_dict,
         );
         assert_eq!(
             msg.pk as *const sign::PublicKey,
             pk as *const sign::PublicKey,
-        );
-        assert_eq!(
-            msg.certificate as *const Certificate,
-            certificate as *const Certificate,
         );
         assert_eq!(
             msg.sum_signature as *const sign::Signature,
@@ -568,6 +559,10 @@ mod tests {
             update_signature as *const sign::Signature,
         );
         assert_eq!(
+            msg.certificate as *const Certificate,
+            certificate as *const Certificate,
+        );
+        assert_eq!(
             msg.masked_model as *const MaskedModel,
             masked_model as *const MaskedModel
         );
@@ -575,7 +570,6 @@ mod tests {
             msg.local_seed_dict as *const LocalSeedDict,
             local_seed_dict as *const LocalSeedDict,
         );
-        assert_eq!(msg.len(), 289 + 3 * LEN_BYTES + 112 * sum_dict_len);
 
         // serialize seed dictionary
         let local_seed_vec = msg.serialize_local_seed_dict();
@@ -594,21 +588,27 @@ mod tests {
             }));
 
         // serialize
-        let mut buffer = UpdateMessageBuffer::new(289 + 3 * LEN_BYTES + 112 * sum_dict_len);
+        let mut buffer = UpdateMessageBuffer::new(32, 32, 112 * sum_dict_len);
         let coord_pk = box_::PublicKey::from_slice(&randombytes(32)).unwrap();
         msg.serialize(&mut buffer, &coord_pk);
-        assert_eq!(buffer.tag(), &[UPDATE_TAG]);
+        assert_eq!(buffer.tag(), [Tag::Update as u8].as_ref());
         assert_eq!(buffer.coord_pk(), coord_pk.as_ref());
         assert_eq!(buffer.part_pk(), pk.as_ref());
-        assert_eq!(buffer.certificate_len(), &(0 as usize).to_le_bytes());
-        assert_eq!(buffer.certificate(), certificate.as_ref());
         assert_eq!(buffer.sum_signature(), sum_signature.as_ref());
         assert_eq!(buffer.update_signature(), update_signature.as_ref());
-        assert_eq!(buffer.masked_model_len(), &(32 as usize).to_le_bytes());
+        assert_eq!(
+            buffer.certificate_len(),
+            certificate.len().to_le_bytes().as_ref(),
+        );
+        assert_eq!(buffer.certificate(), certificate.as_ref());
+        assert_eq!(
+            buffer.masked_model_len(),
+            masked_model.len().to_le_bytes().as_ref(),
+        );
         assert_eq!(buffer.masked_model(), masked_model.as_ref());
         assert_eq!(
             buffer.local_seed_dict_len(),
-            &(112 * sum_dict_len as usize).to_le_bytes(),
+            (112 * sum_dict_len as usize).to_le_bytes().as_ref(),
         );
         assert_eq!(buffer.local_seed_dict(), local_seed_vec.as_slice());
     }
@@ -634,24 +634,29 @@ mod tests {
         let msg = UpdateMessage::deserialize(buffer.clone());
         assert_eq!(
             msg.pk(),
-            &sign::PublicKey::from_slice(&bytes[buffer.part_pk_range()]).unwrap(),
+            &sign::PublicKey::from_slice(&bytes[MB::PART_PK_RANGE]).unwrap(),
         );
-        assert_eq!(msg.certificate(), &bytes[buffer.certificate_range()].into());
         assert_eq!(
             msg.sum_signature(),
-            &sign::Signature::from_slice(&bytes[buffer.sum_signature_range()]).unwrap(),
+            &sign::Signature::from_slice(&bytes[MB::SUM_SIGNATURE_RANGE]).unwrap(),
         );
         assert_eq!(
             msg.update_signature(),
-            &sign::Signature::from_slice(&bytes[buffer.update_signature_range()]).unwrap(),
+            &sign::Signature::from_slice(&bytes[MB::UPDATE_SIGNATURE_RANGE]).unwrap(),
+        );
+        assert_eq!(
+            msg.certificate(),
+            &bytes[buffer.certificate_range.clone()].into()
         );
         assert_eq!(
             msg.masked_model(),
-            &bytes[buffer.masked_model_range()].into(),
+            &bytes[buffer.masked_model_range.clone()].into(),
         );
         assert_eq!(
             msg.local_seed_dict(),
-            &UpdateMessage::deserialize_local_seed_dict(&bytes[buffer.local_seed_dict_range()]),
+            &UpdateMessage::deserialize_local_seed_dict(
+                &bytes[buffer.local_seed_dict_range.clone()]
+            ),
         );
     }
 
@@ -660,9 +665,9 @@ mod tests {
         // seal
         let sum_dict_len = 1 + randombytes_uniform(10) as usize;
         let (pk, sk) = sign::gen_keypair();
-        let certificate = Certificate::new();
         let sum_signature = sign::Signature::from_slice(&randombytes(64)).unwrap();
         let update_signature = sign::Signature::from_slice(&randombytes(64)).unwrap();
+        let certificate = Certificate::new();
         let masked_model = randombytes(32).into();
         let local_seed_dict = iter::repeat_with(|| {
             (
@@ -675,9 +680,9 @@ mod tests {
         let (coord_pk, coord_sk) = box_::gen_keypair();
         let bytes = UpdateMessage::from_parts(
             &pk,
-            &certificate,
             &sum_signature,
             &update_signature,
+            &certificate,
             &masked_model,
             &local_seed_dict,
         )
@@ -686,9 +691,9 @@ mod tests {
         // open
         let msg = UpdateMessage::open(&bytes, &coord_pk, &coord_sk).unwrap();
         assert_eq!(msg.pk(), &pk);
-        assert_eq!(msg.certificate(), &certificate);
         assert_eq!(msg.sum_signature(), &sum_signature);
         assert_eq!(msg.update_signature(), &update_signature);
+        assert_eq!(msg.certificate(), &certificate);
         assert_eq!(msg.masked_model(), &masked_model);
         assert_eq!(msg.local_seed_dict(), &local_seed_dict);
 
@@ -697,9 +702,9 @@ mod tests {
         let mut buffer = UpdateMessageBuffer::try_from(bytes).unwrap();
         let msg = UpdateMessage::from_parts(
             &pk,
-            &certificate,
             &sum_signature,
             &update_signature,
+            &certificate,
             &masked_model,
             &local_seed_dict,
         );
@@ -722,7 +727,7 @@ mod tests {
         );
 
         // wrong tag
-        buffer.tag_mut().copy_from_slice(&[0_u8]);
+        buffer.tag_mut().copy_from_slice([Tag::None as u8].as_ref());
         let bytes = sealedbox::seal(buffer.bytes(), &coord_pk);
         assert_eq!(
             UpdateMessage::open(&bytes, &coord_pk, &coord_sk).unwrap_err(),
@@ -730,10 +735,8 @@ mod tests {
         );
 
         // wrong length
-        let buffer = UpdateMessageBuffer::new(10);
-        let bytes = sealedbox::seal(buffer.bytes(), &coord_pk);
         assert_eq!(
-            UpdateMessage::open(&bytes, &coord_pk, &coord_sk).unwrap_err(),
+            UpdateMessage::open([0_u8; 0].as_ref(), &coord_pk, &coord_sk).unwrap_err(),
             PetError::InvalidMessage,
         );
     }

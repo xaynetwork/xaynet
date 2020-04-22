@@ -1,13 +1,12 @@
 use std::{
     borrow::Borrow,
     convert::{TryFrom, TryInto},
-    default::Default,
     ops::Range,
 };
 
 use sodiumoxide::crypto::{sealedbox, sign};
 
-use super::{MessageBuffer, LEN_BYTES, PK_BYTES, SIGNATURE_BYTES, SUM2_TAG, TAG_BYTES};
+use super::{MessageBuffer, Tag, LEN_BYTES};
 use crate::{
     certificate::Certificate,
     mask::Mask,
@@ -24,34 +23,26 @@ use crate::{
 struct Sum2MessageBuffer<B> {
     bytes: B,
     certificate_range: Range<usize>,
-    sum_signature_range: Range<usize>,
-    mask_len_range: Range<usize>,
     mask_range: Range<usize>,
 }
 
-impl Default for Sum2MessageBuffer<Vec<u8>> {
-    fn default() -> Self {
-        let bytes = Vec::<u8>::new();
-        let certificate_range = 0..0;
-        let sum_signature_range = 0..0;
-        let mask_len_range = 0..0;
-        let mask_range = 0..0;
+impl Sum2MessageBuffer<Vec<u8>> {
+    /// Create an empty sum2 message buffer.
+    fn new(certificate_len: usize, mask_len: usize) -> Self {
+        let bytes = [
+            vec![0_u8; Self::SUM_SIGNATURE_RANGE.end],
+            certificate_len.to_le_bytes().to_vec(),
+            mask_len.to_le_bytes().to_vec(),
+            vec![0_u8; certificate_len + mask_len],
+        ]
+        .concat();
+        let certificate_range =
+            Self::MASK_LEN_RANGE.end..Self::MASK_LEN_RANGE.end + certificate_len;
+        let mask_range = certificate_range.end..certificate_range.end + mask_len;
         Self {
             bytes,
             certificate_range,
-            sum_signature_range,
-            mask_len_range,
             mask_range,
-        }
-    }
-}
-
-impl Sum2MessageBuffer<Vec<u8>> {
-    /// Create an empty sum2 message buffer of size `len`.
-    fn new(len: usize) -> Self {
-        Self {
-            bytes: vec![0_u8; len],
-            ..Default::default()
         }
     }
 }
@@ -63,26 +54,21 @@ impl TryFrom<Vec<u8>> for Sum2MessageBuffer<Vec<u8>> {
     fn try_from(bytes: Vec<u8>) -> Result<Self, Self::Error> {
         let mut buffer = Self {
             bytes,
-            ..Default::default()
+            certificate_range: 0..0,
+            mask_range: 0..0,
         };
-        let mut offset = buffer.certificate_len_range().end;
-        if buffer.len() >= offset {
-            buffer.certificate_range = offset..offset + buffer.certificate_bytes();
-            offset = buffer.certificate_range().end;
-            buffer.sum_signature_range = offset..offset + SIGNATURE_BYTES;
-            offset = buffer.sum_signature_range().end;
-            buffer.mask_len_range = offset..offset + LEN_BYTES;
-            offset = buffer.mask_len_range().end;
+        if buffer.len() >= Self::MASK_LEN_RANGE.end {
+            // safe unwraps: lengths of slices are guaranteed by constants
+            buffer.certificate_range = Self::MASK_LEN_RANGE.end
+                ..Self::MASK_LEN_RANGE.end
+                    + usize::from_le_bytes(buffer.certificate_len().try_into().unwrap());
+            buffer.mask_range = buffer.certificate_range.end
+                ..buffer.certificate_range.end
+                    + usize::from_le_bytes(buffer.mask_len().try_into().unwrap());
         } else {
             return Err(PetError::InvalidMessage);
         }
-        if buffer.len() >= offset {
-            buffer.mask_range = offset..offset + buffer.mask_bytes();
-            offset = buffer.mask_range().end;
-        } else {
-            return Err(PetError::InvalidMessage);
-        }
-        if buffer.len() == offset {
+        if buffer.len() == buffer.mask_range.end {
             Ok(buffer)
         } else {
             Err(PetError::InvalidMessage)
@@ -91,141 +77,108 @@ impl TryFrom<Vec<u8>> for Sum2MessageBuffer<Vec<u8>> {
 }
 
 impl<B: AsRef<[u8]> + AsMut<[u8]>> MessageBuffer for Sum2MessageBuffer<B> {
-    /// Get a reference to the sum2 message buffer.
+    /// Get a reference to the message buffer.
     fn bytes(&'_ self) -> &'_ [u8] {
         self.bytes.as_ref()
     }
 
-    /// Get a mutable reference to the sum2 message buffer.
+    /// Get a mutable reference to the message buffer.
     fn bytes_mut(&mut self) -> &mut [u8] {
         self.bytes.as_mut()
-    }
-
-    /// Get the range of the certificate field.
-    fn certificate_range(&self) -> Range<usize> {
-        self.certificate_range.clone()
-    }
-
-    /// Get the range of the sum signature field.
-    fn sum_signature_range(&self) -> Range<usize> {
-        self.sum_signature_range.clone()
     }
 }
 
 impl<B: AsRef<[u8]> + AsMut<[u8]>> Sum2MessageBuffer<B> {
-    /// Get the range of the mask length field.
-    fn mask_len_range(&self) -> Range<usize> {
-        self.mask_len_range.clone()
+    /// Get the range of the certificate length field.
+    const CERTIFICATE_LEN_RANGE: Range<usize> =
+        Self::SUM_SIGNATURE_RANGE.end..Self::SUM_SIGNATURE_RANGE.end + LEN_BYTES;
+
+    /// Get the range of the masked model length field.
+    const MASK_LEN_RANGE: Range<usize> =
+        Self::CERTIFICATE_LEN_RANGE.end..Self::CERTIFICATE_LEN_RANGE.end + LEN_BYTES;
+
+    /// Get a reference to the certificate length field.
+    fn certificate_len(&'_ self) -> &'_ [u8] {
+        &self.bytes()[Self::CERTIFICATE_LEN_RANGE]
+    }
+
+    /// Get a reference to the certificate field.
+    fn certificate(&'_ self) -> &'_ [u8] {
+        &self.bytes()[self.certificate_range.clone()]
+    }
+
+    /// Get a mutable reference to the certificate field.
+    fn certificate_mut(&mut self) -> &mut [u8] {
+        let range = self.certificate_range.clone();
+        &mut self.bytes_mut()[range]
     }
 
     /// Get a reference to the mask length field.
     fn mask_len(&'_ self) -> &'_ [u8] {
-        let range = self.mask_len_range();
-        &self.bytes()[range]
-    }
-
-    /// Get a mutable reference to the mask length field.
-    fn mask_len_mut(&mut self) -> &mut [u8] {
-        let range = self.mask_len_range();
-        &mut self.bytes_mut()[range]
-    }
-
-    /// Get the number of bytes of the mask field.
-    fn mask_bytes(&self) -> usize {
-        // safe unwrap: length of slice is guaranteed by constants
-        usize::from_le_bytes(self.mask_len().try_into().unwrap())
-    }
-
-    /// Get the range of the mask field.
-    fn mask_range(&self) -> Range<usize> {
-        self.mask_range.clone()
+        &self.bytes()[Self::MASK_LEN_RANGE]
     }
 
     /// Get a reference to the mask field.
     fn mask(&'_ self) -> &'_ [u8] {
-        let range = self.mask_range();
-        &self.bytes()[range]
+        &self.bytes()[self.mask_range.clone()]
     }
 
     /// Get a mutable reference to the mask field.
     fn mask_mut(&mut self) -> &mut [u8] {
-        let range = self.mask_range();
+        let range = self.mask_range.clone();
         &mut self.bytes_mut()[range]
     }
 }
 
 #[derive(Clone, Debug, PartialEq)]
 /// Encryption and decryption of sum2 messages.
-pub struct Sum2Message<K, C, S, M>
+pub struct Sum2Message<K, S, C, M>
 where
     K: Borrow<SumParticipantPublicKey>,
-    C: Borrow<Certificate>,
     S: Borrow<ParticipantTaskSignature>,
+    C: Borrow<Certificate>,
     M: Borrow<Mask>,
 {
     pk: K,
-    certificate: C,
     sum_signature: S,
+    certificate: C,
     mask: M,
 }
 
-impl<K, C, S, M> Sum2Message<K, C, S, M>
+impl<K, S, C, M> Sum2Message<K, S, C, M>
 where
     K: Borrow<SumParticipantPublicKey>,
-    C: Borrow<Certificate>,
     S: Borrow<ParticipantTaskSignature>,
+    C: Borrow<Certificate>,
     M: Borrow<Mask>,
 {
     /// Create a sum2 message from its parts.
-    pub fn from_parts(pk: K, certificate: C, sum_signature: S, mask: M) -> Self {
+    pub fn from_parts(pk: K, sum_signature: S, certificate: C, mask: M) -> Self {
         Self {
             pk,
-            certificate,
             sum_signature,
+            certificate,
             mask,
         }
     }
 
-    /// Get the length of a serialized sum2 message.
-    fn len(&self) -> usize {
-        SIGNATURE_BYTES
-            + TAG_BYTES
-            + PK_BYTES
-            + PK_BYTES
-            + LEN_BYTES
-            + self.certificate.borrow().len()
-            + SIGNATURE_BYTES
-            + LEN_BYTES
-            + self.mask.borrow().len()
-    }
-
     /// Serialize the sum2 message into a buffer.
-    fn serialize(&self, buffer: &mut Sum2MessageBuffer<Vec<u8>>, pk: &CoordinatorPublicKey) {
-        buffer.tag_mut().copy_from_slice(&[SUM2_TAG]);
+    fn serialize<B: AsRef<[u8]> + AsMut<[u8]>>(
+        &self,
+        buffer: &mut Sum2MessageBuffer<B>,
+        pk: &CoordinatorPublicKey,
+    ) {
+        buffer.tag_mut().copy_from_slice([Tag::Sum2 as u8].as_ref());
         buffer.coord_pk_mut().copy_from_slice(pk.borrow().as_ref());
         buffer
             .part_pk_mut()
             .copy_from_slice(self.pk.borrow().as_ref());
         buffer
-            .certificate_len_mut()
-            .copy_from_slice(&self.certificate.borrow().len().to_le_bytes());
-        let mut offset = buffer.certificate_len_range().end;
-        buffer.certificate_range = offset..offset + buffer.certificate_bytes();
+            .sum_signature_mut()
+            .copy_from_slice(self.sum_signature.borrow().as_ref());
         buffer
             .certificate_mut()
             .copy_from_slice(self.certificate.borrow().as_ref());
-        offset = buffer.certificate_range().end;
-        buffer.sum_signature_range = offset..offset + SIGNATURE_BYTES;
-        buffer
-            .sum_signature_mut()
-            .copy_from_slice(self.sum_signature.borrow().as_ref());
-        offset = buffer.sum_signature_range().end;
-        buffer.mask_len_range = offset..offset + LEN_BYTES;
-        buffer
-            .mask_len_mut()
-            .copy_from_slice(&self.mask.borrow().len().to_le_bytes());
-        offset = buffer.mask_len_range().end;
-        buffer.mask_range = offset..offset + buffer.mask_bytes();
         buffer
             .mask_mut()
             .copy_from_slice(self.mask.borrow().as_ref());
@@ -233,7 +186,8 @@ where
 
     /// Sign and encrypt the sum2message.
     pub fn seal(&self, sk: &SumParticipantSecretKey, pk: &CoordinatorPublicKey) -> Vec<u8> {
-        let mut buffer = Sum2MessageBuffer::new(self.len());
+        let mut buffer =
+            Sum2MessageBuffer::new(self.certificate.borrow().len(), self.mask.borrow().len());
         self.serialize(&mut buffer, pk);
         let signature = sign::sign_detached(buffer.message(), sk);
         buffer.signature_mut().copy_from_slice(signature.as_ref());
@@ -241,18 +195,18 @@ where
     }
 }
 
-impl Sum2Message<SumParticipantPublicKey, Certificate, ParticipantTaskSignature, Mask> {
+impl Sum2Message<SumParticipantPublicKey, ParticipantTaskSignature, Certificate, Mask> {
     /// Deserialize a sum2 message from a buffer.
     fn deserialize(buffer: Sum2MessageBuffer<Vec<u8>>) -> Self {
         // safe unwraps: lengths of slices are guaranteed by constants
         let pk = sign::PublicKey::from_slice(buffer.part_pk()).unwrap();
-        let certificate = buffer.certificate().into();
         let sum_signature = sign::Signature::from_slice(buffer.sum_signature()).unwrap();
+        let certificate = buffer.certificate().into();
         let mask = buffer.mask().into();
         Self {
             pk,
-            certificate,
             sum_signature,
+            certificate,
             mask,
         }
     }
@@ -266,7 +220,7 @@ impl Sum2Message<SumParticipantPublicKey, Certificate, ParticipantTaskSignature,
         let buffer = Sum2MessageBuffer::try_from(
             sealedbox::open(bytes, pk, sk).or(Err(PetError::InvalidMessage))?,
         )?;
-        if buffer.tag() == [SUM2_TAG]
+        if buffer.tag() == [Tag::Sum2 as u8]
             && buffer.coord_pk() == pk.as_ref()
             && sign::verify_detached(
                 // safe unwraps: lengths of slices are guaranteed by constants
@@ -286,14 +240,14 @@ impl Sum2Message<SumParticipantPublicKey, Certificate, ParticipantTaskSignature,
         &self.pk
     }
 
-    /// Get a reference to the certificate.
-    pub fn certificate(&self) -> &Certificate {
-        &self.certificate
-    }
-
     /// Get a reference to the sum signature.
     pub fn sum_signature(&self) -> &ParticipantTaskSignature {
         &self.sum_signature
+    }
+
+    /// Get a reference to the certificate.
+    pub fn certificate(&self) -> &Certificate {
+        &self.certificate
     }
 
     /// Get a reference to the mask.
@@ -307,40 +261,102 @@ mod tests {
     use sodiumoxide::{crypto::box_, randombytes::randombytes};
 
     use super::*;
+    use crate::message::{PK_BYTES, SIGNATURE_BYTES, TAG_BYTES};
 
     fn auxiliary_bytes() -> Vec<u8> {
         [
-            randombytes(129).as_slice(),
-            &(0 as usize).to_le_bytes(),
-            randombytes(64).as_slice(),
-            &(32 as usize).to_le_bytes(),
-            randombytes(32).as_slice(),
+            randombytes(193),
+            (32 as usize).to_le_bytes().to_vec(),
+            (32 as usize).to_le_bytes().to_vec(),
+            randombytes(64),
         ]
         .concat()
     }
 
+    type MB = Sum2MessageBuffer<Vec<u8>>;
+
     #[test]
-    fn test_sum2messagebuffer() {
+    fn test_sum2messagebuffer_ranges() {
+        assert_eq!(MB::SIGNATURE_RANGE, ..SIGNATURE_BYTES);
+        assert_eq!(MB::MESSAGE_RANGE, SIGNATURE_BYTES..);
+        assert_eq!(MB::TAG_RANGE, 64..64 + TAG_BYTES);
+        assert_eq!(MB::COORD_PK_RANGE, 65..65 + PK_BYTES);
+        assert_eq!(MB::PART_PK_RANGE, 97..97 + PK_BYTES);
+        assert_eq!(MB::SUM_SIGNATURE_RANGE, 129..129 + SIGNATURE_BYTES);
+        assert_eq!(MB::CERTIFICATE_LEN_RANGE, 193..193 + LEN_BYTES);
+        assert_eq!(MB::MASK_LEN_RANGE, 193 + LEN_BYTES..193 + 2 * LEN_BYTES);
+        let buffer = Sum2MessageBuffer::new(32, 32);
+        assert_eq!(
+            buffer.certificate_range,
+            193 + 2 * LEN_BYTES..193 + 2 * LEN_BYTES + 32,
+        );
+        assert_eq!(
+            buffer.mask_range,
+            193 + 2 * LEN_BYTES + 32..193 + 2 * LEN_BYTES + 32 + 32,
+        );
+    }
+
+    #[test]
+    fn test_sum2messagebuffer_fields() {
         // new
-        assert_eq!(Sum2MessageBuffer::new(10).bytes, vec![0_u8; 10]);
+        assert_eq!(
+            Sum2MessageBuffer::new(32, 32).bytes,
+            [
+                vec![0_u8; 193],
+                (32 as usize).to_le_bytes().to_vec(),
+                (32 as usize).to_le_bytes().to_vec(),
+                vec![0_u8; 64],
+            ]
+            .concat(),
+        );
 
         // try from
-        assert_eq!(
-            Sum2MessageBuffer::try_from(vec![0_u8; 10]).unwrap_err(),
-            PetError::InvalidMessage,
-        );
         let mut bytes = auxiliary_bytes();
         let mut buffer = Sum2MessageBuffer::try_from(bytes.clone()).unwrap();
         assert_eq!(buffer.bytes, bytes);
+        assert_eq!(
+            Sum2MessageBuffer::try_from(vec![0_u8; 0]).unwrap_err(),
+            PetError::InvalidMessage,
+        );
 
-        // mask length
-        let range = buffer.mask_len_range();
-        assert_eq!(buffer.mask_len(), &bytes[range.clone()]);
-        assert_eq!(buffer.mask_len_mut(), &mut bytes[range]);
-        assert_eq!(buffer.mask_bytes(), 32);
+        // length
+        assert_eq!(buffer.len(), 257 + 2 * LEN_BYTES);
+
+        // signature
+        assert_eq!(buffer.signature(), &bytes[MB::SIGNATURE_RANGE]);
+        assert_eq!(buffer.signature_mut(), &mut bytes[MB::SIGNATURE_RANGE]);
+
+        // message
+        assert_eq!(buffer.message(), &bytes[MB::MESSAGE_RANGE]);
+
+        // tag
+        assert_eq!(buffer.tag(), &bytes[MB::TAG_RANGE]);
+        assert_eq!(buffer.tag_mut(), &mut bytes[MB::TAG_RANGE]);
+
+        // coordinator pk
+        assert_eq!(buffer.coord_pk(), &bytes[MB::COORD_PK_RANGE]);
+        assert_eq!(buffer.coord_pk_mut(), &mut bytes[MB::COORD_PK_RANGE]);
+
+        // participant pk
+        assert_eq!(buffer.part_pk(), &bytes[MB::PART_PK_RANGE]);
+        assert_eq!(buffer.part_pk_mut(), &mut bytes[MB::PART_PK_RANGE]);
+
+        // sum signature
+        assert_eq!(buffer.sum_signature(), &bytes[MB::SUM_SIGNATURE_RANGE]);
+        assert_eq!(
+            buffer.sum_signature_mut(),
+            &mut bytes[MB::SUM_SIGNATURE_RANGE],
+        );
+
+        // certificate
+        assert_eq!(buffer.certificate_len(), &bytes[MB::CERTIFICATE_LEN_RANGE]);
+        let range = buffer.certificate_range.clone();
+        assert_eq!(buffer.certificate(), &bytes[range.clone()]);
+        assert_eq!(buffer.certificate_mut(), &mut bytes[range]);
 
         // mask
-        let range = buffer.mask_range();
+        assert_eq!(buffer.mask_len(), &bytes[MB::MASK_LEN_RANGE]);
+        let range = buffer.mask_range.clone();
         assert_eq!(buffer.mask(), &bytes[range.clone()]);
         assert_eq!(buffer.mask_mut(), &mut bytes[range]);
     }
@@ -349,36 +365,38 @@ mod tests {
     fn test_sum2message_serialize() {
         // from parts
         let pk = &sign::PublicKey::from_slice(&randombytes(32)).unwrap();
-        let certificate = &Certificate::new();
         let sum_signature = &sign::Signature::from_slice(&randombytes(64)).unwrap();
+        let certificate = &Certificate::new();
         let mask = &randombytes(32).into();
-        let msg = Sum2Message::from_parts(pk, certificate, sum_signature, mask);
+        let msg = Sum2Message::from_parts(pk, sum_signature, certificate, mask);
         assert_eq!(
             msg.pk as *const sign::PublicKey,
             pk as *const sign::PublicKey,
         );
         assert_eq!(
-            msg.certificate as *const Certificate,
-            certificate as *const Certificate,
-        );
-        assert_eq!(
             msg.sum_signature as *const sign::Signature,
             sum_signature as *const sign::Signature,
         );
+        assert_eq!(
+            msg.certificate as *const Certificate,
+            certificate as *const Certificate,
+        );
         assert_eq!(msg.mask as *const Mask, mask as *const Mask);
-        assert_eq!(msg.len(), 225 + 2 * LEN_BYTES);
 
         // serialize
-        let mut buffer = Sum2MessageBuffer::new(225 + 2 * LEN_BYTES);
+        let mut buffer = Sum2MessageBuffer::new(32, 32);
         let coord_pk = box_::PublicKey::from_slice(&randombytes(32)).unwrap();
         msg.serialize(&mut buffer, &coord_pk);
-        assert_eq!(buffer.tag(), &[SUM2_TAG]);
+        assert_eq!(buffer.tag(), [Tag::Sum2 as u8].as_ref());
         assert_eq!(buffer.coord_pk(), coord_pk.as_ref());
         assert_eq!(buffer.part_pk(), pk.as_ref());
-        assert_eq!(buffer.certificate_len(), &(0 as usize).to_le_bytes());
-        assert_eq!(buffer.certificate(), certificate.as_ref());
         assert_eq!(buffer.sum_signature(), sum_signature.as_ref());
-        assert_eq!(buffer.mask_len(), &(32 as usize).to_le_bytes());
+        assert_eq!(
+            buffer.certificate_len(),
+            certificate.len().to_le_bytes().as_ref(),
+        );
+        assert_eq!(buffer.certificate(), certificate.as_ref());
+        assert_eq!(buffer.mask_len(), mask.len().to_le_bytes().as_ref());
         assert_eq!(buffer.mask(), mask.as_ref());
     }
 
@@ -390,38 +408,41 @@ mod tests {
         let msg = Sum2Message::deserialize(buffer.clone());
         assert_eq!(
             msg.pk(),
-            &sign::PublicKey::from_slice(&bytes[buffer.part_pk_range()]).unwrap(),
+            &sign::PublicKey::from_slice(&bytes[MB::PART_PK_RANGE]).unwrap(),
         );
-        assert_eq!(msg.certificate(), &bytes[buffer.certificate_range()].into());
         assert_eq!(
             msg.sum_signature(),
-            &sign::Signature::from_slice(&bytes[buffer.sum_signature_range()]).unwrap(),
+            &sign::Signature::from_slice(&bytes[MB::SUM_SIGNATURE_RANGE]).unwrap(),
         );
-        assert_eq!(msg.mask(), &bytes[buffer.mask_range()].into());
+        assert_eq!(
+            msg.certificate(),
+            &bytes[buffer.certificate_range.clone()].into(),
+        );
+        assert_eq!(msg.mask(), &bytes[buffer.mask_range.clone()].into());
     }
 
     #[test]
     fn test_sum2message() {
         // seal
         let (pk, sk) = sign::gen_keypair();
-        let certificate = Certificate::new();
         let sum_signature = sign::Signature::from_slice(&randombytes(64)).unwrap();
+        let certificate = Certificate::new();
         let mask = randombytes(32).into();
         let (coord_pk, coord_sk) = box_::gen_keypair();
         let bytes =
-            Sum2Message::from_parts(&pk, &certificate, &sum_signature, &mask).seal(&sk, &coord_pk);
+            Sum2Message::from_parts(&pk, &sum_signature, &certificate, &mask).seal(&sk, &coord_pk);
 
         // open
         let msg = Sum2Message::open(&bytes, &coord_pk, &coord_sk).unwrap();
         assert_eq!(msg.pk(), &pk);
-        assert_eq!(msg.certificate(), &certificate);
         assert_eq!(msg.sum_signature(), &sum_signature);
+        assert_eq!(msg.certificate(), &certificate);
         assert_eq!(msg.mask(), &mask);
 
         // wrong signature
         let bytes = auxiliary_bytes();
         let mut buffer = Sum2MessageBuffer::try_from(bytes).unwrap();
-        let msg = Sum2Message::from_parts(&pk, &certificate, &sum_signature, &mask);
+        let msg = Sum2Message::from_parts(&pk, &sum_signature, &certificate, &mask);
         msg.serialize(&mut buffer, &coord_pk);
         let bytes = sealedbox::seal(buffer.bytes(), &coord_pk);
         assert_eq!(
@@ -441,7 +462,7 @@ mod tests {
         );
 
         // wrong tag
-        buffer.tag_mut().copy_from_slice(&[0_u8]);
+        buffer.tag_mut().copy_from_slice([Tag::None as u8].as_ref());
         let bytes = sealedbox::seal(buffer.bytes(), &coord_pk);
         assert_eq!(
             Sum2Message::open(&bytes, &coord_pk, &coord_sk).unwrap_err(),
@@ -449,10 +470,8 @@ mod tests {
         );
 
         // wrong length
-        let buffer = Sum2MessageBuffer::new(10);
-        let bytes = sealedbox::seal(buffer.bytes(), &coord_pk);
         assert_eq!(
-            Sum2Message::open(&bytes, &coord_pk, &coord_sk).unwrap_err(),
+            Sum2Message::open([0_u8; 0].as_ref(), &coord_pk, &coord_sk).unwrap_err(),
             PetError::InvalidMessage,
         );
     }

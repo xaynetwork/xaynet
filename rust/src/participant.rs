@@ -104,9 +104,9 @@ impl Participant {
         self.gen_ephm_keypair();
         SumMessage::from_parts(
             &self.pk,
-            &self.certificate,
             &self.sum_signature,
             &self.ephm_pk,
+            &self.certificate,
         )
         .seal(&self.sk, pk)
     }
@@ -117,9 +117,9 @@ impl Participant {
         let local_seed_dict = Self::create_local_seed_dict(sum_dict, &mask_seed);
         UpdateMessage::from_parts(
             &self.pk,
-            &self.certificate,
             &self.sum_signature,
             &self.update_signature,
+            &self.certificate,
             &masked_model,
             &local_seed_dict,
         )
@@ -135,7 +135,7 @@ impl Participant {
         let mask_seeds = self.get_seeds(seed_dict)?;
         let mask = self.compute_global_mask(mask_seeds);
         Ok(
-            Sum2Message::from_parts(&self.pk, &self.certificate, &self.sum_signature, &mask)
+            Sum2Message::from_parts(&self.pk, &self.sum_signature, &self.certificate, &mask)
                 .seal(&self.sk, pk),
         )
     }

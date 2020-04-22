@@ -7,7 +7,7 @@ pub struct Certificate(Vec<u8>);
 impl Certificate {
     /// Create a certificate
     pub fn new() -> Self {
-        Self(Vec::<u8>::new())
+        Self(vec![0_u8; 32])
     }
 
     /// Get the length of the certificate.
@@ -17,7 +17,7 @@ impl Certificate {
 
     /// Validate a certificate
     pub fn validate(&self) -> Result<(), PetError> {
-        if self.as_ref() == b"" {
+        if self.as_ref() == &[0_u8; 32] {
             Ok(())
         } else {
             Err(PetError::InvalidMessage)
