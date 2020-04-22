@@ -10,11 +10,23 @@ use sodiumoxide::{
 };
 
 use super::{
-    Certificate, MessageBuffer, LEN_BYTES, PK_BYTES, SIGNATURE_BYTES, TAG_BYTES, UPDATE_TAG,
+    Certificate,
+    MessageBuffer,
+    LEN_BYTES,
+    PK_BYTES,
+    SIGNATURE_BYTES,
+    TAG_BYTES,
+    UPDATE_TAG,
 };
 use crate::{
-    CoordinatorPublicKey, CoordinatorSecretKey, LocalSeedDict, ParticipantTaskSignature, PetError,
-    SumParticipantEphemeralPublicKey, SumParticipantEphemeralSecretKey, UpdateParticipantPublicKey,
+    CoordinatorPublicKey,
+    CoordinatorSecretKey,
+    LocalSeedDict,
+    ParticipantTaskSignature,
+    PetError,
+    SumParticipantEphemeralPublicKey,
+    SumParticipantEphemeralSecretKey,
+    UpdateParticipantPublicKey,
     UpdateParticipantSecretKey,
 };
 
