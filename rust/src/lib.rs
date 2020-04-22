@@ -1,5 +1,4 @@
 #![allow(dead_code)]
-#![allow(unused_imports)]
 #![feature(or_patterns)]
 #![feature(const_fn)]
 
@@ -13,6 +12,7 @@ pub mod coordinator;
 pub mod message;
 pub mod participant;
 pub mod service;
+pub mod storage;
 pub mod utils;
 
 use std::collections::HashMap;

@@ -8,6 +8,7 @@ use sodiumoxide::{
 };
 
 use crate::{
+    coordserde::serde::{serde_counter, serde_sodiumoxide::*},
     message::{
         sum::SumMessage,
         sum2::{Mask, Sum2Message},
@@ -34,7 +35,7 @@ pub type MaskHash = sha256::Digest;
 /// represented by their hashes.
 pub type MaskDict = Counter<MaskHash>;
 
-#[derive(Debug, PartialEq, Copy, Clone)]
+#[derive(Debug, PartialEq, Copy, Clone, Serialize, Deserialize)]
 /// Round phases of a coordinator.
 pub enum Phase {
     Idle,
@@ -43,19 +44,26 @@ pub enum Phase {
     Sum2,
 }
 
+impl fmt::Display for Phase {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 /// A coordinator in the PET protocol layer.
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Coordinator {
     // credentials
     pk: CoordinatorPublicKey, // 32 bytes
     sk: CoordinatorSecretKey, // 32 bytes
 
     // round parameters
-    sum: f64,
-    update: f64,
-    seed: Vec<u8>, // 32 bytes
-    min_sum: usize,
-    min_update: usize,
-    phase: Phase,
+    pub(crate) sum: f64,
+    pub(crate) update: f64,
+    pub(crate) seed: Vec<u8>, // 32 bytes
+    pub(crate) min_sum: usize,
+    pub(crate) min_update: usize,
+    pub(crate) phase: Phase,
 
     // round dictionaries
     /// Dictionary built during the sum phase.
