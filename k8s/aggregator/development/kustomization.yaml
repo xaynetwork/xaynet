@@ -6,7 +6,7 @@ namespace: development
 images:
 - name: aggregator
   newName: xain/xain-fl
-  newTag: latest
+  newTag: development
 
 configMapGenerator:
 - name: config-toml
