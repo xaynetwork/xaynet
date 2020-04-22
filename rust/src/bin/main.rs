@@ -1,5 +1,5 @@
 use futures::*;
-use sodiumoxide::crypto::box_;
+use sodiumoxide::crypto::{box_, sign};
 use std::time::Instant;
 use xain_fl::storage::{redis::store::RedisStore, state::*};
 
@@ -8,27 +8,32 @@ async fn main() {
     let mut store = RedisStore::new("redis://127.0.0.1/").await.unwrap();
     //store.clear_all().await.unwrap();
 
-    let keys: Vec<box_::PublicKey> = (0..100_000)
+    let keys: Vec<(sign::PublicKey, box_::PublicKey)> = (0..100_000)
         .map(|_| {
-            let (pk, _) = box_::gen_keypair();
-            pk
+            let (pk, _) = sign::gen_keypair();
+            let (epk, _) = box_::gen_keypair();
+            (pk, epk)
         })
         .collect();
 
     async fn gen_set_fut(
         rs: &RedisStore,
-        pk: box_::PublicKey,
+        pk: sign::PublicKey,
+        epk: box_::PublicKey,
     ) -> Result<(), Box<dyn std::error::Error + 'static>> {
         let mut red = rs.clone();
 
-        red.set_sum_dict_entry(&SumDictEntry(pk, pk)).await
+        red.set_sum_dict_entry(&SumDictEntry(pk, epk)).await
     }
-    //let set_fut = keys.into_iter().map(|pk| gen_set_fut(&store, pk));
+    // let set_fut = keys
+    //     .into_iter()
+    //     .map(|(pk, epk)| gen_set_fut(&store, pk, epk));
 
     let sum_dict_entries: Vec<SumDictEntry> = (0..100_000)
         .map(|_| {
-            let (pk, _) = box_::gen_keypair();
-            SumDictEntry(pk, pk)
+            let (pk, _) = sign::gen_keypair();
+            let (epk, _) = box_::gen_keypair();
+            SumDictEntry(pk, epk)
         })
         .collect();
 
