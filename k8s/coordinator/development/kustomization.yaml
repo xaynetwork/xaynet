@@ -4,14 +4,14 @@ kind: Kustomization
 namespace: development
 
 images:
-- name: aggregator
+- name: coordinator
   newName: xain/xain-fl
   newTag: latest
 
 configMapGenerator:
 - name: config-toml
   files:
-  - config-release-aggregator.toml
+  - config-release-coordinator.toml
 
 patchesStrategicMerge:
 - history-limit.yaml

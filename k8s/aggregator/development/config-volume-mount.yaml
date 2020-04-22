@@ -9,8 +9,12 @@ spec:
       - name: config-volume
         configMap:
           name: config-toml
+          items:
+            - key: config-release-aggregator.toml
+              path: config-release-aggregator.toml
       containers:
         - name: aggregator
           volumeMounts:
-            mountPath: /bin/config.toml
-            name: config-volume
+            - name: config-volume
+              mountPath: /app/config-release-aggregator.toml
+              subPath: config-release-aggregator.toml
