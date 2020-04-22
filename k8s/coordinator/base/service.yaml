@@ -5,7 +5,11 @@ metadata:
 spec:
   type: ClusterIP
   ports:
-    - port: 8082
-      targetPort: 8082
+    - port: 8081
+      targetPort: 8081
+      name: http
+    - port: 5555
+      targetPort: 5555
+      name: grpc
   selector:
     app: coordinator

@@ -11,4 +11,4 @@ bind_address = "0.0.0.0:8082"
 
 [rpc]
 bind_address = "0.0.0.0:6666"
-coordinator_address = "coordinator:5555"
+coordinator_address = "coordinator-service:5555"

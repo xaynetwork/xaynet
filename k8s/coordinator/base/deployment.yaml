@@ -18,7 +18,7 @@ spec:
           command: ["coordinator"]
           args: ["-c", "/app/config-release-coordinator.toml"]
           ports:
-            - containerPort: 6666
+            - containerPort: 5555
               protocol: TCP
-            - containerPort: 8082
+            - containerPort: 8081
               protocol: TCP

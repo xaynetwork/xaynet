@@ -49,8 +49,6 @@ services:
       args:
         RELEASE_BUILD: "true"
     image: docker_aggregator:release
-    depends_on:
-      - influxdb
     volumes:
       - ${PWD}/configs/docker-release-aggregator.toml:/bin/config.toml
     networks:
