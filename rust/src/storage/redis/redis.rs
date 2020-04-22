@@ -138,10 +138,11 @@ impl RedisStore {
 mod tests {
     use super::RedisStore;
     use crate::{
-        coordinator::{
-            EncryptedMaskingSeed, MaskHash, Phase, SeedDict, SumDict, UpdateParticipantPublicKey,
+        coordinator::Phase,
+        storage::state::{
+            CoordinatorState, CoordinatorStateRequest, MaskDictEntry, MaskDictResult,
+            SeedDictEntry, SeedDictResult, SubSeedDictResult, SumDictEntry, SumDictResult,
         },
-        storage::state::{CoordinatorState, CoordinatorStateRequest, MaskDictEntry},
     };
     use counter::Counter;
     use futures::*;
@@ -158,14 +159,11 @@ mod tests {
 
         let sum_participant_pk = box_::PublicKey([0_u8; box_::PUBLICKEYBYTES]);
         let sum_participant_epk = box_::PublicKey([1_u8; box_::PUBLICKEYBYTES]);
-        let mut expect: SumDict = HashMap::new();
+        let mut expect: SumDictResult = HashMap::new();
         expect.insert(sum_participant_pk, sum_participant_epk);
 
         store
-            .set_sum_dict_entry(&crate::storage::state::SumDictEntry(
-                sum_participant_pk,
-                sum_participant_epk,
-            ))
+            .set_sum_dict_entry(&SumDictEntry(sum_participant_pk, sum_participant_epk))
             .await
             .unwrap();
         let get = store.get_sum_dict().await.unwrap();
@@ -182,18 +180,14 @@ mod tests {
         let update_participant_pk = box_::PublicKey([1_u8; box_::PUBLICKEYBYTES]);
         let seed = randombytes(80);
 
-        let mut seeds_map: HashMap<UpdateParticipantPublicKey, EncryptedMaskingSeed> =
-            HashMap::new();
+        let mut seeds_map: SubSeedDictResult = HashMap::new();
         seeds_map.insert(update_participant_pk, seed);
 
-        let mut expect: SeedDict = HashMap::new();
+        let mut expect: SeedDictResult = HashMap::new();
         expect.insert(sum_participant_pk, seeds_map.clone());
 
         store
-            .set_seed_dict_entry(&crate::storage::state::SeedDictEntry(
-                sum_participant_pk,
-                seeds_map,
-            ))
+            .set_seed_dict_entry(&SeedDictEntry(sum_participant_pk, seeds_map))
             .await
             .unwrap();
         let get = store.get_seed_dict().await.unwrap();
@@ -207,7 +201,7 @@ mod tests {
         //store.clear_all().await.unwrap();
 
         let mask_hash = randombytes(80);
-        let expect: Counter<MaskHash> = Counter::init(iter::once(mask_hash.clone()));
+        let expect: MaskDictResult = Counter::init(iter::once(mask_hash.clone()));
 
         store
             .set_mask_dict_entry(&MaskDictEntry(mask_hash))
@@ -226,8 +220,7 @@ mod tests {
         async fn gen_set_fut(rs: &RedisStore) -> Result<(), Box<dyn std::error::Error + 'static>> {
             let mut red = rs.clone();
             let (pk, _) = box_::gen_keypair();
-            red.set_sum_dict_entry(&crate::storage::state::SumDictEntry(pk, pk))
-                .await
+            red.set_sum_dict_entry(&SumDictEntry(pk, pk)).await
         }
         let set_fut = (0..10_000).map(|_| gen_set_fut(&store));
 
