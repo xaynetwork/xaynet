@@ -11,7 +11,7 @@ pub mod aggregator {
     }
 }
 
-use crate::coordserde::state::Snapshot::Aggregator;
+use crate::storage::state::Snapshot::Aggregator;
 
 pub enum Snapshot {
     Coordinator(Coordinator),

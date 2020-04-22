@@ -28,7 +28,6 @@ pub mod serde_counter {
 }
 
 pub mod serde_sodiumoxide {
-    use core::iter::Map;
     use data_encoding::HEXUPPER;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
     use sodiumoxide::crypto::{box_, sign};

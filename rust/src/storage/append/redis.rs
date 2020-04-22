@@ -43,7 +43,8 @@ impl RedisStore {
     }
 
     async fn set_mask_dict_entry(&mut self, entry: MaskDictEntry) -> Result<(), RedisError> {
-        self.connection.sadd("mask_dict", &entry.0).await?;
+        self.connection.sadd("mask_dict", &entry.to_args()).await?;
+        Ok(())
     }
 
     async fn schedule_snapshot(&mut self) -> Result<(), RedisError> {
