@@ -9,3 +9,6 @@
 
 # Sphinx documentation
 docs/_build/
+
+# Intellij and family
+.idea/
