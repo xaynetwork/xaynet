@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+commonLabels:
+  app.kubernetes.io/component: backend
+  app.kubernetes.io/name: coordinator
+  app.kubernetes.io/part-of: xain-fl
+
+resources:
+- deployment.yaml
+- service.yaml

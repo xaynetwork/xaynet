@@ -1,0 +1,13 @@
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: aggregator-ingress
+spec:
+  rules:
+    - host: dev-aggregator.xain.io
+      http:
+        paths:
+          - path: /
+            backend:
+              serviceName: aggregator-service
+              servicePort: 8082

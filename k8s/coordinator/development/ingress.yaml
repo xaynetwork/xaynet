@@ -1,0 +1,13 @@
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: coordinator-ingress
+spec:
+  rules:
+    - host: dev-coordinator.xain.io
+      http:
+        paths:
+          - path: /
+            backend:
+              serviceName: coordinator-service
+              servicePort: 8081

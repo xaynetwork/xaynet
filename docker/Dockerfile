@@ -17,7 +17,7 @@ COPY rust/Cargo.toml .
 RUN cargo fetch
 RUN mkdir -p ./src && \
     touch src/lib.rs && \
-    cargo build --lib --all-features
+    cargo build --lib --influx_metrics
 
 # Now copy the actual source code
 COPY rust/src src

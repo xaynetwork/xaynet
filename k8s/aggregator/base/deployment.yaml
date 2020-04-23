@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aggregator-deployment
+spec:
+  selector:
+    matchLabels:
+      app: aggregator
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: aggregator
+    spec:
+      containers:
+        - name: aggregator
+          image: aggregator
+          command: ["aggregator"]
+          args: ["-c", "/app/config-release-aggregator.toml"]
+          ports:
+            - containerPort: 6666
+              protocol: TCP
+            - containerPort: 8082
+              protocol: TCP
