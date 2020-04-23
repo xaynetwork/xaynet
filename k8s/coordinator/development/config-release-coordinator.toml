@@ -1,4 +1,4 @@
-aggregator_url = "http://localhost:8082"
+aggregator_url = "http://dev-aggregator.xain.io:80"
 
 [logging]
 filter = "info,xain_fl=debug"
