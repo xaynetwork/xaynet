@@ -9,12 +9,13 @@ images:
   newTag: development
 
 configMapGenerator:
-- name: config-toml
-  files:
+- files:
   - config-release-aggregator.toml
+  name: config-toml
 
 patchesStrategicMerge:
 - history-limit.yaml
 - config-volume-mount.yaml
 resources:
 - ../base
+- ingress.yaml

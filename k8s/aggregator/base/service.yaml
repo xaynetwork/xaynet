@@ -7,9 +7,9 @@ spec:
   ports:
     - port: 8082
       targetPort: 8082
-      name: http
+      name: http-port
     - port: 6666
       targetPort: 6666
-      name: grpc
+      name: rpc-port
   selector:
     app: aggregator

@@ -7,9 +7,9 @@ spec:
   ports:
     - port: 8081
       targetPort: 8081
-      name: http
+      name: http-port
     - port: 5555
       targetPort: 5555
-      name: grpc
+      name: rpc-port
   selector:
     app: coordinator
