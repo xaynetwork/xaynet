@@ -2,7 +2,6 @@ aggregator_url = "http://localhost:8082"
 
 [logging]
 filter = "info,xain_fl=debug"
-telemetry = { jaeger_endpoint = "jaeger:6831", service_name = "coordinator" }
 
 [api]
 bind_address = "0.0.0.0:8081"
