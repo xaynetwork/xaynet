@@ -1,11 +1,11 @@
-use std::default::Default;
+use std::{convert::TryFrom, default::Default};
 
 use sodiumoxide::{self, randombytes::randombytes};
 
 use crate::{
     certificate::Certificate,
     crypto::{generate_encrypt_key_pair, generate_signing_key_pair, ByteObject},
-    mask::{Mask, MaskSeed, MaskedModel},
+    mask::{config::MaskConfigs, Mask, MaskSeed, MaskedModel, Model},
     message::{sum::SumMessage, sum2::Sum2Message, update::UpdateMessage},
     utils::is_eligible,
     CoordinatorPublicKey,
@@ -113,7 +113,10 @@ impl Participant {
 
     /// Compose an update message.
     pub fn compose_update_message(&self, pk: &CoordinatorPublicKey, sum_dict: &SumDict) -> Vec<u8> {
-        let (mask_seed, masked_model) = Self::mask_model();
+        let model = Model::from(vec![0_f32, 0.5, -0.5]); // dummy
+        let scalar = 0.5_f32; // dummy
+        let config = MaskConfigs::PrimeF32M3B0.config();
+        let (mask_seed, masked_model) = model.mask(scalar, config);
         let local_seed_dict = Self::create_local_seed_dict(sum_dict, &mask_seed);
         UpdateMessage::from_parts(
             &self.pk,
@@ -147,13 +150,6 @@ impl Participant {
         self.ephm_sk = ephm_sk;
     }
 
-    /// Generate a mask seed and mask a local model (dummy).
-    fn mask_model() -> (MaskSeed, MaskedModel) {
-        let mask_seed = MaskSeed::new();
-        let masked_model = randombytes(32).into(); // dummy
-        (mask_seed, masked_model)
-    }
-
     // Create a local seed dictionary from a sum dictionary.
     fn create_local_seed_dict(sum_dict: &SumDict, mask_seed: &MaskSeed) -> LocalSeedDict {
         sum_dict
@@ -174,7 +170,7 @@ impl Participant {
 
     /// Compute a global mask from local mask seeds (dummy).
     fn compute_global_mask(&self, _mask_seeds: Vec<MaskSeed>) -> Mask {
-        randombytes(32).into() // dummy
+        Mask::try_from(Vec::<u8>::new().as_slice()).unwrap() // dummy
     }
 }
 
@@ -258,7 +254,7 @@ mod tests {
 
     #[test]
     fn test_create_local_seed_dict() {
-        let (mask_seed, _) = Participant::mask_model();
+        let mask_seed = MaskSeed::new();
         let ephm_dict = iter::repeat_with(|| generate_encrypt_key_pair())
             .take(1 + randombytes_uniform(10) as usize)
             .collect::<HashMap<SumParticipantEphemeralPublicKey, SumParticipantEphemeralSecretKey>>(
@@ -308,8 +304,12 @@ mod tests {
             part.get_seeds(&seed_dict)
                 .unwrap()
                 .into_iter()
+                .map(|seed| seed.seed())
                 .collect::<HashSet<_>>(),
-            mask_seeds.into_iter().collect::<HashSet<_>>(),
+            mask_seeds
+                .into_iter()
+                .map(|seed| seed.seed())
+                .collect::<HashSet<_>>(),
         );
         assert_eq!(
             part.get_seeds(&SeedDict::new()).unwrap_err(),

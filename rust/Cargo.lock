@@ -726,6 +726,8 @@ dependencies = [
  "derive_more",
  "futures",
  "num",
+ "rand",
+ "rand_chacha",
  "serde",
  "sodiumoxide",
  "thiserror",

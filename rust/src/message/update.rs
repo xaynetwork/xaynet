@@ -8,7 +8,7 @@ use super::{MessageBuffer, Tag, LEN_BYTES, PK_BYTES, SIGNATURE_BYTES};
 use crate::{
     certificate::Certificate,
     crypto::{ByteObject, Signature},
-    mask::{EncrMaskSeed, MaskedModel},
+    mask::{BigUintSerde, EncrMaskSeed, MaskedModel},
     CoordinatorPublicKey,
     CoordinatorSecretKey,
     LocalSeedDict,
@@ -258,7 +258,7 @@ where
             .copy_from_slice(self.certificate.borrow().as_ref());
         buffer
             .masked_model_mut()
-            .copy_from_slice(self.masked_model.borrow().as_ref());
+            .copy_from_slice(self.masked_model.borrow().serialize().as_slice());
         buffer
             .local_seed_dict_mut()
             .copy_from_slice(&self.serialize_local_seed_dict());
@@ -308,7 +308,7 @@ impl
         let sum_signature = Signature::from_slice(buffer.sum_signature()).unwrap();
         let update_signature = Signature::from_slice(buffer.update_signature()).unwrap();
         let certificate = buffer.certificate().into();
-        let masked_model = buffer.masked_model().into();
+        let masked_model = MaskedModel::try_from(buffer.masked_model()).unwrap();
         let local_seed_dict = Self::deserialize_local_seed_dict(buffer.local_seed_dict());
         Self {
             pk,
@@ -529,7 +529,7 @@ mod tests {
         let sum_signature = &Signature::from_slice(&randombytes(64)).unwrap();
         let update_signature = &Signature::from_slice(&randombytes(64)).unwrap();
         let certificate = &Certificate::new();
-        let masked_model = &randombytes(32).into();
+        let masked_model = &MaskedModel::try_from(Vec::<u8>::new().as_slice()).unwrap();
         let local_seed_dict = &iter::repeat_with(|| {
             (
                 SumParticipantPublicKey::from_slice(&randombytes(32)).unwrap(),
@@ -605,7 +605,7 @@ mod tests {
             buffer.masked_model_len(),
             masked_model.len().to_le_bytes().as_ref(),
         );
-        assert_eq!(buffer.masked_model(), masked_model.as_ref());
+        assert_eq!(buffer.masked_model(), masked_model.serialize().as_slice());
         assert_eq!(
             buffer.local_seed_dict_len(),
             (112 * sum_dict_len as usize).to_le_bytes().as_ref(),
@@ -650,7 +650,7 @@ mod tests {
         );
         assert_eq!(
             msg.masked_model(),
-            &bytes[buffer.masked_model_range.clone()].into(),
+            &MaskedModel::try_from(&bytes[buffer.masked_model_range.clone()]).unwrap(),
         );
         assert_eq!(
             msg.local_seed_dict(),
@@ -668,7 +668,7 @@ mod tests {
         let sum_signature = Signature::from_slice(&randombytes(64)).unwrap();
         let update_signature = Signature::from_slice(&randombytes(64)).unwrap();
         let certificate = Certificate::new();
-        let masked_model = randombytes(32).into();
+        let masked_model = MaskedModel::try_from(Vec::<u8>::new().as_slice()).unwrap();
         let local_seed_dict = iter::repeat_with(|| {
             (
                 SumParticipantPublicKey::from_slice(&randombytes(32)).unwrap(),

@@ -8,7 +8,7 @@ use super::{MessageBuffer, Tag, LEN_BYTES};
 use crate::{
     certificate::Certificate,
     crypto::{ByteObject, Signature},
-    mask::Mask,
+    mask::{BigUintSerde, Mask},
     CoordinatorPublicKey,
     CoordinatorSecretKey,
     ParticipantTaskSignature,
@@ -182,7 +182,7 @@ where
             .copy_from_slice(self.certificate.borrow().as_ref());
         buffer
             .mask_mut()
-            .copy_from_slice(self.mask.borrow().as_ref());
+            .copy_from_slice(self.mask.borrow().serialize().as_slice());
     }
 
     /// Sign and encrypt the sum2message.
@@ -203,7 +203,7 @@ impl Sum2Message<SumParticipantPublicKey, ParticipantTaskSignature, Certificate,
         let pk = SumParticipantPublicKey::from_slice(buffer.part_pk()).unwrap();
         let sum_signature = Signature::from_slice(buffer.sum_signature()).unwrap();
         let certificate = buffer.certificate().into();
-        let mask = buffer.mask().into();
+        let mask = Mask::try_from(buffer.mask()).unwrap();
         Self {
             pk,
             sum_signature,
@@ -371,7 +371,7 @@ mod tests {
         let pk = &SumParticipantPublicKey::from_slice(&randombytes(32)).unwrap();
         let sum_signature = &Signature::from_slice(&randombytes(64)).unwrap();
         let certificate = &Certificate::new();
-        let mask = &randombytes(32).into();
+        let mask = &Mask::try_from(Vec::<u8>::new().as_slice()).unwrap();
         let msg = Sum2Message::from_parts(pk, sum_signature, certificate, mask);
         assert_eq!(
             msg.pk as *const SumParticipantPublicKey,
@@ -401,7 +401,7 @@ mod tests {
         );
         assert_eq!(buffer.certificate(), certificate.as_ref());
         assert_eq!(buffer.mask_len(), mask.len().to_le_bytes().as_ref());
-        assert_eq!(buffer.mask(), mask.as_ref());
+        assert_eq!(buffer.mask(), mask.serialize().as_slice());
     }
 
     #[test]
@@ -422,7 +422,10 @@ mod tests {
             msg.certificate(),
             &bytes[buffer.certificate_range.clone()].into(),
         );
-        assert_eq!(msg.mask(), &bytes[buffer.mask_range.clone()].into());
+        assert_eq!(
+            msg.mask(),
+            &Mask::try_from(&bytes[buffer.mask_range.clone()]).unwrap(),
+        );
     }
 
     #[test]
@@ -431,7 +434,7 @@ mod tests {
         let (pk, sk) = crypto::generate_signing_key_pair();
         let sum_signature = Signature::from_slice(&randombytes(64)).unwrap();
         let certificate = Certificate::new();
-        let mask = randombytes(32).into();
+        let mask = Mask::try_from(Vec::<u8>::new().as_slice()).unwrap();
         let (coord_pk, coord_sk) = crypto::generate_encrypt_key_pair();
         let bytes =
             Sum2Message::from_parts(&pk, &sum_signature, &certificate, &mask).seal(&sk, &coord_pk);

@@ -6,7 +6,7 @@ use sodiumoxide::{self, crypto::hash::sha256, randombytes::randombytes};
 
 use crate::{
     crypto::{generate_encrypt_key_pair, ByteObject, SigningKeySeed},
-    mask::Mask,
+    mask::{BigUintSerde, Mask},
     message::{sum::SumMessage, sum2::Sum2Message, update::UpdateMessage},
     utils::is_eligible,
     CoordinatorPublicKey,
@@ -266,7 +266,7 @@ impl Coordinator {
 
     /// Add a hashed mask to the mask dictionary.
     fn add_mask_hash(&mut self, mask: &Mask) {
-        let mask_hash = sha256::hash(mask.as_ref());
+        let mask_hash = sha256::hash(mask.serialize().as_slice());
         self.mask_dict.update(iter::once(mask_hash));
     }
 
@@ -451,7 +451,10 @@ pub struct RoundParameters {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{crypto::*, mask::MaskSeed};
+    use crate::{
+        crypto::*,
+        mask::{config::MaskConfigs, MaskSeed},
+    };
 
     #[test]
     fn test_coordinator() {
@@ -731,13 +734,16 @@ mod tests {
     fn auxiliary_mask(min_sum: usize) -> (Vec<Mask>, MaskDict) {
         // this doesn't work for `min_sum == 0` and `min_sum == 2`
         let masks = [
-            vec![Mask::from(randombytes(32)); min_sum - 1],
-            vec![Mask::from(randombytes(32)); 1],
+            vec![
+                Mask::generate::<f32>(MaskSeed::new(), MaskConfigs::PrimeF32M3B0.config(), 10);
+                min_sum - 1
+            ],
+            vec![Mask::generate::<f32>(MaskSeed::new(), MaskConfigs::PrimeF32M3B0.config(), 10); 1],
         ]
         .concat();
         let mask_dict = masks
             .iter()
-            .map(|mask| sha256::hash(mask.as_ref()))
+            .map(|mask| sha256::hash(mask.serialize().as_slice()))
             .collect::<MaskDict>();
         (masks, mask_dict)
     }
