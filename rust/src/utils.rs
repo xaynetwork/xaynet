@@ -1,3 +1,4 @@
+use crate::crypto::ByteObject;
 use num::{
     bigint::{BigUint, ToBigInt},
     rational::Ratio,
@@ -15,7 +16,7 @@ pub fn is_eligible(signature: &ParticipantTaskSignature, threshold: f64) -> bool
         true
     } else {
         Ratio::new(
-            BigUint::from_bytes_be(&sha256::hash(&signature.0[..]).0[..])
+            BigUint::from_bytes_be(&sha256::hash(signature.as_slice()).0[..])
                 .to_bigint()
                 // FIXME: can we unwrap here?
                 .unwrap(),
@@ -28,14 +29,14 @@ pub fn is_eligible(signature: &ParticipantTaskSignature, threshold: f64) -> bool
 
 #[cfg(test)]
 mod tests {
-    use sodiumoxide::crypto::sign;
+    use crate::crypto::Signature;
 
     use super::*;
 
     #[test]
     fn test_is_eligible() {
         // eligible signature
-        let sig = sign::Signature([
+        let sig = Signature::from_slice_unchecked(&[
             229, 191, 74, 163, 113, 6, 242, 191, 255, 225, 40, 89, 210, 94, 25, 50, 44, 129, 155,
             241, 99, 64, 25, 212, 157, 235, 102, 95, 115, 18, 158, 115, 253, 136, 178, 223, 4, 47,
             54, 162, 236, 78, 126, 114, 205, 217, 250, 163, 223, 149, 31, 65, 179, 179, 60, 64, 34,
@@ -44,7 +45,7 @@ mod tests {
         assert!(is_eligible(&sig, 0.5_f64));
 
         // ineligible signature
-        let sig = sign::Signature([
+        let sig = Signature::from_slice_unchecked(&[
             15, 107, 81, 84, 105, 246, 165, 81, 76, 125, 140, 172, 113, 85, 51, 173, 119, 123, 78,
             114, 249, 182, 135, 212, 134, 38, 125, 153, 120, 45, 179, 55, 116, 155, 205, 51, 247,
             37, 78, 147, 63, 231, 28, 61, 251, 41, 48, 239, 125, 0, 129, 126, 194, 123, 183, 11,

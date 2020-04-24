@@ -1,13 +1,10 @@
 use std::default::Default;
 
-use sodiumoxide::{
-    self,
-    crypto::{box_, sign},
-    randombytes::randombytes,
-};
+use sodiumoxide::{self, randombytes::randombytes};
 
 use crate::{
     certificate::Certificate,
+    crypto::{generate_encrypt_key_pair, generate_signing_key_pair, ByteObject},
     mask::{Mask, MaskSeed, MaskedModel},
     message::{sum::SumMessage, sum2::Sum2Message, update::UpdateMessage},
     utils::is_eligible,
@@ -21,6 +18,8 @@ use crate::{
     SumDict,
     SumParticipantEphemeralPublicKey,
     SumParticipantEphemeralSecretKey,
+    SumParticipantPublicKey,
+    SumParticipantSecretKey,
 };
 
 #[derive(Debug, PartialEq)]
@@ -48,13 +47,13 @@ pub struct Participant {
 
 impl Default for Participant {
     fn default() -> Self {
-        let pk = sign::PublicKey([0_u8; sign::PUBLICKEYBYTES]);
-        let sk = sign::SecretKey([0_u8; sign::SECRETKEYBYTES]);
-        let ephm_pk = box_::PublicKey([0_u8; box_::PUBLICKEYBYTES]);
-        let ephm_sk = box_::SecretKey([0_u8; box_::SECRETKEYBYTES]);
+        let pk = ParticipantPublicKey::zeroed();
+        let sk = ParticipantSecretKey::zeroed();
+        let ephm_pk = SumParticipantEphemeralPublicKey::zeroed();
+        let ephm_sk = SumParticipantEphemeralSecretKey::zeroed();
         let certificate = Certificate::new();
-        let sum_signature = sign::Signature([0_u8; sign::SIGNATUREBYTES]);
-        let update_signature = sign::Signature([0_u8; sign::SIGNATUREBYTES]);
+        let sum_signature = ParticipantTaskSignature::zeroed();
+        let update_signature = ParticipantTaskSignature::zeroed();
         let task = Task::None;
         Self {
             pk,
@@ -74,7 +73,7 @@ impl Participant {
     pub fn new() -> Result<Self, PetError> {
         // crucial: init must be called before anything else in this module
         sodiumoxide::init().or(Err(PetError::InsufficientSystemEntropy))?;
-        let (pk, sk) = sign::gen_keypair();
+        let (pk, sk) = generate_signing_key_pair();
         Ok(Self {
             pk,
             sk,
@@ -84,8 +83,8 @@ impl Participant {
 
     /// Compute the sum and update signatures.
     pub fn compute_signatures(&mut self, round_seed: &[u8]) {
-        self.sum_signature = sign::sign_detached(&[round_seed, b"sum"].concat(), &self.sk);
-        self.update_signature = sign::sign_detached(&[round_seed, b"update"].concat(), &self.sk);
+        self.sum_signature = self.sk.sign_detached(&[round_seed, b"sum"].concat());
+        self.update_signature = self.sk.sign_detached(&[round_seed, b"update"].concat());
     }
 
     /// Check eligibility for a task.
@@ -142,7 +141,7 @@ impl Participant {
 
     /// Generate an ephemeral encryption key pair.
     fn gen_ephm_keypair(&mut self) {
-        let (ephm_pk, ephm_sk) = box_::gen_keypair();
+        let (ephm_pk, ephm_sk) = generate_encrypt_key_pair();
         self.ephm_pk = ephm_pk;
         self.ephm_sk = ephm_sk;
     }
@@ -188,17 +187,18 @@ mod tests {
     use sodiumoxide::randombytes::randombytes_uniform;
 
     use super::*;
+    use crate::{crypto::Signature, UpdateParticipantPublicKey};
 
     #[test]
     fn test_participant() {
         let part = Participant::new().unwrap();
         assert_eq!(part.pk, part.sk.public_key());
-        assert_eq!(part.sk.as_ref().len(), 64);
-        assert_eq!(part.ephm_pk, box_::PublicKey([0_u8; 32]));
-        assert_eq!(part.ephm_sk, box_::SecretKey([0_u8; 32]));
+        assert_eq!(part.sk.as_slice().len(), 64);
+        assert_eq!(part.ephm_pk, SumParticipantEphemeralPublicKey::zeroed());
+        assert_eq!(part.ephm_sk, SumParticipantEphemeralSecretKey::zeroed());
         assert_eq!(part.certificate, Certificate::new());
-        assert_eq!(part.sum_signature, sign::Signature([0_u8; 64]));
-        assert_eq!(part.update_signature, sign::Signature([0_u8; 64]));
+        assert_eq!(part.sum_signature, ParticipantTaskSignature::zeroed());
+        assert_eq!(part.update_signature, ParticipantTaskSignature::zeroed());
         assert_eq!(part.task, Task::None);
     }
 
@@ -207,28 +207,26 @@ mod tests {
         let mut part = Participant::new().unwrap();
         let round_seed = randombytes(32);
         part.compute_signatures(&round_seed);
-        assert!(sign::verify_detached(
+        assert!(part.pk.verify_detached(
             &part.sum_signature,
             &[round_seed.as_slice(), b"sum"].concat(),
-            &part.pk,
         ));
-        assert!(sign::verify_detached(
+        assert!(part.pk.verify_detached(
             &part.update_signature,
             &[round_seed.as_slice(), b"update"].concat(),
-            &part.pk,
         ));
     }
 
     #[test]
     fn test_check_task() {
         let mut part = Participant::new().unwrap();
-        let elligible_signature = sign::Signature([
+        let elligible_signature = Signature::from_slice_unchecked(&[
             229, 191, 74, 163, 113, 6, 242, 191, 255, 225, 40, 89, 210, 94, 25, 50, 44, 129, 155,
             241, 99, 64, 25, 212, 157, 235, 102, 95, 115, 18, 158, 115, 253, 136, 178, 223, 4, 47,
             54, 162, 236, 78, 126, 114, 205, 217, 250, 163, 223, 149, 31, 65, 179, 179, 60, 64, 34,
             1, 78, 245, 1, 50, 165, 47,
         ]);
-        let inelligible_signature = sign::Signature([
+        let inelligible_signature = Signature::from_slice_unchecked(&[
             15, 107, 81, 84, 105, 246, 165, 81, 76, 125, 140, 172, 113, 85, 51, 173, 119, 123, 78,
             114, 249, 182, 135, 212, 134, 38, 125, 153, 120, 45, 179, 55, 116, 155, 205, 51, 247,
             37, 78, 147, 63, 231, 28, 61, 251, 41, 48, 239, 125, 0, 129, 126, 194, 123, 183, 11,
@@ -254,13 +252,13 @@ mod tests {
         let mut part = Participant::new().unwrap();
         part.gen_ephm_keypair();
         assert_eq!(part.ephm_pk, part.ephm_sk.public_key());
-        assert_eq!(part.ephm_sk.as_ref().len(), 32);
+        assert_eq!(part.ephm_sk.as_slice().len(), 32);
     }
 
     #[test]
     fn test_create_local_seed_dict() {
         let (mask_seed, _) = Participant::mask_model();
-        let ephm_dict = iter::repeat_with(|| box_::gen_keypair())
+        let ephm_dict = iter::repeat_with(|| generate_encrypt_key_pair())
             .take(1 + randombytes_uniform(10) as usize)
             .collect::<HashMap<SumParticipantEphemeralPublicKey, SumParticipantEphemeralSecretKey>>(
             );
@@ -268,7 +266,7 @@ mod tests {
             .iter()
             .map(|(ephm_pk, _)| {
                 (
-                    sign::PublicKey::from_slice(&randombytes(32)).unwrap(),
+                    SumParticipantPublicKey::from_slice(&randombytes(32)).unwrap(),
                     *ephm_pk,
                 )
             })
@@ -296,7 +294,7 @@ mod tests {
                 .iter()
                 .map(|seed| {
                     (
-                        sign::PublicKey::from_slice(&randombytes(32)).unwrap(),
+                        UpdateParticipantPublicKey::from_slice(&randombytes(32)).unwrap(),
                         seed.seal(&part.ephm_pk),
                     )
                 })
