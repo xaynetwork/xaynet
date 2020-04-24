@@ -30,9 +30,9 @@ use crate::{
     SumParticipantEphemeralSecretKey,
 };
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 /// Tasks of a participant.
-enum Task {
+pub enum Task {
     Sum,
     Update,
     None,
@@ -90,6 +90,10 @@ impl Participant {
         })
     }
 
+    pub fn get_encr_pk(&self) -> ParticipantPublicKey {
+       self.pk
+    }
+
     /// Compute the sum and update signatures.
     pub fn compute_signatures(&mut self, round_seed: &[u8]) {
         self.sum_signature = self.sk.sign_detached(&[round_seed, b"sum"].concat());
@@ -97,7 +101,7 @@ impl Participant {
     }
 
     /// Check eligibility for a task.
-    pub fn check_task(&mut self, round_sum: f64, round_update: f64) {
+    pub fn check_task(&mut self, round_sum: f64, round_update: f64) -> Task {
         if self.sum_signature.is_eligible(round_sum) {
             self.task = Task::Sum;
         } else if self.update_signature.is_eligible(round_update) {
@@ -105,6 +109,7 @@ impl Participant {
         } else {
             self.task = Task::None;
         }
+        self.task
     }
 
     /// Compose a sum message.
