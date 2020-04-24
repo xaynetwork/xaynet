@@ -3,58 +3,55 @@ pub mod sum2;
 pub mod update;
 
 use std::{
-    convert::TryInto,
     mem,
     ops::{Range, RangeFrom, RangeTo},
 };
 
-use sodiumoxide::crypto::sign;
+use sodiumoxide::crypto::{box_, sign};
 
-// message tags
-const SUM_TAG: u8 = 100;
-const UPDATE_TAG: u8 = 101;
-const SUM2_TAG: u8 = 102;
+#[repr(u8)]
+/// Message tags.
+enum Tag {
+    None,
+    Sum,
+    Update,
+    Sum2,
+}
 
-// message buffer bytes
+/// Get the number of bytes of a signature field.
 const SIGNATURE_BYTES: usize = sign::SIGNATUREBYTES;
+
+/// Get the number of bytes of a message tag field.
 const TAG_BYTES: usize = 1;
-const PK_BYTES: usize = sign::PUBLICKEYBYTES;
+
+/// Get the number of bytes of a public key field.
+const PK_BYTES: usize = box_::PUBLICKEYBYTES;
+
+/// Get the number of bytes of a length field.
 const LEN_BYTES: usize = mem::size_of::<usize>();
 
-#[derive(Debug, PartialEq)]
-/// A dummy type that represents a certificate.
-pub struct Certificate(Vec<u8>);
+trait MessageBuffer {
+    /// Get the range of the signature field.
+    const SIGNATURE_RANGE: RangeTo<usize> = ..SIGNATURE_BYTES;
 
-impl Certificate {
-    /// Get the length of the certificate.
-    fn len(&self) -> usize {
-        self.0.len()
-    }
-}
+    /// Get the range of the message field.
+    const MESSAGE_RANGE: RangeFrom<usize> = Self::SIGNATURE_RANGE.end..;
 
-impl AsRef<[u8]> for Certificate {
-    /// Get a reference to the certificate.
-    fn as_ref(&self) -> &[u8] {
-        self.0.as_slice()
-    }
-}
+    /// Get the range of the tag field.
+    const TAG_RANGE: Range<usize> =
+        Self::SIGNATURE_RANGE.end..Self::SIGNATURE_RANGE.end + TAG_BYTES;
 
-impl From<Vec<u8>> for Certificate {
-    /// Create a certificate from bytes.
-    fn from(bytes: Vec<u8>) -> Self {
-        Self(bytes)
-    }
-}
+    /// Get the range of the coordinator public key field.
+    const COORD_PK_RANGE: Range<usize> = Self::TAG_RANGE.end..Self::TAG_RANGE.end + PK_BYTES;
 
-impl From<&[u8]> for Certificate {
-    /// Create a certificate from a slice of bytes.
-    fn from(slice: &[u8]) -> Self {
-        Self(slice.to_vec())
-    }
-}
+    /// Get the range of the participant public key field.
+    const PART_PK_RANGE: Range<usize> =
+        Self::COORD_PK_RANGE.end..Self::COORD_PK_RANGE.end + PK_BYTES;
 
-/// Access to common message buffer fields.
-trait MessageBuffer: Sized {
+    /// Get the range of the sum signature field.
+    const SUM_SIGNATURE_RANGE: Range<usize> =
+        Self::PART_PK_RANGE.end..Self::PART_PK_RANGE.end + SIGNATURE_BYTES;
+
     /// Get a reference to the message buffer.
     fn bytes(&'_ self) -> &'_ [u8];
 
@@ -66,257 +63,74 @@ trait MessageBuffer: Sized {
         self.bytes().len()
     }
 
-    /// Get the range of the signature field.
-    fn signature_range(&self) -> RangeTo<usize> {
-        ..SIGNATURE_BYTES
-    }
-
     /// Get a reference to the signature field.
     fn signature(&'_ self) -> &'_ [u8] {
-        let range = self.signature_range();
-        &self.bytes()[range]
+        &self.bytes()[Self::SIGNATURE_RANGE]
     }
 
-    /// Get a mutable reference to the signature.
+    /// Get a mutable reference to the signature field.
     fn signature_mut(&mut self) -> &mut [u8] {
-        let range = self.signature_range();
-        &mut self.bytes_mut()[range]
-    }
-
-    /// Get the range of the message field.
-    fn message_range(&self) -> RangeFrom<usize> {
-        self.signature_range().end..
+        &mut self.bytes_mut()[Self::SIGNATURE_RANGE]
     }
 
     /// Get a reference to the message field.
     fn message(&'_ self) -> &'_ [u8] {
-        let range = self.message_range();
-        &self.bytes()[range]
-    }
-
-    /// Get a mutable reference to the message field.
-    fn message_mut(&mut self) -> &mut [u8] {
-        let range = self.message_range();
-        &mut self.bytes_mut()[range]
-    }
-
-    /// Get the range of the tag field.
-    fn tag_range(&self) -> Range<usize> {
-        self.signature_range().end..self.signature_range().end + TAG_BYTES
+        &self.bytes()[Self::MESSAGE_RANGE]
     }
 
     /// Get a reference to the tag field.
     fn tag(&'_ self) -> &'_ [u8] {
-        let range = self.tag_range();
-        &self.bytes()[range]
+        &self.bytes()[Self::TAG_RANGE]
     }
 
     /// Get a mutable reference to the tag field.
     fn tag_mut(&mut self) -> &mut [u8] {
-        let range = self.tag_range();
-        &mut self.bytes_mut()[range]
-    }
-
-    /// Get the range of the coordinator public key field.
-    fn coord_pk_range(&self) -> Range<usize> {
-        self.tag_range().end..self.tag_range().end + PK_BYTES
+        &mut self.bytes_mut()[Self::TAG_RANGE]
     }
 
     /// Get a reference to the coordinator public key field.
     fn coord_pk(&'_ self) -> &'_ [u8] {
-        let range = self.coord_pk_range();
-        &self.bytes()[range]
+        &self.bytes()[Self::COORD_PK_RANGE]
     }
 
     /// Get a mutable reference to the coordinator public key field.
     fn coord_pk_mut(&mut self) -> &mut [u8] {
-        let range = self.coord_pk_range();
-        &mut self.bytes_mut()[range]
-    }
-
-    /// Get the range of the participant public key field.
-    fn part_pk_range(&self) -> Range<usize> {
-        self.coord_pk_range().end..self.coord_pk_range().end + PK_BYTES
+        &mut self.bytes_mut()[Self::COORD_PK_RANGE]
     }
 
     /// Get a reference to the participant public key field.
     fn part_pk(&'_ self) -> &'_ [u8] {
-        let range = self.part_pk_range();
-        &self.bytes()[range]
+        &self.bytes()[Self::PART_PK_RANGE]
     }
 
     /// Get a mutable reference to the participant public key field.
     fn part_pk_mut(&mut self) -> &mut [u8] {
-        let range = self.part_pk_range();
-        &mut self.bytes_mut()[range]
-    }
-
-    /// Get the range of the certificate length field.
-    fn certificate_len_range(&self) -> Range<usize> {
-        self.part_pk_range().end..self.part_pk_range().end + LEN_BYTES
-    }
-
-    /// Get a reference to the certificate length field.
-    fn certificate_len(&'_ self) -> &'_ [u8] {
-        let range = self.certificate_len_range();
-        &self.bytes()[range]
-    }
-
-    /// Get a mutable reference to the certificate length field.
-    fn certificate_len_mut(&mut self) -> &mut [u8] {
-        let range = self.certificate_len_range();
-        &mut self.bytes_mut()[range]
-    }
-
-    /// Get the number of bytes of the certificate field.
-    fn certificate_bytes(&self) -> usize {
-        // safe unwrap: length of slice is guaranteed by constants
-        usize::from_le_bytes(self.certificate_len().try_into().unwrap())
-    }
-
-    /// Get the range of the certificate field.
-    fn certificate_range(&self) -> Range<usize> {
-        self.certificate_len_range().end
-            ..self.certificate_len_range().end + self.certificate_bytes()
-    }
-
-    /// Get a reference to the certificate field.
-    fn certificate(&'_ self) -> &'_ [u8] {
-        let range = self.certificate_range();
-        &self.bytes()[range]
-    }
-
-    /// Get a mutable reference to the certificate field of.
-    fn certificate_mut(&mut self) -> &mut [u8] {
-        let range = self.certificate_range();
-        &mut self.bytes_mut()[range]
-    }
-
-    /// Get the range of the sum signature field.
-    fn sum_signature_range(&self) -> Range<usize> {
-        self.certificate_range().end..self.certificate_range().end + SIGNATURE_BYTES
+        &mut self.bytes_mut()[Self::PART_PK_RANGE]
     }
 
     /// Get a reference to the sum signature field.
     fn sum_signature(&'_ self) -> &'_ [u8] {
-        let range = self.sum_signature_range();
-        &self.bytes()[range]
+        &self.bytes()[Self::SUM_SIGNATURE_RANGE]
     }
 
     /// Get a mutable reference to the sum signature field.
     fn sum_signature_mut(&mut self) -> &mut [u8] {
-        let range = self.sum_signature_range();
-        &mut self.bytes_mut()[range]
+        &mut self.bytes_mut()[Self::SUM_SIGNATURE_RANGE]
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use sodiumoxide::{crypto::box_, randombytes::randombytes};
-
     use super::*;
 
-    struct TestMessageBuffer<B> {
-        bytes: B,
-    }
-
-    impl<B: AsRef<[u8]> + AsMut<[u8]>> MessageBuffer for TestMessageBuffer<B> {
-        fn bytes<'b>(&'b self) -> &'b [u8] {
-            self.bytes.as_ref()
-        }
-
-        fn bytes_mut(&mut self) -> &mut [u8] {
-            self.bytes.as_mut()
-        }
-    }
-
-    fn auxiliary_bytes() -> Vec<u8> {
-        [
-            randombytes(129).as_slice(),
-            &(0 as usize).to_le_bytes(),
-            randombytes(64).as_slice(),
-        ]
-        .concat()
-    }
-
     #[test]
-    fn test_messagebuffer_ranges() {
-        // constants
+    fn test_constants() {
+        // just to make sure that the constants were not changed accidentally, because a lot of
+        // assumptions are based on those
         assert_eq!(SIGNATURE_BYTES, sign::SIGNATUREBYTES);
         assert_eq!(TAG_BYTES, 1);
         assert_eq!(PK_BYTES, box_::PUBLICKEYBYTES);
         assert_eq!(PK_BYTES, sign::PUBLICKEYBYTES);
-        assert_eq!(LEN_BYTES, LEN_BYTES);
-
-        // ranges
-        let bytes = auxiliary_bytes();
-        let buffer = TestMessageBuffer { bytes };
-        assert_eq!(buffer.signature_range(), ..64);
-        assert_eq!(buffer.message_range(), 64..);
-        assert_eq!(buffer.tag_range(), 64..65);
-        assert_eq!(buffer.coord_pk_range(), 65..97);
-        assert_eq!(buffer.part_pk_range(), 97..129);
-        assert_eq!(buffer.certificate_len_range(), 129..129 + LEN_BYTES);
-        assert_eq!(buffer.certificate_range(), 129 + LEN_BYTES..129 + LEN_BYTES);
-        assert_eq!(
-            buffer.sum_signature_range(),
-            129 + LEN_BYTES..193 + LEN_BYTES,
-        );
-    }
-
-    #[test]
-    fn test_messagebuffer_fields() {
-        let mut bytes = auxiliary_bytes();
-        let mut buffer = TestMessageBuffer {
-            bytes: bytes.clone(),
-        };
-
-        // bytes
-        assert_eq!(buffer.bytes(), bytes.as_slice());
-        assert_eq!(buffer.bytes_mut(), bytes.as_mut_slice());
-
-        // len
-        assert_eq!(buffer.len(), 201);
-
-        // signature
-        let range = buffer.signature_range();
-        assert_eq!(buffer.signature(), &bytes[range.clone()]);
-        assert_eq!(buffer.signature_mut(), &mut bytes[range]);
-
-        // message
-        let range = buffer.message_range();
-        assert_eq!(buffer.message(), &bytes[range.clone()]);
-        assert_eq!(buffer.message_mut(), &mut bytes[range]);
-
-        // tag
-        let range = buffer.tag_range();
-        assert_eq!(buffer.tag(), &bytes[range.clone()]);
-        assert_eq!(buffer.tag_mut(), &mut bytes[range]);
-
-        // coordinator pk
-        let range = buffer.coord_pk_range();
-        assert_eq!(buffer.coord_pk(), &bytes[range.clone()]);
-        assert_eq!(buffer.coord_pk_mut(), &mut bytes[range]);
-
-        // participant pk
-        let range = buffer.part_pk_range();
-        assert_eq!(buffer.part_pk(), &bytes[range.clone()]);
-        assert_eq!(buffer.part_pk_mut(), &mut bytes[range]);
-
-        // certificate length
-        let range = buffer.certificate_len_range();
-        assert_eq!(buffer.certificate_len(), &bytes[range.clone()]);
-        assert_eq!(buffer.certificate_len_mut(), &mut bytes[range]);
-        assert_eq!(buffer.certificate_bytes(), 0);
-
-        // certificate
-        let range = buffer.certificate_range();
-        assert_eq!(buffer.certificate(), &bytes[range.clone()]);
-        assert_eq!(buffer.certificate_mut(), &mut bytes[range]);
-
-        // sum signature
-        let range = buffer.sum_signature_range();
-        assert_eq!(buffer.sum_signature(), &bytes[range.clone()]);
-        assert_eq!(buffer.sum_signature_mut(), &mut bytes[range]);
+        assert_eq!(LEN_BYTES, mem::size_of::<usize>());
     }
 }

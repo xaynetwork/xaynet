@@ -8,12 +8,8 @@ use sodiumoxide::{
 };
 
 use crate::{
-    message::{
-        sum::SumMessage,
-        sum2::{Mask, Sum2Message},
-        update::UpdateMessage,
-        Certificate,
-    },
+    mask::Mask,
+    message::{sum::SumMessage, sum2::Sum2Message, update::UpdateMessage},
     utils::is_eligible,
     CoordinatorPublicKey,
     CoordinatorSecretKey,
@@ -120,7 +116,7 @@ impl Coordinator {
     /// Validate and handle a sum message.
     fn handle_sum_message(&mut self, bytes: &[u8]) -> Result<(), PetError> {
         let msg = SumMessage::open(bytes, &self.pk, &self.sk)?;
-        Self::validate_certificate(msg.certificate())?;
+        msg.certificate().validate()?;
         self.validate_sum_task(msg.sum_signature(), msg.pk())?;
         self.add_sum_participant(msg.pk(), msg.ephm_pk());
         Ok(())
@@ -129,7 +125,7 @@ impl Coordinator {
     /// Validate and handle an update message.
     fn handle_update_message(&mut self, bytes: &[u8]) -> Result<(), PetError> {
         let msg = UpdateMessage::open(bytes, &self.pk, &self.sk)?;
-        Self::validate_certificate(msg.certificate())?;
+        msg.certificate().validate()?;
         self.validate_update_task(msg.sum_signature(), msg.update_signature(), msg.pk())?;
         self.add_local_seed_dict(msg.pk(), msg.local_seed_dict())?;
         Ok(())
@@ -141,19 +137,10 @@ impl Coordinator {
         if !self.sum_dict.contains_key(msg.pk()) {
             return Err(PetError::InvalidMessage);
         }
-        Self::validate_certificate(msg.certificate())?;
+        msg.certificate().validate()?;
         self.validate_sum_task(msg.sum_signature(), msg.pk())?;
         self.add_mask_hash(msg.mask());
         Ok(())
-    }
-
-    /// Validate a certificate (dummy).
-    fn validate_certificate(certificate: &Certificate) -> Result<(), PetError> {
-        if certificate.as_ref() == b"" {
-            Ok(())
-        } else {
-            Err(PetError::InvalidMessage)
-        }
     }
 
     /// Validate a sum signature and its implied task.
@@ -396,7 +383,7 @@ pub struct RoundParameters {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::message::update::MaskSeed;
+    use crate::mask::MaskSeed;
 
     #[test]
     fn test_coordinator() {

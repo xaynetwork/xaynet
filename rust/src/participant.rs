@@ -7,12 +7,9 @@ use sodiumoxide::{
 };
 
 use crate::{
-    message::{
-        sum::SumMessage,
-        sum2::{Mask, Sum2Message},
-        update::{MaskSeed, MaskedModel, UpdateMessage},
-        Certificate,
-    },
+    certificate::Certificate,
+    mask::{Mask, MaskSeed, MaskedModel},
+    message::{sum::SumMessage, sum2::Sum2Message, update::UpdateMessage},
     utils::is_eligible,
     CoordinatorPublicKey,
     LocalSeedDict,
@@ -55,7 +52,7 @@ impl Default for Participant {
         let sk = sign::SecretKey([0_u8; sign::SECRETKEYBYTES]);
         let ephm_pk = box_::PublicKey([0_u8; box_::PUBLICKEYBYTES]);
         let ephm_sk = box_::SecretKey([0_u8; box_::SECRETKEYBYTES]);
-        let certificate = Vec::<u8>::new().into();
+        let certificate = Certificate::new();
         let sum_signature = sign::Signature([0_u8; sign::SIGNATUREBYTES]);
         let update_signature = sign::Signature([0_u8; sign::SIGNATUREBYTES]);
         let task = Task::None;
@@ -107,9 +104,9 @@ impl Participant {
         self.gen_ephm_keypair();
         SumMessage::from_parts(
             &self.pk,
-            &self.certificate,
             &self.sum_signature,
             &self.ephm_pk,
+            &self.certificate,
         )
         .seal(&self.sk, pk)
     }
@@ -120,9 +117,9 @@ impl Participant {
         let local_seed_dict = Self::create_local_seed_dict(sum_dict, &mask_seed);
         UpdateMessage::from_parts(
             &self.pk,
-            &self.certificate,
             &self.sum_signature,
             &self.update_signature,
+            &self.certificate,
             &masked_model,
             &local_seed_dict,
         )
@@ -138,7 +135,7 @@ impl Participant {
         let mask_seeds = self.get_seeds(seed_dict)?;
         let mask = self.compute_global_mask(mask_seeds);
         Ok(
-            Sum2Message::from_parts(&self.pk, &self.certificate, &self.sum_signature, &mask)
+            Sum2Message::from_parts(&self.pk, &self.sum_signature, &self.certificate, &mask)
                 .seal(&self.sk, pk),
         )
     }
@@ -199,7 +196,7 @@ mod tests {
         assert_eq!(part.sk.as_ref().len(), 64);
         assert_eq!(part.ephm_pk, box_::PublicKey([0_u8; 32]));
         assert_eq!(part.ephm_sk, box_::SecretKey([0_u8; 32]));
-        assert_eq!(part.certificate, Vec::<u8>::new().into());
+        assert_eq!(part.certificate, Certificate::new());
         assert_eq!(part.sum_signature, sign::Signature([0_u8; 64]));
         assert_eq!(part.update_signature, sign::Signature([0_u8; 64]));
         assert_eq!(part.task, Task::None);
