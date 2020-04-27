@@ -55,7 +55,8 @@ impl Client {
 
     /// Client duties within a round
     async fn per_round(&mut self) -> Result<(), ClientError> {
-        let round_params = self.handle
+        let round_params = self
+            .handle
             .get_round_parameters()
             .await
             .ok_or(ClientError::RoundNotReady)?;
@@ -66,14 +67,11 @@ impl Client {
         let (sum_frac, upd_frac) = (round_params.sum, round_params.update);
         match self.particip.check_task(sum_frac, upd_frac) {
             Task::Sum    =>
-                self.summer(coord_pk)
-                    .await,
+                self.summer(coord_pk).await,
             Task::Update =>
-                self.updater(coord_pk)
-                    .await,
+                self.updater(coord_pk).await,
             Task::None   =>
-                self.unselected()
-                    .await,
+                self.unselected().await,
         }
     }
 
@@ -117,14 +115,16 @@ impl Client {
     async fn updater(&mut self, coord_pk: CoordinatorPublicKey)
                      -> Result<(), ClientError> {
         // TODO train a model update...
-        let _sum_dict: Arc<Vec<u8>> = self.handle
+        let _sum_dict: Arc<Vec<u8>> = self
+            .handle
             .get_sum_dict()
             .await
             .ok_or(ClientError::SumsNotReady)?;
         // TODO deserialise the sum dict
         let dummy_sum_dict: SumDict = HashMap::new(); // FIXME
-        let upd_msg: Vec<u8> = self.particip
-            .compose_update_message(&coord_pk, &dummy_sum_dict); // why not Result?
+        let upd_msg: Vec<u8> = self
+            .particip
+            .compose_update_message(&coord_pk, &dummy_sum_dict);
         self.handle
             .send_message(upd_msg)
             .await;
