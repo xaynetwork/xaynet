@@ -12,6 +12,7 @@ extern crate serde;
 
 pub mod certificate;
 pub mod coordinator;
+pub mod crypto;
 pub mod mask;
 pub mod message;
 pub mod participant;
@@ -20,16 +21,20 @@ pub mod utils;
 
 use std::collections::HashMap;
 
-use crate::mask::EncrMaskSeed;
+use crypto::{PublicEncryptKey, PublicSigningKey, SecretEncryptKey, SecretSigningKey, Signature};
+use thiserror::Error;
+
+use crate::mask::seed::EncryptedMaskSeed;
+
+#[derive(Error, Debug)]
+#[error("initialization failed: insufficient system entropy to generate secrets")]
+pub struct InitError;
 
 #[derive(Debug, PartialEq)]
 /// PET protocol errors.
 pub enum PetError {
     InvalidMessage,
 }
-
-pub mod crypto;
-use crypto::{PublicEncryptKey, PublicSigningKey, SecretEncryptKey, SecretSigningKey, Signature};
 
 /// A public encryption key that identifies a coordinator.
 pub type CoordinatorPublicKey = PublicEncryptKey;
@@ -76,18 +81,13 @@ type SumDict = HashMap<SumParticipantPublicKey, SumParticipantEphemeralPublicKey
 
 /// Local seed dictionaries are sent by update participants. They contain the participant's masking
 /// seed, encrypted with the ephemeral public key of each sum participant.
-type LocalSeedDict = HashMap<SumParticipantPublicKey, EncrMaskSeed>;
+type LocalSeedDict = HashMap<SumParticipantPublicKey, EncryptedMaskSeed>;
 
 /// A dictionary created during the update phase of the protocol. The global seed dictionary is
 /// built from the local seed dictionaries sent by the update participants. It maps each sum
 /// participant to the encrypted masking seeds of all the update participants.
-type SeedDict = HashMap<SumParticipantPublicKey, HashMap<UpdateParticipantPublicKey, EncrMaskSeed>>;
+type SeedDict =
+    HashMap<SumParticipantPublicKey, HashMap<UpdateParticipantPublicKey, EncryptedMaskSeed>>;
 
 /// A 32-byte hash that identifies a model mask computed by a sum participant.
 pub type MaskHash = sodiumoxide::crypto::hash::sha256::Digest;
-
-use thiserror::Error;
-
-#[derive(Error, Debug)]
-#[error("initialization failed: insufficient system entropy to generate secrets")]
-pub struct InitError;

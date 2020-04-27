@@ -190,18 +190,20 @@ impl
     >
 {
     /// Deserialize a sum message from a buffer.
-    fn deserialize(buffer: SumMessageBuffer<Vec<u8>>) -> Self {
-        // safe unwraps: lengths of slices are guaranteed by constants
-        let pk = SumParticipantPublicKey::from_slice(buffer.part_pk()).unwrap();
-        let sum_signature = Signature::from_slice(buffer.sum_signature()).unwrap();
-        let ephm_pk = SumParticipantEphemeralPublicKey::from_slice(buffer.ephm_pk()).unwrap();
+    fn deserialize(buffer: SumMessageBuffer<Vec<u8>>) -> Result<Self, PetError> {
+        let pk = SumParticipantPublicKey::from_slice(buffer.part_pk())
+            .ok_or(PetError::InvalidMessage)?;
+        let sum_signature =
+            Signature::from_slice(buffer.sum_signature()).ok_or(PetError::InvalidMessage)?;
+        let ephm_pk = SumParticipantEphemeralPublicKey::from_slice(buffer.ephm_pk())
+            .ok_or(PetError::InvalidMessage)?;
         let certificate = buffer.certificate().into();
-        Self {
+        Ok(Self {
             pk,
             sum_signature,
             ephm_pk,
             certificate,
-        }
+        })
     }
 
     /// Decrypt and verify a sum message. Fails if decryption or validation fails.
@@ -212,17 +214,16 @@ impl
     ) -> Result<Self, PetError> {
         let buffer =
             SumMessageBuffer::try_from(sk.decrypt(bytes, pk).or(Err(PetError::InvalidMessage))?)?;
-        // safe unwraps: lengths of slices are guaranteed by constants
         if buffer.tag() == [Tag::Sum as u8]
             && buffer.coord_pk() == pk.as_slice()
             && PublicSigningKey::from_slice(buffer.part_pk())
-                .unwrap()
+                .ok_or(PetError::InvalidMessage)?
                 .verify_detached(
-                    &Signature::from_slice(buffer.signature()).unwrap(),
+                    &Signature::from_slice(buffer.signature()).ok_or(PetError::InvalidMessage)?,
                     buffer.message(),
                 )
         {
-            Ok(Self::deserialize(buffer))
+            Ok(Self::deserialize(buffer)?)
         } else {
             Err(PetError::InvalidMessage)
         }
@@ -351,9 +352,9 @@ mod tests {
     #[test]
     fn test_summessage_serialize() {
         // from parts
-        let pk = &SumParticipantPublicKey::from_slice(&randombytes(32)).unwrap();
-        let sum_signature = &Signature::from_slice(&randombytes(64)).unwrap();
-        let ephm_pk = &SumParticipantEphemeralPublicKey::from_slice(&randombytes(32)).unwrap();
+        let pk = &SumParticipantPublicKey::from_slice_unchecked(&randombytes(32));
+        let sum_signature = &Signature::from_slice_unchecked(&randombytes(64));
+        let ephm_pk = &SumParticipantEphemeralPublicKey::from_slice_unchecked(&randombytes(32));
         let certificate = &Certificate::new();
         let msg = SumMessage::from_parts(pk, sum_signature, ephm_pk, certificate);
         assert_eq!(
@@ -375,7 +376,7 @@ mod tests {
 
         // serialize
         let mut buffer = SumMessageBuffer::new(32);
-        let coord_pk = CoordinatorPublicKey::from_slice(&randombytes(32)).unwrap();
+        let coord_pk = CoordinatorPublicKey::from_slice_unchecked(&randombytes(32));
         msg.serialize(&mut buffer, &coord_pk);
         assert_eq!(buffer.tag(), [Tag::Sum as u8].as_ref());
         assert_eq!(buffer.coord_pk(), coord_pk.as_slice());
@@ -394,18 +395,18 @@ mod tests {
         // deserialize
         let bytes = auxiliary_bytes();
         let buffer = SumMessageBuffer::try_from(bytes.clone()).unwrap();
-        let msg = SumMessage::deserialize(buffer.clone());
+        let msg = SumMessage::deserialize(buffer.clone()).unwrap();
         assert_eq!(
             msg.pk(),
-            &SumParticipantPublicKey::from_slice(&bytes[MB::PART_PK_RANGE]).unwrap(),
+            &SumParticipantPublicKey::from_slice_unchecked(&bytes[MB::PART_PK_RANGE]),
         );
         assert_eq!(
             msg.sum_signature(),
-            &Signature::from_slice(&bytes[MB::SUM_SIGNATURE_RANGE]).unwrap(),
+            &Signature::from_slice_unchecked(&bytes[MB::SUM_SIGNATURE_RANGE]),
         );
         assert_eq!(
             msg.ephm_pk(),
-            &SumParticipantEphemeralPublicKey::from_slice(&bytes[MB::EPHM_PK_RANGE]).unwrap(),
+            &SumParticipantEphemeralPublicKey::from_slice_unchecked(&bytes[MB::EPHM_PK_RANGE]),
         );
         assert_eq!(
             msg.certificate(),
@@ -417,8 +418,8 @@ mod tests {
     fn test_summessage() {
         // seal
         let (pk, sk) = generate_signing_key_pair();
-        let sum_signature = Signature::from_slice(&randombytes(64)).unwrap();
-        let ephm_pk = SumParticipantEphemeralPublicKey::from_slice(&randombytes(32)).unwrap();
+        let sum_signature = Signature::from_slice_unchecked(&randombytes(64));
+        let ephm_pk = SumParticipantEphemeralPublicKey::from_slice_unchecked(&randombytes(32));
         let certificate = Certificate::new();
         let (coord_pk, coord_sk) = generate_encrypt_key_pair();
         let bytes = SumMessage::from_parts(&pk, &sum_signature, &ephm_pk, &certificate)
@@ -445,7 +446,7 @@ mod tests {
         // wrong receiver
         msg.serialize(
             &mut buffer,
-            &CoordinatorPublicKey::from_slice(&randombytes(32)).unwrap(),
+            &CoordinatorPublicKey::from_slice_unchecked(&randombytes(32)),
         );
         let bytes = coord_pk.encrypt(buffer.bytes());
         assert_eq!(

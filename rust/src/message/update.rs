@@ -8,7 +8,7 @@ use super::{MessageBuffer, Tag, LEN_BYTES, PK_BYTES, SIGNATURE_BYTES};
 use crate::{
     certificate::Certificate,
     crypto::{ByteObject, Signature},
-    mask::{config::MaskConfig, EncrMaskSeed, MaskedModel},
+    mask::{seed::EncryptedMaskSeed, MaskedModel},
     CoordinatorPublicKey,
     CoordinatorSecretKey,
     LocalSeedDict,
@@ -78,11 +78,7 @@ impl TryFrom<Vec<u8>> for UpdateMessageBuffer<Vec<u8>> {
         } else {
             return Err(PetError::InvalidMessage);
         }
-        if buffer.len() == buffer.local_seed_dict_range.end
-            && (buffer.local_seed_dict_range.end - buffer.local_seed_dict_range.start)
-                % (PK_BYTES + EncrMaskSeed::BYTES)
-                == 0
-        {
+        if buffer.len() == buffer.local_seed_dict_range.end {
             Ok(buffer)
         } else {
             Err(PetError::InvalidMessage)
@@ -269,7 +265,7 @@ where
         let mut buffer = UpdateMessageBuffer::new(
             self.certificate.borrow().len(),
             self.masked_model.borrow().len(),
-            self.local_seed_dict.borrow().len() * (PK_BYTES + EncrMaskSeed::BYTES),
+            self.local_seed_dict.borrow().len() * (PK_BYTES + EncryptedMaskSeed::BYTES),
         );
         self.serialize(&mut buffer, pk);
         let signature = sk.sign_detached(buffer.message());
@@ -287,37 +283,46 @@ impl
         LocalSeedDict,
     >
 {
-    /// Deserialize a local seed dictionary from bytes.
-    fn deserialize_local_seed_dict(bytes: &[u8]) -> LocalSeedDict {
-        bytes
-            .chunks_exact(PK_BYTES + EncrMaskSeed::BYTES)
-            .map(|chunk| {
-                (
-                    // safe unwraps: lengths of slices are guaranteed by constants
-                    SumParticipantPublicKey::from_slice(&chunk[..PK_BYTES]).unwrap(),
-                    EncrMaskSeed::try_from(&chunk[PK_BYTES..]).unwrap(),
-                )
-            })
-            .collect()
+    /// Deserialize a local seed dictionary from bytes. Fails if the length of the input is invalid.
+    fn deserialize_local_seed_dict(bytes: &[u8]) -> Result<LocalSeedDict, PetError> {
+        if bytes.len() % (PK_BYTES + EncryptedMaskSeed::BYTES) == 0 {
+            let local_seed_dict = bytes
+                .chunks_exact(PK_BYTES + EncryptedMaskSeed::BYTES)
+                .map(|chunk| {
+                    let pk = SumParticipantPublicKey::from_slice(&chunk[..PK_BYTES]);
+                    let seed = EncryptedMaskSeed::try_from(&chunk[PK_BYTES..]);
+                    if let (Some(pk), Ok(seed)) = (pk, seed) {
+                        Ok((pk, seed))
+                    } else {
+                        Err(PetError::InvalidMessage)
+                    }
+                })
+                .collect::<Result<LocalSeedDict, PetError>>()?;
+            Ok(local_seed_dict)
+        } else {
+            Err(PetError::InvalidMessage)
+        }
     }
 
     /// Deserialize an update message from a buffer.
-    fn deserialize(buffer: UpdateMessageBuffer<Vec<u8>>) -> Self {
-        // safe unwraps: lengths of slices are guaranteed by constants
-        let pk = UpdateParticipantPublicKey::from_slice(buffer.part_pk()).unwrap();
-        let sum_signature = Signature::from_slice(buffer.sum_signature()).unwrap();
-        let update_signature = Signature::from_slice(buffer.update_signature()).unwrap();
+    fn deserialize(buffer: UpdateMessageBuffer<Vec<u8>>) -> Result<Self, PetError> {
+        let pk = UpdateParticipantPublicKey::from_slice(buffer.part_pk())
+            .ok_or(PetError::InvalidMessage)?;
+        let sum_signature =
+            Signature::from_slice(buffer.sum_signature()).ok_or(PetError::InvalidMessage)?;
+        let update_signature =
+            Signature::from_slice(buffer.update_signature()).ok_or(PetError::InvalidMessage)?;
         let certificate = buffer.certificate().into();
-        let masked_model = MaskedModel::deserialize(buffer.masked_model()).unwrap();
-        let local_seed_dict = Self::deserialize_local_seed_dict(buffer.local_seed_dict());
-        Self {
+        let masked_model = MaskedModel::deserialize(buffer.masked_model())?;
+        let local_seed_dict = Self::deserialize_local_seed_dict(buffer.local_seed_dict())?;
+        Ok(Self {
             pk,
             sum_signature,
             update_signature,
             certificate,
             masked_model,
             local_seed_dict,
-        }
+        })
     }
 
     /// Decrypt and verify an update message. Fails if decryption or validation fails.
@@ -329,17 +334,16 @@ impl
         let buffer = UpdateMessageBuffer::try_from(
             sk.decrypt(bytes, pk).or(Err(PetError::InvalidMessage))?,
         )?;
-        // safe unwraps: lengths of slices are guaranteed by constants
         if buffer.tag() == [Tag::Update as u8]
             && buffer.coord_pk() == pk.as_slice()
             && UpdateParticipantPublicKey::from_slice(buffer.part_pk())
-                .unwrap()
+                .ok_or(PetError::InvalidMessage)?
                 .verify_detached(
-                    &Signature::from_slice(buffer.signature()).unwrap(),
+                    &Signature::from_slice(buffer.signature()).ok_or(PetError::InvalidMessage)?,
                     buffer.message(),
                 )
         {
-            Ok(Self::deserialize(buffer))
+            Ok(Self::deserialize(buffer)?)
         } else {
             Err(PetError::InvalidMessage)
         }
@@ -380,12 +384,17 @@ impl
 mod tests {
     use std::iter;
 
+    use rand::{
+        distributions::{Distribution, Uniform},
+        SeedableRng,
+    };
+    use rand_chacha::ChaCha20Rng;
     use sodiumoxide::randombytes::{randombytes, randombytes_uniform};
 
     use super::*;
     use crate::{
         crypto::{generate_encrypt_key_pair, generate_signing_key_pair},
-        mask::{config::MaskConfigs, MaskSeed, MaskedModel, Model},
+        mask::{config::MaskConfigs, MaskedModel, Model},
         message::TAG_BYTES,
     };
 
@@ -406,12 +415,11 @@ mod tests {
     }
 
     fn auxiliary_masked_model() -> MaskedModel {
-        let weights = iter::repeat_with(|| {
-            let bytes = randombytes(4);
-            f32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]])
-        })
-        .take(10)
-        .collect::<Vec<f32>>();
+        let uniform = Uniform::new(-1_f32, 1_f32);
+        let mut prng = ChaCha20Rng::from_seed([0_u8; 32]);
+        let weights = iter::repeat_with(|| uniform.sample(&mut prng))
+            .take(10)
+            .collect::<Vec<f32>>();
         let model = Model::try_from(weights).unwrap();
         let config = MaskConfigs::PrimeF32M3B0.config();
         let (_, masked_model) = model.mask(1_f64, &config);
@@ -545,15 +553,15 @@ mod tests {
     fn test_updatemessage_serialize() {
         // from parts
         let sum_dict_len = 1 + randombytes_uniform(10) as usize;
-        let pk = &UpdateParticipantPublicKey::from_slice(&randombytes(32)).unwrap();
-        let sum_signature = &Signature::from_slice(&randombytes(64)).unwrap();
-        let update_signature = &Signature::from_slice(&randombytes(64)).unwrap();
+        let pk = &UpdateParticipantPublicKey::from_slice_unchecked(&randombytes(32));
+        let sum_signature = &Signature::from_slice_unchecked(&randombytes(64));
+        let update_signature = &Signature::from_slice_unchecked(&randombytes(64));
         let certificate = &Certificate::new();
         let masked_model = &auxiliary_masked_model();
         let local_seed_dict = &iter::repeat_with(|| {
             (
-                SumParticipantPublicKey::from_slice(&randombytes(32)).unwrap(),
-                EncrMaskSeed::try_from(randombytes(80)).unwrap(),
+                SumParticipantPublicKey::from_slice_unchecked(&randombytes(32)),
+                EncryptedMaskSeed::try_from(randombytes(80)).unwrap(),
             )
         })
         .take(sum_dict_len)
@@ -595,21 +603,23 @@ mod tests {
         let local_seed_vec = msg.serialize_local_seed_dict();
         assert_eq!(
             local_seed_vec.len(),
-            (PK_BYTES + EncrMaskSeed::BYTES) * sum_dict_len
+            (PK_BYTES + EncryptedMaskSeed::BYTES) * sum_dict_len
         );
         assert!(local_seed_vec
-            .chunks_exact(PK_BYTES + EncrMaskSeed::BYTES)
+            .chunks_exact(PK_BYTES + EncryptedMaskSeed::BYTES)
             .all(|chunk| {
                 local_seed_dict
-                    .get(&SumParticipantPublicKey::from_slice(&chunk[..PK_BYTES]).unwrap())
+                    .get(&SumParticipantPublicKey::from_slice_unchecked(
+                        &chunk[..PK_BYTES],
+                    ))
                     .unwrap()
-                    .as_ref()
+                    .as_slice()
                     == &chunk[PK_BYTES..]
             }));
 
         // serialize
         let mut buffer = UpdateMessageBuffer::new(32, masked_model.len(), 112 * sum_dict_len);
-        let coord_pk = CoordinatorPublicKey::from_slice(&randombytes(32)).unwrap();
+        let coord_pk = CoordinatorPublicKey::from_slice_unchecked(&randombytes(32));
         msg.serialize(&mut buffer, &coord_pk);
         assert_eq!(buffer.tag(), [Tag::Update as u8].as_ref());
         assert_eq!(buffer.coord_pk(), coord_pk.as_slice());
@@ -637,32 +647,34 @@ mod tests {
     fn test_updatemessage_deserialize() {
         // deserialize seed dictionary
         let sum_dict_len = 1 + randombytes_uniform(10) as usize;
-        let local_seed_vec = randombytes((PK_BYTES + EncrMaskSeed::BYTES) * sum_dict_len);
-        let local_seed_dict = UpdateMessage::deserialize_local_seed_dict(&local_seed_vec);
-        for chunk in local_seed_vec.chunks_exact(PK_BYTES + EncrMaskSeed::BYTES) {
+        let local_seed_vec = randombytes((PK_BYTES + EncryptedMaskSeed::BYTES) * sum_dict_len);
+        let local_seed_dict = UpdateMessage::deserialize_local_seed_dict(&local_seed_vec).unwrap();
+        for chunk in local_seed_vec.chunks_exact(PK_BYTES + EncryptedMaskSeed::BYTES) {
             assert_eq!(
                 local_seed_dict
-                    .get(&SumParticipantPublicKey::from_slice(&chunk[..PK_BYTES]).unwrap())
+                    .get(&SumParticipantPublicKey::from_slice_unchecked(
+                        &chunk[..PK_BYTES]
+                    ))
                     .unwrap(),
-                &EncrMaskSeed::try_from(&chunk[PK_BYTES..]).unwrap(),
+                &EncryptedMaskSeed::try_from(&chunk[PK_BYTES..]).unwrap(),
             );
         }
 
         // deserialize
         let bytes = auxiliary_bytes(sum_dict_len);
         let buffer = UpdateMessageBuffer::try_from(bytes.clone()).unwrap();
-        let msg = UpdateMessage::deserialize(buffer.clone());
+        let msg = UpdateMessage::deserialize(buffer.clone()).unwrap();
         assert_eq!(
             msg.pk(),
-            &UpdateParticipantPublicKey::from_slice(&bytes[MB::PART_PK_RANGE]).unwrap(),
+            &UpdateParticipantPublicKey::from_slice_unchecked(&bytes[MB::PART_PK_RANGE]),
         );
         assert_eq!(
             msg.sum_signature(),
-            &Signature::from_slice(&bytes[MB::SUM_SIGNATURE_RANGE]).unwrap(),
+            &Signature::from_slice_unchecked(&bytes[MB::SUM_SIGNATURE_RANGE]),
         );
         assert_eq!(
             msg.update_signature(),
-            &Signature::from_slice(&bytes[MB::UPDATE_SIGNATURE_RANGE]).unwrap(),
+            &Signature::from_slice_unchecked(&bytes[MB::UPDATE_SIGNATURE_RANGE]),
         );
         assert_eq!(
             msg.certificate(),
@@ -676,7 +688,8 @@ mod tests {
             msg.local_seed_dict(),
             &UpdateMessage::deserialize_local_seed_dict(
                 &bytes[buffer.local_seed_dict_range.clone()]
-            ),
+            )
+            .unwrap(),
         );
     }
 
@@ -685,14 +698,14 @@ mod tests {
         // seal
         let sum_dict_len = 1 + randombytes_uniform(10) as usize;
         let (pk, sk) = generate_signing_key_pair();
-        let sum_signature = Signature::from_slice(&randombytes(64)).unwrap();
-        let update_signature = Signature::from_slice(&randombytes(64)).unwrap();
+        let sum_signature = Signature::from_slice_unchecked(&randombytes(64));
+        let update_signature = Signature::from_slice_unchecked(&randombytes(64));
         let certificate = Certificate::new();
         let masked_model = auxiliary_masked_model();
         let local_seed_dict = iter::repeat_with(|| {
             (
-                SumParticipantPublicKey::from_slice(&randombytes(32)).unwrap(),
-                EncrMaskSeed::try_from(randombytes(80)).unwrap(),
+                SumParticipantPublicKey::from_slice_unchecked(&randombytes(32)),
+                EncryptedMaskSeed::try_from(randombytes(80)).unwrap(),
             )
         })
         .take(sum_dict_len)
@@ -738,7 +751,7 @@ mod tests {
         // wrong receiver
         msg.serialize(
             &mut buffer,
-            &CoordinatorPublicKey::from_slice(&randombytes(32)).unwrap(),
+            &CoordinatorPublicKey::from_slice_unchecked(&randombytes(32)),
         );
         let bytes = coord_pk.encrypt(buffer.bytes());
         assert_eq!(

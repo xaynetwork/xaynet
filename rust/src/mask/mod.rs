@@ -1,148 +1,30 @@
 pub mod config;
+pub mod seed;
 
 use std::{
     convert::{TryFrom, TryInto},
-    default::Default,
-    iter,
     mem,
 };
 
 use num::{
     bigint::{BigInt, BigUint, ToBigInt},
-    rational::{BigRational, Ratio},
-    traits::{clamp, float::FloatCore, int::PrimInt, pow::Pow, Num},
+    clamp,
+    rational::Ratio,
+    traits::float::FloatCore,
 };
 use rand::SeedableRng;
 use rand_chacha::ChaCha20Rng;
-use sodiumoxide::{
-    crypto::{box_, sealedbox},
-    randombytes::{randombytes, randombytes_into},
-};
 
-use self::config::{MaskConfig, MaskConfigs};
+use self::{config::MaskConfig, seed::MaskSeed};
 use crate::{
     utils::{generate_integer, ratio_as},
     PetError,
-    SumParticipantEphemeralPublicKey,
-    SumParticipantEphemeralSecretKey,
 };
 
-const USIZE_LEN: usize = mem::size_of::<usize>();
+const USIZE_BYTES: usize = mem::size_of::<usize>();
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct MaskSeed {
-    seed: box_::Seed,
-}
-
-impl MaskSeed {
-    pub const BYTES: usize = box_::SEEDBYTES;
-
-    #[allow(clippy::new_without_default)]
-    /// Create a mask seed.
-    pub fn new() -> Self {
-        // safe unwrap: length of slice is guaranteed by constants
-        let seed = box_::Seed::from_slice(&randombytes(Self::BYTES)).unwrap();
-        Self { seed }
-    }
-
-    pub fn seed(&self) -> [u8; Self::BYTES] {
-        self.seed.0
-    }
-
-    /// Encrypt a mask seed.
-    pub fn encrypt(&self, pk: &SumParticipantEphemeralPublicKey) -> EncrMaskSeed {
-        // safe unwrap: length of slice is guaranteed by constants
-        EncrMaskSeed::try_from(pk.encrypt(self.seed.as_ref())).unwrap()
-    }
-
-    /// Derive a mask of length `len` from the seed wrt the mask configuration.
-    pub fn derive_mask(&self, len: usize, config: &MaskConfig) -> Mask {
-        let mut prng = ChaCha20Rng::from_seed(self.seed());
-        let integers = iter::repeat_with(|| generate_integer(&mut prng, config.order()))
-            .take(len)
-            .collect();
-        Mask {
-            integers,
-            config: config.clone(),
-        }
-    }
-}
-
-impl TryFrom<Vec<u8>> for MaskSeed {
-    type Error = PetError;
-
-    /// Create a mask seed from bytes. Fails if the length of the input is invalid.
-    fn try_from(bytes: Vec<u8>) -> Result<Self, Self::Error> {
-        let seed = box_::Seed::from_slice(bytes.as_slice()).ok_or(Self::Error::InvalidMessage)?;
-        Ok(Self { seed })
-    }
-}
-
-impl TryFrom<&[u8]> for MaskSeed {
-    type Error = PetError;
-
-    /// Create a mask seed from a slice of bytes. Fails if the length of the input is invalid.
-    fn try_from(slice: &[u8]) -> Result<Self, Self::Error> {
-        let seed = box_::Seed::from_slice(slice).ok_or(Self::Error::InvalidMessage)?;
-        Ok(Self { seed })
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-/// An encrypted mask seed.
-pub struct EncrMaskSeed(Vec<u8>);
-
-impl EncrMaskSeed {
-    pub const BYTES: usize = sealedbox::SEALBYTES + MaskSeed::BYTES;
-
-    /// Decrypt an encrypted mask seed. Fails if the decryption fails.
-    pub fn decrypt(
-        &self,
-        pk: &SumParticipantEphemeralPublicKey,
-        sk: &SumParticipantEphemeralSecretKey,
-    ) -> Result<MaskSeed, PetError> {
-        MaskSeed::try_from(
-            sk.decrypt(self.as_ref(), pk)
-                .or(Err(PetError::InvalidMessage))?,
-        )
-    }
-}
-
-impl AsRef<[u8]> for EncrMaskSeed {
-    /// Get a reference to the encrypted mask seed.
-    fn as_ref(&self) -> &[u8] {
-        self.0.as_slice()
-    }
-}
-
-impl TryFrom<Vec<u8>> for EncrMaskSeed {
-    type Error = PetError;
-
-    /// Create an encrypted mask seed from bytes. Fails if the length of the input is invalid.
-    fn try_from(bytes: Vec<u8>) -> Result<Self, Self::Error> {
-        if bytes.len() == Self::BYTES {
-            Ok(Self(bytes))
-        } else {
-            Err(Self::Error::InvalidMessage)
-        }
-    }
-}
-
-impl TryFrom<&[u8]> for EncrMaskSeed {
-    type Error = PetError;
-
-    /// Create an encrypted mask seed from a slice of bytes. Fails if the length of the input is
-    /// invalid.
-    fn try_from(slice: &[u8]) -> Result<Self, Self::Error> {
-        if slice.len() == Self::BYTES {
-            Ok(Self(slice.to_vec()))
-        } else {
-            Err(Self::Error::InvalidMessage)
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
+/// A model. Its parameters are represented as a vector of numerical values.
 pub struct Model<F: FloatCore> {
     weights: Vec<F>,
 }
@@ -166,14 +48,14 @@ impl<F: FloatCore> Model<F> {
         &self.weights
     }
 
-    /// Mask the model wrt the mask configuration. Enforces the bounds on the scalar and weights.
+    /// Mask the model wrt the mask configuration. Enforces bounds on the scalar and weights.
     pub fn mask(&self, scalar: f64, config: &MaskConfig) -> (MaskSeed, MaskedModel) {
         // safe unwrap: clamped scalar is finite
         let scalar = &Ratio::<BigInt>::from_float(clamp(scalar, 0_f64, 1_f64)).unwrap();
         let negative_bound = &-config.add_shift();
         let positive_bound = config.add_shift();
-        let mask_seed = MaskSeed::new();
-        let mut prng = ChaCha20Rng::from_seed(mask_seed.seed());
+        let mask_seed = MaskSeed::generate();
+        let mut prng = ChaCha20Rng::from_seed(mask_seed.as_array());
         let integers = self
             .weights
             .iter()
@@ -207,28 +89,12 @@ impl<F: FloatCore> Model<F> {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+/// A masked model. Its parameters are represented as a vector of integers from a finite group wrt
+/// a mask configuration.
 pub struct MaskedModel {
     integers: Vec<BigUint>,
     config: MaskConfig,
 }
-
-// impl TryFrom<Vec<u8>> for MaskedModel {
-//     type Error = PetError;
-
-//     /// Create a masked model from bytes. Fails if deserialization fails.
-//     fn try_from(bytes: Vec<u8>) -> Result<Self, Self::Error> {
-//         Self::deserialize(bytes.as_slice())
-//     }
-// }
-
-// impl TryFrom<&[u8]> for MaskedModel {
-//     type Error = PetError;
-
-//     /// Create a masked model from a slice of bytes. Fails if deserialization fails.
-//     fn try_from(slice: &[u8]) -> Result<Self, Self::Error> {
-//         Self::deserialize(slice)
-//     }
-// }
 
 impl MaskedModel {
     /// Get a reference to the masked model integers.
@@ -236,12 +102,21 @@ impl MaskedModel {
         &self.integers
     }
 
-    /// Unmask the masked model with a mask. Requires the total number of models.
+    /// Unmask the masked model with a mask. Requires the total positive number of models. Fails if
+    /// the mask is invalid.
     pub fn unmask<F: FloatCore>(
         &self,
         mask: &Mask,
         no_models: usize,
     ) -> Result<Model<F>, PetError> {
+        if no_models == 0
+            || mask
+                .integers()
+                .iter()
+                .any(|integer| integer >= self.config.order())
+        {
+            return Err(PetError::InvalidMessage);
+        }
         let scaled_add_shift = self.config.add_shift() * BigInt::from(no_models);
         let weights = self
             .integers
@@ -250,7 +125,6 @@ impl MaskedModel {
             .map(|(masked_weight, mask)| {
                 // unmask the masked weight
                 let integer = Ratio::<BigInt>::from(
-                    // safe minus: sum is guaranteed to be non-negative
                     ((masked_weight + self.config.order() - mask) % self.config.order())
                         .to_bigint()
                         // safe unwrap: `to_bigint` never fails for `BigUint`s
@@ -267,7 +141,7 @@ impl MaskedModel {
 
     /// Get the length of the serialized masked model.
     pub fn len(&self) -> usize {
-        USIZE_LEN + self.integers.len() * self.config.element_len()
+        USIZE_BYTES + self.integers.len() * self.config.element_len()
     }
 
     /// Serialize the masked model into bytes.
@@ -278,7 +152,6 @@ impl MaskedModel {
             .iter()
             .flat_map(|integer| {
                 let mut bytes = integer.to_bytes_le();
-                // is this padding ever needed?
                 bytes.resize(element_len, 0_u8);
                 bytes
             })
@@ -289,15 +162,15 @@ impl MaskedModel {
     /// Deserialize the masked model from bytes. Fails if the bytes don't conform to the mask
     /// configuration.
     pub fn deserialize(bytes: &[u8]) -> Result<Self, PetError> {
-        if bytes.len() < USIZE_LEN {
+        if bytes.len() < USIZE_BYTES {
             return Err(PetError::InvalidMessage);
         }
-        let config = MaskConfig::deserialize(&bytes[..USIZE_LEN])?;
+        let config = MaskConfig::deserialize(&bytes[..USIZE_BYTES])?;
         let element_len = config.element_len();
-        if bytes[USIZE_LEN..].len() % element_len != 0 {
+        if bytes[USIZE_BYTES..].len() % element_len != 0 {
             return Err(PetError::InvalidMessage);
         }
-        let integers = bytes[USIZE_LEN..]
+        let integers = bytes[USIZE_BYTES..]
             .chunks_exact(element_len)
             .map(|chunk| BigUint::from_bytes_le(chunk))
             .collect::<Vec<BigUint>>();
@@ -310,27 +183,11 @@ impl MaskedModel {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+/// A mask. Its parameters are represented as a vector of integers from a finite group wrt a mask
+/// configuration.
 pub struct Mask {
     integers: Vec<BigUint>,
     config: MaskConfig,
-}
-
-impl TryFrom<Vec<u8>> for Mask {
-    type Error = PetError;
-
-    /// Create a mask from bytes. Fails if deserialization fails.
-    fn try_from(bytes: Vec<u8>) -> Result<Self, Self::Error> {
-        Self::deserialize(bytes.as_slice())
-    }
-}
-
-impl TryFrom<&[u8]> for Mask {
-    type Error = PetError;
-
-    /// Create a mask from a slice of bytes. Fails if deserialization fails.
-    fn try_from(slice: &[u8]) -> Result<Self, Self::Error> {
-        Self::deserialize(slice)
-    }
 }
 
 impl Mask {
@@ -341,7 +198,7 @@ impl Mask {
 
     /// Get the length of the serialized masked model.
     pub fn len(&self) -> usize {
-        USIZE_LEN + self.integers.len() * self.config.element_len()
+        USIZE_BYTES + self.integers.len() * self.config.element_len()
     }
 
     /// Serialize the mask into bytes.
@@ -352,7 +209,6 @@ impl Mask {
             .iter()
             .flat_map(|integer| {
                 let mut bytes = integer.to_bytes_le();
-                // is this padding ever needed?
                 bytes.resize(element_len, 0_u8);
                 bytes
             })
@@ -362,15 +218,15 @@ impl Mask {
 
     /// Deserialize the mask from bytes. Fails if the bytes don't conform to the mask configuration.
     pub fn deserialize(bytes: &[u8]) -> Result<Self, PetError> {
-        if bytes.len() < USIZE_LEN {
+        if bytes.len() < USIZE_BYTES {
             return Err(PetError::InvalidMessage);
         }
-        let config = MaskConfig::deserialize(&bytes[..USIZE_LEN])?;
+        let config = MaskConfig::deserialize(&bytes[..USIZE_BYTES])?;
         let element_len = config.element_len();
-        if bytes[USIZE_LEN..].len() % element_len != 0 {
+        if bytes[USIZE_BYTES..].len() % element_len != 0 {
             return Err(PetError::InvalidMessage);
         }
-        let integers = bytes[USIZE_LEN..]
+        let integers = bytes[USIZE_BYTES..]
             .chunks_exact(element_len)
             .map(|chunk| BigUint::from_bytes_le(chunk))
             .collect::<Vec<BigUint>>();
@@ -384,25 +240,43 @@ impl Mask {
 
 #[cfg(test)]
 mod tests {
+    use std::iter;
+
+    use rand::distributions::{Distribution, Uniform};
+
     use super::*;
+    use crate::mask::config::MaskConfigs;
+
+    fn auxiliary_model() -> Model<f32> {
+        let uniform = Uniform::new(-1_f32, 1_f32);
+        let mut prng = ChaCha20Rng::from_seed([0_u8; 32]);
+        let weights = iter::repeat_with(|| uniform.sample(&mut prng))
+            .take(10)
+            .collect::<Vec<f32>>();
+        Model::try_from(weights).unwrap()
+    }
 
     #[test]
     fn test_masking() {
-        let model = Model::try_from(vec![0_f32, 0.5, -0.5]).unwrap();
+        let model = auxiliary_model();
         let config = MaskConfigs::PrimeF32M3B0.config();
         let (mask_seed, masked_model) = model.mask(1_f64, &config);
-        assert_eq!(model.weights().len(), masked_model.integers().len());
-        let mask = mask_seed.derive_mask(3, &config);
+        assert_eq!(masked_model.integers().len(), 10);
+        let mask = mask_seed.derive_mask(10, &config);
         let unmasked_model = masked_model.unmask::<f32>(&mask, 1).unwrap();
-        assert_eq!(model.weights(), unmasked_model.weights());
+        assert!(model
+            .weights()
+            .iter()
+            .zip(unmasked_model.weights().iter())
+            .all(|(weight, unmasked_weight)| (weight - unmasked_weight).abs() < 1e-8_f32));
     }
 
     #[test]
     fn test_maskedmodel_serialization() {
-        let model = Model::try_from(vec![0_f32, 0.5, -0.5]).unwrap();
+        let model = auxiliary_model();
         let config = MaskConfigs::PrimeF32M3B0.config();
         let (_, masked_model) = model.mask(1_f64, &config);
-        let len = USIZE_LEN + 3 * 6;
+        let len = USIZE_BYTES + 10 * 6;
         assert_eq!(masked_model.len(), len);
         let serialized = masked_model.serialize();
         assert_eq!(serialized.len(), len);
@@ -413,8 +287,8 @@ mod tests {
     #[test]
     fn test_mask_serialization() {
         let config = MaskConfigs::PrimeF32M3B0.config();
-        let mask = MaskSeed::new().derive_mask(10, &config);
-        let len = USIZE_LEN + 10 * 6;
+        let mask = MaskSeed::generate().derive_mask(10, &config);
+        let len = USIZE_BYTES + 10 * 6;
         assert_eq!(mask.len(), len);
         let serialized = mask.serialize();
         assert_eq!(serialized.len(), len);

@@ -3,10 +3,9 @@ use std::convert::{TryFrom, TryInto};
 use num::{
     bigint::{BigInt, BigUint},
     rational::Ratio,
-    traits::{float::FloatCore, int::PrimInt, pow::Pow, Num},
+    traits::{float::FloatCore, identities::Zero, pow::Pow},
 };
 
-use super::USIZE_LEN;
 use crate::PetError;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -26,8 +25,11 @@ impl MaskConfig {
 
     /// Get the number of bytes needed to represent the largest element of the finite group.
     pub fn element_len(&self) -> usize {
-        // safe minus: order is guaranteed to be greater than zero
-        (self.order() - BigUint::from(1_usize)).to_bytes_le().len()
+        if self.order.is_zero() {
+            1
+        } else {
+            (self.order() - BigUint::from(1_usize)).to_bytes_le().len()
+        }
     }
 
     /// Get the exponent (to base 10) of the exponential shift.
@@ -45,14 +47,9 @@ impl MaskConfig {
     }
 
     pub fn deserialize(bytes: &[u8]) -> Result<Self, PetError> {
-        if bytes.len() == USIZE_LEN {
-            // safe unwrap: length of slice is guaranteed by constants
-            let value = usize::from_le_bytes(bytes.try_into().unwrap());
-            let config = MaskConfigs::try_from(value)?.config();
-            Ok(config)
-        } else {
-            Err(PetError::InvalidMessage)
-        }
+        let value = usize::from_le_bytes(bytes.try_into().or(Err(PetError::InvalidMessage))?);
+        let config = MaskConfigs::try_from(value)?.config();
+        Ok(config)
     }
 }
 

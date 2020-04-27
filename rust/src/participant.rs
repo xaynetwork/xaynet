@@ -1,11 +1,11 @@
 use std::{convert::TryFrom, default::Default};
 
-use sodiumoxide::{self, randombytes::randombytes};
+use sodiumoxide;
 
 use crate::{
     certificate::Certificate,
     crypto::{generate_encrypt_key_pair, generate_signing_key_pair, ByteObject},
-    mask::{config::MaskConfigs, Mask, MaskSeed, MaskedModel, Model},
+    mask::{config::MaskConfigs, seed::MaskSeed, Mask, Model},
     message::{sum::SumMessage, sum2::Sum2Message, update::UpdateMessage},
     utils::is_eligible,
     CoordinatorPublicKey,
@@ -19,8 +19,6 @@ use crate::{
     SumDict,
     SumParticipantEphemeralPublicKey,
     SumParticipantEphemeralSecretKey,
-    SumParticipantPublicKey,
-    SumParticipantSecretKey,
 };
 
 #[derive(Debug, PartialEq)]
@@ -170,7 +168,7 @@ impl Participant {
 
     /// Compute a global mask from local mask seeds (dummy).
     fn compute_global_mask(&self, _mask_seeds: Vec<MaskSeed>) -> Mask {
-        Mask::try_from(Vec::<u8>::new().as_slice()).unwrap() // dummy
+        Mask::deserialize(Vec::<u8>::new().as_slice()).unwrap() // dummy
     }
 }
 
@@ -181,10 +179,10 @@ mod tests {
         iter,
     };
 
-    use sodiumoxide::randombytes::randombytes_uniform;
+    use sodiumoxide::randombytes::{randombytes, randombytes_uniform};
 
     use super::*;
-    use crate::{crypto::Signature, UpdateParticipantPublicKey};
+    use crate::{crypto::Signature, SumParticipantPublicKey, UpdateParticipantPublicKey};
 
     #[test]
     fn test_participant() {
@@ -217,29 +215,29 @@ mod tests {
     #[test]
     fn test_check_task() {
         let mut part = Participant::new().unwrap();
-        let elligible_signature = Signature::from_slice_unchecked(&[
-            229, 191, 74, 163, 113, 6, 242, 191, 255, 225, 40, 89, 210, 94, 25, 50, 44, 129, 155,
-            241, 99, 64, 25, 212, 157, 235, 102, 95, 115, 18, 158, 115, 253, 136, 178, 223, 4, 47,
-            54, 162, 236, 78, 126, 114, 205, 217, 250, 163, 223, 149, 31, 65, 179, 179, 60, 64, 34,
-            1, 78, 245, 1, 50, 165, 47,
+        let eligible_signature = Signature::from_slice_unchecked(&[
+            172, 29, 85, 219, 118, 44, 107, 32, 219, 253, 25, 242, 53, 45, 111, 62, 102, 130, 24,
+            8, 222, 199, 34, 120, 166, 163, 223, 229, 100, 50, 252, 244, 250, 88, 196, 151, 136,
+            48, 39, 198, 166, 86, 29, 151, 13, 81, 69, 198, 40, 148, 134, 126, 7, 202, 1, 56, 174,
+            43, 89, 28, 242, 194, 4, 214,
         ]);
-        let inelligible_signature = Signature::from_slice_unchecked(&[
-            15, 107, 81, 84, 105, 246, 165, 81, 76, 125, 140, 172, 113, 85, 51, 173, 119, 123, 78,
-            114, 249, 182, 135, 212, 134, 38, 125, 153, 120, 45, 179, 55, 116, 155, 205, 51, 247,
-            37, 78, 147, 63, 231, 28, 61, 251, 41, 48, 239, 125, 0, 129, 126, 194, 123, 183, 11,
-            215, 220, 1, 225, 248, 131, 64, 242,
+        let ineligible_signature = Signature::from_slice_unchecked(&[
+            119, 2, 197, 174, 52, 165, 229, 22, 218, 210, 240, 188, 220, 232, 149, 129, 211, 13,
+            61, 217, 186, 79, 102, 15, 109, 237, 83, 193, 12, 117, 210, 66, 99, 230, 30, 131, 63,
+            108, 28, 222, 48, 92, 153, 71, 159, 220, 115, 181, 183, 155, 146, 182, 205, 89, 140,
+            234, 100, 40, 199, 248, 23, 147, 172, 248,
         ]);
-        part.sum_signature = elligible_signature;
-        part.update_signature = inelligible_signature;
+        part.sum_signature = eligible_signature;
+        part.update_signature = ineligible_signature;
         part.check_task(0.5_f64, 0.5_f64);
         assert_eq!(part.task, Task::Sum);
-        part.update_signature = elligible_signature;
+        part.update_signature = eligible_signature;
         part.check_task(0.5_f64, 0.5_f64);
         assert_eq!(part.task, Task::Sum);
-        part.sum_signature = inelligible_signature;
+        part.sum_signature = ineligible_signature;
         part.check_task(0.5_f64, 0.5_f64);
         assert_eq!(part.task, Task::Update);
-        part.update_signature = inelligible_signature;
+        part.update_signature = ineligible_signature;
         part.check_task(0.5_f64, 0.5_f64);
         assert_eq!(part.task, Task::None);
     }
@@ -254,7 +252,7 @@ mod tests {
 
     #[test]
     fn test_create_local_seed_dict() {
-        let mask_seed = MaskSeed::new();
+        let mask_seed = MaskSeed::generate();
         let ephm_dict = iter::repeat_with(|| generate_encrypt_key_pair())
             .take(1 + randombytes_uniform(10) as usize)
             .collect::<HashMap<SumParticipantEphemeralPublicKey, SumParticipantEphemeralSecretKey>>(
@@ -263,7 +261,7 @@ mod tests {
             .iter()
             .map(|(ephm_pk, _)| {
                 (
-                    SumParticipantPublicKey::from_slice(&randombytes(32)).unwrap(),
+                    SumParticipantPublicKey::from_slice_unchecked(&randombytes(32)),
                     *ephm_pk,
                 )
             })
@@ -282,7 +280,7 @@ mod tests {
     fn test_get_seeds() {
         let mut part = Participant::new().unwrap();
         part.gen_ephm_keypair();
-        let mask_seeds = iter::repeat_with(|| MaskSeed::new())
+        let mask_seeds = iter::repeat_with(|| MaskSeed::generate())
             .take(1 + randombytes_uniform(10) as usize)
             .collect::<Vec<_>>();
         let seed_dict = [(
@@ -291,7 +289,7 @@ mod tests {
                 .iter()
                 .map(|seed| {
                     (
-                        UpdateParticipantPublicKey::from_slice(&randombytes(32)).unwrap(),
+                        UpdateParticipantPublicKey::from_slice_unchecked(&randombytes(32)),
                         seed.encrypt(&part.ephm_pk),
                     )
                 })
@@ -304,11 +302,11 @@ mod tests {
             part.get_seeds(&seed_dict)
                 .unwrap()
                 .into_iter()
-                .map(|seed| seed.seed())
+                .map(|seed| seed.as_array())
                 .collect::<HashSet<_>>(),
             mask_seeds
                 .into_iter()
-                .map(|seed| seed.seed())
+                .map(|seed| seed.as_array())
                 .collect::<HashSet<_>>(),
         );
         assert_eq!(

@@ -8,7 +8,7 @@ use super::{MessageBuffer, Tag, LEN_BYTES};
 use crate::{
     certificate::Certificate,
     crypto::{ByteObject, Signature},
-    mask::{config::MaskConfig, Mask},
+    mask::Mask,
     CoordinatorPublicKey,
     CoordinatorSecretKey,
     ParticipantTaskSignature,
@@ -198,18 +198,19 @@ where
 
 impl Sum2Message<SumParticipantPublicKey, ParticipantTaskSignature, Certificate, Mask> {
     /// Deserialize a sum2 message from a buffer.
-    fn deserialize(buffer: Sum2MessageBuffer<Vec<u8>>) -> Self {
-        // safe unwraps: lengths of slices are guaranteed by constants
-        let pk = SumParticipantPublicKey::from_slice(buffer.part_pk()).unwrap();
-        let sum_signature = Signature::from_slice(buffer.sum_signature()).unwrap();
+    fn deserialize(buffer: Sum2MessageBuffer<Vec<u8>>) -> Result<Self, PetError> {
+        let pk = SumParticipantPublicKey::from_slice(buffer.part_pk())
+            .ok_or(PetError::InvalidMessage)?;
+        let sum_signature =
+            Signature::from_slice(buffer.sum_signature()).ok_or(PetError::InvalidMessage)?;
         let certificate = buffer.certificate().into();
-        let mask = Mask::try_from(buffer.mask()).unwrap();
-        Self {
+        let mask = Mask::deserialize(buffer.mask())?;
+        Ok(Self {
             pk,
             sum_signature,
             certificate,
             mask,
-        }
+        })
     }
 
     /// Decrypt and verify a sum2 message. Fails if decryption or validation fails.
@@ -220,17 +221,16 @@ impl Sum2Message<SumParticipantPublicKey, ParticipantTaskSignature, Certificate,
     ) -> Result<Self, PetError> {
         let buffer =
             Sum2MessageBuffer::try_from(sk.decrypt(bytes, pk).or(Err(PetError::InvalidMessage))?)?;
-        // safe unwraps: lengths of slices are guaranteed by constants
         if buffer.tag() == [Tag::Sum2 as u8]
             && buffer.coord_pk() == pk.as_slice()
             && SumParticipantPublicKey::from_slice(buffer.part_pk())
-                .unwrap()
+                .ok_or(PetError::InvalidMessage)?
                 .verify_detached(
-                    &Signature::from_slice(buffer.signature()).unwrap(),
+                    &Signature::from_slice(buffer.signature()).ok_or(PetError::InvalidMessage)?,
                     buffer.message(),
                 )
         {
-            Ok(Self::deserialize(buffer))
+            Ok(Self::deserialize(buffer)?)
         } else {
             Err(PetError::InvalidMessage)
         }
@@ -264,7 +264,7 @@ mod tests {
     use super::*;
     use crate::{
         crypto::{generate_encrypt_key_pair, generate_signing_key_pair},
-        mask::{config::MaskConfigs, MaskSeed},
+        mask::{config::MaskConfigs, seed::MaskSeed},
         message::{PK_BYTES, SIGNATURE_BYTES, TAG_BYTES},
     };
 
@@ -284,7 +284,7 @@ mod tests {
 
     fn auxiliary_mask() -> Mask {
         let config = MaskConfigs::PrimeF32M3B0.config();
-        MaskSeed::new().derive_mask(10, &config)
+        MaskSeed::generate().derive_mask(10, &config)
     }
 
     #[test]
@@ -376,8 +376,8 @@ mod tests {
     #[test]
     fn test_sum2message_serialize() {
         // from parts
-        let pk = &SumParticipantPublicKey::from_slice(&randombytes(32)).unwrap();
-        let sum_signature = &Signature::from_slice(&randombytes(64)).unwrap();
+        let pk = &SumParticipantPublicKey::from_slice_unchecked(&randombytes(32));
+        let sum_signature = &Signature::from_slice_unchecked(&randombytes(64));
         let certificate = &Certificate::new();
         let mask = &auxiliary_mask();
         let msg = Sum2Message::from_parts(pk, sum_signature, certificate, mask);
@@ -397,7 +397,7 @@ mod tests {
 
         // serialize
         let mut buffer = Sum2MessageBuffer::new(32, mask.len());
-        let coord_pk = CoordinatorPublicKey::from_slice(&randombytes(32)).unwrap();
+        let coord_pk = CoordinatorPublicKey::from_slice_unchecked(&randombytes(32));
         msg.serialize(&mut buffer, &coord_pk);
         assert_eq!(buffer.tag(), [Tag::Sum2 as u8].as_ref());
         assert_eq!(buffer.coord_pk(), coord_pk.as_slice());
@@ -417,14 +417,14 @@ mod tests {
         // deserialize
         let bytes = auxiliary_bytes();
         let buffer = Sum2MessageBuffer::try_from(bytes.clone()).unwrap();
-        let msg = Sum2Message::deserialize(buffer.clone());
+        let msg = Sum2Message::deserialize(buffer.clone()).unwrap();
         assert_eq!(
             msg.pk(),
-            &SumParticipantPublicKey::from_slice(&bytes[MB::PART_PK_RANGE]).unwrap(),
+            &SumParticipantPublicKey::from_slice_unchecked(&bytes[MB::PART_PK_RANGE]),
         );
         assert_eq!(
             msg.sum_signature(),
-            &Signature::from_slice(&bytes[MB::SUM_SIGNATURE_RANGE]).unwrap(),
+            &Signature::from_slice_unchecked(&bytes[MB::SUM_SIGNATURE_RANGE]),
         );
         assert_eq!(
             msg.certificate(),
@@ -432,7 +432,7 @@ mod tests {
         );
         assert_eq!(
             msg.mask(),
-            &Mask::try_from(&bytes[buffer.mask_range.clone()]).unwrap(),
+            &Mask::deserialize(&bytes[buffer.mask_range.clone()]).unwrap(),
         );
     }
 
@@ -440,7 +440,7 @@ mod tests {
     fn test_sum2message() {
         // seal
         let (pk, sk) = generate_signing_key_pair();
-        let sum_signature = Signature::from_slice(&randombytes(64)).unwrap();
+        let sum_signature = Signature::from_slice_unchecked(&randombytes(64));
         let certificate = Certificate::new();
         let mask = auxiliary_mask();
         let (coord_pk, coord_sk) = generate_encrypt_key_pair();
@@ -468,7 +468,7 @@ mod tests {
         // wrong receiver
         msg.serialize(
             &mut buffer,
-            &CoordinatorPublicKey::from_slice(&randombytes(32)).unwrap(),
+            &CoordinatorPublicKey::from_slice_unchecked(&randombytes(32)),
         );
         let bytes = coord_pk.encrypt(buffer.bytes());
         assert_eq!(

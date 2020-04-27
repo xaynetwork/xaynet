@@ -4,7 +4,13 @@
 mod encrypt;
 mod sign;
 pub use self::{
-    encrypt::{generate_encrypt_key_pair, EncryptKeySeed, PublicEncryptKey, SecretEncryptKey},
+    encrypt::{
+        generate_encrypt_key_pair,
+        EncryptKeySeed,
+        PublicEncryptKey,
+        SecretEncryptKey,
+        SEALBYTES,
+    },
     sign::{
         generate_signing_key_pair,
         PublicSigningKey,

@@ -2,9 +2,9 @@ use crate::crypto::ByteObject;
 use num::{
     bigint::{BigInt, BigUint, ToBigInt},
     rational::Ratio,
-    traits::{cast::ToPrimitive, float::FloatCore, identities::Zero},
+    traits::{float::FloatCore, identities::Zero},
 };
-use rand::{RngCore, SeedableRng};
+use rand::RngCore;
 use rand_chacha::ChaCha20Rng;
 use sodiumoxide::crypto::hash::sha256;
 
@@ -68,38 +68,36 @@ pub fn ratio_as<F: FloatCore>(ratio: &Ratio<BigInt>) -> F {
 
 #[cfg(test)]
 mod tests {
-    use std::convert::TryFrom;
-
     use num::traits::pow::Pow;
+    use rand::SeedableRng;
 
     use super::*;
-    use crate::{crypto::Signature, mask::MaskSeed};
+    use crate::crypto::Signature;
 
     #[test]
     fn test_is_eligible() {
         // eligible signature
         let sig = Signature::from_slice_unchecked(&[
-            229, 191, 74, 163, 113, 6, 242, 191, 255, 225, 40, 89, 210, 94, 25, 50, 44, 129, 155,
-            241, 99, 64, 25, 212, 157, 235, 102, 95, 115, 18, 158, 115, 253, 136, 178, 223, 4, 47,
-            54, 162, 236, 78, 126, 114, 205, 217, 250, 163, 223, 149, 31, 65, 179, 179, 60, 64, 34,
-            1, 78, 245, 1, 50, 165, 47,
+            172, 29, 85, 219, 118, 44, 107, 32, 219, 253, 25, 242, 53, 45, 111, 62, 102, 130, 24,
+            8, 222, 199, 34, 120, 166, 163, 223, 229, 100, 50, 252, 244, 250, 88, 196, 151, 136,
+            48, 39, 198, 166, 86, 29, 151, 13, 81, 69, 198, 40, 148, 134, 126, 7, 202, 1, 56, 174,
+            43, 89, 28, 242, 194, 4, 214,
         ]);
         assert!(is_eligible(&sig, 0.5_f64));
 
         // ineligible signature
         let sig = Signature::from_slice_unchecked(&[
-            15, 107, 81, 84, 105, 246, 165, 81, 76, 125, 140, 172, 113, 85, 51, 173, 119, 123, 78,
-            114, 249, 182, 135, 212, 134, 38, 125, 153, 120, 45, 179, 55, 116, 155, 205, 51, 247,
-            37, 78, 147, 63, 231, 28, 61, 251, 41, 48, 239, 125, 0, 129, 126, 194, 123, 183, 11,
-            215, 220, 1, 225, 248, 131, 64, 242,
+            119, 2, 197, 174, 52, 165, 229, 22, 218, 210, 240, 188, 220, 232, 149, 129, 211, 13,
+            61, 217, 186, 79, 102, 15, 109, 237, 83, 193, 12, 117, 210, 66, 99, 230, 30, 131, 63,
+            108, 28, 222, 48, 92, 153, 71, 159, 220, 115, 181, 183, 155, 146, 182, 205, 89, 140,
+            234, 100, 40, 199, 248, 23, 147, 172, 248,
         ]);
         assert!(!is_eligible(&sig, 0.5_f64));
     }
 
     #[test]
     fn test_generate_integer() {
-        let seed = MaskSeed::try_from(vec![0_u8; 32]).unwrap();
-        let mut prng = ChaCha20Rng::from_seed(seed.seed());
+        let mut prng = ChaCha20Rng::from_seed([0_u8; 32]);
         let max_int = BigUint::from(u128::max_value()).pow(2_usize);
         assert_eq!(
             generate_integer(&mut prng, &max_int).to_bytes_le(),
