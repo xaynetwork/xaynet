@@ -4,17 +4,17 @@ use std::{
     ops::Range,
 };
 
-use sodiumoxide::crypto::{sealedbox, sign};
-
 use super::{MessageBuffer, Tag, LEN_BYTES, PK_BYTES, SIGNATURE_BYTES};
 use crate::{
     certificate::Certificate,
+    crypto::{ByteObject, Signature},
     mask::{EncrMaskSeed, MaskedModel},
     CoordinatorPublicKey,
     CoordinatorSecretKey,
     LocalSeedDict,
     ParticipantTaskSignature,
     PetError,
+    SumParticipantPublicKey,
     UpdateParticipantPublicKey,
     UpdateParticipantSecretKey,
 };
@@ -228,7 +228,7 @@ where
         self.local_seed_dict
             .borrow()
             .iter()
-            .flat_map(|(pk, seed)| [pk.as_ref(), seed.as_ref()].concat())
+            .flat_map(|(pk, seed)| [pk.as_slice(), seed.as_ref()].concat())
             .collect::<Vec<u8>>()
     }
 
@@ -241,16 +241,18 @@ where
         buffer
             .tag_mut()
             .copy_from_slice([Tag::Update as u8].as_ref());
-        buffer.coord_pk_mut().copy_from_slice(pk.borrow().as_ref());
+        buffer
+            .coord_pk_mut()
+            .copy_from_slice(pk.borrow().as_slice());
         buffer
             .part_pk_mut()
-            .copy_from_slice(self.pk.borrow().as_ref());
+            .copy_from_slice(self.pk.borrow().as_slice());
         buffer
             .sum_signature_mut()
-            .copy_from_slice(self.sum_signature.borrow().as_ref());
+            .copy_from_slice(self.sum_signature.borrow().as_slice());
         buffer
             .update_signature_mut()
-            .copy_from_slice(self.update_signature.borrow().as_ref());
+            .copy_from_slice(self.update_signature.borrow().as_slice());
         buffer
             .certificate_mut()
             .copy_from_slice(self.certificate.borrow().as_ref());
@@ -270,9 +272,9 @@ where
             self.local_seed_dict.borrow().len() * (PK_BYTES + EncrMaskSeed::BYTES),
         );
         self.serialize(&mut buffer, pk);
-        let signature = sign::sign_detached(buffer.message(), sk);
-        buffer.signature_mut().copy_from_slice(signature.as_ref());
-        sealedbox::seal(buffer.bytes(), pk)
+        let signature = sk.sign_detached(buffer.message());
+        buffer.signature_mut().copy_from_slice(signature.as_slice());
+        pk.encrypt(buffer.bytes())
     }
 }
 
@@ -292,7 +294,7 @@ impl
             .map(|chunk| {
                 (
                     // safe unwraps: lengths of slices are guaranteed by constants
-                    sign::PublicKey::from_slice(&chunk[..PK_BYTES]).unwrap(),
+                    SumParticipantPublicKey::from_slice(&chunk[..PK_BYTES]).unwrap(),
                     EncrMaskSeed::try_from(&chunk[PK_BYTES..]).unwrap(),
                 )
             })
@@ -302,9 +304,9 @@ impl
     /// Deserialize an update message from a buffer.
     fn deserialize(buffer: UpdateMessageBuffer<Vec<u8>>) -> Self {
         // safe unwraps: lengths of slices are guaranteed by constants
-        let pk = sign::PublicKey::from_slice(buffer.part_pk()).unwrap();
-        let sum_signature = sign::Signature::from_slice(buffer.sum_signature()).unwrap();
-        let update_signature = sign::Signature::from_slice(buffer.update_signature()).unwrap();
+        let pk = UpdateParticipantPublicKey::from_slice(buffer.part_pk()).unwrap();
+        let sum_signature = Signature::from_slice(buffer.sum_signature()).unwrap();
+        let update_signature = Signature::from_slice(buffer.update_signature()).unwrap();
         let certificate = buffer.certificate().into();
         let masked_model = buffer.masked_model().into();
         let local_seed_dict = Self::deserialize_local_seed_dict(buffer.local_seed_dict());
@@ -325,16 +327,17 @@ impl
         sk: &CoordinatorSecretKey,
     ) -> Result<Self, PetError> {
         let buffer = UpdateMessageBuffer::try_from(
-            sealedbox::open(bytes, pk, sk).or(Err(PetError::InvalidMessage))?,
+            sk.decrypt(bytes, pk).or(Err(PetError::InvalidMessage))?,
         )?;
+        // safe unwraps: lengths of slices are guaranteed by constants
         if buffer.tag() == [Tag::Update as u8]
-            && buffer.coord_pk() == pk.as_ref()
-            && sign::verify_detached(
-                // safe unwraps: lengths of slices are guaranteed by constants
-                &sign::Signature::from_slice(buffer.signature()).unwrap(),
-                buffer.message(),
-                &sign::PublicKey::from_slice(buffer.part_pk()).unwrap(),
-            )
+            && buffer.coord_pk() == pk.as_slice()
+            && UpdateParticipantPublicKey::from_slice(buffer.part_pk())
+                .unwrap()
+                .verify_detached(
+                    &Signature::from_slice(buffer.signature()).unwrap(),
+                    buffer.message(),
+                )
         {
             Ok(Self::deserialize(buffer))
         } else {
@@ -377,13 +380,10 @@ impl
 mod tests {
     use std::iter;
 
-    use sodiumoxide::{
-        crypto::box_,
-        randombytes::{randombytes, randombytes_uniform},
-    };
+    use sodiumoxide::randombytes::{randombytes, randombytes_uniform};
 
     use super::*;
-    use crate::message::TAG_BYTES;
+    use crate::{crypto, message::TAG_BYTES};
 
     fn auxiliary_bytes(sum_dict_len: usize) -> Vec<u8> {
         [
@@ -525,14 +525,14 @@ mod tests {
     fn test_updatemessage_serialize() {
         // from parts
         let sum_dict_len = 1 + randombytes_uniform(10) as usize;
-        let pk = &sign::PublicKey::from_slice(&randombytes(32)).unwrap();
-        let sum_signature = &sign::Signature::from_slice(&randombytes(64)).unwrap();
-        let update_signature = &sign::Signature::from_slice(&randombytes(64)).unwrap();
+        let pk = &UpdateParticipantPublicKey::from_slice(&randombytes(32)).unwrap();
+        let sum_signature = &Signature::from_slice(&randombytes(64)).unwrap();
+        let update_signature = &Signature::from_slice(&randombytes(64)).unwrap();
         let certificate = &Certificate::new();
         let masked_model = &randombytes(32).into();
         let local_seed_dict = &iter::repeat_with(|| {
             (
-                sign::PublicKey::from_slice(&randombytes(32)).unwrap(),
+                SumParticipantPublicKey::from_slice(&randombytes(32)).unwrap(),
                 EncrMaskSeed::try_from(randombytes(80)).unwrap(),
             )
         })
@@ -547,16 +547,16 @@ mod tests {
             local_seed_dict,
         );
         assert_eq!(
-            msg.pk as *const sign::PublicKey,
-            pk as *const sign::PublicKey,
+            msg.pk as *const UpdateParticipantPublicKey,
+            pk as *const UpdateParticipantPublicKey,
         );
         assert_eq!(
-            msg.sum_signature as *const sign::Signature,
-            sum_signature as *const sign::Signature,
+            msg.sum_signature as *const Signature,
+            sum_signature as *const Signature,
         );
         assert_eq!(
-            msg.update_signature as *const sign::Signature,
-            update_signature as *const sign::Signature,
+            msg.update_signature as *const Signature,
+            update_signature as *const Signature,
         );
         assert_eq!(
             msg.certificate as *const Certificate,
@@ -581,7 +581,7 @@ mod tests {
             .chunks_exact(PK_BYTES + EncrMaskSeed::BYTES)
             .all(|chunk| {
                 local_seed_dict
-                    .get(&sign::PublicKey::from_slice(&chunk[..PK_BYTES]).unwrap())
+                    .get(&SumParticipantPublicKey::from_slice(&chunk[..PK_BYTES]).unwrap())
                     .unwrap()
                     .as_ref()
                     == &chunk[PK_BYTES..]
@@ -589,13 +589,13 @@ mod tests {
 
         // serialize
         let mut buffer = UpdateMessageBuffer::new(32, 32, 112 * sum_dict_len);
-        let coord_pk = box_::PublicKey::from_slice(&randombytes(32)).unwrap();
+        let coord_pk = CoordinatorPublicKey::from_slice(&randombytes(32)).unwrap();
         msg.serialize(&mut buffer, &coord_pk);
         assert_eq!(buffer.tag(), [Tag::Update as u8].as_ref());
-        assert_eq!(buffer.coord_pk(), coord_pk.as_ref());
-        assert_eq!(buffer.part_pk(), pk.as_ref());
-        assert_eq!(buffer.sum_signature(), sum_signature.as_ref());
-        assert_eq!(buffer.update_signature(), update_signature.as_ref());
+        assert_eq!(buffer.coord_pk(), coord_pk.as_slice());
+        assert_eq!(buffer.part_pk(), pk.as_slice());
+        assert_eq!(buffer.sum_signature(), sum_signature.as_slice());
+        assert_eq!(buffer.update_signature(), update_signature.as_slice());
         assert_eq!(
             buffer.certificate_len(),
             certificate.len().to_le_bytes().as_ref(),
@@ -622,7 +622,7 @@ mod tests {
         for chunk in local_seed_vec.chunks_exact(PK_BYTES + EncrMaskSeed::BYTES) {
             assert_eq!(
                 local_seed_dict
-                    .get(&sign::PublicKey::from_slice(&chunk[..PK_BYTES]).unwrap())
+                    .get(&SumParticipantPublicKey::from_slice(&chunk[..PK_BYTES]).unwrap())
                     .unwrap(),
                 &EncrMaskSeed::try_from(&chunk[PK_BYTES..]).unwrap(),
             );
@@ -634,15 +634,15 @@ mod tests {
         let msg = UpdateMessage::deserialize(buffer.clone());
         assert_eq!(
             msg.pk(),
-            &sign::PublicKey::from_slice(&bytes[MB::PART_PK_RANGE]).unwrap(),
+            &UpdateParticipantPublicKey::from_slice(&bytes[MB::PART_PK_RANGE]).unwrap(),
         );
         assert_eq!(
             msg.sum_signature(),
-            &sign::Signature::from_slice(&bytes[MB::SUM_SIGNATURE_RANGE]).unwrap(),
+            &Signature::from_slice(&bytes[MB::SUM_SIGNATURE_RANGE]).unwrap(),
         );
         assert_eq!(
             msg.update_signature(),
-            &sign::Signature::from_slice(&bytes[MB::UPDATE_SIGNATURE_RANGE]).unwrap(),
+            &Signature::from_slice(&bytes[MB::UPDATE_SIGNATURE_RANGE]).unwrap(),
         );
         assert_eq!(
             msg.certificate(),
@@ -664,20 +664,20 @@ mod tests {
     fn test_updatemessage() {
         // seal
         let sum_dict_len = 1 + randombytes_uniform(10) as usize;
-        let (pk, sk) = sign::gen_keypair();
-        let sum_signature = sign::Signature::from_slice(&randombytes(64)).unwrap();
-        let update_signature = sign::Signature::from_slice(&randombytes(64)).unwrap();
+        let (pk, sk) = crypto::generate_signing_key_pair();
+        let sum_signature = Signature::from_slice(&randombytes(64)).unwrap();
+        let update_signature = Signature::from_slice(&randombytes(64)).unwrap();
         let certificate = Certificate::new();
         let masked_model = randombytes(32).into();
         let local_seed_dict = iter::repeat_with(|| {
             (
-                sign::PublicKey::from_slice(&randombytes(32)).unwrap(),
+                SumParticipantPublicKey::from_slice(&randombytes(32)).unwrap(),
                 EncrMaskSeed::try_from(randombytes(80)).unwrap(),
             )
         })
         .take(sum_dict_len)
         .collect();
-        let (coord_pk, coord_sk) = box_::gen_keypair();
+        let (coord_pk, coord_sk) = crypto::generate_encrypt_key_pair();
         let bytes = UpdateMessage::from_parts(
             &pk,
             &sum_signature,
@@ -709,7 +709,7 @@ mod tests {
             &local_seed_dict,
         );
         msg.serialize(&mut buffer, &coord_pk);
-        let bytes = sealedbox::seal(buffer.bytes(), &coord_pk);
+        let bytes = coord_pk.encrypt(buffer.bytes());
         assert_eq!(
             UpdateMessage::open(&bytes, &coord_pk, &coord_sk).unwrap_err(),
             PetError::InvalidMessage,
@@ -718,9 +718,9 @@ mod tests {
         // wrong receiver
         msg.serialize(
             &mut buffer,
-            &box_::PublicKey::from_slice(&randombytes(32)).unwrap(),
+            &CoordinatorPublicKey::from_slice(&randombytes(32)).unwrap(),
         );
-        let bytes = sealedbox::seal(buffer.bytes(), &coord_pk);
+        let bytes = coord_pk.encrypt(buffer.bytes());
         assert_eq!(
             UpdateMessage::open(&bytes, &coord_pk, &coord_sk).unwrap_err(),
             PetError::InvalidMessage,
@@ -728,7 +728,7 @@ mod tests {
 
         // wrong tag
         buffer.tag_mut().copy_from_slice([Tag::None as u8].as_ref());
-        let bytes = sealedbox::seal(buffer.bytes(), &coord_pk);
+        let bytes = coord_pk.encrypt(buffer.bytes());
         assert_eq!(
             UpdateMessage::open(&bytes, &coord_pk, &coord_sk).unwrap_err(),
             PetError::InvalidMessage,

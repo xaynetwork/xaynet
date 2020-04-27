@@ -22,7 +22,7 @@ impl MaskSeed {
     /// Encrypt a mask seed.
     pub fn seal(&self, pk: &SumParticipantEphemeralPublicKey) -> EncrMaskSeed {
         // safe unwrap: length of slice is guaranteed by constants
-        EncrMaskSeed::try_from(sealedbox::seal(self.as_ref(), pk)).unwrap()
+        EncrMaskSeed::try_from(pk.encrypt(self.as_ref())).unwrap()
     }
 }
 
@@ -73,7 +73,8 @@ impl EncrMaskSeed {
         sk: &SumParticipantEphemeralSecretKey,
     ) -> Result<MaskSeed, PetError> {
         MaskSeed::try_from(
-            sealedbox::open(self.as_ref(), pk, sk).or(Err(PetError::InvalidMessage))?,
+            sk.decrypt(self.as_ref(), pk)
+                .or(Err(PetError::InvalidMessage))?,
         )
     }
 }
