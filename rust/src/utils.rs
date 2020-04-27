@@ -32,7 +32,7 @@ pub fn is_eligible(signature: &ParticipantTaskSignature, threshold: f64) -> bool
 
 /// Generate a secure pseudo-random integer. Draws from a uniform distribution over the integers
 /// between zero (included) and `max_int` (excluded).
-pub fn gen_integer(prng: &mut ChaCha20Rng, max_int: &BigUint) -> BigUint {
+pub fn generate_integer(prng: &mut ChaCha20Rng, max_int: &BigUint) -> BigUint {
     if max_int.is_zero() {
         return BigUint::zero();
     }
@@ -46,7 +46,7 @@ pub fn gen_integer(prng: &mut ChaCha20Rng, max_int: &BigUint) -> BigUint {
 }
 
 /// Cast a ratio as float.
-pub fn ratio_as<F: FloatCore>(ratio: Ratio<BigInt>) -> F {
+pub fn ratio_as<F: FloatCore>(ratio: &Ratio<BigInt>) -> F {
     let mut numer = ratio.numer().clone();
     let mut denom = ratio.denom().clone();
     loop {
@@ -97,40 +97,40 @@ mod tests {
     }
 
     #[test]
-    fn test_gen_integer() {
+    fn test_generate_integer() {
         let seed = MaskSeed::try_from(vec![0_u8; 32]).unwrap();
         let mut prng = ChaCha20Rng::from_seed(seed.seed());
         let max_int = BigUint::from(u128::max_value()).pow(2_usize);
         assert_eq!(
-            gen_integer(&mut prng, &max_int).to_bytes_le(),
+            generate_integer(&mut prng, &max_int).to_bytes_le(),
             [
                 118, 184, 224, 173, 160, 241, 61, 144, 64, 93, 106, 229, 83, 134, 189, 40, 189,
                 210, 25, 184, 160, 141, 237, 26, 168, 54, 239, 204, 139, 119, 13, 199,
             ],
         );
         assert_eq!(
-            gen_integer(&mut prng, &max_int).to_bytes_le(),
+            generate_integer(&mut prng, &max_int).to_bytes_le(),
             [
                 218, 65, 89, 124, 81, 87, 72, 141, 119, 36, 224, 63, 184, 216, 74, 55, 106, 67,
                 184, 244, 21, 24, 161, 28, 195, 135, 182, 105, 178, 238, 101, 134,
             ],
         );
         assert_eq!(
-            gen_integer(&mut prng, &max_int).to_bytes_le(),
+            generate_integer(&mut prng, &max_int).to_bytes_le(),
             [
                 159, 7, 231, 190, 85, 81, 56, 122, 152, 186, 151, 124, 115, 45, 8, 13, 203, 15, 41,
                 160, 72, 227, 101, 105, 18, 198, 83, 62, 50, 238, 122, 237,
             ],
         );
         assert_eq!(
-            gen_integer(&mut prng, &max_int).to_bytes_le(),
+            generate_integer(&mut prng, &max_int).to_bytes_le(),
             [
                 41, 183, 33, 118, 156, 230, 78, 67, 213, 113, 51, 176, 116, 216, 57, 213, 49, 237,
                 31, 40, 81, 10, 251, 69, 172, 225, 10, 31, 75, 121, 77, 111,
             ],
         );
         assert_eq!(
-            gen_integer(&mut prng, &max_int).to_bytes_le(),
+            generate_integer(&mut prng, &max_int).to_bytes_le(),
             [
                 45, 9, 160, 230, 99, 38, 108, 225, 174, 126, 209, 8, 25, 104, 160, 117, 142, 113,
                 142, 153, 123, 211, 98, 198, 176, 195, 70, 52, 169, 160, 179, 93,
@@ -141,31 +141,21 @@ mod tests {
     #[test]
     fn test_ratio_as() {
         // f32
-        assert_eq!(ratio_as::<f32>(Ratio::from_float(0_f32).unwrap()), 0_f32);
-        assert_eq!(
-            ratio_as::<f32>(Ratio::from_float(0.1_f32).unwrap()),
-            0.1_f32,
-        );
-        assert_eq!(
-            ratio_as::<f32>(
-                (Ratio::from_float(f32::max_value()).unwrap() * BigInt::from(10_usize))
-                    / (Ratio::from_float(f32::max_value()).unwrap() * BigInt::from(100_usize))
-            ),
-            0.1_f32,
-        );
+        let ratio = Ratio::from_float(0_f32).unwrap();
+        assert_eq!(ratio_as::<f32>(&ratio), 0_f32);
+        let ratio = Ratio::from_float(0.1_f32).unwrap();
+        assert_eq!(ratio_as::<f32>(&ratio), 0.1_f32);
+        let ratio = (Ratio::from_float(f32::max_value()).unwrap() * BigInt::from(10_usize))
+            / (Ratio::from_float(f32::max_value()).unwrap() * BigInt::from(100_usize));
+        assert_eq!(ratio_as::<f32>(&ratio), 0.1_f32);
 
         // f64
-        assert_eq!(ratio_as::<f64>(Ratio::from_float(0_f64).unwrap()), 0_f64);
-        assert_eq!(
-            ratio_as::<f64>(Ratio::from_float(0.1_f64).unwrap()),
-            0.1_f64,
-        );
-        assert_eq!(
-            ratio_as::<f64>(
-                (Ratio::from_float(f64::max_value()).unwrap() * BigInt::from(10_usize))
-                    / (Ratio::from_float(f64::max_value()).unwrap() * BigInt::from(100_usize))
-            ),
-            0.1_f64,
-        );
+        let ratio = Ratio::from_float(0_f64).unwrap();
+        assert_eq!(ratio_as::<f64>(&ratio), 0_f64);
+        let ratio = Ratio::from_float(0.1_f64).unwrap();
+        assert_eq!(ratio_as::<f64>(&ratio), 0.1_f64);
+        let ratio = (Ratio::from_float(f64::max_value()).unwrap() * BigInt::from(10_usize))
+            / (Ratio::from_float(f64::max_value()).unwrap() * BigInt::from(100_usize));
+        assert_eq!(ratio_as::<f64>(&ratio), 0.1_f64);
     }
 }

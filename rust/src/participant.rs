@@ -113,10 +113,10 @@ impl Participant {
 
     /// Compose an update message.
     pub fn compose_update_message(&self, pk: &CoordinatorPublicKey, sum_dict: &SumDict) -> Vec<u8> {
-        let model = Model::from(vec![0_f32, 0.5, -0.5]); // dummy
-        let scalar = 0.5_f32; // dummy
-        let config = MaskConfigs::PrimeF32M3B0.config();
-        let (mask_seed, masked_model) = model.mask(scalar, config);
+        let model = Model::try_from(vec![0_f32, 0.5, -0.5]).unwrap(); // dummy
+        let scalar = 0.5_f64; // dummy
+        let mask_config = MaskConfigs::PrimeF32M3B0.config();
+        let (mask_seed, masked_model) = model.mask(scalar, &mask_config);
         let local_seed_dict = Self::create_local_seed_dict(sum_dict, &mask_seed);
         UpdateMessage::from_parts(
             &self.pk,
@@ -154,7 +154,7 @@ impl Participant {
     fn create_local_seed_dict(sum_dict: &SumDict, mask_seed: &MaskSeed) -> LocalSeedDict {
         sum_dict
             .iter()
-            .map(|(pk, ephm_pk)| (*pk, mask_seed.seal(ephm_pk)))
+            .map(|(pk, ephm_pk)| (*pk, mask_seed.encrypt(ephm_pk)))
             .collect()
     }
 
@@ -164,7 +164,7 @@ impl Participant {
             .get(&self.pk)
             .ok_or(PetError::InvalidMessage)?
             .values()
-            .map(|seed| seed.open(&self.ephm_pk, &self.ephm_sk))
+            .map(|seed| seed.decrypt(&self.ephm_pk, &self.ephm_sk))
             .collect()
     }
 
@@ -274,7 +274,7 @@ mod tests {
         assert!(seed_dict.iter().all(|(pk, seed)| {
             let ephm_pk = sum_dict.get(pk).unwrap();
             let ephm_sk = ephm_dict.get(ephm_pk).unwrap();
-            mask_seed == seed.open(ephm_pk, ephm_sk).unwrap()
+            mask_seed == seed.decrypt(ephm_pk, ephm_sk).unwrap()
         }));
     }
 
@@ -292,7 +292,7 @@ mod tests {
                 .map(|seed| {
                     (
                         UpdateParticipantPublicKey::from_slice(&randombytes(32)).unwrap(),
-                        seed.seal(&part.ephm_pk),
+                        seed.encrypt(&part.ephm_pk),
                     )
                 })
                 .collect(),

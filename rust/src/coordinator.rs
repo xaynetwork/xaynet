@@ -6,7 +6,7 @@ use sodiumoxide::{self, crypto::hash::sha256, randombytes::randombytes};
 
 use crate::{
     crypto::{generate_encrypt_key_pair, ByteObject, SigningKeySeed},
-    mask::{BigUintSerde, Mask},
+    mask::{config::MaskConfigs, Mask},
     message::{sum::SumMessage, sum2::Sum2Message, update::UpdateMessage},
     utils::is_eligible,
     CoordinatorPublicKey,
@@ -664,7 +664,7 @@ mod tests {
         let pk = PublicSigningKey::from_slice(&randombytes(32)).unwrap();
         let local_seed_dict = sum_dict
             .iter()
-            .map(|(sum_pk, sum_ephm_pk)| (*sum_pk, seed.seal(sum_ephm_pk)))
+            .map(|(sum_pk, sum_ephm_pk)| (*sum_pk, seed.encrypt(sum_ephm_pk)))
             .collect::<LocalSeedDict>();
         (pk, local_seed_dict)
     }
@@ -733,12 +733,10 @@ mod tests {
 
     fn auxiliary_mask(min_sum: usize) -> (Vec<Mask>, MaskDict) {
         // this doesn't work for `min_sum == 0` and `min_sum == 2`
+        let config = MaskConfigs::PrimeF32M3B0.config();
         let masks = [
-            vec![
-                Mask::generate::<f32>(MaskSeed::new(), MaskConfigs::PrimeF32M3B0.config(), 10);
-                min_sum - 1
-            ],
-            vec![Mask::generate::<f32>(MaskSeed::new(), MaskConfigs::PrimeF32M3B0.config(), 10); 1],
+            vec![MaskSeed::new().derive_mask(10, &config); min_sum - 1],
+            vec![MaskSeed::new().derive_mask(10, &config); 1],
         ]
         .concat();
         let mask_dict = masks

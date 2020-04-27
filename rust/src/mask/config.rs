@@ -1,35 +1,63 @@
+use std::convert::{TryFrom, TryInto};
+
 use num::{
-    rational::BigRational,
-    traits::{float::FloatCore, int::PrimInt, Num},
-    BigInt,
-    BigUint,
+    bigint::{BigInt, BigUint},
+    rational::Ratio,
+    traits::{float::FloatCore, int::PrimInt, pow::Pow, Num},
 };
 
-#[derive(Clone)]
+use super::USIZE_LEN;
+use crate::PetError;
+
+#[derive(Clone, Debug, PartialEq)]
 /// A mask configuration.
-pub struct MaskConfig<F: FloatCore> {
+pub struct MaskConfig {
+    name: MaskConfigs,
     order: BigUint,
-    exp_shift: usize,
-    add_shift: F,
+    exp_shift: BigInt,
+    add_shift: Ratio<BigInt>,
 }
 
-impl<F: FloatCore> MaskConfig<F> {
+impl MaskConfig {
     /// Get a reference to the order of the finite group.
     pub fn order(&'_ self) -> &'_ BigUint {
         &self.order
     }
 
+    /// Get the number of bytes needed to represent the largest element of the finite group.
+    pub fn element_len(&self) -> usize {
+        // safe minus: order is guaranteed to be greater than zero
+        (self.order() - BigUint::from(1_usize)).to_bytes_le().len()
+    }
+
     /// Get the exponent (to base 10) of the exponential shift.
-    pub fn exp_shift(&self) -> usize {
-        self.exp_shift
+    pub fn exp_shift(&'_ self) -> &'_ BigInt {
+        &self.exp_shift
     }
 
     /// Get the additive shift.
-    pub fn add_shift(&self) -> F {
-        self.add_shift
+    pub fn add_shift(&'_ self) -> &'_ Ratio<BigInt> {
+        &self.add_shift
+    }
+
+    pub fn serialize(&self) -> Vec<u8> {
+        (self.name as usize).to_le_bytes().to_vec()
+    }
+
+    pub fn deserialize(bytes: &[u8]) -> Result<Self, PetError> {
+        if bytes.len() == USIZE_LEN {
+            // safe unwrap: length of slice is guaranteed by constants
+            let value = usize::from_le_bytes(bytes.try_into().unwrap());
+            let config = MaskConfigs::try_from(value)?.config();
+            Ok(config)
+        } else {
+            Err(PetError::InvalidMessage)
+        }
     }
 }
 
+#[derive(Copy, Clone, Debug, PartialEq)]
+#[repr(usize)]
 /// All available mask configurations.
 pub enum MaskConfigs {
     PrimeF32M3,
@@ -38,12 +66,26 @@ pub enum MaskConfigs {
     PrimeF64M3B0,
 }
 
+impl TryFrom<usize> for MaskConfigs {
+    type Error = PetError;
+
+    /// Get the mask config name. Fails if the encoding is unknown.
+    fn try_from(value: usize) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(Self::PrimeF32M3),
+            1 => Ok(Self::PrimeF32M3B0),
+            2 => Ok(Self::PrimeF64M3),
+            3 => Ok(Self::PrimeF64M3B0),
+            _ => Err(Self::Error::InvalidMessage),
+        }
+    }
+}
+
 impl MaskConfigs {
-    pub fn config<F: FloatCore>(&self) -> MaskConfig<F> {
+    pub fn config(&self) -> MaskConfig {
         match self {
-            // safe unwraps: all digits are smaller then the radix
-            // safe unwraps: identity type casts
-            Self::PrimeF32M3 => {
+            // safe unwraps: all digits are smaller then the radix and all numbers are finite
+            name @ Self::PrimeF32M3 => {
                 let order = BigUint::from_radix_be(
                     &[
                         6, 8, 0, 5, 6, 4, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -54,26 +96,28 @@ impl MaskConfigs {
                     10,
                 )
                 .unwrap();
-                let exp_shift = 45;
-                let add_shift = F::from(f32::max_value()).unwrap();
+                let exp_shift = BigInt::from(10_usize).pow(45_usize);
+                let add_shift = Ratio::from_float(f32::max_value()).unwrap();
                 MaskConfig {
+                    name: *name,
                     order,
                     exp_shift,
                     add_shift,
                 }
             }
-            Self::PrimeF32M3B0 => {
+            name @ Self::PrimeF32M3B0 => {
                 let order = BigUint::from_radix_be(&[2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 1], 10)
                     .unwrap();
-                let exp_shift = 10;
-                let add_shift = F::from(1_f32).unwrap();
+                let exp_shift = BigInt::from(10_usize).pow(10_usize);
+                let add_shift = Ratio::from_float(1_f32).unwrap();
                 MaskConfig {
+                    name: *name,
                     order,
                     exp_shift,
                     add_shift,
                 }
             }
-            Self::PrimeF64M3 => {
+            name @ Self::PrimeF64M3 => {
                 let order = BigUint::from_radix_be(
                     &[
                         3, 5, 9, 5, 3, 8, 6, 2, 6, 9, 7, 2, 4, 6, 3, 1, 4, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -106,15 +150,16 @@ impl MaskConfigs {
                     10,
                 )
                 .unwrap();
-                let exp_shift = 324;
-                let add_shift = F::from(f64::max_value()).unwrap();
+                let exp_shift = BigInt::from(10_usize).pow(324_usize);
+                let add_shift = Ratio::from_float(f64::max_value()).unwrap();
                 MaskConfig {
+                    name: *name,
                     order,
                     exp_shift,
                     add_shift,
                 }
             }
-            Self::PrimeF64M3B0 => {
+            name @ Self::PrimeF64M3B0 => {
                 let order = BigUint::from_radix_be(
                     &[
                         2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 9,
@@ -122,19 +167,21 @@ impl MaskConfigs {
                     10,
                 )
                 .unwrap();
-                let exp_shift = 20;
-                let add_shift = F::from(1_f64).unwrap();
+                let exp_shift = BigInt::from(10_usize).pow(20_usize);
+                let add_shift = Ratio::from_float(1_f64).unwrap();
                 MaskConfig {
+                    name: *name,
                     order,
                     exp_shift,
                     add_shift,
                 }
             }
-            // Self:: => {
+            // name @ Self:: => {
             //     let order = BigUint::from_radix_be(&[], 10).unwrap();
-            //     let exp_shift = ;
-            //     let add_shift = F::from().unwrap();
+            //     let exp_shift = BigInt::from(10_usize).pow(_usize);
+            //     let add_shift = Ratio::from_float(_f).unwrap();
             //     MaskConfig {
+            //         name: *name,
             //         order,
             //         exp_shift,
             //         add_shift,
