@@ -2,9 +2,16 @@ apiVersion: networking.k8s.io/v1beta1
 kind: Ingress
 metadata:
   name: coordinator-ingress
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    cert-manager.io/cluster-issuer: "letsencrypt-production"
 spec:
+  tls:
+    - hosts:
+        - dev-coordinator.xayn.com
+      secretName: dev-coordinator
   rules:
-    - host: dev-coordinator.xain.io
+    - host: dev-coordinator.xayn.com
       http:
         paths:
           - path: /
