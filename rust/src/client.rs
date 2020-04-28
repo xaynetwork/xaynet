@@ -24,13 +24,15 @@ pub enum ClientError {
 pub struct Client {
     handle: Handle,
     particip: Participant,
-    // coord_encr_pk: Option<box_::PublicKey>,
     // TODO global model
 }
 
 impl Client {
 
     /// Create a new `Client`
+    ///
+    /// Returns `Ok(client)` if `Client` `client` initialised successfully
+    /// Returns `Err(err)` if `ClientError` `err` occurred
     pub fn new() -> Result<Self, ClientError> {
         let (handle, _events) = Handle::new();
         let particip = Participant::new()
@@ -38,14 +40,16 @@ impl Client {
         Ok(Self {
             handle,
             particip,
-            // coord_encr_pk: None,
         })
     }
 
-    /// Start the `Client`
+    /// Start the `Client` loop
+    ///
+    /// Returns `Err(err)` if `ClientError` `err` occurred
     pub async fn start(&mut self) -> Result<(), ClientError> {
         loop {
             match self.per_round().await {
+                // round completed successfully
                 Ok(()) => continue,
                 // at the moment, any error finishes off the client
                 error  => return error,
