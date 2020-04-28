@@ -1,5 +1,5 @@
-use crate::coordinator::{Coordinator, RoundParameters};
-use sodiumoxide::crypto::box_;
+use crate::{coordinator::RoundParameters, SumParticipantPublicKey};
+use derive_more::From;
 use std::{
     collections::HashMap,
     pin::Pin,
@@ -14,55 +14,8 @@ use tokio::{
     },
 };
 
-/// The `Service` is the task that drives the PET protocol. It reacts
-/// to the various messages from the participants and drives the
-/// protocol.
-pub struct Service {
-    /// The coordinator holds the protocol state: crypto material, sum
-    /// and update dictionaries, configuration, etc.
-    coordinator: Coordinator,
-
-    /// Events to handle
-    events: EventStream,
-
-    /// Cache for the data the service needs to serve
-    cache: ServiceCache,
-}
-
-/// Cache for the data served by the service. There are some
-/// potentially large datastructures that the coordinator needs to be
-/// able to serve, so the cache provides two optimizations for some of
-/// them:
-///
-/// - they are wrapped reference counted pointers
-/// - they are already serialized
-struct ServiceCache {
-    /// Current round parameters
-    round_parameters: Arc<RoundParameters>,
-
-    /// Serialized sum dictionary
-    sum_dict: Option<Arc<Vec<u8>>>,
-
-    /// Serialized seeds dictionaries
-    seed_dict: Option<HashMap<box_::PublicKey, Vec<u8>>>,
-}
-
-impl Service {
-    /// Dispatch the given event to the appropriate handler
-    fn dispatch_event(&mut self, event: Event) {
-        match event {
-            Event::Message(Message { buffer }) => self.handle_message(buffer),
-            _ => unimplemented!(),
-        }
-    }
-
-    /// Handle a message
-    fn handle_message(&mut self, buffer: Vec<u8>) {
-        let _ = self.coordinator.handle_message(&buffer[..]);
-    }
-}
-
 /// An event handled by the coordinator
+#[derive(From)]
 pub enum Event {
     /// A message from a participant.
     Message(Message),
@@ -81,53 +34,36 @@ pub enum Event {
     SeedDict(SeedDictRequest),
 }
 
-impl From<RoundParametersRequest> for Event {
-    fn from(req: RoundParametersRequest) -> Self {
-        Self::RoundParameters(req)
-    }
-}
-impl From<SumDictRequest> for Event {
-    fn from(req: SumDictRequest) -> Self {
-        Self::SumDict(req)
-    }
-}
-impl From<SeedDictRequest> for Event {
-    fn from(req: SeedDictRequest) -> Self {
-        Self::SeedDict(req)
-    }
-}
-impl From<Message> for Event {
-    fn from(msg: Message) -> Self {
-        Self::Message(msg)
-    }
-}
-
 /// Event for an incoming message from a participant
 pub struct Message {
     /// Encrypted message
-    buffer: Vec<u8>,
+    pub buffer: Vec<u8>,
     // FIXME: there should be a channel to send a response back
 }
 
 /// Event for a request to retrieve the round parameters
 pub struct RoundParametersRequest {
     /// Channel for sending the round parameters back
-    response_tx: oneshot::Sender<Option<Arc<RoundParameters>>>,
+    pub response_tx: oneshot::Sender<Option<Arc<RoundParameters>>>,
 }
+
+pub type SerializedSumDict = Arc<Vec<u8>>;
 
 /// Event for a request to retrieve the sum dictionary
 pub struct SumDictRequest {
     /// Channel for sending the sum dictionary back
-    response_tx: oneshot::Sender<Option<Arc<Vec<u8>>>>,
+    pub response_tx: oneshot::Sender<Option<SerializedSumDict>>,
 }
+
+pub type SerializedSeedDict = Arc<Vec<u8>>;
 
 /// Event for a request to retrieve the seed dictionary
 pub struct SeedDictRequest {
     /// Public key of the sum participant that
-    public_key: box_::PublicKey,
+    pub public_key: SumParticipantPublicKey,
 
     /// Channel for sending the seeds dictionary back
-    response_tx: oneshot::Sender<Option<Arc<Vec<u8>>>>,
+    pub response_tx: oneshot::Sender<Option<Arc<Vec<u8>>>>,
 }
 
 /// A handle to send events to be handled by [`Service`]
@@ -148,24 +84,35 @@ impl Handle {
     }
 
     /// Send a [`Event::RoundParameters`] event to retrieve the
-    /// current round parameters.
+    /// current round parameters. The availability of the round
+    /// parameters depends on the current coordinator state.
     pub async fn get_round_parameters(&self) -> Option<Arc<RoundParameters>> {
         let (tx, rx) = oneshot::channel::<Option<Arc<RoundParameters>>>();
-        let event = RoundParametersRequest { response_tx: tx };
-        self.send_event(event);
+        self.send_event(RoundParametersRequest { response_tx: tx });
         rx.await.unwrap()
     }
 
     /// Send a [`Event::SumDict`] event to retrieve the current sum
-    /// dictionary, in its serialized form.
-    pub async fn get_sum_dict(&self) -> Option<Arc<Vec<u8>>> {
-        unimplemented!()
+    /// dictionary, in its serialized form. The availability of the
+    /// sum dictionary depends on the current coordinator state.
+    pub async fn get_sum_dict(&self) -> Option<SerializedSumDict> {
+        let (tx, rx) = oneshot::channel::<Option<SerializedSumDict>>();
+        self.send_event(SumDictRequest { response_tx: tx });
+        rx.await.unwrap()
     }
 
     /// Send a [`Event::SeedDict`] event to retrieve the current seed
-    /// dictionary, in its serialized form.
-    pub async fn get_seed_dict(&self) -> Option<Arc<Vec<u8>>> {
-        unimplemented!()
+    /// dictionary for the given sum participant public key. The
+    /// availability of the seed dictionary depends on the current
+    /// coordinator state.
+    pub async fn get_seed_dict(&self, key: SumParticipantPublicKey) -> Option<SerializedSeedDict> {
+        let (tx, rx) = oneshot::channel::<Option<SerializedSeedDict>>();
+        let event = SeedDictRequest {
+            public_key: key,
+            response_tx: tx,
+        };
+        self.send_event(event);
+        rx.await.unwrap()
     }
 
     fn send_event<T: Into<Event>>(&self, event: T) {

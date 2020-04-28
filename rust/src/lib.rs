@@ -2,6 +2,7 @@
 #![allow(unused_imports)]
 #![feature(or_patterns)]
 #![feature(const_fn)]
+#![feature(stmt_expr_attributes)]
 
 #[macro_use]
 extern crate tracing;
@@ -24,10 +25,7 @@ use crate::mask::EncrMaskSeed;
 #[derive(Debug, PartialEq)]
 /// PET protocol errors.
 pub enum PetError {
-    InsufficientSystemEntropy,
     InvalidMessage,
-    InsufficientParticipants,
-    AmbiguousMasks,
 }
 
 pub mod crypto;
@@ -84,3 +82,12 @@ type LocalSeedDict = HashMap<SumParticipantPublicKey, EncrMaskSeed>;
 /// built from the local seed dictionaries sent by the update participants. It maps each sum
 /// participant to the encrypted masking seeds of all the update participants.
 type SeedDict = HashMap<SumParticipantPublicKey, HashMap<UpdateParticipantPublicKey, EncrMaskSeed>>;
+
+/// A 32-byte hash that identifies a model mask computed by a sum participant.
+pub type MaskHash = sodiumoxide::crypto::hash::sha256::Digest;
+
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+#[error("initialization failed: insufficient system entropy to generate secrets")]
+pub struct InitError;

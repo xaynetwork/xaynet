@@ -9,6 +9,7 @@ use crate::{
     message::{sum::SumMessage, sum2::Sum2Message, update::UpdateMessage},
     utils::is_eligible,
     CoordinatorPublicKey,
+    InitError,
     LocalSeedDict,
     ParticipantPublicKey,
     ParticipantSecretKey,
@@ -70,9 +71,9 @@ impl Default for Participant {
 
 impl Participant {
     /// Create a participant. Fails if there is insufficient system entropy to generate secrets.
-    pub fn new() -> Result<Self, PetError> {
+    pub fn new() -> Result<Self, InitError> {
         // crucial: init must be called before anything else in this module
-        sodiumoxide::init().or(Err(PetError::InsufficientSystemEntropy))?;
+        sodiumoxide::init().or(Err(InitError))?;
         let (pk, sk) = generate_signing_key_pair();
         Ok(Self {
             pk,
