@@ -7,7 +7,7 @@ use sodiumoxide::{crypto::box_, randombytes::randombytes};
 
 use crate::{
     crypto::{ByteObject, SEALBYTES},
-    mask::{config::MaskConfig, Mask},
+    mask::{config::MaskConfig, Mask, MaskIntegers},
     utils::generate_integer,
     PetError,
     SumParticipantEphemeralPublicKey,
@@ -104,10 +104,10 @@ impl EncryptedMaskSeed {
     ) -> Result<MaskSeed, PetError> {
         MaskSeed::from_slice(
             sk.decrypt(self.as_slice(), pk)
-                .or(Err(PetError::InvalidMessage))?
+                .or(Err(PetError::InvalidMask))?
                 .as_slice(),
         )
-        .ok_or(PetError::InvalidMessage)
+        .ok_or(PetError::InvalidMask)
     }
 }
 

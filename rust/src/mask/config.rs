@@ -18,6 +18,11 @@ pub struct MaskConfig {
 }
 
 impl MaskConfig {
+    /// Get the name.
+    pub fn name(&self) -> MaskConfigs {
+        self.name
+    }
+
     /// Get a reference to the order of the finite group.
     pub fn order(&'_ self) -> &'_ BigUint {
         &self.order
@@ -62,7 +67,7 @@ impl MaskConfig {
             }
             .config())
         } else {
-            Err(PetError::InvalidMessage)
+            Err(PetError::InvalidMask)
         }
     }
 }
@@ -84,7 +89,7 @@ impl TryFrom<u8> for GroupType {
             0 => Ok(Self::Prime),
             // 1 => Ok(Self::Power2),
             // 2 => Ok(Self::Integer),
-            _ => Err(Self::Error::InvalidMessage),
+            _ => Err(Self::Error::InvalidMask),
         }
     }
 }
@@ -104,7 +109,7 @@ impl TryFrom<u8> for DataType {
         match byte {
             0 => Ok(Self::F32),
             1 => Ok(Self::F64),
-            _ => Err(Self::Error::InvalidMessage),
+            _ => Err(Self::Error::InvalidMask),
         }
     }
 }
@@ -130,7 +135,7 @@ impl TryFrom<u8> for BoundType {
             4 => Ok(Self::B4),
             6 => Ok(Self::B6),
             255 => Ok(Self::Bmax),
-            _ => Err(Self::Error::InvalidMessage),
+            _ => Err(Self::Error::InvalidMask),
         }
     }
 }
@@ -156,7 +161,7 @@ impl TryFrom<u8> for ModelType {
             9 => Ok(Self::M9),
             12 => Ok(Self::M12),
             // 255 => Ok(Self::Minf),
-            _ => Err(Self::Error::InvalidMessage),
+            _ => Err(Self::Error::InvalidMask),
         }
     }
 }
@@ -184,6 +189,26 @@ impl MaskConfigs {
             bound_type,
             model_type,
         }
+    }
+
+    /// Get the group type.
+    pub fn group_type(&self) -> GroupType {
+        self.group_type
+    }
+
+    /// Get the data type.
+    pub fn data_type(&self) -> DataType {
+        self.data_type
+    }
+
+    /// Get the bound type.
+    pub fn bound_type(&self) -> BoundType {
+        self.bound_type
+    }
+
+    /// Get the model type.
+    pub fn model_type(&self) -> ModelType {
+        self.model_type
     }
 
     /// Get the mask configuration corresponding to the name.

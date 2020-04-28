@@ -46,7 +46,7 @@ pub fn generate_integer(prng: &mut ChaCha20Rng, max_int: &BigUint) -> BigUint {
 }
 
 /// Cast a ratio as float.
-pub fn ratio_as<F: FloatCore>(ratio: &Ratio<BigInt>) -> F {
+pub fn ratio_as_float<F: FloatCore>(ratio: &Ratio<BigInt>) -> F {
     let mut numer = ratio.numer().clone();
     let mut denom = ratio.denom().clone();
     loop {
@@ -137,23 +137,23 @@ mod tests {
     }
 
     #[test]
-    fn test_ratio_as() {
+    fn test_ratio_as_float() {
         // f32
         let ratio = Ratio::from_float(0_f32).unwrap();
-        assert_eq!(ratio_as::<f32>(&ratio), 0_f32);
+        assert_eq!(ratio_as_float::<f32>(&ratio), 0_f32);
         let ratio = Ratio::from_float(0.1_f32).unwrap();
-        assert_eq!(ratio_as::<f32>(&ratio), 0.1_f32);
+        assert_eq!(ratio_as_float::<f32>(&ratio), 0.1_f32);
         let ratio = (Ratio::from_float(f32::max_value()).unwrap() * BigInt::from(10_usize))
             / (Ratio::from_float(f32::max_value()).unwrap() * BigInt::from(100_usize));
-        assert_eq!(ratio_as::<f32>(&ratio), 0.1_f32);
+        assert_eq!(ratio_as_float::<f32>(&ratio), 0.1_f32);
 
         // f64
         let ratio = Ratio::from_float(0_f64).unwrap();
-        assert_eq!(ratio_as::<f64>(&ratio), 0_f64);
+        assert_eq!(ratio_as_float::<f64>(&ratio), 0_f64);
         let ratio = Ratio::from_float(0.1_f64).unwrap();
-        assert_eq!(ratio_as::<f64>(&ratio), 0.1_f64);
+        assert_eq!(ratio_as_float::<f64>(&ratio), 0.1_f64);
         let ratio = (Ratio::from_float(f64::max_value()).unwrap() * BigInt::from(10_usize))
             / (Ratio::from_float(f64::max_value()).unwrap() * BigInt::from(100_usize));
-        assert_eq!(ratio_as::<f64>(&ratio), 0.1_f64);
+        assert_eq!(ratio_as_float::<f64>(&ratio), 0.1_f64);
     }
 }

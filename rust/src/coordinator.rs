@@ -1,12 +1,12 @@
 use std::{collections::VecDeque, default::Default, iter};
-use thiserror::Error;
 
 use counter::Counter;
 use sodiumoxide::{self, crypto::hash::sha256, randombytes::randombytes};
+use thiserror::Error;
 
 use crate::{
     crypto::{generate_encrypt_key_pair, ByteObject, SigningKeySeed},
-    mask::Mask,
+    mask::{Mask, MaskIntegers},
     message::{sum::SumMessage, sum2::Sum2Message, update::UpdateMessage},
     utils::is_eligible,
     CoordinatorPublicKey,

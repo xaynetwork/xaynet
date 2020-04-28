@@ -6,12 +6,13 @@ use crate::{
     certificate::Certificate,
     crypto::{generate_encrypt_key_pair, generate_signing_key_pair, ByteObject},
     mask::{
-        config::{BoundType, DataType, GroupType, MaskConfigs, ModelType},
+        config::{BoundType, DataType, GroupType, MaskConfig, MaskConfigs, ModelType},
         seed::MaskSeed,
         Mask,
-        Model,
+        MaskIntegers,
     },
     message::{sum::SumMessage, sum2::Sum2Message, update::UpdateMessage},
+    model::Model,
     utils::is_eligible,
     CoordinatorPublicKey,
     InitError,
@@ -125,7 +126,7 @@ impl Participant {
             ModelType::M3,
         )
         .config();
-        let (mask_seed, masked_model) = model.mask(scalar, &mask_config);
+        let (mask_seed, masked_model) = model.f32_unchecked().mask(scalar, &mask_config);
         let local_seed_dict = Self::create_local_seed_dict(sum_dict, &mask_seed);
         UpdateMessage::from_parts(
             &self.pk,
@@ -145,7 +146,15 @@ impl Participant {
         seed_dict: &SeedDict,
     ) -> Result<Vec<u8>, PetError> {
         let mask_seeds = self.get_seeds(seed_dict)?;
-        let mask = self.compute_global_mask(mask_seeds);
+        let mask_len = 3; // dummy
+        let mask_config = MaskConfigs::from_parts(
+            GroupType::Prime,
+            DataType::F32,
+            BoundType::B0,
+            ModelType::M3,
+        )
+        .config();
+        let mask = self.compute_global_mask(mask_seeds, mask_len, &mask_config)?;
         Ok(
             Sum2Message::from_parts(&self.pk, &self.sum_signature, &self.certificate, &mask)
                 .seal(&self.sk, pk),
@@ -177,9 +186,23 @@ impl Participant {
             .collect()
     }
 
-    /// Compute a global mask from local mask seeds (dummy).
-    fn compute_global_mask(&self, _mask_seeds: Vec<MaskSeed>) -> Mask {
-        Mask::deserialize(Vec::<u8>::new().as_slice()).unwrap() // dummy
+    /// Compute a global mask from local mask seeds.
+    fn compute_global_mask(
+        &self,
+        mask_seeds: Vec<MaskSeed>,
+        mask_len: usize,
+        mask_config: &MaskConfig,
+    ) -> Result<Mask, PetError> {
+        if mask_seeds.len() > 0 {
+            let mut global_mask = mask_seeds[0].derive_mask(mask_len, mask_config);
+            for mask_seed in mask_seeds[1..].iter() {
+                global_mask =
+                    global_mask.aggregate(&mask_seed.derive_mask(mask_len, mask_config))?;
+            }
+            Ok(global_mask)
+        } else {
+            Err(PetError::InvalidMask)
+        }
     }
 }
 

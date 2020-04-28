@@ -15,6 +15,7 @@ pub mod coordinator;
 pub mod crypto;
 pub mod mask;
 pub mod message;
+pub mod model;
 pub mod participant;
 pub mod service;
 pub mod utils;
@@ -34,6 +35,8 @@ pub struct InitError;
 /// PET protocol errors.
 pub enum PetError {
     InvalidMessage,
+    InvalidModel,
+    InvalidMask,
 }
 
 /// A public encryption key that identifies a coordinator.

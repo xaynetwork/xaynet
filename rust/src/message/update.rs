@@ -8,7 +8,7 @@ use super::{MessageBuffer, Tag, LEN_BYTES, PK_BYTES, SIGNATURE_BYTES};
 use crate::{
     certificate::Certificate,
     crypto::{ByteObject, Signature},
-    mask::{seed::EncryptedMaskSeed, MaskedModel},
+    mask::{seed::EncryptedMaskSeed, MaskIntegers, MaskedModel},
     CoordinatorPublicKey,
     CoordinatorSecretKey,
     LocalSeedDict,
