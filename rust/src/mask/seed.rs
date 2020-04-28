@@ -114,7 +114,10 @@ impl EncryptedMaskSeed {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{crypto::generate_encrypt_key_pair, mask::config::MaskConfigs};
+    use crate::{
+        crypto::generate_encrypt_key_pair,
+        mask::config::{BoundType, DataType, GroupType, MaskConfigs, ModelType},
+    };
 
     #[test]
     fn test_constants() {
@@ -132,7 +135,13 @@ mod tests {
 
     #[test]
     fn test_derive_mask() {
-        let config = MaskConfigs::PrimeF32M3B0.config();
+        let config = MaskConfigs::from_parts(
+            GroupType::Prime,
+            DataType::F32,
+            BoundType::B0,
+            ModelType::M3,
+        )
+        .config();
         let seed = MaskSeed::generate();
         let mask = seed.derive_mask(10, &config);
         assert_eq!(mask.integers().len(), 10);

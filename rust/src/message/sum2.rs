@@ -264,7 +264,10 @@ mod tests {
     use super::*;
     use crate::{
         crypto::{generate_encrypt_key_pair, generate_signing_key_pair},
-        mask::{config::MaskConfigs, seed::MaskSeed},
+        mask::{
+            config::{BoundType, DataType, GroupType, MaskConfigs, ModelType},
+            seed::MaskSeed,
+        },
         message::{PK_BYTES, SIGNATURE_BYTES, TAG_BYTES},
     };
 
@@ -283,7 +286,13 @@ mod tests {
     }
 
     fn auxiliary_mask() -> Mask {
-        let config = MaskConfigs::PrimeF32M3B0.config();
+        let config = MaskConfigs::from_parts(
+            GroupType::Prime,
+            DataType::F32,
+            BoundType::B0,
+            ModelType::M3,
+        )
+        .config();
         MaskSeed::generate().derive_mask(10, &config)
     }
 
@@ -332,7 +341,7 @@ mod tests {
         );
 
         // length
-        assert_eq!(buffer.len(), 285 + 3 * LEN_BYTES);
+        assert_eq!(buffer.len(), 289 + 2 * LEN_BYTES);
 
         // signature
         assert_eq!(buffer.signature(), &bytes[MB::SIGNATURE_RANGE]);

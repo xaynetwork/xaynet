@@ -5,7 +5,12 @@ use sodiumoxide;
 use crate::{
     certificate::Certificate,
     crypto::{generate_encrypt_key_pair, generate_signing_key_pair, ByteObject},
-    mask::{config::MaskConfigs, seed::MaskSeed, Mask, Model},
+    mask::{
+        config::{BoundType, DataType, GroupType, MaskConfigs, ModelType},
+        seed::MaskSeed,
+        Mask,
+        Model,
+    },
     message::{sum::SumMessage, sum2::Sum2Message, update::UpdateMessage},
     utils::is_eligible,
     CoordinatorPublicKey,
@@ -113,7 +118,13 @@ impl Participant {
     pub fn compose_update_message(&self, pk: &CoordinatorPublicKey, sum_dict: &SumDict) -> Vec<u8> {
         let model = Model::try_from(vec![0_f32, 0.5, -0.5]).unwrap(); // dummy
         let scalar = 0.5_f64; // dummy
-        let mask_config = MaskConfigs::PrimeF32M3B0.config();
+        let mask_config = MaskConfigs::from_parts(
+            GroupType::Prime,
+            DataType::F32,
+            BoundType::B0,
+            ModelType::M3,
+        )
+        .config();
         let (mask_seed, masked_model) = model.mask(scalar, &mask_config);
         let local_seed_dict = Self::create_local_seed_dict(sum_dict, &mask_seed);
         UpdateMessage::from_parts(

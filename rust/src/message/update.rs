@@ -392,7 +392,10 @@ mod tests {
     use super::*;
     use crate::{
         crypto::{generate_encrypt_key_pair, generate_signing_key_pair},
-        mask::{config::MaskConfigs, MaskedModel},
+        mask::{
+            config::{BoundType, DataType, GroupType, MaskConfigs, ModelType},
+            MaskedModel,
+        },
         message::TAG_BYTES,
         utils::generate_integer,
     };
@@ -415,7 +418,13 @@ mod tests {
 
     fn auxiliary_masked_model() -> MaskedModel {
         let mut prng = ChaCha20Rng::from_seed([0_u8; 32]);
-        let config = MaskConfigs::PrimeF32M3B0.config();
+        let config = MaskConfigs::from_parts(
+            GroupType::Prime,
+            DataType::F32,
+            BoundType::B0,
+            ModelType::M3,
+        )
+        .config();
         let integers = iter::repeat_with(|| generate_integer(&mut prng, config.order()))
             .take(10)
             .collect();
@@ -482,7 +491,7 @@ mod tests {
         );
 
         // length
-        assert_eq!(buffer.len(), 349 + 112 * sum_dict_len + 4 * LEN_BYTES);
+        assert_eq!(buffer.len(), 353 + 112 * sum_dict_len + 3 * LEN_BYTES);
 
         // signature
         assert_eq!(buffer.signature(), &bytes[MB::SIGNATURE_RANGE]);

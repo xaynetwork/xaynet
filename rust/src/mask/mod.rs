@@ -1,10 +1,7 @@
 pub mod config;
 pub mod seed;
 
-use std::{
-    convert::{TryFrom, TryInto},
-    mem,
-};
+use std::convert::{TryFrom, TryInto};
 
 use num::{
     bigint::{BigInt, BigUint, ToBigInt},
@@ -20,8 +17,6 @@ use crate::{
     utils::{generate_integer, ratio_as},
     PetError,
 };
-
-const USIZE_BYTES: usize = mem::size_of::<usize>();
 
 #[derive(Clone, Debug, PartialEq)]
 /// A model. Its parameters are represented as a vector of numerical values.
@@ -117,7 +112,7 @@ impl MaskedModel {
 
     /// Get the length of the serialized masked model.
     pub fn len(&self) -> usize {
-        USIZE_BYTES + self.integers.len() * self.config.element_len()
+        4 + self.integers.len() * self.config.element_len()
     }
 
     /// Serialize the masked model into bytes.
@@ -138,15 +133,15 @@ impl MaskedModel {
     /// Deserialize the masked model from bytes. Fails if the bytes don't conform to the mask
     /// configuration.
     pub fn deserialize(bytes: &[u8]) -> Result<Self, PetError> {
-        if bytes.len() < USIZE_BYTES {
+        if bytes.len() < 4 {
             return Err(PetError::InvalidMessage);
         }
-        let config = MaskConfig::deserialize(&bytes[..USIZE_BYTES])?;
+        let config = MaskConfig::deserialize(&bytes[..4])?;
         let element_len = config.element_len();
-        if bytes[USIZE_BYTES..].len() % element_len != 0 {
+        if bytes[4..].len() % element_len != 0 {
             return Err(PetError::InvalidMessage);
         }
-        let integers = bytes[USIZE_BYTES..]
+        let integers = bytes[4..]
             .chunks_exact(element_len)
             .map(|chunk| BigUint::from_bytes_le(chunk))
             .collect::<Vec<BigUint>>();
@@ -216,7 +211,7 @@ impl Mask {
 
     /// Get the length of the serialized masked model.
     pub fn len(&self) -> usize {
-        USIZE_BYTES + self.integers.len() * self.config.element_len()
+        4 + self.integers.len() * self.config.element_len()
     }
 
     /// Serialize the mask into bytes.
@@ -236,15 +231,15 @@ impl Mask {
 
     /// Deserialize the mask from bytes. Fails if the bytes don't conform to the mask configuration.
     pub fn deserialize(bytes: &[u8]) -> Result<Self, PetError> {
-        if bytes.len() < USIZE_BYTES {
+        if bytes.len() < 4 {
             return Err(PetError::InvalidMessage);
         }
-        let config = MaskConfig::deserialize(&bytes[..USIZE_BYTES])?;
+        let config = MaskConfig::deserialize(&bytes[..4])?;
         let element_len = config.element_len();
-        if bytes[USIZE_BYTES..].len() % element_len != 0 {
+        if bytes[4..].len() % element_len != 0 {
             return Err(PetError::InvalidMessage);
         }
-        let integers = bytes[USIZE_BYTES..]
+        let integers = bytes[4..]
             .chunks_exact(element_len)
             .map(|chunk| BigUint::from_bytes_le(chunk))
             .collect::<Vec<BigUint>>();
@@ -259,7 +254,10 @@ mod tests {
     use rand::distributions::{Distribution, Uniform};
 
     use super::*;
-    use crate::{mask::config::MaskConfigs, utils::generate_integer};
+    use crate::{
+        mask::config::{BoundType, DataType, GroupType, MaskConfigs, ModelType},
+        utils::generate_integer,
+    };
 
     #[test]
     fn test_masking() {
@@ -269,7 +267,13 @@ mod tests {
             .take(10)
             .collect::<Vec<f32>>();
         let model = Model::try_from(weights).unwrap();
-        let config = MaskConfigs::PrimeF32M3B0.config();
+        let config = MaskConfigs::from_parts(
+            GroupType::Prime,
+            DataType::F32,
+            BoundType::B0,
+            ModelType::M3,
+        )
+        .config();
         let (mask_seed, masked_model) = model.mask(1_f64, &config);
         assert_eq!(masked_model.integers().len(), 10);
         let mask = mask_seed.derive_mask(10, &config);
@@ -284,15 +288,20 @@ mod tests {
     #[test]
     fn test_maskedmodel_serialization() {
         let mut prng = ChaCha20Rng::from_seed([0_u8; 32]);
-        let config = MaskConfigs::PrimeF32M3B0.config();
+        let config = MaskConfigs::from_parts(
+            GroupType::Prime,
+            DataType::F32,
+            BoundType::B0,
+            ModelType::M3,
+        )
+        .config();
         let integers = iter::repeat_with(|| generate_integer(&mut prng, config.order()))
             .take(10)
             .collect();
         let masked_model = MaskedModel::from_parts(integers, config).unwrap();
-        let len = USIZE_BYTES + 10 * 6;
-        assert_eq!(masked_model.len(), len);
+        assert_eq!(masked_model.len(), 64);
         let serialized = masked_model.serialize();
-        assert_eq!(serialized.len(), len);
+        assert_eq!(serialized.len(), 64);
         let deserialized = MaskedModel::deserialize(serialized.as_slice()).unwrap();
         assert_eq!(masked_model, deserialized);
     }
@@ -300,15 +309,20 @@ mod tests {
     #[test]
     fn test_mask_serialization() {
         let mut prng = ChaCha20Rng::from_seed([0_u8; 32]);
-        let config = MaskConfigs::PrimeF32M3B0.config();
+        let config = MaskConfigs::from_parts(
+            GroupType::Prime,
+            DataType::F32,
+            BoundType::B0,
+            ModelType::M3,
+        )
+        .config();
         let integers = iter::repeat_with(|| generate_integer(&mut prng, config.order()))
             .take(10)
             .collect();
         let mask = Mask::from_parts(integers, config).unwrap();
-        let len = USIZE_BYTES + 10 * 6;
-        assert_eq!(mask.len(), len);
+        assert_eq!(mask.len(), 64);
         let serialized = mask.serialize();
-        assert_eq!(serialized.len(), len);
+        assert_eq!(serialized.len(), 64);
         let deserialized = Mask::deserialize(serialized.as_slice()).unwrap();
         assert_eq!(mask, deserialized);
     }

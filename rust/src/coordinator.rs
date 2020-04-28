@@ -451,7 +451,10 @@ mod tests {
     use super::*;
     use crate::{
         crypto::*,
-        mask::{config::MaskConfigs, seed::MaskSeed},
+        mask::{
+            config::{BoundType, DataType, GroupType, MaskConfigs, ModelType},
+            seed::MaskSeed,
+        },
     };
 
     #[test]
@@ -747,7 +750,13 @@ mod tests {
 
     fn auxiliary_mask(min_sum: usize) -> (Vec<Mask>, MaskDict) {
         // this doesn't work for `min_sum == 0` and `min_sum == 2`
-        let config = MaskConfigs::PrimeF32M3B0.config();
+        let config = MaskConfigs::from_parts(
+            GroupType::Prime,
+            DataType::F32,
+            BoundType::B0,
+            ModelType::M3,
+        )
+        .config();
         let masks = [
             vec![MaskSeed::generate().derive_mask(10, &config); min_sum - 1],
             vec![MaskSeed::generate().derive_mask(10, &config); 1],
