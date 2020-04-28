@@ -47,6 +47,9 @@ pub enum PhaseData {
 }
 
 impl PhaseData {
+    /// Return the current sum dictionary if it is available. The
+    /// availability of the sum dictionary depends on the current
+    /// coordinatore state.
     pub fn sum_dict(&self) -> Option<SerializedSumDict> {
         if let PhaseData::Update(data) = self {
             Some(data.serialized_sum_dict.clone())
@@ -55,6 +58,9 @@ impl PhaseData {
         }
     }
 
+    /// Return the current seed dictionary if it is available. The
+    /// availability of the seed dictionary depends on the current
+    /// coordinatore state.
     pub fn seed_dict(
         &mut self,
         pk: SumParticipantPublicKey,

@@ -84,7 +84,8 @@ impl Handle {
     }
 
     /// Send a [`Event::RoundParameters`] event to retrieve the
-    /// current round parameters.
+    /// current round parameters. The availability of the round
+    /// parameters depends on the current coordinator state.
     pub async fn get_round_parameters(&self) -> Option<Arc<RoundParameters>> {
         let (tx, rx) = oneshot::channel::<Option<Arc<RoundParameters>>>();
         self.send_event(RoundParametersRequest { response_tx: tx });
@@ -92,7 +93,8 @@ impl Handle {
     }
 
     /// Send a [`Event::SumDict`] event to retrieve the current sum
-    /// dictionary, in its serialized form.
+    /// dictionary, in its serialized form. The availability of the
+    /// sum dictionary depends on the current coordinator state.
     pub async fn get_sum_dict(&self) -> Option<SerializedSumDict> {
         let (tx, rx) = oneshot::channel::<Option<SerializedSumDict>>();
         self.send_event(SumDictRequest { response_tx: tx });
@@ -100,7 +102,9 @@ impl Handle {
     }
 
     /// Send a [`Event::SeedDict`] event to retrieve the current seed
-    /// dictionary for the given sum participant public key.
+    /// dictionary for the given sum participant public key. The
+    /// availability of the seed dictionary depends on the current
+    /// coordinator state.
     pub async fn get_seed_dict(&self, key: SumParticipantPublicKey) -> Option<SerializedSeedDict> {
         let (tx, rx) = oneshot::channel::<Option<SerializedSeedDict>>();
         let event = SeedDictRequest {
