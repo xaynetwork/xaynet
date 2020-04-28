@@ -1,5 +1,5 @@
-#![allow(dead_code)]
-#![allow(unused_imports)]
+// #![allow(dead_code)]
+// #![allow(unused_imports)]
 #![feature(or_patterns)]
 #![feature(const_fn)]
 #![feature(stmt_expr_attributes)]

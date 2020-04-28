@@ -50,7 +50,7 @@ impl Default for Participant {
         let sk = ParticipantSecretKey::zeroed();
         let ephm_pk = SumParticipantEphemeralPublicKey::zeroed();
         let ephm_sk = SumParticipantEphemeralSecretKey::zeroed();
-        let certificate = Certificate::new();
+        let certificate = Certificate::zeroed();
         let sum_signature = ParticipantTaskSignature::zeroed();
         let update_signature = ParticipantTaskSignature::zeroed();
         let task = Task::None;
@@ -191,7 +191,7 @@ mod tests {
         assert_eq!(part.sk.as_slice().len(), 64);
         assert_eq!(part.ephm_pk, SumParticipantEphemeralPublicKey::zeroed());
         assert_eq!(part.ephm_sk, SumParticipantEphemeralSecretKey::zeroed());
-        assert_eq!(part.certificate, Certificate::new());
+        assert_eq!(part.certificate, Certificate::zeroed());
         assert_eq!(part.sum_signature, ParticipantTaskSignature::zeroed());
         assert_eq!(part.update_signature, ParticipantTaskSignature::zeroed());
         assert_eq!(part.task, Task::None);

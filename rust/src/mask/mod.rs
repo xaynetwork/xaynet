@@ -80,10 +80,8 @@ impl<F: FloatCore> Model<F> {
                 masked_weight
             })
             .collect::<Vec<BigUint>>();
-        let masked_model = MaskedModel {
-            integers,
-            config: config.clone(),
-        };
+        // safe unwrap: integer conformity is guaranteed by modulo operation during shifting
+        let masked_model = MaskedModel::from_parts(integers, config.clone()).unwrap();
         (mask_seed, masked_model)
     }
 }
@@ -97,46 +95,24 @@ pub struct MaskedModel {
 }
 
 impl MaskedModel {
-    /// Get a reference to the masked model integers.
+    /// Get a reference to the integers of the masked model.
     pub fn integers(&'_ self) -> &'_ Vec<BigUint> {
         &self.integers
     }
 
-    /// Unmask the masked model with a mask. Requires the total positive number of models. Fails if
-    /// the mask is invalid.
-    pub fn unmask<F: FloatCore>(
-        &self,
-        mask: &Mask,
-        no_models: usize,
-    ) -> Result<Model<F>, PetError> {
-        if no_models == 0
-            || mask
-                .integers()
-                .iter()
-                .any(|integer| integer >= self.config.order())
-        {
-            return Err(PetError::InvalidMessage);
+    /// Get a reference to the mask configuration of the masked model.
+    pub fn config(&'_ self) -> &'_ MaskConfig {
+        &self.config
+    }
+
+    /// Create a masked model from its parts. Fails if the integers don't conform to the mask
+    /// configuration.
+    pub fn from_parts(integers: Vec<BigUint>, config: MaskConfig) -> Result<Self, PetError> {
+        if integers.iter().all(|integer| integer < config.order()) {
+            Ok(Self { integers, config })
+        } else {
+            Err(PetError::InvalidMessage)
         }
-        let scaled_add_shift = self.config.add_shift() * BigInt::from(no_models);
-        let weights = self
-            .integers
-            .iter()
-            .zip(mask.integers().iter())
-            .map(|(masked_weight, mask)| {
-                // unmask the masked weight
-                let integer = Ratio::<BigInt>::from(
-                    ((masked_weight + self.config.order() - mask) % self.config.order())
-                        .to_bigint()
-                        // safe unwrap: `to_bigint` never fails for `BigUint`s
-                        .unwrap(),
-                );
-                // shift the weight into the reals
-                let weight =
-                    ratio_as::<F>(&(integer / self.config.exp_shift() - &scaled_add_shift));
-                weight
-            })
-            .collect::<Vec<F>>();
-        weights.try_into()
     }
 
     /// Get the length of the serialized masked model.
@@ -174,11 +150,39 @@ impl MaskedModel {
             .chunks_exact(element_len)
             .map(|chunk| BigUint::from_bytes_le(chunk))
             .collect::<Vec<BigUint>>();
-        if integers.iter().all(|integer| integer < config.order()) {
-            Ok(Self { integers, config })
-        } else {
-            Err(PetError::InvalidMessage)
+        Self::from_parts(integers, config)
+    }
+
+    /// Unmask the masked model with a mask. Requires the total positive number of models, fails
+    /// otherwise.
+    pub fn unmask<F: FloatCore>(
+        &self,
+        mask: &Mask,
+        no_models: usize,
+    ) -> Result<Model<F>, PetError> {
+        if no_models == 0 {
+            return Err(PetError::InvalidMessage);
         }
+        let scaled_add_shift = self.config.add_shift() * BigInt::from(no_models);
+        let weights = self
+            .integers
+            .iter()
+            .zip(mask.integers().iter())
+            .map(|(masked_weight, mask)| {
+                // unmask the masked weight
+                let integer = Ratio::<BigInt>::from(
+                    ((masked_weight + self.config.order() - mask) % self.config.order())
+                        .to_bigint()
+                        // safe unwrap: `to_bigint` never fails for `BigUint`s
+                        .unwrap(),
+                );
+                // shift the weight into the reals
+                let weight =
+                    ratio_as::<F>(&(integer / self.config.exp_shift() - &scaled_add_shift));
+                weight
+            })
+            .collect::<Vec<F>>();
+        weights.try_into()
     }
 }
 
@@ -191,9 +195,23 @@ pub struct Mask {
 }
 
 impl Mask {
-    /// Get a reference to the mask integers.
+    /// Get a reference to the integers of the mask.
     pub fn integers(&'_ self) -> &'_ Vec<BigUint> {
         &self.integers
+    }
+
+    /// Get a reference to the mask configuration of the mask.
+    pub fn config(&'_ self) -> &'_ MaskConfig {
+        &self.config
+    }
+
+    /// Create a mask from its parts. Fails if the integers don't conform to the mask configuration.
+    pub fn from_parts(integers: Vec<BigUint>, config: MaskConfig) -> Result<Self, PetError> {
+        if integers.iter().all(|integer| integer < config.order()) {
+            Ok(Self { integers, config })
+        } else {
+            Err(PetError::InvalidMessage)
+        }
     }
 
     /// Get the length of the serialized masked model.
@@ -230,11 +248,7 @@ impl Mask {
             .chunks_exact(element_len)
             .map(|chunk| BigUint::from_bytes_le(chunk))
             .collect::<Vec<BigUint>>();
-        if integers.iter().all(|integer| integer < config.order()) {
-            Ok(Self { integers, config })
-        } else {
-            Err(PetError::InvalidMessage)
-        }
+        Self::from_parts(integers, config)
     }
 }
 
@@ -245,20 +259,16 @@ mod tests {
     use rand::distributions::{Distribution, Uniform};
 
     use super::*;
-    use crate::mask::config::MaskConfigs;
-
-    fn auxiliary_model() -> Model<f32> {
-        let uniform = Uniform::new(-1_f32, 1_f32);
-        let mut prng = ChaCha20Rng::from_seed([0_u8; 32]);
-        let weights = iter::repeat_with(|| uniform.sample(&mut prng))
-            .take(10)
-            .collect::<Vec<f32>>();
-        Model::try_from(weights).unwrap()
-    }
+    use crate::{mask::config::MaskConfigs, utils::generate_integer};
 
     #[test]
     fn test_masking() {
-        let model = auxiliary_model();
+        let mut prng = ChaCha20Rng::from_seed([0_u8; 32]);
+        let uniform = Uniform::new(-1_f32, 1_f32);
+        let weights = iter::repeat_with(|| uniform.sample(&mut prng))
+            .take(10)
+            .collect::<Vec<f32>>();
+        let model = Model::try_from(weights).unwrap();
         let config = MaskConfigs::PrimeF32M3B0.config();
         let (mask_seed, masked_model) = model.mask(1_f64, &config);
         assert_eq!(masked_model.integers().len(), 10);
@@ -273,9 +283,12 @@ mod tests {
 
     #[test]
     fn test_maskedmodel_serialization() {
-        let model = auxiliary_model();
+        let mut prng = ChaCha20Rng::from_seed([0_u8; 32]);
         let config = MaskConfigs::PrimeF32M3B0.config();
-        let (_, masked_model) = model.mask(1_f64, &config);
+        let integers = iter::repeat_with(|| generate_integer(&mut prng, config.order()))
+            .take(10)
+            .collect();
+        let masked_model = MaskedModel::from_parts(integers, config).unwrap();
         let len = USIZE_BYTES + 10 * 6;
         assert_eq!(masked_model.len(), len);
         let serialized = masked_model.serialize();
@@ -286,8 +299,12 @@ mod tests {
 
     #[test]
     fn test_mask_serialization() {
+        let mut prng = ChaCha20Rng::from_seed([0_u8; 32]);
         let config = MaskConfigs::PrimeF32M3B0.config();
-        let mask = MaskSeed::generate().derive_mask(10, &config);
+        let integers = iter::repeat_with(|| generate_integer(&mut prng, config.order()))
+            .take(10)
+            .collect();
+        let mask = Mask::from_parts(integers, config).unwrap();
         let len = USIZE_BYTES + 10 * 6;
         assert_eq!(mask.len(), len);
         let serialized = mask.serialize();
