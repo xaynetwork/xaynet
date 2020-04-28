@@ -95,4 +95,4 @@ type SeedDict =
     HashMap<SumParticipantPublicKey, HashMap<UpdateParticipantPublicKey, EncryptedMaskSeed>>;
 
 /// A 32-byte hash that identifies a model mask computed by a sum participant.
-pub type MaskHash = sodiumoxide::crypto::hash::sha256::Digest;
+
