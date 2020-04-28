@@ -2,6 +2,7 @@
 //! primitives.
 
 mod encrypt;
+mod hash;
 mod sign;
 
 use num::{bigint::BigUint, traits::identities::Zero};

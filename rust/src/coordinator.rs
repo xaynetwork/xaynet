@@ -14,6 +14,8 @@ use thiserror::Error;
 use crate::{
     crypto::{generate_encrypt_key_pair, ByteObject, SigningKeySeed},
     mask::{Integers, Mask, MaskIntegers, MaskedModel},
+    crypto::{generate_encrypt_key_pair, ByteObject, Sha256, SigningKeySeed},
+    mask::Mask,
     message::{sum::SumMessage, sum2::Sum2Message, update::UpdateMessage},
     model::Model,
     CoordinatorPublicKey,
