@@ -148,6 +148,22 @@ impl MaskedModel {
         Self::from_parts(integers, config)
     }
 
+    /// Aggregate the masked model with another masked model. Fails if the mask configurations or
+    /// the model sizes don't conform.
+    pub fn aggregate(&self, other: &Self) -> Result<Self, PetError> {
+        if self.integers().len() == other.integers().len() && self.config() == other.config() {
+            let aggregated_integers = self
+                .integers
+                .iter()
+                .zip(other.integers().iter())
+                .map(|(integer, other_integer)| (integer + other_integer) % self.config.order())
+                .collect();
+            Self::from_parts(aggregated_integers, self.config.clone())
+        } else {
+            Err(PetError::InvalidMessage)
+        }
+    }
+
     /// Unmask the masked model with a mask. Requires the total positive number of models, fails
     /// otherwise.
     pub fn unmask<F: FloatCore>(
@@ -245,6 +261,22 @@ impl Mask {
             .collect::<Vec<BigUint>>();
         Self::from_parts(integers, config)
     }
+
+    /// Aggregate the mask with another mask. Fails if the mask configurations or the mask sizes
+    /// don't conform.
+    pub fn aggregate(&self, other: &Self) -> Result<Self, PetError> {
+        if self.integers().len() == other.integers().len() && self.config() == other.config() {
+            let aggregated_integers = self
+                .integers
+                .iter()
+                .zip(other.integers().iter())
+                .map(|(integer, other_integer)| (integer + other_integer) % self.config.order())
+                .collect();
+            Self::from_parts(aggregated_integers, self.config.clone())
+        } else {
+            Err(PetError::InvalidMessage)
+        }
+    }
 }
 
 #[cfg(test)]
@@ -286,7 +318,86 @@ mod tests {
     }
 
     #[test]
-    fn test_maskedmodel_serialization() {
+    fn test_aggregation() {
+        let mut prng = ChaCha20Rng::from_seed([0_u8; 32]);
+        let config = MaskConfigs::from_parts(
+            GroupType::Prime,
+            DataType::F32,
+            BoundType::B0,
+            ModelType::M3,
+        )
+        .config();
+        let integers = iter::repeat_with(|| generate_integer(&mut prng, config.order()))
+            .take(10)
+            .collect();
+        let other_integers = iter::repeat_with(|| generate_integer(&mut prng, config.order()))
+            .take(10)
+            .collect();
+        let masked_model = MaskedModel::from_parts(integers, config.clone()).unwrap();
+        let other_masked_model = MaskedModel::from_parts(other_integers, config.clone()).unwrap();
+        let aggregated_masked_model = masked_model.aggregate(&other_masked_model).unwrap();
+        assert_eq!(
+            aggregated_masked_model.integers().len(),
+            masked_model.integers().len(),
+        );
+        assert_eq!(
+            aggregated_masked_model.integers().len(),
+            other_masked_model.integers().len(),
+        );
+        assert_eq!(aggregated_masked_model.config(), &config);
+        assert!(aggregated_masked_model
+            .integers()
+            .iter()
+            .all(|integer| integer < config.order()));
+    }
+
+    #[test]
+    fn test_masking_and_aggregation() {
+        let mut prng = ChaCha20Rng::from_seed([0_u8; 32]);
+        let uniform = Uniform::new(-1_f32, 1_f32);
+        let weights = iter::repeat_with(|| uniform.sample(&mut prng))
+            .take(10)
+            .collect::<Vec<f32>>();
+        let other_weights = iter::repeat_with(|| uniform.sample(&mut prng))
+            .take(10)
+            .collect::<Vec<f32>>();
+        let model = Model::try_from(weights).unwrap();
+        let other_model = Model::try_from(other_weights).unwrap();
+        let config = MaskConfigs::from_parts(
+            GroupType::Prime,
+            DataType::F32,
+            BoundType::B0,
+            ModelType::M3,
+        )
+        .config();
+        let (mask_seed, masked_model) = model.mask(0.5_f64, &config);
+        let (other_mask_seed, other_masked_model) = other_model.mask(0.5_f64, &config);
+        let aggregated_masked_model = masked_model.aggregate(&other_masked_model).unwrap();
+        let aggregated_mask = mask_seed
+            .derive_mask(10, &config)
+            .aggregate(&other_mask_seed.derive_mask(10, &config))
+            .unwrap();
+        let aggregated_model = aggregated_masked_model
+            .unmask::<f32>(&aggregated_mask, 2)
+            .unwrap();
+        let averaged_weights = model
+            .weights()
+            .iter()
+            .zip(other_model.weights().iter())
+            .map(|(weight, other_weight)| 0.5 * weight + 0.5 * other_weight)
+            .collect::<Vec<f32>>();
+        assert!(aggregated_model
+            .weights()
+            .iter()
+            .zip(averaged_weights.iter())
+            .all(
+                |(aggregated_weight, averaged_weight)| (aggregated_weight - averaged_weight).abs()
+                    < 1e-8_f32
+            ));
+    }
+
+    #[test]
+    fn test_serialization() {
         let mut prng = ChaCha20Rng::from_seed([0_u8; 32]);
         let config = MaskConfigs::from_parts(
             GroupType::Prime,
@@ -304,26 +415,5 @@ mod tests {
         assert_eq!(serialized.len(), 64);
         let deserialized = MaskedModel::deserialize(serialized.as_slice()).unwrap();
         assert_eq!(masked_model, deserialized);
-    }
-
-    #[test]
-    fn test_mask_serialization() {
-        let mut prng = ChaCha20Rng::from_seed([0_u8; 32]);
-        let config = MaskConfigs::from_parts(
-            GroupType::Prime,
-            DataType::F32,
-            BoundType::B0,
-            ModelType::M3,
-        )
-        .config();
-        let integers = iter::repeat_with(|| generate_integer(&mut prng, config.order()))
-            .take(10)
-            .collect();
-        let mask = Mask::from_parts(integers, config).unwrap();
-        assert_eq!(mask.len(), 64);
-        let serialized = mask.serialize();
-        assert_eq!(serialized.len(), 64);
-        let deserialized = Mask::deserialize(serialized.as_slice()).unwrap();
-        assert_eq!(mask, deserialized);
     }
 }
