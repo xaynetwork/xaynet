@@ -75,9 +75,9 @@ impl MaskConfig {
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(u8)]
 pub enum GroupType {
+    Integer,
     Prime,
-    // pub Power2,
-    // pub Integer,
+    Power2,
 }
 
 impl TryFrom<u8> for GroupType {
@@ -86,9 +86,9 @@ impl TryFrom<u8> for GroupType {
     /// Get the group type. Fails if the encoding is unknown.
     fn try_from(byte: u8) -> Result<Self, Self::Error> {
         match byte {
-            0 => Ok(Self::Prime),
-            // 1 => Ok(Self::Power2),
-            // 2 => Ok(Self::Integer),
+            0 => Ok(Self::Integer),
+            1 => Ok(Self::Prime),
+            2 => Ok(Self::Power2),
             _ => Err(Self::Error::InvalidMask),
         }
     }
@@ -219,7 +219,7 @@ impl MaskConfigs {
     pub fn config(&self) -> MaskConfig {
         use BoundType::{Bmax, B0, B2, B4, B6};
         use DataType::{F32, F64, I32, I64};
-        use GroupType::Prime;
+        use GroupType::{Integer, Power2, Prime};
         use ModelType::{M12, M3, M6, M9};
 
         let name = *self;
@@ -232,8 +232,8 @@ impl MaskConfigs {
             Bmax => match self.data_type {
                 F32 => Ratio::from_float(f32::MAX).unwrap(),
                 F64 => Ratio::from_float(f64::MAX).unwrap(),
-                I32 => Ratio::from_integer(BigInt::from(i32::MAX)),
-                I64 => Ratio::from_integer(BigInt::from(i64::MAX)),
+                I32 => Ratio::from_integer(-BigInt::from(i32::MIN)),
+                I64 => Ratio::from_integer(-BigInt::from(i64::MIN)),
             },
         };
         let exp_shift = match self.data_type {
@@ -249,6 +249,7 @@ impl MaskConfigs {
         };
         // safe unwraps: radix and all strings are valid
         let order = match self.group_type {
+            Integer => panic!(),
             Prime => match self.data_type {
                 F32 => match self.bound_type {
                     B0 => match self.model_type {
@@ -379,6 +380,136 @@ impl MaskConfigs {
                     }
                 }
             },
+            Power2 => match self.data_type {
+                F32 => match self.bound_type {
+                    B0 => match self.model_type {
+                        M3 => BigUint::from_str_radix("35_184_372_088_832", 10).unwrap(),
+                        M6 => BigUint::from_str_radix("36_028_797_018_963_968", 10).unwrap(),
+                        M9 => BigUint::from_str_radix("36_893_488_147_419_103_232", 10).unwrap(),
+                        M12 => BigUint::from_str_radix("37_778_931_862_957_161_709_568", 10).unwrap(),
+                    }
+                    B2 => match self.model_type {
+                        M3 => BigUint::from_str_radix("2_251_799_813_685_248", 10).unwrap(),
+                        M6 => BigUint::from_str_radix("2_305_843_009_213_693_952", 10).unwrap(),
+                        M9 => BigUint::from_str_radix("2_361_183_241_434_822_606_848", 10).unwrap(),
+                        M12 => BigUint::from_str_radix("2_417_851_639_229_258_349_412_352", 10).unwrap(),
+                    }
+                    B4 => match self.model_type {
+                        M3 => BigUint::from_str_radix("288_230_376_151_711_744", 10).unwrap(),
+                        M6 => BigUint::from_str_radix("295_147_905_179_352_825_856", 10).unwrap(),
+                        M9 => BigUint::from_str_radix("302_231_454_903_657_293_676_544", 10).unwrap(),
+                        M12 => BigUint::from_str_radix("309_485_009_821_345_068_724_781_056", 10).unwrap(),
+                    }
+                    B6 => match self.model_type {
+                        M3 => BigUint::from_str_radix("36_893_488_147_419_103_232", 10).unwrap(),
+                        M6 => BigUint::from_str_radix("37_778_931_862_957_161_709_568", 10).unwrap(),
+                        M9 => BigUint::from_str_radix("38_685_626_227_668_133_590_597_632", 10).unwrap(),
+                        M12 => BigUint::from_str_radix("39_614_081_257_132_168_796_771_975_168", 10).unwrap(),
+                    }
+                    Bmax => match self.model_type {
+                        M3 => BigUint::from_str_radix("994_646_472_819_573_284_310_764_496_293_641_680_200_912_301_594_695_434_880_927_953_786_318_994_025_066_751_066_112", 10).unwrap(),
+                        M6 => BigUint::from_str_radix("1_018_517_988_167_243_043_134_222_844_204_689_080_525_734_196_832_968_125_318_070_224_677_190_649_881_668_353_091_698_688", 10).unwrap(),
+                        M9 => BigUint::from_str_radix("1_042_962_419_883_256_876_169_444_192_465_601_618_458_351_817_556_959_360_325_703_910_069_443_225_478_828_393_565_899_456_512", 10).unwrap(),
+                        M12 => BigUint::from_str_radix("1_067_993_517_960_455_041_197_510_853_084_776_057_301_352_261_178_326_384_973_520_803_911_109_862_890_320_275_011_481_043_468_288", 10).unwrap(),
+                    }
+                }
+                F64 => match self.bound_type {
+                    B0 => match self.model_type {
+                        M3 => BigUint::from_str_radix("302_231_454_903_657_293_676_544", 10).unwrap(),
+                        M6 => BigUint::from_str_radix("309_485_009_821_345_068_724_781_056", 10).unwrap(),
+                        M9 => BigUint::from_str_radix("316_912_650_057_057_350_374_175_801_344", 10).unwrap(),
+                        M12 => BigUint::from_str_radix("324_518_553_658_426_726_783_156_020_576_256", 10).unwrap(),
+                    }
+                    B2 => match self.model_type {
+                        M3 => BigUint::from_str_radix("38_685_626_227_668_133_590_597_632", 10).unwrap(),
+                        M6 => BigUint::from_str_radix("39_614_081_257_132_168_796_771_975_168", 10).unwrap(),
+                        M9 => BigUint::from_str_radix("20_282_409_603_651_670_423_947_251_286_016", 10).unwrap(),
+                        M12 => BigUint::from_str_radix("20_769_187_434_139_310_514_121_985_316_880_384", 10).unwrap(),
+                    }
+                    B4 => match self.model_type {
+                        M3 => BigUint::from_str_radix("2_475_880_078_570_760_549_798_248_448", 10).unwrap(),
+                        M6 => BigUint::from_str_radix("2_535_301_200_456_458_802_993_406_410_752", 10).unwrap(),
+                        M9 => BigUint::from_str_radix("2_596_148_429_267_413_814_265_248_164_610_048", 10).unwrap(),
+                        M12 => BigUint::from_str_radix("2_658_455_991_569_831_745_807_614_120_560_689_152", 10).unwrap(),
+                    }
+                    B6 => match self.model_type {
+                        M3 => BigUint::from_str_radix("316_912_650_057_057_350_374_175_801_344", 10).unwrap(),
+                        M6 => BigUint::from_str_radix("324_518_553_658_426_726_783_156_020_576_256", 10).unwrap(),
+                        M9 => BigUint::from_str_radix("332_306_998_946_228_968_225_951_765_070_086_144", 10).unwrap(),
+                        M12 => BigUint::from_str_radix("340_282_366_920_938_463_463_374_607_431_768_211_456", 10).unwrap(),
+                    }
+                    Bmax => match self.model_type {
+                        M3 => BigUint::from_str_radix("596_143_540_225_991_923_146_302_416_688_458_341_289_203_474_674_553_062_792_993_127_033_853_365_765_018_588_197_722_567_551_977_295_508_215_323_031_793_155_057_153_946_025_631_943_349_443_566_464_703_583_960_364_782_216_884_718_655_637_955_371_883_889_285_523_680_681_542_682_622_992_485_998_454_422_254_346_205_188_269_982_058_330_848_165_814_218_528_432_304_958_458_516_472_675_321_199_923_576_436_128_746_194_040_030_388_187_813_654_706_961_312_852_788_047_760_914_640_519_973_439_182_188_222_756_017_424_664_821_230_981_616_162_111_762_973_371_192_278_908_910_941_031_147_045_555_738_506_834_254_728_517_124_812_756_790_583_181_174_762_115_337_827_697_771_072_593_076_558_961_853_936_203_969_690_859_453_400_618_497_370_766_001_868_317_217_344_149_071_638_768_630_396_860_838_478_405_181_466_899_321_747_678_290_733_613_480_879_657_473_540_096", 10).unwrap(),
+                        M6 => BigUint::from_str_radix("610_450_985_191_415_729_301_813_674_688_981_341_480_144_358_066_742_336_300_024_962_082_665_846_543_379_034_314_467_909_173_224_750_600_412_490_784_556_190_778_525_640_730_247_109_989_830_212_059_856_469_975_413_536_990_089_951_903_373_266_300_809_102_628_376_249_017_899_707_005_944_305_662_417_328_388_450_514_112_788_461_627_730_788_521_793_759_773_114_680_277_461_520_868_019_528_908_721_742_270_595_836_102_696_991_117_504_321_182_419_928_384_361_254_960_907_176_591_892_452_801_722_560_740_102_161_842_856_776_940_525_174_950_002_445_284_732_100_893_602_724_803_615_894_574_649_076_230_998_276_842_001_535_808_262_953_557_177_522_956_406_105_935_562_517_578_335_310_396_376_938_430_672_864_963_440_080_282_233_341_307_664_385_913_156_830_560_408_649_358_099_077_526_385_498_601_886_905_822_104_905_469_622_569_711_220_204_420_769_252_905_058_304", 10).unwrap(),
+                        M9 => BigUint::from_str_radix("625_101_808_836_009_706_805_057_202_881_516_893_675_667_822_660_344_152_371_225_561_172_649_826_860_420_131_138_015_138_993_382_144_614_822_390_563_385_539_357_210_256_107_773_040_629_586_137_149_293_025_254_823_461_877_852_110_749_054_224_692_028_521_091_457_278_994_329_299_974_086_968_998_315_344_269_773_326_451_495_384_706_796_327_446_316_810_007_669_432_604_120_597_368_851_997_602_531_064_085_090_136_169_161_718_904_324_424_890_798_006_665_585_925_079_968_948_830_097_871_668_963_902_197_864_613_727_085_339_587_097_779_148_802_503_971_565_671_315_049_190_198_902_676_044_440_654_060_542_235_486_209_572_667_661_264_442_549_783_507_359_852_478_016_018_000_215_357_845_889_984_953_009_013_722_562_642_209_006_941_499_048_331_175_072_594_493_858_456_942_693_455_387_018_750_568_332_191_561_835_423_200_893_511_384_289_489_326_867_714_974_779_703_296", 10).unwrap(),
+                        M12 => BigUint::from_str_radix("640_104_252_248_073_939_768_378_575_750_673_299_123_883_850_404_192_412_028_134_974_640_793_422_705_070_214_285_327_502_329_223_316_085_578_127_936_906_792_301_783_302_254_359_593_604_696_204_440_876_057_860_939_224_962_920_561_407_031_526_084_637_205_597_652_253_690_193_203_173_465_056_254_274_912_532_247_886_286_331_273_939_759_439_305_028_413_447_853_498_986_619_491_705_704_445_544_991_809_623_132_299_437_221_600_158_028_211_088_177_158_825_559_987_281_888_203_602_020_220_589_019_035_850_613_364_456_535_387_737_188_125_848_373_764_066_883_247_426_610_370_763_676_340_269_507_229_757_995_249_137_878_602_411_685_134_789_170_978_311_536_488_937_488_402_432_220_526_434_191_344_591_881_230_051_904_145_622_023_108_095_025_491_123_274_336_761_711_059_909_318_098_316_307_200_581_972_164_159_319_473_357_714_955_657_512_437_070_712_540_134_174_416_175_104", 10).unwrap(),
+                    }
+                }
+                I32 => match self.bound_type {
+                    B0 => match self.model_type {
+                        M3 => BigUint::from_str_radix("2_048", 10).unwrap(),
+                        M6 => BigUint::from_str_radix("2_097_152", 10).unwrap(),
+                        M9 => BigUint::from_str_radix("2_147_483_648", 10).unwrap(),
+                        M12 => BigUint::from_str_radix("2_199_023_255_552", 10).unwrap(),
+                    }
+                    B2 => match self.model_type {
+                        M3 => BigUint::from_str_radix("262_144", 10).unwrap(),
+                        M6 => BigUint::from_str_radix("268_435_456", 10).unwrap(),
+                        M9 => BigUint::from_str_radix("274_877_906_944", 10).unwrap(),
+                        M12 => BigUint::from_str_radix("281_474_976_710_656", 10).unwrap(),
+                    }
+                    B4 => match self.model_type {
+                        M3 => BigUint::from_str_radix("33_554_432", 10).unwrap(),
+                        M6 => BigUint::from_str_radix("34_359_738_368", 10).unwrap(),
+                        M9 => BigUint::from_str_radix("35_184_372_088_832", 10).unwrap(),
+                        M12 => BigUint::from_str_radix("36_028_797_018_963_968", 10).unwrap(),
+                    }
+                    B6 => match self.model_type {
+                        M3 => BigUint::from_str_radix("2_147_483_648", 10).unwrap(),
+                        M6 => BigUint::from_str_radix("2_199_023_255_552", 10).unwrap(),
+                        M9 => BigUint::from_str_radix("2_251_799_813_685_248", 10).unwrap(),
+                        M12 => BigUint::from_str_radix("2_305_843_009_213_693_952", 10).unwrap(),
+                    }
+                    Bmax => match self.model_type {
+                        M3 => BigUint::from_str_radix("4_398_046_511_104", 10).unwrap(),
+                        M6 => BigUint::from_str_radix("4_503_599_627_370_496", 10).unwrap(),
+                        M9 => BigUint::from_str_radix("4_611_686_018_427_387_904", 10).unwrap(),
+                        M12 => BigUint::from_str_radix("4_722_366_482_869_645_213_696", 10).unwrap(),
+                    }
+                }
+                I64 => match self.bound_type {
+                    B0 => match self.model_type {
+                        M3 => BigUint::from_str_radix("2_048", 10).unwrap(),
+                        M6 => BigUint::from_str_radix("2_097_152", 10).unwrap(),
+                        M9 => BigUint::from_str_radix("2_147_483_648", 10).unwrap(),
+                        M12 => BigUint::from_str_radix("2_199_023_255_552", 10).unwrap(),
+                    }
+                    B2 => match self.model_type {
+                        M3 => BigUint::from_str_radix("262_144", 10).unwrap(),
+                        M6 => BigUint::from_str_radix("268_435_456", 10).unwrap(),
+                        M9 => BigUint::from_str_radix("274_877_906_944", 10).unwrap(),
+                        M12 => BigUint::from_str_radix("281_474_976_710_656", 10).unwrap(),
+                    }
+                    B4 => match self.model_type {
+                        M3 => BigUint::from_str_radix("33_554_432", 10).unwrap(),
+                        M6 => BigUint::from_str_radix("34_359_738_368", 10).unwrap(),
+                        M9 => BigUint::from_str_radix("35_184_372_088_832", 10).unwrap(),
+                        M12 => BigUint::from_str_radix("36_028_797_018_963_968", 10).unwrap(),
+                    }
+                    B6 => match self.model_type {
+                        M3 => BigUint::from_str_radix("2_147_483_648", 10).unwrap(),
+                        M6 => BigUint::from_str_radix("2_199_023_255_552", 10).unwrap(),
+                        M9 => BigUint::from_str_radix("2_251_799_813_685_248", 10).unwrap(),
+                        M12 => BigUint::from_str_radix("2_305_843_009_213_693_952", 10).unwrap(),
+                    }
+                    Bmax => match self.model_type {
+                        M3 => BigUint::from_str_radix("18_889_465_931_478_580_854_784", 10).unwrap(),
+                        M6 => BigUint::from_str_radix("19_342_813_113_834_066_795_298_816", 10).unwrap(),
+                        M9 => BigUint::from_str_radix("19_807_040_628_566_084_398_385_987_584", 10).unwrap(),
+                        M12 => BigUint::from_str_radix("20_282_409_603_651_670_423_947_251_286_016", 10).unwrap(),
+                    }
+                }
+            }
         };
         MaskConfig {
             name,
