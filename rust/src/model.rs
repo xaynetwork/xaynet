@@ -20,8 +20,8 @@ use crate::{
 pub enum Model {
     F32(Vec<f32>),
     F64(Vec<f64>),
-    // I32(Vec<i32>),
-    // I64(Vec<i64>),
+    I32(Vec<i32>),
+    I64(Vec<i64>),
 }
 
 impl TryFrom<Vec<f32>> for Model {
@@ -50,19 +50,19 @@ impl TryFrom<Vec<f64>> for Model {
     }
 }
 
-// impl From<Vec<i32>> for Model {
-//     /// Create a model from its weights.
-//     fn from(weights: Vec<i32>) -> Self {
-//         Self::I32(weights)
-//     }
-// }
+impl From<Vec<i32>> for Model {
+    /// Create a model from its weights.
+    fn from(weights: Vec<i32>) -> Self {
+        Self::I32(weights)
+    }
+}
 
-// impl From<Vec<i64>> for Model {
-//     /// Create a model from its weights. Fails if the weights are not finite.
-//     fn from(weights: Vec<i64>) -> Self {
-//         Self::I64(weights)
-//     }
-// }
+impl From<Vec<i64>> for Model {
+    /// Create a model from its weights. Fails if the weights are not finite.
+    fn from(weights: Vec<i64>) -> Self {
+        Self::I64(weights)
+    }
+}
 
 impl Model {
     /// Mask the model wrt the mask configuration. Enforces bounds on the scalar and weights. Fails
@@ -88,20 +88,21 @@ impl Model {
                 } else {
                     Err(PetError::InvalidMask)
                 }
-            } // Model::I32(weights) => {
-              //     if let DataType::I32 = config.name().data_type() {
-              //         Self::mask_numbers(Self::i32s_as_ratios(weights), scalar, config)
-              //     } else {
-              //         Err(PetError::AmbiguousMasks)
-              //     }
-              // }
-              // Model::I64(weights) => {
-              //     if let DataType::I64 = config.name().data_type() {
-              //         Self::mask_numbers(Self::i64s_as_ratios(weights), scalar, config)
-              //     } else {
-              //         Err(PetError::AmbiguousMasks)
-              //     }
-              // }
+            }
+            Model::I32(weights) => {
+                if let DataType::I32 = config.name().data_type() {
+                    Self::mask_numbers(Self::i32s_as_ratios(weights), scalar, config)
+                } else {
+                    Err(PetError::InvalidMask)
+                }
+            }
+            Model::I64(weights) => {
+                if let DataType::I64 = config.name().data_type() {
+                    Self::mask_numbers(Self::i64s_as_ratios(weights), scalar, config)
+                } else {
+                    Err(PetError::InvalidMask)
+                }
+            }
         }
     }
 

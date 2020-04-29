@@ -120,16 +120,21 @@ impl MaskedModel {
             DataType::F64 => {
                 let numbers = self.unmask_numbers(mask, self.config(), no_models)?;
                 Self::ratios_as_floats::<f64>(numbers).try_into()
-            } // DataType::I32 => {
-              //     let numbers = self.unmask_numbers(mask, self.config(), no_models)?;
-              //     // safe ok: or should never happen because of shifting
-              //     Self::ratios_as_i32s(numbers).ok_or(PetError::AmbiguousMasks).into()
-              // }
-              // DataType::I64 => {
-              //     let numbers = self.unmask_numbers(mask, self.config(), no_models)?;
-              //     // safe ok: or should never happen because of shifting
-              //     Self::ratios_as_i64s(numbers).ok_or(PetError::AmbiguousMasks).into()
-              // }
+            }
+            DataType::I32 => {
+                let numbers = self.unmask_numbers(mask, self.config(), no_models)?;
+                // safe ok: or should never happen because of shifting
+                Ok(Self::ratios_as_i32s(numbers)
+                    .ok_or(PetError::InvalidMask)?
+                    .into())
+            }
+            DataType::I64 => {
+                let numbers = self.unmask_numbers(mask, self.config(), no_models)?;
+                // safe ok: or should never happen because of shifting
+                Ok(Self::ratios_as_i64s(numbers)
+                    .ok_or(PetError::InvalidMask)?
+                    .into())
+            }
         }
     }
 
