@@ -1,11 +1,6 @@
 use std::convert::TryFrom;
 
-use num::{
-    bigint::{BigInt, BigUint},
-    clamp,
-    rational::Ratio,
-    traits::{float::FloatCore, int::PrimInt},
-};
+use num::{bigint::BigInt, clamp, rational::Ratio, traits::float::FloatCore};
 use rand::SeedableRng;
 use rand_chacha::ChaCha20Rng;
 
@@ -70,62 +65,6 @@ impl TryFrom<Vec<f64>> for Model {
 // }
 
 impl Model {
-    /// Get a reference to the weights. Fails for nonconforming data types.
-    pub fn weights_f32(&'_ self) -> Option<&'_ Vec<f32>> {
-        if let Self::F32(weights) = self {
-            Some(weights)
-        } else {
-            None
-        }
-    }
-
-    /// Get a reference to the weights. Panics for nonconforming data types.
-    pub fn weights_f32_unchecked(&'_ self) -> &'_ Vec<f32> {
-        self.weights_f32().unwrap()
-    }
-
-    /// Get a reference to the weights. Fails for nonconforming data types.
-    pub fn weights_f64(&'_ self) -> Option<&'_ Vec<f64>> {
-        if let Self::F64(weights) = self {
-            Some(weights)
-        } else {
-            None
-        }
-    }
-
-    /// Get a reference to the weights. Panics for nonconforming data types.
-    pub fn weights_f64_unchecked(&'_ self) -> &'_ Vec<f64> {
-        self.weights_f64().unwrap()
-    }
-
-    // /// Get a reference to the weights. Fails for nonconforming data types.
-    // pub fn weights_i32(&'_ self) -> Option<&'_ Vec<i32>> {
-    //     if let Self::I32(weights) = self {
-    //         Some(weights)
-    //     } else {
-    //         None
-    //     }
-    // }
-
-    // /// Get a reference to the weights. Panics for nonconforming data types.
-    // pub fn weights_i32_unchecked(&'_ self) -> &'_ Vec<i32> {
-    //     self.weights_i32().unwrap()
-    // }
-
-    // /// Get a reference to the weights. Fails for nonconforming data types.
-    // pub fn weights_i64(&'_ self) -> Option<&'_ Vec<i64>> {
-    //     if let Self::I64(weights) = self {
-    //         Some(weights)
-    //     } else {
-    //         None
-    //     }
-    // }
-
-    // /// Get a reference to the weights. Panics for nonconforming data types.
-    // pub fn weights_i64_unchecked(&'_ self) -> &'_ Vec<i64> {
-    //     self.weights_i64().unwrap()
-    // }
-
     /// Mask the model wrt the mask configuration. Enforces bounds on the scalar and weights. Fails
     /// if the mask configuration doesn't conform to the model data type.
     pub fn mask(
@@ -136,27 +75,29 @@ impl Model {
         match self {
             Model::F32(weights) => {
                 if let DataType::F32 = config.name().data_type() {
-                    Self::mask_integers(Self::shift_floats(weights, scalar, config), config)
+                    // safe unwrap: `weights` are guaranteed to be finite because of `try_from`
+                    Self::mask_numbers(Self::floats_as_ratios(weights).unwrap(), scalar, config)
                 } else {
                     Err(PetError::InvalidMask)
                 }
             }
             Model::F64(weights) => {
                 if let DataType::F64 = config.name().data_type() {
-                    Self::mask_integers(Self::shift_floats(weights, scalar, config), config)
+                    // safe unwrap: `weights` are guaranteed to be finite because of `try_from`
+                    Self::mask_numbers(Self::floats_as_ratios(weights).unwrap(), scalar, config)
                 } else {
                     Err(PetError::InvalidMask)
                 }
             } // Model::I32(weights) => {
               //     if let DataType::I32 = config.name().data_type() {
-              //         Self::mask_integers(Self::shift_ints(weights, scalar, config), config)
+              //         Self::mask_numbers(Self::i32s_as_ratios(weights), scalar, config)
               //     } else {
               //         Err(PetError::AmbiguousMasks)
               //     }
               // }
               // Model::I64(weights) => {
               //     if let DataType::I64 = config.name().data_type() {
-              //         Self::mask_integers(Self::shift_ints(weights, scalar, config), config)
+              //         Self::mask_numbers(Self::i64s_as_ratios(weights), scalar, config)
               //     } else {
               //         Err(PetError::AmbiguousMasks)
               //     }
@@ -164,56 +105,55 @@ impl Model {
         }
     }
 
-    /// Shift the float weights into non-negative integers. Enforces bounds on the scalar and
-    /// weights.
-    fn shift_floats<F: FloatCore>(
-        weights: &Vec<F>,
+    /// Mask the numbers wrt the mask configuration. Enforces bounds on the scalar and numbers.
+    fn mask_numbers(
+        numbers: Vec<Ratio<BigInt>>,
         scalar: f64,
         config: &MaskConfig,
-    ) -> Vec<BigUint> {
+        // ) -> Vec<BigUint> {
+    ) -> Result<(MaskSeed, MaskedModel), PetError> {
         let scalar = &Ratio::<BigInt>::from_float(clamp(scalar, 0_f64, 1_f64)).unwrap();
         let negative_bound = &-config.add_shift();
         let positive_bound = config.add_shift();
-        weights
+        let mask_seed = MaskSeed::generate();
+        let mut prng = ChaCha20Rng::from_seed(mask_seed.as_array());
+        let masked_numbers = numbers
             .iter()
-            .map(|weight| {
-                (((scalar
-                    * clamp(
-                        // safe unwrap: `weight` is guaranteed to be finite because of `try_from`
-                        &Ratio::<BigInt>::from_float(*weight).unwrap(),
-                        negative_bound,
-                        positive_bound,
-                    ))
-                    + config.add_shift())
-                    * config.exp_shift())
-                .to_integer()
-                .to_biguint()
-                // safe unwrap: shifted weight is guaranteed to be non-negative
-                .unwrap()
+            .map(|number| {
+                let scaled = scalar * clamp(number, negative_bound, positive_bound);
+                let shifted = ((scaled + config.add_shift()) * config.exp_shift())
+                    .to_integer()
+                    .to_biguint()
+                    // safe unwrap: shifted weight is guaranteed to be non-negative
+                    .unwrap();
+                let masked =
+                    (shifted + generate_integer(&mut prng, config.order())) % config.order();
+                masked
             })
+            .collect();
+        let masked_model = MaskedModel::from_parts(masked_numbers, config.clone())?;
+        Ok((mask_seed, masked_model))
+    }
+
+    /// Cast floats as ratios. Fails if any float is not finite.
+    fn floats_as_ratios<F: FloatCore>(floats: &Vec<F>) -> Option<Vec<Ratio<BigInt>>> {
+        floats
+            .iter()
+            .map(|float| Ratio::<BigInt>::from_float(*float))
             .collect()
     }
 
-    // /// Shift the integer weights into non-negative integers. Enforces bounds on the scalar and
-    // /// weights.
-    // fn shift_ints<I: PrimInt>(
-    //     weights: &Vec<I>,
-    //     scalar: f64,
-    //     config: &MaskConfig,
-    // ) -> Vec<BigUint> {}
+    /// Cast i32 integers as ratios.
+    fn i32s_as_ratios(ints: &Vec<i32>) -> Vec<Ratio<BigInt>> {
+        ints.iter()
+            .map(|int| Ratio::from_integer(BigInt::from(*int)))
+            .collect()
+    }
 
-    /// Mask the integers wrt the mask configuration.
-    fn mask_integers(
-        integers: Vec<BigUint>,
-        config: &MaskConfig,
-    ) -> Result<(MaskSeed, MaskedModel), PetError> {
-        let mask_seed = MaskSeed::generate();
-        let mut prng = ChaCha20Rng::from_seed(mask_seed.as_array());
-        let masked_integers = integers
-            .iter()
-            .map(|integer| (integer + generate_integer(&mut prng, config.order())) % config.order())
-            .collect();
-        let masked_model = MaskedModel::from_parts(masked_integers, config.clone())?;
-        Ok((mask_seed, masked_model))
+    /// Cast i64 integers as ratios.
+    fn i64s_as_ratios(ints: &Vec<i64>) -> Vec<Ratio<BigInt>> {
+        ints.iter()
+            .map(|int| Ratio::from_integer(BigInt::from(*int)))
+            .collect()
     }
 }

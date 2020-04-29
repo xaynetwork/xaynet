@@ -6,11 +6,11 @@ use std::convert::TryInto;
 use num::{
     bigint::{BigInt, BigUint, ToBigInt},
     rational::Ratio,
-    traits::float::FloatCore,
+    traits::{cast::ToPrimitive, float::FloatCore},
 };
 
 use self::config::{DataType, MaskConfig};
-use crate::{model::Model, utils::ratio_as_float, PetError};
+use crate::{model::Model, PetError};
 
 pub trait MaskIntegers: Sized {
     /// Get a reference to the integers.
@@ -112,67 +112,100 @@ impl MaskedModel {
     /// Unmask the masked model with a mask. Fails if the mask configurations don't conform or the
     /// number of models is zero.
     pub fn unmask(&self, mask: &Mask, no_models: usize) -> Result<Model, PetError> {
-        if no_models > 0 && mask.config() == self.config() {
-            match self.config().name().data_type() {
-                DataType::F32 => {
-                    Self::shift_floats::<f32>(self.unmask_integers(mask), self.config(), no_models)
-                        .try_into()
-                }
-                DataType::F64 => {
-                    Self::shift_floats::<f64>(self.unmask_integers(mask), self.config(), no_models)
-                        .try_into()
-                } // DataType::I32 => {
-                  //     Self::shift_ints::<i32>(self.unmask_integers(mask), self.config(), no_models)
-                  //         .into()
-                  // }
-                  // DataType::I64 => {
-                  //     Self::shift_ints::<i64>(self.unmask_integers(mask), self.config(), no_models)
-                  //         .into()
-                  // }
+        match self.config().name().data_type() {
+            DataType::F32 => {
+                let numbers = self.unmask_numbers(mask, self.config(), no_models)?;
+                Self::ratios_as_floats::<f32>(numbers).try_into()
             }
+            DataType::F64 => {
+                let numbers = self.unmask_numbers(mask, self.config(), no_models)?;
+                Self::ratios_as_floats::<f64>(numbers).try_into()
+            } // DataType::I32 => {
+              //     let numbers = self.unmask_numbers(mask, self.config(), no_models)?;
+              //     // safe ok: or should never happen because of shifting
+              //     Self::ratios_as_i32s(numbers).ok_or(PetError::AmbiguousMasks).into()
+              // }
+              // DataType::I64 => {
+              //     let numbers = self.unmask_numbers(mask, self.config(), no_models)?;
+              //     // safe ok: or should never happen because of shifting
+              //     Self::ratios_as_i64s(numbers).ok_or(PetError::AmbiguousMasks).into()
+              // }
+        }
+    }
+
+    /// Unmask the masked numbers with a mask. Fails if the mask configurations don't conform or the
+    /// number of models is zero.
+    fn unmask_numbers(
+        &self,
+        mask: &Mask,
+        config: &MaskConfig,
+        no_models: usize,
+    ) -> Result<Vec<Ratio<BigInt>>, PetError> {
+        if no_models > 0 && self.config() == mask.config() {
+            let scaled_add_shift = config.add_shift() * BigInt::from(no_models);
+            let numbers = self
+                .integers
+                .iter()
+                .zip(mask.integers().iter())
+                .map(|(masked_weight, mask)| {
+                    let unmasked = Ratio::<BigInt>::from(
+                        ((masked_weight + self.config.order() - mask) % self.config.order())
+                            .to_bigint()
+                            // safe unwrap: `to_bigint` never fails for `BigUint`s
+                            .unwrap(),
+                    );
+                    let shifted = unmasked / config.exp_shift() - &scaled_add_shift;
+                    shifted
+                })
+                .collect::<Vec<Ratio<BigInt>>>();
+            Ok(numbers)
         } else {
             Err(PetError::InvalidMask)
         }
     }
 
-    /// Unmask the masked integers with a mask.
-    fn unmask_integers(&self, mask: &Mask) -> Vec<Ratio<BigInt>> {
-        self.integers
+    /// Cast ratios as floats.
+    fn ratios_as_floats<F: FloatCore>(ratios: Vec<Ratio<BigInt>>) -> Vec<F> {
+        ratios
             .iter()
-            .zip(mask.integers().iter())
-            .map(|(masked_weight, mask)| {
-                Ratio::<BigInt>::from(
-                    ((masked_weight + self.config.order() - mask) % self.config.order())
-                        .to_bigint()
-                        // safe unwrap: `to_bigint` never fails for `BigUint`s
-                        .unwrap(),
-                )
+            .map(|ratio| {
+                let mut numer = ratio.numer().clone();
+                let mut denom = ratio.denom().clone();
+                // safe loop: terminates after at most bitlength(ratio) iterations
+                loop {
+                    if let (Some(n), Some(d)) = (F::from(numer.clone()), F::from(denom.clone())) {
+                        if d == F::zero() {
+                            return F::zero();
+                        } else {
+                            let float = n / d;
+                            if float.is_finite() {
+                                return float;
+                            }
+                        }
+                    } else {
+                        numer >>= 1_usize;
+                        denom >>= 1_usize;
+                    }
+                }
             })
-            .collect::<Vec<Ratio<BigInt>>>()
+            .collect()
     }
 
-    /// Shift the non-negative integers into floats.
-    fn shift_floats<F: FloatCore>(
-        integers: Vec<Ratio<BigInt>>,
-        config: &MaskConfig,
-        no_models: usize,
-    ) -> Vec<F> {
-        let scaled_add_shift = config.add_shift() * BigInt::from(no_models);
-        integers
+    /// Cast ratios as i32 integers. Fails if any ratio overflows i32.
+    fn ratios_as_i32s(ratios: Vec<Ratio<BigInt>>) -> Option<Vec<i32>> {
+        ratios
             .iter()
-            .map(|integer| {
-                // shift the weight into the reals
-                ratio_as_float(&(integer / config.exp_shift() - &scaled_add_shift))
-            })
-            .collect::<Vec<F>>()
+            .map(|ratio| (ratio.to_integer().to_i32()))
+            .collect()
     }
 
-    // /// Shift the non-negative integers into integers.
-    // fn shift_ints<F: FloatCore>(
-    //     integers: Vec<Ratio<BigInt>>,
-    //     config: &MaskConfig,
-    //     no_models: usize,
-    // ) -> Vec<F> {}
+    /// Cast ratios as i64 integers. Fails if any ratio overflows i64.
+    fn ratios_as_i64s(ratios: Vec<Ratio<BigInt>>) -> Option<Vec<i64>> {
+        ratios
+            .iter()
+            .map(|ratio| (ratio.to_integer().to_i64()))
+            .collect()
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -247,10 +280,19 @@ mod tests {
         assert_eq!(masked_model.integers().len(), 10);
         let mask = mask_seed.derive_mask(10, &config);
         let unmasked_model = masked_model.unmask(&mask, 1).unwrap();
-        assert!(model
-            .weights_f32_unchecked()
+        let weights = if let Model::F32(weights) = model {
+            weights
+        } else {
+            panic!()
+        };
+        let unmasked_weights = if let Model::F32(weights) = unmasked_model {
+            weights
+        } else {
+            panic!()
+        };
+        assert!(weights
             .iter()
-            .zip(unmasked_model.weights_f32_unchecked().iter())
+            .zip(unmasked_weights.iter())
             .all(|(weight, unmasked_weight)| (weight - unmasked_weight).abs() < 1e-8_f32));
     }
 
@@ -315,20 +357,30 @@ mod tests {
             .aggregate(&other_mask_seed.derive_mask(10, &config))
             .unwrap();
         let aggregated_model = aggregated_masked_model.unmask(&aggregated_mask, 2).unwrap();
-        let averaged_weights = model
-            .weights_f32_unchecked()
+        let weights = if let Model::F32(weights) = model {
+            weights
+        } else {
+            panic!()
+        };
+        let other_weights = if let Model::F32(weights) = other_model {
+            weights
+        } else {
+            panic!()
+        };
+        let aggregated_weights = if let Model::F32(weights) = aggregated_model {
+            weights
+        } else {
+            panic!()
+        };
+        let averaged_weights = weights
             .iter()
-            .zip(other_model.weights_f32_unchecked().iter())
+            .zip(other_weights.iter())
             .map(|(weight, other_weight)| 0.5 * weight + 0.5 * other_weight)
             .collect::<Vec<f32>>();
-        assert!(aggregated_model
-            .weights_f32_unchecked()
-            .iter()
-            .zip(averaged_weights.iter())
-            .all(
-                |(aggregated_weight, averaged_weight)| (aggregated_weight - averaged_weight).abs()
-                    < 1e-8_f32
-            ));
+        assert!(aggregated_weights.iter().zip(averaged_weights.iter()).all(
+            |(aggregated_weight, averaged_weight)| (aggregated_weight - averaged_weight).abs()
+                < 1e-8_f32
+        ));
     }
 
     #[test]
@@ -350,5 +402,30 @@ mod tests {
         assert_eq!(serialized.len(), 64);
         let deserialized = MaskedModel::deserialize(serialized.as_slice()).unwrap();
         assert_eq!(masked_model, deserialized);
+    }
+
+    #[test]
+    fn test_ratio_as_float() {
+        // f32
+        let ratio = vec![Ratio::from_float(0_f32).unwrap()];
+        assert_eq!(MaskedModel::ratios_as_floats::<f32>(ratio), vec![0_f32]);
+        let ratio = vec![Ratio::from_float(0.1_f32).unwrap()];
+        assert_eq!(MaskedModel::ratios_as_floats::<f32>(ratio), vec![0.1_f32]);
+        let ratio = vec![
+            (Ratio::from_float(f32::max_value()).unwrap() * BigInt::from(10_usize))
+                / (Ratio::from_float(f32::max_value()).unwrap() * BigInt::from(100_usize)),
+        ];
+        assert_eq!(MaskedModel::ratios_as_floats::<f32>(ratio), vec![0.1_f32]);
+
+        // f64
+        let ratio = vec![Ratio::from_float(0_f64).unwrap()];
+        assert_eq!(MaskedModel::ratios_as_floats::<f64>(ratio), vec![0_f64]);
+        let ratio = vec![Ratio::from_float(0.1_f64).unwrap()];
+        assert_eq!(MaskedModel::ratios_as_floats::<f64>(ratio), vec![0.1_f64]);
+        let ratio = vec![
+            (Ratio::from_float(f64::max_value()).unwrap() * BigInt::from(10_usize))
+                / (Ratio::from_float(f64::max_value()).unwrap() * BigInt::from(100_usize)),
+        ];
+        assert_eq!(MaskedModel::ratios_as_floats::<f64>(ratio), vec![0.1_f64]);
     }
 }
