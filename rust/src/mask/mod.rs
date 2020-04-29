@@ -121,7 +121,14 @@ impl MaskedModel {
                 DataType::F64 => {
                     Self::shift_floats::<f64>(self.unmask_integers(mask), self.config(), no_models)
                         .try_into()
-                }
+                } // DataType::I32 => {
+                  //     Self::shift_ints::<i32>(self.unmask_integers(mask), self.config(), no_models)
+                  //         .into()
+                  // }
+                  // DataType::I64 => {
+                  //     Self::shift_ints::<i64>(self.unmask_integers(mask), self.config(), no_models)
+                  //         .into()
+                  // }
             }
         } else {
             Err(PetError::InvalidMask)
@@ -144,7 +151,7 @@ impl MaskedModel {
             .collect::<Vec<Ratio<BigInt>>>()
     }
 
-    /// Shift the integers into floats.
+    /// Shift the non-negative integers into floats.
     fn shift_floats<F: FloatCore>(
         integers: Vec<Ratio<BigInt>>,
         config: &MaskConfig,
@@ -159,6 +166,13 @@ impl MaskedModel {
             })
             .collect::<Vec<F>>()
     }
+
+    // /// Shift the non-negative integers into integers.
+    // fn shift_ints<F: FloatCore>(
+    //     integers: Vec<Ratio<BigInt>>,
+    //     config: &MaskConfig,
+    //     no_models: usize,
+    // ) -> Vec<F> {}
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -229,15 +243,14 @@ mod tests {
             ModelType::M3,
         )
         .config();
-        let (mask_seed, masked_model) = model.f32_unchecked().mask(1_f64, &config);
+        let (mask_seed, masked_model) = model.mask(1_f64, &config).unwrap();
         assert_eq!(masked_model.integers().len(), 10);
         let mask = mask_seed.derive_mask(10, &config);
         let unmasked_model = masked_model.unmask(&mask, 1).unwrap();
         assert!(model
-            .f32_unchecked()
-            .weights()
+            .weights_f32_unchecked()
             .iter()
-            .zip(unmasked_model.f32_unchecked().weights().iter())
+            .zip(unmasked_model.weights_f32_unchecked().iter())
             .all(|(weight, unmasked_weight)| (weight - unmasked_weight).abs() < 1e-8_f32));
     }
 
@@ -294,9 +307,8 @@ mod tests {
             ModelType::M3,
         )
         .config();
-        let (mask_seed, masked_model) = model.f32_unchecked().mask(0.5_f64, &config);
-        let (other_mask_seed, other_masked_model) =
-            other_model.f32_unchecked().mask(0.5_f64, &config);
+        let (mask_seed, masked_model) = model.mask(0.5_f64, &config).unwrap();
+        let (other_mask_seed, other_masked_model) = other_model.mask(0.5_f64, &config).unwrap();
         let aggregated_masked_model = masked_model.aggregate(&other_masked_model).unwrap();
         let aggregated_mask = mask_seed
             .derive_mask(10, &config)
@@ -304,15 +316,13 @@ mod tests {
             .unwrap();
         let aggregated_model = aggregated_masked_model.unmask(&aggregated_mask, 2).unwrap();
         let averaged_weights = model
-            .f32_unchecked()
-            .weights()
+            .weights_f32_unchecked()
             .iter()
-            .zip(other_model.f32_unchecked().weights().iter())
+            .zip(other_model.weights_f32_unchecked().iter())
             .map(|(weight, other_weight)| 0.5 * weight + 0.5 * other_weight)
             .collect::<Vec<f32>>();
         assert!(aggregated_model
-            .f32_unchecked()
-            .weights()
+            .weights_f32_unchecked()
             .iter()
             .zip(averaged_weights.iter())
             .all(

@@ -126,7 +126,8 @@ impl Participant {
             ModelType::M3,
         )
         .config();
-        let (mask_seed, masked_model) = model.f32_unchecked().mask(scalar, &mask_config);
+        // safe unwrap: data types of model and mask configuration conform due to definition above
+        let (mask_seed, masked_model) = model.mask(scalar, &mask_config).unwrap();
         let local_seed_dict = Self::create_local_seed_dict(sum_dict, &mask_seed);
         UpdateMessage::from_parts(
             &self.pk,

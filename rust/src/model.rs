@@ -4,13 +4,18 @@ use num::{
     bigint::{BigInt, BigUint},
     clamp,
     rational::Ratio,
-    traits::float::FloatCore,
+    traits::{float::FloatCore, int::PrimInt},
 };
 use rand::SeedableRng;
 use rand_chacha::ChaCha20Rng;
 
 use crate::{
-    mask::{config::MaskConfig, seed::MaskSeed, MaskIntegers, MaskedModel},
+    mask::{
+        config::{DataType, MaskConfig},
+        seed::MaskSeed,
+        MaskIntegers,
+        MaskedModel,
+    },
     utils::generate_integer,
     PetError,
 };
@@ -18,10 +23,10 @@ use crate::{
 #[derive(Clone, Debug, PartialEq)]
 /// A model with parameters represented as a vector of numbers.
 pub enum Model {
-    F32(FloatModel<f32>),
-    F64(FloatModel<f64>),
-    // I32(IntModel<i32>),
-    // I64(IntModel<i64>),
+    F32(Vec<f32>),
+    F64(Vec<f64>),
+    // I32(Vec<i32>),
+    // I64(Vec<i64>),
 }
 
 impl TryFrom<Vec<f32>> for Model {
@@ -30,7 +35,7 @@ impl TryFrom<Vec<f32>> for Model {
     /// Create a model from its weights. Fails if the weights are not finite.
     fn try_from(weights: Vec<f32>) -> Result<Self, Self::Error> {
         if weights.iter().all(|weight| weight.is_finite()) {
-            Ok(Self::F32(FloatModel::<f32> { weights }))
+            Ok(Self::F32(weights))
         } else {
             Err(Self::Error::InvalidModel)
         }
@@ -43,115 +48,136 @@ impl TryFrom<Vec<f64>> for Model {
     /// Create a model from its weights. Fails if the weights are not finite.
     fn try_from(weights: Vec<f64>) -> Result<Self, Self::Error> {
         if weights.iter().all(|weight| weight.is_finite()) {
-            Ok(Self::F64(FloatModel::<f64> { weights }))
+            Ok(Self::F64(weights))
         } else {
             Err(Self::Error::InvalidModel)
         }
     }
 }
 
-// impl TryFrom<Vec<i32>> for Model {
-//     type Error = PetError;
-
-//     /// Create a model from its weights. Fails if the weights are not finite.
-//     fn try_from(weights: Vec<i32>) -> Result<Self, Self::Error> {
-//         if weights.iter().all(|weight| weight.is_finite()) {
-//             Ok(Self::I32(IntModel::<i32> { weights }))
-//         } else {
-//             Err(Self::Error::InvalidModel)
-//         }
+// impl From<Vec<i32>> for Model {
+//     /// Create a model from its weights.
+//     fn from(weights: Vec<i32>) -> Self {
+//         Self::I32(weights)
 //     }
 // }
 
-// impl TryFrom<Vec<i64>> for Model {
-//     type Error = PetError;
-
+// impl From<Vec<i64>> for Model {
 //     /// Create a model from its weights. Fails if the weights are not finite.
-//     fn try_from(weights: Vec<i64>) -> Result<Self, Self::Error> {
-//         if weights.iter().all(|weight| weight.is_finite()) {
-//             Ok(Self::I64(IntModel::<i64> { weights }))
-//         } else {
-//             Err(Self::Error::InvalidModel)
-//         }
+//     fn from(weights: Vec<i64>) -> Self {
+//         Self::I64(weights)
 //     }
 // }
 
 impl Model {
-    pub fn f32(&'_ self) -> Option<&'_ FloatModel<f32>> {
-        if let Self::F32(model) = self {
-            Some(model)
+    /// Get a reference to the weights. Fails for nonconforming data types.
+    pub fn weights_f32(&'_ self) -> Option<&'_ Vec<f32>> {
+        if let Self::F32(weights) = self {
+            Some(weights)
         } else {
             None
         }
     }
 
-    pub fn f32_unchecked(&'_ self) -> &'_ FloatModel<f32> {
-        self.f32().unwrap()
+    /// Get a reference to the weights. Panics for nonconforming data types.
+    pub fn weights_f32_unchecked(&'_ self) -> &'_ Vec<f32> {
+        self.weights_f32().unwrap()
     }
 
-    pub fn f64(&'_ self) -> Option<&'_ FloatModel<f64>> {
-        if let Self::F64(model) = self {
-            Some(model)
+    /// Get a reference to the weights. Fails for nonconforming data types.
+    pub fn weights_f64(&'_ self) -> Option<&'_ Vec<f64>> {
+        if let Self::F64(weights) = self {
+            Some(weights)
         } else {
             None
         }
     }
 
-    pub fn f64_unchecked(&'_ self) -> &'_ FloatModel<f64> {
-        self.f64().unwrap()
+    /// Get a reference to the weights. Panics for nonconforming data types.
+    pub fn weights_f64_unchecked(&'_ self) -> &'_ Vec<f64> {
+        self.weights_f64().unwrap()
     }
 
-    // pub fn i32(&'_ self) -> Option<&'_ IntModel<i32>> {
-    //     if let Self::I32(model) = self {
-    //         Some(model)
+    // /// Get a reference to the weights. Fails for nonconforming data types.
+    // pub fn weights_i32(&'_ self) -> Option<&'_ Vec<i32>> {
+    //     if let Self::I32(weights) = self {
+    //         Some(weights)
     //     } else {
     //         None
     //     }
     // }
 
-    // pub fn i32_unchecked(&'_ self) -> &'_ IntModel<i32> {
-    //     self.i32().unwrap()
+    // /// Get a reference to the weights. Panics for nonconforming data types.
+    // pub fn weights_i32_unchecked(&'_ self) -> &'_ Vec<i32> {
+    //     self.weights_i32().unwrap()
     // }
 
-    // pub fn i64(&'_ self) -> Option<&'_ IntModel<i64>> {
-    //     if let Self::I64(model) = self {
-    //         Some(model)
+    // /// Get a reference to the weights. Fails for nonconforming data types.
+    // pub fn weights_i64(&'_ self) -> Option<&'_ Vec<i64>> {
+    //     if let Self::I64(weights) = self {
+    //         Some(weights)
     //     } else {
     //         None
     //     }
     // }
 
-    // pub fn i64_unchecked(&'_ self) -> &'_ IntModel<i64> {
-    //     self.i64().unwrap()
+    // /// Get a reference to the weights. Panics for nonconforming data types.
+    // pub fn weights_i64_unchecked(&'_ self) -> &'_ Vec<i64> {
+    //     self.weights_i64().unwrap()
     // }
-}
 
-#[derive(Clone, Debug, PartialEq)]
-/// A model with parameters represented as a vector of floats.
-pub struct FloatModel<F: FloatCore> {
-    weights: Vec<F>,
-}
-
-impl<F: FloatCore> FloatModel<F> {
-    /// Get a reference to the model weights.
-    pub fn weights(&'_ self) -> &'_ Vec<F> {
-        &self.weights
+    /// Mask the model wrt the mask configuration. Enforces bounds on the scalar and weights. Fails
+    /// if the mask configuration doesn't conform to the model data type.
+    pub fn mask(
+        &self,
+        scalar: f64,
+        config: &MaskConfig,
+    ) -> Result<(MaskSeed, MaskedModel), PetError> {
+        match self {
+            Model::F32(weights) => {
+                if let DataType::F32 = config.name().data_type() {
+                    Self::mask_integers(Self::shift_floats(weights, scalar, config), config)
+                } else {
+                    Err(PetError::InvalidMask)
+                }
+            }
+            Model::F64(weights) => {
+                if let DataType::F64 = config.name().data_type() {
+                    Self::mask_integers(Self::shift_floats(weights, scalar, config), config)
+                } else {
+                    Err(PetError::InvalidMask)
+                }
+            } // Model::I32(weights) => {
+              //     if let DataType::I32 = config.name().data_type() {
+              //         Self::mask_integers(Self::shift_ints(weights, scalar, config), config)
+              //     } else {
+              //         Err(PetError::AmbiguousMasks)
+              //     }
+              // }
+              // Model::I64(weights) => {
+              //     if let DataType::I64 = config.name().data_type() {
+              //         Self::mask_integers(Self::shift_ints(weights, scalar, config), config)
+              //     } else {
+              //         Err(PetError::AmbiguousMasks)
+              //     }
+              // }
+        }
     }
 
-    /// Mask the model wrt the mask configuration. Enforces bounds on the scalar and weights.
-    pub fn mask(&self, scalar: f64, config: &MaskConfig) -> (MaskSeed, MaskedModel) {
-        // safe unwrap: clamped scalar is finite
+    /// Shift the float weights into non-negative integers. Enforces bounds on the scalar and
+    /// weights.
+    fn shift_floats<F: FloatCore>(
+        weights: &Vec<F>,
+        scalar: f64,
+        config: &MaskConfig,
+    ) -> Vec<BigUint> {
         let scalar = &Ratio::<BigInt>::from_float(clamp(scalar, 0_f64, 1_f64)).unwrap();
         let negative_bound = &-config.add_shift();
         let positive_bound = config.add_shift();
-        let mask_seed = MaskSeed::generate();
-        let mut prng = ChaCha20Rng::from_seed(mask_seed.as_array());
-        let integers = self
-            .weights
+        weights
             .iter()
             .map(|weight| {
-                // clamp, scale and shift the weight into the non-negative integers
-                let integer = (((scalar
+                (((scalar
                     * clamp(
                         // safe unwrap: `weight` is guaranteed to be finite because of `try_from`
                         &Ratio::<BigInt>::from_float(*weight).unwrap(),
@@ -163,15 +189,31 @@ impl<F: FloatCore> FloatModel<F> {
                 .to_integer()
                 .to_biguint()
                 // safe unwrap: shifted weight is guaranteed to be non-negative
-                .unwrap();
-                // shift the masked weight into the finite group
-                let masked_weight =
-                    (integer + generate_integer(&mut prng, config.order())) % config.order();
-                masked_weight
+                .unwrap()
             })
-            .collect::<Vec<BigUint>>();
-        // safe unwrap: integer conformity is guaranteed by modulo operation during shifting
-        let masked_model = MaskedModel::from_parts(integers, config.clone()).unwrap();
-        (mask_seed, masked_model)
+            .collect()
+    }
+
+    // /// Shift the integer weights into non-negative integers. Enforces bounds on the scalar and
+    // /// weights.
+    // fn shift_ints<I: PrimInt>(
+    //     weights: &Vec<I>,
+    //     scalar: f64,
+    //     config: &MaskConfig,
+    // ) -> Vec<BigUint> {}
+
+    /// Mask the integers wrt the mask configuration.
+    fn mask_integers(
+        integers: Vec<BigUint>,
+        config: &MaskConfig,
+    ) -> Result<(MaskSeed, MaskedModel), PetError> {
+        let mask_seed = MaskSeed::generate();
+        let mut prng = ChaCha20Rng::from_seed(mask_seed.as_array());
+        let masked_integers = integers
+            .iter()
+            .map(|integer| (integer + generate_integer(&mut prng, config.order())) % config.order())
+            .collect();
+        let masked_model = MaskedModel::from_parts(masked_integers, config.clone())?;
+        Ok((mask_seed, masked_model))
     }
 }

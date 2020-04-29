@@ -99,6 +99,8 @@ impl TryFrom<u8> for GroupType {
 pub enum DataType {
     F32,
     F64,
+    // I32,
+    // I64,
 }
 
 impl TryFrom<u8> for DataType {
@@ -109,6 +111,8 @@ impl TryFrom<u8> for DataType {
         match byte {
             0 => Ok(Self::F32),
             1 => Ok(Self::F64),
+            // 2 => Ok(Self::I32),
+            // 3 => Ok(Self::I64),
             _ => Err(Self::Error::InvalidMask),
         }
     }
