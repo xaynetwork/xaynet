@@ -6,11 +6,11 @@ use crate::{
     mask::{
         config::{BoundType, DataType, GroupType, MaskConfig, MaskConfigs, ModelType},
         seed::MaskSeed,
+        Integers,
         Mask,
-        MaskIntegers,
     },
     message::{sum::SumMessage, sum2::Sum2Message, update::UpdateMessage},
-    model::Model,
+    model::{MaskModels, Model},
     utils::is_eligible,
     CoordinatorPublicKey,
     InitError,
@@ -125,7 +125,7 @@ impl Participant {
         )
         .config();
         // safe unwrap: data types of model and mask configuration conform due to definition above
-        let (mask_seed, masked_model) = model.mask(scalar, &mask_config).unwrap();
+        let (mask_seed, masked_model) = model.mask(scalar, &mask_config);
         let local_seed_dict = Self::create_local_seed_dict(sum_dict, &mask_seed);
         UpdateMessage::from_parts(
             &self.pk,
@@ -192,7 +192,7 @@ impl Participant {
         mask_len: usize,
         mask_config: &MaskConfig,
     ) -> Result<Mask, PetError> {
-        if mask_seeds.len() > 0 {
+        if !mask_seeds.is_empty() {
             let mut global_mask = mask_seeds[0].derive_mask(mask_len, mask_config);
             for mask_seed in mask_seeds[1..].iter() {
                 global_mask =

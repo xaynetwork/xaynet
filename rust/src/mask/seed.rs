@@ -7,7 +7,7 @@ use sodiumoxide::{crypto::box_, randombytes::randombytes};
 
 use crate::{
     crypto::{ByteObject, SEALBYTES},
-    mask::{config::MaskConfig, Mask, MaskIntegers},
+    mask::{config::MaskConfig, Integers, Mask},
     utils::generate_integer,
     PetError,
     SumParticipantEphemeralPublicKey,

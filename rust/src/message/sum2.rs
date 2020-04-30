@@ -8,7 +8,7 @@ use super::{MessageBuffer, Tag, LEN_BYTES};
 use crate::{
     certificate::Certificate,
     crypto::{ByteObject, Signature},
-    mask::{Mask, MaskIntegers},
+    mask::{Integers, Mask},
     CoordinatorPublicKey,
     CoordinatorSecretKey,
     ParticipantTaskSignature,

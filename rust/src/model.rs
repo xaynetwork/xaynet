@@ -1,126 +1,35 @@
 use std::convert::TryFrom;
 
-use num::{bigint::BigInt, clamp, rational::Ratio, traits::float::FloatCore};
+use num::{bigint::BigInt, clamp, rational::Ratio, traits::identities::Zero};
 use rand::SeedableRng;
 use rand_chacha::ChaCha20Rng;
 
 use crate::{
-    mask::{
-        config::{DataType, MaskConfig},
-        seed::MaskSeed,
-        MaskIntegers,
-        MaskedModel,
-    },
+    mask::{config::MaskConfig, seed::MaskSeed, Integers, MaskedModel},
     utils::generate_integer,
     PetError,
 };
 
-#[derive(Clone, Debug, PartialEq)]
-/// A model with weights represented as a vector of primitive numbers.
-pub enum Model {
-    F32(Vec<f32>),
-    F64(Vec<f64>),
-    I32(Vec<i32>),
-    I64(Vec<i64>),
-}
+/// Masking of models.
+pub trait MaskModels<N> {
+    /// Get a reference to the weights.
+    fn weights(&self) -> &Vec<N>;
 
-impl TryFrom<Vec<f32>> for Model {
-    type Error = PetError;
+    /// Cast the weights as ratios. Must handle non-finite weights.
+    fn as_ratios(&self) -> Vec<Ratio<BigInt>>;
 
-    /// Create a model from its weights. Fails if the weights are not finite.
-    fn try_from(weights: Vec<f32>) -> Result<Self, Self::Error> {
-        if weights.iter().all(|weight| weight.is_finite()) {
-            Ok(Self::F32(weights))
-        } else {
-            Err(Self::Error::InvalidModel)
-        }
-    }
-}
-
-impl TryFrom<Vec<f64>> for Model {
-    type Error = PetError;
-
-    /// Create a model from its weights. Fails if the weights are not finite.
-    fn try_from(weights: Vec<f64>) -> Result<Self, Self::Error> {
-        if weights.iter().all(|weight| weight.is_finite()) {
-            Ok(Self::F64(weights))
-        } else {
-            Err(Self::Error::InvalidModel)
-        }
-    }
-}
-
-impl From<Vec<i32>> for Model {
-    /// Create a model from its weights.
-    fn from(weights: Vec<i32>) -> Self {
-        Self::I32(weights)
-    }
-}
-
-impl From<Vec<i64>> for Model {
-    /// Create a model from its weights. Fails if the weights are not finite.
-    fn from(weights: Vec<i64>) -> Self {
-        Self::I64(weights)
-    }
-}
-
-impl Model {
-    /// Mask the model wrt the mask configuration. Enforces bounds on the scalar and weights. Fails
-    /// if the mask configuration doesn't conform to the model data type.
-    pub fn mask(
-        &self,
-        scalar: f64,
-        config: &MaskConfig,
-    ) -> Result<(MaskSeed, MaskedModel), PetError> {
-        match self {
-            Model::F32(weights) => {
-                if let DataType::F32 = config.name().data_type() {
-                    // safe unwrap: `weights` are guaranteed to be finite because of `try_from`
-                    Self::mask_numbers(Self::floats_as_ratios(weights).unwrap(), scalar, config)
-                } else {
-                    Err(PetError::InvalidMask)
-                }
-            }
-            Model::F64(weights) => {
-                if let DataType::F64 = config.name().data_type() {
-                    // safe unwrap: `weights` are guaranteed to be finite because of `try_from`
-                    Self::mask_numbers(Self::floats_as_ratios(weights).unwrap(), scalar, config)
-                } else {
-                    Err(PetError::InvalidMask)
-                }
-            }
-            Model::I32(weights) => {
-                if let DataType::I32 = config.name().data_type() {
-                    Self::mask_numbers(Self::i32s_as_ratios(weights), scalar, config)
-                } else {
-                    Err(PetError::InvalidMask)
-                }
-            }
-            Model::I64(weights) => {
-                if let DataType::I64 = config.name().data_type() {
-                    Self::mask_numbers(Self::i64s_as_ratios(weights), scalar, config)
-                } else {
-                    Err(PetError::InvalidMask)
-                }
-            }
-        }
-    }
-
-    /// Mask the numbers wrt the mask configuration. Enforces bounds on the scalar and numbers.
-    fn mask_numbers(
-        numbers: Vec<Ratio<BigInt>>,
-        scalar: f64,
-        config: &MaskConfig,
-    ) -> Result<(MaskSeed, MaskedModel), PetError> {
+    /// Mask the model wrt the mask configuration. Enforces bounds on the scalar and weights.
+    fn mask(&self, scalar: f64, config: &MaskConfig) -> (MaskSeed, MaskedModel) {
         let scalar = &Ratio::<BigInt>::from_float(clamp(scalar, 0_f64, 1_f64)).unwrap();
         let negative_bound = &-config.add_shift();
         let positive_bound = config.add_shift();
         let mask_seed = MaskSeed::generate();
         let mut prng = ChaCha20Rng::from_seed(mask_seed.as_array());
-        let masked_numbers = numbers
+        let masked_weights = self
+            .as_ratios()
             .iter()
-            .map(|number| {
-                let scaled = scalar * clamp(number, negative_bound, positive_bound);
+            .map(|weight| {
+                let scaled = scalar * clamp(weight, negative_bound, positive_bound);
                 let shifted = ((scaled + config.add_shift()) * config.exp_shift())
                     .to_integer()
                     .to_biguint()
@@ -129,29 +38,128 @@ impl Model {
                 (shifted + generate_integer(&mut prng, config.order())) % config.order()
             })
             .collect();
-        let masked_model = MaskedModel::from_parts(masked_numbers, config.clone())?;
-        Ok((mask_seed, masked_model))
+        // safe unwrap: masked weights are guaranteed to conform to the mask configuration
+        let masked_model = MaskedModel::from_parts(masked_weights, config.clone()).unwrap();
+        (mask_seed, masked_model)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+/// A model with weights represented as a vector of primitive numbers.
+pub struct Model<N> {
+    weights: Vec<N>,
+}
+
+impl TryFrom<Vec<f32>> for Model<f32> {
+    type Error = PetError;
+
+    /// Create a model from its weights. Fails if the weights are not finite.
+    fn try_from(weights: Vec<f32>) -> Result<Self, Self::Error> {
+        if weights.iter().all(|weight| weight.is_finite()) {
+            Ok(Self { weights })
+        } else {
+            Err(Self::Error::InvalidModel)
+        }
+    }
+}
+
+impl TryFrom<Vec<f64>> for Model<f64> {
+    type Error = PetError;
+
+    /// Create a model from its weights. Fails if the weights are not finite.
+    fn try_from(weights: Vec<f64>) -> Result<Self, Self::Error> {
+        if weights.iter().all(|weight| weight.is_finite()) {
+            Ok(Self { weights })
+        } else {
+            Err(Self::Error::InvalidModel)
+        }
+    }
+}
+
+impl From<Vec<i32>> for Model<i32> {
+    /// Create a model from its weights.
+    fn from(weights: Vec<i32>) -> Self {
+        Self { weights }
+    }
+}
+
+impl From<Vec<i64>> for Model<i64> {
+    /// Create a model from its weights.
+    fn from(weights: Vec<i64>) -> Self {
+        Self { weights }
+    }
+}
+
+impl MaskModels<f32> for Model<f32> {
+    /// Get a reference to the weights.
+    fn weights(&self) -> &Vec<f32> {
+        &self.weights
     }
 
-    /// Cast floats as ratios. Fails if any float is not finite.
-    fn floats_as_ratios<F: FloatCore>(floats: &Vec<F>) -> Option<Vec<Ratio<BigInt>>> {
-        floats
+    /// Cast the weights as ratios. Positve/negative infinity is mapped to max/min and NaN to zero.
+    fn as_ratios(&self) -> Vec<Ratio<BigInt>> {
+        self.weights
             .iter()
-            .map(|float| Ratio::<BigInt>::from_float(*float))
+            .map(|weight| {
+                if weight.is_nan() {
+                    Ratio::<BigInt>::zero()
+                } else {
+                    // safe unwrap: clamped weight is guaranteed to be finite
+                    Ratio::<BigInt>::from_float(clamp(*weight, f32::MIN, f32::MAX)).unwrap()
+                }
+            })
             .collect()
     }
+}
 
-    /// Cast i32 integers as ratios.
-    fn i32s_as_ratios(ints: &Vec<i32>) -> Vec<Ratio<BigInt>> {
-        ints.iter()
-            .map(|int| Ratio::from_integer(BigInt::from(*int)))
-            .collect()
+impl MaskModels<f64> for Model<f64> {
+    /// Get a reference to the weights.
+    fn weights(&self) -> &Vec<f64> {
+        &self.weights
     }
 
-    /// Cast i64 integers as ratios.
-    fn i64s_as_ratios(ints: &Vec<i64>) -> Vec<Ratio<BigInt>> {
-        ints.iter()
-            .map(|int| Ratio::from_integer(BigInt::from(*int)))
+    /// Cast the weights as ratios. Positve/negative infinity is mapped to max/min and NaN to zero.
+    fn as_ratios(&self) -> Vec<Ratio<BigInt>> {
+        self.weights
+            .iter()
+            .map(|weight| {
+                if weight.is_nan() {
+                    Ratio::<BigInt>::zero()
+                } else {
+                    // safe unwrap: clamped weight is guaranteed to be finite
+                    Ratio::<BigInt>::from_float(clamp(*weight, f64::MIN, f64::MAX)).unwrap()
+                }
+            })
+            .collect()
+    }
+}
+
+impl MaskModels<i32> for Model<i32> {
+    /// Get a reference to the weights.
+    fn weights(&self) -> &Vec<i32> {
+        &self.weights
+    }
+
+    /// Cast the weights as ratios.
+    fn as_ratios(&self) -> Vec<Ratio<BigInt>> {
+        self.weights
+            .iter()
+            .map(|weight| Ratio::from_integer(BigInt::from(*weight)))
+            .collect()
+    }
+}
+
+impl MaskModels<i64> for Model<i64> {
+    /// Get a reference to the weights.
+    fn weights(&self) -> &Vec<i64> {
+        &self.weights
+    }
+
+    /// Cast the weights as ratios.
+    fn as_ratios(&self) -> Vec<Ratio<BigInt>> {
+        self.weights
+            .iter()
+            .map(|weight| Ratio::from_integer(BigInt::from(*weight)))
             .collect()
     }
 }
