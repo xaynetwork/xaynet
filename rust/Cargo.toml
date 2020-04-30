@@ -10,37 +10,20 @@ repository = "https://github.com/xainag/xain-fl/"
 homepage = "https://xain.io/"
 
 [dependencies]
-uuid = { version = "0.8.1", features = ["v4", "serde"] }
 futures = "0.3.4"
-tokio = { version = "0.2.13", features = ["rt-core", "rt-threaded", "tcp", "time", "macros", "signal", "sync", "stream"] }
+tokio = { version = "0.2.19", features = ["rt-core", "rt-threaded", "tcp", "time", "macros", "signal", "sync", "stream"] }
 derive_more = { version = "0.99.3", default-features = false, features = [ "display", "from" , "as_ref", "as_mut"] }
-rand = "0.7.3"
-tarpc = { version = "0.20.0", features = [ "full" ] }
 serde = { version = "1.0.104", features = [ "derive" ] }
-tokio-serde = { version = "0.6.0", features = [ "json" ] }
-stubborn-io = "0.1.8"
 bytes = "0.5.4"
-config = { version = "0.10.1", default-features = false, features = [ "toml" ] }
-clap = "2.33.0"
-thiserror = "1.0.11"
-anyhow = "1.0.26"
 tracing = "0.1.13"
-tracing-subscriber = "0.2.3"
-tracing-log = "0.1.1"
-tracing-futures = "0.2.3"
 sodiumoxide = "0.2.5"
 num = "0.2.1"
 counter = "0.4.3"
 
-influxdb = { version = "0.1.0", features = ["derive"], optional = true }
-chrono = { version = "0.4", features = ["serde"], optional = true }
-opentelemetry = { version = "0.2.0", optional = true }
-tracing-opentelemetry = { version = "0.2.0", optional = true }
-opentelemetry-jaeger = { version = "0.1.0", optional = true }
 bincode = "1.2.1"
-
-[dev-dependencies]
-mockall = "0.6.0"
+thiserror = "1.0.16"
+anyhow = "1.0.28"
+bitflags = "1.2.1"
 
 [[bin]]
 name = "coordinator"
@@ -48,6 +31,3 @@ path = "src/bin/main.rs"
 
 [features]
 default = []
-telemetry = [ "opentelemetry", "tracing-opentelemetry", "opentelemetry-jaeger"]
-influx_metrics = [ "influxdb" , "chrono"]
-all = [ "telemetry", "influx_metrics"]
