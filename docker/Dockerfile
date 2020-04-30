@@ -17,14 +17,14 @@ COPY rust/Cargo.toml .
 RUN cargo fetch
 RUN mkdir -p ./src && \
     touch src/lib.rs && \
-    cargo build --lib --influx_metrics
+    cargo build --lib --features=influx_metrics
 
 # Now copy the actual source code
 COPY rust/src src
 # Fix timestamp. cargo incremental build as issues caused by the above
 # trick to compile the deps separately
 RUN touch src/lib.rs
-RUN cargo build --all-features
+RUN cargo build --features=influx_metrics
 
 FROM python:3.7.6-slim-buster
 
