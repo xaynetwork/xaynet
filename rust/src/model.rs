@@ -163,3 +163,407 @@ impl MaskModels<i64> for Model<i64> {
             .collect()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::iter;
+
+    use rand::distributions::{Distribution, Uniform};
+
+    use super::*;
+    use crate::mask::{
+        config::{
+            BoundType::{Bmax, B0, B2, B4, B6},
+            DataType::{F32, F64, I32, I64},
+            GroupType::{Integer, Power2, Prime},
+            MaskConfigs,
+            ModelType::{M12, M3, M6, M9},
+        },
+        seed::MaskSeed,
+        MaskIntegers,
+    };
+
+    #[test]
+    fn test_model_f32() {
+        // try from
+        let weights = vec![-1_f32, 0_f32, 1_f32];
+        let neg_inf_weights = vec![f32::NEG_INFINITY, 0_f32, 1_f32];
+        let nan_weights = vec![-1_f32, f32::NAN, 1_f32];
+        let inf_weights = vec![-1_f32, 0_f32, f32::INFINITY];
+        let mut model = Model::<f32>::try_from(weights.clone()).unwrap();
+        assert_eq!(model.weights(), &weights);
+        assert_eq!(
+            Model::<f32>::try_from(inf_weights.clone()).unwrap_err(),
+            PetError::InvalidModel,
+        );
+        assert_eq!(
+            Model::<f32>::try_from(neg_inf_weights.clone()).unwrap_err(),
+            PetError::InvalidModel,
+        );
+        assert_eq!(
+            Model::<f32>::try_from(nan_weights.clone()).unwrap_err(),
+            PetError::InvalidModel,
+        );
+
+        // as ratio
+        assert_eq!(
+            model.as_ratios(),
+            vec![
+                Ratio::<BigInt>::from_float(-1_f32).unwrap(),
+                Ratio::<BigInt>::zero(),
+                Ratio::<BigInt>::from_float(1_f32).unwrap(),
+            ],
+        );
+        model.weights = neg_inf_weights;
+        assert_eq!(
+            model.as_ratios(),
+            vec![
+                Ratio::<BigInt>::from_float(f32::MIN).unwrap(),
+                Ratio::<BigInt>::zero(),
+                Ratio::<BigInt>::from_float(1_f32).unwrap(),
+            ],
+        );
+        model.weights = nan_weights;
+        assert_eq!(
+            model.as_ratios(),
+            vec![
+                Ratio::<BigInt>::from_float(-1_f32).unwrap(),
+                Ratio::<BigInt>::zero(),
+                Ratio::<BigInt>::from_float(1_f32).unwrap(),
+            ],
+        );
+        model.weights = inf_weights;
+        assert_eq!(
+            model.as_ratios(),
+            vec![
+                Ratio::<BigInt>::from_float(-1_f32).unwrap(),
+                Ratio::<BigInt>::zero(),
+                Ratio::<BigInt>::from_float(f32::MAX).unwrap(),
+            ],
+        );
+    }
+
+    #[test]
+    fn test_model_f64() {
+        // try from
+        let weights = vec![-1_f64, 0_f64, 1_f64];
+        let neg_inf_weights = vec![f64::NEG_INFINITY, 0_f64, 1_f64];
+        let nan_weights = vec![-1_f64, f64::NAN, 1_f64];
+        let inf_weights = vec![-1_f64, 0_f64, f64::INFINITY];
+        let mut model = Model::<f64>::try_from(weights.clone()).unwrap();
+        assert_eq!(model.weights(), &weights);
+        assert_eq!(
+            Model::<f64>::try_from(inf_weights.clone()).unwrap_err(),
+            PetError::InvalidModel,
+        );
+        assert_eq!(
+            Model::<f64>::try_from(neg_inf_weights.clone()).unwrap_err(),
+            PetError::InvalidModel,
+        );
+        assert_eq!(
+            Model::<f64>::try_from(nan_weights.clone()).unwrap_err(),
+            PetError::InvalidModel,
+        );
+
+        // as ratio
+        assert_eq!(
+            model.as_ratios(),
+            vec![
+                Ratio::<BigInt>::from_float(-1_f64).unwrap(),
+                Ratio::<BigInt>::zero(),
+                Ratio::<BigInt>::from_float(1_f64).unwrap(),
+            ],
+        );
+        model.weights = neg_inf_weights;
+        assert_eq!(
+            model.as_ratios(),
+            vec![
+                Ratio::<BigInt>::from_float(f64::MIN).unwrap(),
+                Ratio::<BigInt>::zero(),
+                Ratio::<BigInt>::from_float(1_f64).unwrap(),
+            ],
+        );
+        model.weights = nan_weights;
+        assert_eq!(
+            model.as_ratios(),
+            vec![
+                Ratio::<BigInt>::from_float(-1_f64).unwrap(),
+                Ratio::<BigInt>::zero(),
+                Ratio::<BigInt>::from_float(1_f64).unwrap(),
+            ],
+        );
+        model.weights = inf_weights;
+        assert_eq!(
+            model.as_ratios(),
+            vec![
+                Ratio::<BigInt>::from_float(-1_f64).unwrap(),
+                Ratio::<BigInt>::zero(),
+                Ratio::<BigInt>::from_float(f64::MAX).unwrap(),
+            ],
+        );
+    }
+
+    #[test]
+    fn test_model_i32() {
+        // from
+        let weights = vec![-1_i32, 0_i32, 1_i32];
+        let model = Model::<i32>::from(weights.clone());
+        assert_eq!(model.weights(), &weights);
+
+        // as ratio
+        assert_eq!(
+            model.as_ratios(),
+            vec![
+                Ratio::from_integer(BigInt::from(-1_i32)),
+                Ratio::<BigInt>::zero(),
+                Ratio::from_integer(BigInt::from(1_i32)),
+            ],
+        );
+    }
+
+    #[test]
+    fn test_model_i64() {
+        // from
+        let weights = vec![-1_i64, 0_i64, 1_i64];
+        let model = Model::<i64>::from(weights.clone());
+        assert_eq!(model.weights(), &weights);
+
+        // as ratio
+        assert_eq!(
+            model.as_ratios(),
+            vec![
+                Ratio::from_integer(BigInt::from(-1_i64)),
+                Ratio::<BigInt>::zero(),
+                Ratio::from_integer(BigInt::from(1_i64)),
+            ],
+        );
+    }
+
+    // for float types the error depends on the order of magnitude of the weights => raise the
+    // tolerance or bound the random weights if this test fails to often
+    macro_rules! test_masking {
+        // todo: remove the config argument when mask configurations can be derived programmatically
+        ($($name:ident, $type:ty, $min:expr, $max:expr, $len:expr, $tol:expr, $config:expr $(,)?)?) => {
+            $(
+                #[test]
+                fn $name() {
+                    let mut prng = ChaCha20Rng::from_seed(MaskSeed::generate().as_array());
+                    let uniform = Uniform::new($min, $max);
+                    let weights = iter::repeat_with(|| uniform.sample(&mut prng))
+                        .take($len)
+                        .collect::<Vec<$type>>();
+                    let model = Model::try_from(weights).unwrap();
+                    let (mask_seed, masked_model) = model.mask(1_f64, &$config);
+                    assert_eq!(masked_model.integers().len(), $len);
+                    let mask = mask_seed.derive_mask($len, &$config);
+                    let unmasked_model: Model<$type> = masked_model.unmask(&mask, 1_usize).unwrap();
+                    assert!(model
+                        .weights()
+                        .iter()
+                        .zip(unmasked_model.weights().iter())
+                        .all(|(weight, unmasked_weight)| (weight - unmasked_weight).abs() <= $tol));
+                }
+            )?
+        };
+    }
+
+    test_masking!(
+        test_masking_f32_b0,
+        f32,
+        -1_f32,
+        1_f32,
+        10_usize,
+        1e-3_f32,
+        MaskConfigs::from_parts(Prime, F32, B0, M3).config(),
+    );
+
+    test_masking!(
+        test_masking_f32_b2,
+        f32,
+        -100_f32,
+        100_f32,
+        10_usize,
+        1e-3_f32,
+        MaskConfigs::from_parts(Prime, F32, B2, M3).config(),
+    );
+
+    test_masking!(
+        test_masking_f32_b4,
+        f32,
+        -10_000_f32,
+        10_000_f32,
+        10_usize,
+        1e-3_f32,
+        MaskConfigs::from_parts(Prime, F32, B4, M3).config(),
+    );
+
+    test_masking!(
+        test_masking_f32_b6,
+        f32,
+        -1_000_000_f32,
+        1_000_000_f32,
+        10_usize,
+        1e-3_f32,
+        MaskConfigs::from_parts(Prime, F32, B6, M3).config(),
+    );
+
+    test_masking!(
+        test_masking_f32_bmax,
+        f32,
+        f32::MIN,
+        f32::MAX,
+        10_usize,
+        1e-3_f32,
+        MaskConfigs::from_parts(Prime, F32, Bmax, M3).config(),
+    );
+
+    test_masking!(
+        test_masking_f64_b0,
+        f64,
+        -1_f64,
+        1_f64,
+        10_usize,
+        1e-6_f64,
+        MaskConfigs::from_parts(Prime, F64, B0, M3).config(),
+    );
+
+    test_masking!(
+        test_masking_f64_b2,
+        f64,
+        -100_f64,
+        100_f64,
+        10_usize,
+        1e-6_f64,
+        MaskConfigs::from_parts(Prime, F64, B2, M3).config(),
+    );
+
+    test_masking!(
+        test_masking_f64_b4,
+        f64,
+        -10_000_f64,
+        10_000_f64,
+        10_usize,
+        1e-6_f64,
+        MaskConfigs::from_parts(Prime, F64, B4, M3).config(),
+    );
+
+    test_masking!(
+        test_masking_f64_b6,
+        f64,
+        -1_000_000_f64,
+        1_000_000_f64,
+        10_usize,
+        1e-6_f64,
+        MaskConfigs::from_parts(Prime, F64, B6, M3).config(),
+    );
+
+    test_masking!(
+        test_masking_f64_bmax,
+        f64,
+        f64::MIN,
+        f64::MAX,
+        10_usize,
+        1e-6_f64,
+        MaskConfigs::from_parts(Prime, F64, Bmax, M3).config(),
+    );
+
+    test_masking!(
+        test_masking_i32_b0,
+        i32,
+        -1_i32,
+        1_i32,
+        10_usize,
+        0_i32,
+        MaskConfigs::from_parts(Prime, I32, B0, M3).config(),
+    );
+
+    test_masking!(
+        test_masking_i32_b2,
+        i32,
+        -100_i32,
+        100_i32,
+        10_usize,
+        0_i32,
+        MaskConfigs::from_parts(Prime, I32, B2, M3).config(),
+    );
+
+    test_masking!(
+        test_masking_i32_b4,
+        i32,
+        -10_000_i32,
+        10_000_i32,
+        10_usize,
+        0_i32,
+        MaskConfigs::from_parts(Prime, I32, B4, M3).config(),
+    );
+
+    test_masking!(
+        test_masking_i32_b6,
+        i32,
+        -1_000_000_i32,
+        1_000_000_i32,
+        10_usize,
+        0_i32,
+        MaskConfigs::from_parts(Prime, I32, B6, M3).config(),
+    );
+
+    test_masking!(
+        test_masking_i32_bmax,
+        i32,
+        i32::MIN,
+        i32::MAX,
+        10_usize,
+        0_i32,
+        MaskConfigs::from_parts(Prime, I32, Bmax, M3).config(),
+    );
+
+    test_masking!(
+        test_masking_i64_b0,
+        i64,
+        -1_i64,
+        1_i64,
+        10_usize,
+        0_i64,
+        MaskConfigs::from_parts(Prime, I64, B0, M3).config(),
+    );
+
+    test_masking!(
+        test_masking_i64_b2,
+        i64,
+        -100_i64,
+        100_i64,
+        10_usize,
+        0_i64,
+        MaskConfigs::from_parts(Prime, I64, B2, M3).config(),
+    );
+
+    test_masking!(
+        test_masking_i64_b4,
+        i64,
+        -10_000_i64,
+        10_000_i64,
+        10_usize,
+        0_i64,
+        MaskConfigs::from_parts(Prime, I64, B4, M3).config(),
+    );
+
+    test_masking!(
+        test_masking_i64_b6,
+        i64,
+        -1_000_000_i64,
+        1_000_000_i64,
+        10_usize,
+        0_i64,
+        MaskConfigs::from_parts(Prime, I64, B6, M3).config(),
+    );
+
+    test_masking!(
+        test_masking_i64_bmax,
+        i64,
+        i64::MIN,
+        i64::MAX,
+        10_usize,
+        0_i64,
+        MaskConfigs::from_parts(Prime, I64, Bmax, M3).config(),
+    );
+}
