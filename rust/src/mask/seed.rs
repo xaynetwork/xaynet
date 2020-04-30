@@ -15,6 +15,7 @@ use crate::{
 };
 
 #[derive(AsRef, AsMut, Clone, Debug, PartialEq)]
+/// A seed for a mask.
 pub struct MaskSeed(box_::Seed);
 
 impl ByteObject for MaskSeed {

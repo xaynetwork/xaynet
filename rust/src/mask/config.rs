@@ -47,6 +47,7 @@ impl MaskConfig {
         &self.add_shift
     }
 
+    /// Serialize the mask configuration into bytes.
     pub fn serialize(&self) -> Vec<u8> {
         [
             (self.name.group_type as u8).to_le_bytes(),
@@ -57,6 +58,7 @@ impl MaskConfig {
         .concat()
     }
 
+    /// Deserialize the mask configuration from bytes. Fails if any of its parts is invalid.
     pub fn deserialize(bytes: &[u8]) -> Result<Self, PetError> {
         if bytes.len() == 4 {
             Ok(MaskConfigs {
@@ -74,9 +76,13 @@ impl MaskConfig {
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(u8)]
+/// The order of the finite group.
 pub enum GroupType {
+    /// A finite group of exact integer order.
     Integer,
+    /// A finite group of prime order.
     Prime,
+    /// A finite group of power-of-two order.
     Power2,
 }
 
@@ -96,10 +102,15 @@ impl TryFrom<u8> for GroupType {
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(u8)]
+/// The data type of the numbers to be masked.
 pub enum DataType {
+    /// Numbers of type f32.
     F32,
+    /// Numbers of type f64.
     F64,
+    /// Numbers of type i32.
     I32,
+    /// Numbers of type i64.
     I64,
 }
 
@@ -120,11 +131,17 @@ impl TryFrom<u8> for DataType {
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(u8)]
+/// The bounds of the numbers to be masked.
 pub enum BoundType {
+    /// Numbers absolutely bounded by 1.
     B0 = 0,
+    /// Numbers absolutely bounded by 100.
     B2 = 2,
+    /// Numbers absolutely bounded by 10_000.
     B4 = 4,
+    /// Numbers absolutely bounded by 1_000_000.
     B6 = 6,
+    /// Numbers absolutely bounded by their data types' maximum absolute value.
     Bmax = 255,
 }
 
@@ -146,12 +163,16 @@ impl TryFrom<u8> for BoundType {
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(u8)]
+/// The number of models to be aggregated at most.
 pub enum ModelType {
+    /// At most 1_000 models to be aggregated.
     M3 = 3,
+    /// At most 1_000_000 models to be aggregated.
     M6 = 6,
+    /// At most 1_000_000_000 models to be aggregated.
     M9 = 9,
+    /// At most 1_000_000_000_000 models to be aggregated.
     M12 = 12,
-    // Minf = 255,
 }
 
 impl TryFrom<u8> for ModelType {
@@ -164,14 +185,17 @@ impl TryFrom<u8> for ModelType {
             6 => Ok(Self::M6),
             9 => Ok(Self::M9),
             12 => Ok(Self::M12),
-            // 255 => Ok(Self::Minf),
             _ => Err(Self::Error::InvalidMask),
         }
     }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-/// A mask configuration name.
+/// A mask configuration name. Consists of identifiers for its parts:
+/// - the order of the finite group
+/// - the data type of the numbers to be masked
+/// - the bounds of the numbers to be masked
+/// - the number of models to be aggregated at most
 pub struct MaskConfigs {
     group_type: GroupType,
     data_type: DataType,
@@ -223,13 +247,13 @@ impl MaskConfigs {
         use ModelType::{M12, M3, M6, M9};
 
         let name = *self;
-        // safe unwraps: all numbers are finite
         let add_shift = match self.bound_type {
             B0 => Ratio::from_integer(BigInt::from(1)),
             B2 => Ratio::from_integer(BigInt::from(100)),
             B4 => Ratio::from_integer(BigInt::from(10_000)),
             B6 => Ratio::from_integer(BigInt::from(1_000_000)),
             Bmax => match self.data_type {
+                // safe unwraps: all numbers are finite
                 F32 => Ratio::from_float(f32::MAX).unwrap(),
                 F64 => Ratio::from_float(f64::MAX).unwrap(),
                 I32 => Ratio::from_integer(-BigInt::from(i32::MIN)),
@@ -247,11 +271,11 @@ impl MaskConfigs {
             },
             I32 | I64 => BigInt::from(1),
         };
-        // safe unwraps: radix and all strings are valid
         let order = match self.group_type {
             Integer => match self.data_type {
                 F32 => match self.bound_type {
                     B0 => match self.model_type {
+                        // safe unwraps: radix and all strings are valid
                         M3 => BigUint::from_str_radix("20_000_000_000_000", 10).unwrap(),
                         M6 => BigUint::from_str_radix("20_000_000_000_000_000", 10).unwrap(),
                         M9 => BigUint::from_str_radix("20_000_000_000_000_000_000", 10).unwrap(),

@@ -1,7 +1,5 @@
 use std::{convert::TryFrom, default::Default};
 
-use sodiumoxide;
-
 use crate::{
     certificate::Certificate,
     crypto::{generate_encrypt_key_pair, generate_signing_key_pair, ByteObject},

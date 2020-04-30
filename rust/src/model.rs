@@ -16,7 +16,7 @@ use crate::{
 };
 
 #[derive(Clone, Debug, PartialEq)]
-/// A model with parameters represented as a vector of numbers.
+/// A model with weights represented as a vector of primitive numbers.
 pub enum Model {
     F32(Vec<f32>),
     F64(Vec<f64>),
@@ -111,7 +111,6 @@ impl Model {
         numbers: Vec<Ratio<BigInt>>,
         scalar: f64,
         config: &MaskConfig,
-        // ) -> Vec<BigUint> {
     ) -> Result<(MaskSeed, MaskedModel), PetError> {
         let scalar = &Ratio::<BigInt>::from_float(clamp(scalar, 0_f64, 1_f64)).unwrap();
         let negative_bound = &-config.add_shift();
@@ -127,9 +126,7 @@ impl Model {
                     .to_biguint()
                     // safe unwrap: shifted weight is guaranteed to be non-negative
                     .unwrap();
-                let masked =
-                    (shifted + generate_integer(&mut prng, config.order())) % config.order();
-                masked
+                (shifted + generate_integer(&mut prng, config.order())) % config.order()
             })
             .collect();
         let masked_model = MaskedModel::from_parts(masked_numbers, config.clone())?;

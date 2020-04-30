@@ -12,6 +12,7 @@ use num::{
 use self::config::{DataType, MaskConfig};
 use crate::{model::Model, PetError};
 
+/// Aggregation and serialization for vectors of arbitrarily large integers.
 pub trait MaskIntegers: Sized {
     /// Get a reference to the integers.
     fn integers(&'_ self) -> &'_ Vec<BigUint>;
@@ -159,8 +160,7 @@ impl MaskedModel {
                             // safe unwrap: `to_bigint` never fails for `BigUint`s
                             .unwrap(),
                     );
-                    let shifted = unmasked / config.exp_shift() - &scaled_add_shift;
-                    shifted
+                    unmasked / config.exp_shift() - &scaled_add_shift
                 })
                 .collect::<Vec<Ratio<BigInt>>>();
             Ok(numbers)
@@ -176,7 +176,7 @@ impl MaskedModel {
             .map(|ratio| {
                 let mut numer = ratio.numer().clone();
                 let mut denom = ratio.denom().clone();
-                // safe loop: terminates after at most bitlength(ratio) iterations
+                // safe loop: terminates after at most bitlength of ratio iterations
                 loop {
                     if let (Some(n), Some(d)) = (F::from(numer.clone()), F::from(denom.clone())) {
                         if d == F::zero() {

@@ -1,7 +1,7 @@
 use std::{collections::VecDeque, default::Default, iter};
 
 use counter::Counter;
-use sodiumoxide::{self, crypto::hash::sha256, randombytes::randombytes};
+use sodiumoxide::{crypto::hash::sha256, randombytes::randombytes};
 use thiserror::Error;
 
 use crate::{
