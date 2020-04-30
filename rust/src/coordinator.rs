@@ -24,7 +24,6 @@ use crate::{
     PetError,
     SeedDict,
     SumDict,
-    SumParticipantEphemeralPublicKey,
     SumParticipantPublicKey,
     UpdateParticipantPublicKey,
 };
@@ -199,6 +198,13 @@ pub trait Coordinators: Sized {
         self.events_mut().pop_front()
     }
 
+    fn message_open(&self) -> MessageOpen<'_, '_> {
+        MessageOpen {
+            recipient_pk: &self.pk,
+            recipient_sk: &self.sk,
+        }
+    }
+
     /// Validate and handle a sum, update or sum2 message.
     fn handle_message(&mut self, bytes: &[u8]) -> Result<(), PetError> {
         match self.phase() {
@@ -240,8 +246,8 @@ pub trait Coordinators: Sized {
     /// Validate a sum signature and its implied task.
     fn validate_sum_task(
         &self,
-        sum_signature: &ParticipantTaskSignature,
         pk: &SumParticipantPublicKey,
+        sum_signature: &ParticipantTaskSignature,
     ) -> Result<(), PetError> {
         if pk.verify_detached(sum_signature, &[self.seed().as_slice(), b"sum"].concat())
             && sum_signature.is_eligible(*self.sum())
@@ -255,9 +261,9 @@ pub trait Coordinators: Sized {
     /// Validate an update signature and its implied task.
     fn validate_update_task(
         &self,
+        pk: &UpdateParticipantPublicKey,
         sum_signature: &ParticipantTaskSignature,
         update_signature: &ParticipantTaskSignature,
-        pk: &UpdateParticipantPublicKey,
     ) -> Result<(), PetError> {
         if pk.verify_detached(sum_signature, &[self.seed().as_slice(), b"sum"].concat())
             && pk.verify_detached(
@@ -621,7 +627,7 @@ impl MaskCoordinators<i64> for Coordinator<i64> {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct RoundParameters {
     /// The coordinator public key for encryption.
     pub pk: CoordinatorPublicKey,
@@ -704,7 +710,7 @@ mod tests {
             148, 45, 56, 85, 65, 75, 128, 178, 175, 101, 93, 241, 162,
         ]);
         assert_eq!(
-            coord.validate_sum_task(&sum_signature, &pk).unwrap_err(),
+            coord.validate_sum_task(&pk, &sum_signature).unwrap_err(),
             PetError::InvalidMessage,
         );
     }
@@ -738,7 +744,7 @@ mod tests {
         ]);
         assert_eq!(
             coord
-                .validate_update_task(&sum_signature, &update_signature, &pk)
+                .validate_update_task(&pk, &sum_signature, &update_signature)
                 .unwrap(),
             (),
         );
@@ -762,7 +768,7 @@ mod tests {
         ]);
         assert_eq!(
             coord
-                .validate_update_task(&sum_signature, &update_signature, &pk)
+                .validate_update_task(&pk, &sum_signature, &update_signature)
                 .unwrap_err(),
             PetError::InvalidMessage,
         );
@@ -786,7 +792,7 @@ mod tests {
         ]);
         assert_eq!(
             coord
-                .validate_update_task(&sum_signature, &update_signature, &pk)
+                .validate_update_task(&pk, &sum_signature, &update_signature)
                 .unwrap_err(),
             PetError::InvalidMessage,
         );
@@ -810,7 +816,7 @@ mod tests {
         ]);
         assert_eq!(
             coord
-                .validate_update_task(&sum_signature, &update_signature, &pk)
+                .validate_update_task(&pk, &sum_signature, &update_signature)
                 .unwrap_err(),
             PetError::InvalidMessage,
         );

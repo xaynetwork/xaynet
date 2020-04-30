@@ -103,13 +103,14 @@ impl Participant {
     /// Compose a sum message.
     pub fn compose_sum_message(&mut self, pk: &CoordinatorPublicKey) -> Vec<u8> {
         self.gen_ephm_keypair();
-        SumMessage::from_parts(
-            &self.pk,
-            &self.sum_signature,
-            &self.ephm_pk,
-            &self.certificate,
-        )
-        .seal(&self.sk, pk)
+
+        let payload = SumOwned {
+            sum_signature: self.sum_signature,
+            ephm_pk: self.ephm_pk,
+        };
+
+        let message = MessageOwned::new_sum(*pk, self.pk, payload);
+        self.seal_message(pk, &message)
     }
 
     /// Compose an update message.
@@ -126,21 +127,22 @@ impl Participant {
         // safe unwrap: data types of model and mask configuration conform due to definition above
         let (mask_seed, masked_model) = model.mask(scalar, &mask_config);
         let local_seed_dict = Self::create_local_seed_dict(sum_dict, &mask_seed);
-        UpdateMessage::from_parts(
-            &self.pk,
-            &self.sum_signature,
-            &self.update_signature,
-            &self.certificate,
-            &masked_model,
-            &local_seed_dict,
-        )
-        .seal(&self.sk, pk)
+
+        let payload = UpdateOwned {
+            sum_signature: self.sum_signature,
+            update_signature: self.update_signature,
+            masked_model: masked_model,
+            local_seed_dict: local_seed_dict,
+        };
+
+        let message = MessageOwned::new_update(pk, self.pk, payload);
+        self.seal_message(&pk, &message)
     }
 
     /// Compose a sum2 message.
     pub fn compose_sum2_message(
         &self,
-        pk: &CoordinatorPublicKey,
+        pk: CoordinatorPublicKey,
         seed_dict: &SeedDict,
     ) -> Result<Vec<u8>, PetError> {
         let mask_seeds = self.get_seeds(seed_dict)?;

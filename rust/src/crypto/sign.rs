@@ -31,6 +31,8 @@ pub fn generate_signing_key_pair() -> (PublicSigningKey, SecretSigningKey) {
 pub struct PublicSigningKey(sign::PublicKey);
 
 impl PublicSigningKey {
+    /// Length in bytes of a [`PublicSigningKey`]
+    pub const LENGTH: usize = sign::PUBLICKEYBYTES;
     /// Verify the signature `s` against the message `m` and the
     /// signer's public key `&self`.
     ///
@@ -62,6 +64,8 @@ impl ByteObject for PublicSigningKey {
 pub struct SecretSigningKey(sign::SecretKey);
 
 impl SecretSigningKey {
+    /// Length in bytes of a [`SecretSigningKey`]
+    pub const LENGTH: usize = sign::SECRETKEYBYTES;
     /// Sign a message `m`
     pub fn sign_detached(&self, m: &[u8]) -> Signature {
         sign::sign_detached(m, self.as_ref()).into()
@@ -105,6 +109,11 @@ impl ByteObject for SecretSigningKey {
 )]
 pub struct Signature(sign::Signature);
 
+impl Signature {
+    /// Length in bytes of a [`Signature`]
+    pub const LENGTH: usize = sign::SIGNATUREBYTES;
+}
+
 impl ByteObject for Signature {
     fn zeroed() -> Self {
         Self(sign::Signature([0_u8; sign::SIGNATUREBYTES]))
@@ -146,6 +155,9 @@ impl Signature {
 pub struct SigningKeySeed(sign::Seed);
 
 impl SigningKeySeed {
+    /// Length in bytes of a [`SigningKeySeed`]
+    pub const LENGTH: usize = sign::SEEDBYTES;
+
     /// Deterministically derive a new signing key pair from this seed
     pub fn derive_signing_key_pair(&self) -> (PublicSigningKey, SecretSigningKey) {
         let (pk, sk) = sign::keypair_from_seed(&self.0);
