@@ -15,6 +15,11 @@ use crate::{model::Model, PetError};
 #[allow(clippy::len_without_is_empty)]
 /// Aggregation and serialization of vectors of arbitrarily large integers.
 pub trait Integers: Sized {
+    type Error;
+
+    /// Get an error value of the error type to be used in the default implementations.
+    fn error_value() -> Self::Error;
+
     /// Get a reference to the integers.
     fn integers(&self) -> &Vec<BigUint>;
 
@@ -23,7 +28,7 @@ pub trait Integers: Sized {
 
     /// Create the object from its parts. Fails if the integers don't conform to the mask
     /// configuration.
-    fn from_parts(integers: Vec<BigUint>, config: MaskConfig) -> Result<Self, PetError>;
+    fn from_parts(integers: Vec<BigUint>, config: MaskConfig) -> Result<Self, Self::Error>;
 
     /// Get the length of the serialized object.
     fn len(&self) -> usize {
@@ -47,14 +52,14 @@ pub trait Integers: Sized {
 
     /// Deserialize the object from bytes. Fails if the bytes don't conform to the mask
     /// configuration.
-    fn deserialize(bytes: &[u8]) -> Result<Self, PetError> {
+    fn deserialize(bytes: &[u8]) -> Result<Self, Self::Error> {
         if bytes.len() < 4 {
-            return Err(PetError::InvalidMask);
+            return Err(Self::error_value());
         }
-        let config = MaskConfig::deserialize(&bytes[..4])?;
+        let config = MaskConfig::deserialize(&bytes[..4]).or(Err(Self::error_value()))?;
         let element_len = config.element_len();
         if bytes[4..].len() % element_len != 0 {
-            return Err(PetError::InvalidMask);
+            return Err(Self::error_value());
         }
         let integers = bytes[4..]
             .chunks_exact(element_len)
@@ -65,7 +70,7 @@ pub trait Integers: Sized {
 
     /// Aggregate the object with another one. Fails if the mask configurations or the integer
     /// lengths don't conform.
-    fn aggregate(&self, other: &Self) -> Result<Self, PetError> {
+    fn aggregate(&self, other: &Self) -> Result<Self, Self::Error> {
         if self.integers().len() == other.integers().len() && self.config() == other.config() {
             let aggregated_integers = self
                 .integers()
@@ -75,24 +80,27 @@ pub trait Integers: Sized {
                 .collect();
             Self::from_parts(aggregated_integers, self.config().clone())
         } else {
-            Err(PetError::InvalidMask)
+            Err(Self::error_value())
         }
     }
 }
 
 /// Unmasking of vectors of arbitrarily large integers.
 pub trait MaskIntegers<N>: Integers {
-    /// Unmask the masked model with a mask. Fails if the mask configurations don't conform or the
-    /// number of models is zero.
-    fn unmask(&self, mask: &Mask, no_models: usize) -> Result<Model<N>, PetError>;
+    /// Unmask the masked model with a mask. Fails if the mask configurations or the integer lengths
+    /// don't conform or the number of models is zero.
+    fn unmask(&self, mask: &Mask, no_models: usize) -> Result<Model<N>, Self::Error>;
 
     /// Cast the ratios as numbers.
     fn numbers_from(ratios: Vec<Ratio<BigInt>>) -> Option<Vec<N>>;
 
-    /// Unmask the masked numbers with a mask. Fails if the mask configurations don't conform or the
-    /// number of models is zero.
-    fn unmask_numbers(&self, mask: &Mask, no_models: usize) -> Result<Vec<N>, PetError> {
-        if no_models > 0 && self.config() == mask.config() {
+    /// Unmask the masked numbers with a mask. Fails if the mask configurations or the integer
+    /// lengths don't conform or the number of models is zero.
+    fn unmask_numbers(&self, mask: &Mask, no_models: usize) -> Result<Vec<N>, Self::Error> {
+        if no_models > 0
+            && self.integers().len() == mask.integers().len()
+            && self.config() == mask.config()
+        {
             let scaled_add_shift = self.config().add_shift() * BigInt::from(no_models);
             let ratios = self
                 .integers()
@@ -108,9 +116,9 @@ pub trait MaskIntegers<N>: Integers {
                     unmasked / self.config().exp_shift() - &scaled_add_shift
                 })
                 .collect::<Vec<Ratio<BigInt>>>();
-            Self::numbers_from(ratios).ok_or(PetError::InvalidMask)
+            Self::numbers_from(ratios).ok_or(Self::error_value())
         } else {
-            Err(PetError::InvalidMask)
+            Err(Self::error_value())
         }
     }
 }
@@ -124,6 +132,13 @@ pub struct MaskedModel {
 }
 
 impl Integers for MaskedModel {
+    type Error = PetError;
+
+    /// Get an error value of the error type to be used in the default implementations.
+    fn error_value() -> Self::Error {
+        Self::Error::InvalidModel
+    }
+
     /// Get a reference to the integers.
     fn integers(&self) -> &Vec<BigUint> {
         &self.integers
@@ -136,18 +151,18 @@ impl Integers for MaskedModel {
 
     /// Create a masked model from its parts. Fails if the integers don't conform to the mask
     /// configuration.
-    fn from_parts(integers: Vec<BigUint>, config: MaskConfig) -> Result<Self, PetError> {
+    fn from_parts(integers: Vec<BigUint>, config: MaskConfig) -> Result<Self, Self::Error> {
         if integers.iter().all(|integer| integer < config.order()) {
             Ok(Self { integers, config })
         } else {
-            Err(PetError::InvalidMask)
+            Err(Self::Error::InvalidModel)
         }
     }
 }
 
 impl MaskIntegers<f32> for MaskedModel {
-    /// Unmask the masked model with a mask. Fails if the mask configurations don't conform or the
-    /// number of models is zero.
+    /// Unmask the masked model with a mask. Fails if the mask configurations or the integer lengths
+    /// don't conform or the number of models is zero.
     fn unmask(&self, mask: &Mask, no_models: usize) -> Result<Model<f32>, PetError> {
         <Self as MaskIntegers<f32>>::unmask_numbers(&self, mask, no_models)?.try_into()
     }
@@ -159,8 +174,8 @@ impl MaskIntegers<f32> for MaskedModel {
 }
 
 impl MaskIntegers<f64> for MaskedModel {
-    /// Unmask the masked model with a mask. Fails if the mask configurations don't conform or the
-    /// number of models is zero.
+    /// Unmask the masked model with a mask. Fails if the mask configurations or the integer lengths
+    /// don't conform or the number of models is zero.
     fn unmask(&self, mask: &Mask, no_models: usize) -> Result<Model<f64>, PetError> {
         <Self as MaskIntegers<f64>>::unmask_numbers(&self, mask, no_models)?.try_into()
     }
@@ -172,8 +187,8 @@ impl MaskIntegers<f64> for MaskedModel {
 }
 
 impl MaskIntegers<i32> for MaskedModel {
-    /// Unmask the masked model with a mask. Fails if the mask configurations don't conform or the
-    /// number of models is zero.
+    /// Unmask the masked model with a mask. Fails if the mask configurations or the integer lengths
+    /// don't conform or the number of models is zero.
     fn unmask(&self, mask: &Mask, no_models: usize) -> Result<Model<i32>, PetError> {
         Ok(<Self as MaskIntegers<i32>>::unmask_numbers(&self, mask, no_models)?.into())
     }
@@ -188,8 +203,8 @@ impl MaskIntegers<i32> for MaskedModel {
 }
 
 impl MaskIntegers<i64> for MaskedModel {
-    /// Unmask the masked model with a mask. Fails if the mask configurations don't conform or the
-    /// number of models is zero.
+    /// Unmask the masked model with a mask. Fails if the mask configurations or the integer lengths
+    /// don't conform or the number of models is zero.
     fn unmask(&self, mask: &Mask, no_models: usize) -> Result<Model<i64>, PetError> {
         Ok(<Self as MaskIntegers<i64>>::unmask_numbers(&self, mask, no_models)?.into())
     }
@@ -230,7 +245,7 @@ fn floats_from<F: FloatCore>(ratios: Vec<Ratio<BigInt>>) -> Vec<F> {
         .collect()
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 /// A mask. Its parameters are represented as a vector of integers from a finite group wrt a mask
 /// configuration.
 pub struct Mask {
@@ -239,6 +254,13 @@ pub struct Mask {
 }
 
 impl Integers for Mask {
+    type Error = PetError;
+
+    /// Get an error value of the error type to be used in the default implementations.
+    fn error_value() -> Self::Error {
+        Self::Error::InvalidMask
+    }
+
     /// Get a reference to the integers.
     fn integers(&self) -> &Vec<BigUint> {
         &self.integers
@@ -250,11 +272,11 @@ impl Integers for Mask {
     }
 
     /// Create a mask from its parts. Fails if the integers don't conform to the mask configuration.
-    fn from_parts(integers: Vec<BigUint>, config: MaskConfig) -> Result<Self, PetError> {
+    fn from_parts(integers: Vec<BigUint>, config: MaskConfig) -> Result<Self, Self::Error> {
         if integers.iter().all(|integer| integer < config.order()) {
             Ok(Self { integers, config })
         } else {
-            Err(PetError::InvalidMask)
+            Err(Self::Error::InvalidMask)
         }
     }
 }

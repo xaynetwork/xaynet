@@ -1,5 +1,5 @@
 use crate::{
-    coordinator::{Coordinator, RoundParameters},
+    coordinator::{Coordinator, Coordinators, MaskCoordinators, RoundParameters},
     InitError,
 };
 use derive_more::From;
@@ -41,7 +41,7 @@ pub use handle::{
 pub struct Service {
     /// The coordinator holds the protocol state: crypto material, sum
     /// and update dictionaries, configuration, etc.
-    coordinator: Coordinator,
+    coordinator: Coordinator<f32>, // todo: implement a choice for data types
 
     /// Events to handle
     events: EventStream,
@@ -57,7 +57,7 @@ impl Service {
         let (handle, events) = Handle::new();
         let service = Self {
             events,
-            coordinator: Coordinator::new()?,
+            coordinator: Coordinator::<f32>::new()?,
             data: Data::new(),
         };
         Ok((service, handle))

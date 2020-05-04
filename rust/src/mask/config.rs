@@ -8,7 +8,7 @@ use num::{
 
 use crate::PetError;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 /// A mask configuration.
 pub struct MaskConfig {
     name: MaskConfigs,
@@ -74,7 +74,7 @@ impl MaskConfig {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 #[repr(u8)]
 /// The order of the finite group.
 pub enum GroupType {
@@ -100,7 +100,7 @@ impl TryFrom<u8> for GroupType {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 #[repr(u8)]
 /// The data type of the numbers to be masked.
 pub enum DataType {
@@ -129,7 +129,7 @@ impl TryFrom<u8> for DataType {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 #[repr(u8)]
 /// The bounds of the numbers to be masked.
 pub enum BoundType {
@@ -161,7 +161,7 @@ impl TryFrom<u8> for BoundType {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 #[repr(u8)]
 /// The number of models to be aggregated at most.
 pub enum ModelType {
@@ -190,7 +190,7 @@ impl TryFrom<u8> for ModelType {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 /// A mask configuration name. Consists of identifiers for its parts:
 /// - the order of the finite group
 /// - the data type of the numbers to be masked
