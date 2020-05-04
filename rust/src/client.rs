@@ -12,6 +12,7 @@ use std::time::Duration;
 
 
 /// Client-side errors
+#[derive(Debug)]
 pub enum ClientError {
     /// Error starting the underlying `Participant`
     ParticipantInitErr(InitError),
@@ -21,6 +22,9 @@ pub enum ClientError {
 
     /// Error deserialising service data
     DeserialiseErr(bincode::Error),
+
+    /// General client errors
+    GeneralErr,
 }
 
 /// A client of the federated learning service
@@ -57,6 +61,16 @@ impl Client {
         })
     }
 
+    pub fn new2(period: u64, handle: Handle) -> Result<Self, ClientError> {
+        let particip = Participant::new()
+            .map_err(ClientError::ParticipantInitErr)?;
+        Ok(Self {
+            handle,
+            particip,
+            interval: time::interval(Duration::from_secs(period)),
+        })
+    }
+
     /// Start the `Client` loop
     ///
     /// Returns `Err(err)` if `ClientError` `err` occurred
@@ -72,7 +86,7 @@ impl Client {
     }
 
     /// Client duties within a round
-    async fn per_round(&mut self) -> Result<(), ClientError> {
+    pub async fn per_round(&mut self) -> Result<Task, ClientError> {
         let round_params: Arc<RoundParameters> = loop {
             if let Some(round_params) =
                 self.handle.get_round_parameters().await
@@ -99,15 +113,15 @@ impl Client {
     }
 
     /// Duties for unselected clients
-    async fn unselected(&mut self) -> Result<(), ClientError> {
+    async fn unselected(&mut self) -> Result<Task, ClientError> {
         // TODO await global model; save it
         // end of round
-        Ok(())
+        Ok(Task::None)
     }
 
     /// Duties for clients selected as summers
     async fn summer(&mut self, coord_pk: CoordinatorPublicKey)
-                    -> Result<(), ClientError>
+                    -> Result<Task, ClientError>
     {
         let sum1_msg: Vec<u8> = self
             .particip
@@ -135,13 +149,14 @@ impl Client {
             .await;
 
         // job done, unselect
-        self.unselected()
-            .await
+        //self.unselected()
+        //    .await
+        Ok(Task::Sum)
     }
 
     /// Duties for clients selected as updaters
     async fn updater(&mut self, coord_pk: CoordinatorPublicKey)
-                     -> Result<(), ClientError>
+                     -> Result<Task, ClientError>
     {
         // TODO train a model update...
         let sum_dict_ser: Arc<Vec<u8>> = loop {
@@ -161,11 +176,11 @@ impl Client {
             .await;
 
         // job done, unselect
-        self.unselected()
-            .await
+        //self.unselected()
+        //    .await
+        Ok(Task::Update)
     }
 }
-
 
 
 
