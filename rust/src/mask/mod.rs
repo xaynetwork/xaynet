@@ -115,7 +115,7 @@ pub trait MaskIntegers<N>: Integers {
                     unmasked / self.config().exp_shift() - &scaled_add_shift
                 })
                 .collect::<Vec<Ratio<BigInt>>>();
-            Self::numbers_from(ratios).ok_or_else(|| Self::error_value())
+            Self::numbers_from(ratios).ok_or_else(Self::error_value)
         } else {
             Err(Self::error_value())
         }
