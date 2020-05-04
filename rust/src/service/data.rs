@@ -23,8 +23,7 @@ pub struct Data {
     /// Data relevant to the current phase of the protocol. During the
     /// update phase, this contains the sum dictionary to be sent to
     /// the update participants for instance, while during the sum2
-    /// phase it contains the seed dictionaries, and while during the
-    /// idle phase it contains the aggregated global model.
+    /// phase it contains the seed dictionaries.
     pub phase_data: Option<PhaseData>,
 }
 
