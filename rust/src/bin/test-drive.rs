@@ -1,15 +1,22 @@
 use xain_fl::client::{Client, ClientError};
 use xain_fl::participant::Task;
 use xain_fl::service::Service;
+use tracing_subscriber::*;
+
 
 #[tokio::main]
 async fn main() -> Result<(), ClientError> {
+    let _fmt_subscriber = FmtSubscriber::builder()
+        .with_ansi(true)
+        .init();
 
-    let (_svc, hdl) = Service::new().unwrap();
+
+    let (svc, hdl) = Service::new().unwrap();
+    let _svc_jh = tokio::spawn(svc);
 
     let mut tasks = vec![];
-    for _ in 0..50 {
-        let mut client = Client::new2(1, hdl.clone())?;
+    for id in 0..20 {
+        let mut client = Client::new2(1, hdl.clone(), id)?;
         // NOTE give spawn a task that owns client
         // otherwise it won't live long enough
         let join_hdl = tokio::spawn(async move {
@@ -17,7 +24,7 @@ async fn main() -> Result<(), ClientError> {
         });
         tasks.push(join_hdl);
     }
-    println!("spawned 50 clients");
+    println!("spawned 20 clients");
 
     let mut summers = 0;
     let mut updaters = 0;

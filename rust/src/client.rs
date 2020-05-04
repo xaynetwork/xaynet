@@ -9,22 +9,27 @@ use std::future::Future;
 use std::pin::Pin;
 use tokio::time;
 use std::time::Duration;
+use thiserror::Error;
 
 
 /// Client-side errors
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum ClientError {
     /// Error starting the underlying `Participant`
+    #[error("failed to initialise participant: {0}")]
     ParticipantInitErr(InitError),
 
     /// Error from the underlying `Participant`
+    #[error("error arising from participant")]
     ParticipantErr(PetError),
 
     /// Error deserialising service data
+    #[error("failed to deserialise service data: {0}")]
     DeserialiseErr(bincode::Error),
 
     /// General client errors
-    GeneralErr,
+    #[error("unexpected client error")]
+    GeneralErr, // "Mastercard" error - may remove later
 }
 
 /// A client of the federated learning service
@@ -36,12 +41,14 @@ pub struct Client {
     handle: Handle,
 
     /// The underlying `Participant`
-    particip: Participant,
+    participant: Participant,
 
     /// Interval to poll for service data
     interval: time::Interval,
 
     // TODO global model
+
+    id: u32, // identifier for client; may remove later
 }
 
 impl Client {
@@ -52,22 +59,25 @@ impl Client {
     /// Returns `Err(err)` if `ClientError` `err` occurred
     pub fn new(period: u64) -> Result<Self, ClientError> {
         let (handle, _events) = Handle::new();
-        let particip = Participant::new()
+        let participant = Participant::new()
             .map_err(ClientError::ParticipantInitErr)?;
         Ok(Self {
             handle,
-            particip,
+            participant,
             interval: time::interval(Duration::from_secs(period)),
+            id: 0,
         })
     }
 
-    pub fn new2(period: u64, handle: Handle) -> Result<Self, ClientError> {
-        let particip = Participant::new()
+    // may replace new later with this
+    pub fn new2(period: u64, handle: Handle, id: u32) -> Result<Self, ClientError> {
+        let participant = Participant::new()
             .map_err(ClientError::ParticipantInitErr)?;
         Ok(Self {
             handle,
-            particip,
+            participant,
             interval: time::interval(Duration::from_secs(period)),
+            id,
         })
     }
 
@@ -79,9 +89,7 @@ impl Client {
     pub async fn start(&mut self) -> Result<(), ClientError> {
         loop {
             // any error that bubbles up will finish off the client
-            if let Err(e) = self.per_round().await {
-                break Err(e)
-            }
+            self.per_round().await?;
         }
     }
 
@@ -93,14 +101,16 @@ impl Client {
             {
                 break round_params
             }
+            println!("{}: round params not ready yet, retrying in a sec...", self.id);
             self.interval.tick().await;
         };
         let round_seed: &[u8] = round_params.seed.as_slice();
-        self.particip
+        println!("computing sigs and checking task");
+        self.participant
             .compute_signatures(round_seed);
         let (sum_frac, upd_frac) = (round_params.sum, round_params.update);
         match self
-            .particip
+            .participant
             .check_task(sum_frac, upd_frac)
         {
             Task::Sum    =>
@@ -124,13 +134,13 @@ impl Client {
                     -> Result<Task, ClientError>
     {
         let sum1_msg: Vec<u8> = self
-            .particip
+            .participant
             .compose_sum_message(&coord_pk);
         self.handle
             .send_message(sum1_msg)
             .await;
 
-        let pk = self.particip.get_encr_pk();
+        let pk = self.participant.get_encr_pk();
         let seed_dict_ser: Arc<Vec<u8>> = loop {
             if let Some(seed_dict_ser) = self.handle.get_seed_dict(pk).await {
                 break seed_dict_ser
@@ -141,7 +151,7 @@ impl Client {
         let seed_dict: SeedDict = bincode::deserialize(&seed_dict_ser[..])
             .map_err(ClientError::DeserialiseErr)?;
         let sum2_msg: Vec<u8> = self
-            .particip
+            .participant
             .compose_sum2_message(&coord_pk, &seed_dict)
             .map_err(ClientError::ParticipantErr)?;
         self.handle
@@ -169,7 +179,7 @@ impl Client {
         let sum_dict: SumDict = bincode::deserialize(&sum_dict_ser[..])
             .map_err(ClientError::DeserialiseErr)?;
         let upd_msg: Vec<u8> = self
-            .particip
+            .participant
             .compose_update_message(&coord_pk, &sum_dict);
         self.handle
             .send_message(upd_msg)
