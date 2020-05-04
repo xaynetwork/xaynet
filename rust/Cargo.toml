@@ -20,7 +20,6 @@ bytes = "0.5.4"
 tracing = "0.1.13"
 sodiumoxide = "0.2.5"
 num = "0.2.1"
-counter = "0.4.3"
 
 bincode = "1.2.1"
 thiserror = "1.0.16"

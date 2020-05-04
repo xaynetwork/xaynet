@@ -1,6 +1,9 @@
-use std::{collections::VecDeque, default::Default, iter};
+use std::{
+    collections::{HashMap, VecDeque},
+    default::Default,
+    iter,
+};
 
-use counter::Counter;
 use sodiumoxide::{crypto::hash::sha256, randombytes::randombytes};
 use thiserror::Error;
 
@@ -27,21 +30,16 @@ use crate::{
 /// Error that occurs when the current round fails
 #[derive(Debug, Eq, PartialEq)]
 pub enum RoundFailed {
-    /// Round failed because ambiguous masks were computed by
-    /// a majority of sum participants
+    /// Round failed because ambiguous masks were computed by the sum participants.
     AmbiguousMasks,
-    /// Round failed because no mask hash was selected by any sum
-    /// participant
+    /// Round failed because no mask was submitted by any sum participant.
     NoMask,
-    /// Round failed because of unmasking.
-    Unmasking,
+    /// Round failed because no model could be unmasked.
+    NoModel,
 }
 
-/// A dictionary created during the sum2 phase of the protocol. It counts the model masks
-/// represented by their hashes.
-pub type MaskDict = Counter<Mask>;
-// todo: maybe use hashes again when we have a mask storage and a mapping to identify them
-// pub type MaskDict = Counter<MaskHash>;
+/// A dictionary created during the sum2 phase of the protocol. It counts the model masks.
+pub type MaskDict = HashMap<Mask, usize>;
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 /// Round phases of a coordinator.
@@ -263,7 +261,7 @@ pub trait Coordinators: Sized {
         let msg = Sum2Message::open(bytes, self.pk(), self.sk())?;
         msg.certificate().validate()?;
         self.validate_sum_task(msg.sum_signature(), msg.pk())?;
-        self.add_mask_hash(msg.pk(), msg.mask())?;
+        self.add_mask(msg.pk(), msg.mask())?;
         Ok(())
     }
 
@@ -370,26 +368,38 @@ pub trait Coordinators: Sized {
         }
     }
 
-    /// Add a hashed mask to the mask dictionary. Fails if the sum participant didn't register in
-    /// the sum phase or it is a repetition.
-    fn add_mask_hash(&mut self, pk: &SumParticipantPublicKey, mask: &Mask) -> Result<(), PetError> {
+    /// Add a mask to the mask dictionary. Fails if the sum participant didn't register in the sum
+    /// phase or it is a repetition.
+    fn add_mask(&mut self, pk: &SumParticipantPublicKey, mask: &Mask) -> Result<(), PetError> {
         if self.sum_dict_mut().remove(pk).is_none() {
             Err(PetError::InvalidMessage)
+        } else if let Some(count) = self.mask_dict_mut().get_mut(mask) {
+            *count += 1;
+            Ok(())
         } else {
-            self.mask_dict_mut().update(iter::once(mask.clone()));
+            self.mask_dict_mut().insert(mask.clone(), 1);
             Ok(())
         }
     }
 
     /// Freeze the mask dictionary.
-    fn freeze_mask_dict(&self) -> Result<Mask, RoundFailed> {
-        let counts = self.mask_dict().most_common();
-        if counts.is_empty() {
+    fn freeze_mask_dict(&self) -> Result<&Mask, RoundFailed> {
+        if self.mask_dict().is_empty() {
             Err(RoundFailed::NoMask)
-        } else if counts.len() > 1 && counts[0].1 == counts[1].1 {
-            Err(RoundFailed::AmbiguousMasks)
         } else {
-            Ok(counts[0].0.clone())
+            let (mask, _) = self.mask_dict().iter().fold(
+                (None, 0_usize),
+                |(unique_mask, unique_count), (mask, count)| {
+                    if unique_count < *count {
+                        (Some(mask), *count)
+                    } else if unique_count > *count {
+                        (unique_mask, unique_count)
+                    } else {
+                        (None, unique_count)
+                    }
+                },
+            );
+            mask.ok_or(RoundFailed::AmbiguousMasks)
         }
     }
 
@@ -447,12 +457,7 @@ pub trait Coordinators: Sized {
 
     /// Check whether enough sum participants submitted their masks to start the idle phase.
     fn has_enough_masks(&self) -> bool {
-        let mask_count = self
-            .mask_dict()
-            .most_common()
-            .iter()
-            .map(|(_, count)| count)
-            .sum::<usize>();
+        let mask_count = self.mask_dict().values().sum::<usize>();
         mask_count >= *self.min_sum()
     }
 
@@ -505,7 +510,7 @@ pub trait MaskCoordinators<N>: Coordinators {
     fn model_mut(&mut self) -> &mut Option<Model<N>>;
 
     /// Unmask the masked model with a mask.
-    fn unmask_model(&mut self, mask: &Mask) -> Result<(), RoundFailed>;
+    fn unmask_model(&self, mask: &Mask) -> Result<Model<N>, RoundFailed>;
 
     /// Transition to the next phase if the protocol conditions are satisfied.
     fn try_phase_transition(&mut self) {
@@ -539,7 +544,12 @@ pub trait MaskCoordinators<N>: Coordinators {
     fn proceed_idle_phase(&mut self) {
         info!("going to idle phase");
         let outcome = if let Ok(mask) = self.freeze_mask_dict() {
-            self.unmask_model(&mask).ok()
+            if let Ok(model) = self.unmask_model(mask) {
+                *self.model_mut() = Some(model);
+                Some(())
+            } else {
+                None
+            }
         } else {
             None
         };
@@ -710,17 +720,14 @@ impl MaskCoordinators<f32> for Coordinator<f32> {
         &mut self.model
     }
 
-    fn unmask_model(&mut self, mask: &Mask) -> Result<(), RoundFailed> {
+    fn unmask_model(&self, mask: &Mask) -> Result<Model<f32>, RoundFailed> {
         let no_models = self.seed_dict.values().next().map_or(0, |dict| dict.len());
         if let Some(masked_model) = self.masked_model() {
-            *self.model_mut() = Some(
-                masked_model
-                    .unmask(mask, no_models)
-                    .or(Err(RoundFailed::Unmasking))?,
-            );
-            Ok(())
+            masked_model
+                .unmask(mask, no_models)
+                .or(Err(RoundFailed::NoModel))
         } else {
-            Err(RoundFailed::Unmasking)
+            Err(RoundFailed::NoModel)
         }
     }
 }
@@ -736,17 +743,14 @@ impl MaskCoordinators<f64> for Coordinator<f64> {
         &mut self.model
     }
 
-    fn unmask_model(&mut self, mask: &Mask) -> Result<(), RoundFailed> {
+    fn unmask_model(&self, mask: &Mask) -> Result<Model<f64>, RoundFailed> {
         let no_models = self.seed_dict.values().next().map_or(0, |dict| dict.len());
         if let Some(masked_model) = self.masked_model() {
-            *self.model_mut() = Some(
-                masked_model
-                    .unmask(mask, no_models)
-                    .or(Err(RoundFailed::Unmasking))?,
-            );
-            Ok(())
+            masked_model
+                .unmask(mask, no_models)
+                .or(Err(RoundFailed::NoModel))
         } else {
-            Err(RoundFailed::Unmasking)
+            Err(RoundFailed::NoModel)
         }
     }
 }
@@ -762,17 +766,14 @@ impl MaskCoordinators<i32> for Coordinator<i32> {
         &mut self.model
     }
 
-    fn unmask_model(&mut self, mask: &Mask) -> Result<(), RoundFailed> {
+    fn unmask_model(&self, mask: &Mask) -> Result<Model<i32>, RoundFailed> {
         let no_models = self.seed_dict.values().next().map_or(0, |dict| dict.len());
         if let Some(masked_model) = self.masked_model() {
-            *self.model_mut() = Some(
-                masked_model
-                    .unmask(mask, no_models)
-                    .or(Err(RoundFailed::Unmasking))?,
-            );
-            Ok(())
+            masked_model
+                .unmask(mask, no_models)
+                .or(Err(RoundFailed::NoModel))
         } else {
-            Err(RoundFailed::Unmasking)
+            Err(RoundFailed::NoModel)
         }
     }
 }
@@ -788,17 +789,14 @@ impl MaskCoordinators<i64> for Coordinator<i64> {
         &mut self.model
     }
 
-    fn unmask_model(&mut self, mask: &Mask) -> Result<(), RoundFailed> {
+    fn unmask_model(&self, mask: &Mask) -> Result<Model<i64>, RoundFailed> {
         let no_models = self.seed_dict.values().next().map_or(0, |dict| dict.len());
         if let Some(masked_model) = self.masked_model() {
-            *self.model_mut() = Some(
-                masked_model
-                    .unmask(mask, no_models)
-                    .or(Err(RoundFailed::Unmasking))?,
-            );
-            Ok(())
+            masked_model
+                .unmask(mask, no_models)
+                .or(Err(RoundFailed::NoModel))
         } else {
-            Err(RoundFailed::Unmasking)
+            Err(RoundFailed::NoModel)
         }
     }
 }
@@ -818,499 +816,510 @@ pub struct RoundParameters {
     pub seed: Vec<u8>,
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use crate::{
-//         crypto::*,
-//         mask::{
-//             config::{BoundType, DataType, GroupType, MaskConfigs, ModelType},
-//             seed::MaskSeed,
-//         },
-//     };
+#[cfg(test)]
+mod tests {
+    use num::{bigint::BigUint, traits::identities::Zero};
 
-//     #[test]
-//     fn test_coordinator() {
-//         let coord = Coordinator::<f32>::new().unwrap();
-//         assert_eq!(coord.pk, PublicEncryptKey::zeroed());
-//         assert_eq!(coord.sk, SecretEncryptKey::zeroed());
-//         assert!(coord.sum >= 0. && coord.sum <= 1.);
-//         assert!(coord.update >= 0. && coord.update <= 1.);
-//         assert_eq!(coord.seed.len(), 32);
-//         assert!(coord.min_sum >= 1);
-//         assert!(coord.min_update >= 3);
-//         assert_eq!(coord.phase, Phase::Idle);
-//         assert_eq!(coord.sum_dict, SumDict::new());
-//         assert_eq!(coord.seed_dict, SeedDict::new());
-//         assert_eq!(coord.mask_dict, MaskDict::new());
-//     }
+    use super::*;
+    use crate::{
+        crypto::*,
+        mask::{
+            config::{BoundType, DataType, GroupType, MaskConfigs, ModelType},
+            seed::MaskSeed,
+        },
+    };
 
-//     #[test]
-//     fn test_validate_sum_task() {
-//         let mut coord = Coordinator::<f32>::new().unwrap();
-//         coord.sum = 0.5_f64;
-//         coord.update = 0.5_f64;
-//         coord.seed = vec![
-//             229, 16, 164, 40, 138, 161, 23, 161, 175, 102, 13, 103, 229, 229, 163, 56, 184, 250,
-//             190, 44, 91, 69, 246, 222, 64, 101, 139, 22, 126, 6, 103, 238,
-//         ];
+    #[test]
+    fn test_coordinator() {
+        let coord = Coordinator::<f32>::new().unwrap();
+        assert_eq!(coord.pk, PublicEncryptKey::zeroed());
+        assert_eq!(coord.sk, SecretEncryptKey::zeroed());
+        assert!(coord.sum >= 0. && coord.sum <= 1.);
+        assert!(coord.update >= 0. && coord.update <= 1.);
+        assert_eq!(coord.seed.len(), 32);
+        assert!(coord.min_sum >= 1);
+        assert!(coord.min_update >= 3);
+        assert_eq!(coord.phase, Phase::Idle);
+        assert_eq!(coord.sum_dict, SumDict::new());
+        assert_eq!(coord.seed_dict, SeedDict::new());
+        assert_eq!(coord.mask_dict, MaskDict::new());
+    }
 
-//         // eligible sum signature
-//         let sum_signature = Signature::from_slice_unchecked(&[
-//             216, 122, 81, 56, 190, 176, 44, 37, 167, 89, 45, 93, 82, 92, 147, 208, 158, 65, 145,
-//             253, 121, 35, 80, 38, 4, 37, 65, 244, 185, 101, 59, 124, 21, 22, 184, 234, 226, 78,
-//             255, 85, 112, 206, 76, 140, 216, 39, 172, 76, 0, 172, 239, 189, 106, 64, 137, 185, 123,
-//             132, 115, 14, 160, 116, 82, 7,
-//         ]);
-//         let pk = PublicSigningKey::from_slice_unchecked(&[
-//             76, 128, 23, 65, 195, 57, 190, 223, 67, 224, 102, 139, 140, 90, 67, 160, 106, 181, 7,
-//             196, 245, 56, 193, 51, 15, 212, 9, 153, 61, 152, 173, 165,
-//         ]);
-//         assert_eq!(coord.validate_sum_task(&sum_signature, &pk).unwrap(), ());
+    #[test]
+    fn test_validate_sum_task() {
+        let mut coord = Coordinator::<f32>::new().unwrap();
+        coord.sum = 0.5_f64;
+        coord.update = 0.5_f64;
+        coord.seed = vec![
+            229, 16, 164, 40, 138, 161, 23, 161, 175, 102, 13, 103, 229, 229, 163, 56, 184, 250,
+            190, 44, 91, 69, 246, 222, 64, 101, 139, 22, 126, 6, 103, 238,
+        ];
 
-//         // ineligible sum signature
-//         let sum_signature = Signature::from_slice_unchecked(&[
-//             75, 17, 216, 121, 214, 15, 222, 250, 0, 172, 158, 190, 201, 132, 251, 15, 149, 4, 127,
-//             110, 214, 208, 17, 93, 236, 103, 199, 193, 74, 224, 243, 79, 217, 237, 184, 104, 126,
-//             203, 18, 189, 248, 237, 116, 163, 42, 32, 236, 96, 181, 151, 144, 252, 211, 56, 141,
-//             98, 108, 248, 231, 248, 61, 200, 184, 13,
-//         ]);
-//         let pk = PublicSigningKey::from_slice_unchecked(&[
-//             200, 198, 194, 36, 111, 82, 127, 148, 245, 223, 158, 98, 142, 50, 65, 51, 7, 234, 201,
-//             148, 45, 56, 85, 65, 75, 128, 178, 175, 101, 93, 241, 162,
-//         ]);
-//         assert_eq!(
-//             coord.validate_sum_task(&sum_signature, &pk).unwrap_err(),
-//             PetError::InvalidMessage,
-//         );
-//     }
+        // eligible sum signature
+        let sum_signature = Signature::from_slice_unchecked(&[
+            216, 122, 81, 56, 190, 176, 44, 37, 167, 89, 45, 93, 82, 92, 147, 208, 158, 65, 145,
+            253, 121, 35, 80, 38, 4, 37, 65, 244, 185, 101, 59, 124, 21, 22, 184, 234, 226, 78,
+            255, 85, 112, 206, 76, 140, 216, 39, 172, 76, 0, 172, 239, 189, 106, 64, 137, 185, 123,
+            132, 115, 14, 160, 116, 82, 7,
+        ]);
+        let pk = PublicSigningKey::from_slice_unchecked(&[
+            76, 128, 23, 65, 195, 57, 190, 223, 67, 224, 102, 139, 140, 90, 67, 160, 106, 181, 7,
+            196, 245, 56, 193, 51, 15, 212, 9, 153, 61, 152, 173, 165,
+        ]);
+        assert_eq!(coord.validate_sum_task(&sum_signature, &pk).unwrap(), ());
 
-//     #[test]
-//     fn test_validate_update_task() {
-//         let mut coord = Coordinator::<f32>::new().unwrap();
-//         coord.sum = 0.5_f64;
-//         coord.update = 0.5_f64;
-//         coord.seed = vec![
-//             229, 16, 164, 40, 138, 161, 23, 161, 175, 102, 13, 103, 229, 229, 163, 56, 184, 250,
-//             190, 44, 91, 69, 246, 222, 64, 101, 139, 22, 126, 6, 103, 238,
-//         ];
+        // ineligible sum signature
+        let sum_signature = Signature::from_slice_unchecked(&[
+            75, 17, 216, 121, 214, 15, 222, 250, 0, 172, 158, 190, 201, 132, 251, 15, 149, 4, 127,
+            110, 214, 208, 17, 93, 236, 103, 199, 193, 74, 224, 243, 79, 217, 237, 184, 104, 126,
+            203, 18, 189, 248, 237, 116, 163, 42, 32, 236, 96, 181, 151, 144, 252, 211, 56, 141,
+            98, 108, 248, 231, 248, 61, 200, 184, 13,
+        ]);
+        let pk = PublicSigningKey::from_slice_unchecked(&[
+            200, 198, 194, 36, 111, 82, 127, 148, 245, 223, 158, 98, 142, 50, 65, 51, 7, 234, 201,
+            148, 45, 56, 85, 65, 75, 128, 178, 175, 101, 93, 241, 162,
+        ]);
+        assert_eq!(
+            coord.validate_sum_task(&sum_signature, &pk).unwrap_err(),
+            PetError::InvalidMessage,
+        );
+    }
 
-//         // ineligible sum signature and eligible update signature
-//         let sum_signature = Signature::from_slice_unchecked(&[
-//             206, 154, 228, 165, 240, 196, 64, 106, 135, 124, 140, 83, 15, 188, 229, 78, 38, 34,
-//             254, 241, 7, 23, 44, 147, 6, 195, 158, 227, 250, 159, 60, 214, 42, 103, 145, 69, 121,
-//             165, 115, 196, 120, 164, 108, 200, 114, 200, 16, 21, 208, 233, 83, 176, 70, 77, 64,
-//             141, 65, 63, 236, 184, 250, 127, 59, 8,
-//         ]);
-//         let update_signature = Signature::from_slice_unchecked(&[
-//             76, 195, 29, 117, 72, 226, 246, 103, 166, 245, 16, 122, 235, 107, 96, 111, 149, 231,
-//             216, 62, 1, 206, 139, 127, 208, 254, 118, 43, 0, 193, 54, 40, 2, 144, 240, 162, 240,
-//             226, 223, 0, 228, 59, 13, 252, 42, 34, 16, 22, 202, 30, 166, 138, 231, 2, 125, 123, 75,
-//             146, 103, 149, 95, 7, 177, 15,
-//         ]);
-//         let pk = PublicSigningKey::from_slice_unchecked(&[
-//             220, 150, 230, 193, 226, 222, 50, 73, 44, 227, 70, 25, 58, 237, 34, 184, 151, 253, 127,
-//             252, 13, 23, 135, 194, 244, 12, 139, 17, 34, 61, 9, 92,
-//         ]);
-//         assert_eq!(
-//             coord
-//                 .validate_update_task(&sum_signature, &update_signature, &pk)
-//                 .unwrap(),
-//             (),
-//         );
+    #[test]
+    fn test_validate_update_task() {
+        let mut coord = Coordinator::<f32>::new().unwrap();
+        coord.sum = 0.5_f64;
+        coord.update = 0.5_f64;
+        coord.seed = vec![
+            229, 16, 164, 40, 138, 161, 23, 161, 175, 102, 13, 103, 229, 229, 163, 56, 184, 250,
+            190, 44, 91, 69, 246, 222, 64, 101, 139, 22, 126, 6, 103, 238,
+        ];
 
-//         // ineligible sum signature and ineligible update signature
-//         let sum_signature = Signature::from_slice_unchecked(&[
-//             73, 255, 75, 96, 89, 197, 182, 203, 156, 41, 231, 88, 103, 16, 204, 35, 52, 165, 178,
-//             159, 33, 199, 112, 59, 203, 58, 243, 229, 190, 226, 168, 96, 146, 49, 79, 147, 224,
-//             235, 140, 247, 101, 99, 255, 179, 150, 219, 84, 69, 146, 49, 182, 105, 42, 65, 159, 41,
-//             118, 214, 172, 240, 213, 27, 192, 12,
-//         ]);
-//         let update_signature = Signature::from_slice_unchecked(&[
-//             163, 180, 225, 224, 231, 2, 162, 183, 211, 242, 26, 56, 124, 179, 241, 13, 105, 29,
-//             240, 251, 89, 126, 147, 229, 138, 68, 118, 206, 102, 193, 209, 79, 219, 109, 87, 59,
-//             197, 177, 197, 213, 79, 143, 149, 66, 159, 107, 139, 244, 6, 224, 111, 175, 90, 213,
-//             206, 143, 152, 0, 21, 15, 102, 74, 15, 14,
-//         ]);
-//         let pk = PublicSigningKey::from_slice_unchecked(&[
-//             109, 181, 253, 91, 247, 2, 201, 224, 161, 207, 128, 48, 16, 201, 86, 14, 193, 204, 49,
-//             88, 9, 170, 109, 120, 245, 0, 208, 129, 107, 213, 253, 72,
-//         ]);
-//         assert_eq!(
-//             coord
-//                 .validate_update_task(&sum_signature, &update_signature, &pk)
-//                 .unwrap_err(),
-//             PetError::InvalidMessage,
-//         );
+        // ineligible sum signature and eligible update signature
+        let sum_signature = Signature::from_slice_unchecked(&[
+            206, 154, 228, 165, 240, 196, 64, 106, 135, 124, 140, 83, 15, 188, 229, 78, 38, 34,
+            254, 241, 7, 23, 44, 147, 6, 195, 158, 227, 250, 159, 60, 214, 42, 103, 145, 69, 121,
+            165, 115, 196, 120, 164, 108, 200, 114, 200, 16, 21, 208, 233, 83, 176, 70, 77, 64,
+            141, 65, 63, 236, 184, 250, 127, 59, 8,
+        ]);
+        let update_signature = Signature::from_slice_unchecked(&[
+            76, 195, 29, 117, 72, 226, 246, 103, 166, 245, 16, 122, 235, 107, 96, 111, 149, 231,
+            216, 62, 1, 206, 139, 127, 208, 254, 118, 43, 0, 193, 54, 40, 2, 144, 240, 162, 240,
+            226, 223, 0, 228, 59, 13, 252, 42, 34, 16, 22, 202, 30, 166, 138, 231, 2, 125, 123, 75,
+            146, 103, 149, 95, 7, 177, 15,
+        ]);
+        let pk = PublicSigningKey::from_slice_unchecked(&[
+            220, 150, 230, 193, 226, 222, 50, 73, 44, 227, 70, 25, 58, 237, 34, 184, 151, 253, 127,
+            252, 13, 23, 135, 194, 244, 12, 139, 17, 34, 61, 9, 92,
+        ]);
+        assert_eq!(
+            coord
+                .validate_update_task(&sum_signature, &update_signature, &pk)
+                .unwrap(),
+            (),
+        );
 
-//         // eligible sum signature and eligible update signature
-//         let sum_signature = Signature::from_slice_unchecked(&[
-//             22, 28, 85, 58, 83, 51, 179, 43, 142, 58, 15, 113, 125, 191, 145, 179, 22, 216, 183,
-//             114, 230, 219, 151, 4, 213, 187, 197, 160, 171, 240, 40, 0, 133, 132, 7, 117, 105, 37,
-//             84, 214, 243, 19, 187, 132, 80, 194, 214, 204, 58, 130, 33, 63, 40, 149, 30, 27, 106,
-//             122, 254, 106, 161, 61, 176, 5,
-//         ]);
-//         let update_signature = Signature::from_slice_unchecked(&[
-//             7, 50, 23, 176, 28, 214, 185, 141, 131, 236, 166, 140, 232, 21, 223, 88, 16, 98, 202,
-//             232, 46, 210, 102, 177, 107, 196, 87, 192, 36, 153, 175, 104, 208, 61, 179, 151, 191,
-//             103, 75, 70, 109, 185, 10, 215, 28, 29, 12, 68, 15, 124, 248, 159, 57, 84, 156, 83,
-//             189, 233, 8, 184, 197, 21, 51, 1,
-//         ]);
-//         let pk = PublicSigningKey::from_slice_unchecked(&[
-//             212, 224, 51, 239, 70, 208, 166, 236, 81, 5, 7, 226, 54, 151, 50, 223, 133, 134, 66,
-//             167, 32, 226, 141, 200, 232, 41, 112, 144, 79, 135, 207, 87,
-//         ]);
-//         assert_eq!(
-//             coord
-//                 .validate_update_task(&sum_signature, &update_signature, &pk)
-//                 .unwrap_err(),
-//             PetError::InvalidMessage,
-//         );
+        // ineligible sum signature and ineligible update signature
+        let sum_signature = Signature::from_slice_unchecked(&[
+            73, 255, 75, 96, 89, 197, 182, 203, 156, 41, 231, 88, 103, 16, 204, 35, 52, 165, 178,
+            159, 33, 199, 112, 59, 203, 58, 243, 229, 190, 226, 168, 96, 146, 49, 79, 147, 224,
+            235, 140, 247, 101, 99, 255, 179, 150, 219, 84, 69, 146, 49, 182, 105, 42, 65, 159, 41,
+            118, 214, 172, 240, 213, 27, 192, 12,
+        ]);
+        let update_signature = Signature::from_slice_unchecked(&[
+            163, 180, 225, 224, 231, 2, 162, 183, 211, 242, 26, 56, 124, 179, 241, 13, 105, 29,
+            240, 251, 89, 126, 147, 229, 138, 68, 118, 206, 102, 193, 209, 79, 219, 109, 87, 59,
+            197, 177, 197, 213, 79, 143, 149, 66, 159, 107, 139, 244, 6, 224, 111, 175, 90, 213,
+            206, 143, 152, 0, 21, 15, 102, 74, 15, 14,
+        ]);
+        let pk = PublicSigningKey::from_slice_unchecked(&[
+            109, 181, 253, 91, 247, 2, 201, 224, 161, 207, 128, 48, 16, 201, 86, 14, 193, 204, 49,
+            88, 9, 170, 109, 120, 245, 0, 208, 129, 107, 213, 253, 72,
+        ]);
+        assert_eq!(
+            coord
+                .validate_update_task(&sum_signature, &update_signature, &pk)
+                .unwrap_err(),
+            PetError::InvalidMessage,
+        );
 
-//         // eligible sum signature and ineligible update signature
-//         let sum_signature = Signature::from_slice_unchecked(&[
-//             176, 1, 85, 13, 43, 110, 122, 206, 186, 247, 44, 215, 154, 222, 34, 34, 173, 139, 166,
-//             42, 239, 160, 167, 126, 72, 234, 114, 1, 236, 10, 210, 155, 170, 33, 138, 129, 178, 56,
-//             154, 228, 84, 174, 187, 242, 3, 224, 143, 102, 134, 47, 49, 33, 103, 107, 147, 51, 36,
-//             143, 215, 134, 213, 162, 255, 5,
-//         ]);
-//         let update_signature = Signature::from_slice_unchecked(&[
-//             39, 29, 201, 153, 218, 79, 161, 208, 151, 222, 220, 95, 118, 156, 17, 49, 35, 125, 243,
-//             214, 83, 240, 196, 168, 166, 225, 86, 103, 140, 237, 252, 196, 11, 5, 85, 18, 126, 210,
-//             82, 14, 88, 198, 114, 39, 239, 226, 243, 28, 48, 22, 39, 19, 244, 103, 13, 92, 216,
-//             251, 155, 154, 180, 114, 158, 13,
-//         ]);
-//         let pk = PublicSigningKey::from_slice_unchecked(&[
-//             251, 251, 252, 131, 93, 84, 116, 191, 88, 135, 45, 43, 201, 66, 7, 236, 40, 74, 17, 11,
-//             33, 126, 224, 127, 77, 232, 59, 34, 120, 174, 137, 2,
-//         ]);
-//         assert_eq!(
-//             coord
-//                 .validate_update_task(&sum_signature, &update_signature, &pk)
-//                 .unwrap_err(),
-//             PetError::InvalidMessage,
-//         );
-//     }
+        // eligible sum signature and eligible update signature
+        let sum_signature = Signature::from_slice_unchecked(&[
+            22, 28, 85, 58, 83, 51, 179, 43, 142, 58, 15, 113, 125, 191, 145, 179, 22, 216, 183,
+            114, 230, 219, 151, 4, 213, 187, 197, 160, 171, 240, 40, 0, 133, 132, 7, 117, 105, 37,
+            84, 214, 243, 19, 187, 132, 80, 194, 214, 204, 58, 130, 33, 63, 40, 149, 30, 27, 106,
+            122, 254, 106, 161, 61, 176, 5,
+        ]);
+        let update_signature = Signature::from_slice_unchecked(&[
+            7, 50, 23, 176, 28, 214, 185, 141, 131, 236, 166, 140, 232, 21, 223, 88, 16, 98, 202,
+            232, 46, 210, 102, 177, 107, 196, 87, 192, 36, 153, 175, 104, 208, 61, 179, 151, 191,
+            103, 75, 70, 109, 185, 10, 215, 28, 29, 12, 68, 15, 124, 248, 159, 57, 84, 156, 83,
+            189, 233, 8, 184, 197, 21, 51, 1,
+        ]);
+        let pk = PublicSigningKey::from_slice_unchecked(&[
+            212, 224, 51, 239, 70, 208, 166, 236, 81, 5, 7, 226, 54, 151, 50, 223, 133, 134, 66,
+            167, 32, 226, 141, 200, 232, 41, 112, 144, 79, 135, 207, 87,
+        ]);
+        assert_eq!(
+            coord
+                .validate_update_task(&sum_signature, &update_signature, &pk)
+                .unwrap_err(),
+            PetError::InvalidMessage,
+        );
 
-//     fn auxiliary_sum(min_sum: usize) -> SumDict {
-//         iter::repeat_with(|| {
-//             (
-//                 PublicSigningKey::from_slice_unchecked(&randombytes(32)),
-//                 PublicEncryptKey::from_slice_unchecked(&randombytes(32)),
-//             )
-//         })
-//         .take(min_sum)
-//         .collect()
-//     }
+        // eligible sum signature and ineligible update signature
+        let sum_signature = Signature::from_slice_unchecked(&[
+            176, 1, 85, 13, 43, 110, 122, 206, 186, 247, 44, 215, 154, 222, 34, 34, 173, 139, 166,
+            42, 239, 160, 167, 126, 72, 234, 114, 1, 236, 10, 210, 155, 170, 33, 138, 129, 178, 56,
+            154, 228, 84, 174, 187, 242, 3, 224, 143, 102, 134, 47, 49, 33, 103, 107, 147, 51, 36,
+            143, 215, 134, 213, 162, 255, 5,
+        ]);
+        let update_signature = Signature::from_slice_unchecked(&[
+            39, 29, 201, 153, 218, 79, 161, 208, 151, 222, 220, 95, 118, 156, 17, 49, 35, 125, 243,
+            214, 83, 240, 196, 168, 166, 225, 86, 103, 140, 237, 252, 196, 11, 5, 85, 18, 126, 210,
+            82, 14, 88, 198, 114, 39, 239, 226, 243, 28, 48, 22, 39, 19, 244, 103, 13, 92, 216,
+            251, 155, 154, 180, 114, 158, 13,
+        ]);
+        let pk = PublicSigningKey::from_slice_unchecked(&[
+            251, 251, 252, 131, 93, 84, 116, 191, 88, 135, 45, 43, 201, 66, 7, 236, 40, 74, 17, 11,
+            33, 126, 224, 127, 77, 232, 59, 34, 120, 174, 137, 2,
+        ]);
+        assert_eq!(
+            coord
+                .validate_update_task(&sum_signature, &update_signature, &pk)
+                .unwrap_err(),
+            PetError::InvalidMessage,
+        );
+    }
 
-//     #[test]
-//     fn test_sum_dict() {
-//         let mut coord = Coordinator::<f32>::new().unwrap();
-//         coord.min_sum = 3;
-//         coord.min_update = 3;
-//         coord.try_phase_transition(); // start the sum phase
-//         assert_eq!(
-//             coord.next_event().unwrap(),
-//             ProtocolEvent::StartSum(RoundParameters {
-//                 sum: 0.01,
-//                 update: 0.1,
-//                 seed: coord.seed.clone(),
-//                 pk: coord.pk,
-//             })
-//         );
-//         assert!(coord.next_event().is_none());
-//         assert_eq!(coord.phase, Phase::Sum);
-//         assert!(coord.sum_dict.is_empty());
+    fn auxiliary_sum(min_sum: usize) -> SumDict {
+        iter::repeat_with(|| {
+            (
+                PublicSigningKey::from_slice_unchecked(&randombytes(32)),
+                PublicEncryptKey::from_slice_unchecked(&randombytes(32)),
+            )
+        })
+        .take(min_sum)
+        .collect()
+    }
 
-//         // Artifically add just enough sum participants
-//         let sum_dict = auxiliary_sum(coord.min_sum);
-//         for (pk, ephm_pk) in sum_dict.iter() {
-//             assert!(!coord.has_enough_sums());
-//             coord.add_sum_participant(pk, ephm_pk).unwrap();
-//         }
-//         assert_eq!(coord.sum_dict, sum_dict);
-//         assert!(coord.seed_dict.is_empty());
-//         assert!(coord.has_enough_sums());
+    #[test]
+    fn test_sum_dict() {
+        let mut coord = Coordinator::<f32>::new().unwrap();
+        coord.min_sum = 3;
+        coord.min_update = 3;
+        coord.try_phase_transition(); // start the sum phase
+        assert_eq!(
+            coord.next_event().unwrap(),
+            ProtocolEvent::StartSum(RoundParameters {
+                sum: 0.01,
+                update: 0.1,
+                seed: coord.seed.clone(),
+                pk: coord.pk,
+            })
+        );
+        assert!(coord.next_event().is_none());
+        assert_eq!(coord.phase, Phase::Sum);
+        assert!(coord.sum_dict.is_empty());
 
-//         coord.try_phase_transition(); // finish the sum phase
-//         assert_eq!(
-//             coord.next_event().unwrap(),
-//             ProtocolEvent::StartUpdate(sum_dict.clone())
-//         );
-//         assert!(coord.next_event().is_none());
-//         assert_eq!(coord.phase, Phase::Update);
-//         assert_eq!(
-//             coord.seed_dict,
-//             sum_dict
-//                 .iter()
-//                 .map(|(pk, _)| (*pk, LocalSeedDict::new()))
-//                 .collect(),
-//         );
-//     }
+        // Artifically add just enough sum participants
+        let sum_dict = auxiliary_sum(coord.min_sum);
+        for (pk, ephm_pk) in sum_dict.iter() {
+            assert!(!coord.has_enough_sums());
+            coord.add_sum_participant(pk, ephm_pk).unwrap();
+        }
+        assert_eq!(coord.sum_dict, sum_dict);
+        assert!(coord.seed_dict.is_empty());
+        assert!(coord.has_enough_sums());
 
-//     fn generate_update(sum_dict: &SumDict) -> (UpdateParticipantPublicKey, LocalSeedDict) {
-//         let seed = MaskSeed::generate();
-//         let pk = PublicSigningKey::from_slice_unchecked(&randombytes(32));
-//         let local_seed_dict = sum_dict
-//             .iter()
-//             .map(|(sum_pk, sum_ephm_pk)| (*sum_pk, seed.encrypt(sum_ephm_pk)))
-//             .collect::<LocalSeedDict>();
-//         (pk, local_seed_dict)
-//     }
+        coord.try_phase_transition(); // finish the sum phase
+        assert_eq!(
+            coord.next_event().unwrap(),
+            ProtocolEvent::StartUpdate(sum_dict.clone())
+        );
+        assert!(coord.next_event().is_none());
+        assert_eq!(coord.phase, Phase::Update);
+        assert_eq!(
+            coord.seed_dict,
+            sum_dict
+                .iter()
+                .map(|(pk, _)| (*pk, LocalSeedDict::new()))
+                .collect(),
+        );
+    }
 
-//     fn auxiliary_update(
-//         min_sum: usize,
-//         min_update: usize,
-//     ) -> (
-//         SumDict,
-//         Vec<(UpdateParticipantPublicKey, LocalSeedDict)>,
-//         SeedDict,
-//     ) {
-//         let sum_dict = auxiliary_sum(min_sum);
-//         let updates = iter::repeat_with(|| generate_update(&sum_dict))
-//             .take(min_update)
-//             .collect::<Vec<(UpdateParticipantPublicKey, LocalSeedDict)>>();
-//         let mut seed_dict = SeedDict::new();
-//         for sum_pk in sum_dict.keys() {
-//             // Dictionary of all the encrypted seeds for that participant
-//             let sum_participant_seeds = updates
-//                 .iter()
-//                 .map(|(upd_pk, local_seed_dict)| {
-//                     (*upd_pk, local_seed_dict.get(sum_pk).unwrap().clone())
-//                 })
-//                 .collect();
-//             seed_dict.insert(*sum_pk, sum_participant_seeds);
-//         }
-//         (sum_dict, updates, seed_dict)
-//     }
+    fn generate_update(sum_dict: &SumDict) -> (UpdateParticipantPublicKey, LocalSeedDict) {
+        let seed = MaskSeed::generate();
+        let pk = PublicSigningKey::from_slice_unchecked(&randombytes(32));
+        let local_seed_dict = sum_dict
+            .iter()
+            .map(|(sum_pk, sum_ephm_pk)| (*sum_pk, seed.encrypt(sum_ephm_pk)))
+            .collect::<LocalSeedDict>();
+        (pk, local_seed_dict)
+    }
 
-//     #[test]
-//     fn test_seed_dict() {
-//         let mut coord = Coordinator::<f32>::new().unwrap();
-//         coord.min_sum = 3;
-//         coord.min_update = 3;
-//         coord.try_phase_transition(); // start the sum phase
-//         assert!(coord.next_event().is_some());
-//         assert!(coord.next_event().is_none());
+    fn auxiliary_update(
+        min_sum: usize,
+        min_update: usize,
+    ) -> (
+        SumDict,
+        Vec<(UpdateParticipantPublicKey, LocalSeedDict)>,
+        SeedDict,
+    ) {
+        let sum_dict = auxiliary_sum(min_sum);
+        let updates = iter::repeat_with(|| generate_update(&sum_dict))
+            .take(min_update)
+            .collect::<Vec<(UpdateParticipantPublicKey, LocalSeedDict)>>();
+        let mut seed_dict = SeedDict::new();
+        for sum_pk in sum_dict.keys() {
+            // Dictionary of all the encrypted seeds for that participant
+            let sum_participant_seeds = updates
+                .iter()
+                .map(|(upd_pk, local_seed_dict)| {
+                    (*upd_pk, local_seed_dict.get(sum_pk).unwrap().clone())
+                })
+                .collect();
+            seed_dict.insert(*sum_pk, sum_participant_seeds);
+        }
+        (sum_dict, updates, seed_dict)
+    }
 
-//         // artificially populate the sum dictionary
-//         let (sum_dict, updates, seed_dict) = auxiliary_update(coord.min_sum, coord.min_update);
-//         coord.sum_dict = sum_dict;
+    #[test]
+    fn test_seed_dict() {
+        let mut coord = Coordinator::<f32>::new().unwrap();
+        coord.min_sum = 3;
+        coord.min_update = 3;
+        coord.try_phase_transition(); // start the sum phase
+        assert!(coord.next_event().is_some());
+        assert!(coord.next_event().is_none());
 
-//         coord.try_phase_transition(); // start the update phase
-//         assert!(coord.next_event().is_some());
-//         assert!(coord.next_event().is_none());
-//         assert_eq!(coord.phase, Phase::Update);
-//         assert!(!coord.has_enough_seeds());
+        // artificially populate the sum dictionary
+        let (sum_dict, updates, seed_dict) = auxiliary_update(coord.min_sum, coord.min_update);
+        coord.sum_dict = sum_dict;
 
-//         // simulate update participants sending their seeds dictionary
-//         for (pk, local_seed_dict) in updates.iter() {
-//             assert!(!coord.has_enough_seeds());
-//             coord.add_local_seed_dict(pk, local_seed_dict).unwrap();
-//         }
-//         assert_eq!(coord.seed_dict, seed_dict);
-//         assert!(coord.has_enough_seeds());
+        coord.try_phase_transition(); // start the update phase
+        assert!(coord.next_event().is_some());
+        assert!(coord.next_event().is_none());
+        assert_eq!(coord.phase, Phase::Update);
+        assert!(!coord.has_enough_seeds());
 
-//         coord.try_phase_transition(); // finish the update phase
-//         assert_eq!(
-//             coord.next_event().unwrap(),
-//             ProtocolEvent::StartSum2(seed_dict)
-//         );
-//         assert!(coord.next_event().is_none());
-//         assert_eq!(coord.phase, Phase::Sum2);
-//     }
+        // simulate update participants sending their seeds dictionary
+        for (pk, local_seed_dict) in updates.iter() {
+            assert!(!coord.has_enough_seeds());
+            coord.add_local_seed_dict(pk, local_seed_dict).unwrap();
+        }
+        assert_eq!(coord.seed_dict, seed_dict);
+        assert!(coord.has_enough_seeds());
 
-//     fn auxiliary_mask(min_sum: usize) -> (Vec<(SumParticipantPublicKey, Mask)>, MaskDict) {
-//         let config = MaskConfigs::from_parts(
-//             GroupType::Prime,
-//             DataType::F32,
-//             BoundType::B0,
-//             ModelType::M3,
-//         )
-//         .config();
-//         let masks = auxiliary_sum(min_sum)
-//             .keys()
-//             .cloned()
-//             .zip(
-//                 [
-//                     // this doesn't work for `min_sum == 0` and `min_sum == 2`
-//                     vec![MaskSeed::generate().derive_mask(10, &config); min_sum - 1],
-//                     vec![MaskSeed::generate().derive_mask(10, &config); 1],
-//                 ]
-//                 .concat()
-//                 .into_iter(),
-//             )
-//             .collect::<Vec<(SumParticipantPublicKey, Mask)>>();
-//         let mask_dict = masks
-//             .iter()
-//             .map(|(_, mask)| sha256::hash(mask.serialize().as_slice()))
-//             .collect::<MaskDict>();
-//         (masks, mask_dict)
-//     }
+        coord.try_phase_transition(); // finish the update phase
+        assert_eq!(
+            coord.next_event().unwrap(),
+            ProtocolEvent::StartSum2(seed_dict)
+        );
+        assert!(coord.next_event().is_none());
+        assert_eq!(coord.phase, Phase::Sum2);
+    }
 
-//     #[test]
-//     fn test_mask_dict() {
-//         let mut coord = Coordinator::<f32>::new().unwrap();
-//         coord.min_sum = 3;
-//         coord.min_update = 3;
-//         coord.phase = Phase::Sum2;
+    fn auxiliary_mask(min_sum: usize) -> (Vec<Mask>, MaskDict) {
+        let config = MaskConfigs::from_parts(
+            GroupType::Prime,
+            DataType::F32,
+            BoundType::B0,
+            ModelType::M3,
+        )
+        .config();
+        let masks = [
+            vec![MaskSeed::generate().derive_mask(10, &config); min_sum - 1],
+            vec![MaskSeed::generate().derive_mask(10, &config); 1],
+        ]
+        .concat();
+        let mask_dict = [
+            (masks[0].clone(), min_sum - 1),
+            (masks[min_sum - 1].clone(), 1),
+        ]
+        .iter()
+        .cloned()
+        .collect::<MaskDict>();
+        (masks, mask_dict)
+    }
 
-//         // Pretend we received enough masks
-//         let (masks, mask_dict) = auxiliary_mask(coord.min_sum);
-//         for (pk, mask) in masks.iter() {
-//             coord.add_mask_hash(pk, mask).unwrap();
-//         }
-//         assert_eq!(coord.mask_dict, mask_dict);
-//         assert!(coord.has_enough_masks());
-//         assert_eq!(
-//             coord.freeze_mask_dict().unwrap(),
-//             mask_dict.most_common()[0].0,
-//         );
-//     }
+    #[test]
+    fn test_mask_dict() {
+        let mut coord = Coordinator::<f32>::new().unwrap();
+        coord.min_sum = 3;
+        coord.min_update = 3;
+        coord.phase = Phase::Sum2;
 
-//     #[test]
-//     fn test_mask_dict_fail() {
-//         let mut coord = Coordinator::<f32>::new().unwrap();
-//         coord.min_sum = 3;
-//         coord.min_update = 3;
-//         coord.phase = Phase::Sum2;
+        // Pretend we received enough masks
+        let sum_dict = auxiliary_sum(coord.min_sum);
+        coord.sum_dict = sum_dict.clone();
+        let (masks, mask_dict) = auxiliary_mask(coord.min_sum);
+        for (pk, mask) in sum_dict.keys().zip(masks.iter()) {
+            coord.add_mask(pk, mask).unwrap();
+        }
+        assert_eq!(coord.mask_dict, mask_dict);
+        assert!(coord.has_enough_masks());
+        assert_eq!(coord.freeze_mask_dict().unwrap(), &masks[0]);
+    }
 
-//         coord.mask_dict = iter::repeat_with(|| sha256::hash(&randombytes(32)))
-//             .take(coord.min_sum)
-//             .collect::<MaskDict>();
-//         assert_eq!(
-//             coord.freeze_mask_dict().unwrap_err(),
-//             RoundFailed::AmbiguousMasks,
-//         );
-//     }
+    #[test]
+    fn test_mask_dict_fail() {
+        let mut coord = Coordinator::<f32>::new().unwrap();
+        coord.min_sum = 3;
+        coord.min_update = 3;
+        coord.phase = Phase::Sum2;
 
-//     #[test]
-//     fn test_clear_round_dicts() {
-//         let mut coord = Coordinator::<f32>::new().unwrap();
-//         coord.clear_round_dicts();
-//         assert!(coord.sum_dict.is_empty());
-//         assert!(coord.seed_dict.is_empty());
-//         assert!(coord.mask_dict.is_empty());
-//     }
+        let config = MaskConfigs::from_parts(
+            GroupType::Prime,
+            DataType::F32,
+            BoundType::B0,
+            ModelType::M3,
+        )
+        .config();
+        coord.mask_dict = iter::repeat_with(|| (MaskSeed::generate().derive_mask(10, &config), 1))
+            .take(coord.min_sum)
+            .collect::<MaskDict>();
+        assert_eq!(
+            coord.freeze_mask_dict().unwrap_err(),
+            RoundFailed::AmbiguousMasks,
+        );
+    }
 
-//     #[test]
-//     fn test_gen_round_keypair() {
-//         let mut coord = Coordinator::<f32>::new().unwrap();
-//         coord.gen_round_keypair();
-//         assert_eq!(coord.pk, coord.sk.public_key());
-//         assert_eq!(coord.sk.as_slice().len(), 32);
-//     }
+    #[test]
+    fn test_clear_round_dicts() {
+        let mut coord = Coordinator::<f32>::new().unwrap();
+        coord.clear_round_dicts();
+        assert!(coord.sum_dict.is_empty());
+        assert!(coord.seed_dict.is_empty());
+        assert!(coord.mask_dict.is_empty());
+    }
 
-//     #[test]
-//     fn test_update_round_seed() {
-//         let mut coord = Coordinator::<f32>::new().unwrap();
-//         coord.seed = vec![
-//             229, 16, 164, 40, 138, 161, 23, 161, 175, 102, 13, 103, 229, 229, 163, 56, 184, 250,
-//             190, 44, 91, 69, 246, 222, 64, 101, 139, 22, 126, 6, 103, 238,
-//         ];
-//         coord.sk = SecretEncryptKey::from_slice_unchecked(&[
-//             39, 177, 238, 71, 112, 48, 60, 73, 246, 28, 143, 222, 211, 114, 29, 34, 174, 28, 77,
-//             51, 146, 27, 155, 224, 20, 169, 254, 164, 231, 141, 190, 31,
-//         ]);
-//         coord.update_round_seed();
-//         assert_eq!(
-//             coord.seed,
-//             vec![
-//                 90, 35, 97, 78, 70, 149, 40, 131, 149, 211, 30, 236, 194, 175, 156, 76, 85, 43,
-//                 138, 159, 180, 166, 25, 205, 156, 176, 3, 203, 27, 128, 231, 38
-//             ],
-//         );
-//     }
+    #[test]
+    fn test_gen_round_keypair() {
+        let mut coord = Coordinator::<f32>::new().unwrap();
+        coord.gen_round_keypair();
+        assert_eq!(coord.pk, coord.sk.public_key());
+        assert_eq!(coord.sk.as_slice().len(), 32);
+    }
 
-//     #[test]
-//     fn test_transitions() {
-//         let mut coord = Coordinator::<f32>::new().unwrap();
-//         coord.min_sum = 3;
-//         coord.min_update = 3;
+    #[test]
+    fn test_update_round_seed() {
+        let mut coord = Coordinator::<f32>::new().unwrap();
+        coord.seed = vec![
+            229, 16, 164, 40, 138, 161, 23, 161, 175, 102, 13, 103, 229, 229, 163, 56, 184, 250,
+            190, 44, 91, 69, 246, 222, 64, 101, 139, 22, 126, 6, 103, 238,
+        ];
+        coord.sk = SecretEncryptKey::from_slice_unchecked(&[
+            39, 177, 238, 71, 112, 48, 60, 73, 246, 28, 143, 222, 211, 114, 29, 34, 174, 28, 77,
+            51, 146, 27, 155, 224, 20, 169, 254, 164, 231, 141, 190, 31,
+        ]);
+        coord.update_round_seed();
+        assert_eq!(
+            coord.seed,
+            vec![
+                90, 35, 97, 78, 70, 149, 40, 131, 149, 211, 30, 236, 194, 175, 156, 76, 85, 43,
+                138, 159, 180, 166, 25, 205, 156, 176, 3, 203, 27, 128, 231, 38
+            ],
+        );
+    }
 
-//         let (sum_dict, _, seed_dict) = auxiliary_update(coord.min_sum, coord.min_update);
-//         let (_, mask_dict) = auxiliary_mask(coord.min_sum);
-//         assert_eq!(coord.phase, Phase::Idle);
-//         assert!(coord.next_event().is_none());
+    #[test]
+    fn test_transitions() {
+        let mut coord = Coordinator::<f32>::new().unwrap();
+        coord.min_sum = 3;
+        coord.min_update = 3;
 
-//         coord.try_phase_transition();
-//         assert_eq!(
-//             coord.next_event().unwrap(),
-//             ProtocolEvent::StartSum(RoundParameters {
-//                 sum: 0.01,
-//                 update: 0.1,
-//                 seed: coord.seed.clone(),
-//                 pk: coord.pk,
-//             })
-//         );
-//         assert!(coord.next_event().is_none());
-//         assert_eq!(coord.phase, Phase::Sum);
-//         assert_ne!(coord.pk, PublicEncryptKey::zeroed());
-//         assert_ne!(coord.sk, SecretEncryptKey::zeroed());
+        let (sum_dict, _, seed_dict) = auxiliary_update(coord.min_sum, coord.min_update);
+        let (_, mask_dict) = auxiliary_mask(coord.min_sum);
+        assert_eq!(coord.phase, Phase::Idle);
+        assert!(coord.next_event().is_none());
 
-//         coord.try_phase_transition();
-//         // We didn't add any participant so the state should remain
-//         // unchanged
-//         assert!(coord.next_event().is_none());
-//         assert_eq!(coord.phase, Phase::Sum);
+        coord.try_phase_transition();
+        assert_eq!(
+            coord.next_event().unwrap(),
+            ProtocolEvent::StartSum(RoundParameters {
+                sum: 0.01,
+                update: 0.1,
+                seed: coord.seed.clone(),
+                pk: coord.pk,
+            })
+        );
+        assert!(coord.next_event().is_none());
+        assert_eq!(coord.phase, Phase::Sum);
+        assert_ne!(coord.pk, PublicEncryptKey::zeroed());
+        assert_ne!(coord.sk, SecretEncryptKey::zeroed());
 
-//         // Pretend we have enough participants, and transition
-//         // again. This time, the state should change.
-//         coord.sum_dict = sum_dict.clone();
-//         coord.try_phase_transition();
-//         assert_eq!(
-//             coord.next_event().unwrap(),
-//             ProtocolEvent::StartUpdate(sum_dict)
-//         );
-//         assert!(coord.next_event().is_none());
-//         assert_eq!(coord.phase, Phase::Update);
+        coord.try_phase_transition();
+        // We didn't add any participant so the state should remain
+        // unchanged
+        assert!(coord.next_event().is_none());
+        assert_eq!(coord.phase, Phase::Sum);
 
-//         // We didn't add any update so the state should remain
-//         // unchanged
-//         coord.try_phase_transition();
-//         assert!(coord.next_event().is_none());
-//         assert_eq!(coord.phase, Phase::Update);
+        // Pretend we have enough participants, and transition
+        // again. This time, the state should change.
+        coord.sum_dict = sum_dict.clone();
+        coord.try_phase_transition();
+        assert_eq!(
+            coord.next_event().unwrap(),
+            ProtocolEvent::StartUpdate(sum_dict)
+        );
+        assert!(coord.next_event().is_none());
+        assert_eq!(coord.phase, Phase::Update);
 
-//         // Pretend we received enough updates and transition. This
-//         // time the state should change.
-//         coord.seed_dict = seed_dict.clone();
-//         coord.try_phase_transition();
-//         assert_eq!(
-//             coord.next_event().unwrap(),
-//             ProtocolEvent::StartSum2(seed_dict)
-//         );
-//         assert!(coord.next_event().is_none());
-//         assert_eq!(coord.phase, Phase::Sum2);
+        // We didn't add any update so the state should remain
+        // unchanged
+        coord.try_phase_transition();
+        assert!(coord.next_event().is_none());
+        assert_eq!(coord.phase, Phase::Update);
 
-//         // We didn't add any mask so the state should remain unchanged
-//         coord.try_phase_transition();
-//         assert!(coord.next_event().is_none());
-//         assert_eq!(coord.phase, Phase::Sum2);
+        // Pretend we received enough updates and transition. This
+        // time the state should change.
+        coord.seed_dict = seed_dict.clone();
+        coord.try_phase_transition();
+        assert_eq!(
+            coord.next_event().unwrap(),
+            ProtocolEvent::StartSum2(seed_dict)
+        );
+        assert!(coord.next_event().is_none());
+        assert_eq!(coord.phase, Phase::Sum2);
 
-//         // Pretend we received enough masks and transition. This time
-//         // the state should change and we should restart a round
-//         let chosen_seed = mask_dict.most_common().into_iter().next().unwrap().0;
-//         coord.mask_dict = mask_dict;
-//         let seed = coord.seed.clone();
-//         coord.try_phase_transition();
-//         assert_eq!(
-//             coord.next_event().unwrap(),
-//             ProtocolEvent::EndRound(Some(chosen_seed))
-//         );
-//         assert_eq!(
-//             coord.next_event().unwrap(),
-//             ProtocolEvent::StartSum(RoundParameters {
-//                 sum: 0.01,
-//                 update: 0.1,
-//                 seed: coord.seed.clone(),
-//                 pk: coord.pk,
-//             })
-//         );
-//         assert_eq!(coord.phase, Phase::Sum);
-//         assert!(coord.next_event().is_none());
-//         assert!(coord.sum_dict.is_empty());
-//         assert!(coord.seed_dict.is_empty());
-//         assert!(coord.mask_dict.is_empty());
-//         assert_ne!(coord.seed, seed);
-//     }
-// }
+        // We didn't add any mask so the state should remain unchanged
+        coord.try_phase_transition();
+        assert!(coord.next_event().is_none());
+        assert_eq!(coord.phase, Phase::Sum2);
+
+        // Pretend we received enough masks and transition. This time
+        // the state should change and we should restart a round
+        let integers = vec![BigUint::zero(); 10];
+        let config = MaskConfigs::from_parts(
+            GroupType::Prime,
+            DataType::F32,
+            BoundType::B0,
+            ModelType::M3,
+        )
+        .config();
+        coord.masked_model = Some(MaskedModel::from_parts(integers, config).unwrap());
+        coord.mask_dict = mask_dict;
+        let seed = coord.seed.clone();
+        coord.try_phase_transition();
+        assert_eq!(
+            coord.next_event().unwrap(),
+            ProtocolEvent::EndRound(Some(()))
+        );
+        assert_eq!(
+            coord.next_event().unwrap(),
+            ProtocolEvent::StartSum(RoundParameters {
+                sum: 0.01,
+                update: 0.1,
+                seed: coord.seed.clone(),
+                pk: coord.pk,
+            })
+        );
+        assert_eq!(coord.phase, Phase::Sum);
+        assert!(coord.next_event().is_none());
+        assert!(coord.sum_dict.is_empty());
+        assert!(coord.seed_dict.is_empty());
+        assert!(coord.mask_dict.is_empty());
+        assert_ne!(coord.seed, seed);
+    }
+}
