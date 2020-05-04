@@ -81,7 +81,6 @@ impl Client {
             }
             self.interval.tick().await;
         };
-        let coord_pk = round_params.pk;
         let round_seed: &[u8] = round_params.seed.as_slice();
         self.particip
             .compute_signatures(round_seed);
@@ -91,9 +90,9 @@ impl Client {
             .check_task(sum_frac, upd_frac)
         {
             Task::Sum    =>
-                self.summer(coord_pk).await,
+                self.summer(round_params.pk).await,
             Task::Update =>
-                self.updater(coord_pk).await,
+                self.updater(round_params.pk).await,
             Task::None   =>
                 self.unselected().await,
         }
@@ -122,6 +121,7 @@ impl Client {
             if let Some(seed_dict_ser) = self.handle.get_seed_dict(pk).await {
                 break seed_dict_ser
             }
+            // updates not yet ready, try again later...
             self.interval.tick().await;
         };
         let seed_dict: SeedDict = bincode::deserialize(&seed_dict_ser[..])
@@ -148,6 +148,7 @@ impl Client {
             if let Some(sum_dict_ser) = self.handle.get_sum_dict().await {
                 break sum_dict_ser
             }
+            // sums not yet ready, try again later...
             self.interval.tick().await;
         };
         let sum_dict: SumDict = bincode::deserialize(&sum_dict_ser[..])
@@ -164,3 +165,14 @@ impl Client {
             .await
     }
 }
+
+
+
+
+
+
+
+
+
+
+
