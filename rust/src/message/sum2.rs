@@ -236,25 +236,12 @@ impl Sum2Message<SumParticipantPublicKey, ParticipantTaskSignature, Certificate,
         }
     }
 
-    /// Get a reference to the public signature key.
-    pub fn pk(&self) -> &SumParticipantPublicKey {
-        &self.pk
-    }
-
-    /// Get a reference to the sum signature.
-    pub fn sum_signature(&self) -> &ParticipantTaskSignature {
-        &self.sum_signature
-    }
-
-    /// Get a reference to the certificate.
-    pub fn certificate(&self) -> &Certificate {
-        &self.certificate
-    }
-
-    /// Get a reference to the mask.
-    pub fn mask(&self) -> &Mask {
-        &self.mask
-    }
+    derive_struct_fields!(
+        pk, SumParticipantPublicKey;
+        sum_signature, ParticipantTaskSignature;
+        certificate, Certificate;
+        mask, Mask;
+    );
 }
 
 #[cfg(test)]

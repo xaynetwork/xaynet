@@ -17,14 +17,13 @@ use crate::{model::Model, PetError};
 pub trait Integers: Sized {
     type Error;
 
+    define_trait_fields!(
+        integers, Vec<BigUint>;
+        config, MaskConfig;
+    );
+
     /// Get an error value of the error type to be used in the default implementations.
     fn error_value() -> Self::Error;
-
-    /// Get a reference to the integers.
-    fn integers(&self) -> &Vec<BigUint>;
-
-    /// Get a reference to the mask configuration.
-    fn config(&self) -> &MaskConfig;
 
     /// Create the object from its parts. Fails if the integers don't conform to the mask
     /// configuration.
@@ -134,19 +133,14 @@ pub struct MaskedModel {
 impl Integers for MaskedModel {
     type Error = PetError;
 
+    derive_trait_fields!(
+        integers, Vec<BigUint>;
+        config, MaskConfig;
+    );
+
     /// Get an error value of the error type to be used in the default implementations.
     fn error_value() -> Self::Error {
         Self::Error::InvalidModel
-    }
-
-    /// Get a reference to the integers.
-    fn integers(&self) -> &Vec<BigUint> {
-        &self.integers
-    }
-
-    /// Get a reference to the mask configuration.
-    fn config(&self) -> &MaskConfig {
-        &self.config
     }
 
     /// Create a masked model from its parts. Fails if the integers don't conform to the mask
@@ -256,19 +250,14 @@ pub struct Mask {
 impl Integers for Mask {
     type Error = PetError;
 
+    derive_trait_fields!(
+        integers, Vec<BigUint>;
+        config, MaskConfig;
+    );
+
     /// Get an error value of the error type to be used in the default implementations.
     fn error_value() -> Self::Error {
         Self::Error::InvalidMask
-    }
-
-    /// Get a reference to the integers.
-    fn integers(&self) -> &Vec<BigUint> {
-        &self.integers
-    }
-
-    /// Get a reference to the mask configuration.
-    fn config(&self) -> &MaskConfig {
-        &self.config
     }
 
     /// Create a mask from its parts. Fails if the integers don't conform to the mask configuration.

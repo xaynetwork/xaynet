@@ -18,15 +18,12 @@ pub struct MaskConfig {
 }
 
 impl MaskConfig {
-    /// Get the name.
-    pub fn name(&self) -> MaskConfigs {
-        self.name
-    }
-
-    /// Get a reference to the order of the finite group.
-    pub fn order(&'_ self) -> &'_ BigUint {
-        &self.order
-    }
+    derive_struct_fields!(
+        name, MaskConfigs;
+        add_shift, Ratio<BigInt>;
+        exp_shift, BigInt;
+        order, BigUint;
+    );
 
     /// Get the number of bytes needed to represent the largest element of the finite group.
     pub fn element_len(&self) -> usize {
@@ -35,16 +32,6 @@ impl MaskConfig {
         } else {
             (self.order() - BigUint::from(1_usize)).to_bytes_le().len()
         }
-    }
-
-    /// Get the exponent (to base 10) of the exponential shift.
-    pub fn exp_shift(&'_ self) -> &'_ BigInt {
-        &self.exp_shift
-    }
-
-    /// Get the additive shift.
-    pub fn add_shift(&'_ self) -> &'_ Ratio<BigInt> {
-        &self.add_shift
     }
 
     /// Serialize the mask configuration into bytes.
@@ -204,6 +191,13 @@ pub struct MaskConfigs {
 }
 
 impl MaskConfigs {
+    derive_struct_fields!(
+        group_type, GroupType;
+        data_type, DataType;
+        bound_type, BoundType;
+        model_type, ModelType;
+    );
+
     /// Create a mask configuration name from its parts.
     pub fn from_parts(
         group_type: GroupType,
@@ -217,26 +211,6 @@ impl MaskConfigs {
             bound_type,
             model_type,
         }
-    }
-
-    /// Get the group type.
-    pub fn group_type(&self) -> GroupType {
-        self.group_type
-    }
-
-    /// Get the data type.
-    pub fn data_type(&self) -> DataType {
-        self.data_type
-    }
-
-    /// Get the bound type.
-    pub fn bound_type(&self) -> BoundType {
-        self.bound_type
-    }
-
-    /// Get the model type.
-    pub fn model_type(&self) -> ModelType {
-        self.model_type
     }
 
     /// Get the mask configuration corresponding to the name.

@@ -229,25 +229,12 @@ impl
         }
     }
 
-    /// Get a reference to the public signature key.
-    pub fn pk(&self) -> &SumParticipantPublicKey {
-        &self.pk
-    }
-
-    /// Get a reference to the sum signature.
-    pub fn sum_signature(&self) -> &ParticipantTaskSignature {
-        &self.sum_signature
-    }
-
-    /// Get a reference to the ephemeral public encryption key.
-    pub fn ephm_pk(&self) -> &SumParticipantEphemeralPublicKey {
-        &self.ephm_pk
-    }
-
-    /// Get a reference to the certificate.
-    pub fn certificate(&self) -> &Certificate {
-        &self.certificate
-    }
+    derive_struct_fields!(
+        pk, SumParticipantPublicKey;
+        sum_signature, ParticipantTaskSignature;
+        certificate, Certificate;
+        ephm_pk, SumParticipantEphemeralPublicKey;
+    );
 }
 
 #[cfg(test)]

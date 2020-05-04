@@ -136,86 +136,24 @@ impl<N> Default for Coordinator<N> {
 }
 
 pub trait Coordinators: Sized {
+    define_trait_fields!(
+        pk, pk_mut, CoordinatorPublicKey;
+        sk, sk_mut, CoordinatorSecretKey;
+        sum, sum_mut, f64;
+        update, update_mut, f64;
+        min_sum, min_sum_mut, usize;
+        min_update, min_update_mut, usize;
+        seed, seed_mut, Vec<u8>;
+        phase, phase_mut, Phase;
+        sum_dict, sum_dict_mut, SumDict;
+        seed_dict, seed_dict_mut, SeedDict;
+        mask_dict, mask_dict_mut, MaskDict;
+        masked_model, masked_model_mut, Option<MaskedModel>;
+        events, events_mut, VecDeque<ProtocolEvent>;
+    );
+
     /// Create a coordinator. Fails if there is insufficient system entropy to generate secrets.
     fn new() -> Result<Self, InitError>;
-
-    /// Get a reference to the public key field.
-    fn pk(&self) -> &CoordinatorPublicKey;
-
-    /// Get a mutable reference to the public key field.
-    fn pk_mut(&mut self) -> &mut CoordinatorPublicKey;
-
-    /// Get a reference to the secret key field.
-    fn sk(&self) -> &CoordinatorSecretKey;
-
-    /// Get a mutable reference to the secret key field.
-    fn sk_mut(&mut self) -> &mut CoordinatorSecretKey;
-
-    /// Get a reference to the sum field.
-    fn sum(&self) -> &f64;
-
-    /// Get a mutable reference to the sum field.
-    fn sum_mut(&mut self) -> &mut f64;
-
-    /// Get a reference to the update field.
-    fn update(&self) -> &f64;
-
-    /// Get a mutable reference to the update field.
-    fn update_mut(&mut self) -> &mut f64;
-
-    /// Get a reference to the min sum field.
-    fn min_sum(&self) -> &usize;
-
-    /// Get a mutable reference to the min sum field.
-    fn min_sum_mut(&mut self) -> &mut usize;
-
-    /// Get a reference to the min update field.
-    fn min_update(&self) -> &usize;
-
-    /// Get a mutable reference to the min update field.
-    fn min_update_mut(&mut self) -> &mut usize;
-
-    /// Get a reference to the seed field.
-    fn seed(&self) -> &Vec<u8>;
-
-    /// Get a mutable reference to the seed field.
-    fn seed_mut(&mut self) -> &mut Vec<u8>;
-
-    /// Get a reference to the phase field.
-    fn phase(&self) -> &Phase;
-
-    /// Get a mutable reference to the phase field.
-    fn phase_mut(&mut self) -> &mut Phase;
-
-    /// Get a reference to the sum dictionary field.
-    fn sum_dict(&self) -> &SumDict;
-
-    /// Get a mutable reference to the sum dictionary field.
-    fn sum_dict_mut(&mut self) -> &mut SumDict;
-
-    /// Get a reference to the seed dictionary field.
-    fn seed_dict(&self) -> &SeedDict;
-
-    /// Get a mutable reference to the seed dictionary field.
-    fn seed_dict_mut(&mut self) -> &mut SeedDict;
-
-    /// Get a reference to the mask dictionary field.
-    fn mask_dict(&self) -> &MaskDict;
-
-    /// Get a mutable reference to the mask dictionary field.
-    fn mask_dict_mut(&mut self) -> &mut MaskDict;
-
-    /// Get a reference to the masked model field.
-    fn masked_model(&self) -> &Option<MaskedModel>;
-
-    /// Get a mutable reference to the masked model field.
-    fn masked_model_mut(&mut self) -> &mut Option<MaskedModel>;
-
-    /// Get a reference to the events field.
-    fn events(&self) -> &VecDeque<ProtocolEvent>;
-
-    /// Get a mutable reference to the events field.
-    fn events_mut(&mut self) -> &mut VecDeque<ProtocolEvent>;
 
     /// Emit an event.
     fn emit_event(&mut self, event: ProtocolEvent) {
@@ -503,11 +441,7 @@ pub trait Coordinators: Sized {
 }
 
 pub trait MaskCoordinators<N>: Coordinators {
-    /// Get a reference to the model field.
-    fn model(&self) -> &Option<Model<N>>;
-
-    /// Get a mutable reference to the model field.
-    fn model_mut(&mut self) -> &mut Option<Model<N>>;
+    define_trait_fields!(model, model_mut, Option<Model<N>>);
 
     /// Unmask the masked model with a mask.
     fn unmask_model(&self, mask: &Mask) -> Result<Model<N>, RoundFailed>;
@@ -567,6 +501,22 @@ pub trait MaskCoordinators<N>: Coordinators {
 }
 
 impl<N> Coordinators for Coordinator<N> {
+    derive_trait_fields!(
+        pk, pk_mut, CoordinatorPublicKey;
+        sk, sk_mut, CoordinatorSecretKey;
+        sum, sum_mut, f64;
+        update, update_mut, f64;
+        min_sum, min_sum_mut, usize;
+        min_update, min_update_mut, usize;
+        seed, seed_mut, Vec<u8>;
+        phase, phase_mut, Phase;
+        sum_dict, sum_dict_mut, SumDict;
+        seed_dict, seed_dict_mut, SeedDict;
+        mask_dict, mask_dict_mut, MaskDict;
+        masked_model, masked_model_mut, Option<MaskedModel>;
+        events, events_mut, VecDeque<ProtocolEvent>;
+    );
+
     /// Create a coordinator. Fails if there is insufficient system entropy to generate secrets.
     fn new() -> Result<Self, InitError> {
         // crucial: init must be called before anything else in this module
@@ -577,148 +527,10 @@ impl<N> Coordinators for Coordinator<N> {
             ..Default::default()
         })
     }
-
-    /// Get a reference to the public key field.
-    fn pk(&self) -> &CoordinatorPublicKey {
-        &self.pk
-    }
-
-    /// Get a mutable reference to the public key field.
-    fn pk_mut(&mut self) -> &mut CoordinatorPublicKey {
-        &mut self.pk
-    }
-
-    /// Get a reference to the secret key field.
-    fn sk(&self) -> &CoordinatorSecretKey {
-        &self.sk
-    }
-
-    /// Get a mutable reference to the secret key field.
-    fn sk_mut(&mut self) -> &mut CoordinatorSecretKey {
-        &mut self.sk
-    }
-
-    /// Get a reference to the sum field.
-    fn sum(&self) -> &f64 {
-        &self.sum
-    }
-
-    /// Get a mutable reference to the sum field.
-    fn sum_mut(&mut self) -> &mut f64 {
-        &mut self.sum
-    }
-
-    /// Get a reference to the update field.
-    fn update(&self) -> &f64 {
-        &self.update
-    }
-
-    /// Get a mutable reference to the update field.
-    fn update_mut(&mut self) -> &mut f64 {
-        &mut self.update
-    }
-
-    /// Get a reference to the seed field.
-    fn seed(&self) -> &Vec<u8> {
-        &self.seed
-    }
-
-    /// Get a mutable reference to the seed field.
-    fn seed_mut(&mut self) -> &mut Vec<u8> {
-        &mut self.seed
-    }
-
-    /// Get a reference to the min_sum field.
-    fn min_sum(&self) -> &usize {
-        &self.min_sum
-    }
-
-    /// Get a mutable reference to the min_sum field.
-    fn min_sum_mut(&mut self) -> &mut usize {
-        &mut self.min_sum
-    }
-
-    /// Get a reference to the min_update field.
-    fn min_update(&self) -> &usize {
-        &self.min_update
-    }
-
-    /// Get a mutable reference to the min_update field.
-    fn min_update_mut(&mut self) -> &mut usize {
-        &mut self.min_update
-    }
-
-    /// Get a reference to the phase field.
-    fn phase(&self) -> &Phase {
-        &self.phase
-    }
-
-    /// Get a mutable reference to the phase field.
-    fn phase_mut(&mut self) -> &mut Phase {
-        &mut self.phase
-    }
-
-    /// Get a reference to the sum dictionary field.
-    fn sum_dict(&self) -> &SumDict {
-        &self.sum_dict
-    }
-
-    /// Get a mutable reference to the sum dictionary field.
-    fn sum_dict_mut(&mut self) -> &mut SumDict {
-        &mut self.sum_dict
-    }
-
-    /// Get a reference to the seed dictionary field.
-    fn seed_dict(&self) -> &SeedDict {
-        &self.seed_dict
-    }
-
-    /// Get a mutable reference to the seed dictionary field.
-    fn seed_dict_mut(&mut self) -> &mut SeedDict {
-        &mut self.seed_dict
-    }
-
-    /// Get a reference to the mask dictionary field.
-    fn mask_dict(&self) -> &MaskDict {
-        &self.mask_dict
-    }
-
-    /// Get a mutable reference to the mask dictionary field.
-    fn mask_dict_mut(&mut self) -> &mut MaskDict {
-        &mut self.mask_dict
-    }
-
-    /// Get a reference to the masked model field.
-    fn masked_model(&self) -> &Option<MaskedModel> {
-        &self.masked_model
-    }
-
-    /// Get a mutable reference to the masked model field.
-    fn masked_model_mut(&mut self) -> &mut Option<MaskedModel> {
-        &mut self.masked_model
-    }
-
-    /// Get a reference to the events field.
-    fn events(&self) -> &VecDeque<ProtocolEvent> {
-        &self.events
-    }
-
-    /// Get a mutable reference to the events field.
-    fn events_mut(&mut self) -> &mut VecDeque<ProtocolEvent> {
-        &mut self.events
-    }
 }
 
 impl MaskCoordinators<f32> for Coordinator<f32> {
-    /// Get a reference to the model field.
-    fn model(&self) -> &Option<Model<f32>> {
-        &self.model
-    }
-
-    /// Get a mutable reference to the model field.
-    fn model_mut(&mut self) -> &mut Option<Model<f32>> {
-        &mut self.model
-    }
+    derive_trait_fields!(model, model_mut, Option<Model<f32>>);
 
     fn unmask_model(&self, mask: &Mask) -> Result<Model<f32>, RoundFailed> {
         let no_models = self.seed_dict.values().next().map_or(0, |dict| dict.len());
@@ -733,15 +545,7 @@ impl MaskCoordinators<f32> for Coordinator<f32> {
 }
 
 impl MaskCoordinators<f64> for Coordinator<f64> {
-    /// Get a reference to the model field.
-    fn model(&self) -> &Option<Model<f64>> {
-        &self.model
-    }
-
-    /// Get a mutable reference to the model field.
-    fn model_mut(&mut self) -> &mut Option<Model<f64>> {
-        &mut self.model
-    }
+    derive_trait_fields!(model, model_mut, Option<Model<f64>>);
 
     fn unmask_model(&self, mask: &Mask) -> Result<Model<f64>, RoundFailed> {
         let no_models = self.seed_dict.values().next().map_or(0, |dict| dict.len());
@@ -756,15 +560,7 @@ impl MaskCoordinators<f64> for Coordinator<f64> {
 }
 
 impl MaskCoordinators<i32> for Coordinator<i32> {
-    /// Get a reference to the model field.
-    fn model(&self) -> &Option<Model<i32>> {
-        &self.model
-    }
-
-    /// Get a mutable reference to the model field.
-    fn model_mut(&mut self) -> &mut Option<Model<i32>> {
-        &mut self.model
-    }
+    derive_trait_fields!(model, model_mut, Option<Model<i32>>);
 
     fn unmask_model(&self, mask: &Mask) -> Result<Model<i32>, RoundFailed> {
         let no_models = self.seed_dict.values().next().map_or(0, |dict| dict.len());
@@ -779,15 +575,7 @@ impl MaskCoordinators<i32> for Coordinator<i32> {
 }
 
 impl MaskCoordinators<i64> for Coordinator<i64> {
-    /// Get a reference to the model field.
-    fn model(&self) -> &Option<Model<i64>> {
-        &self.model
-    }
-
-    /// Get a mutable reference to the model field.
-    fn model_mut(&mut self) -> &mut Option<Model<i64>> {
-        &mut self.model
-    }
+    derive_trait_fields!(model, model_mut, Option<Model<i64>>);
 
     fn unmask_model(&self, mask: &Mask) -> Result<Model<i64>, RoundFailed> {
         let no_models = self.seed_dict.values().next().map_or(0, |dict| dict.len());

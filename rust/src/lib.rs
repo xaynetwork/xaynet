@@ -6,10 +6,11 @@
 
 #[macro_use]
 extern crate tracing;
-
 #[macro_use]
 extern crate serde;
 
+#[macro_use]
+mod macros;
 pub mod certificate;
 pub mod coordinator;
 pub mod crypto;

@@ -350,35 +350,14 @@ impl
         }
     }
 
-    /// Get a reference to the public signature key.
-    pub fn pk(&self) -> &UpdateParticipantPublicKey {
-        &self.pk
-    }
-
-    /// Get a reference to the sum signature.
-    pub fn sum_signature(&self) -> &ParticipantTaskSignature {
-        &self.sum_signature
-    }
-
-    /// Get a reference to the update signature.
-    pub fn update_signature(&self) -> &ParticipantTaskSignature {
-        &self.update_signature
-    }
-
-    /// Get a reference to the certificate.
-    pub fn certificate(&self) -> &Certificate {
-        &self.certificate
-    }
-
-    /// Get a reference to the masked model.
-    pub fn masked_model(&self) -> &MaskedModel {
-        &self.masked_model
-    }
-
-    /// Get a reference to the local seed dictionary.
-    pub fn local_seed_dict(&self) -> &LocalSeedDict {
-        &self.local_seed_dict
-    }
+    derive_struct_fields!(
+        pk, SumParticipantPublicKey;
+        sum_signature, ParticipantTaskSignature;
+        update_signature, ParticipantTaskSignature;
+        certificate, Certificate;
+        masked_model, MaskedModel;
+        local_seed_dict, LocalSeedDict;
+    );
 }
 
 #[cfg(test)]
