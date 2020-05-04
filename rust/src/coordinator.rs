@@ -1,10 +1,15 @@
 use std::{
+    cmp::Ordering,
     collections::{HashMap, VecDeque},
     default::Default,
     iter,
 };
 
-use sodiumoxide::{crypto::hash::sha256, randombytes::randombytes};
+use derive_more::{AsMut, AsRef};
+use sodiumoxide::{
+    crypto::{box_, hash::sha256},
+    randombytes::randombytes,
+};
 use thiserror::Error;
 
 use crate::{
@@ -50,36 +55,6 @@ pub enum Phase {
     Sum2,
 }
 
-/// A coordinator in the PET protocol layer.
-pub struct Coordinator<N> {
-    // credentials
-    pk: CoordinatorPublicKey, // 32 bytes
-    sk: CoordinatorSecretKey, // 32 bytes
-
-    // round parameters
-    sum: f64,
-    update: f64,
-    seed: Vec<u8>, // 32 bytes
-    min_sum: usize,
-    min_update: usize,
-    phase: Phase,
-
-    // round dictionaries
-    /// Dictionary built during the sum phase.
-    sum_dict: SumDict,
-    /// Dictionary built during the update phase.
-    seed_dict: SeedDict,
-    /// Dictionary built during the sum2 phase.
-    mask_dict: MaskDict,
-
-    // global models
-    model: Option<Model<N>>,
-    masked_model: Option<MaskedModel>,
-
-    /// Events emitted by the state machine.
-    events: VecDeque<ProtocolEvent>,
-}
-
 /// Events the protocol emits.
 #[derive(Debug, PartialEq)]
 pub enum ProtocolEvent {
@@ -100,13 +75,75 @@ pub enum ProtocolEvent {
     EndRound(Option<()>),
 }
 
+#[derive(AsRef, AsMut, Clone, Debug, PartialEq)]
+/// A seed for a round.
+pub struct RoundSeed(box_::Seed);
+
+impl ByteObject for RoundSeed {
+    /// Create a round seed from a slice of bytes. Fails if the length of the input is invalid.
+    fn from_slice(bytes: &[u8]) -> Option<Self> {
+        box_::Seed::from_slice(bytes).map(Self)
+    }
+
+    /// Create a round seed initialized to zero.
+    fn zeroed() -> Self {
+        Self(box_::Seed([0_u8; Self::BYTES]))
+    }
+
+    /// Get the round seed as a slice.
+    fn as_slice(&self) -> &[u8] {
+        self.0.as_ref()
+    }
+}
+
+impl RoundSeed {
+    /// Get the number of bytes of a round seed.
+    pub const BYTES: usize = box_::SEEDBYTES;
+
+    /// Generate a random round seed.
+    pub fn generate() -> Self {
+        // safe unwrap: length of slice is guaranteed by constants
+        Self::from_slice_unchecked(randombytes(Self::BYTES).as_slice())
+    }
+}
+
+/// A coordinator in the PET protocol layer.
+pub struct Coordinator<N> {
+    // credentials
+    pk: CoordinatorPublicKey, // 32 bytes
+    sk: CoordinatorSecretKey, // 32 bytes
+
+    // round parameters
+    sum: f64,
+    update: f64,
+    seed: RoundSeed, // 32 bytes
+    min_sum: usize,
+    min_update: usize,
+    phase: Phase,
+
+    // round dictionaries
+    /// Dictionary built during the sum phase.
+    sum_dict: SumDict,
+    /// Dictionary built during the update phase.
+    seed_dict: SeedDict,
+    /// Dictionary built during the sum2 phase.
+    mask_dict: MaskDict,
+
+    // global models
+    model: Option<Model<N>>,
+    masked_model: Option<MaskedModel>,
+
+    /// Events emitted by the state machine.
+    events: VecDeque<ProtocolEvent>,
+}
+
 impl<N> Default for Coordinator<N> {
     fn default() -> Self {
         let pk = CoordinatorPublicKey::zeroed();
         let sk = CoordinatorSecretKey::zeroed();
         let sum = 0.01_f64;
         let update = 0.1_f64;
-        let seed = vec![0_u8; 32];
+        let seed = RoundSeed::zeroed();
         let min_sum = 1_usize;
         let min_update = 3_usize;
         let phase = Phase::Idle;
@@ -143,7 +180,7 @@ pub trait Coordinators: Sized {
         update, update_mut, f64;
         min_sum, min_sum_mut, usize;
         min_update, min_update_mut, usize;
-        seed, seed_mut, Vec<u8>;
+        seed, seed_mut, RoundSeed;
         phase, phase_mut, Phase;
         sum_dict, sum_dict_mut, SumDict;
         seed_dict, seed_dict_mut, SeedDict;
@@ -327,14 +364,10 @@ pub trait Coordinators: Sized {
         } else {
             let (mask, _) = self.mask_dict().iter().fold(
                 (None, 0_usize),
-                |(unique_mask, unique_count), (mask, count)| {
-                    if unique_count < *count {
-                        (Some(mask), *count)
-                    } else if unique_count > *count {
-                        (unique_mask, unique_count)
-                    } else {
-                        (None, unique_count)
-                    }
+                |(unique_mask, unique_count), (mask, count)| match unique_count.cmp(count) {
+                    Ordering::Less => (Some(mask), *count),
+                    Ordering::Greater => (unique_mask, unique_count),
+                    Ordering::Equal => (None, unique_count),
                 },
             );
             mask.ok_or(RoundFailed::AmbiguousMasks)
@@ -374,7 +407,9 @@ pub trait Coordinators: Sized {
             ]
             .concat(),
         );
-        *self.seed_mut() = sha256::hash(signature.as_slice()).as_ref().to_vec();
+        // safe unwrap: length of slice is guaranteed by constants
+        *self.seed_mut() =
+            RoundSeed::from_slice_unchecked(sha256::hash(signature.as_slice()).as_ref());
     }
 
     /// Check whether enough sum participants submitted their ephemeral keys to start the update
@@ -508,7 +543,7 @@ impl<N> Coordinators for Coordinator<N> {
         update, update_mut, f64;
         min_sum, min_sum_mut, usize;
         min_update, min_update_mut, usize;
-        seed, seed_mut, Vec<u8>;
+        seed, seed_mut, RoundSeed;
         phase, phase_mut, Phase;
         sum_dict, sum_dict_mut, SumDict;
         seed_dict, seed_dict_mut, SeedDict;
@@ -521,7 +556,7 @@ impl<N> Coordinators for Coordinator<N> {
     fn new() -> Result<Self, InitError> {
         // crucial: init must be called before anything else in this module
         sodiumoxide::init().or(Err(InitError))?;
-        let seed = randombytes(32);
+        let seed = RoundSeed::generate();
         Ok(Self {
             seed,
             ..Default::default()
@@ -601,7 +636,7 @@ pub struct RoundParameters {
     pub update: f64,
 
     /// The random round seed.
-    pub seed: Vec<u8>,
+    pub seed: RoundSeed,
 }
 
 #[cfg(test)]
@@ -624,13 +659,15 @@ mod tests {
         assert_eq!(coord.sk, SecretEncryptKey::zeroed());
         assert!(coord.sum >= 0. && coord.sum <= 1.);
         assert!(coord.update >= 0. && coord.update <= 1.);
-        assert_eq!(coord.seed.len(), 32);
+        assert_eq!(coord.seed.as_slice().len(), 32);
         assert!(coord.min_sum >= 1);
         assert!(coord.min_update >= 3);
         assert_eq!(coord.phase, Phase::Idle);
         assert_eq!(coord.sum_dict, SumDict::new());
         assert_eq!(coord.seed_dict, SeedDict::new());
         assert_eq!(coord.mask_dict, MaskDict::new());
+        assert_eq!(coord.model, None);
+        assert_eq!(coord.masked_model, None);
     }
 
     #[test]
@@ -638,10 +675,10 @@ mod tests {
         let mut coord = Coordinator::<f32>::new().unwrap();
         coord.sum = 0.5_f64;
         coord.update = 0.5_f64;
-        coord.seed = vec![
+        coord.seed = RoundSeed::from_slice_unchecked(&[
             229, 16, 164, 40, 138, 161, 23, 161, 175, 102, 13, 103, 229, 229, 163, 56, 184, 250,
             190, 44, 91, 69, 246, 222, 64, 101, 139, 22, 126, 6, 103, 238,
-        ];
+        ]);
 
         // eligible sum signature
         let sum_signature = Signature::from_slice_unchecked(&[
@@ -678,10 +715,10 @@ mod tests {
         let mut coord = Coordinator::<f32>::new().unwrap();
         coord.sum = 0.5_f64;
         coord.update = 0.5_f64;
-        coord.seed = vec![
+        coord.seed = RoundSeed::from_slice_unchecked(&[
             229, 16, 164, 40, 138, 161, 23, 161, 175, 102, 13, 103, 229, 229, 163, 56, 184, 250,
             190, 44, 91, 69, 246, 222, 64, 101, 139, 22, 126, 6, 103, 238,
-        ];
+        ]);
 
         // ineligible sum signature and eligible update signature
         let sum_signature = Signature::from_slice_unchecked(&[
@@ -993,10 +1030,10 @@ mod tests {
     #[test]
     fn test_update_round_seed() {
         let mut coord = Coordinator::<f32>::new().unwrap();
-        coord.seed = vec![
+        coord.seed = RoundSeed::from_slice_unchecked(&[
             229, 16, 164, 40, 138, 161, 23, 161, 175, 102, 13, 103, 229, 229, 163, 56, 184, 250,
             190, 44, 91, 69, 246, 222, 64, 101, 139, 22, 126, 6, 103, 238,
-        ];
+        ]);
         coord.sk = SecretEncryptKey::from_slice_unchecked(&[
             39, 177, 238, 71, 112, 48, 60, 73, 246, 28, 143, 222, 211, 114, 29, 34, 174, 28, 77,
             51, 146, 27, 155, 224, 20, 169, 254, 164, 231, 141, 190, 31,
@@ -1004,10 +1041,10 @@ mod tests {
         coord.update_round_seed();
         assert_eq!(
             coord.seed,
-            vec![
+            RoundSeed::from_slice_unchecked(&[
                 90, 35, 97, 78, 70, 149, 40, 131, 149, 211, 30, 236, 194, 175, 156, 76, 85, 43,
-                138, 159, 180, 166, 25, 205, 156, 176, 3, 203, 27, 128, 231, 38
-            ],
+                138, 159, 180, 166, 25, 205, 156, 176, 3, 203, 27, 128, 231, 38,
+            ]),
         );
     }
 

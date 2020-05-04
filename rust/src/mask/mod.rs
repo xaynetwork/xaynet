@@ -55,7 +55,7 @@ pub trait Integers: Sized {
         if bytes.len() < 4 {
             return Err(Self::error_value());
         }
-        let config = MaskConfig::deserialize(&bytes[..4]).or(Err(Self::error_value()))?;
+        let config = MaskConfig::deserialize(&bytes[..4]).or_else(|_| Err(Self::error_value()))?;
         let element_len = config.element_len();
         if bytes[4..].len() % element_len != 0 {
             return Err(Self::error_value());
@@ -115,7 +115,7 @@ pub trait MaskIntegers<N>: Integers {
                     unmasked / self.config().exp_shift() - &scaled_add_shift
                 })
                 .collect::<Vec<Ratio<BigInt>>>();
-            Self::numbers_from(ratios).ok_or(Self::error_value())
+            Self::numbers_from(ratios).ok_or_else(|| Self::error_value())
         } else {
             Err(Self::error_value())
         }
