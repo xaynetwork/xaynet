@@ -122,7 +122,7 @@ pub trait MaskIntegers<N>: Integers {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 /// A masked model. Its parameters are represented as a vector of integers from a finite group wrt
 /// a mask configuration.
 pub struct MaskedModel {
@@ -282,9 +282,9 @@ mod tests {
 
     use super::*;
     use crate::{
+        crypto::generate_integer,
         mask::config::{BoundType, DataType, GroupType, MaskConfigs, ModelType},
         model::MaskModels,
-        utils::generate_integer,
     };
 
     #[test]

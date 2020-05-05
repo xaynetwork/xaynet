@@ -2,7 +2,7 @@ use derive_more::{AsMut, AsRef};
 
 use crate::{crypto::ByteObject, PetError};
 
-#[derive(AsRef, AsMut, Clone, Debug, PartialEq)]
+#[derive(AsRef, AsMut, Clone, Debug, PartialEq, Eq)]
 /// A dummy certificate.
 pub struct Certificate(Vec<u8>);
 

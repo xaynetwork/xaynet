@@ -2,7 +2,6 @@ use std::{
     cmp::Ordering,
     collections::{HashMap, VecDeque},
     default::Default,
-    iter,
 };
 
 use derive_more::{AsMut, AsRef};
@@ -17,12 +16,10 @@ use crate::{
     mask::{Integers, Mask, MaskIntegers, MaskedModel},
     message::{sum::SumMessage, sum2::Sum2Message, update::UpdateMessage},
     model::Model,
-    utils::is_eligible,
     CoordinatorPublicKey,
     CoordinatorSecretKey,
     InitError,
     LocalSeedDict,
-    MaskHash,
     ParticipantTaskSignature,
     PetError,
     SeedDict,
@@ -46,7 +43,7 @@ pub enum RoundFailed {
 /// A dictionary created during the sum2 phase of the protocol. It counts the model masks.
 pub type MaskDict = HashMap<Mask, usize>;
 
-#[derive(Debug, PartialEq, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
 /// Round phases of a coordinator.
 pub enum Phase {
     Idle,
@@ -75,7 +72,7 @@ pub enum ProtocolEvent {
     EndRound(Option<()>),
 }
 
-#[derive(AsRef, AsMut, Clone, Debug, PartialEq)]
+#[derive(AsRef, AsMut, Clone, Debug, PartialEq, Eq)]
 /// A seed for a round.
 pub struct RoundSeed(box_::Seed);
 
@@ -247,7 +244,7 @@ pub trait Coordinators: Sized {
         pk: &SumParticipantPublicKey,
     ) -> Result<(), PetError> {
         if pk.verify_detached(sum_signature, &[self.seed().as_slice(), b"sum"].concat())
-            && is_eligible(sum_signature, *self.sum())
+            && sum_signature.is_eligible(*self.sum())
         {
             Ok(())
         } else {
@@ -267,8 +264,8 @@ pub trait Coordinators: Sized {
                 update_signature,
                 &[self.seed().as_slice(), b"update"].concat(),
             )
-            && !is_eligible(sum_signature, *self.sum())
-            && is_eligible(update_signature, *self.update())
+            && !sum_signature.is_eligible(*self.sum())
+            && update_signature.is_eligible(*self.update())
         {
             Ok(())
         } else {
@@ -641,6 +638,8 @@ pub struct RoundParameters {
 
 #[cfg(test)]
 mod tests {
+    use std::iter;
+
     use num::{bigint::BigUint, traits::identities::Zero};
 
     use super::*;

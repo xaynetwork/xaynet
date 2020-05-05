@@ -370,13 +370,12 @@ mod tests {
 
     use super::*;
     use crate::{
-        crypto::{generate_encrypt_key_pair, generate_signing_key_pair},
+        crypto::{generate_encrypt_key_pair, generate_integer, generate_signing_key_pair},
         mask::{
             config::{BoundType, DataType, GroupType, MaskConfigs, ModelType},
             MaskedModel,
         },
         message::TAG_BYTES,
-        utils::generate_integer,
     };
 
     type MB = UpdateMessageBuffer<Vec<u8>>;

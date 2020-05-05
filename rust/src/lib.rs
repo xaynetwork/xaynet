@@ -32,7 +32,7 @@ use crate::mask::seed::EncryptedMaskSeed;
 #[error("initialization failed: insufficient system entropy to generate secrets")]
 pub struct InitError;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 /// PET protocol errors.
 pub enum PetError {
     InvalidMessage,

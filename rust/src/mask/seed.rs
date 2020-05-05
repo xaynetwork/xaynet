@@ -6,15 +6,14 @@ use rand_chacha::ChaCha20Rng;
 use sodiumoxide::{crypto::box_, randombytes::randombytes};
 
 use crate::{
-    crypto::{ByteObject, SEALBYTES},
+    crypto::{generate_integer, ByteObject, SEALBYTES},
     mask::{config::MaskConfig, Integers, Mask},
-    utils::generate_integer,
     PetError,
     SumParticipantEphemeralPublicKey,
     SumParticipantEphemeralSecretKey,
 };
 
-#[derive(AsRef, AsMut, Clone, Debug, PartialEq)]
+#[derive(AsRef, AsMut, Clone, Debug, PartialEq, Eq)]
 /// A seed for a mask.
 pub struct MaskSeed(box_::Seed);
 
@@ -67,7 +66,7 @@ impl MaskSeed {
     }
 }
 
-#[derive(AsRef, AsMut, Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(AsRef, AsMut, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 /// An encrypted mask seed.
 pub struct EncryptedMaskSeed(Vec<u8>);
 

@@ -5,8 +5,8 @@ use rand::SeedableRng;
 use rand_chacha::ChaCha20Rng;
 
 use crate::{
+    crypto::generate_integer,
     mask::{config::MaskConfig, seed::MaskSeed, Integers, MaskedModel},
-    utils::generate_integer,
     PetError,
 };
 
@@ -19,6 +19,16 @@ pub trait MaskModels<N> {
     fn as_ratios(&self) -> Vec<Ratio<BigInt>>;
 
     /// Mask the model wrt the mask configuration. Enforces bounds on the scalar and weights.
+    ///
+    /// The masking proceeds in the following steps:
+    /// - clamp the scalar and the weights according to the mask configuration
+    /// - shift the weights into the non-negative reals
+    /// - shift the weights into the non-negative integers
+    /// - shift the weights into the finite group
+    /// - mask the weights with random elements from the finite group
+    ///
+    /// The random elements are derived from a seeded PRNG. Unmasking proceeds in reverse order. For
+    /// a more detailed explanation see: [insert link].
     fn mask(&self, scalar: f64, config: &MaskConfig) -> (MaskSeed, MaskedModel) {
         let scalar = &Ratio::<BigInt>::from_float(clamp(scalar, 0_f64, 1_f64)).unwrap();
         let negative_bound = &-config.add_shift();
@@ -44,7 +54,7 @@ pub trait MaskModels<N> {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 /// A model with weights represented as a vector of primitive numbers.
 pub struct Model<N> {
     weights: Vec<N>,
@@ -96,7 +106,7 @@ impl MaskModels<f32> for Model<f32> {
         &self.weights
     }
 
-    /// Cast the weights as ratios. Positve/negative infinity is mapped to max/min and NaN to zero.
+    /// Cast the weights as ratios. Positive/negative infinity is mapped to max/min and NaN to zero.
     fn as_ratios(&self) -> Vec<Ratio<BigInt>> {
         self.weights
             .iter()
@@ -185,56 +195,28 @@ mod tests {
 
     #[test]
     fn test_model_f32() {
-        // try from
         let weights = vec![-1_f32, 0_f32, 1_f32];
-        let neg_inf_weights = vec![f32::NEG_INFINITY, 0_f32, 1_f32];
-        let nan_weights = vec![-1_f32, f32::NAN, 1_f32];
-        let inf_weights = vec![-1_f32, 0_f32, f32::INFINITY];
-        let mut model = Model::<f32>::try_from(weights.clone()).unwrap();
+        let model = Model::<f32>::try_from(weights.clone()).unwrap();
         assert_eq!(model.weights(), &weights);
         assert_eq!(
-            Model::<f32>::try_from(inf_weights.clone()).unwrap_err(),
-            PetError::InvalidModel,
+            model.as_ratios(),
+            vec![
+                Ratio::<BigInt>::from_float(-1_f32).unwrap(),
+                Ratio::<BigInt>::zero(),
+                Ratio::<BigInt>::from_float(1_f32).unwrap(),
+            ],
         );
-        assert_eq!(
-            Model::<f32>::try_from(neg_inf_weights.clone()).unwrap_err(),
-            PetError::InvalidModel,
-        );
-        assert_eq!(
-            Model::<f32>::try_from(nan_weights.clone()).unwrap_err(),
-            PetError::InvalidModel,
-        );
+    }
 
-        // as ratio
+    #[test]
+    fn test_model_f32_inf() {
+        let weights = vec![-1_f32, 0_f32, f32::INFINITY];
         assert_eq!(
-            model.as_ratios(),
-            vec![
-                Ratio::<BigInt>::from_float(-1_f32).unwrap(),
-                Ratio::<BigInt>::zero(),
-                Ratio::<BigInt>::from_float(1_f32).unwrap(),
-            ],
+            Model::<f32>::try_from(weights.clone()).unwrap_err(),
+            PetError::InvalidModel,
         );
-        model.weights = neg_inf_weights;
         assert_eq!(
-            model.as_ratios(),
-            vec![
-                Ratio::<BigInt>::from_float(f32::MIN).unwrap(),
-                Ratio::<BigInt>::zero(),
-                Ratio::<BigInt>::from_float(1_f32).unwrap(),
-            ],
-        );
-        model.weights = nan_weights;
-        assert_eq!(
-            model.as_ratios(),
-            vec![
-                Ratio::<BigInt>::from_float(-1_f32).unwrap(),
-                Ratio::<BigInt>::zero(),
-                Ratio::<BigInt>::from_float(1_f32).unwrap(),
-            ],
-        );
-        model.weights = inf_weights;
-        assert_eq!(
-            model.as_ratios(),
+            Model::<f32> { weights }.as_ratios(),
             vec![
                 Ratio::<BigInt>::from_float(-1_f32).unwrap(),
                 Ratio::<BigInt>::zero(),
@@ -244,57 +226,63 @@ mod tests {
     }
 
     #[test]
+    fn test_model_f32_neginf() {
+        let weights = vec![f32::NEG_INFINITY, 0_f32, 1_f32];
+        assert_eq!(
+            Model::<f32>::try_from(weights.clone()).unwrap_err(),
+            PetError::InvalidModel,
+        );
+        assert_eq!(
+            Model::<f32> { weights }.as_ratios(),
+            vec![
+                Ratio::<BigInt>::from_float(f32::MIN).unwrap(),
+                Ratio::<BigInt>::zero(),
+                Ratio::<BigInt>::from_float(1_f32).unwrap(),
+            ],
+        );
+    }
+
+    #[test]
+    fn test_model_f32_nan() {
+        let weights = vec![-1_f32, f32::NAN, 1_f32];
+        assert_eq!(
+            Model::<f32>::try_from(weights.clone()).unwrap_err(),
+            PetError::InvalidModel,
+        );
+        assert_eq!(
+            Model::<f32> { weights }.as_ratios(),
+            vec![
+                Ratio::<BigInt>::from_float(-1_f32).unwrap(),
+                Ratio::<BigInt>::zero(),
+                Ratio::<BigInt>::from_float(1_f32).unwrap(),
+            ],
+        );
+    }
+
+    #[test]
     fn test_model_f64() {
-        // try from
         let weights = vec![-1_f64, 0_f64, 1_f64];
-        let neg_inf_weights = vec![f64::NEG_INFINITY, 0_f64, 1_f64];
-        let nan_weights = vec![-1_f64, f64::NAN, 1_f64];
-        let inf_weights = vec![-1_f64, 0_f64, f64::INFINITY];
-        let mut model = Model::<f64>::try_from(weights.clone()).unwrap();
+        let model = Model::<f64>::try_from(weights.clone()).unwrap();
         assert_eq!(model.weights(), &weights);
         assert_eq!(
-            Model::<f64>::try_from(inf_weights.clone()).unwrap_err(),
-            PetError::InvalidModel,
+            model.as_ratios(),
+            vec![
+                Ratio::<BigInt>::from_float(-1_f64).unwrap(),
+                Ratio::<BigInt>::zero(),
+                Ratio::<BigInt>::from_float(1_f64).unwrap(),
+            ],
         );
-        assert_eq!(
-            Model::<f64>::try_from(neg_inf_weights.clone()).unwrap_err(),
-            PetError::InvalidModel,
-        );
-        assert_eq!(
-            Model::<f64>::try_from(nan_weights.clone()).unwrap_err(),
-            PetError::InvalidModel,
-        );
+    }
 
-        // as ratio
+    #[test]
+    fn test_model_f64_inf() {
+        let weights = vec![-1_f64, 0_f64, f64::INFINITY];
         assert_eq!(
-            model.as_ratios(),
-            vec![
-                Ratio::<BigInt>::from_float(-1_f64).unwrap(),
-                Ratio::<BigInt>::zero(),
-                Ratio::<BigInt>::from_float(1_f64).unwrap(),
-            ],
+            Model::<f64>::try_from(weights.clone()).unwrap_err(),
+            PetError::InvalidModel,
         );
-        model.weights = neg_inf_weights;
         assert_eq!(
-            model.as_ratios(),
-            vec![
-                Ratio::<BigInt>::from_float(f64::MIN).unwrap(),
-                Ratio::<BigInt>::zero(),
-                Ratio::<BigInt>::from_float(1_f64).unwrap(),
-            ],
-        );
-        model.weights = nan_weights;
-        assert_eq!(
-            model.as_ratios(),
-            vec![
-                Ratio::<BigInt>::from_float(-1_f64).unwrap(),
-                Ratio::<BigInt>::zero(),
-                Ratio::<BigInt>::from_float(1_f64).unwrap(),
-            ],
-        );
-        model.weights = inf_weights;
-        assert_eq!(
-            model.as_ratios(),
+            Model::<f64> { weights }.as_ratios(),
             vec![
                 Ratio::<BigInt>::from_float(-1_f64).unwrap(),
                 Ratio::<BigInt>::zero(),
@@ -304,13 +292,44 @@ mod tests {
     }
 
     #[test]
+    fn test_model_f64_neginf() {
+        let weights = vec![f64::NEG_INFINITY, 0_f64, 1_f64];
+        assert_eq!(
+            Model::<f64>::try_from(weights.clone()).unwrap_err(),
+            PetError::InvalidModel,
+        );
+        assert_eq!(
+            Model::<f64> { weights }.as_ratios(),
+            vec![
+                Ratio::<BigInt>::from_float(f64::MIN).unwrap(),
+                Ratio::<BigInt>::zero(),
+                Ratio::<BigInt>::from_float(1_f64).unwrap(),
+            ],
+        );
+    }
+
+    #[test]
+    fn test_model_f64_nan() {
+        let weights = vec![-1_f64, f64::NAN, 1_f64];
+        assert_eq!(
+            Model::<f64>::try_from(weights.clone()).unwrap_err(),
+            PetError::InvalidModel,
+        );
+        assert_eq!(
+            Model::<f64> { weights }.as_ratios(),
+            vec![
+                Ratio::<BigInt>::from_float(-1_f64).unwrap(),
+                Ratio::<BigInt>::zero(),
+                Ratio::<BigInt>::from_float(1_f64).unwrap(),
+            ],
+        );
+    }
+
+    #[test]
     fn test_model_i32() {
-        // from
         let weights = vec![-1_i32, 0_i32, 1_i32];
         let model = Model::<i32>::from(weights.clone());
         assert_eq!(model.weights(), &weights);
-
-        // as ratio
         assert_eq!(
             model.as_ratios(),
             vec![
@@ -323,12 +342,9 @@ mod tests {
 
     #[test]
     fn test_model_i64() {
-        // from
         let weights = vec![-1_i64, 0_i64, 1_i64];
         let model = Model::<i64>::from(weights.clone());
         assert_eq!(model.weights(), &weights);
-
-        // as ratio
         assert_eq!(
             model.as_ratios(),
             vec![
@@ -339,15 +355,31 @@ mod tests {
         );
     }
 
-    // for float types the error depends on the order of magnitude of the weights => raise the
-    // tolerance or bound the random weights if this test fails to often
+    /// Generate tests for masking and unmasking. The tests proceed in the following steps:
+    /// - generate random weights from a uniform distribution with a seeded PRNG
+    /// - create a model from the weights and mask it
+    /// - check that all masked weights belong to the chosen finite group
+    /// - unmask the masked model
+    /// - check that all unmasked weights are equal to the original weights (up to a tolerance)
+    ///
+    /// The arguments to the macro are:
+    /// - a name for the test
+    /// - the data type of the model
+    /// - a lower bound for the weights
+    /// - an upper bound for the weights
+    /// - the number of weights
+    /// - a tolerance for the equality check
+    /// - a mask configuration
+    ///
+    /// For float data types the error depends on the order of magnitude of the weights, therefore
+    /// it may be necessary to raise the tolerance or bound the random weights if this test fails.
     macro_rules! test_masking {
         // todo: remove the config argument when mask configurations can be derived programmatically
         ($($name:ident, $type:ty, $min:expr, $max:expr, $len:expr, $tol:expr, $config:expr $(,)?)?) => {
             $(
                 #[test]
                 fn $name() {
-                    let mut prng = ChaCha20Rng::from_seed(MaskSeed::generate().as_array());
+                    let mut prng = ChaCha20Rng::from_seed([0_u8; 32]);
                     let uniform = Uniform::new($min, $max);
                     let weights = iter::repeat_with(|| uniform.sample(&mut prng))
                         .take($len)
@@ -355,6 +387,7 @@ mod tests {
                     let model = Model::try_from(weights).unwrap();
                     let (mask_seed, masked_model) = model.mask(1_f64, &$config);
                     assert_eq!(masked_model.integers().len(), $len);
+                    assert!(masked_model.integers().iter().all(|integer| integer < $config.order()));
                     let mask = mask_seed.derive_mask($len, &$config);
                     let unmasked_model: Model<$type> = masked_model.unmask(&mask, 1_usize).unwrap();
                     assert!(model

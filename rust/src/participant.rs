@@ -11,7 +11,6 @@ use crate::{
     },
     message::{sum::SumMessage, sum2::Sum2Message, update::UpdateMessage},
     model::{MaskModels, Model},
-    utils::is_eligible,
     CoordinatorPublicKey,
     InitError,
     LocalSeedDict,
@@ -25,7 +24,7 @@ use crate::{
     SumParticipantEphemeralSecretKey,
 };
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 /// Tasks of a participant.
 enum Task {
     Sum,
@@ -92,9 +91,9 @@ impl Participant {
 
     /// Check eligibility for a task.
     pub fn check_task(&mut self, round_sum: f64, round_update: f64) {
-        if is_eligible(&self.sum_signature, round_sum) {
+        if self.sum_signature.is_eligible(round_sum) {
             self.task = Task::Sum;
-        } else if is_eligible(&self.update_signature, round_update) {
+        } else if self.update_signature.is_eligible(round_update) {
             self.task = Task::Update;
         } else {
             self.task = Task::None;
