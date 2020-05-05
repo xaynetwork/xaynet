@@ -288,32 +288,6 @@ mod tests {
     };
 
     #[test]
-    fn test_masking() {
-        let mut prng = ChaCha20Rng::from_seed([0_u8; 32]);
-        let uniform = Uniform::new(-1_f32, 1_f32);
-        let weights = iter::repeat_with(|| uniform.sample(&mut prng))
-            .take(10)
-            .collect::<Vec<f32>>();
-        let model = Model::try_from(weights).unwrap();
-        let config = MaskConfigs::from_parts(
-            GroupType::Prime,
-            DataType::F32,
-            BoundType::B0,
-            ModelType::M3,
-        )
-        .config();
-        let (mask_seed, masked_model) = model.mask(1_f64, &config);
-        assert_eq!(masked_model.integers().len(), 10);
-        let mask = mask_seed.derive_mask(10, &config);
-        let unmasked_model: Model<f32> = masked_model.unmask(&mask, 1).unwrap();
-        assert!(model
-            .weights()
-            .iter()
-            .zip(unmasked_model.weights().iter())
-            .all(|(weight, unmasked_weight)| (weight - unmasked_weight).abs() < 1e-8_f32));
-    }
-
-    #[test]
     fn test_aggregation() {
         let mut prng = ChaCha20Rng::from_seed([0_u8; 32]);
         let config = MaskConfigs::from_parts(

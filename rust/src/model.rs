@@ -28,7 +28,7 @@ pub trait MaskModels<N> {
     /// - mask the weights with random elements from the finite group
     ///
     /// The random elements are derived from a seeded PRNG. Unmasking proceeds in reverse order. For
-    /// a more detailed explanation see: [insert link].
+    /// a more detailes see [the confluence page](https://xainag.atlassian.net/wiki/spaces/FP/pages/542408769/Masking).
     fn mask(&self, scalar: f64, config: &MaskConfig) -> (MaskSeed, MaskedModel) {
         let scalar = &Ratio::<BigInt>::from_float(clamp(scalar, 0_f64, 1_f64)).unwrap();
         let negative_bound = &-config.add_shift();
@@ -363,240 +363,149 @@ mod tests {
     /// - check that all unmasked weights are equal to the original weights (up to a tolerance)
     ///
     /// The arguments to the macro are:
-    /// - a name for the test
-    /// - the data type of the model
-    /// - a lower bound for the weights
-    /// - an upper bound for the weights
+    /// - a suffix for the test name
+    /// - the group type of the model (variants of `GroupType`)
+    /// - the data type of the model (either primitives or variants of `DataType`)
+    /// - an absolute bound for the weights (optional, choices: 1, 100, 10_000, 1_000_000)
     /// - the number of weights
     /// - a tolerance for the equality check
-    /// - a mask configuration
     ///
     /// For float data types the error depends on the order of magnitude of the weights, therefore
     /// it may be necessary to raise the tolerance or bound the random weights if this test fails.
     macro_rules! test_masking {
-        // todo: remove the config argument when mask configurations can be derived programmatically
-        ($($name:ident, $type:ty, $min:expr, $max:expr, $len:expr, $tol:expr, $config:expr $(,)?)?) => {
-            $(
+        ($suffix:ident, $group:ty, $data:ty, $bound:expr, $len:expr, $tol:expr $(,)?) => {
+            paste::item! {
                 #[test]
-                fn $name() {
-                    let mut prng = ChaCha20Rng::from_seed([0_u8; 32]);
-                    let uniform = Uniform::new($min, $max);
-                    let weights = iter::repeat_with(|| uniform.sample(&mut prng))
-                        .take($len)
-                        .collect::<Vec<$type>>();
-                    let model = Model::try_from(weights).unwrap();
-                    let (mask_seed, masked_model) = model.mask(1_f64, &$config);
-                    assert_eq!(masked_model.integers().len(), $len);
-                    assert!(masked_model.integers().iter().all(|integer| integer < $config.order()));
-                    let mask = mask_seed.derive_mask($len, &$config);
-                    let unmasked_model: Model<$type> = masked_model.unmask(&mask, 1_usize).unwrap();
-                    assert!(model
-                        .weights()
-                        .iter()
-                        .zip(unmasked_model.weights().iter())
-                        .all(|(weight, unmasked_weight)| (weight - unmasked_weight).abs() <= $tol));
+                fn [<test_masking_ $suffix>]() {
+                    paste::expr! {
+                        let mut prng = ChaCha20Rng::from_seed([0_u8; 32]);
+                        let uniform = if $bound == 0 {
+                            Uniform::new([<$data:lower>]::MIN, [<$data:lower>]::MAX)
+                        } else {
+                            Uniform::new(-$bound as [<$data:lower>], $bound as [<$data:lower>])
+                        };
+                        let weights = iter::repeat_with(|| uniform.sample(&mut prng))
+                            .take($len as usize)
+                            .collect::<Vec<_>>();
+                        let model = Model::try_from(weights).unwrap();
+                        let bound_type = match $bound {
+                            1 => B0,
+                            100 => B2,
+                            10_000 => B4,
+                            1_000_000 => B6,
+                            0 => Bmax,
+                            _ => panic!("Unknown bound!")
+                        };
+                        let config = MaskConfigs::from_parts(
+                            $group,
+                            [<$data:upper>],
+                            bound_type,
+                            M3
+                        ).config();
+                        let (mask_seed, masked_model) = model.mask(1_f64, &config);
+                        assert_eq!(
+                            masked_model.integers().len(),
+                            $len as usize
+                        );
+                        assert!(
+                            masked_model
+                                .integers()
+                                .iter()
+                                .all(|integer| integer < config.order())
+                        );
+                        let mask = mask_seed.derive_mask($len as usize, &config);
+                        let unmasked_model: Model<[<$data:lower>]> = masked_model
+                            .unmask(&mask, 1_usize)
+                            .unwrap();
+                        assert!(
+                            model
+                                .weights()
+                                .iter()
+                                .zip(unmasked_model.weights().iter())
+                                .all(
+                                    |(weight, unmasked_weight)|
+                                        (weight - unmasked_weight).abs()
+                                            <= $tol as [<$data:lower>]
+                                )
+                        );
+                    }
                 }
-            )?
+            }
+        };
+        ($suffix:ident, $group:ty, $data:ty, $len:expr, $tol:expr $(,)?) => {
+            test_masking!($suffix, $group, $data, 0, $len, $tol);
         };
     }
 
-    test_masking!(
-        test_masking_f32_b0,
-        f32,
-        -1_f32,
-        1_f32,
-        10_usize,
-        1e-3_f32,
-        MaskConfigs::from_parts(Prime, F32, B0, M3).config(),
-    );
+    test_masking!(int_f32_b0, Integer, f32, 1, 10, 1e-3);
+    test_masking!(int_f32_b2, Integer, f32, 100, 10, 1e-3);
+    test_masking!(int_f32_b4, Integer, f32, 10_000, 10, 1e-3);
+    test_masking!(int_f32_b6, Integer, f32, 1_000_000, 10, 1e-3);
+    test_masking!(int_f32_bmax, Integer, f32, 10, 1e-3);
 
-    test_masking!(
-        test_masking_f32_b2,
-        f32,
-        -100_f32,
-        100_f32,
-        10_usize,
-        1e-3_f32,
-        MaskConfigs::from_parts(Prime, F32, B2, M3).config(),
-    );
+    test_masking!(prime_f32_b0, Prime, f32, 1, 10, 1e-3);
+    test_masking!(prime_f32_b2, Prime, f32, 100, 10, 1e-3);
+    test_masking!(prime_f32_b4, Prime, f32, 10_000, 10, 1e-3);
+    test_masking!(prime_f32_b6, Prime, f32, 1_000_000, 10, 1e-3);
+    test_masking!(prime_f32_bmax, Prime, f32, 10, 1e-3);
 
-    test_masking!(
-        test_masking_f32_b4,
-        f32,
-        -10_000_f32,
-        10_000_f32,
-        10_usize,
-        1e-3_f32,
-        MaskConfigs::from_parts(Prime, F32, B4, M3).config(),
-    );
+    test_masking!(pow_f32_b0, Power2, f32, 1, 10, 1e-3);
+    test_masking!(pow_f32_b2, Power2, f32, 100, 10, 1e-3);
+    test_masking!(pow_f32_b4, Power2, f32, 10_000, 10, 1e-3);
+    test_masking!(pow_f32_b6, Power2, f32, 1_000_000, 10, 1e-3);
+    test_masking!(pow_f32_bmax, Power2, f32, 10, 1e-3);
 
-    test_masking!(
-        test_masking_f32_b6,
-        f32,
-        -1_000_000_f32,
-        1_000_000_f32,
-        10_usize,
-        1e-3_f32,
-        MaskConfigs::from_parts(Prime, F32, B6, M3).config(),
-    );
+    test_masking!(int_f64_b0, Integer, f64, 1, 10, 1e-3);
+    test_masking!(int_f64_b2, Integer, f64, 100, 10, 1e-3);
+    test_masking!(int_f64_b4, Integer, f64, 10_000, 10, 1e-3);
+    test_masking!(int_f64_b6, Integer, f64, 1_000_000, 10, 1e-3);
+    test_masking!(int_f64_bmax, Integer, f64, 10, 1e-3);
 
-    test_masking!(
-        test_masking_f32_bmax,
-        f32,
-        f32::MIN,
-        f32::MAX,
-        10_usize,
-        1e-3_f32,
-        MaskConfigs::from_parts(Prime, F32, Bmax, M3).config(),
-    );
+    test_masking!(prime_f64_b0, Prime, f64, 1, 10, 1e-3);
+    test_masking!(prime_f64_b2, Prime, f64, 100, 10, 1e-3);
+    test_masking!(prime_f64_b4, Prime, f64, 10_000, 10, 1e-3);
+    test_masking!(prime_f64_b6, Prime, f64, 1_000_000, 10, 1e-3);
+    test_masking!(prime_f64_bmax, Prime, f64, 10, 1e-3);
 
-    test_masking!(
-        test_masking_f64_b0,
-        f64,
-        -1_f64,
-        1_f64,
-        10_usize,
-        1e-6_f64,
-        MaskConfigs::from_parts(Prime, F64, B0, M3).config(),
-    );
+    test_masking!(pow_f64_b0, Power2, f64, 1, 10, 1e-3);
+    test_masking!(pow_f64_b2, Power2, f64, 100, 10, 1e-3);
+    test_masking!(pow_f64_b4, Power2, f64, 10_000, 10, 1e-3);
+    test_masking!(pow_f64_b6, Power2, f64, 1_000_000, 10, 1e-3);
+    test_masking!(pow_f64_bmax, Power2, f64, 10, 1e-3);
 
-    test_masking!(
-        test_masking_f64_b2,
-        f64,
-        -100_f64,
-        100_f64,
-        10_usize,
-        1e-6_f64,
-        MaskConfigs::from_parts(Prime, F64, B2, M3).config(),
-    );
+    test_masking!(int_i32_b0, Integer, i32, 1, 10, 1e-3);
+    test_masking!(int_i32_b2, Integer, i32, 100, 10, 1e-3);
+    test_masking!(int_i32_b4, Integer, i32, 10_000, 10, 1e-3);
+    test_masking!(int_i32_b6, Integer, i32, 1_000_000, 10, 1e-3);
+    test_masking!(int_i32_bmax, Integer, i32, 10, 1e-3);
 
-    test_masking!(
-        test_masking_f64_b4,
-        f64,
-        -10_000_f64,
-        10_000_f64,
-        10_usize,
-        1e-6_f64,
-        MaskConfigs::from_parts(Prime, F64, B4, M3).config(),
-    );
+    test_masking!(prime_i32_b0, Prime, i32, 1, 10, 1e-3);
+    test_masking!(prime_i32_b2, Prime, i32, 100, 10, 1e-3);
+    test_masking!(prime_i32_b4, Prime, i32, 10_000, 10, 1e-3);
+    test_masking!(prime_i32_b6, Prime, i32, 1_000_000, 10, 1e-3);
+    test_masking!(prime_i32_bmax, Prime, i32, 10, 1e-3);
 
-    test_masking!(
-        test_masking_f64_b6,
-        f64,
-        -1_000_000_f64,
-        1_000_000_f64,
-        10_usize,
-        1e-6_f64,
-        MaskConfigs::from_parts(Prime, F64, B6, M3).config(),
-    );
+    test_masking!(pow_i32_b0, Power2, i32, 1, 10, 1e-3);
+    test_masking!(pow_i32_b2, Power2, i32, 100, 10, 1e-3);
+    test_masking!(pow_i32_b4, Power2, i32, 10_000, 10, 1e-3);
+    test_masking!(pow_i32_b6, Power2, i32, 1_000_000, 10, 1e-3);
+    test_masking!(pow_i32_bmax, Power2, i32, 10, 1e-3);
 
-    test_masking!(
-        test_masking_f64_bmax,
-        f64,
-        f64::MIN,
-        f64::MAX,
-        10_usize,
-        1e-6_f64,
-        MaskConfigs::from_parts(Prime, F64, Bmax, M3).config(),
-    );
+    test_masking!(int_i64_b0, Integer, i64, 1, 10, 1e-3);
+    test_masking!(int_i64_b2, Integer, i64, 100, 10, 1e-3);
+    test_masking!(int_i64_b4, Integer, i64, 10_000, 10, 1e-3);
+    test_masking!(int_i64_b6, Integer, i64, 1_000_000, 10, 1e-3);
+    test_masking!(int_i64_bmax, Integer, i64, 10, 1e-3);
 
-    test_masking!(
-        test_masking_i32_b0,
-        i32,
-        -1_i32,
-        1_i32,
-        10_usize,
-        0_i32,
-        MaskConfigs::from_parts(Prime, I32, B0, M3).config(),
-    );
+    test_masking!(prime_i64_b0, Prime, i64, 1, 10, 1e-3);
+    test_masking!(prime_i64_b2, Prime, i64, 100, 10, 1e-3);
+    test_masking!(prime_i64_b4, Prime, i64, 10_000, 10, 1e-3);
+    test_masking!(prime_i64_b6, Prime, i64, 1_000_000, 10, 1e-3);
+    test_masking!(prime_i64_bmax, Prime, i64, 10, 1e-3);
 
-    test_masking!(
-        test_masking_i32_b2,
-        i32,
-        -100_i32,
-        100_i32,
-        10_usize,
-        0_i32,
-        MaskConfigs::from_parts(Prime, I32, B2, M3).config(),
-    );
-
-    test_masking!(
-        test_masking_i32_b4,
-        i32,
-        -10_000_i32,
-        10_000_i32,
-        10_usize,
-        0_i32,
-        MaskConfigs::from_parts(Prime, I32, B4, M3).config(),
-    );
-
-    test_masking!(
-        test_masking_i32_b6,
-        i32,
-        -1_000_000_i32,
-        1_000_000_i32,
-        10_usize,
-        0_i32,
-        MaskConfigs::from_parts(Prime, I32, B6, M3).config(),
-    );
-
-    test_masking!(
-        test_masking_i32_bmax,
-        i32,
-        i32::MIN,
-        i32::MAX,
-        10_usize,
-        0_i32,
-        MaskConfigs::from_parts(Prime, I32, Bmax, M3).config(),
-    );
-
-    test_masking!(
-        test_masking_i64_b0,
-        i64,
-        -1_i64,
-        1_i64,
-        10_usize,
-        0_i64,
-        MaskConfigs::from_parts(Prime, I64, B0, M3).config(),
-    );
-
-    test_masking!(
-        test_masking_i64_b2,
-        i64,
-        -100_i64,
-        100_i64,
-        10_usize,
-        0_i64,
-        MaskConfigs::from_parts(Prime, I64, B2, M3).config(),
-    );
-
-    test_masking!(
-        test_masking_i64_b4,
-        i64,
-        -10_000_i64,
-        10_000_i64,
-        10_usize,
-        0_i64,
-        MaskConfigs::from_parts(Prime, I64, B4, M3).config(),
-    );
-
-    test_masking!(
-        test_masking_i64_b6,
-        i64,
-        -1_000_000_i64,
-        1_000_000_i64,
-        10_usize,
-        0_i64,
-        MaskConfigs::from_parts(Prime, I64, B6, M3).config(),
-    );
-
-    test_masking!(
-        test_masking_i64_bmax,
-        i64,
-        i64::MIN,
-        i64::MAX,
-        10_usize,
-        0_i64,
-        MaskConfigs::from_parts(Prime, I64, Bmax, M3).config(),
-    );
+    test_masking!(pow_i64_b0, Power2, i64, 1, 10, 1e-3);
+    test_masking!(pow_i64_b2, Power2, i64, 100, 10, 1e-3);
+    test_masking!(pow_i64_b4, Power2, i64, 10_000, 10, 1e-3);
+    test_masking!(pow_i64_b6, Power2, i64, 1_000_000, 10, 1e-3);
+    test_masking!(pow_i64_bmax, Power2, i64, 10, 1e-3);
 }

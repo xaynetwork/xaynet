@@ -171,19 +171,19 @@ impl<N> Default for Coordinator<N> {
 
 pub trait Coordinators: Sized {
     define_trait_fields!(
-        pk, pk_mut, CoordinatorPublicKey;
-        sk, sk_mut, CoordinatorSecretKey;
-        sum, sum_mut, f64;
-        update, update_mut, f64;
-        min_sum, min_sum_mut, usize;
-        min_update, min_update_mut, usize;
-        seed, seed_mut, RoundSeed;
-        phase, phase_mut, Phase;
-        sum_dict, sum_dict_mut, SumDict;
-        seed_dict, seed_dict_mut, SeedDict;
-        mask_dict, mask_dict_mut, MaskDict;
-        masked_model, masked_model_mut, Option<MaskedModel>;
-        events, events_mut, VecDeque<ProtocolEvent>;
+        pk, CoordinatorPublicKey;
+        sk, CoordinatorSecretKey;
+        sum, f64;
+        update, f64;
+        min_sum, usize;
+        min_update, usize;
+        seed, RoundSeed;
+        phase, Phase;
+        sum_dict, SumDict;
+        seed_dict, SeedDict;
+        mask_dict, MaskDict;
+        masked_model, Option<MaskedModel>;
+        events, VecDeque<ProtocolEvent>;
     );
 
     /// Create a coordinator. Fails if there is insufficient system entropy to generate secrets.
@@ -473,7 +473,7 @@ pub trait Coordinators: Sized {
 }
 
 pub trait MaskCoordinators<N>: Coordinators {
-    define_trait_fields!(model, model_mut, Option<Model<N>>);
+    define_trait_fields!(model, Option<Model<N>>);
 
     /// Unmask the masked model with a mask.
     fn unmask_model(&self, mask: &Mask) -> Result<Model<N>, RoundFailed>;
@@ -534,19 +534,19 @@ pub trait MaskCoordinators<N>: Coordinators {
 
 impl<N> Coordinators for Coordinator<N> {
     derive_trait_fields!(
-        pk, pk_mut, CoordinatorPublicKey;
-        sk, sk_mut, CoordinatorSecretKey;
-        sum, sum_mut, f64;
-        update, update_mut, f64;
-        min_sum, min_sum_mut, usize;
-        min_update, min_update_mut, usize;
-        seed, seed_mut, RoundSeed;
-        phase, phase_mut, Phase;
-        sum_dict, sum_dict_mut, SumDict;
-        seed_dict, seed_dict_mut, SeedDict;
-        mask_dict, mask_dict_mut, MaskDict;
-        masked_model, masked_model_mut, Option<MaskedModel>;
-        events, events_mut, VecDeque<ProtocolEvent>;
+        pk, CoordinatorPublicKey;
+        sk, CoordinatorSecretKey;
+        sum, f64;
+        update, f64;
+        min_sum, usize;
+        min_update, usize;
+        seed, RoundSeed;
+        phase, Phase;
+        sum_dict, SumDict;
+        seed_dict, SeedDict;
+        mask_dict, MaskDict;
+        masked_model, Option<MaskedModel>;
+        events, VecDeque<ProtocolEvent>;
     );
 
     /// Create a coordinator. Fails if there is insufficient system entropy to generate secrets.
@@ -562,7 +562,7 @@ impl<N> Coordinators for Coordinator<N> {
 }
 
 impl MaskCoordinators<f32> for Coordinator<f32> {
-    derive_trait_fields!(model, model_mut, Option<Model<f32>>);
+    derive_trait_fields!(model, Option<Model<f32>>);
 
     fn unmask_model(&self, mask: &Mask) -> Result<Model<f32>, RoundFailed> {
         let no_models = self.seed_dict.values().next().map_or(0, |dict| dict.len());
@@ -577,7 +577,7 @@ impl MaskCoordinators<f32> for Coordinator<f32> {
 }
 
 impl MaskCoordinators<f64> for Coordinator<f64> {
-    derive_trait_fields!(model, model_mut, Option<Model<f64>>);
+    derive_trait_fields!(model, Option<Model<f64>>);
 
     fn unmask_model(&self, mask: &Mask) -> Result<Model<f64>, RoundFailed> {
         let no_models = self.seed_dict.values().next().map_or(0, |dict| dict.len());
@@ -592,7 +592,7 @@ impl MaskCoordinators<f64> for Coordinator<f64> {
 }
 
 impl MaskCoordinators<i32> for Coordinator<i32> {
-    derive_trait_fields!(model, model_mut, Option<Model<i32>>);
+    derive_trait_fields!(model, Option<Model<i32>>);
 
     fn unmask_model(&self, mask: &Mask) -> Result<Model<i32>, RoundFailed> {
         let no_models = self.seed_dict.values().next().map_or(0, |dict| dict.len());
@@ -607,7 +607,7 @@ impl MaskCoordinators<i32> for Coordinator<i32> {
 }
 
 impl MaskCoordinators<i64> for Coordinator<i64> {
-    derive_trait_fields!(model, model_mut, Option<Model<i64>>);
+    derive_trait_fields!(model, Option<Model<i64>>);
 
     fn unmask_model(&self, mask: &Mask) -> Result<Model<i64>, RoundFailed> {
         let no_models = self.seed_dict.values().next().map_or(0, |dict| dict.len());

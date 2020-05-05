@@ -4,14 +4,7 @@
 /// # Example
 ///
 /// Writing `define_trait_fields!(bytes, Vec<u8>);` will generate the following trait method
-/// signature:
-/// ```text
-/// /// Get a reference to the bytes field.
-/// fn bytes(&self) -> &Vec<u8>;
-/// ```
-///
-/// Writing `define_trait_fields!(bytes, bytes_mut, Vec<u8>);` will generate the following trait
-/// method signatures:
+/// signatures:
 /// ```text
 /// /// Get a reference to the bytes field.
 /// fn bytes(&self) -> &Vec<u8>;
@@ -19,25 +12,19 @@
 /// /// Get a mutable reference to the bytes field.
 /// fn bytes_mut(&mut self) -> &mut Vec<u8>;
 /// ```
+/// The argument-tuples can be repeated by delimiting them with a semicolon.
 macro_rules! define_trait_fields {
-    ($($name:ident, $type:ty$(;)?)+) => {
-        $(
-            /// Get a reference to the $name field.
-            fn $name(&self) -> &$type;
+    ($($name:ident, $type:ty);+ $(;)?) => {
+        paste::item! {
+            $(
+                /// Get a reference to the $name field.
+                fn $name(&self) -> &$type;
 
-        )+
+                /// Get a mutable reference to the $name field.
+                fn [<$name _mut>](&mut self) -> &mut $type;
 
-    };
-    ($($name:ident, $name_mut:ident, $type:ty$(;)?)+) => {
-        $(
-            /// Get a reference to the $name field.
-            fn $name(&self) -> &$type;
-
-            /// Get a mutable reference to the $name field.
-            fn $name_mut(&mut self) -> &mut $type;
-
-        )+
-
+            )+
+        }
     };
 }
 
@@ -53,44 +40,29 @@ macro_rules! define_trait_fields {
 /// fn bytes(&self) -> &Vec<u8> {
 ///     &self.bytes
 /// }
-/// ```
-///
-/// Writing `derive_trait_fields!(bytes, bytes_mut, Vec<u8>);` will generate the following trait
-/// method for a corresponding structure containing the field `bytes: Vec<u8>`:
-/// ```text
-/// /// Get a reference to the bytes field.
-/// fn bytes(&self) -> &Vec<u8> {
-///     &self.bytes
-/// }
 ///
 /// /// Get a mutable reference to the bytes field.
 /// fn bytes_mut(&mut self) -> &mut Vec<u8> {
 ///     &mut self.bytes
 /// }
 /// ```
+/// The argument-tuples can be repeated by delimiting them with a semicolon.
 macro_rules! derive_trait_fields {
-    ($($name:ident, $type:ty$(;)?)+) => {
-        $(
-            /// Get a reference to the $name field.
-            fn $name(&self) -> &$type {
-                &self.$name
-            }
-        )+
+    ($($name:ident, $type:ty);+ $(;)?) => {
+        paste::item! {
+            $(
+                /// Get a reference to the $name field.
+                fn $name(&self) -> &$type {
+                    &self.$name
+                }
 
-    };
-    ($($name:ident, $name_mut:ident, $type:ty$(;)?)+) => {
-        $(
-            /// Get a reference to the $name field.
-            fn $name(&self) -> &$type {
-                &self.$name
-            }
+                /// Get a mutable reference to the $name field.
+                fn [<$name _mut>](&mut self) -> &mut $type {
+                    &mut self.$name
+                }
+            )+
 
-            /// Get a mutable reference to the $name field.
-            fn $name_mut(&mut self) -> &mut $type {
-                &mut self.$name
-            }
-        )+
-
+        }
     };
 }
 
@@ -107,8 +79,9 @@ macro_rules! derive_trait_fields {
 ///     &self.bytes
 /// }
 /// ```
+/// The argument-tuples can be repeated by delimiting them with a semicolon.
 macro_rules! derive_struct_fields {
-    ($($name:ident, $type:ty$(;)?)+) => {
+    ($($name:ident, $type:ty);+ $(;)?) => {
         $(
             /// Get a reference to the $name field.
             pub fn $name(&self) -> &$type {
