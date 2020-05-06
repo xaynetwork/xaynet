@@ -53,6 +53,10 @@ tracing-subscriber = "0.2.12"
 uuid = { version = "0.8.1", features = ["v4"] }
 rayon = "1.4.0"
 async-trait = "0.1.40"
+rusoto_core = "0.45.0"
+rusoto_s3 = "0.45.0"
+hex = "0.4.2"
+phf = { version = "0.8", features = ["macros"] }
 xaynet-macros = { path = "../xaynet-macros", version = "0.1.0" }
 xaynet-core = { path = "../xaynet-core", version = "0.1.0" }
 redis = { version = "0.17.0", default-features = false, features = ["connection-manager", "aio", "tokio-rt-core", "script"] }
