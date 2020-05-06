@@ -1,6 +1,10 @@
 use super::ByteObject;
 use derive_more::{AsMut, AsRef, From};
-use sodiumoxide::crypto::sign;
+use num::{
+    bigint::{BigUint, ToBigInt},
+    rational::Ratio,
+};
+use sodiumoxide::crypto::{hash::sha256, sign};
 
 /// Generate a new random signing key pair
 pub fn generate_signing_key_pair() -> (PublicSigningKey, SecretSigningKey) {
@@ -115,6 +119,27 @@ impl ByteObject for Signature {
     }
 }
 
+impl Signature {
+    /// Compute the floating point representation of the hashed signature and ensure that it
+    /// is below the given threshold: int(hash(signature)) / (2**hashbits - 1) <= threshold.
+    pub fn is_eligible(&self, threshold: f64) -> bool {
+        if threshold < 0_f64 {
+            return false;
+        } else if threshold > 1_f64 {
+            return true;
+        }
+        // safe unwraps: `to_bigint` never fails for `BigUint`s
+        let numer = BigUint::from_bytes_le(sha256::hash(self.as_slice()).as_ref())
+            .to_bigint()
+            .unwrap();
+        let denom = BigUint::from_bytes_le([u8::MAX; sha256::DIGESTBYTES].as_ref())
+            .to_bigint()
+            .unwrap();
+        // safe unwrap: `threshold` is guaranteed to be finite
+        Ratio::new(numer, denom) <= Ratio::from_float(threshold).unwrap()
+    }
+}
+
 /// A seed that can be used for signing key pair generation. When
 /// `KeySeed` goes out of scope, its contents will be zeroed out.
 #[derive(AsRef, AsMut, From, Serialize, Deserialize, Eq, PartialEq, Clone)]
@@ -139,5 +164,31 @@ impl ByteObject for SigningKeySeed {
 
     fn as_slice(&self) -> &[u8] {
         self.0.as_ref()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_signature_is_eligible() {
+        // eligible signature
+        let sig = Signature::from_slice_unchecked(&[
+            172, 29, 85, 219, 118, 44, 107, 32, 219, 253, 25, 242, 53, 45, 111, 62, 102, 130, 24,
+            8, 222, 199, 34, 120, 166, 163, 223, 229, 100, 50, 252, 244, 250, 88, 196, 151, 136,
+            48, 39, 198, 166, 86, 29, 151, 13, 81, 69, 198, 40, 148, 134, 126, 7, 202, 1, 56, 174,
+            43, 89, 28, 242, 194, 4, 214,
+        ]);
+        assert!(sig.is_eligible(0.5_f64));
+
+        // ineligible signature
+        let sig = Signature::from_slice_unchecked(&[
+            119, 2, 197, 174, 52, 165, 229, 22, 218, 210, 240, 188, 220, 232, 149, 129, 211, 13,
+            61, 217, 186, 79, 102, 15, 109, 237, 83, 193, 12, 117, 210, 66, 99, 230, 30, 131, 63,
+            108, 28, 222, 48, 92, 153, 71, 159, 220, 115, 181, 183, 155, 146, 182, 205, 89, 140,
+            234, 100, 40, 199, 248, 23, 147, 172, 248,
+        ]);
+        assert!(!sig.is_eligible(0.5_f64));
     }
 }

@@ -3,6 +3,7 @@ use thiserror::Error;
 
 use crate::{
     coordinator::{Coordinator, ProtocolEvent, RoundParameters},
+    model::Model,
     service::handle::{SerializedSeedDict, SerializedSumDict},
     MaskHash,
     SeedDict,
@@ -40,10 +41,6 @@ pub enum PhaseData {
     /// Data held by the service during the sum2 phase
     #[from]
     Sum2(Sum2Data),
-
-    /// Data held by the service during the aggregation phase
-    #[from]
-    Aggregation(AggregationData),
 }
 
 impl PhaseData {
@@ -109,11 +106,7 @@ impl Data {
                 };
                 self.phase_data = Some(sum2_data.into());
             }
-            ProtocolEvent::EndRound(Some(mask_hash)) => {
-                self.round_parameters = None;
-                self.phase_data = Some(AggregationData { mask_hash }.into());
-            }
-            ProtocolEvent::EndRound(None) => {
+            ProtocolEvent::EndRound(_) => {
                 self.round_parameters = None;
                 self.phase_data = None;
             }
@@ -189,9 +182,4 @@ impl Sum2Data {
         // We don't have a seed dictionary for the given key
         Ok(None)
     }
-}
-
-/// Service data specific to the aggregation phase
-pub struct AggregationData {
-    pub mask_hash: MaskHash,
 }

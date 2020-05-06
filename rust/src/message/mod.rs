@@ -12,6 +12,7 @@ use sodiumoxide::crypto::{box_, sign};
 #[repr(u8)]
 /// Message tags.
 enum Tag {
+    #[allow(dead_code)] // None is used for tests
     None,
     Sum,
     Update,
