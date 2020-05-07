@@ -1,0 +1,130 @@
+on:
+  push:
+    tags:
+      - v[0-9]+.[0-9]+.[0-9]+
+
+name: Rust-CI-Release
+
+jobs:
+  check:
+    name: rust-build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        features: [default, influx_metrics]
+      fail-fast: true
+    steps:
+      - uses: actions/checkout@master
+
+      - name: install nightly
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+
+      - name: cargo check
+        working-directory: ./rust
+        env:
+          RUSTFLAGS: "-D warnings"
+        run: cargo check --features ${{ matrix.features }}
+
+  test:
+    name: rust-test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        features: [default, influx_metrics]
+      fail-fast: true
+    steps:
+      - uses: actions/checkout@master
+
+      - name: install nightly
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          components: rustfmt, clippy
+
+      - name: Setup Python 3.6
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.6
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --upgrade setuptools
+          pip install aggregators/
+        working-directory: ./python
+
+      - name: build tests
+        working-directory: ./rust
+        env:
+          RUSTFLAGS: "-D warnings"
+        run: cargo test --features ${{ matrix.features }} --no-run
+
+      - name: non Python tests
+        working-directory: ./rust
+        env:
+          RUSTFLAGS: "-D warnings"
+        run: cargo test --features ${{ matrix.features }} -- --skip aggregator::py_aggregator
+
+      - name: Python tests
+        working-directory: ./rust
+        env:
+          RUSTFLAGS: "-D warnings"
+        # We have to run the Python tests in a single thread,
+        # because of: https://github.com/PyO3/pyo3/issues/288
+        run: cargo test --features ${{ matrix.features }} -- aggregator::py_aggregator --test-threads=1
+
+  clippy:
+    name: rust-clippy
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        features: [default, influx_metrics]
+      fail-fast: true
+    steps:
+      - uses: actions/checkout@master
+      - name: install nightly
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          components: clippy
+
+      - name: cargo clippy
+        working-directory: ./rust
+        run: cargo clippy --features ${{ matrix.features }} -- -D warnings
+
+  rustfmt:
+    name: rustfmt
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+    steps:
+      - uses: actions/checkout@master
+
+      - name: install nightly
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          components: rustfmt
+
+      - name: cargo fmt
+        working-directory: ./rust
+        run: cargo fmt --all -- --check
+
+  build_dockerfile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+      - name: build docker image
+        uses: elgohr/Publish-Docker-Github-Action@master
+        with:
+          name: xain/xain-fl
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+          dockerfile: docker/Dockerfile.release
+          tag_semver: true

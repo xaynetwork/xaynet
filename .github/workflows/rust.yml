@@ -112,3 +112,16 @@ jobs:
       - name: cargo fmt
         working-directory: ./rust
         run: cargo fmt --all -- --check
+
+  build_dockerfile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+      - name: build docker image
+        uses: elgohr/Publish-Docker-Github-Action@master
+        with:
+          name: xain/xain-fl
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+          dockerfile: docker/Dockerfile
+
