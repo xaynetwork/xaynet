@@ -127,3 +127,4 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
           dockerfile: docker/Dockerfile.release
+          tag_semver: true
