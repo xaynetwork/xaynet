@@ -603,28 +603,45 @@ impl Stream for ListObjectsStream {
 mod tests {
     use super::*;
     use crate::{
-        mask::{Mask, MaskedModel},
+        coordinator::RoundSeed,
+        crypto::generate_integer,
+        mask::{
+            config::{BoundType, DataType, GroupType, MaskConfigs, ModelType},
+            Mask,
+            MaskedModel,
+        },
+        model::Model,
         MaskHash,
     };
     use futures::stream::{FuturesUnordered, StreamExt};
+    use rand::{Rng, SeedableRng};
+    use rand_chacha::ChaCha20Rng;
     use rusoto_core::Region;
     use sodiumoxide::{crypto::hash::sha256, randombytes::randombytes};
-    use std::time::Instant;
+    use std::{convert::TryFrom, iter, time::Instant};
     use tokio::task::JoinHandle;
 
-    fn create_mask(byte_size: usize) -> (MaskHash, Mask) {
-        let mask: Vec<u8> = randombytes(byte_size);
-        let hash = sha256::hash(&mask);
-        (hash, Mask::from(mask))
-    }
-
     fn create_masked_model(byte_size: usize) -> MaskedModel {
-        let masked_model: Vec<u8> = randombytes(byte_size);
-        MaskedModel::from(masked_model)
+        let mut prng = ChaCha20Rng::from_seed([0_u8; 32]);
+        let config = MaskConfigs::from_parts(
+            GroupType::Prime,
+            DataType::F32,
+            BoundType::B0,
+            ModelType::M3,
+        )
+        .config();
+        let integers = iter::repeat_with(|| generate_integer(&mut prng, config.order()))
+            .take(10)
+            .collect();
+        MaskedModel::from_parts(integers, config.clone()).unwrap()
     }
 
-    fn create_global_model(byte_size: usize) -> (Vec<u8>, Vec<u8>) {
-        (randombytes(32), randombytes(byte_size))
+    fn create_global_model(byte_size: usize) -> (RoundSeed, Model<i32>) {
+        let mut rng = rand::thread_rng();
+        (
+            RoundSeed::generate(),
+            Model::try_from((0..100).map(|_| rng.gen_range(1, 21)).collect::<Vec<i32>>()).unwrap(),
+        )
     }
 
     fn create_minio_setup() -> Region {
