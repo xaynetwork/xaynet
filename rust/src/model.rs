@@ -54,7 +54,7 @@ pub trait MaskModels<N> {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 /// A model with weights represented as a vector of primitive numbers.
 pub struct Model<N> {
     weights: Vec<N>,

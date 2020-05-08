@@ -28,6 +28,7 @@ paste = "0.1.12"
 rusoto_core = "0.43.0"
 rusoto_s3 = "0.43.0"
 hex = "0.4.2"
+uuid = { version = "0.8.1", features = ["v4", "serde"] }
 
 [[bin]]
 name = "coordinator"

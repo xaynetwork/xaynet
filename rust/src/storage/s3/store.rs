@@ -1,6 +1,9 @@
 use crate::{
-    coordinator::MaskHash,
-    mask::{Mask, MaskedModel},
+    coordinator::RoundSeed,
+    crypto::ByteObject,
+    mask::{Integers, Mask, MaskedModel},
+    model::Model,
+    MaskHash,
 };
 use bincode;
 use futures::ready;
@@ -111,10 +114,12 @@ impl S3Store {
     // [`download_mask`] method to download a [`Mask`].
     pub async fn upload_mask(&self, mask_hash: &MaskHash, mask: &Mask) -> Result<(), StorageError> {
         // mask_hash is stored in the mask_dict
-        let se_mask = bincode::serialize(mask).map_err(|_| StorageError::S3Error)?;
         let key = hex::encode(&mask_hash);
 
-        match self.upload(self.buckets.masks(), &key, se_mask).await {
+        match self
+            .upload(self.buckets.masks(), &key, mask.serialize())
+            .await
+        {
             Ok(_) => Ok(()),
             Err(_) => Err(StorageError::S3Error),
         }
@@ -131,12 +136,10 @@ impl S3Store {
         // maybe we need the number of objects in the bucket.
         // the key is a random string, we could calculate the hash of a masked model and use this
         // as a key but this would cost more time to calculate
-
-        let se_mask_model = bincode::serialize(masked_model).map_err(|_| StorageError::S3Error)?;
         let key = Uuid::new_v4().to_string();
 
         match self
-            .upload(self.buckets.masked_models(), &key, se_mask_model)
+            .upload(self.buckets.masked_models(), &key, masked_model.serialize())
             .await
         {
             Ok(_) => Ok(()),
@@ -144,26 +147,31 @@ impl S3Store {
         }
     }
 
-    /// Upload a global model. The `seed` is used as the object key and can be used in the
+    /// Upload a global model. The `round_seed` is used as the object key and can be used in the
     // [`download_global_model`] method to download a global model.
-    pub async fn upload_global_model(
+    pub async fn upload_global_model<N>(
         &self,
-        seed: &Vec<u8>,
-        global_model: &Vec<u8>,
-    ) -> Result<(), StorageError> {
+        round_seed: &RoundSeed,
+        global_model: &Model<N>,
+    ) -> Result<(), StorageError>
+    where
+        N: serde::Serialize,
+    {
         // As key for the global model we use the seed of the round in which the global model was
         // crated. we might also store the round number for easier debugging.
         // the seed is stored in redis so we can recover this key in case of a failure.
         // the seed needs to be returned in the round parameters.
         // {
-        //  seed : new_seed
+        //  round_seed : new_seed
         //  global_model: seed_from_the_round_before
         //}
         // we will need to store the global_model_key in redis.
-        let key = hex::encode(&seed);
+        let se_global_model =
+            bincode::serialize(global_model).map_err(|_| StorageError::S3Error)?;
+        let key = hex::encode(round_seed.as_slice());
 
         match self
-            .upload(self.buckets.global_model(), &key, global_model.clone())
+            .upload(self.buckets.global_model(), &key, se_global_model)
             .await
         {
             Ok(_) => Ok(()),
@@ -171,25 +179,23 @@ impl S3Store {
         }
     }
 
-    /// Upload a global masked model. The `seed` is used as the object key and can be used in the
+    /// Upload a global masked model. The `round_seed` is used as the object key and can be used in the
     // [`download_masked_global_model`] method to download a global model.
     pub async fn upload_global_masked_model(
         &self,
-        seed: &Vec<u8>,
-        global_masked_model: &Vec<u8>,
+        round_seed: &RoundSeed,
+        global_masked_model: &MaskedModel,
     ) -> Result<(), StorageError> {
         // Same like `upload_global_model`. we want to store the global_masked_model because if the
         // aggregator fails between the aggregation and unmasking part, the aggregator will have to
         // do the work again.
-        // do we want to store snapshots?
-        // (on the fly aggregation? then we also need to store which model have been already aggregated)
-        let key = hex::encode(&seed);
+        let key = hex::encode(round_seed.as_slice());
 
         match self
             .upload(
                 self.buckets.global_masked_model(),
                 &key,
-                global_masked_model.clone(),
+                global_masked_model.serialize(),
             )
             .await
         {
@@ -206,8 +212,9 @@ impl S3Store {
             .download_object(self.buckets.masks(), &key)
             .await
             .map_err(|_| StorageError::S3Error)?;
+
         if let Some(de_mask) = S3Store::unpack_object(object_resp).await {
-            bincode::deserialize(&de_mask)
+            Mask::deserialize(&de_mask)
                 .map_err(|_| StorageError::S3Error)
                 .and_then(|mask| Ok(Some(mask)))
         } else {
@@ -216,11 +223,14 @@ impl S3Store {
     }
 
     /// Download a global model.
-    pub async fn download_global_model(
+    pub async fn download_global_model<N>(
         &self,
-        seed: &Vec<u8>,
-    ) -> Result<Option<Vec<u8>>, StorageError> {
-        let key = hex::encode(&seed);
+        seed: &RoundSeed,
+    ) -> Result<Option<Model<N>>, StorageError>
+    where
+        N: for<'de> serde::Deserialize<'de>,
+    {
+        let key = hex::encode(seed.as_slice());
         let object_resp = self
             .download_object(self.buckets.global_model(), &key)
             .await
@@ -238,16 +248,16 @@ impl S3Store {
     /// Download a global masked model.
     pub async fn download_masked_global_model(
         &self,
-        seed: &Vec<u8>,
-    ) -> Result<Option<Vec<u8>>, StorageError> {
-        let key = hex::encode(&seed);
+        seed: &RoundSeed,
+    ) -> Result<Option<MaskedModel>, StorageError> {
+        let key = hex::encode(seed.as_slice());
         let object_resp = self
             .download_object(self.buckets.global_masked_model(), &key)
             .await
             .map_err(|_| StorageError::S3Error)?;
 
         if let Some(de_global_masked_model) = S3Store::unpack_object(object_resp).await {
-            bincode::deserialize(&de_global_masked_model)
+            MaskedModel::deserialize(&de_global_masked_model)
                 .map_err(|_| StorageError::S3Error)
                 .and_then(|masked_global_model| Ok(Some(masked_global_model)))
         } else {
@@ -266,7 +276,7 @@ impl S3Store {
             .map_err(|_| StorageError::S3Error)?;
 
         if let Some(de_masked_model) = S3Store::unpack_object(object_resp).await {
-            bincode::deserialize(&de_masked_model)
+            MaskedModel::deserialize(&de_masked_model)
                 .map_err(|_| StorageError::S3Error)
                 .and_then(|mask_model| Ok(Some(mask_model)))
         } else {
@@ -593,8 +603,8 @@ impl Stream for ListObjectsStream {
 mod tests {
     use super::*;
     use crate::{
-        coordinator::MaskHash,
         mask::{Mask, MaskedModel},
+        MaskHash,
     };
     use futures::stream::{FuturesUnordered, StreamExt};
     use rusoto_core::Region;
