@@ -17,6 +17,7 @@ pub mod mask;
 pub mod message;
 pub mod model;
 pub mod participant;
+pub mod proxy;
 pub mod service;
 pub mod storage;
 pub mod utils;
