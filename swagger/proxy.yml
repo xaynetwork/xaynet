@@ -1,0 +1,104 @@
+openapi: 3.0.1
+info:
+  title: XAIN FL API
+  description: PET version
+  contact:
+    email: engineering@xain.io
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  version: 0.8.0
+externalDocs:
+  description: Find out more about XAIN FL
+  url: https://docs.xain.io/
+servers:
+  - url: http://localhost:8081/
+tags:
+  - name: Proxy
+    description: API of the proxy service
+paths:
+  /global_model/{round_seed}:
+    get:
+      tags:
+        - Proxy
+      description: Download the global model
+      parameters:
+        - name: round_seed
+          description: The round seed
+          in: path
+          required: true
+          schema:
+            type: string
+            format: byte
+            minLength: 32
+            maxLength: 32
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  model:
+                    type: array
+                    items:
+                      type: number
+        404:
+          description: global model not found
+  /masked_model:
+    post:
+      tags:
+        - Proxy
+      description: Upload a masked model
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                model:
+                  type: array
+                  items:
+                    type: number
+      responses:
+        201:
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  key:
+                    type: string
+        404:
+          description: masked model not found
+  /mask:
+    post:
+      tags:
+        - Proxy
+      description: Upload a mask
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                mask:
+                  type: array
+                  items:
+                    type: number
+      responses:
+        201:
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  key:
+                    type: string
+        404:
+          description: mask not found

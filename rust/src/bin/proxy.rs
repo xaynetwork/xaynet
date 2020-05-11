@@ -11,6 +11,7 @@ use xain_fl::{
     crypto::{generate_integer, ByteObject},
     mask::{
         config::{BoundType, DataType, GroupType, MaskConfigs, ModelType},
+        Integers,
         Mask,
         MaskedModel,
     },
@@ -54,5 +55,23 @@ fn create_global_model(byte_size: usize) -> (String, Model<i32>) {
                 .collect::<Vec<i32>>(),
         )
         .unwrap(),
+    )
+}
+
+fn create_masked_model(byte_size: usize) -> (String, MaskedModel) {
+    let mut prng = ChaCha20Rng::from_seed([0_u8; 32]);
+    let config = MaskConfigs::from_parts(
+        GroupType::Prime,
+        DataType::F32,
+        BoundType::B0,
+        ModelType::M3,
+    )
+    .config();
+    let integers = iter::repeat_with(|| generate_integer(&mut prng, config.order()))
+        .take(byte_size)
+        .collect();
+    (
+        hex::encode(randombytes(32)),
+        MaskedModel::from_parts(integers, config.clone()).unwrap(),
     )
 }
