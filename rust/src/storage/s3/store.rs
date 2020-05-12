@@ -592,16 +592,31 @@ mod tests {
             MaskedModel,
         },
         model::Model,
-        MaskHash,
     };
     use futures::stream::{FuturesUnordered, StreamExt};
     use hex;
+    use num::{bigint::BigUint, traits::identities::Zero};
     use rand::{Rng, SeedableRng};
     use rand_chacha::ChaCha20Rng;
     use rusoto_core::Region;
-    use sodiumoxide::{crypto::hash::sha256, randombytes::randombytes};
+    use sodiumoxide::randombytes::randombytes;
     use std::{convert::TryFrom, iter, time::Instant};
     use tokio::task::JoinHandle;
+
+    fn create_mask(byte_size: usize) -> (String, Mask) {
+        let config = MaskConfigs::from_parts(
+            GroupType::Prime,
+            DataType::F32,
+            BoundType::B0,
+            ModelType::M3,
+        )
+        .config();
+
+        (
+            hex::encode(randombytes(32)),
+            Mask::from_parts(vec![BigUint::zero(); byte_size], config.clone()).unwrap(),
+        )
+    }
 
     fn create_masked_model(byte_size: usize) -> (String, MaskedModel) {
         let mut prng = ChaCha20Rng::from_seed([0_u8; 32]);
@@ -613,7 +628,7 @@ mod tests {
         )
         .config();
         let integers = iter::repeat_with(|| generate_integer(&mut prng, config.order()))
-            .take(10)
+            .take(byte_size)
             .collect();
         (
             hex::encode(randombytes(32)),
