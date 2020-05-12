@@ -86,15 +86,13 @@ pub trait Integers: Sized {
 
 /// Unmasking of vectors of arbitrarily large integers.
 pub trait MaskIntegers<N>: Integers {
-    /// Unmask the masked model with a mask. Fails if the mask configurations or the integer lengths
-    /// don't conform or the number of models is zero.
+    /// Unmask the masked model with a mask. Fails if the mask configuration is violated.
     fn unmask(&self, mask: &Mask, no_models: usize) -> Result<Model<N>, Self::Error>;
 
     /// Cast the ratios as numbers. Fails if a ratio is not representable as `N`.
     fn numbers_from(ratios: Vec<Ratio<BigInt>>) -> Option<Vec<N>>;
 
-    /// Unmask the masked numbers with a mask. Fails if the mask configurations or the integer
-    /// lengths don't conform or the number of models don't conform to the mask configuration.
+    /// Unmask the masked numbers with a mask. Fails if the mask configuration is violated.
     fn unmask_numbers(&self, mask: &Mask, no_models: usize) -> Result<Vec<N>, Self::Error> {
         let max_models = match self.config().name().model_type() {
             ModelType::M3 => 1_000,
@@ -162,8 +160,7 @@ impl Integers for MaskedModel {
 }
 
 impl MaskIntegers<f32> for MaskedModel {
-    /// Unmask the masked model with a mask. Fails if the mask configurations or the integer lengths
-    /// don't conform or the number of models is zero.
+    /// Unmask the masked model with a mask. Fails if the mask configuration is violated.
     fn unmask(&self, mask: &Mask, no_models: usize) -> Result<Model<f32>, PetError> {
         <Self as MaskIntegers<f32>>::unmask_numbers(&self, mask, no_models)?.try_into()
     }
@@ -175,8 +172,7 @@ impl MaskIntegers<f32> for MaskedModel {
 }
 
 impl MaskIntegers<f64> for MaskedModel {
-    /// Unmask the masked model with a mask. Fails if the mask configurations or the integer lengths
-    /// don't conform or the number of models is zero.
+    /// Unmask the masked model with a mask. Fails if the mask configuration is violated.
     fn unmask(&self, mask: &Mask, no_models: usize) -> Result<Model<f64>, PetError> {
         <Self as MaskIntegers<f64>>::unmask_numbers(&self, mask, no_models)?.try_into()
     }
@@ -188,8 +184,7 @@ impl MaskIntegers<f64> for MaskedModel {
 }
 
 impl MaskIntegers<i32> for MaskedModel {
-    /// Unmask the masked model with a mask. Fails if the mask configurations or the integer lengths
-    /// don't conform or the number of models is zero.
+    /// Unmask the masked model with a mask. Fails if the mask configuration is violated.
     fn unmask(&self, mask: &Mask, no_models: usize) -> Result<Model<i32>, PetError> {
         Ok(<Self as MaskIntegers<i32>>::unmask_numbers(&self, mask, no_models)?.into())
     }
@@ -204,8 +199,7 @@ impl MaskIntegers<i32> for MaskedModel {
 }
 
 impl MaskIntegers<i64> for MaskedModel {
-    /// Unmask the masked model with a mask. Fails if the mask configurations or the integer lengths
-    /// don't conform or the number of models is zero.
+    /// Unmask the masked model with a mask. Fails if the mask configuration is violated.
     fn unmask(&self, mask: &Mask, no_models: usize) -> Result<Model<i64>, PetError> {
         Ok(<Self as MaskIntegers<i64>>::unmask_numbers(&self, mask, no_models)?.into())
     }
