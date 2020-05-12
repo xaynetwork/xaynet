@@ -84,7 +84,7 @@ pub struct S3Store {
 
 // API
 impl S3Store {
-    /// Create a new S3 store. The store creates and maintain 4 different buckets.
+    /// Create a new S3 store. The store creates and maintains 4 different buckets.
     /// See [`Buckets`] for more information.
     ///
     /// The [`S3Store`] can also be used together with Minio via a custom region:
@@ -103,8 +103,7 @@ impl S3Store {
         }
     }
 
-    /// Upload a [`Mask`]. The `mask_hash` is used as the object key and can be used in the
-    // [`download_mask`] method to download a [`Mask`].
+    /// Upload a [`Mask`].
     pub async fn upload_mask(&self, key: &str, mask: &Mask) -> Result<(), StorageError> {
         match self
             .upload(self.buckets.masks(), key, mask.serialize())
@@ -115,9 +114,7 @@ impl S3Store {
         }
     }
 
-    /// Upload a [`MaskedModel`]. A random key will be generated and used as the object key. To
-    // download all masked models use
-    // [`get_masked_model_identifier_stream`] in combination with [`download_masked_model`].
+    /// Upload a [`MaskedModel`].
     pub async fn upload_masked_model(
         &self,
         key: &str,
@@ -136,8 +133,7 @@ impl S3Store {
         }
     }
 
-    /// Upload a global model. The `round_seed` is used as the object key and can be used in the
-    // [`download_global_model`] method to download a global model.
+    /// Upload a global [`Model`].
     pub async fn upload_global_model<N>(
         &self,
         key: &str,
@@ -167,8 +163,7 @@ impl S3Store {
         }
     }
 
-    /// Upload a global masked model. The `round_seed` is used as the object key and can be used in the
-    // [`download_masked_global_model`] method to download a global model.
+    /// Upload a global [`MaskedModel`].
     pub async fn upload_global_masked_model(
         &self,
         key: &str,
@@ -207,7 +202,7 @@ impl S3Store {
         }
     }
 
-    /// Download a masked model.
+    /// Download a [`MaskedModel`].
     pub async fn download_masked_model_id(
         &self,
         id: ObjectIdentifier,
@@ -226,7 +221,7 @@ impl S3Store {
         }
     }
 
-    /// Download a global model.
+    /// Download a global [`Model`].
     pub async fn download_global_model<N>(
         &self,
         key: &str,
@@ -272,7 +267,7 @@ impl S3Store {
         ListObjectsStream::new(self.s3_client.clone(), self.buckets.masked_models(), 10)
     }
 
-    /// Delete all objects in all [`Buckets`]
+    /// Delete all objects in all [`Buckets`].
     pub async fn clear_all(&self) -> Result<(), StorageError> {
         for bucket in self.buckets.names() {
             let _ = self
@@ -283,7 +278,7 @@ impl S3Store {
         Ok(())
     }
 
-    /// Create all [`Buckets`]
+    /// Create all [`Buckets`].
     pub async fn create_buckets(&self) -> Result<(), StorageError> {
         for bucket in self.buckets.names() {
             let resp = self.create_bucket(bucket).await;
@@ -334,7 +329,7 @@ impl S3Store {
         self.s3_client.get_object(req).await
     }
 
-    // Get the content of the given object
+    // Get the content of the given object.
     async fn unpack_object(object: GetObjectOutput) -> Option<Vec<u8>> {
         if let Some(body) = object.body {
             let mut content = Vec::new();
@@ -351,7 +346,7 @@ impl S3Store {
         }
     }
 
-    // Create a new bucket with the given bucket name
+    // Create a new bucket with the given bucket name.
     async fn create_bucket(
         &self,
         bucket: &str,
@@ -390,7 +385,7 @@ impl S3Store {
         Ok(())
     }
 
-    // Get the object identifier/keys
+    // Get the object identifier/keys.
     fn unpack_object_identifier(
         list_obj_resp: &ListObjectsV2Output,
     ) -> Option<Vec<ObjectIdentifier>> {
@@ -409,7 +404,7 @@ impl S3Store {
         }
     }
 
-    // Delete the objects of the given bucket
+    // Delete the objects of the given bucket.
     async fn delete_objects(
         &self,
         bucket: &str,
@@ -427,7 +422,7 @@ impl S3Store {
         self.s3_client.delete_objects(req).await
     }
 
-    /// Return all objects keys for the given bucket.
+    // Return all objects keys for the given bucket.
     async fn list_objects(
         // the response returns 1000 keys max.
         // https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/S3.html#listObjectsV2-property
@@ -447,7 +442,7 @@ impl S3Store {
         self.s3_client.list_objects_v2(req).await
     }
 
-    // Unpack the next_continuation_token of the ListObjectsV2Output response
+    // Unpack the next_continuation_token of the ListObjectsV2Output response.
     fn unpack_next_continuation_token(list_obj_resp: &ListObjectsV2Output) -> Option<String> {
         // https://docs.aws.amazon.com/AmazonS3/latest/dev/ListingObjectKeysUsingJava.html
         if let Some(is_truncated) = list_obj_resp.is_truncated {
@@ -461,8 +456,6 @@ impl S3Store {
         }
     }
 }
-
-// experimental stream implementation of the list object endpoint
 
 /// AWS paginated results when the response object is too large to return in a single response.
 /// The maximum number of keys that can be returned in a single request is limited to 1000.
