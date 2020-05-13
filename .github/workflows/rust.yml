@@ -127,7 +127,6 @@ jobs:
         with:
           profile: minimal
           toolchain: nightly
-          components: rustfmt, clippy
 
       - name: Cache cargo registry
         uses: actions/cache@v1
@@ -173,7 +172,6 @@ jobs:
         with:
           profile: minimal
           toolchain: nightly
-          components: rustfmt, clippy
 
       - name: Cache cargo registry
         uses: actions/cache@v1
@@ -204,10 +202,3 @@ jobs:
       - name: Stop docker-compose
         working-directory: ./docker
         run: docker-compose stop
-
-  test-container:
-    name: rustfmt
-    runs-on: ubuntu-latest
-    container: rustlang/rust:nightly
-    steps:
-      - uses: actions/checkout@master
