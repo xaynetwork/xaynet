@@ -9,7 +9,7 @@ use num::{
     traits::{cast::ToPrimitive, float::FloatCore},
 };
 
-use self::config::MaskConfig;
+use self::config::{MaskConfig, ModelType};
 use crate::{model::Model, PetError};
 
 #[allow(clippy::len_without_is_empty)]
@@ -86,17 +86,22 @@ pub trait Integers: Sized {
 
 /// Unmasking of vectors of arbitrarily large integers.
 pub trait MaskIntegers<N>: Integers {
-    /// Unmask the masked model with a mask. Fails if the mask configurations or the integer lengths
-    /// don't conform or the number of models is zero.
+    /// Unmask the masked model with a mask. Fails if the mask configuration is violated.
     fn unmask(&self, mask: &Mask, no_models: usize) -> Result<Model<N>, Self::Error>;
 
-    /// Cast the ratios as numbers.
+    /// Cast the ratios as numbers. Fails if a ratio is not representable as `N`.
     fn numbers_from(ratios: Vec<Ratio<BigInt>>) -> Option<Vec<N>>;
 
-    /// Unmask the masked numbers with a mask. Fails if the mask configurations or the integer
-    /// lengths don't conform or the number of models is zero.
+    /// Unmask the masked numbers with a mask. Fails if the mask configuration is violated.
     fn unmask_numbers(&self, mask: &Mask, no_models: usize) -> Result<Vec<N>, Self::Error> {
+        let max_models = match self.config().name().model_type() {
+            ModelType::M3 => 1_000,
+            ModelType::M6 => 1_000_000,
+            ModelType::M9 => 1_000_000_000,
+            ModelType::M12 => 1_000_000_000_000,
+        };
         if no_models > 0
+            && no_models <= max_models
             && self.integers().len() == mask.integers().len()
             && self.config() == mask.config()
         {
@@ -155,39 +160,36 @@ impl Integers for MaskedModel {
 }
 
 impl MaskIntegers<f32> for MaskedModel {
-    /// Unmask the masked model with a mask. Fails if the mask configurations or the integer lengths
-    /// don't conform or the number of models is zero.
+    /// Unmask the masked model with a mask. Fails if the mask configuration is violated.
     fn unmask(&self, mask: &Mask, no_models: usize) -> Result<Model<f32>, PetError> {
         <Self as MaskIntegers<f32>>::unmask_numbers(&self, mask, no_models)?.try_into()
     }
 
-    /// Cast the ratios as numbers.
+    /// Cast the ratios as numbers. Fails if a ratio is not representable as `f32`.
     fn numbers_from(ratios: Vec<Ratio<BigInt>>) -> Option<Vec<f32>> {
-        Some(floats_from(ratios))
+        floats_from(ratios)
     }
 }
 
 impl MaskIntegers<f64> for MaskedModel {
-    /// Unmask the masked model with a mask. Fails if the mask configurations or the integer lengths
-    /// don't conform or the number of models is zero.
+    /// Unmask the masked model with a mask. Fails if the mask configuration is violated.
     fn unmask(&self, mask: &Mask, no_models: usize) -> Result<Model<f64>, PetError> {
         <Self as MaskIntegers<f64>>::unmask_numbers(&self, mask, no_models)?.try_into()
     }
 
-    /// Cast the ratios as numbers.
+    /// Cast the ratios as numbers. Fails if a ratio is not representable as `f64`.
     fn numbers_from(ratios: Vec<Ratio<BigInt>>) -> Option<Vec<f64>> {
-        Some(floats_from(ratios))
+        floats_from(ratios)
     }
 }
 
 impl MaskIntegers<i32> for MaskedModel {
-    /// Unmask the masked model with a mask. Fails if the mask configurations or the integer lengths
-    /// don't conform or the number of models is zero.
+    /// Unmask the masked model with a mask. Fails if the mask configuration is violated.
     fn unmask(&self, mask: &Mask, no_models: usize) -> Result<Model<i32>, PetError> {
         Ok(<Self as MaskIntegers<i32>>::unmask_numbers(&self, mask, no_models)?.into())
     }
 
-    /// Cast the ratios as numbers.
+    /// Cast the ratios as numbers. Fails if a ratio is not representable as `i32`.
     fn numbers_from(ratios: Vec<Ratio<BigInt>>) -> Option<Vec<i32>> {
         ratios
             .iter()
@@ -197,13 +199,12 @@ impl MaskIntegers<i32> for MaskedModel {
 }
 
 impl MaskIntegers<i64> for MaskedModel {
-    /// Unmask the masked model with a mask. Fails if the mask configurations or the integer lengths
-    /// don't conform or the number of models is zero.
+    /// Unmask the masked model with a mask. Fails if the mask configuration is violated.
     fn unmask(&self, mask: &Mask, no_models: usize) -> Result<Model<i64>, PetError> {
         Ok(<Self as MaskIntegers<i64>>::unmask_numbers(&self, mask, no_models)?.into())
     }
 
-    /// Cast the ratios as numbers.
+    /// Cast the ratios as numbers. Fails if a ratio is not representable as `i64`.
     fn numbers_from(ratios: Vec<Ratio<BigInt>>) -> Option<Vec<i64>> {
         ratios
             .iter()
@@ -212,28 +213,35 @@ impl MaskIntegers<i64> for MaskedModel {
     }
 }
 
-/// Cast the ratios as floats.
-fn floats_from<F: FloatCore>(ratios: Vec<Ratio<BigInt>>) -> Vec<F> {
+/// Cast the ratios as floats. Fails if a ratio is not representable as `F`.
+fn floats_from<F: FloatCore>(ratios: Vec<Ratio<BigInt>>) -> Option<Vec<F>> {
+    // safe unwraps: values are finite
+    let min_value = &Ratio::from_float(F::min_value()).unwrap();
+    let max_value = &Ratio::from_float(F::max_value()).unwrap();
     ratios
         .iter()
         .map(|ratio| {
-            let mut numer = ratio.numer().clone();
-            let mut denom = ratio.denom().clone();
-            // safe loop: terminates after at most bit-length of ratio iterations
-            loop {
-                if let (Some(n), Some(d)) = (F::from(numer.clone()), F::from(denom.clone())) {
-                    if d == F::zero() {
-                        return F::zero();
-                    } else {
-                        let float = n / d;
-                        if float.is_finite() {
-                            return float;
+            if min_value <= ratio && ratio <= max_value {
+                let mut numer = ratio.numer().clone();
+                let mut denom = ratio.denom().clone();
+                // safe loop: terminates after at most bit-length of ratio iterations
+                loop {
+                    if let (Some(n), Some(d)) = (F::from(numer.clone()), F::from(denom.clone())) {
+                        if n == F::zero() || d == F::zero() {
+                            break Some(F::zero());
+                        } else {
+                            let float = n / d;
+                            if float.is_finite() {
+                                break Some(float);
+                            }
                         }
+                    } else {
+                        numer >>= 1_usize;
+                        denom >>= 1_usize;
                     }
-                } else {
-                    numer >>= 1_usize;
-                    denom >>= 1_usize;
                 }
+            } else {
+                None
             }
         })
         .collect()
@@ -387,27 +395,36 @@ mod tests {
     }
 
     #[test]
-    fn test_floats_from() {
-        // f32
+    fn test_floats_from_f32() {
         let ratio = vec![Ratio::from_float(0_f32).unwrap()];
-        assert_eq!(floats_from::<f32>(ratio), vec![0_f32]);
+        assert_eq!(floats_from::<f32>(ratio).unwrap(), vec![0_f32]);
         let ratio = vec![Ratio::from_float(0.1_f32).unwrap()];
-        assert_eq!(floats_from::<f32>(ratio), vec![0.1_f32]);
+        assert_eq!(floats_from::<f32>(ratio).unwrap(), vec![0.1_f32]);
         let ratio = vec![
-            (Ratio::from_float(f32::max_value()).unwrap() * BigInt::from(10_usize))
-                / (Ratio::from_float(f32::max_value()).unwrap() * BigInt::from(100_usize)),
+            (Ratio::from_float(f32::MAX).unwrap() * BigInt::from(10))
+                / (Ratio::from_float(f32::MAX).unwrap() * BigInt::from(100)),
         ];
-        assert_eq!(floats_from::<f32>(ratio), vec![0.1_f32]);
+        assert_eq!(floats_from::<f32>(ratio).unwrap(), vec![0.1_f32]);
+        let ratio = vec![Ratio::from_float(f32::MAX).unwrap() + BigInt::from(1)];
+        floats_from::<f32>(ratio).unwrap_none();
+        let ratio = vec![Ratio::from_float(f32::MIN).unwrap() - BigInt::from(1)];
+        floats_from::<f32>(ratio).unwrap_none();
+    }
 
-        // f64
+    #[test]
+    fn test_floats_from_f64() {
         let ratio = vec![Ratio::from_float(0_f64).unwrap()];
-        assert_eq!(floats_from::<f64>(ratio), vec![0_f64]);
+        assert_eq!(floats_from::<f64>(ratio).unwrap(), vec![0_f64]);
         let ratio = vec![Ratio::from_float(0.1_f64).unwrap()];
-        assert_eq!(floats_from::<f64>(ratio), vec![0.1_f64]);
+        assert_eq!(floats_from::<f64>(ratio).unwrap(), vec![0.1_f64]);
         let ratio = vec![
-            (Ratio::from_float(f64::max_value()).unwrap() * BigInt::from(10_usize))
-                / (Ratio::from_float(f64::max_value()).unwrap() * BigInt::from(100_usize)),
+            (Ratio::from_float(f64::MAX).unwrap() * BigInt::from(10))
+                / (Ratio::from_float(f64::MAX).unwrap() * BigInt::from(100)),
         ];
-        assert_eq!(floats_from::<f64>(ratio), vec![0.1_f64]);
+        assert_eq!(floats_from::<f64>(ratio).unwrap(), vec![0.1_f64]);
+        let ratio = vec![Ratio::from_float(f64::MAX).unwrap() + BigInt::from(1)];
+        floats_from::<f64>(ratio).unwrap_none();
+        let ratio = vec![Ratio::from_float(f64::MIN).unwrap() - BigInt::from(1)];
+        floats_from::<f64>(ratio).unwrap_none();
     }
 }

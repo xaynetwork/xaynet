@@ -3,6 +3,7 @@
 #![feature(or_patterns)]
 #![feature(const_fn)]
 #![feature(stmt_expr_attributes)]
+#![feature(option_unwrap_none)]
 
 #[macro_use]
 extern crate tracing;
