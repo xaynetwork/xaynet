@@ -204,3 +204,10 @@ jobs:
       - name: Stop docker-compose
         working-directory: ./docker
         run: docker-compose stop
+
+  test-container:
+    name: rustfmt
+    runs-on: ubuntu-latest
+    container: rustlang/rust:nightly
+    steps:
+      - uses: actions/checkout@master
