@@ -9,7 +9,7 @@ jobs:
     steps:
       - uses: actions/checkout@master
 
-      - name: install nightly
+      - name: Install nightly
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -46,7 +46,7 @@ jobs:
     steps:
       - uses: actions/checkout@master
 
-      - name: install nightly
+      - name: Install nightly
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -84,7 +84,7 @@ jobs:
     steps:
       - uses: actions/checkout@master
 
-      - name: install nightly
+      - name: Install nightly
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -122,7 +122,7 @@ jobs:
     steps:
       - uses: actions/checkout@master
 
-      - name: install nightly
+      - name: Install nightly
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -167,7 +167,7 @@ jobs:
     steps:
       - uses: actions/checkout@master
 
-      - name: install nightly
+      - name: Install nightly
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
