@@ -8,7 +8,7 @@ use std::{
 use tokio::task::JoinHandle;
 use xain_fl::{
     crypto::*,
-    mask::MaskSeed,
+    mask::seed::MaskSeed,
     storage::store::RedisStore,
     LocalSeedDict,
     SumDict,
@@ -119,11 +119,11 @@ async fn main() {
 }
 
 fn generate_update(sum_dict: &SumDict) -> (UpdateParticipantPublicKey, LocalSeedDict) {
-    let seed = MaskSeed::new();
+    let seed = MaskSeed::generate();
     let pk = UpdateParticipantPublicKey::from_slice(&randombytes(32)).unwrap();
     let local_seed_dict = sum_dict
         .iter()
-        .map(|(sum_pk, sum_ephm_pk)| (*sum_pk, seed.seal(sum_ephm_pk)))
+        .map(|(sum_pk, sum_ephm_pk)| (*sum_pk, seed.encrypt(sum_ephm_pk)))
         .collect::<LocalSeedDict>();
     (pk, local_seed_dict)
 }

@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#![allow(unused_imports)]
 #![feature(or_patterns)]
 #![feature(const_fn)]
 #![feature(stmt_expr_attributes)]
@@ -86,13 +87,13 @@ pub type SumDict = HashMap<SumParticipantPublicKey, SumParticipantEphemeralPubli
 
 /// Local seed dictionaries are sent by update participants. They contain the participant's masking
 /// seed, encrypted with the ephemeral public key of each sum participant.
-type LocalSeedDict = HashMap<SumParticipantPublicKey, EncryptedMaskSeed>;
+pub type LocalSeedDict = HashMap<SumParticipantPublicKey, EncryptedMaskSeed>;
 
 /// A dictionary created during the update phase of the protocol. The global seed dictionary is
 /// built from the local seed dictionaries sent by the update participants. It maps each sum
 /// participant to the encrypted masking seeds of all the update participants.
-type SeedDict =
+pub type SeedDict =
     HashMap<SumParticipantPublicKey, HashMap<UpdateParticipantPublicKey, EncryptedMaskSeed>>;
 
 /// A 32-byte hash that identifies a model mask computed by a sum participant.
-
+pub type MaskHash = sodiumoxide::crypto::hash::sha256::Digest;

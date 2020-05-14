@@ -1,6 +1,6 @@
 use crate::{
     coordinator::CoordinatorState,
-    EncrMaskSeed,
+    EncryptedMaskSeed,
     LocalSeedDict,
     MaskHash,
     SumDict,
@@ -85,8 +85,8 @@ impl Connection {
     pub async fn get_seed_dict(
         mut self,
         sum_pk: SumParticipantPublicKey,
-    ) -> Result<HashMap<UpdateParticipantPublicKey, EncrMaskSeed>, RedisError> {
-        let result: Vec<(UpdateParticipantPublicKey, EncrMaskSeed)> =
+    ) -> Result<HashMap<UpdateParticipantPublicKey, EncryptedMaskSeed>, RedisError> {
+        let result: Vec<(UpdateParticipantPublicKey, EncryptedMaskSeed)> =
             self.connection.hgetall(sum_pk).await?;
         Ok(result.into_iter().collect())
     }
@@ -110,15 +110,15 @@ impl Connection {
 
     /// Update the [`MaskDict`] with the given mask hash and return
     /// the updated mask dictionary.
-    pub async fn incr_mask_count(mut self, mask: MaskHash) -> Result<MaskDict, RedisError> {
-        let result: Vec<(MaskHash, usize)> = redis::pipe()
-            .atomic()
-            .zadd("mask_dict", mask, 1_usize)
-            .zrange_withscores("mask_dict", 0, isize::MAX)
-            .query_async(&mut self.connection)
-            .await?;
-        Ok(result.into_iter().collect())
-    }
+    // pub async fn incr_mask_count(mut self, mask: MaskHash) -> Result<MaskDict, RedisError> {
+    //     let result: Vec<(MaskHash, usize)> = redis::pipe()
+    //         .atomic()
+    //         .zadd("mask_dict", mask, 1_usize)
+    //         .zrange_withscores("mask_dict", 0, isize::MAX)
+    //         .query_async(&mut self.connection)
+    //         .await?;
+    //     Ok(result.into_iter().collect())
+    // }
 
     pub async fn schedule_snapshot(mut self) -> RedisResult<()> {
         redis::cmd("BGSAVE")
