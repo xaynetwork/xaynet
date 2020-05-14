@@ -1,8 +1,4 @@
-use crate::{
-    coordinator::{Coordinator, Coordinators, MaskCoordinators, RoundParameters},
-    InitError,
-};
-use derive_more::From;
+use crate::{coordinator::Coordinator, InitError};
 use futures::ready;
 use std::{
     future::Future,
@@ -31,7 +27,7 @@ pub use handle::{
 pub struct Service {
     /// The coordinator holds the protocol state: crypto material, sum
     /// and update dictionaries, configuration, etc.
-    coordinator: Coordinator<f32>, // todo: implement a choice for data types
+    coordinator: Coordinator,
 
     /// Events to handle
     events: EventStream,
@@ -47,7 +43,7 @@ impl Service {
         let (handle, events) = Handle::new();
         let service = Self {
             events,
-            coordinator: Coordinator::<f32>::new()?,
+            coordinator: Coordinator::new()?,
             data: Data::new(),
         };
         Ok((service, handle))

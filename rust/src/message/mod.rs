@@ -6,19 +6,13 @@ pub use self::traits::{FromBytes, LengthValueBuffer, ToBytes};
 mod buffer;
 pub use self::buffer::*;
 
-#[repr(u8)]
-/// Message tags.
-enum Tag {
-    #[allow(dead_code)] // None is used for tests
-    None,
-    Sum,
-    Update,
-    Sum2,
-}
+mod header;
+pub use self::header::*;
 
 pub(crate) mod payload;
 pub use self::payload::*;
 
+#[allow(clippy::module_inception)]
 mod message;
 pub use self::message::*;
 

@@ -4,22 +4,21 @@ use std::{
     default::Default,
 };
 
-use derive_more::{AsMut, AsRef};
 use sodiumoxide::{
+    self,
     crypto::{box_, hash::sha256},
     randombytes::randombytes,
 };
-use thiserror::Error;
 
 use crate::{
     crypto::{generate_encrypt_key_pair, ByteObject, SigningKeySeed},
-    mask::{Integers, Mask, MaskIntegers, MaskedModel},
-    message::{sum::SumMessage, sum2::Sum2Message, update::UpdateMessage},
-    model::Model,
+    mask::{Aggregation, BoundType, DataType, GroupType, MaskConfig, MaskObject, ModelType},
+    message::{MessageOpen, PayloadOwned, Sum2Owned, SumOwned, UpdateOwned},
     CoordinatorPublicKey,
     CoordinatorSecretKey,
     InitError,
     LocalSeedDict,
+    ParticipantPublicKey,
     ParticipantTaskSignature,
     PetError,
     SeedDict,
@@ -31,18 +30,51 @@ use crate::{
 /// Error that occurs when the current round fails
 #[derive(Debug, Eq, PartialEq)]
 pub enum RoundFailed {
-    /// Round failed because ambiguous masks were computed by the sum participants.
+    /// Round failed because ambiguous masks were computed by
+    /// a majority of sum participants
     AmbiguousMasks,
-    /// Round failed because no mask was submitted by any sum participant.
+    /// Round failed because no mask hash was selected by any sum
+    /// participant
     NoMask,
-    /// Round failed because no model could be unmasked.
-    NoModel,
 }
 
-/// A dictionary created during the sum2 phase of the protocol. It counts the model masks.
-pub type MaskDict = HashMap<Mask, usize>;
+#[derive(Clone, Debug, PartialEq, Eq)]
+/// A seed for a round.
+pub struct RoundSeed(box_::Seed);
 
-#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+impl ByteObject for RoundSeed {
+    /// Create a round seed from a slice of bytes. Fails if the length of the input is invalid.
+    fn from_slice(bytes: &[u8]) -> Option<Self> {
+        box_::Seed::from_slice(bytes).map(Self)
+    }
+
+    /// Create a round seed initialized to zero.
+    fn zeroed() -> Self {
+        Self(box_::Seed([0_u8; Self::LENGTH]))
+    }
+
+    /// Get the round seed as a slice.
+    fn as_slice(&self) -> &[u8] {
+        self.0.as_ref()
+    }
+}
+
+impl RoundSeed {
+    /// Get the number of bytes of a round seed.
+    pub const LENGTH: usize = box_::SEEDBYTES;
+
+    /// Generate a random round seed.
+    pub fn generate() -> Self {
+        // safe unwrap: length of slice is guaranteed by constants
+        Self::from_slice_unchecked(randombytes(Self::LENGTH).as_slice())
+    }
+}
+
+/// A dictionary created during the sum2 phase of the protocol. It counts the model masks
+/// represented by their hashes.
+pub type MaskDict = HashMap<MaskObject, usize>;
+
+#[derive(Debug, PartialEq, Copy, Clone)]
 /// Round phases of a coordinator.
 pub enum Phase {
     Idle,
@@ -51,8 +83,41 @@ pub enum Phase {
     Sum2,
 }
 
+/// A coordinator in the PET protocol layer.
+pub struct Coordinator {
+    // credentials
+    pk: CoordinatorPublicKey, // 32 bytes
+    sk: CoordinatorSecretKey, // 32 bytes
+
+    // round parameters
+    sum: f64,
+    update: f64,
+    seed: RoundSeed,
+    min_sum: usize,
+    min_update: usize,
+    phase: Phase,
+
+    // round dictionaries
+    /// Dictionary built during the sum phase.
+    sum_dict: SumDict,
+    /// Dictionary built during the update phase.
+    seed_dict: SeedDict,
+    /// Dictionary built during the sum2 phase.
+    mask_dict: MaskDict,
+
+    /// The masking configuration
+    mask_config: MaskConfig,
+
+    /// The aggregated masked model being built in the current round.
+    aggregation: Aggregation,
+
+    /// Events emitted by the state machine
+    events: VecDeque<ProtocolEvent>,
+}
+
 /// Events the protocol emits.
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
+#[cfg_attr(test, derive(PartialEq, Clone))]
 pub enum ProtocolEvent {
     /// The round starts with the given parameters. The coordinator is
     /// now in the sum phase.
@@ -66,74 +131,12 @@ pub enum ProtocolEvent {
     /// dictionary. The coordinator is now in the sum2 phase.
     StartSum2(SeedDict),
 
-    /// The sum2 phase finished and produced a global model. The
+    /// The sum2 phase finished and produced the given mask seed. The
     /// coordinator is now back to the idle phase.
-    EndRound(Option<()>),
+    EndRound(Option<MaskObject>),
 }
 
-#[derive(AsRef, AsMut, Clone, Debug, PartialEq, Eq)]
-/// A seed for a round.
-pub struct RoundSeed(box_::Seed);
-
-impl ByteObject for RoundSeed {
-    /// Create a round seed from a slice of bytes. Fails if the length of the input is invalid.
-    fn from_slice(bytes: &[u8]) -> Option<Self> {
-        box_::Seed::from_slice(bytes).map(Self)
-    }
-
-    /// Create a round seed initialized to zero.
-    fn zeroed() -> Self {
-        Self(box_::Seed([0_u8; Self::BYTES]))
-    }
-
-    /// Get the round seed as a slice.
-    fn as_slice(&self) -> &[u8] {
-        self.0.as_ref()
-    }
-}
-
-impl RoundSeed {
-    /// Get the number of bytes of a round seed.
-    pub const BYTES: usize = box_::SEEDBYTES;
-
-    /// Generate a random round seed.
-    pub fn generate() -> Self {
-        // safe unwrap: length of slice is guaranteed by constants
-        Self::from_slice_unchecked(randombytes(Self::BYTES).as_slice())
-    }
-}
-
-/// A coordinator in the PET protocol layer.
-pub struct Coordinator<N> {
-    // credentials
-    pk: CoordinatorPublicKey, // 32 bytes
-    sk: CoordinatorSecretKey, // 32 bytes
-
-    // round parameters
-    sum: f64,
-    update: f64,
-    seed: RoundSeed, // 32 bytes
-    min_sum: usize,
-    min_update: usize,
-    phase: Phase,
-
-    // round dictionaries
-    /// Dictionary built during the sum phase.
-    sum_dict: SumDict,
-    /// Dictionary built during the update phase.
-    seed_dict: SeedDict,
-    /// Dictionary built during the sum2 phase.
-    mask_dict: MaskDict,
-
-    // global models
-    model: Option<Model<N>>,
-    masked_model: Option<MaskedModel>,
-
-    /// Events emitted by the state machine.
-    events: VecDeque<ProtocolEvent>,
-}
-
-impl<N> Default for Coordinator<N> {
+impl Default for Coordinator {
     fn default() -> Self {
         let pk = CoordinatorPublicKey::zeroed();
         let sk = CoordinatorSecretKey::zeroed();
@@ -146,9 +149,14 @@ impl<N> Default for Coordinator<N> {
         let sum_dict = SumDict::new();
         let seed_dict = SeedDict::new();
         let mask_dict = MaskDict::new();
-        let model = None;
-        let masked_model = None;
         let events = VecDeque::new();
+        let mask_config = MaskConfig {
+            group_type: GroupType::Prime,
+            data_type: DataType::F32,
+            bound_type: BoundType::B0,
+            model_type: ModelType::M3,
+        };
+        let aggregation = Aggregation::new(mask_config);
         Self {
             pk,
             sk,
@@ -161,41 +169,32 @@ impl<N> Default for Coordinator<N> {
             sum_dict,
             seed_dict,
             mask_dict,
-            model,
-            masked_model,
             events,
+            mask_config,
+            aggregation,
         }
     }
 }
 
-pub trait Coordinators: Sized {
-    define_trait_fields!(
-        pk, CoordinatorPublicKey;
-        sk, CoordinatorSecretKey;
-        sum, f64;
-        update, f64;
-        min_sum, usize;
-        min_update, usize;
-        seed, RoundSeed;
-        phase, Phase;
-        sum_dict, SumDict;
-        seed_dict, SeedDict;
-        mask_dict, MaskDict;
-        masked_model, Option<MaskedModel>;
-        events, VecDeque<ProtocolEvent>;
-    );
-
+impl Coordinator {
     /// Create a coordinator. Fails if there is insufficient system entropy to generate secrets.
-    fn new() -> Result<Self, InitError>;
-
-    /// Emit an event.
-    fn emit_event(&mut self, event: ProtocolEvent) {
-        self.events_mut().push_back(event);
+    pub fn new() -> Result<Self, InitError> {
+        // crucial: init must be called before anything else in this module
+        sodiumoxide::init().or(Err(InitError))?;
+        Ok(Self {
+            seed: RoundSeed::generate(),
+            ..Default::default()
+        })
     }
 
-    /// Retrieve the next event.
-    fn next_event(&mut self) -> Option<ProtocolEvent> {
-        self.events_mut().pop_front()
+    /// Emit an event
+    pub fn emit_event(&mut self, event: ProtocolEvent) {
+        self.events.push_back(event);
+    }
+
+    /// Retrieve the next event
+    pub fn next_event(&mut self) -> Option<ProtocolEvent> {
+        self.events.pop_front()
     }
 
     fn message_open(&self) -> MessageOpen<'_, '_> {
@@ -206,40 +205,70 @@ pub trait Coordinators: Sized {
     }
 
     /// Validate and handle a sum, update or sum2 message.
-    fn handle_message(&mut self, bytes: &[u8]) -> Result<(), PetError> {
-        match self.phase() {
-            Phase::Idle => Err(PetError::InvalidMessage),
-            Phase::Sum => self.handle_sum_message(bytes),
-            Phase::Update => self.handle_update_message(bytes),
-            Phase::Sum2 => self.handle_sum2_message(bytes),
+    pub fn handle_message(&mut self, bytes: &[u8]) -> Result<(), PetError> {
+        let message = self
+            .message_open()
+            .open(&bytes)
+            .map_err(|_| PetError::InvalidMessage)?;
+        let participant_pk = message.header.participant_pk;
+        match (self.phase, message.payload) {
+            (Phase::Sum, PayloadOwned::Sum(msg)) => self.handle_sum_message(participant_pk, msg),
+            (Phase::Update, PayloadOwned::Update(msg)) => {
+                self.handle_update_message(participant_pk, msg)
+            }
+            (Phase::Sum2, PayloadOwned::Sum2(msg)) => self.handle_sum2_message(participant_pk, msg),
+            _ => Err(PetError::InvalidMessage),
         }
     }
 
     /// Validate and handle a sum message.
-    fn handle_sum_message(&mut self, bytes: &[u8]) -> Result<(), PetError> {
-        let msg = SumMessage::open(bytes, self.pk(), self.sk())?;
-        msg.certificate().validate()?;
-        self.validate_sum_task(msg.sum_signature(), msg.pk())?;
-        self.add_sum_participant(msg.pk(), msg.ephm_pk())?;
+    fn handle_sum_message(
+        &mut self,
+        pk: ParticipantPublicKey,
+        message: SumOwned,
+    ) -> Result<(), PetError> {
+        self.validate_sum_task(&pk, &message.sum_signature)?;
+        self.sum_dict.insert(pk, message.ephm_pk);
         Ok(())
     }
 
     /// Validate and handle an update message.
-    fn handle_update_message(&mut self, bytes: &[u8]) -> Result<(), PetError> {
-        let msg = UpdateMessage::open(bytes, self.pk(), self.sk())?;
-        msg.certificate().validate()?;
-        self.validate_update_task(msg.sum_signature(), msg.update_signature(), msg.pk())?;
-        self.aggregate_masked_model(msg.masked_model())?;
-        self.add_local_seed_dict(msg.pk(), msg.local_seed_dict())?;
+    fn handle_update_message(
+        &mut self,
+        pk: ParticipantPublicKey,
+        message: UpdateOwned,
+    ) -> Result<(), PetError> {
+        let UpdateOwned {
+            sum_signature,
+            update_signature,
+            local_seed_dict,
+            masked_model,
+        } = message;
+        self.validate_update_task(&pk, &sum_signature, &update_signature)?;
+
+        // Try to update local seed dict first. If this fail, we do
+        // not want to aggregate the model.
+        self.add_local_seed_dict(&pk, &local_seed_dict)?;
+
+        // Check if aggregation can be performed, and do it.
+        self.aggregation
+            .validate_aggregation(&masked_model)
+            .map_err(|_| PetError::InvalidMessage)?;
+        self.aggregation.aggregate(masked_model);
         Ok(())
     }
 
     /// Validate and handle a sum2 message.
-    fn handle_sum2_message(&mut self, bytes: &[u8]) -> Result<(), PetError> {
-        let msg = Sum2Message::open(bytes, self.pk(), self.sk())?;
-        msg.certificate().validate()?;
-        self.validate_sum_task(msg.sum_signature(), msg.pk())?;
-        self.add_mask(msg.pk(), msg.mask())?;
+    fn handle_sum2_message(
+        &mut self,
+        pk: ParticipantPublicKey,
+        message: Sum2Owned,
+    ) -> Result<(), PetError> {
+        if !self.sum_dict.contains_key(&pk) {
+            return Err(PetError::InvalidMessage);
+        }
+        self.validate_sum_task(&pk, &message.sum_signature)?;
+        self.add_mask(&pk, message.mask).unwrap();
         Ok(())
     }
 
@@ -249,8 +278,8 @@ pub trait Coordinators: Sized {
         pk: &SumParticipantPublicKey,
         sum_signature: &ParticipantTaskSignature,
     ) -> Result<(), PetError> {
-        if pk.verify_detached(sum_signature, &[self.seed().as_slice(), b"sum"].concat())
-            && sum_signature.is_eligible(*self.sum())
+        if pk.verify_detached(sum_signature, &[self.seed.as_slice(), b"sum"].concat())
+            && sum_signature.is_eligible(self.sum)
         {
             Ok(())
         } else {
@@ -265,28 +294,14 @@ pub trait Coordinators: Sized {
         sum_signature: &ParticipantTaskSignature,
         update_signature: &ParticipantTaskSignature,
     ) -> Result<(), PetError> {
-        if pk.verify_detached(sum_signature, &[self.seed().as_slice(), b"sum"].concat())
+        if pk.verify_detached(sum_signature, &[self.seed.as_slice(), b"sum"].concat())
             && pk.verify_detached(
                 update_signature,
-                &[self.seed().as_slice(), b"update"].concat(),
+                &[self.seed.as_slice(), b"update"].concat(),
             )
-            && !sum_signature.is_eligible(*self.sum())
-            && update_signature.is_eligible(*self.update())
+            && !sum_signature.is_eligible(self.sum)
+            && update_signature.is_eligible(self.update)
         {
-            Ok(())
-        } else {
-            Err(PetError::InvalidMessage)
-        }
-    }
-
-    /// Add a sum participant to the sum dictionary. Fails if it is a repetition.
-    fn add_sum_participant(
-        &mut self,
-        pk: &SumParticipantPublicKey,
-        ephm_pk: &SumParticipantEphemeralPublicKey,
-    ) -> Result<(), PetError> {
-        if !self.sum_dict().contains_key(pk) {
-            self.sum_dict_mut().insert(*pk, *ephm_pk);
             Ok(())
         } else {
             Err(PetError::InvalidMessage)
@@ -295,47 +310,32 @@ pub trait Coordinators: Sized {
 
     /// Freeze the sum dictionary.
     fn freeze_sum_dict(&mut self) {
-        *self.seed_dict_mut() = self
-            .sum_dict()
+        self.seed_dict = self
+            .sum_dict
             .keys()
             .map(|pk| (*pk, LocalSeedDict::new()))
             .collect();
     }
 
-    /// Aggregate a local masked model to the global masked model. Fails if the model types don't
-    /// conform.
-    fn aggregate_masked_model(&mut self, local_masked_model: &MaskedModel) -> Result<(), PetError> {
-        *self.masked_model_mut() = if let Some(global_masked_model) = self.masked_model() {
-            Some(
-                global_masked_model
-                    .aggregate(local_masked_model)
-                    .or(Err(PetError::InvalidMessage))?,
-            )
-        } else {
-            Some(local_masked_model.clone())
-        };
-        Ok(())
-    }
-
-    /// Add a local seed dictionary to the seed dictionary. Fails if it contains invalid keys or it
-    /// is a repetition.
+    /// Add a local seed dictionary to the seed dictionary. Fails if
+    /// it contains invalid keys or it is a repetition.
     fn add_local_seed_dict(
         &mut self,
         pk: &UpdateParticipantPublicKey,
         local_seed_dict: &LocalSeedDict,
     ) -> Result<(), PetError> {
-        if local_seed_dict.keys().len() == self.sum_dict().keys().len()
+        if local_seed_dict.keys().len() == self.sum_dict.keys().len()
             && local_seed_dict
                 .keys()
-                .all(|pk| self.sum_dict().contains_key(pk))
+                .all(|pk| self.sum_dict.contains_key(pk))
             && self
-                .seed_dict()
+                .seed_dict
                 .values()
                 .next()
                 .map_or(true, |dict| !dict.contains_key(pk))
         {
             for (sum_pk, seed) in local_seed_dict {
-                self.seed_dict_mut()
+                self.seed_dict
                     .get_mut(sum_pk)
                     .ok_or(PetError::InvalidMessage)?
                     .insert(*pk, seed.clone());
@@ -348,50 +348,57 @@ pub trait Coordinators: Sized {
 
     /// Add a mask to the mask dictionary. Fails if the sum participant didn't register in the sum
     /// phase or it is a repetition.
-    fn add_mask(&mut self, pk: &SumParticipantPublicKey, mask: &Mask) -> Result<(), PetError> {
-        if self.sum_dict_mut().remove(pk).is_none() {
-            Err(PetError::InvalidMessage)
-        } else if let Some(count) = self.mask_dict_mut().get_mut(mask) {
-            *count += 1;
-            Ok(())
-        } else {
-            self.mask_dict_mut().insert(mask.clone(), 1);
-            Ok(())
+    fn add_mask(&mut self, pk: &SumParticipantPublicKey, mask: MaskObject) -> Result<(), PetError> {
+        // We move the participant key here to make sure a participant
+        // cannot submit a mask multiple times
+        if self.sum_dict.remove(pk).is_none() {
+            return Err(PetError::InvalidMessage);
         }
+
+        if let Some(count) = self.mask_dict.get_mut(&mask) {
+            *count += 1;
+        } else {
+            self.mask_dict.insert(mask, 1);
+        }
+
+        Ok(())
     }
 
     /// Freeze the mask dictionary.
-    fn freeze_mask_dict(&self) -> Result<&Mask, RoundFailed> {
-        if self.mask_dict().is_empty() {
-            Err(RoundFailed::NoMask)
-        } else {
-            let (mask, _) = self.mask_dict().iter().fold(
+    fn freeze_mask_dict(&mut self) -> Result<MaskObject, RoundFailed> {
+        if self.mask_dict.is_empty() {
+            return Err(RoundFailed::NoMask);
+        }
+
+        self.mask_dict
+            .drain()
+            .fold(
                 (None, 0_usize),
-                |(unique_mask, unique_count), (mask, count)| match unique_count.cmp(count) {
-                    Ordering::Less => (Some(mask), *count),
+                |(unique_mask, unique_count), (mask, count)| match unique_count.cmp(&count) {
+                    Ordering::Less => (Some(mask), count),
                     Ordering::Greater => (unique_mask, unique_count),
                     Ordering::Equal => (None, unique_count),
                 },
-            );
-            mask.ok_or(RoundFailed::AmbiguousMasks)
-        }
+            )
+            .0
+            .ok_or(RoundFailed::AmbiguousMasks)
     }
 
     /// Clear the round dictionaries.
     fn clear_round_dicts(&mut self) {
-        self.sum_dict_mut().clear();
-        self.sum_dict_mut().shrink_to_fit();
-        self.seed_dict_mut().clear();
-        self.seed_dict_mut().shrink_to_fit();
-        self.mask_dict_mut().clear();
-        self.mask_dict_mut().shrink_to_fit();
+        self.sum_dict.clear();
+        self.sum_dict.shrink_to_fit();
+        self.seed_dict.clear();
+        self.seed_dict.shrink_to_fit();
+        self.mask_dict.clear();
+        self.mask_dict.shrink_to_fit();
     }
 
     /// Generate fresh round credentials.
     fn gen_round_keypair(&mut self) {
         let (pk, sk) = generate_encrypt_key_pair();
-        *self.pk_mut() = pk;
-        *self.sk_mut() = sk;
+        self.pk = pk;
+        self.sk = sk;
     }
 
     /// Update the round threshold parameters (dummy).
@@ -401,92 +408,22 @@ pub trait Coordinators: Sized {
     fn update_round_seed(&mut self) {
         // safe unwrap: `sk` and `seed` have same number of bytes
         let (_, sk) =
-            SigningKeySeed::from_slice_unchecked(self.sk().as_slice()).derive_signing_key_pair();
+            SigningKeySeed::from_slice_unchecked(self.sk.as_slice()).derive_signing_key_pair();
         let signature = sk.sign_detached(
             &[
-                self.seed().as_slice(),
-                &self.sum().to_le_bytes(),
-                &self.update().to_le_bytes(),
+                self.seed.as_slice(),
+                &self.sum.to_le_bytes(),
+                &self.update.to_le_bytes(),
             ]
             .concat(),
         );
-        // safe unwrap: length of slice is guaranteed by constants
-        *self.seed_mut() =
-            RoundSeed::from_slice_unchecked(sha256::hash(signature.as_slice()).as_ref());
+        // Safe unwrap: the length of the hash is 32 bytes
+        self.seed = RoundSeed::from_slice_unchecked(sha256::hash(signature.as_slice()).as_ref());
     }
-
-    /// Check whether enough sum participants submitted their ephemeral keys to start the update
-    /// phase.
-    fn has_enough_sums(&self) -> bool {
-        self.sum_dict().len() >= *self.min_sum()
-    }
-
-    /// Check whether enough update participants submitted their models and seeds to start the sum2
-    /// phase.
-    fn has_enough_seeds(&self) -> bool {
-        self.seed_dict()
-            .values()
-            .next()
-            .map(|dict| dict.len() >= *self.min_update())
-            .unwrap_or(false)
-    }
-
-    /// Check whether enough sum participants submitted their masks to start the idle phase.
-    fn has_enough_masks(&self) -> bool {
-        let mask_count = self.mask_dict().values().sum::<usize>();
-        mask_count >= *self.min_sum()
-    }
-
-    /// End the idle phase and proceed to the sum phase to start the round.
-    fn proceed_sum_phase(&mut self) {
-        info!("going to sum phase");
-        self.gen_round_keypair();
-        *self.phase_mut() = Phase::Sum;
-        self.emit_event(ProtocolEvent::StartSum(self.round_parameters()));
-    }
-
-    /// End the sum phase and proceed to the update phase.
-    fn proceed_update_phase(&mut self) {
-        info!("going to update phase");
-        self.freeze_sum_dict();
-        *self.phase_mut() = Phase::Update;
-        self.emit_event(ProtocolEvent::StartUpdate(self.sum_dict().clone()));
-    }
-
-    /// End the update phase and proceed to the sum2 phase.
-    fn proceed_sum2_phase(&mut self) {
-        info!("going to sum2 phase");
-        *self.phase_mut() = Phase::Sum2;
-        self.emit_event(ProtocolEvent::StartSum2(self.seed_dict().clone()));
-    }
-
-    /// Prepare the coordinator for a new round and go back to the initial phase.
-    fn start_new_round(&mut self) {
-        self.clear_round_dicts();
-        self.update_round_thresholds();
-        self.update_round_seed();
-        *self.phase_mut() = Phase::Idle;
-    }
-
-    fn round_parameters(&self) -> RoundParameters {
-        RoundParameters {
-            pk: *self.pk(),
-            sum: *self.sum(),
-            update: *self.update(),
-            seed: self.seed().clone(),
-        }
-    }
-}
-
-pub trait MaskCoordinators<N>: Coordinators {
-    define_trait_fields!(model, Option<Model<N>>);
-
-    /// Unmask the masked model with a mask.
-    fn unmask_model(&self, mask: &Mask) -> Result<Model<N>, RoundFailed>;
 
     /// Transition to the next phase if the protocol conditions are satisfied.
-    fn try_phase_transition(&mut self) {
-        match self.phase() {
+    pub fn try_phase_transition(&mut self) {
+        match self.phase {
             Phase::Idle => {
                 self.proceed_sum_phase();
                 self.try_phase_transition();
@@ -512,117 +449,83 @@ pub trait MaskCoordinators<N>: Coordinators {
         }
     }
 
+    /// Check whether enough sum participants submitted their ephemeral keys to start the update
+    /// phase.
+    fn has_enough_sums(&self) -> bool {
+        self.sum_dict.len() >= self.min_sum
+    }
+
+    /// Check whether enough update participants submitted their models and seeds to start the sum2
+    /// phase.
+    fn has_enough_seeds(&self) -> bool {
+        self.seed_dict
+            .values()
+            .next()
+            .map(|dict| dict.len() >= self.min_update)
+            .unwrap_or(false)
+    }
+
+    /// Check whether enough sum participants submitted their masks to start the idle phase.
+    fn has_enough_masks(&self) -> bool {
+        let mask_count = self.mask_dict.values().sum::<usize>();
+        mask_count >= self.min_sum
+    }
+
+    /// End the idle phase and proceed to the sum phase to start the round.
+    fn proceed_sum_phase(&mut self) {
+        info!("going to sum phase");
+        self.gen_round_keypair();
+        self.phase = Phase::Sum;
+        self.emit_event(ProtocolEvent::StartSum(self.round_parameters()));
+    }
+
+    /// End the sum phase and proceed to the update phase.
+    fn proceed_update_phase(&mut self) {
+        info!("going to update phase");
+        self.freeze_sum_dict();
+        self.phase = Phase::Update;
+        self.emit_event(ProtocolEvent::StartUpdate(self.sum_dict.clone()));
+    }
+
+    /// End the update phase and proceed to the sum2 phase.
+    fn proceed_sum2_phase(&mut self) {
+        info!("going to sum2 phase");
+        self.phase = Phase::Sum2;
+        self.emit_event(ProtocolEvent::StartSum2(self.seed_dict.clone()));
+    }
+
     /// End the sum2 phase and proceed to the idle phase to end the round.
     fn proceed_idle_phase(&mut self) {
         info!("going to idle phase");
-        let outcome = if let Ok(mask) = self.freeze_mask_dict() {
-            if let Ok(model) = self.unmask_model(mask) {
-                *self.model_mut() = Some(model);
-                Some(())
-            } else {
-                None
-            }
-        } else {
-            None
-        };
+        let outcome = self.freeze_mask_dict().ok();
         self.emit_event(ProtocolEvent::EndRound(outcome));
         self.start_new_round();
     }
 
-    /// Cancel the current round and restart a new one.
-    fn reset(&mut self) {
-        self.events_mut().clear();
+    /// Cancel the current round and restart a new one
+    pub fn reset(&mut self) {
+        self.events.clear();
         self.emit_event(ProtocolEvent::EndRound(None));
         self.start_new_round();
         self.try_phase_transition();
     }
-}
 
-impl<N> Coordinators for Coordinator<N> {
-    derive_trait_fields!(
-        pk, CoordinatorPublicKey;
-        sk, CoordinatorSecretKey;
-        sum, f64;
-        update, f64;
-        min_sum, usize;
-        min_update, usize;
-        seed, RoundSeed;
-        phase, Phase;
-        sum_dict, SumDict;
-        seed_dict, SeedDict;
-        mask_dict, MaskDict;
-        masked_model, Option<MaskedModel>;
-        events, VecDeque<ProtocolEvent>;
-    );
-
-    /// Create a coordinator. Fails if there is insufficient system entropy to generate secrets.
-    fn new() -> Result<Self, InitError> {
-        // crucial: init must be called before anything else in this module
-        sodiumoxide::init().or(Err(InitError))?;
-        let seed = RoundSeed::generate();
-        Ok(Self {
-            seed,
-            ..Default::default()
-        })
+    /// Prepare the coordinator for a new round and go back to the
+    /// initial phase
+    fn start_new_round(&mut self) {
+        self.clear_round_dicts();
+        self.update_round_thresholds();
+        self.update_round_seed();
+        self.phase = Phase::Idle;
+        self.aggregation = Aggregation::new(self.mask_config);
     }
-}
 
-impl MaskCoordinators<f32> for Coordinator<f32> {
-    derive_trait_fields!(model, Option<Model<f32>>);
-
-    fn unmask_model(&self, mask: &Mask) -> Result<Model<f32>, RoundFailed> {
-        let no_models = self.seed_dict.values().next().map_or(0, |dict| dict.len());
-        if let Some(masked_model) = self.masked_model() {
-            masked_model
-                .unmask(mask, no_models)
-                .or(Err(RoundFailed::NoModel))
-        } else {
-            Err(RoundFailed::NoModel)
-        }
-    }
-}
-
-impl MaskCoordinators<f64> for Coordinator<f64> {
-    derive_trait_fields!(model, Option<Model<f64>>);
-
-    fn unmask_model(&self, mask: &Mask) -> Result<Model<f64>, RoundFailed> {
-        let no_models = self.seed_dict.values().next().map_or(0, |dict| dict.len());
-        if let Some(masked_model) = self.masked_model() {
-            masked_model
-                .unmask(mask, no_models)
-                .or(Err(RoundFailed::NoModel))
-        } else {
-            Err(RoundFailed::NoModel)
-        }
-    }
-}
-
-impl MaskCoordinators<i32> for Coordinator<i32> {
-    derive_trait_fields!(model, Option<Model<i32>>);
-
-    fn unmask_model(&self, mask: &Mask) -> Result<Model<i32>, RoundFailed> {
-        let no_models = self.seed_dict.values().next().map_or(0, |dict| dict.len());
-        if let Some(masked_model) = self.masked_model() {
-            masked_model
-                .unmask(mask, no_models)
-                .or(Err(RoundFailed::NoModel))
-        } else {
-            Err(RoundFailed::NoModel)
-        }
-    }
-}
-
-impl MaskCoordinators<i64> for Coordinator<i64> {
-    derive_trait_fields!(model, Option<Model<i64>>);
-
-    fn unmask_model(&self, mask: &Mask) -> Result<Model<i64>, RoundFailed> {
-        let no_models = self.seed_dict.values().next().map_or(0, |dict| dict.len());
-        if let Some(masked_model) = self.masked_model() {
-            masked_model
-                .unmask(mask, no_models)
-                .or(Err(RoundFailed::NoModel))
-        } else {
-            Err(RoundFailed::NoModel)
+    pub fn round_parameters(&self) -> RoundParameters {
+        RoundParameters {
+            pk: self.pk,
+            sum: self.sum,
+            update: self.update,
+            seed: self.seed.clone(),
         }
     }
 }
@@ -646,38 +549,32 @@ pub struct RoundParameters {
 mod tests {
     use std::iter;
 
-    use num::{bigint::BigUint, traits::identities::Zero};
+    use num::{bigint::BigUint, traits::Zero};
 
     use super::*;
     use crate::{
         crypto::*,
-        mask::{
-            config::{BoundType, DataType, GroupType, MaskConfigs, ModelType},
-            seed::MaskSeed,
-        },
+        mask::{Aggregation, MaskObject, MaskSeed},
     };
 
     #[test]
     fn test_coordinator() {
-        let coord = Coordinator::<f32>::new().unwrap();
+        let coord = Coordinator::new().unwrap();
         assert_eq!(coord.pk, PublicEncryptKey::zeroed());
         assert_eq!(coord.sk, SecretEncryptKey::zeroed());
         assert!(coord.sum >= 0. && coord.sum <= 1.);
         assert!(coord.update >= 0. && coord.update <= 1.);
-        assert_eq!(coord.seed.as_slice().len(), 32);
         assert!(coord.min_sum >= 1);
         assert!(coord.min_update >= 3);
         assert_eq!(coord.phase, Phase::Idle);
         assert_eq!(coord.sum_dict, SumDict::new());
         assert_eq!(coord.seed_dict, SeedDict::new());
         assert_eq!(coord.mask_dict, MaskDict::new());
-        assert_eq!(coord.model, None);
-        assert_eq!(coord.masked_model, None);
     }
 
     #[test]
     fn test_validate_sum_task() {
-        let mut coord = Coordinator::<f32>::new().unwrap();
+        let mut coord = Coordinator::new().unwrap();
         coord.sum = 0.5_f64;
         coord.update = 0.5_f64;
         coord.seed = RoundSeed::from_slice_unchecked(&[
@@ -696,7 +593,7 @@ mod tests {
             76, 128, 23, 65, 195, 57, 190, 223, 67, 224, 102, 139, 140, 90, 67, 160, 106, 181, 7,
             196, 245, 56, 193, 51, 15, 212, 9, 153, 61, 152, 173, 165,
         ]);
-        assert_eq!(coord.validate_sum_task(&sum_signature, &pk).unwrap(), ());
+        assert_eq!(coord.validate_sum_task(&pk, &sum_signature).unwrap(), ());
 
         // ineligible sum signature
         let sum_signature = Signature::from_slice_unchecked(&[
@@ -717,15 +614,13 @@ mod tests {
 
     #[test]
     fn test_validate_update_task() {
-        let mut coord = Coordinator::<f32>::new().unwrap();
+        let mut coord = Coordinator::new().unwrap();
         coord.sum = 0.5_f64;
         coord.update = 0.5_f64;
         coord.seed = RoundSeed::from_slice_unchecked(&[
             229, 16, 164, 40, 138, 161, 23, 161, 175, 102, 13, 103, 229, 229, 163, 56, 184, 250,
             190, 44, 91, 69, 246, 222, 64, 101, 139, 22, 126, 6, 103, 238,
         ]);
-
-        // ineligible sum signature and eligible update signature
         let sum_signature = Signature::from_slice_unchecked(&[
             206, 154, 228, 165, 240, 196, 64, 106, 135, 124, 140, 83, 15, 188, 229, 78, 38, 34,
             254, 241, 7, 23, 44, 147, 6, 195, 158, 227, 250, 159, 60, 214, 42, 103, 145, 69, 121,
@@ -748,8 +643,6 @@ mod tests {
                 .unwrap(),
             (),
         );
-
-        // ineligible sum signature and ineligible update signature
         let sum_signature = Signature::from_slice_unchecked(&[
             73, 255, 75, 96, 89, 197, 182, 203, 156, 41, 231, 88, 103, 16, 204, 35, 52, 165, 178,
             159, 33, 199, 112, 59, 203, 58, 243, 229, 190, 226, 168, 96, 146, 49, 79, 147, 224,
@@ -822,20 +715,9 @@ mod tests {
         );
     }
 
-    fn auxiliary_sum(min_sum: usize) -> SumDict {
-        iter::repeat_with(|| {
-            (
-                PublicSigningKey::from_slice_unchecked(&randombytes(32)),
-                PublicEncryptKey::from_slice_unchecked(&randombytes(32)),
-            )
-        })
-        .take(min_sum)
-        .collect()
-    }
-
     #[test]
     fn test_sum_dict() {
-        let mut coord = Coordinator::<f32>::new().unwrap();
+        let mut coord = Coordinator::new().unwrap();
         coord.min_sum = 3;
         coord.min_update = 3;
         coord.try_phase_transition(); // start the sum phase
@@ -853,10 +735,10 @@ mod tests {
         assert!(coord.sum_dict.is_empty());
 
         // Artifically add just enough sum participants
-        let sum_dict = auxiliary_sum(coord.min_sum);
+        let sum_dict = helpers::sum_dict(coord.min_sum);
         for (pk, ephm_pk) in sum_dict.iter() {
             assert!(!coord.has_enough_sums());
-            coord.add_sum_participant(pk, ephm_pk).unwrap();
+            coord.sum_dict.insert(*pk, *ephm_pk);
         }
         assert_eq!(coord.sum_dict, sum_dict);
         assert!(coord.seed_dict.is_empty());
@@ -878,45 +760,9 @@ mod tests {
         );
     }
 
-    fn generate_update(sum_dict: &SumDict) -> (UpdateParticipantPublicKey, LocalSeedDict) {
-        let seed = MaskSeed::generate();
-        let pk = PublicSigningKey::from_slice_unchecked(&randombytes(32));
-        let local_seed_dict = sum_dict
-            .iter()
-            .map(|(sum_pk, sum_ephm_pk)| (*sum_pk, seed.encrypt(sum_ephm_pk)))
-            .collect::<LocalSeedDict>();
-        (pk, local_seed_dict)
-    }
-
-    fn auxiliary_update(
-        min_sum: usize,
-        min_update: usize,
-    ) -> (
-        SumDict,
-        Vec<(UpdateParticipantPublicKey, LocalSeedDict)>,
-        SeedDict,
-    ) {
-        let sum_dict = auxiliary_sum(min_sum);
-        let updates = iter::repeat_with(|| generate_update(&sum_dict))
-            .take(min_update)
-            .collect::<Vec<(UpdateParticipantPublicKey, LocalSeedDict)>>();
-        let mut seed_dict = SeedDict::new();
-        for sum_pk in sum_dict.keys() {
-            // Dictionary of all the encrypted seeds for that participant
-            let sum_participant_seeds = updates
-                .iter()
-                .map(|(upd_pk, local_seed_dict)| {
-                    (*upd_pk, local_seed_dict.get(sum_pk).unwrap().clone())
-                })
-                .collect();
-            seed_dict.insert(*sum_pk, sum_participant_seeds);
-        }
-        (sum_dict, updates, seed_dict)
-    }
-
     #[test]
     fn test_seed_dict() {
-        let mut coord = Coordinator::<f32>::new().unwrap();
+        let mut coord = Coordinator::new().unwrap();
         coord.min_sum = 3;
         coord.min_update = 3;
         coord.try_phase_transition(); // start the sum phase
@@ -924,7 +770,7 @@ mod tests {
         assert!(coord.next_event().is_none());
 
         // artificially populate the sum dictionary
-        let (sum_dict, updates, seed_dict) = auxiliary_update(coord.min_sum, coord.min_update);
+        let (sum_dict, updates, seed_dict) = helpers::update_dict(coord.min_sum, coord.min_update);
         coord.sum_dict = sum_dict;
 
         coord.try_phase_transition(); // start the update phase
@@ -950,65 +796,36 @@ mod tests {
         assert_eq!(coord.phase, Phase::Sum2);
     }
 
-    fn auxiliary_mask(min_sum: usize) -> (Vec<Mask>, MaskDict) {
-        let config = MaskConfigs::from_parts(
-            GroupType::Prime,
-            DataType::F32,
-            BoundType::B0,
-            ModelType::M3,
-        )
-        .config();
-        let masks = [
-            vec![MaskSeed::generate().derive_mask(10, &config); min_sum - 1],
-            vec![MaskSeed::generate().derive_mask(10, &config); 1],
-        ]
-        .concat();
-        let mask_dict = [
-            (masks[0].clone(), min_sum - 1),
-            (masks[min_sum - 1].clone(), 1),
-        ]
-        .iter()
-        .cloned()
-        .collect::<MaskDict>();
-        (masks, mask_dict)
-    }
-
     #[test]
     fn test_mask_dict() {
-        let mut coord = Coordinator::<f32>::new().unwrap();
+        let mut coord = Coordinator::new().unwrap();
         coord.min_sum = 3;
         coord.min_update = 3;
         coord.phase = Phase::Sum2;
 
-        // Pretend we received enough masks
-        let sum_dict = auxiliary_sum(coord.min_sum);
+        let sum_dict = helpers::sum_dict(coord.min_sum);
         coord.sum_dict = sum_dict.clone();
-        let (masks, mask_dict) = auxiliary_mask(coord.min_sum);
-        for (pk, mask) in sum_dict.keys().zip(masks.iter()) {
+
+        let (masks, mask_dict) = helpers::mask_dict(coord.min_sum);
+        let expected_mask = masks[0].clone();
+        for (pk, mask) in sum_dict.keys().zip(masks.into_iter()) {
             coord.add_mask(pk, mask).unwrap();
         }
+
         assert_eq!(coord.mask_dict, mask_dict);
         assert!(coord.has_enough_masks());
-        assert_eq!(coord.freeze_mask_dict().unwrap(), &masks[0]);
+        assert_eq!(coord.freeze_mask_dict().unwrap(), expected_mask);
     }
 
     #[test]
     fn test_mask_dict_fail() {
-        let mut coord = Coordinator::<f32>::new().unwrap();
-        coord.min_sum = 3;
-        coord.min_update = 3;
+        let mut coord = Coordinator::new().unwrap();
+        coord.min_sum = 2;
         coord.phase = Phase::Sum2;
-
-        let config = MaskConfigs::from_parts(
-            GroupType::Prime,
-            DataType::F32,
-            BoundType::B0,
-            ModelType::M3,
-        )
-        .config();
-        coord.mask_dict = iter::repeat_with(|| (MaskSeed::generate().derive_mask(10, &config), 1))
-            .take(coord.min_sum)
-            .collect::<MaskDict>();
+        // Create a mask dict with `min_sum` different masks with the
+        // same count
+        coord.mask_dict.insert(helpers::mask().1, 1);
+        coord.mask_dict.insert(helpers::mask().1, 1);
         assert_eq!(
             coord.freeze_mask_dict().unwrap_err(),
             RoundFailed::AmbiguousMasks,
@@ -1017,7 +834,7 @@ mod tests {
 
     #[test]
     fn test_clear_round_dicts() {
-        let mut coord = Coordinator::<f32>::new().unwrap();
+        let mut coord = Coordinator::new().unwrap();
         coord.clear_round_dicts();
         assert!(coord.sum_dict.is_empty());
         assert!(coord.seed_dict.is_empty());
@@ -1026,7 +843,7 @@ mod tests {
 
     #[test]
     fn test_gen_round_keypair() {
-        let mut coord = Coordinator::<f32>::new().unwrap();
+        let mut coord = Coordinator::new().unwrap();
         coord.gen_round_keypair();
         assert_eq!(coord.pk, coord.sk.public_key());
         assert_eq!(coord.sk.as_slice().len(), 32);
@@ -1034,7 +851,7 @@ mod tests {
 
     #[test]
     fn test_update_round_seed() {
-        let mut coord = Coordinator::<f32>::new().unwrap();
+        let mut coord = Coordinator::new().unwrap();
         coord.seed = RoundSeed::from_slice_unchecked(&[
             229, 16, 164, 40, 138, 161, 23, 161, 175, 102, 13, 103, 229, 229, 163, 56, 184, 250,
             190, 44, 91, 69, 246, 222, 64, 101, 139, 22, 126, 6, 103, 238,
@@ -1045,22 +862,20 @@ mod tests {
         ]);
         coord.update_round_seed();
         assert_eq!(
-            coord.seed,
-            RoundSeed::from_slice_unchecked(&[
+            coord.seed.as_slice(),
+            &[
                 90, 35, 97, 78, 70, 149, 40, 131, 149, 211, 30, 236, 194, 175, 156, 76, 85, 43,
-                138, 159, 180, 166, 25, 205, 156, 176, 3, 203, 27, 128, 231, 38,
-            ]),
+                138, 159, 180, 166, 25, 205, 156, 176, 3, 203, 27, 128, 231, 38
+            ],
         );
     }
 
     #[test]
     fn test_transitions() {
-        let mut coord = Coordinator::<f32>::new().unwrap();
+        let mut coord = Coordinator::new().unwrap();
         coord.min_sum = 3;
         coord.min_update = 3;
 
-        let (sum_dict, _, seed_dict) = auxiliary_update(coord.min_sum, coord.min_update);
-        let (_, mask_dict) = auxiliary_mask(coord.min_sum);
         assert_eq!(coord.phase, Phase::Idle);
         assert!(coord.next_event().is_none());
 
@@ -1085,8 +900,9 @@ mod tests {
         assert!(coord.next_event().is_none());
         assert_eq!(coord.phase, Phase::Sum);
 
-        // Pretend we have enough participants, and transition
+        // Pretend we have enough sum participants, and transition
         // again. This time, the state should change.
+        let (sum_dict, _, seed_dict) = helpers::update_dict(coord.min_sum, coord.min_update);
         coord.sum_dict = sum_dict.clone();
         coord.try_phase_transition();
         assert_eq!(
@@ -1120,21 +936,19 @@ mod tests {
 
         // Pretend we received enough masks and transition. This time
         // the state should change and we should restart a round
-        let integers = vec![BigUint::zero(); 10];
-        let config = MaskConfigs::from_parts(
-            GroupType::Prime,
-            DataType::F32,
-            BoundType::B0,
-            ModelType::M3,
-        )
-        .config();
-        coord.masked_model = Some(MaskedModel::from_parts(integers, config).unwrap());
+        let (masks, mask_dict) = helpers::mask_dict(coord.min_sum);
+        let chosen_mask = masks[0].clone();
         coord.mask_dict = mask_dict;
+        coord.aggregation = Aggregation::from(MaskObject {
+            data: vec![BigUint::zero(); 10],
+            config: coord.mask_config.clone(),
+        });
+
         let seed = coord.seed.clone();
         coord.try_phase_transition();
         assert_eq!(
             coord.next_event().unwrap(),
-            ProtocolEvent::EndRound(Some(()))
+            ProtocolEvent::EndRound(Some(chosen_mask))
         );
         assert_eq!(
             coord.next_event().unwrap(),
@@ -1151,5 +965,83 @@ mod tests {
         assert!(coord.seed_dict.is_empty());
         assert!(coord.mask_dict.is_empty());
         assert_ne!(coord.seed, seed);
+    }
+
+    mod helpers {
+        use super::*;
+
+        pub fn mask() -> (MaskSeed, MaskObject) {
+            let seed = MaskSeed::generate();
+            let mask = seed.derive_mask(10, config());
+            (seed, mask)
+        }
+
+        pub fn config() -> MaskConfig {
+            MaskConfig {
+                group_type: GroupType::Prime,
+                data_type: DataType::F32,
+                bound_type: BoundType::B0,
+                model_type: ModelType::M3,
+            }
+        }
+
+        pub fn sum_dict(min_sum: usize) -> SumDict {
+            iter::repeat_with(|| {
+                (
+                    PublicSigningKey::from_slice(&randombytes(32)).unwrap(),
+                    PublicEncryptKey::from_slice(&randombytes(32)).unwrap(),
+                )
+            })
+            .take(min_sum)
+            .collect()
+        }
+
+        pub fn mask_dict(min_sum: usize) -> (Vec<MaskObject>, MaskDict) {
+            let (_, m1) = mask();
+            let (_, m2) = mask();
+
+            let masks = [vec![m1.clone(); min_sum - 1], vec![m2.clone(); 1]].concat();
+            let mut mask_dict = MaskDict::new();
+            mask_dict.insert(m1, min_sum - 1);
+            mask_dict.insert(m2, 1);
+
+            (masks, mask_dict)
+        }
+
+        fn generate_update(sum_dict: &SumDict) -> (UpdateParticipantPublicKey, LocalSeedDict) {
+            let seed = MaskSeed::generate();
+            let pk = PublicSigningKey::from_slice(&randombytes(32)).unwrap();
+            let local_seed_dict = sum_dict
+                .iter()
+                .map(|(sum_pk, sum_ephm_pk)| (*sum_pk, seed.encrypt(sum_ephm_pk)))
+                .collect::<LocalSeedDict>();
+            (pk, local_seed_dict)
+        }
+
+        pub fn update_dict(
+            min_sum: usize,
+            min_update: usize,
+        ) -> (
+            SumDict,
+            Vec<(UpdateParticipantPublicKey, LocalSeedDict)>,
+            SeedDict,
+        ) {
+            let sum_dict = sum_dict(min_sum);
+            let updates = iter::repeat_with(|| generate_update(&sum_dict))
+                .take(min_update)
+                .collect::<Vec<(UpdateParticipantPublicKey, LocalSeedDict)>>();
+            let mut seed_dict = SeedDict::new();
+            for sum_pk in sum_dict.keys() {
+                // Dictionary of all the encrypted seeds for that participant
+                let sum_participant_seeds = updates
+                    .iter()
+                    .map(|(upd_pk, local_seed_dict)| {
+                        (*upd_pk, local_seed_dict.get(sum_pk).unwrap().clone())
+                    })
+                    .collect();
+                seed_dict.insert(*sum_pk, sum_participant_seeds);
+            }
+            (sum_dict, updates, seed_dict)
+        }
     }
 }

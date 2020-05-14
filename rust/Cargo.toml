@@ -12,14 +12,14 @@ homepage = "https://xain.io/"
 [dependencies]
 futures = "0.3.4"
 tokio = { version = "0.2.19", features = ["rt-core", "rt-threaded", "tcp", "time", "macros", "signal", "sync", "stream"] }
-derive_more = { version = "0.99.3", default-features = false, features = [ "display", "from" , "as_ref", "as_mut"] }
+derive_more = { version = "0.99.3", default-features = false, features = [ "display", "from" , "as_ref", "as_mut", "into", "index", "index_mut"] }
 rand = "0.7.3"
 rand_chacha = "0.2.2"
 serde = { version = "1.0.104", features = [ "derive" ] }
 bytes = "0.5.4"
 tracing = "0.1.13"
 sodiumoxide = "0.2.5"
-num = "0.2.1"
+num = { version = "0.2.1" }
 bincode = "1.2.1"
 thiserror = "1.0.16"
 anyhow = "1.0.28"

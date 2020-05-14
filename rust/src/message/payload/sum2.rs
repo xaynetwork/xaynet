@@ -1,8 +1,8 @@
 use std::{borrow::Borrow, ops::Range};
 
 use crate::{
-    mask::Mask,
-    message::{utils::range, DecodeError, FromBytes, LengthValueBuffer, ToBytes},
+    mask::{MaskObject, MaskObjectBuffer},
+    message::{utils::range, DecodeError, FromBytes, ToBytes},
     ParticipantTaskSignature,
 };
 use anyhow::{anyhow, Context};
@@ -12,43 +12,6 @@ const SUM_SIGNATURE_RANGE: Range<usize> = range(0, ParticipantTaskSignature::LEN
 /// A wrapper around a buffer that contains a sum2 message. It provides
 /// getters and setters to access the different fields of the message
 /// safely.
-///
-/// # Examples
-///
-/// Decoding a sum2 message:
-///
-/// ```rust
-/// # use xain_fl::message::Sum2Buffer;
-/// let signature = vec![0x11; 64];
-/// let mask = vec![
-///     0x00, 0x00, 0x00, 0x08, // Length 8
-///     0x00, 0x01, 0x02, 0x03, // Value: 0, 1, 2, 3
-/// ];
-/// let bytes = [signature.as_slice(), mask.as_slice()].concat();
-///
-/// let buffer = Sum2Buffer::new(&bytes).unwrap();
-/// assert_eq!(buffer.sum_signature(), &bytes[..64]);
-/// assert_eq!(buffer.mask(), &bytes[64..]);
-/// ```
-///
-/// Encoding a sum2 message:
-///
-/// ```rust
-/// # use xain_fl::message::Sum2Buffer;
-/// let signature = vec![0x11; 64];
-/// let mask = vec![
-///     0x00, 0x00, 0x00, 0x08, // Length 8
-///     0x00, 0x01, 0x02, 0x03, // Value: 0, 1, 2, 3
-/// ];
-/// let mut bytes = vec![0xff; 72];
-/// {
-///     let mut buffer = Sum2Buffer::new_unchecked(&mut bytes);
-///     buffer.sum_signature_mut().copy_from_slice(&signature[..]);
-///     buffer.mask_mut().copy_from_slice(&mask[..]);
-/// }
-/// assert_eq!(&bytes[..64], &signature[..]);
-/// assert_eq!(&bytes[64..], &mask[..]);
-/// ```
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Sum2Buffer<T> {
     inner: T,
@@ -84,7 +47,10 @@ impl<T: AsRef<[u8]>> Sum2Buffer<T> {
             ));
         }
 
-        LengthValueBuffer::new(&self.inner.as_ref()[SUM_SIGNATURE_RANGE.end..])?;
+        // Check the length of the length of the mask field
+        let _ = MaskObjectBuffer::new(&self.inner.as_ref()[SUM_SIGNATURE_RANGE.end..])
+            .context("invalid masked model field")?;
+
         Ok(())
     }
 }
@@ -139,50 +105,6 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Sum2Buffer<&'a T> {
 
 /// High level representation of a sum2 message. These messages are
 /// sent by sum participants during the sum2 phase.
-///
-/// # Examples
-///
-/// ## Decoding a message
-///
-/// ```rust
-/// # use xain_fl::{crypto::ByteObject, message::{FromBytes, Sum2Owned}, ParticipantTaskSignature, mask::Mask};
-/// let signature = vec![0x11; 64];
-/// let mask = vec![
-///     0x00, 0x00, 0x00, 0x08, // Length 8
-///     0x00, 0x01, 0x02, 0x03, // Value: 0, 1, 2, 3
-/// ];
-/// let bytes = [signature.as_slice(), mask.as_slice()].concat();
-/// let parsed = Sum2Owned::from_bytes(&bytes).unwrap();
-/// let expected = Sum2Owned {
-///     sum_signature: ParticipantTaskSignature::from_slice(&bytes[..64]).unwrap(),
-///     mask: Mask::from(&[0, 1, 2, 3][..]),
-/// };
-/// assert_eq!(parsed, expected);
-/// ```
-///
-/// ## Encoding a message
-///
-/// ```rust
-/// # use xain_fl::{crypto::ByteObject, message::{ToBytes, Sum2Owned}, ParticipantTaskSignature, mask::Mask};
-/// let signature = vec![0x11; 64];
-/// let mask = vec![
-///     0x00, 0x00, 0x00, 0x08, // Length 8
-///     0x00, 0x01, 0x02, 0x03, // Value: 0, 1, 2, 3
-/// ];
-/// let bytes = [signature.as_slice(), mask.as_slice()].concat();
-///
-/// let sum_signature = ParticipantTaskSignature::from_slice(&bytes[..64]).unwrap();
-/// let mask = Mask::from(&[0, 1, 2, 3][..]);
-/// let sum2 = Sum2Owned {
-///     sum_signature,
-///     mask,
-/// };
-/// // we need a 72 bytes long buffer to serialize that message
-/// assert_eq!(sum2.buffer_length(), 72);
-/// let mut buf = vec![0xff; 72];
-/// sum2.to_bytes(&mut buf);
-/// assert_eq!(bytes, buf);
-/// ```
 #[derive(Eq, PartialEq, Clone, Debug)]
 pub struct Sum2<M> {
     /// Signature of the word "sum", using the participant's secret
@@ -190,13 +112,13 @@ pub struct Sum2<M> {
     /// the participant has been selected to perform the sum task.
     pub sum_signature: ParticipantTaskSignature,
 
-    /// Mask computed by the participant.
+    /// MaskObject computed by the participant.
     pub mask: M,
 }
 
 impl<M> ToBytes for Sum2<M>
 where
-    M: Borrow<Mask>,
+    M: Borrow<MaskObject>,
 {
     fn buffer_length(&self) -> usize {
         SUM_SIGNATURE_RANGE.end + self.mask.borrow().buffer_length()
@@ -210,7 +132,7 @@ where
 }
 
 /// Owned version of a [`Sum2`]
-pub type Sum2Owned = Sum2<Mask>;
+pub type Sum2Owned = Sum2<MaskObject>;
 
 impl FromBytes for Sum2Owned {
     fn from_bytes<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
@@ -218,87 +140,78 @@ impl FromBytes for Sum2Owned {
         Ok(Self {
             sum_signature: ParticipantTaskSignature::from_bytes(&reader.sum_signature())
                 .context("invalid sum signature")?,
-            mask: Mask::from_bytes(&reader.mask()).context("invalid mask")?,
+            mask: MaskObject::from_bytes(&reader.mask()).context("invalid mask")?,
         })
     }
 }
 
 #[cfg(test)]
-pub(crate) mod tests {
+pub(crate) mod tests_helpers {
     use super::*;
-    use crate::{crypto::ByteObject, mask::Mask};
+    use crate::{crypto::ByteObject, mask::MaskObject};
 
-    fn signature_bytes() -> Vec<u8> {
-        vec![0x99; ParticipantTaskSignature::LENGTH]
+    pub fn signature() -> (ParticipantTaskSignature, Vec<u8>) {
+        let bytes = vec![0x99; ParticipantTaskSignature::LENGTH];
+        let signature = ParticipantTaskSignature::from_slice(&bytes[..]).unwrap();
+        (signature, bytes)
     }
 
-    fn mask_bytes() -> Vec<u8> {
-        vec![
-            0x00, 0x00, 0x00, 0x08, // Length 8
-            0x00, 0x01, 0x02, 0x03, // Value: 0, 1, 2, 3
-        ]
+    pub fn mask() -> (MaskObject, Vec<u8>) {
+        use crate::mask::object::serialization::tests::{bytes, object};
+        (object(), bytes())
     }
 
-    fn sum2_bytes() -> Vec<u8> {
-        let mut bytes = signature_bytes();
-        bytes.extend(mask_bytes());
-        bytes
+    pub fn sum2() -> (Sum2Owned, Vec<u8>) {
+        let mut bytes = signature().1;
+        bytes.extend(mask().1);
+        let sum2 = Sum2Owned {
+            sum_signature: signature().0,
+            mask: mask().0,
+        };
+        (sum2, bytes)
     }
+}
 
-    fn sum2() -> Sum2Owned {
-        let sum_signature = ParticipantTaskSignature::from_slice(&signature_bytes()[..]).unwrap();
-        let mask = Mask::from(&[0, 1, 2, 3][..]);
-        Sum2Owned {
-            sum_signature,
-            mask,
-        }
-    }
+#[cfg(test)]
+pub(crate) mod tests {
+    pub(crate) use super::tests_helpers as helpers;
+    use super::*;
 
     #[test]
     fn buffer_read() {
-        let bytes = sum2_bytes();
+        let bytes = helpers::sum2().1;
         let buffer = Sum2Buffer::new(&bytes).unwrap();
-        assert_eq!(buffer.sum_signature(), &signature_bytes()[..]);
-        assert_eq!(buffer.mask(), &mask_bytes()[..]);
-    }
-
-    #[test]
-    fn buffer_new_invalid() {
-        let mut bytes = sum2_bytes();
-        assert!(Sum2Buffer::new(&bytes[1..]).is_err());
-        // make the length field for the mask invalid
-        bytes[66] = 1;
-        assert!(Sum2Buffer::new(&bytes[..]).is_err());
+        assert_eq!(buffer.sum_signature(), &helpers::signature().1[..]);
+        assert_eq!(buffer.mask(), &helpers::mask().1[..]);
     }
 
     #[test]
     fn buffer_write() {
-        let mut bytes = vec![0xff; 72];
+        let mut bytes = vec![0xff; 80];
         {
             let mut buffer = Sum2Buffer::new_unchecked(&mut bytes);
             buffer
                 .sum_signature_mut()
-                .copy_from_slice(&signature_bytes()[..]);
-            buffer.mask_mut().copy_from_slice(&mask_bytes()[..]);
+                .copy_from_slice(&helpers::signature().1[..]);
+            buffer.mask_mut().copy_from_slice(&helpers::mask().1[..]);
         }
-        assert_eq!(&bytes[..], &sum2_bytes()[..]);
+        assert_eq!(&bytes[..], &helpers::sum2().1[..]);
     }
 
     #[test]
     fn encode() {
-        let message = sum2();
-        assert_eq!(message.buffer_length(), sum2_bytes().len());
+        let (sum2, bytes) = helpers::sum2();
+        assert_eq!(sum2.buffer_length(), bytes.len());
 
-        let mut buf = vec![0xff; message.buffer_length()];
-        message.to_bytes(&mut buf);
-        assert_eq!(buf, sum2_bytes());
+        let mut buf = vec![0xff; sum2.buffer_length()];
+        sum2.to_bytes(&mut buf);
+        assert_eq!(buf, bytes);
     }
 
     #[test]
     fn decode() {
-        let bytes = sum2_bytes();
+        let (sum2, bytes) = helpers::sum2();
         let parsed = Sum2Owned::from_bytes(&bytes).unwrap();
-        let expected = sum2();
-        assert_eq!(parsed, expected);
+        assert_eq!(parsed, sum2);
     }
 }

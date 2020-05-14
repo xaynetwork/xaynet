@@ -1,10 +1,8 @@
 use thiserror::Error;
 
 use crate::{
-    coordinator::{Coordinator, ProtocolEvent, RoundParameters},
-    model::Model,
+    coordinator::{ProtocolEvent, RoundParameters},
     service::handle::{SerializedSeedDict, SerializedSumDict},
-    MaskHash,
     SeedDict,
     SumParticipantPublicKey,
 };
@@ -38,6 +36,10 @@ pub enum PhaseData {
     /// Data held by the service during the sum2 phase
     #[from]
     Sum2(Sum2Data),
+
+    /// Data held by the service during the aggregation phase
+    #[from]
+    Aggregation,
 }
 
 impl PhaseData {

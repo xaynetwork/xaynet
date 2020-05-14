@@ -1,16 +1,22 @@
-use std::{convert::TryFrom, default::Default};
+use std::default::Default;
 
 use crate::{
     certificate::Certificate,
     crypto::{generate_encrypt_key_pair, generate_signing_key_pair, ByteObject},
     mask::{
-        config::{BoundType, DataType, GroupType, MaskConfig, MaskConfigs, ModelType},
-        seed::MaskSeed,
-        Integers,
-        Mask,
+        Aggregation,
+        BoundType,
+        DataType,
+        FromPrimitives,
+        GroupType,
+        MaskConfig,
+        MaskObject,
+        MaskSeed,
+        Masker,
+        Model,
+        ModelType,
     },
-    message::{sum::SumMessage, sum2::Sum2Message, update::UpdateMessage},
-    model::{MaskModels, Model},
+    message::{MessageOwned, MessageSeal, Sum2Owned, SumOwned, UpdateOwned},
     CoordinatorPublicKey,
     InitError,
     LocalSeedDict,
@@ -24,7 +30,7 @@ use crate::{
     SumParticipantEphemeralSecretKey,
 };
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq)]
 /// Tasks of a participant.
 enum Task {
     Sum,
@@ -35,12 +41,13 @@ enum Task {
 /// A participant in the PET protocol layer.
 pub struct Participant {
     // credentials
-    pk: ParticipantPublicKey,                   // 32 bytes
-    sk: ParticipantSecretKey,                   // 64 bytes
-    ephm_pk: SumParticipantEphemeralPublicKey,  // 32 bytes
-    ephm_sk: SumParticipantEphemeralSecretKey,  // 32 bytes
-    certificate: Certificate,                   // 0 bytes (dummy)
-    sum_signature: ParticipantTaskSignature,    // 64 bytes
+    pk: ParticipantPublicKey,                  // 32 bytes
+    sk: ParticipantSecretKey,                  // 64 bytes
+    ephm_pk: SumParticipantEphemeralPublicKey, // 32 bytes
+    ephm_sk: SumParticipantEphemeralSecretKey, // 32 bytes
+    #[allow(dead_code)]
+    certificate: Certificate, // 0 bytes (dummy)
+    sum_signature: ParticipantTaskSignature,   // 64 bytes
     update_signature: ParticipantTaskSignature, // 64 bytes
 
     // round parameters
@@ -53,7 +60,7 @@ impl Default for Participant {
         let sk = ParticipantSecretKey::zeroed();
         let ephm_pk = SumParticipantEphemeralPublicKey::zeroed();
         let ephm_sk = SumParticipantEphemeralSecretKey::zeroed();
-        let certificate = Certificate::zeroed();
+        let certificate = Certificate::new();
         let sum_signature = ParticipantTaskSignature::zeroed();
         let update_signature = ParticipantTaskSignature::zeroed();
         let task = Task::None;
@@ -114,25 +121,15 @@ impl Participant {
     }
 
     /// Compose an update message.
-    pub fn compose_update_message(&self, pk: &CoordinatorPublicKey, sum_dict: &SumDict) -> Vec<u8> {
-        let model = Model::try_from(vec![0_f32, 0.5, -0.5]).unwrap(); // dummy
-        let scalar = 0.5_f64; // dummy
-        let mask_config = MaskConfigs::from_parts(
-            GroupType::Prime,
-            DataType::F32,
-            BoundType::B0,
-            ModelType::M3,
-        )
-        .config();
-        // safe unwrap: data types of model and mask configuration conform due to definition above
-        let (mask_seed, masked_model) = model.mask(scalar, &mask_config);
+    pub fn compose_update_message(&self, pk: CoordinatorPublicKey, sum_dict: &SumDict) -> Vec<u8> {
+        let (mask_seed, masked_model) = Self::mask_model();
         let local_seed_dict = Self::create_local_seed_dict(sum_dict, &mask_seed);
 
         let payload = UpdateOwned {
             sum_signature: self.sum_signature,
             update_signature: self.update_signature,
-            masked_model: masked_model,
-            local_seed_dict: local_seed_dict,
+            masked_model,
+            local_seed_dict,
         };
 
         let message = MessageOwned::new_update(pk, self.pk, payload);
@@ -147,18 +144,22 @@ impl Participant {
     ) -> Result<Vec<u8>, PetError> {
         let mask_seeds = self.get_seeds(seed_dict)?;
         let mask_len = 3; // dummy
-        let mask_config = MaskConfigs::from_parts(
-            GroupType::Prime,
-            DataType::F32,
-            BoundType::B0,
-            ModelType::M3,
-        )
-        .config();
-        let mask = self.compute_global_mask(mask_seeds, mask_len, &mask_config)?;
-        Ok(
-            Sum2Message::from_parts(&self.pk, &self.sum_signature, &self.certificate, &mask)
-                .seal(&self.sk, pk),
-        )
+        let mask = self.compute_global_mask(mask_seeds, mask_len, dummy_config())?;
+        let payload = Sum2Owned {
+            mask,
+            sum_signature: self.sum_signature,
+        };
+
+        let message = MessageOwned::new_sum2(pk, self.pk, payload);
+        Ok(self.seal_message(&pk, &message))
+    }
+
+    fn seal_message(&self, pk: &CoordinatorPublicKey, message: &MessageOwned) -> Vec<u8> {
+        let message_seal = MessageSeal {
+            recipient_pk: pk,
+            sender_sk: &self.sk,
+        };
+        message_seal.seal(message)
     }
 
     /// Generate an ephemeral encryption key pair.
@@ -166,6 +167,14 @@ impl Participant {
         let (ephm_pk, ephm_sk) = generate_encrypt_key_pair();
         self.ephm_pk = ephm_pk;
         self.ephm_sk = ephm_sk;
+    }
+
+    /// Generate a mask seed and mask a local model (dummy).
+    fn mask_model() -> (MaskSeed, MaskObject) {
+        let model = Model::from_primitives(vec![0_i32, 1_i32, 2_i32, 3_i32].into_iter()).unwrap();
+        let masker = Masker::new(dummy_config());
+        let (seed, masked_model) = masker.mask(0.5, model);
+        (seed, masked_model)
     }
 
     // Create a local seed dictionary from a sum dictionary.
@@ -191,18 +200,21 @@ impl Participant {
         &self,
         mask_seeds: Vec<MaskSeed>,
         mask_len: usize,
-        mask_config: &MaskConfig,
-    ) -> Result<Mask, PetError> {
-        if !mask_seeds.is_empty() {
-            let mut global_mask = mask_seeds[0].derive_mask(mask_len, mask_config);
-            for mask_seed in mask_seeds[1..].iter() {
-                global_mask =
-                    global_mask.aggregate(&mask_seed.derive_mask(mask_len, mask_config))?;
-            }
-            Ok(global_mask)
-        } else {
-            Err(PetError::InvalidMask)
+        mask_config: MaskConfig,
+    ) -> Result<MaskObject, PetError> {
+        if mask_seeds.is_empty() {
+            return Err(PetError::InvalidMask);
         }
+
+        let mut aggregation = Aggregation::new(mask_config);
+        for seed in mask_seeds.into_iter() {
+            let mask = seed.derive_mask(mask_len, mask_config);
+            aggregation
+                .validate_aggregation(&mask)
+                .map_err(|_| PetError::InvalidMask)?;
+            aggregation.aggregate(mask);
+        }
+        Ok(aggregation.into())
     }
 }
 
@@ -225,7 +237,7 @@ mod tests {
         assert_eq!(part.sk.as_slice().len(), 64);
         assert_eq!(part.ephm_pk, SumParticipantEphemeralPublicKey::zeroed());
         assert_eq!(part.ephm_sk, SumParticipantEphemeralSecretKey::zeroed());
-        assert_eq!(part.certificate, Certificate::zeroed());
+        assert_eq!(part.certificate, Certificate::new());
         assert_eq!(part.sum_signature, ParticipantTaskSignature::zeroed());
         assert_eq!(part.update_signature, ParticipantTaskSignature::zeroed());
         assert_eq!(part.task, Task::None);
@@ -286,7 +298,7 @@ mod tests {
 
     #[test]
     fn test_create_local_seed_dict() {
-        let mask_seed = MaskSeed::generate();
+        let (mask_seed, _) = Participant::mask_model();
         let ephm_dict = iter::repeat_with(|| generate_encrypt_key_pair())
             .take(1 + randombytes_uniform(10) as usize)
             .collect::<HashMap<SumParticipantEphemeralPublicKey, SumParticipantEphemeralSecretKey>>(
@@ -295,7 +307,7 @@ mod tests {
             .iter()
             .map(|(ephm_pk, _)| {
                 (
-                    SumParticipantPublicKey::from_slice_unchecked(&randombytes(32)),
+                    SumParticipantPublicKey::from_slice(&randombytes(32)).unwrap(),
                     *ephm_pk,
                 )
             })
@@ -314,7 +326,7 @@ mod tests {
     fn test_get_seeds() {
         let mut part = Participant::new().unwrap();
         part.gen_ephm_keypair();
-        let mask_seeds = iter::repeat_with(|| MaskSeed::generate())
+        let mask_seeds = iter::repeat_with(MaskSeed::generate)
             .take(1 + randombytes_uniform(10) as usize)
             .collect::<Vec<_>>();
         let seed_dict = [(
@@ -323,7 +335,7 @@ mod tests {
                 .iter()
                 .map(|seed| {
                     (
-                        UpdateParticipantPublicKey::from_slice_unchecked(&randombytes(32)),
+                        UpdateParticipantPublicKey::from_slice(&randombytes(32)).unwrap(),
                         seed.encrypt(&part.ephm_pk),
                     )
                 })
@@ -347,5 +359,14 @@ mod tests {
             part.get_seeds(&SeedDict::new()).unwrap_err(),
             PetError::InvalidMessage,
         );
+    }
+}
+
+fn dummy_config() -> MaskConfig {
+    MaskConfig {
+        group_type: GroupType::Integer,
+        data_type: DataType::I32,
+        bound_type: BoundType::Bmax,
+        model_type: ModelType::M3,
     }
 }

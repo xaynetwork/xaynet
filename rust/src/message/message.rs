@@ -4,7 +4,7 @@ use std::borrow::Borrow;
 use crate::{
     certificate::Certificate,
     crypto::{ByteObject, PublicEncryptKey, SecretEncryptKey, SecretSigningKey, Signature},
-    mask::{Mask, MaskedModel},
+    mask::MaskObject,
     message::{
         DecodeError,
         FromBytes,
@@ -29,7 +29,7 @@ pub struct Message<C, D, M, N> {
     pub payload: Payload<D, M, N>,
 }
 
-pub type MessageOwned = Message<Certificate, LocalSeedDict, MaskedModel, Mask>;
+pub type MessageOwned = Message<Certificate, LocalSeedDict, MaskObject, MaskObject>;
 
 macro_rules! impl_new {
     ($name:ident, $payload:ty, $tag:expr) => {
@@ -57,8 +57,8 @@ impl<C, D, M, N> Message<C, D, M, N>
 where
     C: Borrow<Certificate>,
     D: Borrow<LocalSeedDict>,
-    M: Borrow<MaskedModel>,
-    N: Borrow<Mask>,
+    M: Borrow<MaskObject>,
+    N: Borrow<MaskObject>,
 {
     impl_new!(sum, crate::message::Sum, Tag::Sum);
     impl_new!(update, crate::message::Update<D, M>, Tag::Update);
@@ -69,8 +69,8 @@ impl<C, D, M, N> ToBytes for Message<C, D, M, N>
 where
     C: Borrow<Certificate>,
     D: Borrow<LocalSeedDict>,
-    M: Borrow<MaskedModel>,
-    N: Borrow<Mask>,
+    M: Borrow<MaskObject>,
+    N: Borrow<MaskObject>,
 {
     fn buffer_length(&self) -> usize {
         self.header.buffer_length() + self.payload.buffer_length()
@@ -116,8 +116,8 @@ impl<'a, 'b> MessageSeal<'a, 'b> {
     where
         C: Borrow<Certificate>,
         D: Borrow<LocalSeedDict>,
-        M: Borrow<MaskedModel>,
-        N: Borrow<Mask>,
+        M: Borrow<MaskObject>,
+        N: Borrow<MaskObject>,
     {
         let signed_message = self.sign(&message);
         self.recipient_pk.encrypt(&signed_message[..])
@@ -128,8 +128,8 @@ impl<'a, 'b> MessageSeal<'a, 'b> {
     where
         C: Borrow<Certificate>,
         D: Borrow<LocalSeedDict>,
-        M: Borrow<MaskedModel>,
-        N: Borrow<Mask>,
+        M: Borrow<MaskObject>,
+        N: Borrow<MaskObject>,
     {
         let signed_payload_length = message.buffer_length() + Signature::LENGTH;
 

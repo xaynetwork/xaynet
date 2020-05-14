@@ -109,11 +109,6 @@ impl ByteObject for SecretSigningKey {
 )]
 pub struct Signature(sign::Signature);
 
-impl Signature {
-    /// Length in bytes of a [`Signature`]
-    pub const LENGTH: usize = sign::SIGNATUREBYTES;
-}
-
 impl ByteObject for Signature {
     fn zeroed() -> Self {
         Self(sign::Signature([0_u8; sign::SIGNATUREBYTES]))
@@ -129,8 +124,14 @@ impl ByteObject for Signature {
 }
 
 impl Signature {
-    /// Compute the floating point representation of the hashed signature and ensure that it
-    /// is below the given threshold: int(hash(signature)) / (2**hashbits - 1) <= threshold.
+    /// Length in bytes of a [`Signature`]
+    pub const LENGTH: usize = sign::SIGNATUREBYTES;
+
+    /// Compute the floating point representation of the hashed
+    /// signature and ensure that it is below the given threshold:
+    /// ```no_rust
+    /// int(hash(signature)) / (2**hashbits - 1) <= threshold.
+    /// ```
     pub fn is_eligible(&self, threshold: f64) -> bool {
         if threshold < 0_f64 {
             return false;

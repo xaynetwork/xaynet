@@ -1,5 +1,5 @@
 use crate::{
-    mask::MaskedModel,
+    mask::{MaskObject, MaskObjectBuffer},
     message::{utils::range, DecodeError, FromBytes, LengthValueBuffer, ToBytes},
     LocalSeedDict,
     ParticipantTaskSignature,
@@ -13,71 +13,6 @@ const UPDATE_SIGNATURE_RANGE: Range<usize> =
 
 #[derive(Clone, Debug)]
 /// Wrapper around a buffer that contains an update message.
-///
-/// # Example
-///
-/// ```rust
-/// # use xain_fl::message::UpdateBuffer;
-/// let sum_signature = vec![0x11; 64];
-/// let update_signature = vec![0x22; 64];
-/// let masked_model = vec![
-///     0x00, 0x00, 0x00, 0x08, // Length 8
-///     0x00, 0x01, 0x02, 0x03, // Value: 0, 1, 2, 3
-/// ];
-/// let mut local_seed_dict = vec![];
-/// // Length field: ((32 + 80) * 2) + 4 = 228
-/// local_seed_dict.extend(vec![0x00, 0x00, 0x00, 0xe4]);
-/// // first entry: a key (32 bytes), and an encrypted mask seed (80 bytes)
-/// local_seed_dict.extend(vec![0x33; 32]);
-/// local_seed_dict.extend(vec![0x44; 80]);
-/// // second entry
-/// local_seed_dict.extend(vec![0x55; 32]);
-/// local_seed_dict.extend(vec![0x66; 80]);
-///
-/// let bytes = vec![
-///     sum_signature.as_slice(),
-///     update_signature.as_slice(),
-///     masked_model.as_slice(),
-///     local_seed_dict.as_slice(),
-/// ]
-/// .concat();
-///
-/// let buffer = UpdateBuffer::new(&bytes).unwrap();
-/// assert_eq!(buffer.sum_signature(), sum_signature.as_slice());
-/// assert_eq!(buffer.update_signature(), update_signature.as_slice());
-/// assert_eq!(buffer.masked_model().bytes(), masked_model.as_slice());
-/// assert_eq!(buffer.local_seed_dict().bytes(), local_seed_dict.as_slice());
-///
-///
-/// // This part shows how to write the same message. We'll write into this writer.
-/// let mut writer = vec![0xff; 364];
-/// // our buffer contains invalid data, so we need to call UpdateBuffer::new_unchcked. UpdateBuffer::new would return an error. That means we need to be careful when accessing the fields. To avoid panics, we'll see the fields in order.
-/// assert!(UpdateBuffer::new(&mut writer).is_err());
-/// let mut buffer = UpdateBuffer::new_unchecked(&mut writer);
-///
-/// buffer
-///    .sum_signature_mut()
-///    .copy_from_slice(sum_signature.as_slice());
-/// buffer
-///    .update_signature_mut()
-///    .copy_from_slice(update_signature.as_slice());
-/// // it is important to set the length first, otherwise, "value_mut()" would panic
-/// buffer
-///    .masked_model_mut()
-///    .set_length(8);
-/// buffer
-///    .masked_model_mut()
-///    .value_mut()
-///    .copy_from_slice(&masked_model[4..]);
-/// buffer
-///    .local_seed_dict_mut()
-///    .set_length(228);
-/// buffer
-///    .local_seed_dict_mut()
-///    .value_mut()
-///    .copy_from_slice(&local_seed_dict[4..]);
-/// assert_eq!(writer, bytes);
-/// ```
 pub struct UpdateBuffer<T> {
     inner: T,
 }
@@ -115,8 +50,8 @@ impl<T: AsRef<[u8]>> UpdateBuffer<T> {
         }
 
         // Check the length of the length of the masked model field
-        let _ = LengthValueBuffer::new(&self.inner.as_ref()[self.masked_model_offset()..])
-            .context("invalid masked model field length")?;
+        let _ = MaskObjectBuffer::new(&self.inner.as_ref()[self.masked_model_offset()..])
+            .context("invalid masked model field")?;
 
         // Check the length of the local seed dictionary field
         let _ = LengthValueBuffer::new(&self.inner.as_ref()[self.local_seed_dict_offset()..])
@@ -133,8 +68,8 @@ impl<T: AsRef<[u8]>> UpdateBuffer<T> {
     /// Get the offset of the local seed dictionary field
     fn local_seed_dict_offset(&self) -> usize {
         let masked_model =
-            LengthValueBuffer::new_unchecked(&self.inner.as_ref()[self.masked_model_offset()..]);
-        self.masked_model_offset() + masked_model.length() as usize
+            MaskObjectBuffer::new_unchecked(&self.inner.as_ref()[self.masked_model_offset()..]);
+        self.masked_model_offset() + masked_model.len()
     }
 }
 
@@ -161,28 +96,30 @@ impl<'a, T: AsRef<[u8]> + ?Sized> UpdateBuffer<&'a T> {
         &self.inner.as_ref()[UPDATE_SIGNATURE_RANGE]
     }
 
-    /// Get the masked model field
+    /// Get a slice that starts at the beginning of the masked model
+    /// field
     ///
     /// # Panic
     ///
     /// This may panic if the underlying buffer does not represent a
     /// valid update. If `self.check_buffer_length()` returned
     /// `Ok(())` this method is guaranteed not to panic.
-    pub fn masked_model(&self) -> LengthValueBuffer<&'a [u8]> {
+    pub fn masked_model(&self) -> &'a [u8] {
         let offset = self.masked_model_offset();
-        LengthValueBuffer::new_unchecked(&self.inner.as_ref()[offset..])
+        &self.inner.as_ref()[offset..]
     }
 
-    /// Get the local seed dictionary field
+    /// Get a slice that starts at the beginning og the local seed
+    /// dictionary field
     ///
     /// # Panic
     ///
     /// This may panic if the underlying buffer does not represent a
     /// valid update. If `self.check_buffer_length()` returned
     /// `Ok(())` this method is guaranteed not to panic.
-    pub fn local_seed_dict(&self) -> LengthValueBuffer<&'a [u8]> {
+    pub fn local_seed_dict(&self) -> &'a [u8] {
         let offset = self.local_seed_dict_offset();
-        LengthValueBuffer::new_unchecked(&self.inner.as_ref()[offset..])
+        &self.inner.as_ref()[offset..]
     }
 }
 
@@ -209,28 +146,30 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> UpdateBuffer<T> {
         &mut self.inner.as_mut()[UPDATE_SIGNATURE_RANGE]
     }
 
-    /// Get a mutable reference to the masked model field
+    /// Get a mutable slice that starts at the beginning of the masked
+    /// model field
     ///
     /// # Panic
     ///
     /// This may panic if the underlying buffer does not represent a
     /// valid update. If `self.check_buffer_length()` returned
     /// `Ok(())` this method is guaranteed not to panic.
-    pub fn masked_model_mut(&mut self) -> LengthValueBuffer<&mut [u8]> {
-        let offset = UPDATE_SIGNATURE_RANGE.end;
-        LengthValueBuffer::new_unchecked(&mut self.inner.as_mut()[offset..])
+    pub fn masked_model_mut(&mut self) -> &mut [u8] {
+        let offset = self.masked_model_offset();
+        &mut self.inner.as_mut()[offset..]
     }
 
-    /// Get a mutable reference to the local seed dictionary field
+    /// Get a mutable slice that starts at the beginning of the local
+    /// seed dictionary field
     ///
     /// # Panic
     ///
     /// This may panic if the underlying buffer does not represent a
     /// valid update. If `self.check_buffer_length()` returned
     /// `Ok(())` this method is guaranteed not to panic.
-    pub fn local_seed_dict_mut(&mut self) -> LengthValueBuffer<&mut [u8]> {
-        let offset = UPDATE_SIGNATURE_RANGE.end + self.masked_model_mut().length() as usize;
-        LengthValueBuffer::new_unchecked(&mut self.inner.as_mut()[offset..])
+    pub fn local_seed_dict_mut(&mut self) -> &mut [u8] {
+        let offset = self.local_seed_dict_offset();
+        &mut self.inner.as_mut()[offset..]
     }
 }
 
@@ -257,7 +196,7 @@ pub struct Update<D, M> {
 impl<D, M> ToBytes for Update<D, M>
 where
     D: Borrow<LocalSeedDict>,
-    M: Borrow<MaskedModel>,
+    M: Borrow<MaskObject>,
 {
     fn buffer_length(&self) -> usize {
         UPDATE_SIGNATURE_RANGE.end
@@ -272,15 +211,15 @@ where
             .to_bytes(&mut writer.update_signature_mut());
         self.masked_model
             .borrow()
-            .to_bytes(&mut writer.masked_model_mut().bytes_mut());
+            .to_bytes(&mut writer.masked_model_mut());
         self.local_seed_dict
             .borrow()
-            .to_bytes(&mut writer.local_seed_dict_mut().bytes_mut());
+            .to_bytes(&mut writer.local_seed_dict_mut());
     }
 }
 
 /// Owned version of a [`Update`]
-pub type UpdateOwned = Update<LocalSeedDict, MaskedModel>;
+pub type UpdateOwned = Update<LocalSeedDict, MaskObject>;
 
 impl FromBytes for UpdateOwned {
     fn from_bytes<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
@@ -290,110 +229,113 @@ impl FromBytes for UpdateOwned {
                 .context("invalid sum signature")?,
             update_signature: ParticipantTaskSignature::from_bytes(&reader.update_signature())
                 .context("invalid update signature")?,
-            masked_model: MaskedModel::from_bytes(&reader.masked_model().bytes())
+            masked_model: MaskObject::from_bytes(&reader.masked_model())
                 .context("invalid masked model")?,
-            local_seed_dict: LocalSeedDict::from_bytes(&reader.local_seed_dict().bytes())
+            local_seed_dict: LocalSeedDict::from_bytes(&reader.local_seed_dict())
                 .context("invalid local seed dictionary")?,
         })
     }
 }
 
 #[cfg(test)]
-pub(crate) mod tests {
+pub(crate) mod tests_helpers {
     use super::*;
-    use crate::{crypto::ByteObject, mask::MaskedModel, EncrMaskSeed, SumParticipantPublicKey};
+    use crate::{
+        crypto::ByteObject,
+        mask::{EncryptedMaskSeed, MaskObject},
+        SumParticipantPublicKey,
+    };
     use std::convert::TryFrom;
 
-    fn sum_signature_bytes() -> Vec<u8> {
-        vec![0x33; 64]
+    pub fn sum_signature() -> (ParticipantTaskSignature, Vec<u8>) {
+        let bytes = vec![0x33; 64];
+        let signature = ParticipantTaskSignature::from_slice(&bytes[..]).unwrap();
+        (signature, bytes)
     }
 
-    fn update_signature_bytes() -> Vec<u8> {
-        vec![0x44; 64]
+    pub fn update_signature() -> (ParticipantTaskSignature, Vec<u8>) {
+        let bytes = vec![0x44; 64];
+        let signature = ParticipantTaskSignature::from_slice(&bytes[..]).unwrap();
+        (signature, bytes)
     }
 
-    fn masked_model_bytes() -> Vec<u8> {
-        vec![
-            0x00, 0x00, 0x00, 0x08, // Length 8
-            0x00, 0x01, 0x02, 0x03, // Value: 0, 1, 2, 3
-        ]
+    pub fn masked_model() -> (MaskObject, Vec<u8>) {
+        use crate::mask::object::serialization::tests::{bytes, object};
+        (object(), bytes())
     }
 
-    fn local_seed_dict_bytes() -> Vec<u8> {
+    pub fn local_seed_dict() -> (LocalSeedDict, Vec<u8>) {
+        let mut local_seed_dict = LocalSeedDict::new();
         let mut bytes = vec![];
 
         // Length (32+80) * 2 + 4 = 228
         bytes.extend(vec![0x00, 0x00, 0x00, 0xe4]);
 
-        bytes.extend(vec![0x55; SumParticipantPublicKey::LENGTH]); // sum participant pk
-        bytes.extend(vec![0x66; EncrMaskSeed::BYTES]); // ephemeral pk
-
-        // Second entry
-        bytes.extend(vec![0x77; SumParticipantPublicKey::LENGTH]); // sum participant pk
-        bytes.extend(vec![0x88; EncrMaskSeed::BYTES]); // ephemeral pk
-
-        bytes
-    }
-
-    fn update_bytes() -> Vec<u8> {
-        let mut bytes = sum_signature_bytes();
-        bytes.extend(update_signature_bytes());
-        bytes.extend(masked_model_bytes());
-        bytes.extend(local_seed_dict_bytes());
-        bytes
-    }
-
-    fn update() -> UpdateOwned {
-        let sum_signature =
-            ParticipantTaskSignature::from_slice(&sum_signature_bytes()[..]).unwrap();
-        let update_signature =
-            ParticipantTaskSignature::from_slice(&update_signature_bytes()[..]).unwrap();
-        let masked_model = MaskedModel::from(&[0, 1, 2, 3][..]);
-
-        let mut local_seed_dict = LocalSeedDict::new();
-
+        bytes.extend(vec![0x55; SumParticipantPublicKey::LENGTH]);
+        bytes.extend(vec![0x66; EncryptedMaskSeed::LENGTH]);
         local_seed_dict.insert(
             SumParticipantPublicKey::from_slice(vec![0x55; 32].as_slice()).unwrap(),
-            EncrMaskSeed::try_from(vec![0x66; EncrMaskSeed::BYTES]).unwrap(),
-        );
-        local_seed_dict.insert(
-            SumParticipantPublicKey::from_slice(vec![0x77; 32].as_slice()).unwrap(),
-            EncrMaskSeed::try_from(vec![0x88; EncrMaskSeed::BYTES]).unwrap(),
+            EncryptedMaskSeed::try_from(vec![0x66; EncryptedMaskSeed::LENGTH]).unwrap(),
         );
 
-        UpdateOwned {
-            sum_signature,
-            update_signature,
-            masked_model,
-            local_seed_dict,
-        }
+        // Second entry
+        bytes.extend(vec![0x77; SumParticipantPublicKey::LENGTH]);
+        bytes.extend(vec![0x88; EncryptedMaskSeed::LENGTH]);
+        local_seed_dict.insert(
+            SumParticipantPublicKey::from_slice(vec![0x77; 32].as_slice()).unwrap(),
+            EncryptedMaskSeed::try_from(vec![0x88; EncryptedMaskSeed::LENGTH]).unwrap(),
+        );
+
+        (local_seed_dict, bytes)
     }
+
+    pub fn update() -> (UpdateOwned, Vec<u8>) {
+        let mut bytes = sum_signature().1;
+        bytes.extend(update_signature().1);
+        bytes.extend(masked_model().1);
+        bytes.extend(local_seed_dict().1);
+
+        let update = UpdateOwned {
+            sum_signature: sum_signature().0,
+            update_signature: update_signature().0,
+            masked_model: masked_model().0,
+            local_seed_dict: local_seed_dict().0,
+        };
+        (update, bytes)
+    }
+}
+
+#[cfg(test)]
+pub(crate) mod tests {
+    pub(crate) use super::tests_helpers as helpers;
+    use super::*;
 
     #[test]
     fn buffer_read() {
-        let bytes = update_bytes();
+        let bytes = helpers::update().1;
         let buffer = UpdateBuffer::new(&bytes).unwrap();
-        assert_eq!(buffer.sum_signature(), sum_signature_bytes().as_slice());
+        assert_eq!(
+            buffer.sum_signature(),
+            helpers::sum_signature().1.as_slice()
+        );
         assert_eq!(
             buffer.update_signature(),
-            update_signature_bytes().as_slice()
+            helpers::update_signature().1.as_slice()
         );
-        assert_eq!(buffer.masked_model().bytes(), &masked_model_bytes()[..]);
-        assert_eq!(
-            buffer.local_seed_dict().bytes(),
-            &local_seed_dict_bytes()[..]
-        );
+        let expected = helpers::masked_model().1;
+        assert_eq!(&buffer.masked_model()[..expected.len()], &expected[..]);
+        assert_eq!(buffer.local_seed_dict(), &helpers::local_seed_dict().1[..]);
     }
 
     #[test]
     fn decode_invalid_seed_dict() {
-        let mut invalid = local_seed_dict_bytes();
+        let mut invalid = helpers::local_seed_dict().1;
         // This truncates the last entry of the seed dictionary
         invalid[3] = 0xe3;
         let mut bytes = vec![];
-        bytes.extend(sum_signature_bytes());
-        bytes.extend(update_signature_bytes());
-        bytes.extend(masked_model_bytes());
+        bytes.extend(helpers::sum_signature().1);
+        bytes.extend(helpers::update_signature().1);
+        bytes.extend(helpers::masked_model().1);
         bytes.extend(invalid);
 
         let e = UpdateOwned::from_bytes(&bytes).unwrap_err();
@@ -406,16 +348,15 @@ pub(crate) mod tests {
 
     #[test]
     fn decode() {
-        let bytes = update_bytes();
+        let (update, bytes) = helpers::update();
         let parsed = UpdateOwned::from_bytes(&bytes).unwrap();
-        assert_eq!(parsed, update());
+        assert_eq!(parsed, update);
     }
 
     #[test]
     fn encode() {
-        let expected = update_bytes();
-        let update = update();
-        assert_eq!(update.buffer_length(), expected.len());
+        let (update, bytes) = helpers::update();
+        assert_eq!(update.buffer_length(), bytes.len());
         let mut buf = vec![0xff; update.buffer_length()];
         update.to_bytes(&mut buf);
         // The order in which the hashmap is serialized is not
@@ -423,11 +364,11 @@ pub(crate) mod tests {
         // sorted.
         //
         // First compute the offset at which the local seed dict value
-        // starts: two signature (64 bytes), the masked model (8
+        // starts: two signature (64 bytes), the masked model (16
         // bytes), the length field (4 bytes)
-        let offset = 64 * 2 + 8 + 4;
+        let offset = 64 * 2 + 16 + 4;
         // Sort the end of the buffer
         (&mut buf[offset..]).sort();
-        assert_eq!(buf, expected);
+        assert_eq!(buf, bytes);
     }
 }

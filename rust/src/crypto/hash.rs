@@ -37,7 +37,7 @@ impl ByteObject for Sha256 {
 
 impl Sha256 {
     /// Length in bytes of a [`Sha256`]
-    pub const LENGTH: usize = 32;
+    pub const LENGTH: usize = sha256::DIGESTBYTES;
 
     pub fn hash(m: &[u8]) -> Self {
         Self(sha256::hash(m))

@@ -1,8 +1,8 @@
 use super::DecodeError;
-use crate::{crypto::ByteObject, EncrMaskSeed, LocalSeedDict, SumParticipantPublicKey};
+use crate::{crypto::ByteObject, mask::EncryptedMaskSeed, LocalSeedDict, SumParticipantPublicKey};
 use anyhow::{anyhow, Context};
 use std::{
-    convert::{TryFrom, TryInto},
+    convert::TryInto,
     io::{Cursor, Write},
     ops::Range,
 };
@@ -33,7 +33,8 @@ where
     T: ByteObject,
 {
     fn from_bytes<U: AsRef<[u8]>>(buffer: &U) -> Result<Self, DecodeError> {
-        Self::from_slice(buffer.as_ref()).ok_or(anyhow!("failed to deserialize byte object"))
+        Self::from_slice(buffer.as_ref())
+            .ok_or_else(|| anyhow!("failed to deserialize byte object"))
     }
 }
 
@@ -203,30 +204,13 @@ impl<T: AsMut<[u8]>> LengthValueBuffer<T> {
     }
 }
 
-// This impl that it differs from the usual mutable getters impl:
-//
-// 1. IT CONSUMES the buffer, so the LengthValueBuffer is a sort of
-//    "oneshot" buffer to safely access the payload of "length-value"
-//    field. We cannot take a reference to `self`, because the mutable
-//    slice the method returns would be bound to it, which means the
-//    LengthValueBuffer cannot be used within a function to return a
-//    mutable slice like so:
-//
-//    fn my_length_value_field_mut(&self) -> &'a mut [u8] {
-//        // data is &'a
-//        let data = &mut self.inner.as_mut()[START..]
-//        // But the reference we're giving here is bound to &self
-//        let buf = LengthValueBuffer::new(&mut data).unwrap();
-//        // this slice is bound to `buf`, which is a local variable...
-//        buf.value_mut()
-//    }
 impl<'a, T: AsRef<[u8]> + AsMut<[u8]> + ?Sized> LengthValueBuffer<&'a mut T> {
     /// Get a mutable reference to the value field.
     ///
     /// # Panic
     ///
     /// This method may panic if buffer is not a valid Length-Value item.
-    pub fn value_mut(self) -> &'a mut [u8] {
+    pub fn value_mut(&mut self) -> &mut [u8] {
         let range = self.value_range();
         &mut self.inner.as_mut()[range]
     }
@@ -236,7 +220,7 @@ impl<'a, T: AsRef<[u8]> + AsMut<[u8]> + ?Sized> LengthValueBuffer<&'a mut T> {
     /// # Panic
     ///
     /// This method may panic if buffer is not a valid Length-Value item.
-    pub fn bytes_mut(self) -> &'a mut [u8] {
+    pub fn bytes_mut(&mut self) -> &mut [u8] {
         &mut self.inner.as_mut()[..]
     }
 }
@@ -286,10 +270,8 @@ macro_rules! impl_traits_for_length_value_types {
 }
 
 impl_traits_for_length_value_types!(crate::certificate::Certificate);
-impl_traits_for_length_value_types!(crate::mask::Mask);
-impl_traits_for_length_value_types!(crate::mask::MaskedModel);
 
-const ENTRY_LENGTH: usize = SumParticipantPublicKey::LENGTH + EncrMaskSeed::BYTES;
+const ENTRY_LENGTH: usize = SumParticipantPublicKey::LENGTH + EncryptedMaskSeed::LENGTH;
 
 impl ToBytes for LocalSeedDict {
     fn buffer_length(&self) -> usize {
@@ -299,10 +281,10 @@ impl ToBytes for LocalSeedDict {
     fn to_bytes<T: AsMut<[u8]>>(&self, buffer: &mut T) {
         let mut writer = Cursor::new(buffer.as_mut());
         let length = self.buffer_length() as u32;
-        writer.write(&length.to_be_bytes()).unwrap();
+        let _ = writer.write(&length.to_be_bytes()).unwrap();
         for (key, value) in self {
-            writer.write(key.as_slice()).unwrap();
-            writer.write(value.as_ref()).unwrap();
+            let _ = writer.write(key.as_slice()).unwrap();
+            let _ = writer.write(value.as_ref()).unwrap();
         }
     }
 }
@@ -310,8 +292,7 @@ impl ToBytes for LocalSeedDict {
 impl FromBytes for LocalSeedDict {
     fn from_bytes<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
         let reader = LengthValueBuffer::new(buffer.as_ref())?;
-        let nb_entries = reader.value_length() as usize / ENTRY_LENGTH;
-        let mut dict = LocalSeedDict::with_capacity(nb_entries);
+        let mut dict = LocalSeedDict::new();
 
         let key_length = SumParticipantPublicKey::LENGTH;
         let mut entries = reader.value().chunks_exact(ENTRY_LENGTH);
@@ -319,12 +300,12 @@ impl FromBytes for LocalSeedDict {
             // safe unwraps: lengths of slices are guaranteed
             // by constants.
             let key = SumParticipantPublicKey::from_slice(&chunk[..key_length]).unwrap();
-            let value = EncrMaskSeed::try_from(&chunk[key_length..]).unwrap();
+            let value = EncryptedMaskSeed::from_slice(&chunk[key_length..]).unwrap();
             if dict.insert(key, value).is_some() {
                 return Err(anyhow!("invalid local seed dictionary: duplicated key"));
             }
         }
-        if entries.remainder().len() > 0 {
+        if !entries.remainder().is_empty() {
             return Err(anyhow!("invalid local seed dictionary: trailing bytes"));
         }
         Ok(dict)

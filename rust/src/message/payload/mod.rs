@@ -9,11 +9,7 @@ pub use self::update::*;
 
 use derive_more::From;
 
-use crate::{
-    mask::{Mask, MaskedModel},
-    message::traits::ToBytes,
-    LocalSeedDict,
-};
+use crate::{mask::MaskObject, message::traits::ToBytes, LocalSeedDict};
 
 /// Payload of a [`Message`]
 #[derive(From, Eq, PartialEq, Clone, Debug)]
@@ -26,13 +22,13 @@ pub enum Payload<D, M, N> {
     Sum2(Sum2<N>),
 }
 
-pub type PayloadOwned = Payload<LocalSeedDict, MaskedModel, Mask>;
+pub type PayloadOwned = Payload<LocalSeedDict, MaskObject, MaskObject>;
 
 impl<D, M, N> ToBytes for Payload<D, M, N>
 where
     D: Borrow<LocalSeedDict>,
-    M: Borrow<MaskedModel>,
-    N: Borrow<Mask>,
+    M: Borrow<MaskObject>,
+    N: Borrow<MaskObject>,
 {
     fn buffer_length(&self) -> usize {
         match self {
