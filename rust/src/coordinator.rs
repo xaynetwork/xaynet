@@ -9,13 +9,10 @@ use sodiumoxide::{
     crypto::{box_, hash::sha256},
     randombytes::randombytes,
 };
-use thiserror::Error;
 
 use crate::{
     crypto::{generate_encrypt_key_pair, ByteObject, SigningKeySeed},
     mask::{Integers, Mask, MaskIntegers, MaskedModel},
-    crypto::{generate_encrypt_key_pair, ByteObject, Sha256, SigningKeySeed},
-    mask::Mask,
     message::{sum::SumMessage, sum2::Sum2Message, update::UpdateMessage},
     model::Model,
     CoordinatorPublicKey,
@@ -74,7 +71,7 @@ pub enum ProtocolEvent {
     EndRound(Option<()>),
 }
 
-#[derive(AsRef, AsMut, Clone, Debug, PartialEq, Eq)]
+#[derive(AsRef, AsMut, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 /// A seed for a round.
 pub struct RoundSeed(box_::Seed);
 
@@ -619,16 +616,6 @@ impl MaskCoordinators<i64> for Coordinator<i64> {
                 .or(Err(RoundFailed::NoModel))
         } else {
             Err(RoundFailed::NoModel)
-        }
-    }
-
-    pub fn state(&self) -> CoordinatorState {
-        CoordinatorState {
-            sk: self.sk.clone(),
-            round_parameters: self.round_parameters(),
-            min_sum: self.min_sum,
-            min_update: self.min_update,
-            phase: self.phase,
         }
     }
 }

@@ -13,7 +13,8 @@ homepage = "https://xain.io/"
 futures = "0.3.4"
 tokio = { version = "0.2.19", features = ["rt-core", "rt-threaded", "tcp", "time", "macros", "signal", "sync", "stream"] }
 derive_more = { version = "0.99.3", default-features = false, features = [ "display", "from" , "as_ref", "as_mut"] }
-
+rand = "0.7.3"
+rand_chacha = "0.2.2"
 serde = { version = "1.0.104", features = [ "derive" ] }
 bytes = "0.5.4"
 tracing = "0.1.13"
