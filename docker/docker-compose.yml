@@ -1,177 +1,20 @@
 version: "3.7"
 services:
-
-  influxdb:
-    image: influxdb:1.7 # current stable version, v2 is in Beta
-    hostname: influxdb
+  minio:
+    image: minio/minio # Stable minio
+    volumes:
+      - minio-data:/data
+    networks:
+      - xain-fl-rs
     environment:
-      INFLUXDB_DB: metrics
-    volumes:
-      - influxdb-data:/var/lib/influxdb
-    networks:
-      - xain-fl-rs
+      MINIO_ACCESS_KEY: minio
+      MINIO_SECRET_KEY: minio123
+    command: server /data
     ports:
-      - "8086:8086"
-    labels:
-      org.label-schema.group: "monitoring"
-
-  coordinator:
-    command: coordinator -c /bin/config.toml
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
-    image: docker_coordinator:debug
-    depends_on:
-      - influxdb
-    volumes:
-      - ${PWD}/configs/docker-dev-coordinator.toml:/bin/config.toml
-    networks:
-      - xain-fl-rs
-    ports:
-      - "5555:5555"
-      - "8081:8081"
-
-  aggregator:
-    command: aggregator -c /bin/config.toml
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
-    image: docker_aggregator:debug
-    depends_on:
-      - influxdb
-    volumes:
-      - ${PWD}/configs/docker-dev-aggregator.toml:/bin/config.toml
-    networks:
-      - xain-fl-rs
-    ports:
-      - "6666:6666"
-      - "8082:8082"
-
-  prometheus:
-    image: prom/prometheus:v2.16.0
-    container_name: prometheus
-    volumes:
-      - ${PWD}/docker/prometheus:/etc/prometheus
-      - prometheus_data:/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/etc/prometheus/console_libraries'
-      - '--web.console.templates=/etc/prometheus/consoles'
-      - '--storage.tsdb.retention.time=200h'
-      - '--web.enable-lifecycle'
-    restart: unless-stopped
-    expose:
-      - 9090
-    networks:
-      - xain-fl-rs
-    labels:
-      org.label-schema.group: "monitoring"
-
-  nodeexporter:
-    image: prom/node-exporter:v0.18.1
-    container_name: nodeexporter
-    volumes:
-      - /proc:/host/proc:ro
-      - /sys:/host/sys:ro
-      - /:/rootfs:ro
-    command:
-      - '--path.procfs=/host/proc'
-      - '--path.rootfs=/rootfs'
-      - '--path.sysfs=/host/sys'
-      - '--collector.filesystem.ignored-mount-points=^/(sys|proc|dev|host|etc)($$|/)'
-    restart: unless-stopped
-    expose:
-      - 9100
-    networks:
-      - xain-fl-rs
-    labels:
-      org.label-schema.group: "monitoring"
-
-  cadvisor:
-    image: gcr.io/google-containers/cadvisor:v0.34.0
-    container_name: cadvisor
-    volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:rw
-      - /sys:/sys:ro
-      - /var/lib/docker:/var/lib/docker:ro
-      #- /cgroup:/cgroup:ro #doesn't work on MacOS only for Linux
-    restart: unless-stopped
-    expose:
-      - 8080
-    networks:
-      - xain-fl-rs
-    labels:
-      org.label-schema.group: "monitoring"
-
-  grafana:
-    image: grafana/grafana:6.6.2
-    container_name: grafana
-    volumes:
-      - grafana_data:/var/lib/grafana
-      - ${PWD}/docker/grafana/provisioning:/etc/grafana/provisioning
-    environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-      - GF_USERS_ALLOW_SIGN_UP=false
-    restart: unless-stopped
-    ports:
-      - "3000:3000"
-    networks:
-      - xain-fl-rs
-    labels:
-      org.label-schema.group: "monitoring"
-
-  pushgateway:
-    image: prom/pushgateway:v1.1.0
-    container_name: pushgateway
-    restart: unless-stopped
-    expose:
-      - 9091
-    networks:
-      - xain-fl-rs
-    labels:
-      org.label-schema.group: "monitoring"
-
-  # https://www.jaegertracing.io/docs/1.17/getting-started/#all-in-one
-  jaeger:
-    image: jaegertracing/all-in-one:1.17
-    environment:
-      - COLLECTOR_ZIPKIN_HTTP_PORT=9411
-    ports:
-      - "5775:5775"
-      - "6831:6831"
-      - "6832:6832"
-      - "5778:5778"
-      - "16686:16686"
-      - "14268:14268"
-      - "14250:14250"
-      - "9411:9411"
-    networks:
-      - xain-fl-rs
-
-  swagger:
-    image: swaggerapi/swagger-ui
-    environment:
-      - SWAGGER_JSON=/coordinator.yml
-    volumes:
-      - ${PWD}/swagger/coordinator.yml:/coordinator.yml
-      # The run script copies the specified file of "SWAGGER_JSON" (in our case coordinator.yml)
-      # to /usr/share/nginx/html. It is not possible to specify a directory here.
-      # (https://github.com/swagger-api/swagger-ui/blob/master/docker/run.sh)
-      # We mount the aggregator.yml directly into this directory so that we can
-      # access both yml files in the swagger ui.
-      - ${PWD}/swagger/aggregator.yml:/usr/share/nginx/html/aggregator.yml
-    ports:
-      - 80:8080
-    networks:
-      - xain-fl-rs
+      - "9000:9000"
 
 volumes:
-  influxdb-data: {}
-  prometheus_data: {}
-  grafana_data: {}
+  minio-data:
 
 networks:
   xain-fl-rs:

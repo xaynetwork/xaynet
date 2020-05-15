@@ -3,6 +3,39 @@ on: [push]
 name: Rust-CI
 
 jobs:
+  rustfmt:
+    name: rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+
+      - name: Install nightly
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          components: rustfmt
+
+      - name: Cache cargo registry
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cache cargo index
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cache cargo build
+        uses: actions/cache@v1
+        with:
+          path: rust/target
+          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: cargo fmt
+        working-directory: ./rust
+        run: cargo fmt --all -- --check
+
   check:
     name: rust-build
     runs-on: ubuntu-latest
@@ -13,51 +46,33 @@ jobs:
     steps:
       - uses: actions/checkout@master
 
-      - name: install nightly
+      - name: Install nightly
         uses: actions-rs/toolchain@v1
         with:
-            profile: minimal
-            toolchain: nightly
+          profile: minimal
+          toolchain: nightly
+
+      - name: Cache cargo registry
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cache cargo index
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cache cargo build
+        uses: actions/cache@v1
+        with:
+          path: rust/target
+          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
 
       - name: cargo check
         working-directory: ./rust
         env:
-            RUSTFLAGS: "-D warnings"
+          RUSTFLAGS: "-D warnings"
         run: cargo check --features ${{ matrix.features }}
-
-  test:
-    name: rust-test
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        features: [default]
-      fail-fast: true
-    steps:
-      - uses: actions/checkout@master
-
-      - name: install nightly
-        uses: actions-rs/toolchain@v1
-        with:
-            profile: minimal
-            toolchain: nightly
-            components: rustfmt, clippy
-
-      - name: Setup Python 3.6
-        uses: actions/setup-python@v1
-        with:
-          python-version: 3.6
-
-      - name: build tests
-        working-directory: ./rust
-        env:
-            RUSTFLAGS: "-D warnings"
-        run: cargo test --features ${{ matrix.features }} --no-run
-
-      - name: run tests
-        working-directory: ./rust
-        env:
-            RUSTFLAGS: "-D warnings"
-        run: cargo test --features ${{ matrix.features }}
 
   clippy:
     name: rust-clippy
@@ -68,32 +83,122 @@ jobs:
       fail-fast: true
     steps:
       - uses: actions/checkout@master
-      - name: install nightly
+
+      - name: Install nightly
         uses: actions-rs/toolchain@v1
         with:
-            profile: minimal
-            toolchain: nightly
-            components: clippy
+          profile: minimal
+          toolchain: nightly
+          components: clippy
+
+      - name: Cache cargo registry
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cache cargo index
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cache cargo build
+        uses: actions/cache@v1
+        with:
+          path: rust/target
+          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
 
       - name: cargo clippy
         working-directory: ./rust
         run: cargo clippy --features ${{ matrix.features }} -- -D warnings
 
-  rustfmt:
-    name: rustfmt
+  test:
+    name: rust-test
     runs-on: ubuntu-latest
+
     strategy:
+      matrix:
+        features: [default]
       fail-fast: true
     steps:
       - uses: actions/checkout@master
 
-      - name: install nightly
+      - name: Install nightly
         uses: actions-rs/toolchain@v1
         with:
-            profile: minimal
-            toolchain: nightly
-            components: rustfmt
+          profile: minimal
+          toolchain: nightly
 
-      - name: cargo fmt
+      - name: Cache cargo registry
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cache cargo index
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cache cargo build
+        uses: actions/cache@v1
+        with:
+          path: rust/target
+          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build tests
         working-directory: ./rust
-        run: cargo fmt --all -- --check
+        env:
+          RUSTFLAGS: "-D warnings"
+        run: cargo test --features ${{ matrix.features }} --no-run
+
+      - name: Run unit tests
+        working-directory: ./rust
+        env:
+          RUSTFLAGS: "-D warnings"
+        run: cargo test --features ${{ matrix.features }}
+
+  smoke-test:
+    name: rust-smoke-test
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        features: [default]
+      fail-fast: true
+    steps:
+      - uses: actions/checkout@master
+
+      - name: Install nightly
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+
+      - name: Cache cargo registry
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cache cargo index
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cache cargo build
+        uses: actions/cache@v1
+        with:
+          path: rust/target
+          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Start docker-compose
+        working-directory: ./docker
+        run: docker-compose up -d
+
+      - name: Run smoke tests
+        working-directory: ./rust
+        env:
+          RUSTFLAGS: "-D warnings"
+        run: cargo test -- --test-threads=1 --ignored
+
+      - name: Stop docker-compose
+        working-directory: ./docker
+        run: docker-compose stop
