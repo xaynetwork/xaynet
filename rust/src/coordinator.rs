@@ -1,7 +1,7 @@
 use crate::{
     crypto::{generate_encrypt_key_pair, ByteObject, SigningKeySeed},
     mask::{Integers, Mask, MaskIntegers, MaskedModel},
-    message::{sum::SumMessage, sum2::Sum2Message, update::UpdateMessage, Tag},
+    message::{sum::SumMessage, sum2::Sum2Message, update::UpdateMessage},
     model::Model,
     storage::store::{Connection, RedisStore},
     CoordinatorPublicKey,
@@ -16,7 +16,6 @@ use crate::{
     SumParticipantPublicKey,
     UpdateParticipantPublicKey,
 };
-use async_trait::async_trait;
 use derive_more::{AsMut, AsRef};
 use futures::stream::{FuturesUnordered, StreamExt};
 use redis::RedisError;
@@ -241,7 +240,7 @@ impl Coordinator {
 
         tokio::select! {
             // A future that never resolves
-            _ = futures::future::pending() => {
+            _ = async {
                 loop {
                     self.limit_msg_processing.acquire().await.forget();
 
@@ -263,7 +262,7 @@ impl Coordinator {
 
                     tokio::spawn(async move { handler.run(fut).await });
                 }
-            }
+            } => {panic!("message sender dropped")}
             _ = counter_fut  => {
                 info!("sum phase complete");
             }
@@ -280,7 +279,7 @@ impl Coordinator {
         let (success_tx, counter_fut) = MsgCounter::new(self.state.min_update);
 
         tokio::select! {
-            _ = futures::future::pending() => {
+            _ = async {
                 loop {
                     self.limit_msg_processing.acquire().await.forget();
 
@@ -303,6 +302,8 @@ impl Coordinator {
 
                     tokio::spawn(async move { handler.run(fut).await });
                 }
+            } => {
+                panic!("message sender dropped")
             }
             _ = counter_fut  => {
                 info!("update phase complete");
@@ -319,7 +320,7 @@ impl Coordinator {
         let (success_tx, counter_fut) = MsgCounter::new(self.state.min_sum);
 
         tokio::select! {
-            _ = futures::future::pending() => {
+            _ = async {
                 loop {
                     self.limit_msg_processing.acquire().await.forget();
 
@@ -341,6 +342,8 @@ impl Coordinator {
 
                     tokio::spawn(async move { handler.run(fut).await });
                 }
+            } => {
+                panic!("message sender dropped")
             }
             _ = counter_fut  => {
                 info!("sum2 phase complete");
