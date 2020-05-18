@@ -5,7 +5,7 @@ services:
     volumes:
       - minio-data:/data
     networks:
-      - xain-fl-rs
+      - xain-fl
     environment:
       MINIO_ACCESS_KEY: minio
       MINIO_SECRET_KEY: minio123
@@ -19,7 +19,7 @@ services:
     volumes:
       - redis-data:/data
     networks:
-      - xain-fl-rs
+      - xain-fl
     ports:
       - "6379:6379"
 
@@ -28,4 +28,4 @@ volumes:
   redis-data:
 
 networks:
-  xain-fl-rs:
+  xain-fl:
