@@ -1,6 +1,7 @@
 use crate::{coordinator::RoundParameters, SumParticipantPublicKey};
 use derive_more::From;
 use std::{
+    collections::HashMap,
     pin::Pin,
     sync::Arc,
     task::{Context, Poll},
