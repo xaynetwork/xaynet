@@ -229,12 +229,18 @@ impl Coordinator {
         self.state.phase = Phase::Sum;
         self.set_state().await;
 
-        // We want to process messages concurrently as many as possible but we don't want to process more then required (min_sum)
-        //
+        // We want to process as many messages as possible at the same time but we don't want to
+        // process more than is necessary (min_sum).
+        // The important point here is, that we always have to "await" all spawned futures.
+        // If we do not await them, it can happen that the coordinator moves on to the next phase,
+        // and in the background, futures of the previous phase still change the data of the
+        // previous phase. This can lead to the fact that the local data status does not match
+        // the Redis data status.
         self.limit_msg_processing = Arc::new(Semaphore::new(self.state.min_sum));
         let (success_tx, counter_fut) = MsgCounter::new(self.state.min_sum);
 
         tokio::select! {
+            // A future that never resolves
             _ = futures::future::pending() => {
                 loop {
                     self.limit_msg_processing.acquire().await.forget();
@@ -267,7 +273,7 @@ impl Coordinator {
     /// End the sum phase and proceed to the update phase.
     async fn proceed_update_phase(&mut self) {
         info!("going to update phase");
-        //self.freeze_sum_dict();
+        self.freeze_sum_dict().await;
         self.state.phase = Phase::Update;
         self.set_state().await;
         self.limit_msg_processing = Arc::new(Semaphore::new(self.state.min_update));
@@ -374,26 +380,43 @@ impl Coordinator {
     }
 
     // Freeze the sum dictionary.
-    // fn freeze_sum_dict(&mut self) {
-    //     self.sum_phase_cache = Some(Arc::new(data));
-    // }
+    async fn freeze_sum_dict(&mut self) {
+        let sum_pks = self
+            .store
+            .clone()
+            .connection()
+            .await
+            .get_sum_pks()
+            .await
+            .unwrap();
+        self.sum_phase_cache = Some(Arc::new(SumPhaseCache(sum_pks)));
+    }
 
-    //// Freeze the mask dictionary.
-    // fn freeze_mask_dict(&self) -> Result<&Mask, RoundFailed> {
-    //     if self.mask_dict().is_empty() {
-    //         Err(RoundFailed::NoMask)
-    //     } else {
-    //         let (mask, _) = self.mask_dict().iter().fold(
-    //             (None, 0_usize),
-    //             |(unique_mask, unique_count), (mask, count)| match unique_count.cmp(count) {
-    //                 Ordering::Less => (Some(mask), *count),
-    //                 Ordering::Greater => (unique_mask, unique_count),
-    //                 Ordering::Equal => (None, unique_count),
-    //             },
-    //         );
-    //         mask.ok_or(RoundFailed::AmbiguousMasks)
-    //     }
-    // }
+    // Freeze the mask dictionary.
+    async fn freeze_mask_dict(&self) -> Result<Mask, RoundFailed> {
+        let mask_dict: Vec<(Mask, usize)> = self
+            .store
+            .clone()
+            .connection()
+            .await
+            .get_best_masks()
+            .await
+            .unwrap();
+
+        if mask_dict.is_empty() {
+            Err(RoundFailed::NoMask)
+        } else {
+            let (mask, _) = mask_dict.into_iter().fold(
+                (None, 0_usize),
+                |(unique_mask, unique_count), (mask, count)| match unique_count.cmp(&count) {
+                    Ordering::Less => (Some(mask), count),
+                    Ordering::Greater => (unique_mask, unique_count),
+                    Ordering::Equal => (None, unique_count),
+                },
+            );
+            mask.ok_or(RoundFailed::AmbiguousMasks)
+        }
+    }
 }
 
 // Counter to count how many messages were processed successfully.
@@ -614,7 +637,7 @@ impl SumPhaseCache {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 /// The local state of the coordinator
 pub struct CoordinatorState {
     // credentials
