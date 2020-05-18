@@ -13,8 +13,19 @@ services:
     ports:
       - "9000:9000"
 
+  redis:
+    image: redis:6.0.2 # Stable redis
+    hostname: redis
+    volumes:
+      - redis-data:/data
+    networks:
+      - xain-fl-rs
+    ports:
+      - "6379:6379"
+
 volumes:
   minio-data:
+  redis-data:
 
 networks:
   xain-fl-rs:
