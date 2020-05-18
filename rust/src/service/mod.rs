@@ -1,5 +1,5 @@
 use crate::{
-    coordinator::{Coordinator, Coordinators, MaskCoordinators, RoundParameters},
+    coordinator::{Coordinator, RoundParameters},
     InitError,
 };
 use derive_more::From;
@@ -9,10 +9,11 @@ use std::{
     pin::Pin,
     task::{Context, Poll},
 };
-use tokio::stream::Stream;
+use tokio::{stream::Stream, sync::mpsc::UnboundedSender};
 
 mod data;
 mod handle;
+use crate::storage::store::RedisStore;
 
 pub use data::Data;
 pub use handle::{
@@ -31,7 +32,7 @@ pub use handle::{
 pub struct Service {
     /// The coordinator holds the protocol state: crypto material, sum
     /// and update dictionaries, configuration, etc.
-    coordinator: Coordinator<f32>, // todo: implement a choice for data types
+    msg_tx: UnboundedSender<std::vec::Vec<u8>>, // todo: implement a choice for data types
 
     /// Events to handle
     events: EventStream,
@@ -43,11 +44,12 @@ pub struct Service {
 impl Service {
     /// Instantiate a new [`Service`] and return it along with the
     /// corresponding [`Handle`].
-    pub fn new() -> Result<(Self, Handle), InitError> {
+    pub fn new(msg_tx: UnboundedSender<std::vec::Vec<u8>>) -> Result<(Self, Handle), InitError> {
         let (handle, events) = Handle::new();
+
         let service = Self {
             events,
-            coordinator: Coordinator::<f32>::new()?,
+            msg_tx,
             data: Data::new(),
         };
         Ok((service, handle))
@@ -89,17 +91,17 @@ impl Service {
     /// Dequeue all the events produced by the coordinator, and handle
     /// them
     fn process_protocol_events(&mut self) {
-        while let Some(event) = self.coordinator.next_event() {
-            if let Err(e) = self.data.update(event) {
-                error!(error = %e, "failed to update the service state, cancelling current round");
-                self.coordinator.reset();
-            }
-        }
+        // while let Some(event) = self.coordinator.next_event() {
+        //     if let Err(e) = self.data.update(event) {
+        //         error!(error = %e, "failed to update the service state, cancelling current round");
+        //         self.coordinator.reset();
+        //     }
+        // }
     }
 
     /// Handle a message
     fn handle_message(&mut self, buffer: Vec<u8>) {
-        let _ = self.coordinator.handle_message(&buffer[..]);
+        let _ = self.msg_tx.send(buffer);
     }
 
     /// Handle the incoming requests.

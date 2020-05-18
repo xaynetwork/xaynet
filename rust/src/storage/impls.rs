@@ -1,7 +1,7 @@
 use crate::{
     coordinator::{CoordinatorState, RoundSeed},
     crypto::{self, ByteObject},
-    mask::seed::EncryptedMaskSeed,
+    mask::{seed::EncryptedMaskSeed, Mask},
 };
 use redis::{ErrorKind, FromRedisValue, RedisError, RedisResult, RedisWrite, ToRedisArgs, Value};
 

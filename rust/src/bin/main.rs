@@ -62,7 +62,7 @@ async fn main() {
     let now = Instant::now();
 
     for (pk, epk) in sum_dict_entries {
-        let fut = store
+        let fut: u32 = store
             .clone()
             .connection()
             .await

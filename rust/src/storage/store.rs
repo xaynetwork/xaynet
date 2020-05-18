@@ -1,19 +1,18 @@
 use crate::{
     coordinator::CoordinatorState,
+    mask::Mask,
     EncryptedMaskSeed,
     LocalSeedDict,
-    MaskHash,
     SumDict,
     SumParticipantEphemeralPublicKey,
     SumParticipantPublicKey,
     UpdateParticipantPublicKey,
 };
 
+use crate::mask::Integers;
 use redis::{aio::MultiplexedConnection, AsyncCommands, Client, RedisError, RedisResult};
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
-
-pub type MaskDict = HashMap<MaskHash, usize>;
 
 #[derive(Clone)]
 pub struct RedisStore {
@@ -50,7 +49,7 @@ impl RedisStore {
 
 impl Connection {
     pub async fn get_coordinator_state(mut self) -> Result<Option<CoordinatorState>, RedisError> {
-        self.connection.get("coordinator_state").await
+        self.connection.get("coordinator_round_state").await
     }
 
     pub async fn set_coordinator_state(
@@ -74,11 +73,8 @@ impl Connection {
         pk: SumParticipantPublicKey,
         ephm_pk: SumParticipantEphemeralPublicKey,
     ) -> Result<usize, RedisError> {
-        redis::pipe()
-            .hset("sum_dict", pk, ephm_pk)
-            .hlen("sum_dict")
-            .query_async(&mut self.connection)
-            .await
+        let result = self.connection.hset_nx("sum_dict", pk, ephm_pk).await;
+        result
     }
 
     /// Retrieve [`SeedDict`] entry for the given sum participant
@@ -91,6 +87,32 @@ impl Connection {
         Ok(result.into_iter().collect())
     }
 
+    /// Return the length of the [`SumDict`].
+    pub async fn remove_sum_dict_entry(
+        mut self,
+        pk: SumParticipantPublicKey,
+    ) -> Result<usize, RedisError> {
+        self.connection.hdel("sum_dict", pk).await
+    }
+
+    /// Return the length of the [`SumDict`].
+    pub async fn get_sum_dict_len(mut self) -> Result<usize, RedisError> {
+        self.connection.hlen("sum_dict").await
+    }
+
+    /// Check if all given sum_pk exist in the [`SumDict`].
+    pub async fn are_sum_pks_in_sum_dict(
+        mut self,
+        sum_pks: impl IntoIterator<Item = &SumParticipantPublicKey>,
+    ) -> Result<bool, RedisError> {
+        let mut pipe = redis::pipe();
+        for sum_pk in sum_pks {
+            pipe.hexists("sum_dict", sum_pk);
+        }
+        let result: Vec<u8> = pipe.atomic().query_async(&mut self.connection).await?;
+        Ok(result.into_iter().all(|contains| contains == 1))
+    }
+
     /// Update the [`SeedDict`] with the seeds from the given update
     /// participant, and return the number of participants that
     /// already submitted an update.
@@ -98,27 +120,38 @@ impl Connection {
         mut self,
         update_pk: UpdateParticipantPublicKey,
         update: LocalSeedDict,
-    ) -> Result<usize, RedisError> {
+    ) -> Result<(), RedisError> {
         let mut pipe = redis::pipe();
         pipe.sadd("update_participants", update_pk);
         for (sum_pk, encr_seed) in update {
-            pipe.hset(sum_pk, update_pk, encr_seed);
+            pipe.hset_nx(sum_pk, update_pk, encr_seed);
         }
-        pipe.scard("update_participants");
         pipe.atomic().query_async(&mut self.connection).await
     }
 
-    /// Update the [`MaskDict`] with the given mask hash and return
-    /// the updated mask dictionary.
-    // pub async fn incr_mask_count(mut self, mask: MaskHash) -> Result<MaskDict, RedisError> {
-    //     let result: Vec<(MaskHash, usize)> = redis::pipe()
-    //         .atomic()
-    //         .zadd("mask_dict", mask, 1_usize)
-    //         .zrange_withscores("mask_dict", 0, isize::MAX)
-    //         .query_async(&mut self.connection)
-    //         .await?;
-    //     Ok(result.into_iter().collect())
-    // }
+    // Update the [`MaskDict`] with the given mask hash and return
+    // the updated mask dictionary.
+    pub async fn incr_mask_count(mut self, mask: Mask) -> Result<(), RedisError> {
+        redis::pipe()
+            .zincr("mask_dict", mask.serialize(), 1_usize)
+            .query_async(&mut self.connection)
+            .await?;
+        Ok(())
+    }
+
+    // Update the [`MaskDict`] with the given mask hash and return
+    // the updated mask dictionary.
+    pub async fn get_best_masks(mut self) -> Result<Vec<(Mask, usize)>, RedisError> {
+        let result: Vec<(Vec<u8>, usize)> = redis::pipe()
+            // return the two masks with the highest score
+            .zrevrange_withscores("mask_dict", 0, 1)
+            .query_async(&mut self.connection)
+            .await?;
+        Ok(result
+            .into_iter()
+            .map(|(mask, count)| (Mask::deserialize(&mask).unwrap(), count))
+            .collect())
+    }
 
     pub async fn schedule_snapshot(mut self) -> RedisResult<()> {
         redis::cmd("BGSAVE")
