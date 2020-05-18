@@ -62,15 +62,15 @@ impl Connection {
         self.connection.set("coordinator_state", state).await
     }
 
-    /// Retrieve the enties [`SumDict`]
+    /// Retrieve the entries [`SumDict`]
     pub async fn get_sum_dict(mut self) -> Result<SumDict, RedisError> {
         let result: Vec<(SumParticipantPublicKey, SumParticipantEphemeralPublicKey)> =
             self.connection.hgetall("sum_dict").await?;
         Ok(result.into_iter().collect())
     }
 
-    /// Store a new [`SumDict`] entry and return the updated number of
-    /// entries in the sum dictionary.
+    /// Store a new [`SumDict`] entry.
+    /// Returns `1` if field is a new and `0` if field already exists.
     pub async fn add_sum_participant(
         mut self,
         pk: SumParticipantPublicKey,
@@ -80,7 +80,8 @@ impl Connection {
         result
     }
 
-    /// Remove a entry in the [`SumDict`].
+    /// Remove an entry in the [`SumDict`].
+    /// Returns `1` if field was deleted and `0` if field does not exists.
     pub async fn remove_sum_dict_entry(
         mut self,
         pk: SumParticipantPublicKey,
@@ -117,15 +118,15 @@ impl Connection {
         update: LocalSeedDict,
     ) -> Result<(), RedisError> {
         let mut pipe = redis::pipe();
-        pipe.sadd("update_participants", update_pk);
+        pipe.sadd("update_participants", update_pk).ignore();
         for (sum_pk, encr_seed) in update {
-            pipe.hset_nx(sum_pk, update_pk, encr_seed);
+            pipe.hset_nx(sum_pk, update_pk, encr_seed).ignore();
         }
         pipe.atomic().query_async(&mut self.connection).await
     }
 
-    /// Update the [`MaskDict`] with the given mask hash and return
-    /// the updated mask dictionary.
+    /// Update the [`MaskDict`] with the given mask.
+    /// The score/counter of the given mask is incremented by `1`.
     pub async fn incr_mask_count(mut self, mask: Mask) -> Result<(), RedisError> {
         redis::pipe()
             .zincr("mask_dict", mask.serialize(), 1_usize)
@@ -134,9 +135,7 @@ impl Connection {
         Ok(())
     }
 
-    /// Update the [`MaskDict`] with the given mask hash and return
-    /// the updated mask dictionary.
-    // return the two masks with the highest score
+    /// Retrieve the two masks with the highest score.
     pub async fn get_best_masks(mut self) -> Result<Vec<(Mask, usize)>, RedisError> {
         let result: Vec<(Vec<u8>, usize)> = self
             .connection
@@ -337,14 +336,27 @@ mod tests {
             let (epk, _) = generate_encrypt_key_pair();
             entries.push((pk.clone(), epk.clone()));
 
-            store
+            let add = store
                 .clone()
                 .connection()
                 .await
                 .add_sum_participant(pk, epk)
                 .await
                 .unwrap();
+            assert_eq!(add, 1)
         }
+
+        let (pk, epk) = entries.iter().next().unwrap();
+
+        let duplicate = store
+            .clone()
+            .connection()
+            .await
+            .add_sum_participant(*pk, *epk)
+            .await
+            .unwrap();
+
+        assert_eq!(duplicate, 0);
 
         let len = store
             .clone()
