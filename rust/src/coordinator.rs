@@ -32,8 +32,17 @@ use std::{
     future::Future,
     pin::Pin,
     sync::{Arc, Mutex},
+    task::{Context, Poll},
 };
-use tokio::task::JoinHandle;
+use tokio::{
+    sync::{
+        broadcast,
+        mpsc,
+        mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
+        Semaphore,
+    },
+    task::JoinHandle,
+};
 
 /// Error that occurs when the current round fails
 #[derive(Debug, Eq, PartialEq)]
@@ -112,25 +121,26 @@ impl RoundSeed {
 
 /// A coordinator in the PET protocol layer.
 pub struct Coordinator {
-    // round parameters
+    // Local coordinator
     state: CoordinatorState,
 
-    // redis store
+    // Redis store
     store: RedisStore,
 
-    // Phase caches
+    // Caches
     validation_cache: Option<Arc<ValidationCache>>,
     sum_phase_cache: Option<Arc<SumPhaseCache>>,
 
     // Message receiver
-    msg_rx: tokio::sync::mpsc::UnboundedReceiver<Vec<u8>>,
+    msg_rx: UnboundedReceiver<Vec<u8>>,
+
+    // Semaphore to limit the messages that can run concurrently
+    limit_msg_processing: Arc<Semaphore>,
 }
 
 impl Coordinator {
     /// Create a coordinator. Fails if there is insufficient system entropy to generate secrets.
-    pub async fn new(
-        store: RedisStore,
-    ) -> Result<(tokio::sync::mpsc::UnboundedSender<Vec<u8>>, Self), InitError> {
+    pub async fn new(store: RedisStore) -> Result<(UnboundedSender<Vec<u8>>, Self), InitError> {
         // crucial: init must be called before anything else in this module
         sodiumoxide::init().or(Err(InitError))?;
 
@@ -140,7 +150,7 @@ impl Coordinator {
             ..Default::default()
         };
 
-        let (msg_tx, msg_rx) = tokio::sync::mpsc::unbounded_channel::<Vec<u8>>();
+        let (msg_tx, msg_rx) = unbounded_channel::<Vec<u8>>();
 
         let c = Self {
             state: coordinator_state.clone(),
@@ -150,8 +160,10 @@ impl Coordinator {
             ))),
             sum_phase_cache: None,
             msg_rx,
+            limit_msg_processing: Arc::new(Semaphore::new(0)),
         };
 
+        c.clear_redis_state().await;
         c.set_state().await;
 
         Ok((msg_tx, c))
@@ -166,17 +178,291 @@ impl Coordinator {
         self.sum_phase_cache.clone()
     }
 
+    /// Generate fresh round credentials.
+    fn gen_round_keypair(&mut self) {
+        let (pk, sk) = generate_encrypt_key_pair();
+        self.state.pk = pk;
+        self.state.sk = sk;
+    }
+
+    /// Update the round threshold parameters (dummy).
+    fn update_round_thresholds(&self) {}
+
+    /// Update the seed round parameter.
+    fn update_round_seed(&mut self) {
+        // safe unwrap: `sk` and `seed` have same number of bytes
+        let (_, sk) = SigningKeySeed::from_slice_unchecked(self.state.sk.as_slice())
+            .derive_signing_key_pair();
+        let signature = sk.sign_detached(
+            &[
+                self.state.seed.as_slice(),
+                &self.state.sum.to_le_bytes(),
+                &self.state.update.to_le_bytes(),
+            ]
+            .concat(),
+        );
+        // safe unwrap: length of slice is guaranteed by constants
+        self.state.seed =
+            RoundSeed::from_slice_unchecked(sha256::hash(signature.as_slice()).as_ref());
+    }
+
+    /// Prepare the coordinator for a new round and go back to the initial phase.
+    async fn start_new_round(&mut self) {
+        self.clear_redis_state().await; // remove only the dicts
+        self.update_round_thresholds();
+        self.update_round_seed();
+        self.state.phase = Phase::Idle;
+        self.set_state().await;
+        self.sum_phase_cache = None;
+    }
+
+    /// End the sum2 phase and proceed to the idle phase to end the round.
+    async fn proceed_idle_phase(&mut self) {
+        info!("going to idle phase");
+        self.start_new_round().await;
+    }
+
+    /// End the idle phase and proceed to the sum phase to start the round.
+    async fn proceed_sum_phase(&mut self) {
+        info!("going to sum phase");
+        self.gen_round_keypair();
+        self.state.phase = Phase::Sum;
+        self.set_state().await;
+
+        // We want to process messages concurrently as many as possible but we don't want to process more then required (min_sum)
+        //
+        self.limit_msg_processing = Arc::new(Semaphore::new(self.state.min_sum));
+        let (success_tx, counter_fut) = MsgCounter::new(self.state.min_sum);
+
+        tokio::select! {
+            _ = futures::future::pending() => {
+                loop {
+                    self.limit_msg_processing.acquire().await.forget();
+
+                    let msg = match self.msg_rx.recv().await {
+                        Some(mgs) => mgs,
+                        None => return,
+                    };
+
+                    let fut = MsgHandler::handle_sum_message(
+                        self.store.clone().connection().await,
+                        self.validation_cache().unwrap(),
+                        msg,
+                    );
+
+                    let handler = MsgHandler {
+                        success_tx: success_tx.clone(),
+                        limit_msg_processing: self.limit_msg_processing.clone(),
+                    };
+
+                    tokio::spawn(async move { handler.run(fut).await });
+                }
+            }
+            _ = counter_fut  => {
+                info!("sum phase complete");
+            }
+        }
+    }
+
+    /// End the sum phase and proceed to the update phase.
+    async fn proceed_update_phase(&mut self) {
+        info!("going to update phase");
+        //self.freeze_sum_dict();
+        self.state.phase = Phase::Update;
+        self.set_state().await;
+        self.limit_msg_processing = Arc::new(Semaphore::new(self.state.min_update));
+        let (success_tx, counter_fut) = MsgCounter::new(self.state.min_update);
+
+        tokio::select! {
+            _ = futures::future::pending() => {
+                loop {
+                    self.limit_msg_processing.acquire().await.forget();
+
+                    let msg = match self.msg_rx.recv().await {
+                        Some(mgs) => mgs,
+                        None => return,
+                    };
+
+                    let fut = MsgHandler::handle_update_message(
+                        self.store.clone().connection().await,
+                        self.validation_cache().unwrap(),
+                        self.sum_phase_cache().unwrap(),
+                        msg,
+                    );
+
+                    let handler = MsgHandler {
+                        success_tx: success_tx.clone(),
+                        limit_msg_processing: self.limit_msg_processing.clone(),
+                    };
+
+                    tokio::spawn(async move { handler.run(fut).await });
+                }
+            }
+            _ = counter_fut  => {
+                info!("update phase complete");
+            }
+        }
+    }
+
+    /// End the update phase and proceed to the sum2 phase.
+    async fn proceed_sum2_phase(&mut self) {
+        info!("going to sum2 phase");
+        self.state.phase = Phase::Sum2;
+        self.set_state().await;
+        self.limit_msg_processing = Arc::new(Semaphore::new(self.state.min_sum));
+        let (success_tx, counter_fut) = MsgCounter::new(self.state.min_sum);
+
+        tokio::select! {
+            _ = futures::future::pending() => {
+                loop {
+                    self.limit_msg_processing.acquire().await.forget();
+
+                    let msg = match self.msg_rx.recv().await {
+                        Some(mgs) => mgs,
+                        None => return,
+                    };
+
+                    let fut = MsgHandler::handle_sum2_message(
+                        self.store.clone(),
+                        self.validation_cache().unwrap(),
+                        msg,
+                    );
+
+                    let handler = MsgHandler {
+                        success_tx: success_tx.clone(),
+                        limit_msg_processing: self.limit_msg_processing.clone(),
+                    };
+
+                    tokio::spawn(async move { handler.run(fut).await });
+                }
+            }
+            _ = counter_fut  => {
+                info!("sum2 phase complete");
+            }
+        }
+    }
+
+    /// Write the local state in redis
+    async fn set_state(&self) {
+        self.store
+            .clone()
+            .connection()
+            .await
+            .set_coordinator_state(self.state.clone())
+            .await
+            .unwrap();
+    }
+
+    /// Clear the round dictionaries.
+    async fn clear_redis_state(&self) {
+        self.store
+            .clone()
+            .connection()
+            .await
+            .flushdb()
+            .await
+            .unwrap();
+    }
+
+    pub async fn run(&mut self) {
+        loop {
+            self.proceed_sum_phase().await;
+            self.proceed_update_phase().await;
+            self.proceed_sum2_phase().await;
+            self.proceed_idle_phase().await;
+        }
+    }
+
+    // Freeze the sum dictionary.
+    // fn freeze_sum_dict(&mut self) {
+    //     self.sum_phase_cache = Some(Arc::new(data));
+    // }
+
+    //// Freeze the mask dictionary.
+    // fn freeze_mask_dict(&self) -> Result<&Mask, RoundFailed> {
+    //     if self.mask_dict().is_empty() {
+    //         Err(RoundFailed::NoMask)
+    //     } else {
+    //         let (mask, _) = self.mask_dict().iter().fold(
+    //             (None, 0_usize),
+    //             |(unique_mask, unique_count), (mask, count)| match unique_count.cmp(count) {
+    //                 Ordering::Less => (Some(mask), *count),
+    //                 Ordering::Greater => (unique_mask, unique_count),
+    //                 Ordering::Equal => (None, unique_count),
+    //             },
+    //         );
+    //         mask.ok_or(RoundFailed::AmbiguousMasks)
+    //     }
+    // }
+}
+
+// Counter to count how many messages were processed successfully.
+// The MsgCounter is a future that is resolved when `min` messages have been received.
+struct MsgCounter {
+    min: usize,
+    current: usize,
+    success_rx: UnboundedReceiver<()>,
+}
+
+impl MsgCounter {
+    fn new(min: usize) -> (UnboundedSender<()>, Self) {
+        let (success_tx, success_rx) = unbounded_channel();
+        (
+            success_tx,
+            Self {
+                min,
+                current: 0,
+                success_rx,
+            },
+        )
+    }
+}
+
+impl Future for MsgCounter {
+    type Output = ();
+    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        let pin = self.get_mut();
+
+        if let Poll::Ready(_) = pin.success_rx.poll_next_unpin(cx) {
+            pin.current += 1;
+        }
+
+        if pin.current == pin.min {
+            Poll::Ready(())
+        } else {
+            Poll::Pending
+        }
+    }
+}
+
+struct MsgHandler {
+    success_tx: UnboundedSender<()>,
+    limit_msg_processing: Arc<Semaphore>,
+}
+
+impl MsgHandler {
+    pub async fn run<T>(&self, task: T)
+    where
+        T: Future<Output = Result<(), PetError>> + Send + 'static,
+        T::Output: Send + 'static,
+    {
+        match task.await {
+            Ok(_) => {
+                let _ = self.success_tx.send(());
+            }
+            Err(_) => self.limit_msg_processing.add_permits(1),
+        };
+    }
     /// Validate and handle a sum message.
     async fn handle_sum_message(
         redis: Connection,
         validation_cache: Arc<ValidationCache>,
         bytes: Vec<u8>,
-    ) -> Result<Tag, PetError> {
+    ) -> Result<(), PetError> {
         let msg = SumMessage::open(&bytes[..], &validation_cache.pk, &validation_cache.sk)?;
         msg.certificate().validate()?;
-        Coordinator::validate_sum_task(validation_cache, msg.sum_signature(), msg.pk())?;
-        Coordinator::add_sum_participant(redis, msg.pk(), msg.ephm_pk()).await?;
-        Ok(Tag::Sum)
+        MsgHandler::validate_sum_task(validation_cache, msg.sum_signature(), msg.pk())?;
+        MsgHandler::add_sum_participant(redis, msg.pk(), msg.ephm_pk()).await
     }
 
     /// Validate a sum signature and its implied task.
@@ -216,17 +502,16 @@ impl Coordinator {
         validation_cache: Arc<ValidationCache>,
         sum_cache: Arc<SumPhaseCache>,
         bytes: Vec<u8>,
-    ) -> Result<Tag, PetError> {
+    ) -> Result<(), PetError> {
         let msg = UpdateMessage::open(&bytes[..], &validation_cache.pk, &validation_cache.sk)?;
         msg.certificate().validate()?;
-        Coordinator::validate_update_task(
+        MsgHandler::validate_update_task(
             validation_cache,
             msg.sum_signature(),
             msg.update_signature(),
             msg.pk(),
         )?;
-        Coordinator::add_local_seed_dict(redis, sum_cache, msg.pk(), msg.local_seed_dict()).await?;
-        Ok(Tag::Update)
+        MsgHandler::add_local_seed_dict(redis, sum_cache, msg.pk(), msg.local_seed_dict()).await
     }
 
     /// Validate an update signature and its implied task.
@@ -278,12 +563,11 @@ impl Coordinator {
         redis: RedisStore,
         validation_cache: Arc<ValidationCache>,
         bytes: Vec<u8>,
-    ) -> Result<Tag, PetError> {
+    ) -> Result<(), PetError> {
         let msg = Sum2Message::open(&bytes[..], &validation_cache.pk, &validation_cache.sk)?;
         msg.certificate().validate()?;
-        Coordinator::validate_sum_task(validation_cache, msg.sum_signature(), msg.pk())?;
-        Coordinator::add_mask(redis, msg.pk(), msg.mask()).await?;
-        Ok(Tag::Sum2)
+        MsgHandler::validate_sum_task(validation_cache, msg.sum_signature(), msg.pk())?;
+        MsgHandler::add_mask(redis, msg.pk(), msg.mask()).await
     }
 
     /// Add a mask to the mask dictionary. Fails if the sum participant didn't register in the sum
@@ -293,15 +577,17 @@ impl Coordinator {
         pk: &SumParticipantPublicKey,
         mask: &Mask,
     ) -> Result<(), PetError> {
-        if let Ok(_) | Err(_) = redis
+        match redis
             .clone()
             .connection()
             .await
             .remove_sum_dict_entry(*pk)
             .await
         {
+            // field was deleted
+            Ok(1) => (),
             // field does not exist or redis err
-            return Err(PetError::InvalidMessage);
+            Ok(_) | Err(_) => return Err(PetError::InvalidMessage),
         }
 
         redis
@@ -311,233 +597,11 @@ impl Coordinator {
             .await
             .map_err(|_| PetError::InvalidMessage)
     }
-
-    /// Clear the round dictionaries.
-    async fn clear_round_dicts(&self) {
-        self.store
-            .clone()
-            .connection()
-            .await
-            .flushdb()
-            .await
-            .unwrap();
-    }
-
-    /// Generate fresh round credentials.
-    fn gen_round_keypair(&mut self) {
-        let (pk, sk) = generate_encrypt_key_pair();
-        self.state.pk = pk;
-        self.state.sk = sk;
-    }
-
-    /// Update the round threshold parameters (dummy).
-    fn update_round_thresholds(&self) {}
-
-    /// Update the seed round parameter.
-    fn update_round_seed(&mut self) {
-        // safe unwrap: `sk` and `seed` have same number of bytes
-        let (_, sk) = SigningKeySeed::from_slice_unchecked(self.state.sk.as_slice())
-            .derive_signing_key_pair();
-        let signature = sk.sign_detached(
-            &[
-                self.state.seed.as_slice(),
-                &self.state.sum.to_le_bytes(),
-                &self.state.update.to_le_bytes(),
-            ]
-            .concat(),
-        );
-        // safe unwrap: length of slice is guaranteed by constants
-        self.state.seed =
-            RoundSeed::from_slice_unchecked(sha256::hash(signature.as_slice()).as_ref());
-    }
-
-    /// Prepare the coordinator for a new round and go back to the initial phase.
-    async fn start_new_round(&mut self) {
-        self.clear_round_dicts().await;
-        self.update_round_thresholds();
-        self.update_round_seed();
-        self.state.phase = Phase::Idle;
-        self.set_state().await;
-        self.sum_phase_cache = None;
-    }
-
-    /// End the sum2 phase and proceed to the idle phase to end the round.
-    async fn proceed_idle_phase(&mut self) {
-        info!("going to idle phase");
-        self.start_new_round().await;
-    }
-
-    /// End the idle phase and proceed to the sum phase to start the round.
-    async fn proceed_sum_phase(&mut self) {
-        info!("going to sum phase");
-        self.gen_round_keypair();
-        self.state.phase = Phase::Sum;
-        self.set_state().await;
-    }
-
-    /// End the sum phase and proceed to the update phase.
-    async fn proceed_update_phase(&mut self) {
-        info!("going to update phase");
-        //self.freeze_sum_dict();
-        self.state.phase = Phase::Update;
-        self.set_state().await;
-    }
-
-    /// End the update phase and proceed to the sum2 phase.
-    async fn proceed_sum2_phase(&mut self) {
-        info!("going to sum2 phase");
-        self.state.phase = Phase::Sum2;
-        self.set_state().await;
-    }
-
-    async fn set_state(&self) {
-        self.store
-            .clone()
-            .connection()
-            .await
-            .set_coordinator_state(self.state.clone())
-            .await
-            .unwrap();
-    }
-
-    /// Check whether enough sum participants submitted their ephemeral keys to start the update
-    /// phase.
-    fn has_enough_sums(&self) -> bool {
-        self.state.sum_msg >= self.state.min_sum
-    }
-
-    /// Check whether enough update participants submitted their models and seeds to start the sum2
-    /// phase.
-    fn has_enough_seeds(&self) -> bool {
-        self.state.update_msg >= self.state.min_update
-    }
-
-    /// Check whether enough sum participants submitted their masks to start the idle phase.
-    fn has_enough_masks(&self) -> bool {
-        self.state.mask_msg >= self.state.min_sum
-    }
-
-    /// Transition to the next phase if the protocol conditions are satisfied.
-    async fn try_phase_transition(&mut self) {
-        match self.state.phase {
-            Phase::Idle => {
-                self.proceed_sum_phase().await;
-            }
-            Phase::Sum => {
-                if self.has_enough_sums() {
-                    self.proceed_update_phase().await;
-                }
-            }
-            Phase::Update => {
-                if self.has_enough_seeds() {
-                    self.proceed_sum2_phase().await;
-                }
-            }
-            Phase::Sum2 => {
-                if self.has_enough_masks() {
-                    self.proceed_idle_phase().await;
-                }
-            }
-        }
-    }
-
-    // Cancel the current round and restart a new one.
-    // async fn reset(&mut self) {
-    //     self.start_new_round().await;
-    // }
-
-    // Freeze the sum dictionary.
-    // fn freeze_sum_dict(&mut self) {
-    //     self.sum_phase_cache = Some(Arc::new(data));
-    // }
-
-    //// Freeze the mask dictionary.
-    // fn freeze_mask_dict(&self) -> Result<&Mask, RoundFailed> {
-    //     if self.mask_dict().is_empty() {
-    //         Err(RoundFailed::NoMask)
-    //     } else {
-    //         let (mask, _) = self.mask_dict().iter().fold(
-    //             (None, 0_usize),
-    //             |(unique_mask, unique_count), (mask, count)| match unique_count.cmp(count) {
-    //                 Ordering::Less => (Some(mask), *count),
-    //                 Ordering::Greater => (unique_mask, unique_count),
-    //                 Ordering::Equal => (None, unique_count),
-    //             },
-    //         );
-    //         mask.ok_or(RoundFailed::AmbiguousMasks)
-    //     }
-    // }
-
-    // fn round_parameters(&self) -> RoundParameters {
-    //     RoundParameters {
-    //         pk: *self.pk(),
-    //         sum: *self.sum(),
-    //         update: *self.update(),
-    //         seed: self.seed().clone(),
-    //     }
-    // }
 }
-
-async fn coordinator_runner(mut coordinator: Coordinator) {
-    let mut futures = FuturesUnordered::<JoinHandle<Result<Tag, PetError>>>::new();
-    let mut batch_counter: u32 = 0;
-    loop {
-        let msg = match coordinator.msg_rx.recv().await {
-            Some(mgs) => mgs,
-            None => return,
-        };
-
-        match coordinator.state.phase {
-            Phase::Idle => continue,
-            Phase::Sum => {
-                let fut = Coordinator::handle_sum_message(
-                    coordinator.store.clone().connection().await,
-                    coordinator.validation_cache().unwrap(),
-                    msg,
-                );
-                futures.push(tokio::spawn(fut));
-            }
-            Phase::Update => {
-                let fut = Coordinator::handle_update_message(
-                    coordinator.store.clone().connection().await,
-                    coordinator.validation_cache().unwrap(),
-                    coordinator.sum_phase_cache().unwrap(),
-                    msg,
-                );
-                futures.push(tokio::spawn(fut));
-            }
-            Phase::Sum2 => {
-                let fut = Coordinator::handle_sum2_message(
-                    coordinator.store.clone(),
-                    coordinator.validation_cache().unwrap(),
-                    msg,
-                );
-                futures.push(tokio::spawn(fut));
-            }
-        };
-
-        batch_counter = batch_counter + 1;
-
-        if batch_counter == 100 {
-            // wait for all the requests to finish
-            loop {
-                match futures.next().await {
-                    Some(Ok(Ok(tag))) => match tag {
-                        Tag::Sum => coordinator.state.sum_msg += 1,
-                        Tag::Update => coordinator.state.update_msg += 1,
-                        Tag::Sum2 => coordinator.state.mask_msg += 1,
-                        _ => unreachable!(),
-                    },
-                    None => break,
-                    _ => continue,
-                }
-            }
-        }
-    }
-}
-
 
 #[derive(Clone)]
+/// A cache that contains the sum_pk of the current sum phase.
+/// The cache is used to validate update messages.
 struct SumPhaseCache(HashSet<SumParticipantPublicKey>);
 
 impl SumPhaseCache {
@@ -551,21 +615,20 @@ impl SumPhaseCache {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+/// The local state of the coordinator
 pub struct CoordinatorState {
+    // credentials
     pk: CoordinatorPublicKey,
     sk: CoordinatorSecretKey,
+
+    // round parameters
     sum: f64,
     update: f64,
     seed: RoundSeed,
     min_sum: usize,
     min_update: usize,
     phase: Phase,
-    sum_msg: usize,
-    update_msg: usize,
-    mask_msg: usize,
 }
-
-impl CoordinatorState {}
 
 impl Default for CoordinatorState {
     fn default() -> Self {
@@ -578,14 +641,12 @@ impl Default for CoordinatorState {
             min_sum: 1_usize,
             min_update: 3_usize,
             phase: Phase::Idle,
-            sum_msg: 0,
-            update_msg: 0,
-            mask_msg: 0,
         }
     }
 }
 
 #[derive(Clone)]
+/// A cache that contains all the values ​​necessary to validate messages.
 pub struct ValidationCache {
     pk: CoordinatorPublicKey,
     sk: CoordinatorSecretKey,

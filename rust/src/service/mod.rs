@@ -1,5 +1,6 @@
 use crate::{
     coordinator::{Coordinator, RoundParameters},
+    storage::store::RedisStore,
     InitError,
 };
 use derive_more::From;
@@ -13,7 +14,6 @@ use tokio::{stream::Stream, sync::mpsc::UnboundedSender};
 
 mod data;
 mod handle;
-use crate::storage::store::RedisStore;
 
 pub use data::Data;
 pub use handle::{
