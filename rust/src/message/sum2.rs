@@ -51,6 +51,7 @@ impl TryFrom<Vec<u8>> for Sum2MessageBuffer<Vec<u8>> {
 
     /// Create a sum2 message buffer from `bytes`. Fails if the length of the input is invalid.
     fn try_from(bytes: Vec<u8>) -> Result<Self, Self::Error> {
+        #[allow(clippy::reversed_empty_ranges)]
         let mut buffer = Self {
             bytes,
             certificate_range: 0..0,

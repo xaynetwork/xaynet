@@ -55,7 +55,7 @@ pub trait Integers: Sized {
         if bytes.len() < 4 {
             return Err(Self::error_value());
         }
-        let config = MaskConfig::deserialize(&bytes[..4]).or_else(|_| Err(Self::error_value()))?;
+        let config = MaskConfig::deserialize(&bytes[..4]).map_err(|_| Self::error_value())?;
         let element_len = config.element_len();
         if bytes[4..].len() % element_len != 0 {
             return Err(Self::error_value());
