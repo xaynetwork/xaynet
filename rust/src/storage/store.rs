@@ -170,16 +170,16 @@ impl Connection {
         let mut pipe = redis::pipe();
 
         // delete sum_dict
-        pipe.del("sum_dict");
+        pipe.del("sum_dict").ignore();
 
         //delete seed_dict
-        pipe.del("update_participants");
+        pipe.del("update_participants").ignore();
         for sum_pk in sum_pks {
-            pipe.del(sum_pk);
+            pipe.del(sum_pk).ignore();
         }
 
         //delete mask_dict
-        pipe.del("mask_dict");
+        pipe.del("mask_dict").ignore();
         pipe.atomic().query_async(&mut self.connection).await
     }
 }
@@ -392,5 +392,15 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(sum_dict.len(), 1);
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn test_flush_dicts_return() {
+        let store = create_store().await;
+        store.clone().connection().await.flushdb().await.unwrap();
+
+        let res = store.clone().connection().await.flushdb().await;
+        assert!(res.is_ok())
     }
 }
