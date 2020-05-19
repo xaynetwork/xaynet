@@ -239,7 +239,6 @@ impl Coordinator {
         let (success_tx, counter_fut) = MsgCounter::new(self.state.min_sum);
 
         tokio::select! {
-            // A future that never resolves
             _ = async {
                 loop {
                     self.limit_msg_processing.acquire().await.forget();
