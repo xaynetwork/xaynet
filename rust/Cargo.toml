@@ -44,5 +44,9 @@ path = "src/bin/client_side_caching.rs"
 name = "lua_script"
 path = "src/bin/lua_script.rs"
 
+[[bin]]
+name = "coordinator"
+path = "src/bin/coordinator_in_redis.rs"
+
 [features]
 default = []
