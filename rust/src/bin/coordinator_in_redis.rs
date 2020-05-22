@@ -24,7 +24,7 @@ async fn main() -> redis::RedisResult<()> {
     con.set_multiple(&[
         ("min_sum", 1000),
         ("cur_sum", 0),
-        ("min_update", 500),
+        ("min_update", 1000),
         ("cur_update", 0),
         ("min_sum2", 1000),
         ("cur_sum2", 0),
@@ -170,7 +170,6 @@ async fn main() -> redis::RedisResult<()> {
         .arg(&["TRACKING", "on", "REDIRECT", &id.to_string()[..]])
         .query_async(&mut data_chan)
         .await?;
-    // get the value of "foo"
     let mut current_phase: u32 = redis::cmd("GET")
         .arg("phase")
         .query_async(&mut data_chan)
