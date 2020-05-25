@@ -19,7 +19,7 @@ serde = { version = "1.0.104", features = [ "derive" ] }
 bytes = "0.5.4"
 tracing = "0.1.13"
 sodiumoxide = "0.2.5"
-num = { version = "0.2.1" }
+num = { version = "0.2.1", features = ["serde"] }
 bincode = "1.2.1"
 thiserror = "1.0.16"
 anyhow = "1.0.28"
