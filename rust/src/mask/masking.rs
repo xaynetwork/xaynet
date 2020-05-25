@@ -254,7 +254,8 @@ mod tests {
     /// - create a model from the weights and mask it
     /// - check that all masked weights belong to the chosen finite group
     /// - unmask the masked model
-    /// - check that all unmasked weights are equal to the original weights (up to a tolerance)
+    /// - check that all unmasked weights are equal to the original weights (up to a tolerance
+    ///   determined by the masking configuration)
     ///
     /// The arguments to the macro are:
     /// - a suffix for the test name
@@ -262,9 +263,8 @@ mod tests {
     /// - the data type of the model (either primitives or variants of `DataType`)
     /// - an absolute bound for the weights (optional, choices: 1, 100, 10_000, 1_000_000)
     /// - the number of weights
-    /// - a tolerance for the equality check (relative for float models, absolute for int models)
     macro_rules! test_masking {
-        ($suffix:ident, $group:ty, $data:ty, $bound:expr, $len:expr, $tol:expr $(,)?) => {
+        ($suffix:ident, $group:ty, $data:ty, $bound:expr, $len:expr $(,)?) => {
             paste::item! {
                 #[test]
                 fn [<test_masking_ $suffix>]() {
@@ -306,13 +306,7 @@ mod tests {
                     let aggregation = Aggregation::from(masked_model);
                     let unmasked_model = aggregation.unmask(mask);
 
-                    let tolerance = Ratio::<BigInt>::from_float(
-                        match paste::expr! { [<$data:upper>] } {
-                            F32 | F64 => (bound as f64) * ($tol as f64),
-                            I32 | I64 => $tol as f64,
-                        }
-                    )
-                    .unwrap();
+                    let tolerance = Ratio::from_integer(config.exp_shift()).recip();
                     assert!(
                         model.iter()
                             .zip(unmasked_model.iter())
@@ -323,82 +317,82 @@ mod tests {
                 }
             }
         };
-        ($suffix:ident, $group:ty, $data:ty, $len:expr, $tol:expr $(,)?) => {
-            test_masking!($suffix, $group, $data, 0, $len, $tol);
+        ($suffix:ident, $group:ty, $data:ty, $len:expr $(,)?) => {
+            test_masking!($suffix, $group, $data, 0, $len);
         };
     }
 
-    test_masking!(int_f32_b0, Integer, f32, 1, 10, 1e-6);
-    test_masking!(int_f32_b2, Integer, f32, 100, 10, 1e-6);
-    test_masking!(int_f32_b4, Integer, f32, 10_000, 10, 1e-6);
-    test_masking!(int_f32_b6, Integer, f32, 1_000_000, 10, 1e-6);
-    test_masking!(int_f32_bmax, Integer, f32, 10, 1e-6);
+    test_masking!(int_f32_b0, Integer, f32, 1, 10);
+    test_masking!(int_f32_b2, Integer, f32, 100, 10);
+    test_masking!(int_f32_b4, Integer, f32, 10_000, 10);
+    test_masking!(int_f32_b6, Integer, f32, 1_000_000, 10);
+    test_masking!(int_f32_bmax, Integer, f32, 10);
 
-    test_masking!(prime_f32_b0, Prime, f32, 1, 10, 1e-6);
-    test_masking!(prime_f32_b2, Prime, f32, 100, 10, 1e-6);
-    test_masking!(prime_f32_b4, Prime, f32, 10_000, 10, 1e-6);
-    test_masking!(prime_f32_b6, Prime, f32, 1_000_000, 10, 1e-6);
-    test_masking!(prime_f32_bmax, Prime, f32, 10, 1e-6);
+    test_masking!(prime_f32_b0, Prime, f32, 1, 10);
+    test_masking!(prime_f32_b2, Prime, f32, 100, 10);
+    test_masking!(prime_f32_b4, Prime, f32, 10_000, 10);
+    test_masking!(prime_f32_b6, Prime, f32, 1_000_000, 10);
+    test_masking!(prime_f32_bmax, Prime, f32, 10);
 
-    test_masking!(pow_f32_b0, Power2, f32, 1, 10, 1e-6);
-    test_masking!(pow_f32_b2, Power2, f32, 100, 10, 1e-6);
-    test_masking!(pow_f32_b4, Power2, f32, 10_000, 10, 1e-6);
-    test_masking!(pow_f32_b6, Power2, f32, 1_000_000, 10, 1e-6);
-    test_masking!(pow_f32_bmax, Power2, f32, 10, 1e-6);
+    test_masking!(pow_f32_b0, Power2, f32, 1, 10);
+    test_masking!(pow_f32_b2, Power2, f32, 100, 10);
+    test_masking!(pow_f32_b4, Power2, f32, 10_000, 10);
+    test_masking!(pow_f32_b6, Power2, f32, 1_000_000, 10);
+    test_masking!(pow_f32_bmax, Power2, f32, 10);
 
-    test_masking!(int_f64_b0, Integer, f64, 1, 10, 1e-15);
-    test_masking!(int_f64_b2, Integer, f64, 100, 10, 1e-15);
-    test_masking!(int_f64_b4, Integer, f64, 10_000, 10, 1e-15);
-    test_masking!(int_f64_b6, Integer, f64, 1_000_000, 10, 1e-15);
-    test_masking!(int_f64_bmax, Integer, f64, 10, 1e-15);
+    test_masking!(int_f64_b0, Integer, f64, 1, 10);
+    test_masking!(int_f64_b2, Integer, f64, 100, 10);
+    test_masking!(int_f64_b4, Integer, f64, 10_000, 10);
+    test_masking!(int_f64_b6, Integer, f64, 1_000_000, 10);
+    test_masking!(int_f64_bmax, Integer, f64, 10);
 
-    test_masking!(prime_f64_b0, Prime, f64, 1, 10, 1e-15);
-    test_masking!(prime_f64_b2, Prime, f64, 100, 10, 1e-15);
-    test_masking!(prime_f64_b4, Prime, f64, 10_000, 10, 1e-15);
-    test_masking!(prime_f64_b6, Prime, f64, 1_000_000, 10, 1e-15);
-    test_masking!(prime_f64_bmax, Prime, f64, 10, 1e-15);
+    test_masking!(prime_f64_b0, Prime, f64, 1, 10);
+    test_masking!(prime_f64_b2, Prime, f64, 100, 10);
+    test_masking!(prime_f64_b4, Prime, f64, 10_000, 10);
+    test_masking!(prime_f64_b6, Prime, f64, 1_000_000, 10);
+    test_masking!(prime_f64_bmax, Prime, f64, 10);
 
-    test_masking!(pow_f64_b0, Power2, f64, 1, 10, 1e-15);
-    test_masking!(pow_f64_b2, Power2, f64, 100, 10, 1e-15);
-    test_masking!(pow_f64_b4, Power2, f64, 10_000, 10, 1e-15);
-    test_masking!(pow_f64_b6, Power2, f64, 1_000_000, 10, 1e-15);
-    test_masking!(pow_f64_bmax, Power2, f64, 10, 1e-15);
+    test_masking!(pow_f64_b0, Power2, f64, 1, 10);
+    test_masking!(pow_f64_b2, Power2, f64, 100, 10);
+    test_masking!(pow_f64_b4, Power2, f64, 10_000, 10);
+    test_masking!(pow_f64_b6, Power2, f64, 1_000_000, 10);
+    test_masking!(pow_f64_bmax, Power2, f64, 10);
 
-    test_masking!(int_i32_b0, Integer, i32, 1, 10, 1);
-    test_masking!(int_i32_b2, Integer, i32, 100, 10, 1);
-    test_masking!(int_i32_b4, Integer, i32, 10_000, 10, 1);
-    test_masking!(int_i32_b6, Integer, i32, 1_000_000, 10, 1);
-    test_masking!(int_i32_bmax, Integer, i32, 10, 1);
+    test_masking!(int_i32_b0, Integer, i32, 1, 10);
+    test_masking!(int_i32_b2, Integer, i32, 100, 10);
+    test_masking!(int_i32_b4, Integer, i32, 10_000, 10);
+    test_masking!(int_i32_b6, Integer, i32, 1_000_000, 10);
+    test_masking!(int_i32_bmax, Integer, i32, 10);
 
-    test_masking!(prime_i32_b0, Prime, i32, 1, 10, 1);
-    test_masking!(prime_i32_b2, Prime, i32, 100, 10, 1);
-    test_masking!(prime_i32_b4, Prime, i32, 10_000, 10, 1);
-    test_masking!(prime_i32_b6, Prime, i32, 1_000_000, 10, 1);
-    test_masking!(prime_i32_bmax, Prime, i32, 10, 1);
+    test_masking!(prime_i32_b0, Prime, i32, 1, 10);
+    test_masking!(prime_i32_b2, Prime, i32, 100, 10);
+    test_masking!(prime_i32_b4, Prime, i32, 10_000, 10);
+    test_masking!(prime_i32_b6, Prime, i32, 1_000_000, 10);
+    test_masking!(prime_i32_bmax, Prime, i32, 10);
 
-    test_masking!(pow_i32_b0, Power2, i32, 1, 10, 1);
-    test_masking!(pow_i32_b2, Power2, i32, 100, 10, 1);
-    test_masking!(pow_i32_b4, Power2, i32, 10_000, 10, 1);
-    test_masking!(pow_i32_b6, Power2, i32, 1_000_000, 10, 1);
-    test_masking!(pow_i32_bmax, Power2, i32, 10, 1);
+    test_masking!(pow_i32_b0, Power2, i32, 1, 10);
+    test_masking!(pow_i32_b2, Power2, i32, 100, 10);
+    test_masking!(pow_i32_b4, Power2, i32, 10_000, 10);
+    test_masking!(pow_i32_b6, Power2, i32, 1_000_000, 10);
+    test_masking!(pow_i32_bmax, Power2, i32, 10);
 
-    test_masking!(int_i64_b0, Integer, i64, 1, 10, 1);
-    test_masking!(int_i64_b2, Integer, i64, 100, 10, 1);
-    test_masking!(int_i64_b4, Integer, i64, 10_000, 10, 1);
-    test_masking!(int_i64_b6, Integer, i64, 1_000_000, 10, 1);
-    test_masking!(int_i64_bmax, Integer, i64, 10, 1);
+    test_masking!(int_i64_b0, Integer, i64, 1, 10);
+    test_masking!(int_i64_b2, Integer, i64, 100, 10);
+    test_masking!(int_i64_b4, Integer, i64, 10_000, 10);
+    test_masking!(int_i64_b6, Integer, i64, 1_000_000, 10);
+    test_masking!(int_i64_bmax, Integer, i64, 10);
 
-    test_masking!(prime_i64_b0, Prime, i64, 1, 10, 1);
-    test_masking!(prime_i64_b2, Prime, i64, 100, 10, 1);
-    test_masking!(prime_i64_b4, Prime, i64, 10_000, 10, 1);
-    test_masking!(prime_i64_b6, Prime, i64, 1_000_000, 10, 1);
-    test_masking!(prime_i64_bmax, Prime, i64, 10, 1);
+    test_masking!(prime_i64_b0, Prime, i64, 1, 10);
+    test_masking!(prime_i64_b2, Prime, i64, 100, 10);
+    test_masking!(prime_i64_b4, Prime, i64, 10_000, 10);
+    test_masking!(prime_i64_b6, Prime, i64, 1_000_000, 10);
+    test_masking!(prime_i64_bmax, Prime, i64, 10);
 
-    test_masking!(pow_i64_b0, Power2, i64, 1, 10, 1);
-    test_masking!(pow_i64_b2, Power2, i64, 100, 10, 1);
-    test_masking!(pow_i64_b4, Power2, i64, 10_000, 10, 1);
-    test_masking!(pow_i64_b6, Power2, i64, 1_000_000, 10, 1);
-    test_masking!(pow_i64_bmax, Power2, i64, 10, 1);
+    test_masking!(pow_i64_b0, Power2, i64, 1, 10);
+    test_masking!(pow_i64_b2, Power2, i64, 100, 10);
+    test_masking!(pow_i64_b4, Power2, i64, 10_000, 10);
+    test_masking!(pow_i64_b6, Power2, i64, 1_000_000, 10);
+    test_masking!(pow_i64_bmax, Power2, i64, 10);
 
     /// Generate tests for aggregation of multiple masked models:
     /// - generate random integers from a uniform distribution with a seeded PRNG
@@ -534,7 +528,7 @@ mod tests {
     /// - derive a mask from the mask seed and aggregate it to the aggregated masks
     /// - unmask the aggregated masked model
     /// - check that all aggregated unmasked weights are equal to the averaged original weights (up
-    ///   to a tolerance)
+    ///   to a tolerance determined by the masking configuration)
     ///
     /// The arguments to the macro are:
     /// - a suffix for the test name
@@ -543,9 +537,8 @@ mod tests {
     /// - an absolute bound for the weights (optional, choices: 1, 100, 10_000, 1_000_000)
     /// - the number of weights per model
     /// - the number of models
-    /// - a tolerance for the equality check (relative for float models, absolute for int models)
     macro_rules! test_masking_and_aggregation {
-        ($suffix:ident, $group:ty, $data:ty, $bound:expr, $len:expr, $count:expr, $tol:expr $(,)?) => {
+        ($suffix:ident, $group:ty, $data:ty, $bound:expr, $len:expr, $count:expr $(,)?) => {
             paste::item! {
                 #[test]
                 fn [<test_masking_and_aggregation_ $suffix>]() {
@@ -614,97 +607,93 @@ mod tests {
                     }
 
                     let unmasked_model = aggregated_masked_model.unmask(aggregated_mask.into());
-                    let tolerance = Ratio::<BigInt>::from_float(
-                        match paste::expr! { [<$data:upper>] } {
-                            F32 | F64 => (bound as f64) * ($tol as f64),
-                            I32 | I64 => $tol as f64,
-                        }
-                    )
-                    .unwrap();
+                    let tolerance = Ratio::from_integer(BigInt::from($count as usize))
+                        / Ratio::from_integer(config.exp_shift());
                     assert!(
                         averaged_model.iter()
                             .zip(unmasked_model.iter())
                             .all(|(averaged_weight, unmasked_weight)| {
+                                println!("{}, {}", averaged_weight, unmasked_weight);
                                 (averaged_weight - unmasked_weight).abs() <= tolerance
                             })
                     );
                 }
             }
         };
-        ($suffix:ident, $group:ty, $data:ty, $len:expr, $count:expr, $tol:expr $(,)?) => {
-            test_masking_and_aggregation!($suffix, $group, $data, 0, $len, $count, $tol);
+        ($suffix:ident, $group:ty, $data:ty, $len:expr, $count:expr $(,)?) => {
+            test_masking_and_aggregation!($suffix, $group, $data, 0, $len, $count);
         };
     }
 
-    test_masking_and_aggregation!(int_f32_b0, Integer, f32, 1, 10, 5, 1e-6);
-    test_masking_and_aggregation!(int_f32_b2, Integer, f32, 100, 10, 5, 1e-6);
-    test_masking_and_aggregation!(int_f32_b4, Integer, f32, 10_000, 10, 5, 1e-6);
-    test_masking_and_aggregation!(int_f32_b6, Integer, f32, 1_000_000, 10, 5, 1e-6);
-    test_masking_and_aggregation!(int_f32_bmax, Integer, f32, 10, 5, 1e-6);
+    test_masking_and_aggregation!(int_f32_b0, Integer, f32, 1, 10, 5);
+    test_masking_and_aggregation!(int_f32_b2, Integer, f32, 100, 10, 5);
+    test_masking_and_aggregation!(int_f32_b4, Integer, f32, 10_000, 10, 5);
+    test_masking_and_aggregation!(int_f32_b6, Integer, f32, 1_000_000, 10, 5);
+    test_masking_and_aggregation!(int_f32_bmax, Integer, f32, 10, 5);
 
-    test_masking_and_aggregation!(prime_f32_b0, Prime, f32, 1, 10, 5, 1e-6);
-    test_masking_and_aggregation!(prime_f32_b2, Prime, f32, 100, 10, 5, 1e-6);
-    test_masking_and_aggregation!(prime_f32_b4, Prime, f32, 10_000, 10, 5, 1e-6);
-    test_masking_and_aggregation!(prime_f32_b6, Prime, f32, 1_000_000, 10, 5, 1e-6);
-    test_masking_and_aggregation!(prime_f32_bmax, Prime, f32, 10, 5, 1e-6);
+    test_masking_and_aggregation!(prime_f32_b0, Prime, f32, 1, 10, 5);
+    test_masking_and_aggregation!(prime_f32_b2, Prime, f32, 100, 10, 5);
+    test_masking_and_aggregation!(prime_f32_b4, Prime, f32, 10_000, 10, 5);
+    test_masking_and_aggregation!(prime_f32_b6, Prime, f32, 1_000_000, 10, 5);
+    test_masking_and_aggregation!(prime_f32_bmax, Prime, f32, 10, 5);
 
-    test_masking_and_aggregation!(pow_f32_b0, Power2, f32, 1, 10, 5, 1e-6);
-    test_masking_and_aggregation!(pow_f32_b2, Power2, f32, 100, 10, 5, 1e-6);
-    test_masking_and_aggregation!(pow_f32_b4, Power2, f32, 10_000, 10, 5, 1e-6);
-    test_masking_and_aggregation!(pow_f32_b6, Power2, f32, 1_000_000, 10, 5, 1e-6);
-    test_masking_and_aggregation!(pow_f32_bmax, Power2, f32, 10, 5, 1e-6);
+    test_masking_and_aggregation!(pow_f32_b0, Power2, f32, 1, 10, 5);
+    test_masking_and_aggregation!(pow_f32_b2, Power2, f32, 100, 10, 5);
+    test_masking_and_aggregation!(pow_f32_b4, Power2, f32, 10_000, 10, 5);
+    test_masking_and_aggregation!(pow_f32_b6, Power2, f32, 1_000_000, 10, 5);
+    test_masking_and_aggregation!(pow_f32_bmax, Power2, f32, 10, 5);
 
-    test_masking_and_aggregation!(int_f64_b0, Integer, f64, 1, 10, 5, 1e-15);
-    test_masking_and_aggregation!(int_f64_b2, Integer, f64, 100, 10, 5, 1e-15);
-    test_masking_and_aggregation!(int_f64_b4, Integer, f64, 10_000, 10, 5, 1e-15);
-    test_masking_and_aggregation!(int_f64_b6, Integer, f64, 1_000_000, 10, 5, 1e-15);
-    test_masking_and_aggregation!(int_f64_bmax, Integer, f64, 10, 5, 1e-15);
+    test_masking_and_aggregation!(int_f64_b0, Integer, f64, 1, 10, 5);
+    test_masking_and_aggregation!(int_f64_b2, Integer, f64, 100, 10, 5);
+    test_masking_and_aggregation!(int_f64_b4, Integer, f64, 10_000, 10, 5);
+    test_masking_and_aggregation!(int_f64_b6, Integer, f64, 1_000_000, 10, 5);
+    test_masking_and_aggregation!(int_f64_bmax, Integer, f64, 10, 5);
 
-    test_masking_and_aggregation!(prime_f64_b0, Prime, f64, 1, 10, 5, 1e-15);
-    test_masking_and_aggregation!(prime_f64_b2, Prime, f64, 100, 10, 5, 1e-15);
-    test_masking_and_aggregation!(prime_f64_b4, Prime, f64, 10_000, 10, 5, 1e-15);
-    test_masking_and_aggregation!(prime_f64_b6, Prime, f64, 1_000_000, 10, 5, 1e-15);
-    test_masking_and_aggregation!(prime_f64_bmax, Prime, f64, 10, 5, 1e-15);
+    test_masking_and_aggregation!(prime_f64_b0, Prime, f64, 1, 10, 5);
+    test_masking_and_aggregation!(prime_f64_b2, Prime, f64, 100, 10, 5);
+    test_masking_and_aggregation!(prime_f64_b4, Prime, f64, 10_000, 10, 5);
+    test_masking_and_aggregation!(prime_f64_b6, Prime, f64, 1_000_000, 10, 5);
+    test_masking_and_aggregation!(prime_f64_bmax, Prime, f64, 10, 5);
 
-    test_masking_and_aggregation!(pow_f64_b0, Power2, f64, 1, 10, 5, 1e-15);
-    test_masking_and_aggregation!(pow_f64_b2, Power2, f64, 100, 10, 5, 1e-15);
-    test_masking_and_aggregation!(pow_f64_b4, Power2, f64, 10_000, 10, 5, 1e-15);
-    test_masking_and_aggregation!(pow_f64_b6, Power2, f64, 1_000_000, 10, 5, 1e-15);
-    test_masking_and_aggregation!(pow_f64_bmax, Power2, f64, 10, 5, 1e-15);
+    test_masking_and_aggregation!(pow_f64_b0, Power2, f64, 1, 10, 5);
+    test_masking_and_aggregation!(pow_f64_b2, Power2, f64, 100, 10, 5);
+    test_masking_and_aggregation!(pow_f64_b4, Power2, f64, 10_000, 10, 5);
+    test_masking_and_aggregation!(pow_f64_b6, Power2, f64, 1_000_000, 10, 5);
+    test_masking_and_aggregation!(pow_f64_bmax, Power2, f64, 10, 5);
 
-    test_masking_and_aggregation!(int_i32_b0, Integer, i32, 1, 10, 5, 1);
-    test_masking_and_aggregation!(int_i32_b2, Integer, i32, 100, 10, 5, 1);
-    test_masking_and_aggregation!(int_i32_b4, Integer, i32, 10_000, 10, 5, 1);
-    test_masking_and_aggregation!(int_i32_b6, Integer, i32, 1_000_000, 10, 5, 1);
-    test_masking_and_aggregation!(int_i32_bmax, Integer, i32, 10, 5, 1);
+    test_masking_and_aggregation!(int_i32_b0, Integer, i32, 1, 10, 5);
+    test_masking_and_aggregation!(int_i32_b2, Integer, i32, 100, 10, 5);
+    test_masking_and_aggregation!(int_i32_b4, Integer, i32, 10_000, 10, 5);
+    test_masking_and_aggregation!(int_i32_b6, Integer, i32, 1_000_000, 10, 5);
+    test_masking_and_aggregation!(int_i32_bmax, Integer, i32, 10, 5);
 
-    test_masking_and_aggregation!(prime_i32_b0, Prime, i32, 1, 10, 5, 1);
-    test_masking_and_aggregation!(prime_i32_b2, Prime, i32, 100, 10, 5, 1);
-    test_masking_and_aggregation!(prime_i32_b4, Prime, i32, 10_000, 10, 5, 1);
-    test_masking_and_aggregation!(prime_i32_b6, Prime, i32, 1_000_000, 10, 5, 1);
-    test_masking_and_aggregation!(prime_i32_bmax, Prime, i32, 10, 5, 1);
+    test_masking_and_aggregation!(prime_i32_b0, Prime, i32, 1, 10, 5);
+    test_masking_and_aggregation!(prime_i32_b2, Prime, i32, 100, 10, 5);
+    test_masking_and_aggregation!(prime_i32_b4, Prime, i32, 10_000, 10, 5);
+    test_masking_and_aggregation!(prime_i32_b6, Prime, i32, 1_000_000, 10, 5);
+    test_masking_and_aggregation!(prime_i32_bmax, Prime, i32, 10, 5);
 
-    test_masking_and_aggregation!(pow_i32_b0, Power2, i32, 1, 10, 5, 1);
-    test_masking_and_aggregation!(pow_i32_b2, Power2, i32, 100, 10, 5, 1);
-    test_masking_and_aggregation!(pow_i32_b4, Power2, i32, 10_000, 10, 5, 1);
-    test_masking_and_aggregation!(pow_i32_b6, Power2, i32, 1_000_000, 10, 5, 1);
-    test_masking_and_aggregation!(pow_i32_bmax, Power2, i32, 10, 5, 1);
+    test_masking_and_aggregation!(pow_i32_b0, Power2, i32, 1, 10, 5);
+    test_masking_and_aggregation!(pow_i32_b2, Power2, i32, 100, 10, 5);
+    test_masking_and_aggregation!(pow_i32_b4, Power2, i32, 10_000, 10, 5);
+    test_masking_and_aggregation!(pow_i32_b6, Power2, i32, 1_000_000, 10, 5);
+    test_masking_and_aggregation!(pow_i32_bmax, Power2, i32, 10, 5);
 
-    test_masking_and_aggregation!(int_i64_b0, Integer, i64, 1, 10, 5, 1);
-    test_masking_and_aggregation!(int_i64_b2, Integer, i64, 100, 10, 5, 1);
-    test_masking_and_aggregation!(int_i64_b4, Integer, i64, 10_000, 10, 5, 1);
-    test_masking_and_aggregation!(int_i64_b6, Integer, i64, 1_000_000, 10, 5, 1);
-    test_masking_and_aggregation!(int_i64_bmax, Integer, i64, 10, 5, 1);
+    test_masking_and_aggregation!(int_i64_b0, Integer, i64, 1, 10, 5);
+    test_masking_and_aggregation!(int_i64_b2, Integer, i64, 100, 10, 5);
+    test_masking_and_aggregation!(int_i64_b4, Integer, i64, 10_000, 10, 5);
+    test_masking_and_aggregation!(int_i64_b6, Integer, i64, 1_000_000, 10, 5);
+    test_masking_and_aggregation!(int_i64_bmax, Integer, i64, 10, 5);
 
-    test_masking_and_aggregation!(prime_i64_b0, Prime, i64, 1, 10, 5, 1);
-    test_masking_and_aggregation!(prime_i64_b2, Prime, i64, 100, 10, 5, 1);
-    test_masking_and_aggregation!(prime_i64_b4, Prime, i64, 10_000, 10, 5, 1);
-    test_masking_and_aggregation!(prime_i64_b6, Prime, i64, 1_000_000, 10, 5, 1);
-    test_masking_and_aggregation!(prime_i64_bmax, Prime, i64, 10, 5, 1);
+    test_masking_and_aggregation!(prime_i64_b0, Prime, i64, 1, 10, 5);
+    test_masking_and_aggregation!(prime_i64_b2, Prime, i64, 100, 10, 5);
+    test_masking_and_aggregation!(prime_i64_b4, Prime, i64, 10_000, 10, 5);
+    test_masking_and_aggregation!(prime_i64_b6, Prime, i64, 1_000_000, 10, 5);
+    test_masking_and_aggregation!(prime_i64_bmax, Prime, i64, 10, 5);
 
-    test_masking_and_aggregation!(pow_i64_b0, Power2, i64, 1, 10, 5, 1);
-    test_masking_and_aggregation!(pow_i64_b2, Power2, i64, 100, 10, 5, 1);
-    test_masking_and_aggregation!(pow_i64_b4, Power2, i64, 10_000, 10, 5, 1);
-    test_masking_and_aggregation!(pow_i64_b6, Power2, i64, 1_000_000, 10, 5, 1);
-    test_masking_and_aggregation!(pow_i64_bmax, Power2, i64, 10, 5, 1);
+    test_masking_and_aggregation!(pow_i64_b0, Power2, i64, 1, 10, 5);
+    test_masking_and_aggregation!(pow_i64_b2, Power2, i64, 100, 10, 5);
+    test_masking_and_aggregation!(pow_i64_b4, Power2, i64, 10_000, 10, 5);
+    test_masking_and_aggregation!(pow_i64_b6, Power2, i64, 1_000_000, 10, 5);
+    test_masking_and_aggregation!(pow_i64_bmax, Power2, i64, 10, 5);
 }
