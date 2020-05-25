@@ -2,6 +2,7 @@ use std::{
     cmp::Ordering,
     collections::{HashMap, VecDeque},
     default::Default,
+    mem,
 };
 
 use sodiumoxide::{
@@ -9,10 +10,21 @@ use sodiumoxide::{
     crypto::{box_, hash::sha256},
     randombytes::randombytes,
 };
+use thiserror::Error;
 
 use crate::{
     crypto::{generate_encrypt_key_pair, ByteObject, SigningKeySeed},
-    mask::{Aggregation, BoundType, DataType, GroupType, MaskConfig, MaskObject, ModelType},
+    mask::{
+        Aggregation,
+        BoundType,
+        DataType,
+        GroupType,
+        MaskConfig,
+        MaskObject,
+        Model,
+        ModelType,
+        UnmaskingError,
+    },
     message::{MessageOpen, PayloadOwned, Sum2Owned, SumOwned, UpdateOwned},
     CoordinatorPublicKey,
     CoordinatorSecretKey,
@@ -28,14 +40,14 @@ use crate::{
 };
 
 /// Error that occurs when the current round fails
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Error, Debug, Eq, PartialEq)]
 pub enum RoundFailed {
-    /// Round failed because ambiguous masks were computed by
-    /// a majority of sum participants
+    #[error("round failed: ambiguous masks were computed by the sum participants")]
     AmbiguousMasks,
-    /// Round failed because no mask hash was selected by any sum
-    /// participant
+    #[error("round failed: no mask found")]
     NoMask,
+    #[error("Round failed: unmasking error: {0}")]
+    Unmasking(#[from] UnmaskingError),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -133,7 +145,7 @@ pub enum ProtocolEvent {
 
     /// The sum2 phase finished and produced the given mask seed. The
     /// coordinator is now back to the idle phase.
-    EndRound(Option<MaskObject>),
+    EndRound(Option<Model>),
 }
 
 impl Default for Coordinator {
@@ -496,10 +508,25 @@ impl Coordinator {
 
     /// End the sum2 phase and proceed to the idle phase to end the round.
     fn proceed_idle_phase(&mut self) {
+        let event = match self.end_round() {
+            Ok(model) => ProtocolEvent::EndRound(Some(model)),
+            Err(e) => {
+                error!("{}", e);
+                ProtocolEvent::EndRound(None)
+            }
+        };
+        self.emit_event(event);
         info!("going to idle phase");
-        let outcome = self.freeze_mask_dict().ok();
-        self.emit_event(ProtocolEvent::EndRound(outcome));
         self.start_new_round();
+    }
+
+    fn end_round(&mut self) -> Result<Model, RoundFailed> {
+        let global_mask = self.freeze_mask_dict()?;
+        self.aggregation
+            .validate_unmasking(&global_mask)
+            .map_err(RoundFailed::from)?;
+        let aggregation = mem::replace(&mut self.aggregation, Aggregation::new(self.mask_config));
+        Ok(aggregation.unmask(global_mask))
     }
 
     /// Cancel the current round and restart a new one
@@ -936,8 +963,7 @@ mod tests {
 
         // Pretend we received enough masks and transition. This time
         // the state should change and we should restart a round
-        let (masks, mask_dict) = helpers::mask_dict(coord.min_sum);
-        let chosen_mask = masks[0].clone();
+        let (_, mask_dict) = helpers::mask_dict(coord.min_sum);
         coord.mask_dict = mask_dict;
         coord.aggregation = Aggregation::from(MaskObject {
             data: vec![BigUint::zero(); 10],
@@ -946,10 +972,11 @@ mod tests {
 
         let seed = coord.seed.clone();
         coord.try_phase_transition();
-        assert_eq!(
-            coord.next_event().unwrap(),
-            ProtocolEvent::EndRound(Some(chosen_mask))
-        );
+        if let ProtocolEvent::EndRound(Some(_model)) = coord.next_event().unwrap() {
+            // TODO: check the model
+        } else {
+            panic!("expected EndRound event");
+        }
         assert_eq!(
             coord.next_event().unwrap(),
             ProtocolEvent::StartSum(RoundParameters {

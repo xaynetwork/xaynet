@@ -15,7 +15,7 @@ use crate::{
 
 use thiserror::Error;
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Eq, PartialEq)]
 pub enum UnmaskingError {
     #[error("there is no model to unmask")]
     NoModel,
