@@ -1,25 +1,11 @@
-use crate::{
-    coordinator::{Coordinator, Coordinators, MaskCoordinators, RoundParameters},
-    InitError,
-};
-use derive_more::From;
+use crate::{coordinator::Coordinator, InitError};
 use futures::ready;
-use sodiumoxide::crypto::box_;
 use std::{
-    collections::HashMap,
-    error::Error,
     future::Future,
     pin::Pin,
-    sync::Arc,
     task::{Context, Poll},
 };
-use tokio::{
-    stream::Stream,
-    sync::{
-        mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
-        oneshot,
-    },
-};
+use tokio::stream::Stream;
 
 mod data;
 mod handle;
@@ -41,7 +27,7 @@ pub use handle::{
 pub struct Service {
     /// The coordinator holds the protocol state: crypto material, sum
     /// and update dictionaries, configuration, etc.
-    coordinator: Coordinator<f32>, // todo: implement a choice for data types
+    coordinator: Coordinator,
 
     /// Events to handle
     events: EventStream,
@@ -57,7 +43,7 @@ impl Service {
         let (handle, events) = Handle::new();
         let service = Self {
             events,
-            coordinator: Coordinator::<f32>::new()?,
+            coordinator: Coordinator::new()?,
             data: Data::new(),
         };
         Ok((service, handle))

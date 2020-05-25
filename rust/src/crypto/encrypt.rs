@@ -3,6 +3,10 @@ use super::ByteObject;
 use derive_more::{AsMut, AsRef, From};
 use sodiumoxide::crypto::{box_, sealedbox};
 
+/// Number of additional bytes in a ciphertext compared to the
+/// corresponding plaintext.
+pub const SEALBYTES: usize = sealedbox::SEALBYTES;
+
 /// Generate a new random key pair
 pub fn generate_encrypt_key_pair() -> (PublicEncryptKey, SecretEncryptKey) {
     let (pk, sk) = box_::gen_keypair();
@@ -41,9 +45,10 @@ impl ByteObject for PublicEncryptKey {
     }
 }
 
-pub const SEALBYTES: usize = sealedbox::SEALBYTES;
-
 impl PublicEncryptKey {
+    /// Length in bytes of a [`PublicEncryptKey`]
+    pub const LENGTH: usize = box_::PUBLICKEYBYTES;
+
     /// Encrypt a message `m` with this public key. The resulting
     /// ciphertext length is [`SEALBYTES`] + `m.len()`.
     ///
@@ -60,6 +65,9 @@ impl PublicEncryptKey {
 pub struct SecretEncryptKey(box_::SecretKey);
 
 impl SecretEncryptKey {
+    /// Length in bytes of a [`SecretEncryptKey`]
+    pub const LENGTH: usize = box_::SECRETKEYBYTES;
+
     /// Decrypt the ciphertext `c` using this secret key and the
     /// associated public key, and return the decrypted message.
     ///
@@ -94,6 +102,9 @@ impl ByteObject for SecretEncryptKey {
 pub struct EncryptKeySeed(box_::Seed);
 
 impl EncryptKeySeed {
+    /// Length in bytes of a [`EncryptKeySeed`]
+    pub const LENGTH: usize = box_::SEEDBYTES;
+
     /// Deterministically derive a new key pair from this seed
     pub fn derive_encrypt_key_pair(&self) -> (PublicEncryptKey, SecretEncryptKey) {
         let (pk, sk) = box_::keypair_from_seed(self.as_ref());
@@ -107,7 +118,7 @@ impl ByteObject for EncryptKeySeed {
     }
 
     fn zeroed() -> Self {
-        Self(box_::Seed([0; box_::PUBLICKEYBYTES]))
+        Self(box_::Seed([0; box_::SEEDBYTES]))
     }
 
     fn as_slice(&self) -> &[u8] {
