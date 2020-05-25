@@ -1,12 +1,9 @@
+use crate::crypto::ByteObject;
 use crate::service::Handle;
 use crate::coordinator::RoundParameters;
 use crate::participant::{Participant, Task};
 use crate::{CoordinatorPublicKey, SeedDict, SumDict, PetError, InitError};
-use sodiumoxide::crypto::box_;
 use std::sync::Arc;
-use std::collections::HashMap;
-use std::future::Future;
-use std::pin::Pin;
 use tokio::time;
 use std::time::Duration;
 use thiserror::Error;
@@ -29,7 +26,7 @@ pub enum ClientError {
 
     /// General client errors
     #[error("unexpected client error")]
-    GeneralErr, // "Mastercard" error - may remove later
+    GeneralErr,
 }
 
 /// A client of the federated learning service
@@ -48,7 +45,7 @@ pub struct Client {
 
     // TODO global model
 
-    id: u32, // identifier for client; may remove later
+    id: u32, // NOTE identifier for client for testing; may remove later
 }
 
 impl Client {
@@ -70,7 +67,7 @@ impl Client {
     }
 
     // may replace new later with this
-    pub fn new2(period: u64, handle: Handle, id: u32) -> Result<Self, ClientError> {
+    pub fn new_with_id(period: u64, handle: Handle, id: u32) -> Result<Self, ClientError> {
         let participant = Participant::new()
             .map_err(ClientError::ParticipantInitErr)?;
         Ok(Self {
@@ -124,8 +121,6 @@ impl Client {
 
     /// Duties for unselected clients
     async fn unselected(&mut self) -> Result<Task, ClientError> {
-        // TODO await global model; save it
-        // end of round
         Ok(Task::None)
     }
 
@@ -152,15 +147,12 @@ impl Client {
             .map_err(ClientError::DeserialiseErr)?;
         let sum2_msg: Vec<u8> = self
             .participant
-            .compose_sum2_message(&coord_pk, &seed_dict)
+            .compose_sum2_message(coord_pk, &seed_dict)
             .map_err(ClientError::ParticipantErr)?;
         self.handle
             .send_message(sum2_msg)
             .await;
 
-        // job done, unselect
-        //self.unselected()
-        //    .await
         Ok(Task::Sum)
     }
 
@@ -180,14 +172,11 @@ impl Client {
             .map_err(ClientError::DeserialiseErr)?;
         let upd_msg: Vec<u8> = self
             .participant
-            .compose_update_message(&coord_pk, &sum_dict);
+            .compose_update_message(coord_pk, &sum_dict);
         self.handle
             .send_message(upd_msg)
             .await;
 
-        // job done, unselect
-        //self.unselected()
-        //    .await
         Ok(Task::Update)
     }
 }

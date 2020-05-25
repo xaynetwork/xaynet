@@ -218,7 +218,11 @@ impl Coordinator {
             }
             (Phase::Sum2, PayloadOwned::Sum2(msg)) => self.handle_sum2_message(participant_pk, msg),
             _ => Err(PetError::InvalidMessage),
-        }
+        }?;
+        // HACK possibly not relevant now - in an earlier version at least, this
+        // was neceassary to "kickstart" the transitioning
+        self.try_phase_transition();
+        Ok(())
     }
 
     /// Validate and handle a sum message.
