@@ -136,7 +136,7 @@ impl Data {
                             // Something went wrong. Keep the current global model for a new round
                             // but set all other round parameters to None.
                             Some(Arc::new(RoundParametersData::from(
-                                round_parameters_data.clone().global_model.clone(),
+                                round_parameters_data.global_model.clone(),
                             )))
                         }
                     } else {
