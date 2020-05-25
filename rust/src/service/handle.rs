@@ -40,6 +40,8 @@ pub struct Message {
     // FIXME: there should be a channel to send a response back
 }
 
+pub type SerializedGlobalModel = Arc<Vec<u8>>;
+
 /// Event for a request to retrieve the round parameters
 pub struct RoundParametersRequest {
     /// Channel for sending the round parameters back
