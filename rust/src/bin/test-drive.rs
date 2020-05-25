@@ -4,9 +4,9 @@ use xain_fl::service::Service;
 // use tracing_subscriber::*;
 
 
-/// Test-drive script of a (completely local) federated learning session,
-/// intended for use as a mini integration test. It spawns a Service and 20
-/// Clients on the tokio event loop.
+/// Test-drive script of a (completely local) single-round federated learning
+/// session, intended for use as a mini integration test. It spawns a Service
+/// and 20 Clients on the tokio event loop.
 ///
 /// important NOTE since we only test 20 Clients and by default, the selection
 /// ratios in the Coordinator are relatively small, it is very possible no (or

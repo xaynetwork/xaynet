@@ -66,7 +66,12 @@ impl Client {
         })
     }
 
-    // may replace new later with this
+    /// Create a new `Client` with ID (useful for testing)
+    ///
+    /// `period`: time period at which to poll for service data, in seconds.
+    /// `id`: an ID to assign to the `Client`.
+    /// Returns `Ok(client)` if `Client` `client` initialised successfully
+    /// Returns `Err(err)` if `ClientError` `err` occurred
     pub fn new_with_id(period: u64, handle: Handle, id: u32) -> Result<Self, ClientError> {
         let participant = Participant::new()
             .map_err(ClientError::ParticipantInitErr)?;

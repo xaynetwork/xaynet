@@ -90,6 +90,7 @@ impl Participant {
         })
     }
 
+    /// Get encryption public key.
     pub fn get_encr_pk(&self) -> ParticipantPublicKey {
        self.pk
     }
