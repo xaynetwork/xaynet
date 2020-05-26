@@ -103,11 +103,11 @@ impl Client {
             {
                 break round_params
             }
-            println!("{}: round params not ready yet, retrying in a sec...", self.id);
+            println!("{}: round params not ready, retrying.", self.id); // TEMP
             self.interval.tick().await;
         };
         let round_seed: &[u8] = round_params.seed.as_slice();
-        println!("computing sigs and checking task");
+        println!("computing sigs and checking task"); // TEMP
         self.participant
             .compute_signatures(round_seed);
         let (sum_frac, upd_frac) = (round_params.sum, round_params.update);
@@ -145,6 +145,7 @@ impl Client {
             if let Some(seed_dict_ser) = self.handle.get_seed_dict(pk).await {
                 break seed_dict_ser
             }
+            println!("{}: seed dictionary not ready, retrying.", self.id); // TEMP
             // updates not yet ready, try again later...
             self.interval.tick().await;
         };
@@ -170,6 +171,7 @@ impl Client {
             if let Some(sum_dict_ser) = self.handle.get_sum_dict().await {
                 break sum_dict_ser
             }
+            println!("{}: sum dictionary not ready, retrying.", self.id); // TEMP
             // sums not yet ready, try again later...
             self.interval.tick().await;
         };
