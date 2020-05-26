@@ -32,6 +32,7 @@ impl MaskObject {
     }
 
     pub fn is_valid(&self) -> bool {
-        self.data.iter().all(|i| i < &self.config.order())
+        let order = self.config.order();
+        self.data.iter().all(|i| i < &order)
     }
 }

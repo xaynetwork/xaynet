@@ -187,7 +187,7 @@ pub(crate) mod tests {
 
     #[test]
     fn buffer_write() {
-        let mut bytes = vec![0xff; 80];
+        let mut bytes = vec![0xff; 96];
         {
             let mut buffer = Sum2Buffer::new_unchecked(&mut bytes);
             buffer

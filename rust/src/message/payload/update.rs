@@ -364,9 +364,9 @@ pub(crate) mod tests {
         // sorted.
         //
         // First compute the offset at which the local seed dict value
-        // starts: two signature (64 bytes), the masked model (16
+        // starts: two signature (64 bytes), the masked model (32
         // bytes), the length field (4 bytes)
-        let offset = 64 * 2 + 16 + 4;
+        let offset = 64 * 2 + 32 + 4;
         // Sort the end of the buffer
         (&mut buf[offset..]).sort();
         assert_eq!(buf, bytes);

@@ -144,15 +144,15 @@ pub(crate) mod tests {
     use crate::mask::{BoundType, DataType, GroupType, MaskConfig, ModelType};
 
     pub fn object() -> MaskObject {
-        // config.order() = 20_000 with this config, so the data
-        // should be stored on 2 bytes.
+        // config.order() = 20_000_000_000_001 with this config, so the data
+        // should be stored on 6 bytes.
         let config = MaskConfig {
             group_type: GroupType::Integer,
             data_type: DataType::I32,
             bound_type: BoundType::B0,
             model_type: ModelType::M3,
         };
-        // 4 weights, each stored on 2 bytes => 8 bytes.
+        // 4 weights, each stored on 6 bytes => 24 bytes.
         let data = vec![
             BigUint::from(1_u8),
             BigUint::from(2_u8),
@@ -167,16 +167,16 @@ pub(crate) mod tests {
             0x00, 0x02, 0x00, 0x03, // config
             0x00, 0x00, 0x00, 0x04, // number of elements
             // data
-            0x01, 0x00, // 1
-            0x02, 0x00, // 2
-            0x03, 0x00, // 3
-            0x04, 0x00, // 4
+            0x01, 0x00, 0x00, 0x00, 0x00, 0x00, // 1
+            0x02, 0x00, 0x00, 0x00, 0x00, 0x00, // 2
+            0x03, 0x00, 0x00, 0x00, 0x00, 0x00, // 3
+            0x04, 0x00, 0x00, 0x00, 0x00, 0x00, // 4
         ]
     }
 
     #[test]
     fn serialize() {
-        let mut buf = vec![0xff; 16];
+        let mut buf = vec![0xff; 32];
         object().to_bytes(&mut buf);
         assert_eq!(buf, bytes());
     }
