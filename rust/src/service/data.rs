@@ -1,10 +1,9 @@
 use thiserror::Error;
 
 use crate::{
-    coordinator::{ProtocolEvent, RoundParameters, RoundSeed},
+    coordinator::{ProtocolEvent, RoundParameters},
     mask::model::Model,
     service::handle::{SerializedGlobalModel, SerializedSeedDict, SerializedSumDict},
-    CoordinatorPublicKey,
     SeedDict,
     SumParticipantPublicKey,
 };
@@ -222,17 +221,8 @@ impl Sum2Data {
 
 #[derive(Debug, PartialEq, Default)]
 pub struct RoundParametersData {
-    /// The coordinator public key for encryption.
-    pub pk: Option<CoordinatorPublicKey>,
-
-    /// Fraction of participants to be selected for the sum task.
-    pub sum: Option<f64>,
-
-    /// Fraction of participants to be selected for the update task.
-    pub update: Option<f64>,
-
-    /// The random round seed.
-    pub seed: Option<RoundSeed>,
+    /// The round parameters of the current round.
+    pub round_parameters: Option<RoundParameters>,
 
     /// The global model of the previous round.
     pub global_model: Option<SerializedGlobalModel>,
@@ -243,10 +233,7 @@ impl RoundParametersData {
     /// If it is the first round, the value of the global model will be None.
     fn update_round_parameters(&self, round_parameters: RoundParameters) -> RoundParametersData {
         RoundParametersData {
-            pk: Some(round_parameters.pk),
-            sum: Some(round_parameters.sum),
-            update: Some(round_parameters.update),
-            seed: Some(round_parameters.seed),
+            round_parameters: Some(round_parameters),
             global_model: self.global_model.clone(),
         }
     }
@@ -268,10 +255,7 @@ impl RoundParametersData {
 impl From<RoundParameters> for RoundParametersData {
     fn from(round_parameters: RoundParameters) -> RoundParametersData {
         RoundParametersData {
-            pk: Some(round_parameters.pk),
-            sum: Some(round_parameters.sum),
-            update: Some(round_parameters.update),
-            seed: Some(round_parameters.seed),
+            round_parameters: Some(round_parameters),
             ..Default::default()
         }
     }
