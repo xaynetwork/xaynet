@@ -433,7 +433,7 @@ mod tests {
                     // a. aggregate the masked models
                     // b. check the aggregated masked model
                     let mut aggregated_masked_model = Aggregation::new(config);
-                    for nb in 1..$count+1 {
+                    for nb in 1..$count as usize + 1 {
                         let masked_model = masked_models.next().unwrap();
                         assert!(
                             aggregated_masked_model.validate_aggregation(&masked_model).is_ok()
@@ -586,7 +586,7 @@ mod tests {
                     let mut aggregated_mask = Aggregation::new(config);
                     let scalar = 1_f64 / ($count as f64);
                     let scalar_ratio = Ratio::from_float(scalar).unwrap();
-                    for _ in 0..$count {
+                    for _ in 0..$count as usize {
                         let model = models.next().unwrap();
                         averaged_model
                             .iter_mut()
@@ -613,7 +613,6 @@ mod tests {
                         averaged_model.iter()
                             .zip(unmasked_model.iter())
                             .all(|(averaged_weight, unmasked_weight)| {
-                                println!("{}, {}", averaged_weight, unmasked_weight);
                                 (averaged_weight - unmasked_weight).abs() <= tolerance
                             })
                     );
