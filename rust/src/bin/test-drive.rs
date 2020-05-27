@@ -1,7 +1,7 @@
 use xain_fl::client::{Client, ClientError};
 use xain_fl::participant::Task;
 use xain_fl::service::Service;
-// use tracing_subscriber::*;
+use tracing_subscriber::*;
 
 
 /// Test-drive script of a (completely local) single-round federated learning
@@ -17,10 +17,10 @@ use xain_fl::service::Service;
 #[tokio::main]
 async fn main() -> Result<(), ClientError> {
 
-    // FIXME logging seems to no longer work
-    // let _fmt_subscriber = FmtSubscriber::builder()
-    //     .with_ansi(true)
-    //     .init();
+    let _fmt_subscriber = FmtSubscriber::builder()
+        .with_env_filter(EnvFilter::from_default_env())
+        .with_ansi(true)
+        .init();
 
 
     let (svc, hdl) = Service::new().unwrap();

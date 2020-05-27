@@ -61,7 +61,8 @@ impl Service {
     }
 
     /// Handler for round parameters requests
-    fn handle_round_parameters_request(&self, req: RoundParametersRequest) {
+    fn handle_round_parameters_request(&mut self, req: RoundParametersRequest) {
+        self.coordinator.try_phase_transition(); // HACK get coordinator out of IDLE
         let RoundParametersRequest { response_tx } = req;
         let _ = response_tx.send(self.data.round_parameters());
     }

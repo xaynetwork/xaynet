@@ -12,11 +12,11 @@ use thiserror::Error;
 /// Client-side errors
 #[derive(Debug, Error)]
 pub enum ClientError {
-    /// Error starting the underlying `Participant`
+    /// Error starting the underlying [`Participant`]
     #[error("failed to initialise participant: {0}")]
     ParticipantInitErr(InitError),
 
-    /// Error from the underlying `Participant`
+    /// Error from the underlying [`Participant`]
     #[error("error arising from participant")]
     ParticipantErr(PetError),
 
@@ -31,13 +31,14 @@ pub enum ClientError {
 
 /// A client of the federated learning service
 ///
-/// `Client` is responsible for communicating with the service, deserialising
-/// its messages and delegating their processing to the underlying `Participant`.
+/// [`Client`] is responsible for communicating with the service, deserialising
+/// its messages and delegating their processing to the underlying
+/// [`Participant`].
 pub struct Client {
-    /// Handle to the federated learning `Service`
+    /// Handle to the federated learning [`Service`]
     handle: Handle,
 
-    /// The underlying `Participant`
+    /// The underlying [`Participant`]
     participant: Participant,
 
     /// Interval to poll for service data
@@ -49,10 +50,10 @@ pub struct Client {
 }
 
 impl Client {
-    /// Create a new `Client`
+    /// Create a new [`Client`]
     ///
     /// `period`: time period at which to poll for service data, in seconds.
-    /// Returns `Ok(client)` if `Client` `client` initialised successfully
+    /// Returns `Ok(client)` if [`Client`] `client` initialised successfully
     /// Returns `Err(err)` if `ClientError` `err` occurred
     pub fn new(period: u64) -> Result<Self, ClientError> {
         let (handle, _events) = Handle::new();
@@ -66,11 +67,11 @@ impl Client {
         })
     }
 
-    /// Create a new `Client` with ID (useful for testing)
+    /// Create a new [`Client`] with ID (useful for testing)
     ///
     /// `period`: time period at which to poll for service data, in seconds.
-    /// `id`: an ID to assign to the `Client`.
-    /// Returns `Ok(client)` if `Client` `client` initialised successfully
+    /// `id`: an ID to assign to the [`Client`].
+    /// Returns `Ok(client)` if [`Client`] `client` initialised successfully
     /// Returns `Err(err)` if `ClientError` `err` occurred
     pub fn new_with_id(period: u64, handle: Handle, id: u32) -> Result<Self, ClientError> {
         let participant = Participant::new()
@@ -83,7 +84,7 @@ impl Client {
         })
     }
 
-    /// Start the `Client` loop
+    /// Start the [`Client`] loop
     ///
     /// Returns `Err(err)` if `ClientError` `err` occurred
     /// NOTE in the future this may iterate only a fixed number of times, at the
@@ -95,7 +96,7 @@ impl Client {
         }
     }
 
-    /// Client duties within a round
+    /// [`Client`] duties within a round
     pub async fn per_round(&mut self) -> Result<Task, ClientError> {
         let round_params: Arc<RoundParameters> = loop {
             if let Some(round_params) =
@@ -103,11 +104,11 @@ impl Client {
             {
                 break round_params
             }
-            println!("{}: round params not ready, retrying.", self.id); // TEMP
+            debug!(client_id = %self.id, "round params not ready, retrying.");
             self.interval.tick().await;
         };
         let round_seed: &[u8] = round_params.seed.as_slice();
-        println!("computing sigs and checking task"); // TEMP
+        debug!(client_id = %self.id, "computing sigs and checking task");
         self.participant
             .compute_signatures(round_seed);
         let (sum_frac, upd_frac) = (round_params.sum, round_params.update);
@@ -124,12 +125,12 @@ impl Client {
         }
     }
 
-    /// Duties for unselected clients
+    /// Duties for unselected [`Client`]s
     async fn unselected(&mut self) -> Result<Task, ClientError> {
         Ok(Task::None)
     }
 
-    /// Duties for clients selected as summers
+    /// Duties for [`Client`]s selected as summers
     async fn summer(&mut self, coord_pk: CoordinatorPublicKey)
                     -> Result<Task, ClientError>
     {
@@ -145,7 +146,7 @@ impl Client {
             if let Some(seed_dict_ser) = self.handle.get_seed_dict(pk).await {
                 break seed_dict_ser
             }
-            println!("{}: seed dictionary not ready, retrying.", self.id); // TEMP
+            debug!(client_id = %self.id, "seed dictionary not ready, retrying.");
             // updates not yet ready, try again later...
             self.interval.tick().await;
         };
@@ -162,7 +163,7 @@ impl Client {
         Ok(Task::Sum)
     }
 
-    /// Duties for clients selected as updaters
+    /// Duties for [`Client`]s selected as updaters
     async fn updater(&mut self, coord_pk: CoordinatorPublicKey)
                      -> Result<Task, ClientError>
     {
@@ -171,7 +172,7 @@ impl Client {
             if let Some(sum_dict_ser) = self.handle.get_sum_dict().await {
                 break sum_dict_ser
             }
-            println!("{}: sum dictionary not ready, retrying.", self.id); // TEMP
+            debug!(client_id = %self.id, "sum dictionary not ready, retrying.");
             // sums not yet ready, try again later...
             self.interval.tick().await;
         };
