@@ -123,7 +123,6 @@ impl Data {
                 // The coordinator has ended the round but hasn't yet started a new one.
                 // Therefore, we can only publish the global model and set all other round
                 // parameters to None because the round is already over.
-
                 self.round_parameters_data =
                     if let Some(round_parameters_data) = self.round_parameters_data.take() {
                         // Update the global model and set all other round parameters to None.
@@ -139,8 +138,10 @@ impl Data {
                             )))
                         }
                     } else {
-                        // Normally that case should not be possible.
-                        None
+                        // This case should not be possible.
+                        // The coordinator cannot get to the step in which the event
+                        // [`End Round`] is emitted, without having any rounding parameters.
+                        panic!("A round was completed without having any round parameters.")
                     };
 
                 self.phase_data = None;
