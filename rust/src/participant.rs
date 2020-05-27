@@ -177,7 +177,7 @@ impl Participant {
 
     /// Generate a mask seed and mask a local model (dummy).
     fn mask_model() -> (MaskSeed, MaskObject) {
-        let model = Model::from_primitives(vec![0_i32, 1_i32, 2_i32, 3_i32].into_iter()).unwrap();
+        let model = Model::from_primitives(vec![0_f32, 1_f32, 2_f32, 3_f32].into_iter()).unwrap();
         let masker = Masker::new(dummy_config());
         let (seed, masked_model) = masker.mask(0.5, model);
         (seed, masked_model)
@@ -370,9 +370,9 @@ mod tests {
 
 fn dummy_config() -> MaskConfig {
     MaskConfig {
-        group_type: GroupType::Integer,
-        data_type: DataType::I32,
-        bound_type: BoundType::Bmax,
+        group_type: GroupType::Prime,
+        data_type: DataType::F32,
+        bound_type: BoundType::B0,
         model_type: ModelType::M3,
     }
 }
