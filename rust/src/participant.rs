@@ -1,4 +1,4 @@
-use std::default::Default;
+use std::{collections::HashMap, default::Default};
 
 use crate::{
     certificate::Certificate,
@@ -7,6 +7,7 @@ use crate::{
         Aggregation,
         BoundType,
         DataType,
+        EncryptedMaskSeed,
         FromPrimitives,
         GroupType,
         MaskConfig,
@@ -24,10 +25,10 @@ use crate::{
     ParticipantSecretKey,
     ParticipantTaskSignature,
     PetError,
-    SeedDict,
     SumDict,
     SumParticipantEphemeralPublicKey,
     SumParticipantEphemeralSecretKey,
+    UpdateParticipantPublicKey,
 };
 
 #[derive(Debug, PartialEq, Copy, Clone)]
@@ -92,7 +93,7 @@ impl Participant {
 
     /// Get encryption public key.
     pub fn get_encr_pk(&self) -> ParticipantPublicKey {
-       self.pk
+        self.pk
     }
 
     /// Compute the sum and update signatures.
@@ -146,9 +147,13 @@ impl Participant {
     pub fn compose_sum2_message(
         &self,
         pk: CoordinatorPublicKey,
-        seed_dict: &SeedDict,
+        seed_dict: &HashMap<UpdateParticipantPublicKey, EncryptedMaskSeed>,
     ) -> Result<Vec<u8>, PetError> {
-        let mask_seeds = self.get_seeds(seed_dict)?;
+        let mask_seeds = seed_dict
+            .values()
+            .map(|seed| seed.decrypt(&self.ephm_pk, &self.ephm_sk))
+            .collect::<Result<Vec<MaskSeed>, _>>()?;
+
         let mask_len = 3; // dummy
         let mask = self.compute_global_mask(mask_seeds, mask_len, dummy_config())?;
         let payload = Sum2Owned {
@@ -188,16 +193,6 @@ impl Participant {
         sum_dict
             .iter()
             .map(|(pk, ephm_pk)| (*pk, mask_seed.encrypt(ephm_pk)))
-            .collect()
-    }
-
-    /// Get the mask seeds from the seed dictionary.
-    fn get_seeds(&self, seed_dict: &SeedDict) -> Result<Vec<MaskSeed>, PetError> {
-        seed_dict
-            .get(&self.pk)
-            .ok_or(PetError::InvalidMessage)?
-            .values()
-            .map(|seed| seed.decrypt(&self.ephm_pk, &self.ephm_sk))
             .collect()
     }
 

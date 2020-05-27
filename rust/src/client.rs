@@ -2,10 +2,13 @@ use crate::crypto::ByteObject;
 use crate::service::Handle;
 use crate::coordinator::RoundParameters;
 use crate::participant::{Participant, Task};
-use crate::{CoordinatorPublicKey, SeedDict, SumDict, PetError, InitError};
+use crate::{CoordinatorPublicKey, SumDict, PetError, InitError};
+use crate::UpdateParticipantPublicKey;
+use crate::mask::EncryptedMaskSeed;
 use std::sync::Arc;
 use tokio::time;
 use std::time::Duration;
+use std::collections::HashMap;
 use thiserror::Error;
 
 
@@ -150,8 +153,15 @@ impl Client {
             // updates not yet ready, try again later...
             self.interval.tick().await;
         };
-        let seed_dict: SeedDict = bincode::deserialize(&seed_dict_ser[..])
-            .map_err(ClientError::DeserialiseErr)?;
+        let seed_dict: HashMap<UpdateParticipantPublicKey, EncryptedMaskSeed> =
+            bincode::deserialize(&seed_dict_ser[..]).map_err(|e| {
+                error!(
+                    "failed to deserialize seed dictionary: {}: {:?}",
+                    e,
+                    &seed_dict_ser[..]
+                );
+                ClientError::DeserialiseErr(e)
+            })?;
         let sum2_msg: Vec<u8> = self
             .participant
             .compose_sum2_message(coord_pk, &seed_dict)
@@ -188,13 +198,3 @@ impl Client {
         Ok(Task::Update)
     }
 }
-
-
-
-
-
-
-
-
-
-
