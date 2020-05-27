@@ -140,7 +140,7 @@ impl Data {
                     } else {
                         // This case should not be possible.
                         // The coordinator cannot get to the step in which the event
-                        // [`End Round`] is emitted, without having any rounding parameters.
+                        // [`End Round`] is emitted, without having any round parameters.
                         panic!("A round was completed without having any round parameters.")
                     };
 
