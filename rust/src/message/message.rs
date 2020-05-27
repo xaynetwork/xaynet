@@ -133,7 +133,7 @@ impl<'a, 'b> MessageSeal<'a, 'b> {
     {
         let signed_payload_length = message.buffer_length() + Signature::LENGTH;
 
-        let mut buffer = Vec::with_capacity(signed_payload_length);
+        let mut buffer = vec![0; signed_payload_length];
         message.to_bytes(&mut &mut buffer[Signature::LENGTH..]);
 
         let signature = self.sender_sk.sign_detached(&buffer[Signature::LENGTH..]);
