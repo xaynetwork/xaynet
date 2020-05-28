@@ -1,6 +1,6 @@
 pub(crate) mod config;
 mod masking;
-mod model;
+pub(crate) mod model;
 pub(crate) mod object; //
 mod seed;
 

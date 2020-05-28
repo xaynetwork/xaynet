@@ -14,7 +14,7 @@ use num::{
 use thiserror::Error;
 
 /// Represent a model.
-#[derive(Debug, Clone, PartialEq, Hash, From, Index, IndexMut, Into)]
+#[derive(Debug, Clone, PartialEq, Hash, From, Index, IndexMut, Into, Serialize)]
 pub struct Model(Vec<Ratio<BigInt>>);
 
 #[allow(clippy::len_without_is_empty)]
