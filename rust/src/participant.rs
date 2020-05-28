@@ -51,7 +51,7 @@ pub struct Participant {
     update_signature: ParticipantTaskSignature, // 64 bytes
 
     // round parameters
-    task: Task,
+    pub(crate) task: Task,
 }
 
 impl Default for Participant {
