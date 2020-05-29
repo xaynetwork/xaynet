@@ -110,10 +110,10 @@ PrimModel! {i64, c_long}
 /// A cached primitive model stored on the heap. The mutable slice returned from `get_model_N()`
 /// points to this.
 pub enum PrimitiveModel {
-    F32(Box<Vec<f32>>),
-    F64(Box<Vec<f64>>),
-    I32(Box<Vec<i32>>),
-    I64(Box<Vec<i64>>),
+    F32(Vec<f32>),
+    F64(Vec<f64>),
+    I32(Vec<i32>),
+    I64(Vec<i64>),
 }
 
 /// TODO: this is a mock, replace by sth like the `Client` from #397 or a wrapper around that.
@@ -249,7 +249,7 @@ macro_rules! get_model {
                             .into_primitives()
                             .map(|res| res.map_err(|_| ()))
                             .collect::<Result<Vec<$rust>, ()>>()
-                            .map_or(None, |vec| Some(PrimitiveModel::[<$rust:upper>](Box::new(vec))));
+                            .map_or(None, |vec| Some(PrimitiveModel::[<$rust:upper>](vec)));
                     }
 
                     if let Some(PrimitiveModel::[<$rust:upper>](ref mut model)) = client.model {
