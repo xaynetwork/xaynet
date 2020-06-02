@@ -9,9 +9,11 @@ extern crate tracing;
 pub mod certificate;
 pub mod client;
 pub mod coordinator;
+pub mod coordinator_async;
 pub mod crypto;
 pub mod mask;
 pub mod message;
+pub mod message_processing;
 pub mod participant;
 pub mod service;
 
