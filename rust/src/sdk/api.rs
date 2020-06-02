@@ -31,30 +31,30 @@ use crate::{
 };
 
 /// Generates a struct to hold the C equivalent of `&mut [N]` for a primitive data type `N` and
-/// implements a consuming iterator for the struct. The arguments `$rust` and `$c` are the
-/// corresponding Rust and C primitive data types.
+/// implements a consuming iterator for the struct. The arguments `$prim_rust` and `$prim_c` are
+/// the corresponding Rust and C primitive data types.
 macro_rules! PrimModel {
-    ($rust:ty, $c:ty $(,)?) => {
+    ($prim_rust:ty, $prim_c:ty $(,)?) => {
         paste::item! {
             #[derive(Clone, Copy)]
             #[repr(C)]
             /// A model of primitive data type represented as a mutable slice which can be accessed
             /// from C. It holds a raw pointer `ptr` to the array of primitive values and its length
             /// `len`.
-            pub struct [<PrimitiveModel $rust:upper>] {
-                ptr: *mut $c,
-                len: c_ulong,
+            pub struct [<PrimitiveModel $prim_rust:upper>] {
+                pub ptr: *mut $prim_c,
+                pub len: c_ulong,
             }
 
             /// An iterator that moves out of a primitive model.
-            pub struct [<IntoIter $rust:upper>] {
-                model: [<PrimitiveModel $rust:upper>],
+            pub struct [<IntoIter $prim_rust:upper>] {
+                model: [<PrimitiveModel $prim_rust:upper>],
                 count: isize,
             }
 
-            impl IntoIterator for [<PrimitiveModel $rust:upper>] {
-                type Item = $rust;
-                type IntoIter = [<IntoIter $rust:upper>];
+            impl IntoIterator for [<PrimitiveModel $prim_rust:upper>] {
+                type Item = $prim_rust;
+                type IntoIter = [<IntoIter $prim_rust:upper>];
 
                 /// Creates an iterator from a primitive model.
                 fn into_iter(self) -> Self::IntoIter {
@@ -65,8 +65,8 @@ macro_rules! PrimModel {
                 }
             }
 
-            impl Iterator for [<IntoIter $rust:upper>] {
-                type Item = $rust;
+            impl Iterator for [<IntoIter $prim_rust:upper>] {
+                type Item = $prim_rust;
 
                 /// Advances the iterator and returns the next primitive value. Returns `None` when
                 /// the iteration is finished.
@@ -82,7 +82,7 @@ macro_rules! PrimModel {
                     if ((self.count + 1) as c_ulong) < self.model.len {
                         if self.count < isize::MAX
                             && (self.model.ptr as isize)
-                                .checked_add((self.count + 2) * mem::size_of::<$rust>() as isize)
+                                .checked_add((self.count + 2) * mem::size_of::<$prim_rust>() as isize)
                                 .is_some()
                         {
                             self.count += 1;
@@ -107,8 +107,9 @@ PrimModel! {f64, c_double}
 PrimModel! {i32, c_int}
 PrimModel! {i64, c_long}
 
-/// A cached primitive model stored on the heap. The mutable slice returned from `get_model_N()`
-/// points to this.
+#[derive(Clone, Debug)]
+/// A primitive model of data type `N` cached on the heap. The pointer `PrimitiveModelN` returned
+/// from `get_model_N()` references this memory.
 pub enum PrimitiveModel {
     F32(Vec<f32>),
     F64(Vec<f64>),
@@ -118,11 +119,12 @@ pub enum PrimitiveModel {
 
 /// TODO: this is a mock, replace by sth like the `Client` from #397 or a wrapper around that.
 ///
-/// The pointer to the cached [`PrimitiveModel`], which gets allocated in `get_model_N()` and is
-/// stored in `model`, is valid across the FFI-boundary until one of the following events happen:
-/// - The model memory is freed via a call to `free_model()`.
-/// - The client memory is freed via a call to `drop_client()`.
-/// - The model is updated via a call to `update_model()`.
+/// The pointer `PrimitiveModelN` to the cached [`PrimitiveModel`] of primitive data type `N`,
+/// which gets allocated and returned in `get_model_N()`, is valid across the FFI-boundary until
+/// one of the following events happen:
+/// - The [`PrimitiveModel`] memory is freed via a call to [`drop_model()`].
+/// - The [`Client`] memory is freed via a call to [`drop_client()`].
+/// - The model is updated via a call to `update_model_N()`.
 /// - The round ends. (TODO: implement this point when a new round is observed)
 pub struct Client {
     participant: Participant,
@@ -206,10 +208,10 @@ pub unsafe extern "C" fn is_update_participant(client: *mut Client) -> bool {
     client.participant.task == Task::Update
 }
 
-/// Generates a method to get the global model converted to primitives. The arguments `$rust` and
-/// `$c` are the corresponding Rust and C primitive data types.
+/// Generates a method to get the global model converted to primitives. The arguments `$prim_rust`
+/// and `$prim_c` are the corresponding Rust and C primitive data types.
 macro_rules! get_model {
-    ($rust:ty, $c:ty $(,)?) => {
+    ($prim_rust:ty, $prim_c:ty $(,)?) => {
         paste::item! {
             #[no_mangle]
             /// Gets the latest global model converted as a primitive model, which is valid until
@@ -225,9 +227,9 @@ macro_rules! get_model {
             /// # Safety
             /// The method dereferences from the raw pointer arguments. Therefore, the behavior of
             /// the method is undefined if the arguments don't point to valid objects.
-            pub unsafe extern "C" fn [<get_model_ $rust>](
+            pub unsafe extern "C" fn [<get_model_ $prim_rust>](
                 client: *mut Client,
-            ) -> [<PrimitiveModel $rust:upper>] {
+            ) -> [<PrimitiveModel $prim_rust:upper>] {
                 if client.is_null() {
                     // TODO: add error handling
                     panic!("invalid client");
@@ -248,25 +250,25 @@ macro_rules! get_model {
                         client.model = model
                             .into_primitives()
                             .map(|res| res.map_err(|_| ()))
-                            .collect::<Result<Vec<$rust>, ()>>()
-                            .map_or(None, |vec| Some(PrimitiveModel::[<$rust:upper>](vec)));
+                            .collect::<Result<Vec<$prim_rust>, ()>>()
+                            .map_or(None, |vec| Some(PrimitiveModel::[<$prim_rust:upper>](vec)));
                     }
 
-                    if let Some(PrimitiveModel::[<$rust:upper>](ref mut model)) = client.model {
+                    if let Some(PrimitiveModel::[<$prim_rust:upper>](ref mut model)) = client.model {
                         // conversion succeeded
-                        let ptr = model.as_mut_ptr();
-                        [<PrimitiveModel $rust:upper>] { ptr, len }
+                        let ptr = model.as_mut_ptr() as *mut $prim_c;
+                        [<PrimitiveModel $prim_rust:upper>] { ptr, len }
                     } else {
                         // conversion failed
-                        let ptr = ptr::null_mut();
-                        [<PrimitiveModel $rust:upper>] { ptr, len }
+                        let ptr = ptr::null_mut() as *mut $prim_c;
+                        [<PrimitiveModel $prim_rust:upper>] { ptr, len }
                     }
 
                 } else {
                     // global model unavailable
-                    let ptr = ptr::null_mut();
+                    let ptr = ptr::null_mut() as *mut $prim_c;
                     let len = 0_u64 as c_ulong;
-                    [<PrimitiveModel $rust:upper>] { ptr, len }
+                    [<PrimitiveModel $prim_rust:upper>] { ptr, len }
                 }
             }
         }
@@ -278,10 +280,10 @@ get_model!(f64, c_double);
 get_model!(i32, c_int);
 get_model!(i64, c_long);
 
-/// Generates a method to register the updated local model. The argument `$rust` is the
+/// Generates a method to register the updated local model. The argument `$prim` is the
 /// corresponding Rust primitive data type.
 macro_rules! update_model {
-    ($rust:ty $(,)?) => {
+    ($prim:ty $(,)?) => {
         paste::item! {
             #[no_mangle]
             /// Registers the updated local model.
@@ -294,20 +296,20 @@ macro_rules! update_model {
             /// modified or which isn't allocated by `get_model()`. Therefore, the behavior of the
             /// method is undefined if any of the [slice safety conditions](https://doc.rust-lang.org/std/slice/fn.from_raw_parts.html#safety)
             /// are violated.
-            pub unsafe extern "C" fn [<update_model_ $rust>](
+            pub unsafe extern "C" fn [<update_model_ $prim>](
                 client: *mut Client,
-                model: [<PrimitiveModel $rust:upper>],
+                model: [<PrimitiveModel $prim:upper>],
             ) {
                 if !client.is_null()
                     && !model.ptr.is_null()
                     && model.len != 0
                     && model.len <= usize::MAX as c_ulong
-                    && model.len as usize * mem::size_of::<$rust>() <= usize::MAX
+                    && model.len as usize * mem::size_of::<$prim>() <= usize::MAX
                 {
                     let client = &mut *client;
-                    if let Some(PrimitiveModel::[<$rust:upper>](cached)) = client.model.take() {
+                    if let Some(PrimitiveModel::[<$prim:upper>](cached)) = client.model.take() {
                         // cached model was updated
-                        if ptr::eq(model.ptr, cached.as_ptr())
+                        if ptr::eq(model.ptr as *const $prim, cached.as_ptr())
                             && model.len as usize == cached.len()
                         {
                             // TODO: use the model when the client sends the update message
@@ -345,4 +347,102 @@ pub unsafe extern "C" fn drop_model(client: *mut Client) {
     }
     let client = &mut *client;
     client.model.take();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    macro_rules! test_get_model {
+        ($prim:ty) => {
+            paste::item! {
+                #[test]
+                fn [<test_get_model_ $prim>]() {
+                    unsafe {
+                        let client = new_client();
+                        let model = [<get_model_ $prim>](client);
+                        if let Some(PrimitiveModel::[<$prim:upper>](ref cached)) = (&mut *client).model {
+                            assert_eq!(
+                                Model::from_primitives_bounded(model.into_iter()),
+                                Model::from_primitives_bounded(cached.clone().into_iter()),
+                            );
+                        } else {
+                            panic!();
+                        }
+                        drop_client(client);
+                    }
+                }
+            }
+        };
+    }
+
+    test_get_model!(f32);
+    test_get_model!(f64);
+    test_get_model!(i32);
+    test_get_model!(i64);
+
+    macro_rules! test_update_cached_model {
+        ($prim:ty) => {
+            paste::item! {
+                #[test]
+                fn [<test_update_cached_model_ $prim>]() {
+                    unsafe {
+                        let client = new_client();
+                        let model = [<get_model_ $prim>](client);
+                        if let Some(PrimitiveModel::[<$prim:upper>](ref cached)) = (&mut *client).model {
+                            assert_eq!(cached.as_ptr(), model.ptr as *const $prim);
+                            assert_eq!(cached.len(), model.len as usize);
+                        } else {
+                            panic!();
+                        }
+                        [<update_model_ $prim>](client, model);
+                        assert!((&mut *client).model.is_none());
+                        drop_client(client);
+                    }
+                }
+            }
+        };
+    }
+
+    test_update_cached_model!(f32);
+    test_update_cached_model!(f64);
+    test_update_cached_model!(i32);
+    test_update_cached_model!(i64);
+
+    macro_rules! test_update_noncached_model {
+        ($prim:ty) => {
+            paste::item! {
+                #[test]
+                fn [<test_update_other_model_ $prim>]() {
+                    unsafe {
+                        let client = new_client();
+                        let model = [<get_model_ $prim>](client);
+                        let mut vec = Model::from_iter(vec![Ratio::<BigInt>::zero(); model.len as usize].into_iter())
+                            .into_primitives()
+                            .map(|res| res.map_err(|_| ()))
+                            .collect::<Result<Vec<$prim>, ()>>()
+                            .unwrap();
+                        let model = [<PrimitiveModel $prim:upper>] {
+                            ptr: vec.as_mut_ptr(),
+                            len: vec.len() as c_ulong,
+                        };
+                        if let Some(PrimitiveModel::[<$prim:upper>](ref cached)) = (&mut *client).model {
+                            assert_ne!(cached.as_ptr(), model.ptr as *const $prim);
+                            assert_eq!(cached.len(), model.len as usize);
+                        } else {
+                            panic!();
+                        }
+                        [<update_model_ $prim>](client, model);
+                        assert!((&mut *client).model.is_none());
+                        drop_client(client);
+                    }
+                }
+            }
+        };
+    }
+
+    test_update_noncached_model!(f32);
+    test_update_noncached_model!(f64);
+    test_update_noncached_model!(i32);
+    test_update_noncached_model!(i64);
 }
