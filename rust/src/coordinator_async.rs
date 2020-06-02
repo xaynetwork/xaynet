@@ -6,59 +6,23 @@ use std::{
     sync::Arc,
 };
 
-use sodiumoxide::{
-    self,
-    crypto::{box_, hash::sha256},
-    randombytes::randombytes,
-};
-use thiserror::Error;
+use sodiumoxide::{self};
 
 use crate::{
     coordinator::{MaskDict, ProtocolEvent, RoundSeed},
-    crypto::{generate_encrypt_key_pair, ByteObject, SigningKeySeed},
-    mask::{
-        Aggregation,
-        BoundType,
-        DataType,
-        GroupType,
-        MaskConfig,
-        MaskObject,
-        Model,
-        ModelType,
-        UnmaskingError,
-    },
-    message::{
-        Message,
-        MessageOpen,
-        MessageOwned,
-        PayloadOwned,
-        Sum2Owned,
-        SumOwned,
-        Tag,
-        UpdateOwned,
-    },
+    crypto::ByteObject,
+    mask::{Aggregation, BoundType, DataType, GroupType, MaskConfig, ModelType},
+    message::{MessageOpen, MessageOwned, PayloadOwned},
     message_processing::{MessageSink, MessageValidator, SumValidationData},
     CoordinatorPublicKey,
     CoordinatorSecretKey,
     InitError,
-    LocalSeedDict,
-    ParticipantPublicKey,
-    ParticipantTaskSignature,
     PetError,
     SeedDict,
     SumDict,
-    SumParticipantPublicKey,
-    UpdateParticipantPublicKey,
 };
 use tokio::{
-    stream::StreamExt,
-    sync::{
-        broadcast,
-        mpsc,
-        mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
-        Semaphore,
-    },
-    task::JoinHandle,
+    sync::{broadcast, mpsc},
     time::Duration,
 };
 
@@ -130,9 +94,9 @@ impl State<Start> {
         ))
     }
 
-    pub async fn next(self) -> State<Sum> {
+    pub async fn next(self) -> State<Idle> {
         State {
-            _inner: Sum,
+            _inner: Idle,
             coordinator_state: self.coordinator_state,
             message_rx: self.message_rx,
         }
