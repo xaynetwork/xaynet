@@ -38,75 +38,23 @@ use crate::{
     participant::{Participant, Task},
 };
 
-/// Generates a struct to hold the C equivalent of `&mut [N]` for a primitive data type `N` and
-/// implements a consuming iterator for the struct. The arguments `$prim_rust` and `$prim_c` are
-/// the corresponding Rust and C primitive data types.
+/// Generates a struct to hold the C equivalent of `&mut [N]` for a primitive data type `N`. Also,
+/// implements a consuming iterator for the struct which is wrapped in a private submodule, because
+/// safe traits and their safe methods can't be implemented as `unsafe` and this way we ensure that
+/// the implementation is only ever used in an `unsafe fn`. The arguments `$prim_rust` and `$prim_c`
+/// are the corresponding Rust and C primitive data types.
 macro_rules! PrimModel {
     ($prim_rust:ty, $prim_c:ty $(,)?) => {
         paste::item! {
             #[derive(Clone, Copy)]
             #[repr(C)]
             /// A model of primitive data type represented as a mutable slice which can be accessed
-            /// from C. It holds a raw pointer `ptr` to the array of primitive values and its length
-            /// `len`.
+            /// from C.
             pub struct [<PrimitiveModel $prim_rust:upper>] {
+                /// A raw mutable pointer to an array of primitive values.
                 pub ptr: *mut $prim_c,
+                /// The length of that respective array.
                 pub len: c_ulong,
-            }
-
-            /// An iterator that moves out of a primitive model.
-            pub struct [<IntoIter $prim_rust:upper>] {
-                model: [<PrimitiveModel $prim_rust:upper>],
-                count: isize,
-            }
-
-            impl IntoIterator for [<PrimitiveModel $prim_rust:upper>] {
-                type Item = $prim_rust;
-                type IntoIter = [<IntoIter $prim_rust:upper>];
-
-                /// Creates an iterator from a primitive model.
-                fn into_iter(self) -> Self::IntoIter {
-                    Self::IntoIter {
-                        model: self,
-                        count: -1_isize,
-                    }
-                }
-            }
-
-            impl Iterator for [<IntoIter $prim_rust:upper>] {
-                type Item = $prim_rust;
-
-                /// Advances the iterator and returns the next primitive value. Returns `None` when
-                /// the iteration is finished.
-                ///
-                /// # Safety
-                /// The iterator iterates over an array by dereferencing from a raw pointer and is
-                /// therefore inherently unsafe, even though this can't be indicated in the function
-                /// signature of the trait's method.
-                ///
-                /// # Panics
-                /// The iterator panics if safety checks indicate undefined behavior.
-                fn next(&mut self) -> Option<Self::Item> {
-                    if ((self.count + 1) as c_ulong) < self.model.len {
-                        if self.count < isize::MAX
-                            && (self.model.ptr as isize)
-                                .checked_add((self.count + 2) * mem::size_of::<$prim_rust>() as isize)
-                                .is_some()
-                        {
-                            self.count += 1;
-                        } else {
-                            // TODO: add error handling
-                            panic!("iterating further results in undefined behavior");
-                        }
-                        unsafe {
-                            // safe if the pointer `ptr` comes from a valid allocation of a `Vec<_>`,
-                            // whereas the safety of the offset arithmetics is ensured above
-                            Some(*self.model.ptr.offset(self.count))
-                        }
-                    } else {
-                        None
-                    }
-                }
             }
         }
     };
@@ -117,10 +65,88 @@ PrimModel! {f64, c_double}
 PrimModel! {i32, c_int}
 PrimModel! {i64, c_long}
 
+/// Generates a consuming iterator for the primitive model. The iterator is wrapped in a private
+/// submodule, because safe traits and their safe methods can't be implemented as `unsafe` and this
+/// way we can ensure that the implementation is only ever used in an `unsafe fn`. The argument
+/// `$prim` is the corresponding Rust primitive data type.
+macro_rules! PrimIter {
+    ($prim:ty $(,)?) => {
+        paste::item! {
+            mod [<prim_iter_ $prim>] {
+                use std::{mem, os::raw::c_ulong};
+
+                use super::[<PrimitiveModel $prim:upper>];
+
+                /// An iterator that moves out of a primitive model.
+                pub struct [<IntoIter $prim:upper>] {
+                    model: [<PrimitiveModel $prim:upper>],
+                    count: isize,
+                }
+
+                impl IntoIterator for [<PrimitiveModel $prim:upper>] {
+                    type Item = $prim;
+                    type IntoIter = [<IntoIter $prim:upper>];
+
+                    /// Creates an iterator from a primitive model.
+                    fn into_iter(self) -> Self::IntoIter {
+                        Self::IntoIter {
+                            model: self,
+                            count: -1_isize,
+                        }
+                    }
+                }
+
+                impl Iterator for [<IntoIter $prim:upper>] {
+                    type Item = $prim;
+
+                    /// Advances the iterator and returns the next primitive value. Returns `None`
+                    /// when the iteration is finished.
+                    ///
+                    /// # Safety
+                    /// The iterator iterates over an array by dereferencing from a raw pointer and
+                    /// is therefore inherently unsafe, even though this can't be indicated in the
+                    /// function signature of the trait's method. Therefore, this method must only
+                    /// ever be used in an unsafe function.
+                    ///
+                    /// # Panics
+                    /// The iterator panics if safety checks indicate undefined behavior.
+                    fn next(&mut self) -> Option<Self::Item> {
+                        if ((self.count + 1) as c_ulong) < self.model.len {
+                            if self.count < isize::MAX
+                                && (self.model.ptr as isize)
+                                    .checked_add((self.count + 2) * mem::size_of::<$prim>() as isize)
+                                    .is_some()
+                            {
+                                self.count += 1;
+                            } else {
+                                // TODO: add error handling
+                                panic!("iterating further results in undefined behavior");
+                            }
+                            unsafe {
+                                // safe if the pointer `ptr` comes from a valid allocation of a
+                                // `Vec<$prim>`, whereas the safety of the offset arithmetics is
+                                // ensured by the checks above
+                                Some(*self.model.ptr.offset(self.count))
+                            }
+                        } else {
+                            None
+                        }
+                    }
+                }
+            }
+        }
+    };
+}
+
+PrimIter!(f32);
+PrimIter!(f64);
+PrimIter!(i32);
+PrimIter!(i64);
+
 #[derive(Clone, Debug)]
 /// A primitive model of data type `N` cached on the heap. The pointer `PrimitiveModelN` returned
 /// from `get_model_N()` references this memory.
-pub enum PrimitiveModel {
+enum PrimitiveModel {
     F32(Vec<f32>),
     F64(Vec<f64>),
     I32(Vec<i32>),
@@ -347,7 +373,10 @@ macro_rules! update_model {
                     } else {
                         // other model was updated
                         // TODO: use the model when the client sends the update message
-                        let _local_model = Model::from_primitives_bounded(model.into_iter());
+                        let _local_model = Model::from_primitives_bounded(unsafe {
+                            // safe if the slice `model` comes from a valid allocation of a `Vec<$prim>`
+                            model.into_iter()
+                        });
                     }
                 } else {
                     // TODO: add error handling
@@ -389,13 +418,14 @@ mod tests {
     macro_rules! test_get_model {
         ($prim:ty) => {
             paste::item! {
+                #[allow(unused_unsafe)]
                 #[test]
                 fn [<test_get_model_ $prim>]() {
                     let client = new_client();
                     let model = unsafe { [<get_model_ $prim>](client) };
                     if let Some(PrimitiveModel::[<$prim:upper>](ref cached)) = unsafe { &mut *client }.model {
                         assert_eq!(
-                            Model::from_primitives_bounded(model.into_iter()),
+                            Model::from_primitives_bounded(unsafe { model.into_iter() }),
                             Model::from_primitives_bounded(cached.clone().into_iter()),
                         );
                     } else {
@@ -442,7 +472,7 @@ mod tests {
         ($prim:ty) => {
             paste::item! {
                 #[test]
-                fn [<test_update_other_model_ $prim>]() {
+                fn [<test_update_noncached_model_ $prim>]() {
                     let client = new_client();
                     let model = unsafe { [<get_model_ $prim>](client) };
                     let mut vec = Model::from_iter(vec![Ratio::<BigInt>::zero(); model.len as usize].into_iter())
