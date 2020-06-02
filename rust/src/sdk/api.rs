@@ -1,5 +1,13 @@
 //! A C-API to communicate model updates between a PET protocol participant and an application.
 //!
+//! # Safety
+//! Many functions of this module are marked as `unsafe` to explicitly announce the possible
+//! unsafety of the function body as well as the return value to the caller. At the same time,
+//! each `unsafe fn` uses `unsafe` blocks to precisely pinpoint the sources of unsafety for
+//! reviewers (redundancy warnings will be fixed by [#69173](https://github.com/rust-lang/rust/issues/69173)).
+//!
+//! **Note, that the `unsafe` code has not been externally audited yet!**
+//!
 //! # Workflow
 //! 1. Initialize a client with `new_client()`, which will take care of the participant's PET
 //!    protocol work as well as the networking with the coordinator.
@@ -91,6 +99,8 @@ macro_rules! PrimModel {
                             panic!("iterating further results in undefined behavior");
                         }
                         unsafe {
+                            // safe if the pointer `ptr` comes from a valid allocation of a `Vec<_>`,
+                            // whereas the safety of the offset arithmetics is ensured above
                             Some(*self.model.ptr.offset(self.count))
                         }
                     } else {
@@ -154,6 +164,7 @@ pub extern "C" fn new_client() -> *mut Client {
     Box::into_raw(Box::new(client))
 }
 
+#[allow(unused_unsafe)]
 #[no_mangle]
 /// Destroys a [`Client`] and frees its allocated memory.
 ///
@@ -162,10 +173,14 @@ pub extern "C" fn new_client() -> *mut Client {
 /// the method is undefined if the arguments don't point to valid objects.
 pub unsafe extern "C" fn drop_client(client: *mut Client) {
     if !client.is_null() {
-        Box::from_raw(client);
+        unsafe {
+            // safe if the raw pointer `client` comes from a valid allocation of a `Client`
+            Box::from_raw(client);
+        }
     }
 }
 
+#[allow(unused_unsafe)]
 #[no_mangle]
 /// Checks if the next round has started.
 ///
@@ -177,7 +192,10 @@ pub unsafe extern "C" fn is_next_round(client: *mut Client) -> bool {
         // TODO: add error handling
         panic!("invalid client");
     }
-    let client = &mut *client;
+    let client = unsafe {
+        // safe if the raw pointer `client` comes from a valid allocation of a `Client`
+        &mut *client
+    };
     // TODO: increment the `current_round` if the client sees a new coordinator pk
     // as a result of `client.handle.get_round_parameters().await`
     match client.checked_round.cmp(&client.current_round) {
@@ -193,6 +211,7 @@ pub unsafe extern "C" fn is_next_round(client: *mut Client) -> bool {
     }
 }
 
+#[allow(unused_unsafe)]
 #[no_mangle]
 /// Checks if the current role of the participant is [`Task::Update`].
 ///
@@ -204,7 +223,10 @@ pub unsafe extern "C" fn is_update_participant(client: *mut Client) -> bool {
         // TODO: add error handling
         panic!("invalid client");
     }
-    let client = &mut *client;
+    let client = unsafe {
+        // safe if the raw pointer `client` comes from a valid allocation of a `Client`
+        &*client
+    };
     client.participant.task == Task::Update
 }
 
@@ -213,6 +235,7 @@ pub unsafe extern "C" fn is_update_participant(client: *mut Client) -> bool {
 macro_rules! get_model {
     ($prim_rust:ty, $prim_c:ty $(,)?) => {
         paste::item! {
+            #[allow(unused_unsafe)]
             #[no_mangle]
             /// Gets the latest global model converted as a primitive model, which is valid until
             /// the current round ends. The model can be modified in place, for example for
@@ -234,7 +257,10 @@ macro_rules! get_model {
                     // TODO: add error handling
                     panic!("invalid client");
                 }
-                let client = &mut *client;
+                let client = unsafe {
+                    // safe if the raw pointer `client` comes from a valid allocation of a `Client`
+                    &mut *client
+                };
 
                 // TODO: this is a mock, get the model when the client retrieves the round
                 // parameters as a result of `client.handle.get_round_parameters().await`
@@ -285,6 +311,7 @@ get_model!(i64, c_long);
 macro_rules! update_model {
     ($prim:ty $(,)?) => {
         paste::item! {
+            #[allow(unused_unsafe)]
             #[no_mangle]
             /// Registers the updated local model.
             ///
@@ -303,10 +330,12 @@ macro_rules! update_model {
                 if !client.is_null()
                     && !model.ptr.is_null()
                     && model.len != 0
-                    && model.len <= usize::MAX as c_ulong
-                    && model.len as usize * mem::size_of::<$prim>() <= usize::MAX
+                    && model.len <= (usize::MAX / mem::size_of::<$prim>()) as c_ulong
                 {
-                    let client = &mut *client;
+                    let client = unsafe {
+                        // safe if the raw pointer `client` comes from a valid allocation of a `Client`
+                        &mut *client
+                    };
                     if let Some(PrimitiveModel::[<$prim:upper>](cached)) = client.model.take() {
                         // cached model was updated
                         if ptr::eq(model.ptr as *const $prim, cached.as_ptr())
@@ -334,6 +363,7 @@ update_model!(f64);
 update_model!(i32);
 update_model!(i64);
 
+#[allow(unused_unsafe)]
 #[no_mangle]
 /// Destroys a cached [`PrimitiveModel`] and frees its allocated memory.
 ///
@@ -345,7 +375,10 @@ pub unsafe extern "C" fn drop_model(client: *mut Client) {
         // TODO: add error handling
         panic!("invalid client");
     }
-    let client = &mut *client;
+    let client = unsafe {
+        // safe if the raw pointer `client` comes from a valid allocation of a `Client`
+        &mut *client
+    };
     client.model.take();
 }
 
@@ -358,19 +391,17 @@ mod tests {
             paste::item! {
                 #[test]
                 fn [<test_get_model_ $prim>]() {
-                    unsafe {
-                        let client = new_client();
-                        let model = [<get_model_ $prim>](client);
-                        if let Some(PrimitiveModel::[<$prim:upper>](ref cached)) = (&mut *client).model {
-                            assert_eq!(
-                                Model::from_primitives_bounded(model.into_iter()),
-                                Model::from_primitives_bounded(cached.clone().into_iter()),
-                            );
-                        } else {
-                            panic!();
-                        }
-                        drop_client(client);
+                    let client = new_client();
+                    let model = unsafe { [<get_model_ $prim>](client) };
+                    if let Some(PrimitiveModel::[<$prim:upper>](ref cached)) = unsafe { &mut *client }.model {
+                        assert_eq!(
+                            Model::from_primitives_bounded(model.into_iter()),
+                            Model::from_primitives_bounded(cached.clone().into_iter()),
+                        );
+                    } else {
+                        panic!();
                     }
+                    unsafe { drop_client(client) };
                 }
             }
         };
@@ -386,19 +417,17 @@ mod tests {
             paste::item! {
                 #[test]
                 fn [<test_update_cached_model_ $prim>]() {
-                    unsafe {
-                        let client = new_client();
-                        let model = [<get_model_ $prim>](client);
-                        if let Some(PrimitiveModel::[<$prim:upper>](ref cached)) = (&mut *client).model {
-                            assert_eq!(cached.as_ptr(), model.ptr as *const $prim);
-                            assert_eq!(cached.len(), model.len as usize);
-                        } else {
-                            panic!();
-                        }
-                        [<update_model_ $prim>](client, model);
-                        assert!((&mut *client).model.is_none());
-                        drop_client(client);
+                    let client = new_client();
+                    let model = unsafe { [<get_model_ $prim>](client) };
+                    if let Some(PrimitiveModel::[<$prim:upper>](ref cached)) = unsafe { &mut *client }.model {
+                        assert_eq!(cached.as_ptr(), model.ptr as *const $prim);
+                        assert_eq!(cached.len(), model.len as usize);
+                    } else {
+                        panic!();
                     }
+                    unsafe { [<update_model_ $prim>](client, model) };
+                    assert!(unsafe { &mut *client }.model.is_none());
+                    unsafe { drop_client(client) };
                 }
             }
         };
@@ -414,28 +443,26 @@ mod tests {
             paste::item! {
                 #[test]
                 fn [<test_update_other_model_ $prim>]() {
-                    unsafe {
-                        let client = new_client();
-                        let model = [<get_model_ $prim>](client);
-                        let mut vec = Model::from_iter(vec![Ratio::<BigInt>::zero(); model.len as usize].into_iter())
-                            .into_primitives()
-                            .map(|res| res.map_err(|_| ()))
-                            .collect::<Result<Vec<$prim>, ()>>()
-                            .unwrap();
-                        let model = [<PrimitiveModel $prim:upper>] {
-                            ptr: vec.as_mut_ptr(),
-                            len: vec.len() as c_ulong,
-                        };
-                        if let Some(PrimitiveModel::[<$prim:upper>](ref cached)) = (&mut *client).model {
-                            assert_ne!(cached.as_ptr(), model.ptr as *const $prim);
-                            assert_eq!(cached.len(), model.len as usize);
-                        } else {
-                            panic!();
-                        }
-                        [<update_model_ $prim>](client, model);
-                        assert!((&mut *client).model.is_none());
-                        drop_client(client);
+                    let client = new_client();
+                    let model = unsafe { [<get_model_ $prim>](client) };
+                    let mut vec = Model::from_iter(vec![Ratio::<BigInt>::zero(); model.len as usize].into_iter())
+                        .into_primitives()
+                        .map(|res| res.map_err(|_| ()))
+                        .collect::<Result<Vec<$prim>, ()>>()
+                        .unwrap();
+                    let model = [<PrimitiveModel $prim:upper>] {
+                        ptr: vec.as_mut_ptr(),
+                        len: vec.len() as c_ulong,
+                    };
+                    if let Some(PrimitiveModel::[<$prim:upper>](ref cached)) = unsafe { &mut *client }.model {
+                        assert_ne!(cached.as_ptr(), model.ptr as *const $prim);
+                        assert_eq!(cached.len(), model.len as usize);
+                    } else {
+                        panic!();
                     }
+                    unsafe { [<update_model_ $prim>](client, model) };
+                    assert!(unsafe { &mut *client }.model.is_none());
+                    unsafe { drop_client(client) };
                 }
             }
         };
