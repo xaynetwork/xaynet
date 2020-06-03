@@ -76,24 +76,27 @@ PrimModel! {f64, c_double}
 PrimModel! {i32, c_int}
 PrimModel! {i64, c_long}
 
-/// Generates a consuming iterator for the primitive model. The iterator is wrapped in a private
-/// submodule, because safe traits and their safe methods can't be implemented as `unsafe` and this
-/// way we can ensure that the implementation is only ever used in an `unsafe fn`. The argument
-/// `$prim` is the corresponding Rust primitive data type.
-macro_rules! PrimIter {
-    ($prim:ty $(,)?) => {
-        paste::item! {
-            mod [<prim_iter_ $prim>] {
-                use std::{mem, os::raw::c_ulong};
+/// The iterators are wrapped in a private submodule, because safe traits and their safe methods
+/// can't be implemented as `unsafe` and this way we can ensure that the implementation is only
+/// ever used in an `unsafe fn`.
+mod iter {
+    use std::{mem, os::raw::c_ulong};
 
+    /// Generates a consuming iterator for the primitive model.  The argument
+    /// `$prim` is the corresponding Rust primitive data type.
+    macro_rules! PrimIter {
+        ($prim:ty $(,)?) => {
+            paste::item! {
                 use super::[<PrimitiveModel $prim:upper>];
 
+                #[doc(hidden)]
                 /// An iterator that moves out of a primitive model.
                 pub struct [<IntoIter $prim:upper>] {
                     model: [<PrimitiveModel $prim:upper>],
                     count: isize,
                 }
 
+                #[doc(hidden)]
                 impl IntoIterator for [<PrimitiveModel $prim:upper>] {
                     type Item = $prim;
                     type IntoIter = [<IntoIter $prim:upper>];
@@ -107,6 +110,7 @@ macro_rules! PrimIter {
                     }
                 }
 
+                #[doc(hidden)]
                 impl Iterator for [<IntoIter $prim:upper>] {
                     type Item = $prim;
 
@@ -145,14 +149,14 @@ macro_rules! PrimIter {
                     }
                 }
             }
-        }
-    };
-}
+        };
+    }
 
-PrimIter!(f32);
-PrimIter!(f64);
-PrimIter!(i32);
-PrimIter!(i64);
+    PrimIter!(f32);
+    PrimIter!(f64);
+    PrimIter!(i32);
+    PrimIter!(i64);
+}
 
 #[derive(Clone, Debug)]
 /// A primitive model of data type `N` cached on the heap. The pointer `PrimitiveModelN` returned
