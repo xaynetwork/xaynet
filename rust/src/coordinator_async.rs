@@ -188,15 +188,15 @@ impl State<Sum> {
         // RecvError.
         drop(notify_cancel);
 
-        // Wait until all MessageValidator tasks has been resolved/canceled.
+        // Wait until all MessageValidator tasks have been resolved/canceled.
         // (After all senders of this channel are dropped, which mean that all
-        // MessageValidator has been dropped, the receiver of this channel will receive None).
+        // MessageValidator have been dropped, the receiver of this channel will receive None).
         drop(_cancel_complete_tx);
         let _ = cancel_complete_rx.recv().await;
 
         // Return in case of an error
         phase_result?;
-        // otherwise fetch and return the sum_dict
+        // otherwise fetch and return the sum_dict from redis?
         Ok(HashMap::new())
     }
 }

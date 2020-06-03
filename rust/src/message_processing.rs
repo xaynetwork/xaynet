@@ -127,7 +127,7 @@ impl MessageValidator {
     ) {
         // Extract all fields of the MessageValidator struct. This is necessary to bypass borrow
         // issues in the tokio::select macro.
-        // It is imported to extract _cancel_complete_tx as well because otherwise the channel
+        // It is important to extract _cancel_complete_tx as well, otherwise the channel
         // will be dropped too early.
         let MessageValidator {
             sink_tx,
