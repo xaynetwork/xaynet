@@ -1,8 +1,6 @@
 use std::{
-    cmp::Ordering,
     collections::{HashMap, VecDeque},
     default::Default,
-    mem,
     sync::Arc,
 };
 
@@ -70,6 +68,7 @@ impl<S> State<S> {
             Some(message) => message,
             None => panic!("all message senders dropped!"),
         };
+        println!("New Message!");
         self.message_open(vec![1, 2, 34]) // dummy value
     }
 }
@@ -94,7 +93,7 @@ impl State<Start> {
         ))
     }
 
-    pub async fn next(self) -> State<Idle> {
+    pub fn next(self) -> State<Idle> {
         State {
             _inner: Idle,
             coordinator_state: self.coordinator_state,
@@ -105,6 +104,7 @@ impl State<Start> {
 
 impl State<Sum> {
     pub async fn next(mut self) -> State<Update> {
+        println!("Sum phase!");
         match self.run().await {
             Ok(sum_dict) => State {
                 _inner: Update {
@@ -121,10 +121,10 @@ impl State<Sum> {
     }
 
     async fn run(&mut self) -> Result<SumDict, PetError> {
-        let mut phase_timeout = tokio::time::delay_for(tokio::time::Duration::from_millis(10000));
+        let mut phase_timeout = tokio::time::delay_for(tokio::time::Duration::from_secs(1000));
         let (notify_cancel, _) = broadcast::channel::<()>(1);
         let (_cancel_complete_tx, mut cancel_complete_rx) = mpsc::channel::<()>(1);
-        let (sink_tx, sink) = MessageSink::new(12, Duration::from_secs(100));
+        let (sink_tx, sink) = MessageSink::new(12, Duration::from_secs(5));
 
         let sum_validation_data = Arc::new(SumValidationData {
             seed: self.coordinator_state.seed.clone(),
@@ -143,18 +143,18 @@ impl State<Sum> {
                     };
 
                     let message_validator = MessageValidator::new(sink_tx.clone(), _cancel_complete_tx.clone(), notify_cancel.subscribe());
-                    let handle_fut = message_validator.handle_message(sum_validation_data.clone(), participant_pk, sum_message);
+                    let handle_fut = message_validator.handle_sum_message(sum_validation_data.clone(), participant_pk, sum_message);
                     tokio::spawn(async move { handle_fut.await });
                 };
             } => {
-                error!("something went wrong!");
+                println!("something went wrong!");
                 stream_result
             }
             sink_result = sink.collect() => {
                 sink_result
             }
             _ = &mut phase_timeout => {
-                error!("phase timed out");
+                println!("phase timed out");
                 Err::<(), PetError>(PetError::InvalidMessage)
             }
         };
@@ -198,6 +198,7 @@ impl State<Sum2> {
 
 impl State<Idle> {
     pub async fn next(self) -> State<Sum> {
+        println!("Idle phase!");
         State {
             _inner: Sum {},
             coordinator_state: self.coordinator_state,
@@ -273,3 +274,15 @@ impl Default for CoordinatorState {
         }
     }
 }
+
+// async fn run() {
+//     let (_, state_start) = State::new().unwrap(); // Start
+//     let mut state_idle = state_start.next(); // Idle
+
+//     loop {
+//         let state_sum = state_idle.next().await; // Sum
+//         let state_update = state_sum.next().await; // Update
+//         let state_sum2 = state_update.next().await; // Sum2
+//         state_idle = state_sum2.next().await; // Idle
+//     }
+// }

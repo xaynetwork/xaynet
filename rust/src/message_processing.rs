@@ -1,4 +1,14 @@
-use std::sync::Arc;
+use crate::{
+    coordinator::RoundSeed,
+    crypto::ByteObject,
+    message::{SumOwned, UpdateOwned},
+    ParticipantPublicKey,
+    ParticipantTaskSignature,
+    PetError,
+    SumParticipantPublicKey,
+    UpdateParticipantPublicKey,
+};
+use std::{future::Future, sync::Arc};
 use tokio::{
     sync::{
         broadcast,
@@ -7,15 +17,16 @@ use tokio::{
     time::Duration,
 };
 
-use crate::{
-    coordinator::RoundSeed,
-    crypto::ByteObject,
-    message::SumOwned,
-    ParticipantPublicKey,
-    ParticipantTaskSignature,
-    PetError,
-    SumParticipantPublicKey,
-};
+pub struct SumValidationData {
+    pub sum: f64,
+    pub seed: RoundSeed,
+}
+
+pub struct UpdateValidationData {
+    pub sum: f64,
+    pub update: f64,
+    pub seed: RoundSeed,
+}
 
 // A sink to collect the results of the MessageValidator tasks.
 pub struct MessageSink {
@@ -53,6 +64,7 @@ impl MessageSink {
             mut sink_rx,
             min_duration,
         } = self;
+        println!("Sink collect");
 
         // Collect the results of the MessageValidator tasks. The collect future will be
         // successfully resolved when the minimum duration has been waited and when the minimum
@@ -61,6 +73,7 @@ impl MessageSink {
         // case the collect future will be resolved with an error.
         let wait_min_duration = async move {
             tokio::time::delay_for(min_duration).await;
+            println!("Min time frame complete");
             Ok::<(), PetError>(())
         };
 
@@ -108,12 +121,9 @@ impl MessageValidator {
         }
     }
 
-    /// Validate and handle a sum message.
-    pub async fn handle_message(
+    async fn handle_message(
         self,
-        coordinator_data: Arc<SumValidationData>,
-        pk: ParticipantPublicKey,
-        message: SumOwned,
+        message_validation_fut: impl Future<Output = Result<(), PetError>>,
     ) {
         // Extract all fields of the MessageValidator struct. This is necessary to bypass borrow
         // issues in the tokio::select macro.
@@ -126,19 +136,33 @@ impl MessageValidator {
         } = self;
 
         tokio::select! {
-            result = async {
-                MessageValidator::validate_sum_task(&coordinator_data, &pk, &message.sum_signature).await
-                // async call to Redis
-                // self.coordinator_state.sum_dict.insert(pk, message.ephm_pk);
-            } => {let _ = sink_tx.send(result);}
-            _ = notify_cancel.recv() => {info!("drop message validation future")}
+            result = message_validation_fut => {let _ = sink_tx.send(result);}
+            _ = notify_cancel.recv() => {println!("drop message validation future")}
         };
 
         // _cancel_complete_tx is dropped
     }
+}
+
+// Sum message validator
+impl MessageValidator {
+    /// Validate and handle a sum message.
+    pub async fn handle_sum_message(
+        self,
+        coordinator_state: Arc<SumValidationData>,
+        pk: ParticipantPublicKey,
+        message: SumOwned,
+    ) {
+        let message_validation_fut = async {
+            Self::validate_sum_task(&coordinator_state, &pk, &message.sum_signature)
+            // async call to Redis
+            // self.coordinator_state.sum_dict.insert(pk, message.ephm_pk);
+        };
+        self.handle_message(message_validation_fut).await;
+    }
 
     /// Validate a sum signature and its implied task.
-    async fn validate_sum_task(
+    fn validate_sum_task(
         coordinator_state: &Arc<SumValidationData>,
         pk: &SumParticipantPublicKey,
         sum_signature: &ParticipantTaskSignature,
@@ -157,7 +181,60 @@ impl MessageValidator {
     }
 }
 
-pub struct SumValidationData {
-    pub sum: f64,
-    pub seed: RoundSeed,
+// Update message validator
+impl MessageValidator {
+    /// Validate and handle an update message.
+    pub async fn handle_update_message(
+        self,
+        coordinator_state: Arc<UpdateValidationData>,
+        pk: ParticipantPublicKey,
+        message: UpdateOwned,
+    ) {
+        let message_validation_fut = async {
+            let UpdateOwned {
+                sum_signature,
+                update_signature,
+                local_seed_dict,
+                masked_model,
+            } = message;
+            Self::validate_update_task(&coordinator_state, &pk, &sum_signature, &update_signature)
+
+            // Try to update local seed dict first. If this fail, we do
+            // not want to aggregate the model.
+
+            // Should we perform the checks in add_local_seed_dict in the coordinator or
+            // in redis?
+            // self.add_local_seed_dict(&pk, &local_seed_dict)?;
+
+            // Check if aggregation can be performed, and do it.
+            //
+            // self.aggregation
+            //     .validate_aggregation(&masked_model)
+            //     .map_err(|_| PetError::InvalidMessage)?;
+            // self.aggregation.aggregate(masked_model);
+        };
+        self.handle_message(message_validation_fut).await;
+    }
+
+    /// Validate an update signature and its implied task.
+    fn validate_update_task(
+        coordinator_state: &Arc<UpdateValidationData>,
+        pk: &UpdateParticipantPublicKey,
+        sum_signature: &ParticipantTaskSignature,
+        update_signature: &ParticipantTaskSignature,
+    ) -> Result<(), PetError> {
+        if pk.verify_detached(
+            sum_signature,
+            &[coordinator_state.seed.as_slice(), b"sum"].concat(),
+        ) && pk.verify_detached(
+            update_signature,
+            &[coordinator_state.seed.as_slice(), b"update"].concat(),
+        ) && !sum_signature.is_eligible(coordinator_state.sum)
+            && update_signature.is_eligible(coordinator_state.update)
+        {
+            Ok(())
+        } else {
+            Err(PetError::InvalidMessage)
+        }
+    }
 }
