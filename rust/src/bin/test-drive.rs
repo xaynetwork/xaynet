@@ -13,7 +13,7 @@ use tracing_subscriber::*;
 /// too few) participants will be selected here! It's currently not possible to
 /// configure or force the selection, hence as a TEMP workaround, these should
 /// be adjusted in coordinator.rs before running this test e.g. 0.2_f64 for sum
-/// and 0.5_f64 for update.
+/// and 0.4_f64 for update.
 #[tokio::main]
 async fn main() -> Result<(), ClientError> {
 
