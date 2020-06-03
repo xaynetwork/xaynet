@@ -45,8 +45,6 @@ pub struct Client {
     /// Interval to poll for service data
     interval: time::Interval,
 
-    // TODO global model
-
     id: u32, // NOTE identifier for client for testing; may remove later
 }
 
@@ -136,7 +134,7 @@ impl Client {
     async fn summer(&mut self, coord_pk: CoordinatorPublicKey)
                     -> Result<Task, ClientError>
     {
-        info!(client_id =%self.id, "selected for sum, sending sum message.");
+        info!(client_id = %self.id, "selected for sum, sending sum message.");
         let sum1_msg: Vec<u8> = self
             .participant
             .compose_sum_message(&coord_pk);
@@ -159,7 +157,7 @@ impl Client {
                 error!(
                     "failed to deserialize seed dictionary: {}: {:?}",
                     e,
-                    &seed_dict_ser[..]
+                    &seed_dict_ser[..],
                 );
                 ClientError::DeserialiseErr(e)
             })?;
@@ -181,7 +179,10 @@ impl Client {
                      -> Result<Task, ClientError>
     {
         info!(client_id = %self.id, "selected to update");
-        // TODO train a model update...
+
+        // currently, models are not yet supported fully; later on, we should
+        // train a model here before polling for the sum dictionary
+
         let sum_dict_ser: Arc<Vec<u8>> = loop {
             if let Some(sum_dict_ser) = self.handle.get_sum_dict().await {
                 break sum_dict_ser
@@ -190,9 +191,15 @@ impl Client {
             // sums not yet ready, try again later...
             self.interval.tick().await;
         };
-        // TODO log deserialize error
         let sum_dict: SumDict = bincode::deserialize(&sum_dict_ser[..])
-            .map_err(ClientError::DeserialiseErr)?;
+            .map_err(|e| {
+                error!(
+                    "failed to deserialize sum dictionary: {}: {:?}",
+                    e,
+                    &sum_dict_ser[..],
+                );
+                ClientError::DeserialiseErr(e)
+            })?;
         debug!(client_id = %self.id, "sum dictionary received, sending update message.");
         let upd_msg: Vec<u8> = self
             .participant
