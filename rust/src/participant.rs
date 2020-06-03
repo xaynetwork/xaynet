@@ -1,4 +1,4 @@
-use std::{collections::HashMap, default::Default};
+use std::{default::Default};
 
 use crate::{
     certificate::Certificate,
@@ -7,7 +7,6 @@ use crate::{
         Aggregation,
         BoundType,
         DataType,
-        EncryptedMaskSeed,
         FromPrimitives,
         GroupType,
         MaskConfig,
@@ -28,7 +27,7 @@ use crate::{
     SumDict,
     SumParticipantEphemeralPublicKey,
     SumParticipantEphemeralSecretKey,
-    UpdateParticipantPublicKey,
+    UpdateSeedDict,
 };
 
 #[derive(Debug, PartialEq, Copy, Clone)]
@@ -147,12 +146,9 @@ impl Participant {
     pub fn compose_sum2_message(
         &self,
         pk: CoordinatorPublicKey,
-        seed_dict: &HashMap<UpdateParticipantPublicKey, EncryptedMaskSeed>,
+        seed_dict: &UpdateSeedDict,
     ) -> Result<Vec<u8>, PetError> {
-        let mask_seeds = seed_dict
-            .values()
-            .map(|seed| seed.decrypt(&self.ephm_pk, &self.ephm_sk))
-            .collect::<Result<Vec<MaskSeed>, _>>()?;
+        let mask_seeds = self.get_seeds(seed_dict)?;
 
         let mask_len = 3; // dummy
         let mask = self.compute_global_mask(mask_seeds, mask_len, dummy_config())?;
@@ -193,6 +189,14 @@ impl Participant {
         sum_dict
             .iter()
             .map(|(pk, ephm_pk)| (*pk, mask_seed.encrypt(ephm_pk)))
+            .collect()
+    }
+
+    /// Get the mask seeds from the local seed dictionary.
+    fn get_seeds(&self, seed_dict: &UpdateSeedDict) -> Result<Vec<MaskSeed>, PetError> {
+        seed_dict
+            .values()
+            .map(|seed| seed.decrypt(&self.ephm_pk, &self.ephm_sk))
             .collect()
     }
 
@@ -327,26 +331,20 @@ mod tests {
     fn test_get_seeds() {
         let mut part = Participant::new().unwrap();
         part.gen_ephm_keypair();
-        let mask_seeds = iter::repeat_with(MaskSeed::generate)
+        let mask_seeds: Vec<MaskSeed> = iter::repeat_with(MaskSeed::generate)
             .take(1 + randombytes_uniform(10) as usize)
             .collect::<Vec<_>>();
-        let seed_dict = [(
-            part.pk,
-            mask_seeds
-                .iter()
-                .map(|seed| {
-                    (
-                        UpdateParticipantPublicKey::from_slice(&randombytes(32)).unwrap(),
-                        seed.encrypt(&part.ephm_pk),
-                    )
-                })
-                .collect(),
-        )]
-        .iter()
-        .cloned()
-        .collect();
+        let upd_seed_dict = mask_seeds
+            .iter()
+            .map(|seed| {
+                (
+                    UpdateParticipantPublicKey::from_slice(&randombytes(32)).unwrap(),
+                    seed.encrypt(&part.ephm_pk),
+                )
+            })
+            .collect();
         assert_eq!(
-            part.get_seeds(&seed_dict)
+            part.get_seeds(&upd_seed_dict)
                 .unwrap()
                 .into_iter()
                 .map(|seed| seed.as_array())
@@ -355,10 +353,6 @@ mod tests {
                 .into_iter()
                 .map(|seed| seed.as_array())
                 .collect::<HashSet<_>>(),
-        );
-        assert_eq!(
-            part.get_seeds(&SeedDict::new()).unwrap_err(),
-            PetError::InvalidMessage,
         );
     }
 }

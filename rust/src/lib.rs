@@ -89,5 +89,7 @@ pub type LocalSeedDict = HashMap<SumParticipantPublicKey, mask::EncryptedMaskSee
 /// A dictionary created during the update phase of the protocol. The global seed dictionary is
 /// built from the local seed dictionaries sent by the update participants. It maps each sum
 /// participant to the encrypted masking seeds of all the update participants.
-pub type SeedDict =
-    HashMap<SumParticipantPublicKey, HashMap<UpdateParticipantPublicKey, mask::EncryptedMaskSeed>>;
+pub type SeedDict = HashMap<SumParticipantPublicKey, UpdateSeedDict>;
+
+/// Values of [`SeedDict`]. Sent to sum participants.
+pub type UpdateSeedDict = HashMap<UpdateParticipantPublicKey, mask::EncryptedMaskSeed>;
