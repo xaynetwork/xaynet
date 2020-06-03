@@ -144,7 +144,7 @@ impl Client {
             .send_message(sum1_msg)
             .await;
 
-        let pk = self.participant.get_encr_pk();
+        let pk = self.participant.pk;
         let seed_dict_ser: Arc<Vec<u8>> = loop {
             if let Some(seed_dict_ser) = self.handle.get_seed_dict(pk).await {
                 break seed_dict_ser

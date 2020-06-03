@@ -41,7 +41,7 @@ pub enum Task {
 /// A participant in the PET protocol layer.
 pub struct Participant {
     // credentials
-    pk: ParticipantPublicKey,                  // 32 bytes
+    pub(crate) pk: ParticipantPublicKey,       // 32 bytes
     sk: ParticipantSecretKey,                  // 64 bytes
     ephm_pk: SumParticipantEphemeralPublicKey, // 32 bytes
     ephm_sk: SumParticipantEphemeralSecretKey, // 32 bytes
@@ -88,11 +88,6 @@ impl Participant {
             sk,
             ..Default::default()
         })
-    }
-
-    /// Get encryption public key.
-    pub fn get_encr_pk(&self) -> ParticipantPublicKey {
-        self.pk
     }
 
     /// Compute the sum and update signatures.
