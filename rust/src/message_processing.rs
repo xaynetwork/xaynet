@@ -167,8 +167,6 @@ impl MessageValidator {
         pk: &SumParticipantPublicKey,
         sum_signature: &ParticipantTaskSignature,
     ) -> Result<(), PetError> {
-        println!("validate_sum_task");
-        // Ok(())
         if pk.verify_detached(
             sum_signature,
             &[coordinator_state.seed.as_slice(), b"sum"].concat(),

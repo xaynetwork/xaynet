@@ -24,6 +24,28 @@ use tokio::{
     time::Duration,
 };
 
+pub enum StateMachine {
+    Start(State<Start>),
+    Idle(State<Idle>),
+    Sum(State<Sum>),
+    Update(State<Update>),
+    Sum2(State<Sum2>),
+    Error(State<Error>),
+}
+
+impl StateMachine {
+    pub async fn next(self) -> Self {
+        match self {
+            StateMachine::Start(val) => val.next(),
+            StateMachine::Idle(val) => val.next().await,
+            StateMachine::Sum(val) => val.next().await,
+            StateMachine::Update(val) => val.next().await,
+            StateMachine::Sum2(val) => val.next().await,
+            StateMachine::Error(val) => val.next().await,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Start;
 #[derive(Debug)]
@@ -36,6 +58,8 @@ pub struct Update {
 }
 #[derive(Debug)]
 pub struct Sum2;
+#[derive(Debug)]
+pub struct Error;
 
 // error state
 
@@ -74,7 +98,7 @@ impl<S> State<S> {
 }
 
 impl State<Start> {
-    pub fn new() -> Result<(tokio::sync::mpsc::UnboundedSender<()>, State<Start>), InitError> {
+    pub fn new() -> Result<(tokio::sync::mpsc::UnboundedSender<()>, StateMachine), InitError> {
         // crucial: init must be called before anything else in this module
         sodiumoxide::init().or(Err(InitError))?;
 
@@ -82,41 +106,42 @@ impl State<Start> {
 
         Ok((
             tx,
-            State {
+            StateMachine::Start(State {
                 _inner: Start,
                 coordinator_state: CoordinatorState {
                     seed: RoundSeed::generate(),
                     ..Default::default()
                 },
                 message_rx: rx,
-            },
+            }),
         ))
     }
 
-    pub fn next(self) -> State<Idle> {
-        State {
+    pub fn next(self) -> StateMachine {
+        StateMachine::Idle(State {
             _inner: Idle,
             coordinator_state: self.coordinator_state,
             message_rx: self.message_rx,
-        }
+        })
     }
 }
 
 impl State<Sum> {
-    pub async fn next(mut self) -> State<Update> {
+    pub async fn next(mut self) -> StateMachine {
         println!("Sum phase!");
         match self.run().await {
-            Ok(sum_dict) => State {
+            Ok(sum_dict) => StateMachine::Update(State {
                 _inner: Update {
                     sum_dict: Some(Arc::new(sum_dict)),
                 },
                 coordinator_state: self.coordinator_state,
                 message_rx: self.message_rx,
-            },
-            Err(_) => {
-                // error state
-                panic!("")
-            }
+            }),
+            Err(_) => StateMachine::Error(State {
+                _inner: Error {},
+                coordinator_state: self.coordinator_state,
+                message_rx: self.message_rx,
+            }),
         }
     }
 
@@ -177,33 +202,44 @@ impl State<Sum> {
 }
 
 impl State<Update> {
-    pub async fn next(self) -> State<Sum2> {
-        State {
+    pub async fn next(self) -> StateMachine {
+        StateMachine::Sum2(State {
             _inner: Sum2 {},
             coordinator_state: self.coordinator_state,
             message_rx: self.message_rx,
-        }
+        })
     }
 }
 
 impl State<Sum2> {
-    pub async fn next(self) -> State<Idle> {
-        State {
+    pub async fn next(self) -> StateMachine {
+        StateMachine::Idle(State {
             _inner: Idle {},
             coordinator_state: self.coordinator_state,
             message_rx: self.message_rx,
-        }
+        })
     }
 }
 
 impl State<Idle> {
-    pub async fn next(self) -> State<Sum> {
+    pub async fn next(self) -> StateMachine {
         println!("Idle phase!");
-        State {
+        StateMachine::Sum(State {
             _inner: Sum {},
             coordinator_state: self.coordinator_state,
             message_rx: self.message_rx,
-        }
+        })
+    }
+}
+
+impl State<Error> {
+    pub async fn next(self) -> StateMachine {
+        println!("Error phase!");
+        StateMachine::Idle(State {
+            _inner: Idle {},
+            coordinator_state: self.coordinator_state,
+            message_rx: self.message_rx,
+        })
     }
 }
 
@@ -286,3 +322,27 @@ impl Default for CoordinatorState {
 //         state_idle = state_sum2.next().await; // Idle
 //     }
 // }
+
+// async_closure not stable yet
+// let test = async move |message: MessageOwned,
+//                        sink: mpsc::UnboundedSender<Result<(), PetError>>,
+//                        _cancel_complete_tx: mpsc::Sender<()>,
+//                        notify_cancel: broadcast::Sender<()>| {
+//     let participant_pk = message.header.participant_pk;
+//     let sum_message = match message.payload {
+//         PayloadOwned::Sum(msg) => msg,
+//         _ => return Err(PetError::InvalidMessage),
+//     };
+//     let message_validator = MessageValidator::new(
+//         sink_tx.clone(),
+//         _cancel_complete_tx.clone(),
+//         notify_cancel.subscribe(),
+//     );
+//     let handle_fut = message_validator.handle_sum_message(
+//         sum_validation_data.clone(),
+//         participant_pk,
+//         sum_message,
+//     );
+//     tokio::spawn(async move { handle_fut.await });
+//     Ok(())
+// };
