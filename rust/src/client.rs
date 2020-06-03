@@ -93,12 +93,12 @@ impl Client {
     pub async fn start(&mut self) -> Result<(), ClientError> {
         loop {
             // any error that bubbles up will finish off the client
-            self.per_round().await?;
+            self.during_round().await?;
         }
     }
 
     /// [`Client`] duties within a round
-    pub async fn per_round(&mut self) -> Result<Task, ClientError> {
+    pub async fn during_round(&mut self) -> Result<Task, ClientError> {
         let round_params: Arc<RoundParameters> = loop {
             if let Some(round_params) =
                 self.handle.get_round_parameters().await

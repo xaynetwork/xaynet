@@ -32,7 +32,7 @@ async fn main() -> Result<(), ClientError> {
         // NOTE give spawn a task that owns client
         // otherwise it won't live long enough
         let join_hdl = tokio::spawn(async move {
-            client.per_round().await
+            client.during_round().await
         });
         tasks.push(join_hdl);
     }
