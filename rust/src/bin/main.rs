@@ -1,7 +1,11 @@
-use xain_fl::service::Service;
+use xain_fl::{coordinator_async::State, service::Service};
 
 #[tokio::main]
 async fn main() {
-    let (service, _handle) = Service::new().unwrap();
-    service.await;
+    let (tx, mut state) = State::new().unwrap();
+    tx.send(());
+
+    loop {
+        state = state.next().await;
+    }
 }
