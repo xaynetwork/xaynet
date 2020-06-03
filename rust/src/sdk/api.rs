@@ -22,12 +22,23 @@
 //! 4. Register a trained local model with `update_model_N()`, which takes either a slice to
 //!    the cached primitive model or a slice to a foreign memory location.
 //! 5. Destroy the client with `drop_client()`.
+//!
+//! # Callbacks
+//! Some functions of this module provide stateful callbacks, where the
+//! `callback: unsafe extern "C" fn(*mut c_void, *const c_void)` is defined over void pointers
+//! referencing structs for the `state` and `input` of the callback. The fields of these structs
+//! are not constrained due to their void pointer nature. The `input` can be defined (anonymously)
+//! on each side of the FFI-boundary, but it must still have the same layout on both sides,
+//! otherwise accessing it will result in undefined behavior.
+//!
+//! **Note, that callbacks are at an experimental stage and the generalized `input` might be
+//! replaced for concrete input types for certain functions in the future.**
 
 use std::{
     cmp::Ordering,
     iter::{FromIterator, IntoIterator, Iterator},
     mem,
-    os::raw::{c_double, c_float, c_int, c_long, c_ulong},
+    os::raw::{c_double, c_float, c_int, c_long, c_uint, c_ulong, c_void},
     ptr,
 };
 
@@ -173,9 +184,19 @@ pub struct Client {
     model: Option<PrimitiveModel>,
 }
 
+#[allow(unused_unsafe)]
 #[no_mangle]
-/// Creates a new [`Client`].
-pub extern "C" fn new_client() -> *mut Client {
+/// Creates a new [`Client`]. Takes a `callback` function pointer and a void pointer to the `state`
+/// of the callback. The underlying function is defined over void pointers referencing (anonymous)
+/// structs for the `state` and `input` arguments of the callback.
+///
+/// # Safety
+/// The method depends on the safety of the `callback` and on the consistent definition and layout
+/// of its `input` across the FFI-boundary.
+pub unsafe extern "C" fn new_client(
+    callback: unsafe extern "C" fn(*mut c_void, *const c_void),
+    state: *mut c_void,
+) -> *mut Client {
     let client = Client {
         participant: if let Ok(participant) = Participant::new() {
             participant
@@ -187,6 +208,26 @@ pub extern "C" fn new_client() -> *mut Client {
         checked_round: 0,
         model: None,
     };
+
+    #[repr(C)]
+    struct Input {
+        _current_round: c_uint,
+        _checked_round: c_uint,
+        _participant_initialized: bool,
+        _model_cached: bool,
+    }
+    let input = &Input {
+        _current_round: client.current_round as c_uint,
+        _checked_round: client.checked_round as c_uint,
+        _participant_initialized: true,
+        _model_cached: client.model.is_some(),
+    } as *const Input as *const c_void;
+    unsafe {
+        // safe if the `callback` is safe and the same definition and layout is used for `Input`
+        // across the FFI-boundary by the caller
+        callback(state, input)
+    };
+
     Box::into_raw(Box::new(client))
 }
 
@@ -415,13 +456,48 @@ pub unsafe extern "C" fn drop_model(client: *mut Client) {
 mod tests {
     use super::*;
 
+    #[test]
+    fn test_new_client() {
+        #[repr(C)]
+        struct State {
+            participant_initialized_without_caching: bool,
+        }
+
+        #[allow(unused_unsafe)]
+        unsafe extern "C" fn callback(state: *mut c_void, input: *const c_void) {
+            #[repr(C)]
+            struct Input {
+                current_round: c_uint,
+                checked_round: c_uint,
+                participant_initialized: bool,
+                model_cached: bool,
+            }
+
+            let state = unsafe { &mut *(state as *mut State) };
+            let input = unsafe { &*(input as *const Input) };
+            state.participant_initialized_without_caching = input.current_round == 0
+                && input.checked_round == 0
+                && input.participant_initialized
+                && !input.model_cached;
+        }
+
+        let mut state = State {
+            participant_initialized_without_caching: false,
+        };
+        let client = unsafe { new_client(callback, &mut state as *mut State as *mut c_void) };
+        unsafe { drop_client(client) };
+        assert!(state.participant_initialized_without_caching);
+    }
+
+    unsafe extern "C" fn dummy_callback(_state: *mut c_void, _input: *const c_void) {}
+
     macro_rules! test_get_model {
         ($prim:ty) => {
             paste::item! {
                 #[allow(unused_unsafe)]
                 #[test]
                 fn [<test_get_model_ $prim>]() {
-                    let client = new_client();
+                    let client = unsafe { new_client(dummy_callback, ptr::null_mut() as *mut c_void) };
                     let model = unsafe { [<get_model_ $prim>](client) };
                     if let Some(PrimitiveModel::[<$prim:upper>](ref cached)) = unsafe { &mut *client }.model {
                         assert_eq!(
@@ -447,7 +523,7 @@ mod tests {
             paste::item! {
                 #[test]
                 fn [<test_update_cached_model_ $prim>]() {
-                    let client = new_client();
+                    let client = unsafe { new_client(dummy_callback, ptr::null_mut() as *mut c_void) };
                     let model = unsafe { [<get_model_ $prim>](client) };
                     if let Some(PrimitiveModel::[<$prim:upper>](ref cached)) = unsafe { &mut *client }.model {
                         assert_eq!(cached.as_ptr(), model.ptr as *const $prim);
@@ -473,7 +549,7 @@ mod tests {
             paste::item! {
                 #[test]
                 fn [<test_update_noncached_model_ $prim>]() {
-                    let client = new_client();
+                    let client = unsafe { new_client(dummy_callback, ptr::null_mut() as *mut c_void) };
                     let model = unsafe { [<get_model_ $prim>](client) };
                     let mut vec = Model::from_iter(vec![Ratio::<BigInt>::zero(); model.len as usize].into_iter())
                         .into_primitives()
