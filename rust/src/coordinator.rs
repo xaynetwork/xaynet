@@ -141,7 +141,7 @@ impl Default for Coordinator {
         let pk = CoordinatorPublicKey::zeroed();
         let sk = CoordinatorSecretKey::zeroed();
         let sum = 0.2_f64;
-        let update = 0.5_f64;
+        let update = 0.4_f64;
         let seed = RoundSeed::zeroed();
         let min_sum = 1_usize;
         let min_update = 3_usize;
