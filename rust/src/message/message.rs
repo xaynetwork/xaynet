@@ -22,6 +22,7 @@ use crate::{
 };
 
 /// A message
+#[derive(Debug)]
 pub struct Message<C, D, M, N> {
     /// Message header
     pub header: Header<C>,

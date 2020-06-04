@@ -1,40 +1,31 @@
 use std::{
     cmp::Ordering,
-    collections::{HashMap, VecDeque},
-    default::Default,
+    collections::HashMap,
     mem,
+    pin::Pin,
+    task::{Context, Poll},
 };
 
+use futures::stream::Stream;
 use sodiumoxide::{
     self,
     crypto::{box_, hash::sha256},
     randombytes::randombytes,
 };
 use thiserror::Error;
+use tokio::sync::watch;
 
 use crate::{
-    crypto::{generate_encrypt_key_pair, ByteObject, SigningKeySeed},
-    mask::{
-        Aggregation,
-        BoundType,
-        DataType,
-        GroupType,
-        MaskConfig,
-        MaskObject,
-        Model,
-        ModelType,
-        UnmaskingError,
-    },
-    message::{MessageOpen, PayloadOwned, Sum2Owned, SumOwned, UpdateOwned},
+    crypto::{ByteObject, KeyPair, SigningKeySeed},
+    mask::{Aggregation, MaskConfig, MaskObject, Model, UnmaskingError},
     CoordinatorPublicKey,
-    CoordinatorSecretKey,
     InitError,
     LocalSeedDict,
     ParticipantPublicKey,
-    ParticipantTaskSignature,
     PetError,
     SeedDict,
     SumDict,
+    SumParticipantEphemeralPublicKey,
     SumParticipantPublicKey,
     UpdateParticipantPublicKey,
 };
@@ -89,263 +80,213 @@ pub type MaskDict = HashMap<MaskObject, usize>;
 #[derive(Debug, PartialEq, Copy, Clone)]
 /// Round phases of a coordinator.
 pub enum Phase {
-    Idle,
     Sum,
     Update,
     Sum2,
 }
 
+pub struct CoordinatorBroadcaster {
+    keys: watch::Sender<KeyPair>,
+    round_params: watch::Sender<RoundParameters>,
+    phase: watch::Sender<Phase>,
+}
+
+impl CoordinatorBroadcaster {
+    pub fn send_keys(&mut self, keys: KeyPair) {
+        let _ = self.keys.broadcast(keys);
+    }
+
+    pub fn send_round_params(&mut self, round_params: RoundParameters) {
+        let _ = self.round_params.broadcast(round_params);
+    }
+
+    pub fn send_phase(&mut self, phase: Phase) {
+        let _ = self.phase.broadcast(phase);
+    }
+}
+
+#[derive(Clone)]
+pub struct CoordinatorWatcher {
+    keys: watch::Receiver<KeyPair>,
+    round_params: watch::Receiver<RoundParameters>,
+    phase: watch::Receiver<Phase>,
+}
+
+impl CoordinatorWatcher {
+    // Note the these `get` methods to return Ref. This is because
+    // these borrows hold a lock internally. To prevent callers to
+    // accidentally keeping them alive for too long, we just
+    // copy/clone the value.
+    pub fn get_keys(&self) -> KeyPair {
+        self.keys.borrow().clone()
+    }
+
+    pub fn get_round_params(&self) -> RoundParameters {
+        self.round_params.borrow().clone()
+    }
+
+    pub fn get_phase(&self) -> Phase {
+        *self.phase.borrow()
+    }
+
+    pub fn keys_stream(&self) -> WatcherStream<KeyPair> {
+        WatcherStream(self.keys.clone())
+    }
+
+    pub fn round_params_stream(&self) -> WatcherStream<RoundParameters> {
+        WatcherStream(self.round_params.clone())
+    }
+
+    pub fn phase_stream(&self) -> WatcherStream<Phase> {
+        WatcherStream(self.phase.clone())
+    }
+}
+
+#[derive(Clone)]
+pub struct WatcherStream<T: Clone>(watch::Receiver<T>);
+
+impl<T: Clone> Stream for WatcherStream<T> {
+    type Item = T;
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+        Pin::new(&mut self.0).poll_next(cx)
+    }
+}
+
+impl CoordinatorBroadcaster {
+    pub fn new(
+        keys: KeyPair,
+        round_params: RoundParameters,
+        phase: Phase,
+    ) -> (Self, CoordinatorWatcher) {
+        let (keys_tx, keys_rx) = watch::channel(keys);
+        let (round_params_tx, round_params_rx) = watch::channel(round_params);
+        let (phase_tx, phase_rx) = watch::channel(phase);
+        let broadcaster = CoordinatorBroadcaster {
+            keys: keys_tx,
+            round_params: round_params_tx,
+            phase: phase_tx,
+        };
+        let watcher = CoordinatorWatcher {
+            keys: keys_rx,
+            round_params: round_params_rx,
+            phase: phase_rx,
+        };
+        (broadcaster, watcher)
+    }
+}
+
+pub struct CoordinatorConfig {
+    pub mask_config: MaskConfig,
+    pub initial_keys: KeyPair,
+    pub initial_seed: RoundSeed,
+    pub min_sum: usize,
+    pub min_update: usize,
+    pub sum: f64,
+    pub update: f64,
+}
+
 /// A coordinator in the PET protocol layer.
 pub struct Coordinator {
-    // credentials
-    pk: CoordinatorPublicKey, // 32 bytes
-    sk: CoordinatorSecretKey, // 32 bytes
+    broadcaster: CoordinatorBroadcaster,
 
-    // round parameters
-    sum: f64,
-    update: f64,
-    seed: RoundSeed,
-    min_sum: usize,
-    min_update: usize,
+    config: CoordinatorConfig,
+
+    keys: KeyPair,
+    round_params: RoundParameters,
     phase: Phase,
 
-    // round dictionaries
     /// Dictionary built during the sum phase.
     sum_dict: SumDict,
+    // frozen_sum_dict: Arc<SumDict>,
     /// Dictionary built during the update phase.
     seed_dict: SeedDict,
+    // frozen_seed_dict: Arc<SumDict>,
     /// Dictionary built during the sum2 phase.
     mask_dict: MaskDict,
 
-    /// The masking configuration
-    mask_config: MaskConfig,
-
     /// The aggregated masked model being built in the current round.
     aggregation: Aggregation,
-
-    /// Events emitted by the state machine
-    events: VecDeque<ProtocolEvent>,
-}
-
-/// Events the protocol emits.
-#[derive(Debug)]
-#[cfg_attr(test, derive(PartialEq, Clone))]
-pub enum ProtocolEvent {
-    /// The round starts with the given parameters. The coordinator is
-    /// now in the sum phase.
-    StartSum(RoundParameters),
-
-    /// The sum phase finished and produced the given sum
-    /// dictionary. The coordinator is now in the update phase.
-    StartUpdate(SumDict),
-
-    /// The update phase finished and produced the given seed
-    /// dictionary. The coordinator is now in the sum2 phase.
-    StartSum2(SeedDict),
-
-    /// The sum2 phase finished and produced the given mask seed. The
-    /// coordinator is now back to the idle phase.
-    EndRound(Option<Model>),
-}
-
-impl Default for Coordinator {
-    fn default() -> Self {
-        let pk = CoordinatorPublicKey::zeroed();
-        let sk = CoordinatorSecretKey::zeroed();
-        let sum = 0.01_f64;
-        let update = 0.1_f64;
-        let seed = RoundSeed::zeroed();
-        let min_sum = 1_usize;
-        let min_update = 3_usize;
-        let phase = Phase::Idle;
-        let sum_dict = SumDict::new();
-        let seed_dict = SeedDict::new();
-        let mask_dict = MaskDict::new();
-        let events = VecDeque::new();
-        let mask_config = MaskConfig {
-            group_type: GroupType::Prime,
-            data_type: DataType::F32,
-            bound_type: BoundType::B0,
-            model_type: ModelType::M3,
-        };
-        let aggregation = Aggregation::new(mask_config);
-        Self {
-            pk,
-            sk,
-            sum,
-            update,
-            seed,
-            min_sum,
-            min_update,
-            phase,
-            sum_dict,
-            seed_dict,
-            mask_dict,
-            events,
-            mask_config,
-            aggregation,
-        }
-    }
 }
 
 impl Coordinator {
     /// Create a coordinator. Fails if there is insufficient system entropy to generate secrets.
-    pub fn new() -> Result<Self, InitError> {
-        // crucial: init must be called before anything else in this module
+    pub fn new(config: CoordinatorConfig) -> Result<(Self, CoordinatorWatcher), InitError> {
         sodiumoxide::init().or(Err(InitError))?;
-        Ok(Self {
-            seed: RoundSeed::generate(),
-            ..Default::default()
-        })
+        let initial_keys = config.initial_keys.clone();
+        let initial_phase = Phase::Sum;
+        let initial_round_params = RoundParameters {
+            pk: initial_keys.public,
+            sum: config.sum,
+            update: config.update,
+            seed: config.initial_seed.clone(),
+        };
+        let (broadcaster, watcher) = CoordinatorBroadcaster::new(
+            initial_keys.clone(),
+            initial_round_params.clone(),
+            initial_phase,
+        );
+
+        let coordinator = Self {
+            broadcaster,
+            keys: initial_keys,
+            phase: initial_phase,
+            round_params: initial_round_params,
+            sum_dict: SumDict::new(),
+            seed_dict: SeedDict::new(),
+            mask_dict: MaskDict::new(),
+            aggregation: Aggregation::new(config.mask_config),
+            config,
+        };
+        Ok((coordinator, watcher))
     }
 
-    /// Emit an event
-    pub fn emit_event(&mut self, event: ProtocolEvent) {
-        self.events.push_back(event);
-    }
-
-    /// Retrieve the next event
-    pub fn next_event(&mut self) -> Option<ProtocolEvent> {
-        self.events.pop_front()
-    }
-
-    fn message_open(&self) -> MessageOpen<'_, '_> {
-        MessageOpen {
-            recipient_pk: &self.pk,
-            recipient_sk: &self.sk,
-        }
-    }
-
-    // FIXME: we should abort the round if the `handle_xxx` handlers
-    // return an error
-    /// Validate and handle a sum, update or sum2 message.
-    pub fn handle_message(&mut self, bytes: &[u8]) -> Result<(), PetError> {
-        let message = self
-            .message_open()
-            .open(&bytes)
-            .map_err(|_| PetError::InvalidMessage)?;
-        let participant_pk = message.header.participant_pk;
-        match (self.phase, message.payload) {
-            (Phase::Sum, PayloadOwned::Sum(msg)) => {
-                debug!("handling sum message");
-                self.handle_sum_message(participant_pk, msg)
-            }
-            (Phase::Update, PayloadOwned::Update(msg)) => {
-                debug!("handling update message");
-                self.handle_update_message(participant_pk, msg)
-            }
-            (Phase::Sum2, PayloadOwned::Sum2(msg)) => {
-                debug!("handling sum2 message");
-                self.handle_sum2_message(participant_pk, msg)
-            }
-            _ => Err(PetError::InvalidMessage),
-        }?;
-        // HACK possibly not relevant now - in an earlier version at least, this
-        // was neceassary to "kickstart" the transitioning
+    /// Handle a sum request
+    pub fn handle_sum(
+        &mut self,
+        pk: ParticipantPublicKey,
+        ephm_pk: SumParticipantEphemeralPublicKey,
+    ) -> Result<(), PetError> {
+        info!("handling sum request");
+        self.sum_dict.insert(pk, ephm_pk);
         self.try_phase_transition();
         Ok(())
     }
 
-    /// Validate and handle a sum message.
-    fn handle_sum_message(
+    /// Handle an update request
+    pub fn handle_update(
         &mut self,
         pk: ParticipantPublicKey,
-        message: SumOwned,
+        seed_dict: LocalSeedDict,
+        model: MaskObject,
     ) -> Result<(), PetError> {
-        self.validate_sum_task(&pk, &message.sum_signature)?;
-        self.sum_dict.insert(pk, message.ephm_pk);
-        Ok(())
-    }
-
-    /// Validate and handle an update message.
-    fn handle_update_message(
-        &mut self,
-        pk: ParticipantPublicKey,
-        message: UpdateOwned,
-    ) -> Result<(), PetError> {
-        let UpdateOwned {
-            sum_signature,
-            update_signature,
-            local_seed_dict,
-            masked_model,
-        } = message;
-        debug!("validating signature for the update task");
-        if self
-            .validate_update_task(&pk, &sum_signature, &update_signature)
-            .is_err()
-        {
-            warn!("invalid signature for update task, ignoring update message");
-            return Ok(());
-        }
-
         // Try to update local seed dict first. If this fail, we do
         // not want to aggregate the model.
-        debug!("updating the global seed dictionary");
-        if self.add_local_seed_dict(&pk, &local_seed_dict).is_err() {
-            warn!("invalid local seed dictionary, ignoring update message");
-            return Ok(());
-        }
+        self.add_local_seed_dict(&pk, &seed_dict)?;
 
         // Check if aggregation can be performed, and do it.
         debug!("aggregating masked model");
-        self.aggregation
-            .validate_aggregation(&masked_model)
-            .map_err(|e| {
-                warn!("aggregation error: {}", e);
-                PetError::InvalidMessage
-            })?;
-        self.aggregation.aggregate(masked_model);
+        self.aggregation.validate_aggregation(&model).map_err(|e| {
+            warn!("aggregation error: {:?}", e);
+            PetError::InvalidMessage
+        })?;
+        self.aggregation.aggregate(model);
+        self.try_phase_transition();
         Ok(())
     }
 
     /// Validate and handle a sum2 message.
-    fn handle_sum2_message(
+    pub fn handle_sum2(
         &mut self,
         pk: ParticipantPublicKey,
-        message: Sum2Owned,
+        mask: MaskObject,
     ) -> Result<(), PetError> {
         if !self.sum_dict.contains_key(&pk) {
             return Err(PetError::InvalidMessage);
         }
-        self.validate_sum_task(&pk, &message.sum_signature)?;
-        self.add_mask(&pk, message.mask).unwrap();
+        self.add_mask(&pk, mask).unwrap();
+        self.try_phase_transition();
         Ok(())
-    }
-
-    /// Validate a sum signature and its implied task.
-    fn validate_sum_task(
-        &self,
-        pk: &SumParticipantPublicKey,
-        sum_signature: &ParticipantTaskSignature,
-    ) -> Result<(), PetError> {
-        if pk.verify_detached(sum_signature, &[self.seed.as_slice(), b"sum"].concat())
-            && sum_signature.is_eligible(self.sum)
-        {
-            Ok(())
-        } else {
-            Err(PetError::InvalidMessage)
-        }
-    }
-
-    /// Validate an update signature and its implied task.
-    fn validate_update_task(
-        &self,
-        pk: &UpdateParticipantPublicKey,
-        sum_signature: &ParticipantTaskSignature,
-        update_signature: &ParticipantTaskSignature,
-    ) -> Result<(), PetError> {
-        if pk.verify_detached(sum_signature, &[self.seed.as_slice(), b"sum"].concat())
-            && pk.verify_detached(
-                update_signature,
-                &[self.seed.as_slice(), b"update"].concat(),
-            )
-            && !sum_signature.is_eligible(self.sum)
-            && update_signature.is_eligible(self.update)
-        {
-            Ok(())
-        } else {
-            Err(PetError::InvalidMessage)
-        }
     }
 
     /// Freeze the sum dictionary.
@@ -364,6 +305,7 @@ impl Coordinator {
         pk: &UpdateParticipantPublicKey,
         local_seed_dict: &LocalSeedDict,
     ) -> Result<(), PetError> {
+        // FIXME: the first 2 check can be done before hande
         if local_seed_dict.keys().len() == self.sum_dict.keys().len()
             && local_seed_dict
                 .keys()
@@ -434,57 +376,46 @@ impl Coordinator {
         self.mask_dict.shrink_to_fit();
     }
 
-    /// Generate fresh round credentials.
-    fn gen_round_keypair(&mut self) {
-        let (pk, sk) = generate_encrypt_key_pair();
-        self.pk = pk;
-        self.sk = sk;
-    }
-
-    /// Update the round threshold parameters (dummy).
-    fn update_round_thresholds(&mut self) {}
-
     /// Update the seed round parameter.
     fn update_round_seed(&mut self) {
+        trace!("trying to transition");
         // safe unwrap: `sk` and `seed` have same number of bytes
-        let (_, sk) =
-            SigningKeySeed::from_slice_unchecked(self.sk.as_slice()).derive_signing_key_pair();
+        let (_, sk) = SigningKeySeed::from_slice_unchecked(self.keys.secret.as_slice())
+            .derive_signing_key_pair();
         let signature = sk.sign_detached(
             &[
-                self.seed.as_slice(),
-                &self.sum.to_le_bytes(),
-                &self.update.to_le_bytes(),
+                self.round_params.seed.as_slice(),
+                &self.round_params.sum.to_le_bytes(),
+                &self.round_params.update.to_le_bytes(),
             ]
             .concat(),
         );
         // Safe unwrap: the length of the hash is 32 bytes
-        self.seed = RoundSeed::from_slice_unchecked(sha256::hash(signature.as_slice()).as_ref());
+        self.round_params.seed =
+            RoundSeed::from_slice_unchecked(sha256::hash(signature.as_slice()).as_ref());
     }
 
     /// Transition to the next phase if the protocol conditions are satisfied.
-    pub fn try_phase_transition(&mut self) {
+    fn try_phase_transition(&mut self) {
+        trace!("trying to transition");
         match self.phase {
-            Phase::Idle => {
-                self.proceed_sum_phase();
-                self.try_phase_transition();
-            }
             Phase::Sum => {
                 if self.has_enough_sums() {
                     info!("enough sum participants to proceed to the update phase");
                     self.proceed_update_phase();
-                    self.try_phase_transition();
                 }
             }
             Phase::Update => {
                 if self.has_enough_seeds() {
                     self.proceed_sum2_phase();
-                    self.try_phase_transition();
                 }
             }
             Phase::Sum2 => {
                 if self.has_enough_masks() {
-                    self.proceed_idle_phase();
-                    self.try_phase_transition();
+                    let _ = self.end_round().map_err(|e| {
+                        error!("round failed: {}", e);
+                    });
+                    self.proceed_sum_phase();
                 }
             }
         }
@@ -493,7 +424,7 @@ impl Coordinator {
     /// Check whether enough sum participants submitted their ephemeral keys to start the update
     /// phase.
     fn has_enough_sums(&self) -> bool {
-        self.sum_dict.len() >= self.min_sum
+        self.sum_dict.len() >= self.config.min_sum
     }
 
     /// Check whether enough update participants submitted their models and seeds to start the sum2
@@ -502,22 +433,29 @@ impl Coordinator {
         self.seed_dict
             .values()
             .next()
-            .map(|dict| dict.len() >= self.min_update)
+            .map(|dict| dict.len() >= self.config.min_update)
             .unwrap_or(false)
     }
 
     /// Check whether enough sum participants submitted their masks to start the idle phase.
     fn has_enough_masks(&self) -> bool {
         let mask_count = self.mask_dict.values().sum::<usize>();
-        mask_count >= self.min_sum
+        mask_count >= self.config.min_sum
     }
 
     /// End the idle phase and proceed to the sum phase to start the round.
     fn proceed_sum_phase(&mut self) {
         info!("going to sum phase");
-        self.gen_round_keypair();
+        self.clear_round_dicts();
+        self.update_round_seed();
+        self.keys = KeyPair::generate();
+        self.aggregation = Aggregation::new(self.config.mask_config);
         self.phase = Phase::Sum;
-        self.emit_event(ProtocolEvent::StartSum(self.round_parameters()));
+
+        self.broadcaster.send_phase(Phase::Sum);
+        self.broadcaster.send_keys(self.keys.clone());
+        self.broadcaster
+            .send_round_params(self.round_params.clone());
     }
 
     /// End the sum phase and proceed to the update phase.
@@ -525,28 +463,15 @@ impl Coordinator {
         info!("going to update phase");
         self.freeze_sum_dict();
         self.phase = Phase::Update;
-        self.emit_event(ProtocolEvent::StartUpdate(self.sum_dict.clone()));
+
+        self.broadcaster.send_phase(Phase::Update);
     }
 
     /// End the update phase and proceed to the sum2 phase.
     fn proceed_sum2_phase(&mut self) {
         info!("going to sum2 phase");
         self.phase = Phase::Sum2;
-        self.emit_event(ProtocolEvent::StartSum2(self.seed_dict.clone()));
-    }
-
-    /// End the sum2 phase and proceed to the idle phase to end the round.
-    fn proceed_idle_phase(&mut self) {
-        let event = match self.end_round() {
-            Ok(model) => ProtocolEvent::EndRound(Some(model)),
-            Err(e) => {
-                error!("{}", e);
-                ProtocolEvent::EndRound(None)
-            }
-        };
-        self.emit_event(event);
-        info!("going to idle phase");
-        self.start_new_round();
+        self.broadcaster.send_phase(Phase::Sum2);
     }
 
     fn end_round(&mut self) -> Result<Model, RoundFailed> {
@@ -554,35 +479,11 @@ impl Coordinator {
         self.aggregation
             .validate_unmasking(&global_mask)
             .map_err(RoundFailed::from)?;
-        let aggregation = mem::replace(&mut self.aggregation, Aggregation::new(self.mask_config));
+        let aggregation = mem::replace(
+            &mut self.aggregation,
+            Aggregation::new(self.config.mask_config),
+        );
         Ok(aggregation.unmask(global_mask))
-    }
-
-    /// Cancel the current round and restart a new one
-    pub fn reset(&mut self) {
-        self.events.clear();
-        self.emit_event(ProtocolEvent::EndRound(None));
-        self.start_new_round();
-        self.try_phase_transition();
-    }
-
-    /// Prepare the coordinator for a new round and go back to the
-    /// initial phase
-    fn start_new_round(&mut self) {
-        self.clear_round_dicts();
-        self.update_round_thresholds();
-        self.update_round_seed();
-        self.phase = Phase::Idle;
-        self.aggregation = Aggregation::new(self.mask_config);
-    }
-
-    pub fn round_parameters(&self) -> RoundParameters {
-        RoundParameters {
-            pk: self.pk,
-            sum: self.sum,
-            update: self.update,
-            seed: self.seed.clone(),
-        }
     }
 }
 

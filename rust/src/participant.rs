@@ -41,13 +41,13 @@ pub enum Task {
 /// A participant in the PET protocol layer.
 pub struct Participant {
     // credentials
-    pub(crate) pk: ParticipantPublicKey,       // 32 bytes
-    sk: ParticipantSecretKey,                  // 64 bytes
+    pub pk: ParticipantPublicKey,              // 32 bytes
+    pub sk: ParticipantSecretKey,              // 64 bytes
     ephm_pk: SumParticipantEphemeralPublicKey, // 32 bytes
     ephm_sk: SumParticipantEphemeralSecretKey, // 32 bytes
     #[allow(dead_code)]
     certificate: Certificate, // 0 bytes (dummy)
-    sum_signature: ParticipantTaskSignature,   // 64 bytes
+    pub sum_signature: ParticipantTaskSignature, // 64 bytes
     update_signature: ParticipantTaskSignature, // 64 bytes
 
     // round parameters

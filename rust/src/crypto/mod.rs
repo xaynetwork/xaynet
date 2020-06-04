@@ -9,6 +9,7 @@ pub use self::{
     encrypt::{
         generate_encrypt_key_pair,
         EncryptKeySeed,
+        KeyPair,
         PublicEncryptKey,
         SecretEncryptKey,
         SEALBYTES,
