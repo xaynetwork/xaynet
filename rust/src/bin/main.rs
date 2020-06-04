@@ -1,4 +1,4 @@
-use xain_fl::{coordinator_async::State, service::Service};
+use xain_fl::coordinator_async::State;
 
 #[tokio::main]
 async fn main() {
