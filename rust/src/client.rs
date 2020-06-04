@@ -1,14 +1,17 @@
-use crate::crypto::ByteObject;
-use crate::service::Handle;
-use crate::coordinator::RoundParameters;
-use crate::participant::{Participant, Task};
-use crate::{CoordinatorPublicKey, SumDict, PetError, InitError};
-use crate::UpdateSeedDict;
-use std::sync::Arc;
-use tokio::time;
-use std::time::Duration;
+use crate::{
+    coordinator::RoundParameters,
+    crypto::ByteObject,
+    participant::{Participant, Task},
+    service::Handle,
+    CoordinatorPublicKey,
+    InitError,
+    PetError,
+    SumDict,
+    UpdateSeedDict,
+};
+use std::{sync::Arc, time::Duration};
 use thiserror::Error;
-
+use tokio::time;
 
 /// Client-side errors
 #[derive(Debug, Error)]
@@ -56,8 +59,7 @@ impl Client {
     /// Returns `Err(err)` if `ClientError` `err` occurred
     pub fn new(period: u64) -> Result<Self, ClientError> {
         let (handle, _events) = Handle::new();
-        let participant = Participant::new()
-            .map_err(ClientError::ParticipantInitErr)?;
+        let participant = Participant::new().map_err(ClientError::ParticipantInitErr)?;
         Ok(Self {
             handle,
             participant,
@@ -73,8 +75,7 @@ impl Client {
     /// Returns `Ok(client)` if [`Client`] `client` initialised successfully
     /// Returns `Err(err)` if `ClientError` `err` occurred
     pub fn new_with_id(period: u64, handle: Handle, id: u32) -> Result<Self, ClientError> {
-        let participant = Participant::new()
-            .map_err(ClientError::ParticipantInitErr)?;
+        let participant = Participant::new().map_err(ClientError::ParticipantInitErr)?;
         Ok(Self {
             handle,
             participant,
@@ -98,29 +99,20 @@ impl Client {
     /// [`Client`] duties within a round
     pub async fn during_round(&mut self) -> Result<Task, ClientError> {
         let round_params: Arc<RoundParameters> = loop {
-            if let Some(round_params) =
-                self.handle.get_round_parameters().await
-            {
-                break round_params
+            if let Some(round_params) = self.handle.get_round_parameters().await {
+                break round_params;
             }
             debug!(client_id = %self.id, "round params not ready, retrying.");
             self.interval.tick().await;
         };
         let round_seed: &[u8] = round_params.seed.as_slice();
         debug!(client_id = %self.id, "computing sigs and checking task");
-        self.participant
-            .compute_signatures(round_seed);
+        self.participant.compute_signatures(round_seed);
         let (sum_frac, upd_frac) = (round_params.sum, round_params.update);
-        match self
-            .participant
-            .check_task(sum_frac, upd_frac)
-        {
-            Task::Sum    =>
-                self.summer(round_params.pk).await,
-            Task::Update =>
-                self.updater(round_params.pk).await,
-            Task::None   =>
-                self.unselected().await,
+        match self.participant.check_task(sum_frac, upd_frac) {
+            Task::Sum => self.summer(round_params.pk).await,
+            Task::Update => self.updater(round_params.pk).await,
+            Task::None => self.unselected().await,
         }
     }
 
@@ -131,53 +123,42 @@ impl Client {
     }
 
     /// Duties for [`Client`]s selected as summers
-    async fn summer(&mut self, coord_pk: CoordinatorPublicKey)
-                    -> Result<Task, ClientError>
-    {
+    async fn summer(&mut self, coord_pk: CoordinatorPublicKey) -> Result<Task, ClientError> {
         info!(client_id = %self.id, "selected for sum, sending sum message.");
-        let sum1_msg: Vec<u8> = self
-            .participant
-            .compose_sum_message(&coord_pk);
-        self.handle
-            .send_message(sum1_msg)
-            .await;
+        let sum1_msg: Vec<u8> = self.participant.compose_sum_message(&coord_pk);
+        self.handle.send_message(sum1_msg).await;
 
         let pk = self.participant.pk;
         let seed_dict_ser: Arc<Vec<u8>> = loop {
             if let Some(seed_dict_ser) = self.handle.get_seed_dict(pk).await {
-                break seed_dict_ser
+                break seed_dict_ser;
             }
             debug!(client_id = %self.id, "seed dictionary not ready, retrying.");
             // updates not yet ready, try again later...
             self.interval.tick().await;
         };
         debug!(client_id = %self.id, "seed dictionary received");
-        let seed_dict: UpdateSeedDict =
-            bincode::deserialize(&seed_dict_ser[..]).map_err(|e| {
-                error!(
-                    "failed to deserialize seed dictionary: {}: {:?}",
-                    e,
-                    &seed_dict_ser[..],
-                );
-                ClientError::DeserialiseErr(e)
-            })?;
+        let seed_dict: UpdateSeedDict = bincode::deserialize(&seed_dict_ser[..]).map_err(|e| {
+            error!(
+                "failed to deserialize seed dictionary: {}: {:?}",
+                e,
+                &seed_dict_ser[..],
+            );
+            ClientError::DeserialiseErr(e)
+        })?;
         debug!(client_id = %self.id, "sending sum2 message");
         let sum2_msg: Vec<u8> = self
             .participant
             .compose_sum2_message(coord_pk, &seed_dict)
             .map_err(ClientError::ParticipantErr)?;
-        self.handle
-            .send_message(sum2_msg)
-            .await;
+        self.handle.send_message(sum2_msg).await;
 
         info!(client_id = %self.id, "sum participant completed a round");
         Ok(Task::Sum)
     }
 
     /// Duties for [`Client`]s selected as updaters
-    async fn updater(&mut self, coord_pk: CoordinatorPublicKey)
-                     -> Result<Task, ClientError>
-    {
+    async fn updater(&mut self, coord_pk: CoordinatorPublicKey) -> Result<Task, ClientError> {
         info!(client_id = %self.id, "selected to update");
 
         // currently, models are not yet supported fully; later on, we should
@@ -185,28 +166,23 @@ impl Client {
 
         let sum_dict_ser: Arc<Vec<u8>> = loop {
             if let Some(sum_dict_ser) = self.handle.get_sum_dict().await {
-                break sum_dict_ser
+                break sum_dict_ser;
             }
             debug!(client_id = %self.id, "sum dictionary not ready, retrying.");
             // sums not yet ready, try again later...
             self.interval.tick().await;
         };
-        let sum_dict: SumDict = bincode::deserialize(&sum_dict_ser[..])
-            .map_err(|e| {
-                error!(
-                    "failed to deserialize sum dictionary: {}: {:?}",
-                    e,
-                    &sum_dict_ser[..],
-                );
-                ClientError::DeserialiseErr(e)
-            })?;
+        let sum_dict: SumDict = bincode::deserialize(&sum_dict_ser[..]).map_err(|e| {
+            error!(
+                "failed to deserialize sum dictionary: {}: {:?}",
+                e,
+                &sum_dict_ser[..],
+            );
+            ClientError::DeserialiseErr(e)
+        })?;
         debug!(client_id = %self.id, "sum dictionary received, sending update message.");
-        let upd_msg: Vec<u8> = self
-            .participant
-            .compose_update_message(coord_pk, &sum_dict);
-        self.handle
-            .send_message(upd_msg)
-            .await;
+        let upd_msg: Vec<u8> = self.participant.compose_update_message(coord_pk, &sum_dict);
+        self.handle.send_message(upd_msg).await;
 
         info!(client_id = %self.id, "update participant completed a round");
         Ok(Task::Update)
