@@ -48,6 +48,10 @@ impl MessageSink {
         min_duration: Duration,
         max_duration: Duration,
     ) -> (UnboundedSender<Result<(), PetError>>, Self) {
+        if max_duration < min_duration {
+            panic!("max_duration must be greater than min_duration")
+        };
+
         let (success_tx, sink_rx) = unbounded_channel();
         (
             success_tx,
