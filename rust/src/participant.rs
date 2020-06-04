@@ -173,7 +173,7 @@ impl Participant {
 
     /// Generate a mask seed and mask a local model (dummy).
     fn mask_model() -> (MaskSeed, MaskObject) {
-        let model = Model::from_primitives(vec![0_f32, 1_f32, 2_f32, 3_f32].into_iter()).unwrap();
+        let model = Model::from_primitives(vec![0_f32, 1_f32, 0_f32, 1_f32].into_iter()).unwrap();
         let masker = Masker::new(dummy_config());
         let (seed, masked_model) = masker.mask(0.5, model);
         (seed, masked_model)
