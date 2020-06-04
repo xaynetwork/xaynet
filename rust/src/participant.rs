@@ -1,4 +1,4 @@
-use std::{default::Default};
+use std::default::Default;
 
 use crate::{
     certificate::Certificate,
