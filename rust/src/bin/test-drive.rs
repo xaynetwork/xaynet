@@ -6,14 +6,14 @@ use tracing_subscriber::*;
 
 /// Test-drive script of a (completely local) single-round federated learning
 /// session, intended for use as a mini integration test. It spawns a
-/// [`Service`] and 20 [`Client`]s on the tokio event loop.
+/// [`Service`] and 10 [`Client`]s on the tokio event loop.
 ///
-/// important NOTE since we only test 10 clients and by default, the selection
-/// ratios in the Coordinator are relatively small, it is very possible no (or
-/// too few) participants will be selected here! It's currently not possible to
-/// configure or force the selection, hence as a TEMP workaround, these should
-/// be adjusted in coordinator.rs before running this test e.g. 0.2_f64 for sum
-/// and 0.4_f64 for update.
+/// important NOTE since we only test a few clients and by default, the
+/// selection ratios in the Coordinator are relatively small, it is very
+/// possible no (or too few) participants will be selected here! It's currently
+/// not possible to configure or force the selection, hence as a TEMP
+/// workaround, these should be adjusted in coordinator.rs before running this
+/// test e.g. 0.2_f64 for sum and 0.4_f64 for update.
 #[tokio::main]
 async fn main() -> Result<(), ClientError> {
 
