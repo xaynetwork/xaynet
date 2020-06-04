@@ -7,7 +7,9 @@ use xain_fl::{
 
 /// Test-drive script of a (completely local) single-round federated learning
 /// session, intended for use as a mini integration test. It spawns a
-/// [`Service`] and 10 [`Client`]s on the tokio event loop.
+/// [`Service`] and 10 [`Client`]s on the tokio event loop. This serves as a
+/// simple example of getting started with the project, and may later be the
+/// basis for more automated tests.
 ///
 /// important NOTE since we only test a few clients and by default, the
 /// selection ratios in the Coordinator are relatively small, it is very
