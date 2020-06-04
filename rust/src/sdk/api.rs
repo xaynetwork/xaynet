@@ -1,27 +1,19 @@
 //! A C-API to communicate model updates between a PET protocol participant and an application.
 //!
-//! # Safety
-//! Many functions of this module are marked as `unsafe` to explicitly announce the possible
-//! unsafety of the function body as well as the return value to the caller. At the same time,
-//! each `unsafe fn` uses `unsafe` blocks to precisely pinpoint the sources of unsafety for
-//! reviewers (redundancy warnings will be fixed by [#69173](https://github.com/rust-lang/rust/issues/69173)).
-//!
-//! **Note, that the `unsafe` code has not been externally audited yet!**
-//!
 //! # Workflow
-//! 1. Initialize a client with `new_client()`, which will take care of the participant's PET
-//!    protocol work as well as the networking with the coordinator.
+//! 1. Initialize a [`Client`] with [`new_client()`], which will take care of the [`Participant`]'s
+//!    PET protocol work as well as the networking with the [`Coordinator`].
 //! 2. Optionally request status information:
-//!     - `is_next_round()` indicates if another round of the PET protocol has started.
-//!     - `is_update_participant()` indicates if this participant is eligible to submit a
+//!     - [`is_next_round()`] indicates if another round of the PET protocol has started.
+//!     - [`is_update_participant()`] indicates if this [`Participant`] is eligible to submit a
 //!       trained local model.
-//! 3. Get the latest global model with `get_model_N()`, where `N` is the primitive data type.
-//!    Currently, `f32`, `f64`, `i32` and `i64` are supported. The function returns a mutable
-//!    slice to the primitive model, whereas the primitive model itself is cached within the
-//!    client.
-//! 4. Register a trained local model with `update_model_N()`, which takes either a slice to
+//! 3. Get the latest global model with [`get_model_N()`], where `N` is the primitive data type.
+//!    Currently, [`f32`], [`f64`], [`i32`] and [`i64`] are supported. The function returns a
+//!    mutable slice to the primitive model, whereas the primitive model itself is cached within
+//!    the [`Client`].
+//! 4. Register a trained local model with [`update_model_N()`], which takes either a slice to
 //!    the cached primitive model or a slice to a foreign memory location.
-//! 5. Destroy the client with `drop_client()`.
+//! 5. Destroy the [`Client`] with [`drop_client()`].
 //!
 //! # Callbacks
 //! Some functions of this module provide stateful callbacks, where the
@@ -33,6 +25,18 @@
 //!
 //! **Note, that callbacks are at an experimental stage and the generalized `input` might be
 //! replaced for concrete input types for certain functions in the future.**
+//!
+//! # Safety
+//! Many functions of this module are marked as `unsafe` to explicitly announce the possible
+//! unsafety of the function body as well as the return value to the caller. At the same time,
+//! each `unsafe fn` uses `unsafe` blocks to precisely pinpoint the sources of unsafety for
+//! reviewers (redundancy warnings will be fixed by [#69173](https://github.com/rust-lang/rust/issues/69173)).
+//!
+//! **Note, that the `unsafe` code has not been externally audited yet!**
+//!
+//! [`Coordinator`]: ../../coordinator/struct.Coordinator.html
+//! [`get_model_N()`]: fn.get_model_f32.html
+//! [`update_model_N()`]: fn.update_model_f32.html
 
 use std::{
     cmp::Ordering,
@@ -40,6 +44,7 @@ use std::{
     mem,
     os::raw::{c_double, c_float, c_int, c_long, c_uint, c_ulong, c_void},
     ptr,
+    slice,
 };
 
 use num::{bigint::BigInt, rational::Ratio, traits::Zero};
@@ -53,16 +58,20 @@ use crate::{
 /// implements a consuming iterator for the struct which is wrapped in a private submodule, because
 /// safe traits and their safe methods can't be implemented as `unsafe` and this way we ensure that
 /// the implementation is only ever used in an `unsafe fn`. The arguments `$prim_rust` and `$prim_c`
-/// are the corresponding Rust and C primitive data types.
+/// are the corresponding Rust and C primitive data types and `$doc0`, `$doc1` are a type links for
+/// the documentation.
 macro_rules! PrimModel {
-    ($prim_rust:ty, $prim_c:ty $(,)?) => {
+    ($prim_rust:ty, $prim_c:ty, $doc0:expr, $doc1:expr $(,)?) => {
         paste::item! {
             #[derive(Clone, Copy)]
             #[repr(C)]
-            /// A model of primitive data type represented as a mutable slice which can be accessed
-            /// from C.
+            #[doc = "A model of primitive data type [`"]
+            #[doc = $doc0]
+            #[doc = "`] represented as a mutable slice which can be accessed from C."]
             pub struct [<PrimitiveModel $prim_rust:upper>] {
-                /// A raw mutable pointer to an array of primitive values.
+                #[doc = "A raw mutable pointer to an array of primitive values `"]
+                #[doc = $doc1]
+                #[doc = "`."]
                 pub ptr: *mut $prim_c,
                 /// The length of that respective array.
                 pub len: c_ulong,
@@ -71,92 +80,10 @@ macro_rules! PrimModel {
     };
 }
 
-PrimModel! {f32, c_float}
-PrimModel! {f64, c_double}
-PrimModel! {i32, c_int}
-PrimModel! {i64, c_long}
-
-/// The iterators are wrapped in a private submodule, because safe traits and their safe methods
-/// can't be implemented as `unsafe` and this way we can ensure that the implementation is only
-/// ever used in an `unsafe fn`.
-mod iter {
-    use std::{mem, os::raw::c_ulong};
-
-    /// Generates a consuming iterator for the primitive model.  The argument
-    /// `$prim` is the corresponding Rust primitive data type.
-    macro_rules! PrimIter {
-        ($prim:ty $(,)?) => {
-            paste::item! {
-                use super::[<PrimitiveModel $prim:upper>];
-
-                #[doc(hidden)]
-                /// An iterator that moves out of a primitive model.
-                pub struct [<IntoIter $prim:upper>] {
-                    model: [<PrimitiveModel $prim:upper>],
-                    count: isize,
-                }
-
-                #[doc(hidden)]
-                impl IntoIterator for [<PrimitiveModel $prim:upper>] {
-                    type Item = $prim;
-                    type IntoIter = [<IntoIter $prim:upper>];
-
-                    /// Creates an iterator from a primitive model.
-                    fn into_iter(self) -> Self::IntoIter {
-                        Self::IntoIter {
-                            model: self,
-                            count: -1_isize,
-                        }
-                    }
-                }
-
-                #[doc(hidden)]
-                impl Iterator for [<IntoIter $prim:upper>] {
-                    type Item = $prim;
-
-                    /// Advances the iterator and returns the next primitive value. Returns `None`
-                    /// when the iteration is finished.
-                    ///
-                    /// # Safety
-                    /// The iterator iterates over an array by dereferencing from a raw pointer and
-                    /// is therefore inherently unsafe, even though this can't be indicated in the
-                    /// function signature of the trait's method. Therefore, this method must only
-                    /// ever be used in an unsafe function.
-                    ///
-                    /// # Panics
-                    /// The iterator panics if safety checks indicate undefined behavior.
-                    fn next(&mut self) -> Option<Self::Item> {
-                        if ((self.count + 1) as c_ulong) < self.model.len {
-                            if self.count < isize::MAX
-                                && (self.model.ptr as isize)
-                                    .checked_add((self.count + 2) * mem::size_of::<$prim>() as isize)
-                                    .is_some()
-                            {
-                                self.count += 1;
-                            } else {
-                                // TODO: add error handling
-                                panic!("iterating further results in undefined behavior");
-                            }
-                            unsafe {
-                                // safe if the pointer `ptr` comes from a valid allocation of a
-                                // `Vec<$prim>`, whereas the safety of the offset arithmetics is
-                                // ensured by the checks above
-                                Some(*self.model.ptr.offset(self.count))
-                            }
-                        } else {
-                            None
-                        }
-                    }
-                }
-            }
-        };
-    }
-
-    PrimIter!(f32);
-    PrimIter!(f64);
-    PrimIter!(i32);
-    PrimIter!(i64);
-}
+PrimModel! {f32, c_float, "f32", "[f32]"}
+PrimModel! {f64, c_double, "f64", "[f64]"}
+PrimModel! {i32, c_int, "i32", "[i32]"}
+PrimModel! {i64, c_long, "i64", "[i64]"}
 
 #[derive(Clone, Debug)]
 /// A primitive model of data type `N` cached on the heap. The pointer `PrimitiveModelN` returned
@@ -190,9 +117,11 @@ pub struct Client {
 
 #[allow(unused_unsafe)]
 #[no_mangle]
-/// Creates a new [`Client`]. Takes a `callback` function pointer and a void pointer to the `state`
-/// of the callback. The underlying function is defined over void pointers referencing (anonymous)
-/// structs for the `state` and `input` arguments of the callback.
+/// Creates a new [`Client`].
+///
+/// Takes a `callback` function pointer and a void pointer to the `state` of the callback. The
+/// underlying function is defined over void pointers referencing (anonymous) structs for the
+/// `state` and `input` arguments of the callback.
 ///
 /// # Safety
 /// The method depends on the safety of the `callback` and on the consistent definition and layout
@@ -225,9 +154,9 @@ pub unsafe extern "C" fn new_client(
         _checked_round: client.checked_round as c_uint,
         _participant_initialized: true,
         _model_cached: client.model.is_some(),
-    } as *const Input as *const c_void;
+    } as *const _ as *const c_void;
     unsafe {
-        // safe if the `callback` is safe and the same definition and layout is used for `Input`
+        // safe if the `callback` is sound and the same definition and layout is used for `Input`
         // across the FFI-boundary by the caller
         callback(state, input)
     };
@@ -284,11 +213,13 @@ pub unsafe extern "C" fn is_next_round(client: *mut Client) -> bool {
 
 #[allow(unused_unsafe)]
 #[no_mangle]
-/// Checks if the current role of the participant is [`Task::Update`].
+/// Checks if the current role of the participant is [`Update`].
 ///
 /// # Safety
 /// The method dereferences from the raw pointer arguments. Therefore, the behavior of
 /// the method is undefined if the arguments don't point to valid objects.
+///
+/// [`Update`]: ../../participant/enum.Task.html#variant.Update
 pub unsafe extern "C" fn is_update_participant(client: *mut Client) -> bool {
     if client.is_null() {
         // TODO: add error handling
@@ -302,25 +233,33 @@ pub unsafe extern "C" fn is_update_participant(client: *mut Client) -> bool {
 }
 
 /// Generates a method to get the global model converted to primitives. The arguments `$prim_rust`
-/// and `$prim_c` are the corresponding Rust and C primitive data types.
+/// and `$prim_c` are the corresponding Rust and C primitive data types and `$doc` is a type link
+/// for the documentation.
 macro_rules! get_model {
-    ($prim_rust:ty, $prim_c:ty $(,)?) => {
+    ($prim_rust:ty, $prim_c:ty, $doc:expr $(,)?) => {
         paste::item! {
             #[allow(unused_unsafe)]
             #[no_mangle]
-            /// Gets the latest global model converted as a primitive model, which is valid until
-            /// the current round ends. The model can be modified in place, for example for
-            /// training.
-            ///
-            /// # Errors
-            /// - Returns a primitive model with `null` pointer and `len` zero if no global model is
-            ///   available.
-            /// - Returns a primitive model with `null` pointer and `len` of the global model if
-            ///   type casting fails.
-            ///
-            /// # Safety
-            /// The method dereferences from the raw pointer arguments. Therefore, the behavior of
-            /// the method is undefined if the arguments don't point to valid objects.
+            #[doc = "Gets a mutable slice"]
+            #[doc = $doc]
+            #[doc = "to the latest global model.\n"]
+            #[doc = "\n"]
+            #[doc = "The global model gets converted and cached as a primitive model, which is"]
+            #[doc = "valid until the current round ends. The cached model can be modified in"]
+            #[doc = "place, for example for training.\n"]
+            #[doc = "\n"]
+            #[doc = "# Errors\n"]
+            #[doc = "- Returns a"]
+            #[doc = $doc]
+            #[doc = "with `null` pointer and `len` zero if no global model is available.\n"]
+            #[doc = "- Returns a"]
+            #[doc = $doc]
+            #[doc = "with `null` pointer and `len` of the global model if type casting fails.\n"]
+            #[doc = "\n"]
+            #[doc = "# Safety\n"]
+            #[doc = "The method dereferences from the raw pointer arguments. Therefore, the"]
+            #[doc = "behavior of the method is undefined if the arguments don't point to valid"]
+            #[doc = "objects."]
             pub unsafe extern "C" fn [<get_model_ $prim_rust>](
                 client: *mut Client,
             ) -> [<PrimitiveModel $prim_rust:upper>] {
@@ -372,28 +311,36 @@ macro_rules! get_model {
     };
 }
 
-get_model!(f32, c_float);
-get_model!(f64, c_double);
-get_model!(i32, c_int);
-get_model!(i64, c_long);
+get_model!(f32, c_float, "[`PrimitiveModelF32`]");
+get_model!(f64, c_double, "[`PrimitiveModelF64`]");
+get_model!(i32, c_int, "[`PrimitiveModelI32`]");
+get_model!(i64, c_long, "[`PrimitiveModelI64`]");
 
 /// Generates a method to register the updated local model. The argument `$prim` is the
-/// corresponding Rust primitive data type.
+/// corresponding Rust primitive data type and `$doc` is a type link for the documentation.
 macro_rules! update_model {
-    ($prim:ty $(,)?) => {
+    ($prim:ty, $doc:expr $(,)?) => {
         paste::item! {
             #[allow(unused_unsafe)]
             #[no_mangle]
-            /// Registers the updated local model.
-            ///
-            /// # Safety
-            /// The method dereferences from the raw pointer arguments. Therefore, the behavior of
-            /// the method is undefined if the arguments don't point to valid objects.
-            ///
-            /// The `model` points to memory which is either allocated by `get_model()` and then
-            /// modified or which isn't allocated by `get_model()`. Therefore, the behavior of the
-            /// method is undefined if any of the [slice safety conditions](https://doc.rust-lang.org/std/slice/fn.from_raw_parts.html#safety)
-            /// are violated.
+            #[doc = "Registers the updated local model.\n"]
+            #[doc = "\n"]
+            #[doc = "A `model` which doesn't point to memory allocated by"]
+            #[doc = $doc]
+            #[doc = "requires additional copying while beeing iterated over.\n"]
+            #[doc = "\n"]
+            #[doc = "# Safety\n"]
+            #[doc = "The method dereferences from the raw pointer arguments. Therefore, the"]
+            #[doc = "behavior of the method is undefined if the arguments don't point to valid"]
+            #[doc = "objects.\n"]
+            #[doc = "\n"]
+            #[doc = "The `model` points to memory which is either allocated by"]
+            #[doc = $doc]
+            #[doc = "and then modified or which isn't allocated by"]
+            #[doc = $doc]
+            #[doc = ". Therefore, the behavior of the method is undefined if any of the"]
+            #[doc = "[slice safety conditions](https://doc.rust-lang.org/std/slice/fn.from_raw_parts.html#safety)"]
+            #[doc = " are violated for `model`."]
             pub unsafe extern "C" fn [<update_model_ $prim>](
                 client: *mut Client,
                 model: [<PrimitiveModel $prim:upper>],
@@ -401,27 +348,26 @@ macro_rules! update_model {
                 if !client.is_null()
                     && !model.ptr.is_null()
                     && model.len != 0
-                    && model.len <= (usize::MAX / mem::size_of::<$prim>()) as c_ulong
+                    && model.len <= (isize::MAX as usize / mem::size_of::<$prim>()) as c_ulong
                 {
                     let client = unsafe {
                         // safe if the raw pointer `client` comes from a valid allocation of a `Client`
                         &mut *client
                     };
+                    // TODO: use the model when the client sends the update message
                     if let Some(PrimitiveModel::[<$prim:upper>](cached)) = client.model.take() {
-                        // cached model was updated
-                        if ptr::eq(model.ptr as *const $prim, cached.as_ptr())
+                        if ptr::eq(model.ptr as *const _, cached.as_ptr())
                             && model.len as usize == cached.len()
                         {
-                            // TODO: use the model when the client sends the update message
+                            // cached model was updated
                             let _local_model = Model::from_primitives_bounded(cached.into_iter());
                         }
                     } else {
                         // other model was updated
-                        // TODO: use the model when the client sends the update message
                         let _local_model = Model::from_primitives_bounded(unsafe {
-                            // safe if the slice `model` comes from a valid allocation of a `Vec<$prim>`
-                            model.into_iter()
-                        });
+                            // safe if `model` fulfills the slice safety conditions
+                            slice::from_raw_parts(model.ptr as *const _, model.len as usize)
+                        }.into_iter().copied());
                     }
                 } else {
                     // TODO: add error handling
@@ -432,14 +378,14 @@ macro_rules! update_model {
     };
 }
 
-update_model!(f32);
-update_model!(f64);
-update_model!(i32);
-update_model!(i64);
+update_model!(f32, "[`get_model_f32()`]");
+update_model!(f64, "[`get_model_f64()`]");
+update_model!(i32, "[`get_model_i32()`]");
+update_model!(i64, "[`get_model_i64()`]");
 
 #[allow(unused_unsafe)]
 #[no_mangle]
-/// Destroys a cached [`PrimitiveModel`] and frees its allocated memory.
+/// Destroys a [`Client`]'s cached primitive model and frees its allocated memory.
 ///
 /// # Safety
 /// The method dereferences from the raw pointer arguments. Therefore, the behavior of
@@ -488,7 +434,7 @@ mod tests {
         let mut state = State {
             participant_initialized_without_caching: false,
         };
-        let client = unsafe { new_client(callback, &mut state as *mut State as *mut c_void) };
+        let client = unsafe { new_client(callback, &mut state as *mut _ as *mut c_void) };
         unsafe { drop_client(client) };
         assert!(state.participant_initialized_without_caching);
     }
@@ -505,7 +451,9 @@ mod tests {
                     let model = unsafe { [<get_model_ $prim>](client) };
                     if let Some(PrimitiveModel::[<$prim:upper>](ref cached)) = unsafe { &mut *client }.model {
                         assert_eq!(
-                            Model::from_primitives_bounded(unsafe { model.into_iter() }),
+                            Model::from_primitives_bounded(unsafe {
+                                slice::from_raw_parts(model.ptr as *const _, model.len as usize)
+                            }.into_iter().copied()),
                             Model::from_primitives_bounded(cached.clone().into_iter()),
                         );
                     } else {
@@ -530,7 +478,7 @@ mod tests {
                     let client = unsafe { new_client(dummy_callback, ptr::null_mut() as *mut c_void) };
                     let model = unsafe { [<get_model_ $prim>](client) };
                     if let Some(PrimitiveModel::[<$prim:upper>](ref cached)) = unsafe { &mut *client }.model {
-                        assert_eq!(cached.as_ptr(), model.ptr as *const $prim);
+                        assert_eq!(cached.as_ptr(), model.ptr as *const _);
                         assert_eq!(cached.len(), model.len as usize);
                     } else {
                         panic!();
@@ -565,7 +513,7 @@ mod tests {
                         len: vec.len() as c_ulong,
                     };
                     if let Some(PrimitiveModel::[<$prim:upper>](ref cached)) = unsafe { &mut *client }.model {
-                        assert_ne!(cached.as_ptr(), model.ptr as *const $prim);
+                        assert_ne!(cached.as_ptr(), model.ptr as *const _);
                         assert_eq!(cached.len(), model.len as usize);
                     } else {
                         panic!();
