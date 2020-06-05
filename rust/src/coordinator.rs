@@ -216,6 +216,8 @@ impl Coordinator {
         }
     }
 
+    // FIXME: we should abort the round if the `handle_xxx` handlers
+    // return an error
     /// Validate and handle a sum, update or sum2 message.
     pub fn handle_message(&mut self, bytes: &[u8]) -> Result<(), PetError> {
         let message = self
@@ -224,13 +226,24 @@ impl Coordinator {
             .map_err(|_| PetError::InvalidMessage)?;
         let participant_pk = message.header.participant_pk;
         match (self.phase, message.payload) {
-            (Phase::Sum, PayloadOwned::Sum(msg)) => self.handle_sum_message(participant_pk, msg),
+            (Phase::Sum, PayloadOwned::Sum(msg)) => {
+                debug!("handling sum message");
+                self.handle_sum_message(participant_pk, msg)
+            }
             (Phase::Update, PayloadOwned::Update(msg)) => {
+                debug!("handling update message");
                 self.handle_update_message(participant_pk, msg)
             }
-            (Phase::Sum2, PayloadOwned::Sum2(msg)) => self.handle_sum2_message(participant_pk, msg),
+            (Phase::Sum2, PayloadOwned::Sum2(msg)) => {
+                debug!("handling sum2 message");
+                self.handle_sum2_message(participant_pk, msg)
+            }
             _ => Err(PetError::InvalidMessage),
-        }
+        }?;
+        // HACK possibly not relevant now - in an earlier version at least, this
+        // was neceassary to "kickstart" the transitioning
+        self.try_phase_transition();
+        Ok(())
     }
 
     /// Validate and handle a sum message.
@@ -256,16 +269,31 @@ impl Coordinator {
             local_seed_dict,
             masked_model,
         } = message;
-        self.validate_update_task(&pk, &sum_signature, &update_signature)?;
+        debug!("validating signature for the update task");
+        if self
+            .validate_update_task(&pk, &sum_signature, &update_signature)
+            .is_err()
+        {
+            warn!("invalid signature for update task, ignoring update message");
+            return Ok(());
+        }
 
         // Try to update local seed dict first. If this fail, we do
         // not want to aggregate the model.
-        self.add_local_seed_dict(&pk, &local_seed_dict)?;
+        debug!("updating the global seed dictionary");
+        if self.add_local_seed_dict(&pk, &local_seed_dict).is_err() {
+            warn!("invalid local seed dictionary, ignoring update message");
+            return Ok(());
+        }
 
         // Check if aggregation can be performed, and do it.
+        debug!("aggregating masked model");
         self.aggregation
             .validate_aggregation(&masked_model)
-            .map_err(|_| PetError::InvalidMessage)?;
+            .map_err(|e| {
+                warn!("aggregation error: {}", e);
+                PetError::InvalidMessage
+            })?;
         self.aggregation.aggregate(masked_model);
         Ok(())
     }
@@ -442,6 +470,7 @@ impl Coordinator {
             }
             Phase::Sum => {
                 if self.has_enough_sums() {
+                    info!("enough sum participants to proceed to the update phase");
                     self.proceed_update_phase();
                     self.try_phase_transition();
                 }

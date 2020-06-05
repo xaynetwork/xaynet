@@ -24,15 +24,15 @@ use crate::{
     ParticipantSecretKey,
     ParticipantTaskSignature,
     PetError,
-    SeedDict,
     SumDict,
     SumParticipantEphemeralPublicKey,
     SumParticipantEphemeralSecretKey,
+    UpdateSeedDict,
 };
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 /// Tasks of a participant.
-enum Task {
+pub enum Task {
     Sum,
     Update,
     None,
@@ -41,7 +41,7 @@ enum Task {
 /// A participant in the PET protocol layer.
 pub struct Participant {
     // credentials
-    pk: ParticipantPublicKey,                  // 32 bytes
+    pub(crate) pk: ParticipantPublicKey,       // 32 bytes
     sk: ParticipantSecretKey,                  // 64 bytes
     ephm_pk: SumParticipantEphemeralPublicKey, // 32 bytes
     ephm_sk: SumParticipantEphemeralSecretKey, // 32 bytes
@@ -97,7 +97,7 @@ impl Participant {
     }
 
     /// Check eligibility for a task.
-    pub fn check_task(&mut self, round_sum: f64, round_update: f64) {
+    pub fn check_task(&mut self, round_sum: f64, round_update: f64) -> Task {
         if self.sum_signature.is_eligible(round_sum) {
             self.task = Task::Sum;
         } else if self.update_signature.is_eligible(round_update) {
@@ -105,6 +105,7 @@ impl Participant {
         } else {
             self.task = Task::None;
         }
+        self.task
     }
 
     /// Compose a sum message.
@@ -140,9 +141,10 @@ impl Participant {
     pub fn compose_sum2_message(
         &self,
         pk: CoordinatorPublicKey,
-        seed_dict: &SeedDict,
+        seed_dict: &UpdateSeedDict,
     ) -> Result<Vec<u8>, PetError> {
         let mask_seeds = self.get_seeds(seed_dict)?;
+
         let mask_len = 3; // dummy
         let mask = self.compute_global_mask(mask_seeds, mask_len, dummy_config())?;
         let payload = Sum2Owned {
@@ -171,7 +173,7 @@ impl Participant {
 
     /// Generate a mask seed and mask a local model (dummy).
     fn mask_model() -> (MaskSeed, MaskObject) {
-        let model = Model::from_primitives(vec![0_i32, 1_i32, 2_i32, 3_i32].into_iter()).unwrap();
+        let model = Model::from_primitives(vec![0_f32, 1_f32, 0_f32, 1_f32].into_iter()).unwrap();
         let masker = Masker::new(dummy_config());
         let (seed, masked_model) = masker.mask(0.5, model);
         (seed, masked_model)
@@ -185,11 +187,9 @@ impl Participant {
             .collect()
     }
 
-    /// Get the mask seeds from the seed dictionary.
-    fn get_seeds(&self, seed_dict: &SeedDict) -> Result<Vec<MaskSeed>, PetError> {
+    /// Get the mask seeds from the local seed dictionary.
+    fn get_seeds(&self, seed_dict: &UpdateSeedDict) -> Result<Vec<MaskSeed>, PetError> {
         seed_dict
-            .get(&self.pk)
-            .ok_or(PetError::InvalidMessage)?
             .values()
             .map(|seed| seed.decrypt(&self.ephm_pk, &self.ephm_sk))
             .collect()
@@ -326,26 +326,20 @@ mod tests {
     fn test_get_seeds() {
         let mut part = Participant::new().unwrap();
         part.gen_ephm_keypair();
-        let mask_seeds = iter::repeat_with(MaskSeed::generate)
+        let mask_seeds: Vec<MaskSeed> = iter::repeat_with(MaskSeed::generate)
             .take(1 + randombytes_uniform(10) as usize)
             .collect::<Vec<_>>();
-        let seed_dict = [(
-            part.pk,
-            mask_seeds
-                .iter()
-                .map(|seed| {
-                    (
-                        UpdateParticipantPublicKey::from_slice(&randombytes(32)).unwrap(),
-                        seed.encrypt(&part.ephm_pk),
-                    )
-                })
-                .collect(),
-        )]
-        .iter()
-        .cloned()
-        .collect();
+        let upd_seed_dict = mask_seeds
+            .iter()
+            .map(|seed| {
+                (
+                    UpdateParticipantPublicKey::from_slice(&randombytes(32)).unwrap(),
+                    seed.encrypt(&part.ephm_pk),
+                )
+            })
+            .collect();
         assert_eq!(
-            part.get_seeds(&seed_dict)
+            part.get_seeds(&upd_seed_dict)
                 .unwrap()
                 .into_iter()
                 .map(|seed| seed.as_array())
@@ -355,18 +349,14 @@ mod tests {
                 .map(|seed| seed.as_array())
                 .collect::<HashSet<_>>(),
         );
-        assert_eq!(
-            part.get_seeds(&SeedDict::new()).unwrap_err(),
-            PetError::InvalidMessage,
-        );
     }
 }
 
 fn dummy_config() -> MaskConfig {
     MaskConfig {
-        group_type: GroupType::Integer,
-        data_type: DataType::I32,
-        bound_type: BoundType::Bmax,
+        group_type: GroupType::Prime,
+        data_type: DataType::F32,
+        bound_type: BoundType::B0,
         model_type: ModelType::M3,
     }
 }
