@@ -1,5 +1,4 @@
 use crate::{
-    coordinator::RoundParameters,
     crypto::ByteObject,
     participant::{Participant, Task},
     service::{Handle, RoundParametersData},

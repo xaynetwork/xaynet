@@ -50,7 +50,7 @@ pub enum RoundFailed {
     Unmasking(#[from] UnmaskingError),
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 /// A seed for a round.
 pub struct RoundSeed(box_::Seed);
 

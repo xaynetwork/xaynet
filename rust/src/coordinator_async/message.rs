@@ -1,11 +1,14 @@
 use crate::{
     coordinator::RoundSeed,
-    coordinator_async::StateError,
+    coordinator_async::{redis::store::Connection, StateError},
     crypto::ByteObject,
+    mask::MaskObject,
     message::{Sum2Owned, SumOwned, UpdateOwned},
+    LocalSeedDict,
     ParticipantPublicKey,
     ParticipantTaskSignature,
     PetError,
+    SumParticipantEphemeralPublicKey,
     SumParticipantPublicKey,
     UpdateParticipantPublicKey,
 };
@@ -141,22 +144,12 @@ impl MessageHandler {
     }
 
     async fn handle_message(
-        self,
+        mut self,
         message_validation_fut: impl Future<Output = Result<(), PetError>>,
     ) {
-        // Extract all fields of the MessageHandler struct. This is necessary to bypass borrow
-        // issues in the tokio::select macro.
-        // It is important to extract _cancel_complete_tx as well, otherwise the channel
-        // will be dropped too early.
-        let MessageHandler {
-            sink_tx,
-            _cancel_complete_tx,
-            mut notify_cancel,
-        } = self;
-
         tokio::select! {
-            result = message_validation_fut => {let _ = sink_tx.send(result);}
-            _ = notify_cancel.recv() => {println!("drop message validation future")}
+            result = message_validation_fut => {let _ = self.sink_tx.send(result);}
+            _ = self.notify_cancel.recv() => {println!("drop message validation future")}
         };
 
         // _cancel_complete_tx is dropped
@@ -171,11 +164,11 @@ impl MessageHandler {
         coordinator_state: Arc<SumValidationData>,
         pk: ParticipantPublicKey,
         message: SumOwned,
+        redis: Connection,
     ) {
         let message_validation_fut = async {
-            Self::validate_sum_task(&coordinator_state, &pk, &message.sum_signature)
-            // async call to Redis
-            // self.coordinator_state.sum_dict.insert(pk, message.ephm_pk);
+            Self::validate_sum_task(&coordinator_state, &pk, &message.sum_signature)?;
+            Self::add_sum_participant(&pk, &message.ephm_pk, redis).await
         };
         self.handle_message(message_validation_fut).await;
     }
@@ -196,6 +189,19 @@ impl MessageHandler {
             Err(PetError::InvalidMessage)
         }
     }
+
+    async fn add_sum_participant(
+        pk: &SumParticipantPublicKey,
+        ephm_pk: &SumParticipantEphemeralPublicKey,
+        redis: Connection,
+    ) -> Result<(), PetError> {
+        match redis.add_sum_participant(*pk, *ephm_pk).await {
+            // key is new
+            Ok(1) => Ok(()),
+            // key already exists or redis returned an error
+            Ok(_) | Err(_) => Err(PetError::InvalidMessage),
+        }
+    }
 }
 
 // Update message validator
@@ -206,6 +212,7 @@ impl MessageHandler {
         coordinator_state: Arc<UpdateValidationData>,
         pk: ParticipantPublicKey,
         message: UpdateOwned,
+        redis: Connection,
     ) {
         let message_validation_fut = async {
             let UpdateOwned {
@@ -214,14 +221,11 @@ impl MessageHandler {
                 local_seed_dict,
                 masked_model,
             } = message;
-            Self::validate_update_task(&coordinator_state, &pk, &sum_signature, &update_signature)
-
+            Self::validate_update_task(&coordinator_state, &pk, &sum_signature, &update_signature)?;
             // Try to update local seed dict first. If this fail, we do
             // not want to aggregate the model.
 
-            // Should we perform the checks in add_local_seed_dict in the coordinator or
-            // in redis?
-            // self.add_local_seed_dict(&pk, &local_seed_dict)?;
+            Self::add_local_seed_dict(&pk, &local_seed_dict, redis).await
 
             // Check if aggregation can be performed, and do it.
             //
@@ -254,6 +258,29 @@ impl MessageHandler {
             Err(PetError::InvalidMessage)
         }
     }
+
+    /// Add a local seed dictionary to the seed dictionary. Fails if it contains invalid keys or it
+    /// is a repetition.
+    async fn add_local_seed_dict(
+        pk: &UpdateParticipantPublicKey,
+        local_seed_dict: &LocalSeedDict,
+        redis: Connection,
+    ) -> Result<(), PetError> {
+        // Should we perform the checks in add_local_seed_dict in the coordinator or
+        // in redis?
+        // if local_seed_dict.keys().len() == sum_cache.len()
+        //     && local_seed_dict
+        //         .keys()
+        //         .all(|pk| sum_cache.sum_pks().contains(pk))
+        // {
+        redis
+            .update_seed_dict(*pk, &local_seed_dict)
+            .await
+            .map_err(|_| PetError::InvalidMessage)
+        // } else {
+        //     Err(PetError::InvalidMessage)
+        // }
+    }
 }
 
 // Sum2 message validator
@@ -264,15 +291,42 @@ impl MessageHandler {
         coordinator_state: Arc<SumValidationData>,
         pk: ParticipantPublicKey,
         message: Sum2Owned,
+        redis: Connection,
     ) {
         let message_validation_fut = async {
-            // if !self.sum_dict.contains_key(&pk) {
+            // We move the participant key here to make sure a participant
+            // cannot submit a mask multiple times
+            // if self.sum_dict.remove(pk).is_none() {
             //     return Err(PetError::InvalidMessage);
             // }
-            Self::validate_sum_task(&coordinator_state, &pk, &message.sum_signature)
-            // async call to Redis
-            //self.add_mask(&pk, message.mask).unwrap();
+
+            Self::validate_sum_task(&coordinator_state, &pk, &message.sum_signature)?;
+            Self::add_mask(&pk, &message.mask, redis).await
         };
         self.handle_message(message_validation_fut).await;
+    }
+
+    /// Add a mask to the mask dictionary. Fails if the sum participant didn't register in the sum
+    /// phase or it is a repetition.
+    async fn add_mask(
+        pk: &SumParticipantPublicKey,
+        mask: &MaskObject,
+        redis: Connection,
+    ) -> Result<(), PetError> {
+        // match redis
+        //     .remove_sum_dict_entry(*pk)
+        //     .await
+        // {
+        //     // field was deleted
+        //     Ok(1) => (),
+        //     // field does not exist or redis err
+        //     Ok(_) | Err(_) => return Err(PetError::InvalidMessage),
+        // }
+        // (sum_dict, updates, seed_dict)
+
+        redis
+            .incr_mask_count(mask)
+            .await
+            .map_err(|_| PetError::InvalidMessage)
     }
 }

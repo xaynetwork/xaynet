@@ -10,7 +10,7 @@ repository = "https://github.com/xainag/xain-fl/"
 homepage = "https://xain.io/"
 
 [dependencies]
-futures = "0.3.4"
+futures = "0.3.5"
 tokio = { version = "0.2.19", features = ["rt-core", "rt-threaded", "tcp", "time", "macros", "signal", "sync", "stream"] }
 derive_more = { version = "0.99.3", default-features = false, features = [ "display", "from" , "as_ref", "as_mut", "into", "index", "index_mut"] }
 rand = "0.7.3"
@@ -26,6 +26,7 @@ anyhow = "1.0.28"
 bitflags = "1.2.1"
 paste = "0.1.12"
 tracing-subscriber = "0.2.5"
+redis = {version= "0.16.0", default-features = false, features= ["tokio-rt-core"]}
 
 [[bin]]
 name = "coordinator"

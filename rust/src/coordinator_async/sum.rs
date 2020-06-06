@@ -1,10 +1,11 @@
-use super::{CoordinatorState, State, StateError, StateMachine};
+use super::{CoordinatorState, RedisStore, State, StateError, StateMachine};
 use crate::{
     coordinator_async::{
         error::Error,
         message::{MessageHandler, MessageSink, SumValidationData},
         update::Update,
     },
+    crypto::generate_encrypt_key_pair,
     message::{MessageOwned, PayloadOwned},
     PetError,
 };
@@ -22,6 +23,7 @@ impl State<Sum> {
     pub fn new(
         coordinator_state: CoordinatorState,
         message_rx: mpsc::UnboundedReceiver<Vec<u8>>,
+        redis: RedisStore,
     ) -> StateMachine {
         let sum_validation_data = Arc::new(SumValidationData {
             seed: coordinator_state.seed.clone(),
@@ -34,19 +36,29 @@ impl State<Sum> {
             },
             coordinator_state,
             message_rx,
+            redis,
         })
     }
 
     pub async fn next(mut self) -> StateMachine {
         info!("Sum phase!");
+        self.gen_round_keypair();
+        self.set_coordinator_state().await;
+
         match self.run().await {
-            Ok(_) => State::<Update>::new(self.coordinator_state, self.message_rx),
-            Err(err) => State::<Error>::new(self.coordinator_state, self.message_rx, err),
+            Ok(_) => State::<Update>::new(self.coordinator_state, self.message_rx, self.redis),
+            Err(err) => {
+                State::<Error>::new(self.coordinator_state, self.message_rx, self.redis, err)
+            }
         }
     }
 
     async fn run(&mut self) -> Result<(), StateError> {
-        let (sink_tx, sink) = MessageSink::new(10, Duration::from_secs(5), Duration::from_secs(10));
+        let (sink_tx, sink) = MessageSink::new(
+            self.coordinator_state.min_sum,
+            Duration::from_secs(5),
+            Duration::from_secs(10),
+        );
         let (_cancel_complete_tx, mut cancel_complete_rx) = mpsc::channel::<()>(1);
         let (notify_cancel, _) = broadcast::channel::<()>(1);
 
@@ -58,7 +70,7 @@ impl State<Sum> {
                         message, sink_tx.clone(),
                         _cancel_complete_tx.clone(),
                         notify_cancel.subscribe()
-                    )?;
+                    ).await?;
                     tokio::spawn(async move { message_handler.await });
                 }
             } => {
@@ -82,7 +94,7 @@ impl State<Sum> {
         phase_result
     }
 
-    fn create_message_handler(
+    async fn create_message_handler(
         &mut self,
         message: MessageOwned,
         sink_tx: mpsc::UnboundedSender<Result<(), PetError>>,
@@ -98,10 +110,20 @@ impl State<Sum> {
         let message_handler =
             MessageHandler::new(sink_tx.clone(), _cancel_complete_tx.clone(), notify_cancel);
 
+        let redis_connection = self.redis.clone().connection().await;
+
         Ok(Box::pin(message_handler.handle_sum_message(
             self._inner.sum_validation_data.clone(),
             participant_pk,
             sum_message,
+            redis_connection,
         )))
+    }
+
+    /// Generate fresh round credentials.
+    fn gen_round_keypair(&mut self) {
+        let (pk, sk) = generate_encrypt_key_pair();
+        self.coordinator_state.pk = pk;
+        self.coordinator_state.sk = sk;
     }
 }

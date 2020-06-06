@@ -1,8 +1,8 @@
-use super::{CoordinatorState, State, StateMachine};
+use super::{CoordinatorState, RedisStore, State, StateMachine};
 use crate::{
     coordinator::RoundSeed,
     coordinator_async::sum::Sum,
-    crypto::{generate_encrypt_key_pair, ByteObject, SigningKeySeed},
+    crypto::{ByteObject, SigningKeySeed},
 };
 use sodiumoxide::crypto::hash::sha256;
 use tokio::sync::mpsc;
@@ -14,34 +14,30 @@ impl State<Idle> {
     pub fn new(
         coordinator_state: CoordinatorState,
         message_rx: mpsc::UnboundedReceiver<Vec<u8>>,
+        redis: RedisStore,
     ) -> StateMachine {
         StateMachine::Idle(Self {
             _inner: Idle,
             coordinator_state,
             message_rx,
+            redis,
         })
     }
 
     pub async fn next(mut self) -> StateMachine {
-        info!("Idle phase");
+        info!("Idle phase!");
         self.run().await;
-        State::<Sum>::new(self.coordinator_state, self.message_rx)
+        State::<Sum>::new(self.coordinator_state, self.message_rx, self.redis)
     }
 
     async fn run(&mut self) {
-        // clear and write round_parameters in Redis
-        // clear redis round dicts
+        self.clear_round_dicts().await;
+
         self.update_round_thresholds();
         self.update_round_seed();
-        self.gen_round_keypair();
-        // clear Aggregator
-    }
 
-    /// Generate fresh round credentials.
-    fn gen_round_keypair(&mut self) {
-        let (pk, sk) = generate_encrypt_key_pair();
-        self.coordinator_state.pk = pk;
-        self.coordinator_state.sk = sk;
+        self.set_coordinator_state().await;
+        // clear Aggregator
     }
 
     fn update_round_thresholds(&mut self) {}
@@ -62,5 +58,10 @@ impl State<Idle> {
         // Safe unwrap: the length of the hash is 32 bytes
         self.coordinator_state.seed =
             RoundSeed::from_slice_unchecked(sha256::hash(signature.as_slice()).as_ref());
+    }
+
+    /// Clear the round dictionaries.
+    async fn clear_round_dicts(&self) {
+        let _ = self.redis.clone().connection().await.flushdb().await;
     }
 }

@@ -11,7 +11,7 @@ use crate::mask::MaskConfig;
 #[error("the mask object is invalid: data is incompatible with the masking configuration")]
 pub struct InvalidMaskObject;
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct MaskObject {
     pub(crate) data: Vec<BigUint>,
     pub(crate) config: MaskConfig,

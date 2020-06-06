@@ -1,6 +1,13 @@
 use crate::{
-    coordinator::{ProtocolEvent, RoundSeed},
-    coordinator_async::{error::Error, idle::Idle, sum::Sum, sum2::Sum2, update::Update},
+    coordinator::RoundSeed,
+    coordinator_async::{
+        error::Error,
+        idle::Idle,
+        redis::store::RedisStore,
+        sum::Sum,
+        sum2::Sum2,
+        update::Update,
+    },
     crypto::ByteObject,
     message::{MessageOpen, MessageOwned},
     CoordinatorPublicKey,
@@ -8,13 +15,14 @@ use crate::{
     InitError,
     PetError,
 };
-use std::{collections::VecDeque, default::Default};
+use std::default::Default;
 use thiserror::Error;
 use tokio::sync::mpsc;
 
 pub mod error;
 pub mod idle;
 pub mod message;
+pub mod redis;
 pub mod sum;
 pub mod sum2;
 pub mod update;
@@ -28,7 +36,7 @@ pub enum StateError {
     ProtocolError(#[from] PetError),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CoordinatorState {
     pk: CoordinatorPublicKey, // 32 bytes
     sk: CoordinatorSecretKey, // 32 bytes
@@ -39,9 +47,6 @@ pub struct CoordinatorState {
     seed: RoundSeed,
     min_sum: usize,
     min_update: usize,
-
-    /// Events emitted by the state machine
-    events: VecDeque<ProtocolEvent>,
 }
 
 impl Default for CoordinatorState {
@@ -53,7 +58,6 @@ impl Default for CoordinatorState {
         let seed = RoundSeed::zeroed();
         let min_sum = 1_usize;
         let min_update = 3_usize;
-        let events = VecDeque::new();
         Self {
             pk,
             sk,
@@ -62,18 +66,18 @@ impl Default for CoordinatorState {
             seed,
             min_sum,
             min_update,
-            events,
         }
     }
 }
 
-#[derive(Debug)]
 pub struct State<S> {
     _inner: S,
     // coordinator state
     coordinator_state: CoordinatorState,
     // message rx
     message_rx: mpsc::UnboundedReceiver<Vec<u8>>,
+
+    redis: RedisStore,
     // aggregator: Option<Aggregator>,
 }
 
@@ -100,6 +104,17 @@ impl<S> State<S> {
         debug!("New message!");
         self.message_open(message)
     }
+
+    /// Write the coordinator state.
+    async fn set_coordinator_state(&self) {
+        let _ = self
+            .redis
+            .clone()
+            .connection()
+            .await
+            .set_coordinator_state(self.coordinator_state.clone())
+            .await;
+    }
 }
 
 pub enum StateMachine {
@@ -121,7 +136,7 @@ impl StateMachine {
         }
     }
 
-    pub fn new() -> Result<(mpsc::UnboundedSender<Vec<u8>>, Self), InitError> {
+    pub fn new(redis: RedisStore) -> Result<(mpsc::UnboundedSender<Vec<u8>>, Self), InitError> {
         // crucial: init must be called before anything else in this module
         sodiumoxide::init().or(Err(InitError))?;
         let (message_tx, message_rx) = mpsc::unbounded_channel::<Vec<u8>>();
@@ -133,7 +148,7 @@ impl StateMachine {
 
         Ok((
             message_tx,
-            State::<Idle>::new(coordinator_state, message_rx),
+            State::<Idle>::new(coordinator_state, message_rx, redis),
         ))
     }
 }
