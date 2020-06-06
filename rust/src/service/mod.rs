@@ -10,7 +10,7 @@ use tokio::stream::Stream;
 mod data;
 mod handle;
 
-pub use data::Data;
+pub use data::{Data, RoundParametersData};
 pub use handle::{
     Event,
     EventStream,

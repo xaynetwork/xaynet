@@ -2,7 +2,7 @@ use crate::{
     coordinator::RoundParameters,
     crypto::ByteObject,
     participant::{Participant, Task},
-    service::Handle,
+    service::{Handle, RoundParametersData},
     CoordinatorPublicKey,
     InitError,
     PetError,
@@ -98,13 +98,19 @@ impl Client {
 
     /// [`Client`] duties within a round
     pub async fn during_round(&mut self) -> Result<Task, ClientError> {
-        let round_params: Arc<RoundParameters> = loop {
-            if let Some(round_params) = self.handle.get_round_parameters().await {
-                break round_params;
+        let round_data: Arc<RoundParametersData> = loop {
+            if let Some(round_data) = self.handle.get_round_parameters().await {
+                break round_data;
             }
             debug!(client_id = %self.id, "round params not ready, retrying.");
             self.interval.tick().await;
         };
+        let round_params = if let Some(round_params) = &round_data.round_parameters {
+            round_params
+        } else {
+            return Err(ClientError::GeneralErr);
+        };
+
         let round_seed: &[u8] = round_params.seed.as_slice();
         debug!(client_id = %self.id, "computing sigs and checking task");
         self.participant.compute_signatures(round_seed);
