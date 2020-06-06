@@ -3,43 +3,29 @@ use crate::{
     coordinator::RoundSeed,
     coordinator_async::sum::Sum,
     crypto::{generate_encrypt_key_pair, ByteObject, SigningKeySeed},
-    InitError,
 };
 use sodiumoxide::crypto::hash::sha256;
-use std::default::Default;
+use tokio::sync::mpsc;
 
 #[derive(Debug)]
 pub struct Idle;
 
 impl State<Idle> {
-    pub fn new() -> Result<(tokio::sync::mpsc::UnboundedSender<()>, StateMachine), InitError> {
-        // crucial: init must be called before anything else in this module
-        sodiumoxide::init().or(Err(InitError))?;
-
-        let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<()>();
-
-        Ok((
-            tx,
-            StateMachine::Idle(State {
-                _inner: Idle,
-                coordinator_state: CoordinatorState {
-                    seed: RoundSeed::generate(),
-                    ..Default::default()
-                },
-                message_rx: rx,
-            }),
-        ))
+    pub fn new(
+        coordinator_state: CoordinatorState,
+        message_rx: mpsc::UnboundedReceiver<Vec<u8>>,
+    ) -> StateMachine {
+        StateMachine::Idle(Self {
+            _inner: Idle,
+            coordinator_state,
+            message_rx,
+        })
     }
 
     pub async fn next(mut self) -> StateMachine {
-        println!("Idle phase!");
+        info!("Idle phase");
         self.run().await;
-
-        StateMachine::Sum(State {
-            _inner: Sum {},
-            coordinator_state: self.coordinator_state,
-            message_rx: self.message_rx,
-        })
+        State::<Sum>::new(self.coordinator_state, self.message_rx)
     }
 
     async fn run(&mut self) {

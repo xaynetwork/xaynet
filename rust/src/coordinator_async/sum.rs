@@ -1,4 +1,4 @@
-use super::{State, StateMachine};
+use super::{CoordinatorState, State, StateMachine};
 use crate::{
     coordinator_async::{
         error::Error,
@@ -8,37 +8,40 @@ use crate::{
     message::{MessageOwned, PayloadOwned},
     PetError,
 };
-use std::{collections::HashMap, default::Default, future::Future, pin::Pin, sync::Arc};
+use std::{default::Default, future::Future, pin::Pin, sync::Arc};
 use tokio::{
     sync::{broadcast, mpsc},
     time::Duration,
 };
 
-#[derive(Debug)]
-pub struct Sum;
+pub struct Sum {
+    sum_validation_data: Arc<SumValidationData>,
+}
 
 impl State<Sum> {
+    pub fn new(
+        coordinator_state: CoordinatorState,
+        message_rx: mpsc::UnboundedReceiver<Vec<u8>>,
+    ) -> StateMachine {
+        let sum_validation_data = Arc::new(SumValidationData {
+            seed: coordinator_state.seed.clone(),
+            sum: coordinator_state.sum,
+        });
+
+        StateMachine::Sum(Self {
+            _inner: Sum {
+                sum_validation_data,
+            },
+            coordinator_state,
+            message_rx,
+        })
+    }
+
     pub async fn next(mut self) -> StateMachine {
-        println!("Sum phase!");
-
+        info!("Sum phase!");
         match self.run().await {
-            Ok(_) => {
-                // Fetch sum dict?
-                let sum_dict = HashMap::new();
-                StateMachine::Update(State {
-                    _inner: Update {
-                        sum_dict: Some(Arc::new(sum_dict)),
-                    },
-                    coordinator_state: self.coordinator_state,
-                    message_rx: self.message_rx,
-                })
-            }
-
-            Err(_) => StateMachine::Error(State {
-                _inner: Error {},
-                coordinator_state: self.coordinator_state,
-                message_rx: self.message_rx,
-            }),
+            Ok(_) => State::<Update>::new(self.coordinator_state, self.message_rx),
+            Err(err) => State::<Error>::new(self.coordinator_state, self.message_rx, err),
         }
     }
 
@@ -49,18 +52,12 @@ impl State<Sum> {
 
         let phase_result = tokio::select! {
             message_source_result = async {
-                let sum_validation_data = Arc::new(SumValidationData {
-                    seed: self.coordinator_state.seed.clone(),
-                    sum: self.coordinator_state.sum,
-                });
-
                 loop {
                     let message = self.next_message().await?;
                     let message_handler = self.create_message_handler(
                         message, sink_tx.clone(),
                         _cancel_complete_tx.clone(),
-                        notify_cancel.subscribe(),
-                        sum_validation_data.clone()
+                        notify_cancel.subscribe()
                     )?;
                     tokio::spawn(async move { message_handler.await });
                 }
@@ -91,7 +88,6 @@ impl State<Sum> {
         sink_tx: mpsc::UnboundedSender<Result<(), PetError>>,
         _cancel_complete_tx: mpsc::Sender<()>,
         notify_cancel: broadcast::Receiver<()>,
-        sum_validation_data: Arc<SumValidationData>,
     ) -> Result<Pin<Box<dyn Future<Output = ()> + 'static + Send>>, PetError> {
         let participant_pk = message.header.participant_pk;
         let sum_message = match message.payload {
@@ -103,7 +99,7 @@ impl State<Sum> {
             MessageHandler::new(sink_tx.clone(), _cancel_complete_tx.clone(), notify_cancel);
 
         Ok(Box::pin(message_handler.handle_sum_message(
-            sum_validation_data,
+            self._inner.sum_validation_data.clone(),
             participant_pk,
             sum_message,
         )))

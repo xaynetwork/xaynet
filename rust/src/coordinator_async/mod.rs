@@ -2,13 +2,14 @@ use crate::{
     coordinator::{ProtocolEvent, RoundSeed},
     coordinator_async::{error::Error, idle::Idle, sum::Sum, sum2::Sum2, update::Update},
     crypto::ByteObject,
-    mask::{BoundType, DataType, GroupType, MaskConfig, ModelType},
     message::{MessageOpen, MessageOwned},
     CoordinatorPublicKey,
     CoordinatorSecretKey,
+    InitError,
     PetError,
 };
 use std::{collections::VecDeque, default::Default};
+use tokio::sync::mpsc;
 
 pub mod error;
 pub mod idle;
@@ -29,9 +30,6 @@ pub struct CoordinatorState {
     min_sum: usize,
     min_update: usize,
 
-    /// The masking configuration
-    mask_config: MaskConfig,
-
     /// Events emitted by the state machine
     events: VecDeque<ProtocolEvent>,
 }
@@ -46,12 +44,6 @@ impl Default for CoordinatorState {
         let min_sum = 1_usize;
         let min_update = 3_usize;
         let events = VecDeque::new();
-        let mask_config = MaskConfig {
-            group_type: GroupType::Prime,
-            data_type: DataType::F32,
-            bound_type: BoundType::B0,
-            model_type: ModelType::M3,
-        };
         Self {
             pk,
             sk,
@@ -61,7 +53,6 @@ impl Default for CoordinatorState {
             min_sum,
             min_update,
             events,
-            mask_config,
         }
     }
 }
@@ -72,7 +63,7 @@ pub struct State<S> {
     // coordinator state
     coordinator_state: CoordinatorState,
     // message rx
-    message_rx: tokio::sync::mpsc::UnboundedReceiver<()>,
+    message_rx: mpsc::UnboundedReceiver<Vec<u8>>,
     // aggregator: Option<Aggregator>,
 }
 
@@ -97,7 +88,7 @@ impl<S> State<S> {
             None => panic!("all message senders have been dropped!"),
         };
         println!("New message!");
-        self.message_open(vec![1, 2, 34]) // dummy value
+        self.message_open(message)
     }
 }
 
@@ -118,5 +109,21 @@ impl StateMachine {
             StateMachine::Sum2(val) => val.next().await,
             StateMachine::Error(val) => val.next().await,
         }
+    }
+
+    pub fn new() -> Result<(mpsc::UnboundedSender<Vec<u8>>, Self), InitError> {
+        // crucial: init must be called before anything else in this module
+        sodiumoxide::init().or(Err(InitError))?;
+        let (message_tx, message_rx) = mpsc::unbounded_channel::<Vec<u8>>();
+
+        let coordinator_state = CoordinatorState {
+            seed: RoundSeed::generate(),
+            ..Default::default()
+        };
+
+        Ok((
+            message_tx,
+            State::<Idle>::new(coordinator_state, message_rx),
+        ))
     }
 }

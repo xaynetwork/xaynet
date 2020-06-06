@@ -1,4 +1,4 @@
-use super::{State, StateMachine};
+use super::{CoordinatorState, State, StateMachine};
 use crate::{
     coordinator_async::{
         error::Error,
@@ -14,23 +14,34 @@ use tokio::{
     time::Duration,
 };
 
-#[derive(Debug)]
-pub struct Sum2;
+pub struct Sum2 {
+    sum_validation_data: Arc<SumValidationData>,
+}
 
 impl State<Sum2> {
+    pub fn new(
+        coordinator_state: CoordinatorState,
+        message_rx: mpsc::UnboundedReceiver<Vec<u8>>,
+    ) -> StateMachine {
+        let sum_validation_data = Arc::new(SumValidationData {
+            seed: coordinator_state.seed.clone(),
+            sum: coordinator_state.sum,
+        });
+
+        StateMachine::Sum2(Self {
+            _inner: Sum2 {
+                sum_validation_data,
+            },
+            coordinator_state,
+            message_rx,
+        })
+    }
+
     pub async fn next(mut self) -> StateMachine {
-        println!("Sum2 phase!");
+        info!("Sum2 phase!");
         match self.run().await {
-            Ok(_) => StateMachine::Idle(State {
-                _inner: Idle {},
-                coordinator_state: self.coordinator_state,
-                message_rx: self.message_rx,
-            }),
-            Err(_) => StateMachine::Error(State {
-                _inner: Error {},
-                coordinator_state: self.coordinator_state,
-                message_rx: self.message_rx,
-            }),
+            Ok(_) => State::<Idle>::new(self.coordinator_state, self.message_rx),
+            Err(err) => State::<Error>::new(self.coordinator_state, self.message_rx, err),
         }
     }
 
@@ -42,18 +53,12 @@ impl State<Sum2> {
 
         let phase_result = tokio::select! {
             message_source_result = async {
-                let sum_validation_data = Arc::new(SumValidationData {
-                    seed: self.coordinator_state.seed.clone(),
-                    sum: self.coordinator_state.sum,
-                });
-
                 loop {
                     let message = self.next_message().await?;
                     let message_handler = self.create_message_handler(
                         message, sink_tx.clone(),
                         _cancel_complete_tx.clone(),
                         notify_cancel.subscribe(),
-                        sum_validation_data.clone()
                     )?;
                     tokio::spawn(async move { message_handler.await });
                 }
@@ -78,7 +83,6 @@ impl State<Sum2> {
         sink_tx: mpsc::UnboundedSender<Result<(), PetError>>,
         _cancel_complete_tx: mpsc::Sender<()>,
         notify_cancel: broadcast::Receiver<()>,
-        sum_validation_data: Arc<SumValidationData>,
     ) -> Result<Pin<Box<dyn Future<Output = ()> + 'static + Send>>, PetError> {
         let participant_pk = message.header.participant_pk;
         let sum2_message = match message.payload {
@@ -90,7 +94,7 @@ impl State<Sum2> {
             MessageHandler::new(sink_tx.clone(), _cancel_complete_tx.clone(), notify_cancel);
 
         Ok(Box::pin(message_handler.handle_sum2_message(
-            sum_validation_data,
+            self._inner.sum_validation_data.clone(),
             participant_pk,
             sum2_message,
         )))

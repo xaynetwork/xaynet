@@ -1,17 +1,27 @@
-use super::{State, StateMachine};
-use crate::coordinator_async::idle::Idle;
+use super::{CoordinatorState, State, StateMachine};
+use crate::{coordinator_async::idle::Idle, PetError};
+use tokio::sync::mpsc;
 
 #[derive(Debug)]
-pub struct Error;
+pub struct Error {
+    error: PetError,
+}
 
 impl State<Error> {
-    pub async fn next(self) -> StateMachine {
-        println!("Error phase!");
-        // perform some clean up?
-        StateMachine::Idle(State {
-            _inner: Idle {},
-            coordinator_state: self.coordinator_state,
-            message_rx: self.message_rx,
+    pub fn new(
+        coordinator_state: CoordinatorState,
+        message_rx: mpsc::UnboundedReceiver<Vec<u8>>,
+        error: PetError,
+    ) -> StateMachine {
+        StateMachine::Error(Self {
+            _inner: Error { error },
+            coordinator_state,
+            message_rx,
         })
+    }
+
+    pub async fn next(self) -> StateMachine {
+        error!("Error phase! Error: {:?}", self._inner.error);
+        State::<Idle>::new(self.coordinator_state, self.message_rx)
     }
 }
