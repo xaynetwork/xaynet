@@ -9,14 +9,24 @@ use crate::{
     PetError,
 };
 use std::{collections::VecDeque, default::Default};
+use thiserror::Error;
 use tokio::sync::mpsc;
 
 pub mod error;
 pub mod idle;
-pub mod message_processing;
+pub mod message;
 pub mod sum;
 pub mod sum2;
 pub mod update;
+
+/// Error that occurs when the current round fails
+#[derive(Error, Debug)]
+pub enum StateError {
+    #[error("state failed: timeout")]
+    Timeout,
+    #[error("state failed: protocol error: {0}")]
+    ProtocolError(#[from] PetError),
+}
 
 #[derive(Debug)]
 pub struct CoordinatorState {
@@ -87,7 +97,7 @@ impl<S> State<S> {
             Some(message) => message,
             None => panic!("all message senders have been dropped!"),
         };
-        println!("New message!");
+        debug!("New message!");
         self.message_open(message)
     }
 }

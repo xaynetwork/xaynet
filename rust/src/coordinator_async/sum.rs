@@ -1,8 +1,8 @@
-use super::{CoordinatorState, State, StateMachine};
+use super::{CoordinatorState, State, StateError, StateMachine};
 use crate::{
     coordinator_async::{
         error::Error,
-        message_processing::{MessageHandler, MessageSink, SumValidationData},
+        message::{MessageHandler, MessageSink, SumValidationData},
         update::Update,
     },
     message::{MessageOwned, PayloadOwned},
@@ -45,7 +45,7 @@ impl State<Sum> {
         }
     }
 
-    async fn run(&mut self) -> Result<(), PetError> {
+    async fn run(&mut self) -> Result<(), StateError> {
         let (sink_tx, sink) = MessageSink::new(10, Duration::from_secs(5), Duration::from_secs(10));
         let (_cancel_complete_tx, mut cancel_complete_rx) = mpsc::channel::<()>(1);
         let (notify_cancel, _) = broadcast::channel::<()>(1);

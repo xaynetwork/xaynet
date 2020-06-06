@@ -1,5 +1,6 @@
 use crate::{
     coordinator::RoundSeed,
+    coordinator_async::StateError,
     crypto::ByteObject,
     message::{Sum2Owned, SumOwned, UpdateOwned},
     ParticipantPublicKey,
@@ -65,7 +66,7 @@ impl MessageSink {
         )
     }
 
-    pub async fn collect(self) -> Result<(), PetError> {
+    pub async fn collect(self) -> Result<(), StateError> {
         let MessageSink {
             min_messages,
             mut successful_messages,
@@ -80,7 +81,7 @@ impl MessageSink {
         // case the collect future will be resolved with an error.
         let min_collection_duration = async move {
             tokio::time::delay_for(min_duration).await;
-            println!("waited min collection duration");
+            debug!("waited min collection duration");
             Ok::<(), PetError>(())
         };
 
@@ -90,7 +91,7 @@ impl MessageSink {
                     .recv()
                     .await
                     // First '?' operator is applied on the result of '.recv()', the second one on
-                    // the message itself (which has the type 'Result<(), PetError>').
+                    // the message itself (which has the type 'Result<(), StateError>').
                     .ok_or(PetError::InvalidMessage)??;
 
                 successful_messages += 1;
@@ -107,11 +108,10 @@ impl MessageSink {
             collection_result = async {
                 tokio::try_join!(min_collection_duration, message_collection).map(|_| ())
             }=> {
-                collection_result
+                collection_result.map_err(From::from)
             }
             _ = &mut max_collection_duration => {
-                println!("message collection timed out!");
-                Err::<(), PetError>(PetError::InvalidMessage)
+                Err::<(), StateError>(StateError::Timeout)
             }
         }
     }

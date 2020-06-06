@@ -1,17 +1,17 @@
-use super::{CoordinatorState, State, StateMachine};
-use crate::{coordinator_async::idle::Idle, PetError};
+use super::{CoordinatorState, State, StateError, StateMachine};
+use crate::coordinator_async::idle::Idle;
 use tokio::sync::mpsc;
 
 #[derive(Debug)]
 pub struct Error {
-    error: PetError,
+    error: StateError,
 }
 
 impl State<Error> {
     pub fn new(
         coordinator_state: CoordinatorState,
         message_rx: mpsc::UnboundedReceiver<Vec<u8>>,
-        error: PetError,
+        error: StateError,
     ) -> StateMachine {
         StateMachine::Error(Self {
             _inner: Error { error },
