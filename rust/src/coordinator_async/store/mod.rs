@@ -6,6 +6,8 @@ use crate::{
 };
 use redis::{ErrorKind, FromRedisValue, RedisError, RedisResult, RedisWrite, ToRedisArgs, Value};
 
+pub mod client;
+
 fn redis_type_error(desc: &'static str, details: Option<String>) -> RedisError {
     if let Some(details) = details {
         RedisError::from((ErrorKind::TypeError, desc, details))
@@ -13,8 +15,6 @@ fn redis_type_error(desc: &'static str, details: Option<String>) -> RedisError {
         RedisError::from((ErrorKind::TypeError, desc))
     }
 }
-
-pub mod store;
 
 macro_rules! impl_redis_traits {
     ($ty: ty) => {

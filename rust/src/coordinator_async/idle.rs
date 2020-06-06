@@ -1,6 +1,6 @@
 use super::{CoordinatorState, RedisStore, State, StateMachine};
 use crate::{
-    coordinator::RoundSeed,
+    coordinator::{ProtocolEvent, RoundSeed},
     coordinator_async::sum::Sum,
     crypto::{ByteObject, SigningKeySeed},
 };
@@ -15,22 +15,31 @@ impl State<Idle> {
         coordinator_state: CoordinatorState,
         message_rx: mpsc::UnboundedReceiver<Vec<u8>>,
         redis: RedisStore,
+        events_rx: mpsc::UnboundedSender<ProtocolEvent>,
     ) -> StateMachine {
         StateMachine::Idle(Self {
             _inner: Idle,
             coordinator_state,
             message_rx,
             redis,
+            events_rx,
         })
     }
 
     pub async fn next(mut self) -> StateMachine {
         info!("Idle phase!");
-        self.run().await;
-        State::<Sum>::new(self.coordinator_state, self.message_rx, self.redis)
+        self.start_new_round().await;
+        let _ = self.emit_round_parameters();
+
+        State::<Sum>::new(
+            self.coordinator_state,
+            self.message_rx,
+            self.redis,
+            self.events_rx,
+        )
     }
 
-    async fn run(&mut self) {
+    async fn start_new_round(&mut self) {
         self.clear_round_dicts().await;
 
         self.update_round_thresholds();
@@ -63,5 +72,11 @@ impl State<Idle> {
     /// Clear the round dictionaries.
     async fn clear_round_dicts(&self) {
         let _ = self.redis.clone().connection().await.flushdb().await;
+    }
+
+    fn emit_round_parameters(&self) {
+        let _ = self
+            .events_rx
+            .send(ProtocolEvent::StartSum(self.round_parameters()));
     }
 }

@@ -1,9 +1,9 @@
 use crate::{
-    coordinator::RoundSeed,
+    coordinator::{ProtocolEvent, RoundParameters, RoundSeed},
     coordinator_async::{
         error::Error,
         idle::Idle,
-        redis::store::RedisStore,
+        store::client::RedisStore,
         sum::Sum,
         sum2::Sum2,
         update::Update,
@@ -15,6 +15,7 @@ use crate::{
     InitError,
     PetError,
 };
+use redis::RedisError;
 use std::default::Default;
 use thiserror::Error;
 use tokio::sync::mpsc;
@@ -22,7 +23,7 @@ use tokio::sync::mpsc;
 pub mod error;
 pub mod idle;
 pub mod message;
-pub mod redis;
+pub mod store;
 pub mod sum;
 pub mod sum2;
 pub mod update;
@@ -34,6 +35,8 @@ pub enum StateError {
     Timeout,
     #[error("state failed: protocol error: {0}")]
     ProtocolError(#[from] PetError),
+    #[error("state failed: external service failed: {0}")]
+    ExternalServiceFailed(#[from] RedisError),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -72,12 +75,16 @@ impl Default for CoordinatorState {
 
 pub struct State<S> {
     _inner: S,
-    // coordinator state
+    // Coordinator state
     coordinator_state: CoordinatorState,
     // message rx
     message_rx: mpsc::UnboundedReceiver<Vec<u8>>,
 
+    // Redis store
     redis: RedisStore,
+
+    /// Events emitted by the state machine
+    events_rx: mpsc::UnboundedSender<ProtocolEvent>,
     // aggregator: Option<Aggregator>,
 }
 
@@ -90,19 +97,28 @@ impl<S> State<S> {
         }
     }
 
-    fn message_open(&self, message: Vec<u8>) -> Result<MessageOwned, PetError> {
+    fn open_message(&self, encr_message: Vec<u8>) -> Result<MessageOwned, PetError> {
         self.message_opener()
-            .open(&message)
+            .open(&encr_message)
             .map_err(|_| PetError::InvalidMessage)
     }
 
     async fn next_message(&mut self) -> Result<MessageOwned, PetError> {
-        let message = match self.message_rx.recv().await {
-            Some(message) => message,
+        let encr_message = match self.message_rx.recv().await {
+            Some(encr_message) => encr_message,
             None => panic!("all message senders have been dropped!"),
         };
         debug!("New message!");
-        self.message_open(message)
+        self.open_message(encr_message)
+    }
+
+    pub fn round_parameters(&self) -> RoundParameters {
+        RoundParameters {
+            pk: self.coordinator_state.pk,
+            sum: self.coordinator_state.sum,
+            update: self.coordinator_state.update,
+            seed: self.coordinator_state.seed.clone(),
+        }
     }
 
     /// Write the coordinator state.
@@ -112,7 +128,7 @@ impl<S> State<S> {
             .clone()
             .connection()
             .await
-            .set_coordinator_state(self.coordinator_state.clone())
+            .set_coordinator_state(&self.coordinator_state)
             .await;
     }
 }
@@ -136,10 +152,20 @@ impl StateMachine {
         }
     }
 
-    pub fn new(redis: RedisStore) -> Result<(mpsc::UnboundedSender<Vec<u8>>, Self), InitError> {
+    pub fn new(
+        redis: RedisStore,
+    ) -> Result<
+        (
+            mpsc::UnboundedSender<Vec<u8>>,
+            mpsc::UnboundedReceiver<ProtocolEvent>,
+            Self,
+        ),
+        InitError,
+    > {
         // crucial: init must be called before anything else in this module
         sodiumoxide::init().or(Err(InitError))?;
         let (message_tx, message_rx) = mpsc::unbounded_channel::<Vec<u8>>();
+        let (events_tx, events_rx) = mpsc::unbounded_channel::<ProtocolEvent>();
 
         let coordinator_state = CoordinatorState {
             seed: RoundSeed::generate(),
@@ -148,7 +174,8 @@ impl StateMachine {
 
         Ok((
             message_tx,
-            State::<Idle>::new(coordinator_state, message_rx, redis),
+            events_rx,
+            State::<Idle>::new(coordinator_state, message_rx, redis, events_tx),
         ))
     }
 }

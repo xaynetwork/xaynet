@@ -1,6 +1,6 @@
 use crate::{
     coordinator::RoundSeed,
-    coordinator_async::{redis::store::Connection, StateError},
+    coordinator_async::{store::client::Connection, StateError},
     crypto::ByteObject,
     mask::MaskObject,
     message::{Sum2Owned, SumOwned, UpdateOwned},

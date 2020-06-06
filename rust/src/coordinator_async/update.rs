@@ -1,5 +1,6 @@
 use super::{CoordinatorState, RedisStore, State, StateError, StateMachine};
 use crate::{
+    coordinator::ProtocolEvent,
     coordinator_async::{
         error::Error,
         message::{MessageHandler, MessageSink, UpdateValidationData},
@@ -23,6 +24,7 @@ impl State<Update> {
         coordinator_state: CoordinatorState,
         message_rx: mpsc::UnboundedReceiver<Vec<u8>>,
         redis: RedisStore,
+        events_rx: mpsc::UnboundedSender<ProtocolEvent>,
     ) -> StateMachine {
         let update_validation_data = Arc::new(UpdateValidationData {
             seed: coordinator_state.seed.clone(),
@@ -37,20 +39,30 @@ impl State<Update> {
             coordinator_state,
             message_rx,
             redis,
+            events_rx,
         })
     }
 
     pub async fn next(mut self) -> StateMachine {
         info!("Update phase!");
-        match self.run().await {
-            Ok(_) => State::<Sum2>::new(self.coordinator_state, self.message_rx, self.redis),
-            Err(err) => {
-                State::<Error>::new(self.coordinator_state, self.message_rx, self.redis, err)
-            }
+        match self.run_phase().await {
+            Ok(_) => State::<Sum2>::new(
+                self.coordinator_state,
+                self.message_rx,
+                self.redis,
+                self.events_rx,
+            ),
+            Err(err) => State::<Error>::new(
+                self.coordinator_state,
+                self.message_rx,
+                self.redis,
+                self.events_rx,
+                err,
+            ),
         }
     }
 
-    async fn run(&mut self) -> Result<(), StateError> {
+    async fn run_phase(&mut self) -> Result<(), StateError> {
         let (sink_tx, sink) = MessageSink::new(
             self.coordinator_state.min_update,
             Duration::from_secs(5),
@@ -110,4 +122,19 @@ impl State<Update> {
             redis_connection,
         )))
     }
+
+    // async fn emit_seed_dict(&self) -> Result<(), StateError> {
+    //     // fetch sum dict
+    //     let seed_dict = self
+    //         .redis
+    //         .clone()
+    //         .connection()
+    //         .await
+    //         .get_seed_dict()
+    //         .await
+    //         .map_err(StateError::from)?;
+
+    //     let _ = self.events_rx.send(ProtocolEvent::StartSum2(seed_dict));
+    //     Ok(())
+    // }
 }

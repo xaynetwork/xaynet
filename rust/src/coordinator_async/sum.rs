@@ -1,5 +1,6 @@
 use super::{CoordinatorState, RedisStore, State, StateError, StateMachine};
 use crate::{
+    coordinator::ProtocolEvent,
     coordinator_async::{
         error::Error,
         message::{MessageHandler, MessageSink, SumValidationData},
@@ -24,6 +25,7 @@ impl State<Sum> {
         coordinator_state: CoordinatorState,
         message_rx: mpsc::UnboundedReceiver<Vec<u8>>,
         redis: RedisStore,
+        events_rx: mpsc::UnboundedSender<ProtocolEvent>,
     ) -> StateMachine {
         let sum_validation_data = Arc::new(SumValidationData {
             seed: coordinator_state.seed.clone(),
@@ -37,6 +39,7 @@ impl State<Sum> {
             coordinator_state,
             message_rx,
             redis,
+            events_rx,
         })
     }
 
@@ -45,15 +48,24 @@ impl State<Sum> {
         self.gen_round_keypair();
         self.set_coordinator_state().await;
 
-        match self.run().await {
-            Ok(_) => State::<Update>::new(self.coordinator_state, self.message_rx, self.redis),
-            Err(err) => {
-                State::<Error>::new(self.coordinator_state, self.message_rx, self.redis, err)
-            }
+        match self.run_phase().await {
+            Ok(_) => State::<Update>::new(
+                self.coordinator_state,
+                self.message_rx,
+                self.redis,
+                self.events_rx,
+            ),
+            Err(err) => State::<Error>::new(
+                self.coordinator_state,
+                self.message_rx,
+                self.redis,
+                self.events_rx,
+                err,
+            ),
         }
     }
 
-    async fn run(&mut self) -> Result<(), StateError> {
+    async fn run_phase(&mut self) -> Result<(), StateError> {
         let (sink_tx, sink) = MessageSink::new(
             self.coordinator_state.min_sum,
             Duration::from_secs(5),
@@ -91,7 +103,8 @@ impl State<Sum> {
         drop(_cancel_complete_tx);
         let _ = cancel_complete_rx.recv().await;
 
-        phase_result
+        phase_result?;
+        self.emit_sum_dict().await
     }
 
     async fn create_message_handler(
@@ -125,5 +138,20 @@ impl State<Sum> {
         let (pk, sk) = generate_encrypt_key_pair();
         self.coordinator_state.pk = pk;
         self.coordinator_state.sk = sk;
+    }
+
+    async fn emit_sum_dict(&self) -> Result<(), StateError> {
+        // fetch sum dict
+        let sum_dict = self
+            .redis
+            .clone()
+            .connection()
+            .await
+            .get_sum_dict()
+            .await
+            .map_err(StateError::from)?;
+
+        let _ = self.events_rx.send(ProtocolEvent::StartUpdate(sum_dict));
+        Ok(())
     }
 }

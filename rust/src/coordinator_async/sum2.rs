@@ -1,5 +1,6 @@
 use super::{CoordinatorState, RedisStore, State, StateError, StateMachine};
 use crate::{
+    coordinator::ProtocolEvent,
     coordinator_async::{
         error::Error,
         idle::Idle,
@@ -23,6 +24,7 @@ impl State<Sum2> {
         coordinator_state: CoordinatorState,
         message_rx: mpsc::UnboundedReceiver<Vec<u8>>,
         redis: RedisStore,
+        events_rx: mpsc::UnboundedSender<ProtocolEvent>,
     ) -> StateMachine {
         let sum_validation_data = Arc::new(SumValidationData {
             seed: coordinator_state.seed.clone(),
@@ -36,20 +38,30 @@ impl State<Sum2> {
             coordinator_state,
             message_rx,
             redis,
+            events_rx,
         })
     }
 
     pub async fn next(mut self) -> StateMachine {
         info!("Sum2 phase!");
-        match self.run().await {
-            Ok(_) => State::<Idle>::new(self.coordinator_state, self.message_rx, self.redis),
-            Err(err) => {
-                State::<Error>::new(self.coordinator_state, self.message_rx, self.redis, err)
-            }
+        match self.run_phase().await {
+            Ok(_) => State::<Idle>::new(
+                self.coordinator_state,
+                self.message_rx,
+                self.redis,
+                self.events_rx,
+            ),
+            Err(err) => State::<Error>::new(
+                self.coordinator_state,
+                self.message_rx,
+                self.redis,
+                self.events_rx,
+                err,
+            ),
         }
     }
 
-    async fn run(&mut self) -> Result<(), StateError> {
+    async fn run_phase(&mut self) -> Result<(), StateError> {
         let (sink_tx, sink) = MessageSink::new(
             self.coordinator_state.min_sum,
             Duration::from_secs(5),

@@ -55,7 +55,7 @@ impl Connection {
 
     pub async fn set_coordinator_state(
         mut self,
-        state: CoordinatorState,
+        state: &CoordinatorState,
     ) -> Result<(), RedisError> {
         self.connection.set("coordinator_state", state).await
     }
