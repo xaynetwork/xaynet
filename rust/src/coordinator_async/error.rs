@@ -15,6 +15,7 @@ impl State<Error> {
         events_rx: mpsc::UnboundedSender<ProtocolEvent>,
         error: StateError,
     ) -> StateMachine {
+        info!("state transition");
         StateMachine::Error(Self {
             _inner: Error { error },
             coordinator_state,
@@ -25,7 +26,8 @@ impl State<Error> {
     }
 
     pub async fn next(self) -> StateMachine {
-        error!("Error phase! Error: {:?}", self._inner.error);
+        error!("state transition failed! error: {:?}", self._inner.error);
+        info!("restart round");
         self.emit_end_round();
         State::<Idle>::new(
             self.coordinator_state,

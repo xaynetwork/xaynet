@@ -26,6 +26,7 @@ impl State<Update> {
         redis: RedisStore,
         events_rx: mpsc::UnboundedSender<ProtocolEvent>,
     ) -> StateMachine {
+        info!("state transition");
         let update_validation_data = Arc::new(UpdateValidationData {
             seed: coordinator_state.seed.clone(),
             sum: coordinator_state.sum,
@@ -44,7 +45,7 @@ impl State<Update> {
     }
 
     pub async fn next(mut self) -> StateMachine {
-        info!("Update phase!");
+        info!("try to go to the next state");
         match self.run_phase().await {
             Ok(_) => State::<Sum2>::new(
                 self.coordinator_state,
@@ -94,7 +95,8 @@ impl State<Update> {
         drop(_cancel_complete_tx);
         let _ = cancel_complete_rx.recv().await;
 
-        phase_result
+        phase_result?;
+        self.emit_seed_dict().await
     }
 
     async fn create_message_handler(
@@ -123,18 +125,18 @@ impl State<Update> {
         )))
     }
 
-    // async fn emit_seed_dict(&self) -> Result<(), StateError> {
-    //     // fetch sum dict
-    //     let seed_dict = self
-    //         .redis
-    //         .clone()
-    //         .connection()
-    //         .await
-    //         .get_seed_dict()
-    //         .await
-    //         .map_err(StateError::from)?;
+    async fn emit_seed_dict(&self) -> Result<(), StateError> {
+        // fetch sum dict
+        let seed_dict = self
+            .redis
+            .clone()
+            .connection()
+            .await
+            .get_seed_dict()
+            .await
+            .map_err(StateError::from)?;
 
-    //     let _ = self.events_rx.send(ProtocolEvent::StartSum2(seed_dict));
-    //     Ok(())
-    // }
+        let _ = self.events_rx.send(ProtocolEvent::StartSum2(seed_dict));
+        Ok(())
+    }
 }

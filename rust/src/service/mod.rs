@@ -1,4 +1,7 @@
-use crate::{coordinator::Coordinator, InitError};
+use crate::{
+    coordinator::{Coordinator, ProtocolEvent},
+    InitError,
+};
 use futures::ready;
 use std::{
     future::Future,
@@ -20,14 +23,15 @@ pub use handle::{
     SeedDictRequest,
     SumDictRequest,
 };
+use tokio::sync::mpsc;
 
 /// The `Service` is the task that drives the PET protocol. It reacts
 /// to the various messages from the participants and drives the
 /// protocol.
 pub struct Service {
-    /// The coordinator holds the protocol state: crypto material, sum
-    /// and update dictionaries, configuration, etc.
-    coordinator: Coordinator,
+    coordinator_tx: mpsc::UnboundedSender<Vec<u8>>,
+
+    coordinator_events: mpsc::UnboundedReceiver<ProtocolEvent>,
 
     /// Events to handle
     events: EventStream,
@@ -39,11 +43,16 @@ pub struct Service {
 impl Service {
     /// Instantiate a new [`Service`] and return it along with the
     /// corresponding [`Handle`].
-    pub fn new() -> Result<(Self, Handle), InitError> {
+    pub fn new(
+        coordinator_tx: mpsc::UnboundedSender<Vec<u8>>,
+        coordinator_events: mpsc::UnboundedReceiver<ProtocolEvent>,
+    ) -> Result<(Self, Handle), InitError> {
         let (handle, events) = Handle::new();
+
         let service = Self {
             events,
-            coordinator: Coordinator::new()?,
+            coordinator_tx,
+            coordinator_events,
             data: Data::new(),
         };
         Ok((service, handle))
@@ -57,12 +66,10 @@ impl Service {
             Event::SumDict(req) => self.handle_sum_dict_request(req),
             Event::SeedDict(req) => self.handle_seed_dict_request(req),
         }
-        self.process_protocol_events();
     }
 
     /// Handler for round parameters requests
     fn handle_round_parameters_request(&mut self, req: RoundParametersRequest) {
-        self.coordinator.try_phase_transition(); // HACK get coordinator out of IDLE
         let RoundParametersRequest { response_tx } = req;
         let _ = response_tx.send(self.data.round_parameters());
     }
@@ -85,18 +92,26 @@ impl Service {
 
     /// Dequeue all the events produced by the coordinator, and handle
     /// them
-    fn process_protocol_events(&mut self) {
-        while let Some(event) = self.coordinator.next_event() {
-            if let Err(e) = self.data.update(event) {
-                error!(error = %e, "failed to update the service state, cancelling current round");
-                self.coordinator.reset();
+    fn poll_protocol_events(&mut self, cx: &mut Context) -> Poll<()> {
+        trace!("polling protocol events");
+        loop {
+            match ready!(Pin::new(&mut self.coordinator_events).poll_next(cx)) {
+                Some(event) => {
+                    if let Err(e) = self.data.update(event) {
+                        error!(error = %e, "failed to update the service state, cancelling current round");
+                    }
+                }
+                None => {
+                    trace!("no more events to handle");
+                    return Poll::Ready(());
+                }
             }
         }
     }
 
     /// Handle a message
     fn handle_message(&mut self, buffer: Vec<u8>) {
-        let _ = self.coordinator.handle_message(&buffer[..]);
+        let _ = self.coordinator_tx.send(buffer);
     }
 
     /// Handle the incoming requests.
@@ -121,6 +136,10 @@ impl Future for Service {
         let pin = self.get_mut();
 
         if let Poll::Ready(_) = pin.poll_events(cx) {
+            return Poll::Ready(());
+        }
+
+        if let Poll::Ready(_) = pin.poll_protocol_events(cx) {
             return Poll::Ready(());
         }
 

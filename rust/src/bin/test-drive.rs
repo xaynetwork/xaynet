@@ -1,6 +1,7 @@
 use tracing_subscriber::*;
 use xain_fl::{
     client::{Client, ClientError},
+    coordinator_async::{store::client::RedisStore, StateMachine},
     participant::Task,
     service::Service,
 };
@@ -24,11 +25,20 @@ async fn main() -> Result<(), ClientError> {
         .with_ansi(true)
         .init();
 
-    let (svc, hdl) = Service::new().unwrap();
+    let redis = RedisStore::new("redis://127.0.0.1/", 10).await.unwrap();
+    let (message_tx, events_rx, mut state) = StateMachine::new(redis).unwrap();
+
+    tokio::spawn(async move {
+        loop {
+            state = state.next().await;
+        }
+    });
+
+    let (svc, hdl) = Service::new(message_tx.clone(), events_rx).unwrap();
     let _svc_jh = tokio::spawn(svc);
 
     let mut tasks = vec![];
-    for id in 0..10 {
+    for id in 0..20 {
         let mut client = Client::new_with_id(1, hdl.clone(), id)?;
         // NOTE give spawn a task that owns client
         // otherwise it won't live long enough

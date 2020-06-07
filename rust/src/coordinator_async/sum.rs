@@ -27,6 +27,7 @@ impl State<Sum> {
         redis: RedisStore,
         events_rx: mpsc::UnboundedSender<ProtocolEvent>,
     ) -> StateMachine {
+        info!("state transition");
         let sum_validation_data = Arc::new(SumValidationData {
             seed: coordinator_state.seed.clone(),
             sum: coordinator_state.sum,
@@ -44,9 +45,10 @@ impl State<Sum> {
     }
 
     pub async fn next(mut self) -> StateMachine {
-        info!("Sum phase!");
+        info!("try to go to the next state");
         self.gen_round_keypair();
         self.set_coordinator_state().await;
+        let _ = self.emit_round_parameters();
 
         match self.run_phase().await {
             Ok(_) => State::<Update>::new(
@@ -68,7 +70,7 @@ impl State<Sum> {
     async fn run_phase(&mut self) -> Result<(), StateError> {
         let (sink_tx, sink) = MessageSink::new(
             self.coordinator_state.min_sum,
-            Duration::from_secs(5),
+            Duration::from_secs(0),
             Duration::from_secs(10),
         );
         let (_cancel_complete_tx, mut cancel_complete_rx) = mpsc::channel::<()>(1);
@@ -153,5 +155,11 @@ impl State<Sum> {
 
         let _ = self.events_rx.send(ProtocolEvent::StartUpdate(sum_dict));
         Ok(())
+    }
+
+    fn emit_round_parameters(&self) {
+        let _ = self
+            .events_rx
+            .send(ProtocolEvent::StartSum(self.round_parameters()));
     }
 }

@@ -37,6 +37,8 @@ pub enum StateError {
     ProtocolError(#[from] PetError),
     #[error("state failed: external service failed: {0}")]
     ExternalServiceFailed(#[from] RedisError),
+    #[error("state failed: channel error: {0}")]
+    ChannelError(&'static str),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -56,8 +58,8 @@ impl Default for CoordinatorState {
     fn default() -> Self {
         let pk = CoordinatorPublicKey::zeroed();
         let sk = CoordinatorSecretKey::zeroed();
-        let sum = 0.01_f64;
-        let update = 0.1_f64;
+        let sum = 0.4_f64;
+        let update = 0.5_f64;
         let seed = RoundSeed::zeroed();
         let min_sum = 1_usize;
         let min_update = 3_usize;
@@ -103,13 +105,17 @@ impl<S> State<S> {
             .map_err(|_| PetError::InvalidMessage)
     }
 
-    async fn next_message(&mut self) -> Result<MessageOwned, PetError> {
-        let encr_message = match self.message_rx.recv().await {
-            Some(encr_message) => encr_message,
-            None => panic!("all message senders have been dropped!"),
-        };
-        debug!("New message!");
-        self.open_message(encr_message)
+    async fn next_message(&mut self) -> Result<MessageOwned, StateError> {
+        let encr_message = self
+            .message_rx
+            .recv()
+            .await
+            .ok_or(StateError::ChannelError(
+                "all message senders have been dropped!",
+            ))?;
+
+        debug!("received new message");
+        self.open_message(encr_message).map_err(From::from)
     }
 
     pub fn round_parameters(&self) -> RoundParameters {

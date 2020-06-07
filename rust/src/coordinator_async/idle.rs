@@ -17,6 +17,7 @@ impl State<Idle> {
         redis: RedisStore,
         events_rx: mpsc::UnboundedSender<ProtocolEvent>,
     ) -> StateMachine {
+        info!("state transition");
         StateMachine::Idle(Self {
             _inner: Idle,
             coordinator_state,
@@ -27,10 +28,8 @@ impl State<Idle> {
     }
 
     pub async fn next(mut self) -> StateMachine {
-        info!("Idle phase!");
+        info!("try to go to the next state");
         self.start_new_round().await;
-        let _ = self.emit_round_parameters();
-
         State::<Sum>::new(
             self.coordinator_state,
             self.message_rx,
@@ -71,12 +70,6 @@ impl State<Idle> {
 
     /// Clear the round dictionaries.
     async fn clear_round_dicts(&self) {
-        let _ = self.redis.clone().connection().await.flushdb().await;
-    }
-
-    fn emit_round_parameters(&self) {
-        let _ = self
-            .events_rx
-            .send(ProtocolEvent::StartSum(self.round_parameters()));
+        let _ = self.redis.clone().connection().await.flush_dicts().await;
     }
 }

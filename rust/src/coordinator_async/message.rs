@@ -149,9 +149,8 @@ impl MessageHandler {
     ) {
         tokio::select! {
             result = message_validation_fut => {let _ = self.sink_tx.send(result);}
-            _ = self.notify_cancel.recv() => {println!("drop message validation future")}
+            _ = self.notify_cancel.recv() => {debug!("cancel message validation future")}
         };
-
         // _cancel_complete_tx is dropped
     }
 }
@@ -313,6 +312,7 @@ impl MessageHandler {
         mask: &MaskObject,
         redis: Connection,
     ) -> Result<(), PetError> {
+        // make it an atomic operation via a lua script
         // match redis
         //     .remove_sum_dict_entry(*pk)
         //     .await

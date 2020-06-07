@@ -26,6 +26,7 @@ impl State<Sum2> {
         redis: RedisStore,
         events_rx: mpsc::UnboundedSender<ProtocolEvent>,
     ) -> StateMachine {
+        info!("state transition");
         let sum_validation_data = Arc::new(SumValidationData {
             seed: coordinator_state.seed.clone(),
             sum: coordinator_state.sum,
@@ -43,7 +44,7 @@ impl State<Sum2> {
     }
 
     pub async fn next(mut self) -> StateMachine {
-        info!("Sum2 phase!");
+        info!("try to go to the next state");
         match self.run_phase().await {
             Ok(_) => State::<Idle>::new(
                 self.coordinator_state,

@@ -2,6 +2,7 @@ use crate::{
     coordinator_async::CoordinatorState,
     mask::{EncryptedMaskSeed, MaskObject},
     LocalSeedDict,
+    SeedDict,
     SumDict,
     SumParticipantEphemeralPublicKey,
     SumParticipantPublicKey,
@@ -49,10 +50,13 @@ impl RedisStore {
 }
 
 impl Connection {
+    /// Retrieve the [`CoordinatorState`].
     pub async fn get_coordinator_state(mut self) -> Result<CoordinatorState, RedisError> {
         self.connection.get("coordinator_state").await
     }
 
+    /// Store the [`CoordinatorState`].
+    /// If the coordinator state already exists, it is overwritten.
     pub async fn set_coordinator_state(
         mut self,
         state: &CoordinatorState,
@@ -98,13 +102,26 @@ impl Connection {
     }
 
     /// Retrieve [`SeedDict`] entry for the given sum participant
-    pub async fn get_seed_dict(
+    pub async fn get_seed_dict_for_sum_pk(
         mut self,
         sum_pk: SumParticipantPublicKey,
     ) -> Result<HashMap<UpdateParticipantPublicKey, EncryptedMaskSeed>, RedisError> {
         let result: Vec<(UpdateParticipantPublicKey, EncryptedMaskSeed)> =
             self.connection.hgetall(sum_pk).await?;
         Ok(result.into_iter().collect())
+    }
+
+    /// Retrieve the whole [`SeedDict`]
+    pub async fn get_seed_dict(mut self) -> Result<SeedDict, RedisError> {
+        let sum_pks: Vec<SumParticipantPublicKey> = self.connection.hkeys("sum_dict").await?;
+
+        let mut seed_dict: SeedDict = SeedDict::new();
+        for sum_pk in sum_pks {
+            let sum_pk_seed_dict = self.connection.hgetall(sum_pk).await?;
+            seed_dict.insert(sum_pk, sum_pk_seed_dict);
+        }
+
+        Ok(seed_dict)
     }
 
     /// Update the [`SeedDict`] with the seeds from the given update
@@ -162,7 +179,7 @@ impl Connection {
             .await
     }
 
-    /// Delete the dictionaries `sum_dict`, `seed_dict` and `mask_dict`.
+    /// Delete the dictionaries [`SumDict`], [`SeedDict`] and [`MaskDict`].
     pub async fn flush_dicts(mut self) -> RedisResult<()> {
         let sum_pks: Vec<SumParticipantPublicKey> = self.connection.hkeys("sum_dict").await?;
         let mut pipe = redis::pipe();
