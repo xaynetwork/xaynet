@@ -117,7 +117,7 @@ impl Client {
                             Task::Sum => self.summer().await,
                             Task::Update => self.updater().await,
                             Task::None => self.unselected().await,
-                        }
+                        };
                     }
                 }
             }
@@ -191,7 +191,9 @@ impl Client {
             ClientError::DeserialiseErr(e)
         })?;
         debug!(client_id = %self.id, "sum dictionary received, sending update message.");
-        let upd_msg: Vec<u8> = self.participant.compose_update_message(self.coordinator_pk, &sum_dict);
+        let upd_msg: Vec<u8> = self
+            .participant
+            .compose_update_message(self.coordinator_pk, &sum_dict);
         self.handle.send_message(upd_msg).await;
 
         info!(client_id = %self.id, "update participant completed a round");
