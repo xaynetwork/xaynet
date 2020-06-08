@@ -1,5 +1,4 @@
 use crate::{
-    coordinator::RoundParameters,
     crypto::ByteObject,
     participant::{Participant, Task},
     service::Handle,
@@ -49,7 +48,7 @@ pub struct Client {
     interval: time::Interval,
 
     /// Coordinator public key
-    _coordinator_pk: CoordinatorPublicKey,
+    coordinator_pk: CoordinatorPublicKey,
 
     id: u32, // NOTE identifier for client for testing; may remove later
 }
@@ -67,7 +66,7 @@ impl Client {
             handle,
             participant,
             interval: time::interval(Duration::from_secs(period)),
-            _coordinator_pk: CoordinatorPublicKey::zeroed(),
+            coordinator_pk: CoordinatorPublicKey::zeroed(),
             id: 0,
         })
     }
@@ -84,7 +83,7 @@ impl Client {
             handle,
             participant,
             interval: time::interval(Duration::from_secs(period)),
-            _coordinator_pk: CoordinatorPublicKey::zeroed(),
+            coordinator_pk: CoordinatorPublicKey::zeroed(),
             id,
         })
     }
@@ -103,25 +102,23 @@ impl Client {
 
     /// [`Client`] duties within a round
     pub async fn during_round(&mut self) -> Result<Task, ClientError> {
-        let round_params_data = loop {
+        loop {
             if let Some(round_params_data) = self.handle.get_round_parameters().await {
-                break round_params_data;
+                if let Some(ref round_params) = round_params_data.round_parameters {
+                    self.coordinator_pk = round_params.pk;
+                    debug!(client_id = %self.id, "computing sigs and checking task");
+                    let round_seed = round_params.seed.as_slice();
+                    self.participant.compute_signatures(round_seed);
+                    let (sum_frac, upd_frac) = (round_params.sum, round_params.update);
+                    break match self.participant.check_task(sum_frac, upd_frac) {
+                        Task::Sum    => self.summer(round_params.pk).await,
+                        Task::Update => self.updater(round_params.pk).await,
+                        Task::None   => self.unselected().await,
+                    }
+                }
             }
-            debug!(client_id = %self.id, "round params not ready, retrying.");
+            debug!(client_id = %self.id, "new round params not ready, retrying.");
             self.interval.tick().await;
-        };
-        let round_params: &RoundParameters = round_params_data
-            .round_parameters
-            .as_ref()
-            .ok_or(ClientError::GeneralErr)?;
-        let round_seed: &[u8] = round_params.seed.as_slice();
-        debug!(client_id = %self.id, "computing sigs and checking task");
-        self.participant.compute_signatures(round_seed);
-        let (sum_frac, upd_frac) = (round_params.sum, round_params.update);
-        match self.participant.check_task(sum_frac, upd_frac) {
-            Task::Sum => self.summer(round_params.pk).await,
-            Task::Update => self.updater(round_params.pk).await,
-            Task::None => self.unselected().await,
         }
     }
 
