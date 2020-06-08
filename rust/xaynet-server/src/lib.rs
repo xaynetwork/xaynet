@@ -93,6 +93,7 @@ pub mod rest;
 pub mod services;
 pub mod settings;
 pub mod state_machine;
+pub mod storage;
 pub mod utils;
 pub(crate) mod vendor;
 

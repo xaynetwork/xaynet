@@ -45,7 +45,7 @@ config = "0.10.1"
 validator = "0.10"
 validator_derive = "0.10"
 structopt = "0.3"
-paste = "0.1.15"
+paste = "1.0.0"
 tower = "0.3.1"
 tracing = "0.1.16"
 tracing-futures = "0.2.4"
@@ -55,7 +55,7 @@ rayon = "1.3.0"
 async-trait = "0.1.35"
 xaynet-macros = { path = "../xaynet-macros" }
 xaynet-core = { path = "../xaynet-core" }
-redis = { version = "0.17.0", default-features = false, features = ["tokio-rt-core"] }
+redis = { version = "0.17.0", default-features = false, features = ["connection-manager", "aio", "tokio-rt-core"] }
 
 # optional dependencies
 influxdb = { version = "0.1.0", features = ["derive"], optional = true }

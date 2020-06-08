@@ -13,7 +13,7 @@ use super::ByteObject;
 /// Number of additional bytes in a ciphertext compared to the corresponding plaintext.
 pub const SEALBYTES: usize = sealedbox::SEALBYTES;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 /// A `C25519` key pair for asymmetric authenticated encryption.
 pub struct EncryptKeyPair {
     /// The `C25519` public key.

@@ -69,7 +69,7 @@ impl MaskSeed {
     }
 }
 
-#[derive(AsRef, AsMut, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(AsRef, AsMut, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 /// An encrypted mask seed.
 pub struct EncryptedMaskSeed(Vec<u8>);
 
