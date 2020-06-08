@@ -56,6 +56,7 @@ pub struct Client {
     pub(crate) global_model: Option<SerializedGlobalModel>,
     pub(crate) cached_model: Option<PrimitiveModel>,
     pub(crate) has_new_global_model_since_last_check: bool,
+    pub(crate) has_new_global_model_since_last_cache: bool,
     pub(crate) local_model: Option<Model>,
 
     id: u32, // NOTE identifier for client for testing; may remove later
@@ -79,6 +80,7 @@ impl Client {
             global_model: None,
             cached_model: None,
             has_new_global_model_since_last_check: false,
+            has_new_global_model_since_last_cache: false,
             local_model: None,
             id: 0,
         })
@@ -101,6 +103,7 @@ impl Client {
             global_model: None,
             cached_model: None,
             has_new_global_model_since_last_check: false,
+            has_new_global_model_since_last_cache: false,
             local_model: None,
             id,
         })
@@ -127,13 +130,13 @@ impl Client {
                     if let Some(ref old_global_model) = self.global_model {
                         if !Arc::ptr_eq(new_global_model, old_global_model) {
                             self.global_model = Some(new_global_model.clone());
-                            self.cached_model = None;
                             self.has_new_global_model_since_last_check = true;
+                            self.has_new_global_model_since_last_cache = true;
                         }
                     } else {
                         self.global_model = Some(new_global_model.clone());
-                        self.cached_model = None;
                         self.has_new_global_model_since_last_check = true;
+                        self.has_new_global_model_since_last_cache = true;
                     }
                 }
                 // new round parameters at the beginning of the next round

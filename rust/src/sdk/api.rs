@@ -10,13 +10,14 @@
 //!       trained local model.
 //! 3. Get the latest global model with [`get_model_N()`], where `N` is the primitive data type.
 //!    Currently, [`f32`], [`f64`], [`i32`] and [`i64`] are supported. The function returns a
-//!    mutable slice [`PrimitiveModel`] to the primitive model, whereas the primitive model itself
+//!    mutable slice [`PrimitiveModelN`] to the primitive model, whereas the primitive model itself
 //!    is cached within the [`Client`]. The slice is valid across the FFI-boundary until one of the
 //!    following events happen:
-//!     - The memory which [`PrimitiveModel`] points to is freed via a call to [`drop_model()`].
-//!     - The [`Client`] memory is freed via a call to [`drop_client()`].
-//!     - The model is updated via a call to [`update_model_N()`].
-//!     - The round ends and a new aggregated global model is available.
+//!     - [`update_model_N()`] and [`drop_model()`] each free the memory to which
+//!       [`PrimitiveModelN`] points to.
+//!     - [`drop_client()`] frees the memory of the [`Client`].
+//!     - [`get_model_N()`] frees and reallocates the memory to which [`PrimitiveModelN`] points to
+//!       if a new global model is available since the last call to [`get_model_N()`].
 //! 4. Register a trained local model with [`update_model_N()`], which takes either a slice to
 //!    the cached primitive model or a slice to a foreign memory location.
 //! 5. Destroy the [`Client`] with [`drop_client()`].
@@ -43,6 +44,8 @@
 //! [`Coordinator`]: ../../coordinator/struct.Coordinator.html
 //! [`get_model_N()`]: fn.get_model_f32.html
 //! [`update_model_N()`]: fn.update_model_f32.html
+//! [`Participant`]: ../../participant/struct.Participant.html
+//! [`PrimitiveModelN`]: struct.PrimitiveModelF32.html
 
 use std::{
     iter::{IntoIterator, Iterator},
@@ -271,48 +274,46 @@ macro_rules! get_model {
                     // safe if the raw pointer `client` comes from a valid allocation of a `Client`
                     &mut *client
                 };
+
+                // global model available
                 if let Some(ref global_model) = client.global_model {
-                    // global model available
                     if let Some(PrimitiveModel::[<$prim_rust:upper>](ref mut cached_model)) = client.cached_model {
-                        // global model is already cached as a primitive model
-                        let ptr = cached_model.as_mut_ptr() as *mut $prim_c;
-                        let len = cached_model.len() as c_ulong;
-                        [<PrimitiveModel $prim_rust:upper>] { ptr, len }
-                    } else {
-                        // deserialize and convert the global model to a primitive model and cache it
-                        if let Ok(deserialized_model) = bincode::deserialize::<Model>(&global_model) {
-                            // deserialization succeeded
-                            let len = deserialized_model.len() as c_ulong;
-                            if let Ok(mut primitive_model) = deserialized_model
-                                .into_primitives()
-                                .map(|res| res.map_err(|_| ()))
-                                .collect::<Result<Vec<$prim_rust>, ()>>()
-                            {
-                                // conversion succeeded
-                                let ptr = primitive_model.as_mut_ptr() as *mut $prim_c;
-                                client.cached_model = Some(PrimitiveModel::[<$prim_rust:upper>](primitive_model));
-                                [<PrimitiveModel $prim_rust:upper>] { ptr, len }
-                            } else {
-                                // conversion failed
-                                client.cached_model = None;
-                                let ptr = ptr::null_mut() as *mut $prim_c;
-                                [<PrimitiveModel $prim_rust:upper>] { ptr, len }
-                            }
-                        } else {
-                            // deserialization failed
-                            client.cached_model = None;
-                            let ptr = ptr::null_mut() as *mut $prim_c;
-                            let len = 0_u64 as c_ulong;
-                            [<PrimitiveModel $prim_rust:upper>] { ptr, len }
+                        if !client.has_new_global_model_since_last_cache {
+                            // global model is already cached as a primitive model
+                            let ptr = cached_model.as_mut_ptr() as *mut $prim_c;
+                            let len = cached_model.len() as c_ulong;
+                            return [<PrimitiveModel $prim_rust:upper>] { ptr, len };
                         }
                     }
-                } else {
-                    // global model unavailable
-                    client.cached_model = None;
-                    let ptr = ptr::null_mut() as *mut $prim_c;
-                    let len = 0_u64 as c_ulong;
-                    [<PrimitiveModel $prim_rust:upper>] { ptr, len }
+
+                    // deserialize and convert the global model to a primitive model and cache it
+                    client.has_new_global_model_since_last_cache = false;
+                    if let Ok(deserialized_model) = bincode::deserialize::<Model>(&global_model) {
+                        // deserialization succeeded
+                        let len = deserialized_model.len() as c_ulong;
+                        if let Ok(mut primitive_model) = deserialized_model
+                            .into_primitives()
+                            .map(|res| res.map_err(|_| ()))
+                            .collect::<Result<Vec<$prim_rust>, ()>>()
+                        {
+                            // conversion succeeded
+                            let ptr = primitive_model.as_mut_ptr() as *mut $prim_c;
+                            client.cached_model = Some(PrimitiveModel::[<$prim_rust:upper>](primitive_model));
+                            return [<PrimitiveModel $prim_rust:upper>] { ptr, len };
+                        } else {
+                            // conversion failed
+                            let ptr = ptr::null_mut() as *mut $prim_c;
+                            client.cached_model = None;
+                            return [<PrimitiveModel $prim_rust:upper>] { ptr, len };
+                        }
+                    }
                 }
+
+                // global model unavailable or deserialization failed
+                let len = 0_u64 as c_ulong;
+                let ptr = ptr::null_mut() as *mut $prim_c;
+                client.cached_model = None;
+                [<PrimitiveModel $prim_rust:upper>] { ptr, len }
             }
         }
     };
@@ -352,34 +353,32 @@ macro_rules! update_model {
                 client: *mut Client,
                 model: [<PrimitiveModel $prim:upper>],
             ) {
-                if !client.is_null()
-                    && !model.ptr.is_null()
-                    && model.len != 0
-                    && model.len <= (isize::MAX as usize / mem::size_of::<$prim>()) as c_ulong
+                if client.is_null()
+                    || model.ptr.is_null()
+                    || model.len == 0
+                    || model.len > (isize::MAX as usize / mem::size_of::<$prim>()) as c_ulong
                 {
-                    // `model` is a valid slice
-                    let client = unsafe {
-                        // safe if the raw pointer `client` comes from a valid allocation of a `Client`
-                        &mut *client
-                    };
-                    if let Some(PrimitiveModel::[<$prim:upper>](cached_model)) = client.cached_model.take() {
-                        if ptr::eq(model.ptr as *const _, cached_model.as_ptr())
-                            && model.len as usize == cached_model.len()
-                        {
-                            // cached model was updated
-                            client.local_model = Some(Model::from_primitives_bounded(cached_model.into_iter()));
-                        }
-                    } else {
-                        // other model was updated
-                        client.local_model = Some(Model::from_primitives_bounded(unsafe {
-                            // safe if `model` fulfills the slice safety conditions
-                            slice::from_raw_parts(model.ptr as *const _, model.len as usize)
-                        }.into_iter().copied()));
-                    }
-                } else {
-                    // `model` is an invalid slice
                     // TODO: add error handling
                     panic!("invalid primitive model");
+                }
+
+                let client = unsafe {
+                    // safe if the raw pointer `client` comes from a valid allocation of a `Client`
+                    &mut *client
+                };
+                if let Some(PrimitiveModel::[<$prim:upper>](cached_model)) = client.cached_model.take() {
+                    if ptr::eq(model.ptr as *const _, cached_model.as_ptr())
+                        && model.len as usize == cached_model.len()
+                    {
+                        // cached model was updated
+                        client.local_model = Some(Model::from_primitives_bounded(cached_model.into_iter()));
+                    }
+                } else {
+                    // other model was updated
+                    client.local_model = Some(Model::from_primitives_bounded(unsafe {
+                        // safe if `model` fulfills the slice safety conditions
+                        slice::from_raw_parts(model.ptr as *const _, model.len as usize)
+                    }.into_iter().copied()));
                 }
             }
         }
