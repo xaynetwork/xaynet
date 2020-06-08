@@ -107,6 +107,7 @@ pub struct Coordinator {
     seed: RoundSeed,
     min_sum: usize,
     min_update: usize,
+    expected_participants: usize,
     phase: Phase,
 
     // round dictionaries
@@ -137,7 +138,7 @@ pub enum ProtocolEvent {
 
     /// The sum phase finished and produced the given sum
     /// dictionary. The coordinator is now in the update phase.
-    StartUpdate(SumDict),
+    StartUpdate(SumDict, f64),
 
     /// The update phase finished and produced the given seed
     /// dictionary. The coordinator is now in the sum2 phase.
@@ -157,6 +158,7 @@ impl Default for Coordinator {
         let seed = RoundSeed::zeroed();
         let min_sum = 1_usize;
         let min_update = 3_usize;
+        let expected_participants = 10_usize;
         let phase = Phase::Idle;
         let sum_dict = SumDict::new();
         let seed_dict = SeedDict::new();
@@ -177,6 +179,7 @@ impl Default for Coordinator {
             seed,
             min_sum,
             min_update,
+            expected_participants,
             phase,
             sum_dict,
             seed_dict,
@@ -525,7 +528,8 @@ impl Coordinator {
         info!("going to update phase");
         self.freeze_sum_dict();
         self.phase = Phase::Update;
-        self.emit_event(ProtocolEvent::StartUpdate(self.sum_dict.clone()));
+        let scalar = 1_f64 / (self.expected_participants as f64 * self.update);
+        self.emit_event(ProtocolEvent::StartUpdate(self.sum_dict.clone(), scalar));
     }
 
     /// End the update phase and proceed to the sum2 phase.
@@ -803,7 +807,7 @@ mod tests {
         coord.try_phase_transition(); // finish the sum phase
         assert_eq!(
             coord.next_event().unwrap(),
-            ProtocolEvent::StartUpdate(sum_dict.clone())
+            ProtocolEvent::StartUpdate(sum_dict.clone(), 1.0)
         );
         assert!(coord.next_event().is_none());
         assert_eq!(coord.phase, Phase::Update);
@@ -963,7 +967,7 @@ mod tests {
         coord.try_phase_transition();
         assert_eq!(
             coord.next_event().unwrap(),
-            ProtocolEvent::StartUpdate(sum_dict)
+            ProtocolEvent::StartUpdate(sum_dict, 1.)
         );
         assert!(coord.next_event().is_none());
         assert_eq!(coord.phase, Phase::Update);

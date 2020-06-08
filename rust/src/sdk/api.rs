@@ -5,12 +5,18 @@
 //!    PET protocol work as well as the networking with the [`Coordinator`].
 //! 2. Optionally request status information:
 //!     - [`is_next_round()`] indicates if another round of the PET protocol has started.
+//!     - [`has_next_model()`] indicates if another global model is available.
 //!     - [`is_update_participant()`] indicates if this [`Participant`] is eligible to submit a
 //!       trained local model.
 //! 3. Get the latest global model with [`get_model_N()`], where `N` is the primitive data type.
 //!    Currently, [`f32`], [`f64`], [`i32`] and [`i64`] are supported. The function returns a
-//!    mutable slice to the primitive model, whereas the primitive model itself is cached within
-//!    the [`Client`].
+//!    mutable slice [`PrimitiveModel`] to the primitive model, whereas the primitive model itself
+//!    is cached within the [`Client`]. The slice is valid across the FFI-boundary until one of the
+//!    following events happen:
+//!     - The memory which [`PrimitiveModel`] points to is freed via a call to [`drop_model()`].
+//!     - The [`Client`] memory is freed via a call to [`drop_client()`].
+//!     - The model is updated via a call to [`update_model_N()`].
+//!     - The round ends and a new aggregated global model is available.
 //! 4. Register a trained local model with [`update_model_N()`], which takes either a slice to
 //!    the cached primitive model or a slice to a foreign memory location.
 //! 5. Destroy the [`Client`] with [`drop_client()`].
@@ -39,19 +45,17 @@
 //! [`update_model_N()`]: fn.update_model_f32.html
 
 use std::{
-    cmp::Ordering,
-    iter::{FromIterator, IntoIterator, Iterator},
+    iter::{IntoIterator, Iterator},
     mem,
-    os::raw::{c_double, c_float, c_int, c_long, c_uint, c_ulong, c_void},
+    os::raw::{c_double, c_float, c_int, c_long, c_ulong, c_void},
     ptr,
     slice,
 };
 
-use num::{bigint::BigInt, rational::Ratio, traits::Zero};
-
 use crate::{
+    client::Client,
     mask::model::{FromPrimitives, IntoPrimitives, Model},
-    participant::{Participant, Task},
+    participant::Task,
 };
 
 /// Generates a struct to hold the C equivalent of `&mut [N]` for a primitive data type `N`. Also,
@@ -88,36 +92,19 @@ PrimModel! {i64, c_long, "i64", "[i64]"}
 #[derive(Clone, Debug)]
 /// A primitive model of data type `N` cached on the heap. The pointer `PrimitiveModelN` returned
 /// from `get_model_N()` references this memory.
-enum PrimitiveModel {
+pub(crate) enum PrimitiveModel {
     F32(Vec<f32>),
     F64(Vec<f64>),
     I32(Vec<i32>),
     I64(Vec<i64>),
 }
 
-/// TODO: this is a mock, replace by sth like the `Client` from #397 or a wrapper around that.
-///
-/// The pointer `PrimitiveModelN` to the cached [`PrimitiveModel`] of primitive data type `N`,
-/// which gets allocated and returned in `get_model_N()`, is valid across the FFI-boundary until
-/// one of the following events happen:
-/// - The [`PrimitiveModel`] memory is freed via a call to [`drop_model()`].
-/// - The [`Client`] memory is freed via a call to [`drop_client()`].
-/// - The model is updated via a call to `update_model_N()`.
-/// - The round ends. (TODO: implement this point when a new round is observed)
-pub struct Client {
-    participant: Participant,
-
-    // counting starts from 1, 0 means not seen yet
-    current_round: u32,
-    checked_round: u32,
-
-    // cached primitive model
-    model: Option<PrimitiveModel>,
-}
-
 #[allow(unused_unsafe)]
 #[no_mangle]
 /// Creates a new [`Client`].
+///
+/// Takes a `period` in seconds for which the [`Client`] will try to poll the coordinator for new
+/// broadcasted FL round data.
 ///
 /// Takes a `callback` function pointer and a void pointer to the `state` of the callback. The
 /// underlying function is defined over void pointers referencing (anonymous) structs for the
@@ -127,33 +114,33 @@ pub struct Client {
 /// The method depends on the safety of the `callback` and on the consistent definition and layout
 /// of its `input` across the FFI-boundary.
 pub unsafe extern "C" fn new_client(
+    period: c_ulong,
     callback: unsafe extern "C" fn(*mut c_void, *const c_void),
     state: *mut c_void,
 ) -> *mut Client {
-    let client = Client {
-        participant: if let Ok(participant) = Participant::new() {
-            participant
-        } else {
-            // TODO: add error handling
-            panic!("participant initialization failed")
-        },
-        current_round: 0,
-        checked_round: 0,
-        model: None,
+    if period == 0 {
+        // TODO: add error handling
+        panic!("polling period must be positive")
+    }
+    let client = if let Ok(client) = Client::new(period as u64) {
+        client
+    } else {
+        // TODO: add error handling
+        panic!("participant initialization failed")
     };
+
+    // TODO: actually start the client, requires tokio running
 
     #[repr(C)]
     struct Input {
-        _current_round: c_uint,
-        _checked_round: c_uint,
+        _round_started: bool,
         _participant_initialized: bool,
         _model_cached: bool,
     }
     let input = &Input {
-        _current_round: client.current_round as c_uint,
-        _checked_round: client.checked_round as c_uint,
+        _round_started: client.has_new_coord_pk_since_last_check,
         _participant_initialized: true,
-        _model_cached: client.model.is_some(),
+        _model_cached: client.cached_model.is_some(),
     } as *const _ as *const c_void;
     unsafe {
         // safe if the `callback` is sound and the same definition and layout is used for `Input`
@@ -196,19 +183,30 @@ pub unsafe extern "C" fn is_next_round(client: *mut Client) -> bool {
         // safe if the raw pointer `client` comes from a valid allocation of a `Client`
         &mut *client
     };
-    // TODO: increment the `current_round` if the client sees a new coordinator pk
-    // as a result of `client.handle.get_round_parameters().await`
-    match client.checked_round.cmp(&client.current_round) {
-        // new round since the last check
-        Ordering::Less => {
-            client.checked_round = client.current_round;
-            true
-        }
-        // still same round since the last check
-        Ordering::Equal => false,
-        // should only ever happen if the client is reused for another FL use case
-        Ordering::Greater => panic!("restart the participant for a new FL use case"),
+    let is_next_round = client.has_new_coord_pk_since_last_check;
+    client.has_new_coord_pk_since_last_check = false;
+    is_next_round
+}
+
+#[allow(unused_unsafe)]
+#[no_mangle]
+/// Checks if the next global model is available.
+///
+/// # Safety
+/// The method dereferences from the raw pointer arguments. Therefore, the behavior of
+/// the method is undefined if the arguments don't point to valid objects.
+pub unsafe extern "C" fn has_next_model(client: *mut Client) -> bool {
+    if client.is_null() {
+        // TODO: add error handling
+        panic!("invalid client");
     }
+    let client = unsafe {
+        // safe if the raw pointer `client` comes from a valid allocation of a `Client`
+        &mut *client
+    };
+    let has_next_model = client.has_new_global_model_since_last_check;
+    client.has_new_global_model_since_last_check = false;
+    has_next_model
 }
 
 #[allow(unused_unsafe)]
@@ -251,10 +249,12 @@ macro_rules! get_model {
             #[doc = "# Errors\n"]
             #[doc = "- Returns a"]
             #[doc = $doc]
-            #[doc = "with `null` pointer and `len` zero if no global model is available.\n"]
+            #[doc = "with `null` pointer and `len` zero if no global model is available or"]
+            #[doc = "deserialization of the global model fails.\n"]
             #[doc = "- Returns a"]
             #[doc = $doc]
-            #[doc = "with `null` pointer and `len` of the global model if type casting fails.\n"]
+            #[doc = "with `null` pointer and `len` of the global model if the conversion of the"]
+            #[doc = "global model into the chosen primitive data type fails.\n"]
             #[doc = "\n"]
             #[doc = "# Safety\n"]
             #[doc = "The method dereferences from the raw pointer arguments. Therefore, the"]
@@ -271,37 +271,44 @@ macro_rules! get_model {
                     // safe if the raw pointer `client` comes from a valid allocation of a `Client`
                     &mut *client
                 };
-
-                // TODO: this is a mock, get the model when the client retrieves the round
-                // parameters as a result of `client.handle.get_round_parameters().await`
-                let global_model = Some(Model::from_iter(
-                    vec![Ratio::<BigInt>::zero(); 10].into_iter(),
-                ));
-
-                if let Some(model) = global_model {
+                if let Some(ref global_model) = client.global_model {
                     // global model available
-                    let len = model.len() as c_ulong;
-                    if client.model.is_none() {
-                        // cache the primitive model if needed
-                        client.model = model
-                            .into_primitives()
-                            .map(|res| res.map_err(|_| ()))
-                            .collect::<Result<Vec<$prim_rust>, ()>>()
-                            .map_or(None, |vec| Some(PrimitiveModel::[<$prim_rust:upper>](vec)));
-                    }
-
-                    if let Some(PrimitiveModel::[<$prim_rust:upper>](ref mut model)) = client.model {
-                        // conversion succeeded
-                        let ptr = model.as_mut_ptr() as *mut $prim_c;
+                    if let Some(PrimitiveModel::[<$prim_rust:upper>](ref mut cached_model)) = client.cached_model {
+                        // global model is already cached as a primitive model
+                        let ptr = cached_model.as_mut_ptr() as *mut $prim_c;
+                        let len = cached_model.len() as c_ulong;
                         [<PrimitiveModel $prim_rust:upper>] { ptr, len }
                     } else {
-                        // conversion failed
-                        let ptr = ptr::null_mut() as *mut $prim_c;
-                        [<PrimitiveModel $prim_rust:upper>] { ptr, len }
+                        // deserialize and convert the global model to a primitive model and cache it
+                        if let Ok(deserialized_model) = bincode::deserialize::<Model>(&global_model) {
+                            // deserialization succeeded
+                            let len = deserialized_model.len() as c_ulong;
+                            if let Ok(mut primitive_model) = deserialized_model
+                                .into_primitives()
+                                .map(|res| res.map_err(|_| ()))
+                                .collect::<Result<Vec<$prim_rust>, ()>>()
+                            {
+                                // conversion succeeded
+                                let ptr = primitive_model.as_mut_ptr() as *mut $prim_c;
+                                client.cached_model = Some(PrimitiveModel::[<$prim_rust:upper>](primitive_model));
+                                [<PrimitiveModel $prim_rust:upper>] { ptr, len }
+                            } else {
+                                // conversion failed
+                                client.cached_model = None;
+                                let ptr = ptr::null_mut() as *mut $prim_c;
+                                [<PrimitiveModel $prim_rust:upper>] { ptr, len }
+                            }
+                        } else {
+                            // deserialization failed
+                            client.cached_model = None;
+                            let ptr = ptr::null_mut() as *mut $prim_c;
+                            let len = 0_u64 as c_ulong;
+                            [<PrimitiveModel $prim_rust:upper>] { ptr, len }
+                        }
                     }
-
                 } else {
                     // global model unavailable
+                    client.cached_model = None;
                     let ptr = ptr::null_mut() as *mut $prim_c;
                     let len = 0_u64 as c_ulong;
                     [<PrimitiveModel $prim_rust:upper>] { ptr, len }
@@ -350,26 +357,27 @@ macro_rules! update_model {
                     && model.len != 0
                     && model.len <= (isize::MAX as usize / mem::size_of::<$prim>()) as c_ulong
                 {
+                    // `model` is a valid slice
                     let client = unsafe {
                         // safe if the raw pointer `client` comes from a valid allocation of a `Client`
                         &mut *client
                     };
-                    // TODO: use the model when the client sends the update message
-                    if let Some(PrimitiveModel::[<$prim:upper>](cached)) = client.model.take() {
-                        if ptr::eq(model.ptr as *const _, cached.as_ptr())
-                            && model.len as usize == cached.len()
+                    if let Some(PrimitiveModel::[<$prim:upper>](cached_model)) = client.cached_model.take() {
+                        if ptr::eq(model.ptr as *const _, cached_model.as_ptr())
+                            && model.len as usize == cached_model.len()
                         {
                             // cached model was updated
-                            let _local_model = Model::from_primitives_bounded(cached.into_iter());
+                            client.local_model = Some(Model::from_primitives_bounded(cached_model.into_iter()));
                         }
                     } else {
                         // other model was updated
-                        let _local_model = Model::from_primitives_bounded(unsafe {
+                        client.local_model = Some(Model::from_primitives_bounded(unsafe {
                             // safe if `model` fulfills the slice safety conditions
                             slice::from_raw_parts(model.ptr as *const _, model.len as usize)
-                        }.into_iter().copied());
+                        }.into_iter().copied()));
                     }
                 } else {
+                    // `model` is an invalid slice
                     // TODO: add error handling
                     panic!("invalid primitive model");
                 }
@@ -399,11 +407,15 @@ pub unsafe extern "C" fn drop_model(client: *mut Client) {
         // safe if the raw pointer `client` comes from a valid allocation of a `Client`
         &mut *client
     };
-    client.model.take();
+    client.cached_model.take();
 }
 
 #[cfg(test)]
 mod tests {
+    use std::iter::FromIterator;
+
+    use num::{bigint::BigInt, rational::Ratio, traits::Zero};
+
     use super::*;
 
     #[test]
@@ -414,27 +426,25 @@ mod tests {
         }
 
         #[allow(unused_unsafe)]
+        #[no_mangle]
         unsafe extern "C" fn callback(state: *mut c_void, input: *const c_void) {
             #[repr(C)]
             struct Input {
-                current_round: c_uint,
-                checked_round: c_uint,
+                round_started: bool,
                 participant_initialized: bool,
                 model_cached: bool,
             }
 
             let state = unsafe { &mut *(state as *mut State) };
             let input = unsafe { &*(input as *const Input) };
-            state.participant_initialized_without_caching = input.current_round == 0
-                && input.checked_round == 0
-                && input.participant_initialized
-                && !input.model_cached;
+            state.participant_initialized_without_caching =
+                !input.round_started && input.participant_initialized && !input.model_cached;
         }
 
         let mut state = State {
             participant_initialized_without_caching: false,
         };
-        let client = unsafe { new_client(callback, &mut state as *mut _ as *mut c_void) };
+        let client = unsafe { new_client(10, callback, &mut state as *mut _ as *mut c_void) };
         unsafe { drop_client(client) };
         assert!(state.participant_initialized_without_caching);
     }
@@ -447,14 +457,14 @@ mod tests {
                 #[allow(unused_unsafe)]
                 #[test]
                 fn [<test_get_model_ $prim>]() {
-                    let client = unsafe { new_client(dummy_callback, ptr::null_mut() as *mut c_void) };
+                    let client = unsafe { new_client(10, dummy_callback, ptr::null_mut() as *mut c_void) };
                     let model = unsafe { [<get_model_ $prim>](client) };
-                    if let Some(PrimitiveModel::[<$prim:upper>](ref cached)) = unsafe { &mut *client }.model {
+                    if let Some(PrimitiveModel::[<$prim:upper>](ref cached_model)) = unsafe { &mut *client }.cached_model {
                         assert_eq!(
                             Model::from_primitives_bounded(unsafe {
                                 slice::from_raw_parts(model.ptr as *const _, model.len as usize)
                             }.into_iter().copied()),
-                            Model::from_primitives_bounded(cached.clone().into_iter()),
+                            Model::from_primitives_bounded(cached_model.clone().into_iter()),
                         );
                     } else {
                         panic!();
@@ -475,16 +485,16 @@ mod tests {
             paste::item! {
                 #[test]
                 fn [<test_update_cached_model_ $prim>]() {
-                    let client = unsafe { new_client(dummy_callback, ptr::null_mut() as *mut c_void) };
+                    let client = unsafe { new_client(10, dummy_callback, ptr::null_mut() as *mut c_void) };
                     let model = unsafe { [<get_model_ $prim>](client) };
-                    if let Some(PrimitiveModel::[<$prim:upper>](ref cached)) = unsafe { &mut *client }.model {
-                        assert_eq!(cached.as_ptr(), model.ptr as *const _);
-                        assert_eq!(cached.len(), model.len as usize);
+                    if let Some(PrimitiveModel::[<$prim:upper>](ref cached_model)) = unsafe { &mut *client }.cached_model {
+                        assert_eq!(model.ptr as *const _, cached_model.as_ptr());
+                        assert_eq!(model.len as usize, cached_model.len());
                     } else {
                         panic!();
                     }
                     unsafe { [<update_model_ $prim>](client, model) };
-                    assert!(unsafe { &mut *client }.model.is_none());
+                    assert!(unsafe { &mut *client }.cached_model.is_none());
                     unsafe { drop_client(client) };
                 }
             }
@@ -501,7 +511,7 @@ mod tests {
             paste::item! {
                 #[test]
                 fn [<test_update_noncached_model_ $prim>]() {
-                    let client = unsafe { new_client(dummy_callback, ptr::null_mut() as *mut c_void) };
+                    let client = unsafe { new_client(10, dummy_callback, ptr::null_mut() as *mut c_void) };
                     let model = unsafe { [<get_model_ $prim>](client) };
                     let mut vec = Model::from_iter(vec![Ratio::<BigInt>::zero(); model.len as usize].into_iter())
                         .into_primitives()
@@ -512,14 +522,14 @@ mod tests {
                         ptr: vec.as_mut_ptr(),
                         len: vec.len() as c_ulong,
                     };
-                    if let Some(PrimitiveModel::[<$prim:upper>](ref cached)) = unsafe { &mut *client }.model {
-                        assert_ne!(cached.as_ptr(), model.ptr as *const _);
-                        assert_eq!(cached.len(), model.len as usize);
+                    if let Some(PrimitiveModel::[<$prim:upper>](ref cached_model)) = unsafe { &mut *client }.cached_model {
+                        assert_ne!(model.ptr as *const _, cached_model.as_ptr());
+                        assert_eq!(model.len as usize, cached_model.len());
                     } else {
                         panic!();
                     }
                     unsafe { [<update_model_ $prim>](client, model) };
-                    assert!(unsafe { &mut *client }.model.is_none());
+                    assert!(unsafe { &mut *client }.cached_model.is_none());
                     unsafe { drop_client(client) };
                 }
             }

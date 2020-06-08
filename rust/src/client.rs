@@ -1,7 +1,9 @@
 use crate::{
     crypto::ByteObject,
+    mask::model::Model,
     participant::{Participant, Task},
-    service::Handle,
+    sdk::api::PrimitiveModel,
+    service::{Handle, SerializedGlobalModel},
     CoordinatorPublicKey,
     InitError,
     PetError,
@@ -42,13 +44,19 @@ pub struct Client {
     handle: Handle,
 
     /// The underlying [`Participant`]
-    participant: Participant,
+    pub(crate) participant: Participant,
 
     /// Interval to poll for service data
     interval: time::Interval,
 
     /// Coordinator public key
     coordinator_pk: CoordinatorPublicKey,
+    pub(crate) has_new_coord_pk_since_last_check: bool,
+
+    pub(crate) global_model: Option<SerializedGlobalModel>,
+    pub(crate) cached_model: Option<PrimitiveModel>,
+    pub(crate) has_new_global_model_since_last_check: bool,
+    pub(crate) local_model: Option<Model>,
 
     id: u32, // NOTE identifier for client for testing; may remove later
 }
@@ -67,6 +75,11 @@ impl Client {
             participant,
             interval: time::interval(Duration::from_secs(period)),
             coordinator_pk: CoordinatorPublicKey::zeroed(),
+            has_new_coord_pk_since_last_check: false,
+            global_model: None,
+            cached_model: None,
+            has_new_global_model_since_last_check: false,
+            local_model: None,
             id: 0,
         })
     }
@@ -84,6 +97,11 @@ impl Client {
             participant,
             interval: time::interval(Duration::from_secs(period)),
             coordinator_pk: CoordinatorPublicKey::zeroed(),
+            has_new_coord_pk_since_last_check: false,
+            global_model: None,
+            cached_model: None,
+            has_new_global_model_since_last_check: false,
+            local_model: None,
             id,
         })
     }
@@ -104,10 +122,26 @@ impl Client {
     pub async fn during_round(&mut self) -> Result<Task, ClientError> {
         loop {
             if let Some(round_params_data) = self.handle.get_round_parameters().await {
+                // new global model at the end of the current round
+                if let Some(ref new_global_model) = round_params_data.global_model {
+                    if let Some(ref old_global_model) = self.global_model {
+                        if !Arc::ptr_eq(new_global_model, old_global_model) {
+                            self.global_model = Some(new_global_model.clone());
+                            self.cached_model = None;
+                            self.has_new_global_model_since_last_check = true;
+                        }
+                    } else {
+                        self.global_model = Some(new_global_model.clone());
+                        self.cached_model = None;
+                        self.has_new_global_model_since_last_check = true;
+                    }
+                }
+                // new round parameters at the beginning of the next round
                 if let Some(ref round_params) = round_params_data.round_parameters {
                     if round_params.pk != self.coordinator_pk {
                         // new round: save coordinator pk
                         self.coordinator_pk = round_params.pk;
+                        self.has_new_coord_pk_since_last_check = true;
                         debug!(client_id = %self.id, "computing sigs and checking task");
                         let round_seed = round_params.seed.as_slice();
                         self.participant.compute_signatures(round_seed);
@@ -171,32 +205,40 @@ impl Client {
     async fn updater(&mut self) -> Result<Task, ClientError> {
         info!(client_id = %self.id, "selected to update");
 
-        // currently, models are not yet supported fully; later on, we should
-        // train a model here before polling for the sum dictionary
+        loop {
+            if let Some(local_model) = self.local_model.take() {
+                let (sum_dict_ser, scalar): (Arc<Vec<u8>>, f64) = loop {
+                    if let Some((sum_dict_ser, scalar)) =
+                        self.handle.get_sum_dict_and_scalar().await
+                    {
+                        break (sum_dict_ser, scalar);
+                    }
+                    debug!(client_id = %self.id, "sum dictionary not ready, retrying.");
+                    // sums not yet ready, try again later...
+                    self.interval.tick().await;
+                };
+                let sum_dict: SumDict = bincode::deserialize(&sum_dict_ser[..]).map_err(|e| {
+                    error!(
+                        "failed to deserialize sum dictionary: {}: {:?}",
+                        e,
+                        &sum_dict_ser[..],
+                    );
+                    ClientError::DeserialiseErr(e)
+                })?;
+                debug!(client_id = %self.id, "sum dictionary received, sending update message.");
+                let upd_msg: Vec<u8> = self.participant.compose_update_message(
+                    self.coordinator_pk,
+                    &sum_dict,
+                    scalar,
+                    local_model,
+                );
+                self.handle.send_message(upd_msg).await;
 
-        let sum_dict_ser: Arc<Vec<u8>> = loop {
-            if let Some(sum_dict_ser) = self.handle.get_sum_dict().await {
-                break sum_dict_ser;
+                info!(client_id = %self.id, "update participant completed a round");
+                break Ok(Task::Update);
             }
-            debug!(client_id = %self.id, "sum dictionary not ready, retrying.");
-            // sums not yet ready, try again later...
+            debug!(client_id = %self.id, "local model not ready, retrying.");
             self.interval.tick().await;
-        };
-        let sum_dict: SumDict = bincode::deserialize(&sum_dict_ser[..]).map_err(|e| {
-            error!(
-                "failed to deserialize sum dictionary: {}: {:?}",
-                e,
-                &sum_dict_ser[..],
-            );
-            ClientError::DeserialiseErr(e)
-        })?;
-        debug!(client_id = %self.id, "sum dictionary received, sending update message.");
-        let upd_msg: Vec<u8> = self
-            .participant
-            .compose_update_message(self.coordinator_pk, &sum_dict);
-        self.handle.send_message(upd_msg).await;
-
-        info!(client_id = %self.id, "update participant completed a round");
-        Ok(Task::Update)
+        }
     }
 }
