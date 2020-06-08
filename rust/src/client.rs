@@ -105,15 +105,19 @@ impl Client {
         loop {
             if let Some(round_params_data) = self.handle.get_round_parameters().await {
                 if let Some(ref round_params) = round_params_data.round_parameters {
-                    self.coordinator_pk = round_params.pk;
-                    debug!(client_id = %self.id, "computing sigs and checking task");
-                    let round_seed = round_params.seed.as_slice();
-                    self.participant.compute_signatures(round_seed);
-                    let (sum_frac, upd_frac) = (round_params.sum, round_params.update);
-                    break match self.participant.check_task(sum_frac, upd_frac) {
-                        Task::Sum    => self.summer(round_params.pk).await,
-                        Task::Update => self.updater(round_params.pk).await,
-                        Task::None   => self.unselected().await,
+                    if round_params.pk != self.coordinator_pk {
+                        // new round: save coordinator pk
+                        self.coordinator_pk = round_params.pk;
+                        debug!(client_id = %self.id, "computing sigs and checking task");
+                        let round_seed = round_params.seed.as_slice();
+                        self.participant.compute_signatures(round_seed);
+                        let (sum_frac, upd_frac) = (round_params.sum, round_params.update);
+                        // perform duties as per my role for this round
+                        break match self.participant.check_task(sum_frac, upd_frac) {
+                            Task::Sum => self.summer().await,
+                            Task::Update => self.updater().await,
+                            Task::None => self.unselected().await,
+                        }
                     }
                 }
             }
@@ -129,9 +133,9 @@ impl Client {
     }
 
     /// Duties for [`Client`]s selected as summers
-    async fn summer(&mut self, coord_pk: CoordinatorPublicKey) -> Result<Task, ClientError> {
+    async fn summer(&mut self) -> Result<Task, ClientError> {
         info!(client_id = %self.id, "selected for sum, sending sum message.");
-        let sum1_msg: Vec<u8> = self.participant.compose_sum_message(&coord_pk);
+        let sum1_msg: Vec<u8> = self.participant.compose_sum_message(&self.coordinator_pk);
         self.handle.send_message(sum1_msg).await;
 
         let pk = self.participant.pk;
@@ -155,7 +159,7 @@ impl Client {
         debug!(client_id = %self.id, "sending sum2 message");
         let sum2_msg: Vec<u8> = self
             .participant
-            .compose_sum2_message(coord_pk, &seed_dict)
+            .compose_sum2_message(self.coordinator_pk, &seed_dict)
             .map_err(ClientError::ParticipantErr)?;
         self.handle.send_message(sum2_msg).await;
 
@@ -164,7 +168,7 @@ impl Client {
     }
 
     /// Duties for [`Client`]s selected as updaters
-    async fn updater(&mut self, coord_pk: CoordinatorPublicKey) -> Result<Task, ClientError> {
+    async fn updater(&mut self) -> Result<Task, ClientError> {
         info!(client_id = %self.id, "selected to update");
 
         // currently, models are not yet supported fully; later on, we should
@@ -187,7 +191,7 @@ impl Client {
             ClientError::DeserialiseErr(e)
         })?;
         debug!(client_id = %self.id, "sum dictionary received, sending update message.");
-        let upd_msg: Vec<u8> = self.participant.compose_update_message(coord_pk, &sum_dict);
+        let upd_msg: Vec<u8> = self.participant.compose_update_message(self.coordinator_pk, &sum_dict);
         self.handle.send_message(upd_msg).await;
 
         info!(client_id = %self.id, "update participant completed a round");
