@@ -186,9 +186,7 @@ pub unsafe extern "C" fn is_next_round(client: *mut Client) -> bool {
         // safe if the raw pointer `client` comes from a valid allocation of a `Client`
         &mut *client
     };
-    let is_next_round = client.has_new_coord_pk_since_last_check;
-    client.has_new_coord_pk_since_last_check = false;
-    is_next_round
+    mem::replace(&mut client.has_new_coord_pk_since_last_check, false)
 }
 
 #[allow(unused_unsafe)]
@@ -207,9 +205,7 @@ pub unsafe extern "C" fn has_next_model(client: *mut Client) -> bool {
         // safe if the raw pointer `client` comes from a valid allocation of a `Client`
         &mut *client
     };
-    let has_next_model = client.has_new_global_model_since_last_check;
-    client.has_new_global_model_since_last_check = false;
-    has_next_model
+    mem::replace(&mut client.has_new_global_model_since_last_check, false)
 }
 
 #[allow(unused_unsafe)]
@@ -411,14 +407,15 @@ pub unsafe extern "C" fn drop_model(client: *mut Client) {
 
 #[cfg(test)]
 mod tests {
-    use std::iter::FromIterator;
+    use std::{iter::FromIterator, sync::Arc};
 
-    use num::{bigint::BigInt, rational::Ratio, traits::Zero};
+    use num::rational::Ratio;
 
     use super::*;
+    use crate::service::SerializedGlobalModel;
 
-    #[test]
-    fn test_new_client() {
+    #[tokio::test]
+    async fn test_new_client() {
         #[repr(C)]
         struct State {
             participant_initialized_without_caching: bool,
@@ -450,21 +447,35 @@ mod tests {
 
     unsafe extern "C" fn dummy_callback(_state: *mut c_void, _input: *const c_void) {}
 
+    fn dummy_model(val: f64, len: usize) -> (Model, SerializedGlobalModel) {
+        let model = Model::from_iter(vec![Ratio::from_float(val).unwrap(); len].into_iter());
+        let serialized_model = Arc::new(bincode::serialize(&model).unwrap());
+        (model, serialized_model)
+    }
+
     macro_rules! test_get_model {
         ($prim:ty) => {
             paste::item! {
                 #[allow(unused_unsafe)]
-                #[test]
-                fn [<test_get_model_ $prim>]() {
+                #[tokio::test]
+                async fn [<test_get_model_ $prim>]() {
                     let client = unsafe { new_client(10, dummy_callback, ptr::null_mut() as *mut c_void) };
-                    let model = unsafe { [<get_model_ $prim>](client) };
+
+                    // check that the primitive model is null if the global model is unavailable
+                    assert!(unsafe { &*client }.global_model.is_none());
+                    let prim_model = unsafe { [<get_model_ $prim>](client) };
+                    assert!(unsafe { &*client }.cached_model.is_none());
+                    assert!(prim_model.ptr.is_null());
+                    assert_eq!(prim_model.len, 0);
+
+                    // check that the primitive model points to the cached model if the global model is available
+                    let (model, serialized_model) = dummy_model(0., 10);
+                    unsafe { &mut *client }.global_model = Some(serialized_model);
+                    let prim_model = unsafe { [<get_model_ $prim>](client) };
                     if let Some(PrimitiveModel::[<$prim:upper>](ref cached_model)) = unsafe { &mut *client }.cached_model {
-                        assert_eq!(
-                            Model::from_primitives_bounded(unsafe {
-                                slice::from_raw_parts(model.ptr as *const _, model.len as usize)
-                            }.into_iter().copied()),
-                            Model::from_primitives_bounded(cached_model.clone().into_iter()),
-                        );
+                        assert_eq!(prim_model.ptr as *const _, cached_model.as_ptr());
+                        assert_eq!(prim_model.len as usize, cached_model.len());
+                        assert_eq!(model, Model::from_primitives_bounded(cached_model.iter().cloned()));
                     } else {
                         panic!();
                     }
@@ -482,18 +493,26 @@ mod tests {
     macro_rules! test_update_cached_model {
         ($prim:ty) => {
             paste::item! {
-                #[test]
-                fn [<test_update_cached_model_ $prim>]() {
+                #[tokio::test]
+                async fn [<test_update_cached_model_ $prim>]() {
                     let client = unsafe { new_client(10, dummy_callback, ptr::null_mut() as *mut c_void) };
-                    let model = unsafe { [<get_model_ $prim>](client) };
+                    let (model, serialized_model) = dummy_model(0., 10);
+                    unsafe { &mut *client }.global_model = Some(serialized_model);
+                    let prim_model = unsafe { [<get_model_ $prim>](client) };
+
+                    // check that the local model is updated from the cached model
                     if let Some(PrimitiveModel::[<$prim:upper>](ref cached_model)) = unsafe { &mut *client }.cached_model {
-                        assert_eq!(model.ptr as *const _, cached_model.as_ptr());
-                        assert_eq!(model.len as usize, cached_model.len());
+                        assert_eq!(prim_model.ptr as *const _, cached_model.as_ptr());
+                        assert_eq!(prim_model.len as usize, cached_model.len());
                     } else {
                         panic!();
                     }
-                    unsafe { [<update_model_ $prim>](client, model) };
+                    assert!(unsafe {  &*client }.local_model.is_none());
+                    unsafe { [<update_model_ $prim>](client, prim_model) };
                     assert!(unsafe { &mut *client }.cached_model.is_none());
+                    if let Some(ref local_model) = unsafe { &*client }.local_model {
+                        assert_eq!(&model, local_model);
+                    }
                     unsafe { drop_client(client) };
                 }
             }
@@ -508,27 +527,39 @@ mod tests {
     macro_rules! test_update_noncached_model {
         ($prim:ty) => {
             paste::item! {
-                #[test]
-                fn [<test_update_noncached_model_ $prim>]() {
+                #[tokio::test]
+                async fn [<test_update_noncached_model_ $prim>]() {
                     let client = unsafe { new_client(10, dummy_callback, ptr::null_mut() as *mut c_void) };
-                    let model = unsafe { [<get_model_ $prim>](client) };
-                    let mut vec = Model::from_iter(vec![Ratio::<BigInt>::zero(); model.len as usize].into_iter())
+                    let (model, serialized_model) = dummy_model(0., 10);
+                    unsafe { &mut *client }.global_model = Some(serialized_model);
+                    let prim_model = unsafe { [<get_model_ $prim>](client) };
+                    let (other_model, _) = dummy_model(0.5, 10);
+                    let mut vec = other_model.clone()
                         .into_primitives()
                         .map(|res| res.map_err(|_| ()))
                         .collect::<Result<Vec<$prim>, ()>>()
                         .unwrap();
-                    let model = [<PrimitiveModel $prim:upper>] {
+                    let other_prim_model = [<PrimitiveModel $prim:upper>] {
                         ptr: vec.as_mut_ptr(),
                         len: vec.len() as c_ulong,
                     };
+
+                    // check that the local model is updated from the other noncached model
                     if let Some(PrimitiveModel::[<$prim:upper>](ref cached_model)) = unsafe { &mut *client }.cached_model {
-                        assert_ne!(model.ptr as *const _, cached_model.as_ptr());
-                        assert_eq!(model.len as usize, cached_model.len());
+                        assert_eq!(prim_model.ptr as *const _, cached_model.as_ptr());
+                        assert_eq!(prim_model.len as usize, cached_model.len());
+                        assert_ne!(other_prim_model.ptr as *const _, cached_model.as_ptr());
+                        assert_eq!(other_prim_model.len as usize, cached_model.len());
                     } else {
                         panic!();
                     }
-                    unsafe { [<update_model_ $prim>](client, model) };
+                    assert!(unsafe {  &*client }.local_model.is_none());
+                    unsafe { [<update_model_ $prim>](client, other_prim_model) };
                     assert!(unsafe { &mut *client }.cached_model.is_none());
+                    if let Some(ref local_model) = unsafe { &*client }.local_model {
+                        assert_ne!(&model, local_model);
+                        assert_eq!(&other_model, local_model);
+                    }
                     unsafe { drop_client(client) };
                 }
             }
