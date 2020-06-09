@@ -120,14 +120,15 @@ impl Client {
         })
     }
 
-    pub fn new_with_addr(period: u64, handle: Handle, addr: &'static str) -> Result<Self, ClientError> {
+    pub fn new_with_addr(period: u64, id: u32, addr: &'static str) -> Result<Self, ClientError> {
         let participant = Participant::new().map_err(ClientError::ParticipantInitErr)?;
+        let (handle, _events) = Handle::new(); // dummy
         Ok(Self {
             handle,
             participant,
             interval: time::interval(Duration::from_secs(period)),
             coordinator_pk: CoordinatorPublicKey::zeroed(),
-            id: 0,
+            id,
             request: ClientReq::new(addr),
         })
     }
