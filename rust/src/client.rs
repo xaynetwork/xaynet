@@ -7,8 +7,9 @@ use crate::{
     crypto::ByteObject,
     mask::model::Model,
     participant::{Participant, Task},
+    request::ClientReq,
     sdk::api::CachedModel,
-    service::{Handle, SerializedGlobalModel},
+    service::{Handle, data::RoundParametersData, SerializedGlobalModel},
     CoordinatorPublicKey,
     InitError,
     PetError,
@@ -64,6 +65,8 @@ pub struct Client {
     pub(crate) local_model: Option<Model>,
 
     id: u32, // NOTE identifier for client for testing; may remove later
+
+    request: ClientReq,
 }
 
 impl Default for Client {
@@ -91,10 +94,11 @@ impl Client {
     /// `period`: time period at which to poll for service data, in seconds.
     /// Returns `Ok(client)` if [`Client`] `client` initialised successfully
     /// Returns `Err(err)` if `ClientError` `err` occurred
-    pub fn new(period: u64) -> Result<Self, ClientError> {
+    pub fn new(period: u64, addr: &'static str) -> Result<Self, ClientError> {
         Ok(Self {
             participant: Participant::new().map_err(ClientError::ParticipantInitErr)?,
             interval: time::interval(Duration::from_secs(period)),
+            request: ClientReq::new(addr),
             ..Self::default()
         })
     }
@@ -111,7 +115,20 @@ impl Client {
             participant: Participant::new().map_err(ClientError::ParticipantInitErr)?,
             interval: time::interval(Duration::from_secs(period)),
             id,
+            request: ClientReq::new(""),
             ..Self::default()
+        })
+    }
+
+    pub fn new_with_addr(period: u64, handle: Handle, addr: &'static str) -> Result<Self, ClientError> {
+        let participant = Participant::new().map_err(ClientError::ParticipantInitErr)?;
+        Ok(Self {
+            handle,
+            participant,
+            interval: time::interval(Duration::from_secs(period)),
+            coordinator_pk: CoordinatorPublicKey::zeroed(),
+            id: 0,
+            request: ClientReq::new(addr),
         })
     }
 
@@ -130,7 +147,16 @@ impl Client {
     /// [`Client`] duties within a round
     pub async fn during_round(&mut self) -> Result<Task, ClientError> {
         loop {
-            if let Some(round_params_data) = self.handle.get_round_parameters().await {
+            if let Some(round_params_data_ser) = self.handle.get_round_parameters().await {
+                let round_params_data: RoundParametersData = bincode::deserialize(&round_params_data_ser[..])
+                    .map_err(|e| {
+                        error!(
+                            "failed to deserialize round parameters data: {}: {:?}",
+                            e,
+                            &round_params_data_ser[..],
+                        );
+                        ClientError::DeserialiseErr(e)
+                    })?;
                 // new global model at the end of the current round
                 if let Some(ref new_global_model) = round_params_data.global_model {
                     if let Some(ref old_global_model) = self.global_model {
