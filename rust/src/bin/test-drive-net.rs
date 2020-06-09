@@ -3,6 +3,7 @@ use xain_fl::{
     client::{Client, ClientError},
     participant::Task,
     service::Service,
+    rest,
 };
 
 /// Test-drive script of a (completely local) single-round federated learning
@@ -24,8 +25,15 @@ async fn main() -> Result<(), ClientError> {
         .with_ansi(true)
         .init();
 
-    let (svc, _hdl) = Service::new().unwrap();
-    let _svc_jh = tokio::spawn(svc);
+    let (svc, handle) = Service::new().unwrap();
+    let _svc_jh = tokio::select! {
+        _ = tokio::spawn(svc) => {
+            println!("shutting down: Service terminated");
+        }
+        _ = tokio::spawn(rest::serve(([127, 0, 0, 1], 3030), handle.clone())) => {
+            println!("shutting down: REST server terminated");
+        }
+    };
 
     let mut tasks = vec![];
     for id in 0..10 {
