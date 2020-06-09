@@ -7,7 +7,7 @@ use std::{
 };
 use tokio::stream::Stream;
 
-mod data;
+pub mod data;
 mod handle;
 
 pub use data::Data;
