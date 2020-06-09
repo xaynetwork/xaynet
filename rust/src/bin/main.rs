@@ -1,8 +1,14 @@
 use xain_fl::service::Service;
 use xain_fl::rest;
+use tracing_subscriber::*;
 
 #[tokio::main]
 async fn main() {
+    let _fmt_subscriber = FmtSubscriber::builder()
+        .with_env_filter(EnvFilter::from_default_env())
+        .with_ansi(true)
+        .init();
+
     let (service, handle) = Service::new().unwrap();
 
     tokio::select! {

@@ -42,8 +42,8 @@ impl ClientReq {
     }
 
     pub async fn get_params(&self) -> Result<Vec<u8>, Error> {
-        let url = format!("{}/{}", self.address, "params");
-        let response = self.client.get(&url).send().await?;
+        let _url = format!("{}/{}", self.address, "params");
+        let response = self.client.get("http://127.0.0.1:3030/params").send().await?;
         let bytes = response.bytes().await?;
         Ok(bytes.to_vec())
     }

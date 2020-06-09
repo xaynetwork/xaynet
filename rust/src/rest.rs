@@ -71,10 +71,9 @@ async fn handle_seeds(body: Bytes, handle: Handle) -> Result<impl warp::Reply, R
 }
 
 async fn handle_params(handle: Handle) -> Result<impl warp::Reply, Rejection> {
-    let _round_params = handle.get_round_parameters().await.ok_or(warp::reject::not_found())?;
-    //let round_params_bytes = Arc::try_unwrap(round_params).unwrap();
-    //Ok(warp::reply::with_header(round_params_bytes, "Content-Type", "application/octet-stream"));
-    Ok(warp::reply())
+    let round_params = handle.get_round_parameters().await.ok_or(warp::reject::not_found())?;
+    let round_params_bytes = Arc::try_unwrap(round_params).unwrap();
+    Ok(warp::reply::with_header(round_params_bytes, "Content-Type", "application/octet-stream"))
 }
 
 fn with_hdl(hdl: Handle) -> impl Filter<Extract = (Handle,), Error = Infallible> + Clone {

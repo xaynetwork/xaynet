@@ -155,8 +155,10 @@ impl Client {
     /// [`Client`] duties within a round
     pub async fn during_round(&mut self) -> Result<Task, ClientError> {
         loop {
-            if let Ok(round_params_data_ser) = self.request.get_params().await {
+            let response = self.request.get_params().await;
+            if let Ok(round_params_data_ser) = &response {
 //          if let Some(round_params_data_ser) = self.handle.get_round_parameters().await {
+                // deserialize to round params data
                 let round_params_data: RoundParametersData = bincode::deserialize(&round_params_data_ser[..])
                     .map_err(|e| {
                         error!(
@@ -181,7 +183,9 @@ impl Client {
                     }
                 }
                 // new round parameters at the beginning of the next round
+                // are there inner params?
                 if let Some(ref round_params) = round_params_data.round_parameters {
+                    // is this a new round?
                     if round_params.pk != self.coordinator_pk {
                         // new round: save coordinator pk
                         self.coordinator_pk = round_params.pk;
@@ -197,7 +201,12 @@ impl Client {
                             Task::None => self.unselected().await,
                         };
                     }
+                    trace!(client_id = %self.id, "still the same round");
                 }
+                // later on, also check presence of round_params_data.global_model
+            }
+            if let Err(req_err) = response {
+                warn!(client_id = %self.id, "received an error response: {}", req_err);
             }
             debug!(client_id = %self.id, "new round params not ready, retrying.");
             self.interval.tick().await;

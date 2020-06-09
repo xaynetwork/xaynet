@@ -25,19 +25,19 @@ async fn main() -> Result<(), ClientError> {
         .with_ansi(true)
         .init();
 
-    let (svc, handle) = Service::new().unwrap();
-    let _svc_jh = tokio::select! {
-        _ = tokio::spawn(svc) => {
-            println!("shutting down: Service terminated");
-        }
-        _ = tokio::spawn(rest::serve(([127, 0, 0, 1], 3030), handle.clone())) => {
-            println!("shutting down: REST server terminated");
-        }
-    };
+    // let (svc, handle) = Service::new().unwrap();
+    // let _svc_jh = tokio::select! {
+    //     _ = svc => {
+    //         println!("shutting down: Service terminated");
+    //     }
+    //     _ = rest::serve(([127, 0, 0, 1], 3030), handle.clone()) => {
+    //         println!("shutting down: REST server terminated");
+    //     }
+    // };
 
     let mut tasks = vec![];
     for id in 0..10 {
-        let mut client = Client::new_with_addr(1, id, "localhost:3030")?;
+        let mut client = Client::new_with_addr(1, id, "http://127.0.0.1:3030")?;
         // NOTE give spawn a task that owns client
         // otherwise it won't live long enough
         let join_hdl = tokio::spawn(async move { client.during_round().await });
