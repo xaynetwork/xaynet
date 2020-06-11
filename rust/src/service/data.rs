@@ -43,12 +43,12 @@ pub enum PhaseData {
 }
 
 impl PhaseData {
-    /// Return the current sum dictionary if it is available. The
-    /// availability of the sum dictionary depends on the current
+    /// Return the current sum dictionary and model scalar if they are available. The
+    /// availability of the sum dictionary and model scalar depends on the current
     /// coordinatore state.
-    pub fn sum_dict(&self) -> Option<SerializedSumDict> {
+    pub fn sum_dict_and_scalar(&self) -> Option<(SerializedSumDict, f64)> {
         if let PhaseData::Update(data) = self {
-            Some(data.serialized_sum_dict.clone())
+            Some((data.serialized_sum_dict.clone(), data.scalar))
         } else {
             None
         }
@@ -104,11 +104,12 @@ impl Data {
 
                 self.phase_data = Some(SumData.into());
             }
-            ProtocolEvent::StartUpdate(sum_dict) => {
+            ProtocolEvent::StartUpdate(sum_dict, scalar) => {
                 let serialized_sum_dict = bincode::serialize(&sum_dict)
                     .map_err(|e| DataUpdateError::SerializeSumDict(e.to_string()))?;
                 let update_data = UpdateData {
                     serialized_sum_dict: Arc::new(serialized_sum_dict),
+                    scalar,
                 };
                 self.phase_data = Some(update_data.into());
             }
@@ -154,8 +155,8 @@ impl Data {
         self.round_parameters_data.clone()
     }
 
-    pub fn sum_dict(&self) -> Option<SerializedSumDict> {
-        self.phase_data.as_ref()?.sum_dict()
+    pub fn sum_dict_and_scalar(&self) -> Option<(SerializedSumDict, f64)> {
+        self.phase_data.as_ref()?.sum_dict_and_scalar()
     }
 
     pub fn seed_dict(
@@ -177,6 +178,8 @@ pub struct UpdateData {
     /// The sum dictionary, already serialized so that it can direclty
     /// be sent to the clients that request it
     pub serialized_sum_dict: SerializedSeedDict,
+    /// The scalar to weight the update participants models.
+    pub scalar: f64,
 }
 
 /// Service data specific to the sum2 phase

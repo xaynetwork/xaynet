@@ -18,7 +18,8 @@ pub use handle::{
     Message,
     RoundParametersRequest,
     SeedDictRequest,
-    SumDictRequest,
+    SerializedGlobalModel,
+    SumDictAndScalarRequest,
 };
 
 /// The `Service` is the task that drives the PET protocol. It reacts
@@ -54,7 +55,7 @@ impl Service {
         match event {
             Event::Message(Message { buffer }) => self.handle_message(buffer),
             Event::RoundParameters(req) => self.handle_round_parameters_request(req),
-            Event::SumDict(req) => self.handle_sum_dict_request(req),
+            Event::SumDictAndScalar(req) => self.handle_sum_dict_and_scalar_request(req),
             Event::SeedDict(req) => self.handle_seed_dict_request(req),
         }
         self.process_protocol_events();
@@ -68,9 +69,9 @@ impl Service {
     }
 
     /// Handler for sum dict requests
-    fn handle_sum_dict_request(&self, req: SumDictRequest) {
-        let SumDictRequest { response_tx } = req;
-        let _ = response_tx.send(self.data.sum_dict());
+    fn handle_sum_dict_and_scalar_request(&self, req: SumDictAndScalarRequest) {
+        let SumDictAndScalarRequest { response_tx } = req;
+        let _ = response_tx.send(self.data.sum_dict_and_scalar());
     }
 
     /// Handler for seed dict requests

@@ -13,6 +13,7 @@ pub mod crypto;
 pub mod mask;
 pub mod message;
 pub mod participant;
+pub mod sdk;
 pub mod service;
 
 use std::collections::HashMap;

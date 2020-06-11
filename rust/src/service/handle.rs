@@ -24,9 +24,9 @@ pub enum Event {
     /// participants.
     RoundParameters(RoundParametersRequest),
 
-    /// A request for retrieving the sum dictionary for the current
+    /// A request for retrieving the sum dictionary and model scalar for the current
     /// round
-    SumDict(SumDictRequest),
+    SumDictAndScalar(SumDictAndScalarRequest),
 
     /// A request to retrieve the masking seeds dictionary for the
     /// given participant.
@@ -51,9 +51,9 @@ pub struct RoundParametersRequest {
 pub type SerializedSumDict = Arc<Vec<u8>>;
 
 /// Event for a request to retrieve the sum dictionary
-pub struct SumDictRequest {
-    /// Channel for sending the sum dictionary back
-    pub response_tx: oneshot::Sender<Option<SerializedSumDict>>,
+pub struct SumDictAndScalarRequest {
+    /// Channel for sending the sum dictionary and model scalar back
+    pub response_tx: oneshot::Sender<Option<(SerializedSumDict, f64)>>,
 }
 
 pub type SerializedSeedDict = Arc<Vec<u8>>;
@@ -94,11 +94,11 @@ impl Handle {
     }
 
     /// Send a [`Event::SumDict`] event to retrieve the current sum
-    /// dictionary, in its serialized form. The availability of the
-    /// sum dictionary depends on the current coordinator state.
-    pub async fn get_sum_dict(&self) -> Option<SerializedSumDict> {
-        let (tx, rx) = oneshot::channel::<Option<SerializedSumDict>>();
-        self.send_event(SumDictRequest { response_tx: tx });
+    /// dictionary, in its serialized form, and the model scalar. The availability of the
+    /// sum dictionary and model scalar depends on the current coordinator state.
+    pub async fn get_sum_dict_and_scalar(&self) -> Option<(SerializedSumDict, f64)> {
+        let (tx, rx) = oneshot::channel::<Option<(SerializedSumDict, f64)>>();
+        self.send_event(SumDictAndScalarRequest { response_tx: tx });
         rx.await.unwrap()
     }
 

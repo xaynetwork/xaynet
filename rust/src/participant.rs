@@ -7,7 +7,6 @@ use crate::{
         Aggregation,
         BoundType,
         DataType,
-        FromPrimitives,
         GroupType,
         MaskConfig,
         MaskObject,
@@ -51,7 +50,7 @@ pub struct Participant {
     update_signature: ParticipantTaskSignature, // 64 bytes
 
     // round parameters
-    task: Task,
+    pub(crate) task: Task,
 }
 
 impl Default for Participant {
@@ -122,8 +121,14 @@ impl Participant {
     }
 
     /// Compose an update message.
-    pub fn compose_update_message(&self, pk: CoordinatorPublicKey, sum_dict: &SumDict) -> Vec<u8> {
-        let (mask_seed, masked_model) = Self::mask_model();
+    pub fn compose_update_message(
+        &self,
+        pk: CoordinatorPublicKey,
+        sum_dict: &SumDict,
+        scalar: f64,
+        local_model: Model,
+    ) -> Vec<u8> {
+        let (mask_seed, masked_model) = Self::mask_model(scalar, local_model);
         let local_seed_dict = Self::create_local_seed_dict(sum_dict, &mask_seed);
 
         let payload = UpdateOwned {
@@ -171,12 +176,10 @@ impl Participant {
         self.ephm_sk = ephm_sk;
     }
 
-    /// Generate a mask seed and mask a local model (dummy).
-    fn mask_model() -> (MaskSeed, MaskObject) {
-        let model = Model::from_primitives(vec![0_f32, 1_f32, 0_f32, 1_f32].into_iter()).unwrap();
-        let masker = Masker::new(dummy_config());
-        let (seed, masked_model) = masker.mask(0.5, model);
-        (seed, masked_model)
+    /// Generate a mask seed and mask a local model.
+    fn mask_model(scalar: f64, local_model: Model) -> (MaskSeed, MaskObject) {
+        // TODO: use proper config
+        Masker::new(dummy_config()).mask(scalar, local_model)
     }
 
     // Create a local seed dictionary from a sum dictionary.
@@ -298,7 +301,7 @@ mod tests {
 
     #[test]
     fn test_create_local_seed_dict() {
-        let (mask_seed, _) = Participant::mask_model();
+        let mask_seed = MaskSeed::generate();
         let ephm_dict = iter::repeat_with(|| generate_encrypt_key_pair())
             .take(1 + randombytes_uniform(10) as usize)
             .collect::<HashMap<SumParticipantEphemeralPublicKey, SumParticipantEphemeralSecretKey>>(
