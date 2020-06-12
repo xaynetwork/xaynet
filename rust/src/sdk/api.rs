@@ -88,7 +88,6 @@ pub(crate) enum CachedModel {
     I64(Vec<i64>),
 }
 
-#[derive(Debug)]
 /// A wrapper for a [`Client`] within an asynchronous runtime.
 ///
 /// This is returned from [`new_client()`]. See the [workflow] on how to use it.
@@ -158,6 +157,8 @@ pub unsafe extern "C" fn new_client(period: c_ulonglong) -> *mut FFIClient {
 /// - `5`: client stopped due to error [`NetworkErr`]
 /// - `6`: client stopped due to error [`ParseErr`]
 /// - `7`: client stopped due to error [`GeneralErr`]
+/// - `8`: client stopped due to error [`Fetch`]
+/// - `9`: client stopped due to error [`PetMessage`]
 ///
 /// # Safety
 /// The method dereferences from the raw pointer arguments. Therefore, the behavior of the method is
@@ -172,6 +173,8 @@ pub unsafe extern "C" fn new_client(period: c_ulonglong) -> *mut FFIClient {
 /// [`NetworkErr`]: ../../client/enum.ClientError.html#variant.NetworkErr
 /// [`ParseErr`]: ../../client/enum.ClientError.html#variant.ParseErr
 /// [`GeneralErr`]: ../../client/enum.ClientError.html#variant.GeneralErr
+/// [`Fetch`]: ../../client/enum.ClientError.html#variant.Fetch
+/// [`PetMessage`]: ../../client/enum.ClientError.html#variant.PetMessage
 pub unsafe extern "C" fn run_client(client: *mut FFIClient) -> c_int {
     if client.is_null() {
         return -1_i32 as c_int;
@@ -203,6 +206,8 @@ pub unsafe extern "C" fn run_client(client: *mut FFIClient) -> c_int {
         Ok(Err(ClientError::NetworkErr(_))) => 5_i32 as c_int,
         Ok(Err(ClientError::ParseErr)) => 6_i32 as c_int,
         Ok(Err(ClientError::GeneralErr)) => 7_i32 as c_int,
+        Ok(Err(ClientError::Fetch(_))) => 8_i32 as c_int,
+        Ok(Err(ClientError::PetMessage(_))) => 9_i32 as c_int,
     }
 }
 

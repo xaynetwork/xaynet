@@ -54,6 +54,7 @@ bitflags::bitflags! {
 }
 
 /// A header common to all the messages
+#[derive(Debug)]
 pub struct Header<C> {
     /// Type of message
     pub tag: Tag,

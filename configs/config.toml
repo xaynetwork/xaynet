@@ -1,11 +1,12 @@
 [api]
-bind_address = "0.0.0.0:8081"
+bind_address = "127.0.0.1:8081"
 
 [pet]
 min_sum = 1
 min_update = 3
-sum = 0.01
-update = 0.1
+sum = 0.5
+update = 0.9
+expected_participants = 10
 
 [mask]
 group_type = "Prime"

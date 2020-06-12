@@ -1,7 +1,13 @@
 use std::{path::PathBuf, process};
 use structopt::StructOpt;
 use tracing_subscriber::*;
-use xain_fl::{rest, service::Service, settings::Settings};
+use xain_fl::{
+    rest,
+    services,
+    settings::Settings,
+    state_machine::{requests::Request, StateMachine},
+    utils::trace::Traced,
+};
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "Coordinator")]
@@ -10,27 +16,38 @@ struct Opt {
     #[structopt(short, parse(from_os_str))]
     config_path: PathBuf,
 }
-
 #[tokio::main]
 async fn main() {
-    let opt = Opt::from_args();
-    let settings = Settings::new(opt.config_path).unwrap_or_else(|err| {
-        eprintln!("{}", err);
-        process::exit(1);
-    });
-
     let _fmt_subscriber = FmtSubscriber::builder()
         .with_env_filter(EnvFilter::from_default_env())
         .with_ansi(true)
         .init();
 
-    let (service, handle) = Service::new(settings.pet, settings.mask).unwrap();
+    // This should already called internally when instantiating the
+    // state machine but it doesn't hurt making sure the crypto layer
+    // is correctly initialized
+    sodiumoxide::init().unwrap();
+
+    let opt = Opt::from_args();
+    let Settings {
+        pet: pet_settings,
+        mask: mask_settings,
+        api: api_settings,
+    } = Settings::new(opt.config_path).unwrap_or_else(|err| {
+        eprintln!("{}", err);
+        process::exit(1);
+    });
+
+    let (state_machine, requests_tx, event_subscriber) =
+        StateMachine::<Traced<Request>>::new(pet_settings, mask_settings).unwrap();
+    let fetcher = services::fetcher(&event_subscriber);
+    let message_handler = services::message_handler(&event_subscriber, requests_tx);
 
     tokio::select! {
-        _ = service => {
+        _ = state_machine.run() => {
             println!("shutting down: Service terminated");
         }
-        _ = rest::serve(settings.api.bind_address, handle.clone()) => {
+        _ = rest::serve(api_settings.bind_address, fetcher, message_handler) => {
             println!("shutting down: REST server terminated");
         }
     }
