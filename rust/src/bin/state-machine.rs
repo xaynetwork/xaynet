@@ -1,11 +1,13 @@
-use xain_fl::state_machine::StateMachine;
-use xain_fl::state_machine::requests::SumRequest;
-use xain_fl::state_machine::requests::Request;
-use xain_fl::PetError;
-use xain_fl::crypto::generate_encrypt_key_pair;
-use xain_fl::crypto::generate_signing_key_pair;
-use tracing_subscriber::*;
 use tokio::sync::oneshot;
+use tracing_subscriber::*;
+use xain_fl::{
+    crypto::{generate_encrypt_key_pair, generate_signing_key_pair},
+    state_machine::{
+        requests::{Request, SumRequest},
+        StateMachine,
+    },
+    PetError,
+};
 
 #[tokio::main]
 async fn main() {
@@ -23,18 +25,14 @@ async fn main() {
     });
 
     let (tx, rx) = oneshot::channel::<Result<(), PetError>>();
-    let (pk, _ ) = generate_signing_key_pair();
-    let (ephm_pk, _ ) = generate_encrypt_key_pair();
-    let sum_req = SumRequest{
-         participant_pk: pk,
-         ephm_pk: ephm_pk,
-         response_tx: tx,
+    let (pk, _) = generate_signing_key_pair();
+    let (ephm_pk, _) = generate_encrypt_key_pair();
+    let sum_req = SumRequest {
+        participant_pk: pk,
+        ephm_pk: ephm_pk,
+        response_tx: tx,
     };
-    
+
     let _ = request_tx.send(Request::Sum(sum_req));
-    println!("{:?}",rx.await);
+    println!("{:?}", rx.await);
 }
-
-
-
-
