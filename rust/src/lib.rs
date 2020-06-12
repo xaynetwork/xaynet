@@ -33,14 +33,11 @@ use self::crypto::{
 #[error("initialization failed: insufficient system entropy to generate secrets")]
 pub struct InitError;
 
-#[derive(Debug, Error, PartialEq)]
+#[derive(Debug, PartialEq)]
 /// PET protocol errors.
 pub enum PetError {
-    #[error("protocol failed: invalid message")]
     InvalidMessage,
-    #[error("protocol failed: invalid mask")]
     InvalidMask,
-    #[error("protocol failed: invalid model")]
     InvalidModel,
 }
 

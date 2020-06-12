@@ -83,8 +83,6 @@ impl Default for CoordinatorState {
 
 #[derive(Error, Debug)]
 pub enum StateError {
-    #[error("state failed: protocol error: {0}")]
-    ProtocolError(#[from] PetError),
     #[error("state failed: channel error: {0}")]
     ChannelError(&'static str),
     #[error("state failed: round error: {0}")]
@@ -127,7 +125,7 @@ pub enum StateMachine {
 }
 
 impl StateMachine {
-    /// Move to a next state and consume the old state.
+    /// Move to the next state and consume the old one.
     pub async fn next(self) -> Self {
         match self {
             StateMachine::Idle(state) => state.next().await,
