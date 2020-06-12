@@ -1,8 +1,6 @@
----
-
-> **NOTE:** documentation is outdated, needs updating!
-
----
+___
+**NOTE: Documentation is outdated, needs updating!**
+___
 
 ## Running the platform
 
