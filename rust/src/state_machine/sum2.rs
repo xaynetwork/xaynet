@@ -54,6 +54,9 @@ impl State<Sum2> {
         Ok(())
     }
 
+    /// Handle a sum, update or sum2 request.
+    /// If the request is a sum or update request, the receiver of the response channel will receive
+    /// a [`PetError::InvalidMessage`].
     fn handle_request(&mut self, req: Request) {
         match req {
             Request::Sum2(sum2_req) => self.handle_sum2(sum2_req),
@@ -62,13 +65,13 @@ impl State<Sum2> {
         }
     }
 
+    /// Handle a sum2 request.
     fn handle_sum2(&mut self, req: Sum2Request) {
         let Sum2Request {
             participant_pk,
             mask,
             response_tx,
         } = req;
-        // Is it ok to ignore the error here?
         let _ = response_tx.send(self.add_mask(&participant_pk, mask));
     }
 
@@ -119,7 +122,7 @@ impl State<Sum2> {
 
     fn end_round(&mut self) -> Result<Model, RoundFailed> {
         let global_mask = self.freeze_mask_dict()?;
-        // safe unwrap: State::<Sum2>::new always creates an aggregation
+        // safe unwrap: State::<Sum2>::new always creates an aggregation object
         let aggregation = self._inner.aggregation.take().unwrap();
 
         aggregation

@@ -16,7 +16,7 @@ use tokio::sync::{mpsc, oneshot};
 
 mod error;
 mod idle;
-mod requests;
+pub mod requests;
 mod sum;
 mod sum2;
 mod update;
@@ -111,7 +111,9 @@ impl<S> State<S> {
         ))
     }
 
+    // Handle invalid requests.
     fn handle_invalid_message(response_tx: oneshot::Sender<Result<(), PetError>>) {
+        debug!("invalid message");
         let _ = response_tx.send(Err(PetError::InvalidMessage));
     }
 }
@@ -125,6 +127,7 @@ pub enum StateMachine {
 }
 
 impl StateMachine {
+    /// Move to a next state and consume the old state.
     pub async fn next(self) -> Self {
         match self {
             StateMachine::Idle(state) => state.next().await,
@@ -135,6 +138,8 @@ impl StateMachine {
         }
     }
 
+    /// Create a new state machine with the initial state `Idle`.
+    /// Fails if there is insufficient system entropy to generate secrets.
     pub fn new() -> Result<(mpsc::UnboundedSender<Request>, Self), InitError> {
         // crucial: init must be called before anything else in this module
         sodiumoxide::init().or(Err(InitError))?;

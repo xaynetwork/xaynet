@@ -46,6 +46,9 @@ impl State<Sum> {
         Ok(())
     }
 
+    /// Handle a sum, update or sum2 request.
+    /// If the request is a update or sum2 request, the receiver of the response channel will
+    /// receive a [`PetError::InvalidMessage`].
     fn handle_request(&mut self, req: Request) {
         match req {
             Request::Sum(sum_req) => self.handle_sum(sum_req),
@@ -54,6 +57,7 @@ impl State<Sum> {
         }
     }
 
+    /// Handle a sum request.
     fn handle_sum(&mut self, req: SumRequest) {
         let SumRequest {
             participant_pk,

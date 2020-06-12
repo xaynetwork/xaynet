@@ -43,6 +43,9 @@ impl State<Update> {
         Ok(())
     }
 
+    /// Handle a sum, update or sum2 request.
+    /// If the request is a sum or sum2 request, the receiver of the response channel will receive
+    /// a [`PetError::InvalidMessage`].
     fn handle_request(&mut self, req: Request) {
         match req {
             Request::Update(update_req) => self.handle_update(update_req),
@@ -51,13 +54,13 @@ impl State<Update> {
         }
     }
 
+    /// Handle a update request.
     fn handle_update(&mut self, req: UpdateRequest) {
         let UpdateRequest {
             participant_pk,
             local_seed_dict,
             response_tx,
         } = req;
-        // Is it ok to ignore the error here?
         let _ = response_tx.send(self.add_local_seed_dict(&participant_pk, &local_seed_dict));
     }
 

@@ -22,6 +22,10 @@ impl State<Error> {
 
     pub async fn next(self) -> StateMachine {
         error!("state transition failed! error: {:?}", self._inner.error);
+        if let StateError::ChannelError(e) = self._inner.error {
+            panic!(e)
+        };
+
         State::<Idle>::new(self.coordinator_state, self.request_rx)
     }
 }
