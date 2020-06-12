@@ -1,3 +1,8 @@
+use std::{default::Default, sync::Arc, time::Duration};
+
+use thiserror::Error;
+use tokio::time;
+
 use crate::{
     crypto::ByteObject,
     mask::model::Model,
@@ -10,9 +15,6 @@ use crate::{
     SumDict,
     UpdateSeedDict,
 };
-use std::{sync::Arc, time::Duration};
-use thiserror::Error;
-use tokio::time;
 
 /// Client-side errors
 #[derive(Debug, Error)]
@@ -47,6 +49,7 @@ pub struct Client {
     pub(crate) participant: Participant,
 
     /// Interval to poll for service data
+    /// (this is a `Stream` of `Future`s which requires a runtime to create the `Client`)
     interval: time::Interval,
 
     /// Coordinator public key
@@ -62,19 +65,13 @@ pub struct Client {
     id: u32, // NOTE identifier for client for testing; may remove later
 }
 
-impl Client {
-    /// Create a new [`Client`]
-    ///
-    /// `period`: time period at which to poll for service data, in seconds.
-    /// Returns `Ok(client)` if [`Client`] `client` initialised successfully
-    /// Returns `Err(err)` if `ClientError` `err` occurred
-    pub fn new(period: u64) -> Result<Self, ClientError> {
-        let (handle, _events) = Handle::new();
-        let participant = Participant::new().map_err(ClientError::ParticipantInitErr)?;
-        Ok(Self {
+impl Default for Client {
+    fn default() -> Self {
+        let (handle, _) = Handle::new();
+        Self {
             handle,
-            participant,
-            interval: time::interval(Duration::from_secs(period)),
+            participant: Participant::default(),
+            interval: time::interval(Duration::from_secs(1)),
             coordinator_pk: CoordinatorPublicKey::zeroed(),
             has_new_coord_pk_since_last_check: false,
             global_model: None,
@@ -83,6 +80,21 @@ impl Client {
             has_new_global_model_since_last_cache: false,
             local_model: None,
             id: 0,
+        }
+    }
+}
+
+impl Client {
+    /// Create a new [`Client`]
+    ///
+    /// `period`: time period at which to poll for service data, in seconds.
+    /// Returns `Ok(client)` if [`Client`] `client` initialised successfully
+    /// Returns `Err(err)` if `ClientError` `err` occurred
+    pub fn new(period: u64) -> Result<Self, ClientError> {
+        Ok(Self {
+            participant: Participant::new().map_err(ClientError::ParticipantInitErr)?,
+            interval: time::interval(Duration::from_secs(period)),
+            ..Self::default()
         })
     }
 
@@ -93,19 +105,12 @@ impl Client {
     /// Returns `Ok(client)` if [`Client`] `client` initialised successfully
     /// Returns `Err(err)` if `ClientError` `err` occurred
     pub fn new_with_id(period: u64, handle: Handle, id: u32) -> Result<Self, ClientError> {
-        let participant = Participant::new().map_err(ClientError::ParticipantInitErr)?;
         Ok(Self {
             handle,
-            participant,
+            participant: Participant::new().map_err(ClientError::ParticipantInitErr)?,
             interval: time::interval(Duration::from_secs(period)),
-            coordinator_pk: CoordinatorPublicKey::zeroed(),
-            has_new_coord_pk_since_last_check: false,
-            global_model: None,
-            cached_model: None,
-            has_new_global_model_since_last_check: false,
-            has_new_global_model_since_last_cache: false,
-            local_model: None,
             id,
+            ..Self::default()
         })
     }
 
