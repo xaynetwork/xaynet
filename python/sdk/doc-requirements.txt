@@ -1,7 +1,0 @@
-# readthedocs.io requires the dependencies for building the
-# documentation to be available in a requirements.txt file
-Sphinx~=2.2
-m2r~=0.2
-sphinxcontrib-mermaid~=0.3
-sphinx-autodoc-typehints~=1.10
-docutils~=0.16

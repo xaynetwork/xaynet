@@ -1,3 +1,9 @@
+---
+
+> **NOTE:** documentation is outdated, needs updating!
+
+---
+
 # XAIN Federated Learning
 
 XAIN provides privacy-preserving technology dedicated to keep the data

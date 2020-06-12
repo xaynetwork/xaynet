@@ -1,3 +1,9 @@
+---
+
+> **NOTE:** documentation is outdated, needs updating!
+
+---
+
 ## Running the platform
 
 There are two ways to run the backend: using docker, or by compiling
