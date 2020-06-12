@@ -23,22 +23,11 @@
 //!    the cached primitive model or a slice to a foreign memory location.
 //! 6. Stop and destroy the [`Client`] with [`drop_client()`].
 //!
-//! # Callbacks
-//! Some functions of this module provide stateful callbacks, where the
-//! `callback: unsafe extern "C" fn(*mut c_void, *const c_void)` is defined over void pointers
-//! referencing structs for the `state` and `input` of the callback. The fields of these structs
-//! are not constrained due to their void pointer nature. The `input` can be defined (anonymously)
-//! on each side of the FFI-boundary, but it must still have the same layout on both sides,
-//! otherwise accessing it will result in undefined behavior.
-//!
-//! **Note, that callbacks are at an experimental stage and the generalized `input` might be
-//! replaced for concrete input types for certain functions in the future.**
-//!
 //! # Safety
 //! Many functions of this module are marked as `unsafe` to explicitly announce the possible
 //! unsafety of the function body as well as the return value to the caller. At the same time,
 //! each `unsafe fn` uses `unsafe` blocks to precisely pinpoint the sources of unsafety for
-//! reviewers (redundancy warnings will be fixed by [#69173](https://github.com/rust-lang/rust/issues/69173)).
+//! reviewers (redundancy warnings will be fixed by [#69173]).
 //!
 //! **Note, that the `unsafe` code has not been externally audited yet!**
 //!
@@ -47,13 +36,13 @@
 //! [`update_model_N()`]: fn.update_model_f32.html
 //! [`Participant`]: ../../participant/struct.Participant.html
 //! [`PrimitiveModelN`]: struct.PrimitiveModelF32.html
+//! [#69173]: https://github.com/rust-lang/rust/issues/69173
 
 use std::{
     iter::{IntoIterator, Iterator},
     mem,
     os::raw::{c_double, c_float, c_int, c_long, c_ulong, c_void},
     panic,
-    panic::AssertUnwindSafe,
     ptr,
     slice,
 };
@@ -64,7 +53,7 @@ use tokio::{
 };
 
 use crate::{
-    client::Client,
+    client::{Client, ClientError},
     mask::model::{FromPrimitives, IntoPrimitives, Model},
     participant::Task,
 };
@@ -80,13 +69,13 @@ macro_rules! PrimModel {
         paste::item! {
             #[derive(Clone, Copy)]
             #[repr(C)]
-            #[doc = "A model of primitive data type [`"]
+            #[doc = "A model of primitive data type"]
             #[doc = $doc0]
-            #[doc = "`] represented as a mutable slice which can be accessed from C."]
+            #[doc = "represented as a mutable slice which can be accessed from C."]
             pub struct [<PrimitiveModel $prim_rust:upper>] {
-                #[doc = "A raw mutable pointer to an array of primitive values `"]
+                #[doc = "A raw mutable pointer to an array of primitive values"]
                 #[doc = $doc1]
-                #[doc = "`."]
+                #[doc = "."]
                 pub ptr: *mut $prim_c,
                 /// The length of that respective array.
                 pub len: c_ulong,
@@ -95,14 +84,18 @@ macro_rules! PrimModel {
     };
 }
 
-PrimModel! {f32, c_float, "f32", "[f32]"}
-PrimModel! {f64, c_double, "f64", "[f64]"}
-PrimModel! {i32, c_int, "i32", "[i32]"}
-PrimModel! {i64, c_long, "i64", "[i64]"}
+PrimModel! {f32, c_float, "[`f32`]", "`[f32]`"}
+PrimModel! {f64, c_double, "[`f64`]", "`[f64]`"}
+PrimModel! {i32, c_int, "[`i32`]", "`[i32]`"}
+PrimModel! {i64, c_long, "[`i64`]", "`[i64]`"}
 
 #[derive(Clone, Debug)]
-/// A primitive model of data type `N` cached on the heap. The pointer `PrimitiveModelN` returned
-/// from `get_model_N()` references this memory.
+/// A primitive model of data type `N` cached on the heap.
+///
+/// The pointer [`PrimitiveModelN`] returned from [`get_model_N()`] references this memory.
+///
+/// [`PrimitiveModelN`]: struct.PrimitiveModelF32.html
+/// [`get_model_N()`]: fn.get_model_f32.html
 pub(crate) enum PrimitiveModel {
     F32(Vec<f32>),
     F64(Vec<f64>),
@@ -128,6 +121,12 @@ pub struct FFIClient {
 /// broadcasted FL round data. Specifies the `min_threads` and `max_threads` available to the
 /// [`Runtime`].
 ///
+/// # Errors
+/// Returns a null pointer in case of invalid arguments or if the initialization of the runtime
+/// or the client fails. The following must hold true for arguments to be valid:
+/// - `period` > 0
+/// - 0 < `min_thread` <= `max_thread` <= 32,768
+///
 /// # Safety
 /// The method depends on the safety of the `callback` and on the consistent definition and layout
 /// of its `input` across the FFI-boundary.
@@ -137,8 +136,7 @@ pub unsafe extern "C" fn new_client(
     max_threads: c_ulong,
 ) -> *mut FFIClient {
     if period == 0 || min_threads == 0 || max_threads < min_threads || max_threads > 32_768 {
-        // TODO: add error handling
-        panic!("invalid parameters")
+        return ptr::null_mut() as *mut FFIClient;
     }
     let runtime = if let Ok(runtime) = Builder::new()
         .threaded_scheduler()
@@ -150,14 +148,12 @@ pub unsafe extern "C" fn new_client(
     {
         runtime
     } else {
-        // TODO: add error handling
-        panic!("async runtime creation failed");
+        return ptr::null_mut() as *mut FFIClient;
     };
     let client = if let Ok(client) = runtime.enter(move || Client::new(period)) {
         client
     } else {
-        // TODO: add error handling
-        panic!("participant initialization failed")
+        return ptr::null_mut() as *mut FFIClient;
     };
     Box::into_raw(Box::new(FFIClient { runtime, client }))
 }
@@ -168,8 +164,20 @@ pub unsafe extern "C" fn new_client(
 ///
 /// The [`Client`]'s tasks are executed in an asynchronous [`Runtime`].
 ///
-/// Takes a `callback(state)` function pointer and a void pointer to the `state` of the callback.
-/// The callback will be executed when the client must be stopped because of a panic or error.
+/// Takes a `callback(state, code)` function pointer and a void pointer to the `state` of the
+/// callback. The callback will be triggered when the client must be stopped because of a panic or
+/// error. See the [errors] section for the error `code` definitions.
+///
+/// # Errors
+/// Ignores null pointer `client`s and triggers the callback immediately. Triggers the callback
+/// with one of the following error codes in case of a [`Client`] panic or error:
+/// - `-1`: client didn't start due to null pointer
+/// - `0`: no error
+/// - `1`: client panicked due to unexpected/unhandled error
+/// - `2`: client stopped due to error [`ParticipantInitErr`]
+/// - `3`: client stopped due to error [`ParticipantErr`]
+/// - `4`: client stopped due to error [`DeserialiseErr`]
+/// - `5`: client stopped due to error [`GeneralErr`]
 ///
 /// # Safety
 /// The method dereferences from the raw pointer arguments. Therefore, the behavior of
@@ -178,41 +186,43 @@ pub unsafe extern "C" fn new_client(
 /// If the callback is triggered because of a panicking client, it is the users responsibility
 /// to not access possibly invalid state and to drop the client. If certain parts of the state
 /// can be guaranteed to be valid, they may be read before dropping.
+///
+/// [errors]: #errors
+/// [`ParticipantInitErr`]: ../../client/enum.ClientError.html#variant.ParticipantInitErr
+/// [`ParticipantErr`]: ../../client/enum.ClientError.html#variant.ParticipantErr
+/// [`DeserialiseErr`]: ../../client/enum.ClientError.html#variant.DeserialiseErr
+/// [`GeneralErr`]: ../../client/enum.ClientError.html#variant.GeneralErr
 pub unsafe extern "C" fn run_client(
     client: *mut FFIClient,
-    callback: unsafe extern "C" fn(*mut c_void),
+    callback: unsafe extern "C" fn(*mut c_void, c_int),
     state: *mut c_void,
 ) {
     if client.is_null() {
-        // TODO: add error handling
-        panic!("invalid client");
+        return unsafe {
+            // safe if the `callback` is sound
+            callback(state, -1_i32 as c_int)
+        };
     }
     let (runtime, client) = unsafe {
         // safe if the raw pointer `client` comes from a valid allocation of a `FFIClient`
         (&(*client).runtime, &mut (*client).client)
     };
-    match panic::catch_unwind(
+    let code = match panic::catch_unwind(
         // even though `&mut Client` is `!UnwindSafe` we can assert this because the user will be
         // notified about a panic immediately to be able to safely act accordingly
-        AssertUnwindSafe(|| runtime.handle().block_on(client.start())),
+        panic::AssertUnwindSafe(|| runtime.handle().block_on(client.start())),
     ) {
-        Ok(result) => {
-            if let Err(_error) = result {
-                // TODO: use the error value in the callback
-                unsafe {
-                    // safe if the `callback` is sound
-                    callback(state)
-                };
-            }
-        }
-        Err(_panic) => {
-            // TODO: use the panic value in the callback
-            unsafe {
-                // safe if the `callback` is sound
-                callback(state)
-            };
-        }
-    }
+        Ok(Ok(_)) => 0_i32,
+        Err(_) => 1_i32,
+        Ok(Err(ClientError::ParticipantInitErr(_))) => 2_i32,
+        Ok(Err(ClientError::ParticipantErr(_))) => 3_i32,
+        Ok(Err(ClientError::DeserialiseErr(_))) => 4_i32,
+        Ok(Err(ClientError::GeneralErr)) => 5_i32,
+    } as c_int;
+    unsafe {
+        // safe if the `callback` is sound
+        callback(state, code)
+    };
 }
 
 #[allow(unused_unsafe)]
@@ -223,6 +233,9 @@ pub unsafe extern "C" fn run_client(
 /// shutting it down forcefully (cf. the remarks about memory safety of the [runtime shutdown] in
 /// case of elapsed timeout). Usually, no timeout (i.e. 0 seconds) suffices, but stopping might take
 /// indefinitely if the client performs long blocking tasks.
+///
+/// # Errors
+/// Ignores null pointer `client`s and returns immediately.
 ///
 /// # Safety
 /// The method dereferences from the raw pointer arguments. Therefore, the behavior of
@@ -247,13 +260,15 @@ pub unsafe extern "C" fn drop_client(client: *mut FFIClient, timeout: c_ulong) {
 #[no_mangle]
 /// Checks if the next round has started.
 ///
+/// # Errors
+/// Ignores null pointer `client`s and returns `false` immediately.
+///
 /// # Safety
 /// The method dereferences from the raw pointer arguments. Therefore, the behavior of
 /// the method is undefined if the arguments don't point to valid objects.
 pub unsafe extern "C" fn is_next_round(client: *mut FFIClient) -> bool {
     if client.is_null() {
-        // TODO: add error handling
-        panic!("invalid client");
+        return false;
     }
     let client = unsafe {
         // safe if the raw pointer `client` comes from a valid allocation of a `FFIClient`
@@ -266,13 +281,15 @@ pub unsafe extern "C" fn is_next_round(client: *mut FFIClient) -> bool {
 #[no_mangle]
 /// Checks if the next global model is available.
 ///
+/// # Errors
+/// Ignores null pointer `client`s and returns `false` immediately.
+///
 /// # Safety
 /// The method dereferences from the raw pointer arguments. Therefore, the behavior of
 /// the method is undefined if the arguments don't point to valid objects.
 pub unsafe extern "C" fn has_next_model(client: *mut FFIClient) -> bool {
     if client.is_null() {
-        // TODO: add error handling
-        panic!("invalid client");
+        return false;
     }
     let client = unsafe {
         // safe if the raw pointer `client` comes from a valid allocation of a `FFIClient`
@@ -285,6 +302,9 @@ pub unsafe extern "C" fn has_next_model(client: *mut FFIClient) -> bool {
 #[no_mangle]
 /// Checks if the current role of the participant is [`Update`].
 ///
+/// # Errors
+/// Ignores null pointer `client`s and returns `false` immediately.
+///
 /// # Safety
 /// The method dereferences from the raw pointer arguments. Therefore, the behavior of
 /// the method is undefined if the arguments don't point to valid objects.
@@ -292,8 +312,7 @@ pub unsafe extern "C" fn has_next_model(client: *mut FFIClient) -> bool {
 /// [`Update`]: ../../participant/enum.Task.html#variant.Update
 pub unsafe extern "C" fn is_update_participant(client: *mut FFIClient) -> bool {
     if client.is_null() {
-        // TODO: add error handling
-        panic!("invalid client");
+        return false;
     }
     let client = unsafe {
         // safe if the raw pointer `client` comes from a valid allocation of a `FFIClient`
@@ -319,13 +338,18 @@ macro_rules! get_model {
             #[doc = "modified in place, for example for training.\n"]
             #[doc = "\n"]
             #[doc = "# Errors\n"]
-            #[doc = "- Returns a"]
+            #[doc = "Ignores null pointer `client`s and returns a"]
             #[doc = $doc]
-            #[doc = "with `null` pointer and `len` zero if no global model is available or"]
+            #[doc = "with null pointer and length zero immediately.\n"]
+            #[doc = "\n"]
+            #[doc = "Returns a"]
+            #[doc = $doc]
+            #[doc = "with null pointer and length zero if no global model is available or"]
             #[doc = "deserialization of the global model fails.\n"]
-            #[doc = "- Returns a"]
+            #[doc = "\n"]
+            #[doc = "Returns a"]
             #[doc = $doc]
-            #[doc = "with `null` pointer and `len` of the global model if the conversion of the"]
+            #[doc = "with null pointer and length of the global model if the conversion of the"]
             #[doc = "global model into the chosen primitive data type fails.\n"]
             #[doc = "\n"]
             #[doc = "# Safety\n"]
@@ -338,8 +362,9 @@ macro_rules! get_model {
                 client: *mut FFIClient,
             ) -> [<PrimitiveModel $prim_rust:upper>] {
                 if client.is_null() {
-                    // TODO: add error handling
-                    panic!("invalid client");
+                    let len = 0_u64 as c_ulong;
+                    let ptr = ptr::null_mut() as *mut $prim_c;
+                    return [<PrimitiveModel $prim_rust:upper>] { ptr, len };
                 }
                 let client = unsafe {
                     // safe if the raw pointer `client` comes from a valid allocation of a `FFIClient`
@@ -409,6 +434,16 @@ macro_rules! update_model {
             #[doc = $doc1]
             #[doc = "requires additional copying while beeing iterated over.\n"]
             #[doc = "\n"]
+            #[doc = "# Errors"]
+            #[doc = "Ignores null pointer `client`s and `model`s and returns immediately.\n"]
+            #[doc = "\n"]
+            #[doc = "Returns an error if the `model` is not representable in memory."]
+            #[doc = "\n"]
+            #[doc = "The error codes are as following:\n"]
+            #[doc = "- `-1`: client didn't update due to null pointer\n"]
+            #[doc = "- `0`: no error\n"]
+            #[doc = "- `1`: client didn't update due to model length\n"]
+            #[doc = "\n"]
             #[doc = "# Safety\n"]
             #[doc = "The method dereferences from the raw pointer arguments. Therefore, the"]
             #[doc = "behavior of the method is undefined if the arguments don't point to valid"]
@@ -424,14 +459,13 @@ macro_rules! update_model {
             pub unsafe extern "C" fn [<update_model_ $prim>](
                 client: *mut FFIClient,
                 model: [<PrimitiveModel $prim:upper>],
-            ) {
-                if client.is_null()
-                    || model.ptr.is_null()
-                    || model.len == 0
-                    || model.len > (isize::MAX as usize / mem::size_of::<$prim>()) as c_ulong
+            ) -> c_int {
+                if client.is_null() || model.ptr.is_null() {
+                    return -1_i32 as c_int;
+                }
+                if model.len == 0 || model.len > (isize::MAX as usize / mem::size_of::<$prim>()) as c_ulong
                 {
-                    // TODO: add error handling
-                    panic!("invalid primitive model");
+                    return 1_i32 as c_int;
                 }
 
                 let client = unsafe {
@@ -452,6 +486,7 @@ macro_rules! update_model {
                         slice::from_raw_parts(model.ptr as *const _, model.len as usize)
                     }.into_iter().copied()));
                 }
+                0_i32 as c_int
             }
         }
     };
@@ -466,19 +501,20 @@ update_model!(i64, "[`i64`]", "[`get_model_i64()`]");
 #[no_mangle]
 /// Destroys a [`Client`]'s cached primitive model and frees its allocated memory.
 ///
+/// # Errors
+/// Ignores null pointer `client`s and returns immediately.
+///
 /// # Safety
 /// The method dereferences from the raw pointer arguments. Therefore, the behavior of
 /// the method is undefined if the arguments don't point to valid objects.
 pub unsafe extern "C" fn drop_model(client: *mut FFIClient) {
-    if client.is_null() {
-        // TODO: add error handling
-        panic!("invalid client");
+    if !client.is_null() {
+        let client = unsafe {
+            // safe if the raw pointer `client` comes from a valid allocation of a `Client`
+            &mut (*client).client
+        };
+        client.cached_model.take();
     }
-    let client = unsafe {
-        // safe if the raw pointer `client` comes from a valid allocation of a `Client`
-        &mut (*client).client
-    };
-    client.cached_model.take();
 }
 
 #[cfg(test)]
@@ -493,32 +529,41 @@ mod tests {
     #[test]
     fn test_new_client() {
         let client = unsafe { new_client(10, 1, 4) };
+        assert!(!client.is_null());
         unsafe { drop_client(client, 0) };
     }
 
     #[test]
     fn test_run_client() {
+        // define state and callback
         #[repr(C)]
         struct State {
             client_crashed: bool,
+            error_code: c_int,
         };
-
         #[allow(unused_unsafe)]
         #[no_mangle]
-        unsafe extern "C" fn callback(state: *mut c_void) {
-            unsafe { &mut *(state as *mut State) }.client_crashed = true;
+        unsafe extern "C" fn callback(state: *mut c_void, code: c_int) {
+            if code != 0 {
+                let state = unsafe { &mut *(state as *mut State) };
+                state.client_crashed = true;
+                state.error_code = code;
+            }
         }
 
         // check that the client panics when running it without a service
         let client = unsafe { new_client(10, 1, 4) };
         let mut state = State {
             client_crashed: false,
+            error_code: 0_i32 as c_int,
         };
         unsafe { run_client(client, callback, &mut state as *mut _ as *mut c_void) };
         assert!(state.client_crashed);
+        assert_eq!(state.error_code, 1);
         unsafe { drop_client(client, 0) };
     }
 
+    // define dummy model of length `len` where all values are set to `val`
     fn dummy_model(val: f64, len: usize) -> (Model, SerializedGlobalModel) {
         let model = Model::from_iter(vec![Ratio::from_float(val).unwrap(); len].into_iter());
         let serialized_model = Arc::new(bincode::serialize(&model).unwrap());
@@ -580,7 +625,7 @@ mod tests {
                         panic!();
                     }
                     assert!(unsafe {  &*client }.client.local_model.is_none());
-                    unsafe { [<update_model_ $prim>](client, prim_model) };
+                    assert_eq!(unsafe { [<update_model_ $prim>](client, prim_model) }, 0);
                     assert!(unsafe { &mut *client }.client.cached_model.is_none());
                     if let Some(ref local_model) = unsafe { &*client }.client.local_model {
                         assert_eq!(&model, local_model);
@@ -626,7 +671,7 @@ mod tests {
                         panic!();
                     }
                     assert!(unsafe {  &*client }.client.local_model.is_none());
-                    unsafe { [<update_model_ $prim>](client, other_prim_model) };
+                    assert_eq!(unsafe { [<update_model_ $prim>](client, other_prim_model) }, 0);
                     assert!(unsafe { &mut *client }.client.cached_model.is_none());
                     if let Some(ref local_model) = unsafe { &*client }.client.local_model {
                         assert_ne!(&model, local_model);
