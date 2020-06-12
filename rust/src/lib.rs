@@ -15,6 +15,7 @@ pub mod message;
 pub mod participant;
 pub mod sdk;
 pub mod service;
+pub mod state_machine;
 
 use std::collections::HashMap;
 
@@ -32,11 +33,14 @@ use self::crypto::{
 #[error("initialization failed: insufficient system entropy to generate secrets")]
 pub struct InitError;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Error, PartialEq)]
 /// PET protocol errors.
 pub enum PetError {
+    #[error("protocol failed: invalid message")]
     InvalidMessage,
+    #[error("protocol failed: invalid mask")]
     InvalidMask,
+    #[error("protocol failed: invalid model")]
     InvalidModel,
 }
 
