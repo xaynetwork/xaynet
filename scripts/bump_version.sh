@@ -156,17 +156,7 @@ set_version_in_file() {
 # Update the version numbers in various files, and ask confirmation from the
 # user before committing these changes.
 update_versions() {
-    local py_files=
-
     set_version_in_file 's/^version = ".*"$/version = "'"$(version)"'"/g' rust/Cargo.toml
-
-    py_files=(
-        python/sdk/xain_sdk/__version__.py
-        python/aggregators/xain_aggregators/__version__.py
-    )
-    for f in "${py_files[@]}" ; do
-        set_version_in_file 's/[0-9]\.[0-9]\.[0-9]/'"$(version)"'/g' ${f}
-    done
 
     for f in swagger/*.yml ; do
         set_version_in_file 's/\(\s\+version: \)[0-9]\.[0-9]\.[0-9]/\1'"$(version)"'/g' "${f}"
@@ -181,15 +171,9 @@ update_versions() {
         git --no-pager diff
         echo "Do you want to commit the changes above?"
         ask_yes_or_no
-        git add rust/Cargo.toml python/sdk/xain_sdk/__version__.py python/aggregators/xain_aggregators/__version__.py swagger/*.yml
+        git add rust/Cargo.toml swagger/*.yml
         git commit -m "bump version $(prev_version) -> $(version)"
     fi
-}
-
-build_python_package() {
-    echo "Building python package at $(pwd)"
-    python setup.py sdist bdist_wheel
-    echo "Python package at $(pwd) built successfully"
 }
 
 cargo_publish_dry_run() {
@@ -265,8 +249,6 @@ main() {
     update_versions
     check_changelog_was_updated
 
-    (cd python/sdk && build_python_package)
-    (cd python/aggregators && build_python_package)
     (cd rust && cargo_publish_dry_run)
 
     echo "Tagging ${HEAD} as \"v$(version)\""
@@ -275,12 +257,7 @@ main() {
     echo "Done!"
 
     cat << EOF
-You can now publish the Python packages:
-
-    (cd python/sdk && twine upload dist/*)
-    (cd python/aggregators && twine upload dist/*)
-
-And publish the Rust package:
+You can now publish the Rust package:
 
     (cd rust && cargo publish)
 

@@ -1,3 +1,7 @@
+___
+**NOTE: Documentation is outdated, needs updating!**
+___
+
 # XAIN Federated Learning
 
 This is the main source code repository for [xain-fl](https://www.xain.io/).
