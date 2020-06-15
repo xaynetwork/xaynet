@@ -15,6 +15,7 @@ use tokio::sync::mpsc;
 pub struct Sum;
 
 impl State<Sum> {
+    #[allow(clippy::new_ret_no_self)]
     pub fn new(
         coordinator_state: CoordinatorState,
         request_rx: mpsc::UnboundedReceiver<Request>,

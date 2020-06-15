@@ -7,6 +7,7 @@ pub struct Error {
 }
 
 impl State<Error> {
+    #[allow(clippy::new_ret_no_self)]
     pub fn new(
         coordinator_state: CoordinatorState,
         request_rx: mpsc::UnboundedReceiver<Request>,

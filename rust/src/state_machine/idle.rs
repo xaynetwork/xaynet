@@ -10,6 +10,7 @@ use tokio::sync::mpsc;
 pub struct Idle;
 
 impl State<Idle> {
+    #[allow(clippy::new_ret_no_self)]
     pub fn new(
         coordinator_state: CoordinatorState,
         request_rx: mpsc::UnboundedReceiver<Request>,

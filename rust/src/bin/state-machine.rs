@@ -24,15 +24,15 @@ async fn main() {
         }
     });
 
-    let (tx, rx) = oneshot::channel::<Result<(), PetError>>();
-    let (pk, _) = generate_signing_key_pair();
+    let (response_tx, response_rx) = oneshot::channel::<Result<(), PetError>>();
+    let (participant_pk, _) = generate_signing_key_pair();
     let (ephm_pk, _) = generate_encrypt_key_pair();
     let sum_req = SumRequest {
-        participant_pk: pk,
-        ephm_pk: ephm_pk,
-        response_tx: tx,
+        participant_pk,
+        ephm_pk,
+        response_tx,
     };
 
     let _ = request_tx.send(Request::Sum(sum_req));
-    println!("{:?}", rx.await);
+    println!("{:?}", response_rx.await);
 }
