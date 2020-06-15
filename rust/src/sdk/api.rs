@@ -166,13 +166,14 @@ pub unsafe extern "C" fn new_client(
 ///
 /// Takes a `callback(state, code)` function pointer and a void pointer to the `state` of the
 /// callback. The callback will be triggered when the client must be stopped because of a panic or
-/// error. See the [errors] section for the error `code` definitions.
+/// error or when the client terminates successfully. See the [errors] section for the error `code`
+/// definitions.
 ///
 /// # Errors
 /// Ignores null pointer `client`s and triggers the callback immediately. Triggers the callback
 /// with one of the following error codes in case of a [`Client`] panic or error:
 /// - `-1`: client didn't start due to null pointer
-/// - `0`: no error
+/// - `0`: no error (only for clients with finite number of FL rounds)
 /// - `1`: client panicked due to unexpected/unhandled error
 /// - `2`: client stopped due to error [`ParticipantInitErr`]
 /// - `3`: client stopped due to error [`ParticipantErr`]
@@ -207,11 +208,11 @@ pub unsafe extern "C" fn run_client(
         // safe if the raw pointer `client` comes from a valid allocation of a `FFIClient`
         (&(*client).runtime, &mut (*client).client)
     };
-    let code = match panic::catch_unwind(
+    let code = match panic::catch_unwind(unsafe {
         // even though `&mut Client` is `!UnwindSafe` we can assert this because the user will be
         // notified about a panic immediately to be able to safely act accordingly
-        panic::AssertUnwindSafe(|| runtime.handle().block_on(client.start())),
-    ) {
+        panic::AssertUnwindSafe(|| runtime.handle().block_on(client.start()))
+    }) {
         Ok(Ok(_)) => 0_i32,
         Err(_) => 1_i32,
         Ok(Err(ClientError::ParticipantInitErr(_))) => 2_i32,
@@ -434,10 +435,10 @@ macro_rules! update_model {
             #[doc = $doc1]
             #[doc = "requires additional copying while beeing iterated over.\n"]
             #[doc = "\n"]
-            #[doc = "# Errors"]
+            #[doc = "# Errors\n"]
             #[doc = "Ignores null pointer `client`s and `model`s and returns immediately.\n"]
             #[doc = "\n"]
-            #[doc = "Returns an error if the `model` is not representable in memory."]
+            #[doc = "Returns an error if the `model` is not representable in memory.\n"]
             #[doc = "\n"]
             #[doc = "The error codes are as following:\n"]
             #[doc = "- `-1`: client didn't update due to null pointer\n"]
@@ -454,8 +455,9 @@ macro_rules! update_model {
             #[doc = "and then modified or which isn't allocated by"]
             #[doc = $doc1]
             #[doc = ". Therefore, the behavior of the method is undefined if any of the"]
-            #[doc = "[slice safety conditions](https://doc.rust-lang.org/std/slice/fn.from_raw_parts.html#safety)"]
-            #[doc = " are violated for `model`."]
+            #[doc = "[slice safety conditions] are violated for `model`.\n"]
+            #[doc = "\n"]
+            #[doc = "[slice safety conditions]: https://doc.rust-lang.org/std/slice/fn.from_raw_parts.html#safety"]
             pub unsafe extern "C" fn [<update_model_ $prim>](
                 client: *mut FFIClient,
                 model: [<PrimitiveModel $prim:upper>],
