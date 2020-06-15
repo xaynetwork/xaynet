@@ -14,7 +14,6 @@ import os
 import sys
 
 import toml
-
 from sphinx.ext import apidoc
 
 sys.path.insert(0, os.path.abspath(".."))
@@ -25,7 +24,7 @@ version = toml.load("../rust/Cargo.toml")["package"]["version"]
 # -- Project information -----------------------------------------------------
 
 project = "XAIN FL"
-copyright = "2019, XAIN FL Contributors"
+copyright = "2020, XAIN FL Contributors"
 author = "XAIN FL Contributors"
 
 # The major project version, used as the replacement for |version|. For example,

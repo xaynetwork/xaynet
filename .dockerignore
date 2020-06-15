@@ -1,13 +1,5 @@
-
 .git
 .github
-
-**/__pycache__
-*,cover
-*.log
-*.pyc
-*.pyd
-*.pyo
 
 **/.ignore
 **/shell.nix
