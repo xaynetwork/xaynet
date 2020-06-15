@@ -18,6 +18,9 @@ pub enum RequestFailed {
     #[error("Invalid sum signature")]
     InvalidSumSignature,
 
+    #[error("Invalid update signature")]
+    InvalidUpdateSignature,
+
     #[error("Not eligible for sum task")]
     NotSumEligible,
 

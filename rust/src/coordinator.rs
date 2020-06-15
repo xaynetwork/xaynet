@@ -305,7 +305,8 @@ impl Coordinator {
         pk: &UpdateParticipantPublicKey,
         local_seed_dict: &LocalSeedDict,
     ) -> Result<(), PetError> {
-        // FIXME: the first 2 check can be done before hande
+        // FIXME: the first 2 check should be done before hand, in the
+        // UpdatePreProcessorService.
         if local_seed_dict.keys().len() == self.sum_dict.keys().len()
             && local_seed_dict
                 .keys()
