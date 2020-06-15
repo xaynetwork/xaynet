@@ -2,7 +2,9 @@ use super::{sum::Sum, CoordinatorState, Request, State, StateMachine};
 use crate::{
     coordinator::RoundSeed,
     crypto::{ByteObject, SigningKeySeed},
+    mask::Aggregation,
 };
+
 use sodiumoxide::crypto::hash::sha256;
 use tokio::sync::mpsc;
 
@@ -27,6 +29,7 @@ impl State<Idle> {
         self.clear_round_dicts();
         self.update_round_thresholds();
         self.update_round_seed();
+        self.reset_aggregator();
         State::<Sum>::new(self.coordinator_state, self.request_rx)
     }
 
@@ -58,5 +61,9 @@ impl State<Idle> {
         self.coordinator_state.seed_dict.shrink_to_fit();
         self.coordinator_state.mask_dict.clear();
         self.coordinator_state.mask_dict.shrink_to_fit();
+    }
+
+    fn reset_aggregator(&mut self) {
+        self.coordinator_state.aggregation = Aggregation::new(self.coordinator_state.mask_config);
     }
 }

@@ -8,7 +8,7 @@ use super::{
     StateError,
     StateMachine,
 };
-use crate::{LocalSeedDict, PetError, UpdateParticipantPublicKey};
+use crate::{mask::MaskObject, LocalSeedDict, PetError, UpdateParticipantPublicKey};
 use tokio::sync::mpsc;
 
 #[derive(Debug)]
@@ -60,9 +60,43 @@ impl State<Update> {
         let UpdateRequest {
             participant_pk,
             local_seed_dict,
+            masked_model,
             response_tx,
         } = req;
-        let _ = response_tx.send(self.add_local_seed_dict(&participant_pk, &local_seed_dict));
+
+        let _ = response_tx.send(self.update_seed_dict_and_aggregate_mask(
+            &participant_pk,
+            &local_seed_dict,
+            masked_model,
+        ));
+    }
+
+    fn update_seed_dict_and_aggregate_mask(
+        &mut self,
+        pk: &UpdateParticipantPublicKey,
+        local_seed_dict: &LocalSeedDict,
+        masked_model: MaskObject,
+    ) -> Result<(), PetError> {
+        // Try to update local seed dict first. If this fail, we do
+        // not want to aggregate the model.
+        debug!("updating the global seed dictionary");
+        self.add_local_seed_dict(pk, local_seed_dict)
+            .map_err(|err| {
+                warn!("invalid local seed dictionary, ignoring update message");
+                err
+            })?;
+
+        // Check if aggregation can be performed, and do it.
+        debug!("aggregating masked model");
+        self.coordinator_state
+            .aggregation
+            .validate_aggregation(&masked_model)
+            .map_err(|e| {
+                warn!("aggregation error: {}", e);
+                PetError::InvalidMessage
+            })?;
+        self.coordinator_state.aggregation.aggregate(masked_model);
+        Ok(())
     }
 
     /// Add a local seed dictionary to the seed dictionary. Fails if

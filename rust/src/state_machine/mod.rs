@@ -1,7 +1,7 @@
 use crate::{
     coordinator::{MaskDict, RoundFailed, RoundSeed},
     crypto::ByteObject,
-    mask::{BoundType, DataType, GroupType, MaskConfig, ModelType},
+    mask::{Aggregation, BoundType, DataType, GroupType, MaskConfig, ModelType},
     state_machine::{error::Error, idle::Idle, sum::Sum, sum2::Sum2, update::Update},
     CoordinatorPublicKey,
     CoordinatorSecretKey,
@@ -23,7 +23,7 @@ mod update;
 
 use requests::Request;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct CoordinatorState {
     pk: CoordinatorPublicKey, // 32 bytes
     sk: CoordinatorSecretKey, // 32 bytes
@@ -45,6 +45,9 @@ pub struct CoordinatorState {
 
     /// The masking configuration
     mask_config: MaskConfig,
+
+    /// The aggregated masked model being built in the current round.
+    aggregation: Aggregation,
 }
 
 impl Default for CoordinatorState {
@@ -65,6 +68,7 @@ impl Default for CoordinatorState {
             bound_type: BoundType::B0,
             model_type: ModelType::M3,
         };
+        let aggregation = Aggregation::new(mask_config);
         Self {
             pk,
             sk,
@@ -77,6 +81,7 @@ impl Default for CoordinatorState {
             seed_dict,
             mask_dict,
             mask_config,
+            aggregation,
         }
     }
 }
@@ -152,5 +157,155 @@ impl StateMachine {
             request_tx,
             State::<Idle>::new(coordinator_state, request_rx),
         ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        crypto::{generate_encrypt_key_pair, generate_signing_key_pair},
+        mask::{EncryptedMaskSeed, MaskObject, MaskSeed},
+        state_machine::requests::{Sum2Request, SumRequest, UpdateRequest},
+        LocalSeedDict,
+        PetError,
+        SumParticipantPublicKey,
+    };
+    use tokio::sync::oneshot;
+    use tracing_subscriber::*;
+
+    fn enable_logging() {
+        let _fmt_subscriber = FmtSubscriber::builder()
+            .with_env_filter(EnvFilter::from_default_env())
+            .with_ansi(true)
+            .init();
+    }
+
+    fn gen_sum_request() -> (
+        SumRequest,
+        SumParticipantPublicKey,
+        oneshot::Receiver<Result<(), PetError>>,
+    ) {
+        let (response_tx, response_rx) = oneshot::channel::<Result<(), PetError>>();
+        let (participant_pk, _) = generate_signing_key_pair();
+        let (ephm_pk, _) = generate_encrypt_key_pair();
+        (
+            SumRequest {
+                participant_pk,
+                ephm_pk,
+                response_tx,
+            },
+            participant_pk,
+            response_rx,
+        )
+    }
+
+    fn gen_update_request(
+        sum_pk: SumParticipantPublicKey,
+    ) -> (UpdateRequest, oneshot::Receiver<Result<(), PetError>>) {
+        let (response_tx, response_rx) = oneshot::channel::<Result<(), PetError>>();
+        let (participant_pk, _) = generate_signing_key_pair();
+        let mut local_seed_dict = LocalSeedDict::new();
+        local_seed_dict.insert(sum_pk, EncryptedMaskSeed::zeroed());
+        let masked_model = gen_mask();
+        (
+            UpdateRequest {
+                participant_pk,
+                local_seed_dict,
+                masked_model,
+                response_tx,
+            },
+            response_rx,
+        )
+    }
+
+    fn gen_mask() -> MaskObject {
+        let seed = MaskSeed::generate();
+        let mask = seed.derive_mask(
+            10,
+            MaskConfig {
+                group_type: GroupType::Prime,
+                data_type: DataType::F32,
+                bound_type: BoundType::B0,
+                model_type: ModelType::M3,
+            },
+        );
+        mask
+    }
+
+    fn gen_sum2_request(
+        sum_pk: SumParticipantPublicKey,
+    ) -> (Sum2Request, oneshot::Receiver<Result<(), PetError>>) {
+        let (response_tx, response_rx) = oneshot::channel::<Result<(), PetError>>();
+        let mask = gen_mask();
+        (
+            Sum2Request {
+                participant_pk: sum_pk,
+                mask,
+                response_tx,
+            },
+            response_rx,
+        )
+    }
+
+    fn is_update(state_machine: &StateMachine) -> bool {
+        match state_machine {
+            StateMachine::Update(_) => true,
+            _ => false,
+        }
+    }
+
+    fn is_sum(state_machine: &StateMachine) -> bool {
+        match state_machine {
+            StateMachine::Sum(_) => true,
+            _ => false,
+        }
+    }
+
+    fn is_sum2(state_machine: &StateMachine) -> bool {
+        match state_machine {
+            StateMachine::Sum2(_) => true,
+            _ => false,
+        }
+    }
+
+    fn is_idle(state_machine: &StateMachine) -> bool {
+        match state_machine {
+            StateMachine::Idle(_) => true,
+            _ => false,
+        }
+    }
+
+    #[tokio::test]
+    async fn test_state_machine() {
+        enable_logging();
+        let (request_tx, mut state_machine) = StateMachine::new().unwrap();
+        assert!(is_idle(&state_machine));
+
+        state_machine = state_machine.next().await; // transition from init to sum state
+        assert!(is_sum(&state_machine));
+
+        let (sum_req, sum_pk, response_rx) = gen_sum_request();
+        let _ = request_tx.send(Request::Sum(sum_req));
+
+        state_machine = state_machine.next().await; // transition from sum to update state
+        assert!(is_update(&state_machine));
+        assert!(response_rx.await.is_ok());
+
+        for _ in 0..3 {
+            let (gen_update_request, _) = gen_update_request(sum_pk.clone());
+            let _ = request_tx.send(Request::Update(gen_update_request));
+        }
+        state_machine = state_machine.next().await; // transition from update to sum state
+        assert!(is_sum2(&state_machine));
+
+        let (sum2_req, response_rx) = gen_sum2_request(sum_pk.clone());
+        let _ = request_tx.send(Request::Sum2(sum2_req));
+        state_machine = state_machine.next().await; // transition from sum2 to idle state
+        assert!(response_rx.await.is_ok());
+        assert!(is_idle(&state_machine));
+
+        state_machine = state_machine.next().await; // transition from idle to sum state
+        assert!(is_sum(&state_machine));
     }
 }

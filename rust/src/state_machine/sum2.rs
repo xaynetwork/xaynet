@@ -8,20 +8,18 @@ use super::{
     StateError,
     StateMachine,
 };
+
 use crate::{
     coordinator::RoundFailed,
     mask::{Aggregation, MaskObject, Model},
     PetError,
     SumParticipantPublicKey,
 };
-use std::cmp::Ordering;
+use std::{cmp::Ordering, mem};
 use tokio::sync::mpsc;
 
 #[derive(Debug)]
-pub struct Sum2 {
-    /// The aggregated masked model being built in the current round.
-    aggregation: Option<Aggregation>,
-}
+pub struct Sum2;
 
 impl State<Sum2> {
     #[allow(clippy::new_ret_no_self)]
@@ -31,9 +29,7 @@ impl State<Sum2> {
     ) -> StateMachine {
         info!("state transition");
         StateMachine::Sum2(Self {
-            _inner: Sum2 {
-                aggregation: Some(Aggregation::new(coordinator_state.mask_config)),
-            },
+            _inner: Sum2,
             coordinator_state,
             request_rx,
         })
@@ -123,13 +119,15 @@ impl State<Sum2> {
 
     fn end_round(&mut self) -> Result<Model, RoundFailed> {
         let global_mask = self.freeze_mask_dict()?;
-        // safe unwrap: State::<Sum2>::new always creates an aggregation object
-        let aggregation = self._inner.aggregation.take().unwrap();
+
+        let aggregation = mem::replace(
+            &mut self.coordinator_state.aggregation,
+            Aggregation::new(self.coordinator_state.mask_config),
+        );
 
         aggregation
             .validate_unmasking(&global_mask)
             .map_err(RoundFailed::from)?;
-
         Ok(aggregation.unmask(global_mask))
     }
 }

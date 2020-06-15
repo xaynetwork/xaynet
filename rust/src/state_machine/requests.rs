@@ -26,6 +26,7 @@ pub struct SumRequest {
 pub struct UpdateRequest {
     pub participant_pk: UpdateParticipantPublicKey,
     pub local_seed_dict: LocalSeedDict,
+    pub masked_model: MaskObject,
     pub response_tx: oneshot::Sender<Result<(), PetError>>,
 }
 
