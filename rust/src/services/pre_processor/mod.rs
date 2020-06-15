@@ -4,6 +4,9 @@ pub use sum::SumPreProcessorService;
 mod update;
 pub use update::UpdatePreProcessorService;
 
+mod sum2;
+pub use sum2::Sum2PreProcessorService;
+
 use std::{pin::Pin, task::Poll};
 
 use anyhow::anyhow;
@@ -16,7 +19,7 @@ use tower::Service;
 
 use crate::{
     coordinator::{CoordinatorWatcher, Phase, RoundParameters, WatcherStream},
-    message::{HeaderOwned, MessageOwned, PayloadOwned, SumOwned, UpdateOwned},
+    message::{HeaderOwned, MessageOwned, PayloadOwned, Sum2Owned, SumOwned, UpdateOwned},
     services::{
         error::{RequestFailed, ServiceError},
         state_machine::StateMachineRequest,
@@ -35,6 +38,8 @@ pub struct PreProcessorService {
     sum: SumPreProcessorService,
     /// Inner service to handle update messages
     update: UpdatePreProcessorService,
+    /// Inner service to handle sum2 messages
+    sum2: Sum2PreProcessorService,
 }
 
 impl PreProcessorService {
@@ -46,13 +51,14 @@ impl PreProcessorService {
             current_phase: None,
             sum: SumPreProcessorService,
             update: UpdatePreProcessorService,
+            sum2: Sum2PreProcessorService,
         }
     }
 }
 
 type SumRequest = (HeaderOwned, SumOwned, RoundParameters);
 type UpdateRequest = (HeaderOwned, UpdateOwned, RoundParameters);
-// type Sum2Request = (HeaderOwned, Sum2Owned, RoundParameters);
+type Sum2Request = (HeaderOwned, Sum2Owned, RoundParameters);
 
 pub type PreProcessorRequest = MessageOwned;
 pub type PreProcessorResponse = Result<StateMachineRequest, RequestFailed>;
@@ -77,8 +83,7 @@ impl Service<PreProcessorRequest> for PreProcessorService {
             None => Poll::Pending,
             Some(Phase::Sum) => self.sum.poll_ready(cx).map_err(Into::into),
             Some(Phase::Update) => self.update.poll_ready(cx).map_err(Into::into),
-            // TODO: sum2 phase
-            _ => unimplemented!(),
+            Some(Phase::Sum2) => self.sum2.poll_ready(cx).map_err(Into::into),
         }
     }
 
@@ -97,7 +102,11 @@ impl Service<PreProcessorRequest> for PreProcessorService {
                 let fut = self.update.call(req);
                 Box::pin(async move { fut.await.map_err(Into::into).map(Into::into) })
             }
-            // TODO: other cases
+            (Phase::Sum2, PayloadOwned::Sum2(sum2)) => {
+                let req = (header, sum2, self.watcher.get_round_params());
+                let fut = self.sum2.call(req);
+                Box::pin(async move { fut.await.map_err(Into::into).map(Into::into) })
+            }
             _ => Box::pin(future::ready(Ok(Err(RequestFailed::UnexpectedMessage)))),
         }
     }
