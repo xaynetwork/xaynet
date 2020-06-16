@@ -1,5 +1,6 @@
 use std::{
     pin::Pin,
+    sync::Arc,
     task::{Context, Poll},
 };
 
@@ -9,6 +10,8 @@ use tokio::sync::watch;
 use crate::{
     coordinator::{Phase, RoundId, RoundParameters},
     crypto::KeyPair,
+    SeedDict,
+    SumDict,
 };
 
 /// An event emitted by the coordinator.
@@ -21,11 +24,19 @@ pub struct Event<E> {
     pub event: E,
 }
 
+#[derive(Debug, Clone)]
+pub enum DictionaryUpdate<D> {
+    Invalidate,
+    New(Arc<D>),
+}
+
 /// A convenience type to emit any coordinator event.
 pub struct EventPublisher {
     keys_tx: EventBroadcaster<KeyPair>,
     params_tx: EventBroadcaster<RoundParameters>,
     phase_tx: EventBroadcaster<Phase>,
+    sum_dict_tx: EventBroadcaster<DictionaryUpdate<SumDict>>,
+    seed_dict_tx: EventBroadcaster<DictionaryUpdate<SeedDict>>,
 }
 
 /// The `EventSubscriber` hands out `EventListener`s for any
@@ -34,36 +45,52 @@ pub struct EventSubscriber {
     keys_rx: EventListener<KeyPair>,
     params_rx: EventListener<RoundParameters>,
     phase_rx: EventListener<Phase>,
+    sum_dict_rx: EventListener<DictionaryUpdate<SumDict>>,
+    seed_dict_rx: EventListener<DictionaryUpdate<SeedDict>>,
 }
 
 impl EventPublisher {
     /// Initialize a new event publisher with the given initial events.
     pub fn init(keys: KeyPair, params: RoundParameters, phase: Phase) -> (Self, EventSubscriber) {
-        let (keys_tx, keys_rx) = watch::channel::<Event<KeyPair>>(Event {
-            round: params.id,
-            event: keys,
-        });
+        let round = params.id;
+        let (keys_tx, keys_rx) = watch::channel::<Event<KeyPair>>(Event { round, event: keys });
 
         let (phase_tx, phase_rx) = watch::channel::<Event<Phase>>(Event {
-            round: params.id,
+            round,
             event: phase,
         });
 
         let (params_tx, params_rx) = watch::channel::<Event<RoundParameters>>(Event {
-            round: params.id,
+            round,
             event: params,
         });
+
+        let (sum_dict_tx, sum_dict_rx) =
+            watch::channel::<Event<DictionaryUpdate<SumDict>>>(Event {
+                round,
+                event: DictionaryUpdate::Invalidate,
+            });
+
+        let (seed_dict_tx, seed_dict_rx) =
+            watch::channel::<Event<DictionaryUpdate<SeedDict>>>(Event {
+                round,
+                event: DictionaryUpdate::Invalidate,
+            });
 
         let publisher = EventPublisher {
             keys_tx: keys_tx.into(),
             params_tx: params_tx.into(),
             phase_tx: phase_tx.into(),
+            sum_dict_tx: sum_dict_tx.into(),
+            seed_dict_tx: seed_dict_tx.into(),
         };
 
         let subscriber = EventSubscriber {
             keys_rx: keys_rx.into(),
             params_rx: params_rx.into(),
             phase_rx: phase_rx.into(),
+            sum_dict_rx: sum_dict_rx.into(),
+            seed_dict_rx: seed_dict_rx.into(),
         };
 
         (publisher, subscriber)
@@ -89,6 +116,22 @@ impl EventPublisher {
             event: phase,
         });
     }
+
+    /// Emit a sum dictionary update
+    pub fn broadcast_sum_dict(&mut self, round: RoundId, update: DictionaryUpdate<SumDict>) {
+        let _ = self.sum_dict_tx.broadcast(Event {
+            round,
+            event: update,
+        });
+    }
+
+    /// Emit a seed dictionary update
+    pub fn broadcast_seed_dict(&mut self, round: RoundId, update: DictionaryUpdate<SeedDict>) {
+        let _ = self.seed_dict_tx.broadcast(Event {
+            round,
+            event: update,
+        });
+    }
 }
 
 impl EventSubscriber {
@@ -103,6 +146,16 @@ impl EventSubscriber {
     /// Get a listener for new phase events
     pub fn phase_listener(&self) -> EventListener<Phase> {
         self.phase_rx.clone()
+    }
+
+    /// Get a listener for sum dictionary updates
+    pub fn sum_dict_listener(&self) -> EventListener<DictionaryUpdate<SumDict>> {
+        self.sum_dict_rx.clone()
+    }
+
+    /// Get a listener for seed dictionary updates
+    pub fn seed_dict_listener(&self) -> EventListener<DictionaryUpdate<SeedDict>> {
+        self.seed_dict_rx.clone()
     }
 }
 

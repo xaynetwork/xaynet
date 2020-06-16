@@ -4,7 +4,8 @@ pub mod pre_processor;
 pub mod state_machine;
 pub mod utils;
 
-// mod sum_dict_fetcher;
+pub mod seed_dict;
+pub mod sum_dict;
 
 use std::{
     pin::Pin,

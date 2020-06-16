@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, collections::HashMap, mem};
+use std::{cmp::Ordering, collections::HashMap, mem, sync::Arc};
 
 use sodiumoxide::{
     self,
@@ -9,7 +9,7 @@ use thiserror::Error;
 
 use crate::{
     crypto::{ByteObject, KeyPair, SigningKeySeed},
-    events::{EventPublisher, EventSubscriber},
+    events::{DictionaryUpdate, EventPublisher, EventSubscriber},
     mask::{Aggregation, MaskConfig, MaskObject, Model, UnmaskingError},
     CoordinatorPublicKey,
     InitError,
@@ -202,6 +202,11 @@ impl Coordinator {
             .keys()
             .map(|pk| (*pk, LocalSeedDict::new()))
             .collect();
+        info!("broadcasting sum dictionary");
+        self.events.broadcast_sum_dict(
+            self.round_params.id,
+            DictionaryUpdate::New(Arc::new(self.sum_dict.clone())),
+        );
     }
 
     /// Add a local seed dictionary to the seed dictionary. Fails if
@@ -381,6 +386,11 @@ impl Coordinator {
     fn proceed_sum2_phase(&mut self) {
         info!("going to sum2 phase");
         self.phase = Phase::Sum2;
+        info!("broadcasting seed dictionary");
+        self.events.broadcast_seed_dict(
+            self.round_params.id,
+            DictionaryUpdate::New(Arc::new(self.seed_dict.clone())),
+        );
         self.events
             .broadcast_phase(self.round_params.id, Phase::Sum2);
     }
