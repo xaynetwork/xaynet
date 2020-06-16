@@ -1,12 +1,7 @@
 use super::{idle::Idle, CoordinatorState, Request, State, StateError, StateMachine};
 use tokio::sync::mpsc;
 
-#[derive(Debug)]
-pub struct Error {
-    error: StateError,
-}
-
-impl State<Error> {
+impl State<StateError> {
     #[allow(clippy::new_ret_no_self)]
     pub fn new(
         coordinator_state: CoordinatorState,
@@ -15,15 +10,15 @@ impl State<Error> {
     ) -> StateMachine {
         info!("state transition");
         StateMachine::Error(Self {
-            inner: Error { error },
+            inner: error,
             coordinator_state,
             request_rx,
         })
     }
 
     pub async fn next(self) -> StateMachine {
-        error!("state transition failed! error: {:?}", self.inner.error);
-        if let StateError::ChannelError(e) = self.inner.error {
+        error!("state transition failed! error: {:?}", self.inner);
+        if let StateError::ChannelError(e) = self.inner {
             panic!(e)
         };
 

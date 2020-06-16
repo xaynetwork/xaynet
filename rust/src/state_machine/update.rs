@@ -1,5 +1,4 @@
 use super::{
-    error::Error,
     requests::UpdateRequest,
     sum2::Sum2,
     CoordinatorState,
@@ -31,7 +30,7 @@ impl State<Update> {
     pub async fn next(mut self) -> StateMachine {
         match self.run_phase().await {
             Ok(_) => State::<Sum2>::new(self.coordinator_state, self.request_rx),
-            Err(err) => State::<Error>::new(self.coordinator_state, self.request_rx, err),
+            Err(err) => State::<StateError>::new(self.coordinator_state, self.request_rx, err),
         }
     }
 

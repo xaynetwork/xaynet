@@ -2,7 +2,7 @@ use crate::{
     coordinator::{MaskDict, RoundFailed, RoundSeed},
     crypto::ByteObject,
     mask::{Aggregation, BoundType, DataType, GroupType, MaskConfig, ModelType},
-    state_machine::{error::Error, idle::Idle, sum::Sum, sum2::Sum2, update::Update},
+    state_machine::{idle::Idle, sum::Sum, sum2::Sum2, update::Update},
     CoordinatorPublicKey,
     CoordinatorSecretKey,
     InitError,
@@ -129,7 +129,7 @@ pub enum StateMachine {
     Sum(State<Sum>),
     Update(State<Update>),
     Sum2(State<Sum2>),
-    Error(State<Error>),
+    Error(State<StateError>),
 }
 
 impl StateMachine {
