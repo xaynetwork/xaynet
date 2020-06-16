@@ -9,18 +9,20 @@
 //!     - [`has_next_model()`] indicates if another global model is available.
 //!     - [`is_update_participant()`] indicates if this [`Participant`] is eligible to submit a
 //!       trained local model.
-//! 4. Get the latest global model with [`get_model_N()`], where `N` is the primitive data type.
-//!    Currently, [`f32`], [`f64`], [`i32`] and [`i64`] are supported. The function returns a
-//!    mutable slice [`PrimitiveModelN`] to the primitive model, whereas the primitive model itself
-//!    is cached within the [`Client`]. The slice is valid across the FFI-boundary until one of the
+//! 4. Create a new model initialized with zeros with [`new_model_N()`] or get the latest global
+//!    model with [`get_model_N()`], where `N` is the primitive data type. Currently, [`f32`],
+//!    [`f64`], [`i32`] and [`i64`] are supported. The function returns a mutable slice
+//!    [`PrimitiveModelN`] to the primitive model, whereas the primitive model itself is cached
+//!    within the [`Client`]. The slice is valid across the FFI-boundary until one of the
 //!    following events happen:
-//!     - [`update_model_N()`] and [`drop_model()`] each free the memory to which
-//!       [`PrimitiveModelN`] points to.
-//!     - [`drop_client()`] frees the memory of the [`Client`].
-//!     - [`get_model_N()`] frees and reallocates the memory to which [`PrimitiveModelN`] points to
-//!       if a new global model is available since the last call to [`get_model_N()`].
-//! 5. Register a trained local model with [`update_model_N()`], which takes either a slice to
-//!    the cached primitive model or a slice to a foreign memory location.
+//!    - [`new_model_N()`] reallocates the memory to which [`PrimitiveModelN`] points to.
+//!    - [`get_model_N()`] reallocates the memory to which [`PrimitiveModelN`] points to if a new
+//!      global model is available since the last call to [`get_model_N()`].
+//!    - [`update_model_N()`] frees the memory to which [`PrimitiveModelN`] points to.
+//!    - [`drop_model()`] frees the memory to which [`PrimitiveModelN`] points to.
+//!    - [`drop_client()`] frees the memory of the [`Client`] including the model.
+//!    The cached model can be modified in place, for example for training.
+//! 5. Register a trained local model with [`update_model_N()`].
 //! 6. Stop and destroy the [`Client`] with [`drop_client()`].
 //!
 //! # Safety
@@ -32,6 +34,7 @@
 //! **Note, that the `unsafe` code has not been externally audited yet!**
 //!
 //! [`Coordinator`]: ../../coordinator/struct.Coordinator.html
+//! [`new_model_N()`]: fn.new_model_f32.html
 //! [`get_model_N()`]: fn.get_model_f32.html
 //! [`update_model_N()`]: fn.update_model_f32.html
 //! [`Participant`]: ../../participant/struct.Participant.html
@@ -44,7 +47,6 @@ use std::{
     os::raw::{c_double, c_float, c_int, c_long, c_ulong, c_void},
     panic,
     ptr,
-    slice,
 };
 
 use tokio::{
@@ -269,13 +271,14 @@ pub unsafe extern "C" fn drop_client(client: *mut FFIClient, timeout: c_ulong) {
 /// the method is undefined if the arguments don't point to valid objects.
 pub unsafe extern "C" fn is_next_round(client: *mut FFIClient) -> bool {
     if client.is_null() {
-        return false;
+        false
+    } else {
+        let client = unsafe {
+            // safe if the raw pointer `client` comes from a valid allocation of a `FFIClient`
+            &mut (*client).client
+        };
+        mem::replace(&mut client.has_new_coord_pk_since_last_check, false)
     }
-    let client = unsafe {
-        // safe if the raw pointer `client` comes from a valid allocation of a `FFIClient`
-        &mut (*client).client
-    };
-    mem::replace(&mut client.has_new_coord_pk_since_last_check, false)
 }
 
 #[allow(unused_unsafe)]
@@ -290,13 +293,14 @@ pub unsafe extern "C" fn is_next_round(client: *mut FFIClient) -> bool {
 /// the method is undefined if the arguments don't point to valid objects.
 pub unsafe extern "C" fn has_next_model(client: *mut FFIClient) -> bool {
     if client.is_null() {
-        return false;
+        false
+    } else {
+        let client = unsafe {
+            // safe if the raw pointer `client` comes from a valid allocation of a `FFIClient`
+            &mut (*client).client
+        };
+        mem::replace(&mut client.has_new_global_model_since_last_check, false)
     }
-    let client = unsafe {
-        // safe if the raw pointer `client` comes from a valid allocation of a `FFIClient`
-        &mut (*client).client
-    };
-    mem::replace(&mut client.has_new_global_model_since_last_check, false)
 }
 
 #[allow(unused_unsafe)]
@@ -313,45 +317,114 @@ pub unsafe extern "C" fn has_next_model(client: *mut FFIClient) -> bool {
 /// [`Update`]: ../../participant/enum.Task.html#variant.Update
 pub unsafe extern "C" fn is_update_participant(client: *mut FFIClient) -> bool {
     if client.is_null() {
-        return false;
+        false
+    } else {
+        let client = unsafe {
+            // safe if the raw pointer `client` comes from a valid allocation of a `FFIClient`
+            &(*client).client
+        };
+        client.participant.task == Task::Update
     }
-    let client = unsafe {
-        // safe if the raw pointer `client` comes from a valid allocation of a `FFIClient`
-        &(*client).client
-    };
-    client.participant.task == Task::Update
 }
 
-/// Generates a method to get the global model converted to primitives. The arguments `$prim_rust`
-/// and `$prim_c` are the corresponding Rust and C primitive data types and `$doc` is a type link
+/// Generates a function to create a zero-initialized primitive model. The arguments `$prim_rust`
+/// and `$prim_c` are the corresponding Rust and C primitive data types and `$docN` are type links
 /// for the documentation.
-macro_rules! get_model {
-    ($prim_rust:ty, $prim_c:ty, $doc:expr $(,)?) => {
+macro_rules! new_model {
+    ($prim_rust:ty, $prim_c:ty, $doc0:expr, $doc1:expr $(,)?) => {
         paste::item! {
             #[allow(unused_unsafe)]
             #[no_mangle]
             #[doc = "Gets a mutable slice"]
-            #[doc = $doc]
-            #[doc = "to the latest global model.\n"]
+            #[doc = $doc1]
+            #[doc = "to a zero-initialized model of primitive data type"]
+            #[doc = $doc0]
+            #[doc = "of given length `len`.\n"]
             #[doc = "\n"]
-            #[doc = "The global model gets converted and cached as a primitive model, which is"]
-            #[doc = "valid as described in step 4 of the [workflow]. The cached model can be"]
-            #[doc = "modified in place, for example for training.\n"]
+            #[doc = "The new model gets cached, which overwrites any existing cached model. The"]
+            #[doc = "cache and slice are valid as described in step 4 of the [workflow]. The"]
+            #[doc = "cached model can be modified in place, for example for training.\n"]
             #[doc = "\n"]
             #[doc = "# Errors\n"]
             #[doc = "Ignores null pointer `client`s and returns a"]
-            #[doc = $doc]
+            #[doc = $doc1]
             #[doc = "with null pointer and length zero immediately.\n"]
             #[doc = "\n"]
             #[doc = "Returns a"]
-            #[doc = $doc]
+            #[doc = $doc1]
+            #[doc = "with null pointer and length zero if the model is not representable in"]
+            #[doc = "memory due to the given length `len`.\n"]
+            #[doc = "\n"]
+            #[doc = "# Safety\n"]
+            #[doc = "The method dereferences from the raw pointer arguments. Therefore, the"]
+            #[doc = "behavior of the method is undefined if the arguments don't point to valid"]
+            #[doc = "objects.\n"]
+            #[doc = "\n"]
+            #[doc = "[workflow]: index.html#workflow"]
+            pub unsafe extern "C" fn [<new_model_ $prim_rust>](
+                client: *mut FFIClient,
+                len: c_ulong,
+            ) -> [<PrimitiveModel $prim_rust:upper>] {
+                if client.is_null()
+                    || len == 0
+                    || len > (isize::MAX as usize / mem::size_of::<$prim_rust>()) as c_ulong
+                {
+                    let len = 0_u64 as c_ulong;
+                    let ptr = ptr::null_mut() as *mut $prim_c;
+                    [<PrimitiveModel $prim_rust:upper>] { ptr, len }
+                } else {
+                    let client = unsafe {
+                        // safe if the raw pointer `client` comes from a valid allocation of a `FFIClient`
+                        &mut (*client).client
+                    };
+                    let mut primitive_model = vec![0 as $prim_rust; len as usize];
+                    let ptr = primitive_model.as_mut_ptr() as *mut $prim_c;
+                    client.cached_model = Some(PrimitiveModel::[<$prim_rust:upper>](primitive_model));
+                    [<PrimitiveModel $prim_rust:upper>] { ptr, len }
+                }
+            }
+        }
+    };
+}
+
+new_model!(f32, c_float, "[`f32`]", "[`PrimitiveModelF32`]");
+new_model!(f64, c_double, "[`f64`]", "[`PrimitiveModelF64`]");
+new_model!(i32, c_int, "[`i32`]", "[`PrimitiveModelI32`]");
+new_model!(i64, c_long, "[`i64`]", "[`PrimitiveModelI64`]");
+
+/// Generates a function to get the global model converted to primitives. The arguments `$prim_rust`
+/// and `$prim_c` are the corresponding Rust and C primitive data types and `$docN` are type links
+/// for the documentation.
+macro_rules! get_model {
+    ($prim_rust:ty, $prim_c:ty, $doc0:expr, $doc1:expr $(,)?) => {
+        paste::item! {
+            #[allow(unused_unsafe)]
+            #[no_mangle]
+            #[doc = "Gets a mutable slice"]
+            #[doc = $doc1]
+            #[doc = "to the latest global model converted to primitive data type"]
+            #[doc = $doc0]
+            #[doc = ".\n\n"]
+            #[doc = "The global model gets cached, which overwrites any existing cached model. The"]
+            #[doc = "cache and slice are valid as described in step 4 of the [workflow]. The"]
+            #[doc = "cached model can be modified in place, for example for training.\n"]
+            #[doc = "\n"]
+            #[doc = "# Errors\n"]
+            #[doc = "Ignores null pointer `client`s and returns a"]
+            #[doc = $doc1]
+            #[doc = "with null pointer and length zero immediately.\n"]
+            #[doc = "\n"]
+            #[doc = "Returns a"]
+            #[doc = $doc1]
             #[doc = "with null pointer and length zero if no global model is available or"]
             #[doc = "deserialization of the global model fails.\n"]
             #[doc = "\n"]
             #[doc = "Returns a"]
-            #[doc = $doc]
+            #[doc = $doc1]
             #[doc = "with null pointer and length of the global model if the conversion of the"]
-            #[doc = "global model into the chosen primitive data type fails.\n"]
+            #[doc = "global model into the primitive data type"]
+            #[doc = $doc0]
+            #[doc = "fails.\n"]
             #[doc = "\n"]
             #[doc = "# Safety\n"]
             #[doc = "The method dereferences from the raw pointer arguments. Therefore, the"]
@@ -416,34 +489,33 @@ macro_rules! get_model {
     };
 }
 
-get_model!(f32, c_float, "[`PrimitiveModelF32`]");
-get_model!(f64, c_double, "[`PrimitiveModelF64`]");
-get_model!(i32, c_int, "[`PrimitiveModelI32`]");
-get_model!(i64, c_long, "[`PrimitiveModelI64`]");
+get_model!(f32, c_float, "[`f32`]", "[`PrimitiveModelF32`]");
+get_model!(f64, c_double, "[`f64`]", "[`PrimitiveModelF64`]");
+get_model!(i32, c_int, "[`i32`]", "[`PrimitiveModelI32`]");
+get_model!(i64, c_long, "[`i64`]", "[`PrimitiveModelI64`]");
 
-/// Generates a method to register the updated local model. The argument `$prim` is the
-/// corresponding Rust primitive data type and `$doc` is a type link for the documentation.
+/// Generates a function to register the updated local model. The argument `$prim` is the
+/// corresponding Rust primitive data type and `$docN` are type links for the documentation.
 macro_rules! update_model {
-    ($prim:ty, $doc0:expr, $doc1:expr $(,)?) => {
+    ($prim:ty, $doc0:expr, $doc1:expr, $doc2:expr $(,)?) => {
         paste::item! {
             #[allow(unused_unsafe)]
             #[no_mangle]
             #[doc = "Registers the updated local model of primitive data type"]
             #[doc = $doc0]
             #[doc = ".\n\n"]
-            #[doc = "A `model` which doesn't point to memory allocated by"]
-            #[doc = $doc1]
-            #[doc = "requires additional copying while beeing iterated over.\n"]
-            #[doc = "\n"]
             #[doc = "# Errors\n"]
-            #[doc = "Ignores null pointer `client`s and `model`s and returns immediately.\n"]
+            #[doc = "Ignores null pointer `client`s and returns immediately.\n"]
             #[doc = "\n"]
-            #[doc = "Returns an error if the `model` is not representable in memory.\n"]
+            #[doc = "Returns an error if the cached model is not of primitive data type"]
+            #[doc = $doc0]
+            #[doc = "or if there is no cached model at all.\n"]
             #[doc = "\n"]
             #[doc = "The error codes are as following:\n"]
             #[doc = "- `-1`: client didn't update due to null pointer\n"]
             #[doc = "- `0`: no error\n"]
-            #[doc = "- `1`: client didn't update due to model length\n"]
+            #[doc = "- `1`: client didn't update due missing cache\n"]
+            #[doc = "- `2`: client didn't update due wrongly typed cache\n"]
             #[doc = "\n"]
             #[doc = "# Safety\n"]
             #[doc = "The method dereferences from the raw pointer arguments. Therefore, the"]
@@ -452,56 +524,44 @@ macro_rules! update_model {
             #[doc = "\n"]
             #[doc = "The `model` points to memory which is either allocated by"]
             #[doc = $doc1]
-            #[doc = "and then modified or which isn't allocated by"]
-            #[doc = $doc1]
-            #[doc = ". Therefore, the behavior of the method is undefined if any of the"]
-            #[doc = "[slice safety conditions] are violated for `model`.\n"]
-            #[doc = "\n"]
-            #[doc = "[slice safety conditions]: https://doc.rust-lang.org/std/slice/fn.from_raw_parts.html#safety"]
+            #[doc = "or by"]
+            #[doc = $doc2]
+            #[doc = "and then modified. Therefore, the behavior of the method is undefined if the"]
+            #[doc = "memory was modified in an invalid way."]
             pub unsafe extern "C" fn [<update_model_ $prim>](
                 client: *mut FFIClient,
-                model: [<PrimitiveModel $prim:upper>],
             ) -> c_int {
-                if client.is_null() || model.ptr.is_null() {
+                if client.is_null() {
                     return -1_i32 as c_int;
                 }
-                if model.len == 0 || model.len > (isize::MAX as usize / mem::size_of::<$prim>()) as c_ulong
-                {
-                    return 1_i32 as c_int;
-                }
-
                 let client = unsafe {
                     // safe if the raw pointer `client` comes from a valid allocation of a `Client`
                     &mut (*client).client
                 };
-                if let Some(PrimitiveModel::[<$prim:upper>](cached_model)) = client.cached_model.take() {
-                    if ptr::eq(model.ptr as *const _, cached_model.as_ptr())
-                        && model.len as usize == cached_model.len()
-                    {
-                        // cached model was updated
-                        client.local_model = Some(Model::from_primitives_bounded(cached_model.into_iter()));
-                    }
-                } else {
-                    // other model was updated
-                    client.local_model = Some(Model::from_primitives_bounded(unsafe {
-                        // safe if `model` fulfills the slice safety conditions
-                        slice::from_raw_parts(model.ptr as *const _, model.len as usize)
-                    }.into_iter().copied()));
+                if client.cached_model.is_none() {
+                    return 1_i32 as c_int;
                 }
-                0_i32 as c_int
+                if let Some(PrimitiveModel::[<$prim:upper>](cached_model)) = client.cached_model.take() {
+                    client.local_model = Some(Model::from_primitives_bounded(cached_model.into_iter()));
+                    0_i32 as c_int
+                } else {
+                    2_i32 as c_int
+                }
             }
         }
     };
 }
 
-update_model!(f32, "[`f32`]", "[`get_model_f32()`]");
-update_model!(f64, "[`f64`]", "[`get_model_f64()`]");
-update_model!(i32, "[`i32`]", "[`get_model_i32()`]");
-update_model!(i64, "[`i64`]", "[`get_model_i64()`]");
+update_model!(f32, "[`f32`]", "[`new_model_f32()`]", "[`get_model_f32()`]");
+update_model!(f64, "[`f64`]", "[`new_model_f32()`]", "[`get_model_f64()`]");
+update_model!(i32, "[`i32`]", "[`new_model_f32()`]", "[`get_model_i32()`]");
+update_model!(i64, "[`i64`]", "[`new_model_f32()`]", "[`get_model_i64()`]");
 
 #[allow(unused_unsafe)]
 #[no_mangle]
 /// Destroys a [`Client`]'s cached primitive model and frees its allocated memory.
+///
+/// It is not necessary to call this function if [`drop_client()`] is called anyways.
 ///
 /// # Errors
 /// Ignores null pointer `client`s and returns immediately.
@@ -572,6 +632,35 @@ mod tests {
         (model, serialized_model)
     }
 
+    macro_rules! test_new_model {
+        ($prim:ty) => {
+            paste::item! {
+                #[allow(unused_unsafe)]
+                #[test]
+                fn [<test_new_model_ $prim>]() {
+                    let client = unsafe { new_client(10, 1, 4) };
+
+                    // check that the new model is cached
+                    let (model, _) = dummy_model(0., 10);
+                    let prim_model = unsafe { [<new_model_ $prim>](client, 10 as c_ulong) };
+                    if let Some(PrimitiveModel::[<$prim:upper>](ref cached_model)) = unsafe { &mut *client }.client.cached_model {
+                        assert_eq!(prim_model.ptr as *const _, cached_model.as_ptr());
+                        assert_eq!(prim_model.len as usize, cached_model.len());
+                        assert_eq!(model, Model::from_primitives_bounded(cached_model.iter().cloned()));
+                    } else {
+                        panic!();
+                    }
+                    unsafe { drop_client(client, 0) };
+                }
+            }
+        };
+    }
+
+    test_new_model!(f32);
+    test_new_model!(f64);
+    test_new_model!(i32);
+    test_new_model!(i64);
+
     macro_rules! test_get_model {
         ($prim:ty) => {
             paste::item! {
@@ -609,11 +698,11 @@ mod tests {
     test_get_model!(i32);
     test_get_model!(i64);
 
-    macro_rules! test_update_cached_model {
+    macro_rules! test_update_model {
         ($prim:ty) => {
             paste::item! {
                 #[test]
-                fn [<test_update_cached_model_ $prim>]() {
+                fn [<test_update_model_ $prim>]() {
                     let client = unsafe { new_client(10, 1, 4) };
                     let (model, serialized_model) = dummy_model(0., 10);
                     unsafe { &mut *client }.client.global_model = Some(serialized_model);
@@ -627,7 +716,7 @@ mod tests {
                         panic!();
                     }
                     assert!(unsafe {  &*client }.client.local_model.is_none());
-                    assert_eq!(unsafe { [<update_model_ $prim>](client, prim_model) }, 0);
+                    assert_eq!(unsafe { [<update_model_ $prim>](client) }, 0);
                     assert!(unsafe { &mut *client }.client.cached_model.is_none());
                     if let Some(ref local_model) = unsafe { &*client }.client.local_model {
                         assert_eq!(&model, local_model);
@@ -638,55 +727,8 @@ mod tests {
         };
     }
 
-    test_update_cached_model!(f32);
-    test_update_cached_model!(f64);
-    test_update_cached_model!(i32);
-    test_update_cached_model!(i64);
-
-    macro_rules! test_update_noncached_model {
-        ($prim:ty) => {
-            paste::item! {
-                #[test]
-                fn [<test_update_noncached_model_ $prim>]() {
-                    let client = unsafe { new_client(10, 1, 4) };
-                    let (model, serialized_model) = dummy_model(0., 10);
-                    unsafe { &mut *client }.client.global_model = Some(serialized_model);
-                    let prim_model = unsafe { [<get_model_ $prim>](client) };
-                    let (other_model, _) = dummy_model(0.5, 10);
-                    let mut vec = other_model.clone()
-                        .into_primitives()
-                        .map(|res| res.map_err(|_| ()))
-                        .collect::<Result<Vec<$prim>, ()>>()
-                        .unwrap();
-                    let other_prim_model = [<PrimitiveModel $prim:upper>] {
-                        ptr: vec.as_mut_ptr(),
-                        len: vec.len() as c_ulong,
-                    };
-
-                    // check that the local model is updated from the other noncached model
-                    if let Some(PrimitiveModel::[<$prim:upper>](ref cached_model)) = unsafe { &mut *client }.client.cached_model {
-                        assert_eq!(prim_model.ptr as *const _, cached_model.as_ptr());
-                        assert_eq!(prim_model.len as usize, cached_model.len());
-                        assert_ne!(other_prim_model.ptr as *const _, cached_model.as_ptr());
-                        assert_eq!(other_prim_model.len as usize, cached_model.len());
-                    } else {
-                        panic!();
-                    }
-                    assert!(unsafe {  &*client }.client.local_model.is_none());
-                    assert_eq!(unsafe { [<update_model_ $prim>](client, other_prim_model) }, 0);
-                    assert!(unsafe { &mut *client }.client.cached_model.is_none());
-                    if let Some(ref local_model) = unsafe { &*client }.client.local_model {
-                        assert_ne!(&model, local_model);
-                        assert_eq!(&other_model, local_model);
-                    }
-                    unsafe { drop_client(client, 0) };
-                }
-            }
-        };
-    }
-
-    test_update_noncached_model!(f32);
-    test_update_noncached_model!(f64);
-    test_update_noncached_model!(i32);
-    test_update_noncached_model!(i64);
+    test_update_model!(f32);
+    test_update_model!(f64);
+    test_update_model!(i32);
+    test_update_model!(i64);
 }
