@@ -22,7 +22,7 @@ impl PhaseState<Shutdown> {
 
         // clear the request channel
         self.request_rx.close();
-        while let Some(_) = self.request_rx.recv().await {}
+        while self.request_rx.recv().await.is_some() {}
         None
     }
 }
