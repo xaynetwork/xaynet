@@ -2,7 +2,14 @@ use crate::{
     coordinator::{MaskDict, RoundFailed, RoundSeed},
     crypto::ByteObject,
     mask::{BoundType, DataType, GroupType, MaskConfig, ModelType},
-    state_machine::{idle::Idle, sum::Sum, sum2::Sum2, unmask::Unmask, update::Update},
+    state_machine::{
+        idle::Idle,
+        shutdown::Shutdown,
+        sum::Sum,
+        sum2::Sum2,
+        unmask::Unmask,
+        update::Update,
+    },
     CoordinatorPublicKey,
     CoordinatorSecretKey,
     InitError,
@@ -18,6 +25,7 @@ use tokio::sync::{mpsc, oneshot};
 mod error;
 mod idle;
 pub mod requests;
+mod shutdown;
 mod sum;
 mod sum2;
 mod unmask;
@@ -115,11 +123,12 @@ pub enum StateMachine {
     Sum2(PhaseState<Sum2>),
     Unmask(PhaseState<Unmask>),
     Error(PhaseState<StateError>),
+    Shutdown(PhaseState<Shutdown>),
 }
 
 impl StateMachine {
     /// Move to the next state and consume the old one.
-    pub async fn next(self) -> Self {
+    pub async fn next(self) -> Option<Self> {
         match self {
             StateMachine::Idle(state) => state.next().await,
             StateMachine::Sum(state) => state.next().await,
@@ -127,6 +136,7 @@ impl StateMachine {
             StateMachine::Sum2(state) => state.next().await,
             StateMachine::Unmask(state) => state.next().await,
             StateMachine::Error(state) => state.next().await,
+            StateMachine::Shutdown(state) => state.next().await,
         }
     }
 
@@ -272,19 +282,33 @@ mod tests {
         }
     }
 
+    fn is_error(state_machine: &StateMachine) -> bool {
+        match state_machine {
+            StateMachine::Error(_) => true,
+            _ => false,
+        }
+    }
+
+    fn is_shutdown(state_machine: &StateMachine) -> bool {
+        match state_machine {
+            StateMachine::Shutdown(_) => true,
+            _ => false,
+        }
+    }
+
     #[tokio::test]
     async fn test_state_machine() {
         enable_logging();
         let (request_tx, mut state_machine) = StateMachine::new().unwrap();
         assert!(is_idle(&state_machine));
 
-        state_machine = state_machine.next().await; // transition from init to sum state
+        state_machine = state_machine.next().await.unwrap(); // transition from init to sum state
         assert!(is_sum(&state_machine));
 
         let (sum_req, sum_pk, response_rx) = gen_sum_request();
         let _ = request_tx.send(Request::Sum(sum_req));
 
-        state_machine = state_machine.next().await; // transition from sum to update state
+        state_machine = state_machine.next().await.unwrap(); // transition from sum to update state
         assert!(is_update(&state_machine));
         assert!(response_rx.await.is_ok());
 
@@ -292,16 +316,27 @@ mod tests {
             let (gen_update_request, _) = gen_update_request(sum_pk.clone());
             let _ = request_tx.send(Request::Update(gen_update_request));
         }
-        state_machine = state_machine.next().await; // transition from update to sum state
+        state_machine = state_machine.next().await.unwrap(); // transition from update to sum state
         assert!(is_sum2(&state_machine));
 
         let (sum2_req, response_rx) = gen_sum2_request(sum_pk.clone());
         let _ = request_tx.send(Request::Sum2(sum2_req));
-        state_machine = state_machine.next().await; // transition from sum2 to idle state
+        state_machine = state_machine.next().await.unwrap(); // transition from sum2 to unmasked state
         assert!(response_rx.await.is_ok());
         assert!(is_unmask(&state_machine));
 
-        state_machine = state_machine.next().await; // transition from idle to sum state
+        state_machine = state_machine.next().await.unwrap(); // transition from unmasked to idle state
         assert!(is_idle(&state_machine));
+
+        drop(request_tx);
+        state_machine = state_machine.next().await.unwrap(); // transition from idle to sum state
+        assert!(is_sum(&state_machine));
+
+        state_machine = state_machine.next().await.unwrap(); // transition from sum to error state
+        assert!(is_error(&state_machine));
+
+        state_machine = state_machine.next().await.unwrap(); // transition from error to shutdown state
+        assert!(is_shutdown(&state_machine));
+        assert!(state_machine.next().await.is_none())
     }
 }

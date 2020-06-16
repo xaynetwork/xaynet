@@ -41,13 +41,14 @@ impl PhaseState<Unmask> {
         }
     }
 
-    pub async fn next(mut self) -> StateMachine {
-        match self.run_phase().await {
+    pub async fn next(mut self) -> Option<StateMachine> {
+        let next_state = match self.run_phase().await {
             Ok(_) => PhaseState::<Idle>::new(self.coordinator_state, self.request_rx).into(),
             Err(err) => {
                 PhaseState::<StateError>::new(self.coordinator_state, self.request_rx, err).into()
             }
-        }
+        };
+        Some(next_state)
     }
 
     async fn run_phase(&mut self) -> Result<(), StateError> {

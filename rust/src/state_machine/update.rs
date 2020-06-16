@@ -46,8 +46,8 @@ impl PhaseState<Update> {
         }
     }
 
-    pub async fn next(mut self) -> StateMachine {
-        match self.run_phase().await {
+    pub async fn next(mut self) -> Option<StateMachine> {
+        let next_state = match self.run_phase().await {
             Ok(_) => PhaseState::<Sum2>::new(
                 self.coordinator_state,
                 self.request_rx,
@@ -58,7 +58,8 @@ impl PhaseState<Update> {
             Err(err) => {
                 PhaseState::<StateError>::new(self.coordinator_state, self.request_rx, err).into()
             }
-        }
+        };
+        Some(next_state)
     }
 
     async fn run_phase(&mut self) -> Result<(), StateError> {

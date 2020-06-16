@@ -23,10 +23,10 @@ impl PhaseState<Idle> {
         }
     }
 
-    pub async fn next(mut self) -> StateMachine {
+    pub async fn next(mut self) -> Option<StateMachine>  {
         self.update_round_thresholds();
         self.update_round_seed();
-        PhaseState::<Sum>::new(self.coordinator_state, self.request_rx).into()
+        Some(PhaseState::<Sum>::new(self.coordinator_state, self.request_rx).into())
     }
 
     fn update_round_thresholds(&mut self) {}

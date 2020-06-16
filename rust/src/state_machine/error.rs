@@ -1,4 +1,12 @@
-use super::{idle::Idle, CoordinatorState, PhaseState, Request, StateError, StateMachine};
+use super::{
+    idle::Idle,
+    shutdown::Shutdown,
+    CoordinatorState,
+    PhaseState,
+    Request,
+    StateError,
+    StateMachine,
+};
 use tokio::sync::mpsc;
 
 impl PhaseState<StateError> {
@@ -15,12 +23,15 @@ impl PhaseState<StateError> {
         }
     }
 
-    pub async fn next(self) -> StateMachine {
+    pub async fn next(self) -> Option<StateMachine> {
         error!("state transition failed! error: {:?}", self.inner);
-        if let StateError::ChannelError(e) = self.inner {
-            panic!(e)
+        let next_state = match self.inner {
+            StateError::ChannelError(_) => {
+                PhaseState::<Shutdown>::new(self.coordinator_state, self.request_rx).into()
+            }
+            _ => PhaseState::<Idle>::new(self.coordinator_state, self.request_rx).into(),
         };
 
-        PhaseState::<Idle>::new(self.coordinator_state, self.request_rx).into()
+        Some(next_state)
     }
 }
