@@ -18,19 +18,18 @@ pub struct Sum {
 }
 
 impl PhaseState<Sum> {
-    #[allow(clippy::new_ret_no_self)]
     pub fn new(
         coordinator_state: CoordinatorState,
         request_rx: mpsc::UnboundedReceiver<Request>,
-    ) -> StateMachine {
+    ) -> Self {
         info!("state transition");
-        StateMachine::Sum(Self {
+        Self {
             inner: Sum {
                 sum_dict: SumDict::new(),
             },
             coordinator_state,
             request_rx,
-        })
+        }
     }
 
     pub async fn next(mut self) -> StateMachine {
@@ -40,8 +39,11 @@ impl PhaseState<Sum> {
                 self.request_rx,
                 self.inner.sum_dict,
                 seed_dict,
-            ),
-            Err(err) => PhaseState::<StateError>::new(self.coordinator_state, self.request_rx, err),
+            )
+            .into(),
+            Err(err) => {
+                PhaseState::<StateError>::new(self.coordinator_state, self.request_rx, err).into()
+            }
         }
     }
 

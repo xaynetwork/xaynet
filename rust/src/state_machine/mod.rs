@@ -10,6 +10,7 @@ use crate::{
     SeedDict,
     SumDict,
 };
+use derive_more::From;
 use std::default::Default;
 use thiserror::Error;
 use tokio::sync::{mpsc, oneshot};
@@ -106,6 +107,7 @@ impl<S> PhaseState<S> {
     }
 }
 
+#[derive(From)]
 pub enum StateMachine {
     Idle(PhaseState<Idle>),
     Sum(PhaseState<Sum>),
@@ -142,7 +144,7 @@ impl StateMachine {
 
         Ok((
             request_tx,
-            PhaseState::<Idle>::new(coordinator_state, request_rx),
+            PhaseState::<Idle>::new(coordinator_state, request_rx).into(),
         ))
     }
 }

@@ -3,8 +3,8 @@ use super::{
     unmask::Unmask,
     CoordinatorState,
     MaskDict,
-    Request,
     PhaseState,
+    Request,
     StateError,
     StateMachine,
     SumDict,
@@ -29,15 +29,14 @@ pub struct Sum2 {
 }
 
 impl PhaseState<Sum2> {
-    #[allow(clippy::new_ret_no_self)]
     pub fn new(
         coordinator_state: CoordinatorState,
         request_rx: mpsc::UnboundedReceiver<Request>,
         sum_dict: SumDict,
         aggregation: Aggregation,
-    ) -> StateMachine {
+    ) -> Self {
         info!("state transition");
-        StateMachine::Sum2(Self {
+        Self {
             inner: Sum2 {
                 sum_dict,
                 aggregation,
@@ -45,7 +44,7 @@ impl PhaseState<Sum2> {
             },
             coordinator_state,
             request_rx,
-        })
+        }
     }
 
     pub async fn next(mut self) -> StateMachine {
@@ -55,8 +54,11 @@ impl PhaseState<Sum2> {
                 self.request_rx,
                 self.inner.aggregation,
                 self.inner.mask_dict,
-            ),
-            Err(err) => PhaseState::<StateError>::new(self.coordinator_state, self.request_rx, err),
+            )
+            .into(),
+            Err(err) => {
+                PhaseState::<StateError>::new(self.coordinator_state, self.request_rx, err).into()
+            }
         }
     }
 

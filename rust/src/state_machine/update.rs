@@ -2,9 +2,9 @@ use super::{
     requests::UpdateRequest,
     sum2::Sum2,
     CoordinatorState,
+    PhaseState,
     Request,
     SeedDict,
-    PhaseState,
     StateError,
     StateMachine,
     SumDict,
@@ -28,15 +28,14 @@ pub struct Update {
 }
 
 impl PhaseState<Update> {
-    #[allow(clippy::new_ret_no_self)]
     pub fn new(
         coordinator_state: CoordinatorState,
         request_rx: mpsc::UnboundedReceiver<Request>,
         frozen_sum_dict: SumDict,
         seed_dict: SeedDict,
-    ) -> StateMachine {
+    ) -> Self {
         info!("state transition");
-        StateMachine::Update(Self {
+        Self {
             inner: Update {
                 frozen_sum_dict,
                 seed_dict,
@@ -44,7 +43,7 @@ impl PhaseState<Update> {
             },
             coordinator_state,
             request_rx,
-        })
+        }
     }
 
     pub async fn next(mut self) -> StateMachine {
@@ -54,8 +53,11 @@ impl PhaseState<Update> {
                 self.request_rx,
                 self.inner.frozen_sum_dict,
                 self.inner.aggregation,
-            ),
-            Err(err) => PhaseState::<StateError>::new(self.coordinator_state, self.request_rx, err),
+            )
+            .into(),
+            Err(err) => {
+                PhaseState::<StateError>::new(self.coordinator_state, self.request_rx, err).into()
+            }
         }
     }
 

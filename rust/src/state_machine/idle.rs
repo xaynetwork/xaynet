@@ -1,4 +1,4 @@
-use super::{sum::Sum, CoordinatorState, Request, PhaseState, StateMachine};
+use super::{sum::Sum, CoordinatorState, PhaseState, Request, StateMachine};
 use crate::{
     coordinator::RoundSeed,
     crypto::{ByteObject, SigningKeySeed},
@@ -11,23 +11,22 @@ use tokio::sync::mpsc;
 pub struct Idle;
 
 impl PhaseState<Idle> {
-    #[allow(clippy::new_ret_no_self)]
     pub fn new(
         coordinator_state: CoordinatorState,
         request_rx: mpsc::UnboundedReceiver<Request>,
-    ) -> StateMachine {
+    ) -> Self {
         info!("state transition");
-        StateMachine::Idle(Self {
+        Self {
             inner: Idle,
             coordinator_state,
             request_rx,
-        })
+        }
     }
 
     pub async fn next(mut self) -> StateMachine {
         self.update_round_thresholds();
         self.update_round_seed();
-        PhaseState::<Sum>::new(self.coordinator_state, self.request_rx)
+        PhaseState::<Sum>::new(self.coordinator_state, self.request_rx).into()
     }
 
     fn update_round_thresholds(&mut self) {}
