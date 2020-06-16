@@ -1,8 +1,8 @@
 use crate::{
     coordinator::{MaskDict, RoundFailed, RoundSeed},
     crypto::ByteObject,
-    mask::{Aggregation, BoundType, DataType, GroupType, MaskConfig, ModelType},
-    state_machine::{idle::Idle, sum::Sum, sum2::Sum2, update::Update},
+    mask::{BoundType, DataType, GroupType, MaskConfig, ModelType},
+    state_machine::{idle::Idle, sum::Sum, sum2::Sum2, unmask::Unmask, update::Update},
     CoordinatorPublicKey,
     CoordinatorSecretKey,
     InitError,
@@ -19,6 +19,7 @@ mod idle;
 pub mod requests;
 mod sum;
 mod sum2;
+mod unmask;
 mod update;
 
 use requests::Request;
@@ -35,19 +36,8 @@ pub struct CoordinatorState {
     min_sum: usize,
     min_update: usize,
 
-    // round dictionaries
-    /// Dictionary built during the sum phase.
-    sum_dict: SumDict,
-    /// Dictionary built during the update phase.
-    seed_dict: SeedDict,
-    /// Dictionary built during the sum2 phase.
-    mask_dict: MaskDict,
-
     /// The masking configuration
     mask_config: MaskConfig,
-
-    /// The aggregated masked model being built in the current round.
-    aggregation: Aggregation,
 }
 
 impl Default for CoordinatorState {
@@ -59,16 +49,12 @@ impl Default for CoordinatorState {
         let seed = RoundSeed::zeroed();
         let min_sum = 1_usize;
         let min_update = 3_usize;
-        let sum_dict = SumDict::new();
-        let seed_dict = SeedDict::new();
-        let mask_dict = MaskDict::new();
         let mask_config = MaskConfig {
             group_type: GroupType::Prime,
             data_type: DataType::F32,
             bound_type: BoundType::B0,
             model_type: ModelType::M3,
         };
-        let aggregation = Aggregation::new(mask_config);
         Self {
             pk,
             sk,
@@ -77,11 +63,7 @@ impl Default for CoordinatorState {
             seed,
             min_sum,
             min_update,
-            sum_dict,
-            seed_dict,
-            mask_dict,
             mask_config,
-            aggregation,
         }
     }
 }
@@ -129,6 +111,7 @@ pub enum StateMachine {
     Sum(State<Sum>),
     Update(State<Update>),
     Sum2(State<Sum2>),
+    Unmask(State<Unmask>),
     Error(State<StateError>),
 }
 
@@ -140,6 +123,7 @@ impl StateMachine {
             StateMachine::Sum(state) => state.next().await,
             StateMachine::Update(state) => state.next().await,
             StateMachine::Sum2(state) => state.next().await,
+            StateMachine::Unmask(state) => state.next().await,
             StateMachine::Error(state) => state.next().await,
         }
     }
@@ -279,6 +263,13 @@ mod tests {
         }
     }
 
+    fn is_unmask(state_machine: &StateMachine) -> bool {
+        match state_machine {
+            StateMachine::Unmask(_) => true,
+            _ => false,
+        }
+    }
+
     #[tokio::test]
     async fn test_state_machine() {
         enable_logging();
@@ -306,9 +297,9 @@ mod tests {
         let _ = request_tx.send(Request::Sum2(sum2_req));
         state_machine = state_machine.next().await; // transition from sum2 to idle state
         assert!(response_rx.await.is_ok());
-        assert!(is_idle(&state_machine));
+        assert!(is_unmask(&state_machine));
 
         state_machine = state_machine.next().await; // transition from idle to sum state
-        assert!(is_sum(&state_machine));
+        assert!(is_idle(&state_machine));
     }
 }

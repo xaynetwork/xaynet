@@ -1,34 +1,48 @@
 use super::{
-    idle::Idle,
     requests::Sum2Request,
+    unmask::Unmask,
     CoordinatorState,
+    MaskDict,
     Request,
     State,
     StateError,
     StateMachine,
+    SumDict,
 };
 
 use crate::{
-    coordinator::RoundFailed,
-    mask::{Aggregation, MaskObject, Model},
+    mask::{Aggregation, MaskObject},
     PetError,
     SumParticipantPublicKey,
 };
-use std::{cmp::Ordering, mem};
 use tokio::sync::mpsc;
 
 #[derive(Debug)]
-pub struct Sum2;
+pub struct Sum2 {
+    /// Dictionary built during the sum phase.
+    sum_dict: SumDict,
+
+    aggregation: Aggregation,
+
+    /// Dictionary built during the sum2 phase.
+    mask_dict: MaskDict,
+}
 
 impl State<Sum2> {
     #[allow(clippy::new_ret_no_self)]
     pub fn new(
         coordinator_state: CoordinatorState,
         request_rx: mpsc::UnboundedReceiver<Request>,
+        sum_dict: SumDict,
+        aggregation: Aggregation,
     ) -> StateMachine {
         info!("state transition");
         StateMachine::Sum2(Self {
-            inner: Sum2,
+            inner: Sum2 {
+                sum_dict,
+                aggregation,
+                mask_dict: MaskDict::new(),
+            },
             coordinator_state,
             request_rx,
         })
@@ -36,7 +50,12 @@ impl State<Sum2> {
 
     pub async fn next(mut self) -> StateMachine {
         match self.run_phase().await {
-            Ok(_) => State::<Idle>::new(self.coordinator_state, self.request_rx),
+            Ok(_) => State::<Unmask>::new(
+                self.coordinator_state,
+                self.request_rx,
+                self.inner.aggregation,
+                self.inner.mask_dict,
+            ),
             Err(err) => State::<StateError>::new(self.coordinator_state, self.request_rx, err),
         }
     }
@@ -46,7 +65,6 @@ impl State<Sum2> {
             let req = self.next_request().await?;
             self.handle_request(req);
         }
-        let _model = self.end_round()?;
         Ok(())
     }
 
@@ -78,14 +96,14 @@ impl State<Sum2> {
     fn add_mask(&mut self, pk: &SumParticipantPublicKey, mask: MaskObject) -> Result<(), PetError> {
         // We move the participant key here to make sure a participant
         // cannot submit a mask multiple times
-        if self.coordinator_state.sum_dict.remove(pk).is_none() {
+        if self.inner.sum_dict.remove(pk).is_none() {
             return Err(PetError::InvalidMessage);
         }
 
-        if let Some(count) = self.coordinator_state.mask_dict.get_mut(&mask) {
+        if let Some(count) = self.inner.mask_dict.get_mut(&mask) {
             *count += 1;
         } else {
-            self.coordinator_state.mask_dict.insert(mask, 1);
+            self.inner.mask_dict.insert(mask, 1);
         }
 
         Ok(())
@@ -93,42 +111,7 @@ impl State<Sum2> {
 
     /// Check whether enough sum participants submitted their masks to start the idle phase.
     fn has_enough_sums(&self) -> bool {
-        let mask_count = self.coordinator_state.mask_dict.values().sum::<usize>();
+        let mask_count = self.inner.mask_dict.values().sum::<usize>();
         mask_count >= self.coordinator_state.min_sum
-    }
-
-    /// Freeze the mask dictionary.
-    fn freeze_mask_dict(&mut self) -> Result<MaskObject, RoundFailed> {
-        if self.coordinator_state.mask_dict.is_empty() {
-            return Err(RoundFailed::NoMask);
-        }
-
-        self.coordinator_state
-            .mask_dict
-            .drain()
-            .fold(
-                (None, 0_usize),
-                |(unique_mask, unique_count), (mask, count)| match unique_count.cmp(&count) {
-                    Ordering::Less => (Some(mask), count),
-                    Ordering::Greater => (unique_mask, unique_count),
-                    Ordering::Equal => (None, unique_count),
-                },
-            )
-            .0
-            .ok_or(RoundFailed::AmbiguousMasks)
-    }
-
-    fn end_round(&mut self) -> Result<Model, RoundFailed> {
-        let global_mask = self.freeze_mask_dict()?;
-
-        let aggregation = mem::replace(
-            &mut self.coordinator_state.aggregation,
-            Aggregation::new(self.coordinator_state.mask_config),
-        );
-
-        aggregation
-            .validate_unmasking(&global_mask)
-            .map_err(RoundFailed::from)?;
-        Ok(aggregation.unmask(global_mask))
     }
 }

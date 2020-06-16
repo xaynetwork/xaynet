@@ -3,15 +3,19 @@ use super::{
     update::Update,
     CoordinatorState,
     Request,
+    SeedDict,
     State,
     StateError,
     StateMachine,
 };
-use crate::{crypto::generate_encrypt_key_pair, LocalSeedDict};
+use crate::{crypto::generate_encrypt_key_pair, LocalSeedDict, SumDict};
 use tokio::sync::mpsc;
 
 #[derive(Debug)]
-pub struct Sum;
+pub struct Sum {
+    /// Dictionary built during the sum phase.
+    sum_dict: SumDict,
+}
 
 impl State<Sum> {
     #[allow(clippy::new_ret_no_self)]
@@ -21,7 +25,9 @@ impl State<Sum> {
     ) -> StateMachine {
         info!("state transition");
         StateMachine::Sum(Self {
-            inner: Sum,
+            inner: Sum {
+                sum_dict: SumDict::new(),
+            },
             coordinator_state,
             request_rx,
         })
@@ -29,12 +35,17 @@ impl State<Sum> {
 
     pub async fn next(mut self) -> StateMachine {
         match self.run_phase().await {
-            Ok(_) => State::<Update>::new(self.coordinator_state, self.request_rx),
+            Ok(seed_dict) => State::<Update>::new(
+                self.coordinator_state,
+                self.request_rx,
+                self.inner.sum_dict,
+                seed_dict,
+            ),
             Err(err) => State::<StateError>::new(self.coordinator_state, self.request_rx, err),
         }
     }
 
-    async fn run_phase(&mut self) -> Result<(), StateError> {
+    async fn run_phase(&mut self) -> Result<SeedDict, StateError> {
         self.gen_round_keypair();
 
         while !self.has_enough_sums() {
@@ -42,8 +53,7 @@ impl State<Sum> {
             self.handle_request(req);
         }
 
-        self.freeze_sum_dict();
-        Ok(())
+        Ok(self.freeze_sum_dict())
     }
 
     /// Handle a sum, update or sum2 request.
@@ -65,22 +75,19 @@ impl State<Sum> {
             response_tx,
         } = req;
 
-        self.coordinator_state
-            .sum_dict
-            .insert(participant_pk, ephm_pk);
+        self.inner.sum_dict.insert(participant_pk, ephm_pk);
 
         // See `Self::handle_invalid_message`
         let _ = response_tx.send(Ok(()));
     }
 
     /// Freeze the sum dictionary.
-    fn freeze_sum_dict(&mut self) {
-        self.coordinator_state.seed_dict = self
-            .coordinator_state
+    fn freeze_sum_dict(&mut self) -> SeedDict {
+        self.inner
             .sum_dict
             .keys()
             .map(|pk| (*pk, LocalSeedDict::new()))
-            .collect();
+            .collect()
     }
 
     /// Generate fresh round credentials.
@@ -93,6 +100,6 @@ impl State<Sum> {
     /// Check whether enough sum participants submitted their ephemeral keys to start the update
     /// phase.
     fn has_enough_sums(&self) -> bool {
-        self.coordinator_state.sum_dict.len() >= self.coordinator_state.min_sum
+        self.inner.sum_dict.len() >= self.coordinator_state.min_sum
     }
 }

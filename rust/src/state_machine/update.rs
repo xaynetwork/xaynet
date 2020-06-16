@@ -3,25 +3,45 @@ use super::{
     sum2::Sum2,
     CoordinatorState,
     Request,
+    SeedDict,
     State,
     StateError,
     StateMachine,
+    SumDict,
 };
-use crate::{mask::MaskObject, LocalSeedDict, PetError, UpdateParticipantPublicKey};
+use crate::{
+    mask::{Aggregation, MaskObject},
+    LocalSeedDict,
+    PetError,
+    UpdateParticipantPublicKey,
+};
 use tokio::sync::mpsc;
 
 #[derive(Debug)]
-pub struct Update;
+pub struct Update {
+    // The frozen sum dictionary of the sum phase.
+    frozen_sum_dict: SumDict,
+    /// Dictionary built during the update phase.
+    seed_dict: SeedDict,
+    /// The aggregated masked model being built in the current round.
+    aggregation: Aggregation,
+}
 
 impl State<Update> {
     #[allow(clippy::new_ret_no_self)]
     pub fn new(
         coordinator_state: CoordinatorState,
         request_rx: mpsc::UnboundedReceiver<Request>,
+        frozen_sum_dict: SumDict,
+        seed_dict: SeedDict,
     ) -> StateMachine {
         info!("state transition");
         StateMachine::Update(Self {
-            inner: Update,
+            inner: Update {
+                frozen_sum_dict,
+                seed_dict,
+                aggregation: Aggregation::new(coordinator_state.mask_config),
+            },
             coordinator_state,
             request_rx,
         })
@@ -29,7 +49,12 @@ impl State<Update> {
 
     pub async fn next(mut self) -> StateMachine {
         match self.run_phase().await {
-            Ok(_) => State::<Sum2>::new(self.coordinator_state, self.request_rx),
+            Ok(_) => State::<Sum2>::new(
+                self.coordinator_state,
+                self.request_rx,
+                self.inner.frozen_sum_dict,
+                self.inner.aggregation,
+            ),
             Err(err) => State::<StateError>::new(self.coordinator_state, self.request_rx, err),
         }
     }
@@ -89,14 +114,14 @@ impl State<Update> {
 
         // Check if aggregation can be performed, and do it.
         debug!("aggregating masked model");
-        self.coordinator_state
+        self.inner
             .aggregation
             .validate_aggregation(&masked_model)
             .map_err(|e| {
                 warn!("aggregation error: {}", e);
                 PetError::InvalidMessage
             })?;
-        self.coordinator_state.aggregation.aggregate(masked_model);
+        self.inner.aggregation.aggregate(masked_model);
         Ok(())
     }
 
@@ -107,19 +132,19 @@ impl State<Update> {
         pk: &UpdateParticipantPublicKey,
         local_seed_dict: &LocalSeedDict,
     ) -> Result<(), PetError> {
-        if local_seed_dict.keys().len() == self.coordinator_state.sum_dict.keys().len()
+        if local_seed_dict.keys().len() == self.inner.frozen_sum_dict.keys().len()
             && local_seed_dict
                 .keys()
-                .all(|pk| self.coordinator_state.sum_dict.contains_key(pk))
+                .all(|pk| self.inner.frozen_sum_dict.contains_key(pk))
             && self
-                .coordinator_state
+                .inner
                 .seed_dict
                 .values()
                 .next()
                 .map_or(true, |dict| !dict.contains_key(pk))
         {
             for (sum_pk, seed) in local_seed_dict {
-                self.coordinator_state
+                self.inner
                     .seed_dict
                     .get_mut(sum_pk)
                     .ok_or(PetError::InvalidMessage)?
@@ -134,7 +159,7 @@ impl State<Update> {
     /// Check whether enough update participants submitted their models and seeds to start the sum2
     /// phase.
     fn has_enough_updates(&self) -> bool {
-        self.coordinator_state
+        self.inner
             .seed_dict
             .values()
             .next()
