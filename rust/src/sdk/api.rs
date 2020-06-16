@@ -1,28 +1,27 @@
 //! A C-API to communicate model updates between a PET protocol participant and an application.
 //!
 //! # Workflow
-//! 1. Initialize a [`Client`] with [`new_client()`], which will take care of the [`Participant`]'s
-//!    PET protocol work as well as the networking with the [`Coordinator`].
-//! 2. Start the execution of tasks of the [`Client`] with [`run_client()`].
+//! 1. Initialize a [`Client`] with [`new_client()`]. The [`Client`] takes care of the
+//!    [`Participant`]'s PET protocol work as well as the networking with the [`Coordinator`].
+//! 2. Start the execution of the [`Client`]'s tasks with [`run_client()`].
 //! 3. Optionally request status information:
 //!     - [`is_next_round()`] indicates if another round of the PET protocol has started.
 //!     - [`has_next_model()`] indicates if another global model is available.
 //!     - [`is_update_participant()`] indicates if this [`Participant`] is eligible to submit a
-//!       trained local model.
-//! 4. Create a new model initialized with zeros with [`new_model_N()`] or get the latest global
-//!    model with [`get_model_N()`], where `N` is the primitive data type. Currently, [`f32`],
-//!    [`f64`], [`i32`] and [`i64`] are supported. The function returns a mutable slice
-//!    [`PrimitiveModelN`] to the primitive model, whereas the primitive model itself is cached
-//!    within the [`Client`]. The slice is valid across the FFI-boundary until one of the
-//!    following events happen:
-//!    - [`new_model_N()`] reallocates the memory to which [`PrimitiveModelN`] points to.
-//!    - [`get_model_N()`] reallocates the memory to which [`PrimitiveModelN`] points to if a new
-//!      global model is available since the last call to [`get_model_N()`].
-//!    - [`update_model_N()`] frees the memory to which [`PrimitiveModelN`] points to.
-//!    - [`drop_model()`] frees the memory to which [`PrimitiveModelN`] points to.
+//!       trained local model in the current round.
+//! 4. Create a new zero-initialized model with [`new_model()`] or get the latest global model with
+//!    [`get_model()`]. Currently, the primitive data types [`f32`], [`f64`], [`i32`] and [`i64`]
+//!    are supported. The functions return a fat pointer [`PrimitiveModel`] to the cached primitive
+//!    model, whereas the primitive model itself is cached within the [`Client`]. The cached
+//!    primitive model can then be modified in place, for example for training. The slice is valid
+//!    across the FFI-boundary until one of the following happens:
+//!    - [`new_model()`] reallocates the memory to which [`PrimitiveModel`] points to.
+//!    - [`get_model()`] reallocates the memory to which [`PrimitiveModel`] points to if a new
+//!      global model is available since the last call to [`get_model()`].
+//!    - [`update_model()`] frees the memory to which [`PrimitiveModel`] points to.
+//!    - [`drop_model()`] frees the memory to which [`PrimitiveModel`] points to.
 //!    - [`drop_client()`] frees the memory of the [`Client`] including the model.
-//!    The cached model can be modified in place, for example for training.
-//! 5. Register a trained local model with [`update_model_N()`].
+//! 5. Register the cached model as an updated local model with [`update_model()`].
 //! 6. Stop and destroy the [`Client`] with [`drop_client()`].
 //!
 //! # Safety
@@ -34,17 +33,13 @@
 //! **Note, that the `unsafe` code has not been externally audited yet!**
 //!
 //! [`Coordinator`]: ../../coordinator/struct.Coordinator.html
-//! [`new_model_N()`]: fn.new_model_f32.html
-//! [`get_model_N()`]: fn.get_model_f32.html
-//! [`update_model_N()`]: fn.update_model_f32.html
 //! [`Participant`]: ../../participant/struct.Participant.html
-//! [`PrimitiveModelN`]: struct.PrimitiveModelF32.html
 //! [#69173]: https://github.com/rust-lang/rust/issues/69173
 
 use std::{
     iter::{IntoIterator, Iterator},
     mem,
-    os::raw::{c_double, c_float, c_int, c_long, c_ulong, c_void},
+    os::raw::{c_int, c_uint, c_ulong, c_void},
     panic,
     ptr,
 };
@@ -60,51 +55,40 @@ use crate::{
     participant::Task,
 };
 
-/// Generates a struct to hold the C equivalent of `&mut [N]` for a primitive data type `N`. Also,
-/// implements a consuming iterator for the struct which is wrapped in a private submodule, because
-/// safe traits and their safe methods can't be implemented as `unsafe` and this way we ensure that
-/// the implementation is only ever used in an `unsafe fn`. The arguments `$prim_rust` and `$prim_c`
-/// are the corresponding Rust and C primitive data types and `$doc0`, `$doc1` are a type links for
-/// the documentation.
-macro_rules! PrimModel {
-    ($prim_rust:ty, $prim_c:ty, $doc0:expr, $doc1:expr $(,)?) => {
-        paste::item! {
-            #[derive(Clone, Copy)]
-            #[repr(C)]
-            #[doc = "A model of primitive data type"]
-            #[doc = $doc0]
-            #[doc = "represented as a mutable slice which can be accessed from C."]
-            pub struct [<PrimitiveModel $prim_rust:upper>] {
-                #[doc = "A raw mutable pointer to an array of primitive values"]
-                #[doc = $doc1]
-                #[doc = "."]
-                pub ptr: *mut $prim_c,
-                /// The length of that respective array.
-                pub len: c_ulong,
-            }
-        }
-    };
+#[derive(Clone, Copy, Debug)]
+#[repr(C)]
+/// A fat pointer to a cached model of primitive data type which can be accessed from C.
+///
+/// This is returned from [`new_model()`] and [`get_model()`]. The length `len` will be small enough
+/// such that the respective array fits into memory and the data type `dtype` will be one of the
+/// following:
+/// - `0`: void data type
+/// - `1`: primitive data type [`f32`]
+/// - `2`: primitive data type [`f64`]
+/// - `3`: primitive data type [`i32`]
+/// - `4`: primitive data type [`i64`]
+pub struct PrimitiveModel {
+    /// A raw mutable pointer to an array of primitive values.
+    pub ptr: *mut c_void,
+    /// The length of that respective array.
+    pub len: c_ulong,
+    /// The data type of that respective array.
+    pub dtype: c_uint,
 }
 
-PrimModel! {f32, c_float, "[`f32`]", "`[f32]`"}
-PrimModel! {f64, c_double, "[`f64`]", "`[f64]`"}
-PrimModel! {i32, c_int, "[`i32`]", "`[i32]`"}
-PrimModel! {i64, c_long, "[`i64`]", "`[i64]`"}
-
 #[derive(Clone, Debug)]
-/// A primitive model of data type `N` cached on the heap.
+/// A primitive model cached on the heap.
 ///
-/// The pointer [`PrimitiveModelN`] returned from [`get_model_N()`] references this memory.
-///
-/// [`PrimitiveModelN`]: struct.PrimitiveModelF32.html
-/// [`get_model_N()`]: fn.get_model_f32.html
-pub(crate) enum PrimitiveModel {
+/// The fat pointer [`PrimitiveModel`] returned from [`new_model()`] and [`get_model()`] references
+/// this memory.
+pub(crate) enum CachedModel {
     F32(Vec<f32>),
     F64(Vec<f64>),
     I32(Vec<i32>),
     I64(Vec<i64>),
 }
 
+#[derive(Debug)]
 /// A wrapper for a [`Client`] within a [`Runtime`].
 ///
 /// This is returned from [`new_client()`]. See the [workflow] on how to use it.
@@ -162,9 +146,7 @@ pub unsafe extern "C" fn new_client(
 
 #[allow(unused_unsafe)]
 #[no_mangle]
-/// Starts the [`Client`].
-///
-/// The [`Client`]'s tasks are executed in an asynchronous [`Runtime`].
+/// Starts the [`Client`] and executes its tasks in an asynchronous [`Runtime`].
 ///
 /// Takes a `callback(state, code)` function pointer and a void pointer to the `state` of the
 /// callback. The callback will be triggered when the client must be stopped because of a panic or
@@ -172,8 +154,9 @@ pub unsafe extern "C" fn new_client(
 /// definitions.
 ///
 /// # Errors
-/// Ignores null pointer `client`s and triggers the callback immediately. Triggers the callback
-/// with one of the following error codes in case of a [`Client`] panic or error:
+/// Ignores null pointer `client`s and triggers the callback immediately.
+///
+/// Triggers the callback with one of the following error codes:
 /// - `-1`: client didn't start due to null pointer
 /// - `0`: no error (only for clients with finite number of FL rounds)
 /// - `1`: client panicked due to unexpected/unhandled error
@@ -241,8 +224,8 @@ pub unsafe extern "C" fn run_client(
 /// Ignores null pointer `client`s and returns immediately.
 ///
 /// # Safety
-/// The method dereferences from the raw pointer arguments. Therefore, the behavior of
-/// the method is undefined if the arguments don't point to valid objects.
+/// The method dereferences from the raw pointer arguments. Therefore, the behavior of the method is
+/// undefined if the arguments don't point to valid objects.
 ///
 /// [runtime shutdown]: https://docs.rs/tokio/0.2.21/tokio/runtime/struct.Runtime.html#method.shutdown_timeout
 pub unsafe extern "C" fn drop_client(client: *mut FFIClient, timeout: c_ulong) {
@@ -267,8 +250,8 @@ pub unsafe extern "C" fn drop_client(client: *mut FFIClient, timeout: c_ulong) {
 /// Ignores null pointer `client`s and returns `false` immediately.
 ///
 /// # Safety
-/// The method dereferences from the raw pointer arguments. Therefore, the behavior of
-/// the method is undefined if the arguments don't point to valid objects.
+/// The method dereferences from the raw pointer arguments. Therefore, the behavior of the method is
+/// undefined if the arguments don't point to valid objects.
 pub unsafe extern "C" fn is_next_round(client: *mut FFIClient) -> bool {
     if client.is_null() {
         false
@@ -289,8 +272,8 @@ pub unsafe extern "C" fn is_next_round(client: *mut FFIClient) -> bool {
 /// Ignores null pointer `client`s and returns `false` immediately.
 ///
 /// # Safety
-/// The method dereferences from the raw pointer arguments. Therefore, the behavior of
-/// the method is undefined if the arguments don't point to valid objects.
+/// The method dereferences from the raw pointer arguments. Therefore, the behavior of the method is
+/// undefined if the arguments don't point to valid objects.
 pub unsafe extern "C" fn has_next_model(client: *mut FFIClient) -> bool {
     if client.is_null() {
         false
@@ -311,8 +294,8 @@ pub unsafe extern "C" fn has_next_model(client: *mut FFIClient) -> bool {
 /// Ignores null pointer `client`s and returns `false` immediately.
 ///
 /// # Safety
-/// The method dereferences from the raw pointer arguments. Therefore, the behavior of
-/// the method is undefined if the arguments don't point to valid objects.
+/// The method dereferences from the raw pointer arguments. Therefore, the behavior of the method is
+/// undefined if the arguments don't point to valid objects.
 ///
 /// [`Update`]: ../../participant/enum.Task.html#variant.Update
 pub unsafe extern "C" fn is_update_participant(client: *mut FFIClient) -> bool {
@@ -327,252 +310,322 @@ pub unsafe extern "C" fn is_update_participant(client: *mut FFIClient) -> bool {
     }
 }
 
-/// Generates a function to create a zero-initialized primitive model. The arguments `$prim_rust`
-/// and `$prim_c` are the corresponding Rust and C primitive data types and `$docN` are type links
-/// for the documentation.
-macro_rules! new_model {
-    ($prim_rust:ty, $prim_c:ty, $doc0:expr, $doc1:expr $(,)?) => {
-        paste::item! {
-            #[allow(unused_unsafe)]
-            #[no_mangle]
-            #[doc = "Gets a mutable slice"]
-            #[doc = $doc1]
-            #[doc = "to a zero-initialized model of primitive data type"]
-            #[doc = $doc0]
-            #[doc = "of given length `len`.\n"]
-            #[doc = "\n"]
-            #[doc = "The new model gets cached, which overwrites any existing cached model. The"]
-            #[doc = "cache and slice are valid as described in step 4 of the [workflow]. The"]
-            #[doc = "cached model can be modified in place, for example for training.\n"]
-            #[doc = "\n"]
-            #[doc = "# Errors\n"]
-            #[doc = "Ignores null pointer `client`s and returns a"]
-            #[doc = $doc1]
-            #[doc = "with null pointer and length zero immediately.\n"]
-            #[doc = "\n"]
-            #[doc = "Returns a"]
-            #[doc = $doc1]
-            #[doc = "with null pointer and length zero if the model is not representable in"]
-            #[doc = "memory due to the given length `len`.\n"]
-            #[doc = "\n"]
-            #[doc = "# Safety\n"]
-            #[doc = "The method dereferences from the raw pointer arguments. Therefore, the"]
-            #[doc = "behavior of the method is undefined if the arguments don't point to valid"]
-            #[doc = "objects.\n"]
-            #[doc = "\n"]
-            #[doc = "[workflow]: index.html#workflow"]
-            pub unsafe extern "C" fn [<new_model_ $prim_rust>](
-                client: *mut FFIClient,
-                len: c_ulong,
-            ) -> [<PrimitiveModel $prim_rust:upper>] {
-                if client.is_null()
-                    || len == 0
-                    || len > (isize::MAX as usize / mem::size_of::<$prim_rust>()) as c_ulong
-                {
-                    let len = 0_u64 as c_ulong;
-                    let ptr = ptr::null_mut() as *mut $prim_c;
-                    [<PrimitiveModel $prim_rust:upper>] { ptr, len }
-                } else {
-                    let client = unsafe {
-                        // safe if the raw pointer `client` comes from a valid allocation of a `FFIClient`
-                        &mut (*client).client
-                    };
-                    let mut primitive_model = vec![0 as $prim_rust; len as usize];
-                    let ptr = primitive_model.as_mut_ptr() as *mut $prim_c;
-                    client.cached_model = Some(PrimitiveModel::[<$prim_rust:upper>](primitive_model));
-                    [<PrimitiveModel $prim_rust:upper>] { ptr, len }
-                }
-            }
-        }
+#[allow(unused_unsafe)]
+#[no_mangle]
+/// Gets a mutable slice [`PrimitiveModel`] to a zero-initialized model of given primitive data type
+/// `dtype` and length `len`.
+///
+/// The new model gets cached, which overwrites any existing cached model. The cache and slice are
+/// valid as described in step 4 of the [workflow]. The cached model can be modified in place, for
+/// example for training.
+///
+/// The following data types `dtype` are currently supported:
+/// - `1`: [`f32`]
+/// - `2`: [`f64`]
+/// - `3`: [`i32`]
+/// - `4`: [`i64`]
+///
+/// # Errors
+/// Ignores null pointer `client`s and returns a [`PrimitiveModel`] with null pointer, length zero
+/// and void data type immediately.
+///
+/// Returns a [`PrimitiveModel`] with null pointer, length zero and void data type if the model is
+/// not representable in memory due to the given length `len` and data type `dtype`.
+///
+/// # Safety
+/// The method dereferences from the raw pointer arguments. Therefore, the behavior of the method is
+/// undefined if the arguments don't point to valid objects.
+///
+/// [workflow]: index.html#workflow
+pub unsafe extern "C" fn new_model(
+    client: *mut FFIClient,
+    dtype: c_uint,
+    len: c_ulong,
+) -> PrimitiveModel {
+    let max_len = match dtype {
+        1 | 3 => isize::MAX / 4,
+        2 | 4 => isize::MAX / 8,
+        _ => 0,
+    } as c_ulong;
+    if client.is_null() || dtype == 0 || dtype > 4 || len == 0 || len > max_len {
+        return PrimitiveModel {
+            ptr: ptr::null_mut() as *mut c_void,
+            len: 0_u64 as c_ulong,
+            dtype: 0_u32 as c_uint,
+        };
+    }
+    let client = unsafe {
+        // safe if the raw pointer `client` comes from a valid allocation of a `FFIClient`
+        &mut (*client).client
     };
+    let ptr = match dtype {
+        1 => {
+            let mut cached_model = vec![0_f32; len as usize];
+            let ptr = cached_model.as_mut_ptr() as *mut c_void;
+            client.cached_model = Some(CachedModel::F32(cached_model));
+            ptr
+        }
+        2 => {
+            let mut cached_model = vec![0_f64; len as usize];
+            let ptr = cached_model.as_mut_ptr() as *mut c_void;
+            client.cached_model = Some(CachedModel::F64(cached_model));
+            ptr
+        }
+        3 => {
+            let mut cached_model = vec![0_i32; len as usize];
+            let ptr = cached_model.as_mut_ptr() as *mut c_void;
+            client.cached_model = Some(CachedModel::I32(cached_model));
+            ptr
+        }
+        4 => {
+            let mut cached_model = vec![0_i64; len as usize];
+            let ptr = cached_model.as_mut_ptr() as *mut c_void;
+            client.cached_model = Some(CachedModel::I64(cached_model));
+            ptr
+        }
+        _ => unreachable!(),
+    };
+    PrimitiveModel { ptr, len, dtype }
 }
 
-new_model!(f32, c_float, "[`f32`]", "[`PrimitiveModelF32`]");
-new_model!(f64, c_double, "[`f64`]", "[`PrimitiveModelF64`]");
-new_model!(i32, c_int, "[`i32`]", "[`PrimitiveModelI32`]");
-new_model!(i64, c_long, "[`i64`]", "[`PrimitiveModelI64`]");
+#[allow(unused_unsafe)]
+#[no_mangle]
+/// Gets a mutable slice [`PrimitiveModel`] to the latest global model converted to the primitive
+/// data type `dtype`.
+///
+/// The global model gets cached, which overwrites any existing cached model. The cache and slice
+/// are valid as described in step 4 of the [workflow]. The cached model can be modified in place,
+/// for example for training.
+///
+/// The following data types `dtype` are currently supported:
+/// - `1`: [`f32`]
+/// - `2`: [`f64`]
+/// - `3`: [`i32`]
+/// - `4`: [`i64`]
+///
+/// # Errors
+/// Ignores null pointer `client`s and returns a [`PrimitiveModel`] with null pointer, length zero
+/// and void data type immediately.
+///
+/// Returns a [`PrimitiveModel`] with null pointer, length zero and data type `dtype` if no global
+/// model is available or deserialization of the global model fails.
+///
+/// Returns a [`PrimitiveModel`] with null pointer, length of the global model and data type `dtype`
+/// if the conversion of the global model into the primitive data type fails.
+///
+/// # Safety
+/// The method dereferences from the raw pointer arguments. Therefore, the behavior of the method is
+/// undefined if the arguments don't point to valid objects.
+///
+/// [workflow]: index.html#workflow
+pub unsafe extern "C" fn get_model(client: *mut FFIClient, dtype: c_uint) -> PrimitiveModel {
+    if client.is_null() {
+        return PrimitiveModel {
+            ptr: ptr::null_mut() as *mut c_void,
+            len: 0_u64 as c_ulong,
+            dtype: 0_u32 as c_uint,
+        };
+    }
+    let client = unsafe {
+        // safe if the raw pointer `client` comes from a valid allocation of a `FFIClient`
+        &mut (*client).client
+    };
 
-/// Generates a function to get the global model converted to primitives. The arguments `$prim_rust`
-/// and `$prim_c` are the corresponding Rust and C primitive data types and `$docN` are type links
-/// for the documentation.
-macro_rules! get_model {
-    ($prim_rust:ty, $prim_c:ty, $doc0:expr, $doc1:expr $(,)?) => {
-        paste::item! {
-            #[allow(unused_unsafe)]
-            #[no_mangle]
-            #[doc = "Gets a mutable slice"]
-            #[doc = $doc1]
-            #[doc = "to the latest global model converted to primitive data type"]
-            #[doc = $doc0]
-            #[doc = ".\n\n"]
-            #[doc = "The global model gets cached, which overwrites any existing cached model. The"]
-            #[doc = "cache and slice are valid as described in step 4 of the [workflow]. The"]
-            #[doc = "cached model can be modified in place, for example for training.\n"]
-            #[doc = "\n"]
-            #[doc = "# Errors\n"]
-            #[doc = "Ignores null pointer `client`s and returns a"]
-            #[doc = $doc1]
-            #[doc = "with null pointer and length zero immediately.\n"]
-            #[doc = "\n"]
-            #[doc = "Returns a"]
-            #[doc = $doc1]
-            #[doc = "with null pointer and length zero if no global model is available or"]
-            #[doc = "deserialization of the global model fails.\n"]
-            #[doc = "\n"]
-            #[doc = "Returns a"]
-            #[doc = $doc1]
-            #[doc = "with null pointer and length of the global model if the conversion of the"]
-            #[doc = "global model into the primitive data type"]
-            #[doc = $doc0]
-            #[doc = "fails.\n"]
-            #[doc = "\n"]
-            #[doc = "# Safety\n"]
-            #[doc = "The method dereferences from the raw pointer arguments. Therefore, the"]
-            #[doc = "behavior of the method is undefined if the arguments don't point to valid"]
-            #[doc = "objects.\n"]
-            #[doc = "\n"]
-            #[doc = "[workflow]: index.html#workflow"]
-            pub unsafe extern "C" fn [<get_model_ $prim_rust>](
-                client: *mut FFIClient,
-            ) -> [<PrimitiveModel $prim_rust:upper>] {
-                if client.is_null() {
-                    let len = 0_u64 as c_ulong;
-                    let ptr = ptr::null_mut() as *mut $prim_c;
-                    return [<PrimitiveModel $prim_rust:upper>] { ptr, len };
-                }
-                let client = unsafe {
-                    // safe if the raw pointer `client` comes from a valid allocation of a `FFIClient`
-                    &mut (*client).client
-                };
-
-                // global model available
-                if let Some(ref global_model) = client.global_model {
-                    if let Some(PrimitiveModel::[<$prim_rust:upper>](ref mut cached_model)) = client.cached_model {
-                        if !client.has_new_global_model_since_last_cache {
-                            // global model is already cached as a primitive model
-                            let ptr = cached_model.as_mut_ptr() as *mut $prim_c;
-                            let len = cached_model.len() as c_ulong;
-                            return [<PrimitiveModel $prim_rust:upper>] { ptr, len };
-                        }
-                    }
-
-                    // deserialize and convert the global model to a primitive model and cache it
-                    client.has_new_global_model_since_last_cache = false;
-                    if let Ok(deserialized_model) = bincode::deserialize::<Model>(&global_model) {
-                        // deserialization succeeded
-                        let len = deserialized_model.len() as c_ulong;
-                        if let Ok(mut primitive_model) = deserialized_model
-                            .into_primitives()
-                            .map(|res| res.map_err(|_| ()))
-                            .collect::<Result<Vec<$prim_rust>, ()>>()
-                        {
-                            // conversion succeeded
-                            let ptr = primitive_model.as_mut_ptr() as *mut $prim_c;
-                            client.cached_model = Some(PrimitiveModel::[<$prim_rust:upper>](primitive_model));
-                            return [<PrimitiveModel $prim_rust:upper>] { ptr, len };
-                        } else {
-                            // conversion failed
-                            let ptr = ptr::null_mut() as *mut $prim_c;
-                            client.cached_model = None;
-                            return [<PrimitiveModel $prim_rust:upper>] { ptr, len };
-                        }
+    // global model available
+    if let Some(ref global_model) = client.global_model {
+        // global model is already cached as a primitive model
+        if !client.has_new_global_model_since_last_cache {
+            match dtype {
+                1 => {
+                    if let Some(CachedModel::F32(ref mut cached_model)) = client.cached_model {
+                        return PrimitiveModel {
+                            ptr: cached_model.as_mut_ptr() as *mut c_void,
+                            len: cached_model.len() as c_ulong,
+                            dtype,
+                        };
                     }
                 }
-
-                // global model unavailable or deserialization failed
-                let len = 0_u64 as c_ulong;
-                let ptr = ptr::null_mut() as *mut $prim_c;
-                client.cached_model = None;
-                [<PrimitiveModel $prim_rust:upper>] { ptr, len }
+                2 => {
+                    if let Some(CachedModel::F64(ref mut cached_model)) = client.cached_model {
+                        return PrimitiveModel {
+                            ptr: cached_model.as_mut_ptr() as *mut c_void,
+                            len: cached_model.len() as c_ulong,
+                            dtype,
+                        };
+                    }
+                }
+                3 => {
+                    if let Some(CachedModel::I32(ref mut cached_model)) = client.cached_model {
+                        return PrimitiveModel {
+                            ptr: cached_model.as_mut_ptr() as *mut c_void,
+                            len: cached_model.len() as c_ulong,
+                            dtype,
+                        };
+                    }
+                }
+                4 => {
+                    if let Some(CachedModel::I64(ref mut cached_model)) = client.cached_model {
+                        return PrimitiveModel {
+                            ptr: cached_model.as_mut_ptr() as *mut c_void,
+                            len: cached_model.len() as c_ulong,
+                            dtype,
+                        };
+                    }
+                }
+                _ => unreachable!(),
             }
         }
-    };
-}
 
-get_model!(f32, c_float, "[`f32`]", "[`PrimitiveModelF32`]");
-get_model!(f64, c_double, "[`f64`]", "[`PrimitiveModelF64`]");
-get_model!(i32, c_int, "[`i32`]", "[`PrimitiveModelI32`]");
-get_model!(i64, c_long, "[`i64`]", "[`PrimitiveModelI64`]");
-
-/// Generates a function to register the updated local model. The argument `$prim` is the
-/// corresponding Rust primitive data type and `$docN` are type links for the documentation.
-macro_rules! update_model {
-    ($prim:ty, $doc0:expr, $doc1:expr, $doc2:expr $(,)?) => {
-        paste::item! {
-            #[allow(unused_unsafe)]
-            #[no_mangle]
-            #[doc = "Registers the updated local model of primitive data type"]
-            #[doc = $doc0]
-            #[doc = ".\n\n"]
-            #[doc = "# Errors\n"]
-            #[doc = "Ignores null pointer `client`s and returns immediately.\n"]
-            #[doc = "\n"]
-            #[doc = "Returns an error if the cached model is not of primitive data type"]
-            #[doc = $doc0]
-            #[doc = "or if there is no cached model at all.\n"]
-            #[doc = "\n"]
-            #[doc = "The error codes are as following:\n"]
-            #[doc = "- `-1`: client didn't update due to null pointer\n"]
-            #[doc = "- `0`: no error\n"]
-            #[doc = "- `1`: client didn't update due missing cache\n"]
-            #[doc = "- `2`: client didn't update due wrongly typed cache\n"]
-            #[doc = "\n"]
-            #[doc = "# Safety\n"]
-            #[doc = "The method dereferences from the raw pointer arguments. Therefore, the"]
-            #[doc = "behavior of the method is undefined if the arguments don't point to valid"]
-            #[doc = "objects.\n"]
-            #[doc = "\n"]
-            #[doc = "The `model` points to memory which is either allocated by"]
-            #[doc = $doc1]
-            #[doc = "or by"]
-            #[doc = $doc2]
-            #[doc = "and then modified. Therefore, the behavior of the method is undefined if the"]
-            #[doc = "memory was modified in an invalid way."]
-            pub unsafe extern "C" fn [<update_model_ $prim>](
-                client: *mut FFIClient,
-            ) -> c_int {
-                if client.is_null() {
-                    return -1_i32 as c_int;
+        // deserialize and convert the global model to a primitive model and cache it
+        client.has_new_global_model_since_last_cache = false;
+        if let Ok(deserialized_model) = bincode::deserialize::<Model>(&global_model) {
+            // deserialization succeeded
+            let len = deserialized_model.len() as c_ulong;
+            let ptr = match dtype {
+                1 => {
+                    if let Ok(mut cached_model) = deserialized_model
+                        .into_primitives()
+                        .map(|res| res.map_err(|_| ()))
+                        .collect::<Result<Vec<f32>, ()>>()
+                    {
+                        // conversion succeeded
+                        let ptr = cached_model.as_mut_ptr() as *mut c_void;
+                        client.cached_model = Some(CachedModel::F32(cached_model));
+                        ptr
+                    } else {
+                        // conversion failed
+                        client.cached_model = None;
+                        ptr::null_mut() as *mut c_void
+                    }
                 }
-                let client = unsafe {
-                    // safe if the raw pointer `client` comes from a valid allocation of a `Client`
-                    &mut (*client).client
-                };
-                if client.cached_model.is_none() {
-                    return 1_i32 as c_int;
+                2 => {
+                    if let Ok(mut cached_model) = deserialized_model
+                        .into_primitives()
+                        .map(|res| res.map_err(|_| ()))
+                        .collect::<Result<Vec<f64>, ()>>()
+                    {
+                        // conversion succeeded
+                        let ptr = cached_model.as_mut_ptr() as *mut c_void;
+                        client.cached_model = Some(CachedModel::F64(cached_model));
+                        ptr
+                    } else {
+                        // conversion failed
+                        client.cached_model = None;
+                        ptr::null_mut() as *mut c_void
+                    }
                 }
-                if let Some(PrimitiveModel::[<$prim:upper>](cached_model)) = client.cached_model.take() {
-                    client.local_model = Some(Model::from_primitives_bounded(cached_model.into_iter()));
-                    0_i32 as c_int
-                } else {
-                    2_i32 as c_int
+                3 => {
+                    if let Ok(mut cached_model) = deserialized_model
+                        .into_primitives()
+                        .map(|res| res.map_err(|_| ()))
+                        .collect::<Result<Vec<i32>, ()>>()
+                    {
+                        // conversion succeeded
+                        let ptr = cached_model.as_mut_ptr() as *mut c_void;
+                        client.cached_model = Some(CachedModel::I32(cached_model));
+                        ptr
+                    } else {
+                        // conversion failed
+                        client.cached_model = None;
+                        ptr::null_mut() as *mut c_void
+                    }
                 }
-            }
+                4 => {
+                    if let Ok(mut cached_model) = deserialized_model
+                        .into_primitives()
+                        .map(|res| res.map_err(|_| ()))
+                        .collect::<Result<Vec<i64>, ()>>()
+                    {
+                        // conversion succeeded
+                        let ptr = cached_model.as_mut_ptr() as *mut c_void;
+                        client.cached_model = Some(CachedModel::I64(cached_model));
+                        ptr
+                    } else {
+                        // conversion failed
+                        client.cached_model = None;
+                        ptr::null_mut() as *mut c_void
+                    }
+                }
+                _ => unreachable!(),
+            };
+            return PrimitiveModel { ptr, len, dtype };
         }
-    };
+    }
+
+    // global model unavailable or deserialization failed
+    client.cached_model = None;
+    PrimitiveModel {
+        ptr: ptr::null_mut() as *mut c_void,
+        len: 0_u64 as c_ulong,
+        dtype: 0_u32 as c_uint,
+    }
 }
 
-update_model!(f32, "[`f32`]", "[`new_model_f32()`]", "[`get_model_f32()`]");
-update_model!(f64, "[`f64`]", "[`new_model_f32()`]", "[`get_model_f64()`]");
-update_model!(i32, "[`i32`]", "[`new_model_f32()`]", "[`get_model_i32()`]");
-update_model!(i64, "[`i64`]", "[`new_model_f32()`]", "[`get_model_i64()`]");
+#[allow(unused_unsafe)]
+#[no_mangle]
+/// Registers the cached model as an updated local model.
+///
+/// This clears the cached model.
+///
+/// # Errors
+/// Ignores null pointer `client`s and returns immediately.
+///
+/// Returns an error if there is no cached model to register.
+///
+/// The error codes are as following:
+/// - `-1`: client didn't update due to null pointer
+/// - `0`: no error
+/// - `1`: client didn't update due missing cached model
+///
+/// # Safety
+/// The method dereferences from the raw pointer arguments. Therefore, the behavior of the method is
+/// undefined if the arguments don't point to valid objects.
+///
+/// The memory of the cached model is is either allocated by [`new_model()`] or [`get_model()`].
+/// Therefore, the behavior of the method is undefined if the memory was modified in an invalid way.
+pub unsafe extern "C" fn update_model(client: *mut FFIClient) -> c_int {
+    if client.is_null() {
+        return -1_i32 as c_int;
+    }
+    let client = unsafe {
+        // safe if the raw pointer `client` comes from a valid allocation of a `Client`
+        &mut (*client).client
+    };
+    client.local_model = match client.cached_model.take() {
+        Some(CachedModel::F32(cached_model)) => {
+            Some(Model::from_primitives_bounded(cached_model.into_iter()))
+        }
+        Some(CachedModel::F64(cached_model)) => {
+            Some(Model::from_primitives_bounded(cached_model.into_iter()))
+        }
+        Some(CachedModel::I32(cached_model)) => {
+            Some(Model::from_primitives_bounded(cached_model.into_iter()))
+        }
+        Some(CachedModel::I64(cached_model)) => {
+            Some(Model::from_primitives_bounded(cached_model.into_iter()))
+        }
+        None => return 1_i32 as c_int,
+    };
+    0_i32 as c_int
+}
 
 #[allow(unused_unsafe)]
 #[no_mangle]
 /// Destroys a [`Client`]'s cached primitive model and frees its allocated memory.
 ///
-/// It is not necessary to call this function if [`drop_client()`] is called anyways.
+/// It is not necessary to call this function if [`update_model()`] or [`drop_client()`] is called
+/// anyways.
 ///
 /// # Errors
 /// Ignores null pointer `client`s and returns immediately.
 ///
 /// # Safety
-/// The method dereferences from the raw pointer arguments. Therefore, the behavior of
-/// the method is undefined if the arguments don't point to valid objects.
+/// The method dereferences from the raw pointer arguments. Therefore, the behavior of the method is
+/// undefined if the arguments don't point to valid objects.
 pub unsafe extern "C" fn drop_model(client: *mut FFIClient) {
     if !client.is_null() {
         let client = unsafe {
-            // safe if the raw pointer `client` comes from a valid allocation of a `Client`
+            // safe if the raw pointer `client` comes from a valid allocation of a `FFIClient`
             &mut (*client).client
         };
         client.cached_model.take();
@@ -633,7 +686,7 @@ mod tests {
     }
 
     macro_rules! test_new_model {
-        ($prim:ty) => {
+        ($prim:ty, $dtype:expr) => {
             paste::item! {
                 #[allow(unused_unsafe)]
                 #[test]
@@ -642,10 +695,11 @@ mod tests {
 
                     // check that the new model is cached
                     let (model, _) = dummy_model(0., 10);
-                    let prim_model = unsafe { [<new_model_ $prim>](client, 10 as c_ulong) };
-                    if let Some(PrimitiveModel::[<$prim:upper>](ref cached_model)) = unsafe { &mut *client }.client.cached_model {
-                        assert_eq!(prim_model.ptr as *const _, cached_model.as_ptr());
-                        assert_eq!(prim_model.len as usize, cached_model.len());
+                    let prim_model = unsafe { new_model(client, $dtype as c_uint, 10 as c_ulong) };
+                    if let Some(CachedModel::[<$prim:upper>](ref cached_model)) = unsafe { &mut *client }.client.cached_model {
+                        assert_eq!(prim_model.ptr, cached_model.as_ptr() as *mut c_void);
+                        assert_eq!(prim_model.len, cached_model.len() as c_ulong);
+                        assert_eq!(prim_model.dtype, $dtype as c_uint);
                         assert_eq!(model, Model::from_primitives_bounded(cached_model.iter().cloned()));
                     } else {
                         panic!();
@@ -656,13 +710,13 @@ mod tests {
         };
     }
 
-    test_new_model!(f32);
-    test_new_model!(f64);
-    test_new_model!(i32);
-    test_new_model!(i64);
+    test_new_model!(f32, 1);
+    test_new_model!(f64, 2);
+    test_new_model!(i32, 3);
+    test_new_model!(i64, 4);
 
     macro_rules! test_get_model {
-        ($prim:ty) => {
+        ($prim:ty, $dtype:expr) => {
             paste::item! {
                 #[allow(unused_unsafe)]
                 #[test]
@@ -671,18 +725,20 @@ mod tests {
 
                     // check that the primitive model is null if the global model is unavailable
                     assert!(unsafe { &*client }.client.global_model.is_none());
-                    let prim_model = unsafe { [<get_model_ $prim>](client) };
+                    let prim_model = unsafe { get_model(client, $dtype as c_uint) };
                     assert!(unsafe { &*client }.client.cached_model.is_none());
                     assert!(prim_model.ptr.is_null());
                     assert_eq!(prim_model.len, 0);
+                    assert_eq!(prim_model.dtype, 0);
 
                     // check that the primitive model points to the cached model if the global model is available
                     let (model, serialized_model) = dummy_model(0., 10);
                     unsafe { &mut *client }.client.global_model = Some(serialized_model);
-                    let prim_model = unsafe { [<get_model_ $prim>](client) };
-                    if let Some(PrimitiveModel::[<$prim:upper>](ref cached_model)) = unsafe { &mut *client }.client.cached_model {
-                        assert_eq!(prim_model.ptr as *const _, cached_model.as_ptr());
-                        assert_eq!(prim_model.len as usize, cached_model.len());
+                    let prim_model = unsafe { get_model(client, $dtype as c_uint) };
+                    if let Some(CachedModel::[<$prim:upper>](ref cached_model)) = unsafe { &mut *client }.client.cached_model {
+                        assert_eq!(prim_model.ptr, cached_model.as_ptr() as *mut c_void);
+                        assert_eq!(prim_model.len, cached_model.len() as c_ulong);
+                        assert_eq!(prim_model.dtype, $dtype as c_uint);
                         assert_eq!(model, Model::from_primitives_bounded(cached_model.iter().cloned()));
                     } else {
                         panic!();
@@ -693,33 +749,36 @@ mod tests {
         };
     }
 
-    test_get_model!(f32);
-    test_get_model!(f64);
-    test_get_model!(i32);
-    test_get_model!(i64);
+    test_get_model!(f32, 1);
+    test_get_model!(f64, 2);
+    test_get_model!(i32, 3);
+    test_get_model!(i64, 4);
 
     macro_rules! test_update_model {
-        ($prim:ty) => {
+        ($prim:ty, $dtype:expr) => {
             paste::item! {
                 #[test]
                 fn [<test_update_model_ $prim>]() {
                     let client = unsafe { new_client(10, 1, 4) };
                     let (model, serialized_model) = dummy_model(0., 10);
                     unsafe { &mut *client }.client.global_model = Some(serialized_model);
-                    let prim_model = unsafe { [<get_model_ $prim>](client) };
+                    let prim_model = unsafe { get_model(client, $dtype as c_uint) };
 
                     // check that the local model is updated from the cached model
-                    if let Some(PrimitiveModel::[<$prim:upper>](ref cached_model)) = unsafe { &mut *client }.client.cached_model {
-                        assert_eq!(prim_model.ptr as *const _, cached_model.as_ptr());
-                        assert_eq!(prim_model.len as usize, cached_model.len());
+                    if let Some(CachedModel::[<$prim:upper>](ref cached_model)) = unsafe { &mut *client }.client.cached_model {
+                        assert_eq!(prim_model.ptr, cached_model.as_ptr() as *mut c_void);
+                        assert_eq!(prim_model.len, cached_model.len() as c_ulong);
+                        assert_eq!(prim_model.dtype, $dtype as c_uint);
                     } else {
                         panic!();
                     }
                     assert!(unsafe {  &*client }.client.local_model.is_none());
-                    assert_eq!(unsafe { [<update_model_ $prim>](client) }, 0);
+                    assert_eq!(unsafe { update_model(client) }, 0);
                     assert!(unsafe { &mut *client }.client.cached_model.is_none());
                     if let Some(ref local_model) = unsafe { &*client }.client.local_model {
                         assert_eq!(&model, local_model);
+                    } else {
+                        panic!();
                     }
                     unsafe { drop_client(client, 0) };
                 }
@@ -727,8 +786,8 @@ mod tests {
         };
     }
 
-    test_update_model!(f32);
-    test_update_model!(f64);
-    test_update_model!(i32);
-    test_update_model!(i64);
+    test_update_model!(f32, 1);
+    test_update_model!(f64, 2);
+    test_update_model!(i32, 3);
+    test_update_model!(i64, 4);
 }

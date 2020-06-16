@@ -7,7 +7,7 @@ use crate::{
     crypto::ByteObject,
     mask::model::Model,
     participant::{Participant, Task},
-    sdk::api::PrimitiveModel,
+    sdk::api::CachedModel,
     service::{Handle, SerializedGlobalModel},
     CoordinatorPublicKey,
     InitError,
@@ -36,6 +36,7 @@ pub enum ClientError {
     GeneralErr,
 }
 
+#[derive(Debug)]
 /// A client of the federated learning service
 ///
 /// [`Client`] is responsible for communicating with the service, deserialising
@@ -57,7 +58,7 @@ pub struct Client {
     pub(crate) has_new_coord_pk_since_last_check: bool,
 
     pub(crate) global_model: Option<SerializedGlobalModel>,
-    pub(crate) cached_model: Option<PrimitiveModel>,
+    pub(crate) cached_model: Option<CachedModel>,
     pub(crate) has_new_global_model_since_last_check: bool,
     pub(crate) has_new_global_model_since_last_cache: bool,
     pub(crate) local_model: Option<Model>,
