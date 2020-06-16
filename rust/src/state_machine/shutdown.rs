@@ -17,8 +17,12 @@ impl PhaseState<Shutdown> {
         }
     }
 
-    pub async fn next(self) -> Option<StateMachine> {
+    pub async fn next(mut self) -> Option<StateMachine> {
         info!("shutdown state machine");
+
+        // clear the request channel
+        self.request_rx.close();
+        while let Some(_) = self.request_rx.recv().await {}
         None
     }
 }
