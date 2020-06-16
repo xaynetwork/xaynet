@@ -22,7 +22,7 @@ impl State<Sum> {
     ) -> StateMachine {
         info!("state transition");
         StateMachine::Sum(Self {
-            _inner: Sum,
+            inner: Sum,
             coordinator_state,
             request_rx,
         })
@@ -69,7 +69,8 @@ impl State<Sum> {
         self.coordinator_state
             .sum_dict
             .insert(participant_pk, ephm_pk);
-        // Is it ok to ignore the error here?
+
+        // See `Self::handle_invalid_message`
         let _ = response_tx.send(Ok(()));
     }
 

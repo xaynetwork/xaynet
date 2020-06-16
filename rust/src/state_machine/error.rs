@@ -15,15 +15,15 @@ impl State<Error> {
     ) -> StateMachine {
         info!("state transition");
         StateMachine::Error(Self {
-            _inner: Error { error },
+            inner: Error { error },
             coordinator_state,
             request_rx,
         })
     }
 
     pub async fn next(self) -> StateMachine {
-        error!("state transition failed! error: {:?}", self._inner.error);
-        if let StateError::ChannelError(e) = self._inner.error {
+        error!("state transition failed! error: {:?}", self.inner.error);
+        if let StateError::ChannelError(e) = self.inner.error {
             panic!(e)
         };
 

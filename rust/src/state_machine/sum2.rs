@@ -29,7 +29,7 @@ impl State<Sum2> {
     ) -> StateMachine {
         info!("state transition");
         StateMachine::Sum2(Self {
-            _inner: Sum2,
+            inner: Sum2,
             coordinator_state,
             request_rx,
         })
@@ -43,7 +43,7 @@ impl State<Sum2> {
     }
 
     async fn run_phase(&mut self) -> Result<(), StateError> {
-        while !self.has_enough_masks() {
+        while !self.has_enough_sums() {
             let req = self.next_request().await?;
             self.handle_request(req);
         }
@@ -69,6 +69,8 @@ impl State<Sum2> {
             mask,
             response_tx,
         } = req;
+
+        // See `Self::handle_invalid_message`
         let _ = response_tx.send(self.add_mask(&participant_pk, mask));
     }
 
@@ -91,7 +93,7 @@ impl State<Sum2> {
     }
 
     /// Check whether enough sum participants submitted their masks to start the idle phase.
-    fn has_enough_masks(&self) -> bool {
+    fn has_enough_sums(&self) -> bool {
         let mask_count = self.coordinator_state.mask_dict.values().sum::<usize>();
         mask_count >= self.coordinator_state.min_sum
     }

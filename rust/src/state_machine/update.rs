@@ -22,7 +22,7 @@ impl State<Update> {
     ) -> StateMachine {
         info!("state transition");
         StateMachine::Update(Self {
-            _inner: Update,
+            inner: Update,
             coordinator_state,
             request_rx,
         })
@@ -36,7 +36,7 @@ impl State<Update> {
     }
 
     async fn run_phase(&mut self) -> Result<(), StateError> {
-        while !self.has_enough_seeds() {
+        while !self.has_enough_updates() {
             let req = self.next_request().await?;
             self.handle_request(req);
         }
@@ -64,6 +64,7 @@ impl State<Update> {
             response_tx,
         } = req;
 
+        // See `Self::handle_invalid_message`
         let _ = response_tx.send(self.update_seed_dict_and_aggregate_mask(
             &participant_pk,
             &local_seed_dict,
@@ -71,6 +72,7 @@ impl State<Update> {
         ));
     }
 
+    /// Updates the local seed dict and aggregates the masked model.
     fn update_seed_dict_and_aggregate_mask(
         &mut self,
         pk: &UpdateParticipantPublicKey,
@@ -132,7 +134,7 @@ impl State<Update> {
 
     /// Check whether enough update participants submitted their models and seeds to start the sum2
     /// phase.
-    fn has_enough_seeds(&self) -> bool {
+    fn has_enough_updates(&self) -> bool {
         self.coordinator_state
             .seed_dict
             .values()

@@ -19,7 +19,7 @@ impl State<Idle> {
     ) -> StateMachine {
         info!("state transition");
         StateMachine::Idle(Self {
-            _inner: Idle,
+            inner: Idle,
             coordinator_state,
             request_rx,
         })
