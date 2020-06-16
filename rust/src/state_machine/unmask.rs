@@ -1,4 +1,4 @@
-use super::{idle::Idle, CoordinatorState, MaskDict, Request, State, StateError, StateMachine};
+use super::{idle::Idle, CoordinatorState, MaskDict, Request, PhaseState, StateError, StateMachine};
 
 use crate::{
     coordinator::RoundFailed,
@@ -15,7 +15,7 @@ pub struct Unmask {
     mask_dict: MaskDict,
 }
 
-impl State<Unmask> {
+impl PhaseState<Unmask> {
     #[allow(clippy::new_ret_no_self)]
     pub fn new(
         coordinator_state: CoordinatorState,
@@ -36,8 +36,8 @@ impl State<Unmask> {
 
     pub async fn next(mut self) -> StateMachine {
         match self.run_phase().await {
-            Ok(_) => State::<Idle>::new(self.coordinator_state, self.request_rx),
-            Err(err) => State::<StateError>::new(self.coordinator_state, self.request_rx, err),
+            Ok(_) => PhaseState::<Idle>::new(self.coordinator_state, self.request_rx),
+            Err(err) => PhaseState::<StateError>::new(self.coordinator_state, self.request_rx, err),
         }
     }
 

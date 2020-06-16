@@ -76,7 +76,7 @@ pub enum StateError {
     RoundError(#[from] RoundFailed),
 }
 
-pub struct State<S> {
+pub struct PhaseState<S> {
     // Inner state
     inner: S,
     // Coordinator state
@@ -86,7 +86,7 @@ pub struct State<S> {
 }
 
 // Functions that are available to all states
-impl<S> State<S> {
+impl<S> PhaseState<S> {
     /// Receives the next [`Request`].
     /// Returns [`StateError::ChannelError`] when all sender halve have been dropped.
     async fn next_request(&mut self) -> Result<Request, StateError> {
@@ -107,12 +107,12 @@ impl<S> State<S> {
 }
 
 pub enum StateMachine {
-    Idle(State<Idle>),
-    Sum(State<Sum>),
-    Update(State<Update>),
-    Sum2(State<Sum2>),
-    Unmask(State<Unmask>),
-    Error(State<StateError>),
+    Idle(PhaseState<Idle>),
+    Sum(PhaseState<Sum>),
+    Update(PhaseState<Update>),
+    Sum2(PhaseState<Sum2>),
+    Unmask(PhaseState<Unmask>),
+    Error(PhaseState<StateError>),
 }
 
 impl StateMachine {
@@ -142,7 +142,7 @@ impl StateMachine {
 
         Ok((
             request_tx,
-            State::<Idle>::new(coordinator_state, request_rx),
+            PhaseState::<Idle>::new(coordinator_state, request_rx),
         ))
     }
 }

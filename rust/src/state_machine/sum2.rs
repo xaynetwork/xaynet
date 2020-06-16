@@ -4,7 +4,7 @@ use super::{
     CoordinatorState,
     MaskDict,
     Request,
-    State,
+    PhaseState,
     StateError,
     StateMachine,
     SumDict,
@@ -28,7 +28,7 @@ pub struct Sum2 {
     mask_dict: MaskDict,
 }
 
-impl State<Sum2> {
+impl PhaseState<Sum2> {
     #[allow(clippy::new_ret_no_self)]
     pub fn new(
         coordinator_state: CoordinatorState,
@@ -50,13 +50,13 @@ impl State<Sum2> {
 
     pub async fn next(mut self) -> StateMachine {
         match self.run_phase().await {
-            Ok(_) => State::<Unmask>::new(
+            Ok(_) => PhaseState::<Unmask>::new(
                 self.coordinator_state,
                 self.request_rx,
                 self.inner.aggregation,
                 self.inner.mask_dict,
             ),
-            Err(err) => State::<StateError>::new(self.coordinator_state, self.request_rx, err),
+            Err(err) => PhaseState::<StateError>::new(self.coordinator_state, self.request_rx, err),
         }
     }
 

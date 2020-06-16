@@ -1,7 +1,7 @@
-use super::{idle::Idle, CoordinatorState, Request, State, StateError, StateMachine};
+use super::{idle::Idle, CoordinatorState, PhaseState, Request, StateError, StateMachine};
 use tokio::sync::mpsc;
 
-impl State<StateError> {
+impl PhaseState<StateError> {
     #[allow(clippy::new_ret_no_self)]
     pub fn new(
         coordinator_state: CoordinatorState,
@@ -22,6 +22,6 @@ impl State<StateError> {
             panic!(e)
         };
 
-        State::<Idle>::new(self.coordinator_state, self.request_rx)
+        PhaseState::<Idle>::new(self.coordinator_state, self.request_rx)
     }
 }

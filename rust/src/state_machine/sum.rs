@@ -2,9 +2,9 @@ use super::{
     requests::SumRequest,
     update::Update,
     CoordinatorState,
+    PhaseState,
     Request,
     SeedDict,
-    State,
     StateError,
     StateMachine,
 };
@@ -17,7 +17,7 @@ pub struct Sum {
     sum_dict: SumDict,
 }
 
-impl State<Sum> {
+impl PhaseState<Sum> {
     #[allow(clippy::new_ret_no_self)]
     pub fn new(
         coordinator_state: CoordinatorState,
@@ -35,13 +35,13 @@ impl State<Sum> {
 
     pub async fn next(mut self) -> StateMachine {
         match self.run_phase().await {
-            Ok(seed_dict) => State::<Update>::new(
+            Ok(seed_dict) => PhaseState::<Update>::new(
                 self.coordinator_state,
                 self.request_rx,
                 self.inner.sum_dict,
                 seed_dict,
             ),
-            Err(err) => State::<StateError>::new(self.coordinator_state, self.request_rx, err),
+            Err(err) => PhaseState::<StateError>::new(self.coordinator_state, self.request_rx, err),
         }
     }
 
