@@ -4,6 +4,8 @@ pub mod pre_processor;
 pub mod state_machine;
 pub mod utils;
 
+// mod sum_dict_fetcher;
+
 use std::{
     pin::Pin,
     task::{Context, Poll},
@@ -38,6 +40,7 @@ type PreProcessorClient = Client<PreProcessorTransport, PreProcessorRequest, Pre
 type StateMachineTransport = TransportClient<Traced<StateMachineRequest>, StateMachineResponse>;
 type StateMachineClient = Client<StateMachineTransport, StateMachineRequest, StateMachineResponse>;
 
+#[derive(Clone)]
 pub struct CoordinatorService {
     message_parser: MessageParserClient,
     pre_processor: PreProcessorClient,

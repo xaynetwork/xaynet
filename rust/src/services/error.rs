@@ -30,6 +30,11 @@ pub enum RequestFailed {
     #[error("The message was rejected because the coordinator did not expect it")]
     UnexpectedMessage,
 
+    // TODO: we should have a retry layer that automatically retries
+    // requests that fail with this error.
+    #[error("The request could not be processed due to a temporary internal error")]
+    TemporaryInternalError,
+
     #[error("TODO")]
     Other,
 }

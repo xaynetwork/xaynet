@@ -7,6 +7,7 @@ extern crate serde;
 extern crate tracing;
 
 pub mod certificate;
+pub mod events;
 // pub mod client;
 pub mod coordinator;
 pub mod crypto;

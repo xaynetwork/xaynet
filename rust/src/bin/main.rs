@@ -46,7 +46,7 @@ async fn main() {
         update: 0.00001,
     };
 
-    let (coordinator, watcher) = Coordinator::new(config).unwrap();
+    let (coordinator, event_subscriber) = Coordinator::new(config).unwrap();
 
     let thread_pool = Arc::new(ThreadPoolBuilder::new().build().unwrap());
 
@@ -59,7 +59,7 @@ async fn main() {
             .concurrency_limit(100)
             .layer(TracingLayer)
             .service(MessageParserService::new(
-                watcher.clone(),
+                &event_subscriber,
                 thread_pool.clone(),
             )),
     ));
@@ -72,7 +72,7 @@ async fn main() {
         ServiceBuilder::new()
             .concurrency_limit(100)
             .layer(TracingLayer)
-            .service(PreProcessorService::new(watcher.clone())),
+            .service(PreProcessorService::new(&event_subscriber)),
     ));
 
     let (client_transport, server_transport) =
@@ -96,11 +96,11 @@ async fn main() {
     // pretend we are a participant that retrieves
     let mut participant = Participant::new().unwrap();
 
-    // retrieve the round parameters using the watcher. In practice,
+    // retrieve the round parameters using the subscriber. In practice,
     // we should have a service that services these parameters, but
-    // for now the watcher will do.
-    let coordinator_pk = watcher.get_keys().public;
-    let round_params = watcher.get_round_params();
+    // for now the subscriber will do.
+    let coordinator_pk = event_subscriber.keys_listener().get_latest().event.public;
+    let round_params = event_subscriber.params_listener().get_latest().event;
 
     participant.compute_signatures(round_params.seed.as_slice());
     if participant.check_task(round_params.sum, round_params.update) != Task::Sum {

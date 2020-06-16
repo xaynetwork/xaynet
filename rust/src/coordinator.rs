@@ -1,22 +1,15 @@
-use std::{
-    cmp::Ordering,
-    collections::HashMap,
-    mem,
-    pin::Pin,
-    task::{Context, Poll},
-};
+use std::{cmp::Ordering, collections::HashMap, mem};
 
-use futures::stream::Stream;
 use sodiumoxide::{
     self,
     crypto::{box_, hash::sha256},
     randombytes::randombytes,
 };
 use thiserror::Error;
-use tokio::sync::watch;
 
 use crate::{
     crypto::{ByteObject, KeyPair, SigningKeySeed},
+    events::{EventPublisher, EventSubscriber},
     mask::{Aggregation, MaskConfig, MaskObject, Model, UnmaskingError},
     CoordinatorPublicKey,
     InitError,
@@ -29,6 +22,8 @@ use crate::{
     SumParticipantPublicKey,
     UpdateParticipantPublicKey,
 };
+
+pub type RoundId = u64;
 
 /// Error that occurs when the current round fails
 #[derive(Error, Debug, Eq, PartialEq)]
@@ -85,97 +80,6 @@ pub enum Phase {
     Sum2,
 }
 
-pub struct CoordinatorBroadcaster {
-    keys: watch::Sender<KeyPair>,
-    round_params: watch::Sender<RoundParameters>,
-    phase: watch::Sender<Phase>,
-}
-
-impl CoordinatorBroadcaster {
-    pub fn send_keys(&mut self, keys: KeyPair) {
-        let _ = self.keys.broadcast(keys);
-    }
-
-    pub fn send_round_params(&mut self, round_params: RoundParameters) {
-        let _ = self.round_params.broadcast(round_params);
-    }
-
-    pub fn send_phase(&mut self, phase: Phase) {
-        let _ = self.phase.broadcast(phase);
-    }
-}
-
-#[derive(Clone)]
-pub struct CoordinatorWatcher {
-    keys: watch::Receiver<KeyPair>,
-    round_params: watch::Receiver<RoundParameters>,
-    phase: watch::Receiver<Phase>,
-}
-
-impl CoordinatorWatcher {
-    // Note the these `get` methods to return Ref. This is because
-    // these borrows hold a lock internally. To prevent callers to
-    // accidentally keeping them alive for too long, we just
-    // copy/clone the value.
-    pub fn get_keys(&self) -> KeyPair {
-        self.keys.borrow().clone()
-    }
-
-    pub fn get_round_params(&self) -> RoundParameters {
-        self.round_params.borrow().clone()
-    }
-
-    pub fn get_phase(&self) -> Phase {
-        *self.phase.borrow()
-    }
-
-    pub fn keys_stream(&self) -> WatcherStream<KeyPair> {
-        WatcherStream(self.keys.clone())
-    }
-
-    pub fn round_params_stream(&self) -> WatcherStream<RoundParameters> {
-        WatcherStream(self.round_params.clone())
-    }
-
-    pub fn phase_stream(&self) -> WatcherStream<Phase> {
-        WatcherStream(self.phase.clone())
-    }
-}
-
-#[derive(Clone)]
-pub struct WatcherStream<T: Clone>(watch::Receiver<T>);
-
-impl<T: Clone> Stream for WatcherStream<T> {
-    type Item = T;
-
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-        Pin::new(&mut self.0).poll_next(cx)
-    }
-}
-
-impl CoordinatorBroadcaster {
-    pub fn new(
-        keys: KeyPair,
-        round_params: RoundParameters,
-        phase: Phase,
-    ) -> (Self, CoordinatorWatcher) {
-        let (keys_tx, keys_rx) = watch::channel(keys);
-        let (round_params_tx, round_params_rx) = watch::channel(round_params);
-        let (phase_tx, phase_rx) = watch::channel(phase);
-        let broadcaster = CoordinatorBroadcaster {
-            keys: keys_tx,
-            round_params: round_params_tx,
-            phase: phase_tx,
-        };
-        let watcher = CoordinatorWatcher {
-            keys: keys_rx,
-            round_params: round_params_rx,
-            phase: phase_rx,
-        };
-        (broadcaster, watcher)
-    }
-}
-
 pub struct CoordinatorConfig {
     pub mask_config: MaskConfig,
     pub initial_keys: KeyPair,
@@ -188,7 +92,7 @@ pub struct CoordinatorConfig {
 
 /// A coordinator in the PET protocol layer.
 pub struct Coordinator {
-    broadcaster: CoordinatorBroadcaster,
+    events: EventPublisher,
 
     config: CoordinatorConfig,
 
@@ -211,24 +115,26 @@ pub struct Coordinator {
 
 impl Coordinator {
     /// Create a coordinator. Fails if there is insufficient system entropy to generate secrets.
-    pub fn new(config: CoordinatorConfig) -> Result<(Self, CoordinatorWatcher), InitError> {
+    pub fn new(config: CoordinatorConfig) -> Result<(Self, EventSubscriber), InitError> {
         sodiumoxide::init().or(Err(InitError))?;
         let initial_keys = config.initial_keys.clone();
         let initial_phase = Phase::Sum;
         let initial_round_params = RoundParameters {
+            id: 0,
             pk: initial_keys.public,
             sum: config.sum,
             update: config.update,
             seed: config.initial_seed.clone(),
         };
-        let (broadcaster, watcher) = CoordinatorBroadcaster::new(
+
+        let (publisher, subscriber) = EventPublisher::init(
             initial_keys.clone(),
             initial_round_params.clone(),
             initial_phase,
         );
 
         let coordinator = Self {
-            broadcaster,
+            events: publisher,
             keys: initial_keys,
             phase: initial_phase,
             round_params: initial_round_params,
@@ -238,7 +144,7 @@ impl Coordinator {
             aggregation: Aggregation::new(config.mask_config),
             config,
         };
-        Ok((coordinator, watcher))
+        Ok((coordinator, subscriber))
     }
 
     /// Handle a sum request
@@ -448,15 +354,17 @@ impl Coordinator {
     fn proceed_sum_phase(&mut self) {
         info!("going to sum phase");
         self.clear_round_dicts();
+        self.round_params.id += 1;
         self.update_round_seed();
         self.keys = KeyPair::generate();
         self.aggregation = Aggregation::new(self.config.mask_config);
         self.phase = Phase::Sum;
 
-        self.broadcaster.send_phase(Phase::Sum);
-        self.broadcaster.send_keys(self.keys.clone());
-        self.broadcaster
-            .send_round_params(self.round_params.clone());
+        self.events
+            .broadcast_phase(self.round_params.id, Phase::Sum);
+        self.events
+            .broadcast_keys(self.round_params.id, self.keys.clone());
+        self.events.broadcast_params(self.round_params.clone())
     }
 
     /// End the sum phase and proceed to the update phase.
@@ -465,14 +373,16 @@ impl Coordinator {
         self.freeze_sum_dict();
         self.phase = Phase::Update;
 
-        self.broadcaster.send_phase(Phase::Update);
+        self.events
+            .broadcast_phase(self.round_params.id, Phase::Update);
     }
 
     /// End the update phase and proceed to the sum2 phase.
     fn proceed_sum2_phase(&mut self) {
         info!("going to sum2 phase");
         self.phase = Phase::Sum2;
-        self.broadcaster.send_phase(Phase::Sum2);
+        self.events
+            .broadcast_phase(self.round_params.id, Phase::Sum2);
     }
 
     fn end_round(&mut self) -> Result<Model, RoundFailed> {
@@ -490,6 +400,8 @@ impl Coordinator {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct RoundParameters {
+    pub id: RoundId,
+
     /// The coordinator public key for encryption.
     pub pk: CoordinatorPublicKey,
 

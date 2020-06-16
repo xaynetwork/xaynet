@@ -2,7 +2,7 @@ use std::{sync::Arc, task::Poll};
 
 use anyhow::anyhow;
 use futures::{
-    future::{MapErr, TryFutureExt},
+    future::{self, Either, MapErr, TryFutureExt},
     task::Context,
 };
 use rayon::ThreadPool;
@@ -10,8 +10,9 @@ use tokio::sync::oneshot;
 use tower::Service;
 
 use crate::{
-    coordinator::{CoordinatorWatcher, Phase},
+    coordinator::Phase,
     crypto::{ByteObject, KeyPair},
+    events::{EventListener, EventSubscriber},
     message::{
         FromBytes,
         HeaderOwned,
@@ -28,14 +29,17 @@ use crate::{
 };
 
 pub struct MessageParserService {
-    watcher: CoordinatorWatcher,
+    keys_events: EventListener<KeyPair>,
+    phase_events: EventListener<Phase>,
+
     thread_pool: Arc<ThreadPool>,
 }
 
 impl MessageParserService {
-    pub fn new(watcher: CoordinatorWatcher, thread_pool: Arc<ThreadPool>) -> Self {
+    pub fn new(subscriber: &EventSubscriber, thread_pool: Arc<ThreadPool>) -> Self {
         Self {
-            watcher,
+            keys_events: subscriber.keys_listener(),
+            phase_events: subscriber.phase_listener(),
             thread_pool,
         }
     }
@@ -47,18 +51,33 @@ pub type MessageParserResponse = Result<MessageOwned, RequestFailed>;
 impl Service<MessageParserRequest> for MessageParserService {
     type Response = MessageParserResponse;
     type Error = ServiceError;
-    type Future =
-        MapErr<oneshot::Receiver<Self::Response>, fn(oneshot::error::RecvError) -> Self::Error>;
+    type Future = Either<
+        future::Ready<Result<Self::Response, Self::Error>>,
+        MapErr<oneshot::Receiver<Self::Response>, fn(oneshot::error::RecvError) -> Self::Error>,
+    >;
 
     fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         Poll::Ready(Ok(()))
     }
 
     fn call(&mut self, req: MessageParserRequest) -> Self::Future {
+        let keys_ev = self.keys_events.get_latest();
+        let phase_ev = self.phase_events.get_latest();
+
+        // This can happen if the coordinator is switching starting a
+        // new phase. The error should be temporary and we should be
+        // able to retry the request.
+        if keys_ev.round != phase_ev.round {
+            return Either::Left(future::ready(Ok(Err(
+                RequestFailed::TemporaryInternalError,
+            ))));
+        }
+
         let pre_processor = PreProcessor {
-            keys: self.watcher.get_keys(),
-            phase: self.watcher.get_phase(),
+            keys: keys_ev.event,
+            phase: phase_ev.event,
         };
+
         let (tx, rx) = oneshot::channel::<Self::Response>();
         let span = tracing::Span::current();
         self.thread_pool.spawn(move || {
@@ -66,7 +85,7 @@ impl Service<MessageParserRequest> for MessageParserService {
             let resp = pre_processor.call(req);
             let _ = tx.send(resp);
         });
-        rx.map_err(|_| anyhow!("failed to receive response from pre-processor"))
+        Either::Right(rx.map_err(|_| anyhow!("failed to receive response from pre-processor")))
     }
 }
 

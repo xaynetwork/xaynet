@@ -9,16 +9,15 @@ pub use sum2::Sum2PreProcessorService;
 
 use std::{pin::Pin, task::Poll};
 
-use anyhow::anyhow;
 use futures::{
     future::{self, Future},
-    stream::Stream,
     task::Context,
 };
 use tower::Service;
 
 use crate::{
-    coordinator::{CoordinatorWatcher, Phase, RoundParameters, WatcherStream},
+    coordinator::{Phase, RoundParameters},
+    events::{Event, EventListener, EventSubscriber},
     message::{HeaderOwned, MessageOwned, PayloadOwned, Sum2Owned, SumOwned, UpdateOwned},
     services::{
         error::{RequestFailed, ServiceError},
@@ -29,11 +28,11 @@ use crate::{
 /// Route the request to the service that is ready to process it,
 /// depending on the current coordinator phase.
 pub struct PreProcessorService {
-    watcher: CoordinatorWatcher,
+    params_listener: EventListener<RoundParameters>,
     /// A stream that receives phase updates
-    phases: WatcherStream<Phase>,
-    /// Latest phase the service is aware of
-    current_phase: Option<Phase>,
+    phase_listener: EventListener<Phase>,
+    /// Latest phase event the service has received
+    latest_phase_event: Event<Phase>,
     /// Inner service to handle sum messages
     sum: SumPreProcessorService,
     /// Inner service to handle update messages
@@ -43,12 +42,11 @@ pub struct PreProcessorService {
 }
 
 impl PreProcessorService {
-    pub fn new(watcher: CoordinatorWatcher) -> Self {
-        let phases = watcher.phase_stream();
+    pub fn new(subscriber: &EventSubscriber) -> Self {
         Self {
-            watcher,
-            phases,
-            current_phase: None,
+            params_listener: subscriber.params_listener(),
+            phase_listener: subscriber.phase_listener(),
+            latest_phase_event: subscriber.phase_listener().get_latest(),
             sum: SumPreProcessorService,
             update: UpdatePreProcessorService,
             sum2: Sum2PreProcessorService,
@@ -70,20 +68,11 @@ impl Service<PreProcessorRequest> for PreProcessorService {
         Pin<Box<dyn Future<Output = Result<Self::Response, ServiceError>> + 'static + Send>>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        match Pin::new(&mut self.phases).poll_next(cx) {
-            Poll::Ready(Some(phase)) => {
-                self.current_phase = Some(phase);
-            }
-            Poll::Ready(None) => {
-                return Poll::Ready(Err(anyhow!("cannot receive phase from coordinator")));
-            }
-            Poll::Pending => {}
-        }
-        match self.current_phase {
-            None => Poll::Pending,
-            Some(Phase::Sum) => self.sum.poll_ready(cx).map_err(Into::into),
-            Some(Phase::Update) => self.update.poll_ready(cx).map_err(Into::into),
-            Some(Phase::Sum2) => self.sum2.poll_ready(cx).map_err(Into::into),
+        self.latest_phase_event = self.phase_listener.get_latest();
+        match self.latest_phase_event.event {
+            Phase::Sum => self.sum.poll_ready(cx).map_err(Into::into),
+            Phase::Update => self.update.poll_ready(cx).map_err(Into::into),
+            Phase::Sum2 => self.sum2.poll_ready(cx).map_err(Into::into),
         }
     }
 
@@ -91,19 +80,19 @@ impl Service<PreProcessorRequest> for PreProcessorService {
         let MessageOwned { header, payload } = message;
         // `call()` is only called after `poll_ready()` returned
         // `Poll::Ready` so at this point, phase is `Some`
-        match (self.current_phase.unwrap(), payload) {
+        match (self.latest_phase_event.event, payload) {
             (Phase::Sum, PayloadOwned::Sum(sum)) => {
-                let req = (header, sum, self.watcher.get_round_params());
+                let req = (header, sum, self.params_listener.get_latest().event);
                 let fut = self.sum.call(req);
                 Box::pin(async move { fut.await.map_err(Into::into).map(Into::into) })
             }
             (Phase::Update, PayloadOwned::Update(update)) => {
-                let req = (header, update, self.watcher.get_round_params());
+                let req = (header, update, self.params_listener.get_latest().event);
                 let fut = self.update.call(req);
                 Box::pin(async move { fut.await.map_err(Into::into).map(Into::into) })
             }
             (Phase::Sum2, PayloadOwned::Sum2(sum2)) => {
-                let req = (header, sum2, self.watcher.get_round_params());
+                let req = (header, sum2, self.params_listener.get_latest().event);
                 let fut = self.sum2.call(req);
                 Box::pin(async move { fut.await.map_err(Into::into).map(Into::into) })
             }
