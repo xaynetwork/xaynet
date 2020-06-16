@@ -311,6 +311,7 @@ pub unsafe extern "C" fn is_update_participant(client: *mut FFIClient) -> bool {
 }
 
 #[allow(unused_unsafe)]
+#[allow(clippy::unnecessary_cast)]
 #[no_mangle]
 /// Gets a mutable slice [`PrimitiveModel`] to a zero-initialized model of given primitive data type
 /// `dtype` and length `len`.
@@ -389,6 +390,7 @@ pub unsafe extern "C" fn new_model(
 }
 
 #[allow(unused_unsafe)]
+#[allow(clippy::unnecessary_cast)]
 #[no_mangle]
 /// Gets a mutable slice [`PrimitiveModel`] to the latest global model converted to the primitive
 /// data type `dtype`.
@@ -562,6 +564,7 @@ pub unsafe extern "C" fn get_model(client: *mut FFIClient, dtype: c_uint) -> Pri
 }
 
 #[allow(unused_unsafe)]
+#[allow(clippy::unnecessary_cast)]
 #[no_mangle]
 /// Registers the cached model as an updated local model.
 ///
