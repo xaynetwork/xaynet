@@ -70,9 +70,9 @@ use crate::{
 pub struct PrimitiveModel {
     /// A raw mutable pointer to an array of primitive values.
     pub ptr: *mut c_void,
-    /// The length of that respective array.
+    /// The length of that array.
     pub len: c_ulong,
-    /// The data type of that respective array.
+    /// The data type of the array's elements.
     pub dtype: c_uint,
 }
 
@@ -89,7 +89,7 @@ pub(crate) enum CachedModel {
 }
 
 #[derive(Debug)]
-/// A wrapper for a [`Client`] within a [`Runtime`].
+/// A wrapper for a [`Client`] within an asynchronous runtime.
 ///
 /// This is returned from [`new_client()`]. See the [workflow] on how to use it.
 ///
@@ -101,33 +101,27 @@ pub struct FFIClient {
 
 #[allow(unused_unsafe)]
 #[no_mangle]
-/// Creates a new [`Client`] within a [`Runtime`].
+/// Creates a new [`Client`] within an asynchronous runtime.
 ///
-/// Takes a `period` in seconds for which the [`Client`] will try to poll the coordinator for new
-/// broadcasted FL round data. Specifies the `min_threads` and `max_threads` available to the
-/// [`Runtime`].
+/// Takes a `period` in seconds after which the [`Client`] will try to poll the coordinator for new
+/// broadcasted FL round data again.
 ///
 /// # Errors
 /// Returns a null pointer in case of invalid arguments or if the initialization of the runtime
 /// or the client fails. The following must hold true for arguments to be valid:
 /// - `period` > 0
-/// - 0 < `min_thread` <= `max_thread` <= 32,768
 ///
 /// # Safety
 /// The method depends on the safety of the `callback` and on the consistent definition and layout
 /// of its `input` across the FFI-boundary.
-pub unsafe extern "C" fn new_client(
-    period: c_ulong,
-    min_threads: c_ulong,
-    max_threads: c_ulong,
-) -> *mut FFIClient {
-    if period == 0 || min_threads == 0 || max_threads < min_threads || max_threads > 32_768 {
+pub unsafe extern "C" fn new_client(period: c_ulong) -> *mut FFIClient {
+    if period == 0 {
         return ptr::null_mut() as *mut FFIClient;
     }
     let runtime = if let Ok(runtime) = Builder::new()
         .threaded_scheduler()
-        .core_threads(min_threads as usize)
-        .max_threads(max_threads as usize)
+        .core_threads(1)
+        .max_threads(4)
         .thread_name("xain-fl-client-runtime-worker")
         .enable_all()
         .build()
@@ -146,17 +140,17 @@ pub unsafe extern "C" fn new_client(
 
 #[allow(unused_unsafe)]
 #[no_mangle]
-/// Starts the [`Client`] and executes its tasks in an asynchronous [`Runtime`].
+/// Starts the [`Client`] and executes its tasks in an asynchronous runtime.
 ///
 /// Takes a `callback(state, code)` function pointer and a void pointer to the `state` of the
-/// callback. The callback will be triggered when the client must be stopped because of a panic or
+/// callback. The callback will be called when the client must be stopped because of a panic or
 /// error or when the client terminates successfully. See the [errors] section for the error `code`
 /// definitions.
 ///
 /// # Errors
-/// Ignores null pointer `client`s and triggers the callback immediately.
+/// Ignores null pointer `client`s and calls the callback immediately.
 ///
-/// Triggers the callback with one of the following error codes:
+/// Calls the callback with one of the following error codes:
 /// - `-1`: client didn't start due to null pointer
 /// - `0`: no error (only for clients with finite number of FL rounds)
 /// - `1`: client panicked due to unexpected/unhandled error
@@ -169,9 +163,8 @@ pub unsafe extern "C" fn new_client(
 /// The method dereferences from the raw pointer arguments. Therefore, the behavior of
 /// the method is undefined if the arguments don't point to valid objects.
 ///
-/// If the callback is triggered because of a panicking client, it is the users responsibility
-/// to not access possibly invalid state and to drop the client. If certain parts of the state
-/// can be guaranteed to be valid, they may be read before dropping.
+/// If the callback is called because of a panicking client, it is the users responsibility
+/// to not access possibly invalid client state and to drop the client.
 ///
 /// [errors]: #errors
 /// [`ParticipantInitErr`]: ../../client/enum.ClientError.html#variant.ParticipantInitErr
@@ -193,6 +186,16 @@ pub unsafe extern "C" fn run_client(
         // safe if the raw pointer `client` comes from a valid allocation of a `FFIClient`
         (&(*client).runtime, &mut (*client).client)
     };
+
+    // `UnwindSafe` basically says that there is no danger in accessing a value after a panic
+    // happened. this is generally true for immutable references, but not for mutable references.
+    // currently the docs have a note that it is the user's responsibility to not access possibly
+    // invalid values (we could clean up the client ourself but then the paradigm of create-use-
+    // destroy all happening on one side, in this case the non-Rust side of the API, is violated
+    // and might as well lead to severe bugs/segfaults). the main issue is that we must catch the
+    // panic, because letting it propagate across the FFI-boundary is undefined behavior and will
+    // most likely result in segfaults. what we can do is to improve error handling on our side to
+    // reduce the number of possible panics and return proper errors instead.
     let code = match panic::catch_unwind(unsafe {
         // even though `&mut Client` is `!UnwindSafe` we can assert this because the user will be
         // notified about a panic immediately to be able to safely act accordingly
@@ -216,9 +219,9 @@ pub unsafe extern "C" fn run_client(
 /// Stops and destroys a [`Client`] and frees its allocated memory.
 ///
 /// Tries to gracefully stop the client for `timeout` seconds by blocking the current thread before
-/// shutting it down forcefully (cf. the remarks about memory safety of the [runtime shutdown] in
-/// case of elapsed timeout). Usually, no timeout (i.e. 0 seconds) suffices, but stopping might take
-/// indefinitely if the client performs long blocking tasks.
+/// shutting it down forcefully (outstanding tasks are potentially leaked in case of an elapsed
+/// timeout). Usually, no timeout (i.e. 0 seconds) suffices, but stopping might take indefinitely
+/// if the client performs long blocking tasks.
 ///
 /// # Errors
 /// Ignores null pointer `client`s and returns immediately.
@@ -226,8 +229,6 @@ pub unsafe extern "C" fn run_client(
 /// # Safety
 /// The method dereferences from the raw pointer arguments. Therefore, the behavior of the method is
 /// undefined if the arguments don't point to valid objects.
-///
-/// [runtime shutdown]: https://docs.rs/tokio/0.2.21/tokio/runtime/struct.Runtime.html#method.shutdown_timeout
 pub unsafe extern "C" fn drop_client(client: *mut FFIClient, timeout: c_ulong) {
     if !client.is_null() {
         let client = unsafe {
@@ -646,7 +647,7 @@ mod tests {
 
     #[test]
     fn test_new_client() {
-        let client = unsafe { new_client(10, 1, 4) };
+        let client = unsafe { new_client(10) };
         assert!(!client.is_null());
         unsafe { drop_client(client, 0) };
     }
@@ -670,7 +671,7 @@ mod tests {
         }
 
         // check that the client panics when running it without a service
-        let client = unsafe { new_client(10, 1, 4) };
+        let client = unsafe { new_client(10) };
         let mut state = State {
             client_crashed: false,
             error_code: 0_i32 as c_int,
@@ -694,7 +695,7 @@ mod tests {
                 #[allow(unused_unsafe)]
                 #[test]
                 fn [<test_new_model_ $prim>]() {
-                    let client = unsafe { new_client(10, 1, 4) };
+                    let client = unsafe { new_client(10) };
 
                     // check that the new model is cached
                     let (model, _) = dummy_model(0., 10);
@@ -724,7 +725,7 @@ mod tests {
                 #[allow(unused_unsafe)]
                 #[test]
                 fn [<test_get_model_ $prim>]() {
-                    let client = unsafe { new_client(10, 1, 4) };
+                    let client = unsafe { new_client(10) };
 
                     // check that the primitive model is null if the global model is unavailable
                     assert!(unsafe { &*client }.client.global_model.is_none());
@@ -762,7 +763,7 @@ mod tests {
             paste::item! {
                 #[test]
                 fn [<test_update_model_ $prim>]() {
-                    let client = unsafe { new_client(10, 1, 4) };
+                    let client = unsafe { new_client(10) };
                     let (model, serialized_model) = dummy_model(0., 10);
                     unsafe { &mut *client }.client.global_model = Some(serialized_model);
                     let prim_model = unsafe { get_model(client, $dtype as c_uint) };
