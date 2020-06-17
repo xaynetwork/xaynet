@@ -11,6 +11,8 @@ pub trait Traceable {
     fn span_mut(&mut self) -> &mut Span;
     fn into_inner(self) -> Self::Target;
 }
+
+#[derive(Debug, Clone)]
 pub struct TracingService<S> {
     service: S,
 }

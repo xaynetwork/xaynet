@@ -13,7 +13,7 @@ use std::{
 };
 
 use futures::future::{poll_fn, Future};
-use tower::Service;
+use tower::{Service, ServiceBuilder};
 use tracing_futures::Instrument;
 use uuid::Uuid;
 
@@ -23,42 +23,41 @@ use crate::{
         message_parser::{MessageParserRequest, MessageParserResponse},
         pre_processor::{PreProcessorRequest, PreProcessorResponse},
         state_machine::{StateMachineRequest, StateMachineResponse},
-        utils::{
-            client::{Client, ClientError},
-            trace::{Traceable, Traced},
-            transport::TransportClient,
-        },
+        utils::trace::{Traceable, Traced, TracingLayer, TracingService},
     },
 };
 
-type MessageParserTransport = TransportClient<Traced<MessageParserRequest>, MessageParserResponse>;
-type MessageParserClient =
-    Client<MessageParserTransport, MessageParserRequest, MessageParserResponse>;
-
-type PreProcessorTransport = TransportClient<Traced<PreProcessorRequest>, PreProcessorResponse>;
-type PreProcessorClient = Client<PreProcessorTransport, PreProcessorRequest, PreProcessorResponse>;
-
-type StateMachineTransport = TransportClient<Traced<StateMachineRequest>, StateMachineResponse>;
-type StateMachineClient = Client<StateMachineTransport, StateMachineRequest, StateMachineResponse>;
-
 #[derive(Clone)]
-pub struct CoordinatorService {
-    message_parser: MessageParserClient,
-    pre_processor: PreProcessorClient,
-    state_machine: StateMachineClient,
+pub struct CoordinatorService<MessageParser, PreProcessor, StateMachine> {
+    message_parser: TracingService<MessageParser>,
+    pre_processor: TracingService<PreProcessor>,
+    state_machine: TracingService<StateMachine>,
 }
 
-impl CoordinatorService {
+impl<MessageParser, PreProcessor, StateMachine>
+    CoordinatorService<MessageParser, PreProcessor, StateMachine>
+where
+    MessageParser: Service<MessageParserRequest, Response = MessageParserResponse>,
+    PreProcessor: Service<PreProcessorRequest, Response = PreProcessorResponse>,
+    StateMachine: Service<StateMachineRequest, Response = StateMachineResponse>,
+{
     pub fn new(
-        message_parser: MessageParserClient,
-        pre_processor: PreProcessorClient,
-        state_machine: StateMachineClient,
+        message_parser: MessageParser,
+        pre_processor: PreProcessor,
+        state_machine: StateMachine,
     ) -> Self {
         Self {
-            message_parser,
-            pre_processor,
-            state_machine,
+            message_parser: Self::with_tracing(message_parser),
+            pre_processor: Self::with_tracing(pre_processor),
+            state_machine: Self::with_tracing(state_machine),
         }
+    }
+
+    fn with_tracing<S, R>(service: S) -> TracingService<S>
+    where
+        S: Service<R>,
+    {
+        ServiceBuilder::new().layer(TracingLayer).service(service)
     }
 
     pub fn make_traceable_request<R>(req: R) -> Traced<R> {
@@ -68,14 +67,36 @@ impl CoordinatorService {
     }
 }
 
-impl Service<MessageParserRequest> for CoordinatorService {
+impl<MessageParser, PreProcessor, StateMachine> Service<MessageParserRequest>
+    for CoordinatorService<MessageParser, PreProcessor, StateMachine>
+where
+    MessageParser:
+        Service<MessageParserRequest, Response = MessageParserResponse> + Clone + 'static + Send,
+    <MessageParser as Service<MessageParserRequest>>::Future: 'static + Send,
+    <MessageParser as Service<MessageParserRequest>>::Error:
+        Into<Box<dyn ::std::error::Error + 'static + Sync + Send>>,
+    PreProcessor:
+        Service<PreProcessorRequest, Response = PreProcessorResponse> + Clone + 'static + Send,
+    <PreProcessor as Service<PreProcessorRequest>>::Future: 'static + Send,
+    <PreProcessor as Service<PreProcessorRequest>>::Error:
+        Into<Box<dyn ::std::error::Error + 'static + Sync + Send>>,
+    StateMachine:
+        Service<StateMachineRequest, Response = StateMachineResponse> + Clone + 'static + Send,
+    <StateMachine as Service<StateMachineRequest>>::Future: 'static + Send,
+    <StateMachine as Service<StateMachineRequest>>::Error:
+        Into<Box<dyn ::std::error::Error + 'static + Sync + Send>>,
+{
     type Response = StateMachineResponse;
-    type Error = ClientError;
+    type Error = Box<dyn ::std::error::Error + 'static + Send + Sync>;
     type Future =
         Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + 'static + Send>>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.message_parser.poll_ready(cx)
+        <TracingService<MessageParser> as Service<Traced<MessageParserRequest>>>::poll_ready(
+            &mut self.message_parser,
+            cx,
+        )
+        .map_err(Into::into)
     }
 
     fn call(&mut self, req: MessageParserRequest) -> Self::Future {
@@ -91,26 +112,41 @@ impl Service<MessageParserRequest> for CoordinatorService {
         let mut pre_processor = self.pre_processor.clone();
         let mut state_machine = self.state_machine.clone();
 
-        let fut = async move {
-            let resp: MessageOwned = match message_parser.call(req).await? {
-                Ok(message) => message,
-                Err(e) => return Ok(Err(e)),
-            };
+        let fut =
+            async move {
+                let resp: MessageOwned = match message_parser.call(req).await.map_err(Into::into)? {
+                    Ok(message) => message,
+                    Err(e) => return Ok(Err(e)),
+                };
 
-            poll_fn(|cx| pre_processor.poll_ready(cx)).await?;
-            let resp: StateMachineRequest = match pre_processor
-                .call(Traced::new(resp, span_clone.clone()))
-                .await?
-            {
-                Ok(resp) => resp,
-                Err(e) => return Ok(Err(e)),
-            };
+                poll_fn(|cx| {
+                <TracingService<PreProcessor> as Service<Traced<PreProcessorRequest>>>::poll_ready(
+                    &mut pre_processor,
+                    cx,
+                )
+            })
+            .await.map_err(Into::into)?;
+                let resp: StateMachineRequest = match pre_processor
+                    .call(Traced::new(resp, span_clone.clone()))
+                    .await
+                    .map_err(Into::into)?
+                {
+                    Ok(resp) => resp,
+                    Err(e) => return Ok(Err(e)),
+                };
 
-            poll_fn(|cx| state_machine.poll_ready(cx)).await?;
-            state_machine
-                .call(Traced::new(resp, span_clone.clone()))
-                .await
-        };
+                poll_fn(|cx| {
+                <TracingService<StateMachine> as Service<Traced<StateMachineRequest>>>::poll_ready(
+                    &mut state_machine,
+                    cx,
+                )
+            })
+            .await.map_err(Into::into)?;
+                state_machine
+                    .call(Traced::new(resp, span_clone.clone()))
+                    .await
+                    .map_err(Into::into)
+            };
         Box::pin(fut.instrument(fut_span))
     }
 }

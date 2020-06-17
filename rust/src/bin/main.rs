@@ -4,7 +4,6 @@ extern crate tracing;
 use std::sync::Arc;
 
 use rayon::ThreadPoolBuilder;
-use tokio_tower::pipeline::Server;
 use tower::{Service, ServiceBuilder};
 use tracing_subscriber::*;
 
@@ -14,10 +13,9 @@ use xain_fl::{
     mask::{BoundType, DataType, GroupType, MaskConfig, ModelType},
     participant::{Participant, Task},
     services::{
-        message_parser::{MessageParserRequest, MessageParserResponse, MessageParserService},
-        pre_processor::{PreProcessorRequest, PreProcessorResponse, PreProcessorService},
-        state_machine::{StateMachineRequest, StateMachineResponse, StateMachineService},
-        utils::{client::Client, trace::TracingLayer, transport::traceable_transport},
+        message_parser::MessageParserService,
+        pre_processor::PreProcessorService,
+        state_machine::StateMachineService,
         CoordinatorService,
     },
 };
@@ -50,48 +48,25 @@ async fn main() {
 
     let thread_pool = Arc::new(ThreadPoolBuilder::new().build().unwrap());
 
-    let (client_transport, server_transport) =
-        traceable_transport::<MessageParserRequest, MessageParserResponse>();
-    let message_parser_client = Client::new(client_transport);
-    tokio::spawn(Server::new(
-        server_transport,
-        ServiceBuilder::new()
-            .concurrency_limit(100)
-            .layer(TracingLayer)
-            .service(MessageParserService::new(
-                &event_subscriber,
-                thread_pool.clone(),
-            )),
-    ));
+    let message_parser = ServiceBuilder::new()
+        .buffer(10)
+        .concurrency_limit(10)
+        .service(MessageParserService::new(
+            &event_subscriber,
+            thread_pool.clone(),
+        ));
 
-    let (client_transport, server_transport) =
-        traceable_transport::<PreProcessorRequest, PreProcessorResponse>();
-    let pre_processor_client = Client::new(client_transport);
-    tokio::spawn(Server::new(
-        server_transport,
-        ServiceBuilder::new()
-            .concurrency_limit(100)
-            .layer(TracingLayer)
-            .service(PreProcessorService::new(&event_subscriber)),
-    ));
+    let pre_processor = ServiceBuilder::new()
+        .buffer(100)
+        .concurrency_limit(100)
+        .service(PreProcessorService::new(&event_subscriber));
 
-    let (client_transport, server_transport) =
-        traceable_transport::<StateMachineRequest, StateMachineResponse>();
-    let state_machine_client = Client::new(client_transport);
+    let state_machine = ServiceBuilder::new()
+        .buffer(100)
+        .concurrency_limit(100)
+        .service(StateMachineService::new(coordinator));
 
-    tokio::spawn(Server::new(
-        server_transport,
-        ServiceBuilder::new()
-            .concurrency_limit(100)
-            .layer(TracingLayer)
-            .service(StateMachineService::new(coordinator)),
-    ));
-
-    let mut coordinator_svc = CoordinatorService::new(
-        message_parser_client,
-        pre_processor_client,
-        state_machine_client,
-    );
+    let mut coordinator_svc = CoordinatorService::new(message_parser, pre_processor, state_machine);
 
     // pretend we are a participant that retrieves
     let mut participant = Participant::new().unwrap();
