@@ -56,6 +56,9 @@ impl PhaseState<Sum> {
             self.handle_request(req);
         }
 
+        // the scalar must be published later for the participants
+        let _scalar = 1_f64
+            / (self.coordinator_state.expected_participants as f64 * self.coordinator_state.update);
         Ok(self.freeze_sum_dict())
     }
 

@@ -44,6 +44,7 @@ pub struct CoordinatorState {
     seed: RoundSeed,
     min_sum: usize,
     min_update: usize,
+    expected_participants: usize,
 
     /// The masking configuration
     mask_config: MaskConfig,
@@ -58,6 +59,7 @@ impl Default for CoordinatorState {
         let seed = RoundSeed::zeroed();
         let min_sum = 1_usize;
         let min_update = 3_usize;
+        let expected_participants = 10_usize;
         let mask_config = MaskConfig {
             group_type: GroupType::Prime,
             data_type: DataType::F32,
@@ -72,6 +74,7 @@ impl Default for CoordinatorState {
             seed,
             min_sum,
             min_update,
+            expected_participants,
             mask_config,
         }
     }
