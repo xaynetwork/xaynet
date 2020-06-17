@@ -18,7 +18,7 @@ impl PhaseState<Shutdown> {
     }
 
     pub async fn next(mut self) -> Option<StateMachine> {
-        info!("shutdown state machine");
+        warn!("shutdown state machine");
 
         // clear the request channel
         self.request_rx.close();
