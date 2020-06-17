@@ -142,17 +142,13 @@ pub unsafe extern "C" fn new_client(period: c_ulong) -> *mut FFIClient {
 #[no_mangle]
 /// Starts the [`Client`] and executes its tasks in an asynchronous runtime.
 ///
-/// Takes a `callback(state, code)` function pointer and a void pointer to the `state` of the
-/// callback. The callback will be called when the client must be stopped because of a panic or
-/// error or when the client terminates successfully. See the [errors] section for the error `code`
-/// definitions.
-///
 /// # Errors
-/// Ignores null pointer `client`s and calls the callback immediately.
+/// Ignores null pointer `client`s and returns an error immediately.
 ///
-/// Calls the callback with one of the following error codes:
+/// If the client must be stopped because of a panic or error or when the client terminates
+/// successfully, then one of the following error codes is returned:
 /// - `-1`: client didn't start due to null pointer
-/// - `0`: no error (only for clients with finite number of FL rounds)
+/// - `0`: no error (only for clients with finite running time)
 /// - `1`: client panicked due to unexpected/unhandled error
 /// - `2`: client stopped due to error [`ParticipantInitErr`]
 /// - `3`: client stopped due to error [`ParticipantErr`]
@@ -160,27 +156,19 @@ pub unsafe extern "C" fn new_client(period: c_ulong) -> *mut FFIClient {
 /// - `5`: client stopped due to error [`GeneralErr`]
 ///
 /// # Safety
-/// The method dereferences from the raw pointer arguments. Therefore, the behavior of
-/// the method is undefined if the arguments don't point to valid objects.
+/// The method dereferences from the raw pointer arguments. Therefore, the behavior of the method is
+/// undefined if the arguments don't point to valid objects.
 ///
-/// If the callback is called because of a panicking client, it is the users responsibility
-/// to not access possibly invalid client state and to drop the client.
+/// If the client panicked (error code `1`), it is the users responsibility to not access possibly
+/// invalid client state and to drop the client.
 ///
-/// [errors]: #errors
 /// [`ParticipantInitErr`]: ../../client/enum.ClientError.html#variant.ParticipantInitErr
 /// [`ParticipantErr`]: ../../client/enum.ClientError.html#variant.ParticipantErr
 /// [`DeserialiseErr`]: ../../client/enum.ClientError.html#variant.DeserialiseErr
 /// [`GeneralErr`]: ../../client/enum.ClientError.html#variant.GeneralErr
-pub unsafe extern "C" fn run_client(
-    client: *mut FFIClient,
-    callback: unsafe extern "C" fn(*mut c_void, c_int),
-    state: *mut c_void,
-) {
+pub unsafe extern "C" fn run_client(client: *mut FFIClient) -> c_int {
     if client.is_null() {
-        return unsafe {
-            // safe if the `callback` is sound
-            callback(state, -1_i32 as c_int)
-        };
+        return -1_i32 as c_int;
     }
     let (runtime, client) = unsafe {
         // safe if the raw pointer `client` comes from a valid allocation of a `FFIClient`
@@ -196,22 +184,18 @@ pub unsafe extern "C" fn run_client(
     // panic, because letting it propagate across the FFI-boundary is undefined behavior and will
     // most likely result in segfaults. what we can do is to improve error handling on our side to
     // reduce the number of possible panics and return proper errors instead.
-    let code = match panic::catch_unwind(unsafe {
+    match panic::catch_unwind(unsafe {
         // even though `&mut Client` is `!UnwindSafe` we can assert this because the user will be
         // notified about a panic immediately to be able to safely act accordingly
         panic::AssertUnwindSafe(|| runtime.handle().block_on(client.start()))
     }) {
-        Ok(Ok(_)) => 0_i32,
-        Err(_) => 1_i32,
-        Ok(Err(ClientError::ParticipantInitErr(_))) => 2_i32,
-        Ok(Err(ClientError::ParticipantErr(_))) => 3_i32,
-        Ok(Err(ClientError::DeserialiseErr(_))) => 4_i32,
-        Ok(Err(ClientError::GeneralErr)) => 5_i32,
-    } as c_int;
-    unsafe {
-        // safe if the `callback` is sound
-        callback(state, code)
-    };
+        Ok(Ok(_)) => 0_i32 as c_int,
+        Err(_) => 1_i32 as c_int,
+        Ok(Err(ClientError::ParticipantInitErr(_))) => 2_i32 as c_int,
+        Ok(Err(ClientError::ParticipantErr(_))) => 3_i32 as c_int,
+        Ok(Err(ClientError::DeserialiseErr(_))) => 4_i32 as c_int,
+        Ok(Err(ClientError::GeneralErr)) => 5_i32 as c_int,
+    }
 }
 
 #[allow(unused_unsafe)]
@@ -654,31 +638,9 @@ mod tests {
 
     #[test]
     fn test_run_client() {
-        // define state and callback
-        #[repr(C)]
-        struct State {
-            client_crashed: bool,
-            error_code: c_int,
-        };
-        #[allow(unused_unsafe)]
-        #[no_mangle]
-        unsafe extern "C" fn callback(state: *mut c_void, code: c_int) {
-            if code != 0 {
-                let state = unsafe { &mut *(state as *mut State) };
-                state.client_crashed = true;
-                state.error_code = code;
-            }
-        }
-
         // check that the client panics when running it without a service
         let client = unsafe { new_client(10) };
-        let mut state = State {
-            client_crashed: false,
-            error_code: 0_i32 as c_int,
-        };
-        unsafe { run_client(client, callback, &mut state as *mut _ as *mut c_void) };
-        assert!(state.client_crashed);
-        assert_eq!(state.error_code, 1);
+        assert_eq!(unsafe { run_client(client) }, 1);
         unsafe { drop_client(client, 0) };
     }
 
