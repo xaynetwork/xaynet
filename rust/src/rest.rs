@@ -1,15 +1,12 @@
-use crate::service::Handle;
-use crate::ParticipantPublicKey;
-use crate::crypto::ByteObject;
-use std::net::SocketAddr;
-use std::sync::Arc;
-use bytes::Bytes;
-use bytes::Buf;
-use warp::Filter;
-use std::convert::Infallible;
-use warp::http::{StatusCode, Response};
+use crate::{crypto::ByteObject, service::Handle, ParticipantPublicKey};
+use bytes::{Buf, Bytes};
+use std::{convert::Infallible, net::SocketAddr, sync::Arc};
+use warp::{
+    http::{Response, StatusCode},
+    Filter,
+};
 
-
+#[rustfmt::skip]
 pub async fn serve(addr: impl Into<SocketAddr> + 'static, handle: Handle) {
 
     let message = warp::path!("message")
@@ -53,7 +50,10 @@ async fn handle_sums(handle: Handle) -> Result<impl warp::Reply, Infallible> {
     Ok(build_response(sums))
 }
 
-async fn handle_seeds(pk: ParticipantPublicKey, handle: Handle) -> Result<impl warp::Reply, Infallible> {
+async fn handle_seeds(
+    pk: ParticipantPublicKey,
+    handle: Handle,
+) -> Result<impl warp::Reply, Infallible> {
     let seeds = handle.get_seed_dict(pk).await;
     Ok(build_response(seeds))
 }
@@ -73,16 +73,16 @@ fn build_response(data: Option<Arc<Vec<u8>>>) -> Response<Vec<u8>> {
         None => {
             builder
                 .status(StatusCode::NO_CONTENT) // 204
-                .body(Vec::with_capacity(0))    // empty body; won't allocate
+                .body(Vec::with_capacity(0)) // empty body; won't allocate
                 .unwrap()
-        },
+        }
         Some(arc_vec) => {
             let vec = (*arc_vec).clone(); // need inner value for warp::Reply
             builder
                 .header("Content-Type", "application/octet-stream")
                 .body(vec)
                 .unwrap()
-        },
+        }
     }
 }
 
@@ -114,4 +114,3 @@ async fn handle_reject(err: warp::Rejection) -> Result<impl warp::Reply, Infalli
     // reply with empty body; the status code is the interesting part
     Ok(warp::reply::with_status(Vec::with_capacity(0), code))
 }
-

@@ -1,11 +1,14 @@
-use crate::{crypto::ByteObject, ParticipantPublicKey};
-use crate::service::{Handle, data::RoundParametersData};
-use reqwest::{Client, Error, StatusCode, Response, IntoUrl};
-use crate::request::Proxy::{InMem, Remote};
-use crate::client::ClientError;
-use crate::{SumDict, UpdateSeedDict};
+use crate::{
+    client::ClientError,
+    crypto::ByteObject,
+    request::Proxy::{InMem, Remote},
+    service::{data::RoundParametersData, Handle},
+    ParticipantPublicKey,
+    SumDict,
+    UpdateSeedDict,
+};
 use bytes::Bytes;
-
+use reqwest::{Client, Error, IntoUrl, Response, StatusCode};
 
 /// Proxy for communicating with the service.
 pub enum Proxy {
@@ -23,7 +26,7 @@ impl Proxy {
             InMem(hdl) => {
                 hdl.send_message(msg).await;
                 Ok(())
-            },
+            }
             Remote(req) => {
                 let resp = req.post_message(msg).await.map_err(|e| {
                     error!("failed to POST message: {}", e);
@@ -35,7 +38,7 @@ impl Proxy {
                     warn!("unexpected HTTP status code: {}", code)
                 };
                 Ok(())
-            },
+            }
         }
     }
 
@@ -44,14 +47,14 @@ impl Proxy {
             InMem(hdl) => {
                 let opt_arc = hdl.get_sum_dict().await;
                 opt_arc.map(|arc| (*arc).clone())
-            },
+            }
             Remote(req) => {
                 let opt_bytes = req.get_sums().await.map_err(|e| {
                     error!("failed to GET sum dict: {}", e);
                     ClientError::NetworkErr(e)
                 })?;
                 opt_bytes.map(|bytes| bytes.to_vec())
-            },
+            }
         };
         let opt_sums = opt_vec.map(|vec| {
             bincode::deserialize(&vec[..]).map_err(|e| {
@@ -62,19 +65,22 @@ impl Proxy {
         opt_sums.transpose()
     }
 
-    pub async fn get_seeds(&self, pk: ParticipantPublicKey) -> Result<Option<UpdateSeedDict>, ClientError> {
+    pub async fn get_seeds(
+        &self,
+        pk: ParticipantPublicKey,
+    ) -> Result<Option<UpdateSeedDict>, ClientError> {
         let opt_vec = match self {
             InMem(hdl) => {
                 let opt_arc = hdl.get_seed_dict(pk).await;
                 opt_arc.map(|arc| (*arc).clone())
-            },
+            }
             Remote(req) => {
                 let opt_bytes = req.get_seeds(pk).await.map_err(|e| {
                     error!("failed to GET seed dict: {}", e);
                     ClientError::NetworkErr(e)
                 })?;
                 opt_bytes.map(|bytes| bytes.to_vec())
-            },
+            }
         };
         let opt_seeds = opt_vec.map(|vec| {
             bincode::deserialize(&vec[..]).map_err(|e| {
@@ -90,24 +96,23 @@ impl Proxy {
             InMem(hdl) => {
                 let opt_arc = hdl.get_round_parameters().await;
                 opt_arc.map(|arc| (*arc).clone())
-            },
+            }
             Remote(req) => {
                 let opt_bytes = req.get_params().await.map_err(|e| {
                     error!("failed to GET round parameters: {}", e);
                     ClientError::NetworkErr(e)
                 })?;
                 opt_bytes.map(|bytes| bytes.to_vec())
-            },
+            }
         };
         let opt_params = opt_vec.map(|vec| {
             bincode::deserialize(&vec[..]).map_err(|e| {
-                error!("failed to deserialize round parameters: {}: {:?}", e, &vec[..]);
+                error!("failed to deserialize round params: {}: {:?}", e, &vec[..]);
                 ClientError::DeserialiseErr(e)
             })
         });
         opt_params.transpose()
     }
-
 }
 
 impl From<Handle> for Proxy {
@@ -181,6 +186,4 @@ impl ClientReq {
         };
         Ok(opt_body)
     }
-
 }
-

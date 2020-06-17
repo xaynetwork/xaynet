@@ -1,6 +1,5 @@
-use xain_fl::service::Service;
-use xain_fl::rest;
 use tracing_subscriber::*;
+use xain_fl::{rest, service::Service};
 
 #[tokio::main]
 async fn main() {
