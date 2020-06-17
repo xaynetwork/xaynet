@@ -139,6 +139,7 @@ pub unsafe extern "C" fn new_client(period: c_ulong) -> *mut FFIClient {
 }
 
 #[allow(unused_unsafe)]
+#[allow(clippy::unnecessary_cast)]
 #[no_mangle]
 /// Starts the [`Client`] and executes its tasks in an asynchronous runtime.
 ///
