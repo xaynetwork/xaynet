@@ -1,11 +1,11 @@
 use crate::{crypto::ByteObject, ParticipantPublicKey};
 use crate::service::{Handle, data::RoundParametersData};
 // use bytes::Bytes;
-use reqwest::{Client, Error, StatusCode, Response};
+use reqwest::{Client, Error, StatusCode, Response, IntoUrl};
 // use reqwest::{Response, Url};
 use crate::request::Proxy::{InMem, Remote};
 use crate::client::ClientError;
-use crate::{SumDict, UpdateSeedDict, SeedDict};
+use crate::{SumDict, UpdateSeedDict};
 use bytes::Bytes;
 
 
@@ -19,8 +19,6 @@ impl Proxy {
     pub fn new(addr: &'static str) -> Self {
         Remote(ClientReq::new(addr))
     }
-
-    // TODO post_message, get_sums etc.
 
     pub async fn post_message(&self, msg: Vec<u8>) -> Result<(), ClientError> {
         match self {
@@ -73,7 +71,7 @@ impl Proxy {
                 opt_arc.map(|arc| (*arc).clone())
             },
             Remote(req) => {
-                let opt_bytes = req._get_seeds(pk).await.map_err(|e| {
+                let opt_bytes = req.get_seeds(pk).await.map_err(|e| {
                     error!("failed to GET seed dict: {}", e);
                     ClientError::NetworkErr(e)
                 })?;
@@ -89,15 +87,28 @@ impl Proxy {
         opt_seeds.transpose()
     }
 
-    // pub async fn get_params(&self) -> Result<Option<RoundParametersData>, ClientError> {
-    //     match self {
-    //         InMem(hdl) => {
-    //             hdl.get_
-    //         },
-    //         Remote(req) => {
-    //         },
-    //     };
-    // }
+    pub async fn get_params(&self) -> Result<Option<RoundParametersData>, ClientError> {
+        let opt_vec = match self {
+            InMem(hdl) => {
+                let opt_arc = hdl.get_round_parameters().await;
+                opt_arc.map(|arc| (*arc).clone())
+            },
+            Remote(req) => {
+                let opt_bytes = req.get_params().await.map_err(|e| {
+                    error!("failed to GET round parameters: {}", e);
+                    ClientError::NetworkErr(e)
+                })?;
+                opt_bytes.map(|bytes| bytes.to_vec())
+            },
+        };
+        let opt_params = opt_vec.map(|vec| {
+            bincode::deserialize(&vec[..]).map_err(|e| {
+                error!("failed to deserialize round parameters: {}: {:?}", e, &vec[..]);
+                ClientError::DeserialiseErr(e)
+            })
+        });
+        opt_params.transpose()
+    }
 
 }
 
@@ -121,11 +132,11 @@ impl ClientReq {
         }
     }
 
-    pub async fn _post_message(&self, msg: Vec<u8>) -> Result<StatusCode, Error> {
-        let url = format!("{}/message", self.address);
-        let response = self.client.post(&url).body(msg).send().await?;
-        Ok(response.status())
-    }
+    // pub async fn _post_message(&self, msg: Vec<u8>) -> Result<StatusCode, Error> {
+    //     let url = format!("{}/message", self.address);
+    //     let response = self.client.post(&url).body(msg).send().await?;
+    //     Ok(response.status())
+    // }
 
     pub async fn post_message(&self, msg: Vec<u8>) -> Result<Response, Error> {
         let url = format!("{}/message", self.address);
@@ -133,18 +144,22 @@ impl ClientReq {
         response.error_for_status()
     }
 
-    pub async fn _get_sums(&self) -> Result<Response, Error> {
-        let url = format!("{}/sums", self.address);
-        let response = self.client.get(&url).send().await?;
-        response.error_for_status()
-    }
+    // pub async fn _get_sums(&self) -> Result<Response, Error> {
+    //     let url = format!("{}/sums", self.address);
+    //     let response = self.client.get(&url).send().await?;
+    //     response.error_for_status()
+    // }
 
     pub async fn get_sums(&self) -> Result<Option<Bytes>, Error> {
         let url = format!("{}/sums", self.address);
-        let response = self.client.get(&url).send().await?;
+        self.get_request(&url).await
+    }
+
+    async fn get_request<T: IntoUrl>(&self, url: T) -> Result<Option<Bytes>, Error> {
+        let response = self.client.get(url).send().await?;
         let good_resp = response.error_for_status()?;
         let opt_body = match good_resp.status() {
-            StatusCode::NOT_FOUND => None,
+            StatusCode::NO_CONTENT => None,
             StatusCode::OK => Some(good_resp.bytes().await?),
             sc => {
                 warn!("unexpected HTTP status code: {}", sc);
@@ -154,8 +169,9 @@ impl ClientReq {
         Ok(opt_body)
     }
 
-    pub async fn _get_seeds(&self, pk: ParticipantPublicKey) -> Result<Option<Bytes>, Error> {
+    pub async fn get_seeds(&self, pk: ParticipantPublicKey) -> Result<Option<Bytes>, Error> {
         let url = format!("{}/seeds", self.address);
+        // send pk along as body of GET request
         let response = self
             .client
             .get(&url)
@@ -165,7 +181,7 @@ impl ClientReq {
             .await?
             .error_for_status()?;
         let opt_body = match response.status() {
-            StatusCode::NOT_FOUND => None,
+            StatusCode::NO_CONTENT => None,
             StatusCode::OK => Some(response.bytes().await?),
             sc => {
                 warn!("unexpected HTTP status code: {}", sc);
@@ -175,26 +191,31 @@ impl ClientReq {
         Ok(opt_body)
     }
 
-    pub async fn get_seeds(&self, pk: ParticipantPublicKey) -> Result<Vec<u8>, Error> {
-        let url = format!("{}/seeds", self.address);
-        let response = self
-            .client
-            .get(&url)
-            .header("Content-Type", "application/octet-stream")
-            .body(pk.as_slice().to_vec())
-            .send()
-            .await?;
-        let bytes = response.bytes().await?;
-        Ok(bytes.to_vec())
+    // pub async fn _get_seeds(&self, pk: ParticipantPublicKey) -> Result<Vec<u8>, Error> {
+    //     let url = format!("{}/seeds", self.address);
+    //     let response = self
+    //         .client
+    //         .get(&url)
+    //         .header("Content-Type", "application/octet-stream")
+    //         .body(pk.as_slice().to_vec())
+    //         .send()
+    //         .await?;
+    //     let bytes = response.bytes().await?;
+    //     Ok(bytes.to_vec())
+    // }
+
+    pub async fn get_params(&self) -> Result<Option<Bytes>, Error> {
+        let url = format!("{}/params", self.address);
+        self.get_request(&url).await
     }
 
-    pub async fn get_params(&self) -> Result<Vec<u8>, Error> {
-        let url = format!("{}/params", self.address);
-        let response = self.client.get(&url).send().await?;
-        let bytes = response.bytes().await?;
-        Ok(bytes.to_vec())
-    }
-}
+//     pub async fn _get_params(&self) -> Result<Vec<u8>, Error> {
+//         let url = format!("{}/params", self.address);
+//         let response = self.client.get(&url).send().await?;
+//         let bytes = response.bytes().await?;
+//         Ok(bytes.to_vec())
+//     }
+// }
 
 // pub async fn _get_seeds(&self, pk: ParticipantPublicKey) -> Result<Option<SeedDict>, ClientError> {
 //     let opt_ser_seeds = match self {
@@ -215,5 +236,5 @@ impl ClientReq {
 //             Ok(Some(seeds))
 //         }
 //     }
-// }
+}
 

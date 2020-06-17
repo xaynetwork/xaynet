@@ -14,7 +14,7 @@ use crate::{
     CoordinatorPublicKey,
     InitError,
     PetError,
-    UpdateSeedDict,
+//  UpdateSeedDict,
 };
 use std::time::Duration;
 use thiserror::Error;
@@ -53,9 +53,7 @@ pub enum ClientError {
 /// its messages and delegating their processing to the underlying
 /// [`Participant`].
 pub struct Client {
-    // TODO REMOVE
-    /// Handle to the federated learning [`Service`]
-    handle: Handle,
+    //handle: Handle,
 
     /// The underlying [`Participant`]
     pub(crate) participant: Participant,
@@ -77,7 +75,7 @@ pub struct Client {
     id: u32, // NOTE identifier for client for testing; may remove later
 
     // TODO replace with Proxy
-    request: ClientReq,
+    //request: ClientReq,
 
     proxy: Proxy,
 }
@@ -139,13 +137,14 @@ impl Client {
     /// `id`: an ID to assign to the [`Client`].
     /// Returns `Ok(client)` if [`Client`] `client` initialised successfully
     /// Returns `Err(err)` if `ClientError` `err` occurred
-    pub fn new_with_id(period: u64, handle: Handle, id: u32) -> Result<Self, ClientError> {
+    // TODO rename to new_with_hdl
+    pub fn new_with_hdl(period: u64, handle: Handle, id: u32) -> Result<Self, ClientError> {
         Ok(Self {
-            handle,
+            //handle: handle.clone(),
             participant: Participant::new().map_err(ClientError::ParticipantInitErr)?,
             interval: time::interval(Duration::from_secs(period)),
             id,
-            request: ClientReq::new(""), // TODO remove later
+            //request: ClientReq::new(""), // TODO remove later
             proxy: Proxy::from(handle),
             ..Self::default()
         })
@@ -153,14 +152,14 @@ impl Client {
 
     pub fn new_with_addr(period: u64, id: u32, addr: &'static str) -> Result<Self, ClientError> {
         let participant = Participant::new().map_err(ClientError::ParticipantInitErr)?;
-        let (handle, _events) = Handle::new(); // dummy
+        //let (handle, _events) = Handle::new(); // dummy
         Ok(Self {
-            handle,
+            //handle,
             participant,
             interval: time::interval(Duration::from_secs(period)),
             coordinator_pk: CoordinatorPublicKey::zeroed(),
             id,
-            request: ClientReq::new(addr), // TODO remove later
+            //request: ClientReq::new(addr), // TODO remove later
             proxy: Proxy::new(addr),
         })
     }
@@ -177,24 +176,12 @@ impl Client {
         }
     }
 
-    /// [`Client`] duties within a round
     pub async fn during_round(&mut self) -> Result<Task, ClientError> {
+        debug!(client_id = %self.id, "polling for new round parameters");
         loop {
-            let response = self.request.get_params().await;
-            if let Ok(round_params_data_ser) = &response {
-//          if let Some(round_params_data_ser) = self.handle.get_round_parameters().await {
-                // deserialize to round params data
-                let round_params_data: RoundParametersData = bincode::deserialize(&round_params_data_ser[..])
-                    .map_err(|e| {
-                        error!(
-                            "failed to deserialize round parameters data: {}: {:?}",
-                            e,
-                            &round_params_data_ser[..],
-                        );
-                        ClientError::DeserialiseErr(e)
-                    })?;
+            if let Some(params_outer) = self.proxy.get_params().await? {
                 // new global model at the end of the current round
-                if let Some(ref new_global_model) = round_params_data.global_model {
+                if let Some(ref new_global_model) = params_outer.global_model {
                     if let Some(ref old_global_model) = self.global_model {
                         if !Arc::ptr_eq(new_global_model, old_global_model) {
                             self.global_model = Some(new_global_model.clone());
@@ -207,33 +194,33 @@ impl Client {
                         self.has_new_global_model_since_last_cache = true;
                     }
                 }
-                // new round parameters at the beginning of the next round
+
                 // are there inner params?
-                if let Some(ref round_params) = round_params_data.round_parameters {
-                    // is this a new round?
-                    if round_params.pk != self.coordinator_pk {
-                        // new round: save coordinator pk
-                        self.coordinator_pk = round_params.pk;
+                if let Some(params_inner) = params_outer.round_parameters {
+                    // new round?
+                    if params_inner.pk != self.coordinator_pk {
+                        debug!(client_id = %self.id, "new round parameters received, determining task.");
+                        self.coordinator_pk = params_inner.pk;
                         self.has_new_coord_pk_since_last_check = true;
-                        debug!(client_id = %self.id, "computing sigs and checking task");
-                        let round_seed = round_params.seed.as_slice();
+                        let round_seed = params_inner.seed.as_slice();
                         self.participant.compute_signatures(round_seed);
-                        let (sum_frac, upd_frac) = (round_params.sum, round_params.update);
-                        // perform duties as per my role for this round
+                        let (sum_frac, upd_frac) = (params_inner.sum, params_inner.update);
+                        #[rustfmt::skip]
                         break match self.participant.check_task(sum_frac, upd_frac) {
-                            Task::Sum => self.summer().await,
-                            Task::Update => self.updater().await,
-                            Task::None => self.unselected().await,
+                            Task::Sum    => self.summer()    .await,
+                            Task::Update => self.updater()   .await,
+                            Task::None   => self.unselected().await,
                         };
                     }
+                    // same coordinator pk
                     trace!(client_id = %self.id, "still the same round");
+                } else {
+                    trace!(client_id = %self.id, "inner round parameters not ready");
                 }
-                // later on, also check presence of round_params_data.global_model
+            } else {
+                trace!(client_id = %self.id, "round parameters data not ready");
             }
-            if let Err(req_err) = response {
-                warn!(client_id = %self.id, "received an error response: {}", req_err);
-            }
-            debug!(client_id = %self.id, "new round params not ready, retrying.");
+            debug!(client_id = %self.id, "new round parameters not ready, retrying.");
             self.interval.tick().await;
         }
     }
@@ -411,6 +398,50 @@ impl Client {
 //         Ok(Task::Sum)
 //     }
 
+
+//     pub async fn during_round(&mut self) -> Result<Task, ClientError> {
+//         loop {
+//             let response = self.request.get_params().await;
+//             if let Ok(round_params_data_ser) = &response {
+// //          if let Some(round_params_data_ser) = self.handle.get_round_parameters().await {
+//                 // deserialize to round params data
+//                 let round_params_data: RoundParametersData = bincode::deserialize(&round_params_data_ser[..])
+//                     .map_err(|e| {
+//                         error!(
+//                             "failed to deserialize round parameters data: {}: {:?}",
+//                             e,
+//                             &round_params_data_ser[..],
+//                         );
+//                         ClientError::DeserialiseErr(e)
+//                     })?;
+//                 // are there inner params?
+//                 if let Some(ref round_params) = round_params_data.round_parameters {
+//                     // is this a new round?
+//                     if round_params.pk != self.coordinator_pk {
+//                         // new round: save coordinator pk
+//                         self.coordinator_pk = round_params.pk;
+//                         debug!(client_id = %self.id, "computing sigs and checking task");
+//                         let round_seed = round_params.seed.as_slice();
+//                         self.participant.compute_signatures(round_seed);
+//                         let (sum_frac, upd_frac) = (round_params.sum, round_params.update);
+//                         // perform duties as per my role for this round
+//                         break match self.participant.check_task(sum_frac, upd_frac) {
+//                             Task::Sum => self.summer().await,
+//                             Task::Update => self.updater().await,
+//                             Task::None => self.unselected().await,
+//                         };
+//                     }
+//                     trace!(client_id = %self.id, "still the same round");
+//                 }
+//                 // later on, also check presence of round_params_data.global_model
+//             }
+//             if let Err(req_err) = response {
+//                 warn!(client_id = %self.id, "received an error response: {}", req_err);
+//             }
+//             debug!(client_id = %self.id, "new round params not ready, retrying.");
+//             self.interval.tick().await;
+//         }
+//     }
 
 
 

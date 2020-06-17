@@ -29,13 +29,13 @@ async fn main() -> Result<(), ClientError> {
 
     let mut tasks = vec![];
     for id in 0..10 {
-        let mut client = Client::new_with_id(1, hdl.clone(), id)?;
+        let mut client = Client::new_with_hdl(1, hdl.clone(), id)?;
         // NOTE give spawn a task that owns client
         // otherwise it won't live long enough
         let join_hdl = tokio::spawn(async move { client.during_round().await });
         tasks.push(join_hdl);
     }
-    println!("spawned 20 clients");
+    println!("spawned 10 clients");
 
     let mut summers = 0;
     let mut updaters = 0;

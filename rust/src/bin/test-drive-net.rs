@@ -2,8 +2,8 @@ use tracing_subscriber::*;
 use xain_fl::{
     client::{Client, ClientError},
     participant::Task,
-    service::Service,
-    rest,
+//  service::Service,
+//  rest,
 };
 
 /// Test-drive script of a (completely local) single-round federated learning
@@ -43,7 +43,7 @@ async fn main() -> Result<(), ClientError> {
         let join_hdl = tokio::spawn(async move { client.during_round().await });
         tasks.push(join_hdl);
     }
-    println!("spawned 20 clients");
+    println!("spawned 10 clients");
 
     let mut summers = 0;
     let mut updaters = 0;
