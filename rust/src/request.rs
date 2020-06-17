@@ -1,15 +1,13 @@
 use crate::{crypto::ByteObject, ParticipantPublicKey};
 use crate::service::{Handle, data::RoundParametersData};
-// use bytes::Bytes;
 use reqwest::{Client, Error, StatusCode, Response, IntoUrl};
-// use reqwest::{Response, Url};
 use crate::request::Proxy::{InMem, Remote};
 use crate::client::ClientError;
 use crate::{SumDict, UpdateSeedDict};
 use bytes::Bytes;
 
 
-/// Proxy for the client to communicate with the service.
+/// Proxy for communicating with the service.
 pub enum Proxy {
     InMem(Handle),
     Remote(ClientReq),
@@ -118,58 +116,37 @@ impl From<Handle> for Proxy {
     }
 }
 
-
+/// Manages client requests over HTTP
 pub struct ClientReq {
     client: Client,
     address: &'static str,
 }
 
 impl ClientReq {
-    pub fn new(address: &'static str) -> Self {
+    fn new(address: &'static str) -> Self {
         Self {
             client: Client::new(),
             address,
         }
     }
 
-    // pub async fn _post_message(&self, msg: Vec<u8>) -> Result<StatusCode, Error> {
-    //     let url = format!("{}/message", self.address);
-    //     let response = self.client.post(&url).body(msg).send().await?;
-    //     Ok(response.status())
-    // }
-
-    pub async fn post_message(&self, msg: Vec<u8>) -> Result<Response, Error> {
+    async fn post_message(&self, msg: Vec<u8>) -> Result<Response, Error> {
         let url = format!("{}/message", self.address);
         let response = self.client.post(&url).body(msg).send().await?;
         response.error_for_status()
     }
 
-    // pub async fn _get_sums(&self) -> Result<Response, Error> {
-    //     let url = format!("{}/sums", self.address);
-    //     let response = self.client.get(&url).send().await?;
-    //     response.error_for_status()
-    // }
+    async fn get_params(&self) -> Result<Option<Bytes>, Error> {
+        let url = format!("{}/params", self.address);
+        self.simple_get(&url).await
+    }
 
-    pub async fn get_sums(&self) -> Result<Option<Bytes>, Error> {
+    async fn get_sums(&self) -> Result<Option<Bytes>, Error> {
         let url = format!("{}/sums", self.address);
-        self.get_request(&url).await
+        self.simple_get(&url).await
     }
 
-    async fn get_request<T: IntoUrl>(&self, url: T) -> Result<Option<Bytes>, Error> {
-        let response = self.client.get(url).send().await?;
-        let good_resp = response.error_for_status()?;
-        let opt_body = match good_resp.status() {
-            StatusCode::NO_CONTENT => None,
-            StatusCode::OK => Some(good_resp.bytes().await?),
-            sc => {
-                warn!("unexpected HTTP status code: {}", sc);
-                None
-            }
-        };
-        Ok(opt_body)
-    }
-
-    pub async fn get_seeds(&self, pk: ParticipantPublicKey) -> Result<Option<Bytes>, Error> {
+    async fn get_seeds(&self, pk: ParticipantPublicKey) -> Result<Option<Bytes>, Error> {
         let url = format!("{}/seeds", self.address);
         // send pk along as body of GET request
         let response = self
@@ -191,50 +168,19 @@ impl ClientReq {
         Ok(opt_body)
     }
 
-    // pub async fn _get_seeds(&self, pk: ParticipantPublicKey) -> Result<Vec<u8>, Error> {
-    //     let url = format!("{}/seeds", self.address);
-    //     let response = self
-    //         .client
-    //         .get(&url)
-    //         .header("Content-Type", "application/octet-stream")
-    //         .body(pk.as_slice().to_vec())
-    //         .send()
-    //         .await?;
-    //     let bytes = response.bytes().await?;
-    //     Ok(bytes.to_vec())
-    // }
-
-    pub async fn get_params(&self) -> Result<Option<Bytes>, Error> {
-        let url = format!("{}/params", self.address);
-        self.get_request(&url).await
+    async fn simple_get<T: IntoUrl>(&self, url: T) -> Result<Option<Bytes>, Error> {
+        let response = self.client.get(url).send().await?;
+        let good_resp = response.error_for_status()?;
+        let opt_body = match good_resp.status() {
+            StatusCode::NO_CONTENT => None,
+            StatusCode::OK => Some(good_resp.bytes().await?),
+            sc => {
+                warn!("unexpected HTTP status code: {}", sc);
+                None
+            }
+        };
+        Ok(opt_body)
     }
 
-//     pub async fn _get_params(&self) -> Result<Vec<u8>, Error> {
-//         let url = format!("{}/params", self.address);
-//         let response = self.client.get(&url).send().await?;
-//         let bytes = response.bytes().await?;
-//         Ok(bytes.to_vec())
-//     }
-// }
-
-// pub async fn _get_seeds(&self, pk: ParticipantPublicKey) -> Result<Option<SeedDict>, ClientError> {
-//     let opt_ser_seeds = match self {
-//         InMem(hdl) => {
-//             Ok(hdl.get_seed_dict(pk).await)
-//         },
-//         Remote(ser_seeds) => {
-//             Err(ClientError::GeneralErr)
-//         },
-//     }?;
-//     match opt_ser_seeds {
-//         None => Ok(None),
-//         Some(ser_seeds) => {
-//             let seeds = bincode::deserialize(&ser_seeds[..]).map_err(|e| {
-//                 error!("failed to deserialize seed dict: {}: {:?}", e, &ser_seeds[..]);
-//                 ClientError::DeserialiseErr(e)
-//             })?;
-//             Ok(Some(seeds))
-//         }
-//     }
 }
 

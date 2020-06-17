@@ -5,18 +5,18 @@ use xain_fl::{
     service::Service,
 };
 
-/// Test-drive script of a (completely local) single-round federated learning
-/// session, intended for use as a mini integration test. It spawns a
-/// [`Service`] and 10 [`Client`]s on the tokio event loop. This serves as a
-/// simple example of getting started with the project, and may later be the
-/// basis for more automated tests.
+/// Test-drive script of a (local) single-round federated learning session,
+/// intended for use as a mini integration test. It spawns a [`Service`] and 10
+/// [`Client`]s on the tokio event loop. This serves as a simple example of
+/// getting started with the project, and may later be the basis for more
+/// automated tests.
 ///
 /// important NOTE since we only test a few clients and by default, the
 /// selection ratios in the Coordinator are relatively small, it is very
 /// possible no (or too few) participants will be selected here! It's currently
 /// not possible to configure or force the selection, hence as a TEMP
 /// workaround, these should be adjusted in coordinator.rs before running this
-/// test e.g. 0.2_f64 for sum and 0.4_f64 for update.
+/// test e.g. 0.2_f64 for sum and 0.6_f64 for update.
 #[tokio::main]
 async fn main() -> Result<(), ClientError> {
     let _fmt_subscriber = FmtSubscriber::builder()
@@ -29,9 +29,7 @@ async fn main() -> Result<(), ClientError> {
 
     let mut tasks = vec![];
     for id in 0..10 {
-        let mut client = Client::new_with_hdl(1, hdl.clone(), id)?;
-        // NOTE give spawn a task that owns client
-        // otherwise it won't live long enough
+        let mut client = Client::new_with_hdl(1, id, hdl.clone())?;
         let join_hdl = tokio::spawn(async move { client.during_round().await });
         tasks.push(join_hdl);
     }

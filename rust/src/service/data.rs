@@ -3,7 +3,7 @@ use thiserror::Error;
 use crate::{
     coordinator::{ProtocolEvent, RoundParameters},
     mask::model::Model,
-    service::handle::{SerializedGlobalModel, SerializedSeedDict, SerializedSumDict},
+    service::handle::{SerializedSeedDict, SerializedSumDict},
     SeedDict,
     SumParticipantPublicKey,
 };
@@ -13,14 +13,15 @@ use std::{collections::HashMap, sync::Arc};
 /// Data that the service keeps track of.
 #[derive(From, Default)]
 pub struct Data {
-    /// Parameters of the current round.
+    // Parameters of the current round.
     pub round_parameters_data: Option<Arc<RoundParametersData>>,
+    /// Parameters of the current round, serialized.
+    pub round_params_data_serialized: Option<Arc<Vec<u8>>>,
     /// Data relevant to the current phase of the protocol. During the
     /// update phase, this contains the sum dictionary to be sent to
     /// the update participants for instance, while during the sum2
     /// phase it contains the seed dictionaries.
     pub phase_data: Option<PhaseData>,
-    pub round_params_data_serialized: Option<Arc<Vec<u8>>>,
 }
 
 /// Data held by the service in specific phases
@@ -165,7 +166,6 @@ impl Data {
     }
 
     pub fn round_parameters(&self) -> Option<Arc<Vec<u8>>> {
-        //self.round_parameters_data.clone()
         self.round_params_data_serialized.clone()
     }
 
@@ -243,7 +243,6 @@ pub struct RoundParametersData {
     pub round_parameters: Option<RoundParameters>,
 
     /// The global model of the previous round.
-    //pub global_model: Option<SerializedGlobalModel>,
     pub global_model: Option<Model>,
 }
 
@@ -262,10 +261,7 @@ impl RoundParametersData {
         &self,
         global_model: Model,
     ) -> Result<RoundParametersData, DataUpdateError> {
-        // let serialized = bincode::serialize(&global_model)
-        //     .map_err(|e| DataUpdateError::SerializeGlobalModel(e.to_string()))?;
         Ok(RoundParametersData {
-            //            global_model: Some(Arc::new(serialized)),
             global_model: Some(global_model),
             ..Default::default()
         })
@@ -281,19 +277,10 @@ impl From<RoundParameters> for RoundParametersData {
     }
 }
 
-// impl From<Option<SerializedGlobalModel>> for RoundParametersData {
-//     fn from(serialized_global_model: Option<SerializedGlobalModel>) -> RoundParametersData {
-//         RoundParametersData {
-//             global_model: serialized_global_model,
-//             ..Default::default()
-//         }
-//     }
-// }
-
 impl From<Option<Model>> for RoundParametersData {
     fn from(global_model: Option<Model>) -> RoundParametersData {
         RoundParametersData {
-            global_model: global_model,
+            global_model,
             ..Default::default()
         }
     }

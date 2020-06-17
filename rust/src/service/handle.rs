@@ -1,4 +1,4 @@
-use crate::{service::data::RoundParametersData, SumParticipantPublicKey};
+use crate::SumParticipantPublicKey;
 use derive_more::From;
 use std::{
     pin::Pin,
@@ -40,12 +40,9 @@ pub struct Message {
     // FIXME: there should be a channel to send a response back
 }
 
-pub type SerializedGlobalModel = Arc<Vec<u8>>;
-
 /// Event for a request to retrieve the round parameters
 pub struct RoundParametersRequest {
     /// Channel for sending the round parameters back
-    //pub response_tx: oneshot::Sender<Option<Arc<RoundParametersData>>>,
     pub response_tx: oneshot::Sender<Option<Arc<Vec<u8>>>>,
 }
 
@@ -88,9 +85,7 @@ impl Handle {
     /// Send a [`Event::RoundParameters`] event to retrieve the
     /// current round parameters. The availability of the round
     /// parameters depends on the current coordinator state.
-    //pub async fn get_round_parameters(&self) -> Option<Arc<RoundParametersData>> {
     pub async fn get_round_parameters(&self) -> Option<Arc<Vec<u8>>> {
-        //let (tx, rx) = oneshot::channel::<Option<Arc<RoundParametersData>>>();
         let (tx, rx) = oneshot::channel::<Option<Arc<Vec<u8>>>>();
         self.send_event(RoundParametersRequest { response_tx: tx });
         rx.await.unwrap()
