@@ -37,6 +37,7 @@ pub enum Task {
     None,
 }
 
+#[derive(Debug)]
 /// A participant in the PET protocol layer.
 pub struct Participant {
     // credentials

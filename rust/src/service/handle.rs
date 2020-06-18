@@ -68,7 +68,7 @@ pub struct SeedDictRequest {
 }
 
 /// A handle to send events to be handled by [`Service`]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Handle(UnboundedSender<Event>);
 
 impl Handle {
