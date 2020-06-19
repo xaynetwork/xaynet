@@ -5,6 +5,7 @@ FROM buildpack-deps:stable-curl AS builder
 ENV RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \
     PATH=/usr/local/cargo/bin:$PATH
+RUN apt update
 COPY docker/install_rust.sh .
 RUN bash ./install_rust.sh
 
