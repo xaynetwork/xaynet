@@ -15,6 +15,7 @@ RUN apt install -y valgrind
 # crate that depends on everything
 COPY rust/Cargo.lock /
 COPY rust/Cargo.toml /
+RUN cargo fetch
 RUN mkdir -p /src && \
     touch /src/lib.rs && \
     cargo build --lib --all-features
