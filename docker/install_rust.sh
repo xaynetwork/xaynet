@@ -2,17 +2,16 @@
 
 set -eux
 
-apt-get update
-apt-get install -y --no-install-recommends \
+apt update
+apt install -y --no-install-recommends \
         ca-certificates \
         gcc \
         libc6-dev \
         wget \
         libssl-dev \
-        pkg-config \
+        pkg-config
 
 wget "https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init"
-
 chmod +x rustup-init
 
 ./rustup-init -y --no-modify-path --default-toolchain nightly

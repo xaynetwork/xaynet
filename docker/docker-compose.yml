@@ -1,31 +1,99 @@
-version: "3.7"
+version: "3.8"
 services:
-  minio:
-    image: minio/minio # Stable minio
+  coordinator:
+    image: xain/xain-fl:development
+    hostname: coordinator
+    container_name: coordinator
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    command: /app/coordinator -c /app/config.toml
+    depends_on:
+      - minio
+      - redis
+      - influxdb
     volumes:
-      - minio-data:/data
+      - ${PWD}/../configs/docker-dev-coordinator.toml:/app/config.toml
     networks:
       - xain-fl
+    ports:
+      - "5555:5555"
+      - "8081:8081"
+
+  influxdb:
+    image: influxdb:1.8 # current stable version, v2 is in Beta
+    hostname: influxdb
+    container_name: influxdb
+    environment:
+      INFLUXDB_DB: metrics
+      INFLUXDB_DATA_QUERY_LOG_ENABLED: 'false'
+      INFLUXDB_HTTP_LOG_ENABLED: 'false'
+    volumes:
+      - influxdb-data:/var/lib/influxdb
+    networks:
+      - xain-fl
+    expose:
+      - "8086"
+
+  minio:
+    image: minio/minio
+    hostname: minio
+    container_name: minio
+    env_file:
+      - .dev.env
     environment:
       MINIO_ACCESS_KEY: minio
       MINIO_SECRET_KEY: minio123
     command: server /data
+    volumes:
+      - minio-data:/data
+    networks:
+      - xain-fl
     ports:
       - "9000:9000"
 
+  setup-initial-buckets:
+    image: minio/mc
+    hostname: setup-initial-buckets
+    container_name: setup-initial-buckets
+    depends_on:
+      - minio
+    env_file:
+      - .dev.env
+    networks:
+      - xain-fl
+    entrypoint: >
+      /bin/sh -c "
+        echo -n 'Waiting for minio service to start...';
+        while ! nc -z minio 9000;
+        do
+          sleep 1;
+          echo -n ".";
+        done;
+        echo ' Connected!';
+        mc config host add minio http://minio:9000 $${MINIO_ACCESS_KEY} $${MINIO_SECRET_KEY};
+        mc config host add minio http://minio:9000 $${MINIO_ACCESS_KEY} $${MINIO_SECRET_KEY};
+        /usr/bin/mc mb -p minio/xain-fl;
+        /usr/bin/mc policy set upload minio/xain-fl;
+        /usr/bin/mc policy set download minio/xain-fl;
+      "
+
   redis:
-    image: redis:6.0.2 # Stable redis
+    image: redis:6
     hostname: redis
+    container_name: redis
+    entrypoint: /usr/local/bin/redis-server --appendonly yes --appendfsync everysec # using combination of RDB and AOF for persistence: https://redis.io/topics/persistence
     volumes:
       - redis-data:/data
     networks:
       - xain-fl
-    ports:
-      - "6379:6379"
+    expose:
+      - "6379"
 
 volumes:
   minio-data:
   redis-data:
+  influxdb-data:
 
 networks:
   xain-fl:
