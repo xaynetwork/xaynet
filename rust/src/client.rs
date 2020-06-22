@@ -7,9 +7,9 @@ use crate::{
     crypto::ByteObject,
     mask::model::Model,
     participant::{Participant, Task},
+    request::Proxy,
     sdk::api::CachedModel,
     service::Handle,
-    request::Proxy,
     CoordinatorPublicKey,
     InitError,
     PetError,
@@ -160,7 +160,7 @@ impl Client {
                     (Some(new_model), None) => self.set_global_model(new_model),
                     (Some(new_model), Some(old_model)) if new_model != old_model => {
                         self.set_global_model(new_model)
-                    },
+                    }
                     (None, _) => trace!(client_id = %self.id, "global model not ready yet"),
                     _ => trace!(client_id = %self.id, "global model still fresh"),
                 };
@@ -232,14 +232,18 @@ impl Client {
 
         debug!(client_id = %self.id, "polling for local model");
         let model = loop {
-            if let Some(model) = self.local_model.take() { break model; }
+            if let Some(model) = self.local_model.take() {
+                break model;
+            }
             trace!(client_id = %self.id, "local model not ready, retrying.");
             self.interval.tick().await;
         };
 
         debug!(client_id = %self.id, "polling for model scalar");
         let scalar = loop {
-            if let Some(scalar) = self.proxy.get_scalar().await? { break scalar; }
+            if let Some(scalar) = self.proxy.get_scalar().await? {
+                break scalar;
+            }
             trace!(client_id = %self.id, "model scalar not ready, retrying.");
             self.interval.tick().await;
         };
@@ -248,9 +252,12 @@ impl Client {
         loop {
             if let Some(sums) = self.proxy.get_sums().await? {
                 debug!(client_id = %self.id, "sum dict received, sending update message.");
-                let upd_msg = self
-                    .participant
-                    .compose_update_message(self.coordinator_pk, &sums, scalar, model);
+                let upd_msg = self.participant.compose_update_message(
+                    self.coordinator_pk,
+                    &sums,
+                    scalar,
+                    model,
+                );
                 self.proxy.post_message(upd_msg).await?;
 
                 info!(client_id = %self.id, "update participant completed a round");
@@ -267,5 +274,4 @@ impl Client {
         self.has_new_global_model_since_last_check = true;
         self.has_new_global_model_since_last_cache = true;
     }
-
 }

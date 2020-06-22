@@ -35,7 +35,7 @@ impl Proxy {
                 if code != StatusCode::OK {
                     warn!("unexpected HTTP status code: {}", code)
                 };
-            },
+            }
         };
         Ok(())
     }
@@ -71,12 +71,14 @@ impl Proxy {
                     error!("failed to GET model scalar: {}", e);
                     ClientError::NetworkErr(e)
                 })?;
-                opt_text.map(|text| {
-                    text.parse().map_err(|e| {
-                        error!("failed to parse model scalar: {}: {:?}", e, text);
-                        ClientError::ParseErr
+                opt_text
+                    .map(|text| {
+                        text.parse().map_err(|e| {
+                            error!("failed to parse model scalar: {}: {:?}", e, text);
+                            ClientError::ParseErr
+                        })
                     })
-                }).transpose()
+                    .transpose()
             }
         }
     }

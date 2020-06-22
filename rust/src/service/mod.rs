@@ -17,9 +17,9 @@ pub use handle::{
     Handle,
     Message,
     RoundParametersRequest,
+    ScalarRequest,
     SeedDictRequest,
     SumDictRequest,
-    ScalarRequest,
 };
 
 /// The `Service` is the task that drives the PET protocol. It reacts

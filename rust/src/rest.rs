@@ -65,7 +65,7 @@ async fn handle_scalar(handle: Handle) -> Result<impl warp::Reply, Infallible> {
                 .status(StatusCode::NO_CONTENT) // 204
                 .body(String::new()) // empty body; won't allocate
                 .unwrap()
-        },
+        }
     };
     Ok(response)
 }
