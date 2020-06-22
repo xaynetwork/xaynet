@@ -4,6 +4,7 @@ use xain_fl::{
     mask::{FromPrimitives, Model},
     participant::Task,
     service::Service,
+    settings::{MaskSettings, PetSettings},
 };
 
 /// Test-drive script of a (local) single-round federated learning session,
@@ -11,13 +12,6 @@ use xain_fl::{
 /// [`Client`]s on the tokio event loop. This serves as a simple example of
 /// getting started with the project, and may later be the basis for more
 /// automated tests.
-///
-/// important NOTE since we only test a few clients and by default, the
-/// selection ratios in the Coordinator are relatively small, it is very
-/// possible no (or too few) participants will be selected here! It's currently
-/// not possible to configure or force the selection, hence as a TEMP
-/// workaround, these should be adjusted in coordinator.rs before running this
-/// test e.g. 0.2_f64 for sum and 0.6_f64 for update.
 #[tokio::main]
 async fn main() -> Result<(), ClientError> {
     let _fmt_subscriber = FmtSubscriber::builder()
@@ -25,7 +19,13 @@ async fn main() -> Result<(), ClientError> {
         .with_ansi(true)
         .init();
 
-    let (svc, hdl) = Service::new().unwrap();
+    let pet = PetSettings {
+        sum: 0.2_f64,
+        update: 0.6_f64,
+        ..Default::default()
+    };
+
+    let (svc, hdl) = Service::new(pet, MaskSettings::default()).unwrap();
     let _svc_jh = tokio::spawn(svc);
 
     // dummy local model for clients

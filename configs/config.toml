@@ -1,5 +1,5 @@
 [api]
-bind_address = "localhost:8081"
+bind_address = "0.0.0.0:8081"
 
 [pet]
 min_sum = 1

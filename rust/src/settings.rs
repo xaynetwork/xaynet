@@ -1,8 +1,9 @@
 //! Module for loading and validating coordinator settings.
 //!
-//! Settings defined in the configuration file can be overridden by environment variables.
-use crate::mask::{BoundType, DataType, GroupType, ModelType};
+//! Values defined in the configuration file can be overridden by environment variables.
+use crate::mask::{BoundType, DataType, GroupType, MaskConfig, ModelType};
 use config::{Config, ConfigError, Environment};
+use std::path::PathBuf;
 use thiserror::Error;
 use validator::{Validate, ValidationErrors};
 
@@ -14,7 +15,7 @@ pub enum SettingsError {
     Validation(#[from] ValidationErrors),
 }
 
-#[derive(Debug, Validate, Deserialize)]
+#[derive(Debug, Validate, Deserialize, Clone, Copy)]
 #[doc(hidden)]
 pub struct Settings {
     #[validate]
@@ -24,7 +25,7 @@ pub struct Settings {
     pub mask: MaskSettings,
 }
 
-#[derive(Debug, Validate, Deserialize)]
+#[derive(Debug, Validate, Deserialize, Clone, Copy)]
 /// PET protocol settings
 pub struct PetSettings {
     #[validate(range(min = 1))]
@@ -50,7 +51,7 @@ pub struct PetSettings {
     /// ```
     pub sum: f64,
 
-    #[validate(range(min = 0, max = 1.0))]
+    #[validate(range(min = 0, max = 1))]
     /// The expected fraction of participants selected for submitting an updated local model for
     /// aggregation. The value must be between `0` and `1`.
     ///
@@ -69,10 +70,20 @@ pub struct PetSettings {
     pub update: f64,
 }
 
-#[derive(Debug, Validate, Deserialize)]
+impl Default for PetSettings {
+    fn default() -> Self {
+        Self {
+            min_sum: 1_usize,
+            min_update: 3_usize,
+            sum: 0.01_f64,
+            update: 0.1_f64,
+        }
+    }
+}
+
+#[derive(Debug, Validate, Deserialize, Clone, Copy)]
 /// REST API settings
 pub struct ApiSettings {
-    #[validate(url)]
     /// The address to which the REST API should be bound.
     ///
     /// # Examples
@@ -80,19 +91,19 @@ pub struct ApiSettings {
     /// **TOML**
     /// ```text
     /// [api]
-    /// bind_address = "localhost:8081"
+    /// bind_address = "0.0.0.0:8081"
     /// # or
-    /// bind_address = "http://127.0.0.1:8081"
+    /// bind_address = "127.0.0.1:8081"
     /// ```
     ///
     /// **Environment variable**
     /// ```text
-    /// XAIN_API__BIND_ADDRESS=localhost:8081
+    /// XAIN_API__BIND_ADDRESS=127.0.0.1:8081
     /// ```
-    pub bind_address: String,
+    pub bind_address: std::net::SocketAddr,
 }
 
-#[derive(Debug, Validate, Deserialize)]
+#[derive(Debug, Validate, Deserialize, Clone, Copy)]
 /// Mask settings
 pub struct MaskSettings {
     /// The order of the finite group.
@@ -160,10 +171,21 @@ pub struct MaskSettings {
     pub model_type: ModelType,
 }
 
+impl Default for MaskSettings {
+    fn default() -> Self {
+        Self {
+            group_type: GroupType::Prime,
+            data_type: DataType::F32,
+            bound_type: BoundType::B0,
+            model_type: ModelType::M3,
+        }
+    }
+}
+
 impl Settings {
     /// Loads and validates the coordinator settings via a configuration file.
     /// Fails when the loading of the configuration file or its validation failed.
-    pub fn new(path: &str) -> Result<Self, SettingsError> {
+    pub fn new(path: PathBuf) -> Result<Self, SettingsError> {
         let settings: Settings = Self::load(path)?;
         settings.validate()?;
         Ok(settings)
@@ -171,14 +193,32 @@ impl Settings {
 
     /// Loads the coordinator settings via a configuration file without validation.
     /// Fails when the loading of configuration file failed.
-    pub fn new_dirty(path: &str) -> Result<Self, ConfigError> {
+    pub fn new_unchecked(path: PathBuf) -> Result<Self, ConfigError> {
         Self::load(path)
     }
 
-    fn load(path: &str) -> Result<Self, ConfigError> {
+    fn load(path: PathBuf) -> Result<Self, ConfigError> {
         let mut s = Config::new();
-        s.merge(config::File::with_name(path))?;
+        s.merge(config::File::from(path))?;
         s.merge(Environment::with_prefix("xain").separator("__"))?;
         s.try_into()
+    }
+}
+
+impl From<MaskSettings> for MaskConfig {
+    fn from(
+        MaskSettings {
+            group_type,
+            data_type,
+            bound_type,
+            model_type,
+        }: MaskSettings,
+    ) -> MaskConfig {
+        MaskConfig {
+            group_type,
+            data_type,
+            bound_type,
+            model_type,
+        }
     }
 }

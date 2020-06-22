@@ -1,4 +1,8 @@
-use crate::{coordinator::Coordinator, InitError};
+use crate::{
+    coordinator::Coordinator,
+    settings::{MaskSettings, PetSettings},
+    InitError,
+};
 use futures::ready;
 use std::{
     future::Future,
@@ -40,11 +44,11 @@ pub struct Service {
 impl Service {
     /// Instantiate a new [`Service`] and return it along with the
     /// corresponding [`Handle`].
-    pub fn new() -> Result<(Self, Handle), InitError> {
+    pub fn new(pet: PetSettings, mask: MaskSettings) -> Result<(Self, Handle), InitError> {
         let (handle, events) = Handle::new();
         let service = Self {
             events,
-            coordinator: Coordinator::new()?,
+            coordinator: Coordinator::new_with_config(pet, mask)?,
             data: Data::new(),
         };
         Ok((service, handle))

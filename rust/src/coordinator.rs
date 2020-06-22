@@ -26,6 +26,7 @@ use crate::{
         UnmaskingError,
     },
     message::{MessageOpen, PayloadOwned, Sum2Owned, SumOwned, UpdateOwned},
+    settings::{MaskSettings, PetSettings},
     CoordinatorPublicKey,
     CoordinatorSecretKey,
     InitError,
@@ -198,6 +199,21 @@ impl Coordinator {
         sodiumoxide::init().or(Err(InitError))?;
         Ok(Self {
             seed: RoundSeed::generate(),
+            ..Default::default()
+        })
+    }
+
+    /// Create a coordinator. Fails if there is insufficient system entropy to generate secrets.
+    pub fn new_with_config(pet: PetSettings, mask: MaskSettings) -> Result<Self, InitError> {
+        // crucial: init must be called before anything else in this module
+        sodiumoxide::init().or(Err(InitError))?;
+        Ok(Self {
+            seed: RoundSeed::generate(),
+            sum: pet.sum,
+            update: pet.update,
+            min_sum: pet.min_sum,
+            min_update: pet.min_update,
+            mask_config: MaskConfig::from(mask),
             ..Default::default()
         })
     }

@@ -31,6 +31,7 @@ reqwest = "0.10.6"
 config = "0.10.1"
 validator = "0.10"
 validator_derive = "0.10"
+structopt = "0.3"
 
 [[bin]]
 name = "coordinator"
