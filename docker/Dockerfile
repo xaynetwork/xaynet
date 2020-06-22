@@ -25,5 +25,5 @@ COPY rust/src /src
 RUN touch /src/lib.rs
 RUN cargo build --all-features
 
-FROM alpine:latest
+FROM ubuntu:latest
 COPY --from=builder /target/debug/coordinator /app/coordinator

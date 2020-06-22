@@ -18,5 +18,5 @@ COPY rust/src /src
 RUN touch /src/lib.rs
 RUN cargo build --release --features=telemetry,influx_metrics
 
-FROM alpine:latest
+FROM ubuntu:latest
 COPY --from=builder /target/debug/coordinator /app/coordinator
