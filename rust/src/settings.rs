@@ -94,12 +94,6 @@ pub struct ApiSettings {
 
 #[derive(Debug, Validate, Deserialize)]
 /// Mask settings
-
-/// -
-/// -
-/// - the
-/// - the number of models to be aggregated at most
-
 pub struct MaskSettings {
     /// The order of the finite group.
     ///
