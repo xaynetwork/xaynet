@@ -626,12 +626,11 @@ pub unsafe extern "C" fn drop_model(client: *mut FFIClient) {
 
 #[cfg(test)]
 mod tests {
-    use std::{iter::FromIterator, sync::Arc};
+    use std::iter::FromIterator;
 
     use num::rational::Ratio;
 
     use super::*;
-    use crate::service::SerializedGlobalModel;
 
     #[test]
     fn test_new_client() {
@@ -644,15 +643,13 @@ mod tests {
     fn test_run_client() {
         // check that the client panics when running it without a service
         let client = unsafe { new_client(10) };
-        assert_eq!(unsafe { run_client(client) }, 1);
+        assert_eq!(unsafe { run_client(client) }, 5);
         unsafe { drop_client(client, 0) };
     }
 
     // define dummy model of length `len` where all values are set to `val`
-    fn dummy_model(val: f64, len: usize) -> (Model, SerializedGlobalModel) {
-        let model = Model::from_iter(vec![Ratio::from_float(val).unwrap(); len].into_iter());
-        let serialized_model = Arc::new(bincode::serialize(&model).unwrap());
-        (model, serialized_model)
+    fn dummy_model(val: f64, len: usize) -> Model {
+        Model::from_iter(vec![Ratio::from_float(val).unwrap(); len].into_iter())
     }
 
     macro_rules! test_new_model {
@@ -664,7 +661,7 @@ mod tests {
                     let client = unsafe { new_client(10) };
 
                     // check that the new model is cached
-                    let (model, _) = dummy_model(0., 10);
+                    let model = dummy_model(0., 10);
                     let prim_model = unsafe { new_model(client, $dtype as c_uint, 10 as c_ulong) };
                     if let Some(CachedModel::[<$prim:upper>](ref cached_model)) = unsafe { &mut *client }.client.cached_model {
                         assert_eq!(prim_model.ptr, cached_model.as_ptr() as *mut c_void);
@@ -702,8 +699,8 @@ mod tests {
                     assert_eq!(prim_model.dtype, 0);
 
                     // check that the primitive model points to the cached model if the global model is available
-                    let (model, serialized_model) = dummy_model(0., 10);
-                    unsafe { &mut *client }.client.global_model = Some(serialized_model);
+                    let model = dummy_model(0., 10);
+                    unsafe { &mut *client }.client.global_model = Some(model.clone());
                     let prim_model = unsafe { get_model(client, $dtype as c_uint) };
                     if let Some(CachedModel::[<$prim:upper>](ref cached_model)) = unsafe { &mut *client }.client.cached_model {
                         assert_eq!(prim_model.ptr, cached_model.as_ptr() as *mut c_void);
@@ -730,8 +727,8 @@ mod tests {
                 #[test]
                 fn [<test_update_model_ $prim>]() {
                     let client = unsafe { new_client(10) };
-                    let (model, serialized_model) = dummy_model(0., 10);
-                    unsafe { &mut *client }.client.global_model = Some(serialized_model);
+                    let model = dummy_model(0., 10);
+                    unsafe { &mut *client }.client.global_model = Some(model.clone());
                     let prim_model = unsafe { get_model(client, $dtype as c_uint) };
 
                     // check that the local model is updated from the cached model
