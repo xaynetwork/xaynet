@@ -1,34 +1,36 @@
-version: "3.7"
+versioe: "3.8"
 services:
 
   coordinator:
-    command: valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes coordinator -c /bin/config.toml
+    image: xain/xain-fl:valgrind
     build:
       context: ..
       dockerfile: docker/Dockerfile
-    image: docker_coordinator:valgrind
     depends_on:
       - influxdb
+    command: valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes /app/coordinator -c /app/config.toml
     volumes:
-      - ${PWD}/configs/docker-dev-coordinator.toml:/bin/config.toml
+      - ${PWD}/../configs/docker-dev-coordinator.toml:/app/config.toml
     networks:
-      - xain-fl-rs
+      - xain-fl
     ports:
       - "5555:5555"
       - "8081:8081"
 
-  aggregator:
-    command: valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes aggregator -c /bin/config.toml
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
-    image: docker_aggregator:valgrind
-    depends_on:
-      - influxdb
+  influxdb:
+    image: influxdb:1.8
+    hostname: influxdb
+    container_name: influxdb
+    environment:
+      INFLUXDB_DB: metrics
+      INFLUXDB_DATA_QUERY_LOG_ENABLED: 'false'
+      INFLUXDB_HTTP_LOG_ENABLED: 'false'
     volumes:
-      - ${PWD}/configs/docker-dev-aggregator.toml:/bin/config.toml
+      - influxdb-data:/var/lib/influxdb
     networks:
-      - xain-fl-rs
-    ports:
-      - "6666:6666"
-      - "8082:8082"
+      - xain-fl
+    expose:
+      - "8086"
+
+networks:
+  xain-fl:

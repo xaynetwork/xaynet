@@ -2,16 +2,14 @@ version: "3.8"
 services:
   coordinator:
     image: xain/xain-fl:development
-    hostname: coordinator
-    container_name: coordinator
     build:
       context: ..
       dockerfile: docker/Dockerfile
-    command: /app/coordinator -c /app/config.toml
     depends_on:
       - minio
       - redis
       - influxdb
+    command: /app/coordinator -c /app/config.toml
     volumes:
       - ${PWD}/../configs/docker-dev-coordinator.toml:/app/config.toml
     networks:
@@ -21,7 +19,7 @@ services:
       - "8081:8081"
 
   influxdb:
-    image: influxdb:1.8 # current stable version, v2 is in Beta
+    image: influxdb:1.8
     hostname: influxdb
     container_name: influxdb
     environment:
@@ -41,9 +39,6 @@ services:
     container_name: minio
     env_file:
       - .dev.env
-    environment:
-      MINIO_ACCESS_KEY: minio
-      MINIO_SECRET_KEY: minio123
     command: server /data
     volumes:
       - minio-data:/data
@@ -60,8 +55,6 @@ services:
       - minio
     env_file:
       - .dev.env
-    networks:
-      - xain-fl
     entrypoint: >
       /bin/sh -c "
         echo -n 'Waiting for minio service to start...';
@@ -77,6 +70,8 @@ services:
         /usr/bin/mc policy set upload minio/xain-fl;
         /usr/bin/mc policy set download minio/xain-fl;
       "
+    networks:
+      - xain-fl
 
   redis:
     image: redis:6
