@@ -641,7 +641,7 @@ mod tests {
 
     #[test]
     fn test_run_client() {
-        // check that the client panics when running it without a service
+        // check for network error when running client without a service
         let client = unsafe { new_client(10) };
         assert_eq!(unsafe { run_client(client) }, 5);
         unsafe { drop_client(client, 0) };

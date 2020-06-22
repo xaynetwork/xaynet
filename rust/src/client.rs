@@ -156,9 +156,9 @@ impl Client {
         loop {
             if let Some(params_outer) = self.proxy.get_params().await? {
                 // update our global model where necessary
-                match (params_outer.global_model, self.global_model.clone()) {
+                match (params_outer.global_model, &self.global_model) {
                     (Some(new_model), None) => self.set_global_model(new_model),
-                    (Some(new_model), Some(old_model)) if new_model != old_model => {
+                    (Some(new_model), Some(old_model)) if &new_model != old_model => {
                         self.set_global_model(new_model)
                     }
                     (None, _) => trace!(client_id = %self.id, "global model not ready yet"),

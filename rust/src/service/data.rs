@@ -13,7 +13,7 @@ use std::{collections::HashMap, sync::Arc};
 /// Data that the service keeps track of.
 #[derive(From, Default)]
 pub struct Data {
-    // Parameters of the current round.
+    /// Parameters of the current round.
     pub round_parameters_data: Option<Arc<RoundParametersData>>,
     /// Parameters of the current round, serialized.
     pub round_params_data_serialized: Option<Arc<Vec<u8>>>,
