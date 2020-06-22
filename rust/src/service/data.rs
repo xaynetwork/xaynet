@@ -3,7 +3,7 @@ use thiserror::Error;
 use crate::{
     coordinator::{ProtocolEvent, RoundParameters},
     mask::model::Model,
-    service::handle::{SerializedGlobalModel, SerializedSeedDict, SerializedSumDict},
+    service::handle::{SerializedSeedDict, SerializedSumDict},
     SeedDict,
     SumParticipantPublicKey,
 };
@@ -15,6 +15,8 @@ use std::{collections::HashMap, sync::Arc};
 pub struct Data {
     /// Parameters of the current round.
     pub round_parameters_data: Option<Arc<RoundParametersData>>,
+    /// Parameters of the current round, serialized.
+    pub round_params_data_serialized: Option<Arc<Vec<u8>>>,
     /// Data relevant to the current phase of the protocol. During the
     /// update phase, this contains the sum dictionary to be sent to
     /// the update participants for instance, while during the sum2
@@ -43,20 +45,28 @@ pub enum PhaseData {
 }
 
 impl PhaseData {
-    /// Return the current sum dictionary and model scalar if they are available. The
-    /// availability of the sum dictionary and model scalar depends on the current
-    /// coordinatore state.
-    pub fn sum_dict_and_scalar(&self) -> Option<(SerializedSumDict, f64)> {
+    /// Return the current sum dictionary if available. The availability depends
+    /// on the current coordinator state.
+    pub fn sum_dict(&self) -> Option<SerializedSumDict> {
         if let PhaseData::Update(data) = self {
-            Some((data.serialized_sum_dict.clone(), data.scalar))
+            Some(data.serialized_sum_dict.clone())
         } else {
             None
         }
     }
 
-    /// Return the current seed dictionary if it is available. The
-    /// availability of the seed dictionary depends on the current
-    /// coordinatore state.
+    /// Return the current model scalar if available. The availability depends
+    /// on the current coordinator state.
+    pub fn scalar(&self) -> Option<f64> {
+        if let PhaseData::Update(data) = self {
+            Some(data.scalar)
+        } else {
+            None
+        }
+    }
+
+    /// Return the current seed dictionary if available. The availability
+    /// depends on the current coordinator state.
     pub fn seed_dict(
         &mut self,
         pk: SumParticipantPublicKey,
@@ -89,18 +99,30 @@ impl Data {
     pub fn update(&mut self, event: ProtocolEvent) -> Result<(), DataUpdateError> {
         match event {
             ProtocolEvent::StartSum(round_parameters) => {
-                self.round_parameters_data =
-                    if let Some(round_parameters_data) = self.round_parameters_data.take() {
-                        // Round > 1
-                        // Update the round parameters. Keep the global model from the previous round.
-                        Some(Arc::new(
-                            round_parameters_data.update_round_parameters(round_parameters),
-                        ))
-                    } else {
-                        // Round = 1
-                        // First round, update the round parameters and set the global model to None.
-                        Some(Arc::new(RoundParametersData::from(round_parameters)))
-                    };
+                if let Some(round_parameters_data) = self.round_parameters_data.take() {
+                    // Round > 1
+                    // Update the round parameters. Keep the global model from the previous round.
+                    self.round_parameters_data = Some(Arc::new(
+                        round_parameters_data.update_round_parameters(round_parameters.clone()),
+                    ));
+
+                    let data_unser =
+                        round_parameters_data.update_round_parameters(round_parameters);
+                    let data_ser = bincode::serialize(&data_unser)
+                        .map_err(|e| DataUpdateError::SerializeGlobalModel(e.to_string()))?;
+                    self.round_params_data_serialized = Some(Arc::new(data_ser))
+                } else {
+                    // Round = 1
+                    // First round, update the round parameters and set the global model to None.
+                    self.round_parameters_data = Some(Arc::new(RoundParametersData::from(
+                        round_parameters.clone(),
+                    )));
+
+                    let data_unser = RoundParametersData::from(round_parameters);
+                    let data_ser = bincode::serialize(&data_unser)
+                        .map_err(|e| DataUpdateError::SerializeGlobalModel(e.to_string()))?;
+                    self.round_params_data_serialized = Some(Arc::new(data_ser))
+                };
 
                 self.phase_data = Some(SumData.into());
             }
@@ -151,12 +173,16 @@ impl Data {
         Ok(())
     }
 
-    pub fn round_parameters(&self) -> Option<Arc<RoundParametersData>> {
-        self.round_parameters_data.clone()
+    pub fn round_parameters(&self) -> Option<Arc<Vec<u8>>> {
+        self.round_params_data_serialized.clone()
     }
 
-    pub fn sum_dict_and_scalar(&self) -> Option<(SerializedSumDict, f64)> {
-        self.phase_data.as_ref()?.sum_dict_and_scalar()
+    pub fn sum_dict(&self) -> Option<SerializedSumDict> {
+        self.phase_data.as_ref()?.sum_dict()
+    }
+
+    pub fn scalar(&self) -> Option<f64> {
+        self.phase_data.as_ref()?.scalar()
     }
 
     pub fn seed_dict(
@@ -223,13 +249,13 @@ impl Sum2Data {
     }
 }
 
-#[derive(Debug, PartialEq, Default)]
+#[derive(Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct RoundParametersData {
     /// The round parameters of the current round.
     pub round_parameters: Option<RoundParameters>,
 
     /// The global model of the previous round.
-    pub global_model: Option<SerializedGlobalModel>,
+    pub global_model: Option<Model>,
 }
 
 impl RoundParametersData {
@@ -247,10 +273,8 @@ impl RoundParametersData {
         &self,
         global_model: Model,
     ) -> Result<RoundParametersData, DataUpdateError> {
-        let serialized = bincode::serialize(&global_model)
-            .map_err(|e| DataUpdateError::SerializeGlobalModel(e.to_string()))?;
         Ok(RoundParametersData {
-            global_model: Some(Arc::new(serialized)),
+            global_model: Some(global_model),
             ..Default::default()
         })
     }
@@ -265,10 +289,10 @@ impl From<RoundParameters> for RoundParametersData {
     }
 }
 
-impl From<Option<SerializedGlobalModel>> for RoundParametersData {
-    fn from(serialized_global_model: Option<SerializedGlobalModel>) -> RoundParametersData {
+impl From<Option<Model>> for RoundParametersData {
+    fn from(global_model: Option<Model>) -> RoundParametersData {
         RoundParametersData {
-            global_model: serialized_global_model,
+            global_model,
             ..Default::default()
         }
     }

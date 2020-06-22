@@ -154,7 +154,9 @@ pub unsafe extern "C" fn new_client(period: c_ulong) -> *mut FFIClient {
 /// - `2`: client stopped due to error [`ParticipantInitErr`]
 /// - `3`: client stopped due to error [`ParticipantErr`]
 /// - `4`: client stopped due to error [`DeserialiseErr`]
-/// - `5`: client stopped due to error [`GeneralErr`]
+/// - `5`: client stopped due to error [`NetworkErr`]
+/// - `6`: client stopped due to error [`ParseErr`]
+/// - `7`: client stopped due to error [`GeneralErr`]
 ///
 /// # Safety
 /// The method dereferences from the raw pointer arguments. Therefore, the behavior of the method is
@@ -166,6 +168,8 @@ pub unsafe extern "C" fn new_client(period: c_ulong) -> *mut FFIClient {
 /// [`ParticipantInitErr`]: ../../client/enum.ClientError.html#variant.ParticipantInitErr
 /// [`ParticipantErr`]: ../../client/enum.ClientError.html#variant.ParticipantErr
 /// [`DeserialiseErr`]: ../../client/enum.ClientError.html#variant.DeserialiseErr
+/// [`NetworkErr`]: ../../client/enum.ClientError.html#variant.NetworkErr
+/// [`ParseErr`]: ../../client/enum.ClientError.html#variant.ParseErr
 /// [`GeneralErr`]: ../../client/enum.ClientError.html#variant.GeneralErr
 pub unsafe extern "C" fn run_client(client: *mut FFIClient) -> c_int {
     if client.is_null() {
@@ -195,7 +199,9 @@ pub unsafe extern "C" fn run_client(client: *mut FFIClient) -> c_int {
         Ok(Err(ClientError::ParticipantInitErr(_))) => 2_i32 as c_int,
         Ok(Err(ClientError::ParticipantErr(_))) => 3_i32 as c_int,
         Ok(Err(ClientError::DeserialiseErr(_))) => 4_i32 as c_int,
-        Ok(Err(ClientError::GeneralErr)) => 5_i32 as c_int,
+        Ok(Err(ClientError::NetworkErr(_))) => 5_i32 as c_int,
+        Ok(Err(ClientError::ParseErr)) => 6_i32 as c_int,
+        Ok(Err(ClientError::GeneralErr)) => 7_i32 as c_int,
     }
 }
 
@@ -396,7 +402,7 @@ pub unsafe extern "C" fn new_model(
 /// and void data type immediately.
 ///
 /// Returns a [`PrimitiveModel`] with null pointer, length zero and data type `dtype` if no global
-/// model is available or deserialization of the global model fails.
+/// model is available.
 ///
 /// Returns a [`PrimitiveModel`] with null pointer, length of the global model and data type `dtype`
 /// if the conversion of the global model into the primitive data type fails.
@@ -420,7 +426,7 @@ pub unsafe extern "C" fn get_model(client: *mut FFIClient, dtype: c_uint) -> Pri
     };
 
     // global model available
-    if let Some(ref global_model) = client.global_model {
+    if let Some(global_model) = client.global_model.clone() {
         // global model is already cached as a primitive model
         if !client.has_new_global_model_since_last_cache {
             match dtype {
@@ -464,83 +470,80 @@ pub unsafe extern "C" fn get_model(client: *mut FFIClient, dtype: c_uint) -> Pri
             }
         }
 
-        // deserialize and convert the global model to a primitive model and cache it
+        // convert the global model to a primitive model and cache it
         client.has_new_global_model_since_last_cache = false;
-        if let Ok(deserialized_model) = bincode::deserialize::<Model>(&global_model) {
-            // deserialization succeeded
-            let len = deserialized_model.len() as c_ulong;
-            let ptr = match dtype {
-                1 => {
-                    if let Ok(mut cached_model) = deserialized_model
-                        .into_primitives()
-                        .map(|res| res.map_err(|_| ()))
-                        .collect::<Result<Vec<f32>, ()>>()
-                    {
-                        // conversion succeeded
-                        let ptr = cached_model.as_mut_ptr() as *mut c_void;
-                        client.cached_model = Some(CachedModel::F32(cached_model));
-                        ptr
-                    } else {
-                        // conversion failed
-                        client.cached_model = None;
-                        ptr::null_mut() as *mut c_void
-                    }
+        let len = global_model.len() as c_ulong;
+        let ptr = match dtype {
+            1 => {
+                if let Ok(mut cached_model) = global_model
+                    .into_primitives()
+                    .map(|res| res.map_err(|_| ()))
+                    .collect::<Result<Vec<f32>, ()>>()
+                {
+                    // conversion succeeded
+                    let ptr = cached_model.as_mut_ptr() as *mut c_void;
+                    client.cached_model = Some(CachedModel::F32(cached_model));
+                    ptr
+                } else {
+                    // conversion failed
+                    client.cached_model = None;
+                    ptr::null_mut() as *mut c_void
                 }
-                2 => {
-                    if let Ok(mut cached_model) = deserialized_model
-                        .into_primitives()
-                        .map(|res| res.map_err(|_| ()))
-                        .collect::<Result<Vec<f64>, ()>>()
-                    {
-                        // conversion succeeded
-                        let ptr = cached_model.as_mut_ptr() as *mut c_void;
-                        client.cached_model = Some(CachedModel::F64(cached_model));
-                        ptr
-                    } else {
-                        // conversion failed
-                        client.cached_model = None;
-                        ptr::null_mut() as *mut c_void
-                    }
+            }
+            2 => {
+                if let Ok(mut cached_model) = global_model
+                    .into_primitives()
+                    .map(|res| res.map_err(|_| ()))
+                    .collect::<Result<Vec<f64>, ()>>()
+                {
+                    // conversion succeeded
+                    let ptr = cached_model.as_mut_ptr() as *mut c_void;
+                    client.cached_model = Some(CachedModel::F64(cached_model));
+                    ptr
+                } else {
+                    // conversion failed
+                    client.cached_model = None;
+                    ptr::null_mut() as *mut c_void
                 }
-                3 => {
-                    if let Ok(mut cached_model) = deserialized_model
-                        .into_primitives()
-                        .map(|res| res.map_err(|_| ()))
-                        .collect::<Result<Vec<i32>, ()>>()
-                    {
-                        // conversion succeeded
-                        let ptr = cached_model.as_mut_ptr() as *mut c_void;
-                        client.cached_model = Some(CachedModel::I32(cached_model));
-                        ptr
-                    } else {
-                        // conversion failed
-                        client.cached_model = None;
-                        ptr::null_mut() as *mut c_void
-                    }
+            }
+            3 => {
+                if let Ok(mut cached_model) = global_model
+                    .into_primitives()
+                    .map(|res| res.map_err(|_| ()))
+                    .collect::<Result<Vec<i32>, ()>>()
+                {
+                    // conversion succeeded
+                    let ptr = cached_model.as_mut_ptr() as *mut c_void;
+                    client.cached_model = Some(CachedModel::I32(cached_model));
+                    ptr
+                } else {
+                    // conversion failed
+                    client.cached_model = None;
+                    ptr::null_mut() as *mut c_void
                 }
-                4 => {
-                    if let Ok(mut cached_model) = deserialized_model
-                        .into_primitives()
-                        .map(|res| res.map_err(|_| ()))
-                        .collect::<Result<Vec<i64>, ()>>()
-                    {
-                        // conversion succeeded
-                        let ptr = cached_model.as_mut_ptr() as *mut c_void;
-                        client.cached_model = Some(CachedModel::I64(cached_model));
-                        ptr
-                    } else {
-                        // conversion failed
-                        client.cached_model = None;
-                        ptr::null_mut() as *mut c_void
-                    }
+            }
+            4 => {
+                if let Ok(mut cached_model) = global_model
+                    .into_primitives()
+                    .map(|res| res.map_err(|_| ()))
+                    .collect::<Result<Vec<i64>, ()>>()
+                {
+                    // conversion succeeded
+                    let ptr = cached_model.as_mut_ptr() as *mut c_void;
+                    client.cached_model = Some(CachedModel::I64(cached_model));
+                    ptr
+                } else {
+                    // conversion failed
+                    client.cached_model = None;
+                    ptr::null_mut() as *mut c_void
                 }
-                _ => unreachable!(),
-            };
-            return PrimitiveModel { ptr, len, dtype };
-        }
+            }
+            _ => unreachable!(),
+        };
+        return PrimitiveModel { ptr, len, dtype };
     }
 
-    // global model unavailable or deserialization failed
+    // global model unavailable
     client.cached_model = None;
     PrimitiveModel {
         ptr: ptr::null_mut() as *mut c_void,
@@ -623,12 +626,11 @@ pub unsafe extern "C" fn drop_model(client: *mut FFIClient) {
 
 #[cfg(test)]
 mod tests {
-    use std::{iter::FromIterator, sync::Arc};
+    use std::iter::FromIterator;
 
     use num::rational::Ratio;
 
     use super::*;
-    use crate::service::SerializedGlobalModel;
 
     #[test]
     fn test_new_client() {
@@ -639,17 +641,15 @@ mod tests {
 
     #[test]
     fn test_run_client() {
-        // check that the client panics when running it without a service
+        // check for network error when running client without a service
         let client = unsafe { new_client(10) };
-        assert_eq!(unsafe { run_client(client) }, 1);
+        assert_eq!(unsafe { run_client(client) }, 5);
         unsafe { drop_client(client, 0) };
     }
 
     // define dummy model of length `len` where all values are set to `val`
-    fn dummy_model(val: f64, len: usize) -> (Model, SerializedGlobalModel) {
-        let model = Model::from_iter(vec![Ratio::from_float(val).unwrap(); len].into_iter());
-        let serialized_model = Arc::new(bincode::serialize(&model).unwrap());
-        (model, serialized_model)
+    fn dummy_model(val: f64, len: usize) -> Model {
+        Model::from_iter(vec![Ratio::from_float(val).unwrap(); len].into_iter())
     }
 
     macro_rules! test_new_model {
@@ -661,7 +661,7 @@ mod tests {
                     let client = unsafe { new_client(10) };
 
                     // check that the new model is cached
-                    let (model, _) = dummy_model(0., 10);
+                    let model = dummy_model(0., 10);
                     let prim_model = unsafe { new_model(client, $dtype as c_uint, 10 as c_ulong) };
                     if let Some(CachedModel::[<$prim:upper>](ref cached_model)) = unsafe { &mut *client }.client.cached_model {
                         assert_eq!(prim_model.ptr, cached_model.as_ptr() as *mut c_void);
@@ -699,8 +699,8 @@ mod tests {
                     assert_eq!(prim_model.dtype, 0);
 
                     // check that the primitive model points to the cached model if the global model is available
-                    let (model, serialized_model) = dummy_model(0., 10);
-                    unsafe { &mut *client }.client.global_model = Some(serialized_model);
+                    let model = dummy_model(0., 10);
+                    unsafe { &mut *client }.client.global_model = Some(model.clone());
                     let prim_model = unsafe { get_model(client, $dtype as c_uint) };
                     if let Some(CachedModel::[<$prim:upper>](ref cached_model)) = unsafe { &mut *client }.client.cached_model {
                         assert_eq!(prim_model.ptr, cached_model.as_ptr() as *mut c_void);
@@ -727,8 +727,8 @@ mod tests {
                 #[test]
                 fn [<test_update_model_ $prim>]() {
                     let client = unsafe { new_client(10) };
-                    let (model, serialized_model) = dummy_model(0., 10);
-                    unsafe { &mut *client }.client.global_model = Some(serialized_model);
+                    let model = dummy_model(0., 10);
+                    unsafe { &mut *client }.client.global_model = Some(model.clone());
                     let prim_model = unsafe { get_model(client, $dtype as c_uint) };
 
                     // check that the local model is updated from the cached model

@@ -1,4 +1,4 @@
-use crate::{service::data::RoundParametersData, SumParticipantPublicKey};
+use crate::SumParticipantPublicKey;
 use derive_more::From;
 use std::{
     pin::Pin,
@@ -24,9 +24,11 @@ pub enum Event {
     /// participants.
     RoundParameters(RoundParametersRequest),
 
-    /// A request for retrieving the sum dictionary and model scalar for the current
-    /// round
-    SumDictAndScalar(SumDictAndScalarRequest),
+    /// A request for retrieving the sum dictionary for the current round
+    SumDict(SumDictRequest),
+
+    /// A request for retrieving the model scalar for the current round
+    Scalar(ScalarRequest),
 
     /// A request to retrieve the masking seeds dictionary for the
     /// given participant.
@@ -40,20 +42,24 @@ pub struct Message {
     // FIXME: there should be a channel to send a response back
 }
 
-pub type SerializedGlobalModel = Arc<Vec<u8>>;
-
 /// Event for a request to retrieve the round parameters
 pub struct RoundParametersRequest {
     /// Channel for sending the round parameters back
-    pub response_tx: oneshot::Sender<Option<Arc<RoundParametersData>>>,
+    pub response_tx: oneshot::Sender<Option<Arc<Vec<u8>>>>,
 }
 
 pub type SerializedSumDict = Arc<Vec<u8>>;
 
 /// Event for a request to retrieve the sum dictionary
-pub struct SumDictAndScalarRequest {
-    /// Channel for sending the sum dictionary and model scalar back
-    pub response_tx: oneshot::Sender<Option<(SerializedSumDict, f64)>>,
+pub struct SumDictRequest {
+    /// Channel for sending the sum dictionary back
+    pub response_tx: oneshot::Sender<Option<SerializedSumDict>>,
+}
+
+/// Event for a request to retrieve the model scalar
+pub struct ScalarRequest {
+    /// Channel for sending the model scalar back
+    pub response_tx: oneshot::Sender<Option<f64>>,
 }
 
 pub type SerializedSeedDict = Arc<Vec<u8>>;
@@ -87,18 +93,27 @@ impl Handle {
     /// Send a [`Event::RoundParameters`] event to retrieve the
     /// current round parameters. The availability of the round
     /// parameters depends on the current coordinator state.
-    pub async fn get_round_parameters(&self) -> Option<Arc<RoundParametersData>> {
-        let (tx, rx) = oneshot::channel::<Option<Arc<RoundParametersData>>>();
+    pub async fn get_round_parameters(&self) -> Option<Arc<Vec<u8>>> {
+        let (tx, rx) = oneshot::channel::<Option<Arc<Vec<u8>>>>();
         self.send_event(RoundParametersRequest { response_tx: tx });
         rx.await.unwrap()
     }
 
-    /// Send a [`Event::SumDict`] event to retrieve the current sum
-    /// dictionary, in its serialized form, and the model scalar. The availability of the
-    /// sum dictionary and model scalar depends on the current coordinator state.
-    pub async fn get_sum_dict_and_scalar(&self) -> Option<(SerializedSumDict, f64)> {
-        let (tx, rx) = oneshot::channel::<Option<(SerializedSumDict, f64)>>();
-        self.send_event(SumDictAndScalarRequest { response_tx: tx });
+    /// Send a [`Event::SumDict`] event to retrieve the current sum dictionary
+    /// in its serialized form. The availability of the sum dictionary depends
+    /// on the current coordinator state.
+    pub async fn get_sum_dict(&self) -> Option<SerializedSumDict> {
+        let (tx, rx) = oneshot::channel::<Option<SerializedSumDict>>();
+        self.send_event(SumDictRequest { response_tx: tx });
+        rx.await.unwrap()
+    }
+
+    /// Send a [`Event::Scalar`] event to retrieve the current model scalar. The
+    /// availability of the model scalar depends on the current coordinator
+    /// state.
+    pub async fn get_scalar(&self) -> Option<f64> {
+        let (tx, rx) = oneshot::channel::<Option<f64>>();
+        self.send_event(ScalarRequest { response_tx: tx });
         rx.await.unwrap()
     }
 

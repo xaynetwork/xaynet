@@ -50,7 +50,7 @@ pub enum RoundFailed {
     Unmasking(#[from] UnmaskingError),
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 /// A seed for a round.
 pub struct RoundSeed(box_::Seed);
 
@@ -590,7 +590,7 @@ impl Coordinator {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct RoundParameters {
     /// The coordinator public key for encryption.
     pub pk: CoordinatorPublicKey,
