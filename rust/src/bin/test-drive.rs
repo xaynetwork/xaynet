@@ -3,6 +3,7 @@ use xain_fl::{
     client::{Client, ClientError},
     participant::Task,
     service::Service,
+    mask::{Model, FromPrimitives},
 };
 
 /// Test-drive script of a (local) single-round federated learning session,
@@ -27,9 +28,13 @@ async fn main() -> Result<(), ClientError> {
     let (svc, hdl) = Service::new().unwrap();
     let _svc_jh = tokio::spawn(svc);
 
+    // dummy local model for clients
+    let model = Model::from_primitives(vec![0_f32, 1_f32, 0_f32, 1_f32].into_iter()).unwrap();
+
     let mut tasks = vec![];
     for id in 0..10 {
         let mut client = Client::new_with_hdl(1, id, hdl.clone())?;
+        client.local_model = Some(model.clone());
         let join_hdl = tokio::spawn(async move { client.during_round().await });
         tasks.push(join_hdl);
     }

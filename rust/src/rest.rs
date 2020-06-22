@@ -20,6 +20,11 @@ pub async fn serve(addr: impl Into<SocketAddr> + 'static, handle: Handle) {
         .and(with_hdl(handle.clone()))
         .and_then(handle_sums);
 
+    let scalar = warp::path!("scalar")
+        .and(warp::get())
+        .and(with_hdl(handle.clone()))
+        .and_then(handle_scalar);
+
     let seed_dict = warp::path!("seeds")
         .and(warp::get())
         .and(part_pk())
@@ -34,6 +39,7 @@ pub async fn serve(addr: impl Into<SocketAddr> + 'static, handle: Handle) {
 
     let routes = message
         .or(sum_dict)
+        .or(scalar)
         .or(round_params)
         .or(seed_dict);
 
@@ -48,6 +54,20 @@ async fn handle_message(body: Bytes, handle: Handle) -> Result<impl warp::Reply,
 async fn handle_sums(handle: Handle) -> Result<impl warp::Reply, Infallible> {
     let sums = handle.get_sum_dict().await;
     Ok(build_response(sums))
+}
+
+async fn handle_scalar(handle: Handle) -> Result<impl warp::Reply, Infallible> {
+    let builder = Response::builder();
+    let response = match handle.get_scalar().await {
+        Some(scalar) => builder.body(scalar.to_string()).unwrap(),
+        None => {
+            builder
+                .status(StatusCode::NO_CONTENT) // 204
+                .body(String::new()) // empty body; won't allocate
+                .unwrap()
+        },
+    };
+    Ok(response)
 }
 
 async fn handle_seeds(
@@ -73,7 +93,7 @@ fn build_response(data: Option<Arc<Vec<u8>>>) -> Response<Vec<u8>> {
         None => {
             builder
                 .status(StatusCode::NO_CONTENT) // 204
-                .body(Vec::with_capacity(0)) // empty body; won't allocate
+                .body(Vec::new()) // empty body; won't allocate
                 .unwrap()
         }
         Some(arc_vec) => {
@@ -102,15 +122,14 @@ struct InvalidPublicKey;
 impl warp::reject::Reject for InvalidPublicKey {}
 
 async fn handle_reject(err: warp::Rejection) -> Result<impl warp::Reply, Infallible> {
-    let code;
-    if err.is_not_found() {
-        code = StatusCode::NOT_FOUND
+    let code = if err.is_not_found() {
+        StatusCode::NOT_FOUND
     } else if let Some(InvalidPublicKey) = err.find() {
-        code = StatusCode::BAD_REQUEST
+        StatusCode::BAD_REQUEST
     } else {
         error!("unhandled rejection: {:?}", err);
-        code = StatusCode::INTERNAL_SERVER_ERROR
+        StatusCode::INTERNAL_SERVER_ERROR
     };
     // reply with empty body; the status code is the interesting part
-    Ok(warp::reply::with_status(Vec::with_capacity(0), code))
+    Ok(warp::reply::with_status(Vec::new(), code))
 }

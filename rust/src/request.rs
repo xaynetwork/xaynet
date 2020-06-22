@@ -10,6 +10,7 @@ use crate::{
 use bytes::Bytes;
 use reqwest::{Client, Error, IntoUrl, Response, StatusCode};
 
+#[derive(Debug)]
 /// Proxy for communicating with the service.
 pub enum Proxy {
     InMem(Handle),
@@ -23,10 +24,7 @@ impl Proxy {
 
     pub async fn post_message(&self, msg: Vec<u8>) -> Result<(), ClientError> {
         match self {
-            InMem(hdl) => {
-                hdl.send_message(msg).await;
-                Ok(())
-            }
+            InMem(hdl) => hdl.send_message(msg).await,
             Remote(req) => {
                 let resp = req.post_message(msg).await.map_err(|e| {
                     error!("failed to POST message: {}", e);
@@ -37,9 +35,9 @@ impl Proxy {
                 if code != StatusCode::OK {
                     warn!("unexpected HTTP status code: {}", code)
                 };
-                Ok(())
-            }
-        }
+            },
+        };
+        Ok(())
     }
 
     pub async fn get_sums(&self) -> Result<Option<SumDict>, ClientError> {
@@ -63,6 +61,24 @@ impl Proxy {
             })
         });
         opt_sums.transpose()
+    }
+
+    pub async fn get_scalar(&self) -> Result<Option<f64>, ClientError> {
+        match self {
+            InMem(hdl) => Ok(hdl.get_scalar().await),
+            Remote(req) => {
+                let opt_text = req.get_scalar().await.map_err(|e| {
+                    error!("failed to GET model scalar: {}", e);
+                    ClientError::NetworkErr(e)
+                })?;
+                opt_text.map(|text| {
+                    text.parse().map_err(|e| {
+                        error!("failed to parse model scalar: {}: {:?}", e, text);
+                        ClientError::ParseErr
+                    })
+                }).transpose()
+            }
+        }
     }
 
     pub async fn get_seeds(
@@ -121,6 +137,7 @@ impl From<Handle> for Proxy {
     }
 }
 
+#[derive(Debug)]
 /// Manages client requests over HTTP
 pub struct ClientReq {
     client: Client,
@@ -143,12 +160,17 @@ impl ClientReq {
 
     async fn get_params(&self) -> Result<Option<Bytes>, Error> {
         let url = format!("{}/params", self.address);
-        self.simple_get(&url).await
+        self.simple_get_bytes(&url).await
     }
 
     async fn get_sums(&self) -> Result<Option<Bytes>, Error> {
         let url = format!("{}/sums", self.address);
-        self.simple_get(&url).await
+        self.simple_get_bytes(&url).await
+    }
+
+    async fn get_scalar(&self) -> Result<Option<String>, Error> {
+        let url = format!("{}/scalar", self.address);
+        self.simple_get_text(&url).await
     }
 
     async fn get_seeds(&self, pk: ParticipantPublicKey) -> Result<Option<Bytes>, Error> {
@@ -173,7 +195,21 @@ impl ClientReq {
         Ok(opt_body)
     }
 
-    async fn simple_get<T: IntoUrl>(&self, url: T) -> Result<Option<Bytes>, Error> {
+    async fn simple_get_text<T: IntoUrl>(&self, url: T) -> Result<Option<String>, Error> {
+        let response = self.client.get(url).send().await?;
+        let good_resp = response.error_for_status()?;
+        let opt_body = match good_resp.status() {
+            StatusCode::NO_CONTENT => None,
+            StatusCode::OK => Some(good_resp.text().await?),
+            sc => {
+                warn!("unexpected HTTP status code: {}", sc);
+                None
+            }
+        };
+        Ok(opt_body)
+    }
+
+    async fn simple_get_bytes<T: IntoUrl>(&self, url: T) -> Result<Option<Bytes>, Error> {
         let response = self.client.get(url).send().await?;
         let good_resp = response.error_for_status()?;
         let opt_body = match good_resp.status() {

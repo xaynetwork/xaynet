@@ -45,20 +45,28 @@ pub enum PhaseData {
 }
 
 impl PhaseData {
-    /// Return the current sum dictionary and model scalar if they are available. The
-    /// availability of the sum dictionary and model scalar depends on the current
-    /// coordinatore state.
-    pub fn sum_dict_and_scalar(&self) -> Option<(SerializedSumDict, f64)> {
+    /// Return the current sum dictionary if available. The availability depends
+    /// on the current coordinator state.
+    pub fn sum_dict(&self) -> Option<SerializedSumDict> {
         if let PhaseData::Update(data) = self {
-            Some((data.serialized_sum_dict.clone(), data.scalar))
+            Some(data.serialized_sum_dict.clone())
         } else {
             None
         }
     }
 
-    /// Return the current seed dictionary if it is available. The
-    /// availability of the seed dictionary depends on the current
-    /// coordinatore state.
+    /// Return the current model scalar if available. The availability depends
+    /// on the current coordinator state.
+    pub fn scalar(&self) -> Option<f64> {
+        if let PhaseData::Update(data) = self {
+            Some(data.scalar)
+        } else {
+            None
+        }
+    }
+
+    /// Return the current seed dictionary if available. The availability
+    /// depends on the current coordinator state.
     pub fn seed_dict(
         &mut self,
         pk: SumParticipantPublicKey,
@@ -169,8 +177,12 @@ impl Data {
         self.round_params_data_serialized.clone()
     }
 
-    pub fn sum_dict_and_scalar(&self) -> Option<(SerializedSumDict, f64)> {
-        self.phase_data.as_ref()?.sum_dict_and_scalar()
+    pub fn sum_dict(&self) -> Option<SerializedSumDict> {
+        self.phase_data.as_ref()?.sum_dict()
+    }
+
+    pub fn scalar(&self) -> Option<f64> {
+        self.phase_data.as_ref()?.scalar()
     }
 
     pub fn seed_dict(

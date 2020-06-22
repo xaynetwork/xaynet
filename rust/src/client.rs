@@ -1,4 +1,4 @@
-use std::{default::Default, sync::Arc, time::Duration};
+use std::{default::Default, time::Duration};
 
 use thiserror::Error;
 use tokio::time;
@@ -7,20 +7,16 @@ use crate::{
     crypto::ByteObject,
     mask::model::Model,
     participant::{Participant, Task},
-    request::ClientReq,
     sdk::api::CachedModel,
-    service::{Handle, data::RoundParametersData, SerializedGlobalModel},
+    service::Handle,
     request::Proxy,
     CoordinatorPublicKey,
     InitError,
     PetError,
 };
-use std::time::Duration;
-use thiserror::Error;
-use tokio::time;
 
-/// Client-side errors
 #[derive(Debug, Error)]
+/// Client-side errors
 pub enum ClientError {
     #[error("failed to initialise participant: {0}")]
     ParticipantInitErr(InitError),
@@ -34,8 +30,8 @@ pub enum ClientError {
     #[error("network-related error: {0}")]
     NetworkErr(reqwest::Error),
 
-    #[error("service data not ready for receiving")]
-    DataNotReady,
+    #[error("failed to parse service data")]
+    ParseErr,
 
     #[error("unexpected client error")]
     GeneralErr,
@@ -59,11 +55,12 @@ pub struct Client {
     coordinator_pk: CoordinatorPublicKey,
     pub(crate) has_new_coord_pk_since_last_check: bool,
 
-    pub(crate) global_model: Option<SerializedGlobalModel>,
+    pub(crate) global_model: Option<Model>,
     pub(crate) cached_model: Option<CachedModel>,
     pub(crate) has_new_global_model_since_last_check: bool,
     pub(crate) has_new_global_model_since_last_cache: bool,
-    pub(crate) local_model: Option<Model>,
+    // TEMP pub visibility to allow access from test-drive
+    pub local_model: Option<Model>,
 
     /// Identifier for this client
     id: u32,
@@ -74,9 +71,7 @@ pub struct Client {
 
 impl Default for Client {
     fn default() -> Self {
-        let (handle, _) = Handle::new();
         Self {
-            handle,
             participant: Participant::default(),
             interval: time::interval(Duration::from_secs(1)),
             coordinator_pk: CoordinatorPublicKey::zeroed(),
@@ -87,51 +82,35 @@ impl Default for Client {
             has_new_global_model_since_last_cache: false,
             local_model: None,
             id: 0,
+            proxy: Proxy::new("http://127.0.0.1:3030"),
         }
     }
 }
 
 impl Client {
-    /// Create a new [`Client`]
+    /// Create a new [`Client`] that connects to a default service address.
     ///
     /// `period`: time period at which to poll for service data, in seconds.
+    ///
     /// Returns `Ok(client)` if [`Client`] `client` initialised successfully
     /// Returns `Err(err)` if `ClientError` `err` occurred
-    pub fn new(period: u64, addr: &'static str) -> Result<Self, ClientError> {
+    pub(crate) fn new(period: u64) -> Result<Self, ClientError> {
         Ok(Self {
             participant: Participant::new().map_err(ClientError::ParticipantInitErr)?,
             interval: time::interval(Duration::from_secs(period)),
-            request: ClientReq::new(addr),
             ..Self::default()
         })
     }
-    // /// Create a new [`Client`]
-    // ///
-    // /// `period`: time period at which to poll for service data, in seconds.
-    // /// Returns `Ok(client)` if [`Client`] `client` initialised successfully
-    // /// Returns `Err(err)` if `ClientError` `err` occurred
-    // pub fn new(period: u64, addr: &'static str) -> Result<Self, ClientError> {
-    //     let (handle, _events) = Handle::new(); // dummy
-    //     let participant = Participant::new().map_err(ClientError::ParticipantInitErr)?;
-    //     Ok(Self {
-    //         handle,
-    //         participant,
-    //         interval: time::interval(Duration::from_secs(period)),
-    //         coordinator_pk: CoordinatorPublicKey::zeroed(),
-    //         id: 0,
-    //         request: ClientReq::new(addr),
-    //     })
-    // }
 
     /// Create a new [`Client`] with a given service handle.
     ///
     /// `period`: time period at which to poll for service data, in seconds.
     /// `id`: an ID to assign to the [`Client`].
     /// `handle`: handle for communicating with the (local) service.
+    ///
     /// Returns `Ok(client)` if [`Client`] `client` initialised successfully
     /// Returns `Err(err)` if `ClientError` `err` occurred
     pub fn new_with_hdl(period: u64, id: u32, handle: Handle) -> Result<Self, ClientError> {
-        let participant = Participant::new().map_err(ClientError::ParticipantInitErr)?;
         Ok(Self {
             participant: Participant::new().map_err(ClientError::ParticipantInitErr)?,
             interval: time::interval(Duration::from_secs(period)),
@@ -146,51 +125,45 @@ impl Client {
     /// `period`: time period at which to poll for service data, in seconds.
     /// `id`: an ID to assign to the [`Client`].
     /// `addr`: service address to connect to.
+    ///
     /// Returns `Ok(client)` if [`Client`] `client` initialised successfully
     /// Returns `Err(err)` if `ClientError` `err` occurred
     pub fn new_with_addr(period: u64, id: u32, addr: &'static str) -> Result<Self, ClientError> {
-        let participant = Participant::new().map_err(ClientError::ParticipantInitErr)?;
         Ok(Self {
-            participant,
+            participant: Participant::new().map_err(ClientError::ParticipantInitErr)?,
             interval: time::interval(Duration::from_secs(period)),
-            coordinator_pk: CoordinatorPublicKey::zeroed(),
             id,
             proxy: Proxy::new(addr),
+            ..Self::default()
         })
     }
 
     /// Start the [`Client`] loop
     ///
     /// Returns `Err(err)` if `ClientError` `err` occurred
+    ///
     /// NOTE in the future this may iterate only a fixed number of times, at the
     /// end of which this returns `Ok(())`
     pub async fn start(&mut self) -> Result<(), ClientError> {
         loop {
-            // any error that bubbles up will finish off the client
             self.during_round().await?;
         }
     }
 
+    /// [`Client`] duties within a round
     pub async fn during_round(&mut self) -> Result<Task, ClientError> {
         debug!(client_id = %self.id, "polling for new round parameters");
         loop {
             if let Some(params_outer) = self.proxy.get_params().await? {
-                // new global model at the end of the current round
-                if let Some(ref new_global_model) = params_outer.global_model {
-                    if let Some(ref old_global_model) = self.global_model {
-                        if !Arc::ptr_eq(new_global_model, old_global_model) {
-                            self.global_model = Some(new_global_model.clone());
-                            self.has_new_global_model_since_last_check = true;
-                            self.has_new_global_model_since_last_cache = true;
-                        }
-                    } else {
-                        self.global_model = Some(new_global_model.clone());
-                        self.has_new_global_model_since_last_check = true;
-                        self.has_new_global_model_since_last_cache = true;
-                    }
-                }
-
-                // are there inner params?
+                // update our global model where necessary
+                match (params_outer.global_model, self.global_model.clone()) {
+                    (Some(new_model), None) => self.set_global_model(new_model),
+                    (Some(new_model), Some(old_model)) if new_model != old_model => {
+                        self.set_global_model(new_model)
+                    },
+                    (None, _) => trace!(client_id = %self.id, "global model not ready yet"),
+                    _ => trace!(client_id = %self.id, "global model still fresh"),
+                };
                 if let Some(params_inner) = params_outer.round_parameters {
                     // new round?
                     if params_inner.pk != self.coordinator_pk {
@@ -215,7 +188,7 @@ impl Client {
             } else {
                 trace!(client_id = %self.id, "round parameters data not ready");
             }
-            debug!(client_id = %self.id, "new round parameters not ready, retrying.");
+            trace!(client_id = %self.id, "new round parameters not ready, retrying.");
             self.interval.tick().await;
         }
     }
@@ -233,9 +206,8 @@ impl Client {
         self.proxy.post_message(sum1_msg).await?;
 
         debug!(client_id = %self.id, "sum message sent, polling for seed dict.");
-        let ppk = self.participant.pk;
         loop {
-            if let Some(seeds) = self.proxy.get_seeds(ppk).await? {
+            if let Some(seeds) = self.proxy.get_seeds(self.participant.pk).await? {
                 debug!(client_id = %self.id, "seed dict received, sending sum2 message.");
                 let sum2_msg = self
                     .participant
@@ -249,8 +221,7 @@ impl Client {
                 info!(client_id = %self.id, "sum participant completed a round");
                 break Ok(Task::Sum);
             }
-            // None case
-            debug!(client_id = %self.id, "seed dict not ready, retrying.");
+            trace!(client_id = %self.id, "seed dict not ready, retrying.");
             self.interval.tick().await;
         }
     }
@@ -258,49 +229,43 @@ impl Client {
     /// Duties for [`Client`]s selected as updaters
     async fn updater(&mut self) -> Result<Task, ClientError> {
         info!(client_id = %self.id, "selected to update");
+
+        debug!(client_id = %self.id, "polling for local model");
+        let model = loop {
+            if let Some(model) = self.local_model.take() { break model; }
+            trace!(client_id = %self.id, "local model not ready, retrying.");
+            self.interval.tick().await;
+        };
+
+        debug!(client_id = %self.id, "polling for model scalar");
+        let scalar = loop {
+            if let Some(scalar) = self.proxy.get_scalar().await? { break scalar; }
+            trace!(client_id = %self.id, "model scalar not ready, retrying.");
+            self.interval.tick().await;
+        };
+
         debug!(client_id = %self.id, "polling for sum dict");
         loop {
             if let Some(sums) = self.proxy.get_sums().await? {
                 debug!(client_id = %self.id, "sum dict received, sending update message.");
                 let upd_msg = self
                     .participant
-                    .compose_update_message(self.coordinator_pk, &sums);
+                    .compose_update_message(self.coordinator_pk, &sums, scalar, model);
                 self.proxy.post_message(upd_msg).await?;
-
-        loop {
-            if let Some(local_model) = self.local_model.take() {
-                let (sum_dict_ser, scalar): (Arc<Vec<u8>>, f64) = loop {
-                    if let Some((sum_dict_ser, scalar)) =
-                        self.handle.get_sum_dict_and_scalar().await
-                    {
-                        break (sum_dict_ser, scalar);
-                    }
-                    debug!(client_id = %self.id, "sum dictionary not ready, retrying.");
-                    // sums not yet ready, try again later...
-                    self.interval.tick().await;
-                };
-                let sum_dict: SumDict = bincode::deserialize(&sum_dict_ser[..]).map_err(|e| {
-                    error!(
-                        "failed to deserialize sum dictionary: {}: {:?}",
-                        e,
-                        &sum_dict_ser[..],
-                    );
-                    ClientError::DeserialiseErr(e)
-                })?;
-                debug!(client_id = %self.id, "sum dictionary received, sending update message.");
-                let upd_msg: Vec<u8> = self.participant.compose_update_message(
-                    self.coordinator_pk,
-                    &sum_dict,
-                    scalar,
-                    local_model,
-                );
-                self.handle.send_message(upd_msg).await;
 
                 info!(client_id = %self.id, "update participant completed a round");
                 break Ok(Task::Update);
             }
-            debug!(client_id = %self.id, "local model not ready, retrying.");
+            trace!(client_id = %self.id, "sum dict not ready, retrying.");
             self.interval.tick().await;
         }
     }
+
+    fn set_global_model(&mut self, model: Model) {
+        debug!(client_id = %self.id, "updating global model");
+        self.global_model = Some(model);
+        self.has_new_global_model_since_last_check = true;
+        self.has_new_global_model_since_last_cache = true;
+    }
+
 }
