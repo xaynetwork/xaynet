@@ -1,21 +1,57 @@
-version: "3.7"
+version: "3.8"
 services:
+  coordinator:
+    image: xain/xain-fl:development
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    depends_on:
+      - minio
+      - redis
+      - influxdb
+    command: /app/coordinator -c /app/config.toml
+    volumes:
+      - ${PWD}/../configs/docker-dev-coordinator.toml:/app/config.toml
+    networks:
+      - xain-fl
+    ports:
+      - "5555:5555"
+      - "8081:8081"
+
+  influxdb:
+    image: influxdb:1.8
+    hostname: influxdb
+    container_name: influxdb
+    environment:
+      INFLUXDB_DB: metrics
+      INFLUXDB_DATA_QUERY_LOG_ENABLED: 'false'
+      INFLUXDB_HTTP_LOG_ENABLED: 'false'
+    volumes:
+      - influxdb-data:/var/lib/influxdb
+    networks:
+      - xain-fl
+    expose:
+      - "8086"
+
   minio:
-    image: minio/minio # Stable minio
+    image: minio/minio
+    hostname: minio
+    container_name: minio
+    env_file:
+      - .dev.env
+    command: server /data
     volumes:
       - minio-data:/data
     networks:
       - xain-fl
-    environment:
-      MINIO_ACCESS_KEY: minio
-      MINIO_SECRET_KEY: minio123
-    command: server /data
     ports:
       - "9000:9000"
 
   redis:
-    image: redis:6.0.2 # Stable redis
+    image: redis:6
     hostname: redis
+    container_name: redis
+    entrypoint: /usr/local/bin/redis-server --appendonly yes --appendfsync everysec # using combination of RDB and AOF for persistence: https://redis.io/topics/persistence
     volumes:
       - redis-data:/data
     networks:
@@ -26,6 +62,7 @@ services:
 volumes:
   minio-data:
   redis-data:
+  influxdb-data:
 
 networks:
   xain-fl:

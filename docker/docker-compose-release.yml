@@ -1,36 +1,18 @@
-version: "3.7"
+version: "3.8"
 services:
-
   coordinator:
-    command: coordinator -c /bin/config.toml
+    image: xain/xain-fl:release
     build:
       context: ..
       dockerfile: docker/Dockerfile.release
-    image: docker_coordinator:release
-    depends_on:
-      - influxdb
+    command: /app/coordinator -c /app/config.toml
     volumes:
-      - ${PWD}/configs/docker-release-coordinator.toml:/bin/config.toml
+      - ${PWD}/../configs/docker-release-coordinator.toml:/app/config.toml
     networks:
-      - xain-fl-rs
+      - xain-fl
     ports:
       - "5555:5555"
       - "8081:8081"
 
-  aggregator:
-    command: aggregator -c /bin/config.toml
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile.release
-      args:
-          RELEASE_BUILD: "true"
-    image: docker_aggregator:release
-    depends_on:
-      - influxdb
-    volumes:
-      - ${PWD}/configs/docker-release-aggregator.toml:/bin/config.toml
-    networks:
-      - xain-fl-rs
-    ports:
-      - "6666:6666"
-      - "8082:8082"
+networks:
+  xain-fl:
