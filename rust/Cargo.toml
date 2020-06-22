@@ -28,6 +28,9 @@ paste = "0.1.12"
 tracing-subscriber = "0.2.5"
 warp = "0.2.3"
 reqwest = "0.10.6"
+config = "0.10.1"
+validator = "0.10"
+validator_derive = "0.10"
 
 [[bin]]
 name = "coordinator"
