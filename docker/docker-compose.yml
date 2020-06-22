@@ -47,32 +47,6 @@ services:
     ports:
       - "9000:9000"
 
-  setup-initial-buckets:
-    image: minio/mc
-    hostname: setup-initial-buckets
-    container_name: setup-initial-buckets
-    depends_on:
-      - minio
-    env_file:
-      - .dev.env
-    entrypoint: >
-      /bin/sh -c "
-        echo -n 'Waiting for minio service to start...';
-        while ! nc -z minio 9000;
-        do
-          sleep 1;
-          echo -n ".";
-        done;
-        echo ' Connected!';
-        mc config host add minio http://minio:9000 $${MINIO_ACCESS_KEY} $${MINIO_SECRET_KEY};
-        mc config host add minio http://minio:9000 $${MINIO_ACCESS_KEY} $${MINIO_SECRET_KEY};
-        /usr/bin/mc mb -p minio/xain-fl;
-        /usr/bin/mc policy set upload minio/xain-fl;
-        /usr/bin/mc policy set download minio/xain-fl;
-      "
-    networks:
-      - xain-fl
-
   redis:
     image: redis:6
     hostname: redis
@@ -82,8 +56,8 @@ services:
       - redis-data:/data
     networks:
       - xain-fl
-    expose:
-      - "6379"
+    ports:
+      - "6379:6379"
 
 volumes:
   minio-data:

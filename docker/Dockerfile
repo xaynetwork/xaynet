@@ -9,9 +9,6 @@ RUN apt update
 COPY docker/install_rust.sh .
 RUN bash ./install_rust.sh
 
-# Install dev tools
-RUN apt install -y valgrind
-
 # First, fetch and build all the dependencies by compiling an empty
 # crate that depends on everything
 COPY rust/Cargo.lock /
