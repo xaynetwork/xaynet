@@ -5,7 +5,7 @@ use crate::mask::{BoundType, DataType, GroupType, MaskConfig, ModelType};
 use config::{Config, ConfigError, Environment};
 use std::path::PathBuf;
 use thiserror::Error;
-use validator::{Validate, ValidationErrors};
+use validator::{Validate, ValidationError, ValidationErrors};
 
 #[derive(Error, Debug)]
 pub enum SettingsError {
@@ -26,6 +26,7 @@ pub struct Settings {
 }
 
 #[derive(Debug, Validate, Deserialize, Clone, Copy)]
+#[validate(schema(function = "validate_fractions"))]
 /// PET protocol settings
 pub struct PetSettings {
     #[validate(range(min = 1))]
@@ -33,7 +34,6 @@ pub struct PetSettings {
     #[validate(range(min = 3))]
     pub min_update: usize,
 
-    #[validate(range(min = 0, max = 1.0))]
     /// The expected fraction of participants selected for computing the unmasking sum.
     /// The value must be between `0` and `1`.
     ///
@@ -51,7 +51,6 @@ pub struct PetSettings {
     /// ```
     pub sum: f64,
 
-    #[validate(range(min = 0, max = 1))]
     /// The expected fraction of participants selected for submitting an updated local model for
     /// aggregation. The value must be between `0` and `1`.
     ///
@@ -78,6 +77,20 @@ impl Default for PetSettings {
             sum: 0.01_f64,
             update: 0.1_f64,
         }
+    }
+}
+
+fn validate_fractions(s: &PetSettings) -> Result<(), ValidationError> {
+    if 0. < s.sum
+        && s.sum < 1.
+        && 0. < s.update
+        && s.update < 1.
+        && 0. < s.sum + s.update - s.sum * s.update
+        && s.sum + s.update - s.sum * s.update < 1.
+    {
+        Ok(())
+    } else {
+        Err(ValidationError::new("starvation"))
     }
 }
 
