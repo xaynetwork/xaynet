@@ -204,12 +204,6 @@ impl Settings {
         Ok(settings)
     }
 
-    /// Loads the coordinator settings via a configuration file without validation.
-    /// Fails when the loading of configuration file failed.
-    pub fn new_unchecked(path: PathBuf) -> Result<Self, ConfigError> {
-        Self::load(path)
-    }
-
     fn load(path: PathBuf) -> Result<Self, ConfigError> {
         let mut s = Config::new();
         s.merge(config::File::from(path))?;
