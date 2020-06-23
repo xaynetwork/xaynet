@@ -39,7 +39,7 @@
 use std::{
     iter::{IntoIterator, Iterator},
     mem,
-    os::raw::{c_int, c_uint, c_ulong, c_void},
+    os::raw::{c_int, c_uint, c_ulonglong, c_void},
     panic,
     ptr,
 };
@@ -71,7 +71,7 @@ pub struct PrimitiveModel {
     /// A raw mutable pointer to an array of primitive values.
     pub ptr: *mut c_void,
     /// The length of that array.
-    pub len: c_ulong,
+    pub len: c_ulonglong,
     /// The data type of the array's elements.
     pub dtype: c_uint,
 }
@@ -100,6 +100,7 @@ pub struct FFIClient {
 }
 
 #[allow(unused_unsafe)]
+#[allow(clippy::unnecessary_cast)]
 #[no_mangle]
 /// Creates a new [`Client`] within an asynchronous runtime.
 ///
@@ -114,7 +115,7 @@ pub struct FFIClient {
 /// # Safety
 /// The method depends on the safety of the `callback` and on the consistent definition and layout
 /// of its `input` across the FFI-boundary.
-pub unsafe extern "C" fn new_client(period: c_ulong) -> *mut FFIClient {
+pub unsafe extern "C" fn new_client(period: c_ulonglong) -> *mut FFIClient {
     if period == 0 {
         return ptr::null_mut() as *mut FFIClient;
     }
@@ -130,7 +131,7 @@ pub unsafe extern "C" fn new_client(period: c_ulong) -> *mut FFIClient {
     } else {
         return ptr::null_mut() as *mut FFIClient;
     };
-    let client = if let Ok(client) = runtime.enter(move || Client::new(period)) {
+    let client = if let Ok(client) = runtime.enter(move || Client::new(period as u64)) {
         client
     } else {
         return ptr::null_mut() as *mut FFIClient;
@@ -206,6 +207,7 @@ pub unsafe extern "C" fn run_client(client: *mut FFIClient) -> c_int {
 }
 
 #[allow(unused_unsafe)]
+#[allow(clippy::unnecessary_cast)]
 #[no_mangle]
 /// Stops and destroys a [`Client`] and frees its allocated memory.
 ///
@@ -220,7 +222,7 @@ pub unsafe extern "C" fn run_client(client: *mut FFIClient) -> c_int {
 /// # Safety
 /// The method dereferences from the raw pointer arguments. Therefore, the behavior of the method is
 /// undefined if the arguments don't point to valid objects.
-pub unsafe extern "C" fn drop_client(client: *mut FFIClient, timeout: c_ulong) {
+pub unsafe extern "C" fn drop_client(client: *mut FFIClient, timeout: c_ulonglong) {
     if !client.is_null() {
         let client = unsafe {
             // safe if the raw pointer `client` comes from a valid allocation of a `FFIClient`
@@ -229,7 +231,7 @@ pub unsafe extern "C" fn drop_client(client: *mut FFIClient, timeout: c_ulong) {
         if timeout as usize != 0 {
             client
                 .runtime
-                .shutdown_timeout(Duration::from_secs(timeout));
+                .shutdown_timeout(Duration::from_secs(timeout as u64));
         }
     }
 }
@@ -333,17 +335,17 @@ pub unsafe extern "C" fn is_update_participant(client: *mut FFIClient) -> bool {
 pub unsafe extern "C" fn new_model(
     client: *mut FFIClient,
     dtype: c_uint,
-    len: c_ulong,
+    len: c_ulonglong,
 ) -> PrimitiveModel {
     let max_len = match dtype {
         1 | 3 => isize::MAX / 4,
         2 | 4 => isize::MAX / 8,
         _ => 0,
-    } as c_ulong;
+    } as c_ulonglong;
     if client.is_null() || dtype == 0 || dtype > 4 || len == 0 || len > max_len {
         return PrimitiveModel {
             ptr: ptr::null_mut() as *mut c_void,
-            len: 0_u64 as c_ulong,
+            len: 0_u64 as c_ulonglong,
             dtype: 0_u32 as c_uint,
         };
     }
@@ -398,8 +400,8 @@ pub unsafe extern "C" fn new_model(
 /// - `4`: [`i64`]
 ///
 /// # Errors
-/// Ignores null pointer `client`s and returns a [`PrimitiveModel`] with null pointer, length zero
-/// and void data type immediately.
+/// Ignores null pointer `client`s and invalid `dtype`s and returns a [`PrimitiveModel`] with null
+/// pointer, length zero and void data type immediately.
 ///
 /// Returns a [`PrimitiveModel`] with null pointer, length zero and data type `dtype` if no global
 /// model is available.
@@ -413,10 +415,10 @@ pub unsafe extern "C" fn new_model(
 ///
 /// [workflow]: index.html#workflow
 pub unsafe extern "C" fn get_model(client: *mut FFIClient, dtype: c_uint) -> PrimitiveModel {
-    if client.is_null() {
+    if client.is_null() || dtype == 0 || dtype > 4 {
         return PrimitiveModel {
             ptr: ptr::null_mut() as *mut c_void,
-            len: 0_u64 as c_ulong,
+            len: 0_u64 as c_ulonglong,
             dtype: 0_u32 as c_uint,
         };
     }
@@ -434,7 +436,7 @@ pub unsafe extern "C" fn get_model(client: *mut FFIClient, dtype: c_uint) -> Pri
                     if let Some(CachedModel::F32(ref mut cached_model)) = client.cached_model {
                         return PrimitiveModel {
                             ptr: cached_model.as_mut_ptr() as *mut c_void,
-                            len: cached_model.len() as c_ulong,
+                            len: cached_model.len() as c_ulonglong,
                             dtype,
                         };
                     }
@@ -443,7 +445,7 @@ pub unsafe extern "C" fn get_model(client: *mut FFIClient, dtype: c_uint) -> Pri
                     if let Some(CachedModel::F64(ref mut cached_model)) = client.cached_model {
                         return PrimitiveModel {
                             ptr: cached_model.as_mut_ptr() as *mut c_void,
-                            len: cached_model.len() as c_ulong,
+                            len: cached_model.len() as c_ulonglong,
                             dtype,
                         };
                     }
@@ -452,7 +454,7 @@ pub unsafe extern "C" fn get_model(client: *mut FFIClient, dtype: c_uint) -> Pri
                     if let Some(CachedModel::I32(ref mut cached_model)) = client.cached_model {
                         return PrimitiveModel {
                             ptr: cached_model.as_mut_ptr() as *mut c_void,
-                            len: cached_model.len() as c_ulong,
+                            len: cached_model.len() as c_ulonglong,
                             dtype,
                         };
                     }
@@ -461,7 +463,7 @@ pub unsafe extern "C" fn get_model(client: *mut FFIClient, dtype: c_uint) -> Pri
                     if let Some(CachedModel::I64(ref mut cached_model)) = client.cached_model {
                         return PrimitiveModel {
                             ptr: cached_model.as_mut_ptr() as *mut c_void,
-                            len: cached_model.len() as c_ulong,
+                            len: cached_model.len() as c_ulonglong,
                             dtype,
                         };
                     }
@@ -472,7 +474,7 @@ pub unsafe extern "C" fn get_model(client: *mut FFIClient, dtype: c_uint) -> Pri
 
         // convert the global model to a primitive model and cache it
         client.has_new_global_model_since_last_cache = false;
-        let len = global_model.len() as c_ulong;
+        let len = global_model.len() as c_ulonglong;
         let ptr = match dtype {
             1 => {
                 if let Ok(mut cached_model) = global_model
@@ -547,7 +549,7 @@ pub unsafe extern "C" fn get_model(client: *mut FFIClient, dtype: c_uint) -> Pri
     client.cached_model = None;
     PrimitiveModel {
         ptr: ptr::null_mut() as *mut c_void,
-        len: 0_u64 as c_ulong,
+        len: 0_u64 as c_ulonglong,
         dtype: 0_u32 as c_uint,
     }
 }
@@ -662,10 +664,10 @@ mod tests {
 
                     // check that the new model is cached
                     let model = dummy_model(0., 10);
-                    let prim_model = unsafe { new_model(client, $dtype as c_uint, 10 as c_ulong) };
+                    let prim_model = unsafe { new_model(client, $dtype as c_uint, 10 as c_ulonglong) };
                     if let Some(CachedModel::[<$prim:upper>](ref cached_model)) = unsafe { &mut *client }.client.cached_model {
                         assert_eq!(prim_model.ptr, cached_model.as_ptr() as *mut c_void);
-                        assert_eq!(prim_model.len, cached_model.len() as c_ulong);
+                        assert_eq!(prim_model.len, cached_model.len() as c_ulonglong);
                         assert_eq!(prim_model.dtype, $dtype as c_uint);
                         assert_eq!(model, Model::from_primitives_bounded(cached_model.iter().cloned()));
                     } else {
@@ -704,7 +706,7 @@ mod tests {
                     let prim_model = unsafe { get_model(client, $dtype as c_uint) };
                     if let Some(CachedModel::[<$prim:upper>](ref cached_model)) = unsafe { &mut *client }.client.cached_model {
                         assert_eq!(prim_model.ptr, cached_model.as_ptr() as *mut c_void);
-                        assert_eq!(prim_model.len, cached_model.len() as c_ulong);
+                        assert_eq!(prim_model.len, cached_model.len() as c_ulonglong);
                         assert_eq!(prim_model.dtype, $dtype as c_uint);
                         assert_eq!(model, Model::from_primitives_bounded(cached_model.iter().cloned()));
                     } else {
@@ -734,7 +736,7 @@ mod tests {
                     // check that the local model is updated from the cached model
                     if let Some(CachedModel::[<$prim:upper>](ref cached_model)) = unsafe { &mut *client }.client.cached_model {
                         assert_eq!(prim_model.ptr, cached_model.as_ptr() as *mut c_void);
-                        assert_eq!(prim_model.len, cached_model.len() as c_ulong);
+                        assert_eq!(prim_model.len, cached_model.len() as c_ulonglong);
                         assert_eq!(prim_model.dtype, $dtype as c_uint);
                     } else {
                         panic!();
