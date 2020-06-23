@@ -60,21 +60,12 @@ async fn handle_message(body: Bytes, handle: Handle) -> Result<impl warp::Reply,
 
 async fn handle_sums(handle: Handle) -> Result<impl warp::Reply, Infallible> {
     let sums = handle.get_sum_dict().await;
-    Ok(build_response(sums))
+    Ok(build_byte_response(sums))
 }
 
 async fn handle_scalar(handle: Handle) -> Result<impl warp::Reply, Infallible> {
-    let builder = Response::builder();
-    let response = match handle.get_scalar().await {
-        Some(scalar) => builder.body(scalar.to_string()).unwrap(),
-        None => {
-            builder
-                .status(StatusCode::NO_CONTENT) // 204
-                .body(String::new()) // empty body; won't allocate
-                .unwrap()
-        }
-    };
-    Ok(response)
+    let scalar = handle.get_scalar().await.map(|s| s.to_string());
+    Ok(build_text_response(scalar))
 }
 
 async fn handle_seeds(
@@ -82,33 +73,24 @@ async fn handle_seeds(
     handle: Handle,
 ) -> Result<impl warp::Reply, Infallible> {
     let seeds = handle.get_seed_dict(pk).await;
-    Ok(build_response(seeds))
+    Ok(build_byte_response(seeds))
 }
 
 async fn handle_length(handle: Handle) -> Result<impl warp::Reply, Infallible> {
-    let builder = Response::builder();
-    let response = match handle.get_length().await {
-        Some(length) => builder.body(length.to_string()).unwrap(),
-        None => {
-            builder
-                .status(StatusCode::NO_CONTENT) // 204
-                .body(String::new()) // empty body; won't allocate
-                .unwrap()
-        }
-    };
-    Ok(response)
+    let length = handle.get_length().await.map(|l| l.to_string());
+    Ok(build_text_response(length))
 }
 
 async fn handle_params(handle: Handle) -> Result<impl warp::Reply, Infallible> {
     let params = handle.get_round_parameters().await;
-    Ok(build_response(params))
+    Ok(build_byte_response(params))
 }
 
 fn with_hdl(hdl: Handle) -> impl Filter<Extract = (Handle,), Error = Infallible> + Clone {
     warp::any().map(move || hdl.clone())
 }
 
-fn build_response(data: Option<Arc<Vec<u8>>>) -> Response<Vec<u8>> {
+fn build_byte_response(data: Option<Arc<Vec<u8>>>) -> Response<Vec<u8>> {
     let builder = Response::builder();
     match data {
         None => {
@@ -124,6 +106,19 @@ fn build_response(data: Option<Arc<Vec<u8>>>) -> Response<Vec<u8>> {
                 .body(vec)
                 .unwrap()
         }
+    }
+}
+
+fn build_text_response(text: Option<String>) -> Response<String> {
+    let builder = Response::builder();
+    match text {
+        None => {
+            builder
+                .status(StatusCode::NO_CONTENT) // 204
+                .body(String::new()) // empty body; won't allocate
+                .unwrap()
+        }
+        Some(string) => builder.body(string).unwrap(),
     }
 }
 
