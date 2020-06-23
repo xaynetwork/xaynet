@@ -1,21 +1,14 @@
-aggregator_url = "http://dev-aggregator.xain.io:80"
-
-[logging]
-filter = "info,xain_fl=debug"
-
 [api]
 bind_address = "0.0.0.0:8081"
 
-[rpc]
-bind_address = "0.0.0.0:5555"
-aggregator_address = "aggregator-service:6666"
+[pet]
+min_sum = 1
+min_update = 3
+sum = 0.01
+update = 0.1
 
-[federated_learning]
-rounds = 100
-participants_ratio = 0.8
-min_clients = 100
-heartbeat_timeout = 5
-
-[metric_store]
-database_url = "http://influxdb-development:8086"
-database_name = "metrics"
+[mask]
+group_type = "Prime"
+data_type = "F32"
+bound_type = "B0"
+model_type = "M3"

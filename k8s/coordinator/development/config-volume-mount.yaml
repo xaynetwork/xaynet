@@ -16,5 +16,5 @@ spec:
         - name: coordinator
           volumeMounts:
             - name: config-volume
-              mountPath: /app/config-release-coordinator.toml
+              mountPath: /app/config.toml
               subPath: config-release-coordinator.toml

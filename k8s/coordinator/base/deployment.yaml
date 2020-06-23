@@ -15,10 +15,8 @@ spec:
       containers:
         - name: coordinator
           image: coordinator
-          command: ["coordinator"]
-          args: ["-c", "/app/config-release-coordinator.toml"]
+          command: ["/app/coordinator"]
+          args: ["-c", "/app/config.toml"]
           ports:
-            - containerPort: 5555
-              protocol: TCP
             - containerPort: 8081
               protocol: TCP
