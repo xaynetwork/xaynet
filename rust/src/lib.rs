@@ -6,6 +6,9 @@ extern crate serde;
 #[macro_use]
 extern crate tracing;
 
+#[macro_use]
+extern crate validator_derive;
+
 pub mod certificate;
 pub mod client;
 pub mod coordinator;
@@ -17,6 +20,7 @@ pub mod request;
 pub mod rest;
 pub mod sdk;
 pub mod service;
+pub mod settings;
 
 use std::collections::HashMap;
 
