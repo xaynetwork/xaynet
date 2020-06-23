@@ -71,6 +71,10 @@ impl Aggregation {
         }
     }
 
+    pub fn len(&self) -> usize {
+        self.object.data.len()
+    }
+
     pub fn config(&self) -> MaskConfig {
         self.object.config
     }

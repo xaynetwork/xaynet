@@ -109,6 +109,26 @@ impl Proxy {
         opt_seeds.transpose()
     }
 
+    pub async fn get_length(&self) -> Result<Option<u64>, ClientError> {
+        match self {
+            InMem(hdl) => Ok(hdl.get_length().await),
+            Remote(req) => {
+                let opt_text = req.get_length().await.map_err(|e| {
+                    error!("failed to GET model/mask length: {}", e);
+                    ClientError::NetworkErr(e)
+                })?;
+                opt_text
+                    .map(|text| {
+                        text.parse().map_err(|e| {
+                            error!("failed to parse model/mask length: {}: {:?}", e, text);
+                            ClientError::ParseErr
+                        })
+                    })
+                    .transpose()
+            }
+        }
+    }
+
     pub async fn get_params(&self) -> Result<Option<RoundParametersData>, ClientError> {
         let opt_vec = match self {
             InMem(hdl) => {
@@ -195,6 +215,11 @@ impl ClientReq {
             }
         };
         Ok(opt_body)
+    }
+
+    async fn get_length(&self) -> Result<Option<String>, Error> {
+        let url = format!("{}/length", self.address);
+        self.simple_get_text(&url).await
     }
 
     async fn simple_get_text<T: IntoUrl>(&self, url: T) -> Result<Option<String>, Error> {

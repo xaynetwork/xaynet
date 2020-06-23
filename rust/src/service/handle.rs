@@ -33,6 +33,9 @@ pub enum Event {
     /// A request to retrieve the masking seeds dictionary for the
     /// given participant.
     SeedDict(SeedDictRequest),
+
+    /// A request for retrieving the model/mask length for the current round.
+    Length(LengthRequest),
 }
 
 /// Event for an incoming message from a participant
@@ -71,6 +74,12 @@ pub struct SeedDictRequest {
 
     /// Channel for sending the seeds dictionary back
     pub response_tx: oneshot::Sender<Option<Arc<Vec<u8>>>>,
+}
+
+/// Event for a request to retrieve the model/mask length.
+pub struct LengthRequest {
+    /// Channel for sending the model/mask length back.
+    pub response_tx: oneshot::Sender<Option<u64>>,
 }
 
 /// A handle to send events to be handled by [`Service`]
@@ -128,6 +137,15 @@ impl Handle {
             response_tx: tx,
         };
         self.send_event(event);
+        rx.await.unwrap()
+    }
+
+    /// Send a [`Event::Length`] event to retrieve the current model/mask length. The
+    /// availability of the model/mask length depends on the current coordinator
+    /// state.
+    pub async fn get_length(&self) -> Option<u64> {
+        let (tx, rx) = oneshot::channel::<Option<u64>>();
+        self.send_event(LengthRequest { response_tx: tx });
         rx.await.unwrap()
     }
 

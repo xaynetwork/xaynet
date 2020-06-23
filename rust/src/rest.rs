@@ -29,8 +29,13 @@ pub async fn serve(addr: impl Into<SocketAddr> + 'static, handle: Handle) {
         .and(warp::get())
         .and(part_pk())
         .and(with_hdl(handle.clone()))
-        .and_then(handle_seeds)
-        .recover(handle_reject);
+        .and_then(handle_seeds);
+        // .recover(handle_reject);
+
+    let length = warp::path!("length")
+        .and(warp::get())
+        .and(with_hdl(handle.clone()))
+        .and_then(handle_length);
 
     let round_params = warp::path!("params")
         .and(warp::get())
@@ -38,10 +43,12 @@ pub async fn serve(addr: impl Into<SocketAddr> + 'static, handle: Handle) {
         .and_then(handle_params);
 
     let routes = message
+        .or(round_params)
         .or(sum_dict)
         .or(scalar)
-        .or(round_params)
-        .or(seed_dict);
+        .or(seed_dict)
+        .or(length)
+        .recover(handle_reject);
 
     warp::serve(routes).run(addr).await
 }
@@ -76,6 +83,20 @@ async fn handle_seeds(
 ) -> Result<impl warp::Reply, Infallible> {
     let seeds = handle.get_seed_dict(pk).await;
     Ok(build_response(seeds))
+}
+
+async fn handle_length(handle: Handle) -> Result<impl warp::Reply, Infallible> {
+    let builder = Response::builder();
+    let response = match handle.get_length().await {
+        Some(length) => builder.body(length.to_string()).unwrap(),
+        None => {
+            builder
+                .status(StatusCode::NO_CONTENT) // 204
+                .body(String::new()) // empty body; won't allocate
+                .unwrap()
+        }
+    };
+    Ok(response)
 }
 
 async fn handle_params(handle: Handle) -> Result<impl warp::Reply, Infallible> {

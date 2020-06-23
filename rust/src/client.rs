@@ -205,13 +205,26 @@ impl Client {
         let sum1_msg = self.participant.compose_sum_message(&self.coordinator_pk);
         self.proxy.post_message(sum1_msg).await?;
 
+        debug!(client_id = %self.id, "polling for model/mask length");
+        let length = loop {
+            if let Some(length) = self.proxy.get_length().await? {
+                if length > usize::MAX as u64 {
+                    return Err(ClientError::ParticipantErr(PetError::InvalidModel));
+                } else {
+                    break length as usize;
+                }
+            }
+            trace!(client_id = %self.id, "model/mask length not ready, retrying.");
+            self.interval.tick().await;
+        };
+
         debug!(client_id = %self.id, "sum message sent, polling for seed dict.");
         loop {
             if let Some(seeds) = self.proxy.get_seeds(self.participant.pk).await? {
                 debug!(client_id = %self.id, "seed dict received, sending sum2 message.");
                 let sum2_msg = self
                     .participant
-                    .compose_sum2_message(self.coordinator_pk, &seeds)
+                    .compose_sum2_message(self.coordinator_pk, &seeds, length)
                     .map_err(|e| {
                         error!("failed to compose sum2 message with seeds: {:?}", &seeds);
                         ClientError::ParticipantErr(e)

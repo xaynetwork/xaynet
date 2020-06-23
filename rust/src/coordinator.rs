@@ -138,12 +138,14 @@ pub enum ProtocolEvent {
     StartSum(RoundParameters),
 
     /// The sum phase finished and produced the given sum
-    /// dictionary. The coordinator is now in the update phase.
+    /// dictionary. The coordinator is now in the update phase
+    /// and provides a scalar to weight models.
     StartUpdate(SumDict, f64),
 
     /// The update phase finished and produced the given seed
-    /// dictionary. The coordinator is now in the sum2 phase.
-    StartSum2(SeedDict),
+    /// dictionary. The coordinator is now in the sum2 phase
+    /// and provides a model/mask length.
+    StartSum2(SeedDict, u64),
 
     /// The sum2 phase finished and produced the given mask seed. The
     /// coordinator is now back to the idle phase.
@@ -552,7 +554,10 @@ impl Coordinator {
     fn proceed_sum2_phase(&mut self) {
         info!("going to sum2 phase");
         self.phase = Phase::Sum2;
-        self.emit_event(ProtocolEvent::StartSum2(self.seed_dict.clone()));
+        self.emit_event(ProtocolEvent::StartSum2(
+            self.seed_dict.clone(),
+            self.aggregation.len() as u64,
+        ));
     }
 
     /// End the sum2 phase and proceed to the idle phase to end the round.
@@ -866,7 +871,7 @@ mod tests {
         coord.try_phase_transition(); // finish the update phase
         assert_eq!(
             coord.next_event().unwrap(),
-            ProtocolEvent::StartSum2(seed_dict)
+            ProtocolEvent::StartSum2(seed_dict, 0),
         );
         assert!(coord.next_event().is_none());
         assert_eq!(coord.phase, Phase::Sum2);
@@ -1000,7 +1005,7 @@ mod tests {
         coord.try_phase_transition();
         assert_eq!(
             coord.next_event().unwrap(),
-            ProtocolEvent::StartSum2(seed_dict)
+            ProtocolEvent::StartSum2(seed_dict, 0)
         );
         assert!(coord.next_event().is_none());
         assert_eq!(coord.phase, Phase::Sum2);
