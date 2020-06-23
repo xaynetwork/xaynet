@@ -63,6 +63,7 @@ impl Into<MaskObject> for Aggregation {
     }
 }
 
+#[allow(clippy::len_without_is_empty)]
 impl Aggregation {
     pub fn new(config: MaskConfig) -> Self {
         Self {
