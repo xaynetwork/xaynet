@@ -7,11 +7,10 @@ services:
       dockerfile: docker/Dockerfile.release
     command: /app/coordinator -c /app/config.toml
     volumes:
-      - ${PWD}/../configs/docker-release.toml:/app/config.toml
+      - ${PWD}/configs/docker-release.toml:/app/config.toml
     networks:
       - xain-fl
     ports:
-      - "5555:5555"
       - "8081:8081"
 
 networks:

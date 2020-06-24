@@ -11,11 +11,12 @@ services:
       - influxdb
     command: /app/coordinator -c /app/config.toml
     volumes:
-      - ${PWD}/../configs/docker-dev.toml:/app/config.toml
+      - ${PWD}/configs/docker-dev.toml:/app/config.toml
     networks:
       - xain-fl
+    environment:
+      RUST_LOG: "INFO"
     ports:
-      - "5555:5555"
       - "8081:8081"
 
   influxdb:
