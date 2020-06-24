@@ -19,6 +19,7 @@ pub use handle::{
     Event,
     EventStream,
     Handle,
+    LengthRequest,
     Message,
     RoundParametersRequest,
     ScalarRequest,
@@ -62,6 +63,7 @@ impl Service {
             Event::SumDict(req) => self.handle_sum_dict_request(req),
             Event::Scalar(req) => self.handle_scalar_request(req),
             Event::SeedDict(req) => self.handle_seed_dict_request(req),
+            Event::Length(req) => self.handle_length_request(req),
         }
         self.process_protocol_events();
     }
@@ -93,6 +95,12 @@ impl Service {
         } = req;
         let resp = self.data.seed_dict(public_key).unwrap();
         let _ = response_tx.send(resp);
+    }
+
+    /// Handler for model/mask length requests.
+    fn handle_length_request(&self, req: LengthRequest) {
+        let LengthRequest { response_tx } = req;
+        let _ = response_tx.send(self.data.length());
     }
 
     /// Dequeue all the events produced by the coordinator, and handle

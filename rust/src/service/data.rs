@@ -77,6 +77,16 @@ impl PhaseData {
             Ok(None)
         }
     }
+
+    /// Return the current model/mask length if available. The availability depends
+    /// on the current coordinator state.
+    pub fn length(&self) -> Option<u64> {
+        if let PhaseData::Sum2(data) = self {
+            Some(data.length)
+        } else {
+            None
+        }
+    }
 }
 
 /// Error returned when the state cannot be updated.
@@ -135,10 +145,11 @@ impl Data {
                 };
                 self.phase_data = Some(update_data.into());
             }
-            ProtocolEvent::StartSum2(seed_dict) => {
+            ProtocolEvent::StartSum2(seed_dict, length) => {
                 let sum2_data = Sum2Data {
                     seed_dict,
                     serialized_seed_dict: HashMap::new(),
+                    length,
                 };
                 self.phase_data = Some(sum2_data.into());
             }
@@ -194,6 +205,10 @@ impl Data {
             None => Ok(None),
         }
     }
+
+    pub fn length(&self) -> Option<u64> {
+        self.phase_data.as_ref()?.length()
+    }
 }
 
 /// Service data specific to the sum phase
@@ -215,6 +230,8 @@ pub struct Sum2Data {
     /// The seed dictionary with serialized values that can directly
     /// be sent to the clients that request it.
     pub serialized_seed_dict: HashMap<SumParticipantPublicKey, SerializedSeedDict>,
+    /// The length of the update participants models/masks.
+    pub length: u64,
 }
 
 impl Sum2Data {

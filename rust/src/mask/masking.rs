@@ -63,12 +63,17 @@ impl Into<MaskObject> for Aggregation {
     }
 }
 
+#[allow(clippy::len_without_is_empty)]
 impl Aggregation {
     pub fn new(config: MaskConfig) -> Self {
         Self {
             nb_models: 0,
             object: MaskObject::new(config, vec![]),
         }
+    }
+
+    pub fn len(&self) -> usize {
+        self.object.data.len()
     }
 
     pub fn config(&self) -> MaskConfig {

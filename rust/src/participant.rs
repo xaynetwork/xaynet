@@ -148,10 +148,10 @@ impl Participant {
         &self,
         pk: CoordinatorPublicKey,
         seed_dict: &UpdateSeedDict,
+        mask_len: usize,
     ) -> Result<Vec<u8>, PetError> {
         let mask_seeds = self.get_seeds(seed_dict)?;
 
-        let mask_len = 3; // dummy
         let mask = self.compute_global_mask(mask_seeds, mask_len, dummy_config())?;
         let payload = Sum2Owned {
             mask,
