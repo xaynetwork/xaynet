@@ -31,9 +31,6 @@ docker logs docker_aggregator_1
 
 ### Building the project manually
 
-The project currently requires rust nightly so the nightly toolchain
-must be installed to compile the project.
-
 The `cargo` command can be run either from the `./rust` directory, or
 from the repository's root, in which case the `--manifest-path` must
 be specified.
