@@ -3,7 +3,8 @@ use std::ops::{Range, RangeFrom};
 
 use crate::{
     message::{utils::range, DecodeError, Flags, LengthValueBuffer},
-    CoordinatorPublicKey, ParticipantPublicKey,
+    CoordinatorPublicKey,
+    ParticipantPublicKey,
 };
 
 pub(crate) fn header_length(certificate_length: usize) -> usize {

@@ -34,7 +34,7 @@ jobs:
 
       - name: cargo fmt
         working-directory: ./rust
-        run: cargo fmt --all -- --check
+        run: cargo +nightly fmt --all -- --check
 
   check:
     name: rust-build
