@@ -1,3 +1,10 @@
+//! Wrappers around some of the [sodiumoxide] hashing primitives.
+//!
+//! See the [crypto module] documentation since this is a private module anyways.
+//!
+//! [sodiumoxide]: https://docs.rs/sodiumoxide/
+//! [crypto module]: ../index.html
+
 use super::ByteObject;
 
 use sodiumoxide::crypto::hash::sha256;
@@ -19,6 +26,7 @@ use derive_more::{AsMut, AsRef, From};
     PartialOrd,
     Debug,
 )]
+/// A digest of the `sha256` hash function.
 pub struct Sha256(sha256::Digest);
 
 impl ByteObject for Sha256 {
@@ -36,9 +44,10 @@ impl ByteObject for Sha256 {
 }
 
 impl Sha256 {
-    /// Length in bytes of a [`Sha256`]
+    /// Length in bytes of a [`Sha256`] digest.
     pub const LENGTH: usize = sha256::DIGESTBYTES;
 
+    /// Computes the [`Sha256`] digest of the message `m`.
     pub fn hash(m: &[u8]) -> Self {
         Self(sha256::hash(m))
     }

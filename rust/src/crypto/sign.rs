@@ -1,4 +1,10 @@
-use super::ByteObject;
+//! Wrappers around some of the [sodiumoxide] signing primitives.
+//!
+//! See the [crypto module] documentation since this is a private module anyways.
+//!
+//! [sodiumoxide]: https://docs.rs/sodiumoxide/
+//! [crypto module]: ../index.html
+
 use derive_more::{AsMut, AsRef, From};
 use num::{
     bigint::{BigUint, ToBigInt},
@@ -6,13 +12,14 @@ use num::{
 };
 use sodiumoxide::crypto::{hash::sha256, sign};
 
-/// Generate a new random signing key pair
+use super::ByteObject;
+
+/// Generates a new random key pair for signing.
 pub fn generate_signing_key_pair() -> (PublicSigningKey, SecretSigningKey) {
     let (pk, sk) = sign::gen_keypair();
     (PublicSigningKey(pk), SecretSigningKey(sk))
 }
 
-/// Public key for signatures
 #[derive(
     AsRef,
     AsMut,
@@ -28,18 +35,16 @@ pub fn generate_signing_key_pair() -> (PublicSigningKey, SecretSigningKey) {
     PartialOrd,
     Debug,
 )]
+/// A public key for signatures.
 pub struct PublicSigningKey(sign::PublicKey);
 
 impl PublicSigningKey {
-    /// Length in bytes of a [`PublicSigningKey`]
+    /// Length in bytes of a [`PublicSigningKey`].
     pub const LENGTH: usize = sign::PUBLICKEYBYTES;
-    /// Verify the signature `s` against the message `m` and the
-    /// signer's public key `&self`.
+
+    /// Verifies the signature `s` against the message `m` and this public key.
     ///
-    /// # Return value
-    ///
-    /// This method returns `true` if the signature is valid, `false`
-    /// otherwise.
+    /// Returns `true` if the signature is valid and `false` otherwise.
     pub fn verify_detached(&self, s: &Signature, m: &[u8]) -> bool {
         sign::verify_detached(s.as_ref(), m, self.as_ref())
     }
@@ -59,19 +64,22 @@ impl ByteObject for PublicSigningKey {
     }
 }
 
-/// Secret key for signatures
 #[derive(AsRef, AsMut, From, Serialize, Deserialize, Eq, PartialEq, Clone, Debug)]
+/// A secret key for signatures.
+///
+/// When this goes out of scope, its contents will be zeroed out.
 pub struct SecretSigningKey(sign::SecretKey);
 
 impl SecretSigningKey {
-    /// Length in bytes of a [`SecretSigningKey`]
+    /// Length in bytes of a [`SecretSigningKey`].
     pub const LENGTH: usize = sign::SECRETKEYBYTES;
-    /// Sign a message `m`
+
+    /// Signs a message `m` with this secret key.
     pub fn sign_detached(&self, m: &[u8]) -> Signature {
         sign::sign_detached(m, self.as_ref()).into()
     }
 
-    /// Compute the corresponding public key for this secret key
+    /// Computes the corresponding public key for this secret key.
     pub fn public_key(&self) -> PublicSigningKey {
         PublicSigningKey(self.0.public_key())
     }
@@ -91,7 +99,6 @@ impl ByteObject for SecretSigningKey {
     }
 }
 
-/// Detached signature
 #[derive(
     AsRef,
     AsMut,
@@ -107,6 +114,7 @@ impl ByteObject for SecretSigningKey {
     PartialOrd,
     Debug,
 )]
+/// A signature detached from its message.
 pub struct Signature(sign::Signature);
 
 impl ByteObject for Signature {
@@ -124,10 +132,10 @@ impl ByteObject for Signature {
 }
 
 impl Signature {
-    /// Length in bytes of a [`Signature`]
+    /// Length in bytes of a [`Signature`].
     pub const LENGTH: usize = sign::SIGNATUREBYTES;
 
-    /// Compute the floating point representation of the hashed
+    /// Computes the floating point representation of the hashed
     /// signature and ensure that it is below the given threshold:
     /// ```no_rust
     /// int(hash(signature)) / (2**hashbits - 1) <= threshold.
@@ -150,16 +158,17 @@ impl Signature {
     }
 }
 
-/// A seed that can be used for signing key pair generation. When
-/// `KeySeed` goes out of scope, its contents will be zeroed out.
 #[derive(AsRef, AsMut, From, Serialize, Deserialize, Eq, PartialEq, Clone)]
+/// A seed that can be used for signing key pair generation.
+///
+/// When this goes out of scope, its contents will be zeroed out.
 pub struct SigningKeySeed(sign::Seed);
 
 impl SigningKeySeed {
-    /// Length in bytes of a [`SigningKeySeed`]
+    /// Length in bytes of a [`SigningKeySeed`].
     pub const LENGTH: usize = sign::SEEDBYTES;
 
-    /// Deterministically derive a new signing key pair from this seed
+    /// Deterministically derives a new signing key pair from this seed.
     pub fn derive_signing_key_pair(&self) -> (PublicSigningKey, SecretSigningKey) {
         let (pk, sk) = sign::keypair_from_seed(&self.0);
         (PublicSigningKey(pk), SecretSigningKey(sk))

@@ -1,9 +1,17 @@
+//! PRNG utilities for the crypto primitives.
+//!
+//! See the [crypto module] documentation since this is a private module anyways.
+//!
+//! [sodiumoxide]: https://docs.rs/sodiumoxide/
+//! [crypto module]: ../index.html
+
 use num::{bigint::BigUint, traits::identities::Zero};
 use rand::RngCore;
 use rand_chacha::ChaCha20Rng;
 
-/// Generate a secure pseudo-random integer. Draws from a uniform
-/// distribution over the integers between zero (included) and
+/// Generates a secure pseudo-random integer.
+///
+/// Draws from a uniform distribution over the integers between zero (included) and
 /// `max_int` (excluded).
 pub fn generate_integer(prng: &mut ChaCha20Rng, max_int: &BigUint) -> BigUint {
     if max_int.is_zero() {
@@ -11,7 +19,7 @@ pub fn generate_integer(prng: &mut ChaCha20Rng, max_int: &BigUint) -> BigUint {
     }
     let mut bytes = max_int.to_bytes_le();
     let mut rand_int = max_int.clone();
-    while rand_int >= *max_int {
+    while &rand_int >= max_int {
         prng.fill_bytes(&mut bytes);
         rand_int = BigUint::from_bytes_le(&bytes);
     }
