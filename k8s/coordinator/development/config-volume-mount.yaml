@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: coordinator-deployment
+spec:
+  template:
+    spec:
+      volumes:
+      - name: config-volume
+        configMap:
+          name: config-toml
+          items:
+            - key: config.toml
+              path: config.toml
+      containers:
+        - name: coordinator
+          volumeMounts:
+            - name: config-volume
+              mountPath: /app/config.toml
+              subPath: config.toml
