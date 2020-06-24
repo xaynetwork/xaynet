@@ -10,11 +10,11 @@ spec:
         configMap:
           name: config-toml
           items:
-            - key: config-release-coordinator.toml
-              path: config-release-coordinator.toml
+            - key: config.toml
+              path: config.toml
       containers:
         - name: coordinator
           volumeMounts:
             - name: config-volume
               mountPath: /app/config.toml
-              subPath: config-release-coordinator.toml
+              subPath: config.toml
