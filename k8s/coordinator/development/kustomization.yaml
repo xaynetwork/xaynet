@@ -11,7 +11,7 @@ images:
 configMapGenerator:
 - name: config-toml
   files:
-  - config-release-coordinator.toml
+  - config.toml
 
 patchesStrategicMerge:
 - history-limit.yaml
