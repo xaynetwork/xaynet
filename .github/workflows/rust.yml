@@ -9,11 +9,11 @@ jobs:
     steps:
       - uses: actions/checkout@master
 
-      - name: Install stable
+      - name: Install nightly
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: nightly
           components: rustfmt
 
       - name: Cache cargo registry
@@ -34,7 +34,7 @@ jobs:
 
       - name: cargo fmt
         working-directory: ./rust
-        run: cargo +nightly fmt --all -- --check
+        run: cargo fmt --all -- --check
 
   check:
     name: rust-build
