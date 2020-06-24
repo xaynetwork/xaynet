@@ -30,7 +30,6 @@ pub async fn serve(addr: impl Into<SocketAddr> + 'static, handle: Handle) {
         .and(part_pk())
         .and(with_hdl(handle.clone()))
         .and_then(handle_seeds);
-        // .recover(handle_reject);
 
     let length = warp::path!("length")
         .and(warp::get())
