@@ -1,4 +1,4 @@
-//! A C-API to communicate model updates between a PET protocol participant and an application.
+//! A C-API to communicate model updates between a XayNet participant and an application.
 //!
 //! # Workflow
 //! 1. Initialize a [`Client`] with [`new_client()`]. The [`Client`] takes care of the
@@ -623,6 +623,59 @@ pub unsafe extern "C" fn drop_model(client: *mut FFIClient) {
             &mut (*client).client
         };
         client.cached_model.take();
+    }
+}
+
+// Temporary Dart wrappers. Will be removed once booleans are supported in Dart FFI, see
+// https://github.com/dart-lang/sdk/issues/36855.
+pub use self::dart::*;
+
+mod dart {
+    use std::os::raw::c_uint;
+
+    #[allow(unused_unsafe)]
+    #[allow(clippy::unnecessary_cast)]
+    #[no_mangle]
+    #[doc(hidden)]
+    pub unsafe extern "C" fn is_next_round_dart(client: *mut super::FFIClient) -> c_uint {
+        if unsafe {
+            // safe if the called function is sound
+            super::is_next_round(client)
+        } {
+            1_u32 as c_uint
+        } else {
+            0_u32 as c_uint
+        }
+    }
+
+    #[allow(unused_unsafe)]
+    #[allow(clippy::unnecessary_cast)]
+    #[no_mangle]
+    #[doc(hidden)]
+    pub unsafe extern "C" fn has_next_model_dart(client: *mut super::FFIClient) -> c_uint {
+        if unsafe {
+            // safe if the called function is sound
+            super::has_next_model(client)
+        } {
+            1_u32 as c_uint
+        } else {
+            0_u32 as c_uint
+        }
+    }
+
+    #[allow(unused_unsafe)]
+    #[allow(clippy::unnecessary_cast)]
+    #[no_mangle]
+    #[doc(hidden)]
+    pub unsafe extern "C" fn is_update_participant_dart(client: *mut super::FFIClient) -> c_uint {
+        if unsafe {
+            // safe if the called function is sound
+            super::is_update_participant(client)
+        } {
+            1_u32 as c_uint
+        } else {
+            0_u32 as c_uint
+        }
     }
 }
 
