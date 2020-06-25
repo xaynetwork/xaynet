@@ -15,6 +15,7 @@ spec:
       containers:
         - name: coordinator
           image: coordinator
+          imagePullPolicy: Always
           env:
             - name: RUST_LOG
               value: "DEBUG"
