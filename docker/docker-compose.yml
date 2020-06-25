@@ -15,7 +15,7 @@ services:
     networks:
       - xain-fl
     environment:
-      RUST_LOG: "INFO"
+      RUST_LOG: "DEBUG"
     ports:
       - "8081:8081"
 
