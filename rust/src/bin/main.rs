@@ -19,7 +19,7 @@ struct Opt {
 #[tokio::main]
 async fn main() {
     let _fmt_subscriber = FmtSubscriber::builder()
-        .with_env_filter(EnvFilter::from_default_env())
+        .with_env_filter(settings.log.filter)
         .with_ansi(true)
         .init();
 
