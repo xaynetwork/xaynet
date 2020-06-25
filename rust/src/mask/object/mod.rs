@@ -1,4 +1,10 @@
-pub(crate) mod serialization;
+//! Masked objects.
+//!
+//! See the [mask module] documentation since this is a private module anyways.
+//!
+//! [mask module]: ../index.html
+
+pub mod serialization;
 
 use std::iter::Iterator;
 
@@ -9,28 +15,41 @@ use crate::mask::MaskConfig;
 
 #[derive(Error, Debug)]
 #[error("the mask object is invalid: data is incompatible with the masking configuration")]
-pub struct InvalidMaskObject;
+/// Errors related to invalid mask objects.
+pub struct InvalidMaskObjectError;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
+/// A mask or masked model.
 pub struct MaskObject {
     pub(crate) data: Vec<BigUint>,
     pub(crate) config: MaskConfig,
 }
 
 impl MaskObject {
+    /// Creates a new mask object from the given mask configuration and the elements of the mask
+    /// or masked model.
     pub fn new(config: MaskConfig, data: Vec<BigUint>) -> Self {
         Self { data, config }
     }
 
-    pub fn new_checked(config: MaskConfig, data: Vec<BigUint>) -> Result<Self, InvalidMaskObject> {
+    /// Creates a new mask object from the given mask configuration and the elements of the mask
+    /// or masked model.
+    ///
+    /// # Errors
+    /// Fails if the elements of the mask object don't conform to the given mask configuration.
+    pub fn new_checked(
+        config: MaskConfig,
+        data: Vec<BigUint>,
+    ) -> Result<Self, InvalidMaskObjectError> {
         let obj = Self::new(config, data);
         if obj.is_valid() {
             Ok(obj)
         } else {
-            Err(InvalidMaskObject)
+            Err(InvalidMaskObjectError)
         }
     }
 
+    /// Checks if the elements of this mask object conform to the given mask configuration.
     pub fn is_valid(&self) -> bool {
         let order = self.config.order();
         self.data.iter().all(|i| i < &order)

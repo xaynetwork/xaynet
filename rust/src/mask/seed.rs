@@ -1,3 +1,9 @@
+//! Mask seed and mask generation.
+//!
+//! See the [mask module] documentation since this is a private module anyways.
+//!
+//! [mask module]: ../index.html
+
 use std::iter;
 
 use derive_more::{AsMut, AsRef};
@@ -14,48 +20,47 @@ use crate::{
 };
 
 #[derive(AsRef, AsMut, Clone, Debug, PartialEq, Eq)]
-/// A seed for a mask.
+/// A seed to generate a mask.
+///
+/// When this goes out of scope, its contents will be zeroed out.
 pub struct MaskSeed(box_::Seed);
 
 impl ByteObject for MaskSeed {
-    /// Create a mask seed from a slice of bytes. Fails if the length of the input is invalid.
     fn from_slice(bytes: &[u8]) -> Option<Self> {
         box_::Seed::from_slice(bytes).map(Self)
     }
 
-    /// Create a mask seed initialized to zero.
     fn zeroed() -> Self {
         Self(box_::Seed([0_u8; Self::LENGTH]))
     }
 
-    /// Get the mask seed as a slice.
     fn as_slice(&self) -> &[u8] {
         self.0.as_ref()
     }
 }
 
 impl MaskSeed {
-    /// Length in bytes of a [`MaskSeed`]
+    /// Length in bytes of this seed.
     pub const LENGTH: usize = box_::SEEDBYTES;
 
-    /// Generate a random mask seed.
+    /// Generates a random mask seed.
     pub fn generate() -> Self {
         // safe unwrap: length of slice is guaranteed by constants
         Self::from_slice_unchecked(randombytes(Self::LENGTH).as_slice())
     }
 
-    /// Get the mask seed as an array.
+    /// Gets this seed as an array.
     pub fn as_array(&self) -> [u8; Self::LENGTH] {
         (self.0).0
     }
 
-    /// Encrypt the mask seed.
+    /// Encrypts this seed with the given public key as an [`EncryptedMaskSeed`].
     pub fn encrypt(&self, pk: &SumParticipantEphemeralPublicKey) -> EncryptedMaskSeed {
         // safe unwrap: length of slice is guaranteed by constants
         EncryptedMaskSeed::from_slice_unchecked(pk.encrypt(self.as_slice()).as_slice())
     }
 
-    /// Derive a mask of given length from the seed wrt the mask configuration.
+    /// Derives a mask of given length from this seed wrt the mask configuration.
     pub fn derive_mask(&self, len: usize, config: MaskConfig) -> MaskObject {
         let mut prng = ChaCha20Rng::from_seed(self.as_array());
         let data = iter::repeat_with(|| generate_integer(&mut prng, &config.order()))
@@ -76,8 +81,6 @@ impl From<Vec<u8>> for EncryptedMaskSeed {
 }
 
 impl ByteObject for EncryptedMaskSeed {
-    /// Create an encrypted mask seed from a slice of bytes. Fails if the length of the input is
-    /// invalid.
     fn from_slice(bytes: &[u8]) -> Option<Self> {
         if bytes.len() == Self::LENGTH {
             Some(Self(bytes.to_vec()))
@@ -86,22 +89,23 @@ impl ByteObject for EncryptedMaskSeed {
         }
     }
 
-    /// Create an encrypted mask seed initialized to zero.
     fn zeroed() -> Self {
         Self(vec![0_u8; Self::LENGTH])
     }
 
-    /// Get the encrypted mask seed as a slice.
     fn as_slice(&self) -> &[u8] {
         self.0.as_slice()
     }
 }
 
 impl EncryptedMaskSeed {
-    /// Get the number of bytes of an encrypted mask seed.
+    /// Gets the number of bytes of this ciphertext.
     pub const LENGTH: usize = SEALBYTES + MaskSeed::LENGTH;
 
-    /// Decrypt an encrypted mask seed. Fails if the decryption fails.
+    /// Decrypts this seed as a [`MaskSeed`].
+    ///
+    /// # Errors
+    /// Fails if the decryption fails.
     pub fn decrypt(
         &self,
         pk: &SumParticipantEphemeralPublicKey,

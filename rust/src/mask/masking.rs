@@ -1,4 +1,9 @@
-use rand::SeedableRng;
+//! Masking, aggregation and unmasking of models.
+//!
+//! See the [mask module] documentation since this is a private module anyways.
+//!
+//! [mask module]: ../index.html
+
 use std::iter::{self, Iterator};
 
 use num::{
@@ -6,16 +11,17 @@ use num::{
     clamp,
     rational::Ratio,
 };
+use rand::SeedableRng;
 use rand_chacha::ChaCha20Rng;
+use thiserror::Error;
 
 use crate::{
     crypto::prng::generate_integer,
     mask::{MaskConfig, MaskObject, MaskSeed, Model},
 };
 
-use thiserror::Error;
-
 #[derive(Debug, Error, Eq, PartialEq)]
+/// Errors related to the unmasking of models.
 pub enum UnmaskingError {
     #[error("there is no model to unmask")]
     NoModel,
@@ -31,6 +37,7 @@ pub enum UnmaskingError {
 }
 
 #[derive(Debug, Error)]
+/// Errors related to the aggregation of masks and models.
 pub enum AggregationError {
     #[error("the model to aggregate is invalid")]
     InvalidModel,
@@ -43,6 +50,7 @@ pub enum AggregationError {
 }
 
 #[derive(Debug)]
+/// An aggregator for masks and masked models.
 pub struct Aggregation {
     nb_models: usize,
     object: MaskObject,
@@ -65,6 +73,7 @@ impl Into<MaskObject> for Aggregation {
 
 #[allow(clippy::len_without_is_empty)]
 impl Aggregation {
+    /// Creates a new, empty aggregator for masks or masked models.
     pub fn new(config: MaskConfig) -> Self {
         Self {
             nb_models: 0,
@@ -72,14 +81,35 @@ impl Aggregation {
         }
     }
 
+    /// Gets the length of the aggregated mask or masked model.
     pub fn len(&self) -> usize {
         self.object.data.len()
     }
 
+    /// Gets the mask configuration of the aggregator.
     pub fn config(&self) -> MaskConfig {
         self.object.config
     }
 
+    /// Validates if unmasking of the aggregated, masked model with the given `mask` may be
+    /// safely performed.
+    ///
+    /// This should be checked before calling [`unmask()`], since unmasking may return garbage
+    /// values otherwise.
+    ///
+    /// # Errors
+    /// Fails in one of the following cases:
+    /// - The aggregator has not yet aggregated any models.
+    /// - The number of aggregated masked models is larger than the chosen mask configuration
+    ///   allows.
+    /// - The mask configuration of the aggregator and of the `mask` don't coincide.
+    /// - The length of the aggregated masked model and the `mask` don't coincide.
+    /// - The `mask` itself is invalid.
+    ///
+    /// Even though it does not produce any meaningful values, it may be validated that "unmasking"
+    /// of aggregated masks may be safely performed wrt. the given `mask`.
+    ///
+    /// [`unmask()`]: #method.unmask
     pub fn validate_unmasking(&self, mask: &MaskObject) -> Result<(), UnmaskingError> {
         // We cannot perform unmasking without at least one real model
         if self.nb_models == 0 {
@@ -101,6 +131,20 @@ impl Aggregation {
         Ok(())
     }
 
+    /// Unmasks the aggregated, masked model with the given `mask`.
+    ///
+    /// It should be checked that [`validate_unmasking()`] returns `true` before calling this, since
+    /// unmasking may return garbage values otherwise. The unmasking is performed in opposite order
+    /// as described for [`mask()`].
+    ///
+    /// # Panics
+    /// This may only panic if [`validate_unmasking()`] returns `false`.
+    ///
+    /// Even though it does not produce any meaningful values, aggregated masks may be safely
+    /// "unmasked" if [`validate_unmasking()`] returns `true`.
+    ///
+    /// [`validate_unmasking()`]: #method.validate_unmasking
+    /// [`mask()`]: struct.Masker.html#method.mask
     pub fn unmask(mut self, mask: MaskObject) -> Model {
         let scaled_add_shift = self.object.config.add_shift() * BigInt::from(self.nb_models);
         let exp_shift = self.object.config.exp_shift();
@@ -128,6 +172,25 @@ impl Aggregation {
             .collect()
     }
 
+    /// Validates if aggregation of the aggregated mask or masked model with the given `object`
+    /// may be safely performed.
+    ///
+    /// This should be checked before calling [`aggregate()`], since aggregation may return garbage
+    /// values otherwise.
+    ///
+    /// # Errors
+    /// Fails in one of the following cases:
+    /// - The mask configuration of the aggregator and of the `object` don't coincide.
+    /// - The length of the aggregated masks or masked model and the `object` don't coincide. If the
+    ///   aggregator is empty, then an `object` of any length may be aggregated.
+    /// - The new number of aggregated masks or masked models would exceed the number that the
+    ///   chosen mask configuration allows.
+    /// - The `object` itself is invalid.
+    ///
+    /// Even though it does not produce any meaningful values, it may be validated that
+    /// "aggregation" of masks with masked models may be safely performed.
+    ///
+    /// [`aggregate()`]: #method.aggregate
     pub fn validate_aggregation(&self, object: &MaskObject) -> Result<(), AggregationError> {
         if self.object.config != object.config {
             return Err(AggregationError::ModelMismatch);
@@ -150,6 +213,16 @@ impl Aggregation {
         Ok(())
     }
 
+    /// Aggregates the aggregated mask or masked model with the given `object`.
+    ///
+    /// It should be checked that [`validate_aggregation()`] returns `true` before calling this,
+    /// since aggregation may return garbage values otherwise.
+    ///
+    /// # Errors
+    /// Even though it does not produce any meaningful values, "aggregation" of masks with masked
+    /// models may be safely performed if [`validate_aggregation()`] returns `true`.
+    ///
+    /// [`validate_aggregation()`]: #method.validate_aggregation
     pub fn aggregate(&mut self, object: MaskObject) {
         if self.nb_models == 0 {
             self.object = object;
@@ -165,12 +238,14 @@ impl Aggregation {
     }
 }
 
+/// A masker for models.
 pub struct Masker {
-    pub config: MaskConfig,
-    pub seed: MaskSeed,
+    config: MaskConfig,
+    seed: MaskSeed,
 }
 
 impl Masker {
+    /// Creates a new masker with the given mask `config`uration with a randomly generated seed.
     pub fn new(config: MaskConfig) -> Self {
         Self {
             config,
@@ -178,26 +253,29 @@ impl Masker {
         }
     }
 
+    /// Creates a new masker with the given mask `config`uration and `seed`.
     pub fn with_seed(config: MaskConfig, seed: MaskSeed) -> Self {
         Self { config, seed }
     }
 }
 
 impl Masker {
-    /// Mask the model wrt the mask configuration. Enforces bounds on the scalar and weights.
+    /// Masks the model wrt the mask configuration. Enforces bounds on the scalar and weights.
     ///
     /// The masking proceeds in the following steps:
-    /// - clamp the scalar and the weights according to the mask configuration
-    /// - shift the weights into the non-negative reals
-    /// - shift the weights into the non-negative integers
-    /// - shift the weights into the finite group
-    /// - mask the weights with random elements from the finite group
+    /// - Clamp the scalar and the weights according to the mask configuration.
+    /// - Shift the weights into the non-negative reals.
+    /// - Shift the weights into the non-negative integers.
+    /// - Shift the weights into the finite group.
+    /// - Mask the weights with random elements from the finite group.
     ///
-    /// The random elements are derived from a seeded PRNG. Unmasking proceeds in reverse order. For
-    /// more details see [the confluence page](https://xainag.atlassian.net/wiki/spaces/FP/pages/542408769/Masking).
+    /// The random elements are derived from a seeded PRNG. Unmasking as performed in [`unmask()`]
+    /// proceeds in reverse order. For more details see this [confluence page].
+    ///
+    /// [`unmask()`]: struct.Aggregation.html#method.unmask
+    /// [confluence page]: https://xainag.atlassian.net/wiki/spaces/FP/pages/542408769/Masking
     pub fn mask(self, scalar: f64, model: Model) -> (MaskSeed, MaskObject) {
         let random_ints = self.random_ints();
-
         let Self { seed, config } = self;
 
         let exp_shift = config.exp_shift();
@@ -206,6 +284,7 @@ impl Masker {
         let higher_bound = &add_shift;
         let lower_bound = -&add_shift;
         let scalar = Ratio::<BigInt>::from_float(clamp(scalar, 0_f64, 1_f64)).unwrap();
+
         let masked_weights = model
             .into_iter()
             .zip(random_ints)
@@ -223,10 +302,10 @@ impl Masker {
         (seed, masked_model)
     }
 
+    /// Creates an iterator that yields randomly generated integers wrt the mask configuration.
     fn random_ints(&self) -> impl Iterator<Item = BigUint> {
         let order = self.config.order();
         let mut prng = ChaCha20Rng::from_seed(self.seed.as_array());
-
         iter::from_fn(move || Some(generate_integer(&mut prng, &order)))
     }
 }

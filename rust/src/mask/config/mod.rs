@@ -1,16 +1,23 @@
+//! Mask configuration parameters.
+//!
+//! See the [mask module] documentation since this is a private module anyways.
+//!
+//! [mask module]: ../index.html
+
 pub(crate) mod serialization;
 
 use std::convert::TryFrom;
-use thiserror::Error;
 
 use num::{
     bigint::{BigInt, BigUint},
     rational::Ratio,
     traits::{pow::Pow, Num},
 };
+use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum InvalidMaskConfig {
+/// Errors related to invalid mask configurations.
+pub enum InvalidMaskConfigError {
     #[error("invalid group type")]
     GroupType,
     #[error("invalid data type")]
@@ -34,24 +41,21 @@ pub enum GroupType {
 }
 
 impl TryFrom<u8> for GroupType {
-    type Error = InvalidMaskConfig;
+    type Error = InvalidMaskConfigError;
 
-    /// Get the group type. Fails if the encoding is unknown.
     fn try_from(byte: u8) -> Result<Self, Self::Error> {
-        use GroupType::{Integer, Power2, Prime};
-
-        Ok(match byte {
-            0 => Integer,
-            1 => Prime,
-            2 => Power2,
-            _ => return Err(InvalidMaskConfig::GroupType),
-        })
+        match byte {
+            0 => Ok(GroupType::Integer),
+            1 => Ok(GroupType::Prime),
+            2 => Ok(GroupType::Power2),
+            _ => Err(InvalidMaskConfigError::GroupType),
+        }
     }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[repr(u8)]
-/// The data type of the numbers to be masked.
+/// The original primitive data type of the numerical values.
 pub enum DataType {
     /// Numbers of type f32.
     F32 = 0,
@@ -64,53 +68,48 @@ pub enum DataType {
 }
 
 impl TryFrom<u8> for DataType {
-    type Error = InvalidMaskConfig;
+    type Error = InvalidMaskConfigError;
 
-    /// Get the data type. Fails if the encoding is unknown.
     fn try_from(byte: u8) -> Result<Self, Self::Error> {
-        use DataType::{F32, F64, I32, I64};
-
-        Ok(match byte {
-            0 => F32,
-            1 => F64,
-            2 => I32,
-            3 => I64,
-            _ => return Err(InvalidMaskConfig::DataType),
-        })
+        match byte {
+            0 => Ok(DataType::F32),
+            1 => Ok(DataType::F64),
+            2 => Ok(DataType::I32),
+            3 => Ok(DataType::I64),
+            _ => Err(InvalidMaskConfigError::DataType),
+        }
     }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[repr(u8)]
-/// The bounds of the numbers to be masked.
+/// The bounds of the numerical values.
 pub enum BoundType {
-    /// Numbers absolutely bounded by 1.
+    /// Numerical values absolutely bounded by 1.
     B0 = 0,
-    /// Numbers absolutely bounded by 100.
+    /// Numerical values absolutely bounded by 100.
     B2 = 2,
-    /// Numbers absolutely bounded by 10_000.
+    /// Numerical values absolutely bounded by 10_000.
     B4 = 4,
-    /// Numbers absolutely bounded by 1_000_000.
+    /// Numerical values absolutely bounded by 1_000_000.
     B6 = 6,
-    /// Numbers absolutely bounded by their data types' maximum absolute value.
+    /// Numerical values absolutely bounded by their original primitve data types' maximum absolute
+    /// value.
     Bmax = 255,
 }
 
 impl TryFrom<u8> for BoundType {
-    type Error = InvalidMaskConfig;
+    type Error = InvalidMaskConfigError;
 
-    /// Get the bound type. Fails if the encoding is unknown.
     fn try_from(byte: u8) -> Result<Self, Self::Error> {
-        use BoundType::{Bmax, B0, B2, B4, B6};
-
-        Ok(match byte {
-            0 => B0,
-            2 => B2,
-            4 => B4,
-            6 => B6,
-            255 => Bmax,
-            _ => return Err(InvalidMaskConfig::ModelType),
-        })
+        match byte {
+            0 => Ok(BoundType::B0),
+            2 => Ok(BoundType::B2),
+            4 => Ok(BoundType::B4),
+            6 => Ok(BoundType::B6),
+            255 => Ok(BoundType::Bmax),
+            _ => Err(InvalidMaskConfigError::ModelType),
+        }
     }
 }
 
@@ -129,51 +128,54 @@ pub enum ModelType {
 }
 
 impl ModelType {
+    /// Gets the number of models to be aggregated at most for this model type.
     pub fn nb_models_max(&self) -> usize {
-        10usize.pow(*self as u8 as u32)
+        10_usize.pow(*self as u8 as u32)
     }
 }
 
 impl TryFrom<u8> for ModelType {
-    type Error = InvalidMaskConfig;
+    type Error = InvalidMaskConfigError;
 
-    /// Get the model type. Fails if the encoding is unknown.
     fn try_from(byte: u8) -> Result<Self, Self::Error> {
-        use ModelType::{M12, M3, M6, M9};
-        Ok(match byte {
-            3 => M3,
-            6 => M6,
-            9 => M9,
-            12 => M12,
-            _ => return Err(InvalidMaskConfig::ModelType),
-        })
+        match byte {
+            3 => Ok(ModelType::M3),
+            6 => Ok(ModelType::M6),
+            9 => Ok(ModelType::M9),
+            12 => Ok(ModelType::M12),
+            _ => Err(InvalidMaskConfigError::ModelType),
+        }
     }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-/// A mask configuration name. Consists of identifiers for its parts:
+/// A mask configuration.
+///
+/// Consists of the following parts:
 /// - the order of the finite group
 /// - the data type of the numbers to be masked
 /// - the bounds of the numbers to be masked
 /// - the number of models to be aggregated at most
 pub struct MaskConfig {
-    pub group_type: GroupType,
-    pub data_type: DataType,
-    pub bound_type: BoundType,
-    pub model_type: ModelType,
+    pub(crate) group_type: GroupType,
+    pub(crate) data_type: DataType,
+    pub(crate) bound_type: BoundType,
+    pub(crate) model_type: ModelType,
 }
 
 impl MaskConfig {
-    /// Return the number of bytes needed to represent a mask element
-    /// with this configuration
-    pub fn bytes_per_digit(&self) -> usize {
+    /// Returns the number of bytes needed for an element of a mask or masked model wrt this mask
+    /// configuration.
+    pub fn bytes_per_number(&self) -> usize {
         let max_number = self.order() - BigUint::from(1_u8);
         (max_number.bits() + 7) / 8
     }
 
+    /// Gets the additional shift value for masking/unmasking wrt this mask configuration.
     pub fn add_shift(&self) -> Ratio<BigInt> {
         use BoundType::{Bmax, B0, B2, B4, B6};
         use DataType::{F32, F64, I32, I64};
+
         match self.bound_type {
             B0 => Ratio::from_integer(BigInt::from(1)),
             B2 => Ratio::from_integer(BigInt::from(100)),
@@ -188,9 +190,12 @@ impl MaskConfig {
             },
         }
     }
+
+    /// Gets the exponential shift value for masking/unmasking wrt this mask configuration.
     pub fn exp_shift(&self) -> BigInt {
         use BoundType::{Bmax, B0, B2, B4, B6};
         use DataType::{F32, F64, I32, I64};
+
         match self.data_type {
             F32 => match self.bound_type {
                 B0 | B2 | B4 | B6 => BigInt::from(10).pow(10_u8),
@@ -204,6 +209,7 @@ impl MaskConfig {
         }
     }
 
+    /// Gets the finite group order value for masking/unmasking wrt this mask configuration.
     pub fn order(&self) -> BigUint {
         use BoundType::{Bmax, B0, B2, B4, B6};
         use DataType::{F32, F64, I32, I64};
