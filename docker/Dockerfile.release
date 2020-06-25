@@ -1,7 +1,7 @@
 # https://github.com/rust-lang/docker-rust-nightly/blob/master/buster/Dockerfile
 FROM buildpack-deps:stable-curl AS builder
 
-# Install Rust nightly
+# Install Rust
 ENV RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \
     PATH=/usr/local/cargo/bin:$PATH

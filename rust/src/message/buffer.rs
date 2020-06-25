@@ -140,13 +140,12 @@ impl<T: AsRef<[u8]>> MessageBuffer<T> {
     }
 
     fn payload_range(&self) -> RangeFrom<usize> {
-        let certificate_length = self
-            .has_certificate()
-            .then(|| {
-                let bytes = &self.inner.as_ref()[PARTICIPANT_PK_RANGE.end..];
-                LengthValueBuffer::new(bytes).unwrap().length() as usize
-            })
-            .unwrap_or(0);
+        let certificate_length = if self.has_certificate() {
+            let bytes = &self.inner.as_ref()[PARTICIPANT_PK_RANGE.end..];
+            LengthValueBuffer::new(bytes).unwrap().length() as usize
+        } else {
+            0
+        };
         let payload_start = PARTICIPANT_PK_RANGE.end + certificate_length;
         payload_start..
     }
@@ -166,10 +165,12 @@ impl<'a, T: AsRef<[u8]> + ?Sized> MessageBuffer<&'a T> {
     /// Get a slice to the certificate. If the header doesn't contain
     /// any certificate, `None` is returned.
     pub fn certificate(&self) -> Option<LengthValueBuffer<&'a [u8]>> {
-        self.has_certificate().then(|| {
+        if self.has_certificate() {
             let bytes = &self.inner.as_ref()[PARTICIPANT_PK_RANGE.end..];
-            LengthValueBuffer::new_unchecked(bytes)
-        })
+            Some(LengthValueBuffer::new_unchecked(bytes))
+        } else {
+            None
+        }
     }
 
     /// Get the coordinator public key field
