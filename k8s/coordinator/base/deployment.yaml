@@ -15,8 +15,12 @@ spec:
       containers:
         - name: coordinator
           image: coordinator
+          env:
+            - name: RUST_LOG
+              value: "DEBUG"
           command: ["/app/coordinator"]
           args: ["-c", "/app/config.toml"]
           ports:
             - containerPort: 8081
               protocol: TCP
+
