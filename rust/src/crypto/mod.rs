@@ -8,20 +8,20 @@
 //! # Examples
 //! ## Encryption of messages
 //! ```
-//! # use xain_fl::crypto::generate_encrypt_key_pair;
-//! let (pk, sk) = generate_encrypt_key_pair();
+//! # use xain_fl::crypto::EncryptKeyPair;
+//! let keys = EncryptKeyPair::generate();
 //! let message = b"Hello world!".to_vec();
-//! let cipher = pk.encrypt(&message);
-//! assert_eq!(message, sk.decrypt(&cipher, &pk).unwrap());
+//! let cipher = keys.public.encrypt(&message);
+//! assert_eq!(message, keys.secret.decrypt(&cipher, &keys.public).unwrap());
 //! ```
 //!
 //! ## Signing of messages
 //! ```
-//! # use xain_fl::crypto::generate_signing_key_pair;
-//! let (pk, sk) = generate_signing_key_pair();
+//! # use xain_fl::crypto::SigningKeyPair;
+//! let keys = SigningKeyPair::generate();
 //! let message = b"Hello world!".to_vec();
-//! let signature = sk.sign_detached(&message);
-//! assert!(pk.verify_detached(&signature, &message));
+//! let signature = keys.secret.sign_detached(&message);
+//! assert!(keys.public.verify_detached(&signature, &message));
 //! ```
 //!
 //! [sodiumoxide]: https://docs.rs/sodiumoxide/
@@ -32,23 +32,10 @@ mod prng;
 mod sign;
 
 pub use self::{
-    encrypt::{
-        generate_encrypt_key_pair,
-        EncryptKeySeed,
-        KeyPair,
-        PublicEncryptKey,
-        SecretEncryptKey,
-        SEALBYTES,
-    },
+    encrypt::{EncryptKeyPair, EncryptKeySeed, PublicEncryptKey, SecretEncryptKey, SEALBYTES},
     hash::Sha256,
     prng::generate_integer,
-    sign::{
-        generate_signing_key_pair,
-        PublicSigningKey,
-        SecretSigningKey,
-        Signature,
-        SigningKeySeed,
-    },
+    sign::{PublicSigningKey, SecretSigningKey, Signature, SigningKeyPair, SigningKeySeed},
 };
 
 /// An interface for slicing into cryptographic byte objects.

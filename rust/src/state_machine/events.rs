@@ -8,7 +8,7 @@ use futures::Stream;
 use tokio::sync::watch;
 
 use crate::{
-    crypto::KeyPair,
+    crypto::EncryptKeyPair,
     mask::Model,
     state_machine::coordinator::{RoundId, RoundParameters},
     SeedDict,
@@ -65,7 +65,7 @@ pub enum DictionaryUpdate<D> {
 
 /// A convenience type to emit any coordinator event.
 pub struct EventPublisher {
-    keys_tx: EventBroadcaster<KeyPair>,
+    keys_tx: EventBroadcaster<EncryptKeyPair>,
     params_tx: EventBroadcaster<RoundParameters>,
     phase_tx: EventBroadcaster<PhaseEvent>,
     scalar_tx: EventBroadcaster<ScalarUpdate>,
@@ -78,7 +78,7 @@ pub struct EventPublisher {
 /// The `EventSubscriber` hands out `EventListener`s for any
 /// coordinator event.
 pub struct EventSubscriber {
-    keys_rx: EventListener<KeyPair>,
+    keys_rx: EventListener<EncryptKeyPair>,
     params_rx: EventListener<RoundParameters>,
     phase_rx: EventListener<PhaseEvent>,
     scalar_rx: EventListener<ScalarUpdate>,
@@ -91,12 +91,13 @@ pub struct EventSubscriber {
 impl EventPublisher {
     /// Initialize a new event publisher with the given initial events.
     pub fn init(
-        keys: KeyPair,
+        keys: EncryptKeyPair,
         params: RoundParameters,
         phase: PhaseEvent,
     ) -> (Self, EventSubscriber) {
         let round = params.id;
-        let (keys_tx, keys_rx) = watch::channel::<Event<KeyPair>>(Event { round, event: keys });
+        let (keys_tx, keys_rx) =
+            watch::channel::<Event<EncryptKeyPair>>(Event { round, event: keys });
 
         let (phase_tx, phase_rx) = watch::channel::<Event<PhaseEvent>>(Event {
             round,
@@ -161,7 +162,7 @@ impl EventPublisher {
     }
 
     /// Emit a keys event
-    pub fn broadcast_keys(&mut self, round: RoundId, keys: KeyPair) {
+    pub fn broadcast_keys(&mut self, round: RoundId, keys: EncryptKeyPair) {
         let _ = self.keys_tx.broadcast(Event { round, event: keys });
     }
 
@@ -226,7 +227,7 @@ impl EventSubscriber {
     /// Get a listener for keys events. Callers must be careful not to
     /// leak the secret key they receive, since that would compromise
     /// the security of the coordinator.
-    pub fn keys_listener(&self) -> EventListener<KeyPair> {
+    pub fn keys_listener(&self) -> EventListener<EncryptKeyPair> {
         self.keys_rx.clone()
     }
     /// Get a listener for round parameters events

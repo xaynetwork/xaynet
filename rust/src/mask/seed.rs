@@ -120,7 +120,7 @@ impl EncryptedMaskSeed {
 mod tests {
     use super::*;
     use crate::{
-        crypto::generate_encrypt_key_pair,
+        crypto::EncryptKeyPair,
         mask::config::{BoundType, DataType, GroupType, MaskConfig, ModelType},
     };
 
@@ -157,10 +157,10 @@ mod tests {
         let seed = MaskSeed::generate();
         assert_eq!(seed.as_slice().len(), 32);
         assert_ne!(seed, MaskSeed::zeroed());
-        let (pk, sk) = generate_encrypt_key_pair();
-        let encr_seed = seed.encrypt(&pk);
+        let EncryptKeyPair { public, secret } = EncryptKeyPair::generate();
+        let encr_seed = seed.encrypt(&public);
         assert_eq!(encr_seed.as_slice().len(), 80);
-        let decr_seed = encr_seed.decrypt(&pk, &sk).unwrap();
+        let decr_seed = encr_seed.decrypt(&public, &secret).unwrap();
         assert_eq!(seed, decr_seed);
     }
 }

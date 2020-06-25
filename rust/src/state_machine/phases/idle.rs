@@ -1,5 +1,5 @@
 use crate::{
-    crypto::{ByteObject, KeyPair, SigningKeySeed},
+    crypto::{ByteObject, EncryptKeyPair, SigningKeySeed},
     state_machine::{
         coordinator::{CoordinatorState, RoundSeed},
         events::{DictionaryUpdate, MaskLengthUpdate, PhaseEvent, ScalarUpdate},
@@ -100,7 +100,7 @@ impl<R> PhaseState<R, Idle> {
 
     /// Generate fresh round credentials.
     fn gen_round_keypair(&mut self) {
-        self.coordinator_state.keys = KeyPair::generate();
+        self.coordinator_state.keys = EncryptKeyPair::generate();
         self.coordinator_state.round_params.pk = self.coordinator_state.keys.public;
     }
 }

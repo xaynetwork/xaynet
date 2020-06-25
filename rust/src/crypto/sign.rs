@@ -14,10 +14,24 @@ use sodiumoxide::crypto::{hash::sha256, sign};
 
 use super::ByteObject;
 
-/// Generates a new random `Ed25519` key pair for signing.
-pub fn generate_signing_key_pair() -> (PublicSigningKey, SecretSigningKey) {
-    let (pk, sk) = sign::gen_keypair();
-    (PublicSigningKey(pk), SecretSigningKey(sk))
+#[derive(Debug, Clone)]
+/// A `Ed25519` key pair for signatures.
+pub struct SigningKeyPair {
+    /// The `Ed25519` public key.
+    pub public: PublicSigningKey,
+    /// The `Ed25519` secret key.
+    pub secret: SecretSigningKey,
+}
+
+impl SigningKeyPair {
+    /// Generates a new random `Ed25519` key pair for signing.
+    pub fn generate() -> Self {
+        let (pk, sk) = sign::gen_keypair();
+        Self {
+            public: PublicSigningKey(pk),
+            secret: SecretSigningKey(sk),
+        }
+    }
 }
 
 #[derive(

@@ -13,22 +13,23 @@ use super::ByteObject;
 /// Number of additional bytes in a ciphertext compared to the corresponding plaintext.
 pub const SEALBYTES: usize = sealedbox::SEALBYTES;
 
-/// Generates a new random `C25519` key pair for encryption.
-pub fn generate_encrypt_key_pair() -> (PublicEncryptKey, SecretEncryptKey) {
-    let (pk, sk) = box_::gen_keypair();
-    (PublicEncryptKey(pk), SecretEncryptKey(sk))
-}
-
 #[derive(Debug, Clone)]
-pub struct KeyPair {
+/// A `C25519` key pair for asymmetric authenticated encryption.
+pub struct EncryptKeyPair {
+    /// The `C25519` public key.
     pub public: PublicEncryptKey,
+    /// The `C25519` secret key.
     pub secret: SecretEncryptKey,
 }
 
-impl KeyPair {
+impl EncryptKeyPair {
+    /// Generates a new random `C25519` key pair for encryption.
     pub fn generate() -> Self {
-        let (public, secret) = generate_encrypt_key_pair();
-        Self { public, secret }
+        let (pk, sk) = box_::gen_keypair();
+        Self {
+            public: PublicEncryptKey(pk),
+            secret: SecretEncryptKey(sk),
+        }
     }
 }
 

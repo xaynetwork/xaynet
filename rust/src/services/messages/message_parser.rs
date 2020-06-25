@@ -11,7 +11,7 @@ use tokio::sync::oneshot;
 use tower::Service;
 
 use crate::{
-    crypto::{ByteObject, KeyPair},
+    crypto::{ByteObject, EncryptKeyPair},
     message::{
         DecodeError,
         FromBytes,
@@ -38,7 +38,7 @@ pub struct MessageParserService {
     /// A listener to retrieve the latest coordinator keys. These are
     /// necessary for decrypting messages and verifying their
     /// signature.
-    keys_events: EventListener<KeyPair>,
+    keys_events: EventListener<EncryptKeyPair>,
 
     /// A listener to retrieve the current coordinator phase. Messages
     /// that cannot be handled in the current phase will be
@@ -150,7 +150,7 @@ impl Service<Traced<MessageParserRequest>> for MessageParserService {
 /// Handler created by the [`MessageParserService`] for each request.
 struct Handler {
     /// Coordinator keys for the current round
-    keys: KeyPair,
+    keys: EncryptKeyPair,
     /// Current phase of the coordinator
     phase: PhaseEvent,
 }
