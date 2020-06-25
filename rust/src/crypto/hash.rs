@@ -26,7 +26,7 @@ use derive_more::{AsMut, AsRef, From};
     PartialOrd,
     Debug,
 )]
-/// A digest of the `sha256` hash function.
+/// A digest of the `SHA256` hash function.
 pub struct Sha256(sha256::Digest);
 
 impl ByteObject for Sha256 {
@@ -44,10 +44,10 @@ impl ByteObject for Sha256 {
 }
 
 impl Sha256 {
-    /// Length in bytes of a [`Sha256`] digest.
+    /// Length in bytes of this digest.
     pub const LENGTH: usize = sha256::DIGESTBYTES;
 
-    /// Computes the [`Sha256`] digest of the message `m`.
+    /// Computes the digest of the message `m`.
     pub fn hash(m: &[u8]) -> Self {
         Self(sha256::hash(m))
     }

@@ -14,7 +14,7 @@ use sodiumoxide::crypto::{hash::sha256, sign};
 
 use super::ByteObject;
 
-/// Generates a new random key pair for signing.
+/// Generates a new random `Ed25519` key pair for signing.
 pub fn generate_signing_key_pair() -> (PublicSigningKey, SecretSigningKey) {
     let (pk, sk) = sign::gen_keypair();
     (PublicSigningKey(pk), SecretSigningKey(sk))
@@ -35,11 +35,11 @@ pub fn generate_signing_key_pair() -> (PublicSigningKey, SecretSigningKey) {
     PartialOrd,
     Debug,
 )]
-/// A public key for signatures.
+/// An `Ed25519` public key for signatures.
 pub struct PublicSigningKey(sign::PublicKey);
 
 impl PublicSigningKey {
-    /// Length in bytes of a [`PublicSigningKey`].
+    /// Length in bytes of this public key.
     pub const LENGTH: usize = sign::PUBLICKEYBYTES;
 
     /// Verifies the signature `s` against the message `m` and this public key.
@@ -65,13 +65,13 @@ impl ByteObject for PublicSigningKey {
 }
 
 #[derive(AsRef, AsMut, From, Serialize, Deserialize, Eq, PartialEq, Clone, Debug)]
-/// A secret key for signatures.
+/// An `Ed25519` secret key for signatures.
 ///
 /// When this goes out of scope, its contents will be zeroed out.
 pub struct SecretSigningKey(sign::SecretKey);
 
 impl SecretSigningKey {
-    /// Length in bytes of a [`SecretSigningKey`].
+    /// Length in bytes of this secret key.
     pub const LENGTH: usize = sign::SECRETKEYBYTES;
 
     /// Signs a message `m` with this secret key.
@@ -114,7 +114,7 @@ impl ByteObject for SecretSigningKey {
     PartialOrd,
     Debug,
 )]
-/// A signature detached from its message.
+/// An `Ed25519` signature detached from its message.
 pub struct Signature(sign::Signature);
 
 impl ByteObject for Signature {
@@ -132,11 +132,11 @@ impl ByteObject for Signature {
 }
 
 impl Signature {
-    /// Length in bytes of a [`Signature`].
+    /// Length in bytes of this signature.
     pub const LENGTH: usize = sign::SIGNATUREBYTES;
 
-    /// Computes the floating point representation of the hashed
-    /// signature and ensure that it is below the given threshold:
+    /// Computes the floating point representation of the hashed signature and ensure that it is
+    /// below the given threshold:
     /// ```no_rust
     /// int(hash(signature)) / (2**hashbits - 1) <= threshold.
     /// ```
@@ -159,13 +159,13 @@ impl Signature {
 }
 
 #[derive(AsRef, AsMut, From, Serialize, Deserialize, Eq, PartialEq, Clone)]
-/// A seed that can be used for signing key pair generation.
+/// A seed that can be used for `Ed25519` signing key pair generation.
 ///
 /// When this goes out of scope, its contents will be zeroed out.
 pub struct SigningKeySeed(sign::Seed);
 
 impl SigningKeySeed {
-    /// Length in bytes of a [`SigningKeySeed`].
+    /// Length in bytes of this seed.
     pub const LENGTH: usize = sign::SEEDBYTES;
 
     /// Deterministically derives a new signing key pair from this seed.

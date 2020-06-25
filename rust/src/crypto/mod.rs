@@ -1,11 +1,11 @@
 //! Wrappers around some of the [sodiumoxide] crypto primitives.
 //!
 //! The wrappers provide methods defined on structs instead of the sodiumoxide functions. This is
-//! done for the encryption and signature key pairs and their corresponding seeds as well as a hash
-//! function. Additionally, some methods for slicing and signature eligibility are made available.
+//! done for the `C25519` encryption and `Ed25519` signature key pairs and their corresponding seeds
+//! as well as the `SHA256` hash function. Additionally, some methods for slicing and signature
+//! eligibility are available.
 //!
 //! # Examples
-//!
 //! ## Encryption of messages
 //! ```
 //! # use xain_fl::crypto::generate_encrypt_key_pair;

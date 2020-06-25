@@ -12,7 +12,7 @@ use rand_chacha::ChaCha20Rng;
 /// Generates a secure pseudo-random integer.
 ///
 /// Draws from a uniform distribution over the integers between zero (included) and
-/// `max_int` (excluded).
+/// `max_int` (excluded). Employs the `ChaCha20` stream cipher as a PRNG.
 pub fn generate_integer(prng: &mut ChaCha20Rng, max_int: &BigUint) -> BigUint {
     if max_int.is_zero() {
         return BigUint::zero();
