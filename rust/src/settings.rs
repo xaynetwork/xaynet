@@ -30,6 +30,8 @@ pub struct Settings {
 
 impl Settings {
     /// Loads and validates the coordinator settings via a configuration file.
+    ///
+    /// # Errors
     /// Fails when the loading of the configuration file or its validation failed.
     pub fn new(path: PathBuf) -> Result<Self, SettingsError> {
         let settings: Settings = Self::load(path)?;
@@ -255,7 +257,7 @@ impl From<MaskSettings> for MaskConfig {
 /// Logging settings
 pub struct LoggingSettings {
     /// A comma-separated list of logging directives. More information about logging directives
-    ///  can be found [here](https://docs.rs/tracing-subscriber/0.2.6/tracing_subscriber/filter/struct.EnvFilter.html#directives).
+    /// can be found [here](https://docs.rs/tracing-subscriber/0.2.6/tracing_subscriber/filter/struct.EnvFilter.html#directives).
     ///
     /// # Examples
     ///
