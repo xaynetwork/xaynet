@@ -157,10 +157,10 @@ impl TryFrom<u8> for ModelType {
 /// - the bounds of the numbers to be masked
 /// - the number of models to be aggregated at most
 pub struct MaskConfig {
-    pub(crate) group_type: GroupType,
-    pub(crate) data_type: DataType,
-    pub(crate) bound_type: BoundType,
-    pub(crate) model_type: ModelType,
+    pub group_type: GroupType,
+    pub data_type: DataType,
+    pub bound_type: BoundType,
+    pub model_type: ModelType,
 }
 
 impl MaskConfig {

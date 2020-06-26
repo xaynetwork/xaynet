@@ -112,7 +112,8 @@ pub trait FromPrimitives<P: Debug>: Sized {
     /// Creates an iterator from primitive values that yields converted numerical values.
     ///
     /// # Errors
-    /// Yields an error for each primitive value that can't be converted into a numerical value.
+    /// Yields an error for the first encountered primitive value that can't be converted into a
+    /// numerical value due to not being finite.
     fn from_primitives<I: Iterator<Item = P>>(iter: I) -> Result<Self, PrimitiveCastError<P>>;
 
     /// Creates an iterator from primitive values that yields converted numerical values.
