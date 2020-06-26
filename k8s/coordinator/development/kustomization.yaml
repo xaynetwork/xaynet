@@ -4,18 +4,20 @@ kind: Kustomization
 namespace: development
 
 images:
-- name: coordinator
-  newName: xain/xain-fl
-  newTag: development
+  - name: coordinator
+    newName: xain/xain-fl
+    newTag: development
 
 configMapGenerator:
-- name: config-toml
-  files:
-  - config.toml
+  - name: config-toml
+    files:
+    - config.toml
+
+bases:
+  - ../base
 
 patchesStrategicMerge:
-- history-limit.yaml
-- config-volume-mount.yaml
+  - history-limit.yaml
+  - config-volume-mount.yaml
 resources:
-- ../base
-- ingress.yaml
+  - ingress.yaml
