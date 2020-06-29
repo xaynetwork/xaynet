@@ -1,8 +1,8 @@
 use tracing_subscriber::*;
 use xain_fl::{
+    client::participant::Task,
     client::{Client, ClientError},
     mask::{FromPrimitives, Model},
-    participant::Task,
 };
 
 /// Test-drive script of a (local, but networked) single-round federated

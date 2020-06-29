@@ -87,8 +87,6 @@ pub mod client;
 pub mod crypto;
 pub mod mask;
 pub mod message;
-pub mod participant;
-pub mod request;
 pub mod rest;
 pub mod sdk;
 pub mod services;
