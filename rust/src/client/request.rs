@@ -12,9 +12,7 @@
 //! [`ClientReq`] is responsible for building the HTTP request and extracting
 //! the response body. As an example:
 //!
-//! ```
-//! async fn get_sums(&self) -> Result<Option<bytes::Bytes>, reqwest::Error>
-//! ```
+//! `async fn get_sums(&self) -> Result<Option<bytes::Bytes>, reqwest::Error>`
 //!
 //! issues a GET request for the sum dictionary. The return type reflects the
 //! presence of networking `Error`s, but also the situation where the dictionary
@@ -24,9 +22,7 @@
 //! [`Proxy`] essentially takes this (deserializing the `Bytes` into a `SumDict`
 //! while handling `Error`s into [`ClientError`]s) to expose the overall method
 //!
-//! ```
-//! async fn get_sums(&self) -> Result<Option<SumDict>, ClientError>
-//! ```
+//! `async fn get_sums(&self) -> Result<Option<SumDict>, ClientError>`
 
 use crate::{
     client::{
