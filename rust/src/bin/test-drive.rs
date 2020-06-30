@@ -1,9 +1,8 @@
 fn main() {}
 // use tracing_subscriber::*;
 // use xain_fl::{
-//     client::{Client, ClientError},
+//     client::{participant::Task, Client, ClientError},
 //     mask::{FromPrimitives, Model},
-//     participant::Task,
 //     service::Service,
 //     settings::{MaskSettings, PetSettings},
 // };

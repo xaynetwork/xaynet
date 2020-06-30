@@ -29,9 +29,11 @@
 //! ```
 
 use crate::{
-    client::ClientError,
+    client::{
+        request::Proxy::{InMem, Remote},
+        ClientError,
+    },
     crypto::ByteObject,
-    client::request::Proxy::{InMem, Remote},
     service::{data::RoundParametersData, Handle},
     ParticipantPublicKey,
     SumDict,

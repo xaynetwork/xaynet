@@ -50,9 +50,8 @@ use tokio::{
 };
 
 use crate::{
-    client::{Client, ClientError},
+    client::{participant::Task, Client, ClientError},
     mask::model::{FromPrimitives, IntoPrimitives, Model},
-    client::participant::Task,
 };
 
 #[derive(Clone, Copy, Debug)]

@@ -1,7 +1,6 @@
 use tracing_subscriber::*;
 use xain_fl::{
-    client::participant::Task,
-    client::{Client, ClientError},
+    client::{participant::Task, Client, ClientError},
     mask::{FromPrimitives, Model},
 };
 

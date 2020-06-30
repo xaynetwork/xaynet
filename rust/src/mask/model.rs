@@ -141,7 +141,7 @@ impl IntoPrimitives<i32> for Model {
         Box::new(vec.into_iter().map(|i| {
             i.to_integer().to_i32().ok_or_else(|| ModelCastError {
                 weight: i,
-                target: PrimitiveType::I32
+                target: PrimitiveType::I32,
             })
         }))
     }
@@ -172,7 +172,7 @@ impl IntoPrimitives<i64> for Model {
         Box::new(vec.into_iter().map(|i| {
             i.to_integer().to_i64().ok_or_else(|| ModelCastError {
                 weight: i,
-                target: PrimitiveType::I64
+                target: PrimitiveType::I64,
             })
         }))
     }
