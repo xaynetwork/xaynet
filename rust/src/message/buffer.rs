@@ -1,3 +1,9 @@
+//! Message buffers.
+//!
+//! See the [message module] documentation since this is a private module anyways.
+//!
+//! [message module]: ../index.html
+
 use std::ops::{Range, RangeFrom};
 
 use anyhow::{anyhow, Context};
@@ -8,6 +14,9 @@ use crate::{
     ParticipantPublicKey,
 };
 
+/// Gets the length of the message header in bytes.
+///
+/// Depends on the inluded certificates which can be variable in length.
 pub(crate) fn header_length(certificate_length: usize) -> usize {
     certificate_length + PARTICIPANT_PK_RANGE.end
 }
@@ -25,13 +34,12 @@ const COORDINATOR_PK_RANGE: Range<usize> = range(RESERVED.end, CoordinatorPublic
 const PARTICIPANT_PK_RANGE: Range<usize> =
     range(COORDINATOR_PK_RANGE.end, ParticipantPublicKey::LENGTH);
 
-/// A wrapper around a buffer that contains a message. It provides
-/// getters and setters to access the different fields of the message
-/// safely.
+/// A wrapper around a buffer that contains a [`Message`].
+///
+/// It provides getters and setters to access the different fields of the message safely.
 ///
 /// # Examples
-///
-/// Reading a sum message:
+/// ## Reading a sum message
 ///
 /// ```rust
 /// use xain_fl::message::{Tag, Flags, MessageBuffer};
@@ -57,7 +65,7 @@ const PARTICIPANT_PK_RANGE: Range<usize> =
 /// assert_eq!(buffer.payload(), [vec![0x11; 32], vec![0x22; 32]].concat().as_slice());
 /// ```
 ///
-/// Writing a sum message:
+/// ## Writing a sum message
 ///
 /// ```rust
 /// use xain_fl::message::{Tag, Flags, MessageBuffer};
@@ -88,13 +96,18 @@ const PARTICIPANT_PK_RANGE: Range<usize> =
 ///     .copy_from_slice([vec![0x11; 32], vec![0x22; 32]].concat().as_slice());
 /// assert_eq!(expected, bytes);
 /// ```
+///
+/// [`Message`]: struct.Message.html
 pub struct MessageBuffer<T> {
     inner: T,
 }
 
 impl<T: AsRef<[u8]>> MessageBuffer<T> {
-    /// Perform bound checks for the various message fields on `bytes`
-    /// and return a new `MessageBuffer`.
+    /// Performs bound checks for the various message fields on `bytes` and returns a new
+    /// [`MessageBuffer`].
+    ///
+    /// # Errors
+    /// Fails if the `bytes` are smaller than a minimal-sized message buffer.
     pub fn new(bytes: T) -> Result<Self, DecodeError> {
         let buffer = Self { inner: bytes };
         buffer
@@ -103,15 +116,14 @@ impl<T: AsRef<[u8]>> MessageBuffer<T> {
         Ok(buffer)
     }
 
-    /// Return a `MessageBuffer` without performing any bound
-    /// check. This means accessing the various fields may panic if
-    /// the data is invalid.
+    /// Returns a [`MessageBuffer`] without performing any bound check.
+    ///
+    /// This means accessing the various fields may panic if the data is invalid.
     pub fn new_unchecked(bytes: T) -> Self {
         Self { inner: bytes }
     }
 
-    /// Perform bound checks to ensure the fields can be accessed
-    /// without panicking.
+    /// Performs bound checks to ensure the fields can be accessed without panicking.
     pub fn check_buffer_length(&self) -> Result<(), DecodeError> {
         let len = self.inner.as_ref().len();
         // First, check the fixed size portion of the
@@ -135,11 +147,18 @@ impl<T: AsRef<[u8]>> MessageBuffer<T> {
         Ok(())
     }
 
-    /// Return whether this header contains a certificate
+    /// Checks whether this header contains a certificate.
+    ///
+    /// # Panics
+    /// Accessing the field may panic if the buffer has not been checked before.
     pub fn has_certificate(&self) -> bool {
         self.flags().contains(Flags::CERTIFICATE)
     }
 
+    /// Computes the payload range.
+    ///
+    /// # Panics
+    /// Accessing the field may panic if the buffer has not been checked before.
     fn payload_range(&self) -> RangeFrom<usize> {
         let certificate_length = if self.has_certificate() {
             let bytes = &self.inner.as_ref()[PARTICIPANT_PK_RANGE.end..];
@@ -151,20 +170,31 @@ impl<T: AsRef<[u8]>> MessageBuffer<T> {
         payload_start..
     }
 
-    /// Get the tag field
+    /// Gets the tag field.
+    ///
+    /// # Panics
+    /// Accessing the field may panic if the buffer has not been checked before.
     pub fn tag(&self) -> u8 {
         self.inner.as_ref()[TAG_RANGE]
     }
 
-    /// Get the flags field
+    /// Gets the flags field.
+    ///
+    /// # Panics
+    /// Accessing the field may panic if the buffer has not been checked before.
     pub fn flags(&self) -> Flags {
         Flags::from_bits_truncate(self.inner.as_ref()[FLAGS_RANGE])
     }
 }
 
 impl<'a, T: AsRef<[u8]> + ?Sized> MessageBuffer<&'a T> {
-    /// Get a slice to the certificate. If the header doesn't contain
-    /// any certificate, `None` is returned.
+    /// Gets a slice to the certificate.
+    ///
+    /// # Errors
+    /// If the header doesn't contain any certificate, `None` is returned.
+    ///
+    /// # Panics
+    /// Accessing the field may panic if the buffer has not been checked before.
     pub fn certificate(&self) -> Option<LengthValueBuffer<&'a [u8]>> {
         if self.has_certificate() {
             let bytes = &self.inner.as_ref()[PARTICIPANT_PK_RANGE.end..];
@@ -174,34 +204,52 @@ impl<'a, T: AsRef<[u8]> + ?Sized> MessageBuffer<&'a T> {
         }
     }
 
-    /// Get the coordinator public key field
+    /// Gets the coordinator public key field.
+    ///
+    /// # Panics
+    /// Accessing the field may panic if the buffer has not been checked before.
     pub fn coordinator_pk(&self) -> &'a [u8] {
         &self.inner.as_ref()[COORDINATOR_PK_RANGE]
     }
 
-    /// Get the participant public key field
+    /// Gets the participant public key field.
+    ///
+    /// # Panics
+    /// Accessing the field may panic if the buffer has not been checked before.
     pub fn participant_pk(&self) -> &'a [u8] {
         &self.inner.as_ref()[PARTICIPANT_PK_RANGE]
     }
 
-    /// Get the rest of the message
+    /// Gets the rest of the message.
+    ///
+    /// # Panics
+    /// Accessing the field may panic if the buffer has not been checked before.
     pub fn payload(&self) -> &'a [u8] {
         &self.inner.as_ref()[self.payload_range()]
     }
 }
 
 impl<T: AsMut<[u8]> + AsRef<[u8]>> MessageBuffer<T> {
-    /// Set the tag field
+    /// Sets the tag field.
+    ///
+    /// # Panics
+    /// Accessing the field may panic if the buffer has not been checked before.
     pub fn set_tag(&mut self, value: u8) {
         self.inner.as_mut()[TAG_RANGE] = value;
     }
 
-    /// Set the flags field
+    /// Sets the flags field.
+    ///
+    /// # Panics
+    /// Accessing the field may panic if the buffer has not been checked before.
     pub fn set_flags(&mut self, value: Flags) {
         self.inner.as_mut()[FLAGS_RANGE] = value.bits();
     }
 
-    /// Get a mutable reference to the certificate field
+    /// Gets a mutable reference to the certificate field.
+    ///
+    /// # Panics
+    /// Accessing the field may panic if the buffer has not been checked before.
     pub fn certificate_mut(&mut self) -> Option<LengthValueBuffer<&mut [u8]>> {
         if self.has_certificate() {
             let bytes = &mut self.inner.as_mut()[PARTICIPANT_PK_RANGE.end..];
@@ -210,17 +258,26 @@ impl<T: AsMut<[u8]> + AsRef<[u8]>> MessageBuffer<T> {
             None
         }
     }
-    /// Get a mutable reference to the coordinator public key field
+    /// Gets a mutable reference to the coordinator public key field.
+    ///
+    /// # Panics
+    /// Accessing the field may panic if the buffer has not been checked before.
     pub fn coordinator_pk_mut(&mut self) -> &mut [u8] {
         &mut self.inner.as_mut()[COORDINATOR_PK_RANGE]
     }
 
-    /// Get a mutable reference to the participant public key field
+    /// Gets a mutable reference to the participant public key field.
+    ///
+    /// # Panics
+    /// Accessing the field may panic if the buffer has not been checked before.
     pub fn participant_pk_mut(&mut self) -> &mut [u8] {
         &mut self.inner.as_mut()[PARTICIPANT_PK_RANGE]
     }
 
-    /// Get a mutable reference to the rest of the message
+    /// Gets a mutable reference to the rest of the message.
+    ///
+    /// # Panics
+    /// Accessing the field may panic if the buffer has not been checked before.
     pub fn payload_mut(&mut self) -> &mut [u8] {
         let range = self.payload_range();
         &mut self.inner.as_mut()[range]

@@ -1,3 +1,9 @@
+//! Sum2 message payloads.
+//!
+//! See the [message module] documentation since this is a private module anyways.
+//!
+//! [message module]: ../index.html
+
 use std::{borrow::Borrow, ops::Range};
 
 use anyhow::{anyhow, Context};
@@ -14,17 +20,20 @@ use crate::{
 
 const SUM_SIGNATURE_RANGE: Range<usize> = range(0, ParticipantTaskSignature::LENGTH);
 
-/// A wrapper around a buffer that contains a sum2 message. It provides
-/// getters and setters to access the different fields of the message
-/// safely.
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
+/// A wrapper around a buffer that contains a [`Sum2`] message.
+///
+/// It provides getters and setters to access the different fields of the message safely.
 pub struct Sum2Buffer<T> {
     inner: T,
 }
 
 impl<T: AsRef<[u8]>> Sum2Buffer<T> {
-    /// Perform bound checks for the various message fields on `bytes`
-    /// and return a new `Sum2Buffer`.
+    /// Performs bound checks for the various message fields on `bytes` and returns a new
+    /// [`Sum2Buffer`].
+    ///
+    /// # Errors
+    /// Fails if the `bytes` are smaller than a minimal-sized sum2 message buffer.
     pub fn new(bytes: T) -> Result<Self, DecodeError> {
         let buffer = Self { inner: bytes };
         buffer
@@ -33,15 +42,14 @@ impl<T: AsRef<[u8]>> Sum2Buffer<T> {
         Ok(buffer)
     }
 
-    /// Return a `Sum2Buffer` with the given `bytes` without
-    /// performing bound checks. This means that accessing the message
-    /// fields may panic.
+    /// Returns a `Sum2Buffer` with the given `bytes` without performing bound checks.
+    ///
+    /// This means that accessing the message fields may panic.
     pub fn new_unchecked(bytes: T) -> Self {
         Self { inner: bytes }
     }
 
-    /// Perform bound checks for the various message fields on this
-    /// buffer.
+    /// Performs bound checks for the various message fields on this buffer.
     pub fn check_buffer_length(&self) -> Result<(), DecodeError> {
         let len = self.inner.as_ref().len();
         if len < SUM_SIGNATURE_RANGE.end {
@@ -61,63 +69,52 @@ impl<T: AsRef<[u8]>> Sum2Buffer<T> {
 }
 
 impl<T: AsMut<[u8]>> Sum2Buffer<T> {
-    /// Get a mutable reference to the sum signature field
+    /// Gets a mutable reference to the sum signature field.
     ///
-    /// # Panic
-    ///
-    /// This may panic if the underlying buffer does not represent a
-    /// valid sum2 message. If `self.check_buffer_length()` returned
-    /// `Ok(())` this method is guaranteed not to panic.
+    /// # Panics
+    /// Accessing the field may panic if the buffer has not been checked before.
     pub fn sum_signature_mut(&mut self) -> &mut [u8] {
         &mut self.inner.as_mut()[SUM_SIGNATURE_RANGE]
     }
 
-    /// Get a mutable reference to the mask field
+    /// Gets a mutable reference to the mask field.
     ///
-    /// # Panic
-    ///
-    /// This may panic if the underlying buffer does not represent a
-    /// valid sum2 message. If `self.check_buffer_length()` returned
-    /// `Ok(())` this method is guaranteed not to panic.
+    /// # Panics
+    /// Accessing the field may panic if the buffer has not been checked before.
     pub fn mask_mut(&mut self) -> &mut [u8] {
         &mut self.inner.as_mut()[SUM_SIGNATURE_RANGE.end..]
     }
 }
 
 impl<'a, T: AsRef<[u8]> + ?Sized> Sum2Buffer<&'a T> {
-    /// Get a reference to the sum signature field
+    /// Gets a reference to the sum signature field.
     ///
-    /// # Panic
-    ///
-    /// This may panic if the underlying buffer does not represent a
-    /// valid sum2 message. If `self.check_buffer_length()` returned
-    /// `Ok(())` this method is guaranteed not to panic.
+    /// # Panics
+    /// Accessing the field may panic if the buffer has not been checked before.
     pub fn sum_signature(&self) -> &'a [u8] {
         &self.inner.as_ref()[SUM_SIGNATURE_RANGE]
     }
 
-    /// Get a reference to the mask field
+    /// Gets a reference to the mask field.
     ///
-    /// # Panic
-    ///
-    /// This may panic if the underlying buffer does not represent a
-    /// valid sum2 message. If `self.check_buffer_length()` returned
-    /// `Ok(())` this method is guaranteed not to panic.
+    /// # Panics
+    /// Accessing the field may panic if the buffer has not been checked before.
     pub fn mask(&self) -> &'a [u8] {
         &self.inner.as_ref()[SUM_SIGNATURE_RANGE.end..]
     }
 }
 
-/// High level representation of a sum2 message. These messages are
-/// sent by sum participants during the sum2 phase.
 #[derive(Eq, PartialEq, Clone, Debug)]
+/// A high level representation of a sum2 message.
+///
+/// These messages are sent by sum participants during the sum2 phase.
 pub struct Sum2<M> {
-    /// Signature of the word "sum", using the participant's secret
-    /// signing key. This is used by the coordinator to verify that
-    /// the participant has been selected to perform the sum task.
+    /// The signature of the round seed and the word "sum".
+    ///
+    /// This is used to determine whether a participant is selected for the sum task.
     pub sum_signature: ParticipantTaskSignature,
 
-    /// MaskObject computed by the participant.
+    /// A mask computed by the participant.
     pub mask: M,
 }
 
@@ -136,7 +133,7 @@ where
     }
 }
 
-/// Owned version of a [`Sum2`]
+/// An owned version of a [`Sum2`].
 pub type Sum2Owned = Sum2<MaskObject>;
 
 impl FromBytes for Sum2Owned {

@@ -1,3 +1,5 @@
+//! Messages.
+
 pub(crate) mod buffer;
 pub(crate) mod header;
 #[allow(clippy::module_inception)]
@@ -20,7 +22,7 @@ pub use self::{
     traits::{FromBytes, LengthValueBuffer, ToBytes},
 };
 
-/// Error that signals a failure when trying to decrypt and parse a message.
+/// An error that signals a failure when trying to decrypt and parse a message.
 ///
 /// This is kept generic on purpose to not reveal to the sender what specifically failed during
 /// decryption or parsing.

@@ -1,3 +1,9 @@
+//! Update message payloads.
+//!
+//! See the [message module] documentation since this is a private module anyways.
+//!
+//! [message module]: ../index.html
+
 use std::{borrow::Borrow, ops::Range};
 
 use anyhow::{anyhow, Context};
@@ -18,14 +24,19 @@ const UPDATE_SIGNATURE_RANGE: Range<usize> =
     range(SUM_SIGNATURE_RANGE.end, ParticipantTaskSignature::LENGTH);
 
 #[derive(Clone, Debug)]
-/// Wrapper around a buffer that contains an update message.
+/// A wrapper around a buffer that contains an [`Update`] message.
+///
+/// It provides getters and setters to access the different fields of the message safely.
 pub struct UpdateBuffer<T> {
     inner: T,
 }
 
 impl<T: AsRef<[u8]>> UpdateBuffer<T> {
-    /// Perform bound checks on `bytes` to ensure its fields can be
-    /// accessed without panicking, and return an `UpdateBuffer`.
+    /// Performs bound checks for the various message fields on `bytes` and returns a new
+    /// [`UpdateBuffer`].
+    ///
+    /// # Errors
+    /// Fails if the `bytes` are smaller than a minimal-sized update message buffer.
     pub fn new(bytes: T) -> Result<Self, DecodeError> {
         let buffer = Self { inner: bytes };
         buffer
@@ -34,15 +45,14 @@ impl<T: AsRef<[u8]>> UpdateBuffer<T> {
         Ok(buffer)
     }
 
-    /// Return an `UpdateBuffer` without performing any bound
-    /// check. This means accessing the various fields may panic if
-    /// the data is invalid.
+    /// Returns an [`UpdateBuffer`] without performing any bound checks.
+    ///
+    /// This means accessing the various fields may panic if the data is invalid.
     pub fn new_unchecked(bytes: T) -> Self {
         Self { inner: bytes }
     }
 
-    /// Perform bound checks to ensure the fields can be accessed
-    /// without panicking.
+    /// Performs bound checks to ensure the fields can be accessed without panicking.
     pub fn check_buffer_length(&self) -> Result<(), DecodeError> {
         let len = self.inner.as_ref().len();
         // First, check the fixed size portion of the
@@ -66,12 +76,15 @@ impl<T: AsRef<[u8]>> UpdateBuffer<T> {
         Ok(())
     }
 
-    /// Get the offset of the masked model field
+    /// Gets the offset of the masked model field.
     fn masked_model_offset(&self) -> usize {
         UPDATE_SIGNATURE_RANGE.end
     }
 
-    /// Get the offset of the local seed dictionary field
+    /// Gets the offset of the local seed dictionary field.
+    ///
+    /// # Panics
+    /// Computing the offset may panic if the buffer has not been checked before.
     fn local_seed_dict_offset(&self) -> usize {
         let masked_model =
             MaskObjectBuffer::new_unchecked(&self.inner.as_ref()[self.masked_model_offset()..]);
@@ -80,49 +93,35 @@ impl<T: AsRef<[u8]>> UpdateBuffer<T> {
 }
 
 impl<'a, T: AsRef<[u8]> + ?Sized> UpdateBuffer<&'a T> {
-    /// Get the sum signature field
+    /// Gets the sum signature field.
     ///
-    /// # Panic
-    ///
-    /// This may panic if the underlying buffer does not represent a
-    /// valid update. If `self.check_buffer_length()` returned
-    /// `Ok(())` this method is guaranteed not to panic.
+    /// # Panics
+    /// Accessing the field may panic if the buffer has not been checked before.
     pub fn sum_signature(&self) -> &'a [u8] {
         &self.inner.as_ref()[SUM_SIGNATURE_RANGE]
     }
 
-    /// Get the update signature field
+    /// Gets the update signature field.
     ///
-    /// # Panic
-    ///
-    /// This may panic if the underlying buffer does not represent a
-    /// valid update. If `self.check_buffer_length()` returned
-    /// `Ok(())` this method is guaranteed not to panic.
+    /// # Panics
+    /// Accessing the field may panic if the buffer has not been checked before.
     pub fn update_signature(&self) -> &'a [u8] {
         &self.inner.as_ref()[UPDATE_SIGNATURE_RANGE]
     }
 
-    /// Get a slice that starts at the beginning of the masked model
-    /// field
+    /// Gets a slice that starts at the beginning of the masked model field.
     ///
-    /// # Panic
-    ///
-    /// This may panic if the underlying buffer does not represent a
-    /// valid update. If `self.check_buffer_length()` returned
-    /// `Ok(())` this method is guaranteed not to panic.
+    /// # Panics
+    /// Accessing the field may panic if the buffer has not been checked before.
     pub fn masked_model(&self) -> &'a [u8] {
         let offset = self.masked_model_offset();
         &self.inner.as_ref()[offset..]
     }
 
-    /// Get a slice that starts at the beginning og the local seed
-    /// dictionary field
+    /// Gets a slice that starts at the beginning og the local seed dictionary field.
     ///
-    /// # Panic
-    ///
-    /// This may panic if the underlying buffer does not represent a
-    /// valid update. If `self.check_buffer_length()` returned
-    /// `Ok(())` this method is guaranteed not to panic.
+    /// # Panics
+    /// Accessing the field may panic if the buffer has not been checked before.
     pub fn local_seed_dict(&self) -> &'a [u8] {
         let offset = self.local_seed_dict_offset();
         &self.inner.as_ref()[offset..]
@@ -130,49 +129,35 @@ impl<'a, T: AsRef<[u8]> + ?Sized> UpdateBuffer<&'a T> {
 }
 
 impl<T: AsRef<[u8]> + AsMut<[u8]>> UpdateBuffer<T> {
-    /// Get a mutable reference to the sum signature field
+    /// Gets a mutable reference to the sum signature field.
     ///
-    /// # Panic
-    ///
-    /// This may panic if the underlying buffer does not represent a
-    /// valid update. If `self.check_buffer_length()` returned
-    /// `Ok(())` this method is guaranteed not to panic.
+    /// # Panics
+    /// Accessing the field may panic if the buffer has not been checked before.
     pub fn sum_signature_mut(&mut self) -> &mut [u8] {
         &mut self.inner.as_mut()[SUM_SIGNATURE_RANGE]
     }
 
-    /// Get a mutable reference to the update signature field
+    /// Gets a mutable reference to the update signature field.
     ///
-    /// # Panic
-    ///
-    /// This may panic if the underlying buffer does not represent a
-    /// valid update. If `self.check_buffer_length()` returned
-    /// `Ok(())` this method is guaranteed not to panic.
+    /// # Panics
+    /// Accessing the field may panic if the buffer has not been checked before.
     pub fn update_signature_mut(&mut self) -> &mut [u8] {
         &mut self.inner.as_mut()[UPDATE_SIGNATURE_RANGE]
     }
 
-    /// Get a mutable slice that starts at the beginning of the masked
-    /// model field
+    /// Gets a mutable slice that starts at the beginning of the masked model field.
     ///
-    /// # Panic
-    ///
-    /// This may panic if the underlying buffer does not represent a
-    /// valid update. If `self.check_buffer_length()` returned
-    /// `Ok(())` this method is guaranteed not to panic.
+    /// # Panics
+    /// Accessing the field may panic if the buffer has not been checked before.
     pub fn masked_model_mut(&mut self) -> &mut [u8] {
         let offset = self.masked_model_offset();
         &mut self.inner.as_mut()[offset..]
     }
 
-    /// Get a mutable slice that starts at the beginning of the local
-    /// seed dictionary field
+    /// Gets a mutable slice that starts at the beginning of the local seed dictionary field.
     ///
-    /// # Panic
-    ///
-    /// This may panic if the underlying buffer does not represent a
-    /// valid update. If `self.check_buffer_length()` returned
-    /// `Ok(())` this method is guaranteed not to panic.
+    /// # Panics
+    /// Accessing the field may panic if the buffer has not been checked before.
     pub fn local_seed_dict_mut(&mut self) -> &mut [u8] {
         let offset = self.local_seed_dict_offset();
         &mut self.inner.as_mut()[offset..]
@@ -180,22 +165,25 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> UpdateBuffer<T> {
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
-/// High level representation of an update message. These messages are
-/// sent by update partipants during the update phase.
+/// A high level representation of an update message.
+///
+/// These messages are sent by update partipants during the update phase.
 pub struct Update<D, M> {
-    /// Signature of the round seed and the word "sum", used to
-    /// determine whether a participant is selected for the sum task
+    /// The signature of the round seed and the word "sum".
+    ///
+    /// This is used to determine whether a participant is selected for the sum task.
     pub sum_signature: ParticipantTaskSignature,
-    /// Signature of the round seed and the word "update", used to
-    /// determine whether a participant is selected for the update
-    /// task
+    /// Signature of the round seed and the word "update".
+    ///
+    /// This is used to determine whether a participant is selected for the update task.
     pub update_signature: ParticipantTaskSignature,
-    /// Model trained by an update participant, masked with randomness
-    /// derived from the participant seed
+    /// A model trained by an update participant.
+    ///
+    /// The model is masked with randomness derived from the participant seed.
     pub masked_model: M,
-    /// A dictionary that contains the seed used to mask
-    /// `masked_model`, encrypted with the ephemeral public key of
-    /// each sum participant
+    /// A dictionary that contains the seed used to mask `masked_model`.
+    ///
+    /// The seed is encrypted with the ephemeral public key of each sum participant.
     pub local_seed_dict: D,
 }
 
@@ -224,7 +212,7 @@ where
     }
 }
 
-/// Owned version of a [`Update`]
+/// An owned version of an [`Update`].
 pub type UpdateOwned = Update<LocalSeedDict, MaskObject>;
 
 impl FromBytes for UpdateOwned {
