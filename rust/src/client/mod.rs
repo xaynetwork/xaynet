@@ -1,3 +1,23 @@
+//! Provides client-side functionality to connect to a XayNet service.
+//!
+//! This functionality includes:
+//!
+//! * Abiding by (the underlying [`Participant`]'s side of) the PET protocol.
+//! * Handling the network communication with the XayNet service, including
+//!   polling of service data.
+//!
+//! A [`Client`] has an intentionally simple API - the idea is that it is
+//! initialised with some settings, and then [`start()`]ed. Currently for
+//! simplicity, clients that have started running will do so indefinitely. It is
+//! therefore the user's responsibility to terminate clients that are no longer
+//! needed. Alternatively, it may be more convenient to run just a single round
+//! (or a known fixed number of rounds). In this case, use [`during_round()`].
+//! For examples of usage, see the `test-drive` scripts.
+//!
+//! **Note. At present, the [`Client`] implementation is somewhat tightly
+//! coupled with the workings of the C-API SDK, but this may well change in a
+//! future version to be more independently reusable.
+
 use std::{default::Default, time::Duration};
 
 use thiserror::Error;
@@ -96,8 +116,9 @@ impl Client {
     ///
     /// `period`: time period at which to poll for service data, in seconds.
     ///
-    /// Returns `Ok(client)` if [`Client`] `client` initialised successfully
-    /// Returns `Err(err)` if `ClientError` `err` occurred
+    /// # Errors
+    /// Returns a `ParticipantInitErr` if the underlying [`Participant`] is
+    /// unable to initialize.
     pub(crate) fn new(period: u64) -> Result<Self, ClientError> {
         Ok(Self {
             participant: Participant::new().map_err(ClientError::ParticipantInitErr)?,
@@ -112,8 +133,9 @@ impl Client {
     /// `id`: an ID to assign to the [`Client`].
     /// `handle`: handle for communicating with the (local) service.
     ///
-    /// Returns `Ok(client)` if [`Client`] `client` initialised successfully
-    /// Returns `Err(err)` if `ClientError` `err` occurred
+    /// # Errors
+    /// Returns a `ParticipantInitErr` if the underlying [`Participant`] is
+    /// unable to initialize.
     pub fn new_with_hdl(period: u64, id: u32, handle: Handle) -> Result<Self, ClientError> {
         Ok(Self {
             participant: Participant::new().map_err(ClientError::ParticipantInitErr)?,
@@ -130,8 +152,9 @@ impl Client {
     /// `id`: an ID to assign to the [`Client`].
     /// `addr`: service address to connect to.
     ///
-    /// Returns `Ok(client)` if [`Client`] `client` initialised successfully
-    /// Returns `Err(err)` if `ClientError` `err` occurred
+    /// # Errors
+    /// Returns a `ParticipantInitErr` if the underlying [`Participant`] is
+    /// unable to initialize.
     pub fn new_with_addr(period: u64, id: u32, addr: &'static str) -> Result<Self, ClientError> {
         Ok(Self {
             participant: Participant::new().map_err(ClientError::ParticipantInitErr)?,
@@ -142,19 +165,24 @@ impl Client {
         })
     }
 
-    /// Start the [`Client`] loop
+    /// Starts the [`Client`] loop, iterating indefinitely over each federated
+    /// learning round.
     ///
-    /// Returns `Err(err)` if `ClientError` `err` occurred
-    ///
-    /// NOTE in the future this may iterate only a fixed number of times, at the
-    /// end of which this returns `Ok(())`
+    /// # Errors
+    /// A [`ClientError`] may be returned when the round is not able to complete
+    /// successfully.
     pub async fn start(&mut self) -> Result<(), ClientError> {
         loop {
             self.during_round().await?;
         }
     }
 
-    /// [`Client`] duties within a round
+    /// [`Client`] work flow over a federated learning round. A successfully
+    /// completed round will return the [`Task`] of the client.
+    ///
+    /// # Errors
+    /// A [`ClientError`] may be returned when the round is not able to complete
+    /// successfully.
     pub async fn during_round(&mut self) -> Result<Task, ClientError> {
         debug!(client_id = %self.id, "polling for new round parameters");
         loop {
@@ -197,13 +225,13 @@ impl Client {
         }
     }
 
-    /// Duties for unselected [`Client`]s
+    /// Work flow for unselected [`Client`]s.
     async fn unselected(&mut self) -> Result<Task, ClientError> {
         debug!(client_id = %self.id, "not selected");
         Ok(Task::None)
     }
 
-    /// Duties for [`Client`]s selected as summers
+    /// Work flow for [`Client`]s selected as sum participants.
     async fn summer(&mut self) -> Result<Task, ClientError> {
         info!(client_id = %self.id, "selected to sum");
         let sum1_msg = self.participant.compose_sum_message(&self.coordinator_pk);
@@ -243,7 +271,7 @@ impl Client {
         }
     }
 
-    /// Duties for [`Client`]s selected as updaters
+    /// Work flow for [`Client`]s selected as update participants.
     async fn updater(&mut self) -> Result<Task, ClientError> {
         info!(client_id = %self.id, "selected to update");
 

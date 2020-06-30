@@ -1,3 +1,33 @@
+//! Provides functionality to enable clients to communicate with a XayNet
+//! service over HTTP.
+//!
+//! This includes a [`Proxy`] which a [`Client`] can use to communicate with the
+//! service. To summarise, the proxy:
+//!
+//! * Wraps either a [`Handle`] (for local comms) or a [`ClientReq`] (for remote
+//!   comms over HTTP).
+//! * In the latter case, deals with logging and wrapping of network errors.
+//! * Deals with deserialization
+//!
+//! [`ClientReq`] is responsible for building the HTTP request and extracting
+//! the response body. As an example:
+//!
+//! ```
+//! async fn get_sums(&self) -> Result<Option<bytes::Bytes>, reqwest::Error>
+//! ```
+//!
+//! issues a GET request for the sum dictionary. The return type reflects the
+//! presence of networking `Error`s, but also the situation where the dictionary
+//! is simply just not yet available on the service. That is, the type also
+//! reflects the _optionality_ of the data availability.
+//!
+//! [`Proxy`] essentially takes this (deserializing the `Bytes` into a `SumDict`
+//! while handling `Error`s into [`ClientError`]s) to expose the overall method
+//!
+//! ```
+//! async fn get_sums(&self) -> Result<Option<SumDict>, ClientError>
+//! ```
+
 use crate::{
     client::ClientError,
     crypto::ByteObject,
@@ -22,6 +52,11 @@ impl Proxy {
         Remote(ClientReq::new(addr))
     }
 
+    /// Posts the given PET message to the service proxy.
+    ///
+    /// # Errors
+    /// Returns `NetworkErr` if a network error occurs while posting the PET
+    /// message.
     pub async fn post_message(&self, msg: Vec<u8>) -> Result<(), ClientError> {
         match self {
             InMem(hdl) => hdl.send_message(msg).await,
@@ -40,6 +75,15 @@ impl Proxy {
         Ok(())
     }
 
+    /// Get the sum dictionary data from the service proxy.
+    ///
+    /// Returns `Ok(Some(data))` if the `data` is available on the
+    /// service, `Ok(None)` if it is not.
+    ///
+    /// # Errors
+    /// Returns `NetworkErr` if a network error occurs while getting the data.
+    /// Returns `DeserialiseErr` if an error occurs while deserialising the
+    /// response.
     pub async fn get_sums(&self) -> Result<Option<SumDict>, ClientError> {
         let opt_vec = match self {
             InMem(hdl) => {
@@ -63,6 +107,14 @@ impl Proxy {
         opt_sums.transpose()
     }
 
+    /// Get the model scalar data from the service proxy.
+    ///
+    /// Returns `Ok(Some(data))` if the `data` is available on the
+    /// service, `Ok(None)` if it is not.
+    ///
+    /// # Errors
+    /// Returns `NetworkErr` if a network error occurs while getting the data.
+    /// Returns `ParseErr` if an error occurs while parsing the response.
     pub async fn get_scalar(&self) -> Result<Option<f64>, ClientError> {
         match self {
             InMem(hdl) => Ok(hdl.get_scalar().await),
@@ -83,6 +135,15 @@ impl Proxy {
         }
     }
 
+    /// Get the seed dictionary data from the service proxy.
+    ///
+    /// Returns `Ok(Some(data))` if the `data` is available on the
+    /// service, `Ok(None)` if it is not.
+    ///
+    /// # Errors
+    /// Returns `NetworkErr` if a network error occurs while getting the data.
+    /// Returns `DeserialiseErr` if an error occurs while deserialising the
+    /// response.
     pub async fn get_seeds(
         &self,
         pk: ParticipantPublicKey,
@@ -109,6 +170,14 @@ impl Proxy {
         opt_seeds.transpose()
     }
 
+    /// Get the model/mask length data from the service proxy.
+    ///
+    /// Returns `Ok(Some(data))` if the `data` is available on the
+    /// service, `Ok(None)` if it is not.
+    ///
+    /// # Errors
+    /// Returns `NetworkErr` if a network error occurs while getting the data.
+    /// Returns `ParseErr` if an error occurs while parsing the response.
     pub async fn get_length(&self) -> Result<Option<u64>, ClientError> {
         match self {
             InMem(hdl) => Ok(hdl.get_length().await),
@@ -129,6 +198,15 @@ impl Proxy {
         }
     }
 
+    /// Get the round parameters data from the service proxy.
+    ///
+    /// Returns `Ok(Some(data))` if the `data` is available on the
+    /// service, `Ok(None)` if it is not.
+    ///
+    /// # Errors
+    /// Returns `NetworkErr` if a network error occurs while getting the data.
+    /// Returns `DeserialiseErr` if an error occurs while deserialising the
+    /// response.
     pub async fn get_params(&self) -> Result<Option<RoundParametersData>, ClientError> {
         let opt_vec = match self {
             InMem(hdl) => {
@@ -160,7 +238,7 @@ impl From<Handle> for Proxy {
 }
 
 #[derive(Debug)]
-/// Manages client requests over HTTP
+/// Manages client requests over HTTP.
 pub struct ClientReq {
     client: Client,
     address: &'static str,
