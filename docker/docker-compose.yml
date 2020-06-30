@@ -14,8 +14,6 @@ services:
       - ${PWD}/configs/docker-dev.toml:/app/config.toml
     networks:
       - xain-fl
-    environment:
-      RUST_LOG: "DEBUG"
     ports:
       - "8081:8081"
 
