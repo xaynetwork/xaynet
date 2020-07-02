@@ -5,10 +5,16 @@ use tower::Service;
 
 use crate::state_machine::events::{EventListener, EventSubscriber, MaskLengthUpdate};
 
+/// [`MaskLengthService`]'s request type
 pub struct MaskLengthRequest;
+
+/// [`MaskLengthService`]'s response type.
+///
+/// The response is `None` when the mask length is not currently
+/// available
 pub type MaskLengthResponse = Option<usize>;
 
-/// A service that serves the mask_length for the current round.
+/// A service that serves the mask length for the current round.
 pub struct MaskLengthService(EventListener<MaskLengthUpdate>);
 
 impl MaskLengthService {

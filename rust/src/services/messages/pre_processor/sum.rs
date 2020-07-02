@@ -13,8 +13,12 @@ use crate::{
     state_machine::coordinator::RoundParameters,
 };
 
+/// Request type for [`SumPreProcessorService`]
 pub type SumRequest = (HeaderOwned, SumOwned, RoundParameters);
 
+/// A service for performing sanity checks and preparing a sum request
+/// to be handled by the state machine. At the moment, this is limited
+/// to verifying the participant's eligibility for the sum task.
 #[derive(Debug, Clone)]
 pub struct SumPreProcessorService;
 

@@ -1,3 +1,8 @@
+//! This module provides the services for processing PET
+//! messages.
+//!
+//! There are multiple such services and the [`PetMessageHandler`]
+//! trait provides a single unifying interface for all of these.
 mod message_parser;
 mod pre_processor;
 mod state_machine;
@@ -41,7 +46,7 @@ use crate::{
 };
 
 /// Associate an ID to the given request, and attach a span to the request.
-pub fn make_traceable_request<R>(req: R) -> Traced<R> {
+fn make_traceable_request<R>(req: R) -> Traced<R> {
     let id = Uuid::new_v4();
     let span = error_span!("request", id = ?id);
     Traced::new(req, span)
@@ -64,12 +69,15 @@ where
 
 type TracingService<S, R> = request_span::Service<S, Traced<R>, fn(&Traced<R>) -> tracing::Span>;
 
+/// Error returned by the [`PetMessageHandler`] methods.
 #[derive(Debug, Error)]
 pub enum PetMessageError {
     #[error("failed to parse message: {0}")]
     Parser(MessageParserError),
+
     #[error("failed to pre-process message: {0}")]
     PreProcessor(PreProcessorError),
+
     #[error("state machine failed to handle message: {0}")]
     StateMachine(StateMachineError),
 }
@@ -87,8 +95,12 @@ pub trait _PetMessageHandler {
     async fn call_state_machine(&self, message: Traced<MessageOwned>) -> StateMachineResponse;
 }
 
+/// A single interface for all the PET message processing sub-services
+/// ([`MessageParserService`], [`PreProcessorService`] and
+/// [`StateMachineService`]).
 #[async_trait]
 pub trait PetMessageHandler {
+    /// Handle an incoming encrypted PET message form a participant.
     async fn handle_message(&self, enc_message: Vec<u8>) -> Result<(), PetMessageError>;
 }
 
@@ -216,7 +228,9 @@ where
 }
 
 /// A service that processes requests from the beginning to the
-/// end. The processing is divided in three phases:
+/// end.
+///
+/// The processing is divided in three phases:
 ///
 /// 1. The raw request (which is just a vector of bytes represented an
 ///    encrypted message) goes through the `MessageParser` service,

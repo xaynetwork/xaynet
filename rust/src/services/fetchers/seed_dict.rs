@@ -20,7 +20,13 @@ impl SeedDictService {
     }
 }
 
+/// [`SeedDictService`]'s request type
 pub struct SeedDictRequest;
+
+/// [`SeedDictService`]'s response type.
+///
+/// The response is `None` when no seed dictionary is currently
+/// available
 pub type SeedDictResponse = Option<Arc<SeedDict>>;
 
 impl Service<SeedDictRequest> for SeedDictService {
