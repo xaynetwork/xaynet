@@ -26,17 +26,17 @@ pub struct MaskObject {
 }
 
 impl MaskObject {
-    /// Creates a new mask object from the given mask configuration and the elements of the mask
+    /// Creates a new mask object from the given masking configuration and the elements of the mask
     /// or masked model.
     pub fn new(config: MaskConfig, data: Vec<BigUint>) -> Self {
         Self { data, config }
     }
 
-    /// Creates a new mask object from the given mask configuration and the elements of the mask
+    /// Creates a new mask object from the given masking configuration and the elements of the mask
     /// or masked model.
     ///
     /// # Errors
-    /// Fails if the elements of the mask object don't conform to the given mask configuration.
+    /// Fails if the elements of the mask object don't conform to the given masking configuration.
     pub fn new_checked(
         config: MaskConfig,
         data: Vec<BigUint>,
@@ -49,7 +49,7 @@ impl MaskObject {
         }
     }
 
-    /// Checks if the elements of this mask object conform to the given mask configuration.
+    /// Checks if the elements of this mask object conform to the given masking configuration.
     pub fn is_valid(&self) -> bool {
         let order = self.config.order();
         self.data.iter().all(|i| i < &order)

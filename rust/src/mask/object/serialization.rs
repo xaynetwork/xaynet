@@ -60,7 +60,7 @@ impl<T: AsRef<[u8]>> MaskObjectBuffer<T> {
         let (data_length, overflows) = (self.numbers() as usize).overflowing_mul(bytes_per_number);
         if overflows {
             return Err(anyhow!(
-                "invalid MaskObject buffer: invalid mask config or numbers field"
+                "invalid MaskObject buffer: invalid masking config or numbers field"
             ));
         }
         let total_expected_length = NUMBERS_FIELD.end + data_length;
@@ -74,10 +74,10 @@ impl<T: AsRef<[u8]>> MaskObjectBuffer<T> {
         Ok(())
     }
 
-    /// Gets the expected number of bytes of this buffer wrt to the mask configuration.
+    /// Gets the expected number of bytes of this buffer wrt to the masking configuration.
     ///
     /// # Panics
-    /// Panics if the serialized mask configuration is invalid.
+    /// Panics if the serialized masking configuration is invalid.
     pub fn len(&self) -> usize {
         let config = MaskConfig::from_bytes(&self.config()).unwrap();
         let bytes_per_number = config.bytes_per_number();
@@ -94,7 +94,7 @@ impl<T: AsRef<[u8]>> MaskObjectBuffer<T> {
         u32::from_be_bytes(self.inner.as_ref()[NUMBERS_FIELD].try_into().unwrap())
     }
 
-    /// Gets the serialized mask configuration.
+    /// Gets the serialized masking configuration.
     ///
     /// # Panics
     /// May panic if this buffer is unchecked.
@@ -120,7 +120,7 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> MaskObjectBuffer<T> {
         self.inner.as_mut()[NUMBERS_FIELD].copy_from_slice(&value.to_be_bytes());
     }
 
-    /// Gets the serialized mask configuration.
+    /// Gets the serialized masking configuration.
     ///
     /// # Panics
     /// May panic if this buffer is unchecked.

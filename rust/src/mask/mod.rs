@@ -18,15 +18,16 @@
 //! );
 //! ```
 //!
-//! # Mask configurations
+//! # Masking configurations
 //! The masking, aggregation and unmasking of models requires certain information about the models
 //! to guarantee that no information is lost during the process, which is configured via the
-//! [`MaskConfig`]. Each mask configuration consists of the group type, data type, bound type and
-//! model type. Usually, a mask configuration is decided on and configured depending on the specific
-//! machine learning use case as part of the setup for the XayNet federated learning platform.
+//! [`MaskConfig`]. Each masking configuration consists of the group type, data type, bound type and
+//! model type. Usually, a masking configuration is decided on and configured depending on the
+//! specific machine learning use case as part of the setup for the XayNet federated learning
+//! platform.
 //!
 //! Currently, those choices are catalogued for certain fixed variants for each type, but we aim
-//! to generalize this in the future to more flexible mask configurations to allow for a more
+//! to generalize this in the future to more flexible masking configurations to allow for a more
 //! fine-grained tradeoff between representability and performance.
 //!
 //! ## Group type
@@ -88,7 +89,7 @@
 //!
 //! ```
 //! # use xain_fl::mask::{BoundType, DataType, FromPrimitives, GroupType, MaskConfig, Masker, Model, ModelType};
-//! // create local models and a fitting mask configuration
+//! // create local models and a fitting masking configuration
 //! let number_weights = 10;
 //! let scalar = 0.5;
 //! let local_model_1 = Model::from_primitives_bounded(vec![0_f32; number_weights].into_iter());
@@ -111,9 +112,9 @@
 //!
 //! ## Aggregation
 //! Masked models can be aggregated via an [`Aggregation`]. Masks can be aggregated via an
-//! [`Aggregation`] as well, since an aggregated, masked model can only be unmasked by the
+//! [`Aggregation`] as well, since an aggregated masked model can only be unmasked by the
 //! aggregated masks belonging to the masked models. It should always be validated that the
-//! aggregation may be safely performed wrt the chosen mask configuration before actually
+//! aggregation may be safely performed wrt the chosen masking configuration before actually
 //! aggregating to avoid the possible loss of information.
 //!
 //! ```

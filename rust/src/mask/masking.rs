@@ -86,12 +86,12 @@ impl Aggregation {
         self.object.data.len()
     }
 
-    /// Gets the mask configuration of the aggregator.
+    /// Gets the masking configuration of the aggregator.
     pub fn config(&self) -> MaskConfig {
         self.object.config
     }
 
-    /// Validates if unmasking of the aggregated, masked model with the given `mask` may be
+    /// Validates if unmasking of the aggregated masked model with the given `mask` may be
     /// safely performed.
     ///
     /// This should be checked before calling [`unmask()`], since unmasking may return garbage
@@ -100,9 +100,9 @@ impl Aggregation {
     /// # Errors
     /// Fails in one of the following cases:
     /// - The aggregator has not yet aggregated any models.
-    /// - The number of aggregated masked models is larger than the chosen mask configuration
+    /// - The number of aggregated masked models is larger than the chosen masking configuration
     ///   allows.
-    /// - The mask configuration of the aggregator and of the `mask` don't coincide.
+    /// - The masking configuration of the aggregator and of the `mask` don't coincide.
     /// - The length of the aggregated masked model and the `mask` don't coincide.
     /// - The `mask` itself is invalid.
     ///
@@ -131,7 +131,7 @@ impl Aggregation {
         Ok(())
     }
 
-    /// Unmasks the aggregated, masked model with the given `mask`.
+    /// Unmasks the aggregated masked model with the given `mask`.
     ///
     /// It should be checked that [`validate_unmasking()`] returns `true` before calling this, since
     /// unmasking may return garbage values otherwise. The unmasking is performed in opposite order
@@ -180,11 +180,11 @@ impl Aggregation {
     ///
     /// # Errors
     /// Fails in one of the following cases:
-    /// - The mask configuration of the aggregator and of the `object` don't coincide.
+    /// - The masking configuration of the aggregator and of the `object` don't coincide.
     /// - The length of the aggregated masks or masked model and the `object` don't coincide. If the
     ///   aggregator is empty, then an `object` of any length may be aggregated.
     /// - The new number of aggregated masks or masked models would exceed the number that the
-    ///   chosen mask configuration allows.
+    ///   chosen masking configuration allows.
     /// - The `object` itself is invalid.
     ///
     /// Even though it does not produce any meaningful values, it may be validated that
@@ -245,7 +245,7 @@ pub struct Masker {
 }
 
 impl Masker {
-    /// Creates a new masker with the given mask `config`uration with a randomly generated seed.
+    /// Creates a new masker with the given masking `config`uration with a randomly generated seed.
     pub fn new(config: MaskConfig) -> Self {
         Self {
             config,
@@ -253,17 +253,17 @@ impl Masker {
         }
     }
 
-    /// Creates a new masker with the given mask `config`uration and `seed`.
+    /// Creates a new masker with the given masking `config`uration and `seed`.
     pub fn with_seed(config: MaskConfig, seed: MaskSeed) -> Self {
         Self { config, seed }
     }
 }
 
 impl Masker {
-    /// Masks the model wrt the mask configuration. Enforces bounds on the scalar and weights.
+    /// Masks the model wrt the masking configuration. Enforces bounds on the scalar and weights.
     ///
     /// The masking proceeds in the following steps:
-    /// - Clamp the scalar and the weights according to the mask configuration.
+    /// - Clamp the scalar and the weights according to the masking configuration.
     /// - Shift the weights into the non-negative reals.
     /// - Shift the weights into the non-negative integers.
     /// - Shift the weights into the finite group.
@@ -302,7 +302,7 @@ impl Masker {
         (seed, masked_model)
     }
 
-    /// Creates an iterator that yields randomly generated integers wrt the mask configuration.
+    /// Creates an iterator that yields randomly generated integers wrt the masking configuration.
     fn random_ints(&self) -> impl Iterator<Item = BigUint> {
         let order = self.config.order();
         let mut prng = ChaCha20Rng::from_seed(self.seed.as_array());

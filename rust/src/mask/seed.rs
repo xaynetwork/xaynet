@@ -60,7 +60,7 @@ impl MaskSeed {
         EncryptedMaskSeed::from_slice_unchecked(pk.encrypt(self.as_slice()).as_slice())
     }
 
-    /// Derives a mask of given length from this seed wrt the mask configuration.
+    /// Derives a mask of given length from this seed wrt the masking configuration.
     pub fn derive_mask(&self, len: usize, config: MaskConfig) -> MaskObject {
         let mut prng = ChaCha20Rng::from_seed(self.as_array());
         let data = iter::repeat_with(|| generate_integer(&mut prng, &config.order()))

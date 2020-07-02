@@ -1,4 +1,4 @@
-//! Mask configuration parameters.
+//! Masking configuration parameters.
 //!
 //! See the [mask module] documentation since this is a private module anyways.
 //!
@@ -16,7 +16,7 @@ use num::{
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-/// Errors related to invalid mask configurations.
+/// Errors related to invalid masking configurations.
 pub enum InvalidMaskConfigError {
     #[error("invalid group type")]
     GroupType,
@@ -55,7 +55,7 @@ impl TryFrom<u8> for GroupType {
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[repr(u8)]
-/// The original primitive data type of the numerical values.
+/// The original primitive data type of the numerical values to be masked.
 pub enum DataType {
     /// Numbers of type f32.
     F32 = 0,
@@ -128,7 +128,7 @@ pub enum ModelType {
 }
 
 impl ModelType {
-    /// Gets the number of models to be aggregated at most for this model type.
+    /// Gets the maximum number of models that can be aggregated for this model type.
     pub fn nb_models_max(&self) -> usize {
         10_usize.pow(*self as u8 as u32)
     }
@@ -149,7 +149,7 @@ impl TryFrom<u8> for ModelType {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-/// A mask configuration.
+/// A masking configuration.
 ///
 /// Consists of the following parts:
 /// - the order of the finite group
@@ -164,14 +164,13 @@ pub struct MaskConfig {
 }
 
 impl MaskConfig {
-    /// Returns the number of bytes needed for an element of a mask or masked model wrt this mask
-    /// configuration.
-    pub fn bytes_per_number(&self) -> usize {
+    /// Returns the number of bytes needed for an element of a mask or masked model.
+    pub(crate) fn bytes_per_number(&self) -> usize {
         let max_number = self.order() - BigUint::from(1_u8);
         (max_number.bits() + 7) / 8
     }
 
-    /// Gets the additional shift value for masking/unmasking wrt this mask configuration.
+    /// Gets the additional shift value for masking/unmasking.
     pub fn add_shift(&self) -> Ratio<BigInt> {
         use BoundType::{Bmax, B0, B2, B4, B6};
         use DataType::{F32, F64, I32, I64};
@@ -191,7 +190,7 @@ impl MaskConfig {
         }
     }
 
-    /// Gets the exponential shift value for masking/unmasking wrt this mask configuration.
+    /// Gets the exponential shift value for masking/unmasking.
     pub fn exp_shift(&self) -> BigInt {
         use BoundType::{Bmax, B0, B2, B4, B6};
         use DataType::{F32, F64, I32, I64};
@@ -209,7 +208,7 @@ impl MaskConfig {
         }
     }
 
-    /// Gets the finite group order value for masking/unmasking wrt this mask configuration.
+    /// Gets the finite group order value for masking/unmasking.
     pub fn order(&self) -> BigUint {
         use BoundType::{Bmax, B0, B2, B4, B6};
         use DataType::{F32, F64, I32, I64};

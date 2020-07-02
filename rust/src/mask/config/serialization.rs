@@ -1,4 +1,4 @@
-//! Serialization of mask configurations.
+//! Serialization of masking configurations.
 //!
 //! See the [mask module] documentation since this is a private module anyways.
 //!
@@ -19,7 +19,7 @@ const BOUND_TYPE_FIELD: usize = 2;
 const MODEL_TYPE_FIELD: usize = 3;
 pub(crate) const MASK_CONFIG_BUFFER_LEN: usize = 4;
 
-/// A buffer for serialized mask configurations.
+/// A buffer for serialized masking configurations.
 pub struct MaskConfigBuffer<T> {
     inner: T,
 }
@@ -28,7 +28,7 @@ impl<T: AsRef<[u8]>> MaskConfigBuffer<T> {
     /// Creates a new buffer from `bytes`.
     ///
     /// # Errors
-    /// Fails if the `bytes` don't conform to the required buffer length for mask configurations.
+    /// Fails if the `bytes` don't conform to the required buffer length for masking configurations.
     pub fn new(bytes: T) -> Result<Self, DecodeError> {
         let buffer = Self { inner: bytes };
         buffer
@@ -42,7 +42,7 @@ impl<T: AsRef<[u8]>> MaskConfigBuffer<T> {
         Self { inner: bytes }
     }
 
-    /// Checks if this buffer conforms to the required buffer length for mask configurations.
+    /// Checks if this buffer conforms to the required buffer length for masking configurations.
     ///
     /// # Errors
     /// Fails if the buffer is to small.
@@ -58,7 +58,7 @@ impl<T: AsRef<[u8]>> MaskConfigBuffer<T> {
         Ok(())
     }
 
-    /// Gets the serialized group type of the mask configuration.
+    /// Gets the serialized group type of the masking configuration.
     ///
     /// # Panics
     /// May panic if this buffer is unchecked.
@@ -66,7 +66,7 @@ impl<T: AsRef<[u8]>> MaskConfigBuffer<T> {
         self.inner.as_ref()[GROUP_TYPE_FIELD]
     }
 
-    /// Gets the serialized data type of the mask configuration.
+    /// Gets the serialized data type of the masking configuration.
     ///
     /// # Panics
     /// May panic if this buffer is unchecked.
@@ -74,7 +74,7 @@ impl<T: AsRef<[u8]>> MaskConfigBuffer<T> {
         self.inner.as_ref()[DATA_TYPE_FIELD]
     }
 
-    /// Gets the serialized bound type of the mask configuration.
+    /// Gets the serialized bound type of the masking configuration.
     ///
     /// # Panics
     /// May panic if this buffer is unchecked.
@@ -82,7 +82,7 @@ impl<T: AsRef<[u8]>> MaskConfigBuffer<T> {
         self.inner.as_ref()[BOUND_TYPE_FIELD]
     }
 
-    /// Gets the serialized model type of the mask configuration.
+    /// Gets the serialized model type of the masking configuration.
     ///
     /// # Panics
     /// May panic if this buffer is unchecked.
@@ -92,7 +92,7 @@ impl<T: AsRef<[u8]>> MaskConfigBuffer<T> {
 }
 
 impl<T: AsMut<[u8]>> MaskConfigBuffer<T> {
-    /// Sets the serialized group type of the mask configuration.
+    /// Sets the serialized group type of the masking configuration.
     ///
     /// # Panics
     /// May panic if this buffer is unchecked.
@@ -100,7 +100,7 @@ impl<T: AsMut<[u8]>> MaskConfigBuffer<T> {
         self.inner.as_mut()[GROUP_TYPE_FIELD] = value;
     }
 
-    /// Sets the serialized data type of the mask configuration.
+    /// Sets the serialized data type of the masking configuration.
     ///
     /// # Panics
     /// May panic if this buffer is unchecked.
@@ -108,7 +108,7 @@ impl<T: AsMut<[u8]>> MaskConfigBuffer<T> {
         self.inner.as_mut()[DATA_TYPE_FIELD] = value;
     }
 
-    /// Sets the serialized bound type of the mask configuration.
+    /// Sets the serialized bound type of the masking configuration.
     ///
     /// # Panics
     /// May panic if this buffer is unchecked.
@@ -116,7 +116,7 @@ impl<T: AsMut<[u8]>> MaskConfigBuffer<T> {
         self.inner.as_mut()[BOUND_TYPE_FIELD] = value;
     }
 
-    /// Sets the serialized model type of the mask configuration.
+    /// Sets the serialized model type of the masking configuration.
     ///
     /// # Panics
     /// May panic if this buffer is unchecked.
