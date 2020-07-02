@@ -259,7 +259,7 @@ where
     PP: Service<Traced<PreProcessorRequest>, Response = PreProcessorResponse>,
     SM: Service<Traced<StateMachineRequest>, Response = StateMachineResponse>,
 {
-    /// Instantiate a new [`MessagesService`] with the given sub-services
+    /// Instantiate a new [`PetMessageService`] with the given sub-services
     pub fn new(message_parser: MP, pre_processor: PP, state_machine: SM) -> Self {
         Self {
             message_parser: with_tracing(message_parser),
