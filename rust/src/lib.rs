@@ -1,4 +1,6 @@
 #[macro_use]
+extern crate async_trait;
+#[macro_use]
 extern crate serde;
 
 #[macro_use]
@@ -9,7 +11,6 @@ extern crate validator_derive;
 
 pub mod certificate;
 pub mod client;
-pub mod coordinator;
 pub mod crypto;
 pub mod mask;
 pub mod message;
@@ -17,9 +18,12 @@ pub mod participant;
 pub mod request;
 pub mod rest;
 pub mod sdk;
-pub mod service;
+pub mod services;
 pub mod settings;
+pub mod state_machine;
+pub mod utils;
 
+use derive_more::Display;
 use std::collections::HashMap;
 
 use thiserror::Error;
@@ -36,7 +40,7 @@ use self::crypto::{
 #[error("initialization failed: insufficient system entropy to generate secrets")]
 pub struct InitError;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Display)]
 /// PET protocol errors.
 pub enum PetError {
     InvalidMessage,

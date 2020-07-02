@@ -13,6 +13,19 @@ pub fn generate_encrypt_key_pair() -> (PublicEncryptKey, SecretEncryptKey) {
     (PublicEncryptKey(pk), SecretEncryptKey(sk))
 }
 
+#[derive(Debug, Clone)]
+pub struct KeyPair {
+    pub public: PublicEncryptKey,
+    pub secret: SecretEncryptKey,
+}
+
+impl KeyPair {
+    pub fn generate() -> Self {
+        let (public, secret) = generate_encrypt_key_pair();
+        Self { public, secret }
+    }
+}
+
 /// Public key for asymmetric authenticated encryption
 #[derive(
     AsRef,

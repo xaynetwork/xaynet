@@ -64,9 +64,26 @@ pub struct PetSettings {
     ///
     /// **Environment variable**
     /// ```text
-    /// XAIN__PET__UPDATE=0.01
+    /// XAIN_PET__UPDATE=0.01
     /// ```
     pub update: f64,
+
+    /// The number of participants that are expected by the coordinator
+    /// The value must be a positive integer
+    ///
+    /// # Examples
+    ///
+    /// **TOML**
+    /// ```text
+    /// [pet]
+    /// expected_participants = 10
+    /// ```
+    ///
+    /// **Environment variable**
+    /// ```text
+    /// XAIN_PET__EXPECTED_PARTICIPANTS=10
+    /// ```
+    pub expected_participants: usize,
 }
 
 impl Default for PetSettings {
@@ -76,6 +93,7 @@ impl Default for PetSettings {
             min_update: 3_usize,
             sum: 0.01_f64,
             update: 0.1_f64,
+            expected_participants: 10,
         }
     }
 }
