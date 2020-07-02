@@ -1,11 +1,16 @@
 use std::{borrow::Borrow, ops::Range};
 
+use anyhow::{anyhow, Context};
+
 use crate::{
-    mask::{MaskObject, MaskObjectBuffer},
-    message::{utils::range, DecodeError, FromBytes, ToBytes},
+    mask::object::{serialization::MaskObjectBuffer, MaskObject},
+    message::{
+        traits::{FromBytes, ToBytes},
+        utils::range,
+        DecodeError,
+    },
     ParticipantTaskSignature,
 };
-use anyhow::{anyhow, Context};
 
 const SUM_SIGNATURE_RANGE: Range<usize> = range(0, ParticipantTaskSignature::LENGTH);
 
@@ -146,9 +151,9 @@ impl FromBytes for Sum2Owned {
 }
 
 #[cfg(test)]
-pub(crate) mod tests_helpers {
+pub(in crate::message) mod tests_helpers {
     use super::*;
-    use crate::{crypto::ByteObject, mask::MaskObject};
+    use crate::{crypto::ByteObject, mask::object::MaskObject};
 
     pub fn signature() -> (ParticipantTaskSignature, Vec<u8>) {
         let bytes = vec![0x99; ParticipantTaskSignature::LENGTH];
@@ -173,8 +178,8 @@ pub(crate) mod tests_helpers {
 }
 
 #[cfg(test)]
-pub(crate) mod tests {
-    pub(crate) use super::tests_helpers as helpers;
+pub(in crate::message) mod tests {
+    pub(in crate::message) use super::tests_helpers as helpers;
     use super::*;
 
     #[test]

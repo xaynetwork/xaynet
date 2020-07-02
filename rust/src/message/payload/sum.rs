@@ -1,8 +1,13 @@
-use anyhow::{anyhow, Context};
 use std::ops::Range;
 
+use anyhow::{anyhow, Context};
+
 use crate::{
-    message::{utils::range, DecodeError, FromBytes, ToBytes},
+    message::{
+        traits::{FromBytes, ToBytes},
+        utils::range,
+        DecodeError,
+    },
     ParticipantTaskSignature,
     SumParticipantEphemeralPublicKey,
 };
@@ -216,7 +221,7 @@ impl FromBytes for SumOwned {
 }
 
 #[cfg(test)]
-pub(crate) mod tests {
+pub(in crate::message) mod tests {
     use super::*;
     use crate::crypto::ByteObject;
 

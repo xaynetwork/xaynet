@@ -1,10 +1,17 @@
-use super::DecodeError;
-use crate::{crypto::ByteObject, mask::EncryptedMaskSeed, LocalSeedDict, SumParticipantPublicKey};
-use anyhow::{anyhow, Context};
 use std::{
     convert::TryInto,
     io::{Cursor, Write},
     ops::Range,
+};
+
+use anyhow::{anyhow, Context};
+
+use crate::{
+    crypto::ByteObject,
+    mask::seed::EncryptedMaskSeed,
+    message::DecodeError,
+    LocalSeedDict,
+    SumParticipantPublicKey,
 };
 
 /// `ToBytes` is implemented by types that can be serialized
@@ -315,6 +322,7 @@ impl FromBytes for LocalSeedDict {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     fn decode_length_value_buffer() {
         let bytes = vec![

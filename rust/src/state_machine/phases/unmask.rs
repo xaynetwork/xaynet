@@ -1,7 +1,7 @@
 use std::{cmp::Ordering, sync::Arc};
 
 use crate::{
-    mask::{Aggregation, MaskObject, Model},
+    mask::{masking::Aggregation, model::Model, object::MaskObject},
     state_machine::{
         coordinator::{CoordinatorState, MaskDict},
         events::{ModelUpdate, PhaseEvent},

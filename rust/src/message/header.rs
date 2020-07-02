@@ -1,9 +1,14 @@
-use anyhow::{anyhow, Context};
 use std::{borrow::Borrow, convert::TryFrom};
+
+use anyhow::{anyhow, Context};
 
 use crate::{
     certificate::Certificate,
-    message::{header_length, DecodeError, FromBytes, MessageBuffer, ToBytes},
+    message::{
+        buffer::{header_length, MessageBuffer},
+        traits::{FromBytes, ToBytes},
+        DecodeError,
+    },
     CoordinatorPublicKey,
     ParticipantPublicKey,
 };

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::{
-    mask::{Aggregation, MaskObject},
+    mask::{masking::Aggregation, object::MaskObject},
     state_machine::{
         coordinator::CoordinatorState,
         events::{DictionaryUpdate, MaskLengthUpdate, PhaseEvent, ScalarUpdate},

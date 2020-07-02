@@ -1,7 +1,7 @@
 use crate::{
     client::ClientError,
     crypto::ByteObject,
-    mask::Model,
+    mask::model::Model,
     request::Proxy::{InMem, Remote},
     services::{Fetcher, PetMessageHandler},
     state_machine::coordinator::RoundParameters,

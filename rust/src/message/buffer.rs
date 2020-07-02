@@ -1,8 +1,9 @@
-use anyhow::{anyhow, Context};
 use std::ops::{Range, RangeFrom};
 
+use anyhow::{anyhow, Context};
+
 use crate::{
-    message::{utils::range, DecodeError, Flags, LengthValueBuffer},
+    message::{header::Flags, traits::LengthValueBuffer, utils::range, DecodeError},
     CoordinatorPublicKey,
     ParticipantPublicKey,
 };
@@ -227,14 +228,19 @@ impl<T: AsMut<[u8]> + AsRef<[u8]>> MessageBuffer<T> {
 }
 
 #[cfg(test)]
-pub(crate) mod tests {
+pub(in crate::message) mod tests {
+    use std::convert::TryFrom;
+
     use super::*;
     use crate::{
         certificate::Certificate,
         crypto::ByteObject,
-        message::{sum, HeaderOwned, MessageOwned, Tag},
+        message::{
+            header::{HeaderOwned, Tag},
+            message::MessageOwned,
+            payload::sum,
+        },
     };
-    use std::convert::TryFrom;
 
     fn coordinator_pk() -> (Vec<u8>, CoordinatorPublicKey) {
         let bytes = vec![0xaa; 32];

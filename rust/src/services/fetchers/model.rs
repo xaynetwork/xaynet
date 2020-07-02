@@ -7,7 +7,7 @@ use futures::future::{self, Ready};
 use tower::Service;
 
 use crate::{
-    mask::Model,
+    mask::model::Model,
     state_machine::events::{EventListener, EventSubscriber, ModelUpdate},
 };
 

@@ -1,11 +1,17 @@
+use std::{borrow::Borrow, ops::Range};
+
+use anyhow::{anyhow, Context};
+
 use crate::{
-    mask::{MaskObject, MaskObjectBuffer},
-    message::{utils::range, DecodeError, FromBytes, LengthValueBuffer, ToBytes},
+    mask::object::{serialization::MaskObjectBuffer, MaskObject},
+    message::{
+        traits::{FromBytes, LengthValueBuffer, ToBytes},
+        utils::range,
+        DecodeError,
+    },
     LocalSeedDict,
     ParticipantTaskSignature,
 };
-use anyhow::{anyhow, Context};
-use std::{borrow::Borrow, ops::Range};
 
 const SUM_SIGNATURE_RANGE: Range<usize> = range(0, ParticipantTaskSignature::LENGTH);
 const UPDATE_SIGNATURE_RANGE: Range<usize> =
@@ -238,14 +244,15 @@ impl FromBytes for UpdateOwned {
 }
 
 #[cfg(test)]
-pub(crate) mod tests_helpers {
+pub(in crate::message) mod tests_helpers {
+    use std::convert::TryFrom;
+
     use super::*;
     use crate::{
         crypto::ByteObject,
-        mask::{EncryptedMaskSeed, MaskObject},
+        mask::{object::MaskObject, seed::EncryptedMaskSeed},
         SumParticipantPublicKey,
     };
-    use std::convert::TryFrom;
 
     pub fn sum_signature() -> (ParticipantTaskSignature, Vec<u8>) {
         let bytes = vec![0x33; 64];
@@ -306,8 +313,8 @@ pub(crate) mod tests_helpers {
 }
 
 #[cfg(test)]
-pub(crate) mod tests {
-    pub(crate) use super::tests_helpers as helpers;
+pub(in crate::message) mod tests {
+    pub(in crate::message) use super::tests_helpers as helpers;
     use super::*;
 
     #[test]

@@ -41,7 +41,7 @@ use tracing_tower::request_span;
 use uuid::Uuid;
 
 use crate::{
-    message::MessageOwned,
+    message::message::MessageOwned,
     utils::trace::{Traceable, Traced},
 };
 

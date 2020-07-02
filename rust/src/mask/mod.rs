@@ -182,10 +182,10 @@
 //! ```
 
 pub(crate) mod config;
-mod masking;
+pub(crate) mod masking;
 pub(crate) mod model;
 pub(crate) mod object;
-mod seed;
+pub(crate) mod seed;
 
 pub use self::{
     config::{

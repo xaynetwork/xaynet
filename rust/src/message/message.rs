@@ -1,5 +1,6 @@
-use anyhow::{anyhow, Context};
 use std::borrow::Borrow;
+
+use anyhow::{anyhow, Context};
 
 use crate::{
     certificate::Certificate,
@@ -8,19 +9,18 @@ use crate::{
         sign::{SecretSigningKey, Signature},
         ByteObject,
     },
-    mask::MaskObject,
+    mask::object::MaskObject,
     message::{
+        header::{Header, HeaderOwned, Tag},
+        payload::{
+            sum::{Sum, SumOwned},
+            sum2::{Sum2, Sum2Owned},
+            update::{Update, UpdateOwned},
+            Payload,
+            PayloadOwned,
+        },
+        traits::{FromBytes, ToBytes},
         DecodeError,
-        FromBytes,
-        Header,
-        HeaderOwned,
-        Payload,
-        PayloadOwned,
-        Sum2Owned,
-        SumOwned,
-        Tag,
-        ToBytes,
-        UpdateOwned,
     },
     LocalSeedDict,
 };
@@ -51,7 +51,7 @@ macro_rules! impl_new {
                         tag: $tag,
                         certificate: None,
                     },
-                    payload: $crate::message::Payload::from(payload),
+                    payload: $crate::message::payload::Payload::from(payload),
                 }
             }
         }
@@ -65,9 +65,9 @@ where
     M: Borrow<MaskObject>,
     N: Borrow<MaskObject>,
 {
-    impl_new!(sum, crate::message::Sum, Tag::Sum);
-    impl_new!(update, crate::message::Update<D, M>, Tag::Update);
-    impl_new!(sum2, crate::message::Sum2<N>, Tag::Sum2);
+    impl_new!(sum, Sum, Tag::Sum);
+    impl_new!(update, Update<D, M>, Tag::Update);
+    impl_new!(sum2, Sum2<N>, Tag::Sum2);
 }
 
 impl<C, D, M, N> ToBytes for Message<C, D, M, N>

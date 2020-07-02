@@ -1,15 +1,19 @@
-use std::borrow::Borrow;
-
 pub(crate) mod sum;
-pub use self::sum::*;
 pub(crate) mod sum2;
-pub use self::sum2::*;
 pub(crate) mod update;
-pub use self::update::*;
+
+use std::borrow::Borrow;
 
 use derive_more::From;
 
-use crate::{mask::MaskObject, message::traits::ToBytes, LocalSeedDict};
+use crate::{
+    mask::object::MaskObject,
+    message::{
+        payload::{sum::Sum, sum2::Sum2, update::Update},
+        traits::ToBytes,
+    },
+    LocalSeedDict,
+};
 
 /// Payload of a [`Message`]
 #[derive(From, Eq, PartialEq, Clone, Debug)]
