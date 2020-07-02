@@ -26,10 +26,10 @@
 //!
 //! [sodiumoxide]: https://docs.rs/sodiumoxide/
 
-mod encrypt;
-mod hash;
-mod prng;
-mod sign;
+pub(crate) mod encrypt;
+pub(crate) mod hash;
+pub(crate) mod prng;
+pub(crate) mod sign;
 
 pub use self::{
     encrypt::{EncryptKeyPair, EncryptKeySeed, PublicEncryptKey, SecretEncryptKey, SEALBYTES},

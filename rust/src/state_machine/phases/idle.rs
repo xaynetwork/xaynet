@@ -1,5 +1,5 @@
 use crate::{
-    crypto::{ByteObject, EncryptKeyPair, SigningKeySeed},
+    crypto::{encrypt::EncryptKeyPair, sign::SigningKeySeed, ByteObject},
     state_machine::{
         coordinator::{CoordinatorState, RoundSeed},
         events::{DictionaryUpdate, MaskLengthUpdate, PhaseEvent, ScalarUpdate},

@@ -95,7 +95,7 @@ where
 #[cfg(test)]
 mod tests {
     use crate::{
-        crypto::{ByteObject, EncryptKeyPair, SigningKeyPair},
+        crypto::{encrypt::EncryptKeyPair, sign::SigningKeyPair, ByteObject},
         mask::{
             BoundType,
             DataType,

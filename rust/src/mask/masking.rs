@@ -9,7 +9,7 @@ use num::{
 use rand_chacha::ChaCha20Rng;
 
 use crate::{
-    crypto::generate_integer,
+    crypto::prng::generate_integer,
     mask::{MaskConfig, MaskObject, MaskSeed, Model},
 };
 

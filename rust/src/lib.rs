@@ -29,11 +29,8 @@ use std::collections::HashMap;
 use thiserror::Error;
 
 use self::crypto::{
-    PublicEncryptKey,
-    PublicSigningKey,
-    SecretEncryptKey,
-    SecretSigningKey,
-    Signature,
+    encrypt::{PublicEncryptKey, SecretEncryptKey},
+    sign::{PublicSigningKey, SecretSigningKey, Signature},
 };
 
 #[derive(Error, Debug)]

@@ -6,7 +6,7 @@ use rand_chacha::ChaCha20Rng;
 use sodiumoxide::{crypto::box_, randombytes::randombytes};
 
 use crate::{
-    crypto::{generate_integer, ByteObject, SEALBYTES},
+    crypto::{encrypt::SEALBYTES, prng::generate_integer, ByteObject},
     mask::{config::MaskConfig, MaskObject},
     PetError,
     SumParticipantEphemeralPublicKey,
@@ -120,7 +120,7 @@ impl EncryptedMaskSeed {
 mod tests {
     use super::*;
     use crate::{
-        crypto::EncryptKeyPair,
+        crypto::encrypt::EncryptKeyPair,
         mask::config::{BoundType, DataType, GroupType, MaskConfig, ModelType},
     };
 

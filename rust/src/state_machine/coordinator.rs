@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use sodiumoxide::{self, crypto::box_, randombytes::randombytes};
 
 use crate::{
-    crypto::{ByteObject, EncryptKeyPair},
+    crypto::{encrypt::EncryptKeyPair, ByteObject},
     mask::{MaskConfig, MaskObject},
     settings::{MaskSettings, PetSettings},
     state_machine::events::{EventPublisher, EventSubscriber, PhaseEvent},

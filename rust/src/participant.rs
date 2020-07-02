@@ -2,7 +2,7 @@ use std::default::Default;
 
 use crate::{
     certificate::Certificate,
-    crypto::{ByteObject, EncryptKeyPair, SigningKeyPair},
+    crypto::{encrypt::EncryptKeyPair, sign::SigningKeyPair, ByteObject},
     mask::{
         Aggregation,
         BoundType,
@@ -235,7 +235,7 @@ mod tests {
     use sodiumoxide::randombytes::{randombytes, randombytes_uniform};
 
     use super::*;
-    use crate::{crypto::Signature, SumParticipantPublicKey, UpdateParticipantPublicKey};
+    use crate::{crypto::sign::Signature, SumParticipantPublicKey, UpdateParticipantPublicKey};
 
     #[test]
     fn test_participant() {

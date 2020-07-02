@@ -8,7 +8,7 @@ use futures::Stream;
 use tokio::sync::watch;
 
 use crate::{
-    crypto::EncryptKeyPair,
+    crypto::encrypt::EncryptKeyPair,
     mask::Model,
     state_machine::coordinator::{RoundId, RoundParameters},
     SeedDict,

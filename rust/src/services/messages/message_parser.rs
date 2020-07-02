@@ -11,7 +11,7 @@ use tokio::sync::oneshot;
 use tower::Service;
 
 use crate::{
-    crypto::{ByteObject, EncryptKeyPair},
+    crypto::{encrypt::EncryptKeyPair, ByteObject},
     message::{
         DecodeError,
         FromBytes,
