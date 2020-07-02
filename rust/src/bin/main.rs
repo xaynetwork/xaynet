@@ -18,8 +18,19 @@ struct Opt {
 }
 #[tokio::main]
 async fn main() {
+    let opt = Opt::from_args();
+    let Settings {
+        pet: pet_settings,
+        mask: mask_settings,
+        api: api_settings,
+        log: log_settings,
+    } = Settings::new(opt.config_path).unwrap_or_else(|err| {
+        eprintln!("{}", err);
+        process::exit(1);
+    });
+
     let _fmt_subscriber = FmtSubscriber::builder()
-        .with_env_filter(settings.log.filter)
+        .with_env_filter(log_settings.filter)
         .with_ansi(true)
         .init();
 
@@ -27,16 +38,6 @@ async fn main() {
     // state machine but it doesn't hurt making sure the crypto layer
     // is correctly initialized
     sodiumoxide::init().unwrap();
-
-    let opt = Opt::from_args();
-    let Settings {
-        pet: pet_settings,
-        mask: mask_settings,
-        api: api_settings,
-    } = Settings::new(opt.config_path).unwrap_or_else(|err| {
-        eprintln!("{}", err);
-        process::exit(1);
-    });
 
     let (state_machine, requests_tx, event_subscriber) =
         StateMachine::<Traced<Request>>::new(pet_settings, mask_settings).unwrap();
