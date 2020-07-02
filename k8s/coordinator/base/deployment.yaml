@@ -16,9 +16,6 @@ spec:
         - name: coordinator
           image: coordinator
           imagePullPolicy: Always
-          env:
-            - name: RUST_LOG
-              value: "DEBUG"
           command: ["/app/coordinator"]
           args: ["-c", "/app/config.toml"]
           ports:

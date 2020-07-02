@@ -3,8 +3,10 @@
 //! Values defined in the configuration file can be overridden by environment variables.
 use crate::mask::{BoundType, DataType, GroupType, MaskConfig, ModelType};
 use config::{Config, ConfigError, Environment};
-use std::path::PathBuf;
+use serde::de::{self, Deserializer, Visitor};
+use std::{fmt, path::PathBuf};
 use thiserror::Error;
+use tracing_subscriber::filter::EnvFilter;
 use validator::{Validate, ValidationError, ValidationErrors};
 
 #[derive(Error, Debug)]
@@ -15,7 +17,7 @@ pub enum SettingsError {
     Validation(#[from] ValidationErrors),
 }
 
-#[derive(Debug, Validate, Deserialize, Clone, Copy)]
+#[derive(Debug, Validate, Deserialize)]
 #[doc(hidden)]
 pub struct Settings {
     #[validate]
@@ -23,6 +25,26 @@ pub struct Settings {
     #[validate]
     pub pet: PetSettings,
     pub mask: MaskSettings,
+    pub log: LoggingSettings,
+}
+
+impl Settings {
+    /// Loads and validates the coordinator settings via a configuration file.
+    ///
+    /// # Errors
+    /// Fails when the loading of the configuration file or its validation failed.
+    pub fn new(path: PathBuf) -> Result<Self, SettingsError> {
+        let settings: Settings = Self::load(path)?;
+        settings.validate()?;
+        Ok(settings)
+    }
+
+    fn load(path: PathBuf) -> Result<Self, ConfigError> {
+        let mut config = Config::new();
+        config.merge(config::File::from(path))?;
+        config.merge(Environment::with_prefix("xain").separator("__"))?;
+        config.try_into()
+    }
 }
 
 #[derive(Debug, Validate, Deserialize, Clone, Copy)]
@@ -213,23 +235,6 @@ impl Default for MaskSettings {
     }
 }
 
-impl Settings {
-    /// Loads and validates the coordinator settings via a configuration file.
-    /// Fails when the loading of the configuration file or its validation failed.
-    pub fn new(path: PathBuf) -> Result<Self, SettingsError> {
-        let settings: Settings = Self::load(path)?;
-        settings.validate()?;
-        Ok(settings)
-    }
-
-    fn load(path: PathBuf) -> Result<Self, ConfigError> {
-        let mut s = Config::new();
-        s.merge(config::File::from(path))?;
-        s.merge(Environment::with_prefix("xain").separator("__"))?;
-        s.try_into()
-    }
-}
-
 impl From<MaskSettings> for MaskConfig {
     fn from(
         MaskSettings {
@@ -246,4 +251,51 @@ impl From<MaskSettings> for MaskConfig {
             model_type,
         }
     }
+}
+
+#[derive(Debug, Deserialize)]
+/// Logging settings
+pub struct LoggingSettings {
+    /// A comma-separated list of logging directives. More information about logging directives
+    /// can be found [here](https://docs.rs/tracing-subscriber/0.2.6/tracing_subscriber/filter/struct.EnvFilter.html#directives).
+    ///
+    /// # Examples
+    ///
+    /// **TOML**
+    /// ```text
+    /// [log]
+    /// filter = "info"
+    /// ```
+    ///
+    /// **Environment variable**
+    /// ```text
+    /// XAIN_LOG__FILTER=info
+    /// ```
+    #[serde(deserialize_with = "deserialize_env_filter")]
+    pub filter: EnvFilter,
+}
+
+fn deserialize_env_filter<'de, D>(deserializer: D) -> Result<EnvFilter, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct EnvFilterVisitor;
+
+    impl<'de> Visitor<'de> for EnvFilterVisitor {
+        type Value = EnvFilter;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            write!(formatter, "a valid tracing filter directive: https://docs.rs/tracing-subscriber/0.2.6/tracing_subscriber/filter/struct.EnvFilter.html#directives")
+        }
+
+        fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            EnvFilter::try_new(value)
+                .map_err(|_| de::Error::invalid_value(serde::de::Unexpected::Str(value), &self))
+        }
+    }
+
+    deserializer.deserialize_str(EnvFilterVisitor)
 }

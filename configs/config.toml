@@ -1,3 +1,6 @@
+[log]
+filter = "xain_fl=debug,info"
+
 [api]
 bind_address = "127.0.0.1:8081"
 
