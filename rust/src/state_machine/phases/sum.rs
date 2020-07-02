@@ -15,6 +15,7 @@ use crate::{
 
 use tokio::sync::oneshot;
 
+/// Sum state
 #[derive(Debug)]
 pub struct Sum {
     /// Dictionary built during the sum phase.
@@ -22,6 +23,12 @@ pub struct Sum {
 }
 
 impl<R> Handler<Request> for PhaseState<R, Sum> {
+    /// Handles a [`Request::Sum`], [`Request::Update`] or [`Request::Sum2`] request.\
+    ///
+    /// If the request is a [`Request::Update`] or [`Request::Sum2`] request, the request sender
+    /// will receive a [`PetError::InvalidMessage`].
+    ///
+    /// [`PetError::InvalidMessage`]: crate::PetError::InvalidMessage
     fn handle_request(&mut self, req: Request) {
         match req {
             Request::Sum((sum_req, response_tx)) => self.handle_sum(sum_req, response_tx),
@@ -37,6 +44,9 @@ where
     Self: Handler<R>,
     R: Send,
 {
+    /// Moves from the sum state to the next state.
+    ///
+    /// See the [module level documentation](../index.html) for more details.
     async fn next(mut self) -> Option<StateMachine<R>> {
         info!("starting sum phase");
 
@@ -65,6 +75,7 @@ impl<R> PhaseState<R, Sum>
 where
     Self: Handler<R>,
 {
+    /// Runs the sum phase.
     pub async fn run_phase(&mut self) -> Result<SeedDict, StateError> {
         while !self.has_enough_sums() {
             let req = self.next_request().await?;
@@ -75,6 +86,7 @@ where
 }
 
 impl<R> PhaseState<R, Sum> {
+    /// Creates a new sum state.
     pub fn new(coordinator_state: CoordinatorState, request_rx: RequestReceiver<R>) -> Self {
         info!("state transition");
         Self {
@@ -86,7 +98,7 @@ impl<R> PhaseState<R, Sum> {
         }
     }
 
-    /// Handle a sum request.
+    /// Handles a sum request.
     fn handle_sum(&mut self, req: SumRequest, response_tx: oneshot::Sender<SumResponse>) {
         let SumRequest {
             participant_pk,
@@ -99,7 +111,7 @@ impl<R> PhaseState<R, Sum> {
         let _ = response_tx.send(Ok(()));
     }
 
-    /// Freeze the sum dictionary.
+    /// Freezes the sum dictionary.
     fn freeze_sum_dict(&mut self) -> SeedDict {
         info!("broadcasting sum dictionary");
         self.coordinator_state.events.broadcast_sum_dict(
@@ -115,7 +127,7 @@ impl<R> PhaseState<R, Sum> {
             .collect()
     }
 
-    /// Check whether enough sum participants submitted their ephemeral keys to start the update
+    /// Checks whether enough sum participants submitted their ephemeral keys to start the update
     /// phase.
     fn has_enough_sums(&self) -> bool {
         self.inner.sum_dict.len() >= self.coordinator_state.min_sum

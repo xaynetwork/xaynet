@@ -1,3 +1,6 @@
+//! This module provides the [`StateMachine`] `Events`, `EventSubscriber` and `EventPublisher` types.
+//!
+//! [`StateMachine`]: crate::state_machine::StateMachine
 use std::{
     pin::Pin,
     sync::Arc,
@@ -39,24 +42,28 @@ pub enum PhaseEvent {
 }
 
 // FIXME: should we simply use `Option`s here?
+/// Global model update event.
 #[derive(Debug, Clone)]
 pub enum ModelUpdate {
     Invalidate,
     New(Arc<Model>),
 }
 
+/// Scalar update event.
 #[derive(Debug, Clone)]
 pub enum ScalarUpdate {
     Invalidate,
     New(f64),
 }
 
+/// Mask length update event.
 #[derive(Debug, Clone)]
 pub enum MaskLengthUpdate {
     Invalidate,
     New(usize),
 }
 
+/// Dictionary update event.
 #[derive(Debug, Clone)]
 pub enum DictionaryUpdate<D> {
     Invalidate,

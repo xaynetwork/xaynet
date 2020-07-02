@@ -5,6 +5,7 @@ use crate::state_machine::{
     StateMachine,
 };
 
+/// Shutdown state
 #[derive(Debug)]
 pub struct Shutdown;
 
@@ -13,6 +14,9 @@ impl<R> Phase<R> for PhaseState<R, Shutdown>
 where
     R: Send,
 {
+    /// Shuts down the [`StateMachine`].
+    ///
+    /// See the [module level documentation](../index.html) for more details.
     async fn next(mut self) -> Option<StateMachine<R>> {
         warn!("shutdown state machine");
 
@@ -24,6 +28,7 @@ where
 }
 
 impl<R> PhaseState<R, Shutdown> {
+    /// Creates a new shutdown state.
     pub fn new(coordinator_state: CoordinatorState, request_rx: RequestReceiver<R>) -> Self {
         info!("state transition");
         Self {

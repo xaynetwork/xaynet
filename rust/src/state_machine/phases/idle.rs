@@ -11,6 +11,7 @@ use crate::{
 
 use sodiumoxide::crypto::hash::sha256;
 
+/// Idle state
 #[derive(Debug)]
 pub struct Idle;
 
@@ -19,6 +20,9 @@ impl<R> Phase<R> for PhaseState<R, Idle>
 where
     R: Send,
 {
+    /// Moves from the idle state to the next state.
+    ///
+    /// See the [module level documentation](../index.html) for more details.
     async fn next(mut self) -> Option<StateMachine<R>> {
         info!("starting idle phase");
 
@@ -69,6 +73,7 @@ where
 }
 
 impl<R> PhaseState<R, Idle> {
+    /// Creates a new idle state.
     pub fn new(coordinator_state: CoordinatorState, request_rx: RequestReceiver<R>) -> Self {
         Self {
             inner: Idle,
@@ -79,9 +84,9 @@ impl<R> PhaseState<R, Idle> {
 
     fn update_round_thresholds(&mut self) {}
 
-    /// Update the seed round parameter.
+    /// Updates the seed round parameter.
     fn update_round_seed(&mut self) {
-        // safe unwrap: `sk` and `seed` have same number of bytes
+        // Safe unwrap: `sk` and `seed` have same number of bytes
         let (_, sk) =
             SigningKeySeed::from_slice_unchecked(self.coordinator_state.keys.secret.as_slice())
                 .derive_signing_key_pair();
@@ -98,7 +103,7 @@ impl<R> PhaseState<R, Idle> {
             RoundSeed::from_slice_unchecked(sha256::hash(signature.as_slice()).as_ref());
     }
 
-    /// Generate fresh round credentials.
+    /// Generates fresh round credentials.
     fn gen_round_keypair(&mut self) {
         self.coordinator_state.keys = EncryptKeyPair::generate();
         self.coordinator_state.round_params.pk = self.coordinator_state.keys.public;
