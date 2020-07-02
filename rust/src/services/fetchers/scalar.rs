@@ -5,7 +5,12 @@ use tower::Service;
 
 use crate::state_machine::events::{EventListener, EventSubscriber, ScalarUpdate};
 
+/// [`ScalarService`]'s request type
 pub struct ScalarRequest;
+
+/// [`ScalarService`]'s response type.
+///
+/// The response is `None` when the scalar is not currently available
 pub type ScalarResponse = Option<f64>;
 
 /// A service that serves the scalar for the current round.

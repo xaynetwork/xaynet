@@ -11,7 +11,12 @@ use crate::{
     state_machine::events::{EventListener, EventSubscriber, ModelUpdate},
 };
 
+/// [`ModelService`]'s request type
 pub struct ModelRequest;
+
+/// [`ModelService`]'s response type.
+///
+/// The response is `None` when no model is currently available.
 pub type ModelResponse = Option<Arc<Model>>;
 
 /// A service that serves the latest available global model

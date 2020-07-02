@@ -1,3 +1,7 @@
+//! This module provides the services for serving data.
+//!
+//! There are multiple such services and the [`Fetcher`] trait
+//! provides a single unifying interface for all of these.
 mod mask_length;
 mod model;
 mod round_parameters;
@@ -21,16 +25,36 @@ use tower::Service;
 
 use crate::state_machine::coordinator::RoundParameters;
 
+/// A single interface for retrieving data from the coordinator.
 #[async_trait]
 pub trait Fetcher {
+    /// Fetch the parameters for the current round
     async fn round_params(&self) -> Result<RoundParamsResponse, FetchError>;
+
+    /// Fetch the mask length for the current round. The sum
+    /// participants need this value during the sum2 phase to derive
+    /// masks from the update participant's masking seeds.
     async fn mask_length(&self) -> Result<MaskLengthResponse, FetchError>;
+
+    /// Fetch the scalar used for aggregation for the current
+    /// round. The update participants need this value to mask the
+    /// model they trained.
     async fn scalar(&self) -> Result<ScalarResponse, FetchError>;
+
+    /// Fetch the latest global model.
     async fn model(&self) -> Result<ModelResponse, FetchError>;
+
+    /// Fetch the global seed dictionary. Each sum2 participant needs a
+    /// different portion of that dictionary.
     async fn seed_dict(&self) -> Result<SeedDictResponse, FetchError>;
+
+    /// Fetch the sum dictionary. The update participants need this
+    /// dictionary to encrypt their masking seed for each sum
+    /// participant.
     async fn sum_dict(&self) -> Result<SumDictResponse, FetchError>;
 }
 
+/// An error returned by the [`Fetcher`]'s method.
 pub type FetchError = anyhow::Error;
 
 fn into_fetch_error<E: Into<Box<dyn ::std::error::Error + 'static + Sync + Send>>>(
@@ -151,7 +175,7 @@ where
     }
 }
 
-/// A service for fetching PET data.
+/// A service for fetching PET data. It implements the [`Fetcher`] trait.
 #[derive(Clone)]
 pub struct FetcherService<RoundParams, SumDict, SeedDict, MaskLength, Scalar, Model> {
     round_params: RoundParams,

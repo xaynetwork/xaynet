@@ -29,10 +29,24 @@ use crate::{
     Signature,
 };
 
+/// A service for decrypting and parsing PET messages.
+///
+/// Since this is a CPU-intensive task for large messages, this
+/// service offloads the processing to a `rayon` thread-pool to avoid
+/// overloading the tokio thread-pool with blocking tasks.
 pub struct MessageParserService {
+    /// A listener to retrieve the latest coordinator keys. These are
+    /// necessary for decrypting messages and verifying their
+    /// signature.
     keys_events: EventListener<KeyPair>,
+
+    /// A listener to retrieve the current coordinator phase. Messages
+    /// that cannot be handled in the current phase will be
+    /// rejected. The idea is to perform this filtering as early as
+    /// possible.
     phase_events: EventListener<PhaseEvent>,
 
+    /// Thread-pool the CPU-intensive tasks are offloaded to
     thread_pool: Arc<ThreadPool>,
 }
 
@@ -46,11 +60,18 @@ impl MessageParserService {
     }
 }
 
+/// Request type for the [`MessageParserService`].
+///
+/// It contains the encrypted message.
 #[derive(From, Debug)]
 pub struct MessageParserRequest(Vec<u8>);
 
+/// Response type for the [`MessageParserService`].
+///
+/// It contains the parsed message.
 pub type MessageParserResponse = Result<MessageOwned, MessageParserError>;
 
+/// Error type for the [`MessageParserService`]
 #[derive(Debug, Error)]
 pub enum MessageParserError {
     #[error("Failed to decrypt the message with the coordinator secret key")]
@@ -126,6 +147,7 @@ impl Service<Traced<MessageParserRequest>> for MessageParserService {
     }
 }
 
+/// Handler created by the [`MessageParserService`] for each request.
 struct Handler {
     /// Coordinator keys for the current round
     keys: KeyPair,
@@ -134,6 +156,8 @@ struct Handler {
 }
 
 impl Handler {
+    /// Process the request. `data` is the encrypted PET message to
+    /// process.
     fn call(self, data: Vec<u8>) -> Result<MessageOwned, MessageParserError> {
         info!("decrypting message");
         let raw = self.decrypt(data)?;
@@ -154,6 +178,7 @@ impl Handler {
         Ok(MessageOwned { header, payload })
     }
 
+    /// Decrypt the given payload with the coordinator secret key
     fn decrypt(&self, encrypted_message: Vec<u8>) -> Result<Vec<u8>, MessageParserError> {
         Ok(self
             .keys
@@ -162,11 +187,14 @@ impl Handler {
             .map_err(|_| MessageParserError::Decrypt)?)
     }
 
+    /// Attempt to parse the message header from the raw message
     fn parse_header(&self, raw_message: &[u8]) -> Result<HeaderOwned, MessageParserError> {
         Ok(HeaderOwned::from_bytes(&&raw_message[Signature::LENGTH..])
             .map_err(MessageParserError::Parsing)?)
     }
 
+    /// Reject messages that cannot be handled by the coordinator in
+    /// the current phase
     fn phase_filter(&self, tag: Tag) -> Result<(), MessageParserError> {
         match (tag, self.phase) {
             (Tag::Sum, PhaseEvent::Sum)
@@ -182,6 +210,8 @@ impl Handler {
         }
     }
 
+    /// Verify the integrity of the given message by checking the
+    /// signature embedded in the header.
     fn verify_signature(
         &self,
         raw_message: &[u8],
@@ -199,6 +229,7 @@ impl Handler {
         }
     }
 
+    /// Parse the payload of the given message
     fn parse_payload(
         &self,
         raw_message: &[u8],

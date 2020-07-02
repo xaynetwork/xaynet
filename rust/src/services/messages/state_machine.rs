@@ -23,29 +23,39 @@ use crate::{
     PetError,
 };
 
-/// The request type handled by [`StateMachineService`]
+/// [`StateMachineService`] request type
 #[derive(Debug, From)]
 pub struct StateMachineRequest(MessageOwned);
+
+/// [`StateMachineService`] response type
 pub type StateMachineResponse = Result<(), StateMachineError>;
 
+/// [`StateMachineService`] error type
 #[derive(Debug, Error)]
 pub enum StateMachineError {
     #[error("PET protocol error: {0}")]
     Pet(PetError),
+
     #[error("Unknown internal error")]
     InternalError,
 }
 
+/// A service that hands the requests to the state machine
+/// ([`crate::state_machine::StateMachine`]) that runs in the
+/// background.
 pub struct StateMachineService {
     handle: RequestSender<Traced<Request>>,
 }
 
 impl StateMachineService {
+    /// Create a new service with the given handle for forwarding
+    /// requests to the state machine. The handle should be obtained
+    /// via [`crate::state_machine::StateMachine::new`]
     pub fn new(handle: RequestSender<Traced<Request>>) -> Self {
         Self { handle }
     }
 
-    pub fn handler(&self) -> StateMachineRequestHandler {
+    fn handler(&self) -> StateMachineRequestHandler {
         trace!("creating new handler");
         StateMachineRequestHandler {
             handle: self.handle.clone(),
@@ -53,7 +63,7 @@ impl StateMachineService {
     }
 }
 
-pub struct StateMachineRequestHandler {
+struct StateMachineRequestHandler {
     handle: RequestSender<Traced<Request>>,
 }
 
@@ -67,7 +77,7 @@ impl StateMachineRequestHandler {
         Ok(())
     }
 
-    pub async fn sum_request(mut self, span: Span, req: SumRequest) -> StateMachineResponse {
+    async fn sum_request(mut self, span: Span, req: SumRequest) -> StateMachineResponse {
         let (resp_tx, resp_rx) = oneshot::channel::<SumResponse>();
         self.send_request(span, Request::Sum((req, resp_tx)))?;
         let sum_resp = resp_rx.await.map_err(|_| {
@@ -77,7 +87,7 @@ impl StateMachineRequestHandler {
         sum_resp.map_err(StateMachineError::Pet)
     }
 
-    pub async fn update_request(mut self, span: Span, req: UpdateRequest) -> StateMachineResponse {
+    async fn update_request(mut self, span: Span, req: UpdateRequest) -> StateMachineResponse {
         let (resp_tx, resp_rx) = oneshot::channel::<UpdateResponse>();
         self.send_request(span, Request::Update((req, resp_tx)))?;
         let update_resp = resp_rx.await.map_err(|_| {
@@ -87,7 +97,7 @@ impl StateMachineRequestHandler {
         update_resp.map_err(StateMachineError::Pet)
     }
 
-    pub async fn sum2_request(mut self, span: Span, req: Sum2Request) -> StateMachineResponse {
+    async fn sum2_request(mut self, span: Span, req: Sum2Request) -> StateMachineResponse {
         let (resp_tx, resp_rx) = oneshot::channel::<Sum2Response>();
         self.send_request(span, Request::Sum2((req, resp_tx)))?;
         let sum2_resp = resp_rx.await.map_err(|_| {

@@ -14,7 +14,13 @@ use crate::{
 /// A service that returns the sum dictionary for the current round.
 pub struct SumDictService(EventListener<DictionaryUpdate<SumDict>>);
 
+/// [`SumDictService`]'s request type
 pub struct SumDictRequest;
+
+/// [`SumDictService`]'s response type.
+///
+/// The response is `None` when no sum dictionary is currently
+/// available
 pub type SumDictResponse = Option<Arc<SumDict>>;
 
 impl SumDictService {

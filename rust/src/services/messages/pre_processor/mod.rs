@@ -26,8 +26,8 @@ use crate::{
     utils::trace::{Traceable, Traced},
 };
 
-/// Route the request to the service that is ready to process it,
-/// depending on the current coordinator phase.
+/// A service for performing sanity checks and preparing incoming
+/// requests to be handled by the state machine.
 pub struct PreProcessorService {
     params_listener: EventListener<RoundParameters>,
     /// A stream that receives phase updates
@@ -55,8 +55,12 @@ impl PreProcessorService {
     }
 }
 
+/// Request type for [`PreProcessorService`]. It contains the PET
+/// message to handle.
 #[derive(From, Debug)]
 pub struct PreProcessorRequest(MessageOwned);
+
+/// Response type for [`PreProcessorService`]
 pub type PreProcessorResponse = Result<MessageOwned, PreProcessorError>;
 
 impl Service<Traced<PreProcessorRequest>> for PreProcessorService {
@@ -100,6 +104,7 @@ impl Service<Traced<PreProcessorRequest>> for PreProcessorService {
     }
 }
 
+/// Error type for [`PreProcessorService`]
 #[derive(Error, Debug)]
 pub enum PreProcessorError {
     #[error("Invalid sum signature")]

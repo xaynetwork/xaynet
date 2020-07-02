@@ -13,8 +13,13 @@ use crate::{
     state_machine::coordinator::RoundParameters,
 };
 
+/// Request type for [`UpdatePreProcessorService`]
 pub type UpdateRequest = (HeaderOwned, UpdateOwned, RoundParameters);
 
+/// A service for performing sanity checks and preparing an update
+/// request to be handled by the state machine. At the moment, this is
+/// limited to verifying the participant's eligibility for the update
+/// task.
 #[derive(Clone, Debug)]
 pub struct UpdatePreProcessorService;
 

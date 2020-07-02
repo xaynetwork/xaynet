@@ -8,7 +8,10 @@ use crate::state_machine::{
     events::{EventListener, EventSubscriber},
 };
 
+/// [`RoundParamsService`]'s request type
 pub struct RoundParamsRequest;
+
+/// [`RoundParamsService`]'s response type
 pub type RoundParamsResponse = RoundParameters;
 
 /// A service that serves the round parameters for the current round.
