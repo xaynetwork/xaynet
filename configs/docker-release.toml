@@ -9,6 +9,7 @@ min_sum = 1
 min_update = 3
 sum = 0.01
 update = 0.1
+expected_participants = 10
 
 [mask]
 group_type = "Prime"
