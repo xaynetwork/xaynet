@@ -167,7 +167,7 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> UpdateBuffer<T> {
 #[derive(Debug, Eq, PartialEq, Clone)]
 /// A high level representation of an update message.
 ///
-/// These messages are sent by update partipants during the update phase.
+/// These messages are sent by update participants during the update phase.
 pub struct Update<D, M> {
     /// The signature of the round seed and the word "sum".
     ///

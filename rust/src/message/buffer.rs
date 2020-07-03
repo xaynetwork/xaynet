@@ -16,7 +16,7 @@ use crate::{
 
 /// Gets the length of the message header in bytes.
 ///
-/// Depends on the inluded certificates which can be variable in length.
+/// Depends on the included certificates which can be variable in length.
 pub(crate) fn header_length(certificate_length: usize) -> usize {
     certificate_length + PARTICIPANT_PK_RANGE.end
 }
@@ -116,7 +116,7 @@ impl<T: AsRef<[u8]>> MessageBuffer<T> {
         Ok(buffer)
     }
 
-    /// Returns a [`MessageBuffer`] without performing any bound check.
+    /// Returns a [`MessageBuffer`] without performing any bound checks.
     ///
     /// This means accessing the various fields may panic if the data is invalid.
     pub fn new_unchecked(bytes: T) -> Self {
