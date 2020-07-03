@@ -149,7 +149,7 @@ impl Signature {
     /// Length in bytes of this signature.
     pub const LENGTH: usize = sign::SIGNATUREBYTES;
 
-    /// Computes the floating point representation of the hashed signature and ensure that it is
+    /// Computes the floating point representation of the hashed signature and ensures that it is
     /// below the given threshold:
     /// ```no_rust
     /// int(hash(signature)) / (2**hashbits - 1) <= threshold.
