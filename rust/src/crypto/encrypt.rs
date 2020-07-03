@@ -1,4 +1,4 @@
-//! Wrappers around some of the [sodiumoxide] encrytion primitives.
+//! Wrappers around some of the [sodiumoxide] encryption primitives.
 //!
 //! See the [crypto module] documentation since this is a private module anyways.
 //!
@@ -69,10 +69,11 @@ impl PublicEncryptKey {
     /// Length in bytes of this public key.
     pub const LENGTH: usize = box_::PUBLICKEYBYTES;
 
-    /// Encrypts a message `m` with this public key. The resulting ciphertext length is
-    /// [`SEALBYTES`]` + m.len()`.
+    /// Encrypts a message `m` with this public key.
     ///
-    /// The function creates a new ephemeral key pair for each message, and attaches the ephemeral
+    /// The resulting ciphertext length is [`SEALBYTES`]` + m.len()`.
+    ///
+    /// The function creates a new ephemeral key pair for the message and attaches the ephemeral
     /// public key to the ciphertext. The ephemeral secret key is zeroed out and is not accessible
     /// after this function returns.
     pub fn encrypt(&self, m: &[u8]) -> Vec<u8> {
