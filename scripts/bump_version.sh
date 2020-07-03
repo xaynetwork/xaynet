@@ -158,11 +158,6 @@ set_version_in_file() {
 update_versions() {
     set_version_in_file 's/^version = ".*"$/version = "'"$(version)"'"/g' rust/Cargo.toml
 
-    for f in swagger/*.yml ; do
-        set_version_in_file 's/\(\s\+version: \)[0-9]\.[0-9]\.[0-9]/\1'"$(version)"'/g' "${f}"
-    done
-
-
     if [ "$(git --no-pager diff | wc -l)" -eq 0 ] ; then
         echo "No changes were made, it seems that the version files were already updated to $(version)"
         echo "Do you want to continue?"
@@ -171,7 +166,7 @@ update_versions() {
         git --no-pager diff
         echo "Do you want to commit the changes above?"
         ask_yes_or_no
-        git add rust/Cargo.toml swagger/*.yml
+        git add rust/Cargo.toml
         git commit -m "bump version $(prev_version) -> $(version)"
     fi
 }
