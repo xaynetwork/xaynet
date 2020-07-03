@@ -179,7 +179,7 @@ where
     /// </pre></div>
     ///
     /// For example:
-    /// ```ignore
+    /// ```compile_fail
     /// sodiumoxide::init().unwrap();
     /// let state_machine =
     ///     StateMachine::from(PhaseState::<R, Idle>::new(coordinator_state, req_receiver));
