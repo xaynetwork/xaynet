@@ -1,4 +1,4 @@
-use std::{default::Default, time::Duration};
+use std::time::Duration;
 
 use thiserror::Error;
 use tokio::time;
@@ -9,7 +9,8 @@ use crate::{
     participant::{Participant, Task},
     request::Proxy,
     sdk::api::CachedModel,
-    services::{FetchError, Fetcher, PetMessageError, PetMessageHandler},
+    services::{FetchError, PetMessageError},
+    settings::MaskSettings,
     CoordinatorPublicKey,
     InitError,
     PetError,
@@ -74,24 +75,6 @@ pub struct Client {
     proxy: Proxy,
 }
 
-impl Default for Client {
-    fn default() -> Self {
-        Self {
-            participant: Participant::default(),
-            interval: time::interval(Duration::from_secs(1)),
-            coordinator_pk: CoordinatorPublicKey::zeroed(),
-            has_new_coord_pk_since_last_check: false,
-            global_model: None,
-            cached_model: None,
-            has_new_global_model_since_last_check: false,
-            has_new_global_model_since_last_cache: false,
-            local_model: None,
-            id: 0,
-            proxy: Proxy::new_remote("http://127.0.0.1:3030"),
-        }
-    }
-}
-
 impl Client {
     /// Create a new [`Client`] that connects to a default service address.
     ///
@@ -99,52 +82,21 @@ impl Client {
     ///
     /// Returns `Ok(client)` if [`Client`] `client` initialised successfully
     /// Returns `Err(err)` if `ClientError` `err` occurred
-    pub(crate) fn new(period: u64) -> Result<Self, ClientError> {
+    pub fn new(settings: ClientSettings, proxy: Proxy) -> Result<Self, ClientError> {
+        let participant =
+            Participant::new(settings.mask_settings).map_err(ClientError::ParticipantInitErr)?;
         Ok(Self {
-            participant: Participant::new().map_err(ClientError::ParticipantInitErr)?,
-            interval: time::interval(Duration::from_secs(period)),
-            ..Self::default()
-        })
-    }
-
-    /// Create a new [`Client`] with a given service handle.
-    ///
-    /// `period`: time period at which to poll for service data, in seconds.
-    /// `id`: an ID to assign to the [`Client`].
-    /// `handle`: handle for communicating with the (local) service.
-    ///
-    /// Returns `Ok(client)` if [`Client`] `client` initialised successfully
-    /// Returns `Err(err)` if `ClientError` `err` occurred
-    pub fn new_with_hdl(
-        period: u64,
-        id: u32,
-        fetcher: impl Fetcher + 'static + Send + Sync,
-        message_handler: impl PetMessageHandler + 'static + Send + Sync,
-    ) -> Result<Self, ClientError> {
-        Ok(Self {
-            participant: Participant::new().map_err(ClientError::ParticipantInitErr)?,
-            interval: time::interval(Duration::from_secs(period)),
-            id,
-            proxy: Proxy::new_in_mem(fetcher, message_handler),
-            ..Self::default()
-        })
-    }
-
-    /// Create a new [`Client`] with a given service address.
-    ///
-    /// `period`: time period at which to poll for service data, in seconds.
-    /// `id`: an ID to assign to the [`Client`].
-    /// `addr`: service address to connect to.
-    ///
-    /// Returns `Ok(client)` if [`Client`] `client` initialised successfully
-    /// Returns `Err(err)` if `ClientError` `err` occurred
-    pub fn new_with_addr(period: u64, id: u32, addr: &'static str) -> Result<Self, ClientError> {
-        Ok(Self {
-            participant: Participant::new().map_err(ClientError::ParticipantInitErr)?,
-            interval: time::interval(Duration::from_secs(period)),
-            id,
-            proxy: Proxy::new_remote(addr),
-            ..Self::default()
+            participant,
+            interval: time::interval(settings.period),
+            coordinator_pk: CoordinatorPublicKey::zeroed(),
+            has_new_coord_pk_since_last_check: false,
+            global_model: None,
+            cached_model: None,
+            has_new_global_model_since_last_check: false,
+            has_new_global_model_since_last_cache: false,
+            local_model: None,
+            id: settings.id,
+            proxy,
         })
     }
 
@@ -291,5 +243,21 @@ impl Client {
         self.global_model = Some(model);
         self.has_new_global_model_since_last_check = true;
         self.has_new_global_model_since_last_cache = true;
+    }
+}
+
+pub struct ClientSettings {
+    id: u32,
+    period: Duration,
+    mask_settings: MaskSettings,
+}
+
+impl ClientSettings {
+    pub fn new(id: u32, period_in_sec: u64, mask_settings: MaskSettings) -> Self {
+        Self {
+            id,
+            period: Duration::from_secs(period_in_sec),
+            mask_settings,
+        }
     }
 }

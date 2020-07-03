@@ -1,8 +1,10 @@
 use tracing_subscriber::*;
 use xain_fl::{
-    client::{Client, ClientError},
+    client::{Client, ClientError, ClientSettings},
     mask::{FromPrimitives, Model},
     participant::Task,
+    request::Proxy,
+    settings::MaskSettings,
 };
 
 /// Test-drive script of a (local, but networked) single-round federated
@@ -25,7 +27,9 @@ async fn main() -> Result<(), ClientError> {
 
     let mut tasks = vec![];
     for id in 0..10 {
-        let mut client = Client::new_with_addr(1, id, "http://127.0.0.1:8081")?;
+        let proxy = Proxy::new_remote("http://127.0.0.1:8081");
+        let settings = ClientSettings::new(id, 1, MaskSettings::default());
+        let mut client = Client::new(settings, proxy)?;
         client.local_model = Some(model.clone());
         let join_hdl = tokio::spawn(async move { client.during_round().await });
         tasks.push(join_hdl);

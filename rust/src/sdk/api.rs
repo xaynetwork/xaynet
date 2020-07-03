@@ -50,9 +50,10 @@ use tokio::{
 };
 
 use crate::{
-    client::{Client, ClientError},
+    client::{Client, ClientError, ClientSettings},
     mask::model::{FromPrimitives, IntoPrimitives, Model},
     participant::Task,
+    request::Proxy,
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -114,10 +115,10 @@ pub struct FFIClient {
 /// # Safety
 /// The method depends on the safety of the `callback` and on the consistent definition and layout
 /// of its `input` across the FFI-boundary.
-pub unsafe extern "C" fn new_client(period: c_ulonglong) -> *mut FFIClient {
-    if period == 0 {
-        return ptr::null_mut() as *mut FFIClient;
-    }
+pub unsafe extern "C" fn new_client(
+    settings: ClientSettings,
+    api_url: &'static str,
+) -> *mut FFIClient {
     let runtime = if let Ok(runtime) = Builder::new()
         .threaded_scheduler()
         .core_threads(1)
@@ -130,7 +131,8 @@ pub unsafe extern "C" fn new_client(period: c_ulonglong) -> *mut FFIClient {
     } else {
         return ptr::null_mut() as *mut FFIClient;
     };
-    let client = if let Ok(client) = runtime.enter(move || Client::new(period as u64)) {
+    let proxy = Proxy::new_remote(api_url.clone());
+    let client = if let Ok(client) = runtime.enter(move || Client::new(settings, proxy)) {
         client
     } else {
         return ptr::null_mut() as *mut FFIClient;

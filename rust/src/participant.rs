@@ -1,21 +1,9 @@
-use std::default::Default;
-
 use crate::{
     certificate::Certificate,
     crypto::{generate_encrypt_key_pair, generate_signing_key_pair, ByteObject},
-    mask::{
-        Aggregation,
-        BoundType,
-        DataType,
-        GroupType,
-        MaskConfig,
-        MaskObject,
-        MaskSeed,
-        Masker,
-        Model,
-        ModelType,
-    },
+    mask::{Aggregation, MaskConfig, MaskObject, MaskSeed, Masker, Model},
     message::{MessageOwned, MessageSeal, Sum2Owned, SumOwned, UpdateOwned},
+    settings::MaskSettings,
     CoordinatorPublicKey,
     InitError,
     LocalSeedDict,
@@ -49,44 +37,28 @@ pub struct Participant {
     certificate: Certificate, // 0 bytes (dummy)
     pub sum_signature: ParticipantTaskSignature, // 64 bytes
     update_signature: ParticipantTaskSignature, // 64 bytes
+    mask_config: MaskConfig,
 
     // round parameters
     pub(crate) task: Task,
 }
 
-impl Default for Participant {
-    fn default() -> Self {
-        let pk = ParticipantPublicKey::zeroed();
-        let sk = ParticipantSecretKey::zeroed();
-        let ephm_pk = SumParticipantEphemeralPublicKey::zeroed();
-        let ephm_sk = SumParticipantEphemeralSecretKey::zeroed();
-        let certificate = Certificate::new();
-        let sum_signature = ParticipantTaskSignature::zeroed();
-        let update_signature = ParticipantTaskSignature::zeroed();
-        let task = Task::None;
-        Self {
-            pk,
-            sk,
-            ephm_pk,
-            ephm_sk,
-            certificate,
-            sum_signature,
-            update_signature,
-            task,
-        }
-    }
-}
-
 impl Participant {
     /// Create a participant. Fails if there is insufficient system entropy to generate secrets.
-    pub fn new() -> Result<Self, InitError> {
+    pub fn new(mask_settings: MaskSettings) -> Result<Self, InitError> {
         // crucial: init must be called before anything else in this module
         sodiumoxide::init().or(Err(InitError))?;
         let (pk, sk) = generate_signing_key_pair();
         Ok(Self {
             pk,
             sk,
-            ..Default::default()
+            ephm_pk: SumParticipantEphemeralPublicKey::zeroed(),
+            ephm_sk: SumParticipantEphemeralSecretKey::zeroed(),
+            certificate: Certificate::new(),
+            sum_signature: ParticipantTaskSignature::zeroed(),
+            update_signature: ParticipantTaskSignature::zeroed(),
+            mask_config: mask_settings.into(),
+            task: Task::None,
         })
     }
 
@@ -129,7 +101,7 @@ impl Participant {
         scalar: f64,
         local_model: Model,
     ) -> Vec<u8> {
-        let (mask_seed, masked_model) = Self::mask_model(scalar, local_model);
+        let (mask_seed, masked_model) = self.mask_model(scalar, local_model);
         let local_seed_dict = Self::create_local_seed_dict(sum_dict, &mask_seed);
 
         let payload = UpdateOwned {
@@ -152,7 +124,7 @@ impl Participant {
     ) -> Result<Vec<u8>, PetError> {
         let mask_seeds = self.get_seeds(seed_dict)?;
 
-        let mask = self.compute_global_mask(mask_seeds, mask_len, dummy_config())?;
+        let mask = self.compute_global_mask(mask_seeds, mask_len, self.mask_config)?;
         let payload = Sum2Owned {
             mask,
             sum_signature: self.sum_signature,
@@ -178,9 +150,8 @@ impl Participant {
     }
 
     /// Generate a mask seed and mask a local model.
-    fn mask_model(scalar: f64, local_model: Model) -> (MaskSeed, MaskObject) {
-        // TODO: use proper config
-        Masker::new(dummy_config()).mask(scalar, local_model)
+    fn mask_model(&self, scalar: f64, local_model: Model) -> (MaskSeed, MaskObject) {
+        Masker::new(self.mask_config).mask(scalar, local_model)
     }
 
     // Create a local seed dictionary from a sum dictionary.
@@ -232,11 +203,16 @@ mod tests {
     use sodiumoxide::randombytes::{randombytes, randombytes_uniform};
 
     use super::*;
-    use crate::{crypto::Signature, SumParticipantPublicKey, UpdateParticipantPublicKey};
+    use crate::{
+        crypto::Signature,
+        settings::MaskSettings,
+        SumParticipantPublicKey,
+        UpdateParticipantPublicKey,
+    };
 
     #[test]
     fn test_participant() {
-        let part = Participant::new().unwrap();
+        let part = Participant::new(MaskSettings::default()).unwrap();
         assert_eq!(part.pk, part.sk.public_key());
         assert_eq!(part.sk.as_slice().len(), 64);
         assert_eq!(part.ephm_pk, SumParticipantEphemeralPublicKey::zeroed());
@@ -249,7 +225,7 @@ mod tests {
 
     #[test]
     fn test_compute_signature() {
-        let mut part = Participant::new().unwrap();
+        let mut part = Participant::new(MaskSettings::default()).unwrap();
         let round_seed = randombytes(32);
         part.compute_signatures(&round_seed);
         assert!(part.pk.verify_detached(
@@ -264,7 +240,7 @@ mod tests {
 
     #[test]
     fn test_check_task() {
-        let mut part = Participant::new().unwrap();
+        let mut part = Participant::new(MaskSettings::default()).unwrap();
         let eligible_signature = Signature::from_slice_unchecked(&[
             172, 29, 85, 219, 118, 44, 107, 32, 219, 253, 25, 242, 53, 45, 111, 62, 102, 130, 24,
             8, 222, 199, 34, 120, 166, 163, 223, 229, 100, 50, 252, 244, 250, 88, 196, 151, 136,
@@ -294,7 +270,7 @@ mod tests {
 
     #[test]
     fn test_gen_ephm_keypair() {
-        let mut part = Participant::new().unwrap();
+        let mut part = Participant::new(MaskSettings::default()).unwrap();
         part.gen_ephm_keypair();
         assert_eq!(part.ephm_pk, part.ephm_sk.public_key());
         assert_eq!(part.ephm_sk.as_slice().len(), 32);
@@ -328,7 +304,7 @@ mod tests {
 
     #[test]
     fn test_get_seeds() {
-        let mut part = Participant::new().unwrap();
+        let mut part = Participant::new(MaskSettings::default()).unwrap();
         part.gen_ephm_keypair();
         let mask_seeds: Vec<MaskSeed> = iter::repeat_with(MaskSeed::generate)
             .take(1 + randombytes_uniform(10) as usize)
@@ -353,14 +329,5 @@ mod tests {
                 .map(|seed| seed.as_array())
                 .collect::<HashSet<_>>(),
         );
-    }
-}
-
-fn dummy_config() -> MaskConfig {
-    MaskConfig {
-        group_type: GroupType::Prime,
-        data_type: DataType::F32,
-        bound_type: BoundType::B0,
-        model_type: ModelType::M3,
     }
 }
