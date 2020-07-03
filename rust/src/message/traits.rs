@@ -157,7 +157,7 @@ impl<T: AsRef<[u8]>> LengthValueBuffer<T> {
         Ok(buffer)
     }
 
-    /// Create a new [`LengthValueBuffer`] without any bound check.
+    /// Create a new [`LengthValueBuffer`] without any bound checks.
     pub fn new_unchecked(bytes: T) -> Self {
         Self { inner: bytes }
     }
