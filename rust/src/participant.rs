@@ -2,7 +2,7 @@ use std::default::Default;
 
 use crate::{
     certificate::Certificate,
-    crypto::{generate_encrypt_key_pair, generate_signing_key_pair, ByteObject},
+    crypto::{encrypt::EncryptKeyPair, sign::SigningKeyPair, ByteObject},
     mask::{
         Aggregation,
         BoundType,
@@ -82,7 +82,10 @@ impl Participant {
     pub fn new() -> Result<Self, InitError> {
         // crucial: init must be called before anything else in this module
         sodiumoxide::init().or(Err(InitError))?;
-        let (pk, sk) = generate_signing_key_pair();
+        let SigningKeyPair {
+            public: pk,
+            secret: sk,
+        } = SigningKeyPair::generate();
         Ok(Self {
             pk,
             sk,
@@ -172,9 +175,9 @@ impl Participant {
 
     /// Generate an ephemeral encryption key pair.
     fn gen_ephm_keypair(&mut self) {
-        let (ephm_pk, ephm_sk) = generate_encrypt_key_pair();
-        self.ephm_pk = ephm_pk;
-        self.ephm_sk = ephm_sk;
+        let EncryptKeyPair { public, secret } = EncryptKeyPair::generate();
+        self.ephm_pk = public;
+        self.ephm_sk = secret;
     }
 
     /// Generate a mask seed and mask a local model.
@@ -232,7 +235,7 @@ mod tests {
     use sodiumoxide::randombytes::{randombytes, randombytes_uniform};
 
     use super::*;
-    use crate::{crypto::Signature, SumParticipantPublicKey, UpdateParticipantPublicKey};
+    use crate::{crypto::sign::Signature, SumParticipantPublicKey, UpdateParticipantPublicKey};
 
     #[test]
     fn test_participant() {
@@ -303,10 +306,12 @@ mod tests {
     #[test]
     fn test_create_local_seed_dict() {
         let mask_seed = MaskSeed::generate();
-        let ephm_dict = iter::repeat_with(|| generate_encrypt_key_pair())
-            .take(1 + randombytes_uniform(10) as usize)
-            .collect::<HashMap<SumParticipantEphemeralPublicKey, SumParticipantEphemeralSecretKey>>(
-            );
+        let ephm_dict = iter::repeat_with(|| {
+            let EncryptKeyPair { public, secret } = EncryptKeyPair::generate();
+            (public, secret)
+        })
+        .take(1 + randombytes_uniform(10) as usize)
+        .collect::<HashMap<SumParticipantEphemeralPublicKey, SumParticipantEphemeralSecretKey>>();
         let sum_dict = ephm_dict
             .iter()
             .map(|(ephm_pk, _)| {

@@ -1,32 +1,38 @@
-use super::ByteObject;
+//! Wrappers around some of the [sodiumoxide] encryption primitives.
+//!
+//! See the [crypto module] documentation since this is a private module anyways.
+//!
+//! [sodiumoxide]: https://docs.rs/sodiumoxide/
+//! [crypto module]: ../index.html
 
 use derive_more::{AsMut, AsRef, From};
 use sodiumoxide::crypto::{box_, sealedbox};
 
-/// Number of additional bytes in a ciphertext compared to the
-/// corresponding plaintext.
+use super::ByteObject;
+
+/// Number of additional bytes in a ciphertext compared to the corresponding plaintext.
 pub const SEALBYTES: usize = sealedbox::SEALBYTES;
 
-/// Generate a new random key pair
-pub fn generate_encrypt_key_pair() -> (PublicEncryptKey, SecretEncryptKey) {
-    let (pk, sk) = box_::gen_keypair();
-    (PublicEncryptKey(pk), SecretEncryptKey(sk))
-}
-
 #[derive(Debug, Clone)]
-pub struct KeyPair {
+/// A `C25519` key pair for asymmetric authenticated encryption.
+pub struct EncryptKeyPair {
+    /// The `C25519` public key.
     pub public: PublicEncryptKey,
+    /// The `C25519` secret key.
     pub secret: SecretEncryptKey,
 }
 
-impl KeyPair {
+impl EncryptKeyPair {
+    /// Generates a new random `C25519` key pair for encryption.
     pub fn generate() -> Self {
-        let (public, secret) = generate_encrypt_key_pair();
-        Self { public, secret }
+        let (pk, sk) = box_::gen_keypair();
+        Self {
+            public: PublicEncryptKey(pk),
+            secret: SecretEncryptKey(sk),
+        }
     }
 }
 
-/// Public key for asymmetric authenticated encryption
 #[derive(
     AsRef,
     AsMut,
@@ -42,6 +48,7 @@ impl KeyPair {
     PartialOrd,
     Debug,
 )]
+/// A `C25519` public key for asymmetric authenticated encryption.
 pub struct PublicEncryptKey(box_::PublicKey);
 
 impl ByteObject for PublicEncryptKey {
@@ -59,37 +66,41 @@ impl ByteObject for PublicEncryptKey {
 }
 
 impl PublicEncryptKey {
-    /// Length in bytes of a [`PublicEncryptKey`]
+    /// Length in bytes of this public key.
     pub const LENGTH: usize = box_::PUBLICKEYBYTES;
 
-    /// Encrypt a message `m` with this public key. The resulting
-    /// ciphertext length is [`SEALBYTES`] + `m.len()`.
+    /// Encrypts a message `m` with this public key.
     ///
-    /// The function creates a new key pair for each message, and
-    /// attaches the public key to the ciphertext. The secret key is
-    /// overwritten and is not accessible after this function returns.
+    /// The resulting ciphertext length is [`SEALBYTES`]` + m.len()`.
+    ///
+    /// The function creates a new ephemeral key pair for the message and attaches the ephemeral
+    /// public key to the ciphertext. The ephemeral secret key is zeroed out and is not accessible
+    /// after this function returns.
     pub fn encrypt(&self, m: &[u8]) -> Vec<u8> {
         sealedbox::seal(m, self.as_ref())
     }
 }
 
-/// Secret key for asymmetric authenticated encryption
 #[derive(AsRef, AsMut, From, Serialize, Deserialize, Eq, PartialEq, Clone, Debug)]
+/// A `C25519` secret key for asymmetric authenticated encryption.
+///
+/// When this goes out of scope, its contents will be zeroed out.
 pub struct SecretEncryptKey(box_::SecretKey);
 
 impl SecretEncryptKey {
-    /// Length in bytes of a [`SecretEncryptKey`]
+    /// Length in bytes of this secret key.
     pub const LENGTH: usize = box_::SECRETKEYBYTES;
 
-    /// Decrypt the ciphertext `c` using this secret key and the
-    /// associated public key, and return the decrypted message.
+    /// Decrypts the ciphertext `c` using this secret key and the associated public key, and returns
+    /// the decrypted message.
     ///
-    /// If decryption fails `Err(())` is returned.
+    /// # Errors
+    /// Returns `Err(())` if decryption fails.
     pub fn decrypt(&self, c: &[u8], pk: &PublicEncryptKey) -> Result<Vec<u8>, ()> {
         sealedbox::open(c, pk.as_ref(), self.as_ref())
     }
 
-    /// Compute the corresponding public key for this secret key
+    /// Computes the corresponding public key for this secret key.
     pub fn public_key(&self) -> PublicEncryptKey {
         PublicEncryptKey(self.0.public_key())
     }
@@ -109,16 +120,17 @@ impl ByteObject for SecretEncryptKey {
     }
 }
 
-/// A seed that can be used for key pair generation. When `KeySeed`
-/// goes out of scope, its contents will be zeroed out.
 #[derive(AsRef, AsMut, From, Serialize, Deserialize, Eq, PartialEq, Clone)]
+/// A seed that can be used for `C25519` encryption key pair generation.
+///
+/// When this goes out of scope, its contents will be zeroed out.
 pub struct EncryptKeySeed(box_::Seed);
 
 impl EncryptKeySeed {
-    /// Length in bytes of a [`EncryptKeySeed`]
+    /// Length in bytes of this seed.
     pub const LENGTH: usize = box_::SEEDBYTES;
 
-    /// Deterministically derive a new key pair from this seed
+    /// Deterministically derives a new key pair from this seed.
     pub fn derive_encrypt_key_pair(&self) -> (PublicEncryptKey, SecretEncryptKey) {
         let (pk, sk) = box_::keypair_from_seed(self.as_ref());
         (PublicEncryptKey(pk), SecretEncryptKey(sk))

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use sodiumoxide::{self, crypto::box_, randombytes::randombytes};
 
 use crate::{
-    crypto::{ByteObject, KeyPair},
+    crypto::{encrypt::EncryptKeyPair, ByteObject},
     mask::{MaskConfig, MaskObject},
     settings::{MaskSettings, PetSettings},
     state_machine::events::{EventPublisher, EventSubscriber, PhaseEvent},
@@ -22,7 +22,7 @@ pub struct RoundParameters {
 }
 
 pub struct CoordinatorState {
-    pub keys: KeyPair,
+    pub keys: EncryptKeyPair,
     pub round_params: RoundParameters,
     pub min_sum: usize,
     pub min_update: usize,
@@ -33,7 +33,7 @@ pub struct CoordinatorState {
 
 impl CoordinatorState {
     pub fn new(pet_settings: PetSettings, mask_settings: MaskSettings) -> (Self, EventSubscriber) {
-        let keys = KeyPair::generate();
+        let keys = EncryptKeyPair::generate();
         let round_params = RoundParameters {
             id: 0,
             pk: keys.public,

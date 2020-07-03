@@ -3,7 +3,11 @@ use std::borrow::Borrow;
 
 use crate::{
     certificate::Certificate,
-    crypto::{ByteObject, PublicEncryptKey, SecretEncryptKey, SecretSigningKey, Signature},
+    crypto::{
+        encrypt::{PublicEncryptKey, SecretEncryptKey},
+        sign::{SecretSigningKey, Signature},
+        ByteObject,
+    },
     mask::MaskObject,
     message::{
         DecodeError,

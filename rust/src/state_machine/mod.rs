@@ -95,7 +95,7 @@ where
 #[cfg(test)]
 mod tests {
     use crate::{
-        crypto::{generate_encrypt_key_pair, generate_signing_key_pair, ByteObject},
+        crypto::{encrypt::EncryptKeyPair, sign::SigningKeyPair, ByteObject},
         mask::{
             BoundType,
             DataType,
@@ -131,8 +131,13 @@ mod tests {
         oneshot::Receiver<Result<(), PetError>>,
     ) {
         let (response_tx, response_rx) = oneshot::channel::<Result<(), PetError>>();
-        let (participant_pk, _) = generate_signing_key_pair();
-        let (ephm_pk, _) = generate_encrypt_key_pair();
+        let SigningKeyPair {
+            public: participant_pk,
+            ..
+        } = SigningKeyPair::generate();
+        let EncryptKeyPair {
+            public: ephm_pk, ..
+        } = EncryptKeyPair::generate();
         let req = Request::Sum((
             SumRequest {
                 participant_pk,
@@ -147,7 +152,10 @@ mod tests {
         sum_pk: SumParticipantPublicKey,
     ) -> (Request, oneshot::Receiver<Result<(), PetError>>) {
         let (response_tx, response_rx) = oneshot::channel::<Result<(), PetError>>();
-        let (participant_pk, _) = generate_signing_key_pair();
+        let SigningKeyPair {
+            public: participant_pk,
+            ..
+        } = SigningKeyPair::generate();
         let mut local_seed_dict = LocalSeedDict::new();
         local_seed_dict.insert(sum_pk, EncryptedMaskSeed::zeroed());
         let masked_model = gen_mask();
