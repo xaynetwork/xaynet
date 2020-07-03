@@ -93,7 +93,7 @@ pub enum BoundType {
     B4 = 4,
     /// Numerical values absolutely bounded by 1_000_000.
     B6 = 6,
-    /// Numerical values absolutely bounded by their original primitve data types' maximum absolute
+    /// Numerical values absolutely bounded by their original primitive data type's maximum absolute
     /// value.
     Bmax = 255,
 }
