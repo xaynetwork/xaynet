@@ -345,6 +345,7 @@ impl Client {
         debug!(client_id = %self.id, "polling for local model");
         let model = loop {
             if let Some(model) = self.local_model.take() {
+                self.local_model = Some(model.clone());
                 break model;
             }
             trace!(client_id = %self.id, "local model not ready, retrying.");
