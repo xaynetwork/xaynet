@@ -224,7 +224,7 @@ impl Client {
     /// # Errors
     /// Returns a `ParticipantInitErr` if the underlying [`Participant`] is
     /// unable to initialize.
-    pub fn new_with_addr(period: u64, id: u32, addr: &'static str) -> Result<Self, ClientError> {
+    pub fn new_with_addr(period: u64, id: u32, addr: &str) -> Result<Self, ClientError> {
         Ok(Self {
             participant: Participant::new().map_err(ClientError::ParticipantInitErr)?,
             interval: time::interval(Duration::from_secs(period)),

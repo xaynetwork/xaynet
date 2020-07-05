@@ -1,8 +1,35 @@
+use futures::stream::{FuturesUnordered, StreamExt};
+use structopt::StructOpt;
+use tokio::{signal, task::JoinHandle};
 use tracing_subscriber::*;
 use xain_fl::{
     client::{Client, ClientError, Task},
     mask::{FromPrimitives, Model},
 };
+
+#[macro_use]
+extern crate tracing;
+
+#[derive(Debug, StructOpt)]
+#[structopt(name = "Test Drive")]
+struct Opt {
+    #[structopt(
+        default_value = "http://127.0.0.1:8081",
+        short,
+        help = "The URL of the coordinator"
+    )]
+    url: String,
+    #[structopt(default_value = "4", short, help = "The length of the model")]
+    len: u32,
+    #[structopt(
+        default_value = "1",
+        short,
+        help = "The time period at which to poll for service data, in seconds"
+    )]
+    period: u64,
+    #[structopt(default_value = "10", short, help = "The number of clients")]
+    no: u32,
+}
 
 /// Test-drive script of a (local, but networked) single-round federated
 /// learning session, intended for use as a mini integration test. It assumes
@@ -19,33 +46,35 @@ async fn main() -> Result<(), ClientError> {
         .with_ansi(true)
         .init();
 
-    // dummy local model for clients
-    let model = Model::from_primitives(vec![0_f32, 1_f32, 0_f32, 1_f32].into_iter()).unwrap();
+    let opt = Opt::from_args();
 
-    let mut tasks = vec![];
-    for id in 0..10 {
-        let mut client = Client::new_with_addr(1, id, "http://127.0.0.1:8081")?;
+    // // dummy local model for clients
+    let len = opt.len as usize;
+    let model = Model::from_primitives(vec![0; len].into_iter()).unwrap();
+
+    let mut clients = FuturesUnordered::<JoinHandle<()>>::new();
+    for id in 0..opt.no {
+        let mut client = Client::new_with_addr(opt.period, id, &opt.url)?;
         client.local_model = Some(model.clone());
-        let join_hdl = tokio::spawn(async move { client.during_round().await });
-        tasks.push(join_hdl);
+        let join_hdl = tokio::spawn(async move {
+            tokio::select! {
+                _ = signal::ctrl_c() => {
+                    info!("ctrl-c received!");
+                }
+                result = client.start() => {
+                    error!("{:?}", result);
+                }
+            }
+        });
+        clients.push(join_hdl);
     }
-    println!("spawned 10 clients");
 
-    let mut summers = 0;
-    let mut updaters = 0;
-    let mut unselecteds = 0;
-    for task in tasks {
-        match task.await.or(Err(ClientError::GeneralErr))?? {
-            Task::Update => updaters += 1,
-            Task::Sum => summers += 1,
-            Task::None => unselecteds += 1,
+    // wait for all the clients to finish
+    loop {
+        if clients.next().await.is_none() {
+            break;
         }
     }
-
-    println!(
-        "{} sum, {} update, {} unselected clients completed a round",
-        summers, updaters, unselecteds
-    );
 
     Ok(())
 }
