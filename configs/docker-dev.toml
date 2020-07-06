@@ -5,11 +5,11 @@ filter = "xain_fl=debug,info"
 bind_address = "0.0.0.0:8081"
 
 [pet]
-min_sum = 5
-min_update = 50
-sum = 0.1
+min_sum = 1
+min_update = 3
+sum = 0.01
 update = 0.1
-expected_participants = 1000
+expected_participants = 10
 
 [mask]
 group_type = "Prime"

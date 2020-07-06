@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate tracing;
+
 use futures::stream::{FuturesUnordered, StreamExt};
 use structopt::StructOpt;
 use tokio::{signal, task::JoinHandle};
@@ -6,9 +9,6 @@ use xain_fl::{
     client::{Client, ClientError, Task},
     mask::{FromPrimitives, Model},
 };
-
-#[macro_use]
-extern crate tracing;
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "Test Drive")]
@@ -28,17 +28,11 @@ struct Opt {
     )]
     period: u64,
     #[structopt(default_value = "10", short, help = "The number of clients")]
-    no: u32,
+    nb_client: u32,
 }
 
-/// Test-drive script of a (local, but networked) single-round federated
-/// learning session, intended for use as a mini integration test. It assumes
-/// that a [`Service`] is already running and listening to
-/// http://127.0.0.1:8081.
-///
-/// 10 [`Client`]s are spawned on the tokio event loop. This serves as a simple
-/// example of getting started with the project, and may later be the basis for
-/// more automated tests.
+/// Test-drive script of a (local, but networked) federated
+/// learning session, intended for use as a mini integration test.
 #[tokio::main]
 async fn main() -> Result<(), ClientError> {
     let _fmt_subscriber = FmtSubscriber::builder()
@@ -53,14 +47,12 @@ async fn main() -> Result<(), ClientError> {
     let model = Model::from_primitives(vec![0; len].into_iter()).unwrap();
 
     let mut clients = FuturesUnordered::<JoinHandle<()>>::new();
-    for id in 0..opt.no {
+    for id in 0..opt.nb_client {
         let mut client = Client::new_with_addr(opt.period, id, &opt.url)?;
         client.local_model = Some(model.clone());
         let join_hdl = tokio::spawn(async move {
             tokio::select! {
-                _ = signal::ctrl_c() => {
-                    info!("ctrl-c received!");
-                }
+                _ = signal::ctrl_c() => {}
                 result = client.start() => {
                     error!("{:?}", result);
                 }
