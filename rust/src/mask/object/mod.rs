@@ -19,7 +19,7 @@ use crate::mask::MaskConfig;
 pub struct InvalidMaskObjectError;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
-/// A mask or masked model.
+/// A mask object which represents either a mask or a masked model.
 pub struct MaskObject {
     pub(crate) data: Vec<BigUint>,
     pub(crate) config: MaskConfig,

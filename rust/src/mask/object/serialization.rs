@@ -44,7 +44,7 @@ impl<T: AsRef<[u8]>> MaskObjectBuffer<T> {
     /// Checks if this buffer conforms to the required buffer length for mask objects.
     ///
     /// # Errors
-    /// Fails if the buffer is to small.
+    /// Fails if the buffer is too small.
     pub fn check_buffer_length(&self) -> Result<(), DecodeError> {
         let len = self.inner.as_ref().len();
         if len < NUMBERS_FIELD.end {

@@ -84,6 +84,9 @@ impl TryFrom<u8> for DataType {
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[repr(u8)]
 /// The bounds of the numerical values.
+///
+/// For a value `v` to be absolutely bounded by another value `b`, it has to hold that
+/// `-b <= v <= b` or equivalently `|v| <= b`.
 pub enum BoundType {
     /// Numerical values absolutely bounded by 1.
     B0 = 0,
@@ -115,7 +118,7 @@ impl TryFrom<u8> for BoundType {
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[repr(u8)]
-/// The number of models to be aggregated at most.
+/// The maximum number of models to be aggregated at most.
 pub enum ModelType {
     /// At most 1_000 models to be aggregated.
     M3 = 3,
@@ -129,7 +132,7 @@ pub enum ModelType {
 
 impl ModelType {
     /// Gets the maximum number of models that can be aggregated for this model type.
-    pub fn nb_models_max(&self) -> usize {
+    pub fn max_nb_models(&self) -> usize {
         10_usize.pow(*self as u8 as u32)
     }
 }
@@ -151,20 +154,20 @@ impl TryFrom<u8> for ModelType {
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 /// A masking configuration.
 ///
-/// Consists of the following parts:
-/// - the order of the finite group
-/// - the data type of the numbers to be masked
-/// - the bounds of the numbers to be masked
-/// - the number of models to be aggregated at most
+/// This configuration is applied for masking, aggregation and unmasking of models.
 pub struct MaskConfig {
+    /// The order of the finite group.
     pub group_type: GroupType,
+    /// The original primitive data type of the numerical values to be masked.
     pub data_type: DataType,
+    /// The bounds of the numerical values.
     pub bound_type: BoundType,
+    /// The maximum number of models to be aggregated at most.
     pub model_type: ModelType,
 }
 
 impl MaskConfig {
-    /// Returns the number of bytes needed for an element of a mask or masked model.
+    /// Returns the number of bytes needed for an element of a mask object.
     pub(crate) fn bytes_per_number(&self) -> usize {
         let max_number = self.order() - BigUint::from(1_u8);
         (max_number.bits() + 7) / 8

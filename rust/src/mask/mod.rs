@@ -2,8 +2,9 @@
 //!
 //! # Models
 //! A [`Model`] is a collection of weights/parameters which are represented as finite numerical
-//! values (i.e. rational numbers) of arbitrary precision. Particularly, a model in itself is not
-//! bound to a primitive data type, but it can be created from those and converted back into those.
+//! values (i.e. rational numbers) of arbitrary precision. As such, a model in itself is not bound
+//! to any particular primitive data type, but it can be created from those and converted back into
+//! them.
 //!
 //! Currently, the primitive data types [`f32`], [`f64`], [`i32`] and [`i64`] are supported and
 //! this might be extended in the future.
@@ -41,8 +42,8 @@
 //! - Power2: usually higher gap with potentially highest performance.
 //!
 //! ## Data type
-//! The [`DataType`] describes the original primitives data type of the model weights. This
-//! influences in combination with the bound type the preserved decimal places of the model weights
+//! The [`DataType`] describes the original primitive data type of the model weights. This in
+//! combination with the bound type influences the preserved decimal places of the model weights
 //! during the masking, aggregation and unmasking process, which are:
 //! - F32: 10 decimal places for bounded model weights and 45 decimal places for unbounded.
 //! - F64: 20 decimal places for bounded model weights and 324 decimal places for unbounded.
@@ -81,7 +82,7 @@
 //!
 //! ## Masking
 //! A [`Model`] can be masked with a [`Masker`], which requires a [`MaskConfig`]. During the
-//! masking the model weights are scaled, then embedded as elements of the chosen finite group and
+//! masking, the model weights are scaled, then embedded as elements of the chosen finite group and
 //! finally masked by randomly generated elements from that very same finite group. The scalar
 //! provides the necessary means to perform different aggregation strategies, for example federated
 //! averaging. The masked model is returned as a [`MaskObject`] and the mask used to mask the model
@@ -111,11 +112,10 @@
 //! ```
 //!
 //! ## Aggregation
-//! Masked models can be aggregated via an [`Aggregation`]. Masks can be aggregated via an
-//! [`Aggregation`] as well, since an aggregated masked model can only be unmasked by the
-//! aggregated masks belonging to the masked models. It should always be validated that the
-//! aggregation may be safely performed wrt the chosen masking configuration before actually
-//! aggregating to avoid the possible loss of information.
+//! Masked models can be aggregated via an [`Aggregation`]. Masks themselves can be aggregated via
+//! an [`Aggregation`] as well. An aggregated masked model can only be unmasked by the aggregation
+//! of masks for each model. Aggregation should always be validated beforehand so that it may be
+//! safely performed wrt the chosen masking configuration without possible loss of information.
 //!
 //! ```
 //! # use xain_fl::mask::{Aggregation, BoundType, DataType, FromPrimitives, GroupType, MaskConfig, Masker, MaskObject, Model, ModelType};
@@ -149,9 +149,9 @@
 //! ```
 //!
 //! ## Unmasking
-//! A masked model can be unmasked by the corresponding mask via an [`Aggregation`] in the end. It
-//! should always be validated that the unmasking may be safely performed wrt the chosen mask
-//! configuration before actually unmasking to avoid the possible loss of information.
+//! A masked model can be unmasked by the corresponding mask via an [`Aggregation`]. Unmasking
+//! should always be validated beforehand so that it may be safely performed wrt the chosen mask
+//! configuration without possible loss of information.
 //!
 //! ```
 //! # use xain_fl::mask::{Aggregation, BoundType, DataType, FromPrimitives, GroupType, MaskConfig, Masker, MaskObject, Model, ModelType};

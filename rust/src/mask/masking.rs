@@ -81,7 +81,7 @@ impl Aggregation {
         }
     }
 
-    /// Gets the length of the aggregated mask or masked model.
+    /// Gets the length of the aggregated mask object.
     pub fn len(&self) -> usize {
         self.object.data.len()
     }
@@ -106,8 +106,11 @@ impl Aggregation {
     /// - The length of the aggregated masked model and the `mask` don't coincide.
     /// - The `mask` itself is invalid.
     ///
-    /// Even though it does not produce any meaningful values, it may be validated that "unmasking"
-    /// of aggregated masks may be safely performed wrt. the given `mask`.
+    /// Even though it does not produce any meaningful values, it is safe and technically possible
+    /// due to the [`MaskObject`] type to validate, that:
+    /// - a mask may unmask another mask
+    /// - a masked model may unmask a mask
+    /// - a masked model may unmask another masked model
     ///
     /// [`unmask()`]: #method.unmask
     pub fn validate_unmasking(&self, mask: &MaskObject) -> Result<(), UnmaskingError> {
@@ -116,7 +119,7 @@ impl Aggregation {
             return Err(UnmaskingError::NoModel);
         }
 
-        if self.nb_models > self.object.config.model_type.nb_models_max() {
+        if self.nb_models > self.object.config.model_type.max_nb_models() {
             return Err(UnmaskingError::TooManyModels);
         }
 
@@ -133,15 +136,20 @@ impl Aggregation {
 
     /// Unmasks the aggregated masked model with the given `mask`.
     ///
-    /// It should be checked that [`validate_unmasking()`] returns `true` before calling this, since
+    /// It should be checked that [`validate_unmasking()`] succeeds before calling this, since
     /// unmasking may return garbage values otherwise. The unmasking is performed in opposite order
     /// as described for [`mask()`].
     ///
     /// # Panics
-    /// This may only panic if [`validate_unmasking()`] returns `false`.
+    /// This may only panic if [`validate_unmasking()`] fails.
     ///
-    /// Even though it does not produce any meaningful values, aggregated masks may be safely
-    /// "unmasked" if [`validate_unmasking()`] returns `true`.
+    /// Even though it does not produce any meaningful values, it is safe and technically possible
+    /// due to the [`MaskObject`] type to unmask:
+    /// - a mask with another mask
+    /// - a mask with a masked model
+    /// - a masked model with another masked model
+    ///
+    /// if [`validate_unmasking()`] returns `true`.
     ///
     /// [`validate_unmasking()`]: #method.validate_unmasking
     /// [`mask()`]: struct.Masker.html#method.mask
@@ -172,8 +180,8 @@ impl Aggregation {
             .collect()
     }
 
-    /// Validates if aggregation of the aggregated mask or masked model with the given `object`
-    /// may be safely performed.
+    /// Validates if aggregation of the aggregated mask object with the given `object` may be safely
+    /// performed.
     ///
     /// This should be checked before calling [`aggregate()`], since aggregation may return garbage
     /// values otherwise.
@@ -187,8 +195,9 @@ impl Aggregation {
     ///   chosen masking configuration allows.
     /// - The `object` itself is invalid.
     ///
-    /// Even though it does not produce any meaningful values, it may be validated that
-    /// "aggregation" of masks with masked models may be safely performed.
+    /// Even though it does not produce any meaningful values, it is safe and technically possible
+    /// due to the [`MaskObject`] type to validate, that a mask may be aggregated with a masked
+    /// model.
     ///
     /// [`aggregate()`]: #method.aggregate
     pub fn validate_aggregation(&self, object: &MaskObject) -> Result<(), AggregationError> {
@@ -202,7 +211,7 @@ impl Aggregation {
             return Err(AggregationError::ModelMismatch);
         }
 
-        if self.nb_models == self.object.config.model_type.nb_models_max() {
+        if self.nb_models == self.object.config.model_type.max_nb_models() {
             return Err(AggregationError::TooManyModels);
         }
 
@@ -213,14 +222,15 @@ impl Aggregation {
         Ok(())
     }
 
-    /// Aggregates the aggregated mask or masked model with the given `object`.
+    /// Aggregates the aggregated mask object with the given `object`.
     ///
-    /// It should be checked that [`validate_aggregation()`] returns `true` before calling this,
-    /// since aggregation may return garbage values otherwise.
+    /// It should be checked that [`validate_aggregation()`] succeeds before calling this, since
+    /// aggregation may return garbage values otherwise.
     ///
     /// # Errors
-    /// Even though it does not produce any meaningful values, "aggregation" of masks with masked
-    /// models may be safely performed if [`validate_aggregation()`] returns `true`.
+    /// Even though it does not produce any meaningful values, it is safe and technically possible
+    /// due to the [`MaskObject`] type to aggregate a mask with a masked model if
+    /// [`validate_aggregation()`] returns `true`.
     ///
     /// [`validate_aggregation()`]: #method.validate_aggregation
     pub fn aggregate(&mut self, object: MaskObject) {
@@ -260,20 +270,21 @@ impl Masker {
 }
 
 impl Masker {
-    /// Masks the model wrt the masking configuration. Enforces bounds on the scalar and weights.
+    /// Masks the given `model` wrt the masking configuration. Enforces bounds on the scalar and
+    /// weights.
     ///
     /// The masking proceeds in the following steps:
     /// - Clamp the scalar and the weights according to the masking configuration.
+    /// - Scale the weights by the scalar.
     /// - Shift the weights into the non-negative reals.
     /// - Shift the weights into the non-negative integers.
     /// - Shift the weights into the finite group.
     /// - Mask the weights with random elements from the finite group.
     ///
     /// The random elements are derived from a seeded PRNG. Unmasking as performed in [`unmask()`]
-    /// proceeds in reverse order. For more details see this [confluence page].
+    /// proceeds in reverse order.
     ///
     /// [`unmask()`]: struct.Aggregation.html#method.unmask
-    /// [confluence page]: https://xainag.atlassian.net/wiki/spaces/FP/pages/542408769/Masking
     pub fn mask(self, scalar: f64, model: Model) -> (MaskSeed, MaskObject) {
         let random_ints = self.random_ints();
         let Self { seed, config } = self;

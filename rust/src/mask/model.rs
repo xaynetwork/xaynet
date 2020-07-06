@@ -79,10 +79,10 @@ pub struct ModelCastError {
 /// Errors related to model conversion from primitives.
 pub struct PrimitiveCastError<P: Debug>(P);
 
-/// An interface to convert a collection of numerical values into a an iterator of primitive values.
+/// An interface to convert a collection of numerical values into an iterator of primitive values.
 ///
 /// This trait is used to convert a [`Model`], which has its own internal representation of the
-/// weights, into primitive types ([`f32`], [`f64`], [`i32`], [`i64`]). The opposed trait is
+/// weights, into primitive types ([`f32`], [`f64`], [`i32`], [`i64`]). The opposite trait is
 /// [`FromPrimitives`].
 pub trait IntoPrimitives<P: 'static>: Sized {
     /// Creates an iterator from numerical values that yields converted primitive values.
@@ -103,10 +103,10 @@ pub trait IntoPrimitives<P: 'static>: Sized {
     }
 }
 
-/// An interface to convert a collection of primitive values into a an iterator of numerical values.
+/// An interface to convert a collection of primitive values into an iterator of numerical values.
 ///
 /// This trait is used to convert primitive types ([`f32`], [`f64`], [`i32`], [`i64`]) into a
-/// [`Model`], which has its own internal representation of the weights. The opposed trait is
+/// [`Model`], which has its own internal representation of the weights. The opposite trait is
 /// [`IntoPrimitives`].
 pub trait FromPrimitives<P: Debug>: Sized {
     /// Creates an iterator from primitive values that yields converted numerical values.
