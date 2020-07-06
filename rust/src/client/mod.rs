@@ -1,3 +1,72 @@
+//! Provides client-side functionality to connect to a XayNet service.
+//!
+//! This functionality includes:
+//!
+//! * Abiding by (the underlying [`Participant`]'s side of) the PET protocol.
+//! * Handling the network communication with the XayNet service, including
+//!   polling of service data.
+//!
+//! # Participant
+//! In any given round of federated learning, each [`Participant`] of the
+//! protocol is characterised by a role which determines its [`Task`] to carry
+//! out in the round, and which is computed by [`check_task`].
+//!
+//! Participants selected to `Update` are responsible for sending masked model
+//! updates in the form of PET messages constructed with
+//! [`compose_update_message`].
+//!
+//! Participants selected to `Sum` are responsible for sending ephemeral keys
+//! and global masks in PET messages constructed respectively with
+//! [`compose_sum_message`] and [`compose_sum2_message`].
+//!
+//! # Client
+//! A [`Client`] has an intentionally simple API - the idea is that it is
+//! initialised with some settings, and then [`start()`]ed. Currently for
+//! simplicity, clients that have started running will do so indefinitely. It is
+//! therefore the user's responsibility to terminate clients that are no longer
+//! needed. Alternatively, it may be more convenient to run just a single round
+//! (or a known fixed number of rounds). In this case, use [`during_round()`].
+//! For examples of usage, see the `test-drive` scripts.
+//!
+//! **Note.** At present, the [`Client`] implementation is somewhat tightly
+//! coupled with the workings of the C-API SDK, but this may well change in a
+//! future version to be more independently reusable.
+//!
+//! ## Requests via Proxy
+//! There is a [`Proxy`] which a [`Client`] can use to communicate with the
+//! service. To summarise, the proxy:
+//!
+//! * Wraps either an in-memory service (for local comms) or a _client request_
+//! object (for remote comms over HTTP).
+//! * In the latter case, deals with logging and wrapping of network errors.
+//! * Deals with deserialization
+//!
+//! The client request object is responsible for building the HTTP request and
+//! extracting the response body. As an example:
+//!
+//! ```no_rust
+//! async fn get_sums(&self) -> Result<Option<bytes::Bytes>, reqwest::Error>
+//! ```
+//!
+//! issues a GET request for the sum dictionary. The return type reflects the
+//! presence of networking `Error`s, but also the situation where the dictionary
+//! is simply just not yet available on the service. That is, the type also
+//! reflects the _optionality_ of the data availability.
+//!
+//! [`Proxy`] essentially takes this (deserializing the `Bytes` into a `SumDict`
+//! while handling `Error`s into [`ClientError`]s) to expose the overall method
+//!
+//! ```no_rust
+//! async fn get_sums(&self) -> Result<Option<SumDict>, ClientError>
+//! ```
+//!
+//! [`check_task`]: #method.check_task
+//! [`compose_update_message`]: #method.compose_update_message
+//! [`compose_sum_message`]: #method.compose_sum_message
+//! [`compose_sum2_message`]: #method.compose_sum2_message
+//! [`start()`]: #method.start
+//! [`during_round()`]: #method.during_round
+
 use std::{default::Default, time::Duration};
 
 use thiserror::Error;
@@ -6,8 +75,6 @@ use tokio::time;
 use crate::{
     crypto::ByteObject,
     mask::model::Model,
-    participant::{Participant, Task},
-    request::Proxy,
     sdk::api::CachedModel,
     services::{FetchError, Fetcher, PetMessageError, PetMessageHandler},
     CoordinatorPublicKey,
@@ -15,31 +82,45 @@ use crate::{
     PetError,
 };
 
+mod request;
+pub use request::Proxy;
+
+mod participant;
+pub use participant::{Participant, Task};
+
 #[derive(Debug, Error)]
 /// Client-side errors
 pub enum ClientError {
     #[error("failed to initialise participant: {0}")]
+    /// Failed to initialise participant.
     ParticipantInitErr(InitError),
 
     #[error("Failed to retrieve data: {0}")]
+    /// Failed to retrieve data.
     Fetch(FetchError),
 
     #[error("Failed to handle PET message: {0}")]
+    /// Failed to handle PET message.
     PetMessage(PetMessageError),
 
     #[error("error arising from participant")]
+    /// Error arising from participant.
     ParticipantErr(PetError),
 
     #[error("failed to deserialise service data: {0}")]
+    /// Failed to deserialise service data.
     DeserialiseErr(bincode::Error),
 
     #[error("network-related error: {0}")]
+    /// Network-related error.
     NetworkErr(reqwest::Error),
 
     #[error("failed to parse service data")]
+    /// Failed to parse service data.
     ParseErr,
 
     #[error("unexpected client error")]
+    /// Unexpected client error.
     GeneralErr,
 }
 
@@ -95,10 +176,11 @@ impl Default for Client {
 impl Client {
     /// Create a new [`Client`] that connects to a default service address.
     ///
-    /// `period`: time period at which to poll for service data, in seconds.
+    /// * `period`: time period at which to poll for service data, in seconds.
     ///
-    /// Returns `Ok(client)` if [`Client`] `client` initialised successfully
-    /// Returns `Err(err)` if `ClientError` `err` occurred
+    /// # Errors
+    /// Returns a `ParticipantInitErr` if the underlying [`Participant`] is
+    /// unable to initialize.
     pub(crate) fn new(period: u64) -> Result<Self, ClientError> {
         Ok(Self {
             participant: Participant::new().map_err(ClientError::ParticipantInitErr)?,
@@ -109,12 +191,14 @@ impl Client {
 
     /// Create a new [`Client`] with a given service handle.
     ///
-    /// `period`: time period at which to poll for service data, in seconds.
-    /// `id`: an ID to assign to the [`Client`].
-    /// `handle`: handle for communicating with the (local) service.
+    /// * `period`: time period at which to poll for service data, in seconds.
+    /// * `id`: an ID to assign to the [`Client`].
+    /// * `fetcher`: fetcher for in-memory service proxy.
+    /// * `message_handler`: message handler for in-memory service proxy.
     ///
-    /// Returns `Ok(client)` if [`Client`] `client` initialised successfully
-    /// Returns `Err(err)` if `ClientError` `err` occurred
+    /// # Errors
+    /// Returns a `ParticipantInitErr` if the underlying [`Participant`] is
+    /// unable to initialize.
     pub fn new_with_hdl(
         period: u64,
         id: u32,
@@ -132,12 +216,13 @@ impl Client {
 
     /// Create a new [`Client`] with a given service address.
     ///
-    /// `period`: time period at which to poll for service data, in seconds.
-    /// `id`: an ID to assign to the [`Client`].
-    /// `addr`: service address to connect to.
+    /// * `period`: time period at which to poll for service data, in seconds.
+    /// * `id`: an ID to assign to the [`Client`].
+    /// * `addr`: service address to connect to.
     ///
-    /// Returns `Ok(client)` if [`Client`] `client` initialised successfully
-    /// Returns `Err(err)` if `ClientError` `err` occurred
+    /// # Errors
+    /// Returns a `ParticipantInitErr` if the underlying [`Participant`] is
+    /// unable to initialize.
     pub fn new_with_addr(period: u64, id: u32, addr: &'static str) -> Result<Self, ClientError> {
         Ok(Self {
             participant: Participant::new().map_err(ClientError::ParticipantInitErr)?,
@@ -148,19 +233,24 @@ impl Client {
         })
     }
 
-    /// Start the [`Client`] loop
+    /// Starts the [`Client`] loop, iterating indefinitely over each federated
+    /// learning round.
     ///
-    /// Returns `Err(err)` if `ClientError` `err` occurred
-    ///
-    /// NOTE in the future this may iterate only a fixed number of times, at the
-    /// end of which this returns `Ok(())`
+    /// # Errors
+    /// A [`ClientError`] may be returned when the round is not able to complete
+    /// successfully.
     pub async fn start(&mut self) -> Result<(), ClientError> {
         loop {
             self.during_round().await?;
         }
     }
 
-    /// [`Client`] duties within a round
+    /// [`Client`] work flow over a federated learning round. A successfully
+    /// completed round will return the [`Task`] of the client.
+    ///
+    /// # Errors
+    /// A [`ClientError`] may be returned when the round is not able to complete
+    /// successfully.
     pub async fn during_round(&mut self) -> Result<Task, ClientError> {
         debug!(client_id = %self.id, "polling for new round parameters");
         loop {
@@ -198,13 +288,13 @@ impl Client {
         }
     }
 
-    /// Duties for unselected [`Client`]s
+    /// Work flow for unselected [`Client`]s.
     async fn unselected(&mut self) -> Result<Task, ClientError> {
         debug!(client_id = %self.id, "not selected");
         Ok(Task::None)
     }
 
-    /// Duties for [`Client`]s selected as summers
+    /// Work flow for [`Client`]s selected as sum participants.
     async fn summer(&mut self) -> Result<Task, ClientError> {
         info!(client_id = %self.id, "selected to sum");
         let sum1_msg = self.participant.compose_sum_message(&self.coordinator_pk);
@@ -244,7 +334,7 @@ impl Client {
         }
     }
 
-    /// Duties for [`Client`]s selected as updaters
+    /// Work flow for [`Client`]s selected as update participants.
     async fn updater(&mut self) -> Result<Task, ClientError> {
         info!(client_id = %self.id, "selected to update");
 

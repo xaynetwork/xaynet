@@ -93,6 +93,12 @@ pub trait IntoPrimitives<P: 'static>: Sized {
 
     /// Creates an iterator from numerical values that yields converted primitive values.
     ///
+    /// # Errors
+    /// Yields an error for each numerical value that can't be converted into a primitive value.
+    fn to_primitives(&self) -> Box<dyn Iterator<Item = Result<P, ModelCastError>>>;
+
+    /// Consume this model and into an iterator that yields `P` values.
+    ///
     /// # Panics
     /// Panics if a numerical value can't be converted into a primitive value.
     fn into_primitives_unchecked(self) -> Box<dyn Iterator<Item = P>> {
@@ -132,6 +138,16 @@ impl IntoPrimitives<i32> for Model {
             })
         }))
     }
+
+    fn to_primitives(&self) -> Box<dyn Iterator<Item = Result<i32, ModelCastError>>> {
+        let vec = self.0.clone();
+        Box::new(vec.into_iter().map(|i| {
+            i.to_integer().to_i32().ok_or_else(|| ModelCastError {
+                weight: i,
+                target: PrimitiveType::I32,
+            })
+        }))
+    }
 }
 
 impl FromPrimitives<i32> for Model {
@@ -147,6 +163,16 @@ impl FromPrimitives<i32> for Model {
 impl IntoPrimitives<i64> for Model {
     fn into_primitives(self) -> Box<dyn Iterator<Item = Result<i64, ModelCastError>>> {
         Box::new(self.0.into_iter().map(|i| {
+            i.to_integer().to_i64().ok_or_else(|| ModelCastError {
+                weight: i,
+                target: PrimitiveType::I64,
+            })
+        }))
+    }
+
+    fn to_primitives(&self) -> Box<dyn Iterator<Item = Result<i64, ModelCastError>>> {
+        let vec = self.0.clone();
+        Box::new(vec.into_iter().map(|i| {
             i.to_integer().to_i64().ok_or_else(|| ModelCastError {
                 weight: i,
                 target: PrimitiveType::I64,
@@ -175,6 +201,17 @@ impl IntoPrimitives<f32> for Model {
         });
         Box::new(iter)
     }
+
+    fn to_primitives(&self) -> Box<dyn Iterator<Item = Result<f32, ModelCastError>>> {
+        let vec = self.0.clone();
+        let iter = vec.into_iter().map(|r| {
+            ratio_to_float::<f32>(&r).ok_or_else(|| ModelCastError {
+                weight: r,
+                target: PrimitiveType::F32,
+            })
+        });
+        Box::new(iter)
+    }
 }
 
 impl FromPrimitives<f32> for Model {
@@ -191,6 +228,17 @@ impl FromPrimitives<f32> for Model {
 impl IntoPrimitives<f64> for Model {
     fn into_primitives(self) -> Box<dyn Iterator<Item = Result<f64, ModelCastError>>> {
         let iter = self.0.into_iter().map(|r| {
+            ratio_to_float::<f64>(&r).ok_or_else(|| ModelCastError {
+                weight: r,
+                target: PrimitiveType::F64,
+            })
+        });
+        Box::new(iter)
+    }
+
+    fn to_primitives(&self) -> Box<dyn Iterator<Item = Result<f64, ModelCastError>>> {
+        let vec = self.0.clone();
+        let iter = vec.into_iter().map(|r| {
             ratio_to_float::<f64>(&r).ok_or_else(|| ModelCastError {
                 weight: r,
                 target: PrimitiveType::F64,

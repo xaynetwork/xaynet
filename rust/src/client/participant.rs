@@ -1,3 +1,9 @@
+//! Provides the logic and functionality for a participant of the PET protocol.
+//!
+//! See the [client module] documentation since this is a private module anyways.
+//!
+//! [client module]: ../index.html
+
 use std::default::Default;
 
 use crate::{
@@ -76,7 +82,10 @@ impl Default for Participant {
 }
 
 impl Participant {
-    /// Create a participant. Fails if there is insufficient system entropy to generate secrets.
+    /// Create a participant.
+    ///
+    /// # Errors
+    /// Fails if there is insufficient system entropy to generate secrets.
     pub fn new() -> Result<Self, InitError> {
         // crucial: init must be called before anything else in this module
         sodiumoxide::init().or(Err(InitError))?;
@@ -91,13 +100,16 @@ impl Participant {
         })
     }
 
-    /// Compute the sum and update signatures.
+    /// Compute the sum and update signatures for the given round seed.
     pub fn compute_signatures(&mut self, round_seed: &[u8]) {
         self.sum_signature = self.sk.sign_detached(&[round_seed, b"sum"].concat());
         self.update_signature = self.sk.sign_detached(&[round_seed, b"update"].concat());
     }
 
-    /// Check eligibility for a task.
+    /// Check eligibility for a task given probabilities for `Sum` and `Update`
+    /// selection in this round.
+    ///
+    /// Returns the [`Task`] selected for this round.
     pub fn check_task(&mut self, round_sum: f64, round_update: f64) -> Task {
         if self.sum_signature.is_eligible(round_sum) {
             self.task = Task::Sum;
@@ -109,7 +121,9 @@ impl Participant {
         self.task
     }
 
-    /// Compose a sum message.
+    /// Compose a sum message given the coordinator public key.
+    ///
+    /// Returns the signed and encrypted message.
     pub fn compose_sum_message(&mut self, pk: &CoordinatorPublicKey) -> Vec<u8> {
         self.gen_ephm_keypair();
 
@@ -122,7 +136,10 @@ impl Participant {
         self.seal_message(pk, &message)
     }
 
-    /// Compose an update message.
+    /// Compose an update message given the coordinator public key, sum
+    /// dictionary, model scalar and local model update.
+    ///
+    /// Returns the signed and encrypted message.
     pub fn compose_update_message(
         &self,
         pk: CoordinatorPublicKey,
@@ -144,7 +161,14 @@ impl Participant {
         self.seal_message(&pk, &message)
     }
 
-    /// Compose a sum2 message.
+    /// Compose a sum2 message given the coordinator public key, seed dictionary
+    /// and mask length.
+    ///
+    /// Returns the signed and encrypted message.
+    ///
+    /// # Errors
+    /// Returns a [`PetError`] if there is a problem extracting the
+    /// seed dictionary, or computing the global mask.
     pub fn compose_sum2_message(
         &self,
         pk: CoordinatorPublicKey,

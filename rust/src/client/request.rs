@@ -1,8 +1,17 @@
+//! Provides functionality to enable clients to communicate with a XayNet
+//! service over HTTP.
+//!
+//! See the [client module] documentation since this is a private module anyways.
+//!
+//! [client module]: ../index.html
+
 use crate::{
-    client::ClientError,
+    client::{
+        request::Proxy::{InMem, Remote},
+        ClientError,
+    },
     crypto::ByteObject,
     mask::model::Model,
-    request::Proxy::{InMem, Remote},
     services::{Fetcher, PetMessageHandler},
     state_machine::coordinator::RoundParameters,
     SumDict,
@@ -22,10 +31,14 @@ pub enum Proxy {
 }
 
 impl Proxy {
+    /// Creates a new proxy for remote communication with the service at the
+    /// given address.
     pub fn new_remote(addr: &'static str) -> Self {
         Remote(ClientReq::new(addr))
     }
 
+    /// Creates a new proxy given a `fetcher` and `message_handler` for local
+    /// communication with an in-memory service.
     pub fn new_in_mem(
         fetcher: impl Fetcher + 'static + Send + Sync,
         message_handler: impl PetMessageHandler + 'static + Send + Sync,
@@ -33,6 +46,13 @@ impl Proxy {
         InMem(Box::new(fetcher), Box::new(message_handler))
     }
 
+    /// Posts the given PET message to the service proxy.
+    ///
+    /// # Errors
+    /// * Return `PetMessage` if an error occurs from the in-memory proxy
+    ///   handling the message.
+    /// * Returns `NetworkErr` if a network error occurs while posting the PET
+    ///   message.
     pub async fn post_message(&self, msg: Vec<u8>) -> Result<(), ClientError> {
         match self {
             InMem(_, hdl) => hdl
@@ -54,6 +74,13 @@ impl Proxy {
         }
     }
 
+    /// Get the round parameters from the service proxy.
+    ///
+    /// # Errors
+    /// * Returns `Fetch` if an error occurs fetching from the in-memory proxy.
+    /// * Returns `NetworkErr` if a network error occurs while getting the data.
+    /// * Returns `DeserialiseErr` if an error occurs while deserialising the
+    ///   response.
     pub async fn get_round_params(&self) -> Result<RoundParameters, ClientError> {
         match self {
             InMem(hdl, _) => hdl.round_params().await.map_err(ClientError::Fetch),
@@ -67,6 +94,16 @@ impl Proxy {
         }
     }
 
+    /// Get the sum dictionary data from the service proxy.
+    ///
+    /// Returns `Ok(Some(data))` if the `data` is available on the
+    /// service, `Ok(None)` if it is not.
+    ///
+    /// # Errors
+    /// * Returns `Fetch` if an error occurs fetching from the in-memory proxy.
+    /// * Returns `NetworkErr` if a network error occurs while getting the data.
+    /// * Returns `DeserialiseErr` if an error occurs while deserialising the
+    ///   response.
     pub async fn get_sums(&self) -> Result<Option<SumDict>, ClientError> {
         match self {
             InMem(hdl, _) => Ok(hdl
@@ -90,6 +127,15 @@ impl Proxy {
         }
     }
 
+    /// Get the model scalar data from the service proxy.
+    ///
+    /// Returns `Ok(Some(data))` if the `data` is available on the
+    /// service, `Ok(None)` if it is not.
+    ///
+    /// # Errors
+    /// * Returns `Fetch` if an error occurs fetching from the in-memory proxy.
+    /// * Returns `NetworkErr` if a network error occurs while getting the data.
+    /// * Returns `ParseErr` if an error occurs while parsing the response.
     pub async fn get_scalar(&self) -> Result<Option<f64>, ClientError> {
         match self {
             InMem(hdl, _) => hdl.scalar().await.map_err(ClientError::Fetch),
@@ -110,6 +156,16 @@ impl Proxy {
         }
     }
 
+    /// Get the seed dictionary data from the service proxy.
+    ///
+    /// Returns `Ok(Some(data))` if the `data` is available on the
+    /// service, `Ok(None)` if it is not.
+    ///
+    /// # Errors
+    /// * Returns `Fetch` if an error occurs fetching from the in-memory proxy.
+    /// * Returns `NetworkErr` if a network error occurs while getting the data.
+    /// * Returns `DeserialiseErr` if an error occurs while deserialising the
+    ///   response.
     pub async fn get_seeds(
         &self,
         pk: SumParticipantPublicKey,
@@ -138,6 +194,15 @@ impl Proxy {
         }
     }
 
+    /// Get the model/mask length data from the service proxy.
+    ///
+    /// Returns `Ok(Some(data))` if the `data` is available on the
+    /// service, `Ok(None)` if it is not.
+    ///
+    /// # Errors
+    /// * Returns `Fetch` if an error occurs fetching from the in-memory proxy.
+    /// * Returns `NetworkErr` if a network error occurs while getting the data.
+    /// * Returns `ParseErr` if an error occurs while parsing the response.
     pub async fn get_mask_length(&self) -> Result<Option<u64>, ClientError> {
         match self {
             // FIXME: don't cast here. The service just return an u64
@@ -164,6 +229,16 @@ impl Proxy {
         }
     }
 
+    /// Get the global model data from the service proxy.
+    ///
+    /// Returns `Ok(Some(data))` if the `data` is available on the
+    /// service, `Ok(None)` if it is not.
+    ///
+    /// # Errors
+    /// * Returns `Fetch` if an error occurs fetching from the in-memory proxy.
+    /// * Returns `NetworkErr` if a network error occurs while getting the data.
+    /// * Returns `DeserialiseErr` if an error occurs while deserialising the
+    ///   response.
     pub async fn get_model(&self) -> Result<Option<Model>, ClientError> {
         match self {
             InMem(hdl, _) => Ok(hdl
@@ -191,7 +266,7 @@ impl Proxy {
 }
 
 #[derive(Debug)]
-/// Manages client requests over HTTP
+/// Manages client requests over HTTP.
 pub struct ClientReq {
     client: Client,
     address: &'static str,

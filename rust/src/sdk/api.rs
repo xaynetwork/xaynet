@@ -50,9 +50,8 @@ use tokio::{
 };
 
 use crate::{
-    client::{Client, ClientError},
+    client::{Client, ClientError, Task},
     mask::model::{FromPrimitives, IntoPrimitives, Model},
-    participant::Task,
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -433,7 +432,7 @@ pub unsafe extern "C" fn get_model(client: *mut FFIClient, dtype: c_uint) -> Pri
     };
 
     // global model available
-    if let Some(global_model) = client.global_model.clone() {
+    if let Some(ref global_model) = client.global_model {
         // global model is already cached as a primitive model
         if !client.has_new_global_model_since_last_cache {
             match dtype {
@@ -483,7 +482,7 @@ pub unsafe extern "C" fn get_model(client: *mut FFIClient, dtype: c_uint) -> Pri
         let ptr = match dtype {
             1 => {
                 if let Ok(mut cached_model) = global_model
-                    .into_primitives()
+                    .to_primitives()
                     .map(|res| res.map_err(|_| ()))
                     .collect::<Result<Vec<f32>, ()>>()
                 {
@@ -499,7 +498,7 @@ pub unsafe extern "C" fn get_model(client: *mut FFIClient, dtype: c_uint) -> Pri
             }
             2 => {
                 if let Ok(mut cached_model) = global_model
-                    .into_primitives()
+                    .to_primitives()
                     .map(|res| res.map_err(|_| ()))
                     .collect::<Result<Vec<f64>, ()>>()
                 {
@@ -515,7 +514,7 @@ pub unsafe extern "C" fn get_model(client: *mut FFIClient, dtype: c_uint) -> Pri
             }
             3 => {
                 if let Ok(mut cached_model) = global_model
-                    .into_primitives()
+                    .to_primitives()
                     .map(|res| res.map_err(|_| ()))
                     .collect::<Result<Vec<i32>, ()>>()
                 {
@@ -531,7 +530,7 @@ pub unsafe extern "C" fn get_model(client: *mut FFIClient, dtype: c_uint) -> Pri
             }
             4 => {
                 if let Ok(mut cached_model) = global_model
-                    .into_primitives()
+                    .to_primitives()
                     .map(|res| res.map_err(|_| ()))
                     .collect::<Result<Vec<i64>, ()>>()
                 {
