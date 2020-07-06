@@ -1,23 +1,33 @@
-use anyhow::{anyhow, Context};
+//! Serialization of masked objects.
+//!
+//! See the [mask module] documentation since this is a private module anyways.
+//!
+//! [mask module]: ../index.html
+
 use std::{convert::TryInto, ops::Range};
 
+use anyhow::{anyhow, Context};
 use num::bigint::BigUint;
 
-use super::MaskObject;
 use crate::{
-    mask::{config::serialization::MASK_CONFIG_BUFFER_LEN, MaskConfig},
+    mask::{config::serialization::MASK_CONFIG_BUFFER_LEN, object::MaskObject, MaskConfig},
     message::{utils::range, DecodeError, FromBytes, ToBytes},
 };
 
 const MASK_CONFIG_FIELD: Range<usize> = range(0, MASK_CONFIG_BUFFER_LEN);
-const DIGITS_FIELD: Range<usize> = range(MASK_CONFIG_FIELD.end, 4);
+const NUMBERS_FIELD: Range<usize> = range(MASK_CONFIG_FIELD.end, 4);
 
+/// A buffer for serialized mask objects.
 pub struct MaskObjectBuffer<T> {
     inner: T,
 }
 
 #[allow(clippy::len_without_is_empty)]
 impl<T: AsRef<[u8]>> MaskObjectBuffer<T> {
+    /// Creates a new buffer from `bytes`.
+    ///
+    /// # Errors
+    /// Fails if the `bytes` don't conform to the required buffer length for mask objects.
     pub fn new(bytes: T) -> Result<Self, DecodeError> {
         let buffer = Self { inner: bytes };
         buffer
@@ -26,29 +36,34 @@ impl<T: AsRef<[u8]>> MaskObjectBuffer<T> {
         Ok(buffer)
     }
 
+    /// Creates a new buffer from `bytes`.
     pub fn new_unchecked(bytes: T) -> Self {
         Self { inner: bytes }
     }
 
+    /// Checks if this buffer conforms to the required buffer length for mask objects.
+    ///
+    /// # Errors
+    /// Fails if the buffer is too small.
     pub fn check_buffer_length(&self) -> Result<(), DecodeError> {
         let len = self.inner.as_ref().len();
-        if len < DIGITS_FIELD.end {
+        if len < NUMBERS_FIELD.end {
             return Err(anyhow!(
                 "invalid buffer length: {} < {}",
                 len,
-                DIGITS_FIELD.end
+                NUMBERS_FIELD.end
             ));
         }
 
         let config = MaskConfig::from_bytes(&self.config()).context("invalid MaskObject buffer")?;
-        let bytes_per_digit = config.bytes_per_digit();
-        let (data_length, overflows) = (self.digits() as usize).overflowing_mul(bytes_per_digit);
+        let bytes_per_number = config.bytes_per_number();
+        let (data_length, overflows) = (self.numbers() as usize).overflowing_mul(bytes_per_number);
         if overflows {
             return Err(anyhow!(
-                "invalid MaskObject buffer: invalid mask config or digits field"
+                "invalid MaskObject buffer: invalid masking config or numbers field"
             ));
         }
-        let total_expected_length = DIGITS_FIELD.end + data_length;
+        let total_expected_length = NUMBERS_FIELD.end + data_length;
         if len < total_expected_length {
             return Err(anyhow!(
                 "invalid buffer length: expected {} bytes but buffer has only {} bytes",
@@ -59,53 +74,82 @@ impl<T: AsRef<[u8]>> MaskObjectBuffer<T> {
         Ok(())
     }
 
+    /// Gets the expected number of bytes of this buffer wrt to the masking configuration.
+    ///
+    /// # Panics
+    /// Panics if the serialized masking configuration is invalid.
     pub fn len(&self) -> usize {
         let config = MaskConfig::from_bytes(&self.config()).unwrap();
-        let bytes_per_digit = config.bytes_per_digit();
-        let data_length = self.digits() as usize * bytes_per_digit;
-        DIGITS_FIELD.end + data_length
+        let bytes_per_number = config.bytes_per_number();
+        let data_length = self.numbers() as usize * bytes_per_number;
+        NUMBERS_FIELD.end + data_length
     }
 
-    pub fn digits(&self) -> u32 {
+    /// Gets the number of serialized mask object elements.
+    ///
+    /// # Panics
+    /// May panic if this buffer is unchecked.
+    pub fn numbers(&self) -> u32 {
         // UNWRAP SAFE: the slice is exactly 4 bytes long
-        u32::from_be_bytes(self.inner.as_ref()[DIGITS_FIELD].try_into().unwrap())
+        u32::from_be_bytes(self.inner.as_ref()[NUMBERS_FIELD].try_into().unwrap())
     }
 
+    /// Gets the serialized masking configuration.
+    ///
+    /// # Panics
+    /// May panic if this buffer is unchecked.
     pub fn config(&self) -> &[u8] {
         &self.inner.as_ref()[MASK_CONFIG_FIELD]
     }
 
+    /// Gets the serialized mask object elements.
+    ///
+    /// # Panics
+    /// May panic if this buffer is unchecked.
     pub fn data(&self) -> &[u8] {
-        &self.inner.as_ref()[DIGITS_FIELD.end..self.len()]
+        &self.inner.as_ref()[NUMBERS_FIELD.end..self.len()]
     }
 }
 
 impl<T: AsRef<[u8]> + AsMut<[u8]>> MaskObjectBuffer<T> {
-    pub fn set_digits(&mut self, value: u32) {
-        self.inner.as_mut()[DIGITS_FIELD].copy_from_slice(&value.to_be_bytes());
+    /// Sets the number of serialized mask object elements.
+    ///
+    /// # Panics
+    /// May panic if this buffer is unchecked.
+    pub fn set_numbers(&mut self, value: u32) {
+        self.inner.as_mut()[NUMBERS_FIELD].copy_from_slice(&value.to_be_bytes());
     }
+
+    /// Gets the serialized masking configuration.
+    ///
+    /// # Panics
+    /// May panic if this buffer is unchecked.
     pub fn config_mut(&mut self) -> &mut [u8] {
         &mut self.inner.as_mut()[MASK_CONFIG_FIELD]
     }
 
+    /// Gets the serialized mask object elements.
+    ///
+    /// # Panics
+    /// May panic if this buffer is unchecked.
     pub fn data_mut(&mut self) -> &mut [u8] {
         let end = self.len();
-        &mut self.inner.as_mut()[DIGITS_FIELD.end..end]
+        &mut self.inner.as_mut()[NUMBERS_FIELD.end..end]
     }
 }
 
 impl ToBytes for MaskObject {
     fn buffer_length(&self) -> usize {
-        DIGITS_FIELD.end + self.config.bytes_per_digit() * self.data.len()
+        NUMBERS_FIELD.end + self.config.bytes_per_number() * self.data.len()
     }
 
     fn to_bytes<T: AsMut<[u8]>>(&self, buffer: &mut T) {
         let mut writer = MaskObjectBuffer::new_unchecked(buffer.as_mut());
         self.config.to_bytes(&mut writer.config_mut());
-        writer.set_digits(self.data.len() as u32);
+        writer.set_numbers(self.data.len() as u32);
 
         let mut data = writer.data_mut();
-        let bytes_per_digit = self.config.bytes_per_digit();
+        let bytes_per_number = self.config.bytes_per_number();
 
         for int in self.data.iter() {
             // FIXME: this allocates a vec which is sub-optimal. See
@@ -116,10 +160,10 @@ impl ToBytes for MaskObject {
             // configuration.
             data[..bytes.len()].copy_from_slice(&bytes[..]);
             // padding
-            for b in data.iter_mut().take(bytes_per_digit).skip(bytes.len()) {
+            for b in data.iter_mut().take(bytes_per_number).skip(bytes.len()) {
                 *b = 0;
             }
-            data = &mut data[bytes_per_digit..];
+            data = &mut data[bytes_per_number..];
         }
     }
 }
@@ -129,9 +173,9 @@ impl FromBytes for MaskObject {
         let reader = MaskObjectBuffer::new(buffer.as_ref())?;
 
         let config = MaskConfig::from_bytes(&reader.config())?;
-        let mut data = Vec::with_capacity(reader.digits() as usize);
-        let bytes_per_digit = config.bytes_per_digit();
-        for chunk in reader.data().chunks(bytes_per_digit) {
+        let mut data = Vec::with_capacity(reader.numbers() as usize);
+        let bytes_per_number = config.bytes_per_number();
+        for chunk in reader.data().chunks(bytes_per_number) {
             data.push(BigUint::from_bytes_le(chunk));
         }
 

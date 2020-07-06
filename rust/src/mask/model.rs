@@ -1,3 +1,9 @@
+//! Model representation and conversion.
+//!
+//! See the [mask module] documentation since this is a private module anyways.
+//!
+//! [mask module]: ../index.html
+
 use std::{
     fmt::Debug,
     iter::{FromIterator, IntoIterator},
@@ -13,20 +19,23 @@ use num::{
 };
 use thiserror::Error;
 
-/// Represent a model.
 #[derive(Debug, Clone, PartialEq, Hash, From, Index, IndexMut, Into, Serialize, Deserialize)]
+/// A numerical representation of a machine learning model.
 pub struct Model(Vec<Ratio<BigInt>>);
 
 #[allow(clippy::len_without_is_empty)]
 impl Model {
+    /// Gets the number of weights/parameters of this model.
     pub fn len(&self) -> usize {
         self.0.len()
     }
 
+    /// Creates an iterator that yields references to the weights/parameters of this model.
     pub fn iter(&self) -> Iter<Ratio<BigInt>> {
         self.0.iter()
     }
 
+    /// Creates an iterator that yields mutable references to the weights/parameters of this model.
     pub fn iter_mut(&mut self) -> IterMut<Ratio<BigInt>> {
         self.0.iter_mut()
     }
@@ -49,6 +58,7 @@ impl IntoIterator for Model {
 }
 
 #[derive(Debug, Display)]
+/// A primitive data type as a target for model conversion.
 enum PrimitiveType {
     F32,
     F64,
@@ -58,6 +68,7 @@ enum PrimitiveType {
 
 #[derive(Error, Debug)]
 #[error("Could not convert weight {weight} to primitive type {target}")]
+/// Errors related to model conversion into primitives.
 pub struct ModelCastError {
     weight: Ratio<BigInt>,
     target: PrimitiveType,
@@ -65,25 +76,25 @@ pub struct ModelCastError {
 
 #[derive(Error, Debug)]
 #[error("Could not convert primitive type {0:?} to model weight")]
+/// Errors related to model conversion from primitives.
 pub struct PrimitiveCastError<P: Debug>(P);
 
-/// Convert this type into a an iterator of type `P`. This trait is
-/// used to convert a [`Model`], which has its own internal
-/// representation of the weights into primitive types (`f64`, `f32`,
-/// `i32` `i64`).
+/// An interface to convert a collection of numerical values into an iterator of primitive values.
+///
+/// This trait is used to convert a [`Model`], which has its own internal representation of the
+/// weights, into primitive types ([`f32`], [`f64`], [`i32`], [`i64`]). The opposite trait is
+/// [`FromPrimitives`].
 pub trait IntoPrimitives<P: 'static>: Sized {
-    /// Consume this model and into an iterator that yields `Ok(P)`
-    /// for each model weight that can be converted to `P`, and
-    /// `Err(ModelCastError)` for each weight that cannot be converted
-    /// to `P`.
+    /// Creates an iterator from numerical values that yields converted primitive values.
+    ///
+    /// # Errors
+    /// Yields an error for each numerical value that can't be converted into a primitive value.
     fn into_primitives(self) -> Box<dyn Iterator<Item = Result<P, ModelCastError>>>;
 
-    /// Consume this model and into an iterator that yields `P` values.
+    /// Creates an iterator from numerical values that yields converted primitive values.
     ///
     /// # Panics
-    ///
-    /// This method panics if a model weight cannot be converted into
-    /// `P`.
+    /// Panics if a numerical value can't be converted into a primitive value.
     fn into_primitives_unchecked(self) -> Box<dyn Iterator<Item = P>> {
         Box::new(
             self.into_primitives()
@@ -92,15 +103,23 @@ pub trait IntoPrimitives<P: 'static>: Sized {
     }
 }
 
-/// Convert a stream of numerical primitive types (`i32`, `i64`,
-/// `f32`, `f64`) into this type.
+/// An interface to convert a collection of primitive values into an iterator of numerical values.
+///
+/// This trait is used to convert primitive types ([`f32`], [`f64`], [`i32`], [`i64`]) into a
+/// [`Model`], which has its own internal representation of the weights. The opposite trait is
+/// [`IntoPrimitives`].
 pub trait FromPrimitives<P: Debug>: Sized {
-    /// Consume an iterator that yields `P`, into a model. If a `P`
-    /// cannot be converted to a model weight, this method fails.
+    /// Creates an iterator from primitive values that yields converted numerical values.
+    ///
+    /// # Errors
+    /// Yields an error for the first encountered primitive value that can't be converted into a
+    /// numerical value due to not being finite.
     fn from_primitives<I: Iterator<Item = P>>(iter: I) -> Result<Self, PrimitiveCastError<P>>;
 
-    /// Consume an iterator that yields `P` values into a model. If a
-    /// `P` cannot be directly converted into a model weight because it is not finite, it is clamped.
+    /// Creates an iterator from primitive values that yields converted numerical values.
+    ///
+    /// If a primitive value cannot be directly converted into a numerical value due to not being
+    /// finite, it is clamped.
     fn from_primitives_bounded<I: Iterator<Item = P>>(iter: I) -> Self;
 }
 
@@ -192,6 +211,10 @@ impl FromPrimitives<f64> for Model {
     }
 }
 
+/// Converts a numerical value into a primitive floating point value.
+///
+/// # Errors
+/// Fails if the numerical value is not representable in the primitive data type.
 fn ratio_to_float<F: FloatCore>(ratio: &Ratio<BigInt>) -> Option<F> {
     let min_value = Ratio::from_float(F::min_value()).unwrap();
     let max_value = Ratio::from_float(F::max_value()).unwrap();
@@ -219,8 +242,9 @@ fn ratio_to_float<F: FloatCore>(ratio: &Ratio<BigInt>) -> Option<F> {
     }
 }
 
-/// Cast the given float to a ratio. Positive/negative infinity is
-/// mapped to max/min and NaN to zero.
+/// Converts the primitive floating point value into a numerical value.
+///
+/// Maps positive/negative infinity to max/min of the primitive data type and NaN to zero.
 fn float_to_ratio_bounded<F: FloatCore>(f: F) -> Ratio<BigInt> {
     if f.is_nan() {
         Ratio::<BigInt>::zero()
