@@ -141,7 +141,6 @@ pub struct Client {
     coordinator_pk: CoordinatorPublicKey,
     pub(crate) has_new_coord_pk_since_last_check: bool,
 
-    // TODO document
     pub(crate) global_model: Option<Model>,
     pub(crate) cached_model: Option<CachedModel>,
     pub(crate) has_new_global_model_since_last_check: bool,
