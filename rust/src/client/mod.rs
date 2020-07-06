@@ -174,6 +174,7 @@ impl Default for Client {
 }
 
 impl Client {
+    #[allow(dead_code)]
     /// Create a new [`Client`] that connects to a default service address.
     ///
     /// * `period`: time period at which to poll for service data, in seconds.
@@ -269,12 +270,15 @@ impl Client {
             if round_params.pk != self.coordinator_pk {
                 debug!(client_id = %self.id, "new round parameters received, determining task.");
                 self.coordinator_pk = round_params.pk;
-                self.has_new_coord_pk_since_last_check = true;
                 let round_seed = round_params.seed.as_slice();
                 self.participant.compute_signatures(round_seed);
                 let (sum_frac, upd_frac) = (round_params.sum, round_params.update);
 
-                return match self.participant.check_task(sum_frac, upd_frac) {
+                // update the flag only after everthing else is done such that the client can learn
+                // via the API that a new round has started once all parameters are available
+                let task = self.participant.check_task(sum_frac, upd_frac);
+                self.has_new_coord_pk_since_last_check = true;
+                return match task {
                     Task::Sum => self.summer().await,
                     Task::Update => self.updater().await,
                     Task::None => self.unselected().await,

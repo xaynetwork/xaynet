@@ -37,9 +37,10 @@
 //! [#69173]: https://github.com/rust-lang/rust/issues/69173
 
 use std::{
+    ffi::CStr,
     iter::{IntoIterator, Iterator},
     mem,
-    os::raw::{c_int, c_uint, c_ulonglong, c_void},
+    os::raw::{c_char, c_int, c_uint, c_ulonglong, c_void},
     panic,
     ptr,
 };
@@ -102,21 +103,33 @@ pub struct FFIClient {
 #[no_mangle]
 /// Creates a new [`Client`] within an asynchronous runtime.
 ///
+/// Takes a network `address` to the coordinator to which the [`Client`] will try to connect to.
+///
 /// Takes a `period` in seconds after which the [`Client`] will try to poll the coordinator for new
 /// broadcasted FL round data again.
 ///
 /// # Errors
-/// Returns a null pointer in case of invalid arguments or if the initialization of the runtime
-/// or the client fails. The following must hold true for arguments to be valid:
-/// - `period` > 0
+/// Ignores null pointer `address`es and zero `period`s and returns a null pointer immediately.
+///
+/// Returns a null pointer if the initialization of the runtime or the client fails.
 ///
 /// # Safety
-/// The method depends on the safety of the `callback` and on the consistent definition and layout
-/// of its `input` across the FFI-boundary.
-pub unsafe extern "C" fn new_client(period: c_ulonglong) -> *mut FFIClient {
-    if period == 0 {
+/// The method dereferences from the raw pointer arguments. Therefore, the behavior of the method is
+/// undefined if the arguments don't point to valid objects.
+pub unsafe extern "C" fn new_client(address: *const c_char, period: c_ulonglong) -> *mut FFIClient {
+    if address.is_null() || period == 0 {
         return ptr::null_mut() as *mut FFIClient;
     }
+    let address = if let Ok(address) = unsafe {
+        // safe if the raw pointer `address` comes from a null-terminated C-string
+        CStr::from_ptr(address)
+    }
+    .to_str()
+    {
+        address
+    } else {
+        return ptr::null_mut() as *mut FFIClient;
+    };
     let runtime = if let Ok(runtime) = Builder::new()
         .threaded_scheduler()
         .core_threads(1)
@@ -129,7 +142,9 @@ pub unsafe extern "C" fn new_client(period: c_ulonglong) -> *mut FFIClient {
     } else {
         return ptr::null_mut() as *mut FFIClient;
     };
-    let client = if let Ok(client) = runtime.enter(move || Client::new(period as u64)) {
+    let client = if let Ok(client) =
+        runtime.enter(move || Client::new_with_addr(period as u64, 0, address))
+    {
         client
     } else {
         return ptr::null_mut() as *mut FFIClient;
@@ -685,7 +700,7 @@ mod dart {
 
 #[cfg(test)]
 mod tests {
-    use std::iter::FromIterator;
+    use std::{ffi::CString, iter::FromIterator};
 
     use num::rational::Ratio;
 
@@ -693,7 +708,7 @@ mod tests {
 
     #[test]
     fn test_new_client() {
-        let client = unsafe { new_client(10) };
+        let client = unsafe { new_client(CString::new("0.0.0.0:0000").unwrap().as_ptr(), 10) };
         assert!(!client.is_null());
         unsafe { drop_client(client, 0) };
     }
@@ -701,7 +716,7 @@ mod tests {
     #[test]
     fn test_run_client() {
         // check for network error when running client without a service
-        let client = unsafe { new_client(10) };
+        let client = unsafe { new_client(CString::new("0.0.0.0:0000").unwrap().as_ptr(), 10) };
         assert_eq!(unsafe { run_client(client) }, 5);
         unsafe { drop_client(client, 0) };
     }
@@ -717,7 +732,7 @@ mod tests {
                 #[allow(unused_unsafe)]
                 #[test]
                 fn [<test_new_model_ $prim>]() {
-                    let client = unsafe { new_client(10) };
+                    let client = unsafe { new_client(CString::new("0.0.0.0:0000").unwrap().as_ptr(), 10) };
 
                     // check that the new model is cached
                     let model = dummy_model(0., 10);
@@ -747,7 +762,7 @@ mod tests {
                 #[allow(unused_unsafe)]
                 #[test]
                 fn [<test_get_model_ $prim>]() {
-                    let client = unsafe { new_client(10) };
+                    let client = unsafe { new_client(CString::new("0.0.0.0:0000").unwrap().as_ptr(), 10) };
 
                     // check that the primitive model is null if the global model is unavailable
                     assert!(unsafe { &*client }.client.global_model.is_none());
@@ -785,7 +800,7 @@ mod tests {
             paste::item! {
                 #[test]
                 fn [<test_update_model_ $prim>]() {
-                    let client = unsafe { new_client(10) };
+                    let client = unsafe { new_client(CString::new("0.0.0.0:0000").unwrap().as_ptr(), 10) };
                     let model = dummy_model(0., 10);
                     unsafe { &mut *client }.client.global_model = Some(model.clone());
                     let prim_model = unsafe { get_model(client, $dtype as c_uint) };
