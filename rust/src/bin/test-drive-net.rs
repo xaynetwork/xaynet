@@ -42,7 +42,7 @@ async fn main() -> Result<(), ClientError> {
 
     let opt = Opt::from_args();
 
-    // // dummy local model for clients
+    // dummy local model for clients
     let len = opt.len as usize;
     let model = Model::from_primitives(vec![0; len].into_iter()).unwrap();
 
