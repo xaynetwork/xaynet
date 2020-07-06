@@ -13,7 +13,7 @@ use tokio::sync::{mpsc, oneshot};
 pub struct StateMachineShutdown;
 
 use crate::{
-    mask::MaskObject,
+    mask::object::MaskObject,
     LocalSeedDict,
     ParticipantPublicKey,
     PetError as Error,

@@ -8,7 +8,10 @@ use tower::Service;
 use tracing::Span;
 
 use crate::{
-    message::{MessageOwned, PayloadOwned, UpdateOwned},
+    message::{
+        message::MessageOwned,
+        payload::{update::UpdateOwned, PayloadOwned},
+    },
     state_machine::requests::{
         Request,
         RequestSender,

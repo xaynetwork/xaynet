@@ -1,8 +1,19 @@
-use anyhow::{anyhow, Context};
+//! Sum message payloads.
+//!
+//! See the [message module] documentation since this is a private module anyways.
+//!
+//! [message module]: ../index.html
+
 use std::ops::Range;
 
+use anyhow::{anyhow, Context};
+
 use crate::{
-    message::{utils::range, DecodeError, FromBytes, ToBytes},
+    message::{
+        traits::{FromBytes, ToBytes},
+        utils::range,
+        DecodeError,
+    },
     ParticipantTaskSignature,
     SumParticipantEphemeralPublicKey,
 };
@@ -14,13 +25,12 @@ const EPHM_PK_RANGE: Range<usize> = range(
 );
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
-/// A wrapper around a buffer that contains a sum message. It provides
-/// getters and setters to access the different fields of the message
-/// safely.
+/// A wrapper around a buffer that contains a [`Sum`] message.
+///
+/// It provides getters and setters to access the different fields of the message safely.
 ///
 /// # Examples
-///
-/// Decoding a sum message:
+/// ## Decoding a sum message
 ///
 /// ```rust
 /// # use xain_fl::message::SumBuffer;
@@ -32,7 +42,7 @@ const EPHM_PK_RANGE: Range<usize> = range(
 /// assert_eq!(buffer.ephm_pk(), ephm_pk.as_slice());
 /// ```
 ///
-/// Encoding a sum message:
+/// ## Encoding a sum message
 ///
 /// ```rust
 /// # use xain_fl::message::SumBuffer;
@@ -52,8 +62,11 @@ pub struct SumBuffer<T> {
 }
 
 impl<T: AsRef<[u8]>> SumBuffer<T> {
-    /// Perform bound checks for the various message fields on `bytes`
-    /// and return a new `SumBuffer`.
+    /// Performs bound checks for the various message fields on `bytes` and returns a new
+    /// [`SumBuffer`].
+    ///
+    /// # Errors
+    /// Fails if the `bytes` are smaller than a minimal-sized sum message buffer.
     pub fn new(bytes: T) -> Result<Self, DecodeError> {
         let buffer = Self { inner: bytes };
         buffer
@@ -62,15 +75,14 @@ impl<T: AsRef<[u8]>> SumBuffer<T> {
         Ok(buffer)
     }
 
-    /// Return a `SumBuffer` without performing any bound
-    /// check. This means accessing the various fields may panic if
-    /// the data is invalid.
+    /// Returns a [`SumBuffer`] without performing any bound checks.
+    ///
+    /// This means accessing the various fields may panic if the data is invalid.
     pub fn new_unchecked(bytes: T) -> Self {
         Self { inner: bytes }
     }
 
-    /// Perform bound checks to ensure the fields can be accessed
-    /// without panicking.
+    /// Performs bound checks to ensure the fields can be accessed without panicking.
     pub fn check_buffer_length(&self) -> Result<(), DecodeError> {
         let len = self.inner.as_ref().len();
         if len < EPHM_PK_RANGE.end {
@@ -86,60 +98,47 @@ impl<T: AsRef<[u8]>> SumBuffer<T> {
 }
 
 impl<T: AsMut<[u8]>> SumBuffer<T> {
-    /// Get a mutable reference to the sum participant ephemeral
-    /// public key field
+    /// Gets a mutable reference to the sum participant ephemeral public key field.
     ///
-    /// # Panic
-    ///
-    /// This may panic if the underlying buffer does not represent a
-    /// valid update. If `self.check_buffer_length()` returned
-    /// `Ok(())` this method is guaranteed not to panic.
+    /// # Panics
+    /// Accessing the field may panic if the buffer has not been checked before.
     pub fn ephm_pk_mut(&mut self) -> &mut [u8] {
         &mut self.inner.as_mut()[EPHM_PK_RANGE]
     }
 
-    /// Get a mutable reference to the sum signature field
+    /// Gets a mutable reference to the sum signature field.
     ///
-    /// # Panic
-    ///
-    /// This may panic if the underlying buffer does not represent a
-    /// valid update. If `self.check_buffer_length()` returned
-    /// `Ok(())` this method is guaranteed not to panic.
+    /// # Panics
+    /// Accessing the field may panic if the buffer has not been checked before.
     pub fn sum_signature_mut(&mut self) -> &mut [u8] {
         &mut self.inner.as_mut()[SUM_SIGNATURE_RANGE]
     }
 }
 
 impl<'a, T: AsRef<[u8]> + ?Sized> SumBuffer<&'a T> {
-    /// Get a reference to the sum participant ephemeral public key
-    /// field
+    /// Gets a reference to the sum participant ephemeral public key field.
     ///
-    /// # Panic
-    ///
-    /// This may panic if the underlying buffer does not represent a
-    /// valid update. If `self.check_buffer_length()` returned
-    /// `Ok(())` this method is guaranteed not to panic.
+    /// # Panics
+    /// Accessing the field may panic if the buffer has not been checked before.
     pub fn ephm_pk(&self) -> &'a [u8] {
         &self.inner.as_ref()[EPHM_PK_RANGE]
     }
 
-    /// Get a reference to the sum signature field
+    /// Gets a reference to the sum signature field.
     ///
-    /// # Panic
-    ///
-    /// This may panic if the underlying buffer does not represent a
-    /// valid update. If `self.check_buffer_length()` returned
-    /// `Ok(())` this method is guaranteed not to panic.
+    /// # Panics
+    /// Accessing the field may panic if the buffer has not been checked before.
     pub fn sum_signature(&self) -> &'a [u8] {
         &self.inner.as_ref()[SUM_SIGNATURE_RANGE]
     }
 }
 
-/// High level representation of a sum message. These messages are
-/// sent by sum participants during the sum phase.
+#[derive(Debug, Eq, PartialEq, Clone)]
+/// A high level representation of a sum message.
+///
+/// These messages are sent by sum participants during the sum phase.
 ///
 /// # Examples
-///
 /// ## Decoding a message
 ///
 /// ```rust
@@ -173,16 +172,16 @@ impl<'a, T: AsRef<[u8]> + ?Sized> SumBuffer<&'a T> {
 ///
 /// assert_eq!(buf, [vec![0x11; 64].as_slice(), vec![0x22; 32].as_slice()].concat());
 /// ```
-#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Sum {
-    /// Signature of the round seed and the word "sum", used to
-    /// determine whether a participant is selected for the sum task
+    /// The signature of the round seed and the word "sum".
+    ///
+    /// This is used to determine whether a participant is selected for the sum task.
     pub sum_signature: ParticipantTaskSignature,
-    /// A public key generated by a sum participant for the current
-    /// round.
+    /// An ephemeral public key generated by a sum participant for the current round.
     pub ephm_pk: SumParticipantEphemeralPublicKey,
 }
 
+/// An owned version of a [`Sum`].
 pub type SumOwned = Sum;
 
 impl ToBytes for Sum {
@@ -198,7 +197,6 @@ impl ToBytes for Sum {
 }
 
 impl FromBytes for SumOwned {
-    /// Deserialize a sum message from a buffer.
     fn from_bytes<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
         let reader = SumBuffer::new(buffer.as_ref())?;
 
@@ -216,7 +214,7 @@ impl FromBytes for SumOwned {
 }
 
 #[cfg(test)]
-pub(crate) mod tests {
+pub(in crate::message) mod tests {
     use super::*;
     use crate::crypto::ByteObject;
 

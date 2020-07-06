@@ -8,7 +8,11 @@ use tower::Service;
 
 use crate::{
     crypto::ByteObject,
-    message::{HeaderOwned, MessageOwned, PayloadOwned, UpdateOwned},
+    message::{
+        header::HeaderOwned,
+        message::MessageOwned,
+        payload::{update::UpdateOwned, PayloadOwned},
+    },
     services::messages::pre_processor::{PreProcessorError, PreProcessorResponse},
     state_machine::coordinator::RoundParameters,
 };

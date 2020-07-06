@@ -1,5 +1,5 @@
 use crate::{
-    mask::{Aggregation, MaskObject},
+    mask::{masking::Aggregation, object::MaskObject},
     state_machine::{
         coordinator::{CoordinatorState, MaskDict},
         events::PhaseEvent,

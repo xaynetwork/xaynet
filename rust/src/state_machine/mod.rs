@@ -4,7 +4,7 @@ pub mod phases;
 pub mod requests;
 
 use crate::{
-    mask::UnmaskingError,
+    mask::masking::UnmaskingError,
     settings::{MaskSettings, PetSettings},
     state_machine::{
         coordinator::CoordinatorState,
@@ -97,14 +97,9 @@ mod tests {
     use crate::{
         crypto::{encrypt::EncryptKeyPair, sign::SigningKeyPair, ByteObject},
         mask::{
-            BoundType,
-            DataType,
-            EncryptedMaskSeed,
-            GroupType,
-            MaskConfig,
-            MaskObject,
-            MaskSeed,
-            ModelType,
+            config::{BoundType, DataType, GroupType, MaskConfig, ModelType},
+            object::MaskObject,
+            seed::{EncryptedMaskSeed, MaskSeed},
         },
         settings::{MaskSettings, PetSettings},
         state_machine::{

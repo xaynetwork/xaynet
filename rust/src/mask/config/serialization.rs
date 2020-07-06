@@ -9,8 +9,11 @@ use std::convert::TryInto;
 use anyhow::{anyhow, Context};
 
 use crate::{
-    mask::MaskConfig,
-    message::{DecodeError, FromBytes, ToBytes},
+    mask::config::MaskConfig,
+    message::{
+        traits::{FromBytes, ToBytes},
+        DecodeError,
+    },
 };
 
 const GROUP_TYPE_FIELD: usize = 0;
@@ -166,7 +169,7 @@ impl FromBytes for MaskConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::mask::{BoundType, DataType, GroupType, MaskConfig, ModelType};
+    use crate::mask::config::{BoundType, DataType, GroupType, MaskConfig, ModelType};
 
     #[test]
     fn serialize() {

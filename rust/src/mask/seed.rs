@@ -13,7 +13,7 @@ use sodiumoxide::{crypto::box_, randombytes::randombytes};
 
 use crate::{
     crypto::{encrypt::SEALBYTES, prng::generate_integer, ByteObject},
-    mask::{config::MaskConfig, MaskObject},
+    mask::{config::MaskConfig, object::MaskObject},
     PetError,
     SumParticipantEphemeralPublicKey,
     SumParticipantEphemeralSecretKey,

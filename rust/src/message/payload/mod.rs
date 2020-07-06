@@ -1,27 +1,40 @@
-use std::borrow::Borrow;
+//! Message payloads.
+//!
+//! See the [message module] documentation since this is a private module anyways.
+//!
+//! [message module]: ../index.html
 
 pub(crate) mod sum;
-pub use self::sum::*;
 pub(crate) mod sum2;
-pub use self::sum2::*;
 pub(crate) mod update;
-pub use self::update::*;
+
+use std::borrow::Borrow;
 
 use derive_more::From;
 
-use crate::{mask::MaskObject, message::traits::ToBytes, LocalSeedDict};
+use crate::{
+    mask::object::MaskObject,
+    message::{
+        payload::{sum::Sum, sum2::Sum2, update::Update},
+        traits::ToBytes,
+    },
+    LocalSeedDict,
+};
 
-/// Payload of a [`Message`]
+/// The payload of a [`Message`].
+///
+/// [`Message`]: struct.Message.html
 #[derive(From, Eq, PartialEq, Clone, Debug)]
 pub enum Payload<D, M, N> {
-    /// Payload of a sum message
+    /// The payload of a [`Sum`] message.
     Sum(Sum),
-    /// Payload of an update message
+    /// The payload of an [`Update`] message.
     Update(Update<D, M>),
-    /// Payload of a sum2 message
+    /// The payload of a [`Sum2`] message.
     Sum2(Sum2<N>),
 }
 
+/// An owned version of a [`Payload`].
 pub type PayloadOwned = Payload<LocalSeedDict, MaskObject, MaskObject>;
 
 impl<D, M, N> ToBytes for Payload<D, M, N>

@@ -1,7 +1,7 @@
 //! Module for loading and validating coordinator settings.
 //!
 //! Values defined in the configuration file can be overridden by environment variables.
-use crate::mask::{BoundType, DataType, GroupType, MaskConfig, ModelType};
+use crate::mask::config::{BoundType, DataType, GroupType, MaskConfig, ModelType};
 use config::{Config, ConfigError, Environment};
 use serde::de::{self, Deserializer, Visitor};
 use std::{fmt, path::PathBuf};

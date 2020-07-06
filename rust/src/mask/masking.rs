@@ -17,7 +17,7 @@ use thiserror::Error;
 
 use crate::{
     crypto::prng::generate_integer,
-    mask::{MaskConfig, MaskObject, MaskSeed, Model},
+    mask::{config::MaskConfig, model::Model, object::MaskObject, seed::MaskSeed},
 };
 
 #[derive(Debug, Error, Eq, PartialEq)]

@@ -10,8 +10,15 @@ use anyhow::{anyhow, Context};
 use num::bigint::BigUint;
 
 use crate::{
-    mask::{config::serialization::MASK_CONFIG_BUFFER_LEN, object::MaskObject, MaskConfig},
-    message::{utils::range, DecodeError, FromBytes, ToBytes},
+    mask::{
+        config::{serialization::MASK_CONFIG_BUFFER_LEN, MaskConfig},
+        object::MaskObject,
+    },
+    message::{
+        traits::{FromBytes, ToBytes},
+        utils::range,
+        DecodeError,
+    },
 };
 
 const MASK_CONFIG_FIELD: Range<usize> = range(0, MASK_CONFIG_BUFFER_LEN);
@@ -185,7 +192,7 @@ impl FromBytes for MaskObject {
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
-    use crate::mask::{BoundType, DataType, GroupType, MaskConfig, ModelType};
+    use crate::mask::config::{BoundType, DataType, GroupType, MaskConfig, ModelType};
 
     pub fn object() -> MaskObject {
         // config.order() = 20_000_000_000_001 with this config, so the data

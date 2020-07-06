@@ -9,7 +9,7 @@ use tokio::sync::watch;
 
 use crate::{
     crypto::encrypt::EncryptKeyPair,
-    mask::Model,
+    mask::model::Model,
     state_machine::coordinator::{RoundId, RoundParameters},
     SeedDict,
     SumDict,

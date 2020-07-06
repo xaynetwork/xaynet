@@ -4,7 +4,7 @@ use sodiumoxide::{self, crypto::box_, randombytes::randombytes};
 
 use crate::{
     crypto::{encrypt::EncryptKeyPair, ByteObject},
-    mask::{MaskConfig, MaskObject},
+    mask::{config::MaskConfig, object::MaskObject},
     settings::{MaskSettings, PetSettings},
     state_machine::events::{EventPublisher, EventSubscriber, PhaseEvent},
     CoordinatorPublicKey,

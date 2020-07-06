@@ -1,5 +1,12 @@
-use anyhow::{anyhow, Context};
+//! Messages.
+//!
+//! See the [message module] documentation since this is a private module anyways.
+//!
+//! [message module]: ../index.html
+
 use std::borrow::Borrow;
+
+use anyhow::{anyhow, Context};
 
 use crate::{
     certificate::Certificate,
@@ -8,37 +15,39 @@ use crate::{
         sign::{SecretSigningKey, Signature},
         ByteObject,
     },
-    mask::MaskObject,
+    mask::object::MaskObject,
     message::{
+        header::{Header, HeaderOwned, Tag},
+        payload::{
+            sum::{Sum, SumOwned},
+            sum2::{Sum2, Sum2Owned},
+            update::{Update, UpdateOwned},
+            Payload,
+            PayloadOwned,
+        },
+        traits::{FromBytes, ToBytes},
         DecodeError,
-        FromBytes,
-        Header,
-        HeaderOwned,
-        Payload,
-        PayloadOwned,
-        Sum2Owned,
-        SumOwned,
-        Tag,
-        ToBytes,
-        UpdateOwned,
     },
     LocalSeedDict,
 };
 
-/// A message
 #[derive(Debug)]
+/// A message.
 pub struct Message<C, D, M, N> {
-    /// Message header
+    /// The message header.
     pub header: Header<C>,
-    /// Message payload
+    /// The message payload.
     pub payload: Payload<D, M, N>,
 }
 
+/// An owned version of a [`Message`].
 pub type MessageOwned = Message<Certificate, LocalSeedDict, MaskObject, MaskObject>;
 
 macro_rules! impl_new {
-    ($name:ident, $payload:ty, $tag:expr) => {
+    ($name:ident, $payload:ty, $tag:expr, $doc:expr) => {
         paste::item! {
+            #[doc = "Creates a new message containing"]
+            #[doc = $doc]
             pub fn [<new_ $name>](
                 coordinator_pk: $crate::CoordinatorPublicKey,
                 participant_pk: $crate::ParticipantPublicKey,
@@ -51,7 +60,7 @@ macro_rules! impl_new {
                         tag: $tag,
                         certificate: None,
                     },
-                    payload: $crate::message::Payload::from(payload),
+                    payload: $crate::message::payload::Payload::from(payload),
                 }
             }
         }
@@ -65,9 +74,9 @@ where
     M: Borrow<MaskObject>,
     N: Borrow<MaskObject>,
 {
-    impl_new!(sum, crate::message::Sum, Tag::Sum);
-    impl_new!(update, crate::message::Update<D, M>, Tag::Update);
-    impl_new!(sum2, crate::message::Sum2<N>, Tag::Sum2);
+    impl_new!(sum, Sum, Tag::Sum, "a [`Sum`].");
+    impl_new!(update, Update<D, M>, Tag::Update, "an [`Update`].");
+    impl_new!(sum2, Sum2<N>, Tag::Sum2, "a [`Sum2`].");
 }
 
 impl<C, D, M, N> ToBytes for Message<C, D, M, N>
@@ -107,16 +116,16 @@ impl FromBytes for MessageOwned {
     }
 }
 
-/// A seal to sign and encrypt messages
+/// A seal to sign and encrypt [`Message`]s.
 pub struct MessageSeal<'a, 'b> {
-    /// Public key of the recipient, used to encrypt messages
+    /// The public key of the recipient, which is used to encrypt the messages.
     pub recipient_pk: &'a PublicEncryptKey,
-    /// Secret key of the sender, used to sign messages
+    /// The Secret key of the sender, which is used to sign the messages.
     pub sender_sk: &'b SecretSigningKey,
 }
 
 impl<'a, 'b> MessageSeal<'a, 'b> {
-    /// Sign and encrypt the given message
+    /// Signs and encrypts the given message.
     pub fn seal<C, D, M, N>(&self, message: &Message<C, D, M, N>) -> Vec<u8>
     where
         C: Borrow<Certificate>,
@@ -128,7 +137,7 @@ impl<'a, 'b> MessageSeal<'a, 'b> {
         self.recipient_pk.encrypt(&signed_message[..])
     }
 
-    /// Sign the given message
+    /// Signs the given message.
     fn sign<C, D, M, N>(&self, message: &Message<C, D, M, N>) -> Vec<u8>
     where
         C: Borrow<Certificate>,
@@ -148,15 +157,16 @@ impl<'a, 'b> MessageSeal<'a, 'b> {
     }
 }
 
-/// A message opener that decrypts a message and verifies its signature
+/// An opener to decrypt [`Message`]s and to verify their signatures.
 pub struct MessageOpen<'a, 'b> {
-    /// Secret key for decrypting the message
+    /// The secret key of the recipient, which is used to decrypt the message.
     pub recipient_sk: &'b SecretEncryptKey,
-    /// Public key for decrypting the message
+    /// The public key of the recipient, which is used to decrypt the message.
     pub recipient_pk: &'a PublicEncryptKey,
 }
 
 impl<'a, 'b> MessageOpen<'a, 'b> {
+    /// Decrypts the given message and verifies its signature.
     pub fn open<T: AsRef<[u8]>>(&self, buffer: &T) -> Result<MessageOwned, DecodeError> {
         // Step 1: decrypt the message
         let bytes = self
@@ -168,8 +178,7 @@ impl<'a, 'b> MessageOpen<'a, 'b> {
             return Err(anyhow!("invalid message: invalid length"));
         }
 
-        // UNWRAP_SAFE: the slice is exactly the size from_slice
-        // expects.
+        // UNWRAP_SAFE: the slice is exactly the size from_slice expects.
         let signature = Signature::from_slice(&bytes[..Signature::LENGTH]).unwrap();
 
         let message_bytes = &bytes[Signature::LENGTH..];

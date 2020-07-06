@@ -11,7 +11,7 @@ use std::iter::Iterator;
 use num::bigint::BigUint;
 use thiserror::Error;
 
-use crate::mask::MaskConfig;
+use crate::mask::config::MaskConfig;
 
 #[derive(Error, Debug)]
 #[error("the mask object is invalid: data is incompatible with the masking configuration")]

@@ -1,30 +1,50 @@
-use super::DecodeError;
-use crate::{crypto::ByteObject, mask::EncryptedMaskSeed, LocalSeedDict, SumParticipantPublicKey};
-use anyhow::{anyhow, Context};
+//! Message traits.
+//!
+//! See the [message module] documentation since this is a private module anyways.
+//!
+//! [message module]: ../index.html
+
 use std::{
     convert::TryInto,
     io::{Cursor, Write},
     ops::Range,
 };
 
-/// `ToBytes` is implemented by types that can be serialized
+use anyhow::{anyhow, Context};
+
+use crate::{
+    crypto::ByteObject,
+    mask::seed::EncryptedMaskSeed,
+    message::DecodeError,
+    LocalSeedDict,
+    SumParticipantPublicKey,
+};
+
+/// An interface for serializable message types.
+///
+/// See also [`FromBytes`] for deserialization.
 pub trait ToBytes {
-    /// Length of the buffer for encoding the type
+    /// The length of the buffer for encoding the type.
     fn buffer_length(&self) -> usize;
+
     /// Serialize the type in the given buffer.
     ///
-    /// # Panic
+    /// # Panics
+    /// This method may panic if the given buffer is too small. Thus, [`buffer_length()`] must be
+    /// called prior to calling this, and a large enough buffer must be provided.
     ///
-    /// This method may panic if the given buffer is too small. Thus,
-    /// [`buffer_length`] must be called prior to calling `to_bytes`,
-    /// and a large enough buffer must be provided.
+    /// [`buffer_length()`]: #method.buffer_length
     fn to_bytes<T: AsMut<[u8]>>(&self, buffer: &mut T);
 }
 
-/// `FromBytes` is the counterpart of `ToBytes`. It is implemented by
-/// types that can be deserialized.
+/// An interface for deserializable message types.
+///
+/// See also [`ToBytes`] for serialization.
 pub trait FromBytes: Sized {
-    /// Deserialize the type from the given buffer
+    /// Deserialize the type from the given buffer.
+    ///
+    /// # Errors
+    /// May fail if certain parts of the deserialized buffer don't pass message validity checks.
     fn from_bytes<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError>;
 }
 
@@ -51,15 +71,13 @@ where
     }
 }
 
-/// Helper for encoding and decoding Length-Value (LV) fields.
+/// A helper for encoding and decoding Length-Value (LV) fields.
 ///
-/// Note that the 4 bytes length field gives the length of the *total*
-/// Length-Value field, _i.e._ the length of the value, plus the 4
-/// extra bytes of the length field itself.
+/// Note that the 4 bytes [`length()`] field gives the length of the *total* Length-Value field,
+/// _i.e._ the length of the value, plus the 4 extra bytes of the length field itself.
 ///
 /// # Examples
-///
-/// Decoding an LV field:
+/// ## Decoding a LV field
 ///
 /// ```rust
 /// # use xain_fl::message::LengthValueBuffer;
@@ -74,7 +92,7 @@ where
 /// assert_eq!(buffer.value(), &[0xff][..]);
 /// ```
 ///
-/// Encoding an LV field:
+/// ## Encoding a LV field
 ///
 /// ```rust
 /// # use xain_fl::message::LengthValueBuffer;
@@ -91,19 +109,23 @@ where
 ///
 /// assert_eq!(bytes, expected);
 /// ```
+///
+/// [`length()`]: #method.length
 pub struct LengthValueBuffer<T> {
     inner: T,
 }
 
-/// Size of the length field for encoding a Length-Value item.
+/// The size of the length field for encoding a Length-Value item.
 const LENGTH_FIELD: Range<usize> = 0..4;
 
 impl<T: AsRef<[u8]>> LengthValueBuffer<T> {
-    /// Return a new `LengthValueBuffer`. This method performs bound
-    /// checks and returns an error if the given buffer is not a valid
+    /// Returns a new [`LengthValueBuffer`].
+    ///
+    /// # Errors
+    /// This method performs bound checks and returns an error if the given buffer is not a valid
     /// Length-Value item.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```rust
     /// # use xain_fl::message::LengthValueBuffer;
@@ -135,7 +157,7 @@ impl<T: AsRef<[u8]>> LengthValueBuffer<T> {
         Ok(buffer)
     }
 
-    /// Create a new `LengthValueBuffer` without any bound check.
+    /// Create a new [`LengthValueBuffer`] without any bound checks.
     pub fn new_unchecked(bytes: T) -> Self {
         Self { inner: bytes }
     }
@@ -169,23 +191,22 @@ impl<T: AsRef<[u8]>> LengthValueBuffer<T> {
         Ok(())
     }
 
-    /// Return the length field. Note that the value of the length
+    /// Returns the length field. Note that the value of the length
     /// field includes the length of the field itself (4 bytes).
     ///
-    /// # Panic
-    ///
+    /// # Panics
     /// This method may panic if buffer is not a valid Length-Value item.
     pub fn length(&self) -> u32 {
         // unwrap safe: the slice is exactly 4 bytes long
         u32::from_be_bytes(self.inner.as_ref()[LENGTH_FIELD].try_into().unwrap())
     }
 
-    /// Return the length of the value
+    /// Returns the length of the value.
     pub fn value_length(&self) -> usize {
         self.length() as usize - LENGTH_FIELD.end
     }
 
-    /// Return the range corresponding to the value
+    /// Returns the range corresponding to the value.
     fn value_range(&self) -> Range<usize> {
         let offset = LENGTH_FIELD.end;
         let value_length = self.value_length();
@@ -194,10 +215,9 @@ impl<T: AsRef<[u8]>> LengthValueBuffer<T> {
 }
 
 impl<T: AsMut<[u8]>> LengthValueBuffer<T> {
-    /// Set the length field to the given value.
+    /// Sets the length field to the given value.
     ///
-    /// # Panic
-    ///
+    /// # Panics
     /// This method may panic if buffer is not a valid Length-Value item.
     pub fn set_length(&mut self, value: u32) {
         self.inner.as_mut()[LENGTH_FIELD].copy_from_slice(&value.to_be_bytes());
@@ -205,20 +225,18 @@ impl<T: AsMut<[u8]>> LengthValueBuffer<T> {
 }
 
 impl<'a, T: AsRef<[u8]> + AsMut<[u8]> + ?Sized> LengthValueBuffer<&'a mut T> {
-    /// Get a mutable reference to the value field.
+    /// Gets a mutable reference to the value field.
     ///
-    /// # Panic
-    ///
+    /// # Panics
     /// This method may panic if buffer is not a valid Length-Value item.
     pub fn value_mut(&mut self) -> &mut [u8] {
         let range = self.value_range();
         &mut self.inner.as_mut()[range]
     }
 
-    /// Get a mutable reference to the underlying buffer.
+    /// Gets a mutable reference to the underlying buffer.
     ///
-    /// # Panic
-    ///
+    /// # Panics
     /// This method may panic if buffer is not a valid Length-Value item.
     pub fn bytes_mut(&mut self) -> &mut [u8] {
         &mut self.inner.as_mut()[..]
@@ -226,19 +244,17 @@ impl<'a, T: AsRef<[u8]> + AsMut<[u8]> + ?Sized> LengthValueBuffer<&'a mut T> {
 }
 
 impl<'a, T: AsRef<[u8]> + ?Sized> LengthValueBuffer<&'a T> {
-    /// Get a reference to the value field.
+    /// Gets a reference to the value field.
     ///
-    /// # Panic
-    ///
+    /// # Panics
     /// This method may panic if buffer is not a valid Length-Value item.
     pub fn value(&self) -> &'a [u8] {
         &self.inner.as_ref()[self.value_range()]
     }
 
-    /// Get a reference to the underlying buffer.
+    /// Gets a reference to the underlying buffer.
     ///
-    /// # Panic
-    ///
+    /// # Panics
     /// This method may panic if buffer is not a valid Length-Value item.
     pub fn bytes(self) -> &'a [u8] {
         let range = self.value_range();
@@ -315,6 +331,7 @@ impl FromBytes for LocalSeedDict {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     fn decode_length_value_buffer() {
         let bytes = vec![

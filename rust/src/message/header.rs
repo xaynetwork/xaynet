@@ -1,21 +1,40 @@
-use anyhow::{anyhow, Context};
+//! Message headers.
+//!
+//! See the [message module] documentation since this is a private module anyways.
+//!
+//! [message module]: ../index.html
+
 use std::{borrow::Borrow, convert::TryFrom};
+
+use anyhow::{anyhow, Context};
 
 use crate::{
     certificate::Certificate,
-    message::{header_length, DecodeError, FromBytes, MessageBuffer, ToBytes},
+    message::{
+        buffer::{header_length, MessageBuffer},
+        traits::{FromBytes, ToBytes},
+        DecodeError,
+    },
     CoordinatorPublicKey,
     ParticipantPublicKey,
 };
 
 #[derive(Copy, Debug, Clone, Eq, PartialEq)]
-/// Tag that indicates the type of message
+/// A tag that indicates the type of the [`Message`].
+///
+/// [`Message`]: struct.Message.html
 pub enum Tag {
-    /// Tag for sum messages
+    /// A tag for [`Sum`] messages.
+    ///
+    /// [`Sum`]: struct.Sum.html
     Sum,
-    /// Tag for update messages
+    /// A tag for [`Update`] messages.
+    ///
+    /// [`Update`]: struct.Update.html
     Update,
-    /// Tag for sum2 messages
+    /// A tag for [`Sum2`] messages.
+    ///
+    /// [`Sum2`]: struct.Sum2.html
     Sum2,
 }
 
@@ -45,24 +64,27 @@ impl Into<u8> for Tag {
 const CERTIFICATE_FLAG: u8 = 0;
 
 bitflags::bitflags! {
-    /// Bitmask that defines flags for a message
+    /// A bitmask that defines flags for a [`Message`].
+    ///
+    /// [`Message`]: struct.Message.html
     pub struct Flags: u8 {
-        /// Indicates the presence of a client certificate in the
-        /// message
+        /// Indicates the presence of a client certificate in the message.
         const CERTIFICATE = 1 << CERTIFICATE_FLAG;
     }
 }
 
-/// A header common to all the messages
 #[derive(Debug)]
+/// A header common to all [`Message`]s.
+///
+/// [`Message`]: struct.Message.html
 pub struct Header<C> {
-    /// Type of message
+    /// The type of the message.
     pub tag: Tag,
-    /// Coordinator public key
+    /// The coordinator public key.
     pub coordinator_pk: CoordinatorPublicKey,
-    /// Participant public key
+    /// The participant public key.
     pub participant_pk: ParticipantPublicKey,
-    /// A certificate that identifies the author of the message
+    /// A certificate that identifies the author of the message.
     pub certificate: Option<C>,
 }
 
@@ -94,7 +116,7 @@ where
     }
 }
 
-/// Owned version of a [`Header`]
+/// An owned version of a [`Header`].
 pub type HeaderOwned = Header<Certificate>;
 
 impl FromBytes for HeaderOwned {
