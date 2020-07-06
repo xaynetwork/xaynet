@@ -11,7 +11,7 @@ use crate::{
         ClientError,
     },
     crypto::ByteObject,
-    mask::Model,
+    mask::model::Model,
     services::{Fetcher, PetMessageHandler},
     state_machine::coordinator::RoundParameters,
     SumDict,
@@ -107,10 +107,10 @@ impl Proxy {
     pub async fn get_sums(&self) -> Result<Option<SumDict>, ClientError> {
         match self {
             InMem(hdl, _) => Ok(hdl
-                                .sum_dict()
-                                .await
-                                .map_err(ClientError::Fetch)?
-                                .map(|arc| (*arc).clone())),
+                .sum_dict()
+                .await
+                .map_err(ClientError::Fetch)?
+                .map(|arc| (*arc).clone())),
             Remote(req) => {
                 let bytes = req.get_sums().await.map_err(|e| {
                     error!("failed to GET sum dict: {}", e);
@@ -172,10 +172,10 @@ impl Proxy {
     ) -> Result<Option<UpdateSeedDict>, ClientError> {
         match self {
             InMem(hdl, _) => Ok(hdl
-                                .seed_dict()
-                                .await
-                                .map_err(ClientError::Fetch)?
-                                .and_then(|dict| dict.get(&pk).cloned())),
+                .seed_dict()
+                .await
+                .map_err(ClientError::Fetch)?
+                .and_then(|dict| dict.get(&pk).cloned())),
             Remote(req) => req
                 .get_seeds(pk)
                 .await
@@ -208,10 +208,10 @@ impl Proxy {
             // FIXME: don't cast here. The service just return an u64
             // not an usize
             InMem(hdl, _) => Ok(hdl
-                                .mask_length()
-                                .await
-                                .map_err(ClientError::Fetch)?
-                                .map(|len| len as u64)),
+                .mask_length()
+                .await
+                .map_err(ClientError::Fetch)?
+                .map(|len| len as u64)),
             Remote(req) => req
                 .get_mask_length()
                 .await
@@ -242,10 +242,10 @@ impl Proxy {
     pub async fn get_model(&self) -> Result<Option<Model>, ClientError> {
         match self {
             InMem(hdl, _) => Ok(hdl
-                                .model()
-                                .await
-                                .map_err(ClientError::Fetch)?
-                                .map(|arc| (*arc).clone())),
+                .model()
+                .await
+                .map_err(ClientError::Fetch)?
+                .map(|arc| (*arc).clone())),
             Remote(req) => req
                 .get_model()
                 .await
