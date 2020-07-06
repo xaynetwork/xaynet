@@ -92,6 +92,9 @@ pub trait IntoPrimitives<P: 'static>: Sized {
     fn into_primitives(self) -> Box<dyn Iterator<Item = Result<P, ModelCastError>>>;
 
     /// Creates an iterator from numerical values that yields converted primitive values.
+    ///
+    /// # Errors
+    /// Yields an error for each numerical value that can't be converted into a primitive value.
     fn to_primitives(&self) -> Box<dyn Iterator<Item = Result<P, ModelCastError>>>;
 
     /// Consume this model and into an iterator that yields `P` values.

@@ -1,28 +1,9 @@
 //! Provides functionality to enable clients to communicate with a XayNet
 //! service over HTTP.
 //!
-//! This includes a [`Proxy`] which a [`Client`] can use to communicate with the
-//! service. To summarise, the proxy:
+//! See the [client module] documentation since this is a private module anyways.
 //!
-//! * Wraps either a [`Handle`] (for local comms) or a [`ClientReq`] (for remote
-//!   comms over HTTP).
-//! * In the latter case, deals with logging and wrapping of network errors.
-//! * Deals with deserialization
-//!
-//! [`ClientReq`] is responsible for building the HTTP request and extracting
-//! the response body. As an example:
-//!
-//! `async fn get_sums(&self) -> Result<Option<bytes::Bytes>, reqwest::Error>`
-//!
-//! issues a GET request for the sum dictionary. The return type reflects the
-//! presence of networking `Error`s, but also the situation where the dictionary
-//! is simply just not yet available on the service. That is, the type also
-//! reflects the _optionality_ of the data availability.
-//!
-//! [`Proxy`] essentially takes this (deserializing the `Bytes` into a `SumDict`
-//! while handling `Error`s into [`ClientError`]s) to expose the overall method
-//!
-//! `async fn get_sums(&self) -> Result<Option<SumDict>, ClientError>`
+//! [client module]: ../index.html
 
 use crate::{
     client::{

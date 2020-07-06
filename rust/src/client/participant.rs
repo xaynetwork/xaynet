@@ -1,16 +1,8 @@
 //! Provides the logic and functionality for a participant of the PET protocol.
 //!
-//! In any given round of federated learning, each [`Participant`] of the
-//! protocol is characterised by a role which determines its [`Task`] to carry
-//! out in the round, and which is computed by [`check_task`].
+//! See the [client module] documentation since this is a private module anyways.
 //!
-//! Participants selected to `Update` are responsible for sending masked model
-//! updates in the form of PET messages constructed with
-//! [`compose_update_message`].
-//!
-//! Participants selected to `Sum` are responsible for sending ephemeral keys
-//! and global masks in PET messages constructed respectively with
-//! [`compose_sum_message`] and [`compose_sum2_message`].
+//! [client module]: ../index.html
 
 use std::default::Default;
 

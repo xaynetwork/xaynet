@@ -50,7 +50,7 @@ use tokio::{
 };
 
 use crate::{
-    client::{participant::Task, Client, ClientError},
+    client::{Task, Client, ClientError},
     mask::model::{FromPrimitives, IntoPrimitives, Model},
 };
 

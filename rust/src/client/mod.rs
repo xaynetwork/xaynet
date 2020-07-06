@@ -6,6 +6,20 @@
 //! * Handling the network communication with the XayNet service, including
 //!   polling of service data.
 //!
+//! # Participant
+//! In any given round of federated learning, each [`Participant`] of the
+//! protocol is characterised by a role which determines its [`Task`] to carry
+//! out in the round, and which is computed by [`check_task`].
+//!
+//! Participants selected to `Update` are responsible for sending masked model
+//! updates in the form of PET messages constructed with
+//! [`compose_update_message`].
+//!
+//! Participants selected to `Sum` are responsible for sending ephemeral keys
+//! and global masks in PET messages constructed respectively with
+//! [`compose_sum_message`] and [`compose_sum2_message`].
+//!
+//! # Client
 //! A [`Client`] has an intentionally simple API - the idea is that it is
 //! initialised with some settings, and then [`start()`]ed. Currently for
 //! simplicity, clients that have started running will do so indefinitely. It is
@@ -14,10 +28,42 @@
 //! (or a known fixed number of rounds). In this case, use [`during_round()`].
 //! For examples of usage, see the `test-drive` scripts.
 //!
-//! **Note**. At present, the [`Client`] implementation is somewhat tightly
+//! **Note.** At present, the [`Client`] implementation is somewhat tightly
 //! coupled with the workings of the C-API SDK, but this may well change in a
 //! future version to be more independently reusable.
 //!
+//! ## Requests via Proxy
+//! There is a [`Proxy`] which a [`Client`] can use to communicate with the
+//! service. To summarise, the proxy:
+//!
+//! * Wraps either an in-memory service (for local comms) or a _client request_
+//! object (for remote comms over HTTP).
+//! * In the latter case, deals with logging and wrapping of network errors.
+//! * Deals with deserialization
+//!
+//! The client request object is responsible for building the HTTP request and
+//! extracting the response body. As an example:
+//!
+//! ```no_rust
+//! async fn get_sums(&self) -> Result<Option<bytes::Bytes>, reqwest::Error>
+//! ```
+//!
+//! issues a GET request for the sum dictionary. The return type reflects the
+//! presence of networking `Error`s, but also the situation where the dictionary
+//! is simply just not yet available on the service. That is, the type also
+//! reflects the _optionality_ of the data availability.
+//!
+//! [`Proxy`] essentially takes this (deserializing the `Bytes` into a `SumDict`
+//! while handling `Error`s into [`ClientError`]s) to expose the overall method
+//!
+//! ```no_rust
+//! async fn get_sums(&self) -> Result<Option<SumDict>, ClientError>
+//! ```
+//!
+//! [`check_task`]: #method.check_task
+//! [`compose_update_message`]: #method.compose_update_message
+//! [`compose_sum_message`]: #method.compose_sum_message
+//! [`compose_sum2_message`]: #method.compose_sum2_message
 //! [`start()`]: #method.start
 //! [`during_round()`]: #method.during_round
 
@@ -39,7 +85,7 @@ use crate::{
 mod request;
 pub use request::Proxy;
 
-pub mod participant;
+mod participant;
 pub use participant::{Participant, Task};
 
 #[derive(Debug, Error)]
