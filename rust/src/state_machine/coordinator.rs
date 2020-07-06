@@ -11,14 +11,9 @@ use crate::{
     CoordinatorPublicKey,
 };
 
-/// The round ID.
-pub type RoundId = u64;
-
 /// The round parameters.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RoundParameters {
-    /// The ID of the round.
-    pub id: RoundId,
     /// The public key of the coordinator used for encryption.
     pub pk: CoordinatorPublicKey,
     /// Fraction of participants to be selected for the sum task.
@@ -51,7 +46,6 @@ impl CoordinatorState {
     pub fn new(pet_settings: PetSettings, mask_settings: MaskSettings) -> (Self, EventSubscriber) {
         let keys = EncryptKeyPair::generate();
         let round_params = RoundParameters {
-            id: 0,
             pk: keys.public,
             sum: pet_settings.sum,
             update: pet_settings.update,

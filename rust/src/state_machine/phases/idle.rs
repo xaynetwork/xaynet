@@ -26,10 +26,6 @@ where
     async fn next(mut self) -> Option<StateMachine<R>> {
         info!("starting idle phase");
 
-        self.coordinator_state.round_params.id += 1;
-        let round_id = self.coordinator_state.round_params.id;
-        info!("incremented round id to {}", round_id);
-
         info!("updating the keys");
         self.gen_round_keypair();
 
@@ -43,24 +39,39 @@ where
 
         info!("broadcasting new keys");
         events.broadcast_keys(
-            self.coordinator_state.round_params.id,
+            self.coordinator_state.round_params.seed.clone(),
             self.coordinator_state.keys.clone(),
         );
 
         info!("broadcasting idle phase event");
-        events.broadcast_phase(round_id, PhaseEvent::Idle);
+        events.broadcast_phase(
+            self.coordinator_state.round_params.seed.clone(),
+            PhaseEvent::Idle,
+        );
 
         info!("broadcasting invalidation of sum dictionary from previous round");
-        events.broadcast_sum_dict(round_id, DictionaryUpdate::Invalidate);
+        events.broadcast_sum_dict(
+            self.coordinator_state.round_params.seed.clone(),
+            DictionaryUpdate::Invalidate,
+        );
 
         info!("broadcasting invalidation of seed dictionary from previous round");
-        events.broadcast_seed_dict(round_id, DictionaryUpdate::Invalidate);
+        events.broadcast_seed_dict(
+            self.coordinator_state.round_params.seed.clone(),
+            DictionaryUpdate::Invalidate,
+        );
 
         info!("broadcasting invalidation of scalar from previous round");
-        events.broadcast_scalar(round_id, ScalarUpdate::Invalidate);
+        events.broadcast_scalar(
+            self.coordinator_state.round_params.seed.clone(),
+            ScalarUpdate::Invalidate,
+        );
 
         info!("broadcasting invalidation of mask length from previous round");
-        events.broadcast_mask_length(round_id, MaskLengthUpdate::Invalidate);
+        events.broadcast_mask_length(
+            self.coordinator_state.round_params.seed.clone(),
+            MaskLengthUpdate::Invalidate,
+        );
 
         info!("broadcasting new round parameters");
         events.broadcast_params(self.coordinator_state.round_params.clone());

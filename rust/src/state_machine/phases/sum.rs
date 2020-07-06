@@ -51,9 +51,10 @@ where
         info!("starting sum phase");
 
         info!("broadcasting sum phase event");
-        self.coordinator_state
-            .events
-            .broadcast_phase(self.coordinator_state.round_params.id, PhaseEvent::Sum);
+        self.coordinator_state.events.broadcast_phase(
+            self.coordinator_state.round_params.seed.clone(),
+            PhaseEvent::Sum,
+        );
         let next_state = match self.run_phase().await {
             Ok(seed_dict) => PhaseState::<R, Update>::new(
                 self.coordinator_state,
@@ -115,7 +116,7 @@ impl<R> PhaseState<R, Sum> {
     fn freeze_sum_dict(&mut self) -> SeedDict {
         info!("broadcasting sum dictionary");
         self.coordinator_state.events.broadcast_sum_dict(
-            self.coordinator_state.round_params.id,
+            self.coordinator_state.round_params.seed.clone(),
             DictionaryUpdate::New(Arc::new(self.inner.sum_dict.clone())),
         );
 

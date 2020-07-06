@@ -34,9 +34,10 @@ where
         info!("starting unmasking phase");
 
         info!("broadcasting unmasking phase event");
-        self.coordinator_state
-            .events
-            .broadcast_phase(self.coordinator_state.round_params.id, PhaseEvent::Unmask);
+        self.coordinator_state.events.broadcast_phase(
+            self.coordinator_state.round_params.seed.clone(),
+            PhaseEvent::Unmask,
+        );
 
         let next_state = match self.run_phase().await {
             Ok(_) => {
@@ -77,7 +78,7 @@ impl<R> PhaseState<R, Unmask> {
         let global_model = self.end_round()?;
         info!("broadcasting the new global model");
         self.coordinator_state.events.broadcast_model(
-            self.coordinator_state.round_params.id,
+            self.coordinator_state.round_params.seed.clone(),
             ModelUpdate::New(Arc::new(global_model)),
         );
 

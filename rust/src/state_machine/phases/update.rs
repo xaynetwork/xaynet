@@ -44,9 +44,10 @@ where
         info!("starting update phase");
 
         info!("broadcasting update phase event");
-        self.coordinator_state
-            .events
-            .broadcast_phase(self.coordinator_state.round_params.id, PhaseEvent::Update);
+        self.coordinator_state.events.broadcast_phase(
+            self.coordinator_state.round_params.seed.clone(),
+            PhaseEvent::Update,
+        );
 
         let next_state = match self.run_phase().await {
             Ok(_) => {
@@ -63,13 +64,13 @@ where
 
                 info!("broadcasting mask length");
                 coordinator_state.events.broadcast_mask_length(
-                    coordinator_state.round_params.id,
+                    coordinator_state.round_params.seed.clone(),
                     MaskLengthUpdate::New(aggregation.len()),
                 );
 
                 info!("broadcasting the global seed dictionary");
                 coordinator_state.events.broadcast_seed_dict(
-                    coordinator_state.round_params.id,
+                    coordinator_state.round_params.seed.clone(),
                     DictionaryUpdate::New(Arc::new(seed_dict)),
                 );
 
@@ -117,7 +118,7 @@ where
                 * self.coordinator_state.round_params.update);
         info!("broadcasting scalar: {}", scalar);
         self.coordinator_state.events.broadcast_scalar(
-            self.coordinator_state.round_params.id,
+            self.coordinator_state.round_params.seed.clone(),
             ScalarUpdate::New(scalar),
         );
 

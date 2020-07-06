@@ -18,8 +18,9 @@
 //! **Idle**
 //!
 //! Publishes the [`PhaseEvent::Idle`], increments the `round id` by `1`, invalidates the
-//! [`SumDict`], [`SeedDict`], `scalar` and `mask length`, updates the [`KeyPair`], `thresholds`
-//! as well as the `seed` and publishes the [`KeyPair`] and the [`RoundParameters`].
+//! [`SumDict`], [`SeedDict`], `scalar` and `mask length`, updates the [`EncryptKeyPair`],
+//! `thresholds` as well as the `seed` and publishes the [`EncryptKeyPair`] and the
+//! [`RoundParameters`].
 //!
 //! **Sum**
 //!
@@ -98,7 +99,7 @@
 //!
 //! [`SumDict`]: crate::SumDict
 //! [`SeedDict`]: crate::SeedDict
-//! [`KeyPair`]: crate::crypto::KeyPair
+//! [`EncryptKeyPair`]: crate::crypto::EncryptKeyPair
 //! [`RoundParameters`]: crate::state_machine::coordinator::RoundParameters
 //! [`MaskDict`]: crate::state_machine::coordinator::MaskDict
 //! [`Request`]: crate::state_machine::requests::Request

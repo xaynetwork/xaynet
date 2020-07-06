@@ -40,9 +40,10 @@ where
         info!("starting sum2 phase");
 
         info!("broadcasting sum2 phase event");
-        self.coordinator_state
-            .events
-            .broadcast_phase(self.coordinator_state.round_params.id, PhaseEvent::Sum2);
+        self.coordinator_state.events.broadcast_phase(
+            self.coordinator_state.round_params.seed.clone(),
+            PhaseEvent::Sum2,
+        );
         let next_state = match self.run_phase().await {
             Ok(_) => PhaseState::<R, Unmask>::new(
                 self.coordinator_state,
