@@ -64,7 +64,7 @@ pub async fn serve<F, MH>(
         .or(seed_dict)
         .or(length)
         .or(model)
-        .recover(handle_reject);
+        .recover(handle_reject)
         .with(warp::log("http"));
 
     warp::serve(routes).run(addr).await

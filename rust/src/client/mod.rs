@@ -14,9 +14,12 @@
 //! (or a known fixed number of rounds). In this case, use [`during_round()`].
 //! For examples of usage, see the `test-drive` scripts.
 //!
-//! **Note. At present, the [`Client`] implementation is somewhat tightly
+//! **Note**. At present, the [`Client`] implementation is somewhat tightly
 //! coupled with the workings of the C-API SDK, but this may well change in a
 //! future version to be more independently reusable.
+//!
+//! [`start()`]: #method.start
+//! [`during_round()`]: #method.during_round
 
 use std::{default::Default, time::Duration};
 
@@ -27,7 +30,7 @@ use crate::{
     crypto::ByteObject,
     mask::model::Model,
     sdk::api::CachedModel,
-    service::Handle,
+    services::{FetchError, Fetcher, PetMessageError, PetMessageHandler},
     CoordinatorPublicKey,
     InitError,
     PetError,
@@ -43,25 +46,38 @@ pub use participant::{Participant, Task};
 /// Client-side errors
 pub enum ClientError {
     #[error("failed to initialise participant: {0}")]
+    /// Failed to initialise participant.
     ParticipantInitErr(InitError),
 
+    #[error("Failed to retrieve data: {0}")]
+    /// Failed to retrieve data.
+    Fetch(FetchError),
+
+    #[error("Failed to handle PET message: {0}")]
+    /// Failed to handle PET message.
+    PetMessage(PetMessageError),
+
     #[error("error arising from participant")]
+    /// Error arising from participant.
     ParticipantErr(PetError),
 
     #[error("failed to deserialise service data: {0}")]
+    /// Failed to deserialise service data.
     DeserialiseErr(bincode::Error),
 
     #[error("network-related error: {0}")]
+    /// Network-related error.
     NetworkErr(reqwest::Error),
 
     #[error("failed to parse service data")]
+    /// Failed to parse service data.
     ParseErr,
 
     #[error("unexpected client error")]
+    /// Unexpected client error.
     GeneralErr,
 }
 
-#[derive(Debug)]
 /// A client of the federated learning service
 ///
 /// [`Client`] is responsible for communicating with the service, deserialising
@@ -79,6 +95,7 @@ pub struct Client {
     coordinator_pk: CoordinatorPublicKey,
     pub(crate) has_new_coord_pk_since_last_check: bool,
 
+    // TODO document
     pub(crate) global_model: Option<Model>,
     pub(crate) cached_model: Option<CachedModel>,
     pub(crate) has_new_global_model_since_last_check: bool,
@@ -106,7 +123,7 @@ impl Default for Client {
             has_new_global_model_since_last_cache: false,
             local_model: None,
             id: 0,
-            proxy: Proxy::new("http://127.0.0.1:3030"),
+            proxy: Proxy::new_remote("http://127.0.0.1:3030"),
         }
     }
 }
@@ -114,7 +131,7 @@ impl Default for Client {
 impl Client {
     /// Create a new [`Client`] that connects to a default service address.
     ///
-    /// `period`: time period at which to poll for service data, in seconds.
+    /// * `period`: time period at which to poll for service data, in seconds.
     ///
     /// # Errors
     /// Returns a `ParticipantInitErr` if the underlying [`Participant`] is
@@ -129,28 +146,34 @@ impl Client {
 
     /// Create a new [`Client`] with a given service handle.
     ///
-    /// `period`: time period at which to poll for service data, in seconds.
-    /// `id`: an ID to assign to the [`Client`].
-    /// `handle`: handle for communicating with the (local) service.
+    /// * `period`: time period at which to poll for service data, in seconds.
+    /// * `id`: an ID to assign to the [`Client`].
+    /// * `fetcher`: fetcher for in-memory service proxy.
+    /// * `message_handler`: message handler for in-memory service proxy.
     ///
     /// # Errors
     /// Returns a `ParticipantInitErr` if the underlying [`Participant`] is
     /// unable to initialize.
-    pub fn new_with_hdl(period: u64, id: u32, handle: Handle) -> Result<Self, ClientError> {
+    pub fn new_with_hdl(
+        period: u64,
+        id: u32,
+        fetcher: impl Fetcher + 'static + Send + Sync,
+        message_handler: impl PetMessageHandler + 'static + Send + Sync,
+    ) -> Result<Self, ClientError> {
         Ok(Self {
             participant: Participant::new().map_err(ClientError::ParticipantInitErr)?,
             interval: time::interval(Duration::from_secs(period)),
             id,
-            proxy: Proxy::from(handle),
+            proxy: Proxy::new_in_mem(fetcher, message_handler),
             ..Self::default()
         })
     }
 
     /// Create a new [`Client`] with a given service address.
     ///
-    /// `period`: time period at which to poll for service data, in seconds.
-    /// `id`: an ID to assign to the [`Client`].
-    /// `addr`: service address to connect to.
+    /// * `period`: time period at which to poll for service data, in seconds.
+    /// * `id`: an ID to assign to the [`Client`].
+    /// * `addr`: service address to connect to.
     ///
     /// # Errors
     /// Returns a `ParticipantInitErr` if the underlying [`Participant`] is
@@ -160,7 +183,7 @@ impl Client {
             participant: Participant::new().map_err(ClientError::ParticipantInitErr)?,
             interval: time::interval(Duration::from_secs(period)),
             id,
-            proxy: Proxy::new(addr),
+            proxy: Proxy::new_remote(addr),
             ..Self::default()
         })
     }
@@ -186,40 +209,35 @@ impl Client {
     pub async fn during_round(&mut self) -> Result<Task, ClientError> {
         debug!(client_id = %self.id, "polling for new round parameters");
         loop {
-            if let Some(params_outer) = self.proxy.get_params().await? {
-                // update our global model where necessary
-                match (params_outer.global_model, &self.global_model) {
-                    (Some(new_model), None) => self.set_global_model(new_model),
-                    (Some(new_model), Some(old_model)) if &new_model != old_model => {
-                        self.set_global_model(new_model)
-                    }
-                    (None, _) => trace!(client_id = %self.id, "global model not ready yet"),
-                    _ => trace!(client_id = %self.id, "global model still fresh"),
-                };
-                if let Some(params_inner) = params_outer.round_parameters {
-                    // new round?
-                    if params_inner.pk != self.coordinator_pk {
-                        debug!(client_id = %self.id, "new round parameters received, determining task.");
-                        self.coordinator_pk = params_inner.pk;
-                        self.has_new_coord_pk_since_last_check = true;
-                        let round_seed = params_inner.seed.as_slice();
-                        self.participant.compute_signatures(round_seed);
-                        let (sum_frac, upd_frac) = (params_inner.sum, params_inner.update);
-                        #[rustfmt::skip]
-                        break match self.participant.check_task(sum_frac, upd_frac) {
-                            Task::Sum    => self.summer()    .await,
-                            Task::Update => self.updater()   .await,
-                            Task::None   => self.unselected().await,
-                        };
-                    }
-                    // same coordinator pk
-                    trace!(client_id = %self.id, "still the same round");
-                } else {
-                    trace!(client_id = %self.id, "inner round parameters not ready");
+            let model = self.proxy.get_model().await?;
+            // update our global model where necessary
+            match (model, &self.global_model) {
+                (Some(new_model), None) => self.set_global_model(new_model),
+                (Some(new_model), Some(old_model)) if &new_model != old_model => {
+                    self.set_global_model(new_model)
                 }
-            } else {
-                trace!(client_id = %self.id, "round parameters data not ready");
+                (None, _) => trace!(client_id = %self.id, "global model not ready yet"),
+                _ => trace!(client_id = %self.id, "global model still fresh"),
             }
+
+            let round_params = self.proxy.get_round_params().await?;
+            if round_params.pk != self.coordinator_pk {
+                debug!(client_id = %self.id, "new round parameters received, determining task.");
+                self.coordinator_pk = round_params.pk;
+                self.has_new_coord_pk_since_last_check = true;
+                let round_seed = round_params.seed.as_slice();
+                self.participant.compute_signatures(round_seed);
+                let (sum_frac, upd_frac) = (round_params.sum, round_params.update);
+
+                return match self.participant.check_task(sum_frac, upd_frac) {
+                    Task::Sum => self.summer().await,
+                    Task::Update => self.updater().await,
+                    Task::None => self.unselected().await,
+                };
+            } else {
+                trace!(client_id = %self.id, "still the same round");
+            }
+
             trace!(client_id = %self.id, "new round parameters not ready, retrying.");
             self.interval.tick().await;
         }
@@ -239,7 +257,7 @@ impl Client {
 
         debug!(client_id = %self.id, "polling for model/mask length");
         let length = loop {
-            if let Some(length) = self.proxy.get_length().await? {
+            if let Some(length) = self.proxy.get_mask_length().await? {
                 if length > usize::MAX as u64 {
                     return Err(ClientError::ParticipantErr(PetError::InvalidModel));
                 } else {

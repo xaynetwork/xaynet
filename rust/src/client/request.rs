@@ -30,24 +30,37 @@ use crate::{
         ClientError,
     },
     crypto::ByteObject,
-    service::{data::RoundParametersData, Handle},
-    ParticipantPublicKey,
+    mask::Model,
+    services::{Fetcher, PetMessageHandler},
+    state_machine::coordinator::RoundParameters,
     SumDict,
+    SumParticipantPublicKey,
     UpdateSeedDict,
 };
 use bytes::Bytes;
 use reqwest::{Client, Error, IntoUrl, Response, StatusCode};
 
-#[derive(Debug)]
 /// Proxy for communicating with the service.
 pub enum Proxy {
-    InMem(Handle),
+    InMem(
+        Box<dyn Fetcher + Send + Sync>,
+        Box<dyn PetMessageHandler + Send + Sync>,
+    ),
     Remote(ClientReq),
 }
 
 impl Proxy {
-    pub fn new(addr: &'static str) -> Self {
+    /// TODO
+    pub fn new_remote(addr: &'static str) -> Self {
         Remote(ClientReq::new(addr))
+    }
+
+    /// TODO
+    pub fn new_in_mem(
+        fetcher: impl Fetcher + 'static + Send + Sync,
+        message_handler: impl PetMessageHandler + 'static + Send + Sync,
+    ) -> Self {
+        InMem(Box::new(fetcher), Box::new(message_handler))
     }
 
     /// Posts the given PET message to the service proxy.
@@ -57,7 +70,10 @@ impl Proxy {
     /// message.
     pub async fn post_message(&self, msg: Vec<u8>) -> Result<(), ClientError> {
         match self {
-            InMem(hdl) => hdl.send_message(msg).await,
+            InMem(_, hdl) => hdl
+                .handle_message(msg)
+                .await
+                .map_err(ClientError::PetMessage),
             Remote(req) => {
                 let resp = req.post_message(msg).await.map_err(|e| {
                     error!("failed to POST message: {}", e);
@@ -68,9 +84,23 @@ impl Proxy {
                 if code != StatusCode::OK {
                     warn!("unexpected HTTP status code: {}", code)
                 };
+                Ok(())
             }
-        };
-        Ok(())
+        }
+    }
+
+    /// TODO
+    pub async fn get_round_params(&self) -> Result<RoundParameters, ClientError> {
+        match self {
+            InMem(hdl, _) => hdl.round_params().await.map_err(ClientError::Fetch),
+            Remote(req) => {
+                let bytes = req.get_round_params().await.map_err(|e| {
+                    error!("failed to GET round parameters: {}", e);
+                    ClientError::NetworkErr(e)
+                })?;
+                bincode::deserialize(&bytes[..]).map_err(ClientError::DeserialiseErr)
+            }
+        }
     }
 
     /// Get the sum dictionary data from the service proxy.
@@ -83,26 +113,26 @@ impl Proxy {
     /// Returns `DeserialiseErr` if an error occurs while deserialising the
     /// response.
     pub async fn get_sums(&self) -> Result<Option<SumDict>, ClientError> {
-        let opt_vec = match self {
-            InMem(hdl) => {
-                let opt_arc = hdl.get_sum_dict().await;
-                opt_arc.map(|arc| (*arc).clone())
-            }
+        match self {
+            InMem(hdl, _) => Ok(hdl
+                                .sum_dict()
+                                .await
+                                .map_err(ClientError::Fetch)?
+                                .map(|arc| (*arc).clone())),
             Remote(req) => {
-                let opt_bytes = req.get_sums().await.map_err(|e| {
+                let bytes = req.get_sums().await.map_err(|e| {
                     error!("failed to GET sum dict: {}", e);
                     ClientError::NetworkErr(e)
                 })?;
-                opt_bytes.map(|bytes| bytes.to_vec())
+                if let Some(bytes) = bytes {
+                    let sum_dict =
+                        bincode::deserialize(&bytes[..]).map_err(ClientError::DeserialiseErr)?;
+                    Ok(Some(sum_dict))
+                } else {
+                    Ok(None)
+                }
             }
-        };
-        let opt_sums = opt_vec.map(|vec| {
-            bincode::deserialize(&vec[..]).map_err(|e| {
-                error!("failed to deserialize sum dict: {}: {:?}", e, &vec[..]);
-                ClientError::DeserialiseErr(e)
-            })
-        });
-        opt_sums.transpose()
+        }
     }
 
     /// Get the model scalar data from the service proxy.
@@ -115,7 +145,7 @@ impl Proxy {
     /// Returns `ParseErr` if an error occurs while parsing the response.
     pub async fn get_scalar(&self) -> Result<Option<f64>, ClientError> {
         match self {
-            InMem(hdl) => Ok(hdl.get_scalar().await),
+            InMem(hdl, _) => hdl.scalar().await.map_err(ClientError::Fetch),
             Remote(req) => {
                 let opt_text = req.get_scalar().await.map_err(|e| {
                     error!("failed to GET model scalar: {}", e);
@@ -144,28 +174,30 @@ impl Proxy {
     /// response.
     pub async fn get_seeds(
         &self,
-        pk: ParticipantPublicKey,
+        pk: SumParticipantPublicKey,
     ) -> Result<Option<UpdateSeedDict>, ClientError> {
-        let opt_vec = match self {
-            InMem(hdl) => {
-                let opt_arc = hdl.get_seed_dict(pk).await;
-                opt_arc.map(|arc| (*arc).clone())
-            }
-            Remote(req) => {
-                let opt_bytes = req.get_seeds(pk).await.map_err(|e| {
+        match self {
+            InMem(hdl, _) => Ok(hdl
+                                .seed_dict()
+                                .await
+                                .map_err(ClientError::Fetch)?
+                                .and_then(|dict| dict.get(&pk).cloned())),
+            Remote(req) => req
+                .get_seeds(pk)
+                .await
+                .map_err(|e| {
                     error!("failed to GET seed dict: {}", e);
                     ClientError::NetworkErr(e)
-                })?;
-                opt_bytes.map(|bytes| bytes.to_vec())
-            }
-        };
-        let opt_seeds = opt_vec.map(|vec| {
-            bincode::deserialize(&vec[..]).map_err(|e| {
-                error!("failed to deserialize seed dict: {}: {:?}", e, &vec[..]);
-                ClientError::DeserialiseErr(e)
-            })
-        });
-        opt_seeds.transpose()
+                })?
+                .map(|bytes| {
+                    let vec = bytes.to_vec();
+                    bincode::deserialize(&vec[..]).map_err(|e| {
+                        error!("failed to deserialize seed dict: {:?}", e);
+                        ClientError::DeserialiseErr(e)
+                    })
+                })
+                .transpose(),
+        }
     }
 
     /// Get the model/mask length data from the service proxy.
@@ -176,27 +208,33 @@ impl Proxy {
     /// # Errors
     /// Returns `NetworkErr` if a network error occurs while getting the data.
     /// Returns `ParseErr` if an error occurs while parsing the response.
-    pub async fn get_length(&self) -> Result<Option<u64>, ClientError> {
+    pub async fn get_mask_length(&self) -> Result<Option<u64>, ClientError> {
         match self {
-            InMem(hdl) => Ok(hdl.get_length().await),
-            Remote(req) => {
-                let opt_text = req.get_length().await.map_err(|e| {
+            // FIXME: don't cast here. The service just return an u64
+            // not an usize
+            InMem(hdl, _) => Ok(hdl
+                                .mask_length()
+                                .await
+                                .map_err(ClientError::Fetch)?
+                                .map(|len| len as u64)),
+            Remote(req) => req
+                .get_mask_length()
+                .await
+                .map_err(|e| {
                     error!("failed to GET model/mask length: {}", e);
                     ClientError::NetworkErr(e)
-                })?;
-                opt_text
-                    .map(|text| {
-                        text.parse().map_err(|e| {
-                            error!("failed to parse model/mask length: {}: {:?}", e, text);
-                            ClientError::ParseErr
-                        })
+                })?
+                .map(|text| {
+                    text.parse().map_err(|e| {
+                        error!("failed to parse model/mask length: {}: {:?}", e, text);
+                        ClientError::ParseErr
                     })
-                    .transpose()
-            }
+                })
+                .transpose(),
         }
     }
 
-    /// Get the round parameters data from the service proxy.
+    /// FIXME Get the round parameters data from the service proxy.
     ///
     /// Returns `Ok(Some(data))` if the `data` is available on the
     /// service, `Ok(None)` if it is not.
@@ -205,33 +243,29 @@ impl Proxy {
     /// Returns `NetworkErr` if a network error occurs while getting the data.
     /// Returns `DeserialiseErr` if an error occurs while deserialising the
     /// response.
-    pub async fn get_params(&self) -> Result<Option<RoundParametersData>, ClientError> {
-        let opt_vec = match self {
-            InMem(hdl) => {
-                let opt_arc = hdl.get_round_parameters().await;
-                opt_arc.map(|arc| (*arc).clone())
-            }
-            Remote(req) => {
-                let opt_bytes = req.get_params().await.map_err(|e| {
-                    error!("failed to GET round parameters: {}", e);
+    pub async fn get_model(&self) -> Result<Option<Model>, ClientError> {
+        match self {
+            InMem(hdl, _) => Ok(hdl
+                                .model()
+                                .await
+                                .map_err(ClientError::Fetch)?
+                                .map(|arc| (*arc).clone())),
+            Remote(req) => req
+                .get_model()
+                .await
+                .map_err(|e| {
+                    error!("failed to GET model: {}", e);
                     ClientError::NetworkErr(e)
-                })?;
-                opt_bytes.map(|bytes| bytes.to_vec())
-            }
-        };
-        let opt_params = opt_vec.map(|vec| {
-            bincode::deserialize(&vec[..]).map_err(|e| {
-                error!("failed to deserialize round params: {}: {:?}", e, &vec[..]);
-                ClientError::DeserialiseErr(e)
-            })
-        });
-        opt_params.transpose()
-    }
-}
-
-impl From<Handle> for Proxy {
-    fn from(hdl: Handle) -> Self {
-        InMem(hdl)
+                })?
+                .map(|bytes| {
+                    let vec = bytes.to_vec();
+                    bincode::deserialize(&vec[..]).map_err(|e| {
+                        error!("failed to deserialize model: {:?}", e);
+                        ClientError::DeserialiseErr(e)
+                    })
+                })
+                .transpose(),
+        }
     }
 }
 
@@ -256,9 +290,10 @@ impl ClientReq {
         response.error_for_status()
     }
 
-    async fn get_params(&self) -> Result<Option<Bytes>, Error> {
+    async fn get_round_params(&self) -> Result<Bytes, Error> {
         let url = format!("{}/params", self.address);
-        self.simple_get_bytes(&url).await
+        // FIXME don't unwrap
+        Ok(self.simple_get_bytes(&url).await?.unwrap())
     }
 
     async fn get_sums(&self) -> Result<Option<Bytes>, Error> {
@@ -271,9 +306,8 @@ impl ClientReq {
         self.simple_get_text(&url).await
     }
 
-    async fn get_seeds(&self, pk: ParticipantPublicKey) -> Result<Option<Bytes>, Error> {
+    async fn get_seeds(&self, pk: SumParticipantPublicKey) -> Result<Option<Bytes>, Error> {
         let url = format!("{}/seeds", self.address);
-        // send pk along as body of GET request
         let response = self
             .client
             .get(&url)
@@ -293,9 +327,14 @@ impl ClientReq {
         Ok(opt_body)
     }
 
-    async fn get_length(&self) -> Result<Option<String>, Error> {
+    async fn get_mask_length(&self) -> Result<Option<String>, Error> {
         let url = format!("{}/length", self.address);
         self.simple_get_text(&url).await
+    }
+
+    async fn get_model(&self) -> Result<Option<Bytes>, Error> {
+        let url = format!("{}/model", self.address);
+        self.simple_get_bytes(&url).await
     }
 
     async fn simple_get_text<T: IntoUrl>(&self, url: T) -> Result<Option<String>, Error> {
