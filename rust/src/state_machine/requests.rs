@@ -1,4 +1,4 @@
-//! This module provides the the [`StateMachine`] `Request`, `RequestSender` and `RequestReceiver`
+//! This module provides the the [`StateMachine`]'s `Request`, `RequestSender` and `RequestReceiver`
 //! types.
 //!
 //! [`StateMachine`]: crate::state_machine::StateMachine

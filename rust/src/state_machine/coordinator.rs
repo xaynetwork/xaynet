@@ -33,7 +33,7 @@ pub struct RoundParameters {
 pub struct CoordinatorState {
     /// The credentials of the coordinator.
     pub keys: EncryptKeyPair,
-    // The round parameters.
+    /// The round parameters.
     pub round_params: RoundParameters,
     /// The minimum of required sum/sum2 messages.
     pub min_sum: usize,

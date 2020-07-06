@@ -56,6 +56,10 @@ where
     }
 }
 
+/// The state corresponding to a phase of the PET protocol.
+///
+/// This contains the state-dependent `inner` state and the state-independent `coordinator_state`
+/// which is shared across state transitions.
 pub struct PhaseState<R, S> {
     /// The inner state.
     inner: S,

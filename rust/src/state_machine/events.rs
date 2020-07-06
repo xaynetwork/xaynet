@@ -1,6 +1,8 @@
-//! This module provides the [`StateMachine`] `Events`, `EventSubscriber` and `EventPublisher` types.
+//! This module provides the [`StateMachine`]'s `Events`, `EventSubscriber` and `EventPublisher`
+//! types.
 //!
 //! [`StateMachine`]: crate::state_machine::StateMachine
+
 use std::{
     pin::Pin,
     sync::Arc,

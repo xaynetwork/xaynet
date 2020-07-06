@@ -24,18 +24,19 @@
 //! **Sum**
 //!
 //! Publishes the [`PhaseEvent::Sum`], builds and publishes the [`SumDict`], ensures that enough sum
-//! messages has been submitted and initializes the [`SeedDict`].
+//! messages have been submitted and initializes the [`SeedDict`].
 //!
 //! **Update**
 //!
 //! Publishes the [`PhaseEvent::Update`], publishes the `scalar`, builds and publishes the
-//! [`SeedDict`], ensures that enough update messages has been submitted and aggregates the
+//! [`SeedDict`], ensures that enough update messages have been submitted and aggregates the
 //! masked model.
 //!
 //! **Sum2**
 //!
-//! Publishes the [`PhaseEvent::Sum2`], builds the [`MaskDict`] and determines the applicable mask
-//! for unmasking the global masked model.
+//! Publishes the [`PhaseEvent::Sum2`], builds the [`MaskDict`], ensures that enough sum2
+//! messages have been submitted and determines the applicable mask for unmasking the global
+//! masked model.
 //!
 //! **Unmask**
 //!
@@ -80,7 +81,7 @@
 //!
 //! During the execution of the PET protocol, the [`StateMachine`] will publish various events
 //! (see Phase states). Everyone who is interested in the events can subscribe to the respective
-//! events via the [`EventSubscriber`]. A [`EventSubscriber`] is automatically created when a new
+//! events via the [`EventSubscriber`]. An [`EventSubscriber`] is automatically created when a new
 //! [`StateMachine`] is created through [`StateMachine::new()`].
 //!
 //! See [here][events] for more details.
