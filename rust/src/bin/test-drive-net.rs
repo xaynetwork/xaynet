@@ -1,17 +1,38 @@
+#[macro_use]
+extern crate tracing;
+
+use structopt::StructOpt;
+use tokio::signal;
 use tracing_subscriber::*;
 use xain_fl::{
-    client::{Client, ClientError, Task},
+    client::{Client, ClientError},
     mask::{FromPrimitives, Model},
 };
 
-/// Test-drive script of a (local, but networked) single-round federated
-/// learning session, intended for use as a mini integration test. It assumes
-/// that a [`Service`] is already running and listening to
-/// http://127.0.0.1:8081.
-///
-/// 10 [`Client`]s are spawned on the tokio event loop. This serves as a simple
-/// example of getting started with the project, and may later be the basis for
-/// more automated tests.
+#[derive(Debug, StructOpt)]
+#[structopt(name = "Test Drive")]
+struct Opt {
+    #[structopt(
+        default_value = "http://127.0.0.1:8081",
+        short,
+        help = "The URL of the coordinator"
+    )]
+    url: String,
+    #[structopt(default_value = "4", short, help = "The length of the model")]
+    len: u32,
+    #[structopt(
+        default_value = "1",
+        short,
+        help = "The time period at which to poll for service data, in seconds"
+    )]
+    period: u64,
+    #[structopt(default_value = "10", short, help = "The number of clients")]
+    nb_client: u32,
+}
+
+/// Test-drive script of a (local, but networked) federated
+/// learning session, intended for use as a mini integration test.
+/// It assumes that a coordinator is already running.
 #[tokio::main]
 async fn main() -> Result<(), ClientError> {
     let _fmt_subscriber = FmtSubscriber::builder()
@@ -19,33 +40,31 @@ async fn main() -> Result<(), ClientError> {
         .with_ansi(true)
         .init();
 
+    let opt = Opt::from_args();
+
     // dummy local model for clients
-    let model = Model::from_primitives(vec![0_f32, 1_f32, 0_f32, 1_f32].into_iter()).unwrap();
+    let len = opt.len as usize;
+    let model = Model::from_primitives(vec![0; len].into_iter()).unwrap();
 
-    let mut tasks = vec![];
-    for id in 0..10 {
-        let mut client = Client::new_with_addr(1, id, "http://127.0.0.1:8081")?;
+    let mut clients = Vec::with_capacity(opt.nb_client as usize);
+    for id in 0..opt.nb_client {
+        let mut client = Client::new_with_addr(opt.period, id, &opt.url)?;
         client.local_model = Some(model.clone());
-        let join_hdl = tokio::spawn(async move { client.during_round().await });
-        tasks.push(join_hdl);
-    }
-    println!("spawned 10 clients");
-
-    let mut summers = 0;
-    let mut updaters = 0;
-    let mut unselecteds = 0;
-    for task in tasks {
-        match task.await.or(Err(ClientError::GeneralErr))?? {
-            Task::Update => updaters += 1,
-            Task::Sum => summers += 1,
-            Task::None => unselecteds += 1,
-        }
+        let join_hdl = tokio::spawn(async move {
+            tokio::select! {
+                _ = signal::ctrl_c() => {}
+                result = client.start() => {
+                    error!("{:?}", result);
+                }
+            }
+        });
+        clients.push(join_hdl);
     }
 
-    println!(
-        "{} sum, {} update, {} unselected clients completed a round",
-        summers, updaters, unselecteds
-    );
+    // wait for all the clients to finish
+    for client in clients {
+        let _ = client.await;
+    }
 
     Ok(())
 }

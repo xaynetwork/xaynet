@@ -224,7 +224,7 @@ impl Client {
     /// # Errors
     /// Returns a `ParticipantInitErr` if the underlying [`Participant`] is
     /// unable to initialize.
-    pub fn new_with_addr(period: u64, id: u32, addr: &'static str) -> Result<Self, ClientError> {
+    pub fn new_with_addr(period: u64, id: u32, addr: &str) -> Result<Self, ClientError> {
         Ok(Self {
             participant: Participant::new().map_err(ClientError::ParticipantInitErr)?,
             interval: time::interval(Duration::from_secs(period)),
@@ -345,6 +345,8 @@ impl Client {
         debug!(client_id = %self.id, "polling for local model");
         let model = loop {
             if let Some(model) = self.local_model.take() {
+                self.local_model = Some(model.clone()); // TEMP needs to be removed later.
+                                                        // it is required so that the clients run several rounds
                 break model;
             }
             trace!(client_id = %self.id, "local model not ready, retrying.");

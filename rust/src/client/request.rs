@@ -33,7 +33,7 @@ pub enum Proxy {
 impl Proxy {
     /// Creates a new proxy for remote communication with the service at the
     /// given address.
-    pub fn new_remote(addr: &'static str) -> Self {
+    pub fn new_remote(addr: &str) -> Self {
         Remote(ClientReq::new(addr))
     }
 
@@ -269,14 +269,17 @@ impl Proxy {
 /// Manages client requests over HTTP.
 pub struct ClientReq {
     client: Client,
-    address: &'static str,
+    address: String,
 }
 
 impl ClientReq {
-    fn new(address: &'static str) -> Self {
+    fn new<S>(address: S) -> Self
+    where
+        S: Into<String>,
+    {
         Self {
             client: Client::new(),
-            address,
+            address: address.into(),
         }
     }
 
