@@ -17,7 +17,7 @@ We want to give developers more freedom of choice and abilities in the creation 
 
 Concretely, we provide developers with:
 - **My AI tools:** The flexibility to use the machine-learning frameworks and tools of their choice.
-- **My app dev tools:** The ability to integrate federated learning into apps written in Dart, Flutter or other languages of choice.
+- **My app dev tools:** The ability to integrate federated learning into apps written in Dart, Python or other languages of choice, as well as frameworks like Flutter.
 - **"Federated learning" everywhere:** The ability to run federated learning everywhere - be it desktop browsers, smartphones or micro-controllers.
 - **"Federated learning" inside:** A simple integration means of making an AI application ready for federated learning.
 - **Privacy by design:** A communication protocol for federated learning that scales, is secure, and preserves the privacy of participating devices.
@@ -36,11 +36,11 @@ The programming language in which this framework is written should therefore giv
 - **Fast and functional:** The language should offer functional abstractions but also compile code into fast executables.
 
 Rust is one of the very few choices of modern programming languages that meet these requirements:
-- Its concepts of *Ownership* and *Borrowing* make it both memory and concurrency safe.
+- Its concepts of *Ownership* and *Borrowing* make it both memory and thread-safe (hence avoiding potential concurrency issues).
 - It has a strong and static type discipline and traits, which describe shareable functionality of a type.
 - It has rich functional abstractions, for example the `tower-service` based on the foundational trait `Service`.
 - Its idiomatic code compares favorably to idiomatic C in performance.
-- It has no run-time and so is widely deployable. Foreign Function Interfaces support calls from other languages, including Dart or Flutter.
+- It is widely deployable and doesn't necessarily depend on a runtime, unlike languages such as Java and their need for a virtual machine to run its code. Foreign Function Interfaces support calls from other languages/frameworks, including Dart, Python and Flutter.
 - And it compiles into LLVM, and so it can draw from the abundant tool suites for LLVM.
 
 ## We love XayNet, we like to hear about your use of it
