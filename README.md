@@ -30,13 +30,13 @@ Our framework for federated learning is not a framework for machine learning as 
 
 The programming language in which this framework is written should therefore give us strong support for the following:
 - **Compiles and runs "everywhere":** The language should *not* require its own runtime and code should compile on a wide range of devices.
-- **Memory and Concurreny Safety:** Code that compiles should be both memory safe and free of data races.
+- **Memory and Concurrency Safety:** Code that compiles should be both memory safe and free of data races.
 - **Secure communication:** State of the art cryptography should be available in vetted implementations.
 - **Asynchronous communication:** Abstractions for asynchronous communication should exist that make federated learning scale.
 - **Fast and functional:** The language should offer functional abstractions but also compile code into fast executables.
 
 Rust is one of the very few choices of modern programming languages that meet these requirements:
-- Its concepts of *Ownership* and *Borrowing* make it both memory and concurreny safe.
+- Its concepts of *Ownership* and *Borrowing* make it both memory and concurrency safe.
 - It has a strong and static type discipline and traits, which describe shareable functionality of a type.
 - It has rich functional abstractions, for example the `tower-service` based on the foundational trait `Service`.
 - Its idiomatic code compares favorably to idiomatic C in performance.
