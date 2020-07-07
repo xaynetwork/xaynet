@@ -262,7 +262,7 @@ pub struct MaskSettings {
     /// ```
     pub bound_type: BoundType,
 
-    /// The maximum number of models to be aggregated at most.
+    /// The maximum number of models to be aggregated.
     ///
     /// # Examples
     ///

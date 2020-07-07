@@ -118,7 +118,7 @@ impl TryFrom<u8> for BoundType {
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[repr(u8)]
-/// The maximum number of models to be aggregated at most.
+/// The maximum number of models to be aggregated.
 pub enum ModelType {
     /// At most 1_000 models to be aggregated.
     M3 = 3,
@@ -162,7 +162,7 @@ pub struct MaskConfig {
     pub data_type: DataType,
     /// The bounds of the numerical values.
     pub bound_type: BoundType,
-    /// The maximum number of models to be aggregated at most.
+    /// The maximum number of models to be aggregated.
     pub model_type: ModelType,
 }
 
