@@ -26,7 +26,7 @@ Concretely, we provide developers with:
 
 Rust has definite potential as a host language for machine learning itself. But, above, we already insisted on giving developers freedom of choice here. Hence, we selected Rust for other reasons.
 
-Our framework for federated learning is not a framework for machine learning as such. Rather, it supports the *federation* of machine learning that takes place on possibly heterogenuous devices and where use cases involve *many* such devices.
+Our framework for federated learning is not a framework for machine learning as such. Rather, it supports the *federation* of machine learning that takes place on possibly heterogeneous devices and where use cases involve *many* such devices.
 
 The programming language in which this framework is written should therefore give us strong support for the following:
 - **Compiles and runs "everywhere":** The language should *not* require its own runtime and code should compile on a wide range of devices.
