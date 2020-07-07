@@ -1,9 +1,8 @@
 #[macro_use]
 extern crate tracing;
 
-use futures::stream::{FuturesUnordered, StreamExt};
 use structopt::StructOpt;
-use tokio::{signal, task::JoinHandle};
+use tokio::signal;
 use tracing_subscriber::*;
 use xain_fl::{
     client::{Client, ClientError},
@@ -47,7 +46,7 @@ async fn main() -> Result<(), ClientError> {
     let len = opt.len as usize;
     let model = Model::from_primitives(vec![0; len].into_iter()).unwrap();
 
-    let mut clients = FuturesUnordered::<JoinHandle<()>>::new();
+    let mut clients = Vec::with_capacity(opt.nb_client as usize);
     for id in 0..opt.nb_client {
         let mut client = Client::new_with_addr(opt.period, id, &opt.url)?;
         client.local_model = Some(model.clone());
@@ -63,10 +62,8 @@ async fn main() -> Result<(), ClientError> {
     }
 
     // wait for all the clients to finish
-    loop {
-        if clients.next().await.is_none() {
-            break;
-        }
+    for client in clients {
+        let _ = client.await;
     }
 
     Ok(())
