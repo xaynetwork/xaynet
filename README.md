@@ -41,7 +41,7 @@ Rust is one of the very few choices of modern programming languages that meet th
 - It has rich functional abstractions, for example the `tower-service` based on the foundational trait `Service`.
 - Its idiomatic code compares favorably to idiomatic C in performance.
 - It has no run-time and so is widely deployable. Foreign Function Interfaces support calls from other languages, including Dart or Flutter.
-- And it compiles into LLVM, and so it can draw from the abundant tool suites for LLMV.
+- And it compiles into LLVM, and so it can draw from the abundant tool suites for LLVM.
 
 ## We love XayNet, we like to hear about your use of it
 
