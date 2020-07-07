@@ -52,7 +52,7 @@
 //!
 //! Rust is one of the very few choices of modern programming languages that meet these
 //!  requirements:
-//! - Its concepts of *Ownership* and *Borrowing* make it both memory and concurreny safe.
+//! - Its concepts of *Ownership* and *Borrowing* make it both memory and concurrency safe.
 //! - It has a strong and static type discipline and traits, which describe shareable functionality
 //!   of a type.
 //! - It has rich functional abstractions, for example the `tower-service` based on the foundational
