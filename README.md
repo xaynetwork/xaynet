@@ -4,7 +4,7 @@
 
 This is the main source code repository for [xain-fl](https://www.xain.io/).
 
-![crates.io badge](https://img.shields.io/crates/v/xain-fl.svg) ![docs.rs badge](https://docs.rs/xain-fl/badge.svg?version=0.8.0) ![crates.io downloads](https://img.shields.io/crates/d/xain-fl.svg)
+[![crates.io badge](https://img.shields.io/crates/v/xain-fl.svg)](https://crates.io/crates/xain-fl) [![docs.rs badge](https://docs.rs/xain-fl/badge.svg?version=0.8.0)](https://docs.rs/xain-fl) ![crates.io downloads](https://img.shields.io/crates/d/xain-fl.svg)
 
 ---
 
