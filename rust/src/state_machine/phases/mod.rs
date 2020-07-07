@@ -1,3 +1,5 @@
+//! This module provides the `PhaseStates` of the [`StateMachine`].
+
 mod error;
 mod idle;
 mod shutdown;
@@ -29,12 +31,16 @@ use crate::{
 use futures::StreamExt;
 use tokio::sync::oneshot;
 
+/// A trait that must be implement by a state in order to move to a next state.
 #[async_trait]
 pub trait Phase<R> {
+    /// Moves from this state to the next state.
     async fn next(mut self) -> Option<StateMachine<R>>;
 }
 
+/// A trait that must be implement by a state to handle a request.
 pub trait Handler<R> {
+    /// Handles a request.
     fn handle_request(&mut self, req: R);
 }
 
@@ -42,9 +48,7 @@ impl<R, S> Handler<Traced<Request>> for PhaseState<R, S>
 where
     Self: Handler<Request>,
 {
-    /// Handle a sum, update or sum2 request.
-    /// If the request is a update or sum2 request, the receiver of the response channel will
-    /// receive a [`PetError::InvalidMessage`].
+    /// Handles a [`Request`].
     fn handle_request(&mut self, req: Traced<Request>) {
         let span = req.span().clone();
         let _enter = span.enter();
@@ -52,19 +56,25 @@ where
     }
 }
 
+/// The state corresponding to a phase of the PET protocol.
+///
+/// This contains the state-dependent `inner` state and the state-independent `coordinator_state`
+/// which is shared across state transitions.
 pub struct PhaseState<R, S> {
-    // Inner state
+    /// The inner state.
     inner: S,
-    // Coordinator state
+    /// The Coordinator state.
     coordinator_state: CoordinatorState,
-    // Request receiver halve
+    /// The request receiver half.
     request_rx: RequestReceiver<R>,
 }
 
 // Functions that are available to all states
 impl<R, S> PhaseState<R, S> {
     /// Receives the next [`Request`].
-    /// Returns [`StateError::ChannelError`] when all sender halve have been dropped.
+    ///
+    /// # Errors
+    /// Returns [`StateError::ChannelError`] when all sender halves have been dropped.
     async fn next_request(&mut self) -> Result<R, StateError> {
         debug!("waiting for the next incoming request");
         self.request_rx.next().await.ok_or_else(|| {
@@ -73,10 +83,10 @@ impl<R, S> PhaseState<R, S> {
         })
     }
 
-    /// Handle an invalid request.
+    /// Handles an invalid request by sending [`PetError::InvalidMessage`] to the request sender.
     fn handle_invalid_message(response_tx: oneshot::Sender<Result<(), PetError>>) {
         debug!("invalid message");
-        // `send` returns an error if the receiver halve has already been dropped. This means that
+        // `send` returns an error if the receiver half has already been dropped. This means that
         // the receiver is not interested in the response of the request. Therefore the error is
         // ignored.
         let _ = response_tx.send(Err(PetError::InvalidMessage));

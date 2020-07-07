@@ -14,14 +14,16 @@ use crate::{
 
 use tokio::sync::oneshot;
 
+/// Sum2 state
 #[derive(Debug)]
 pub struct Sum2 {
-    /// Dictionary built during the sum phase.
+    /// The sum dictionary built during the sum phase.
     sum_dict: SumDict,
 
+    /// The aggregator for masks and masked models.
     aggregation: Aggregation,
 
-    /// Dictionary built during the sum2 phase.
+    /// The mask dictionary built during the sum2 phase.
     mask_dict: MaskDict,
 }
 
@@ -31,13 +33,17 @@ where
     Self: Handler<R>,
     R: Send,
 {
+    /// Moves from the sum2 state to the next state.
+    ///
+    /// See the [module level documentation](../index.html) for more details.
     async fn next(mut self) -> Option<StateMachine<R>> {
         info!("starting sum2 phase");
 
         info!("broadcasting sum2 phase event");
-        self.coordinator_state
-            .events
-            .broadcast_phase(self.coordinator_state.round_params.id, PhaseEvent::Sum2);
+        self.coordinator_state.events.broadcast_phase(
+            self.coordinator_state.round_params.seed.clone(),
+            PhaseEvent::Sum2,
+        );
         let next_state = match self.run_phase().await {
             Ok(_) => PhaseState::<R, Unmask>::new(
                 self.coordinator_state,
@@ -56,6 +62,10 @@ where
 }
 
 impl<R> Handler<Request> for PhaseState<R, Sum2> {
+    /// Handles a [`Request::Sum`], [`Request::Update`] or [`Request::Sum2`] request.
+    ///
+    /// If the request is a [`Request::Sum`] or [`Request::Update`] request, the request sender
+    /// will receive a [`PetError::InvalidMessage`].
     fn handle_request(&mut self, req: Request) {
         match req {
             Request::Sum2((sum2_req, response_tx)) => self.handle_sum2(sum2_req, response_tx),
@@ -69,6 +79,7 @@ impl<R> PhaseState<R, Sum2>
 where
     Self: Handler<R>,
 {
+    /// Runs the sum2 phase.
     async fn run_phase(&mut self) -> Result<(), StateError> {
         while !self.has_enough_sums() {
             let req = self.next_request().await?;
@@ -79,6 +90,7 @@ where
 }
 
 impl<R> PhaseState<R, Sum2> {
+    /// Creates a new sum2 state.
     pub fn new(
         coordinator_state: CoordinatorState,
         request_rx: RequestReceiver<R>,
@@ -97,7 +109,8 @@ impl<R> PhaseState<R, Sum2> {
         }
     }
 
-    /// Handle a sum2 request.
+    /// Handles a sum2 request.
+    /// If the handling of the sum2 message fails, an error is returned to the request sender.
     fn handle_sum2(&mut self, req: Sum2Request, response_tx: oneshot::Sender<Sum2Response>) {
         let Sum2Request {
             participant_pk,
@@ -108,8 +121,10 @@ impl<R> PhaseState<R, Sum2> {
         let _ = response_tx.send(self.add_mask(&participant_pk, mask));
     }
 
-    /// Add a mask to the mask dictionary. Fails if the sum participant didn't register in the sum
-    /// phase or it is a repetition.
+    /// Adds a mask to the mask dictionary.
+    ///
+    /// # Errors
+    /// Fails if the sum participant didn't register in the sum phase or it is a repetition.
     fn add_mask(&mut self, pk: &SumParticipantPublicKey, mask: MaskObject) -> Result<(), PetError> {
         // We move the participant key here to make sure a participant
         // cannot submit a mask multiple times
@@ -126,7 +141,7 @@ impl<R> PhaseState<R, Sum2> {
         Ok(())
     }
 
-    /// Check whether enough sum participants submitted their masks to start the idle phase.
+    /// Checks whether enough sum participants submitted their masks to start the idle phase.
     fn has_enough_sums(&self) -> bool {
         let mask_count = self.inner.mask_dict.values().sum::<usize>();
         mask_count >= self.coordinator_state.min_sum

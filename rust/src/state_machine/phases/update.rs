@@ -18,13 +18,16 @@ use crate::{
 
 use tokio::sync::oneshot;
 
+/// Update state
 #[derive(Debug)]
 pub struct Update {
-    // The frozen sum dictionary of the sum phase.
+    // The frozen sum dictionary built during the sum phase.
     frozen_sum_dict: SumDict,
-    /// Dictionary built during the update phase.
+
+    /// The seed dictionary built during the update phase.
     seed_dict: SeedDict,
-    /// The aggregated masked model being built in the current round.
+
+    /// The aggregator for masks and masked models.
     aggregation: Aggregation,
 }
 
@@ -34,13 +37,17 @@ where
     Self: Handler<R>,
     R: Send,
 {
+    /// Moves from the update state to the next state.
+    ///
+    /// See the [module level documentation](../index.html) for more details.
     async fn next(mut self) -> Option<StateMachine<R>> {
         info!("starting update phase");
 
         info!("broadcasting update phase event");
-        self.coordinator_state
-            .events
-            .broadcast_phase(self.coordinator_state.round_params.id, PhaseEvent::Update);
+        self.coordinator_state.events.broadcast_phase(
+            self.coordinator_state.round_params.seed.clone(),
+            PhaseEvent::Update,
+        );
 
         let next_state = match self.run_phase().await {
             Ok(_) => {
@@ -57,13 +64,13 @@ where
 
                 info!("broadcasting mask length");
                 coordinator_state.events.broadcast_mask_length(
-                    coordinator_state.round_params.id,
+                    coordinator_state.round_params.seed.clone(),
                     MaskLengthUpdate::New(aggregation.len()),
                 );
 
                 info!("broadcasting the global seed dictionary");
                 coordinator_state.events.broadcast_seed_dict(
-                    coordinator_state.round_params.id,
+                    coordinator_state.round_params.seed.clone(),
                     DictionaryUpdate::New(Arc::new(seed_dict)),
                 );
 
@@ -85,6 +92,10 @@ where
 }
 
 impl<R> Handler<Request> for PhaseState<R, Update> {
+    /// Handles a [`Request::Sum`], [`Request::Update`] or [`Request::Sum2`] request.
+    ///
+    /// If the request is a [`Request::Sum`] or [`Request::Sum2`] request, the request sender
+    /// will receive a [`PetError::InvalidMessage`].
     fn handle_request(&mut self, req: Request) {
         match req {
             Request::Update((update_req, response_tx)) => {
@@ -100,13 +111,14 @@ impl<R> PhaseState<R, Update>
 where
     Self: Handler<R>,
 {
+    /// Runs the update phase.
     async fn run_phase(&mut self) -> Result<(), StateError> {
         let scalar = 1_f64
             / (self.coordinator_state.expected_participants as f64
                 * self.coordinator_state.round_params.update);
         info!("broadcasting scalar: {}", scalar);
         self.coordinator_state.events.broadcast_scalar(
-            self.coordinator_state.round_params.id,
+            self.coordinator_state.round_params.seed.clone(),
             ScalarUpdate::New(scalar),
         );
 
@@ -133,6 +145,7 @@ where
 }
 
 impl<R> PhaseState<R, Update> {
+    /// Creates a new update state.
     pub fn new(
         coordinator_state: CoordinatorState,
         request_rx: RequestReceiver<R>,
@@ -151,7 +164,8 @@ impl<R> PhaseState<R, Update> {
         }
     }
 
-    /// Handle a update request.
+    /// Handles an update request.
+    /// If the handling of the update message fails, an error is returned to the request sender.
     fn handle_update(&mut self, req: UpdateRequest, response_tx: oneshot::Sender<UpdateResponse>) {
         let UpdateRequest {
             participant_pk,
@@ -201,8 +215,10 @@ impl<R> PhaseState<R, Update> {
         Ok(())
     }
 
-    /// Add a local seed dictionary to the seed dictionary. Fails if
-    /// it contains invalid keys or it is a repetition.
+    /// Adds a local seed dictionary to the seed dictionary.
+    ///
+    /// # Error
+    /// Fails if it contains invalid keys or it is a repetition.
     fn add_local_seed_dict(
         &mut self,
         pk: &UpdateParticipantPublicKey,
@@ -234,8 +250,7 @@ impl<R> PhaseState<R, Update> {
         }
     }
 
-    /// Return the number of update participants that sent a valid
-    /// update message
+    /// Returns the number of update participants that sent a valid update message.
     fn updater_count(&self) -> usize {
         self.inner
             .seed_dict

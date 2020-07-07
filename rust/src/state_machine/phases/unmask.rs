@@ -12,11 +12,13 @@ use crate::{
     },
 };
 
+/// Unmask state
 #[derive(Debug)]
 pub struct Unmask {
+    /// The aggregator for masks and masked models.
     aggregation: Option<Aggregation>,
 
-    /// Dictionary built during the sum2 phase.
+    /// The mask dictionary built during the sum2 phase.
     mask_dict: MaskDict,
 }
 
@@ -25,13 +27,17 @@ impl<R> Phase<R> for PhaseState<R, Unmask>
 where
     R: Send,
 {
+    /// Moves from the unmask state to the next state.
+    ///
+    /// See the [module level documentation](../index.html) for more details.
     async fn next(mut self) -> Option<StateMachine<R>> {
         info!("starting unmasking phase");
 
         info!("broadcasting unmasking phase event");
-        self.coordinator_state
-            .events
-            .broadcast_phase(self.coordinator_state.round_params.id, PhaseEvent::Unmask);
+        self.coordinator_state.events.broadcast_phase(
+            self.coordinator_state.round_params.seed.clone(),
+            PhaseEvent::Unmask,
+        );
 
         let next_state = match self.run_phase().await {
             Ok(_) => {
@@ -49,6 +55,7 @@ where
 }
 
 impl<R> PhaseState<R, Unmask> {
+    /// Creates a new unmask state.
     pub fn new(
         coordinator_state: CoordinatorState,
         request_rx: RequestReceiver<R>,
@@ -66,18 +73,19 @@ impl<R> PhaseState<R, Unmask> {
         }
     }
 
+    /// Runs the unmask phase.
     async fn run_phase(&mut self) -> Result<(), StateError> {
         let global_model = self.end_round()?;
         info!("broadcasting the new global model");
         self.coordinator_state.events.broadcast_model(
-            self.coordinator_state.round_params.id,
+            self.coordinator_state.round_params.seed.clone(),
             ModelUpdate::New(Arc::new(global_model)),
         );
 
         Ok(())
     }
 
-    /// Freeze the mask dictionary.
+    /// Freezes the mask dictionary.
     fn freeze_mask_dict(&mut self) -> Result<MaskObject, RoundFailed> {
         if self.inner.mask_dict.is_empty() {
             return Err(RoundFailed::NoMask);
@@ -101,7 +109,7 @@ impl<R> PhaseState<R, Unmask> {
     fn end_round(&mut self) -> Result<Model, RoundFailed> {
         let global_mask = self.freeze_mask_dict()?;
 
-        // safe unwrap: State::<Unmask>::new always creates Some(aggregation)
+        // Safe unwrap: State::<Unmask>::new always creates Some(aggregation)
         let aggregation = self.inner.aggregation.take().unwrap();
 
         aggregation

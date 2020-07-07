@@ -7,6 +7,7 @@ use crate::state_machine::{
 };
 use thiserror::Error;
 
+/// Error that can occur during the execution of the [`StateMachine`].
 #[derive(Error, Debug)]
 pub enum StateError {
     #[error("state failed: channel error: {0}")]
@@ -16,6 +17,7 @@ pub enum StateError {
 }
 
 impl<R> PhaseState<R, StateError> {
+    /// Creates a new error state.
     pub fn new(
         coordinator_state: CoordinatorState,
         request_rx: RequestReceiver<R>,
@@ -35,6 +37,9 @@ impl<R> Phase<R> for PhaseState<R, StateError>
 where
     R: Send,
 {
+    /// Moves from the error state to the next state.
+    ///
+    /// See the [module level documentation](../index.html) for more details.
     async fn next(self) -> Option<StateMachine<R>> {
         error!("state transition failed! error: {:?}", self.inner);
         let next_state = match self.inner {

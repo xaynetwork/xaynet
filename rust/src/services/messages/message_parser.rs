@@ -112,7 +112,7 @@ impl Service<Traced<MessageParserRequest>> for MessageParserService {
         // This can happen if the coordinator is switching starting a
         // new phase. The error should be temporary and we should be
         // able to retry the request.
-        if keys_ev.round != phase_ev.round {
+        if keys_ev.round_id != phase_ev.round_id {
             return Either::Left(future::ready(Ok(Err(
                 MessageParserError::TemporaryInternalError,
             ))));
