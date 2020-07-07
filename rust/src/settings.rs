@@ -1,15 +1,20 @@
-//! Module for loading and validating coordinator settings.
+//! Loading and validation of settings.
 //!
-//! Values defined in the configuration file can be overridden by environment variables.
-use crate::mask::config::{BoundType, DataType, GroupType, MaskConfig, ModelType};
+//! Values defined in the configuration file can be overridden by environment variables. Examples of
+//! configuration files can be found in the `configs/` directory located in the repository root.
+
+use std::{fmt, path::PathBuf};
+
 use config::{Config, ConfigError, Environment};
 use serde::de::{self, Deserializer, Visitor};
-use std::{fmt, path::PathBuf};
 use thiserror::Error;
 use tracing_subscriber::filter::EnvFilter;
 use validator::{Validate, ValidationError, ValidationErrors};
 
+use crate::mask::config::{BoundType, DataType, GroupType, MaskConfig, ModelType};
+
 #[derive(Error, Debug)]
+/// An error related to loading and validation of settings.
 pub enum SettingsError {
     #[error("configuration loading failed: {0}")]
     Loading(#[from] ConfigError),
@@ -18,7 +23,9 @@ pub enum SettingsError {
 }
 
 #[derive(Debug, Validate, Deserialize)]
-#[doc(hidden)]
+/// The combined settings.
+///
+/// Each section in the configuration file corresponds to the identically named settings field.
 pub struct Settings {
     #[validate]
     pub api: ApiSettings,
@@ -29,7 +36,7 @@ pub struct Settings {
 }
 
 impl Settings {
-    /// Loads and validates the coordinator settings via a configuration file.
+    /// Loads and validates the settings via a configuration file.
     ///
     /// # Errors
     /// Fails when the loading of the configuration file or its validation failed.
@@ -49,15 +56,58 @@ impl Settings {
 
 #[derive(Debug, Validate, Deserialize, Clone, Copy)]
 #[validate(schema(function = "validate_fractions"))]
-/// PET protocol settings
+/// PET protocol settings.
 pub struct PetSettings {
     #[validate(range(min = 1))]
+    /// The minimal number of participants selected for computing the unmasking sum. The value must
+    /// be greater or equal to `1` (i.e. `min_sum >= 1`), otherwise the PET protocol will be broken.
+    ///
+    /// This parameter should only be used to enforce security constraints. To control the expected
+    /// number of sum participants, the `sum` fraction should be adjusted wrt the total number of
+    /// `expected_participants`.
+    ///
+    /// # Examples
+    ///
+    /// **TOML**
+    /// ```text
+    /// [pet]
+    /// min_sum = 1
+    /// ```
+    ///
+    /// **Environment variable**
+    /// ```text
+    /// XAIN_PET__MIN_SUM=1
+    /// ```
     pub min_sum: usize,
+
     #[validate(range(min = 3))]
+    /// The expected fraction of participants selected for submitting an updated local model for
+    /// aggregation. The value must be greater or equal to `3` (i.e. `min_update >= 3`), otherwise
+    /// the PET protocol will be broken.
+    ///
+    /// This parameter should only be used to enforce security constraints. To control the expected
+    /// number of update participants, the `update` fraction should be adjusted wrt the total number
+    /// of `expected_participants`.
+    ///
+    /// # Examples
+    ///
+    /// **TOML**
+    /// ```text
+    /// [pet]
+    /// min_update = 3
+    /// ```
+    ///
+    /// **Environment variable**
+    /// ```text
+    /// XAIN_PET__MIN_UPDATE=3
+    /// ```
     pub min_update: usize,
 
-    /// The expected fraction of participants selected for computing the unmasking sum.
-    /// The value must be between `0` and `1`.
+    /// The expected fraction of participants selected for computing the unmasking sum. The value
+    /// must be between `0` and `1` (i.e. `0 < sum < 1`).
+    ///
+    /// Additionally, it is enforced that `0 < sum + update - sum*update < 1` to avoid pathological
+    /// cases of deadlocks.
     ///
     /// # Examples
     ///
@@ -74,7 +124,10 @@ pub struct PetSettings {
     pub sum: f64,
 
     /// The expected fraction of participants selected for submitting an updated local model for
-    /// aggregation. The value must be between `0` and `1`.
+    /// aggregation. The value must be between `0` and `1` (i.e. `0 < update < 1`).
+    ///
+    /// Additionally, it is enforced that `0 < sum + update - sum*update < 1` to avoid pathological
+    /// cases of deadlocks.
     ///
     /// # Examples
     ///
@@ -90,8 +143,9 @@ pub struct PetSettings {
     /// ```
     pub update: f64,
 
-    /// The number of participants that are expected by the coordinator
-    /// The value must be a positive integer
+    #[validate(range(min = 1))]
+    /// The total number of participants that are expected by the coordinator. The value must be a
+    /// positive integer (i.e. `expected_participants >= 1`).
     ///
     /// # Examples
     ///
@@ -120,6 +174,7 @@ impl Default for PetSettings {
     }
 }
 
+/// Checks pathological cases of deadlocks.
 fn validate_fractions(s: &PetSettings) -> Result<(), ValidationError> {
     if 0. < s.sum
         && s.sum < 1.
@@ -135,7 +190,7 @@ fn validate_fractions(s: &PetSettings) -> Result<(), ValidationError> {
 }
 
 #[derive(Debug, Validate, Deserialize, Clone, Copy)]
-/// REST API settings
+/// REST API settings.
 pub struct ApiSettings {
     /// The address to which the REST API should be bound.
     ///
@@ -157,7 +212,7 @@ pub struct ApiSettings {
 }
 
 #[derive(Debug, Validate, Deserialize, Clone, Copy)]
-/// Mask settings
+/// Masking settings.
 pub struct MaskSettings {
     /// The order of the finite group.
     ///
@@ -171,7 +226,7 @@ pub struct MaskSettings {
     ///
     /// **Environment variable**
     /// ```text
-    /// XAIN_MASK__GROUND_TYPE=Integer
+    /// XAIN_MASK__GROUP_TYPE=Integer
     /// ```
     pub group_type: GroupType,
 
@@ -207,7 +262,7 @@ pub struct MaskSettings {
     /// ```
     pub bound_type: BoundType,
 
-    /// The bounds of the numbers to be masked.
+    /// The maximum number of models to be aggregated at most.
     ///
     /// # Examples
     ///
@@ -254,10 +309,10 @@ impl From<MaskSettings> for MaskConfig {
 }
 
 #[derive(Debug, Deserialize)]
-/// Logging settings
+/// Logging settings.
 pub struct LoggingSettings {
     /// A comma-separated list of logging directives. More information about logging directives
-    /// can be found [here](https://docs.rs/tracing-subscriber/0.2.6/tracing_subscriber/filter/struct.EnvFilter.html#directives).
+    /// can be found [here].
     ///
     /// # Examples
     ///
@@ -271,6 +326,8 @@ pub struct LoggingSettings {
     /// ```text
     /// XAIN_LOG__FILTER=info
     /// ```
+    ///
+    /// [here]: https://docs.rs/tracing-subscriber/0.2.6/tracing_subscriber/filter/struct.EnvFilter.html#directives
     #[serde(deserialize_with = "deserialize_env_filter")]
     pub filter: EnvFilter,
 }
