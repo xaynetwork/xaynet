@@ -11,7 +11,7 @@ This is the main source code repository for [xain-fl](https://www.xain.io/).
 > ### Want a framework that supports federated learning on the edge, in desktop browsers, integrates well with mobile apps, is performant, and preserves privacy? Welcome to XayNet, written entirely in Rust!
 
 ## Making federated learning easy for developers
-Frameworks for machine learning - including those expressly for federated learning - exist already. These frameworks typically require the use of specific machine learning technology - for example tensorflow - or facilitate federated learning of cross-silo use cases - for example in collaborative learning across a limited number of hospitals.
+Frameworks for machine learning - including those expressly for federated learning - exist already. These frameworks typically require the use of specific machine learning technology - for example TensorFlow - or facilitate federated learning of cross-silo use cases - for example in collaborative learning across a limited number of hospitals.
 
 We want to give developers more freedom of choice and abilities in the creation of federated learning software. By doing this, we hope to also increase the pace and scope of adoption of federated learning in practice.
 
