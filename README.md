@@ -4,6 +4,8 @@
 
 This is the main source code repository for [xain-fl](https://www.xain.io/).
 
+**Developers:** feel free to jump to the technical ["Getting Started"](#getting-started) section.
+
 [![crates.io badge](https://img.shields.io/crates/v/xain-fl.svg)](https://crates.io/crates/xain-fl) [![docs.rs badge](https://docs.rs/xain-fl/badge.svg)](https://docs.rs/xain-fl) ![crates.io downloads](https://img.shields.io/crates/d/xain-fl.svg)
 
 ---
