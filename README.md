@@ -59,7 +59,7 @@ There are a few different ways to run the backend: via docker, or by deploying i
 a Kubernetes cluster or by compiling the code and running the binary manually.
 
 1. Everything described below assumes your shell's working directory to be the root
-of the repository
+of the repository.
 2. The following instructions assume you have pre-existing knowledge on some
 of the referenced software (like `docker` and `docker-compose`) and/or a working
 setup (if you decide on compiling the Rust code and running the binary manually)
