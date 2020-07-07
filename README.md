@@ -12,13 +12,15 @@ This is the main source code repository for [xain-fl](https://www.xain.io/).
 
 ## Making federated learning easy for developers
 Frameworks for machine learning - including those expressly for federated learning - exist already. These frameworks typically require the use of specific machine learning technology - for example tensorflow - or facilitate federated learning of cross-silo use cases - for example in collaborative learning across a limited number of hospitals.
+
 We want to give developers more freedom of choice and abilities in the creation of federated learning software. By doing this, we hope to also increase the pace and scope of adoption of federated learning in practice.
+
 Concretely, we provide developers with:
-- [**My AI tools**] the flexibility to use the machine-learning frameworks and tools of their choice,
-- [**My app dev tools**] the ability to integrate federated learning into apps written in Dart, Flutter or other languages of choice,
-- [**“Federated learning” everywhere**] the ability to run federated learning everywhere - be it desktop browsers, smartphones or micro-controllers,
-- [**“Federated learning” inside**] a simple integration means of making an AI application ready for federated learning,
-- [**Privacy by design**] a communication protocol for federated learning that scales, is secure, and preserves the privacy of participating devices.
+- **My AI tools:** The flexibility to use the machine-learning frameworks and tools of their choice.
+- **My app dev tools:** The ability to integrate federated learning into apps written in Dart, Flutter or other languages of choice.
+- **"Federated learning" everywhere:**: The ability to run federated learning everywhere - be it desktop browsers, smartphones or micro-controllers.
+- **"Federated learning" inside:**: A simple integration means of making an AI application ready for federated learning.
+- **Privacy by design:** A communication protocol for federated learning that scales, is secure, and preserves the privacy of participating devices.
 
 ## The case for writing this framework in Rust
 
@@ -44,6 +46,7 @@ Rust is one of the very few choices of modern programming languages that meet th
 ## We love XayNet, we like to hear about your use of it
 
 We feel blessed to have such a strong Engineering team that includes several senior Rust developers and folks who were eager to become experienced Rust programmers themselves! All of us are excited to share the fruits of this labor with you.
+
 So without further ado, here is the release of XayNet, our federated learning framework written entirely in Rust. We hope you will like and use this framework. And we will be grateful for any feedback, contributions or news on your usage of XayNet in your own projects.
 
 ---
