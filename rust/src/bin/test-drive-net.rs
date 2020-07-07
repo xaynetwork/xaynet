@@ -33,6 +33,7 @@ struct Opt {
 
 /// Test-drive script of a (local, but networked) federated
 /// learning session, intended for use as a mini integration test.
+/// It assumes that a coordinator is already running.
 #[tokio::main]
 async fn main() -> Result<(), ClientError> {
     let _fmt_subscriber = FmtSubscriber::builder()
