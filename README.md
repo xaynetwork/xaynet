@@ -45,7 +45,7 @@ Rust is one of the very few choices of modern programming languages that meet th
 - It is widely deployable and doesn't necessarily depend on a runtime, unlike languages such as Java and their need for a virtual machine to run its code. Foreign Function Interfaces support calls from other languages/frameworks, including Dart, Python and Flutter.
 - And it compiles into LLVM, and so it can draw from the abundant tool suites for LLVM.
 
-## We love XayNet, we like to hear about your use of it
+## We love XayNet and would like to hear about your use of it
 
 We feel blessed to have such a strong Engineering team that includes several senior Rust developers and folks who were eager to become experienced Rust programmers themselves! All of us are excited to share the fruits of this labor with you.
 
