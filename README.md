@@ -139,7 +139,7 @@ cargo run --bin coordinator --manifest-path rust/Cargo.toml -- -c configs/config
 ## Running the example
 
 The example can be found under [rust/src/bin/](./rust/src/bin/). It uses a dummy model
-and operates via network, so it's a good starting point for checking connectivity with
+but is network-capable, so it's a good starting point for checking connectivity with
 the coordinator.
 
 ### `test-drive-net.rs`
