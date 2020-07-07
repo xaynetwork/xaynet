@@ -17,42 +17,42 @@
 //!
 //! **Idle**
 //!
-//! Publishes the [`PhaseEvent::Idle`], increments the `round id` by `1`, invalidates the
+//! Publishes [`PhaseEvent::Idle`], increments the `round id` by `1`, invalidates the
 //! [`SumDict`], [`SeedDict`], `scalar` and `mask length`, updates the [`EncryptKeyPair`],
 //! `thresholds` as well as the `seed` and publishes the [`EncryptKeyPair`] and the
 //! [`RoundParameters`].
 //!
 //! **Sum**
 //!
-//! Publishes the [`PhaseEvent::Sum`], builds and publishes the [`SumDict`], ensures that enough sum
+//! Publishes [`PhaseEvent::Sum`], builds and publishes the [`SumDict`], ensures that enough sum
 //! messages have been submitted and initializes the [`SeedDict`].
 //!
 //! **Update**
 //!
-//! Publishes the [`PhaseEvent::Update`], publishes the `scalar`, builds and publishes the
+//! Publishes [`PhaseEvent::Update`], publishes the `scalar`, builds and publishes the
 //! [`SeedDict`], ensures that enough update messages have been submitted and aggregates the
 //! masked model.
 //!
 //! **Sum2**
 //!
-//! Publishes the [`PhaseEvent::Sum2`], builds the [`MaskDict`], ensures that enough sum2
+//! Publishes [`PhaseEvent::Sum2`], builds the [`MaskDict`], ensures that enough sum2
 //! messages have been submitted and determines the applicable mask for unmasking the global
 //! masked model.
 //!
 //! **Unmask**
 //!
-//! Publishes the [`PhaseEvent::Unmask`], unmasks the global masked model and publishes the global
+//! Publishes [`PhaseEvent::Unmask`], unmasks the global masked model and publishes the global
 //! model.
 //!
 //! **Error**
 //!
-//! Publishes the [`PhaseEvent::Error`] and handles [`StateError`]s that can occur during the
+//! Publishes [`PhaseEvent::Error`] and handles [`StateError`]s that can occur during the
 //! execution of the [`StateMachine`]. In most cases, the error is handled by restarting the round.
 //! However, if a [`StateError::ChannelError`] occurs, the [`StateMachine`] will shut down.
 //!
 //! **Shutdown**
 //!
-//! Publishes the [`PhaseEvent::Shutdown`] and shuts down the [`StateMachine`]. During the shutdown,
+//! Publishes [`PhaseEvent::Shutdown`] and shuts down the [`StateMachine`]. During the shutdown,
 //! the [`StateMachine`] performs a clean shutdown of the [Request][requests_idx] channel by
 //! closing it and consuming all remaining messages.
 //!

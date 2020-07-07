@@ -23,14 +23,14 @@ use crate::{
 /// An event emitted by the coordinator.
 #[derive(Debug, Clone)]
 pub struct Event<E> {
-    /// Metadata that associate this event to the round in which it is
+    /// Metadata that associates this event to the round in which it is
     /// emitted.
     pub round_id: RoundSeed,
     /// The event itself
     pub event: E,
 }
 
-/// Event that is emitted when the state machine transition to a new
+/// Event that is emitted when the state machine transitions to a new
 /// phase.
 #[derive(Debug, Clone, Copy)]
 pub enum PhaseEvent {

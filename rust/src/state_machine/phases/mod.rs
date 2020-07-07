@@ -31,14 +31,14 @@ use crate::{
 use futures::StreamExt;
 use tokio::sync::oneshot;
 
-/// A trait that must be implement by a state in order to move to a next state.
+/// A trait that must be implemented by a state in order to move to a next state.
 #[async_trait]
 pub trait Phase<R> {
     /// Moves from this state to the next state.
     async fn next(mut self) -> Option<StateMachine<R>>;
 }
 
-/// A trait that must be implement by a state to handle a request.
+/// A trait that must be implemented by a state to handle a request.
 pub trait Handler<R> {
     /// Handles a request.
     fn handle_request(&mut self, req: R);
