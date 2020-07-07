@@ -18,8 +18,8 @@ We want to give developers more freedom of choice and abilities in the creation 
 Concretely, we provide developers with:
 - **My AI tools:** The flexibility to use the machine-learning frameworks and tools of their choice.
 - **My app dev tools:** The ability to integrate federated learning into apps written in Dart, Flutter or other languages of choice.
-- **"Federated learning" everywhere:**: The ability to run federated learning everywhere - be it desktop browsers, smartphones or micro-controllers.
-- **"Federated learning" inside:**: A simple integration means of making an AI application ready for federated learning.
+- **"Federated learning" everywhere:** The ability to run federated learning everywhere - be it desktop browsers, smartphones or micro-controllers.
+- **"Federated learning" inside:** A simple integration means of making an AI application ready for federated learning.
 - **Privacy by design:** A communication protocol for federated learning that scales, is secure, and preserves the privacy of participating devices.
 
 ## The case for writing this framework in Rust
