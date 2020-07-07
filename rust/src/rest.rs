@@ -1,3 +1,5 @@
+//! A RESTful API for the PET protocol interactions.
+
 use crate::{
     crypto::ByteObject,
     services::{Fetcher, PetMessageHandler},
@@ -10,6 +12,12 @@ use warp::{
     Filter,
 };
 
+/// Starts a HTTP server at the given address, listening to GET requests for
+/// data and POST requests containing PET messages.
+///
+/// * `addr`: address of the server.
+/// * `fetcher`: fetcher for responding to data requests.
+/// * `pet_message_handler`: handler for responding to PET messages.
 pub async fn serve<F, MH>(
     addr: impl Into<SocketAddr> + 'static,
     fetcher: F,
@@ -70,6 +78,7 @@ pub async fn serve<F, MH>(
     warp::serve(routes).run(addr).await
 }
 
+/// Handles and responds to a PET message.
 async fn handle_message<MH: PetMessageHandler>(
     body: Bytes,
     handler: Arc<MH>,
@@ -84,6 +93,7 @@ async fn handle_message<MH: PetMessageHandler>(
     Ok(warp::reply())
 }
 
+/// Handles and responds to a request for the sum dictionary.
 async fn handle_sums<F: Fetcher>(fetcher: Arc<F>) -> Result<impl warp::Reply, Infallible> {
     Ok(match fetcher.as_ref().sum_dict().await {
         Err(e) => {
@@ -108,6 +118,7 @@ async fn handle_sums<F: Fetcher>(fetcher: Arc<F>) -> Result<impl warp::Reply, In
     })
 }
 
+/// Handles and responds to a request for the seed dictionary.
 async fn handle_seeds<F: Fetcher>(
     pk: ParticipantPublicKey,
     fetcher: Arc<F>,
@@ -135,6 +146,7 @@ async fn handle_seeds<F: Fetcher>(
     })
 }
 
+/// Handles and responds to a request for the model scalar.
 async fn handle_scalar<F: Fetcher>(fetcher: Arc<F>) -> Result<impl warp::Reply, Infallible> {
     Ok(match fetcher.as_ref().scalar().await {
         Ok(Some(scalar)) => Response::builder()
@@ -155,6 +167,7 @@ async fn handle_scalar<F: Fetcher>(fetcher: Arc<F>) -> Result<impl warp::Reply, 
     })
 }
 
+/// Handles and responds to a request for mask / model length.
 async fn handle_length<F: Fetcher>(fetcher: Arc<F>) -> Result<impl warp::Reply, Infallible> {
     Ok(match fetcher.as_ref().mask_length().await {
         Ok(Some(mask_length)) => Response::builder()
@@ -175,6 +188,7 @@ async fn handle_length<F: Fetcher>(fetcher: Arc<F>) -> Result<impl warp::Reply, 
     })
 }
 
+/// Handles and responds to a request for the global model.
 async fn handle_model<F: Fetcher>(fetcher: Arc<F>) -> Result<impl warp::Reply, Infallible> {
     Ok(match fetcher.as_ref().model().await {
         Ok(Some(model)) => Response::builder()
@@ -194,6 +208,8 @@ async fn handle_model<F: Fetcher>(fetcher: Arc<F>) -> Result<impl warp::Reply, I
         }
     })
 }
+
+/// Handles and responds to a request for the round parameters.
 async fn handle_params<F: Fetcher>(fetcher: Arc<F>) -> Result<impl warp::Reply, Infallible> {
     Ok(match fetcher.as_ref().round_params().await {
         Ok(params) => Response::builder()
@@ -210,19 +226,21 @@ async fn handle_params<F: Fetcher>(fetcher: Arc<F>) -> Result<impl warp::Reply, 
     })
 }
 
+/// Converts a PET message handler into a `warp` filter.
 fn with_message_handler<MH: PetMessageHandler + Send + Sync + 'static>(
     handler: Arc<MH>,
 ) -> impl Filter<Extract = (Arc<MH>,), Error = Infallible> + Clone {
     warp::any().map(move || handler.clone())
 }
 
+/// Converts a data fetcher into a `warp` filter.
 fn with_fetcher<F: Fetcher + Sync + Send + 'static>(
     fetcher: Arc<F>,
 ) -> impl Filter<Extract = (Arc<F>,), Error = Infallible> + Clone {
     warp::any().map(move || fetcher.clone())
 }
 
-/// Extract a participant public key from a request body
+/// Extracts a participant public key from a request body
 fn part_pk() -> impl Filter<Extract = (ParticipantPublicKey,), Error = warp::Rejection> + Clone {
     warp::body::bytes().and_then(|body: Bytes| async move {
         if let Some(pk) = ParticipantPublicKey::from_slice(body.bytes()) {
@@ -238,6 +256,7 @@ struct InvalidPublicKey;
 
 impl warp::reject::Reject for InvalidPublicKey {}
 
+/// Handles `warp` rejections of bad requests.
 async fn handle_reject(err: warp::Rejection) -> Result<impl warp::Reply, Infallible> {
     let code = if err.is_not_found() {
         StatusCode::NOT_FOUND
