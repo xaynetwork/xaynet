@@ -9,7 +9,7 @@
 //! ## Making federated learning easy for developers
 //! Frameworks for machine learning - including those expressly for federated learning - exist
 //! already. These frameworks typically require the use of specific machine learning technology -
-//! for example tensorflow - or facilitate federated learning of cross-silo use cases - for
+//! for example Tensorflow - or facilitate federated learning of cross-silo use cases - for
 //! example in collaborative learning across a limited number of hospitals.
 //!
 //! We want to give developers more freedom of choice and abilities in the creation of federated
@@ -34,7 +34,7 @@
 //! reasons.
 //!
 //! Our framework for federated learning is not a framework for machine learning as such. Rather, it
-//! supports the *federation* of machine learning that takes place on possibly heterogenuous devices
+//! supports the *federation* of machine learning that takes place on possibly heterogeneous devices
 //! and where use cases involve *many* such devices.
 //!
 //! The programming language in which this framework is written should therefore give us strong
@@ -57,10 +57,10 @@
 //!   of a type.
 //! - It has rich functional abstractions, for example the `tower-service` based on the foundational
 //!   trait `Service`.
-//! - Its Idiomatic code compares favorably to Idiomatic C in performance.
-//! - It has no run-time and so is widely deployable. Foreign Function Interfaces support calls from
-//!   other languages, including Dart or Flutter.
-//! - And it compiles into LLVM, and so it can draw from the abundant tool suites for LLMV.
+//! - Its idiomatic code compares favorably to idiomatic C in performance.
+//! - It possible to compile without a run-time and so is widely deployable. Foreign Function
+//!   Interfaces support calls from other languages, including Dart or Flutter.
+//! - And it compiles into LLVM, and so it can draw from the abundant tool suites for LLVM.
 //!
 //! ## We love XayNet, we like to hear about your use of it
 //! We feel blessed to have such a strong Engineering team that includes several senior Rust
