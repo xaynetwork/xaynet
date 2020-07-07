@@ -158,6 +158,6 @@ RUST_LOG=xain_fl=info cargo run --bin test-drive-net -- -n 20 -u http://127.0.0.
 
 ## Troubleshooting
 
-If you have any dificulties running the project, please reach out to us by
+If you have any difficulties running the project, please reach out to us by
 [opening an issue](https://github.com/xainag/xain-fl/issues/new) and describing your setup
 and the problems you're facing.
