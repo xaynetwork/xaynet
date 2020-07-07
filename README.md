@@ -144,7 +144,7 @@ the coordinator.
 
 ### `test-drive-net.rs`
 
-Make sure you have a running instance of the coordinator and that the clients that
+Make sure you have a running instance of the coordinator and that the clients
 you will spawn with the command below are able to reach it through the network.
 
 Here is an example on how to start `20` participants that will connect to a coordinator
