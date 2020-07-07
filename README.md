@@ -4,6 +4,8 @@
 
 This is the main source code repository for [xain-fl](https://www.xain.io/).
 
+![crates.io badge](https://img.shields.io/crates/v/xain-fl.svg) ![docs.rs badge](https://docs.rs/xain-fl/badge.svg?version=0.8.0) ![crates.io downloads](https://img.shields.io/crates/d/xain-fl.svg)
+
 ---
 
 > ### Want a framework that supports federated learning on the edge, in desktop browsers, integrates well with mobile apps, is performant, and preserves privacy? Welcome to XayNet, written entirely in Rust!
