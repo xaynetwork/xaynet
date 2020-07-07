@@ -23,13 +23,16 @@ Concretely, we provide developers with:
 ## The case for writing this framework in Rust
 
 Rust has definitely potential as a host language for machine learning itself. But, above, we already insisted on giving developers freedom of choice here. Hence, we selected Rust for other reasons.
+
 Our framework for federated learning is not a framework for machine learning as such. Rather, it supports the *federation* of machine learning that takes place on possibly heterogenuous devices and where use cases involve *many* such devices.
+
 The programming language in which this framework is written should therefore give us strong support for the following:
-- [**Compiles and runs “everywhere”**] The language should *not* require its own runtime and code should compile on a wide range of devices.
-- [**Memory and Concurreny Safety**] Code that compiles should be both memory safe and free of data races.
-- [**Secure communication**] State of the art cryptography should be available in vetted implementations.
-- [**Asynchronous communication**] Abstractions for asynchronous communication should exist that make federated learning scale.
-- [**Fast and functional**] The language should offer functional abstractions but also compile code into fast executables.
+- **Compiles and runs "everywhere":** The language should *not* require its own runtime and code should compile on a wide range of devices.
+- **Memory and Concurreny Safety:** Code that compiles should be both memory safe and free of data races.
+- **Secure communication:** State of the art cryptography should be available in vetted implementations.
+- **Asynchronous communication:** Abstractions for asynchronous communication should exist that make federated learning scale.
+- **Fast and functional:** The language should offer functional abstractions but also compile code into fast executables.
+
 Rust is one of the very few choices of modern programming languages that meet these requirements:
 - Its concepts of *Ownership* and *Borrowing* make it both memory and concurreny safe.
 - It has a strong and static type discipline and traits, which describe shareable functionality of a type.
