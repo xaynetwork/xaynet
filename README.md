@@ -95,7 +95,7 @@ docker-compose -f docker/docker-compose-release.yml up --build
 To deploy an instance of the coordinator to your Kubernetes cluster, use the manifests that are
 located inside the `k8s/coordinator` folder. The manifests rely on `kustomize` to be generated
 (`kustomize` is officially supported by `kubectl` since v1.14). We recommend you thoroughly go
-through the manifests and adjust them according to your own setup (namespace, ingress etc).
+through the manifests and adjust them according to your own setup (namespace, ingress, etc).
 
 Remember to also check (and adjust if necessary) the default configuration for the coordinator, available
 at `k8s/coordinator/development/config.toml`.
