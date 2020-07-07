@@ -1,3 +1,5 @@
+//! A RESTful API for the PET protocol interactions.
+
 use crate::{
     crypto::ByteObject,
     services::{Fetcher, PetMessageHandler},
