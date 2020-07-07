@@ -72,7 +72,7 @@ beyond the scope of this project:
 
 ### Using `docker-compose`
 
-The conveniency of using the docker setup is that there's no need to setup a working Rust
+The convenience of using the docker setup is that there's no need to setup a working Rust
 environment on your system, as everything is done inside the container.
 
 Start the coordinator by pointing to the `docker/docker-compose.yml` file. Keep in mind that
