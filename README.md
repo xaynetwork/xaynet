@@ -62,7 +62,7 @@ a Kubernetes cluster or by compiling the code and running the binary manually.
 of the repository.
 2. The following instructions assume you have pre-existing knowledge on some
 of the referenced software (like `docker` and `docker-compose`) and/or a working
-setup (if you decide on compiling the Rust code and running the binary manually)
+setup (if you decide to compile the Rust code and run the binary manually).
 3. In case you need help with setting up your system accordingly, we recommend you
 refer to the official documentation of each tool, as supporting them here would be
 beyond the scope of this project:
