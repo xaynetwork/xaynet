@@ -6,7 +6,7 @@ use structopt::StructOpt;
 use tokio::{signal, task::JoinHandle};
 use tracing_subscriber::*;
 use xain_fl::{
-    client::{Client, ClientError, Task},
+    client::{Client, ClientError},
     mask::{FromPrimitives, Model},
 };
 
