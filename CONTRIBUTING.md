@@ -1,171 +1,108 @@
-___
-**NOTE: Documentation is outdated, needs updating!**
-___
+# Getting Started
 
 ## Running the platform
 
-There are two ways to run the backend: using docker, or by compiling
-the binaries manually.
+There are a few different ways to run the backend: via docker, or by deploying it to
+a Kubernetes cluster or by compiling the code and running the binary manually.
+
+1. Everything described below assumes your shell's working directory to be the root
+of the repository
+2. The following instructions assume you have pre-existing knowledge on some
+of the referenced software (like `docker` and `docker-compose`) and/or a working
+setup (if you decide on compiling the Rust code and running the binary manually)
+3. In case you need help with setting up your system accordingly, we recommend you
+refer to the official documentation of each tool, as supporting them here would be
+beyond the scope of this project:
+   * [Rust](https://www.rust-lang.org/tools/install)
+   * [Docker](https://docs.docker.com/) and [Docker Compose](https://docs.docker.com/compose/)
+   * [Kubernetes](https://kubernetes.io/docs/home/)
 
 ### Using `docker-compose`
+
+The conveniency of using the docker setup is that there's no need to setup a working Rust
+environment on your system, as everything is done inside the container.
+
+Start the coordinator by pointing to the `docker/docker-compose.yml` file. Keep in mind that
+given this is the file used for development, it spins up some infrastructure that is currently
+not essential.
 
 ```bash
 docker-compose -f docker/docker-compose.yml up --build
 ```
 
-By default, the docker images use debug builds. To use a release build, run:
+If you would like, you can use the `docker/docker-compose-release.yml` file, but keep in mind
+that given this runs a release build with optimizations, compilation will be slower.
 
 ```bash
-docker-compose -f docker/docker-compose.yml -f docker/docker-compose-release.yml up --build
+docker-compose -f docker/docker-compose-release.yml up --build
 ```
 
-To check if the coordinator or the aggregator are leaking memory, run:
+### Using Kubernetes
+
+To deploy an instance of the coordinator to your Kubernetes cluster, use the manifests that are
+located inside the `k8s/coordinator` folder. The manifests rely on `kustomize` to be generated
+(`kustomize` is officially supported by `kubectl` since v1.14). We recommend you thoroughly go
+through the manifests and adjust them according to your own setup (namespace, ingress etc).
+
+Remember to also check (and adjust if necessary) the default configuration for the coordinator, available
+at `k8s/coordinator/development/config.toml`.
+
+Please adjust the domain used in the `k8s/coordinator/development/ingress.yaml` file so it matches
+your needs (you can also skip `ingress` altogether, just make sure you remove its reference from
+`k8s/coordinator/development/kustomization.yaml`).
+
+Keep in mind that the `ingress` configuration that is shown on `k8s/coordinator/development/ingress.yaml`
+relies on resources that aren't available in this repository, due to their sensitive nature
+(TLS key and certificate, for instance).
+
+To verify the generated manifests, run:
 
 ```bash
-docker-compose -f docker/docker-compose.yml -f docker/docker-compose-valgrind.yml up --build
+kubectl kustomize k8s/coordinator/development
+```
 
-# To see the logs, run:
-docker logs docker_coordinator_1
-docker logs docker_aggregator_1
+To apply them:
+
+```bash
+kubectl apply -k k8s/coordinator/development
+```
+
+In case you are not exposing your coordinator via `ingress`, you can still reach it using a port-forward.
+The example below creates a port-forward at port `8081` assuming the coordinator pod is still using the
+`app=coordinator` label:
+
+```bash
+kubectl port-forward $(kubectl get pods -l "app=coordinator" -o jsonpath="{.items[0].metadata.name}") 8081
 ```
 
 ### Building the project manually
 
-The `cargo` command can be run either from the `./rust` directory, or
-from the repository's root, in which case the `--manifest-path` must
-be specified.
-
 The coordinator can be built and started with:
 
 ```bash
-# If in ./rust
-cargo run --bin coordinator -- -c ../configs/dev-coordinator.toml
-
-# Or if at the repo's root
-cargo run --bin coordinator --manifest-path rust/Cargo.toml -- -c configs/dev-coordinator.toml
+cargo run --bin coordinator --manifest-path rust/Cargo.toml -- -c configs/config.toml
 ```
 
-The aggregator can be configured to use different backends for
-aggregation. Currently, only python aggregators are supported. Some of
-these aggregators can be found in `python/aggregators`. In order to
-use them that package must be installed:
+## Running the example
+
+The example can be found under [rust/src/bin/](./rust/src/bin/). It uses a dummy model
+and operates via network, so it's a good starting point for checking connectivity with
+the coordinator.
+
+### `test-drive-net.rs`
+
+Make sure you have a running instance of the coordinator and that the clients that
+you will spawn with the command below are able to reach it through the network.
+
+Here is an example on how to start `20` participants that will connect to a coordinator
+running on `127.0.0.1:8081`:
 
 ```bash
-pip install python/aggregators
-# or for development:
-pip install -e python/aggregators
-```
-
-Then the aggregator can be started with:
-
-```bash
-# If in ./rust
-cargo run --bin aggregator -- -c ../configs/dev-aggregator.toml
-
-# Or if at the repo's root
-cargo run --bin aggregator --manifest-path rust/Cargo.toml -- -c configs/dev-aggregator.toml
-```
-
-## Running the python examples
-
-The examples are under [./python/client_examples](./python/client_examples).
-
-### `dummy.py`
-
-Install the SDK: `pip install -e python/sdk`, then run the example:
-
-```
-cd python/client_examples
-python dummy.py \
-    --number-of-participants 1 \
-    --heartbeat-period 0.3 \
-    --coordinator-url http://localhost:8081 \
-    --model-size 1kB \
-    --verbose
-```
-
-### `keras_house_prices`
-
-**All the commands in this section are run from the
-python/client_examples/keras_house_prices directory.**
-
-1. Install the SDK and the example:
-
-```
-pip install -e ../../sdk
-pip install -e .
-```
-
-2. Download the dataset from Kaggle:
-   https://www.kaggle.com/c/house-prices-advanced-regression-techniques/data
-
-3. Extract the data (into
-   `python/client_examples/keras_house_prices/data/` here, but the
-   location doesn't matter):
-
-```
-(cd ./data ; unzip house-prices-advanced-regression-techniques.zip)
-```
-
-4. Prepare the data:
-
-```
-split-data --data-directory data --number-of-participants 10
-```
-
-5. Run one participant:
-
-```
-run-participant --data-directory data
-```
-
-6. Repeat the previous step to run more participants
-
-Steps 5. and 6. can be combined through the `run.sh` script, which
-takes a number of participants to run as argument. To run 10
-participants:
-
-```bash
-./run.sh 10
+RUST_LOG=xain_fl=info cargo run --bin test-drive-net -- -n 20 -u http://127.0.0.1:8081
 ```
 
 ## Troubleshooting
 
-### py_aggregator.rs tests are failing on macOS
-
-**Error: ModuleNotFoundError: No module named 'xain_aggregators'**
-
-__Solution:__
-
-Make sure that you install the module globally and not within a virtualenv.
-
-```shell
-cd python/
-pip install aggregators/
-```
-
-**Error: ImportError: ... Symbol not found: ...**
-
-__Solution:__
-
-If you installed python via `pyenv` and the error message `Symbol not found` appears, you may have
-to reinstall Python with the `--enable-shared` option:
-
-`env PYTHON_CONFIGURE_OPTS="--enable-shared" pyenv install 3.7.6`
-
-Next, run `cargo clean` to remove the old build artifacts. After that, all tests should pass.
-
-[You can find more information about the solution here.](https://github.com/PyO3/pyo3/issues/742#issuecomment-577332616)
-
-**`cargo test` fails with SIGSEGV: invalid memory reference**
-
-This is a known issue with `pyo3`: https://github.com/PyO3/pyo3/issues/288
-
-__Solution:__
-
-Run the tests with:
-
-```none
-cargo test -- --test-threads=1
-```
-
+If you have any dificulties running the project, please reach out to us by
+[opening an issue](https://github.com/xainag/xain-fl/issues/new) and describing your setup
+and the problems you're facing.
