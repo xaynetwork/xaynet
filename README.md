@@ -39,7 +39,7 @@ Rust is one of the very few choices of modern programming languages that meet th
 - Its concepts of *Ownership* and *Borrowing* make it both memory and concurreny safe.
 - It has a strong and static type discipline and traits, which describe shareable functionality of a type.
 - It has rich functional abstractions, for example the `tower-service` based on the foundational trait `Service`.
-- Its Idiomatic code compares favorably to Idiomatic C in performance.
+- Its idiomatic code compares favorably to idiomatic C in performance.
 - It has no run-time and so is widely deployable. Foreign Function Interfaces support calls from other languages, including Dart or Flutter.
 - And it compiles into LLVM, and so it can draw from the abundant tool suites for LLMV.
 
