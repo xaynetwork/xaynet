@@ -6,6 +6,3 @@
 
 # vscode workspace settings
 .vscode/*
-
-# Sphinx documentation
-docs/_build/
