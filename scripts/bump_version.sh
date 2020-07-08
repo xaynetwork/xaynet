@@ -136,12 +136,14 @@ check_changelog_was_updated() {
 
     if [ "$(diff | wc -l)" -eq 0 ] ; then
         echo "error: the CHANGELOG has not been updated since ${PREV_TAG}" 2>&1
+        echo "Do you want to continue anyway?"
+        ask_yes_or_no
+    else
+        echo "The CHANGELOG has been updated since ${PREV_TAG}"
+        diff
+        echo "Does the change above look correct for v$(version)"
+        ask_yes_or_no
     fi
-
-    echo "The CHANGELOG has been updated since ${PREV_TAG}"
-    diff
-    echo "Does the change above look correct for v$(version)"
-    ask_yes_or_no
 }
 
 # Small helper to update the version number in a file, using sed
@@ -157,6 +159,7 @@ set_version_in_file() {
 # user before committing these changes.
 update_versions() {
     set_version_in_file 's/^version = ".*"$/version = "'"$(version)"'"/g' rust/Cargo.toml
+    (cd rust && cargo update -v)
 
     if [ "$(git --no-pager diff | wc -l)" -eq 0 ] ; then
         echo "No changes were made, it seems that the version files were already updated to $(version)"
@@ -166,7 +169,7 @@ update_versions() {
         git --no-pager diff
         echo "Do you want to commit the changes above?"
         ask_yes_or_no
-        git add rust/Cargo.toml
+        git add rust/Cargo.toml rust/Cargo.lock
         git commit -m "bump version $(prev_version) -> $(version)"
     fi
 }
