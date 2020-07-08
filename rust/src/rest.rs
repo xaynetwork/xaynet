@@ -1,4 +1,4 @@
-//! A RESTful API for the PET protocol interactions.
+//! A HTTP API for the PET protocol interactions.
 
 use crate::{
     crypto::ByteObject,
