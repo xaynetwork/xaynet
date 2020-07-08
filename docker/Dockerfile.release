@@ -16,8 +16,8 @@ COPY rust/src /src
 # Fix timestamp. cargo incremental build as issues caused by the above
 # trick to compile the deps separately
 RUN touch /src/lib.rs
-RUN cargo build --all-features
+RUN cargo build --release --all-features
 
 FROM ubuntu:latest
 RUN apt update && apt install -y --no-install-recommends libssl-dev
-COPY --from=builder /target/debug/coordinator /app/coordinator
+COPY --from=builder /target/release/coordinator /app/coordinator
