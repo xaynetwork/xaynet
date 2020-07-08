@@ -157,6 +157,7 @@ set_version_in_file() {
 # user before committing these changes.
 update_versions() {
     set_version_in_file 's/^version = ".*"$/version = "'"$(version)"'"/g' rust/Cargo.toml
+    (cd rust && cargo update -v)
 
     if [ "$(git --no-pager diff | wc -l)" -eq 0 ] ; then
         echo "No changes were made, it seems that the version files were already updated to $(version)"
@@ -166,7 +167,7 @@ update_versions() {
         git --no-pager diff
         echo "Do you want to commit the changes above?"
         ask_yes_or_no
-        git add rust/Cargo.toml
+        git add rust/Cargo.toml rust/Cargo.lock
         git commit -m "bump version $(prev_version) -> $(version)"
     fi
 }
