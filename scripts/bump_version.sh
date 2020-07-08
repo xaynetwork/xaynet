@@ -136,12 +136,14 @@ check_changelog_was_updated() {
 
     if [ "$(diff | wc -l)" -eq 0 ] ; then
         echo "error: the CHANGELOG has not been updated since ${PREV_TAG}" 2>&1
+        echo "Do you want to continue anyway?"
+        ask_yes_or_no
+    else
+        echo "The CHANGELOG has been updated since ${PREV_TAG}"
+        diff
+        echo "Does the change above look correct for v$(version)"
+        ask_yes_or_no
     fi
-
-    echo "The CHANGELOG has been updated since ${PREV_TAG}"
-    diff
-    echo "Does the change above look correct for v$(version)"
-    ask_yes_or_no
 }
 
 # Small helper to update the version number in a file, using sed
