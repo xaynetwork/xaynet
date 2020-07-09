@@ -186,7 +186,7 @@ impl MaskConfig {
             // the largest bpn from the masking configuration catalogue is currently 173, hence
             // this is almost impossible on 32 bits targets and smaller targets are currently not
             // of interest for us
-            unimplemented!("the employed masking config is not supported on the target")
+            panic!("the employed masking config is not supported on the target")
         } else {
             bpn as usize
         }

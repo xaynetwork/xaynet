@@ -109,7 +109,7 @@ impl<T: AsRef<[u8]>> MaskObjectBuffer<T> {
         let nb = u32::from_be_bytes(self.inner.as_ref()[NUMBERS_FIELD].try_into().unwrap());
         if nb > MAX_NB {
             // smaller targets than 32 bits are currently not of interest for us
-            unimplemented!("16 bit targets or smaller are currently not fully supported")
+            panic!("16 bit targets or smaller are currently not fully supported")
         } else {
             nb as usize
         }
