@@ -1,5 +1,5 @@
 [log]
-filter = "xain_fl=debug,http=warn,info"
+filter = "xain_fl=trace,http=warn,info"
 
 [api]
 bind_address = "0.0.0.0:8081"
@@ -7,9 +7,9 @@ bind_address = "0.0.0.0:8081"
 [pet]
 min_sum = 1
 min_update = 3
-sum = 0.01
-update = 0.1
-expected_participants = 10
+sum = 0.3
+update = 0.7
+expected_participants = 20
 
 [mask]
 group_type = "Prime"

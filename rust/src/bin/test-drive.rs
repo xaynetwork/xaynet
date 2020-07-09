@@ -1,60 +1,60 @@
-fn main() {}
-// use tracing_subscriber::*;
-// use xain_fl::{
-//     client::{participant::Task, Client, ClientError},
-//     mask::{FromPrimitives, Model},
-//     service::Service,
-//     settings::{MaskSettings, PetSettings},
-// };
+#[macro_use]
+extern crate tracing;
 
-// /// Test-drive script of a (local) single-round federated learning session,
-// /// intended for use as a mini integration test. It spawns a [`Service`] and 10
-// /// [`Client`]s on the tokio event loop. This serves as a simple example of
-// /// getting started with the project, and may later be the basis for more
-// /// automated tests.
-// #[tokio::main]
-// async fn main() -> Result<(), ClientError> {
-//     let _fmt_subscriber = FmtSubscriber::builder()
-//         .with_env_filter(EnvFilter::from_default_env())
-//         .with_ansi(true)
-//         .init();
+use rand::Rng;
+use std::thread;
+use structopt::StructOpt;
+use tokio::{runtime, signal};
+use tracing_subscriber::*;
+use xain_fl::{
+    client::{ClientError, SyncClient},
+    mask::{FromPrimitives, Model},
+};
 
-//     let pet = PetSettings {
-//         sum: 0.2_f64,
-//         update: 0.6_f64,
-//         ..Default::default()
-//     };
+#[derive(Debug, StructOpt)]
+#[structopt(name = "Test Drive")]
+struct Opt {
+    #[structopt(
+        default_value = "http://127.0.0.1:8081",
+        short,
+        help = "The URL of the coordinator"
+    )]
+    url: String,
+    #[structopt(default_value = "4", short, help = "The length of the model")]
+    len: u32,
+    #[structopt(
+        default_value = "1",
+        short,
+        help = "The time period at which to poll for service data, in seconds"
+    )]
+    period: u64,
+    #[structopt(default_value = "10", short, help = "The number of clients")]
+    nb_client: u32,
+}
 
-//     let (svc, hdl) = Service::new(pet, MaskSettings::default()).unwrap();
-//     let _svc_jh = tokio::spawn(svc);
+fn main() -> Result<(), ClientError> {
+    let _fmt_subscriber = FmtSubscriber::builder()
+        .with_env_filter(EnvFilter::from_default_env())
+        .with_ansi(true)
+        .init();
 
-//     // dummy local model for clients
-//     let model = Model::from_primitives(vec![0_f32, 1_f32, 0_f32, 1_f32].into_iter()).unwrap();
+    let mut rng = rand::thread_rng();
+    let opt = Opt::from_args();
+    let len = opt.len as usize;
 
-//     let mut tasks = vec![];
-//     for id in 0..10 {
-//         let mut client = Client::new_with_hdl(1, id, hdl.clone())?;
-//         client.local_model = Some(model.clone());
-//         let join_hdl = tokio::spawn(async move { client.during_round().await });
-//         tasks.push(join_hdl);
-//     }
-//     println!("spawned 10 clients");
+    let mut client = SyncClient::new("http://127.0.0.1:8081");
+    client.start();
 
-//     let mut summers = 0;
-//     let mut updaters = 0;
-//     let mut unselecteds = 0;
-//     for task in tasks {
-//         match task.await.or(Err(ClientError::GeneralErr))?? {
-//             Task::Update => updaters += 1,
-//             Task::Sum => summers += 1,
-//             Task::None => unselecteds += 1,
-//         }
-//     }
+    thread::sleep(std::time::Duration::from_secs(5));
 
-//     println!(
-//         "{} sum, {} update, {} unselected clients completed a round",
-//         summers, updaters, unselecteds
-//     );
+    error!("{:?}", client.get_global_model());
+    client.stop();
 
-//     Ok(())
-// }
+    client.start();
+
+    thread::sleep(std::time::Duration::from_secs(5));
+
+    error!("{:?}", client.get_global_model());
+    client.stop();
+    Ok(())
+}

@@ -1,11 +1,12 @@
 #[macro_use]
 extern crate tracing;
 
+use rand::Rng;
 use structopt::StructOpt;
 use tokio::signal;
 use tracing_subscriber::*;
 use xain_fl::{
-    client::{Client, ClientError},
+    client::{AsyncClient, ClientError},
     mask::{FromPrimitives, Model},
 };
 
@@ -35,6 +36,7 @@ struct Opt {
 /// It assumes that a coordinator is already running.
 #[tokio::main]
 async fn main() -> Result<(), ClientError> {
+    let mut rng = rand::thread_rng();
     let _fmt_subscriber = FmtSubscriber::builder()
         .with_env_filter(EnvFilter::from_default_env())
         .with_ansi(true)
@@ -44,27 +46,27 @@ async fn main() -> Result<(), ClientError> {
 
     // dummy local model for clients
     let len = opt.len as usize;
-    let model = Model::from_primitives(vec![0; len].into_iter()).unwrap();
 
     let mut clients = Vec::with_capacity(opt.nb_client as usize);
+    let (shutdown_tx, _) = tokio::sync::broadcast::channel(1);
     for id in 0..opt.nb_client {
-        let mut client = Client::new_with_addr(opt.period, id, &opt.url)?;
-        client.local_model = Some(model.clone());
-        let join_hdl = tokio::spawn(async move {
-            tokio::select! {
-                _ = signal::ctrl_c() => {}
-                result = client.start() => {
-                    error!("{:?}", result);
-                }
-            }
-        });
-        clients.push(join_hdl);
+        let mut client = AsyncClient::new(&opt.url)?;
+        let client_fut = client.start(shutdown_tx.subscribe());
+        tokio::spawn(async move { client_fut.await });
+        clients.push(client);
     }
 
-    // wait for all the clients to finish
-    for client in clients {
-        let _ = client.await;
+    for _ in 0..10 {
+        for client in clients.iter_mut() {
+            let model =
+                Model::from_primitives(vec![rng.gen_range(0, 10); len].into_iter()).unwrap();
+            client.set_local_model(model)
+        }
     }
 
+    signal::ctrl_c().await;
+
+    //wait for all the clients to finish
+    drop(shutdown_tx);
     Ok(())
 }
