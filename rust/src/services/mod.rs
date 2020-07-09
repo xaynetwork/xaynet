@@ -22,6 +22,8 @@
 //! an interface for the second category of services.
 pub mod fetchers;
 pub mod messages;
+#[cfg(test)]
+mod tests;
 
 pub use self::{
     fetchers::{FetchError, Fetcher},
