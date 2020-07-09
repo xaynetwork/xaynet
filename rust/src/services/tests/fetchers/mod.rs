@@ -18,6 +18,8 @@ use crate::{
             ScalarService,
             SeedDictRequest,
             SeedDictService,
+            SumDictRequest,
+            SumDictService,
         },
         tests::utils::new_event_channels,
     },
@@ -26,6 +28,7 @@ use crate::{
         events::{DictionaryUpdate, MaskLengthUpdate, ModelUpdate, ScalarUpdate},
     },
     SeedDict,
+    SumDict,
     UpdateSeedDict,
 };
 
@@ -159,5 +162,41 @@ async fn test_seed_dict_svc() {
     publisher.broadcast_seed_dict(round_id, DictionaryUpdate::Invalidate);
     assert_ready!(task.poll_ready()).unwrap();
     let resp = task.call(SeedDictRequest).await;
+    assert_eq!(resp, Ok(None));
+}
+
+fn dummy_sum_dict() -> SumDict {
+    let mut dict = HashMap::new();
+    dict.insert(
+        PublicSigningKey::fill_with(0xaa),
+        PublicEncryptKey::fill_with(0xcc),
+    );
+    dict.insert(
+        PublicSigningKey::fill_with(0xbb),
+        PublicEncryptKey::fill_with(0xdd),
+    );
+    dict
+}
+
+#[tokio::test]
+async fn test_sum_dict_svc() {
+    let (mut publisher, subscriber) = new_event_channels();
+
+    let mut task = Spawn::new(SumDictService::new(&subscriber));
+    assert_ready!(task.poll_ready()).unwrap();
+
+    let resp = task.call(SumDictRequest).await;
+    assert_eq!(resp, Ok(None));
+
+    let round_id = subscriber.params_listener().get_latest().round_id;
+    let sum_dict = Arc::new(dummy_sum_dict());
+    publisher.broadcast_sum_dict(round_id.clone(), DictionaryUpdate::New(sum_dict.clone()));
+    assert_ready!(task.poll_ready()).unwrap();
+    let resp = task.call(SumDictRequest).await;
+    assert_eq!(resp, Ok(Some(sum_dict)));
+
+    publisher.broadcast_sum_dict(round_id, DictionaryUpdate::Invalidate);
+    assert_ready!(task.poll_ready()).unwrap();
+    let resp = task.call(SumDictRequest).await;
     assert_eq!(resp, Ok(None));
 }
