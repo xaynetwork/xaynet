@@ -4,7 +4,7 @@
 //!
 //! [mask module]: ../index.html
 
-use std::{convert::TryInto, ops::Range};
+use std::{convert::TryInto, mem, ops::Range};
 
 use anyhow::{anyhow, Context};
 use num::bigint::BigUint;
@@ -64,7 +64,7 @@ impl<T: AsRef<[u8]>> MaskObjectBuffer<T> {
 
         let config = MaskConfig::from_bytes(&self.config()).context("invalid MaskObject buffer")?;
         let bytes_per_number = config.bytes_per_number();
-        let (data_length, overflows) = (self.numbers() as usize).overflowing_mul(bytes_per_number);
+        let (data_length, overflows) = self.numbers().overflowing_mul(bytes_per_number);
         if overflows {
             return Err(anyhow!(
                 "invalid MaskObject buffer: invalid masking config or numbers field"
@@ -88,7 +88,7 @@ impl<T: AsRef<[u8]>> MaskObjectBuffer<T> {
     pub fn len(&self) -> usize {
         let config = MaskConfig::from_bytes(&self.config()).unwrap();
         let bytes_per_number = config.bytes_per_number();
-        let data_length = self.numbers() as usize * bytes_per_number;
+        let data_length = self.numbers() * bytes_per_number;
         NUMBERS_FIELD.end + data_length
     }
 
@@ -96,9 +96,17 @@ impl<T: AsRef<[u8]>> MaskObjectBuffer<T> {
     ///
     /// # Panics
     /// May panic if this buffer is unchecked.
-    pub fn numbers(&self) -> u32 {
+    ///
+    /// Panics if the number can't be represented as usize on targets smaller than 32 bits.
+    pub fn numbers(&self) -> usize {
         // UNWRAP SAFE: the slice is exactly 4 bytes long
-        u32::from_be_bytes(self.inner.as_ref()[NUMBERS_FIELD].try_into().unwrap())
+        let nb = u32::from_be_bytes(self.inner.as_ref()[NUMBERS_FIELD].try_into().unwrap());
+        if mem::size_of::<usize>() < 4 && nb > u16::MAX as u32 {
+            // smaller targets than 32 bits are currently not of interest for us
+            unimplemented!("16 bit targets or smaller are currently not fully supported")
+        } else {
+            nb as usize
+        }
     }
 
     /// Gets the serialized masking configuration.
@@ -180,7 +188,7 @@ impl FromBytes for MaskObject {
         let reader = MaskObjectBuffer::new(buffer.as_ref())?;
 
         let config = MaskConfig::from_bytes(&reader.config())?;
-        let mut data = Vec::with_capacity(reader.numbers() as usize);
+        let mut data = Vec::with_capacity(reader.numbers());
         let bytes_per_number = config.bytes_per_number();
         for chunk in reader.data().chunks(bytes_per_number) {
             data.push(BigUint::from_bytes_le(chunk));
