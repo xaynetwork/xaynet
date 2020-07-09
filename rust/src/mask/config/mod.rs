@@ -20,8 +20,6 @@ use thiserror::Error;
 const MAX_BPN: u64 = u16::MAX as u64;
 #[cfg(target_pointer_width = "32")]
 const MAX_BPN: u64 = u32::MAX as u64;
-#[cfg(target_pointer_width = "64")]
-const MAX_BPN: u64 = u64::MAX as u64;
 
 #[derive(Debug, Error)]
 /// Errors related to invalid masking configurations.
@@ -182,14 +180,15 @@ impl MaskConfig {
     pub(crate) fn bytes_per_number(&self) -> usize {
         let max_number = self.order() - BigUint::from(1_u8);
         let bpn = (max_number.bits() + 7) / 8;
+
+        // the largest bpn from the masking configuration catalogue is currently 173, hence this is
+        // almost impossible on 32 bits targets and smaller targets are currently not of interest
+        #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
         if bpn > MAX_BPN {
-            // the largest bpn from the masking configuration catalogue is currently 173, hence
-            // this is almost impossible on 32 bits targets and smaller targets are currently not
-            // of interest for us
             panic!("the employed masking config is not supported on the target")
-        } else {
-            bpn as usize
         }
+
+        bpn as usize
     }
 
     /// Gets the additional shift value for masking/unmasking.
