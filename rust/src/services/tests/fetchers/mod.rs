@@ -14,12 +14,14 @@ use crate::{
             ModelService,
             RoundParamsRequest,
             RoundParamsService,
+            ScalarRequest,
+            ScalarService,
         },
         tests::utils::new_event_channels,
     },
     state_machine::{
         coordinator::{RoundParameters, RoundSeed},
-        events::{MaskLengthUpdate, ModelUpdate},
+        events::{MaskLengthUpdate, ModelUpdate, ScalarUpdate},
     },
 };
 
@@ -89,4 +91,26 @@ async fn test_round_params_svc() {
     assert_ready!(task.poll_ready()).unwrap();
     let resp = task.call(RoundParamsRequest).await;
     assert_eq!(resp, Ok(params));
+}
+
+#[tokio::test]
+async fn test_scalar_svc() {
+    let (mut publisher, subscriber) = new_event_channels();
+
+    let mut task = Spawn::new(ScalarService::new(&subscriber));
+    assert_ready!(task.poll_ready()).unwrap();
+
+    let resp = task.call(ScalarRequest).await;
+    assert_eq!(resp, Ok(None));
+
+    let round_id = subscriber.params_listener().get_latest().round_id;
+    publisher.broadcast_scalar(round_id.clone(), ScalarUpdate::New(42.42));
+    assert_ready!(task.poll_ready()).unwrap();
+    let resp = task.call(ScalarRequest).await;
+    assert_eq!(resp, Ok(Some(42.42)));
+
+    publisher.broadcast_scalar(round_id, ScalarUpdate::Invalidate);
+    assert_ready!(task.poll_ready()).unwrap();
+    let resp = task.call(ScalarRequest).await;
+    assert_eq!(resp, Ok(None));
 }
