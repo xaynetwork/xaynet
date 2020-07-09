@@ -12,7 +12,7 @@ use crate::{
 };
 
 /// The round parameters.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct RoundParameters {
     /// The public key of the coordinator used for encryption.
     pub pk: CoordinatorPublicKey,
