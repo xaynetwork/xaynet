@@ -1,11 +1,11 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use tokio_test::assert_ready;
 use tower_test::mock::Spawn;
 
 use crate::{
-    crypto::{ByteObject, PublicEncryptKey},
-    mask::Model,
+    crypto::{ByteObject, PublicEncryptKey, PublicSigningKey},
+    mask::{seed::EncryptedMaskSeed, Model},
     services::{
         fetchers::{
             MaskLengthRequest,
@@ -16,13 +16,17 @@ use crate::{
             RoundParamsService,
             ScalarRequest,
             ScalarService,
+            SeedDictRequest,
+            SeedDictService,
         },
         tests::utils::new_event_channels,
     },
     state_machine::{
         coordinator::{RoundParameters, RoundSeed},
-        events::{MaskLengthUpdate, ModelUpdate, ScalarUpdate},
+        events::{DictionaryUpdate, MaskLengthUpdate, ModelUpdate, ScalarUpdate},
     },
+    SeedDict,
+    UpdateSeedDict,
 };
 
 #[tokio::test]
@@ -112,5 +116,48 @@ async fn test_scalar_svc() {
     publisher.broadcast_scalar(round_id, ScalarUpdate::Invalidate);
     assert_ready!(task.poll_ready()).unwrap();
     let resp = task.call(ScalarRequest).await;
+    assert_eq!(resp, Ok(None));
+}
+
+fn dummy_seed_dict() -> SeedDict {
+    let mut dict = HashMap::new();
+    dict.insert(PublicSigningKey::fill_with(0xaa), dummy_update_dict());
+    dict.insert(PublicSigningKey::fill_with(0xbb), dummy_update_dict());
+    dict
+}
+
+fn dummy_update_dict() -> UpdateSeedDict {
+    let mut dict = HashMap::new();
+    dict.insert(
+        PublicSigningKey::fill_with(0x11),
+        EncryptedMaskSeed::fill_with(0x11),
+    );
+    dict.insert(
+        PublicSigningKey::fill_with(0x22),
+        EncryptedMaskSeed::fill_with(0x22),
+    );
+    dict
+}
+
+#[tokio::test]
+async fn test_seed_dict_svc() {
+    let (mut publisher, subscriber) = new_event_channels();
+
+    let mut task = Spawn::new(SeedDictService::new(&subscriber));
+    assert_ready!(task.poll_ready()).unwrap();
+
+    let resp = task.call(SeedDictRequest).await;
+    assert_eq!(resp, Ok(None));
+
+    let round_id = subscriber.params_listener().get_latest().round_id;
+    let seed_dict = Arc::new(dummy_seed_dict());
+    publisher.broadcast_seed_dict(round_id.clone(), DictionaryUpdate::New(seed_dict.clone()));
+    assert_ready!(task.poll_ready()).unwrap();
+    let resp = task.call(SeedDictRequest).await;
+    assert_eq!(resp, Ok(Some(seed_dict)));
+
+    publisher.broadcast_seed_dict(round_id, DictionaryUpdate::Invalidate);
+    assert_ready!(task.poll_ready()).unwrap();
+    let resp = task.call(SeedDictRequest).await;
     assert_eq!(resp, Ok(None));
 }
