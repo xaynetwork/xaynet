@@ -9,6 +9,7 @@ use std::ops::Range;
 use anyhow::{anyhow, Context};
 
 use crate::{
+    crypto::ByteObject,
     message::{
         traits::{FromBytes, ToBytes},
         utils::range,

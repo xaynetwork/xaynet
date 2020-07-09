@@ -16,7 +16,7 @@ use rand_chacha::ChaCha20Rng;
 use thiserror::Error;
 
 use crate::{
-    crypto::prng::generate_integer,
+    crypto::{prng::generate_integer, ByteObject},
     mask::{config::MaskConfig, model::Model, object::MaskObject, seed::MaskSeed},
 };
 

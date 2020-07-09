@@ -1,7 +1,7 @@
 //! Coordinator state and round parameter types.
 use std::collections::HashMap;
 
-use sodiumoxide::{self, crypto::box_, randombytes::randombytes};
+use sodiumoxide::{self, crypto::box_};
 
 use crate::{
     crypto::{encrypt::EncryptKeyPair, ByteObject},
@@ -74,6 +74,8 @@ impl CoordinatorState {
 pub struct RoundSeed(box_::Seed);
 
 impl ByteObject for RoundSeed {
+    const LENGTH: usize = box_::SEEDBYTES;
+
     /// Creates a round seed from a slice of bytes.
     ///
     /// # Errors
@@ -90,17 +92,6 @@ impl ByteObject for RoundSeed {
     /// Gets the round seed as a slice.
     fn as_slice(&self) -> &[u8] {
         self.0.as_ref()
-    }
-}
-
-impl RoundSeed {
-    /// Gets the number of bytes of a round seed.
-    pub const LENGTH: usize = box_::SEEDBYTES;
-
-    /// Generates a random round seed.
-    pub fn generate() -> Self {
-        // Safe unwrap: length of slice is guaranteed by constants
-        Self::from_slice_unchecked(randombytes(Self::LENGTH).as_slice())
     }
 }
 

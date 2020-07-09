@@ -53,9 +53,6 @@ impl SigningKeyPair {
 pub struct PublicSigningKey(sign::PublicKey);
 
 impl PublicSigningKey {
-    /// Length in bytes of this public key.
-    pub const LENGTH: usize = sign::PUBLICKEYBYTES;
-
     /// Verifies the signature `s` against the message `m` and this public key.
     ///
     /// Returns `true` if the signature is valid and `false` otherwise.
@@ -65,6 +62,8 @@ impl PublicSigningKey {
 }
 
 impl ByteObject for PublicSigningKey {
+    const LENGTH: usize = sign::PUBLICKEYBYTES;
+
     fn zeroed() -> Self {
         Self(sign::PublicKey([0_u8; sign::PUBLICKEYBYTES]))
     }
@@ -85,9 +84,6 @@ impl ByteObject for PublicSigningKey {
 pub struct SecretSigningKey(sign::SecretKey);
 
 impl SecretSigningKey {
-    /// Length in bytes of this secret key.
-    pub const LENGTH: usize = sign::SECRETKEYBYTES;
-
     /// Signs a message `m` with this secret key.
     pub fn sign_detached(&self, m: &[u8]) -> Signature {
         sign::sign_detached(m, self.as_ref()).into()
@@ -100,8 +96,10 @@ impl SecretSigningKey {
 }
 
 impl ByteObject for SecretSigningKey {
+    const LENGTH: usize = sign::SECRETKEYBYTES;
+
     fn zeroed() -> Self {
-        Self(sign::SecretKey([0_u8; sign::SECRETKEYBYTES]))
+        Self(sign::SecretKey([0_u8; Self::LENGTH]))
     }
 
     fn as_slice(&self) -> &[u8] {
@@ -132,6 +130,8 @@ impl ByteObject for SecretSigningKey {
 pub struct Signature(sign::Signature);
 
 impl ByteObject for Signature {
+    const LENGTH: usize = sign::SIGNATUREBYTES;
+
     fn zeroed() -> Self {
         Self(sign::Signature([0_u8; sign::SIGNATUREBYTES]))
     }
@@ -146,9 +146,6 @@ impl ByteObject for Signature {
 }
 
 impl Signature {
-    /// Length in bytes of this signature.
-    pub const LENGTH: usize = sign::SIGNATUREBYTES;
-
     /// Computes the floating point representation of the hashed signature and ensures that it is
     /// below the given threshold:
     /// ```no_rust
@@ -179,9 +176,6 @@ impl Signature {
 pub struct SigningKeySeed(sign::Seed);
 
 impl SigningKeySeed {
-    /// Length in bytes of this seed.
-    pub const LENGTH: usize = sign::SEEDBYTES;
-
     /// Deterministically derives a new signing key pair from this seed.
     pub fn derive_signing_key_pair(&self) -> (PublicSigningKey, SecretSigningKey) {
         let (pk, sk) = sign::keypair_from_seed(&self.0);
@@ -190,6 +184,8 @@ impl SigningKeySeed {
 }
 
 impl ByteObject for SigningKeySeed {
+    const LENGTH: usize = sign::SEEDBYTES;
+
     fn from_slice(bytes: &[u8]) -> Option<Self> {
         sign::Seed::from_slice(bytes).map(Self)
     }

@@ -9,6 +9,7 @@ use std::ops::{Range, RangeFrom};
 use anyhow::{anyhow, Context};
 
 use crate::{
+    crypto::ByteObject,
     message::{header::Flags, traits::LengthValueBuffer, utils::range, DecodeError},
     CoordinatorPublicKey,
     ParticipantPublicKey,
