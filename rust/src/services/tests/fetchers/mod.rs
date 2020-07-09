@@ -82,10 +82,10 @@ async fn test_round_params_svc() {
     assert_eq!(resp, Ok(initial_params));
 
     let params = RoundParameters {
-        pk: PublicEncryptKey::from_slice(&vec![0x11; PublicEncryptKey::LENGTH]).unwrap(),
+        pk: PublicEncryptKey::fill_with(0x11),
         sum: 0.42,
         update: 0.42,
-        seed: RoundSeed::from_slice(&vec![0x11; RoundSeed::LENGTH]).unwrap(),
+        seed: RoundSeed::fill_with(0x11),
     };
     publisher.broadcast_params(params.clone());
     assert_ready!(task.poll_ready()).unwrap();
