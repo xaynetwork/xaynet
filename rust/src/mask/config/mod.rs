@@ -6,7 +6,7 @@
 
 pub(crate) mod serialization;
 
-use std::{convert::TryFrom, mem};
+use std::convert::TryFrom;
 
 use num::{
     bigint::{BigInt, BigUint},
@@ -14,6 +14,14 @@ use num::{
     traits::{pow::Pow, Num},
 };
 use thiserror::Error;
+
+// target dependent maximum bytes per mask object element
+#[cfg(target_pointer_width = "16")]
+const MAX_BPN: u64 = u16::MAX as u64;
+#[cfg(target_pointer_width = "32")]
+const MAX_BPN: u64 = u32::MAX as u64;
+#[cfg(target_pointer_width = "64")]
+const MAX_BPN: u64 = u64::MAX as u64;
 
 #[derive(Debug, Error)]
 /// Errors related to invalid masking configurations.
@@ -174,17 +182,13 @@ impl MaskConfig {
     pub(crate) fn bytes_per_number(&self) -> usize {
         let max_number = self.order() - BigUint::from(1_u8);
         let bpn = (max_number.bits() + 7) / 8;
-        match mem::size_of::<usize>() {
-            1 | 2 if bpn > u16::MAX as u64 => {
-                // smaller targets than 32 bits are currently not of interest for us
-                unimplemented!("16 bit targets or smaller are currently not fully supported")
-            }
-            4 if bpn > u32::MAX as u64 => {
-                // the largest bpn from the masking configuration catalogue is currently 173, hence
-                // this is almost impossible (each number would have to exceed 4GB in size)
-                unimplemented!("the employed masking config is not supported on 32 bit targets")
-            }
-            _ => bpn as usize,
+        if bpn > MAX_BPN {
+            // the largest bpn from the masking configuration catalogue is currently 173, hence
+            // this is almost impossible on 32 bits targets and smaller targets are currently not
+            // of interest for us
+            unimplemented!("the employed masking config is not supported on the target")
+        } else {
+            bpn as usize
         }
     }
 

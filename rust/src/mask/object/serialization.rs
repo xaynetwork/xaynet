@@ -4,7 +4,7 @@
 //!
 //! [mask module]: ../index.html
 
-use std::{convert::TryInto, mem, ops::Range};
+use std::{convert::TryInto, ops::Range};
 
 use anyhow::{anyhow, Context};
 use num::bigint::BigUint;
@@ -23,6 +23,12 @@ use crate::{
 
 const MASK_CONFIG_FIELD: Range<usize> = range(0, MASK_CONFIG_BUFFER_LEN);
 const NUMBERS_FIELD: Range<usize> = range(MASK_CONFIG_FIELD.end, 4);
+
+// target dependent maximum number of mask object elements
+#[cfg(target_pointer_width = "16")]
+const MAX_NB: u32 = u16::MAX as u32;
+#[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
+const MAX_NB: u32 = u32::MAX as u32;
 
 /// A buffer for serialized mask objects.
 pub struct MaskObjectBuffer<T> {
@@ -101,7 +107,7 @@ impl<T: AsRef<[u8]>> MaskObjectBuffer<T> {
     pub fn numbers(&self) -> usize {
         // UNWRAP SAFE: the slice is exactly 4 bytes long
         let nb = u32::from_be_bytes(self.inner.as_ref()[NUMBERS_FIELD].try_into().unwrap());
-        if mem::size_of::<usize>() < 4 && nb > u16::MAX as u32 {
+        if nb > MAX_NB {
             // smaller targets than 32 bits are currently not of interest for us
             unimplemented!("16 bit targets or smaller are currently not fully supported")
         } else {
