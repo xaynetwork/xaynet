@@ -15,6 +15,12 @@ use num::{
 };
 use thiserror::Error;
 
+// target dependent maximum bytes per mask object element
+#[cfg(target_pointer_width = "16")]
+const MAX_BPN: u64 = u16::MAX as u64;
+#[cfg(target_pointer_width = "32")]
+const MAX_BPN: u64 = u32::MAX as u64;
+
 #[derive(Debug, Error)]
 /// Errors related to invalid masking configurations.
 pub enum InvalidMaskConfigError {
@@ -168,9 +174,21 @@ pub struct MaskConfig {
 
 impl MaskConfig {
     /// Returns the number of bytes needed for an element of a mask object.
+    ///
+    /// # Panics
+    /// Panics if the bytes per number can't be represented as usize.
     pub(crate) fn bytes_per_number(&self) -> usize {
         let max_number = self.order() - BigUint::from(1_u8);
-        (max_number.bits() + 7) / 8
+        let bpn = (max_number.bits() + 7) / 8;
+
+        // the largest bpn from the masking configuration catalogue is currently 173, hence this is
+        // almost impossible on 32 bits targets and smaller targets are currently not of interest
+        #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
+        if bpn > MAX_BPN {
+            panic!("the employed masking config is not supported on the target")
+        }
+
+        bpn as usize
     }
 
     /// Gets the additional shift value for masking/unmasking.

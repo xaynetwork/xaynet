@@ -18,7 +18,7 @@ rand_chacha = "0.2.2"
 serde = { version = "1.0.111", features = [ "derive" ] }
 bytes = "0.5.4"
 sodiumoxide = "0.2.5"
-num = { version = "0.2.1", features = ["serde"] }
+num = { version = "0.3.0", features = ["serde"] }
 bincode = "1.2.1"
 thiserror = "1.0.19"
 anyhow = "1.0.31"
