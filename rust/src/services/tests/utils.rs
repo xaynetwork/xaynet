@@ -1,22 +1,18 @@
 use crate::{
-    crypto::{ByteObject, EncryptKeyPair, PublicEncryptKey, SecretEncryptKey},
+    crypto::{ByteObject, EncryptKeyPair},
     state_machine::{
         coordinator::{RoundParameters, RoundSeed},
         events::{EventPublisher, EventSubscriber, PhaseEvent},
     },
-    CoordinatorPublicKey,
 };
 
 pub fn new_event_channels() -> (EventPublisher, EventSubscriber) {
-    let keys = EncryptKeyPair {
-        public: PublicEncryptKey::zeroed(),
-        secret: SecretEncryptKey::zeroed(),
-    };
+    let keys = EncryptKeyPair::generate();
     let params = RoundParameters {
-        pk: CoordinatorPublicKey::zeroed(),
+        pk: keys.public.clone(),
         sum: 0.0,
         update: 0.0,
-        seed: RoundSeed::zeroed(),
+        seed: RoundSeed::generate(),
     };
     let phase = PhaseEvent::Idle;
     EventPublisher::init(keys, params, phase)

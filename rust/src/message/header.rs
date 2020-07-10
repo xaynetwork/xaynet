@@ -73,7 +73,7 @@ bitflags::bitflags! {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 /// A header common to all [`Message`]s.
 ///
 /// [`Message`]: struct.Message.html
