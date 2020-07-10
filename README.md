@@ -2,11 +2,11 @@
 
 ###### tags: Xayn, Federated Learning, Privacy
 
-This is the main source code repository for [xain-fl](https://www.xain.io/).
+This is the main source code repository for [xaynet](https://www.xayn.com/).
 
 **Developers:** feel free to jump to the technical ["Getting Started"](#getting-started) section.
 
-[![crates.io badge](https://img.shields.io/crates/v/xain-fl.svg)](https://crates.io/crates/xain-fl) [![docs.rs badge](https://docs.rs/xain-fl/badge.svg)](https://docs.rs/xain-fl) ![crates.io downloads](https://img.shields.io/crates/d/xain-fl.svg)
+[![crates.io badge](https://img.shields.io/crates/v/xaynet.svg)](https://crates.io/crates/xaynet) [![docs.rs badge](https://docs.rs/xaynet/badge.svg)](https://docs.rs/xaynet) ![crates.io downloads](https://img.shields.io/crates/d/xaynet.svg)
 
 ---
 
@@ -153,11 +153,11 @@ Here is an example on how to start `20` participants that will connect to a coor
 running on `127.0.0.1:8081`:
 
 ```bash
-RUST_LOG=xain_fl=info cargo run --bin test-drive-net -- -n 20 -u http://127.0.0.1:8081
+RUST_LOG=xaynet=info cargo run --bin test-drive-net -- -n 20 -u http://127.0.0.1:8081
 ```
 
 ## Troubleshooting
 
 If you have any difficulties running the project, please reach out to us by
-[opening an issue](https://github.com/xainag/xain-fl/issues/new) and describing your setup
+[opening an issue](https://github.com/xaynet/xaynet/issues/new) and describing your setup
 and the problems you're facing.
