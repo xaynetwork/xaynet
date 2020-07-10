@@ -2,7 +2,7 @@
 
 ###### tags: Xayn, Federated Learning, Privacy
 
-This is the main source code repository for [xaynet](https://www.xayn.com/).
+This is the main source code repository for [xaynet](https://www.xayn.dev/).
 
 **Developers:** feel free to jump to the technical ["Getting Started"](#getting-started) section.
 
