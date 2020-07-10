@@ -196,7 +196,7 @@ impl LocalModelCache {
 }
 
 // A cache to store the global model.
-// We want to be able to provide latest fetch model even if the Client is not running
+// We want to be able to provide the latest fetch model even if the Client is not running
 pub struct GlobalModelCache {
     current_model: Option<Model>,
     receiver: Option<watch::Receiver<Option<Model>>>,
@@ -267,8 +267,8 @@ impl SyncClient {
 
     pub fn stop(&mut self) {
         if let Some(shutdown) = self.shutdown.take() {
-            // dropping the shutdown handel will trigger the shutdown branch of
-            // the fetcher tokio:select which will trigger the shutdown branch of the task select
+            // dropping the shutdown handle will trigger the shutdown tokio:select branch of
+            // the RoundParamFetcher which will trigger the shutdown the participant task
             drop(shutdown);
             // we wait until the tokio runtime has finished the task
             self.handle.take().unwrap().join();
