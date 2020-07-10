@@ -159,5 +159,5 @@ RUST_LOG=xaynet=info cargo run --bin test-drive-net -- -n 20 -u http://127.0.0.1
 ## Troubleshooting
 
 If you have any difficulties running the project, please reach out to us by
-[opening an issue](https://github.com/xaynet/xaynet/issues/new) and describing your setup
+[opening an issue](https://github.com/xaynetwork/xaynet/issues/new) and describing your setup
 and the problems you're facing.
