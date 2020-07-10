@@ -261,7 +261,7 @@ impl SyncClient {
         self.client.get_global_model()
     }
 
-    pub fn set_global_model(&mut self, local_model: Model) {
+    pub fn set_local_model(&mut self, local_model: Model) {
         self.client.set_local_model(local_model);
     }
 
