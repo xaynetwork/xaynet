@@ -134,7 +134,7 @@ pub unsafe extern "C" fn new_client(address: *const c_char, period: c_ulonglong)
         .threaded_scheduler()
         .core_threads(1)
         .max_threads(4)
-        .thread_name("xain-fl-client-runtime-worker")
+        .thread_name("xaynet-client-runtime-worker")
         .enable_all()
         .build()
     {

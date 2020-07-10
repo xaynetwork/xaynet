@@ -49,7 +49,7 @@ impl Settings {
     fn load(path: PathBuf) -> Result<Self, ConfigError> {
         let mut config = Config::new();
         config.merge(config::File::from(path))?;
-        config.merge(Environment::with_prefix("xain").separator("__"))?;
+        config.merge(Environment::with_prefix("xaynet").separator("__"))?;
         config.try_into()
     }
 }
@@ -76,7 +76,7 @@ pub struct PetSettings {
     ///
     /// **Environment variable**
     /// ```text
-    /// XAIN_PET__MIN_SUM=1
+    /// XAYNET_PET__MIN_SUM=1
     /// ```
     pub min_sum: usize,
 
@@ -99,7 +99,7 @@ pub struct PetSettings {
     ///
     /// **Environment variable**
     /// ```text
-    /// XAIN_PET__MIN_UPDATE=3
+    /// XAYNET_PET__MIN_UPDATE=3
     /// ```
     pub min_update: usize,
 
@@ -119,7 +119,7 @@ pub struct PetSettings {
     ///
     /// **Environment variable**
     /// ```text
-    /// XAIN_PET__SUM=0.01
+    /// XAYNET_PET__SUM=0.01
     /// ```
     pub sum: f64,
 
@@ -139,7 +139,7 @@ pub struct PetSettings {
     ///
     /// **Environment variable**
     /// ```text
-    /// XAIN_PET__UPDATE=0.01
+    /// XAYNET_PET__UPDATE=0.01
     /// ```
     pub update: f64,
 
@@ -157,7 +157,7 @@ pub struct PetSettings {
     ///
     /// **Environment variable**
     /// ```text
-    /// XAIN_PET__EXPECTED_PARTICIPANTS=10
+    /// XAYNET_PET__EXPECTED_PARTICIPANTS=10
     /// ```
     pub expected_participants: usize,
 }
@@ -206,7 +206,7 @@ pub struct ApiSettings {
     ///
     /// **Environment variable**
     /// ```text
-    /// XAIN_API__BIND_ADDRESS=127.0.0.1:8081
+    /// XAYNET_API__BIND_ADDRESS=127.0.0.1:8081
     /// ```
     pub bind_address: std::net::SocketAddr,
 }
@@ -226,7 +226,7 @@ pub struct MaskSettings {
     ///
     /// **Environment variable**
     /// ```text
-    /// XAIN_MASK__GROUP_TYPE=Integer
+    /// XAYNET_MASK__GROUP_TYPE=Integer
     /// ```
     pub group_type: GroupType,
 
@@ -242,7 +242,7 @@ pub struct MaskSettings {
     ///
     /// **Environment variable**
     /// ```text
-    /// XAIN_MASK__DATA_TYPE=F32
+    /// XAYNET_MASK__DATA_TYPE=F32
     /// ```
     pub data_type: DataType,
 
@@ -258,7 +258,7 @@ pub struct MaskSettings {
     ///
     /// **Environment variable**
     /// ```text
-    /// XAIN_MASK__BOUND_TYPE=B0
+    /// XAYNET_MASK__BOUND_TYPE=B0
     /// ```
     pub bound_type: BoundType,
 
@@ -274,7 +274,7 @@ pub struct MaskSettings {
     ///
     /// **Environment variable**
     /// ```text
-    /// XAIN_MASK__MODEL_TYPE=M3
+    /// XAYNET_MASK__MODEL_TYPE=M3
     /// ```
     pub model_type: ModelType,
 }
@@ -324,7 +324,7 @@ pub struct LoggingSettings {
     ///
     /// **Environment variable**
     /// ```text
-    /// XAIN_LOG__FILTER=info
+    /// XAYNET_LOG__FILTER=info
     /// ```
     ///
     /// [here]: https://docs.rs/tracing-subscriber/0.2.6/tracing_subscriber/filter/struct.EnvFilter.html#directives

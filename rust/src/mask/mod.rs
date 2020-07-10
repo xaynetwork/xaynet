@@ -10,7 +10,7 @@
 //! this might be extended in the future.
 //!
 //! ```
-//! # use xain_fl::mask::{FromPrimitives, IntoPrimitives, Model};
+//! # use xaynet::mask::{FromPrimitives, IntoPrimitives, Model};
 //! let weights = vec![0_f32; 10];
 //! let model = Model::from_primitives_bounded(weights.into_iter());
 //! assert_eq!(
@@ -89,7 +89,7 @@
 //! can be generated via the additionally returned [`MaskSeed`].
 //!
 //! ```
-//! # use xain_fl::mask::{BoundType, DataType, FromPrimitives, GroupType, MaskConfig, Masker, Model, ModelType};
+//! # use xaynet::mask::{BoundType, DataType, FromPrimitives, GroupType, MaskConfig, Masker, Model, ModelType};
 //! // create local models and a fitting masking configuration
 //! let number_weights = 10;
 //! let scalar = 0.5;
@@ -118,7 +118,7 @@
 //! safely performed wrt the chosen masking configuration without possible loss of information.
 //!
 //! ```
-//! # use xain_fl::mask::{Aggregation, BoundType, DataType, FromPrimitives, GroupType, MaskConfig, Masker, MaskObject, Model, ModelType};
+//! # use xaynet::mask::{Aggregation, BoundType, DataType, FromPrimitives, GroupType, MaskConfig, Masker, MaskObject, Model, ModelType};
 //! # let number_weights = 10;
 //! # let scalar = 0.5;
 //! # let local_model_1 = Model::from_primitives_bounded(vec![0_f32; number_weights].into_iter());
@@ -154,7 +154,7 @@
 //! configuration without possible loss of information.
 //!
 //! ```
-//! # use xain_fl::mask::{Aggregation, BoundType, DataType, FromPrimitives, GroupType, MaskConfig, Masker, MaskObject, Model, ModelType};
+//! # use xaynet::mask::{Aggregation, BoundType, DataType, FromPrimitives, GroupType, MaskConfig, Masker, MaskObject, Model, ModelType};
 //! # let number_weights = 10;
 //! # let scalar = 0.5;
 //! # let local_model_1 = Model::from_primitives_bounded(vec![0_f32; number_weights].into_iter());

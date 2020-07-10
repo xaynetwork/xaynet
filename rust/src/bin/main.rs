@@ -1,7 +1,7 @@
 use std::{path::PathBuf, process};
 use structopt::StructOpt;
 use tracing_subscriber::*;
-use xain_fl::{
+use xaynet::{
     rest,
     services,
     settings::Settings,

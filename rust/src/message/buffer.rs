@@ -42,7 +42,7 @@ const PARTICIPANT_PK_RANGE: Range<usize> =
 /// ## Reading a sum message
 ///
 /// ```rust
-/// use xain_fl::message::{Tag, Flags, MessageBuffer};
+/// use xaynet::message::{Tag, Flags, MessageBuffer};
 /// use std::convert::TryFrom;
 /// let mut bytes = vec![
 ///     0x01, // tag = 1
@@ -68,7 +68,7 @@ const PARTICIPANT_PK_RANGE: Range<usize> =
 /// ## Writing a sum message
 ///
 /// ```rust
-/// use xain_fl::message::{Tag, Flags, MessageBuffer};
+/// use xaynet::message::{Tag, Flags, MessageBuffer};
 /// use std::convert::TryFrom;
 /// let mut expected = vec![
 ///     0x01, // tag = 1
