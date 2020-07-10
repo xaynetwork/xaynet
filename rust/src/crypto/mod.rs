@@ -31,6 +31,8 @@ pub(crate) mod hash;
 pub(crate) mod prng;
 pub(crate) mod sign;
 
+use sodiumoxide::randombytes::randombytes;
+
 pub use self::{
     encrypt::{EncryptKeyPair, EncryptKeySeed, PublicEncryptKey, SecretEncryptKey, SEALBYTES},
     hash::Sha256,
@@ -40,6 +42,9 @@ pub use self::{
 
 /// An interface for slicing into cryptographic byte objects.
 pub trait ByteObject: Sized {
+    /// Length in bytes of this object
+    const LENGTH: usize;
+
     /// Creates a new object with all the bytes initialized to `0`.
     fn zeroed() -> Self;
 
@@ -58,5 +63,17 @@ pub trait ByteObject: Sized {
     /// Panics if the length of the byte-slice isn't equal to the length of the object.
     fn from_slice_unchecked(bytes: &[u8]) -> Self {
         Self::from_slice(bytes).unwrap()
+    }
+
+    /// Generates an object with random bytes
+    fn generate() -> Self {
+        // safe unwrap: length of slice is guaranteed by constants
+        Self::from_slice_unchecked(randombytes(Self::LENGTH).as_slice())
+    }
+
+    #[cfg(test)]
+    /// A helper for instantiating an object filled with the given value
+    fn fill_with(value: u8) -> Self {
+        Self::from_slice_unchecked(&vec![value; Self::LENGTH])
     }
 }

@@ -9,6 +9,7 @@ use std::{borrow::Borrow, ops::Range};
 use anyhow::{anyhow, Context};
 
 use crate::{
+    crypto::ByteObject,
     mask::object::{serialization::MaskObjectBuffer, MaskObject},
     message::{
         traits::{FromBytes, ToBytes},

@@ -52,6 +52,8 @@ impl EncryptKeyPair {
 pub struct PublicEncryptKey(box_::PublicKey);
 
 impl ByteObject for PublicEncryptKey {
+    const LENGTH: usize = box_::PUBLICKEYBYTES;
+
     fn zeroed() -> Self {
         Self(box_::PublicKey([0_u8; box_::PUBLICKEYBYTES]))
     }
@@ -66,9 +68,6 @@ impl ByteObject for PublicEncryptKey {
 }
 
 impl PublicEncryptKey {
-    /// Length in bytes of this public key.
-    pub const LENGTH: usize = box_::PUBLICKEYBYTES;
-
     /// Encrypts a message `m` with this public key.
     ///
     /// The resulting ciphertext length is [`SEALBYTES`]` + m.len()`.
@@ -88,9 +87,6 @@ impl PublicEncryptKey {
 pub struct SecretEncryptKey(box_::SecretKey);
 
 impl SecretEncryptKey {
-    /// Length in bytes of this secret key.
-    pub const LENGTH: usize = box_::SECRETKEYBYTES;
-
     /// Decrypts the ciphertext `c` using this secret key and the associated public key, and returns
     /// the decrypted message.
     ///
@@ -107,6 +103,8 @@ impl SecretEncryptKey {
 }
 
 impl ByteObject for SecretEncryptKey {
+    const LENGTH: usize = box_::SECRETKEYBYTES;
+
     fn zeroed() -> Self {
         Self(box_::SecretKey([0_u8; box_::SECRETKEYBYTES]))
     }
@@ -127,9 +125,6 @@ impl ByteObject for SecretEncryptKey {
 pub struct EncryptKeySeed(box_::Seed);
 
 impl EncryptKeySeed {
-    /// Length in bytes of this seed.
-    pub const LENGTH: usize = box_::SEEDBYTES;
-
     /// Deterministically derives a new key pair from this seed.
     pub fn derive_encrypt_key_pair(&self) -> (PublicEncryptKey, SecretEncryptKey) {
         let (pk, sk) = box_::keypair_from_seed(self.as_ref());
@@ -138,6 +133,8 @@ impl EncryptKeySeed {
 }
 
 impl ByteObject for EncryptKeySeed {
+    const LENGTH: usize = box_::SEEDBYTES;
+
     fn from_slice(bytes: &[u8]) -> Option<Self> {
         box_::Seed::from_slice(bytes).map(Self)
     }

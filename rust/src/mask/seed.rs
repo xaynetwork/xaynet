@@ -9,7 +9,7 @@ use std::iter;
 use derive_more::{AsMut, AsRef};
 use rand::SeedableRng;
 use rand_chacha::ChaCha20Rng;
-use sodiumoxide::{crypto::box_, randombytes::randombytes};
+use sodiumoxide::crypto::box_;
 
 use crate::{
     crypto::{encrypt::SEALBYTES, prng::generate_integer, ByteObject},
@@ -26,6 +26,8 @@ use crate::{
 pub struct MaskSeed(box_::Seed);
 
 impl ByteObject for MaskSeed {
+    const LENGTH: usize = box_::SEEDBYTES;
+
     fn from_slice(bytes: &[u8]) -> Option<Self> {
         box_::Seed::from_slice(bytes).map(Self)
     }
@@ -40,15 +42,6 @@ impl ByteObject for MaskSeed {
 }
 
 impl MaskSeed {
-    /// Length in bytes of this seed.
-    pub const LENGTH: usize = box_::SEEDBYTES;
-
-    /// Generates a random mask seed.
-    pub fn generate() -> Self {
-        // safe unwrap: length of slice is guaranteed by constants
-        Self::from_slice_unchecked(randombytes(Self::LENGTH).as_slice())
-    }
-
     /// Gets this seed as an array.
     pub fn as_array(&self) -> [u8; Self::LENGTH] {
         (self.0).0
@@ -81,6 +74,8 @@ impl From<Vec<u8>> for EncryptedMaskSeed {
 }
 
 impl ByteObject for EncryptedMaskSeed {
+    const LENGTH: usize = SEALBYTES + MaskSeed::LENGTH;
+
     fn from_slice(bytes: &[u8]) -> Option<Self> {
         if bytes.len() == Self::LENGTH {
             Some(Self(bytes.to_vec()))
@@ -99,9 +94,6 @@ impl ByteObject for EncryptedMaskSeed {
 }
 
 impl EncryptedMaskSeed {
-    /// Gets the number of bytes of this ciphertext.
-    pub const LENGTH: usize = SEALBYTES + MaskSeed::LENGTH;
-
     /// Decrypts this seed as a [`MaskSeed`].
     ///
     /// # Errors
