@@ -5,8 +5,7 @@ use tokio_test::assert_ready;
 use tower_test::mock::Spawn;
 
 use crate::{
-    crypto::{ByteObject, PublicEncryptKey, SigningKeyPair},
-    message::{MessageOwned, MessageSeal, SumOwned},
+    message::MessageOwned,
     services::{
         messages::{
             MessageParserError,
@@ -14,7 +13,7 @@ use crate::{
             MessageParserResponse,
             MessageParserService,
         },
-        tests::utils::new_event_channels,
+        tests::utils,
     },
     state_machine::{
         coordinator::RoundParameters,
@@ -24,7 +23,7 @@ use crate::{
 };
 
 fn spawn_svc() -> (EventPublisher, EventSubscriber, Spawn<MessageParserService>) {
-    let (publisher, subscriber) = new_event_channels();
+    let (publisher, subscriber) = utils::new_event_channels();
     let thread_pool = Arc::new(ThreadPoolBuilder::new().build().unwrap());
     let task = Spawn::new(MessageParserService::new(&subscriber, thread_pool));
     (publisher, subscriber, task)
@@ -35,33 +34,9 @@ fn make_req(bytes: Vec<u8>) -> Traced<MessageParserRequest> {
 }
 
 fn new_sum_message(round_params: &RoundParameters) -> (MessageOwned, Vec<u8>) {
-    // Simulate a sum participant crypto material
-    let participant_ephm_pk = PublicEncryptKey::generate();
-    let participant_signing_keys = SigningKeyPair::generate();
-
-    // Create the message payload
-    let sum_signature = participant_signing_keys
-        .secret
-        .sign_detached(&[round_params.seed.as_slice(), b"sum"].concat());
-    let payload = SumOwned {
-        sum_signature,
-        ephm_pk: participant_ephm_pk,
-    };
-
-    // Create the message itself
-    let message = MessageOwned::new_sum(
-        round_params.pk.clone(),
-        participant_signing_keys.public.clone(),
-        payload,
-    );
-
-    // Encrypt the message
-    let seal = MessageSeal {
-        recipient_pk: &round_params.pk,
-        sender_sk: &participant_signing_keys.secret,
-    };
-    let encrypted_message = seal.seal(&message);
-
+    let (message, _, participant_signing_keys) = utils::new_sum_message(round_params);
+    let encrypted_message =
+        utils::encrypt_message(&message, round_params, &participant_signing_keys);
     (message, encrypted_message)
 }
 
