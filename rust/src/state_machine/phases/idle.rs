@@ -167,9 +167,15 @@ mod test {
         assert_ne!(initial_round_params, new_round_params);
         assert_ne!(initial_keys, new_keys);
 
-        // Check all the events that should be emitted when
-        // transitioning to the sum phase
-
+        // Check all the events that should be emitted during the idle
+        // phase
+        assert_eq!(
+            events.phase_listener().get_latest(),
+            Event {
+                round_id: new_seed.clone(),
+                event: PhaseEvent::Idle,
+            }
+        );
         assert_eq!(
             events.keys_listener().get_latest(),
             Event {
