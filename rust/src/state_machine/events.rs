@@ -21,7 +21,7 @@ use crate::{
 };
 
 /// An event emitted by the coordinator.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Event<E> {
     /// Metadata that associates this event to the round in which it is
     /// emitted.
@@ -32,7 +32,7 @@ pub struct Event<E> {
 
 /// Event that is emitted when the state machine transitions to a new
 /// phase.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum PhaseEvent {
     Idle,
     Sum,
@@ -45,28 +45,28 @@ pub enum PhaseEvent {
 
 // FIXME: should we simply use `Option`s here?
 /// Global model update event.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ModelUpdate {
     Invalidate,
     New(Arc<Model>),
 }
 
 /// Scalar update event.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ScalarUpdate {
     Invalidate,
     New(f64),
 }
 
 /// Mask length update event.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum MaskLengthUpdate {
     Invalidate,
     New(usize),
 }
 
 /// Dictionary update event.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum DictionaryUpdate<D> {
     Invalidate,
     New(Arc<D>),
