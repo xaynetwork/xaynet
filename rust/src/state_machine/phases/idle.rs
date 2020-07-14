@@ -3,8 +3,8 @@ use crate::{
     state_machine::{
         coordinator::{CoordinatorState, RoundSeed},
         events::{DictionaryUpdate, MaskLengthUpdate, PhaseEvent, ScalarUpdate},
-        phases::{Phase, PhaseState, Sum},
-        requests::RequestReceiver,
+        phases::{Handler, Phase, PhaseState, Sum},
+        requests::{Request, RequestReceiver},
         StateMachine,
     },
 };
@@ -14,6 +14,17 @@ use sodiumoxide::crypto::hash::sha256;
 /// Idle state
 #[derive(Debug)]
 pub struct Idle;
+
+impl<R> Handler<Request> for PhaseState<R, Idle> {
+    /// Reject all the request with a [`PetError::InvalidMessage`]
+    fn handle_request(&mut self, req: Request) {
+        match req {
+            Request::Sum((_, response_tx)) => Self::handle_invalid_message(response_tx),
+            Request::Update((_, response_tx)) => Self::handle_invalid_message(response_tx),
+            Request::Sum2((_, response_tx)) => Self::handle_invalid_message(response_tx),
+        }
+    }
+}
 
 #[async_trait]
 impl<R> Phase<R> for PhaseState<R, Idle>
