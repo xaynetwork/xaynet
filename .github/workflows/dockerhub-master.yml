@@ -21,4 +21,5 @@ jobs:
           cache_froms: buildpack-deps:stable-curl
           repository: xaynetwork/xaynet
           tag_with_ref: true
+          tags: development
           push: true
