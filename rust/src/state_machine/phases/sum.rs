@@ -14,6 +14,7 @@ use crate::{
 };
 
 use tokio::sync::oneshot;
+use tokio::time::Duration;
 
 /// Sum state
 #[derive(Debug)]
@@ -85,10 +86,21 @@ where
 {
     /// Runs the sum phase.
     pub async fn run_phase(&mut self) -> Result<SeedDict, StateError> {
+        let min_t = self.coordinator_state.min_sum_t;
+        self.process_during(Duration::from_secs(min_t)).await;
+
         while !self.has_enough_sums() {
+            debug!("{} sum messages handled (min {} required)",
+              self.inner.sum_dict.len(),
+              self.coordinator_state.min_sum);
             let req = self.next_request().await?;
             self.handle_request(req);
-        }
+        };
+
+        info!("{} sum messages handled (min {} required)",
+              self.inner.sum_dict.len(),
+              self.coordinator_state.min_sum);
+
         Ok(self.freeze_sum_dict())
     }
 }
@@ -140,6 +152,7 @@ impl<R> PhaseState<R, Sum> {
     fn has_enough_sums(&self) -> bool {
         self.inner.sum_dict.len() >= self.coordinator_state.min_sum
     }
+
 }
 
 #[cfg(test)]
