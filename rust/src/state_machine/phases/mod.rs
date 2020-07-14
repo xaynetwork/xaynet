@@ -69,6 +69,28 @@ pub struct PhaseState<R, S> {
     pub(in crate::state_machine) request_rx: RequestReceiver<R>,
 }
 
+impl<R, S> PhaseState<R, S> where Self: Handler<R> {
+    /// Processes requests for as long as the given duration.
+    async fn process_during(&mut self, dur: tokio::time::Duration) {
+        tokio::select! {
+            _ = self.process() => {
+                panic!("unexpected termination of processing loop");
+            }
+            _ = tokio::time::delay_for(dur) => {
+                debug!("duration elapsed");
+            }
+        }
+    }
+
+    /// Processes requests indefinitely.
+    async fn process(&mut self) -> Result<(), StateError> {
+        loop {
+            let req = self.next_request().await?;
+            self.handle_request(req);
+        }
+    }
+}
+
 // Functions that are available to all states
 impl<R, S> PhaseState<R, S> {
     /// Receives the next [`Request`].
