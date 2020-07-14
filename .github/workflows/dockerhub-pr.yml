@@ -19,6 +19,6 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
           dockerfile: docker/Dockerfile
           cache_froms: buildpack-deps:stable-curl
-          repository: xain/xain-fl
+          repository: xaynetwork/xaynet
           tag_with_ref: true
           push: true
