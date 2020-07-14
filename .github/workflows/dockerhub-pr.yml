@@ -47,6 +47,6 @@ jobs:
           dockerfile: docker/Dockerfile
           cache_froms: buildpack-deps:stable-curl
           repository: xaynetwork/xaynet
-          tag_with_ref: true
+          tags: pr-${{ steps.pr_data.outputs.branch }}
           push: true
 
