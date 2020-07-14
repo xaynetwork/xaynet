@@ -8,7 +8,7 @@ use crate::state_machine::tests::{
 };
 
 #[tokio::test]
-async fn test_full_round() {
+async fn full_round() {
     enable_logging();
 
     let (mut state_machine, request_tx, _events_subscriber) = StateMachineBuilder::new().build();

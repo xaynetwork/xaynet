@@ -131,3 +131,91 @@ impl<R> PhaseState<R, Idle> {
         self.coordinator_state.round_params.pk = self.coordinator_state.keys.public;
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::state_machine::{events::Event, tests::builder::StateMachineBuilder};
+
+    #[tokio::test]
+    pub async fn idle_to_sum() {
+        let (state_machine, _request_tx, events) = StateMachineBuilder::new().build();
+        assert!(state_machine.is_idle());
+
+        let initial_round_params = events.params_listener().get_latest().event;
+        let initial_seed = initial_round_params.seed.clone();
+        let initial_keys = events.keys_listener().get_latest().event;
+
+        let state_machine = state_machine.next().await.unwrap();
+        assert!(state_machine.is_sum());
+
+        let PhaseState {
+            inner: sum_state,
+            coordinator_state,
+            ..
+        } = state_machine.into_sum_phase_state();
+
+        assert!(sum_state.sum_dict().is_empty());
+
+        let new_round_params = coordinator_state.round_params.clone();
+        let new_seed = new_round_params.seed.clone();
+        let new_keys = coordinator_state.keys.clone();
+
+        // Make sure that the round seed, coordinator keys, and other
+        // parameters have been updated, since a new round is starting
+        assert_ne!(initial_seed, new_seed);
+        assert_ne!(initial_round_params, new_round_params);
+        assert_ne!(initial_keys, new_keys);
+
+        // Check all the events that should be emitted when
+        // transitioning to the sum phase
+
+        assert_eq!(
+            events.keys_listener().get_latest(),
+            Event {
+                round_id: new_seed.clone(),
+                event: new_keys,
+            }
+        );
+
+        assert_eq!(
+            events.params_listener().get_latest(),
+            Event {
+                round_id: new_seed.clone(),
+                event: new_round_params,
+            }
+        );
+
+        assert_eq!(
+            events.sum_dict_listener().get_latest(),
+            Event {
+                round_id: new_seed.clone(),
+                event: DictionaryUpdate::Invalidate,
+            }
+        );
+
+        assert_eq!(
+            events.seed_dict_listener().get_latest(),
+            Event {
+                round_id: new_seed.clone(),
+                event: DictionaryUpdate::Invalidate,
+            }
+        );
+
+        assert_eq!(
+            events.scalar_listener().get_latest(),
+            Event {
+                round_id: new_seed.clone(),
+                event: ScalarUpdate::Invalidate,
+            }
+        );
+
+        assert_eq!(
+            events.mask_length_listener().get_latest(),
+            Event {
+                round_id: new_seed.clone(),
+                event: MaskLengthUpdate::Invalidate,
+            }
+        );
+    }
+}

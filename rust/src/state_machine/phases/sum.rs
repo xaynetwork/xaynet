@@ -22,6 +22,17 @@ pub struct Sum {
     sum_dict: SumDict,
 }
 
+#[cfg(test)]
+impl Sum {
+    pub fn sum_dict(&self) -> &SumDict {
+        &self.sum_dict
+    }
+
+    pub fn sum_dict_mut(&mut self) -> &mut SumDict {
+        &mut self.sum_dict
+    }
+}
+
 impl<R> Handler<Request> for PhaseState<R, Sum> {
     /// Handles a [`Request::Sum`], [`Request::Update`] or [`Request::Sum2`] request.\
     ///
