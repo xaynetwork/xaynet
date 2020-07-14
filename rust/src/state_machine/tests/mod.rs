@@ -1,5 +1,5 @@
 pub mod builder;
-pub mod state_machine_impl;
+pub mod impls;
 pub mod utils;
 
 use crate::state_machine::tests::{

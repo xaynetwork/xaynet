@@ -1,7 +1,14 @@
-use crate::state_machine::{
-    phases::{self, PhaseState},
-    StateMachine,
+use crate::{
+    state_machine::{
+        phases::{self, PhaseState},
+        requests::{Request, RequestSender, SumRequest, SumResponse},
+        StateMachine,
+    },
+    SumParticipantEphemeralPublicKey,
+    SumParticipantPublicKey,
 };
+
+use tokio::sync::oneshot;
 
 impl<T> StateMachine<T> {
     pub fn is_update(&self) -> bool {
@@ -100,5 +107,29 @@ impl<T> StateMachine<T> {
             StateMachine::Shutdown(state) => state,
             _ => panic!("not in shutdown state"),
         }
+    }
+}
+
+// FIXME: this is very convenient for the tests but it could actually
+// be used in the codebase. The only problem right now is that if we
+// need to rethink error handling in order to avoid nested Result. For
+// tests unwrapping is fine though.
+#[cfg(test)]
+impl RequestSender<Request> {
+    pub async fn sum(
+        &mut self,
+        participant_pk: SumParticipantPublicKey,
+        ephm_pk: SumParticipantEphemeralPublicKey,
+    ) -> SumResponse {
+        let (resp_tx, resp_rx) = oneshot::channel::<SumResponse>();
+        let req = Request::Sum((
+            SumRequest {
+                participant_pk,
+                ephm_pk,
+            },
+            resp_tx,
+        ));
+        self.send(req).unwrap();
+        resp_rx.await.unwrap()
     }
 }
