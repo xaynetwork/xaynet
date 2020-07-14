@@ -27,10 +27,6 @@ impl Sum {
     pub fn sum_dict(&self) -> &SumDict {
         &self.sum_dict
     }
-
-    pub fn sum_dict_mut(&mut self) -> &mut SumDict {
-        &mut self.sum_dict
-    }
 }
 
 impl<R> Handler<Request> for PhaseState<R, Sum> {
@@ -143,5 +139,88 @@ impl<R> PhaseState<R, Sum> {
     /// phase.
     fn has_enough_sums(&self) -> bool {
         self.inner.sum_dict.len() >= self.coordinator_state.min_sum
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::{
+        crypto::{EncryptKeyPair, SigningKeyPair},
+        state_machine::{events::Event, tests::builder::StateMachineBuilder},
+        SumDict,
+    };
+
+    #[tokio::test]
+    pub async fn sum_to_update() {
+        let sum = Sum {
+            sum_dict: SumDict::new(),
+        };
+        let (state_machine, mut request_tx, events) = StateMachineBuilder::new()
+            .with_phase(sum)
+            // Make sure anyone is a sum participant.
+            .with_sum_ratio(1.0)
+            .with_update_ratio(0.0)
+            // Make sure a single participant is enough to go to the
+            // update phase
+            .with_min_sum(1)
+            .build();
+        assert!(state_machine.is_sum());
+
+        let round_params = events.params_listener().get_latest().event;
+        let seed = round_params.seed.clone();
+        let keys = events.keys_listener().get_latest().event;
+
+        // Send a sum request and attempt to transition. The
+        // coordinator is configured to consider any sum request as
+        // eligible, so after processing it, we should go to the
+        // update phase
+        let part_signing_keys = SigningKeyPair::generate();
+        let part_ephm_keys = EncryptKeyPair::generate();
+        let request_fut = async {
+            request_tx
+                .sum(
+                    part_signing_keys.public.clone(),
+                    part_ephm_keys.public.clone(),
+                )
+                .await
+                .unwrap()
+        };
+        let transition_fut = async { state_machine.next().await.unwrap() };
+
+        let (_response, state_machine) = tokio::join!(request_fut, transition_fut);
+        let PhaseState {
+            inner: update_state,
+            coordinator_state,
+            ..
+        } = state_machine.into_update_phase_state();
+
+        // Check the initial state of the update phase.
+        assert_eq!(update_state.frozen_sum_dict().len(), 1);
+        let (pk, ephm_pk) = update_state.frozen_sum_dict().iter().next().unwrap();
+        assert_eq!(pk.clone(), part_signing_keys.public);
+        assert_eq!(ephm_pk.clone(), part_ephm_keys.public);
+
+        assert_eq!(update_state.seed_dict().len(), 1);
+        let (pk, dict) = update_state.seed_dict().iter().next().unwrap();
+        assert_eq!(pk.clone(), part_signing_keys.public);
+        assert!(dict.is_empty());
+
+        assert_eq!(update_state.aggregation().len(), 0);
+
+        // Make sure that the round seed and parameters are unchanged
+        assert_eq!(seed, coordinator_state.round_params.seed);
+        assert_eq!(round_params, coordinator_state.round_params);
+        assert_eq!(keys, coordinator_state.keys);
+
+        // Check all the events that should be emitted during the sum
+        // phase
+        assert_eq!(
+            events.phase_listener().get_latest(),
+            Event {
+                round_id: seed.clone(),
+                event: PhaseEvent::Sum,
+            }
+        );
     }
 }

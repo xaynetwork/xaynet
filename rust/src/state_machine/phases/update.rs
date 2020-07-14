@@ -21,7 +21,7 @@ use tokio::sync::oneshot;
 /// Update state
 #[derive(Debug)]
 pub struct Update {
-    // The frozen sum dictionary built during the sum phase.
+    /// The frozen sum dictionary built during the sum phase.
     frozen_sum_dict: SumDict,
 
     /// The seed dictionary built during the update phase.
@@ -29,6 +29,19 @@ pub struct Update {
 
     /// The aggregator for masks and masked models.
     aggregation: Aggregation,
+}
+
+#[cfg(test)]
+impl Update {
+    pub fn frozen_sum_dict(&self) -> &SumDict {
+        &self.frozen_sum_dict
+    }
+    pub fn seed_dict(&self) -> &SeedDict {
+        &self.seed_dict
+    }
+    pub fn aggregation(&self) -> &Aggregation {
+        &self.aggregation
+    }
 }
 
 #[async_trait]
