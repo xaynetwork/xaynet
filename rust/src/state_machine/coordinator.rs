@@ -25,6 +25,7 @@ pub struct RoundParameters {
 }
 
 /// The coordinator state.
+#[derive(Debug)]
 pub struct CoordinatorState {
     /// The credentials of the coordinator.
     pub keys: EncryptKeyPair,
