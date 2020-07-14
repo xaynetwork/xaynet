@@ -8,7 +8,7 @@
 //! # Examples
 //! ## Encryption of messages
 //! ```
-//! # use xain_fl::crypto::EncryptKeyPair;
+//! # use xaynet::crypto::EncryptKeyPair;
 //! let keys = EncryptKeyPair::generate();
 //! let message = b"Hello world!".to_vec();
 //! let cipher = keys.public.encrypt(&message);
@@ -17,7 +17,7 @@
 //!
 //! ## Signing of messages
 //! ```
-//! # use xain_fl::crypto::SigningKeyPair;
+//! # use xaynet::crypto::SigningKeyPair;
 //! let keys = SigningKeyPair::generate();
 //! let message = b"Hello world!".to_vec();
 //! let signature = keys.secret.sign_detached(&message);

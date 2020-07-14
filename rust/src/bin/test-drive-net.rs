@@ -4,7 +4,7 @@ extern crate tracing;
 use structopt::StructOpt;
 use tokio::signal;
 use tracing_subscriber::*;
-use xain_fl::{
+use xaynet::{
     client::{Client, ClientError},
     mask::{FromPrimitives, Model},
 };

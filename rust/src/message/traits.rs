@@ -80,7 +80,7 @@ where
 /// ## Decoding a LV field
 ///
 /// ```rust
-/// # use xain_fl::message::LengthValueBuffer;
+/// # use xaynet::message::LengthValueBuffer;
 /// let bytes = vec![
 ///     0x00, 0x00, 0x00, 0x05, // Length = 5
 ///     0xff, // Value = 0xff
@@ -95,7 +95,7 @@ where
 /// ## Encoding a LV field
 ///
 /// ```rust
-/// # use xain_fl::message::LengthValueBuffer;
+/// # use xaynet::message::LengthValueBuffer;
 /// let mut bytes = vec![0xff; 9];
 /// let mut buffer = LengthValueBuffer::new_unchecked(&mut bytes);
 /// // It is important to set the length field before setting the value, otherwise, `value_mut()` will panic.
@@ -128,7 +128,7 @@ impl<T: AsRef<[u8]>> LengthValueBuffer<T> {
     /// # Examples
     ///
     /// ```rust
-    /// # use xain_fl::message::LengthValueBuffer;
+    /// # use xaynet::message::LengthValueBuffer;
     /// // truncated length:
     /// assert!(LengthValueBuffer::new(&vec![0x00, 0x00, 0x00]).is_err());
     ///

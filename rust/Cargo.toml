@@ -1,13 +1,13 @@
 [package]
-name = "xain-fl"
+name = "xaynet"
 version = "0.8.0"
-authors = ["XAIN AG <engineering@xain.io>"]
+authors = ["Xayn Engineering <engineering@xaynet.dev>"]
 edition = "2018"
-description = "The XAIN project is building a privacy layer for machine learning so that AI projects can meet compliance such as GDPR and CCPA. The approach relies on Federated Learning as enabling technology that allows production AI applications to be fully privacy compliant."
+description = "The Xayn Network project is building a privacy layer for machine learning so that AI projects can meet compliance such as GDPR and CCPA. The approach relies on Federated Learning as enabling technology that allows production AI applications to be fully privacy compliant."
 license-file = "../LICENSE"
 keywords = ["federated-learning", "fl", "ai", "machine-learning"]
-repository = "https://github.com/xainag/xain-fl/"
-homepage = "https://xain.io/"
+repository = "https://github.com/xaynetwork/xaynet/"
+homepage = "https://xaynet.dev/"
 
 [dependencies]
 futures = "0.3.5"
