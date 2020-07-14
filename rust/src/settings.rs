@@ -103,6 +103,50 @@ pub struct PetSettings {
     /// ```
     pub min_update: usize,
 
+    /// The minimum amount of time reserved for processing messages in the `sum`
+    /// and `sum2` phases, in seconds.
+    ///
+    /// Defaults to 0 i.e. `sum` and `sum2` phases end *as soon as* [`min_sum`]
+    /// messages have been processed. Set this higher to allow for the
+    /// possibility of more than [`min_sum`] messages to be processed in the
+    /// `sum` and `sum2` phases.
+    ///
+    /// # Examples
+    ///
+    /// **TOML**
+    /// ```text
+    /// [pet]
+    /// min_sum_t = 5
+    /// ```
+    ///
+    /// **Environment variable**
+    /// ```text
+    /// XAIN_PET__MIN_SUM_T=5
+    /// ```
+    pub min_sum_t: u64,
+
+    /// The minimum amount of time reserved for processing messages in the
+    /// `update` phase, in seconds.
+    ///
+    /// Defaults to 0 i.e. `update` phase ends *as soon as* [`min_update`]
+    /// messages have been processed. Set this higher to allow for the
+    /// possibility of more than [`min_update`] messages to be processed in the
+    /// `update` phase.
+    ///
+    /// # Examples
+    ///
+    /// **TOML**
+    /// ```text
+    /// [pet]
+    /// min_update_t = 10
+    /// ```
+    ///
+    /// **Environment variable**
+    /// ```text
+    /// XAIN_PET__MIN_UPDATE_T=10
+    /// ```
+    pub min_update_t: u64,
+
     /// The expected fraction of participants selected for computing the unmasking sum. The value
     /// must be between `0` and `1` (i.e. `0 < sum < 1`).
     ///
@@ -167,6 +211,8 @@ impl Default for PetSettings {
         Self {
             min_sum: 1_usize,
             min_update: 3_usize,
+            min_sum_t: 0_u64,
+            min_update_t: 0_u64,
             sum: 0.01_f64,
             update: 0.1_f64,
             expected_participants: 10,

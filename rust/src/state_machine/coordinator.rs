@@ -35,6 +35,10 @@ pub struct CoordinatorState {
     pub min_sum: usize,
     /// The minimum of required update messages.
     pub min_update: usize,
+    /// The minimum time (in seconds) reserved for processing sum/sum2 messages.
+    pub min_sum_t: u64,
+    /// The minimum time (in seconds) reserved for processing update messages.
+    pub min_update_t: u64,
     /// The number of expected participants.
     pub expected_participants: usize,
     /// The masking configuration.
@@ -63,6 +67,8 @@ impl CoordinatorState {
             events: publisher,
             min_sum: pet_settings.min_sum,
             min_update: pet_settings.min_update,
+            min_sum_t: pet_settings.min_sum_t,
+            min_update_t: pet_settings.min_update_t,
             expected_participants: pet_settings.expected_participants,
             mask_config: mask_settings.into(),
         };
