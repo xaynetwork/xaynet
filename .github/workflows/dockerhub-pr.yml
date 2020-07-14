@@ -2,17 +2,44 @@ name: DockerHub (PR)
 
 on:
   pull_request:
-    branches:
-      - master
+    types: [opened]
+  issue_comment:
+    types: [created]
 
 jobs:
-  build-tag-push-pr:
-    name: build-tag-push-pr
+  build-by-request:
+    name: build-by-request
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@master
-      
-      - name: build-tag-push
+      - name: PR Comment Trigger
+        uses: Khan/pull-request-comment-trigger@1.0.0
+        id: check
+        with:
+          trigger: '#build'
+          reaction: rocket
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - if: steps.check.outputs.triggered == 'true'
+        name: GitHub API Request
+        uses: octokit/request-action@v2.0.0
+        id: request
+        with:
+          route: ${{ github.event.issue.pull_request.url }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - if: steps.check.outputs.triggered == 'true'
+        name: Get PR metadata
+        id: pr_data
+        run: |
+          echo "::set-output name=branch::${{ fromJson(steps.request.outputs.data).head.ref }}"
+      - if: steps.check.outputs.triggered == 'true'
+        name: Clone branch of the PR
+        uses: actions/checkout@master
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ steps.pr_data.outputs.branch }}
+      - if: steps.check.outputs.triggered == 'true'
+        name: build-tag-push-pr
         uses: docker/build-push-action@v1
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
@@ -22,3 +49,4 @@ jobs:
           repository: xaynetwork/xaynet
           tag_with_ref: true
           push: true
+
