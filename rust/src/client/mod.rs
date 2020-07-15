@@ -80,6 +80,8 @@ use tokio::{
     sync::{broadcast, mpsc, watch},
 };
 
+mod mobile_client;
+
 mod client;
 pub use client::{Client, RoundParamFetcher};
 
