@@ -6,35 +6,52 @@ use crate::{
     PetError,
 };
 use derive_more::From;
-use std::sync::{Arc, Mutex};
+use std::{
+    cell::{RefCell, RefMut},
+    rc::Rc,
+    sync::{Arc, Mutex},
+};
 
 pub struct MobileClient {
-    local_model: Option<Arc<Mutex<Model>>>,
-    global_model: Option<Arc<Mutex<Model>>>,
-    participant: StateMachine,
+    runtime: tokio::runtime::Runtime,
+    local_model: Rc<RefCell<Option<Model>>>,
+    global_model: Rc<RefCell<Option<Model>>>,
+    participant: Option<StateMachine>,
 }
 
 impl MobileClient {
     pub fn new(proxy: Proxy) -> Self {
+        let runtime = tokio::runtime::Builder::new()
+            .basic_scheduler()
+            .enable_all()
+            .build()
+            .unwrap();
+
+        let local_model = Rc::new(RefCell::new(None));
+        let global_model = Rc::new(RefCell::new(None));
+
         Self {
-            local_model: None,
-            global_model: None,
-            participant: StateMachine::new(proxy),
+            runtime,
+            local_model: local_model.clone(),
+            global_model: global_model.clone(),
+            participant: Some(StateMachine::new(proxy, local_model, global_model)),
         }
     }
 
     pub fn set_local_model(&self, local_model: Model) {
-        if let Some(current_local_model) = &self.local_model {
-            let mut new_local_model = current_local_model.lock().unwrap();
-            *new_local_model = local_model;
-        }
+        *self.local_model.borrow_mut() = Some(local_model);
     }
 
     pub fn get_global_model(&self) -> Option<Model> {
-        if let Some(global_model) = &self.global_model {
-            Some(global_model.lock().unwrap().clone())
-        } else {
-            None
+        self.global_model.borrow().clone()
+    }
+
+    pub fn next(&mut self) {
+        if let Some(participant) = self.participant.take() {
+            let new_participant = self
+                .runtime
+                .block_on(async move { participant.next().await });
+            self.participant = Some(new_participant);
         }
     }
 }
@@ -48,8 +65,12 @@ pub enum StateMachine {
 }
 
 impl StateMachine {
-    pub fn new(proxy: Proxy) -> Self {
-        StateMachine::from(State::<Idle>::new(proxy))
+    pub fn new(
+        proxy: Proxy,
+        local_model: Rc<RefCell<Option<Model>>>,
+        global_model: Rc<RefCell<Option<Model>>>,
+    ) -> Self {
+        StateMachine::from(State::<Idle>::new(proxy, local_model, global_model))
     }
 
     pub async fn next(self) -> Self {
@@ -72,6 +93,8 @@ pub struct State<Task> {
     proxy: Proxy,
     participant: Participant,
     coordinator_pk: CoordinatorPublicKey,
+    local_model: Rc<RefCell<Option<Model>>>,
+    global_model: Rc<RefCell<Option<Model>>>,
 }
 
 impl<Task> State<Task> {
@@ -87,25 +110,42 @@ impl<Task> State<Task> {
 }
 
 impl State<Idle> {
-    fn new(proxy: Proxy) -> Self {
+    fn new(
+        proxy: Proxy,
+        local_model: Rc<RefCell<Option<Model>>>,
+        global_model: Rc<RefCell<Option<Model>>>,
+    ) -> Self {
         Self {
             task: Idle,
+            proxy,
             participant: Participant::new().unwrap(),
             coordinator_pk: CoordinatorPublicKey::zeroed(),
-            proxy,
+            local_model,
+            global_model,
         }
     }
 
     async fn next(mut self) -> StateMachine {
         match self.step().await {
-            Ok(Task::Sum) => {
-                State::<Sum>::new(self.proxy, self.participant, self.coordinator_pk).into()
+            Ok(Task::Sum) => State::<Sum>::new(
+                self.proxy,
+                self.participant,
+                self.coordinator_pk,
+                self.local_model,
+                self.global_model,
+            )
+            .into(),
+            Ok(Task::Update) => State::<Update>::new(
+                self.proxy,
+                self.participant,
+                self.coordinator_pk,
+                self.local_model,
+                self.global_model,
+            )
+            .into(),
+            Ok(Task::None) | Err(_) => {
+                State::<Idle>::new(self.proxy, self.local_model, self.global_model).into()
             }
-            Ok(Task::Update) => {
-                State::<Update>::new(self.proxy, self.participant, self.coordinator_pk).into()
-            }
-            Ok(Task::None) => State::<Idle>::new(self.proxy).into(),
-            Err(_) => State::<Idle>::new(self.proxy).into(),
         }
     }
 
@@ -122,23 +162,59 @@ impl State<Idle> {
             .participant
             .check_task(round_params.sum, round_params.update))
     }
+
+    async fn fetch_global_model(&mut self) {
+        if let Ok(model) = self.proxy.get_model().await {
+            //update our global model where necessary
+
+            let mut global_model = self.global_model.borrow_mut();
+
+            match (model, global_model.as_ref()) {
+                (Some(new_model), None) => {
+                    debug!("new global model");
+                    *global_model = Some(new_model);
+                }
+                (Some(new_model), Some(old_model)) if &new_model != old_model => {
+                    debug!("updating global model");
+                    *global_model = Some(new_model);
+                }
+                (None, _) => trace!("global model not ready yet"),
+                _ => trace!("global model still fresh"),
+            }
+        }
+    }
 }
 
 impl State<Sum> {
-    fn new(proxy: Proxy, participant: Participant, coordinator_pk: CoordinatorPublicKey) -> Self {
+    fn new(
+        proxy: Proxy,
+        participant: Participant,
+        coordinator_pk: CoordinatorPublicKey,
+        local_model: Rc<RefCell<Option<Model>>>,
+        global_model: Rc<RefCell<Option<Model>>>,
+    ) -> Self {
         Self {
             task: Sum,
+            proxy,
             participant,
             coordinator_pk,
-            proxy,
+            local_model,
+            global_model,
         }
     }
 
     async fn next(mut self) -> StateMachine {
         info!("selected to sum");
         match self.step().await {
-            Ok(_) => State::<Sum2>::new(self.proxy, self.participant, self.coordinator_pk).into(),
-            Err(_) => State::<Idle>::new(self.proxy).into(),
+            Ok(_) => State::<Sum2>::new(
+                self.proxy,
+                self.participant,
+                self.coordinator_pk,
+                self.local_model,
+                self.global_model,
+            )
+            .into(),
+            Err(_) => State::<Idle>::new(self.proxy, self.local_model, self.global_model).into(),
         }
     }
 
@@ -152,30 +228,37 @@ impl State<Sum> {
 }
 
 impl State<Update> {
-    fn new(proxy: Proxy, participant: Participant, coordinator_pk: CoordinatorPublicKey) -> Self {
+    fn new(
+        proxy: Proxy,
+        participant: Participant,
+        coordinator_pk: CoordinatorPublicKey,
+        local_model: Rc<RefCell<Option<Model>>>,
+        global_model: Rc<RefCell<Option<Model>>>,
+    ) -> Self {
         Self {
             task: Update,
+            proxy,
             participant,
             coordinator_pk,
-            proxy,
+            local_model,
+            global_model,
         }
     }
 
     async fn next(self) -> StateMachine {
         info!("selected to update");
-        State::<Idle>::new(self.proxy).into()
+        State::<Idle>::new(self.proxy, self.local_model, self.global_model).into()
     }
 
     async fn step(&mut self) -> Result<(), ClientError> {
         self.check_round_freshness().await?;
 
-        // let local_model = loop {
-        //     if let Some(local_model) = local_model_rx.recv().await.ok_or(ClientError::GeneralErr)? {
-        //         break local_model;
-        //     } else {
-        //         warn!("local model not ready");
-        //     }
-        // };
+        let local_model = self
+            .local_model
+            .borrow_mut()
+            .take()
+            .ok_or(ClientError::GeneralErr)?
+            .clone();
 
         debug!("polling for model scalar");
         let scalar = self
@@ -196,7 +279,7 @@ impl State<Update> {
             self.coordinator_pk,
             &sums,
             scalar,
-            Model::from_primitives(vec![0; 4].into_iter()).unwrap(),
+            local_model,
         );
         self.proxy.post_message(upd_msg).await?;
 
@@ -206,18 +289,26 @@ impl State<Update> {
 }
 
 impl State<Sum2> {
-    fn new(proxy: Proxy, participant: Participant, coordinator_pk: CoordinatorPublicKey) -> Self {
+    fn new(
+        proxy: Proxy,
+        participant: Participant,
+        coordinator_pk: CoordinatorPublicKey,
+        local_model: Rc<RefCell<Option<Model>>>,
+        global_model: Rc<RefCell<Option<Model>>>,
+    ) -> Self {
         Self {
             task: Sum2,
+            proxy,
             participant,
             coordinator_pk,
-            proxy,
+            local_model,
+            global_model,
         }
     }
 
     async fn next(self) -> StateMachine {
         info!("selected to sum2");
-        State::<Idle>::new(self.proxy).into()
+        State::<Idle>::new(self.proxy, self.local_model, self.global_model).into()
     }
 
     async fn step(&mut self) -> Result<(), ClientError> {
