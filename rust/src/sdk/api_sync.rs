@@ -11,6 +11,7 @@ use crate::{
     mask::model::{FromPrimitives, IntoPrimitives, Model},
 };
 
+#[no_mangle]
 pub unsafe extern "C" fn new_client(address: *const c_char) -> *mut SyncClient {
     if address.is_null() {
         return ptr::null_mut() as *mut SyncClient;
@@ -28,6 +29,7 @@ pub unsafe extern "C" fn new_client(address: *const c_char) -> *mut SyncClient {
     Box::into_raw(Box::new(SyncClient::new(address)))
 }
 
+#[no_mangle]
 pub unsafe extern "C" fn start_client(client: *mut SyncClient) {
     if !client.is_null() {
         let client = &mut *client;
@@ -37,6 +39,7 @@ pub unsafe extern "C" fn start_client(client: *mut SyncClient) {
     }
 }
 
+#[no_mangle]
 pub unsafe extern "C" fn stop_client(client: *mut SyncClient) {
     if !client.is_null() {
         let client = &mut *client;
@@ -46,6 +49,7 @@ pub unsafe extern "C" fn stop_client(client: *mut SyncClient) {
     }
 }
 
+#[no_mangle]
 pub unsafe extern "C" fn drop_client(client: *mut SyncClient) {
     if !client.is_null() {
         Box::from_raw(client);
@@ -57,6 +61,7 @@ pub unsafe extern "C" fn drop_client(client: *mut SyncClient) {
 // 0: success
 // 1: no model available
 // 2: conversion failed
+#[no_mangle]
 pub unsafe extern "C" fn get_model(
     client: *mut SyncClient,
     dtype: c_uint,
@@ -137,6 +142,7 @@ pub unsafe extern "C" fn get_model(
 // 0: success
 // 1: length mismatch
 // 2: conversion failed
+#[no_mangle]
 pub unsafe extern "C" fn update_model(
     client: *mut SyncClient,
     dtype: c_uint,
