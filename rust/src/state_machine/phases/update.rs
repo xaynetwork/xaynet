@@ -136,20 +136,20 @@ where
             ScalarUpdate::New(scalar),
         );
 
-        let min_t = self.coordinator_state.min_update_t;
-        self.process_during(Duration::from_secs(min_t)).await;
+        let min_time = self.coordinator_state.min_update_time;
+        self.process_during(Duration::from_secs(min_time)).await;
 
         while !self.has_enough_updates() {
             debug!("{} update messages handled (min {} required)",
                   self.updater_count(),
-                  self.coordinator_state.min_update);
+                  self.coordinator_state.min_update_count);
             let req = self.next_request().await?;
             self.handle_request(req);
         };
 
         info!("{} update messages handled (min {} required)",
               self.updater_count(),
-              self.coordinator_state.min_update);
+              self.coordinator_state.min_update_count);
         Ok(())
     }
 }
@@ -271,7 +271,7 @@ impl<R> PhaseState<R, Update> {
     }
 
     fn has_enough_updates(&self) -> bool {
-        self.updater_count() >= self.coordinator_state.min_update
+        self.updater_count() >= self.coordinator_state.min_update_count
     }
 }
 

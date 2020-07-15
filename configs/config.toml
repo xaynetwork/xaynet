@@ -5,10 +5,10 @@ filter = "xain_fl=debug,http=warn,info"
 bind_address = "127.0.0.1:8081"
 
 [pet]
-min_sum = 1
-min_update = 3
-min_sum_t = 5
-min_update_t = 10
+min_sum_count = 1
+min_update_count = 3
+min_sum_time = 5
+min_update_time = 10
 sum = 0.5
 update = 0.9
 expected_participants = 10

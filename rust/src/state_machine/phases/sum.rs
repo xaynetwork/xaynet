@@ -86,20 +86,20 @@ where
 {
     /// Runs the sum phase.
     pub async fn run_phase(&mut self) -> Result<SeedDict, StateError> {
-        let min_t = self.coordinator_state.min_sum_t;
-        self.process_during(Duration::from_secs(min_t)).await;
+        let min_time = self.coordinator_state.min_sum_time;
+        self.process_during(Duration::from_secs(min_time)).await;
 
         while !self.has_enough_sums() {
             debug!("{} sum messages handled (min {} required)",
               self.inner.sum_dict.len(),
-              self.coordinator_state.min_sum);
+              self.coordinator_state.min_sum_count);
             let req = self.next_request().await?;
             self.handle_request(req);
         };
 
         info!("{} sum messages handled (min {} required)",
               self.inner.sum_dict.len(),
-              self.coordinator_state.min_sum);
+              self.coordinator_state.min_sum_count);
 
         Ok(self.freeze_sum_dict())
     }
@@ -150,7 +150,7 @@ impl<R> PhaseState<R, Sum> {
     /// Checks whether enough sum participants submitted their ephemeral keys to start the update
     /// phase.
     fn has_enough_sums(&self) -> bool {
-        self.inner.sum_dict.len() >= self.coordinator_state.min_sum
+        self.inner.sum_dict.len() >= self.coordinator_state.min_sum_count
     }
 
 }

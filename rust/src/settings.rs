@@ -60,7 +60,8 @@ impl Settings {
 pub struct PetSettings {
     #[validate(range(min = 1))]
     /// The minimal number of participants selected for computing the unmasking sum. The value must
-    /// be greater or equal to `1` (i.e. `min_sum >= 1`), otherwise the PET protocol will be broken.
+    /// be greater or equal to `1` (i.e. `min_sum_count >= 1`), otherwise the PET protocol will be
+    /// broken.
     ///
     /// This parameter should only be used to enforce security constraints. To control the expected
     /// number of sum participants, the `sum` fraction should be adjusted wrt the total number of
@@ -71,19 +72,19 @@ pub struct PetSettings {
     /// **TOML**
     /// ```text
     /// [pet]
-    /// min_sum = 1
+    /// min_sum_count = 1
     /// ```
     ///
     /// **Environment variable**
     /// ```text
-    /// XAYNET_PET__MIN_SUM=1
+    /// XAYNET_PET__MIN_SUM_COUNT=1
     /// ```
-    pub min_sum: usize,
+    pub min_sum_count: usize,
 
     #[validate(range(min = 3))]
     /// The expected fraction of participants selected for submitting an updated local model for
-    /// aggregation. The value must be greater or equal to `3` (i.e. `min_update >= 3`), otherwise
-    /// the PET protocol will be broken.
+    /// aggregation. The value must be greater or equal to `3` (i.e. `min_update_count >= 3`),
+    /// otherwise the PET protocol will be broken.
     ///
     /// This parameter should only be used to enforce security constraints. To control the expected
     /// number of update participants, the `update` fraction should be adjusted wrt the total number
@@ -94,58 +95,58 @@ pub struct PetSettings {
     /// **TOML**
     /// ```text
     /// [pet]
-    /// min_update = 3
+    /// min_update_count = 3
     /// ```
     ///
     /// **Environment variable**
     /// ```text
-    /// XAYNET_PET__MIN_UPDATE=3
+    /// XAYNET_PET__MIN_UPDATE_COUNT=3
     /// ```
-    pub min_update: usize,
+    pub min_update_count: usize,
 
     /// The minimum amount of time reserved for processing messages in the `sum`
     /// and `sum2` phases, in seconds.
     ///
-    /// Defaults to 0 i.e. `sum` and `sum2` phases end *as soon as* [`min_sum`]
-    /// messages have been processed. Set this higher to allow for the
-    /// possibility of more than [`min_sum`] messages to be processed in the
-    /// `sum` and `sum2` phases.
+    /// Defaults to 0 i.e. `sum` and `sum2` phases end *as soon as*
+    /// [`min_sum_count`] messages have been processed. Set this higher to allow
+    /// for the possibility of more than [`min_sum_count`] messages to be
+    /// processed in the `sum` and `sum2` phases.
     ///
     /// # Examples
     ///
     /// **TOML**
     /// ```text
     /// [pet]
-    /// min_sum_t = 5
+    /// min_sum_time = 5
     /// ```
     ///
     /// **Environment variable**
     /// ```text
-    /// XAIN_PET__MIN_SUM_T=5
+    /// XAYNET_PET__MIN_SUM_TIME=5
     /// ```
-    pub min_sum_t: u64,
+    pub min_sum_time: u64,
 
     /// The minimum amount of time reserved for processing messages in the
     /// `update` phase, in seconds.
     ///
-    /// Defaults to 0 i.e. `update` phase ends *as soon as* [`min_update`]
+    /// Defaults to 0 i.e. `update` phase ends *as soon as* [`min_update_count`]
     /// messages have been processed. Set this higher to allow for the
-    /// possibility of more than [`min_update`] messages to be processed in the
-    /// `update` phase.
+    /// possibility of more than [`min_update_count`] messages to be processed
+    /// in the `update` phase.
     ///
     /// # Examples
     ///
     /// **TOML**
     /// ```text
     /// [pet]
-    /// min_update_t = 10
+    /// min_update_time = 10
     /// ```
     ///
     /// **Environment variable**
     /// ```text
-    /// XAIN_PET__MIN_UPDATE_T=10
+    /// XAYNET_PET__MIN_UPDATE_TIME=10
     /// ```
-    pub min_update_t: u64,
+    pub min_update_time: u64,
 
     /// The expected fraction of participants selected for computing the unmasking sum. The value
     /// must be between `0` and `1` (i.e. `0 < sum < 1`).
@@ -209,10 +210,10 @@ pub struct PetSettings {
 impl Default for PetSettings {
     fn default() -> Self {
         Self {
-            min_sum: 1_usize,
-            min_update: 3_usize,
-            min_sum_t: 0_u64,
-            min_update_t: 0_u64,
+            min_sum_count: 1_usize,
+            min_update_count: 3_usize,
+            min_sum_time: 0_u64,
+            min_update_time: 0_u64,
             sum: 0.01_f64,
             update: 0.1_f64,
             expected_participants: 10,

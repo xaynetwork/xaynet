@@ -95,20 +95,20 @@ where
 {
     /// Runs the sum2 phase.
     async fn run_phase(&mut self) -> Result<(), StateError> {
-        let min_t = self.coordinator_state.min_sum_t;
-        self.process_during(Duration::from_secs(min_t)).await;
+        let min_time = self.coordinator_state.min_sum_time;
+        self.process_during(Duration::from_secs(min_time)).await;
 
         while !self.has_enough_sum2s() {
             debug!("{} sum2 messages handled (min {} required)",
                   self.mask_count(),
-                  self.coordinator_state.min_sum);
+                  self.coordinator_state.min_sum_count);
             let req = self.next_request().await?;
             self.handle_request(req);
         }
 
         info!("{} sum2 messages handled (min {} required)",
               self.mask_count(),
-              self.coordinator_state.min_sum);
+              self.coordinator_state.min_sum_count);
         Ok(())
     }
 }
@@ -171,6 +171,6 @@ impl<R> PhaseState<R, Sum2> {
 
     /// Checks whether enough sum participants submitted their masks to start the idle phase.
     fn has_enough_sum2s(&self) -> bool {
-        self.mask_count() >= self.coordinator_state.min_sum
+        self.mask_count() >= self.coordinator_state.min_sum_count
     }
 }
