@@ -71,15 +71,7 @@ pub fn gen_update_request(
 
 pub fn gen_mask() -> MaskObject {
     let seed = MaskSeed::generate();
-    let mask = seed.derive_mask(
-        10,
-        MaskConfig {
-            group_type: GroupType::Prime,
-            data_type: DataType::F32,
-            bound_type: BoundType::B0,
-            model_type: ModelType::M3,
-        },
-    );
+    let mask = seed.derive_mask(10, mask_config());
     mask
 }
 
