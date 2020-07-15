@@ -1,11 +1,21 @@
 use crate::{
+    mask::MaskObject,
     state_machine::{
         phases::{self, PhaseState},
-        requests::{Request, RequestSender, SumRequest, SumResponse},
+        requests::{
+            Request,
+            RequestSender,
+            SumRequest,
+            SumResponse,
+            UpdateRequest,
+            UpdateResponse,
+        },
         StateMachine,
     },
+    LocalSeedDict,
     SumParticipantEphemeralPublicKey,
     SumParticipantPublicKey,
+    UpdateParticipantPublicKey,
 };
 
 use tokio::sync::oneshot;
@@ -126,6 +136,25 @@ impl RequestSender<Request> {
             SumRequest {
                 participant_pk,
                 ephm_pk,
+            },
+            resp_tx,
+        ));
+        self.send(req).unwrap();
+        resp_rx.await.unwrap()
+    }
+
+    pub async fn update(
+        &mut self,
+        participant_pk: UpdateParticipantPublicKey,
+        local_seed_dict: LocalSeedDict,
+        masked_model: MaskObject,
+    ) -> UpdateResponse {
+        let (resp_tx, resp_rx) = oneshot::channel::<UpdateResponse>();
+        let req = Request::Update((
+            UpdateRequest {
+                participant_pk,
+                local_seed_dict,
+                masked_model,
             },
             resp_tx,
         ));

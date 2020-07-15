@@ -273,3 +273,144 @@ impl<R> PhaseState<R, Update> {
             .unwrap_or(0)
     }
 }
+
+#[cfg(test)]
+mod test {
+    use std::collections::HashMap;
+
+    use super::*;
+    use crate::{
+        crypto::{ByteObject, EncryptKeyPair},
+        mask::{FromPrimitives, MaskObject, Masker, Model},
+        state_machine::{
+            coordinator::RoundSeed,
+            events::Event,
+            tests::{
+                builder::StateMachineBuilder,
+                utils::{find_sum_participant_keys, find_update_participant_keys, mask_config},
+            },
+        },
+        SumDict,
+        UpdateSeedDict,
+    };
+
+    #[tokio::test]
+    pub async fn update_to_sum2() {
+        let n_updaters = 1;
+        let n_summers = 1;
+        let seed = RoundSeed::generate();
+        let sum_ratio = 0.5;
+        let update_ratio = 1.0;
+
+        // Find a sum participant and an update participant for the
+        // given seed and ratios.
+        let sum_participant_keys = find_sum_participant_keys(&seed, sum_ratio);
+        let sum_participant_ephm_keys = EncryptKeyPair::generate();
+        let update_participant_keys = find_update_participant_keys(&seed, sum_ratio, update_ratio);
+
+        // Initialize the update phase state
+        let mut frozen_sum_dict = SumDict::new();
+        frozen_sum_dict.insert(
+            sum_participant_keys.public.clone(),
+            sum_participant_ephm_keys.public.clone(),
+        );
+        let mut seed_dict = SeedDict::new();
+        seed_dict.insert(sum_participant_keys.public.clone(), HashMap::new());
+        let aggregation = Aggregation::new(mask_config());
+        let update = Update {
+            frozen_sum_dict: frozen_sum_dict.clone(),
+            seed_dict: seed_dict.clone(),
+            aggregation: aggregation.clone(),
+        };
+
+        // Create the state machine
+        let (state_machine, mut request_tx, events) = StateMachineBuilder::new()
+            .with_seed(seed.clone())
+            .with_phase(update)
+            .with_sum_ratio(sum_ratio)
+            .with_update_ratio(update_ratio)
+            .with_min_sum(n_summers)
+            .with_min_update(n_updaters)
+            .with_expected_participants(n_updaters + n_summers)
+            .with_mask_config(mask_config())
+            .build();
+
+        assert!(state_machine.is_update());
+
+        // Create an update request.
+        let scalar = 1.0 / (n_updaters as f64 * update_ratio);
+        let model = Model::from_primitives(vec![0; 4].into_iter()).unwrap();
+        let (mask_seed, masked_model) = Masker::new(mask_config()).mask(scalar, model.clone());
+        let encrypted_mask_seed = mask_seed.encrypt(&sum_participant_ephm_keys.public);
+        let mut local_seed_dict = LocalSeedDict::new();
+        local_seed_dict.insert(
+            sum_participant_keys.public.clone(),
+            encrypted_mask_seed.clone(),
+        );
+        let request_fut = async {
+            request_tx
+                .update(
+                    update_participant_keys.public.clone(),
+                    local_seed_dict.clone(),
+                    masked_model.clone(),
+                )
+                .await
+                .unwrap()
+        };
+
+        // Have the state machine process the request
+        let transition_fut = async { state_machine.next().await.unwrap() };
+        let (_response, state_machine) = tokio::join!(request_fut, transition_fut);
+
+        // Extract state of the state machine
+        let PhaseState {
+            inner: sum2_state, ..
+        } = state_machine.into_sum2_phase_state();
+
+        // Check the initial state of the sum2 phase.
+
+        // The sum dict should be unchanged
+        assert_eq!(sum2_state.sum_dict(), &frozen_sum_dict);
+        // We have only one updater, so the aggregation should contain
+        // the masked model from that updater
+        assert_eq!(
+            <Aggregation as Into<MaskObject>>::into(sum2_state.aggregation().clone().into()),
+            masked_model
+        );
+        assert!(sum2_state.mask_dict().is_empty());
+
+        // Check all the events that should be emitted during the update
+        // phase
+        assert_eq!(
+            events.phase_listener().get_latest(),
+            Event {
+                round_id: seed.clone(),
+                event: PhaseEvent::Update,
+            }
+        );
+        assert_eq!(
+            events.mask_length_listener().get_latest(),
+            Event {
+                round_id: seed.clone(),
+                event: MaskLengthUpdate::New(model.len()),
+            }
+        );
+
+        // Compute the global seed dictionary that we expect to be
+        // broadcasted. It has a single entry for our sum
+        // participant. That entry is an UpdateSeedDictionary that
+        // contains the encrypted mask seed from our update
+        // participant.
+        let mut global_seed_dict = SeedDict::new();
+        let mut entry = UpdateSeedDict::new();
+        entry.insert(update_participant_keys.public.clone(), encrypted_mask_seed);
+        global_seed_dict.insert(sum_participant_keys.public.clone(), entry);
+        assert_eq!(
+            events.seed_dict_listener().get_latest(),
+            Event {
+                round_id: seed.clone(),
+                event: DictionaryUpdate::New(Arc::new(global_seed_dict)),
+            }
+        );
+    }
+}

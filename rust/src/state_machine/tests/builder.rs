@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use crate::{
     crypto::encrypt::EncryptKeyPair,
     mask::config::{BoundType, DataType, GroupType, MaskConfig, ModelType},
@@ -80,6 +79,7 @@ where
         self.coordinator_state.events.broadcast_params(params);
     }
 
+    #[allow(dead_code)]
     pub fn with_keys(mut self, keys: EncryptKeyPair) -> Self {
         self.coordinator_state.round_params.pk = keys.public.clone();
         self.coordinator_state.keys = keys.clone();

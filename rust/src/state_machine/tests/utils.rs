@@ -5,7 +5,10 @@ use crate::{
         object::MaskObject,
         seed::{EncryptedMaskSeed, MaskSeed},
     },
-    state_machine::requests::{Request, Sum2Request, SumRequest, UpdateRequest},
+    state_machine::{
+        coordinator::RoundSeed,
+        requests::{Request, Sum2Request, SumRequest, UpdateRequest},
+    },
     LocalSeedDict,
     PetError,
     SumParticipantPublicKey,
@@ -93,4 +96,47 @@ pub fn gen_sum2_request(
         response_tx,
     ));
     (req, response_rx)
+}
+
+pub fn find_sum_participant_keys(seed: &RoundSeed, threshold: f64) -> SigningKeyPair {
+    loop {
+        let keys = SigningKeyPair::generate();
+        let signature = keys
+            .secret
+            .sign_detached(&[seed.as_slice(), b"sum"].concat());
+        if signature.is_eligible(threshold) {
+            return keys;
+        }
+    }
+}
+
+pub fn find_update_participant_keys(
+    seed: &RoundSeed,
+    sum_threshold: f64,
+    update_threshold: f64,
+) -> SigningKeyPair {
+    loop {
+        let keys = SigningKeyPair::generate();
+        let sum_signature = keys
+            .secret
+            .sign_detached(&[seed.as_slice(), b"sum"].concat());
+        if sum_signature.is_eligible(sum_threshold) {
+            continue;
+        }
+        let update_signature = keys
+            .secret
+            .sign_detached(&[seed.as_slice(), b"update"].concat());
+        if update_signature.is_eligible(update_threshold) {
+            return keys;
+        }
+    }
+}
+
+pub fn mask_config() -> MaskConfig {
+    MaskConfig {
+        group_type: GroupType::Prime,
+        data_type: DataType::F32,
+        bound_type: BoundType::B0,
+        model_type: ModelType::M3,
+    }
 }

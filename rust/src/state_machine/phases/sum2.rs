@@ -27,6 +27,19 @@ pub struct Sum2 {
     mask_dict: MaskDict,
 }
 
+#[cfg(test)]
+impl Sum2 {
+    pub fn sum_dict(&self) -> &SumDict {
+        &self.sum_dict
+    }
+    pub fn aggregation(&self) -> &Aggregation {
+        &self.aggregation
+    }
+    pub fn mask_dict(&self) -> &MaskDict {
+        &self.mask_dict
+    }
+}
+
 #[async_trait]
 impl<R> Phase<R> for PhaseState<R, Sum2>
 where
