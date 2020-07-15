@@ -144,7 +144,7 @@ pub unsafe extern "C" fn update_model(
     len: c_uint,
 ) -> c_int {
     if client.is_null() || model.is_null() {
-        return -1_i32 as c_uint;
+        return -1_i32 as c_int;
     }
     let client = &mut *client;
 
