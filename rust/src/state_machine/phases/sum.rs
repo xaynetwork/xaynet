@@ -146,8 +146,10 @@ impl<R> PhaseState<R, Sum> {
 mod test {
     use super::*;
     use crate::{
-        crypto::{EncryptKeyPair, SigningKeyPair},
-        state_machine::{events::Event, tests::builder::StateMachineBuilder},
+        state_machine::{
+            events::Event,
+            tests::{builder::StateMachineBuilder, utils::generate_summer},
+        },
         SumDict,
     };
 
@@ -175,17 +177,9 @@ mod test {
         // coordinator is configured to consider any sum request as
         // eligible, so after processing it, we should go to the
         // update phase
-        let part_signing_keys = SigningKeyPair::generate();
-        let part_ephm_keys = EncryptKeyPair::generate();
-        let request_fut = async {
-            request_tx
-                .sum(
-                    part_signing_keys.public.clone(),
-                    part_ephm_keys.public.clone(),
-                )
-                .await
-                .unwrap()
-        };
+        let mut summer = generate_summer(&seed, 1.0, 0.0);
+        let sum_msg = summer.compose_sum_message(&keys.public);
+        let request_fut = async { request_tx.sum(&sum_msg).await.unwrap() };
         let transition_fut = async { state_machine.next().await.unwrap() };
 
         let (_response, state_machine) = tokio::join!(request_fut, transition_fut);
@@ -198,12 +192,12 @@ mod test {
         // Check the initial state of the update phase.
         assert_eq!(update_state.frozen_sum_dict().len(), 1);
         let (pk, ephm_pk) = update_state.frozen_sum_dict().iter().next().unwrap();
-        assert_eq!(pk.clone(), part_signing_keys.public);
-        assert_eq!(ephm_pk.clone(), part_ephm_keys.public);
+        assert_eq!(pk.clone(), summer.pk);
+        assert_eq!(ephm_pk.clone(), sum_msg.ephm_pk());
 
         assert_eq!(update_state.seed_dict().len(), 1);
         let (pk, dict) = update_state.seed_dict().iter().next().unwrap();
-        assert_eq!(pk.clone(), part_signing_keys.public);
+        assert_eq!(pk.clone(), summer.pk);
         assert!(dict.is_empty());
 
         assert_eq!(update_state.aggregation().len(), 0);

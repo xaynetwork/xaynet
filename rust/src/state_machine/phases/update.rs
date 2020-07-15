@@ -281,13 +281,13 @@ mod test {
     use super::*;
     use crate::{
         crypto::{ByteObject, EncryptKeyPair},
-        mask::{FromPrimitives, MaskObject, Masker, Model},
+        mask::{FromPrimitives, MaskObject, Model},
         state_machine::{
             coordinator::RoundSeed,
             events::Event,
             tests::{
                 builder::StateMachineBuilder,
-                utils::{find_sum_participant_keys, find_update_participant_keys, mask_config},
+                utils::{generate_summer, generate_updater, mask_config},
             },
         },
         SumDict,
@@ -301,21 +301,22 @@ mod test {
         let seed = RoundSeed::generate();
         let sum_ratio = 0.5;
         let update_ratio = 1.0;
+        let coord_keys = EncryptKeyPair::generate();
 
         // Find a sum participant and an update participant for the
         // given seed and ratios.
-        let sum_participant_keys = find_sum_participant_keys(&seed, sum_ratio);
-        let sum_participant_ephm_keys = EncryptKeyPair::generate();
-        let update_participant_keys = find_update_participant_keys(&seed, sum_ratio, update_ratio);
+        let mut summer = generate_summer(&seed, sum_ratio, update_ratio);
+        let updater = generate_updater(&seed, sum_ratio, update_ratio);
 
         // Initialize the update phase state
+        let sum_msg = summer.compose_sum_message(&coord_keys.public);
+        let summer_ephm_pk = sum_msg.ephm_pk();
+
         let mut frozen_sum_dict = SumDict::new();
-        frozen_sum_dict.insert(
-            sum_participant_keys.public.clone(),
-            sum_participant_ephm_keys.public.clone(),
-        );
+        frozen_sum_dict.insert(summer.pk, summer_ephm_pk);
+
         let mut seed_dict = SeedDict::new();
-        seed_dict.insert(sum_participant_keys.public.clone(), HashMap::new());
+        seed_dict.insert(summer.pk, HashMap::new());
         let aggregation = Aggregation::new(mask_config());
         let update = Update {
             frozen_sum_dict: frozen_sum_dict.clone(),
@@ -340,23 +341,14 @@ mod test {
         // Create an update request.
         let scalar = 1.0 / (n_updaters as f64 * update_ratio);
         let model = Model::from_primitives(vec![0; 4].into_iter()).unwrap();
-        let (mask_seed, masked_model) = Masker::new(mask_config()).mask(scalar, model.clone());
-        let encrypted_mask_seed = mask_seed.encrypt(&sum_participant_ephm_keys.public);
-        let mut local_seed_dict = LocalSeedDict::new();
-        local_seed_dict.insert(
-            sum_participant_keys.public.clone(),
-            encrypted_mask_seed.clone(),
+        let update_msg = updater.compose_update_message(
+            coord_keys.public,
+            &frozen_sum_dict,
+            scalar,
+            model.clone(),
         );
-        let request_fut = async {
-            request_tx
-                .update(
-                    update_participant_keys.public.clone(),
-                    local_seed_dict.clone(),
-                    masked_model.clone(),
-                )
-                .await
-                .unwrap()
-        };
+        let masked_model = update_msg.masked_model();
+        let request_fut = async { request_tx.update(&update_msg).await.unwrap() };
 
         // Have the state machine process the request
         let transition_fut = async { state_machine.next().await.unwrap() };
@@ -403,8 +395,14 @@ mod test {
         // participant.
         let mut global_seed_dict = SeedDict::new();
         let mut entry = UpdateSeedDict::new();
-        entry.insert(update_participant_keys.public.clone(), encrypted_mask_seed);
-        global_seed_dict.insert(sum_participant_keys.public.clone(), entry);
+        let encrypted_mask_seed = update_msg
+            .local_seed_dict()
+            .values()
+            .next()
+            .unwrap()
+            .clone();
+        entry.insert(updater.pk, encrypted_mask_seed);
+        global_seed_dict.insert(summer.pk, entry);
         assert_eq!(
             events.seed_dict_listener().get_latest(),
             Event {

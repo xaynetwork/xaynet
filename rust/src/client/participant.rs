@@ -122,9 +122,7 @@ impl Participant {
     }
 
     /// Compose a sum message given the coordinator public key.
-    ///
-    /// Returns the signed and encrypted message.
-    pub fn compose_sum_message(&mut self, pk: &CoordinatorPublicKey) -> Vec<u8> {
+    pub fn compose_sum_message(&mut self, pk: &CoordinatorPublicKey) -> MessageOwned {
         self.gen_ephm_keypair();
 
         let payload = SumOwned {
@@ -132,21 +130,18 @@ impl Participant {
             ephm_pk: self.ephm_pk,
         };
 
-        let message = MessageOwned::new_sum(*pk, self.pk, payload);
-        self.seal_message(pk, &message)
+        MessageOwned::new_sum(*pk, self.pk, payload)
     }
 
     /// Compose an update message given the coordinator public key, sum
     /// dictionary, model scalar and local model update.
-    ///
-    /// Returns the signed and encrypted message.
     pub fn compose_update_message(
         &self,
         pk: CoordinatorPublicKey,
         sum_dict: &SumDict,
         scalar: f64,
         local_model: Model,
-    ) -> Vec<u8> {
+    ) -> MessageOwned {
         let (mask_seed, masked_model) = Self::mask_model(scalar, local_model);
         let local_seed_dict = Self::create_local_seed_dict(sum_dict, &mask_seed);
 
@@ -157,16 +152,14 @@ impl Participant {
             local_seed_dict,
         };
 
-        let message = MessageOwned::new_update(pk, self.pk, payload);
-        self.seal_message(&pk, &message)
+        MessageOwned::new_update(pk, self.pk, payload)
     }
 
     /// Compose a sum2 message given the coordinator public key, seed dictionary
     /// and mask length.
     ///
-    /// Returns the signed and encrypted message.
-    ///
     /// # Errors
+    ///
     /// Returns a [`PetError`] if there is a problem extracting the
     /// seed dictionary, or computing the global mask.
     pub fn compose_sum2_message(
@@ -174,20 +167,20 @@ impl Participant {
         pk: CoordinatorPublicKey,
         seed_dict: &UpdateSeedDict,
         mask_len: usize,
-    ) -> Result<Vec<u8>, PetError> {
+    ) -> Result<MessageOwned, PetError> {
         let mask_seeds = self.get_seeds(seed_dict)?;
-
         let mask = self.compute_global_mask(mask_seeds, mask_len, dummy_config())?;
         let payload = Sum2Owned {
             mask,
             sum_signature: self.sum_signature,
         };
 
-        let message = MessageOwned::new_sum2(pk, self.pk, payload);
-        Ok(self.seal_message(&pk, &message))
+        Ok(MessageOwned::new_sum2(pk, self.pk, payload))
     }
 
-    fn seal_message(&self, pk: &CoordinatorPublicKey, message: &MessageOwned) -> Vec<u8> {
+    /// Sign the given message with the participant secret key, and
+    /// encrypt the signed message with the given public key.
+    pub fn seal_message(&self, pk: &CoordinatorPublicKey, message: &MessageOwned) -> Vec<u8> {
         let message_seal = MessageSeal {
             recipient_pk: pk,
             sender_sk: &self.sk,

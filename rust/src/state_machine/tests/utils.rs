@@ -1,4 +1,5 @@
 use crate::{
+    client::{Participant, Task},
     crypto::{encrypt::EncryptKeyPair, sign::SigningKeyPair, ByteObject},
     mask::{
         config::{BoundType, DataType, GroupType, MaskConfig, ModelType},
@@ -90,36 +91,24 @@ pub fn gen_sum2_request(
     (req, response_rx)
 }
 
-pub fn find_sum_participant_keys(seed: &RoundSeed, threshold: f64) -> SigningKeyPair {
+pub fn generate_summer(seed: &RoundSeed, sum_ratio: f64, update_ratio: f64) -> Participant {
     loop {
-        let keys = SigningKeyPair::generate();
-        let signature = keys
-            .secret
-            .sign_detached(&[seed.as_slice(), b"sum"].concat());
-        if signature.is_eligible(threshold) {
-            return keys;
+        let mut participant = Participant::new().unwrap();
+        participant.compute_signatures(seed.as_slice());
+        match participant.check_task(sum_ratio, update_ratio) {
+            Task::Sum => return participant,
+            _ => {}
         }
     }
 }
 
-pub fn find_update_participant_keys(
-    seed: &RoundSeed,
-    sum_threshold: f64,
-    update_threshold: f64,
-) -> SigningKeyPair {
+pub fn generate_updater(seed: &RoundSeed, sum_ratio: f64, update_ratio: f64) -> Participant {
     loop {
-        let keys = SigningKeyPair::generate();
-        let sum_signature = keys
-            .secret
-            .sign_detached(&[seed.as_slice(), b"sum"].concat());
-        if sum_signature.is_eligible(sum_threshold) {
-            continue;
-        }
-        let update_signature = keys
-            .secret
-            .sign_detached(&[seed.as_slice(), b"update"].concat());
-        if update_signature.is_eligible(update_threshold) {
-            return keys;
+        let mut participant = Participant::new().unwrap();
+        participant.compute_signatures(seed.as_slice());
+        match participant.check_task(sum_ratio, update_ratio) {
+            Task::Update => return participant,
+            _ => {}
         }
     }
 }

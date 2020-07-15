@@ -1,5 +1,6 @@
 use crate::{
     mask::MaskObject,
+    message::{MessageOwned, Payload, SumOwned, UpdateOwned},
     state_machine::{
         phases::{self, PhaseState},
         requests::{
@@ -15,7 +16,6 @@ use crate::{
     LocalSeedDict,
     SumParticipantEphemeralPublicKey,
     SumParticipantPublicKey,
-    UpdateParticipantPublicKey,
 };
 
 use tokio::sync::oneshot;
@@ -120,45 +120,86 @@ impl<T> StateMachine<T> {
     }
 }
 
-// FIXME: this is very convenient for the tests but it could actually
-// be used in the codebase. The only problem right now is that if we
-// need to rethink error handling in order to avoid nested Result. For
-// tests unwrapping is fine though.
 #[cfg(test)]
 impl RequestSender<Request> {
-    pub async fn sum(
-        &mut self,
-        participant_pk: SumParticipantPublicKey,
-        ephm_pk: SumParticipantEphemeralPublicKey,
-    ) -> SumResponse {
+    pub async fn sum(&mut self, msg: &MessageOwned) -> SumResponse {
         let (resp_tx, resp_rx) = oneshot::channel::<SumResponse>();
-        let req = Request::Sum((
-            SumRequest {
-                participant_pk,
-                ephm_pk,
-            },
-            resp_tx,
-        ));
+        let req = Request::Sum((msg.into(), resp_tx));
         self.send(req).unwrap();
         resp_rx.await.unwrap()
     }
 
-    pub async fn update(
-        &mut self,
-        participant_pk: UpdateParticipantPublicKey,
-        local_seed_dict: LocalSeedDict,
-        masked_model: MaskObject,
-    ) -> UpdateResponse {
+    pub async fn update(&mut self, msg: &MessageOwned) -> UpdateResponse {
         let (resp_tx, resp_rx) = oneshot::channel::<UpdateResponse>();
-        let req = Request::Update((
-            UpdateRequest {
-                participant_pk,
-                local_seed_dict,
-                masked_model,
-            },
-            resp_tx,
-        ));
+        let req = Request::Update((msg.into(), resp_tx));
         self.send(req).unwrap();
         resp_rx.await.unwrap()
+    }
+}
+
+impl<'a> From<&'a MessageOwned> for SumRequest {
+    fn from(msg: &'a MessageOwned) -> SumRequest {
+        SumRequest {
+            participant_pk: msg.participant_pk(),
+            ephm_pk: msg.ephm_pk(),
+        }
+    }
+}
+
+impl<'a> From<&'a MessageOwned> for UpdateRequest {
+    fn from(msg: &'a MessageOwned) -> UpdateRequest {
+        UpdateRequest {
+            participant_pk: msg.participant_pk(),
+            local_seed_dict: msg.local_seed_dict(),
+            masked_model: msg.masked_model(),
+        }
+    }
+}
+
+impl MessageOwned {
+    /// Extract the participant public key from the message.
+    pub fn participant_pk(&self) -> SumParticipantPublicKey {
+        self.header.participant_pk
+    }
+
+    /// Extract the ephemeral public key from a sum message.
+    ///
+    /// # Panic
+    ///
+    /// Panic if this message is not a sum message
+    pub fn ephm_pk(&self) -> SumParticipantEphemeralPublicKey {
+        if let Payload::Sum(SumOwned { ephm_pk, .. }) = &self.payload {
+            *ephm_pk
+        } else {
+            panic!("not a sum message");
+        }
+    }
+    /// Extract the masked model from an update message
+    ///
+    /// # Panic
+    ///
+    /// Panic if this message is not an update message
+    pub fn masked_model(&self) -> MaskObject {
+        if let Payload::Update(UpdateOwned { masked_model, .. }) = &self.payload {
+            masked_model.clone()
+        } else {
+            panic!("not an update message");
+        }
+    }
+
+    /// Extract the local seed dictioanry from an update message
+    ///
+    /// # Panic
+    ///
+    /// Panic if this message is not an update message
+    pub fn local_seed_dict(&self) -> LocalSeedDict {
+        if let Payload::Update(UpdateOwned {
+            local_seed_dict, ..
+        }) = &self.payload
+        {
+            local_seed_dict.clone()
+        } else {
+            panic!("not an update message");
+        }
     }
 }
