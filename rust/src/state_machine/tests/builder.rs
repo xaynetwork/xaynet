@@ -24,9 +24,10 @@ impl StateMachineBuilder<phases::Idle> {
         let pet_settings = PetSettings {
             sum: 0.4,
             update: 0.5,
-            min_sum: 1,
-            min_update: 3,
+            min_sum_count: 1,
+            min_update_count: 3,
             expected_participants: 10,
+            ..Default::default()
         };
         let mask_settings = utils::mask_settings();
         let (coordinator_state, event_subscriber) =
@@ -109,7 +110,7 @@ where
     }
 
     pub fn with_min_sum(mut self, min_sum: usize) -> Self {
-        self.coordinator_state.min_sum = min_sum;
+        self.coordinator_state.min_sum_count = min_sum;
         self
     }
 
@@ -119,7 +120,7 @@ where
     }
 
     pub fn with_min_update(mut self, min_update: usize) -> Self {
-        self.coordinator_state.min_update = min_update;
+        self.coordinator_state.min_update_count = min_update;
         self
     }
 

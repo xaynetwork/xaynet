@@ -32,9 +32,13 @@ pub struct CoordinatorState {
     /// The round parameters.
     pub round_params: RoundParameters,
     /// The minimum of required sum/sum2 messages.
-    pub min_sum: usize,
+    pub min_sum_count: usize,
     /// The minimum of required update messages.
-    pub min_update: usize,
+    pub min_update_count: usize,
+    /// The minimum time (in seconds) reserved for processing sum/sum2 messages.
+    pub min_sum_time: u64,
+    /// The minimum time (in seconds) reserved for processing update messages.
+    pub min_update_time: u64,
     /// The number of expected participants.
     pub expected_participants: usize,
     /// The masking configuration.
@@ -61,8 +65,10 @@ impl CoordinatorState {
             keys,
             round_params,
             events: publisher,
-            min_sum: pet_settings.min_sum,
-            min_update: pet_settings.min_update,
+            min_sum_count: pet_settings.min_sum_count,
+            min_update_count: pet_settings.min_update_count,
+            min_sum_time: pet_settings.min_sum_time,
+            min_update_time: pet_settings.min_update_time,
             expected_participants: pet_settings.expected_participants,
             mask_config: mask_settings.into(),
         };

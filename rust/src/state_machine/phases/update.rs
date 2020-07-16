@@ -16,7 +16,7 @@ use crate::{
     UpdateParticipantPublicKey,
 };
 
-use tokio::sync::oneshot;
+use tokio::{sync::oneshot, time::Duration};
 
 /// Update state
 #[derive(Debug)]
@@ -135,25 +135,26 @@ where
             ScalarUpdate::New(scalar),
         );
 
-        loop {
-            let updaters = self.updater_count();
-            let min_updaters = self.coordinator_state.min_update;
-            if updaters >= min_updaters {
-                info!(
-                    "ending update phase: {} updaters (expected at least {})",
-                    updaters, min_updaters
-                );
-                return Ok(());
-            }
+        let min_time = self.coordinator_state.min_update_time;
+        debug!("in update phase for a minimum of {} seconds", min_time);
+        self.process_during(Duration::from_secs(min_time)).await?;
 
-            info!(
-                "not enough updaters: {} updaters (expecting at least {})",
-                updaters, min_updaters
+        while !self.has_enough_updates() {
+            debug!(
+                "{} update messages handled (min {} required)",
+                self.updater_count(),
+                self.coordinator_state.min_update_count
             );
-            info!("waiting for more update messages");
             let req = self.next_request().await?;
             self.handle_request(req);
         }
+
+        info!(
+            "{} update messages handled (min {} required)",
+            self.updater_count(),
+            self.coordinator_state.min_update_count
+        );
+        Ok(())
     }
 }
 
@@ -271,6 +272,10 @@ impl<R> PhaseState<R, Update> {
             .next()
             .map(|dict| dict.len())
             .unwrap_or(0)
+    }
+
+    fn has_enough_updates(&self) -> bool {
+        self.updater_count() >= self.coordinator_state.min_update_count
     }
 }
 
