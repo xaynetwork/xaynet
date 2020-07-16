@@ -301,8 +301,10 @@ impl Client {
     /// Work flow for [`Client`]s selected as sum participants.
     async fn summer(&mut self) -> Result<Task, ClientError> {
         info!(client_id = %self.id, "selected to sum");
-        let sum1_msg = self.participant.compose_sum_message(&self.coordinator_pk);
-        self.proxy.post_message(sum1_msg).await?;
+        let msg = self.participant.compose_sum_message(&self.coordinator_pk);
+        let sealed_msg = self.participant.seal_message(&self.coordinator_pk, &msg);
+
+        self.proxy.post_message(sealed_msg).await?;
 
         debug!(client_id = %self.id, "polling for model/mask length");
         let length = loop {
@@ -321,14 +323,15 @@ impl Client {
         loop {
             if let Some(seeds) = self.proxy.get_seeds(self.participant.pk).await? {
                 debug!(client_id = %self.id, "seed dict received, sending sum2 message.");
-                let sum2_msg = self
+                let msg = self
                     .participant
                     .compose_sum2_message(self.coordinator_pk, &seeds, length)
                     .map_err(|e| {
                         error!("failed to compose sum2 message with seeds: {:?}", &seeds);
                         ClientError::ParticipantErr(e)
                     })?;
-                self.proxy.post_message(sum2_msg).await?;
+                let sealed_msg = self.participant.seal_message(&self.coordinator_pk, &msg);
+                self.proxy.post_message(sealed_msg).await?;
 
                 info!(client_id = %self.id, "sum participant completed a round");
                 break Ok(Task::Sum);
@@ -366,13 +369,14 @@ impl Client {
         loop {
             if let Some(sums) = self.proxy.get_sums().await? {
                 debug!(client_id = %self.id, "sum dict received, sending update message.");
-                let upd_msg = self.participant.compose_update_message(
+                let msg = self.participant.compose_update_message(
                     self.coordinator_pk,
                     &sums,
                     scalar,
                     model,
                 );
-                self.proxy.post_message(upd_msg).await?;
+                let sealed_msg = self.participant.seal_message(&self.coordinator_pk, &msg);
+                self.proxy.post_message(sealed_msg).await?;
 
                 info!(client_id = %self.id, "update participant completed a round");
                 break Ok(Task::Update);

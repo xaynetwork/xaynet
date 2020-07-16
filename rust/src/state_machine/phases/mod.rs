@@ -62,11 +62,11 @@ where
 /// which is shared across state transitions.
 pub struct PhaseState<R, S> {
     /// The inner state.
-    inner: S,
+    pub(in crate::state_machine) inner: S,
     /// The Coordinator state.
-    coordinator_state: CoordinatorState,
+    pub(in crate::state_machine) coordinator_state: CoordinatorState,
     /// The request receiver half.
-    request_rx: RequestReceiver<R>,
+    pub(in crate::state_machine) request_rx: RequestReceiver<R>,
 }
 
 // Functions that are available to all states

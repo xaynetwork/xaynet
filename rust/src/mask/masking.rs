@@ -50,6 +50,7 @@ pub enum AggregationError {
 }
 
 #[derive(Debug)]
+#[cfg_attr(test, derive(Clone))]
 /// An aggregator for masks and masked models.
 pub struct Aggregation {
     nb_models: usize,
