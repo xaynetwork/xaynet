@@ -137,7 +137,7 @@ where
 
         let min_time = self.coordinator_state.min_update_time;
         debug!("in update phase for a minimum of {} seconds", min_time);
-        self.process_during(Duration::from_secs(min_time)).await;
+        self.process_during(Duration::from_secs(min_time)).await?;
 
         while !self.has_enough_updates() {
             debug!(

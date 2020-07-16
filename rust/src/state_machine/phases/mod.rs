@@ -74,13 +74,15 @@ where
     Self: Handler<R>,
 {
     /// Processes requests for as long as the given duration.
-    async fn process_during(&mut self, dur: tokio::time::Duration) {
+    async fn process_during(&mut self, dur: tokio::time::Duration) -> Result<(), StateError> {
         tokio::select! {
-            _ = self.process() => {
-                panic!("unexpected termination of processing loop");
+            err = self.process() => {
+                error!("processing loop terminated before duration elapsed");
+                err
             }
             _ = tokio::time::delay_for(dur) => {
                 debug!("duration elapsed");
+                Ok(())
             }
         }
     }

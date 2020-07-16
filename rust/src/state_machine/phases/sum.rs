@@ -87,7 +87,7 @@ where
     pub async fn run_phase(&mut self) -> Result<SeedDict, StateError> {
         let min_time = self.coordinator_state.min_sum_time;
         debug!("in sum phase for a minimum of {} seconds", min_time);
-        self.process_during(Duration::from_secs(min_time)).await;
+        self.process_during(Duration::from_secs(min_time)).await?;
 
         while !self.has_enough_sums() {
             debug!(
