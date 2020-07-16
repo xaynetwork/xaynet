@@ -69,7 +69,10 @@ pub struct PhaseState<R, S> {
     pub(in crate::state_machine) request_rx: RequestReceiver<R>,
 }
 
-impl<R, S> PhaseState<R, S> where Self: Handler<R> {
+impl<R, S> PhaseState<R, S>
+where
+    Self: Handler<R>,
+{
     /// Processes requests for as long as the given duration.
     async fn process_during(&mut self, dur: tokio::time::Duration) {
         tokio::select! {

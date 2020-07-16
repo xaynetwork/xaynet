@@ -16,8 +16,7 @@ use crate::{
     UpdateParticipantPublicKey,
 };
 
-use tokio::sync::oneshot;
-use tokio::time::Duration;
+use tokio::{sync::oneshot, time::Duration};
 
 /// Update state
 #[derive(Debug)]
@@ -137,19 +136,24 @@ where
         );
 
         let min_time = self.coordinator_state.min_update_time;
+        debug!("in update phase for a minimum of {} seconds", min_time);
         self.process_during(Duration::from_secs(min_time)).await;
 
         while !self.has_enough_updates() {
-            debug!("{} update messages handled (min {} required)",
-                  self.updater_count(),
-                  self.coordinator_state.min_update_count);
+            debug!(
+                "{} update messages handled (min {} required)",
+                self.updater_count(),
+                self.coordinator_state.min_update_count
+            );
             let req = self.next_request().await?;
             self.handle_request(req);
-        };
+        }
 
-        info!("{} update messages handled (min {} required)",
-              self.updater_count(),
-              self.coordinator_state.min_update_count);
+        info!(
+            "{} update messages handled (min {} required)",
+            self.updater_count(),
+            self.coordinator_state.min_update_count
+        );
         Ok(())
     }
 }
