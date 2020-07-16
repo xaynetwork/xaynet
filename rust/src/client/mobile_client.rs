@@ -6,11 +6,7 @@ use crate::{
     PetError,
 };
 use derive_more::From;
-use std::{
-    cell::{RefCell, RefMut},
-    rc::Rc,
-    sync::{Arc, Mutex},
-};
+use std::{cell::RefCell, rc::Rc};
 
 pub struct MobileClient {
     runtime: tokio::runtime::Runtime,
@@ -20,7 +16,7 @@ pub struct MobileClient {
 }
 
 impl MobileClient {
-    pub fn new(proxy: Proxy) -> Self {
+    pub fn new(url: &str) -> Self {
         let runtime = tokio::runtime::Builder::new()
             .basic_scheduler()
             .enable_all()
@@ -34,7 +30,11 @@ impl MobileClient {
             runtime,
             local_model: local_model.clone(),
             global_model: global_model.clone(),
-            participant: Some(StateMachine::new(proxy, local_model, global_model)),
+            participant: Some(StateMachine::new(
+                Proxy::new_remote(url),
+                local_model,
+                global_model,
+            )),
         }
     }
 
@@ -102,7 +102,7 @@ impl<Task> State<Task> {
         let round_params = self.proxy.get_round_params().await?;
         if round_params.pk != self.coordinator_pk {
             debug!("new round parameters");
-            Err(ClientError::GeneralErr) //old round
+            Err(ClientError::MobileClientError("old round parameters")) //old round
         } else {
             Ok(())
         }
@@ -126,6 +126,7 @@ impl State<Idle> {
     }
 
     async fn next(mut self) -> StateMachine {
+        info!("idle");
         match self.step().await {
             Ok(Task::Sum) => State::<Sum>::new(
                 self.proxy,
@@ -143,7 +144,11 @@ impl State<Idle> {
                 self.global_model,
             )
             .into(),
-            Ok(Task::None) | Err(_) => {
+            Ok(Task::None) => {
+                State::<Idle>::new(self.proxy, self.local_model, self.global_model).into()
+            }
+            Err(e) => {
+                error!("{:?}", e);
                 State::<Idle>::new(self.proxy, self.local_model, self.global_model).into()
             }
         }
@@ -154,7 +159,7 @@ impl State<Idle> {
         self.coordinator_pk = round_params.pk;
         self.participant = Participant::new().unwrap();
 
-        let model = self.proxy.get_model().await?;
+        self.fetch_global_model().await;
 
         self.participant
             .compute_signatures(round_params.seed.as_slice());
@@ -166,7 +171,6 @@ impl State<Idle> {
     async fn fetch_global_model(&mut self) {
         if let Ok(model) = self.proxy.get_model().await {
             //update our global model where necessary
-
             let mut global_model = self.global_model.borrow_mut();
 
             match (model, global_model.as_ref()) {
@@ -178,8 +182,8 @@ impl State<Idle> {
                     debug!("updating global model");
                     *global_model = Some(new_model);
                 }
-                (None, _) => trace!("global model not ready yet"),
-                _ => trace!("global model still fresh"),
+                (None, _) => debug!("global model not ready yet"),
+                _ => debug!("global model still fresh"),
             }
         }
     }
@@ -214,7 +218,10 @@ impl State<Sum> {
                 self.global_model,
             )
             .into(),
-            Err(_) => State::<Idle>::new(self.proxy, self.local_model, self.global_model).into(),
+            Err(e) => {
+                error!("{:?}", e);
+                State::<Idle>::new(self.proxy, self.local_model, self.global_model).into()
+            }
         }
     }
 
@@ -245,9 +252,15 @@ impl State<Update> {
         }
     }
 
-    async fn next(self) -> StateMachine {
+    async fn next(mut self) -> StateMachine {
         info!("selected to update");
-        State::<Idle>::new(self.proxy, self.local_model, self.global_model).into()
+        match self.step().await {
+            Ok(_) => State::<Idle>::new(self.proxy, self.local_model, self.global_model).into(),
+            Err(e) => {
+                error!("{:?}", e);
+                State::<Idle>::new(self.proxy, self.local_model, self.global_model).into()
+            }
+        }
     }
 
     async fn step(&mut self) -> Result<(), ClientError> {
@@ -257,7 +270,7 @@ impl State<Update> {
             .local_model
             .borrow_mut()
             .take()
-            .ok_or(ClientError::GeneralErr)?
+            .ok_or(ClientError::MobileClientError("local model not ready"))?
             .clone();
 
         debug!("polling for model scalar");
@@ -265,14 +278,14 @@ impl State<Update> {
             .proxy
             .get_scalar()
             .await?
-            .ok_or(ClientError::GeneralErr)?;
+            .ok_or(ClientError::MobileClientError("scalar not ready"))?;
 
         debug!("polling for sum dict");
         let sums = self
             .proxy
             .get_sums()
             .await?
-            .ok_or(ClientError::GeneralErr)?;
+            .ok_or(ClientError::MobileClientError("sum dict not ready"))?;
 
         debug!("sum dict received, sending update message.");
         let upd_msg = self.participant.compose_update_message(
@@ -306,9 +319,15 @@ impl State<Sum2> {
         }
     }
 
-    async fn next(self) -> StateMachine {
+    async fn next(mut self) -> StateMachine {
         info!("selected to sum2");
-        State::<Idle>::new(self.proxy, self.local_model, self.global_model).into()
+        match self.step().await {
+            Ok(_) => State::<Idle>::new(self.proxy, self.local_model, self.global_model).into(),
+            Err(e) => {
+                error!("{:?}", e);
+                State::<Idle>::new(self.proxy, self.local_model, self.global_model).into()
+            }
+        }
     }
 
     async fn step(&mut self) -> Result<(), ClientError> {
@@ -319,7 +338,7 @@ impl State<Sum2> {
             .proxy
             .get_mask_length()
             .await?
-            .ok_or(ClientError::GeneralErr)?;
+            .ok_or(ClientError::MobileClientError("length not ready"))?;
         if length > usize::MAX as u64 {
             return Err(ClientError::ParticipantErr(PetError::InvalidModel));
         };
@@ -328,7 +347,7 @@ impl State<Sum2> {
             .proxy
             .get_seeds(self.participant.pk)
             .await?
-            .ok_or(ClientError::GeneralErr)?;
+            .ok_or(ClientError::MobileClientError("seeds not ready"))?;
 
         debug!("seed dict received, sending sum2 message.");
         let sum2_msg = self

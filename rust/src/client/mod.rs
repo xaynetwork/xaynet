@@ -80,7 +80,7 @@ use tokio::{
     sync::{broadcast, mpsc, watch},
 };
 
-mod mobile_client;
+pub mod mobile_client;
 
 mod client;
 pub use client::{Client, RoundParamFetcher};
@@ -125,6 +125,9 @@ pub enum ClientError {
     #[error("unexpected client error")]
     /// Unexpected client error.
     GeneralErr,
+
+    #[error("mobile client failed: {0}")]
+    MobileClientError(&'static str),
 }
 
 pub struct AsyncClient {

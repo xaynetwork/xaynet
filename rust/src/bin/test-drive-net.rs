@@ -56,7 +56,7 @@ async fn main() -> Result<(), ClientError> {
         clients.push(client);
     }
 
-    for _ in 0..10 {
+    for _ in 0..opt.nb_client {
         for client in clients.iter_mut() {
             let model =
                 Model::from_primitives(vec![rng.gen_range(0, 10); len].into_iter()).unwrap();

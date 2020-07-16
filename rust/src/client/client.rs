@@ -248,7 +248,7 @@ impl Client {
 
     /// Work flow for unselected participants.
     async fn unselected() -> Result<(), ClientError> {
-        debug!("not selected");
+        info!("not selected");
         Ok(())
     }
 }
