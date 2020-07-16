@@ -2,10 +2,11 @@ use crate::{
     client::{Participant, Task},
     crypto::{encrypt::EncryptKeyPair, sign::SigningKeyPair, ByteObject},
     mask::{
-        config::{BoundType, DataType, GroupType, MaskConfig, ModelType},
+        config::{BoundType, DataType, GroupType, ModelType},
         object::MaskObject,
         seed::{EncryptedMaskSeed, MaskSeed},
     },
+    settings::MaskSettings,
     state_machine::{
         coordinator::RoundSeed,
         requests::{Request, Sum2Request, SumRequest, UpdateRequest},
@@ -14,6 +15,7 @@ use crate::{
     PetError,
     SumParticipantPublicKey,
 };
+
 use tokio::sync::oneshot;
 use tracing_subscriber::*;
 
@@ -72,7 +74,7 @@ pub fn gen_update_request(
 
 pub fn gen_mask() -> MaskObject {
     let seed = MaskSeed::generate();
-    let mask = seed.derive_mask(10, mask_config());
+    let mask = seed.derive_mask(10, mask_settings().into());
     mask
 }
 
@@ -113,8 +115,8 @@ pub fn generate_updater(seed: &RoundSeed, sum_ratio: f64, update_ratio: f64) -> 
     }
 }
 
-pub fn mask_config() -> MaskConfig {
-    MaskConfig {
+pub fn mask_settings() -> MaskSettings {
+    MaskSettings {
         group_type: GroupType::Prime,
         data_type: DataType::F32,
         bound_type: BoundType::B0,

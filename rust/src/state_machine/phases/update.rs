@@ -287,7 +287,7 @@ mod test {
             events::Event,
             tests::{
                 builder::StateMachineBuilder,
-                utils::{generate_summer, generate_updater, mask_config},
+                utils::{generate_summer, generate_updater, mask_settings},
             },
         },
         SumDict,
@@ -317,7 +317,7 @@ mod test {
 
         let mut seed_dict = SeedDict::new();
         seed_dict.insert(summer.pk, HashMap::new());
-        let aggregation = Aggregation::new(mask_config());
+        let aggregation = Aggregation::new(mask_settings().into());
         let update = Update {
             frozen_sum_dict: frozen_sum_dict.clone(),
             seed_dict: seed_dict.clone(),
@@ -333,7 +333,7 @@ mod test {
             .with_min_sum(n_summers)
             .with_min_update(n_updaters)
             .with_expected_participants(n_updaters + n_summers)
-            .with_mask_config(mask_config())
+            .with_mask_config(mask_settings().into())
             .build();
 
         assert!(state_machine.is_update());

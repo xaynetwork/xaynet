@@ -1,12 +1,13 @@
 use crate::{
     crypto::encrypt::EncryptKeyPair,
-    mask::config::{BoundType, DataType, GroupType, MaskConfig, ModelType},
-    settings::{MaskSettings, PetSettings},
+    mask::config::MaskConfig,
+    settings::PetSettings,
     state_machine::{
         coordinator::{CoordinatorState, RoundSeed},
         events::EventSubscriber,
         phases::{self, Handler, PhaseState},
         requests::{Request, RequestReceiver, RequestSender},
+        tests::utils,
         StateMachine,
     },
 };
@@ -27,12 +28,7 @@ impl StateMachineBuilder<phases::Idle> {
             min_update: 3,
             expected_participants: 10,
         };
-        let mask_settings = MaskSettings {
-            group_type: GroupType::Prime,
-            data_type: DataType::F32,
-            bound_type: BoundType::B0,
-            model_type: ModelType::M3,
-        };
+        let mask_settings = utils::mask_settings();
         let (coordinator_state, event_subscriber) =
             CoordinatorState::new(pet_settings, mask_settings);
         let phase_state = phases::Idle;
