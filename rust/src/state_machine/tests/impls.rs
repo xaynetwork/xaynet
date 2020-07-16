@@ -120,7 +120,6 @@ impl<T> StateMachine<T> {
     }
 }
 
-#[cfg(test)]
 impl RequestSender<Request> {
     pub async fn sum(&mut self, msg: &MessageOwned) -> SumResponse {
         let (resp_tx, resp_rx) = oneshot::channel::<SumResponse>();
