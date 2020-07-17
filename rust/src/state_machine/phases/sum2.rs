@@ -209,7 +209,7 @@ mod test {
         let mut summer = generate_summer(&seed, sum_ratio, update_ratio);
         let ephm_pk = summer.compose_sum_message(&coord_keys.public).ephm_pk();
         let mut sum_dict = SumDict::new();
-        sum_dict.insert(summer.pk, *&ephm_pk);
+        sum_dict.insert(summer.pk, ephm_pk);
 
         // Generate a new masked model, seed dictionary and aggregration
         let updater = generate_updater(&seed, sum_ratio, update_ratio);
