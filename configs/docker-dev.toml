@@ -7,6 +7,8 @@ bind_address = "0.0.0.0:8081"
 [pet]
 min_sum_count = 1
 min_update_count = 3
+min_sum_time = 5
+min_update_time = 10
 sum = 0.01
 update = 0.1
 expected_participants = 10
