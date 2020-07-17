@@ -22,6 +22,16 @@ pub struct Unmask {
     mask_dict: MaskDict,
 }
 
+#[cfg(test)]
+impl Unmask {
+    pub fn aggregation(&self) -> Option<&Aggregation> {
+        self.aggregation.as_ref()
+    }
+    pub fn mask_dict(&self) -> &MaskDict {
+        &self.mask_dict
+    }
+}
+
 #[async_trait]
 impl<R> Phase<R> for PhaseState<R, Unmask>
 where
