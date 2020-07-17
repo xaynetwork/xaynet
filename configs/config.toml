@@ -18,3 +18,6 @@ group_type = "Prime"
 data_type = "F32"
 bound_type = "B0"
 model_type = "M3"
+
+[model]
+size = 4

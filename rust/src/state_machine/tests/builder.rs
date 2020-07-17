@@ -1,7 +1,7 @@
 use crate::{
     crypto::encrypt::EncryptKeyPair,
     mask::config::MaskConfig,
-    settings::PetSettings,
+    settings::{ModelSettings, PetSettings},
     state_machine::{
         coordinator::{CoordinatorState, RoundSeed},
         events::EventSubscriber,
@@ -30,8 +30,9 @@ impl StateMachineBuilder<phases::Idle> {
             ..Default::default()
         };
         let mask_settings = utils::mask_settings();
+        let model_settings = ModelSettings { size: 1 };
         let (coordinator_state, event_subscriber) =
-            CoordinatorState::new(pet_settings, mask_settings);
+            CoordinatorState::new(pet_settings, mask_settings, model_settings);
         let phase_state = phases::Idle;
         StateMachineBuilder {
             coordinator_state,
@@ -121,6 +122,11 @@ where
 
     pub fn with_min_update(mut self, min_update: usize) -> Self {
         self.coordinator_state.min_update_count = min_update;
+        self
+    }
+
+    pub fn with_model_size(mut self, model_size: usize) -> Self {
+        self.coordinator_state.model_size = model_size;
         self
     }
 

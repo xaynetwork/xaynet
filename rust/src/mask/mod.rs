@@ -129,7 +129,7 @@
 //! # let local_mask_1 = local_mask_seed_1.derive_mask(number_weights, config);
 //! # let local_mask_2 = local_mask_seed_2.derive_mask(number_weights, config);
 //! // aggregate the local masks
-//! let mut mask_aggregator = Aggregation::new(config);
+//! let mut mask_aggregator = Aggregation::new(config, number_weights);
 //! if let Ok(_) = mask_aggregator.validate_aggregation(&local_mask_1) {
 //!     mask_aggregator.aggregate(local_mask_1);
 //! };
@@ -139,7 +139,7 @@
 //! let global_mask: MaskObject = mask_aggregator.into();
 //!
 //! // aggregate the local masked models
-//! let mut model_aggregator = Aggregation::new(config);
+//! let mut model_aggregator = Aggregation::new(config, number_weights);
 //! if let Ok(_) = model_aggregator.validate_aggregation(&masked_local_model_1) {
 //!     model_aggregator.aggregate(masked_local_model_1);
 //! };
@@ -164,11 +164,11 @@
 //! # let (local_mask_seed_2, masked_local_model_2) = Masker::new(config).mask(scalar, local_model_2);
 //! # let local_mask_1 = local_mask_seed_1.derive_mask(number_weights, config);
 //! # let local_mask_2 = local_mask_seed_2.derive_mask(number_weights, config);
-//! # let mut mask_aggregator = Aggregation::new(config);
+//! # let mut mask_aggregator = Aggregation::new(config, number_weights);
 //! # if let Ok(_) = mask_aggregator.validate_aggregation(&local_mask_1) { mask_aggregator.aggregate(local_mask_1); };
 //! # if let Ok(_) = mask_aggregator.validate_aggregation(&local_mask_2) { mask_aggregator.aggregate(local_mask_2); };
 //! # let global_mask: MaskObject = mask_aggregator.into();
-//! # let mut model_aggregator = Aggregation::new(config);
+//! # let mut model_aggregator = Aggregation::new(config, number_weights);
 //! # if let Ok(_) = model_aggregator.validate_aggregation(&masked_local_model_1) { model_aggregator.aggregate(masked_local_model_1); };
 //! # if let Ok(_) = model_aggregator.validate_aggregation(&masked_local_model_2) { model_aggregator.aggregate(masked_local_model_2); };
 //! // unmask the aggregated masked model with the aggregated mask

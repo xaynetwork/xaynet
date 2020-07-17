@@ -33,6 +33,7 @@ pub struct Settings {
     pub pet: PetSettings,
     pub mask: MaskSettings,
     pub log: LoggingSettings,
+    pub model: ModelSettings,
 }
 
 impl Settings {
@@ -353,6 +354,27 @@ impl From<MaskSettings> for MaskConfig {
             model_type,
         }
     }
+}
+
+#[derive(Debug, Deserialize)]
+/// Model settings.
+pub struct ModelSettings {
+    /// The expected size of the model. The model size corresponds to the number of elements.
+    /// This value is used to validate the uniform length of the submitted models/masks.
+    ///
+    /// # Examples
+    ///
+    /// **TOML**
+    /// ```text
+    /// [model]
+    /// size = 100
+    /// ```
+    ///
+    /// **Environment variable**
+    /// ```text
+    /// XAYNET_MODEL__SIZE=100
+    /// ```
+    pub size: usize,
 }
 
 #[derive(Debug, Deserialize)]

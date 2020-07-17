@@ -55,12 +55,14 @@ pub enum AggregationError {
 pub struct Aggregation {
     nb_models: usize,
     object: MaskObject,
+    object_size: usize,
 }
 
 impl From<MaskObject> for Aggregation {
     fn from(object: MaskObject) -> Self {
         Self {
             nb_models: 1,
+            object_size: object.data.len(),
             object,
         }
     }
@@ -75,16 +77,17 @@ impl Into<MaskObject> for Aggregation {
 #[allow(clippy::len_without_is_empty)]
 impl Aggregation {
     /// Creates a new, empty aggregator for masks or masked models.
-    pub fn new(config: MaskConfig) -> Self {
+    pub fn new(config: MaskConfig, object_size: usize) -> Self {
         Self {
             nb_models: 0,
             object: MaskObject::new(config, vec![]),
+            object_size,
         }
     }
 
     /// Gets the length of the aggregated mask object.
     pub fn len(&self) -> usize {
-        self.object.data.len()
+        self.object_size
     }
 
     /// Gets the masking configuration of the aggregator.
@@ -124,7 +127,7 @@ impl Aggregation {
             return Err(UnmaskingError::TooManyModels);
         }
 
-        if self.object.config != mask.config || self.object.data.len() != mask.data.len() {
+        if self.object.config != mask.config || self.object_size != mask.data.len() {
             return Err(UnmaskingError::MaskMismatch);
         }
 
@@ -208,7 +211,7 @@ impl Aggregation {
 
         // If we have at least one object, make sure the object we're
         // trying to aggregate has the same length.
-        if self.nb_models > 0 && (self.object.data.len() != object.data.len()) {
+        if self.nb_models > 0 && (self.object_size != object.data.len()) {
             return Err(AggregationError::ModelMismatch);
         }
 
@@ -514,6 +517,7 @@ mod tests {
                         bound_type: $bound,
                         model_type: M3,
                     };
+                    let model_size = $len as usize;
 
                     // Step 2: generate random masked models
                     let mut prng = ChaCha20Rng::from_seed(MaskSeed::generate().as_array());
@@ -528,7 +532,7 @@ mod tests {
                     // Step 3 (actual test):
                     // a. aggregate the masked models
                     // b. check the aggregated masked model
-                    let mut aggregated_masked_model = Aggregation::new(config);
+                    let mut aggregated_masked_model = Aggregation::new(config, model_size);
                     for nb in 1..$count as usize + 1 {
                         let masked_model = masked_models.next().unwrap();
                         assert!(
@@ -651,6 +655,7 @@ mod tests {
                         },
                         model_type: M3,
                     };
+                    let model_size = $len as usize;
 
                     // Step 2: Generate random models
                     let bound = if $bound == 0 {
@@ -678,8 +683,8 @@ mod tests {
                         iter::repeat(paste::expr! { 0 as [<$data:lower>] }).take($len as usize)
                     )
                     .unwrap();
-                    let mut aggregated_masked_model = Aggregation::new(config);
-                    let mut aggregated_mask = Aggregation::new(config);
+                    let mut aggregated_masked_model = Aggregation::new(config, model_size);
+                    let mut aggregated_mask = Aggregation::new(config, model_size);
                     let scalar = 1_f64 / ($count as f64);
                     let scalar_ratio = Ratio::from_float(scalar).unwrap();
                     for _ in 0..$count as usize {

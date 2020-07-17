@@ -171,7 +171,10 @@ impl<R> PhaseState<R, Update> {
             inner: Update {
                 frozen_sum_dict,
                 seed_dict,
-                aggregation: Aggregation::new(coordinator_state.mask_config),
+                aggregation: Aggregation::new(
+                    coordinator_state.mask_config,
+                    coordinator_state.model_size,
+                ),
             },
             coordinator_state,
             request_rx,
@@ -307,6 +310,7 @@ mod test {
         let sum_ratio = 0.5;
         let update_ratio = 1.0;
         let coord_keys = EncryptKeyPair::generate();
+        let model_size = 4;
 
         // Find a sum participant and an update participant for the
         // given seed and ratios.
@@ -322,7 +326,7 @@ mod test {
 
         let mut seed_dict = SeedDict::new();
         seed_dict.insert(summer.pk, HashMap::new());
-        let aggregation = Aggregation::new(mask_settings().into());
+        let aggregation = Aggregation::new(mask_settings().into(), model_size);
         let update = Update {
             frozen_sum_dict: frozen_sum_dict.clone(),
             seed_dict: seed_dict.clone(),
@@ -345,7 +349,7 @@ mod test {
 
         // Create an update request.
         let scalar = 1.0 / (n_updaters as f64 * update_ratio);
-        let model = Model::from_primitives(vec![0; 4].into_iter()).unwrap();
+        let model = Model::from_primitives(vec![0; model_size].into_iter()).unwrap();
         let update_msg = updater.compose_update_message(
             coord_keys.public,
             &frozen_sum_dict,
