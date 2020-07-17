@@ -1,4 +1,4 @@
-name: DockerHub (Master)
+name: DockerHub + Kubernetes (Master - Development)
 
 on:
   push:
@@ -23,3 +23,20 @@ jobs:
           tag_with_ref: true
           tags: development
           push: true
+
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      - name: Get DigitalOcean kubeconfig
+        run: doctl kubernetes cluster kubeconfig save ${{ secrets.K8S_CLUSTER }}
+
+      - name: Re-apply manifests
+        run: kubectl apply -k $GITHUB_WORKSPACE/k8s/coordinator/development
+
+      - name: Force deployment rollout
+        run: kubectl rollout restart deployment/coordinator-deployment
+
+      - name: Check deployment status
+        run: kubectl rollout status deployment/coordinator-deployment
