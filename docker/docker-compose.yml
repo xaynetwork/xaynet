@@ -1,7 +1,7 @@
 version: "3.8"
 services:
   coordinator:
-    image: xain/xain-fl:development
+    image: xaynetwork/xaynet:development
     build:
       context: ..
       dockerfile: docker/Dockerfile
@@ -13,7 +13,7 @@ services:
     volumes:
       - ${PWD}/configs/docker-dev.toml:/app/config.toml
     networks:
-      - xain-fl
+      - xaynet
     ports:
       - "8081:8081"
 
@@ -28,7 +28,7 @@ services:
     volumes:
       - influxdb-data:/var/lib/influxdb
     networks:
-      - xain-fl
+      - xaynet
     expose:
       - "8086"
 
@@ -42,7 +42,7 @@ services:
     volumes:
       - minio-data:/data
     networks:
-      - xain-fl
+      - xaynet
     ports:
       - "9000:9000"
 
@@ -54,7 +54,7 @@ services:
     volumes:
       - redis-data:/data
     networks:
-      - xain-fl
+      - xaynet
     ports:
       - "6379:6379"
 
@@ -64,4 +64,4 @@ volumes:
   influxdb-data:
 
 networks:
-  xain-fl:
+  xaynet:

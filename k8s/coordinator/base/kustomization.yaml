@@ -4,7 +4,7 @@ kind: Kustomization
 commonLabels:
   app.kubernetes.io/component: backend
   app.kubernetes.io/name: coordinator
-  app.kubernetes.io/part-of: xain-fl
+  app.kubernetes.io/part-of: xaynet
 
 resources:
 - deployment.yaml

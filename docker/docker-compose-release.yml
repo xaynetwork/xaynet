@@ -1,7 +1,7 @@
 version: "3.8"
 services:
   coordinator:
-    image: xain/xain-fl:release
+    image: xaynetwork/xaynet:release
     build:
       context: ..
       dockerfile: docker/Dockerfile.release
@@ -9,9 +9,9 @@ services:
     volumes:
       - ${PWD}/configs/docker-release.toml:/app/config.toml
     networks:
-      - xain-fl
+      - xaynet
     ports:
       - "8081:8081"
 
 networks:
-  xain-fl:
+  xaynet:

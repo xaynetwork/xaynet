@@ -5,7 +5,7 @@ namespace: development
 
 images:
   - name: coordinator
-    newName: xain/xain-fl
+    newName: xaynetwork/xaynet
     newTag: development
 
 configMapGenerator:
