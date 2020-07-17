@@ -1,11 +1,14 @@
 use crate::{
     mask::MaskObject,
-    message::{MessageOwned, Payload, SumOwned, UpdateOwned},
+    message::{MessageOwned, Payload, Sum2Owned, SumOwned, UpdateOwned},
     state_machine::{
+        events::{DictionaryUpdate, MaskLengthUpdate},
         phases::{self, PhaseState},
         requests::{
             Request,
             RequestSender,
+            Sum2Request,
+            Sum2Response,
             SumRequest,
             SumResponse,
             UpdateRequest,
@@ -134,6 +137,13 @@ impl RequestSender<Request> {
         self.send(req).unwrap();
         resp_rx.await.unwrap()
     }
+
+    pub async fn sum2(&mut self, msg: &MessageOwned) -> Sum2Response {
+        let (resp_tx, resp_rx) = oneshot::channel::<Sum2Response>();
+        let req = Request::Sum2((msg.into(), resp_tx));
+        self.send(req).unwrap();
+        resp_rx.await.unwrap()
+    }
 }
 
 impl<'a> From<&'a MessageOwned> for SumRequest {
@@ -151,6 +161,15 @@ impl<'a> From<&'a MessageOwned> for UpdateRequest {
             participant_pk: msg.participant_pk(),
             local_seed_dict: msg.local_seed_dict(),
             masked_model: msg.masked_model(),
+        }
+    }
+}
+
+impl<'a> From<&'a MessageOwned> for Sum2Request {
+    fn from(msg: &'a MessageOwned) -> Sum2Request {
+        Sum2Request {
+            participant_pk: msg.participant_pk(),
+            mask: msg.mask(),
         }
     }
 }
@@ -173,6 +192,7 @@ impl MessageOwned {
             panic!("not a sum message");
         }
     }
+
     /// Extract the masked model from an update message
     ///
     /// # Panic
@@ -199,6 +219,39 @@ impl MessageOwned {
             local_seed_dict.clone()
         } else {
             panic!("not an update message");
+        }
+    }
+
+    /// Extract the mask from a sum2 message
+    ///
+    /// # Panic
+    ///
+    /// Panic if this message is not a sum2 message
+    pub fn mask(&self) -> MaskObject {
+        if let Payload::Sum2(Sum2Owned { mask, .. }) = &self.payload {
+            mask.clone()
+        } else {
+            panic!("not a sum2 message");
+        }
+    }
+}
+
+impl<D> DictionaryUpdate<D> {
+    pub fn unwrap(self) -> std::sync::Arc<D> {
+        if let DictionaryUpdate::New(inner) = self {
+            inner
+        } else {
+            panic!("DictionaryUpdate::Invalidate");
+        }
+    }
+}
+
+impl MaskLengthUpdate {
+    pub fn unwrap(self) -> usize {
+        if let MaskLengthUpdate::New(inner) = self {
+            inner
+        } else {
+            panic!("MaskLengthUpdate::Invalidate");
         }
     }
 }
