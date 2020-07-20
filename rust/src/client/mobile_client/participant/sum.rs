@@ -1,6 +1,6 @@
 use super::{Participant, ParticipantState};
 use crate::{
-    client::participant_::Sum2,
+    client::mobile_client::participant::Sum2,
     crypto::encrypt::EncryptKeyPair,
     message::{message::MessageOwned, payload::sum::SumOwned},
     CoordinatorPublicKey,

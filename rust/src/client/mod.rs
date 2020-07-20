@@ -82,9 +82,7 @@ use crate::{
     PetError,
 };
 
-pub mod client;
 pub mod mobile_client;
-pub mod participant_;
 
 mod request;
 pub use request::Proxy;

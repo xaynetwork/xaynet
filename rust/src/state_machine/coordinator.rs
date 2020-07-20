@@ -27,6 +27,17 @@ pub struct RoundParameters {
     pub seed: RoundSeed,
 }
 
+impl Default for RoundParameters {
+    fn default() -> Self {
+        Self {
+            pk: CoordinatorPublicKey::zeroed(),
+            sum: 0.0,
+            update: 0.0,
+            seed: RoundSeed::zeroed(),
+        }
+    }
+}
+
 /// The coordinator state.
 #[derive(Debug)]
 pub struct CoordinatorState {

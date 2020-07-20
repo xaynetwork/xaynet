@@ -1,8 +1,11 @@
-use crate::{
-    client::{client::ClientStateMachine, participant_::ParticipantSettings, Proxy},
-    mask::model::Model,
-};
+use crate::{client::Proxy, mask::model::Model};
 use std::{cell::RefCell, rc::Rc};
+
+mod client;
+use self::client::ClientStateMachine;
+
+pub mod participant;
+use self::participant::ParticipantSettings;
 
 pub struct MobileClient {
     runtime: tokio::runtime::Runtime,

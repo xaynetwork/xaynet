@@ -3,8 +3,6 @@
 //! See the [client module] documentation since this is a private module anyways.
 //!
 //! [client module]: ../index.html
-
-pub use self::{sum::Sum, sum2::Sum2, undefined::Undefined, update::Update};
 use crate::{
     certificate::Certificate,
     mask::config::MaskConfig,
@@ -19,6 +17,8 @@ pub mod sum;
 pub mod sum2;
 pub mod undefined;
 pub mod update;
+
+pub use self::{sum::Sum, sum2::Sum2, undefined::Undefined, update::Update};
 
 pub struct ParticipantState {
     // credentials

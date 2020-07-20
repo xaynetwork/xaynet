@@ -1,6 +1,6 @@
 use super::{Participant, ParticipantState};
 use crate::{
-    client::participant_::{sum::Sum, update::Update, Type},
+    client::mobile_client::participant::{sum::Sum, update::Update, Type},
     crypto::Signature,
 };
 
