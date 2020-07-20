@@ -53,12 +53,6 @@ impl From<ParticipantSettings> for ParticipantState {
     }
 }
 
-pub enum Task {
-    Sum,
-    None,
-    Update,
-}
-
 #[derive(From)]
 pub enum Type {
     Unselected(Participant<Undefined>),
