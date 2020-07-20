@@ -82,6 +82,8 @@ use crate::{
     PetError,
 };
 
+pub mod participant_;
+
 mod request;
 pub use request::Proxy;
 
@@ -122,6 +124,12 @@ pub enum ClientError {
     #[error("unexpected client error")]
     /// Unexpected client error.
     GeneralErr,
+
+    #[error("{0} not ready yet")]
+    TooEarly(&'static str),
+
+    #[error("round outdated")]
+    RoundOutdated,
 }
 
 /// A client of the federated learning service
