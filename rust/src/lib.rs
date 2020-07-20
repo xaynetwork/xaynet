@@ -95,6 +95,7 @@ pub mod services;
 pub mod settings;
 pub mod state_machine;
 pub mod utils;
+pub(crate) mod vendor;
 
 use std::collections::HashMap;
 

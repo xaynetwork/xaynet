@@ -33,11 +33,11 @@ use std::{
     task::{Context, Poll},
 };
 
+use crate::vendor::tracing_tower;
 use futures::{future::poll_fn, Future};
 use thiserror::Error;
 use tower::{Service, ServiceBuilder};
 use tracing_futures::Instrument;
-use tracing_tower::request_span;
 use uuid::Uuid;
 
 use crate::{
@@ -63,11 +63,11 @@ where
     S: Service<Traced<R>>,
 {
     ServiceBuilder::new()
-        .layer(request_span::layer(req_span as for<'r> fn(&'r _) -> _))
+        .layer(tracing_tower::layer(req_span as for<'r> fn(&'r _) -> _))
         .service(service)
 }
 
-type TracingService<S, R> = request_span::Service<S, Traced<R>, fn(&Traced<R>) -> tracing::Span>;
+type TracingService<S, R> = tracing_tower::Service<S, Traced<R>, fn(&Traced<R>) -> tracing::Span>;
 
 /// Error returned by the [`PetMessageHandler`] methods.
 #[derive(Debug, Error)]
