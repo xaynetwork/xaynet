@@ -80,7 +80,7 @@ impl Aggregation {
     pub fn new(config: MaskConfig, object_size: usize) -> Self {
         Self {
             nb_models: 0,
-            object: MaskObject::new(config, vec![]),
+            object: MaskObject::new(config, Vec::with_capacity(object_size)),
             object_size,
         }
     }
@@ -209,9 +209,7 @@ impl Aggregation {
             return Err(AggregationError::ModelMismatch);
         }
 
-        // If we have at least one object, make sure the object we're
-        // trying to aggregate has the same length.
-        if self.nb_models > 0 && (self.object_size != object.data.len()) {
+        if self.object_size != object.data.len() {
             return Err(AggregationError::ModelMismatch);
         }
 
