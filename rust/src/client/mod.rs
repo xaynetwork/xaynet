@@ -82,6 +82,7 @@ use crate::{
     PetError,
 };
 
+pub mod client;
 pub mod participant_;
 
 mod request;
