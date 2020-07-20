@@ -83,6 +83,7 @@ use crate::{
 };
 
 pub mod client;
+pub mod mobile_client;
 pub mod participant_;
 
 mod request;
