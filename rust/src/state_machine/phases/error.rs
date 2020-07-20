@@ -38,10 +38,11 @@ impl<R> Phase<R> for PhaseState<R, StateError>
 where
     R: Send,
 {
-    /// Moves from the error state to the next state.
-    ///
-    /// See the [module level documentation](../index.html) for more details.
-    async fn next(mut self) -> Option<StateMachine<R>> {
+    fn is_error(&self) -> bool {
+        true
+    }
+
+    async fn run(&mut self) -> Result<(), StateError> {
         error!("state transition failed! error: {:?}", self.inner);
 
         info!("broadcasting error phase event");
@@ -50,13 +51,18 @@ where
             PhaseEvent::Error,
         );
 
-        let next_state = match self.inner {
+        Ok(())
+    }
+
+    /// Moves from the error state to the next state.
+    ///
+    /// See the [module level documentation](../index.html) for more details.
+    fn next(self) -> Option<StateMachine<R>> {
+        Some(match self.inner {
             StateError::ChannelError(_) => {
                 PhaseState::<R, Shutdown>::new(self.coordinator_state, self.request_rx).into()
             }
             _ => PhaseState::<R, Idle>::new(self.coordinator_state, self.request_rx).into(),
-        };
-
-        Some(next_state)
+        })
     }
 }

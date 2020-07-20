@@ -117,7 +117,7 @@ use crate::{
     state_machine::{
         coordinator::CoordinatorState,
         events::EventSubscriber,
-        phases::{Idle, Phase, PhaseState, Shutdown, StateError, Sum, Sum2, Unmask, Update},
+        phases::{Idle, Phase, PhaseState, Purge, Shutdown, StateError, Sum, Sum2, Unmask, Update},
         requests::{Request, RequestReceiver, RequestSender},
     },
     utils::trace::Traced,
@@ -155,13 +155,13 @@ pub type TracingStateMachine = StateMachine<Traced<Request>>;
 
 impl<R> StateMachine<R>
 where
-    PhaseState<R, Idle>: Phase<R>,
-    PhaseState<R, Sum>: Phase<R>,
-    PhaseState<R, Update>: Phase<R>,
-    PhaseState<R, Sum2>: Phase<R>,
-    PhaseState<R, Unmask>: Phase<R>,
-    PhaseState<R, StateError>: Phase<R>,
-    PhaseState<R, Shutdown>: Phase<R>,
+    PhaseState<R, Idle>: Phase<R> + Purge<R>,
+    PhaseState<R, Sum>: Phase<R> + Purge<R>,
+    PhaseState<R, Update>: Phase<R> + Purge<R>,
+    PhaseState<R, Sum2>: Phase<R> + Purge<R>,
+    PhaseState<R, Unmask>: Phase<R> + Purge<R>,
+    PhaseState<R, StateError>: Phase<R> + Purge<R>,
+    PhaseState<R, Shutdown>: Phase<R> + Purge<R>,
 {
     /// Creates a new state machine with the initial state [`Idle`].
     ///
@@ -206,13 +206,13 @@ where
     /// Returns the next state or `None` if the [`StateMachine`] reached the state [`Shutdown`].
     pub async fn next(self) -> Option<Self> {
         match self {
-            StateMachine::Idle(state) => state.next().await,
-            StateMachine::Sum(state) => state.next().await,
-            StateMachine::Update(state) => state.next().await,
-            StateMachine::Sum2(state) => state.next().await,
-            StateMachine::Unmask(state) => state.next().await,
-            StateMachine::Error(state) => state.next().await,
-            StateMachine::Shutdown(state) => state.next().await,
+            StateMachine::Idle(state) => state.run_phase().await,
+            StateMachine::Sum(state) => state.run_phase().await,
+            StateMachine::Update(state) => state.run_phase().await,
+            StateMachine::Sum2(state) => state.run_phase().await,
+            StateMachine::Unmask(state) => state.run_phase().await,
+            StateMachine::Error(state) => state.run_phase().await,
+            StateMachine::Shutdown(state) => state.run_phase().await,
         }
     }
 

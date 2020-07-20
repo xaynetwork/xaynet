@@ -37,10 +37,12 @@ impl<R> Phase<R> for PhaseState<R, Unmask>
 where
     R: Send,
 {
-    /// Moves from the unmask state to the next state.
-    ///
-    /// See the [module level documentation](../index.html) for more details.
-    async fn next(mut self) -> Option<StateMachine<R>> {
+    fn is_unmask(&self) -> bool {
+        true
+    }
+
+    /// Run the unmasking phase
+    async fn run(&mut self) -> Result<(), StateError> {
         info!("starting unmasking phase");
 
         info!("broadcasting unmasking phase event");
@@ -49,18 +51,23 @@ where
             PhaseEvent::Unmask,
         );
 
-        let next_state = match self.run_phase().await {
-            Ok(_) => {
-                info!("unmasking phased completed successfully, going back to idle phase");
-                PhaseState::<R, Idle>::new(self.coordinator_state, self.request_rx).into()
-            }
-            Err(err) => {
-                error!("unmasking phase failed: {}", err);
-                PhaseState::<R, StateError>::new(self.coordinator_state, self.request_rx, err)
-                    .into()
-            }
-        };
-        Some(next_state)
+        let global_model = self.end_round()?;
+
+        info!("broadcasting the new global model");
+        self.coordinator_state.events.broadcast_model(
+            self.coordinator_state.round_params.seed.clone(),
+            ModelUpdate::New(Arc::new(global_model)),
+        );
+
+        Ok(())
+    }
+
+    /// Moves from the unmask state to the next state.
+    ///
+    /// See the [module level documentation](../index.html) for more details.
+    fn next(self) -> Option<StateMachine<R>> {
+        info!("going back to idle phase");
+        Some(PhaseState::<R, Idle>::new(self.coordinator_state, self.request_rx).into())
     }
 }
 
@@ -81,18 +88,6 @@ impl<R> PhaseState<R, Unmask> {
             coordinator_state,
             request_rx,
         }
-    }
-
-    /// Runs the unmask phase.
-    async fn run_phase(&mut self) -> Result<(), StateError> {
-        let global_model = self.end_round()?;
-        info!("broadcasting the new global model");
-        self.coordinator_state.events.broadcast_model(
-            self.coordinator_state.round_params.seed.clone(),
-            ModelUpdate::New(Arc::new(global_model)),
-        );
-
-        Ok(())
     }
 
     /// Freezes the mask dictionary.

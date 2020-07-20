@@ -136,6 +136,14 @@ impl<R> RequestReceiver<R> {
     pub async fn recv(&mut self) -> Option<R> {
         self.0.recv().await
     }
+
+    /// Try to retrieve the next request without blocked
+    /// See [the `tokio` documentation][try_receive] for more information.
+    ///
+    /// [try_receive]: https://docs.rs/tokio/0.2.21/tokio/sync/mpsc/struct.UnboundedReceiver.html#method.try_recv
+    pub fn try_recv(&mut self) -> Result<R, tokio::sync::mpsc::error::TryRecvError> {
+        self.0.try_recv()
+    }
 }
 
 #[cfg(test)]

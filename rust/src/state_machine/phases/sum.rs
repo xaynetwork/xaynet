@@ -4,7 +4,7 @@ use crate::{
     state_machine::{
         coordinator::CoordinatorState,
         events::{DictionaryUpdate, PhaseEvent},
-        phases::{Handler, Phase, PhaseState, StateError, Update},
+        phases::{reject_request, Handler, Phase, PhaseState, Purge, StateError, Update},
         requests::{Request, RequestReceiver, SumRequest, SumResponse},
         StateMachine,
     },
@@ -20,6 +20,8 @@ use tokio::{sync::oneshot, time::Duration};
 pub struct Sum {
     /// Dictionary built during the sum phase.
     sum_dict: SumDict,
+    /// Seed dictionary built at the end of the sum phase.
+    seed_dict: Option<SeedDict>,
 }
 
 #[cfg(test)]
@@ -39,8 +41,7 @@ impl<R> Handler<Request> for PhaseState<R, Sum> {
     fn handle_request(&mut self, req: Request) {
         match req {
             Request::Sum((sum_req, response_tx)) => self.handle_sum(sum_req, response_tx),
-            Request::Update((_, response_tx)) => Self::handle_invalid_message(response_tx),
-            Request::Sum2((_, response_tx)) => Self::handle_invalid_message(response_tx),
+            _ => reject_request(req),
         }
     }
 }
@@ -48,13 +49,17 @@ impl<R> Handler<Request> for PhaseState<R, Sum> {
 #[async_trait]
 impl<R> Phase<R> for PhaseState<R, Sum>
 where
-    Self: Handler<R>,
+    Self: Handler<R> + Purge<R>,
     R: Send,
 {
-    /// Moves from the sum state to the next state.
+    fn is_sum(&self) -> bool {
+        true
+    }
+
+    /// Run the sum phase.
     ///
     /// See the [module level documentation](../index.html) for more details.
-    async fn next(mut self) -> Option<StateMachine<R>> {
+    async fn run(&mut self) -> Result<(), StateError> {
         info!("starting sum phase");
 
         info!("broadcasting sum phase event");
@@ -62,29 +67,7 @@ where
             self.coordinator_state.round_params.seed.clone(),
             PhaseEvent::Sum,
         );
-        let next_state = match self.run_phase().await {
-            Ok(seed_dict) => PhaseState::<R, Update>::new(
-                self.coordinator_state,
-                self.request_rx,
-                self.inner.sum_dict,
-                seed_dict,
-            )
-            .into(),
-            Err(err) => {
-                PhaseState::<R, StateError>::new(self.coordinator_state, self.request_rx, err)
-                    .into()
-            }
-        };
-        Some(next_state)
-    }
-}
 
-impl<R> PhaseState<R, Sum>
-where
-    Self: Handler<R>,
-{
-    /// Runs the sum phase.
-    pub async fn run_phase(&mut self) -> Result<SeedDict, StateError> {
         let min_time = self.coordinator_state.min_sum_time;
         debug!("in sum phase for a minimum of {} seconds", min_time);
         self.process_during(Duration::from_secs(min_time)).await?;
@@ -104,7 +87,31 @@ where
             self.inner.sum_dict.len(),
             self.coordinator_state.min_sum_count
         );
-        Ok(self.freeze_sum_dict())
+        self.freeze_sum_dict();
+        Ok(())
+    }
+
+    fn next(self) -> Option<StateMachine<R>> {
+        let Self {
+            inner: Sum {
+                sum_dict,
+                seed_dict,
+            },
+            coordinator_state,
+            request_rx,
+        } = self;
+        Some(
+            PhaseState::<R, Update>::new(
+                coordinator_state,
+                request_rx,
+                sum_dict,
+                // `next()` is called at the end of the sum phase, at
+                // which point a new seed dictionary has been build,
+                // so there's something to unwrap here.
+                seed_dict.unwrap(),
+            )
+            .into(),
+        )
     }
 }
 
@@ -115,6 +122,7 @@ impl<R> PhaseState<R, Sum> {
         Self {
             inner: Sum {
                 sum_dict: SumDict::new(),
+                seed_dict: None,
             },
             coordinator_state,
             request_rx,
@@ -129,13 +137,11 @@ impl<R> PhaseState<R, Sum> {
         } = req;
 
         self.inner.sum_dict.insert(participant_pk, ephm_pk);
-
-        // See `Self::handle_invalid_message`
         let _ = response_tx.send(Ok(()));
     }
 
     /// Freezes the sum dictionary.
-    fn freeze_sum_dict(&mut self) -> SeedDict {
+    fn freeze_sum_dict(&mut self) {
         info!("broadcasting sum dictionary");
         self.coordinator_state.events.broadcast_sum_dict(
             self.coordinator_state.round_params.seed.clone(),
@@ -143,11 +149,13 @@ impl<R> PhaseState<R, Sum> {
         );
 
         info!("initializing seed dictionary");
-        self.inner
-            .sum_dict
-            .keys()
-            .map(|pk| (*pk, LocalSeedDict::new()))
-            .collect()
+        self.inner.seed_dict = Some(
+            self.inner
+                .sum_dict
+                .keys()
+                .map(|pk| (*pk, LocalSeedDict::new()))
+                .collect(),
+        )
     }
 
     /// Checks whether enough sum participants submitted their ephemeral keys to start the update
@@ -172,6 +180,7 @@ mod test {
     pub async fn sum_to_update() {
         let sum = Sum {
             sum_dict: SumDict::new(),
+            seed_dict: None,
         };
         let (state_machine, mut request_tx, events) = StateMachineBuilder::new()
             .with_phase(sum)

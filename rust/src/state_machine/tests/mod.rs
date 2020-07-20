@@ -85,10 +85,6 @@ async fn full_round() {
     let state_machine = state_machine.next().await.unwrap();
     assert!(state_machine.is_idle());
 
-    // Go back to the sum phase
-    let state_machine = state_machine.next().await.unwrap();
-    assert!(state_machine.is_sum());
-
     // dropping the resquest sender should make the state machine
     // error out
     drop(requests);
