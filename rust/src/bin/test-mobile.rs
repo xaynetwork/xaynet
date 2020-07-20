@@ -1,4 +1,3 @@
-#[macro_use]
 extern crate tracing;
 
 use std::io::{stdin, stdout, Read, Write};
@@ -48,7 +47,7 @@ fn main() -> Result<(), ()> {
     // crucial: init must be called before anything else in this module
     sodiumoxide::init().unwrap();
 
-    let SigningKeyPair { public, secret } = SigningKeyPair::generate();
+    let SigningKeyPair { public: _, secret } = SigningKeyPair::generate();
 
     let participant_settings = ParticipantSettings {
         secret_key: secret,
