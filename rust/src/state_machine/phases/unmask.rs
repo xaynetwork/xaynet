@@ -4,8 +4,8 @@ use crate::{
     mask::{masking::Aggregation, model::Model, object::MaskObject},
     state_machine::{
         coordinator::{CoordinatorState, MaskDict},
-        events::{ModelUpdate, PhaseEvent},
-        phases::{Idle, Phase, PhaseState, StateError},
+        events::ModelUpdate,
+        phases::{Idle, Phase, PhaseName, PhaseState, StateError},
         requests::RequestReceiver,
         RoundFailed,
         StateMachine,
@@ -37,9 +37,7 @@ impl<R> Phase<R> for PhaseState<R, Unmask>
 where
     R: Send,
 {
-    fn is_unmask(&self) -> bool {
-        true
-    }
+    const NAME: PhaseName = PhaseName::Unmask;
 
     /// Run the unmasking phase
     async fn run(&mut self) -> Result<(), StateError> {
@@ -48,7 +46,7 @@ where
         info!("broadcasting unmasking phase event");
         self.coordinator_state.events.broadcast_phase(
             self.coordinator_state.round_params.seed.clone(),
-            PhaseEvent::Unmask,
+            PhaseName::Unmask,
         );
 
         let global_model = self.end_round()?;

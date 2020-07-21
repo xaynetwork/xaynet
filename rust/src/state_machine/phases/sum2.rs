@@ -2,8 +2,16 @@ use crate::{
     mask::{masking::Aggregation, object::MaskObject},
     state_machine::{
         coordinator::{CoordinatorState, MaskDict},
-        events::PhaseEvent,
-        phases::{reject_request, Handler, Phase, PhaseState, Purge, StateError, Unmask},
+        phases::{
+            reject_request,
+            Handler,
+            Phase,
+            PhaseName,
+            PhaseState,
+            Purge,
+            StateError,
+            Unmask,
+        },
         requests::{Request, RequestReceiver, Sum2Request, Sum2Response},
         StateMachine,
     },
@@ -32,9 +40,11 @@ impl Sum2 {
     pub fn sum_dict(&self) -> &SumDict {
         &self.sum_dict
     }
+
     pub fn aggregation(&self) -> &Aggregation {
         &self.aggregation
     }
+
     pub fn mask_dict(&self) -> &MaskDict {
         &self.mask_dict
     }
@@ -46,9 +56,7 @@ where
     Self: Purge<R> + Handler<R>,
     R: Send,
 {
-    fn is_sum2(&self) -> bool {
-        true
-    }
+    const NAME: PhaseName = PhaseName::Sum2;
 
     /// Run the sum2 phase
     ///
@@ -58,7 +66,7 @@ where
         info!("broadcasting sum2 phase event");
         self.coordinator_state.events.broadcast_phase(
             self.coordinator_state.round_params.seed.clone(),
-            PhaseEvent::Sum2,
+            PhaseName::Sum2,
         );
 
         let min_time = self.coordinator_state.min_sum_time;
@@ -271,7 +279,7 @@ mod test {
             events.phase_listener().get_latest(),
             Event {
                 round_id: seed.clone(),
-                event: PhaseEvent::Sum2,
+                event: PhaseName::Sum2,
             }
         );
     }

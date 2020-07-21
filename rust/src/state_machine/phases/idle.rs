@@ -2,8 +2,8 @@ use crate::{
     crypto::{encrypt::EncryptKeyPair, sign::SigningKeySeed, ByteObject},
     state_machine::{
         coordinator::{CoordinatorState, RoundSeed},
-        events::{DictionaryUpdate, MaskLengthUpdate, PhaseEvent, ScalarUpdate},
-        phases::{reject_request, Handler, Phase, PhaseState, Sum},
+        events::{DictionaryUpdate, MaskLengthUpdate, ScalarUpdate},
+        phases::{reject_request, Handler, Phase, PhaseName, PhaseState, Sum},
         requests::{Request, RequestReceiver},
         StateError,
         StateMachine,
@@ -28,6 +28,8 @@ impl<R> Phase<R> for PhaseState<R, Idle>
 where
     R: Send,
 {
+    const NAME: PhaseName = PhaseName::Idle;
+
     /// Moves from the idle state to the next state.
     ///
     /// See the [module level documentation](../index.html) for more details.
@@ -54,7 +56,7 @@ where
         info!("broadcasting idle phase event");
         events.broadcast_phase(
             self.coordinator_state.round_params.seed.clone(),
-            PhaseEvent::Idle,
+            PhaseName::Idle,
         );
 
         info!("broadcasting invalidation of sum dictionary from previous round");
@@ -91,10 +93,6 @@ where
     fn next(self) -> Option<StateMachine<R>> {
         info!("going to sum phase");
         Some(PhaseState::<R, Sum>::new(self.coordinator_state, self.request_rx).into())
-    }
-
-    fn is_idle(&self) -> bool {
-        true
     }
 }
 
@@ -177,7 +175,7 @@ mod test {
             events.phase_listener().get_latest(),
             Event {
                 round_id: new_seed.clone(),
-                event: PhaseEvent::Idle,
+                event: PhaseName::Idle,
             }
         );
         assert_eq!(

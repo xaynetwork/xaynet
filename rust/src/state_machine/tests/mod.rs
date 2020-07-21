@@ -85,7 +85,7 @@ async fn full_round() {
     let state_machine = state_machine.next().await.unwrap();
     assert!(state_machine.is_idle());
 
-    // dropping the resquest sender should make the state machine
+    // dropping the request sender should make the state machine
     // error out
     drop(requests);
     let state_machine = state_machine.next().await.unwrap();

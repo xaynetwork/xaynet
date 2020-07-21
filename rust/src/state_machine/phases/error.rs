@@ -1,7 +1,6 @@
 use crate::state_machine::{
     coordinator::CoordinatorState,
-    events::PhaseEvent,
-    phases::{Idle, Phase, PhaseState, Shutdown},
+    phases::{Idle, Phase, PhaseName, PhaseState, Shutdown},
     requests::RequestReceiver,
     RoundFailed,
     StateMachine,
@@ -38,9 +37,7 @@ impl<R> Phase<R> for PhaseState<R, StateError>
 where
     R: Send,
 {
-    fn is_error(&self) -> bool {
-        true
-    }
+    const NAME: PhaseName = PhaseName::Error;
 
     async fn run(&mut self) -> Result<(), StateError> {
         error!("state transition failed! error: {:?}", self.inner);
@@ -48,7 +45,7 @@ where
         info!("broadcasting error phase event");
         self.coordinator_state.events.broadcast_phase(
             self.coordinator_state.round_params.seed.clone(),
-            PhaseEvent::Error,
+            PhaseName::Error,
         );
 
         Ok(())

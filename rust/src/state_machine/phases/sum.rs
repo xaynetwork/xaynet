@@ -3,8 +3,17 @@ use std::sync::Arc;
 use crate::{
     state_machine::{
         coordinator::CoordinatorState,
-        events::{DictionaryUpdate, PhaseEvent},
-        phases::{reject_request, Handler, Phase, PhaseState, Purge, StateError, Update},
+        events::DictionaryUpdate,
+        phases::{
+            reject_request,
+            Handler,
+            Phase,
+            PhaseName,
+            PhaseState,
+            Purge,
+            StateError,
+            Update,
+        },
         requests::{Request, RequestReceiver, SumRequest, SumResponse},
         StateMachine,
     },
@@ -52,9 +61,7 @@ where
     Self: Handler<R> + Purge<R>,
     R: Send,
 {
-    fn is_sum(&self) -> bool {
-        true
-    }
+    const NAME: PhaseName = PhaseName::Sum;
 
     /// Run the sum phase.
     ///
@@ -65,7 +72,7 @@ where
         info!("broadcasting sum phase event");
         self.coordinator_state.events.broadcast_phase(
             self.coordinator_state.round_params.seed.clone(),
-            PhaseEvent::Sum,
+            PhaseName::Sum,
         );
 
         let min_time = self.coordinator_state.min_sum_time;
@@ -238,7 +245,7 @@ mod test {
             events.phase_listener().get_latest(),
             Event {
                 round_id: seed.clone(),
-                event: PhaseEvent::Sum,
+                event: PhaseName::Sum,
             }
         );
     }

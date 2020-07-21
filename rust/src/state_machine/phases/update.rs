@@ -4,8 +4,8 @@ use crate::{
     mask::{masking::Aggregation, object::MaskObject},
     state_machine::{
         coordinator::CoordinatorState,
-        events::{DictionaryUpdate, MaskLengthUpdate, PhaseEvent, ScalarUpdate},
-        phases::{reject_request, Handler, Phase, PhaseState, Purge, StateError, Sum2},
+        events::{DictionaryUpdate, MaskLengthUpdate, ScalarUpdate},
+        phases::{reject_request, Handler, Phase, PhaseName, PhaseState, Purge, StateError, Sum2},
         requests::{Request, RequestReceiver, UpdateRequest, UpdateResponse},
         StateMachine,
     },
@@ -50,9 +50,7 @@ where
     Self: Handler<R> + Purge<R>,
     R: Send,
 {
-    fn is_update(&self) -> bool {
-        true
-    }
+    const NAME: PhaseName = PhaseName::Update;
 
     /// Moves from the update state to the next state.
     ///
@@ -63,7 +61,7 @@ where
         info!("broadcasting update phase event");
         self.coordinator_state.events.broadcast_phase(
             self.coordinator_state.round_params.seed.clone(),
-            PhaseEvent::Update,
+            PhaseName::Update,
         );
 
         let scalar = 1_f64
@@ -371,7 +369,7 @@ mod test {
             events.phase_listener().get_latest(),
             Event {
                 round_id: seed.clone(),
-                event: PhaseEvent::Update,
+                event: PhaseName::Update,
             }
         );
         assert_eq!(

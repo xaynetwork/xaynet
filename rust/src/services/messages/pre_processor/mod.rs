@@ -21,7 +21,8 @@ use crate::{
     message::{message::MessageOwned, payload::PayloadOwned},
     state_machine::{
         coordinator::RoundParameters,
-        events::{Event, EventListener, EventSubscriber, PhaseEvent},
+        events::{Event, EventListener, EventSubscriber},
+        phases::PhaseName,
     },
     utils::trace::{Traceable, Traced},
 };
@@ -31,9 +32,9 @@ use crate::{
 pub struct PreProcessorService {
     params_listener: EventListener<RoundParameters>,
     /// A stream that receives phase updates
-    phase_listener: EventListener<PhaseEvent>,
+    phase_listener: EventListener<PhaseName>,
     /// Latest phase event the service has received
-    latest_phase_event: Event<PhaseEvent>,
+    latest_phase_event: Event<PhaseName>,
     /// Inner service to handle sum messages
     sum: SumPreProcessorService,
     /// Inner service to handle update messages
@@ -74,9 +75,9 @@ impl Service<Traced<PreProcessorRequest>> for PreProcessorService {
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.latest_phase_event = self.phase_listener.get_latest();
         match self.latest_phase_event.event {
-            PhaseEvent::Sum => self.sum.poll_ready(cx),
-            PhaseEvent::Update => self.update.poll_ready(cx),
-            PhaseEvent::Sum2 => self.sum2.poll_ready(cx),
+            PhaseName::Sum => self.sum.poll_ready(cx),
+            PhaseName::Update => self.update.poll_ready(cx),
+            PhaseName::Sum2 => self.sum2.poll_ready(cx),
             _ => Poll::Ready(Ok(())),
         }
     }
@@ -84,17 +85,17 @@ impl Service<Traced<PreProcessorRequest>> for PreProcessorService {
     fn call(&mut self, req: Traced<PreProcessorRequest>) -> Self::Future {
         let MessageOwned { header, payload } = req.into_inner().0;
         match (self.latest_phase_event.event, payload) {
-            (PhaseEvent::Sum, PayloadOwned::Sum(sum)) => {
+            (PhaseName::Sum, PayloadOwned::Sum(sum)) => {
                 let req = (header, sum, self.params_listener.get_latest().event);
                 let fut = self.sum.call(req);
                 Box::pin(fut)
             }
-            (PhaseEvent::Update, PayloadOwned::Update(update)) => {
+            (PhaseName::Update, PayloadOwned::Update(update)) => {
                 let req = (header, update, self.params_listener.get_latest().event);
                 let fut = self.update.call(req);
                 Box::pin(fut)
             }
-            (PhaseEvent::Sum2, PayloadOwned::Sum2(sum2)) => {
+            (PhaseName::Sum2, PayloadOwned::Sum2(sum2)) => {
                 let req = (header, sum2, self.params_listener.get_latest().event);
                 let fut = self.sum2.call(req);
                 Box::pin(fut)

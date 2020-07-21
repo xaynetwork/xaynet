@@ -19,7 +19,10 @@ use crate::{
         traits::{FromBytes, ToBytes},
         DecodeError,
     },
-    state_machine::events::{EventListener, EventSubscriber, PhaseEvent},
+    state_machine::{
+        events::{EventListener, EventSubscriber},
+        phases::PhaseName,
+    },
     utils::trace::{Traceable, Traced},
     Signature,
 };
@@ -39,7 +42,7 @@ pub struct MessageParserService {
     /// that cannot be handled in the current phase will be
     /// rejected. The idea is to perform this filtering as early as
     /// possible.
-    phase_events: EventListener<PhaseEvent>,
+    phase_events: EventListener<PhaseName>,
 
     /// Thread-pool the CPU-intensive tasks are offloaded to
     thread_pool: Arc<ThreadPool>,
@@ -147,7 +150,7 @@ struct Handler {
     /// Coordinator keys for the current round
     keys: EncryptKeyPair,
     /// Current phase of the coordinator
-    phase: PhaseEvent,
+    phase: PhaseName,
 }
 
 impl Handler {
@@ -192,9 +195,9 @@ impl Handler {
     /// the current phase
     fn phase_filter(&self, tag: Tag) -> Result<(), MessageParserError> {
         match (tag, self.phase) {
-            (Tag::Sum, PhaseEvent::Sum)
-            | (Tag::Update, PhaseEvent::Update)
-            | (Tag::Sum2, PhaseEvent::Sum2) => Ok(()),
+            (Tag::Sum, PhaseName::Sum)
+            | (Tag::Update, PhaseName::Update)
+            | (Tag::Sum2, PhaseName::Sum2) => Ok(()),
             (tag, phase) => {
                 warn!(
                     "rejecting request: message type is {:?} but phase is {:?}",

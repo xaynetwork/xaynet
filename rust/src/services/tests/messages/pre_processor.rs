@@ -7,7 +7,10 @@ use crate::{
         messages::{PreProcessorError, PreProcessorRequest, PreProcessorService},
         tests::utils,
     },
-    state_machine::events::{EventPublisher, EventSubscriber, PhaseEvent},
+    state_machine::{
+        events::{EventPublisher, EventSubscriber},
+        phases::PhaseName,
+    },
     utils::trace::Traced,
 };
 
@@ -32,7 +35,7 @@ async fn test_sum_ok() {
 
     let round_id = round_params.seed.clone();
     publisher.broadcast_params(round_params.clone());
-    publisher.broadcast_phase(round_id, PhaseEvent::Sum);
+    publisher.broadcast_phase(round_id, PhaseName::Sum);
 
     let (message, _, _) = utils::new_sum_message(&round_params);
     let req = make_req(message.clone());
@@ -53,7 +56,7 @@ async fn test_sum_not_eligible() {
 
     let round_id = round_params.seed.clone();
     publisher.broadcast_params(round_params.clone());
-    publisher.broadcast_phase(round_id, PhaseEvent::Sum);
+    publisher.broadcast_phase(round_id, PhaseName::Sum);
 
     let (message, _, _) = utils::new_sum_message(&round_params);
     let req = make_req(message.clone());
@@ -83,7 +86,7 @@ async fn test_phase_change_between_poll_ready_and_call() {
     let (message, _, _) = utils::new_sum_message(&round_params);
     let req = make_req(message.clone());
 
-    publisher.broadcast_phase(round_params.seed.clone(), PhaseEvent::Sum);
+    publisher.broadcast_phase(round_params.seed.clone(), PhaseName::Sum);
 
     let err = task.call(req).await.unwrap().unwrap_err();
     match err {

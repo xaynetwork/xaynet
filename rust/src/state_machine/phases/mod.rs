@@ -31,49 +31,29 @@ use crate::{
 use futures::StreamExt;
 use tokio::sync::oneshot;
 
+/// Name of the current phase
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub enum PhaseName {
+    Idle,
+    Sum,
+    Update,
+    Sum2,
+    Unmask,
+    Error,
+    Shutdown,
+}
+
 /// A trait that must be implemented by a state in order to move to a next state.
 #[async_trait]
 pub trait Phase<R> {
-    /// Moves from this state to the next state.
-    fn next(self) -> Option<StateMachine<R>>;
+    /// Name of the current phase
+    const NAME: PhaseName;
 
     /// Run this phase to completion
     async fn run(&mut self) -> Result<(), StateError>;
 
-    /// Return `true` if this is the error phase
-    fn is_error(&self) -> bool {
-        false
-    }
-
-    /// Return `true` if this is the idle phase
-    fn is_idle(&self) -> bool {
-        false
-    }
-
-    /// Return `true` if this is the shutdown phase
-    fn is_shutdown(&self) -> bool {
-        false
-    }
-
-    /// Return `true` if this is the sum phase
-    fn is_sum(&self) -> bool {
-        false
-    }
-
-    /// Return `true` if this is the sum2 phase
-    fn is_sum2(&self) -> bool {
-        false
-    }
-
-    /// Return `true` if this is the update phase
-    fn is_update(&self) -> bool {
-        false
-    }
-
-    /// Return `true` if this is the unmask phase
-    fn is_unmask(&self) -> bool {
-        false
-    }
+    /// Moves from this state to the next state.
+    fn next(self) -> Option<StateMachine<R>>;
 }
 
 /// A trait that must be implemented by a state to handle a request.
@@ -173,8 +153,11 @@ where
         if let Err(err) = self.purge_outdated_requests() {
             // If we're already in the error state or shutdown state,
             // ignore this error
-            if !self.is_error() && !self.is_shutdown() {
-                return Some(self.into_error_state(err));
+            match <Self as Phase<R>>::NAME {
+                PhaseName::Error | PhaseName::Shutdown => {
+                    debug!("already in error/shutdown state: ignoring error while purging outdated requests");
+                }
+                _ => return Some(self.into_error_state(err)),
             }
         }
 

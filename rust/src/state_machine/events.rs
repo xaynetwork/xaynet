@@ -15,7 +15,10 @@ use tokio::sync::watch;
 use crate::{
     crypto::encrypt::EncryptKeyPair,
     mask::model::Model,
-    state_machine::coordinator::{RoundParameters, RoundSeed},
+    state_machine::{
+        coordinator::{RoundParameters, RoundSeed},
+        phases::PhaseName,
+    },
     SeedDict,
     SumDict,
 };
@@ -28,19 +31,6 @@ pub struct Event<E> {
     pub round_id: RoundSeed,
     /// The event itself
     pub event: E,
-}
-
-/// Event that is emitted when the state machine transitions to a new
-/// phase.
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub enum PhaseEvent {
-    Idle,
-    Sum,
-    Update,
-    Sum2,
-    Unmask,
-    Error,
-    Shutdown,
 }
 
 // FIXME: should we simply use `Option`s here?
@@ -77,7 +67,7 @@ pub enum DictionaryUpdate<D> {
 pub struct EventPublisher {
     keys_tx: EventBroadcaster<EncryptKeyPair>,
     params_tx: EventBroadcaster<RoundParameters>,
-    phase_tx: EventBroadcaster<PhaseEvent>,
+    phase_tx: EventBroadcaster<PhaseName>,
     scalar_tx: EventBroadcaster<ScalarUpdate>,
     model_tx: EventBroadcaster<ModelUpdate>,
     mask_length_tx: EventBroadcaster<MaskLengthUpdate>,
@@ -91,7 +81,7 @@ pub struct EventPublisher {
 pub struct EventSubscriber {
     keys_rx: EventListener<EncryptKeyPair>,
     params_rx: EventListener<RoundParameters>,
-    phase_rx: EventListener<PhaseEvent>,
+    phase_rx: EventListener<PhaseName>,
     scalar_rx: EventListener<ScalarUpdate>,
     model_rx: EventListener<ModelUpdate>,
     mask_length_rx: EventListener<MaskLengthUpdate>,
@@ -104,14 +94,14 @@ impl EventPublisher {
     pub fn init(
         keys: EncryptKeyPair,
         params: RoundParameters,
-        phase: PhaseEvent,
+        phase: PhaseName,
     ) -> (Self, EventSubscriber) {
         let (keys_tx, keys_rx) = watch::channel::<Event<EncryptKeyPair>>(Event {
             round_id: params.seed.clone(),
             event: keys,
         });
 
-        let (phase_tx, phase_rx) = watch::channel::<Event<PhaseEvent>>(Event {
+        let (phase_tx, phase_rx) = watch::channel::<Event<PhaseName>>(Event {
             round_id: params.seed.clone(),
             event: phase,
         });
@@ -190,7 +180,7 @@ impl EventPublisher {
     }
 
     /// Emit a phase event
-    pub fn broadcast_phase(&mut self, round_id: RoundSeed, phase: PhaseEvent) {
+    pub fn broadcast_phase(&mut self, round_id: RoundSeed, phase: PhaseName) {
         let _ = self.phase_tx.broadcast(Event {
             round_id,
             event: phase,
@@ -251,7 +241,7 @@ impl EventSubscriber {
     }
 
     /// Get a listener for new phase events
-    pub fn phase_listener(&self) -> EventListener<PhaseEvent> {
+    pub fn phase_listener(&self) -> EventListener<PhaseName> {
         self.phase_rx.clone()
     }
 
