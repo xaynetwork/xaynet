@@ -204,6 +204,7 @@ mod test {
         let sum_ratio = 0.5;
         let update_ratio = 1.0;
         let coord_keys = EncryptKeyPair::generate();
+        let model_size = 4;
 
         // Generate a sum dictionary with a single sum participant
         let mut summer = generate_summer(&seed, sum_ratio, update_ratio);
@@ -214,12 +215,12 @@ mod test {
         // Generate a new masked model, seed dictionary and aggregration
         let updater = generate_updater(&seed, sum_ratio, update_ratio);
         let scalar = 1.0 / (n_updaters as f64 * update_ratio);
-        let model = Model::from_primitives(vec![0; 4].into_iter()).unwrap();
+        let model = Model::from_primitives(vec![0; model_size].into_iter()).unwrap();
         let msg =
             updater.compose_update_message(coord_keys.public, &sum_dict, scalar, model.clone());
         let masked_model = msg.masked_model();
         let local_seed_dict = msg.local_seed_dict();
-        let mut aggregation = Aggregation::new(mask_settings().into());
+        let mut aggregation = Aggregation::new(mask_settings().into(), model_size);
         aggregation.aggregate(masked_model.clone());
 
         // Create the state machine

@@ -113,7 +113,7 @@ pub mod requests;
 
 use crate::{
     mask::masking::UnmaskingError,
-    settings::{MaskSettings, PetSettings},
+    settings::{MaskSettings, ModelSettings, PetSettings},
     state_machine::{
         coordinator::CoordinatorState,
         events::EventSubscriber,
@@ -189,11 +189,12 @@ where
     pub fn new(
         pet_settings: PetSettings,
         mask_settings: MaskSettings,
+        model_settings: ModelSettings,
     ) -> Result<(Self, RequestSender<R>, EventSubscriber), InitError> {
         // crucial: init must be called before anything else in this module
         sodiumoxide::init().or(Err(InitError))?;
         let (coordinator_state, event_subscriber) =
-            CoordinatorState::new(pet_settings, mask_settings);
+            CoordinatorState::new(pet_settings, mask_settings, model_settings);
 
         let (req_receiver, handle) = RequestReceiver::<R>::new();
         let state_machine =

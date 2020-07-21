@@ -228,7 +228,7 @@ impl Participant {
             return Err(PetError::InvalidMask);
         }
 
-        let mut aggregation = Aggregation::new(mask_config);
+        let mut aggregation = Aggregation::new(mask_config, mask_len);
         for seed in mask_seeds.into_iter() {
             let mask = seed.derive_mask(mask_len, mask_config);
             aggregation

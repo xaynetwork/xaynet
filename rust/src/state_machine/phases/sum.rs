@@ -181,6 +181,7 @@ mod test {
             // Make sure a single participant is enough to go to the
             // update phase
             .with_min_sum(1)
+            .with_model_size(4)
             .build();
         assert!(state_machine.is_sum());
 
@@ -215,7 +216,7 @@ mod test {
         assert_eq!(pk.clone(), summer.pk);
         assert!(dict.is_empty());
 
-        assert_eq!(update_state.aggregation().len(), 0);
+        assert_eq!(update_state.aggregation().len(), 4);
 
         // Make sure that the round seed and parameters are unchanged
         assert_eq!(seed, coordinator_state.round_params.seed);

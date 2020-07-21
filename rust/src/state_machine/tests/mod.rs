@@ -24,6 +24,7 @@ async fn full_round() {
     let update_ratio = 1.0;
     let coord_keys = EncryptKeyPair::generate();
     let coord_pk = &coord_keys.public;
+    let model_size = 4;
 
     let (state_machine, mut requests, events) = StateMachineBuilder::new()
         .with_seed(seed.clone())
@@ -32,6 +33,7 @@ async fn full_round() {
         .with_min_sum(n_summers)
         .with_min_update(n_updaters)
         .with_expected_participants(n_updaters + n_summers)
+        .with_model_size(model_size)
         .build();
 
     assert!(state_machine.is_idle());
@@ -55,7 +57,7 @@ async fn full_round() {
     let transition_task = tokio::spawn(async { state_machine.next().await.unwrap() });
     let sum_dict = events.sum_dict_listener().get_latest().event.unwrap();
     let scalar = 1.0 / (n_updaters as f64 * update_ratio);
-    let model = Model::from_primitives(vec![0; 4].into_iter()).unwrap();
+    let model = Model::from_primitives(vec![0; model_size].into_iter()).unwrap();
     for _ in 0..3 {
         let updater = generate_updater(&seed, sum_ratio, update_ratio);
         let msg = updater.compose_update_message(*coord_pk, &sum_dict, scalar, model.clone());

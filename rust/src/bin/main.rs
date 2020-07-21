@@ -24,6 +24,7 @@ async fn main() {
         mask: mask_settings,
         api: api_settings,
         log: log_settings,
+        model: model_settings,
     } = Settings::new(opt.config_path).unwrap_or_else(|err| {
         eprintln!("{}", err);
         process::exit(1);
@@ -40,7 +41,7 @@ async fn main() {
     sodiumoxide::init().unwrap();
 
     let (state_machine, requests_tx, event_subscriber) =
-        StateMachine::<Traced<Request>>::new(pet_settings, mask_settings).unwrap();
+        StateMachine::<Traced<Request>>::new(pet_settings, mask_settings, model_settings).unwrap();
     let fetcher = services::fetcher(&event_subscriber);
     let message_handler = services::message_handler(&event_subscriber, requests_tx);
 

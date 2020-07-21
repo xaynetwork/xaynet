@@ -6,7 +6,7 @@ use sodiumoxide::{self, crypto::box_};
 use crate::{
     crypto::{encrypt::EncryptKeyPair, ByteObject},
     mask::{config::MaskConfig, object::MaskObject},
-    settings::{MaskSettings, PetSettings},
+    settings::{MaskSettings, ModelSettings, PetSettings},
     state_machine::events::{EventPublisher, EventSubscriber, PhaseEvent},
     CoordinatorPublicKey,
 };
@@ -43,12 +43,18 @@ pub struct CoordinatorState {
     pub expected_participants: usize,
     /// The masking configuration.
     pub mask_config: MaskConfig,
+    /// The size of the model.
+    pub model_size: usize,
     /// The event publisher.
     pub events: EventPublisher,
 }
 
 impl CoordinatorState {
-    pub fn new(pet_settings: PetSettings, mask_settings: MaskSettings) -> (Self, EventSubscriber) {
+    pub fn new(
+        pet_settings: PetSettings,
+        mask_settings: MaskSettings,
+        model_settings: ModelSettings,
+    ) -> (Self, EventSubscriber) {
         let keys = EncryptKeyPair::generate();
         let round_params = RoundParameters {
             pk: keys.public,
@@ -71,6 +77,7 @@ impl CoordinatorState {
             min_update_time: pet_settings.min_update_time,
             expected_participants: pet_settings.expected_participants,
             mask_config: mask_settings.into(),
+            model_size: model_settings.size,
         };
         (coordinator_state, subscriber)
     }
