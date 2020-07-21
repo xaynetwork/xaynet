@@ -78,7 +78,7 @@ impl Participant<Sum2> {
             return Err(PetError::InvalidMask);
         }
 
-        let mut aggregation = Aggregation::new(self.state.mask_config);
+        let mut aggregation = Aggregation::new(self.state.mask_config, mask_len);
         for seed in mask_seeds.into_iter() {
             let mask = seed.derive_mask(mask_len, self.state.mask_config);
             aggregation
