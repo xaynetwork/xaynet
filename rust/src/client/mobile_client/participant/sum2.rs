@@ -53,11 +53,11 @@ impl Participant<Sum2> {
             sum_signature: self.inner.sum_signature,
         };
 
-        Ok(MessageOwned::new_sum2(pk, self.state.pk, payload))
+        Ok(MessageOwned::new_sum2(pk, self.state.keys.public, payload))
     }
 
     pub fn get_participant_pk(&self) -> ParticipantPublicKey {
-        self.state.pk
+        self.state.keys.public
     }
 
     /// Get the mask seeds from the local seed dictionary.
@@ -104,10 +104,6 @@ mod tests {
 
     fn participant_state() -> ParticipantState {
         sodiumoxide::init().unwrap();
-        let SigningKeyPair {
-            public: pk,
-            secret: sk,
-        } = SigningKeyPair::generate();
 
         let certificate = Certificate::new();
         let mask_config = MaskConfig {
@@ -118,8 +114,7 @@ mod tests {
         };
 
         ParticipantState {
-            pk,
-            sk,
+            keys: SigningKeyPair::generate(),
             certificate,
             mask_config,
         }

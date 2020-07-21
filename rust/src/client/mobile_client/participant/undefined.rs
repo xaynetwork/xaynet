@@ -35,9 +35,13 @@ impl Participant<Undefined> {
     /// Compute the sum and update signatures for the given round seed.
     fn compute_signatures(&self, round_seed: &[u8]) -> (SumSignature, UpdateSignature) {
         (
-            self.state.sk.sign_detached(&[round_seed, b"sum"].concat()),
             self.state
-                .sk
+                .keys
+                .secret
+                .sign_detached(&[round_seed, b"sum"].concat()),
+            self.state
+                .keys
+                .secret
                 .sign_detached(&[round_seed, b"update"].concat()),
         )
     }
@@ -57,10 +61,6 @@ mod tests {
 
     fn participant_state() -> ParticipantState {
         sodiumoxide::init().unwrap();
-        let SigningKeyPair {
-            public: pk,
-            secret: sk,
-        } = SigningKeyPair::generate();
 
         let certificate = Certificate::new();
         let mask_config = MaskConfig {
@@ -71,8 +71,7 @@ mod tests {
         };
 
         ParticipantState {
-            pk,
-            sk,
+            keys: SigningKeyPair::generate(),
             certificate,
             mask_config,
         }
@@ -85,9 +84,10 @@ mod tests {
         let (sum_signature, update_signature) = part.compute_signatures(&round_seed);
         assert!(part
             .state
-            .pk
+            .keys
+            .public
             .verify_detached(&sum_signature, &[round_seed.as_slice(), b"sum"].concat(),));
-        assert!(part.state.pk.verify_detached(
+        assert!(part.state.keys.public.verify_detached(
             &update_signature,
             &[round_seed.as_slice(), b"update"].concat(),
         ));
@@ -96,11 +96,11 @@ mod tests {
     #[test]
     fn test_determine_type_sum() {
         let mut state = participant_state();
-        state.pk = ParticipantPublicKey::from_slice_unchecked(&[
+        state.keys.public = ParticipantPublicKey::from_slice_unchecked(&[
             190, 240, 238, 150, 126, 52, 119, 102, 54, 206, 171, 29, 119, 90, 211, 80, 72, 227,
             201, 206, 171, 91, 251, 194, 247, 255, 169, 255, 38, 58, 178, 237,
         ]);
-        state.sk = ParticipantSecretKey::from_slice_unchecked(&[
+        state.keys.secret = ParticipantSecretKey::from_slice_unchecked(&[
             28, 220, 233, 161, 16, 15, 83, 189, 203, 121, 65, 252, 33, 102, 213, 151, 187, 211, 73,
             50, 152, 229, 253, 23, 113, 38, 135, 62, 75, 10, 105, 149, 190, 240, 238, 150, 126, 52,
             119, 102, 54, 206, 171, 29, 119, 90, 211, 80, 72, 227, 201, 206, 171, 91, 251, 194,
@@ -122,11 +122,11 @@ mod tests {
     #[test]
     fn test_determine_type_sum_2() {
         let mut state = participant_state();
-        state.pk = ParticipantPublicKey::from_slice_unchecked(&[
+        state.keys.public = ParticipantPublicKey::from_slice_unchecked(&[
             122, 57, 133, 117, 137, 93, 73, 153, 3, 27, 117, 89, 92, 108, 163, 15, 38, 173, 212,
             172, 14, 197, 65, 43, 58, 136, 55, 214, 247, 25, 51, 141,
         ]);
-        state.sk = ParticipantSecretKey::from_slice_unchecked(&[
+        state.keys.secret = ParticipantSecretKey::from_slice_unchecked(&[
             165, 199, 74, 92, 27, 218, 120, 82, 31, 169, 158, 81, 40, 83, 5, 104, 238, 195, 129,
             111, 146, 245, 105, 137, 28, 86, 130, 219, 16, 192, 57, 209, 122, 57, 133, 117, 137,
             93, 73, 153, 3, 27, 117, 89, 92, 108, 163, 15, 38, 173, 212, 172, 14, 197, 65, 43, 58,
@@ -148,11 +148,11 @@ mod tests {
     #[test]
     fn test_determine_type_update() {
         let mut state = participant_state();
-        state.pk = ParticipantPublicKey::from_slice_unchecked(&[
+        state.keys.public = ParticipantPublicKey::from_slice_unchecked(&[
             201, 12, 132, 6, 110, 178, 107, 236, 29, 72, 101, 46, 204, 123, 52, 230, 234, 32, 170,
             15, 129, 0, 45, 37, 241, 184, 213, 12, 91, 31, 138, 194,
         ]);
-        state.sk = ParticipantSecretKey::from_slice_unchecked(&[
+        state.keys.secret = ParticipantSecretKey::from_slice_unchecked(&[
             161, 49, 83, 187, 114, 93, 66, 108, 38, 55, 116, 120, 141, 139, 63, 143, 111, 151, 222,
             191, 94, 194, 29, 222, 246, 42, 130, 139, 20, 6, 245, 192, 201, 12, 132, 6, 110, 178,
             107, 236, 29, 72, 101, 46, 204, 123, 52, 230, 234, 32, 170, 15, 129, 0, 45, 37, 241,
@@ -174,11 +174,11 @@ mod tests {
     #[test]
     fn test_determine_type_unselected() {
         let mut state = participant_state();
-        state.pk = ParticipantPublicKey::from_slice_unchecked(&[
+        state.keys.public = ParticipantPublicKey::from_slice_unchecked(&[
             236, 187, 56, 0, 180, 225, 181, 143, 195, 223, 136, 225, 92, 226, 111, 63, 146, 52,
             130, 249, 206, 31, 7, 112, 155, 138, 60, 179, 32, 138, 144, 129,
         ]);
-        state.sk = ParticipantSecretKey::from_slice_unchecked(&[
+        state.keys.secret = ParticipantSecretKey::from_slice_unchecked(&[
             29, 157, 49, 179, 55, 148, 27, 227, 251, 68, 22, 137, 145, 204, 123, 1, 49, 171, 163,
             134, 54, 76, 50, 79, 99, 166, 84, 99, 57, 94, 64, 117, 236, 187, 56, 0, 180, 225, 181,
             143, 195, 223, 136, 225, 92, 226, 111, 63, 146, 52, 130, 249, 206, 31, 7, 112, 155,

@@ -46,7 +46,7 @@ impl Participant<Update> {
             local_seed_dict,
         };
 
-        MessageOwned::new_update(pk, self.state.pk, payload)
+        MessageOwned::new_update(pk, self.state.keys.public, payload)
     }
 
     /// Generate a mask seed and mask a local model.

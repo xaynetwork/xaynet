@@ -35,7 +35,7 @@ impl Participant<Sum> {
             ephm_pk: self.inner.ephm_pk,
         };
 
-        MessageOwned::new_sum(*pk, self.state.pk, payload)
+        MessageOwned::new_sum(*pk, self.state.keys.public, payload)
     }
 
     pub fn next(self) -> Participant<Sum2> {

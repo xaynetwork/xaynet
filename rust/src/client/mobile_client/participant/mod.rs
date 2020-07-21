@@ -5,10 +5,10 @@
 //! [client module]: ../index.html
 use crate::{
     certificate::Certificate,
+    crypto::SigningKeyPair,
     mask::config::MaskConfig,
     message::message::{MessageOwned, MessageSeal},
     CoordinatorPublicKey,
-    ParticipantPublicKey,
     ParticipantSecretKey,
 };
 use derive_more::From;
@@ -22,8 +22,7 @@ pub use self::{sum::Sum, sum2::Sum2, undefined::Undefined, update::Update};
 
 pub struct ParticipantState {
     // credentials
-    pub pk: ParticipantPublicKey,
-    pub sk: ParticipantSecretKey,
+    pub keys: SigningKeyPair,
     // Mask config
     pub mask_config: MaskConfig,
     // Certificate
@@ -45,8 +44,10 @@ impl From<ParticipantSettings> for ParticipantState {
         }: ParticipantSettings,
     ) -> ParticipantState {
         ParticipantState {
-            pk: secret_key.public_key(),
-            sk: secret_key,
+            keys: SigningKeyPair {
+                public: secret_key.public_key(),
+                secret: secret_key,
+            },
             mask_config,
             certificate,
         }
@@ -71,7 +72,7 @@ impl<Task> Participant<Task> {
     pub fn seal_message(&self, pk: &CoordinatorPublicKey, message: &MessageOwned) -> Vec<u8> {
         let message_seal = MessageSeal {
             recipient_pk: pk,
-            sender_sk: &self.state.sk,
+            sender_sk: &self.state.keys.secret,
         };
         message_seal.seal(message)
     }

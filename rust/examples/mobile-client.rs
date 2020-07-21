@@ -33,7 +33,7 @@ fn pause() {
 fn get_participant_settings() -> ParticipantSettings {
     sodiumoxide::init().unwrap();
 
-    let SigningKeyPair { public: _, secret } = SigningKeyPair::generate();
+    let SigningKeyPair { secret, .. } = SigningKeyPair::generate();
     ParticipantSettings {
         secret_key: secret,
         mask_config: MaskConfig {
