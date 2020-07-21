@@ -1,6 +1,6 @@
 use super::{Participant, ParticipantState};
 use crate::{
-    client::mobile_client::participant::{sum::Sum, update::Update, Type},
+    client::mobile_client::participant::{sum::Sum, update::Update, Role},
     crypto::Signature,
 };
 
@@ -20,8 +20,8 @@ impl Participant<Undefined> {
     /// Check eligibility for a task given probabilities for `Sum` and `Update`
     /// selection in this round.
     ///
-    /// Returns the participant [`Type`] selected for this round.
-    pub fn determine_type(self, round_seed: &[u8], round_sum: f64, round_update: f64) -> Type {
+    /// Returns the participant [`Role`] selected for this round.
+    pub fn determine_type(self, round_seed: &[u8], round_sum: f64, round_update: f64) -> Role {
         let (sum_signature, update_signature) = self.compute_signatures(round_seed);
         if sum_signature.is_eligible(round_sum) {
             Participant::<Sum>::new(self.state, sum_signature).into()
@@ -114,7 +114,7 @@ mod tests {
         ];
 
         match part.determine_type(eligible_sum_seed, 0.5_f64, 0.5_f64) {
-            Type::Summer(_) => (),
+            Role::Summer(_) => (),
             _ => assert!(false),
         }
     }
@@ -140,7 +140,7 @@ mod tests {
         ];
 
         match part.determine_type(eligible_sum_update_seed, 0.5_f64, 0.5_f64) {
-            Type::Summer(_) => (),
+            Role::Summer(_) => (),
             _ => assert!(false),
         }
     }
@@ -166,7 +166,7 @@ mod tests {
         ];
 
         match part.determine_type(eligible_update_seed, 0.5_f64, 0.5_f64) {
-            Type::Updater(_) => (),
+            Role::Updater(_) => (),
             _ => assert!(false),
         }
     }
@@ -192,7 +192,7 @@ mod tests {
         ];
 
         match part.determine_type(ineligible_sum_update_seed, 0.5_f64, 0.5_f64) {
-            Type::Unselected(_) => (),
+            Role::Unselected(_) => (),
             _ => assert!(false),
         }
     }

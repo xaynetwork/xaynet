@@ -55,7 +55,7 @@ impl From<ParticipantSettings> for ParticipantState {
 }
 
 #[derive(From)]
-pub enum Type {
+pub enum Role {
     Unselected(Participant<Undefined>),
     Summer(Participant<Sum>),
     Updater(Participant<Update>),

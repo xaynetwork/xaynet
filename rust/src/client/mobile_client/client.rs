@@ -3,9 +3,9 @@ use crate::{
         mobile_client::participant::{
             Participant,
             ParticipantSettings,
+            Role,
             Sum,
             Sum2,
-            Type,
             Undefined,
             Update,
         },
@@ -127,16 +127,16 @@ impl ClientState<Undefined> {
         );
 
         match participant_type {
-            Type::Unselected(unsel_par) => {
+            Role::Unselected(unsel_par) => {
                 info!("unselected");
                 ClientState::<Undefined>::new(proxy, unsel_par.reset(), local_model, global_model)
                     .into()
             }
-            Type::Summer(sum_par) => {
+            Role::Summer(sum_par) => {
                 ClientState::<Sum>::new(proxy, round_params, sum_par, local_model, global_model)
                     .into()
             }
-            Type::Updater(upt_pat) => {
+            Role::Updater(upt_pat) => {
                 ClientState::<Update>::new(proxy, round_params, upt_pat, local_model, global_model)
                     .into()
             }
