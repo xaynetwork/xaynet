@@ -7,12 +7,12 @@ use crate::{
 type SumSignature = Signature;
 type UpdateSignature = Signature;
 
-pub struct Undefined;
+pub struct Awaiting;
 
-impl Participant<Undefined> {
+impl Participant<Awaiting> {
     pub fn new(state: ParticipantState) -> Self {
         Self {
-            inner: Undefined,
+            inner: Awaiting,
             state,
         }
     }
@@ -21,14 +21,14 @@ impl Participant<Undefined> {
     /// selection in this round.
     ///
     /// Returns the participant [`Role`] selected for this round.
-    pub fn determine_type(self, round_seed: &[u8], round_sum: f64, round_update: f64) -> Role {
+    pub fn determine_role(self, round_seed: &[u8], round_sum: f64, round_update: f64) -> Role {
         let (sum_signature, update_signature) = self.compute_signatures(round_seed);
         if sum_signature.is_eligible(round_sum) {
             Participant::<Sum>::new(self.state, sum_signature).into()
         } else if update_signature.is_eligible(round_update) {
             Participant::<Update>::new(self.state, sum_signature, update_signature).into()
         } else {
-            Participant::<Undefined>::new(self.state).into()
+            Participant::<Awaiting>::new(self.state).into()
         }
     }
 
@@ -79,7 +79,7 @@ mod tests {
 
     #[test]
     fn test_compute_signature() {
-        let part = Participant::<Undefined>::new(participant_state());
+        let part = Participant::<Awaiting>::new(participant_state());
         let round_seed = randombytes(32);
         let (sum_signature, update_signature) = part.compute_signatures(&round_seed);
         assert!(part
@@ -94,7 +94,7 @@ mod tests {
     }
 
     #[test]
-    fn test_determine_type_sum() {
+    fn test_determine_role_sum() {
         let mut state = participant_state();
         state.keys.public = ParticipantPublicKey::from_slice_unchecked(&[
             190, 240, 238, 150, 126, 52, 119, 102, 54, 206, 171, 29, 119, 90, 211, 80, 72, 227,
@@ -107,20 +107,20 @@ mod tests {
             247, 255, 169, 255, 38, 58, 178, 237,
         ]);
 
-        let part = Participant::<Undefined>::new(state);
+        let part = Participant::<Awaiting>::new(state);
         let eligible_sum_seed = &[
             119, 119, 241, 118, 43, 216, 159, 35, 122, 253, 138, 162, 8, 248, 64, 153, 163, 160,
             193, 111, 216, 217, 127, 168, 104, 99, 42, 55, 201, 207, 226, 237,
         ];
 
-        match part.determine_type(eligible_sum_seed, 0.5_f64, 0.5_f64) {
+        match part.determine_role(eligible_sum_seed, 0.5_f64, 0.5_f64) {
             Role::Summer(_) => (),
             _ => assert!(false),
         }
     }
 
     #[test]
-    fn test_determine_type_sum_2() {
+    fn test_determine_role_sum_2() {
         let mut state = participant_state();
         state.keys.public = ParticipantPublicKey::from_slice_unchecked(&[
             122, 57, 133, 117, 137, 93, 73, 153, 3, 27, 117, 89, 92, 108, 163, 15, 38, 173, 212,
@@ -133,20 +133,20 @@ mod tests {
             136, 55, 214, 247, 25, 51, 141,
         ]);
 
-        let part = Participant::<Undefined>::new(state);
+        let part = Participant::<Awaiting>::new(state);
         let eligible_sum_update_seed = &[
             151, 199, 161, 82, 158, 218, 250, 94, 62, 82, 63, 10, 136, 239, 178, 177, 140, 128,
             170, 245, 38, 85, 161, 86, 143, 96, 18, 89, 161, 186, 172, 199,
         ];
 
-        match part.determine_type(eligible_sum_update_seed, 0.5_f64, 0.5_f64) {
+        match part.determine_role(eligible_sum_update_seed, 0.5_f64, 0.5_f64) {
             Role::Summer(_) => (),
             _ => assert!(false),
         }
     }
 
     #[test]
-    fn test_determine_type_update() {
+    fn test_determine_role_update() {
         let mut state = participant_state();
         state.keys.public = ParticipantPublicKey::from_slice_unchecked(&[
             201, 12, 132, 6, 110, 178, 107, 236, 29, 72, 101, 46, 204, 123, 52, 230, 234, 32, 170,
@@ -159,20 +159,20 @@ mod tests {
             184, 213, 12, 91, 31, 138, 194,
         ]);
 
-        let part = Participant::<Undefined>::new(state);
+        let part = Participant::<Awaiting>::new(state);
         let eligible_update_seed = &[
             138, 154, 233, 12, 24, 151, 168, 241, 106, 193, 49, 13, 179, 26, 193, 253, 32, 197, 62,
             80, 43, 96, 255, 29, 236, 183, 96, 245, 36, 182, 239, 179,
         ];
 
-        match part.determine_type(eligible_update_seed, 0.5_f64, 0.5_f64) {
+        match part.determine_role(eligible_update_seed, 0.5_f64, 0.5_f64) {
             Role::Updater(_) => (),
             _ => assert!(false),
         }
     }
 
     #[test]
-    fn test_determine_type_unselected() {
+    fn test_determine_role_unselected() {
         let mut state = participant_state();
         state.keys.public = ParticipantPublicKey::from_slice_unchecked(&[
             236, 187, 56, 0, 180, 225, 181, 143, 195, 223, 136, 225, 92, 226, 111, 63, 146, 52,
@@ -185,13 +185,13 @@ mod tests {
             138, 60, 179, 32, 138, 144, 129,
         ]);
 
-        let part = Participant::<Undefined>::new(state);
+        let part = Participant::<Awaiting>::new(state);
         let ineligible_sum_update_seed = &[
             95, 250, 161, 81, 73, 135, 223, 39, 247, 166, 154, 140, 93, 160, 137, 39, 248, 135,
             187, 119, 128, 151, 223, 57, 144, 229, 66, 150, 100, 75, 62, 62,
         ];
 
-        match part.determine_type(ineligible_sum_update_seed, 0.5_f64, 0.5_f64) {
+        match part.determine_role(ineligible_sum_update_seed, 0.5_f64, 0.5_f64) {
             Role::Unselected(_) => (),
             _ => assert!(false),
         }

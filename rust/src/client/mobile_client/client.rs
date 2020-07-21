@@ -1,12 +1,12 @@
 use crate::{
     client::{
         mobile_client::participant::{
+            Awaiting,
             Participant,
             ParticipantSettings,
             Role,
             Sum,
             Sum2,
-            Undefined,
             Update,
         },
         ClientError,
@@ -23,7 +23,7 @@ use std::{cell::RefCell, rc::Rc};
 
 #[derive(From)]
 pub enum ClientStateMachine {
-    Undefined(ClientState<Undefined>),
+    Awaiting(ClientState<Awaiting>),
     Sum(ClientState<Sum>),
     Update(ClientState<Update>),
     Sum2(ClientState<Sum2>),
@@ -39,9 +39,9 @@ impl ClientStateMachine {
         // crucial: init must be called before anything else in this module
         sodiumoxide::init().or(Err(InitError))?;
 
-        Ok(ClientState::<Undefined>::new(
+        Ok(ClientState::<Awaiting>::new(
             proxy,
-            Participant::<Undefined>::new(participant_settings.into()),
+            Participant::<Awaiting>::new(participant_settings.into()),
             local_model,
             global_model,
         )
@@ -50,7 +50,7 @@ impl ClientStateMachine {
 
     pub async fn next(self) -> Self {
         match self {
-            ClientStateMachine::Undefined(state) => state.next().await,
+            ClientStateMachine::Awaiting(state) => state.next().await,
             ClientStateMachine::Sum(state) => state.next().await,
             ClientStateMachine::Update(state) => state.next().await,
             ClientStateMachine::Sum2(state) => state.next().await,
@@ -78,9 +78,9 @@ impl<Type> ClientState<Type> {
         }
     }
 
-    fn reset(self) -> ClientState<Undefined> {
+    fn reset(self) -> ClientState<Awaiting> {
         warn!("reset client");
-        ClientState::<Undefined>::new(
+        ClientState::<Awaiting>::new(
             self.proxy,
             self.participant.reset(),
             self.local_model,
@@ -89,10 +89,10 @@ impl<Type> ClientState<Type> {
     }
 }
 
-impl ClientState<Undefined> {
+impl ClientState<Awaiting> {
     fn new(
         proxy: Proxy,
-        participant: Participant<Undefined>,
+        participant: Participant<Awaiting>,
         local_model: Rc<RefCell<Option<Model>>>,
         global_model: Rc<RefCell<Option<Model>>>,
     ) -> Self {
@@ -106,7 +106,7 @@ impl ClientState<Undefined> {
     }
 
     async fn next(mut self) -> ClientStateMachine {
-        info!("new participant with undefined task");
+        info!("participant awaiting task");
         if let Err(err) = self.fetch_round_params().await {
             error!("{:?}", err);
             return self.reset().into();
@@ -120,7 +120,7 @@ impl ClientState<Undefined> {
             global_model,
         } = self;
 
-        let participant_type = participant.determine_type(
+        let participant_type = participant.determine_role(
             round_params.seed.as_slice(),
             round_params.sum,
             round_params.update,
@@ -129,15 +129,15 @@ impl ClientState<Undefined> {
         match participant_type {
             Role::Unselected(unsel_par) => {
                 info!("unselected");
-                ClientState::<Undefined>::new(proxy, unsel_par.reset(), local_model, global_model)
+                ClientState::<Awaiting>::new(proxy, unsel_par.reset(), local_model, global_model)
                     .into()
             }
             Role::Summer(sum_par) => {
                 ClientState::<Sum>::new(proxy, round_params, sum_par, local_model, global_model)
                     .into()
             }
-            Role::Updater(upt_pat) => {
-                ClientState::<Update>::new(proxy, round_params, upt_pat, local_model, global_model)
+            Role::Updater(upt_par) => {
+                ClientState::<Update>::new(proxy, round_params, upt_par, local_model, global_model)
                     .into()
             }
         }

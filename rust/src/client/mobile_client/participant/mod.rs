@@ -13,12 +13,12 @@ use crate::{
 };
 use derive_more::From;
 
+pub mod awaiting;
 pub mod sum;
 pub mod sum2;
-pub mod undefined;
 pub mod update;
 
-pub use self::{sum::Sum, sum2::Sum2, undefined::Undefined, update::Update};
+pub use self::{awaiting::Awaiting, sum::Sum, sum2::Sum2, update::Update};
 
 pub struct ParticipantState {
     // credentials
@@ -56,7 +56,7 @@ impl From<ParticipantSettings> for ParticipantState {
 
 #[derive(From)]
 pub enum Role {
-    Unselected(Participant<Undefined>),
+    Unselected(Participant<Awaiting>),
     Summer(Participant<Sum>),
     Updater(Participant<Update>),
 }
@@ -78,7 +78,7 @@ impl<Task> Participant<Task> {
     }
 
     /// Resets the client.
-    pub fn reset(self) -> Participant<Undefined> {
-        Participant::<Undefined>::new(self.state)
+    pub fn reset(self) -> Participant<Awaiting> {
+        Participant::<Awaiting>::new(self.state)
     }
 }
