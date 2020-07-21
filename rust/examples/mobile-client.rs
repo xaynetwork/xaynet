@@ -21,14 +21,6 @@ struct Opt {
     url: String,
     #[structopt(default_value = "4", short, help = "The length of the model")]
     len: u32,
-    #[structopt(
-        default_value = "1",
-        short,
-        help = "The time period at which to poll for service data, in seconds"
-    )]
-    period: u64,
-    #[structopt(default_value = "10", short, help = "The number of clients")]
-    nb_client: u32,
 }
 
 fn pause() {
@@ -38,18 +30,11 @@ fn pause() {
     stdin().read_exact(&mut [0]).unwrap();
 }
 
-fn main() -> Result<(), ()> {
-    let _fmt_subscriber = FmtSubscriber::builder()
-        .with_env_filter(EnvFilter::from_default_env())
-        .with_ansi(true)
-        .init();
-
-    // crucial: init must be called before anything else in this module
+fn get_participant_settings() -> ParticipantSettings {
     sodiumoxide::init().unwrap();
 
     let SigningKeyPair { public: _, secret } = SigningKeyPair::generate();
-
-    let participant_settings = ParticipantSettings {
+    ParticipantSettings {
         secret_key: secret,
         mask_config: MaskConfig {
             group_type: GroupType::Prime,
@@ -58,11 +43,19 @@ fn main() -> Result<(), ()> {
             model_type: ModelType::M3,
         },
         certificate: Certificate::new(),
-    };
+    }
+}
 
-    let mut client = MobileClient::new("http://localhost:8081", participant_settings);
+fn main() -> Result<(), ()> {
+    let opt = Opt::from_args();
 
-    let model = Model::from_primitives(vec![1; 4].into_iter()).unwrap();
+    let _fmt_subscriber = FmtSubscriber::builder()
+        .with_env_filter(EnvFilter::from_default_env())
+        .with_ansi(true)
+        .init();
+
+    let mut client = MobileClient::new(&opt.url, get_participant_settings());
+    let model = Model::from_primitives(vec![1; opt.len as usize].into_iter()).unwrap();
 
     loop {
         client.set_local_model(model.clone());
