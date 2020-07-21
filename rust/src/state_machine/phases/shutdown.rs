@@ -1,8 +1,8 @@
 use crate::state_machine::{
     coordinator::CoordinatorState,
-    events::PhaseEvent,
-    phases::{Phase, PhaseState},
+    phases::{Phase, PhaseName, PhaseState},
     requests::RequestReceiver,
+    StateError,
     StateMachine,
 };
 
@@ -15,21 +15,27 @@ impl<R> Phase<R> for PhaseState<R, Shutdown>
 where
     R: Send,
 {
+    const NAME: PhaseName = PhaseName::Shutdown;
+
     /// Shuts down the [`StateMachine`].
     ///
     /// See the [module level documentation](../index.html) for more details.
-    async fn next(mut self) -> Option<StateMachine<R>> {
+    async fn run(&mut self) -> Result<(), StateError> {
         warn!("shutdown state machine");
 
         info!("broadcasting shutdown phase event");
         self.coordinator_state.events.broadcast_phase(
             self.coordinator_state.round_params.seed.clone(),
-            PhaseEvent::Shutdown,
+            PhaseName::Shutdown,
         );
 
         // clear the request channel
         self.request_rx.close();
         while self.request_rx.recv().await.is_some() {}
+        Ok(())
+    }
+
+    fn next(self) -> Option<StateMachine<R>> {
         None
     }
 }

@@ -7,7 +7,10 @@ use crate::{
     crypto::{encrypt::EncryptKeyPair, ByteObject},
     mask::{config::MaskConfig, object::MaskObject},
     settings::{MaskSettings, ModelSettings, PetSettings},
-    state_machine::events::{EventPublisher, EventSubscriber, PhaseEvent},
+    state_machine::{
+        events::{EventPublisher, EventSubscriber},
+        phases::PhaseName,
+    },
     CoordinatorPublicKey,
 };
 
@@ -62,7 +65,7 @@ impl CoordinatorState {
             update: pet_settings.update,
             seed: RoundSeed::zeroed(),
         };
-        let phase = PhaseEvent::Idle;
+        let phase = PhaseName::Idle;
 
         let (publisher, subscriber) =
             EventPublisher::init(keys.clone(), round_params.clone(), phase);

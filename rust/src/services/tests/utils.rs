@@ -3,7 +3,8 @@ use crate::{
     message::{MessageOwned, MessageSeal, SumOwned},
     state_machine::{
         coordinator::{RoundParameters, RoundSeed},
-        events::{EventPublisher, EventSubscriber, PhaseEvent},
+        events::{EventPublisher, EventSubscriber},
+        phases::PhaseName,
     },
     SumParticipantEphemeralPublicKey,
 };
@@ -19,7 +20,7 @@ pub fn new_event_channels() -> (EventPublisher, EventSubscriber) {
         update: 0.0,
         seed: RoundSeed::generate(),
     };
-    let phase = PhaseEvent::Idle;
+    let phase = PhaseName::Idle;
     EventPublisher::init(keys, params, phase)
 }
 

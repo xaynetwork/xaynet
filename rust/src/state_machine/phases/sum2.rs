@@ -2,8 +2,16 @@ use crate::{
     mask::{masking::Aggregation, object::MaskObject},
     state_machine::{
         coordinator::{CoordinatorState, MaskDict},
-        events::PhaseEvent,
-        phases::{Handler, Phase, PhaseState, StateError, Unmask},
+        phases::{
+            reject_request,
+            Handler,
+            Phase,
+            PhaseName,
+            PhaseState,
+            Purge,
+            StateError,
+            Unmask,
+        },
         requests::{Request, RequestReceiver, Sum2Request, Sum2Response},
         StateMachine,
     },
@@ -32,9 +40,11 @@ impl Sum2 {
     pub fn sum_dict(&self) -> &SumDict {
         &self.sum_dict
     }
+
     pub fn aggregation(&self) -> &Aggregation {
         &self.aggregation
     }
+
     pub fn mask_dict(&self) -> &MaskDict {
         &self.mask_dict
     }
@@ -43,57 +53,22 @@ impl Sum2 {
 #[async_trait]
 impl<R> Phase<R> for PhaseState<R, Sum2>
 where
-    Self: Handler<R>,
+    Self: Purge<R> + Handler<R>,
     R: Send,
 {
-    /// Moves from the sum2 state to the next state.
+    const NAME: PhaseName = PhaseName::Sum2;
+
+    /// Run the sum2 phase
     ///
     /// See the [module level documentation](../index.html) for more details.
-    async fn next(mut self) -> Option<StateMachine<R>> {
+    async fn run(&mut self) -> Result<(), StateError> {
         info!("starting sum2 phase");
-
         info!("broadcasting sum2 phase event");
         self.coordinator_state.events.broadcast_phase(
             self.coordinator_state.round_params.seed.clone(),
-            PhaseEvent::Sum2,
+            PhaseName::Sum2,
         );
-        let next_state = match self.run_phase().await {
-            Ok(_) => PhaseState::<R, Unmask>::new(
-                self.coordinator_state,
-                self.request_rx,
-                self.inner.aggregation,
-                self.inner.mask_dict,
-            )
-            .into(),
-            Err(err) => {
-                PhaseState::<R, StateError>::new(self.coordinator_state, self.request_rx, err)
-                    .into()
-            }
-        };
-        Some(next_state)
-    }
-}
 
-impl<R> Handler<Request> for PhaseState<R, Sum2> {
-    /// Handles a [`Request::Sum`], [`Request::Update`] or [`Request::Sum2`] request.
-    ///
-    /// If the request is a [`Request::Sum`] or [`Request::Update`] request, the request sender
-    /// will receive a [`PetError::InvalidMessage`].
-    fn handle_request(&mut self, req: Request) {
-        match req {
-            Request::Sum2((sum2_req, response_tx)) => self.handle_sum2(sum2_req, response_tx),
-            Request::Sum((_, response_tx)) => Self::handle_invalid_message(response_tx),
-            Request::Update((_, response_tx)) => Self::handle_invalid_message(response_tx),
-        }
-    }
-}
-
-impl<R> PhaseState<R, Sum2>
-where
-    Self: Handler<R>,
-{
-    /// Runs the sum2 phase.
-    async fn run_phase(&mut self) -> Result<(), StateError> {
         let min_time = self.coordinator_state.min_sum_time;
         debug!("in sum2 phase for a minimum of {} seconds", min_time);
         self.process_during(Duration::from_secs(min_time)).await?;
@@ -114,6 +89,34 @@ where
             self.coordinator_state.min_sum_count
         );
         Ok(())
+    }
+
+    /// Moves from the sum2 state to the next state.
+    ///
+    /// See the [module level documentation](../index.html) for more details.
+    fn next(self) -> Option<StateMachine<R>> {
+        Some(
+            PhaseState::<R, Unmask>::new(
+                self.coordinator_state,
+                self.request_rx,
+                self.inner.aggregation,
+                self.inner.mask_dict,
+            )
+            .into(),
+        )
+    }
+}
+
+impl<R> Handler<Request> for PhaseState<R, Sum2> {
+    /// Handles a [`Request::Sum`], [`Request::Update`] or [`Request::Sum2`] request.
+    ///
+    /// If the request is a [`Request::Sum`] or [`Request::Update`] request, the request sender
+    /// will receive a [`PetError::InvalidMessage`].
+    fn handle_request(&mut self, req: Request) {
+        match req {
+            Request::Sum2((sum2_req, response_tx)) => self.handle_sum2(sum2_req, response_tx),
+            _ => reject_request(req),
+        }
     }
 }
 
@@ -276,7 +279,7 @@ mod test {
             events.phase_listener().get_latest(),
             Event {
                 round_id: seed.clone(),
-                event: PhaseEvent::Sum2,
+                event: PhaseName::Sum2,
             }
         );
     }

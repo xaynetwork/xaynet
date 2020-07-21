@@ -1,7 +1,6 @@
 use crate::state_machine::{
     coordinator::CoordinatorState,
-    events::PhaseEvent,
-    phases::{Idle, Phase, PhaseState, Shutdown},
+    phases::{Idle, Phase, PhaseName, PhaseState, Shutdown},
     requests::RequestReceiver,
     RoundFailed,
     StateMachine,
@@ -38,25 +37,29 @@ impl<R> Phase<R> for PhaseState<R, StateError>
 where
     R: Send,
 {
-    /// Moves from the error state to the next state.
-    ///
-    /// See the [module level documentation](../index.html) for more details.
-    async fn next(mut self) -> Option<StateMachine<R>> {
+    const NAME: PhaseName = PhaseName::Error;
+
+    async fn run(&mut self) -> Result<(), StateError> {
         error!("state transition failed! error: {:?}", self.inner);
 
         info!("broadcasting error phase event");
         self.coordinator_state.events.broadcast_phase(
             self.coordinator_state.round_params.seed.clone(),
-            PhaseEvent::Error,
+            PhaseName::Error,
         );
 
-        let next_state = match self.inner {
+        Ok(())
+    }
+
+    /// Moves from the error state to the next state.
+    ///
+    /// See the [module level documentation](../index.html) for more details.
+    fn next(self) -> Option<StateMachine<R>> {
+        Some(match self.inner {
             StateError::ChannelError(_) => {
                 PhaseState::<R, Shutdown>::new(self.coordinator_state, self.request_rx).into()
             }
             _ => PhaseState::<R, Idle>::new(self.coordinator_state, self.request_rx).into(),
-        };
-
-        Some(next_state)
+        })
     }
 }

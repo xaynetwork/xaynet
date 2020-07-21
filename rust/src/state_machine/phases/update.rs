@@ -4,8 +4,8 @@ use crate::{
     mask::{masking::Aggregation, object::MaskObject},
     state_machine::{
         coordinator::CoordinatorState,
-        events::{DictionaryUpdate, MaskLengthUpdate, PhaseEvent, ScalarUpdate},
-        phases::{Handler, Phase, PhaseState, StateError, Sum2},
+        events::{DictionaryUpdate, MaskLengthUpdate, ScalarUpdate},
+        phases::{reject_request, Handler, Phase, PhaseName, PhaseState, Purge, StateError, Sum2},
         requests::{Request, RequestReceiver, UpdateRequest, UpdateResponse},
         StateMachine,
     },
@@ -47,85 +47,23 @@ impl Update {
 #[async_trait]
 impl<R> Phase<R> for PhaseState<R, Update>
 where
-    Self: Handler<R>,
+    Self: Handler<R> + Purge<R>,
     R: Send,
 {
+    const NAME: PhaseName = PhaseName::Update;
+
     /// Moves from the update state to the next state.
     ///
     /// See the [module level documentation](../index.html) for more details.
-    async fn next(mut self) -> Option<StateMachine<R>> {
+    async fn run(&mut self) -> Result<(), StateError> {
         info!("starting update phase");
 
         info!("broadcasting update phase event");
         self.coordinator_state.events.broadcast_phase(
             self.coordinator_state.round_params.seed.clone(),
-            PhaseEvent::Update,
+            PhaseName::Update,
         );
 
-        let next_state = match self.run_phase().await {
-            Ok(_) => {
-                let PhaseState {
-                    inner:
-                        Update {
-                            frozen_sum_dict,
-                            seed_dict,
-                            aggregation,
-                        },
-                    mut coordinator_state,
-                    request_rx,
-                } = self;
-
-                info!("broadcasting mask length");
-                coordinator_state.events.broadcast_mask_length(
-                    coordinator_state.round_params.seed.clone(),
-                    MaskLengthUpdate::New(aggregation.len()),
-                );
-
-                info!("broadcasting the global seed dictionary");
-                coordinator_state.events.broadcast_seed_dict(
-                    coordinator_state.round_params.seed.clone(),
-                    DictionaryUpdate::New(Arc::new(seed_dict)),
-                );
-
-                PhaseState::<R, Sum2>::new(
-                    coordinator_state,
-                    request_rx,
-                    frozen_sum_dict,
-                    aggregation,
-                )
-                .into()
-            }
-            Err(err) => {
-                PhaseState::<R, StateError>::new(self.coordinator_state, self.request_rx, err)
-                    .into()
-            }
-        };
-        Some(next_state)
-    }
-}
-
-impl<R> Handler<Request> for PhaseState<R, Update> {
-    /// Handles a [`Request::Sum`], [`Request::Update`] or [`Request::Sum2`] request.
-    ///
-    /// If the request is a [`Request::Sum`] or [`Request::Sum2`] request, the request sender
-    /// will receive a [`PetError::InvalidMessage`].
-    fn handle_request(&mut self, req: Request) {
-        match req {
-            Request::Update((update_req, response_tx)) => {
-                self.handle_update(update_req, response_tx)
-            }
-            Request::Sum((_, response_tx)) => Self::handle_invalid_message(response_tx),
-            Request::Sum2((_, response_tx)) => Self::handle_invalid_message(response_tx),
-        }
-    }
-}
-
-impl<R> PhaseState<R, Update>
-where
-    Self: Handler<R>,
-{
-    /// Runs the update phase.
-    async fn run_phase(&mut self) -> Result<(), StateError> {
         let scalar = 1_f64
             / (self.coordinator_state.expected_participants as f64
                 * self.coordinator_state.round_params.update);
@@ -155,6 +93,51 @@ where
             self.coordinator_state.min_update_count
         );
         Ok(())
+    }
+
+    fn next(self) -> Option<StateMachine<R>> {
+        let PhaseState {
+            inner:
+                Update {
+                    frozen_sum_dict,
+                    seed_dict,
+                    aggregation,
+                },
+            mut coordinator_state,
+            request_rx,
+        } = self;
+
+        info!("broadcasting mask length");
+        coordinator_state.events.broadcast_mask_length(
+            coordinator_state.round_params.seed.clone(),
+            MaskLengthUpdate::New(aggregation.len()),
+        );
+
+        info!("broadcasting the global seed dictionary");
+        coordinator_state.events.broadcast_seed_dict(
+            coordinator_state.round_params.seed.clone(),
+            DictionaryUpdate::New(Arc::new(seed_dict)),
+        );
+
+        Some(
+            PhaseState::<R, Sum2>::new(coordinator_state, request_rx, frozen_sum_dict, aggregation)
+                .into(),
+        )
+    }
+}
+
+impl<R> Handler<Request> for PhaseState<R, Update> {
+    /// Handles a [`Request::Sum`], [`Request::Update`] or [`Request::Sum2`] request.
+    ///
+    /// If the request is a [`Request::Sum`] or [`Request::Sum2`] request, the request sender
+    /// will receive a [`PetError::InvalidMessage`].
+    fn handle_request(&mut self, req: Request) {
+        match req {
+            Request::Update((update_req, response_tx)) => {
+                self.handle_update(update_req, response_tx)
+            }
+            _ => reject_request(req),
+        }
     }
 }
 
@@ -190,7 +173,7 @@ impl<R> PhaseState<R, Update> {
             masked_model,
         } = req;
 
-        // See `Self::handle_invalid_message`
+        // See `handle_invalid_message`
         let _ = response_tx.send(self.update_seed_dict_and_aggregate_mask(
             &participant_pk,
             &local_seed_dict,
@@ -386,7 +369,7 @@ mod test {
             events.phase_listener().get_latest(),
             Event {
                 round_id: seed.clone(),
-                event: PhaseEvent::Update,
+                event: PhaseName::Update,
             }
         );
         assert_eq!(
