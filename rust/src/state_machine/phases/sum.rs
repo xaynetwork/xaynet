@@ -22,7 +22,7 @@ use crate::{
     SumDict,
 };
 
-use tokio::{sync::oneshot, time::Duration};
+use tokio::{sync::oneshot, time::Duration, time::timeout};
 
 /// Sum state
 #[derive(Debug)]
@@ -79,15 +79,12 @@ where
         debug!("in sum phase for a minimum of {} seconds", min_time);
         self.process_during(Duration::from_secs(min_time)).await?;
 
-        while !self.has_enough_sums() {
-            debug!(
-                "{} sum messages handled (min {} required)",
-                self.inner.sum_dict.len(),
-                self.coordinator_state.min_sum_count,
-            );
-            let req = self.next_request().await?;
-            self.handle_request(req);
-        }
+        timeout(Duration::from_secs(10), self.process_until_enough())
+            .await
+            .map_err(|e| {
+                error!("sum phase timeout elapsed: {}", e);
+                StateError::TimeoutError
+            })??;
 
         info!(
             "{} sum messages handled (min {} required)",
@@ -119,6 +116,19 @@ where
             )
             .into(),
         )
+    }
+
+    /// Processes requests until there are enough sums.
+    async fn process_until_enough(&mut self) -> Result<(), StateError> {
+        while !self.has_enough_sums() {
+            debug!(
+                "{} sum messages handled (min {} required)",
+                self.inner.sum_dict.len(),
+                self.coordinator_state.min_sum_count,
+            );
+            self.fetch_exec().await?;
+        };
+        Ok(())
     }
 }
 

@@ -133,9 +133,15 @@ where
     /// Processes requests indefinitely.
     async fn process(&mut self) -> Result<(), StateError> {
         loop {
-            let req = self.next_request().await?;
-            self.handle_request(req);
+            self.fetch_exec().await?;
         }
+    }
+
+    /// Processes the next available request.
+    async fn fetch_exec(&mut self) -> Result<(), StateError> {
+        let req = self.next_request().await?;
+        self.handle_request(req);
+        Ok(())
     }
 }
 
