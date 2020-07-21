@@ -33,7 +33,7 @@ jobs:
         run: doctl kubernetes cluster kubeconfig save ${{ secrets.K8S_CLUSTER }}
 
       - name: Re-apply manifests
-        run: kubectl apply -n development -k $GITHUB_WORKSPACE/k8s/coordinator/development
+        run: kubectl apply -n development -k $GITHUB_WORKSPACE/k8s/coordinator/development --prune -l "app.kubernetes.io/part-of=xaynet"
 
       - name: Force deployment rollout
         run: kubectl rollout -n development restart deployment/coordinator-deployment
