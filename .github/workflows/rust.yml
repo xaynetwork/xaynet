@@ -191,7 +191,7 @@ jobs:
 
       - name: Start docker-compose
         working-directory: ./docker
-        run: docker-compose up -d
+        run: docker-compose up -d influxdb minio redis
 
       - name: Run smoke tests
         working-directory: ./rust
@@ -201,4 +201,4 @@ jobs:
 
       - name: Stop docker-compose
         working-directory: ./docker
-        run: docker-compose stop
+        run: docker-compose down
