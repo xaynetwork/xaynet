@@ -5,7 +5,7 @@ use crate::{
     state_machine::{
         coordinator::{CoordinatorState, RoundSeed},
         events::EventSubscriber,
-        phases::{self, Handler, PhaseState},
+        phases::{self, Handler, Phase, PhaseState},
         requests::{Request, RequestReceiver, RequestSender},
         tests::utils,
         StateMachine,
@@ -44,7 +44,7 @@ impl StateMachineBuilder<phases::Idle> {
 
 impl<P> StateMachineBuilder<P>
 where
-    PhaseState<Request, P>: Handler<Request>,
+    PhaseState<Request, P>: Handler<Request> + Phase<Request>,
     StateMachine<Request>: From<PhaseState<Request, P>>,
 {
     pub fn build(
@@ -55,12 +55,29 @@ where
         EventSubscriber,
     ) {
         let Self {
-            coordinator_state,
+            mut coordinator_state,
             event_subscriber,
             phase_state,
         } = self;
 
         let (request_rx, request_tx) = RequestReceiver::<Request>::new();
+
+        // Make sure the events that the listeners have are up to date
+        let events = &mut coordinator_state.events;
+        events.broadcast_keys(coordinator_state.keys.clone());
+        events.broadcast_params(coordinator_state.round_params.clone());
+        events.broadcast_phase(<PhaseState<Request, P> as Phase<Request>>::NAME);
+        // Also re-emit the other events in case the round ID changed
+        let scalar = event_subscriber.scalar_listener().get_latest().event;
+        events.broadcast_scalar(scalar);
+        let model = event_subscriber.model_listener().get_latest().event;
+        events.broadcast_model(model);
+        let mask_length = event_subscriber.mask_length_listener().get_latest().event;
+        events.broadcast_mask_length(mask_length);
+        let sum_dict = event_subscriber.sum_dict_listener().get_latest().event;
+        events.broadcast_sum_dict(sum_dict);
+        let seed_dict = event_subscriber.seed_dict_listener().get_latest().event;
+        events.broadcast_seed_dict(seed_dict);
 
         let state = PhaseState {
             inner: phase_state,
@@ -69,33 +86,29 @@ where
         };
 
         let state_machine = StateMachine::from(state);
-        (state_machine, request_tx, event_subscriber)
-    }
 
-    fn broadcast_round_params(&mut self) {
-        let params = self.coordinator_state.round_params.clone();
-        self.coordinator_state.events.broadcast_params(params);
+        (state_machine, request_tx, event_subscriber)
     }
 
     #[allow(dead_code)]
     pub fn with_keys(mut self, keys: EncryptKeyPair) -> Self {
         self.coordinator_state.round_params.pk = keys.public.clone();
         self.coordinator_state.keys = keys.clone();
-        let round_id = self.coordinator_state.round_params.seed.clone();
-        self.coordinator_state.events.broadcast_keys(round_id, keys);
-        self.broadcast_round_params();
+        self
+    }
+
+    pub fn with_round_id(mut self, id: u64) -> Self {
+        self.coordinator_state.set_round_id(id);
         self
     }
 
     pub fn with_sum_ratio(mut self, sum_ratio: f64) -> Self {
         self.coordinator_state.round_params.sum = sum_ratio;
-        self.broadcast_round_params();
         self
     }
 
     pub fn with_update_ratio(mut self, update_ratio: f64) -> Self {
         self.coordinator_state.round_params.update = update_ratio;
-        self.broadcast_round_params();
         self
     }
 
@@ -106,7 +119,6 @@ where
 
     pub fn with_seed(mut self, seed: RoundSeed) -> Self {
         self.coordinator_state.round_params.seed = seed;
-        self.broadcast_round_params();
         self
     }
 

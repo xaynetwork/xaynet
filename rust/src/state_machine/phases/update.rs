@@ -59,22 +59,13 @@ where
     ///
     /// See the [module level documentation](../index.html) for more details.
     async fn run(&mut self) -> Result<(), StateError> {
-        info!("starting update phase");
-
-        info!("broadcasting update phase event");
-        self.coordinator_state.events.broadcast_phase(
-            self.coordinator_state.round_params.seed.clone(),
-            PhaseName::Update,
-        );
-
         let scalar = 1_f64
             / (self.coordinator_state.expected_participants as f64
                 * self.coordinator_state.round_params.update);
         info!("broadcasting scalar: {}", scalar);
-        self.coordinator_state.events.broadcast_scalar(
-            self.coordinator_state.round_params.seed.clone(),
-            ScalarUpdate::New(scalar),
-        );
+        self.coordinator_state
+            .events
+            .broadcast_scalar(ScalarUpdate::New(scalar));
 
         let min_time = self.coordinator_state.min_update_time;
         debug!("in update phase for a minimum of {} seconds", min_time);
@@ -104,16 +95,14 @@ where
         } = self;
 
         info!("broadcasting mask length");
-        coordinator_state.events.broadcast_mask_length(
-            coordinator_state.round_params.seed.clone(),
-            MaskLengthUpdate::New(aggregation.len()),
-        );
+        coordinator_state
+            .events
+            .broadcast_mask_length(MaskLengthUpdate::New(aggregation.len()));
 
         info!("broadcasting the global seed dictionary");
-        coordinator_state.events.broadcast_seed_dict(
-            coordinator_state.round_params.seed.clone(),
-            DictionaryUpdate::New(Arc::new(seed_dict)),
-        );
+        coordinator_state
+            .events
+            .broadcast_seed_dict(DictionaryUpdate::New(Arc::new(seed_dict)));
 
         Some(
             PhaseState::<R, Sum2>::new(coordinator_state, request_rx, frozen_sum_dict, aggregation)
@@ -382,14 +371,14 @@ mod test {
         assert_eq!(
             events.phase_listener().get_latest(),
             Event {
-                round_id: seed.clone(),
+                round_id: 0,
                 event: PhaseName::Update,
             }
         );
         assert_eq!(
             events.mask_length_listener().get_latest(),
             Event {
-                round_id: seed.clone(),
+                round_id: 0,
                 event: MaskLengthUpdate::New(model.len()),
             }
         );
@@ -412,7 +401,7 @@ mod test {
         assert_eq!(
             events.seed_dict_listener().get_latest(),
             Event {
-                round_id: seed.clone(),
+                round_id: 0,
                 event: DictionaryUpdate::New(Arc::new(global_seed_dict)),
             }
         );

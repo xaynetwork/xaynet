@@ -21,7 +21,8 @@ pub fn new_event_channels() -> (EventPublisher, EventSubscriber) {
         seed: RoundSeed::generate(),
     };
     let phase = PhaseName::Idle;
-    EventPublisher::init(keys, params, phase)
+    let round_id = 0;
+    EventPublisher::init(round_id, keys, params, phase)
 }
 
 /// Simulate a participant generating keys and crafting a valid sum

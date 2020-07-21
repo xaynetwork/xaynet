@@ -70,14 +70,6 @@ where
     ///
     /// See the [module level documentation](../index.html) for more details.
     async fn run(&mut self) -> Result<(), StateError> {
-        info!("starting sum phase");
-
-        info!("broadcasting sum phase event");
-        self.coordinator_state.events.broadcast_phase(
-            self.coordinator_state.round_params.seed.clone(),
-            PhaseName::Sum,
-        );
-
         let min_time = self.coordinator_state.min_sum_time;
         debug!("in sum phase for a minimum of {} seconds", min_time);
         self.process_during(Duration::from_secs(min_time)).await?;
@@ -164,10 +156,9 @@ impl<R> PhaseState<R, Sum> {
     /// Freezes the sum dictionary.
     fn freeze_sum_dict(&mut self) {
         info!("broadcasting sum dictionary");
-        self.coordinator_state.events.broadcast_sum_dict(
-            self.coordinator_state.round_params.seed.clone(),
-            DictionaryUpdate::New(Arc::new(self.inner.sum_dict.clone())),
-        );
+        self.coordinator_state
+            .events
+            .broadcast_sum_dict(DictionaryUpdate::New(Arc::new(self.inner.sum_dict.clone())));
 
         info!("initializing seed dictionary");
         self.inner.seed_dict = Some(
@@ -258,7 +249,7 @@ mod test {
         assert_eq!(
             events.phase_listener().get_latest(),
             Event {
-                round_id: seed.clone(),
+                round_id: 0,
                 event: PhaseName::Sum,
             }
         );

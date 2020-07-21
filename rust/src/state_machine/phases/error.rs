@@ -45,10 +45,9 @@ where
         error!("state transition failed! error: {:?}", self.inner);
 
         info!("broadcasting error phase event");
-        self.coordinator_state.events.broadcast_phase(
-            self.coordinator_state.round_params.seed.clone(),
-            PhaseName::Error,
-        );
+        self.coordinator_state
+            .events
+            .broadcast_phase(PhaseName::Error);
 
         Ok(())
     }
