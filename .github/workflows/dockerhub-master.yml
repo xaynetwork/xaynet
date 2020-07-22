@@ -42,4 +42,4 @@ jobs:
         run: kubectl rollout -n development status deployment/coordinator-deployment
 
       - name: Clean-up stale ReplicaSets
-        run: kubectl delete -n development replicasets $(kubectl get replicasets | awk 'NR!=1 && ($2==0) {print $1}')
+        run: kubectl delete -n development replicasets $(kubectl get -n development replicasets | awk 'NR!=1 && ($2==0) {print $1}')
