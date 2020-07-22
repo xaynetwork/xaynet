@@ -73,7 +73,8 @@ where
         debug!("in sum2 phase for a minimum of {} seconds", min_time);
         self.process_during(Duration::from_secs(min_time)).await?;
 
-        timeout(Duration::from_secs(10), self.process_until_enough())
+        let time_left = self.coordinator_state.max_sum_time - min_time;
+        timeout(Duration::from_secs(time_left), self.process_until_enough())
             .await
             .map_err(|e| {
                 error!("sum2 phase timeout elapsed: {}", e);
