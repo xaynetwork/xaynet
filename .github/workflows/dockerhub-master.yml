@@ -40,3 +40,6 @@ jobs:
 
       - name: Check deployment status
         run: kubectl rollout -n development status deployment/coordinator-deployment
+
+      - name: Clean-up stale ReplicaSets
+        run: kubectl delete replicasets $(kubectl get replicasets | awk 'NR!=1 && ($2==0) {print $1}')
