@@ -125,7 +125,12 @@ where
                 .into(),
         )
     }
+}
 
+impl<R> PhaseState<R, Update>
+where
+    Self: Handler<R> + Phase<R> + Purge<R>,
+{
     /// Processes requests until there are enough.
     async fn process_until_enough(&mut self) -> Result<(), StateError> {
         while !self.has_enough_updates() {
