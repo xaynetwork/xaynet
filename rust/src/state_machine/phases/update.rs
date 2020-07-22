@@ -16,7 +16,10 @@ use crate::{
     UpdateParticipantPublicKey,
 };
 
-use tokio::{sync::oneshot, time::Duration, time::timeout};
+use tokio::{
+    sync::oneshot,
+    time::{timeout, Duration},
+};
 
 /// Update state
 #[derive(Debug)]
@@ -132,7 +135,7 @@ where
                 self.coordinator_state.min_update_count
             );
             self.process_single().await?;
-        };
+        }
         Ok(())
     }
 }

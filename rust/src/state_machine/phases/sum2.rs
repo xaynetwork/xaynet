@@ -20,7 +20,10 @@ use crate::{
     SumParticipantPublicKey,
 };
 
-use tokio::{sync::oneshot, time::Duration, time::timeout};
+use tokio::{
+    sync::oneshot,
+    time::{timeout, Duration},
+};
 
 /// Sum2 state
 #[derive(Debug)]
@@ -113,7 +116,7 @@ where
                 self.coordinator_state.min_sum_count
             );
             self.process_single().await?;
-        };
+        }
         Ok(())
     }
 }
