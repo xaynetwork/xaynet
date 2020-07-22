@@ -14,8 +14,8 @@ pub enum StateError {
     ChannelError(&'static str),
     #[error("state failed: round error: {0}")]
     RoundError(#[from] RoundFailed),
-    #[error("state failed: phase timeout")]
-    TimeoutError,
+    #[error("state failed: phase timeout: {0}")]
+    TimeoutError(#[from] tokio::time::Elapsed),
 }
 
 impl<R> PhaseState<R, StateError> {

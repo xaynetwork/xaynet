@@ -77,12 +77,7 @@ where
         self.process_during(Duration::from_secs(min_time)).await?;
 
         let time_left = self.coordinator_state.max_sum_time - min_time;
-        timeout(Duration::from_secs(time_left), self.process_until_enough())
-            .await
-            .map_err(|e| {
-                error!("sum2 phase timeout elapsed: {}", e);
-                StateError::TimeoutError
-            })??;
+        timeout(Duration::from_secs(time_left), self.process_until_enough()).await??;
 
         info!(
             "{} sum2 messages handled (min {} required)",
