@@ -152,9 +152,8 @@ pub struct PetSettings {
     /// The maximum amount of time permitted for processing messages in the `sum`
     /// and `sum2` phases, in seconds.
     ///
-    /// Defaults to `u64::MAX` i.e. `sum` and `sum2` phases *effectively do not
-    /// end* until [`min_sum_count`] messages have been processed. Set this lower
-    /// to allow for the processing of [`min_sum_count`] messages to time-out in
+    /// Defaults to a large number (effectively 1 week). Set this lower to allow
+    /// for the processing of [`min_sum_count`] messages to time-out sooner in
     /// the `sum` and `sum2` phases.
     ///
     /// # Examples
@@ -174,9 +173,8 @@ pub struct PetSettings {
     /// The maximum amount of time permitted for processing messages in the
     /// `update` phase, in seconds.
     ///
-    /// Defaults to `u64::MAX` i.e. `update` phase *effectively does not end*
-    /// until [`min_update_count`] messages have been processed. Set this lower
-    /// to allow for the processing of [`min_update_count`] messages to time-out
+    /// Defaults to a large number (effectively 1 week). Set this lower to allow
+    /// for the processing of [`min_update_count`] messages to time-out sooner
     /// in the `update` phase.
     ///
     /// # Examples
@@ -259,8 +257,8 @@ impl Default for PetSettings {
             min_update_count: 3_usize,
             min_sum_time: 0_u64,
             min_update_time: 0_u64,
-            max_sum_time: u64::MAX,
-            max_update_time: u64::MAX,
+            max_sum_time: 604800_u64,
+            max_update_time: 604800_u64,
             sum: 0.01_f64,
             update: 0.1_f64,
             expected_participants: 10,
