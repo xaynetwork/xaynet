@@ -118,7 +118,7 @@ where
         )
     }
 
-    /// Processes requests until there are enough sums.
+    /// Processes requests until there are enough.
     async fn process_until_enough(&mut self) -> Result<(), StateError> {
         while !self.has_enough_sums() {
             debug!(
@@ -126,7 +126,7 @@ where
                 self.inner.sum_dict.len(),
                 self.coordinator_state.min_sum_count,
             );
-            self.fetch_exec().await?;
+            self.process_single().await?;
         };
         Ok(())
     }
