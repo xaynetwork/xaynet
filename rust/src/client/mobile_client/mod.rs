@@ -1,4 +1,8 @@
-use crate::{client::Proxy, mask::model::Model};
+use crate::{
+    client::Proxy,
+    crypto::{SecretSigningKey, SigningKeyPair},
+    mask::model::Model,
+};
 use std::{cell::RefCell, rc::Rc};
 
 mod client;
@@ -56,5 +60,10 @@ impl MobileClient {
                 .block_on(async move { current_state.next().await });
             self.client_state = Some(new_state);
         }
+    }
+
+    pub fn create_participant_secret_key() -> SecretSigningKey {
+        let SigningKeyPair { secret, .. } = SigningKeyPair::generate();
+        secret
     }
 }

@@ -6,7 +6,6 @@ use tracing_subscriber::*;
 use xaynet::{
     certificate::Certificate,
     client::mobile_client::{participant::ParticipantSettings, MobileClient},
-    crypto::SigningKeyPair,
     mask::{BoundType, DataType, FromPrimitives, GroupType, MaskConfig, Model, ModelType},
 };
 
@@ -33,9 +32,9 @@ fn pause() {
 fn get_participant_settings() -> ParticipantSettings {
     sodiumoxide::init().unwrap();
 
-    let SigningKeyPair { secret, .. } = SigningKeyPair::generate();
+    let secret_key = MobileClient::create_participant_secret_key();
     ParticipantSettings {
-        secret_key: secret,
+        secret_key,
         mask_config: MaskConfig {
             group_type: GroupType::Prime,
             data_type: DataType::F32,
