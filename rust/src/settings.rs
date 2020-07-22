@@ -56,7 +56,7 @@ impl Settings {
 }
 
 #[derive(Debug, Validate, Deserialize, Clone, Copy)]
-#[validate(schema(function = "validate_fractions"))]
+#[validate(schema(function = "validate_pet"))]
 /// PET protocol settings.
 pub struct PetSettings {
     #[validate(range(min = 1))]
@@ -263,6 +263,21 @@ impl Default for PetSettings {
             update: 0.1_f64,
             expected_participants: 10,
         }
+    }
+}
+
+/// Checks PET settings.
+fn validate_pet(s: &PetSettings) -> Result<(), ValidationError> {
+    validate_phase_times(s)?;
+    validate_fractions(s)
+}
+
+/// Checks validity of phase time ranges.
+fn validate_phase_times(s: &PetSettings) -> Result<(), ValidationError> {
+    if s.min_sum_time <= s.max_sum_time && s.min_update_time <= s.max_update_time {
+        Ok(())
+    } else {
+        Err(ValidationError::new("invalid phase time range(s)"))
     }
 }
 
