@@ -56,7 +56,7 @@ impl Settings {
 }
 
 #[derive(Debug, Validate, Deserialize, Clone, Copy)]
-#[validate(schema(function = "validate_fractions"))]
+#[validate(schema(function = "validate_pet"))]
 /// PET protocol settings.
 pub struct PetSettings {
     #[validate(range(min = 1))]
@@ -149,6 +149,48 @@ pub struct PetSettings {
     /// ```
     pub min_update_time: u64,
 
+    /// The maximum amount of time permitted for processing messages in the `sum`
+    /// and `sum2` phases, in seconds.
+    ///
+    /// Defaults to a large number (effectively 1 week). Set this lower to allow
+    /// for the processing of [`min_sum_count`] messages to time-out sooner in
+    /// the `sum` and `sum2` phases.
+    ///
+    /// # Examples
+    ///
+    /// **TOML**
+    /// ```text
+    /// [pet]
+    /// max_sum_time = 30
+    /// ```
+    ///
+    /// **Environment variable**
+    /// ```text
+    /// XAYNET_PET__MAX_SUM_TIME=30
+    /// ```
+    pub max_sum_time: u64,
+
+    /// The maximum amount of time permitted for processing messages in the
+    /// `update` phase, in seconds.
+    ///
+    /// Defaults to a large number (effectively 1 week). Set this lower to allow
+    /// for the processing of [`min_update_count`] messages to time-out sooner
+    /// in the `update` phase.
+    ///
+    /// # Examples
+    ///
+    /// **TOML**
+    /// ```text
+    /// [pet]
+    /// max_update_time = 60
+    /// ```
+    ///
+    /// **Environment variable**
+    /// ```text
+    /// XAYNET_PET__MAX_UPDATE_TIME=60
+    /// ```
+    pub max_update_time: u64,
+
     /// The expected fraction of participants selected for computing the unmasking sum. The value
     /// must be between `0` and `1` (i.e. `0 < sum < 1`).
     ///
@@ -215,10 +257,27 @@ impl Default for PetSettings {
             min_update_count: 3_usize,
             min_sum_time: 0_u64,
             min_update_time: 0_u64,
+            max_sum_time: 604800_u64,
+            max_update_time: 604800_u64,
             sum: 0.01_f64,
             update: 0.1_f64,
             expected_participants: 10,
         }
+    }
+}
+
+/// Checks PET settings.
+fn validate_pet(s: &PetSettings) -> Result<(), ValidationError> {
+    validate_phase_times(s)?;
+    validate_fractions(s)
+}
+
+/// Checks validity of phase time ranges.
+fn validate_phase_times(s: &PetSettings) -> Result<(), ValidationError> {
+    if s.min_sum_time <= s.max_sum_time && s.min_update_time <= s.max_update_time {
+        Ok(())
+    } else {
+        Err(ValidationError::new("invalid phase time range(s)"))
     }
 }
 

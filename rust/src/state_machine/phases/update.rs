@@ -16,7 +16,10 @@ use crate::{
     UpdateParticipantPublicKey,
 };
 
-use tokio::{sync::oneshot, time::Duration};
+use tokio::{
+    sync::oneshot,
+    time::{timeout, Duration},
+};
 
 /// Update state
 #[derive(Debug)]
@@ -77,15 +80,8 @@ where
         debug!("in update phase for a minimum of {} seconds", min_time);
         self.process_during(Duration::from_secs(min_time)).await?;
 
-        while !self.has_enough_updates() {
-            debug!(
-                "{} update messages handled (min {} required)",
-                self.updater_count(),
-                self.coordinator_state.min_update_count
-            );
-            let req = self.next_request().await?;
-            self.handle_request(req);
-        }
+        let time_left = self.coordinator_state.max_update_time - min_time;
+        timeout(Duration::from_secs(time_left), self.process_until_enough()).await??;
 
         info!(
             "{} update messages handled (min {} required)",
@@ -123,6 +119,24 @@ where
             PhaseState::<R, Sum2>::new(coordinator_state, request_rx, frozen_sum_dict, aggregation)
                 .into(),
         )
+    }
+}
+
+impl<R> PhaseState<R, Update>
+where
+    Self: Handler<R> + Phase<R> + Purge<R>,
+{
+    /// Processes requests until there are enough.
+    async fn process_until_enough(&mut self) -> Result<(), StateError> {
+        while !self.has_enough_updates() {
+            debug!(
+                "{} update messages handled (min {} required)",
+                self.updater_count(),
+                self.coordinator_state.min_update_count
+            );
+            self.process_single().await?;
+        }
+        Ok(())
     }
 }
 

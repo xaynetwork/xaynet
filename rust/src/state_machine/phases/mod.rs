@@ -119,7 +119,7 @@ where
     /// Processes requests for as long as the given duration.
     async fn process_during(&mut self, dur: tokio::time::Duration) -> Result<(), StateError> {
         tokio::select! {
-            err = self.process() => {
+            err = self.process_loop() => {
                 error!("processing loop terminated before duration elapsed");
                 err
             }
@@ -131,11 +131,17 @@ where
     }
 
     /// Processes requests indefinitely.
-    async fn process(&mut self) -> Result<(), StateError> {
+    async fn process_loop(&mut self) -> Result<(), StateError> {
         loop {
-            let req = self.next_request().await?;
-            self.handle_request(req);
+            self.process_single().await?;
         }
+    }
+
+    /// Processes the next available request.
+    async fn process_single(&mut self) -> Result<(), StateError> {
+        let req = self.next_request().await?;
+        self.handle_request(req);
+        Ok(())
     }
 }
 
