@@ -149,6 +149,50 @@ pub struct PetSettings {
     /// ```
     pub min_update_time: u64,
 
+    /// The maximum amount of time permitted for processing messages in the `sum`
+    /// and `sum2` phases, in seconds.
+    ///
+    /// Defaults to `u64::MAX` i.e. `sum` and `sum2` phases *effectively do not
+    /// end* until [`min_sum_count`] messages have been processed. Set this lower
+    /// to allow for the processing of [`min_sum_count`] messages to time-out in
+    /// the `sum` and `sum2` phases.
+    ///
+    /// # Examples
+    ///
+    /// **TOML**
+    /// ```text
+    /// [pet]
+    /// max_sum_time = 30
+    /// ```
+    ///
+    /// **Environment variable**
+    /// ```text
+    /// XAYNET_PET__MAX_SUM_TIME=30
+    /// ```
+    pub max_sum_time: u64,
+
+    /// The maximum amount of time permitted for processing messages in the
+    /// `update` phase, in seconds.
+    ///
+    /// Defaults to `u64::MAX` i.e. `update` phase *effectively does not end*
+    /// until [`min_update_count`] messages have been processed. Set this lower
+    /// to allow for the processing of [`min_update_count`] messages to time-out
+    /// in the `update` phase.
+    ///
+    /// # Examples
+    ///
+    /// **TOML**
+    /// ```text
+    /// [pet]
+    /// max_update_time = 60
+    /// ```
+    ///
+    /// **Environment variable**
+    /// ```text
+    /// XAYNET_PET__MAX_UPDATE_TIME=60
+    /// ```
+    pub max_update_time: u64,
+
     /// The expected fraction of participants selected for computing the unmasking sum. The value
     /// must be between `0` and `1` (i.e. `0 < sum < 1`).
     ///
@@ -215,6 +259,8 @@ impl Default for PetSettings {
             min_update_count: 3_usize,
             min_sum_time: 0_u64,
             min_update_time: 0_u64,
+            max_sum_time: u64::MAX,
+            max_update_time: u64::MAX,
             sum: 0.01_f64,
             update: 0.1_f64,
             expected_participants: 10,
