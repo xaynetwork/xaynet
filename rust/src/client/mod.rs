@@ -82,6 +82,7 @@ use crate::{
     PetError,
 };
 
+#[doc(hidden)]
 pub mod mobile_client;
 
 mod request;
