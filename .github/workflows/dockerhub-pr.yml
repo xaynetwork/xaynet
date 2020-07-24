@@ -34,7 +34,7 @@ jobs:
           echo "::set-output name=branch::${{ fromJson(steps.request.outputs.data).head.ref }}"
       - if: steps.check.outputs.triggered == 'true'
         name: Clone branch of the PR
-        uses: actions/checkout@master
+        uses: actions/checkout@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: ${{ steps.pr_data.outputs.branch }}
