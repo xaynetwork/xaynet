@@ -230,9 +230,7 @@ pub unsafe extern "C" fn update_model(
                 2_i32 as c_int
             }
         }
-        _ => {
-            2_i32 as c_int
-        }
+        _ => 2_i32 as c_int,
     }
 }
 
