@@ -167,9 +167,9 @@ pub unsafe extern "C" fn get_model(
             }
             _ => return 2_i32 as c_int,
         }
-        0_i32 as c_int;
+        0_i32 as c_int
     } else {
-        1_i32 as c_int;
+        1_i32 as c_int
     }
 }
 
@@ -198,40 +198,40 @@ pub unsafe extern "C" fn update_model(
             let model = slice::from_raw_parts(model as *const f32, len);
             if let Ok(m) = Model::from_primitives(model.iter().copied()) {
                 client.set_local_model(m);
-                0_i32 as c_int;
+                0_i32 as c_int
             } else {
-                2_i32 as c_int;
+                2_i32 as c_int
             }
         }
         2 => {
             let model = slice::from_raw_parts(model as *const f64, len);
             if let Ok(m) = Model::from_primitives(model.iter().copied()) {
                 client.set_local_model(m);
-                0_i32 as c_int;
+                0_i32 as c_int
             } else {
-                2_i32 as c_int;
+                2_i32 as c_int
             }
         }
         3 => {
             let model = slice::from_raw_parts(model as *const i32, len);
             if let Ok(m) = Model::from_primitives(model.iter().copied()) {
                 client.set_local_model(m);
-                0_i32 as c_int;
+                0_i32 as c_int
             } else {
-                2_i32 as c_int;
+                2_i32 as c_int
             }
         }
         4 => {
             let model = slice::from_raw_parts(model as *const i64, len);
             if let Ok(m) = Model::from_primitives(model.iter().copied()) {
                 client.set_local_model(m);
-                0_i32 as c_int;
+                0_i32 as c_int
             } else {
-                2_i32 as c_int;
+                2_i32 as c_int
             }
         }
         _ => {
-            2_i32 as c_int;
+            2_i32 as c_int
         }
     }
 }
