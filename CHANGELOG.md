@@ -17,6 +17,19 @@ For reference, the possible headings are:
 
 ## [unreleased]
 
+## [0.9.0] - 2020-07-24
+
+`xain/xain-fl` repository was renamed to `xaynetwork/xaynet`.
+
+The new crate will be published as `xaynet` under `v0.9.0`.
+
+### Added
+
+This release introduces the integration of the [PET protocol](https://www.xain.io/assets/XAIN-Whitepaper.pdf) into the platform.
+
+**Note:**
+The integration of the PET protocol required a complete rewrite of the codebase and is therefore not compatible with the previous release.
+
 ## [0.8.0] - 2020-04-08
 
 ### Added
