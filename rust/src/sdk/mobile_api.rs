@@ -24,6 +24,7 @@ use crate::{
     ParticipantSecretKey,
 };
 
+#[allow(clippy::missing_safety_doc)]
 #[no_mangle]
 pub unsafe extern "C" fn new_client(
     url: *const c_char,
@@ -85,6 +86,7 @@ pub unsafe extern "C" fn new_client(
     Box::into_raw(Box::new(MobileClient::new(url, participant_settings)))
 }
 
+#[allow(clippy::missing_safety_doc)]
 #[no_mangle]
 pub unsafe extern "C" fn drop_client(client: *mut MobileClient) {
     if !client.is_null() {
@@ -97,6 +99,8 @@ pub unsafe extern "C" fn drop_client(client: *mut MobileClient) {
 // 0: success
 // 1: no model available
 // 2: conversion failed
+#[allow(clippy::missing_safety_doc)]
+#[allow(clippy::unnecessary_cast)]
 #[no_mangle]
 pub unsafe extern "C" fn get_model(
     client: *mut MobileClient,
@@ -178,6 +182,8 @@ pub unsafe extern "C" fn get_model(
 // 0: success
 // 1: length mismatch
 // 2: conversion failed
+#[allow(clippy::missing_safety_doc)]
+#[allow(clippy::unnecessary_cast)]
 #[no_mangle]
 pub unsafe extern "C" fn update_model(
     client: *mut MobileClient,
@@ -234,6 +240,7 @@ pub unsafe extern "C" fn update_model(
     }
 }
 
+#[allow(clippy::missing_safety_doc)]
 #[no_mangle]
 pub unsafe extern "C" fn next(client: *mut MobileClient) {
     if !client.is_null() {
@@ -242,6 +249,7 @@ pub unsafe extern "C" fn next(client: *mut MobileClient) {
     }
 }
 
+#[allow(clippy::missing_safety_doc)]
 #[no_mangle]
 pub unsafe extern "C" fn new_secret_key(secret_key: *mut c_uchar) {
     if !secret_key.is_null() {
