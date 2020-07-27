@@ -1,4 +1,4 @@
-name: docker-compose validation
+name: Kubernetes manifests validation
 
 on:
   push:
