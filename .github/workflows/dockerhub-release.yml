@@ -3,7 +3,7 @@ name: DockerHub (Release)
 on:
   push:
     tags:
-      - v*
+      - v[0-9]+.[0-9]+.[0-9]+
 
 jobs:
   build-tag-push-release:
