@@ -1,4 +1,4 @@
-name: Dockerfile linting
+name: Dockerfiles linting
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
 
 jobs:
   lint:
-    name: Linting
+    name: Dockerfiles linting
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository

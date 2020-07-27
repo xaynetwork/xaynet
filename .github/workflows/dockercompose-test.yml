@@ -1,4 +1,4 @@
-name: docker-compose verification
+name: docker-compose validation
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     
 jobs:
   check-docker-compose:
-    name: Check docker-compose
+    name: docker-compose validation
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
