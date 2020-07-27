@@ -10,16 +10,13 @@ jobs:
     name: Check docker-compose
     runs-on: ubuntu-latest
     steps:
-      - name: Start docker-compose
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Verify development docker-compose
         working-directory: ./docker
-        run: docker-compose up -d influxdb minio redis
+        run: docker-compose -f docker-compose.yml config -q
   
-      - name: Run smoke tests
-        working-directory: ./rust
-        env:
-          RUSTFLAGS: "-D warnings"
-        run: cargo test -- --test-threads=1 --ignored
-  
-      - name: Stop docker-compose
+      - name: Verify release docker-compose
         working-directory: ./docker
-        run: docker-compose down
+        run: docker-compose -f docker-compose-release.yml config -q

@@ -1,4 +1,4 @@
-name: Dockerfile test build
+name: Dockerfile linting
 
 on:
   push:
@@ -6,14 +6,15 @@ on:
       - 'docker/Dockerfile**'
 
 jobs:
-  build:
-    name: docker build
+  lint:
+    name: Linting
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
-      - name: Build image
-        uses: docker/build-push-action@v1
-        with:
-          dockerfile: docker/Dockerfile
-          push: false
+
+      - name: Lint dev file
+        run: docker run -v $GITHUB_WORKSPACE/docker/Dockerfile:/Dockerfile replicated/dockerfilelint /Dockerfile
+
+      - name: Lint release file
+        run: docker run -v $GITHUB_WORKSPACE/docker/Dockerfile.release:/Dockerfile replicated/dockerfilelint /Dockerfile
