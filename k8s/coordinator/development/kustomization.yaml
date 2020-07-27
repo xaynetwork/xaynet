@@ -21,3 +21,4 @@ patchesStrategicMerge:
   - config-volume-mount.yaml
 resources:
   - ingress.yaml
+
