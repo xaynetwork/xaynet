@@ -1,0 +1,19 @@
+name: Dockerfile test build
+
+on:
+  push:
+    paths:
+      - 'docker/Dockerfile**'
+
+jobs:
+  build:
+    name: docker build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Build image
+        uses: docker/build-push-action@v1
+        with:
+          dockerfile: docker/Dockerfile
+          push: false

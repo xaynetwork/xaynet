@@ -1,0 +1,25 @@
+name: docker-compose verification
+
+on:
+  push:
+    paths:
+      - 'docker/docker-compose*yml'
+    
+jobs:
+  check-docker-compose:
+    name: Check docker-compose
+    runs-on: ubuntu-latest
+    steps:
+      - name: Start docker-compose
+        working-directory: ./docker
+        run: docker-compose up -d influxdb minio redis
+  
+      - name: Run smoke tests
+        working-directory: ./rust
+        env:
+          RUSTFLAGS: "-D warnings"
+        run: cargo test -- --test-threads=1 --ignored
+  
+      - name: Stop docker-compose
+        working-directory: ./docker
+        run: docker-compose down
