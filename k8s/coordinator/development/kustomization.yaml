@@ -20,5 +20,4 @@ patchesStrategicMerge:
   - history-limit.yaml
   - config-volume-mount.yaml
 resources:
-  - ingress.yaml
-
+  - ingress.yam
