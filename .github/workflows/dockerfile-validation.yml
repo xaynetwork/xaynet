@@ -1,0 +1,20 @@
+name: Dockerfiles linting
+
+on:
+  push:
+    paths:
+      - 'docker/Dockerfile**'
+
+jobs:
+  lint:
+    name: Dockerfiles linting
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Lint dev file
+        run: docker run -v $GITHUB_WORKSPACE/docker/Dockerfile:/Dockerfile replicated/dockerfilelint /Dockerfile
+
+      - name: Lint release file
+        run: docker run -v $GITHUB_WORKSPACE/docker/Dockerfile.release:/Dockerfile replicated/dockerfilelint /Dockerfile

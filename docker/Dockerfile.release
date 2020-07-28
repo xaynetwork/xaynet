@@ -18,6 +18,6 @@ COPY rust/src /src
 RUN touch /src/lib.rs
 RUN cargo build --release --all-features
 
-FROM ubuntu:latest
+FROM ubuntu:20.04
 RUN apt update && apt install -y --no-install-recommends libssl-dev
 COPY --from=builder /target/release/coordinator /app/coordinator

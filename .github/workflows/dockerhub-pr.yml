@@ -34,7 +34,7 @@ jobs:
           echo "::set-output name=branch::${{ fromJson(steps.request.outputs.data).head.ref }}"
       - if: steps.check.outputs.triggered == 'true'
         name: Clone branch of the PR
-        uses: actions/checkout@master
+        uses: actions/checkout@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: ${{ steps.pr_data.outputs.branch }}
@@ -49,4 +49,14 @@ jobs:
           repository: xaynetwork/xaynet
           tags: pr-${{ steps.pr_data.outputs.branch }}
           push: true
+  audit:
+    name: Rust Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
 
+      - uses: actions-rs/audit-check@v1.2.0
+        continue-on-error: true
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,27 @@
+name: Rust Audit for Security Vulnerabilities
+
+on:
+  schedule:
+    - cron: '0 11 * * mon-fri'
+
+jobs:
+  audit:
+    name: Rust Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - uses: actions-rs/audit-check@v1.2.0
+        id: rust-audit
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          fields: repo,message,author,action,ref
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        if: ${{ steps.rust-audit.outcome != 'success' }}

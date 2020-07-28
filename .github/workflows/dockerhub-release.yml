@@ -3,14 +3,14 @@ name: DockerHub (Release)
 on:
   push:
     tags:
-      - v*
+      - v[0-9]+.[0-9]+.[0-9]+
 
 jobs:
   build-tag-push-release:
     name: build-tag-push-release
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@master
+      - uses: actions/checkout@v2
       
       - name: build-tag-push
         uses: docker/build-push-action@v1

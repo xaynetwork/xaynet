@@ -10,7 +10,7 @@ jobs:
     name: build-tag-push-master
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@master
+      - uses: actions/checkout@v2
       
       - name: build-tag-push
         uses: docker/build-push-action@v1
@@ -33,7 +33,7 @@ jobs:
         run: doctl kubernetes cluster kubeconfig save ${{ secrets.K8S_CLUSTER }}
 
       - name: Re-apply manifests
-        run: kubectl apply -n development -k $GITHUB_WORKSPACE/k8s/coordinator/development --prune -l "app.kubernetes.io/part-of=xaynet"
+        run: kubectl apply -n development -k $GITHUB_WORKSPACE/k8s/coordinator/development
 
       - name: Force deployment rollout
         run: kubectl rollout -n development restart deployment/coordinator-deployment

@@ -1,15 +1,19 @@
-on: [push]
-
 name: Rust-CI
 
+on:
+  push:
+    paths:
+      - 'rust/**'
+
 jobs:
-  rustfmt:
-    name: rustfmt
+  lint:
+    name: cargo-fmt
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@master
+      - name: Checkout repository
+        uses: actions/checkout@v2
 
-      - name: Install nightly
+      - name: Install nightly toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -21,11 +25,13 @@ jobs:
         with:
           path: ~/.cargo/registry
           key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
       - name: Cache cargo index
         uses: actions/cache@v1
         with:
           path: ~/.cargo/git
           key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+
       - name: Cache cargo build
         uses: actions/cache@v1
         with:
@@ -37,16 +43,17 @@ jobs:
         run: cargo +nightly fmt --all -- --check
 
   check:
-    name: rust-build
+    name: cargo-check
     runs-on: ubuntu-latest
     strategy:
       matrix:
         features: [default]
       fail-fast: true
     steps:
-      - uses: actions/checkout@master
+      - name: Checkout repository
+        uses: actions/checkout@v2
 
-      - name: Install stable
+      - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -57,11 +64,13 @@ jobs:
         with:
           path: ~/.cargo/registry
           key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
       - name: Cache cargo index
         uses: actions/cache@v1
         with:
           path: ~/.cargo/git
           key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+
       - name: Cache cargo build
         uses: actions/cache@v1
         with:
@@ -75,16 +84,17 @@ jobs:
         run: cargo check --features ${{ matrix.features }}
 
   clippy:
-    name: rust-clippy
+    name: cargo-clippy
     runs-on: ubuntu-latest
     strategy:
       matrix:
         features: [default]
       fail-fast: true
     steps:
-      - uses: actions/checkout@master
+      - name: Checkout repository
+        uses: actions/checkout@v2
 
-      - name: Install stable
+      - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -96,11 +106,13 @@ jobs:
         with:
           path: ~/.cargo/registry
           key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
       - name: Cache cargo index
         uses: actions/cache@v1
         with:
           path: ~/.cargo/git
           key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+
       - name: Cache cargo build
         uses: actions/cache@v1
         with:
@@ -112,17 +124,17 @@ jobs:
         run: cargo clippy --features ${{ matrix.features }} -- -D warnings
 
   test:
-    name: rust-test
+    name: cargo-test
     runs-on: ubuntu-latest
-
     strategy:
       matrix:
         features: [default]
       fail-fast: true
     steps:
-      - uses: actions/checkout@master
+      - name: Checkout repository
+        uses: actions/checkout@v2
 
-      - name: Install stable
+      - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -133,11 +145,13 @@ jobs:
         with:
           path: ~/.cargo/registry
           key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
       - name: Cache cargo index
         uses: actions/cache@v1
         with:
           path: ~/.cargo/git
           key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+
       - name: Cache cargo build
         uses: actions/cache@v1
         with:
@@ -157,17 +171,17 @@ jobs:
         run: cargo test --features ${{ matrix.features }}
 
   smoke-test:
-    name: rust-smoke-test
+    name: cargo-smoke-test
     runs-on: ubuntu-latest
-
     strategy:
       matrix:
         features: [default]
       fail-fast: true
     steps:
-      - uses: actions/checkout@master
+      - name: Checkout repository
+        uses: actions/checkout@v2
 
-      - name: Install stable
+      - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -178,11 +192,13 @@ jobs:
         with:
           path: ~/.cargo/registry
           key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
       - name: Cache cargo index
         uses: actions/cache@v1
         with:
           path: ~/.cargo/git
           key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+
       - name: Cache cargo build
         uses: actions/cache@v1
         with:

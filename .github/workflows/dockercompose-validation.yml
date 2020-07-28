@@ -1,0 +1,22 @@
+name: docker-compose validation
+
+on:
+  push:
+    paths:
+      - 'docker/docker-compose*yml'
+    
+jobs:
+  check-docker-compose:
+    name: docker-compose validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Verify development docker-compose
+        working-directory: ./docker
+        run: docker-compose -f docker-compose.yml config -q
+  
+      - name: Verify release docker-compose
+        working-directory: ./docker
+        run: docker-compose -f docker-compose-release.yml config -q
