@@ -49,3 +49,4 @@ path = "src/bin/main.rs"
 
 [features]
 default = []
+
