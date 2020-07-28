@@ -49,4 +49,13 @@ jobs:
           repository: xaynetwork/xaynet
           tags: pr-${{ steps.pr_data.outputs.branch }}
           push: true
+  audit:
+    name: Rust Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
 
+      - uses: actions-rs/audit-check@v1.2.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
