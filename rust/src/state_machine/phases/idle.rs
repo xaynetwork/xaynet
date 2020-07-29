@@ -79,7 +79,7 @@ impl<R> PhaseState<R, Idle> {
         // Since some events are emitted very early, the round id must
         // be correct when the idle phase starts. Therefore, we update
         // it here, when instantiating the idle PhaseState.
-        coordinator_state.set_round_id(coordinator_state.round_id());
+        coordinator_state.set_round_id(coordinator_state.round_id() + 1);
         debug!("new round ID = {}", coordinator_state.round_id());
         Self {
             inner: Idle,
@@ -119,10 +119,32 @@ impl<R> PhaseState<R, Idle> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::state_machine::{events::Event, tests::builder::StateMachineBuilder};
+    use crate::state_machine::{
+        events::Event,
+        tests::{builder::StateMachineBuilder, utils},
+    };
 
     #[tokio::test]
-    pub async fn idle_to_sum() {
+    async fn round_id_is_updated_when_idle_phase_runs() {
+        let (coordinator_state, event_subscriber) = CoordinatorState::new(
+            utils::pet_settings(),
+            utils::mask_settings(),
+            utils::model_settings(),
+        );
+        let keys = event_subscriber.keys_listener();
+        let id = keys.get_latest().round_id;
+        assert_eq!(id, 0);
+
+        let (request_rx, _request_tx) = RequestReceiver::<Request>::new();
+        let mut idle_phase = PhaseState::<Request, Idle>::new(coordinator_state, request_rx);
+        idle_phase.run().await.unwrap();
+
+        let id = keys.get_latest().round_id;
+        assert_eq!(id, 1);
+    }
+
+    #[tokio::test]
+    async fn idle_to_sum() {
         let (state_machine, _request_tx, events) =
             StateMachineBuilder::new().with_round_id(2).build();
         assert!(state_machine.is_idle());

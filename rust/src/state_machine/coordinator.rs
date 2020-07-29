@@ -136,3 +136,34 @@ impl ByteObject for RoundSeed {
 /// A dictionary created during the sum2 phase of the protocol. It counts the model masks
 /// represented by their hashes.
 pub type MaskDict = HashMap<MaskObject, usize>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::state_machine::tests::utils;
+
+    #[test]
+    fn update_round_id() {
+        let (mut coordinator_state, event_subscriber) = CoordinatorState::new(
+            utils::pet_settings(),
+            utils::mask_settings(),
+            utils::model_settings(),
+        );
+        let phases = event_subscriber.phase_listener();
+        // When starting the round ID should be 0
+        let id = phases.get_latest().round_id;
+        assert_eq!(id, 0);
+
+        coordinator_state.set_round_id(1);
+        assert_eq!(coordinator_state.round_id, 1);
+
+        // Old events should still have the same round ID
+        let id = phases.get_latest().round_id;
+        assert_eq!(id, 0);
+
+        // But new events should have the new round ID
+        coordinator_state.events.broadcast_phase(PhaseName::Sum);
+        let id = phases.get_latest().round_id;
+        assert_eq!(id, 1);
+    }
+}
