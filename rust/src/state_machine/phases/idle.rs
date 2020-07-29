@@ -34,8 +34,6 @@ where
     ///
     /// See the [module level documentation](../index.html) for more details.
     async fn run(&mut self) -> Result<(), StateError> {
-        info!("starting idle phase");
-
         info!("updating the keys");
         self.gen_round_keypair();
 
@@ -48,40 +46,19 @@ where
         let events = &mut self.coordinator_state.events;
 
         info!("broadcasting new keys");
-        events.broadcast_keys(
-            self.coordinator_state.round_params.seed.clone(),
-            self.coordinator_state.keys.clone(),
-        );
-
-        info!("broadcasting idle phase event");
-        events.broadcast_phase(
-            self.coordinator_state.round_params.seed.clone(),
-            PhaseName::Idle,
-        );
+        events.broadcast_keys(self.coordinator_state.keys.clone());
 
         info!("broadcasting invalidation of sum dictionary from previous round");
-        events.broadcast_sum_dict(
-            self.coordinator_state.round_params.seed.clone(),
-            DictionaryUpdate::Invalidate,
-        );
+        events.broadcast_sum_dict(DictionaryUpdate::Invalidate);
 
         info!("broadcasting invalidation of seed dictionary from previous round");
-        events.broadcast_seed_dict(
-            self.coordinator_state.round_params.seed.clone(),
-            DictionaryUpdate::Invalidate,
-        );
+        events.broadcast_seed_dict(DictionaryUpdate::Invalidate);
 
         info!("broadcasting invalidation of scalar from previous round");
-        events.broadcast_scalar(
-            self.coordinator_state.round_params.seed.clone(),
-            ScalarUpdate::Invalidate,
-        );
+        events.broadcast_scalar(ScalarUpdate::Invalidate);
 
         info!("broadcasting invalidation of mask length from previous round");
-        events.broadcast_mask_length(
-            self.coordinator_state.round_params.seed.clone(),
-            MaskLengthUpdate::Invalidate,
-        );
+        events.broadcast_mask_length(MaskLengthUpdate::Invalidate);
 
         info!("broadcasting new round parameters");
         events.broadcast_params(self.coordinator_state.round_params.clone());
@@ -98,7 +75,12 @@ where
 
 impl<R> PhaseState<R, Idle> {
     /// Creates a new idle state.
-    pub fn new(coordinator_state: CoordinatorState, request_rx: RequestReceiver<R>) -> Self {
+    pub fn new(mut coordinator_state: CoordinatorState, request_rx: RequestReceiver<R>) -> Self {
+        // Since some events are emitted very early, the round id must
+        // be correct when the idle phase starts. Therefore, we update
+        // it here, when instantiating the idle PhaseState.
+        coordinator_state.set_round_id(coordinator_state.round_id() + 1);
+        debug!("new round ID = {}", coordinator_state.round_id());
         Self {
             inner: Idle,
             coordinator_state,
@@ -137,16 +119,39 @@ impl<R> PhaseState<R, Idle> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::state_machine::{events::Event, tests::builder::StateMachineBuilder};
+    use crate::state_machine::{
+        events::Event,
+        tests::{builder::StateMachineBuilder, utils},
+    };
 
     #[tokio::test]
-    pub async fn idle_to_sum() {
-        let (state_machine, _request_tx, events) = StateMachineBuilder::new().build();
+    async fn round_id_is_updated_when_idle_phase_runs() {
+        let (coordinator_state, event_subscriber) = CoordinatorState::new(
+            utils::pet_settings(),
+            utils::mask_settings(),
+            utils::model_settings(),
+        );
+        let keys = event_subscriber.keys_listener();
+        let id = keys.get_latest().round_id;
+        assert_eq!(id, 0);
+
+        let (request_rx, _request_tx) = RequestReceiver::<Request>::new();
+        let mut idle_phase = PhaseState::<Request, Idle>::new(coordinator_state, request_rx);
+        idle_phase.run().await.unwrap();
+
+        let id = keys.get_latest().round_id;
+        assert_eq!(id, 1);
+    }
+
+    #[tokio::test]
+    async fn idle_to_sum() {
+        let (state_machine, _request_tx, events) =
+            StateMachineBuilder::new().with_round_id(2).build();
         assert!(state_machine.is_idle());
 
         let initial_round_params = events.params_listener().get_latest().event;
-        let initial_seed = initial_round_params.seed.clone();
         let initial_keys = events.keys_listener().get_latest().event;
+        let initial_seed = initial_round_params.seed.clone();
 
         let state_machine = state_machine.next().await.unwrap();
         assert!(state_machine.is_sum());
@@ -160,70 +165,51 @@ mod test {
         assert!(sum_state.sum_dict().is_empty());
 
         let new_round_params = coordinator_state.round_params.clone();
-        let new_seed = new_round_params.seed.clone();
         let new_keys = coordinator_state.keys.clone();
 
-        // Make sure that the round seed, coordinator keys, and other
-        // parameters have been updated, since a new round is starting
-        assert_ne!(initial_seed, new_seed);
-        assert_ne!(initial_round_params, new_round_params);
+        // Make sure the seed and keys have updated
+        assert_ne!(initial_seed, new_round_params.seed.clone());
         assert_ne!(initial_keys, new_keys);
+
+        fn expected_event<T>(event: T) -> Event<T> {
+            Event { round_id: 2, event }
+        }
 
         // Check all the events that should be emitted during the idle
         // phase
         assert_eq!(
             events.phase_listener().get_latest(),
-            Event {
-                round_id: new_seed.clone(),
-                event: PhaseName::Idle,
-            }
+            expected_event(PhaseName::Idle)
         );
+
         assert_eq!(
             events.keys_listener().get_latest(),
-            Event {
-                round_id: new_seed.clone(),
-                event: new_keys,
-            }
+            expected_event(new_keys),
         );
 
         assert_eq!(
             events.params_listener().get_latest(),
-            Event {
-                round_id: new_seed.clone(),
-                event: new_round_params,
-            }
+            expected_event(new_round_params)
         );
 
         assert_eq!(
             events.sum_dict_listener().get_latest(),
-            Event {
-                round_id: new_seed.clone(),
-                event: DictionaryUpdate::Invalidate,
-            }
+            expected_event(DictionaryUpdate::Invalidate)
         );
 
         assert_eq!(
             events.seed_dict_listener().get_latest(),
-            Event {
-                round_id: new_seed.clone(),
-                event: DictionaryUpdate::Invalidate,
-            }
+            expected_event(DictionaryUpdate::Invalidate)
         );
 
         assert_eq!(
             events.scalar_listener().get_latest(),
-            Event {
-                round_id: new_seed.clone(),
-                event: ScalarUpdate::Invalidate,
-            }
+            expected_event(ScalarUpdate::Invalidate)
         );
 
         assert_eq!(
             events.mask_length_listener().get_latest(),
-            Event {
-                round_id: new_seed.clone(),
-                event: MaskLengthUpdate::Invalidate,
-            }
+            expected_event(MaskLengthUpdate::Invalidate)
         );
     }
 }

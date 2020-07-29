@@ -2,7 +2,7 @@ use crate::{
     client::{Participant, Task},
     crypto::ByteObject,
     mask::config::{BoundType, DataType, GroupType, ModelType},
-    settings::MaskSettings,
+    settings::{MaskSettings, ModelSettings, PetSettings},
     state_machine::coordinator::RoundSeed,
 };
 
@@ -44,4 +44,19 @@ pub fn mask_settings() -> MaskSettings {
         bound_type: BoundType::B0,
         model_type: ModelType::M3,
     }
+}
+
+pub fn pet_settings() -> PetSettings {
+    PetSettings {
+        sum: 0.4,
+        update: 0.5,
+        min_sum_count: 1,
+        min_update_count: 3,
+        expected_participants: 10,
+        ..Default::default()
+    }
+}
+
+pub fn model_settings() -> ModelSettings {
+    ModelSettings { size: 1 }
 }

@@ -41,21 +41,12 @@ where
 
     /// Run the unmasking phase
     async fn run(&mut self) -> Result<(), StateError> {
-        info!("starting unmasking phase");
-
-        info!("broadcasting unmasking phase event");
-        self.coordinator_state.events.broadcast_phase(
-            self.coordinator_state.round_params.seed.clone(),
-            PhaseName::Unmask,
-        );
-
         let global_model = self.end_round()?;
 
         info!("broadcasting the new global model");
-        self.coordinator_state.events.broadcast_model(
-            self.coordinator_state.round_params.seed.clone(),
-            ModelUpdate::New(Arc::new(global_model)),
-        );
+        self.coordinator_state
+            .events
+            .broadcast_model(ModelUpdate::New(Arc::new(global_model)));
 
         Ok(())
     }

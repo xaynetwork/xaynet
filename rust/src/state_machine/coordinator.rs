@@ -32,6 +32,8 @@ pub struct RoundParameters {
 pub struct CoordinatorState {
     /// The credentials of the coordinator.
     pub keys: EncryptKeyPair,
+    /// Internal ID used to identify a round
+    pub round_id: u64,
     /// The round parameters.
     pub round_params: RoundParameters,
     /// The minimum of required sum/sum2 messages.
@@ -70,13 +72,15 @@ impl CoordinatorState {
             seed: RoundSeed::zeroed(),
         };
         let phase = PhaseName::Idle;
+        let round_id = 0;
 
         let (publisher, subscriber) =
-            EventPublisher::init(keys.clone(), round_params.clone(), phase);
+            EventPublisher::init(round_id, keys.clone(), round_params.clone(), phase);
 
         let coordinator_state = Self {
             keys,
             round_params,
+            round_id,
             events: publisher,
             min_sum_count: pet_settings.min_sum_count,
             min_update_count: pet_settings.min_update_count,
@@ -89,6 +93,17 @@ impl CoordinatorState {
             model_size: model_settings.size,
         };
         (coordinator_state, subscriber)
+    }
+
+    /// Set the round ID to the given value
+    pub fn set_round_id(&mut self, id: u64) {
+        self.round_id = id;
+        self.events.set_round_id(id);
+    }
+
+    /// Return the current round ID
+    pub fn round_id(&self) -> u64 {
+        self.round_id
     }
 }
 
@@ -121,3 +136,34 @@ impl ByteObject for RoundSeed {
 /// A dictionary created during the sum2 phase of the protocol. It counts the model masks
 /// represented by their hashes.
 pub type MaskDict = HashMap<MaskObject, usize>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::state_machine::tests::utils;
+
+    #[test]
+    fn update_round_id() {
+        let (mut coordinator_state, event_subscriber) = CoordinatorState::new(
+            utils::pet_settings(),
+            utils::mask_settings(),
+            utils::model_settings(),
+        );
+        let phases = event_subscriber.phase_listener();
+        // When starting the round ID should be 0
+        let id = phases.get_latest().round_id;
+        assert_eq!(id, 0);
+
+        coordinator_state.set_round_id(1);
+        assert_eq!(coordinator_state.round_id, 1);
+
+        // Old events should still have the same round ID
+        let id = phases.get_latest().round_id;
+        assert_eq!(id, 0);
+
+        // But new events should have the new round ID
+        coordinator_state.events.broadcast_phase(PhaseName::Sum);
+        let id = phases.get_latest().round_id;
+        assert_eq!(id, 1);
+    }
+}

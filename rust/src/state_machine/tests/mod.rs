@@ -7,6 +7,8 @@ use crate::{
     mask::{FromPrimitives, Model},
     state_machine::{
         coordinator::RoundSeed,
+        events::Event,
+        phases::PhaseName,
         tests::{
             builder::StateMachineBuilder,
             utils::{enable_logging, generate_summer, generate_updater},
@@ -27,6 +29,7 @@ async fn full_round() {
     let model_size = 4;
 
     let (state_machine, mut requests, events) = StateMachineBuilder::new()
+        .with_round_id(42)
         .with_seed(seed.clone())
         .with_sum_ratio(sum_ratio)
         .with_update_ratio(update_ratio)
@@ -84,6 +87,18 @@ async fn full_round() {
     // Unmask phase
     let state_machine = state_machine.next().await.unwrap();
     assert!(state_machine.is_idle());
+
+    // New idle phase
+    let state_machine = state_machine.next().await.unwrap();
+    // During the idle phase, a new phase event with an updated round
+    // id should have been emitted.
+    assert_eq!(
+        Event {
+            round_id: 43,
+            event: PhaseName::Idle,
+        },
+        events.phase_listener().get_latest()
+    );
 
     // dropping the request sender should make the state machine
     // error out

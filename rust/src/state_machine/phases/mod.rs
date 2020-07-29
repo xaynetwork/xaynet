@@ -30,6 +30,7 @@ use crate::{
 
 use futures::StreamExt;
 use tokio::sync::oneshot;
+use tracing_futures::Instrument;
 
 /// Name of the current phase
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -152,22 +153,39 @@ where
     /// Run the current phase to completion, then transition to the
     /// next phase and return it.
     pub async fn run_phase(mut self) -> Option<StateMachine<R>> {
-        if let Err(err) = self.run().await {
-            return Some(self.into_error_state(err));
-        }
+        let phase = <Self as Phase<R>>::NAME;
+        let span = error_span!("run_phase", phase = ?phase);
 
-        if let Err(err) = self.purge_outdated_requests() {
-            // If we're already in the error state or shutdown state,
-            // ignore this error
-            match <Self as Phase<R>>::NAME {
-                PhaseName::Error | PhaseName::Shutdown => {
-                    debug!("already in error/shutdown state: ignoring error while purging outdated requests");
-                }
-                _ => return Some(self.into_error_state(err)),
+        async move {
+            info!("starting phase");
+            info!("broadcasting phase event");
+            self.coordinator_state.events.broadcast_phase(
+                phase,
+            );
+
+            if let Err(err) = self.run().await {
+                warn!("phase failed: {:?}", err);
+                return Some(self.into_error_state(err));
             }
-        }
 
-        self.next()
+            info!("phase ran succesfully");
+
+            debug!("purging outdated requests before transitioning");
+            if let Err(err) = self.purge_outdated_requests() {
+                warn!("failed to purge outdated requests");
+                // If we're already in the error state or shutdown state,
+                // ignore this error
+                match phase {
+                    PhaseName::Error | PhaseName::Shutdown => {
+                        debug!("already in error/shutdown state: ignoring error while purging outdated requests");
+                    }
+                    _ => return Some(self.into_error_state(err)),
+                }
+            }
+
+            info!("transitioning to the next phase");
+            self.next()
+        }.instrument(span).await
     }
 
     /// Process all the pending requests that are now considered

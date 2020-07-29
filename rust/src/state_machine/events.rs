@@ -15,10 +15,7 @@ use tokio::sync::watch;
 use crate::{
     crypto::encrypt::EncryptKeyPair,
     mask::model::Model,
-    state_machine::{
-        coordinator::{RoundParameters, RoundSeed},
-        phases::PhaseName,
-    },
+    state_machine::{coordinator::RoundParameters, phases::PhaseName},
     SeedDict,
     SumDict,
 };
@@ -28,7 +25,7 @@ use crate::{
 pub struct Event<E> {
     /// Metadata that associates this event to the round in which it is
     /// emitted.
-    pub round_id: RoundSeed,
+    pub round_id: u64,
     /// The event itself
     pub event: E,
 }
@@ -65,6 +62,8 @@ pub enum DictionaryUpdate<D> {
 /// A convenience type to emit any coordinator event.
 #[derive(Debug)]
 pub struct EventPublisher {
+    /// Round ID that is attached to all the requests.
+    round_id: u64,
     keys_tx: EventBroadcaster<EncryptKeyPair>,
     params_tx: EventBroadcaster<RoundParameters>,
     phase_tx: EventBroadcaster<PhaseName>,
@@ -92,53 +91,55 @@ pub struct EventSubscriber {
 impl EventPublisher {
     /// Initialize a new event publisher with the given initial events.
     pub fn init(
+        round_id: u64,
         keys: EncryptKeyPair,
         params: RoundParameters,
         phase: PhaseName,
     ) -> (Self, EventSubscriber) {
         let (keys_tx, keys_rx) = watch::channel::<Event<EncryptKeyPair>>(Event {
-            round_id: params.seed.clone(),
+            round_id,
             event: keys,
         });
 
         let (phase_tx, phase_rx) = watch::channel::<Event<PhaseName>>(Event {
-            round_id: params.seed.clone(),
+            round_id,
             event: phase,
         });
 
         let (scalar_tx, scalar_rx) = watch::channel::<Event<ScalarUpdate>>(Event {
-            round_id: params.seed.clone(),
+            round_id,
             event: ScalarUpdate::Invalidate,
         });
 
         let (model_tx, model_rx) = watch::channel::<Event<ModelUpdate>>(Event {
-            round_id: params.seed.clone(),
+            round_id,
             event: ModelUpdate::Invalidate,
         });
 
         let (mask_length_tx, mask_length_rx) = watch::channel::<Event<MaskLengthUpdate>>(Event {
-            round_id: params.seed.clone(),
+            round_id,
             event: MaskLengthUpdate::Invalidate,
         });
 
         let (sum_dict_tx, sum_dict_rx) =
             watch::channel::<Event<DictionaryUpdate<SumDict>>>(Event {
-                round_id: params.seed.clone(),
+                round_id,
                 event: DictionaryUpdate::Invalidate,
             });
 
         let (seed_dict_tx, seed_dict_rx) =
             watch::channel::<Event<DictionaryUpdate<SeedDict>>>(Event {
-                round_id: params.seed.clone(),
+                round_id,
                 event: DictionaryUpdate::Invalidate,
             });
 
         let (params_tx, params_rx) = watch::channel::<Event<RoundParameters>>(Event {
-            round_id: params.seed.clone(),
+            round_id,
             event: params,
         });
 
         let publisher = EventPublisher {
+            round_id,
             keys_tx: keys_tx.into(),
             params_tx: params_tx.into(),
             phase_tx: phase_tx.into(),
@@ -163,68 +164,56 @@ impl EventPublisher {
         (publisher, subscriber)
     }
 
+    /// Set the round ID that is attached to the events the publisher broadcasts.
+    pub fn set_round_id(&mut self, id: u64) {
+        self.round_id = id;
+    }
+
+    fn event<T>(&self, event: T) -> Event<T> {
+        Event {
+            round_id: self.round_id,
+            event,
+        }
+    }
+
     /// Emit a keys event
-    pub fn broadcast_keys(&mut self, round_id: RoundSeed, keys: EncryptKeyPair) {
-        let _ = self.keys_tx.broadcast(Event {
-            round_id,
-            event: keys,
-        });
+    pub fn broadcast_keys(&mut self, keys: EncryptKeyPair) {
+        let _ = self.keys_tx.broadcast(self.event(keys));
     }
 
     /// Emit a round parameters event
     pub fn broadcast_params(&mut self, params: RoundParameters) {
-        let _ = self.params_tx.broadcast(Event {
-            round_id: params.seed.clone(),
-            event: params,
-        });
+        let _ = self.params_tx.broadcast(self.event(params));
     }
 
     /// Emit a phase event
-    pub fn broadcast_phase(&mut self, round_id: RoundSeed, phase: PhaseName) {
-        let _ = self.phase_tx.broadcast(Event {
-            round_id,
-            event: phase,
-        });
+    pub fn broadcast_phase(&mut self, phase: PhaseName) {
+        let _ = self.phase_tx.broadcast(self.event(phase));
     }
 
     /// Emit a scalar event
-    pub fn broadcast_scalar(&mut self, round_id: RoundSeed, update: ScalarUpdate) {
-        let _ = self.scalar_tx.broadcast(Event {
-            round_id,
-            event: update,
-        });
+    pub fn broadcast_scalar(&mut self, update: ScalarUpdate) {
+        let _ = self.scalar_tx.broadcast(self.event(update));
     }
 
     /// Emit a model event
-    pub fn broadcast_model(&mut self, round_id: RoundSeed, update: ModelUpdate) {
-        let _ = self.model_tx.broadcast(Event {
-            round_id,
-            event: update,
-        });
+    pub fn broadcast_model(&mut self, update: ModelUpdate) {
+        let _ = self.model_tx.broadcast(self.event(update));
     }
 
     /// Emit a mask_length event
-    pub fn broadcast_mask_length(&mut self, round_id: RoundSeed, update: MaskLengthUpdate) {
-        let _ = self.mask_length_tx.broadcast(Event {
-            round_id,
-            event: update,
-        });
+    pub fn broadcast_mask_length(&mut self, update: MaskLengthUpdate) {
+        let _ = self.mask_length_tx.broadcast(self.event(update));
     }
 
     /// Emit a sum dictionary update
-    pub fn broadcast_sum_dict(&mut self, round_id: RoundSeed, update: DictionaryUpdate<SumDict>) {
-        let _ = self.sum_dict_tx.broadcast(Event {
-            round_id,
-            event: update,
-        });
+    pub fn broadcast_sum_dict(&mut self, update: DictionaryUpdate<SumDict>) {
+        let _ = self.sum_dict_tx.broadcast(self.event(update));
     }
 
     /// Emit a seed dictionary update
-    pub fn broadcast_seed_dict(&mut self, round_id: RoundSeed, update: DictionaryUpdate<SeedDict>) {
-        let _ = self.seed_dict_tx.broadcast(Event {
-            round_id,
-            event: update,
-        });
+    pub fn broadcast_seed_dict(&mut self, update: DictionaryUpdate<SeedDict>) {
+        let _ = self.seed_dict_tx.broadcast(self.event(update));
     }
 }
 

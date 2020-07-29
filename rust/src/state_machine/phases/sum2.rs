@@ -65,13 +65,6 @@ where
     ///
     /// See the [module level documentation](../index.html) for more details.
     async fn run(&mut self) -> Result<(), StateError> {
-        info!("starting sum2 phase");
-        info!("broadcasting sum2 phase event");
-        self.coordinator_state.events.broadcast_phase(
-            self.coordinator_state.round_params.seed.clone(),
-            PhaseName::Sum2,
-        );
-
         let min_time = self.coordinator_state.min_sum_time;
         debug!("in sum2 phase for a minimum of {} seconds", min_time);
         self.process_during(Duration::from_secs(min_time)).await?;
@@ -292,7 +285,7 @@ mod test {
         assert_eq!(
             events.phase_listener().get_latest(),
             Event {
-                round_id: seed.clone(),
+                round_id: 0,
                 event: PhaseName::Sum2,
             }
         );

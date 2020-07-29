@@ -68,7 +68,7 @@ async fn test_valid_request() {
 
     // Simulate the state machine broadcasting the sum phase
     // (otherwise the request will be rejected)
-    publisher.broadcast_phase(round_params.seed.clone(), PhaseName::Sum);
+    publisher.broadcast_phase(PhaseName::Sum);
 
     // Call the service
     let resp = task.call(req).await.unwrap().unwrap();

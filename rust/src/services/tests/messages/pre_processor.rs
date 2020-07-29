@@ -33,9 +33,8 @@ async fn test_sum_ok() {
     // make sure everyone is eligible
     round_params.sum = 1.0;
 
-    let round_id = round_params.seed.clone();
     publisher.broadcast_params(round_params.clone());
-    publisher.broadcast_phase(round_id, PhaseName::Sum);
+    publisher.broadcast_phase(PhaseName::Sum);
 
     let (message, _, _) = utils::new_sum_message(&round_params);
     let req = make_req(message.clone());
@@ -54,9 +53,8 @@ async fn test_sum_not_eligible() {
     // make sure no-one is eligible
     round_params.sum = 0.0;
 
-    let round_id = round_params.seed.clone();
     publisher.broadcast_params(round_params.clone());
-    publisher.broadcast_phase(round_id, PhaseName::Sum);
+    publisher.broadcast_phase(PhaseName::Sum);
 
     let (message, _, _) = utils::new_sum_message(&round_params);
     let req = make_req(message.clone());
@@ -86,7 +84,7 @@ async fn test_phase_change_between_poll_ready_and_call() {
     let (message, _, _) = utils::new_sum_message(&round_params);
     let req = make_req(message.clone());
 
-    publisher.broadcast_phase(round_params.seed.clone(), PhaseName::Sum);
+    publisher.broadcast_phase(PhaseName::Sum);
 
     let err = task.call(req).await.unwrap().unwrap_err();
     match err {
