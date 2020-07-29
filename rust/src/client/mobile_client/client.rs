@@ -136,10 +136,14 @@ impl ClientState<Awaiting> {
                 ClientState::<Sum>::new(proxy, round_params, participant, local_model, global_model)
                     .into()
             }
-            Role::Updater(participant) => {
-                ClientState::<Update>::new(proxy, round_params, participant, local_model, global_model)
-                    .into()
-            }
+            Role::Updater(participant) => ClientState::<Update>::new(
+                proxy,
+                round_params,
+                participant,
+                local_model,
+                global_model,
+            )
+            .into(),
         }
     }
 
