@@ -127,17 +127,17 @@ impl ClientState<Awaiting> {
         );
 
         match participant_type {
-            Role::Unselected(unsel_par) => {
+            Role::Unselected(participant) => {
                 info!("unselected");
-                ClientState::<Awaiting>::new(proxy, unsel_par.reset(), local_model, global_model)
+                ClientState::<Awaiting>::new(proxy, participant.reset(), local_model, global_model)
                     .into()
             }
-            Role::Summer(sum_par) => {
-                ClientState::<Sum>::new(proxy, round_params, sum_par, local_model, global_model)
+            Role::Summer(participant) => {
+                ClientState::<Sum>::new(proxy, round_params, participant, local_model, global_model)
                     .into()
             }
-            Role::Updater(upt_par) => {
-                ClientState::<Update>::new(proxy, round_params, upt_par, local_model, global_model)
+            Role::Updater(participant) => {
+                ClientState::<Update>::new(proxy, round_params, participant, local_model, global_model)
                     .into()
             }
         }
