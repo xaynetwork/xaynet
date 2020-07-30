@@ -148,6 +148,9 @@ $ cd xaynet/rust
 $ cargo run --bin coordinator -- -c ../configs/config.toml
 ```
 
+We will assume `configs/config.toml` includes the values shown in the excerpt
+above.
+
 # Connecting with Participants
 
 The below shows an example of how participants can be created to connect to the
@@ -205,7 +208,7 @@ C).
 The actual `test-drive-net` example is a tidier version of the above, where the
 hard-coded numbers are made configurable. To run:
 
-```no_run
+```ignore
 $ cargo run --example test-drive-net -- -l 4 -n 20 -u http://127.0.0.1:8081
 ```
 */
