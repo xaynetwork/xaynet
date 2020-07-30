@@ -58,7 +58,7 @@ fn main() -> Result<(), ()> {
 
     loop {
         client.set_local_model(model.clone());
-        client.perform_task();
+        client = client.perform_task();
         pause();
     }
 }
