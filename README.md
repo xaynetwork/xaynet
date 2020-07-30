@@ -140,7 +140,7 @@ cargo run --bin coordinator --manifest-path rust/Cargo.toml -- -c configs/config
 
 ## Running the example
 
-The example can be found under [rust/src/bin/](./rust/src/bin/). It uses a dummy model
+The example can be found under [rust/examples/](./rust/examples/). It uses a dummy model
 but is network-capable, so it's a good starting point for checking connectivity with
 the coordinator.
 
@@ -155,6 +155,9 @@ running on `127.0.0.1:8081`:
 ```bash
 RUST_LOG=xaynet=info cargo run --bin test-drive-net -- -n 20 -u http://127.0.0.1:8081
 ```
+
+For more in-depth details on how to run examples, see the accompanying Getting
+Started guide under [rust/src/examples.rs](./rust/src/examples.rs).
 
 ## Troubleshooting
 
