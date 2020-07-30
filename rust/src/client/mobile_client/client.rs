@@ -67,10 +67,10 @@ impl ClientStateMachine {
 
     pub fn get_global_model(&self) -> Option<Model> {
         match self {
-            ClientStateMachine::Awaiting(state) => state.get_global_model().clone(),
-            ClientStateMachine::Sum(state) => state.get_global_model().clone(),
-            ClientStateMachine::Update(state) => state.get_global_model().clone(),
-            ClientStateMachine::Sum2(state) => state.get_global_model().clone(),
+            ClientStateMachine::Awaiting(state) => state.get_global_model(),
+            ClientStateMachine::Sum(state) => state.get_global_model(),
+            ClientStateMachine::Update(state) => state.get_global_model(),
+            ClientStateMachine::Sum2(state) => state.get_global_model(),
         }
     }
 }
