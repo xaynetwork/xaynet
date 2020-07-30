@@ -3,7 +3,6 @@ use crate::{
     crypto::{SecretSigningKey, SigningKeyPair},
     mask::model::Model,
 };
-use std::{cell::RefCell, rc::Rc};
 
 mod client;
 use self::client::ClientStateMachine;
@@ -13,8 +12,6 @@ use self::participant::ParticipantSettings;
 
 pub struct MobileClient {
     runtime: tokio::runtime::Runtime,
-    local_model: Rc<RefCell<Option<Model>>>,
-    global_model: Rc<RefCell<Option<Model>>>,
     client_state: Option<ClientStateMachine>,
 }
 
@@ -26,31 +23,35 @@ impl MobileClient {
             .build()
             .unwrap();
 
-        let local_model = Rc::new(RefCell::new(None));
-        let global_model = Rc::new(RefCell::new(None));
+        let local_model = None;
+        let global_model = None;
 
         let client_state = ClientStateMachine::new(
             Proxy::new_remote(url),
             participant_settings,
-            local_model.clone(),
-            global_model.clone(),
+            local_model,
+            global_model,
         )
         .unwrap();
 
         Self {
             runtime,
-            local_model,
-            global_model,
             client_state: Some(client_state),
         }
     }
 
-    pub fn set_local_model(&self, local_model: Model) {
-        *self.local_model.borrow_mut() = Some(local_model);
+    pub fn set_local_model(&mut self, local_model: Model) {
+        if let Some(ref mut client_state) = self.client_state {
+            client_state.set_local_model(local_model);
+        }
     }
 
     pub fn get_global_model(&self) -> Option<Model> {
-        self.global_model.borrow().clone()
+        if let Some(client_state) = &self.client_state {
+            client_state.get_global_model()
+        } else {
+            None
+        }
     }
 
     pub fn next(&mut self) {
@@ -58,7 +59,7 @@ impl MobileClient {
             let new_state = self
                 .runtime
                 .block_on(async move { current_state.next().await });
-            self.client_state = Some(new_state);
+            self.client_state = Some(new_state)
         }
     }
 

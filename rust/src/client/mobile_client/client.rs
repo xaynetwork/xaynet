@@ -19,7 +19,6 @@ use crate::{
     PetError,
 };
 use derive_more::From;
-use std::{cell::RefCell, rc::Rc};
 
 #[derive(From)]
 pub enum ClientStateMachine {
@@ -33,8 +32,8 @@ impl ClientStateMachine {
     pub fn new(
         proxy: Proxy,
         participant_settings: ParticipantSettings,
-        local_model: Rc<RefCell<Option<Model>>>,
-        global_model: Rc<RefCell<Option<Model>>>,
+        local_model: Option<Model>,
+        global_model: Option<Model>,
     ) -> Result<Self, InitError> {
         // crucial: init must be called before anything else in this module
         sodiumoxide::init().or(Err(InitError))?;
@@ -56,14 +55,32 @@ impl ClientStateMachine {
             ClientStateMachine::Sum2(state) => state.next().await,
         }
     }
+
+    pub fn set_local_model(&mut self, local_model: Model) {
+        match self {
+            ClientStateMachine::Awaiting(state) => state.set_local_model(local_model),
+            ClientStateMachine::Sum(state) => state.set_local_model(local_model),
+            ClientStateMachine::Update(state) => state.set_local_model(local_model),
+            ClientStateMachine::Sum2(state) => state.set_local_model(local_model),
+        }
+    }
+
+    pub fn get_global_model(&self) -> Option<Model> {
+        match self {
+            ClientStateMachine::Awaiting(state) => state.get_global_model().clone(),
+            ClientStateMachine::Sum(state) => state.get_global_model().clone(),
+            ClientStateMachine::Update(state) => state.get_global_model().clone(),
+            ClientStateMachine::Sum2(state) => state.get_global_model().clone(),
+        }
+    }
 }
 
 pub struct ClientState<Type> {
     proxy: Proxy,
     round_params: RoundParameters,
     participant: Participant<Type>,
-    local_model: Rc<RefCell<Option<Model>>>,
-    global_model: Rc<RefCell<Option<Model>>>,
+    local_model: Option<Model>,
+    global_model: Option<Model>,
 }
 
 impl<Type> ClientState<Type> {
@@ -87,14 +104,22 @@ impl<Type> ClientState<Type> {
             self.global_model,
         )
     }
+
+    pub fn set_local_model(&mut self, local_model: Model) {
+        self.local_model = Some(local_model);
+    }
+
+    pub fn get_global_model(&self) -> Option<Model> {
+        self.global_model.clone()
+    }
 }
 
 impl ClientState<Awaiting> {
     fn new(
         proxy: Proxy,
         participant: Participant<Awaiting>,
-        local_model: Rc<RefCell<Option<Model>>>,
-        global_model: Rc<RefCell<Option<Model>>>,
+        local_model: Option<Model>,
+        global_model: Option<Model>,
     ) -> Self {
         Self {
             proxy,
@@ -156,16 +181,14 @@ impl ClientState<Awaiting> {
     async fn fetch_global_model(&mut self) {
         if let Ok(model) = self.proxy.get_model().await {
             //update our global model where necessary
-            let mut global_model = self.global_model.borrow_mut();
-
-            match (model, global_model.as_ref()) {
+            match (model, self.global_model.as_ref()) {
                 (Some(new_model), None) => {
                     info!("new global model");
-                    *global_model = Some(new_model);
+                    self.global_model = Some(new_model);
                 }
                 (Some(new_model), Some(old_model)) if &new_model != old_model => {
                     debug!("updating global model");
-                    *global_model = Some(new_model);
+                    self.global_model = Some(new_model);
                 }
                 (None, _) => debug!("global model not ready yet"),
                 _ => debug!("global model still fresh"),
@@ -179,8 +202,8 @@ impl ClientState<Sum> {
         proxy: Proxy,
         round_params: RoundParameters,
         participant: Participant<Sum>,
-        local_model: Rc<RefCell<Option<Model>>>,
-        global_model: Rc<RefCell<Option<Model>>>,
+        local_model: Option<Model>,
+        global_model: Option<Model>,
     ) -> Self {
         Self {
             proxy,
@@ -234,8 +257,8 @@ impl ClientState<Update> {
         proxy: Proxy,
         round_params: RoundParameters,
         participant: Participant<Update>,
-        local_model: Rc<RefCell<Option<Model>>>,
-        global_model: Rc<RefCell<Option<Model>>>,
+        local_model: Option<Model>,
+        global_model: Option<Model>,
     ) -> Self {
         Self {
             proxy,
@@ -264,8 +287,7 @@ impl ClientState<Update> {
         debug!("polling for local model");
         let local_model = self
             .local_model
-            .borrow_mut()
-            .take()
+            .as_ref()
             .ok_or(ClientError::TooEarly("local model"))?
             .clone();
 
@@ -305,8 +327,8 @@ impl ClientState<Sum2> {
         proxy: Proxy,
         round_params: RoundParameters,
         participant: Participant<Sum2>,
-        local_model: Rc<RefCell<Option<Model>>>,
-        global_model: Rc<RefCell<Option<Model>>>,
+        local_model: Option<Model>,
+        global_model: Option<Model>,
     ) -> Self {
         Self {
             proxy,
