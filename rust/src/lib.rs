@@ -87,6 +87,7 @@ extern crate validator_derive;
 pub mod certificate;
 pub mod client;
 pub mod crypto;
+pub mod examples;
 pub mod mask;
 pub mod message;
 pub mod rest;
