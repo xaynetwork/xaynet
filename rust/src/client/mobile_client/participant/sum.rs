@@ -37,8 +37,10 @@ impl Participant<Sum> {
 
         MessageOwned::new_sum(*pk, self.state.keys.public, payload)
     }
+}
 
-    pub fn next(self) -> Participant<Sum2> {
+impl Into<Participant<Sum2>> for Participant<Sum> {
+    fn into(self) -> Participant<Sum2> {
         Participant::<Sum2>::new(
             self.state,
             self.inner.sum_signature,

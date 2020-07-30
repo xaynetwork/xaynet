@@ -218,7 +218,7 @@ impl ClientState<Sum> {
         info!("selected to sum");
 
         match self.run().await {
-            Ok(_) => self.move_into_sum2().into(),
+            Ok(_) => self.into_sum2().into(),
             Err(ClientError::RoundOutdated) => self.reset().into(),
             Err(err) => {
                 error!("{:?}", err);
@@ -241,11 +241,11 @@ impl ClientState<Sum> {
         Ok(())
     }
 
-    fn move_into_sum2(self) -> ClientState<Sum2> {
+    fn into_sum2(self) -> ClientState<Sum2> {
         ClientState::<Sum2>::new(
             self.proxy,
             self.round_params,
-            self.participant.next(),
+            self.participant.into(),
             self.local_model,
             self.global_model,
         )

@@ -12,7 +12,7 @@ use self::participant::ParticipantSettings;
 
 pub struct MobileClient {
     runtime: tokio::runtime::Runtime,
-    client_state: Option<ClientStateMachine>,
+    client_state: ClientStateMachine,
 }
 
 impl MobileClient {
@@ -36,30 +36,29 @@ impl MobileClient {
 
         Self {
             runtime,
-            client_state: Some(client_state),
+            client_state: client_state,
         }
     }
 
     pub fn set_local_model(&mut self, local_model: Model) {
-        if let Some(ref mut client_state) = self.client_state {
-            client_state.set_local_model(local_model);
-        }
+        self.client_state.set_local_model(local_model);
     }
 
     pub fn get_global_model(&self) -> Option<Model> {
-        if let Some(client_state) = &self.client_state {
-            client_state.get_global_model()
-        } else {
-            None
-        }
+        self.client_state.get_global_model()
     }
 
-    pub fn next(&mut self) {
-        if let Some(current_state) = self.client_state.take() {
-            let new_state = self
-                .runtime
-                .block_on(async move { current_state.next().await });
-            self.client_state = Some(new_state)
+    pub fn perform_task(self) -> Self {
+        let Self {
+            mut runtime,
+            client_state,
+        } = self;
+
+        let new_client_state = runtime.block_on(async { client_state.next().await });
+
+        Self {
+            runtime,
+            client_state: new_client_state,
         }
     }
 
