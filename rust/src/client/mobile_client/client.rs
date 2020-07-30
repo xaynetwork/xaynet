@@ -29,20 +29,15 @@ pub enum ClientStateMachine {
 }
 
 impl ClientStateMachine {
-    pub fn new(
-        proxy: Proxy,
-        participant_settings: ParticipantSettings,
-        local_model: Option<Model>,
-        global_model: Option<Model>,
-    ) -> Result<Self, InitError> {
+    pub fn new(proxy: Proxy, participant_settings: ParticipantSettings) -> Result<Self, InitError> {
         // crucial: init must be called before anything else in this module
         sodiumoxide::init().or(Err(InitError))?;
 
         Ok(ClientState::<Awaiting>::new(
             proxy,
             Participant::<Awaiting>::new(participant_settings.into()),
-            local_model,
-            global_model,
+            None,
+            None,
         )
         .into())
     }

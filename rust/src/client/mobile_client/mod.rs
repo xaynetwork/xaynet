@@ -23,20 +23,12 @@ impl MobileClient {
             .build()
             .unwrap();
 
-        let local_model = None;
-        let global_model = None;
-
-        let client_state = ClientStateMachine::new(
-            Proxy::new_remote(url),
-            participant_settings,
-            local_model,
-            global_model,
-        )
-        .unwrap();
+        let client_state =
+            ClientStateMachine::new(Proxy::new_remote(url), participant_settings).unwrap();
 
         Self {
             runtime,
-            client_state: client_state,
+            client_state,
         }
     }
 
