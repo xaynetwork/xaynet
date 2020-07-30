@@ -173,6 +173,8 @@ pub unsafe extern "C" fn new_client(address: *const c_char, period: c_ulonglong)
 /// - `7`: client stopped due to error [`GeneralErr`]
 /// - `8`: client stopped due to error [`Fetch`]
 /// - `9`: client stopped due to error [`PetMessage`]
+/// - `10`: client stopped due to error [`TooEarly`]
+/// - `11`: client stopped due to error [`RoundOutdated`]
 ///
 /// # Safety
 /// The method dereferences from the raw pointer arguments. Therefore, the behavior of the method is
@@ -189,6 +191,8 @@ pub unsafe extern "C" fn new_client(address: *const c_char, period: c_ulonglong)
 /// [`GeneralErr`]: ../../client/enum.ClientError.html#variant.GeneralErr
 /// [`Fetch`]: ../../client/enum.ClientError.html#variant.Fetch
 /// [`PetMessage`]: ../../client/enum.ClientError.html#variant.PetMessage
+/// [`TooEarly`]: ../../client/enum.ClientError.html#variant.TooEarly
+/// [`RoundOutdated`]: ../../client/enum.ClientError.html#variant.RoundOutdated
 pub unsafe extern "C" fn run_client(client: *mut FFIClient) -> c_int {
     if client.is_null() {
         return -1_i32 as c_int;
@@ -222,6 +226,8 @@ pub unsafe extern "C" fn run_client(client: *mut FFIClient) -> c_int {
         Ok(Err(ClientError::GeneralErr)) => 7_i32 as c_int,
         Ok(Err(ClientError::Fetch(_))) => 8_i32 as c_int,
         Ok(Err(ClientError::PetMessage(_))) => 9_i32 as c_int,
+        Ok(Err(ClientError::TooEarly(_))) => 10_i32 as c_int,
+        Ok(Err(ClientError::RoundOutdated)) => 11_i32 as c_int,
     }
 }
 
