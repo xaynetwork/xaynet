@@ -234,4 +234,4 @@ jobs:
 
       - name: Check the building of docs
         working-directory: ./rust
-        run: cargo doc --all-features --color always
+        run: cargo +nightly doc --all-features --color always
