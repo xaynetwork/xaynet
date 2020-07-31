@@ -153,7 +153,7 @@ Here is an example on how to start `20` participants that will connect to a coor
 running on `127.0.0.1:8081`:
 
 ```bash
-RUST_LOG=xaynet=info cargo run --bin test-drive-net -- -n 20 -u http://127.0.0.1:8081
+RUST_LOG=xaynet=info cargo run --example test-drive-net -- -n 20 -u http://127.0.0.1:8081
 ```
 
 For more in-depth details on how to run examples, see the accompanying Getting
