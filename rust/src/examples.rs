@@ -109,11 +109,11 @@ selection above because they will be the most relevant for this guide.
 
 ## Settings
 
-Going from the top, the [`ApiSettings`] include [`bind_address`], which is the
+Going from the top, the [`ApiSettings`] include the
 address the coordinator should listen on for requests from participants. This
 address should be known to all participants.
 
-The [`PetSettings`] specify various parameters of the PET protocol.
+The [`PetSettings`] specify various parameters of the PET protocol:
 
 - The most
 important are [`sum`] and [`update`], which are the probabilities assigned to
@@ -142,7 +142,7 @@ with participants, and agreed upon by both.
 
 The coordinator can be run as follows:
 
-```ignore
+```text
 $ git clone git://github.com/xaynetwork/xaynet
 $ cd xaynet/rust
 $ cargo run --bin coordinator -- -c ../configs/config.toml
@@ -194,8 +194,8 @@ async fn main() -> Result<(), ClientError> {
 
 As this example is meant solely as a demonstration of the operation of
 the PET protocol, it does not perform any training as such (see other
-forthcoming examples for that). Instead, a "dummy" zero-model is used throughout.
-Nevertheless, note that its length and contents are (respectively) required to
+forthcoming examples for that). Instead, a "dummy" zero-[`Model`] is used throughout.
+Nevertheless, note that its length and contents, respectively, are required to
 match the size and mask configuration expected by the coordinator.
 
 The example creates the expected number of participants (called [`Client`]s
@@ -208,7 +208,21 @@ C).
 The actual `test-drive-net` example is a tidier version of the above, where the
 hard-coded numbers are made configurable. To run:
 
-```ignore
+```text
 $ cargo run --example test-drive-net -- -l 4 -n 20 -u http://127.0.0.1:8081
 ```
+
+[`ApiSettings`]: crate::settings::ApiSettings
+[`PetSettings`]: crate::settings::PetSettings
+[`sum`]: crate::settings::PetSettings::sum
+[`update`]: crate::settings::PetSettings::update
+[`min_sum_count`]: crate::settings::PetSettings::min_sum_count
+[`min_update_count`]: crate::settings::PetSettings::min_update_count
+[`min_sum_time`]: crate::settings::PetSettings::min_sum_time
+[`min_update_time`]: crate::settings::PetSettings::min_update_time
+[`expected_participants`]: crate::settings::PetSettings::expected_participants
+[`MaskSettings`]: crate::settings::MaskSettings
+[`ModelSettings`]: crate::settings::ModelSettings
+[`Model`]: crate::mask::Model
+[`Client`]: crate::client::Client
 */
