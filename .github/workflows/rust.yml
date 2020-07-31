@@ -235,3 +235,26 @@ jobs:
       - name: Check the building of docs
         working-directory: ./rust
         run: cargo +nightly doc --all-features --color always
+
+  coverage:
+    name: cargo-tarpaulin
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Run cargo-tarpaulin
+        uses: actions-rs/tarpaulin@v0.1.2
+        with:
+          args: '--manifest-path rust/Cargo.toml --all-features --force-clean --lib --ignore-tests --exclude-files src/vendor/*'
+
+      - name: Upload to codecov.io
+        uses: codecov/codecov-action@v1.0.12
+        with:
+          token: ${{secrets.CODECOV_TOKEN}}

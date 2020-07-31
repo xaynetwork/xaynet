@@ -6,7 +6,7 @@ This is the main source code repository for [xaynet](https://www.xaynet.dev/).
 
 **Developers:** feel free to jump to the technical ["Getting Started"](#getting-started) section.
 
-[![crates.io badge](https://img.shields.io/crates/v/xaynet.svg)](https://crates.io/crates/xaynet) [![docs.rs badge](https://docs.rs/xaynet/badge.svg)](https://docs.rs/xaynet) ![crates.io downloads](https://img.shields.io/crates/d/xaynet.svg)
+[![crates.io badge](https://img.shields.io/crates/v/xaynet.svg)](https://crates.io/crates/xaynet) [![docs.rs badge](https://docs.rs/xaynet/badge.svg)](https://docs.rs/xaynet) ![crates.io downloads](https://img.shields.io/crates/d/xaynet.svg) [![codecov](https://codecov.io/gh/xaynetwork/xaynet/branch/master/graph/badge.svg)](https://codecov.io/gh/xaynetwork/xaynet)
 
 ---
 
