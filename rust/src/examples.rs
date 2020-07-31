@@ -170,14 +170,14 @@ async fn main() -> Result<(), ClientError> {
     let model = Model::from_primitives(vec![0; len].into_iter()).unwrap();
 
     let mut clients = Vec::with_capacity(20_usize);
-    for id in 0..clients.len() {
+    for id in 0..20 {
         let mut client = Client::new_with_addr(1, id, "http://127.0.0.1:8081")?;
         client.local_model = Some(model.clone());
         let join_hdl = tokio::spawn(async move {
             tokio::select! {
                 _ = signal::ctrl_c() => {}
                 result = client.start() => {
-                    error!("{:?}", result);
+                    println!("{:?}", result);
                 }
             }
         });
