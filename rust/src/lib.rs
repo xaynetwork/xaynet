@@ -90,6 +90,7 @@ pub mod crypto;
 pub mod examples;
 pub mod mask;
 pub mod message;
+pub mod metrics;
 pub mod rest;
 pub mod sdk;
 pub mod services;
