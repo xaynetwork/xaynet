@@ -216,15 +216,24 @@ pub struct MetricsService {
 }
 
 impl MetricsService {
-    pub fn new(host: &str, db_name: &str) -> (MetricsService, MetricsSender) {
+    pub fn new(url: &str, database: &str) -> (MetricsService, MetricsSender) {
+        let client = Client::new(url, database);
+        Self::new_metrics_service(client)
+    }
+
+    pub fn new_with_auth(
+        url: &str,
+        database: &str,
+        username: &str,
+        password: &str,
+    ) -> (MetricsService, MetricsSender) {
+        let client_auth = Client::new(url, database).with_auth(username, password);
+        Self::new_metrics_service(client_auth)
+    }
+
+    fn new_metrics_service(client: Client) -> (MetricsService, MetricsSender) {
         let (sender, receiver) = unbounded_channel();
-        (
-            MetricsService {
-                client: Client::new(host, db_name),
-                receiver,
-            },
-            MetricsSender(sender),
-        )
+        (MetricsService { client, receiver }, MetricsSender(sender))
     }
 }
 
