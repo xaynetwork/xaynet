@@ -4,15 +4,15 @@ use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 mod models;
 
 pub mod round_parameters {
-    use super::models::{Measurement, Sum, Update};
+    use super::models::{Measurement, RoundParamSum, RoundParamUpdate};
     use influxdb::{InfluxDbWriteable, Timestamp, WriteQuery};
     pub mod sum {
         use super::*;
 
         pub fn update(sum: f64) -> WriteQuery {
-            Sum {
+            RoundParamSum {
                 time: Timestamp::Now.into(),
-                sum,
+                round_param_sum: sum,
             }
             .into_query(Measurement::StateMachine.to_string())
         }
@@ -22,9 +22,9 @@ pub mod round_parameters {
         use super::*;
 
         pub fn update(update: f64) -> WriteQuery {
-            Update {
+            RoundParamUpdate {
                 time: Timestamp::Now.into(),
-                update,
+                round_param_update: update,
             }
             .into_query(Measurement::StateMachine.to_string())
         }
@@ -119,7 +119,7 @@ pub mod message {
         pub fn increment(round_id: u64, phase: PhaseName) -> WriteQuery {
             MessageSum {
                 time: Timestamp::Now.into(),
-                sum: 1,
+                message_sum: 1,
                 round_id,
                 phase: phase as u8,
             }
@@ -133,7 +133,7 @@ pub mod message {
         pub fn increment(round_id: u64, phase: PhaseName) -> WriteQuery {
             MessageUpdate {
                 time: Timestamp::Now.into(),
-                update: 1,
+                message_update: 1,
                 round_id,
                 phase: phase as u8,
             }
@@ -147,7 +147,7 @@ pub mod message {
         pub fn increment(round_id: u64, phase: PhaseName) -> WriteQuery {
             MessageSum2 {
                 time: Timestamp::Now.into(),
-                sum2: 1,
+                message_sum2: 1,
                 round_id,
                 phase: phase as u8,
             }
@@ -161,7 +161,7 @@ pub mod message {
         pub fn increment(round_id: u64, phase: PhaseName) -> WriteQuery {
             MessageDiscarded {
                 time: Timestamp::Now.into(),
-                discarded: 1,
+                message_discarded: 1,
                 round_id,
                 phase: phase as u8,
             }
@@ -175,7 +175,7 @@ pub mod message {
         pub fn increment(round_id: u64, phase: PhaseName) -> WriteQuery {
             MessageRejected {
                 time: Timestamp::Now.into(),
-                rejected: 1,
+                message_rejected: 1,
                 round_id,
                 phase: phase as u8,
             }
@@ -225,5 +225,117 @@ impl MetricsService {
             },
             MetricsSender(sender),
         )
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::state_machine::{
+        phases::{PhaseName, StateError},
+        RoundFailed,
+    };
+    use influxdb::Query;
+
+    // The fields of the WriteQuery are private and there are no kinds of getters for the fields.
+    // One way to get something is via `build`.
+    // We are using `contains` because we don't to check the timestamp at the end.
+    // e.g. "state_machine sum=0.6 1596463830315036000"
+
+    #[test]
+    fn test_round_parameters_sum() {
+        let query = round_parameters::sum::update(0.6).build();
+        assert!(format!("{:?}", query.unwrap()).contains("state_machine round_param_sum=0.6"));
+    }
+
+    #[test]
+    fn test_round_parameters_update() {
+        let query = round_parameters::update::update(0.8).build();
+        assert!(format!("{:?}", query.unwrap()).contains("state_machine round_param_update=0.8"));
+    }
+
+    #[test]
+    fn test_phase_name() {
+        let query = phase::update(PhaseName::Idle).build();
+        assert!(format!("{:?}", query.unwrap()).contains("state_machine phase=0"));
+
+        let query = phase::update(PhaseName::Sum).build();
+        assert!(format!("{:?}", query.unwrap()).contains("state_machine phase=1"));
+
+        let query = phase::update(PhaseName::Update).build();
+        assert!(format!("{:?}", query.unwrap()).contains("state_machine phase=2"));
+
+        let query = phase::update(PhaseName::Sum2).build();
+        assert!(format!("{:?}", query.unwrap()).contains("state_machine phase=3"));
+
+        let query = phase::update(PhaseName::Unmask).build();
+        assert!(format!("{:?}", query.unwrap()).contains("state_machine phase=4"));
+
+        let query = phase::update(PhaseName::Error).build();
+        assert!(format!("{:?}", query.unwrap()).contains("state_machine phase=5"));
+
+        let query = phase::update(PhaseName::Shutdown).build();
+        assert!(format!("{:?}", query.unwrap()).contains("state_machine phase=6"));
+    }
+
+    #[test]
+    fn test_phase_error() {
+        let query = phase::error::emit(&StateError::RoundError(RoundFailed::NoMask)).build();
+        assert!(format!("{:?}", query.unwrap()).contains(
+            "event title=\\\"state\\\\ failed:\\\\ round\\\\ error:\\\\ no\\\\ mask\\\\ found\\\""
+        ));
+    }
+
+    #[test]
+    fn test_masks_total_number() {
+        let query = masks::total_number::update(12).build();
+        assert!(format!("{:?}", query.unwrap()).contains("state_machine masks_total_number=12"));
+    }
+
+    #[test]
+    fn test_round_total_number() {
+        let query = round::total_number::update(2).build();
+        assert!(format!("{:?}", query.unwrap()).contains("state_machine round_total_number=2"));
+    }
+
+    #[test]
+    fn test_round_successful() {
+        let query = round::successful::increment().build();
+        assert!(format!("{:?}", query.unwrap()).contains("state_machine round_successful=1"));
+    }
+
+    #[test]
+    fn test_message_sum() {
+        let query = message::sum::increment(1, PhaseName::Sum).build();
+        assert!(format!("{:?}", query.unwrap())
+            .contains("state_machine,round_id=\\\"1\\\",phase=\\\"1\\\" message_sum=1"));
+    }
+
+    #[test]
+    fn test_message_update() {
+        let query = message::update::increment(1, PhaseName::Update).build();
+        assert!(format!("{:?}", query.unwrap())
+            .contains("state_machine,round_id=\\\"1\\\",phase=\\\"2\\\" message_update=1"));
+    }
+
+    #[test]
+    fn test_message_sum2() {
+        let query = message::sum2::increment(1, PhaseName::Sum2).build();
+        assert!(format!("{:?}", query.unwrap())
+            .contains("state_machine,round_id=\\\"1\\\",phase=\\\"3\\\" message_sum2=1"));
+    }
+
+    #[test]
+    fn test_message_discarded() {
+        let query = message::discarded::increment(1, PhaseName::Idle).build();
+        assert!(format!("{:?}", query.unwrap())
+            .contains("state_machine,round_id=\\\"1\\\",phase=\\\"0\\\" message_discarded=1"));
+    }
+
+    #[test]
+    fn test_message_rejected() {
+        let query = message::rejected::increment(1, PhaseName::Sum).build();
+        assert!(format!("{:?}", query.unwrap())
+            .contains("state_machine,round_id=\\\"1\\\",phase=\\\"1\\\" message_rejected=1"));
     }
 }

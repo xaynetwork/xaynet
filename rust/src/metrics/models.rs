@@ -22,15 +22,15 @@ impl ToString for Measurement {
 }
 
 #[derive(InfluxDbWriteable)]
-pub struct Sum {
+pub struct RoundParamSum {
     pub time: DateTime<Utc>,
-    pub sum: f64,
+    pub round_param_sum: f64,
 }
 
 #[derive(InfluxDbWriteable)]
-pub struct Update {
+pub struct RoundParamUpdate {
     pub time: DateTime<Utc>,
-    pub update: f64,
+    pub round_param_update: f64,
 }
 
 #[derive(InfluxDbWriteable)]
@@ -60,7 +60,7 @@ pub struct RoundSuccessful {
 #[derive(InfluxDbWriteable)]
 pub struct MessageSum {
     pub time: DateTime<Utc>,
-    pub sum: u8,
+    pub message_sum: u8,
     #[tag]
     pub round_id: u64,
     #[tag]
@@ -70,7 +70,7 @@ pub struct MessageSum {
 #[derive(InfluxDbWriteable)]
 pub struct MessageUpdate {
     pub time: DateTime<Utc>,
-    pub update: u8,
+    pub message_update: u8,
     #[tag]
     pub round_id: u64,
     #[tag]
@@ -80,7 +80,7 @@ pub struct MessageUpdate {
 #[derive(InfluxDbWriteable)]
 pub struct MessageSum2 {
     pub time: DateTime<Utc>,
-    pub sum2: u8,
+    pub message_sum2: u8,
     #[tag]
     pub round_id: u64,
     #[tag]
@@ -90,7 +90,7 @@ pub struct MessageSum2 {
 #[derive(InfluxDbWriteable)]
 pub struct MessageDiscarded {
     pub time: DateTime<Utc>,
-    pub discarded: u8,
+    pub message_discarded: u8,
     #[tag]
     pub round_id: u64,
     #[tag]
@@ -100,7 +100,7 @@ pub struct MessageDiscarded {
 #[derive(InfluxDbWriteable)]
 pub struct MessageRejected {
     pub time: DateTime<Utc>,
-    pub rejected: u8,
+    pub message_rejected: u8,
     #[tag]
     pub round_id: u64,
     #[tag]
