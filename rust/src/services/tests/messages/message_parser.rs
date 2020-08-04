@@ -20,7 +20,7 @@ use crate::{
         events::{EventPublisher, EventSubscriber},
         phases::PhaseName,
     },
-    utils::trace::Traced,
+    utils::Request,
 };
 
 fn spawn_svc() -> (EventPublisher, EventSubscriber, Spawn<MessageParserService>) {
@@ -30,8 +30,8 @@ fn spawn_svc() -> (EventPublisher, EventSubscriber, Spawn<MessageParserService>)
     (publisher, subscriber, task)
 }
 
-fn make_req(bytes: Vec<u8>) -> Traced<MessageParserRequest> {
-    Traced::new(bytes.into(), error_span!("test"))
+fn make_req(bytes: Vec<u8>) -> MessageParserRequest<Vec<u8>> {
+    Request::new(bytes.into())
 }
 
 fn new_sum_message(round_params: &RoundParameters) -> (MessageOwned, Vec<u8>) {
@@ -41,10 +41,14 @@ fn new_sum_message(round_params: &RoundParameters) -> (MessageOwned, Vec<u8>) {
     (message, encrypted_message)
 }
 
+fn assert_ready(task: &mut Spawn<MessageParserService>) {
+    assert_ready!(task.poll_ready::<MessageParserRequest<Vec<u8>>>()).unwrap();
+}
+
 #[tokio::test]
 async fn test_decrypt_fail() {
     let (_publisher, _subscriber, mut task) = spawn_svc();
-    assert_ready!(task.poll_ready()).unwrap();
+    assert_ready(&mut task);
 
     let req = make_req(vec![0, 1, 2, 3, 4, 5, 6]);
     let resp: Result<MessageParserResponse, ::std::convert::Infallible> = task.call(req).await;
@@ -54,13 +58,13 @@ async fn test_decrypt_fail() {
         Ok(Err(MessageParserError::Decrypt)) => {}
         _ => panic!("expected decrypt error"),
     }
-    assert_ready!(task.poll_ready()).unwrap();
+    assert_ready(&mut task);
 }
 
 #[tokio::test]
 async fn test_valid_request() {
     let (mut publisher, subscriber, mut task) = spawn_svc();
-    assert_ready!(task.poll_ready()).unwrap();
+    assert_ready(&mut task);
 
     let round_params = subscriber.params_listener().get_latest().event;
     let (message, encrypted_message) = new_sum_message(&round_params);
@@ -78,7 +82,7 @@ async fn test_valid_request() {
 #[tokio::test]
 async fn test_unexpected_message() {
     let (_publisher, subscriber, mut task) = spawn_svc();
-    assert_ready!(task.poll_ready()).unwrap();
+    assert_ready(&mut task);
 
     let round_params = subscriber.params_listener().get_latest().event;
     let (_, encrypted_message) = new_sum_message(&round_params);

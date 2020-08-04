@@ -11,6 +11,7 @@ use derive_more::From;
 use futures::Stream;
 use thiserror::Error;
 use tokio::sync::{mpsc, oneshot};
+use tracing::Span;
 
 /// Error that occurs when a [`RequestSender`] tries to send a request on a closed `Request` channel.
 #[derive(Debug, Error)]
@@ -19,15 +20,18 @@ pub struct StateMachineShutdown;
 
 use crate::{
     mask::object::MaskObject,
+    message::{MessageOwned, PayloadOwned, UpdateOwned},
+    state_machine::{StateMachineError, StateMachineResult},
+    utils::{Request, Traceable},
     LocalSeedDict,
     ParticipantPublicKey,
-    PetError as Error,
     SumParticipantEphemeralPublicKey,
     SumParticipantPublicKey,
     UpdateParticipantPublicKey,
 };
 
 /// A sum request.
+#[derive(Debug)]
 pub struct SumRequest {
     /// The public key of the participant.
     pub participant_pk: SumParticipantPublicKey,
@@ -36,6 +40,7 @@ pub struct SumRequest {
 }
 
 /// An update request.
+#[derive(Debug)]
 pub struct UpdateRequest {
     /// The public key of the participant.
     pub participant_pk: UpdateParticipantPublicKey,
@@ -46,6 +51,7 @@ pub struct UpdateRequest {
 }
 
 /// A sum2 request.
+#[derive(Debug)]
 pub struct Sum2Request {
     /// The public key of the participant.
     pub participant_pk: ParticipantPublicKey,
@@ -53,36 +59,62 @@ pub struct Sum2Request {
     pub mask: MaskObject,
 }
 
-/// A sum response.
-pub type SumResponse = Result<(), Error>;
-/// An update response.
-pub type UpdateResponse = Result<(), Error>;
-/// A sum2 response.
-pub type Sum2Response = Result<(), Error>;
-
 /// A [`StateMachine`] request.
 ///
 /// [`StateMachine`]: crate::state_machine
-pub enum Request {
-    Sum((SumRequest, oneshot::Sender<SumResponse>)),
-    Update((UpdateRequest, oneshot::Sender<UpdateResponse>)),
-    Sum2((Sum2Request, oneshot::Sender<Sum2Response>)),
+#[derive(Debug, From)]
+pub enum StateMachineRequest {
+    Sum(SumRequest),
+    Update(UpdateRequest),
+    Sum2(Sum2Request),
+}
+
+impl Traceable for StateMachineRequest {
+    fn make_span(&self) -> Span {
+        let request_type = match self {
+            Self::Sum(_) => "sum",
+            Self::Update(_) => "update",
+            Self::Sum2(_) => "sum2",
+        };
+        error_span!("StateMachineRequest", request_type = request_type)
+    }
+}
+
+impl From<MessageOwned> for StateMachineRequest {
+    fn from(message: MessageOwned) -> Self {
+        let MessageOwned { header, payload } = message;
+        match payload {
+            PayloadOwned::Sum(sum) => StateMachineRequest::Sum(SumRequest {
+                participant_pk: header.participant_pk,
+                ephm_pk: sum.ephm_pk,
+            }),
+            PayloadOwned::Update(update) => {
+                let UpdateOwned {
+                    local_seed_dict,
+                    masked_model,
+                    ..
+                } = update;
+                StateMachineRequest::Update(UpdateRequest {
+                    participant_pk: header.participant_pk,
+                    local_seed_dict,
+                    masked_model,
+                })
+            }
+            PayloadOwned::Sum2(sum2) => StateMachineRequest::Sum2(Sum2Request {
+                participant_pk: header.participant_pk,
+                mask: sum2.mask,
+            }),
+        }
+    }
 }
 
 /// A handle to send requests to the [`StateMachine`].
 ///
 /// [`StateMachine`]: crate::state_machine
-#[derive(From)]
-pub struct RequestSender<R>(mpsc::UnboundedSender<R>);
+#[derive(Clone, From)]
+pub struct RequestSender(mpsc::UnboundedSender<(Request<StateMachineRequest>, ResponseSender)>);
 
-impl<R> Clone for RequestSender<R> {
-    // Clones the sender half of the `Request` channel.
-    fn clone(&self) -> Self {
-        RequestSender(self.0.clone())
-    }
-}
-
-impl<R> RequestSender<R> {
+impl RequestSender {
     /// Sends a request to the [`StateMachine`].
     ///
     /// # Errors
@@ -90,20 +122,37 @@ impl<R> RequestSender<R> {
     /// closed as a result.
     ///
     /// [`StateMachine`]: crate::state_machine
-    pub fn send(&self, req: R) -> Result<(), StateMachineShutdown> {
-        self.0.send(req).map_err(|_| StateMachineShutdown)
+    pub async fn request<T: Into<StateMachineRequest> + Traceable>(
+        &self,
+        req: Request<T>,
+    ) -> StateMachineResult {
+        let (resp_tx, resp_rx) = oneshot::channel::<StateMachineResult>();
+        self.0.send((req.map(Into::into), resp_tx)).map_err(|_| {
+            warn!("failed to send request to the state machine: state machine is shutting down");
+            StateMachineError::InternalError
+        })?;
+        resp_rx.await.map_err(|_| {
+            warn!(
+                "failed to receive response from the state machine: state machine is shutting down"
+            );
+            StateMachineError::InternalError
+        })?
     }
 }
+
+/// A channel for sending the state machine to send the response to a
+/// [`StateMachineRequest`].
+pub(in crate::state_machine) type ResponseSender = oneshot::Sender<StateMachineResult>;
 
 /// The receiver half of the `Request` channel that is used by the [`StateMachine`] to receive
 /// requests.
 ///
 /// [`StateMachine`]: crate::state_machine
 #[derive(From)]
-pub struct RequestReceiver<R>(mpsc::UnboundedReceiver<R>);
+pub struct RequestReceiver(mpsc::UnboundedReceiver<(Request<StateMachineRequest>, ResponseSender)>);
 
-impl<R> Stream for RequestReceiver<R> {
-    type Item = R;
+impl Stream for RequestReceiver {
+    type Item = (Request<StateMachineRequest>, ResponseSender);
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
         trace!("RequestReceiver: polling");
@@ -111,11 +160,11 @@ impl<R> Stream for RequestReceiver<R> {
     }
 }
 
-impl<R> RequestReceiver<R> {
+impl RequestReceiver {
     /// Creates a new `Request` channel and returns the [`RequestReceiver`] as well as the
     /// [`RequestSender`] half.
-    pub fn new() -> (Self, RequestSender<R>) {
-        let (tx, rx) = mpsc::unbounded_channel::<R>();
+    pub fn new() -> (Self, RequestSender) {
+        let (tx, rx) = mpsc::unbounded_channel::<(Request<StateMachineRequest>, ResponseSender)>();
         let receiver = RequestReceiver::from(rx);
         let handle = RequestSender::from(tx);
         (receiver, handle)
@@ -133,7 +182,7 @@ impl<R> RequestReceiver<R> {
     /// See [the `tokio` documentation][receive] for more information.
     ///
     /// [receive]: https://docs.rs/tokio/0.2.21/tokio/sync/mpsc/struct.UnboundedReceiver.html#method.recv
-    pub async fn recv(&mut self) -> Option<R> {
+    pub async fn recv(&mut self) -> Option<(Request<StateMachineRequest>, ResponseSender)> {
         self.0.recv().await
     }
 
@@ -141,23 +190,12 @@ impl<R> RequestReceiver<R> {
     /// See [the `tokio` documentation][try_receive] for more information.
     ///
     /// [try_receive]: https://docs.rs/tokio/0.2.21/tokio/sync/mpsc/struct.UnboundedReceiver.html#method.try_recv
-    pub fn try_recv(&mut self) -> Result<R, tokio::sync::mpsc::error::TryRecvError> {
+    pub fn try_recv(
+        &mut self,
+    ) -> Result<
+        (Request<StateMachineRequest>, ResponseSender),
+        tokio::sync::mpsc::error::TryRecvError,
+    > {
         self.0.try_recv()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn drop<T>(_t: T) {}
-
-    #[tokio::test]
-    async fn test_channel() {
-        let (mut recv, snd) = RequestReceiver::<()>::new();
-        snd.send(()).unwrap();
-        recv.recv().await.unwrap();
-        drop(snd);
-        assert!(recv.recv().await.is_none());
     }
 }

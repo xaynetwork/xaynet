@@ -28,46 +28,39 @@ pub use self::{
     },
 };
 
-use std::{
-    pin::Pin,
-    task::{Context, Poll},
+use crate::{
+    services::messages::message_parser::RawMessage,
+    utils::Traceable,
+    vendor::tracing_tower,
 };
 
-use crate::vendor::tracing_tower;
-use futures::{future::poll_fn, Future};
+use futures::future::poll_fn;
 use thiserror::Error;
 use tower::{Service, ServiceBuilder};
-use tracing_futures::Instrument;
-use uuid::Uuid;
 
-use crate::{
-    message::message::MessageOwned,
-    utils::trace::{Traceable, Traced},
-};
-
-/// Associate an ID to the given request, and attach a span to the request.
-fn make_traceable_request<R>(req: R) -> Traced<R> {
-    let id = Uuid::new_v4();
-    let span = error_span!("request", id = ?id);
-    Traced::new(req, span)
-}
+use crate::{message::message::MessageOwned, utils::Request};
 
 /// Return the [`tracing::Span`] associated to the given request.
-fn req_span<R>(req: &Traced<R>) -> tracing::Span {
-    req.span().clone()
+fn req_span<T: Traceable>(req: &Request<T>) -> tracing::Span {
+    req.span()
 }
 
 /// Decorate the given service with a tracing middleware.
-fn with_tracing<S, R>(service: S) -> TracingService<S, R>
+fn with_tracing<S, T>(service: S) -> TracedService<S, T>
 where
-    S: Service<Traced<R>>,
+    S: Service<Request<T>>,
+    T: Traceable,
 {
     ServiceBuilder::new()
         .layer(tracing_tower::layer(req_span as for<'r> fn(&'r _) -> _))
         .service(service)
 }
 
-type TracingService<S, R> = tracing_tower::Service<S, Traced<R>, fn(&Traced<R>) -> tracing::Span>;
+type TracedService<S, T> = tracing_tower::Service<S, Request<T>, fn(&Request<T>) -> tracing::Span>;
+
+type TracedMessageParser<S> = TracedService<S, RawMessage<Vec<u8>>>;
+type TracedPreProcessor<S> = TracedService<S, MessageOwned>;
+type TracedStateMachine<S> = TracedService<S, MessageOwned>;
 
 /// Error returned by the [`PetMessageHandler`] methods.
 #[derive(Debug, Error)]
@@ -80,150 +73,121 @@ pub enum PetMessageError {
 
     #[error("state machine failed to handle message: {0}")]
     StateMachine(StateMachineError),
-}
 
-#[doc(hidden)]
-#[async_trait]
-pub trait _PetMessageHandler {
-    /// Parse an encrypted message
-    async fn call_parser(&self, enc_message: Traced<Vec<u8>>) -> MessageParserResponse;
-
-    /// Pre-process a PET message
-    async fn call_pre_processor(&self, message: Traced<MessageOwned>) -> PreProcessorResponse;
-
-    /// Have a PET message processed by the state machine
-    async fn call_state_machine(&self, message: Traced<MessageOwned>) -> StateMachineResponse;
+    #[error("the service failed to process the request: {0}")]
+    ServiceError(Box<dyn ::std::error::Error + Send + Sync + 'static>),
 }
 
 /// A single interface for all the PET message processing sub-services
 /// ([`MessageParserService`], [`PreProcessorService`] and
 /// [`StateMachineService`]).
 #[async_trait]
-pub trait PetMessageHandler {
-    /// Handle an incoming encrypted PET message form a participant.
-    async fn handle_message(&self, enc_message: Vec<u8>) -> Result<(), PetMessageError>;
+pub trait PetMessageHandler: Send {
+    async fn handle_message(
+        &mut self,
+        // FIXME: this should take a `Request<_>` instead that should
+        // be created by the caller (in the rest layer).
+        req: Vec<u8>,
+    ) -> Result<(), PetMessageError> {
+        let req = Request::new(RawMessage::from(req));
+        let metadata = req.metadata();
+        let message = self.call_parser(req).await?;
+
+        let req = Request::from_parts(metadata.clone(), message);
+        let message = self.call_pre_processor(req).await?;
+
+        let req = Request::from_parts(metadata, message);
+        Ok(self.call_state_machine(req).await?)
+    }
+
+    /// Parse an encrypted message
+    async fn call_parser(
+        &mut self,
+        enc_message: MessageParserRequest<Vec<u8>>,
+    ) -> Result<MessageOwned, PetMessageError>;
+
+    /// Pre-process a PET message
+    async fn call_pre_processor(
+        &mut self,
+        message: PreProcessorRequest,
+    ) -> Result<MessageOwned, PetMessageError>;
+
+    /// Have a PET message processed by the state machine
+    async fn call_state_machine(
+        &mut self,
+        message: StateMachineRequest,
+    ) -> Result<(), PetMessageError>;
 }
 
 #[async_trait]
-impl<T> PetMessageHandler for T
+impl<MP, PP, SM> PetMessageHandler for PetMessageService<MP, PP, SM>
 where
-    T: _PetMessageHandler + Sync,
-{
-    async fn handle_message(&self, enc_message: Vec<u8>) -> Result<(), PetMessageError> {
-        let req = make_traceable_request(enc_message);
-        let span = req.span().clone();
-        let message = self
-            .call_parser(req)
-            .await
-            .map_err(PetMessageError::Parser)?;
+    Self: Send + Sync + 'static,
 
-        let req = Traced::new(message, span.clone());
-        let message = self
-            .call_pre_processor(req)
-            .await
-            .map_err(PetMessageError::PreProcessor)?;
-
-        let req = Traced::new(message, span.clone());
-        Ok(self
-            .call_state_machine(req)
-            .await
-            .map_err(PetMessageError::StateMachine)?)
-    }
-}
-
-#[async_trait]
-impl<MP, PP, SM> _PetMessageHandler for PetMessageService<MP, PP, SM>
-where
-    Self: Clone
-        + Send
-        + Sync
-        + 'static
-        + Service<Traced<MessageParserRequest>, Response = MessageParserResponse>
-        + Service<Traced<PreProcessorRequest>, Response = PreProcessorResponse>
-        + Service<Traced<StateMachineRequest>, Response = StateMachineResponse>,
-
-    <Self as Service<Traced<MessageParserRequest>>>::Future: Send + 'static,
-    <Self as Service<Traced<MessageParserRequest>>>::Error:
+    MP: Service<MessageParserRequest<Vec<u8>>, Response = MessageParserResponse> + Send + 'static,
+    <MP as Service<MessageParserRequest<Vec<u8>>>>::Future: Send + 'static,
+    <MP as Service<MessageParserRequest<Vec<u8>>>>::Error:
         Into<Box<dyn ::std::error::Error + Send + Sync + 'static>>,
 
-    <Self as Service<Traced<PreProcessorRequest>>>::Future: Send + 'static,
-    <Self as Service<Traced<PreProcessorRequest>>>::Error:
+    PP: Service<PreProcessorRequest, Response = PreProcessorResponse> + Send + 'static,
+    <PP as Service<PreProcessorRequest>>::Future: Send + 'static,
+    <PP as Service<PreProcessorRequest>>::Error:
         Into<Box<dyn ::std::error::Error + Send + Sync + 'static>>,
 
-    <Self as Service<Traced<StateMachineRequest>>>::Future: Send + 'static,
-    <Self as Service<Traced<StateMachineRequest>>>::Error:
+    SM: Service<StateMachineRequest, Response = StateMachineResponse> + Send + 'static,
+    <SM as Service<StateMachineRequest>>::Future: Send + 'static,
+    <SM as Service<StateMachineRequest>>::Error:
         Into<Box<dyn ::std::error::Error + Send + Sync + 'static>>,
 {
-    async fn call_parser(&self, enc_message: Traced<Vec<u8>>) -> MessageParserResponse {
-        let span = enc_message.span().clone();
-        let mut svc = self.clone();
-        async move {
-            poll_fn(|cx| <Self as Service<Traced<MessageParserRequest>>>::poll_ready(&mut svc, cx))
-                .await
-                .map_err(Into::into)
-                // FIXME: do not unwrap. For now it is fine because we
-                // actually only use MessageParserService directly,
-                // which never fails.
-                .unwrap();
-            <Self as Service<Traced<MessageParserRequest>>>::call(
-                &mut svc,
-                enc_message.map(Into::into),
-            )
+    async fn call_parser(
+        &mut self,
+        enc_message: MessageParserRequest<Vec<u8>>,
+    ) -> Result<MessageOwned, PetMessageError> {
+        poll_fn(|cx| {
+            <MP as Service<MessageParserRequest<Vec<u8>>>>::poll_ready(&mut self.message_parser, cx)
+        })
+        .await
+        // FIXME: we should actually downcast the error and
+        // distinguish between the various services errors we can
+        // have. Currently, this will just turn the error into a
+        // Box<dyn Error>
+        .map_err(|e| PetMessageError::ServiceError(Into::into(e)))?;
+
+        <MP as Service<MessageParserRequest<Vec<u8>>>>::call(
+            &mut self.message_parser,
+            enc_message.map(Into::into),
+        )
+        .await
+        .map_err(|e| PetMessageError::ServiceError(Into::into(e)))?
+        .map_err(PetMessageError::Parser)
+    }
+
+    async fn call_pre_processor(
+        &mut self,
+        message: PreProcessorRequest,
+    ) -> Result<MessageOwned, PetMessageError> {
+        poll_fn(|cx| <PP as Service<PreProcessorRequest>>::poll_ready(&mut self.pre_processor, cx))
             .await
-            .map_err(Into::into)
-            // FIXME: do not unwrap. For now it is fine because we
-            // actually only use MessageParserService directly,
-            // which never fails.
-            .unwrap()
-        }
-        .instrument(span)
-        .await
+            .map_err(|e| PetMessageError::ServiceError(Into::into(e)))?;
+
+        <PP as Service<PreProcessorRequest>>::call(&mut self.pre_processor, message.map(Into::into))
+            .await
+            .map_err(|e| PetMessageError::ServiceError(Into::into(e)))?
+            .map_err(PetMessageError::PreProcessor)
     }
 
-    async fn call_pre_processor(&self, message: Traced<MessageOwned>) -> PreProcessorResponse {
-        let span = message.span().clone();
-        let mut svc = self.clone();
-        async move {
-            poll_fn(|cx| <Self as Service<Traced<PreProcessorRequest>>>::poll_ready(&mut svc, cx))
-                .await
-                .map_err(Into::into)
-                // FIXME: do not unwrap. For now it is fine because we
-                // actually only use PreProcessorService directly,
-                // which never fails.
-                .unwrap();
-            <Self as Service<Traced<PreProcessorRequest>>>::call(&mut svc, message.map(Into::into))
-                .await
-                .map_err(Into::into)
-                // FIXME: do not unwrap. For now it is fine because we
-                // actually only use PreProcessorService directly,
-                // which never fails.
-                .unwrap()
-        }
-        .instrument(span)
-        .await
-    }
+    async fn call_state_machine(
+        &mut self,
+        message: StateMachineRequest,
+    ) -> Result<(), PetMessageError> {
+        poll_fn(|cx| <SM as Service<StateMachineRequest>>::poll_ready(&mut self.state_machine, cx))
+            .await
+            .map_err(|e| PetMessageError::ServiceError(Into::into(e)))?;
 
-    async fn call_state_machine(&self, message: Traced<MessageOwned>) -> StateMachineResponse {
-        let span = message.span().clone();
-        let mut svc = self.clone();
-        async move {
-            poll_fn(|cx| <Self as Service<Traced<StateMachineRequest>>>::poll_ready(&mut svc, cx))
-                .await
-                .map_err(Into::into)
-                // FIXME: do not unwrap. For now it is fine because we
-                // actually only use StateMachineService directly,
-                // which never fails.
-                .unwrap();
-            <Self as Service<Traced<StateMachineRequest>>>::call(&mut svc, message.map(Into::into))
-                .await
-                .map_err(Into::into)
-                // FIXME: do not unwrap. For now it is fine because we
-                // actually only use StateMachineService directly,
-                // which never fails.
-                .unwrap()
-        }
-        .instrument(span)
-        .await
+        <SM as Service<StateMachineRequest>>::call(&mut self.state_machine, message.map(Into::into))
+            .await
+            .map_err(|e| PetMessageError::ServiceError(Into::into(e)))?
+            .map_err(PetMessageError::StateMachine)
     }
 }
 
@@ -249,15 +213,11 @@ pub struct PetMessageService<MessageParser, PreProcessor, StateMachine> {
 }
 
 impl<MP, PP, SM>
-    PetMessageService<
-        TracingService<MP, MessageParserRequest>,
-        TracingService<PP, PreProcessorRequest>,
-        TracingService<SM, StateMachineRequest>,
-    >
+    PetMessageService<TracedMessageParser<MP>, TracedPreProcessor<PP>, TracedStateMachine<SM>>
 where
-    MP: Service<Traced<MessageParserRequest>, Response = MessageParserResponse>,
-    PP: Service<Traced<PreProcessorRequest>, Response = PreProcessorResponse>,
-    SM: Service<Traced<StateMachineRequest>, Response = StateMachineResponse>,
+    MP: Service<MessageParserRequest<Vec<u8>>, Response = MessageParserResponse>,
+    PP: Service<PreProcessorRequest, Response = PreProcessorResponse>,
+    SM: Service<StateMachineRequest, Response = StateMachineResponse>,
 {
     /// Instantiate a new [`PetMessageService`] with the given sub-services
     pub fn new(message_parser: MP, pre_processor: PP, state_machine: SM) -> Self {
@@ -266,98 +226,5 @@ where
             pre_processor: with_tracing(pre_processor),
             state_machine: with_tracing(state_machine),
         }
-    }
-}
-
-impl<MP, PP, SM> Service<Traced<MessageParserRequest>> for PetMessageService<MP, PP, SM>
-where
-    MP: Service<Traced<MessageParserRequest>, Response = MessageParserResponse>
-        + Clone
-        + Send
-        + 'static,
-    <MP as Service<Traced<MessageParserRequest>>>::Future: Send + 'static,
-    <MP as Service<Traced<MessageParserRequest>>>::Error:
-        Into<Box<dyn ::std::error::Error + Sync + Send + 'static>>,
-{
-    type Response = MessageParserResponse;
-    type Error = Box<dyn ::std::error::Error + Send + Sync + 'static>;
-    #[allow(clippy::type_complexity)]
-    type Future =
-        Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
-
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        <MP as Service<Traced<MessageParserRequest>>>::poll_ready(&mut self.message_parser, cx)
-            .map_err(Into::into)
-    }
-
-    fn call(&mut self, req: Traced<MessageParserRequest>) -> Self::Future {
-        let mut svc = self.message_parser.clone();
-        let fut = async move {
-            info!("calling the message parser service on the request");
-            svc.call(req).await.map_err(Into::into)
-        };
-        Box::pin(fut)
-    }
-}
-
-impl<MP, PP, SM> Service<Traced<PreProcessorRequest>> for PetMessageService<MP, PP, SM>
-where
-    PP: Service<Traced<PreProcessorRequest>, Response = PreProcessorResponse>
-        + Clone
-        + Send
-        + 'static,
-    <PP as Service<Traced<PreProcessorRequest>>>::Future: Send + 'static,
-    <PP as Service<Traced<PreProcessorRequest>>>::Error:
-        Into<Box<dyn ::std::error::Error + Send + Sync + 'static>>,
-{
-    type Response = PreProcessorResponse;
-    type Error = Box<dyn ::std::error::Error + Send + Sync + 'static>;
-    #[allow(clippy::type_complexity)]
-    type Future =
-        Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
-
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        <PP as Service<Traced<PreProcessorRequest>>>::poll_ready(&mut self.pre_processor, cx)
-            .map_err(Into::into)
-    }
-
-    fn call(&mut self, req: Traced<PreProcessorRequest>) -> Self::Future {
-        let mut svc = self.pre_processor.clone();
-        let fut = async move {
-            info!("calling the pre-processor service on the request");
-            svc.call(req).await.map_err(Into::into)
-        };
-        Box::pin(fut)
-    }
-}
-
-impl<MP, PP, SM> Service<Traced<StateMachineRequest>> for PetMessageService<MP, PP, SM>
-where
-    SM: Service<Traced<StateMachineRequest>, Response = StateMachineResponse>
-        + Clone
-        + Send
-        + 'static,
-    <SM as Service<Traced<StateMachineRequest>>>::Future: Send + 'static,
-    <SM as Service<Traced<StateMachineRequest>>>::Error:
-        Into<Box<dyn ::std::error::Error + Send + Sync + 'static>>,
-{
-    type Response = StateMachineResponse;
-    type Error = Box<dyn ::std::error::Error + Send + Sync + 'static>;
-    #[allow(clippy::type_complexity)]
-    type Future =
-        Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
-
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        <SM as Service<Traced<StateMachineRequest>>>::poll_ready(&mut self.state_machine, cx)
-            .map_err(Into::into)
-    }
-
-    fn call(&mut self, req: Traced<StateMachineRequest>) -> Self::Future {
-        let mut svc = self.state_machine.clone();
-        let fut = async move {
-            info!("calling the state machine service on the request");
-            svc.call(req).await.map_err(Into::into)
-        };
-        Box::pin(fut)
     }
 }

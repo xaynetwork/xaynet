@@ -11,10 +11,7 @@ use crate::state_machine::{
 pub struct Shutdown;
 
 #[async_trait]
-impl<R> Phase<R> for PhaseState<R, Shutdown>
-where
-    R: Send,
-{
+impl Phase for PhaseState<Shutdown> {
     const NAME: PhaseName = PhaseName::Shutdown;
 
     /// Shuts down the [`StateMachine`].
@@ -27,14 +24,14 @@ where
         Ok(())
     }
 
-    fn next(self) -> Option<StateMachine<R>> {
+    fn next(self) -> Option<StateMachine> {
         None
     }
 }
 
-impl<R> PhaseState<R, Shutdown> {
+impl PhaseState<Shutdown> {
     /// Creates a new shutdown state.
-    pub fn new(coordinator_state: CoordinatorState, request_rx: RequestReceiver<R>) -> Self {
+    pub fn new(coordinator_state: CoordinatorState, request_rx: RequestReceiver) -> Self {
         info!("state transition");
         Self {
             inner: Shutdown,

@@ -1,13 +1,7 @@
 use std::{path::PathBuf, process};
 use structopt::StructOpt;
 use tracing_subscriber::*;
-use xaynet::{
-    rest,
-    services,
-    settings::Settings,
-    state_machine::{requests::Request, StateMachine},
-    utils::trace::Traced,
-};
+use xaynet::{rest, services, settings::Settings, state_machine::StateMachine};
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "Coordinator")]
@@ -41,7 +35,7 @@ async fn main() {
     sodiumoxide::init().unwrap();
 
     let (state_machine, requests_tx, event_subscriber) =
-        StateMachine::<Traced<Request>>::new(pet_settings, mask_settings, model_settings).unwrap();
+        StateMachine::new(pet_settings, mask_settings, model_settings).unwrap();
     let fetcher = services::fetcher(&event_subscriber);
     let message_handler = services::message_handler(&event_subscriber, requests_tx);
 

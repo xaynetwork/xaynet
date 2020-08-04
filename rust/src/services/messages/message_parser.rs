@@ -9,6 +9,7 @@ use rayon::ThreadPool;
 use thiserror::Error;
 use tokio::sync::oneshot;
 use tower::Service;
+use tracing::Span;
 
 use crate::{
     crypto::{encrypt::EncryptKeyPair, ByteObject},
@@ -23,7 +24,7 @@ use crate::{
         events::{EventListener, EventSubscriber},
         phases::PhaseName,
     },
-    utils::trace::{Traceable, Traced},
+    utils::{Request, Traceable},
     Signature,
 };
 
@@ -58,16 +59,18 @@ impl MessageParserService {
     }
 }
 
-/// Request type for the [`MessageParserService`].
-///
-/// It contains the encrypted message.
+/// A buffer that represents an encrypted message.
 #[derive(From, Debug)]
-pub struct MessageParserRequest(Vec<u8>);
+pub struct RawMessage<T: AsRef<[u8]>>(T);
 
-/// Response type for the [`MessageParserService`].
-///
-/// It contains the parsed message.
-pub type MessageParserResponse = Result<MessageOwned, MessageParserError>;
+impl<T> Traceable for RawMessage<T>
+where
+    T: AsRef<[u8]>,
+{
+    fn make_span(&self) -> Span {
+        error_span!("raw_message", payload_len = self.0.as_ref().len())
+    }
+}
 
 /// Error type for the [`MessageParserService`]
 #[derive(Debug, Error)]
@@ -93,7 +96,16 @@ pub enum MessageParserError {
     InternalError(String),
 }
 
-impl Service<Traced<MessageParserRequest>> for MessageParserService {
+/// Response type for the [`MessageParserService`]
+pub type MessageParserResponse = Result<MessageOwned, MessageParserError>;
+
+/// Request type for the [`MessageParserService`]
+pub type MessageParserRequest<T> = Request<RawMessage<T>>;
+
+impl<T> Service<MessageParserRequest<T>> for MessageParserService
+where
+    T: AsRef<[u8]> + Send + 'static,
+{
     type Response = MessageParserResponse;
     type Error = std::convert::Infallible;
 
@@ -107,7 +119,7 @@ impl Service<Traced<MessageParserRequest>> for MessageParserService {
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, req: Traced<MessageParserRequest>) -> Self::Future {
+    fn call(&mut self, req: MessageParserRequest<T>) -> Self::Future {
         debug!("retrieving the current keys and current phase");
         let keys_ev = self.keys_events.get_latest();
         let phase_ev = self.phase_events.get_latest();
@@ -130,9 +142,9 @@ impl Service<Traced<MessageParserRequest>> for MessageParserService {
 
         trace!("spawning pre-processor handler on thread-pool");
         self.thread_pool.spawn(move || {
-            let span = req.span().clone();
-            let _enter = span.enter();
-            let resp = handler.call(req.into_inner().0);
+            let span = req.span();
+            let _span_guard = span.enter();
+            let resp = handler.call(req.into_inner());
             let _ = tx.send(resp);
         });
         Either::Right(Box::pin(async move {
@@ -156,9 +168,9 @@ struct Handler {
 impl Handler {
     /// Process the request. `data` is the encrypted PET message to
     /// process.
-    fn call(self, data: Vec<u8>) -> Result<MessageOwned, MessageParserError> {
+    fn call<T: AsRef<[u8]>>(self, data: RawMessage<T>) -> MessageParserResponse {
         info!("decrypting message");
-        let raw = self.decrypt(data)?;
+        let raw = self.decrypt(&data.0.as_ref())?;
 
         info!("parsing message header");
         let header = self.parse_header(raw.as_slice())?;
@@ -177,11 +189,11 @@ impl Handler {
     }
 
     /// Decrypt the given payload with the coordinator secret key
-    fn decrypt(&self, encrypted_message: Vec<u8>) -> Result<Vec<u8>, MessageParserError> {
+    fn decrypt(&self, encrypted_message: &[u8]) -> Result<Vec<u8>, MessageParserError> {
         Ok(self
             .keys
             .secret
-            .decrypt(&encrypted_message.as_ref(), &self.keys.public)
+            .decrypt(&encrypted_message, &self.keys.public)
             .map_err(|_| MessageParserError::Decrypt)?)
     }
 

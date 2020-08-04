@@ -33,10 +33,7 @@ impl Unmask {
 }
 
 #[async_trait]
-impl<R> Phase<R> for PhaseState<R, Unmask>
-where
-    R: Send,
-{
+impl Phase for PhaseState<Unmask> {
     const NAME: PhaseName = PhaseName::Unmask;
 
     /// Run the unmasking phase
@@ -54,17 +51,17 @@ where
     /// Moves from the unmask state to the next state.
     ///
     /// See the [module level documentation](../index.html) for more details.
-    fn next(self) -> Option<StateMachine<R>> {
+    fn next(self) -> Option<StateMachine> {
         info!("going back to idle phase");
-        Some(PhaseState::<R, Idle>::new(self.coordinator_state, self.request_rx).into())
+        Some(PhaseState::<Idle>::new(self.coordinator_state, self.request_rx).into())
     }
 }
 
-impl<R> PhaseState<R, Unmask> {
+impl PhaseState<Unmask> {
     /// Creates a new unmask state.
     pub fn new(
         coordinator_state: CoordinatorState,
-        request_rx: RequestReceiver<R>,
+        request_rx: RequestReceiver,
         aggregation: Aggregation,
         mask_dict: MaskDict,
     ) -> Self {

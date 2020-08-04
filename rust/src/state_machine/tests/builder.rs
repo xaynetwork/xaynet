@@ -5,7 +5,7 @@ use crate::{
         coordinator::{CoordinatorState, RoundSeed},
         events::EventSubscriber,
         phases::{self, Handler, Phase, PhaseState},
-        requests::{Request, RequestReceiver, RequestSender},
+        requests::{RequestReceiver, RequestSender},
         tests::utils,
         StateMachine,
     },
@@ -36,29 +36,23 @@ impl StateMachineBuilder<phases::Idle> {
 
 impl<P> StateMachineBuilder<P>
 where
-    PhaseState<Request, P>: Handler<Request> + Phase<Request>,
-    StateMachine<Request>: From<PhaseState<Request, P>>,
+    PhaseState<P>: Handler + Phase,
+    StateMachine: From<PhaseState<P>>,
 {
-    pub fn build(
-        self,
-    ) -> (
-        StateMachine<Request>,
-        RequestSender<Request>,
-        EventSubscriber,
-    ) {
+    pub fn build(self) -> (StateMachine, RequestSender, EventSubscriber) {
         let Self {
             mut coordinator_state,
             event_subscriber,
             phase_state,
         } = self;
 
-        let (request_rx, request_tx) = RequestReceiver::<Request>::new();
+        let (request_rx, request_tx) = RequestReceiver::new();
 
         // Make sure the events that the listeners have are up to date
         let events = &mut coordinator_state.events;
         events.broadcast_keys(coordinator_state.keys.clone());
         events.broadcast_params(coordinator_state.round_params.clone());
-        events.broadcast_phase(<PhaseState<Request, P> as Phase<Request>>::NAME);
+        events.broadcast_phase(<PhaseState<P> as Phase>::NAME);
         // Also re-emit the other events in case the round ID changed
         let scalar = event_subscriber.scalar_listener().get_latest().event;
         events.broadcast_scalar(scalar);

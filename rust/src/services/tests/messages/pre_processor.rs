@@ -11,7 +11,7 @@ use crate::{
         events::{EventPublisher, EventSubscriber},
         phases::PhaseName,
     },
-    utils::trace::Traced,
+    utils::Request,
 };
 
 fn spawn_svc() -> (EventPublisher, EventSubscriber, Spawn<PreProcessorService>) {
@@ -20,8 +20,8 @@ fn spawn_svc() -> (EventPublisher, EventSubscriber, Spawn<PreProcessorService>) 
     (publisher, subscriber, task)
 }
 
-fn make_req(message: MessageOwned) -> Traced<PreProcessorRequest> {
-    Traced::new(message.into(), error_span!("test"))
+fn make_req(message: MessageOwned) -> PreProcessorRequest {
+    Request::new(message)
 }
 
 #[tokio::test]

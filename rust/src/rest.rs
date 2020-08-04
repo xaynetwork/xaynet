@@ -24,14 +24,13 @@ pub async fn serve<F, MH>(
     pet_message_handler: MH,
 ) where
     F: Fetcher + Sync + Send + 'static,
-    MH: PetMessageHandler + Sync + Send + 'static,
+    MH: PetMessageHandler + Sync + Send + 'static + Clone,
 {
     let fetcher = Arc::new(fetcher);
-    let message_handler = Arc::new(pet_message_handler);
     let message = warp::path!("message")
         .and(warp::post())
         .and(warp::body::bytes())
-        .and(with_message_handler(message_handler.clone()))
+        .and(with_message_handler(pet_message_handler.clone()))
         .and_then(handle_message);
 
     let sum_dict = warp::path!("sums")
@@ -81,15 +80,11 @@ pub async fn serve<F, MH>(
 /// Handles and responds to a PET message.
 async fn handle_message<MH: PetMessageHandler>(
     body: Bytes,
-    handler: Arc<MH>,
+    mut handler: MH,
 ) -> Result<impl warp::Reply, Infallible> {
-    let _ = handler
-        .as_ref()
-        .handle_message(body.to_vec())
-        .await
-        .map_err(|e| {
-            warn!("failed to handle message: {:?}", e);
-        });
+    let _ = handler.handle_message(body.to_vec()).await.map_err(|e| {
+        warn!("failed to handle message: {:?}", e);
+    });
     Ok(warp::reply())
 }
 
@@ -227,9 +222,9 @@ async fn handle_params<F: Fetcher>(fetcher: Arc<F>) -> Result<impl warp::Reply, 
 }
 
 /// Converts a PET message handler into a `warp` filter.
-fn with_message_handler<MH: PetMessageHandler + Send + Sync + 'static>(
-    handler: Arc<MH>,
-) -> impl Filter<Extract = (Arc<MH>,), Error = Infallible> + Clone {
+fn with_message_handler<MH: PetMessageHandler + Send + Sync + 'static + Clone>(
+    handler: MH,
+) -> impl Filter<Extract = (MH,), Error = Infallible> + Clone {
     warp::any().map(move || handler.clone())
 }
 
