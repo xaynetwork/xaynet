@@ -40,6 +40,7 @@ async-trait = "0.1.35"
 
 # optional dependencies
 influxdb = { version = "0.1.0", features = ["derive"], optional = true }
+chrono = { version = "0.4.13", optional = true }
 
 [dependencies.reqwest]
 version = "0.10.6"
@@ -56,5 +57,5 @@ path = "src/bin/main.rs"
 [features]
 default = ["reqwest/default-tls"]
 rustls = ["reqwest/rustls-tls"]
-metrics = ["influxdb"]
+metrics = ["influxdb", "chrono"]
 
