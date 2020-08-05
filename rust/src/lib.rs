@@ -90,7 +90,6 @@ pub mod crypto;
 pub mod examples;
 pub mod mask;
 pub mod message;
-pub mod metrics;
 pub mod rest;
 pub mod sdk;
 pub mod services;
@@ -98,6 +97,9 @@ pub mod settings;
 pub mod state_machine;
 pub mod utils;
 pub(crate) mod vendor;
+
+#[cfg(feature = "metrics")]
+pub mod metrics;
 
 use std::collections::HashMap;
 
