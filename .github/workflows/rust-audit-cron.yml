@@ -2,7 +2,7 @@ name: Rust Audit for Security Vulnerabilities (master)
 
 on:
   schedule:
-    - cron: '0 11 * * mon-fri'
+    - cron: '00 08 * * mon-fri'
 
 jobs:
   audit:
