@@ -34,6 +34,7 @@ pub struct Settings {
     pub mask: MaskSettings,
     pub log: LoggingSettings,
     pub model: ModelSettings,
+    pub metrics: MetricsSettings,
 }
 
 impl Settings {
@@ -434,6 +435,42 @@ pub struct ModelSettings {
     /// XAYNET_MODEL__SIZE=100
     /// ```
     pub size: usize,
+}
+
+#[derive(Debug, Deserialize)]
+/// Metrics settings.
+pub struct MetricsSettings {
+    /// The URL address of the metrics store.
+    ///
+    /// # Examples
+    ///
+    /// **TOML**
+    /// ```text
+    /// [metrics]
+    /// store_url = "http://localhost:8086"
+    /// ```
+    ///
+    /// **Environment variable**
+    /// ```text
+    /// XAYNET_API__STORE_URL=http://localhost:8086
+    /// ```
+    pub store_url: String,
+
+    /// The name of the metrics store.
+    ///
+    /// # Examples
+    ///
+    /// **TOML**
+    /// ```text
+    /// [metrics]
+    /// store_name = "test"
+    /// ```
+    ///
+    /// **Environment variable**
+    /// ```text
+    /// XAYNET_API__STORE_NAME=test
+    /// ```
+    pub store_name: String,
 }
 
 #[derive(Debug, Deserialize)]
