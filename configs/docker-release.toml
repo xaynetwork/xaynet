@@ -23,3 +23,7 @@ model_type = "M3"
 
 [model]
 size = 4
+
+[metrics]
+store_url = "http://influxdb:8086"
+store_name = "metrics"
