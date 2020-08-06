@@ -22,13 +22,12 @@ jobs:
 
       - name: Run rust-audit
         id: rust-audit
-        continue-on-error: true
         run: |
           cargo audit --deny-warnings -f rust/Cargo.lock
 
       - name: Notify on Slack
         uses: 8398a7/action-slack@v3
-        if: steps.rust-audit.outcome == 'failure'
+        if: ${{ failure() }}
         with:
           status: custom
           fields: workflow,job,repo
