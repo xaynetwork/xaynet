@@ -25,6 +25,7 @@ async fn main() {
         api: api_settings,
         log: log_settings,
         model: model_settings,
+        metrics: _metrics_settings,
     } = Settings::new(opt.config_path).unwrap_or_else(|err| {
         eprintln!("{}", err);
         process::exit(1);
