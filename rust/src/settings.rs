@@ -452,7 +452,7 @@ pub struct MetricsSettings {
     ///
     /// **Environment variable**
     /// ```text
-    /// XAYNET_API__STORE_URL=http://localhost:8086
+    /// XAYNET_METRICS__STORE_URL=http://localhost:8086
     /// ```
     pub store_url: String,
 
@@ -468,7 +468,7 @@ pub struct MetricsSettings {
     ///
     /// **Environment variable**
     /// ```text
-    /// XAYNET_API__STORE_NAME=test
+    /// XAYNET_METRICS__STORE_NAME=test
     /// ```
     pub store_name: String,
 }
