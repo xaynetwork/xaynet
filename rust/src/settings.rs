@@ -34,6 +34,7 @@ pub struct Settings {
     pub mask: MaskSettings,
     pub log: LoggingSettings,
     pub model: ModelSettings,
+    #[validate]
     pub metrics: MetricsSettings,
 }
 
@@ -437,16 +438,18 @@ pub struct ModelSettings {
     pub size: usize,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Validate)]
 /// Metrics settings.
 pub struct MetricsSettings {
+    #[validate]
     /// Settings for the InfluxDB backend.
     pub influxdb: InfluxSettings,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Validate)]
 /// InfluxDB settings.
 pub struct InfluxSettings {
+    #[validate(url)]
     /// The URL where InfluxDB is running.
     ///
     /// # Examples
