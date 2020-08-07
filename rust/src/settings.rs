@@ -440,37 +440,44 @@ pub struct ModelSettings {
 #[derive(Debug, Deserialize)]
 /// Metrics settings.
 pub struct MetricsSettings {
-    /// The URL address of the metrics store.
-    ///
-    /// # Examples
-    ///
-    /// **TOML**
-    /// ```text
-    /// [metrics]
-    /// store_url = "http://localhost:8086"
-    /// ```
-    ///
-    /// **Environment variable**
-    /// ```text
-    /// XAYNET_METRICS__STORE_URL=http://localhost:8086
-    /// ```
-    pub store_url: String,
+    /// Settings for the InfluxDB backend.
+    pub influxdb: InfluxSettings,
+}
 
-    /// The name of the metrics store.
+#[derive(Debug, Deserialize)]
+/// InfluxDB settings.
+pub struct InfluxSettings {
+    /// The URL where InfluxDB is running.
     ///
     /// # Examples
     ///
     /// **TOML**
     /// ```text
-    /// [metrics]
-    /// store_name = "test"
+    /// [metrics.influxdb]
+    /// url = "http://localhost:8086"
     /// ```
     ///
     /// **Environment variable**
     /// ```text
-    /// XAYNET_METRICS__STORE_NAME=test
+    /// XAYNET_METRICS__INFLUXDB__URL=http://localhost:8086
     /// ```
-    pub store_name: String,
+    pub url: String,
+
+    /// The InfluxDB database name.
+    ///
+    /// # Examples
+    ///
+    /// **TOML**
+    /// ```text
+    /// [metrics.influxdb]
+    /// db = "test"
+    /// ```
+    ///
+    /// **Environment variable**
+    /// ```text
+    /// XAYNET_METRICS__INFLUXDB__DB=test
+    /// ```
+    pub db: String,
 }
 
 #[derive(Debug, Deserialize)]
