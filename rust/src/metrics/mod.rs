@@ -1,5 +1,5 @@
 use influxdb::{Client, WriteQuery};
-use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
+use tokio::sync::mpsc::{channel, Receiver, Sender};
 
 mod models;
 
@@ -202,17 +202,17 @@ pub async fn run_metric_service(mut metics_service: MetricsService) {
     }
 }
 
-pub struct MetricsSender(UnboundedSender<WriteQuery>);
+pub struct MetricsSender(Sender<WriteQuery>);
 
 impl MetricsSender {
-    pub fn send(&self, query: WriteQuery) {
-        let _ = self.0.send(query).map_err(|e| error!("{}", e));
+    pub fn send(&mut self, query: WriteQuery) {
+        let _ = self.0.try_send(query).map_err(|e| error!("{}", e));
     }
 }
 
 pub struct MetricsService {
     client: Client,
-    receiver: UnboundedReceiver<WriteQuery>,
+    receiver: Receiver<WriteQuery>,
 }
 
 impl MetricsService {
@@ -232,7 +232,7 @@ impl MetricsService {
     }
 
     fn new_metrics_service(client: Client) -> (MetricsService, MetricsSender) {
-        let (sender, receiver) = unbounded_channel();
+        let (sender, receiver) = channel(4096);
         (MetricsService { client, receiver }, MetricsSender(sender))
     }
 }
