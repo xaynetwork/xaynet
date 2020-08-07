@@ -8,6 +8,7 @@ use crate::{
     SumParticipantEphemeralPublicKey,
     SumParticipantEphemeralSecretKey,
 };
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Sum {
     ephm_pk: SumParticipantEphemeralPublicKey,
     ephm_sk: SumParticipantEphemeralSecretKey,

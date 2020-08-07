@@ -20,6 +20,7 @@ pub mod update;
 
 pub use self::{awaiting::Awaiting, sum::Sum, sum2::Sum2, update::Update};
 
+#[derive(Serialize, Deserialize)]
 pub struct ParticipantState {
     // credentials
     pub keys: SigningKeyPair,
@@ -29,6 +30,7 @@ pub struct ParticipantState {
     pub certificate: Certificate, //(dummy)
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct ParticipantSettings {
     pub secret_key: ParticipantSecretKey,
     pub mask_config: MaskConfig,
@@ -61,6 +63,7 @@ pub enum Role {
     Updater(Participant<Update>),
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Participant<Task> {
     inner: Task,
     state: ParticipantState,
