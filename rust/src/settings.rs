@@ -34,6 +34,8 @@ pub struct Settings {
     pub mask: MaskSettings,
     pub log: LoggingSettings,
     pub model: ModelSettings,
+    #[validate]
+    pub metrics: MetricsSettings,
 }
 
 impl Settings {
@@ -434,6 +436,51 @@ pub struct ModelSettings {
     /// XAYNET_MODEL__SIZE=100
     /// ```
     pub size: usize,
+}
+
+#[derive(Debug, Deserialize, Validate)]
+/// Metrics settings.
+pub struct MetricsSettings {
+    #[validate]
+    /// Settings for the InfluxDB backend.
+    pub influxdb: InfluxSettings,
+}
+
+#[derive(Debug, Deserialize, Validate)]
+/// InfluxDB settings.
+pub struct InfluxSettings {
+    #[validate(url)]
+    /// The URL where InfluxDB is running.
+    ///
+    /// # Examples
+    ///
+    /// **TOML**
+    /// ```text
+    /// [metrics.influxdb]
+    /// url = "http://localhost:8086"
+    /// ```
+    ///
+    /// **Environment variable**
+    /// ```text
+    /// XAYNET_METRICS__INFLUXDB__URL=http://localhost:8086
+    /// ```
+    pub url: String,
+
+    /// The InfluxDB database name.
+    ///
+    /// # Examples
+    ///
+    /// **TOML**
+    /// ```text
+    /// [metrics.influxdb]
+    /// db = "test"
+    /// ```
+    ///
+    /// **Environment variable**
+    /// ```text
+    /// XAYNET_METRICS__INFLUXDB__DB=test
+    /// ```
+    pub db: String,
 }
 
 #[derive(Debug, Deserialize)]
