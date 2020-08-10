@@ -111,9 +111,10 @@ pub struct PetSettings {
     /// and `sum2` phases, in seconds.
     ///
     /// Defaults to 0 i.e. `sum` and `sum2` phases end *as soon as*
-    /// [`min_sum_count`] messages have been processed. Set this higher to allow
-    /// for the possibility of more than [`min_sum_count`] messages to be
-    /// processed in the `sum` and `sum2` phases.
+    /// `min_sum_count` messages have been processed. Set this higher
+    /// to allow for the possibility of more than
+    /// [`PetSettings::min_sum_count`] messages to be processed in the
+    /// `sum` and `sum2` phases.
     ///
     /// # Examples
     ///
@@ -132,10 +133,11 @@ pub struct PetSettings {
     /// The minimum amount of time reserved for processing messages in the
     /// `update` phase, in seconds.
     ///
-    /// Defaults to 0 i.e. `update` phase ends *as soon as* [`min_update_count`]
-    /// messages have been processed. Set this higher to allow for the
-    /// possibility of more than [`min_update_count`] messages to be processed
-    /// in the `update` phase.
+    /// Defaults to 0 i.e. `update` phase ends *as soon as*
+    /// [`PetSettings::min_update_count`] messages have been
+    /// processed. Set this higher to allow for the possibility of
+    /// more than [`PetSettings::min_update_count`] messages to be
+    /// processed in the `update` phase.
     ///
     /// # Examples
     ///
@@ -154,8 +156,9 @@ pub struct PetSettings {
     /// The maximum amount of time permitted for processing messages in the `sum`
     /// and `sum2` phases, in seconds.
     ///
-    /// Defaults to a large number (effectively 1 week). Set this lower to allow
-    /// for the processing of [`min_sum_count`] messages to time-out sooner in
+    /// Defaults to a large number (effectively 1 week). Set this
+    /// lower to allow for the processing of
+    /// [`PetSettings::min_sum_count`] messages to time-out sooner in
     /// the `sum` and `sum2` phases.
     ///
     /// # Examples
@@ -175,8 +178,9 @@ pub struct PetSettings {
     /// The maximum amount of time permitted for processing messages in the
     /// `update` phase, in seconds.
     ///
-    /// Defaults to a large number (effectively 1 week). Set this lower to allow
-    /// for the processing of [`min_update_count`] messages to time-out sooner
+    /// Defaults to a large number (effectively 1 week). Set this
+    /// lower to allow for the processing of
+    /// [`PetSettings::min_update_count`] messages to time-out sooner
     /// in the `update` phase.
     ///
     /// # Examples
