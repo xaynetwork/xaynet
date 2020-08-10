@@ -17,42 +17,42 @@
 //!
 //! **Idle**
 //!
-//! Publishes [`PhaseEvent::Idle`], increments the `round id` by `1`, invalidates the
+//! Publishes [`PhaseName::Idle`], increments the `round id` by `1`, invalidates the
 //! [`SumDict`], [`SeedDict`], `scalar` and `mask length`, updates the [`EncryptKeyPair`],
 //! `thresholds` as well as the `seed` and publishes the [`EncryptKeyPair`] and the
 //! [`RoundParameters`].
 //!
 //! **Sum**
 //!
-//! Publishes [`PhaseEvent::Sum`], builds and publishes the [`SumDict`], ensures that enough sum
+//! Publishes [`PhaseName::Sum`], builds and publishes the [`SumDict`], ensures that enough sum
 //! messages have been submitted and initializes the [`SeedDict`].
 //!
 //! **Update**
 //!
-//! Publishes [`PhaseEvent::Update`], publishes the `scalar`, builds and publishes the
+//! Publishes [`PhaseName::Update`], publishes the `scalar`, builds and publishes the
 //! [`SeedDict`], ensures that enough update messages have been submitted and aggregates the
 //! masked model.
 //!
 //! **Sum2**
 //!
-//! Publishes [`PhaseEvent::Sum2`], builds the [`MaskDict`], ensures that enough sum2
+//! Publishes [`PhaseName::Sum2`], builds the [`MaskDict`], ensures that enough sum2
 //! messages have been submitted and determines the applicable mask for unmasking the global
 //! masked model.
 //!
 //! **Unmask**
 //!
-//! Publishes [`PhaseEvent::Unmask`], unmasks the global masked model and publishes the global
+//! Publishes [`PhaseName::Unmask`], unmasks the global masked model and publishes the global
 //! model.
 //!
 //! **Error**
 //!
-//! Publishes [`PhaseEvent::Error`] and handles [`StateError`]s that can occur during the
+//! Publishes [`PhaseName::Error`] and handles [`StateError`]s that can occur during the
 //! execution of the [`StateMachine`]. In most cases, the error is handled by restarting the round.
 //! However, if a [`StateError::ChannelError`] occurs, the [`StateMachine`] will shut down.
 //!
 //! **Shutdown**
 //!
-//! Publishes [`PhaseEvent::Shutdown`] and shuts down the [`StateMachine`]. During the shutdown,
+//! Publishes [`PhaseName::Shutdown`] and shuts down the [`StateMachine`]. During the shutdown,
 //! the [`StateMachine`] performs a clean shutdown of the [Request][requests_idx] channel by
 //! closing it and consuming all remaining messages.
 //!
@@ -87,16 +87,14 @@
 //!
 //! See [here][events] for more details.
 //!
-//!
 //! [settings]: ../settings/index.html
-//! [`PhaseEvent::Idle`]: crate::state_machine::events::PhaseEvent::Idle
-//! [`PhaseEvent::Sum`]: crate::state_machine::events::PhaseEvent::Sum
-//! [`PhaseEvent::Update`]: crate::state_machine::events::PhaseEvent::Update
-//! [`PhaseEvent::Sum2`]: crate::state_machine::events::PhaseEvent::Sum2
-//! [`PhaseEvent::Unmask`]: crate::state_machine::events::PhaseEvent::Unmask
-//! [`PhaseEvent::Error`]: crate::state_machine::events::PhaseEvent::Error
-//! [`PhaseEvent::Shutdown`]: crate::state_machine::events::PhaseEvent::Shutdown
-//!
+//! [`PhaseName::Idle`]: crate::state_machine::phases::PhaseName::Idle
+//! [`PhaseName::Sum`]: crate::state_machine::phases::PhaseName::Sum
+//! [`PhaseName::Update`]: crate::state_machine::phases::PhaseName::Update
+//! [`PhaseName::Sum2`]: crate::state_machine::phases::PhaseName::Sum2
+//! [`PhaseName::Unmask`]: crate::state_machine::phases::PhaseName::Unmask
+//! [`PhaseName::Error`]: crate::state_machine::phases::PhaseName::Error
+//! [`PhaseName::Shutdown`]: crate::state_machine::phases::PhaseName::Shutdown
 //! [`SumDict`]: crate::SumDict
 //! [`SeedDict`]: crate::SeedDict
 //! [`EncryptKeyPair`]: crate::crypto::EncryptKeyPair
