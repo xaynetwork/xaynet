@@ -111,7 +111,7 @@ pub struct PetSettings {
     /// and `sum2` phases, in seconds.
     ///
     /// Defaults to 0 i.e. `sum` and `sum2` phases end *as soon as*
-    /// `min_sum_count` messages have been processed. Set this higher
+    /// [`PetSettings::min_sum_count`] messages have been processed. Set this higher
     /// to allow for the possibility of more than
     /// [`PetSettings::min_sum_count`] messages to be processed in the
     /// `sum` and `sum2` phases.
