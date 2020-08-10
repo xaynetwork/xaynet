@@ -1,10 +1,10 @@
 use crate::{
     crypto::{encrypt::EncryptKeyPair, sign::SigningKeySeed, ByteObject},
     state_machine::{
-        coordinator::{CoordinatorState, RoundSeed},
+        coordinator::RoundSeed,
         events::{DictionaryUpdate, MaskLengthUpdate, ScalarUpdate},
-        phases::{Handler, Phase, PhaseName, PhaseState, Sum},
-        requests::{RequestReceiver, StateMachineRequest},
+        phases::{Handler, Phase, PhaseName, PhaseState, Shared, Sum},
+        requests::StateMachineRequest,
         StateError,
         StateMachine,
     },
@@ -41,10 +41,10 @@ impl Phase for PhaseState<Idle> {
         info!("updating round seeds");
         self.update_round_seed();
 
-        let events = &mut self.coordinator_state.events;
+        let events = &mut self.shared.io.events;
 
         info!("broadcasting new keys");
-        events.broadcast_keys(self.coordinator_state.keys.clone());
+        events.broadcast_keys(self.shared.state.keys.clone());
 
         info!("broadcasting invalidation of sum dictionary from previous round");
         events.broadcast_sum_dict(DictionaryUpdate::Invalidate);
@@ -59,7 +59,7 @@ impl Phase for PhaseState<Idle> {
         events.broadcast_mask_length(MaskLengthUpdate::Invalidate);
 
         info!("broadcasting new round parameters");
-        events.broadcast_params(self.coordinator_state.round_params.clone());
+        events.broadcast_params(self.shared.state.round_params.clone());
 
         // TODO: add a delay to prolongate the idle phase
         Ok(())
@@ -67,22 +67,21 @@ impl Phase for PhaseState<Idle> {
 
     fn next(self) -> Option<StateMachine> {
         info!("going to sum phase");
-        Some(PhaseState::<Sum>::new(self.coordinator_state, self.request_rx).into())
+        Some(PhaseState::<Sum>::new(self.shared).into())
     }
 }
 
 impl PhaseState<Idle> {
     /// Creates a new idle state.
-    pub fn new(mut coordinator_state: CoordinatorState, request_rx: RequestReceiver) -> Self {
+    pub fn new(mut shared: Shared) -> Self {
         // Since some events are emitted very early, the round id must
         // be correct when the idle phase starts. Therefore, we update
         // it here, when instantiating the idle PhaseState.
-        coordinator_state.set_round_id(coordinator_state.round_id() + 1);
-        debug!("new round ID = {}", coordinator_state.round_id());
+        shared.set_round_id(shared.round_id() + 1);
+        debug!("new round ID = {}", shared.round_id());
         Self {
             inner: Idle,
-            coordinator_state,
-            request_rx,
+            shared,
         }
     }
 
@@ -92,25 +91,25 @@ impl PhaseState<Idle> {
     fn update_round_seed(&mut self) {
         // Safe unwrap: `sk` and `seed` have same number of bytes
         let (_, sk) =
-            SigningKeySeed::from_slice_unchecked(self.coordinator_state.keys.secret.as_slice())
+            SigningKeySeed::from_slice_unchecked(self.shared.state.keys.secret.as_slice())
                 .derive_signing_key_pair();
         let signature = sk.sign_detached(
             &[
-                self.coordinator_state.round_params.seed.as_slice(),
-                &self.coordinator_state.round_params.sum.to_le_bytes(),
-                &self.coordinator_state.round_params.update.to_le_bytes(),
+                self.shared.state.round_params.seed.as_slice(),
+                &self.shared.state.round_params.sum.to_le_bytes(),
+                &self.shared.state.round_params.update.to_le_bytes(),
             ]
             .concat(),
         );
         // Safe unwrap: the length of the hash is 32 bytes
-        self.coordinator_state.round_params.seed =
+        self.shared.state.round_params.seed =
             RoundSeed::from_slice_unchecked(sha256::hash(signature.as_slice()).as_ref());
     }
 
     /// Generates fresh round credentials.
     fn gen_round_keypair(&mut self) {
-        self.coordinator_state.keys = EncryptKeyPair::generate();
-        self.coordinator_state.round_params.pk = self.coordinator_state.keys.public;
+        self.shared.state.keys = EncryptKeyPair::generate();
+        self.shared.state.round_params.pk = self.shared.state.keys.public;
     }
 }
 
@@ -124,17 +123,13 @@ mod test {
 
     #[tokio::test]
     async fn round_id_is_updated_when_idle_phase_runs() {
-        let (coordinator_state, event_subscriber) = CoordinatorState::new(
-            utils::pet_settings(),
-            utils::mask_settings(),
-            utils::model_settings(),
-        );
+        let (shared, event_subscriber, ..) = utils::init_shared();
+
         let keys = event_subscriber.keys_listener();
         let id = keys.get_latest().round_id;
         assert_eq!(id, 0);
 
-        let (request_rx, _request_tx) = RequestReceiver::new();
-        let mut idle_phase = PhaseState::<Idle>::new(coordinator_state, request_rx);
+        let mut idle_phase = PhaseState::<Idle>::new(shared);
         idle_phase.run().await.unwrap();
 
         let id = keys.get_latest().round_id;
@@ -156,14 +151,14 @@ mod test {
 
         let PhaseState {
             inner: sum_state,
-            coordinator_state,
+            shared,
             ..
         } = state_machine.into_sum_phase_state();
 
         assert!(sum_state.sum_dict().is_empty());
 
-        let new_round_params = coordinator_state.round_params.clone();
-        let new_keys = coordinator_state.keys.clone();
+        let new_round_params = shared.state.round_params.clone();
+        let new_keys = shared.state.keys.clone();
 
         // Make sure the seed and keys have updated
         assert_ne!(initial_seed, new_round_params.seed.clone());

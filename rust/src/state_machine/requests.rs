@@ -111,7 +111,7 @@ impl From<MessageOwned> for StateMachineRequest {
 /// A handle to send requests to the [`StateMachine`].
 ///
 /// [`StateMachine`]: crate::state_machine
-#[derive(Clone, From)]
+#[derive(Clone, From, Debug)]
 pub struct RequestSender(mpsc::UnboundedSender<(Request<StateMachineRequest>, ResponseSender)>);
 
 impl RequestSender {
@@ -148,7 +148,7 @@ pub(in crate::state_machine) type ResponseSender = oneshot::Sender<StateMachineR
 /// requests.
 ///
 /// [`StateMachine`]: crate::state_machine
-#[derive(From)]
+#[derive(From, Debug)]
 pub struct RequestReceiver(mpsc::UnboundedReceiver<(Request<StateMachineRequest>, ResponseSender)>);
 
 impl Stream for RequestReceiver {

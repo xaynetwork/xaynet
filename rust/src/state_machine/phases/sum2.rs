@@ -1,9 +1,9 @@
 use crate::{
     mask::{masking::Aggregation, object::MaskObject},
     state_machine::{
-        coordinator::{CoordinatorState, MaskDict},
-        phases::{Handler, Phase, PhaseName, PhaseState, StateError, Unmask},
-        requests::{RequestReceiver, StateMachineRequest, Sum2Request},
+        coordinator::MaskDict,
+        phases::{Handler, Phase, PhaseName, PhaseState, Shared, StateError, Unmask},
+        requests::{StateMachineRequest, Sum2Request},
         StateMachine,
     },
     PetError,
@@ -52,17 +52,17 @@ where
     ///
     /// See the [module level documentation](../index.html) for more details.
     async fn run(&mut self) -> Result<(), StateError> {
-        let min_time = self.coordinator_state.min_sum_time;
+        let min_time = self.shared.state.min_sum_time;
         debug!("in sum2 phase for a minimum of {} seconds", min_time);
         self.process_during(Duration::from_secs(min_time)).await?;
 
-        let time_left = self.coordinator_state.max_sum_time - min_time;
+        let time_left = self.shared.state.max_sum_time - min_time;
         timeout(Duration::from_secs(time_left), self.process_until_enough()).await??;
 
         info!(
             "{} sum2 messages handled (min {} required)",
             self.mask_count(),
-            self.coordinator_state.min_sum_count
+            self.shared.state.min_sum_count
         );
         Ok(())
     }
@@ -72,13 +72,8 @@ where
     /// See the [module level documentation](../index.html) for more details.
     fn next(self) -> Option<StateMachine> {
         Some(
-            PhaseState::<Unmask>::new(
-                self.coordinator_state,
-                self.request_rx,
-                self.inner.aggregation,
-                self.inner.mask_dict,
-            )
-            .into(),
+            PhaseState::<Unmask>::new(self.shared, self.inner.aggregation, self.inner.mask_dict)
+                .into(),
         )
     }
 }
@@ -93,7 +88,7 @@ where
             debug!(
                 "{} sum2 messages handled (min {} required)",
                 self.mask_count(),
-                self.coordinator_state.min_sum_count
+                self.shared.state.min_sum_count
             );
             self.process_single().await?;
         }
@@ -117,12 +112,7 @@ impl Handler for PhaseState<Sum2> {
 
 impl PhaseState<Sum2> {
     /// Creates a new sum2 state.
-    pub fn new(
-        coordinator_state: CoordinatorState,
-        request_rx: RequestReceiver,
-        sum_dict: SumDict,
-        aggregation: Aggregation,
-    ) -> Self {
+    pub fn new(shared: Shared, sum_dict: SumDict, aggregation: Aggregation) -> Self {
         info!("state transition");
         Self {
             inner: Sum2 {
@@ -130,8 +120,7 @@ impl PhaseState<Sum2> {
                 aggregation,
                 mask_dict: MaskDict::new(),
             },
-            coordinator_state,
-            request_rx,
+            shared,
         }
     }
 
@@ -171,7 +160,7 @@ impl PhaseState<Sum2> {
 
     /// Checks whether enough sum participants submitted their masks to start the idle phase.
     fn has_enough_sum2s(&self) -> bool {
-        self.mask_count() >= self.coordinator_state.min_sum_count
+        self.mask_count() >= self.shared.state.min_sum_count
     }
 }
 

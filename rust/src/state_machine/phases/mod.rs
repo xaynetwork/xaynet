@@ -21,6 +21,7 @@ pub use self::{
 use crate::{
     state_machine::{
         coordinator::CoordinatorState,
+        events::EventPublisher,
         requests::{RequestReceiver, ResponseSender, StateMachineRequest},
         StateMachine,
     },
@@ -62,17 +63,61 @@ pub trait Handler {
     fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), PetError>;
 }
 
+/// I/O interfaces.
+#[derive(Debug)]
+pub struct IO {
+    /// The request receiver half.
+    pub(in crate::state_machine) request_rx: RequestReceiver,
+    /// The event publisher.
+    pub(in crate::state_machine) events: EventPublisher,
+}
+
+/// A struct that contains the coordinator state and the I/O interfaces.
+#[derive(Debug)]
+pub struct Shared {
+    /// The coordinator state.
+    pub(in crate::state_machine) state: CoordinatorState,
+    /// I/O interfaces.
+    pub(in crate::state_machine) io: IO,
+}
+
+impl Shared {
+    pub fn new(
+        coordinator_state: CoordinatorState,
+        publisher: EventPublisher,
+        request_rx: RequestReceiver,
+    ) -> Self {
+        Self {
+            state: coordinator_state,
+            io: IO {
+                request_rx,
+                events: publisher,
+            },
+        }
+    }
+
+    /// Set the round ID to the given value
+    pub fn set_round_id(&mut self, id: u64) {
+        self.state.round_id = id;
+        self.io.events.set_round_id(id);
+    }
+
+    /// Return the current round ID
+    pub fn round_id(&self) -> u64 {
+        self.state.round_id
+    }
+}
+
 /// The state corresponding to a phase of the PET protocol.
 ///
-/// This contains the state-dependent `inner` state and the state-independent `coordinator_state`
-/// which is shared across state transitions.
+/// This contains the state-dependent `inner` state and the state-independent `shared.state`
+/// which is shared across state transitions. Furthermore, `shared.io` contains the I/O interfaces
+/// of the state machine.
 pub struct PhaseState<S> {
     /// The inner state.
     pub(in crate::state_machine) inner: S,
-    /// The Coordinator state.
-    pub(in crate::state_machine) coordinator_state: CoordinatorState,
-    /// The request receiver half.
-    pub(in crate::state_machine) request_rx: RequestReceiver,
+    /// The shared coordinator state and I/O interfaces.
+    pub(in crate::state_machine) shared: Shared,
 }
 
 impl<S> PhaseState<S>
@@ -126,7 +171,7 @@ where
         async move {
             info!("starting phase");
             info!("broadcasting phase event");
-            self.coordinator_state.events.broadcast_phase(
+            self.shared.io.events.broadcast_phase(
                 phase,
             );
 
@@ -183,7 +228,7 @@ impl<S> PhaseState<S> {
         &mut self,
     ) -> Result<(Request<StateMachineRequest>, ResponseSender), StateError> {
         debug!("waiting for the next incoming request");
-        self.request_rx.next().await.ok_or_else(|| {
+        self.shared.io.request_rx.next().await.ok_or_else(|| {
             error!("request receiver broken: senders have been dropped");
             StateError::ChannelError("all message senders have been dropped!")
         })
@@ -192,7 +237,7 @@ impl<S> PhaseState<S> {
     fn try_next_request(
         &mut self,
     ) -> Result<Option<(Request<StateMachineRequest>, ResponseSender)>, StateError> {
-        match self.request_rx.try_recv() {
+        match self.shared.io.request_rx.try_recv() {
             Ok(item) => Ok(Some(item)),
             Err(tokio::sync::mpsc::error::TryRecvError::Empty) => {
                 debug!("no pending request");
@@ -208,6 +253,34 @@ impl<S> PhaseState<S> {
     }
 
     fn into_error_state(self, err: StateError) -> StateMachine {
-        PhaseState::<StateError>::new(self.coordinator_state, self.request_rx, err).into()
+        PhaseState::<StateError>::new(self.shared, err).into()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::state_machine::tests::utils;
+
+    #[test]
+    fn update_round_id() {
+        let (mut shared, event_subscriber, ..) = utils::init_shared();
+
+        let phases = event_subscriber.phase_listener();
+        // When starting the round ID should be 0
+        let id = phases.get_latest().round_id;
+        assert_eq!(id, 0);
+
+        shared.set_round_id(1);
+        assert_eq!(shared.state.round_id, 1);
+
+        // Old events should still have the same round ID
+        let id = phases.get_latest().round_id;
+        assert_eq!(id, 0);
+
+        // But new events should have the new round ID
+        shared.io.events.broadcast_phase(PhaseName::Sum);
+        let id = phases.get_latest().round_id;
+        assert_eq!(id, 1);
     }
 }
