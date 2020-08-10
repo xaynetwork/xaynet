@@ -98,6 +98,9 @@ pub mod state_machine;
 pub mod utils;
 pub(crate) mod vendor;
 
+#[cfg(feature = "metrics")]
+pub mod metrics;
+
 use std::collections::HashMap;
 
 use derive_more::Display;
