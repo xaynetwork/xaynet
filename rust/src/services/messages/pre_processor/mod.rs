@@ -9,7 +9,6 @@ pub use sum2::Sum2PreProcessorService;
 
 use std::{pin::Pin, task::Poll};
 
-use derive_more::From;
 use futures::{
     future::{self, Future},
     task::Context,
@@ -24,7 +23,7 @@ use crate::{
         events::{Event, EventListener, EventSubscriber},
         phases::PhaseName,
     },
-    utils::trace::{Traceable, Traced},
+    utils::request::Request,
 };
 
 /// A service for performing sanity checks and preparing incoming
@@ -56,15 +55,13 @@ impl PreProcessorService {
     }
 }
 
-/// Request type for [`PreProcessorService`]. It contains the PET
-/// message to handle.
-#[derive(From, Debug)]
-pub struct PreProcessorRequest(MessageOwned);
+/// Request type for [`PreProcessorService`]
+pub type PreProcessorRequest = Request<MessageOwned>;
 
 /// Response type for [`PreProcessorService`]
 pub type PreProcessorResponse = Result<MessageOwned, PreProcessorError>;
 
-impl Service<Traced<PreProcessorRequest>> for PreProcessorService {
+impl Service<PreProcessorRequest> for PreProcessorService {
     type Response = PreProcessorResponse;
     type Error = std::convert::Infallible;
 
@@ -82,8 +79,8 @@ impl Service<Traced<PreProcessorRequest>> for PreProcessorService {
         }
     }
 
-    fn call(&mut self, req: Traced<PreProcessorRequest>) -> Self::Future {
-        let MessageOwned { header, payload } = req.into_inner().0;
+    fn call(&mut self, req: PreProcessorRequest) -> Self::Future {
+        let MessageOwned { header, payload } = req.into_inner();
         match (self.latest_phase_event.event, payload) {
             (PhaseName::Sum, PayloadOwned::Sum(sum)) => {
                 let req = (header, sum, self.params_listener.get_latest().event);

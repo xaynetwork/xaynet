@@ -18,11 +18,11 @@ pub enum StateError {
     TimeoutError(#[from] tokio::time::Elapsed),
 }
 
-impl<R> PhaseState<R, StateError> {
+impl PhaseState<StateError> {
     /// Creates a new error state.
     pub fn new(
         coordinator_state: CoordinatorState,
-        request_rx: RequestReceiver<R>,
+        request_rx: RequestReceiver,
         error: StateError,
     ) -> Self {
         info!("state transition");
@@ -35,10 +35,7 @@ impl<R> PhaseState<R, StateError> {
 }
 
 #[async_trait]
-impl<R> Phase<R> for PhaseState<R, StateError>
-where
-    R: Send,
-{
+impl Phase for PhaseState<StateError> {
     const NAME: PhaseName = PhaseName::Error;
 
     async fn run(&mut self) -> Result<(), StateError> {
@@ -55,12 +52,12 @@ where
     /// Moves from the error state to the next state.
     ///
     /// See the [module level documentation](../index.html) for more details.
-    fn next(self) -> Option<StateMachine<R>> {
+    fn next(self) -> Option<StateMachine> {
         Some(match self.inner {
             StateError::ChannelError(_) => {
-                PhaseState::<R, Shutdown>::new(self.coordinator_state, self.request_rx).into()
+                PhaseState::<Shutdown>::new(self.coordinator_state, self.request_rx).into()
             }
-            _ => PhaseState::<R, Idle>::new(self.coordinator_state, self.request_rx).into(),
+            _ => PhaseState::<Idle>::new(self.coordinator_state, self.request_rx).into(),
         })
     }
 }

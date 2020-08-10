@@ -7,6 +7,7 @@
 use std::borrow::Borrow;
 
 use anyhow::{anyhow, Context};
+use tracing::Span;
 
 use crate::{
     certificate::Certificate,
@@ -28,6 +29,7 @@ use crate::{
         traits::{FromBytes, ToBytes},
         DecodeError,
     },
+    utils::Traceable,
     LocalSeedDict,
 };
 
@@ -193,5 +195,20 @@ impl<'a, 'b> MessageOpen<'a, 'b> {
             return Err(anyhow!("invalid message: invalid signature"));
         }
         Ok(message)
+    }
+}
+
+impl Traceable for MessageOwned {
+    fn make_span(&self) -> Span {
+        let message_type = match self.payload {
+            PayloadOwned::Sum(_) => "sum",
+            PayloadOwned::Update(_) => "update",
+            PayloadOwned::Sum2(_) => "sum2",
+        };
+        error_span!(
+            "MessageOwned",
+            message_type = message_type,
+            message_length = self.buffer_length()
+        )
     }
 }

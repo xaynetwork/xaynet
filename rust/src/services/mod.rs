@@ -48,11 +48,7 @@ use crate::{
             StateMachineService,
         },
     },
-    state_machine::{
-        events::EventSubscriber,
-        requests::{Request, RequestSender},
-    },
-    utils::trace::Traced,
+    state_machine::{events::EventSubscriber, requests::RequestSender},
 };
 
 use std::sync::Arc;
@@ -105,8 +101,8 @@ pub fn fetcher(event_subscriber: &EventSubscriber) -> impl Fetcher + Sync + Send
 /// Construct a [`PetMessageHandler`] service
 pub fn message_handler(
     event_subscriber: &EventSubscriber,
-    requests_tx: RequestSender<Traced<Request>>,
-) -> impl PetMessageHandler + Sync + Send + 'static {
+    requests_tx: RequestSender,
+) -> impl PetMessageHandler + Sync + Send + 'static + Clone {
     // TODO: make this configurable. Users should be able to
     // choose how many threads they want etc.
     //

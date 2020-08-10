@@ -3,11 +3,12 @@ use crate::{
     state_machine::{
         coordinator::{CoordinatorState, RoundSeed},
         events::{DictionaryUpdate, MaskLengthUpdate, ScalarUpdate},
-        phases::{reject_request, Handler, Phase, PhaseName, PhaseState, Sum},
-        requests::{Request, RequestReceiver},
+        phases::{Handler, Phase, PhaseName, PhaseState, Sum},
+        requests::{RequestReceiver, StateMachineRequest},
         StateError,
         StateMachine,
     },
+    PetError,
 };
 
 use sodiumoxide::crypto::hash::sha256;
@@ -16,18 +17,15 @@ use sodiumoxide::crypto::hash::sha256;
 #[derive(Debug)]
 pub struct Idle;
 
-impl<R> Handler<Request> for PhaseState<R, Idle> {
-    /// Reject all the request with a [`PetError::InvalidMessage`]
-    fn handle_request(&mut self, req: Request) {
-        reject_request(req);
+impl Handler for PhaseState<Idle> {
+    /// Reject the request with a [`PetError::InvalidMessage`]
+    fn handle_request(&mut self, _req: StateMachineRequest) -> Result<(), PetError> {
+        Err(PetError::InvalidMessage)
     }
 }
 
 #[async_trait]
-impl<R> Phase<R> for PhaseState<R, Idle>
-where
-    R: Send,
-{
+impl Phase for PhaseState<Idle> {
     const NAME: PhaseName = PhaseName::Idle;
 
     /// Moves from the idle state to the next state.
@@ -67,15 +65,15 @@ where
         Ok(())
     }
 
-    fn next(self) -> Option<StateMachine<R>> {
+    fn next(self) -> Option<StateMachine> {
         info!("going to sum phase");
-        Some(PhaseState::<R, Sum>::new(self.coordinator_state, self.request_rx).into())
+        Some(PhaseState::<Sum>::new(self.coordinator_state, self.request_rx).into())
     }
 }
 
-impl<R> PhaseState<R, Idle> {
+impl PhaseState<Idle> {
     /// Creates a new idle state.
-    pub fn new(mut coordinator_state: CoordinatorState, request_rx: RequestReceiver<R>) -> Self {
+    pub fn new(mut coordinator_state: CoordinatorState, request_rx: RequestReceiver) -> Self {
         // Since some events are emitted very early, the round id must
         // be correct when the idle phase starts. Therefore, we update
         // it here, when instantiating the idle PhaseState.
@@ -135,8 +133,8 @@ mod test {
         let id = keys.get_latest().round_id;
         assert_eq!(id, 0);
 
-        let (request_rx, _request_tx) = RequestReceiver::<Request>::new();
-        let mut idle_phase = PhaseState::<Request, Idle>::new(coordinator_state, request_rx);
+        let (request_rx, _request_tx) = RequestReceiver::new();
+        let mut idle_phase = PhaseState::<Idle>::new(coordinator_state, request_rx);
         idle_phase.run().await.unwrap();
 
         let id = keys.get_latest().round_id;

@@ -28,7 +28,7 @@ async fn full_round() {
     let coord_pk = &coord_keys.public;
     let model_size = 4;
 
-    let (state_machine, mut requests, events) = StateMachineBuilder::new()
+    let (state_machine, requests, events) = StateMachineBuilder::new()
         .with_round_id(42)
         .with_seed(seed.clone())
         .with_sum_ratio(sum_ratio)
@@ -50,8 +50,8 @@ async fn full_round() {
     let mut summer_2 = generate_summer(&seed, sum_ratio, update_ratio);
     let msg_1 = summer_1.compose_sum_message(coord_pk);
     let msg_2 = summer_2.compose_sum_message(coord_pk);
-    let req_1 = async { requests.clone().sum(&msg_1).await.unwrap() };
-    let req_2 = async { requests.clone().sum(&msg_2).await.unwrap() };
+    let req_1 = async { requests.msg(&msg_1).await.unwrap() };
+    let req_2 = async { requests.msg(&msg_2).await.unwrap() };
     let transition = async { state_machine.next().await.unwrap() };
     let ((), (), state_machine) = tokio::join!(req_1, req_2, transition);
     assert!(state_machine.is_update());
@@ -64,7 +64,7 @@ async fn full_round() {
     for _ in 0..3 {
         let updater = generate_updater(&seed, sum_ratio, update_ratio);
         let msg = updater.compose_update_message(*coord_pk, &sum_dict, scalar, model.clone());
-        requests.update(&msg).await.unwrap();
+        requests.msg(&msg).await.unwrap();
     }
     let state_machine = transition_task.await.unwrap();
     assert!(state_machine.is_sum2());
@@ -78,8 +78,8 @@ async fn full_round() {
     let msg_2 = summer_2
         .compose_sum2_message(*coord_pk, seed_dict.get(&summer_2.pk).unwrap(), mask_length)
         .unwrap();
-    let req_1 = async { requests.clone().sum2(&msg_1).await.unwrap() };
-    let req_2 = async { requests.clone().sum2(&msg_2).await.unwrap() };
+    let req_1 = async { requests.msg(&msg_1).await.unwrap() };
+    let req_2 = async { requests.msg(&msg_2).await.unwrap() };
     let transition = async { state_machine.next().await.unwrap() };
     let ((), (), state_machine) = tokio::join!(req_1, req_2, transition);
     assert!(state_machine.is_unmask());

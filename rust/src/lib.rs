@@ -116,7 +116,7 @@ use self::crypto::{
 /// An error related to insufficient system entropy for secrets at program startup.
 pub struct InitError;
 
-#[derive(Debug, PartialEq, Display)]
+#[derive(Debug, Display, Error)]
 /// Errors related to the PET protocol.
 pub enum PetError {
     InvalidMessage,

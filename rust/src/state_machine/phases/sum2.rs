@@ -2,17 +2,8 @@ use crate::{
     mask::{masking::Aggregation, object::MaskObject},
     state_machine::{
         coordinator::{CoordinatorState, MaskDict},
-        phases::{
-            reject_request,
-            Handler,
-            Phase,
-            PhaseName,
-            PhaseState,
-            Purge,
-            StateError,
-            Unmask,
-        },
-        requests::{Request, RequestReceiver, Sum2Request, Sum2Response},
+        phases::{Handler, Phase, PhaseName, PhaseState, StateError, Unmask},
+        requests::{RequestReceiver, StateMachineRequest, Sum2Request},
         StateMachine,
     },
     PetError,
@@ -20,10 +11,7 @@ use crate::{
     SumParticipantPublicKey,
 };
 
-use tokio::{
-    sync::oneshot,
-    time::{timeout, Duration},
-};
+use tokio::time::{timeout, Duration};
 
 /// Sum2 state
 #[derive(Debug)]
@@ -54,10 +42,9 @@ impl Sum2 {
 }
 
 #[async_trait]
-impl<R> Phase<R> for PhaseState<R, Sum2>
+impl Phase for PhaseState<Sum2>
 where
-    Self: Purge<R> + Handler<R>,
-    R: Send,
+    Self: Handler,
 {
     const NAME: PhaseName = PhaseName::Sum2;
 
@@ -83,9 +70,9 @@ where
     /// Moves from the sum2 state to the next state.
     ///
     /// See the [module level documentation](../index.html) for more details.
-    fn next(self) -> Option<StateMachine<R>> {
+    fn next(self) -> Option<StateMachine> {
         Some(
-            PhaseState::<R, Unmask>::new(
+            PhaseState::<Unmask>::new(
                 self.coordinator_state,
                 self.request_rx,
                 self.inner.aggregation,
@@ -96,9 +83,9 @@ where
     }
 }
 
-impl<R> PhaseState<R, Sum2>
+impl PhaseState<Sum2>
 where
-    Self: Handler<R> + Phase<R> + Purge<R>,
+    Self: Handler + Phase,
 {
     /// Processes requests until there are enough.
     async fn process_until_enough(&mut self) -> Result<(), StateError> {
@@ -114,24 +101,25 @@ where
     }
 }
 
-impl<R> Handler<Request> for PhaseState<R, Sum2> {
-    /// Handles a [`Request::Sum`], [`Request::Update`] or [`Request::Sum2`] request.
+impl Handler for PhaseState<Sum2> {
+    /// Handles a [`StateMachineRequest`],
     ///
-    /// If the request is a [`Request::Sum`] or [`Request::Update`] request, the request sender
+    /// If the request is a [`StateMachineRequest::Sum`] or
+    /// [`StateMachineRequest::Update`] request, the request sender
     /// will receive a [`PetError::InvalidMessage`].
-    fn handle_request(&mut self, req: Request) {
+    fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), PetError> {
         match req {
-            Request::Sum2((sum2_req, response_tx)) => self.handle_sum2(sum2_req, response_tx),
-            _ => reject_request(req),
+            StateMachineRequest::Sum2(sum2_req) => self.handle_sum2(sum2_req),
+            _ => Err(PetError::InvalidMessage),
         }
     }
 }
 
-impl<R> PhaseState<R, Sum2> {
+impl PhaseState<Sum2> {
     /// Creates a new sum2 state.
     pub fn new(
         coordinator_state: CoordinatorState,
-        request_rx: RequestReceiver<R>,
+        request_rx: RequestReceiver,
         sum_dict: SumDict,
         aggregation: Aggregation,
     ) -> Self {
@@ -149,14 +137,12 @@ impl<R> PhaseState<R, Sum2> {
 
     /// Handles a sum2 request.
     /// If the handling of the sum2 message fails, an error is returned to the request sender.
-    fn handle_sum2(&mut self, req: Sum2Request, response_tx: oneshot::Sender<Sum2Response>) {
+    fn handle_sum2(&mut self, req: Sum2Request) -> Result<(), PetError> {
         let Sum2Request {
             participant_pk,
             mask,
         } = req;
-
-        // See `Self::handle_invalid_message`
-        let _ = response_tx.send(self.add_mask(&participant_pk, mask));
+        self.add_mask(&participant_pk, mask)
     }
 
     /// Adds a mask to the mask dictionary.
@@ -191,6 +177,7 @@ impl<R> PhaseState<R, Sum2> {
 
 #[cfg(test)]
 mod test {
+
     use super::*;
     use crate::{
         crypto::{ByteObject, EncryptKeyPair},
@@ -258,7 +245,7 @@ mod test {
             .unwrap();
 
         // Have the state machine process the request
-        let req = async { request_tx.clone().sum2(&msg).await.unwrap() };
+        let req = async { request_tx.msg(&msg).await.unwrap() };
         let transition = async { state_machine.next().await.unwrap() };
         let ((), state_machine) = tokio::join!(req, transition);
         assert!(state_machine.is_unmask());

@@ -5,8 +5,8 @@ use crate::{
     state_machine::{
         coordinator::CoordinatorState,
         events::{DictionaryUpdate, MaskLengthUpdate, ScalarUpdate},
-        phases::{reject_request, Handler, Phase, PhaseName, PhaseState, Purge, StateError, Sum2},
-        requests::{Request, RequestReceiver, UpdateRequest, UpdateResponse},
+        phases::{Handler, Phase, PhaseName, PhaseState, StateError, Sum2},
+        requests::{RequestReceiver, StateMachineRequest, UpdateRequest},
         StateMachine,
     },
     LocalSeedDict,
@@ -16,10 +16,7 @@ use crate::{
     UpdateParticipantPublicKey,
 };
 
-use tokio::{
-    sync::oneshot,
-    time::{timeout, Duration},
-};
+use tokio::time::{timeout, Duration};
 
 /// Update state
 #[derive(Debug)]
@@ -48,10 +45,9 @@ impl Update {
 }
 
 #[async_trait]
-impl<R> Phase<R> for PhaseState<R, Update>
+impl Phase for PhaseState<Update>
 where
-    Self: Handler<R> + Purge<R>,
-    R: Send,
+    Self: Handler,
 {
     const NAME: PhaseName = PhaseName::Update;
 
@@ -82,7 +78,7 @@ where
         Ok(())
     }
 
-    fn next(self) -> Option<StateMachine<R>> {
+    fn next(self) -> Option<StateMachine> {
         let PhaseState {
             inner:
                 Update {
@@ -105,15 +101,15 @@ where
             .broadcast_seed_dict(DictionaryUpdate::New(Arc::new(seed_dict)));
 
         Some(
-            PhaseState::<R, Sum2>::new(coordinator_state, request_rx, frozen_sum_dict, aggregation)
+            PhaseState::<Sum2>::new(coordinator_state, request_rx, frozen_sum_dict, aggregation)
                 .into(),
         )
     }
 }
 
-impl<R> PhaseState<R, Update>
+impl PhaseState<Update>
 where
-    Self: Handler<R> + Phase<R> + Purge<R>,
+    Self: Handler + Phase,
 {
     /// Processes requests until there are enough.
     async fn process_until_enough(&mut self) -> Result<(), StateError> {
@@ -129,26 +125,25 @@ where
     }
 }
 
-impl<R> Handler<Request> for PhaseState<R, Update> {
-    /// Handles a [`Request::Sum`], [`Request::Update`] or [`Request::Sum2`] request.
+impl Handler for PhaseState<Update> {
+    /// Handles a [`StateMachineRequest`].
     ///
-    /// If the request is a [`Request::Sum`] or [`Request::Sum2`] request, the request sender
-    /// will receive a [`PetError::InvalidMessage`].
-    fn handle_request(&mut self, req: Request) {
+    /// If the request is a [`StateMachineRequest::Sum`] or
+    /// [`StateMachineRequest::Sum2`] request, the request sender will
+    /// receive a [`PetError::InvalidMessage`].
+    fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), PetError> {
         match req {
-            Request::Update((update_req, response_tx)) => {
-                self.handle_update(update_req, response_tx)
-            }
-            _ => reject_request(req),
+            StateMachineRequest::Update(update_req) => self.handle_update(update_req),
+            _ => Err(PetError::InvalidMessage),
         }
     }
 }
 
-impl<R> PhaseState<R, Update> {
+impl PhaseState<Update> {
     /// Creates a new update state.
     pub fn new(
         coordinator_state: CoordinatorState,
-        request_rx: RequestReceiver<R>,
+        request_rx: RequestReceiver,
         frozen_sum_dict: SumDict,
         seed_dict: SeedDict,
     ) -> Self {
@@ -169,19 +164,13 @@ impl<R> PhaseState<R, Update> {
 
     /// Handles an update request.
     /// If the handling of the update message fails, an error is returned to the request sender.
-    fn handle_update(&mut self, req: UpdateRequest, response_tx: oneshot::Sender<UpdateResponse>) {
+    fn handle_update(&mut self, req: UpdateRequest) -> Result<(), PetError> {
         let UpdateRequest {
             participant_pk,
             local_seed_dict,
             masked_model,
         } = req;
-
-        // See `handle_invalid_message`
-        let _ = response_tx.send(self.update_seed_dict_and_aggregate_mask(
-            &participant_pk,
-            &local_seed_dict,
-            masked_model,
-        ));
+        self.update_seed_dict_and_aggregate_mask(&participant_pk, &local_seed_dict, masked_model)
     }
 
     /// Updates the local seed dict and aggregates the masked model.
@@ -320,7 +309,7 @@ mod test {
         };
 
         // Create the state machine
-        let (state_machine, mut request_tx, events) = StateMachineBuilder::new()
+        let (state_machine, request_tx, events) = StateMachineBuilder::new()
             .with_seed(seed.clone())
             .with_phase(update)
             .with_sum_ratio(sum_ratio)
@@ -343,7 +332,7 @@ mod test {
             model.clone(),
         );
         let masked_model = update_msg.masked_model();
-        let request_fut = async { request_tx.update(&update_msg).await.unwrap() };
+        let request_fut = async { request_tx.msg(&update_msg).await.unwrap() };
 
         // Have the state machine process the request
         let transition_fut = async { state_machine.next().await.unwrap() };

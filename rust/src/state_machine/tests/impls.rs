@@ -4,26 +4,23 @@ use crate::{
     state_machine::{
         events::{DictionaryUpdate, MaskLengthUpdate},
         phases::{self, PhaseState},
-        requests::{
-            Request,
-            RequestSender,
-            Sum2Request,
-            Sum2Response,
-            SumRequest,
-            SumResponse,
-            UpdateRequest,
-            UpdateResponse,
-        },
+        requests::RequestSender,
         StateMachine,
+        StateMachineResult,
     },
+    utils::Request,
     LocalSeedDict,
     SumParticipantEphemeralPublicKey,
     SumParticipantPublicKey,
 };
 
-use tokio::sync::oneshot;
+impl RequestSender {
+    pub async fn msg(&self, msg: &MessageOwned) -> StateMachineResult {
+        self.request(Request::new(msg.clone())).await
+    }
+}
 
-impl<T> StateMachine<T> {
+impl StateMachine {
     pub fn is_update(&self) -> bool {
         match self {
             StateMachine::Update(_) => true,
@@ -31,7 +28,7 @@ impl<T> StateMachine<T> {
         }
     }
 
-    pub fn into_update_phase_state(self) -> PhaseState<T, phases::Update> {
+    pub fn into_update_phase_state(self) -> PhaseState<phases::Update> {
         match self {
             StateMachine::Update(state) => state,
             _ => panic!("not in update state"),
@@ -45,7 +42,7 @@ impl<T> StateMachine<T> {
         }
     }
 
-    pub fn into_sum_phase_state(self) -> PhaseState<T, phases::Sum> {
+    pub fn into_sum_phase_state(self) -> PhaseState<phases::Sum> {
         match self {
             StateMachine::Sum(state) => state,
             _ => panic!("not in sum state"),
@@ -59,7 +56,7 @@ impl<T> StateMachine<T> {
         }
     }
 
-    pub fn into_sum2_phase_state(self) -> PhaseState<T, phases::Sum2> {
+    pub fn into_sum2_phase_state(self) -> PhaseState<phases::Sum2> {
         match self {
             StateMachine::Sum2(state) => state,
             _ => panic!("not in sum2 state"),
@@ -73,7 +70,7 @@ impl<T> StateMachine<T> {
         }
     }
 
-    pub fn into_idle_phase_state(self) -> PhaseState<T, phases::Idle> {
+    pub fn into_idle_phase_state(self) -> PhaseState<phases::Idle> {
         match self {
             StateMachine::Idle(state) => state,
             _ => panic!("not in idle state"),
@@ -87,7 +84,7 @@ impl<T> StateMachine<T> {
         }
     }
 
-    pub fn into_unmask_phase_state(self) -> PhaseState<T, phases::Unmask> {
+    pub fn into_unmask_phase_state(self) -> PhaseState<phases::Unmask> {
         match self {
             StateMachine::Unmask(state) => state,
             _ => panic!("not in unmask state"),
@@ -101,7 +98,7 @@ impl<T> StateMachine<T> {
         }
     }
 
-    pub fn into_error_phase_state(self) -> PhaseState<T, phases::StateError> {
+    pub fn into_error_phase_state(self) -> PhaseState<phases::StateError> {
         match self {
             StateMachine::Error(state) => state,
             _ => panic!("not in error state"),
@@ -115,61 +112,10 @@ impl<T> StateMachine<T> {
         }
     }
 
-    pub fn into_shutdown_phase_state(self) -> PhaseState<T, phases::Shutdown> {
+    pub fn into_shutdown_phase_state(self) -> PhaseState<phases::Shutdown> {
         match self {
             StateMachine::Shutdown(state) => state,
             _ => panic!("not in shutdown state"),
-        }
-    }
-}
-
-impl RequestSender<Request> {
-    pub async fn sum(&mut self, msg: &MessageOwned) -> SumResponse {
-        let (resp_tx, resp_rx) = oneshot::channel::<SumResponse>();
-        let req = Request::Sum((msg.into(), resp_tx));
-        self.send(req).unwrap();
-        resp_rx.await.unwrap()
-    }
-
-    pub async fn update(&mut self, msg: &MessageOwned) -> UpdateResponse {
-        let (resp_tx, resp_rx) = oneshot::channel::<UpdateResponse>();
-        let req = Request::Update((msg.into(), resp_tx));
-        self.send(req).unwrap();
-        resp_rx.await.unwrap()
-    }
-
-    pub async fn sum2(&mut self, msg: &MessageOwned) -> Sum2Response {
-        let (resp_tx, resp_rx) = oneshot::channel::<Sum2Response>();
-        let req = Request::Sum2((msg.into(), resp_tx));
-        self.send(req).unwrap();
-        resp_rx.await.unwrap()
-    }
-}
-
-impl<'a> From<&'a MessageOwned> for SumRequest {
-    fn from(msg: &'a MessageOwned) -> SumRequest {
-        SumRequest {
-            participant_pk: msg.participant_pk(),
-            ephm_pk: msg.ephm_pk(),
-        }
-    }
-}
-
-impl<'a> From<&'a MessageOwned> for UpdateRequest {
-    fn from(msg: &'a MessageOwned) -> UpdateRequest {
-        UpdateRequest {
-            participant_pk: msg.participant_pk(),
-            local_seed_dict: msg.local_seed_dict(),
-            masked_model: msg.masked_model(),
-        }
-    }
-}
-
-impl<'a> From<&'a MessageOwned> for Sum2Request {
-    fn from(msg: &'a MessageOwned) -> Sum2Request {
-        Sum2Request {
-            participant_pk: msg.participant_pk(),
-            mask: msg.mask(),
         }
     }
 }

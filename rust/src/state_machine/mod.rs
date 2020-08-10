@@ -117,15 +117,26 @@ use crate::{
     state_machine::{
         coordinator::CoordinatorState,
         events::EventSubscriber,
-        phases::{Idle, Phase, PhaseState, Purge, Shutdown, StateError, Sum, Sum2, Unmask, Update},
-        requests::{Request, RequestReceiver, RequestSender},
+        phases::{Idle, Phase, PhaseState, Shutdown, StateError, Sum, Sum2, Unmask, Update},
+        requests::{RequestReceiver, RequestSender},
     },
-    utils::trace::Traced,
     InitError,
+    PetError,
 };
 
 use derive_more::From;
 use thiserror::Error;
+
+/// Error returned when the state machine fails to handle a request
+#[derive(Debug, Error)]
+pub enum StateMachineError {
+    #[error("the request failed")]
+    RequestFailed(#[from] PetError),
+    #[error("the request could not be processed due to an internal error")]
+    InternalError,
+}
+
+pub type StateMachineResult = Result<(), StateMachineError>;
 
 /// Error that occurs when unmasking of the global model fails.
 #[derive(Error, Debug, Eq, PartialEq)]
@@ -140,28 +151,25 @@ pub enum RoundFailed {
 
 /// The state machine with all its states.
 #[derive(From)]
-pub enum StateMachine<R> {
-    Idle(PhaseState<R, Idle>),
-    Sum(PhaseState<R, Sum>),
-    Update(PhaseState<R, Update>),
-    Sum2(PhaseState<R, Sum2>),
-    Unmask(PhaseState<R, Unmask>),
-    Error(PhaseState<R, StateError>),
-    Shutdown(PhaseState<R, Shutdown>),
+pub enum StateMachine {
+    Idle(PhaseState<Idle>),
+    Sum(PhaseState<Sum>),
+    Update(PhaseState<Update>),
+    Sum2(PhaseState<Sum2>),
+    Unmask(PhaseState<Unmask>),
+    Error(PhaseState<StateError>),
+    Shutdown(PhaseState<Shutdown>),
 }
 
-/// A [`StateMachine`] that processes `Traced<Request>`.
-pub type TracingStateMachine = StateMachine<Traced<Request>>;
-
-impl<R> StateMachine<R>
+impl StateMachine
 where
-    PhaseState<R, Idle>: Phase<R> + Purge<R>,
-    PhaseState<R, Sum>: Phase<R> + Purge<R>,
-    PhaseState<R, Update>: Phase<R> + Purge<R>,
-    PhaseState<R, Sum2>: Phase<R> + Purge<R>,
-    PhaseState<R, Unmask>: Phase<R> + Purge<R>,
-    PhaseState<R, StateError>: Phase<R> + Purge<R>,
-    PhaseState<R, Shutdown>: Phase<R> + Purge<R>,
+    PhaseState<Idle>: Phase,
+    PhaseState<Sum>: Phase,
+    PhaseState<Update>: Phase,
+    PhaseState<Sum2>: Phase,
+    PhaseState<Unmask>: Phase,
+    PhaseState<StateError>: Phase,
+    PhaseState<Shutdown>: Phase,
 {
     /// Creates a new state machine with the initial state [`Idle`].
     ///
@@ -175,7 +183,7 @@ where
     /// <div class="example-wrap" style="display:inline-block">
     /// <pre class="ignore" style="white-space:normal;font:inherit;">
     ///     <strong>Note</strong>: If the <code>StateMachine</code> is created via
-    ///     <code>PhaseState::<R, S>::new(...)</code> it must be ensured that the module
+    ///     <code>PhaseState::<S>::new(...)</code> it must be ensured that the module
     ///     <a href="https://docs.rs/sodiumoxide/0.2.5/sodiumoxide/fn.init.html">
     ///     <code>sodiumoxide::init()</code></a> has been initialized beforehand.
     /// </pre></div>
@@ -184,21 +192,21 @@ where
     /// ```compile_fail
     /// sodiumoxide::init().unwrap();
     /// let state_machine =
-    ///     StateMachine::from(PhaseState::<R, Idle>::new(coordinator_state, req_receiver));
+    ///     StateMachine::from(PhaseState::<Idle>::new(coordinator_state, req_receiver));
     /// ```
     pub fn new(
         pet_settings: PetSettings,
         mask_settings: MaskSettings,
         model_settings: ModelSettings,
-    ) -> Result<(Self, RequestSender<R>, EventSubscriber), InitError> {
+    ) -> Result<(Self, RequestSender, EventSubscriber), InitError> {
         // crucial: init must be called before anything else in this module
         sodiumoxide::init().or(Err(InitError))?;
         let (coordinator_state, event_subscriber) =
             CoordinatorState::new(pet_settings, mask_settings, model_settings);
 
-        let (req_receiver, handle) = RequestReceiver::<R>::new();
+        let (req_receiver, handle) = RequestReceiver::new();
         let state_machine =
-            StateMachine::from(PhaseState::<R, Idle>::new(coordinator_state, req_receiver));
+            StateMachine::from(PhaseState::<Idle>::new(coordinator_state, req_receiver));
         Ok((state_machine, handle, event_subscriber))
     }
 

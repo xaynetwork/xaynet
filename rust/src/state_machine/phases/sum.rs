@@ -4,28 +4,17 @@ use crate::{
     state_machine::{
         coordinator::CoordinatorState,
         events::DictionaryUpdate,
-        phases::{
-            reject_request,
-            Handler,
-            Phase,
-            PhaseName,
-            PhaseState,
-            Purge,
-            StateError,
-            Update,
-        },
-        requests::{Request, RequestReceiver, SumRequest, SumResponse},
+        phases::{Handler, Phase, PhaseName, PhaseState, StateError, Update},
+        requests::{RequestReceiver, StateMachineRequest, SumRequest},
         StateMachine,
     },
     LocalSeedDict,
+    PetError,
     SeedDict,
     SumDict,
 };
 
-use tokio::{
-    sync::oneshot,
-    time::{timeout, Duration},
-};
+use tokio::time::{timeout, Duration};
 
 /// Sum state
 #[derive(Debug)]
@@ -43,26 +32,24 @@ impl Sum {
     }
 }
 
-impl<R> Handler<Request> for PhaseState<R, Sum> {
-    /// Handles a [`Request::Sum`], [`Request::Update`] or [`Request::Sum2`] request.\
+impl Handler for PhaseState<Sum> {
+    /// Handles a [`StateMachineRequest`].
     ///
-    /// If the request is a [`Request::Update`] or [`Request::Sum2`] request, the request sender
-    /// will receive a [`PetError::InvalidMessage`].
-    ///
-    /// [`PetError::InvalidMessage`]: crate::PetError::InvalidMessage
-    fn handle_request(&mut self, req: Request) {
+    /// If the request is a [`StateMachineRequest::Update`] or
+    /// [`StateMachineRequest::Sum2`] request, the request sender will receive a
+    /// [`PetError::InvalidMessage`].
+    fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), PetError> {
         match req {
-            Request::Sum((sum_req, response_tx)) => self.handle_sum(sum_req, response_tx),
-            _ => reject_request(req),
+            StateMachineRequest::Sum(sum_req) => self.handle_sum(sum_req),
+            _ => Err(PetError::InvalidMessage),
         }
     }
 }
 
 #[async_trait]
-impl<R> Phase<R> for PhaseState<R, Sum>
+impl Phase for PhaseState<Sum>
 where
-    Self: Handler<R> + Purge<R>,
-    R: Send,
+    Self: Handler,
 {
     const NAME: PhaseName = PhaseName::Sum;
 
@@ -86,7 +73,7 @@ where
         Ok(())
     }
 
-    fn next(self) -> Option<StateMachine<R>> {
+    fn next(self) -> Option<StateMachine> {
         let Self {
             inner: Sum {
                 sum_dict,
@@ -96,7 +83,7 @@ where
             request_rx,
         } = self;
         Some(
-            PhaseState::<R, Update>::new(
+            PhaseState::<Update>::new(
                 coordinator_state,
                 request_rx,
                 sum_dict,
@@ -110,9 +97,9 @@ where
     }
 }
 
-impl<R> PhaseState<R, Sum>
+impl PhaseState<Sum>
 where
-    Self: Handler<R> + Phase<R> + Purge<R>,
+    Self: Handler + Phase,
 {
     /// Processes requests until there are enough.
     async fn process_until_enough(&mut self) -> Result<(), StateError> {
@@ -128,9 +115,9 @@ where
     }
 }
 
-impl<R> PhaseState<R, Sum> {
+impl PhaseState<Sum> {
     /// Creates a new sum state.
-    pub fn new(coordinator_state: CoordinatorState, request_rx: RequestReceiver<R>) -> Self {
+    pub fn new(coordinator_state: CoordinatorState, request_rx: RequestReceiver) -> Self {
         info!("state transition");
         Self {
             inner: Sum {
@@ -143,14 +130,13 @@ impl<R> PhaseState<R, Sum> {
     }
 
     /// Handles a sum request.
-    fn handle_sum(&mut self, req: SumRequest, response_tx: oneshot::Sender<SumResponse>) {
+    fn handle_sum(&mut self, req: SumRequest) -> Result<(), PetError> {
         let SumRequest {
             participant_pk,
             ephm_pk,
         } = req;
-
         self.inner.sum_dict.insert(participant_pk, ephm_pk);
-        let _ = response_tx.send(Ok(()));
+        Ok(())
     }
 
     /// Freezes the sum dictionary.
@@ -194,7 +180,7 @@ mod test {
             sum_dict: SumDict::new(),
             seed_dict: None,
         };
-        let (state_machine, mut request_tx, events) = StateMachineBuilder::new()
+        let (state_machine, request_tx, events) = StateMachineBuilder::new()
             .with_phase(sum)
             // Make sure anyone is a sum participant.
             .with_sum_ratio(1.0)
@@ -216,7 +202,7 @@ mod test {
         // update phase
         let mut summer = generate_summer(&seed, 1.0, 0.0);
         let sum_msg = summer.compose_sum_message(&keys.public);
-        let request_fut = async { request_tx.sum(&sum_msg).await.unwrap() };
+        let request_fut = async { request_tx.msg(&sum_msg).await.unwrap() };
         let transition_fut = async { state_machine.next().await.unwrap() };
 
         let (_response, state_machine) = tokio::join!(request_fut, transition_fut);

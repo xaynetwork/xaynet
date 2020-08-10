@@ -53,7 +53,7 @@ impl Proxy {
     ///   handling the message.
     /// * Returns `NetworkErr` if a network error occurs while posting the PET
     ///   message.
-    pub async fn post_message(&self, msg: Vec<u8>) -> Result<(), ClientError> {
+    pub async fn post_message(&mut self, msg: Vec<u8>) -> Result<(), ClientError> {
         match self {
             InMem(_, hdl) => hdl
                 .handle_message(msg)
