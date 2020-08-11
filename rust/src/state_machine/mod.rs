@@ -114,8 +114,20 @@ use crate::{
     settings::{MaskSettings, ModelSettings, PetSettings},
     state_machine::{
         coordinator::CoordinatorState,
-        events::EventSubscriber,
-        phases::{Idle, Phase, PhaseState, Shutdown, StateError, Sum, Sum2, Unmask, Update},
+        events::{EventPublisher, EventSubscriber},
+        phases::{
+            Idle,
+            Phase,
+            PhaseName,
+            PhaseState,
+            Shared,
+            Shutdown,
+            StateError,
+            Sum,
+            Sum2,
+            Unmask,
+            Update,
+        },
         requests::{RequestReceiver, RequestSender},
     },
     InitError,
@@ -199,12 +211,19 @@ where
     ) -> Result<(Self, RequestSender, EventSubscriber), InitError> {
         // crucial: init must be called before anything else in this module
         sodiumoxide::init().or(Err(InitError))?;
-        let (coordinator_state, event_subscriber) =
-            CoordinatorState::new(pet_settings, mask_settings, model_settings);
 
+        let coordinator_state = CoordinatorState::new(pet_settings, mask_settings, model_settings);
+        let (event_publisher, event_subscriber) = EventPublisher::init(
+            coordinator_state.round_id,
+            coordinator_state.keys.clone(),
+            coordinator_state.round_params.clone(),
+            PhaseName::Idle,
+        );
         let (req_receiver, handle) = RequestReceiver::new();
-        let state_machine =
-            StateMachine::from(PhaseState::<Idle>::new(coordinator_state, req_receiver));
+
+        let shared = Shared::new(coordinator_state, event_publisher, req_receiver);
+
+        let state_machine = StateMachine::from(PhaseState::<Idle>::new(shared));
         Ok((state_machine, handle, event_subscriber))
     }
 

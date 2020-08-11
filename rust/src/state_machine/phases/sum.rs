@@ -2,10 +2,9 @@ use std::sync::Arc;
 
 use crate::{
     state_machine::{
-        coordinator::CoordinatorState,
         events::DictionaryUpdate,
-        phases::{Handler, Phase, PhaseName, PhaseState, StateError, Update},
-        requests::{RequestReceiver, StateMachineRequest, SumRequest},
+        phases::{Handler, Phase, PhaseName, PhaseState, Shared, StateError, Update},
+        requests::{StateMachineRequest, SumRequest},
         StateMachine,
     },
     LocalSeedDict,
@@ -57,17 +56,17 @@ where
     ///
     /// See the [module level documentation](../index.html) for more details.
     async fn run(&mut self) -> Result<(), StateError> {
-        let min_time = self.coordinator_state.min_sum_time;
+        let min_time = self.shared.state.min_sum_time;
         debug!("in sum phase for a minimum of {} seconds", min_time);
         self.process_during(Duration::from_secs(min_time)).await?;
 
-        let time_left = self.coordinator_state.max_sum_time - min_time;
+        let time_left = self.shared.state.max_sum_time - min_time;
         timeout(Duration::from_secs(time_left), self.process_until_enough()).await??;
 
         info!(
             "{} sum messages handled (min {} required)",
             self.inner.sum_dict.len(),
-            self.coordinator_state.min_sum_count
+            self.shared.state.min_sum_count
         );
         self.freeze_sum_dict();
         Ok(())
@@ -79,13 +78,11 @@ where
                 sum_dict,
                 seed_dict,
             },
-            coordinator_state,
-            request_rx,
+            shared,
         } = self;
         Some(
             PhaseState::<Update>::new(
-                coordinator_state,
-                request_rx,
+                shared,
                 sum_dict,
                 // `next()` is called at the end of the sum phase, at
                 // which point a new seed dictionary has been build,
@@ -107,7 +104,7 @@ where
             debug!(
                 "{} sum messages handled (min {} required)",
                 self.inner.sum_dict.len(),
-                self.coordinator_state.min_sum_count,
+                self.shared.state.min_sum_count,
             );
             self.process_single().await?;
         }
@@ -117,15 +114,14 @@ where
 
 impl PhaseState<Sum> {
     /// Creates a new sum state.
-    pub fn new(coordinator_state: CoordinatorState, request_rx: RequestReceiver) -> Self {
+    pub fn new(shared: Shared) -> Self {
         info!("state transition");
         Self {
             inner: Sum {
                 sum_dict: SumDict::new(),
                 seed_dict: None,
             },
-            coordinator_state,
-            request_rx,
+            shared,
         }
     }
 
@@ -142,7 +138,8 @@ impl PhaseState<Sum> {
     /// Freezes the sum dictionary.
     fn freeze_sum_dict(&mut self) {
         info!("broadcasting sum dictionary");
-        self.coordinator_state
+        self.shared
+            .io
             .events
             .broadcast_sum_dict(DictionaryUpdate::New(Arc::new(self.inner.sum_dict.clone())));
 
@@ -159,7 +156,7 @@ impl PhaseState<Sum> {
     /// Checks whether enough sum participants submitted their ephemeral keys to start the update
     /// phase.
     fn has_enough_sums(&self) -> bool {
-        self.inner.sum_dict.len() >= self.coordinator_state.min_sum_count
+        self.inner.sum_dict.len() >= self.shared.state.min_sum_count
     }
 }
 
@@ -208,7 +205,7 @@ mod test {
         let (_response, state_machine) = tokio::join!(request_fut, transition_fut);
         let PhaseState {
             inner: update_state,
-            coordinator_state,
+            shared,
             ..
         } = state_machine.into_update_phase_state();
 
@@ -226,9 +223,9 @@ mod test {
         assert_eq!(update_state.aggregation().len(), 4);
 
         // Make sure that the round seed and parameters are unchanged
-        assert_eq!(seed, coordinator_state.round_params.seed);
-        assert_eq!(round_params, coordinator_state.round_params);
-        assert_eq!(keys, coordinator_state.keys);
+        assert_eq!(seed, shared.state.round_params.seed);
+        assert_eq!(round_params, shared.state.round_params);
+        assert_eq!(keys, shared.state.keys);
 
         // Check all the events that should be emitted during the sum
         // phase

@@ -1,7 +1,5 @@
 use crate::state_machine::{
-    coordinator::CoordinatorState,
-    phases::{Idle, Phase, PhaseName, PhaseState, Shutdown},
-    requests::RequestReceiver,
+    phases::{Idle, Phase, PhaseName, PhaseState, Shared, Shutdown},
     RoundFailed,
     StateMachine,
 };
@@ -20,16 +18,11 @@ pub enum StateError {
 
 impl PhaseState<StateError> {
     /// Creates a new error state.
-    pub fn new(
-        coordinator_state: CoordinatorState,
-        request_rx: RequestReceiver,
-        error: StateError,
-    ) -> Self {
+    pub fn new(shared: Shared, error: StateError) -> Self {
         info!("state transition");
         Self {
             inner: error,
-            coordinator_state,
-            request_rx,
+            shared,
         }
     }
 }
@@ -42,9 +35,7 @@ impl Phase for PhaseState<StateError> {
         error!("state transition failed! error: {:?}", self.inner);
 
         info!("broadcasting error phase event");
-        self.coordinator_state
-            .events
-            .broadcast_phase(PhaseName::Error);
+        self.shared.io.events.broadcast_phase(PhaseName::Error);
 
         Ok(())
     }
@@ -54,10 +45,8 @@ impl Phase for PhaseState<StateError> {
     /// See the [module level documentation](../index.html) for more details.
     fn next(self) -> Option<StateMachine> {
         Some(match self.inner {
-            StateError::ChannelError(_) => {
-                PhaseState::<Shutdown>::new(self.coordinator_state, self.request_rx).into()
-            }
-            _ => PhaseState::<Idle>::new(self.coordinator_state, self.request_rx).into(),
+            StateError::ChannelError(_) => PhaseState::<Shutdown>::new(self.shared).into(),
+            _ => PhaseState::<Idle>::new(self.shared).into(),
         })
     }
 }

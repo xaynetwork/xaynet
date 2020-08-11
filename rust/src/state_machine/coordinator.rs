@@ -7,10 +7,6 @@ use crate::{
     crypto::{encrypt::EncryptKeyPair, ByteObject},
     mask::{config::MaskConfig, object::MaskObject},
     settings::{MaskSettings, ModelSettings, PetSettings},
-    state_machine::{
-        events::{EventPublisher, EventSubscriber},
-        phases::PhaseName,
-    },
     CoordinatorPublicKey,
 };
 
@@ -65,8 +61,6 @@ pub struct CoordinatorState {
     pub mask_config: MaskConfig,
     /// The size of the model.
     pub model_size: usize,
-    /// The event publisher.
-    pub events: EventPublisher,
 }
 
 impl CoordinatorState {
@@ -74,7 +68,7 @@ impl CoordinatorState {
         pet_settings: PetSettings,
         mask_settings: MaskSettings,
         model_settings: ModelSettings,
-    ) -> (Self, EventSubscriber) {
+    ) -> Self {
         let keys = EncryptKeyPair::generate();
         let round_params = RoundParameters {
             pk: keys.public,
@@ -82,17 +76,11 @@ impl CoordinatorState {
             update: pet_settings.update,
             seed: RoundSeed::zeroed(),
         };
-        let phase = PhaseName::Idle;
         let round_id = 0;
-
-        let (publisher, subscriber) =
-            EventPublisher::init(round_id, keys.clone(), round_params.clone(), phase);
-
-        let coordinator_state = Self {
+        Self {
             keys,
             round_params,
             round_id,
-            events: publisher,
             min_sum_count: pet_settings.min_sum_count,
             min_update_count: pet_settings.min_update_count,
             min_sum_time: pet_settings.min_sum_time,
@@ -102,19 +90,7 @@ impl CoordinatorState {
             expected_participants: pet_settings.expected_participants,
             mask_config: mask_settings.into(),
             model_size: model_settings.size,
-        };
-        (coordinator_state, subscriber)
-    }
-
-    /// Set the round ID to the given value
-    pub fn set_round_id(&mut self, id: u64) {
-        self.round_id = id;
-        self.events.set_round_id(id);
-    }
-
-    /// Return the current round ID
-    pub fn round_id(&self) -> u64 {
-        self.round_id
+        }
     }
 }
 
@@ -147,34 +123,3 @@ impl ByteObject for RoundSeed {
 /// A dictionary created during the sum2 phase of the protocol. It counts the model masks
 /// represented by their hashes.
 pub type MaskDict = HashMap<MaskObject, usize>;
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::state_machine::tests::utils;
-
-    #[test]
-    fn update_round_id() {
-        let (mut coordinator_state, event_subscriber) = CoordinatorState::new(
-            utils::pet_settings(),
-            utils::mask_settings(),
-            utils::model_settings(),
-        );
-        let phases = event_subscriber.phase_listener();
-        // When starting the round ID should be 0
-        let id = phases.get_latest().round_id;
-        assert_eq!(id, 0);
-
-        coordinator_state.set_round_id(1);
-        assert_eq!(coordinator_state.round_id, 1);
-
-        // Old events should still have the same round ID
-        let id = phases.get_latest().round_id;
-        assert_eq!(id, 0);
-
-        // But new events should have the new round ID
-        coordinator_state.events.broadcast_phase(PhaseName::Sum);
-        let id = phases.get_latest().round_id;
-        assert_eq!(id, 1);
-    }
-}

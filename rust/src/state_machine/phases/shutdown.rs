@@ -1,7 +1,5 @@
 use crate::state_machine::{
-    coordinator::CoordinatorState,
-    phases::{Phase, PhaseName, PhaseState},
-    requests::RequestReceiver,
+    phases::{Phase, PhaseName, PhaseState, Shared},
     StateError,
     StateMachine,
 };
@@ -19,8 +17,8 @@ impl Phase for PhaseState<Shutdown> {
     /// See the [module level documentation](../index.html) for more details.
     async fn run(&mut self) -> Result<(), StateError> {
         // clear the request channel
-        self.request_rx.close();
-        while self.request_rx.recv().await.is_some() {}
+        self.shared.io.request_rx.close();
+        while self.shared.io.request_rx.recv().await.is_some() {}
         Ok(())
     }
 
@@ -31,12 +29,11 @@ impl Phase for PhaseState<Shutdown> {
 
 impl PhaseState<Shutdown> {
     /// Creates a new shutdown state.
-    pub fn new(coordinator_state: CoordinatorState, request_rx: RequestReceiver) -> Self {
+    pub fn new(shared: Shared) -> Self {
         info!("state transition");
         Self {
             inner: Shutdown,
-            coordinator_state,
-            request_rx,
+            shared,
         }
     }
 }

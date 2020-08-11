@@ -3,10 +3,9 @@ use std::sync::Arc;
 use crate::{
     mask::{masking::Aggregation, object::MaskObject},
     state_machine::{
-        coordinator::CoordinatorState,
         events::{DictionaryUpdate, MaskLengthUpdate, ScalarUpdate},
-        phases::{Handler, Phase, PhaseName, PhaseState, StateError, Sum2},
-        requests::{RequestReceiver, StateMachineRequest, UpdateRequest},
+        phases::{Handler, Phase, PhaseName, PhaseState, Shared, StateError, Sum2},
+        requests::{StateMachineRequest, UpdateRequest},
         StateMachine,
     },
     LocalSeedDict,
@@ -56,24 +55,25 @@ where
     /// See the [module level documentation](../index.html) for more details.
     async fn run(&mut self) -> Result<(), StateError> {
         let scalar = 1_f64
-            / (self.coordinator_state.expected_participants as f64
-                * self.coordinator_state.round_params.update);
+            / (self.shared.state.expected_participants as f64
+                * self.shared.state.round_params.update);
         info!("broadcasting scalar: {}", scalar);
-        self.coordinator_state
+        self.shared
+            .io
             .events
             .broadcast_scalar(ScalarUpdate::New(scalar));
 
-        let min_time = self.coordinator_state.min_update_time;
+        let min_time = self.shared.state.min_update_time;
         debug!("in update phase for a minimum of {} seconds", min_time);
         self.process_during(Duration::from_secs(min_time)).await?;
 
-        let time_left = self.coordinator_state.max_update_time - min_time;
+        let time_left = self.shared.state.max_update_time - min_time;
         timeout(Duration::from_secs(time_left), self.process_until_enough()).await??;
 
         info!(
             "{} update messages handled (min {} required)",
             self.updater_count(),
-            self.coordinator_state.min_update_count
+            self.shared.state.min_update_count
         );
         Ok(())
     }
@@ -86,24 +86,22 @@ where
                     seed_dict,
                     aggregation,
                 },
-            mut coordinator_state,
-            request_rx,
+            mut shared,
         } = self;
 
         info!("broadcasting mask length");
-        coordinator_state
+        shared
+            .io
             .events
             .broadcast_mask_length(MaskLengthUpdate::New(aggregation.len()));
 
         info!("broadcasting the global seed dictionary");
-        coordinator_state
+        shared
+            .io
             .events
             .broadcast_seed_dict(DictionaryUpdate::New(Arc::new(seed_dict)));
 
-        Some(
-            PhaseState::<Sum2>::new(coordinator_state, request_rx, frozen_sum_dict, aggregation)
-                .into(),
-        )
+        Some(PhaseState::<Sum2>::new(shared, frozen_sum_dict, aggregation).into())
     }
 }
 
@@ -117,7 +115,7 @@ where
             debug!(
                 "{} update messages handled (min {} required)",
                 self.updater_count(),
-                self.coordinator_state.min_update_count
+                self.shared.state.min_update_count
             );
             self.process_single().await?;
         }
@@ -141,24 +139,15 @@ impl Handler for PhaseState<Update> {
 
 impl PhaseState<Update> {
     /// Creates a new update state.
-    pub fn new(
-        coordinator_state: CoordinatorState,
-        request_rx: RequestReceiver,
-        frozen_sum_dict: SumDict,
-        seed_dict: SeedDict,
-    ) -> Self {
+    pub fn new(shared: Shared, frozen_sum_dict: SumDict, seed_dict: SeedDict) -> Self {
         info!("state transition");
         Self {
             inner: Update {
                 frozen_sum_dict,
                 seed_dict,
-                aggregation: Aggregation::new(
-                    coordinator_state.mask_config,
-                    coordinator_state.model_size,
-                ),
+                aggregation: Aggregation::new(shared.state.mask_config, shared.state.model_size),
             },
-            coordinator_state,
-            request_rx,
+            shared,
         }
     }
 
@@ -253,7 +242,7 @@ impl PhaseState<Update> {
     }
 
     fn has_enough_updates(&self) -> bool {
-        self.updater_count() >= self.coordinator_state.min_update_count
+        self.updater_count() >= self.shared.state.min_update_count
     }
 }
 

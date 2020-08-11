@@ -3,7 +3,12 @@ use crate::{
     crypto::ByteObject,
     mask::config::{BoundType, DataType, GroupType, ModelType},
     settings::{MaskSettings, ModelSettings, PetSettings},
-    state_machine::coordinator::RoundSeed,
+    state_machine::{
+        coordinator::{CoordinatorState, RoundSeed},
+        events::{EventPublisher, EventSubscriber},
+        phases::{PhaseName, Shared},
+        requests::{RequestReceiver, RequestSender},
+    },
 };
 
 use tracing_subscriber::*;
@@ -59,4 +64,23 @@ pub fn pet_settings() -> PetSettings {
 
 pub fn model_settings() -> ModelSettings {
     ModelSettings { size: 1 }
+}
+
+pub fn init_shared() -> (Shared, EventSubscriber, RequestSender) {
+    let coordinator_state =
+        CoordinatorState::new(pet_settings(), mask_settings(), model_settings());
+
+    let (event_publisher, event_subscriber) = EventPublisher::init(
+        coordinator_state.round_id,
+        coordinator_state.keys.clone(),
+        coordinator_state.round_params.clone(),
+        PhaseName::Idle,
+    );
+
+    let (request_rx, request_tx) = RequestReceiver::new();
+    (
+        Shared::new(coordinator_state, event_publisher, request_rx),
+        event_subscriber,
+        request_tx,
+    )
 }

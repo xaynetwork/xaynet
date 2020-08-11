@@ -3,10 +3,9 @@ use std::{cmp::Ordering, sync::Arc};
 use crate::{
     mask::{masking::Aggregation, model::Model, object::MaskObject},
     state_machine::{
-        coordinator::{CoordinatorState, MaskDict},
+        coordinator::MaskDict,
         events::ModelUpdate,
-        phases::{Idle, Phase, PhaseName, PhaseState, StateError},
-        requests::RequestReceiver,
+        phases::{Idle, Phase, PhaseName, PhaseState, Shared, StateError},
         RoundFailed,
         StateMachine,
     },
@@ -41,7 +40,8 @@ impl Phase for PhaseState<Unmask> {
         let global_model = self.end_round()?;
 
         info!("broadcasting the new global model");
-        self.coordinator_state
+        self.shared
+            .io
             .events
             .broadcast_model(ModelUpdate::New(Arc::new(global_model)));
 
@@ -53,26 +53,20 @@ impl Phase for PhaseState<Unmask> {
     /// See the [module level documentation](../index.html) for more details.
     fn next(self) -> Option<StateMachine> {
         info!("going back to idle phase");
-        Some(PhaseState::<Idle>::new(self.coordinator_state, self.request_rx).into())
+        Some(PhaseState::<Idle>::new(self.shared).into())
     }
 }
 
 impl PhaseState<Unmask> {
     /// Creates a new unmask state.
-    pub fn new(
-        coordinator_state: CoordinatorState,
-        request_rx: RequestReceiver,
-        aggregation: Aggregation,
-        mask_dict: MaskDict,
-    ) -> Self {
+    pub fn new(shared: Shared, aggregation: Aggregation, mask_dict: MaskDict) -> Self {
         info!("state transition");
         Self {
             inner: Unmask {
                 aggregation: Some(aggregation),
                 mask_dict,
             },
-            coordinator_state,
-            request_rx,
+            shared,
         }
     }
 
