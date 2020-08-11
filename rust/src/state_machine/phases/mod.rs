@@ -72,7 +72,8 @@ pub struct IO {
     pub(in crate::state_machine) events: EventPublisher,
 }
 
-/// A struct that contains the coordinator state and the I/O interfaces.
+/// A struct that contains the coordinator state and the I/O interfaces that is shared and
+/// accessible by all `PhaseState`s.
 #[derive(Debug)]
 pub struct Shared {
     /// The coordinator state.
