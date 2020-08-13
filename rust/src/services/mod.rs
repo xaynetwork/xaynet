@@ -22,18 +22,22 @@
 //! an interface for the second category of services.
 pub mod fetchers;
 pub mod messages;
+pub(in crate::services) mod utils;
+
 #[cfg(test)]
 mod tests;
 
 pub use self::{
     fetchers::{FetchError, Fetcher},
     messages::{PetMessageError, PetMessageHandler},
+    utils::TracedService,
 };
 
 use crate::{
     services::{
         fetchers::{
-            FetcherService,
+            FetcherLayer,
+            Fetchers,
             MaskLengthService,
             ModelService,
             RoundParamsService,
@@ -57,38 +61,44 @@ use rayon::ThreadPoolBuilder;
 use tower::ServiceBuilder;
 
 /// Construct a [`Fetcher`] service
-pub fn fetcher(event_subscriber: &EventSubscriber) -> impl Fetcher + Sync + Send + 'static {
+pub fn fetcher(event_subscriber: &EventSubscriber) -> impl Fetcher + Sync + Send + Clone + 'static {
     let round_params = ServiceBuilder::new()
         .buffer(100)
         .concurrency_limit(100)
+        .layer(FetcherLayer)
         .service(RoundParamsService::new(event_subscriber));
 
     let mask_length = ServiceBuilder::new()
         .buffer(100)
         .concurrency_limit(100)
+        .layer(FetcherLayer)
         .service(MaskLengthService::new(event_subscriber));
 
     let scalar = ServiceBuilder::new()
         .buffer(100)
         .concurrency_limit(100)
+        .layer(FetcherLayer)
         .service(ScalarService::new(event_subscriber));
 
     let model = ServiceBuilder::new()
         .buffer(100)
         .concurrency_limit(100)
+        .layer(FetcherLayer)
         .service(ModelService::new(event_subscriber));
 
     let sum_dict = ServiceBuilder::new()
         .buffer(100)
         .concurrency_limit(100)
+        .layer(FetcherLayer)
         .service(SumDictService::new(event_subscriber));
 
     let seed_dict = ServiceBuilder::new()
         .buffer(100)
         .concurrency_limit(100)
+        .layer(FetcherLayer)
         .service(SeedDictService::new(event_subscriber));
 
-    FetcherService::new(
+    Fetchers::new(
         round_params,
         sum_dict,
         seed_dict,

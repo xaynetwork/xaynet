@@ -6,7 +6,7 @@ use crate::{
     ParticipantPublicKey,
 };
 use bytes::{Buf, Bytes};
-use std::{convert::Infallible, net::SocketAddr, sync::Arc};
+use std::{convert::Infallible, net::SocketAddr};
 use warp::{
     http::{Response, StatusCode},
     Filter,
@@ -23,10 +23,9 @@ pub async fn serve<F, MH>(
     fetcher: F,
     pet_message_handler: MH,
 ) where
-    F: Fetcher + Sync + Send + 'static,
+    F: Fetcher + Sync + Send + 'static + Clone,
     MH: PetMessageHandler + Sync + Send + 'static + Clone,
 {
-    let fetcher = Arc::new(fetcher);
     let message = warp::path!("message")
         .and(warp::post())
         .and(warp::body::bytes())
@@ -89,8 +88,8 @@ async fn handle_message<MH: PetMessageHandler>(
 }
 
 /// Handles and responds to a request for the sum dictionary.
-async fn handle_sums<F: Fetcher>(fetcher: Arc<F>) -> Result<impl warp::Reply, Infallible> {
-    Ok(match fetcher.as_ref().sum_dict().await {
+async fn handle_sums<F: Fetcher>(mut fetcher: F) -> Result<impl warp::Reply, Infallible> {
+    Ok(match fetcher.sum_dict().await {
         Err(e) => {
             warn!("failed to handle sum dict request: {:?}", e);
             Response::builder()
@@ -116,9 +115,9 @@ async fn handle_sums<F: Fetcher>(fetcher: Arc<F>) -> Result<impl warp::Reply, In
 /// Handles and responds to a request for the seed dictionary.
 async fn handle_seeds<F: Fetcher>(
     pk: ParticipantPublicKey,
-    fetcher: Arc<F>,
+    mut fetcher: F,
 ) -> Result<impl warp::Reply, Infallible> {
-    Ok(match fetcher.as_ref().seed_dict().await {
+    Ok(match fetcher.seed_dict().await {
         Err(e) => {
             warn!("failed to handle seed dict request: {:?}", e);
             Response::builder()
@@ -142,8 +141,8 @@ async fn handle_seeds<F: Fetcher>(
 }
 
 /// Handles and responds to a request for the model scalar.
-async fn handle_scalar<F: Fetcher>(fetcher: Arc<F>) -> Result<impl warp::Reply, Infallible> {
-    Ok(match fetcher.as_ref().scalar().await {
+async fn handle_scalar<F: Fetcher>(mut fetcher: F) -> Result<impl warp::Reply, Infallible> {
+    Ok(match fetcher.scalar().await {
         Ok(Some(scalar)) => Response::builder()
             .status(StatusCode::OK)
             .body(scalar.to_string())
@@ -163,8 +162,8 @@ async fn handle_scalar<F: Fetcher>(fetcher: Arc<F>) -> Result<impl warp::Reply, 
 }
 
 /// Handles and responds to a request for mask / model length.
-async fn handle_length<F: Fetcher>(fetcher: Arc<F>) -> Result<impl warp::Reply, Infallible> {
-    Ok(match fetcher.as_ref().mask_length().await {
+async fn handle_length<F: Fetcher>(mut fetcher: F) -> Result<impl warp::Reply, Infallible> {
+    Ok(match fetcher.mask_length().await {
         Ok(Some(mask_length)) => Response::builder()
             .status(StatusCode::OK)
             .body(mask_length.to_string())
@@ -184,8 +183,8 @@ async fn handle_length<F: Fetcher>(fetcher: Arc<F>) -> Result<impl warp::Reply, 
 }
 
 /// Handles and responds to a request for the global model.
-async fn handle_model<F: Fetcher>(fetcher: Arc<F>) -> Result<impl warp::Reply, Infallible> {
-    Ok(match fetcher.as_ref().model().await {
+async fn handle_model<F: Fetcher>(mut fetcher: F) -> Result<impl warp::Reply, Infallible> {
+    Ok(match fetcher.model().await {
         Ok(Some(model)) => Response::builder()
             .status(StatusCode::OK)
             .body(bincode::serialize(model.as_ref()).unwrap())
@@ -205,8 +204,8 @@ async fn handle_model<F: Fetcher>(fetcher: Arc<F>) -> Result<impl warp::Reply, I
 }
 
 /// Handles and responds to a request for the round parameters.
-async fn handle_params<F: Fetcher>(fetcher: Arc<F>) -> Result<impl warp::Reply, Infallible> {
-    Ok(match fetcher.as_ref().round_params().await {
+async fn handle_params<F: Fetcher>(mut fetcher: F) -> Result<impl warp::Reply, Infallible> {
+    Ok(match fetcher.round_params().await {
         Ok(params) => Response::builder()
             .status(StatusCode::OK)
             .body(bincode::serialize(&params).unwrap())
@@ -229,9 +228,9 @@ fn with_message_handler<MH: PetMessageHandler + Send + Sync + 'static + Clone>(
 }
 
 /// Converts a data fetcher into a `warp` filter.
-fn with_fetcher<F: Fetcher + Sync + Send + 'static>(
-    fetcher: Arc<F>,
-) -> impl Filter<Extract = (Arc<F>,), Error = Infallible> + Clone {
+fn with_fetcher<F: Fetcher + Sync + Send + 'static + Clone>(
+    fetcher: F,
+) -> impl Filter<Extract = (F,), Error = Infallible> + Clone {
     warp::any().map(move || fetcher.clone())
 }
 

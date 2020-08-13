@@ -29,34 +29,17 @@ pub use self::{
 };
 
 use crate::{
-    services::messages::message_parser::RawMessage,
-    utils::Traceable,
-    vendor::tracing_tower,
+    message::message::MessageOwned,
+    services::{
+        messages::message_parser::RawMessage,
+        utils::{with_tracing, TracedService},
+    },
+    utils::Request,
 };
 
 use futures::future::poll_fn;
 use thiserror::Error;
-use tower::{Service, ServiceBuilder};
-
-use crate::{message::message::MessageOwned, utils::Request};
-
-/// Return the [`tracing::Span`] associated to the given request.
-fn req_span<T: Traceable>(req: &Request<T>) -> tracing::Span {
-    req.span()
-}
-
-/// Decorate the given service with a tracing middleware.
-fn with_tracing<S, T>(service: S) -> TracedService<S, T>
-where
-    S: Service<Request<T>>,
-    T: Traceable,
-{
-    ServiceBuilder::new()
-        .layer(tracing_tower::layer(req_span as for<'r> fn(&'r _) -> _))
-        .service(service)
-}
-
-type TracedService<S, T> = tracing_tower::Service<S, Request<T>, fn(&Request<T>) -> tracing::Span>;
+use tower::Service;
 
 type TracedMessageParser<S> = TracedService<S, RawMessage<Vec<u8>>>;
 type TracedPreProcessor<S> = TracedService<S, MessageOwned>;
@@ -205,7 +188,7 @@ where
 ///    `PreProcessor` may also discard the message
 ///
 /// 3. Finally, the message is handled by the `StateMachine` service.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct PetMessageService<MessageParser, PreProcessor, StateMachine> {
     message_parser: MessageParser,
     pre_processor: PreProcessor,

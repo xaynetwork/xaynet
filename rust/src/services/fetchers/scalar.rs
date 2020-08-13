@@ -2,11 +2,22 @@ use std::task::{Context, Poll};
 
 use futures::future::{self, Ready};
 use tower::Service;
+use tracing::Span;
 
-use crate::state_machine::events::{EventListener, EventSubscriber, ScalarUpdate};
+use crate::{
+    state_machine::events::{EventListener, EventSubscriber, ScalarUpdate},
+    utils::Traceable,
+};
 
 /// [`ScalarService`]'s request type
+#[derive(Default, Clone, Eq, PartialEq, Debug)]
 pub struct ScalarRequest;
+
+impl Traceable for ScalarRequest {
+    fn make_span(&self) -> Span {
+        error_span!("scalar_fetch_request")
+    }
+}
 
 /// [`ScalarService`]'s response type.
 ///
