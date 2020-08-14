@@ -11,6 +11,9 @@ use crate::{
     PetError,
 };
 
+#[cfg(feature = "metrics")]
+use crate::metrics;
+
 use sodiumoxide::crypto::hash::sha256;
 
 /// Idle state
@@ -60,6 +63,21 @@ impl Phase for PhaseState<Idle> {
 
         info!("broadcasting new round parameters");
         events.broadcast_params(self.shared.state.round_params.clone());
+
+        metrics!(
+            self.shared.io.metrics_tx,
+            metrics::round::total_number::update(self.shared.state.round_id),
+            metrics::round_parameters::sum::update(
+                self.shared.state.round_params.sum,
+                self.shared.state.round_id,
+                Self::NAME
+            ),
+            metrics::round_parameters::update::update(
+                self.shared.state.round_params.update,
+                self.shared.state.round_id,
+                Self::NAME
+            )
+        );
 
         // TODO: add a delay to prolongate the idle phase
         Ok(())

@@ -29,6 +29,9 @@ use crate::{
     PetError,
 };
 
+#[cfg(feature = "metrics")]
+use crate::{metrics, metrics::MetricsSender};
+
 use futures::StreamExt;
 use tracing_futures::Instrument;
 
@@ -70,6 +73,9 @@ pub struct IO {
     pub(in crate::state_machine) request_rx: RequestReceiver,
     /// The event publisher.
     pub(in crate::state_machine) events: EventPublisher,
+    #[cfg(feature = "metrics")]
+    /// The metrics sender half.
+    pub(in crate::state_machine) metrics_tx: MetricsSender,
 }
 
 /// A struct that contains the coordinator state and the I/O interfaces that is shared and
@@ -87,12 +93,15 @@ impl Shared {
         coordinator_state: CoordinatorState,
         publisher: EventPublisher,
         request_rx: RequestReceiver,
+        #[cfg(feature = "metrics")] metrics_tx: MetricsSender,
     ) -> Self {
         Self {
             state: coordinator_state,
             io: IO {
                 request_rx,
                 events: publisher,
+                #[cfg(feature = "metrics")]
+                metrics_tx,
             },
         }
     }
@@ -152,6 +161,14 @@ where
         let span = req.span();
         let _span_guard = span.enter();
         let res = self.handle_request(req.into_inner());
+
+        if res.is_err() {
+            metrics!(
+                self.shared.io.metrics_tx,
+                metrics::message::rejected::increment(self.shared.state.round_id, Self::NAME)
+            );
+        }
+
         // This may error out if the receiver has already be dropped but
         // it doesn't matter for us.
         let _ = resp_tx.send(res.map_err(Into::into));
@@ -176,12 +193,14 @@ where
                 phase,
             );
 
+            metrics!(self.shared.io.metrics_tx, metrics::phase::update(phase));
+
             if let Err(err) = self.run().await {
                 warn!("phase failed: {:?}", err);
                 return Some(self.into_error_state(err));
             }
 
-            info!("phase ran succesfully");
+            info!("phase ran successfully");
 
             debug!("purging outdated requests before transitioning");
             if let Err(err) = self.purge_outdated_requests() {
@@ -212,6 +231,14 @@ where
                     let _span_guard = span.enter();
                     info!("rejecting request");
                     let _ = resp_tx.send(Err(PetError::InvalidMessage.into()));
+
+                    metrics!(
+                        self.shared.io.metrics_tx,
+                        metrics::message::discarded::increment(
+                            self.shared.state.round_id,
+                            Self::NAME
+                        )
+                    );
                 }
                 None => return Ok(()),
             }

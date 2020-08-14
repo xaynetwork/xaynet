@@ -11,6 +11,9 @@ use crate::{
     },
 };
 
+#[cfg(feature = "metrics")]
+use crate::metrics::MetricsSender;
+
 use tracing_subscriber::*;
 
 pub fn enable_logging() {
@@ -79,7 +82,13 @@ pub fn init_shared() -> (Shared, EventSubscriber, RequestSender) {
 
     let (request_rx, request_tx) = RequestReceiver::new();
     (
-        Shared::new(coordinator_state, event_publisher, request_rx),
+        Shared::new(
+            coordinator_state,
+            event_publisher,
+            request_rx,
+            #[cfg(feature = "metrics")]
+            MetricsSender(),
+        ),
         event_subscriber,
         request_tx,
     )

@@ -3,6 +3,10 @@ use crate::state_machine::{
     RoundFailed,
     StateMachine,
 };
+
+#[cfg(feature = "metrics")]
+use crate::metrics;
+
 use thiserror::Error;
 
 /// Error that can occur during the execution of the [`StateMachine`].
@@ -33,6 +37,11 @@ impl Phase for PhaseState<StateError> {
 
     async fn run(&mut self) -> Result<(), StateError> {
         error!("state transition failed! error: {:?}", self.inner);
+
+        metrics!(
+            self.shared.io.metrics_tx,
+            metrics::phase::error::emit(&self.inner)
+        );
 
         info!("broadcasting error phase event");
         self.shared.io.events.broadcast_phase(PhaseName::Error);
