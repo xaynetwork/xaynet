@@ -1,0 +1,12 @@
+[package]
+name = "xaynet-macros"
+version = "0.1.0"
+authors = ["Xayn Engineering <engineering@xaynet.dev>"]
+edition = "2018"
+
+[dependencies]
+syn = "1.0.38"
+quote = "1.0"
+
+[lib]
+proc-macro = true

@@ -13,6 +13,7 @@ RUN bash ./install_rust.sh
 # crate that depends on everything
 COPY rust/Cargo.lock /
 COPY rust/Cargo.toml /
+COPY rust/xaynet-macros /xaynet-macros
 RUN cargo fetch
 RUN mkdir -p /src && \
     touch /src/lib.rs && \
