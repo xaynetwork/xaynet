@@ -137,6 +137,9 @@ use crate::{
 use derive_more::From;
 use thiserror::Error;
 
+#[cfg(feature = "metrics")]
+use crate::metrics::MetricsSender;
+
 /// Error returned when the state machine fails to handle a request
 #[derive(Debug, Error)]
 pub enum StateMachineError {
@@ -208,6 +211,7 @@ where
         pet_settings: PetSettings,
         mask_settings: MaskSettings,
         model_settings: ModelSettings,
+        #[cfg(feature = "metrics")] metrics_tx: MetricsSender,
     ) -> Result<(Self, RequestSender, EventSubscriber), InitError> {
         // crucial: init must be called before anything else in this module
         sodiumoxide::init().or(Err(InitError))?;
@@ -221,7 +225,13 @@ where
         );
         let (req_receiver, handle) = RequestReceiver::new();
 
-        let shared = Shared::new(coordinator_state, event_publisher, req_receiver);
+        let shared = Shared::new(
+            coordinator_state,
+            event_publisher,
+            req_receiver,
+            #[cfg(feature = "metrics")]
+            metrics_tx,
+        );
 
         let state_machine = StateMachine::from(PhaseState::<Idle>::new(shared));
         Ok((state_machine, handle, event_subscriber))

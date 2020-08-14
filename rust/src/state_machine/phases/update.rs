@@ -15,6 +15,9 @@ use crate::{
     UpdateParticipantPublicKey,
 };
 
+#[cfg(feature = "metrics")]
+use crate::metrics;
+
 use tokio::time::{timeout, Duration};
 
 /// Update state
@@ -131,7 +134,13 @@ impl Handler for PhaseState<Update> {
     /// receive a [`PetError::InvalidMessage`].
     fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), PetError> {
         match req {
-            StateMachineRequest::Update(update_req) => self.handle_update(update_req),
+            StateMachineRequest::Update(update_req) => {
+                metrics!(
+                    self.shared.io.metrics_tx,
+                    metrics::message::update::increment(self.shared.state.round_id, Self::NAME)
+                );
+                self.handle_update(update_req)
+            }
             _ => Err(PetError::InvalidMessage),
         }
     }

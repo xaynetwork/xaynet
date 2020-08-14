@@ -11,6 +11,9 @@ use crate::{
     },
 };
 
+#[cfg(feature = "metrics")]
+use crate::metrics;
+
 /// Unmask state
 #[derive(Debug)]
 pub struct Unmask {
@@ -37,6 +40,15 @@ impl Phase for PhaseState<Unmask> {
 
     /// Run the unmasking phase
     async fn run(&mut self) -> Result<(), StateError> {
+        metrics!(
+            self.shared.io.metrics_tx,
+            metrics::masks::total_number::update(
+                self.inner.mask_dict.len(),
+                self.shared.state.round_id,
+                Self::NAME
+            )
+        );
+
         let global_model = self.end_round()?;
 
         info!("broadcasting the new global model");

@@ -13,6 +13,9 @@ use crate::{
     SumDict,
 };
 
+#[cfg(feature = "metrics")]
+use crate::metrics;
+
 use tokio::time::{timeout, Duration};
 
 /// Sum state
@@ -39,7 +42,13 @@ impl Handler for PhaseState<Sum> {
     /// [`PetError::InvalidMessage`].
     fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), PetError> {
         match req {
-            StateMachineRequest::Sum(sum_req) => self.handle_sum(sum_req),
+            StateMachineRequest::Sum(sum_req) => {
+                metrics!(
+                    self.shared.io.metrics_tx,
+                    metrics::message::sum::increment(self.shared.state.round_id, Self::NAME)
+                );
+                self.handle_sum(sum_req)
+            }
             _ => Err(PetError::InvalidMessage),
         }
     }
@@ -80,6 +89,7 @@ where
             },
             shared,
         } = self;
+
         Some(
             PhaseState::<Update>::new(
                 shared,

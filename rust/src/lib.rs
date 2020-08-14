@@ -1,3 +1,4 @@
+#![cfg_attr(docsrs, feature(doc_cfg))]
 //! # XayNet: federated learning made private, performant, and ubiquitous
 //!
 //! ###### tags: Xayn, Federated Learning, Privacy
@@ -84,6 +85,9 @@ extern crate tracing;
 #[macro_use]
 extern crate validator_derive;
 
+#[macro_use]
+extern crate xaynet_macros;
+
 pub mod certificate;
 pub mod client;
 pub mod crypto;
@@ -98,6 +102,7 @@ pub mod state_machine;
 pub mod utils;
 pub(crate) mod vendor;
 
+#[cfg_attr(docsrs, doc(cfg(feature = "metrics")))]
 #[cfg(feature = "metrics")]
 pub mod metrics;
 
