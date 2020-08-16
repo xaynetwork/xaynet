@@ -161,7 +161,7 @@ impl Aggregation {
         let scaled_add_shift = self.object.config.add_shift() * BigInt::from(self.nb_models);
         let exp_shift = self.object.config.exp_shift();
         let order = self.object.config.order();
-        self.object
+        let scaled_model = self.object
             .data
             .drain(..)
             .zip(mask.data.into_iter())
@@ -181,7 +181,11 @@ impl Aggregation {
 
                 ratio / &exp_shift - &scaled_add_shift
             })
-            .collect()
+            .collect();
+
+        // TODO apply correction i.e. divide by a
+
+        scaled_model
     }
 
     /// Validates if aggregation of the aggregated mask object with the given `object` may be safely
@@ -287,8 +291,8 @@ impl Masker {
     /// proceeds in reverse order.
     ///
     /// [`unmask()`]: struct.Aggregation.html#method.unmask
-    pub fn mask(self, scalar: f64, model: Model) -> (MaskSeed, MaskObject) {
-        let random_ints = self.random_ints();
+    pub fn mask(self, scalar: f64, model: Model) -> (MaskSeed, MaskObject, MaskObject) {
+        let mut random_ints = self.random_ints();
         let Self { seed, config } = self;
 
         let exp_shift = config.exp_shift();
@@ -296,15 +300,21 @@ impl Masker {
         let order = config.order();
         let higher_bound = &add_shift;
         let lower_bound = -&add_shift;
-        let scalar = Ratio::<BigInt>::from_float(clamp(scalar, 0_f64, 1_f64)).unwrap();
+
+        let scalar_ratio = crate::mask::model::float_to_ratio_bounded(scalar);
+        // HACK reuse upper bound for scaled weights for now, really should be tighter
+        // TODO give scalar its own config?
+        let zero = Ratio::<BigInt>::from_float(0_f64).unwrap();
+        let scalar_clamped = clamp(&scalar_ratio, &zero, higher_bound);
 
         let masked_weights = model
             .into_iter()
-            .zip(random_ints)
+            .zip(&mut random_ints)
             .map(|(weight, rand_int)| {
-                let scaled = &scalar * clamp(&weight, &lower_bound, higher_bound);
+                let scaled = scalar_clamped * &weight;
+                let scaled_clamped = clamp(&scaled, &lower_bound, higher_bound);
                 // PANIC_SAFE: shifted weight is guaranteed to be non-negative
-                let shifted = ((scaled + &add_shift) * &exp_shift)
+                let shifted = ((scaled_clamped + &add_shift) * &exp_shift)
                     .to_integer()
                     .to_biguint()
                     .unwrap();
@@ -312,7 +322,15 @@ impl Masker {
             })
             .collect();
         let masked_model = MaskObject::new(config, masked_weights);
-        (seed, masked_model)
+
+        let rand_int = random_ints.next().unwrap();
+        let shifted = ((scalar_clamped + &add_shift) * &exp_shift)
+            .to_integer()
+            .to_biguint()
+            .unwrap();
+        let masked_scalar = MaskObject::new(config, vec![(shifted + rand_int) % &order]);
+
+        (seed, masked_model, masked_scalar)
     }
 
     /// Creates an iterator that yields randomly generated integers wrt the masking configuration.

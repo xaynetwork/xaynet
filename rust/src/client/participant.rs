@@ -142,7 +142,7 @@ impl Participant {
         scalar: f64,
         local_model: Model,
     ) -> MessageOwned {
-        let (mask_seed, masked_model) = Self::mask_model(scalar, local_model);
+        let (mask_seed, masked_model, _masked_scalar) = Self::mask_model(scalar, local_model);
         let local_seed_dict = Self::create_local_seed_dict(sum_dict, &mask_seed);
 
         let payload = UpdateOwned {
@@ -196,7 +196,7 @@ impl Participant {
     }
 
     /// Generate a mask seed and mask a local model.
-    fn mask_model(scalar: f64, local_model: Model) -> (MaskSeed, MaskObject) {
+    fn mask_model(scalar: f64, local_model: Model) -> (MaskSeed, MaskObject, MaskObject) {
         // TODO: use proper config
         Masker::new(dummy_config()).mask(scalar, local_model)
     }

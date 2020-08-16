@@ -263,7 +263,7 @@ impl FromPrimitives<f64> for Model {
 ///
 /// # Errors
 /// Fails if the numerical value is not representable in the primitive data type.
-fn ratio_to_float<F: FloatCore>(ratio: &Ratio<BigInt>) -> Option<F> {
+pub(crate) fn ratio_to_float<F: FloatCore>(ratio: &Ratio<BigInt>) -> Option<F> {
     let min_value = Ratio::from_float(F::min_value()).unwrap();
     let max_value = Ratio::from_float(F::max_value()).unwrap();
     if ratio < &min_value || ratio > &max_value {
@@ -293,7 +293,7 @@ fn ratio_to_float<F: FloatCore>(ratio: &Ratio<BigInt>) -> Option<F> {
 /// Converts the primitive floating point value into a numerical value.
 ///
 /// Maps positive/negative infinity to max/min of the primitive data type and NaN to zero.
-fn float_to_ratio_bounded<F: FloatCore>(f: F) -> Ratio<BigInt> {
+pub(crate) fn float_to_ratio_bounded<F: FloatCore>(f: F) -> Ratio<BigInt> {
     if f.is_nan() {
         Ratio::<BigInt>::zero()
     } else {
