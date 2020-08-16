@@ -29,8 +29,11 @@ pub struct Update {
     /// The seed dictionary built during the update phase.
     seed_dict: SeedDict,
 
-    /// The aggregator for masks and masked models.
-    aggregation: Aggregation,
+    /// The aggregator for masked models.
+    aggregation: Aggregation, // TODO rename model_aggregation
+
+    /// The aggregator for masked scalars.
+    scalar_aggregation: Aggregation,
 }
 
 #[cfg(test)]
@@ -88,6 +91,7 @@ where
                     frozen_sum_dict,
                     seed_dict,
                     aggregation,
+                    scalar_aggregation,
                 },
             mut shared,
         } = self;
@@ -104,7 +108,7 @@ where
             .events
             .broadcast_seed_dict(DictionaryUpdate::New(Arc::new(seed_dict)));
 
-        Some(PhaseState::<Sum2>::new(shared, frozen_sum_dict, aggregation).into())
+        Some(PhaseState::<Sum2>::new(shared, frozen_sum_dict, aggregation, scalar_aggregation).into())
     }
 }
 
@@ -155,6 +159,8 @@ impl PhaseState<Update> {
                 frozen_sum_dict,
                 seed_dict,
                 aggregation: Aggregation::new(shared.state.mask_config, shared.state.model_size),
+                // TODO separate config for scalars
+                scalar_aggregation: Aggregation::new(shared.state.mask_config, 1),
             },
             shared,
         }
@@ -167,8 +173,14 @@ impl PhaseState<Update> {
             participant_pk,
             local_seed_dict,
             masked_model,
+            masked_scalar,
         } = req;
-        self.update_seed_dict_and_aggregate_mask(&participant_pk, &local_seed_dict, masked_model)
+        self.update_seed_dict_and_aggregate_mask(
+            &participant_pk,
+            &local_seed_dict,
+            masked_model,
+            masked_scalar,
+        )
     }
 
     /// Updates the local seed dict and aggregates the masked model.
@@ -177,6 +189,7 @@ impl PhaseState<Update> {
         pk: &UpdateParticipantPublicKey,
         local_seed_dict: &LocalSeedDict,
         masked_model: MaskObject,
+        masked_scalar: MaskObject,
     ) -> Result<(), PetError> {
         // Check if aggregation can be performed. It is important to
         // do that _before_ updating the seed dictionary, because we
@@ -187,7 +200,16 @@ impl PhaseState<Update> {
             .aggregation
             .validate_aggregation(&masked_model)
             .map_err(|e| {
-                warn!("aggregation error: {}", e);
+                warn!("model aggregation error: {}", e);
+                PetError::InvalidMessage
+            })?;
+
+        debug!("checking whether the masked scalar can be aggregated");
+        self.inner
+            .scalar_aggregation
+            .validate_aggregation(&masked_scalar)
+            .map_err(|e| {
+                warn!("scalar aggregation error: {}", e);
                 PetError::InvalidMessage
             })?;
 
@@ -200,8 +222,9 @@ impl PhaseState<Update> {
                 err
             })?;
 
-        info!("aggregating the masked model");
+        info!("aggregating the masked model and scalar");
         self.inner.aggregation.aggregate(masked_model);
+        self.inner.scalar_aggregation.aggregate(masked_scalar);
         Ok(())
     }
 

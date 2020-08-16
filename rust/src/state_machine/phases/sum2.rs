@@ -22,11 +22,17 @@ pub struct Sum2 {
     /// The sum dictionary built during the sum phase.
     sum_dict: SumDict,
 
-    /// The aggregator for masks and masked models.
-    aggregation: Aggregation,
+    /// The aggregator for masked models.
+    model_agg: Aggregation,
 
-    /// The mask dictionary built during the sum2 phase.
-    mask_dict: MaskDict,
+    /// The aggregator for masked scalars.
+    scalar_agg: Aggregation,
+
+    /// The model mask dictionary built during the sum2 phase.
+    model_mask_dict: MaskDict, // TODO rename model_mask_dict
+
+    /// The scalar mask dictionary built during the sum2 phase.
+    scalar_mask_dict: MaskDict,
 }
 
 #[cfg(test)]
@@ -75,7 +81,8 @@ where
     /// See the [module level documentation](../index.html) for more details.
     fn next(self) -> Option<StateMachine> {
         Some(
-            PhaseState::<Unmask>::new(self.shared, self.inner.aggregation, self.inner.mask_dict)
+            // TODO pass along scalar agg & mask dict
+            PhaseState::<Unmask>::new(self.shared, self.inner.model_agg, self.inner.model_mask_dict)
                 .into(),
         )
     }
@@ -121,13 +128,20 @@ impl Handler for PhaseState<Sum2> {
 
 impl PhaseState<Sum2> {
     /// Creates a new sum2 state.
-    pub fn new(shared: Shared, sum_dict: SumDict, aggregation: Aggregation) -> Self {
+    pub fn new(
+        shared: Shared,
+        sum_dict: SumDict,
+        model_agg: Aggregation,
+        scalar_agg: Aggregation
+    ) -> Self {
         info!("state transition");
         Self {
             inner: Sum2 {
                 sum_dict,
-                aggregation,
-                mask_dict: MaskDict::new(),
+                model_agg,
+                scalar_agg,
+                model_mask_dict: MaskDict::new(),
+                scalar_mask_dict: MaskDict::new(),
             },
             shared,
         }
@@ -138,33 +152,50 @@ impl PhaseState<Sum2> {
     fn handle_sum2(&mut self, req: Sum2Request) -> Result<(), PetError> {
         let Sum2Request {
             participant_pk,
-            mask,
+            model_mask,
+            scalar_mask,
         } = req;
-        self.add_mask(&participant_pk, mask)
+        self.add_mask(&participant_pk, model_mask, scalar_mask)
     }
 
     /// Adds a mask to the mask dictionary.
     ///
     /// # Errors
     /// Fails if the sum participant didn't register in the sum phase or it is a repetition.
-    fn add_mask(&mut self, pk: &SumParticipantPublicKey, mask: MaskObject) -> Result<(), PetError> {
-        // We move the participant key here to make sure a participant
+    fn add_mask(
+        &mut self,
+        pk: &SumParticipantPublicKey,
+        model_mask: MaskObject,
+        scalar_mask: MaskObject,
+    ) -> Result<(), PetError> {
+        // We remove the participant key here to make sure a participant
         // cannot submit a mask multiple times
         if self.inner.sum_dict.remove(pk).is_none() {
             return Err(PetError::InvalidMessage);
         }
 
-        if let Some(count) = self.inner.mask_dict.get_mut(&mask) {
+        if let Some(count) = self.inner.model_mask_dict.get_mut(&model_mask) {
             *count += 1;
         } else {
-            self.inner.mask_dict.insert(mask, 1);
+            self.inner.model_mask_dict.insert(model_mask, 1);
+        }
+
+        if let Some(count) = self.inner.scalar_mask_dict.get_mut(&scalar_mask) {
+            *count += 1;
+        } else {
+            self.inner.scalar_mask_dict.insert(scalar_mask, 1);
         }
 
         Ok(())
     }
 
     fn mask_count(&self) -> usize {
-        self.inner.mask_dict.values().sum()
+        let sum1 = self.inner.model_mask_dict.values().sum();
+        let sum2: usize = self.inner.scalar_mask_dict.values().sum();
+        if sum1 != sum2 {
+            warn!("unexpected difference in mask sum count: {} vs {}", sum1, sum2);
+        }
+        sum1
     }
 
     /// Checks whether enough sum participants submitted their masks to start the idle phase.

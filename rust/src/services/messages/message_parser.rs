@@ -45,7 +45,7 @@ pub struct MessageParserService {
     /// possible.
     phase_events: EventListener<PhaseName>,
 
-    /// Thread-pool the CPU-intensive tasks are offloaded to
+    /// Thread-pool the CPU-intensive tasks are offloaded to.
     thread_pool: Arc<ThreadPool>,
 }
 

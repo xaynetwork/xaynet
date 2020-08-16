@@ -66,9 +66,13 @@ impl<T: AsRef<[u8]>> UpdateBuffer<T> {
             ));
         }
 
-        // Check the length of the length of the masked model field
+        // Check the length of the masked model field
         let _ = MaskObjectBuffer::new(&self.inner.as_ref()[self.masked_model_offset()..])
             .context("invalid masked model field")?;
+
+        // Check the length of the masked scalar field
+        let _ = MaskObjectBuffer::new(&self.inner.as_ref()[self.masked_scalar_offset()..])
+            .context("invalid masked scalar field")?;
 
         // Check the length of the local seed dictionary field
         let _ = LengthValueBuffer::new(&self.inner.as_ref()[self.local_seed_dict_offset()..])
@@ -82,14 +86,21 @@ impl<T: AsRef<[u8]>> UpdateBuffer<T> {
         UPDATE_SIGNATURE_RANGE.end
     }
 
+    /// Gets the offset of the masked scalar field.
+    fn masked_scalar_offset(&self) -> usize {
+        let masked_model =
+            MaskObjectBuffer::new_unchecked(&self.inner.as_ref()[self.masked_model_offset()..]);
+        self.masked_model_offset() + masked_model.len()
+    }
+
     /// Gets the offset of the local seed dictionary field.
     ///
     /// # Panics
     /// Computing the offset may panic if the buffer has not been checked before.
     fn local_seed_dict_offset(&self) -> usize {
-        let masked_model =
-            MaskObjectBuffer::new_unchecked(&self.inner.as_ref()[self.masked_model_offset()..]);
-        self.masked_model_offset() + masked_model.len()
+        let masked_scalar =
+            MaskObjectBuffer::new_unchecked(&self.inner.as_ref()[self.masked_scalar_offset()..]);
+        self.masked_model_offset() + masked_scalar.len()
     }
 }
 
@@ -116,6 +127,15 @@ impl<'a, T: AsRef<[u8]> + ?Sized> UpdateBuffer<&'a T> {
     /// Accessing the field may panic if the buffer has not been checked before.
     pub fn masked_model(&self) -> &'a [u8] {
         let offset = self.masked_model_offset();
+        &self.inner.as_ref()[offset..]
+    }
+
+    /// Gets a slice that starts at the beginning of the masked scalar field.
+    ///
+    /// # Panics
+    /// Accessing the field may panic if the buffer has not been checked before.
+    pub fn masked_scalar(&self) -> &'a [u8] {
+        let offset = self.masked_scalar_offset();
         &self.inner.as_ref()[offset..]
     }
 
@@ -155,6 +175,15 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> UpdateBuffer<T> {
         &mut self.inner.as_mut()[offset..]
     }
 
+    /// Gets a mutable slice that starts at the beginning of the masked scalar field.
+    ///
+    /// # Panics
+    /// Accessing the field may panic if the buffer has not been checked before.
+    pub fn masked_scalar_mut(&mut self) -> &mut [u8] {
+        let offset = self.masked_scalar_offset();
+        &mut self.inner.as_mut()[offset..]
+    }
+
     /// Gets a mutable slice that starts at the beginning of the local seed dictionary field.
     ///
     /// # Panics
@@ -182,6 +211,10 @@ pub struct Update<D, M> {
     ///
     /// The model is masked with randomness derived from the participant seed.
     pub masked_model: M,
+    /// The scalar used to scale model weights.
+    ///
+    /// The scalar is masked with randomness derived from the participant seed.
+    pub masked_scalar: M,
     /// A dictionary that contains the seed used to mask `masked_model`.
     ///
     /// The seed is encrypted with the ephemeral public key of each sum participant.
@@ -196,6 +229,7 @@ where
     fn buffer_length(&self) -> usize {
         UPDATE_SIGNATURE_RANGE.end
             + self.masked_model.borrow().buffer_length()
+            + self.masked_scalar.borrow().buffer_length()
             + self.local_seed_dict.borrow().buffer_length()
     }
 
@@ -207,6 +241,9 @@ where
         self.masked_model
             .borrow()
             .to_bytes(&mut writer.masked_model_mut());
+        self.masked_scalar
+            .borrow()
+            .to_bytes(&mut writer.masked_scalar_mut());
         self.local_seed_dict
             .borrow()
             .to_bytes(&mut writer.local_seed_dict_mut());
@@ -226,6 +263,8 @@ impl FromBytes for UpdateOwned {
                 .context("invalid update signature")?,
             masked_model: MaskObject::from_bytes(&reader.masked_model())
                 .context("invalid masked model")?,
+            masked_scalar: MaskObject::from_bytes(&reader.masked_scalar())
+                .context("invalid masked scalar")?,
             local_seed_dict: LocalSeedDict::from_bytes(&reader.local_seed_dict())
                 .context("invalid local seed dictionary")?,
         })

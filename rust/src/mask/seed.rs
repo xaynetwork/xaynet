@@ -53,13 +53,19 @@ impl MaskSeed {
         EncryptedMaskSeed::from_slice_unchecked(pk.encrypt(self.as_slice()).as_slice())
     }
 
+    // TODO separate config for scalar mask
     /// Derives a mask of given length from this seed wrt the masking configuration.
-    pub fn derive_mask(&self, len: usize, config: MaskConfig) -> MaskObject {
+    pub fn derive_mask(&self, len: usize, config: MaskConfig) -> (MaskObject, MaskObject) { // TODO rename derive_masks
         let mut prng = ChaCha20Rng::from_seed(self.as_array());
-        let data = iter::repeat_with(|| generate_integer(&mut prng, &config.order()))
+        let rand_ints = iter::repeat_with(|| generate_integer(&mut prng, &config.order()))
             .take(len)
             .collect();
-        MaskObject::new(config, data)
+        let model_mask = MaskObject::new(config, rand_ints);
+
+        let rand_int = generate_integer(&mut prng, &config.order());
+        let scalar_mask = MaskObject::new(config, vec![rand_int]);
+
+        (model_mask, scalar_mask)
     }
 }
 

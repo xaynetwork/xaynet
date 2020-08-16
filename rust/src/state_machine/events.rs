@@ -35,7 +35,7 @@ pub struct Event<E> {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ModelUpdate {
     Invalidate,
-    New(Arc<Model>),
+    New(Arc<Model>), // TODO may need changing
 }
 
 /// Scalar update event.

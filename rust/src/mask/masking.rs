@@ -217,7 +217,7 @@ impl Aggregation {
             return Err(AggregationError::ModelMismatch);
         }
 
-        if self.nb_models == self.object.config.model_type.max_nb_models() {
+        if self.nb_models >= self.object.config.model_type.max_nb_models() {
             return Err(AggregationError::TooManyModels);
         }
 

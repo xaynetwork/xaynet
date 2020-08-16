@@ -47,10 +47,11 @@ impl Participant<Sum2> {
         mask_len: usize,
     ) -> Result<MessageOwned, PetError> {
         let mask_seeds = self.get_seeds(seed_dict)?;
-        let mask = self.compute_global_mask(mask_seeds, mask_len)?;
+        let (model_mask, scalar_mask) = self.compute_global_mask(mask_seeds, mask_len)?;
         let payload = Sum2Owned {
-            mask,
             sum_signature: self.inner.sum_signature,
+            model_mask,
+            scalar_mask,
         };
 
         Ok(MessageOwned::new_sum2(pk, self.state.keys.public, payload))
@@ -73,20 +74,27 @@ impl Participant<Sum2> {
         &self,
         mask_seeds: Vec<MaskSeed>,
         mask_len: usize,
-    ) -> Result<MaskObject, PetError> {
+    ) -> Result<(MaskObject, MaskObject), PetError> {
         if mask_seeds.is_empty() {
             return Err(PetError::InvalidMask);
         }
 
-        let mut aggregation = Aggregation::new(self.state.mask_config, mask_len);
+        let mut model_mask_agg = Aggregation::new(self.state.mask_config, mask_len);
+        let mut scalar_mask_agg = Aggregation::new(self.state.mask_config, 1);
         for seed in mask_seeds.into_iter() {
-            let mask = seed.derive_mask(mask_len, self.state.mask_config);
-            aggregation
-                .validate_aggregation(&mask)
+            let (model_mask, scalar_mask) = seed.derive_mask(mask_len, self.state.mask_config);
+
+            model_mask_agg
+                .validate_aggregation(&model_mask)
                 .map_err(|_| PetError::InvalidMask)?;
-            aggregation.aggregate(mask);
+            scalar_mask_agg
+                .validate_aggregation(&scalar_mask)
+                .map_err(|_| PetError::InvalidMask)?;
+
+            model_mask_agg.aggregate(model_mask);
+            scalar_mask_agg.aggregate(scalar_mask);
         }
-        Ok(aggregation.into())
+        Ok((model_mask_agg.into(), scalar_mask_agg.into()))
     }
 }
 
