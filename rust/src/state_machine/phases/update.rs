@@ -30,10 +30,10 @@ pub struct Update {
     seed_dict: SeedDict,
 
     /// The aggregator for masked models.
-    aggregation: Aggregation, // TODO rename model_aggregation
+    model_agg: Aggregation,
 
     /// The aggregator for masked scalars.
-    scalar_aggregation: Aggregation,
+    scalar_agg: Aggregation,
 }
 
 #[cfg(test)]
@@ -45,7 +45,7 @@ impl Update {
         &self.seed_dict
     }
     pub fn aggregation(&self) -> &Aggregation {
-        &self.aggregation
+        &self.model_agg
     }
 }
 
@@ -90,8 +90,8 @@ where
                 Update {
                     frozen_sum_dict,
                     seed_dict,
-                    aggregation,
-                    scalar_aggregation,
+                    model_agg,
+                    scalar_agg,
                 },
             mut shared,
         } = self;
@@ -100,7 +100,7 @@ where
         shared
             .io
             .events
-            .broadcast_mask_length(MaskLengthUpdate::New(aggregation.len()));
+            .broadcast_mask_length(MaskLengthUpdate::New(model_agg.len()));
 
         info!("broadcasting the global seed dictionary");
         shared
@@ -108,7 +108,7 @@ where
             .events
             .broadcast_seed_dict(DictionaryUpdate::New(Arc::new(seed_dict)));
 
-        Some(PhaseState::<Sum2>::new(shared, frozen_sum_dict, aggregation, scalar_aggregation).into())
+        Some(PhaseState::<Sum2>::new(shared, frozen_sum_dict, model_agg, scalar_agg).into())
     }
 }
 
@@ -158,9 +158,9 @@ impl PhaseState<Update> {
             inner: Update {
                 frozen_sum_dict,
                 seed_dict,
-                aggregation: Aggregation::new(shared.state.mask_config, shared.state.model_size),
+                model_agg: Aggregation::new(shared.state.mask_config, shared.state.model_size),
                 // TODO separate config for scalars
-                scalar_aggregation: Aggregation::new(shared.state.mask_config, 1),
+                scalar_agg: Aggregation::new(shared.state.mask_config, 1),
             },
             shared,
         }
@@ -197,7 +197,7 @@ impl PhaseState<Update> {
         // masked model is invalid
         debug!("checking whether the masked model can be aggregated");
         self.inner
-            .aggregation
+            .model_agg
             .validate_aggregation(&masked_model)
             .map_err(|e| {
                 warn!("model aggregation error: {}", e);
@@ -206,7 +206,7 @@ impl PhaseState<Update> {
 
         debug!("checking whether the masked scalar can be aggregated");
         self.inner
-            .scalar_aggregation
+            .scalar_agg
             .validate_aggregation(&masked_scalar)
             .map_err(|e| {
                 warn!("scalar aggregation error: {}", e);
@@ -223,8 +223,8 @@ impl PhaseState<Update> {
             })?;
 
         info!("aggregating the masked model and scalar");
-        self.inner.aggregation.aggregate(masked_model);
-        self.inner.scalar_aggregation.aggregate(masked_scalar);
+        self.inner.model_agg.aggregate(masked_model);
+        self.inner.scalar_agg.aggregate(masked_scalar);
         Ok(())
     }
 
@@ -326,7 +326,7 @@ mod test {
         let update = Update {
             frozen_sum_dict: frozen_sum_dict.clone(),
             seed_dict: seed_dict.clone(),
-            aggregation: aggregation.clone(),
+            model_agg: aggregation.clone(),
         };
 
         // Create the state machine

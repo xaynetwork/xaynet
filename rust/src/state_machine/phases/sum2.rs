@@ -29,7 +29,7 @@ pub struct Sum2 {
     scalar_agg: Aggregation,
 
     /// The model mask dictionary built during the sum2 phase.
-    model_mask_dict: MaskDict, // TODO rename model_mask_dict
+    model_mask_dict: MaskDict,
 
     /// The scalar mask dictionary built during the sum2 phase.
     scalar_mask_dict: MaskDict,
@@ -81,9 +81,14 @@ where
     /// See the [module level documentation](../index.html) for more details.
     fn next(self) -> Option<StateMachine> {
         Some(
-            // TODO pass along scalar agg & mask dict
-            PhaseState::<Unmask>::new(self.shared, self.inner.model_agg, self.inner.model_mask_dict)
-                .into(),
+            PhaseState::<Unmask>::new(
+                self.shared,
+                self.inner.model_agg,
+                self.inner.scalar_agg,
+                self.inner.model_mask_dict,
+                self.inner.scalar_mask_dict,
+            )
+            .into(),
         )
     }
 }

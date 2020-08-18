@@ -161,7 +161,7 @@ impl Aggregation {
         let scaled_add_shift = self.object.config.add_shift() * BigInt::from(self.nb_models);
         let exp_shift = self.object.config.exp_shift();
         let order = self.object.config.order();
-        let scaled_model = self.object
+        self.object
             .data
             .drain(..)
             .zip(mask.data.into_iter())
@@ -181,11 +181,16 @@ impl Aggregation {
 
                 ratio / &exp_shift - &scaled_add_shift
             })
-            .collect();
+            .collect()
+    }
 
-        // TODO apply correction i.e. divide by a
-
-        scaled_model
+    pub(crate) fn correct(overscaled: Model, scalar_sum: Model) -> Model {
+        // FIXME later on, tidy up API so that scalar_sum is encapsulated away
+        let correction = scalar_sum.into_iter().next().unwrap();
+        overscaled
+            .into_iter()
+            .map(|weight| weight / &correction)
+            .collect()
     }
 
     /// Validates if aggregation of the aggregated mask object with the given `object` may be safely
