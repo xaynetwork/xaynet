@@ -5,7 +5,6 @@
 mod mask_length;
 mod model;
 mod round_parameters;
-mod scalar;
 mod seed_dict;
 mod sum_dict;
 
@@ -13,7 +12,6 @@ pub use self::{
     mask_length::{MaskLengthRequest, MaskLengthResponse, MaskLengthService},
     model::{ModelRequest, ModelResponse, ModelService},
     round_parameters::{RoundParamsRequest, RoundParamsResponse, RoundParamsService},
-    scalar::{ScalarRequest, ScalarResponse, ScalarService},
     seed_dict::{SeedDictRequest, SeedDictResponse, SeedDictService},
     sum_dict::{SumDictRequest, SumDictResponse, SumDictService},
 };
@@ -36,11 +34,6 @@ pub trait Fetcher {
     /// participants need this value during the sum2 phase to derive
     /// masks from the update participant's masking seeds.
     async fn mask_length(&mut self) -> Result<MaskLengthResponse, FetchError>;
-
-    /// Fetch the scalar used for aggregation for the current
-    /// round. The update participants need this value to mask the
-    /// model they trained.
-    async fn scalar(&mut self) -> Result<ScalarResponse, FetchError>;
 
     /// Fetch the latest global model.
     async fn model(&mut self) -> Result<ModelResponse, FetchError>;
@@ -65,7 +58,7 @@ fn into_fetch_error<E: Into<Box<dyn ::std::error::Error + 'static + Sync + Send>
 }
 
 #[async_trait]
-impl<RoundParams, SumDict, SeedDict, MaskLength, Scalar, Model> Fetcher
+impl<RoundParams, SumDict, SeedDict, MaskLength, Model> Fetcher
     for Fetchers<RoundParams, SumDict, SeedDict, MaskLength, Scalar, Model>
 where
     Self: Send + Sync + 'static,
@@ -78,11 +71,6 @@ where
     MaskLength: Service<MaskLengthRequest, Response = MaskLengthResponse> + Send + 'static,
     <MaskLength as Service<MaskLengthRequest>>::Future: Send + Sync + 'static,
     <MaskLength as Service<MaskLengthRequest>>::Error:
-        Into<Box<dyn ::std::error::Error + 'static + Sync + Send>>,
-
-    Scalar: Service<ScalarRequest, Response = ScalarResponse> + Send + 'static,
-    <Scalar as Service<ScalarRequest>>::Future: Send + Sync + 'static,
-    <Scalar as Service<ScalarRequest>>::Error:
         Into<Box<dyn ::std::error::Error + 'static + Sync + Send>>,
 
     Model: Service<ModelRequest, Response = ModelResponse> + Send + 'static,
@@ -126,17 +114,6 @@ where
         )
         .await
         .map_err(into_fetch_error)?)
-    }
-
-    async fn scalar(&mut self) -> Result<ScalarResponse, FetchError> {
-        poll_fn(|cx| <Scalar as Service<ScalarRequest>>::poll_ready(&mut self.scalar, cx))
-            .await
-            .map_err(into_fetch_error)?;
-        Ok(
-            <Scalar as Service<ScalarRequest>>::call(&mut self.scalar, ScalarRequest)
-                .await
-                .map_err(into_fetch_error)?,
-        )
     }
 
     async fn model(&mut self) -> Result<ModelResponse, FetchError> {
@@ -206,24 +183,22 @@ impl<S> Layer<S> for FetcherLayer {
 }
 
 #[derive(Debug, Clone)]
-pub struct Fetchers<RoundParams, SumDict, SeedDict, MaskLength, Scalar, Model> {
+pub struct Fetchers<RoundParams, SumDict, SeedDict, MaskLength, Model> {
     round_params: RoundParams,
     sum_dict: SumDict,
     seed_dict: SeedDict,
     mask_length: MaskLength,
-    scalar: Scalar,
     model: Model,
 }
 
-impl<RoundParams, SumDict, SeedDict, MaskLength, Scalar, Model>
-    Fetchers<RoundParams, SumDict, SeedDict, MaskLength, Scalar, Model>
+impl<RoundParams, SumDict, SeedDict, MaskLength, Model>
+    Fetchers<RoundParams, SumDict, SeedDict, MaskLength, Model>
 {
     pub fn new(
         round_params: RoundParams,
         sum_dict: SumDict,
         seed_dict: SeedDict,
         mask_length: MaskLength,
-        scalar: Scalar,
         model: Model,
     ) -> Self {
         Self {
@@ -231,7 +206,6 @@ impl<RoundParams, SumDict, SeedDict, MaskLength, Scalar, Model>
             sum_dict,
             seed_dict,
             mask_length,
-            scalar,
             model,
         }
     }

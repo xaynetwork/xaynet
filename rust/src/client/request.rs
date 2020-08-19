@@ -127,35 +127,6 @@ impl Proxy {
         }
     }
 
-    /// Get the model scalar data from the service proxy.
-    ///
-    /// Returns `Ok(Some(data))` if the `data` is available on the
-    /// service, `Ok(None)` if it is not.
-    ///
-    /// # Errors
-    /// * Returns `Fetch` if an error occurs fetching from the in-memory proxy.
-    /// * Returns `NetworkErr` if a network error occurs while getting the data.
-    /// * Returns `ParseErr` if an error occurs while parsing the response.
-    pub async fn get_scalar(&mut self) -> Result<Option<f64>, ClientError> {
-        match self {
-            InMem(ref mut hdl, _) => hdl.scalar().await.map_err(ClientError::Fetch),
-            Remote(req) => {
-                let opt_text = req.get_scalar().await.map_err(|e| {
-                    error!("failed to GET model scalar: {}", e);
-                    ClientError::NetworkErr(e)
-                })?;
-                opt_text
-                    .map(|text| {
-                        text.parse().map_err(|e| {
-                            error!("failed to parse model scalar: {}: {:?}", e, text);
-                            ClientError::ParseErr
-                        })
-                    })
-                    .transpose()
-            }
-        }
-    }
-
     /// Get the seed dictionary data from the service proxy.
     ///
     /// Returns `Ok(Some(data))` if the `data` is available on the
@@ -298,11 +269,6 @@ impl ClientReq {
     async fn get_sums(&self) -> Result<Option<Bytes>, Error> {
         let url = format!("{}/sums", self.address);
         self.simple_get_bytes(&url).await
-    }
-
-    async fn get_scalar(&self) -> Result<Option<String>, Error> {
-        let url = format!("{}/scalar", self.address);
-        self.simple_get_text(&url).await
     }
 
     async fn get_seeds(&self, pk: SumParticipantPublicKey) -> Result<Option<Bytes>, Error> {

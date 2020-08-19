@@ -41,7 +41,6 @@ use crate::{
             MaskLengthService,
             ModelService,
             RoundParamsService,
-            ScalarService,
             SeedDictService,
             SumDictService,
         },
@@ -74,12 +73,6 @@ pub fn fetcher(event_subscriber: &EventSubscriber) -> impl Fetcher + Sync + Send
         .layer(FetcherLayer)
         .service(MaskLengthService::new(event_subscriber));
 
-    let scalar = ServiceBuilder::new()
-        .buffer(100)
-        .concurrency_limit(100)
-        .layer(FetcherLayer)
-        .service(ScalarService::new(event_subscriber));
-
     let model = ServiceBuilder::new()
         .buffer(100)
         .concurrency_limit(100)
@@ -103,7 +96,6 @@ pub fn fetcher(event_subscriber: &EventSubscriber) -> impl Fetcher + Sync + Send
         sum_dict,
         seed_dict,
         mask_length,
-        scalar,
         model,
     )
 }

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::{
     mask::{masking::Aggregation, object::MaskObject},
     state_machine::{
-        events::{DictionaryUpdate, MaskLengthUpdate, ScalarUpdate},
+        events::{DictionaryUpdate, MaskLengthUpdate},
         phases::{Handler, Phase, PhaseName, PhaseState, Shared, StateError, Sum2},
         requests::{StateMachineRequest, UpdateRequest},
         StateMachine,
@@ -60,15 +60,6 @@ where
     ///
     /// See the [module level documentation](../index.html) for more details.
     async fn run(&mut self) -> Result<(), StateError> {
-        let scalar = 1_f64
-            / (self.shared.state.expected_participants as f64
-                * self.shared.state.round_params.update);
-        info!("broadcasting scalar: {}", scalar);
-        self.shared
-            .io
-            .events
-            .broadcast_scalar(ScalarUpdate::New(scalar));
-
         let min_time = self.shared.state.min_update_time;
         debug!("in update phase for a minimum of {} seconds", min_time);
         self.process_during(Duration::from_secs(min_time)).await?;
