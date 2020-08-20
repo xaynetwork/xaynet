@@ -178,7 +178,7 @@ impl Default for Client {
             has_new_global_model_since_last_check: false,
             has_new_global_model_since_last_cache: false,
             local_model: None,
-            scalar: 1_f64,
+            scalar: 1.0,
             id: 0,
             proxy: Proxy::new_remote("http://127.0.0.1:3030"),
         }

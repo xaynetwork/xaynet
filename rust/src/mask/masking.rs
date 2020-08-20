@@ -184,6 +184,11 @@ impl Aggregation {
             .collect()
     }
 
+    /// Applies a correction to the given unmasked model based on the associated
+    /// unmasked scalar sum, in order to scale it correctly.
+    ///
+    /// This should be called after [`unmask()`] is called for both the model
+    /// and scalar aggregations.
     pub(crate) fn correct(overscaled: Model, scalar_sum: Model) -> Model {
         // FIXME later on, tidy up API so that scalar_sum is encapsulated away
         let correction = scalar_sum.into_iter().next().unwrap();

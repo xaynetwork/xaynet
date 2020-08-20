@@ -59,7 +59,7 @@ fn into_fetch_error<E: Into<Box<dyn ::std::error::Error + 'static + Sync + Send>
 
 #[async_trait]
 impl<RoundParams, SumDict, SeedDict, MaskLength, Model> Fetcher
-    for Fetchers<RoundParams, SumDict, SeedDict, MaskLength, Scalar, Model>
+    for Fetchers<RoundParams, SumDict, SeedDict, MaskLength, Model>
 where
     Self: Send + Sync + 'static,
 

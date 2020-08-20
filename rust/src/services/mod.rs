@@ -91,13 +91,7 @@ pub fn fetcher(event_subscriber: &EventSubscriber) -> impl Fetcher + Sync + Send
         .layer(FetcherLayer)
         .service(SeedDictService::new(event_subscriber));
 
-    Fetchers::new(
-        round_params,
-        sum_dict,
-        seed_dict,
-        mask_length,
-        model,
-    )
+    Fetchers::new(round_params, sum_dict, seed_dict, mask_length, model)
 }
 
 /// Construct a [`PetMessageHandler`] service
