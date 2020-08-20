@@ -42,11 +42,19 @@ impl Sum2 {
     }
 
     pub fn aggregation(&self) -> &Aggregation {
-        &self.aggregation
+        &self.model_agg
     }
 
     pub fn mask_dict(&self) -> &MaskDict {
-        &self.mask_dict
+        &self.model_mask_dict
+    }
+
+    pub fn scalar_agg(&self) -> &Aggregation {
+        &self.scalar_agg
+    }
+
+    pub fn scalar_mask_dict(&self) -> &MaskDict {
+        &self.scalar_mask_dict
     }
 }
 
@@ -250,15 +258,20 @@ mod test {
         let msg =
             updater.compose_update_message(coord_keys.public, &sum_dict, scalar, model.clone());
         let masked_model = msg.masked_model();
+        let masked_scalar = msg.masked_scalar();
         let local_seed_dict = msg.local_seed_dict();
         let mut aggregation = Aggregation::new(mask_settings().into(), model_size);
         aggregation.aggregate(masked_model.clone());
+        let mut scalar_agg = Aggregation::new(mask_settings().into(), 1);
+        scalar_agg.aggregate(masked_scalar.clone());
 
         // Create the state machine
         let sum2 = Sum2 {
             sum_dict,
-            aggregation,
-            mask_dict: MaskDict::new(),
+            model_agg: aggregation,
+            scalar_agg,
+            model_mask_dict: MaskDict::new(),
+            scalar_mask_dict: MaskDict::new(),
         };
 
         let (state_machine, request_tx, events) = StateMachineBuilder::new()

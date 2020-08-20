@@ -65,7 +65,7 @@ impl<T: AsRef<[u8]>> Sum2Buffer<T> {
         let _ = MaskObjectBuffer::new(&self.inner.as_ref()[self.model_mask_offset()..])
             .context("invalid model mask field")?;
 
-        // TODO Check the length of the scalar mask field
+        // Check the length of the scalar mask field
         let _ = MaskObjectBuffer::new(&self.inner.as_ref()[self.scalar_mask_offset()..])
             .context("invalid scalar mask field")?;
 
@@ -209,12 +209,19 @@ pub(in crate::message) mod tests_helpers {
         (object(), bytes())
     }
 
+    pub fn mask_1() -> (MaskObject, Vec<u8>) {
+        use crate::mask::object::serialization::tests::{bytes_1, object_1};
+        (object_1(), bytes_1())
+    }
+
     pub fn sum2() -> (Sum2Owned, Vec<u8>) {
         let mut bytes = signature().1;
         bytes.extend(mask().1);
+        bytes.extend(mask_1().1);
         let sum2 = Sum2Owned {
             sum_signature: signature().0,
-            mask: mask().0,
+            model_mask: mask().0,
+            scalar_mask: mask_1().0,
         };
         (sum2, bytes)
     }
@@ -230,18 +237,22 @@ pub(in crate::message) mod tests {
         let bytes = helpers::sum2().1;
         let buffer = Sum2Buffer::new(&bytes).unwrap();
         assert_eq!(buffer.sum_signature(), &helpers::signature().1[..]);
-        assert_eq!(buffer.mask(), &helpers::mask().1[..]);
+        let expected = helpers::mask().1;
+        assert_eq!(&buffer.model_mask()[..expected.len()], &expected[..]);
+        assert_eq!(buffer.scalar_mask(), &helpers::mask_1().1[..]);
     }
 
     #[test]
     fn buffer_write() {
-        let mut bytes = vec![0xff; 96];
+        let mut bytes = vec![0xff; 110];
         {
             let mut buffer = Sum2Buffer::new_unchecked(&mut bytes);
             buffer
                 .sum_signature_mut()
                 .copy_from_slice(&helpers::signature().1[..]);
-            buffer.mask_mut().copy_from_slice(&helpers::mask().1[..]);
+            let expected = helpers::mask().1;
+            buffer.model_mask_mut()[..expected.len()].copy_from_slice(&expected[..]);
+            buffer.scalar_mask_mut().copy_from_slice(&helpers::mask_1().1[..]);
         }
         assert_eq!(&bytes[..], &helpers::sum2().1[..]);
     }

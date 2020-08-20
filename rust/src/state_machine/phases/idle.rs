@@ -211,11 +211,6 @@ mod test {
         );
 
         assert_eq!(
-            events.scalar_listener().get_latest(),
-            expected_event(ScalarUpdate::Invalidate)
-        );
-
-        assert_eq!(
             events.mask_length_listener().get_latest(),
             expected_event(MaskLengthUpdate::Invalidate)
         );

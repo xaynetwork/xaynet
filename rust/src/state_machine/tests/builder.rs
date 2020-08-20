@@ -52,8 +52,6 @@ where
         events.broadcast_params(shared.state.round_params.clone());
         events.broadcast_phase(<PhaseState<P> as Phase>::NAME);
         // Also re-emit the other events in case the round ID changed
-        let scalar = event_subscriber.scalar_listener().get_latest().event;
-        events.broadcast_scalar(scalar);
         let model = event_subscriber.model_listener().get_latest().event;
         events.broadcast_model(model);
         let mask_length = event_subscriber.mask_length_listener().get_latest().event;

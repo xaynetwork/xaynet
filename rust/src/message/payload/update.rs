@@ -100,7 +100,7 @@ impl<T: AsRef<[u8]>> UpdateBuffer<T> {
     fn local_seed_dict_offset(&self) -> usize {
         let masked_scalar =
             MaskObjectBuffer::new_unchecked(&self.inner.as_ref()[self.masked_scalar_offset()..]);
-        self.masked_model_offset() + masked_scalar.len()
+        self.masked_scalar_offset() + masked_scalar.len()
     }
 }
 
@@ -299,6 +299,11 @@ pub(in crate::message) mod tests_helpers {
         (object(), bytes())
     }
 
+    pub fn masked_scalar() -> (MaskObject, Vec<u8>) {
+        use crate::mask::object::serialization::tests::{bytes_1, object_1};
+        (object_1(), bytes_1())
+    }
+
     pub fn local_seed_dict() -> (LocalSeedDict, Vec<u8>) {
         let mut local_seed_dict = LocalSeedDict::new();
         let mut bytes = vec![];
@@ -328,12 +333,14 @@ pub(in crate::message) mod tests_helpers {
         let mut bytes = sum_signature().1;
         bytes.extend(update_signature().1);
         bytes.extend(masked_model().1);
+        bytes.extend(masked_scalar().1);
         bytes.extend(local_seed_dict().1);
 
         let update = UpdateOwned {
             sum_signature: sum_signature().0,
             update_signature: update_signature().0,
             masked_model: masked_model().0,
+            masked_scalar: masked_scalar().0,
             local_seed_dict: local_seed_dict().0,
         };
         (update, bytes)
@@ -357,8 +364,10 @@ pub(in crate::message) mod tests {
             buffer.update_signature(),
             helpers::update_signature().1.as_slice()
         );
-        let expected = helpers::masked_model().1;
+        let mut expected = helpers::masked_model().1;
         assert_eq!(&buffer.masked_model()[..expected.len()], &expected[..]);
+        expected = helpers::masked_scalar().1;
+        assert_eq!(&buffer.masked_scalar()[..expected.len()], &expected[..]);
         assert_eq!(buffer.local_seed_dict(), &helpers::local_seed_dict().1[..]);
     }
 
@@ -371,6 +380,7 @@ pub(in crate::message) mod tests {
         bytes.extend(helpers::sum_signature().1);
         bytes.extend(helpers::update_signature().1);
         bytes.extend(helpers::masked_model().1);
+        bytes.extend(helpers::masked_scalar().1);
         bytes.extend(invalid);
 
         let e = UpdateOwned::from_bytes(&bytes).unwrap_err();
@@ -400,8 +410,8 @@ pub(in crate::message) mod tests {
         //
         // First compute the offset at which the local seed dict value
         // starts: two signature (64 bytes), the masked model (32
-        // bytes), the length field (4 bytes)
-        let offset = 64 * 2 + 32 + 4;
+        // bytes), the length field (4 bytes), the masked scalar (14 bytes)
+        let offset = 64 * 2 + 32 + 4 + 14;
         // Sort the end of the buffer
         (&mut buf[offset..]).sort();
         assert_eq!(buf, bytes);

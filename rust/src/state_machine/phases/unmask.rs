@@ -33,10 +33,10 @@ pub struct Unmask {
 #[cfg(test)]
 impl Unmask {
     pub fn aggregation(&self) -> Option<&Aggregation> {
-        self.aggregation.as_ref()
+        self.model_agg.as_ref()
     }
     pub fn mask_dict(&self) -> &MaskDict {
-        &self.mask_dict
+        &self.model_mask_dict
     }
 }
 
@@ -96,7 +96,6 @@ impl PhaseState<Unmask> {
         }
     }
 
-    // TODO return pair of mask dicts
     /// Freezes the mask dictionary.
     fn freeze_mask_dict(&mut self) -> Result<(MaskObject, MaskObject), RoundFailed> {
         if self.inner.model_mask_dict.is_empty() {

@@ -314,10 +314,12 @@ mod test {
         let mut seed_dict = SeedDict::new();
         seed_dict.insert(summer.pk, HashMap::new());
         let aggregation = Aggregation::new(mask_settings().into(), model_size);
+        let scalar_agg = Aggregation::new(mask_settings().into(), 1);
         let update = Update {
             frozen_sum_dict: frozen_sum_dict.clone(),
             seed_dict: seed_dict.clone(),
             model_agg: aggregation.clone(),
+            scalar_agg,
         };
 
         // Create the state machine
