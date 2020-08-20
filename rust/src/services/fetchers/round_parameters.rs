@@ -2,14 +2,25 @@ use std::task::{Context, Poll};
 
 use futures::future::{self, Ready};
 use tower::Service;
+use tracing::Span;
 
-use crate::state_machine::{
-    coordinator::RoundParameters,
-    events::{EventListener, EventSubscriber},
+use crate::{
+    state_machine::{
+        coordinator::RoundParameters,
+        events::{EventListener, EventSubscriber},
+    },
+    utils::Traceable,
 };
 
 /// [`RoundParamsService`]'s request type
+#[derive(Default, Clone, Eq, PartialEq, Debug)]
 pub struct RoundParamsRequest;
+
+impl Traceable for RoundParamsRequest {
+    fn make_span(&self) -> Span {
+        error_span!("round_params_fetch_request")
+    }
+}
 
 /// [`RoundParamsService`]'s response type
 pub type RoundParamsResponse = RoundParameters;

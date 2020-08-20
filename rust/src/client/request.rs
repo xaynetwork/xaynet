@@ -81,9 +81,9 @@ impl Proxy {
     /// * Returns `NetworkErr` if a network error occurs while getting the data.
     /// * Returns `DeserialiseErr` if an error occurs while deserialising the
     ///   response.
-    pub async fn get_round_params(&self) -> Result<RoundParameters, ClientError> {
+    pub async fn get_round_params(&mut self) -> Result<RoundParameters, ClientError> {
         match self {
-            InMem(hdl, _) => hdl.round_params().await.map_err(ClientError::Fetch),
+            InMem(ref mut hdl, _) => hdl.round_params().await.map_err(ClientError::Fetch),
             Remote(req) => {
                 let bytes = req.get_round_params().await.map_err(|e| {
                     error!("failed to GET round parameters: {}", e);
@@ -104,9 +104,9 @@ impl Proxy {
     /// * Returns `NetworkErr` if a network error occurs while getting the data.
     /// * Returns `DeserialiseErr` if an error occurs while deserialising the
     ///   response.
-    pub async fn get_sums(&self) -> Result<Option<SumDict>, ClientError> {
+    pub async fn get_sums(&mut self) -> Result<Option<SumDict>, ClientError> {
         match self {
-            InMem(hdl, _) => Ok(hdl
+            InMem(ref mut hdl, _) => Ok(hdl
                 .sum_dict()
                 .await
                 .map_err(ClientError::Fetch)?
@@ -136,9 +136,9 @@ impl Proxy {
     /// * Returns `Fetch` if an error occurs fetching from the in-memory proxy.
     /// * Returns `NetworkErr` if a network error occurs while getting the data.
     /// * Returns `ParseErr` if an error occurs while parsing the response.
-    pub async fn get_scalar(&self) -> Result<Option<f64>, ClientError> {
+    pub async fn get_scalar(&mut self) -> Result<Option<f64>, ClientError> {
         match self {
-            InMem(hdl, _) => hdl.scalar().await.map_err(ClientError::Fetch),
+            InMem(ref mut hdl, _) => hdl.scalar().await.map_err(ClientError::Fetch),
             Remote(req) => {
                 let opt_text = req.get_scalar().await.map_err(|e| {
                     error!("failed to GET model scalar: {}", e);
@@ -167,11 +167,11 @@ impl Proxy {
     /// * Returns `DeserialiseErr` if an error occurs while deserialising the
     ///   response.
     pub async fn get_seeds(
-        &self,
+        &mut self,
         pk: SumParticipantPublicKey,
     ) -> Result<Option<UpdateSeedDict>, ClientError> {
         match self {
-            InMem(hdl, _) => Ok(hdl
+            InMem(ref mut hdl, _) => Ok(hdl
                 .seed_dict()
                 .await
                 .map_err(ClientError::Fetch)?
@@ -203,11 +203,11 @@ impl Proxy {
     /// * Returns `Fetch` if an error occurs fetching from the in-memory proxy.
     /// * Returns `NetworkErr` if a network error occurs while getting the data.
     /// * Returns `ParseErr` if an error occurs while parsing the response.
-    pub async fn get_mask_length(&self) -> Result<Option<u64>, ClientError> {
+    pub async fn get_mask_length(&mut self) -> Result<Option<u64>, ClientError> {
         match self {
             // FIXME: don't cast here. The service just return an u64
             // not an usize
-            InMem(hdl, _) => Ok(hdl
+            InMem(ref mut hdl, _) => Ok(hdl
                 .mask_length()
                 .await
                 .map_err(ClientError::Fetch)?
@@ -239,9 +239,9 @@ impl Proxy {
     /// * Returns `NetworkErr` if a network error occurs while getting the data.
     /// * Returns `DeserialiseErr` if an error occurs while deserialising the
     ///   response.
-    pub async fn get_model(&self) -> Result<Option<Model>, ClientError> {
+    pub async fn get_model(&mut self) -> Result<Option<Model>, ClientError> {
         match self {
-            InMem(hdl, _) => Ok(hdl
+            InMem(ref mut hdl, _) => Ok(hdl
                 .model()
                 .await
                 .map_err(ClientError::Fetch)?

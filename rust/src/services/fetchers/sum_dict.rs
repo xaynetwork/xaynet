@@ -5,9 +5,11 @@ use std::{
 
 use futures::future::{self, Ready};
 use tower::Service;
+use tracing::Span;
 
 use crate::{
     state_machine::events::{DictionaryUpdate, EventListener, EventSubscriber},
+    utils::Traceable,
     SumDict,
 };
 
@@ -15,7 +17,14 @@ use crate::{
 pub struct SumDictService(EventListener<DictionaryUpdate<SumDict>>);
 
 /// [`SumDictService`]'s request type
+#[derive(Default, Clone, Eq, PartialEq, Debug)]
 pub struct SumDictRequest;
+
+impl Traceable for SumDictRequest {
+    fn make_span(&self) -> Span {
+        error_span!("sum_dict_fetch_request")
+    }
+}
 
 /// [`SumDictService`]'s response type.
 ///

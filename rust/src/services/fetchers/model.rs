@@ -5,14 +5,23 @@ use std::{
 
 use futures::future::{self, Ready};
 use tower::Service;
+use tracing::Span;
 
 use crate::{
     mask::model::Model,
     state_machine::events::{EventListener, EventSubscriber, ModelUpdate},
+    utils::Traceable,
 };
 
 /// [`ModelService`]'s request type
+#[derive(Default, Clone, Eq, PartialEq, Debug)]
 pub struct ModelRequest;
+
+impl Traceable for ModelRequest {
+    fn make_span(&self) -> Span {
+        error_span!("model_fetch_request")
+    }
+}
 
 /// [`ModelService`]'s response type.
 ///

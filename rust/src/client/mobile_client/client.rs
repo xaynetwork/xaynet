@@ -79,7 +79,7 @@ pub struct ClientState<Type> {
 }
 
 impl<Type> ClientState<Type> {
-    async fn check_round_freshness(&self) -> Result<(), ClientError> {
+    async fn check_round_freshness(&mut self) -> Result<(), ClientError> {
         debug!("fetching round parameters");
         let round_params = self.proxy.get_round_params().await?;
         if round_params.seed != self.round_params.seed {

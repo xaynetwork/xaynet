@@ -5,9 +5,11 @@ use std::{
 
 use futures::future::{self, Ready};
 use tower::Service;
+use tracing::Span;
 
 use crate::{
     state_machine::events::{DictionaryUpdate, EventListener, EventSubscriber},
+    utils::Traceable,
     SeedDict,
 };
 
@@ -21,7 +23,14 @@ impl SeedDictService {
 }
 
 /// [`SeedDictService`]'s request type
+#[derive(Default, Clone, Eq, PartialEq, Debug)]
 pub struct SeedDictRequest;
+
+impl Traceable for SeedDictRequest {
+    fn make_span(&self) -> Span {
+        error_span!("seed_dict_fetch_request")
+    }
+}
 
 /// [`SeedDictService`]'s response type.
 ///

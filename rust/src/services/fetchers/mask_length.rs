@@ -2,11 +2,22 @@ use std::task::{Context, Poll};
 
 use futures::future::{self, Ready};
 use tower::Service;
+use tracing::Span;
 
-use crate::state_machine::events::{EventListener, EventSubscriber, MaskLengthUpdate};
+use crate::{
+    state_machine::events::{EventListener, EventSubscriber, MaskLengthUpdate},
+    utils::Traceable,
+};
 
 /// [`MaskLengthService`]'s request type
+#[derive(Default, Clone, Eq, PartialEq, Debug)]
 pub struct MaskLengthRequest;
+
+impl Traceable for MaskLengthRequest {
+    fn make_span(&self) -> Span {
+        error_span!("mask_length_fetch_request")
+    }
+}
 
 /// [`MaskLengthService`]'s response type.
 ///
