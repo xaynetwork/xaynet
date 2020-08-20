@@ -60,7 +60,7 @@ pub struct Sum2Request {
     /// The model mask computed by the participant.
     pub model_mask: MaskObject,
     /// The scalar mask computed by the participant.
-    pub scalar_mask: MaskObject
+    pub scalar_mask: MaskObject,
 }
 
 /// A [`StateMachine`] request.

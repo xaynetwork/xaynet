@@ -145,7 +145,7 @@ impl PhaseState<Sum2> {
         shared: Shared,
         sum_dict: SumDict,
         model_agg: Aggregation,
-        scalar_agg: Aggregation
+        scalar_agg: Aggregation,
     ) -> Self {
         info!("state transition");
         Self {
@@ -206,7 +206,10 @@ impl PhaseState<Sum2> {
         let sum1 = self.inner.model_mask_dict.values().sum();
         let sum2: usize = self.inner.scalar_mask_dict.values().sum();
         if sum1 != sum2 {
-            warn!("unexpected difference in mask sum count: {} vs {}", sum1, sum2);
+            warn!(
+                "unexpected difference in mask sum count: {} vs {}",
+                sum1, sum2
+            );
         }
         sum1
     }

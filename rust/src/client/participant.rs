@@ -170,7 +170,8 @@ impl Participant {
         mask_len: usize,
     ) -> Result<MessageOwned, PetError> {
         let mask_seeds = self.get_seeds(seed_dict)?;
-        let (model_mask, scalar_mask) = self.compute_global_mask(mask_seeds, mask_len, dummy_config())?;
+        let (model_mask, scalar_mask) =
+            self.compute_global_mask(mask_seeds, mask_len, dummy_config())?;
         let payload = Sum2Owned {
             sum_signature: self.sum_signature,
             model_mask,
@@ -220,7 +221,7 @@ impl Participant {
     }
 
     /// Compute a global mask from local mask seeds.
-    fn compute_global_mask( // TODO rename aggregate_masks
+    fn compute_global_mask(
         &self,
         mask_seeds: Vec<MaskSeed>,
         mask_len: usize,

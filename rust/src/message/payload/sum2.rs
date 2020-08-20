@@ -171,8 +171,12 @@ where
     fn to_bytes<T: AsMut<[u8]>>(&self, buffer: &mut T) {
         let mut writer = Sum2Buffer::new_unchecked(buffer.as_mut());
         self.sum_signature.to_bytes(&mut writer.sum_signature_mut());
-        self.model_mask.borrow().to_bytes(&mut writer.model_mask_mut());
-        self.scalar_mask.borrow().to_bytes(&mut writer.scalar_mask_mut());
+        self.model_mask
+            .borrow()
+            .to_bytes(&mut writer.model_mask_mut());
+        self.scalar_mask
+            .borrow()
+            .to_bytes(&mut writer.scalar_mask_mut());
     }
 }
 
@@ -252,7 +256,9 @@ pub(in crate::message) mod tests {
                 .copy_from_slice(&helpers::signature().1[..]);
             let expected = helpers::mask().1;
             buffer.model_mask_mut()[..expected.len()].copy_from_slice(&expected[..]);
-            buffer.scalar_mask_mut().copy_from_slice(&helpers::mask_1().1[..]);
+            buffer
+                .scalar_mask_mut()
+                .copy_from_slice(&helpers::mask_1().1[..]);
         }
         assert_eq!(&bytes[..], &helpers::sum2().1[..]);
     }
