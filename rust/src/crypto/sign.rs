@@ -14,7 +14,7 @@ use sodiumoxide::crypto::{hash::sha256, sign};
 
 use super::ByteObject;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 /// A `Ed25519` key pair for signatures.
 pub struct SigningKeyPair {
     /// The `Ed25519` public key.

@@ -6,7 +6,7 @@ use crate::{
 
 type SumSignature = Signature;
 type UpdateSignature = Signature;
-
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Awaiting;
 
 impl Participant<Awaiting> {

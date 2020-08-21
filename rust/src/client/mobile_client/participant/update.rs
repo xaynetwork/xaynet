@@ -7,6 +7,7 @@ use crate::{
     ParticipantTaskSignature,
     SumDict,
 };
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Update {
     sum_signature: ParticipantTaskSignature,
     update_signature: ParticipantTaskSignature,

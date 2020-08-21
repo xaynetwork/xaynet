@@ -1,3 +1,4 @@
+/// Experimental mobile client
 extern crate tracing;
 
 use std::io::{stdin, stdout, Read, Write};
@@ -45,6 +46,54 @@ fn get_participant_settings() -> ParticipantSettings {
     }
 }
 
+// // How a Dart API could look like:
+
+// // only needs to be executed once (first start of the app)
+// init_client() {
+//     // first check if the participant exist in the database
+//     ...
+//
+//     // generates a fresh client secret key
+//     var secret_key = createSecretKeys();
+
+//     // init a new client
+//     var client = MobileClient::init(coordinator_url, secret_key, other_participant_settings);
+
+//     // serialize the client state (includes the secret key)
+//     var serialized_client = client.serialize();
+
+//     // save the state in the database
+//     db.save("client_state", serialized_client);
+// }
+
+// perform_task() {
+//     // load the state from the database
+//     var serialized_client = db.load("client_state");
+
+//     // deserialize the client state
+//     var client = MobileClient::deserialize(coordinator_url, serialized_client);
+
+//     // load the latest local model from the database
+//     var local_model = db.load("local_model");
+
+//     // set the current local model
+//     client.set_local_model(local_model);
+
+//     // perform the participant task (this will change the internal state)
+//     client.perform_task();
+
+//     // get the global model
+//     var global_model = client.global_model();
+
+//     // save the global model
+//     db.save("global_model", global_model);
+
+//     // serialize the new state
+//     serialized_client = client.serialize();
+
+//     // override the old state with the new one
+//     db.save("client_state", serialized_client);
+// }
 fn main() -> Result<(), ()> {
     let opt = Opt::from_args();
 
@@ -53,12 +102,28 @@ fn main() -> Result<(), ()> {
         .with_ansi(true)
         .init();
 
-    let mut client = MobileClient::new(&opt.url, get_participant_settings());
-    let model = Model::from_primitives(vec![1; opt.len as usize].into_iter()).unwrap();
+    // create a new client
+    let client = MobileClient::init(&opt.url, get_participant_settings());
+    // serialize the current client state (and save it on the phone)
+    let mut bytes = client.serialize();
 
+    // simulate the regular execution of perform_task on the phone
     loop {
-        client.set_local_model(model.clone());
-        client = client.perform_task();
+        // load local model
+        let model = Model::from_primitives(vec![1; opt.len as usize].into_iter()).unwrap();
+        bytes = perform_task(&opt.url, &bytes, model);
         pause();
     }
+}
+
+// perform the participant task (this function should be triggered regularly on the phone while the
+// app is active or in a background task)
+fn perform_task(url: &str, bytes: &[u8], model: Model) -> Vec<u8> {
+    let mut client = MobileClient::deserialize(url, bytes);
+    client.set_local_model(model);
+    client = client.perform_task();
+    println!("global model: {:?}", client.get_global_model());
+    let new_bytes = client.serialize();
+    println!("size serialized: {:?}", &bytes.len());
+    new_bytes
 }
