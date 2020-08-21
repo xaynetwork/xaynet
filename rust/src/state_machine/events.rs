@@ -38,13 +38,6 @@ pub enum ModelUpdate {
     New(Arc<Model>),
 }
 
-/// Scalar update event.
-#[derive(Debug, Clone, PartialEq)]
-pub enum ScalarUpdate {
-    Invalidate,
-    New(f64),
-}
-
 /// Mask length update event.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum MaskLengthUpdate {
@@ -67,7 +60,6 @@ pub struct EventPublisher {
     keys_tx: EventBroadcaster<EncryptKeyPair>,
     params_tx: EventBroadcaster<RoundParameters>,
     phase_tx: EventBroadcaster<PhaseName>,
-    scalar_tx: EventBroadcaster<ScalarUpdate>,
     model_tx: EventBroadcaster<ModelUpdate>,
     mask_length_tx: EventBroadcaster<MaskLengthUpdate>,
     sum_dict_tx: EventBroadcaster<DictionaryUpdate<SumDict>>,
@@ -81,7 +73,6 @@ pub struct EventSubscriber {
     keys_rx: EventListener<EncryptKeyPair>,
     params_rx: EventListener<RoundParameters>,
     phase_rx: EventListener<PhaseName>,
-    scalar_rx: EventListener<ScalarUpdate>,
     model_rx: EventListener<ModelUpdate>,
     mask_length_rx: EventListener<MaskLengthUpdate>,
     sum_dict_rx: EventListener<DictionaryUpdate<SumDict>>,
@@ -104,11 +95,6 @@ impl EventPublisher {
         let (phase_tx, phase_rx) = watch::channel::<Event<PhaseName>>(Event {
             round_id,
             event: phase,
-        });
-
-        let (scalar_tx, scalar_rx) = watch::channel::<Event<ScalarUpdate>>(Event {
-            round_id,
-            event: ScalarUpdate::Invalidate,
         });
 
         let (model_tx, model_rx) = watch::channel::<Event<ModelUpdate>>(Event {
@@ -143,7 +129,6 @@ impl EventPublisher {
             keys_tx: keys_tx.into(),
             params_tx: params_tx.into(),
             phase_tx: phase_tx.into(),
-            scalar_tx: scalar_tx.into(),
             model_tx: model_tx.into(),
             mask_length_tx: mask_length_tx.into(),
             sum_dict_tx: sum_dict_tx.into(),
@@ -154,7 +139,6 @@ impl EventPublisher {
             keys_rx: keys_rx.into(),
             params_rx: params_rx.into(),
             phase_rx: phase_rx.into(),
-            scalar_rx: scalar_rx.into(),
             model_rx: model_rx.into(),
             mask_length_rx: mask_length_rx.into(),
             sum_dict_rx: sum_dict_rx.into(),
@@ -189,11 +173,6 @@ impl EventPublisher {
     /// Emit a phase event
     pub fn broadcast_phase(&mut self, phase: PhaseName) {
         let _ = self.phase_tx.broadcast(self.event(phase));
-    }
-
-    /// Emit a scalar event
-    pub fn broadcast_scalar(&mut self, update: ScalarUpdate) {
-        let _ = self.scalar_tx.broadcast(self.event(update));
     }
 
     /// Emit a model event
@@ -232,11 +211,6 @@ impl EventSubscriber {
     /// Get a listener for new phase events
     pub fn phase_listener(&self) -> EventListener<PhaseName> {
         self.phase_rx.clone()
-    }
-
-    /// Get a listener for new scalar events
-    pub fn scalar_listener(&self) -> EventListener<ScalarUpdate> {
-        self.scalar_rx.clone()
     }
 
     /// Get a listener for new model events

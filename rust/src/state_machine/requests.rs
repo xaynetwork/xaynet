@@ -48,6 +48,8 @@ pub struct UpdateRequest {
     pub local_seed_dict: LocalSeedDict,
     /// The masked model trained by the participant.
     pub masked_model: MaskObject,
+    /// The masked scalar used to scale model weights.
+    pub masked_scalar: MaskObject,
 }
 
 /// A sum2 request.
@@ -55,8 +57,10 @@ pub struct UpdateRequest {
 pub struct Sum2Request {
     /// The public key of the participant.
     pub participant_pk: ParticipantPublicKey,
-    /// The mask computed by the participant.
-    pub mask: MaskObject,
+    /// The model mask computed by the participant.
+    pub model_mask: MaskObject,
+    /// The scalar mask computed by the participant.
+    pub scalar_mask: MaskObject,
 }
 
 /// A [`StateMachine`] request.
@@ -92,17 +96,20 @@ impl From<MessageOwned> for StateMachineRequest {
                 let UpdateOwned {
                     local_seed_dict,
                     masked_model,
+                    masked_scalar,
                     ..
                 } = update;
                 StateMachineRequest::Update(UpdateRequest {
                     participant_pk: header.participant_pk,
                     local_seed_dict,
                     masked_model,
+                    masked_scalar,
                 })
             }
             PayloadOwned::Sum2(sum2) => StateMachineRequest::Sum2(Sum2Request {
                 participant_pk: header.participant_pk,
-                mask: sum2.mask,
+                model_mask: sum2.model_mask,
+                scalar_mask: sum2.scalar_mask,
             }),
         }
     }

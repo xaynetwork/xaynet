@@ -154,8 +154,10 @@ pub struct Client {
     pub(crate) cached_model: Option<CachedModel>,
     pub(crate) has_new_global_model_since_last_check: bool,
     pub(crate) has_new_global_model_since_last_cache: bool,
+
     // TEMP pub visibility to allow access from test-drive
     pub local_model: Option<Model>,
+    pub scalar: f64,
 
     /// Identifier for this client
     id: u32,
@@ -176,6 +178,7 @@ impl Default for Client {
             has_new_global_model_since_last_check: false,
             has_new_global_model_since_last_cache: false,
             local_model: None,
+            scalar: 1.0,
             id: 0,
             proxy: Proxy::new_remote("http://127.0.0.1:3030"),
         }
@@ -365,15 +368,6 @@ impl Client {
             self.interval.tick().await;
         };
 
-        debug!(client_id = %self.id, "polling for model scalar");
-        let scalar = loop {
-            if let Some(scalar) = self.proxy.get_scalar().await? {
-                break scalar;
-            }
-            trace!(client_id = %self.id, "model scalar not ready, retrying.");
-            self.interval.tick().await;
-        };
-
         debug!(client_id = %self.id, "polling for sum dict");
         loop {
             if let Some(sums) = self.proxy.get_sums().await? {
@@ -381,7 +375,7 @@ impl Client {
                 let msg = self.participant.compose_update_message(
                     self.coordinator_pk,
                     &sums,
-                    scalar,
+                    self.scalar,
                     model,
                 );
                 let sealed_msg = self.participant.seal_message(&self.coordinator_pk, &msg);

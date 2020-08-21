@@ -61,15 +61,31 @@ impl<T: AsRef<[u8]>> Sum2Buffer<T> {
             ));
         }
 
-        // Check the length of the length of the mask field
-        let _ = MaskObjectBuffer::new(&self.inner.as_ref()[SUM_SIGNATURE_RANGE.end..])
-            .context("invalid masked model field")?;
+        // Check the length of the model mask field
+        let _ = MaskObjectBuffer::new(&self.inner.as_ref()[self.model_mask_offset()..])
+            .context("invalid model mask field")?;
+
+        // Check the length of the scalar mask field
+        let _ = MaskObjectBuffer::new(&self.inner.as_ref()[self.scalar_mask_offset()..])
+            .context("invalid scalar mask field")?;
 
         Ok(())
     }
+
+    /// Gets the offset of the model mask field.
+    fn model_mask_offset(&self) -> usize {
+        SUM_SIGNATURE_RANGE.end
+    }
+
+    /// Gets the offset of the scalar mask field.
+    fn scalar_mask_offset(&self) -> usize {
+        let model_mask =
+            MaskObjectBuffer::new_unchecked(&self.inner.as_ref()[self.model_mask_offset()..]);
+        self.model_mask_offset() + model_mask.len()
+    }
 }
 
-impl<T: AsMut<[u8]>> Sum2Buffer<T> {
+impl<T: AsRef<[u8]> + AsMut<[u8]>> Sum2Buffer<T> {
     /// Gets a mutable reference to the sum signature field.
     ///
     /// # Panics
@@ -78,12 +94,22 @@ impl<T: AsMut<[u8]>> Sum2Buffer<T> {
         &mut self.inner.as_mut()[SUM_SIGNATURE_RANGE]
     }
 
-    /// Gets a mutable reference to the mask field.
+    /// Gets a mutable reference to the model mask field.
     ///
     /// # Panics
     /// Accessing the field may panic if the buffer has not been checked before.
-    pub fn mask_mut(&mut self) -> &mut [u8] {
-        &mut self.inner.as_mut()[SUM_SIGNATURE_RANGE.end..]
+    pub fn model_mask_mut(&mut self) -> &mut [u8] {
+        let offset = self.model_mask_offset();
+        &mut self.inner.as_mut()[offset..]
+    }
+
+    /// Gets a mutable reference to the scalar mask field.
+    ///
+    /// # Panics
+    /// Accessing the field may panic if the buffer has not been checked before.
+    pub fn scalar_mask_mut(&mut self) -> &mut [u8] {
+        let offset = self.scalar_mask_offset();
+        &mut self.inner.as_mut()[offset..]
     }
 }
 
@@ -96,12 +122,22 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Sum2Buffer<&'a T> {
         &self.inner.as_ref()[SUM_SIGNATURE_RANGE]
     }
 
-    /// Gets a reference to the mask field.
+    /// Gets a reference to the model mask field.
     ///
     /// # Panics
     /// Accessing the field may panic if the buffer has not been checked before.
-    pub fn mask(&self) -> &'a [u8] {
-        &self.inner.as_ref()[SUM_SIGNATURE_RANGE.end..]
+    pub fn model_mask(&self) -> &'a [u8] {
+        let offset = self.model_mask_offset();
+        &self.inner.as_ref()[offset..]
+    }
+
+    /// Gets a reference to the scalar mask field.
+    ///
+    /// # Panics
+    /// Accessing the field may panic if the buffer has not been checked before.
+    pub fn scalar_mask(&self) -> &'a [u8] {
+        let offset = self.scalar_mask_offset();
+        &self.inner.as_ref()[offset..]
     }
 }
 
@@ -115,8 +151,11 @@ pub struct Sum2<M> {
     /// This is used to determine whether a participant is selected for the sum task.
     pub sum_signature: ParticipantTaskSignature,
 
-    /// A mask computed by the participant.
-    pub mask: M,
+    /// A model mask computed by the participant.
+    pub model_mask: M,
+
+    /// A scalar mask computed by the participant.
+    pub scalar_mask: M,
 }
 
 impl<M> ToBytes for Sum2<M>
@@ -124,13 +163,20 @@ where
     M: Borrow<MaskObject>,
 {
     fn buffer_length(&self) -> usize {
-        SUM_SIGNATURE_RANGE.end + self.mask.borrow().buffer_length()
+        SUM_SIGNATURE_RANGE.end
+            + self.model_mask.borrow().buffer_length()
+            + self.scalar_mask.borrow().buffer_length()
     }
 
     fn to_bytes<T: AsMut<[u8]>>(&self, buffer: &mut T) {
         let mut writer = Sum2Buffer::new_unchecked(buffer.as_mut());
         self.sum_signature.to_bytes(&mut writer.sum_signature_mut());
-        self.mask.borrow().to_bytes(&mut writer.mask_mut());
+        self.model_mask
+            .borrow()
+            .to_bytes(&mut writer.model_mask_mut());
+        self.scalar_mask
+            .borrow()
+            .to_bytes(&mut writer.scalar_mask_mut());
     }
 }
 
@@ -143,7 +189,10 @@ impl FromBytes for Sum2Owned {
         Ok(Self {
             sum_signature: ParticipantTaskSignature::from_bytes(&reader.sum_signature())
                 .context("invalid sum signature")?,
-            mask: MaskObject::from_bytes(&reader.mask()).context("invalid mask")?,
+            model_mask: MaskObject::from_bytes(&reader.model_mask())
+                .context("invalid model mask")?,
+            scalar_mask: MaskObject::from_bytes(&reader.scalar_mask())
+                .context("invalid scalar mask")?,
         })
     }
 }
@@ -164,12 +213,19 @@ pub(in crate::message) mod tests_helpers {
         (object(), bytes())
     }
 
+    pub fn mask_1() -> (MaskObject, Vec<u8>) {
+        use crate::mask::object::serialization::tests::{bytes_1, object_1};
+        (object_1(), bytes_1())
+    }
+
     pub fn sum2() -> (Sum2Owned, Vec<u8>) {
         let mut bytes = signature().1;
         bytes.extend(mask().1);
+        bytes.extend(mask_1().1);
         let sum2 = Sum2Owned {
             sum_signature: signature().0,
-            mask: mask().0,
+            model_mask: mask().0,
+            scalar_mask: mask_1().0,
         };
         (sum2, bytes)
     }
@@ -185,18 +241,24 @@ pub(in crate::message) mod tests {
         let bytes = helpers::sum2().1;
         let buffer = Sum2Buffer::new(&bytes).unwrap();
         assert_eq!(buffer.sum_signature(), &helpers::signature().1[..]);
-        assert_eq!(buffer.mask(), &helpers::mask().1[..]);
+        let expected = helpers::mask().1;
+        assert_eq!(&buffer.model_mask()[..expected.len()], &expected[..]);
+        assert_eq!(buffer.scalar_mask(), &helpers::mask_1().1[..]);
     }
 
     #[test]
     fn buffer_write() {
-        let mut bytes = vec![0xff; 96];
+        let mut bytes = vec![0xff; 110];
         {
             let mut buffer = Sum2Buffer::new_unchecked(&mut bytes);
             buffer
                 .sum_signature_mut()
                 .copy_from_slice(&helpers::signature().1[..]);
-            buffer.mask_mut().copy_from_slice(&helpers::mask().1[..]);
+            let expected = helpers::mask().1;
+            buffer.model_mask_mut()[..expected.len()].copy_from_slice(&expected[..]);
+            buffer
+                .scalar_mask_mut()
+                .copy_from_slice(&helpers::mask_1().1[..]);
         }
         assert_eq!(&bytes[..], &helpers::sum2().1[..]);
     }

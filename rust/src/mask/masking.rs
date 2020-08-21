@@ -184,6 +184,20 @@ impl Aggregation {
             .collect()
     }
 
+    /// Applies a correction to the given unmasked model based on the associated
+    /// unmasked scalar sum, in order to scale it correctly.
+    ///
+    /// This should be called after [`unmask()`] is called for both the model
+    /// and scalar aggregations.
+    pub(crate) fn correct(overscaled: Model, scalar_sum: Model) -> Model {
+        // FIXME later on, tidy up API so that scalar_sum is encapsulated away
+        let correction = scalar_sum.into_iter().next().unwrap();
+        overscaled
+            .into_iter()
+            .map(|weight| weight / &correction)
+            .collect()
+    }
+
     /// Validates if aggregation of the aggregated mask object with the given `object` may be safely
     /// performed.
     ///
@@ -213,7 +227,7 @@ impl Aggregation {
             return Err(AggregationError::ModelMismatch);
         }
 
-        if self.nb_models == self.object.config.model_type.max_nb_models() {
+        if self.nb_models >= self.object.config.model_type.max_nb_models() {
             return Err(AggregationError::TooManyModels);
         }
 
@@ -287,8 +301,8 @@ impl Masker {
     /// proceeds in reverse order.
     ///
     /// [`unmask()`]: struct.Aggregation.html#method.unmask
-    pub fn mask(self, scalar: f64, model: Model) -> (MaskSeed, MaskObject) {
-        let random_ints = self.random_ints();
+    pub fn mask(self, scalar: f64, model: Model) -> (MaskSeed, MaskObject, MaskObject) {
+        let mut random_ints = self.random_ints();
         let Self { seed, config } = self;
 
         let exp_shift = config.exp_shift();
@@ -296,15 +310,21 @@ impl Masker {
         let order = config.order();
         let higher_bound = &add_shift;
         let lower_bound = -&add_shift;
-        let scalar = Ratio::<BigInt>::from_float(clamp(scalar, 0_f64, 1_f64)).unwrap();
+
+        let scalar_ratio = crate::mask::model::float_to_ratio_bounded(scalar);
+        // HACK reuse upper bound for scaled weights for now, really should be tighter
+        // TODO give scalar its own config in later refactoring
+        let zero = Ratio::<BigInt>::from_float(0_f64).unwrap();
+        let scalar_clamped = clamp(&scalar_ratio, &zero, higher_bound);
 
         let masked_weights = model
             .into_iter()
-            .zip(random_ints)
+            .zip(&mut random_ints)
             .map(|(weight, rand_int)| {
-                let scaled = &scalar * clamp(&weight, &lower_bound, higher_bound);
+                let scaled = scalar_clamped * &weight;
+                let scaled_clamped = clamp(&scaled, &lower_bound, higher_bound);
                 // PANIC_SAFE: shifted weight is guaranteed to be non-negative
-                let shifted = ((scaled + &add_shift) * &exp_shift)
+                let shifted = ((scaled_clamped + &add_shift) * &exp_shift)
                     .to_integer()
                     .to_biguint()
                     .unwrap();
@@ -312,7 +332,15 @@ impl Masker {
             })
             .collect();
         let masked_model = MaskObject::new(config, masked_weights);
-        (seed, masked_model)
+
+        let rand_int = random_ints.next().unwrap();
+        let shifted = ((scalar_clamped + &add_shift) * &exp_shift)
+            .to_integer()
+            .to_biguint()
+            .unwrap();
+        let masked_scalar = MaskObject::new(config, vec![(shifted + rand_int) % &order]);
+
+        (seed, masked_model, masked_scalar)
     }
 
     /// Creates an iterator that yields randomly generated integers wrt the masking configuration.
@@ -395,11 +423,14 @@ mod tests {
                     // a. mask the model
                     // b. derive the mask corresponding to the seed used
                     // c. unmask the model and check it against the original one.
-                    let (mask_seed, masked_model) = Masker::new(config.clone()).mask(1_f64, model.clone());
+                    let (mask_seed, masked_model, masked_scalar) =
+                        Masker::new(config.clone()).mask(1_f64, model.clone());
                     assert_eq!(masked_model.data.len(), model.len());
                     assert!(masked_model.is_valid());
+                    assert_eq!(masked_scalar.data.len(), 1);
+                    assert!(masked_scalar.is_valid());
 
-                    let mask = mask_seed.derive_mask(model.len(), config);
+                    let (mask, _scalar_mask) = mask_seed.derive_mask(model.len(), config);
                     let aggregation = Aggregation::from(masked_model);
                     let unmasked_model = aggregation.unmask(mask);
 
@@ -683,6 +714,8 @@ mod tests {
                     .unwrap();
                     let mut aggregated_masked_model = Aggregation::new(config, model_size);
                     let mut aggregated_mask = Aggregation::new(config, model_size);
+                    let mut aggregated_masked_scalar = Aggregation::new(config, 1);
+                    let mut aggregated_scalar_mask = Aggregation::new(config, 1);
                     let scalar = 1_f64 / ($count as f64);
                     let scalar_ratio = Ratio::from_float(scalar).unwrap();
                     for _ in 0..$count as usize {
@@ -694,8 +727,9 @@ mod tests {
                                 *averaged_weight += &scalar_ratio * weight;
                             });
 
-                        let (mask_seed, masked_model) = Masker::new(config).mask(scalar, model);
-                        let mask = mask_seed.derive_mask($len as usize, config);
+                        let (mask_seed, masked_model, masked_scalar) =
+                            Masker::new(config).mask(scalar, model);
+                        let (mask, scalar_mask) = mask_seed.derive_mask($len as usize, config);
 
                         assert!(
                             aggregated_masked_model.validate_aggregation(&masked_model).is_ok()
@@ -703,6 +737,13 @@ mod tests {
                         aggregated_masked_model.aggregate(masked_model);
                         assert!(aggregated_mask.validate_aggregation(&mask).is_ok());
                         aggregated_mask.aggregate(mask);
+
+                        assert!(
+                            aggregated_masked_scalar.validate_aggregation(&masked_scalar).is_ok()
+                        );
+                        aggregated_masked_scalar.aggregate(masked_scalar);
+                        assert!(aggregated_scalar_mask.validate_aggregation(&scalar_mask).is_ok());
+                        aggregated_scalar_mask.aggregate(scalar_mask);
                     }
 
                     let unmasked_model = aggregated_masked_model.unmask(aggregated_mask.into());
@@ -715,6 +756,7 @@ mod tests {
                                 (averaged_weight - unmasked_weight).abs() <= tolerance
                             })
                     );
+                    // TODO check scalar as well, after future refactoring
                 }
             }
         };

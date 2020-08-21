@@ -286,12 +286,8 @@ impl ClientState<Update> {
             .ok_or(ClientError::TooEarly("local model"))?
             .clone();
 
-        debug!("polling for model scalar");
-        let scalar = self
-            .proxy
-            .get_scalar()
-            .await?
-            .ok_or(ClientError::TooEarly("scalar"))?;
+        debug!("setting model scalar");
+        let scalar = 1_f64; // TODO parametrise this!
 
         debug!("polling for sum dict");
         let sums = self

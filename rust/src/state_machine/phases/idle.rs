@@ -2,7 +2,7 @@ use crate::{
     crypto::{encrypt::EncryptKeyPair, sign::SigningKeySeed, ByteObject},
     state_machine::{
         coordinator::RoundSeed,
-        events::{DictionaryUpdate, MaskLengthUpdate, ScalarUpdate},
+        events::{DictionaryUpdate, MaskLengthUpdate},
         phases::{Handler, Phase, PhaseName, PhaseState, Shared, Sum},
         requests::StateMachineRequest,
         StateError,
@@ -54,9 +54,6 @@ impl Phase for PhaseState<Idle> {
 
         info!("broadcasting invalidation of seed dictionary from previous round");
         events.broadcast_seed_dict(DictionaryUpdate::Invalidate);
-
-        info!("broadcasting invalidation of scalar from previous round");
-        events.broadcast_scalar(ScalarUpdate::Invalidate);
 
         info!("broadcasting invalidation of mask length from previous round");
         events.broadcast_mask_length(MaskLengthUpdate::Invalidate);
@@ -211,11 +208,6 @@ mod test {
         assert_eq!(
             events.seed_dict_listener().get_latest(),
             expected_event(DictionaryUpdate::Invalidate)
-        );
-
-        assert_eq!(
-            events.scalar_listener().get_latest(),
-            expected_event(ScalarUpdate::Invalidate)
         );
 
         assert_eq!(

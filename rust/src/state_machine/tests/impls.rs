@@ -152,6 +152,19 @@ impl MessageOwned {
         }
     }
 
+    /// Extract the masked scalar from an update message
+    ///
+    /// # Panic
+    ///
+    /// Panic if this message is not an update message
+    pub fn masked_scalar(&self) -> MaskObject {
+        if let Payload::Update(UpdateOwned { masked_scalar, .. }) = &self.payload {
+            masked_scalar.clone()
+        } else {
+            panic!("not an update message");
+        }
+    }
+
     /// Extract the local seed dictioanry from an update message
     ///
     /// # Panic
@@ -168,14 +181,27 @@ impl MessageOwned {
         }
     }
 
-    /// Extract the mask from a sum2 message
+    /// Extract the model mask from a sum2 message
     ///
     /// # Panic
     ///
     /// Panic if this message is not a sum2 message
     pub fn mask(&self) -> MaskObject {
-        if let Payload::Sum2(Sum2Owned { mask, .. }) = &self.payload {
-            mask.clone()
+        if let Payload::Sum2(Sum2Owned { model_mask, .. }) = &self.payload {
+            model_mask.clone()
+        } else {
+            panic!("not a sum2 message");
+        }
+    }
+
+    /// Extract the scalar mask from a sum2 message
+    ///
+    /// # Panic
+    ///
+    /// Panic if this message is not a sum2 message
+    pub fn scalar_mask(&self) -> MaskObject {
+        if let Payload::Sum2(Sum2Owned { scalar_mask, .. }) = &self.payload {
+            scalar_mask.clone()
         } else {
             panic!("not a sum2 message");
         }

@@ -43,11 +43,6 @@ pub async fn serve<F, MH>(
         .and(with_fetcher(fetcher.clone()))
         .and_then(handle_seeds);
 
-    let scalar = warp::path!("scalar")
-        .and(warp::get())
-        .and(with_fetcher(fetcher.clone()))
-        .and_then(handle_scalar);
-
     let length = warp::path!("length")
         .and(warp::get())
         .and(with_fetcher(fetcher.clone()))
@@ -66,7 +61,6 @@ pub async fn serve<F, MH>(
     let routes = message
         .or(round_params)
         .or(sum_dict)
-        .or(scalar)
         .or(seed_dict)
         .or(length)
         .or(model)
@@ -137,27 +131,6 @@ async fn handle_seeds<F: Fetcher>(
             .status(StatusCode::NO_CONTENT)
             .body(Vec::new())
             .unwrap(),
-    })
-}
-
-/// Handles and responds to a request for the model scalar.
-async fn handle_scalar<F: Fetcher>(mut fetcher: F) -> Result<impl warp::Reply, Infallible> {
-    Ok(match fetcher.scalar().await {
-        Ok(Some(scalar)) => Response::builder()
-            .status(StatusCode::OK)
-            .body(scalar.to_string())
-            .unwrap(),
-        Ok(None) => Response::builder()
-            .status(StatusCode::NO_CONTENT)
-            .body(String::new())
-            .unwrap(),
-        Err(e) => {
-            warn!("failed to handle scalar request: {:?}", e);
-            Response::builder()
-                .status(StatusCode::INTERNAL_SERVER_ERROR)
-                .body(String::new())
-                .unwrap()
-        }
     })
 }
 

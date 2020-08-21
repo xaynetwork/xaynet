@@ -239,6 +239,29 @@ pub(crate) mod tests {
         ]
     }
 
+    pub fn object_1() -> MaskObject {
+        // config.order() = 20_000_000_000_001 with this config, so the data
+        // should be stored on 6 bytes.
+        let config = MaskConfig {
+            group_type: GroupType::Integer,
+            data_type: DataType::I32,
+            bound_type: BoundType::B0,
+            model_type: ModelType::M3,
+        };
+        // 1 weight => 6 bytes
+        let data = vec![BigUint::from(1_u8)];
+        MaskObject::new(config, data)
+    }
+
+    pub fn bytes_1() -> Vec<u8> {
+        vec![
+            0x00, 0x02, 0x00, 0x03, // config
+            0x00, 0x00, 0x00, 0x01, // number of elements
+            // data
+            0x01, 0x00, 0x00, 0x00, 0x00, 0x00, // 1
+        ]
+    }
+
     #[test]
     fn serialize() {
         let mut buf = vec![0xff; 32];
@@ -249,5 +272,17 @@ pub(crate) mod tests {
     #[test]
     fn deserialize() {
         assert_eq!(MaskObject::from_bytes(&bytes()).unwrap(), object());
+    }
+
+    #[test]
+    fn serialize_1() {
+        let mut buf = vec![0xff; 14];
+        object_1().to_bytes(&mut buf);
+        assert_eq!(buf, bytes_1());
+    }
+
+    #[test]
+    fn deserialize_1() {
+        assert_eq!(MaskObject::from_bytes(&bytes_1()).unwrap(), object_1());
     }
 }

@@ -53,13 +53,19 @@ impl MaskSeed {
         EncryptedMaskSeed::from_slice_unchecked(pk.encrypt(self.as_slice()).as_slice())
     }
 
+    // TODO separate config for scalar mask - future refactoring
     /// Derives a mask of given length from this seed wrt the masking configuration.
-    pub fn derive_mask(&self, len: usize, config: MaskConfig) -> MaskObject {
+    pub fn derive_mask(&self, len: usize, config: MaskConfig) -> (MaskObject, MaskObject) {
         let mut prng = ChaCha20Rng::from_seed(self.as_array());
-        let data = iter::repeat_with(|| generate_integer(&mut prng, &config.order()))
+        let rand_ints = iter::repeat_with(|| generate_integer(&mut prng, &config.order()))
             .take(len)
             .collect();
-        MaskObject::new(config, data)
+        let model_mask = MaskObject::new(config, rand_ints);
+
+        let rand_int = generate_integer(&mut prng, &config.order());
+        let scalar_mask = MaskObject::new(config, vec![rand_int]);
+
+        (model_mask, scalar_mask)
     }
 }
 
@@ -143,9 +149,12 @@ mod tests {
             model_type: ModelType::M3,
         };
         let seed = MaskSeed::generate();
-        let mask = seed.derive_mask(10, config);
+        let (mask, scalar_mask) = seed.derive_mask(10, config);
         assert_eq!(mask.data.len(), 10);
         assert!(mask.data.iter().all(|integer| integer < &config.order()));
+
+        assert_eq!(scalar_mask.data.len(), 1);
+        // TODO check size later after future refactoring
     }
 
     #[test]

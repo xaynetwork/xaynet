@@ -14,8 +14,6 @@ use crate::{
             ModelService,
             RoundParamsRequest,
             RoundParamsService,
-            ScalarRequest,
-            ScalarService,
             SeedDictRequest,
             SeedDictService,
             SumDictRequest,
@@ -25,7 +23,7 @@ use crate::{
     },
     state_machine::{
         coordinator::{RoundParameters, RoundSeed},
-        events::{DictionaryUpdate, MaskLengthUpdate, ModelUpdate, ScalarUpdate},
+        events::{DictionaryUpdate, MaskLengthUpdate, ModelUpdate},
     },
     SeedDict,
     SumDict,
@@ -96,27 +94,6 @@ async fn test_round_params_svc() {
     assert_ready!(task.poll_ready()).unwrap();
     let resp = task.call(RoundParamsRequest).await;
     assert_eq!(resp, Ok(params));
-}
-
-#[tokio::test]
-async fn test_scalar_svc() {
-    let (mut publisher, subscriber) = new_event_channels();
-
-    let mut task = Spawn::new(ScalarService::new(&subscriber));
-    assert_ready!(task.poll_ready()).unwrap();
-
-    let resp = task.call(ScalarRequest).await;
-    assert_eq!(resp, Ok(None));
-
-    publisher.broadcast_scalar(ScalarUpdate::New(42.42));
-    assert_ready!(task.poll_ready()).unwrap();
-    let resp = task.call(ScalarRequest).await;
-    assert_eq!(resp, Ok(Some(42.42)));
-
-    publisher.broadcast_scalar(ScalarUpdate::Invalidate);
-    assert_ready!(task.poll_ready()).unwrap();
-    let resp = task.call(ScalarRequest).await;
-    assert_eq!(resp, Ok(None));
 }
 
 fn dummy_seed_dict() -> SeedDict {

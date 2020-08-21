@@ -142,13 +142,14 @@ impl Participant {
         scalar: f64,
         local_model: Model,
     ) -> MessageOwned {
-        let (mask_seed, masked_model) = Self::mask_model(scalar, local_model);
+        let (mask_seed, masked_model, masked_scalar) = Self::mask_model(scalar, local_model);
         let local_seed_dict = Self::create_local_seed_dict(sum_dict, &mask_seed);
 
         let payload = UpdateOwned {
             sum_signature: self.sum_signature,
             update_signature: self.update_signature,
             masked_model,
+            masked_scalar,
             local_seed_dict,
         };
 
@@ -169,10 +170,12 @@ impl Participant {
         mask_len: usize,
     ) -> Result<MessageOwned, PetError> {
         let mask_seeds = self.get_seeds(seed_dict)?;
-        let mask = self.compute_global_mask(mask_seeds, mask_len, dummy_config())?;
+        let (model_mask, scalar_mask) =
+            self.compute_global_mask(mask_seeds, mask_len, dummy_config())?;
         let payload = Sum2Owned {
-            mask,
             sum_signature: self.sum_signature,
+            model_mask,
+            scalar_mask,
         };
 
         Ok(MessageOwned::new_sum2(pk, self.pk, payload))
@@ -196,7 +199,7 @@ impl Participant {
     }
 
     /// Generate a mask seed and mask a local model.
-    fn mask_model(scalar: f64, local_model: Model) -> (MaskSeed, MaskObject) {
+    fn mask_model(scalar: f64, local_model: Model) -> (MaskSeed, MaskObject, MaskObject) {
         // TODO: use proper config
         Masker::new(dummy_config()).mask(scalar, local_model)
     }
@@ -223,20 +226,27 @@ impl Participant {
         mask_seeds: Vec<MaskSeed>,
         mask_len: usize,
         mask_config: MaskConfig,
-    ) -> Result<MaskObject, PetError> {
+    ) -> Result<(MaskObject, MaskObject), PetError> {
         if mask_seeds.is_empty() {
             return Err(PetError::InvalidMask);
         }
 
-        let mut aggregation = Aggregation::new(mask_config, mask_len);
+        let mut model_mask_agg = Aggregation::new(mask_config, mask_len);
+        let mut scalar_mask_agg = Aggregation::new(mask_config, 1);
         for seed in mask_seeds.into_iter() {
-            let mask = seed.derive_mask(mask_len, mask_config);
-            aggregation
-                .validate_aggregation(&mask)
+            let (model_mask, scalar_mask) = seed.derive_mask(mask_len, mask_config);
+
+            model_mask_agg
+                .validate_aggregation(&model_mask)
                 .map_err(|_| PetError::InvalidMask)?;
-            aggregation.aggregate(mask);
+            scalar_mask_agg
+                .validate_aggregation(&scalar_mask)
+                .map_err(|_| PetError::InvalidMask)?;
+
+            model_mask_agg.aggregate(model_mask);
+            scalar_mask_agg.aggregate(scalar_mask);
         }
-        Ok(aggregation.into())
+        Ok((model_mask_agg.into(), scalar_mask_agg.into()))
     }
 }
 
