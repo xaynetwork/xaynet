@@ -5,10 +5,8 @@ use tower::Service;
 use tracing::Span;
 
 use crate::{
-    state_machine::{
-        coordinator::RoundParameters,
-        events::{EventListener, EventSubscriber},
-    },
+    common::RoundParameters,
+    state_machine::events::{EventListener, EventSubscriber},
     utils::Traceable,
 };
 

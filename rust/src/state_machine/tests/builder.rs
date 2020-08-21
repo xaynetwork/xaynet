@@ -1,8 +1,8 @@
 use crate::{
+    common::RoundSeed,
     crypto::encrypt::EncryptKeyPair,
     mask::config::MaskConfig,
     state_machine::{
-        coordinator::RoundSeed,
         events::EventSubscriber,
         phases::{self, Handler, Phase, PhaseState, Shared},
         requests::RequestSender,

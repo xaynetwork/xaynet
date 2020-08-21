@@ -5,6 +5,7 @@ use tokio_test::assert_ready;
 use tower_test::mock::Spawn;
 
 use crate::{
+    common::RoundParameters,
     message::MessageOwned,
     services::{
         messages::{
@@ -16,7 +17,6 @@ use crate::{
         tests::utils,
     },
     state_machine::{
-        coordinator::RoundParameters,
         events::{EventPublisher, EventSubscriber},
         phases::PhaseName,
     },

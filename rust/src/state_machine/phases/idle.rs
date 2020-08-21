@@ -1,7 +1,7 @@
 use crate::{
+    common::RoundSeed,
     crypto::{encrypt::EncryptKeyPair, sign::SigningKeySeed, ByteObject},
     state_machine::{
-        coordinator::RoundSeed,
         events::{DictionaryUpdate, MaskLengthUpdate},
         phases::{Handler, Phase, PhaseName, PhaseState, Shared, Sum},
         requests::StateMachineRequest,

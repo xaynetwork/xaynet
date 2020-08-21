@@ -17,9 +17,9 @@ use thiserror::Error;
 use tower::Service;
 
 use crate::{
+    common::RoundParameters,
     message::{message::MessageOwned, payload::PayloadOwned},
     state_machine::{
-        coordinator::RoundParameters,
         events::{Event, EventListener, EventSubscriber},
         phases::PhaseName,
     },

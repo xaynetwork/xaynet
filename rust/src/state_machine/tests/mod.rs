@@ -3,10 +3,10 @@ pub mod impls;
 pub mod utils;
 
 use crate::{
+    common::RoundSeed,
     crypto::{ByteObject, EncryptKeyPair},
     mask::{FromPrimitives, Model},
     state_machine::{
-        coordinator::RoundSeed,
         events::Event,
         phases::PhaseName,
         tests::{

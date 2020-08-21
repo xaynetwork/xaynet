@@ -7,6 +7,7 @@ use futures::{
 use tower::Service;
 
 use crate::{
+    common::RoundParameters,
     crypto::ByteObject,
     message::{
         header::HeaderOwned,
@@ -14,7 +15,6 @@ use crate::{
         payload::{sum2::Sum2Owned, PayloadOwned},
     },
     services::messages::pre_processor::{PreProcessorError, PreProcessorResponse},
-    state_machine::coordinator::RoundParameters,
 };
 
 /// Request type for [`SumPreProcessorService`]
