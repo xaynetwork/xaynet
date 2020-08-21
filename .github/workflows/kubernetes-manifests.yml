@@ -7,6 +7,7 @@ on:
     
 jobs:
   k8s-kustomize-validation:
+    if: false # skip job (remove after the move to cargo workspaces)
     name: Kubernetes manifests validation
     runs-on: ubuntu-latest
     steps:
