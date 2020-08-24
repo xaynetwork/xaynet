@@ -1,10 +1,11 @@
 use crate::{
     client::{Participant, Task},
+    common::RoundSeed,
     crypto::ByteObject,
     mask::config::{BoundType, DataType, GroupType, ModelType},
     settings::{MaskSettings, ModelSettings, PetSettings},
     state_machine::{
-        coordinator::{CoordinatorState, RoundSeed},
+        coordinator::CoordinatorState,
         events::{EventPublisher, EventSubscriber},
         phases::{PhaseName, Shared},
         requests::{RequestReceiver, RequestSender},

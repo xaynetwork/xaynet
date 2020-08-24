@@ -4,6 +4,7 @@ use tokio_test::assert_ready;
 use tower_test::mock::Spawn;
 
 use crate::{
+    common::{RoundParameters, RoundSeed},
     crypto::{ByteObject, PublicEncryptKey, PublicSigningKey},
     mask::{seed::EncryptedMaskSeed, Model},
     services::{
@@ -21,10 +22,7 @@ use crate::{
         },
         tests::utils::new_event_channels,
     },
-    state_machine::{
-        coordinator::{RoundParameters, RoundSeed},
-        events::{DictionaryUpdate, MaskLengthUpdate, ModelUpdate},
-    },
+    state_machine::events::{DictionaryUpdate, MaskLengthUpdate, ModelUpdate},
     SeedDict,
     SumDict,
     UpdateSeedDict,

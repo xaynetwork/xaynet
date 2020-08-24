@@ -275,10 +275,10 @@ mod test {
 
     use super::*;
     use crate::{
+        common::RoundSeed,
         crypto::{ByteObject, EncryptKeyPair},
         mask::{FromPrimitives, MaskObject, Model},
         state_machine::{
-            coordinator::RoundSeed,
             events::Event,
             tests::{
                 builder::StateMachineBuilder,

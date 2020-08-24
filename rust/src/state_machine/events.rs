@@ -13,9 +13,10 @@ use futures::Stream;
 use tokio::sync::watch;
 
 use crate::{
+    common::RoundParameters,
     crypto::encrypt::EncryptKeyPair,
     mask::model::Model,
-    state_machine::{coordinator::RoundParameters, phases::PhaseName},
+    state_machine::phases::PhaseName,
     SeedDict,
     SumDict,
 };

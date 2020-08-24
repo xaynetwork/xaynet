@@ -12,9 +12,9 @@ use crate::{
         ClientError,
         Proxy,
     },
+    common::RoundParameters,
     crypto::ByteObject,
     mask::model::Model,
-    state_machine::coordinator::RoundParameters,
     InitError,
     PetError,
 };

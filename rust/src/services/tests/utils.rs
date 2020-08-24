@@ -1,8 +1,8 @@
 use crate::{
+    common::{RoundParameters, RoundSeed},
     crypto::{ByteObject, EncryptKeyPair, PublicEncryptKey, SigningKeyPair},
     message::{MessageOwned, MessageSeal, SumOwned},
     state_machine::{
-        coordinator::{RoundParameters, RoundSeed},
         events::{EventPublisher, EventSubscriber},
         phases::PhaseName,
     },

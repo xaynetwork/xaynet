@@ -90,6 +90,7 @@ extern crate xaynet_macros;
 
 pub mod certificate;
 pub mod client;
+pub mod common;
 pub mod crypto;
 pub mod examples;
 pub mod mask;
