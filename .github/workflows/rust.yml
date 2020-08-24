@@ -46,8 +46,6 @@ jobs:
     name: cargo-check
     runs-on: ubuntu-latest
     strategy:
-      matrix:
-        features: [default]
       fail-fast: true
     steps:
       - name: Checkout repository
@@ -81,14 +79,12 @@ jobs:
         working-directory: ./rust
         env:
           RUSTFLAGS: "-D warnings"
-        run: cargo check --features ${{ matrix.features }}
+        run: cargo check
 
   clippy:
     name: cargo-clippy
     runs-on: ubuntu-latest
     strategy:
-      matrix:
-        features: [default]
       fail-fast: true
     steps:
       - name: Checkout repository
@@ -121,14 +117,12 @@ jobs:
 
       - name: cargo clippy
         working-directory: ./rust
-        run: cargo clippy --features ${{ matrix.features }} -- -D warnings
+        run: cargo clippy -- -D warnings
 
   test:
     name: cargo-test
     runs-on: ubuntu-latest
     strategy:
-      matrix:
-        features: [default]
       fail-fast: true
     steps:
       - name: Checkout repository
@@ -162,20 +156,18 @@ jobs:
         working-directory: ./rust
         env:
           RUSTFLAGS: "-D warnings"
-        run: cargo test --features ${{ matrix.features }} --no-run
+        run: cargo test --no-run
 
       - name: Run unit tests
         working-directory: ./rust
         env:
           RUSTFLAGS: "-D warnings"
-        run: cargo test --features ${{ matrix.features }}
+        run: cargo test
 
   smoke-test:
     name: cargo-smoke-test
     runs-on: ubuntu-latest
     strategy:
-      matrix:
-        features: [default]
       fail-fast: true
     steps:
       - name: Checkout repository
