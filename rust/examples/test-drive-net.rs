@@ -4,14 +4,12 @@ extern crate tracing;
 use structopt::StructOpt;
 use tokio::signal;
 use tracing_subscriber::*;
-use xaynet::{
-    client::{
-        api::{HttpApiClient, HttpApiClientError},
-        Client,
-        ClientError,
-    },
-    mask::{FromPrimitives, Model},
+use xaynet_client::{
+    api::{HttpApiClient, HttpApiClientError},
+    Client,
+    ClientError,
 };
+use xaynet_core::mask::{FromPrimitives, Model};
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "Test Drive")]

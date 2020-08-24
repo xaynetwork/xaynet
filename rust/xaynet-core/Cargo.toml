@@ -1,0 +1,30 @@
+[package]
+name = "xaynet-core"
+version = "0.9.0"
+authors = ["Xayn Engineering <engineering@xaynet.dev>"]
+edition = "2018"
+description = "`xaynet_core` provides building blocks that are common to the Xayn Network backend and client."
+license-file = "../../LICENSE"
+keywords = ["federated-learning", "fl", "ai", "machine-learning"]
+repository = "https://github.com/xaynetwork/xaynet/"
+homepage = "https://xaynet.dev/"
+
+[dependencies]
+derive_more = { version = "0.99.7", default-features = false, features = [
+    "display",
+    "from",
+    "as_ref",
+    "as_mut",
+    "into",
+    "index",
+    "index_mut",
+] }
+rand = "0.7.3"
+rand_chacha = "0.2.2"
+serde = { version = "1.0.111", features = ["derive"] }
+sodiumoxide = "0.2.5"
+num = { version = "0.3.0", features = ["serde"] }
+thiserror = "1.0.19"
+anyhow = "1.0.31"
+bitflags = "1.2.1"
+paste = "0.1.15"

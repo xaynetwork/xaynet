@@ -3,6 +3,9 @@ name = "xaynet-macros"
 version = "0.1.0"
 authors = ["Xayn Engineering <engineering@xaynet.dev>"]
 edition = "2018"
+license-file = "../../LICENSE"
+repository = "https://github.com/xaynetwork/xaynet/"
+homepage = "https://xaynet.dev/"
 
 [dependencies]
 syn = "1.0.38"
