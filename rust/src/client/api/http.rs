@@ -11,9 +11,12 @@ use reqwest::{self, Client, Response, StatusCode};
 use thiserror::Error;
 
 #[derive(Debug)]
-/// Manages client requests over HTTP.
+/// A client that communicates with the coordinator's API via
+/// HTTP(S)
 pub struct HttpApiClient {
+    /// HTTP client
     client: Client,
+    /// Coordinator URL
     address: String,
 }
 
@@ -29,6 +32,7 @@ impl HttpApiClient {
     }
 }
 
+/// Error returned by an [`HttpApiClient`]
 #[derive(Debug, Error)]
 pub enum HttpApiClientError {
     #[error("failed to deserialize data: {0}")]

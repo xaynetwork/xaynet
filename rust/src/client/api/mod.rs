@@ -1,9 +1,4 @@
-//! Provides functionality to enable clients to communicate with a XayNet
-//! service over HTTP.
-//!
-//! See the [client module] documentation since this is a private module anyways.
-//!
-//! [client module]: ../index.html
+//! This module provides clients for the Xaynet coordinator API.
 
 mod http;
 mod in_memory;
@@ -21,6 +16,7 @@ use crate::{
     UpdateSeedDict,
 };
 
+/// An interface that API clients implement
 #[async_trait]
 pub trait ApiClient {
     type Error: ::std::fmt::Debug + ::std::error::Error + 'static;
@@ -44,5 +40,6 @@ pub trait ApiClient {
     /// Retrieve the current global model, if available.
     async fn get_model(&mut self) -> Result<Option<Model>, Self::Error>;
 
+    /// Send an encrypted and signed PET message to the coordinator.
     async fn send_message(&mut self, msg: Vec<u8>) -> Result<(), Self::Error>;
 }

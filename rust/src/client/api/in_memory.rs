@@ -10,6 +10,8 @@ use crate::{
 
 use thiserror::Error;
 
+/// A client that communicates with the coordinator's API via
+/// in-memory channels.
 pub struct InMemoryApiClient {
     fetcher: Box<dyn Fetcher + Send + Sync>,
     message_handler: Box<dyn PetMessageHandler + Send + Sync>,
@@ -28,6 +30,7 @@ impl InMemoryApiClient {
     }
 }
 
+/// Error returned by an [`InMemoryApiClient`]
 #[derive(Debug, Error)]
 pub enum InMemoryApiClientError {
     #[error("a PET message could not be processed by the coordinator: {0}")]

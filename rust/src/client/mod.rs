@@ -32,34 +32,6 @@
 //! coupled with the workings of the C-API SDK, but this may well change in a
 //! future version to be more independently reusable.
 //!
-//! ## Requests via Proxy
-//! There is a [`Proxy`] which a [`Client`] can use to communicate with the
-//! service. To summarise, the proxy:
-//!
-//! * Wraps either an in-memory service (for local comms) or a _client request_
-//! object (for remote comms over HTTP).
-//! * In the latter case, deals with logging and wrapping of network errors.
-//! * Deals with deserialization
-//!
-//! The client request object is responsible for building the HTTP request and
-//! extracting the response body. As an example:
-//!
-//! ```no_rust
-//! async fn get_sums(&self) -> Result<Option<bytes::Bytes>, reqwest::Error>
-//! ```
-//!
-//! issues a GET request for the sum dictionary. The return type reflects the
-//! presence of networking `Error`s, but also the situation where the dictionary
-//! is simply just not yet available on the service. That is, the type also
-//! reflects the _optionality_ of the data availability.
-//!
-//! [`Proxy`] essentially takes this (deserializing the `Bytes` into a `SumDict`
-//! while handling `Error`s into [`ClientError`]s) to expose the overall method
-//!
-//! ```no_rust
-//! async fn get_sums(&self) -> Result<Option<SumDict>, ClientError>
-//! ```
-//!
 //! [`check_task`]: #method.check_task
 //! [`compose_update_message`]: #method.compose_update_message
 //! [`compose_sum_message`]: #method.compose_sum_message

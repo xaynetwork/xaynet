@@ -160,18 +160,23 @@ the `test-drive-net` example, for illustrative purposes.
 ```no_run
 use tokio::signal;
 use xaynet::{
-    client::{Client, ClientError},
+    client::{
+        api::{HttpApiClient, HttpApiClientError},
+        Client,
+        ClientError,
+    },
     mask::{FromPrimitives, Model},
 };
 
 #[tokio::main]
-async fn main() -> Result<(), ClientError> {
+async fn main() -> Result<(), ClientError<HttpApiClientError>> {
     let len = 4_usize;
     let model = Model::from_primitives(vec![0; len].into_iter()).unwrap();
 
     let mut clients = Vec::with_capacity(20_usize);
     for id in 0..20 {
-        let mut client = Client::new_with_addr(1, id, "http://127.0.0.1:8081")?;
+        let api_client = HttpApiClient::new("http://127.0.0.1:8081");
+        let mut client = Client::new(1, id, api_client)?;
         client.local_model = Some(model.clone());
         let join_hdl = tokio::spawn(async move {
             tokio::select! {

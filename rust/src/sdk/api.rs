@@ -167,12 +167,12 @@ pub unsafe extern "C" fn new_client(address: *const c_char, period: c_ulonglong)
 /// - `1`: client panicked due to unexpected/unhandled error
 /// - `2`: client stopped due to error [`ParticipantInitErr`]
 /// - `3`: client stopped due to error [`ParticipantErr`]
-/// - `8`: client stopped due to error [`Fetch`]
-/// - `9`: client stopped due to error [`PetMessage`]
-/// - `10`: client stopped due to error [`TooEarly`]
-/// - `11`: client stopped due to error [`RoundOutdated`]
+/// - `4`: client stopped due to error [`TooEarly`]
+/// - `5`: client stopped due to error [`RoundOutdated`]
+/// - `6`: client stopped due to error [`Api`]
 ///
 /// # Safety
+///
 /// The method dereferences from the raw pointer arguments. Therefore, the behavior of the method is
 /// undefined if the arguments don't point to valid objects.
 ///
@@ -181,10 +181,9 @@ pub unsafe extern "C" fn new_client(address: *const c_char, period: c_ulonglong)
 ///
 /// [`ParticipantInitErr`]: ../../client/enum.ClientError.html#variant.ParticipantInitErr
 /// [`ParticipantErr`]: ../../client/enum.ClientError.html#variant.ParticipantErr
-/// [`Fetch`]: ../../client/enum.ClientError.html#variant.Fetch
-/// [`PetMessage`]: ../../client/enum.ClientError.html#variant.PetMessage
 /// [`TooEarly`]: ../../client/enum.ClientError.html#variant.TooEarly
 /// [`RoundOutdated`]: ../../client/enum.ClientError.html#variant.RoundOutdated
+/// [`Api`]: ../../client/enum.ClientError.html#variant.Api
 pub unsafe extern "C" fn run_client(client: *mut FFIClient) -> c_int {
     if client.is_null() {
         return -1_i32 as c_int;
