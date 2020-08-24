@@ -1,5 +1,6 @@
 use crate::{
     client::{
+        api::ApiClient,
         mobile_client::participant::{
             Awaiting,
             Participant,
@@ -9,7 +10,6 @@ use crate::{
             Sum2,
             Update,
         },
-        ApiClient,
         ClientError,
     },
     common::RoundParameters,

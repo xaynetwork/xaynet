@@ -84,8 +84,7 @@ use crate::{
 #[doc(hidden)]
 pub mod mobile_client;
 
-pub mod request;
-pub use request::ApiClient;
+pub mod api;
 
 mod participant;
 pub use participant::{Participant, Task};
@@ -117,7 +116,7 @@ pub enum ClientError<E: ::std::error::Error + ::std::fmt::Debug + 'static> {
 /// [`Client`] is responsible for communicating with the service, deserialising
 /// its messages and delegating their processing to the underlying
 /// [`Participant`].
-pub struct Client<C: ApiClient> {
+pub struct Client<C: api::ApiClient> {
     /// The underlying [`Participant`]
     pub(crate) participant: Participant,
 
@@ -147,7 +146,7 @@ pub struct Client<C: ApiClient> {
 
 impl<C> Client<C>
 where
-    C: ApiClient,
+    C: api::ApiClient,
 {
     /// Create a new [`Client`] with a given service address.
     ///

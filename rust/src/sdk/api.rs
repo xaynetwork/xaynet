@@ -51,7 +51,7 @@ use tokio::{
 };
 
 use crate::{
-    client::{request::HttpApiClient, Client, ClientError, Task},
+    client::{api::HttpApiClient, Client, ClientError, Task},
     mask::model::{FromPrimitives, IntoPrimitives, Model},
 };
 

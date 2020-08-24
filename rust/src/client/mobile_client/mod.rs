@@ -3,11 +3,11 @@ pub mod participant;
 
 use crate::{
     client::{
+        api::HttpApiClient,
         mobile_client::{
             client::{get_global_model, ClientStateMachine, LocalModel},
             participant::ParticipantSettings,
         },
-        request::HttpApiClient,
     },
     crypto::{SecretSigningKey, SigningKeyPair},
     mask::model::Model,
