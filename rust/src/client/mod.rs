@@ -32,34 +32,6 @@
 //! coupled with the workings of the C-API SDK, but this may well change in a
 //! future version to be more independently reusable.
 //!
-//! ## Requests via Proxy
-//! There is a [`Proxy`] which a [`Client`] can use to communicate with the
-//! service. To summarise, the proxy:
-//!
-//! * Wraps either an in-memory service (for local comms) or a _client request_
-//! object (for remote comms over HTTP).
-//! * In the latter case, deals with logging and wrapping of network errors.
-//! * Deals with deserialization
-//!
-//! The client request object is responsible for building the HTTP request and
-//! extracting the response body. As an example:
-//!
-//! ```no_rust
-//! async fn get_sums(&self) -> Result<Option<bytes::Bytes>, reqwest::Error>
-//! ```
-//!
-//! issues a GET request for the sum dictionary. The return type reflects the
-//! presence of networking `Error`s, but also the situation where the dictionary
-//! is simply just not yet available on the service. That is, the type also
-//! reflects the _optionality_ of the data availability.
-//!
-//! [`Proxy`] essentially takes this (deserializing the `Bytes` into a `SumDict`
-//! while handling `Error`s into [`ClientError`]s) to expose the overall method
-//!
-//! ```no_rust
-//! async fn get_sums(&self) -> Result<Option<SumDict>, ClientError>
-//! ```
-//!
 //! [`check_task`]: #method.check_task
 //! [`compose_update_message`]: #method.compose_update_message
 //! [`compose_sum_message`]: #method.compose_sum_message
@@ -67,7 +39,7 @@
 //! [`start()`]: #method.start
 //! [`during_round()`]: #method.during_round
 
-use std::{default::Default, time::Duration};
+use std::time::Duration;
 
 use thiserror::Error;
 use tokio::time;
@@ -76,7 +48,6 @@ use crate::{
     crypto::ByteObject,
     mask::model::Model,
     sdk::api::CachedModel,
-    services::{FetchError, Fetcher, PetMessageError, PetMessageHandler},
     CoordinatorPublicKey,
     InitError,
     PetError,
@@ -85,46 +56,25 @@ use crate::{
 #[doc(hidden)]
 pub mod mobile_client;
 
-mod request;
-pub use request::Proxy;
+pub mod api;
 
 mod participant;
 pub use participant::{Participant, Task};
 
 #[derive(Debug, Error)]
 /// Client-side errors
-pub enum ClientError {
+pub enum ClientError<E: ::std::error::Error + ::std::fmt::Debug + 'static> {
     #[error("failed to initialise participant: {0}")]
     /// Failed to initialise participant.
     ParticipantInitErr(InitError),
 
-    #[error("Failed to retrieve data: {0}")]
-    /// Failed to retrieve data.
-    Fetch(FetchError),
-
-    #[error("Failed to handle PET message: {0}")]
+    #[error("an API request failed: {0}")]
     /// Failed to handle PET message.
-    PetMessage(PetMessageError),
+    Api(#[from] E),
 
     #[error("error arising from participant")]
     /// Error arising from participant.
     ParticipantErr(PetError),
-
-    #[error("failed to deserialise service data: {0}")]
-    /// Failed to deserialise service data.
-    DeserialiseErr(bincode::Error),
-
-    #[error("network-related error: {0}")]
-    /// Network-related error.
-    NetworkErr(reqwest::Error),
-
-    #[error("failed to parse service data")]
-    /// Failed to parse service data.
-    ParseErr,
-
-    #[error("unexpected client error")]
-    /// Unexpected client error.
-    GeneralErr,
 
     #[error("{0} not ready yet")]
     TooEarly(&'static str),
@@ -138,7 +88,7 @@ pub enum ClientError {
 /// [`Client`] is responsible for communicating with the service, deserialising
 /// its messages and delegating their processing to the underlying
 /// [`Participant`].
-pub struct Client {
+pub struct Client<C: api::ApiClient> {
     /// The underlying [`Participant`]
     pub(crate) participant: Participant,
 
@@ -162,71 +112,14 @@ pub struct Client {
     /// Identifier for this client
     id: u32,
 
-    /// Proxy for the service
-    proxy: Proxy,
+    /// Client for the services
+    client: C,
 }
 
-impl Default for Client {
-    fn default() -> Self {
-        Self {
-            participant: Participant::default(),
-            interval: time::interval(Duration::from_secs(1)),
-            coordinator_pk: CoordinatorPublicKey::zeroed(),
-            has_new_coord_pk_since_last_check: false,
-            global_model: None,
-            cached_model: None,
-            has_new_global_model_since_last_check: false,
-            has_new_global_model_since_last_cache: false,
-            local_model: None,
-            scalar: 1.0,
-            id: 0,
-            proxy: Proxy::new_remote("http://127.0.0.1:3030"),
-        }
-    }
-}
-
-impl Client {
-    #[allow(dead_code)]
-    /// Create a new [`Client`] that connects to a default service address.
-    ///
-    /// * `period`: time period at which to poll for service data, in seconds.
-    ///
-    /// # Errors
-    /// Returns a `ParticipantInitErr` if the underlying [`Participant`] is
-    /// unable to initialize.
-    pub(crate) fn new(period: u64) -> Result<Self, ClientError> {
-        Ok(Self {
-            participant: Participant::new().map_err(ClientError::ParticipantInitErr)?,
-            interval: time::interval(Duration::from_secs(period)),
-            ..Self::default()
-        })
-    }
-
-    /// Create a new [`Client`] with a given service handle.
-    ///
-    /// * `period`: time period at which to poll for service data, in seconds.
-    /// * `id`: an ID to assign to the [`Client`].
-    /// * `fetcher`: fetcher for in-memory service proxy.
-    /// * `message_handler`: message handler for in-memory service proxy.
-    ///
-    /// # Errors
-    /// Returns a `ParticipantInitErr` if the underlying [`Participant`] is
-    /// unable to initialize.
-    pub fn new_with_hdl(
-        period: u64,
-        id: u32,
-        fetcher: impl Fetcher + 'static + Send + Sync,
-        message_handler: impl PetMessageHandler + 'static + Send + Sync,
-    ) -> Result<Self, ClientError> {
-        Ok(Self {
-            participant: Participant::new().map_err(ClientError::ParticipantInitErr)?,
-            interval: time::interval(Duration::from_secs(period)),
-            id,
-            proxy: Proxy::new_in_mem(fetcher, message_handler),
-            ..Self::default()
-        })
-    }
-
+impl<C> Client<C>
+where
+    C: api::ApiClient,
+{
     /// Create a new [`Client`] with a given service address.
     ///
     /// * `period`: time period at which to poll for service data, in seconds.
@@ -236,13 +129,23 @@ impl Client {
     /// # Errors
     /// Returns a `ParticipantInitErr` if the underlying [`Participant`] is
     /// unable to initialize.
-    pub fn new_with_addr(period: u64, id: u32, addr: &str) -> Result<Self, ClientError> {
+    pub fn new(period: u64, id: u32, api: C) -> Result<Self, ClientError<C::Error>> {
         Ok(Self {
             participant: Participant::new().map_err(ClientError::ParticipantInitErr)?,
             interval: time::interval(Duration::from_secs(period)),
+            coordinator_pk: CoordinatorPublicKey::zeroed(),
+            has_new_coord_pk_since_last_check: false,
+
+            global_model: None,
+            cached_model: None,
+            has_new_global_model_since_last_check: false,
+            has_new_global_model_since_last_cache: false,
+
+            local_model: None,
+            scalar: 1.0,
+
             id,
-            proxy: Proxy::new_remote(addr),
-            ..Self::default()
+            client: api,
         })
     }
 
@@ -252,7 +155,7 @@ impl Client {
     /// # Errors
     /// A [`ClientError`] may be returned when the round is not able to complete
     /// successfully.
-    pub async fn start(&mut self) -> Result<(), ClientError> {
+    pub async fn start(&mut self) -> Result<(), ClientError<C::Error>> {
         loop {
             self.during_round().await?;
         }
@@ -264,10 +167,10 @@ impl Client {
     /// # Errors
     /// A [`ClientError`] may be returned when the round is not able to complete
     /// successfully.
-    pub async fn during_round(&mut self) -> Result<Task, ClientError> {
+    pub async fn during_round(&mut self) -> Result<Task, ClientError<C::Error>> {
         debug!(client_id = %self.id, "polling for new round parameters");
         loop {
-            let model = self.proxy.get_model().await?;
+            let model = self.client.get_model().await?;
             // update our global model where necessary
             match (model, &self.global_model) {
                 (Some(new_model), None) => self.set_global_model(new_model),
@@ -278,7 +181,7 @@ impl Client {
                 _ => trace!(client_id = %self.id, "global model still fresh"),
             }
 
-            let round_params = self.proxy.get_round_params().await?;
+            let round_params = self.client.get_round_params().await?;
             if round_params.pk != self.coordinator_pk {
                 debug!(client_id = %self.id, "new round parameters received, determining task.");
                 self.coordinator_pk = round_params.pk;
@@ -305,22 +208,22 @@ impl Client {
     }
 
     /// Work flow for unselected [`Client`]s.
-    async fn unselected(&mut self) -> Result<Task, ClientError> {
+    async fn unselected(&mut self) -> Result<Task, ClientError<C::Error>> {
         debug!(client_id = %self.id, "not selected");
         Ok(Task::None)
     }
 
     /// Work flow for [`Client`]s selected as sum participants.
-    async fn summer(&mut self) -> Result<Task, ClientError> {
+    async fn summer(&mut self) -> Result<Task, ClientError<C::Error>> {
         info!(client_id = %self.id, "selected to sum");
         let msg = self.participant.compose_sum_message(&self.coordinator_pk);
         let sealed_msg = self.participant.seal_message(&self.coordinator_pk, &msg);
 
-        self.proxy.post_message(sealed_msg).await?;
+        self.client.send_message(sealed_msg).await?;
 
         debug!(client_id = %self.id, "polling for model/mask length");
         let length = loop {
-            if let Some(length) = self.proxy.get_mask_length().await? {
+            if let Some(length) = self.client.get_mask_length().await? {
                 if length > usize::MAX as u64 {
                     return Err(ClientError::ParticipantErr(PetError::InvalidModel));
                 } else {
@@ -333,7 +236,7 @@ impl Client {
 
         debug!(client_id = %self.id, "sum message sent, polling for seed dict.");
         loop {
-            if let Some(seeds) = self.proxy.get_seeds(self.participant.pk).await? {
+            if let Some(seeds) = self.client.get_seeds(self.participant.pk).await? {
                 debug!(client_id = %self.id, "seed dict received, sending sum2 message.");
                 let msg = self
                     .participant
@@ -343,7 +246,7 @@ impl Client {
                         ClientError::ParticipantErr(e)
                     })?;
                 let sealed_msg = self.participant.seal_message(&self.coordinator_pk, &msg);
-                self.proxy.post_message(sealed_msg).await?;
+                self.client.send_message(sealed_msg).await?;
 
                 info!(client_id = %self.id, "sum participant completed a round");
                 break Ok(Task::Sum);
@@ -354,7 +257,7 @@ impl Client {
     }
 
     /// Work flow for [`Client`]s selected as update participants.
-    async fn updater(&mut self) -> Result<Task, ClientError> {
+    async fn updater(&mut self) -> Result<Task, ClientError<C::Error>> {
         info!(client_id = %self.id, "selected to update");
 
         debug!(client_id = %self.id, "polling for local model");
@@ -370,7 +273,7 @@ impl Client {
 
         debug!(client_id = %self.id, "polling for sum dict");
         loop {
-            if let Some(sums) = self.proxy.get_sums().await? {
+            if let Some(sums) = self.client.get_sums().await? {
                 debug!(client_id = %self.id, "sum dict received, sending update message.");
                 let msg = self.participant.compose_update_message(
                     self.coordinator_pk,
@@ -379,7 +282,7 @@ impl Client {
                     model,
                 );
                 let sealed_msg = self.participant.seal_message(&self.coordinator_pk, &msg);
-                self.proxy.post_message(sealed_msg).await?;
+                self.client.send_message(sealed_msg).await?;
 
                 info!(client_id = %self.id, "update participant completed a round");
                 break Ok(Task::Update);

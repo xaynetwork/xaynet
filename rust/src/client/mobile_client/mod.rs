@@ -3,18 +3,18 @@ pub mod participant;
 
 use crate::{
     client::{
+        api::HttpApiClient,
         mobile_client::{
             client::{get_global_model, ClientStateMachine, LocalModel},
             participant::ParticipantSettings,
         },
-        Proxy,
     },
     crypto::{SecretSigningKey, SigningKeyPair},
     mask::model::Model,
 };
 
 pub struct MobileClient {
-    proxy: Proxy,
+    api: HttpApiClient,
     local_model: LocalModelCache,
     client_state: ClientStateMachine,
 }
@@ -31,10 +31,10 @@ impl MobileClient {
     }
 
     fn new(url: &str, client_state: ClientStateMachine) -> Self {
-        let proxy = Proxy::new_remote(url);
+        let api = HttpApiClient::new(url);
 
         Self {
-            proxy,
+            api,
             client_state,
             local_model: LocalModelCache(None),
         }
@@ -45,21 +45,21 @@ impl MobileClient {
     }
 
     pub fn get_global_model(&mut self) -> Option<Model> {
-        Self::runtime().block_on(async { get_global_model(&mut self.proxy).await })
+        Self::runtime().block_on(async { get_global_model(&mut self.api).await })
     }
 
     pub fn perform_task(self) -> Self {
         let MobileClient {
-            mut proxy,
+            mut api,
             mut local_model,
             client_state,
         } = self;
 
-        let client_state = Self::runtime()
-            .block_on(async { client_state.next(&mut proxy, &mut local_model).await });
+        let client_state =
+            Self::runtime().block_on(async { client_state.next(&mut api, &mut local_model).await });
 
         Self {
-            proxy,
+            api,
             local_model,
             client_state,
         }
