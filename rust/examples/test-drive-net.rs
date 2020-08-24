@@ -5,7 +5,11 @@ use structopt::StructOpt;
 use tokio::signal;
 use tracing_subscriber::*;
 use xaynet::{
-    client::{Client, ClientError},
+    client::{
+        api::{HttpApiClient, HttpApiClientError},
+        Client,
+        ClientError,
+    },
     mask::{FromPrimitives, Model},
 };
 
@@ -34,7 +38,7 @@ struct Opt {
 /// learning session, intended for use as a mini integration test.
 /// It assumes that a coordinator is already running.
 #[tokio::main]
-async fn main() -> Result<(), ClientError> {
+async fn main() -> Result<(), ClientError<HttpApiClientError>> {
     let _fmt_subscriber = FmtSubscriber::builder()
         .with_env_filter(EnvFilter::from_default_env())
         .with_ansi(true)
@@ -48,7 +52,7 @@ async fn main() -> Result<(), ClientError> {
 
     let mut clients = Vec::with_capacity(opt.nb_client as usize);
     for id in 0..opt.nb_client {
-        let mut client = Client::new_with_addr(opt.period, id, &opt.url)?;
+        let mut client = Client::new(opt.period, id, HttpApiClient::new(&opt.url))?;
         client.local_model = Some(model.clone());
         let join_hdl = tokio::spawn(async move {
             tokio::select! {

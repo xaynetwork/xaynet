@@ -9,8 +9,8 @@ use crate::{
             Sum2,
             Update,
         },
+        ApiClient,
         ClientError,
-        Proxy,
     },
     common::RoundParameters,
     crypto::ByteObject,
@@ -32,9 +32,12 @@ pub struct ClientState<Type> {
 }
 
 impl<Type> ClientState<Type> {
-    async fn check_round_freshness(&self, proxy: &mut Proxy) -> Result<(), ClientError> {
+    async fn check_round_freshness<T: ApiClient>(
+        &self,
+        api: &mut T,
+    ) -> Result<(), ClientError<T::Error>> {
         debug!("fetching round parameters");
-        let round_params = proxy.get_round_params().await?;
+        let round_params = api.get_round_params().await?;
         if round_params.seed != self.round_params.seed {
             info!("new round parameters");
             Err(ClientError::RoundOutdated)
@@ -57,9 +60,9 @@ impl ClientState<Awaiting> {
         }
     }
 
-    async fn next(mut self, proxy: &mut Proxy) -> ClientStateMachine {
+    async fn next<T: ApiClient>(mut self, api: &mut T) -> ClientStateMachine {
         info!("awaiting task");
-        let new_round_param = match proxy.get_round_params().await {
+        let new_round_param = match api.get_round_params().await {
             Ok(new_round_param) => new_round_param,
             Err(err) => {
                 error!("{:?}", err);
@@ -104,10 +107,10 @@ impl ClientState<Sum> {
         }
     }
 
-    async fn next(mut self, proxy: &mut Proxy) -> ClientStateMachine {
+    async fn next<T: ApiClient>(mut self, api: &mut T) -> ClientStateMachine {
         info!("selected to sum");
 
-        match self.run(proxy).await {
+        match self.run(api).await {
             Ok(_) => self.into_sum2().into(),
             Err(ClientError::RoundOutdated) => self.reset().into(),
             Err(err) => {
@@ -117,8 +120,8 @@ impl ClientState<Sum> {
         }
     }
 
-    async fn run(&mut self, proxy: &mut Proxy) -> Result<(), ClientError> {
-        self.check_round_freshness(proxy).await?;
+    async fn run<T: ApiClient>(&mut self, api: &mut T) -> Result<(), ClientError<T::Error>> {
+        self.check_round_freshness(api).await?;
 
         let sum_msg = self.participant.compose_sum_message(&self.round_params.pk);
         let sealed_msg = self
@@ -126,7 +129,7 @@ impl ClientState<Sum> {
             .seal_message(&self.round_params.pk, &sum_msg);
 
         debug!("sending sum message");
-        proxy.post_message(sealed_msg).await?;
+        api.send_message(sealed_msg).await?;
         debug!("sum message sent");
         Ok(())
     }
@@ -144,14 +147,14 @@ impl ClientState<Update> {
         }
     }
 
-    async fn next<L: LocalModel>(
+    async fn next<L: LocalModel, T: ApiClient>(
         mut self,
-        proxy: &mut Proxy,
+        api: &mut T,
         local_model: &mut L,
     ) -> ClientStateMachine {
         info!("selected to update");
 
-        match self.run(proxy, local_model).await {
+        match self.run(api, local_model).await {
             Ok(_) | Err(ClientError::RoundOutdated) => self.reset().into(),
             Err(err) => {
                 error!("{:?}", err);
@@ -160,12 +163,12 @@ impl ClientState<Update> {
         }
     }
 
-    async fn run<L: LocalModel>(
+    async fn run<L: LocalModel, T: ApiClient>(
         &mut self,
-        proxy: &mut Proxy,
+        api: &mut T,
         local_model: &mut L,
-    ) -> Result<(), ClientError> {
-        self.check_round_freshness(proxy).await?;
+    ) -> Result<(), ClientError<T::Error>> {
+        self.check_round_freshness(api).await?;
 
         debug!("polling for local model");
         let local_model = local_model
@@ -177,7 +180,7 @@ impl ClientState<Update> {
         let scalar = 1_f64; // TODO parametrise this!
 
         debug!("polling for sum dict");
-        let sums = proxy
+        let sums = api
             .get_sums()
             .await?
             .ok_or(ClientError::TooEarly("sum dict"))?;
@@ -193,7 +196,7 @@ impl ClientState<Update> {
             .seal_message(&self.round_params.pk, &upd_msg);
 
         debug!("sending update message");
-        proxy.post_message(sealed_msg).await?;
+        api.send_message(sealed_msg).await?;
         info!("update participant completed a round");
         Ok(())
     }
@@ -207,10 +210,10 @@ impl ClientState<Sum2> {
         }
     }
 
-    async fn next(mut self, proxy: &mut Proxy) -> ClientStateMachine {
+    async fn next<T: ApiClient>(mut self, api: &mut T) -> ClientStateMachine {
         info!("selected to sum2");
 
-        match self.run(proxy).await {
+        match self.run(api).await {
             Ok(_) | Err(ClientError::RoundOutdated) => self.reset().into(),
             Err(err) => {
                 error!("{:?}", err);
@@ -219,11 +222,11 @@ impl ClientState<Sum2> {
         }
     }
 
-    async fn run(&mut self, proxy: &mut Proxy) -> Result<(), ClientError> {
-        self.check_round_freshness(proxy).await?;
+    async fn run<T: ApiClient>(&mut self, api: &mut T) -> Result<(), ClientError<T::Error>> {
+        self.check_round_freshness(api).await?;
 
         debug!("polling for model/mask length");
-        let length = proxy
+        let length = api
             .get_mask_length()
             .await?
             .ok_or(ClientError::TooEarly("length"))?;
@@ -232,7 +235,7 @@ impl ClientState<Sum2> {
         };
 
         debug!("polling for seed dict");
-        let seeds = proxy
+        let seeds = api
             .get_seeds(self.participant.get_participant_pk())
             .await?
             .ok_or(ClientError::TooEarly("seeds"))?;
@@ -249,14 +252,14 @@ impl ClientState<Sum2> {
             .seal_message(&self.round_params.pk, &sum2_msg);
 
         debug!("sending sum2 message");
-        proxy.post_message(sealed_msg).await?;
+        api.send_message(sealed_msg).await?;
         info!("sum participant completed a round");
         Ok(())
     }
 }
 
-pub async fn get_global_model(proxy: &mut Proxy) -> Option<Model> {
-    if let Ok(model) = proxy.get_model().await {
+pub async fn get_global_model<T: ApiClient>(api: &mut T) -> Option<Model> {
+    if let Ok(model) = api.get_model().await {
         debug!("fetched global model");
         model
     } else {
@@ -285,12 +288,12 @@ impl ClientStateMachine {
         .into())
     }
 
-    pub async fn next<L: LocalModel>(self, proxy: &mut Proxy, local_model: &mut L) -> Self {
+    pub async fn next<L: LocalModel, T: ApiClient>(self, api: &mut T, local_model: &mut L) -> Self {
         match self {
-            ClientStateMachine::Awaiting(state) => state.next(proxy).await,
-            ClientStateMachine::Sum(state) => state.next(proxy).await,
-            ClientStateMachine::Update(state) => state.next(proxy, local_model).await,
-            ClientStateMachine::Sum2(state) => state.next(proxy).await,
+            ClientStateMachine::Awaiting(state) => state.next(api).await,
+            ClientStateMachine::Sum(state) => state.next(api).await,
+            ClientStateMachine::Update(state) => state.next(api, local_model).await,
+            ClientStateMachine::Sum2(state) => state.next(api).await,
         }
     }
 }

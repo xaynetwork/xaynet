@@ -6,7 +6,6 @@
 //!   - [`MaskLengthService`]: for fetching the length of the model
 //!   - [`ModelService`]: for fetching the last available global model
 //!   - [`RoundParamsService`]: for fetching the current round parameters
-//!   - [`ScalarService`]: for fetching the scalar used for aggregation
 //!   - [`SeedDictService`]: for fetching the seed dictionary
 //!   - [`SumDictService`]: for fetching the sum dictionary
 //! - the services for handling PET messages from the participant:

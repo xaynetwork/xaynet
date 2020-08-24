@@ -51,7 +51,7 @@ use tokio::{
 };
 
 use crate::{
-    client::{Client, ClientError, Task},
+    client::{request::HttpApiClient, Client, ClientError, Task},
     mask::model::{FromPrimitives, IntoPrimitives, Model},
 };
 
@@ -94,7 +94,7 @@ pub(crate) enum CachedModel {
 ///
 /// [workflow]: index.html#workflow
 pub struct FFIClient {
-    client: Client,
+    client: Client<HttpApiClient>,
     runtime: Runtime,
 }
 
@@ -143,7 +143,7 @@ pub unsafe extern "C" fn new_client(address: *const c_char, period: c_ulonglong)
         return ptr::null_mut() as *mut FFIClient;
     };
     let client = if let Ok(client) =
-        runtime.enter(move || Client::new_with_addr(period as u64, 0, address))
+        runtime.enter(move || Client::new(period as u64, 0, HttpApiClient::new(address)))
     {
         client
     } else {
@@ -167,10 +167,6 @@ pub unsafe extern "C" fn new_client(address: *const c_char, period: c_ulonglong)
 /// - `1`: client panicked due to unexpected/unhandled error
 /// - `2`: client stopped due to error [`ParticipantInitErr`]
 /// - `3`: client stopped due to error [`ParticipantErr`]
-/// - `4`: client stopped due to error [`DeserialiseErr`]
-/// - `5`: client stopped due to error [`NetworkErr`]
-/// - `6`: client stopped due to error [`ParseErr`]
-/// - `7`: client stopped due to error [`GeneralErr`]
 /// - `8`: client stopped due to error [`Fetch`]
 /// - `9`: client stopped due to error [`PetMessage`]
 /// - `10`: client stopped due to error [`TooEarly`]
@@ -185,10 +181,6 @@ pub unsafe extern "C" fn new_client(address: *const c_char, period: c_ulonglong)
 ///
 /// [`ParticipantInitErr`]: ../../client/enum.ClientError.html#variant.ParticipantInitErr
 /// [`ParticipantErr`]: ../../client/enum.ClientError.html#variant.ParticipantErr
-/// [`DeserialiseErr`]: ../../client/enum.ClientError.html#variant.DeserialiseErr
-/// [`NetworkErr`]: ../../client/enum.ClientError.html#variant.NetworkErr
-/// [`ParseErr`]: ../../client/enum.ClientError.html#variant.ParseErr
-/// [`GeneralErr`]: ../../client/enum.ClientError.html#variant.GeneralErr
 /// [`Fetch`]: ../../client/enum.ClientError.html#variant.Fetch
 /// [`PetMessage`]: ../../client/enum.ClientError.html#variant.PetMessage
 /// [`TooEarly`]: ../../client/enum.ClientError.html#variant.TooEarly
@@ -220,14 +212,9 @@ pub unsafe extern "C" fn run_client(client: *mut FFIClient) -> c_int {
         Err(_) => 1_i32 as c_int,
         Ok(Err(ClientError::ParticipantInitErr(_))) => 2_i32 as c_int,
         Ok(Err(ClientError::ParticipantErr(_))) => 3_i32 as c_int,
-        Ok(Err(ClientError::DeserialiseErr(_))) => 4_i32 as c_int,
-        Ok(Err(ClientError::NetworkErr(_))) => 5_i32 as c_int,
-        Ok(Err(ClientError::ParseErr)) => 6_i32 as c_int,
-        Ok(Err(ClientError::GeneralErr)) => 7_i32 as c_int,
-        Ok(Err(ClientError::Fetch(_))) => 8_i32 as c_int,
-        Ok(Err(ClientError::PetMessage(_))) => 9_i32 as c_int,
-        Ok(Err(ClientError::TooEarly(_))) => 10_i32 as c_int,
-        Ok(Err(ClientError::RoundOutdated)) => 11_i32 as c_int,
+        Ok(Err(ClientError::TooEarly(_))) => 4_i32 as c_int,
+        Ok(Err(ClientError::RoundOutdated)) => 5_i32 as c_int,
+        Ok(Err(ClientError::Api(_))) => 6_i32 as c_int,
     }
 }
 
@@ -723,7 +710,7 @@ mod tests {
     fn test_run_client() {
         // check for network error when running client without a service
         let client = unsafe { new_client(CString::new("0.0.0.0:0000").unwrap().as_ptr(), 10) };
-        assert_eq!(unsafe { run_client(client) }, 5);
+        assert_eq!(unsafe { run_client(client) }, 6);
         unsafe { drop_client(client, 0) };
     }
 

@@ -6,245 +6,116 @@
 //! [client module]: ../index.html
 
 use crate::{
-    client::{
-        request::Proxy::{InMem, Remote},
-        ClientError,
-    },
     common::RoundParameters,
     crypto::ByteObject,
     mask::model::Model,
-    services::{Fetcher, PetMessageHandler},
+    services::{FetchError, Fetcher, PetMessageError, PetMessageHandler},
+    state_machine::coordinator::RoundParameters,
     SumDict,
     SumParticipantPublicKey,
     UpdateSeedDict,
 };
-use bytes::Bytes;
-use reqwest::{Client, Error, IntoUrl, Response, StatusCode};
+use reqwest::{self, Client, Response, StatusCode};
+use thiserror::Error;
 
-/// Proxy for communicating with the service.
-pub enum Proxy {
-    InMem(
-        Box<dyn Fetcher + Send + Sync>,
-        Box<dyn PetMessageHandler + Send + Sync>,
-    ),
-    Remote(ClientReq),
+#[async_trait]
+pub trait ApiClient {
+    type Error: ::std::fmt::Debug + ::std::error::Error + 'static;
+
+    /// Retrieve the current round parameters
+    async fn get_round_params(&mut self) -> Result<RoundParameters, Self::Error>;
+
+    /// Retrieve the current sum dictionary, if available
+    async fn get_sums(&mut self) -> Result<Option<SumDict>, Self::Error>;
+
+    /// Retrieve the current seed dictionary for the given sum
+    /// participant, if available.
+    async fn get_seeds(
+        &mut self,
+        pk: SumParticipantPublicKey,
+    ) -> Result<Option<UpdateSeedDict>, Self::Error>;
+
+    /// Retrieve the current model/mask length, if available
+    async fn get_mask_length(&mut self) -> Result<Option<u64>, Self::Error>;
+
+    /// Retrieve the current global model, if available.
+    async fn get_model(&mut self) -> Result<Option<Model>, Self::Error>;
+
+    async fn send_message(&mut self, msg: Vec<u8>) -> Result<(), Self::Error>;
 }
 
-impl Proxy {
-    /// Creates a new proxy for remote communication with the service at the
-    /// given address.
-    pub fn new_remote(addr: &str) -> Self {
-        Remote(ClientReq::new(addr))
-    }
+pub struct InMemoryApiClient {
+    fetcher: Box<dyn Fetcher + Send + Sync>,
+    message_handler: Box<dyn PetMessageHandler + Send + Sync>,
+}
 
-    /// Creates a new proxy given a `fetcher` and `message_handler` for local
-    /// communication with an in-memory service.
-    pub fn new_in_mem(
+impl InMemoryApiClient {
+    #[allow(dead_code)]
+    pub fn new(
         fetcher: impl Fetcher + 'static + Send + Sync,
         message_handler: impl PetMessageHandler + 'static + Send + Sync,
     ) -> Self {
-        InMem(Box::new(fetcher), Box::new(message_handler))
-    }
-
-    /// Posts the given PET message to the service proxy.
-    ///
-    /// # Errors
-    /// * Return `PetMessage` if an error occurs from the in-memory proxy
-    ///   handling the message.
-    /// * Returns `NetworkErr` if a network error occurs while posting the PET
-    ///   message.
-    pub async fn post_message(&mut self, msg: Vec<u8>) -> Result<(), ClientError> {
-        match self {
-            InMem(_, hdl) => hdl
-                .handle_message(msg)
-                .await
-                .map_err(ClientError::PetMessage),
-            Remote(req) => {
-                let resp = req.post_message(msg).await.map_err(|e| {
-                    error!("failed to POST message: {}", e);
-                    ClientError::NetworkErr(e)
-                })?;
-                // erroring status codes already caught above
-                let code = resp.status();
-                if code != StatusCode::OK {
-                    warn!("unexpected HTTP status code: {}", code)
-                };
-                Ok(())
-            }
+        Self {
+            fetcher: Box::new(fetcher),
+            message_handler: Box::new(message_handler),
         }
     }
+}
 
-    /// Get the round parameters from the service proxy.
-    ///
-    /// # Errors
-    /// * Returns `Fetch` if an error occurs fetching from the in-memory proxy.
-    /// * Returns `NetworkErr` if a network error occurs while getting the data.
-    /// * Returns `DeserialiseErr` if an error occurs while deserialising the
-    ///   response.
-    pub async fn get_round_params(&mut self) -> Result<RoundParameters, ClientError> {
-        match self {
-            InMem(ref mut hdl, _) => hdl.round_params().await.map_err(ClientError::Fetch),
-            Remote(req) => {
-                let bytes = req.get_round_params().await.map_err(|e| {
-                    error!("failed to GET round parameters: {}", e);
-                    ClientError::NetworkErr(e)
-                })?;
-                bincode::deserialize(&bytes[..]).map_err(ClientError::DeserialiseErr)
-            }
-        }
+#[derive(Debug, Error)]
+pub enum InMemoryClientError {
+    #[error("a PET message could not be processed by the coordinator: {0}")]
+    Message(#[from] PetMessageError),
+
+    #[error("failed to fetch data from the coordinator: {0}")]
+    Fetch(#[from] FetchError),
+}
+
+#[async_trait]
+impl ApiClient for InMemoryApiClient {
+    type Error = InMemoryClientError;
+
+    async fn get_round_params(&mut self) -> Result<RoundParameters, Self::Error> {
+        Ok(self.fetcher.round_params().await?)
     }
 
-    /// Get the sum dictionary data from the service proxy.
-    ///
-    /// Returns `Ok(Some(data))` if the `data` is available on the
-    /// service, `Ok(None)` if it is not.
-    ///
-    /// # Errors
-    /// * Returns `Fetch` if an error occurs fetching from the in-memory proxy.
-    /// * Returns `NetworkErr` if a network error occurs while getting the data.
-    /// * Returns `DeserialiseErr` if an error occurs while deserialising the
-    ///   response.
-    pub async fn get_sums(&mut self) -> Result<Option<SumDict>, ClientError> {
-        match self {
-            InMem(ref mut hdl, _) => Ok(hdl
-                .sum_dict()
-                .await
-                .map_err(ClientError::Fetch)?
-                .map(|arc| (*arc).clone())),
-            Remote(req) => {
-                let bytes = req.get_sums().await.map_err(|e| {
-                    error!("failed to GET sum dict: {}", e);
-                    ClientError::NetworkErr(e)
-                })?;
-                if let Some(bytes) = bytes {
-                    let sum_dict =
-                        bincode::deserialize(&bytes[..]).map_err(ClientError::DeserialiseErr)?;
-                    Ok(Some(sum_dict))
-                } else {
-                    Ok(None)
-                }
-            }
-        }
+    async fn get_sums(&mut self) -> Result<Option<SumDict>, Self::Error> {
+        Ok(self.fetcher.sum_dict().await?.map(|arc| (*arc).clone()))
     }
 
-    /// Get the seed dictionary data from the service proxy.
-    ///
-    /// Returns `Ok(Some(data))` if the `data` is available on the
-    /// service, `Ok(None)` if it is not.
-    ///
-    /// # Errors
-    /// * Returns `Fetch` if an error occurs fetching from the in-memory proxy.
-    /// * Returns `NetworkErr` if a network error occurs while getting the data.
-    /// * Returns `DeserialiseErr` if an error occurs while deserialising the
-    ///   response.
-    pub async fn get_seeds(
+    async fn get_seeds(
         &mut self,
         pk: SumParticipantPublicKey,
-    ) -> Result<Option<UpdateSeedDict>, ClientError> {
-        match self {
-            InMem(ref mut hdl, _) => Ok(hdl
-                .seed_dict()
-                .await
-                .map_err(ClientError::Fetch)?
-                .and_then(|dict| dict.get(&pk).cloned())),
-            Remote(req) => req
-                .get_seeds(pk)
-                .await
-                .map_err(|e| {
-                    error!("failed to GET seed dict: {}", e);
-                    ClientError::NetworkErr(e)
-                })?
-                .map(|bytes| {
-                    let vec = bytes.to_vec();
-                    bincode::deserialize(&vec[..]).map_err(|e| {
-                        error!("failed to deserialize seed dict: {:?}", e);
-                        ClientError::DeserialiseErr(e)
-                    })
-                })
-                .transpose(),
-        }
+    ) -> Result<Option<UpdateSeedDict>, Self::Error> {
+        Ok(self
+            .fetcher
+            .seed_dict()
+            .await?
+            .and_then(|dict| dict.get(&pk).cloned()))
     }
 
-    /// Get the model/mask length data from the service proxy.
-    ///
-    /// Returns `Ok(Some(data))` if the `data` is available on the
-    /// service, `Ok(None)` if it is not.
-    ///
-    /// # Errors
-    /// * Returns `Fetch` if an error occurs fetching from the in-memory proxy.
-    /// * Returns `NetworkErr` if a network error occurs while getting the data.
-    /// * Returns `ParseErr` if an error occurs while parsing the response.
-    pub async fn get_mask_length(&mut self) -> Result<Option<u64>, ClientError> {
-        match self {
-            // FIXME: don't cast here. The service just return an u64
-            // not an usize
-            InMem(ref mut hdl, _) => Ok(hdl
-                .mask_length()
-                .await
-                .map_err(ClientError::Fetch)?
-                .map(|len| len as u64)),
-            Remote(req) => req
-                .get_mask_length()
-                .await
-                .map_err(|e| {
-                    error!("failed to GET model/mask length: {}", e);
-                    ClientError::NetworkErr(e)
-                })?
-                .map(|text| {
-                    text.parse().map_err(|e| {
-                        error!("failed to parse model/mask length: {}: {:?}", e, text);
-                        ClientError::ParseErr
-                    })
-                })
-                .transpose(),
-        }
+    async fn get_mask_length(&mut self) -> Result<Option<u64>, Self::Error> {
+        Ok(self.fetcher.mask_length().await?.map(|res| res as u64))
     }
 
-    /// Get the global model data from the service proxy.
-    ///
-    /// Returns `Ok(Some(data))` if the `data` is available on the
-    /// service, `Ok(None)` if it is not.
-    ///
-    /// # Errors
-    /// * Returns `Fetch` if an error occurs fetching from the in-memory proxy.
-    /// * Returns `NetworkErr` if a network error occurs while getting the data.
-    /// * Returns `DeserialiseErr` if an error occurs while deserialising the
-    ///   response.
-    pub async fn get_model(&mut self) -> Result<Option<Model>, ClientError> {
-        match self {
-            InMem(ref mut hdl, _) => Ok(hdl
-                .model()
-                .await
-                .map_err(ClientError::Fetch)?
-                .map(|arc| (*arc).clone())),
-            Remote(req) => req
-                .get_model()
-                .await
-                .map_err(|e| {
-                    error!("failed to GET model: {}", e);
-                    ClientError::NetworkErr(e)
-                })?
-                .map(|bytes| {
-                    let vec = bytes.to_vec();
-                    bincode::deserialize(&vec[..]).map_err(|e| {
-                        error!("failed to deserialize model: {:?}", e);
-                        ClientError::DeserialiseErr(e)
-                    })
-                })
-                .transpose(),
-        }
+    async fn get_model(&mut self) -> Result<Option<Model>, Self::Error> {
+        Ok(self.fetcher.model().await?.map(|arc| (*arc).clone()))
+    }
+
+    async fn send_message(&mut self, message: Vec<u8>) -> Result<(), Self::Error> {
+        Ok(self.message_handler.handle_message(message).await?)
     }
 }
 
 #[derive(Debug)]
 /// Manages client requests over HTTP.
-pub struct ClientReq {
+pub struct HttpApiClient {
     client: Client,
     address: String,
 }
 
-impl ClientReq {
-    fn new<S>(address: S) -> Self
+impl HttpApiClient {
+    pub fn new<S>(address: S) -> Self
     where
         S: Into<String>,
     {
@@ -253,27 +124,66 @@ impl ClientReq {
             address: address.into(),
         }
     }
+}
 
-    async fn post_message(&self, msg: Vec<u8>) -> Result<Response, Error> {
-        let url = format!("{}/message", self.address);
-        let response = self.client.post(&url).body(msg).send().await?;
-        response.error_for_status()
+#[derive(Debug, Error)]
+pub enum HttpApiClientError {
+    #[error("failed to deserialize data: {0}")]
+    Deserialize(String),
+
+    #[error("HTTP request failed: {0}")]
+    Http(#[from] reqwest::Error),
+
+    #[error("Unexpected response from the coordinator: {:?}", .0)]
+    UnexpectedResponse(Response),
+}
+
+impl From<bincode::Error> for HttpApiClientError {
+    fn from(e: bincode::Error) -> Self {
+        Self::Deserialize(format!("{:?}", e))
     }
+}
 
-    async fn get_round_params(&self) -> Result<Bytes, Error> {
+impl From<::std::num::ParseIntError> for HttpApiClientError {
+    fn from(e: ::std::num::ParseIntError) -> Self {
+        Self::Deserialize(format!("{:?}", e))
+    }
+}
+
+#[async_trait]
+impl ApiClient for HttpApiClient {
+    type Error = HttpApiClientError;
+
+    async fn get_round_params(&mut self) -> Result<RoundParameters, Self::Error> {
         let url = format!("{}/params", self.address);
-        // FIXME don't unwrap
-        Ok(self.simple_get_bytes(&url).await?.unwrap())
+        let resp = self.client.get(&url).send().await?.error_for_status()?;
+        if let StatusCode::OK = resp.status() {
+            let body = resp.bytes().await?; //
+            Ok(bincode::deserialize(&body[..])?)
+        } else {
+            Err(HttpApiClientError::UnexpectedResponse(resp))
+        }
     }
 
-    async fn get_sums(&self) -> Result<Option<Bytes>, Error> {
+    async fn get_sums(&mut self) -> Result<Option<SumDict>, Self::Error> {
         let url = format!("{}/sums", self.address);
-        self.simple_get_bytes(&url).await
+        let resp = self.client.get(&url).send().await?.error_for_status()?;
+        match resp.status() {
+            StatusCode::OK => {
+                let body = resp.bytes().await?;
+                Ok(Some(bincode::deserialize(&body[..])?))
+            }
+            StatusCode::NO_CONTENT => Ok(None),
+            _ => Err(HttpApiClientError::UnexpectedResponse(resp)),
+        }
     }
 
-    async fn get_seeds(&self, pk: SumParticipantPublicKey) -> Result<Option<Bytes>, Error> {
+    async fn get_seeds(
+        &mut self,
+        pk: SumParticipantPublicKey,
+    ) -> Result<Option<UpdateSeedDict>, Self::Error> {
         let url = format!("{}/seeds", self.address);
-        let response = self
+        let resp = self
             .client
             .get(&url)
             .header("Content-Type", "application/octet-stream")
@@ -281,52 +191,47 @@ impl ClientReq {
             .send()
             .await?
             .error_for_status()?;
-        let opt_body = match response.status() {
-            StatusCode::NO_CONTENT => None,
-            StatusCode::OK => Some(response.bytes().await?),
-            sc => {
-                warn!("unexpected HTTP status code: {}", sc);
-                None
+        match resp.status() {
+            StatusCode::OK => {
+                let body = resp.bytes().await?;
+                Ok(Some(bincode::deserialize(&body[..])?))
             }
-        };
-        Ok(opt_body)
+            StatusCode::NO_CONTENT => Ok(None),
+            _ => Err(HttpApiClientError::UnexpectedResponse(resp)),
+        }
     }
 
-    async fn get_mask_length(&self) -> Result<Option<String>, Error> {
+    async fn get_mask_length(&mut self) -> Result<Option<u64>, Self::Error> {
         let url = format!("{}/length", self.address);
-        self.simple_get_text(&url).await
+        let resp = self.client.get(&url).send().await?.error_for_status()?;
+        match resp.status() {
+            StatusCode::OK => Ok(Some(resp.text().await?.parse()?)),
+            StatusCode::NO_CONTENT => Ok(None),
+            _ => Err(HttpApiClientError::UnexpectedResponse(resp)),
+        }
     }
 
-    async fn get_model(&self) -> Result<Option<Bytes>, Error> {
+    async fn get_model(&mut self) -> Result<Option<Model>, Self::Error> {
         let url = format!("{}/model", self.address);
-        self.simple_get_bytes(&url).await
+        let resp = self.client.get(&url).send().await?.error_for_status()?;
+        match resp.status() {
+            StatusCode::OK => {
+                let body = resp.bytes().await?;
+                Ok(Some(bincode::deserialize(&body[..])?))
+            }
+            StatusCode::NO_CONTENT => Ok(None),
+            _ => Err(HttpApiClientError::UnexpectedResponse(resp)),
+        }
     }
 
-    async fn simple_get_text<T: IntoUrl>(&self, url: T) -> Result<Option<String>, Error> {
-        let response = self.client.get(url).send().await?;
-        let good_resp = response.error_for_status()?;
-        let opt_body = match good_resp.status() {
-            StatusCode::NO_CONTENT => None,
-            StatusCode::OK => Some(good_resp.text().await?),
-            sc => {
-                warn!("unexpected HTTP status code: {}", sc);
-                None
-            }
-        };
-        Ok(opt_body)
-    }
-
-    async fn simple_get_bytes<T: IntoUrl>(&self, url: T) -> Result<Option<Bytes>, Error> {
-        let response = self.client.get(url).send().await?;
-        let good_resp = response.error_for_status()?;
-        let opt_body = match good_resp.status() {
-            StatusCode::NO_CONTENT => None,
-            StatusCode::OK => Some(good_resp.bytes().await?),
-            sc => {
-                warn!("unexpected HTTP status code: {}", sc);
-                None
-            }
-        };
-        Ok(opt_body)
+    async fn send_message(&mut self, msg: Vec<u8>) -> Result<(), Self::Error> {
+        let url = format!("{}/message", self.address);
+        self.client
+            .post(&url)
+            .body(msg)
+            .send()
+            .await?
+            .error_for_status()?;
+        Ok(())
     }
 }
