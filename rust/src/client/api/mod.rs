@@ -1,12 +1,12 @@
 //! This module provides clients for the Xaynet coordinator API.
 
 mod http;
-mod in_memory;
+pub use self::http::{HttpApiClient, HttpApiClientError};
 
-pub use self::{
-    http::{HttpApiClient, HttpApiClientError},
-    in_memory::{InMemoryApiClient, InMemoryApiClientError},
-};
+#[cfg(test)]
+mod in_memory;
+#[cfg(test)]
+pub use self::in_memory::{InMemoryApiClient, InMemoryApiClientError};
 
 use crate::{
     mask::model::Model,
