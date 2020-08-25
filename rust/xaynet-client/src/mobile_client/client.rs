@@ -170,21 +170,15 @@ impl ClientState<Update> {
             .await
             .ok_or(ClientError::TooEarly("local model"))?;
 
-        debug!("setting model scalar");
-        let scalar = 1_f64; // TODO parametrise this!
-
         debug!("polling for sum dict");
         let sums = api
             .get_sums()
             .await?
             .ok_or(ClientError::TooEarly("sum dict"))?;
 
-        let upd_msg = self.participant.compose_update_message(
-            self.round_params.pk,
-            &sums,
-            scalar,
-            local_model,
-        );
+        let upd_msg =
+            self.participant
+                .compose_update_message(self.round_params.pk, &sums, local_model);
         let sealed_msg = self
             .participant
             .seal_message(&self.round_params.pk, &upd_msg);

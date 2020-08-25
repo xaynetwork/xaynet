@@ -48,6 +48,7 @@ impl Participant<Awaiting> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::mobile_client::participant::AggregationConfig;
     use sodiumoxide::randombytes::randombytes;
     use xaynet_core::{
         crypto::{ByteObject, SigningKeyPair},
@@ -59,16 +60,19 @@ mod tests {
     fn participant_state() -> ParticipantState {
         sodiumoxide::init().unwrap();
 
-        let mask_config = MaskConfig {
-            group_type: GroupType::Prime,
-            data_type: DataType::F32,
-            bound_type: BoundType::B0,
-            model_type: ModelType::M3,
-        };
+        let aggregation_config = AggregationConfig {
+            mask: MaskConfig {
+                group_type: GroupType::Prime,
+                data_type: DataType::F32,
+                bound_type: BoundType::B0,
+                model_type: ModelType::M3,
+            },
 
+            scalar: 1_f64,
+        };
         ParticipantState {
             keys: SigningKeyPair::generate(),
-            mask_config,
+            aggregation_config,
         }
     }
 

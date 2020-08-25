@@ -84,10 +84,11 @@ impl Participant<Sum2> {
             return Err(PetError::InvalidMask);
         }
 
-        let mut model_mask_agg = Aggregation::new(self.state.mask_config, mask_len);
-        let mut scalar_mask_agg = Aggregation::new(self.state.mask_config, 1);
+        let mut model_mask_agg = Aggregation::new(self.state.aggregation_config.mask, mask_len);
+        let mut scalar_mask_agg = Aggregation::new(self.state.aggregation_config.mask, 1);
         for seed in mask_seeds.into_iter() {
-            let (model_mask, scalar_mask) = seed.derive_mask(mask_len, self.state.mask_config);
+            let (model_mask, scalar_mask) =
+                seed.derive_mask(mask_len, self.state.aggregation_config.mask);
 
             model_mask_agg
                 .validate_aggregation(&model_mask)
@@ -106,6 +107,7 @@ impl Participant<Sum2> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::mobile_client::participant::AggregationConfig;
     use sodiumoxide::randombytes::{randombytes, randombytes_uniform};
     use std::{collections::HashSet, iter};
     use xaynet_core::{
@@ -117,16 +119,19 @@ mod tests {
     fn participant_state() -> ParticipantState {
         sodiumoxide::init().unwrap();
 
-        let mask_config = MaskConfig {
-            group_type: GroupType::Prime,
-            data_type: DataType::F32,
-            bound_type: BoundType::B0,
-            model_type: ModelType::M3,
-        };
+        let aggregation_config = AggregationConfig {
+            mask: MaskConfig {
+                group_type: GroupType::Prime,
+                data_type: DataType::F32,
+                bound_type: BoundType::B0,
+                model_type: ModelType::M3,
+            },
 
+            scalar: 1_f64,
+        };
         ParticipantState {
             keys: SigningKeyPair::generate(),
-            mask_config,
+            aggregation_config,
         }
     }
 
