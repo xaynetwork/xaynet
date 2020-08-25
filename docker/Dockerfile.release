@@ -9,14 +9,8 @@ RUN apt update
 COPY docker/install_rust.sh .
 RUN bash ./install_rust.sh
 
-COPY rust/Cargo.lock /
-COPY rust/Cargo.toml /
-# Now copy the actual source code
-COPY rust/src /src
-# Fix timestamp. cargo incremental build as issues caused by the above
-# trick to compile the deps separately
-RUN touch /src/lib.rs
-RUN cargo build --release --all-features
+COPY rust/ .
+RUN cargo build --bin coordinator --release --all-features
 
 FROM ubuntu:20.04
 RUN apt update && apt install -y --no-install-recommends libssl-dev
