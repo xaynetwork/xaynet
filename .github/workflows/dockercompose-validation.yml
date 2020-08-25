@@ -7,7 +7,6 @@ on:
     
 jobs:
   check-docker-compose:
-    if: false # skip job (remove after the move to cargo workspaces)
     name: docker-compose validation
     runs-on: ubuntu-latest
     steps:

@@ -6,7 +6,6 @@ on:
 
 jobs:
   audit:
-    if: false # skip job (remove after the move to cargo workspaces)
     name: Rust Audit
     runs-on: ubuntu-latest
     steps:
