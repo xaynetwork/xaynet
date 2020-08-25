@@ -8,6 +8,7 @@ on:
 
 jobs:
   build-by-request:
+    if: false # skip job (remove after the move to cargo workspaces)
     name: build-by-request
     runs-on: ubuntu-latest
     steps:

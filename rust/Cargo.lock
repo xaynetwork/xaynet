@@ -272,30 +272,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b3a71ab494c0b5b860bdc8407ae08978052417070c2ced38573a9157ad75b8ac"
 
 [[package]]
-name = "crossbeam"
-version = "0.7.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69323bff1fb41c635347b8ead484a5ca6c3f11914d784170b158d8449ab07f8e"
-dependencies = [
- "cfg-if",
- "crossbeam-channel",
- "crossbeam-deque",
- "crossbeam-epoch",
- "crossbeam-queue",
- "crossbeam-utils",
-]
-
-[[package]]
-name = "crossbeam-channel"
-version = "0.4.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "09ee0cc8804d5393478d743b035099520087a5186f3b93fa58cec08fa62407b6"
-dependencies = [
- "cfg-if",
- "crossbeam-utils",
-]
-
-[[package]]
 name = "crossbeam-deque"
 version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -382,6 +358,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e8ac63f94732332f44fe654443c46f6375d1939684c17b0afb6cb56b0456e171"
 dependencies = [
  "cfg-if",
+]
+
+[[package]]
+name = "examples"
+version = "0.0.0"
+dependencies = [
+ "sodiumoxide",
+ "structopt",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "xaynet-client",
+ "xaynet-core",
 ]
 
 [[package]]
@@ -1860,9 +1849,9 @@ dependencies = [
 
 [[package]]
 name = "signal-hook-registry"
-version = "1.2.0"
+version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "94f478ede9f64724c5d173d7bb56099ec3e2d9fc2774aac65d34b8b890405f41"
+checksum = "a3e12110bc539e657a646068aaf5eb5b63af9d0c1f7b29c97113fad80e15f035"
 dependencies = [
  "arc-swap",
  "libc",
@@ -2118,23 +2107,6 @@ checksum = "9a70f4fcd7b3b24fb194f837560168208f669ca8cb70d0c4b862944452396343"
 dependencies = [
  "native-tls",
  "tokio",
-]
-
-[[package]]
-name = "tokio-tower"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ffb2ed50a52fadfd43b381367b4ed2a67d57aba7450bd18672a21605a9f367f2"
-dependencies = [
- "crossbeam",
- "futures-core",
- "futures-sink",
- "futures-util",
- "pin-project",
- "tokio",
- "tower-load",
- "tower-service",
- "tracing",
 ]
 
 [[package]]
@@ -2783,7 +2755,62 @@ dependencies = [
 ]
 
 [[package]]
-name = "xaynet"
+name = "xaynet-client"
+version = "0.9.0"
+dependencies = [
+ "async-trait",
+ "bincode",
+ "bytes",
+ "derive_more",
+ "reqwest",
+ "serde 1.0.114",
+ "sodiumoxide",
+ "thiserror",
+ "tokio",
+ "tokio-test",
+ "tower-test",
+ "tracing",
+ "xaynet-core",
+ "xaynet-server",
+]
+
+[[package]]
+name = "xaynet-core"
+version = "0.9.0"
+dependencies = [
+ "anyhow",
+ "bitflags",
+ "derive_more",
+ "num",
+ "paste",
+ "rand 0.7.3",
+ "rand_chacha 0.2.2",
+ "serde 1.0.114",
+ "sodiumoxide",
+ "thiserror",
+]
+
+[[package]]
+name = "xaynet-ffi"
+version = "0.9.0"
+dependencies = [
+ "num",
+ "paste",
+ "tokio",
+ "xaynet-client",
+ "xaynet-core",
+]
+
+[[package]]
+name = "xaynet-macros"
+version = "0.1.0"
+dependencies = [
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "xaynet-server"
 version = "0.9.0"
 dependencies = [
  "anyhow",
@@ -2801,14 +2828,12 @@ dependencies = [
  "rand 0.7.3",
  "rand_chacha 0.2.2",
  "rayon",
- "reqwest",
  "serde 1.0.114",
  "sodiumoxide",
  "structopt",
  "thiserror",
  "tokio",
  "tokio-test",
- "tokio-tower",
  "tower",
  "tower-test",
  "tracing",
@@ -2818,15 +2843,9 @@ dependencies = [
  "validator",
  "validator_derive",
  "warp",
+ "xaynet-client",
+ "xaynet-core",
  "xaynet-macros",
-]
-
-[[package]]
-name = "xaynet-macros"
-version = "0.1.0"
-dependencies = [
- "quote",
- "syn",
 ]
 
 [[package]]

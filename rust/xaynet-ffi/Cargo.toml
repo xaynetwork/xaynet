@@ -1,0 +1,19 @@
+[package]
+name = "xaynet-ffi"
+version = "0.9.0"
+authors = ["Xayn Engineering <engineering@xaynet.dev>"]
+edition = "2018"
+description = "`xaynet_ffi` provides an implementation of a Xayn Network client with C bindings."
+license-file = "../../LICENSE"
+keywords = ["federated-learning", "fl", "ai", "machine-learning"]
+repository = "https://github.com/xaynetwork/xaynet/"
+homepage = "https://xaynet.dev/"
+
+[dependencies]
+tokio = { version = "0.2.21", features = ["rt-threaded"] }
+xaynet-client = { path = "../xaynet-client" }
+xaynet-core = { path = "../xaynet-core" }
+
+[dev-dependencies]
+paste = "0.1.15"
+num = { version = "0.3.0", features = ["serde"] }

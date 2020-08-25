@@ -4,9 +4,9 @@ extern crate tracing;
 use std::io::{stdin, stdout, Read, Write};
 use structopt::StructOpt;
 use tracing_subscriber::*;
-use xaynet::{
+use xaynet_client::mobile_client::{participant::ParticipantSettings, MobileClient};
+use xaynet_core::{
     certificate::Certificate,
-    client::mobile_client::{participant::ParticipantSettings, MobileClient},
     mask::{BoundType, DataType, FromPrimitives, GroupType, MaskConfig, Model, ModelType},
 };
 
