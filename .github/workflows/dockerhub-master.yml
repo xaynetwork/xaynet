@@ -7,7 +7,6 @@ on:
 
 jobs:
   build-tag-push-master:
-    if: false # skip job (remove after the move to cargo workspaces)
     name: build-tag-push-master
     runs-on: ubuntu-latest
     steps:
