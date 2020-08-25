@@ -166,6 +166,7 @@ jobs:
 
   smoke-test:
     name: cargo-smoke-test
+    if: false
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
