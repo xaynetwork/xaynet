@@ -31,8 +31,7 @@ use crate::{
     LocalSeedDict,
 };
 
-#[derive(Debug, PartialEq, Eq)]
-#[cfg_attr(test, derive(Clone))]
+#[derive(Debug, PartialEq, Eq, Clone)]
 /// A message.
 pub struct Message<C, D, M, N> {
     /// The message header.

@@ -1,10 +1,4 @@
-use xaynet_core::{
-    mask::MaskObject,
-    message::{MessageOwned, Payload, Sum2Owned, SumOwned, UpdateOwned},
-    LocalSeedDict,
-    SumParticipantEphemeralPublicKey,
-    SumParticipantPublicKey,
-};
+use xaynet_core::message::MessageOwned;
 
 use crate::{
     state_machine::{
@@ -119,94 +113,6 @@ impl StateMachine {
         match self {
             StateMachine::Shutdown(state) => state,
             _ => panic!("not in shutdown state"),
-        }
-    }
-}
-
-impl MessageOwned {
-    /// Extract the participant public key from the message.
-    pub fn participant_pk(&self) -> SumParticipantPublicKey {
-        self.header.participant_pk
-    }
-
-    /// Extract the ephemeral public key from a sum message.
-    ///
-    /// # Panic
-    ///
-    /// Panic if this message is not a sum message
-    pub fn ephm_pk(&self) -> SumParticipantEphemeralPublicKey {
-        if let Payload::Sum(SumOwned { ephm_pk, .. }) = &self.payload {
-            *ephm_pk
-        } else {
-            panic!("not a sum message");
-        }
-    }
-
-    /// Extract the masked model from an update message
-    ///
-    /// # Panic
-    ///
-    /// Panic if this message is not an update message
-    pub fn masked_model(&self) -> MaskObject {
-        if let Payload::Update(UpdateOwned { masked_model, .. }) = &self.payload {
-            masked_model.clone()
-        } else {
-            panic!("not an update message");
-        }
-    }
-
-    /// Extract the masked scalar from an update message
-    ///
-    /// # Panic
-    ///
-    /// Panic if this message is not an update message
-    pub fn masked_scalar(&self) -> MaskObject {
-        if let Payload::Update(UpdateOwned { masked_scalar, .. }) = &self.payload {
-            masked_scalar.clone()
-        } else {
-            panic!("not an update message");
-        }
-    }
-
-    /// Extract the local seed dictioanry from an update message
-    ///
-    /// # Panic
-    ///
-    /// Panic if this message is not an update message
-    pub fn local_seed_dict(&self) -> LocalSeedDict {
-        if let Payload::Update(UpdateOwned {
-            local_seed_dict, ..
-        }) = &self.payload
-        {
-            local_seed_dict.clone()
-        } else {
-            panic!("not an update message");
-        }
-    }
-
-    /// Extract the model mask from a sum2 message
-    ///
-    /// # Panic
-    ///
-    /// Panic if this message is not a sum2 message
-    pub fn mask(&self) -> MaskObject {
-        if let Payload::Sum2(Sum2Owned { model_mask, .. }) = &self.payload {
-            model_mask.clone()
-        } else {
-            panic!("not a sum2 message");
-        }
-    }
-
-    /// Extract the scalar mask from a sum2 message
-    ///
-    /// # Panic
-    ///
-    /// Panic if this message is not a sum2 message
-    pub fn scalar_mask(&self) -> MaskObject {
-        if let Payload::Sum2(Sum2Owned { scalar_mask, .. }) = &self.payload {
-            scalar_mask.clone()
-        } else {
-            panic!("not a sum2 message");
         }
     }
 }

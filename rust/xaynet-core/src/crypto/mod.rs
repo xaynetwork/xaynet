@@ -71,7 +71,6 @@ pub trait ByteObject: Sized {
         Self::from_slice_unchecked(randombytes(Self::LENGTH).as_slice())
     }
 
-    #[cfg(test)]
     /// A helper for instantiating an object filled with the given value
     fn fill_with(value: u8) -> Self {
         Self::from_slice_unchecked(&vec![value; Self::LENGTH])

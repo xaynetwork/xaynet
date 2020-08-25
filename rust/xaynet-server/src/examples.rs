@@ -159,14 +159,12 @@ the `test-drive-net` example, for illustrative purposes.
 
 ```no_run
 use tokio::signal;
-use xaynet::{
-    client::{
-        api::{HttpApiClient, HttpApiClientError},
-        Client,
-        ClientError,
-    },
-    mask::{FromPrimitives, Model},
+use xaynet_client::{
+    api::{HttpApiClient, HttpApiClientError},
+    Client,
+    ClientError,
 };
+use xaynet_core::mask::{FromPrimitives, Model};
 
 #[tokio::main]
 async fn main() -> Result<(), ClientError<HttpApiClientError>> {

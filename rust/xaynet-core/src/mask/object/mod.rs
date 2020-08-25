@@ -21,8 +21,8 @@ pub struct InvalidMaskObjectError;
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
 /// A mask object which represents either a mask or a masked model.
 pub struct MaskObject {
-    pub(crate) data: Vec<BigUint>,
-    pub(crate) config: MaskConfig,
+    pub data: Vec<BigUint>,
+    pub config: MaskConfig,
 }
 
 impl MaskObject {

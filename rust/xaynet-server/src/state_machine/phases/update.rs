@@ -277,10 +277,7 @@ mod test {
     use super::*;
     use crate::state_machine::{
         events::Event,
-        tests::{
-            builder::StateMachineBuilder,
-            utils::{generate_summer, generate_updater, mask_settings},
-        },
+        tests::{builder::StateMachineBuilder, utils},
     };
     use xaynet_core::{
         common::RoundSeed,
@@ -302,20 +299,20 @@ mod test {
 
         // Find a sum participant and an update participant for the
         // given seed and ratios.
-        let mut summer = generate_summer(&seed, sum_ratio, update_ratio);
-        let updater = generate_updater(&seed, sum_ratio, update_ratio);
+        let mut summer = utils::generate_summer(&seed, sum_ratio, update_ratio);
+        let updater = utils::generate_updater(&seed, sum_ratio, update_ratio);
 
         // Initialize the update phase state
         let sum_msg = summer.compose_sum_message(&coord_keys.public);
-        let summer_ephm_pk = sum_msg.ephm_pk();
+        let summer_ephm_pk = utils::ephm_pk(&sum_msg);
 
         let mut frozen_sum_dict = SumDict::new();
         frozen_sum_dict.insert(summer.pk, summer_ephm_pk);
 
         let mut seed_dict = SeedDict::new();
         seed_dict.insert(summer.pk, HashMap::new());
-        let aggregation = Aggregation::new(mask_settings().into(), model_size);
-        let scalar_agg = Aggregation::new(mask_settings().into(), 1);
+        let aggregation = Aggregation::new(utils::mask_settings().into(), model_size);
+        let scalar_agg = Aggregation::new(utils::mask_settings().into(), 1);
         let update = Update {
             frozen_sum_dict: frozen_sum_dict.clone(),
             seed_dict: seed_dict.clone(),
@@ -332,7 +329,7 @@ mod test {
             .with_min_sum(n_summers)
             .with_min_update(n_updaters)
             .with_expected_participants(n_updaters + n_summers)
-            .with_mask_config(mask_settings().into())
+            .with_mask_config(utils::mask_settings().into())
             .build();
 
         assert!(state_machine.is_update());
@@ -346,7 +343,7 @@ mod test {
             scalar,
             model.clone(),
         );
-        let masked_model = update_msg.masked_model();
+        let masked_model = utils::masked_model(&update_msg);
         let request_fut = async { request_tx.msg(&update_msg).await.unwrap() };
 
         // Have the state machine process the request
@@ -394,8 +391,7 @@ mod test {
         // participant.
         let mut global_seed_dict = SeedDict::new();
         let mut entry = UpdateSeedDict::new();
-        let encrypted_mask_seed = update_msg
-            .local_seed_dict()
+        let encrypted_mask_seed = utils::local_seed_dict(&update_msg)
             .values()
             .next()
             .unwrap()

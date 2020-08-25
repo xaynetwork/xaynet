@@ -226,10 +226,7 @@ mod test {
     use super::*;
     use crate::state_machine::{
         events::Event,
-        tests::{
-            builder::StateMachineBuilder,
-            utils::{generate_summer, generate_updater, mask_settings},
-        },
+        tests::{builder::StateMachineBuilder, utils},
     };
     use xaynet_core::{
         common::RoundSeed,
@@ -249,23 +246,23 @@ mod test {
         let model_size = 4;
 
         // Generate a sum dictionary with a single sum participant
-        let mut summer = generate_summer(&seed, sum_ratio, update_ratio);
-        let ephm_pk = summer.compose_sum_message(&coord_keys.public).ephm_pk();
+        let mut summer = utils::generate_summer(&seed, sum_ratio, update_ratio);
+        let ephm_pk = utils::ephm_pk(&summer.compose_sum_message(&coord_keys.public));
         let mut sum_dict = SumDict::new();
         sum_dict.insert(summer.pk, ephm_pk);
 
         // Generate a new masked model, seed dictionary and aggregration
-        let updater = generate_updater(&seed, sum_ratio, update_ratio);
+        let updater = utils::generate_updater(&seed, sum_ratio, update_ratio);
         let scalar = 1.0 / (n_updaters as f64 * update_ratio);
         let model = Model::from_primitives(vec![0; model_size].into_iter()).unwrap();
         let msg =
             updater.compose_update_message(coord_keys.public, &sum_dict, scalar, model.clone());
-        let masked_model = msg.masked_model();
-        let masked_scalar = msg.masked_scalar();
-        let local_seed_dict = msg.local_seed_dict();
-        let mut aggregation = Aggregation::new(mask_settings().into(), model_size);
+        let masked_model = utils::masked_model(&msg);
+        let masked_scalar = utils::masked_scalar(&msg);
+        let local_seed_dict = utils::local_seed_dict(&msg);
+        let mut aggregation = Aggregation::new(utils::mask_settings().into(), model_size);
         aggregation.aggregate(masked_model.clone());
-        let mut scalar_agg = Aggregation::new(mask_settings().into(), 1);
+        let mut scalar_agg = Aggregation::new(utils::mask_settings().into(), 1);
         scalar_agg.aggregate(masked_scalar.clone());
 
         // Create the state machine
@@ -285,7 +282,7 @@ mod test {
             .with_min_sum(n_summers)
             .with_min_update(n_updaters)
             .with_expected_participants(n_updaters + n_summers)
-            .with_mask_config(mask_settings().into())
+            .with_mask_config(utils::mask_settings().into())
             .build();
         assert!(state_machine.is_sum2());
 

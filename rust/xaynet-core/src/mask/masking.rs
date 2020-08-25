@@ -49,8 +49,7 @@ pub enum AggregationError {
     ModelMismatch,
 }
 
-#[derive(Debug)]
-#[cfg_attr(test, derive(Clone))]
+#[derive(Debug, Clone)]
 /// An aggregator for masks and masked models.
 pub struct Aggregation {
     nb_models: usize,

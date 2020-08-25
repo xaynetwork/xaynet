@@ -8,6 +8,15 @@ pub trait Traceable {
     fn make_span(&self) -> Span;
 }
 
+impl<'a, T> Traceable for &'a T
+where
+    T: Traceable,
+{
+    fn make_span(&self) -> Span {
+        <T as Traceable>::make_span(*self)
+    }
+}
+
 // NOTE: currently `id` and `timestamp` are immutable. `span` is
 // mutable, but when it is changed other copies of the RequestMetadata
 // are not affected. In the future, we can have shared mutable fields

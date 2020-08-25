@@ -171,7 +171,7 @@ mod test {
     use super::*;
     use crate::state_machine::{
         events::Event,
-        tests::{builder::StateMachineBuilder, utils::generate_summer},
+        tests::{builder::StateMachineBuilder, utils},
     };
     use xaynet_core::SumDict;
 
@@ -201,7 +201,7 @@ mod test {
         // coordinator is configured to consider any sum request as
         // eligible, so after processing it, we should go to the
         // update phase
-        let mut summer = generate_summer(&seed, 1.0, 0.0);
+        let mut summer = utils::generate_summer(&seed, 1.0, 0.0);
         let sum_msg = summer.compose_sum_message(&keys.public);
         let request_fut = async { request_tx.msg(&sum_msg).await.unwrap() };
         let transition_fut = async { state_machine.next().await.unwrap() };
@@ -217,7 +217,7 @@ mod test {
         assert_eq!(update_state.frozen_sum_dict().len(), 1);
         let (pk, ephm_pk) = update_state.frozen_sum_dict().iter().next().unwrap();
         assert_eq!(pk.clone(), summer.pk);
-        assert_eq!(ephm_pk.clone(), sum_msg.ephm_pk());
+        assert_eq!(ephm_pk.clone(), utils::ephm_pk(&sum_msg));
 
         assert_eq!(update_state.seed_dict().len(), 1);
         let (pk, dict) = update_state.seed_dict().iter().next().unwrap();

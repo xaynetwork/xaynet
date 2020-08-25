@@ -24,8 +24,7 @@ use crate::{
 /// The payload of a [`Message`].
 ///
 /// [`Message`]: struct.Message.html
-#[derive(From, Eq, PartialEq, Debug)]
-#[cfg_attr(test, derive(Clone))]
+#[derive(From, Eq, PartialEq, Debug, Clone)]
 pub enum Payload<D, M, N> {
     /// The payload of a [`Sum`] message.
     Sum(Sum),
