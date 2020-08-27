@@ -2,7 +2,6 @@ use super::{Participant, ParticipantState};
 use xaynet_core::{
     mask::{MaskObject, MaskSeed, Masker, Model},
     message::{Message, Update as UpdateMessage},
-    CoordinatorPublicKey,
     LocalSeedDict,
     ParticipantTaskSignature,
     SumDict,
@@ -32,7 +31,6 @@ impl Participant<Update> {
     /// dictionary, model scalar and local model update.
     pub fn compose_update_message(
         &self,
-        pk: CoordinatorPublicKey,
         sum_dict: &SumDict,
         scalar: f64,
         local_model: Model,
@@ -48,7 +46,7 @@ impl Participant<Update> {
             local_seed_dict,
         };
 
-        Message::new_update(pk, self.state.keys.public, payload)
+        Message::new_update(self.state.keys.public, payload)
     }
 
     /// Generate a mask seed and mask a local model.

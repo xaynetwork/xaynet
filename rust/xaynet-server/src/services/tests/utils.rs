@@ -43,11 +43,7 @@ pub fn new_sum_message(
         ephm_pk: participant_ephm_pk,
     };
 
-    let message = Message::new_sum(
-        round_params.pk.clone(),
-        participant_signing_keys.public.clone(),
-        payload,
-    );
+    let message = Message::new_sum(participant_signing_keys.public.clone(), payload);
 
     (message, participant_ephm_pk, participant_signing_keys)
 }

@@ -230,7 +230,7 @@ mod test {
     };
     use xaynet_core::{
         common::RoundSeed,
-        crypto::{ByteObject, EncryptKeyPair},
+        crypto::ByteObject,
         mask::{FromPrimitives, Model},
         SumDict,
     };
@@ -242,12 +242,11 @@ mod test {
         let seed = RoundSeed::generate();
         let sum_ratio = 0.5;
         let update_ratio = 1.0;
-        let coord_keys = EncryptKeyPair::generate();
         let model_size = 4;
 
         // Generate a sum dictionary with a single sum participant
         let mut summer = utils::generate_summer(&seed, sum_ratio, update_ratio);
-        let ephm_pk = utils::ephm_pk(&summer.compose_sum_message(&coord_keys.public));
+        let ephm_pk = utils::ephm_pk(&summer.compose_sum_message());
         let mut sum_dict = SumDict::new();
         sum_dict.insert(summer.pk, ephm_pk);
 
@@ -255,8 +254,7 @@ mod test {
         let updater = utils::generate_updater(&seed, sum_ratio, update_ratio);
         let scalar = 1.0 / (n_updaters as f64 * update_ratio);
         let model = Model::from_primitives(vec![0; model_size].into_iter()).unwrap();
-        let msg =
-            updater.compose_update_message(coord_keys.public, &sum_dict, scalar, model.clone());
+        let msg = updater.compose_update_message(&sum_dict, scalar, model.clone());
         let masked_model = utils::masked_model(&msg);
         let masked_scalar = utils::masked_scalar(&msg);
         let local_seed_dict = utils::local_seed_dict(&msg);
@@ -288,7 +286,7 @@ mod test {
 
         // Create a sum2 request.
         let msg = summer
-            .compose_sum2_message(coord_keys.public, &local_seed_dict, masked_model.data.len())
+            .compose_sum2_message(&local_seed_dict, masked_model.data.len())
             .unwrap();
 
         // Have the state machine process the request

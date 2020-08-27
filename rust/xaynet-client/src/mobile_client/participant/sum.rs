@@ -3,7 +3,6 @@ use crate::mobile_client::participant::Sum2;
 use xaynet_core::{
     crypto::EncryptKeyPair,
     message::{Message, Sum as SumMessage},
-    CoordinatorPublicKey,
     ParticipantTaskSignature,
     SumParticipantEphemeralPublicKey,
     SumParticipantEphemeralSecretKey,
@@ -30,13 +29,13 @@ impl Participant<Sum> {
     }
 
     /// Compose a sum message given the coordinator public key.
-    pub fn compose_sum_message(&mut self, pk: &CoordinatorPublicKey) -> Message {
+    pub fn compose_sum_message(&mut self) -> Message {
         let payload = SumMessage {
             sum_signature: self.inner.sum_signature,
             ephm_pk: self.inner.ephm_pk,
         };
 
-        Message::new_sum(*pk, self.state.keys.public, payload)
+        Message::new_sum(self.state.keys.public, payload)
     }
 }
 

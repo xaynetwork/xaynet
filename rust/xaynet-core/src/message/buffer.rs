@@ -11,7 +11,6 @@ use anyhow::{anyhow, Context};
 use crate::{
     crypto::ByteObject,
     message::{header::Flags, traits::LengthValueBuffer, utils::range, DecodeError},
-    CoordinatorPublicKey,
     ParticipantPublicKey,
 };
 
@@ -31,9 +30,7 @@ const FLAGS_RANGE: usize = 1;
 // Reserve the remaining 2 bytes for future use. That also allows us
 // to have 4 bytes alignment.
 const RESERVED: Range<usize> = range(2, 2);
-const COORDINATOR_PK_RANGE: Range<usize> = range(RESERVED.end, CoordinatorPublicKey::LENGTH);
-const PARTICIPANT_PK_RANGE: Range<usize> =
-    range(COORDINATOR_PK_RANGE.end, ParticipantPublicKey::LENGTH);
+const PARTICIPANT_PK_RANGE: Range<usize> = range(RESERVED.end, ParticipantPublicKey::LENGTH);
 
 /// A wrapper around a buffer that contains a [`Message`].
 ///
@@ -50,7 +47,6 @@ const PARTICIPANT_PK_RANGE: Range<usize> =
 ///     0x00, // flags = 0
 ///     0x00, 0x00, // reserved bytes, which are ignored
 /// ];
-/// bytes.extend(vec![0xaa; 32]); // coordinator public key
 /// bytes.extend(vec![0xbb; 32]); // participant public key
 /// // Payload: a sum message contains a signature and an ephemeral public key
 /// bytes.extend(vec![0x11; 32]); // signature
@@ -61,7 +57,6 @@ const PARTICIPANT_PK_RANGE: Range<usize> =
 /// assert_eq!(Tag::try_from(buffer.tag()).unwrap(), Tag::Sum);
 /// assert_eq!(buffer.flags(), Flags::empty());
 /// assert!(buffer.certificate().is_none());
-/// assert_eq!(buffer.coordinator_pk(), vec![0xaa; 32].as_slice());
 /// assert_eq!(buffer.participant_pk(), vec![0xbb; 32].as_slice());
 /// assert_eq!(buffer.payload(), [vec![0x11; 32], vec![0x22; 32]].concat().as_slice());
 /// ```
@@ -76,7 +71,6 @@ const PARTICIPANT_PK_RANGE: Range<usize> =
 ///     0x00, // flags = 0
 ///     0x00, 0x00, // reserved bytes, which are ignored
 /// ];
-/// expected.extend(vec![0xaa; 32]); // coordinator public key
 /// expected.extend(vec![0xbb; 32]); // participant public key
 /// // Payload: a sum message contains a signature and an ephemeral public key
 /// expected.extend(vec![0x11; 32]); // signature
@@ -86,9 +80,6 @@ const PARTICIPANT_PK_RANGE: Range<usize> =
 /// let mut buffer = MessageBuffer::new_unchecked(&mut bytes);
 /// buffer.set_tag(Tag::Sum.into());
 /// buffer.set_flags(Flags::empty());
-/// buffer
-///     .coordinator_pk_mut()
-///     .copy_from_slice(vec![0xaa; 32].as_slice());
 /// buffer
 ///     .participant_pk_mut()
 ///     .copy_from_slice(vec![0xbb; 32].as_slice());
@@ -205,14 +196,6 @@ impl<'a, T: AsRef<[u8]> + ?Sized> MessageBuffer<&'a T> {
         }
     }
 
-    /// Gets the coordinator public key field.
-    ///
-    /// # Panics
-    /// Accessing the field may panic if the buffer has not been checked before.
-    pub fn coordinator_pk(&self) -> &'a [u8] {
-        &self.inner.as_ref()[COORDINATOR_PK_RANGE]
-    }
-
     /// Gets the participant public key field.
     ///
     /// # Panics
@@ -259,13 +242,6 @@ impl<T: AsMut<[u8]> + AsRef<[u8]>> MessageBuffer<T> {
             None
         }
     }
-    /// Gets a mutable reference to the coordinator public key field.
-    ///
-    /// # Panics
-    /// Accessing the field may panic if the buffer has not been checked before.
-    pub fn coordinator_pk_mut(&mut self) -> &mut [u8] {
-        &mut self.inner.as_mut()[COORDINATOR_PK_RANGE]
-    }
 
     /// Gets a mutable reference to the participant public key field.
     ///
@@ -300,12 +276,6 @@ pub(in crate::message) mod tests {
         },
     };
 
-    fn coordinator_pk() -> (Vec<u8>, CoordinatorPublicKey) {
-        let bytes = vec![0xaa; 32];
-        let pk = CoordinatorPublicKey::from_slice(bytes.as_slice()).unwrap();
-        (bytes, pk)
-    }
-
     fn participant_pk() -> (Vec<u8>, ParticipantPublicKey) {
         let bytes = vec![0xbb; 32];
         let pk = ParticipantPublicKey::from_slice(&bytes).unwrap();
@@ -327,7 +297,6 @@ pub(in crate::message) mod tests {
             0xff,
             0xff,
         ];
-        buf.extend(coordinator_pk().0);
         buf.extend(participant_pk().0);
         if with_certificate {
             // certificate length
@@ -340,7 +309,6 @@ pub(in crate::message) mod tests {
     pub(crate) fn header(tag: Tag, with_certificate: bool) -> Header {
         Header {
             tag,
-            coordinator_pk: coordinator_pk().1,
             participant_pk: participant_pk().1,
             certificate: if with_certificate {
                 Some(certificate().1)
@@ -368,7 +336,6 @@ pub(in crate::message) mod tests {
         assert_eq!(Tag::try_from(buffer.tag()).unwrap(), Tag::Sum);
         assert_eq!(buffer.flags(), Flags::empty());
         assert!(buffer.certificate().is_none());
-        assert_eq!(buffer.coordinator_pk(), coordinator_pk().0.as_slice());
         assert_eq!(buffer.participant_pk(), participant_pk().0.as_slice());
     }
 
@@ -380,7 +347,6 @@ pub(in crate::message) mod tests {
         assert_eq!(Tag::try_from(buffer.tag()).unwrap(), Tag::Sum);
         assert_eq!(buffer.flags(), Flags::CERTIFICATE);
         assert_eq!(buffer.certificate().unwrap().value(), &certificate().0[..]);
-        assert_eq!(buffer.coordinator_pk(), coordinator_pk().0.as_slice());
         assert_eq!(buffer.participant_pk(), participant_pk().0.as_slice());
     }
 
@@ -392,9 +358,6 @@ pub(in crate::message) mod tests {
 
         buffer.set_tag(Tag::Sum.into());
         buffer.set_flags(Flags::empty());
-        buffer
-            .coordinator_pk_mut()
-            .copy_from_slice(coordinator_pk().0.as_slice());
         buffer
             .participant_pk_mut()
             .copy_from_slice(participant_pk().0.as_slice());
@@ -412,9 +375,6 @@ pub(in crate::message) mod tests {
 
         buffer.set_tag(Tag::Sum.into());
         buffer.set_flags(Flags::CERTIFICATE);
-        buffer
-            .coordinator_pk_mut()
-            .copy_from_slice(coordinator_pk().0.as_slice());
         buffer
             .participant_pk_mut()
             .copy_from_slice(participant_pk().0.as_slice());

@@ -202,7 +202,7 @@ mod test {
         // eligible, so after processing it, we should go to the
         // update phase
         let mut summer = utils::generate_summer(&seed, 1.0, 0.0);
-        let sum_msg = summer.compose_sum_message(&keys.public);
+        let sum_msg = summer.compose_sum_message();
         let request_fut = async { request_tx.msg(&sum_msg).await.unwrap() };
         let transition_fut = async { state_machine.next().await.unwrap() };
 

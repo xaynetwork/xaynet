@@ -15,7 +15,6 @@ use crate::{
         traits::{FromBytes, ToBytes},
         DecodeError,
     },
-    CoordinatorPublicKey,
     ParticipantPublicKey,
 };
 
@@ -80,8 +79,6 @@ bitflags::bitflags! {
 pub struct Header {
     /// The type of the message.
     pub tag: Tag,
-    /// The coordinator public key.
-    pub coordinator_pk: CoordinatorPublicKey,
     /// The participant public key.
     pub participant_pk: ParticipantPublicKey,
     /// A certificate that identifies the author of the message.
@@ -106,8 +103,6 @@ impl ToBytes for Header {
         } else {
             writer.set_flags(Flags::empty());
         }
-        self.coordinator_pk
-            .to_bytes(&mut writer.coordinator_pk_mut());
         self.participant_pk
             .to_bytes(&mut writer.participant_pk_mut());
     }
@@ -123,8 +118,6 @@ impl FromBytes for Header {
         };
         Ok(Self {
             tag: Tag::try_from(reader.tag())?,
-            coordinator_pk: CoordinatorPublicKey::from_bytes(&reader.coordinator_pk())
-                .context("invalid coordinator public key")?,
             participant_pk: ParticipantPublicKey::from_bytes(&reader.participant_pk())
                 .context("invalid participant public key")?,
             certificate,

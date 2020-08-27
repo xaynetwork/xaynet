@@ -35,13 +35,11 @@ macro_rules! impl_new {
             #[doc = "Creates a new message containing"]
             #[doc = $doc]
             pub fn [<new_ $name>](
-                coordinator_pk: $crate::CoordinatorPublicKey,
                 participant_pk: $crate::ParticipantPublicKey,
                 payload: $payload) -> Self
             {
                 Self {
                     header: Header {
-                        coordinator_pk,
                         participant_pk,
                         tag: $tag,
                         certificate: None,
