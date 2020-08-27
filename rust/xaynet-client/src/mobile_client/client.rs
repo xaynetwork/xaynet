@@ -252,16 +252,6 @@ impl ClientState<Sum2> {
     }
 }
 
-pub async fn get_global_model<T: ApiClient>(api: &mut T) -> Option<Model> {
-    if let Ok(model) = api.get_model().await {
-        debug!("fetched global model");
-        model
-    } else {
-        debug!("global model not ready yet");
-        None
-    }
-}
-
 #[derive(From, Serialize, Deserialize)]
 pub enum ClientStateMachine {
     Awaiting(ClientState<Awaiting>),
