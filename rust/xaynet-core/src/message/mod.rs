@@ -42,14 +42,13 @@ pub(crate) mod utils;
 
 pub use self::{
     buffer::MessageBuffer,
-    header::{Flags, Header, HeaderOwned, Tag},
-    message::{Message, MessageOpen, MessageOwned, MessageSeal},
+    header::{Flags, Header, Tag},
+    message::{Message, MessageOpen, MessageSeal},
     payload::{
-        sum::{Sum, SumBuffer, SumOwned},
-        sum2::{Sum2, Sum2Buffer, Sum2Owned},
-        update::{Update, UpdateBuffer, UpdateOwned},
+        sum::{Sum, SumBuffer},
+        sum2::{Sum2, Sum2Buffer},
+        update::{Update, UpdateBuffer},
         Payload,
-        PayloadOwned,
     },
     traits::{FromBytes, LengthValueBuffer, ToBytes},
 };

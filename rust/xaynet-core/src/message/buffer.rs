@@ -294,8 +294,8 @@ pub(in crate::message) mod tests {
         certificate::Certificate,
         crypto::ByteObject,
         message::{
-            header::{HeaderOwned, Tag},
-            message::MessageOwned,
+            header::{Header, Tag},
+            message::Message,
             payload::sum,
         },
     };
@@ -337,8 +337,8 @@ pub(in crate::message) mod tests {
         buf
     }
 
-    pub(crate) fn header(tag: Tag, with_certificate: bool) -> HeaderOwned {
-        HeaderOwned {
+    pub(crate) fn header(tag: Tag, with_certificate: bool) -> Header {
+        Header {
             tag,
             coordinator_pk: coordinator_pk().1,
             participant_pk: participant_pk().1,
@@ -350,13 +350,13 @@ pub(in crate::message) mod tests {
         }
     }
 
-    fn sum(with_certificate: bool) -> (Vec<u8>, MessageOwned) {
+    fn sum(with_certificate: bool) -> (Vec<u8>, Message) {
         let mut bytes = header_bytes(Tag::Sum, with_certificate);
         bytes.extend(sum::tests::sum_bytes());
 
         let header = header(Tag::Sum, with_certificate);
         let payload = sum::tests::sum().into();
-        let message = MessageOwned { header, payload };
+        let message = Message { header, payload };
         (bytes, message)
     }
 

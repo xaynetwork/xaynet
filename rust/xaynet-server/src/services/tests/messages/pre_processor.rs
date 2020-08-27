@@ -1,6 +1,6 @@
 use tokio_test::assert_ready;
 use tower_test::mock::Spawn;
-use xaynet_core::message::MessageOwned;
+use xaynet_core::message::Message;
 
 use crate::{
     services::{
@@ -20,7 +20,7 @@ fn spawn_svc() -> (EventPublisher, EventSubscriber, Spawn<PreProcessorService>) 
     (publisher, subscriber, task)
 }
 
-fn make_req(message: MessageOwned) -> PreProcessorRequest {
+fn make_req(message: Message) -> PreProcessorRequest {
     Request::new(message)
 }
 

@@ -28,7 +28,7 @@ pub use self::{
     },
 };
 
-use xaynet_core::message::MessageOwned;
+use xaynet_core::message::Message;
 
 use crate::{
     services::{
@@ -43,8 +43,8 @@ use thiserror::Error;
 use tower::Service;
 
 type TracedMessageParser<S> = TracedService<S, RawMessage<Vec<u8>>>;
-type TracedPreProcessor<S> = TracedService<S, MessageOwned>;
-type TracedStateMachine<S> = TracedService<S, MessageOwned>;
+type TracedPreProcessor<S> = TracedService<S, Message>;
+type TracedStateMachine<S> = TracedService<S, Message>;
 
 /// Error returned by the [`PetMessageHandler`] methods.
 #[derive(Debug, Error)]
@@ -88,13 +88,13 @@ pub trait PetMessageHandler: Send {
     async fn call_parser(
         &mut self,
         enc_message: MessageParserRequest<Vec<u8>>,
-    ) -> Result<MessageOwned, PetMessageError>;
+    ) -> Result<Message, PetMessageError>;
 
     /// Pre-process a PET message
     async fn call_pre_processor(
         &mut self,
         message: PreProcessorRequest,
-    ) -> Result<MessageOwned, PetMessageError>;
+    ) -> Result<Message, PetMessageError>;
 
     /// Have a PET message processed by the state machine
     async fn call_state_machine(
@@ -126,7 +126,7 @@ where
     async fn call_parser(
         &mut self,
         enc_message: MessageParserRequest<Vec<u8>>,
-    ) -> Result<MessageOwned, PetMessageError> {
+    ) -> Result<Message, PetMessageError> {
         poll_fn(|cx| {
             <MP as Service<MessageParserRequest<Vec<u8>>>>::poll_ready(&mut self.message_parser, cx)
         })
@@ -149,7 +149,7 @@ where
     async fn call_pre_processor(
         &mut self,
         message: PreProcessorRequest,
-    ) -> Result<MessageOwned, PetMessageError> {
+    ) -> Result<Message, PetMessageError> {
         poll_fn(|cx| <PP as Service<PreProcessorRequest>>::poll_ready(&mut self.pre_processor, cx))
             .await
             .map_err(|e| PetMessageError::ServiceError(Into::into(e)))?;
@@ -215,17 +215,17 @@ where
 
 use crate::utils::Traceable;
 use tracing::Span;
-use xaynet_core::message::{PayloadOwned, ToBytes};
+use xaynet_core::message::{Payload, ToBytes};
 
-impl Traceable for MessageOwned {
+impl Traceable for Message {
     fn make_span(&self) -> Span {
         let message_type = match self.payload {
-            PayloadOwned::Sum(_) => "sum",
-            PayloadOwned::Update(_) => "update",
-            PayloadOwned::Sum2(_) => "sum2",
+            Payload::Sum(_) => "sum",
+            Payload::Update(_) => "update",
+            Payload::Sum2(_) => "sum2",
         };
         error_span!(
-            "MessageOwned",
+            "Message",
             message_type = message_type,
             message_length = self.buffer_length()
         )

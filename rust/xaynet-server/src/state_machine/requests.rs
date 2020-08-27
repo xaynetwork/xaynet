@@ -14,7 +14,7 @@ use tokio::sync::{mpsc, oneshot};
 use tracing::Span;
 use xaynet_core::{
     mask::MaskObject,
-    message::{MessageOwned, PayloadOwned, UpdateOwned},
+    message::{Message, Payload, Update},
     LocalSeedDict,
     ParticipantPublicKey,
     SumParticipantEphemeralPublicKey,
@@ -86,16 +86,16 @@ impl Traceable for StateMachineRequest {
     }
 }
 
-impl From<MessageOwned> for StateMachineRequest {
-    fn from(message: MessageOwned) -> Self {
-        let MessageOwned { header, payload } = message;
+impl From<Message> for StateMachineRequest {
+    fn from(message: Message) -> Self {
+        let Message { header, payload } = message;
         match payload {
-            PayloadOwned::Sum(sum) => StateMachineRequest::Sum(SumRequest {
+            Payload::Sum(sum) => StateMachineRequest::Sum(SumRequest {
                 participant_pk: header.participant_pk,
                 ephm_pk: sum.ephm_pk,
             }),
-            PayloadOwned::Update(update) => {
-                let UpdateOwned {
+            Payload::Update(update) => {
+                let Update {
                     local_seed_dict,
                     masked_model,
                     masked_scalar,
@@ -108,7 +108,7 @@ impl From<MessageOwned> for StateMachineRequest {
                     masked_scalar,
                 })
             }
-            PayloadOwned::Sum2(sum2) => StateMachineRequest::Sum2(Sum2Request {
+            Payload::Sum2(sum2) => StateMachineRequest::Sum2(Sum2Request {
                 participant_pk: header.participant_pk,
                 model_mask: sum2.model_mask,
                 scalar_mask: sum2.scalar_mask,

@@ -1,7 +1,7 @@
 use xaynet_core::{
     common::{RoundParameters, RoundSeed},
     crypto::{ByteObject, EncryptKeyPair, PublicEncryptKey, SigningKeyPair},
-    message::{MessageOwned, MessageSeal, SumOwned},
+    message::{Message, MessageSeal, Sum},
     SumParticipantEphemeralPublicKey,
 };
 
@@ -31,23 +31,19 @@ pub fn new_event_channels() -> (EventPublisher, EventSubscriber) {
 /// participants are returned along with the message.
 pub fn new_sum_message(
     round_params: &RoundParameters,
-) -> (
-    MessageOwned,
-    SumParticipantEphemeralPublicKey,
-    SigningKeyPair,
-) {
+) -> (Message, SumParticipantEphemeralPublicKey, SigningKeyPair) {
     let participant_ephm_pk = PublicEncryptKey::generate();
     let participant_signing_keys = SigningKeyPair::generate();
 
     let sum_signature = participant_signing_keys
         .secret
         .sign_detached(&[round_params.seed.as_slice(), b"sum"].concat());
-    let payload = SumOwned {
+    let payload = Sum {
         sum_signature,
         ephm_pk: participant_ephm_pk,
     };
 
-    let message = MessageOwned::new_sum(
+    let message = Message::new_sum(
         round_params.pk.clone(),
         participant_signing_keys.public.clone(),
         payload,
@@ -59,7 +55,7 @@ pub fn new_sum_message(
 /// Sign and encrypt the given message using the given round
 /// parameters and particpant keys.
 pub fn encrypt_message(
-    message: &MessageOwned,
+    message: &Message,
     round_params: &RoundParameters,
     participant_signing_keys: &SigningKeyPair,
 ) -> Vec<u8> {

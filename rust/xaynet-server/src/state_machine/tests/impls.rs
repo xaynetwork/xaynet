@@ -1,4 +1,4 @@
-use xaynet_core::message::MessageOwned;
+use xaynet_core::message::Message;
 
 use crate::{
     state_machine::{
@@ -12,7 +12,7 @@ use crate::{
 };
 
 impl RequestSender {
-    pub async fn msg(&self, msg: &MessageOwned) -> StateMachineResult {
+    pub async fn msg(&self, msg: &Message) -> StateMachineResult {
         self.request(Request::new(msg.clone())).await
     }
 }
