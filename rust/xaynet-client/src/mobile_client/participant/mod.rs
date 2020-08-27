@@ -5,7 +5,6 @@
 //! [client module]: ../index.html
 use derive_more::From;
 use xaynet_core::{
-    certificate::Certificate,
     crypto::SigningKeyPair,
     mask::MaskConfig,
     message::{Message, MessageSeal},
@@ -26,15 +25,12 @@ pub struct ParticipantState {
     pub keys: SigningKeyPair,
     // Mask config
     pub mask_config: MaskConfig,
-    // Certificate
-    pub certificate: Certificate, //(dummy)
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct ParticipantSettings {
     pub secret_key: ParticipantSecretKey,
     pub mask_config: MaskConfig,
-    pub certificate: Certificate,
 }
 
 impl From<ParticipantSettings> for ParticipantState {
@@ -42,7 +38,6 @@ impl From<ParticipantSettings> for ParticipantState {
         ParticipantSettings {
             secret_key,
             mask_config,
-            certificate,
         }: ParticipantSettings,
     ) -> ParticipantState {
         ParticipantState {
@@ -51,7 +46,6 @@ impl From<ParticipantSettings> for ParticipantState {
                 secret: secret_key,
             },
             mask_config,
-            certificate,
         }
     }
 }

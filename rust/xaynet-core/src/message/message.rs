@@ -42,7 +42,6 @@ macro_rules! impl_new {
                     header: Header {
                         participant_pk,
                         tag: $tag,
-                        certificate: None,
                     },
                     payload: $crate::message::payload::Payload::from(payload),
                 }

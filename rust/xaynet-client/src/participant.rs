@@ -7,7 +7,6 @@
 use std::default::Default;
 
 use xaynet_core::{
-    certificate::Certificate,
     crypto::{ByteObject, EncryptKeyPair, SigningKeyPair},
     mask::{
         Aggregation,
@@ -47,14 +46,12 @@ pub enum Task {
 /// A participant in the PET protocol layer.
 pub struct Participant {
     // credentials
-    pub pk: ParticipantPublicKey,              // 32 bytes
-    pub sk: ParticipantSecretKey,              // 64 bytes
-    ephm_pk: SumParticipantEphemeralPublicKey, // 32 bytes
-    ephm_sk: SumParticipantEphemeralSecretKey, // 32 bytes
-    #[allow(dead_code)]
-    certificate: Certificate, // 0 bytes (dummy)
+    pub pk: ParticipantPublicKey,                // 32 bytes
+    pub sk: ParticipantSecretKey,                // 64 bytes
+    ephm_pk: SumParticipantEphemeralPublicKey,   // 32 bytes
+    ephm_sk: SumParticipantEphemeralSecretKey,   // 32 bytes
     pub sum_signature: ParticipantTaskSignature, // 64 bytes
-    update_signature: ParticipantTaskSignature, // 64 bytes
+    update_signature: ParticipantTaskSignature,  // 64 bytes
 
     // round parameters
     pub task: Task,
@@ -66,7 +63,6 @@ impl Default for Participant {
         let sk = ParticipantSecretKey::zeroed();
         let ephm_pk = SumParticipantEphemeralPublicKey::zeroed();
         let ephm_sk = SumParticipantEphemeralSecretKey::zeroed();
-        let certificate = Certificate::new();
         let sum_signature = ParticipantTaskSignature::zeroed();
         let update_signature = ParticipantTaskSignature::zeroed();
         let task = Task::None;
@@ -75,7 +71,6 @@ impl Default for Participant {
             sk,
             ephm_pk,
             ephm_sk,
-            certificate,
             sum_signature,
             update_signature,
             task,
@@ -269,7 +264,6 @@ mod tests {
         assert_eq!(part.sk.as_slice().len(), 64);
         assert_eq!(part.ephm_pk, SumParticipantEphemeralPublicKey::zeroed());
         assert_eq!(part.ephm_sk, SumParticipantEphemeralSecretKey::zeroed());
-        assert_eq!(part.certificate, Certificate::new());
         assert_eq!(part.sum_signature, ParticipantTaskSignature::zeroed());
         assert_eq!(part.update_signature, ParticipantTaskSignature::zeroed());
         assert_eq!(part.task, Task::None);

@@ -103,7 +103,6 @@ mod tests {
     use sodiumoxide::randombytes::{randombytes, randombytes_uniform};
     use std::{collections::HashSet, iter};
     use xaynet_core::{
-        certificate::Certificate,
         crypto::{ByteObject, EncryptKeyPair, Signature, SigningKeyPair},
         mask::{BoundType, DataType, GroupType, MaskConfig, ModelType},
         UpdateParticipantPublicKey,
@@ -112,7 +111,6 @@ mod tests {
     fn participant_state() -> ParticipantState {
         sodiumoxide::init().unwrap();
 
-        let certificate = Certificate::new();
         let mask_config = MaskConfig {
             group_type: GroupType::Prime,
             data_type: DataType::F32,
@@ -122,7 +120,6 @@ mod tests {
 
         ParticipantState {
             keys: SigningKeyPair::generate(),
-            certificate,
             mask_config,
         }
     }
