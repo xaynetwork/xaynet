@@ -39,6 +39,14 @@ pub struct MobileClient {
 }
 
 impl MobileClient {
+    /// Initializes a fresh client. This method only needs to called once.
+    ///
+    /// To serialize and restore a client, please use the [`MobileClient::serialize`] and
+    /// [`MobileClient::restore`]
+    ///
+    /// # Errors
+    ///
+    /// Fails if the crypto module cannot be initialized.
     pub fn init(
         url: &str,
         participant_settings: ParticipantSettings,
@@ -53,6 +61,12 @@ impl MobileClient {
         Ok(Self::new(url, client_state))
     }
 
+    /// Restores a client from its serialized state.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the serialized state is corrupted and the client cannot be restored
+    /// or if the crypto module cannot be initialized.
     pub fn restore(url: &str, bytes: &[u8]) -> Result<Self, MobileClientError> {
         let client_state: ClientStateMachine = bincode::deserialize(bytes)?;
         Ok(Self::new(url, client_state))
@@ -68,6 +82,13 @@ impl MobileClient {
         }
     }
 
+    /// Serializes the current state of the client.
+    ///
+    /// # Note
+    ///
+    /// The serialized state is **not encrypted** and contains sensitive data such as the
+    /// participant's private key. Therefore, the user of the [`MobileClient`] **must** ensure
+    /// that the serialized state is stored in a safe place.
     pub fn serialize(&self) -> Vec<u8> {
         // Safe to unwrap:
         //
@@ -82,12 +103,26 @@ impl MobileClient {
         bincode::serialize(&self.client_state).unwrap()
     }
 
+    /// Fetches and returns the latest global model from the coordinator.
+    /// Returns `None` if no global model is available.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the runtime cannot be initialized or if an API request has failed.
     pub fn get_global_model(&mut self) -> Result<Option<Model>, MobileClientError> {
         Self::runtime()?
             .block_on(async { self.api.get_model().await })
             .map_err(|err| err.into())
     }
 
+    /// Tries to proceed with the current client task.
+    /// This will consume the current state of the client and produces a new one.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the runtime cannot be initialized.
+    /// In this case the state of the client remains unchanged and is returned
+    /// along with the error.
     pub fn try_to_proceed(self) -> Result<Self, (Self, MobileClientError)> {
         let mut runtime = match Self::runtime() {
             Ok(runtime) => runtime,
@@ -122,6 +157,10 @@ impl MobileClient {
         self.local_model.set_local_model(model);
     }
 
+    /// Creates a new participant secret key.
+    ///
+    /// The secret key is part of the [`ParticipantSettings`] which are required for the first
+    /// initialization of the client.
     pub fn create_participant_secret_key() -> SecretSigningKey {
         let SigningKeyPair { secret, .. } = SigningKeyPair::generate();
         secret
