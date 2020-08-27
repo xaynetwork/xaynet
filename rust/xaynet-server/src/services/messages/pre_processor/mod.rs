@@ -17,7 +17,7 @@ use thiserror::Error;
 use tower::Service;
 use xaynet_core::{
     common::RoundParameters,
-    message::{MessageOwned, PayloadOwned},
+    message::{Message, Payload},
 };
 
 use crate::{
@@ -58,10 +58,10 @@ impl PreProcessorService {
 }
 
 /// Request type for [`PreProcessorService`]
-pub type PreProcessorRequest = Request<MessageOwned>;
+pub type PreProcessorRequest = Request<Message>;
 
 /// Response type for [`PreProcessorService`]
-pub type PreProcessorResponse = Result<MessageOwned, PreProcessorError>;
+pub type PreProcessorResponse = Result<Message, PreProcessorError>;
 
 impl Service<PreProcessorRequest> for PreProcessorService {
     type Response = PreProcessorResponse;
@@ -82,19 +82,19 @@ impl Service<PreProcessorRequest> for PreProcessorService {
     }
 
     fn call(&mut self, req: PreProcessorRequest) -> Self::Future {
-        let MessageOwned { header, payload } = req.into_inner();
+        let Message { header, payload } = req.into_inner();
         match (self.latest_phase_event.event, payload) {
-            (PhaseName::Sum, PayloadOwned::Sum(sum)) => {
+            (PhaseName::Sum, Payload::Sum(sum)) => {
                 let req = (header, sum, self.params_listener.get_latest().event);
                 let fut = self.sum.call(req);
                 Box::pin(fut)
             }
-            (PhaseName::Update, PayloadOwned::Update(update)) => {
+            (PhaseName::Update, Payload::Update(update)) => {
                 let req = (header, update, self.params_listener.get_latest().event);
                 let fut = self.update.call(req);
                 Box::pin(fut)
             }
-            (PhaseName::Sum2, PayloadOwned::Sum2(sum2)) => {
+            (PhaseName::Sum2, Payload::Sum2(sum2)) => {
                 let req = (header, sum2, self.params_listener.get_latest().event);
                 let fut = self.sum2.call(req);
                 Box::pin(fut)

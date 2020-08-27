@@ -143,12 +143,12 @@ impl<'a, T: AsRef<[u8]> + ?Sized> SumBuffer<&'a T> {
 /// ## Decoding a message
 ///
 /// ```rust
-/// # use xaynet_core::{crypto::ByteObject, message::{FromBytes, SumOwned}, ParticipantTaskSignature, SumParticipantEphemeralPublicKey};
+/// # use xaynet_core::{crypto::ByteObject, message::{FromBytes, Sum}, ParticipantTaskSignature, SumParticipantEphemeralPublicKey};
 /// let signature = vec![0x11; 64];
 /// let ephm_pk = vec![0x22; 32];
 /// let bytes = [signature.as_slice(), ephm_pk.as_slice()].concat();
-/// let parsed = SumOwned::from_bytes(&bytes).unwrap();
-/// let expected = SumOwned {
+/// let parsed = Sum::from_bytes(&bytes).unwrap();
+/// let expected = Sum{
 ///     sum_signature: ParticipantTaskSignature::from_slice(&signature[..]).unwrap(),
 ///     ephm_pk: SumParticipantEphemeralPublicKey::from_slice(&ephm_pk[..]).unwrap(),
 /// };
@@ -182,9 +182,6 @@ pub struct Sum {
     pub ephm_pk: SumParticipantEphemeralPublicKey,
 }
 
-/// An owned version of a [`Sum`].
-pub type SumOwned = Sum;
-
 impl ToBytes for Sum {
     fn buffer_length(&self) -> usize {
         EPHM_PK_RANGE.end
@@ -197,7 +194,7 @@ impl ToBytes for Sum {
     }
 }
 
-impl FromBytes for SumOwned {
+impl FromBytes for Sum {
     fn from_bytes<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
         let reader = SumBuffer::new(buffer.as_ref())?;
 
@@ -231,11 +228,11 @@ pub(in crate::message) mod tests {
         [sum_signature_bytes().as_slice(), ephm_pk_bytes().as_slice()].concat()
     }
 
-    pub(crate) fn sum() -> SumOwned {
+    pub(crate) fn sum() -> Sum {
         let sum_signature =
             ParticipantTaskSignature::from_slice(&sum_signature_bytes()[..]).unwrap();
         let ephm_pk = SumParticipantEphemeralPublicKey::from_slice(&ephm_pk_bytes()).unwrap();
-        SumOwned {
+        Sum {
             sum_signature,
             ephm_pk,
         }
@@ -279,7 +276,7 @@ pub(in crate::message) mod tests {
 
     #[test]
     fn decode() {
-        let parsed = SumOwned::from_bytes(&sum_bytes()).unwrap();
+        let parsed = Sum::from_bytes(&sum_bytes()).unwrap();
         let expected = sum();
         assert_eq!(parsed, expected);
     }

@@ -4,7 +4,7 @@
 //!
 //! [message module]: ../index.html
 
-use std::{borrow::Borrow, ops::Range};
+use std::ops::Range;
 
 use anyhow::{anyhow, Context};
 
@@ -145,45 +145,33 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Sum2Buffer<&'a T> {
 /// A high level representation of a sum2 message.
 ///
 /// These messages are sent by sum participants during the sum2 phase.
-pub struct Sum2<M> {
+pub struct Sum2 {
     /// The signature of the round seed and the word "sum".
     ///
     /// This is used to determine whether a participant is selected for the sum task.
     pub sum_signature: ParticipantTaskSignature,
 
     /// A model mask computed by the participant.
-    pub model_mask: M,
+    pub model_mask: MaskObject,
 
     /// A scalar mask computed by the participant.
-    pub scalar_mask: M,
+    pub scalar_mask: MaskObject,
 }
 
-impl<M> ToBytes for Sum2<M>
-where
-    M: Borrow<MaskObject>,
-{
+impl ToBytes for Sum2 {
     fn buffer_length(&self) -> usize {
-        SUM_SIGNATURE_RANGE.end
-            + self.model_mask.borrow().buffer_length()
-            + self.scalar_mask.borrow().buffer_length()
+        SUM_SIGNATURE_RANGE.end + self.model_mask.buffer_length() + self.scalar_mask.buffer_length()
     }
 
     fn to_bytes<T: AsMut<[u8]>>(&self, buffer: &mut T) {
         let mut writer = Sum2Buffer::new_unchecked(buffer.as_mut());
         self.sum_signature.to_bytes(&mut writer.sum_signature_mut());
-        self.model_mask
-            .borrow()
-            .to_bytes(&mut writer.model_mask_mut());
-        self.scalar_mask
-            .borrow()
-            .to_bytes(&mut writer.scalar_mask_mut());
+        self.model_mask.to_bytes(&mut writer.model_mask_mut());
+        self.scalar_mask.to_bytes(&mut writer.scalar_mask_mut());
     }
 }
 
-/// An owned version of a [`Sum2`].
-pub type Sum2Owned = Sum2<MaskObject>;
-
-impl FromBytes for Sum2Owned {
+impl FromBytes for Sum2 {
     fn from_bytes<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
         let reader = Sum2Buffer::new(buffer.as_ref())?;
         Ok(Self {
@@ -218,11 +206,11 @@ pub(in crate::message) mod tests_helpers {
         (object_1(), bytes_1())
     }
 
-    pub fn sum2() -> (Sum2Owned, Vec<u8>) {
+    pub fn sum2() -> (Sum2, Vec<u8>) {
         let mut bytes = signature().1;
         bytes.extend(mask().1);
         bytes.extend(mask_1().1);
-        let sum2 = Sum2Owned {
+        let sum2 = Sum2 {
             sum_signature: signature().0,
             model_mask: mask().0,
             scalar_mask: mask_1().0,
@@ -276,7 +264,7 @@ pub(in crate::message) mod tests {
     #[test]
     fn decode() {
         let (sum2, bytes) = helpers::sum2();
-        let parsed = Sum2Owned::from_bytes(&bytes).unwrap();
+        let parsed = Sum2::from_bytes(&bytes).unwrap();
         assert_eq!(parsed, sum2);
     }
 }

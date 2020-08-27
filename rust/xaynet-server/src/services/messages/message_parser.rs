@@ -15,14 +15,14 @@ use xaynet_core::{
     message::{
         DecodeError,
         FromBytes,
-        HeaderOwned,
-        MessageOwned,
-        PayloadOwned,
-        Sum2Owned,
-        SumOwned,
+        Header,
+        Message,
+        Payload,
+        Sum2,
+        Sum,
         Tag,
         ToBytes,
-        UpdateOwned,
+        Update,
     },
 };
 
@@ -103,7 +103,7 @@ pub enum MessageParserError {
 }
 
 /// Response type for the [`MessageParserService`]
-pub type MessageParserResponse = Result<MessageOwned, MessageParserError>;
+pub type MessageParserResponse = Result<Message, MessageParserError>;
 
 /// Request type for the [`MessageParserService`]
 pub type MessageParserRequest<T> = Request<RawMessage<T>>;
@@ -191,7 +191,7 @@ impl Handler {
         let payload = self.parse_payload(raw.as_slice(), &header)?;
 
         info!("done pre-processing the message");
-        Ok(MessageOwned { header, payload })
+        Ok(Message { header, payload })
     }
 
     /// Decrypt the given payload with the coordinator secret key
@@ -204,8 +204,8 @@ impl Handler {
     }
 
     /// Attempt to parse the message header from the raw message
-    fn parse_header(&self, raw_message: &[u8]) -> Result<HeaderOwned, MessageParserError> {
-        Ok(HeaderOwned::from_bytes(&&raw_message[Signature::LENGTH..])
+    fn parse_header(&self, raw_message: &[u8]) -> Result<Header, MessageParserError> {
+        Ok(Header::from_bytes(&&raw_message[Signature::LENGTH..])
             .map_err(MessageParserError::Parsing)?)
     }
 
@@ -231,7 +231,7 @@ impl Handler {
     fn verify_signature(
         &self,
         raw_message: &[u8],
-        header: &HeaderOwned,
+        header: &Header,
     ) -> Result<(), MessageParserError> {
         // UNWRAP_SAFE: We already parsed the header, so we now the
         // message is at least as big as: signature length + header
@@ -249,25 +249,25 @@ impl Handler {
     fn parse_payload(
         &self,
         raw_message: &[u8],
-        header: &HeaderOwned,
-    ) -> Result<PayloadOwned, MessageParserError> {
+        header: &Header,
+    ) -> Result<Payload, MessageParserError> {
         let bytes = &raw_message[header.buffer_length() + Signature::LENGTH..];
         match header.tag {
             Tag::Sum => {
-                let parsed = SumOwned::from_bytes(&bytes)
+                let parsed = Sum::from_bytes(&bytes)
                     .map_err(|e| MessageParserError::Parsing(e.context("invalid sum payload")))?;
-                Ok(PayloadOwned::Sum(parsed))
+                Ok(Payload::Sum(parsed))
             }
             Tag::Update => {
-                let parsed = UpdateOwned::from_bytes(&bytes).map_err(|e| {
+                let parsed = Update::from_bytes(&bytes).map_err(|e| {
                     MessageParserError::Parsing(e.context("invalid update payload"))
                 })?;
-                Ok(PayloadOwned::Update(parsed))
+                Ok(Payload::Update(parsed))
             }
             Tag::Sum2 => {
-                let parsed = Sum2Owned::from_bytes(&bytes)
+                let parsed = Sum2::from_bytes(&bytes)
                     .map_err(|e| MessageParserError::Parsing(e.context("invalid sum2 payload")))?;
-                Ok(PayloadOwned::Sum2(parsed))
+                Ok(Payload::Sum2(parsed))
             }
         }
     }

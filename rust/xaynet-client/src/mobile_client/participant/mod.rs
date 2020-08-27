@@ -8,7 +8,7 @@ use xaynet_core::{
     certificate::Certificate,
     crypto::SigningKeyPair,
     mask::MaskConfig,
-    message::{MessageOwned, MessageSeal},
+    message::{Message, MessageSeal},
     CoordinatorPublicKey,
     ParticipantSecretKey,
 };
@@ -72,7 +72,7 @@ pub struct Participant<Task> {
 impl<Task> Participant<Task> {
     /// Sign the given message with the participant secret key, and
     /// encrypt the signed message with the given public key.
-    pub fn seal_message(&self, pk: &CoordinatorPublicKey, message: &MessageOwned) -> Vec<u8> {
+    pub fn seal_message(&self, pk: &CoordinatorPublicKey, message: &Message) -> Vec<u8> {
         let message_seal = MessageSeal {
             recipient_pk: pk,
             sender_sk: &self.state.keys.secret,

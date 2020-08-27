@@ -4,7 +4,7 @@
 //!
 //! [message module]: ../index.html
 
-use std::{borrow::Borrow, ops::Range};
+use std::ops::Range;
 
 use anyhow::{anyhow, Context};
 
@@ -198,7 +198,7 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> UpdateBuffer<T> {
 /// A high level representation of an update message.
 ///
 /// These messages are sent by update participants during the update phase.
-pub struct Update<D, M> {
+pub struct Update {
     /// The signature of the round seed and the word "sum".
     ///
     /// This is used to determine whether a participant is selected for the sum task.
@@ -210,27 +210,23 @@ pub struct Update<D, M> {
     /// A model trained by an update participant.
     ///
     /// The model is masked with randomness derived from the participant seed.
-    pub masked_model: M,
+    pub masked_model: MaskObject,
     /// The scalar used to scale model weights.
     ///
     /// The scalar is masked with randomness derived from the participant seed.
-    pub masked_scalar: M,
+    pub masked_scalar: MaskObject,
     /// A dictionary that contains the seed used to mask `masked_model`.
     ///
     /// The seed is encrypted with the ephemeral public key of each sum participant.
-    pub local_seed_dict: D,
+    pub local_seed_dict: LocalSeedDict,
 }
 
-impl<D, M> ToBytes for Update<D, M>
-where
-    D: Borrow<LocalSeedDict>,
-    M: Borrow<MaskObject>,
-{
+impl ToBytes for Update {
     fn buffer_length(&self) -> usize {
         UPDATE_SIGNATURE_RANGE.end
-            + self.masked_model.borrow().buffer_length()
-            + self.masked_scalar.borrow().buffer_length()
-            + self.local_seed_dict.borrow().buffer_length()
+            + self.masked_model.buffer_length()
+            + self.masked_scalar.buffer_length()
+            + self.local_seed_dict.buffer_length()
     }
 
     fn to_bytes<T: AsMut<[u8]>>(&self, buffer: &mut T) {
@@ -238,22 +234,14 @@ where
         self.sum_signature.to_bytes(&mut writer.sum_signature_mut());
         self.update_signature
             .to_bytes(&mut writer.update_signature_mut());
-        self.masked_model
-            .borrow()
-            .to_bytes(&mut writer.masked_model_mut());
-        self.masked_scalar
-            .borrow()
-            .to_bytes(&mut writer.masked_scalar_mut());
+        self.masked_model.to_bytes(&mut writer.masked_model_mut());
+        self.masked_scalar.to_bytes(&mut writer.masked_scalar_mut());
         self.local_seed_dict
-            .borrow()
             .to_bytes(&mut writer.local_seed_dict_mut());
     }
 }
 
-/// An owned version of an [`Update`].
-pub type UpdateOwned = Update<LocalSeedDict, MaskObject>;
-
-impl FromBytes for UpdateOwned {
+impl FromBytes for Update {
     fn from_bytes<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
         let reader = UpdateBuffer::new(buffer.as_ref())?;
         Ok(Self {
@@ -329,14 +317,14 @@ pub(in crate::message) mod tests_helpers {
         (local_seed_dict, bytes)
     }
 
-    pub fn update() -> (UpdateOwned, Vec<u8>) {
+    pub fn update() -> (Update, Vec<u8>) {
         let mut bytes = sum_signature().1;
         bytes.extend(update_signature().1);
         bytes.extend(masked_model().1);
         bytes.extend(masked_scalar().1);
         bytes.extend(local_seed_dict().1);
 
-        let update = UpdateOwned {
+        let update = Update {
             sum_signature: sum_signature().0,
             update_signature: update_signature().0,
             masked_model: masked_model().0,
@@ -383,7 +371,7 @@ pub(in crate::message) mod tests {
         bytes.extend(helpers::masked_scalar().1);
         bytes.extend(invalid);
 
-        let e = UpdateOwned::from_bytes(&bytes).unwrap_err();
+        let e = Update::from_bytes(&bytes).unwrap_err();
         let cause = e.source().unwrap().to_string();
         assert_eq!(
             cause,
@@ -394,7 +382,7 @@ pub(in crate::message) mod tests {
     #[test]
     fn decode() {
         let (update, bytes) = helpers::update();
-        let parsed = UpdateOwned::from_bytes(&bytes).unwrap();
+        let parsed = Update::from_bytes(&bytes).unwrap();
         assert_eq!(parsed, update);
     }
 

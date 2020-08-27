@@ -8,13 +8,13 @@ use tower::Service;
 use xaynet_core::{
     common::RoundParameters,
     crypto::ByteObject,
-    message::{HeaderOwned, MessageOwned, PayloadOwned, UpdateOwned},
+    message::{Header, Message, Payload, Update},
 };
 
 use crate::services::messages::pre_processor::{PreProcessorError, PreProcessorResponse};
 
 /// Request type for [`UpdatePreProcessorService`]
-pub type UpdateRequest = (HeaderOwned, UpdateOwned, RoundParameters);
+pub type UpdateRequest = (Header, Update, RoundParameters);
 
 /// A service for performing sanity checks and preparing an update
 /// request to be handled by the state machine. At the moment, this is
@@ -43,13 +43,13 @@ impl Service<UpdateRequest> for UpdatePreProcessorService {
 }
 
 struct UpdatePreProcessor {
-    header: HeaderOwned,
-    message: UpdateOwned,
+    header: Header,
+    message: Update,
     params: RoundParameters,
 }
 
 impl UpdatePreProcessor {
-    fn call(self) -> Result<MessageOwned, PreProcessorError> {
+    fn call(self) -> Result<Message, PreProcessorError> {
         debug!("checking sum signature");
         if !self.has_valid_sum_signature() {
             debug!("invalid sum signature");
@@ -77,9 +77,9 @@ impl UpdatePreProcessor {
         let Self {
             header, message, ..
         } = self;
-        Ok(MessageOwned {
+        Ok(Message {
             header,
-            payload: PayloadOwned::Update(message),
+            payload: Payload::Update(message),
         })
     }
 

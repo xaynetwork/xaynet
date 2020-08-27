@@ -1,6 +1,6 @@
 use crate::PetError;
 
-#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Eq)]
 /// A dummy certificate.
 pub struct Certificate(Vec<u8>);
 

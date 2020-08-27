@@ -8,41 +8,27 @@ pub(crate) mod sum;
 pub(crate) mod sum2;
 pub(crate) mod update;
 
-use std::borrow::Borrow;
-
 use derive_more::From;
 
-use crate::{
-    mask::object::MaskObject,
-    message::{
-        payload::{sum::Sum, sum2::Sum2, update::Update},
-        traits::ToBytes,
-    },
-    LocalSeedDict,
+use crate::message::{
+    payload::{sum::Sum, sum2::Sum2, update::Update},
+    traits::ToBytes,
 };
 
 /// The payload of a [`Message`].
 ///
 /// [`Message`]: struct.Message.html
 #[derive(From, Eq, PartialEq, Debug, Clone)]
-pub enum Payload<D, M, N> {
+pub enum Payload {
     /// The payload of a [`Sum`] message.
     Sum(Sum),
     /// The payload of an [`Update`] message.
-    Update(Update<D, M>),
+    Update(Update),
     /// The payload of a [`Sum2`] message.
-    Sum2(Sum2<N>),
+    Sum2(Sum2),
 }
 
-/// An owned version of a [`Payload`].
-pub type PayloadOwned = Payload<LocalSeedDict, MaskObject, MaskObject>;
-
-impl<D, M, N> ToBytes for Payload<D, M, N>
-where
-    D: Borrow<LocalSeedDict>,
-    M: Borrow<MaskObject>,
-    N: Borrow<MaskObject>,
-{
+impl ToBytes for Payload {
     fn buffer_length(&self) -> usize {
         match self {
             Payload::Sum(m) => m.buffer_length(),

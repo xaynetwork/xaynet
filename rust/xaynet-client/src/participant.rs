@@ -21,7 +21,7 @@ use xaynet_core::{
         Model,
         ModelType,
     },
-    message::{MessageOwned, MessageSeal, Sum2Owned, SumOwned, UpdateOwned},
+    message::{Message, MessageSeal, Sum2, Sum, Update},
     CoordinatorPublicKey,
     InitError,
     LocalSeedDict,
@@ -124,15 +124,15 @@ impl Participant {
     }
 
     /// Compose a sum message given the coordinator public key.
-    pub fn compose_sum_message(&mut self, pk: &CoordinatorPublicKey) -> MessageOwned {
+    pub fn compose_sum_message(&mut self, pk: &CoordinatorPublicKey) -> Message {
         self.gen_ephm_keypair();
 
-        let payload = SumOwned {
+        let payload = Sum {
             sum_signature: self.sum_signature,
             ephm_pk: self.ephm_pk,
         };
 
-        MessageOwned::new_sum(*pk, self.pk, payload)
+        Message::new_sum(*pk, self.pk, payload)
     }
 
     /// Compose an update message given the coordinator public key, sum
@@ -143,11 +143,11 @@ impl Participant {
         sum_dict: &SumDict,
         scalar: f64,
         local_model: Model,
-    ) -> MessageOwned {
+    ) -> Message {
         let (mask_seed, masked_model, masked_scalar) = Self::mask_model(scalar, local_model);
         let local_seed_dict = Self::create_local_seed_dict(sum_dict, &mask_seed);
 
-        let payload = UpdateOwned {
+        let payload = Update {
             sum_signature: self.sum_signature,
             update_signature: self.update_signature,
             masked_model,
@@ -155,7 +155,7 @@ impl Participant {
             local_seed_dict,
         };
 
-        MessageOwned::new_update(pk, self.pk, payload)
+        Message::new_update(pk, self.pk, payload)
     }
 
     /// Compose a sum2 message given the coordinator public key, seed dictionary
@@ -170,22 +170,22 @@ impl Participant {
         pk: CoordinatorPublicKey,
         seed_dict: &UpdateSeedDict,
         mask_len: usize,
-    ) -> Result<MessageOwned, PetError> {
+    ) -> Result<Message, PetError> {
         let mask_seeds = self.get_seeds(seed_dict)?;
         let (model_mask, scalar_mask) =
             self.compute_global_mask(mask_seeds, mask_len, dummy_config())?;
-        let payload = Sum2Owned {
+        let payload = Sum2 {
             sum_signature: self.sum_signature,
             model_mask,
             scalar_mask,
         };
 
-        Ok(MessageOwned::new_sum2(pk, self.pk, payload))
+        Ok(Message::new_sum2(pk, self.pk, payload))
     }
 
     /// Sign the given message with the participant secret key, and
     /// encrypt the signed message with the given public key.
-    pub fn seal_message(&self, pk: &CoordinatorPublicKey, message: &MessageOwned) -> Vec<u8> {
+    pub fn seal_message(&self, pk: &CoordinatorPublicKey, message: &Message) -> Vec<u8> {
         let message_seal = MessageSeal {
             recipient_pk: pk,
             sender_sk: &self.sk,
