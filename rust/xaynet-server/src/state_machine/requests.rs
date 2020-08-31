@@ -88,10 +88,10 @@ impl Traceable for StateMachineRequest {
 
 impl From<Message> for StateMachineRequest {
     fn from(message: Message) -> Self {
-        let Message { header, payload } = message;
-        match payload {
+        let participant_pk = message.participant_pk;
+        match message.payload {
             Payload::Sum(sum) => StateMachineRequest::Sum(SumRequest {
-                participant_pk: header.participant_pk,
+                participant_pk,
                 ephm_pk: sum.ephm_pk,
             }),
             Payload::Update(update) => {
@@ -102,17 +102,18 @@ impl From<Message> for StateMachineRequest {
                     ..
                 } = update;
                 StateMachineRequest::Update(UpdateRequest {
-                    participant_pk: header.participant_pk,
+                    participant_pk,
                     local_seed_dict,
                     masked_model,
                     masked_scalar,
                 })
             }
             Payload::Sum2(sum2) => StateMachineRequest::Sum2(Sum2Request {
-                participant_pk: header.participant_pk,
+                participant_pk,
                 model_mask: sum2.model_mask,
                 scalar_mask: sum2.scalar_mask,
             }),
+            Payload::Chunk(_) => unimplemented!(),
         }
     }
 }

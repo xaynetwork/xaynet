@@ -10,7 +10,7 @@
 //!   - [`SumDictService`]: for fetching the sum dictionary
 //! - the services for handling PET messages from the participant:
 //!   - [`MessageParserService`]: decrypt and parses incoming message
-//!   - [`PreProcessorService`]: performs sanity checks on the messages
+//!   - [`TaskValidator`]: performs sanity checks on the messages
 //!     (verify the task signatures, etc.)
 //!   - [`StateMachineService`]: pass the messages down to the state machine
 //!     for actual processing
@@ -46,8 +46,8 @@ use crate::{
         messages::{
             MessageParserService,
             PetMessageService,
-            PreProcessorService,
             StateMachineService,
+            TaskValidatorService,
         },
     },
     state_machine::{events::EventSubscriber, requests::RequestSender},
@@ -121,7 +121,7 @@ pub fn message_handler(
     let pre_processor = ServiceBuilder::new()
         .buffer(100)
         .concurrency_limit(100)
-        .service(PreProcessorService::new(event_subscriber));
+        .service(TaskValidatorService::new(event_subscriber));
 
     let state_machine = ServiceBuilder::new()
         .buffer(100)

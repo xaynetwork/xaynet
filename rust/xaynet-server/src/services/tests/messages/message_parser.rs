@@ -74,7 +74,13 @@ async fn test_valid_request() {
     publisher.broadcast_phase(PhaseName::Sum);
 
     // Call the service
-    let resp = task.call(req).await.unwrap().unwrap();
+    let mut resp = task.call(req).await.unwrap().unwrap();
+    // The signature should be set. However in `message` it's not been
+    // computed, so we just check that it's there, then set it to
+    // `None` in `resp`
+    assert!(resp.signature.is_some());
+    resp.signature = None;
+    // Now the comparison should work
     assert_eq!(resp, message);
 }
 
