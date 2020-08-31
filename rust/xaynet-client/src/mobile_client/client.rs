@@ -117,7 +117,7 @@ impl ClientState<Sum> {
     async fn run<T: ApiClient>(&mut self, api: &mut T) -> Result<(), ClientError<T::Error>> {
         self.check_round_freshness(api).await?;
 
-        let sum_msg = self.participant.compose_sum_message(&self.round_params.pk);
+        let sum_msg = self.participant.compose_sum_message();
         let sealed_msg = self
             .participant
             .seal_message(&self.round_params.pk, &sum_msg);
@@ -179,12 +179,9 @@ impl ClientState<Update> {
             .await?
             .ok_or(ClientError::TooEarly("sum dict"))?;
 
-        let upd_msg = self.participant.compose_update_message(
-            self.round_params.pk,
-            &sums,
-            scalar,
-            local_model,
-        );
+        let upd_msg = self
+            .participant
+            .compose_update_message(&sums, scalar, local_model);
         let sealed_msg = self
             .participant
             .seal_message(&self.round_params.pk, &upd_msg);
@@ -236,7 +233,7 @@ impl ClientState<Sum2> {
 
         let sum2_msg = self
             .participant
-            .compose_sum2_message(self.round_params.pk, &seeds, length as usize)
+            .compose_sum2_message(&seeds, length as usize)
             .map_err(|e| {
                 error!("failed to compose sum2 message with seeds: {:?}", &seeds);
                 ClientError::ParticipantErr(e)

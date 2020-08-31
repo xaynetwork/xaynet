@@ -5,9 +5,14 @@ use std::io::{stdin, stdout, Read, Write};
 use structopt::StructOpt;
 use tracing_subscriber::*;
 use xaynet_client::mobile_client::{participant::ParticipantSettings, MobileClient};
-use xaynet_core::{
-    certificate::Certificate,
-    mask::{BoundType, DataType, FromPrimitives, GroupType, MaskConfig, Model, ModelType},
+use xaynet_core::mask::{
+    BoundType,
+    DataType,
+    FromPrimitives,
+    GroupType,
+    MaskConfig,
+    Model,
+    ModelType,
 };
 
 #[derive(Debug, StructOpt)]
@@ -42,7 +47,6 @@ fn get_participant_settings() -> ParticipantSettings {
             bound_type: BoundType::B0,
             model_type: ModelType::M3,
         },
-        certificate: Certificate::new(),
     }
 }
 

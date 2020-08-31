@@ -2,7 +2,7 @@ use xaynet_core::{
     common::RoundSeed,
     crypto::ByteObject,
     mask::{BoundType, DataType, GroupType, MaskObject, ModelType},
-    message::{MessageOwned, Payload, SumOwned, UpdateOwned},
+    message::{Message, Payload, Sum, Update},
     LocalSeedDict,
     SumParticipantEphemeralPublicKey,
 };
@@ -106,8 +106,8 @@ pub fn init_shared() -> (Shared, EventSubscriber, RequestSender) {
 /// # Panic
 ///
 /// Panic if this message is not a sum message
-pub fn ephm_pk(msg: &MessageOwned) -> SumParticipantEphemeralPublicKey {
-    if let Payload::Sum(SumOwned { ephm_pk, .. }) = &msg.payload {
+pub fn ephm_pk(msg: &Message) -> SumParticipantEphemeralPublicKey {
+    if let Payload::Sum(Sum { ephm_pk, .. }) = &msg.payload {
         *ephm_pk
     } else {
         panic!("not a sum message");
@@ -119,8 +119,8 @@ pub fn ephm_pk(msg: &MessageOwned) -> SumParticipantEphemeralPublicKey {
 /// # Panic
 ///
 /// Panic if this message is not an update message
-pub fn masked_model(msg: &MessageOwned) -> MaskObject {
-    if let Payload::Update(UpdateOwned { masked_model, .. }) = &msg.payload {
+pub fn masked_model(msg: &Message) -> MaskObject {
+    if let Payload::Update(Update { masked_model, .. }) = &msg.payload {
         masked_model.clone()
     } else {
         panic!("not an update message");
@@ -132,8 +132,8 @@ pub fn masked_model(msg: &MessageOwned) -> MaskObject {
 /// # Panic
 ///
 /// Panic if this message is not an update message
-pub fn masked_scalar(msg: &MessageOwned) -> MaskObject {
-    if let Payload::Update(UpdateOwned { masked_scalar, .. }) = &msg.payload {
+pub fn masked_scalar(msg: &Message) -> MaskObject {
+    if let Payload::Update(Update { masked_scalar, .. }) = &msg.payload {
         masked_scalar.clone()
     } else {
         panic!("not an update message");
@@ -145,8 +145,8 @@ pub fn masked_scalar(msg: &MessageOwned) -> MaskObject {
 /// # Panic
 ///
 /// Panic if this message is not an update message
-pub fn local_seed_dict(msg: &MessageOwned) -> LocalSeedDict {
-    if let Payload::Update(UpdateOwned {
+pub fn local_seed_dict(msg: &Message) -> LocalSeedDict {
+    if let Payload::Update(Update {
         local_seed_dict, ..
     }) = &msg.payload
     {

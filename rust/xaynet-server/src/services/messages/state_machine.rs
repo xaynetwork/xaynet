@@ -2,7 +2,7 @@ use std::{pin::Pin, task::Poll};
 
 use futures::{future::Future, task::Context};
 use tower::Service;
-use xaynet_core::message::MessageOwned;
+use xaynet_core::message::Message;
 
 use crate::{
     state_machine::{requests::RequestSender, StateMachineResult},
@@ -28,7 +28,7 @@ impl StateMachineService {
 }
 
 /// Request type for [`StateMachineService`]
-pub type StateMachineRequest = Request<MessageOwned>;
+pub type StateMachineRequest = Request<Message>;
 
 impl Service<StateMachineRequest> for StateMachineService {
     type Response = StateMachineResult;

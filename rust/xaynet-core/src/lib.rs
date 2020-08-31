@@ -75,7 +75,6 @@
 #[macro_use]
 extern crate serde;
 
-pub mod certificate;
 pub mod common;
 pub mod crypto;
 pub mod mask;

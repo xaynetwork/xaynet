@@ -262,31 +262,6 @@ impl<'a, T: AsRef<[u8]> + ?Sized> LengthValueBuffer<&'a T> {
     }
 }
 
-macro_rules! impl_traits_for_length_value_types {
-    ($ty: ty) => {
-        impl ToBytes for $ty {
-            fn buffer_length(&self) -> usize {
-                LENGTH_FIELD.end + self.as_ref().len()
-            }
-
-            fn to_bytes<T: AsMut<[u8]>>(&self, buffer: &mut T) {
-                let mut writer = LengthValueBuffer::new_unchecked(buffer.as_mut());
-                writer.set_length(self.buffer_length() as u32);
-                writer.value_mut().copy_from_slice(self.as_ref());
-            }
-        }
-
-        impl FromBytes for $ty {
-            fn from_bytes<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
-                let reader = LengthValueBuffer::new(buffer.as_ref())?;
-                Ok(Self::from(reader.value()))
-            }
-        }
-    };
-}
-
-impl_traits_for_length_value_types!(crate::certificate::Certificate);
-
 const ENTRY_LENGTH: usize = SumParticipantPublicKey::LENGTH + EncryptedMaskSeed::LENGTH;
 
 impl ToBytes for LocalSeedDict {

@@ -10,30 +10,20 @@ use anyhow::{anyhow, Context};
 
 use crate::{
     crypto::ByteObject,
-    message::{header::Flags, traits::LengthValueBuffer, utils::range, DecodeError},
-    CoordinatorPublicKey,
+    message::{utils::range, DecodeError, Flags},
     ParticipantPublicKey,
 };
-
-/// Gets the length of the message header in bytes.
-///
-/// Depends on the included certificates which can be variable in length.
-pub(crate) fn header_length(certificate_length: usize) -> usize {
-    certificate_length + PARTICIPANT_PK_RANGE.end
-}
 
 // We currently only use 2 bits for the tag, so that byte could also
 // be used for something else in the future.
 const TAG_RANGE: usize = 0;
-// Currently we only have one flag to indicate the presence of a
-// certificate.
+// Currently we only don't have any flag
 const FLAGS_RANGE: usize = 1;
 // Reserve the remaining 2 bytes for future use. That also allows us
 // to have 4 bytes alignment.
 const RESERVED: Range<usize> = range(2, 2);
-const COORDINATOR_PK_RANGE: Range<usize> = range(RESERVED.end, CoordinatorPublicKey::LENGTH);
-const PARTICIPANT_PK_RANGE: Range<usize> =
-    range(COORDINATOR_PK_RANGE.end, ParticipantPublicKey::LENGTH);
+const PARTICIPANT_PK_RANGE: Range<usize> = range(RESERVED.end, ParticipantPublicKey::LENGTH);
+pub(crate) const HEADER_LENGTH: usize = PARTICIPANT_PK_RANGE.end;
 
 /// A wrapper around a buffer that contains a [`Message`].
 ///
@@ -43,25 +33,21 @@ const PARTICIPANT_PK_RANGE: Range<usize> =
 /// ## Reading a sum message
 ///
 /// ```rust
-/// use xaynet_core::message::{Tag, Flags, MessageBuffer};
+/// use xaynet_core::message::{Tag, MessageBuffer};
 /// use std::convert::TryFrom;
 /// let mut bytes = vec![
 ///     0x01, // tag = 1
 ///     0x00, // flags = 0
 ///     0x00, 0x00, // reserved bytes, which are ignored
 /// ];
-/// bytes.extend(vec![0xaa; 32]); // coordinator public key
 /// bytes.extend(vec![0xbb; 32]); // participant public key
 /// // Payload: a sum message contains a signature and an ephemeral public key
 /// bytes.extend(vec![0x11; 32]); // signature
 /// bytes.extend(vec![0x22; 32]); // public key
 ///
 /// let buffer = MessageBuffer::new(&bytes).unwrap();
-/// assert!(!buffer.has_certificate());
 /// assert_eq!(Tag::try_from(buffer.tag()).unwrap(), Tag::Sum);
-/// assert_eq!(buffer.flags(), Flags::empty());
-/// assert!(buffer.certificate().is_none());
-/// assert_eq!(buffer.coordinator_pk(), vec![0xaa; 32].as_slice());
+/// assert_eq!(buffer.flags(), 0);
 /// assert_eq!(buffer.participant_pk(), vec![0xbb; 32].as_slice());
 /// assert_eq!(buffer.payload(), [vec![0x11; 32], vec![0x22; 32]].concat().as_slice());
 /// ```
@@ -69,14 +55,13 @@ const PARTICIPANT_PK_RANGE: Range<usize> =
 /// ## Writing a sum message
 ///
 /// ```rust
-/// use xaynet_core::message::{Tag, Flags, MessageBuffer};
+/// use xaynet_core::message::{Tag, MessageBuffer};
 /// use std::convert::TryFrom;
 /// let mut expected = vec![
 ///     0x01, // tag = 1
 ///     0x00, // flags = 0
 ///     0x00, 0x00, // reserved bytes, which are ignored
 /// ];
-/// expected.extend(vec![0xaa; 32]); // coordinator public key
 /// expected.extend(vec![0xbb; 32]); // participant public key
 /// // Payload: a sum message contains a signature and an ephemeral public key
 /// expected.extend(vec![0x11; 32]); // signature
@@ -85,10 +70,7 @@ const PARTICIPANT_PK_RANGE: Range<usize> =
 /// let mut bytes = vec![0; expected.len()];
 /// let mut buffer = MessageBuffer::new_unchecked(&mut bytes);
 /// buffer.set_tag(Tag::Sum.into());
-/// buffer.set_flags(Flags::empty());
-/// buffer
-///     .coordinator_pk_mut()
-///     .copy_from_slice(vec![0xaa; 32].as_slice());
+/// buffer.set_flags(0);
 /// buffer
 ///     .participant_pk_mut()
 ///     .copy_from_slice(vec![0xbb; 32].as_slice());
@@ -137,23 +119,7 @@ impl<T: AsRef<[u8]>> MessageBuffer<T> {
             ));
         }
 
-        // Check if the header contains a certificate, and if it does,
-        // check the length of certificate field.
-        if self.has_certificate() {
-            let bytes = &self.inner.as_ref()[PARTICIPANT_PK_RANGE.end..];
-            let _ =
-                LengthValueBuffer::new(bytes).context("certificate field has an invalid lenth")?;
-        }
-
         Ok(())
-    }
-
-    /// Checks whether this header contains a certificate.
-    ///
-    /// # Panics
-    /// Accessing the field may panic if the buffer has not been checked before.
-    pub fn has_certificate(&self) -> bool {
-        self.flags().contains(Flags::CERTIFICATE)
     }
 
     /// Computes the payload range.
@@ -161,14 +127,7 @@ impl<T: AsRef<[u8]>> MessageBuffer<T> {
     /// # Panics
     /// Accessing the field may panic if the buffer has not been checked before.
     fn payload_range(&self) -> RangeFrom<usize> {
-        let certificate_length = if self.has_certificate() {
-            let bytes = &self.inner.as_ref()[PARTICIPANT_PK_RANGE.end..];
-            LengthValueBuffer::new(bytes).unwrap().length() as usize
-        } else {
-            0
-        };
-        let payload_start = PARTICIPANT_PK_RANGE.end + certificate_length;
-        payload_start..
+        PARTICIPANT_PK_RANGE.end..
     }
 
     /// Gets the tag field.
@@ -184,35 +143,11 @@ impl<T: AsRef<[u8]>> MessageBuffer<T> {
     /// # Panics
     /// Accessing the field may panic if the buffer has not been checked before.
     pub fn flags(&self) -> Flags {
-        Flags::from_bits_truncate(self.inner.as_ref()[FLAGS_RANGE])
+        self.inner.as_ref()[FLAGS_RANGE]
     }
 }
 
 impl<'a, T: AsRef<[u8]> + ?Sized> MessageBuffer<&'a T> {
-    /// Gets a slice to the certificate.
-    ///
-    /// # Errors
-    /// If the header doesn't contain any certificate, `None` is returned.
-    ///
-    /// # Panics
-    /// Accessing the field may panic if the buffer has not been checked before.
-    pub fn certificate(&self) -> Option<LengthValueBuffer<&'a [u8]>> {
-        if self.has_certificate() {
-            let bytes = &self.inner.as_ref()[PARTICIPANT_PK_RANGE.end..];
-            Some(LengthValueBuffer::new_unchecked(bytes))
-        } else {
-            None
-        }
-    }
-
-    /// Gets the coordinator public key field.
-    ///
-    /// # Panics
-    /// Accessing the field may panic if the buffer has not been checked before.
-    pub fn coordinator_pk(&self) -> &'a [u8] {
-        &self.inner.as_ref()[COORDINATOR_PK_RANGE]
-    }
-
     /// Gets the participant public key field.
     ///
     /// # Panics
@@ -244,27 +179,7 @@ impl<T: AsMut<[u8]> + AsRef<[u8]>> MessageBuffer<T> {
     /// # Panics
     /// Accessing the field may panic if the buffer has not been checked before.
     pub fn set_flags(&mut self, value: Flags) {
-        self.inner.as_mut()[FLAGS_RANGE] = value.bits();
-    }
-
-    /// Gets a mutable reference to the certificate field.
-    ///
-    /// # Panics
-    /// Accessing the field may panic if the buffer has not been checked before.
-    pub fn certificate_mut(&mut self) -> Option<LengthValueBuffer<&mut [u8]>> {
-        if self.has_certificate() {
-            let bytes = &mut self.inner.as_mut()[PARTICIPANT_PK_RANGE.end..];
-            Some(LengthValueBuffer::new_unchecked(bytes))
-        } else {
-            None
-        }
-    }
-    /// Gets a mutable reference to the coordinator public key field.
-    ///
-    /// # Panics
-    /// Accessing the field may panic if the buffer has not been checked before.
-    pub fn coordinator_pk_mut(&mut self) -> &mut [u8] {
-        &mut self.inner.as_mut()[COORDINATOR_PK_RANGE]
+        self.inner.as_mut()[FLAGS_RANGE] = value;
     }
 
     /// Gets a mutable reference to the participant public key field.
@@ -291,20 +206,13 @@ pub(in crate::message) mod tests {
 
     use super::*;
     use crate::{
-        certificate::Certificate,
         crypto::ByteObject,
         message::{
-            header::{HeaderOwned, Tag},
-            message::MessageOwned,
+            header::{Header, Tag},
+            message::Message,
             payload::sum,
         },
     };
-
-    fn coordinator_pk() -> (Vec<u8>, CoordinatorPublicKey) {
-        let bytes = vec![0xaa; 32];
-        let pk = CoordinatorPublicKey::from_slice(bytes.as_slice()).unwrap();
-        (bytes, pk)
-    }
 
     fn participant_pk() -> (Vec<u8>, ParticipantPublicKey) {
         let bytes = vec![0xbb; 32];
@@ -312,89 +220,62 @@ pub(in crate::message) mod tests {
         (bytes, pk)
     }
 
-    fn certificate() -> (Vec<u8>, Certificate) {
-        let bytes = vec![0x01; 32];
-        let cert = Certificate::try_from(bytes.as_slice()).unwrap();
-        (bytes, cert)
-    }
-
-    pub(crate) fn header_bytes(tag: Tag, with_certificate: bool) -> Vec<u8> {
+    pub(crate) fn header_bytes(tag: Tag) -> Vec<u8> {
         let mut buf = vec![
             tag.into(),
             // flags
-            if with_certificate { 1 } else { 0 },
+            0x00,
             // reserved bytes, which can be anything
             0xff,
             0xff,
         ];
-        buf.extend(coordinator_pk().0);
         buf.extend(participant_pk().0);
-        if with_certificate {
-            // certificate length
-            buf.extend(vec![0x00, 0x00, 0x00, 32 + 4]);
-            buf.extend(certificate().0);
-        }
         buf
     }
 
-    pub(crate) fn header(tag: Tag, with_certificate: bool) -> HeaderOwned {
-        HeaderOwned {
+    pub(crate) fn header(tag: Tag) -> Header {
+        Header {
             tag,
-            coordinator_pk: coordinator_pk().1,
             participant_pk: participant_pk().1,
-            certificate: if with_certificate {
-                Some(certificate().1)
-            } else {
-                None
-            },
         }
     }
 
-    fn sum(with_certificate: bool) -> (Vec<u8>, MessageOwned) {
-        let mut bytes = header_bytes(Tag::Sum, with_certificate);
+    fn sum() -> (Vec<u8>, Message) {
+        let mut bytes = header_bytes(Tag::Sum);
         bytes.extend(sum::tests::sum_bytes());
 
-        let header = header(Tag::Sum, with_certificate);
+        let header = header(Tag::Sum);
         let payload = sum::tests::sum().into();
-        let message = MessageOwned { header, payload };
+        let message = Message { header, payload };
         (bytes, message)
     }
 
     #[test]
     fn buffer_read_no_cert() {
-        let (bytes, _) = sum(false);
+        let (bytes, _) = sum();
         let buffer = MessageBuffer::new(&bytes).unwrap();
-        assert!(!buffer.has_certificate());
         assert_eq!(Tag::try_from(buffer.tag()).unwrap(), Tag::Sum);
-        assert_eq!(buffer.flags(), Flags::empty());
-        assert!(buffer.certificate().is_none());
-        assert_eq!(buffer.coordinator_pk(), coordinator_pk().0.as_slice());
+        assert_eq!(buffer.flags(), 0);
         assert_eq!(buffer.participant_pk(), participant_pk().0.as_slice());
     }
 
     #[test]
     fn buffer_read_with_cert() {
-        let (bytes, _) = sum(true);
+        let (bytes, _) = sum();
         let buffer = MessageBuffer::new(&bytes).unwrap();
-        assert!(buffer.has_certificate());
         assert_eq!(Tag::try_from(buffer.tag()).unwrap(), Tag::Sum);
-        assert_eq!(buffer.flags(), Flags::CERTIFICATE);
-        assert_eq!(buffer.certificate().unwrap().value(), &certificate().0[..]);
-        assert_eq!(buffer.coordinator_pk(), coordinator_pk().0.as_slice());
+        assert_eq!(buffer.flags(), 0);
         assert_eq!(buffer.participant_pk(), participant_pk().0.as_slice());
     }
 
     #[test]
     fn buffer_write_no_cert() {
-        let expected = sum(false).0;
+        let expected = sum().0;
         let mut bytes = vec![0xff; expected.len()];
         let mut buffer = MessageBuffer::new_unchecked(&mut bytes);
 
         buffer.set_tag(Tag::Sum.into());
-        buffer.set_flags(Flags::empty());
-        buffer
-            .coordinator_pk_mut()
-            .copy_from_slice(coordinator_pk().0.as_slice());
+        buffer.set_flags(0);
         buffer
             .participant_pk_mut()
             .copy_from_slice(participant_pk().0.as_slice());
@@ -406,24 +287,15 @@ pub(in crate::message) mod tests {
 
     #[test]
     fn buffer_write_with_cert() {
-        let expected = sum(true).0;
+        let expected = sum().0;
         let mut bytes = vec![0xff; expected.len()];
         let mut buffer = MessageBuffer::new_unchecked(&mut bytes);
 
         buffer.set_tag(Tag::Sum.into());
-        buffer.set_flags(Flags::CERTIFICATE);
-        buffer
-            .coordinator_pk_mut()
-            .copy_from_slice(coordinator_pk().0.as_slice());
+        buffer.set_flags(0);
         buffer
             .participant_pk_mut()
             .copy_from_slice(participant_pk().0.as_slice());
-        buffer.certificate_mut().unwrap().set_length(32 + 4);
-        buffer
-            .certificate_mut()
-            .unwrap()
-            .value_mut()
-            .copy_from_slice(certificate().0.as_slice());
         buffer
             .payload_mut()
             .copy_from_slice(sum::tests::sum_bytes().as_slice());

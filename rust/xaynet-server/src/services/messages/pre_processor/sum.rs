@@ -8,13 +8,13 @@ use tower::Service;
 use xaynet_core::{
     common::RoundParameters,
     crypto::ByteObject,
-    message::{HeaderOwned, MessageOwned, PayloadOwned, SumOwned},
+    message::{Header, Message, Payload, Sum},
 };
 
 use crate::services::messages::pre_processor::{PreProcessorError, PreProcessorResponse};
 
 /// Request type for [`SumPreProcessorService`]
-pub type SumRequest = (HeaderOwned, SumOwned, RoundParameters);
+pub type SumRequest = (Header, Sum, RoundParameters);
 
 /// A service for performing sanity checks and preparing a sum request
 /// to be handled by the state machine. At the moment, this is limited
@@ -42,8 +42,8 @@ impl Service<SumRequest> for SumPreProcessorService {
 }
 
 struct SumPreProcessor {
-    header: HeaderOwned,
-    message: SumOwned,
+    header: Header,
+    message: Sum,
     params: RoundParameters,
 }
 
@@ -59,9 +59,9 @@ impl SumPreProcessor {
         let Self {
             header, message, ..
         } = self;
-        Ok(MessageOwned {
+        Ok(Message {
             header,
-            payload: PayloadOwned::Sum(message),
+            payload: Payload::Sum(message),
         })
     }
     /// Check whether this request contains a valid sum signature

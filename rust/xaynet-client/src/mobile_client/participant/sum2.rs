@@ -1,8 +1,7 @@
 use super::{Participant, ParticipantState};
 use xaynet_core::{
     mask::{Aggregation, MaskObject, MaskSeed},
-    message::{MessageOwned, Sum2Owned},
-    CoordinatorPublicKey,
+    message::{Message, Sum2 as Sum2Message},
     ParticipantPublicKey,
     ParticipantTaskSignature,
     PetError,
@@ -43,19 +42,18 @@ impl Participant<Sum2> {
     /// seed dictionary, or computing the global mask.
     pub fn compose_sum2_message(
         &self,
-        pk: CoordinatorPublicKey,
         seed_dict: &UpdateSeedDict,
         mask_len: usize,
-    ) -> Result<MessageOwned, PetError> {
+    ) -> Result<Message, PetError> {
         let mask_seeds = self.get_seeds(seed_dict)?;
         let (model_mask, scalar_mask) = self.compute_global_mask(mask_seeds, mask_len)?;
-        let payload = Sum2Owned {
+        let payload = Sum2Message {
             sum_signature: self.inner.sum_signature,
             model_mask,
             scalar_mask,
         };
 
-        Ok(MessageOwned::new_sum2(pk, self.state.keys.public, payload))
+        Ok(Message::new_sum2(self.state.keys.public, payload))
     }
 
     pub fn get_participant_pk(&self) -> ParticipantPublicKey {
@@ -105,7 +103,6 @@ mod tests {
     use sodiumoxide::randombytes::{randombytes, randombytes_uniform};
     use std::{collections::HashSet, iter};
     use xaynet_core::{
-        certificate::Certificate,
         crypto::{ByteObject, EncryptKeyPair, Signature, SigningKeyPair},
         mask::{BoundType, DataType, GroupType, MaskConfig, ModelType},
         UpdateParticipantPublicKey,
@@ -114,7 +111,6 @@ mod tests {
     fn participant_state() -> ParticipantState {
         sodiumoxide::init().unwrap();
 
-        let certificate = Certificate::new();
         let mask_config = MaskConfig {
             group_type: GroupType::Prime,
             data_type: DataType::F32,
@@ -124,7 +120,6 @@ mod tests {
 
         ParticipantState {
             keys: SigningKeyPair::generate(),
-            certificate,
             mask_config,
         }
     }

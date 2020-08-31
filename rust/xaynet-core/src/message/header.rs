@@ -4,18 +4,16 @@
 //!
 //! [message module]: ../index.html
 
-use std::{borrow::Borrow, convert::TryFrom};
+use std::convert::TryFrom;
 
 use anyhow::{anyhow, Context};
 
 use crate::{
-    certificate::Certificate,
     message::{
-        buffer::{header_length, MessageBuffer},
+        buffer::{MessageBuffer, HEADER_LENGTH},
         traits::{FromBytes, ToBytes},
         DecodeError,
     },
-    CoordinatorPublicKey,
     ParticipantPublicKey,
 };
 
@@ -61,79 +59,40 @@ impl Into<u8> for Tag {
     }
 }
 
-const CERTIFICATE_FLAG: u8 = 0;
-
-bitflags::bitflags! {
-    /// A bitmask that defines flags for a [`Message`].
-    ///
-    /// [`Message`]: struct.Message.html
-    pub struct Flags: u8 {
-        /// Indicates the presence of a client certificate in the message.
-        const CERTIFICATE = 1 << CERTIFICATE_FLAG;
-    }
-}
+pub type Flags = u8;
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 /// A header common to all [`Message`]s.
 ///
 /// [`Message`]: struct.Message.html
-pub struct Header<C> {
+pub struct Header {
     /// The type of the message.
     pub tag: Tag,
-    /// The coordinator public key.
-    pub coordinator_pk: CoordinatorPublicKey,
     /// The participant public key.
     pub participant_pk: ParticipantPublicKey,
-    /// A certificate that identifies the author of the message.
-    pub certificate: Option<C>,
 }
 
-impl<C> ToBytes for Header<C>
-where
-    C: Borrow<Certificate>,
-{
+impl ToBytes for Header {
     fn buffer_length(&self) -> usize {
-        let cert_length = self
-            .certificate
-            .as_ref()
-            .map(|cert| cert.borrow().buffer_length())
-            .unwrap_or(0);
-        header_length(cert_length)
+        HEADER_LENGTH
     }
 
     fn to_bytes<T: AsMut<[u8]>>(&self, buffer: &mut T) {
         let mut writer = MessageBuffer::new(buffer.as_mut()).unwrap();
         writer.set_tag(self.tag.into());
-        if self.certificate.is_some() {
-            writer.set_flags(Flags::CERTIFICATE);
-        } else {
-            writer.set_flags(Flags::empty());
-        }
-        self.coordinator_pk
-            .to_bytes(&mut writer.coordinator_pk_mut());
+        writer.set_flags(0);
         self.participant_pk
             .to_bytes(&mut writer.participant_pk_mut());
     }
 }
 
-/// An owned version of a [`Header`].
-pub type HeaderOwned = Header<Certificate>;
-
-impl FromBytes for HeaderOwned {
+impl FromBytes for Header {
     fn from_bytes<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
         let reader = MessageBuffer::new(buffer.as_ref())?;
-        let certificate = if let Some(bytes) = reader.certificate() {
-            Some(Certificate::from_bytes(&bytes.value())?)
-        } else {
-            None
-        };
         Ok(Self {
             tag: Tag::try_from(reader.tag())?,
-            coordinator_pk: CoordinatorPublicKey::from_bytes(&reader.coordinator_pk())
-                .context("invalid coordinator public key")?,
             participant_pk: ParticipantPublicKey::from_bytes(&reader.participant_pk())
                 .context("invalid participant public key")?,
-            certificate,
         })
     }
 }

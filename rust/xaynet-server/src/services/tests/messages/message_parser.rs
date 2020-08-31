@@ -3,7 +3,7 @@ use std::sync::Arc;
 use rayon::ThreadPoolBuilder;
 use tokio_test::assert_ready;
 use tower_test::mock::Spawn;
-use xaynet_core::{common::RoundParameters, message::MessageOwned};
+use xaynet_core::{common::RoundParameters, message::Message};
 
 use crate::{
     services::{
@@ -33,7 +33,7 @@ fn make_req(bytes: Vec<u8>) -> MessageParserRequest<Vec<u8>> {
     Request::new(bytes.into())
 }
 
-fn new_sum_message(round_params: &RoundParameters) -> (MessageOwned, Vec<u8>) {
+fn new_sum_message(round_params: &RoundParameters) -> (Message, Vec<u8>) {
     let (message, _, participant_signing_keys) = utils::new_sum_message(round_params);
     let encrypted_message =
         utils::encrypt_message(&message, round_params, &participant_signing_keys);

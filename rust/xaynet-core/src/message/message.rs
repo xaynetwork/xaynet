@@ -4,44 +4,30 @@
 //!
 //! [message module]: ../index.html
 
-use std::borrow::Borrow;
-
 use anyhow::{anyhow, Context};
 
 use crate::{
-    certificate::Certificate,
     crypto::{
         encrypt::{PublicEncryptKey, SecretEncryptKey},
         sign::{SecretSigningKey, Signature},
         ByteObject,
     },
-    mask::object::MaskObject,
     message::{
-        header::{Header, HeaderOwned, Tag},
-        payload::{
-            sum::{Sum, SumOwned},
-            sum2::{Sum2, Sum2Owned},
-            update::{Update, UpdateOwned},
-            Payload,
-            PayloadOwned,
-        },
+        header::{Header, Tag},
+        payload::{sum::Sum, sum2::Sum2, update::Update, Payload},
         traits::{FromBytes, ToBytes},
         DecodeError,
     },
-    LocalSeedDict,
 };
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 /// A message.
-pub struct Message<C, D, M, N> {
+pub struct Message {
     /// The message header.
-    pub header: Header<C>,
+    pub header: Header,
     /// The message payload.
-    pub payload: Payload<D, M, N>,
+    pub payload: Payload,
 }
-
-/// An owned version of a [`Message`].
-pub type MessageOwned = Message<Certificate, LocalSeedDict, MaskObject, MaskObject>;
 
 macro_rules! impl_new {
     ($name:ident, $payload:ty, $tag:expr, $doc:expr) => {
@@ -49,16 +35,13 @@ macro_rules! impl_new {
             #[doc = "Creates a new message containing"]
             #[doc = $doc]
             pub fn [<new_ $name>](
-                coordinator_pk: $crate::CoordinatorPublicKey,
                 participant_pk: $crate::ParticipantPublicKey,
                 payload: $payload) -> Self
             {
                 Self {
                     header: Header {
-                        coordinator_pk,
                         participant_pk,
                         tag: $tag,
-                        certificate: None,
                     },
                     payload: $crate::message::payload::Payload::from(payload),
                 }
@@ -67,25 +50,13 @@ macro_rules! impl_new {
     };
 }
 
-impl<C, D, M, N> Message<C, D, M, N>
-where
-    C: Borrow<Certificate>,
-    D: Borrow<LocalSeedDict>,
-    M: Borrow<MaskObject>,
-    N: Borrow<MaskObject>,
-{
+impl Message {
     impl_new!(sum, Sum, Tag::Sum, "a [`Sum`].");
-    impl_new!(update, Update<D, M>, Tag::Update, "an [`Update`].");
-    impl_new!(sum2, Sum2<N>, Tag::Sum2, "a [`Sum2`].");
+    impl_new!(update, Update, Tag::Update, "an [`Update`].");
+    impl_new!(sum2, Sum2, Tag::Sum2, "a [`Sum2`].");
 }
 
-impl<C, D, M, N> ToBytes for Message<C, D, M, N>
-where
-    C: Borrow<Certificate>,
-    D: Borrow<LocalSeedDict>,
-    M: Borrow<MaskObject>,
-    N: Borrow<MaskObject>,
-{
+impl ToBytes for Message {
     fn buffer_length(&self) -> usize {
         self.header.buffer_length() + self.payload.buffer_length()
     }
@@ -97,20 +68,20 @@ where
     }
 }
 
-impl FromBytes for MessageOwned {
+impl FromBytes for Message {
     fn from_bytes<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
-        let header = HeaderOwned::from_bytes(&buffer)?;
+        let header = Header::from_bytes(&buffer)?;
         let payload_slice = &buffer.as_ref()[header.buffer_length()..];
         let payload = match header.tag {
-            Tag::Sum => PayloadOwned::Sum(
-                SumOwned::from_bytes(&payload_slice).context("invalid sum payload")?,
+            Tag::Sum => {
+                Payload::Sum(Sum::from_bytes(&payload_slice).context("invalid sum payload")?)
+            }
+            Tag::Update => Payload::Update(
+                Update::from_bytes(&payload_slice).context("invalid update payload")?,
             ),
-            Tag::Update => PayloadOwned::Update(
-                UpdateOwned::from_bytes(&payload_slice).context("invalid update payload")?,
-            ),
-            Tag::Sum2 => PayloadOwned::Sum2(
-                Sum2Owned::from_bytes(&payload_slice).context("invalid sum2 payload")?,
-            ),
+            Tag::Sum2 => {
+                Payload::Sum2(Sum2::from_bytes(&payload_slice).context("invalid sum2 payload")?)
+            }
         };
         Ok(Self { header, payload })
     }
@@ -126,25 +97,13 @@ pub struct MessageSeal<'a, 'b> {
 
 impl<'a, 'b> MessageSeal<'a, 'b> {
     /// Signs and encrypts the given message.
-    pub fn seal<C, D, M, N>(&self, message: &Message<C, D, M, N>) -> Vec<u8>
-    where
-        C: Borrow<Certificate>,
-        D: Borrow<LocalSeedDict>,
-        M: Borrow<MaskObject>,
-        N: Borrow<MaskObject>,
-    {
+    pub fn seal(&self, message: &Message) -> Vec<u8> {
         let signed_message = self.sign(&message);
         self.recipient_pk.encrypt(&signed_message[..])
     }
 
     /// Signs the given message.
-    fn sign<C, D, M, N>(&self, message: &Message<C, D, M, N>) -> Vec<u8>
-    where
-        C: Borrow<Certificate>,
-        D: Borrow<LocalSeedDict>,
-        M: Borrow<MaskObject>,
-        N: Borrow<MaskObject>,
-    {
+    fn sign(&self, message: &Message) -> Vec<u8> {
         let signed_payload_length = message.buffer_length() + Signature::LENGTH;
 
         let mut buffer = vec![0; signed_payload_length];
@@ -167,7 +126,7 @@ pub struct MessageOpen<'a, 'b> {
 
 impl<'a, 'b> MessageOpen<'a, 'b> {
     /// Decrypts the given message and verifies its signature.
-    pub fn open<T: AsRef<[u8]>>(&self, buffer: &T) -> Result<MessageOwned, DecodeError> {
+    pub fn open<T: AsRef<[u8]>>(&self, buffer: &T) -> Result<Message, DecodeError> {
         // Step 1: decrypt the message
         let bytes = self
             .recipient_sk
@@ -183,7 +142,7 @@ impl<'a, 'b> MessageOpen<'a, 'b> {
 
         let message_bytes = &bytes[Signature::LENGTH..];
         let message =
-            MessageOwned::from_bytes(&message_bytes).context("invalid message: parsing failed")?;
+            Message::from_bytes(&message_bytes).context("invalid message: parsing failed")?;
         if !message
             .header
             .participant_pk
