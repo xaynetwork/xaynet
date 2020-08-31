@@ -39,9 +39,9 @@ pub struct MobileClient {
 }
 
 impl MobileClient {
-    /// Initializes a fresh client. This method only needs to called once.
+    /// Initializes a fresh client. This method only needs to be called once.
     ///
-    /// To serialize and restore a client, please use the [`MobileClient::serialize`] and
+    /// To serialize and restore a client use the [`MobileClient::serialize`] and
     /// [`MobileClient::restore`]
     ///
     /// # Errors

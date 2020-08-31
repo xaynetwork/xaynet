@@ -415,6 +415,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e88a8acf291dafb59c2d96e8f59828f3838bb1a70398823ade51a84de6a6deed"
 
 [[package]]
+name = "ffi-support"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f85d4d1be103c0b2d86968f0b0690dc09ac0ba205b90adb0389b552869e5000e"
+dependencies = [
+ "lazy_static",
+ "log 0.4.11",
+]
+
+[[package]]
 name = "fnv"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2889,9 +2899,7 @@ dependencies = [
 name = "xaynet-ffi"
 version = "0.9.0"
 dependencies = [
- "num",
- "paste 0.1.18",
- "tokio",
+ "ffi-support",
  "xaynet-client",
  "xaynet-core",
 ]

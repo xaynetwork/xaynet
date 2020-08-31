@@ -1,812 +1,708 @@
-//! A C-API to communicate model updates between a XayNet participant and an application.
-//!
-//! # Workflow
-//! 1. Initialize a [`Client`] with [`new_client()`]. The [`Client`] takes care of the
-//!    [`Participant`]'s PET protocol work as well as the networking with the [`Coordinator`].
-//! 2. Start the execution of the [`Client`]'s tasks with [`run_client()`].
-//! 3. Optionally request status information:
-//!     - [`is_next_round()`] indicates if another round of the PET protocol has started.
-//!     - [`has_next_model()`] indicates if another global model is available.
-//!     - [`is_update_participant()`] indicates if this [`Participant`] is eligible to submit a
-//!       trained local model in the current round.
-//! 4. Create a new zero-initialized model with [`new_model()`] or get the latest global model with
-//!    [`get_model()`]. Currently, the primitive data types [`f32`], [`f64`], [`i32`] and [`i64`]
-//!    are supported. The functions return a fat pointer [`PrimitiveModel`] to the cached primitive
-//!    model, whereas the primitive model itself is cached within the [`Client`]. The cached
-//!    primitive model can then be modified in place, for example for training. The slice is valid
-//!    across the FFI-boundary until one of the following happens:
-//!    - [`new_model()`] reallocates the memory to which [`PrimitiveModel`] points to.
-//!    - [`get_model()`] reallocates the memory to which [`PrimitiveModel`] points to if a new
-//!      global model is available since the last call to [`get_model()`].
-//!    - [`update_model()`] frees the memory to which [`PrimitiveModel`] points to.
-//!    - [`drop_model()`] frees the memory to which [`PrimitiveModel`] points to.
-//!    - [`drop_client()`] frees the memory of the [`Client`] including the model.
-//! 5. Register the cached model as an updated local model with [`update_model()`].
-//! 6. Stop and destroy the [`Client`] with [`drop_client()`].
+//! A C-API of the Xaynet mobile client.
 //!
 //! # Safety
+//!
 //! Many functions of this module are marked as `unsafe` to explicitly announce the possible
 //! unsafety of the function body as well as the return value to the caller. At the same time,
 //! each `unsafe fn` uses `unsafe` blocks to precisely pinpoint the sources of unsafety for
 //! reviewers (redundancy warnings will be fixed by [#69173]).
 //!
-//! **Note, that the `unsafe` code has not been externally audited yet!**
+//! Most of the functions have one / or more pointers as parameters.
+//! All functions ensure null-safety for these pointers.
+//! However, when calling this function, you need to ensure that a pointer:
+//! - is properly aligned,
+//! - points to an initialized instance of T where T is the type of data.
+//! The behavior of the function is undefined if the requirements are not met.
 //!
-//! [`Coordinator`]: ../../coordinator/struct.Coordinator.html
-//! [`Participant`]: ../../participant/struct.Participant.html
+//! All function of the API are **not** thread-safe.
+//!
+//! # Error handling
+//!
+//! In terms of Error handling, the C-API tries to follow the Posix-style.
+//! Functions return `0` to indicate success and negative values ​​to indicate failure.
+//! Functions that return an opaque pointer (like [`xaynet_ffi_init_mobile_client`])
+//! return a non null pointer to indicate success and a null pointer to indicate failure.
+//!
 //! [#69173]: https://github.com/rust-lang/rust/issues/69173
 
+#[macro_use]
+extern crate ffi_support;
+
+use ffi_support::FfiStr;
 use std::{
-    ffi::CStr,
-    iter::{IntoIterator, Iterator},
-    mem,
-    os::raw::{c_char, c_int, c_uint, c_ulonglong, c_void},
-    panic,
+    convert::TryFrom,
+    iter::Iterator,
+    os::raw::{c_double, c_int, c_uchar, c_uint, c_void},
     ptr,
+    slice,
 };
 
-use tokio::{
-    runtime::{Builder, Runtime},
-    time::Duration,
+use xaynet_client::mobile_client::{
+    participant::{AggregationConfig, ParticipantSettings},
+    MobileClient,
+};
+use xaynet_core::{
+    crypto::ByteObject,
+    mask::{
+        BoundType,
+        DataType,
+        FromPrimitives,
+        GroupType,
+        IntoPrimitives,
+        MaskConfig,
+        Model,
+        ModelType,
+    },
+    ParticipantSecretKey,
 };
 
-use xaynet_client::{api::HttpApiClient, CachedModel, Client, ClientError, Task};
-use xaynet_core::mask::{FromPrimitives, IntoPrimitives, Model};
+/// A Opaque type of MobileClient.
+/// see [FFI-C-OPAQUE](https://anssi-fr.github.io/rust-guide/07_ffi.html#recommendation-a-idffi-c-opaqueaffi-c-opaque)
+pub struct CMobileClient(MobileClient);
 
-#[derive(Clone, Copy, Debug)]
-#[repr(C)]
-/// A fat pointer to a cached model of primitive data type which can be accessed from C.
+/// Initializes a fresh [`CMobileClient`]. This method only needs to be called once.
 ///
-/// This is returned from [`new_model()`] and [`get_model()`]. The length `len` will be small enough
-/// such that the respective array fits into memory and the data type `dtype` will be one of the
-/// following:
-/// - `0`: void data type
-/// - `1`: primitive data type [`f32`]
-/// - `2`: primitive data type [`f64`]
-/// - `3`: primitive data type [`i32`]
-/// - `4`: primitive data type [`i64`]
-pub struct PrimitiveModel {
-    /// A raw mutable pointer to an array of primitive values.
-    pub ptr: *mut c_void,
-    /// The length of that array.
-    pub len: c_ulonglong,
-    /// The data type of the array's elements.
-    pub dtype: c_uint,
+/// To serialize and restore a client use the
+/// [`xaynet_ffi_serialize_mobile_client`] and [`xaynet_ffi_restore_mobile_client`].
+///
+/// # Parameters
+///
+/// - `url`: The URL fo the coordinator to which the [`MobileClient`] will try to connect to.
+/// - `secret_key`: The array that contains the secret key.
+/// - `group_type`: The [`GroupType`].
+/// - `data_type`: The [`DataType`].
+/// - `bound_type`: The [`BoundType`].
+/// - `model_type`: The [`ModelType`].
+/// - `scalar`: The scalar.
+///
+/// # Safety
+///
+/// `secret_key`:
+///
+/// The function only ensures null-safety. You must ensure that:
+/// - the pointer points to an initialized instance of `c_uchar`,
+/// - the data the pointer points to is properly aligned,
+/// - the data is valid for reads for [`ParticipantSecretKey::LENGTH`] * mem::size_of::<c_uchar>()
+/// many bytes,
+/// - the memory of secret_key is not mutated (from the outside of this function)
+/// for the duration of the execution of [`xaynet_ffi_init_mobile_client`].
+///
+/// # Return Value
+///
+/// Returns a new instance of [`CMobileClient`].
+///
+/// ## Returns `NULL` if:
+///
+/// - a value of `group_type`, `data_type`, `bound_type` or `model_type` is not a valid value
+/// (see the module documentation of [`xaynet_core::mask`] for more information),
+/// - the pointer of `secret_key` or `url` points to `NULL`,
+/// - the `url` contains invalid UTF-8 characters.
+///
+/// [`MobileClient`]: xaynet_client::mobile_client::MobileClient
+#[allow(unused_unsafe)]
+#[no_mangle]
+pub unsafe extern "C" fn xaynet_ffi_init_mobile_client(
+    url: FfiStr,
+    secret_key: *const c_uchar,
+    group_type: c_uchar,
+    data_type: c_uchar,
+    bound_type: c_uchar,
+    model_type: c_uchar,
+    scalar: c_double,
+) -> *mut CMobileClient {
+    // we could return *const CMobileClient, however, the caller can ignore it
+    // https://newrustacean.com/show_notes/e031/struct.script#strings
+
+    // Check the URL of the coordinator.
+    // Returns `None` if the value of URL is `NULL` or if the string contains
+    // invalid UTF-8 characters.
+    let url = match url.as_opt_str() {
+        Some(url) => url,
+        None => return ptr::null_mut(),
+    };
+
+    // Check the `secret key` of the client.
+    // Returns `None` if the pointer points to `NULL`.
+    //
+    // Safety:
+    // `core::ptr::const_ptr::as_ref` only ensures null-safety.
+    // It is not guaranteed that the pointer is either properly aligned or
+    // points to an initialized instance of *const c_uchar.
+    let secret_key = match unsafe { secret_key.as_ref() } {
+        Some(secret_key) => secret_key,
+        None => return ptr::null_mut(),
+    };
+
+    let group_type = match GroupType::try_from(group_type) {
+        Ok(group_type) => group_type,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let data_type = match DataType::try_from(data_type) {
+        Ok(data_type) => data_type,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let bound_type = match BoundType::try_from(bound_type) {
+        Ok(bound_type) => bound_type,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let model_type = match ModelType::try_from(model_type) {
+        Ok(model_type) => model_type,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let secret_key = unsafe { slice::from_raw_parts(secret_key, ParticipantSecretKey::LENGTH) };
+    let secret_key = ParticipantSecretKey::from_slice_unchecked(secret_key);
+
+    let mask_config = MaskConfig {
+        group_type,
+        data_type,
+        bound_type,
+        model_type,
+    };
+
+    let participant_settings = ParticipantSettings {
+        secret_key,
+        aggregation_config: AggregationConfig {
+            mask: mask_config,
+            scalar,
+        },
+    };
+
+    if let Ok(mobile_client) = MobileClient::init(url, participant_settings) {
+        Box::into_raw(Box::new(CMobileClient(mobile_client)))
+    } else {
+        ptr::null_mut()
+    }
 }
 
-/// A wrapper for a [`Client`] within an asynchronous runtime.
+/// Restores a [`MobileClient`] from its serialized state.
 ///
-/// This is returned from [`new_client()`]. See the [workflow] on how to use it.
+/// # Parameters
 ///
-/// [workflow]: index.html#workflow
-pub struct FFIClient {
-    client: Client<HttpApiClient>,
-    runtime: Runtime,
+/// - `url`: The URL fo the coordinator to which the [`MobileClient`] will try to connect to.
+/// - `buffer`: The array that contains the serialized state.
+/// - `len`: The length of `buffer`.
+///
+/// # Safety
+///
+/// `buffer`:
+///
+/// The function only ensures null-safety. You must ensure that:
+/// - the pointer points to an initialized instance of `c_uchar`,
+/// - the data the pointer points to is properly aligned,
+/// - the data is valid for reads for `len` * mem::size_of::<c_uchar>() many bytes,
+/// - the memory of `buffer` is not mutated (from the outside of this function)
+/// for the duration of the execution of [`xaynet_ffi_restore_mobile_client`].
+///
+/// # Return Value
+///
+/// Returns a new instance of [`CMobileClient`].
+///
+/// ## Returns `NULL` if:
+///
+/// - the pointer of `buffer` or `url` points to `NULL`,
+/// - `url` contains invalid UTF-8 characters.
+///
+/// [`MobileClient`]: xaynet_client::mobile_client::MobileClient
+#[allow(unused_unsafe)]
+#[no_mangle]
+pub unsafe extern "C" fn xaynet_ffi_restore_mobile_client(
+    url: FfiStr,
+    buffer: *const c_uchar,
+    len: c_uint,
+) -> *mut CMobileClient {
+    let url = match url.as_opt_str() {
+        Some(url) => url,
+        None => return ptr::null_mut(),
+    };
+
+    let buffer = match unsafe { buffer.as_ref() } {
+        Some(buffer) => buffer,
+        None => return ptr::null_mut(),
+    };
+
+    let buffer = unsafe { slice::from_raw_parts(buffer, len as usize) };
+
+    if let Ok(mobile_client) = MobileClient::restore(url, buffer) {
+        Box::into_raw(Box::new(CMobileClient(mobile_client)))
+    } else {
+        ptr::null_mut()
+    }
 }
 
+/// Serializes the current state of `client`.
+///
+/// # Parameters
+///
+/// - `client`: A pointer that points to an instance of [`CMobileClient`].
+///
+/// # Safety
+///
+/// `client`:
+///
+/// The function only ensures null-safety. You must ensure that:
+/// - the pointer points to an initialized instance of [`CMobileClient`],
+/// - the data the pointer points to is properly aligned,
+/// - the memory of `client` is not mutated (from the outside of this function)
+/// for the duration of the execution of [`xaynet_ffi_serialize_mobile_client`].
+///
+/// # Return Value
+///
+/// Returns a new instance of [`BytesBuffer`] that contains the serialized state of `client`.
+///
+/// ## Returns `NULL` if:
+///
+/// - the pointer of `client` points to `NULL`.
+#[allow(unused_unsafe)]
+#[no_mangle]
+pub unsafe extern "C" fn xaynet_ffi_serialize_mobile_client(
+    client: *const CMobileClient,
+) -> *mut BytesBuffer {
+    let client = match unsafe { client.as_ref() } {
+        Some(client) => &client.0,
+        None => return ptr::null_mut(),
+    };
+
+    Box::into_raw(Box::new(BytesBuffer(client.serialize())))
+}
+
+/// Tries to proceed with the current client task.
+/// This will consume the current state of the client and produces a new one.
+///
+/// # Parameters
+///
+/// - `client`: A pointer that points to an instance of [`CMobileClient`].
+///
+/// # Safety
+///
+/// `client`:
+///
+/// The function only ensures null-safety. You must ensure that:
+/// - the pointer points to an initialized instance of [`CMobileClient`],
+/// - the data the pointer points to is properly aligned,
+/// - the memory of `client` is not mutated (from the outside of this function)
+/// for the duration of the execution of [`xaynet_ffi_get_current_state_mobile_client`].
+///
+/// # Return Value
+///
+/// Returns a new instance of [`CMobileClient`].
+///
+/// ## Returns `NULL` if:
+///
+/// - the pointer of `client` points to `NULL`.
+#[allow(unused_unsafe)]
+#[no_mangle]
+pub unsafe extern "C" fn xaynet_ffi_try_to_proceed_mobile_client(
+    client: *mut CMobileClient,
+) -> *mut CMobileClient {
+    let client = match unsafe { client.as_mut() } {
+        Some(client) => client,
+        None => return ptr::null_mut(),
+    };
+
+    // access to the current mobile client
+    let CMobileClient(client) = unsafe { *Box::from_raw(client) };
+
+    // perform the task (consumes the current client)
+    let client = match client.try_to_proceed() {
+        Ok(new_client) => new_client,
+        Err((old_client, _)) => old_client,
+    };
+
+    Box::into_raw(Box::new(CMobileClient(client)))
+}
+
+/// Returns the current state of `client`.
+///
+/// # Parameters
+///
+/// - `client`: A pointer that points to an instance of [`CMobileClient`].
+///
+/// # Safety
+///
+/// `client`:
+///
+/// The function only ensures null-safety. You must ensure that:
+/// - the pointer points to an initialized instance of [`CMobileClient`],
+/// - the data the pointer points to is properly aligned,
+/// - the memory of `client` is not mutated (from the outside of this function)
+/// for the duration of the execution of [`xaynet_ffi_get_current_state_mobile_client`].
+///
+/// # Return Value
+///
+/// - `-1`: the pointer of `client` points to `NULL`,
+/// - `0`: `Awaiting` state,
+/// - `1`: `Sum` state,
+/// - `2`: `Update` state,
+/// - `3`: `Sum2` state.
+#[allow(unused_unsafe)]
+#[no_mangle]
+pub unsafe extern "C" fn xaynet_ffi_get_current_state_mobile_client(
+    client: *mut CMobileClient,
+) -> c_int {
+    let client = match unsafe { client.as_mut() } {
+        Some(client) => &mut (*client).0,
+        None => return -1 as c_int,
+    };
+
+    (client.get_current_state() as u8) as c_int
+}
+
+define_box_destructor!(CMobileClient, xaynet_ffi_destroy_mobile_client);
+
+/// Fetches and returns the latest global model from the coordinator.
+///
+/// # Parameters
+///
+/// - `client`: A pointer that points to an instance of [`CMobileClient`].
+/// - `data_type`: The [`DataType`] of the global model.
+/// - `buffer`: The array in which the global model should be copied.
+/// - `len`: The length of `buffer`.
+///
+/// # Note
+///
+/// The data type must match the data type that was used when the client was initialized.
+///
+/// # Safety
+///
+/// `client`:
+///
+/// The function only ensures null-safety. You must ensure that:
+/// - the pointer points to an initialized instance of [`CMobileClient`],
+/// - the data the pointer points to is properly aligned,
+/// - the memory of `client` is not mutated (from the outside of this function)
+/// for the duration of the execution of [`xaynet_ffi_get_global_model_mobile_client`].
+///
+/// `buffer`:
+///
+/// The function only ensures null-safety. You must ensure that:
+/// - the pointer points to an initialized instance of `c_void`,
+/// - the data the pointer points to is properly aligned,
+/// - the data is valid for writes for `len` * mem::size_of::<c_void>() many bytes,
+/// - the memory of `buffer` is not mutated (from the outside of this function)
+/// for the duration of the execution of [`xaynet_ffi_get_global_model_mobile_client`].
+///
+/// # Return Value
+///
+/// - `-1`: the pointer of `client` points to `NULL`,
+/// - `-2`: the pointer of `buffer` points to `NULL`,
+/// - `-3`: the value of `data_type` is not a valid value (see the module documentation of [`xaynet_core::mask`] for more information),
+/// - `-4`: the API request failed,
+/// - `-5`: the global model does not fit into `buffer`,
+/// - `-6`: the pointer of `client` points to `NULL`,
+/// - `0`: success,
+/// - `1`: no global model available,
 #[allow(unused_unsafe)]
 #[allow(clippy::unnecessary_cast)]
 #[no_mangle]
-/// Creates a new [`Client`] within an asynchronous runtime.
-///
-/// Takes a network `address` to the coordinator to which the [`Client`] will try to connect to.
-///
-/// Takes a `period` in seconds after which the [`Client`] will try to poll the coordinator for new
-/// broadcasted FL round data again.
-///
-/// # Errors
-/// Ignores null pointer `address`es and zero `period`s and returns a null pointer immediately.
-///
-/// Returns a null pointer if the initialization of the runtime or the client fails.
-///
-/// # Safety
-/// The method dereferences from the raw pointer arguments. Therefore, the behavior of the method is
-/// undefined if the arguments don't point to valid objects.
-pub unsafe extern "C" fn new_client(address: *const c_char, period: c_ulonglong) -> *mut FFIClient {
-    if address.is_null() || period == 0 {
-        return ptr::null_mut() as *mut FFIClient;
+pub unsafe extern "C" fn xaynet_ffi_get_global_model_mobile_client(
+    client: *mut CMobileClient,
+    data_type: c_uchar,
+    buffer: *mut c_void,
+    len: c_uint,
+) -> c_int {
+    let client = match unsafe { client.as_mut() } {
+        Some(client) => &mut (*client).0,
+        None => return -1 as c_int,
+    };
+
+    if buffer.is_null() {
+        return -2 as c_int;
     }
-    let address = if let Ok(address) = unsafe {
-        // safe if the raw pointer `address` comes from a null-terminated C-string
-        CStr::from_ptr(address)
-    }
-    .to_str()
-    {
-        address
+
+    let data_type = match DataType::try_from(data_type) {
+        Ok(data_type) => data_type,
+        Err(_) => return -3 as c_int,
+    };
+
+    let global_model = if let Ok(global_model) = client.get_global_model() {
+        global_model
     } else {
-        return ptr::null_mut() as *mut FFIClient;
+        return -4 as c_int;
     };
-    let runtime = if let Ok(runtime) = Builder::new()
-        .threaded_scheduler()
-        .core_threads(1)
-        .max_threads(4)
-        .thread_name("xaynet-client-runtime-worker")
-        .enable_all()
-        .build()
-    {
-        runtime
+
+    let global_model = if let Some(global_model) = global_model {
+        global_model
     } else {
-        return ptr::null_mut() as *mut FFIClient;
-    };
-    let client = if let Ok(client) =
-        runtime.enter(move || Client::new(period as u64, 0, HttpApiClient::new(address)))
-    {
-        client
-    } else {
-        return ptr::null_mut() as *mut FFIClient;
-    };
-    Box::into_raw(Box::new(FFIClient { runtime, client }))
-}
-
-#[allow(unused_unsafe)]
-#[allow(clippy::unnecessary_cast)]
-#[no_mangle]
-/// Starts the [`Client`] and executes its tasks in an asynchronous runtime.
-///
-/// # Errors
-/// Ignores null pointer `client`s and returns an error immediately.
-///
-/// If the client must be stopped because of a panic or error or when the client terminates
-/// successfully, then one of the following error codes is returned:
-/// - `-1`: client didn't start due to null pointer
-/// - `0`: no error (only for clients with finite running time)
-/// - `1`: client panicked due to unexpected/unhandled error
-/// - `2`: client stopped due to error [`ParticipantInitErr`]
-/// - `3`: client stopped due to error [`ParticipantErr`]
-/// - `4`: client stopped due to error [`TooEarly`]
-/// - `5`: client stopped due to error [`RoundOutdated`]
-/// - `6`: client stopped due to error [`Api`]
-///
-/// # Safety
-///
-/// The method dereferences from the raw pointer arguments. Therefore, the behavior of the method is
-/// undefined if the arguments don't point to valid objects.
-///
-/// If the client panicked (error code `1`), it is the users responsibility to not access possibly
-/// invalid client state and to drop the client.
-///
-/// [`ParticipantInitErr`]: ../../client/enum.ClientError.html#variant.ParticipantInitErr
-/// [`ParticipantErr`]: ../../client/enum.ClientError.html#variant.ParticipantErr
-/// [`TooEarly`]: ../../client/enum.ClientError.html#variant.TooEarly
-/// [`RoundOutdated`]: ../../client/enum.ClientError.html#variant.RoundOutdated
-/// [`Api`]: ../../client/enum.ClientError.html#variant.Api
-pub unsafe extern "C" fn run_client(client: *mut FFIClient) -> c_int {
-    if client.is_null() {
-        return -1_i32 as c_int;
-    }
-    let (runtime, client) = unsafe {
-        // safe if the raw pointer `client` comes from a valid allocation of a `FFIClient`
-        (&(*client).runtime, &mut (*client).client)
+        return 1 as c_int;
     };
 
-    // `UnwindSafe` basically says that there is no danger in accessing a value after a panic
-    // happened. this is generally true for immutable references, but not for mutable references.
-    // currently the docs have a note that it is the user's responsibility to not access possibly
-    // invalid values (we could clean up the client ourself but then the paradigm of create-use-
-    // destroy all happening on one side, in this case the non-Rust side of the API, is violated
-    // and might as well lead to severe bugs/segfaults). the main issue is that we must catch the
-    // panic, because letting it propagate across the FFI-boundary is undefined behavior and will
-    // most likely result in segfaults. what we can do is to improve error handling on our side to
-    // reduce the number of possible panics and return proper errors instead.
-    match panic::catch_unwind(unsafe {
-        // even though `&mut Client` is `!UnwindSafe` we can assert this because the user will be
-        // notified about a panic immediately to be able to safely act accordingly
-        panic::AssertUnwindSafe(|| runtime.handle().block_on(client.start()))
-    }) {
-        Ok(Ok(_)) => 0_i32 as c_int,
-        Err(_) => 1_i32 as c_int,
-        Ok(Err(ClientError::ParticipantInitErr(_))) => 2_i32 as c_int,
-        Ok(Err(ClientError::ParticipantErr(_))) => 3_i32 as c_int,
-        Ok(Err(ClientError::TooEarly(_))) => 4_i32 as c_int,
-        Ok(Err(ClientError::RoundOutdated)) => 5_i32 as c_int,
-        Ok(Err(ClientError::Api(_))) => 6_i32 as c_int,
-    }
-}
-
-#[allow(unused_unsafe)]
-#[allow(clippy::unnecessary_cast)]
-#[no_mangle]
-/// Stops and destroys a [`Client`] and frees its allocated memory.
-///
-/// Tries to gracefully stop the client for `timeout` seconds by blocking the current thread before
-/// shutting it down forcefully (outstanding tasks are potentially leaked in case of an elapsed
-/// timeout). Usually, no timeout (i.e. 0 seconds) suffices, but stopping might take indefinitely
-/// if the client performs long blocking tasks.
-///
-/// # Errors
-/// Ignores null pointer `client`s and returns immediately.
-///
-/// # Safety
-/// The method dereferences from the raw pointer arguments. Therefore, the behavior of the method is
-/// undefined if the arguments don't point to valid objects.
-pub unsafe extern "C" fn drop_client(client: *mut FFIClient, timeout: c_ulonglong) {
-    if !client.is_null() {
-        let client = unsafe {
-            // safe if the raw pointer `client` comes from a valid allocation of a `FFIClient`
-            Box::from_raw(client)
-        };
-        if timeout as usize != 0 {
-            client
-                .runtime
-                .shutdown_timeout(Duration::from_secs(timeout as u64));
-        }
-    }
-}
-
-#[allow(unused_unsafe)]
-#[no_mangle]
-/// Checks if the next round has started.
-///
-/// # Errors
-/// Ignores null pointer `client`s and returns `false` immediately.
-///
-/// # Safety
-/// The method dereferences from the raw pointer arguments. Therefore, the behavior of the method is
-/// undefined if the arguments don't point to valid objects.
-pub unsafe extern "C" fn is_next_round(client: *mut FFIClient) -> bool {
-    if client.is_null() {
-        false
-    } else {
-        let client = unsafe {
-            // safe if the raw pointer `client` comes from a valid allocation of a `FFIClient`
-            &mut (*client).client
-        };
-        mem::replace(&mut client.has_new_coord_pk_since_last_check, false)
-    }
-}
-
-#[allow(unused_unsafe)]
-#[no_mangle]
-/// Checks if the next global model is available.
-///
-/// # Errors
-/// Ignores null pointer `client`s and returns `false` immediately.
-///
-/// # Safety
-/// The method dereferences from the raw pointer arguments. Therefore, the behavior of the method is
-/// undefined if the arguments don't point to valid objects.
-pub unsafe extern "C" fn has_next_model(client: *mut FFIClient) -> bool {
-    if client.is_null() {
-        false
-    } else {
-        let client = unsafe {
-            // safe if the raw pointer `client` comes from a valid allocation of a `FFIClient`
-            &mut (*client).client
-        };
-        mem::replace(&mut client.has_new_global_model_since_last_check, false)
-    }
-}
-
-#[allow(unused_unsafe)]
-#[no_mangle]
-/// Checks if the current role of the participant is [`Update`].
-///
-/// # Errors
-/// Ignores null pointer `client`s and returns `false` immediately.
-///
-/// # Safety
-/// The method dereferences from the raw pointer arguments. Therefore, the behavior of the method is
-/// undefined if the arguments don't point to valid objects.
-///
-/// [`Update`]: ../../participant/enum.Task.html#variant.Update
-pub unsafe extern "C" fn is_update_participant(client: *mut FFIClient) -> bool {
-    if client.is_null() {
-        false
-    } else {
-        let client = unsafe {
-            // safe if the raw pointer `client` comes from a valid allocation of a `FFIClient`
-            &(*client).client
-        };
-        client.participant.task == Task::Update
-    }
-}
-
-#[allow(unused_unsafe)]
-#[allow(clippy::unnecessary_cast)]
-#[no_mangle]
-/// Gets a mutable slice [`PrimitiveModel`] to a zero-initialized model of given primitive data type
-/// `dtype` and length `len`.
-///
-/// The new model gets cached, which overwrites any existing cached model. The cache and slice are
-/// valid as described in step 4 of the [workflow]. The cached model can be modified in place, for
-/// example for training.
-///
-/// The following data types `dtype` are currently supported:
-/// - `1`: [`f32`]
-/// - `2`: [`f64`]
-/// - `3`: [`i32`]
-/// - `4`: [`i64`]
-///
-/// # Errors
-/// Ignores null pointer `client`s and returns a [`PrimitiveModel`] with null pointer, length zero
-/// and void data type immediately.
-///
-/// Returns a [`PrimitiveModel`] with null pointer, length zero and void data type if the model is
-/// not representable in memory due to the given length `len` and data type `dtype`.
-///
-/// # Safety
-/// The method dereferences from the raw pointer arguments. Therefore, the behavior of the method is
-/// undefined if the arguments don't point to valid objects.
-///
-/// [workflow]: index.html#workflow
-pub unsafe extern "C" fn new_model(
-    client: *mut FFIClient,
-    dtype: c_uint,
-    len: c_ulonglong,
-) -> PrimitiveModel {
-    let max_len = match dtype {
-        1 | 3 => isize::MAX / 4,
-        2 | 4 => isize::MAX / 8,
-        _ => 0,
-    } as c_ulonglong;
-    if client.is_null() || dtype == 0 || dtype > 4 || len == 0 || len > max_len {
-        return PrimitiveModel {
-            ptr: ptr::null_mut() as *mut c_void,
-            len: 0_u64 as c_ulonglong,
-            dtype: 0_u32 as c_uint,
-        };
-    }
-    let client = unsafe {
-        // safe if the raw pointer `client` comes from a valid allocation of a `FFIClient`
-        &mut (*client).client
-    };
-    let ptr = match dtype {
-        1 => {
-            let mut cached_model = vec![0_f32; len as usize];
-            let ptr = cached_model.as_mut_ptr() as *mut c_void;
-            client.cached_model = Some(CachedModel::F32(cached_model));
-            ptr
-        }
-        2 => {
-            let mut cached_model = vec![0_f64; len as usize];
-            let ptr = cached_model.as_mut_ptr() as *mut c_void;
-            client.cached_model = Some(CachedModel::F64(cached_model));
-            ptr
-        }
-        3 => {
-            let mut cached_model = vec![0_i32; len as usize];
-            let ptr = cached_model.as_mut_ptr() as *mut c_void;
-            client.cached_model = Some(CachedModel::I32(cached_model));
-            ptr
-        }
-        4 => {
-            let mut cached_model = vec![0_i64; len as usize];
-            let ptr = cached_model.as_mut_ptr() as *mut c_void;
-            client.cached_model = Some(CachedModel::I64(cached_model));
-            ptr
-        }
-        _ => unreachable!(),
-    };
-    PrimitiveModel { ptr, len, dtype }
-}
-
-#[allow(unused_unsafe)]
-#[allow(clippy::unnecessary_cast)]
-#[no_mangle]
-/// Gets a mutable slice [`PrimitiveModel`] to the latest global model converted to the primitive
-/// data type `dtype`.
-///
-/// The global model gets cached, which overwrites any existing cached model. The cache and slice
-/// are valid as described in step 4 of the [workflow]. The cached model can be modified in place,
-/// for example for training.
-///
-/// The following data types `dtype` are currently supported:
-/// - `1`: [`f32`]
-/// - `2`: [`f64`]
-/// - `3`: [`i32`]
-/// - `4`: [`i64`]
-///
-/// # Errors
-/// Ignores null pointer `client`s and invalid `dtype`s and returns a [`PrimitiveModel`] with null
-/// pointer, length zero and void data type immediately.
-///
-/// Returns a [`PrimitiveModel`] with null pointer, length zero and data type `dtype` if no global
-/// model is available.
-///
-/// Returns a [`PrimitiveModel`] with null pointer, length of the global model and data type `dtype`
-/// if the conversion of the global model into the primitive data type fails.
-///
-/// # Safety
-/// The method dereferences from the raw pointer arguments. Therefore, the behavior of the method is
-/// undefined if the arguments don't point to valid objects.
-///
-/// [workflow]: index.html#workflow
-pub unsafe extern "C" fn get_model(client: *mut FFIClient, dtype: c_uint) -> PrimitiveModel {
-    if client.is_null() || dtype == 0 || dtype > 4 {
-        return PrimitiveModel {
-            ptr: ptr::null_mut() as *mut c_void,
-            len: 0_u64 as c_ulonglong,
-            dtype: 0_u32 as c_uint,
-        };
-    }
-    let client = unsafe {
-        // safe if the raw pointer `client` comes from a valid allocation of a `FFIClient`
-        &mut (*client).client
-    };
-
-    // global model available
-    if let Some(ref global_model) = client.global_model {
-        // global model is already cached as a primitive model
-        if !client.has_new_global_model_since_last_cache {
-            match dtype {
-                1 => {
-                    if let Some(CachedModel::F32(ref mut cached_model)) = client.cached_model {
-                        return PrimitiveModel {
-                            ptr: cached_model.as_mut_ptr() as *mut c_void,
-                            len: cached_model.len() as c_ulonglong,
-                            dtype,
-                        };
-                    }
+    let len = len as usize;
+    match data_type {
+        DataType::F32 => {
+            // safety checks missing
+            let buffer = unsafe { slice::from_raw_parts_mut(buffer as *mut f32, len) };
+            for (i, p) in global_model.into_primitives().enumerate() {
+                if i >= len {
+                    return -5 as c_int;
                 }
-                2 => {
-                    if let Some(CachedModel::F64(ref mut cached_model)) = client.cached_model {
-                        return PrimitiveModel {
-                            ptr: cached_model.as_mut_ptr() as *mut c_void,
-                            len: cached_model.len() as c_ulonglong,
-                            dtype,
-                        };
-                    }
-                }
-                3 => {
-                    if let Some(CachedModel::I32(ref mut cached_model)) = client.cached_model {
-                        return PrimitiveModel {
-                            ptr: cached_model.as_mut_ptr() as *mut c_void,
-                            len: cached_model.len() as c_ulonglong,
-                            dtype,
-                        };
-                    }
-                }
-                4 => {
-                    if let Some(CachedModel::I64(ref mut cached_model)) = client.cached_model {
-                        return PrimitiveModel {
-                            ptr: cached_model.as_mut_ptr() as *mut c_void,
-                            len: cached_model.len() as c_ulonglong,
-                            dtype,
-                        };
-                    }
-                }
-                _ => unreachable!(),
-            }
-        }
-
-        // convert the global model to a primitive model and cache it
-        client.has_new_global_model_since_last_cache = false;
-        let len = global_model.len() as c_ulonglong;
-        let ptr = match dtype {
-            1 => {
-                if let Ok(mut cached_model) = global_model
-                    .to_primitives()
-                    .map(|res| res.map_err(|_| ()))
-                    .collect::<Result<Vec<f32>, ()>>()
-                {
-                    // conversion succeeded
-                    let ptr = cached_model.as_mut_ptr() as *mut c_void;
-                    client.cached_model = Some(CachedModel::F32(cached_model));
-                    ptr
+                if let Ok(p) = p {
+                    buffer[i] = p;
                 } else {
-                    // conversion failed
-                    client.cached_model = None;
-                    ptr::null_mut() as *mut c_void
+                    return -6 as c_int;
                 }
             }
-            2 => {
-                if let Ok(mut cached_model) = global_model
-                    .to_primitives()
-                    .map(|res| res.map_err(|_| ()))
-                    .collect::<Result<Vec<f64>, ()>>()
-                {
-                    // conversion succeeded
-                    let ptr = cached_model.as_mut_ptr() as *mut c_void;
-                    client.cached_model = Some(CachedModel::F64(cached_model));
-                    ptr
+        }
+        DataType::F64 => {
+            let buffer = unsafe { slice::from_raw_parts_mut(buffer as *mut f64, len) };
+            for (i, p) in global_model.into_primitives().enumerate() {
+                if i >= len {
+                    return -5 as c_int;
+                }
+                if let Ok(p) = p {
+                    buffer[i] = p;
                 } else {
-                    // conversion failed
-                    client.cached_model = None;
-                    ptr::null_mut() as *mut c_void
+                    return -6 as c_int;
                 }
             }
-            3 => {
-                if let Ok(mut cached_model) = global_model
-                    .to_primitives()
-                    .map(|res| res.map_err(|_| ()))
-                    .collect::<Result<Vec<i32>, ()>>()
-                {
-                    // conversion succeeded
-                    let ptr = cached_model.as_mut_ptr() as *mut c_void;
-                    client.cached_model = Some(CachedModel::I32(cached_model));
-                    ptr
+        }
+        DataType::I32 => {
+            let buffer = unsafe { slice::from_raw_parts_mut(buffer as *mut i32, len) };
+            for (i, p) in global_model.into_primitives().enumerate() {
+                if i >= len {
+                    return -5 as c_int;
+                }
+                if let Ok(p) = p {
+                    buffer[i] = p;
                 } else {
-                    // conversion failed
-                    client.cached_model = None;
-                    ptr::null_mut() as *mut c_void
+                    return -6 as c_int;
                 }
             }
-            4 => {
-                if let Ok(mut cached_model) = global_model
-                    .to_primitives()
-                    .map(|res| res.map_err(|_| ()))
-                    .collect::<Result<Vec<i64>, ()>>()
-                {
-                    // conversion succeeded
-                    let ptr = cached_model.as_mut_ptr() as *mut c_void;
-                    client.cached_model = Some(CachedModel::I64(cached_model));
-                    ptr
+        }
+        DataType::I64 => {
+            let buffer = unsafe { slice::from_raw_parts_mut(buffer as *mut i64, len) };
+            for (i, p) in global_model.into_primitives().enumerate() {
+                if i >= len {
+                    return -5 as c_int;
+                }
+                if let Ok(p) = p {
+                    buffer[i] = p;
                 } else {
-                    // conversion failed
-                    client.cached_model = None;
-                    ptr::null_mut() as *mut c_void
+                    return -6 as c_int;
                 }
             }
-            _ => unreachable!(),
-        };
-        return PrimitiveModel { ptr, len, dtype };
-    }
-
-    // global model unavailable
-    client.cached_model = None;
-    PrimitiveModel {
-        ptr: ptr::null_mut() as *mut c_void,
-        len: 0_u64 as c_ulonglong,
-        dtype: 0_u32 as c_uint,
-    }
+        }
+    };
+    0 as c_int
 }
 
+/// Sets the local model.
+///
+/// The local model is only sent if the client has been selected as an update client.
+/// If the client is an update client and no local model is available, the client remains
+/// in this state until a local model has been set or a new round has been started by the
+/// coordinator.
+///
+/// # Parameters
+///
+/// - `client`: A pointer that points to an instance of [`CMobileClient`].
+/// - `data_type`: The [`DataType`] of the local model.
+/// - `buffer`: The array in which the local model should be copied.
+/// - `len`: The length of `buffer`.
+///
+/// # Note
+///
+/// The data type must match the data type that was used when the client was initialized.
+///
+/// # Safety
+///
+/// `client`:
+///
+/// The function only ensures null-safety. You must ensure that:
+/// - the pointer points to an initialized instance of [`CMobileClient`],
+/// - the data the pointer points to is properly aligned,
+/// - the memory of `client` is not mutated (from the outside of this function)
+/// for the duration of the execution of [`xaynet_ffi_set_local_model_mobile_client`].
+///
+/// `buffer`:
+///
+/// The function only ensures null-safety. You must ensure that:
+/// - the pointer points to an initialized instance of `c_void`,
+/// - the data the pointer points to is properly aligned,
+/// - the data is valid for writes for `len` * mem::size_of::<c_void>() many bytes,
+/// - the memory of `buffer` is not mutated (from the outside of this function)
+/// for the duration of the execution of [`xaynet_ffi_set_local_model_mobile_client`].
+///
+/// # Return Value
+///
+/// - `-1`: the pointer of `client` points to `NULL`,
+/// - `-2`: the pointer of `buffer` points to `NULL`,
+/// - `-3`: the value of `data_type` is not a valid value (see the module documentation of [`xaynet_core::mask`] for more information),
+/// - `-4`: failed to create a model,
+/// - `0`: success,
 #[allow(unused_unsafe)]
 #[allow(clippy::unnecessary_cast)]
 #[no_mangle]
-/// Registers the cached model as an updated local model.
-///
-/// This clears the cached model.
-///
-/// # Errors
-/// Ignores null pointer `client`s and returns immediately.
-///
-/// Returns an error if there is no cached model to register.
-///
-/// The error codes are as following:
-/// - `-1`: client didn't update due to null pointer
-/// - `0`: no error
-/// - `1`: client didn't update due missing cached model
-///
-/// # Safety
-/// The method dereferences from the raw pointer arguments. Therefore, the behavior of the method is
-/// undefined if the arguments don't point to valid objects.
-///
-/// The memory of the cached model is is either allocated by [`new_model()`] or [`get_model()`].
-/// Therefore, the behavior of the method is undefined if the memory was modified in an invalid way.
-pub unsafe extern "C" fn update_model(client: *mut FFIClient) -> c_int {
-    if client.is_null() {
-        return -1_i32 as c_int;
+pub unsafe extern "C" fn xaynet_ffi_set_local_model_mobile_client(
+    client: *mut CMobileClient,
+    data_type: c_uchar,
+    buffer: *const c_void,
+    len: c_uint,
+) -> c_int {
+    let client = match unsafe { client.as_mut() } {
+        Some(client) => &mut (*client).0,
+        None => return -1 as c_int,
+    };
+
+    if buffer.is_null() {
+        return -2 as c_int;
     }
-    let client = unsafe {
-        // safe if the raw pointer `client` comes from a valid allocation of a `Client`
-        &mut (*client).client
+
+    let data_type = match DataType::try_from(data_type) {
+        Ok(data_type) => data_type,
+        Err(_) => return -3 as c_int,
     };
-    client.local_model = match client.cached_model.take() {
-        Some(CachedModel::F32(cached_model)) => {
-            Some(Model::from_primitives_bounded(cached_model.into_iter()))
+
+    let len = len as usize;
+    let model = match data_type {
+        DataType::F32 => {
+            let buffer = unsafe { slice::from_raw_parts(buffer as *const f32, len) };
+            // we map the error so that we get an uniform error type
+            Model::from_primitives(buffer.iter().copied()).map_err(|_| ())
         }
-        Some(CachedModel::F64(cached_model)) => {
-            Some(Model::from_primitives_bounded(cached_model.into_iter()))
+        DataType::F64 => {
+            let buffer = unsafe { slice::from_raw_parts(buffer as *const f64, len) };
+            Model::from_primitives(buffer.iter().copied()).map_err(|_| ())
         }
-        Some(CachedModel::I32(cached_model)) => {
-            Some(Model::from_primitives_bounded(cached_model.into_iter()))
+        DataType::I32 => {
+            let buffer = unsafe { slice::from_raw_parts(buffer as *const i32, len) };
+            Model::from_primitives(buffer.iter().copied()).map_err(|_| ())
         }
-        Some(CachedModel::I64(cached_model)) => {
-            Some(Model::from_primitives_bounded(cached_model.into_iter()))
+        DataType::I64 => {
+            let buffer = unsafe { slice::from_raw_parts(buffer as *const i64, len) };
+            Model::from_primitives(buffer.iter().copied()).map_err(|_| ())
         }
-        None => return 1_i32 as c_int,
     };
-    0_i32 as c_int
+
+    if let Ok(m) = model {
+        client.set_local_model(m);
+        0_i32 as c_int
+    } else {
+        -4_i32 as c_int
+    }
 }
 
+/// Creates a new participant secret key and writes it into `buffer`.
+///
+/// # Parameters
+///
+/// - `buffer`: A pointer that points to an instance of `c_uchar`.
+///
+/// # Safety
+///
+/// `buffer`:
+///
+/// The function only ensures null-safety. You must ensure that:
+/// - the pointer points to an initialized instance of `c_uchar`,
+/// - the data the pointer points to is properly aligned,
+/// - the data is valid for writes for [`ParticipantSecretKey::LENGTH`] * mem::size_of::<c_uchar>()
+/// many bytes,
+/// - the memory of `buffer` is not mutated (from the outside of this function)
+/// for the duration of the execution of [`xaynet_ffi_new_secret_key`].
+///
+/// # Return Value
+///
+/// - `-1`: the pointer of `buffer` points to `NULL`,
+/// - `0`: success.
 #[allow(unused_unsafe)]
 #[no_mangle]
-/// Destroys a [`Client`]'s cached primitive model and frees its allocated memory.
+pub unsafe extern "C" fn xaynet_ffi_new_secret_key(buffer: *mut c_uchar) -> c_int {
+    let buffer = match unsafe { buffer.as_mut() } {
+        Some(buffer) => buffer,
+        None => return -1 as c_int,
+    };
+
+    let buffer = unsafe { slice::from_raw_parts_mut(buffer, ParticipantSecretKey::LENGTH) };
+    buffer.copy_from_slice(MobileClient::create_participant_secret_key().as_slice());
+    0 as c_int
+}
+
+/// ByteBuffer
+/// A helper struct for sequences with an unknown size at compile-time.
+pub struct BytesBuffer(Vec<u8>);
+
+define_box_destructor!(BytesBuffer, xaynet_ffi_destroy_byte_buffer);
+
+/// Returns the length of `buffer`.
 ///
-/// It is not necessary to call this function if [`update_model()`] or [`drop_client()`] is called
-/// anyways.
+/// # Parameters
 ///
-/// # Errors
-/// Ignores null pointer `client`s and returns immediately.
+/// - `buffer`: A pointer that points to an instance of [`BytesBuffer`].
 ///
 /// # Safety
-/// The method dereferences from the raw pointer arguments. Therefore, the behavior of the method is
-/// undefined if the arguments don't point to valid objects.
-pub unsafe extern "C" fn drop_model(client: *mut FFIClient) {
-    if !client.is_null() {
-        let client = unsafe {
-            // safe if the raw pointer `client` comes from a valid allocation of a `FFIClient`
-            &mut (*client).client
-        };
-        client.cached_model.take();
-    }
+///
+/// `buffer`:
+///
+/// The function only ensures null-safety. You must ensure that:
+/// - the pointer points to an initialized instance of [`BytesBuffer`],
+/// - the memory of `buffer` is not mutated (from the outside of this function)
+/// for the duration of the execution of [`xaynet_ffi_get_len_of_byte_buffer`].
+///
+/// # Return Value
+///
+/// - `-1`: the pointer of `buffer` points to `NULL`,
+/// - `> -1`: the length of `buffer`.
+#[allow(unused_unsafe)]
+#[no_mangle]
+pub unsafe extern "C" fn xaynet_ffi_get_len_of_byte_buffer(buffer: *const BytesBuffer) -> c_int {
+    let buffer = match unsafe { buffer.as_ref() } {
+        Some(buffer) => &buffer.0,
+        None => return -1 as c_int,
+    };
+
+    buffer.len() as c_int
 }
 
-// Temporary Dart wrappers. Will be removed once booleans are supported in Dart FFI, see
-// https://github.com/dart-lang/sdk/issues/36855.
-pub use self::dart::*;
+/// Copies the content of `buffer` into `foreign_buffer`.
+///
+/// # Parameters
+///
+/// - `buffer`: A pointer that points to an instance of [`BytesBuffer`].
+/// - `foreign_buffer`: A pointer that points to an instance of `c_uchar`.
+///
+/// # Safety
+///
+/// `buffer`:
+///
+/// The function only ensures null-safety. You must ensure that:
+/// - the pointer points to an initialized instance of [`BytesBuffer`],
+/// - the memory of `buffer` is not mutated (from the outside of this function)
+/// for the duration of the execution of [`xaynet_ffi_copy_into_foreign_buffer`].
+///
+/// `foreign_buffer`:
+///
+/// The function only ensures null-safety. You must ensure that:
+/// - the pointer points to an initialized instance of `c_uchar`,
+/// - the data the pointer points to is properly aligned,
+/// - the data is valid for writes for `buffer_length` * mem::size_of::<c_uchar>() many bytes,
+/// - the memory of `foreign_buffer` is not mutated (from the outside of this function)
+/// for the duration of the execution of [`xaynet_ffi_copy_into_foreign_buffer`].
+///
+/// # Return Value
+///
+/// - `-1`: the pointer of `buffer` points to `NULL`,
+/// - `-2`: the pointer of `foreign_buffer` points to `NULL`,
+/// - `0`: success.
+#[allow(unused_unsafe)]
+#[no_mangle]
+pub unsafe extern "C" fn xaynet_ffi_copy_into_foreign_buffer(
+    buffer: *const BytesBuffer,
+    foreign_buffer: *mut c_uchar,
+) -> c_int {
+    let buffer = match unsafe { buffer.as_ref() } {
+        Some(buffer) => &buffer.0,
+        None => return -1 as c_int,
+    };
 
-mod dart {
-    use std::os::raw::c_uint;
+    let foreign_buffer = match unsafe { foreign_buffer.as_mut() } {
+        Some(foreign_buffer) => foreign_buffer,
+        None => return -2 as c_int,
+    };
 
-    #[allow(unused_unsafe)]
-    #[allow(clippy::unnecessary_cast)]
-    #[no_mangle]
-    #[doc(hidden)]
-    pub unsafe extern "C" fn is_next_round_dart(client: *mut super::FFIClient) -> c_uint {
-        if unsafe {
-            // safe if the called function is sound
-            super::is_next_round(client)
-        } {
-            1_u32 as c_uint
-        } else {
-            0_u32 as c_uint
-        }
-    }
-
-    #[allow(unused_unsafe)]
-    #[allow(clippy::unnecessary_cast)]
-    #[no_mangle]
-    #[doc(hidden)]
-    pub unsafe extern "C" fn has_next_model_dart(client: *mut super::FFIClient) -> c_uint {
-        if unsafe {
-            // safe if the called function is sound
-            super::has_next_model(client)
-        } {
-            1_u32 as c_uint
-        } else {
-            0_u32 as c_uint
-        }
-    }
-
-    #[allow(unused_unsafe)]
-    #[allow(clippy::unnecessary_cast)]
-    #[no_mangle]
-    #[doc(hidden)]
-    pub unsafe extern "C" fn is_update_participant_dart(client: *mut super::FFIClient) -> c_uint {
-        if unsafe {
-            // safe if the called function is sound
-            super::is_update_participant(client)
-        } {
-            1_u32 as c_uint
-        } else {
-            0_u32 as c_uint
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::{ffi::CString, iter::FromIterator};
-
-    use num::rational::Ratio;
-
-    use super::*;
-
-    #[test]
-    fn test_new_client() {
-        let client = unsafe { new_client(CString::new("0.0.0.0:0000").unwrap().as_ptr(), 10) };
-        assert!(!client.is_null());
-        unsafe { drop_client(client, 0) };
-    }
-
-    #[test]
-    fn test_run_client() {
-        // check for network error when running client without a service
-        let client = unsafe { new_client(CString::new("0.0.0.0:0000").unwrap().as_ptr(), 10) };
-        assert_eq!(unsafe { run_client(client) }, 6);
-        unsafe { drop_client(client, 0) };
-    }
-
-    // define dummy model of length `len` where all values are set to `val`
-    fn dummy_model(val: f64, len: usize) -> Model {
-        Model::from_iter(vec![Ratio::from_float(val).unwrap(); len].into_iter())
-    }
-
-    macro_rules! test_new_model {
-        ($prim:ty, $dtype:expr) => {
-            paste::item! {
-                #[allow(unused_unsafe)]
-                #[test]
-                fn [<test_new_model_ $prim>]() {
-                    let client = unsafe { new_client(CString::new("0.0.0.0:0000").unwrap().as_ptr(), 10) };
-
-                    // check that the new model is cached
-                    let model = dummy_model(0., 10);
-                    let prim_model = unsafe { new_model(client, $dtype as c_uint, 10 as c_ulonglong) };
-                    if let Some(CachedModel::[<$prim:upper>](ref cached_model)) = unsafe { &mut *client }.client.cached_model {
-                        assert_eq!(prim_model.ptr, cached_model.as_ptr() as *mut c_void);
-                        assert_eq!(prim_model.len, cached_model.len() as c_ulonglong);
-                        assert_eq!(prim_model.dtype, $dtype as c_uint);
-                        assert_eq!(model, Model::from_primitives_bounded(cached_model.iter().cloned()));
-                    } else {
-                        panic!();
-                    }
-                    unsafe { drop_client(client, 0) };
-                }
-            }
-        };
-    }
-
-    test_new_model!(f32, 1);
-    test_new_model!(f64, 2);
-    test_new_model!(i32, 3);
-    test_new_model!(i64, 4);
-
-    macro_rules! test_get_model {
-        ($prim:ty, $dtype:expr) => {
-            paste::item! {
-                #[allow(unused_unsafe)]
-                #[test]
-                fn [<test_get_model_ $prim>]() {
-                    let client = unsafe { new_client(CString::new("0.0.0.0:0000").unwrap().as_ptr(), 10) };
-
-                    // check that the primitive model is null if the global model is unavailable
-                    assert!(unsafe { &*client }.client.global_model.is_none());
-                    let prim_model = unsafe { get_model(client, $dtype as c_uint) };
-                    assert!(unsafe { &*client }.client.cached_model.is_none());
-                    assert!(prim_model.ptr.is_null());
-                    assert_eq!(prim_model.len, 0);
-                    assert_eq!(prim_model.dtype, 0);
-
-                    // check that the primitive model points to the cached model if the global model is available
-                    let model = dummy_model(0., 10);
-                    unsafe { &mut *client }.client.global_model = Some(model.clone());
-                    let prim_model = unsafe { get_model(client, $dtype as c_uint) };
-                    if let Some(CachedModel::[<$prim:upper>](ref cached_model)) = unsafe { &mut *client }.client.cached_model {
-                        assert_eq!(prim_model.ptr, cached_model.as_ptr() as *mut c_void);
-                        assert_eq!(prim_model.len, cached_model.len() as c_ulonglong);
-                        assert_eq!(prim_model.dtype, $dtype as c_uint);
-                        assert_eq!(model, Model::from_primitives_bounded(cached_model.iter().cloned()));
-                    } else {
-                        panic!();
-                    }
-                    unsafe { drop_client(client, 0) };
-                }
-            }
-        };
-    }
-
-    test_get_model!(f32, 1);
-    test_get_model!(f64, 2);
-    test_get_model!(i32, 3);
-    test_get_model!(i64, 4);
-
-    macro_rules! test_update_model {
-        ($prim:ty, $dtype:expr) => {
-            paste::item! {
-                #[test]
-                fn [<test_update_model_ $prim>]() {
-                    let client = unsafe { new_client(CString::new("0.0.0.0:0000").unwrap().as_ptr(), 10) };
-                    let model = dummy_model(0., 10);
-                    unsafe { &mut *client }.client.global_model = Some(model.clone());
-                    let prim_model = unsafe { get_model(client, $dtype as c_uint) };
-
-                    // check that the local model is updated from the cached model
-                    if let Some(CachedModel::[<$prim:upper>](ref cached_model)) = unsafe { &mut *client }.client.cached_model {
-                        assert_eq!(prim_model.ptr, cached_model.as_ptr() as *mut c_void);
-                        assert_eq!(prim_model.len, cached_model.len() as c_ulonglong);
-                        assert_eq!(prim_model.dtype, $dtype as c_uint);
-                    } else {
-                        panic!();
-                    }
-                    assert!(unsafe {  &*client }.client.local_model.is_none());
-                    assert_eq!(unsafe { update_model(client) }, 0);
-                    assert!(unsafe { &mut *client }.client.cached_model.is_none());
-                    if let Some(ref local_model) = unsafe { &*client }.client.local_model {
-                        assert_eq!(&model, local_model);
-                    } else {
-                        panic!();
-                    }
-                    unsafe { drop_client(client, 0) };
-                }
-            }
-        };
-    }
-
-    test_update_model!(f32, 1);
-    test_update_model!(f64, 2);
-    test_update_model!(i32, 3);
-    test_update_model!(i64, 4);
+    let foreign_buffer = unsafe { slice::from_raw_parts_mut(foreign_buffer, buffer.len()) };
+    foreign_buffer.copy_from_slice(buffer.as_slice());
+    0 as c_int
 }
