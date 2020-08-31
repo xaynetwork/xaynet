@@ -12,8 +12,10 @@ use crate::{
 pub use crate::state_machine::{StateMachineError, StateMachineResult as StateMachineResponse};
 
 /// A service that hands the requests to the state machine
-/// ([`crate::state_machine::StateMachine`]) that runs in the
+/// ([`StateMachine`]) that runs in the
 /// background.
+///
+/// [`StateMachine`]: crate::state_machine::StateMachine
 pub struct StateMachineService {
     handle: RequestSender,
 }
@@ -21,7 +23,9 @@ pub struct StateMachineService {
 impl StateMachineService {
     /// Create a new service with the given handle for forwarding
     /// requests to the state machine. The handle should be obtained
-    /// via [`crate::state_machine::StateMachine::new`]
+    /// via [`StateMachine::new`].
+    ///
+    /// [`StateMachine::new`]: crate::state_machine::StateMachine::new
     pub fn new(handle: RequestSender) -> Self {
         Self { handle }
     }
