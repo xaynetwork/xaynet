@@ -4,6 +4,7 @@
 //!
 //! [message module]: ../index.html
 
+pub(crate) mod chunk;
 pub(crate) mod sum;
 pub(crate) mod sum2;
 pub(crate) mod update;
@@ -11,7 +12,7 @@ pub(crate) mod update;
 use derive_more::From;
 
 use crate::message::{
-    payload::{sum::Sum, sum2::Sum2, update::Update},
+    payload::{chunk::Chunk, sum::Sum, sum2::Sum2, update::Update},
     traits::ToBytes,
 };
 
@@ -26,6 +27,8 @@ pub enum Payload {
     Update(Update),
     /// The payload of a [`Sum2`] message.
     Sum2(Sum2),
+    /// The payload of a [`Chunk`] message.
+    Chunk(Chunk),
 }
 
 impl ToBytes for Payload {
@@ -34,14 +37,16 @@ impl ToBytes for Payload {
             Payload::Sum(m) => m.buffer_length(),
             Payload::Sum2(m) => m.buffer_length(),
             Payload::Update(m) => m.buffer_length(),
+            Payload::Chunk(m) => m.buffer_length(),
         }
     }
 
-    fn to_bytes<T: AsMut<[u8]>>(&self, buffer: &mut T) {
+    fn to_bytes<T: AsMut<[u8]> + AsRef<[u8]>>(&self, buffer: &mut T) {
         match self {
             Payload::Sum(m) => m.to_bytes(buffer),
             Payload::Sum2(m) => m.to_bytes(buffer),
             Payload::Update(m) => m.to_bytes(buffer),
+            Payload::Chunk(m) => m.to_bytes(buffer),
         }
     }
 }

@@ -163,7 +163,7 @@ impl ToBytes for Sum2 {
         SUM_SIGNATURE_RANGE.end + self.model_mask.buffer_length() + self.scalar_mask.buffer_length()
     }
 
-    fn to_bytes<T: AsMut<[u8]>>(&self, buffer: &mut T) {
+    fn to_bytes<T: AsMut<[u8]> + AsRef<[u8]>>(&self, buffer: &mut T) {
         let mut writer = Sum2Buffer::new_unchecked(buffer.as_mut());
         self.sum_signature.to_bytes(&mut writer.sum_signature_mut());
         self.model_mask.to_bytes(&mut writer.model_mask_mut());

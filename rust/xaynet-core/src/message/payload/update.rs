@@ -229,7 +229,7 @@ impl ToBytes for Update {
             + self.local_seed_dict.buffer_length()
     }
 
-    fn to_bytes<T: AsMut<[u8]>>(&self, buffer: &mut T) {
+    fn to_bytes<T: AsMut<[u8]> + AsRef<[u8]>>(&self, buffer: &mut T) {
         let mut writer = UpdateBuffer::new_unchecked(buffer.as_mut());
         self.sum_signature.to_bytes(&mut writer.sum_signature_mut());
         self.update_signature

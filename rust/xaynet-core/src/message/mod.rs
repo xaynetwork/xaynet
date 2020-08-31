@@ -32,8 +32,6 @@
 //!
 //! [crypto module]: ../crypto/index.html
 
-pub(crate) mod buffer;
-pub(crate) mod header;
 #[allow(clippy::module_inception)]
 pub(crate) mod message;
 pub(crate) mod payload;
@@ -41,10 +39,9 @@ pub(crate) mod traits;
 pub(crate) mod utils;
 
 pub use self::{
-    buffer::MessageBuffer,
-    header::{Flags, Header, Tag},
-    message::{Message, MessageOpen, MessageSeal},
+    message::{Message, MessageBuffer, Tag},
     payload::{
+        chunk::{Chunk, ChunkBuffer},
         sum::{Sum, SumBuffer},
         sum2::{Sum2, Sum2Buffer},
         update::{Update, UpdateBuffer},
