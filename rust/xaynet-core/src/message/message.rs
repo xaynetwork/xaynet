@@ -9,7 +9,7 @@ use std::convert::{TryFrom, TryInto};
 use anyhow::{anyhow, Context};
 
 use crate::{
-    crypto::{ByteObject, PublicSigningKey, SecretSigningKey, Signature},
+    crypto::{ByteObject, PublicEncryptKey, PublicSigningKey, SecretSigningKey, Signature},
     message::{Chunk, DecodeError, FromBytes, Payload, Sum, Sum2, ToBytes, Update},
 };
 
@@ -25,8 +25,11 @@ pub(crate) mod ranges {
     /// Byte range corresponding to the participant public key in a
     /// message header
     pub const PARTICIPANT_PK: Range<usize> = range(SIGNATURE.end, PublicSigningKey::LENGTH);
+    /// Byte range corresponding to the coordinator public key in a
+    /// message header
+    pub const COORDINATOR_PK: Range<usize> = range(PARTICIPANT_PK.end, PublicEncryptKey::LENGTH);
     /// Byte range corresponding to the length field in a message header
-    pub const LENGTH: Range<usize> = range(PARTICIPANT_PK.end, 4);
+    pub const LENGTH: Range<usize> = range(COORDINATOR_PK.end, 4);
     /// Byte range corresponding to the tag in a message header
     pub const TAG: usize = LENGTH.end;
     /// Byte range reserved for future use
@@ -93,6 +96,22 @@ pub const HEADER_LENGTH: usize = ranges::RESERVED.end;
 /// +                                                               +
 /// |                                                               |
 /// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/// |                                                               |
+/// +                                                               +
+/// |                                                               |
+/// +                                                               +
+/// |                                                               |
+/// +                                                               +
+/// |                                                               |
+/// +                         coordinator_pk                        +
+/// |                                                               |
+/// +                                                               +
+/// |                                                               |
+/// +                                                               +
+/// |                                                               |
+/// +                                                               +
+/// |                                                               |
+/// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 /// |                             length                            |
 /// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 /// |      tag      |                    reserved                   |
@@ -105,6 +124,12 @@ pub const HEADER_LENGTH: usize = ranges::RESERVED.end;
 /// - `signature` contains the signature of the entire message
 /// - `participant_pk` contains the public key for verifying the
 ///   signature
+/// - `coordinator_pk` is the coordinator public encryption key. It is
+///    embedded in the message for security reasons. See [_Donald
+///    T. Davis, "Defective Sign & Encrypt in S/MIME, PKCS#7, MOSS,
+///    PEM, PGP, and XML.", Proc. Usenix Tech. Conf. 2001 (Boston,
+///    Mass., June 25-30,
+///    2001)_](http://world.std.com/~dtd/sign_encrypt/sign_encrypt7.html)
 /// - `length` is the length in bytes of the _full_ message, _i.e._
 ///   including the header. This is a 32 bits field so in theory,
 ///   messages can be as big as 2^32 = 4,294,967,296 bytes.
@@ -120,7 +145,8 @@ pub const HEADER_LENGTH: usize = ranges::RESERVED.end;
 ///
 /// let mut bytes = vec![0x11; 64]; // message signature
 /// bytes.extend(vec![0x22; 32]); // participant public signing key
-/// bytes.extend(&168_u32.to_be_bytes()); // Length field
+/// bytes.extend(vec![0x33; 32]); // coordinator public encrypt key
+/// bytes.extend(&200_u32.to_be_bytes()); // Length field
 /// bytes.push(0x01); // tag (sum message)
 /// bytes.extend(vec![0x00, 0x00, 0x00]); // reserved
 ///
@@ -131,6 +157,7 @@ pub const HEADER_LENGTH: usize = ranges::RESERVED.end;
 /// let buffer = MessageBuffer::new(&bytes).unwrap();
 /// assert_eq!(buffer.signature(), vec![0x11; 64].as_slice());
 /// assert_eq!(buffer.participant_pk(), vec![0x22; 32].as_slice());
+/// assert_eq!(buffer.coordinator_pk(), vec![0x33; 32].as_slice());
 /// assert_eq!(Tag::try_from(buffer.tag()).unwrap(), Tag::Sum);
 /// assert_eq!(
 ///     buffer.payload(),
@@ -146,7 +173,8 @@ pub const HEADER_LENGTH: usize = ranges::RESERVED.end;
 ///
 /// let mut expected = vec![0x11; 64]; // message signature
 /// expected.extend(vec![0x22; 32]); // participant public signing key
-/// expected.extend(&168_u32.to_be_bytes()); // length field
+/// expected.extend(vec![0x33; 32]); // coordinator public signing key
+/// expected.extend(&200_u32.to_be_bytes()); // length field
 /// expected.push(0x01); // tag (sum message)
 /// expected.extend(vec![0x00, 0x00, 0x00]); // reserved
 ///
@@ -162,7 +190,10 @@ pub const HEADER_LENGTH: usize = ranges::RESERVED.end;
 /// buffer
 ///     .participant_pk_mut()
 ///     .copy_from_slice(vec![0x22; 32].as_slice());
-/// buffer.set_length(168 as u32);
+/// buffer
+///     .coordinator_pk_mut()
+///     .copy_from_slice(vec![0x33; 32].as_slice());
+/// buffer.set_length(200 as u32);
 /// buffer.set_tag(Tag::Sum.into());
 /// buffer
 ///     .payload_mut()
@@ -256,6 +287,14 @@ impl<'a, T: AsRef<[u8]> + ?Sized> MessageBuffer<&'a T> {
         &self.inner.as_ref()[ranges::PARTICIPANT_PK]
     }
 
+    /// Gets the coordinator public key field.
+    ///
+    /// # Panics
+    /// Accessing the field may panic if the buffer has not been checked before.
+    pub fn coordinator_pk(&self) -> &'a [u8] {
+        &self.inner.as_ref()[ranges::COORDINATOR_PK]
+    }
+
     /// Gets the rest of the message.
     ///
     /// # Panics
@@ -325,6 +364,14 @@ impl<T: AsMut<[u8]> + AsRef<[u8]>> MessageBuffer<T> {
         &mut self.inner.as_mut()[ranges::PARTICIPANT_PK]
     }
 
+    /// Gets a mutable reference to the coordinator public key field.
+    ///
+    /// # Panics
+    /// Accessing the field may panic if the buffer has not been checked before.
+    pub fn coordinator_pk_mut(&mut self) -> &mut [u8] {
+        &mut self.inner.as_mut()[ranges::COORDINATOR_PK]
+    }
+
     /// Gets a mutable reference to the rest of the message.
     ///
     /// # Panics
@@ -392,6 +439,8 @@ pub struct Message {
     /// The participant public key, used to verify the message
     /// signature.
     pub participant_pk: PublicSigningKey,
+    /// The coordinator public key
+    pub coordinator_pk: PublicEncryptKey,
     /// Message payload
     pub payload: Payload,
 }
@@ -402,11 +451,12 @@ impl Message {
     /// [`MessageBuffer.verify_signature`] before parsing the message.
     pub fn from_bytes<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
         let reader = MessageBuffer::new(buffer.as_ref())?;
-        let participant_pk = PublicSigningKey::from_bytes(&reader.participant_pk())
-            .context("failed to parse public key")?;
         let signature =
             Signature::from_bytes(&reader.signature()).context("failed to parse signature")?;
-
+        let participant_pk = PublicSigningKey::from_bytes(&reader.participant_pk())
+            .context("failed to parse public key")?;
+        let coordinator_pk = PublicEncryptKey::from_bytes(&reader.coordinator_pk())
+            .context("failed to parse public key")?;
         let payload = match reader.tag().try_into()? {
             Tag::Sum => Sum::from_bytes(&reader.payload()).map(Into::into),
             Tag::Update => Update::from_bytes(&reader.payload()).map(Into::into),
@@ -417,6 +467,7 @@ impl Message {
 
         Ok(Self {
             participant_pk,
+            coordinator_pk,
             signature: Some(signature),
             payload,
         })
@@ -439,7 +490,8 @@ impl Message {
 
         self.participant_pk
             .to_bytes(&mut writer.participant_pk_mut());
-
+        self.coordinator_pk
+            .to_bytes(&mut writer.coordinator_pk_mut());
         let tag = match self.payload {
             Payload::Sum(_) => Tag::Sum,
             Payload::Update(_) => Tag::Update,
@@ -485,15 +537,23 @@ pub(in crate::message) mod tests {
         (bytes, pk)
     }
 
+    fn coordinator_pk() -> (Vec<u8>, PublicEncryptKey) {
+        let bytes = vec![0xbb; 32];
+        let pk = PublicEncryptKey::from_slice(&bytes).unwrap();
+        (bytes, pk)
+    }
+
     pub(crate) fn message() -> (Vec<u8>, Message) {
         let message = Message {
             signature: Some(signature().1),
             participant_pk: participant_pk().1,
+            coordinator_pk: coordinator_pk().1,
             payload: sum::tests::sum().into(),
         };
 
         let mut buf = signature().0;
         buf.extend(participant_pk().0);
+        buf.extend(coordinator_pk().0);
         let length = sum::tests::sum_bytes().len() + HEADER_LENGTH;
         buf.extend(&(length as u32).to_be_bytes());
         buf.push(Tag::Sum.into());
@@ -510,6 +570,7 @@ pub(in crate::message) mod tests {
         assert_eq!(Tag::try_from(buffer.tag()).unwrap(), Tag::Sum);
         assert_eq!(buffer.signature(), signature().0.as_slice());
         assert_eq!(buffer.participant_pk(), participant_pk().0.as_slice());
+        assert_eq!(buffer.coordinator_pk(), coordinator_pk().0.as_slice());
         assert_eq!(buffer.length() as usize, bytes.len());
         assert_eq!(buffer.payload(), sum::tests::sum_bytes().as_slice());
     }
@@ -526,6 +587,9 @@ pub(in crate::message) mod tests {
         buffer
             .participant_pk_mut()
             .copy_from_slice(participant_pk().0.as_slice());
+        buffer
+            .coordinator_pk_mut()
+            .copy_from_slice(coordinator_pk().0.as_slice());
         buffer.set_tag(Tag::Sum.into());
         buffer.set_length(expected.len() as u32);
         buffer

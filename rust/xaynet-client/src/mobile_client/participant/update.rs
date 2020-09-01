@@ -2,6 +2,7 @@ use super::{Participant, ParticipantState};
 use xaynet_core::{
     mask::{MaskObject, MaskSeed, Masker, Model},
     message::{Message, Update as UpdateMessage},
+    CoordinatorPublicKey,
     LocalSeedDict,
     ParticipantTaskSignature,
     SumDict,
@@ -31,6 +32,7 @@ impl Participant<Update> {
     /// dictionary, model scalar and local model update.
     pub fn compose_update_message(
         &self,
+        coordinator_pk: CoordinatorPublicKey,
         sum_dict: &SumDict,
         scalar: f64,
         local_model: Model,
@@ -41,6 +43,7 @@ impl Participant<Update> {
         Message {
             signature: None,
             participant_pk: self.state.keys.public,
+            coordinator_pk,
             payload: UpdateMessage {
                 sum_signature: self.inner.sum_signature,
                 update_signature: self.inner.update_signature,

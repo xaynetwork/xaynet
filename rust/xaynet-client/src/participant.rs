@@ -118,13 +118,15 @@ impl Participant {
         self.task
     }
 
-    /// Compose a sum message given the coordinator public key.
-    pub fn compose_sum_message(&mut self) -> Message {
+    /// Compose a sum message that embeds the given coordinator public
+    /// key.
+    pub fn compose_sum_message(&mut self, coordinator_pk: CoordinatorPublicKey) -> Message {
         self.gen_ephm_keypair();
 
         Message {
             signature: None,
             participant_pk: self.pk,
+            coordinator_pk,
             payload: Sum {
                 sum_signature: self.sum_signature,
                 ephm_pk: self.ephm_pk,
@@ -137,6 +139,7 @@ impl Participant {
     /// dictionary, model scalar and local model update.
     pub fn compose_update_message(
         &self,
+        coordinator_pk: CoordinatorPublicKey,
         sum_dict: &SumDict,
         scalar: f64,
         local_model: Model,
@@ -147,6 +150,7 @@ impl Participant {
         Message {
             signature: None,
             participant_pk: self.pk,
+            coordinator_pk,
             payload: Update {
                 sum_signature: self.sum_signature,
                 update_signature: self.update_signature,
@@ -167,6 +171,7 @@ impl Participant {
     /// seed dictionary, or computing the global mask.
     pub fn compose_sum2_message(
         &self,
+        coordinator_pk: CoordinatorPublicKey,
         seed_dict: &UpdateSeedDict,
         mask_len: usize,
     ) -> Result<Message, PetError> {
@@ -176,6 +181,7 @@ impl Participant {
         Ok(Message {
             signature: None,
             participant_pk: self.pk,
+            coordinator_pk,
             payload: Sum2 {
                 sum_signature: self.sum_signature,
                 model_mask,
