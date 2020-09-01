@@ -4,7 +4,7 @@ pub mod utils;
 
 use xaynet_core::{
     common::RoundSeed,
-    crypto::ByteObject,
+    crypto::{ByteObject, EncryptKeyPair},
     mask::{FromPrimitives, Model},
 };
 
@@ -25,6 +25,8 @@ async fn full_round() {
     let seed = RoundSeed::generate();
     let sum_ratio = 0.5;
     let update_ratio = 1.0;
+    let coord_keys = EncryptKeyPair::generate();
+    let coord_pk = coord_keys.public;
     let model_size = 4;
 
     let (state_machine, requests, events) = StateMachineBuilder::new()
@@ -47,8 +49,8 @@ async fn full_round() {
     // Sum phase
     let mut summer_1 = generate_summer(&seed, sum_ratio, update_ratio);
     let mut summer_2 = generate_summer(&seed, sum_ratio, update_ratio);
-    let msg_1 = summer_1.compose_sum_message();
-    let msg_2 = summer_2.compose_sum_message();
+    let msg_1 = summer_1.compose_sum_message(coord_pk);
+    let msg_2 = summer_2.compose_sum_message(coord_pk);
     let req_1 = async { requests.msg(&msg_1).await.unwrap() };
     let req_2 = async { requests.msg(&msg_2).await.unwrap() };
     let transition = async { state_machine.next().await.unwrap() };
@@ -62,7 +64,7 @@ async fn full_round() {
     let model = Model::from_primitives(vec![0; model_size].into_iter()).unwrap();
     for _ in 0..3 {
         let updater = generate_updater(&seed, sum_ratio, update_ratio);
-        let msg = updater.compose_update_message(&sum_dict, scalar, model.clone());
+        let msg = updater.compose_update_message(coord_pk, &sum_dict, scalar, model.clone());
         requests.msg(&msg).await.unwrap();
     }
     let state_machine = transition_task.await.unwrap();
@@ -72,10 +74,10 @@ async fn full_round() {
     let seed_dict = events.seed_dict_listener().get_latest().event.unwrap();
     let mask_length = events.mask_length_listener().get_latest().event.unwrap();
     let msg_1 = summer_1
-        .compose_sum2_message(seed_dict.get(&summer_1.pk).unwrap(), mask_length)
+        .compose_sum2_message(coord_pk, seed_dict.get(&summer_1.pk).unwrap(), mask_length)
         .unwrap();
     let msg_2 = summer_2
-        .compose_sum2_message(seed_dict.get(&summer_2.pk).unwrap(), mask_length)
+        .compose_sum2_message(coord_pk, seed_dict.get(&summer_2.pk).unwrap(), mask_length)
         .unwrap();
     let req_1 = async { requests.msg(&msg_1).await.unwrap() };
     let req_2 = async { requests.msg(&msg_2).await.unwrap() };

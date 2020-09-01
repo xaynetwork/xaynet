@@ -281,7 +281,7 @@ mod test {
     };
     use xaynet_core::{
         common::RoundSeed,
-        crypto::ByteObject,
+        crypto::{ByteObject, EncryptKeyPair},
         mask::{FromPrimitives, MaskObject, Model},
         SumDict,
         UpdateSeedDict,
@@ -294,6 +294,7 @@ mod test {
         let seed = RoundSeed::generate();
         let sum_ratio = 0.5;
         let update_ratio = 1.0;
+        let coord_keys = EncryptKeyPair::generate();
         let model_size = 4;
 
         // Find a sum participant and an update participant for the
@@ -302,7 +303,7 @@ mod test {
         let updater = utils::generate_updater(&seed, sum_ratio, update_ratio);
 
         // Initialize the update phase state
-        let sum_msg = summer.compose_sum_message();
+        let sum_msg = summer.compose_sum_message(coord_keys.public);
         let summer_ephm_pk = utils::ephm_pk(&sum_msg);
 
         let mut frozen_sum_dict = SumDict::new();
@@ -336,7 +337,12 @@ mod test {
         // Create an update request.
         let scalar = 1.0 / (n_updaters as f64 * update_ratio);
         let model = Model::from_primitives(vec![0; model_size].into_iter()).unwrap();
-        let update_msg = updater.compose_update_message(&frozen_sum_dict, scalar, model.clone());
+        let update_msg = updater.compose_update_message(
+            coord_keys.public,
+            &frozen_sum_dict,
+            scalar,
+            model.clone(),
+        );
         let masked_model = utils::masked_model(&update_msg);
         let request_fut = async { request_tx.msg(&update_msg).await.unwrap() };
 

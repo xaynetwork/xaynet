@@ -227,7 +227,7 @@ where
     /// Work flow for [`Client`]s selected as sum participants.
     async fn summer(&mut self) -> Result<Task, ClientError<C::Error>> {
         info!(client_id = %self.id, "selected to sum");
-        let msg = self.participant.compose_sum_message();
+        let msg = self.participant.compose_sum_message(self.coordinator_pk);
         let sealed_msg = self.participant.seal_message(&self.coordinator_pk, &msg);
 
         self.client.send_message(sealed_msg).await?;
@@ -251,7 +251,7 @@ where
                 debug!(client_id = %self.id, "seed dict received, sending sum2 message.");
                 let msg = self
                     .participant
-                    .compose_sum2_message(&seeds, length)
+                    .compose_sum2_message(self.coordinator_pk, &seeds, length)
                     .map_err(|e| {
                         error!("failed to compose sum2 message with seeds: {:?}", &seeds);
                         ClientError::ParticipantErr(e)
@@ -286,9 +286,12 @@ where
         loop {
             if let Some(sums) = self.client.get_sums().await? {
                 debug!(client_id = %self.id, "sum dict received, sending update message.");
-                let msg = self
-                    .participant
-                    .compose_update_message(&sums, self.scalar, model);
+                let msg = self.participant.compose_update_message(
+                    self.coordinator_pk,
+                    &sums,
+                    self.scalar,
+                    model,
+                );
                 let sealed_msg = self.participant.seal_message(&self.coordinator_pk, &msg);
                 self.client.send_message(sealed_msg).await?;
 

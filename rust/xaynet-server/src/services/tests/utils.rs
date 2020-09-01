@@ -42,6 +42,7 @@ pub fn new_sum_message(
     let message = Message {
         signature: None,
         participant_pk: participant_signing_keys.public.clone(),
+        coordinator_pk: round_params.pk,
         payload: Sum {
             sum_signature,
             ephm_pk: participant_ephm_pk.clone(),

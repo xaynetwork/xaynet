@@ -2,6 +2,7 @@ use super::{Participant, ParticipantState};
 use xaynet_core::{
     mask::{Aggregation, MaskObject, MaskSeed},
     message::{Message, Sum2 as Sum2Message},
+    CoordinatorPublicKey,
     ParticipantPublicKey,
     ParticipantTaskSignature,
     PetError,
@@ -42,6 +43,7 @@ impl Participant<Sum2> {
     /// seed dictionary, or computing the global mask.
     pub fn compose_sum2_message(
         &self,
+        coordinator_pk: CoordinatorPublicKey,
         seed_dict: &UpdateSeedDict,
         mask_len: usize,
     ) -> Result<Message, PetError> {
@@ -50,6 +52,7 @@ impl Participant<Sum2> {
         Ok(Message {
             signature: None,
             participant_pk: self.state.keys.public,
+            coordinator_pk,
             payload: Sum2Message {
                 sum_signature: self.inner.sum_signature,
                 model_mask,
