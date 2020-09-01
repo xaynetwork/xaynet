@@ -1,5 +1,6 @@
-use std::{pin::Pin, sync::Arc, task::Poll};
+use std::{convert::TryInto, pin::Pin, sync::Arc, task::Poll};
 
+use anyhow::Context as _;
 use derive_more::From;
 use futures::{
     future::{self, Either, Future},
@@ -11,8 +12,8 @@ use tokio::sync::oneshot;
 use tower::Service;
 use tracing::Span;
 use xaynet_core::{
-    crypto::{ByteObject, EncryptKeyPair, Signature},
-    message::{DecodeError, FromBytes, Header, Message, Payload, Sum, Sum2, Tag, ToBytes, Update},
+    crypto::EncryptKeyPair,
+    message::{DecodeError, Message, MessageBuffer, Tag},
 };
 
 use crate::{
@@ -167,20 +168,27 @@ impl Handler {
         info!("decrypting message");
         let raw = self.decrypt(&data.0.as_ref())?;
 
-        info!("parsing message header");
-        let header = self.parse_header(raw.as_slice())?;
+        let buf = MessageBuffer::new(&raw).map_err(MessageParserError::Parsing)?;
 
         info!("filtering message based on the current phase");
-        self.phase_filter(header.tag)?;
+        let tag = buf
+            .tag()
+            .try_into()
+            .context("failed to parse message tag field")
+            .map_err(MessageParserError::Parsing)?;
+        self.phase_filter(tag)?;
 
         info!("verifying the message signature");
-        self.verify_signature(raw.as_slice(), &header)?;
+        buf.check_signature().map_err(|e| {
+            warn!("invalid message signature: {:?}", e);
+            MessageParserError::InvalidMessageSignature
+        })?;
 
-        info!("parsing the message payload");
-        let payload = self.parse_payload(raw.as_slice(), &header)?;
+        info!("parsing the message");
+        let message = Message::from_bytes(&raw).map_err(MessageParserError::Parsing)?;
 
         info!("done pre-processing the message");
-        Ok(Message { header, payload })
+        Ok(message)
     }
 
     /// Decrypt the given payload with the coordinator secret key
@@ -190,12 +198,6 @@ impl Handler {
             .secret
             .decrypt(&encrypted_message, &self.keys.public)
             .map_err(|_| MessageParserError::Decrypt)?)
-    }
-
-    /// Attempt to parse the message header from the raw message
-    fn parse_header(&self, raw_message: &[u8]) -> Result<Header, MessageParserError> {
-        Ok(Header::from_bytes(&&raw_message[Signature::LENGTH..])
-            .map_err(MessageParserError::Parsing)?)
     }
 
     /// Reject messages that cannot be handled by the coordinator in
@@ -211,52 +213,6 @@ impl Handler {
                     tag, phase
                 );
                 Err(MessageParserError::UnexpectedMessage)
-            }
-        }
-    }
-
-    /// Verify the integrity of the given message by checking the
-    /// signature embedded in the header.
-    fn verify_signature(
-        &self,
-        raw_message: &[u8],
-        header: &Header,
-    ) -> Result<(), MessageParserError> {
-        // UNWRAP_SAFE: We already parsed the header, so we now the
-        // message is at least as big as: signature length + header
-        // length
-        let signature = Signature::from_slice(&raw_message[..Signature::LENGTH]).unwrap();
-        let bytes = &raw_message[Signature::LENGTH..];
-        if header.participant_pk.verify_detached(&signature, bytes) {
-            Ok(())
-        } else {
-            Err(MessageParserError::InvalidMessageSignature)
-        }
-    }
-
-    /// Parse the payload of the given message
-    fn parse_payload(
-        &self,
-        raw_message: &[u8],
-        header: &Header,
-    ) -> Result<Payload, MessageParserError> {
-        let bytes = &raw_message[header.buffer_length() + Signature::LENGTH..];
-        match header.tag {
-            Tag::Sum => {
-                let parsed = Sum::from_bytes(&bytes)
-                    .map_err(|e| MessageParserError::Parsing(e.context("invalid sum payload")))?;
-                Ok(Payload::Sum(parsed))
-            }
-            Tag::Update => {
-                let parsed = Update::from_bytes(&bytes).map_err(|e| {
-                    MessageParserError::Parsing(e.context("invalid update payload"))
-                })?;
-                Ok(Payload::Update(parsed))
-            }
-            Tag::Sum2 => {
-                let parsed = Sum2::from_bytes(&bytes)
-                    .map_err(|e| MessageParserError::Parsing(e.context("invalid sum2 payload")))?;
-                Ok(Payload::Sum2(parsed))
             }
         }
     }

@@ -4,8 +4,8 @@
 //! There are multiple such services and the [`PetMessageHandler`]
 //! trait provides a single unifying interface for all of these.
 mod message_parser;
-mod pre_processor;
 mod state_machine;
+mod task_validator;
 
 pub use self::{
     message_parser::{
@@ -14,17 +14,17 @@ pub use self::{
         MessageParserResponse,
         MessageParserService,
     },
-    pre_processor::{
-        PreProcessorError,
-        PreProcessorRequest,
-        PreProcessorResponse,
-        PreProcessorService,
-    },
     state_machine::{
         StateMachineError,
         StateMachineRequest,
         StateMachineResponse,
         StateMachineService,
+    },
+    task_validator::{
+        TaskValidatorError,
+        TaskValidatorRequest,
+        TaskValidatorResponse,
+        TaskValidatorService,
     },
 };
 
@@ -43,7 +43,7 @@ use thiserror::Error;
 use tower::Service;
 
 type TracedMessageParser<S> = TracedService<S, RawMessage<Vec<u8>>>;
-type TracedPreProcessor<S> = TracedService<S, Message>;
+type TracedTaskValidator<S> = TracedService<S, Message>;
 type TracedStateMachine<S> = TracedService<S, Message>;
 
 /// Error returned by the [`PetMessageHandler`] methods.
@@ -53,7 +53,7 @@ pub enum PetMessageError {
     Parser(MessageParserError),
 
     #[error("failed to pre-process message: {0}")]
-    PreProcessor(PreProcessorError),
+    TaskValidator(TaskValidatorError),
 
     #[error("state machine failed to handle message: {0}")]
     StateMachine(StateMachineError),
@@ -63,7 +63,7 @@ pub enum PetMessageError {
 }
 
 /// A single interface for all the PET message processing sub-services
-/// ([`MessageParserService`], [`PreProcessorService`] and
+/// ([`MessageParserService`], [`TaskValidatorService`] and
 /// [`StateMachineService`]).
 #[async_trait]
 pub trait PetMessageHandler: Send {
@@ -78,7 +78,7 @@ pub trait PetMessageHandler: Send {
         let message = self.call_parser(req).await?;
 
         let req = Request::from_parts(metadata.clone(), message);
-        let message = self.call_pre_processor(req).await?;
+        let message = self.call_task_validator(req).await?;
 
         let req = Request::from_parts(metadata, message);
         Ok(self.call_state_machine(req).await?)
@@ -91,9 +91,9 @@ pub trait PetMessageHandler: Send {
     ) -> Result<Message, PetMessageError>;
 
     /// Pre-process a PET message
-    async fn call_pre_processor(
+    async fn call_task_validator(
         &mut self,
-        message: PreProcessorRequest,
+        message: TaskValidatorRequest,
     ) -> Result<Message, PetMessageError>;
 
     /// Have a PET message processed by the state machine
@@ -104,7 +104,7 @@ pub trait PetMessageHandler: Send {
 }
 
 #[async_trait]
-impl<MP, PP, SM> PetMessageHandler for PetMessageService<MP, PP, SM>
+impl<MP, TV, SM> PetMessageHandler for PetMessageService<MP, TV, SM>
 where
     Self: Send + Sync + 'static,
 
@@ -113,9 +113,9 @@ where
     <MP as Service<MessageParserRequest<Vec<u8>>>>::Error:
         Into<Box<dyn ::std::error::Error + Send + Sync + 'static>>,
 
-    PP: Service<PreProcessorRequest, Response = PreProcessorResponse> + Send + 'static,
-    <PP as Service<PreProcessorRequest>>::Future: Send + 'static,
-    <PP as Service<PreProcessorRequest>>::Error:
+    TV: Service<TaskValidatorRequest, Response = TaskValidatorResponse> + Send + 'static,
+    <TV as Service<TaskValidatorRequest>>::Future: Send + 'static,
+    <TV as Service<TaskValidatorRequest>>::Error:
         Into<Box<dyn ::std::error::Error + Send + Sync + 'static>>,
 
     SM: Service<StateMachineRequest, Response = StateMachineResponse> + Send + 'static,
@@ -146,18 +146,23 @@ where
         .map_err(PetMessageError::Parser)
     }
 
-    async fn call_pre_processor(
+    async fn call_task_validator(
         &mut self,
-        message: PreProcessorRequest,
+        message: TaskValidatorRequest,
     ) -> Result<Message, PetMessageError> {
-        poll_fn(|cx| <PP as Service<PreProcessorRequest>>::poll_ready(&mut self.pre_processor, cx))
-            .await
-            .map_err(|e| PetMessageError::ServiceError(Into::into(e)))?;
+        poll_fn(|cx| {
+            <TV as Service<TaskValidatorRequest>>::poll_ready(&mut self.task_validator, cx)
+        })
+        .await
+        .map_err(|e| PetMessageError::ServiceError(Into::into(e)))?;
 
-        <PP as Service<PreProcessorRequest>>::call(&mut self.pre_processor, message.map(Into::into))
-            .await
-            .map_err(|e| PetMessageError::ServiceError(Into::into(e)))?
-            .map_err(PetMessageError::PreProcessor)
+        <TV as Service<TaskValidatorRequest>>::call(
+            &mut self.task_validator,
+            message.map(Into::into),
+        )
+        .await
+        .map_err(|e| PetMessageError::ServiceError(Into::into(e)))?
+        .map_err(PetMessageError::TaskValidator)
     }
 
     async fn call_state_machine(
@@ -184,30 +189,30 @@ where
 ///    encrypted message) goes through the `MessageParser` service,
 ///    which decrypt the message, validates it, and parses it
 ///
-/// 2. The message is passed to the `PreProcessor`, which depending on
+/// 2. The message is passed to the `TaskValidator`, which depending on
 ///    the message type performs some additional checks. The
-///    `PreProcessor` may also discard the message
+///    `TaskValidator` may also discard the message
 ///
 /// 3. Finally, the message is handled by the `StateMachine` service.
 #[derive(Debug, Clone)]
-pub struct PetMessageService<MessageParser, PreProcessor, StateMachine> {
+pub struct PetMessageService<MessageParser, TaskValidator, StateMachine> {
     message_parser: MessageParser,
-    pre_processor: PreProcessor,
+    task_validator: TaskValidator,
     state_machine: StateMachine,
 }
 
-impl<MP, PP, SM>
-    PetMessageService<TracedMessageParser<MP>, TracedPreProcessor<PP>, TracedStateMachine<SM>>
+impl<MP, TV, SM>
+    PetMessageService<TracedMessageParser<MP>, TracedTaskValidator<TV>, TracedStateMachine<SM>>
 where
     MP: Service<MessageParserRequest<Vec<u8>>, Response = MessageParserResponse>,
-    PP: Service<PreProcessorRequest, Response = PreProcessorResponse>,
+    TV: Service<TaskValidatorRequest, Response = TaskValidatorResponse>,
     SM: Service<StateMachineRequest, Response = StateMachineResponse>,
 {
     /// Instantiate a new [`PetMessageService`] with the given sub-services
-    pub fn new(message_parser: MP, pre_processor: PP, state_machine: SM) -> Self {
+    pub fn new(message_parser: MP, task_validator: TV, state_machine: SM) -> Self {
         Self {
             message_parser: with_tracing(message_parser),
-            pre_processor: with_tracing(pre_processor),
+            task_validator: with_tracing(task_validator),
             state_machine: with_tracing(state_machine),
         }
     }
@@ -215,7 +220,7 @@ where
 
 use crate::utils::Traceable;
 use tracing::Span;
-use xaynet_core::message::{Payload, ToBytes};
+use xaynet_core::message::Payload;
 
 impl Traceable for Message {
     fn make_span(&self) -> Span {
@@ -223,6 +228,7 @@ impl Traceable for Message {
             Payload::Sum(_) => "sum",
             Payload::Update(_) => "update",
             Payload::Sum2(_) => "sum2",
+            Payload::Chunk(_) => "chunk",
         };
         error_span!(
             "Message",

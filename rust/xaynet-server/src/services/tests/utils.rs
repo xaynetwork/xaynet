@@ -1,7 +1,7 @@
 use xaynet_core::{
     common::{RoundParameters, RoundSeed},
     crypto::{ByteObject, EncryptKeyPair, PublicEncryptKey, SigningKeyPair},
-    message::{Message, MessageSeal, Sum},
+    message::{Message, Sum},
     SumParticipantEphemeralPublicKey,
 };
 
@@ -38,12 +38,16 @@ pub fn new_sum_message(
     let sum_signature = participant_signing_keys
         .secret
         .sign_detached(&[round_params.seed.as_slice(), b"sum"].concat());
-    let payload = Sum {
-        sum_signature,
-        ephm_pk: participant_ephm_pk,
-    };
 
-    let message = Message::new_sum(participant_signing_keys.public.clone(), payload);
+    let message = Message {
+        signature: None,
+        participant_pk: participant_signing_keys.public.clone(),
+        payload: Sum {
+            sum_signature,
+            ephm_pk: participant_ephm_pk.clone(),
+        }
+        .into(),
+    };
 
     (message, participant_ephm_pk, participant_signing_keys)
 }
@@ -55,11 +59,7 @@ pub fn encrypt_message(
     round_params: &RoundParameters,
     participant_signing_keys: &SigningKeyPair,
 ) -> Vec<u8> {
-    let seal = MessageSeal {
-        recipient_pk: &round_params.pk,
-        sender_sk: &participant_signing_keys.secret,
-    };
-    let encrypted_message = seal.seal(&message);
-
-    encrypted_message
+    let mut buf = vec![0; message.buffer_length()];
+    message.to_bytes(&mut buf, &participant_signing_keys.secret);
+    round_params.pk.encrypt(&buf[..])
 }

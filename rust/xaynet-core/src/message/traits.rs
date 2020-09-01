@@ -34,7 +34,7 @@ pub trait ToBytes {
     /// called prior to calling this, and a large enough buffer must be provided.
     ///
     /// [`buffer_length()`]: #method.buffer_length
-    fn to_bytes<T: AsMut<[u8]>>(&self, buffer: &mut T);
+    fn to_bytes<T: AsMut<[u8]> + AsRef<[u8]>>(&self, buffer: &mut T);
 }
 
 /// An interface for deserializable message types.
@@ -66,7 +66,7 @@ where
         self.as_slice().len()
     }
 
-    fn to_bytes<U: AsMut<[u8]>>(&self, buffer: &mut U) {
+    fn to_bytes<U: AsMut<[u8]> + AsRef<[u8]>>(&self, buffer: &mut U) {
         buffer.as_mut().copy_from_slice(self.as_slice())
     }
 }
@@ -269,7 +269,7 @@ impl ToBytes for LocalSeedDict {
         LENGTH_FIELD.end + self.len() * ENTRY_LENGTH
     }
 
-    fn to_bytes<T: AsMut<[u8]>>(&self, buffer: &mut T) {
+    fn to_bytes<T: AsMut<[u8]> + AsRef<[u8]>>(&self, buffer: &mut T) {
         let mut writer = Cursor::new(buffer.as_mut());
         let length = self.buffer_length() as u32;
         let _ = writer.write(&length.to_be_bytes()).unwrap();

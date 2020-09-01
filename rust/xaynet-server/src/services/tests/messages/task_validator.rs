@@ -4,7 +4,7 @@ use xaynet_core::message::Message;
 
 use crate::{
     services::{
-        messages::{PreProcessorError, PreProcessorRequest, PreProcessorService},
+        messages::{TaskValidatorError, TaskValidatorRequest, TaskValidatorService},
         tests::utils,
     },
     state_machine::{
@@ -14,13 +14,13 @@ use crate::{
     utils::Request,
 };
 
-fn spawn_svc() -> (EventPublisher, EventSubscriber, Spawn<PreProcessorService>) {
+fn spawn_svc() -> (EventPublisher, EventSubscriber, Spawn<TaskValidatorService>) {
     let (publisher, subscriber) = utils::new_event_channels();
-    let task = Spawn::new(PreProcessorService::new(&subscriber));
+    let task = Spawn::new(TaskValidatorService::new(&subscriber));
     (publisher, subscriber, task)
 }
 
-fn make_req(message: Message) -> PreProcessorRequest {
+fn make_req(message: Message) -> TaskValidatorRequest {
     Request::new(message)
 }
 
@@ -62,36 +62,7 @@ async fn test_sum_not_eligible() {
     assert_ready!(task.poll_ready()).unwrap();
     let err = task.call(req).await.unwrap().unwrap_err();
     match err {
-        PreProcessorError::NotSumEligible => {}
-        _ => panic!("expected PreProcessorError::NotSumEligible got {:?}", err),
-    }
-}
-
-// This is a corner case which should almost never happen but is worth
-// testing: in `poll_ready`, the service checks the current phase, and
-// calls `poll_ready` on the appropriate service based on that. Then
-// the request is processed by `call` but if the phase has changed in
-// the meantime, we want to reject the request, because the service
-// that should process it is not the one on which we called
-// `poll_ready` previously.
-#[tokio::test]
-async fn test_phase_change_between_poll_ready_and_call() {
-    let (mut publisher, subscriber, mut task) = spawn_svc();
-    // call poll_ready here
-    assert_ready!(task.poll_ready()).unwrap();
-
-    let round_params = subscriber.params_listener().get_latest().event;
-    let (message, _, _) = utils::new_sum_message(&round_params);
-    let req = make_req(message.clone());
-
-    publisher.broadcast_phase(PhaseName::Sum);
-
-    let err = task.call(req).await.unwrap().unwrap_err();
-    match err {
-        PreProcessorError::UnexpectedMessage => {}
-        _ => panic!(
-            "expected PreProcessorError::UnexpectedMessage got {:?}",
-            err
-        ),
+        TaskValidatorError::NotSumEligible => {}
+        _ => panic!("expected TaskValidatorError::NotSumEligible got {:?}", err),
     }
 }

@@ -20,7 +20,7 @@ use xaynet_core::{
         Model,
         ModelType,
     },
-    message::{Message, MessageSeal, Sum, Sum2, Update},
+    message::{Message, Sum, Sum2, Update},
     CoordinatorPublicKey,
     InitError,
     LocalSeedDict,
@@ -122,12 +122,15 @@ impl Participant {
     pub fn compose_sum_message(&mut self) -> Message {
         self.gen_ephm_keypair();
 
-        let payload = Sum {
-            sum_signature: self.sum_signature,
-            ephm_pk: self.ephm_pk,
-        };
-
-        Message::new_sum(self.pk, payload)
+        Message {
+            signature: None,
+            participant_pk: self.pk,
+            payload: Sum {
+                sum_signature: self.sum_signature,
+                ephm_pk: self.ephm_pk,
+            }
+            .into(),
+        }
     }
 
     /// Compose an update message given the coordinator public key, sum
@@ -141,15 +144,18 @@ impl Participant {
         let (mask_seed, masked_model, masked_scalar) = Self::mask_model(scalar, local_model);
         let local_seed_dict = Self::create_local_seed_dict(sum_dict, &mask_seed);
 
-        let payload = Update {
-            sum_signature: self.sum_signature,
-            update_signature: self.update_signature,
-            masked_model,
-            masked_scalar,
-            local_seed_dict,
-        };
-
-        Message::new_update(self.pk, payload)
+        Message {
+            signature: None,
+            participant_pk: self.pk,
+            payload: Update {
+                sum_signature: self.sum_signature,
+                update_signature: self.update_signature,
+                masked_model,
+                masked_scalar,
+                local_seed_dict,
+            }
+            .into(),
+        }
     }
 
     /// Compose a sum2 message given the coordinator public key, seed dictionary
@@ -167,23 +173,24 @@ impl Participant {
         let mask_seeds = self.get_seeds(seed_dict)?;
         let (model_mask, scalar_mask) =
             self.compute_global_mask(mask_seeds, mask_len, dummy_config())?;
-        let payload = Sum2 {
-            sum_signature: self.sum_signature,
-            model_mask,
-            scalar_mask,
-        };
-
-        Ok(Message::new_sum2(self.pk, payload))
+        Ok(Message {
+            signature: None,
+            participant_pk: self.pk,
+            payload: Sum2 {
+                sum_signature: self.sum_signature,
+                model_mask,
+                scalar_mask,
+            }
+            .into(),
+        })
     }
 
     /// Sign the given message with the participant secret key, and
     /// encrypt the signed message with the given public key.
     pub fn seal_message(&self, pk: &CoordinatorPublicKey, message: &Message) -> Vec<u8> {
-        let message_seal = MessageSeal {
-            recipient_pk: pk,
-            sender_sk: &self.sk,
-        };
-        message_seal.seal(message)
+        let mut buf = vec![0; message.buffer_length()];
+        message.to_bytes(&mut buf, &self.sk);
+        pk.encrypt(&buf[..])
     }
 
     /// Generate an ephemeral encryption key pair.

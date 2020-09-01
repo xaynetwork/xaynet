@@ -187,7 +187,7 @@ impl ToBytes for Sum {
         EPHM_PK_RANGE.end
     }
 
-    fn to_bytes<T: AsMut<[u8]>>(&self, buffer: &mut T) {
+    fn to_bytes<T: AsMut<[u8]> + AsRef<[u8]>>(&self, buffer: &mut T) {
         let mut writer = SumBuffer::new(buffer.as_mut()).unwrap();
         self.sum_signature.to_bytes(&mut writer.sum_signature_mut());
         self.ephm_pk.to_bytes(&mut writer.ephm_pk_mut());

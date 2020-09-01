@@ -7,7 +7,7 @@ use derive_more::From;
 use xaynet_core::{
     crypto::SigningKeyPair,
     mask::MaskConfig,
-    message::{Message, MessageSeal},
+    message::Message,
     CoordinatorPublicKey,
     ParticipantSecretKey,
 };
@@ -64,14 +64,15 @@ pub struct Participant<Task> {
 }
 
 impl<Task> Participant<Task> {
-    /// Sign the given message with the participant secret key, and
-    /// encrypt the signed message with the given public key.
+    /// Serialize, sign and encrypt the given message.
+    ///
+    /// The message is signed with the participant secret signing
+    /// key. `pk` is the coordinator public key, used to encrypt the
+    /// final message
     pub fn seal_message(&self, pk: &CoordinatorPublicKey, message: &Message) -> Vec<u8> {
-        let message_seal = MessageSeal {
-            recipient_pk: pk,
-            sender_sk: &self.state.keys.secret,
-        };
-        message_seal.seal(message)
+        let mut buf = vec![0; message.buffer_length()];
+        message.to_bytes(&mut buf, &self.state.keys.secret);
+        pk.encrypt(&buf[..])
     }
 
     /// Resets the client.
