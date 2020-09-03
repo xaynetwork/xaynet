@@ -187,6 +187,7 @@ impl MobileClient {
     }
 }
 
+#[derive(Debug)]
 pub enum ClientStateName {
     Awaiting,
     Sum,
