@@ -6,6 +6,7 @@
 use std::{fmt, path::PathBuf};
 
 use config::{Config, ConfigError, Environment};
+use redis::{ConnectionInfo, IntoConnectionInfo};
 use serde::de::{self, Deserializer, Visitor};
 use thiserror::Error;
 use tracing_subscriber::filter::EnvFilter;
@@ -36,6 +37,7 @@ pub struct Settings {
     pub model: ModelSettings,
     #[validate]
     pub metrics: MetricsSettings,
+    pub redis: RedisSettings,
 }
 
 impl Settings {
@@ -466,6 +468,58 @@ pub struct InfluxSettings {
     /// XAYNET_METRICS__INFLUXDB__DB=test
     /// ```
     pub db: String,
+}
+
+#[derive(Debug, Deserialize)]
+/// Redis settings.
+pub struct RedisSettings {
+    /// The URL where Redis is running.
+    ///
+    /// The format of the URL is `redis://[<username>][:<passwd>@]<hostname>[:port][/<db>]`.
+    ///
+    /// # Examples
+    ///
+    /// **TOML**
+    /// ```text
+    /// [redis]
+    /// url = "redis://127.0.0.1/"
+    /// ```
+    ///
+    /// **Environment variable**
+    /// ```text
+    /// XAYNET_REDIS__URL=redis://127.0.0.1/
+    /// ```
+    #[serde(deserialize_with = "deserialize_redis_url")]
+    pub url: ConnectionInfo,
+}
+
+fn deserialize_redis_url<'de, D>(deserializer: D) -> Result<ConnectionInfo, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct ConnectionInfoVisitor;
+
+    impl<'de> Visitor<'de> for ConnectionInfoVisitor {
+        type Value = ConnectionInfo;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            write!(
+                formatter,
+                "redis://[<username>][:<passwd>@]<hostname>[:port][/<db>]"
+            )
+        }
+
+        fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            value
+                .into_connection_info()
+                .map_err(|_| de::Error::invalid_value(serde::de::Unexpected::Str(value), &self))
+        }
+    }
+
+    deserializer.deserialize_str(ConnectionInfoVisitor)
 }
 
 #[derive(Debug, Deserialize)]

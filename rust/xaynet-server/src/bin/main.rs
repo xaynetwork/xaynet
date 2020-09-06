@@ -29,6 +29,7 @@ async fn main() {
         log: log_settings,
         model: model_settings,
         metrics: metrics_settings,
+        redis: redis_settings,
     } = Settings::new(opt.config_path).unwrap_or_else(|err| {
         eprintln!("{}", err);
         process::exit(1);
