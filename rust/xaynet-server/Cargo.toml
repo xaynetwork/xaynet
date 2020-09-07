@@ -58,7 +58,7 @@ xaynet-core = { path = "../xaynet-core" }
 
 # optional dependencies
 influxdb = { version = "0.1.0", features = ["derive"], optional = true }
-chrono = { version = "0.4.13", optional = true }
+chrono = { version = "0.4.15", optional = true }
 
 [dev-dependencies]
 tower-test = "0.3.0"
