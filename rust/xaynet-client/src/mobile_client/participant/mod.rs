@@ -20,24 +20,30 @@ pub mod update;
 pub use self::{awaiting::Awaiting, sum::Sum, sum2::Sum2, update::Update};
 
 #[derive(Serialize, Deserialize)]
+pub struct AggregationConfig {
+    pub mask: MaskConfig,
+    pub scalar: f64,
+}
+
+#[derive(Serialize, Deserialize)]
 pub struct ParticipantState {
     // credentials
     pub keys: SigningKeyPair,
     // Mask config
-    pub mask_config: MaskConfig,
+    pub aggregation_config: AggregationConfig,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct ParticipantSettings {
     pub secret_key: ParticipantSecretKey,
-    pub mask_config: MaskConfig,
+    pub aggregation_config: AggregationConfig,
 }
 
 impl From<ParticipantSettings> for ParticipantState {
     fn from(
         ParticipantSettings {
             secret_key,
-            mask_config,
+            aggregation_config,
         }: ParticipantSettings,
     ) -> ParticipantState {
         ParticipantState {
@@ -45,7 +51,7 @@ impl From<ParticipantSettings> for ParticipantState {
                 public: secret_key.public_key(),
                 secret: secret_key,
             },
-            mask_config,
+            aggregation_config,
         }
     }
 }

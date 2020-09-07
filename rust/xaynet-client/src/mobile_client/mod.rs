@@ -147,6 +147,16 @@ impl MobileClient {
         })
     }
 
+    /// Returns the current state of the client.
+    pub fn get_current_state(&self) -> ClientStateName {
+        match self.client_state {
+            ClientStateMachine::Awaiting(_) => ClientStateName::Awaiting,
+            ClientStateMachine::Sum(_) => ClientStateName::Sum,
+            ClientStateMachine::Update(_) => ClientStateName::Update,
+            ClientStateMachine::Sum2(_) => ClientStateName::Sum2,
+        }
+    }
+
     /// Sets the local model.
     ///
     /// The local model is only sent if the client has been selected as an update client.
@@ -175,6 +185,13 @@ impl MobileClient {
             .enable_all()
             .build()
     }
+}
+
+pub enum ClientStateName {
+    Awaiting,
+    Sum,
+    Update,
+    Sum2,
 }
 
 struct LocalModelCache(Option<Model>);

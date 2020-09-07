@@ -4,7 +4,10 @@ extern crate tracing;
 use std::io::{stdin, stdout, Read, Write};
 use structopt::StructOpt;
 use tracing_subscriber::*;
-use xaynet_client::mobile_client::{participant::ParticipantSettings, MobileClient};
+use xaynet_client::mobile_client::{
+    participant::{AggregationConfig, ParticipantSettings},
+    MobileClient,
+};
 use xaynet_core::mask::{
     BoundType,
     DataType,
@@ -41,11 +44,14 @@ fn get_participant_settings() -> ParticipantSettings {
     let secret_key = MobileClient::create_participant_secret_key();
     ParticipantSettings {
         secret_key,
-        mask_config: MaskConfig {
-            group_type: GroupType::Prime,
-            data_type: DataType::F32,
-            bound_type: BoundType::B0,
-            model_type: ModelType::M3,
+        aggregation_config: AggregationConfig {
+            mask: MaskConfig {
+                group_type: GroupType::Prime,
+                data_type: DataType::F32,
+                bound_type: BoundType::B0,
+                model_type: ModelType::M3,
+            },
+            scalar: 1_f64,
         },
     }
 }

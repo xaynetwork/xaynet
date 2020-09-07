@@ -34,10 +34,10 @@ impl Participant<Update> {
         &self,
         coordinator_pk: CoordinatorPublicKey,
         sum_dict: &SumDict,
-        scalar: f64,
+
         local_model: Model,
     ) -> Message {
-        let (mask_seed, masked_model, masked_scalar) = self.mask_model(scalar, local_model);
+        let (mask_seed, masked_model, masked_scalar) = self.mask_model(local_model);
         let local_seed_dict = Self::create_local_seed_dict(sum_dict, &mask_seed);
 
         Message {
@@ -56,8 +56,9 @@ impl Participant<Update> {
     }
 
     /// Generate a mask seed and mask a local model.
-    fn mask_model(&self, scalar: f64, local_model: Model) -> (MaskSeed, MaskObject, MaskObject) {
-        Masker::new(self.state.mask_config).mask(scalar, local_model)
+    fn mask_model(&self, local_model: Model) -> (MaskSeed, MaskObject, MaskObject) {
+        Masker::new(self.state.aggregation_config.mask)
+            .mask(self.state.aggregation_config.scalar, local_model)
     }
 
     // Create a local seed dictionary from a sum dictionary.
