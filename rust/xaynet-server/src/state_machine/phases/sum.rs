@@ -1,12 +1,13 @@
 use std::sync::Arc;
 
-use xaynet_core::{LocalSeedDict, PetError, SeedDict, SumDict};
+use xaynet_core::{LocalSeedDict, SeedDict, SumDict};
 
 use crate::state_machine::{
     events::DictionaryUpdate,
     phases::{Handler, Phase, PhaseName, PhaseState, Shared, StateError, Update},
     requests::{StateMachineRequest, SumRequest},
     StateMachine,
+    StateMachineError,
 };
 
 #[cfg(feature = "metrics")]
@@ -35,17 +36,18 @@ impl Handler for PhaseState<Sum> {
     ///
     /// If the request is a [`StateMachineRequest::Update`] or
     /// [`StateMachineRequest::Sum2`] request, the request sender will receive a
-    /// [`PetError::InvalidMessage`].
-    fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), PetError> {
+    /// [`StateMachineError::MessageRejected`].
+    fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), StateMachineError> {
         match req {
             StateMachineRequest::Sum(sum_req) => {
                 metrics!(
                     self.shared.io.metrics_tx,
                     metrics::message::sum::increment(self.shared.state.round_id, Self::NAME)
                 );
-                self.handle_sum(sum_req)
+                self.handle_sum(sum_req);
+                Ok(())
             }
-            _ => Err(PetError::InvalidMessage),
+            _ => Err(StateMachineError::MessageRejected),
         }
     }
 }
@@ -132,13 +134,12 @@ impl PhaseState<Sum> {
     }
 
     /// Handles a sum request.
-    fn handle_sum(&mut self, req: SumRequest) -> Result<(), PetError> {
+    fn handle_sum(&mut self, req: SumRequest) {
         let SumRequest {
             participant_pk,
             ephm_pk,
         } = req;
         self.inner.sum_dict.insert(participant_pk, ephm_pk);
-        Ok(())
     }
 
     /// Freezes the sum dictionary.

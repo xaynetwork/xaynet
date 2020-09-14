@@ -1,7 +1,6 @@
 use std::task::Poll;
 
 use futures::{future, task::Context};
-use thiserror::Error;
 use tower::Service;
 use xaynet_core::{
     common::RoundParameters,
@@ -10,17 +9,18 @@ use xaynet_core::{
 };
 
 use crate::{
+    services::messages::ServiceError,
     state_machine::events::{EventListener, EventSubscriber},
-    utils::request::Request,
 };
 
 /// A service for performing sanity checks and preparing incoming
 /// requests to be handled by the state machine.
-pub struct TaskValidatorService {
+#[derive(Clone, Debug)]
+pub struct TaskValidator {
     params_listener: EventListener<RoundParameters>,
 }
 
-impl TaskValidatorService {
+impl TaskValidator {
     pub fn new(subscriber: &EventSubscriber) -> Self {
         Self {
             params_listener: subscriber.params_listener(),
@@ -28,28 +28,21 @@ impl TaskValidatorService {
     }
 }
 
-/// Request type for [`TaskValidatorService`]
-pub type TaskValidatorRequest = Request<Message>;
-
-/// Response type for [`TaskValidatorService`]
-pub type TaskValidatorResponse = Result<Message, TaskValidatorError>;
-
-impl Service<TaskValidatorRequest> for TaskValidatorService {
-    type Response = TaskValidatorResponse;
-    type Error = std::convert::Infallible;
+impl Service<Message> for TaskValidator {
+    type Response = Message;
+    type Error = ServiceError;
     type Future = future::Ready<Result<Self::Response, Self::Error>>;
 
     fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, req: TaskValidatorRequest) -> Self::Future {
-        let message = req.into_inner();
+    fn call(&mut self, message: Message) -> Self::Future {
         let (sum_signature, update_signature) = match message.payload {
             Payload::Sum(ref sum) => (sum.sum_signature, None),
             Payload::Update(ref update) => (update.sum_signature, Some(update.update_signature)),
             Payload::Sum2(ref sum2) => (sum2.sum_signature, None),
-            _ => return future::ready(Ok(Err(TaskValidatorError::UnexpectedMessage))),
+            _ => return future::ready(Err(ServiceError::UnexpectedMessage)),
         };
         let params = self.params_listener.get_latest().event;
         let seed = params.seed.as_slice();
@@ -77,35 +70,82 @@ impl Service<TaskValidatorRequest> for TaskValidatorService {
         match message.payload {
             Payload::Sum(_) | Payload::Sum2(_) => {
                 if is_summer {
-                    future::ready(Ok(Ok(message)))
+                    future::ready(Ok(message))
                 } else {
-                    future::ready(Ok(Err(TaskValidatorError::NotSumEligible)))
+                    future::ready(Err(ServiceError::NotSumEligible))
                 }
             }
             Payload::Update(_) => {
                 if is_updater {
-                    future::ready(Ok(Ok(message)))
+                    future::ready(Ok(message))
                 } else {
-                    future::ready(Ok(Err(TaskValidatorError::NotUpdateEligible)))
+                    future::ready(Err(ServiceError::NotUpdateEligible))
                 }
             }
-            _ => future::ready(Ok(Err(TaskValidatorError::UnexpectedMessage))),
+            _ => future::ready(Err(ServiceError::UnexpectedMessage)),
         }
     }
 }
 
-/// Error type for [`TaskValidatorService`]
-#[derive(Error, Debug)]
-pub enum TaskValidatorError {
-    #[error("Not eligible for sum task")]
-    NotSumEligible,
+#[cfg(test)]
+mod tests {
+    use tokio_test::assert_ready;
+    use tower_test::mock::Spawn;
 
-    #[error("Not eligible for update task")]
-    NotUpdateEligible,
+    use crate::{
+        services::tests::utils,
+        state_machine::{
+            events::{EventPublisher, EventSubscriber},
+            phases::PhaseName,
+        },
+    };
 
-    #[error("The message was rejected because the coordinator did not expect it")]
-    UnexpectedMessage,
+    use super::*;
 
-    #[error("Internal error")]
-    InternalError,
+    fn spawn_svc() -> (EventPublisher, EventSubscriber, Spawn<TaskValidator>) {
+        let (publisher, subscriber) = utils::new_event_channels();
+        let task = Spawn::new(TaskValidator::new(&subscriber));
+        (publisher, subscriber, task)
+    }
+
+    #[tokio::test]
+    async fn test_sum_ok() {
+        let (mut publisher, subscriber, mut task) = spawn_svc();
+
+        let mut round_params = subscriber.params_listener().get_latest().event;
+
+        // make sure everyone is eligible
+        round_params.sum = 1.0;
+
+        publisher.broadcast_params(round_params.clone());
+        publisher.broadcast_phase(PhaseName::Sum);
+
+        let (message, _) = utils::new_sum_message(&round_params);
+
+        assert_ready!(task.poll_ready()).unwrap();
+        let resp = task.call(message.clone()).await.unwrap();
+        assert_eq!(resp, message);
+    }
+
+    #[tokio::test]
+    async fn test_sum_not_eligible() {
+        let (mut publisher, subscriber, mut task) = spawn_svc();
+
+        let mut round_params = subscriber.params_listener().get_latest().event;
+
+        // make sure no-one is eligible
+        round_params.sum = 0.0;
+
+        publisher.broadcast_params(round_params.clone());
+        publisher.broadcast_phase(PhaseName::Sum);
+
+        let (message, _) = utils::new_sum_message(&round_params);
+
+        assert_ready!(task.poll_ready()).unwrap();
+        let err = task.call(message).await.unwrap_err();
+        match err {
+            ServiceError::NotSumEligible => {}
+            _ => panic!("expected ServiceError::NotSumEligible got {:?}", err),
+        }
+    }
 }

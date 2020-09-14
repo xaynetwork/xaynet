@@ -19,10 +19,9 @@ pub use self::{
 use std::task::{Context, Poll};
 
 use futures::future::poll_fn;
-use tower::{layer::Layer, Service};
-use tracing_futures::{Instrument, Instrumented};
+use tower::{layer::Layer, Service, ServiceBuilder};
 
-use crate::utils::{Request, Traceable};
+use crate::state_machine::events::EventSubscriber;
 
 /// A single interface for retrieving data from the coordinator.
 #[async_trait]
@@ -155,20 +154,17 @@ pub(in crate::services) struct FetcherService<S>(S);
 impl<S, R> Service<R> for FetcherService<S>
 where
     S: Service<R>,
-    R: Traceable,
 {
     type Response = S::Response;
     type Error = S::Error;
-    type Future = Instrumented<S::Future>;
+    type Future = S::Future;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.0.poll_ready(cx)
     }
 
     fn call(&mut self, req: R) -> Self::Future {
-        let req = Request::new(req);
-        let span = req.span();
-        self.0.call(req.into_inner()).instrument(span)
+        self.0.call(req)
     }
 }
 
@@ -209,4 +205,39 @@ impl<RoundParams, SumDict, SeedDict, MaskLength, Model>
             model,
         }
     }
+}
+
+/// Construct a [`Fetcher`] service
+pub fn fetcher(event_subscriber: &EventSubscriber) -> impl Fetcher + Sync + Send + Clone + 'static {
+    let round_params = ServiceBuilder::new()
+        .buffer(100)
+        .concurrency_limit(100)
+        .layer(FetcherLayer)
+        .service(RoundParamsService::new(event_subscriber));
+
+    let mask_length = ServiceBuilder::new()
+        .buffer(100)
+        .concurrency_limit(100)
+        .layer(FetcherLayer)
+        .service(MaskLengthService::new(event_subscriber));
+
+    let model = ServiceBuilder::new()
+        .buffer(100)
+        .concurrency_limit(100)
+        .layer(FetcherLayer)
+        .service(ModelService::new(event_subscriber));
+
+    let sum_dict = ServiceBuilder::new()
+        .buffer(100)
+        .concurrency_limit(100)
+        .layer(FetcherLayer)
+        .service(SumDictService::new(event_subscriber));
+
+    let seed_dict = ServiceBuilder::new()
+        .buffer(100)
+        .concurrency_limit(100)
+        .layer(FetcherLayer)
+        .service(SeedDictService::new(event_subscriber));
+
+    Fetchers::new(round_params, sum_dict, seed_dict, mask_length, model)
 }

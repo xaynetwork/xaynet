@@ -1,6 +1,6 @@
 //! A HTTP API for the PET protocol interactions.
 
-use crate::services::{Fetcher, PetMessageHandler};
+use crate::services::{fetchers::Fetcher, messages::PetMessageHandler};
 use bytes::{Buf, Bytes};
 use std::{convert::Infallible, net::SocketAddr};
 use warp::{
@@ -15,13 +15,12 @@ use xaynet_core::{crypto::ByteObject, ParticipantPublicKey};
 /// * `addr`: address of the server.
 /// * `fetcher`: fetcher for responding to data requests.
 /// * `pet_message_handler`: handler for responding to PET messages.
-pub async fn serve<F, MH>(
+pub async fn serve<F>(
     addr: impl Into<SocketAddr> + 'static,
     fetcher: F,
-    pet_message_handler: MH,
+    pet_message_handler: PetMessageHandler,
 ) where
     F: Fetcher + Sync + Send + 'static + Clone,
-    MH: PetMessageHandler + Sync + Send + 'static + Clone,
 {
     let message = warp::path!("message")
         .and(warp::post())
@@ -68,9 +67,9 @@ pub async fn serve<F, MH>(
 }
 
 /// Handles and responds to a PET message.
-async fn handle_message<MH: PetMessageHandler>(
+async fn handle_message(
     body: Bytes,
-    mut handler: MH,
+    mut handler: PetMessageHandler,
 ) -> Result<impl warp::Reply, Infallible> {
     let _ = handler.handle_message(body.to_vec()).await.map_err(|e| {
         warn!("failed to handle message: {:?}", e);
@@ -191,9 +190,9 @@ async fn handle_params<F: Fetcher>(mut fetcher: F) -> Result<impl warp::Reply, I
 }
 
 /// Converts a PET message handler into a `warp` filter.
-fn with_message_handler<MH: PetMessageHandler + Send + Sync + 'static + Clone>(
-    handler: MH,
-) -> impl Filter<Extract = (MH,), Error = Infallible> + Clone {
+fn with_message_handler(
+    handler: PetMessageHandler,
+) -> impl Filter<Extract = (PetMessageHandler,), Error = Infallible> + Clone {
     warp::any().map(move || handler.clone())
 }
 

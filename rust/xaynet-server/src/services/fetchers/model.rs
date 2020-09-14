@@ -5,23 +5,14 @@ use std::{
 
 use futures::future::{self, Ready};
 use tower::Service;
-use tracing::Span;
+use tracing_futures::{Instrument, Instrumented};
 use xaynet_core::mask::Model;
 
-use crate::{
-    state_machine::events::{EventListener, EventSubscriber, ModelUpdate},
-    utils::Traceable,
-};
+use crate::state_machine::events::{EventListener, EventSubscriber, ModelUpdate};
 
 /// [`ModelService`]'s request type
 #[derive(Default, Clone, Eq, PartialEq, Debug)]
 pub struct ModelRequest;
-
-impl Traceable for ModelRequest {
-    fn make_span(&self) -> Span {
-        error_span!("model_fetch_request")
-    }
-}
 
 /// [`ModelService`]'s response type.
 ///
@@ -40,7 +31,7 @@ impl ModelService {
 impl Service<ModelRequest> for ModelService {
     type Response = ModelResponse;
     type Error = ::std::convert::Infallible;
-    type Future = Ready<Result<Self::Response, Self::Error>>;
+    type Future = Instrumented<Ready<Result<Self::Response, Self::Error>>>;
 
     fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         Poll::Ready(Ok(()))
@@ -51,5 +42,6 @@ impl Service<ModelRequest> for ModelService {
             ModelUpdate::Invalidate => Ok(None),
             ModelUpdate::New(model) => Ok(Some(model)),
         })
+        .instrument(error_span!("model_fetch_request"))
     }
 }

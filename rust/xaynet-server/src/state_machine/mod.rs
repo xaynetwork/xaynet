@@ -109,31 +109,30 @@ pub mod events;
 pub mod phases;
 pub mod requests;
 
-use crate::{
-    settings::{MaskSettings, ModelSettings, PetSettings},
-    state_machine::{
-        coordinator::CoordinatorState,
-        events::{EventPublisher, EventSubscriber},
-        phases::{
-            Idle,
-            Phase,
-            PhaseName,
-            PhaseState,
-            Shared,
-            Shutdown,
-            StateError,
-            Sum,
-            Sum2,
-            Unmask,
-            Update,
-        },
-        requests::{RequestReceiver, RequestSender},
+use self::{
+    coordinator::CoordinatorState,
+    events::{EventPublisher, EventSubscriber},
+    phases::{
+        Idle,
+        Phase,
+        PhaseName,
+        PhaseState,
+        Shared,
+        Shutdown,
+        StateError,
+        Sum,
+        Sum2,
+        Unmask,
+        Update,
     },
+    requests::{RequestReceiver, RequestSender},
 };
-use xaynet_core::{mask::UnmaskingError, InitError, PetError};
 
 use derive_more::From;
 use thiserror::Error;
+use xaynet_core::{mask::UnmaskingError, InitError};
+
+use crate::settings::{MaskSettings, ModelSettings, PetSettings};
 
 #[cfg(feature = "metrics")]
 use crate::metrics::MetricsSender;
@@ -141,8 +140,15 @@ use crate::metrics::MetricsSender;
 /// Error returned when the state machine fails to handle a request
 #[derive(Debug, Error)]
 pub enum StateMachineError {
-    #[error("the request failed")]
-    RequestFailed(#[from] PetError),
+    #[error("the message was rejected")]
+    MessageRejected,
+
+    #[error("invalid update: the model or scalar sent by the participant could not be aggregated")]
+    AggregationFailed,
+
+    #[error("invalid update: the seed dictionary sent by the participant is invalid")]
+    InvalidLocalSeedDict,
+
     #[error("the request could not be processed due to an internal error")]
     InternalError,
 }
