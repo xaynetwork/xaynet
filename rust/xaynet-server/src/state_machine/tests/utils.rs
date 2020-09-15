@@ -3,8 +3,7 @@ use xaynet_core::{
     crypto::ByteObject,
     mask::{BoundType, DataType, GroupType, MaskObject, ModelType},
     message::{Message, Payload, Sum, Update},
-    LocalSeedDict,
-    SumParticipantEphemeralPublicKey,
+    LocalSeedDict, SumParticipantEphemeralPublicKey,
 };
 
 use crate::{
@@ -67,7 +66,6 @@ pub fn pet_settings() -> PetSettings {
         update: 0.5,
         min_sum_count: 1,
         min_update_count: 3,
-        expected_participants: 10,
         ..Default::default()
     }
 }

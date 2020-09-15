@@ -36,7 +36,6 @@ async fn full_round() {
         .with_update_ratio(update_ratio)
         .with_min_sum(n_summers)
         .with_min_update(n_updaters)
-        .with_expected_participants(n_updaters + n_summers)
         .with_model_size(model_size)
         .build();
 

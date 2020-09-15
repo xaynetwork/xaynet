@@ -30,8 +30,6 @@ pub struct CoordinatorState {
     pub max_sum_time: u64,
     /// The maximum time (in seconds) permitted for processing update messages.
     pub max_update_time: u64,
-    /// The number of expected participants.
-    pub expected_participants: usize,
     /// The masking configuration.
     pub mask_config: MaskConfig,
     /// The size of the model.
@@ -62,7 +60,6 @@ impl CoordinatorState {
             min_update_time: pet_settings.min_update_time,
             max_sum_time: pet_settings.max_sum_time,
             max_update_time: pet_settings.max_update_time,
-            expected_participants: pet_settings.expected_participants,
             mask_config: mask_settings.into(),
             model_size: model_settings.size,
         }

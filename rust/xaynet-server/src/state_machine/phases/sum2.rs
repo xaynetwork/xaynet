@@ -1,8 +1,6 @@
 use xaynet_core::{
     mask::{Aggregation, MaskObject},
-    PetError,
-    SumDict,
-    SumParticipantPublicKey,
+    PetError, SumDict, SumParticipantPublicKey,
 };
 
 use crate::state_machine::{
@@ -281,7 +279,6 @@ mod test {
             .with_update_ratio(update_ratio)
             .with_min_sum(n_summers)
             .with_min_update(n_updaters)
-            .with_expected_participants(n_updaters + n_summers)
             .with_mask_config(utils::mask_settings().into())
             .build();
         assert!(state_machine.is_sum2());
