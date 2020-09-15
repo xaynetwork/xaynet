@@ -55,6 +55,7 @@ rayon = "1.3.0"
 async-trait = "0.1.35"
 xaynet-macros = { path = "../xaynet-macros" }
 xaynet-core = { path = "../xaynet-core" }
+redis = { version = "0.17.0", default-features = false, features = ["tokio-rt-core"] }
 
 # optional dependencies
 influxdb = { version = "0.1.0", features = ["derive"], optional = true }
