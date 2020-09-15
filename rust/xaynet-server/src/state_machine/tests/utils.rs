@@ -67,7 +67,6 @@ pub fn pet_settings() -> PetSettings {
         update: 0.5,
         min_sum_count: 1,
         min_update_count: 3,
-        expected_participants: 10,
         ..Default::default()
     }
 }

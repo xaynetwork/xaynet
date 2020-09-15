@@ -90,11 +90,6 @@ where
         self
     }
 
-    pub fn with_expected_participants(mut self, expected_participants: usize) -> Self {
-        self.shared.state.expected_participants = expected_participants;
-        self
-    }
-
     pub fn with_seed(mut self, seed: RoundSeed) -> Self {
         self.shared.state.round_params.seed = seed;
         self

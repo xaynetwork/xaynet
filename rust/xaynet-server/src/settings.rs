@@ -236,24 +236,6 @@ pub struct PetSettings {
     /// XAYNET_PET__UPDATE=0.01
     /// ```
     pub update: f64,
-
-    #[validate(range(min = 1))]
-    /// The total number of participants that are expected by the coordinator. The value must be a
-    /// positive integer (i.e. `expected_participants >= 1`).
-    ///
-    /// # Examples
-    ///
-    /// **TOML**
-    /// ```text
-    /// [pet]
-    /// expected_participants = 10
-    /// ```
-    ///
-    /// **Environment variable**
-    /// ```text
-    /// XAYNET_PET__EXPECTED_PARTICIPANTS=10
-    /// ```
-    pub expected_participants: usize,
 }
 
 impl Default for PetSettings {
@@ -267,7 +249,6 @@ impl Default for PetSettings {
             max_update_time: 604800_u64,
             sum: 0.01_f64,
             update: 0.1_f64,
-            expected_participants: 10,
         }
     }
 }

@@ -13,7 +13,6 @@ max_sum_time = 3600
 max_update_time = 3600
 sum = 0.5
 update = 0.9
-expected_participants = 10
 
 [mask]
 group_type = "Prime"
