@@ -1,6 +1,8 @@
 use xaynet_core::{
     mask::{Aggregation, MaskObject},
-    PetError, SumDict, SumParticipantPublicKey,
+    PetError,
+    SumDict,
+    SumParticipantPublicKey,
 };
 
 use crate::state_machine::{
