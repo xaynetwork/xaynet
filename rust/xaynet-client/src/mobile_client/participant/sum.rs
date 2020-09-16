@@ -31,16 +31,14 @@ impl Participant<Sum> {
 
     /// Compose a sum message given the coordinator public key.
     pub fn compose_sum_message(&mut self, coordinator_pk: CoordinatorPublicKey) -> Message {
-        Message {
-            signature: None,
-            participant_pk: self.state.keys.public,
+        Message::new_sum(
+            self.state.keys.public,
             coordinator_pk,
-            payload: SumMessage {
+            SumMessage {
                 sum_signature: self.inner.sum_signature,
                 ephm_pk: self.inner.ephm_pk,
-            }
-            .into(),
-        }
+            },
+        )
     }
 }
 

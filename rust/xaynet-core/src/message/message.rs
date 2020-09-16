@@ -32,8 +32,10 @@ pub(crate) mod ranges {
     pub const LENGTH: Range<usize> = range(COORDINATOR_PK.end, 4);
     /// Byte range corresponding to the tag in a message header
     pub const TAG: usize = LENGTH.end;
+    /// Byte range corresponding to the flags in a message header
+    pub const FLAGS: usize = TAG + 1;
     /// Byte range reserved for future use
-    pub const RESERVED: Range<usize> = range(TAG + 1, 3);
+    pub const RESERVED: Range<usize> = range(FLAGS + 1, 2);
 }
 
 /// Length in bytes of a message header
@@ -114,7 +116,7 @@ pub const HEADER_LENGTH: usize = ranges::RESERVED.end;
 /// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 /// |                             length                            |
 /// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-/// |      tag      |                    reserved                   |
+/// |      tag      |     flags     |          reserved             |
 /// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 /// |                                                               |
 /// +                    payload (variable length)                  +
@@ -135,20 +137,23 @@ pub const HEADER_LENGTH: usize = ranges::RESERVED.end;
 ///   messages can be as big as 2^32 = 4,294,967,296 bytes.
 /// - `tag` indicates the type of message (sum, update, sum2 or
 ///   multipart message)
+/// - the `flags` field currently support a single flag, that
+///   indicates whether this is a multipart message
 ///
 /// # Examples
 /// ## Reading a sum message
 ///
 /// ```rust
 /// use std::convert::TryFrom;
-/// use xaynet_core::message::{MessageBuffer, Tag};
+/// use xaynet_core::message::{Flags, MessageBuffer, Tag};
 ///
 /// let mut bytes = vec![0x11; 64]; // message signature
 /// bytes.extend(vec![0x22; 32]); // participant public signing key
 /// bytes.extend(vec![0x33; 32]); // coordinator public encrypt key
 /// bytes.extend(&200_u32.to_be_bytes()); // Length field
 /// bytes.push(0x01); // tag (sum message)
-/// bytes.extend(vec![0x00, 0x00, 0x00]); // reserved
+/// bytes.push(0x00); // flags (not a multipart message)
+/// bytes.extend(vec![0x00, 0x00]); // reserved
 ///
 /// // Payload: a sum message contains a signature and an ephemeral public key
 /// bytes.extend(vec![0xaa; 32]); // signature
@@ -159,6 +164,7 @@ pub const HEADER_LENGTH: usize = ranges::RESERVED.end;
 /// assert_eq!(buffer.participant_pk(), vec![0x22; 32].as_slice());
 /// assert_eq!(buffer.coordinator_pk(), vec![0x33; 32].as_slice());
 /// assert_eq!(Tag::try_from(buffer.tag()).unwrap(), Tag::Sum);
+/// assert_eq!(Flags::try_from(buffer.flags()).unwrap(), Flags::empty());
 /// assert_eq!(
 ///     buffer.payload(),
 ///     [vec![0xaa; 32], vec![0xbb; 32]].concat().as_slice()
@@ -169,14 +175,15 @@ pub const HEADER_LENGTH: usize = ranges::RESERVED.end;
 ///
 /// ```rust
 /// use std::convert::TryFrom;
-/// use xaynet_core::message::{MessageBuffer, Tag};
+/// use xaynet_core::message::{Flags, MessageBuffer, Tag};
 ///
 /// let mut expected = vec![0x11; 64]; // message signature
 /// expected.extend(vec![0x22; 32]); // participant public signing key
 /// expected.extend(vec![0x33; 32]); // coordinator public signing key
 /// expected.extend(&200_u32.to_be_bytes()); // length field
 /// expected.push(0x01); // tag (sum message)
-/// expected.extend(vec![0x00, 0x00, 0x00]); // reserved
+/// expected.push(0x00); // flags (not a multipart message)
+/// expected.extend(vec![0x00, 0x00]); // reserved
 ///
 /// // Payload: a sum message contains a signature and an ephemeral public key
 /// expected.extend(vec![0xaa; 32]); // signature
@@ -195,6 +202,7 @@ pub const HEADER_LENGTH: usize = ranges::RESERVED.end;
 ///     .copy_from_slice(vec![0x33; 32].as_slice());
 /// buffer.set_length(200 as u32);
 /// buffer.set_tag(Tag::Sum.into());
+/// buffer.set_flags(Flags::empty());
 /// buffer
 ///     .payload_mut()
 ///     .copy_from_slice([vec![0xaa; 32], vec![0xbb; 32]].concat().as_slice());
@@ -264,6 +272,14 @@ impl<T: AsRef<[u8]>> MessageBuffer<T> {
     /// Accessing the field may panic if the buffer has not been checked before.
     pub fn tag(&self) -> u8 {
         self.inner.as_ref()[ranges::TAG]
+    }
+
+    /// Gets the flags field.
+    ///
+    /// # Panics
+    /// Accessing the field may panic if the buffer has not been checked before.
+    pub fn flags(&self) -> Flags {
+        Flags::from_bits_truncate(self.inner.as_ref()[ranges::FLAGS])
     }
 
     /// Gets the length field
@@ -346,6 +362,14 @@ impl<T: AsMut<[u8]> + AsRef<[u8]>> MessageBuffer<T> {
         self.inner.as_mut()[ranges::TAG] = value;
     }
 
+    /// Sets the flags field.
+    ///
+    /// # Panics
+    /// Accessing the field may panic if the buffer has not been checked before.
+    pub fn set_flags(&mut self, value: Flags) {
+        self.inner.as_mut()[ranges::FLAGS] = value.bits();
+    }
+
     /// Sets the length field.
     ///
     /// # Panics
@@ -399,6 +423,14 @@ impl<T: AsMut<[u8]> + AsRef<[u8]>> MessageBuffer<T> {
     }
 }
 
+bitflags::bitflags! {
+    /// A bitmask that defines flags for a [`Message`].
+    pub struct Flags: u8 {
+        /// Indicates whether this message is a multipart message
+        const MULTIPART = 1 << 0;
+    }
+}
+
 #[derive(Copy, Debug, Clone, Eq, PartialEq)]
 /// A tag that indicates the type of the [`Message`].
 pub enum Tag {
@@ -408,8 +440,6 @@ pub enum Tag {
     Update,
     /// A tag for [`Sum2`] messages
     Sum2,
-    /// A tag for [`Chunk`] messages
-    Chunk,
 }
 
 impl TryFrom<u8> for Tag {
@@ -420,7 +450,6 @@ impl TryFrom<u8> for Tag {
             1 => Tag::Sum,
             2 => Tag::Update,
             3 => Tag::Sum2,
-            4 => Tag::Chunk,
             _ => return Err(anyhow!("invalid tag {}", value)),
         })
     }
@@ -432,7 +461,6 @@ impl Into<u8> for Tag {
             Tag::Sum => 1,
             Tag::Update => 2,
             Tag::Sum2 => 3,
-            Tag::Chunk => 4,
         }
     }
 }
@@ -448,11 +476,86 @@ pub struct Message {
     pub participant_pk: PublicSigningKey,
     /// The coordinator public key
     pub coordinator_pk: PublicEncryptKey,
+    /// Wether this is a multipart message
+    pub is_multipart: bool,
+    /// The type of message. This information is only partially
+    /// carried by the `payload` field, because in the case of a
+    /// multipart message, the payload is of type `Payload::Chunk`.
+    pub tag: Tag,
     /// Message payload
     pub payload: Payload,
 }
 
 impl Message {
+    /// Create a new sum message with the given participant and
+    /// coordinator public keys.
+    pub fn new_sum(
+        participant_pk: PublicSigningKey,
+        coordinator_pk: PublicEncryptKey,
+        message: Sum,
+    ) -> Self {
+        Self {
+            signature: None,
+            participant_pk,
+            coordinator_pk,
+            is_multipart: false,
+            tag: Tag::Sum,
+            payload: message.into(),
+        }
+    }
+
+    /// Create a new sum2 message with the given participant and
+    /// coordinator public keys.
+    pub fn new_sum2(
+        participant_pk: PublicSigningKey,
+        coordinator_pk: PublicEncryptKey,
+        message: Sum2,
+    ) -> Self {
+        Self {
+            signature: None,
+            participant_pk,
+            coordinator_pk,
+            is_multipart: false,
+            tag: Tag::Sum,
+            payload: message.into(),
+        }
+    }
+
+    /// Create a new update message with the given participant and
+    /// coordinator public keys.
+    pub fn new_update(
+        participant_pk: PublicSigningKey,
+        coordinator_pk: PublicEncryptKey,
+        message: Update,
+    ) -> Self {
+        Self {
+            signature: None,
+            participant_pk,
+            coordinator_pk,
+            is_multipart: false,
+            tag: Tag::Sum,
+            payload: message.into(),
+        }
+    }
+
+    /// Create a new multipart message with the given participant and
+    /// coordinator public keys.
+    pub fn new_multipart(
+        participant_pk: PublicSigningKey,
+        coordinator_pk: PublicEncryptKey,
+        message: Chunk,
+        tag: Tag,
+    ) -> Self {
+        Self {
+            signature: None,
+            participant_pk,
+            coordinator_pk,
+            is_multipart: true,
+            tag,
+            payload: message.into(),
+        }
+    }
+
     /// Parse the given message **without** verifying the
     /// signature. If you need to check the signature, call
     /// [`MessageBuffer.verify_signature`] before parsing the message.
@@ -464,11 +567,18 @@ impl Message {
             .context("failed to parse public key")?;
         let coordinator_pk = PublicEncryptKey::from_bytes(&reader.coordinator_pk())
             .context("failed to parse public key")?;
-        let payload = match reader.tag().try_into()? {
-            Tag::Sum => Sum::from_bytes(&reader.payload()).map(Into::into),
-            Tag::Update => Update::from_bytes(&reader.payload()).map(Into::into),
-            Tag::Sum2 => Sum2::from_bytes(&reader.payload()).map(Into::into),
-            Tag::Chunk => Chunk::from_bytes(&reader.payload()).map(Into::into),
+
+        let tag = reader.tag().try_into()?;
+        let is_multipart = reader.flags().contains(Flags::MULTIPART);
+
+        let payload = if is_multipart {
+            Chunk::from_bytes(&reader.payload()).map(Into::into)
+        } else {
+            match tag {
+                Tag::Sum => Sum::from_bytes(&reader.payload()).map(Into::into),
+                Tag::Update => Update::from_bytes(&reader.payload()).map(Into::into),
+                Tag::Sum2 => Sum2::from_bytes(&reader.payload()).map(Into::into),
+            }
         }
         .context("failed to parse message payload")?;
 
@@ -477,6 +587,8 @@ impl Message {
             coordinator_pk,
             signature: Some(signature),
             payload,
+            is_multipart,
+            tag,
         })
     }
 
@@ -499,13 +611,13 @@ impl Message {
             .to_bytes(&mut writer.participant_pk_mut());
         self.coordinator_pk
             .to_bytes(&mut writer.coordinator_pk_mut());
-        let tag = match self.payload {
-            Payload::Sum(_) => Tag::Sum,
-            Payload::Update(_) => Tag::Update,
-            Payload::Sum2(_) => Tag::Sum2,
-            Payload::Chunk(_) => Tag::Chunk,
+        writer.set_tag(self.tag.into());
+        let flags = if self.is_multipart {
+            Flags::MULTIPART
+        } else {
+            Flags::empty()
         };
-        writer.set_tag(tag.into());
+        writer.set_flags(flags);
         self.payload.to_bytes(&mut writer.payload_mut());
         writer.set_length(self.buffer_length() as u32);
         // insert the signature last. If the message contains one, use
@@ -556,6 +668,8 @@ pub(in crate::message) mod tests {
             participant_pk: participant_pk().1,
             coordinator_pk: coordinator_pk().1,
             payload: sum::tests::sum().into(),
+            is_multipart: false,
+            tag: Tag::Sum,
         };
 
         let mut buf = signature().0;

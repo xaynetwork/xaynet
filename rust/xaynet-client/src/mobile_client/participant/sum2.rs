@@ -51,17 +51,13 @@ impl Participant<Sum2> {
     ) -> Result<Message, PetError> {
         let mask_seeds = self.get_seeds(seed_dict)?;
         let (model_mask, scalar_mask) = self.compute_global_mask(mask_seeds, mask_len)?;
-        Ok(Message {
-            signature: None,
-            participant_pk: self.state.keys.public,
-            coordinator_pk,
-            payload: Sum2Message {
-                sum_signature: self.inner.sum_signature,
-                model_mask,
-                scalar_mask,
-            }
-            .into(),
-        })
+        let payload = Sum2Message {
+            sum_signature: self.inner.sum_signature,
+            model_mask,
+            scalar_mask,
+        };
+        let message = Message::new_sum2(self.state.keys.public, coordinator_pk, payload);
+        Ok(message)
     }
 
     pub fn get_participant_pk(&self) -> ParticipantPublicKey {

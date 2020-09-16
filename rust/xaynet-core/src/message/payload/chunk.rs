@@ -38,7 +38,7 @@ pub struct Chunk {
 }
 
 bitflags::bitflags! {
-    /// A bitmask that defines flags for a [`Message`].
+    /// A bitmask that defines flags for a [`Chunk`].
     pub struct Flags: u8 {
         /// Indicates whether this message is the last chunk of a
         /// multipart message

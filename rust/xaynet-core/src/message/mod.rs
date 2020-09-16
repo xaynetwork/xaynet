@@ -39,7 +39,7 @@ pub(crate) mod traits;
 pub(crate) mod utils;
 
 pub use self::{
-    message::{Message, MessageBuffer, Tag},
+    message::{Flags, Message, MessageBuffer, Tag},
     payload::{
         chunk::{Chunk, ChunkBuffer},
         sum::{Sum, SumBuffer},
