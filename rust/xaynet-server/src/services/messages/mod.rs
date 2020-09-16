@@ -6,6 +6,7 @@
 mod decryptor;
 mod error;
 mod message_parser;
+mod multipart;
 mod state_machine;
 mod task_validator;
 

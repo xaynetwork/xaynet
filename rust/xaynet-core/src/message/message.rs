@@ -137,7 +137,7 @@ pub const HEADER_LENGTH: usize = ranges::RESERVED.end;
 ///   messages can be as big as 2^32 = 4,294,967,296 bytes.
 /// - `tag` indicates the type of message (sum, update, sum2 or
 ///   multipart message)
-/// - the `flags` field currently support a single flag, that
+/// - the `flags` field currently supports a single flag, that
 ///   indicates whether this is a multipart message
 ///
 /// # Examples
