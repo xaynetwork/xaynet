@@ -23,7 +23,7 @@ fn redis_type_error(desc: &'static str, details: Option<String>) -> RedisError {
 /// The difference between `Read` and `Write` is that the write `Newtype` does not take the
 /// ownership of the value but only a reference. This allows us to use references in the
 /// [`Client`] methods. The `Read` Newtype also implements [`ToRedisArgs`] to reduce the
-/// conversion overhead that you would get if you want to reuse a `Read` value for another
+/// conversion overhead that you would get if you wanted to reuse a `Read` value for another
 /// Redis query.
 ///
 /// Example:
@@ -33,72 +33,6 @@ fn redis_type_error(desc: &'static str, details: Option<String>) -> RedisError {
 /// for sum_pk in sum_pks {
 ///    let sum_pk_seed_dict: HashMap<PublicSigningKeyRead, EncryptedMaskSeedRead>
 ///       = self.connection.hgetall(&sum_pk).await?; // no need to convert sum_pk from PublicSigningKeyRead to PublicSigningKeyWrite
-/// }
-/// ```
-///
-/// # Example:
-///
-/// ```ignore
-/// impl_byte_object_redis_traits!(EncryptedMaskSeed);
-/// ```
-///
-/// This expands to:
-///
-/// ```ignore
-/// impl FromRedisValue for EncryptedMaskSeedRead {
-///     fn from_redis_value(v: &Value) -> RedisResult<EncryptedMaskSeedRead> {
-///         match *v {
-///             Value::Data(ref bytes) => {
-///                 let inner = <EncryptedMaskSeed>::from_slice(bytes)
-///                     .ok_or_else(|| redis_type_error("Invalid EncryptedMaskSeed", None))?;
-///                 Ok(EncryptedMaskSeedRead(inner))
-///             }
-///             _ => Err(redis_type_error(
-///                 "Response not EncryptedMaskSeed compatible",
-///                 None,
-///             )),
-///         }
-///     }
-/// }
-/// impl ToRedisArgs for EncryptedMaskSeedRead {
-///     fn write_redis_args<W>(&self, out: &mut W)
-///     where
-///         W: ?Sized + RedisWrite,
-///     {
-///         self.0.as_slice().write_redis_args(out)
-///     }
-/// }
-/// impl<'a> ToRedisArgs for &'a EncryptedMaskSeedRead {
-///     fn write_redis_args<W>(&self, out: &mut W)
-///     where
-///         W: ?Sized + RedisWrite,
-///     {
-///         self.0.as_slice().write_redis_args(out)
-///     }
-/// }
-/// pub(crate) struct EncryptedMaskSeedWrite<'a>(&'a EncryptedMaskSeed);
-/// impl<'a> ::core::convert::From<(&'a EncryptedMaskSeed)> for EncryptedMaskSeedWrite<'a> {
-///     #[allow(unused_variables)]
-///     #[inline]
-///     fn from(original: (&'a EncryptedMaskSeed)) -> EncryptedMaskSeedWrite<'a> {
-///         EncryptedMaskSeedWrite(original)
-///     }
-/// }
-/// impl ToRedisArgs for EncryptedMaskSeedWrite<'_> {
-///     fn write_redis_args<W>(&self, out: &mut W)
-///     where
-///         W: ?Sized + RedisWrite,
-///     {
-///         self.0.as_slice().write_redis_args(out)
-///     }
-/// }
-/// impl<'a> ToRedisArgs for &'a EncryptedMaskSeedWrite<'a> {
-///     fn write_redis_args<W>(&self, out: &mut W)
-///     where
-///         W: ?Sized + RedisWrite,
-///     {
-///         self.0.as_slice().write_redis_args(out)
-///     }
 /// }
 /// ```
 ///
@@ -177,7 +111,7 @@ impl_byte_object_redis_traits!(EncryptedMaskSeed);
 ///
 /// # Panics
 ///
-/// `write_redis_args` will panic if the data is not safe to serialize.
+/// `write_redis_args` will panic if the data cannot be serialized with `bincode`
 ///
 /// More information about what can cause a panic in bincode:
 /// - https://github.com/servo/bincode/issues/293
@@ -256,13 +190,13 @@ impl<'a> ToRedisArgs for &'a MaskObjectWrite<'a> {
 #[derive(Ord, PartialOrd, Eq, PartialEq, Debug)]
 pub enum AddSumParticipant {
     Ok,
-    AlreadyExist,
+    AlreadyExists,
 }
 
 impl FromRedisValue for AddSumParticipant {
     fn from_redis_value(v: &Value) -> RedisResult<AddSumParticipant> {
         match *v {
-            Value::Int(0) => Ok(AddSumParticipant::AlreadyExist),
+            Value::Int(0) => Ok(AddSumParticipant::AlreadyExists),
             Value::Int(1) => Ok(AddSumParticipant::Ok),
             _ => Err(redis_type_error(
                 "Response status not valid integer",

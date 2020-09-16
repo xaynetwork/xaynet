@@ -6,26 +6,26 @@
 //!     "coordinator_state": "...", // bincode encoded string
 //!     // Sum dict
 //!     "sum_dict": { // hash
-//!         "SumParticipantPublicKey_1": "SumParticipantEphemeralPublicKey_1",
-//!         "SumParticipantPublicKey_2": "SumParticipantEphemeralPublicKey_2"
+//!         "SumParticipantPublicKey_1": SumParticipantEphemeralPublicKey_1,
+//!         "SumParticipantPublicKey_2": SumParticipantEphemeralPublicKey_2
 //!     },
 //!     // Seed dict
 //!     "update_participants": [ // set
-//!         "UpdateParticipantPublicKey_1",
-//!         "UpdateParticipantPublicKey_2"
+//!         UpdateParticipantPublicKey_1,
+//!         UpdateParticipantPublicKey_2
 //!     ],
 //!     "SumParticipantPublicKey_1": { // hash
-//!         "UpdateParticipantPublicKey_1": "EncryptedMaskSeed",
-//!         "UpdateParticipantPublicKey_2": "EncryptedMaskSeed"
+//!         "UpdateParticipantPublicKey_1": EncryptedMaskSeed,
+//!         "UpdateParticipantPublicKey_2": EncryptedMaskSeed
 //!     }
 //!     "SumParticipantPublicKey_2": {
-//!         "UpdateParticipantPublicKey_1": "EncryptedMaskSeed",
-//!         "UpdateParticipantPublicKey_2": "EncryptedMaskSeed"
+//!         "UpdateParticipantPublicKey_1": EncryptedMaskSeed,
+//!         "UpdateParticipantPublicKey_2": EncryptedMaskSeed
 //!     }
 //!     // Mask dict
 //!     "mask_dict": [ // sorted set
-//!         ("mask_abc", 12341), // (mask: bincode encoded string, score/counter: number)
-//!         ("mask_xyz", 1)
+//!         (mask_object_1, 12341), // (mask: bincode encoded string, score/counter: number)
+//!         (mask_object_2, 1)
 //!     ]
 //! }
 //! ```
@@ -166,7 +166,7 @@ impl Connection {
     /// Stores a new [`SumDict`] entry.
     ///
     /// Returns [`AddSumParticipant::Ok`] if field is a new or
-    /// [`AddSumParticipant::AlreadyExist`] if field already exists.
+    /// [`AddSumParticipant::AlreadyExists`] if field already exists.
     pub async fn add_sum_participant(
         mut self,
         pk: &SumParticipantPublicKey,
@@ -605,7 +605,7 @@ mod tests {
             assert_eq!(add_new_key, AddSumParticipant::Ok)
         }
 
-        // ensure that add_sum_participant returns AddSumParticipant::AlreadyExist if the key already exist
+        // ensure that add_sum_participant returns AddSumParticipant::AlreadyExists if the key already exist
         let (pk, epk) = entries.get(0).unwrap();
         let key_already_exist = client
             .connection()
@@ -613,7 +613,7 @@ mod tests {
             .add_sum_participant(pk, epk)
             .await
             .unwrap();
-        assert_eq!(key_already_exist, AddSumParticipant::AlreadyExist);
+        assert_eq!(key_already_exist, AddSumParticipant::AlreadyExists);
 
         // ensure that get_sum_dict_len returns 2
         let len_of_sum_dict = client.connection().await.get_sum_dict_len().await.unwrap();
@@ -637,7 +637,7 @@ mod tests {
             assert_eq!(remove_sum_pk, DeleteSumParticipant::Ok);
         }
 
-        // ensure that add_sum_participant returns AddSumParticipant::AlreadyExist if the key already exist
+        // ensure that add_sum_participant returns AddSumParticipant::AlreadyExists if the key already exist
         let (sum_pk, _) = entries.get(0).unwrap();
         let key_does_not_exist = client
             .connection()
