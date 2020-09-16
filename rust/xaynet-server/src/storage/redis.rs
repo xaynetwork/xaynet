@@ -60,13 +60,6 @@ use xaynet_core::{
     UpdateParticipantPublicKey,
 };
 
-#[macro_export]
-macro_rules! redis_connection {
-    ($store:expr) => {
-        $store.clone().connection().await
-    };
-}
-
 #[derive(Clone)]
 pub struct Client {
     raw_connection: ConnectionManager,
@@ -111,10 +104,15 @@ impl Client {
     ///
     /// If the maximum number of concurrent uses the shared connection is reached,
     /// the method will wait until a pending usage is completed.
-    pub async fn connection(self) -> Connection {
-        let _permit = self.semaphore.acquire_owned().await;
+    pub async fn connection(&self) -> Connection {
+        let Client {
+            raw_connection,
+            semaphore,
+        } = self.clone();
+
+        let _permit = semaphore.acquire_owned().await;
         Connection {
-            connection: self.raw_connection,
+            connection: raw_connection,
             _permit,
         }
     }
@@ -478,7 +476,7 @@ mod tests {
     }
 
     async fn flush_db(client: &Client) {
-        redis_connection!(client).flush_db().await.unwrap();
+        client.connection().await.flush_db().await.unwrap();
     }
 
     async fn create_redis_client() -> Client {
@@ -497,12 +495,16 @@ mod tests {
         let client = init_client().await;
 
         let set_state = CoordinatorState::new(pet_settings(), mask_settings(), model_settings());
-        redis_connection!(client)
+        client
+            .connection()
+            .await
             .set_coordinator_state(&set_state)
             .await
             .unwrap();
 
-        let get_state = redis_connection!(client)
+        let get_state = client
+            .connection()
+            .await
             .get_coordinator_state()
             .await
             .unwrap()
@@ -517,12 +519,14 @@ mod tests {
         let client = init_client().await;
 
         let mask = create_mask(10);
-        redis_connection!(client)
+        client
+            .connection()
+            .await
             .incr_mask_count(&mask)
             .await
             .unwrap();
 
-        let best_masks = redis_connection!(client).get_best_masks().await.unwrap();
+        let best_masks = client.connection().await.get_best_masks().await.unwrap();
         assert!(best_masks.len() == 1);
 
         let (best_mask, count) = best_masks.into_iter().next().unwrap();
@@ -537,22 +541,28 @@ mod tests {
         let client = init_client().await;
 
         let mask_1 = create_mask(10);
-        redis_connection!(client)
+        client
+            .connection()
+            .await
             .incr_mask_count(&mask_1)
             .await
             .unwrap();
-        redis_connection!(client)
+        client
+            .connection()
+            .await
             .incr_mask_count(&mask_1)
             .await
             .unwrap();
 
         let mask_2 = create_mask(100);
-        redis_connection!(client)
+        client
+            .connection()
+            .await
             .incr_mask_count(&mask_2)
             .await
             .unwrap();
 
-        let best_masks = redis_connection!(client).get_best_masks().await.unwrap();
+        let best_masks = client.connection().await.get_best_masks().await.unwrap();
         assert!(best_masks.len() == 2);
         let mut best_masks_iter = best_masks.into_iter();
 
@@ -586,7 +596,9 @@ mod tests {
             let EncryptKeyPair { public: epk, .. } = EncryptKeyPair::generate();
             entries.push((pk.clone(), epk.clone()));
 
-            let add_new_key = redis_connection!(client)
+            let add_new_key = client
+                .connection()
+                .await
                 .add_sum_participant(&pk, &epk)
                 .await
                 .unwrap();
@@ -595,26 +607,30 @@ mod tests {
 
         // ensure that add_sum_participant returns AddSumParticipant::AlreadyExist if the key already exist
         let (pk, epk) = entries.get(0).unwrap();
-        let key_already_exist = redis_connection!(client)
+        let key_already_exist = client
+            .connection()
+            .await
             .add_sum_participant(pk, epk)
             .await
             .unwrap();
         assert_eq!(key_already_exist, AddSumParticipant::AlreadyExist);
 
         // ensure that get_sum_dict_len returns 2
-        let len_of_sum_dict = redis_connection!(client).get_sum_dict_len().await.unwrap();
+        let len_of_sum_dict = client.connection().await.get_sum_dict_len().await.unwrap();
         assert_eq!(len_of_sum_dict, 2);
 
         // read the written sum keys
         // ensure they are equal
-        let sum_pks = redis_connection!(client).get_sum_pks().await.unwrap();
+        let sum_pks = client.connection().await.get_sum_pks().await.unwrap();
         for (sum_pk, _) in entries.iter() {
             assert!(sum_pks.contains(sum_pk));
         }
 
         // remove both sum entries
         for (sum_pk, _) in entries.iter() {
-            let remove_sum_pk = redis_connection!(client)
+            let remove_sum_pk = client
+                .connection()
+                .await
                 .remove_sum_dict_entry(sum_pk)
                 .await
                 .unwrap();
@@ -623,14 +639,16 @@ mod tests {
 
         // ensure that add_sum_participant returns AddSumParticipant::AlreadyExist if the key already exist
         let (sum_pk, _) = entries.get(0).unwrap();
-        let key_does_not_exist = redis_connection!(client)
+        let key_does_not_exist = client
+            .connection()
+            .await
             .remove_sum_dict_entry(sum_pk)
             .await
             .unwrap();
         assert_eq!(key_does_not_exist, DeleteSumParticipant::DoesNotExist);
 
         // ensure that get_sum_dict an empty sum dict
-        let sum_dict = redis_connection!(client).get_sum_dict().await.unwrap();
+        let sum_dict = client.connection().await.get_sum_dict().await.unwrap();
         assert_eq!(sum_dict.len(), 0);
     }
 
@@ -638,7 +656,7 @@ mod tests {
     async fn integration_flush_dicts_return() {
         let client = init_client().await;
 
-        let res = redis_connection!(client).flush_db().await;
+        let res = client.connection().await.flush_db().await;
         assert!(res.is_ok())
     }
 }
