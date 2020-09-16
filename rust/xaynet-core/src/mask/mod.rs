@@ -189,16 +189,11 @@ pub(crate) mod seed;
 
 pub use self::{
     config::{
-        serialization::MaskConfigBuffer,
-        BoundType,
-        DataType,
-        GroupType,
-        InvalidMaskConfigError,
-        MaskConfig,
-        ModelType,
+        serialization::MaskConfigBuffer, BoundType, DataType, GroupType, InvalidMaskConfigError,
+        MaskConfig, ModelType,
     },
     masking::{Aggregation, AggregationError, Masker, UnmaskingError},
     model::{FromPrimitives, IntoPrimitives, Model, ModelCastError, PrimitiveCastError},
-    object::{serialization::MaskObjectBuffer, InvalidMaskObjectError, MaskObject},
+    object::{serialization::MaskObjectBuffer, InvalidMaskObjectError, MaskMany},
     seed::{EncryptedMaskSeed, MaskSeed},
 };

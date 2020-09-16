@@ -12,7 +12,7 @@ use num::bigint::BigUint;
 use crate::{
     mask::{
         config::{serialization::MASK_CONFIG_BUFFER_LEN, MaskConfig},
-        object::MaskObject,
+        object::MaskMany,
     },
     message::{
         traits::{FromBytes, ToBytes},
@@ -159,7 +159,7 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> MaskObjectBuffer<T> {
     }
 }
 
-impl ToBytes for MaskObject {
+impl ToBytes for MaskMany {
     fn buffer_length(&self) -> usize {
         NUMBERS_FIELD.end + self.config.bytes_per_number() * self.data.len()
     }
@@ -189,7 +189,7 @@ impl ToBytes for MaskObject {
     }
 }
 
-impl FromBytes for MaskObject {
+impl FromBytes for MaskMany {
     fn from_bytes<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
         let reader = MaskObjectBuffer::new(buffer.as_ref())?;
 
@@ -200,7 +200,7 @@ impl FromBytes for MaskObject {
             data.push(BigUint::from_bytes_le(chunk));
         }
 
-        Ok(MaskObject { data, config })
+        Ok(MaskMany { data, config })
     }
 }
 #[cfg(test)]
@@ -208,7 +208,7 @@ pub(crate) mod tests {
     use super::*;
     use crate::mask::config::{BoundType, DataType, GroupType, MaskConfig, ModelType};
 
-    pub fn object() -> MaskObject {
+    pub fn object() -> MaskMany {
         // config.order() = 20_000_000_000_001 with this config, so the data
         // should be stored on 6 bytes.
         let config = MaskConfig {
@@ -224,7 +224,7 @@ pub(crate) mod tests {
             BigUint::from(3_u8),
             BigUint::from(4_u8),
         ];
-        MaskObject::new(config, data)
+        MaskMany::new(config, data)
     }
 
     pub fn bytes() -> Vec<u8> {
@@ -239,7 +239,7 @@ pub(crate) mod tests {
         ]
     }
 
-    pub fn object_1() -> MaskObject {
+    pub fn object_1() -> MaskMany {
         // config.order() = 20_000_000_000_001 with this config, so the data
         // should be stored on 6 bytes.
         let config = MaskConfig {
@@ -250,7 +250,7 @@ pub(crate) mod tests {
         };
         // 1 weight => 6 bytes
         let data = vec![BigUint::from(1_u8)];
-        MaskObject::new(config, data)
+        MaskMany::new(config, data)
     }
 
     pub fn bytes_1() -> Vec<u8> {
@@ -271,7 +271,7 @@ pub(crate) mod tests {
 
     #[test]
     fn deserialize() {
-        assert_eq!(MaskObject::from_bytes(&bytes()).unwrap(), object());
+        assert_eq!(MaskMany::from_bytes(&bytes()).unwrap(), object());
     }
 
     #[test]
@@ -283,6 +283,6 @@ pub(crate) mod tests {
 
     #[test]
     fn deserialize_1() {
-        assert_eq!(MaskObject::from_bytes(&bytes_1()).unwrap(), object_1());
+        assert_eq!(MaskMany::from_bytes(&bytes_1()).unwrap(), object_1());
     }
 }

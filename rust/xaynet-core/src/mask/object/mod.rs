@@ -20,12 +20,12 @@ pub struct InvalidMaskObjectError;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Serialize, Deserialize)]
 /// A mask object which represents either a mask or a masked model.
-pub struct MaskObject {
+pub struct MaskMany {
     pub data: Vec<BigUint>,
     pub config: MaskConfig,
 }
 
-impl MaskObject {
+impl MaskMany {
     /// Creates a new mask object from the given masking configuration and the elements of the mask
     /// or masked model.
     pub fn new(config: MaskConfig, data: Vec<BigUint>) -> Self {

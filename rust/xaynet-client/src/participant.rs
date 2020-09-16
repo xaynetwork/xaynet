@@ -9,28 +9,13 @@ use std::default::Default;
 use xaynet_core::{
     crypto::{ByteObject, EncryptKeyPair, SigningKeyPair},
     mask::{
-        Aggregation,
-        BoundType,
-        DataType,
-        GroupType,
-        MaskConfig,
-        MaskObject,
-        MaskSeed,
-        Masker,
-        Model,
+        Aggregation, BoundType, DataType, GroupType, MaskConfig, MaskMany, MaskSeed, Masker, Model,
         ModelType,
     },
     message::{Message, Sum, Sum2, Update},
-    CoordinatorPublicKey,
-    InitError,
-    LocalSeedDict,
-    ParticipantPublicKey,
-    ParticipantSecretKey,
-    ParticipantTaskSignature,
-    SumDict,
-    SumParticipantEphemeralPublicKey,
-    SumParticipantEphemeralSecretKey,
-    UpdateSeedDict,
+    CoordinatorPublicKey, InitError, LocalSeedDict, ParticipantPublicKey, ParticipantSecretKey,
+    ParticipantTaskSignature, SumDict, SumParticipantEphemeralPublicKey,
+    SumParticipantEphemeralSecretKey, UpdateSeedDict,
 };
 
 use crate::PetError;
@@ -191,7 +176,7 @@ impl Participant {
     }
 
     /// Generate a mask seed and mask a local model.
-    fn mask_model(scalar: f64, local_model: Model) -> (MaskSeed, MaskObject, MaskObject) {
+    fn mask_model(scalar: f64, local_model: Model) -> (MaskSeed, MaskMany, MaskMany) {
         // TODO: use proper config
         Masker::new(dummy_config()).mask(scalar, local_model)
     }
@@ -221,7 +206,7 @@ impl Participant {
         mask_seeds: Vec<MaskSeed>,
         mask_len: usize,
         mask_config: MaskConfig,
-    ) -> Result<(MaskObject, MaskObject), PetError> {
+    ) -> Result<(MaskMany, MaskMany), PetError> {
         if mask_seeds.is_empty() {
             return Err(PetError::InvalidMask);
         }

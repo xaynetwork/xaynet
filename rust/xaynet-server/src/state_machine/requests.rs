@@ -13,12 +13,9 @@ use thiserror::Error;
 use tokio::sync::{mpsc, oneshot};
 use tracing::Span;
 use xaynet_core::{
-    mask::MaskObject,
+    mask::MaskMany,
     message::{Message, Payload, Update},
-    LocalSeedDict,
-    ParticipantPublicKey,
-    SumParticipantEphemeralPublicKey,
-    SumParticipantPublicKey,
+    LocalSeedDict, ParticipantPublicKey, SumParticipantEphemeralPublicKey, SumParticipantPublicKey,
     UpdateParticipantPublicKey,
 };
 
@@ -46,9 +43,9 @@ pub struct UpdateRequest {
     /// The local seed dict that contains the seed used to mask `masked_model`.
     pub local_seed_dict: LocalSeedDict,
     /// The masked model trained by the participant.
-    pub masked_model: MaskObject,
+    pub masked_model: MaskMany,
     /// The masked scalar used to scale model weights.
-    pub masked_scalar: MaskObject,
+    pub masked_scalar: MaskMany,
 }
 
 /// A sum2 request.
@@ -57,9 +54,9 @@ pub struct Sum2Request {
     /// The public key of the participant.
     pub participant_pk: ParticipantPublicKey,
     /// The model mask computed by the participant.
-    pub model_mask: MaskObject,
+    pub model_mask: MaskMany,
     /// The scalar mask computed by the participant.
-    pub scalar_mask: MaskObject,
+    pub scalar_mask: MaskMany,
 }
 
 /// A [`StateMachine`] request.

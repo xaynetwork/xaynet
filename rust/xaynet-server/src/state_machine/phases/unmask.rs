@@ -1,13 +1,12 @@
 use std::{cmp::Ordering, sync::Arc};
 
-use xaynet_core::mask::{Aggregation, MaskObject, Model};
+use xaynet_core::mask::{Aggregation, MaskMany, Model};
 
 use crate::state_machine::{
     coordinator::MaskDict,
     events::ModelUpdate,
     phases::{Idle, Phase, PhaseName, PhaseState, Shared, StateError},
-    RoundFailed,
-    StateMachine,
+    RoundFailed, StateMachine,
 };
 
 #[cfg(feature = "metrics")]
@@ -96,7 +95,7 @@ impl PhaseState<Unmask> {
     }
 
     /// Freezes the mask dictionary.
-    fn freeze_mask_dict(&mut self) -> Result<(MaskObject, MaskObject), RoundFailed> {
+    fn freeze_mask_dict(&mut self) -> Result<(MaskMany, MaskMany), RoundFailed> {
         if self.inner.model_mask_dict.is_empty() {
             return Err(RoundFailed::NoMask);
         }

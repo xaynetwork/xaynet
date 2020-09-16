@@ -1,11 +1,8 @@
 use super::{Participant, ParticipantState};
 use xaynet_core::{
-    mask::{MaskObject, MaskSeed, Masker, Model},
+    mask::{MaskMany, MaskSeed, Masker, Model},
     message::{Message, Update as UpdateMessage},
-    CoordinatorPublicKey,
-    LocalSeedDict,
-    ParticipantTaskSignature,
-    SumDict,
+    CoordinatorPublicKey, LocalSeedDict, ParticipantTaskSignature, SumDict,
 };
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Update {
@@ -50,7 +47,7 @@ impl Participant<Update> {
     }
 
     /// Generate a mask seed and mask a local model.
-    fn mask_model(&self, local_model: Model) -> (MaskSeed, MaskObject, MaskObject) {
+    fn mask_model(&self, local_model: Model) -> (MaskSeed, MaskMany, MaskMany) {
         Masker::new(self.state.aggregation_config.mask)
             .mask(self.state.aggregation_config.scalar, local_model)
     }
@@ -71,8 +68,7 @@ mod tests {
     use std::{collections::HashMap, iter};
     use xaynet_core::{
         crypto::{ByteObject, EncryptKeyPair},
-        SumParticipantEphemeralPublicKey,
-        SumParticipantEphemeralSecretKey,
+        SumParticipantEphemeralPublicKey, SumParticipantEphemeralSecretKey,
         SumParticipantPublicKey,
     };
 

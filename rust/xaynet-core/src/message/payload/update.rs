@@ -10,14 +10,13 @@ use anyhow::{anyhow, Context};
 
 use crate::{
     crypto::ByteObject,
-    mask::object::{serialization::MaskObjectBuffer, MaskObject},
+    mask::object::{serialization::MaskObjectBuffer, MaskMany},
     message::{
         traits::{FromBytes, LengthValueBuffer, ToBytes},
         utils::range,
         DecodeError,
     },
-    LocalSeedDict,
-    ParticipantTaskSignature,
+    LocalSeedDict, ParticipantTaskSignature,
 };
 
 const SUM_SIGNATURE_RANGE: Range<usize> = range(0, ParticipantTaskSignature::LENGTH);
@@ -210,11 +209,11 @@ pub struct Update {
     /// A model trained by an update participant.
     ///
     /// The model is masked with randomness derived from the participant seed.
-    pub masked_model: MaskObject,
+    pub masked_model: MaskMany,
     /// The scalar used to scale model weights.
     ///
     /// The scalar is masked with randomness derived from the participant seed.
-    pub masked_scalar: MaskObject,
+    pub masked_scalar: MaskMany,
     /// A dictionary that contains the seed used to mask `masked_model`.
     ///
     /// The seed is encrypted with the ephemeral public key of each sum participant.
@@ -249,9 +248,9 @@ impl FromBytes for Update {
                 .context("invalid sum signature")?,
             update_signature: ParticipantTaskSignature::from_bytes(&reader.update_signature())
                 .context("invalid update signature")?,
-            masked_model: MaskObject::from_bytes(&reader.masked_model())
+            masked_model: MaskMany::from_bytes(&reader.masked_model())
                 .context("invalid masked model")?,
-            masked_scalar: MaskObject::from_bytes(&reader.masked_scalar())
+            masked_scalar: MaskMany::from_bytes(&reader.masked_scalar())
                 .context("invalid masked scalar")?,
             local_seed_dict: LocalSeedDict::from_bytes(&reader.local_seed_dict())
                 .context("invalid local seed dictionary")?,
@@ -266,7 +265,7 @@ pub(in crate::message) mod tests_helpers {
     use super::*;
     use crate::{
         crypto::ByteObject,
-        mask::{object::MaskObject, seed::EncryptedMaskSeed},
+        mask::{object::MaskMany, seed::EncryptedMaskSeed},
         SumParticipantPublicKey,
     };
 
@@ -282,12 +281,12 @@ pub(in crate::message) mod tests_helpers {
         (signature, bytes)
     }
 
-    pub fn masked_model() -> (MaskObject, Vec<u8>) {
+    pub fn masked_model() -> (MaskMany, Vec<u8>) {
         use crate::mask::object::serialization::tests::{bytes, object};
         (object(), bytes())
     }
 
-    pub fn masked_scalar() -> (MaskObject, Vec<u8>) {
+    pub fn masked_scalar() -> (MaskMany, Vec<u8>) {
         use crate::mask::object::serialization::tests::{bytes_1, object_1};
         (object_1(), bytes_1())
     }

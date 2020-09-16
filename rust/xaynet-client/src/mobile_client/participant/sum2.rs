@@ -1,13 +1,9 @@
 use super::{Participant, ParticipantState};
 use xaynet_core::{
-    mask::{Aggregation, MaskObject, MaskSeed},
+    mask::{Aggregation, MaskMany, MaskSeed},
     message::{Message, Sum2 as Sum2Message},
-    CoordinatorPublicKey,
-    ParticipantPublicKey,
-    ParticipantTaskSignature,
-    SumParticipantEphemeralPublicKey,
-    SumParticipantEphemeralSecretKey,
-    UpdateSeedDict,
+    CoordinatorPublicKey, ParticipantPublicKey, ParticipantTaskSignature,
+    SumParticipantEphemeralPublicKey, SumParticipantEphemeralSecretKey, UpdateSeedDict,
 };
 
 use crate::PetError;
@@ -80,7 +76,7 @@ impl Participant<Sum2> {
         &self,
         mask_seeds: Vec<MaskSeed>,
         mask_len: usize,
-    ) -> Result<(MaskObject, MaskObject), PetError> {
+    ) -> Result<(MaskMany, MaskMany), PetError> {
         if mask_seeds.is_empty() {
             return Err(PetError::InvalidMask);
         }

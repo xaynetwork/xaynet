@@ -17,7 +17,7 @@ use thiserror::Error;
 
 use crate::{
     crypto::{prng::generate_integer, ByteObject},
-    mask::{config::MaskConfig, model::Model, object::MaskObject, seed::MaskSeed},
+    mask::{config::MaskConfig, model::Model, object::MaskMany, seed::MaskSeed},
 };
 
 #[derive(Debug, Error, Eq, PartialEq)]
@@ -53,12 +53,12 @@ pub enum AggregationError {
 /// An aggregator for masks and masked models.
 pub struct Aggregation {
     nb_models: usize,
-    object: MaskObject,
+    object: MaskMany,
     object_size: usize,
 }
 
-impl From<MaskObject> for Aggregation {
-    fn from(object: MaskObject) -> Self {
+impl From<MaskMany> for Aggregation {
+    fn from(object: MaskMany) -> Self {
         Self {
             nb_models: 1,
             object_size: object.data.len(),
@@ -67,8 +67,8 @@ impl From<MaskObject> for Aggregation {
     }
 }
 
-impl Into<MaskObject> for Aggregation {
-    fn into(self) -> MaskObject {
+impl Into<MaskMany> for Aggregation {
+    fn into(self) -> MaskMany {
         self.object
     }
 }
@@ -79,7 +79,7 @@ impl Aggregation {
     pub fn new(config: MaskConfig, object_size: usize) -> Self {
         Self {
             nb_models: 0,
-            object: MaskObject::new(config, Vec::with_capacity(object_size)),
+            object: MaskMany::new(config, Vec::with_capacity(object_size)),
             object_size,
         }
     }
@@ -116,7 +116,7 @@ impl Aggregation {
     /// - a masked model may unmask another masked model
     ///
     /// [`unmask()`]: #method.unmask
-    pub fn validate_unmasking(&self, mask: &MaskObject) -> Result<(), UnmaskingError> {
+    pub fn validate_unmasking(&self, mask: &MaskMany) -> Result<(), UnmaskingError> {
         // We cannot perform unmasking without at least one real model
         if self.nb_models == 0 {
             return Err(UnmaskingError::NoModel);
@@ -156,7 +156,7 @@ impl Aggregation {
     ///
     /// [`validate_unmasking()`]: #method.validate_unmasking
     /// [`mask()`]: struct.Masker.html#method.mask
-    pub fn unmask(mut self, mask: MaskObject) -> Model {
+    pub fn unmask(mut self, mask: MaskMany) -> Model {
         let scaled_add_shift = self.object.config.add_shift() * BigInt::from(self.nb_models);
         let exp_shift = self.object.config.exp_shift();
         let order = self.object.config.order();
@@ -219,7 +219,7 @@ impl Aggregation {
     /// model.
     ///
     /// [`aggregate()`]: #method.aggregate
-    pub fn validate_aggregation(&self, object: &MaskObject) -> Result<(), AggregationError> {
+    pub fn validate_aggregation(&self, object: &MaskMany) -> Result<(), AggregationError> {
         if self.object.config != object.config {
             return Err(AggregationError::ModelMismatch);
         }
@@ -250,7 +250,7 @@ impl Aggregation {
     /// [`validate_aggregation()`] returns `true`.
     ///
     /// [`validate_aggregation()`]: #method.validate_aggregation
-    pub fn aggregate(&mut self, object: MaskObject) {
+    pub fn aggregate(&mut self, object: MaskMany) {
         if self.nb_models == 0 {
             self.object = object;
             self.nb_models = 1;
@@ -302,7 +302,7 @@ impl Masker {
     /// proceeds in reverse order.
     ///
     /// [`unmask()`]: struct.Aggregation.html#method.unmask
-    pub fn mask(self, scalar: f64, model: Model) -> (MaskSeed, MaskObject, MaskObject) {
+    pub fn mask(self, scalar: f64, model: Model) -> (MaskSeed, MaskMany, MaskMany) {
         let mut random_ints = self.random_ints();
         let Self { seed, config } = self;
 
@@ -332,14 +332,14 @@ impl Masker {
                 (shifted + rand_int) % &order
             })
             .collect();
-        let masked_model = MaskObject::new(config, masked_weights);
+        let masked_model = MaskMany::new(config, masked_weights);
 
         let rand_int = random_ints.next().unwrap();
         let shifted = ((scalar_clamped + &add_shift) * &exp_shift)
             .to_integer()
             .to_biguint()
             .unwrap();
-        let masked_scalar = MaskObject::new(config, vec![(shifted + rand_int) % &order]);
+        let masked_scalar = MaskMany::new(config, vec![(shifted + rand_int) % &order]);
 
         (seed, masked_model, masked_scalar)
     }

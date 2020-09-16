@@ -10,7 +10,7 @@ use anyhow::{anyhow, Context};
 
 use crate::{
     crypto::ByteObject,
-    mask::object::{serialization::MaskObjectBuffer, MaskObject},
+    mask::object::{serialization::MaskObjectBuffer, MaskMany},
     message::{
         traits::{FromBytes, ToBytes},
         utils::range,
@@ -152,10 +152,10 @@ pub struct Sum2 {
     pub sum_signature: ParticipantTaskSignature,
 
     /// A model mask computed by the participant.
-    pub model_mask: MaskObject,
+    pub model_mask: MaskMany,
 
     /// A scalar mask computed by the participant.
-    pub scalar_mask: MaskObject,
+    pub scalar_mask: MaskMany,
 }
 
 impl ToBytes for Sum2 {
@@ -177,9 +177,8 @@ impl FromBytes for Sum2 {
         Ok(Self {
             sum_signature: ParticipantTaskSignature::from_bytes(&reader.sum_signature())
                 .context("invalid sum signature")?,
-            model_mask: MaskObject::from_bytes(&reader.model_mask())
-                .context("invalid model mask")?,
-            scalar_mask: MaskObject::from_bytes(&reader.scalar_mask())
+            model_mask: MaskMany::from_bytes(&reader.model_mask()).context("invalid model mask")?,
+            scalar_mask: MaskMany::from_bytes(&reader.scalar_mask())
                 .context("invalid scalar mask")?,
         })
     }
@@ -188,7 +187,7 @@ impl FromBytes for Sum2 {
 #[cfg(test)]
 pub(in crate::message) mod tests_helpers {
     use super::*;
-    use crate::{crypto::ByteObject, mask::object::MaskObject};
+    use crate::{crypto::ByteObject, mask::object::MaskMany};
 
     pub fn signature() -> (ParticipantTaskSignature, Vec<u8>) {
         let bytes = vec![0x99; ParticipantTaskSignature::LENGTH];
@@ -196,12 +195,12 @@ pub(in crate::message) mod tests_helpers {
         (signature, bytes)
     }
 
-    pub fn mask() -> (MaskObject, Vec<u8>) {
+    pub fn mask() -> (MaskMany, Vec<u8>) {
         use crate::mask::object::serialization::tests::{bytes, object};
         (object(), bytes())
     }
 
-    pub fn mask_1() -> (MaskObject, Vec<u8>) {
+    pub fn mask_1() -> (MaskMany, Vec<u8>) {
         use crate::mask::object::serialization::tests::{bytes_1, object_1};
         (object_1(), bytes_1())
     }
