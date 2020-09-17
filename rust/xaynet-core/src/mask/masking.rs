@@ -17,7 +17,10 @@ use thiserror::Error;
 
 use crate::{
     crypto::{prng::generate_integer, ByteObject},
-    mask::{config::MaskConfig, model::Model, object::MaskMany, seed::MaskSeed},
+    mask::{
+        config::MaskConfig, model::float_to_ratio_bounded, model::Model, object::MaskMany,
+        object::MaskObject, object::MaskOne, seed::MaskSeed,
+    },
 };
 
 #[derive(Debug, Error, Eq, PartialEq)]
@@ -267,22 +270,28 @@ impl Aggregation {
 
 /// A masker for models.
 pub struct Masker {
-    config: MaskConfig,
+    config_model: MaskConfig,
+    config_scalar: MaskConfig,
     seed: MaskSeed,
 }
 
 impl Masker {
     /// Creates a new masker with the given masking `config`uration with a randomly generated seed.
-    pub fn new(config: MaskConfig) -> Self {
+    pub fn new(config_model: MaskConfig, config_scalar: MaskConfig) -> Self {
         Self {
-            config,
+            config_model,
+            config_scalar,
             seed: MaskSeed::generate(),
         }
     }
 
     /// Creates a new masker with the given masking `config`uration and `seed`.
-    pub fn with_seed(config: MaskConfig, seed: MaskSeed) -> Self {
-        Self { config, seed }
+    pub fn with_seed(config_model: MaskConfig, config_scalar: MaskConfig, seed: MaskSeed) -> Self {
+        Self {
+            config_model,
+            config_scalar,
+            seed,
+        }
     }
 }
 
@@ -298,26 +307,34 @@ impl Masker {
     /// - Shift the weights into the finite group.
     /// - Mask the weights with random elements from the finite group.
     ///
+    /// The `scalar` is also masked, following a similar process.
+    ///
     /// The random elements are derived from a seeded PRNG. Unmasking as performed in [`unmask()`]
     /// proceeds in reverse order.
     ///
     /// [`unmask()`]: struct.Aggregation.html#method.unmask
-    pub fn mask(self, scalar: f64, model: Model) -> (MaskSeed, MaskMany, MaskMany) {
+    pub fn mask(self, scalar: f64, model: Model) -> (MaskSeed, MaskObject) {
         let mut random_ints = self.random_ints();
-        let Self { seed, config } = self;
+        let random_int = self.random_int();
+        let Self {
+            config_model,
+            config_scalar,
+            seed,
+        } = self;
 
-        let exp_shift = config.exp_shift();
-        let add_shift = config.add_shift();
-        let order = config.order();
+        // clamp the scalar
+        let add_shift_scalar = config_scalar.add_shift();
+        let scalar_ratio = float_to_ratio_bounded(scalar);
+        let zero = Ratio::<BigInt>::from_float(0_f64).unwrap();
+        let scalar_clamped = clamp(&scalar_ratio, &zero, &add_shift_scalar);
+
+        let exp_shift = config_model.exp_shift();
+        let add_shift = config_model.add_shift();
+        let order = config_model.order();
         let higher_bound = &add_shift;
         let lower_bound = -&add_shift;
 
-        let scalar_ratio = crate::mask::model::float_to_ratio_bounded(scalar);
-        // HACK reuse upper bound for scaled weights for now, really should be tighter
-        // TODO give scalar its own config in later refactoring
-        let zero = Ratio::<BigInt>::from_float(0_f64).unwrap();
-        let scalar_clamped = clamp(&scalar_ratio, &zero, higher_bound);
-
+        // mask the (scaled) weights
         let masked_weights = model
             .into_iter()
             .zip(&mut random_ints)
@@ -332,23 +349,33 @@ impl Masker {
                 (shifted + rand_int) % &order
             })
             .collect();
-        let masked_model = MaskMany::new(config, masked_weights);
+        let masked_model = MaskMany::new(config_model, masked_weights);
 
-        let rand_int = random_ints.next().unwrap();
-        let shifted = ((scalar_clamped + &add_shift) * &exp_shift)
+        // mask the scalar
+        // PANIC_SAFE: shifted scalar is guaranteed to be non-negative
+        let shifted = ((scalar_clamped + &add_shift_scalar) * config_scalar.exp_shift())
             .to_integer()
             .to_biguint()
             .unwrap();
-        let masked_scalar = MaskMany::new(config, vec![(shifted + rand_int) % &order]);
+        let masked = (shifted + random_int) % config_scalar.order();
+        let masked_scalar = MaskOne::new(config_scalar, masked);
 
-        (seed, masked_model, masked_scalar)
+        (seed, MaskObject::new(masked_model, masked_scalar))
     }
 
-    /// Creates an iterator that yields randomly generated integers wrt the masking configuration.
+    /// Creates an iterator that yields randomly generated integers wrt the
+    /// model masking configuration.
     fn random_ints(&self) -> impl Iterator<Item = BigUint> {
-        let order = self.config.order();
+        let order = self.config_model.order();
         let mut prng = ChaCha20Rng::from_seed(self.seed.as_array());
         iter::from_fn(move || Some(generate_integer(&mut prng, &order)))
+    }
+
+    /// Generates a random integer wrt the scalar masking configuration.
+    fn random_int(&self) -> BigUint {
+        let order = self.config_scalar.order();
+        let mut prng = ChaCha20Rng::from_seed(self.seed.as_array());
+        generate_integer(&mut prng, &order)
     }
 }
 

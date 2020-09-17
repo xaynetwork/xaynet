@@ -194,6 +194,6 @@ pub use self::{
     },
     masking::{Aggregation, AggregationError, Masker, UnmaskingError},
     model::{FromPrimitives, IntoPrimitives, Model, ModelCastError, PrimitiveCastError},
-    object::{serialization::MaskObjectBuffer, InvalidMaskObjectError, MaskMany},
+    object::{serialization::MaskObjectBuffer, InvalidMaskObjectError, MaskMany, MaskObject}, // TODO remove MaskMany later
     seed::{EncryptedMaskSeed, MaskSeed},
 };

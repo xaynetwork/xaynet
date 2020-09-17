@@ -5,12 +5,12 @@
 //! [client module]: ../index.html
 
 use std::default::Default;
-
+// TODO may remove MaskMany later
 use xaynet_core::{
     crypto::{ByteObject, EncryptKeyPair, SigningKeyPair},
     mask::{
-        Aggregation, BoundType, DataType, GroupType, MaskConfig, MaskMany, MaskSeed, Masker, Model,
-        ModelType,
+        Aggregation, BoundType, DataType, GroupType, MaskConfig, MaskMany, MaskObject, MaskSeed,
+        Masker, Model, ModelType,
     },
     message::{Message, Sum, Sum2, Update},
     CoordinatorPublicKey, InitError, LocalSeedDict, ParticipantPublicKey, ParticipantSecretKey,
@@ -124,13 +124,13 @@ impl Participant {
         scalar: f64,
         local_model: Model,
     ) -> Message {
-        let (mask_seed, masked_model, masked_scalar) = Self::mask_model(scalar, local_model);
+        let (mask_seed, mask_object) = Self::mask_model(scalar, local_model);
         let local_seed_dict = Self::create_local_seed_dict(sum_dict, &mask_seed);
         let payload = Update {
             sum_signature: self.sum_signature,
             update_signature: self.update_signature,
-            masked_model,
-            masked_scalar,
+            masked_model: mask_object.vector, // TODO refactor ...,
+            masked_scalar: mask_object.scalar.into(), // TODO ... update message,
             local_seed_dict,
         };
         Message::new_update(self.pk, coordinator_pk, payload)
@@ -176,9 +176,10 @@ impl Participant {
     }
 
     /// Generate a mask seed and mask a local model.
-    fn mask_model(scalar: f64, local_model: Model) -> (MaskSeed, MaskMany, MaskMany) {
+    fn mask_model(scalar: f64, local_model: Model) -> (MaskSeed, MaskObject) {
         // TODO: use proper config
-        Masker::new(dummy_config()).mask(scalar, local_model)
+        let config = dummy_config();
+        Masker::new(config, config).mask(scalar, local_model) // HACK reuse model mask config
     }
 
     // Create a local seed dictionary from a sum dictionary.
