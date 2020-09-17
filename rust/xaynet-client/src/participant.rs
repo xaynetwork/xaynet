@@ -124,13 +124,12 @@ impl Participant {
         scalar: f64,
         local_model: Model,
     ) -> Message {
-        let (mask_seed, mask_object) = Self::mask_model(scalar, local_model);
+        let (mask_seed, masked_model) = Self::mask_model(scalar, local_model);
         let local_seed_dict = Self::create_local_seed_dict(sum_dict, &mask_seed);
         let payload = Update {
             sum_signature: self.sum_signature,
             update_signature: self.update_signature,
-            masked_model: mask_object.vector, // TODO refactor ...,
-            masked_scalar: mask_object.scalar.into(), // TODO ... update message,
+            masked_model,
             local_seed_dict,
         };
         Message::new_update(self.pk, coordinator_pk, payload)

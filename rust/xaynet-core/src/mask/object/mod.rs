@@ -63,6 +63,12 @@ pub struct MaskOne {
     pub config: MaskConfig,
 }
 
+impl From<&MaskOne> for MaskMany {
+    fn from(mask_one: &MaskOne) -> Self {
+        Self::new(mask_one.config, vec![mask_one.data.clone()])
+    }
+}
+
 impl From<MaskOne> for MaskMany {
     fn from(mask_one: MaskOne) -> Self {
         Self::new(mask_one.config, vec![mask_one.data])
@@ -96,6 +102,7 @@ impl MaskOne {
     }
 }
 
+#[derive(Debug, Hash, PartialEq, Eq, Clone)]
 /// A mask object wrapper around a `MaskMany`, `MaskOne` pair.
 pub struct MaskObject {
     pub vector: MaskMany,

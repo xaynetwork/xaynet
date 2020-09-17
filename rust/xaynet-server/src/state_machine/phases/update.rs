@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use xaynet_core::{
-    mask::{Aggregation, MaskMany},
+    mask::{Aggregation, MaskObject},
     LocalSeedDict, UpdateParticipantPublicKey,
 };
 
@@ -158,15 +158,9 @@ impl PhaseState<Update> {
             participant_pk,
             local_seed_dict,
             masked_model,
-            masked_scalar,
         } = req;
-        self.update_seed_dict_and_aggregate_mask(
-            &participant_pk,
-            &local_seed_dict,
-            masked_model,
-            masked_scalar,
-        )
-        .await
+        self.update_seed_dict_and_aggregate_mask(&participant_pk, &local_seed_dict, masked_model)
+            .await
     }
 
     /// Updates the local seed dict and aggregates the masked model.
@@ -174,9 +168,11 @@ impl PhaseState<Update> {
         &mut self,
         pk: &UpdateParticipantPublicKey,
         local_seed_dict: &LocalSeedDict,
-        masked_model: MaskMany,
-        masked_scalar: MaskMany,
+        mask_object: MaskObject,
     ) -> Result<(), StateMachineError> {
+        // TODO tidy up later
+        let masked_model = mask_object.vector;
+        let masked_scalar = mask_object.scalar.into();
         // Check if aggregation can be performed. It is important to
         // do that _before_ updating the seed dictionary, because we
         // don't want to add the local seed dict if the corresponding

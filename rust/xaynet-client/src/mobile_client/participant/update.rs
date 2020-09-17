@@ -34,13 +34,12 @@ impl Participant<Update> {
 
         local_model: Model,
     ) -> Message {
-        let (mask_seed, mask_object) = self.mask_model(local_model);
+        let (mask_seed, masked_model) = self.mask_model(local_model);
         let local_seed_dict = Self::create_local_seed_dict(sum_dict, &mask_seed);
         let payload = UpdateMessage {
             sum_signature: self.inner.sum_signature,
             update_signature: self.inner.update_signature,
-            masked_model: mask_object.vector, // TODO refactor...,
-            masked_scalar: mask_object.scalar.into(), // TODO ...update message,
+            masked_model,
             local_seed_dict,
         };
         Message::new_update(self.state.keys.public, coordinator_pk, payload)

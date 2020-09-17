@@ -14,6 +14,7 @@ use tokio::sync::{mpsc, oneshot};
 use tracing::Span;
 use xaynet_core::{
     mask::MaskMany,
+    mask::MaskObject,
     message::{Message, Payload, Update},
     LocalSeedDict, ParticipantPublicKey, SumParticipantEphemeralPublicKey, SumParticipantPublicKey,
     UpdateParticipantPublicKey,
@@ -43,9 +44,7 @@ pub struct UpdateRequest {
     /// The local seed dict that contains the seed used to mask `masked_model`.
     pub local_seed_dict: LocalSeedDict,
     /// The masked model trained by the participant.
-    pub masked_model: MaskMany,
-    /// The masked scalar used to scale model weights.
-    pub masked_scalar: MaskMany,
+    pub masked_model: MaskObject,
 }
 
 /// A sum2 request.
@@ -81,14 +80,12 @@ impl From<Message> for StateMachineRequest {
                 let Update {
                     local_seed_dict,
                     masked_model,
-                    masked_scalar,
                     ..
                 } = update;
                 StateMachineRequest::Update(UpdateRequest {
                     participant_pk,
                     local_seed_dict,
                     masked_model,
-                    masked_scalar,
                 })
             }
             Payload::Sum2(sum2) => StateMachineRequest::Sum2(Sum2Request {

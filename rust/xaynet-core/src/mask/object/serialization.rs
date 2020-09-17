@@ -13,6 +13,7 @@ use crate::{
     mask::{
         config::{serialization::MASK_CONFIG_BUFFER_LEN, MaskConfig},
         object::MaskMany,
+        object::MaskOne,
     },
     message::{
         traits::{FromBytes, ToBytes},
@@ -203,6 +204,35 @@ impl FromBytes for MaskMany {
         Ok(MaskMany { data, config })
     }
 }
+
+impl ToBytes for MaskOne {
+    fn buffer_length(&self) -> usize {
+        MaskMany::from(self).buffer_length()
+    }
+
+    fn to_bytes<T: AsMut<[u8]> + AsRef<[u8]>>(&self, buffer: &mut T) {
+        MaskMany::from(self).to_bytes(buffer)
+    }
+}
+
+impl FromBytes for MaskOne {
+    fn from_bytes<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
+        let mut mask_many = MaskMany::from_bytes(buffer)?;
+        let vec_len = mask_many.data.len();
+        if vec_len == 1 {
+            // TEMP .remove rather than index, to avoid cloning
+            Ok(MaskOne::new(mask_many.config, mask_many.data.remove(0)))
+        } else {
+            Err(anyhow!(
+                "invalid data length: expected 1 but got {}",
+                vec_len
+            ))
+        }
+    }
+}
+
+// TODO consider From/ToBytes for MaskObject
+
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;

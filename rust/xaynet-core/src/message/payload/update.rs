@@ -10,13 +10,14 @@ use anyhow::{anyhow, Context};
 
 use crate::{
     crypto::ByteObject,
-    mask::object::{serialization::MaskObjectBuffer, MaskMany},
+    mask::object::{serialization::MaskObjectBuffer, MaskMany, MaskObject, MaskOne}, // TODO remove MaskMany
     message::{
         traits::{FromBytes, LengthValueBuffer, ToBytes},
         utils::range,
         DecodeError,
     },
-    LocalSeedDict, ParticipantTaskSignature,
+    LocalSeedDict,
+    ParticipantTaskSignature,
 };
 
 const SUM_SIGNATURE_RANGE: Range<usize> = range(0, ParticipantTaskSignature::LENGTH);
@@ -209,11 +210,7 @@ pub struct Update {
     /// A model trained by an update participant.
     ///
     /// The model is masked with randomness derived from the participant seed.
-    pub masked_model: MaskMany,
-    /// The scalar used to scale model weights.
-    ///
-    /// The scalar is masked with randomness derived from the participant seed.
-    pub masked_scalar: MaskMany,
+    pub masked_model: MaskObject,
     /// A dictionary that contains the seed used to mask `masked_model`.
     ///
     /// The seed is encrypted with the ephemeral public key of each sum participant.
@@ -223,8 +220,8 @@ pub struct Update {
 impl ToBytes for Update {
     fn buffer_length(&self) -> usize {
         UPDATE_SIGNATURE_RANGE.end
-            + self.masked_model.buffer_length()
-            + self.masked_scalar.buffer_length()
+            + self.masked_model.vector.buffer_length()
+            + self.masked_model.scalar.buffer_length()
             + self.local_seed_dict.buffer_length()
     }
 
@@ -233,8 +230,12 @@ impl ToBytes for Update {
         self.sum_signature.to_bytes(&mut writer.sum_signature_mut());
         self.update_signature
             .to_bytes(&mut writer.update_signature_mut());
-        self.masked_model.to_bytes(&mut writer.masked_model_mut());
-        self.masked_scalar.to_bytes(&mut writer.masked_scalar_mut());
+        self.masked_model
+            .vector
+            .to_bytes(&mut writer.masked_model_mut());
+        self.masked_model
+            .scalar
+            .to_bytes(&mut writer.masked_scalar_mut());
         self.local_seed_dict
             .to_bytes(&mut writer.local_seed_dict_mut());
     }
@@ -248,10 +249,11 @@ impl FromBytes for Update {
                 .context("invalid sum signature")?,
             update_signature: ParticipantTaskSignature::from_bytes(&reader.update_signature())
                 .context("invalid update signature")?,
-            masked_model: MaskMany::from_bytes(&reader.masked_model())
-                .context("invalid masked model")?,
-            masked_scalar: MaskMany::from_bytes(&reader.masked_scalar())
-                .context("invalid masked scalar")?,
+            masked_model: MaskObject::new(
+                // TODO FromBytes for MaskObject will deal with this
+                MaskMany::from_bytes(&reader.masked_model()).context("invalid masked model")?,
+                MaskOne::from_bytes(&reader.masked_scalar()).context("invalid masked scalar")?,
+            ),
             local_seed_dict: LocalSeedDict::from_bytes(&reader.local_seed_dict())
                 .context("invalid local seed dictionary")?,
         })
