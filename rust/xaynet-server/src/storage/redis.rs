@@ -459,6 +459,7 @@ mod tests {
     use super::*;
     use crate::state_machine::tests::utils::{mask_settings, model_settings, pet_settings};
     use num::{bigint::BigUint, traits::identities::Zero};
+    use serial_test::serial;
     use xaynet_core::{
         crypto::{EncryptKeyPair, SigningKeyPair},
         mask::{BoundType, DataType, GroupType, MaskConfig, MaskObject, ModelType},
@@ -490,6 +491,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn integration_set_and_get_coordinator_state() {
         // test the writing and reading of the coordinator state
         let client = init_client().await;
@@ -514,6 +516,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn integration_get_best_masks_one_mask() {
         // test the writing and reading of one mask
         let client = init_client().await;
@@ -535,6 +538,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn integration_get_best_masks_two_masks() {
         // test the writing and reading of two masks
         // the first mask is incremented twice
@@ -575,6 +579,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn integration_get_best_masks_no_mask() {
         // ensure that get_best_masks returns an empty vec if no mask exist
         let client = create_redis_client().await;
@@ -585,6 +590,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn integration_sum_dict() {
         // test multiple sum dict related methods
         let client = init_client().await;
@@ -653,6 +659,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn integration_flush_dicts_return() {
         let client = init_client().await;
 
