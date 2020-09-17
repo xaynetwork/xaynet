@@ -2,7 +2,13 @@ use std::{path::PathBuf, process};
 use structopt::StructOpt;
 use tokio::signal;
 use tracing_subscriber::*;
-use xaynet_server::{rest, services, settings::Settings, state_machine::StateMachine};
+use xaynet_server::{
+    rest,
+    services,
+    settings::Settings,
+    state_machine::StateMachine,
+    storage::redis,
+};
 
 #[cfg(feature = "metrics")]
 use xaynet_server::metrics::{run_metric_service, MetricsService};
@@ -57,10 +63,21 @@ async fn main() {
         )
     };
 
+    let redis = redis::Client::new(redis_settings.url, 100)
+        .await
+        .expect("failed to establish a connection to Redis");
+    redis
+        .connection()
+        .await
+        .flush_db()
+        .await
+        .expect("failed to flush the Redis database");
+
     let (state_machine, requests_tx, event_subscriber) = StateMachine::new(
         pet_settings,
         mask_settings,
         model_settings,
+        redis,
         #[cfg(feature = "metrics")]
         metrics_sender,
     )
