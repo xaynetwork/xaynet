@@ -18,7 +18,7 @@ use crate::mask::config::MaskConfig;
 /// Errors related to invalid mask objects.
 pub struct InvalidMaskObjectError;
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Serialize, Deserialize)]
 /// A mask object which represents either a mask or a masked model.
 pub struct MaskObject {
     pub data: Vec<BigUint>,

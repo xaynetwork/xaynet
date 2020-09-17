@@ -10,7 +10,7 @@ use xaynet_core::{
 use crate::settings::{MaskSettings, ModelSettings, PetSettings};
 
 /// The coordinator state.
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct CoordinatorState {
     /// The credentials of the coordinator.
     pub keys: EncryptKeyPair,
