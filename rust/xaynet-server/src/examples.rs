@@ -92,7 +92,6 @@ min_sum_time = 5
 min_update_time = 10
 sum = 0.4
 update = 0.9
-expected_participants = 20
 
 [mask]
 group_type = "Prime"
@@ -129,9 +128,6 @@ protocol to function correctly.
 [`min_update_time`] specify, respectively, the minimum amount of time (in
 seconds) the coordinator should wait for `sum`/`sum2` and `update` messages. To
 allow for more messages to be processed, increase these times.
-
-- [`expected_participants`] should be set to the expected number of participants
-for the session.
 
 The [`MaskSettings`] determines the masking configuration, consisting of the
 group type, data type, bound type and model type. The [`ModelSettings`] specify
@@ -223,7 +219,6 @@ $ cargo run --example test-drive-net -- -l 4 -n 20 -u http://127.0.0.1:8081
 [`min_update_count`]: crate::settings::PetSettings::min_update_count
 [`min_sum_time`]: crate::settings::PetSettings::min_sum_time
 [`min_update_time`]: crate::settings::PetSettings::min_update_time
-[`expected_participants`]: crate::settings::PetSettings::expected_participants
 [`MaskSettings`]: crate::settings::MaskSettings
 [`ModelSettings`]: crate::settings::ModelSettings
 [`Model`]: xaynet_core::mask::Model

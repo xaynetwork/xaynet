@@ -68,9 +68,7 @@ pub struct PetSettings {
     /// be greater or equal to `1` (i.e. `min_sum_count >= 1`), otherwise the PET protocol will be
     /// broken.
     ///
-    /// This parameter should only be used to enforce security constraints. To control the expected
-    /// number of sum participants, the `sum` fraction should be adjusted wrt the total number of
-    /// `expected_participants`.
+    /// This parameter should only be used to enforce security constraints.
     ///
     /// # Examples
     ///
@@ -91,9 +89,7 @@ pub struct PetSettings {
     /// aggregation. The value must be greater or equal to `3` (i.e. `min_update_count >= 3`),
     /// otherwise the PET protocol will be broken.
     ///
-    /// This parameter should only be used to enforce security constraints. To control the expected
-    /// number of update participants, the `update` fraction should be adjusted wrt the total number
-    /// of `expected_participants`.
+    /// This parameter should only be used to enforce security constraints.
     ///
     /// # Examples
     ///
