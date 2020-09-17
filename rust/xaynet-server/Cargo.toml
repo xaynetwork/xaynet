@@ -64,6 +64,11 @@ chrono = { version = "0.4.15", optional = true }
 [dev-dependencies]
 tower-test = "0.3.0"
 tokio-test = "0.2.1"
+# We can't run tarpaulin with the flag `--test-threads=1` because it can 
+# trigger a segfault
+# https://github.com/xd009642/tarpaulin/issues/317
+# A workaround is to use `serial_test`
+serial_test = "0.5.0"
 xaynet-client = { path = "../xaynet-client" }
 
 [[bin]]

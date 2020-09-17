@@ -114,47 +114,17 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             ${{ github.workspace }}/rust/target
-          key: ${{ runner.os }}-cargo-test-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Run unit tests
-        working-directory: ./rust
-        env:
-          RUSTFLAGS: "-D warnings"
-        run: cargo test -- --skip integration
-
-  smoke-test:
-    name: cargo-smoke-test
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: true
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
-
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-
-      - name: Cache cargo
-        uses: actions/cache@v2
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            ${{ github.workspace }}/rust/target
-          key: ${{ runner.os }}-cargo-smoke-tests-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-tests-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Start docker-compose
         working-directory: ./docker
         run: docker-compose up -d influxdb minio redis
 
-      - name: Run smoke tests
+      - name: Run tests
         working-directory: ./rust
         env:
           RUSTFLAGS: "-D warnings"
-        run: cargo test integration -- --test-threads=1
+        run: cargo test
 
       - name: Stop docker-compose
         working-directory: ./docker
@@ -208,10 +178,18 @@ jobs:
             ${{ github.workspace }}/rust/target
           key: ${{ runner.os }}-cargo-tarpaulin-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: Start docker-compose
+        working-directory: ./docker
+        run: docker-compose up -d influxdb minio redis
+
       - name: Run cargo-tarpaulin
         uses: actions-rs/tarpaulin@v0.1.2
         with:
-          args: '--manifest-path rust/Cargo.toml --all-features --force-clean --lib --ignore-tests --exclude-files src/vendor/* -- --skip integration'
+          args: '--manifest-path rust/Cargo.toml --all-features --force-clean --lib --ignore-tests --exclude-files src/vendor/*'
+
+      - name: Stop docker-compose
+        working-directory: ./docker
+        run: docker-compose down
 
       - name: Upload to codecov.io
         uses: codecov/codecov-action@v1.0.12
