@@ -12,7 +12,9 @@ use crate::{
     ClientError,
 };
 use derive_more::From;
-use xaynet_core::{common::RoundParameters, crypto::ByteObject, mask::Model, InitError, PetError};
+use xaynet_core::{common::RoundParameters, crypto::ByteObject, mask::Model, InitError};
+
+use crate::PetError;
 
 #[async_trait]
 pub trait LocalModel {

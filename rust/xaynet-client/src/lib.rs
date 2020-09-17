@@ -50,7 +50,7 @@ use std::time::Duration;
 use thiserror::Error;
 use tokio::time;
 
-use xaynet_core::{crypto::ByteObject, mask::Model, CoordinatorPublicKey, InitError, PetError};
+use xaynet_core::{crypto::ByteObject, mask::Model, CoordinatorPublicKey, InitError};
 
 #[doc(hidden)]
 pub mod mobile_client;
@@ -70,6 +70,14 @@ pub enum CachedModel {
     F64(Vec<f64>),
     I32(Vec<i32>),
     I64(Vec<i64>),
+}
+
+#[derive(Debug, Error)]
+pub enum PetError {
+    #[error("Invalid mask")]
+    InvalidMask,
+    #[error("Invalid model")]
+    InvalidModel,
 }
 
 #[derive(Debug, Error)]

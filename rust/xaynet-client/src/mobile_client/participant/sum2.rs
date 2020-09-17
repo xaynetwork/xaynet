@@ -5,11 +5,13 @@ use xaynet_core::{
     CoordinatorPublicKey,
     ParticipantPublicKey,
     ParticipantTaskSignature,
-    PetError,
     SumParticipantEphemeralPublicKey,
     SumParticipantEphemeralSecretKey,
     UpdateSeedDict,
 };
+
+use crate::PetError;
+
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Sum2 {
     ephm_pk: SumParticipantEphemeralPublicKey,
@@ -70,7 +72,10 @@ impl Participant<Sum2> {
     fn get_seeds(&self, seed_dict: &UpdateSeedDict) -> Result<Vec<MaskSeed>, PetError> {
         seed_dict
             .values()
-            .map(|seed| seed.decrypt(&self.inner.ephm_pk, &self.inner.ephm_sk))
+            .map(|seed| {
+                seed.decrypt(&self.inner.ephm_pk, &self.inner.ephm_sk)
+                    .map_err(|_| PetError::InvalidMask)
+            })
             .collect()
     }
 

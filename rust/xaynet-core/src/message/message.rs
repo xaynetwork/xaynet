@@ -207,6 +207,13 @@ pub struct MessageBuffer<T> {
 }
 
 impl<T: AsRef<[u8]>> MessageBuffer<T> {
+    pub fn inner(&self) -> &T {
+        &self.inner
+    }
+
+    pub fn as_ref(&self) -> MessageBuffer<&T> {
+        MessageBuffer::new_unchecked(self.inner())
+    }
     /// Performs bound checks for the various message fields on `bytes` and returns a new
     /// [`MessageBuffer`].
     ///

@@ -10,11 +10,11 @@ use derive_more::{AsMut, AsRef};
 use rand::SeedableRng;
 use rand_chacha::ChaCha20Rng;
 use sodiumoxide::crypto::box_;
+use thiserror::Error;
 
 use crate::{
     crypto::{encrypt::SEALBYTES, prng::generate_integer, ByteObject},
     mask::{config::MaskConfig, object::MaskObject},
-    PetError,
     SumParticipantEphemeralPublicKey,
     SumParticipantEphemeralSecretKey,
 };
@@ -99,6 +99,14 @@ impl ByteObject for EncryptedMaskSeed {
     }
 }
 
+#[derive(Debug, Error)]
+pub enum InvalidMaskSeed {
+    #[error("the encrypted mask seed could not be decrypted")]
+    DecryptionFailed,
+    #[error("the mask seed has an invalid length")]
+    InvalidLength,
+}
+
 impl EncryptedMaskSeed {
     /// Decrypts this seed as a [`MaskSeed`].
     ///
@@ -108,13 +116,13 @@ impl EncryptedMaskSeed {
         &self,
         pk: &SumParticipantEphemeralPublicKey,
         sk: &SumParticipantEphemeralSecretKey,
-    ) -> Result<MaskSeed, PetError> {
+    ) -> Result<MaskSeed, InvalidMaskSeed> {
         MaskSeed::from_slice(
             sk.decrypt(self.as_slice(), pk)
-                .or(Err(PetError::InvalidMask))?
+                .or(Err(InvalidMaskSeed::DecryptionFailed))?
                 .as_slice(),
         )
-        .ok_or(PetError::InvalidMask)
+        .ok_or(InvalidMaskSeed::InvalidLength)
     }
 }
 

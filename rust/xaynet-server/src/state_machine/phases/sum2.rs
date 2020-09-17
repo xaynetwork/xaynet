@@ -1,6 +1,5 @@
 use xaynet_core::{
     mask::{Aggregation, MaskObject},
-    PetError,
     SumDict,
     SumParticipantPublicKey,
 };
@@ -10,6 +9,7 @@ use crate::state_machine::{
     phases::{Handler, Phase, PhaseName, PhaseState, Shared, StateError, Unmask},
     requests::{StateMachineRequest, Sum2Request},
     StateMachine,
+    StateMachineError,
 };
 
 #[cfg(feature = "metrics")]
@@ -125,8 +125,8 @@ impl Handler for PhaseState<Sum2> {
     ///
     /// If the request is a [`StateMachineRequest::Sum`] or
     /// [`StateMachineRequest::Update`] request, the request sender
-    /// will receive a [`PetError::InvalidMessage`].
-    fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), PetError> {
+    /// will receive a [`StateMachineError::MessageRejected`].
+    fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), StateMachineError> {
         match req {
             StateMachineRequest::Sum2(sum2_req) => {
                 metrics!(
@@ -135,7 +135,7 @@ impl Handler for PhaseState<Sum2> {
                 );
                 self.handle_sum2(sum2_req)
             }
-            _ => Err(PetError::InvalidMessage),
+            _ => Err(StateMachineError::MessageRejected),
         }
     }
 }
@@ -163,7 +163,7 @@ impl PhaseState<Sum2> {
 
     /// Handles a sum2 request.
     /// If the handling of the sum2 message fails, an error is returned to the request sender.
-    fn handle_sum2(&mut self, req: Sum2Request) -> Result<(), PetError> {
+    fn handle_sum2(&mut self, req: Sum2Request) -> Result<(), StateMachineError> {
         let Sum2Request {
             participant_pk,
             model_mask,
@@ -181,11 +181,11 @@ impl PhaseState<Sum2> {
         pk: &SumParticipantPublicKey,
         model_mask: MaskObject,
         scalar_mask: MaskObject,
-    ) -> Result<(), PetError> {
+    ) -> Result<(), StateMachineError> {
         // We remove the participant key here to make sure a participant
         // cannot submit a mask multiple times
         if self.inner.sum_dict.remove(pk).is_none() {
-            return Err(PetError::InvalidMessage);
+            return Err(StateMachineError::MessageRejected);
         }
 
         if let Some(count) = self.inner.model_mask_dict.get_mut(&model_mask) {

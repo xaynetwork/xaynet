@@ -8,8 +8,6 @@ mod sum2;
 mod unmask;
 mod update;
 
-use xaynet_core::PetError;
-
 pub use self::{
     error::StateError,
     idle::Idle,
@@ -20,20 +18,19 @@ pub use self::{
     update::Update,
 };
 
-use crate::{
-    state_machine::{
-        coordinator::CoordinatorState,
-        events::EventPublisher,
-        requests::{RequestReceiver, ResponseSender, StateMachineRequest},
-        StateMachine,
-    },
-    utils::Request,
+use crate::state_machine::{
+    coordinator::CoordinatorState,
+    events::EventPublisher,
+    requests::{RequestReceiver, ResponseSender, StateMachineRequest},
+    StateMachine,
+    StateMachineError,
 };
 
 #[cfg(feature = "metrics")]
 use crate::{metrics, metrics::MetricsSender};
 
 use futures::StreamExt;
+use tracing::Span;
 use tracing_futures::Instrument;
 
 /// Name of the current phase
@@ -64,7 +61,7 @@ pub trait Phase {
 /// A trait that must be implemented by a state to handle a request.
 pub trait Handler {
     /// Handles a request.
-    fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), PetError>;
+    fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), StateMachineError>;
 }
 
 /// I/O interfaces.
@@ -158,10 +155,9 @@ where
 
     /// Processes the next available request.
     async fn process_single(&mut self) -> Result<(), StateError> {
-        let (req, resp_tx) = self.next_request().await?;
-        let span = req.span();
+        let (req, span, resp_tx) = self.next_request().await?;
         let _span_guard = span.enter();
-        let res = self.handle_request(req.into_inner());
+        let res = self.handle_request(req);
 
         if res.is_err() {
             metrics!(
@@ -227,11 +223,10 @@ where
     fn purge_outdated_requests(&mut self) -> Result<(), StateError> {
         loop {
             match self.try_next_request()? {
-                Some((req, resp_tx)) => {
-                    let span = req.span();
+                Some((_req, span, resp_tx)) => {
                     let _span_guard = span.enter();
                     info!("rejecting request");
-                    let _ = resp_tx.send(Err(PetError::InvalidMessage.into()));
+                    let _ = resp_tx.send(Err(StateMachineError::MessageRejected));
 
                     metrics!(
                         self.shared.io.metrics_tx,
@@ -255,7 +250,7 @@ impl<S> PhaseState<S> {
     /// Returns [`StateError::ChannelError`] when all sender halves have been dropped.
     async fn next_request(
         &mut self,
-    ) -> Result<(Request<StateMachineRequest>, ResponseSender), StateError> {
+    ) -> Result<(StateMachineRequest, Span, ResponseSender), StateError> {
         debug!("waiting for the next incoming request");
         self.shared.io.request_rx.next().await.ok_or_else(|| {
             error!("request receiver broken: senders have been dropped");
@@ -265,7 +260,7 @@ impl<S> PhaseState<S> {
 
     fn try_next_request(
         &mut self,
-    ) -> Result<Option<(Request<StateMachineRequest>, ResponseSender)>, StateError> {
+    ) -> Result<Option<(StateMachineRequest, Span, ResponseSender)>, StateError> {
         match self.shared.io.request_rx.try_recv() {
             Ok(item) => Ok(Some(item)),
             Err(tokio::sync::mpsc::error::TryRecvError::Empty) => {

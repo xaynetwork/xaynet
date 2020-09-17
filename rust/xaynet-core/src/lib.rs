@@ -82,7 +82,6 @@ pub mod message;
 
 use std::collections::HashMap;
 
-use derive_more::Display;
 use thiserror::Error;
 
 use self::crypto::{
@@ -94,14 +93,6 @@ use self::crypto::{
 #[error("initialization failed: insufficient system entropy to generate secrets")]
 /// An error related to insufficient system entropy for secrets at program startup.
 pub struct InitError;
-
-#[derive(Debug, Display, Error)]
-/// Errors related to the PET protocol.
-pub enum PetError {
-    InvalidMessage,
-    InvalidMask,
-    InvalidModel,
-}
 
 /// A public encryption key that identifies a coordinator.
 pub type CoordinatorPublicKey = PublicEncryptKey;

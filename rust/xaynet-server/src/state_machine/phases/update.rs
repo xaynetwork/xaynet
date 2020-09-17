@@ -3,7 +3,6 @@ use std::sync::Arc;
 use xaynet_core::{
     mask::{Aggregation, MaskObject},
     LocalSeedDict,
-    PetError,
     SeedDict,
     SumDict,
     UpdateParticipantPublicKey,
@@ -14,6 +13,7 @@ use crate::state_machine::{
     phases::{Handler, Phase, PhaseName, PhaseState, Shared, StateError, Sum2},
     requests::{StateMachineRequest, UpdateRequest},
     StateMachine,
+    StateMachineError,
 };
 
 #[cfg(feature = "metrics")]
@@ -127,8 +127,8 @@ impl Handler for PhaseState<Update> {
     ///
     /// If the request is a [`StateMachineRequest::Sum`] or
     /// [`StateMachineRequest::Sum2`] request, the request sender will
-    /// receive a [`PetError::InvalidMessage`].
-    fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), PetError> {
+    /// receive a [`StateMachineError::MessageRejected`].
+    fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), StateMachineError> {
         match req {
             StateMachineRequest::Update(update_req) => {
                 metrics!(
@@ -137,7 +137,7 @@ impl Handler for PhaseState<Update> {
                 );
                 self.handle_update(update_req)
             }
-            _ => Err(PetError::InvalidMessage),
+            _ => Err(StateMachineError::MessageRejected),
         }
     }
 }
@@ -160,7 +160,7 @@ impl PhaseState<Update> {
 
     /// Handles an update request.
     /// If the handling of the update message fails, an error is returned to the request sender.
-    fn handle_update(&mut self, req: UpdateRequest) -> Result<(), PetError> {
+    fn handle_update(&mut self, req: UpdateRequest) -> Result<(), StateMachineError> {
         let UpdateRequest {
             participant_pk,
             local_seed_dict,
@@ -182,7 +182,7 @@ impl PhaseState<Update> {
         local_seed_dict: &LocalSeedDict,
         masked_model: MaskObject,
         masked_scalar: MaskObject,
-    ) -> Result<(), PetError> {
+    ) -> Result<(), StateMachineError> {
         // Check if aggregation can be performed. It is important to
         // do that _before_ updating the seed dictionary, because we
         // don't want to add the local seed dict if the corresponding
@@ -193,7 +193,7 @@ impl PhaseState<Update> {
             .validate_aggregation(&masked_model)
             .map_err(|e| {
                 warn!("model aggregation error: {}", e);
-                PetError::InvalidMessage
+                StateMachineError::AggregationFailed
             })?;
 
         debug!("checking whether the masked scalar can be aggregated");
@@ -202,7 +202,7 @@ impl PhaseState<Update> {
             .validate_aggregation(&masked_scalar)
             .map_err(|e| {
                 warn!("scalar aggregation error: {}", e);
-                PetError::InvalidMessage
+                StateMachineError::AggregationFailed
             })?;
 
         // Try to update local seed dict first. If this fail, we do
@@ -228,7 +228,7 @@ impl PhaseState<Update> {
         &mut self,
         pk: &UpdateParticipantPublicKey,
         local_seed_dict: &LocalSeedDict,
-    ) -> Result<(), PetError> {
+    ) -> Result<(), StateMachineError> {
         if local_seed_dict.keys().len() == self.inner.frozen_sum_dict.keys().len()
             && local_seed_dict
                 .keys()
@@ -245,13 +245,16 @@ impl PhaseState<Update> {
                 self.inner
                     .seed_dict
                     .get_mut(sum_pk)
-                    .ok_or(PetError::InvalidMessage)?
+                    // FIXME: the error is not very adapted here, it's
+                    // more an internal error. Could we not unwrap
+                    // here per the checks above?
+                    .ok_or(StateMachineError::InvalidLocalSeedDict)?
                     .insert(*pk, seed.clone());
             }
             Ok(())
         } else {
             warn!("invalid seed dictionary");
-            Err(PetError::InvalidMessage)
+            Err(StateMachineError::InvalidLocalSeedDict)
         }
     }
 

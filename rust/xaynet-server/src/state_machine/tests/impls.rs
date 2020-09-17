@@ -1,19 +1,17 @@
+use tracing::Span;
 use xaynet_core::message::Message;
 
-use crate::{
-    state_machine::{
-        events::{DictionaryUpdate, MaskLengthUpdate},
-        phases::{self, PhaseState},
-        requests::RequestSender,
-        StateMachine,
-        StateMachineResult,
-    },
-    utils::Request,
+use crate::state_machine::{
+    events::{DictionaryUpdate, MaskLengthUpdate},
+    phases::{self, PhaseState},
+    requests::RequestSender,
+    StateMachine,
+    StateMachineResult,
 };
 
 impl RequestSender {
     pub async fn msg(&self, msg: &Message) -> StateMachineResult {
-        self.request(Request::new(msg.clone())).await
+        self.request(msg.clone().into(), Span::none()).await
     }
 }
 

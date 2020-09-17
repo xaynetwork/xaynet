@@ -2,22 +2,13 @@ use std::task::{Context, Poll};
 
 use futures::future::{self, Ready};
 use tower::Service;
-use tracing::Span;
+use tracing_futures::{Instrument, Instrumented};
 
-use crate::{
-    state_machine::events::{EventListener, EventSubscriber, MaskLengthUpdate},
-    utils::Traceable,
-};
+use crate::state_machine::events::{EventListener, EventSubscriber, MaskLengthUpdate};
 
 /// [`MaskLengthService`]'s request type
 #[derive(Default, Clone, Eq, PartialEq, Debug)]
 pub struct MaskLengthRequest;
-
-impl Traceable for MaskLengthRequest {
-    fn make_span(&self) -> Span {
-        error_span!("mask_length_fetch_request")
-    }
-}
 
 /// [`MaskLengthService`]'s response type.
 ///
@@ -37,7 +28,7 @@ impl MaskLengthService {
 impl Service<MaskLengthRequest> for MaskLengthService {
     type Response = MaskLengthResponse;
     type Error = ::std::convert::Infallible;
-    type Future = Ready<Result<Self::Response, Self::Error>>;
+    type Future = Instrumented<Ready<Result<Self::Response, Self::Error>>>;
 
     fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         Poll::Ready(Ok(()))
@@ -48,5 +39,6 @@ impl Service<MaskLengthRequest> for MaskLengthService {
             MaskLengthUpdate::Invalidate => Ok(None),
             MaskLengthUpdate::New(mask_length) => Ok(Some(mask_length)),
         })
+        .instrument(error_span!("mask_length_fetch_request"))
     }
 }

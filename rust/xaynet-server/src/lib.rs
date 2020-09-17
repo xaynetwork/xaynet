@@ -94,8 +94,6 @@ pub mod services;
 pub mod settings;
 pub mod state_machine;
 pub mod storage;
-pub mod utils;
-pub(crate) mod vendor;
 
 #[cfg_attr(docsrs, doc(cfg(feature = "metrics")))]
 #[cfg(feature = "metrics")]

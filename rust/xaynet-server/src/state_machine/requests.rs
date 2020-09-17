@@ -27,10 +27,7 @@ use xaynet_core::{
 #[error("the RequestSender cannot be used because the state machine shut down")]
 pub struct StateMachineShutdown;
 
-use crate::{
-    state_machine::{StateMachineError, StateMachineResult},
-    utils::{Request, Traceable},
-};
+use crate::state_machine::{StateMachineError, StateMachineResult};
 
 /// A sum request.
 #[derive(Debug)]
@@ -75,17 +72,6 @@ pub enum StateMachineRequest {
     Sum2(Sum2Request),
 }
 
-impl Traceable for StateMachineRequest {
-    fn make_span(&self) -> Span {
-        let request_type = match self {
-            Self::Sum(_) => "sum",
-            Self::Update(_) => "update",
-            Self::Sum2(_) => "sum2",
-        };
-        error_span!("StateMachineRequest", request_type = request_type)
-    }
-}
-
 impl From<Message> for StateMachineRequest {
     fn from(message: Message) -> Self {
         let participant_pk = message.participant_pk;
@@ -122,7 +108,7 @@ impl From<Message> for StateMachineRequest {
 ///
 /// [`StateMachine`]: crate::state_machine
 #[derive(Clone, From, Debug)]
-pub struct RequestSender(mpsc::UnboundedSender<(Request<StateMachineRequest>, ResponseSender)>);
+pub struct RequestSender(mpsc::UnboundedSender<(StateMachineRequest, Span, ResponseSender)>);
 
 impl RequestSender {
     /// Sends a request to the [`StateMachine`].
@@ -132,12 +118,9 @@ impl RequestSender {
     /// closed as a result.
     ///
     /// [`StateMachine`]: crate::state_machine
-    pub async fn request<T: Into<StateMachineRequest> + Traceable>(
-        &self,
-        req: Request<T>,
-    ) -> StateMachineResult {
+    pub async fn request(&self, req: StateMachineRequest, span: Span) -> StateMachineResult {
         let (resp_tx, resp_rx) = oneshot::channel::<StateMachineResult>();
-        self.0.send((req.map(Into::into), resp_tx)).map_err(|_| {
+        self.0.send((req, span, resp_tx)).map_err(|_| {
             warn!("failed to send request to the state machine: state machine is shutting down");
             StateMachineError::InternalError
         })?;
@@ -159,10 +142,10 @@ pub(in crate::state_machine) type ResponseSender = oneshot::Sender<StateMachineR
 ///
 /// [`StateMachine`]: crate::state_machine
 #[derive(From, Debug)]
-pub struct RequestReceiver(mpsc::UnboundedReceiver<(Request<StateMachineRequest>, ResponseSender)>);
+pub struct RequestReceiver(mpsc::UnboundedReceiver<(StateMachineRequest, Span, ResponseSender)>);
 
 impl Stream for RequestReceiver {
-    type Item = (Request<StateMachineRequest>, ResponseSender);
+    type Item = (StateMachineRequest, Span, ResponseSender);
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
         trace!("RequestReceiver: polling");
@@ -174,7 +157,7 @@ impl RequestReceiver {
     /// Creates a new `Request` channel and returns the [`RequestReceiver`] as well as the
     /// [`RequestSender`] half.
     pub fn new() -> (Self, RequestSender) {
-        let (tx, rx) = mpsc::unbounded_channel::<(Request<StateMachineRequest>, ResponseSender)>();
+        let (tx, rx) = mpsc::unbounded_channel::<(StateMachineRequest, Span, ResponseSender)>();
         let receiver = RequestReceiver::from(rx);
         let handle = RequestSender::from(tx);
         (receiver, handle)
@@ -192,7 +175,7 @@ impl RequestReceiver {
     /// See [the `tokio` documentation][receive] for more information.
     ///
     /// [receive]: https://docs.rs/tokio/0.2.21/tokio/sync/mpsc/struct.UnboundedReceiver.html#method.recv
-    pub async fn recv(&mut self) -> Option<(Request<StateMachineRequest>, ResponseSender)> {
+    pub async fn recv(&mut self) -> Option<(StateMachineRequest, Span, ResponseSender)> {
         self.0.recv().await
     }
 
@@ -202,10 +185,8 @@ impl RequestReceiver {
     /// [try_receive]: https://docs.rs/tokio/0.2.21/tokio/sync/mpsc/struct.UnboundedReceiver.html#method.try_recv
     pub fn try_recv(
         &mut self,
-    ) -> Result<
-        (Request<StateMachineRequest>, ResponseSender),
-        tokio::sync::mpsc::error::TryRecvError,
-    > {
+    ) -> Result<(StateMachineRequest, Span, ResponseSender), tokio::sync::mpsc::error::TryRecvError>
+    {
         self.0.try_recv()
     }
 }

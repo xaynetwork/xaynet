@@ -27,12 +27,13 @@ use xaynet_core::{
     ParticipantPublicKey,
     ParticipantSecretKey,
     ParticipantTaskSignature,
-    PetError,
     SumDict,
     SumParticipantEphemeralPublicKey,
     SumParticipantEphemeralSecretKey,
     UpdateSeedDict,
 };
+
+use crate::PetError;
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 /// Tasks of a participant.
@@ -224,7 +225,10 @@ impl Participant {
     fn get_seeds(&self, seed_dict: &UpdateSeedDict) -> Result<Vec<MaskSeed>, PetError> {
         seed_dict
             .values()
-            .map(|seed| seed.decrypt(&self.ephm_pk, &self.ephm_sk))
+            .map(|seed| {
+                seed.decrypt(&self.ephm_pk, &self.ephm_sk)
+                    .map_err(|_| PetError::InvalidMask)
+            })
             .collect()
     }
 

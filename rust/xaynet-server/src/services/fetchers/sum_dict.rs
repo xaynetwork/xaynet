@@ -5,13 +5,10 @@ use std::{
 
 use futures::future::{self, Ready};
 use tower::Service;
-use tracing::Span;
+use tracing_futures::{Instrument, Instrumented};
 use xaynet_core::SumDict;
 
-use crate::{
-    state_machine::events::{DictionaryUpdate, EventListener, EventSubscriber},
-    utils::Traceable,
-};
+use crate::state_machine::events::{DictionaryUpdate, EventListener, EventSubscriber};
 
 /// A service that returns the sum dictionary for the current round.
 pub struct SumDictService(EventListener<DictionaryUpdate<SumDict>>);
@@ -19,12 +16,6 @@ pub struct SumDictService(EventListener<DictionaryUpdate<SumDict>>);
 /// [`SumDictService`]'s request type
 #[derive(Default, Clone, Eq, PartialEq, Debug)]
 pub struct SumDictRequest;
-
-impl Traceable for SumDictRequest {
-    fn make_span(&self) -> Span {
-        error_span!("sum_dict_fetch_request")
-    }
-}
 
 /// [`SumDictService`]'s response type.
 ///
@@ -41,7 +32,7 @@ impl SumDictService {
 impl Service<SumDictRequest> for SumDictService {
     type Response = SumDictResponse;
     type Error = std::convert::Infallible;
-    type Future = Ready<Result<Self::Response, Self::Error>>;
+    type Future = Instrumented<Ready<Result<Self::Response, Self::Error>>>;
 
     fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         Poll::Ready(Ok(()))
@@ -52,5 +43,6 @@ impl Service<SumDictRequest> for SumDictService {
             DictionaryUpdate::Invalidate => Ok(None),
             DictionaryUpdate::New(dict) => Ok(Some(dict)),
         })
+        .instrument(error_span!("sum_dict_fetch_request"))
     }
 }

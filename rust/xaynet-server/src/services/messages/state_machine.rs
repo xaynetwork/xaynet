@@ -1,26 +1,27 @@
-use std::{pin::Pin, task::Poll};
+use std::task::Poll;
 
-use futures::{future::Future, task::Context};
+use futures::task::Context;
 use tower::Service;
 use xaynet_core::message::Message;
 
 use crate::{
-    state_machine::{requests::RequestSender, StateMachineResult},
-    utils::Request,
+    services::messages::{BoxedServiceFuture, ServiceError},
+    state_machine::requests::RequestSender,
 };
 
-pub use crate::state_machine::{StateMachineError, StateMachineResult as StateMachineResponse};
+pub use crate::state_machine::StateMachineError;
 
 /// A service that hands the requests to the state machine
 /// ([`StateMachine`]) that runs in the
 /// background.
 ///
 /// [`StateMachine`]: crate::state_machine::StateMachine
-pub struct StateMachineService {
+#[derive(Debug, Clone)]
+pub struct StateMachine {
     handle: RequestSender,
 }
 
-impl StateMachineService {
+impl StateMachine {
     /// Create a new service with the given handle for forwarding
     /// requests to the state machine. The handle should be obtained
     /// via [`StateMachine::new`].
@@ -31,22 +32,22 @@ impl StateMachineService {
     }
 }
 
-/// Request type for [`StateMachineService`]
-pub type StateMachineRequest = Request<Message>;
-
-impl Service<StateMachineRequest> for StateMachineService {
-    type Response = StateMachineResult;
-    type Error = ::std::convert::Infallible;
-    #[allow(clippy::type_complexity)]
-    type Future =
-        Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + 'static + Send>>;
+impl Service<Message> for StateMachine {
+    type Response = ();
+    type Error = ServiceError;
+    type Future = BoxedServiceFuture<Self::Response, Self::Error>;
 
     fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, req: StateMachineRequest) -> Self::Future {
+    fn call(&mut self, req: Message) -> Self::Future {
         let handle = self.handle.clone();
-        Box::pin(async move { Ok(handle.request(req).await) })
+        Box::pin(async move {
+            handle
+                .request(req.into(), tracing::Span::none())
+                .await
+                .map_err(ServiceError::StateMachine)
+        })
     }
 }

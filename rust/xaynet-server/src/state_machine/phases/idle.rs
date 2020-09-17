@@ -1,7 +1,6 @@
 use xaynet_core::{
     common::RoundSeed,
     crypto::{ByteObject, EncryptKeyPair, SigningKeySeed},
-    PetError,
 };
 
 use crate::state_machine::{
@@ -10,6 +9,7 @@ use crate::state_machine::{
     requests::StateMachineRequest,
     StateError,
     StateMachine,
+    StateMachineError,
 };
 
 #[cfg(feature = "metrics")]
@@ -22,9 +22,9 @@ use sodiumoxide::crypto::hash::sha256;
 pub struct Idle;
 
 impl Handler for PhaseState<Idle> {
-    /// Reject the request with a [`PetError::InvalidMessage`]
-    fn handle_request(&mut self, _req: StateMachineRequest) -> Result<(), PetError> {
-        Err(PetError::InvalidMessage)
+    /// Reject the request with a [`StateMachineError::MessageRejected`]
+    fn handle_request(&mut self, _req: StateMachineRequest) -> Result<(), StateMachineError> {
+        Err(StateMachineError::MessageRejected)
     }
 }
 

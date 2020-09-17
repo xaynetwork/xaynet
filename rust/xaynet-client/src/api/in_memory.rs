@@ -7,24 +7,27 @@ use xaynet_core::{
     SumParticipantPublicKey,
     UpdateSeedDict,
 };
-use xaynet_server::services::{FetchError, Fetcher, PetMessageError, PetMessageHandler};
+use xaynet_server::services::{
+    fetchers::{FetchError, Fetcher},
+    messages::{PetMessageHandler, ServiceError},
+};
 
 /// A client that communicates with the coordinator's API via
 /// in-memory channels.
 pub struct InMemoryApiClient {
     fetcher: Box<dyn Fetcher + Send + Sync>,
-    message_handler: Box<dyn PetMessageHandler + Send + Sync>,
+    message_handler: PetMessageHandler,
 }
 
 impl InMemoryApiClient {
     #[allow(dead_code)]
     pub fn new(
         fetcher: impl Fetcher + 'static + Send + Sync,
-        message_handler: impl PetMessageHandler + 'static + Send + Sync,
+        message_handler: PetMessageHandler,
     ) -> Self {
         Self {
             fetcher: Box::new(fetcher),
-            message_handler: Box::new(message_handler),
+            message_handler: message_handler,
         }
     }
 }
@@ -33,7 +36,7 @@ impl InMemoryApiClient {
 #[derive(Debug, Error)]
 pub enum InMemoryApiClientError {
     #[error("a PET message could not be processed by the coordinator: {0}")]
-    Message(#[from] PetMessageError),
+    Message(#[from] ServiceError),
 
     #[error("failed to fetch data from the coordinator: {0}")]
     Fetch(#[from] FetchError),

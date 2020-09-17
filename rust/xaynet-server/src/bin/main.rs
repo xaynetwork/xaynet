@@ -65,8 +65,9 @@ async fn main() {
         metrics_sender,
     )
     .unwrap();
-    let fetcher = services::fetcher(&event_subscriber);
-    let message_handler = services::message_handler(&event_subscriber, requests_tx);
+    let fetcher = services::fetchers::fetcher(&event_subscriber);
+    let message_handler =
+        services::messages::PetMessageHandler::new(&event_subscriber, requests_tx);
 
     tokio::select! {
         _ = state_machine.run() => {
