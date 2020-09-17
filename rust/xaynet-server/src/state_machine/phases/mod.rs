@@ -294,10 +294,12 @@ impl<S> PhaseState<S> {
 mod tests {
     use super::*;
     use crate::state_machine::tests::utils;
+    use serial_test::serial;
 
-    #[test]
-    fn update_round_id() {
-        let (mut shared, event_subscriber, ..) = utils::init_shared();
+    #[tokio::test]
+    #[serial]
+    async fn integration_update_round_id() {
+        let (mut shared, event_subscriber, ..) = utils::init_shared().await;
 
         let phases = event_subscriber.phase_listener();
         // When starting the round ID should be 0

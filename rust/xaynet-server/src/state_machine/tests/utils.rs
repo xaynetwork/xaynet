@@ -15,6 +15,7 @@ use crate::{
         phases::{PhaseName, Shared},
         requests::{RequestReceiver, RequestSender},
     },
+    storage::redis,
 };
 use xaynet_client::{Participant, Task};
 
@@ -27,7 +28,7 @@ pub fn enable_logging() {
     let _fmt_subscriber = FmtSubscriber::builder()
         .with_env_filter(EnvFilter::from_default_env())
         .with_ansi(true)
-        .init();
+        .try_init();
 }
 
 pub fn generate_summer(seed: &RoundSeed, sum_ratio: f64, update_ratio: f64) -> Participant {
@@ -67,6 +68,10 @@ pub fn pet_settings() -> PetSettings {
         update: 0.5,
         min_sum_count: 1,
         min_update_count: 3,
+        min_sum_time: 1,
+        max_sum_time: 2,
+        min_update_time: 1,
+        max_update_time: 2,
         ..Default::default()
     }
 }
@@ -75,7 +80,10 @@ pub fn model_settings() -> ModelSettings {
     ModelSettings { size: 1 }
 }
 
-pub fn init_shared() -> (Shared, EventSubscriber, RequestSender) {
+pub async fn init_shared() -> (Shared, EventSubscriber, RequestSender, redis::Client) {
+    let redis = redis::Client::new("redis://127.0.0.1/", 10).await.unwrap();
+    redis.connection().await.flush_db().await.unwrap();
+
     let coordinator_state =
         CoordinatorState::new(pet_settings(), mask_settings(), model_settings());
 
@@ -92,11 +100,13 @@ pub fn init_shared() -> (Shared, EventSubscriber, RequestSender) {
             coordinator_state,
             event_publisher,
             request_rx,
+            redis.clone(),
             #[cfg(feature = "metrics")]
             MetricsSender(),
         ),
         event_subscriber,
         request_tx,
+        redis,
     )
 }
 

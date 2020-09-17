@@ -153,10 +153,12 @@ mod test {
         events::Event,
         tests::{builder::StateMachineBuilder, utils},
     };
+    use serial_test::serial;
 
     #[tokio::test]
-    async fn round_id_is_updated_when_idle_phase_runs() {
-        let (shared, event_subscriber, ..) = utils::init_shared();
+    #[serial]
+    async fn integration_round_id_is_updated_when_idle_phase_runs() {
+        let (shared, event_subscriber, ..) = utils::init_shared().await;
 
         let keys = event_subscriber.keys_listener();
         let id = keys.get_latest().round_id;
@@ -170,9 +172,10 @@ mod test {
     }
 
     #[tokio::test]
-    async fn idle_to_sum() {
-        let (state_machine, _request_tx, events) =
-            StateMachineBuilder::new().with_round_id(2).build();
+    #[serial]
+    async fn integration_idle_to_sum() {
+        let (state_machine, _request_tx, events, redis) =
+            StateMachineBuilder::new().await.with_round_id(2).build();
         assert!(state_machine.is_idle());
 
         let initial_round_params = events.params_listener().get_latest().event;
@@ -182,13 +185,10 @@ mod test {
         let state_machine = state_machine.next().await.unwrap();
         assert!(state_machine.is_sum());
 
-        let PhaseState {
-            inner: sum_state,
-            shared,
-            ..
-        } = state_machine.into_sum_phase_state();
+        let PhaseState { shared, .. } = state_machine.into_sum_phase_state();
 
-        assert!(sum_state.sum_dict().is_empty());
+        let sum_dict = redis.connection().await.get_sum_dict().await.unwrap();
+        assert!(sum_dict.is_empty());
 
         let new_round_params = shared.state.round_params.clone();
         let new_keys = shared.state.keys.clone();

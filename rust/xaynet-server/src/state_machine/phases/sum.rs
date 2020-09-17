@@ -155,15 +155,15 @@ mod test {
         events::Event,
         tests::{builder::StateMachineBuilder, utils},
     };
-    use xaynet_core::SumDict;
+    use serial_test::serial;
 
     #[tokio::test]
-    pub async fn sum_to_update() {
-        let sum = Sum {
-            sum_dict: SumDict::new(),
-            seed_dict: None,
-        };
-        let (state_machine, request_tx, events) = StateMachineBuilder::new()
+    #[serial]
+    pub async fn integration_sum_to_update() {
+        utils::enable_logging();
+        let sum = Sum { sum_count: 0 };
+        let (state_machine, request_tx, events, redis) = StateMachineBuilder::new()
+            .await
             .with_phase(sum)
             // Make sure anyone is a sum participant.
             .with_sum_ratio(1.0)
@@ -172,6 +172,8 @@ mod test {
             // update phase
             .with_min_sum(1)
             .with_model_size(4)
+            .with_min_sum_time(1)
+            .with_max_sum_time(2)
             .build();
         assert!(state_machine.is_sum());
 
@@ -196,13 +198,15 @@ mod test {
         } = state_machine.into_update_phase_state();
 
         // Check the initial state of the update phase.
-        assert_eq!(update_state.frozen_sum_dict().len(), 1);
-        let (pk, ephm_pk) = update_state.frozen_sum_dict().iter().next().unwrap();
+        let frozen_sum_dict = redis.connection().await.get_sum_dict().await.unwrap();
+        assert_eq!(frozen_sum_dict.len(), 1);
+        let (pk, ephm_pk) = frozen_sum_dict.iter().next().unwrap();
         assert_eq!(pk.clone(), summer.pk);
         assert_eq!(ephm_pk.clone(), utils::ephm_pk(&sum_msg));
 
-        assert_eq!(update_state.seed_dict().len(), 1);
-        let (pk, dict) = update_state.seed_dict().iter().next().unwrap();
+        let seed_dict = redis.connection().await.get_seed_dict().await.unwrap();
+        assert_eq!(seed_dict.len(), 1);
+        let (pk, dict) = seed_dict.iter().next().unwrap();
         assert_eq!(pk.clone(), summer.pk);
         assert!(dict.is_empty());
 

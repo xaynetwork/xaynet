@@ -217,6 +217,7 @@ mod test {
         events::Event,
         tests::{builder::StateMachineBuilder, utils},
     };
+    use serial_test::serial;
     use xaynet_core::{
         common::RoundSeed,
         crypto::{ByteObject, EncryptKeyPair},
@@ -225,7 +226,8 @@ mod test {
     };
 
     #[tokio::test]
-    pub async fn sum2_to_unmask() {
+    #[serial]
+    pub async fn integration_sum2_to_unmask() {
         let n_updaters = 1;
         let n_summers = 1;
         let seed = RoundSeed::generate();
@@ -240,7 +242,7 @@ mod test {
         let mut sum_dict = SumDict::new();
         sum_dict.insert(summer.pk, ephm_pk);
 
-        // Generate a new masked model, seed dictionary and aggregration
+        // Generate a new masked model, seed dictionary and aggregation
         let updater = utils::generate_updater(&seed, sum_ratio, update_ratio);
         let scalar = 1.0 / (n_updaters as f64 * update_ratio);
         let model = Model::from_primitives(vec![0; model_size].into_iter()).unwrap();
@@ -256,20 +258,22 @@ mod test {
 
         // Create the state machine
         let sum2 = Sum2 {
-            sum_dict,
             model_agg: aggregation,
             scalar_agg,
             model_mask_dict: MaskDict::new(),
             scalar_mask_dict: MaskDict::new(),
         };
 
-        let (state_machine, request_tx, events) = StateMachineBuilder::new()
+        let (state_machine, request_tx, events, _) = StateMachineBuilder::new()
+            .await
             .with_seed(seed.clone())
             .with_phase(sum2)
             .with_sum_ratio(sum_ratio)
             .with_update_ratio(update_ratio)
             .with_min_sum(n_summers)
             .with_min_update(n_updaters)
+            .with_min_sum_time(1)
+            .with_max_sum_time(2)
             .with_mask_config(utils::mask_settings().into())
             .build();
         assert!(state_machine.is_sum2());

@@ -245,23 +245,25 @@ impl PhaseState<Update> {
 
 #[cfg(test)]
 mod test {
-    use std::collections::HashMap;
-
     use super::*;
     use crate::state_machine::{
         events::Event,
         tests::{builder::StateMachineBuilder, utils},
     };
+    use serial_test::serial;
     use xaynet_core::{
         common::RoundSeed,
         crypto::{ByteObject, EncryptKeyPair},
         mask::{FromPrimitives, MaskObject, Model},
+        SeedDict,
         SumDict,
         UpdateSeedDict,
     };
 
     #[tokio::test]
-    pub async fn update_to_sum2() {
+    #[serial]
+    pub async fn integration_update_to_sum2() {
+        utils::enable_logging();
         let n_updaters = 1;
         let n_summers = 1;
         let seed = RoundSeed::generate();
@@ -282,27 +284,36 @@ mod test {
         let mut frozen_sum_dict = SumDict::new();
         frozen_sum_dict.insert(summer.pk, summer_ephm_pk);
 
-        let mut seed_dict = SeedDict::new();
-        seed_dict.insert(summer.pk, HashMap::new());
-        let aggregation = Aggregation::new(utils::mask_settings().into(), model_size);
+        let model_agg = Aggregation::new(utils::mask_settings().into(), model_size);
         let scalar_agg = Aggregation::new(utils::mask_settings().into(), 1);
         let update = Update {
-            frozen_sum_dict: frozen_sum_dict.clone(),
-            seed_dict: seed_dict.clone(),
-            model_agg: aggregation.clone(),
+            update_count: 0,
+            model_agg,
             scalar_agg,
         };
 
         // Create the state machine
-        let (state_machine, request_tx, events) = StateMachineBuilder::new()
+        let (state_machine, request_tx, events, redis) = StateMachineBuilder::new()
+            .await
             .with_seed(seed.clone())
             .with_phase(update)
             .with_sum_ratio(sum_ratio)
             .with_update_ratio(update_ratio)
             .with_min_sum(n_summers)
             .with_min_update(n_updaters)
+            .with_min_update_time(1)
+            .with_max_update_time(2)
             .with_mask_config(utils::mask_settings().into())
             .build();
+
+        // We need to add the sum participant to the sum_dict because the sum_pks are used
+        // to compose the seed_dict when fetching the seed_dict from redis.
+        redis
+            .connection()
+            .await
+            .add_sum_participant(&summer.pk, &summer_ephm_pk)
+            .await
+            .unwrap();
 
         assert!(state_machine.is_update());
 
@@ -330,7 +341,8 @@ mod test {
         // Check the initial state of the sum2 phase.
 
         // The sum dict should be unchanged
-        assert_eq!(sum2_state.sum_dict(), &frozen_sum_dict);
+        let sum_dict = redis.connection().await.get_sum_dict().await.unwrap();
+        assert_eq!(sum_dict, frozen_sum_dict);
         // We have only one updater, so the aggregation should contain
         // the masked model from that updater
         assert_eq!(
