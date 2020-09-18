@@ -32,8 +32,14 @@ pub enum UnmaskingError {
     #[error("too many models were aggregated for the current unmasking configuration")]
     TooManyModels,
 
+    #[error("too many scalars were aggregated for the current unmasking configuration")]
+    TooManyScalars,
+
     #[error("the masked model is incompatible with the mask used for unmasking")]
-    MaskMismatch,
+    MaskManyMismatch,
+
+    #[error("the masked scalar is incompatible with the mask used for unmasking")]
+    MaskOneMismatch,
 
     #[error("the mask is invalid")]
     InvalidMask,
@@ -42,7 +48,7 @@ pub enum UnmaskingError {
 #[derive(Debug, Error)]
 /// Errors related to the aggregation of masks and models.
 pub enum AggregationError {
-    // TODO rename Model -> Vector
+    // TODO rename Model -> Vector; or use MaskMany/One terminology
     #[error("the object to aggregate is invalid")]
     InvalidObject,
 
@@ -131,8 +137,7 @@ impl Aggregation {
     /// - a masked model may unmask another masked model
     ///
     /// [`unmask()`]: #method.unmask
-    pub fn validate_unmasking(&self, mask: &MaskMany) -> Result<(), UnmaskingError> {
-        // TODO later: mask is MaskObject
+    pub fn validate_unmasking(&self, mask: &MaskObject) -> Result<(), UnmaskingError> {
         // We cannot perform unmasking without at least one real model
         if self.nb_models == 0 {
             return Err(UnmaskingError::NoModel);
@@ -141,12 +146,20 @@ impl Aggregation {
         if self.nb_models > self.object.vector.config.model_type.max_nb_models() {
             return Err(UnmaskingError::TooManyModels);
         }
-        // TODO analogous check for scalar - could fail independently!
 
-        if self.object.vector.config != mask.config || self.object_size != mask.data.len() {
-            return Err(UnmaskingError::MaskMismatch);
+        if self.nb_models > self.object.scalar.config.model_type.max_nb_models() {
+            return Err(UnmaskingError::TooManyScalars);
         }
-        // TODO similar config check for scalar
+
+        if self.object.vector.config != mask.vector.config
+            || self.object_size != mask.vector.data.len()
+        {
+            return Err(UnmaskingError::MaskManyMismatch);
+        }
+
+        if self.object.scalar.config != mask.scalar.config {
+            return Err(UnmaskingError::MaskOneMismatch);
+        }
 
         if !mask.is_valid() {
             return Err(UnmaskingError::InvalidMask);
@@ -174,15 +187,18 @@ impl Aggregation {
     ///
     /// [`validate_unmasking()`]: #method.validate_unmasking
     /// [`mask()`]: struct.Masker.html#method.mask
-    pub fn unmask(mut self, mask: MaskMany) -> Model {
-        let scaled_add_shift = self.object.vector.config.add_shift() * BigInt::from(self.nb_models);
-        let exp_shift = self.object.vector.config.exp_shift();
-        let order = self.object.vector.config.order();
-        self.object
+    pub fn unmask(mut self, mask_obj: MaskObject) -> Model {
+        // unmask (over-scaled) global model
+        let scaled_add_shift_n =
+            self.object.vector.config.add_shift() * BigInt::from(self.nb_models);
+        let exp_shift_n = self.object.vector.config.exp_shift();
+        let order_n = self.object.vector.config.order();
+        let model: Model = self
+            .object
             .vector
             .data
             .drain(..)
-            .zip(mask.data.into_iter())
+            .zip(mask_obj.vector.data.into_iter())
             .map(|(masked_weight, mask)| {
                 // PANIC_SAFE: The substraction panics if it
                 // underflows, which can only happen if:
@@ -192,16 +208,34 @@ impl Aggregation {
                 // If the mask is valid, we are guaranteed that this
                 // cannot happen. Thus this method may panic only if
                 // given an invalid mask.
-                let n = (masked_weight + &order - mask) % &order;
+                let n = (masked_weight + &order_n - mask) % &order_n;
 
                 // UNWRAP_SAFE: to_bigint never fails for BigUint
                 let ratio = Ratio::<BigInt>::from(n.to_bigint().unwrap());
 
-                ratio / &exp_shift - &scaled_add_shift
+                ratio / &exp_shift_n - &scaled_add_shift_n
             })
+            .collect();
+
+        // unmask scalar sum
+        let scaled_add_shift_1 =
+            self.object.scalar.config.add_shift() * BigInt::from(self.nb_models);
+        let exp_shift_1 = self.object.scalar.config.exp_shift();
+        let order_1 = self.object.scalar.config.order();
+        let masked = self.object.scalar.data;
+        let mask = mask_obj.scalar.data;
+        let n = (masked + &order_1 - mask) % &order_1;
+        let ratio = Ratio::<BigInt>::from(n.to_bigint().unwrap());
+        let scalar_sum = ratio / &exp_shift_1 - &scaled_add_shift_1;
+
+        // apply scaling correction
+        model
+            .into_iter()
+            .map(|weight| weight / &scalar_sum)
             .collect()
     }
 
+    // TODO remove
     /// Applies a correction to the given unmasked model based on the associated
     /// unmasked scalar sum, in order to scale it correctly.
     ///
