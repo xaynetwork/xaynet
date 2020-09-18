@@ -165,8 +165,6 @@ impl PhaseState<Update> {
         local_seed_dict: &LocalSeedDict,
         mask_object: MaskObject,
     ) -> Result<(), StateMachineError> {
-        // TODO tidy up later
-        let masked_model = mask_object.vector;
         // Check if aggregation can be performed. It is important to
         // do that _before_ updating the seed dictionary, because we
         // don't want to add the local seed dict if the corresponding
@@ -174,21 +172,11 @@ impl PhaseState<Update> {
         debug!("checking whether the masked model can be aggregated");
         self.inner
             .model_agg
-            .validate_aggregation(&masked_model)
+            .validate_aggregation(&mask_object)
             .map_err(|e| {
                 warn!("model aggregation error: {}", e);
                 StateMachineError::AggregationFailed
             })?;
-
-        // TODO remove, subsumed by above
-        // debug!("checking whether the masked scalar can be aggregated");
-        // self.inner
-        //     .scalar_agg
-        //     .validate_aggregation(&masked_scalar)
-        //     .map_err(|e| {
-        //         warn!("scalar aggregation error: {}", e);
-        //         StateMachineError::AggregationFailed
-        //     })?;
 
         // Try to update local seed dict first. If this fail, we do
         // not want to aggregate the model.
@@ -201,8 +189,7 @@ impl PhaseState<Update> {
             })?;
 
         info!("aggregating the masked model and scalar");
-        self.inner.model_agg.aggregate(masked_model);
-        // self.inner.scalar_agg.aggregate(masked_scalar);
+        self.inner.model_agg.aggregate(mask_object);
         Ok(())
     }
 

@@ -42,14 +42,21 @@ pub enum UnmaskingError {
 #[derive(Debug, Error)]
 /// Errors related to the aggregation of masks and models.
 pub enum AggregationError {
-    #[error("the model to aggregate is invalid")]
-    InvalidModel,
+    // TODO rename Model -> Vector
+    #[error("the object to aggregate is invalid")]
+    InvalidObject,
 
     #[error("too many models were aggregated for the current unmasking configuration")]
     TooManyModels,
 
-    #[error("the model to aggregate is incompatible with the current aggregated model")]
+    #[error("too many scalars were aggregated for the current unmasking configuration")]
+    TooManyScalars,
+
+    #[error("the model to aggregate is incompatible with the current aggregated scalar")]
     ModelMismatch,
+
+    #[error("the scalar to aggregate is incompatible with the current aggregated scalar")]
+    ScalarMismatch,
 }
 
 #[derive(Debug, Clone)]
@@ -92,13 +99,15 @@ impl Aggregation {
         self.object_size
     }
 
-    /// Gets the masking configuration of the aggregator.
-    pub fn config(&self) -> MaskConfig {
-        // TODO rename to config_many or sth
+    /// Gets the masking configuration of the vector aggregator.
+    pub fn config_many(&self) -> MaskConfig {
         self.object.vector.config
     }
 
-    // TODO config_one
+    /// Gets the masking configuration of the scalar aggregator.
+    pub fn config_one(&self) -> MaskConfig {
+        self.object.scalar.config
+    }
 
     /// Validates if unmasking of the aggregated masked model with the given `mask` may be
     /// safely performed.
@@ -229,13 +238,16 @@ impl Aggregation {
     /// model.
     ///
     /// [`aggregate()`]: #method.aggregate
-    pub fn validate_aggregation(&self, object: &MaskMany) -> Result<(), AggregationError> {
-        // TODO object should be MaskObject; adjust checks below
-        if self.object.vector.config != object.config {
+    pub fn validate_aggregation(&self, object: &MaskObject) -> Result<(), AggregationError> {
+        if self.object.vector.config != object.vector.config {
             return Err(AggregationError::ModelMismatch);
         }
 
-        if self.object_size != object.data.len() {
+        if self.object.scalar.config != object.scalar.config {
+            return Err(AggregationError::ScalarMismatch);
+        }
+
+        if self.object_size != object.vector.data.len() {
             return Err(AggregationError::ModelMismatch);
         }
 
@@ -243,8 +255,12 @@ impl Aggregation {
             return Err(AggregationError::TooManyModels);
         }
 
+        if self.nb_models >= self.object.scalar.config.model_type.max_nb_models() {
+            return Err(AggregationError::TooManyScalars);
+        }
+
         if !object.is_valid() {
-            return Err(AggregationError::InvalidModel);
+            return Err(AggregationError::InvalidObject);
         }
 
         Ok(())
@@ -261,23 +277,29 @@ impl Aggregation {
     /// [`validate_aggregation()`] returns `true`.
     ///
     /// [`validate_aggregation()`]: #method.validate_aggregation
-    pub fn aggregate(&mut self, object: MaskMany) {
+    pub fn aggregate(&mut self, object: MaskObject) {
         if self.nb_models == 0 {
-            self.object.vector = object;
+            self.object.vector = object.vector;
             self.nb_models = 1;
             return;
         }
 
-        let order = self.object.vector.config.order();
+        let order_n = self.object.vector.config.order();
         for (i, j) in self
             .object
             .vector
             .data
             .iter_mut()
-            .zip(object.data.into_iter())
+            .zip(object.vector.data.into_iter())
         {
-            *i = (&*i + j) % &order
+            *i = (&*i + j) % &order_n
         }
+
+        let order_1 = self.object.scalar.config.order();
+        let a = &mut self.object.scalar.data;
+        let b = object.scalar.data;
+        *a = (&*a + b) % &order_1;
+
         self.nb_models += 1;
     }
 }

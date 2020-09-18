@@ -87,10 +87,10 @@ impl Participant<Sum2> {
         for seed in mask_seeds.into_iter() {
             let mask = seed.derive_mask(mask_len, config, config);
             mask_agg
-                .validate_aggregation(&mask.vector)
+                .validate_aggregation(&mask)
                 .map_err(|_| PetError::InvalidMask)?;
 
-            mask_agg.aggregate(mask.vector);
+            mask_agg.aggregate(mask);
         }
         Ok(mask_agg.into())
     }

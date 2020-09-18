@@ -217,10 +217,10 @@ impl Participant {
             let mask = seed.derive_mask(mask_len, mask_config, mask_config);
 
             mask_agg
-                .validate_aggregation(&mask.vector)
+                .validate_aggregation(&mask)
                 .map_err(|_| PetError::InvalidMask)?;
 
-            mask_agg.aggregate(mask.vector);
+            mask_agg.aggregate(mask);
         }
         Ok(mask_agg.into())
     }
