@@ -3,7 +3,8 @@ use xaynet_core::{
     crypto::ByteObject,
     mask::{BoundType, DataType, GroupType, MaskMany, ModelType},
     message::{Message, Payload, Sum, Update},
-    LocalSeedDict, SumParticipantEphemeralPublicKey,
+    LocalSeedDict,
+    SumParticipantEphemeralPublicKey,
 };
 
 use crate::{

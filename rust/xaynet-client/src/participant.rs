@@ -152,8 +152,7 @@ impl Participant {
         let mask = self.compute_global_mask(mask_seeds, mask_len, dummy_config())?;
         let payload = Sum2 {
             sum_signature: self.sum_signature,
-            model_mask: mask.vector,
-            scalar_mask: mask.scalar.into(),
+            model_mask: mask,
         };
         Ok(Message::new_sum2(self.pk, coordinator_pk, payload))
     }

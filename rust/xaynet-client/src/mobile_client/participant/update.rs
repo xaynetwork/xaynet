@@ -2,7 +2,10 @@ use super::{Participant, ParticipantState};
 use xaynet_core::{
     mask::{MaskObject, MaskSeed, Masker, Model},
     message::{Message, Update as UpdateMessage},
-    CoordinatorPublicKey, LocalSeedDict, ParticipantTaskSignature, SumDict,
+    CoordinatorPublicKey,
+    LocalSeedDict,
+    ParticipantTaskSignature,
+    SumDict,
 };
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Update {
@@ -70,7 +73,8 @@ mod tests {
     use std::{collections::HashMap, iter};
     use xaynet_core::{
         crypto::{ByteObject, EncryptKeyPair},
-        SumParticipantEphemeralPublicKey, SumParticipantEphemeralSecretKey,
+        SumParticipantEphemeralPublicKey,
+        SumParticipantEphemeralSecretKey,
         SumParticipantPublicKey,
     };
 

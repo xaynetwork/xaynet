@@ -10,7 +10,7 @@ use anyhow::{anyhow, Context};
 
 use crate::{
     crypto::ByteObject,
-    mask::object::{serialization::MaskObjectBuffer, MaskMany},
+    mask::object::{serialization::MaskObjectBuffer, MaskMany, MaskObject, MaskOne},
     message::{
         traits::{FromBytes, ToBytes},
         utils::range,
@@ -152,34 +152,40 @@ pub struct Sum2 {
     pub sum_signature: ParticipantTaskSignature,
 
     /// A model mask computed by the participant.
-    pub model_mask: MaskMany,
-
-    /// A scalar mask computed by the participant.
-    pub scalar_mask: MaskMany,
+    pub model_mask: MaskObject,
 }
 
+// TODO ToBytes impl for MaskObject
 impl ToBytes for Sum2 {
     fn buffer_length(&self) -> usize {
-        SUM_SIGNATURE_RANGE.end + self.model_mask.buffer_length() + self.scalar_mask.buffer_length()
+        SUM_SIGNATURE_RANGE.end
+            + self.model_mask.vector.buffer_length()
+            + self.model_mask.scalar.buffer_length()
     }
 
     fn to_bytes<T: AsMut<[u8]> + AsRef<[u8]>>(&self, buffer: &mut T) {
         let mut writer = Sum2Buffer::new_unchecked(buffer.as_mut());
         self.sum_signature.to_bytes(&mut writer.sum_signature_mut());
-        self.model_mask.to_bytes(&mut writer.model_mask_mut());
-        self.scalar_mask.to_bytes(&mut writer.scalar_mask_mut());
+        self.model_mask
+            .vector
+            .to_bytes(&mut writer.model_mask_mut());
+        self.model_mask
+            .scalar
+            .to_bytes(&mut writer.scalar_mask_mut());
     }
 }
 
+// TODO FromBytes impl for MaskObject
 impl FromBytes for Sum2 {
     fn from_bytes<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
         let reader = Sum2Buffer::new(buffer.as_ref())?;
         Ok(Self {
             sum_signature: ParticipantTaskSignature::from_bytes(&reader.sum_signature())
                 .context("invalid sum signature")?,
-            model_mask: MaskMany::from_bytes(&reader.model_mask()).context("invalid model mask")?,
-            scalar_mask: MaskMany::from_bytes(&reader.scalar_mask())
-                .context("invalid scalar mask")?,
+            model_mask: MaskObject::new(
+                MaskMany::from_bytes(&reader.model_mask()).context("invalid model mask")?,
+                MaskOne::from_bytes(&reader.scalar_mask()).context("invalid scalar mask")?,
+            ),
         })
     }
 }

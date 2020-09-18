@@ -18,8 +18,10 @@ use thiserror::Error;
 use crate::{
     crypto::{prng::generate_integer, ByteObject},
     mask::{
-        config::MaskConfig, model::float_to_ratio_bounded, model::Model, object::MaskMany,
-        object::MaskObject, object::MaskOne, seed::MaskSeed,
+        config::MaskConfig,
+        model::{float_to_ratio_bounded, Model},
+        object::{MaskMany, MaskObject, MaskOne},
+        seed::MaskSeed,
     },
 };
 

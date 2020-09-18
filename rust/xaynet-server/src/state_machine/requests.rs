@@ -13,10 +13,12 @@ use thiserror::Error;
 use tokio::sync::{mpsc, oneshot};
 use tracing::Span;
 use xaynet_core::{
-    mask::MaskMany,
     mask::MaskObject,
     message::{Message, Payload, Update},
-    LocalSeedDict, ParticipantPublicKey, SumParticipantEphemeralPublicKey, SumParticipantPublicKey,
+    LocalSeedDict,
+    ParticipantPublicKey,
+    SumParticipantEphemeralPublicKey,
+    SumParticipantPublicKey,
     UpdateParticipantPublicKey,
 };
 
@@ -53,9 +55,7 @@ pub struct Sum2Request {
     /// The public key of the participant.
     pub participant_pk: ParticipantPublicKey,
     /// The model mask computed by the participant.
-    pub model_mask: MaskMany,
-    /// The scalar mask computed by the participant.
-    pub scalar_mask: MaskMany,
+    pub model_mask: MaskObject,
 }
 
 /// A [`StateMachine`] request.
@@ -91,7 +91,6 @@ impl From<Message> for StateMachineRequest {
             Payload::Sum2(sum2) => StateMachineRequest::Sum2(Sum2Request {
                 participant_pk,
                 model_mask: sum2.model_mask,
-                scalar_mask: sum2.scalar_mask,
             }),
             Payload::Chunk(_) => unimplemented!(),
         }

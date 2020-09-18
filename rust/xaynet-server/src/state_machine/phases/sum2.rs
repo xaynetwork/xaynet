@@ -1,5 +1,5 @@
 use xaynet_core::{
-    mask::{Aggregation, MaskMany},
+    mask::{Aggregation, MaskObject},
     SumParticipantPublicKey,
 };
 
@@ -22,10 +22,7 @@ pub struct Sum2 {
     model_agg: Aggregation,
 
     /// The model mask dictionary built during the sum2 phase.
-    model_mask_dict: MaskDict,
-
-    /// The scalar mask dictionary built during the sum2 phase.
-    scalar_mask_dict: MaskDict,
+    mask_dict: MaskDict,
 }
 
 #[cfg(test)]
@@ -35,7 +32,7 @@ impl Sum2 {
     }
 
     pub fn mask_dict(&self) -> &MaskDict {
-        &self.model_mask_dict
+        &self.mask_dict
     }
 
     pub fn scalar_agg(&self) -> &Aggregation {
@@ -78,13 +75,8 @@ where
     /// See the [module level documentation](../index.html) for more details.
     fn next(self) -> Option<StateMachine> {
         Some(
-            PhaseState::<Unmask>::new(
-                self.shared,
-                self.inner.model_agg,
-                self.inner.model_mask_dict,
-                self.inner.scalar_mask_dict,
-            )
-            .into(),
+            PhaseState::<Unmask>::new(self.shared, self.inner.model_agg, self.inner.mask_dict)
+                .into(),
         )
     }
 }
@@ -135,8 +127,7 @@ impl PhaseState<Sum2> {
         Self {
             inner: Sum2 {
                 model_agg,
-                model_mask_dict: MaskDict::new(),
-                scalar_mask_dict: MaskDict::new(),
+                mask_dict: MaskDict::new(),
             },
             shared,
         }
@@ -148,9 +139,8 @@ impl PhaseState<Sum2> {
         let Sum2Request {
             participant_pk,
             model_mask,
-            scalar_mask,
         } = req;
-        self.add_mask(&participant_pk, model_mask, scalar_mask)
+        self.add_mask(&participant_pk, model_mask)
     }
 
     /// Adds a mask to the mask dictionary.
@@ -160,8 +150,7 @@ impl PhaseState<Sum2> {
     fn add_mask(
         &mut self,
         _pk: &SumParticipantPublicKey,
-        model_mask: MaskMany,
-        scalar_mask: MaskMany,
+        mask: MaskObject,
     ) -> Result<(), StateMachineError> {
         // We remove the participant key here to make sure a participant
         // cannot submit a mask multiple times
@@ -171,31 +160,17 @@ impl PhaseState<Sum2> {
         //     return Err(StateMachineError::MessageRejected);
         // }
 
-        if let Some(count) = self.inner.model_mask_dict.get_mut(&model_mask) {
+        if let Some(count) = self.inner.mask_dict.get_mut(&mask) {
             *count += 1;
         } else {
-            self.inner.model_mask_dict.insert(model_mask, 1);
-        }
-
-        if let Some(count) = self.inner.scalar_mask_dict.get_mut(&scalar_mask) {
-            *count += 1;
-        } else {
-            self.inner.scalar_mask_dict.insert(scalar_mask, 1);
+            self.inner.mask_dict.insert(mask, 1);
         }
 
         Ok(())
     }
 
     fn mask_count(&self) -> usize {
-        let sum1 = self.inner.model_mask_dict.values().sum();
-        let sum2: usize = self.inner.scalar_mask_dict.values().sum();
-        if sum1 != sum2 {
-            warn!(
-                "unexpected difference in mask sum count: {} vs {}",
-                sum1, sum2
-            );
-        }
-        sum1
+        self.inner.mask_dict.values().sum()
     }
 
     /// Checks whether enough sum participants submitted their masks to start the idle phase.
@@ -254,7 +229,7 @@ mod test {
         let sum2 = Sum2 {
             model_agg: aggregation,
             scalar_agg,
-            model_mask_dict: MaskDict::new(),
+            mask_dict: MaskDict::new(),
             scalar_mask_dict: MaskDict::new(),
         };
 

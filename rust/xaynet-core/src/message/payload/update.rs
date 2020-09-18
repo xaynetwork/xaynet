@@ -10,7 +10,7 @@ use anyhow::{anyhow, Context};
 
 use crate::{
     crypto::ByteObject,
-    mask::object::{serialization::MaskObjectBuffer, MaskMany, MaskObject, MaskOne}, // TODO remove MaskMany
+    mask::object::{serialization::MaskObjectBuffer, MaskMany, MaskObject, MaskOne},
     message::{
         traits::{FromBytes, LengthValueBuffer, ToBytes},
         utils::range,
@@ -250,7 +250,7 @@ impl FromBytes for Update {
             update_signature: ParticipantTaskSignature::from_bytes(&reader.update_signature())
                 .context("invalid update signature")?,
             masked_model: MaskObject::new(
-                // TODO FromBytes for MaskObject will deal with this
+                // TODO perhaps a FromBytes for MaskObject can deal with this?
                 MaskMany::from_bytes(&reader.masked_model()).context("invalid masked model")?,
                 MaskOne::from_bytes(&reader.masked_scalar()).context("invalid masked scalar")?,
             ),
