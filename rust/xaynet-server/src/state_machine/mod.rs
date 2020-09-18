@@ -115,12 +115,13 @@ use self::{
     },
     requests::{RequestReceiver, RequestSender},
 };
-
+use crate::{
+    settings::{MaskSettings, ModelSettings, PetSettings},
+    storage::{redis, redis::RedisError},
+};
 use derive_more::From;
 use thiserror::Error;
 use xaynet_core::{mask::UnmaskingError, InitError};
-
-use crate::settings::{MaskSettings, ModelSettings, PetSettings};
 
 #[cfg(feature = "metrics")]
 use crate::metrics::MetricsSender;
@@ -139,6 +140,9 @@ pub enum StateMachineError {
 
     #[error("the request could not be processed due to an internal error")]
     InternalError,
+
+    #[error("Redis failed: {0}")]
+    Redis(#[from] RedisError),
 }
 
 pub type StateMachineResult = Result<(), StateMachineError>;
@@ -203,6 +207,7 @@ where
         pet_settings: PetSettings,
         mask_settings: MaskSettings,
         model_settings: ModelSettings,
+        redis: redis::Client,
         #[cfg(feature = "metrics")] metrics_tx: MetricsSender,
     ) -> Result<(Self, RequestSender, EventSubscriber), InitError> {
         // crucial: init must be called before anything else in this module
@@ -221,6 +226,7 @@ where
             coordinator_state,
             event_publisher,
             req_receiver,
+            redis,
             #[cfg(feature = "metrics")]
             metrics_tx,
         );

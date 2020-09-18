@@ -1,6 +1,5 @@
 use xaynet_core::{
     mask::{Aggregation, MaskObject},
-    SumDict,
     SumParticipantPublicKey,
 };
 
@@ -20,9 +19,6 @@ use tokio::time::{timeout, Duration};
 /// Sum2 state
 #[derive(Debug)]
 pub struct Sum2 {
-    /// The sum dictionary built during the sum phase.
-    sum_dict: SumDict,
-
     /// The aggregator for masked models.
     model_agg: Aggregation,
 
@@ -38,10 +34,6 @@ pub struct Sum2 {
 
 #[cfg(test)]
 impl Sum2 {
-    pub fn sum_dict(&self) -> &SumDict {
-        &self.sum_dict
-    }
-
     pub fn aggregation(&self) -> &Aggregation {
         &self.model_agg
     }
@@ -120,13 +112,14 @@ where
     }
 }
 
+#[async_trait]
 impl Handler for PhaseState<Sum2> {
     /// Handles a [`StateMachineRequest`],
     ///
     /// If the request is a [`StateMachineRequest::Sum`] or
     /// [`StateMachineRequest::Update`] request, the request sender
     /// will receive a [`StateMachineError::MessageRejected`].
-    fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), StateMachineError> {
+    async fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), StateMachineError> {
         match req {
             StateMachineRequest::Sum2(sum2_req) => {
                 metrics!(
@@ -142,16 +135,10 @@ impl Handler for PhaseState<Sum2> {
 
 impl PhaseState<Sum2> {
     /// Creates a new sum2 state.
-    pub fn new(
-        shared: Shared,
-        sum_dict: SumDict,
-        model_agg: Aggregation,
-        scalar_agg: Aggregation,
-    ) -> Self {
+    pub fn new(shared: Shared, model_agg: Aggregation, scalar_agg: Aggregation) -> Self {
         info!("state transition");
         Self {
             inner: Sum2 {
-                sum_dict,
                 model_agg,
                 scalar_agg,
                 model_mask_dict: MaskDict::new(),
@@ -178,15 +165,17 @@ impl PhaseState<Sum2> {
     /// Fails if the sum participant didn't register in the sum phase or it is a repetition.
     fn add_mask(
         &mut self,
-        pk: &SumParticipantPublicKey,
+        _pk: &SumParticipantPublicKey,
         model_mask: MaskObject,
         scalar_mask: MaskObject,
     ) -> Result<(), StateMachineError> {
         // We remove the participant key here to make sure a participant
         // cannot submit a mask multiple times
-        if self.inner.sum_dict.remove(pk).is_none() {
-            return Err(StateMachineError::MessageRejected);
-        }
+
+        // FIXME: reactivate the check when the mask dict is moved into Redis
+        // if self.inner.sum_dict.remove(pk).is_none() {
+        //     return Err(StateMachineError::MessageRejected);
+        // }
 
         if let Some(count) = self.inner.model_mask_dict.get_mut(&model_mask) {
             *count += 1;

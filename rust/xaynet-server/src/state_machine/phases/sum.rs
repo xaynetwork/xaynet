@@ -1,13 +1,14 @@
 use std::sync::Arc;
 
-use xaynet_core::{LocalSeedDict, SeedDict, SumDict};
-
-use crate::state_machine::{
-    events::DictionaryUpdate,
-    phases::{Handler, Phase, PhaseName, PhaseState, Shared, StateError, Update},
-    requests::{StateMachineRequest, SumRequest},
-    StateMachine,
-    StateMachineError,
+use crate::{
+    state_machine::{
+        events::DictionaryUpdate,
+        phases::{Handler, Phase, PhaseName, PhaseState, Shared, StateError, Update},
+        requests::{StateMachineRequest, SumRequest},
+        StateMachine,
+        StateMachineError,
+    },
+    storage::AddSumParticipant,
 };
 
 #[cfg(feature = "metrics")]
@@ -18,34 +19,24 @@ use tokio::time::{timeout, Duration};
 /// Sum state
 #[derive(Debug)]
 pub struct Sum {
-    /// Dictionary built during the sum phase.
-    sum_dict: SumDict,
-    /// Seed dictionary built at the end of the sum phase.
-    seed_dict: Option<SeedDict>,
+    sum_count: usize,
 }
 
-#[cfg(test)]
-impl Sum {
-    pub fn sum_dict(&self) -> &SumDict {
-        &self.sum_dict
-    }
-}
-
+#[async_trait]
 impl Handler for PhaseState<Sum> {
     /// Handles a [`StateMachineRequest`].
     ///
     /// If the request is a [`StateMachineRequest::Update`] or
     /// [`StateMachineRequest::Sum2`] request, the request sender will receive a
     /// [`StateMachineError::MessageRejected`].
-    fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), StateMachineError> {
+    async fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), StateMachineError> {
         match req {
             StateMachineRequest::Sum(sum_req) => {
                 metrics!(
                     self.shared.io.metrics_tx,
                     metrics::message::sum::increment(self.shared.state.round_id, Self::NAME)
                 );
-                self.handle_sum(sum_req);
-                Ok(())
+                self.handle_sum(sum_req).await
             }
             _ => Err(StateMachineError::MessageRejected),
         }
@@ -72,33 +63,28 @@ where
 
         info!(
             "{} sum messages handled (min {} required)",
-            self.inner.sum_dict.len(),
-            self.shared.state.min_sum_count
+            self.inner.sum_count, self.shared.state.min_sum_count
         );
-        self.freeze_sum_dict();
+
+        let sum_dict = self
+            .shared
+            .io
+            .redis
+            .connection()
+            .await
+            .get_sum_dict()
+            .await?;
+
+        info!("broadcasting sum dictionary");
+        self.shared
+            .io
+            .events
+            .broadcast_sum_dict(DictionaryUpdate::New(Arc::new(sum_dict)));
         Ok(())
     }
 
     fn next(self) -> Option<StateMachine> {
-        let Self {
-            inner: Sum {
-                sum_dict,
-                seed_dict,
-            },
-            shared,
-        } = self;
-
-        Some(
-            PhaseState::<Update>::new(
-                shared,
-                sum_dict,
-                // `next()` is called at the end of the sum phase, at
-                // which point a new seed dictionary has been build,
-                // so there's something to unwrap here.
-                seed_dict.unwrap(),
-            )
-            .into(),
-        )
+        Some(PhaseState::<Update>::new(self.shared).into())
     }
 }
 
@@ -111,8 +97,7 @@ where
         while !self.has_enough_sums() {
             debug!(
                 "{} sum messages handled (min {} required)",
-                self.inner.sum_dict.len(),
-                self.shared.state.min_sum_count,
+                self.inner.sum_count, self.shared.state.min_sum_count,
             );
             self.process_single().await?;
         }
@@ -125,45 +110,41 @@ impl PhaseState<Sum> {
     pub fn new(shared: Shared) -> Self {
         info!("state transition");
         Self {
-            inner: Sum {
-                sum_dict: SumDict::new(),
-                seed_dict: None,
-            },
+            inner: Sum { sum_count: 0 },
             shared,
         }
     }
 
     /// Handles a sum request.
-    fn handle_sum(&mut self, req: SumRequest) {
+    ///
+    /// # Error
+    /// Fails if the sum participant cannot be added due to a Redis error.
+    async fn handle_sum(&mut self, req: SumRequest) -> Result<(), StateMachineError> {
         let SumRequest {
             participant_pk,
             ephm_pk,
         } = req;
-        self.inner.sum_dict.insert(participant_pk, ephm_pk);
-    }
 
-    /// Freezes the sum dictionary.
-    fn freeze_sum_dict(&mut self) {
-        info!("broadcasting sum dictionary");
-        self.shared
+        let result = self
+            .shared
             .io
-            .events
-            .broadcast_sum_dict(DictionaryUpdate::New(Arc::new(self.inner.sum_dict.clone())));
+            .redis
+            .connection()
+            .await
+            .add_sum_participant(&participant_pk, &ephm_pk)
+            .await?;
 
-        info!("initializing seed dictionary");
-        self.inner.seed_dict = Some(
-            self.inner
-                .sum_dict
-                .keys()
-                .map(|pk| (*pk, LocalSeedDict::new()))
-                .collect(),
-        )
+        if let AddSumParticipant::Ok = result {
+            self.inner.sum_count += 1;
+        };
+
+        Ok(())
     }
 
     /// Checks whether enough sum participants submitted their ephemeral keys to start the update
     /// phase.
     fn has_enough_sums(&self) -> bool {
-        self.inner.sum_dict.len() >= self.shared.state.min_sum_count
+        self.inner.sum_count >= self.shared.state.min_sum_count
     }
 }
 

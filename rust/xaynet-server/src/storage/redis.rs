@@ -44,7 +44,8 @@ use crate::{
         PublicSigningKeyWrite,
     },
 };
-use redis::{aio::ConnectionManager, AsyncCommands, IntoConnectionInfo, RedisError, RedisResult};
+pub use redis::RedisError;
+use redis::{aio::ConnectionManager, AsyncCommands, IntoConnectionInfo, RedisResult};
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,

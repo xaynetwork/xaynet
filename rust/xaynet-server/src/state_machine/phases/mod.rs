@@ -18,12 +18,15 @@ pub use self::{
     update::Update,
 };
 
-use crate::state_machine::{
-    coordinator::CoordinatorState,
-    events::EventPublisher,
-    requests::{RequestReceiver, ResponseSender, StateMachineRequest},
-    StateMachine,
-    StateMachineError,
+use crate::{
+    state_machine::{
+        coordinator::CoordinatorState,
+        events::EventPublisher,
+        requests::{RequestReceiver, ResponseSender, StateMachineRequest},
+        StateMachine,
+        StateMachineError,
+    },
+    storage::redis,
 };
 
 #[cfg(feature = "metrics")]
@@ -59,18 +62,21 @@ pub trait Phase {
 }
 
 /// A trait that must be implemented by a state to handle a request.
+#[async_trait]
 pub trait Handler {
     /// Handles a request.
-    fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), StateMachineError>;
+    async fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), StateMachineError>;
 }
 
 /// I/O interfaces.
-#[derive(Debug)]
+#[cfg_attr(test, derive(Debug))]
 pub struct IO {
     /// The request receiver half.
     pub(in crate::state_machine) request_rx: RequestReceiver,
     /// The event publisher.
     pub(in crate::state_machine) events: EventPublisher,
+    /// Redis client.
+    pub(in crate::state_machine) redis: redis::Client,
     #[cfg(feature = "metrics")]
     /// The metrics sender half.
     pub(in crate::state_machine) metrics_tx: MetricsSender,
@@ -78,7 +84,7 @@ pub struct IO {
 
 /// A struct that contains the coordinator state and the I/O interfaces that is shared and
 /// accessible by all `PhaseState`s.
-#[derive(Debug)]
+#[cfg_attr(test, derive(Debug))]
 pub struct Shared {
     /// The coordinator state.
     pub(in crate::state_machine) state: CoordinatorState,
@@ -91,6 +97,7 @@ impl Shared {
         coordinator_state: CoordinatorState,
         publisher: EventPublisher,
         request_rx: RequestReceiver,
+        redis: redis::Client,
         #[cfg(feature = "metrics")] metrics_tx: MetricsSender,
     ) -> Self {
         Self {
@@ -98,6 +105,7 @@ impl Shared {
             io: IO {
                 request_rx,
                 events: publisher,
+                redis,
                 #[cfg(feature = "metrics")]
                 metrics_tx,
             },
@@ -157,9 +165,10 @@ where
     async fn process_single(&mut self) -> Result<(), StateError> {
         let (req, span, resp_tx) = self.next_request().await?;
         let _span_guard = span.enter();
-        let res = self.handle_request(req);
+        let res = self.handle_request(req).await;
 
-        if res.is_err() {
+        if let Err(ref err) = res {
+            error!("failed to handle message: {:?}", err);
             metrics!(
                 self.shared.io.metrics_tx,
                 metrics::message::rejected::increment(self.shared.state.round_id, Self::NAME)

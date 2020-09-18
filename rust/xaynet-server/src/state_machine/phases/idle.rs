@@ -21,9 +21,10 @@ use sodiumoxide::crypto::hash::sha256;
 #[derive(Debug)]
 pub struct Idle;
 
+#[async_trait]
 impl Handler for PhaseState<Idle> {
     /// Reject the request with a [`StateMachineError::MessageRejected`]
-    fn handle_request(&mut self, _req: StateMachineRequest) -> Result<(), StateMachineError> {
+    async fn handle_request(&mut self, _req: StateMachineRequest) -> Result<(), StateMachineError> {
         Err(StateMachineError::MessageRejected)
     }
 }
@@ -45,6 +46,14 @@ impl Phase for PhaseState<Idle> {
         info!("updating round seeds");
         self.update_round_seed();
 
+        self.shared
+            .io
+            .redis
+            .connection()
+            .await
+            .set_coordinator_state(&self.shared.state)
+            .await?;
+
         let events = &mut self.shared.io.events;
 
         info!("broadcasting new keys");
@@ -58,6 +67,14 @@ impl Phase for PhaseState<Idle> {
 
         info!("broadcasting invalidation of mask length from previous round");
         events.broadcast_mask_length(MaskLengthUpdate::Invalidate);
+
+        self.shared
+            .io
+            .redis
+            .connection()
+            .await
+            .flush_dicts()
+            .await?;
 
         info!("broadcasting new round parameters");
         events.broadcast_params(self.shared.state.round_params.clone());
