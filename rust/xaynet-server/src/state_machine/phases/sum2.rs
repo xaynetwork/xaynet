@@ -21,9 +21,6 @@ pub struct Sum2 {
     /// The aggregator for masked models.
     model_agg: Aggregation,
 
-    /// The aggregator for masked scalars.
-    scalar_agg: Aggregation,
-
     /// The model mask dictionary built during the sum2 phase.
     model_mask_dict: MaskDict,
 
@@ -84,7 +81,6 @@ where
             PhaseState::<Unmask>::new(
                 self.shared,
                 self.inner.model_agg,
-                self.inner.scalar_agg,
                 self.inner.model_mask_dict,
                 self.inner.scalar_mask_dict,
             )
@@ -134,12 +130,11 @@ impl Handler for PhaseState<Sum2> {
 
 impl PhaseState<Sum2> {
     /// Creates a new sum2 state.
-    pub fn new(shared: Shared, model_agg: Aggregation, scalar_agg: Aggregation) -> Self {
+    pub fn new(shared: Shared, model_agg: Aggregation) -> Self {
         info!("state transition");
         Self {
             inner: Sum2 {
                 model_agg,
-                scalar_agg,
                 model_mask_dict: MaskDict::new(),
                 scalar_mask_dict: MaskDict::new(),
             },

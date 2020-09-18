@@ -14,7 +14,7 @@ use thiserror::Error;
 
 use crate::{
     crypto::{encrypt::SEALBYTES, prng::generate_integer, ByteObject},
-    mask::{config::MaskConfig, object::MaskMany},
+    mask::{config::MaskConfig, object::MaskMany, object::MaskObject, object::MaskOne},
     SumParticipantEphemeralPublicKey, SumParticipantEphemeralSecretKey,
 };
 
@@ -52,19 +52,23 @@ impl MaskSeed {
         EncryptedMaskSeed::from_slice_unchecked(pk.encrypt(self.as_slice()).as_slice())
     }
 
-    // TODO separate config for scalar mask - future refactoring
-    /// Derives a mask of given length from this seed wrt the masking configuration.
-    pub fn derive_mask(&self, len: usize, config: MaskConfig) -> (MaskMany, MaskMany) {
+    /// Derives a mask of given length from this seed wrt the masking configurations.
+    pub fn derive_mask(
+        &self,
+        len: usize,
+        config_many: MaskConfig,
+        config_one: MaskConfig,
+    ) -> MaskObject {
         let mut prng = ChaCha20Rng::from_seed(self.as_array());
-        let rand_ints = iter::repeat_with(|| generate_integer(&mut prng, &config.order()))
+        let rand_ints = iter::repeat_with(|| generate_integer(&mut prng, &config_many.order()))
             .take(len)
             .collect();
-        let model_mask = MaskMany::new(config, rand_ints);
+        let model_mask = MaskMany::new(config_many, rand_ints);
 
-        let rand_int = generate_integer(&mut prng, &config.order());
-        let scalar_mask = MaskMany::new(config, vec![rand_int]);
+        let rand_int = generate_integer(&mut prng, &config_one.order());
+        let scalar_mask = MaskOne::new(config_one, rand_int);
 
-        (model_mask, scalar_mask)
+        MaskObject::new(model_mask, scalar_mask)
     }
 }
 

@@ -78,7 +78,6 @@ impl PhaseState<Unmask> {
     pub fn new(
         shared: Shared,
         model_agg: Aggregation,
-        scalar_agg: Aggregation,
         model_mask_dict: MaskDict,
         scalar_mask_dict: MaskDict,
     ) -> Self {
@@ -86,7 +85,7 @@ impl PhaseState<Unmask> {
         Self {
             inner: Unmask {
                 model_agg: Some(model_agg),
-                scalar_agg: Some(scalar_agg),
+                scalar_agg: None, // TEMP HACK TODO remove
                 model_mask_dict,
                 scalar_mask_dict,
             },

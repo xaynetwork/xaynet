@@ -49,6 +49,13 @@ impl MaskMany {
         }
     }
 
+    pub fn empty(config: MaskConfig, size: usize) -> Self {
+        Self {
+            data: Vec::with_capacity(size),
+            config,
+        }
+    }
+
     /// Checks if the elements of this mask object conform to the given masking configuration.
     pub fn is_valid(&self) -> bool {
         let order = self.config.order();
@@ -96,6 +103,13 @@ impl MaskOne {
         }
     }
 
+    pub fn empty(config: MaskConfig) -> Self {
+        Self {
+            data: BigUint::from(1_usize), // NOTE not really empty
+            config,
+        }
+    }
+
     /// Checks if this mask object conforms to the given masking configuration.
     pub fn is_valid(&self) -> bool {
         self.data < self.config.order()
@@ -138,6 +152,13 @@ impl MaskObject {
         let vector = MaskMany::new_checked(config_v, data_v)?;
         let scalar = MaskOne::new_checked(config_s, data_s)?;
         Ok(Self { vector, scalar })
+    }
+
+    pub fn empty(config_many: MaskConfig, config_one: MaskConfig, size: usize) -> Self {
+        Self {
+            vector: MaskMany::empty(config_many, size),
+            scalar: MaskOne::empty(config_one),
+        }
     }
 
     // TODO doc

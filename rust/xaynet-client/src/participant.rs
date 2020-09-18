@@ -9,8 +9,8 @@ use std::default::Default;
 use xaynet_core::{
     crypto::{ByteObject, EncryptKeyPair, SigningKeyPair},
     mask::{
-        Aggregation, BoundType, DataType, GroupType, MaskConfig, MaskMany, MaskObject, MaskSeed,
-        Masker, Model, ModelType,
+        Aggregation, BoundType, DataType, GroupType, MaskConfig, MaskObject, MaskSeed, Masker,
+        Model, ModelType,
     },
     message::{Message, Sum, Sum2, Update},
     CoordinatorPublicKey, InitError, LocalSeedDict, ParticipantPublicKey, ParticipantSecretKey,
@@ -149,12 +149,11 @@ impl Participant {
         mask_len: usize,
     ) -> Result<Message, PetError> {
         let mask_seeds = self.get_seeds(seed_dict)?;
-        let (model_mask, scalar_mask) =
-            self.compute_global_mask(mask_seeds, mask_len, dummy_config())?;
+        let mask = self.compute_global_mask(mask_seeds, mask_len, dummy_config())?;
         let payload = Sum2 {
             sum_signature: self.sum_signature,
-            model_mask,
-            scalar_mask,
+            model_mask: mask.vector,
+            scalar_mask: mask.scalar.into(),
         };
         Ok(Message::new_sum2(self.pk, coordinator_pk, payload))
     }
@@ -206,27 +205,24 @@ impl Participant {
         mask_seeds: Vec<MaskSeed>,
         mask_len: usize,
         mask_config: MaskConfig,
-    ) -> Result<(MaskMany, MaskMany), PetError> {
+        // FIXME also need scalar mask config somehow
+    ) -> Result<MaskObject, PetError> {
         if mask_seeds.is_empty() {
             return Err(PetError::InvalidMask);
         }
 
-        let mut model_mask_agg = Aggregation::new(mask_config, mask_len);
-        let mut scalar_mask_agg = Aggregation::new(mask_config, 1);
+        // HACK reuse model mask config for now
+        let mut mask_agg = Aggregation::new(mask_config, mask_config, mask_len);
         for seed in mask_seeds.into_iter() {
-            let (model_mask, scalar_mask) = seed.derive_mask(mask_len, mask_config);
+            let mask = seed.derive_mask(mask_len, mask_config, mask_config);
 
-            model_mask_agg
-                .validate_aggregation(&model_mask)
-                .map_err(|_| PetError::InvalidMask)?;
-            scalar_mask_agg
-                .validate_aggregation(&scalar_mask)
+            mask_agg
+                .validate_aggregation(&mask.vector)
                 .map_err(|_| PetError::InvalidMask)?;
 
-            model_mask_agg.aggregate(model_mask);
-            scalar_mask_agg.aggregate(scalar_mask);
+            mask_agg.aggregate(mask.vector);
         }
-        Ok((model_mask_agg.into(), scalar_mask_agg.into()))
+        Ok(mask_agg.into())
     }
 }
 

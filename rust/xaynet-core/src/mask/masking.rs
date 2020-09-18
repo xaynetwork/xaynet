@@ -56,22 +56,22 @@ pub enum AggregationError {
 /// An aggregator for masks and masked models.
 pub struct Aggregation {
     nb_models: usize,
-    object: MaskMany,
+    object: MaskObject,
     object_size: usize,
 }
 
-impl From<MaskMany> for Aggregation {
-    fn from(object: MaskMany) -> Self {
+impl From<MaskObject> for Aggregation {
+    fn from(object: MaskObject) -> Self {
         Self {
             nb_models: 1,
-            object_size: object.data.len(),
+            object_size: object.vector.data.len(),
             object,
         }
     }
 }
 
-impl Into<MaskMany> for Aggregation {
-    fn into(self) -> MaskMany {
+impl Into<MaskObject> for Aggregation {
+    fn into(self) -> MaskObject {
         self.object
     }
 }
@@ -79,10 +79,10 @@ impl Into<MaskMany> for Aggregation {
 #[allow(clippy::len_without_is_empty)]
 impl Aggregation {
     /// Creates a new, empty aggregator for masks or masked models.
-    pub fn new(config: MaskConfig, object_size: usize) -> Self {
+    pub fn new(config_many: MaskConfig, config_one: MaskConfig, object_size: usize) -> Self {
         Self {
             nb_models: 0,
-            object: MaskMany::new(config, Vec::with_capacity(object_size)),
+            object: MaskObject::empty(config_many, config_one, object_size),
             object_size,
         }
     }
@@ -94,8 +94,11 @@ impl Aggregation {
 
     /// Gets the masking configuration of the aggregator.
     pub fn config(&self) -> MaskConfig {
-        self.object.config
+        // TODO rename to config_many or sth
+        self.object.vector.config
     }
+
+    // TODO config_one
 
     /// Validates if unmasking of the aggregated masked model with the given `mask` may be
     /// safely performed.
@@ -120,18 +123,21 @@ impl Aggregation {
     ///
     /// [`unmask()`]: #method.unmask
     pub fn validate_unmasking(&self, mask: &MaskMany) -> Result<(), UnmaskingError> {
+        // TODO later: mask is MaskObject
         // We cannot perform unmasking without at least one real model
         if self.nb_models == 0 {
             return Err(UnmaskingError::NoModel);
         }
 
-        if self.nb_models > self.object.config.model_type.max_nb_models() {
+        if self.nb_models > self.object.vector.config.model_type.max_nb_models() {
             return Err(UnmaskingError::TooManyModels);
         }
+        // TODO analogous check for scalar - could fail independently!
 
-        if self.object.config != mask.config || self.object_size != mask.data.len() {
+        if self.object.vector.config != mask.config || self.object_size != mask.data.len() {
             return Err(UnmaskingError::MaskMismatch);
         }
+        // TODO similar config check for scalar
 
         if !mask.is_valid() {
             return Err(UnmaskingError::InvalidMask);
@@ -160,10 +166,11 @@ impl Aggregation {
     /// [`validate_unmasking()`]: #method.validate_unmasking
     /// [`mask()`]: struct.Masker.html#method.mask
     pub fn unmask(mut self, mask: MaskMany) -> Model {
-        let scaled_add_shift = self.object.config.add_shift() * BigInt::from(self.nb_models);
-        let exp_shift = self.object.config.exp_shift();
-        let order = self.object.config.order();
+        let scaled_add_shift = self.object.vector.config.add_shift() * BigInt::from(self.nb_models);
+        let exp_shift = self.object.vector.config.exp_shift();
+        let order = self.object.vector.config.order();
         self.object
+            .vector
             .data
             .drain(..)
             .zip(mask.data.into_iter())
@@ -223,7 +230,8 @@ impl Aggregation {
     ///
     /// [`aggregate()`]: #method.aggregate
     pub fn validate_aggregation(&self, object: &MaskMany) -> Result<(), AggregationError> {
-        if self.object.config != object.config {
+        // TODO object should be MaskObject; adjust checks below
+        if self.object.vector.config != object.config {
             return Err(AggregationError::ModelMismatch);
         }
 
@@ -231,7 +239,7 @@ impl Aggregation {
             return Err(AggregationError::ModelMismatch);
         }
 
-        if self.nb_models >= self.object.config.model_type.max_nb_models() {
+        if self.nb_models >= self.object.vector.config.model_type.max_nb_models() {
             return Err(AggregationError::TooManyModels);
         }
 
@@ -255,13 +263,19 @@ impl Aggregation {
     /// [`validate_aggregation()`]: #method.validate_aggregation
     pub fn aggregate(&mut self, object: MaskMany) {
         if self.nb_models == 0 {
-            self.object = object;
+            self.object.vector = object;
             self.nb_models = 1;
             return;
         }
 
-        let order = self.object.config.order();
-        for (i, j) in self.object.data.iter_mut().zip(object.data.into_iter()) {
+        let order = self.object.vector.config.order();
+        for (i, j) in self
+            .object
+            .vector
+            .data
+            .iter_mut()
+            .zip(object.data.into_iter())
+        {
             *i = (&*i + j) % &order
         }
         self.nb_models += 1;
