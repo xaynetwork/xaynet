@@ -1,0 +1,4 @@
+# These reduces the size of the libraries a lot!
+[profile.release]
+lto = true
+codegen-units = 1

@@ -13,6 +13,7 @@ use xaynet_core::mask::{
     DataType,
     FromPrimitives,
     GroupType,
+    IntoPrimitives,
     MaskConfig,
     Model,
     ModelType,
@@ -130,12 +131,22 @@ fn main() -> Result<(), ()> {
 // app is active or in a background task)
 fn perform_task(url: &str, bytes: &[u8], model: Model) -> Vec<u8> {
     let mut client = MobileClient::restore(url, bytes).unwrap();
+    println!("task: {:?}", &client.get_current_state());
+
     client.set_local_model(model);
     client = match client.try_to_proceed() {
         Ok(client) => client,
         Err((client, _)) => client,
     };
-    println!("global model: {:?}", client.get_global_model().unwrap());
+
+    match client.get_global_model().unwrap() {
+        Some(model) => println!(
+            "global model: {:?}",
+            model.into_primitives_unchecked().collect::<Vec<f32>>()
+        ),
+        _ => (),
+    };
+
     let new_bytes = client.serialize();
     println!("size serialized: {:?}", &bytes.len());
     new_bytes

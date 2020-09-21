@@ -10,10 +10,13 @@ repository = "https://github.com/xaynetwork/xaynet/"
 homepage = "https://xaynet.dev/"
 
 [dependencies]
-tokio = { version = "0.2.21", features = ["rt-threaded"] }
-xaynet-client = { path = "../xaynet-client" }
+ffi-support = "0.4.2"
+# By default, `reqwest` uses `openssl`, but this requires compiled `openssl`
+# libraries for the target systems we use.
+# As a [workaround](https://github.com/bbqsrc/cargo-ndk/issues/9) we use `rustls-tls` for now.
+xaynet-client = { path = "../xaynet-client", default-features = false, features = ["rustls"] }
 xaynet-core = { path = "../xaynet-core" }
 
-[dev-dependencies]
-paste = "0.1.15"
-num = { version = "0.3.0", features = ["serde"] }
+[lib]
+name = "xaynet_sdk"
+crate-type = ["staticlib", "cdylib"]
