@@ -1,14 +1,12 @@
-//! This module provides the services for processing PET
-//! messages.
+//! This module provides the services for processing PET messages.
 //!
-//! There are multiple such services and the [`PetMessageHandler`]
-//! trait provides a single unifying interface for all of these.
+//! There are multiple such services and [`PetMessageHandler`]
+//! provides a single unifying interface for all of these.
 mod decryptor;
 mod error;
 mod message_parser;
 mod state_machine;
 mod task_validator;
-
 pub use self::error::ServiceError;
 use self::{
     decryptor::Decryptor,

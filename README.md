@@ -6,8 +6,6 @@
 
 ## Xaynet: Train on the Edge with Federated Learning
 
-####### tags: Xayn, Federated Learning, Privacy, edge AI, Machine Learning, mobile AI
-
 Want a framework that supports federated learning on the edge, in
 desktop browsers, integrates well with mobile apps, is performant, and
 preserves privacy? Welcome to XayNet, written entirely in Rust!
