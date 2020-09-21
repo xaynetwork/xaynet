@@ -2860,6 +2860,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "xaynet"
+version = "0.9.0"
+dependencies = [
+ "xaynet-client",
+ "xaynet-core",
+ "xaynet-server",
+]
+
+[[package]]
 name = "xaynet-client"
 version = "0.9.0"
 dependencies = [

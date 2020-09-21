@@ -1,6 +1,7 @@
 [workspace]
 
 members = [
+    "xaynet",
     "xaynet-server",
     "xaynet-client",
     "xaynet-core",
