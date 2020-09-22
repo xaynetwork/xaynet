@@ -15,12 +15,12 @@ use xaynet_core::{
 
 use crate::services::messages::ServiceError;
 
-/// A `PartialMessage` stores chunks of a multipart message. Once it
+/// A `MessageBuilder` stores chunks of a multipart message. Once it
 /// has all the chunks, it can be consumed and turned into a
 /// full-blown [`Message`] (see [`into_message`]).
 #[derive(Debug)]
 #[cfg_attr(test, derive(Clone))]
-pub struct PartialMessage {
+pub struct MessageBuilder {
     /// Public key of the participant sending the message
     participant_pk: PublicSigningKey,
     /// Public key of the coordinator
@@ -34,10 +34,10 @@ pub struct PartialMessage {
     data: BTreeMap<u16, Vec<u8>>,
 }
 
-impl PartialMessage {
-    /// Create a new [`PartialMessage`] that contains no chunk.
+impl MessageBuilder {
+    /// Create a new [`MessageBuilder`] that contains no chunk.
     fn new(tag: Tag, participant_pk: PublicSigningKey, coordinator_pk: PublicEncryptKey) -> Self {
-        PartialMessage {
+        MessageBuilder {
             tag,
             participant_pk,
             coordinator_pk,
@@ -45,8 +45,9 @@ impl PartialMessage {
             last_chunk_id: None,
         }
     }
-    /// Return `true` if the message is complete, _i.e._ if all
-    /// `MultiparMessage` holds all the chunks.
+
+    /// Return `true` if the message is complete, _i.e._ if the
+    /// builder holds all the chunks.
     fn has_all_chunks(&self) -> bool {
         self.last_chunk_id
             .map(|expected_number_of_chunks| self.data.len() == expected_number_of_chunks as usize)
@@ -128,14 +129,14 @@ pub struct MessageId {
 
 /// A service that handles multipart messages.
 pub struct MultipartHandler {
-    partial_messages: HashMap<MessageId, PartialMessage>,
+    message_builders: HashMap<MessageId, MessageBuilder>,
 }
 
 impl MultipartHandler {
     #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
-            partial_messages: HashMap::new(),
+            message_builders: HashMap::new(),
         }
     }
 }
@@ -171,9 +172,9 @@ impl Service<Message> for MultipartHandler {
             // If we don't have a partial message for this ID, create
             // an empty one.
             let mp_message = self
-                .partial_messages
+                .message_builders
                 .entry(id.clone())
-                .or_insert_with(|| PartialMessage::new(tag, participant_pk, coordinator_pk));
+                .or_insert_with(|| MessageBuilder::new(tag, participant_pk, coordinator_pk));
             // Add the chunk to the partial message
             mp_message.add_chunk(chunk);
 
@@ -182,7 +183,7 @@ impl Service<Message> for MultipartHandler {
             if mp_message.has_all_chunks() {
                 // This entry exists, because `mp_message` above
                 // refers to it, so it's ok to unwrap.
-                match self.partial_messages.remove(&id).unwrap().into_message() {
+                match self.message_builders.remove(&id).unwrap().into_message() {
                     Ok(message) => ready_ok(Some(message)),
                     Err(e) => ready_err(ServiceError::Parsing(e)),
                 }
@@ -235,11 +236,11 @@ mod tests {
         (bytes, sum)
     }
 
-    fn partial_message() -> PartialMessage {
+    fn message_builder() -> MessageBuilder {
         let participant_pk = PublicSigningKey::zeroed();
         let coordinator_pk = PublicEncryptKey::zeroed();
         let tag = Tag::Sum;
-        PartialMessage::new(tag, participant_pk, coordinator_pk)
+        MessageBuilder::new(tag, participant_pk, coordinator_pk)
     }
 
     fn chunks(mut data: Vec<u8>) -> (Chunk, Chunk, Chunk, Chunk, Chunk) {
@@ -305,8 +306,8 @@ mod tests {
     }
 
     #[test]
-    fn test_partial_message_in_order() {
-        let mut msg = partial_message();
+    fn test_message_builder_in_order() {
+        let mut msg = message_builder();
         let (data, sum) = sum();
         let (c1, c2, c3, c4, c5) = chunks(data.clone());
 
@@ -351,8 +352,8 @@ mod tests {
     }
 
     #[test]
-    fn test_partial_message_out_of_order() {
-        let mut msg = partial_message();
+    fn test_message_builder_out_of_order() {
+        let mut msg = message_builder();
         let (data, sum) = sum();
         let (c1, c2, c3, c4, c5) = chunks(data.clone());
 
@@ -437,14 +438,14 @@ mod tests {
         // out of order.
 
         assert!(task.call(make_message1(&c3)).await.unwrap().is_none());
-        assert_eq!(task.get_ref().partial_messages.len(), 1);
-        let multipart_message = task.get_ref().partial_messages.get(&message_id1).unwrap();
-        assert_eq!(multipart_message.data.len(), 1);
+        assert_eq!(task.get_ref().message_builders.len(), 1);
+        let builder = task.get_ref().message_builders.get(&message_id1).unwrap();
+        assert_eq!(builder.data.len(), 1);
 
         assert!(task.call(make_message2(&c3)).await.unwrap().is_none());
-        assert_eq!(task.get_ref().partial_messages.len(), 2);
-        let multipart_message = task.get_ref().partial_messages.get(&message_id2).unwrap();
-        assert_eq!(multipart_message.data.len(), 1);
+        assert_eq!(task.get_ref().message_builders.len(), 2);
+        let builder = task.get_ref().message_builders.get(&message_id2).unwrap();
+        assert_eq!(builder.data.len(), 1);
 
         assert!(task.call(make_message1(&c5)).await.unwrap().is_none());
         assert!(task.call(make_message2(&c5)).await.unwrap().is_none());
@@ -455,18 +456,17 @@ mod tests {
         assert!(task.call(make_message1(&c4)).await.unwrap().is_none());
         assert!(task.call(make_message2(&c4)).await.unwrap().is_none());
 
-        let multipart_message = task.get_ref().partial_messages.get(&message_id1).unwrap();
-        assert_eq!(multipart_message.data.len(), 4);
-        assert_eq!(multipart_message.first_missing_chunk(), Some(2));
+        let builder = task.get_ref().message_builders.get(&message_id1).unwrap();
+        assert_eq!(builder.data.len(), 4);
 
-        let multipart_message = task.get_ref().partial_messages.get(&message_id2).unwrap();
-        assert_eq!(multipart_message.data.len(), 4);
+        let builder = task.get_ref().message_builders.get(&message_id2).unwrap();
+        assert_eq!(builder.data.len(), 4);
 
         let res1 = task.call(make_message1(&c2)).await.unwrap().unwrap();
         let res2 = task.call(make_message2(&c2)).await.unwrap().unwrap();
 
-        assert!(task.get_ref().partial_messages.get(&message_id1).is_none());
-        assert!(task.get_ref().partial_messages.get(&message_id2).is_none());
+        assert!(task.get_ref().message_builders.get(&message_id1).is_none());
+        assert!(task.get_ref().message_builders.get(&message_id2).is_none());
 
         assert_eq!(res1, Message::new_sum(pk1, coordinator_pk, sum.clone()));
         assert_eq!(res2, Message::new_sum(pk2, coordinator_pk, sum.clone()));
