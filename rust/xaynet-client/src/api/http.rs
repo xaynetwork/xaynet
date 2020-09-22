@@ -1,6 +1,7 @@
-use crate::api::ApiClient;
-use reqwest::{self, Client, Response, StatusCode};
+use reqwest::{self, Certificate, Client, ClientBuilder, Response, StatusCode};
 use thiserror::Error;
+
+use crate::api::ApiClient;
 use xaynet_core::{
     common::RoundParameters,
     crypto::ByteObject,
@@ -11,8 +12,7 @@ use xaynet_core::{
 };
 
 #[derive(Debug)]
-/// A client that communicates with the coordinator's API via
-/// HTTP(S)
+/// A client that communicates with the coordinator's API via HTTP(S).
 pub struct HttpApiClient {
     /// HTTP client
     client: Client,
@@ -21,12 +21,31 @@ pub struct HttpApiClient {
 }
 
 impl HttpApiClient {
-    pub fn new<S>(address: S) -> Self
+    /// Creates a new HTTP(S) client.
+    ///
+    /// # Warning
+    /// If no trusted root `certificate`s are provided, then every server will be trusted.
+    pub fn new<S>(address: S, certificates: Option<Vec<Certificate>>) -> Self
     where
         S: Into<String>,
     {
+        // Client::new() panicked here before as well, this needs propper error handling later on
+        let client = if let Some(certificates) = certificates {
+            let mut builder = ClientBuilder::new().use_rustls_tls();
+            for certificate in certificates {
+                builder = builder.add_root_certificate(certificate);
+            }
+            builder.build().unwrap()
+        } else {
+            ClientBuilder::new()
+                .use_rustls_tls()
+                .danger_accept_invalid_certs(true)
+                .build()
+                .unwrap()
+        };
+
         Self {
-            client: Client::new(),
+            client,
             address: address.into(),
         }
     }

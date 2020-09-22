@@ -1,6 +1,9 @@
 pub mod client;
 pub mod participant;
 
+use reqwest::Certificate;
+use thiserror::Error;
+
 use crate::{
     api::{ApiClient, HttpApiClient, HttpApiClientError},
     mobile_client::{
@@ -8,7 +11,6 @@ use crate::{
         participant::ParticipantSettings,
     },
 };
-use thiserror::Error;
 use xaynet_core::{
     crypto::{SecretSigningKey, SigningKeyPair},
     mask::Model,
@@ -41,6 +43,8 @@ pub struct MobileClient {
 impl MobileClient {
     /// Initializes a fresh client. This method only needs to be called once.
     ///
+    /// The optional certificates for trusted server TLS authentication can be DER or PEM encoded.
+    ///
     /// To serialize and restore a client use the [`MobileClient::serialize`] and
     /// [`MobileClient::restore`]
     ///
@@ -49,6 +53,8 @@ impl MobileClient {
     /// Fails if the crypto module cannot be initialized.
     pub fn init(
         url: &str,
+        der_certificates: Option<&[&[u8]]>,
+        pem_certificates: Option<&[&[u8]]>,
         participant_settings: ParticipantSettings,
     ) -> Result<Self, MobileClientError> {
         // It is critical that the initialization of sodiumoxide is successful.
@@ -58,22 +64,63 @@ impl MobileClient {
         // https://doc.libsodium.org/usage
         // https://github.com/jedisct1/libsodium/issues/908
         let client_state = ClientStateMachine::new(participant_settings)?;
-        Ok(Self::new(url, client_state))
+        Ok(Self::new(
+            url,
+            der_certificates,
+            pem_certificates,
+            client_state,
+        ))
     }
 
     /// Restores a client from its serialized state.
+    ///
+    /// The optional certificates for trusted server TLS authentication can be DER or PEM encoded.
     ///
     /// # Errors
     ///
     /// Fails if the serialized state is corrupted and the client cannot be restored
     /// or if the crypto module cannot be initialized.
-    pub fn restore(url: &str, bytes: &[u8]) -> Result<Self, MobileClientError> {
+    pub fn restore(
+        url: &str,
+        der_certificates: Option<&[&[u8]]>,
+        pem_certificates: Option<&[&[u8]]>,
+        bytes: &[u8],
+    ) -> Result<Self, MobileClientError> {
         let client_state: ClientStateMachine = bincode::deserialize(bytes)?;
-        Ok(Self::new(url, client_state))
+        Ok(Self::new(
+            url,
+            der_certificates,
+            pem_certificates,
+            client_state,
+        ))
     }
 
-    fn new(url: &str, client_state: ClientStateMachine) -> Self {
-        let api = HttpApiClient::new(url);
+    fn new(
+        url: &str,
+        der_certificates: Option<&[&[u8]]>,
+        pem_certificates: Option<&[&[u8]]>,
+        client_state: ClientStateMachine,
+    ) -> Self {
+        let mut certificates = Vec::new();
+        if let Some(der_certificates) = der_certificates {
+            for certificate in der_certificates {
+                // safe unwrap: this never fails for reqwest's rustls-tls feature
+                certificates.push(Certificate::from_der(*certificate).unwrap())
+            }
+        }
+        if let Some(pem_certificates) = pem_certificates {
+            for certificate in pem_certificates {
+                // safe unwrap: this never fails for reqwest's rustls-tls feature
+                certificates.push(Certificate::from_pem(*certificate).unwrap())
+            }
+        }
+        let certificates = if certificates.is_empty() {
+            None
+        } else {
+            Some(certificates)
+        };
+
+        let api = HttpApiClient::new(url, certificates);
 
         Self {
             api,
