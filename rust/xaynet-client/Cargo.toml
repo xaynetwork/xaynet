@@ -1,6 +1,6 @@
 [package]
 name = "xaynet-client"
-version = "0.9.0"
+version = "0.1.0"
 authors = ["Xayn Engineering <engineering@xaynet.dev>"]
 edition = "2018"
 description = "`xaynet_client` provides an implementation of a Xayn Network client"
@@ -10,25 +10,24 @@ repository = "https://github.com/xaynetwork/xaynet/"
 homepage = "https://xaynet.dev/"
 
 [dependencies]
-tokio = { version = "0.2.21" }
-derive_more = { version = "0.99.7", default-features = false, features = ["from"] }
-serde = { version = "1.0.111", features = ["derive"] }
-bytes = "0.5.4"
-sodiumoxide = "0.2.5"
-bincode = "1.2.1"
-thiserror = "1.0.19"
-tracing = "0.1.16"
-async-trait = "0.1.35"
-xaynet-core = { path = "../xaynet-core" }
+tokio = "0.2.22"
+derive_more = { version = "0.99.10", default-features = false, features = ["from"] }
+serde = { version = "1.0.116", features = ["derive"] }
+bytes = "0.5.6"
+sodiumoxide = "0.2.6"
+bincode = "1.3.1"
+thiserror = "1.0.20"
+tracing = "0.1.19"
+async-trait = "0.1.40"
+xaynet-core = { path = "../xaynet-core", version = "0.1.0" }
 
 [dependencies.reqwest]
-version = "0.10.6"
+version = "0.10.8"
 default-features = false
 
 [dev-dependencies]
 tower-test = "0.3.0"
 tokio-test = "0.2.1"
-xaynet-server = { path = "../xaynet-server" }
 
 [features]
 default = ["reqwest/default-tls"]

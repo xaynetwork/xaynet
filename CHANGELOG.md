@@ -17,6 +17,25 @@ For reference, the possible headings are:
 
 ## [unreleased]
 
+## [0.10.0] - 2020-09-22
+
+### Added
+
+- Preparation for redis support: prepare for `xaynet_server` to store PET data in redis (https://github.com/xaynetwork/xaynet/pull/416, https://github.com/xaynetwork/xaynet/pull/515)
+- Add support for multipart messages in the message structure (https://github.com/xaynetwork/xaynet/pull/508, https://github.com/xaynetwork/xaynet/pull/513, https://github.com/xaynetwork/xaynet/pull/514)
+- Generalised scalar extension (https://github.com/xaynetwork/xaynet/pull/496, https://github.com/xaynetwork/xaynet/pull/507)
+- Add server metrics (https://github.com/xaynetwork/xaynet/pull/487, https://github.com/xaynetwork/xaynet/pull/488, https://github.com/xaynetwork/xaynet/pull/489,https://github.com/xaynetwork/xaynet/pull/493)
+- Refactor the client into a state machine, and add a client tailored for mobile devices (https://github.com/xaynetwork/xaynet/pull/471, https://github.com/xaynetwork/xaynet/pull/497, https://github.com/xaynetwork/xaynet/pull/506)
+
+### Changed
+
+- Split the xaynet crate into several sub-crates:
+  - `xaynet_core` (0.1.0 released), re-exported as `xaynet::core`
+  - `xaynet_client` (0.1.0 released), re-exported as `xaynet::client` when compiled with `--features client`
+  - `xaynet_server` (0.1.0 released), re-exported as `xaynet::server` when compiled with `--features server`
+  - `xaynet_macro` (0.1.0 released)
+  - `xaynet_ffi` (not released)
+
 ## [0.9.0] - 2020-07-24
 
 `xain/xain-fl` repository was renamed to `xaynetwork/xaynet`.

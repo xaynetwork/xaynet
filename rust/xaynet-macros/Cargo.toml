@@ -6,10 +6,11 @@ edition = "2018"
 license-file = "../../LICENSE"
 repository = "https://github.com/xaynetwork/xaynet/"
 homepage = "https://xaynet.dev/"
+description = "Macros for internal use in `xaynet-server`"
 
 [dependencies]
-syn = "1.0.38"
-quote = "1.0"
+syn = "1.0.41"
+quote = "1.0.7"
 
 [lib]
 proc-macro = true
