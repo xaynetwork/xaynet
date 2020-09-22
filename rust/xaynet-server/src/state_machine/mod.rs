@@ -59,22 +59,10 @@
 //! # Requests
 //!
 //! By initiating a new [`StateMachine`] via [`StateMachine::new()`], a new
-//! [Request][requests_idx] channel is created, the function of which is to send [`Request`]s to
-//! the [`StateMachine`]. The sender half of that channel ([`RequestSender`]) is returned back to
-//! the caller of [`StateMachine::new()`], whereas the receiver half ([`RequestReceiver`]) is used
-//! by the [`StateMachine`].
-//!
-//! <div class="information">
-//!     <div class="tooltip ignore" style="">ⓘ<span class="tooltiptext">Note</span></div>
-//! </div>
-//! <div class="example-wrap" style="display:inline-block">
-//! <pre class="ignore" style="white-space:normal;font:inherit;">
-//!     <strong>Note</strong>: <code>Requests</code> are only processed in the states
-//!     <code>Sum</code>, <code>Update</code> or <code>Sum2</code>.<br><br>
-//!     If the <code>Request</code> type and the state of the state machine do not match,
-//!     the <code>Request</code>  is ignored and the sender of the request receives a
-//!     <code>PetError::InvalidMessage</code>
-//! </pre></div>
+//! [StateMachineRequest][requests_idx] channel is created, the function of which is to send
+//! [`StateMachineRequest`]s to the [`StateMachine`]. The sender half of that channel
+//! ([`RequestSender`]) is returned back to the caller of [`StateMachine::new()`], whereas the
+//! receiver half ([`RequestReceiver`]) is used by the [`StateMachine`].
 //!
 //! See [here][requests] for more details.
 //!
@@ -98,9 +86,9 @@
 //! [`SumDict`]: xaynet_core::SumDict
 //! [`SeedDict`]: xaynet_core::SeedDict
 //! [`EncryptKeyPair`]: xaynet_core::crypto::EncryptKeyPair
-//! [`RoundParameters`]: crate::state_machine::coordinator::RoundParameters
+//! [`RoundParameters`]: xaynet_core::common::RoundParameters
 //! [`MaskDict`]: crate::state_machine::coordinator::MaskDict
-//! [`Request`]: crate::state_machine::requests::Request
+//! [`StateMachineRequest`]: crate::state_machine::requests::StateMachineRequest
 //! [requests_idx]: ./requests/index.html
 //! [events]: ./events/index.html
 

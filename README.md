@@ -1,21 +1,16 @@
-[![crates.io badge](https://img.shields.io/crates/v/xaynet.svg)](https://crates.io/crates/xaynet) [![docs.rs badge](https://docs.rs/xaynet/badge.svg)](https://docs.rs/xaynet) ![crates.io downloads](https://img.shields.io/crates/d/xaynet.svg) [![codecov](https://codecov.io/gh/xaynetwork/xaynet/branch/master/graph/badge.svg)](https://codecov.io/gh/xaynetwork/xaynet)
-
+[![crates.io badge](https://img.shields.io/crates/v/xaynet.svg)](https://crates.io/crates/xaynet) [![docs.rs badge](https://docs.rs/xaynet/badge.svg)](https://docs.rs/xaynet) [![Coverage Status](https://codecov.io/gh/xaynetwork/xaynet/branch/master/graph/badge.svg)](https://codecov.io/gh/xaynetwork/xaynet)
 
 ![Xaynet banner](./assets/xaynet_banner.png)
 
-# XayNet: Train on the Edge with Federated Learning
+# xaynet
 
-This is the main source code repository for XayNet.
-
-**Developers**: feel free to jump to the technical ["Getting Started"](#getting-started) section or directly to the [crate's documentation](https://docs.rs/xaynet/0.9.0/xaynet/).
-
----
+## Xaynet: Train on the Edge with Federated Learning
 
 Want a framework that supports federated learning on the edge, in
 desktop browsers, integrates well with mobile apps, is performant, and
 preserves privacy? Welcome to XayNet, written entirely in Rust!
 
-## Making federated learning easy for developers
+### Making federated learning easy for developers
 
 Frameworks for machine learning - including those expressly for
 federated learning - exist already. These frameworks typically
@@ -44,22 +39,23 @@ provide an alternative to overcome this dilemma.
 
 Concretely, we provide developers with:
 
-- App dev tools: An SDK to integrate federated learning into apps
-  written in Dart or other languages of choice for mobile development,
+- **App dev tools**: An SDK to integrate federated learning into
+  apps written in Dart or other languages of choice for mobile development,
   as well as frameworks like Flutter.
-- Privacy via cross-device federated learning: Train your AI models
-  locally on edge devices such as mobile phones, browsers, or even in
-  cars. Federated learning automatically aggregates the local models
-  into a global model. Thus, all insights inherent in the local models
-  are captured, while the user data stays private on end devices.
-- Security Privacy via homomorphic encryption: Aggregate models with
-  the highest security and trust. Xayn’s masking protocol encrypts all
-  models homomorphically. This enables you to aggregate encrypted
-  local models into a global one – without having to decrypt local
-  models at all. This protects private and even the most sensitive
-  data.
+- **Privacy via cross-device federated learning**: Train your AI
+  models locally on edge devices such as mobile phones, browsers,
+  or even in cars. Federated learning automatically aggregates the
+  local models into a global model. Thus, all insights inherent in
+  the local models are captured, while the user data stays
+  private on end devices.
+- **Security Privacy via homomorphic encryption**: Aggregate
+  models with the highest security and trust. Xayn’s masking
+  protocol encrypts all models homomorphically. This enables you
+  to aggregate encrypted local models into a global one – without
+  having to decrypt local models at all. This protects private and
+  even the most sensitive data.
 
-## The case for writing this framework in Rust
+### The case for writing this framework in Rust
 
 Our framework for federated learning is not only a framework for
 machine learning as such. Rather, it supports the federation of

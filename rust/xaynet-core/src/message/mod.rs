@@ -1,12 +1,5 @@
 //! The messages of the PET protocol.
 //!
-//! The [`Message`]s adhere to the common [`Header`] and [`Payload`] scheme. They are parsed via
-//! [`MessageBuffer`]s which provide a checked access to the raw message, whereas the serialization
-//! and deserialization is implemented via the [`ToBytes`] and [`FromBytes`] traits.
-//!
-//! All messages are signed and encrypted in an authenticated encryption scheme via [`MessageSeal`]
-//! and [`MessageOpen`], which employ the wrappers of the [crypto module].
-//!
 //! # The sum message
 //! The [`Sum`] message is an abstraction for the values which a sum participant communicates to
 //! XayNet during the sum phase of the PET protocol. It contains the following values:
