@@ -25,7 +25,10 @@ impl HttpApiClient {
     ///
     /// # Warning
     /// If no trusted root `certificate`s are provided, then every server will be trusted.
-    pub fn new<S>(address: S, certificates: Option<Vec<Certificate>>) -> Self
+    pub fn new<S>(
+        address: S,
+        certificates: Option<Vec<Certificate>>,
+    ) -> Result<Self, HttpApiClientError>
     where
         S: Into<String>,
     {
@@ -35,19 +38,19 @@ impl HttpApiClient {
             for certificate in certificates {
                 builder = builder.add_root_certificate(certificate);
             }
-            builder.build().unwrap()
+            builder.build().map_err(HttpApiClientError::Http)?
         } else {
             ClientBuilder::new()
                 .use_rustls_tls()
                 .danger_accept_invalid_certs(true)
                 .build()
-                .unwrap()
+                .map_err(HttpApiClientError::Http)?
         };
 
-        Self {
+        Ok(Self {
             client,
             address: address.into(),
-        }
+        })
     }
 }
 

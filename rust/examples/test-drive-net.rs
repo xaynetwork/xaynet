@@ -50,7 +50,11 @@ async fn main() -> Result<(), ClientError<HttpApiClientError>> {
 
     let mut clients = Vec::with_capacity(opt.nb_client as usize);
     for id in 0..opt.nb_client {
-        let mut client = Client::new(opt.period, id, HttpApiClient::new(&opt.url))?;
+        let mut client = Client::new(
+            opt.period,
+            id,
+            HttpApiClient::new(&opt.url, None).map_err(ClientError::Api)?,
+        )?;
         client.local_model = Some(model.clone());
         let join_hdl = tokio::spawn(async move {
             tokio::select! {

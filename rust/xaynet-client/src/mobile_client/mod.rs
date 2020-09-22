@@ -64,12 +64,7 @@ impl MobileClient {
         // https://doc.libsodium.org/usage
         // https://github.com/jedisct1/libsodium/issues/908
         let client_state = ClientStateMachine::new(participant_settings)?;
-        Ok(Self::new(
-            url,
-            der_certificates,
-            pem_certificates,
-            client_state,
-        ))
+        Self::new(url, der_certificates, pem_certificates, client_state)
     }
 
     /// Restores a client from its serialized state.
@@ -87,12 +82,7 @@ impl MobileClient {
         bytes: &[u8],
     ) -> Result<Self, MobileClientError> {
         let client_state: ClientStateMachine = bincode::deserialize(bytes)?;
-        Ok(Self::new(
-            url,
-            der_certificates,
-            pem_certificates,
-            client_state,
-        ))
+        Self::new(url, der_certificates, pem_certificates, client_state)
     }
 
     fn new(
@@ -100,7 +90,7 @@ impl MobileClient {
         der_certificates: Option<Vec<&[u8]>>,
         pem_certificates: Option<Vec<&[u8]>>,
         client_state: ClientStateMachine,
-    ) -> Self {
+    ) -> Result<Self, MobileClientError> {
         let mut certificates = Vec::new();
         if let Some(der_certificates) = der_certificates {
             for certificate in der_certificates {
@@ -120,13 +110,13 @@ impl MobileClient {
             Some(certificates)
         };
 
-        let api = HttpApiClient::new(url, certificates);
+        let api = HttpApiClient::new(url, certificates).map_err(MobileClientError::Api)?;
 
-        Self {
+        Ok(Self {
             api,
             client_state,
             local_model: LocalModelCache(None),
-        }
+        })
     }
 
     /// Serializes the current state of the client.

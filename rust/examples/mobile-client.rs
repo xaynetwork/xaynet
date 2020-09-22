@@ -114,7 +114,7 @@ fn main() -> Result<(), ()> {
         .init();
 
     // create a new client
-    let client = MobileClient::init(&opt.url, get_participant_settings()).unwrap();
+    let client = MobileClient::init(&opt.url, None, None, get_participant_settings()).unwrap();
     // serialize the current client state (and save it on the phone)
     let mut bytes = client.serialize();
 
@@ -130,7 +130,7 @@ fn main() -> Result<(), ()> {
 // perform the participant task (this function should be triggered regularly on the phone while the
 // app is active or in a background task)
 fn perform_task(url: &str, bytes: &[u8], model: Model) -> Vec<u8> {
-    let mut client = MobileClient::restore(url, bytes).unwrap();
+    let mut client = MobileClient::restore(url, None, None, bytes).unwrap();
     println!("task: {:?}", &client.get_current_state());
 
     client.set_local_model(model);
