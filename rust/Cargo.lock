@@ -2838,7 +2838,6 @@ dependencies = [
  "tower-test",
  "tracing",
  "xaynet-core",
- "xaynet-server",
 ]
 
 [[package]]

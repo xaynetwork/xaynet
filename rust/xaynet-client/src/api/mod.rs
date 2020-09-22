@@ -3,11 +3,6 @@
 mod http;
 pub use self::http::{HttpApiClient, HttpApiClientError};
 
-#[cfg(test)]
-mod in_memory;
-#[cfg(test)]
-pub use self::in_memory::{InMemoryApiClient, InMemoryApiClientError};
-
 use xaynet_core::{
     common::RoundParameters,
     mask::Model,
