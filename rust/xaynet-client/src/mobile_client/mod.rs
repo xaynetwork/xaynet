@@ -53,8 +53,8 @@ impl MobileClient {
     /// Fails if the crypto module cannot be initialized.
     pub fn init(
         url: &str,
-        der_certificates: Option<&[&[u8]]>,
-        pem_certificates: Option<&[&[u8]]>,
+        der_certificates: Option<Vec<&[u8]>>,
+        pem_certificates: Option<Vec<&[u8]>>,
         participant_settings: ParticipantSettings,
     ) -> Result<Self, MobileClientError> {
         // It is critical that the initialization of sodiumoxide is successful.
@@ -82,8 +82,8 @@ impl MobileClient {
     /// or if the crypto module cannot be initialized.
     pub fn restore(
         url: &str,
-        der_certificates: Option<&[&[u8]]>,
-        pem_certificates: Option<&[&[u8]]>,
+        der_certificates: Option<Vec<&[u8]>>,
+        pem_certificates: Option<Vec<&[u8]>>,
         bytes: &[u8],
     ) -> Result<Self, MobileClientError> {
         let client_state: ClientStateMachine = bincode::deserialize(bytes)?;
@@ -97,21 +97,21 @@ impl MobileClient {
 
     fn new(
         url: &str,
-        der_certificates: Option<&[&[u8]]>,
-        pem_certificates: Option<&[&[u8]]>,
+        der_certificates: Option<Vec<&[u8]>>,
+        pem_certificates: Option<Vec<&[u8]>>,
         client_state: ClientStateMachine,
     ) -> Self {
         let mut certificates = Vec::new();
         if let Some(der_certificates) = der_certificates {
             for certificate in der_certificates {
                 // safe unwrap: this never fails for reqwest's rustls-tls feature
-                certificates.push(Certificate::from_der(*certificate).unwrap())
+                certificates.push(Certificate::from_der(certificate).unwrap())
             }
         }
         if let Some(pem_certificates) = pem_certificates {
             for certificate in pem_certificates {
                 // safe unwrap: this never fails for reqwest's rustls-tls feature
-                certificates.push(Certificate::from_pem(*certificate).unwrap())
+                certificates.push(Certificate::from_pem(certificate).unwrap())
             }
         }
         let certificates = if certificates.is_empty() {
