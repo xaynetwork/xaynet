@@ -1,6 +1,6 @@
 [package]
 name = "xaynet-client"
-version = "0.9.0"
+version = "0.1.0"
 authors = ["Xayn Engineering <engineering@xaynet.dev>"]
 edition = "2018"
 description = "`xaynet_client` provides an implementation of a Xayn Network client"
@@ -19,7 +19,7 @@ bincode = "1.2.1"
 thiserror = "1.0.19"
 tracing = "0.1.16"
 async-trait = "0.1.35"
-xaynet-core = { path = "../xaynet-core" }
+xaynet-core = { path = "../xaynet-core", version = "0.1.0" }
 
 [dependencies.reqwest]
 version = "0.10.6"
@@ -28,7 +28,7 @@ default-features = false
 [dev-dependencies]
 tower-test = "0.3.0"
 tokio-test = "0.2.1"
-xaynet-server = { path = "../xaynet-server" }
+xaynet-server = { path = "../xaynet-server", version = "0.1.0" }
 
 [features]
 default = ["reqwest/default-tls"]

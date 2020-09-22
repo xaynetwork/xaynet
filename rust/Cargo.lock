@@ -2861,7 +2861,7 @@ dependencies = [
 
 [[package]]
 name = "xaynet"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "xaynet-client",
  "xaynet-core",
@@ -2870,7 +2870,7 @@ dependencies = [
 
 [[package]]
 name = "xaynet-client"
-version = "0.9.0"
+version = "0.1.0"
 dependencies = [
  "async-trait",
  "bincode",
@@ -2890,7 +2890,7 @@ dependencies = [
 
 [[package]]
 name = "xaynet-core"
-version = "0.9.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "bitflags",
@@ -2906,7 +2906,7 @@ dependencies = [
 
 [[package]]
 name = "xaynet-ffi"
-version = "0.9.0"
+version = "0.0.0"
 dependencies = [
  "ffi-support",
  "xaynet-client",
@@ -2923,7 +2923,7 @@ dependencies = [
 
 [[package]]
 name = "xaynet-server"
-version = "0.9.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
