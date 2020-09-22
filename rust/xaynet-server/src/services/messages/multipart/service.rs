@@ -54,27 +54,6 @@ impl MessageBuilder {
             .unwrap_or(false)
     }
 
-    /// Return the first missing chunk. If no chunk is missing, return `None`.
-    #[allow(dead_code)]
-    fn first_missing_chunk(&self) -> Option<u16> {
-        if self
-            .last_chunk_id
-            .map(|last_id| self.data.len() >= last_id as usize)
-            .unwrap_or(false)
-        {
-            return None;
-        }
-
-        let mut current_id = 0;
-        for id in self.data.keys() {
-            if id - current_id > 1 {
-                break;
-            }
-            current_id = *id;
-        }
-        Some(current_id + 1)
-    }
-
     /// Add a chunk.
     fn add_chunk(&mut self, chunk: Chunk) {
         let Chunk { id, last, data, .. } = chunk;
@@ -318,31 +297,26 @@ mod tests {
         assert_eq!(msg.data.len(), 1);
         assert!(msg.last_chunk_id.is_none());
         assert!(!msg.has_all_chunks());
-        assert_eq!(msg.first_missing_chunk(), Some(2));
 
         msg.add_chunk(c2);
         assert_eq!(msg.data.len(), 2);
         assert!(msg.last_chunk_id.is_none());
         assert!(!msg.has_all_chunks());
-        assert_eq!(msg.first_missing_chunk(), Some(3));
 
         msg.add_chunk(c3);
         assert_eq!(msg.data.len(), 3);
         assert!(msg.last_chunk_id.is_none());
         assert!(!msg.has_all_chunks());
-        assert_eq!(msg.first_missing_chunk(), Some(4));
 
         msg.add_chunk(c4);
         assert_eq!(msg.data.len(), 4);
         assert!(msg.last_chunk_id.is_none());
         assert!(!msg.has_all_chunks());
-        assert_eq!(msg.first_missing_chunk(), Some(5));
 
         msg.add_chunk(c5);
         assert_eq!(msg.data.len(), 5);
         assert_eq!(msg.last_chunk_id, Some(5));
         assert!(msg.has_all_chunks());
-        assert!(msg.first_missing_chunk().is_none());
 
         let actual = msg.into_message().unwrap();
         let expected =
@@ -364,31 +338,26 @@ mod tests {
         assert_eq!(msg.data.len(), 1);
         assert!(msg.last_chunk_id.is_none());
         assert!(!msg.has_all_chunks());
-        assert_eq!(msg.first_missing_chunk(), Some(1));
 
         msg.add_chunk(c1);
         assert_eq!(msg.data.len(), 2);
         assert!(msg.last_chunk_id.is_none());
         assert!(!msg.has_all_chunks());
-        assert_eq!(msg.first_missing_chunk(), Some(2));
 
         msg.add_chunk(c5);
         assert_eq!(msg.data.len(), 3);
         assert_eq!(msg.last_chunk_id, Some(5));
         assert!(!msg.has_all_chunks());
-        assert_eq!(msg.first_missing_chunk(), Some(2));
 
         msg.add_chunk(c2);
         assert_eq!(msg.data.len(), 4);
         assert_eq!(msg.last_chunk_id, Some(5));
         assert!(!msg.has_all_chunks());
-        assert_eq!(msg.first_missing_chunk(), Some(4));
 
         msg.add_chunk(c4);
         assert_eq!(msg.data.len(), 5);
         assert_eq!(msg.last_chunk_id, Some(5));
         assert!(msg.has_all_chunks());
-        assert!(msg.first_missing_chunk().is_none());
 
         let actual = msg.into_message().unwrap();
         let expected =
