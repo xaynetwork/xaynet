@@ -39,20 +39,14 @@ impl Participant<Update> {
     ) -> Message {
         let (mask_seed, masked_model, masked_scalar) = self.mask_model(local_model);
         let local_seed_dict = Self::create_local_seed_dict(sum_dict, &mask_seed);
-
-        Message {
-            signature: None,
-            participant_pk: self.state.keys.public,
-            coordinator_pk,
-            payload: UpdateMessage {
-                sum_signature: self.inner.sum_signature,
-                update_signature: self.inner.update_signature,
-                masked_model,
-                masked_scalar,
-                local_seed_dict,
-            }
-            .into(),
-        }
+        let payload = UpdateMessage {
+            sum_signature: self.inner.sum_signature,
+            update_signature: self.inner.update_signature,
+            masked_model,
+            masked_scalar,
+            local_seed_dict,
+        };
+        Message::new_update(self.state.keys.public, coordinator_pk, payload)
     }
 
     /// Generate a mask seed and mask a local model.

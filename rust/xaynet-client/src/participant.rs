@@ -123,17 +123,11 @@ impl Participant {
     /// key.
     pub fn compose_sum_message(&mut self, coordinator_pk: CoordinatorPublicKey) -> Message {
         self.gen_ephm_keypair();
-
-        Message {
-            signature: None,
-            participant_pk: self.pk,
-            coordinator_pk,
-            payload: Sum {
-                sum_signature: self.sum_signature,
-                ephm_pk: self.ephm_pk,
-            }
-            .into(),
-        }
+        let payload = Sum {
+            sum_signature: self.sum_signature,
+            ephm_pk: self.ephm_pk,
+        };
+        Message::new_sum(self.pk, coordinator_pk, payload)
     }
 
     /// Compose an update message given the coordinator public key, sum
@@ -147,20 +141,14 @@ impl Participant {
     ) -> Message {
         let (mask_seed, masked_model, masked_scalar) = Self::mask_model(scalar, local_model);
         let local_seed_dict = Self::create_local_seed_dict(sum_dict, &mask_seed);
-
-        Message {
-            signature: None,
-            participant_pk: self.pk,
-            coordinator_pk,
-            payload: Update {
-                sum_signature: self.sum_signature,
-                update_signature: self.update_signature,
-                masked_model,
-                masked_scalar,
-                local_seed_dict,
-            }
-            .into(),
-        }
+        let payload = Update {
+            sum_signature: self.sum_signature,
+            update_signature: self.update_signature,
+            masked_model,
+            masked_scalar,
+            local_seed_dict,
+        };
+        Message::new_update(self.pk, coordinator_pk, payload)
     }
 
     /// Compose a sum2 message given the coordinator public key, seed dictionary
@@ -179,17 +167,12 @@ impl Participant {
         let mask_seeds = self.get_seeds(seed_dict)?;
         let (model_mask, scalar_mask) =
             self.compute_global_mask(mask_seeds, mask_len, dummy_config())?;
-        Ok(Message {
-            signature: None,
-            participant_pk: self.pk,
-            coordinator_pk,
-            payload: Sum2 {
-                sum_signature: self.sum_signature,
-                model_mask,
-                scalar_mask,
-            }
-            .into(),
-        })
+        let payload = Sum2 {
+            sum_signature: self.sum_signature,
+            model_mask,
+            scalar_mask,
+        };
+        Ok(Message::new_sum2(self.pk, coordinator_pk, payload))
     }
 
     /// Sign the given message with the participant secret key, and

@@ -28,17 +28,17 @@ const HEADER_LENGTH: usize = ranges::RESERVED.end;
 #[derive(Eq, PartialEq, Debug, Clone)]
 pub struct Chunk {
     /// Chunk ID
-    id: u16,
+    pub id: u16,
     /// ID of the message this chunk belongs to
-    message_id: u16,
+    pub message_id: u16,
     /// `true` if this is the last chunk of the message, `false` otherwise
-    last: bool,
+    pub last: bool,
     /// Data contained in this chunk.
-    data: Vec<u8>,
+    pub data: Vec<u8>,
 }
 
 bitflags::bitflags! {
-    /// A bitmask that defines flags for a [`Message`].
+    /// A bitmask that defines flags for a [`Chunk`].
     pub struct Flags: u8 {
         /// Indicates whether this message is the last chunk of a
         /// multipart message
