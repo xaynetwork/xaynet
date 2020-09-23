@@ -32,7 +32,6 @@ impl HttpApiClient {
     where
         S: Into<String>,
     {
-        // Client::new() panicked here before as well, this needs propper error handling later on
         let client = if let Some(certificates) = certificates {
             let mut builder = ClientBuilder::new().use_rustls_tls();
             for certificate in certificates {

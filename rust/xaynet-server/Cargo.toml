@@ -41,7 +41,7 @@ bincode = "1.3.1"
 thiserror = "1.0.20"
 anyhow = "1.0.32"
 bitflags = "1.2.1"
-warp = "0.2.5"
+warp = { version = "0.2.5", features = ["tls"] }
 config = "0.10.1"
 validator = "0.11.0"
 validator_derive = "0.11.0"

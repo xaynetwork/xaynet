@@ -17,6 +17,7 @@ use xaynet_core::{crypto::ByteObject, ParticipantPublicKey};
 /// * `pet_message_handler`: handler for responding to PET messages.
 pub async fn serve<F>(
     addr: impl Into<SocketAddr> + 'static,
+    certificate: Option<(&[u8], &[u8])>,
     fetcher: F,
     pet_message_handler: PetMessageHandler,
 ) where
@@ -63,7 +64,16 @@ pub async fn serve<F>(
         .recover(handle_reject)
         .with(warp::log("http"));
 
-    warp::serve(routes).run(addr).await
+    if let Some((cert, key)) = certificate {
+        warp::serve(routes)
+            .tls()
+            .cert(cert)
+            .key(key)
+            .run(addr)
+            .await
+    } else {
+        warp::serve(routes).run(addr).await
+    }
 }
 
 /// Handles and responds to a PET message.
