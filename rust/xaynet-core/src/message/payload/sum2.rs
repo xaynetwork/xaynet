@@ -177,14 +177,14 @@ impl ToBytes for Sum2 {
 
 // TODO FromBytes impl for MaskObject
 impl FromBytes for Sum2 {
-    fn from_bytes<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
+    fn from_byte_slice<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
         let reader = Sum2Buffer::new(buffer.as_ref())?;
         Ok(Self {
-            sum_signature: ParticipantTaskSignature::from_bytes(&reader.sum_signature())
+            sum_signature: ParticipantTaskSignature::from_byte_slice(&reader.sum_signature())
                 .context("invalid sum signature")?,
             model_mask: MaskObject::new(
-                MaskMany::from_bytes(&reader.model_mask()).context("invalid model mask")?,
-                MaskOne::from_bytes(&reader.scalar_mask()).context("invalid scalar mask")?,
+                MaskMany::from_byte_slice(&reader.model_mask()).context("invalid model mask")?,
+                MaskOne::from_byte_slice(&reader.scalar_mask()).context("invalid scalar mask")?,
             ),
         })
     }
@@ -269,7 +269,7 @@ pub(in crate::message) mod tests {
     #[test]
     fn decode() {
         let (sum2, bytes) = helpers::sum2();
-        let parsed = Sum2::from_bytes(&bytes).unwrap();
+        let parsed = Sum2::from_byte_slice(&bytes).unwrap();
         assert_eq!(parsed, sum2);
     }
 }

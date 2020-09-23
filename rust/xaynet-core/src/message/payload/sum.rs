@@ -147,7 +147,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> SumBuffer<&'a T> {
 /// let signature = vec![0x11; 64];
 /// let ephm_pk = vec![0x22; 32];
 /// let bytes = [signature.as_slice(), ephm_pk.as_slice()].concat();
-/// let parsed = Sum::from_bytes(&bytes).unwrap();
+/// let parsed = Sum::from_byte_slice(&bytes).unwrap();
 /// let expected = Sum{
 ///     sum_signature: ParticipantTaskSignature::from_slice(&signature[..]).unwrap(),
 ///     ephm_pk: SumParticipantEphemeralPublicKey::from_slice(&ephm_pk[..]).unwrap(),
@@ -195,13 +195,13 @@ impl ToBytes for Sum {
 }
 
 impl FromBytes for Sum {
-    fn from_bytes<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
+    fn from_byte_slice<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
         let reader = SumBuffer::new(buffer.as_ref())?;
 
-        let sum_signature = ParticipantTaskSignature::from_bytes(&reader.sum_signature())
+        let sum_signature = ParticipantTaskSignature::from_byte_slice(&reader.sum_signature())
             .context("invalid sum signature")?;
 
-        let ephm_pk = SumParticipantEphemeralPublicKey::from_bytes(&reader.ephm_pk())
+        let ephm_pk = SumParticipantEphemeralPublicKey::from_byte_slice(&reader.ephm_pk())
             .context("invalid ephemeral public key")?;
 
         Ok(Self {
@@ -276,7 +276,7 @@ pub(in crate::message) mod tests {
 
     #[test]
     fn decode() {
-        let parsed = Sum::from_bytes(&sum_bytes()).unwrap();
+        let parsed = Sum::from_byte_slice(&sum_bytes()).unwrap();
         let expected = sum();
         assert_eq!(parsed, expected);
     }

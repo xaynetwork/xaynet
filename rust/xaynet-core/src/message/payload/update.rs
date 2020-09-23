@@ -245,16 +245,16 @@ impl ToBytes for Update {
 }
 
 impl FromBytes for Update {
-    fn from_bytes<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
+    fn from_byte_slice<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
         let reader = UpdateBuffer::new(buffer.as_ref())?;
         Ok(Self {
-            sum_signature: ParticipantTaskSignature::from_bytes(&reader.sum_signature())
+            sum_signature: ParticipantTaskSignature::from_byte_slice(&reader.sum_signature())
                 .context("invalid sum signature")?,
-            update_signature: ParticipantTaskSignature::from_bytes(&reader.update_signature())
+            update_signature: ParticipantTaskSignature::from_byte_slice(&reader.update_signature())
                 .context("invalid update signature")?,
-            masked_model: MaskObject::from_bytes(&reader.masked_model())
+            masked_model: MaskObject::from_byte_slice(&reader.masked_model())
                 .context("invalid masked model")?,
-            local_seed_dict: LocalSeedDict::from_bytes(&reader.local_seed_dict())
+            local_seed_dict: LocalSeedDict::from_byte_slice(&reader.local_seed_dict())
                 .context("invalid local seed dictionary")?,
         })
     }
@@ -371,7 +371,7 @@ pub(in crate::message) mod tests {
         bytes.extend(helpers::masked_model().1);
         bytes.extend(invalid);
 
-        let e = Update::from_bytes(&bytes).unwrap_err();
+        let e = Update::from_byte_slice(&bytes).unwrap_err();
         let cause = e.source().unwrap().to_string();
         assert_eq!(
             cause,
@@ -382,7 +382,7 @@ pub(in crate::message) mod tests {
     #[test]
     fn decode() {
         let (update, bytes) = helpers::update();
-        let parsed = Update::from_bytes(&bytes).unwrap();
+        let parsed = Update::from_byte_slice(&bytes).unwrap();
         assert_eq!(parsed, update);
     }
 

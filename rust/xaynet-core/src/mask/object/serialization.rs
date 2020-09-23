@@ -102,7 +102,8 @@ impl<T: AsRef<[u8]>> MaskManyBuffer<T> {
             ));
         }
 
-        let config = MaskConfig::from_bytes(&self.config()).context("invalid MaskObject buffer")?;
+        let config =
+            MaskConfig::from_byte_slice(&self.config()).context("invalid MaskObject buffer")?;
         let bytes_per_number = config.bytes_per_number();
         let (data_length, overflows) = self.numbers().overflowing_mul(bytes_per_number);
         if overflows {
@@ -126,7 +127,7 @@ impl<T: AsRef<[u8]>> MaskManyBuffer<T> {
     /// # Panics
     /// Panics if the serialized masking configuration is invalid.
     pub fn len(&self) -> usize {
-        let config = MaskConfig::from_bytes(&self.config()).unwrap();
+        let config = MaskConfig::from_byte_slice(&self.config()).unwrap();
         let bytes_per_number = config.bytes_per_number();
         let data_length = self.numbers() * bytes_per_number;
         NUMBERS_FIELD.end + data_length
@@ -236,10 +237,10 @@ impl ToBytes for MaskMany {
 }
 
 impl FromBytes for MaskMany {
-    fn from_bytes<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
+    fn from_byte_slice<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
         let reader = MaskManyBuffer::new(buffer.as_ref())?;
 
-        let config = MaskConfig::from_bytes(&reader.config())?;
+        let config = MaskConfig::from_byte_slice(&reader.config())?;
         let mut data = Vec::with_capacity(reader.numbers());
         let bytes_per_number = config.bytes_per_number();
         for chunk in reader.data().chunks(bytes_per_number) {
@@ -377,7 +378,7 @@ pub(crate) mod tests {
 
     #[test]
     fn deserialize() {
-        assert_eq!(MaskObject::from_bytes(&bytes()).unwrap(), object());
+        assert_eq!(MaskObject::from_byte_slice(&bytes()).unwrap(), object());
     }
 
     #[test]
@@ -389,6 +390,6 @@ pub(crate) mod tests {
 
     #[test]
     fn deserialize_1() {
-        assert_eq!(MaskMany::from_bytes(&bytes_1()).unwrap(), object_1());
+        assert_eq!(MaskMany::from_byte_slice(&bytes_1()).unwrap(), object_1());
     }
 }

@@ -45,14 +45,14 @@ pub trait FromBytes: Sized {
     ///
     /// # Errors
     /// May fail if certain parts of the deserialized buffer don't pass message validity checks.
-    fn from_bytes<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError>;
+    fn from_byte_slice<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError>;
 }
 
 impl<T> FromBytes for T
 where
     T: ByteObject,
 {
-    fn from_bytes<U: AsRef<[u8]>>(buffer: &U) -> Result<Self, DecodeError> {
+    fn from_byte_slice<U: AsRef<[u8]>>(buffer: &U) -> Result<Self, DecodeError> {
         Self::from_slice(buffer.as_ref())
             .ok_or_else(|| anyhow!("failed to deserialize byte object"))
     }
@@ -281,7 +281,7 @@ impl ToBytes for LocalSeedDict {
 }
 
 impl FromBytes for LocalSeedDict {
-    fn from_bytes<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
+    fn from_byte_slice<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
         let reader = LengthValueBuffer::new(buffer.as_ref())?;
         let mut dict = LocalSeedDict::new();
 

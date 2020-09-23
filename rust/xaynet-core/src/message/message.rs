@@ -329,9 +329,9 @@ impl<'a, T: AsRef<[u8]> + ?Sized> MessageBuffer<&'a T> {
     /// Parse the signature and public signing key, and check the
     /// message signature.
     pub fn check_signature(&self) -> Result<(), DecodeError> {
-        let signature =
-            Signature::from_bytes(&self.signature()).context("cannot parse the signature field")?;
-        let participant_pk = PublicSigningKey::from_bytes(&self.participant_pk())
+        let signature = Signature::from_byte_slice(&self.signature())
+            .context("cannot parse the signature field")?;
+        let participant_pk = PublicSigningKey::from_byte_slice(&self.participant_pk())
             .context("cannot part the public key field")?;
 
         if participant_pk.verify_detached(&signature, self.signed_data()) {
@@ -561,25 +561,25 @@ impl Message {
     /// Parse the given message **without** verifying the
     /// signature. If you need to check the signature, call
     /// [`MessageBuffer.verify_signature`] before parsing the message.
-    pub fn from_bytes<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
+    pub fn from_byte_slice<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
         let reader = MessageBuffer::new(buffer.as_ref())?;
         let signature =
-            Signature::from_bytes(&reader.signature()).context("failed to parse signature")?;
-        let participant_pk = PublicSigningKey::from_bytes(&reader.participant_pk())
+            Signature::from_byte_slice(&reader.signature()).context("failed to parse signature")?;
+        let participant_pk = PublicSigningKey::from_byte_slice(&reader.participant_pk())
             .context("failed to parse public key")?;
-        let coordinator_pk = PublicEncryptKey::from_bytes(&reader.coordinator_pk())
+        let coordinator_pk = PublicEncryptKey::from_byte_slice(&reader.coordinator_pk())
             .context("failed to parse public key")?;
 
         let tag = reader.tag().try_into()?;
         let is_multipart = reader.flags().contains(Flags::MULTIPART);
 
         let payload = if is_multipart {
-            Chunk::from_bytes(&reader.payload()).map(Into::into)
+            Chunk::from_byte_slice(&reader.payload()).map(Into::into)
         } else {
             match tag {
-                Tag::Sum => Sum::from_bytes(&reader.payload()).map(Into::into),
-                Tag::Update => Update::from_bytes(&reader.payload()).map(Into::into),
-                Tag::Sum2 => Sum2::from_bytes(&reader.payload()).map(Into::into),
+                Tag::Sum => Sum::from_byte_slice(&reader.payload()).map(Into::into),
+                Tag::Update => Update::from_byte_slice(&reader.payload()).map(Into::into),
+                Tag::Sum2 => Sum2::from_byte_slice(&reader.payload()).map(Into::into),
             }
         }
         .context("failed to parse message payload")?;

@@ -179,7 +179,7 @@ impl<T: AsMut<[u8]> + AsRef<[u8]>> ChunkBuffer<T> {
 }
 
 impl FromBytes for Chunk {
-    fn from_bytes<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
+    fn from_byte_slice<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
         let reader = ChunkBuffer::new(buffer.as_ref()).context("Invalid chunk buffer")?;
         Ok(Self {
             last: reader.flags().contains(Flags::LAST_CHUNK),

@@ -143,7 +143,7 @@ impl ToBytes for MaskConfig {
 }
 
 impl FromBytes for MaskConfig {
-    fn from_bytes<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
+    fn from_byte_slice<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
         let reader = MaskConfigBuffer::new(buffer.as_ref())?;
         Ok(Self {
             group_type: reader
@@ -188,7 +188,7 @@ mod tests {
     #[test]
     fn deserialize() {
         let bytes = vec![1, 1, 255, 9];
-        let config = MaskConfig::from_bytes(&bytes).unwrap();
+        let config = MaskConfig::from_byte_slice(&bytes).unwrap();
         assert_eq!(
             config,
             MaskConfig {
