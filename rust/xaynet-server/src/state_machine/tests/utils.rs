@@ -1,10 +1,9 @@
 use xaynet_core::{
     common::RoundSeed,
     crypto::ByteObject,
-    mask::{BoundType, DataType, GroupType, MaskMany, ModelType},
+    mask::{BoundType, DataType, GroupType, MaskObject, ModelType},
     message::{Message, Payload, Sum, Update},
-    LocalSeedDict,
-    SumParticipantEphemeralPublicKey,
+    LocalSeedDict, SumParticipantEphemeralPublicKey,
 };
 
 use crate::{
@@ -128,7 +127,7 @@ pub fn ephm_pk(msg: &Message) -> SumParticipantEphemeralPublicKey {
 /// # Panic
 ///
 /// Panic if this message is not an update message
-pub fn masked_model(msg: &Message) -> MaskMany {
+pub fn masked_model(msg: &Message) -> MaskObject {
     if let Payload::Update(Update { masked_model, .. }) = &msg.payload {
         masked_model.clone()
     } else {
@@ -141,13 +140,13 @@ pub fn masked_model(msg: &Message) -> MaskMany {
 /// # Panic
 ///
 /// Panic if this message is not an update message
-pub fn masked_scalar(msg: &Message) -> MaskMany {
-    if let Payload::Update(Update { masked_scalar, .. }) = &msg.payload {
-        masked_scalar.clone()
-    } else {
-        panic!("not an update message");
-    }
-}
+// pub fn masked_scalar(msg: &Message) -> MaskMany {
+//     if let Payload::Update(Update { masked_scalar, .. }) = &msg.payload {
+//         masked_scalar.clone()
+//     } else {
+//         panic!("not an update message");
+//     }
+// }
 
 /// Extract the local seed dictioanry from an update message
 ///

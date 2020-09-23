@@ -523,14 +523,12 @@ mod tests {
                     // a. mask the model
                     // b. derive the mask corresponding to the seed used
                     // c. unmask the model and check it against the original one.
-                    let (mask_seed, masked_model, masked_scalar) =
-                        Masker::new(config.clone()).mask(1_f64, model.clone());
-                    assert_eq!(masked_model.data.len(), model.len());
+                    let (mask_seed, masked_model) =
+                        Masker::new(config.clone(), config.clone()).mask(1_f64, model.clone());
+                    assert_eq!(masked_model.vector.data.len(), model.len());
                     assert!(masked_model.is_valid());
-                    assert_eq!(masked_scalar.data.len(), 1);
-                    assert!(masked_scalar.is_valid());
 
-                    let (mask, _scalar_mask) = mask_seed.derive_mask(model.len(), config);
+                    let mask = mask_seed.derive_mask(model.len(), config.clone(), config.clone());
                     let aggregation = Aggregation::from(masked_model);
                     let unmasked_model = aggregation.unmask(mask);
 
@@ -655,13 +653,15 @@ mod tests {
                         let integers = iter::repeat_with(|| generate_integer(&mut prng, &order))
                             .take($len as usize)
                             .collect::<Vec<_>>();
-                        MaskObject::new(config, integers)
+                        let model = MaskMany::new(config, integers);
+                        let scalar = MaskOne::empty(config);
+                        MaskObject::new(model, scalar)
                     });
 
                     // Step 3 (actual test):
                     // a. aggregate the masked models
                     // b. check the aggregated masked model
-                    let mut aggregated_masked_model = Aggregation::new(config, model_size);
+                    let mut aggregated_masked_model = Aggregation::new(config, config, model_size);
                     for nb in 1..$count as usize + 1 {
                         let masked_model = masked_models.next().unwrap();
                         assert!(
@@ -670,8 +670,9 @@ mod tests {
                         aggregated_masked_model.aggregate(masked_model);
 
                         assert_eq!(aggregated_masked_model.nb_models, nb);
-                        assert_eq!(aggregated_masked_model.object.data.len(), $len as usize);
-                        assert_eq!(aggregated_masked_model.object.config, config);
+                        assert_eq!(aggregated_masked_model.object.vector.data.len(), $len as usize);
+                        assert_eq!(aggregated_masked_model.object.vector.config, config);
+                        assert_eq!(aggregated_masked_model.object.scalar.config, config);
                         assert!(aggregated_masked_model.object.is_valid());
                     }
                 }
@@ -812,10 +813,8 @@ mod tests {
                         iter::repeat(paste::expr! { 0 as [<$data:lower>] }).take($len as usize)
                     )
                     .unwrap();
-                    let mut aggregated_masked_model = Aggregation::new(config, model_size);
-                    let mut aggregated_mask = Aggregation::new(config, model_size);
-                    let mut aggregated_masked_scalar = Aggregation::new(config, 1);
-                    let mut aggregated_scalar_mask = Aggregation::new(config, 1);
+                    let mut aggregated_masked_model = Aggregation::new(config, config, model_size);
+                    let mut aggregated_mask = Aggregation::new(config, config, model_size);
                     let scalar = 1_f64 / ($count as f64);
                     let scalar_ratio = Ratio::from_float(scalar).unwrap();
                     for _ in 0..$count as usize {
@@ -827,9 +826,9 @@ mod tests {
                                 *averaged_weight += &scalar_ratio * weight;
                             });
 
-                        let (mask_seed, masked_model, masked_scalar) =
-                            Masker::new(config).mask(scalar, model);
-                        let (mask, scalar_mask) = mask_seed.derive_mask($len as usize, config);
+                        let (mask_seed, masked_model) =
+                            Masker::new(config, config).mask(scalar, model);
+                        let mask = mask_seed.derive_mask($len as usize, config, config);
 
                         assert!(
                             aggregated_masked_model.validate_aggregation(&masked_model).is_ok()
@@ -837,13 +836,6 @@ mod tests {
                         aggregated_masked_model.aggregate(masked_model);
                         assert!(aggregated_mask.validate_aggregation(&mask).is_ok());
                         aggregated_mask.aggregate(mask);
-
-                        assert!(
-                            aggregated_masked_scalar.validate_aggregation(&masked_scalar).is_ok()
-                        );
-                        aggregated_masked_scalar.aggregate(masked_scalar);
-                        assert!(aggregated_scalar_mask.validate_aggregation(&scalar_mask).is_ok());
-                        aggregated_scalar_mask.aggregate(scalar_mask);
                     }
 
                     let unmasked_model = aggregated_masked_model.unmask(aggregated_mask.into());

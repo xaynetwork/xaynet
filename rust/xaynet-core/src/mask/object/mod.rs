@@ -105,7 +105,7 @@ impl MaskOne {
 
     pub fn empty(config: MaskConfig) -> Self {
         Self {
-            data: BigUint::from(1_usize), // NOTE not really empty
+            data: BigUint::from(1_u8), // NOTE not really empty!
             config,
         }
     }

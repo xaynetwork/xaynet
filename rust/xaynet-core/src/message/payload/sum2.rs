@@ -201,7 +201,7 @@ pub(in crate::message) mod tests_helpers {
         (signature, bytes)
     }
 
-    pub fn mask() -> (MaskMany, Vec<u8>) {
+    pub fn mask() -> (MaskObject, Vec<u8>) {
         use crate::mask::object::serialization::tests::{bytes, object};
         (object(), bytes())
     }
@@ -214,11 +214,11 @@ pub(in crate::message) mod tests_helpers {
     pub fn sum2() -> (Sum2, Vec<u8>) {
         let mut bytes = signature().1;
         bytes.extend(mask().1);
-        bytes.extend(mask_1().1);
+        //bytes.extend(mask_1().1);
         let sum2 = Sum2 {
             sum_signature: signature().0,
+            //model_mask: MaskObject::new(mask().0, mask_1().0), // FIXME
             model_mask: mask().0,
-            scalar_mask: mask_1().0,
         };
         (sum2, bytes)
     }

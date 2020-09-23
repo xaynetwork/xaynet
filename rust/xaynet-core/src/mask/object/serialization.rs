@@ -12,7 +12,7 @@ use num::bigint::BigUint;
 use crate::{
     mask::{
         config::{serialization::MASK_CONFIG_BUFFER_LEN, MaskConfig},
-        object::{MaskMany, MaskOne},
+        object::{MaskMany, MaskObject, MaskOne},
     },
     message::{
         traits::{FromBytes, ToBytes},
@@ -229,12 +229,32 @@ impl FromBytes for MaskOne {
     }
 }
 
+impl ToBytes for MaskObject {
+    fn buffer_length(&self) -> usize {
+        self.vector.buffer_length() + self.scalar.buffer_length()
+    }
+
+    fn to_bytes<T: AsMut<[u8]> + AsRef<[u8]>>(&self, buffer: &mut T) {
+        self.vector.to_bytes(buffer);
+        self.scalar.to_bytes(buffer)
+    }
+}
+
+impl FromBytes for MaskObject {
+    fn from_bytes<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
+        let mask_many = MaskMany::from_bytes(buffer)?;
+        let mask_one = MaskOne::from_bytes(buffer)?;
+        Ok(MaskObject::new(mask_many, mask_one))
+    }
+}
+
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
     use crate::mask::config::{BoundType, DataType, GroupType, MaskConfig, ModelType};
+    use crate::mask::MaskObject;
 
-    pub fn object() -> MaskMany {
+    pub fn object() -> MaskObject {
         // config.order() = 20_000_000_000_001 with this config, so the data
         // should be stored on 6 bytes.
         let config = MaskConfig {
@@ -244,17 +264,21 @@ pub(crate) mod tests {
             model_type: ModelType::M3,
         };
         // 4 weights, each stored on 6 bytes => 24 bytes.
-        let data = vec![
+        let data_n = vec![
             BigUint::from(1_u8),
             BigUint::from(2_u8),
             BigUint::from(3_u8),
             BigUint::from(4_u8),
         ];
-        MaskMany::new(config, data)
+        let data_1 = BigUint::from(1_u8);
+        let many = MaskMany::new(config, data_n);
+        let one = MaskOne::new(config, data_1);
+        MaskObject::new(many, one)
     }
 
     pub fn bytes() -> Vec<u8> {
         vec![
+            // vector part
             0x00, 0x02, 0x00, 0x03, // config
             0x00, 0x00, 0x00, 0x04, // number of elements
             // data
@@ -262,6 +286,11 @@ pub(crate) mod tests {
             0x02, 0x00, 0x00, 0x00, 0x00, 0x00, // 2
             0x03, 0x00, 0x00, 0x00, 0x00, 0x00, // 3
             0x04, 0x00, 0x00, 0x00, 0x00, 0x00, // 4
+            // scalar part
+            0x00, 0x02, 0x00, 0x03, // config
+            0x00, 0x00, 0x00, 0x01, // number of elements
+            // data
+            0x01, 0x00, 0x00, 0x00, 0x00, 0x00, // 1
         ]
     }
 
@@ -297,7 +326,7 @@ pub(crate) mod tests {
 
     #[test]
     fn deserialize() {
-        assert_eq!(MaskMany::from_bytes(&bytes()).unwrap(), object());
+        assert_eq!(MaskObject::from_bytes(&bytes()).unwrap(), object());
     }
 
     #[test]

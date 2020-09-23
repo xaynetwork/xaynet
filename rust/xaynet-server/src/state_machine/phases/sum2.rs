@@ -35,13 +35,13 @@ impl Sum2 {
         &self.mask_dict
     }
 
-    pub fn scalar_agg(&self) -> &Aggregation {
-        &self.scalar_agg
-    }
+    // pub fn scalar_agg(&self) -> &Aggregation {
+    //     &self.scalar_agg
+    // }
 
-    pub fn scalar_mask_dict(&self) -> &MaskDict {
-        &self.scalar_mask_dict
-    }
+    // pub fn scalar_mask_dict(&self) -> &MaskDict {
+    //     &self.scalar_mask_dict
+    // }
 }
 
 #[async_trait]
@@ -218,19 +218,21 @@ mod test {
         let msg =
             updater.compose_update_message(coord_keys.public, &sum_dict, scalar, model.clone());
         let masked_model = utils::masked_model(&msg);
-        let masked_scalar = utils::masked_scalar(&msg);
+        //let masked_scalar = utils::masked_scalar(&msg);
         let local_seed_dict = utils::local_seed_dict(&msg);
-        let mut aggregation = Aggregation::new(utils::mask_settings().into(), model_size);
+        let mut aggregation = Aggregation::new(
+            utils::mask_settings().into(),
+            utils::mask_settings().into(),
+            model_size,
+        );
         aggregation.aggregate(masked_model.clone());
-        let mut scalar_agg = Aggregation::new(utils::mask_settings().into(), 1);
-        scalar_agg.aggregate(masked_scalar.clone());
+        //let mut scalar_agg = Aggregation::new(utils::mask_settings().into(), 1);
+        //scalar_agg.aggregate(masked_scalar.clone());
 
         // Create the state machine
         let sum2 = Sum2 {
             model_agg: aggregation,
-            scalar_agg,
             mask_dict: MaskDict::new(),
-            scalar_mask_dict: MaskDict::new(),
         };
 
         let (state_machine, request_tx, events, _) = StateMachineBuilder::new()
@@ -249,7 +251,11 @@ mod test {
 
         // Create a sum2 request.
         let msg = summer
-            .compose_sum2_message(coord_keys.public, &local_seed_dict, masked_model.data.len())
+            .compose_sum2_message(
+                coord_keys.public,
+                &local_seed_dict,
+                masked_model.vector.data.len(),
+            )
             .unwrap();
 
         // Have the state machine process the request

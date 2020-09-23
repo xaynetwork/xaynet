@@ -160,12 +160,13 @@ mod tests {
             model_type: ModelType::M3,
         };
         let seed = MaskSeed::generate();
-        let (mask, scalar_mask) = seed.derive_mask(10, config);
-        assert_eq!(mask.data.len(), 10);
-        assert!(mask.data.iter().all(|integer| integer < &config.order()));
-
-        assert_eq!(scalar_mask.data.len(), 1);
-        // TODO check size later after future refactoring
+        let mask = seed.derive_mask(10, config, config);
+        assert_eq!(mask.vector.data.len(), 10);
+        assert!(mask
+            .vector
+            .data
+            .iter()
+            .all(|integer| integer < &config.order()));
     }
 
     #[test]

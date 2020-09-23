@@ -230,7 +230,7 @@ mod test {
     use xaynet_core::{
         common::RoundSeed,
         crypto::{ByteObject, EncryptKeyPair},
-        mask::{FromPrimitives, MaskMany, Model},
+        mask::{FromPrimitives, Model},
         SeedDict, SumDict, UpdateSeedDict,
     };
 
@@ -258,12 +258,16 @@ mod test {
         let mut frozen_sum_dict = SumDict::new();
         frozen_sum_dict.insert(summer.pk, summer_ephm_pk);
 
-        let model_agg = Aggregation::new(utils::mask_settings().into(), model_size);
-        let scalar_agg = Aggregation::new(utils::mask_settings().into(), 1);
+        let aggregation = Aggregation::new(
+            utils::mask_settings().into(),
+            utils::mask_settings().into(),
+            model_size,
+        );
+        //let scalar_agg = Aggregation::new(utils::mask_settings().into(), 1);
         let update = Update {
             update_count: 0,
-            model_agg,
-            scalar_agg,
+            model_agg: aggregation.clone(),
+            //   scalar_agg,
         };
 
         // Create the state machine
@@ -320,7 +324,7 @@ mod test {
         // We have only one updater, so the aggregation should contain
         // the masked model from that updater
         assert_eq!(
-            <Aggregation as Into<MaskMany>>::into(sum2_state.aggregation().clone().into()),
+            <Aggregation as Into<MaskObject>>::into(sum2_state.aggregation().clone().into()),
             masked_model
         );
         assert!(sum2_state.mask_dict().is_empty());

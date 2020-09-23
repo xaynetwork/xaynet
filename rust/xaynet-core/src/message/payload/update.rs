@@ -16,8 +16,7 @@ use crate::{
         utils::range,
         DecodeError,
     },
-    LocalSeedDict,
-    ParticipantTaskSignature,
+    LocalSeedDict, ParticipantTaskSignature,
 };
 
 const SUM_SIGNATURE_RANGE: Range<usize> = range(0, ParticipantTaskSignature::LENGTH);
@@ -283,7 +282,7 @@ pub(in crate::message) mod tests_helpers {
         (signature, bytes)
     }
 
-    pub fn masked_model() -> (MaskMany, Vec<u8>) {
+    pub fn masked_model() -> (MaskObject, Vec<u8>) {
         use crate::mask::object::serialization::tests::{bytes, object};
         (object(), bytes())
     }
@@ -322,14 +321,14 @@ pub(in crate::message) mod tests_helpers {
         let mut bytes = sum_signature().1;
         bytes.extend(update_signature().1);
         bytes.extend(masked_model().1);
-        bytes.extend(masked_scalar().1);
+        //bytes.extend(masked_scalar().1);
         bytes.extend(local_seed_dict().1);
 
         let update = Update {
             sum_signature: sum_signature().0,
             update_signature: update_signature().0,
             masked_model: masked_model().0,
-            masked_scalar: masked_scalar().0,
+            //masked_scalar: masked_scalar().0,
             local_seed_dict: local_seed_dict().0,
         };
         (update, bytes)
