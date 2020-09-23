@@ -188,6 +188,17 @@ impl FromBytes for Sum2 {
             ),
         })
     }
+
+    fn from_byte_stream<I: Iterator<Item = u8> + ExactSizeIterator>(
+        iter: &mut I,
+    ) -> Result<Self, DecodeError> {
+        Ok(Self {
+            sum_signature: ParticipantTaskSignature::from_byte_stream(iter)
+                .context("invalid sum signature")?,
+            model_mask: MaskObject::from_byte_stream(iter).context("invalid model mask")?,
+            scalar_mask: MaskObject::from_byte_stream(iter).context("invalid scalar mask")?,
+        })
+    }
 }
 
 #[cfg(test)]
@@ -270,6 +281,13 @@ pub(in crate::message) mod tests {
     fn decode() {
         let (sum2, bytes) = helpers::sum2();
         let parsed = Sum2::from_byte_slice(&bytes).unwrap();
+        assert_eq!(parsed, sum2);
+    }
+
+    #[test]
+    fn stream_parse() {
+        let (sum2, bytes) = helpers::sum2();
+        let parsed = Sum2::from_byte_stream(&mut bytes.into_iter()).unwrap();
         assert_eq!(parsed, sum2);
     }
 }

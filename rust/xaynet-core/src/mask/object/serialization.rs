@@ -16,7 +16,7 @@ use crate::{
     },
     message::{
         traits::{FromBytes, ToBytes},
-        utils::range,
+        utils::{range, ChunkableIterator},
         DecodeError,
     },
 };
@@ -102,6 +102,21 @@ impl<T: AsRef<[u8]>> MaskManyBuffer<T> {
             ));
         }
 
+        let total_expected_length = self.try_len()?;
+        if len < total_expected_length {
+            return Err(anyhow!(
+                "invalid buffer length: expected {} bytes but buffer has only {} bytes",
+                total_expected_length,
+                len
+            ));
+        }
+        Ok(())
+    }
+
+    /// Return the expected length of the underlying byte buffer,
+    /// based on the masking config field of numbers field. This is
+    /// similar to [`len`] but cannot panic.
+    fn try_len(&self) -> Result<usize, DecodeError> {
         let config =
             MaskConfig::from_byte_slice(&self.config()).context("invalid MaskObject buffer")?;
         let bytes_per_number = config.bytes_per_number();
@@ -111,15 +126,7 @@ impl<T: AsRef<[u8]>> MaskManyBuffer<T> {
                 "invalid MaskObject buffer: invalid masking config or numbers field"
             ));
         }
-        let total_expected_length = NUMBERS_FIELD.end + data_length;
-        if len < total_expected_length {
-            return Err(anyhow!(
-                "invalid buffer length: expected {} bytes but buffer has only {} bytes",
-                total_expected_length,
-                len
-            ));
-        }
-        Ok(())
+        Ok(NUMBERS_FIELD.end + data_length)
     }
 
     /// Gets the expected number of bytes of this buffer wrt to the masking configuration.
@@ -248,6 +255,38 @@ impl FromBytes for MaskMany {
         }
 
         Ok(MaskMany { data, config })
+    }
+
+    fn from_byte_stream<I: Iterator<Item = u8> + ExactSizeIterator>(
+        iter: &mut I,
+    ) -> Result<Self, DecodeError> {
+        let config = MaskConfig::from_byte_stream(iter)?;
+        if iter.len() < 4 {
+            return Err(anyhow!("byte stream exhausted"));
+        }
+        let numbers = u32::from_byte_stream(iter)
+            .context("failed to parse the number of item in mask object")?;
+        let bytes_per_number = config.bytes_per_number();
+
+        let data_len = numbers as usize * bytes_per_number;
+        if iter.len() < data_len {
+            return Err(anyhow!(
+                "mask object is {} bytes long but byte stream only has {} bytes",
+                data_len,
+                iter.len()
+            ));
+        }
+
+        let mut data = Vec::with_capacity(numbers as usize);
+        let mut buf = vec![0; bytes_per_number];
+        for chunk in iter.take(data_len).chunks(bytes_per_number).into_iter() {
+            for (i, b) in chunk.enumerate() {
+                buf[i] = b;
+            }
+            data.push(BigUint::from_bytes_le(buf.as_slice()));
+        }
+
+        Ok(MaskObject { data, config })
     }
 }
 
@@ -382,6 +421,14 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn deserialize_stream() {
+        assert_eq!(
+            MaskObject::from_byte_stream(&mut bytes().into_iter()).unwrap(),
+            object()
+        );
+    }
+
+    #[test]
     fn serialize_1() {
         let mut buf = vec![0xff; 14];
         object_1().to_bytes(&mut buf);
@@ -391,5 +438,13 @@ pub(crate) mod tests {
     #[test]
     fn deserialize_1() {
         assert_eq!(MaskMany::from_byte_slice(&bytes_1()).unwrap(), object_1());
+    }
+
+    #[test]
+    fn deserialize_stream_1() {
+        assert_eq!(
+            MaskObject::from_byte_stream(&mut bytes_1().into_iter()).unwrap(),
+            object_1()
+        );
     }
 }

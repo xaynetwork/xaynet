@@ -209,6 +209,20 @@ impl FromBytes for Sum {
             ephm_pk,
         })
     }
+
+    fn from_byte_stream<I: Iterator<Item = u8> + ExactSizeIterator>(
+        iter: &mut I,
+    ) -> Result<Self, DecodeError> {
+        let sum_signature =
+            ParticipantTaskSignature::from_byte_stream(iter).context("invalid sum signature")?;
+        let ephm_pk = SumParticipantEphemeralPublicKey::from_byte_stream(iter)
+            .context("invalid ephemeral public key")?;
+
+        Ok(Self {
+            sum_signature,
+            ephm_pk,
+        })
+    }
 }
 
 #[cfg(test)]
@@ -277,6 +291,13 @@ pub(in crate::message) mod tests {
     #[test]
     fn decode() {
         let parsed = Sum::from_byte_slice(&sum_bytes()).unwrap();
+        let expected = sum();
+        assert_eq!(parsed, expected);
+    }
+
+    #[test]
+    fn stream_parse() {
+        let parsed = Sum::from_byte_stream(&mut sum_bytes().into_iter()).unwrap();
         let expected = sum();
         assert_eq!(parsed, expected);
     }

@@ -258,6 +258,21 @@ impl FromBytes for Update {
                 .context("invalid local seed dictionary")?,
         })
     }
+
+    fn from_byte_stream<I: Iterator<Item = u8> + ExactSizeIterator>(
+        iter: &mut I,
+    ) -> Result<Self, DecodeError> {
+        Ok(Self {
+            sum_signature: ParticipantTaskSignature::from_byte_stream(iter)
+                .context("invalid sum signature")?,
+            update_signature: ParticipantTaskSignature::from_byte_stream(iter)
+                .context("invalid update signature")?,
+            masked_model: MaskObject::from_byte_stream(iter).context("invalid masked model")?,
+            masked_scalar: MaskObject::from_byte_stream(iter).context("invalid masked scalar")?,
+            local_seed_dict: LocalSeedDict::from_byte_stream(iter)
+                .context("invalid local seed dictionary")?,
+        })
+    }
 }
 
 #[cfg(test)]
@@ -383,6 +398,13 @@ pub(in crate::message) mod tests {
     fn decode() {
         let (update, bytes) = helpers::update();
         let parsed = Update::from_byte_slice(&bytes).unwrap();
+        assert_eq!(parsed, update);
+    }
+
+    #[test]
+    fn stream_parse() {
+        let (update, bytes) = helpers::update();
+        let parsed = Update::from_byte_stream(&mut bytes.into_iter()).unwrap();
         assert_eq!(parsed, update);
     }
 

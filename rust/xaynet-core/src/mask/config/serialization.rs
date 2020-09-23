@@ -164,6 +164,13 @@ impl FromBytes for MaskConfig {
                 .context("invalid masking config")?,
         })
     }
+
+    fn from_byte_stream<I: Iterator<Item = u8> + ExactSizeIterator>(
+        iter: &mut I,
+    ) -> Result<Self, DecodeError> {
+        let buf: Vec<u8> = iter.take(MASK_CONFIG_BUFFER_LEN).collect();
+        Self::from_byte_slice(&buf)
+    }
 }
 
 #[cfg(test)]
@@ -189,6 +196,21 @@ mod tests {
     fn deserialize() {
         let bytes = vec![1, 1, 255, 9];
         let config = MaskConfig::from_byte_slice(&bytes).unwrap();
+        assert_eq!(
+            config,
+            MaskConfig {
+                group_type: GroupType::Prime,
+                data_type: DataType::F64,
+                bound_type: BoundType::Bmax,
+                model_type: ModelType::M9,
+            }
+        );
+    }
+
+    #[test]
+    fn stream_deserialize() {
+        let mut bytes = vec![1, 1, 255, 9].into_iter();
+        let config = MaskConfig::from_byte_stream(&mut bytes).unwrap();
         assert_eq!(
             config,
             MaskConfig {

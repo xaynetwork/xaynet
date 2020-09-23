@@ -29,7 +29,11 @@
 pub(crate) mod message;
 pub(crate) mod payload;
 pub(crate) mod traits;
-pub(crate) mod utils;
+
+// FIXME: I'd like to make this `pub(crate)` but then the doc-tests in
+// utils::chunkable_iterator cannot be compiled
+#[doc(hidden)]
+pub mod utils;
 
 pub use self::{
     message::{Flags, Message, MessageBuffer, Tag},

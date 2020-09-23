@@ -81,9 +81,9 @@ impl MessageBuilder {
                 acc
             });
         let payload = match self.tag {
-            Tag::Sum => Sum::from_bytes(&&bytes[..]).map(Into::into)?,
-            Tag::Update => Update::from_bytes(&&bytes[..]).map(Into::into)?,
-            Tag::Sum2 => Sum2::from_bytes(&&bytes[..]).map(Into::into)?,
+            Tag::Sum => Sum::from_byte_slice(&&bytes[..]).map(Into::into)?,
+            Tag::Update => Update::from_byte_slice(&&bytes[..]).map(Into::into)?,
+            Tag::Sum2 => Sum2::from_byte_slice(&&bytes[..]).map(Into::into)?,
         };
         let message = Message {
             signature: None,

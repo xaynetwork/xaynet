@@ -188,6 +188,24 @@ impl FromBytes for Chunk {
             data: reader.payload().to_vec(),
         })
     }
+
+    fn from_byte_stream<I: Iterator<Item = u8> + ExactSizeIterator>(
+        iter: &mut I,
+    ) -> Result<Self, DecodeError> {
+        if iter.len() < HEADER_LENGTH {
+            return Err(anyhow!("byte stream exhausted"));
+        }
+        let id = u16::from_byte_stream(iter).context("cannot parse id")?;
+        let message_id = u16::from_byte_stream(iter).context("cannot parse message id")?;
+        let flags = Flags::from_bits_truncate(iter.next().unwrap());
+        let data: Vec<u8> = iter.skip(3).collect();
+        Ok(Self {
+            id,
+            message_id,
+            data,
+            last: flags.contains(Flags::LAST_CHUNK),
+        })
+    }
 }
 
 impl ToBytes for Chunk {
@@ -257,6 +275,13 @@ mod tests {
         assert_eq!(buffer.message_id(), message_id().1);
         assert_eq!(buffer.flags(), flags().1);
         assert_eq!(buffer.payload(), &data()[..]);
+    }
+
+    #[test]
+    fn stream_parse() {
+        let (bytes, expected) = chunk();
+        let actual = Chunk::from_byte_stream(&mut bytes.into_iter()).unwrap();
+        assert_eq!(actual, expected);
     }
 
     #[test]
