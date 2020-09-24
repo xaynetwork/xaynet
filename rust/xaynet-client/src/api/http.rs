@@ -1,3 +1,5 @@
+use std::{fs, path::PathBuf};
+
 use reqwest::{self, Certificate, Client, ClientBuilder, Response, StatusCode};
 use thiserror::Error;
 
@@ -51,6 +53,40 @@ impl HttpApiClient {
             address: address.into(),
         })
     }
+
+    /// Reads DER and PEM certificates from given paths.
+    pub fn certificates_from_paths(
+        der: Option<Vec<PathBuf>>,
+        pem: Option<Vec<PathBuf>>,
+    ) -> Result<Option<Vec<Certificate>>, HttpApiClientError> {
+        let from = |paths: Vec<PathBuf>,
+                    from: fn(&[u8]) -> reqwest::Result<Certificate>|
+         -> Result<Vec<Certificate>, HttpApiClientError> {
+            paths
+                .iter()
+                .map(|path| -> Result<Certificate, HttpApiClientError> {
+                    let encoding = fs::read(path).map_err(HttpApiClientError::Io)?;
+                    from(encoding.as_slice()).map_err(HttpApiClientError::Http)
+                })
+                .collect()
+        };
+
+        let certificates = match (der, pem) {
+            (Some(der), Some(pem)) => {
+                let mut certificates = from(der, Certificate::from_der)?;
+                certificates.append(&mut from(pem, Certificate::from_pem)?);
+                certificates
+            }
+            (Some(der), None) => from(der, Certificate::from_der)?,
+            (None, Some(pem)) => from(pem, Certificate::from_pem)?,
+            (None, None) => Vec::new(),
+        };
+        if certificates.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(certificates))
+        }
+    }
 }
 
 /// Error returned by an [`HttpApiClient`]
@@ -64,6 +100,9 @@ pub enum HttpApiClientError {
 
     #[error("Unexpected response from the coordinator: {:?}", .0)]
     UnexpectedResponse(Response),
+
+    #[error("Reading from file failed: {0}")]
+    Io(#[from] std::io::Error),
 }
 
 impl From<bincode::Error> for HttpApiClientError {
