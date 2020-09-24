@@ -28,4 +28,4 @@ url = "http://influxdb:8086"
 db = "metrics"
 
 [redis]
-url = "redis://redis"
+url = "redis://redis-master"

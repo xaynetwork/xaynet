@@ -16,9 +16,11 @@ use crate::state_machine::{
         utils::{enable_logging, generate_summer, generate_updater},
     },
 };
+use serial_test::serial;
 
 #[tokio::test]
-async fn full_round() {
+#[serial]
+async fn integration_full_round() {
     enable_logging();
     let n_updaters = 3;
     let n_summers = 2;
@@ -29,13 +31,18 @@ async fn full_round() {
     let coord_pk = coord_keys.public;
     let model_size = 4;
 
-    let (state_machine, requests, events) = StateMachineBuilder::new()
+    let (state_machine, requests, events, _) = StateMachineBuilder::new()
+        .await
         .with_round_id(42)
         .with_seed(seed.clone())
         .with_sum_ratio(sum_ratio)
         .with_update_ratio(update_ratio)
         .with_min_sum(n_summers)
         .with_min_update(n_updaters)
+        .with_min_sum_time(1)
+        .with_max_sum_time(2)
+        .with_min_update_time(1)
+        .with_max_update_time(2)
         .with_model_size(model_size)
         .build();
 

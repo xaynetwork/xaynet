@@ -1,11 +1,14 @@
 use xaynet_core::{common::RoundSeed, crypto::EncryptKeyPair, mask::MaskConfig};
 
-use crate::state_machine::{
-    events::EventSubscriber,
-    phases::{self, Handler, Phase, PhaseState, Shared},
-    requests::RequestSender,
-    tests::utils,
-    StateMachine,
+use crate::{
+    state_machine::{
+        events::EventSubscriber,
+        phases::{self, Handler, Phase, PhaseState, Shared},
+        requests::RequestSender,
+        tests::utils,
+        StateMachine,
+    },
+    storage::redis,
 };
 
 #[derive(Debug)]
@@ -14,11 +17,12 @@ pub struct StateMachineBuilder<P> {
     request_tx: RequestSender,
     event_subscriber: EventSubscriber,
     phase_state: P,
+    redis: redis::Client,
 }
 
 impl StateMachineBuilder<phases::Idle> {
-    pub fn new() -> Self {
-        let (shared, event_subscriber, request_tx) = utils::init_shared();
+    pub async fn new() -> Self {
+        let (shared, event_subscriber, request_tx, redis) = utils::init_shared().await;
 
         let phase_state = phases::Idle;
         StateMachineBuilder {
@@ -26,6 +30,7 @@ impl StateMachineBuilder<phases::Idle> {
             request_tx,
             event_subscriber,
             phase_state,
+            redis,
         }
     }
 }
@@ -35,12 +40,13 @@ where
     PhaseState<P>: Handler + Phase,
     StateMachine: From<PhaseState<P>>,
 {
-    pub fn build(self) -> (StateMachine, RequestSender, EventSubscriber) {
+    pub fn build(self) -> (StateMachine, RequestSender, EventSubscriber, redis::Client) {
         let Self {
             mut shared,
             request_tx,
             event_subscriber,
             phase_state,
+            redis,
         } = self;
 
         // Make sure the events that the listeners have are up to date
@@ -65,7 +71,7 @@ where
 
         let state_machine = StateMachine::from(state);
 
-        (state_machine, request_tx, event_subscriber)
+        (state_machine, request_tx, event_subscriber, redis)
     }
 
     #[allow(dead_code)]
@@ -115,11 +121,32 @@ where
         self
     }
 
+    pub fn with_min_sum_time(mut self, in_secs: u64) -> Self {
+        self.shared.state.min_sum_time = in_secs;
+        self
+    }
+
+    pub fn with_max_sum_time(mut self, in_secs: u64) -> Self {
+        self.shared.state.max_sum_time = in_secs;
+        self
+    }
+
+    pub fn with_min_update_time(mut self, in_secs: u64) -> Self {
+        self.shared.state.min_update_time = in_secs;
+        self
+    }
+
+    pub fn with_max_update_time(mut self, in_secs: u64) -> Self {
+        self.shared.state.max_update_time = in_secs;
+        self
+    }
+
     pub fn with_phase<S>(self, phase_state: S) -> StateMachineBuilder<S> {
         let Self {
             shared,
             request_tx,
             event_subscriber,
+            redis,
             ..
         } = self;
         StateMachineBuilder {
@@ -127,6 +154,7 @@ where
             request_tx,
             event_subscriber,
             phase_state,
+            redis,
         }
     }
 }

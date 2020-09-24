@@ -1,6 +1,5 @@
 use xaynet_core::{
     mask::{Aggregation, MaskObject},
-    SumDict,
     SumParticipantPublicKey,
 };
 
@@ -20,9 +19,6 @@ use tokio::time::{timeout, Duration};
 /// Sum2 state
 #[derive(Debug)]
 pub struct Sum2 {
-    /// The sum dictionary built during the sum phase.
-    sum_dict: SumDict,
-
     /// The aggregator for masked models.
     model_agg: Aggregation,
 
@@ -38,10 +34,6 @@ pub struct Sum2 {
 
 #[cfg(test)]
 impl Sum2 {
-    pub fn sum_dict(&self) -> &SumDict {
-        &self.sum_dict
-    }
-
     pub fn aggregation(&self) -> &Aggregation {
         &self.model_agg
     }
@@ -120,13 +112,14 @@ where
     }
 }
 
+#[async_trait]
 impl Handler for PhaseState<Sum2> {
     /// Handles a [`StateMachineRequest`],
     ///
     /// If the request is a [`StateMachineRequest::Sum`] or
     /// [`StateMachineRequest::Update`] request, the request sender
     /// will receive a [`StateMachineError::MessageRejected`].
-    fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), StateMachineError> {
+    async fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), StateMachineError> {
         match req {
             StateMachineRequest::Sum2(sum2_req) => {
                 metrics!(
@@ -142,16 +135,10 @@ impl Handler for PhaseState<Sum2> {
 
 impl PhaseState<Sum2> {
     /// Creates a new sum2 state.
-    pub fn new(
-        shared: Shared,
-        sum_dict: SumDict,
-        model_agg: Aggregation,
-        scalar_agg: Aggregation,
-    ) -> Self {
+    pub fn new(shared: Shared, model_agg: Aggregation, scalar_agg: Aggregation) -> Self {
         info!("state transition");
         Self {
             inner: Sum2 {
-                sum_dict,
                 model_agg,
                 scalar_agg,
                 model_mask_dict: MaskDict::new(),
@@ -178,15 +165,17 @@ impl PhaseState<Sum2> {
     /// Fails if the sum participant didn't register in the sum phase or it is a repetition.
     fn add_mask(
         &mut self,
-        pk: &SumParticipantPublicKey,
+        _pk: &SumParticipantPublicKey,
         model_mask: MaskObject,
         scalar_mask: MaskObject,
     ) -> Result<(), StateMachineError> {
         // We remove the participant key here to make sure a participant
         // cannot submit a mask multiple times
-        if self.inner.sum_dict.remove(pk).is_none() {
-            return Err(StateMachineError::MessageRejected);
-        }
+
+        // FIXME: reactivate the check when the mask dict is moved into Redis
+        // if self.inner.sum_dict.remove(pk).is_none() {
+        //     return Err(StateMachineError::MessageRejected);
+        // }
 
         if let Some(count) = self.inner.model_mask_dict.get_mut(&model_mask) {
             *count += 1;
@@ -228,6 +217,7 @@ mod test {
         events::Event,
         tests::{builder::StateMachineBuilder, utils},
     };
+    use serial_test::serial;
     use xaynet_core::{
         common::RoundSeed,
         crypto::{ByteObject, EncryptKeyPair},
@@ -236,7 +226,8 @@ mod test {
     };
 
     #[tokio::test]
-    pub async fn sum2_to_unmask() {
+    #[serial]
+    pub async fn integration_sum2_to_unmask() {
         let n_updaters = 1;
         let n_summers = 1;
         let seed = RoundSeed::generate();
@@ -251,7 +242,7 @@ mod test {
         let mut sum_dict = SumDict::new();
         sum_dict.insert(summer.pk, ephm_pk);
 
-        // Generate a new masked model, seed dictionary and aggregration
+        // Generate a new masked model, seed dictionary and aggregation
         let updater = utils::generate_updater(&seed, sum_ratio, update_ratio);
         let scalar = 1.0 / (n_updaters as f64 * update_ratio);
         let model = Model::from_primitives(vec![0; model_size].into_iter()).unwrap();
@@ -267,20 +258,22 @@ mod test {
 
         // Create the state machine
         let sum2 = Sum2 {
-            sum_dict,
             model_agg: aggregation,
             scalar_agg,
             model_mask_dict: MaskDict::new(),
             scalar_mask_dict: MaskDict::new(),
         };
 
-        let (state_machine, request_tx, events) = StateMachineBuilder::new()
+        let (state_machine, request_tx, events, _) = StateMachineBuilder::new()
+            .await
             .with_seed(seed.clone())
             .with_phase(sum2)
             .with_sum_ratio(sum_ratio)
             .with_update_ratio(update_ratio)
             .with_min_sum(n_summers)
             .with_min_update(n_updaters)
+            .with_min_sum_time(1)
+            .with_max_sum_time(2)
             .with_mask_config(utils::mask_settings().into())
             .build();
         assert!(state_machine.is_sum2());
