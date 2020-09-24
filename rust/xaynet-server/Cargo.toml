@@ -43,8 +43,7 @@ anyhow = "1.0.32"
 bitflags = "1.2.1"
 warp = { version = "0.2.5", features = ["tls"] }
 config = "0.10.1"
-validator = "0.11.0"
-validator_derive = "0.11.0"
+validator = { version = "0.11.0", features = ["derive"] }
 structopt = "0.3.17"
 paste = "1.0.1"
 tower = "0.3.1"

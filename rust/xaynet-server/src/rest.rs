@@ -1,11 +1,16 @@
 //! A HTTP API for the PET protocol interactions.
 
-use crate::services::{fetchers::Fetcher, messages::PetMessageHandler};
-use bytes::{Buf, Bytes};
 use std::{convert::Infallible, net::SocketAddr};
+
+use bytes::{Buf, Bytes};
 use warp::{
     http::{Response, StatusCode},
     Filter,
+};
+
+use crate::{
+    services::{fetchers::Fetcher, messages::PetMessageHandler},
+    settings::TlsSettings,
 };
 use xaynet_core::{crypto::ByteObject, ParticipantPublicKey};
 
@@ -13,11 +18,12 @@ use xaynet_core::{crypto::ByteObject, ParticipantPublicKey};
 /// data and POST requests containing PET messages.
 ///
 /// * `addr`: address of the server.
+/// * `tls_settings`: optional certificate and key for TLS server authentication.
 /// * `fetcher`: fetcher for responding to data requests.
 /// * `pet_message_handler`: handler for responding to PET messages.
 pub async fn serve<F>(
     addr: impl Into<SocketAddr> + 'static,
-    certificate: Option<(&[u8], &[u8])>,
+    tls_settings: TlsSettings,
     fetcher: F,
     pet_message_handler: PetMessageHandler,
 ) where
@@ -64,11 +70,11 @@ pub async fn serve<F>(
         .recover(handle_reject)
         .with(warp::log("http"));
 
-    if let Some((cert, key)) = certificate {
+    if let Some((cert, key)) = tls_settings.into() {
         warp::serve(routes)
             .tls()
-            .cert(cert)
-            .key(key)
+            .cert_path(cert.as_path())
+            .key_path(key.as_path())
             .run(addr)
             .await
     } else {

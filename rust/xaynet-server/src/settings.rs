@@ -38,6 +38,8 @@ pub struct Settings {
     #[validate]
     pub metrics: MetricsSettings,
     pub redis: RedisSettings,
+    #[validate]
+    pub tls: TlsSettings,
 }
 
 impl Settings {
@@ -565,4 +567,65 @@ where
     }
 
     deserializer.deserialize_str(EnvFilterVisitor)
+}
+
+#[derive(Debug, Deserialize, Validate)]
+#[validate(schema(function = "validate_tls"))]
+/// TLS settings.
+pub struct TlsSettings {
+    /// The path to the server certificate to enable TLS. If this is present, then `key` must also
+    /// be present.
+    ///
+    /// # Examples
+    ///
+    /// **TOML**
+    /// ```text
+    /// [tls]
+    /// cert = path/to/tls/files/cert.pem
+    /// ```
+    ///
+    /// **Environment variable**
+    /// ```text
+    /// XAYNET_TLS__CERT=path/to/tls/files/cert.pem
+    /// ```
+    pub cert: Option<String>,
+
+    /// The path to the server private key to enable TLS. If this is present, then `cert` must also
+    /// be present.
+    ///
+    /// # Examples
+    ///
+    /// **TOML**
+    /// ```text
+    /// [tls]
+    /// key = path/to/tls/files/key.rsa
+    /// ```
+    ///
+    /// **Environment variable**
+    /// ```text
+    /// XAYNET_TLS__KEY=path/to/tls/files/key.rsa
+    /// ```
+    pub key: Option<String>,
+}
+
+/// Checks presence of cert and key.
+fn validate_tls(s: &TlsSettings) -> Result<(), ValidationError> {
+    if (s.cert.is_some() && s.key.is_some()) || (s.cert.is_none() && s.key.is_none()) {
+        Ok(())
+    } else {
+        Err(ValidationError::new(
+            "cert and key must always be present together",
+        ))
+    }
+}
+
+impl From<TlsSettings> for Option<(PathBuf, PathBuf)> {
+    fn from(TlsSettings { cert, key }: TlsSettings) -> Self {
+        // mixed cases are prevented by validation
+        match (cert, key) {
+            (Some(cert), Some(key)) => Some((PathBuf::from(cert), PathBuf::from(key))),
+            (None, None) => None,
+            _ => unreachable!("mixed cases are prevented by validation"),
+        }
+    }
 }

@@ -29,3 +29,7 @@ db = "metrics"
 
 [redis]
 url = "redis://redis"
+
+[tls]
+# cert = 
+# key = 

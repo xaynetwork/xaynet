@@ -2582,6 +2582,7 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "url",
+ "validator_derive",
  "validator_types",
 ]
 
@@ -2915,7 +2916,6 @@ dependencies = [
  "tracing-subscriber",
  "uuid",
  "validator",
- "validator_derive",
  "warp",
  "xaynet-client",
  "xaynet-core",
