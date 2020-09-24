@@ -21,3 +21,9 @@ spec:
           ports:
             - containerPort: 8081
               protocol: TCP
+          env:
+          - name: REDIS_AUTH
+            valueFrom:
+              secretKeyRef:
+                name: redis-auth
+                key: redis-password
