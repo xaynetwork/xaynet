@@ -4,6 +4,9 @@
 //!
 //! [message module]: ../index.html
 
+mod chunkable_iterator;
+pub use chunkable_iterator::{Chunk, ChunkableIterator, Chunks, IntoChunks};
+
 use std::ops::Range;
 
 /// Creates a range from `start` to `start + length`.
