@@ -59,7 +59,7 @@ use xaynet_core::{
 
 #[allow(unused_unsafe)]
 /// Converts raw certificate path strings to rust paths.
-unsafe fn raw_certificates_to_paths<'a>(
+unsafe fn raw_certificates_to_paths(
     certificates: *const FfiStr,
     certificates_len: c_uint,
 ) -> Result<Option<Vec<PathBuf>>, ()> {
