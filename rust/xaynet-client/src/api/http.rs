@@ -1,15 +1,18 @@
-use std::{fs, path::PathBuf};
+#[cfg(feature = "tls")]
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
-use reqwest::{self, Certificate, Client, ClientBuilder, Response, StatusCode};
+use reqwest::{self, Client, ClientBuilder, Response, StatusCode};
 use thiserror::Error;
+
+#[cfg(feature = "tls")]
+use reqwest::Certificate;
 
 use crate::api::ApiClient;
 use xaynet_core::{
-    common::RoundParameters,
-    crypto::ByteObject,
-    mask::Model,
-    SumDict,
-    SumParticipantPublicKey,
+    common::RoundParameters, crypto::ByteObject, mask::Model, SumDict, SumParticipantPublicKey,
     UpdateSeedDict,
 };
 
@@ -25,27 +28,28 @@ pub struct HttpApiClient {
 impl HttpApiClient {
     /// Creates a new HTTP(S) client.
     ///
-    /// # Warning
-    /// If no trusted root `certificate`s are provided, then every server will be trusted.
+    /// Requires trusted server `certificates` if the `tls` feature is enabled.
     pub fn new<S>(
         address: S,
-        certificates: Option<Vec<Certificate>>,
+        #[cfg(feature = "tls")] certificates: Vec<Certificate>,
     ) -> Result<Self, HttpApiClientError>
     where
         S: Into<String>,
     {
-        let client = if let Some(certificates) = certificates {
+        #[cfg(not(feature = "tls"))]
+        let client = ClientBuilder::new()
+            .build()
+            .map_err(HttpApiClientError::Http)?;
+
+        #[cfg(feature = "tls")]
+        let client = if certificates.is_empty() {
+            return Err(HttpApiClientError::NoCertificate);
+        } else {
             let mut builder = ClientBuilder::new().use_rustls_tls();
             for certificate in certificates {
                 builder = builder.add_root_certificate(certificate);
             }
             builder.build().map_err(HttpApiClientError::Http)?
-        } else {
-            ClientBuilder::new()
-                .use_rustls_tls()
-                .danger_accept_invalid_certs(true)
-                .build()
-                .map_err(HttpApiClientError::Http)?
         };
 
         Ok(Self {
@@ -54,34 +58,32 @@ impl HttpApiClient {
         })
     }
 
+    #[cfg(feature = "tls")]
     /// Reads DER and PEM certificates from given paths.
-    pub fn certificates_from(
-        paths: &Option<Vec<PathBuf>>,
-    ) -> Result<Option<Vec<Certificate>>, HttpApiClientError> {
-        if let Some(paths) = paths {
-            if paths.is_empty() {
-                Ok(None)
+    ///
+    /// Requires the `tls` feature.
+    pub fn certificates_from(paths: &[PathBuf]) -> Result<Vec<Certificate>, HttpApiClientError> {
+        fn load_certificate(path: &Path) -> Result<Certificate, HttpApiClientError> {
+            let encoding = fs::read(path).map_err(HttpApiClientError::Io)?;
+            if let Some(extension) = path.extension() {
+                match extension.to_str() {
+                    Some("der") => {
+                        Certificate::from_der(&encoding).map_err(HttpApiClientError::Http)
+                    }
+                    Some("pem") => {
+                        Certificate::from_pem(&encoding).map_err(HttpApiClientError::Http)
+                    }
+                    _ => Err(HttpApiClientError::UnexpectedCertificate),
+                }
             } else {
-                paths
-                    .iter()
-                    .map(|path| -> Result<Certificate, HttpApiClientError> {
-                        let encoding = fs::read(path).map_err(HttpApiClientError::Io)?;
-                        path.extension().map_or_else(
-                            || Err(HttpApiClientError::UnexpectedCertificate),
-                            |extension| match extension.to_str() {
-                                Some("der") => Certificate::from_der(&encoding)
-                                    .map_err(HttpApiClientError::Http),
-                                Some("pem") => Certificate::from_pem(&encoding)
-                                    .map_err(HttpApiClientError::Http),
-                                _ => Err(HttpApiClientError::UnexpectedCertificate),
-                            },
-                        )
-                    })
-                    .collect::<Result<Vec<_>, HttpApiClientError>>()
-                    .map(Some)
+                Err(HttpApiClientError::UnexpectedCertificate)
             }
+        }
+
+        if paths.is_empty() {
+            Err(HttpApiClientError::NoCertificate)
         } else {
-            Ok(None)
+            paths.iter().map(|path| load_certificate(path)).collect()
         }
     }
 }
@@ -101,8 +103,13 @@ pub enum HttpApiClientError {
     #[error("Reading from file failed: {0}")]
     Io(#[from] std::io::Error),
 
+    #[cfg(feature = "tls")]
     #[error("Unexpected certificate extension")]
     UnexpectedCertificate,
+
+    #[cfg(feature = "tls")]
+    #[error("No certificate found")]
+    NoCertificate,
 }
 
 impl From<bincode::Error> for HttpApiClientError {

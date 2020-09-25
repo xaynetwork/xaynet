@@ -38,6 +38,7 @@
 //! [`compose_sum2_message`]: #method.compose_sum2_message
 //! [`start()`]: #method.start
 //! [`during_round()`]: #method.during_round
+
 #[macro_use]
 extern crate async_trait;
 #[macro_use]

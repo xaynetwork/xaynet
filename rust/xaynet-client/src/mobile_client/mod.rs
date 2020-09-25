@@ -1,6 +1,7 @@
 pub mod client;
 pub mod participant;
 
+#[cfg(feature = "tls")]
 use std::path::PathBuf;
 
 use thiserror::Error;
@@ -44,7 +45,8 @@ pub struct MobileClient {
 impl MobileClient {
     /// Initializes a fresh client. This method only needs to be called once.
     ///
-    /// The optional certificates for trusted server TLS authentication can be DER or PEM encoded.
+    /// Requires DER/PEM encoded `certificates` for trusted server TLS authentication if the `tls`
+    /// feature is enabled.
     ///
     /// To serialize and restore a client use the [`MobileClient::serialize`] and
     /// [`MobileClient::restore`]
@@ -55,7 +57,7 @@ impl MobileClient {
     pub fn init(
         url: &str,
         participant_settings: ParticipantSettings,
-        certificates: &Option<Vec<PathBuf>>,
+        #[cfg(feature = "tls")] certificates: &[PathBuf],
     ) -> Result<Self, MobileClientError> {
         // It is critical that the initialization of sodiumoxide is successful.
         // We'd better not run the client than having a broken crypto.
@@ -64,12 +66,18 @@ impl MobileClient {
         // https://doc.libsodium.org/usage
         // https://github.com/jedisct1/libsodium/issues/908
         let client_state = ClientStateMachine::new(participant_settings)?;
-        Self::new(url, client_state, certificates)
+        Self::new(
+            url,
+            client_state,
+            #[cfg(feature = "tls")]
+            certificates,
+        )
     }
 
     /// Restores a client from its serialized state.
     ///
-    /// The optional certificates for trusted server TLS authentication can be DER or PEM encoded.
+    /// Requires DER/PEM encoded `certificates` for trusted server TLS authentication if the `tls`
+    /// feature is enabled.
     ///
     /// # Errors
     ///
@@ -78,20 +86,32 @@ impl MobileClient {
     pub fn restore(
         url: &str,
         bytes: &[u8],
-        certificates: &Option<Vec<PathBuf>>,
+        #[cfg(feature = "tls")] certificates: &[PathBuf],
     ) -> Result<Self, MobileClientError> {
         let client_state: ClientStateMachine = bincode::deserialize(bytes)?;
-        Self::new(url, client_state, certificates)
+        Self::new(
+            url,
+            client_state,
+            #[cfg(feature = "tls")]
+            certificates,
+        )
     }
 
     fn new(
         url: &str,
         client_state: ClientStateMachine,
-        certificates: &Option<Vec<PathBuf>>,
+        #[cfg(feature = "tls")] certificates: &[PathBuf],
     ) -> Result<Self, MobileClientError> {
+        #[cfg(feature = "tls")]
         let certificates =
             HttpApiClient::certificates_from(certificates).map_err(MobileClientError::Api)?;
-        let api = HttpApiClient::new(url, certificates).map_err(MobileClientError::Api)?;
+
+        let api = HttpApiClient::new(
+            url,
+            #[cfg(feature = "tls")]
+            certificates,
+        )
+        .map_err(MobileClientError::Api)?;
 
         Ok(Self {
             api,
