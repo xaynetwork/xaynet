@@ -29,6 +29,7 @@ derive_more = { version = "0.99.10", default-features = false, features = [
     "into",
     "index",
     "index_mut",
+    "deref",
 ] }
 rand = "0.7.3"
 rand_chacha = "0.2.2"
@@ -55,7 +56,7 @@ rayon = "1.4.0"
 async-trait = "0.1.40"
 xaynet-macros = { path = "../xaynet-macros", version = "0.1.0" }
 xaynet-core = { path = "../xaynet-core", version = "0.1.0" }
-redis = { version = "0.17.0", default-features = false, features = ["connection-manager", "aio", "tokio-rt-core"] }
+redis = { version = "0.17.0", default-features = false, features = ["connection-manager", "aio", "tokio-rt-core", "script"] }
 
 # optional dependencies
 influxdb = { version = "0.1.0", features = ["derive"], optional = true }

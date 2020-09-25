@@ -1,7 +1,8 @@
 use crate::state_machine::coordinator::CoordinatorState;
-use derive_more::{From, Into};
+use derive_more::{Deref, From, Into};
 use paste::paste;
 use redis::{ErrorKind, FromRedisValue, RedisError, RedisResult, RedisWrite, ToRedisArgs, Value};
+use thiserror::Error;
 use xaynet_core::{
     crypto::{ByteObject, PublicEncryptKey, PublicSigningKey},
     mask::{EncryptedMaskSeed, MaskMany},
@@ -206,21 +207,120 @@ impl FromRedisValue for AddSumParticipant {
     }
 }
 
-#[derive(Ord, PartialOrd, Eq, PartialEq, Debug)]
-pub enum DeleteSumParticipant {
-    Ok,
-    DoesNotExist,
+#[derive(From)]
+pub(crate) struct LocalSeedDictWrite<'a>(&'a LocalSeedDict);
+
+impl ToRedisArgs for LocalSeedDictWrite<'_> {
+    fn write_redis_args<W>(&self, out: &mut W)
+    where
+        W: ?Sized + RedisWrite,
+    {
+        let args: Vec<(PublicSigningKeyWrite, EncryptedMaskSeedWrite)> = self
+            .0
+            .iter()
+            .map(|(pk, seed)| {
+                (
+                    PublicSigningKeyWrite::from(pk),
+                    EncryptedMaskSeedWrite::from(seed),
+                )
+            })
+            .collect();
+
+        args.write_redis_args(out)
+    }
 }
 
-impl FromRedisValue for DeleteSumParticipant {
-    fn from_redis_value(v: &Value) -> RedisResult<DeleteSumParticipant> {
+impl<'a> ToRedisArgs for &'a LocalSeedDictWrite<'a> {
+    fn write_redis_args<W>(&self, out: &mut W)
+    where
+        W: ?Sized + RedisWrite,
+    {
+        let args: Vec<(PublicSigningKeyWrite, EncryptedMaskSeedWrite)> = self
+            .0
+            .iter()
+            .map(|(pk, seed)| {
+                (
+                    PublicSigningKeyWrite::from(pk),
+                    EncryptedMaskSeedWrite::from(seed),
+                )
+            })
+            .collect();
+
+        args.write_redis_args(out)
+    }
+}
+
+#[derive(Deref)]
+pub struct SeedDictUpdate(Result<(), SeedDictUpdateError>);
+impl SeedDictUpdate {
+    pub fn into_inner(self) -> Result<(), SeedDictUpdateError> {
+        self.0
+    }
+}
+
+impl FromRedisValue for SeedDictUpdate {
+    fn from_redis_value(v: &Value) -> RedisResult<SeedDictUpdate> {
         match *v {
-            Value::Int(0) => Ok(DeleteSumParticipant::DoesNotExist),
-            Value::Int(1) => Ok(DeleteSumParticipant::Ok),
+            Value::Int(0) => Ok(SeedDictUpdate(Ok(()))),
+            Value::Int(-1) => Ok(SeedDictUpdate(Err(SeedDictUpdateError::LengthMisMatch))),
+            Value::Int(-2) => Ok(SeedDictUpdate(Err(
+                SeedDictUpdateError::UnknownSumParticipant,
+            ))),
+            Value::Int(-3) => Ok(SeedDictUpdate(Err(
+                SeedDictUpdateError::UpdatePkAlreadySubmitted,
+            ))),
+            Value::Int(-4) => Ok(SeedDictUpdate(Err(
+                SeedDictUpdateError::UpdatePkAlreadyExistsInUpdateSeedDict,
+            ))),
             _ => Err(redis_type_error(
                 "Response status not valid integer",
                 Some(format!("Response was {:?}", v)),
             )),
         }
     }
+}
+
+/// Error that can occur during the update of the `SeedDict`.
+#[derive(Error, Debug)]
+pub enum SeedDictUpdateError {
+    #[error("the length of the local seed dict and the length of sum dict are not equal")]
+    LengthMisMatch,
+    #[error("local dict contains an unknown sum participant")]
+    UnknownSumParticipant,
+    #[error("update participant already submitted an update")]
+    UpdatePkAlreadySubmitted,
+    #[error("update participant already exists in the inner update seed dict")]
+    UpdatePkAlreadyExistsInUpdateSeedDict,
+}
+
+#[cfg(test)]
+#[derive(Deref)]
+pub struct SumDictDelete(Result<(), SumDictDeleteError>);
+
+#[cfg(test)]
+impl SumDictDelete {
+    pub fn into_inner(self) -> Result<(), SumDictDeleteError> {
+        self.0
+    }
+}
+
+#[cfg(test)]
+impl FromRedisValue for SumDictDelete {
+    fn from_redis_value(v: &Value) -> RedisResult<SumDictDelete> {
+        match *v {
+            Value::Int(0) => Ok(SumDictDelete(Err(SumDictDeleteError::DoesNotExist))),
+            Value::Int(1) => Ok(SumDictDelete(Ok(()))),
+            _ => Err(redis_type_error(
+                "Response status not valid integer",
+                Some(format!("Response was {:?}", v)),
+            )),
+        }
+    }
+}
+
+#[cfg(test)]
+#[derive(Error, Debug)]
+pub enum SumDictDeleteError {
+    #[error("sum participant does not exist")]
+    DoesNotExist,
 }
