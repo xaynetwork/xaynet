@@ -129,7 +129,7 @@ fn main() -> Result<(), ()> {
 
     // create a new client
     let client =
-        MobileClient::init(&opt.url, &opt.certificates, get_participant_settings()).unwrap();
+        MobileClient::init(&opt.url, get_participant_settings(), &opt.certificates).unwrap();
     // serialize the current client state (and save it on the phone)
     let mut bytes = client.serialize();
 
@@ -137,7 +137,7 @@ fn main() -> Result<(), ()> {
     loop {
         // load local model
         let model = Model::from_primitives(vec![1; opt.len as usize].into_iter()).unwrap();
-        bytes = perform_task(&opt.url, &opt.certificates, &bytes, model);
+        bytes = perform_task(&opt.url, &bytes, model, &opt.certificates);
         pause();
     }
 }
@@ -146,11 +146,11 @@ fn main() -> Result<(), ()> {
 // app is active or in a background task)
 fn perform_task(
     url: &str,
-    certificates: &Option<Vec<PathBuf>>,
     bytes: &[u8],
     model: Model,
+    certificates: &Option<Vec<PathBuf>>,
 ) -> Vec<u8> {
-    let mut client = MobileClient::restore(url, certificates, bytes).unwrap();
+    let mut client = MobileClient::restore(url, bytes, certificates).unwrap();
     println!("task: {:?}", &client.get_current_state());
 
     client.set_local_model(model);

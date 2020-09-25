@@ -54,8 +54,8 @@ impl MobileClient {
     /// Fails if the crypto module cannot be initialized.
     pub fn init(
         url: &str,
-        certificates: &Option<Vec<PathBuf>>,
         participant_settings: ParticipantSettings,
+        certificates: &Option<Vec<PathBuf>>,
     ) -> Result<Self, MobileClientError> {
         // It is critical that the initialization of sodiumoxide is successful.
         // We'd better not run the client than having a broken crypto.
@@ -64,7 +64,7 @@ impl MobileClient {
         // https://doc.libsodium.org/usage
         // https://github.com/jedisct1/libsodium/issues/908
         let client_state = ClientStateMachine::new(participant_settings)?;
-        Self::new(url, certificates, client_state)
+        Self::new(url, client_state, certificates)
     }
 
     /// Restores a client from its serialized state.
@@ -77,17 +77,17 @@ impl MobileClient {
     /// or if the crypto module cannot be initialized.
     pub fn restore(
         url: &str,
-        certificates: &Option<Vec<PathBuf>>,
         bytes: &[u8],
+        certificates: &Option<Vec<PathBuf>>,
     ) -> Result<Self, MobileClientError> {
         let client_state: ClientStateMachine = bincode::deserialize(bytes)?;
-        Self::new(url, certificates, client_state)
+        Self::new(url, client_state, certificates)
     }
 
     fn new(
         url: &str,
-        certificates: &Option<Vec<PathBuf>>,
         client_state: ClientStateMachine,
+        certificates: &Option<Vec<PathBuf>>,
     ) -> Result<Self, MobileClientError> {
         let certificates =
             HttpApiClient::certificates_from(certificates).map_err(MobileClientError::Api)?;

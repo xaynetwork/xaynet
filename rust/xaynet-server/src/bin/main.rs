@@ -4,7 +4,11 @@ use structopt::StructOpt;
 use tokio::signal;
 use tracing_subscriber::*;
 use xaynet_server::{
-    rest, services, settings::Settings, state_machine::StateMachine, storage::redis,
+    rest,
+    services,
+    settings::Settings,
+    state_machine::StateMachine,
+    storage::redis,
 };
 
 #[cfg(feature = "metrics")]

@@ -110,26 +110,17 @@ pub struct CMobileClient(MobileClient);
 /// # Parameters
 ///
 /// - `url`: The URL fo the coordinator to which the [`MobileClient`] will try to connect to.
-/// - `der_certificates`/`pem_certificates`: The array of paths to DER/PEM encoded trusted server
-///   certificates for TLS authentication.
-/// - `der_certificates_len`/`pem_certificates_len`: The number of DER/PEM encoded certificates.
 /// - `secret_key`: The array that contains the secret key.
 /// - `group_type`: The [`GroupType`].
 /// - `data_type`: The [`DataType`].
 /// - `bound_type`: The [`BoundType`].
 /// - `model_type`: The [`ModelType`].
 /// - `scalar`: The scalar.
+/// - `certificates`: The optional array of paths to DER/PEM encoded trusted server certificates for
+///   TLS authentication.
+/// - `certificates_len`: The number of DER/PEM encoded certificates.
 ///
 /// # Safety
-///
-/// `certificates`:
-///
-/// The function only ensures null-safety. You must ensure that:
-/// - the pointer points to an initialized instance of `*const FfiStr`
-/// - the data the pointers point to are properly aligned,
-/// - the data is valid for reads for `certificates_len * mem::size_of::<*const _>()` many bytes,
-/// - the memory of the certificates is not mutated (from the outside of this function)
-/// for the duration of the execution of [`xaynet_ffi_init_mobile_client`].
 ///
 /// `secret_key`:
 ///
@@ -141,6 +132,15 @@ pub struct CMobileClient(MobileClient);
 /// - the memory of secret_key is not mutated (from the outside of this function)
 /// for the duration of the execution of [`xaynet_ffi_init_mobile_client`].
 ///
+/// `certificates`:
+///
+/// The function only ensures null-safety. You must ensure that:
+/// - the pointer points to an initialized instance of `*const FfiStr`
+/// - the data the pointers point to are properly aligned,
+/// - the data is valid for reads for `certificates_len * mem::size_of::<*const _>()` many bytes,
+/// - the memory of the certificates is not mutated (from the outside of this function)
+/// for the duration of the execution of [`xaynet_ffi_init_mobile_client`].
+///
 /// # Return Value
 ///
 /// Returns a new instance of [`CMobileClient`].
@@ -149,7 +149,7 @@ pub struct CMobileClient(MobileClient);
 ///
 /// - a value of `group_type`, `data_type`, `bound_type` or `model_type` is not a valid value
 /// (see the module documentation of [`xaynet_core::mask`] for more information),
-/// - the pointer of `url`, `certificates` or `secret_key` points to `NULL`,
+/// - the pointer of `url`, `secret_key` or `certificates` points to `NULL`,
 /// - the `url` or `certificates` contains invalid UTF-8 characters.
 ///
 /// [`MobileClient`]: xaynet_client::mobile_client::MobileClient
@@ -157,14 +157,14 @@ pub struct CMobileClient(MobileClient);
 #[no_mangle]
 pub unsafe extern "C" fn xaynet_ffi_init_mobile_client(
     url: FfiStr,
-    certificates: *const FfiStr,
-    certificates_len: c_uint,
     secret_key: *const c_uchar,
     group_type: c_uchar,
     data_type: c_uchar,
     bound_type: c_uchar,
     model_type: c_uchar,
     scalar: c_double,
+    certificates: *const FfiStr,
+    certificates_len: c_uint,
 ) -> *mut CMobileClient {
     // we could return *const CMobileClient, however, the caller can ignore it
     // https://newrustacean.com/show_notes/e031/struct.script#strings
@@ -175,14 +175,6 @@ pub unsafe extern "C" fn xaynet_ffi_init_mobile_client(
     let url = match url.as_opt_str() {
         Some(url) => url,
         None => return ptr::null_mut(),
-    };
-
-    // Check the certificates.
-    // Returns `None` if any of the pointers points to `NULL`.
-    // Slice alignment and memory initialization safety concerns apply as usual.
-    let certificates = match unsafe { certificate_paths_from(certificates, certificates_len) } {
-        Ok(certificates) => certificates,
-        Err(_) => return ptr::null_mut(),
     };
 
     // Check the `secret key` of the client.
@@ -235,7 +227,15 @@ pub unsafe extern "C" fn xaynet_ffi_init_mobile_client(
         },
     };
 
-    if let Ok(mobile_client) = MobileClient::init(url, &certificates, participant_settings) {
+    // Check the certificates.
+    // Returns `None` if any of the pointers points to `NULL`.
+    // Slice alignment and memory initialization safety concerns apply as usual.
+    let certificates = match unsafe { certificate_paths_from(certificates, certificates_len) } {
+        Ok(certificates) => certificates,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    if let Ok(mobile_client) = MobileClient::init(url, participant_settings, &certificates) {
         Box::into_raw(Box::new(CMobileClient(mobile_client)))
     } else {
         ptr::null_mut()
@@ -247,22 +247,13 @@ pub unsafe extern "C" fn xaynet_ffi_init_mobile_client(
 /// # Parameters
 ///
 /// - `url`: The URL fo the coordinator to which the [`MobileClient`] will try to connect to.
-/// - `der_certificates`/`pem_certificates`: The array of paths to DER/PEM encoded trusted server
-///   certificates for TLS authentication.
-/// - `der_certificates_len`/`pem_certificates_len`: The number of DER/PEM encoded certificates.
 /// - `buffer`: The array that contains the serialized state.
 /// - `len`: The length of `buffer`.
+/// - `certificates`: The optional array of paths to DER/PEM encoded trusted server certificates for
+///   TLS authentication.
+/// - `certificates_len`: The number of DER/PEM encoded certificates.
 ///
 /// # Safety
-///
-/// `certificates`:
-///
-/// The function only ensures null-safety. You must ensure that:
-/// - the pointer points to an initialized instance of `*const FfiStr`
-/// - the data the pointers point to are properly aligned,
-/// - the data is valid for reads for `certificates_len * mem::size_of::<*const _>()` many bytes,
-/// - the memory of the certificates is not mutated (from the outside of this function)
-/// for the duration of the execution of [`xaynet_ffi_restore_mobile_client`].
 ///
 /// `buffer`:
 ///
@@ -273,13 +264,22 @@ pub unsafe extern "C" fn xaynet_ffi_init_mobile_client(
 /// - the memory of `buffer` is not mutated (from the outside of this function)
 /// for the duration of the execution of [`xaynet_ffi_restore_mobile_client`].
 ///
+/// `certificates`:
+///
+/// The function only ensures null-safety. You must ensure that:
+/// - the pointer points to an initialized instance of `*const FfiStr`
+/// - the data the pointers point to are properly aligned,
+/// - the data is valid for reads for `certificates_len * mem::size_of::<*const _>()` many bytes,
+/// - the memory of the certificates is not mutated (from the outside of this function)
+/// for the duration of the execution of [`xaynet_ffi_restore_mobile_client`].
+///
 /// # Return Value
 ///
 /// Returns a new instance of [`CMobileClient`].
 ///
 /// ## Returns `NULL` if:
 ///
-/// - the pointer of `url`, `certificates` or `buffer` points to `NULL`,
+/// - the pointer of `url`, `buffer` or `certificates` points to `NULL`,
 /// - `url` or `certificates` contains invalid UTF-8 characters.
 ///
 /// [`MobileClient`]: xaynet_client::mobile_client::MobileClient
@@ -287,15 +287,21 @@ pub unsafe extern "C" fn xaynet_ffi_init_mobile_client(
 #[no_mangle]
 pub unsafe extern "C" fn xaynet_ffi_restore_mobile_client(
     url: FfiStr,
+    buffer: *const c_uchar,
+    buffer_len: c_uint,
     certificates: *const FfiStr,
     certificates_len: c_uint,
-    buffer: *const c_uchar,
-    len: c_uint,
 ) -> *mut CMobileClient {
     let url = match url.as_opt_str() {
         Some(url) => url,
         None => return ptr::null_mut(),
     };
+
+    let buffer = match unsafe { buffer.as_ref() } {
+        Some(buffer) => buffer,
+        None => return ptr::null_mut(),
+    };
+    let buffer = unsafe { slice::from_raw_parts(buffer, buffer_len as usize) };
 
     // Check the certificates.
     // Returns `None` if any of the pointers points to `NULL`.
@@ -305,14 +311,7 @@ pub unsafe extern "C" fn xaynet_ffi_restore_mobile_client(
         Err(_) => return ptr::null_mut(),
     };
 
-    let buffer = match unsafe { buffer.as_ref() } {
-        Some(buffer) => buffer,
-        None => return ptr::null_mut(),
-    };
-
-    let buffer = unsafe { slice::from_raw_parts(buffer, len as usize) };
-
-    if let Ok(mobile_client) = MobileClient::restore(url, &certificates, buffer) {
+    if let Ok(mobile_client) = MobileClient::restore(url, buffer, &certificates) {
         Box::into_raw(Box::new(CMobileClient(mobile_client)))
     } else {
         ptr::null_mut()

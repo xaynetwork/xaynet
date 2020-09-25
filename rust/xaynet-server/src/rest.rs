@@ -8,8 +8,10 @@ use warp::{
     Filter,
 };
 
-use crate::services::{fetchers::Fetcher, messages::PetMessageHandler};
-use crate::settings::ApiSettings;
+use crate::{
+    services::{fetchers::Fetcher, messages::PetMessageHandler},
+    settings::ApiSettings,
+};
 use xaynet_core::{crypto::ByteObject, ParticipantPublicKey};
 
 /// Starts a HTTP server at the given address, listening to GET requests for
