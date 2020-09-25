@@ -78,7 +78,7 @@ impl HttpApiClient {
                         )
                     })
                     .collect::<Result<Vec<_>, HttpApiClientError>>()
-                    .map(|certificates| Some(certificates))
+                    .map(Some)
             }
         } else {
             Ok(None)
