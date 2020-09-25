@@ -28,4 +28,4 @@ spec:
                   name: redis-auth
                   key: redis-password
             - name: XAYNET_REDIS__URL
-              value: "redis://:${REDIS_AUTH}@redis-master"
+              value: "redis://:$(REDIS_AUTH)@redis-master"
