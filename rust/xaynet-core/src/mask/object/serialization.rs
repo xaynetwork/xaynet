@@ -29,12 +29,48 @@ const NUMBERS_FIELD: Range<usize> = range(MASK_CONFIG_FIELD.end, 4);
 const MAX_NB: u32 = u16::MAX as u32;
 
 /// A buffer for serialized mask objects.
+pub struct MaskManyBuffer<T> {
+    inner: T,
+}
+
 pub struct MaskObjectBuffer<T> {
     inner: T,
 }
 
-#[allow(clippy::len_without_is_empty)]
 impl<T: AsRef<[u8]>> MaskObjectBuffer<T> {
+    pub fn new(bytes: T) -> Result<Self, DecodeError> {
+        let buffer = Self { inner: bytes };
+        // TODO complete implementation in later refactoring
+        Ok(buffer)
+    }
+    pub fn new_unchecked(bytes: T) -> Self {
+        Self { inner: bytes }
+    }
+    pub fn _check_buffer_length(&self) -> Result<(), DecodeError> {
+        // TODO complete implementation in later refactoring
+        Ok(())
+    }
+    pub fn vector(&self) -> &[u8] {
+        let len = self.scalar_offset();
+        &self.inner.as_ref()[0..len]
+    }
+    pub fn scalar_offset(&self) -> usize {
+        let vector = MaskManyBuffer::new_unchecked(&self.inner.as_ref()[0..]);
+        vector.len()
+    }
+    pub fn scalar(&self) -> &[u8] {
+        let offset = self.scalar_offset();
+        &self.inner.as_ref()[offset..]
+    }
+    pub fn len(&self) -> usize {
+        let scalar_offset = self.scalar_offset();
+        let scalar = MaskManyBuffer::new_unchecked(&self.inner.as_ref()[scalar_offset..]);
+        scalar_offset + scalar.len()
+    }
+}
+
+#[allow(clippy::len_without_is_empty)]
+impl<T: AsRef<[u8]>> MaskManyBuffer<T> {
     /// Creates a new buffer from `bytes`.
     ///
     /// # Errors
@@ -43,7 +79,7 @@ impl<T: AsRef<[u8]>> MaskObjectBuffer<T> {
         let buffer = Self { inner: bytes };
         buffer
             .check_buffer_length()
-            .context("not a valid MaskObject")?;
+            .context("not a valid MaskMany")?;
         Ok(buffer)
     }
 
@@ -133,6 +169,16 @@ impl<T: AsRef<[u8]>> MaskObjectBuffer<T> {
 }
 
 impl<T: AsRef<[u8]> + AsMut<[u8]>> MaskObjectBuffer<T> {
+    pub fn vector_mut(&mut self) -> &mut [u8] {
+        &mut self.inner.as_mut()[0..]
+    }
+    pub fn scalar_mut(&mut self) -> &mut [u8] {
+        let offset = self.scalar_offset();
+        &mut self.inner.as_mut()[offset..]
+    }
+}
+
+impl<T: AsRef<[u8]> + AsMut<[u8]>> MaskManyBuffer<T> {
     /// Sets the number of serialized mask object elements.
     ///
     /// # Panics
@@ -165,7 +211,7 @@ impl ToBytes for MaskMany {
     }
 
     fn to_bytes<T: AsMut<[u8]>>(&self, buffer: &mut T) {
-        let mut writer = MaskObjectBuffer::new_unchecked(buffer.as_mut());
+        let mut writer = MaskManyBuffer::new_unchecked(buffer.as_mut());
         self.config.to_bytes(&mut writer.config_mut());
         writer.set_numbers(self.data.len() as u32);
 
@@ -191,7 +237,7 @@ impl ToBytes for MaskMany {
 
 impl FromBytes for MaskMany {
     fn from_bytes<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
-        let reader = MaskObjectBuffer::new(buffer.as_ref())?;
+        let reader = MaskManyBuffer::new(buffer.as_ref())?;
 
         let config = MaskConfig::from_bytes(&reader.config())?;
         let mut data = Vec::with_capacity(reader.numbers());
@@ -216,6 +262,7 @@ impl ToBytes for MaskOne {
 
 impl FromBytes for MaskOne {
     fn from_bytes<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
+        // TODO more direct implementation in later refactoring
         let mut mask_many = MaskMany::from_bytes(buffer)?;
         let vec_len = mask_many.data.len();
         if vec_len == 1 {
@@ -235,16 +282,18 @@ impl ToBytes for MaskObject {
     }
 
     fn to_bytes<T: AsMut<[u8]> + AsRef<[u8]>>(&self, buffer: &mut T) {
-        self.vector.to_bytes(buffer);
-        self.scalar.to_bytes(buffer)
+        let mut writer = MaskObjectBuffer::new_unchecked(buffer.as_mut());
+        self.vector.to_bytes(&mut writer.vector_mut());
+        self.scalar.to_bytes(&mut writer.scalar_mut());
     }
 }
 
 impl FromBytes for MaskObject {
     fn from_bytes<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
-        let mask_many = MaskMany::from_bytes(buffer)?;
-        let mask_one = MaskOne::from_bytes(buffer)?;
-        Ok(MaskObject::new(mask_many, mask_one))
+        let reader = MaskObjectBuffer::new(buffer.as_ref())?;
+        let vector = MaskMany::from_bytes(&reader.vector()).context("invalid vector part")?;
+        let scalar = MaskOne::from_bytes(&reader.scalar()).context("invalid scalar part")?;
+        Ok(Self { vector, scalar })
     }
 }
 
@@ -319,7 +368,7 @@ pub(crate) mod tests {
 
     #[test]
     fn serialize() {
-        let mut buf = vec![0xff; 32];
+        let mut buf = vec![0xff; 46];
         object().to_bytes(&mut buf);
         assert_eq!(buf, bytes());
     }

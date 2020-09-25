@@ -10,7 +10,7 @@ use anyhow::{anyhow, Context};
 
 use crate::{
     crypto::ByteObject,
-    mask::object::{serialization::MaskObjectBuffer, MaskMany, MaskObject, MaskOne},
+    mask::object::{serialization::MaskManyBuffer, serialization::MaskObjectBuffer, MaskObject},
     message::{
         traits::{FromBytes, LengthValueBuffer, ToBytes},
         utils::range,
@@ -66,11 +66,11 @@ impl<T: AsRef<[u8]>> UpdateBuffer<T> {
         }
 
         // Check the length of the masked model field
-        let _ = MaskObjectBuffer::new(&self.inner.as_ref()[self.masked_model_offset()..])
+        let _ = MaskManyBuffer::new(&self.inner.as_ref()[self.masked_model_offset()..])
             .context("invalid masked model field")?;
 
         // Check the length of the masked scalar field
-        let _ = MaskObjectBuffer::new(&self.inner.as_ref()[self.masked_scalar_offset()..])
+        let _ = MaskManyBuffer::new(&self.inner.as_ref()[self.masked_scalar_offset()..])
             .context("invalid masked scalar field")?;
 
         // Check the length of the local seed dictionary field
@@ -88,7 +88,7 @@ impl<T: AsRef<[u8]>> UpdateBuffer<T> {
     /// Gets the offset of the masked scalar field.
     fn masked_scalar_offset(&self) -> usize {
         let masked_model =
-            MaskObjectBuffer::new_unchecked(&self.inner.as_ref()[self.masked_model_offset()..]);
+            MaskManyBuffer::new_unchecked(&self.inner.as_ref()[self.masked_model_offset()..]);
         self.masked_model_offset() + masked_model.len()
     }
 
@@ -97,9 +97,9 @@ impl<T: AsRef<[u8]>> UpdateBuffer<T> {
     /// # Panics
     /// Computing the offset may panic if the buffer has not been checked before.
     fn local_seed_dict_offset(&self) -> usize {
-        let masked_scalar =
-            MaskObjectBuffer::new_unchecked(&self.inner.as_ref()[self.masked_scalar_offset()..]);
-        self.masked_scalar_offset() + masked_scalar.len()
+        let masked_model =
+            MaskObjectBuffer::new_unchecked(&self.inner.as_ref()[self.masked_model_offset()..]);
+        self.masked_model_offset() + masked_model.len()
     }
 }
 
@@ -248,11 +248,8 @@ impl FromBytes for Update {
                 .context("invalid sum signature")?,
             update_signature: ParticipantTaskSignature::from_bytes(&reader.update_signature())
                 .context("invalid update signature")?,
-            masked_model: MaskObject::new(
-                // TODO perhaps a FromBytes for MaskObject can deal with this?
-                MaskMany::from_bytes(&reader.masked_model()).context("invalid masked model")?,
-                MaskOne::from_bytes(&reader.masked_scalar()).context("invalid masked scalar")?,
-            ),
+            masked_model: MaskObject::from_bytes(&reader.masked_model())
+                .context("invalid masked model")?,
             local_seed_dict: LocalSeedDict::from_bytes(&reader.local_seed_dict())
                 .context("invalid local seed dictionary")?,
         })
@@ -368,7 +365,6 @@ pub(in crate::message) mod tests {
         bytes.extend(helpers::sum_signature().1);
         bytes.extend(helpers::update_signature().1);
         bytes.extend(helpers::masked_model().1);
-        bytes.extend(helpers::masked_scalar().1);
         bytes.extend(invalid);
 
         let e = Update::from_bytes(&bytes).unwrap_err();
