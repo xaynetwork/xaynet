@@ -4,11 +4,7 @@ use structopt::StructOpt;
 use tokio::signal;
 use tracing_subscriber::*;
 use xaynet_server::{
-    rest,
-    services,
-    settings::Settings,
-    state_machine::StateMachine,
-    storage::redis,
+    rest, services, settings::Settings, state_machine::StateMachine, storage::redis,
 };
 
 #[cfg(feature = "metrics")]
@@ -37,7 +33,6 @@ async fn main() {
         model: model_settings,
         metrics: metrics_settings,
         redis: redis_settings,
-        tls: tls_settings,
     } = Settings::new(opt.config_path).unwrap_or_else(|err| {
         eprintln!("{}", err);
         process::exit(1);
@@ -92,7 +87,7 @@ async fn main() {
         _ = state_machine.run() => {
             warn!("shutting down: Service terminated");
         }
-        _ = rest::serve(api_settings.bind_address, tls_settings, fetcher, message_handler) => {
+        _ = rest::serve(api_settings, fetcher, message_handler) => {
             warn!("shutting down: REST server terminated");
         }
         _ =  signal::ctrl_c() => {}

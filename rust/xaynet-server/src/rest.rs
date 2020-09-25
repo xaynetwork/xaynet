@@ -1,6 +1,6 @@
 //! A HTTP API for the PET protocol interactions.
 
-use std::{convert::Infallible, net::SocketAddr};
+use std::{convert::Infallible, path::PathBuf};
 
 use bytes::{Buf, Bytes};
 use warp::{
@@ -8,25 +8,19 @@ use warp::{
     Filter,
 };
 
-use crate::{
-    services::{fetchers::Fetcher, messages::PetMessageHandler},
-    settings::TlsSettings,
-};
+use crate::services::{fetchers::Fetcher, messages::PetMessageHandler};
+use crate::settings::ApiSettings;
 use xaynet_core::{crypto::ByteObject, ParticipantPublicKey};
 
 /// Starts a HTTP server at the given address, listening to GET requests for
 /// data and POST requests containing PET messages.
 ///
-/// * `addr`: address of the server.
-/// * `tls_settings`: optional certificate and key for TLS server authentication.
+/// * `api_settings`: address of the server and optional certificate and key for TLS server
+///   authentication.
 /// * `fetcher`: fetcher for responding to data requests.
 /// * `pet_message_handler`: handler for responding to PET messages.
-pub async fn serve<F>(
-    addr: impl Into<SocketAddr> + 'static,
-    tls_settings: TlsSettings,
-    fetcher: F,
-    pet_message_handler: PetMessageHandler,
-) where
+pub async fn serve<F>(api_settings: ApiSettings, fetcher: F, pet_message_handler: PetMessageHandler)
+where
     F: Fetcher + Sync + Send + 'static + Clone,
 {
     let message = warp::path!("message")
@@ -70,15 +64,16 @@ pub async fn serve<F>(
         .recover(handle_reject)
         .with(warp::log("http"));
 
-    if let Some((cert, key)) = tls_settings.into() {
+    if let (Some(cert), Some(key)) = (api_settings.tls_certificate, api_settings.tls_key) {
+        // mixed cases are prevented by validation
         warp::serve(routes)
             .tls()
-            .cert_path(cert.as_path())
-            .key_path(key.as_path())
-            .run(addr)
+            .cert_path(PathBuf::from(cert))
+            .key_path(PathBuf::from(key))
+            .run(api_settings.bind_address)
             .await
     } else {
-        warp::serve(routes).run(addr).await
+        warp::serve(routes).run(api_settings.bind_address).await
     }
 }
 

@@ -3,6 +3,8 @@ filter = "xaynet=debug,http=warn,info"
 
 [api]
 bind_address = "127.0.0.1:8081"
+# tls_certificate = 
+# tls_key = 
 
 [pet]
 min_sum_count = 1
@@ -29,7 +31,3 @@ db = "metrics"
 
 [redis]
 url = "redis://127.0.0.1/"
-
-[tls]
-# cert = 
-# key = 

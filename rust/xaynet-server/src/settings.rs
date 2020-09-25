@@ -38,8 +38,6 @@ pub struct Settings {
     #[validate]
     pub metrics: MetricsSettings,
     pub redis: RedisSettings,
-    #[validate]
-    pub tls: TlsSettings,
 }
 
 impl Settings {
@@ -283,7 +281,8 @@ fn validate_fractions(s: &PetSettings) -> Result<(), ValidationError> {
     }
 }
 
-#[derive(Debug, Validate, Deserialize, Clone, Copy)]
+#[derive(Debug, Validate, Deserialize, Clone)]
+#[validate(schema(function = "validate_tls"))]
 /// REST API settings.
 pub struct ApiSettings {
     /// The address to which the REST API should be bound.
@@ -303,6 +302,53 @@ pub struct ApiSettings {
     /// XAYNET_API__BIND_ADDRESS=127.0.0.1:8081
     /// ```
     pub bind_address: std::net::SocketAddr,
+
+    /// The path to the server certificate to enable TLS. If this is present, then `tls_key` must
+    /// also be present.
+    ///
+    /// # Examples
+    ///
+    /// **TOML**
+    /// ```text
+    /// [api]
+    /// tls_certificate = path/to/tls/files/cert.pem
+    /// ```
+    ///
+    /// **Environment variable**
+    /// ```text
+    /// XAYNET_API__TLS_CERTIFICATE=path/to/tls/files/certificate.pem
+    /// ```
+    pub tls_certificate: Option<String>,
+
+    /// The path to the server private key to enable TLS. If this is present, then `tls_certificate
+    /// ` must also be present.
+    ///
+    /// # Examples
+    ///
+    /// **TOML**
+    /// ```text
+    /// [api]
+    /// tls_key = path/to/tls/files/key.rsa
+    /// ```
+    ///
+    /// **Environment variable**
+    /// ```text
+    /// XAYNET_API__TLS_KEY=path/to/tls/files/key.rsa
+    /// ```
+    pub tls_key: Option<String>,
+}
+
+/// Checks presence of TLS certificate and key.
+fn validate_tls(s: &ApiSettings) -> Result<(), ValidationError> {
+    if (s.tls_certificate.is_some() && s.tls_key.is_some())
+        || (s.tls_certificate.is_none() && s.tls_key.is_none())
+    {
+        Ok(())
+    } else {
+        Err(ValidationError::new(
+            "certificate and key must always be present together",
+        ))
+    }
 }
 
 #[derive(Debug, Validate, Deserialize, Clone, Copy)]
@@ -569,69 +615,11 @@ where
     deserializer.deserialize_str(EnvFilterVisitor)
 }
 
-#[derive(Debug, Deserialize, Validate)]
-#[validate(schema(function = "validate_tls"))]
-/// TLS settings.
-pub struct TlsSettings {
-    /// The path to the server certificate to enable TLS. If this is present, then `key` must also
-    /// be present.
-    ///
-    /// # Examples
-    ///
-    /// **TOML**
-    /// ```text
-    /// [tls]
-    /// cert = path/to/tls/files/cert.pem
-    /// ```
-    ///
-    /// **Environment variable**
-    /// ```text
-    /// XAYNET_TLS__CERT=path/to/tls/files/cert.pem
-    /// ```
-    pub cert: Option<String>,
-
-    /// The path to the server private key to enable TLS. If this is present, then `cert` must also
-    /// be present.
-    ///
-    /// # Examples
-    ///
-    /// **TOML**
-    /// ```text
-    /// [tls]
-    /// key = path/to/tls/files/key.rsa
-    /// ```
-    ///
-    /// **Environment variable**
-    /// ```text
-    /// XAYNET_TLS__KEY=path/to/tls/files/key.rsa
-    /// ```
-    pub key: Option<String>,
-}
-
-/// Checks presence of cert and key.
-fn validate_tls(s: &TlsSettings) -> Result<(), ValidationError> {
-    if (s.cert.is_some() && s.key.is_some()) || (s.cert.is_none() && s.key.is_none()) {
-        Ok(())
-    } else {
-        Err(ValidationError::new(
-            "cert and key must always be present together",
-        ))
-    }
-}
-
-impl From<TlsSettings> for Option<(PathBuf, PathBuf)> {
-    fn from(TlsSettings { cert, key }: TlsSettings) -> Self {
-        // mixed cases are prevented by validation
-        match (cert, key) {
-            (Some(cert), Some(key)) => Some((PathBuf::from(cert), PathBuf::from(key))),
-            (None, None) => None,
-            _ => unreachable!("mixed cases are prevented by validation"),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    use std::net::SocketAddr;
+    use std::str::FromStr;
+
     use super::*;
 
     #[test]
@@ -683,24 +671,29 @@ mod tests {
 
     #[test]
     fn test_validate_tls() {
-        assert!(validate_tls(&TlsSettings {
-            cert: Some(String::new()),
-            key: Some(String::new())
+        let bind_address = SocketAddr::from_str("0.0.0.0:0000").unwrap();
+        assert!(validate_tls(&ApiSettings {
+            bind_address,
+            tls_certificate: Some(String::new()),
+            tls_key: Some(String::new())
         })
         .is_ok());
-        assert!(validate_tls(&TlsSettings {
-            cert: None,
-            key: None
+        assert!(validate_tls(&ApiSettings {
+            bind_address,
+            tls_certificate: None,
+            tls_key: None
         })
         .is_ok());
-        assert!(validate_tls(&TlsSettings {
-            cert: Some(String::new()),
-            key: None
+        assert!(validate_tls(&ApiSettings {
+            bind_address,
+            tls_certificate: Some(String::new()),
+            tls_key: None
         })
         .is_err());
-        assert!(validate_tls(&TlsSettings {
-            cert: None,
-            key: Some(String::new())
+        assert!(validate_tls(&ApiSettings {
+            bind_address,
+            tls_certificate: None,
+            tls_key: Some(String::new())
         })
         .is_err());
     }
