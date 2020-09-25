@@ -282,7 +282,6 @@ fn validate_fractions(s: &PetSettings) -> Result<(), ValidationError> {
 }
 
 #[derive(Debug, Validate, Deserialize, Clone)]
-#[validate(schema(function = "validate_tls"))]
 /// REST API settings.
 pub struct ApiSettings {
     /// The address to which the REST API should be bound.
@@ -303,8 +302,11 @@ pub struct ApiSettings {
     /// ```
     pub bind_address: std::net::SocketAddr,
 
+    #[cfg(feature = "tls")]
     /// The path to the server certificate to enable TLS. If this is present, then `tls_key` must
     /// also be present.
+    ///
+    /// Requires the `tls` feature to be enabled.
     ///
     /// # Examples
     ///
@@ -318,10 +320,13 @@ pub struct ApiSettings {
     /// ```text
     /// XAYNET_API__TLS_CERTIFICATE=path/to/tls/files/certificate.pem
     /// ```
-    pub tls_certificate: Option<String>,
+    pub tls_certificate: String,
 
+    #[cfg(feature = "tls")]
     /// The path to the server private key to enable TLS. If this is present, then `tls_certificate
     /// ` must also be present.
+    ///
+    /// Requires the `tls` feature to be enabled.
     ///
     /// # Examples
     ///
@@ -335,20 +340,7 @@ pub struct ApiSettings {
     /// ```text
     /// XAYNET_API__TLS_KEY=path/to/tls/files/key.rsa
     /// ```
-    pub tls_key: Option<String>,
-}
-
-/// Checks presence of TLS certificate and key.
-fn validate_tls(s: &ApiSettings) -> Result<(), ValidationError> {
-    if (s.tls_certificate.is_some() && s.tls_key.is_some())
-        || (s.tls_certificate.is_none() && s.tls_key.is_none())
-    {
-        Ok(())
-    } else {
-        Err(ValidationError::new(
-            "certificate and key must always be present together",
-        ))
-    }
+    pub tls_key: String,
 }
 
 #[derive(Debug, Validate, Deserialize, Clone, Copy)]
@@ -617,8 +609,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::{net::SocketAddr, str::FromStr};
-
     use super::*;
 
     #[test]
@@ -664,35 +654,6 @@ mod tests {
         assert!(validate_pet(&PetSettings {
             update: 1.,
             ..PetSettings::default()
-        })
-        .is_err());
-    }
-
-    #[test]
-    fn test_validate_tls() {
-        let bind_address = SocketAddr::from_str("0.0.0.0:0000").unwrap();
-        assert!(validate_tls(&ApiSettings {
-            bind_address,
-            tls_certificate: Some(String::new()),
-            tls_key: Some(String::new())
-        })
-        .is_ok());
-        assert!(validate_tls(&ApiSettings {
-            bind_address,
-            tls_certificate: None,
-            tls_key: None
-        })
-        .is_ok());
-        assert!(validate_tls(&ApiSettings {
-            bind_address,
-            tls_certificate: Some(String::new()),
-            tls_key: None
-        })
-        .is_err());
-        assert!(validate_tls(&ApiSettings {
-            bind_address,
-            tls_certificate: None,
-            tls_key: Some(String::new())
         })
         .is_err());
     }

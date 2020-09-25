@@ -1,6 +1,8 @@
 //! A HTTP API for the PET protocol interactions.
 
-use std::{convert::Infallible, path::PathBuf};
+use std::convert::Infallible;
+#[cfg(feature = "tls")]
+use std::path::PathBuf;
 
 use bytes::{Buf, Bytes};
 use warp::{
@@ -66,17 +68,13 @@ where
         .recover(handle_reject)
         .with(warp::log("http"));
 
-    if let (Some(cert), Some(key)) = (api_settings.tls_certificate, api_settings.tls_key) {
-        // mixed cases are prevented by validation
-        warp::serve(routes)
-            .tls()
-            .cert_path(PathBuf::from(cert))
-            .key_path(PathBuf::from(key))
-            .run(api_settings.bind_address)
-            .await
-    } else {
-        warp::serve(routes).run(api_settings.bind_address).await
-    }
+    let server = warp::serve(routes);
+    #[cfg(feature = "tls")]
+    let server = server
+        .tls()
+        .cert_path(PathBuf::from(api_settings.tls_certificate))
+        .key_path(PathBuf::from(api_settings.tls_key));
+    server.run(api_settings.bind_address).await
 }
 
 /// Handles and responds to a PET message.

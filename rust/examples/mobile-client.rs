@@ -39,6 +39,7 @@ struct Opt {
 
     #[cfg_attr(
         feature = "tls",
+        cfg(feature = "tls"),
         structopt(
             short,
             long,
