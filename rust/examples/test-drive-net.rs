@@ -38,20 +38,12 @@ struct Opt {
     nb_client: u32,
 
     #[structopt(
-        short = "der",
+        short,
         long,
         parse(from_os_str),
-        help = "The list of trusted DER encoded TLS server certificates"
+        help = "The list of trusted DER and PEM encoded TLS server certificates"
     )]
-    der_certificates: Option<Vec<PathBuf>>,
-
-    #[structopt(
-        short = "pem",
-        long,
-        parse(from_os_str),
-        help = "The list of trusted PEM encoded TLS server certificates"
-    )]
-    pem_certificates: Option<Vec<PathBuf>>,
+    certificates: Option<Vec<PathBuf>>,
 }
 
 /// Test-drive script of a (local, but networked) federated
@@ -71,8 +63,7 @@ async fn main() -> Result<(), ClientError<HttpApiClientError>> {
     let model = Model::from_primitives(vec![0; len].into_iter()).unwrap();
 
     let certificates =
-        HttpApiClient::certificates_from_paths(opt.der_certificates, opt.pem_certificates)
-            .map_err(ClientError::Api)?;
+        HttpApiClient::certificates_from(&opt.certificates).map_err(ClientError::Api)?;
     let mut clients = Vec::with_capacity(opt.nb_client as usize);
     for id in 0..opt.nb_client {
         let mut client = Client::new(

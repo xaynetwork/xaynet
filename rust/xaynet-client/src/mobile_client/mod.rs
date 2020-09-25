@@ -54,8 +54,7 @@ impl MobileClient {
     /// Fails if the crypto module cannot be initialized.
     pub fn init(
         url: &str,
-        der_certificates: Option<Vec<PathBuf>>,
-        pem_certificates: Option<Vec<PathBuf>>,
+        certificates: &Option<Vec<PathBuf>>,
         participant_settings: ParticipantSettings,
     ) -> Result<Self, MobileClientError> {
         // It is critical that the initialization of sodiumoxide is successful.
@@ -65,7 +64,7 @@ impl MobileClient {
         // https://doc.libsodium.org/usage
         // https://github.com/jedisct1/libsodium/issues/908
         let client_state = ClientStateMachine::new(participant_settings)?;
-        Self::new(url, der_certificates, pem_certificates, client_state)
+        Self::new(url, certificates, client_state)
     }
 
     /// Restores a client from its serialized state.
@@ -78,23 +77,20 @@ impl MobileClient {
     /// or if the crypto module cannot be initialized.
     pub fn restore(
         url: &str,
-        der_certificates: Option<Vec<PathBuf>>,
-        pem_certificates: Option<Vec<PathBuf>>,
+        certificates: &Option<Vec<PathBuf>>,
         bytes: &[u8],
     ) -> Result<Self, MobileClientError> {
         let client_state: ClientStateMachine = bincode::deserialize(bytes)?;
-        Self::new(url, der_certificates, pem_certificates, client_state)
+        Self::new(url, certificates, client_state)
     }
 
     fn new(
         url: &str,
-        der_certificates: Option<Vec<PathBuf>>,
-        pem_certificates: Option<Vec<PathBuf>>,
+        certificates: &Option<Vec<PathBuf>>,
         client_state: ClientStateMachine,
     ) -> Result<Self, MobileClientError> {
         let certificates =
-            HttpApiClient::certificates_from_paths(der_certificates, pem_certificates)
-                .map_err(MobileClientError::Api)?;
+            HttpApiClient::certificates_from(certificates).map_err(MobileClientError::Api)?;
         let api = HttpApiClient::new(url, certificates).map_err(MobileClientError::Api)?;
 
         Ok(Self {

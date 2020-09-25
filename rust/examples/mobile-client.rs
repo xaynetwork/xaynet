@@ -1,9 +1,14 @@
 /// Experimental mobile client
 extern crate tracing;
 
-use std::io::{stdin, stdout, Read, Write};
+use std::{
+    io::{stdin, stdout, Read, Write},
+    path::PathBuf,
+};
+
 use structopt::StructOpt;
 use tracing_subscriber::*;
+
 use xaynet_client::mobile_client::{
     participant::{AggregationConfig, ParticipantSettings},
     MobileClient,
@@ -28,8 +33,17 @@ struct Opt {
         help = "The URL of the coordinator"
     )]
     url: String,
+
     #[structopt(default_value = "4", short, help = "The length of the model")]
     len: u32,
+
+    #[structopt(
+        short,
+        long,
+        parse(from_os_str),
+        help = "The list of trusted DER and PEM encoded TLS server certificates"
+    )]
+    certificates: Option<Vec<PathBuf>>,
 }
 
 fn pause() {
@@ -114,7 +128,8 @@ fn main() -> Result<(), ()> {
         .init();
 
     // create a new client
-    let client = MobileClient::init(&opt.url, None, None, get_participant_settings()).unwrap();
+    let client =
+        MobileClient::init(&opt.url, &opt.certificates, get_participant_settings()).unwrap();
     // serialize the current client state (and save it on the phone)
     let mut bytes = client.serialize();
 
@@ -122,15 +137,20 @@ fn main() -> Result<(), ()> {
     loop {
         // load local model
         let model = Model::from_primitives(vec![1; opt.len as usize].into_iter()).unwrap();
-        bytes = perform_task(&opt.url, &bytes, model);
+        bytes = perform_task(&opt.url, &opt.certificates, &bytes, model);
         pause();
     }
 }
 
 // perform the participant task (this function should be triggered regularly on the phone while the
 // app is active or in a background task)
-fn perform_task(url: &str, bytes: &[u8], model: Model) -> Vec<u8> {
-    let mut client = MobileClient::restore(url, None, None, bytes).unwrap();
+fn perform_task(
+    url: &str,
+    certificates: &Option<Vec<PathBuf>>,
+    bytes: &[u8],
+    model: Model,
+) -> Vec<u8> {
+    let mut client = MobileClient::restore(url, certificates, bytes).unwrap();
     println!("task: {:?}", &client.get_current_state());
 
     client.set_local_model(model);

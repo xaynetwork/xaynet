@@ -55,36 +55,33 @@ impl HttpApiClient {
     }
 
     /// Reads DER and PEM certificates from given paths.
-    pub fn certificates_from_paths(
-        der: Option<Vec<PathBuf>>,
-        pem: Option<Vec<PathBuf>>,
+    pub fn certificates_from(
+        paths: &Option<Vec<PathBuf>>,
     ) -> Result<Option<Vec<Certificate>>, HttpApiClientError> {
-        let from = |paths: Vec<PathBuf>,
-                    from: fn(&[u8]) -> reqwest::Result<Certificate>|
-         -> Result<Vec<Certificate>, HttpApiClientError> {
-            paths
-                .iter()
-                .map(|path| -> Result<Certificate, HttpApiClientError> {
-                    let encoding = fs::read(path).map_err(HttpApiClientError::Io)?;
-                    from(encoding.as_slice()).map_err(HttpApiClientError::Http)
-                })
-                .collect()
-        };
-
-        let certificates = match (der, pem) {
-            (Some(der), Some(pem)) => {
-                let mut certificates = from(der, Certificate::from_der)?;
-                certificates.append(&mut from(pem, Certificate::from_pem)?);
-                certificates
+        if let Some(paths) = paths {
+            if paths.is_empty() {
+                Ok(None)
+            } else {
+                paths
+                    .iter()
+                    .map(|path| -> Result<Certificate, HttpApiClientError> {
+                        let encoding = fs::read(path).map_err(HttpApiClientError::Io)?;
+                        path.extension().map_or_else(
+                            || Err(HttpApiClientError::UnexpectedCertificate),
+                            |extension| match extension.to_str() {
+                                Some("der") => Certificate::from_der(&encoding)
+                                    .map_err(HttpApiClientError::Http),
+                                Some("pem") => Certificate::from_pem(&encoding)
+                                    .map_err(HttpApiClientError::Http),
+                                _ => Err(HttpApiClientError::UnexpectedCertificate),
+                            },
+                        )
+                    })
+                    .collect::<Result<Vec<_>, HttpApiClientError>>()
+                    .map(|certificates| Some(certificates))
             }
-            (Some(der), None) => from(der, Certificate::from_der)?,
-            (None, Some(pem)) => from(pem, Certificate::from_pem)?,
-            (None, None) => Vec::new(),
-        };
-        if certificates.is_empty() {
-            Ok(None)
         } else {
-            Ok(Some(certificates))
+            Ok(None)
         }
     }
 }
@@ -103,6 +100,9 @@ pub enum HttpApiClientError {
 
     #[error("Reading from file failed: {0}")]
     Io(#[from] std::io::Error),
+
+    #[error("Unexpected certificate extension")]
+    UnexpectedCertificate,
 }
 
 impl From<bincode::Error> for HttpApiClientError {
