@@ -11,9 +11,13 @@ homepage = "https://xaynet.dev/"
 
 [dependencies]
 ffi-support = "0.4.2"
-xaynet-client = { path = "../xaynet-client", default-features = false, features = ["tls"], version = "0.1.0" }
+xaynet-client = { path = "../xaynet-client", default-features = false, version = "0.1.0" }
 xaynet-core = { path = "../xaynet-core", version = "0.1.0" }
 
 [lib]
 name = "xaynet_sdk"
 crate-type = ["staticlib", "cdylib"]
+
+[features]
+default = []
+tls = ["xaynet-client/tls"]

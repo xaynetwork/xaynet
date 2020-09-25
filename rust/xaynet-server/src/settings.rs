@@ -611,6 +611,7 @@ where
 mod tests {
     use super::*;
 
+    #[cfg(not(feature = "tls"))]
     #[test]
     fn test_settings_new() {
         assert!(Settings::new(PathBuf::from("../../configs/config.toml")).is_ok());

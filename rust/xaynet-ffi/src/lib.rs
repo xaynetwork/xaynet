@@ -28,15 +28,17 @@
 #[macro_use]
 extern crate ffi_support;
 
-use ffi_support::FfiStr;
+#[cfg(feature = "tls")]
+use std::path::PathBuf;
 use std::{
     convert::TryFrom,
     iter::Iterator,
     os::raw::{c_double, c_int, c_uchar, c_uint, c_void},
-    path::PathBuf,
     ptr,
     slice,
 };
+
+use ffi_support::FfiStr;
 
 use xaynet_client::mobile_client::{
     participant::{AggregationConfig, ParticipantSettings},
@@ -57,6 +59,7 @@ use xaynet_core::{
     ParticipantSecretKey,
 };
 
+#[cfg(feature = "tls")]
 #[allow(unused_unsafe)]
 /// Converts raw certificate path strings to rust paths.
 ///
@@ -113,9 +116,10 @@ pub struct CMobileClient(MobileClient);
 /// - `bound_type`: The [`BoundType`].
 /// - `model_type`: The [`ModelType`].
 /// - `scalar`: The scalar.
-/// - `certificates`: The optional array of paths to DER/PEM encoded trusted server certificates for
-///   TLS authentication.
-/// - `certificates_len`: The number of DER/PEM encoded certificates.
+/// - `certificates`: The array of paths to DER/PEM encoded trusted server certificates for TLS
+///   authentication. Requires the `tls` feature to be enabled.
+/// - `certificates_len`: The number of DER/PEM encoded certificates. Requires the `tls` feature to
+///   be enabled.
 ///
 /// # Safety
 ///
@@ -160,8 +164,8 @@ pub unsafe extern "C" fn xaynet_ffi_init_mobile_client(
     bound_type: c_uchar,
     model_type: c_uchar,
     scalar: c_double,
-    certificates: *const FfiStr,
-    certificates_len: c_uint,
+    #[cfg(feature = "tls")] certificates: *const FfiStr,
+    #[cfg(feature = "tls")] certificates_len: c_uint,
 ) -> *mut CMobileClient {
     // we could return *const CMobileClient, however, the caller can ignore it
     // https://newrustacean.com/show_notes/e031/struct.script#strings
@@ -227,6 +231,7 @@ pub unsafe extern "C" fn xaynet_ffi_init_mobile_client(
     // Check the certificates.
     // Returns `None` if any of the pointers points to `NULL`.
     // Slice alignment and memory initialization safety concerns apply as usual.
+    #[cfg(feature = "tls")]
     let certificates = if let Ok(certificates) =
         unsafe { certificate_paths_from(certificates, certificates_len) }
     {
@@ -235,7 +240,12 @@ pub unsafe extern "C" fn xaynet_ffi_init_mobile_client(
         return ptr::null_mut();
     };
 
-    if let Ok(mobile_client) = MobileClient::init(url, participant_settings, &certificates) {
+    if let Ok(mobile_client) = MobileClient::init(
+        url,
+        participant_settings,
+        #[cfg(feature = "tls")]
+        &certificates,
+    ) {
         Box::into_raw(Box::new(CMobileClient(mobile_client)))
     } else {
         ptr::null_mut()
@@ -249,9 +259,10 @@ pub unsafe extern "C" fn xaynet_ffi_init_mobile_client(
 /// - `url`: The URL fo the coordinator to which the [`MobileClient`] will try to connect to.
 /// - `buffer`: The array that contains the serialized state.
 /// - `len`: The length of `buffer`.
-/// - `certificates`: The optional array of paths to DER/PEM encoded trusted server certificates for
-///   TLS authentication.
-/// - `certificates_len`: The number of DER/PEM encoded certificates.
+/// - `certificates`: The array of paths to DER/PEM encoded trusted server certificates for TLS
+///   authentication. Requires the `tls` feature to be enabled.
+/// - `certificates_len`: The number of DER/PEM encoded certificates. Requires the `tls` feature to
+///   be enabled.
 ///
 /// # Safety
 ///
@@ -289,8 +300,8 @@ pub unsafe extern "C" fn xaynet_ffi_restore_mobile_client(
     url: FfiStr,
     buffer: *const c_uchar,
     buffer_len: c_uint,
-    certificates: *const FfiStr,
-    certificates_len: c_uint,
+    #[cfg(feature = "tls")] certificates: *const FfiStr,
+    #[cfg(feature = "tls")] certificates_len: c_uint,
 ) -> *mut CMobileClient {
     let url = match url.as_opt_str() {
         Some(url) => url,
@@ -306,6 +317,7 @@ pub unsafe extern "C" fn xaynet_ffi_restore_mobile_client(
     // Check the certificates.
     // Returns `None` if any of the pointers points to `NULL`.
     // Slice alignment and memory initialization safety concerns apply as usual.
+    #[cfg(feature = "tls")]
     let certificates = if let Ok(certificates) =
         unsafe { certificate_paths_from(certificates, certificates_len) }
     {
@@ -314,7 +326,12 @@ pub unsafe extern "C" fn xaynet_ffi_restore_mobile_client(
         return ptr::null_mut();
     };
 
-    if let Ok(mobile_client) = MobileClient::restore(url, buffer, &certificates) {
+    if let Ok(mobile_client) = MobileClient::restore(
+        url,
+        buffer,
+        #[cfg(feature = "tls")]
+        &certificates,
+    ) {
         Box::into_raw(Box::new(CMobileClient(mobile_client)))
     } else {
         ptr::null_mut()
