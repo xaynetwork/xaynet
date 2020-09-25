@@ -315,7 +315,7 @@ impl Aggregation {
     /// [`validate_aggregation()`]: #method.validate_aggregation
     pub fn aggregate(&mut self, object: MaskObject) {
         if self.nb_models == 0 {
-            self.object.vector = object.vector;
+            self.object = object;
             self.nb_models = 1;
             return;
         }

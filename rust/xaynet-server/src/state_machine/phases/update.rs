@@ -263,11 +263,9 @@ mod test {
             utils::mask_settings().into(),
             model_size,
         );
-        //let scalar_agg = Aggregation::new(utils::mask_settings().into(), 1);
         let update = Update {
             update_count: 0,
             model_agg: aggregation.clone(),
-            //   scalar_agg,
         };
 
         // Create the state machine

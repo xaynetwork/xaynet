@@ -34,14 +34,6 @@ impl Sum2 {
     pub fn mask_dict(&self) -> &MaskDict {
         &self.mask_dict
     }
-
-    // pub fn scalar_agg(&self) -> &Aggregation {
-    //     &self.scalar_agg
-    // }
-
-    // pub fn scalar_mask_dict(&self) -> &MaskDict {
-    //     &self.scalar_mask_dict
-    // }
 }
 
 #[async_trait]
