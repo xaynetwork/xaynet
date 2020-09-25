@@ -13,7 +13,7 @@ use xaynet_core::{
     message::{Chunk, DecodeError, FromBytes, Message, Payload, Sum, Sum2, Tag, Update},
 };
 
-use crate::services::messages::ServiceError;
+use crate::services::messages::{multipart::buffer::MultipartMessageBuffer, ServiceError};
 
 /// A `MessageBuilder` stores chunks of a multipart message. Once it
 /// has all the chunks, it can be consumed and turned into a
@@ -67,23 +67,11 @@ impl MessageBuilder {
     /// when all the chunks are here, otherwise the aggregated message
     /// will be invalid.
     fn into_message(self) -> Result<Message, DecodeError> {
-        // FIXME: this is highly inefficient. We end up allocating a
-        // potentially huge vector (dozens of MB is worst but realistic
-        // cases). In theory we could parse the message directly from the
-        // BTreeMap. But that would require parsing from a stream of bytes
-        // instead of an array, which xaynet_core doesn't support atm.
-        let bytes = self
-            .data
-            .into_iter()
-            .map(|(_, chunk)| chunk)
-            .fold(vec![], |mut acc, chunk| {
-                acc.extend(chunk);
-                acc
-            });
+        let mut bytes = MultipartMessageBuffer::from(self.data);
         let payload = match self.tag {
-            Tag::Sum => Sum::from_byte_slice(&&bytes[..]).map(Into::into)?,
-            Tag::Update => Update::from_byte_slice(&&bytes[..]).map(Into::into)?,
-            Tag::Sum2 => Sum2::from_byte_slice(&&bytes[..]).map(Into::into)?,
+            Tag::Sum => Sum::from_byte_stream(&mut bytes).map(Into::into)?,
+            Tag::Update => Update::from_byte_stream(&mut bytes).map(Into::into)?,
+            Tag::Sum2 => Sum2::from_byte_stream(&mut bytes).map(Into::into)?,
         };
         let message = Message {
             signature: None,
