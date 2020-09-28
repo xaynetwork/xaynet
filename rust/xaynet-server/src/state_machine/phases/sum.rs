@@ -1,14 +1,11 @@
 use std::sync::Arc;
 
-use crate::{
-    state_machine::{
-        events::DictionaryUpdate,
-        phases::{Handler, Phase, PhaseName, PhaseState, Shared, StateError, Update},
-        requests::{StateMachineRequest, SumRequest},
-        StateMachine,
-        StateMachineError,
-    },
-    storage::AddSumParticipant,
+use crate::state_machine::{
+    events::DictionaryUpdate,
+    phases::{Handler, Phase, PhaseName, PhaseState, Shared, StateError, Update},
+    requests::{StateMachineRequest, SumRequest},
+    StateMachine,
+    StateMachineError,
 };
 
 #[cfg(feature = "metrics")]
@@ -125,19 +122,16 @@ impl PhaseState<Sum> {
             ephm_pk,
         } = req;
 
-        let result = self
-            .shared
+        self.shared
             .io
             .redis
             .connection()
             .await
             .add_sum_participant(&participant_pk, &ephm_pk)
-            .await?;
+            .await?
+            .into_inner()?;
 
-        if let AddSumParticipant::Ok = result {
-            self.inner.sum_count += 1;
-        };
-
+        self.inner.sum_count += 1;
         Ok(())
     }
 

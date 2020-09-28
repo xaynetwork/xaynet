@@ -117,7 +117,7 @@ use self::{
 };
 use crate::{
     settings::{MaskSettings, ModelSettings, PetSettings},
-    storage::{redis, RedisError, SeedDictUpdateError},
+    storage::{redis, RedisError, SeedDictUpdateError, SumDictAddError},
 };
 use derive_more::From;
 use thiserror::Error;
@@ -144,8 +144,11 @@ pub enum StateMachineError {
     #[error("Redis failed: {0}")]
     Redis(#[from] RedisError),
 
-    #[error("Pet error: {0}")]
-    Pet(#[from] SeedDictUpdateError),
+    #[error("{0}")]
+    SeedDictUpdate(#[from] SeedDictUpdateError),
+
+    #[error("{0}")]
+    SumDictAdd(#[from] SumDictAddError),
 }
 
 pub type StateMachineResult = Result<(), StateMachineError>;

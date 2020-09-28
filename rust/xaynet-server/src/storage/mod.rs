@@ -2,7 +2,7 @@ pub(crate) mod impls;
 pub mod redis;
 
 pub use self::{
-    impls::{AddSumParticipant, SeedDictUpdate, SeedDictUpdateError},
+    impls::{SeedDictUpdate, SeedDictUpdateError, SumDictAdd, SumDictAddError},
     redis::RedisError,
 };
 

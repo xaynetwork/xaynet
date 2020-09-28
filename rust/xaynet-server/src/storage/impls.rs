@@ -189,25 +189,6 @@ impl<'a> ToRedisArgs for &'a MaskObjectWrite<'a> {
     }
 }
 
-#[derive(Ord, PartialOrd, Eq, PartialEq, Debug)]
-pub enum AddSumParticipant {
-    Ok,
-    AlreadyExists,
-}
-
-impl FromRedisValue for AddSumParticipant {
-    fn from_redis_value(v: &Value) -> RedisResult<AddSumParticipant> {
-        match *v {
-            Value::Int(0) => Ok(AddSumParticipant::AlreadyExists),
-            Value::Int(1) => Ok(AddSumParticipant::Ok),
-            _ => Err(redis_type_error(
-                "Response status not valid integer",
-                Some(format!("Response was {:?}", v)),
-            )),
-        }
-    }
-}
-
 #[derive(From)]
 pub(crate) struct LocalSeedDictWrite<'a>(&'a LocalSeedDict);
 
@@ -292,6 +273,34 @@ pub enum SeedDictUpdateError {
     UpdatePkAlreadySubmitted,
     #[error("update participant already exists in the inner update seed dict")]
     UpdatePkAlreadyExistsInUpdateSeedDict,
+}
+
+#[derive(Deref)]
+pub struct SumDictAdd(Result<(), SumDictAddError>);
+
+impl SumDictAdd {
+    pub fn into_inner(self) -> Result<(), SumDictAddError> {
+        self.0
+    }
+}
+
+impl FromRedisValue for SumDictAdd {
+    fn from_redis_value(v: &Value) -> RedisResult<SumDictAdd> {
+        match *v {
+            Value::Int(0) => Ok(SumDictAdd(Err(SumDictAddError::AlreadyExists))),
+            Value::Int(1) => Ok(SumDictAdd(Ok(()))),
+            _ => Err(redis_type_error(
+                "Response status not valid integer",
+                Some(format!("Response was {:?}", v)),
+            )),
+        }
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum SumDictAddError {
+    #[error("sum participant already exists")]
+    AlreadyExists,
 }
 
 #[cfg(test)]
