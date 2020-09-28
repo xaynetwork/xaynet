@@ -7,7 +7,8 @@ use crate::state_machine::{
     coordinator::MaskDict,
     phases::{Handler, Phase, PhaseName, PhaseState, Shared, StateError, Unmask},
     requests::{StateMachineRequest, Sum2Request},
-    StateMachine, StateMachineError,
+    StateMachine,
+    StateMachineError,
 };
 
 #[cfg(feature = "metrics")]
@@ -210,7 +211,6 @@ mod test {
         let msg =
             updater.compose_update_message(coord_keys.public, &sum_dict, scalar, model.clone());
         let masked_model = utils::masked_model(&msg);
-        //let masked_scalar = utils::masked_scalar(&msg);
         let local_seed_dict = utils::local_seed_dict(&msg);
         let mut aggregation = Aggregation::new(
             utils::mask_settings().into(),
@@ -218,8 +218,6 @@ mod test {
             model_size,
         );
         aggregation.aggregate(masked_model.clone());
-        //let mut scalar_agg = Aggregation::new(utils::mask_settings().into(), 1);
-        //scalar_agg.aggregate(masked_scalar.clone());
 
         // Create the state machine
         let sum2 = Sum2 {

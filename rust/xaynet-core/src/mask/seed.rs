@@ -14,8 +14,12 @@ use thiserror::Error;
 
 use crate::{
     crypto::{encrypt::SEALBYTES, prng::generate_integer, ByteObject},
-    mask::{config::MaskConfig, object::MaskMany, object::MaskObject, object::MaskOne},
-    SumParticipantEphemeralPublicKey, SumParticipantEphemeralSecretKey,
+    mask::{
+        config::MaskConfig,
+        object::{MaskMany, MaskObject, MaskOne},
+    },
+    SumParticipantEphemeralPublicKey,
+    SumParticipantEphemeralSecretKey,
 };
 
 #[derive(AsRef, AsMut, Clone, Debug, PartialEq, Eq)]

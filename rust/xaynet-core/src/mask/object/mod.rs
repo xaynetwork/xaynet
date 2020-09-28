@@ -63,7 +63,7 @@ impl MaskMany {
     }
 }
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Serialize, Deserialize)]
 /// A mask object which represents either a mask or a masked scalar.
 pub struct MaskOne {
     pub data: BigUint,
@@ -116,7 +116,7 @@ impl MaskOne {
     }
 }
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Serialize, Deserialize)]
 /// A mask object wrapper around a `MaskMany`, `MaskOne` pair.
 pub struct MaskObject {
     pub vector: MaskMany,

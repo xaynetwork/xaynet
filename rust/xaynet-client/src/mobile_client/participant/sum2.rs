@@ -2,8 +2,12 @@ use super::{Participant, ParticipantState};
 use xaynet_core::{
     mask::{Aggregation, MaskObject, MaskSeed},
     message::{Message, Sum2 as Sum2Message},
-    CoordinatorPublicKey, ParticipantPublicKey, ParticipantTaskSignature,
-    SumParticipantEphemeralPublicKey, SumParticipantEphemeralSecretKey, UpdateSeedDict,
+    CoordinatorPublicKey,
+    ParticipantPublicKey,
+    ParticipantTaskSignature,
+    SumParticipantEphemeralPublicKey,
+    SumParticipantEphemeralSecretKey,
+    UpdateSeedDict,
 };
 
 use crate::PetError;

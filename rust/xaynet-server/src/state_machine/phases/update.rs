@@ -2,14 +2,16 @@ use std::sync::Arc;
 
 use xaynet_core::{
     mask::{Aggregation, MaskObject},
-    LocalSeedDict, UpdateParticipantPublicKey,
+    LocalSeedDict,
+    UpdateParticipantPublicKey,
 };
 
 use crate::state_machine::{
     events::{DictionaryUpdate, MaskLengthUpdate},
     phases::{Handler, Phase, PhaseName, PhaseState, Shared, StateError, Sum2},
     requests::{StateMachineRequest, UpdateRequest},
-    StateMachine, StateMachineError,
+    StateMachine,
+    StateMachineError,
 };
 
 #[cfg(feature = "metrics")]
@@ -231,7 +233,9 @@ mod test {
         common::RoundSeed,
         crypto::{ByteObject, EncryptKeyPair},
         mask::{FromPrimitives, Model},
-        SeedDict, SumDict, UpdateSeedDict,
+        SeedDict,
+        SumDict,
+        UpdateSeedDict,
     };
 
     #[tokio::test]

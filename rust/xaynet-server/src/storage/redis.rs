@@ -52,7 +52,7 @@ use std::{
 };
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use xaynet_core::{
-    mask::{EncryptedMaskSeed, MaskObject},
+    mask::{EncryptedMaskSeed, MaskMany},
     LocalSeedDict,
     SeedDict,
     SumDict,
@@ -374,7 +374,7 @@ impl Connection {
     ///
     /// The score/counter of the given mask is incremented by `1`.
     /// The maximum length of a serialized mask is 512 Megabytes.
-    pub async fn incr_mask_count(mut self, mask: &MaskObject) -> RedisResult<()> {
+    pub async fn incr_mask_count(mut self, mask: &MaskMany) -> RedisResult<()> {
         debug!("increment mask count");
         // https://redis.io/commands/zincrby
         // > Return value
@@ -389,7 +389,7 @@ impl Connection {
     }
 
     /// Retrieves the two masks with the highest score.
-    pub async fn get_best_masks(mut self) -> RedisResult<Vec<(MaskObject, usize)>> {
+    pub async fn get_best_masks(mut self) -> RedisResult<Vec<(MaskMany, usize)>> {
         debug!("get best masks");
         // https://redis.io/commands/zrevrangebyscore
         // > Return value:
@@ -463,10 +463,10 @@ mod tests {
     use serial_test::serial;
     use xaynet_core::{
         crypto::{EncryptKeyPair, SigningKeyPair},
-        mask::{BoundType, DataType, GroupType, MaskConfig, MaskObject, ModelType},
+        mask::{BoundType, DataType, GroupType, MaskConfig, MaskMany, ModelType},
     };
 
-    fn create_mask(byte_size: usize) -> MaskObject {
+    fn create_mask(byte_size: usize) -> MaskMany {
         let config = MaskConfig {
             group_type: GroupType::Prime,
             data_type: DataType::F32,
@@ -474,7 +474,7 @@ mod tests {
             model_type: ModelType::M3,
         };
 
-        MaskObject::new(config, vec![BigUint::zero(); byte_size])
+        MaskMany::new(config, vec![BigUint::zero(); byte_size])
     }
 
     async fn flush_db(client: &Client) {

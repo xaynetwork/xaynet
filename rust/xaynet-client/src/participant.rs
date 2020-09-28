@@ -5,17 +5,31 @@
 //! [client module]: ../index.html
 
 use std::default::Default;
-// TODO may remove MaskMany later
 use xaynet_core::{
     crypto::{ByteObject, EncryptKeyPair, SigningKeyPair},
     mask::{
-        Aggregation, BoundType, DataType, GroupType, MaskConfig, MaskObject, MaskSeed, Masker,
-        Model, ModelType,
+        Aggregation,
+        BoundType,
+        DataType,
+        GroupType,
+        MaskConfig,
+        MaskObject,
+        MaskSeed,
+        Masker,
+        Model,
+        ModelType,
     },
     message::{Message, Sum, Sum2, Update},
-    CoordinatorPublicKey, InitError, LocalSeedDict, ParticipantPublicKey, ParticipantSecretKey,
-    ParticipantTaskSignature, SumDict, SumParticipantEphemeralPublicKey,
-    SumParticipantEphemeralSecretKey, UpdateSeedDict,
+    CoordinatorPublicKey,
+    InitError,
+    LocalSeedDict,
+    ParticipantPublicKey,
+    ParticipantSecretKey,
+    ParticipantTaskSignature,
+    SumDict,
+    SumParticipantEphemeralPublicKey,
+    SumParticipantEphemeralSecretKey,
+    UpdateSeedDict,
 };
 
 use crate::PetError;
