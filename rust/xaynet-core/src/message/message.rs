@@ -478,9 +478,11 @@ pub struct Message {
     pub coordinator_pk: PublicEncryptKey,
     /// Wether this is a multipart message
     pub is_multipart: bool,
-    /// The type of message. This information is only partially
-    /// carried by the `payload` field, because in the case of a
-    /// multipart message, the payload is of type `Payload::Chunk`.
+    /// The type of message. This information is partially redundant
+    /// with the `payload` field. So when serializing the message,
+    /// this field is ignored if the payload is a [`Payload::Sum`],
+    /// [`Payload::Update`], or [`Payload::Sum2`]. However, it is
+    /// taken as is for [`Payload::Chunk`].
     pub tag: Tag,
     /// Message payload
     pub payload: Payload,
@@ -516,7 +518,7 @@ impl Message {
             participant_pk,
             coordinator_pk,
             is_multipart: false,
-            tag: Tag::Sum,
+            tag: Tag::Sum2,
             payload: message.into(),
         }
     }
@@ -533,7 +535,7 @@ impl Message {
             participant_pk,
             coordinator_pk,
             is_multipart: false,
-            tag: Tag::Sum,
+            tag: Tag::Update,
             payload: message.into(),
         }
     }
@@ -611,7 +613,6 @@ impl Message {
             .to_bytes(&mut writer.participant_pk_mut());
         self.coordinator_pk
             .to_bytes(&mut writer.coordinator_pk_mut());
-        writer.set_tag(self.tag.into());
         let flags = if self.is_multipart {
             Flags::MULTIPART
         } else {
@@ -619,6 +620,15 @@ impl Message {
         };
         writer.set_flags(flags);
         self.payload.to_bytes(&mut writer.payload_mut());
+        // Determine the tag from the payload type if
+        // possible. Otherwise, use the self.tag field.
+        let tag = match self.payload {
+            Payload::Sum(_) => Tag::Sum,
+            Payload::Update(_) => Tag::Update,
+            Payload::Sum2(_) => Tag::Sum2,
+            Payload::Chunk(_) => self.tag,
+        };
+        writer.set_tag(tag.into());
         writer.set_length(self.buffer_length() as u32);
         // insert the signature last. If the message contains one, use
         // it. Otherwise compute it.
