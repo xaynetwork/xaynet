@@ -6,3 +6,5 @@ pub use self::{
     redis::RedisError,
 };
 
+#[cfg(test)]
+pub(crate) mod tests;

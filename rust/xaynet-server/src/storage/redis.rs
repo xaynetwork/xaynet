@@ -377,30 +377,92 @@ impl Connection {
 }
 
 #[cfg(test)]
+// Functions that are not needed in the state machine but handy for testing.
+impl Connection {
+    // Retrieves a [`CoordinatorState`] or `None` when the [`CoordinatorState`] does not exist.
+    // currently only used for testing but later required for restoring the coordinator
+    async fn get_coordinator_state(mut self) -> RedisResult<Option<CoordinatorState>> {
+        // https://redis.io/commands/get
+        // > Get the value of key. If the key does not exist the special value nil is returned.
+        //   An error is returned if the value stored at key is not a string, because GET only
+        //   handles string values.
+        // > Return value
+        //   Bulk string reply: the value of key, or nil when key does not exist.
+        self.connection.get("coordinator_state").await
+    }
+
+    // Removes an entry in the [`SumDict`].
+    //
+    // Returns [`SumDictDelete(Ok(()))`] if field was deleted or
+    // [`SumDictDelete(Err(SumDictDeleteError::DoesNotExist)`] if field does not exist.
+    pub async fn remove_sum_dict_entry(
+        mut self,
+        pk: &SumParticipantPublicKey,
+    ) -> RedisResult<crate::storage::impls::SumDictDelete> {
+        // https://redis.io/commands/hdel
+        // > Return value
+        //   Integer reply: the number of fields that were removed from the hash,
+        //   not including specified but non existing fields.
+        self.connection
+            .hdel("sum_dict", PublicSigningKeyWrite::from(pk))
+            .await
+    }
+
+    // Retrieves the length of the [`SumDict`].
+    pub async fn get_sum_dict_len(mut self) -> RedisResult<u64> {
+        // https://redis.io/commands/hlen
+        // > Return value
+        //   Integer reply: number of fields in the hash, or 0 when key does not exist.
+        self.connection.hlen("sum_dict").await
+    }
+
+    // Retrieves the [`SumParticipantPublicKey`] of the [`SumDict`] or an empty list when the
+    // [`SumDict`] does not exist.
+    pub async fn get_sum_pks(
+        mut self,
+    ) -> RedisResult<std::collections::HashSet<SumParticipantPublicKey>> {
+        // https://redis.io/commands/hkeys
+        // > Return value:
+        //   Array reply: list of fields in the hash, or an empty list when key does not exist.
+        let result: std::collections::HashSet<PublicSigningKeyRead> =
+            self.connection.hkeys("sum_dict").await?;
+        let sum_pks = result.into_iter().map(|pk| pk.into()).collect();
+
+        Ok(sum_pks)
+    }
+
+    // Removes an update pk from the the `update_participants` set.
+    pub async fn remove_update_participant(
+        mut self,
+        update_pk: &UpdateParticipantPublicKey,
+    ) -> RedisResult<u64> {
+        self.connection
+            .srem(
+                "update_participants",
+                PublicSigningKeyWrite::from(update_pk),
+            )
+            .await
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state_machine::tests::utils::{mask_settings, model_settings, pet_settings};
-    use num::{bigint::BigUint, traits::identities::Zero};
-    use serial_test::serial;
-    use xaynet_core::{
-        crypto::{EncryptKeyPair, SigningKeyPair},
-        mask::{BoundType, DataType, GroupType, MaskConfig, MaskMany, ModelType},
+    use crate::{
+        state_machine::tests::utils::{mask_settings, model_settings, pet_settings},
+        storage::{
+            impls::{SeedDictUpdateError, SumDictDeleteError},
+            tests::{
+                create_and_write_sum_participant_entries,
+                create_local_seed_entries,
+                create_mask,
+                create_seed_dict,
+                create_sum_participant_entry,
+                write_local_seed_entries,
+            },
+        },
     };
-
-    fn create_mask(byte_size: usize) -> MaskMany {
-        let config = MaskConfig {
-            group_type: GroupType::Prime,
-            data_type: DataType::F32,
-            bound_type: BoundType::B0,
-            model_type: ModelType::M3,
-        };
-
-        MaskMany::new(config, vec![BigUint::zero(); byte_size])
-    }
-
-    async fn flush_db(client: &Client) {
-        client.connection().await.flush_db().await.unwrap();
-    }
+    use serial_test::serial;
 
     async fn create_redis_client() -> Client {
         Client::new("redis://127.0.0.1/", 10).await.unwrap()
@@ -408,7 +470,7 @@ mod tests {
 
     async fn init_client() -> Client {
         let client = create_redis_client().await;
-        flush_db(&client).await;
+        client.connection().await.flush_db().await.unwrap();
         client
     }
 
@@ -439,9 +501,39 @@ mod tests {
 
     #[tokio::test]
     #[serial]
-    async fn integration_get_best_masks_one_mask() {
+    async fn integration_incr_mask_count() {
+        // test the the increment of the mask counter
+        let client = init_client().await;
+
+        let should_be_empty = client.connection().await.get_best_masks().await.unwrap();
+        assert!(should_be_empty.is_empty());
+
+        let mask = create_mask(10);
+        for _ in 0..3 {
+            client
+                .connection()
+                .await
+                .incr_mask_count(&mask)
+                .await
+                .unwrap();
+        }
+
+        let best_masks = client.connection().await.get_best_masks().await.unwrap();
+        assert!(best_masks.len() == 1);
+
+        let (best_mask, count) = best_masks.into_iter().next().unwrap();
+        assert_eq!(best_mask, mask);
+        assert_eq!(count, 3);
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn integration_get_best_masks_only_one_mask() {
         // test the writing and reading of one mask
         let client = init_client().await;
+
+        let should_be_empty = client.connection().await.get_best_masks().await.unwrap();
+        assert!(should_be_empty.is_empty());
 
         let mask = create_mask(10);
         client
@@ -466,19 +558,18 @@ mod tests {
         // the first mask is incremented twice
         let client = init_client().await;
 
+        let should_be_empty = client.connection().await.get_best_masks().await.unwrap();
+        assert!(should_be_empty.is_empty());
+
         let mask_1 = create_mask(10);
-        client
-            .connection()
-            .await
-            .incr_mask_count(&mask_1)
-            .await
-            .unwrap();
-        client
-            .connection()
-            .await
-            .incr_mask_count(&mask_1)
-            .await
-            .unwrap();
+        for _ in 0..2 {
+            client
+                .connection()
+                .await
+                .incr_mask_count(&mask_1)
+                .await
+                .unwrap();
+        }
 
         let mask_2 = create_mask(100);
         client
@@ -504,8 +595,7 @@ mod tests {
     #[serial]
     async fn integration_get_best_masks_no_mask() {
         // ensure that get_best_masks returns an empty vec if no mask exist
-        let client = create_redis_client().await;
-        flush_db(&client).await;
+        let client = init_client().await;
 
         let best_masks = client.connection().await.get_best_masks().await.unwrap();
         assert!(best_masks.is_empty())
@@ -520,17 +610,16 @@ mod tests {
         // create two entries and write them into redis
         let mut entries = vec![];
         for _ in 0..2 {
-            let SigningKeyPair { public: pk, .. } = SigningKeyPair::generate();
-            let EncryptKeyPair { public: epk, .. } = EncryptKeyPair::generate();
-            entries.push((pk.clone(), epk.clone()));
-
+            let (pk, epk) = create_sum_participant_entry();
             let add_new_key = client
                 .connection()
                 .await
                 .add_sum_participant(&pk, &epk)
                 .await
                 .unwrap();
-            assert_eq!(add_new_key, AddSumParticipant::Ok)
+            assert_eq!(add_new_key, AddSumParticipant::Ok);
+
+            entries.push((pk, epk));
         }
 
         // ensure that add_sum_participant returns AddSumParticipant::AlreadyExists if the key already exist
@@ -562,10 +651,11 @@ mod tests {
                 .remove_sum_dict_entry(sum_pk)
                 .await
                 .unwrap();
-            assert_eq!(remove_sum_pk, DeleteSumParticipant::Ok);
+
+            assert!(remove_sum_pk.is_ok());
         }
 
-        // ensure that add_sum_participant returns AddSumParticipant::AlreadyExists if the key already exist
+        // ensure that add_sum_participant returns SumDictDeleteError::DoesNotExist if the key does not exist
         let (sum_pk, _) = entries.get(0).unwrap();
         let key_does_not_exist = client
             .connection()
@@ -573,11 +663,162 @@ mod tests {
             .remove_sum_dict_entry(sum_pk)
             .await
             .unwrap();
-        assert_eq!(key_does_not_exist, DeleteSumParticipant::DoesNotExist);
+        assert!(matches!(
+            key_does_not_exist.into_inner().unwrap_err(),
+            SumDictDeleteError::DoesNotExist
+        ));
 
         // ensure that get_sum_dict an empty sum dict
         let sum_dict = client.connection().await.get_sum_dict().await.unwrap();
-        assert_eq!(sum_dict.len(), 0);
+        assert!(sum_dict.is_empty());
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn integration_seed_dict() {
+        let client = init_client().await;
+
+        let sum_pks = create_and_write_sum_participant_entries(&client, 2).await;
+        let local_seed_dicts = create_local_seed_entries(&sum_pks);
+
+        let update_result = write_local_seed_entries(&client, &local_seed_dicts).await;
+        update_result.iter().for_each(|res| assert!(res.is_ok()));
+
+        let redis_sum_dict = client.connection().await.get_sum_dict().await.unwrap();
+        let seed_dict = create_seed_dict(redis_sum_dict, &local_seed_dicts);
+
+        let redis_seed_dict = client.connection().await.get_seed_dict().await.unwrap();
+        assert_eq!(seed_dict, redis_seed_dict)
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn integration_seed_dict_len_mis_match() {
+        let client = init_client().await;
+
+        let mut sum_pks = create_and_write_sum_participant_entries(&client, 2).await;
+
+        // remove one sum pk to create invalid local seed dicts
+        sum_pks.pop();
+
+        let local_seed_dicts = create_local_seed_entries(&sum_pks);
+        let update_result = write_local_seed_entries(&client, &local_seed_dicts).await;
+        update_result.into_iter().for_each(|res| {
+            assert!(matches!(
+                res.into_inner().unwrap_err(),
+                SeedDictUpdateError::LengthMisMatch
+            ))
+        });
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn integration_seed_dict_unknown_sum_participant() {
+        let client = init_client().await;
+
+        let mut sum_pks = create_and_write_sum_participant_entries(&client, 2).await;
+
+        // replace a known sum_pk with an unknown one
+        sum_pks.pop();
+        let (pk, _) = create_sum_participant_entry();
+        sum_pks.push(pk);
+
+        let local_seed_dicts = create_local_seed_entries(&sum_pks);
+        let update_result = write_local_seed_entries(&client, &local_seed_dicts).await;
+        update_result.into_iter().for_each(|res| {
+            assert!(matches!(
+                res.into_inner().unwrap_err(),
+                SeedDictUpdateError::UnknownSumParticipant
+            ))
+        });
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn integration_seed_dict_update_pk_already_submitted() {
+        let client = init_client().await;
+        let sum_pks = create_and_write_sum_participant_entries(&client, 2).await;
+
+        let local_seed_dicts = create_local_seed_entries(&sum_pks);
+        let update_result = write_local_seed_entries(&client, &local_seed_dicts).await;
+        update_result.iter().for_each(|res| assert!(res.is_ok()));
+
+        let update_result = write_local_seed_entries(&client, &local_seed_dicts).await;
+        update_result.into_iter().for_each(|res| {
+            assert!(matches!(
+                res.into_inner().unwrap_err(),
+                SeedDictUpdateError::UpdatePkAlreadySubmitted
+            ))
+        });
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn integration_seed_dict_update_pk_already_exists_in_update_seed_dict() {
+        let client = init_client().await;
+        let sum_pks = create_and_write_sum_participant_entries(&client, 2).await;
+
+        let local_seed_dicts = create_local_seed_entries(&sum_pks);
+        let update_result = write_local_seed_entries(&client, &local_seed_dicts).await;
+        update_result.iter().for_each(|res| assert!(res.is_ok()));
+
+        let (update_participant, local_seed_dict) = local_seed_dicts.get(0).unwrap().clone();
+        let remove_result = client
+            .connection()
+            .await
+            .remove_update_participant(&update_participant)
+            .await
+            .unwrap();
+        assert_eq!(remove_result, 1);
+
+        let update_result =
+            write_local_seed_entries(&client, &vec![(update_participant, local_seed_dict)]).await;
+        update_result.into_iter().for_each(|res| {
+            assert!(matches!(
+                res.into_inner().unwrap_err(),
+                SeedDictUpdateError::UpdatePkAlreadyExistsInUpdateSeedDict
+            ))
+        });
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn integration_seed_dict_get_seed_dict_for_sum_pk() {
+        let client = init_client().await;
+        let mut sum_pks = create_and_write_sum_participant_entries(&client, 2).await;
+
+        let local_seed_dicts = create_local_seed_entries(&sum_pks);
+        let update_result = write_local_seed_entries(&client, &local_seed_dicts).await;
+        update_result.iter().for_each(|res| assert!(res.is_ok()));
+
+        let redis_sum_dict = client.connection().await.get_sum_dict().await.unwrap();
+        let seed_dict = create_seed_dict(redis_sum_dict, &local_seed_dicts);
+
+        let sum_pk = sum_pks.pop().unwrap();
+
+        let redis_sum_seed_dict = client
+            .connection()
+            .await
+            .get_seed_dict_for_sum_pk(&sum_pk)
+            .await
+            .unwrap();
+
+        assert_eq!(&redis_sum_seed_dict, seed_dict.get(&sum_pk).unwrap())
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn integration_seed_dict_get_seed_dict_for_sum_pk_empty() {
+        let client = init_client().await;
+        let (sum_pk, _) = create_sum_participant_entry();
+
+        let result = client
+            .connection()
+            .await
+            .get_seed_dict_for_sum_pk(&sum_pk)
+            .await
+            .unwrap();
+        assert!(result.is_empty())
     }
 
     #[tokio::test]
@@ -585,7 +826,54 @@ mod tests {
     async fn integration_flush_dicts_return() {
         let client = init_client().await;
 
-        let res = client.connection().await.flush_db().await;
+        // write some data into redis
+        let set_state = CoordinatorState::new(pet_settings(), mask_settings(), model_settings());
+        let res = client
+            .connection()
+            .await
+            .set_coordinator_state(&set_state)
+            .await;
+        assert!(res.is_ok());
+
+        let sum_pks = create_and_write_sum_participant_entries(&client, 2).await;
+
+        let local_seed_dicts = create_local_seed_entries(&sum_pks);
+        let update_result = write_local_seed_entries(&client, &local_seed_dicts).await;
+        update_result.iter().for_each(|res| assert!(res.is_ok()));
+
+        let mask = create_mask(10);
+        client
+            .connection()
+            .await
+            .incr_mask_count(&mask)
+            .await
+            .unwrap();
+
+        // remove dicts
+        let res = client.connection().await.flush_dicts().await;
+        assert!(res.is_ok());
+
+        // ensure that the coordinator state still exists
+        let res = client.connection().await.get_coordinator_state().await;
+        assert!(res.unwrap().is_some());
+
+        let res = client.connection().await.get_sum_dict().await;
+        assert!(res.unwrap().is_empty());
+
+        let res = client.connection().await.get_seed_dict().await;
+        assert!(res.unwrap().is_empty());
+
+        let res = client.connection().await.get_best_masks().await;
+        assert!(res.unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn integration_ping() {
+        // test ping command
+        let client = init_client().await;
+
+        let res = client.connection().await.ping().await;
         assert!(res.is_ok())
     }
 }

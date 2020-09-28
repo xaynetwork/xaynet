@@ -6,6 +6,7 @@ use thiserror::Error;
 use xaynet_core::{
     crypto::{ByteObject, PublicEncryptKey, PublicSigningKey},
     mask::{EncryptedMaskSeed, MaskMany},
+    LocalSeedDict,
 };
 
 fn redis_type_error(desc: &'static str, details: Option<String>) -> RedisError {
