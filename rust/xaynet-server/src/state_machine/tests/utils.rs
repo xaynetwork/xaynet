@@ -136,19 +136,6 @@ pub fn masked_model(msg: &Message) -> MaskObject {
     }
 }
 
-/// Extract the masked scalar from an update message
-///
-/// # Panic
-///
-/// Panic if this message is not an update message
-pub fn masked_scalar(msg: &Message) -> MaskObject {
-    if let Payload::Update(Update { masked_scalar, .. }) = &msg.payload {
-        masked_scalar.clone()
-    } else {
-        panic!("not an update message");
-    }
-}
-
 /// Extract the local seed dictioanry from an update message
 ///
 /// # Panic

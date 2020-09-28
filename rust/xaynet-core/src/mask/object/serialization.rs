@@ -12,7 +12,7 @@ use num::bigint::BigUint;
 use crate::{
     mask::{
         config::{serialization::MASK_CONFIG_BUFFER_LEN, MaskConfig},
-        object::MaskObject,
+        object::{MaskMany, MaskObject, MaskOne},
     },
     message::{
         traits::{FromBytes, ToBytes},
@@ -29,12 +29,48 @@ const NUMBERS_FIELD: Range<usize> = range(MASK_CONFIG_FIELD.end, 4);
 const MAX_NB: u32 = u16::MAX as u32;
 
 /// A buffer for serialized mask objects.
+pub struct MaskManyBuffer<T> {
+    inner: T,
+}
+
 pub struct MaskObjectBuffer<T> {
     inner: T,
 }
 
-#[allow(clippy::len_without_is_empty)]
 impl<T: AsRef<[u8]>> MaskObjectBuffer<T> {
+    pub fn new(bytes: T) -> Result<Self, DecodeError> {
+        let buffer = Self { inner: bytes };
+        // TODO complete implementation in later refactoring
+        Ok(buffer)
+    }
+    pub fn new_unchecked(bytes: T) -> Self {
+        Self { inner: bytes }
+    }
+    pub fn _check_buffer_length(&self) -> Result<(), DecodeError> {
+        // TODO complete implementation in later refactoring
+        Ok(())
+    }
+    pub fn vector(&self) -> &[u8] {
+        let len = self.scalar_offset();
+        &self.inner.as_ref()[0..len]
+    }
+    pub fn scalar_offset(&self) -> usize {
+        let vector = MaskManyBuffer::new_unchecked(&self.inner.as_ref()[0..]);
+        vector.len()
+    }
+    pub fn scalar(&self) -> &[u8] {
+        let offset = self.scalar_offset();
+        &self.inner.as_ref()[offset..]
+    }
+    pub fn len(&self) -> usize {
+        let scalar_offset = self.scalar_offset();
+        let scalar = MaskManyBuffer::new_unchecked(&self.inner.as_ref()[scalar_offset..]);
+        scalar_offset + scalar.len()
+    }
+}
+
+#[allow(clippy::len_without_is_empty)]
+impl<T: AsRef<[u8]>> MaskManyBuffer<T> {
     /// Creates a new buffer from `bytes`.
     ///
     /// # Errors
@@ -43,7 +79,7 @@ impl<T: AsRef<[u8]>> MaskObjectBuffer<T> {
         let buffer = Self { inner: bytes };
         buffer
             .check_buffer_length()
-            .context("not a valid MaskObject")?;
+            .context("not a valid MaskMany")?;
         Ok(buffer)
     }
 
@@ -133,6 +169,16 @@ impl<T: AsRef<[u8]>> MaskObjectBuffer<T> {
 }
 
 impl<T: AsRef<[u8]> + AsMut<[u8]>> MaskObjectBuffer<T> {
+    pub fn vector_mut(&mut self) -> &mut [u8] {
+        &mut self.inner.as_mut()[0..]
+    }
+    pub fn scalar_mut(&mut self) -> &mut [u8] {
+        let offset = self.scalar_offset();
+        &mut self.inner.as_mut()[offset..]
+    }
+}
+
+impl<T: AsRef<[u8]> + AsMut<[u8]>> MaskManyBuffer<T> {
     /// Sets the number of serialized mask object elements.
     ///
     /// # Panics
@@ -159,13 +205,13 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> MaskObjectBuffer<T> {
     }
 }
 
-impl ToBytes for MaskObject {
+impl ToBytes for MaskMany {
     fn buffer_length(&self) -> usize {
         NUMBERS_FIELD.end + self.config.bytes_per_number() * self.data.len()
     }
 
     fn to_bytes<T: AsMut<[u8]>>(&self, buffer: &mut T) {
-        let mut writer = MaskObjectBuffer::new_unchecked(buffer.as_mut());
+        let mut writer = MaskManyBuffer::new_unchecked(buffer.as_mut());
         self.config.to_bytes(&mut writer.config_mut());
         writer.set_numbers(self.data.len() as u32);
 
@@ -189,9 +235,9 @@ impl ToBytes for MaskObject {
     }
 }
 
-impl FromBytes for MaskObject {
+impl FromBytes for MaskMany {
     fn from_bytes<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
-        let reader = MaskObjectBuffer::new(buffer.as_ref())?;
+        let reader = MaskManyBuffer::new(buffer.as_ref())?;
 
         let config = MaskConfig::from_bytes(&reader.config())?;
         let mut data = Vec::with_capacity(reader.numbers());
@@ -200,13 +246,64 @@ impl FromBytes for MaskObject {
             data.push(BigUint::from_bytes_le(chunk));
         }
 
-        Ok(MaskObject { data, config })
+        Ok(MaskMany { data, config })
     }
 }
+
+impl ToBytes for MaskOne {
+    fn buffer_length(&self) -> usize {
+        MaskMany::from(self).buffer_length()
+    }
+
+    fn to_bytes<T: AsMut<[u8]> + AsRef<[u8]>>(&self, buffer: &mut T) {
+        MaskMany::from(self).to_bytes(buffer)
+    }
+}
+
+impl FromBytes for MaskOne {
+    fn from_bytes<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
+        // TODO more direct implementation in later refactoring
+        let mut mask_many = MaskMany::from_bytes(buffer)?;
+        let vec_len = mask_many.data.len();
+        if vec_len == 1 {
+            Ok(MaskOne::new(mask_many.config, mask_many.data.remove(0)))
+        } else {
+            Err(anyhow!(
+                "invalid data length: expected 1 but got {}",
+                vec_len
+            ))
+        }
+    }
+}
+
+impl ToBytes for MaskObject {
+    fn buffer_length(&self) -> usize {
+        self.vector.buffer_length() + self.scalar.buffer_length()
+    }
+
+    fn to_bytes<T: AsMut<[u8]> + AsRef<[u8]>>(&self, buffer: &mut T) {
+        let mut writer = MaskObjectBuffer::new_unchecked(buffer.as_mut());
+        self.vector.to_bytes(&mut writer.vector_mut());
+        self.scalar.to_bytes(&mut writer.scalar_mut());
+    }
+}
+
+impl FromBytes for MaskObject {
+    fn from_bytes<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
+        let reader = MaskObjectBuffer::new(buffer.as_ref())?;
+        let vector = MaskMany::from_bytes(&reader.vector()).context("invalid vector part")?;
+        let scalar = MaskOne::from_bytes(&reader.scalar()).context("invalid scalar part")?;
+        Ok(Self { vector, scalar })
+    }
+}
+
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
-    use crate::mask::config::{BoundType, DataType, GroupType, MaskConfig, ModelType};
+    use crate::mask::{
+        config::{BoundType, DataType, GroupType, MaskConfig, ModelType},
+        MaskObject,
+    };
 
     pub fn object() -> MaskObject {
         // config.order() = 20_000_000_000_001 with this config, so the data
@@ -218,17 +315,21 @@ pub(crate) mod tests {
             model_type: ModelType::M3,
         };
         // 4 weights, each stored on 6 bytes => 24 bytes.
-        let data = vec![
+        let data_n = vec![
             BigUint::from(1_u8),
             BigUint::from(2_u8),
             BigUint::from(3_u8),
             BigUint::from(4_u8),
         ];
-        MaskObject::new(config, data)
+        let data_1 = BigUint::from(1_u8);
+        let many = MaskMany::new(config, data_n);
+        let one = MaskOne::new(config, data_1);
+        MaskObject::new(many, one)
     }
 
     pub fn bytes() -> Vec<u8> {
         vec![
+            // vector part
             0x00, 0x02, 0x00, 0x03, // config
             0x00, 0x00, 0x00, 0x04, // number of elements
             // data
@@ -236,10 +337,15 @@ pub(crate) mod tests {
             0x02, 0x00, 0x00, 0x00, 0x00, 0x00, // 2
             0x03, 0x00, 0x00, 0x00, 0x00, 0x00, // 3
             0x04, 0x00, 0x00, 0x00, 0x00, 0x00, // 4
+            // scalar part
+            0x00, 0x02, 0x00, 0x03, // config
+            0x00, 0x00, 0x00, 0x01, // number of elements
+            // data
+            0x01, 0x00, 0x00, 0x00, 0x00, 0x00, // 1
         ]
     }
 
-    pub fn object_1() -> MaskObject {
+    pub fn object_1() -> MaskMany {
         // config.order() = 20_000_000_000_001 with this config, so the data
         // should be stored on 6 bytes.
         let config = MaskConfig {
@@ -250,7 +356,7 @@ pub(crate) mod tests {
         };
         // 1 weight => 6 bytes
         let data = vec![BigUint::from(1_u8)];
-        MaskObject::new(config, data)
+        MaskMany::new(config, data)
     }
 
     pub fn bytes_1() -> Vec<u8> {
@@ -264,7 +370,7 @@ pub(crate) mod tests {
 
     #[test]
     fn serialize() {
-        let mut buf = vec![0xff; 32];
+        let mut buf = vec![0xff; 46];
         object().to_bytes(&mut buf);
         assert_eq!(buf, bytes());
     }
@@ -283,6 +389,6 @@ pub(crate) mod tests {
 
     #[test]
     fn deserialize_1() {
-        assert_eq!(MaskObject::from_bytes(&bytes_1()).unwrap(), object_1());
+        assert_eq!(MaskMany::from_bytes(&bytes_1()).unwrap(), object_1());
     }
 }

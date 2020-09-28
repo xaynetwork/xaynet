@@ -37,22 +37,24 @@ impl Participant<Update> {
 
         local_model: Model,
     ) -> Message {
-        let (mask_seed, masked_model, masked_scalar) = self.mask_model(local_model);
+        let (mask_seed, masked_model) = self.mask_model(local_model);
         let local_seed_dict = Self::create_local_seed_dict(sum_dict, &mask_seed);
         let payload = UpdateMessage {
             sum_signature: self.inner.sum_signature,
             update_signature: self.inner.update_signature,
             masked_model,
-            masked_scalar,
             local_seed_dict,
         };
         Message::new_update(self.state.keys.public, coordinator_pk, payload)
     }
 
     /// Generate a mask seed and mask a local model.
-    fn mask_model(&self, local_model: Model) -> (MaskSeed, MaskObject, MaskObject) {
-        Masker::new(self.state.aggregation_config.mask)
-            .mask(self.state.aggregation_config.scalar, local_model)
+    fn mask_model(&self, local_model: Model) -> (MaskSeed, MaskObject) {
+        Masker::new(
+            self.state.aggregation_config.mask,
+            self.state.aggregation_config.mask, // HACK reuse model mask config
+        )
+        .mask(self.state.aggregation_config.scalar, local_model)
     }
 
     // Create a local seed dictionary from a sum dictionary.

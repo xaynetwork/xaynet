@@ -14,7 +14,10 @@ use thiserror::Error;
 
 use crate::{
     crypto::{encrypt::SEALBYTES, prng::generate_integer, ByteObject},
-    mask::{config::MaskConfig, object::MaskObject},
+    mask::{
+        config::MaskConfig,
+        object::{MaskMany, MaskObject, MaskOne},
+    },
     SumParticipantEphemeralPublicKey,
     SumParticipantEphemeralSecretKey,
 };
@@ -53,19 +56,23 @@ impl MaskSeed {
         EncryptedMaskSeed::from_slice_unchecked(pk.encrypt(self.as_slice()).as_slice())
     }
 
-    // TODO separate config for scalar mask - future refactoring
-    /// Derives a mask of given length from this seed wrt the masking configuration.
-    pub fn derive_mask(&self, len: usize, config: MaskConfig) -> (MaskObject, MaskObject) {
+    /// Derives a mask of given length from this seed wrt the masking configurations.
+    pub fn derive_mask(
+        &self,
+        len: usize,
+        config_many: MaskConfig,
+        config_one: MaskConfig,
+    ) -> MaskObject {
         let mut prng = ChaCha20Rng::from_seed(self.as_array());
-        let rand_ints = iter::repeat_with(|| generate_integer(&mut prng, &config.order()))
+        let rand_ints = iter::repeat_with(|| generate_integer(&mut prng, &config_many.order()))
             .take(len)
             .collect();
-        let model_mask = MaskObject::new(config, rand_ints);
+        let model_mask = MaskMany::new(config_many, rand_ints);
 
-        let rand_int = generate_integer(&mut prng, &config.order());
-        let scalar_mask = MaskObject::new(config, vec![rand_int]);
+        let rand_int = generate_integer(&mut prng, &config_one.order());
+        let scalar_mask = MaskOne::new(config_one, rand_int);
 
-        (model_mask, scalar_mask)
+        MaskObject::new(model_mask, scalar_mask)
     }
 }
 
@@ -157,12 +164,13 @@ mod tests {
             model_type: ModelType::M3,
         };
         let seed = MaskSeed::generate();
-        let (mask, scalar_mask) = seed.derive_mask(10, config);
-        assert_eq!(mask.data.len(), 10);
-        assert!(mask.data.iter().all(|integer| integer < &config.order()));
-
-        assert_eq!(scalar_mask.data.len(), 1);
-        // TODO check size later after future refactoring
+        let mask = seed.derive_mask(10, config, config);
+        assert_eq!(mask.vector.data.len(), 10);
+        assert!(mask
+            .vector
+            .data
+            .iter()
+            .all(|integer| integer < &config.order()));
     }
 
     #[test]

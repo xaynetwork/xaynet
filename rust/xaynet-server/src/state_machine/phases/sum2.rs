@@ -22,14 +22,8 @@ pub struct Sum2 {
     /// The aggregator for masked models.
     model_agg: Aggregation,
 
-    /// The aggregator for masked scalars.
-    scalar_agg: Aggregation,
-
     /// The model mask dictionary built during the sum2 phase.
-    model_mask_dict: MaskDict,
-
-    /// The scalar mask dictionary built during the sum2 phase.
-    scalar_mask_dict: MaskDict,
+    mask_dict: MaskDict,
 }
 
 #[cfg(test)]
@@ -39,15 +33,7 @@ impl Sum2 {
     }
 
     pub fn mask_dict(&self) -> &MaskDict {
-        &self.model_mask_dict
-    }
-
-    pub fn scalar_agg(&self) -> &Aggregation {
-        &self.scalar_agg
-    }
-
-    pub fn scalar_mask_dict(&self) -> &MaskDict {
-        &self.scalar_mask_dict
+        &self.mask_dict
     }
 }
 
@@ -82,14 +68,8 @@ where
     /// See the [module level documentation](../index.html) for more details.
     fn next(self) -> Option<StateMachine> {
         Some(
-            PhaseState::<Unmask>::new(
-                self.shared,
-                self.inner.model_agg,
-                self.inner.scalar_agg,
-                self.inner.model_mask_dict,
-                self.inner.scalar_mask_dict,
-            )
-            .into(),
+            PhaseState::<Unmask>::new(self.shared, self.inner.model_agg, self.inner.mask_dict)
+                .into(),
         )
     }
 }
@@ -135,14 +115,12 @@ impl Handler for PhaseState<Sum2> {
 
 impl PhaseState<Sum2> {
     /// Creates a new sum2 state.
-    pub fn new(shared: Shared, model_agg: Aggregation, scalar_agg: Aggregation) -> Self {
+    pub fn new(shared: Shared, model_agg: Aggregation) -> Self {
         info!("state transition");
         Self {
             inner: Sum2 {
                 model_agg,
-                scalar_agg,
-                model_mask_dict: MaskDict::new(),
-                scalar_mask_dict: MaskDict::new(),
+                mask_dict: MaskDict::new(),
             },
             shared,
         }
@@ -154,9 +132,8 @@ impl PhaseState<Sum2> {
         let Sum2Request {
             participant_pk,
             model_mask,
-            scalar_mask,
         } = req;
-        self.add_mask(&participant_pk, model_mask, scalar_mask)
+        self.add_mask(&participant_pk, model_mask)
     }
 
     /// Adds a mask to the mask dictionary.
@@ -166,8 +143,7 @@ impl PhaseState<Sum2> {
     fn add_mask(
         &mut self,
         _pk: &SumParticipantPublicKey,
-        model_mask: MaskObject,
-        scalar_mask: MaskObject,
+        mask: MaskObject,
     ) -> Result<(), StateMachineError> {
         // We remove the participant key here to make sure a participant
         // cannot submit a mask multiple times
@@ -177,31 +153,17 @@ impl PhaseState<Sum2> {
         //     return Err(StateMachineError::MessageRejected);
         // }
 
-        if let Some(count) = self.inner.model_mask_dict.get_mut(&model_mask) {
+        if let Some(count) = self.inner.mask_dict.get_mut(&mask) {
             *count += 1;
         } else {
-            self.inner.model_mask_dict.insert(model_mask, 1);
-        }
-
-        if let Some(count) = self.inner.scalar_mask_dict.get_mut(&scalar_mask) {
-            *count += 1;
-        } else {
-            self.inner.scalar_mask_dict.insert(scalar_mask, 1);
+            self.inner.mask_dict.insert(mask, 1);
         }
 
         Ok(())
     }
 
     fn mask_count(&self) -> usize {
-        let sum1 = self.inner.model_mask_dict.values().sum();
-        let sum2: usize = self.inner.scalar_mask_dict.values().sum();
-        if sum1 != sum2 {
-            warn!(
-                "unexpected difference in mask sum count: {} vs {}",
-                sum1, sum2
-            );
-        }
-        sum1
+        self.inner.mask_dict.values().sum()
     }
 
     /// Checks whether enough sum participants submitted their masks to start the idle phase.
@@ -249,19 +211,18 @@ mod test {
         let msg =
             updater.compose_update_message(coord_keys.public, &sum_dict, scalar, model.clone());
         let masked_model = utils::masked_model(&msg);
-        let masked_scalar = utils::masked_scalar(&msg);
         let local_seed_dict = utils::local_seed_dict(&msg);
-        let mut aggregation = Aggregation::new(utils::mask_settings().into(), model_size);
+        let mut aggregation = Aggregation::new(
+            utils::mask_settings().into(),
+            utils::mask_settings().into(),
+            model_size,
+        );
         aggregation.aggregate(masked_model.clone());
-        let mut scalar_agg = Aggregation::new(utils::mask_settings().into(), 1);
-        scalar_agg.aggregate(masked_scalar.clone());
 
         // Create the state machine
         let sum2 = Sum2 {
             model_agg: aggregation,
-            scalar_agg,
-            model_mask_dict: MaskDict::new(),
-            scalar_mask_dict: MaskDict::new(),
+            mask_dict: MaskDict::new(),
         };
 
         let (state_machine, request_tx, events, _) = StateMachineBuilder::new()
@@ -280,7 +241,11 @@ mod test {
 
         // Create a sum2 request.
         let msg = summer
-            .compose_sum2_message(coord_keys.public, &local_seed_dict, masked_model.data.len())
+            .compose_sum2_message(
+                coord_keys.public,
+                &local_seed_dict,
+                masked_model.vector.data.len(),
+            )
             .unwrap();
 
         // Have the state machine process the request

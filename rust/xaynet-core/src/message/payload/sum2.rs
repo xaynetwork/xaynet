@@ -10,7 +10,7 @@ use anyhow::{anyhow, Context};
 
 use crate::{
     crypto::ByteObject,
-    mask::object::{serialization::MaskObjectBuffer, MaskObject},
+    mask::object::{serialization::MaskManyBuffer, MaskMany, MaskObject, MaskOne},
     message::{
         traits::{FromBytes, ToBytes},
         utils::range,
@@ -62,11 +62,11 @@ impl<T: AsRef<[u8]>> Sum2Buffer<T> {
         }
 
         // Check the length of the model mask field
-        let _ = MaskObjectBuffer::new(&self.inner.as_ref()[self.model_mask_offset()..])
+        let _ = MaskManyBuffer::new(&self.inner.as_ref()[self.model_mask_offset()..])
             .context("invalid model mask field")?;
 
         // Check the length of the scalar mask field
-        let _ = MaskObjectBuffer::new(&self.inner.as_ref()[self.scalar_mask_offset()..])
+        let _ = MaskManyBuffer::new(&self.inner.as_ref()[self.scalar_mask_offset()..])
             .context("invalid scalar mask field")?;
 
         Ok(())
@@ -80,7 +80,7 @@ impl<T: AsRef<[u8]>> Sum2Buffer<T> {
     /// Gets the offset of the scalar mask field.
     fn scalar_mask_offset(&self) -> usize {
         let model_mask =
-            MaskObjectBuffer::new_unchecked(&self.inner.as_ref()[self.model_mask_offset()..]);
+            MaskManyBuffer::new_unchecked(&self.inner.as_ref()[self.model_mask_offset()..]);
         self.model_mask_offset() + model_mask.len()
     }
 }
@@ -153,34 +153,39 @@ pub struct Sum2 {
 
     /// A model mask computed by the participant.
     pub model_mask: MaskObject,
-
-    /// A scalar mask computed by the participant.
-    pub scalar_mask: MaskObject,
 }
 
+// TODO ToBytes impl for MaskObject
 impl ToBytes for Sum2 {
     fn buffer_length(&self) -> usize {
-        SUM_SIGNATURE_RANGE.end + self.model_mask.buffer_length() + self.scalar_mask.buffer_length()
+        SUM_SIGNATURE_RANGE.end
+            + self.model_mask.vector.buffer_length()
+            + self.model_mask.scalar.buffer_length()
     }
 
     fn to_bytes<T: AsMut<[u8]> + AsRef<[u8]>>(&self, buffer: &mut T) {
         let mut writer = Sum2Buffer::new_unchecked(buffer.as_mut());
         self.sum_signature.to_bytes(&mut writer.sum_signature_mut());
-        self.model_mask.to_bytes(&mut writer.model_mask_mut());
-        self.scalar_mask.to_bytes(&mut writer.scalar_mask_mut());
+        self.model_mask
+            .vector
+            .to_bytes(&mut writer.model_mask_mut());
+        self.model_mask
+            .scalar
+            .to_bytes(&mut writer.scalar_mask_mut());
     }
 }
 
+// TODO FromBytes impl for MaskObject
 impl FromBytes for Sum2 {
     fn from_bytes<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
         let reader = Sum2Buffer::new(buffer.as_ref())?;
         Ok(Self {
             sum_signature: ParticipantTaskSignature::from_bytes(&reader.sum_signature())
                 .context("invalid sum signature")?,
-            model_mask: MaskObject::from_bytes(&reader.model_mask())
-                .context("invalid model mask")?,
-            scalar_mask: MaskObject::from_bytes(&reader.scalar_mask())
-                .context("invalid scalar mask")?,
+            model_mask: MaskObject::new(
+                MaskMany::from_bytes(&reader.model_mask()).context("invalid model mask")?,
+                MaskOne::from_bytes(&reader.scalar_mask()).context("invalid scalar mask")?,
+            ),
         })
     }
 }
@@ -188,7 +193,7 @@ impl FromBytes for Sum2 {
 #[cfg(test)]
 pub(in crate::message) mod tests_helpers {
     use super::*;
-    use crate::{crypto::ByteObject, mask::object::MaskObject};
+    use crate::{crypto::ByteObject, mask::object::MaskMany};
 
     pub fn signature() -> (ParticipantTaskSignature, Vec<u8>) {
         let bytes = vec![0x99; ParticipantTaskSignature::LENGTH];
@@ -201,7 +206,7 @@ pub(in crate::message) mod tests_helpers {
         (object(), bytes())
     }
 
-    pub fn mask_1() -> (MaskObject, Vec<u8>) {
+    pub fn mask_1() -> (MaskMany, Vec<u8>) {
         use crate::mask::object::serialization::tests::{bytes_1, object_1};
         (object_1(), bytes_1())
     }
@@ -209,11 +214,11 @@ pub(in crate::message) mod tests_helpers {
     pub fn sum2() -> (Sum2, Vec<u8>) {
         let mut bytes = signature().1;
         bytes.extend(mask().1);
-        bytes.extend(mask_1().1);
+        //bytes.extend(mask_1().1);
         let sum2 = Sum2 {
             sum_signature: signature().0,
+            //model_mask: MaskObject::new(mask().0, mask_1().0), // FIXME
             model_mask: mask().0,
-            scalar_mask: mask_1().0,
         };
         (sum2, bytes)
     }

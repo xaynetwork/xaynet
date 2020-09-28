@@ -5,7 +5,6 @@
 //! [client module]: ../index.html
 
 use std::default::Default;
-
 use xaynet_core::{
     crypto::{ByteObject, EncryptKeyPair, SigningKeyPair},
     mask::{
@@ -139,13 +138,12 @@ impl Participant {
         scalar: f64,
         local_model: Model,
     ) -> Message {
-        let (mask_seed, masked_model, masked_scalar) = Self::mask_model(scalar, local_model);
+        let (mask_seed, masked_model) = Self::mask_model(scalar, local_model);
         let local_seed_dict = Self::create_local_seed_dict(sum_dict, &mask_seed);
         let payload = Update {
             sum_signature: self.sum_signature,
             update_signature: self.update_signature,
             masked_model,
-            masked_scalar,
             local_seed_dict,
         };
         Message::new_update(self.pk, coordinator_pk, payload)
@@ -165,12 +163,10 @@ impl Participant {
         mask_len: usize,
     ) -> Result<Message, PetError> {
         let mask_seeds = self.get_seeds(seed_dict)?;
-        let (model_mask, scalar_mask) =
-            self.compute_global_mask(mask_seeds, mask_len, dummy_config())?;
+        let mask = self.compute_global_mask(mask_seeds, mask_len, dummy_config())?;
         let payload = Sum2 {
             sum_signature: self.sum_signature,
-            model_mask,
-            scalar_mask,
+            model_mask: mask,
         };
         Ok(Message::new_sum2(self.pk, coordinator_pk, payload))
     }
@@ -191,9 +187,10 @@ impl Participant {
     }
 
     /// Generate a mask seed and mask a local model.
-    fn mask_model(scalar: f64, local_model: Model) -> (MaskSeed, MaskObject, MaskObject) {
+    fn mask_model(scalar: f64, local_model: Model) -> (MaskSeed, MaskObject) {
         // TODO: use proper config
-        Masker::new(dummy_config()).mask(scalar, local_model)
+        let config = dummy_config();
+        Masker::new(config, config).mask(scalar, local_model) // HACK reuse model mask config
     }
 
     // Create a local seed dictionary from a sum dictionary.
@@ -221,27 +218,24 @@ impl Participant {
         mask_seeds: Vec<MaskSeed>,
         mask_len: usize,
         mask_config: MaskConfig,
-    ) -> Result<(MaskObject, MaskObject), PetError> {
+        // FIXME also need scalar mask config somehow
+    ) -> Result<MaskObject, PetError> {
         if mask_seeds.is_empty() {
             return Err(PetError::InvalidMask);
         }
 
-        let mut model_mask_agg = Aggregation::new(mask_config, mask_len);
-        let mut scalar_mask_agg = Aggregation::new(mask_config, 1);
+        // HACK reuse model mask config for now
+        let mut mask_agg = Aggregation::new(mask_config, mask_config, mask_len);
         for seed in mask_seeds.into_iter() {
-            let (model_mask, scalar_mask) = seed.derive_mask(mask_len, mask_config);
+            let mask = seed.derive_mask(mask_len, mask_config, mask_config);
 
-            model_mask_agg
-                .validate_aggregation(&model_mask)
-                .map_err(|_| PetError::InvalidMask)?;
-            scalar_mask_agg
-                .validate_aggregation(&scalar_mask)
+            mask_agg
+                .validate_aggregation(&mask)
                 .map_err(|_| PetError::InvalidMask)?;
 
-            model_mask_agg.aggregate(model_mask);
-            scalar_mask_agg.aggregate(scalar_mask);
+            mask_agg.aggregate(mask);
         }
-        Ok((model_mask_agg.into(), scalar_mask_agg.into()))
+        Ok(mask_agg.into())
     }
 }
 

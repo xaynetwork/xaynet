@@ -4,7 +4,7 @@ use paste::paste;
 use redis::{ErrorKind, FromRedisValue, RedisError, RedisResult, RedisWrite, ToRedisArgs, Value};
 use xaynet_core::{
     crypto::{ByteObject, PublicEncryptKey, PublicSigningKey},
-    mask::{EncryptedMaskSeed, MaskObject},
+    mask::{EncryptedMaskSeed, MaskMany},
 };
 
 fn redis_type_error(desc: &'static str, details: Option<String>) -> RedisError {
@@ -161,12 +161,12 @@ macro_rules! impl_bincode_redis_traits {
 impl_bincode_redis_traits!(CoordinatorState);
 
 #[derive(From, Into, Serialize, Deserialize)]
-pub(crate) struct MaskObjectRead(MaskObject);
+pub(crate) struct MaskObjectRead(MaskMany);
 
 impl_bincode_redis_traits!(MaskObjectRead);
 
 #[derive(From, Serialize)]
-pub(crate) struct MaskObjectWrite<'a>(&'a MaskObject);
+pub(crate) struct MaskObjectWrite<'a>(&'a MaskMany);
 
 impl ToRedisArgs for MaskObjectWrite<'_> {
     fn write_redis_args<W>(&self, out: &mut W)

@@ -10,7 +10,10 @@ use anyhow::{anyhow, Context};
 
 use crate::{
     crypto::ByteObject,
-    mask::object::{serialization::MaskObjectBuffer, MaskObject},
+    mask::object::{
+        serialization::{MaskManyBuffer, MaskObjectBuffer},
+        MaskObject,
+    },
     message::{
         traits::{FromBytes, LengthValueBuffer, ToBytes},
         utils::range,
@@ -67,11 +70,11 @@ impl<T: AsRef<[u8]>> UpdateBuffer<T> {
         }
 
         // Check the length of the masked model field
-        let _ = MaskObjectBuffer::new(&self.inner.as_ref()[self.masked_model_offset()..])
+        let _ = MaskManyBuffer::new(&self.inner.as_ref()[self.masked_model_offset()..])
             .context("invalid masked model field")?;
 
         // Check the length of the masked scalar field
-        let _ = MaskObjectBuffer::new(&self.inner.as_ref()[self.masked_scalar_offset()..])
+        let _ = MaskManyBuffer::new(&self.inner.as_ref()[self.masked_scalar_offset()..])
             .context("invalid masked scalar field")?;
 
         // Check the length of the local seed dictionary field
@@ -89,7 +92,7 @@ impl<T: AsRef<[u8]>> UpdateBuffer<T> {
     /// Gets the offset of the masked scalar field.
     fn masked_scalar_offset(&self) -> usize {
         let masked_model =
-            MaskObjectBuffer::new_unchecked(&self.inner.as_ref()[self.masked_model_offset()..]);
+            MaskManyBuffer::new_unchecked(&self.inner.as_ref()[self.masked_model_offset()..]);
         self.masked_model_offset() + masked_model.len()
     }
 
@@ -98,9 +101,9 @@ impl<T: AsRef<[u8]>> UpdateBuffer<T> {
     /// # Panics
     /// Computing the offset may panic if the buffer has not been checked before.
     fn local_seed_dict_offset(&self) -> usize {
-        let masked_scalar =
-            MaskObjectBuffer::new_unchecked(&self.inner.as_ref()[self.masked_scalar_offset()..]);
-        self.masked_scalar_offset() + masked_scalar.len()
+        let masked_model =
+            MaskObjectBuffer::new_unchecked(&self.inner.as_ref()[self.masked_model_offset()..]);
+        self.masked_model_offset() + masked_model.len()
     }
 }
 
@@ -211,10 +214,6 @@ pub struct Update {
     ///
     /// The model is masked with randomness derived from the participant seed.
     pub masked_model: MaskObject,
-    /// The scalar used to scale model weights.
-    ///
-    /// The scalar is masked with randomness derived from the participant seed.
-    pub masked_scalar: MaskObject,
     /// A dictionary that contains the seed used to mask `masked_model`.
     ///
     /// The seed is encrypted with the ephemeral public key of each sum participant.
@@ -224,8 +223,8 @@ pub struct Update {
 impl ToBytes for Update {
     fn buffer_length(&self) -> usize {
         UPDATE_SIGNATURE_RANGE.end
-            + self.masked_model.buffer_length()
-            + self.masked_scalar.buffer_length()
+            + self.masked_model.vector.buffer_length()
+            + self.masked_model.scalar.buffer_length()
             + self.local_seed_dict.buffer_length()
     }
 
@@ -234,8 +233,12 @@ impl ToBytes for Update {
         self.sum_signature.to_bytes(&mut writer.sum_signature_mut());
         self.update_signature
             .to_bytes(&mut writer.update_signature_mut());
-        self.masked_model.to_bytes(&mut writer.masked_model_mut());
-        self.masked_scalar.to_bytes(&mut writer.masked_scalar_mut());
+        self.masked_model
+            .vector
+            .to_bytes(&mut writer.masked_model_mut());
+        self.masked_model
+            .scalar
+            .to_bytes(&mut writer.masked_scalar_mut());
         self.local_seed_dict
             .to_bytes(&mut writer.local_seed_dict_mut());
     }
@@ -251,8 +254,6 @@ impl FromBytes for Update {
                 .context("invalid update signature")?,
             masked_model: MaskObject::from_bytes(&reader.masked_model())
                 .context("invalid masked model")?,
-            masked_scalar: MaskObject::from_bytes(&reader.masked_scalar())
-                .context("invalid masked scalar")?,
             local_seed_dict: LocalSeedDict::from_bytes(&reader.local_seed_dict())
                 .context("invalid local seed dictionary")?,
         })
@@ -266,7 +267,7 @@ pub(in crate::message) mod tests_helpers {
     use super::*;
     use crate::{
         crypto::ByteObject,
-        mask::{object::MaskObject, seed::EncryptedMaskSeed},
+        mask::{object::MaskMany, seed::EncryptedMaskSeed},
         SumParticipantPublicKey,
     };
 
@@ -287,7 +288,7 @@ pub(in crate::message) mod tests_helpers {
         (object(), bytes())
     }
 
-    pub fn masked_scalar() -> (MaskObject, Vec<u8>) {
+    pub fn masked_scalar() -> (MaskMany, Vec<u8>) {
         use crate::mask::object::serialization::tests::{bytes_1, object_1};
         (object_1(), bytes_1())
     }
@@ -321,14 +322,14 @@ pub(in crate::message) mod tests_helpers {
         let mut bytes = sum_signature().1;
         bytes.extend(update_signature().1);
         bytes.extend(masked_model().1);
-        bytes.extend(masked_scalar().1);
+        //bytes.extend(masked_scalar().1);
         bytes.extend(local_seed_dict().1);
 
         let update = Update {
             sum_signature: sum_signature().0,
             update_signature: update_signature().0,
             masked_model: masked_model().0,
-            masked_scalar: masked_scalar().0,
+            //masked_scalar: masked_scalar().0,
             local_seed_dict: local_seed_dict().0,
         };
         (update, bytes)
@@ -368,7 +369,6 @@ pub(in crate::message) mod tests {
         bytes.extend(helpers::sum_signature().1);
         bytes.extend(helpers::update_signature().1);
         bytes.extend(helpers::masked_model().1);
-        bytes.extend(helpers::masked_scalar().1);
         bytes.extend(invalid);
 
         let e = Update::from_bytes(&bytes).unwrap_err();

@@ -26,9 +26,6 @@ pub struct Update {
 
     /// The aggregator for masked models.
     model_agg: Aggregation,
-
-    /// The aggregator for masked scalars.
-    scalar_agg: Aggregation,
 }
 
 #[cfg(test)]
@@ -87,16 +84,11 @@ where
 
     fn next(self) -> Option<StateMachine> {
         let PhaseState {
-            inner:
-                Update {
-                    model_agg,
-                    scalar_agg,
-                    ..
-                },
+            inner: Update { model_agg, .. },
             shared,
         } = self;
 
-        Some(PhaseState::<Sum2>::new(shared, model_agg, scalar_agg).into())
+        Some(PhaseState::<Sum2>::new(shared, model_agg).into())
     }
 }
 
@@ -145,9 +137,12 @@ impl PhaseState<Update> {
         Self {
             inner: Update {
                 update_count: 0,
-                model_agg: Aggregation::new(shared.state.mask_config, shared.state.model_size),
-                // TODO separate config for scalars
-                scalar_agg: Aggregation::new(shared.state.mask_config, 1),
+                // HACK reuse mask config
+                model_agg: Aggregation::new(
+                    shared.state.mask_config,
+                    shared.state.mask_config,
+                    shared.state.model_size,
+                ),
             },
             shared,
         }
@@ -160,15 +155,9 @@ impl PhaseState<Update> {
             participant_pk,
             local_seed_dict,
             masked_model,
-            masked_scalar,
         } = req;
-        self.update_seed_dict_and_aggregate_mask(
-            &participant_pk,
-            &local_seed_dict,
-            masked_model,
-            masked_scalar,
-        )
-        .await
+        self.update_seed_dict_and_aggregate_mask(&participant_pk, &local_seed_dict, masked_model)
+            .await
     }
 
     /// Updates the local seed dict and aggregates the masked model.
@@ -176,8 +165,7 @@ impl PhaseState<Update> {
         &mut self,
         pk: &UpdateParticipantPublicKey,
         local_seed_dict: &LocalSeedDict,
-        masked_model: MaskObject,
-        masked_scalar: MaskObject,
+        mask_object: MaskObject,
     ) -> Result<(), StateMachineError> {
         // Check if aggregation can be performed. It is important to
         // do that _before_ updating the seed dictionary, because we
@@ -186,18 +174,9 @@ impl PhaseState<Update> {
         debug!("checking whether the masked model can be aggregated");
         self.inner
             .model_agg
-            .validate_aggregation(&masked_model)
+            .validate_aggregation(&mask_object)
             .map_err(|e| {
                 warn!("model aggregation error: {}", e);
-                StateMachineError::AggregationFailed
-            })?;
-
-        debug!("checking whether the masked scalar can be aggregated");
-        self.inner
-            .scalar_agg
-            .validate_aggregation(&masked_scalar)
-            .map_err(|e| {
-                warn!("scalar aggregation error: {}", e);
                 StateMachineError::AggregationFailed
             })?;
 
@@ -212,8 +191,7 @@ impl PhaseState<Update> {
             })?;
 
         info!("aggregating the masked model and scalar");
-        self.inner.model_agg.aggregate(masked_model);
-        self.inner.scalar_agg.aggregate(masked_scalar);
+        self.inner.model_agg.aggregate(mask_object);
         Ok(())
     }
 
@@ -254,7 +232,7 @@ mod test {
     use xaynet_core::{
         common::RoundSeed,
         crypto::{ByteObject, EncryptKeyPair},
-        mask::{FromPrimitives, MaskObject, Model},
+        mask::{FromPrimitives, Model},
         SeedDict,
         SumDict,
         UpdateSeedDict,
@@ -284,12 +262,14 @@ mod test {
         let mut frozen_sum_dict = SumDict::new();
         frozen_sum_dict.insert(summer.pk, summer_ephm_pk);
 
-        let model_agg = Aggregation::new(utils::mask_settings().into(), model_size);
-        let scalar_agg = Aggregation::new(utils::mask_settings().into(), 1);
+        let aggregation = Aggregation::new(
+            utils::mask_settings().into(),
+            utils::mask_settings().into(),
+            model_size,
+        );
         let update = Update {
             update_count: 0,
-            model_agg,
-            scalar_agg,
+            model_agg: aggregation.clone(),
         };
 
         // Create the state machine
