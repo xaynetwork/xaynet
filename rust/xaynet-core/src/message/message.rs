@@ -516,7 +516,7 @@ impl Message {
             participant_pk,
             coordinator_pk,
             is_multipart: false,
-            tag: Tag::Sum,
+            tag: Tag::Sum2,
             payload: message.into(),
         }
     }
@@ -533,7 +533,7 @@ impl Message {
             participant_pk,
             coordinator_pk,
             is_multipart: false,
-            tag: Tag::Sum,
+            tag: Tag::Update,
             payload: message.into(),
         }
     }
