@@ -300,8 +300,10 @@ impl FromBytes for MaskObject {
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
-    use crate::mask::config::{BoundType, DataType, GroupType, MaskConfig, ModelType};
-    use crate::mask::MaskObject;
+    use crate::mask::{
+        config::{BoundType, DataType, GroupType, MaskConfig, ModelType},
+        MaskObject,
+    };
 
     pub fn object() -> MaskObject {
         // config.order() = 20_000_000_000_001 with this config, so the data

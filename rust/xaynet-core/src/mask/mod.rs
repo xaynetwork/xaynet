@@ -103,12 +103,12 @@
 //! };
 //!
 //! // mask the local models
-//! let (local_mask_seed_1, masked_local_model_1, masked_local_scalar_1) = Masker::new(config).mask(scalar, local_model_1);
-//! let (local_mask_seed_2, masked_local_model_2, masked_local_scalar_2) = Masker::new(config).mask(scalar, local_model_2);
+//! let (local_mask_seed_1, masked_local_model_1) = Masker::new(config, config).mask(scalar, local_model_1);
+//! let (local_mask_seed_2, masked_local_model_2) = Masker::new(config, config).mask(scalar, local_model_2);
 //!
 //! // derive the masks of the local masked models
-//! let local_mask_1 = local_mask_seed_1.derive_mask(number_weights, config);
-//! let local_mask_2 = local_mask_seed_2.derive_mask(number_weights, config);
+//! let local_mask_1 = local_mask_seed_1.derive_mask(number_weights, config, config);
+//! let local_mask_2 = local_mask_seed_2.derive_mask(number_weights, config, config);
 //! ```
 //!
 //! ## Aggregation
@@ -124,12 +124,12 @@
 //! # let local_model_1 = Model::from_primitives_bounded(vec![0_f32; number_weights].into_iter());
 //! # let local_model_2 = Model::from_primitives_bounded(vec![1_f32; number_weights].into_iter());
 //! # let config = MaskConfig { group_type: GroupType::Prime, data_type: DataType::F32, bound_type: BoundType::B0, model_type: ModelType::M3};
-//! # let (local_mask_seed_1, masked_local_model_1, masked_local_scalar_1) = Masker::new(config).mask(scalar, local_model_1);
-//! # let (local_mask_seed_2, masked_local_model_2, masked_local_scalar_2) = Masker::new(config).mask(scalar, local_model_2);
-//! # let (local_model_mask_1, local_scalar_mask_1) = local_mask_seed_1.derive_mask(number_weights, config);
-//! # let (local_model_mask_2, local_scalar_mask_2) = local_mask_seed_2.derive_mask(number_weights, config);
+//! # let (local_mask_seed_1, masked_local_model_1) = Masker::new(config, config).mask(scalar, local_model_1);
+//! # let (local_mask_seed_2, masked_local_model_2) = Masker::new(config, config).mask(scalar, local_model_2);
+//! # let local_model_mask_1 = local_mask_seed_1.derive_mask(number_weights, config, config);
+//! # let local_model_mask_2 = local_mask_seed_2.derive_mask(number_weights, config, config);
 //! // aggregate the local model masks (similarly for local scalar masks)
-//! let mut mask_aggregator = Aggregation::new(config, number_weights);
+//! let mut mask_aggregator = Aggregation::new(config, config, number_weights);
 //! if let Ok(_) = mask_aggregator.validate_aggregation(&local_model_mask_1) {
 //!     mask_aggregator.aggregate(local_model_mask_1);
 //! };
@@ -139,7 +139,7 @@
 //! let global_mask: MaskObject = mask_aggregator.into();
 //!
 //! // aggregate the local masked models
-//! let mut model_aggregator = Aggregation::new(config, number_weights);
+//! let mut model_aggregator = Aggregation::new(config, config, number_weights);
 //! if let Ok(_) = model_aggregator.validate_aggregation(&masked_local_model_1) {
 //!     model_aggregator.aggregate(masked_local_model_1);
 //! };
@@ -153,22 +153,22 @@
 //! should always be validated beforehand so that it may be safely performed wrt the chosen mask
 //! configuration without possible loss of information.
 //!
-//! ```
+//! ```no_run
 //! # use xaynet_core::mask::{Aggregation, BoundType, DataType, FromPrimitives, GroupType, MaskConfig, Masker, MaskObject, Model, ModelType};
 //! # let number_weights = 10;
 //! # let scalar = 0.5;
 //! # let local_model_1 = Model::from_primitives_bounded(vec![0_f32; number_weights].into_iter());
 //! # let local_model_2 = Model::from_primitives_bounded(vec![1_f32; number_weights].into_iter());
 //! # let config = MaskConfig { group_type: GroupType::Prime, data_type: DataType::F32, bound_type: BoundType::B0, model_type: ModelType::M3};
-//! # let (local_mask_seed_1, masked_local_model_1, masked_local_scalar_1) = Masker::new(config).mask(scalar, local_model_1);
-//! # let (local_mask_seed_2, masked_local_model_2, masked_local_scalar_2) = Masker::new(config).mask(scalar, local_model_2);
-//! # let (local_model_mask_1, local_scalar_mask_1) = local_mask_seed_1.derive_mask(number_weights, config);
-//! # let (local_model_mask_2, local_scalar_mask_2) = local_mask_seed_2.derive_mask(number_weights, config);
-//! # let mut mask_aggregator = Aggregation::new(config, number_weights);
+//! # let (local_mask_seed_1, masked_local_model_1) = Masker::new(config, config).mask(scalar, local_model_1);
+//! # let (local_mask_seed_2, masked_local_model_2) = Masker::new(config, config).mask(scalar, local_model_2);
+//! # let local_model_mask_1 = local_mask_seed_1.derive_mask(number_weights, config, config);
+//! # let local_model_mask_2 = local_mask_seed_2.derive_mask(number_weights, config, config);
+//! # let mut mask_aggregator = Aggregation::new(config, config, number_weights);
 //! # if let Ok(_) = mask_aggregator.validate_aggregation(&local_model_mask_1) { mask_aggregator.aggregate(local_model_mask_1); };
 //! # if let Ok(_) = mask_aggregator.validate_aggregation(&local_model_mask_2) { mask_aggregator.aggregate(local_model_mask_2); };
 //! # let global_mask: MaskObject = mask_aggregator.into();
-//! # let mut model_aggregator = Aggregation::new(config, number_weights);
+//! # let mut model_aggregator = Aggregation::new(config, config, number_weights);
 //! # if let Ok(_) = model_aggregator.validate_aggregation(&masked_local_model_1) { model_aggregator.aggregate(masked_local_model_1); };
 //! # if let Ok(_) = model_aggregator.validate_aggregation(&masked_local_model_2) { model_aggregator.aggregate(masked_local_model_2); };
 //! // unmask the aggregated masked model with the aggregated mask
@@ -189,8 +189,13 @@ pub(crate) mod seed;
 
 pub use self::{
     config::{
-        serialization::MaskConfigBuffer, BoundType, DataType, GroupType, InvalidMaskConfigError,
-        MaskConfig, ModelType,
+        serialization::MaskConfigBuffer,
+        BoundType,
+        DataType,
+        GroupType,
+        InvalidMaskConfigError,
+        MaskConfig,
+        ModelType,
     },
     masking::{Aggregation, AggregationError, Masker, UnmaskingError},
     model::{FromPrimitives, IntoPrimitives, Model, ModelCastError, PrimitiveCastError},

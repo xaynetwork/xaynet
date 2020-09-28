@@ -10,13 +10,17 @@ use anyhow::{anyhow, Context};
 
 use crate::{
     crypto::ByteObject,
-    mask::object::{serialization::MaskManyBuffer, serialization::MaskObjectBuffer, MaskObject},
+    mask::object::{
+        serialization::{MaskManyBuffer, MaskObjectBuffer},
+        MaskObject,
+    },
     message::{
         traits::{FromBytes, LengthValueBuffer, ToBytes},
         utils::range,
         DecodeError,
     },
-    LocalSeedDict, ParticipantTaskSignature,
+    LocalSeedDict,
+    ParticipantTaskSignature,
 };
 
 const SUM_SIGNATURE_RANGE: Range<usize> = range(0, ParticipantTaskSignature::LENGTH);
