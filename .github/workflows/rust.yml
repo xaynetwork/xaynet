@@ -8,6 +8,7 @@ on:
 jobs:
   lint:
     name: cargo-fmt
+    timeout-minutes: 20
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -35,6 +36,7 @@ jobs:
 
   check:
     name: cargo-check
+    timeout-minutes: 20
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
@@ -65,6 +67,7 @@ jobs:
 
   clippy:
     name: cargo-clippy
+    timeout-minutes: 20
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
@@ -94,6 +97,7 @@ jobs:
 
   test:
     name: cargo-test
+    timeout-minutes: 20
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
@@ -132,6 +136,7 @@ jobs:
 
   docs:
     name: cargo-doc
+    timeout-minutes: 20
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -158,6 +163,7 @@ jobs:
 
   coverage:
     name: cargo-tarpaulin
+    timeout-minutes: 20
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
