@@ -19,5 +19,6 @@ bases:
 patchesStrategicMerge:
   - history-limit.yaml
   - config-volume-mount.yaml
+  - cert-volume-mount.yaml
 resources:
   - ingress.yaml
