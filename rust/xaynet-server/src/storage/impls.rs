@@ -124,13 +124,9 @@ macro_rules! impl_bincode_redis_traits {
         impl FromRedisValue for $ty {
             fn from_redis_value(v: &Value) -> RedisResult<$ty> {
                 match *v {
-                    Value::Data(ref bytes) => bincode::deserialize(bytes).map_err(|e| {
-                        redis_type_error("Invalid CoordinatorState", Some(e.to_string()))
-                    }),
-                    _ => Err(redis_type_error(
-                        "Response not CoordinatorState compatible",
-                        None,
-                    )),
+                    Value::Data(ref bytes) => bincode::deserialize(bytes)
+                        .map_err(|e| redis_type_error("Invalid data", Some(e.to_string()))),
+                    _ => Err(redis_type_error("Response not bincode compatible", None)),
                 }
             }
         }
