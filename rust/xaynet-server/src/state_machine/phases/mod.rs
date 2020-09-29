@@ -202,7 +202,6 @@ where
             metrics!(self.shared.io.metrics_tx, metrics::phase::update(phase));
 
             if let Err(err) = self.run().await {
-                warn!("phase failed: {:?}", err);
                 return Some(self.into_error_state(err));
             }
 

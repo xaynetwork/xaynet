@@ -36,7 +36,7 @@ impl Phase for PhaseState<StateError> {
     const NAME: PhaseName = PhaseName::Error;
 
     async fn run(&mut self) -> Result<(), StateError> {
-        error!("state transition failed! error: {:?}", self.inner);
+        error!("{}", self.inner);
 
         metrics!(
             self.shared.io.metrics_tx,
