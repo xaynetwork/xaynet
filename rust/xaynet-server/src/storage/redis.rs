@@ -44,9 +44,19 @@ use crate::{
         SumDictAdd,
     },
 };
-use redis::{aio::ConnectionManager, AsyncCommands, IntoConnectionInfo, RedisResult, Script};
+use redis::{
+    aio::ConnectionManager,
+    AsyncCommands,
+    ErrorKind,
+    IntoConnectionInfo,
+    RedisResult,
+    Script,
+};
 use std::{collections::HashMap, sync::Arc};
-use tokio::sync::{OwnedSemaphorePermit, Semaphore};
+use tokio::{
+    sync::{OwnedSemaphorePermit, Semaphore},
+    time::Duration,
+};
 use xaynet_core::{
     mask::{EncryptedMaskSeed, MaskMany},
     LocalSeedDict,
@@ -63,6 +73,8 @@ pub use redis::RedisError;
 pub struct Client {
     raw_connection: ConnectionManager,
     semaphore: Arc<Semaphore>,
+    // The timeout for a redis command in seconds.
+    timeout_duration: Duration,
 }
 
 #[cfg(test)]
@@ -77,6 +89,8 @@ impl std::fmt::Debug for Client {
 pub struct Connection {
     connection: ConnectionManager,
     _permit: OwnedSemaphorePermit,
+    // The timeout for a redis command in seconds.
+    timeout_duration: Duration,
 }
 
 impl Client {
@@ -85,15 +99,21 @@ impl Client {
     /// `url` to which Redis instance the client should connect to.
     /// The URL format is `redis://[<username>][:<passwd>@]<hostname>[:port][/<db>]`.
     /// `n` is the maximum number of concurrent uses on a shared connection.
+    ///  The `timeout` for a redis command in seconds.
     ///
     /// The [`Client`] uses a [`redis::aio::ConnectionManager`] that automatically reconnects
     /// if the connection is dropped.
-    pub async fn new<T: IntoConnectionInfo>(url: T, n: usize) -> Result<Self, RedisError> {
+    pub async fn new<T: IntoConnectionInfo>(
+        url: T,
+        n: usize,
+        timeout_secs: u64,
+    ) -> Result<Self, RedisError> {
         let client = redis::Client::open(url)?;
         let connection = client.get_tokio_connection_manager().await?;
         Ok(Self {
             raw_connection: connection,
             semaphore: Arc::new(Semaphore::new(n)),
+            timeout_duration: Duration::from_secs(timeout_secs),
         })
     }
 
@@ -105,14 +125,34 @@ impl Client {
         let Client {
             raw_connection,
             semaphore,
+            timeout_duration,
         } = self.clone();
 
         let _permit = semaphore.acquire_owned().await;
         Connection {
             connection: raw_connection,
             _permit,
+            timeout_duration,
         }
     }
+}
+
+async fn timeout<C, R>(duration: Duration, future: C) -> C::Output
+where
+    C: std::future::Future<Output = Result<R, RedisError>>,
+{
+    match tokio::time::timeout(duration, future).await {
+        Err(err) => Err(into_redis_err(err)),
+        Ok(ok) => ok,
+    }
+}
+
+fn into_redis_err(err: tokio::time::Elapsed) -> RedisError {
+    RedisError::from((
+        ErrorKind::ExtensionError,
+        "redis command timeout",
+        err.to_string(),
+    ))
 }
 
 impl Connection {
@@ -126,7 +166,11 @@ impl Connection {
         //   it is overwritten, regardless of its type.
         // Possible return value in our case:
         // > Simple string reply: OK if SET was executed correctly.
-        self.connection.set("coordinator_state", state).await
+        timeout(
+            self.timeout_duration,
+            self.connection.set("coordinator_state", state),
+        )
+        .await
     }
 
     /// Retrieves the [`SumDict`].
@@ -137,7 +181,7 @@ impl Connection {
         //   Array reply: list of fields and their values stored in the hash, or an empty
         //   list when key does not exist.
         let result: Vec<(PublicSigningKeyRead, PublicEncryptKeyRead)> =
-            self.connection.hgetall("sum_dict").await?;
+            timeout(self.timeout_duration, self.connection.hgetall("sum_dict")).await?;
         let sum_dict = result
             .into_iter()
             .map(|(pk, ephm_pk)| (pk.into(), ephm_pk.into()))
@@ -162,13 +206,15 @@ impl Connection {
         //   Integer reply, specifically:
         //   1 if field is a new field in the hash and value was set.
         //   0 if field already exists in the hash and no operation was performed.
-        self.connection
-            .hset_nx(
+        timeout(
+            self.timeout_duration,
+            self.connection.hset_nx(
                 "sum_dict",
                 PublicSigningKeyWrite::from(pk),
                 PublicEncryptKeyWrite::from(ephm_pk),
-            )
-            .await
+            ),
+        )
+        .await
     }
 
     /// Retrieves the [`SeedDict`] entry for the given ['SumParticipantPublicKey'] or an empty map
@@ -185,10 +231,11 @@ impl Connection {
         // > Return value
         //   Array reply: list of fields and their values stored in the hash, or an empty
         //   list when key does not exist.
-        let result: Vec<(PublicSigningKeyRead, EncryptedMaskSeedRead)> = self
-            .connection
-            .hgetall(PublicSigningKeyWrite::from(sum_pk))
-            .await?;
+        let result: Vec<(PublicSigningKeyRead, EncryptedMaskSeedRead)> = timeout(
+            self.timeout_duration,
+            self.connection.hgetall(PublicSigningKeyWrite::from(sum_pk)),
+        )
+        .await?;
         let seed_dict = result
             .into_iter()
             .map(|(pk, seed)| (pk.into(), seed.into()))
@@ -250,11 +297,14 @@ impl Connection {
             "#,
         );
 
-        script
-            .key(LocalSeedDictWrite::from(local_seed_dict))
-            .arg(PublicSigningKeyWrite::from(update_pk))
-            .invoke_async(&mut self.connection)
-            .await
+        timeout(
+            self.timeout_duration,
+            script
+                .key(LocalSeedDictWrite::from(local_seed_dict))
+                .arg(PublicSigningKeyWrite::from(update_pk))
+                .invoke_async(&mut self.connection),
+        )
+        .await
     }
 
     /// Retrieves the [`SeedDict`] or an empty [`SeedDict`] when the [`SumDict`] does not exist.
@@ -266,7 +316,8 @@ impl Connection {
         // https://redis.io/commands/hkeys
         // > Return value:
         //   Array reply: list of fields in the hash, or an empty list when key does not exist.
-        let sum_pks: Vec<PublicSigningKeyRead> = self.connection.hkeys("sum_dict").await?;
+        let sum_pks: Vec<PublicSigningKeyRead> =
+            timeout(self.timeout_duration, self.connection.hkeys("sum_dict")).await?;
 
         let mut seed_dict: SeedDict = SeedDict::new();
         for sum_pk in sum_pks {
@@ -275,7 +326,7 @@ impl Connection {
             //   Array reply: list of fields and their values stored in the hash, or an empty
             //   list when key does not exist.
             let sum_pk_seed_dict: HashMap<PublicSigningKeyRead, EncryptedMaskSeedRead> =
-                self.connection.hgetall(&sum_pk).await?;
+                timeout(self.timeout_duration, self.connection.hgetall(&sum_pk)).await?;
             seed_dict.insert(
                 sum_pk.into(),
                 sum_pk_seed_dict
@@ -301,9 +352,12 @@ impl Connection {
         //
         // We ignore the return value because we are not interested in it. We will use the method
         // `get_best_masks` instead.
-        self.connection
-            .zincr("mask_dict", MaskObjectWrite::from(mask), 1_usize)
-            .await
+        timeout(
+            self.timeout_duration,
+            self.connection
+                .zincr("mask_dict", MaskObjectWrite::from(mask), 1_usize),
+        )
+        .await
     }
 
     /// Retrieves the two masks with the highest score.
@@ -313,10 +367,11 @@ impl Connection {
         // > Return value:
         //   Array reply: list of elements in the specified range (optionally with their scores,
         //   in case the WITHSCORES option is given).
-        let result: Vec<(MaskObjectRead, usize)> = self
-            .connection
-            .zrevrange_withscores("mask_dict", 0, 1)
-            .await?;
+        let result: Vec<(MaskObjectRead, usize)> = timeout(
+            self.timeout_duration,
+            self.connection.zrevrange_withscores("mask_dict", 0, 1),
+        )
+        .await?;
 
         Ok(result
             .into_iter()
@@ -329,10 +384,13 @@ impl Connection {
         debug!("flush current database");
         // https://redis.io/commands/flushdb
         // > This command never fails.
-        redis::cmd("FLUSHDB")
-            .arg("ASYNC")
-            .query_async(&mut self.connection)
-            .await
+        timeout(
+            self.timeout_duration,
+            redis::cmd("FLUSHDB")
+                .arg("ASYNC")
+                .query_async(&mut self.connection),
+        )
+        .await
     }
 
     /// Deletes the dictionaries [`SumDict`], [`SeedDict`] and mask dictionary.
@@ -344,7 +402,8 @@ impl Connection {
         // https://redis.io/commands/hkeys
         // > Return value:
         //   Array reply: list of fields in the hash, or an empty list when key does not exist.
-        let sum_pks: Vec<PublicSigningKeyRead> = self.connection.hkeys("sum_dict").await?;
+        let sum_pks: Vec<PublicSigningKeyRead> =
+            timeout(self.timeout_duration, self.connection.hkeys("sum_dict")).await?;
         let mut pipe = redis::pipe();
 
         // https://redis.io/commands/del
@@ -365,14 +424,11 @@ impl Connection {
 
         //delete mask dict
         pipe.del("mask_dict").ignore();
-        pipe.atomic().query_async(&mut self.connection).await
-    }
-
-    /// Pings the Redis server. Useful for checking whether there is a connection
-    /// between the client and Redis.
-    pub async fn ping(mut self) -> RedisResult<()> {
-        // https://redis.io/commands/ping
-        redis::cmd("PING").query_async(&mut self.connection).await
+        timeout(
+            self.timeout_duration,
+            pipe.atomic().query_async(&mut self.connection),
+        )
+        .await
     }
 }
 
@@ -465,7 +521,7 @@ mod tests {
     use serial_test::serial;
 
     async fn create_redis_client() -> Client {
-        Client::new("redis://127.0.0.1/", 10).await.unwrap()
+        Client::new("redis://127.0.0.1/", 10, 10).await.unwrap()
     }
 
     async fn init_client() -> Client {
@@ -868,15 +924,5 @@ mod tests {
 
         let res = client.connection().await.get_best_masks().await;
         assert!(res.unwrap().is_empty());
-    }
-
-    #[tokio::test]
-    #[serial]
-    async fn integration_ping() {
-        // test ping command
-        let client = init_client().await;
-
-        let res = client.connection().await.ping().await;
-        assert!(res.is_ok())
     }
 }
