@@ -141,7 +141,7 @@ pub enum StateMachineError {
     #[error("the request could not be processed due to an internal error")]
     InternalError,
 
-    #[error("Redis failed: {0}")]
+    #[error("redis failed: {0}")]
     Redis(#[from] RedisError),
 
     #[error("{0}")]

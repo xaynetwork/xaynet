@@ -1,13 +1,8 @@
-use crate::{
-    state_machine::{
-        phases::{Idle, Phase, PhaseName, PhaseState, Shared, Shutdown},
-        RoundFailed,
-        StateMachine,
-    },
-    storage::redis::RedisError,
+use crate::state_machine::{
+    phases::{Idle, Phase, PhaseName, PhaseState, Shared, Shutdown},
+    RoundFailed,
+    StateMachine,
 };
-use std::time::Duration;
-use tokio::time::delay_for;
 
 #[cfg(feature = "metrics")]
 use crate::metrics;
@@ -23,8 +18,6 @@ pub enum StateError {
     RoundError(#[from] RoundFailed),
     #[error("state failed: phase timeout: {0}")]
     TimeoutError(#[from] tokio::time::Elapsed),
-    #[error("state failed: Redis failed: {0}")]
-    Redis(#[from] RedisError),
 }
 
 impl PhaseState<StateError> {
@@ -52,26 +45,6 @@ impl Phase for PhaseState<StateError> {
 
         info!("broadcasting error phase event");
         self.shared.io.events.broadcast_phase(PhaseName::Error);
-
-        if let StateError::Redis(_) = self.inner {
-            // a simple loop that stops as soon as the redis client has reconnected to a redis
-            // instance. Reconnecting a lost connection is handled internally by
-            // redis::aio::ConnectionManager
-
-            while self
-                .shared
-                .io
-                .redis
-                .connection()
-                .await
-                .ping()
-                .await
-                .is_err()
-            {
-                info!("try to reconnect to Redis in 5 sec");
-                delay_for(Duration::from_secs(5)).await;
-            }
-        }
 
         Ok(())
     }

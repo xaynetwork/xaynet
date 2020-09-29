@@ -81,7 +81,9 @@ pub fn model_settings() -> ModelSettings {
 }
 
 pub async fn init_shared() -> (Shared, EventSubscriber, RequestSender, redis::Client) {
-    let redis = redis::Client::new("redis://127.0.0.1/", 10).await.unwrap();
+    let redis = redis::Client::new("redis://127.0.0.1/", 10, 10)
+        .await
+        .unwrap();
     redis.connection().await.flush_db().await.unwrap();
 
     let coordinator_state =

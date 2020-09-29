@@ -1,11 +1,14 @@
 use std::sync::Arc;
 
-use crate::state_machine::{
-    events::DictionaryUpdate,
-    phases::{Handler, Phase, PhaseName, PhaseState, Shared, StateError, Update},
-    requests::{StateMachineRequest, SumRequest},
-    StateMachine,
-    StateMachineError,
+use crate::{
+    retry,
+    state_machine::{
+        events::DictionaryUpdate,
+        phases::{Handler, Phase, PhaseName, PhaseState, Shared, StateError, Update},
+        requests::{StateMachineRequest, SumRequest},
+        StateMachine,
+        StateMachineError,
+    },
 };
 
 #[cfg(feature = "metrics")]
@@ -63,14 +66,7 @@ where
             self.inner.sum_count, self.shared.state.min_sum_count
         );
 
-        let sum_dict = self
-            .shared
-            .io
-            .redis
-            .connection()
-            .await
-            .get_sum_dict()
-            .await?;
+        let sum_dict = retry!(self.shared.io.redis.connection().await.get_sum_dict(), 5);
 
         info!("broadcasting sum dictionary");
         self.shared

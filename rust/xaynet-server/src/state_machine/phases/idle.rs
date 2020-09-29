@@ -12,6 +12,8 @@ use crate::state_machine::{
     StateMachineError,
 };
 
+use crate::retry;
+
 #[cfg(feature = "metrics")]
 use crate::metrics;
 
@@ -46,13 +48,15 @@ impl Phase for PhaseState<Idle> {
         info!("updating round seeds");
         self.update_round_seed();
 
-        self.shared
-            .io
-            .redis
-            .connection()
-            .await
-            .set_coordinator_state(&self.shared.state)
-            .await?;
+        retry!(
+            self.shared
+                .io
+                .redis
+                .connection()
+                .await
+                .set_coordinator_state(&self.shared.state),
+            5
+        );
 
         let events = &mut self.shared.io.events;
 
@@ -68,13 +72,7 @@ impl Phase for PhaseState<Idle> {
         info!("broadcasting invalidation of mask length from previous round");
         events.broadcast_mask_length(MaskLengthUpdate::Invalidate);
 
-        self.shared
-            .io
-            .redis
-            .connection()
-            .await
-            .flush_dicts()
-            .await?;
+        retry!(self.shared.io.redis.connection().await.flush_dicts(), 5);
 
         info!("broadcasting new round parameters");
         events.broadcast_params(self.shared.state.round_params.clone());

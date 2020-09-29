@@ -6,12 +6,15 @@ use xaynet_core::{
     UpdateParticipantPublicKey,
 };
 
-use crate::state_machine::{
-    events::{DictionaryUpdate, MaskLengthUpdate},
-    phases::{Handler, Phase, PhaseName, PhaseState, Shared, StateError, Sum2},
-    requests::{StateMachineRequest, UpdateRequest},
-    StateMachine,
-    StateMachineError,
+use crate::{
+    retry,
+    state_machine::{
+        events::{DictionaryUpdate, MaskLengthUpdate},
+        phases::{Handler, Phase, PhaseName, PhaseState, Shared, StateError, Sum2},
+        requests::{StateMachineRequest, UpdateRequest},
+        StateMachine,
+        StateMachineError,
+    },
 };
 
 #[cfg(feature = "metrics")]
@@ -64,14 +67,7 @@ where
             .events
             .broadcast_mask_length(MaskLengthUpdate::New(self.inner.model_agg.len()));
 
-        let seed_dict = self
-            .shared
-            .io
-            .redis
-            .connection()
-            .await
-            .get_seed_dict()
-            .await?;
+        let seed_dict = retry!(self.shared.io.redis.connection().await.get_seed_dict(), 5);
 
         info!("broadcasting the global seed dictionary");
         self.shared
@@ -183,12 +179,7 @@ impl PhaseState<Update> {
         // Try to update local seed dict first. If this fail, we do
         // not want to aggregate the model.
         info!("updating the global seed dictionary");
-        self.add_local_seed_dict(pk, local_seed_dict)
-            .await
-            .map_err(|err| {
-                warn!("invalid local seed dictionary, ignoring update message");
-                err
-            })?;
+        self.add_local_seed_dict(pk, local_seed_dict).await?;
 
         info!("aggregating the masked model and scalar");
         self.inner.model_agg.aggregate(mask_object);

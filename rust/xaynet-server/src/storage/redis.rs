@@ -150,7 +150,7 @@ where
 fn into_redis_err(err: tokio::time::Elapsed) -> RedisError {
     RedisError::from((
         ErrorKind::ExtensionError,
-        "redis command timeout",
+        "execute redis command",
         err.to_string(),
     ))
 }
