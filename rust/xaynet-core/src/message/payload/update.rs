@@ -268,7 +268,6 @@ impl FromBytes for Update {
             update_signature: ParticipantTaskSignature::from_byte_stream(iter)
                 .context("invalid update signature")?,
             masked_model: MaskObject::from_byte_stream(iter).context("invalid masked model")?,
-            masked_scalar: MaskObject::from_byte_stream(iter).context("invalid masked scalar")?,
             local_seed_dict: LocalSeedDict::from_byte_stream(iter)
                 .context("invalid local seed dictionary")?,
         })
@@ -280,11 +279,12 @@ pub(in crate::message) mod tests_helpers {
     use std::convert::TryFrom;
 
     use super::*;
-    use crate::{
-        crypto::ByteObject,
-        mask::{object::MaskMany, seed::EncryptedMaskSeed},
-        SumParticipantPublicKey,
+    pub(in crate::message) use crate::mask::object::serialization::tests::{
+        mask_many,
+        mask_object,
+        mask_one,
     };
+    use crate::{crypto::ByteObject, mask::seed::EncryptedMaskSeed, SumParticipantPublicKey};
 
     pub fn sum_signature() -> (ParticipantTaskSignature, Vec<u8>) {
         let bytes = vec![0x33; 64];
@@ -296,16 +296,6 @@ pub(in crate::message) mod tests_helpers {
         let bytes = vec![0x44; 64];
         let signature = ParticipantTaskSignature::from_slice(&bytes[..]).unwrap();
         (signature, bytes)
-    }
-
-    pub fn masked_model() -> (MaskObject, Vec<u8>) {
-        use crate::mask::object::serialization::tests::{bytes, object};
-        (object(), bytes())
-    }
-
-    pub fn masked_scalar() -> (MaskMany, Vec<u8>) {
-        use crate::mask::object::serialization::tests::{bytes_1, object_1};
-        (object_1(), bytes_1())
     }
 
     pub fn local_seed_dict() -> (LocalSeedDict, Vec<u8>) {
@@ -336,15 +326,13 @@ pub(in crate::message) mod tests_helpers {
     pub fn update() -> (Update, Vec<u8>) {
         let mut bytes = sum_signature().1;
         bytes.extend(update_signature().1);
-        bytes.extend(masked_model().1);
-        //bytes.extend(masked_scalar().1);
+        bytes.extend(mask_object().1);
         bytes.extend(local_seed_dict().1);
 
         let update = Update {
             sum_signature: sum_signature().0,
             update_signature: update_signature().0,
-            masked_model: masked_model().0,
-            //masked_scalar: masked_scalar().0,
+            masked_model: mask_object().0,
             local_seed_dict: local_seed_dict().0,
         };
         (update, bytes)
@@ -368,9 +356,9 @@ pub(in crate::message) mod tests {
             buffer.update_signature(),
             helpers::update_signature().1.as_slice()
         );
-        let mut expected = helpers::masked_model().1;
+        let mut expected = helpers::mask_many().1;
         assert_eq!(&buffer.masked_model()[..expected.len()], &expected[..]);
-        expected = helpers::masked_scalar().1;
+        expected = helpers::mask_one().1;
         assert_eq!(&buffer.masked_scalar()[..expected.len()], &expected[..]);
         assert_eq!(buffer.local_seed_dict(), &helpers::local_seed_dict().1[..]);
     }
@@ -383,7 +371,7 @@ pub(in crate::message) mod tests {
         let mut bytes = vec![];
         bytes.extend(helpers::sum_signature().1);
         bytes.extend(helpers::update_signature().1);
-        bytes.extend(helpers::masked_model().1);
+        bytes.extend(helpers::mask_object().1);
         bytes.extend(invalid);
 
         let e = Update::from_byte_slice(&bytes).unwrap_err();

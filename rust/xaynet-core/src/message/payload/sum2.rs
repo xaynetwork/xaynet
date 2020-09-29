@@ -195,8 +195,7 @@ impl FromBytes for Sum2 {
         Ok(Self {
             sum_signature: ParticipantTaskSignature::from_byte_stream(iter)
                 .context("invalid sum signature")?,
-            model_mask: MaskObject::from_byte_stream(iter).context("invalid model mask")?,
-            scalar_mask: MaskObject::from_byte_stream(iter).context("invalid scalar mask")?,
+            model_mask: MaskObject::from_byte_stream(iter).context("invalid mask object")?,
         })
     }
 }
@@ -204,7 +203,11 @@ impl FromBytes for Sum2 {
 #[cfg(test)]
 pub(in crate::message) mod tests_helpers {
     use super::*;
-    use crate::{crypto::ByteObject, mask::object::MaskMany};
+    pub(in crate::message) use crate::mask::object::serialization::tests::{
+        mask_many,
+        mask_object,
+        mask_one,
+    };
 
     pub fn signature() -> (ParticipantTaskSignature, Vec<u8>) {
         let bytes = vec![0x99; ParticipantTaskSignature::LENGTH];
@@ -212,24 +215,14 @@ pub(in crate::message) mod tests_helpers {
         (signature, bytes)
     }
 
-    pub fn mask() -> (MaskObject, Vec<u8>) {
-        use crate::mask::object::serialization::tests::{bytes, object};
-        (object(), bytes())
-    }
-
-    pub fn mask_1() -> (MaskMany, Vec<u8>) {
-        use crate::mask::object::serialization::tests::{bytes_1, object_1};
-        (object_1(), bytes_1())
-    }
-
     pub fn sum2() -> (Sum2, Vec<u8>) {
-        let mut bytes = signature().1;
-        bytes.extend(mask().1);
-        //bytes.extend(mask_1().1);
+        let (sum_signature, sum_signature_bytes) = signature();
+        let (model_mask, model_mask_bytes) = mask_object();
+        let bytes = [sum_signature_bytes.as_slice(), model_mask_bytes.as_slice()].concat();
+
         let sum2 = Sum2 {
-            sum_signature: signature().0,
-            //model_mask: MaskObject::new(mask().0, mask_1().0), // FIXME
-            model_mask: mask().0,
+            sum_signature,
+            model_mask,
         };
         (sum2, bytes)
     }
@@ -245,9 +238,13 @@ pub(in crate::message) mod tests {
         let bytes = helpers::sum2().1;
         let buffer = Sum2Buffer::new(&bytes).unwrap();
         assert_eq!(buffer.sum_signature(), &helpers::signature().1[..]);
-        let expected = helpers::mask().1;
-        assert_eq!(&buffer.model_mask()[..expected.len()], &expected[..]);
-        assert_eq!(buffer.scalar_mask(), &helpers::mask_1().1[..]);
+
+        let expected_model_mask = helpers::mask_many().1;
+        let expected_len = expected_model_mask.len();
+        let actual_model_mask = &buffer.model_mask()[..expected_len];
+        assert_eq!(actual_model_mask, expected_model_mask);
+
+        assert_eq!(buffer.scalar_mask(), &helpers::mask_one().1[..]);
     }
 
     #[test]
@@ -258,11 +255,11 @@ pub(in crate::message) mod tests {
             buffer
                 .sum_signature_mut()
                 .copy_from_slice(&helpers::signature().1[..]);
-            let expected = helpers::mask().1;
-            buffer.model_mask_mut()[..expected.len()].copy_from_slice(&expected[..]);
+            let model_mask = helpers::mask_many().1;
+            buffer.model_mask_mut()[..model_mask.len()].copy_from_slice(&model_mask[..]);
             buffer
                 .scalar_mask_mut()
-                .copy_from_slice(&helpers::mask_1().1[..]);
+                .copy_from_slice(&helpers::mask_one().1[..]);
         }
         assert_eq!(&bytes[..], &helpers::sum2().1[..]);
     }
