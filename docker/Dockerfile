@@ -10,7 +10,7 @@ COPY docker/install_rust.sh .
 RUN bash ./install_rust.sh
 
 COPY rust/ .
-RUN cargo build --bin coordinator
+RUN cargo build --bin coordinator --all-features
 
 FROM ubuntu:20.04
 RUN apt update && apt install -y --no-install-recommends libssl-dev
