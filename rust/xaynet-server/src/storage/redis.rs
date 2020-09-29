@@ -32,7 +32,6 @@
 use crate::{
     state_machine::coordinator::CoordinatorState,
     storage::impls::{
-        AddSumParticipant,
         EncryptedMaskSeedRead,
         LocalSeedDictWrite,
         MaskObjectRead,
@@ -42,6 +41,7 @@ use crate::{
         PublicSigningKeyRead,
         PublicSigningKeyWrite,
         SeedDictUpdate,
+        SumDictAdd,
     },
 };
 use redis::{aio::ConnectionManager, AsyncCommands, IntoConnectionInfo, RedisResult, Script};
@@ -154,7 +154,7 @@ impl Connection {
         mut self,
         pk: &SumParticipantPublicKey,
         ephm_pk: &SumParticipantEphemeralPublicKey,
-    ) -> RedisResult<AddSumParticipant> {
+    ) -> RedisResult<SumDictAdd> {
         debug!("add sum participant with pk {:?}", pk);
         // https://redis.io/commands/hsetnx
         // > If field already exists, this operation has no effect.
@@ -451,7 +451,7 @@ mod tests {
     use crate::{
         state_machine::tests::utils::{mask_settings, model_settings, pet_settings},
         storage::{
-            impls::{SeedDictUpdateError, SumDictDeleteError},
+            impls::{SeedDictUpdateError, SumDictAddError, SumDictDeleteError},
             tests::{
                 create_and_write_sum_participant_entries,
                 create_local_seed_entries,
@@ -617,7 +617,7 @@ mod tests {
                 .add_sum_participant(&pk, &epk)
                 .await
                 .unwrap();
-            assert_eq!(add_new_key, AddSumParticipant::Ok);
+            assert!(add_new_key.is_ok());
 
             entries.push((pk, epk));
         }
@@ -630,7 +630,10 @@ mod tests {
             .add_sum_participant(pk, epk)
             .await
             .unwrap();
-        assert_eq!(key_already_exist, AddSumParticipant::AlreadyExists);
+        assert!(matches!(
+            key_already_exist.into_inner().unwrap_err(),
+            SumDictAddError::AlreadyExists
+        ));
 
         // ensure that get_sum_dict_len returns 2
         let len_of_sum_dict = client.connection().await.get_sum_dict_len().await.unwrap();
