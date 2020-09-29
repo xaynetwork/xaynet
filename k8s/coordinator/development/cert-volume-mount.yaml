@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: coordinator-deployment
+spec:
+  template:
+    spec:
+      volumes:
+        - name: tls-certificate
+          secret:
+            secretName: dev-coordinator
+            items:
+              - key: tls.key
+                path: tls.key
+                mode: 0600
+              - key: tls.crt
+                path: tls.crt
+                mode: 0644
+      containers:
+        - name: coordinator
+          volumeMounts:
+            - name: tls-certificate 
+              mountPath: "/app/ssl"
+              readOnly: true
