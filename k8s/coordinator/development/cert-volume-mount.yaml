@@ -12,10 +12,10 @@ spec:
             items:
               - key: tls.key
                 path: tls.key
-                mode: 0600
+                mode: 0400
               - key: tls.crt
                 path: tls.crt
-                mode: 0644
+                mode: 0444
       containers:
         - name: coordinator
           volumeMounts:
