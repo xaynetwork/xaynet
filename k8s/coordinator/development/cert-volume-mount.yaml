@@ -14,7 +14,7 @@ spec:
                 path: tls.key
                 mode: 0400
               - key: tls.crt
-                path: tls.crt
+                path: tls.pem
                 mode: 0444
       containers:
         - name: coordinator
