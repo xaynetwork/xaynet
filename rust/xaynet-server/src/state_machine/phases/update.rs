@@ -210,7 +210,8 @@ impl PhaseState<Update> {
             .connection()
             .await
             .update_seed_dict(pk, local_seed_dict)
-            .await?;
+            .await?
+            .into_inner()?;
 
         self.inner.update_count += 1;
         Ok(())
