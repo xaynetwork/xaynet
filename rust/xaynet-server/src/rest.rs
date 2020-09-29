@@ -1,25 +1,30 @@
 //! A HTTP API for the PET protocol interactions.
 
-use crate::services::{fetchers::Fetcher, messages::PetMessageHandler};
+use std::convert::Infallible;
+#[cfg(feature = "tls")]
+use std::path::PathBuf;
+
 use bytes::{Buf, Bytes};
-use std::{convert::Infallible, net::SocketAddr};
 use warp::{
     http::{Response, StatusCode},
     Filter,
+};
+
+use crate::{
+    services::{fetchers::Fetcher, messages::PetMessageHandler},
+    settings::ApiSettings,
 };
 use xaynet_core::{crypto::ByteObject, ParticipantPublicKey};
 
 /// Starts a HTTP server at the given address, listening to GET requests for
 /// data and POST requests containing PET messages.
 ///
-/// * `addr`: address of the server.
+/// * `api_settings`: address of the server and optional certificate and key for TLS server
+///   authentication.
 /// * `fetcher`: fetcher for responding to data requests.
 /// * `pet_message_handler`: handler for responding to PET messages.
-pub async fn serve<F>(
-    addr: impl Into<SocketAddr> + 'static,
-    fetcher: F,
-    pet_message_handler: PetMessageHandler,
-) where
+pub async fn serve<F>(api_settings: ApiSettings, fetcher: F, pet_message_handler: PetMessageHandler)
+where
     F: Fetcher + Sync + Send + 'static + Clone,
 {
     let message = warp::path!("message")
@@ -63,7 +68,13 @@ pub async fn serve<F>(
         .recover(handle_reject)
         .with(warp::log("http"));
 
-    warp::serve(routes).run(addr).await
+    let server = warp::serve(routes);
+    #[cfg(feature = "tls")]
+    let server = server
+        .tls()
+        .cert_path(PathBuf::from(api_settings.tls_certificate))
+        .key_path(PathBuf::from(api_settings.tls_key));
+    server.run(api_settings.bind_address).await
 }
 
 /// Handles and responds to a PET message.

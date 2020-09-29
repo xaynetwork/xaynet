@@ -281,7 +281,7 @@ fn validate_fractions(s: &PetSettings) -> Result<(), ValidationError> {
     }
 }
 
-#[derive(Debug, Validate, Deserialize, Clone, Copy)]
+#[derive(Debug, Validate, Deserialize, Clone)]
 /// REST API settings.
 pub struct ApiSettings {
     /// The address to which the REST API should be bound.
@@ -301,6 +301,46 @@ pub struct ApiSettings {
     /// XAYNET_API__BIND_ADDRESS=127.0.0.1:8081
     /// ```
     pub bind_address: std::net::SocketAddr,
+
+    #[cfg(feature = "tls")]
+    /// The path to the server certificate to enable TLS. If this is present, then `tls_key` must
+    /// also be present.
+    ///
+    /// Requires the `tls` feature to be enabled.
+    ///
+    /// # Examples
+    ///
+    /// **TOML**
+    /// ```text
+    /// [api]
+    /// tls_certificate = path/to/tls/files/cert.pem
+    /// ```
+    ///
+    /// **Environment variable**
+    /// ```text
+    /// XAYNET_API__TLS_CERTIFICATE=path/to/tls/files/certificate.pem
+    /// ```
+    pub tls_certificate: String,
+
+    #[cfg(feature = "tls")]
+    /// The path to the server private key to enable TLS. If this is present, then `tls_certificate
+    /// ` must also be present.
+    ///
+    /// Requires the `tls` feature to be enabled.
+    ///
+    /// # Examples
+    ///
+    /// **TOML**
+    /// ```text
+    /// [api]
+    /// tls_key = path/to/tls/files/key.rsa
+    /// ```
+    ///
+    /// **Environment variable**
+    /// ```text
+    /// XAYNET_API__TLS_KEY=path/to/tls/files/key.rsa
+    /// ```
+    pub tls_key: String,
 }
 
 #[derive(Debug, Validate, Deserialize, Clone, Copy)]
@@ -565,4 +605,57 @@ where
     }
 
     deserializer.deserialize_str(EnvFilterVisitor)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[cfg(not(feature = "tls"))]
+    #[test]
+    fn test_settings_new() {
+        assert!(Settings::new(PathBuf::from("../../configs/config.toml")).is_ok());
+        assert!(Settings::new(PathBuf::from("")).is_err());
+    }
+
+    #[test]
+    fn test_validate_pet() {
+        assert!(validate_pet(&PetSettings::default()).is_ok());
+
+        // phase times
+        assert!(validate_pet(&PetSettings {
+            min_sum_time: 2,
+            max_sum_time: 1,
+            ..PetSettings::default()
+        })
+        .is_err());
+        assert!(validate_pet(&PetSettings {
+            min_update_time: 2,
+            max_update_time: 1,
+            ..PetSettings::default()
+        })
+        .is_err());
+
+        // fractions
+        assert!(validate_pet(&PetSettings {
+            sum: 0.,
+            ..PetSettings::default()
+        })
+        .is_err());
+        assert!(validate_pet(&PetSettings {
+            sum: 1.,
+            ..PetSettings::default()
+        })
+        .is_err());
+        assert!(validate_pet(&PetSettings {
+            update: 0.,
+            ..PetSettings::default()
+        })
+        .is_err());
+        assert!(validate_pet(&PetSettings {
+            update: 1.,
+            ..PetSettings::default()
+        })
+        .is_err());
+    }
 }

@@ -1,4 +1,5 @@
 use std::{path::PathBuf, process};
+
 use structopt::StructOpt;
 use tokio::signal;
 use tracing_subscriber::*;
@@ -90,7 +91,7 @@ async fn main() {
         _ = state_machine.run() => {
             warn!("shutting down: Service terminated");
         }
-        _ = rest::serve(api_settings.bind_address, fetcher, message_handler) => {
+        _ = rest::serve(api_settings, fetcher, message_handler) => {
             warn!("shutting down: REST server terminated");
         }
         _ =  signal::ctrl_c() => {}

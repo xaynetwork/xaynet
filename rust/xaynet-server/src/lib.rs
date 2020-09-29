@@ -21,9 +21,6 @@ extern crate serde;
 extern crate tracing;
 
 #[macro_use]
-extern crate validator_derive;
-
-#[macro_use]
 extern crate xaynet_macros;
 
 pub mod examples;

@@ -1,6 +1,11 @@
 pub mod client;
 pub mod participant;
 
+#[cfg(feature = "tls")]
+use std::path::PathBuf;
+
+use thiserror::Error;
+
 use crate::{
     api::{ApiClient, HttpApiClient, HttpApiClientError},
     mobile_client::{
@@ -8,7 +13,6 @@ use crate::{
         participant::ParticipantSettings,
     },
 };
-use thiserror::Error;
 use xaynet_core::{
     crypto::{SecretSigningKey, SigningKeyPair},
     mask::Model,
@@ -41,6 +45,9 @@ pub struct MobileClient {
 impl MobileClient {
     /// Initializes a fresh client. This method only needs to be called once.
     ///
+    /// Requires DER/PEM encoded `certificates` for trusted server TLS authentication if the `tls`
+    /// feature is enabled.
+    ///
     /// To serialize and restore a client use the [`MobileClient::serialize`] and
     /// [`MobileClient::restore`]
     ///
@@ -50,6 +57,7 @@ impl MobileClient {
     pub fn init(
         url: &str,
         participant_settings: ParticipantSettings,
+        #[cfg(feature = "tls")] certificates: &[PathBuf],
     ) -> Result<Self, MobileClientError> {
         // It is critical that the initialization of sodiumoxide is successful.
         // We'd better not run the client than having a broken crypto.
@@ -58,28 +66,58 @@ impl MobileClient {
         // https://doc.libsodium.org/usage
         // https://github.com/jedisct1/libsodium/issues/908
         let client_state = ClientStateMachine::new(participant_settings)?;
-        Ok(Self::new(url, client_state))
+        Self::new(
+            url,
+            client_state,
+            #[cfg(feature = "tls")]
+            certificates,
+        )
     }
 
     /// Restores a client from its serialized state.
+    ///
+    /// Requires DER/PEM encoded `certificates` for trusted server TLS authentication if the `tls`
+    /// feature is enabled.
     ///
     /// # Errors
     ///
     /// Fails if the serialized state is corrupted and the client cannot be restored
     /// or if the crypto module cannot be initialized.
-    pub fn restore(url: &str, bytes: &[u8]) -> Result<Self, MobileClientError> {
+    pub fn restore(
+        url: &str,
+        bytes: &[u8],
+        #[cfg(feature = "tls")] certificates: &[PathBuf],
+    ) -> Result<Self, MobileClientError> {
         let client_state: ClientStateMachine = bincode::deserialize(bytes)?;
-        Ok(Self::new(url, client_state))
+        Self::new(
+            url,
+            client_state,
+            #[cfg(feature = "tls")]
+            certificates,
+        )
     }
 
-    fn new(url: &str, client_state: ClientStateMachine) -> Self {
-        let api = HttpApiClient::new(url);
+    fn new(
+        url: &str,
+        client_state: ClientStateMachine,
+        #[cfg(feature = "tls")] certificates: &[PathBuf],
+    ) -> Result<Self, MobileClientError> {
+        #[cfg(feature = "tls")]
+        let certificates =
+            HttpApiClient::certificates_from(certificates).map_err(MobileClientError::Api)?;
 
-        Self {
+        let api = HttpApiClient::new(
+            url,
+            #[cfg(feature = "tls")]
+            certificates,
+        )
+        .map_err(MobileClientError::Api)?;
+
+        Ok(Self {
             api,
             client_state,
             local_model: LocalModelCache(None),
-        }
+        })
     }
 
     /// Serializes the current state of the client.

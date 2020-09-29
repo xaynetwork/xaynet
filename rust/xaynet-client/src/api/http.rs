@@ -1,6 +1,16 @@
-use crate::api::ApiClient;
-use reqwest::{self, Client, Response, StatusCode};
+#[cfg(feature = "tls")]
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
+
+use reqwest::{self, Client, ClientBuilder, Response, StatusCode};
 use thiserror::Error;
+
+#[cfg(feature = "tls")]
+use reqwest::Certificate;
+
+use crate::api::ApiClient;
 use xaynet_core::{
     common::RoundParameters,
     crypto::ByteObject,
@@ -11,8 +21,7 @@ use xaynet_core::{
 };
 
 #[derive(Debug)]
-/// A client that communicates with the coordinator's API via
-/// HTTP(S)
+/// A client that communicates with the coordinator's API via HTTP(S).
 pub struct HttpApiClient {
     /// HTTP client
     client: Client,
@@ -21,13 +30,64 @@ pub struct HttpApiClient {
 }
 
 impl HttpApiClient {
-    pub fn new<S>(address: S) -> Self
+    /// Creates a new HTTP(S) client.
+    ///
+    /// Requires trusted server `certificates` if the `tls` feature is enabled.
+    pub fn new<S>(
+        address: S,
+        #[cfg(feature = "tls")] certificates: Vec<Certificate>,
+    ) -> Result<Self, HttpApiClientError>
     where
         S: Into<String>,
     {
-        Self {
-            client: Client::new(),
+        #[cfg(not(feature = "tls"))]
+        let client = ClientBuilder::new()
+            .build()
+            .map_err(HttpApiClientError::Http)?;
+
+        #[cfg(feature = "tls")]
+        let client = if certificates.is_empty() {
+            return Err(HttpApiClientError::NoCertificate);
+        } else {
+            let mut builder = ClientBuilder::new().use_rustls_tls();
+            for certificate in certificates {
+                builder = builder.add_root_certificate(certificate);
+            }
+            builder.build().map_err(HttpApiClientError::Http)?
+        };
+
+        Ok(Self {
+            client,
             address: address.into(),
+        })
+    }
+
+    #[cfg(feature = "tls")]
+    /// Reads DER and PEM certificates from given paths.
+    ///
+    /// Requires the `tls` feature.
+    pub fn certificates_from(paths: &[PathBuf]) -> Result<Vec<Certificate>, HttpApiClientError> {
+        fn load_certificate(path: &Path) -> Result<Certificate, HttpApiClientError> {
+            let encoding = fs::read(path).map_err(HttpApiClientError::Io)?;
+            if let Some(extension) = path.extension() {
+                match extension.to_str() {
+                    Some("der") => {
+                        Certificate::from_der(&encoding).map_err(HttpApiClientError::Http)
+                    }
+                    Some("pem") => {
+                        Certificate::from_pem(&encoding).map_err(HttpApiClientError::Http)
+                    }
+                    _ => Err(HttpApiClientError::UnexpectedCertificate),
+                }
+            } else {
+                Err(HttpApiClientError::UnexpectedCertificate)
+            }
+        }
+
+        if paths.is_empty() {
+            Err(HttpApiClientError::NoCertificate)
+        } else {
+            paths.iter().map(|path| load_certificate(path)).collect()
         }
     }
 }
@@ -43,6 +103,17 @@ pub enum HttpApiClientError {
 
     #[error("Unexpected response from the coordinator: {:?}", .0)]
     UnexpectedResponse(Response),
+
+    #[error("Reading from file failed: {0}")]
+    Io(#[from] std::io::Error),
+
+    #[cfg(feature = "tls")]
+    #[error("Unexpected certificate extension")]
+    UnexpectedCertificate,
+
+    #[cfg(feature = "tls")]
+    #[error("No certificate found")]
+    NoCertificate,
 }
 
 impl From<bincode::Error> for HttpApiClientError {
