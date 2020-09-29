@@ -31,3 +31,4 @@ db = "metrics"
 
 [redis]
 url = "redis://redis"
+timeout = 5

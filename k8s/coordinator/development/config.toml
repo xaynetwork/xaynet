@@ -34,3 +34,4 @@ db = "metrics"
 # `XAYNET_REDIS__URL` depends on the enviroment variable `REDIS_AUTH`,
 # which is defined as a Kubernetes secret and exposed to the coordinator pod.
 # See: k8s/coordinator/base/deployment.yaml
+timeout = 5

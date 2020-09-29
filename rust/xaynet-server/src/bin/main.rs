@@ -64,7 +64,7 @@ async fn main() {
         )
     };
 
-    let redis = redis::Client::new(redis_settings.url, 100)
+    let redis = redis::Client::new(redis_settings.url, 100, redis_settings.timeout)
         .await
         .expect("failed to establish a connection to Redis");
     redis

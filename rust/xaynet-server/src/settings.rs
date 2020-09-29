@@ -37,6 +37,7 @@ pub struct Settings {
     pub model: ModelSettings,
     #[validate]
     pub metrics: MetricsSettings,
+    #[validate]
     pub redis: RedisSettings,
 }
 
@@ -506,7 +507,7 @@ pub struct InfluxSettings {
     pub db: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Validate)]
 /// Redis settings.
 pub struct RedisSettings {
     /// The URL where Redis is running.
@@ -527,6 +528,24 @@ pub struct RedisSettings {
     /// ```
     #[serde(deserialize_with = "deserialize_redis_url")]
     pub url: ConnectionInfo,
+
+    /// The timeout for a redis command in seconds. The value must be greater or equal
+    /// to `1` (i.e. `timeout >= 1`).
+    ///
+    /// # Examples
+    ///
+    /// **TOML**
+    /// ```text
+    /// [redis]
+    /// timeout = 5
+    /// ```
+    ///
+    /// **Environment variable**
+    /// ```text
+    /// XAYNET_REDIS__TIMEOUT=5
+    /// ```
+    #[validate(range(min = 1))]
+    pub timeout: u64,
 }
 
 fn deserialize_redis_url<'de, D>(deserializer: D) -> Result<ConnectionInfo, D::Error>
