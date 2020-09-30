@@ -22,10 +22,11 @@ use tokio::time::{timeout, Duration};
 /// Update state
 #[derive(Debug)]
 pub struct Update {
-    update_count: usize,
-
     /// The aggregator for masked models.
     model_agg: Aggregation,
+
+    /// The number of Update messages successfully processed.
+    update_count: usize,
 }
 
 #[cfg(test)]
