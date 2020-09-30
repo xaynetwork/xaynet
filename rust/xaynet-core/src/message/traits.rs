@@ -7,6 +7,7 @@
 use std::{
     convert::TryInto,
     io::{Cursor, Write},
+    iter::{ExactSizeIterator, Iterator},
     ops::Range,
 };
 
@@ -15,7 +16,7 @@ use anyhow::{anyhow, Context};
 use crate::{
     crypto::ByteObject,
     mask::seed::EncryptedMaskSeed,
-    message::DecodeError,
+    message::{utils::ChunkableIterator, DecodeError},
     LocalSeedDict,
     SumParticipantPublicKey,
 };
@@ -45,16 +46,27 @@ pub trait FromBytes: Sized {
     ///
     /// # Errors
     /// May fail if certain parts of the deserialized buffer don't pass message validity checks.
-    fn from_bytes<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError>;
+    fn from_byte_slice<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError>;
+
+    fn from_byte_stream<I: Iterator<Item = u8> + ExactSizeIterator>(
+        iter: &mut I,
+    ) -> Result<Self, DecodeError>;
 }
 
 impl<T> FromBytes for T
 where
     T: ByteObject,
 {
-    fn from_bytes<U: AsRef<[u8]>>(buffer: &U) -> Result<Self, DecodeError> {
+    fn from_byte_slice<U: AsRef<[u8]>>(buffer: &U) -> Result<Self, DecodeError> {
         Self::from_slice(buffer.as_ref())
             .ok_or_else(|| anyhow!("failed to deserialize byte object"))
+    }
+
+    fn from_byte_stream<I: Iterator<Item = u8> + ExactSizeIterator>(
+        iter: &mut I,
+    ) -> Result<Self, DecodeError> {
+        let buf: Vec<u8> = iter.take(Self::LENGTH).collect();
+        Self::from_byte_slice(&buf)
     }
 }
 
@@ -281,7 +293,7 @@ impl ToBytes for LocalSeedDict {
 }
 
 impl FromBytes for LocalSeedDict {
-    fn from_bytes<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
+    fn from_byte_slice<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
         let reader = LengthValueBuffer::new(buffer.as_ref())?;
         let mut dict = LocalSeedDict::new();
 
@@ -300,6 +312,89 @@ impl FromBytes for LocalSeedDict {
             return Err(anyhow!("invalid local seed dictionary: trailing bytes"));
         }
         Ok(dict)
+    }
+
+    fn from_byte_stream<I: Iterator<Item = u8> + ExactSizeIterator>(
+        iter: &mut I,
+    ) -> Result<Self, DecodeError> {
+        let len = u32::from_byte_stream(iter).context("cannot parse length field")? as usize;
+        if len < 4 {
+            return Err(anyhow!("invalid length field"));
+        }
+        if iter.len() < len - 4 {
+            return Err(anyhow!(
+                "expected {} bytes, but only {} left",
+                len - 4,
+                iter.len()
+            ));
+        }
+
+        let mut dict = LocalSeedDict::new();
+        let entries = iter.take(len - 4).chunks(ENTRY_LENGTH);
+        for mut chunk in entries.into_iter() {
+            let key = SumParticipantPublicKey::from_byte_stream(&mut chunk)
+                .context("invalid entry: cannot parse public key")?;
+            let value = EncryptedMaskSeed::from_byte_stream(&mut chunk)
+                .context("invalid entry: cannot parse encrypted mask seed")?;
+            // This should really not happen, but it's worth checking
+            // because our chunkable iterator panics if the chunks are
+            // not fully consumed.
+            if chunk.len() > 0 {
+                return Err(anyhow!(
+                    "unknown error while parsing seed dict entry: entry buffer not fully consumed"
+                ));
+            }
+            if dict.insert(key, value).is_some() {
+                return Err(anyhow!("duplicated key"));
+            }
+        }
+        Ok(dict)
+    }
+}
+
+impl FromBytes for u16 {
+    fn from_byte_slice<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
+        Ok(u16::from_be_bytes(
+            buffer
+                .as_ref()
+                .try_into()
+                .context("failed to parse u16: invalid length")?,
+        ))
+    }
+
+    fn from_byte_stream<I: Iterator<Item = u8> + ExactSizeIterator>(
+        iter: &mut I,
+    ) -> Result<Self, DecodeError> {
+        fn err() -> DecodeError {
+            anyhow!("cannot read u16: byte stream exhausted")
+        }
+        let b1 = (iter.next().ok_or_else(err)? as u16) << 8;
+        let b2 = iter.next().ok_or_else(err)? as u16;
+        Ok(b1 | b2)
+    }
+}
+
+impl FromBytes for u32 {
+    fn from_byte_slice<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
+        Ok(u32::from_be_bytes(
+            buffer
+                .as_ref()
+                .try_into()
+                .context("failed to parse u32: invalid length")?,
+        ))
+    }
+
+    fn from_byte_stream<I: Iterator<Item = u8> + ExactSizeIterator>(
+        iter: &mut I,
+    ) -> Result<Self, DecodeError> {
+        fn err() -> DecodeError {
+            anyhow!("cannot read u32: byte stream exhausted")
+        }
+        let b1 = (iter.next().ok_or_else(err)? as u32) << 24;
+        let b2 = (iter.next().ok_or_else(err)? as u32) << 16;
+        let b3 = (iter.next().ok_or_else(err)? as u32) << 8;
+        let b4 = iter.next().ok_or_else(err)? as u32;
+        Ok(b1 | b2 | b3 | b4)
     }
 }
 
@@ -374,5 +469,12 @@ mod tests {
         ];
 
         assert_eq!(bytes, expected);
+    }
+
+    #[test]
+    fn parse_u16() {
+        let buf = vec![0x12, 0x34];
+        assert_eq!(u16::from_byte_slice(&buf.as_slice()).unwrap(), 0x1234);
+        assert_eq!(u16::from_byte_stream(&mut buf.into_iter()).unwrap(), 0x1234);
     }
 }

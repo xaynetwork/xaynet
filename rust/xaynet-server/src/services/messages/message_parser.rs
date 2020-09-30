@@ -251,7 +251,7 @@ where
     fn call(&mut self, req: RawMessage<T>) -> Self::Future {
         debug!("retrieving the current keys");
         let coord_pk = self.keys.get_latest().event.public;
-        match PublicEncryptKey::from_bytes(&req.buffer.as_ref().as_ref().coordinator_pk()) {
+        match PublicEncryptKey::from_byte_slice(&req.buffer.as_ref().as_ref().coordinator_pk()) {
             Ok(pk) => {
                 if pk != coord_pk {
                     warn!("found an invalid coordinator public key");
@@ -303,7 +303,7 @@ where
 
     fn call(&mut self, req: RawMessage<T>) -> Self::Future {
         let bytes = req.buffer.inner();
-        future::ready(Message::from_bytes(&bytes).map_err(ServiceError::Parsing))
+        future::ready(Message::from_byte_slice(&bytes).map_err(ServiceError::Parsing))
     }
 }
 

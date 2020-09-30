@@ -1,11 +1,11 @@
 use std::{
     collections::btree_map::{BTreeMap, IntoIter as BTreeMapIter},
-    iter::Iterator,
+    iter::{ExactSizeIterator, Iterator},
     vec::IntoIter as VecIter,
 };
 
 /// A data structure for reading a multipart message
-pub struct MultipartBufferIterator {
+pub struct MultipartMessageBuffer {
     /// message chunks that haven't been read yet
     remaining_chunks: BTreeMapIter<u16, Vec<u8>>,
     /// chunk being read
@@ -16,7 +16,7 @@ pub struct MultipartBufferIterator {
     consumed: usize,
 }
 
-impl From<BTreeMap<u16, Vec<u8>>> for MultipartBufferIterator {
+impl From<BTreeMap<u16, Vec<u8>>> for MultipartMessageBuffer {
     fn from(map: BTreeMap<u16, Vec<u8>>) -> Self {
         let initial_length = map.values().fold(0, |acc, chunk| acc + chunk.len());
         Self {
@@ -32,7 +32,7 @@ impl From<BTreeMap<u16, Vec<u8>>> for MultipartBufferIterator {
 // currently increment a counter for every byte consumed, but we could
 // exploits the fact that IterVec implements ExactSizeIterator avoid
 // that.
-impl Iterator for MultipartBufferIterator {
+impl Iterator for MultipartMessageBuffer {
     type Item = u8;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -62,6 +62,8 @@ impl Iterator for MultipartBufferIterator {
     }
 }
 
+impl ExactSizeIterator for MultipartMessageBuffer {}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -73,7 +75,7 @@ mod tests {
         map.insert(2, vec![3]);
         map.insert(3, vec![4, 5]);
 
-        let mut iter = MultipartBufferIterator::from(map);
+        let mut iter = MultipartMessageBuffer::from(map);
         assert_eq!(iter.consumed, 0);
         assert_eq!(iter.initial_length, 6);
         assert!(iter.current_chunk.is_none());
