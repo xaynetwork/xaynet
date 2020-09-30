@@ -28,40 +28,76 @@ const NUMBERS_FIELD: Range<usize> = range(MASK_CONFIG_FIELD.end, 4);
 #[cfg(target_pointer_width = "16")]
 const MAX_NB: u32 = u16::MAX as u32;
 
-/// A buffer for serialized mask objects.
+/// A buffer for serialized `MaskMany`s.
 pub struct MaskManyBuffer<T> {
     inner: T,
 }
 
+/// A buffer for serialized mask objects.
 pub struct MaskObjectBuffer<T> {
     inner: T,
 }
 
 impl<T: AsRef<[u8]>> MaskObjectBuffer<T> {
+    /// Creates a new buffer from `bytes`.
+    ///
+    /// # Errors
+    /// Fails if the `bytes` don't conform to the required buffer length for mask objects.
     pub fn new(bytes: T) -> Result<Self, DecodeError> {
         let buffer = Self { inner: bytes };
-        // TODO complete implementation in later refactoring
+        buffer
+            .check_buffer_length()
+            .context("not a valid MaskObject")?;
         Ok(buffer)
     }
+
+    /// Creates a new buffer from `bytes`.
     pub fn new_unchecked(bytes: T) -> Self {
         Self { inner: bytes }
     }
-    pub fn _check_buffer_length(&self) -> Result<(), DecodeError> {
-        // TODO complete implementation in later refactoring
+
+    /// Checks if this buffer conforms to the required buffer length for mask objects.
+    ///
+    /// # Errors
+    /// Fails if the buffer is too small.
+    pub fn check_buffer_length(&self) -> Result<(), DecodeError> {
+        let inner = self.inner.as_ref();
+        // check length of vector field
+        MaskManyBuffer::new(&inner[0..]).context("invalid vector field")?;
+        // check length of scalar field
+        // TODO possible change to MaskOneBuffer in the future once implemented
+        MaskManyBuffer::new(&inner[self.scalar_offset()..]).context("invalid scalar field")?;
         Ok(())
     }
+
+    /// Gets the vector part.
+    ///
+    /// # Panics
+    /// May panic if this buffer is unchecked.
     pub fn vector(&self) -> &[u8] {
         let len = self.scalar_offset();
         &self.inner.as_ref()[0..len]
     }
+
+    /// Gets the offset of the scalar field.
     pub fn scalar_offset(&self) -> usize {
         let vector = MaskManyBuffer::new_unchecked(&self.inner.as_ref()[0..]);
         vector.len()
     }
+
+    /// Gets the scalar part.
+    ///
+    /// # Panics
+    /// May panic if this buffer is unchecked.
     pub fn scalar(&self) -> &[u8] {
         let offset = self.scalar_offset();
         &self.inner.as_ref()[offset..]
     }
+
+    /// Gets the expected number of bytes of this buffer.
+    ///
+    /// # Panics
+    /// May panic if this buffer is unchecked.
     pub fn len(&self) -> usize {
         let scalar_offset = self.scalar_offset();
         let scalar = MaskManyBuffer::new_unchecked(&self.inner.as_ref()[scalar_offset..]);
