@@ -334,3 +334,18 @@ pub enum SumDictDeleteError {
     #[error("sum participant does not exist")]
     DoesNotExist,
 }
+
+#[macro_export]
+macro_rules! retry {
+    ($future: expr, $duration: expr) => {
+        loop {
+            match $future.await {
+                Ok(res) => break res,
+                Err(err) => error!("redis failed {:?}", err),
+            };
+
+            info!("retry in {:?} seconds", $duration);
+            tokio::time::delay_for(std::time::Duration::from_secs($duration)).await;
+        }
+    };
+}
