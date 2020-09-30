@@ -192,10 +192,10 @@ mod test {
         // Create the state machine
         let sum2 = Sum2 {
             model_agg: aggregation,
-            mask_dict: MaskDict::new(),
+            sum2_count: 0,
         };
 
-        let (state_machine, request_tx, events, _) = StateMachineBuilder::new()
+        let (state_machine, request_tx, events, redis) = StateMachineBuilder::new()
             .await
             .with_seed(seed.clone())
             .with_phase(sum2)
@@ -208,6 +208,14 @@ mod test {
             .with_mask_config(utils::mask_settings().into())
             .build();
         assert!(state_machine.is_sum2());
+
+        // Write the sum participant into redis so that the mask lua script does not fail
+        redis
+            .connection()
+            .await
+            .add_sum_participant(&summer.pk, &ephm_pk)
+            .await
+            .unwrap();
 
         // Create a sum2 request.
         let msg = summer
@@ -232,9 +240,10 @@ mod test {
 
         // Check the initial state of the unmask phase.
 
-        assert_eq!(unmask_state.mask_dict().len(), 1);
-        let (mask, count) = unmask_state.mask_dict().iter().next().unwrap().clone();
-        assert_eq!(*count, 1);
+        let mut best_masks = redis.connection().await.get_best_masks().await.unwrap();
+        assert_eq!(best_masks.len(), 1);
+        let (mask, count) = best_masks.pop().unwrap();
+        assert_eq!(count, 1);
 
         let unmasked_model = unmask_state
             .aggregation()
