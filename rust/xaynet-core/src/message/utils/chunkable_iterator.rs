@@ -22,7 +22,7 @@ pub trait ChunkableIterator: Iterator + Sized {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```ignore
     /// # use std::iter::Iterator;
     /// # use xaynet_core::message::utils::ChunkableIterator;
     ///
@@ -48,7 +48,7 @@ pub trait ChunkableIterator: Iterator + Sized {
     ///
     /// Attempting to consume chunks out of order fails:
     ///
-    /// ```should_panic
+    /// ```ignore
     /// # use std::iter::Iterator;
     /// # use xaynet_core::message::utils::ChunkableIterator;
     ///
@@ -63,7 +63,7 @@ pub trait ChunkableIterator: Iterator + Sized {
     ///
     /// Similarly, not _fully_ consuming the chunks fails:
     ///
-    /// ```should_panic
+    /// ```ignore
     /// # use std::iter::Iterator;
     /// # use xaynet_core::message::utils::ChunkableIterator;
     ///
@@ -223,7 +223,7 @@ where
     ///
     /// # Examples
     ///
-    /// ```should_panic
+    /// ```ignore
     /// # use xaynet_core::message::utils::IntoChunks;
     /// let iter = vec![0, 1, 2, 3, 4, 5].into_iter();
     /// let chunk_size = 2;
