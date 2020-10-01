@@ -5,7 +5,7 @@ use redis::{ErrorKind, FromRedisValue, RedisError, RedisResult, RedisWrite, ToRe
 use thiserror::Error;
 use xaynet_core::{
     crypto::{ByteObject, PublicEncryptKey, PublicSigningKey},
-    mask::{EncryptedMaskSeed, MaskMany},
+    mask::{EncryptedMaskSeed, MaskObject},
     LocalSeedDict,
 };
 
@@ -163,12 +163,12 @@ macro_rules! impl_bincode_redis_traits {
 impl_bincode_redis_traits!(CoordinatorState);
 
 #[derive(From, Into, Serialize, Deserialize)]
-pub(crate) struct MaskObjectRead(MaskMany);
+pub(crate) struct MaskObjectRead(MaskObject);
 
 impl_bincode_redis_traits!(MaskObjectRead);
 
 #[derive(From, Serialize)]
-pub(crate) struct MaskObjectWrite<'a>(&'a MaskMany);
+pub(crate) struct MaskObjectWrite<'a>(&'a MaskObject);
 
 impl ToRedisArgs for MaskObjectWrite<'_> {
     fn write_redis_args<W>(&self, out: &mut W)
@@ -333,4 +333,35 @@ impl FromRedisValue for SumDictDelete {
 pub enum SumDictDeleteError {
     #[error("sum participant does not exist")]
     DoesNotExist,
+}
+
+#[derive(Deref)]
+pub struct MaskDictIncr(Result<(), MaskDictIncrError>);
+
+impl MaskDictIncr {
+    pub fn into_inner(self) -> Result<(), MaskDictIncrError> {
+        self.0
+    }
+}
+
+impl FromRedisValue for MaskDictIncr {
+    fn from_redis_value(v: &Value) -> RedisResult<MaskDictIncr> {
+        match *v {
+            Value::Int(-2) => Ok(MaskDictIncr(Err(MaskDictIncrError::MaskAlreadySubmitted))),
+            Value::Int(-1) => Ok(MaskDictIncr(Err(MaskDictIncrError::UnknownSumPk))),
+            Value::Int(0) => Ok(MaskDictIncr(Ok(()))),
+            _ => Err(redis_type_error(
+                "Response status not valid integer",
+                Some(format!("Response was {:?}", v)),
+            )),
+        }
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum MaskDictIncrError {
+    #[error("unknown sum participant")]
+    UnknownSumPk,
+    #[error("sum participant submitted a mask already")]
+    MaskAlreadySubmitted,
 }
