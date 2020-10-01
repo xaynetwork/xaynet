@@ -1,30 +1,26 @@
+#![allow(dead_code)]
+
 use std::{
     collections::VecDeque,
     pin::Pin,
     task::{Context, Poll},
-    time::Duration,
 };
 
 use futures::{
-    stream::{FuturesUnordered, Stream, StreamExt},
+    stream::{FuturesUnordered, Stream},
     Future,
 };
-use tokio::{
-    task::{JoinError, JoinHandle},
-    time::delay_for,
-};
+use tokio::task::{JoinError, JoinHandle};
 
 /// `ConcurrentFutures` can keep a capped number of futures running concurrently, and yield their
 /// result as they finish. When the max number of concurrent futures is reached, new tasks are
 /// queued until some in-flight futures finish.
-#[pin_project]
 pub struct ConcurrentFutures<T>
 where
     T: Future + Send + 'static,
     T::Output: Send + 'static,
 {
     /// in-flight futures
-    #[pin]
     running: FuturesUnordered<JoinHandle<T::Output>>,
     /// buffered tasks
     pending: VecDeque<T>,
@@ -50,15 +46,22 @@ where
     }
 }
 
+impl<T> Unpin for ConcurrentFutures<T>
+where
+    T: Future + Send + 'static,
+    T::Output: Send + 'static,
+{
+}
+
 impl<T> Stream for ConcurrentFutures<T>
 where
     T: Future + Send + 'static,
     T::Output: Send + 'static,
 {
     type Item = Result<T::Output, JoinError>;
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-        let this = self.project();
-        while this.running.len() < *this.max_in_flight {
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+        let this = self.get_mut();
+        while this.running.len() < this.max_in_flight {
             if let Some(pending) = this.pending.pop_front() {
                 let handle = tokio::spawn(pending);
                 this.running.push(handle);
@@ -66,12 +69,19 @@ where
                 break;
             }
         }
-        this.running.poll_next(cx)
+        Pin::new(&mut this.running).poll_next(cx)
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
+    use futures::stream::StreamExt;
+    use tokio::time::delay_for;
+
+    use super::*;
+
     #[tokio::test]
     async fn test() {
         let mut stream =
