@@ -64,13 +64,14 @@ impl MaskSeed {
         config_one: MaskConfig,
     ) -> MaskObject {
         let mut prng = ChaCha20Rng::from_seed(self.as_array());
+
+        let rand_int = generate_integer(&mut prng, &config_one.order());
+        let scalar_mask = MaskOne::new(config_one, rand_int);
+
         let rand_ints = iter::repeat_with(|| generate_integer(&mut prng, &config_many.order()))
             .take(len)
             .collect();
         let model_mask = MaskMany::new(config_many, rand_ints);
-
-        let rand_int = generate_integer(&mut prng, &config_one.order());
-        let scalar_mask = MaskOne::new(config_one, rand_int);
 
         MaskObject::new(model_mask, scalar_mask)
     }
