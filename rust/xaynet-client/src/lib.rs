@@ -53,12 +53,11 @@ use tokio::time;
 
 use xaynet_core::{crypto::ByteObject, mask::Model, CoordinatorPublicKey, InitError};
 
+pub mod api;
 #[doc(hidden)]
 pub mod mobile_client;
-
-pub mod api;
-
 mod participant;
+pub(crate) mod utils;
 pub use participant::{Participant, Task};
 
 #[derive(Clone, Debug)]
