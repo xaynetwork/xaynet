@@ -2861,6 +2861,7 @@ dependencies = [
  "bincode",
  "bytes",
  "derive_more",
+ "num",
  "reqwest",
  "serde 1.0.116",
  "sodiumoxide",

@@ -32,6 +32,14 @@ impl SigningKeyPair {
             secret: SecretSigningKey(sk),
         }
     }
+
+    pub fn derive_from_seed(seed: &SigningKeySeed) -> Self {
+        let (pk, sk) = seed.derive_signing_key_pair();
+        Self {
+            public: pk,
+            secret: sk,
+        }
+    }
 }
 
 #[derive(
