@@ -31,6 +31,40 @@ pub enum Payload {
     Chunk(Chunk),
 }
 
+impl Payload {
+    pub fn is_sum(&self) -> bool {
+        if let Self::Sum(_) = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn is_update(&self) -> bool {
+        if let Self::Update(_) = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn is_sum2(&self) -> bool {
+        if let Self::Sum2(_) = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn is_chunk(&self) -> bool {
+        if let Self::Chunk(_) = self {
+            true
+        } else {
+            false
+        }
+    }
+}
+
 impl ToBytes for Payload {
     fn buffer_length(&self) -> usize {
         match self {

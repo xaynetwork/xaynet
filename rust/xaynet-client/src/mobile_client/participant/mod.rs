@@ -9,6 +9,7 @@ use xaynet_core::{
     mask::MaskConfig,
     message::Message,
     CoordinatorPublicKey,
+    ParticipantPublicKey,
     ParticipantSecretKey,
 };
 
@@ -70,6 +71,11 @@ pub struct Participant<Task> {
 }
 
 impl<Task> Participant<Task> {
+    /// Get the participant's public signing key
+    pub fn public_key(&self) -> ParticipantPublicKey {
+        self.state.keys.public
+    }
+
     /// Serialize, sign and encrypt the given message.
     ///
     /// The message is signed with the participant secret signing
@@ -79,6 +85,15 @@ impl<Task> Participant<Task> {
         let mut buf = vec![0; message.buffer_length()];
         message.to_bytes(&mut buf, &self.state.keys.secret);
         pk.encrypt(&buf[..])
+    }
+
+    /// Serialize and sign given message.
+    ///
+    /// The message is signed with the participant secret signing key.
+    pub fn serialize_message(&self, message: &Message) -> Vec<u8> {
+        let mut buf = vec![0; message.buffer_length()];
+        message.to_bytes(&mut buf, &self.state.keys.secret);
+        buf
     }
 
     /// Resets the client.

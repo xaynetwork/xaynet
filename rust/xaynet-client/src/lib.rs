@@ -57,8 +57,8 @@ pub mod api;
 #[doc(hidden)]
 pub mod mobile_client;
 mod participant;
-pub(crate) mod utils;
 pub use participant::{Participant, Task};
+pub(crate) mod utils;
 
 #[derive(Clone, Debug)]
 /// A primitive model cached on the heap.
