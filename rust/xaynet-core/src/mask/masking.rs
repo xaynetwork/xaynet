@@ -190,17 +190,27 @@ impl Aggregation {
     ///
     /// [`validate_unmasking()`]: #method.validate_unmasking
     /// [`mask()`]: struct.Masker.html#method.mask
-    pub fn unmask(mut self, mask_obj: MaskObject) -> Model {
-        // unmask (over-scaled) global model
+    pub fn unmask(self, mask_obj: MaskObject) -> Model {
+        // unmask scalar sum
+        let scaled_add_shift_1 =
+            self.object.scalar.config.add_shift() * BigInt::from(self.nb_models);
+        let exp_shift_1 = self.object.scalar.config.exp_shift();
+        let order_1 = self.object.scalar.config.order();
+        let masked = self.object.scalar.data;
+        let mask = mask_obj.scalar.data;
+        let n = (masked + &order_1 - mask) % &order_1;
+        let ratio = Ratio::<BigInt>::from(n.to_bigint().unwrap());
+        let scalar_sum = ratio / &exp_shift_1 - &scaled_add_shift_1;
+
+        // unmask global model
         let scaled_add_shift_n =
             self.object.vector.config.add_shift() * BigInt::from(self.nb_models);
         let exp_shift_n = self.object.vector.config.exp_shift();
         let order_n = self.object.vector.config.order();
-        let model: Model = self
-            .object
+        self.object
             .vector
             .data
-            .drain(..)
+            .into_iter()
             .zip(mask_obj.vector.data.into_iter())
             .map(|(masked_weight, mask)| {
                 // PANIC_SAFE: The substraction panics if it
@@ -215,26 +225,11 @@ impl Aggregation {
 
                 // UNWRAP_SAFE: to_bigint never fails for BigUint
                 let ratio = Ratio::<BigInt>::from(n.to_bigint().unwrap());
+                let unmasked_weight = ratio / &exp_shift_n - &scaled_add_shift_n;
 
-                ratio / &exp_shift_n - &scaled_add_shift_n
+                // scaling correction
+                unmasked_weight / &scalar_sum
             })
-            .collect();
-
-        // unmask scalar sum
-        let scaled_add_shift_1 =
-            self.object.scalar.config.add_shift() * BigInt::from(self.nb_models);
-        let exp_shift_1 = self.object.scalar.config.exp_shift();
-        let order_1 = self.object.scalar.config.order();
-        let masked = self.object.scalar.data;
-        let mask = mask_obj.scalar.data;
-        let n = (masked + &order_1 - mask) % &order_1;
-        let ratio = Ratio::<BigInt>::from(n.to_bigint().unwrap());
-        let scalar_sum = ratio / &exp_shift_1 - &scaled_add_shift_1;
-
-        // apply scaling correction
-        model
-            .into_iter()
-            .map(|weight| weight / &scalar_sum)
             .collect()
     }
 
