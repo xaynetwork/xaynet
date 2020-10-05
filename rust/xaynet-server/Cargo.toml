@@ -77,5 +77,6 @@ path = "src/bin/main.rs"
 
 [features]
 default = []
+full = ["tls", "metrics"]
 tls = ["warp/tls"]
 metrics = ["influxdb", "chrono"]
