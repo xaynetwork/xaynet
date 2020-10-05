@@ -16,7 +16,3 @@ jobs:
       - name: Verify development docker-compose
         working-directory: ./docker
         run: docker-compose -f docker-compose.yml config -q
-  
-      - name: Verify release docker-compose
-        working-directory: ./docker
-        run: docker-compose -f docker-compose-release.yml config -q

@@ -49,3 +49,4 @@ jobs:
           repository: xaynetwork/xaynet
           tags: pr-${{ steps.pr_data.outputs.branch }}
           push: true
+          build-args: COORDINATOR_FEATURES=metrics
