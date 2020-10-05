@@ -43,3 +43,5 @@ RUN mkdir -p /out && \
 FROM ubuntu:20.04
 RUN apt update && apt install -y --no-install-recommends libssl-dev
 COPY --from=builder /out/coordinator /app/coordinator
+
+ENTRYPOINT ["/app/coordinator", "-c", "/app/config.toml"]

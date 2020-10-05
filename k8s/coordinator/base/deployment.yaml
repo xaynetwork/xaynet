@@ -16,8 +16,6 @@ spec:
         - name: coordinator
           image: coordinator
           imagePullPolicy: Always
-          command: ["/app/coordinator"]
-          args: ["-c", "/app/config.toml"]
           ports:
             - containerPort: 8081
               protocol: TCP

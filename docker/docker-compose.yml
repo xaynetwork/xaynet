@@ -9,7 +9,6 @@ services:
       - minio
       - redis
       - influxdb
-    command: /app/coordinator -c /app/config.toml
     volumes:
       - ${PWD}/configs/docker-dev.toml:/app/config.toml
     networks:
