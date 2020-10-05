@@ -5,4 +5,8 @@
 **/shell.nix
 **/.envrc
 rust/target
-configs/
+configs
+docker
+k8s
+assets
+scripts
