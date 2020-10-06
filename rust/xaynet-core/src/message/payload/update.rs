@@ -280,9 +280,9 @@ pub(in crate::message) mod tests_helpers {
 
     use super::*;
     pub(in crate::message) use crate::mask::object::serialization::tests::{
-        mask_many,
         mask_object,
         mask_one,
+        mask_vect,
     };
     use crate::{crypto::ByteObject, mask::seed::EncryptedMaskSeed, SumParticipantPublicKey};
 
@@ -356,7 +356,7 @@ pub(in crate::message) mod tests {
             buffer.update_signature(),
             helpers::update_signature().1.as_slice()
         );
-        let mut expected = helpers::mask_many().1;
+        let mut expected = helpers::mask_vect().1;
         assert_eq!(&buffer.masked_model()[..expected.len()], &expected[..]);
         expected = helpers::mask_one().1;
         assert_eq!(&buffer.masked_scalar()[..expected.len()], &expected[..]);

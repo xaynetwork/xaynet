@@ -21,7 +21,7 @@ use crate::{
     mask::{
         config::MaskConfig,
         model::{float_to_ratio_bounded, Model},
-        object::{MaskMany, MaskObject, MaskOne},
+        object::{MaskObject, MaskOne, MaskVect},
         seed::MaskSeed,
     },
 };
@@ -399,7 +399,7 @@ impl Masker {
                 (shifted + rand_int) % &order
             })
             .collect();
-        let masked_model = MaskMany::new(config_model, masked_weights);
+        let masked_model = MaskVect::new(config_model, masked_weights);
 
         // mask the scalar
         // PANIC_SAFE: shifted scalar is guaranteed to be non-negative
@@ -629,7 +629,7 @@ mod tests {
                         let integers = iter::repeat_with(|| generate_integer(&mut prng, &order))
                             .take($len as usize)
                             .collect::<Vec<_>>();
-                        let model = MaskMany::new(config, integers);
+                        let model = MaskVect::new(config, integers);
                         let scalar = MaskOne::empty(config);
                         MaskObject::new(model, scalar)
                     });

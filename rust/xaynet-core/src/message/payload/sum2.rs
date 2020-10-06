@@ -10,7 +10,7 @@ use anyhow::{anyhow, Context};
 
 use crate::{
     crypto::ByteObject,
-    mask::object::{serialization::MaskManyBuffer, MaskMany, MaskObject, MaskOne},
+    mask::object::{serialization::MaskManyBuffer, MaskObject, MaskOne, MaskVect},
     message::{
         traits::{FromBytes, ToBytes},
         utils::range,
@@ -183,7 +183,7 @@ impl FromBytes for Sum2 {
             sum_signature: ParticipantTaskSignature::from_byte_slice(&reader.sum_signature())
                 .context("invalid sum signature")?,
             model_mask: MaskObject::new(
-                MaskMany::from_byte_slice(&reader.model_mask()).context("invalid model mask")?,
+                MaskVect::from_byte_slice(&reader.model_mask()).context("invalid model mask")?,
                 MaskOne::from_byte_slice(&reader.scalar_mask()).context("invalid scalar mask")?,
             ),
         })
@@ -204,9 +204,9 @@ impl FromBytes for Sum2 {
 pub(in crate::message) mod tests_helpers {
     use super::*;
     pub(in crate::message) use crate::mask::object::serialization::tests::{
-        mask_many,
         mask_object,
         mask_one,
+        mask_vect,
     };
 
     pub fn signature() -> (ParticipantTaskSignature, Vec<u8>) {
@@ -239,7 +239,7 @@ pub(in crate::message) mod tests {
         let buffer = Sum2Buffer::new(&bytes).unwrap();
         assert_eq!(buffer.sum_signature(), &helpers::signature().1[..]);
 
-        let expected_model_mask = helpers::mask_many().1;
+        let expected_model_mask = helpers::mask_vect().1;
         let expected_len = expected_model_mask.len();
         let actual_model_mask = &buffer.model_mask()[..expected_len];
         assert_eq!(actual_model_mask, expected_model_mask);
@@ -255,7 +255,7 @@ pub(in crate::message) mod tests {
             buffer
                 .sum_signature_mut()
                 .copy_from_slice(&helpers::signature().1[..]);
-            let model_mask = helpers::mask_many().1;
+            let model_mask = helpers::mask_vect().1;
             buffer.model_mask_mut()[..model_mask.len()].copy_from_slice(&model_mask[..]);
             buffer
                 .scalar_mask_mut()

@@ -16,7 +16,7 @@ use crate::{
     crypto::{encrypt::SEALBYTES, prng::generate_integer, ByteObject},
     mask::{
         config::MaskConfig,
-        object::{MaskMany, MaskObject, MaskOne},
+        object::{MaskObject, MaskOne, MaskVect},
     },
     SumParticipantEphemeralPublicKey,
     SumParticipantEphemeralSecretKey,
@@ -71,7 +71,7 @@ impl MaskSeed {
         let rand_ints = iter::repeat_with(|| generate_integer(&mut prng, &config_many.order()))
             .take(len)
             .collect();
-        let model_mask = MaskMany::new(config_many, rand_ints);
+        let model_mask = MaskVect::new(config_many, rand_ints);
 
         MaskObject::new(model_mask, scalar_mask)
     }
