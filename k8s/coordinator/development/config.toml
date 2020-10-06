@@ -34,3 +34,9 @@ db = "metrics"
 # `XAYNET_REDIS__URL` depends on the enviroment variable `REDIS_AUTH`,
 # which is defined as a Kubernetes secret and exposed to the coordinator pod.
 # See: k8s/coordinator/base/deployment.yaml
+
+[s3]
+# The access_key and secret_access_key are configured via the enviroment variables
+# `XAYNET_S3__ACCESS_KEY` and `XAYNET_S3__SECRET_ACCESS_KEY`.
+# See: k8s/coordinator/base/deployment.yaml
+region = ["minio", "http://minio:9000"]

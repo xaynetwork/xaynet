@@ -31,3 +31,8 @@ db = "metrics"
 
 [redis]
 url = "redis://127.0.0.1/"
+
+[s3]
+access_key = "minio"
+secret_access_key = "minio123"
+region = ["minio", "http://localhost:9000"]
