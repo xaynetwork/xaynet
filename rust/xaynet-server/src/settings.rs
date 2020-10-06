@@ -6,8 +6,13 @@
 use std::{fmt, path::PathBuf};
 
 use config::{Config, ConfigError, Environment};
+use fancy_regex::Regex;
 use redis::{ConnectionInfo, IntoConnectionInfo};
-use serde::de::{self, Deserializer, Visitor};
+use rusoto_core::Region;
+use serde::{
+    de::{self, value, Deserializer, Visitor},
+    Deserialize,
+};
 use thiserror::Error;
 use tracing_subscriber::filter::EnvFilter;
 use validator::{Validate, ValidationError, ValidationErrors};
@@ -28,7 +33,6 @@ pub enum SettingsError {
 ///
 /// Each section in the configuration file corresponds to the identically named settings field.
 pub struct Settings {
-    #[validate]
     pub api: ApiSettings,
     #[validate]
     pub pet: PetSettings,
@@ -38,6 +42,8 @@ pub struct Settings {
     #[validate]
     pub metrics: MetricsSettings,
     pub redis: RedisSettings,
+    #[validate]
+    pub s3: S3Settings,
 }
 
 impl Settings {
@@ -281,7 +287,7 @@ fn validate_fractions(s: &PetSettings) -> Result<(), ValidationError> {
     }
 }
 
-#[derive(Debug, Validate, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone)]
 /// REST API settings.
 pub struct ApiSettings {
     /// The address to which the REST API should be bound.
@@ -558,6 +564,181 @@ where
     deserializer.deserialize_str(ConnectionInfoVisitor)
 }
 
+#[derive(Debug, Validate, Deserialize)]
+/// S3 settings.
+pub struct S3Settings {
+    /// The [access key ID](https://docs.aws.amazon.com/general/latest/gr/aws-sec-cred-types.html).
+    ///
+    /// # Examples
+    ///
+    /// **TOML**
+    /// ```text
+    /// [s3]
+    /// access_key = "AKIAIOSFODNN7EXAMPLE"
+    /// ```
+    ///
+    /// **Environment variable**
+    /// ```text
+    /// XAYNET_S3__ACCESS_KEY=AKIAIOSFODNN7EXAMPLE
+    /// ```
+    pub access_key: String,
+
+    /// The [secret access key](https://docs.aws.amazon.com/general/latest/gr/aws-sec-cred-types.html).
+    ///
+    /// # Examples
+    ///
+    /// **TOML**
+    /// ```text
+    /// [s3]
+    /// secret_access_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+    /// ```
+    ///
+    /// **Environment variable**
+    /// ```text
+    /// XAYNET_S3__SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+    /// ```
+    pub secret_access_key: String,
+
+    /// The Regional AWS endpoint.
+    ///
+    /// The region is specified using the [Region code](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints)
+    ///
+    /// # Examples
+    ///
+    /// **TOML**
+    /// ```text
+    /// [s3]
+    /// region = ["eu-west-1"]
+    /// ```
+    ///
+    /// **Environment variable**
+    /// ```text
+    /// XAYNET_S3__REGION="eu-west-1"
+    /// ```
+    ///
+    /// To connect to AWS-compatible services such as Minio, you need to specify a custom region.
+    ///
+    /// # Examples
+    ///
+    /// **TOML**
+    /// ```text
+    /// [s3]
+    /// region = ["minio", "http://localhost:8000"]
+    /// ```
+    ///
+    /// **Environment variable**
+    /// ```text
+    /// XAYNET_S3__REGION="minio http://localhost:8000"
+    /// ```
+    #[serde(deserialize_with = "deserialize_s3_region")]
+    pub region: Region,
+    #[validate]
+    #[serde(default)]
+    pub buckets: S3BucketsSettings,
+}
+
+#[derive(Debug, Validate, Deserialize)]
+pub struct S3BucketsSettings {
+    /// The bucket name in which the global models are stored.
+    /// Defaults to `global-models`.
+    ///
+    /// Please follow the [rules for bucket naming](https://docs.aws.amazon.com/AmazonS3/latest/dev/BucketRestrictions.html)
+    /// when creating the name.
+    ///
+    /// # Examples
+    ///
+    /// **TOML**
+    /// ```text
+    /// [s3.buckets]
+    /// global_models = "global-models"
+    /// ```
+    ///
+    /// **Environment variable**
+    /// ```text
+    /// XAYNET_S3__BUCKETS__GLOBAL_MODELS="global-models"
+    /// ```
+    #[validate(custom = "validate_s3_bucket_name")]
+    global_models: String,
+}
+
+// Default value for the global models bucket
+impl Default for S3BucketsSettings {
+    fn default() -> Self {
+        Self {
+            global_models: String::from("global-models"),
+        }
+    }
+}
+
+// Validates the bucket name
+// [Rules for AWS bucket naming](https://docs.aws.amazon.com/AmazonS3/latest/dev/BucketRestrictions.html)
+fn validate_s3_bucket_name(bucket_name: &str) -> Result<(), ValidationError> {
+    // https://stackoverflow.com/questions/50480924/regex-for-s3-bucket-name#comment104807676_58248645
+    // I had to use fancy_regex here because the std regex does not support `look-around`
+    let re =
+        Regex::new(r"(?!^(\d{1,3}\.){3}\d{1,3}$)(^[a-z0-9]([a-z0-9-]*(\.[a-z0-9])?)*$(?<!\-))")
+            .unwrap();
+    match re.is_match(bucket_name) {
+        Ok(true) => Ok(()),
+        Ok(false) => Err(ValidationError::new("invalid bucket name\n See here: https://docs.aws.amazon.com/AmazonS3/latest/dev/BucketRestrictions.html")),
+        // something went wrong with the regex engine
+        Err(_) => Err(ValidationError::new("can not validate bucket name")),
+    }
+}
+
+// A small wrapper to support the list type for environment variable values.
+// config-rs always converts a environment variable value to a string
+// https://github.com/mehcode/config-rs/blob/master/src/env.rs#L114 .
+// Strings however, are not supported by the deserializer of rusoto_core::Region (only sequences).
+// Therefore we use S3RegionVisitor to implement `visit_str` and thus support
+// the deserialization of rusoto_core::Region from strings.
+fn deserialize_s3_region<'de, D>(deserializer: D) -> Result<Region, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct S3RegionVisitor;
+
+    impl<'de> Visitor<'de> for S3RegionVisitor {
+        type Value = Region;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            formatter.write_str("sequence of \"name Optional<endpoint>\"")
+        }
+
+        // FIXME: a copy of https://rusoto.github.io/rusoto/src/rusoto_core/region.rs.html#185
+        // I haven't managed to create a sequence and call `self.visit_seq(seq)`.
+        fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            let mut seq = value.split_whitespace();
+
+            let name: &str = seq
+                .next()
+                .ok_or_else(|| de::Error::custom("region is missing name"))?;
+            let endpoint: Option<&str> = seq.next();
+
+            match (name, endpoint) {
+                (name, Some(endpoint)) => Ok(Region::Custom {
+                    name: name.to_string(),
+                    endpoint: endpoint.to_string(),
+                }),
+                (name, None) => name.parse().map_err(de::Error::custom),
+            }
+        }
+
+        // delegate the call for sequences to the deserializer of rusoto_core::Region
+        fn visit_seq<A>(self, seq: A) -> Result<Self::Value, A::Error>
+        where
+            A: de::SeqAccess<'de>,
+        {
+            Deserialize::deserialize(value::SeqAccessDeserializer::new(seq))
+        }
+    }
+
+    deserializer.deserialize_any(S3RegionVisitor)
+}
+
 #[derive(Debug, Deserialize)]
 /// Logging settings.
 pub struct LoggingSettings {
@@ -657,5 +838,25 @@ mod tests {
             ..PetSettings::default()
         })
         .is_err());
+    }
+
+    #[test]
+    fn test_validate_s3_bucket_name() {
+        // I took the examples from https://docs.aws.amazon.com/AmazonS3/latest/dev/BucketRestrictions.html
+
+        // valid names
+        assert!(validate_s3_bucket_name("docexamplebucket").is_ok());
+        assert!(validate_s3_bucket_name("log-delivery-march-2020").is_ok());
+        assert!(validate_s3_bucket_name("my-hosted-content").is_ok());
+
+        // valid but not recommended names
+        assert!(validate_s3_bucket_name("docexamplewebsite.com").is_ok());
+        assert!(validate_s3_bucket_name("www.docexamplewebsite.com").is_ok());
+        assert!(validate_s3_bucket_name("my.example.s3.bucket").is_ok());
+
+        // invalid names
+        assert!(validate_s3_bucket_name("doc_example_bucket").is_err());
+        assert!(validate_s3_bucket_name("DocExampleBucket").is_err());
+        assert!(validate_s3_bucket_name("doc-example-bucket-").is_err());
     }
 }
