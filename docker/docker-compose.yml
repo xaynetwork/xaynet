@@ -9,13 +9,15 @@ services:
       - minio
       - redis
       - influxdb
-    command: /app/coordinator -c /app/config.toml
     volumes:
       - ${PWD}/configs/docker-dev.toml:/app/config.toml
     networks:
       - xaynet
     ports:
       - "8081:8081"
+    # temporary fix:
+    # The coordinator crashes if Redis is not ready or busy at startup
+    restart: unless-stopped
 
   influxdb:
     image: influxdb:1.8

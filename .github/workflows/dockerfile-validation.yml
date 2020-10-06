@@ -15,6 +15,3 @@ jobs:
 
       - name: Lint dev file
         run: docker run -v $GITHUB_WORKSPACE/docker/Dockerfile:/Dockerfile replicated/dockerfilelint /Dockerfile
-
-      - name: Lint release file
-        run: docker run -v $GITHUB_WORKSPACE/docker/Dockerfile.release:/Dockerfile replicated/dockerfilelint /Dockerfile
