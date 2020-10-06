@@ -13,6 +13,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Verify development docker-compose
+      - name: Verify docker-compose
         working-directory: ./docker
         run: docker-compose -f docker-compose.yml config -q
