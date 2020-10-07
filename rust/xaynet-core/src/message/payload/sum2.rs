@@ -10,7 +10,7 @@ use anyhow::{anyhow, Context};
 
 use crate::{
     crypto::ByteObject,
-    mask::object::{serialization::MaskManyBuffer, MaskObject, MaskOne, MaskVect},
+    mask::object::{serialization::MaskManyBuffer, MaskObject, MaskUnit, MaskVect},
     message::{
         traits::{FromBytes, ToBytes},
         utils::range,
@@ -184,7 +184,7 @@ impl FromBytes for Sum2 {
                 .context("invalid sum signature")?,
             model_mask: MaskObject::new(
                 MaskVect::from_byte_slice(&reader.model_mask()).context("invalid model mask")?,
-                MaskOne::from_byte_slice(&reader.scalar_mask()).context("invalid scalar mask")?,
+                MaskUnit::from_byte_slice(&reader.scalar_mask()).context("invalid scalar mask")?,
             ),
         })
     }
@@ -205,7 +205,7 @@ pub(in crate::message) mod tests_helpers {
     use super::*;
     pub(in crate::message) use crate::mask::object::serialization::tests::{
         mask_object,
-        mask_one,
+        mask_unit,
         mask_vect,
     };
 
@@ -244,7 +244,7 @@ pub(in crate::message) mod tests {
         let actual_model_mask = &buffer.model_mask()[..expected_len];
         assert_eq!(actual_model_mask, expected_model_mask);
 
-        assert_eq!(buffer.scalar_mask(), &helpers::mask_one().1[..]);
+        assert_eq!(buffer.scalar_mask(), &helpers::mask_unit().1[..]);
     }
 
     #[test]
@@ -259,7 +259,7 @@ pub(in crate::message) mod tests {
             buffer.model_mask_mut()[..model_mask.len()].copy_from_slice(&model_mask[..]);
             buffer
                 .scalar_mask_mut()
-                .copy_from_slice(&helpers::mask_one().1[..]);
+                .copy_from_slice(&helpers::mask_unit().1[..]);
         }
         assert_eq!(&bytes[..], &helpers::sum2().1[..]);
     }

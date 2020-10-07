@@ -12,7 +12,7 @@ use num::bigint::BigUint;
 use crate::{
     mask::{
         config::{serialization::MASK_CONFIG_BUFFER_LEN, MaskConfig},
-        object::{MaskObject, MaskOne, MaskVect},
+        object::{MaskObject, MaskUnit, MaskVect},
     },
     message::{
         traits::{FromBytes, ToBytes},
@@ -326,7 +326,7 @@ impl FromBytes for MaskVect {
     }
 }
 
-impl ToBytes for MaskOne {
+impl ToBytes for MaskUnit {
     fn buffer_length(&self) -> usize {
         MaskVect::from(self).buffer_length()
     }
@@ -336,13 +336,13 @@ impl ToBytes for MaskOne {
     }
 }
 
-impl FromBytes for MaskOne {
+impl FromBytes for MaskUnit {
     fn from_byte_slice<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
         // TODO more direct implementation in later refactoring
         let mut mask_vect = MaskVect::from_byte_slice(buffer)?;
         let vec_len = mask_vect.data.len();
         if vec_len == 1 {
-            Ok(MaskOne::new(mask_vect.config, mask_vect.data.remove(0)))
+            Ok(MaskUnit::new(mask_vect.config, mask_vect.data.remove(0)))
         } else {
             Err(anyhow!(
                 "invalid data length: expected 1 but got {}",
@@ -357,7 +357,7 @@ impl FromBytes for MaskOne {
         let mut mask_vect = MaskVect::from_byte_stream(iter)?;
         let vec_len = mask_vect.data.len();
         if vec_len == 1 {
-            Ok(MaskOne::new(mask_vect.config, mask_vect.data.remove(0)))
+            Ok(MaskUnit::new(mask_vect.config, mask_vect.data.remove(0)))
         } else {
             Err(anyhow!(
                 "invalid data length: expected 1 but got {}",
@@ -383,7 +383,7 @@ impl FromBytes for MaskObject {
     fn from_byte_slice<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
         let reader = MaskObjectBuffer::new(buffer.as_ref())?;
         let vector = MaskVect::from_byte_slice(&reader.vector()).context("invalid vector part")?;
-        let scalar = MaskOne::from_byte_slice(&reader.scalar()).context("invalid scalar part")?;
+        let scalar = MaskUnit::from_byte_slice(&reader.scalar()).context("invalid scalar part")?;
         Ok(Self { vector, scalar })
     }
 
@@ -391,7 +391,7 @@ impl FromBytes for MaskObject {
         iter: &mut I,
     ) -> Result<Self, DecodeError> {
         let vector = MaskVect::from_byte_stream(iter).context("invalid vector part")?;
-        let scalar = MaskOne::from_byte_stream(iter).context("invalid scalar part")?;
+        let scalar = MaskUnit::from_byte_stream(iter).context("invalid scalar part")?;
         Ok(Self { vector, scalar })
     }
 }
@@ -439,24 +439,24 @@ pub(crate) mod tests {
         (mask_vect, bytes)
     }
 
-    pub fn mask_one() -> (MaskOne, Vec<u8>) {
+    pub fn mask_unit() -> (MaskUnit, Vec<u8>) {
         let (config, mut bytes) = mask_config();
         let data = BigUint::from(1_u8);
-        let mask_one = MaskOne::new(config, data);
+        let mask_unit = MaskUnit::new(config, data);
 
         bytes.extend(vec![
             // number of elements
             0x00, 0x00, 0x00, 0x01, // data
             0x01, 0x00, 0x00, 0x00, 0x00, 0x00, // 1
         ]);
-        (mask_one, bytes)
+        (mask_unit, bytes)
     }
 
     pub fn mask_object() -> (MaskObject, Vec<u8>) {
         let (mask_vect, mask_vect_bytes) = mask_vect();
-        let (mask_one, mask_one_bytes) = mask_one();
-        let obj = MaskObject::new(mask_vect, mask_one);
-        let bytes = [mask_vect_bytes.as_slice(), mask_one_bytes.as_slice()].concat();
+        let (mask_unit, mask_unit_bytes) = mask_unit();
+        let obj = MaskObject::new(mask_vect, mask_unit);
+        let bytes = [mask_vect_bytes.as_slice(), mask_unit_bytes.as_slice()].concat();
 
         (obj, bytes)
     }
@@ -508,24 +508,24 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn serialize_mask_one() {
-        let (mask_one, expected) = mask_one();
+    fn serialize_mask_unit() {
+        let (mask_unit, expected) = mask_unit();
         let mut buf = vec![0xff; expected.len()];
-        mask_one.to_bytes(&mut buf);
+        mask_unit.to_bytes(&mut buf);
         assert_eq!(buf, expected);
     }
 
     #[test]
-    fn deserialize_mask_one() {
-        let (expected, bytes) = mask_one();
-        assert_eq!(MaskOne::from_byte_slice(&&bytes[..]).unwrap(), expected);
+    fn deserialize_mask_unit() {
+        let (expected, bytes) = mask_unit();
+        assert_eq!(MaskUnit::from_byte_slice(&&bytes[..]).unwrap(), expected);
     }
 
     #[test]
-    fn deserialize_mask_one_from_stream() {
-        let (expected, bytes) = mask_one();
+    fn deserialize_mask_unit_from_stream() {
+        let (expected, bytes) = mask_unit();
         assert_eq!(
-            MaskOne::from_byte_stream(&mut bytes.into_iter()).unwrap(),
+            MaskUnit::from_byte_stream(&mut bytes.into_iter()).unwrap(),
             expected
         );
     }

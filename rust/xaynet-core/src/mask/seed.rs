@@ -16,7 +16,7 @@ use crate::{
     crypto::{encrypt::SEALBYTES, prng::generate_integer, ByteObject},
     mask::{
         config::MaskConfig,
-        object::{MaskObject, MaskOne, MaskVect},
+        object::{MaskObject, MaskUnit, MaskVect},
     },
     SumParticipantEphemeralPublicKey,
     SumParticipantEphemeralSecretKey,
@@ -66,7 +66,7 @@ impl MaskSeed {
         let mut prng = ChaCha20Rng::from_seed(self.as_array());
 
         let rand_int = generate_integer(&mut prng, &config_one.order());
-        let scalar_mask = MaskOne::new(config_one, rand_int);
+        let scalar_mask = MaskUnit::new(config_one, rand_int);
 
         let rand_ints = iter::repeat_with(|| generate_integer(&mut prng, &config_many.order()))
             .take(len)

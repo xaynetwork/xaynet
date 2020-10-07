@@ -65,24 +65,24 @@ impl MaskVect {
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Serialize, Deserialize)]
 /// A mask object which represents either a mask or a masked scalar.
-pub struct MaskOne {
+pub struct MaskUnit {
     pub data: BigUint,
     pub config: MaskConfig,
 }
 
-impl From<&MaskOne> for MaskVect {
-    fn from(mask_one: &MaskOne) -> Self {
+impl From<&MaskUnit> for MaskVect {
+    fn from(mask_one: &MaskUnit) -> Self {
         Self::new(mask_one.config, vec![mask_one.data.clone()])
     }
 }
 
-impl From<MaskOne> for MaskVect {
-    fn from(mask_one: MaskOne) -> Self {
+impl From<MaskUnit> for MaskVect {
+    fn from(mask_one: MaskUnit) -> Self {
         Self::new(mask_one.config, vec![mask_one.data])
     }
 }
 
-impl MaskOne {
+impl MaskUnit {
     /// Creates a new mask object from the given masking configuration and the mask
     /// or masked scalar.
     pub fn new(config: MaskConfig, data: BigUint) -> Self {
@@ -120,12 +120,12 @@ impl MaskOne {
 /// A mask object wrapper around a `MaskMany`, `MaskOne` pair.
 pub struct MaskObject {
     pub vector: MaskVect,
-    pub scalar: MaskOne,
+    pub scalar: MaskUnit,
 }
 
 impl MaskObject {
     // TODO doc
-    pub fn new(vector: MaskVect, scalar: MaskOne) -> Self {
+    pub fn new(vector: MaskVect, scalar: MaskUnit) -> Self {
         Self { vector, scalar }
     }
 
@@ -138,7 +138,7 @@ impl MaskObject {
     ) -> Self {
         Self {
             vector: MaskVect::new(config_v, data_v),
-            scalar: MaskOne::new(config_s, data_s),
+            scalar: MaskUnit::new(config_s, data_s),
         }
     }
 
@@ -150,14 +150,14 @@ impl MaskObject {
         data_s: BigUint,
     ) -> Result<Self, InvalidMaskObjectError> {
         let vector = MaskVect::new_checked(config_v, data_v)?;
-        let scalar = MaskOne::new_checked(config_s, data_s)?;
+        let scalar = MaskUnit::new_checked(config_s, data_s)?;
         Ok(Self { vector, scalar })
     }
 
     pub fn empty(config_many: MaskConfig, config_one: MaskConfig, size: usize) -> Self {
         Self {
             vector: MaskVect::empty(config_many, size),
-            scalar: MaskOne::empty(config_one),
+            scalar: MaskUnit::empty(config_one),
         }
     }
 

@@ -21,7 +21,7 @@ use crate::{
     mask::{
         config::MaskConfig,
         model::{float_to_ratio_bounded, Model},
-        object::{MaskObject, MaskOne, MaskVect},
+        object::{MaskObject, MaskUnit, MaskVect},
         seed::MaskSeed,
     },
 };
@@ -408,7 +408,7 @@ impl Masker {
             .to_biguint()
             .unwrap();
         let masked = (shifted + random_int) % config_scalar.order();
-        let masked_scalar = MaskOne::new(config_scalar, masked);
+        let masked_scalar = MaskUnit::new(config_scalar, masked);
 
         (seed, MaskObject::new(masked_model, masked_scalar))
     }
