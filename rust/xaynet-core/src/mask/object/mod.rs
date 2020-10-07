@@ -119,14 +119,14 @@ impl MaskUnit {
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Serialize, Deserialize)]
 /// A mask object wrapper around a `MaskMany`, `MaskOne` pair.
 pub struct MaskObject {
-    pub vector: MaskVect,
-    pub scalar: MaskUnit,
+    pub vect: MaskVect,
+    pub unit: MaskUnit,
 }
 
 impl MaskObject {
     // TODO doc
-    pub fn new(vector: MaskVect, scalar: MaskUnit) -> Self {
-        Self { vector, scalar }
+    pub fn new(vect: MaskVect, unit: MaskUnit) -> Self {
+        Self { vect, unit }
     }
 
     // TODO perhaps no need
@@ -137,8 +137,8 @@ impl MaskObject {
         data_s: BigUint,
     ) -> Self {
         Self {
-            vector: MaskVect::new(config_v, data_v),
-            scalar: MaskUnit::new(config_s, data_s),
+            vect: MaskVect::new(config_v, data_v),
+            unit: MaskUnit::new(config_s, data_s),
         }
     }
 
@@ -149,20 +149,20 @@ impl MaskObject {
         config_s: MaskConfig,
         data_s: BigUint,
     ) -> Result<Self, InvalidMaskObjectError> {
-        let vector = MaskVect::new_checked(config_v, data_v)?;
-        let scalar = MaskUnit::new_checked(config_s, data_s)?;
-        Ok(Self { vector, scalar })
+        let vect = MaskVect::new_checked(config_v, data_v)?;
+        let unit = MaskUnit::new_checked(config_s, data_s)?;
+        Ok(Self { vect, unit })
     }
 
     pub fn empty(config_many: MaskConfig, config_one: MaskConfig, size: usize) -> Self {
         Self {
-            vector: MaskVect::empty(config_many, size),
-            scalar: MaskUnit::empty(config_one),
+            vect: MaskVect::empty(config_many, size),
+            unit: MaskUnit::empty(config_one),
         }
     }
 
     // TODO doc
     pub fn is_valid(&self) -> bool {
-        self.vector.is_valid() && self.scalar.is_valid()
+        self.vect.is_valid() && self.unit.is_valid()
     }
 }

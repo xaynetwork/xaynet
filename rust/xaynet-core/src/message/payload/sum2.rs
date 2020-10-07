@@ -159,19 +159,15 @@ pub struct Sum2 {
 impl ToBytes for Sum2 {
     fn buffer_length(&self) -> usize {
         SUM_SIGNATURE_RANGE.end
-            + self.model_mask.vector.buffer_length()
-            + self.model_mask.scalar.buffer_length()
+            + self.model_mask.vect.buffer_length()
+            + self.model_mask.unit.buffer_length()
     }
 
     fn to_bytes<T: AsMut<[u8]> + AsRef<[u8]>>(&self, buffer: &mut T) {
         let mut writer = Sum2Buffer::new_unchecked(buffer.as_mut());
         self.sum_signature.to_bytes(&mut writer.sum_signature_mut());
-        self.model_mask
-            .vector
-            .to_bytes(&mut writer.model_mask_mut());
-        self.model_mask
-            .scalar
-            .to_bytes(&mut writer.scalar_mask_mut());
+        self.model_mask.vect.to_bytes(&mut writer.model_mask_mut());
+        self.model_mask.unit.to_bytes(&mut writer.scalar_mask_mut());
     }
 }
 

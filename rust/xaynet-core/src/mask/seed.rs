@@ -166,9 +166,9 @@ mod tests {
         };
         let seed = MaskSeed::generate();
         let mask = seed.derive_mask(10, config, config);
-        assert_eq!(mask.vector.data.len(), 10);
+        assert_eq!(mask.vect.data.len(), 10);
         assert!(mask
-            .vector
+            .vect
             .data
             .iter()
             .all(|integer| integer < &config.order()));

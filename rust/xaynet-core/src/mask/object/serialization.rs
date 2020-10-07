@@ -369,30 +369,30 @@ impl FromBytes for MaskUnit {
 
 impl ToBytes for MaskObject {
     fn buffer_length(&self) -> usize {
-        self.vector.buffer_length() + self.scalar.buffer_length()
+        self.vect.buffer_length() + self.unit.buffer_length()
     }
 
     fn to_bytes<T: AsMut<[u8]> + AsRef<[u8]>>(&self, buffer: &mut T) {
         let mut writer = MaskObjectBuffer::new_unchecked(buffer.as_mut());
-        self.vector.to_bytes(&mut writer.vector_mut());
-        self.scalar.to_bytes(&mut writer.scalar_mut());
+        self.vect.to_bytes(&mut writer.vector_mut());
+        self.unit.to_bytes(&mut writer.scalar_mut());
     }
 }
 
 impl FromBytes for MaskObject {
     fn from_byte_slice<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
         let reader = MaskObjectBuffer::new(buffer.as_ref())?;
-        let vector = MaskVect::from_byte_slice(&reader.vector()).context("invalid vector part")?;
-        let scalar = MaskUnit::from_byte_slice(&reader.scalar()).context("invalid scalar part")?;
-        Ok(Self { vector, scalar })
+        let vect = MaskVect::from_byte_slice(&reader.vector()).context("invalid vector part")?;
+        let unit = MaskUnit::from_byte_slice(&reader.scalar()).context("invalid scalar part")?;
+        Ok(Self { vect, unit })
     }
 
     fn from_byte_stream<I: Iterator<Item = u8> + ExactSizeIterator>(
         iter: &mut I,
     ) -> Result<Self, DecodeError> {
-        let vector = MaskVect::from_byte_stream(iter).context("invalid vector part")?;
-        let scalar = MaskUnit::from_byte_stream(iter).context("invalid scalar part")?;
-        Ok(Self { vector, scalar })
+        let vect = MaskVect::from_byte_stream(iter).context("invalid vector part")?;
+        let unit = MaskUnit::from_byte_stream(iter).context("invalid scalar part")?;
+        Ok(Self { vect, unit })
     }
 }
 
