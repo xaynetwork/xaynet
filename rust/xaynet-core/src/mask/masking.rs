@@ -497,7 +497,7 @@ mod tests {
                     // c. unmask the model and check it against the original one.
                     let (mask_seed, masked_model) =
                         Masker::new(config.clone(), config.clone()).mask(1_f64, model.clone());
-                    assert_eq!(masked_model.vector.data.len(), model.len());
+                    assert_eq!(masked_model.vect.data.len(), model.len());
                     assert!(masked_model.is_valid());
 
                     let mask = mask_seed.derive_mask(model.len(), config.clone(), config.clone());
@@ -626,7 +626,7 @@ mod tests {
                             .take($len as usize)
                             .collect::<Vec<_>>();
                         let model = MaskVect::new(config, integers);
-                        let scalar = MaskOne::empty(config);
+                        let scalar = MaskUnit::default(config);
                         MaskObject::new(model, scalar)
                     });
 
@@ -642,9 +642,9 @@ mod tests {
                         aggregated_masked_model.aggregate(masked_model);
 
                         assert_eq!(aggregated_masked_model.nb_models, nb);
-                        assert_eq!(aggregated_masked_model.object.vector.data.len(), $len as usize);
-                        assert_eq!(aggregated_masked_model.object.vector.config, config);
-                        assert_eq!(aggregated_masked_model.object.scalar.config, config);
+                        assert_eq!(aggregated_masked_model.object.vect.data.len(), $len as usize);
+                        assert_eq!(aggregated_masked_model.object.vect.config, config);
+                        assert_eq!(aggregated_masked_model.object.unit.config, config);
                         assert!(aggregated_masked_model.object.is_valid());
                     }
                 }
