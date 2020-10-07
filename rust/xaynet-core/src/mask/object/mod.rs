@@ -128,19 +128,6 @@ impl MaskObject {
     }
 
     /// Creates a new mask object from the given vector, unit and masking configurations.
-    pub fn new_unchecked(
-        config_v: MaskConfig,
-        data_v: Vec<BigUint>,
-        config_s: MaskConfig,
-        data_s: BigUint,
-    ) -> Self {
-        Self {
-            vect: MaskVect::new(config_v, data_v),
-            unit: MaskUnit::new(config_s, data_s),
-        }
-    }
-
-    /// Creates a new mask object from the given vector, unit and masking configurations.
     pub fn new_checked(
         config_v: MaskConfig,
         data_v: Vec<BigUint>,
