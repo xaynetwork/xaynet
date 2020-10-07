@@ -23,7 +23,7 @@ jobs:
           repository: xaynetwork/xaynet
           tag_with_ref: true
           push: true
-          build-args: RELEASE_BUILD=1
+          build_args: RELEASE_BUILD=1
 
       - name: Notify on Slack
         uses: 8398a7/action-slack@v3
