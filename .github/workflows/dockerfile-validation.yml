@@ -13,5 +13,5 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Lint dev file
+      - name: Lint file
         run: docker run -v $GITHUB_WORKSPACE/docker/Dockerfile:/Dockerfile replicated/dockerfilelint /Dockerfile
