@@ -66,7 +66,7 @@ impl<T: AsRef<[u8]>> MaskObjectBuffer<T> {
         MaskVectBuffer::new(&inner[0..]).context("invalid vector field")?;
         // check length of scalar field
         // TODO possible change to MaskOneBuffer in the future once implemented
-        MaskVectBuffer::new(&inner[self.scalar_offset()..]).context("invalid scalar field")?;
+        MaskVectBuffer::new(&inner[self.unit_offset()..]).context("invalid unit field")?;
         Ok(())
     }
 
@@ -74,23 +74,23 @@ impl<T: AsRef<[u8]>> MaskObjectBuffer<T> {
     ///
     /// # Panics
     /// May panic if this buffer is unchecked.
-    pub fn vector(&self) -> &[u8] {
-        let len = self.scalar_offset();
+    pub fn vect(&self) -> &[u8] {
+        let len = self.unit_offset();
         &self.inner.as_ref()[0..len]
     }
 
     /// Gets the offset of the scalar field.
-    pub fn scalar_offset(&self) -> usize {
-        let vector = MaskVectBuffer::new_unchecked(&self.inner.as_ref()[0..]);
-        vector.len()
+    pub fn unit_offset(&self) -> usize {
+        let vect_buf = MaskVectBuffer::new_unchecked(&self.inner.as_ref()[0..]);
+        vect_buf.len()
     }
 
     /// Gets the scalar part.
     ///
     /// # Panics
     /// May panic if this buffer is unchecked.
-    pub fn scalar(&self) -> &[u8] {
-        let offset = self.scalar_offset();
+    pub fn unit(&self) -> &[u8] {
+        let offset = self.unit_offset();
         &self.inner.as_ref()[offset..]
     }
 
@@ -99,9 +99,9 @@ impl<T: AsRef<[u8]>> MaskObjectBuffer<T> {
     /// # Panics
     /// May panic if this buffer is unchecked.
     pub fn len(&self) -> usize {
-        let scalar_offset = self.scalar_offset();
-        let scalar = MaskVectBuffer::new_unchecked(&self.inner.as_ref()[scalar_offset..]);
-        scalar_offset + scalar.len()
+        let unit_offset = self.unit_offset();
+        let unit_buf = MaskVectBuffer::new_unchecked(&self.inner.as_ref()[unit_offset..]);
+        unit_offset + unit_buf.len()
     }
 }
 
@@ -115,7 +115,7 @@ impl<T: AsRef<[u8]>> MaskVectBuffer<T> {
         let buffer = Self { inner: bytes };
         buffer
             .check_buffer_length()
-            .context("not a valid MaskMany")?;
+            .context("not a valid mask vector")?;
         Ok(buffer)
     }
 
@@ -213,11 +213,11 @@ impl<T: AsRef<[u8]>> MaskVectBuffer<T> {
 }
 
 impl<T: AsRef<[u8]> + AsMut<[u8]>> MaskObjectBuffer<T> {
-    pub fn vector_mut(&mut self) -> &mut [u8] {
+    pub fn vect_mut(&mut self) -> &mut [u8] {
         &mut self.inner.as_mut()[0..]
     }
-    pub fn scalar_mut(&mut self) -> &mut [u8] {
-        let offset = self.scalar_offset();
+    pub fn unit_mut(&mut self) -> &mut [u8] {
+        let offset = self.unit_offset();
         &mut self.inner.as_mut()[offset..]
     }
 }
@@ -374,16 +374,16 @@ impl ToBytes for MaskObject {
 
     fn to_bytes<T: AsMut<[u8]> + AsRef<[u8]>>(&self, buffer: &mut T) {
         let mut writer = MaskObjectBuffer::new_unchecked(buffer.as_mut());
-        self.vect.to_bytes(&mut writer.vector_mut());
-        self.unit.to_bytes(&mut writer.scalar_mut());
+        self.vect.to_bytes(&mut writer.vect_mut());
+        self.unit.to_bytes(&mut writer.unit_mut());
     }
 }
 
 impl FromBytes for MaskObject {
     fn from_byte_slice<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
         let reader = MaskObjectBuffer::new(buffer.as_ref())?;
-        let vect = MaskVect::from_byte_slice(&reader.vector()).context("invalid vector part")?;
-        let unit = MaskUnit::from_byte_slice(&reader.scalar()).context("invalid scalar part")?;
+        let vect = MaskVect::from_byte_slice(&reader.vect()).context("invalid vector part")?;
+        let unit = MaskUnit::from_byte_slice(&reader.unit()).context("invalid unit part")?;
         Ok(Self { vect, unit })
     }
 
@@ -391,7 +391,7 @@ impl FromBytes for MaskObject {
         iter: &mut I,
     ) -> Result<Self, DecodeError> {
         let vect = MaskVect::from_byte_stream(iter).context("invalid vector part")?;
-        let unit = MaskUnit::from_byte_stream(iter).context("invalid scalar part")?;
+        let unit = MaskUnit::from_byte_stream(iter).context("invalid unit part")?;
         Ok(Self { vect, unit })
     }
 }
