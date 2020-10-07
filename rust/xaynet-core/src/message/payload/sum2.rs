@@ -10,7 +10,7 @@ use anyhow::{anyhow, Context};
 
 use crate::{
     crypto::ByteObject,
-    mask::object::{serialization::MaskManyBuffer, MaskObject, MaskUnit, MaskVect},
+    mask::object::{serialization::MaskVectBuffer, MaskObject, MaskUnit, MaskVect},
     message::{
         traits::{FromBytes, ToBytes},
         utils::range,
@@ -62,11 +62,11 @@ impl<T: AsRef<[u8]>> Sum2Buffer<T> {
         }
 
         // Check the length of the model mask field
-        let _ = MaskManyBuffer::new(&self.inner.as_ref()[self.model_mask_offset()..])
+        let _ = MaskVectBuffer::new(&self.inner.as_ref()[self.model_mask_offset()..])
             .context("invalid model mask field")?;
 
         // Check the length of the scalar mask field
-        let _ = MaskManyBuffer::new(&self.inner.as_ref()[self.scalar_mask_offset()..])
+        let _ = MaskVectBuffer::new(&self.inner.as_ref()[self.scalar_mask_offset()..])
             .context("invalid scalar mask field")?;
 
         Ok(())
@@ -80,7 +80,7 @@ impl<T: AsRef<[u8]>> Sum2Buffer<T> {
     /// Gets the offset of the scalar mask field.
     fn scalar_mask_offset(&self) -> usize {
         let model_mask =
-            MaskManyBuffer::new_unchecked(&self.inner.as_ref()[self.model_mask_offset()..]);
+            MaskVectBuffer::new_unchecked(&self.inner.as_ref()[self.model_mask_offset()..]);
         self.model_mask_offset() + model_mask.len()
     }
 }

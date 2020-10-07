@@ -28,8 +28,8 @@ const NUMBERS_FIELD: Range<usize> = range(MASK_CONFIG_FIELD.end, 4);
 #[cfg(target_pointer_width = "16")]
 const MAX_NB: u32 = u16::MAX as u32;
 
-/// A buffer for serialized `MaskMany`s.
-pub struct MaskManyBuffer<T> {
+/// A buffer for serialized mask vectors.
+pub struct MaskVectBuffer<T> {
     inner: T,
 }
 
@@ -63,10 +63,10 @@ impl<T: AsRef<[u8]>> MaskObjectBuffer<T> {
     pub fn check_buffer_length(&self) -> Result<(), DecodeError> {
         let inner = self.inner.as_ref();
         // check length of vector field
-        MaskManyBuffer::new(&inner[0..]).context("invalid vector field")?;
+        MaskVectBuffer::new(&inner[0..]).context("invalid vector field")?;
         // check length of scalar field
         // TODO possible change to MaskOneBuffer in the future once implemented
-        MaskManyBuffer::new(&inner[self.scalar_offset()..]).context("invalid scalar field")?;
+        MaskVectBuffer::new(&inner[self.scalar_offset()..]).context("invalid scalar field")?;
         Ok(())
     }
 
@@ -81,7 +81,7 @@ impl<T: AsRef<[u8]>> MaskObjectBuffer<T> {
 
     /// Gets the offset of the scalar field.
     pub fn scalar_offset(&self) -> usize {
-        let vector = MaskManyBuffer::new_unchecked(&self.inner.as_ref()[0..]);
+        let vector = MaskVectBuffer::new_unchecked(&self.inner.as_ref()[0..]);
         vector.len()
     }
 
@@ -100,13 +100,13 @@ impl<T: AsRef<[u8]>> MaskObjectBuffer<T> {
     /// May panic if this buffer is unchecked.
     pub fn len(&self) -> usize {
         let scalar_offset = self.scalar_offset();
-        let scalar = MaskManyBuffer::new_unchecked(&self.inner.as_ref()[scalar_offset..]);
+        let scalar = MaskVectBuffer::new_unchecked(&self.inner.as_ref()[scalar_offset..]);
         scalar_offset + scalar.len()
     }
 }
 
 #[allow(clippy::len_without_is_empty)]
-impl<T: AsRef<[u8]>> MaskManyBuffer<T> {
+impl<T: AsRef<[u8]>> MaskVectBuffer<T> {
     /// Creates a new buffer from `bytes`.
     ///
     /// # Errors
@@ -222,7 +222,7 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> MaskObjectBuffer<T> {
     }
 }
 
-impl<T: AsRef<[u8]> + AsMut<[u8]>> MaskManyBuffer<T> {
+impl<T: AsRef<[u8]> + AsMut<[u8]>> MaskVectBuffer<T> {
     /// Sets the number of serialized mask object elements.
     ///
     /// # Panics
@@ -255,7 +255,7 @@ impl ToBytes for MaskVect {
     }
 
     fn to_bytes<T: AsMut<[u8]>>(&self, buffer: &mut T) {
-        let mut writer = MaskManyBuffer::new_unchecked(buffer.as_mut());
+        let mut writer = MaskVectBuffer::new_unchecked(buffer.as_mut());
         self.config.to_bytes(&mut writer.config_mut());
         writer.set_numbers(self.data.len() as u32);
 
@@ -281,7 +281,7 @@ impl ToBytes for MaskVect {
 
 impl FromBytes for MaskVect {
     fn from_byte_slice<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
-        let reader = MaskManyBuffer::new(buffer.as_ref())?;
+        let reader = MaskVectBuffer::new(buffer.as_ref())?;
 
         let config = MaskConfig::from_byte_slice(&reader.config())?;
         let mut data = Vec::with_capacity(reader.numbers());
