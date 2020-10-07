@@ -2,7 +2,7 @@ use crate::storage::{impls::SeedDictUpdate, redis::Client};
 use num::{bigint::BigUint, traits::identities::Zero};
 use xaynet_core::{
     crypto::{ByteObject, EncryptKeyPair, SigningKeyPair},
-    mask::{BoundType, DataType, EncryptedMaskSeed, GroupType, MaskConfig, MaskMany, ModelType},
+    mask::{BoundType, DataType, EncryptedMaskSeed, GroupType, MaskConfig, MaskObject, ModelType},
     LocalSeedDict,
     SeedDict,
     SumDict,
@@ -41,7 +41,7 @@ pub fn create_local_seed_entries(
     entries
 }
 
-pub fn create_mask(byte_size: usize) -> MaskMany {
+pub fn create_mask(byte_size: usize) -> MaskObject {
     let config = MaskConfig {
         group_type: GroupType::Prime,
         data_type: DataType::F32,
@@ -49,7 +49,13 @@ pub fn create_mask(byte_size: usize) -> MaskMany {
         model_type: ModelType::M3,
     };
 
-    MaskMany::new(config, vec![BigUint::zero(); byte_size])
+    MaskObject::new_checked(
+        config.clone(),
+        vec![BigUint::zero(); byte_size],
+        config,
+        BigUint::zero(),
+    )
+    .unwrap()
 }
 
 pub fn create_seed_dict(

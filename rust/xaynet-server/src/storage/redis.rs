@@ -17,14 +17,18 @@
 //!     "SumParticipantPublicKey_1": { // hash
 //!         "UpdateParticipantPublicKey_1": EncryptedMaskSeed,
 //!         "UpdateParticipantPublicKey_2": EncryptedMaskSeed
-//!     }
+//!     },
 //!     "SumParticipantPublicKey_2": {
 //!         "UpdateParticipantPublicKey_1": EncryptedMaskSeed,
 //!         "UpdateParticipantPublicKey_2": EncryptedMaskSeed
-//!     }
+//!     },
 //!     // Mask dict
+//!     "mask_submitted": [ // set
+//!         SumParticipantPublicKey_1,
+//!         SumParticipantPublicKey_2
+//!     ],
 //!     "mask_dict": [ // sorted set
-//!         (mask_object_1, 12341), // (mask: bincode encoded string, score/counter: number)
+//!         (mask_object_1, 2), // (mask: bincode encoded string, score/counter: number)
 //!         (mask_object_2, 1)
 //!     ]
 //! }
@@ -34,6 +38,7 @@ use crate::{
     storage::impls::{
         EncryptedMaskSeedRead,
         LocalSeedDictWrite,
+        MaskDictIncr,
         MaskObjectRead,
         MaskObjectWrite,
         PublicEncryptKeyRead,
@@ -48,7 +53,7 @@ use redis::{aio::ConnectionManager, AsyncCommands, IntoConnectionInfo, RedisResu
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use xaynet_core::{
-    mask::{EncryptedMaskSeed, MaskMany},
+    mask::{EncryptedMaskSeed, MaskObject},
     LocalSeedDict,
     SeedDict,
     SumDict,
@@ -209,6 +214,7 @@ impl Connection {
         );
         let script = Script::new(
             r#"
+                -- lua lists (tables) start at 1
                 local update_pk = ARGV[1]
 
                 -- check if the local seed dict has the same length as the sum_dict
@@ -240,7 +246,7 @@ impl Connection {
                     local exist_in_update_seed_dict = redis.call("HSETNX", KEYS[i], update_pk, KEYS[i + 1])
                     -- HSETNX returns 0 if the key already exists
                     if exist_in_update_seed_dict == 0 then
-                        -- This condition and should never apply.
+                        -- This condition should never apply.
                         -- If this condition is true, it is an indication that the data in redis is corrupted.
                         return -4
                     end
@@ -292,22 +298,48 @@ impl Connection {
     ///
     /// The score/counter of the given mask is incremented by `1`.
     /// The maximum length of a serialized mask is 512 Megabytes.
-    pub async fn incr_mask_count(mut self, mask: &MaskMany) -> RedisResult<()> {
+    pub async fn incr_mask_count(
+        mut self,
+        sum_pk: &SumParticipantPublicKey,
+        mask: &MaskObject,
+    ) -> RedisResult<MaskDictIncr> {
         debug!("increment mask count");
-        // https://redis.io/commands/zincrby
-        // > Return value
-        //   Bulk string reply: the new score of member (a double precision floating point number),
-        //   represented as string.
-        //
-        // We ignore the return value because we are not interested in it. We will use the method
-        // `get_best_masks` instead.
-        self.connection
-            .zincr("mask_dict", MaskObjectWrite::from(mask), 1_usize)
+        let script = Script::new(
+            r#"
+                -- lua lists (tables) start at 1
+                local sum_pk = ARGV[1]
+
+                -- check if the client participated in sum phase
+                --
+                -- Note: we cannot delete the sum_pk in the sum_dict because we
+                -- need the sum_dict later to delete the seed_dict
+                local sum_pk_exist = redis.call("HEXISTS", "sum_dict", sum_pk)
+                if sum_pk_exist == 0 then
+                    return -1
+                end
+
+                -- check if sum participant has not already submitted a mask
+                local mask_already_submitted = redis.call("SADD", "mask_submitted", sum_pk)
+                -- SADD returns 0 if the key already exists
+                if mask_already_submitted == 0 then
+                    return -2
+                end
+
+                redis.call("ZINCRBY", "mask_dict", 1, KEYS[1])
+
+                return 0
+            "#,
+        );
+
+        script
+            .key(MaskObjectWrite::from(mask))
+            .arg(PublicSigningKeyWrite::from(sum_pk))
+            .invoke_async(&mut self.connection)
             .await
     }
 
     /// Retrieves the two masks with the highest score.
-    pub async fn get_best_masks(mut self) -> RedisResult<Vec<(MaskMany, usize)>> {
+    pub async fn get_best_masks(mut self) -> RedisResult<Vec<(MaskObject, usize)>> {
         debug!("get best masks");
         // https://redis.io/commands/zrevrangebyscore
         // > Return value:
@@ -357,13 +389,14 @@ impl Connection {
         // delete sum dict
         pipe.del("sum_dict").ignore();
 
-        //delete seed dict
+        // delete seed dict
         pipe.del("update_participants").ignore();
         for sum_pk in sum_pks {
             pipe.del(sum_pk).ignore();
         }
 
-        //delete mask dict
+        // delete mask dict
+        pipe.del("mask_submitted").ignore();
         pipe.del("mask_dict").ignore();
         pipe.atomic().query_async(&mut self.connection).await
     }
@@ -443,6 +476,13 @@ impl Connection {
             )
             .await
     }
+
+    pub async fn get_mask_submitted_set(mut self) -> RedisResult<Vec<SumParticipantPublicKey>> {
+        let result: Vec<PublicSigningKeyRead> =
+            self.connection.smembers("update_submitted").await?;
+        let sum_pks = result.into_iter().map(|pk| pk.into()).collect();
+        Ok(sum_pks)
+    }
 }
 
 #[cfg(test)]
@@ -451,7 +491,7 @@ mod tests {
     use crate::{
         state_machine::tests::utils::{mask_settings, model_settings, pet_settings},
         storage::{
-            impls::{SeedDictUpdateError, SumDictAddError, SumDictDeleteError},
+            impls::{MaskDictIncrError, SeedDictUpdateError, SumDictAddError, SumDictDeleteError},
             tests::{
                 create_and_write_sum_participant_entries,
                 create_local_seed_entries,
@@ -508,14 +548,15 @@ mod tests {
         let should_be_empty = client.connection().await.get_best_masks().await.unwrap();
         assert!(should_be_empty.is_empty());
 
+        let sum_pks = create_and_write_sum_participant_entries(&client, 3).await;
         let mask = create_mask(10);
-        for _ in 0..3 {
-            client
+        for sum_pk in sum_pks {
+            let res = client
                 .connection()
                 .await
-                .incr_mask_count(&mask)
-                .await
-                .unwrap();
+                .incr_mask_count(&sum_pk, &mask)
+                .await;
+            assert!(res.is_ok())
         }
 
         let best_masks = client.connection().await.get_best_masks().await.unwrap();
@@ -528,6 +569,63 @@ mod tests {
 
     #[tokio::test]
     #[serial]
+    async fn integration_get_incr_mask_count_unknown_sum_pk() {
+        // test the writing and reading of one mask
+        let client = init_client().await;
+
+        let should_be_empty = client.connection().await.get_best_masks().await.unwrap();
+        assert!(should_be_empty.is_empty());
+
+        let (sum_pk, _) = create_sum_participant_entry();
+        let mask = create_mask(10);
+        let unknown_sum_pk = client
+            .connection()
+            .await
+            .incr_mask_count(&sum_pk, &mask)
+            .await
+            .unwrap();
+
+        assert!(matches!(
+            unknown_sum_pk.into_inner().unwrap_err(),
+            MaskDictIncrError::UnknownSumPk
+        ));
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn integration_get_incr_mask_count_sum_pk_already_submitted() {
+        // test the writing and reading of one mask
+        let client = init_client().await;
+
+        let should_be_empty = client.connection().await.get_best_masks().await.unwrap();
+        assert!(should_be_empty.is_empty());
+
+        let mut sum_pks = create_and_write_sum_participant_entries(&client, 1).await;
+        let sum_pk = sum_pks.pop().unwrap();
+        let mask = create_mask(10);
+        let result = client
+            .connection()
+            .await
+            .incr_mask_count(&sum_pk, &mask)
+            .await
+            .unwrap();
+        assert!(result.is_ok());
+
+        let already_submitted = client
+            .connection()
+            .await
+            .incr_mask_count(&sum_pk, &mask)
+            .await
+            .unwrap();
+
+        assert!(matches!(
+            already_submitted.into_inner().unwrap_err(),
+            MaskDictIncrError::MaskAlreadySubmitted
+        ));
+    }
+
+    #[tokio::test]
+    #[serial]
     async fn integration_get_best_masks_only_one_mask() {
         // test the writing and reading of one mask
         let client = init_client().await;
@@ -535,13 +633,14 @@ mod tests {
         let should_be_empty = client.connection().await.get_best_masks().await.unwrap();
         assert!(should_be_empty.is_empty());
 
+        let sum_pks = create_and_write_sum_participant_entries(&client, 1).await;
         let mask = create_mask(10);
-        client
+        let res = client
             .connection()
             .await
-            .incr_mask_count(&mask)
-            .await
-            .unwrap();
+            .incr_mask_count(sum_pks.get(0).unwrap(), &mask)
+            .await;
+        assert!(res.is_ok());
 
         let best_masks = client.connection().await.get_best_masks().await.unwrap();
         assert!(best_masks.len() == 1);
@@ -561,23 +660,27 @@ mod tests {
         let should_be_empty = client.connection().await.get_best_masks().await.unwrap();
         assert!(should_be_empty.is_empty());
 
+        let sum_pks = create_and_write_sum_participant_entries(&client, 2).await;
         let mask_1 = create_mask(10);
-        for _ in 0..2 {
-            client
+        for sum_pk in sum_pks {
+            let res = client
                 .connection()
                 .await
-                .incr_mask_count(&mask_1)
-                .await
-                .unwrap();
+                .incr_mask_count(&sum_pk, &mask_1)
+                .await;
+            assert!(res.is_ok())
         }
 
+        let sum_pks = create_and_write_sum_participant_entries(&client, 1).await;
         let mask_2 = create_mask(100);
-        client
-            .connection()
-            .await
-            .incr_mask_count(&mask_2)
-            .await
-            .unwrap();
+        for sum_pk in sum_pks {
+            let res = client
+                .connection()
+                .await
+                .incr_mask_count(&sum_pk, &mask_2)
+                .await;
+            assert!(res.is_ok())
+        }
 
         let best_masks = client.connection().await.get_best_masks().await.unwrap();
         assert!(best_masks.len() == 2);
@@ -848,7 +951,7 @@ mod tests {
         client
             .connection()
             .await
-            .incr_mask_count(&mask)
+            .incr_mask_count(sum_pks.get(0).unwrap(), &mask)
             .await
             .unwrap();
 
@@ -856,7 +959,7 @@ mod tests {
         let res = client.connection().await.flush_dicts().await;
         assert!(res.is_ok());
 
-        // ensure that the coordinator state still exists
+        // ensure that only the coordinator state exists
         let res = client.connection().await.get_coordinator_state().await;
         assert!(res.unwrap().is_some());
 
@@ -864,6 +967,9 @@ mod tests {
         assert!(res.unwrap().is_empty());
 
         let res = client.connection().await.get_seed_dict().await;
+        assert!(res.unwrap().is_empty());
+
+        let res = client.connection().await.get_mask_submitted_set().await;
         assert!(res.unwrap().is_empty());
 
         let res = client.connection().await.get_best_masks().await;

@@ -145,14 +145,6 @@ impl PhaseState<Sum2> {
         _pk: &SumParticipantPublicKey,
         mask: MaskObject,
     ) -> Result<(), StateMachineError> {
-        // We remove the participant key here to make sure a participant
-        // cannot submit a mask multiple times
-
-        // FIXME: reactivate the check when the mask dict is moved into Redis
-        // if self.inner.sum_dict.remove(pk).is_none() {
-        //     return Err(StateMachineError::MessageRejected);
-        // }
-
         if let Some(count) = self.inner.mask_dict.get_mut(&mask) {
             *count += 1;
         } else {
