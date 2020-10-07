@@ -19,21 +19,19 @@ use crate::mask::config::MaskConfig;
 pub struct InvalidMaskObjectError;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Serialize, Deserialize)]
-/// A mask object which represents either a mask or a masked model.
+/// A *mask vector* which represents a masked model or its corresponding mask.
 pub struct MaskVect {
     pub data: Vec<BigUint>,
     pub config: MaskConfig,
 }
 
 impl MaskVect {
-    /// Creates a new mask object from the given masking configuration and the elements of the mask
-    /// or masked model.
+    /// Creates a new mask vector from the given data and masking configuration.
     pub fn new(config: MaskConfig, data: Vec<BigUint>) -> Self {
         Self { data, config }
     }
 
-    /// Creates a new mask object from the given masking configuration and the elements of the mask
-    /// or masked model.
+    /// Creates a new mask vector from the given data and masking configuration.
     ///
     /// # Errors
     /// Fails if the elements of the mask object don't conform to the given masking configuration.
@@ -49,6 +47,7 @@ impl MaskVect {
         }
     }
 
+    /// Creates a new empty mask vector of given size and masking configuration.
     pub fn empty(config: MaskConfig, size: usize) -> Self {
         Self {
             data: Vec::with_capacity(size),
@@ -56,7 +55,7 @@ impl MaskVect {
         }
     }
 
-    /// Checks if the elements of this mask object conform to the given masking configuration.
+    /// Checks if the elements of this mask vector conform to the masking configuration.
     pub fn is_valid(&self) -> bool {
         let order = self.config.order();
         self.data.iter().all(|i| i < &order)
@@ -64,36 +63,34 @@ impl MaskVect {
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Serialize, Deserialize)]
-/// A mask object which represents either a mask or a masked scalar.
+/// A *mask unit* which represents a masked scalar or its corresponding mask.
 pub struct MaskUnit {
     pub data: BigUint,
     pub config: MaskConfig,
 }
 
 impl From<&MaskUnit> for MaskVect {
-    fn from(mask_one: &MaskUnit) -> Self {
-        Self::new(mask_one.config, vec![mask_one.data.clone()])
+    fn from(mask_unit: &MaskUnit) -> Self {
+        Self::new(mask_unit.config, vec![mask_unit.data.clone()])
     }
 }
 
 impl From<MaskUnit> for MaskVect {
-    fn from(mask_one: MaskUnit) -> Self {
-        Self::new(mask_one.config, vec![mask_one.data])
+    fn from(mask_unit: MaskUnit) -> Self {
+        Self::new(mask_unit.config, vec![mask_unit.data])
     }
 }
 
 impl MaskUnit {
-    /// Creates a new mask object from the given masking configuration and the mask
-    /// or masked scalar.
+    /// Creates a new mask unit from the given mask and masking configuration.
     pub fn new(config: MaskConfig, data: BigUint) -> Self {
         Self { data, config }
     }
 
-    /// Creates a new mask object from the given masking configuration and the mask
-    /// or masked scalar.
+    /// Creates a new mask unit from the given mask and masking configuration.
     ///
     /// # Errors
-    /// Fails if the mask object doesn't conform to the given masking configuration.
+    /// Fails if the mask unit doesn't conform to the given masking configuration.
     pub fn new_checked(config: MaskConfig, data: BigUint) -> Result<Self, InvalidMaskObjectError> {
         let obj = Self::new(config, data);
         if obj.is_valid() {
@@ -103,33 +100,34 @@ impl MaskUnit {
         }
     }
 
-    pub fn empty(config: MaskConfig) -> Self {
+    /// Creates a new mask unit of given masking configuration with default value `1`.
+    pub fn default(config: MaskConfig) -> Self {
         Self {
-            data: BigUint::from(1_u8), // NOTE not really empty!
+            data: BigUint::from(1_u8),
             config,
         }
     }
 
-    /// Checks if this mask object conforms to the given masking configuration.
+    /// Checks if the data value conforms to the masking configuration.
     pub fn is_valid(&self) -> bool {
         self.data < self.config.order()
     }
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Serialize, Deserialize)]
-/// A mask object wrapper around a `MaskMany`, `MaskOne` pair.
+/// A mask object consisting of a vector part and unit part.
 pub struct MaskObject {
     pub vect: MaskVect,
     pub unit: MaskUnit,
 }
 
 impl MaskObject {
-    // TODO doc
+    /// Creates a new mask object from the given vector and unit.
     pub fn new(vect: MaskVect, unit: MaskUnit) -> Self {
         Self { vect, unit }
     }
 
-    // TODO perhaps no need
+    /// Creates a new mask object from the given vector, unit and masking configurations.
     pub fn new_unchecked(
         config_v: MaskConfig,
         data_v: Vec<BigUint>,
@@ -142,7 +140,7 @@ impl MaskObject {
         }
     }
 
-    // TODO doc
+    /// Creates a new mask object from the given vector, unit and masking configurations.
     pub fn new_checked(
         config_v: MaskConfig,
         data_v: Vec<BigUint>,
@@ -154,14 +152,15 @@ impl MaskObject {
         Ok(Self { vect, unit })
     }
 
+    /// Creates a new empty mask object of given size and masking configurations.
     pub fn empty(config_many: MaskConfig, config_one: MaskConfig, size: usize) -> Self {
         Self {
             vect: MaskVect::empty(config_many, size),
-            unit: MaskUnit::empty(config_one),
+            unit: MaskUnit::default(config_one),
         }
     }
 
-    // TODO doc
+    /// Checks if this mask object conforms to the masking configurations.
     pub fn is_valid(&self) -> bool {
         self.vect.is_valid() && self.unit.is_valid()
     }
