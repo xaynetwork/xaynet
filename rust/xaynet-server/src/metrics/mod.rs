@@ -155,10 +155,10 @@ pub mod masks {
         /// | tag_value   | value of `round_id`      |
         /// | tag_key     | `"phase"`                |
         /// | tag_value   | value of `phase` as `u8` |
-        pub fn update(total_number: usize, round_id: u64, phase: PhaseName) -> WriteQuery {
+        pub fn update(total_number: u64, round_id: u64, phase: PhaseName) -> WriteQuery {
             DataPoint {
                 time: Timestamp::Now.into(),
-                value: total_number as u64,
+                value: total_number,
                 round_id: Some(round_id),
                 phase: Some(phase as u8),
             }

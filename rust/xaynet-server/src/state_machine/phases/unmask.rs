@@ -32,14 +32,20 @@ impl Phase for PhaseState<Unmask> {
 
     /// Run the unmasking phase
     async fn run(&mut self) -> Result<(), StateError> {
-        metrics!(
-            self.shared.io.metrics_tx,
-            metrics::masks::total_number::update(
-                self.inner.model_mask_dict.len(),
-                self.shared.state.round_id,
-                Self::NAME
-            )
-        );
+        #[cfg(feature = "metrics")]
+        {
+            let redis = &mut self.shared.io.redis;
+            let metrics_tx = &mut self.shared.io.metrics_tx;
+
+            match redis.connection().await.get_number_of_unique_masks().await {
+                Ok(number_of_masks) => metrics_tx.send(metrics::masks::total_number::update(
+                    number_of_masks,
+                    self.shared.state.round_id,
+                    Self::NAME,
+                )),
+                Err(err) => error!("failed to fetch total number of masks: {}", err),
+            }
+        }
 
         let best_masks = self
             .shared
