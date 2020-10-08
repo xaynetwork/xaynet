@@ -27,3 +27,13 @@ spec:
                   key: redis-password
             - name: XAYNET_REDIS__URL
               value: "redis://:$(REDIS_AUTH)@redis-master"
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-auth
+                  key: accesskey
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-auth
+                  key: secretkey
