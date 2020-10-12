@@ -31,6 +31,24 @@ pub enum Payload {
     Chunk(Chunk),
 }
 
+impl Payload {
+    pub fn is_sum(&self) -> bool {
+        matches!(self, Self::Sum(_))
+    }
+
+    pub fn is_update(&self) -> bool {
+        matches!(self, Self::Update(_))
+    }
+
+    pub fn is_sum2(&self) -> bool {
+        matches!(self, Self::Sum2(_))
+    }
+
+    pub fn is_chunk(&self) -> bool {
+        matches!(self, Self::Chunk(_))
+    }
+}
+
 impl ToBytes for Payload {
     fn buffer_length(&self) -> usize {
         match self {
