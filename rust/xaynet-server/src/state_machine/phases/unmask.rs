@@ -3,7 +3,6 @@ use std::{cmp::Ordering, sync::Arc};
 use xaynet_core::mask::{Aggregation, MaskObject, Model};
 
 use crate::state_machine::{
-    coordinator::MaskDict,
     events::ModelUpdate,
     phases::{Idle, Phase, PhaseName, PhaseState, Shared, StateError},
     RoundFailed,
@@ -18,18 +17,12 @@ use crate::metrics;
 pub struct Unmask {
     /// The aggregator for masked models.
     model_agg: Option<Aggregation>,
-
-    /// The model mask dictionary built during the sum2 phase.
-    model_mask_dict: MaskDict,
 }
 
 #[cfg(test)]
 impl Unmask {
     pub fn aggregation(&self) -> Option<&Aggregation> {
         self.model_agg.as_ref()
-    }
-    pub fn mask_dict(&self) -> &MaskDict {
-        &self.model_mask_dict
     }
 }
 
@@ -39,16 +32,34 @@ impl Phase for PhaseState<Unmask> {
 
     /// Run the unmasking phase
     async fn run(&mut self) -> Result<(), StateError> {
-        metrics!(
-            self.shared.io.metrics_tx,
-            metrics::masks::total_number::update(
-                self.inner.model_mask_dict.len(),
-                self.shared.state.round_id,
-                Self::NAME
-            )
-        );
+        #[cfg(feature = "metrics")]
+        {
+            let redis = self.shared.io.redis.clone();
+            let mut metrics_tx = self.shared.io.metrics_tx.clone();
+            let (round_id, phase_name) = (self.shared.state.round_id, Self::NAME);
 
-        let global_model = self.end_round()?;
+            tokio::spawn(async move {
+                match redis.connection().await.get_number_of_unique_masks().await {
+                    Ok(number_of_masks) => metrics_tx.send(metrics::masks::total_number::update(
+                        number_of_masks,
+                        round_id,
+                        phase_name,
+                    )),
+                    Err(err) => error!("failed to fetch total number of masks: {}", err),
+                };
+            });
+        }
+
+        let best_masks = self
+            .shared
+            .io
+            .redis
+            .connection()
+            .await
+            .get_best_masks()
+            .await?;
+
+        let global_model = self.end_round(best_masks).await?;
 
         info!("broadcasting the new global model");
         self.shared
@@ -70,29 +81,29 @@ impl Phase for PhaseState<Unmask> {
 
 impl PhaseState<Unmask> {
     /// Creates a new unmask state.
-    pub fn new(shared: Shared, model_agg: Aggregation, model_mask_dict: MaskDict) -> Self {
+    pub fn new(shared: Shared, model_agg: Aggregation) -> Self {
         info!("state transition");
         Self {
             inner: Unmask {
                 model_agg: Some(model_agg),
-                model_mask_dict,
             },
             shared,
         }
     }
 
     /// Freezes the mask dictionary.
-    fn freeze_mask_dict(&mut self) -> Result<MaskObject, RoundFailed> {
-        if self.inner.model_mask_dict.is_empty() {
+    async fn freeze_mask_dict(
+        &mut self,
+        mut best_masks: Vec<(MaskObject, u64)>,
+    ) -> Result<MaskObject, RoundFailed> {
+        if best_masks.is_empty() {
             return Err(RoundFailed::NoMask);
         }
 
-        let mask = self
-            .inner
-            .model_mask_dict
-            .drain()
+        let mask = best_masks
+            .drain(0..)
             .fold(
-                (None, 0_usize),
+                (None, 0),
                 |(unique_mask, unique_count), (mask, count)| match unique_count.cmp(&count) {
                     Ordering::Less => (Some(mask), count),
                     Ordering::Greater => (unique_mask, unique_count),
@@ -105,8 +116,11 @@ impl PhaseState<Unmask> {
         Ok(mask)
     }
 
-    fn end_round(&mut self) -> Result<Model, RoundFailed> {
-        let mask = self.freeze_mask_dict()?;
+    async fn end_round(
+        &mut self,
+        best_masks: Vec<(MaskObject, u64)>,
+    ) -> Result<Model, RoundFailed> {
+        let mask = self.freeze_mask_dict(best_masks).await?;
 
         // Safe unwrap: State::<Unmask>::new always creates Some(aggregation)
         let model_agg = self.inner.model_agg.take().unwrap();

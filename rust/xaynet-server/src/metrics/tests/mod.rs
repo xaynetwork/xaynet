@@ -1,6 +1,6 @@
 use influxdb::WriteQuery;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MetricsSender();
 
 impl MetricsSender {

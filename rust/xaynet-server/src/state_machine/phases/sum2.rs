@@ -1,10 +1,6 @@
-use xaynet_core::{
-    mask::{Aggregation, MaskObject},
-    SumParticipantPublicKey,
-};
+use xaynet_core::mask::Aggregation;
 
 use crate::state_machine::{
-    coordinator::MaskDict,
     phases::{Handler, Phase, PhaseName, PhaseState, Shared, StateError, Unmask},
     requests::{StateMachineRequest, Sum2Request},
     StateMachine,
@@ -22,18 +18,14 @@ pub struct Sum2 {
     /// The aggregator for masked models.
     model_agg: Aggregation,
 
-    /// The model mask dictionary built during the sum2 phase.
-    mask_dict: MaskDict,
+    /// The number of Sum2 messages successfully processed.
+    sum2_count: usize,
 }
 
 #[cfg(test)]
 impl Sum2 {
     pub fn aggregation(&self) -> &Aggregation {
         &self.model_agg
-    }
-
-    pub fn mask_dict(&self) -> &MaskDict {
-        &self.mask_dict
     }
 }
 
@@ -57,8 +49,7 @@ where
 
         info!(
             "{} sum2 messages handled (min {} required)",
-            self.mask_count(),
-            self.shared.state.min_sum_count
+            self.inner.sum2_count, self.shared.state.min_sum_count
         );
         Ok(())
     }
@@ -67,10 +58,7 @@ where
     ///
     /// See the [module level documentation](../index.html) for more details.
     fn next(self) -> Option<StateMachine> {
-        Some(
-            PhaseState::<Unmask>::new(self.shared, self.inner.model_agg, self.inner.mask_dict)
-                .into(),
-        )
+        Some(PhaseState::<Unmask>::new(self.shared, self.inner.model_agg).into())
     }
 }
 
@@ -83,8 +71,7 @@ where
         while !self.has_enough_sum2s() {
             debug!(
                 "{} sum2 messages handled (min {} required)",
-                self.mask_count(),
-                self.shared.state.min_sum_count
+                self.inner.sum2_count, self.shared.state.min_sum_count
             );
             self.process_single().await?;
         }
@@ -106,7 +93,7 @@ impl Handler for PhaseState<Sum2> {
                     self.shared.io.metrics_tx,
                     metrics::message::sum2::increment(self.shared.state.round_id, Self::NAME)
                 );
-                self.handle_sum2(sum2_req)
+                self.handle_sum2(sum2_req).await
             }
             _ => Err(StateMachineError::MessageRejected),
         }
@@ -120,47 +107,38 @@ impl PhaseState<Sum2> {
         Self {
             inner: Sum2 {
                 model_agg,
-                mask_dict: MaskDict::new(),
+                sum2_count: 0,
             },
             shared,
         }
     }
 
-    /// Handles a sum2 request.
-    /// If the handling of the sum2 message fails, an error is returned to the request sender.
-    fn handle_sum2(&mut self, req: Sum2Request) -> Result<(), StateMachineError> {
+    /// Handles a sum2 request by adding a mask to the mask dictionary.
+    ///
+    /// # Errors
+    /// Fails if the sum participant didn't register in the sum phase or it is a repetition.
+    async fn handle_sum2(&mut self, req: Sum2Request) -> Result<(), StateMachineError> {
         let Sum2Request {
             participant_pk,
             model_mask,
         } = req;
-        self.add_mask(&participant_pk, model_mask)
-    }
 
-    /// Adds a mask to the mask dictionary.
-    ///
-    /// # Errors
-    /// Fails if the sum participant didn't register in the sum phase or it is a repetition.
-    fn add_mask(
-        &mut self,
-        _pk: &SumParticipantPublicKey,
-        mask: MaskObject,
-    ) -> Result<(), StateMachineError> {
-        if let Some(count) = self.inner.mask_dict.get_mut(&mask) {
-            *count += 1;
-        } else {
-            self.inner.mask_dict.insert(mask, 1);
-        }
+        self.shared
+            .io
+            .redis
+            .connection()
+            .await
+            .incr_mask_count(&participant_pk, &model_mask)
+            .await?
+            .into_inner()?;
 
+        self.inner.sum2_count += 1;
         Ok(())
     }
 
-    fn mask_count(&self) -> usize {
-        self.inner.mask_dict.values().sum()
-    }
-
-    /// Checks whether enough sum participants submitted their masks to start the idle phase.
+    /// Checks whether enough sum participants submitted their masks to start the unmask phase.
     fn has_enough_sum2s(&self) -> bool {
-        self.mask_count() >= self.shared.state.min_sum_count
+        self.inner.sum2_count >= self.shared.state.min_sum_count
     }
 }
 
@@ -214,10 +192,10 @@ mod test {
         // Create the state machine
         let sum2 = Sum2 {
             model_agg: aggregation,
-            mask_dict: MaskDict::new(),
+            sum2_count: 0,
         };
 
-        let (state_machine, request_tx, events, _) = StateMachineBuilder::new()
+        let (state_machine, request_tx, events, redis) = StateMachineBuilder::new()
             .await
             .with_seed(seed.clone())
             .with_phase(sum2)
@@ -230,6 +208,14 @@ mod test {
             .with_mask_config(utils::mask_settings().into())
             .build();
         assert!(state_machine.is_sum2());
+
+        // Write the sum participant into redis so that the mask lua script does not fail
+        redis
+            .connection()
+            .await
+            .add_sum_participant(&summer.pk, &ephm_pk)
+            .await
+            .unwrap();
 
         // Create a sum2 request.
         let msg = summer
@@ -254,9 +240,10 @@ mod test {
 
         // Check the initial state of the unmask phase.
 
-        assert_eq!(unmask_state.mask_dict().len(), 1);
-        let (mask, count) = unmask_state.mask_dict().iter().next().unwrap().clone();
-        assert_eq!(*count, 1);
+        let mut best_masks = redis.connection().await.get_best_masks().await.unwrap();
+        assert_eq!(best_masks.len(), 1);
+        let (mask, count) = best_masks.pop().unwrap();
+        assert_eq!(count, 1);
 
         let unmasked_model = unmask_state
             .aggregation()

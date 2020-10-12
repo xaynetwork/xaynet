@@ -153,8 +153,10 @@ impl Connection {
 
     /// Stores a new [`SumDict`] entry.
     ///
-    /// Returns [`AddSumParticipant::Ok`] if field is a new or
-    /// [`AddSumParticipant::AlreadyExists`] if field already exists.
+    /// Returns [`Ok(())`] if field is a new or
+    /// [`SumDictAddError::AlreadyExists`] if field already exists.
+    ///
+    /// [`SumDictAddError::AlreadyExists`]: [crate::storage]
     pub async fn add_sum_participant(
         mut self,
         pk: &SumParticipantPublicKey,
@@ -339,13 +341,13 @@ impl Connection {
     }
 
     /// Retrieves the two masks with the highest score.
-    pub async fn get_best_masks(mut self) -> RedisResult<Vec<(MaskObject, usize)>> {
+    pub async fn get_best_masks(mut self) -> RedisResult<Vec<(MaskObject, u64)>> {
         debug!("get best masks");
         // https://redis.io/commands/zrevrangebyscore
         // > Return value:
         //   Array reply: list of elements in the specified range (optionally with their scores,
         //   in case the WITHSCORES option is given).
-        let result: Vec<(MaskObjectRead, usize)> = self
+        let result: Vec<(MaskObjectRead, u64)> = self
             .connection
             .zrevrange_withscores("mask_dict", 0, 1)
             .await?;
@@ -354,6 +356,15 @@ impl Connection {
             .into_iter()
             .map(|(mask, count)| (mask.into(), count))
             .collect())
+    }
+
+    /// Retrieves the number of unique masks.
+    pub async fn get_number_of_unique_masks(mut self) -> RedisResult<u64> {
+        debug!("get number of unique masks");
+        // https://redis.io/commands/zcount
+        // > Return value:
+        //   Integer reply: the number of elements in the specified score range.
+        self.connection.zcount("mask_dict", "-inf", "+inf").await
     }
 
     /// Deletes all data in the current database.
@@ -492,14 +503,7 @@ mod tests {
         state_machine::tests::utils::{mask_settings, model_settings, pet_settings},
         storage::{
             impls::{MaskDictIncrError, SeedDictUpdateError, SumDictAddError, SumDictDeleteError},
-            tests::{
-                create_and_write_sum_participant_entries,
-                create_local_seed_entries,
-                create_mask,
-                create_seed_dict,
-                create_sum_participant_entry,
-                write_local_seed_entries,
-            },
+            tests::*,
         },
     };
     use serial_test::serial;
@@ -549,7 +553,7 @@ mod tests {
         assert!(should_be_empty.is_empty());
 
         let sum_pks = create_and_write_sum_participant_entries(&client, 3).await;
-        let mask = create_mask(10);
+        let mask = create_mask_zeroed(10);
         for sum_pk in sum_pks {
             let res = client
                 .connection()
@@ -577,7 +581,7 @@ mod tests {
         assert!(should_be_empty.is_empty());
 
         let (sum_pk, _) = create_sum_participant_entry();
-        let mask = create_mask(10);
+        let mask = create_mask_zeroed(10);
         let unknown_sum_pk = client
             .connection()
             .await
@@ -602,7 +606,7 @@ mod tests {
 
         let mut sum_pks = create_and_write_sum_participant_entries(&client, 1).await;
         let sum_pk = sum_pks.pop().unwrap();
-        let mask = create_mask(10);
+        let mask = create_mask_zeroed(10);
         let result = client
             .connection()
             .await
@@ -634,7 +638,7 @@ mod tests {
         assert!(should_be_empty.is_empty());
 
         let sum_pks = create_and_write_sum_participant_entries(&client, 1).await;
-        let mask = create_mask(10);
+        let mask = create_mask_zeroed(10);
         let res = client
             .connection()
             .await
@@ -661,7 +665,7 @@ mod tests {
         assert!(should_be_empty.is_empty());
 
         let sum_pks = create_and_write_sum_participant_entries(&client, 2).await;
-        let mask_1 = create_mask(10);
+        let mask_1 = create_mask_zeroed(10);
         for sum_pk in sum_pks {
             let res = client
                 .connection()
@@ -672,7 +676,7 @@ mod tests {
         }
 
         let sum_pks = create_and_write_sum_participant_entries(&client, 1).await;
-        let mask_2 = create_mask(100);
+        let mask_2 = create_mask_zeroed(100);
         for sum_pk in sum_pks {
             let res = client
                 .connection()
@@ -706,6 +710,50 @@ mod tests {
 
     #[tokio::test]
     #[serial]
+    async fn integration_get_number_of_unique_masks_empty() {
+        // ensure that get_best_masks returns an empty vec if no mask exist
+        let client = init_client().await;
+
+        let number_of_unique_masks = client
+            .connection()
+            .await
+            .get_number_of_unique_masks()
+            .await
+            .unwrap();
+        assert_eq!(number_of_unique_masks, 0)
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn integration_get_number_of_unique_masks() {
+        // ensure that get_best_masks returns an empty vec if no mask exist
+        let client = init_client().await;
+
+        let should_be_empty = client.connection().await.get_best_masks().await.unwrap();
+        assert!(should_be_empty.is_empty());
+
+        let sum_pks = create_and_write_sum_participant_entries(&client, 4).await;
+        for (number, sum_pk) in sum_pks.iter().enumerate() {
+            let mask_1 = create_mask(10, number as u32);
+            let res = client
+                .connection()
+                .await
+                .incr_mask_count(&sum_pk, &mask_1)
+                .await;
+            assert!(res.is_ok())
+        }
+
+        let number_of_unique_masks = client
+            .connection()
+            .await
+            .get_number_of_unique_masks()
+            .await
+            .unwrap();
+        assert_eq!(number_of_unique_masks, 4)
+    }
+
+    #[tokio::test]
+    #[serial]
     async fn integration_sum_dict() {
         // test multiple sum dict related methods
         let client = init_client().await;
@@ -725,7 +773,7 @@ mod tests {
             entries.push((pk, epk));
         }
 
-        // ensure that add_sum_participant returns AddSumParticipant::AlreadyExists if the key already exist
+        // ensure that add_sum_participant returns SumDictAddError::AlreadyExists if the key already exist
         let (pk, epk) = entries.get(0).unwrap();
         let key_already_exist = client
             .connection()
@@ -947,7 +995,7 @@ mod tests {
         let update_result = write_local_seed_entries(&client, &local_seed_dicts).await;
         update_result.iter().for_each(|res| assert!(res.is_ok()));
 
-        let mask = create_mask(10);
+        let mask = create_mask_zeroed(10);
         client
             .connection()
             .await

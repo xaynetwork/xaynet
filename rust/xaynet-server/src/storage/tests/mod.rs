@@ -41,7 +41,7 @@ pub fn create_local_seed_entries(
     entries
 }
 
-pub fn create_mask(byte_size: usize) -> MaskObject {
+pub fn create_mask_zeroed(byte_size: usize) -> MaskObject {
     let config = MaskConfig {
         group_type: GroupType::Prime,
         data_type: DataType::F32,
@@ -52,6 +52,23 @@ pub fn create_mask(byte_size: usize) -> MaskObject {
     MaskObject::new_checked(
         config.clone(),
         vec![BigUint::zero(); byte_size],
+        config,
+        BigUint::zero(),
+    )
+    .unwrap()
+}
+
+pub fn create_mask(byte_size: usize, number: u32) -> MaskObject {
+    let config = MaskConfig {
+        group_type: GroupType::Prime,
+        data_type: DataType::F32,
+        bound_type: BoundType::B0,
+        model_type: ModelType::M3,
+    };
+
+    MaskObject::new_checked(
+        config.clone(),
+        vec![BigUint::from(number); byte_size],
         config,
         BigUint::zero(),
     )

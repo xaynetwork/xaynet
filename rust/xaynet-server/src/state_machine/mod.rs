@@ -117,7 +117,7 @@ use self::{
 };
 use crate::{
     settings::{MaskSettings, ModelSettings, PetSettings},
-    storage::{redis, RedisError, SeedDictUpdateError, SumDictAddError},
+    storage::{redis, MaskDictIncrError, RedisError, SeedDictUpdateError, SumDictAddError},
 };
 use derive_more::From;
 use thiserror::Error;
@@ -149,6 +149,9 @@ pub enum StateMachineError {
 
     #[error("{0}")]
     SumDictAdd(#[from] SumDictAddError),
+
+    #[error("{0}")]
+    MaskDictIncr(#[from] MaskDictIncrError),
 }
 
 pub type StateMachineResult = Result<(), StateMachineError>;

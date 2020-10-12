@@ -22,10 +22,11 @@ use tokio::time::{timeout, Duration};
 /// Update state
 #[derive(Debug)]
 pub struct Update {
-    update_count: usize,
-
     /// The aggregator for masked models.
     model_agg: Aggregation,
+
+    /// The number of Update messages successfully processed.
+    update_count: usize,
 }
 
 #[cfg(test)]
@@ -330,7 +331,8 @@ mod test {
             <Aggregation as Into<MaskObject>>::into(sum2_state.aggregation().clone().into()),
             masked_model
         );
-        assert!(sum2_state.mask_dict().is_empty());
+        let best_masks = redis.connection().await.get_best_masks().await.unwrap();
+        assert!(best_masks.is_empty());
 
         // Check all the events that should be emitted during the update
         // phase
