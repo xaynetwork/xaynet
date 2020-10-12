@@ -11,7 +11,7 @@ use anyhow::{anyhow, Context};
 use crate::{
     crypto::ByteObject,
     mask::object::{
-        serialization::{MaskObjectBuffer, MaskVectBuffer},
+        serialization::{vect::MaskVectBuffer, MaskObjectBuffer},
         MaskObject,
     },
     message::{
