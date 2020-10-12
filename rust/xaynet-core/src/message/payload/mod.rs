@@ -33,35 +33,19 @@ pub enum Payload {
 
 impl Payload {
     pub fn is_sum(&self) -> bool {
-        if let Self::Sum(_) = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, Self::Sum(_))
     }
 
     pub fn is_update(&self) -> bool {
-        if let Self::Update(_) = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, Self::Update(_))
     }
 
     pub fn is_sum2(&self) -> bool {
-        if let Self::Sum2(_) = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, Self::Sum2(_))
     }
 
     pub fn is_chunk(&self) -> bool {
-        if let Self::Chunk(_) = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, Self::Chunk(_))
     }
 }
 
