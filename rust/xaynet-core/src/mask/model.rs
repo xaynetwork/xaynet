@@ -132,7 +132,7 @@ pub trait FromPrimitives<P: Debug>: Sized {
 impl IntoPrimitives<i32> for Model {
     fn into_primitives(self) -> Box<dyn Iterator<Item = Result<i32, ModelCastError>>> {
         Box::new(self.0.into_iter().map(|i| {
-            i.to_integer().to_i32().ok_or_else(|| ModelCastError {
+            i.to_integer().to_i32().ok_or(ModelCastError {
                 weight: i,
                 target: PrimitiveType::I32,
             })
@@ -142,7 +142,7 @@ impl IntoPrimitives<i32> for Model {
     fn to_primitives(&self) -> Box<dyn Iterator<Item = Result<i32, ModelCastError>>> {
         let vec = self.0.clone();
         Box::new(vec.into_iter().map(|i| {
-            i.to_integer().to_i32().ok_or_else(|| ModelCastError {
+            i.to_integer().to_i32().ok_or(ModelCastError {
                 weight: i,
                 target: PrimitiveType::I32,
             })
@@ -163,7 +163,7 @@ impl FromPrimitives<i32> for Model {
 impl IntoPrimitives<i64> for Model {
     fn into_primitives(self) -> Box<dyn Iterator<Item = Result<i64, ModelCastError>>> {
         Box::new(self.0.into_iter().map(|i| {
-            i.to_integer().to_i64().ok_or_else(|| ModelCastError {
+            i.to_integer().to_i64().ok_or(ModelCastError {
                 weight: i,
                 target: PrimitiveType::I64,
             })
@@ -173,7 +173,7 @@ impl IntoPrimitives<i64> for Model {
     fn to_primitives(&self) -> Box<dyn Iterator<Item = Result<i64, ModelCastError>>> {
         let vec = self.0.clone();
         Box::new(vec.into_iter().map(|i| {
-            i.to_integer().to_i64().ok_or_else(|| ModelCastError {
+            i.to_integer().to_i64().ok_or(ModelCastError {
                 weight: i,
                 target: PrimitiveType::I64,
             })
@@ -194,7 +194,7 @@ impl FromPrimitives<i64> for Model {
 impl IntoPrimitives<f32> for Model {
     fn into_primitives(self) -> Box<dyn Iterator<Item = Result<f32, ModelCastError>>> {
         let iter = self.0.into_iter().map(|r| {
-            ratio_to_float::<f32>(&r).ok_or_else(|| ModelCastError {
+            ratio_to_float::<f32>(&r).ok_or(ModelCastError {
                 weight: r,
                 target: PrimitiveType::F32,
             })
@@ -205,7 +205,7 @@ impl IntoPrimitives<f32> for Model {
     fn to_primitives(&self) -> Box<dyn Iterator<Item = Result<f32, ModelCastError>>> {
         let vec = self.0.clone();
         let iter = vec.into_iter().map(|r| {
-            ratio_to_float::<f32>(&r).ok_or_else(|| ModelCastError {
+            ratio_to_float::<f32>(&r).ok_or(ModelCastError {
                 weight: r,
                 target: PrimitiveType::F32,
             })
@@ -216,7 +216,7 @@ impl IntoPrimitives<f32> for Model {
 
 impl FromPrimitives<f32> for Model {
     fn from_primitives<I: Iterator<Item = f32>>(iter: I) -> Result<Self, PrimitiveCastError<f32>> {
-        iter.map(|f| Ratio::from_float(f).ok_or_else(|| PrimitiveCastError(f)))
+        iter.map(|f| Ratio::from_float(f).ok_or(PrimitiveCastError(f)))
             .collect()
     }
 
@@ -228,7 +228,7 @@ impl FromPrimitives<f32> for Model {
 impl IntoPrimitives<f64> for Model {
     fn into_primitives(self) -> Box<dyn Iterator<Item = Result<f64, ModelCastError>>> {
         let iter = self.0.into_iter().map(|r| {
-            ratio_to_float::<f64>(&r).ok_or_else(|| ModelCastError {
+            ratio_to_float::<f64>(&r).ok_or(ModelCastError {
                 weight: r,
                 target: PrimitiveType::F64,
             })
@@ -239,7 +239,7 @@ impl IntoPrimitives<f64> for Model {
     fn to_primitives(&self) -> Box<dyn Iterator<Item = Result<f64, ModelCastError>>> {
         let vec = self.0.clone();
         let iter = vec.into_iter().map(|r| {
-            ratio_to_float::<f64>(&r).ok_or_else(|| ModelCastError {
+            ratio_to_float::<f64>(&r).ok_or(ModelCastError {
                 weight: r,
                 target: PrimitiveType::F64,
             })
@@ -250,7 +250,7 @@ impl IntoPrimitives<f64> for Model {
 
 impl FromPrimitives<f64> for Model {
     fn from_primitives<I: Iterator<Item = f64>>(iter: I) -> Result<Self, PrimitiveCastError<f64>> {
-        iter.map(|f| Ratio::from_float(f).ok_or_else(|| PrimitiveCastError(f)))
+        iter.map(|f| Ratio::from_float(f).ok_or(PrimitiveCastError(f)))
             .collect()
     }
 
