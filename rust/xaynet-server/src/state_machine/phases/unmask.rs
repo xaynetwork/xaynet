@@ -34,17 +34,20 @@ impl Phase for PhaseState<Unmask> {
     async fn run(&mut self) -> Result<(), StateError> {
         #[cfg(feature = "metrics")]
         {
-            let redis = &mut self.shared.io.redis;
-            let metrics_tx = &mut self.shared.io.metrics_tx;
+            let redis = self.shared.io.redis.clone();
+            let mut metrics_tx = self.shared.io.metrics_tx.clone();
+            let (round_id, phase_name) = (self.shared.state.round_id, Self::NAME);
 
-            match redis.connection().await.get_number_of_unique_masks().await {
-                Ok(number_of_masks) => metrics_tx.send(metrics::masks::total_number::update(
-                    number_of_masks,
-                    self.shared.state.round_id,
-                    Self::NAME,
-                )),
-                Err(err) => error!("failed to fetch total number of masks: {}", err),
-            }
+            tokio::spawn(async move {
+                match redis.connection().await.get_number_of_unique_masks().await {
+                    Ok(number_of_masks) => metrics_tx.send(metrics::masks::total_number::update(
+                        number_of_masks,
+                        round_id,
+                        phase_name,
+                    )),
+                    Err(err) => error!("failed to fetch total number of masks: {}", err),
+                };
+            });
         }
 
         let best_masks = self
