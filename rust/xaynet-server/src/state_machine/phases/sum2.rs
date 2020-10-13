@@ -3,8 +3,8 @@ use xaynet_core::mask::Aggregation;
 use crate::state_machine::{
     phases::{Handler, Phase, PhaseName, PhaseState, Shared, StateError, Unmask},
     requests::{StateMachineRequest, Sum2Request},
+    RequestError,
     StateMachine,
-    StateMachineError,
 };
 
 #[cfg(feature = "metrics")]
@@ -85,8 +85,8 @@ impl Handler for PhaseState<Sum2> {
     ///
     /// If the request is a [`StateMachineRequest::Sum`] or
     /// [`StateMachineRequest::Update`] request, the request sender
-    /// will receive a [`StateMachineError::MessageRejected`].
-    async fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), StateMachineError> {
+    /// will receive a [`RequestError::MessageRejected`].
+    async fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), RequestError> {
         match req {
             StateMachineRequest::Sum2(sum2_req) => {
                 metrics!(
@@ -95,7 +95,7 @@ impl Handler for PhaseState<Sum2> {
                 );
                 self.handle_sum2(sum2_req).await
             }
-            _ => Err(StateMachineError::MessageRejected),
+            _ => Err(RequestError::MessageRejected),
         }
     }
 }
@@ -117,7 +117,7 @@ impl PhaseState<Sum2> {
     ///
     /// # Errors
     /// Fails if the sum participant didn't register in the sum phase or it is a repetition.
-    async fn handle_sum2(&mut self, req: Sum2Request) -> Result<(), StateMachineError> {
+    async fn handle_sum2(&mut self, req: Sum2Request) -> Result<(), RequestError> {
         let Sum2Request {
             participant_pk,
             model_mask,

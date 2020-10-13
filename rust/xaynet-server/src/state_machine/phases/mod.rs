@@ -23,8 +23,8 @@ use crate::{
         coordinator::CoordinatorState,
         events::EventPublisher,
         requests::{RequestReceiver, ResponseSender, StateMachineRequest},
+        RequestError,
         StateMachine,
-        StateMachineError,
     },
     storage::redis,
 };
@@ -65,7 +65,7 @@ pub trait Phase {
 #[async_trait]
 pub trait Handler {
     /// Handles a request.
-    async fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), StateMachineError>;
+    async fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), RequestError>;
 }
 
 /// I/O interfaces.
@@ -235,7 +235,7 @@ where
                 Some((_req, span, resp_tx)) => {
                     let _span_guard = span.enter();
                     info!("rejecting request");
-                    let _ = resp_tx.send(Err(StateMachineError::MessageRejected));
+                    let _ = resp_tx.send(Err(RequestError::MessageRejected));
 
                     metrics!(
                         self.shared.io.metrics_tx,

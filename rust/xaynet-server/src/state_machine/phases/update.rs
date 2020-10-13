@@ -10,8 +10,8 @@ use crate::state_machine::{
     events::{DictionaryUpdate, MaskLengthUpdate},
     phases::{Handler, Phase, PhaseName, PhaseState, Shared, StateError, Sum2},
     requests::{StateMachineRequest, UpdateRequest},
+    RequestError,
     StateMachine,
-    StateMachineError,
 };
 
 #[cfg(feature = "metrics")]
@@ -116,8 +116,8 @@ impl Handler for PhaseState<Update> {
     ///
     /// If the request is a [`StateMachineRequest::Sum`] or
     /// [`StateMachineRequest::Sum2`] request, the request sender will
-    /// receive a [`StateMachineError::MessageRejected`].
-    async fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), StateMachineError> {
+    /// receive a [`RequestError::MessageRejected`].
+    async fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), RequestError> {
         match req {
             StateMachineRequest::Update(update_req) => {
                 metrics!(
@@ -126,7 +126,7 @@ impl Handler for PhaseState<Update> {
                 );
                 self.handle_update(update_req).await
             }
-            _ => Err(StateMachineError::MessageRejected),
+            _ => Err(RequestError::MessageRejected),
         }
     }
 }
@@ -151,7 +151,7 @@ impl PhaseState<Update> {
 
     /// Handles an update request.
     /// If the handling of the update message fails, an error is returned to the request sender.
-    async fn handle_update(&mut self, req: UpdateRequest) -> Result<(), StateMachineError> {
+    async fn handle_update(&mut self, req: UpdateRequest) -> Result<(), RequestError> {
         let UpdateRequest {
             participant_pk,
             local_seed_dict,
@@ -167,7 +167,7 @@ impl PhaseState<Update> {
         pk: &UpdateParticipantPublicKey,
         local_seed_dict: &LocalSeedDict,
         mask_object: MaskObject,
-    ) -> Result<(), StateMachineError> {
+    ) -> Result<(), RequestError> {
         // Check if aggregation can be performed. It is important to
         // do that _before_ updating the seed dictionary, because we
         // don't want to add the local seed dict if the corresponding
@@ -178,7 +178,7 @@ impl PhaseState<Update> {
             .validate_aggregation(&mask_object)
             .map_err(|e| {
                 warn!("model aggregation error: {}", e);
-                StateMachineError::AggregationFailed
+                RequestError::AggregationFailed
             })?;
 
         // Try to update local seed dict first. If this fail, we do
@@ -204,7 +204,7 @@ impl PhaseState<Update> {
         &mut self,
         pk: &UpdateParticipantPublicKey,
         local_seed_dict: &LocalSeedDict,
-    ) -> Result<(), StateMachineError> {
+    ) -> Result<(), RequestError> {
         self.shared
             .io
             .redis

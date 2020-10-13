@@ -128,7 +128,7 @@ use crate::metrics::MetricsSender;
 
 /// Error returned when the state machine fails to handle a request
 #[derive(Debug, Error)]
-pub enum StateMachineError {
+pub enum RequestError {
     #[error("the message was rejected")]
     MessageRejected,
 
@@ -154,7 +154,7 @@ pub enum StateMachineError {
     MaskDictIncr(#[from] MaskDictIncrError),
 }
 
-pub type StateMachineResult = Result<(), StateMachineError>;
+pub type StateMachineResult = Result<(), RequestError>;
 
 /// Error that occurs when unmasking of the global model fails.
 #[derive(Error, Debug, Eq, PartialEq)]

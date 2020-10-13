@@ -4,8 +4,8 @@ use crate::state_machine::{
     events::DictionaryUpdate,
     phases::{Handler, Phase, PhaseName, PhaseState, Shared, StateError, Update},
     requests::{StateMachineRequest, SumRequest},
+    RequestError,
     StateMachine,
-    StateMachineError,
 };
 
 #[cfg(feature = "metrics")]
@@ -26,8 +26,8 @@ impl Handler for PhaseState<Sum> {
     ///
     /// If the request is a [`StateMachineRequest::Update`] or
     /// [`StateMachineRequest::Sum2`] request, the request sender will receive a
-    /// [`StateMachineError::MessageRejected`].
-    async fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), StateMachineError> {
+    /// [`RequestError::MessageRejected`].
+    async fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), RequestError> {
         match req {
             StateMachineRequest::Sum(sum_req) => {
                 metrics!(
@@ -36,7 +36,7 @@ impl Handler for PhaseState<Sum> {
                 );
                 self.handle_sum(sum_req).await
             }
-            _ => Err(StateMachineError::MessageRejected),
+            _ => Err(RequestError::MessageRejected),
         }
     }
 }
@@ -117,7 +117,7 @@ impl PhaseState<Sum> {
     ///
     /// # Error
     /// Fails if the sum participant cannot be added due to a Redis error.
-    async fn handle_sum(&mut self, req: SumRequest) -> Result<(), StateMachineError> {
+    async fn handle_sum(&mut self, req: SumRequest) -> Result<(), RequestError> {
         let SumRequest {
             participant_pk,
             ephm_pk,

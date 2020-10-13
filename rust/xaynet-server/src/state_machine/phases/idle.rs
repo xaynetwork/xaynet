@@ -7,9 +7,9 @@ use crate::state_machine::{
     events::{DictionaryUpdate, MaskLengthUpdate},
     phases::{Handler, Phase, PhaseName, PhaseState, Shared, Sum},
     requests::StateMachineRequest,
+    RequestError,
     StateError,
     StateMachine,
-    StateMachineError,
 };
 
 #[cfg(feature = "metrics")]
@@ -23,9 +23,9 @@ pub struct Idle;
 
 #[async_trait]
 impl Handler for PhaseState<Idle> {
-    /// Reject the request with a [`StateMachineError::MessageRejected`]
-    async fn handle_request(&mut self, _req: StateMachineRequest) -> Result<(), StateMachineError> {
-        Err(StateMachineError::MessageRejected)
+    /// Reject the request with a [`RequestError::MessageRejected`]
+    async fn handle_request(&mut self, _req: StateMachineRequest) -> Result<(), RequestError> {
+        Err(RequestError::MessageRejected)
     }
 }
 
