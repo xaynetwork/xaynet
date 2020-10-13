@@ -26,7 +26,7 @@ pub struct Update {
     model_agg: Aggregation,
 
     /// The number of Update messages successfully processed.
-    update_count: usize,
+    update_count: u64,
 }
 
 #[cfg(test)]

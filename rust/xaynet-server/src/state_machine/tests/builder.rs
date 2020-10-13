@@ -101,7 +101,7 @@ where
         self
     }
 
-    pub fn with_min_sum(mut self, min_sum: usize) -> Self {
+    pub fn with_min_sum(mut self, min_sum: u64) -> Self {
         self.shared.state.min_sum_count = min_sum;
         self
     }
@@ -111,7 +111,7 @@ where
         self
     }
 
-    pub fn with_min_update(mut self, min_update: usize) -> Self {
+    pub fn with_min_update(mut self, min_update: u64) -> Self {
         self.shared.state.min_update_count = min_update;
         self
     }

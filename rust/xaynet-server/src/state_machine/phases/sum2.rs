@@ -19,7 +19,7 @@ pub struct Sum2 {
     model_agg: Aggregation,
 
     /// The number of Sum2 messages successfully processed.
-    sum2_count: usize,
+    sum2_count: u64,
 }
 
 #[cfg(test)]

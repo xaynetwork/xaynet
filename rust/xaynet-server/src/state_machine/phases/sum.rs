@@ -17,7 +17,7 @@ use tokio::time::{timeout, Duration};
 #[derive(Debug)]
 pub struct Sum {
     /// The number of Sum messages successfully processed.
-    sum_count: usize,
+    sum_count: u64,
 }
 
 #[async_trait]

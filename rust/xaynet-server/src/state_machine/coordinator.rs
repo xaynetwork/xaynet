@@ -19,9 +19,9 @@ pub struct CoordinatorState {
     /// The round parameters.
     pub round_params: RoundParameters,
     /// The minimum of required sum/sum2 messages.
-    pub min_sum_count: usize,
+    pub min_sum_count: u64,
     /// The minimum of required update messages.
-    pub min_update_count: usize,
+    pub min_update_count: u64,
     /// The minimum time (in seconds) reserved for processing sum/sum2 messages.
     pub min_sum_time: u64,
     /// The minimum time (in seconds) reserved for processing update messages.
