@@ -138,10 +138,10 @@ jobs:
         working-directory: ./rust/xaynet-core
         run: cargo bench
 
-      - uses: actions/upload-artifact@v1
+      - uses: actions/upload-artifact@v2
         with:
           name: bench_${{ github.sha }}
-          path: ./target/criterion
+          path: ./rust/xaynet-core/target/criterion
 
 
   docs:
