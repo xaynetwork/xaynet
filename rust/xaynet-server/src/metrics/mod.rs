@@ -415,10 +415,12 @@ mod test {
 
     #[test]
     fn test_phase_error() {
-        let query =
-            phase::error::emit(&StateError::RoundError(UnmaskGlobalModelError::NoMask)).build();
+        let query = phase::error::emit(&PhaseStateError::UnmaskGlobalModel(
+            UnmaskGlobalModelError::NoMask,
+        ))
+        .build();
         assert!(format!("{:?}", query.unwrap()).contains(
-            "event title=\\\"state\\\\ failed:\\\\ round\\\\ error:\\\\ no\\\\ mask\\\\ found\\\""
+            "event title=\\\"unmask\\\\ global\\\\ model\\\\ error:\\\\ no\\\\ mask\\\\ found\\\""
         ));
     }
 
