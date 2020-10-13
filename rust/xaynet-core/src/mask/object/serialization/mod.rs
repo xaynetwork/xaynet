@@ -145,9 +145,9 @@ pub(crate) mod tests {
     use super::*;
     use crate::mask::{
         config::{BoundType, DataType, GroupType, MaskConfig, ModelType},
+        object::serialization::vect::tests::{mask_unit, mask_vect},
         MaskObject,
     };
-    use num::BigUint;
 
     pub fn mask_config() -> (MaskConfig, Vec<u8>) {
         // config.order() = 20_000_000_000_001 with this config, so the data
@@ -160,41 +160,6 @@ pub(crate) mod tests {
         };
         let bytes = vec![0x00, 0x02, 0x00, 0x03];
         (config, bytes)
-    }
-
-    pub fn mask_vect() -> (MaskVect, Vec<u8>) {
-        let (config, mut bytes) = mask_config();
-        let data = vec![
-            BigUint::from(1_u8),
-            BigUint::from(2_u8),
-            BigUint::from(3_u8),
-            BigUint::from(4_u8),
-        ];
-        let mask_vect = MaskVect::new(config, data);
-
-        bytes.extend(vec![
-            // number of elements
-            0x00, 0x00, 0x00, 0x04, // data (1 weight => 6 bytes with this config)
-            0x01, 0x00, 0x00, 0x00, 0x00, 0x00, // 1
-            0x02, 0x00, 0x00, 0x00, 0x00, 0x00, // 2
-            0x03, 0x00, 0x00, 0x00, 0x00, 0x00, // 3
-            0x04, 0x00, 0x00, 0x00, 0x00, 0x00, // 4
-        ]);
-
-        (mask_vect, bytes)
-    }
-
-    pub fn mask_unit() -> (MaskUnit, Vec<u8>) {
-        let (config, mut bytes) = mask_config();
-        let data = BigUint::from(1_u8);
-        let mask_unit = MaskUnit::new(config, data);
-
-        bytes.extend(vec![
-            // number of elements
-            0x00, 0x00, 0x00, 0x01, // data
-            0x01, 0x00, 0x00, 0x00, 0x00, 0x00, // 1
-        ]);
-        (mask_unit, bytes)
     }
 
     pub fn mask_object() -> (MaskObject, Vec<u8>) {
@@ -225,52 +190,6 @@ pub(crate) mod tests {
         let (expected, bytes) = mask_object();
         assert_eq!(
             MaskObject::from_byte_stream(&mut bytes.into_iter()).unwrap(),
-            expected
-        );
-    }
-
-    #[test]
-    fn serialize_mask_vect() {
-        let (mask_vect, expected) = mask_vect();
-        let mut buf = vec![0xff; expected.len()];
-        mask_vect.to_bytes(&mut buf);
-        assert_eq!(buf, expected);
-    }
-
-    #[test]
-    fn deserialize_mask_vect() {
-        let (expected, bytes) = mask_vect();
-        assert_eq!(MaskVect::from_byte_slice(&&bytes[..]).unwrap(), expected);
-    }
-
-    #[test]
-    fn deserialize_mask_vect_from_stream() {
-        let (expected, bytes) = mask_vect();
-        assert_eq!(
-            MaskVect::from_byte_stream(&mut bytes.into_iter()).unwrap(),
-            expected
-        );
-    }
-
-    #[test]
-    fn serialize_mask_unit() {
-        let (mask_unit, expected) = mask_unit();
-        let mut buf = vec![0xff; expected.len()];
-        mask_unit.to_bytes(&mut buf);
-        assert_eq!(buf, expected);
-    }
-
-    #[test]
-    fn deserialize_mask_unit() {
-        let (expected, bytes) = mask_unit();
-        assert_eq!(MaskUnit::from_byte_slice(&&bytes[..]).unwrap(), expected);
-    }
-
-    #[test]
-    fn deserialize_mask_unit_from_stream() {
-        let (expected, bytes) = mask_unit();
-        assert_eq!(
-            MaskUnit::from_byte_stream(&mut bytes.into_iter()).unwrap(),
             expected
         );
     }

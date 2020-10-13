@@ -279,10 +279,9 @@ pub(in crate::message) mod tests_helpers {
     use std::convert::TryFrom;
 
     use super::*;
-    pub(in crate::message) use crate::mask::object::serialization::tests::{
-        mask_object,
-        mask_unit,
-        mask_vect,
+    pub(in crate::message) use crate::mask::object::serialization::{
+        tests::mask_object,
+        vect::tests::{mask_unit, mask_vect},
     };
     use crate::{crypto::ByteObject, mask::seed::EncryptedMaskSeed, SumParticipantPublicKey};
 

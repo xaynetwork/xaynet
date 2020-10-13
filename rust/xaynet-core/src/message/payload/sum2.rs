@@ -199,10 +199,9 @@ impl FromBytes for Sum2 {
 #[cfg(test)]
 pub(in crate::message) mod tests_helpers {
     use super::*;
-    pub(in crate::message) use crate::mask::object::serialization::tests::{
-        mask_object,
-        mask_unit,
-        mask_vect,
+    pub(in crate::message) use crate::mask::object::serialization::{
+        tests::mask_object,
+        vect::tests::{mask_unit, mask_vect},
     };
 
     pub fn signature() -> (ParticipantTaskSignature, Vec<u8>) {
