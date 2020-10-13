@@ -9,12 +9,23 @@ use crate::{
         Sum2,
         Update,
     },
+    utils::multipart::MessageEncoder,
     ClientError,
 };
 use derive_more::From;
-use xaynet_core::{common::RoundParameters, crypto::ByteObject, mask::Model, InitError};
+use xaynet_core::{
+    common::RoundParameters,
+    crypto::ByteObject,
+    mask::Model,
+    message::Payload,
+    InitError,
+};
 
 use crate::PetError;
+
+// TODO: figure out the final size of an encrypted message for a given
+// payload size. This is totally arbitrary atm...
+const MAX_PAYLOAD_SIZE: usize = 1000;
 
 #[async_trait]
 pub trait LocalModel {
@@ -45,6 +56,27 @@ impl<Type> ClientState<Type> {
     fn reset(self) -> ClientState<Awaiting> {
         warn!("reset client");
         ClientState::<Awaiting>::new(self.participant.reset(), self.round_params)
+    }
+
+    async fn send_message<T: ApiClient>(
+        &self,
+        api: &mut T,
+        payload: Payload,
+    ) -> Result<(), ClientError<T::Error>> {
+        // Unwrapping is fine because this only errors out if the
+        // payload is a Chunk, which we never create in the client.
+        let encoder = MessageEncoder::<'_, Type>::new(
+            &self.participant,
+            payload,
+            self.round_params.pk,
+            MAX_PAYLOAD_SIZE,
+        )
+        .unwrap();
+        for part in encoder {
+            let data = self.round_params.pk.encrypt(part.as_slice());
+            api.send_message(data).await?;
+        }
+        Ok(())
     }
 }
 
@@ -119,13 +151,9 @@ impl ClientState<Sum> {
     async fn run<T: ApiClient>(&mut self, api: &mut T) -> Result<(), ClientError<T::Error>> {
         self.check_round_freshness(api).await?;
 
-        let sum_msg = self.participant.compose_sum_message(self.round_params.pk);
-        let sealed_msg = self
-            .participant
-            .seal_message(&self.round_params.pk, &sum_msg);
-
+        let msg = self.participant.compose_sum_message();
         debug!("sending sum message");
-        api.send_message(sealed_msg).await?;
+        self.send_message(api, msg).await?;
         debug!("sum message sent");
         Ok(())
     }
@@ -178,15 +206,9 @@ impl ClientState<Update> {
             .await?
             .ok_or(ClientError::TooEarly("sum dict"))?;
 
-        let upd_msg =
-            self.participant
-                .compose_update_message(self.round_params.pk, &sums, local_model);
-        let sealed_msg = self
-            .participant
-            .seal_message(&self.round_params.pk, &upd_msg);
-
+        let msg = self.participant.compose_update_message(&sums, local_model);
         debug!("sending update message");
-        api.send_message(sealed_msg).await?;
+        self.send_message(api, msg).await?;
         info!("update participant completed a round");
         Ok(())
     }
@@ -230,19 +252,16 @@ impl ClientState<Sum2> {
             .await?
             .ok_or(ClientError::TooEarly("seeds"))?;
 
-        let sum2_msg = self
+        let msg = self
             .participant
-            .compose_sum2_message(self.round_params.pk, &seeds, length as usize)
+            .compose_sum2_message(&seeds, length as usize)
             .map_err(|e| {
                 error!("failed to compose sum2 message with seeds: {:?}", &seeds);
                 ClientError::ParticipantErr(e)
             })?;
-        let sealed_msg = self
-            .participant
-            .seal_message(&self.round_params.pk, &sum2_msg);
 
         debug!("sending sum2 message");
-        api.send_message(sealed_msg).await?;
+        self.send_message(api, msg).await?;
         info!("sum participant completed a round");
         Ok(())
     }
