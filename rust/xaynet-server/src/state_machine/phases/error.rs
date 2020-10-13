@@ -49,9 +49,6 @@ impl Phase for PhaseState<PhaseStateError> {
             metrics::phase::error::emit(&self.inner)
         );
 
-        info!("broadcasting error phase event");
-        self.shared.io.events.broadcast_phase(PhaseName::Error);
-
         if let PhaseStateError::Redis(_) = self.inner {
             // a simple loop that stops as soon as the redis client has reconnected to a redis
             // instance. Reconnecting a lost connection is handled internally by
