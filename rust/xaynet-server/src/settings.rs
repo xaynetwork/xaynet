@@ -791,6 +791,142 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::serial;
+
+    impl Settings {
+        fn load_from_str(string: &str) -> Result<Self, ConfigError> {
+            let mut config = Config::new();
+            config.merge(config::File::from_str(string, config::FileFormat::Toml))?;
+            config.merge(Environment::with_prefix("xaynet").separator("__"))?;
+            config.try_into()
+        }
+    }
+
+    struct ConfigBuilder {
+        config: String,
+    }
+
+    impl ConfigBuilder {
+        fn new() -> Self {
+            Self {
+                config: String::new(),
+            }
+        }
+
+        fn build(self) -> String {
+            self.config
+        }
+
+        fn with_log(mut self) -> Self {
+            let log = r#"
+            [log]
+            filter = "xaynet=debug,http=warn,info"
+            "#;
+
+            self.config.push_str(log);
+            self
+        }
+
+        fn with_api(mut self) -> Self {
+            let api = r#"
+            [api]
+            bind_address = "127.0.0.1:8081"
+            tls_certificate = "/app/ssl/tls.pem"
+            tls_key = "/app/ssl/tls.key"
+            "#;
+
+            self.config.push_str(api);
+            self
+        }
+
+        fn with_pet(mut self) -> Self {
+            let pet = r#"
+            [pet]
+            min_sum_count = 1
+            min_update_count = 3
+            min_sum_time = 5
+            min_update_time = 10
+            max_sum_time = 3600
+            max_update_time = 3600
+            sum = 0.5
+            update = 0.9
+            "#;
+
+            self.config.push_str(pet);
+            self
+        }
+
+        fn with_mask(mut self) -> Self {
+            let mask = r#"
+            [mask]
+            group_type = "Prime"
+            data_type = "F32"
+            bound_type = "B0"
+            model_type = "M3"
+            "#;
+
+            self.config.push_str(mask);
+            self
+        }
+
+        fn with_model(mut self) -> Self {
+            let model = r#"
+            [model]
+            size = 4
+            "#;
+
+            self.config.push_str(model);
+            self
+        }
+
+        fn with_metrics(mut self) -> Self {
+            let metrics = r#"
+            [metrics.influxdb]
+            url = "http://influxdb:8086"
+            db = "metrics"
+            "#;
+
+            self.config.push_str(metrics);
+            self
+        }
+
+        fn with_redis(mut self) -> Self {
+            let redis = r#"
+            [redis]
+            url = "redis://127.0.0.1/"
+            "#;
+
+            self.config.push_str(redis);
+            self
+        }
+
+        fn with_s3(mut self) -> Self {
+            let s3 = r#"
+            [s3]
+            access_key = "minio"
+            secret_access_key = "minio123"
+            region = ["minio", "http://localhost:9000"]
+            "#;
+
+            self.config.push_str(s3);
+            self
+        }
+
+        fn with_s3_buckets(mut self) -> Self {
+            let s3_buckets = r#"
+            [s3.buckets]
+            global_models = "global-models-toml"
+            "#;
+
+            self.config.push_str(s3_buckets);
+            self
+        }
+
+        fn with_custom(mut self, custom_config: &str) -> Self {
+            self.config.push_str(custom_config);
+            self
+        }
+    }
 
     #[cfg(not(feature = "tls"))]
     #[test]
@@ -858,5 +994,181 @@ mod tests {
         assert!(validate_s3_bucket_name("doc_example_bucket").is_err());
         assert!(validate_s3_bucket_name("DocExampleBucket").is_err());
         assert!(validate_s3_bucket_name("doc-example-bucket-").is_err());
+    }
+
+    #[test]
+    #[serial]
+    fn test_s3_bucket_name_default() {
+        let config = ConfigBuilder::new()
+            .with_log()
+            .with_api()
+            .with_pet()
+            .with_mask()
+            .with_model()
+            .with_metrics()
+            .with_redis()
+            .with_s3()
+            .build();
+
+        let settings = Settings::load_from_str(&config).unwrap();
+        assert_eq!(
+            settings.s3.buckets.global_models,
+            S3BucketsSettings::default().global_models
+        )
+    }
+
+    #[test]
+    #[serial]
+    fn test_s3_bucket_name_toml_overrides_default() {
+        let config = ConfigBuilder::new()
+            .with_log()
+            .with_api()
+            .with_pet()
+            .with_mask()
+            .with_model()
+            .with_metrics()
+            .with_redis()
+            .with_s3()
+            .with_s3_buckets()
+            .build();
+
+        let settings = Settings::load_from_str(&config).unwrap();
+        assert_eq!(settings.s3.buckets.global_models, "global-models-toml")
+    }
+
+    #[test]
+    #[serial]
+    fn test_s3_bucket_name_env_overrides_toml_and_default() {
+        let config = ConfigBuilder::new()
+            .with_log()
+            .with_api()
+            .with_pet()
+            .with_mask()
+            .with_model()
+            .with_metrics()
+            .with_redis()
+            .with_s3()
+            .with_s3_buckets()
+            .build();
+
+        std::env::set_var("XAYNET_S3__BUCKETS__GLOBAL_MODELS", "global-models-env");
+        let settings = Settings::load_from_str(&config).unwrap();
+        assert_eq!(settings.s3.buckets.global_models, "global-models-env");
+        std::env::remove_var("XAYNET_S3__BUCKETS__GLOBAL_MODELS");
+    }
+
+    #[test]
+    #[serial]
+    fn test_s3_bucket_name_env_overrides_default() {
+        let config = ConfigBuilder::new()
+            .with_log()
+            .with_api()
+            .with_pet()
+            .with_mask()
+            .with_model()
+            .with_metrics()
+            .with_redis()
+            .with_s3()
+            .build();
+
+        std::env::set_var("XAYNET_S3__BUCKETS__GLOBAL_MODELS", "global-models-env");
+        let settings = Settings::load_from_str(&config).unwrap();
+        assert_eq!(settings.s3.buckets.global_models, "global-models-env");
+        std::env::remove_var("XAYNET_S3__BUCKETS__GLOBAL_MODELS");
+    }
+
+    #[test]
+    #[serial]
+    fn test_s3_region_toml() {
+        let region = r#"
+        [s3]
+        access_key = "minio"
+        secret_access_key = "minio123"
+        region = ["eu-west-1"]
+        "#;
+
+        let config = ConfigBuilder::new()
+            .with_log()
+            .with_api()
+            .with_pet()
+            .with_mask()
+            .with_model()
+            .with_metrics()
+            .with_redis()
+            .with_custom(region)
+            .build();
+
+        let settings = Settings::load_from_str(&config).unwrap();
+        assert!(matches!(settings.s3.region, Region::EuWest1));
+    }
+
+    #[test]
+    #[serial]
+    fn test_s3_custom_region_toml() {
+        let config = ConfigBuilder::new()
+            .with_log()
+            .with_api()
+            .with_pet()
+            .with_mask()
+            .with_model()
+            .with_metrics()
+            .with_redis()
+            .with_s3()
+            .build();
+
+        let settings = Settings::load_from_str(&config).unwrap();
+        assert!(matches!(
+            settings.s3.region,
+            Region::Custom {
+                name,
+                endpoint
+            } if name == "minio" && endpoint == "http://localhost:9000"
+        ));
+    }
+
+    #[test]
+    #[serial]
+    fn test_s3_region_env() {
+        let config = ConfigBuilder::new()
+            .with_log()
+            .with_api()
+            .with_pet()
+            .with_mask()
+            .with_model()
+            .with_metrics()
+            .with_redis()
+            .with_s3()
+            .build();
+
+        std::env::set_var("XAYNET_S3__REGION", "eu-west-1");
+        let settings = Settings::load_from_str(&config).unwrap();
+        assert!(matches!(settings.s3.region, Region::EuWest1));
+        std::env::remove_var("XAYNET_S3__REGION");
+    }
+
+    #[test]
+    #[serial]
+    fn test_s3_custom_region_env() {
+        let config = ConfigBuilder::new()
+            .with_log()
+            .with_api()
+            .with_pet()
+            .with_mask()
+            .with_model()
+            .with_metrics()
+            .with_redis()
+            .with_s3()
+            .build();
+
+        std::env::set_var("XAYNET_S3__REGION", "minio-env http://localhost:8000");
+        let settings = Settings::load_from_str(&config).unwrap();
+        assert!(matches!(
+            settings.s3.region,
+            Region::Custom {
+                name,
+                endpoint
+            } if name == "minio-env" && endpoint == "http://localhost:8000"
+        ));
+        std::env::remove_var("XAYNET_S3__REGION");
     }
 }
