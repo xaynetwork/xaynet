@@ -1,7 +1,9 @@
 use crate::state_machine::coordinator::CoordinatorState;
 use derive_more::{Deref, From, Into};
+use num_enum::TryFromPrimitive;
 use paste::paste;
 use redis::{ErrorKind, FromRedisValue, RedisError, RedisResult, RedisWrite, ToRedisArgs, Value};
+use std::convert::TryFrom;
 use thiserror::Error;
 use xaynet_core::{
     crypto::{ByteObject, PublicEncryptKey, PublicSigningKey},
@@ -15,6 +17,13 @@ fn redis_type_error(desc: &'static str, details: Option<String>) -> RedisError {
     } else {
         RedisError::from((ErrorKind::TypeError, desc))
     }
+}
+
+fn error_code_type_error(response: &Value) -> RedisError {
+    redis_type_error(
+        "Response status not valid integer",
+        Some(format!("Response was {:?}", response)),
+    )
 }
 
 /// Implements ['FromRedisValue'] and ['ToRedisArgs'] for types that implement ['ByteObject'].
@@ -244,35 +253,27 @@ impl FromRedisValue for SeedDictUpdate {
     fn from_redis_value(v: &Value) -> RedisResult<SeedDictUpdate> {
         match *v {
             Value::Int(0) => Ok(SeedDictUpdate(Ok(()))),
-            Value::Int(-1) => Ok(SeedDictUpdate(Err(SeedDictUpdateError::LengthMisMatch))),
-            Value::Int(-2) => Ok(SeedDictUpdate(Err(
-                SeedDictUpdateError::UnknownSumParticipant,
-            ))),
-            Value::Int(-3) => Ok(SeedDictUpdate(Err(
-                SeedDictUpdateError::UpdatePkAlreadySubmitted,
-            ))),
-            Value::Int(-4) => Ok(SeedDictUpdate(Err(
-                SeedDictUpdateError::UpdatePkAlreadyExistsInUpdateSeedDict,
-            ))),
-            _ => Err(redis_type_error(
-                "Response status not valid integer",
-                Some(format!("Response was {:?}", v)),
-            )),
+            Value::Int(error_code) => match SeedDictUpdateError::try_from(error_code) {
+                Ok(error_variant) => Ok(SeedDictUpdate(Err(error_variant))),
+                Err(_) => Err(error_code_type_error(v)),
+            },
+            _ => Err(error_code_type_error(v)),
         }
     }
 }
 
 /// Error that can occur during the update of the `SeedDict`.
-#[derive(Error, Debug)]
+#[derive(Error, Debug, TryFromPrimitive)]
+#[repr(i64)]
 pub enum SeedDictUpdateError {
     #[error("the length of the local seed dict and the length of sum dict are not equal")]
-    LengthMisMatch,
+    LengthMisMatch = -1,
     #[error("local dict contains an unknown sum participant")]
-    UnknownSumParticipant,
+    UnknownSumParticipant = -2,
     #[error("update participant already submitted an update")]
-    UpdatePkAlreadySubmitted,
+    UpdatePkAlreadySubmitted = -3,
     #[error("update participant already exists in the inner update seed dict")]
-    UpdatePkAlreadyExistsInUpdateSeedDict,
+    UpdatePkAlreadyExistsInUpdateSeedDict = -4,
 }
 
 #[derive(Deref)]
