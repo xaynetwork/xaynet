@@ -93,7 +93,7 @@ impl StateMachine {
         }
     }
 
-    pub fn into_error_phase_state(self) -> PhaseState<phases::StateError> {
+    pub fn into_error_phase_state(self) -> PhaseState<phases::PhaseStateError> {
         match self {
             StateMachine::Error(state) => state,
             _ => panic!("not in error state"),

@@ -8,7 +8,7 @@ use xaynet_core::{
 
 use crate::state_machine::{
     events::{DictionaryUpdate, MaskLengthUpdate},
-    phases::{Handler, Phase, PhaseName, PhaseState, Shared, StateError, Sum2},
+    phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Sum2},
     requests::{StateMachineRequest, UpdateRequest},
     RequestError,
     StateMachine,
@@ -46,7 +46,7 @@ where
     /// Moves from the update state to the next state.
     ///
     /// See the [module level documentation](../index.html) for more details.
-    async fn run(&mut self) -> Result<(), StateError> {
+    async fn run(&mut self) -> Result<(), PhaseStateError> {
         let min_time = self.shared.state.min_update_time;
         debug!("in update phase for a minimum of {} seconds", min_time);
         self.process_during(Duration::from_secs(min_time)).await?;
@@ -98,7 +98,7 @@ where
     Self: Handler + Phase,
 {
     /// Processes requests until there are enough.
-    async fn process_until_enough(&mut self) -> Result<(), StateError> {
+    async fn process_until_enough(&mut self) -> Result<(), PhaseStateError> {
         while !self.has_enough_updates() {
             debug!(
                 "{} update messages handled (min {} required)",

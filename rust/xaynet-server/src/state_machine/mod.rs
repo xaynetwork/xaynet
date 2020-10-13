@@ -105,9 +105,9 @@ use self::{
         Phase,
         PhaseName,
         PhaseState,
+        PhaseStateError,
         Shared,
         Shutdown,
-        StateError,
         Sum,
         Sum2,
         Unmask,
@@ -172,7 +172,7 @@ pub enum StateMachine {
     Update(PhaseState<Update>),
     Sum2(PhaseState<Sum2>),
     Unmask(PhaseState<Unmask>),
-    Error(PhaseState<StateError>),
+    Error(PhaseState<PhaseStateError>),
     Shutdown(PhaseState<Shutdown>),
 }
 
@@ -183,7 +183,7 @@ where
     PhaseState<Update>: Phase,
     PhaseState<Sum2>: Phase,
     PhaseState<Unmask>: Phase,
-    PhaseState<StateError>: Phase,
+    PhaseState<PhaseStateError>: Phase,
     PhaseState<Shutdown>: Phase,
 {
     /// Creates a new state machine with the initial state [`Idle`].

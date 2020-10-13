@@ -1,7 +1,7 @@
 use xaynet_core::mask::Aggregation;
 
 use crate::state_machine::{
-    phases::{Handler, Phase, PhaseName, PhaseState, Shared, StateError, Unmask},
+    phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Unmask},
     requests::{StateMachineRequest, Sum2Request},
     RequestError,
     StateMachine,
@@ -39,7 +39,7 @@ where
     /// Run the sum2 phase
     ///
     /// See the [module level documentation](../index.html) for more details.
-    async fn run(&mut self) -> Result<(), StateError> {
+    async fn run(&mut self) -> Result<(), PhaseStateError> {
         let min_time = self.shared.state.min_sum_time;
         debug!("in sum2 phase for a minimum of {} seconds", min_time);
         self.process_during(Duration::from_secs(min_time)).await?;
@@ -67,7 +67,7 @@ where
     Self: Handler + Phase,
 {
     /// Processes requests until there are enough.
-    async fn process_until_enough(&mut self) -> Result<(), StateError> {
+    async fn process_until_enough(&mut self) -> Result<(), PhaseStateError> {
         while !self.has_enough_sum2s() {
             debug!(
                 "{} sum2 messages handled (min {} required)",

@@ -7,8 +7,8 @@ use crate::state_machine::{
     events::{DictionaryUpdate, MaskLengthUpdate},
     phases::{Handler, Phase, PhaseName, PhaseState, Shared, Sum},
     requests::StateMachineRequest,
+    PhaseStateError,
     RequestError,
-    StateError,
     StateMachine,
 };
 
@@ -36,7 +36,7 @@ impl Phase for PhaseState<Idle> {
     /// Moves from the idle state to the next state.
     ///
     /// See the [module level documentation](../index.html) for more details.
-    async fn run(&mut self) -> Result<(), StateError> {
+    async fn run(&mut self) -> Result<(), PhaseStateError> {
         info!("updating the keys");
         self.gen_round_keypair();
 

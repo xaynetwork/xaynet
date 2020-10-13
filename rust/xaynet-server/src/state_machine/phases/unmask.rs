@@ -4,7 +4,7 @@ use xaynet_core::mask::{Aggregation, MaskObject, Model};
 
 use crate::state_machine::{
     events::ModelUpdate,
-    phases::{Idle, Phase, PhaseName, PhaseState, Shared, StateError},
+    phases::{Idle, Phase, PhaseName, PhaseState, PhaseStateError, Shared},
     RoundFailed,
     StateMachine,
 };
@@ -31,7 +31,7 @@ impl Phase for PhaseState<Unmask> {
     const NAME: PhaseName = PhaseName::Unmask;
 
     /// Run the unmasking phase
-    async fn run(&mut self) -> Result<(), StateError> {
+    async fn run(&mut self) -> Result<(), PhaseStateError> {
         #[cfg(feature = "metrics")]
         {
             let redis = self.shared.io.redis.clone();
