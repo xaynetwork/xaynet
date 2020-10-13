@@ -102,15 +102,6 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> Sum2Buffer<T> {
         let offset = self.model_mask_offset();
         &mut self.inner.as_mut()[offset..]
     }
-
-    /// Gets a mutable reference to the scalar mask field.
-    ///
-    /// # Panics
-    /// Accessing the field may panic if the buffer has not been checked before.
-    pub fn scalar_mask_mut(&mut self) -> &mut [u8] {
-        let offset = self.scalar_mask_offset();
-        &mut self.inner.as_mut()[offset..]
-    }
 }
 
 impl<'a, T: AsRef<[u8]> + ?Sized> Sum2Buffer<&'a T> {
@@ -128,15 +119,6 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Sum2Buffer<&'a T> {
     /// Accessing the field may panic if the buffer has not been checked before.
     pub fn model_mask(&self) -> &'a [u8] {
         let offset = self.model_mask_offset();
-        &self.inner.as_ref()[offset..]
-    }
-
-    /// Gets a reference to the scalar mask field.
-    ///
-    /// # Panics
-    /// Accessing the field may panic if the buffer has not been checked before.
-    pub fn scalar_mask(&self) -> &'a [u8] {
-        let offset = self.scalar_mask_offset();
         &self.inner.as_ref()[offset..]
     }
 }
@@ -192,10 +174,7 @@ impl FromBytes for Sum2 {
 #[cfg(test)]
 pub(in crate::message) mod tests_helpers {
     use super::*;
-    pub(in crate::message) use crate::mask::object::serialization::{
-        tests::mask_object,
-        vect::tests::{mask_unit, mask_vect},
-    };
+    pub(in crate::message) use crate::mask::object::serialization::tests::mask_object;
 
     pub fn signature() -> (ParticipantTaskSignature, Vec<u8>) {
         let bytes = vec![0x99; ParticipantTaskSignature::LENGTH];
@@ -227,12 +206,10 @@ pub(in crate::message) mod tests {
         let buffer = Sum2Buffer::new(&bytes).unwrap();
         assert_eq!(buffer.sum_signature(), &helpers::signature().1[..]);
 
-        let expected_model_mask = helpers::mask_vect().1;
-        let expected_len = expected_model_mask.len();
-        let actual_model_mask = &buffer.model_mask()[..expected_len];
-        assert_eq!(actual_model_mask, expected_model_mask);
-
-        assert_eq!(buffer.scalar_mask(), &helpers::mask_unit().1[..]);
+        let expected_mask = helpers::mask_object().1;
+        let expected_length = expected_mask.len();
+        let actual_mask = &buffer.model_mask()[..expected_length];
+        assert_eq!(actual_mask, expected_mask);
     }
 
     #[test]
@@ -243,11 +220,8 @@ pub(in crate::message) mod tests {
             buffer
                 .sum_signature_mut()
                 .copy_from_slice(&helpers::signature().1[..]);
-            let model_mask = helpers::mask_vect().1;
-            buffer.model_mask_mut()[..model_mask.len()].copy_from_slice(&model_mask[..]);
-            buffer
-                .scalar_mask_mut()
-                .copy_from_slice(&helpers::mask_unit().1[..]);
+            let mask = helpers::mask_object().1;
+            buffer.model_mask_mut()[..mask.len()].copy_from_slice(&mask[..]);
         }
         assert_eq!(&bytes[..], &helpers::sum2().1[..]);
     }
