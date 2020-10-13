@@ -64,7 +64,7 @@ impl<Type> ClientState<Type> {
         payload: Payload,
     ) -> Result<(), ClientError<T::Error>> {
         // Unwrapping is fine because this only errors out if the
-        // payload if a Chunk, which we never create in the client.
+        // payload is a Chunk, which we never create in the client.
         let encoder = MessageEncoder::<'_, Type>::new(
             &self.participant,
             payload,
