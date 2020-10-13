@@ -134,6 +134,16 @@ jobs:
         working-directory: ./docker
         run: docker-compose down
 
+      - name: bench
+        working-directory: ./rust/xaynet-core
+        run: cargo bench
+
+      - uses: actions/upload-artifact@v1
+        with:
+          name: bench_${{ github.sha }}
+          path: ./target/criterion
+
+
   docs:
     name: cargo-doc
     timeout-minutes: 20
