@@ -223,8 +223,7 @@ pub struct Update {
 impl ToBytes for Update {
     fn buffer_length(&self) -> usize {
         UPDATE_SIGNATURE_RANGE.end
-            + self.masked_model.vect.buffer_length()
-            + self.masked_model.unit.buffer_length()
+            + self.masked_model.buffer_length()
             + self.local_seed_dict.buffer_length()
     }
 
@@ -233,12 +232,7 @@ impl ToBytes for Update {
         self.sum_signature.to_bytes(&mut writer.sum_signature_mut());
         self.update_signature
             .to_bytes(&mut writer.update_signature_mut());
-        self.masked_model
-            .vect
-            .to_bytes(&mut writer.masked_model_mut());
-        self.masked_model
-            .unit
-            .to_bytes(&mut writer.masked_scalar_mut());
+        self.masked_model.to_bytes(&mut writer.masked_model_mut());
         self.local_seed_dict
             .to_bytes(&mut writer.local_seed_dict_mut());
     }

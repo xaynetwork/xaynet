@@ -10,7 +10,7 @@ use anyhow::{anyhow, Context};
 
 use crate::{
     crypto::ByteObject,
-    mask::object::{serialization::vect::MaskVectBuffer, MaskObject, MaskUnit, MaskVect},
+    mask::object::{serialization::vect::MaskVectBuffer, MaskObject},
     message::{
         traits::{FromBytes, ToBytes},
         utils::range,
@@ -65,7 +65,7 @@ impl<T: AsRef<[u8]>> Sum2Buffer<T> {
         let _ = MaskVectBuffer::new(&self.inner.as_ref()[self.model_mask_offset()..])
             .context("invalid model mask field")?;
 
-        // Check the length of the scalar mask field
+        // Check the length of the scalar mask field (TODO MaskUnitBuffer)
         let _ = MaskVectBuffer::new(&self.inner.as_ref()[self.scalar_mask_offset()..])
             .context("invalid scalar mask field")?;
 
@@ -155,33 +155,26 @@ pub struct Sum2 {
     pub model_mask: MaskObject,
 }
 
-// TODO ToBytes impl for MaskObject
 impl ToBytes for Sum2 {
     fn buffer_length(&self) -> usize {
-        SUM_SIGNATURE_RANGE.end
-            + self.model_mask.vect.buffer_length()
-            + self.model_mask.unit.buffer_length()
+        SUM_SIGNATURE_RANGE.end + self.model_mask.buffer_length()
     }
 
     fn to_bytes<T: AsMut<[u8]> + AsRef<[u8]>>(&self, buffer: &mut T) {
         let mut writer = Sum2Buffer::new_unchecked(buffer.as_mut());
         self.sum_signature.to_bytes(&mut writer.sum_signature_mut());
-        self.model_mask.vect.to_bytes(&mut writer.model_mask_mut());
-        self.model_mask.unit.to_bytes(&mut writer.scalar_mask_mut());
+        self.model_mask.to_bytes(&mut writer.model_mask_mut());
     }
 }
 
-// TODO FromBytes impl for MaskObject
 impl FromBytes for Sum2 {
     fn from_byte_slice<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
         let reader = Sum2Buffer::new(buffer.as_ref())?;
         Ok(Self {
             sum_signature: ParticipantTaskSignature::from_byte_slice(&reader.sum_signature())
                 .context("invalid sum signature")?,
-            model_mask: MaskObject::new(
-                MaskVect::from_byte_slice(&reader.model_mask()).context("invalid model mask")?,
-                MaskUnit::from_byte_slice(&reader.scalar_mask()).context("invalid scalar mask")?,
-            ),
+            model_mask: MaskObject::from_byte_slice(&reader.model_mask())
+                .context("invalid mask")?,
         })
     }
 
