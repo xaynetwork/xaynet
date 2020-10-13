@@ -135,22 +135,19 @@ pub enum RequestError {
     #[error("invalid update: the model or scalar sent by the participant could not be aggregated")]
     AggregationFailed,
 
-    #[error("invalid update: the seed dictionary sent by the participant is invalid")]
-    InvalidLocalSeedDict,
-
     #[error("the request could not be processed due to an internal error")]
     InternalError,
 
-    #[error("Redis failed: {0}")]
+    #[error("redis failed: {0}")]
     Redis(#[from] RedisError),
 
-    #[error("{0}")]
+    #[error(transparent)]
     SeedDictUpdate(#[from] SeedDictUpdateError),
 
-    #[error("{0}")]
+    #[error(transparent)]
     SumDictAdd(#[from] SumDictAddError),
 
-    #[error("{0}")]
+    #[error(transparent)]
     MaskDictIncr(#[from] MaskDictIncrError),
 }
 
