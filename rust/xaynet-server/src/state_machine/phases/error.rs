@@ -23,7 +23,7 @@ pub enum PhaseStateError {
     UnmaskGlobalModel(#[from] UnmaskGlobalModelError),
     #[error("phase timeout")]
     Timeout(#[from] tokio::time::Elapsed),
-    #[error("redis failed: {0}")]
+    #[error("redis request failed: {0}")]
     Redis(#[from] RedisError),
 }
 

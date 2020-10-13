@@ -135,10 +135,10 @@ pub enum RequestError {
     #[error("invalid update: the model or scalar sent by the participant could not be aggregated")]
     AggregationFailed,
 
-    #[error("the request could not be processed due to an internal error")]
-    InternalError,
+    #[error("the request could not be processed due to an internal error: {0}")]
+    InternalError(&'static str),
 
-    #[error("redis failed: {0}")]
+    #[error("redis request failed: {0}")]
     Redis(#[from] RedisError),
 
     #[error(transparent)]
