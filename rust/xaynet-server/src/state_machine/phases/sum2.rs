@@ -103,7 +103,6 @@ impl Handler for PhaseState<Sum2> {
 impl PhaseState<Sum2> {
     /// Creates a new sum2 state.
     pub fn new(shared: Shared, model_agg: Aggregation) -> Self {
-        info!("state transition");
         Self {
             inner: Sum2 {
                 model_agg,

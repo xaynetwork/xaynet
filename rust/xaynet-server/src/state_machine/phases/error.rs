@@ -30,7 +30,6 @@ pub enum PhaseStateError {
 impl PhaseState<PhaseStateError> {
     /// Creates a new error state.
     pub fn new(shared: Shared, error: PhaseStateError) -> Self {
-        info!("state transition");
         Self {
             inner: error,
             shared,

@@ -106,7 +106,6 @@ where
 impl PhaseState<Sum> {
     /// Creates a new sum state.
     pub fn new(shared: Shared) -> Self {
-        info!("state transition");
         Self {
             inner: Sum { sum_count: 0 },
             shared,

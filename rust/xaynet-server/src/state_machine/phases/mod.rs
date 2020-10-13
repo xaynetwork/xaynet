@@ -168,7 +168,7 @@ where
         let res = self.handle_request(req).await;
 
         if let Err(ref err) = res {
-            error!("failed to handle message: {:?}", err);
+            warn!("failed to handle message: {}", err);
             metrics!(
                 self.shared.io.metrics_tx,
                 metrics::message::rejected::increment(self.shared.state.round_id, Self::NAME)
@@ -202,7 +202,6 @@ where
             metrics!(self.shared.io.metrics_tx, metrics::phase::update(phase));
 
             if let Err(err) = self.run().await {
-                warn!("phase failed: {:?}", err);
                 return Some(self.into_error_state(err));
             }
 

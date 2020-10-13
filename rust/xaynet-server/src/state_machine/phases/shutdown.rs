@@ -30,7 +30,6 @@ impl Phase for PhaseState<Shutdown> {
 impl PhaseState<Shutdown> {
     /// Creates a new shutdown state.
     pub fn new(shared: Shared) -> Self {
-        info!("state transition");
         Self {
             inner: Shutdown,
             shared,

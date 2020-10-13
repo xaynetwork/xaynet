@@ -74,7 +74,6 @@ impl Phase for PhaseState<Unmask> {
     ///
     /// See the [module level documentation](../index.html) for more details.
     fn next(self) -> Option<StateMachine> {
-        info!("going back to idle phase");
         Some(PhaseState::<Idle>::new(self.shared).into())
     }
 }
@@ -82,7 +81,6 @@ impl Phase for PhaseState<Unmask> {
 impl PhaseState<Unmask> {
     /// Creates a new unmask state.
     pub fn new(shared: Shared, model_agg: Aggregation) -> Self {
-        info!("state transition");
         Self {
             inner: Unmask {
                 model_agg: Some(model_agg),

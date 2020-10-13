@@ -99,7 +99,6 @@ impl Phase for PhaseState<Idle> {
     }
 
     fn next(self) -> Option<StateMachine> {
-        info!("going to sum phase");
         Some(PhaseState::<Sum>::new(self.shared).into())
     }
 }

@@ -84,12 +84,7 @@ where
     }
 
     fn next(self) -> Option<StateMachine> {
-        let PhaseState {
-            inner: Update { model_agg, .. },
-            shared,
-        } = self;
-
-        Some(PhaseState::<Sum2>::new(shared, model_agg).into())
+        Some(PhaseState::<Sum2>::new(self.shared, self.inner.model_agg).into())
     }
 }
 
@@ -134,7 +129,6 @@ impl Handler for PhaseState<Update> {
 impl PhaseState<Update> {
     /// Creates a new update state.
     pub fn new(shared: Shared) -> Self {
-        info!("state transition");
         Self {
             inner: Update {
                 update_count: 0,
