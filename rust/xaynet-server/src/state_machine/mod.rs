@@ -155,7 +155,7 @@ pub type StateMachineResult = Result<(), RequestError>;
 
 /// Error that occurs when unmasking of the global model fails.
 #[derive(Error, Debug, Eq, PartialEq)]
-pub enum RoundFailed {
+pub enum UnmaskGlobalModelError {
     #[error("ambiguous masks were computed by the sum participants")]
     AmbiguousMasks,
     #[error("no mask found")]

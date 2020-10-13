@@ -366,7 +366,7 @@ mod test {
     use super::*;
     use crate::state_machine::{
         phases::{PhaseName, PhaseStateError},
-        RoundFailed,
+        UnmaskGlobalModelError,
     };
     use influxdb::Query;
 
@@ -415,7 +415,8 @@ mod test {
 
     #[test]
     fn test_phase_error() {
-        let query = phase::error::emit(&StateError::RoundError(RoundFailed::NoMask)).build();
+        let query =
+            phase::error::emit(&StateError::RoundError(UnmaskGlobalModelError::NoMask)).build();
         assert!(format!("{:?}", query.unwrap()).contains(
             "event title=\\\"state\\\\ failed:\\\\ round\\\\ error:\\\\ no\\\\ mask\\\\ found\\\""
         ));

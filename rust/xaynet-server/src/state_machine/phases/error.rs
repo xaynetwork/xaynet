@@ -1,8 +1,8 @@
 use crate::{
     state_machine::{
         phases::{Idle, Phase, PhaseName, PhaseState, Shared, Shutdown},
-        RoundFailed,
         StateMachine,
+        UnmaskGlobalModelError,
     },
     storage::redis::RedisError,
 };
@@ -19,8 +19,8 @@ use thiserror::Error;
 pub enum PhaseStateError {
     #[error("channel error: {0}")]
     Channel(&'static str),
-    #[error("round error: {0}")]
-    Round(#[from] RoundFailed),
+    #[error("unmask global model error: {0}")]
+    UnmaskGlobalModel(#[from] UnmaskGlobalModelError),
     #[error("phase timeout")]
     Timeout(#[from] tokio::time::Elapsed),
     #[error("redis failed: {0}")]
