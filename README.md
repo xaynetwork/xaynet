@@ -220,11 +220,11 @@ kubectl port-forward $(kubectl get pods -l "app=coordinator" -o jsonpath="{.item
 
 ### Building the project manually
 
-The coordinator can be built and started with:
+The coordinator without optional features can be built and started with:
 
 ```bash
 cd rust
-cargo run --bin coordinator --manifest-path rust/Cargo.toml -- -c configs/config.toml
+cargo run --bin coordinator -- -c ../configs/config.toml
 ```
 
 ## Running the example
