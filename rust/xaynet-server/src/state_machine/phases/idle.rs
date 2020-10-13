@@ -5,10 +5,8 @@ use xaynet_core::{
 
 use crate::state_machine::{
     events::{DictionaryUpdate, MaskLengthUpdate},
-    phases::{Handler, Phase, PhaseName, PhaseState, Shared, Sum},
-    requests::StateMachineRequest,
+    phases::{Phase, PhaseName, PhaseState, Shared, Sum},
     PhaseStateError,
-    RequestError,
     StateMachine,
 };
 
@@ -20,14 +18,6 @@ use sodiumoxide::crypto::hash::sha256;
 /// Idle state
 #[derive(Debug)]
 pub struct Idle;
-
-#[async_trait]
-impl Handler for PhaseState<Idle> {
-    /// Reject the request with a [`RequestError::MessageRejected`]
-    async fn handle_request(&mut self, _req: StateMachineRequest) -> Result<(), RequestError> {
-        Err(RequestError::MessageRejected)
-    }
-}
 
 #[async_trait]
 impl Phase for PhaseState<Idle> {
@@ -142,6 +132,18 @@ impl PhaseState<Idle> {
     fn gen_round_keypair(&mut self) {
         self.shared.state.keys = EncryptKeyPair::generate();
         self.shared.state.round_params.pk = self.shared.state.keys.public;
+    }
+}
+
+#[cfg(test)]
+use crate::state_machine::{phases::Handler, requests::StateMachineRequest, RequestError};
+
+#[cfg(test)]
+#[async_trait]
+impl Handler for PhaseState<Idle> {
+    /// Reject the request with a [`RequestError::MessageRejected`]
+    async fn handle_request(&mut self, _req: StateMachineRequest) -> Result<(), RequestError> {
+        Err(RequestError::MessageRejected)
     }
 }
 
