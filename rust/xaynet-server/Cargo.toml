@@ -76,7 +76,7 @@ name = "coordinator"
 path = "src/bin/main.rs"
 
 [features]
-default = []
+default = ["tls"]
 full = ["tls", "metrics"]
 tls = ["warp/tls"]
 metrics = ["influxdb", "chrono"]
