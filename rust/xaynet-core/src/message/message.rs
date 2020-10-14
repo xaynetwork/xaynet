@@ -645,87 +645,57 @@ impl Message {
 }
 
 #[cfg(test)]
-pub(in crate::message) mod tests {
+mod tests {
     use std::convert::TryFrom;
 
     use super::*;
     use crate::{
-        crypto::{ByteObject, PublicSigningKey, Signature},
-        message::{payload::sum, Message, Tag},
+        message::{Message, Tag},
+        testutils::messages as helpers,
     };
 
-    fn signature() -> (Vec<u8>, Signature) {
-        let bytes = vec![0xaa; 64];
-        let signature = Signature::from_slice(bytes.as_slice()).unwrap();
-        (bytes, signature)
-    }
-
-    fn participant_pk() -> (Vec<u8>, PublicSigningKey) {
-        let bytes = vec![0xbb; 32];
-        let pk = PublicSigningKey::from_slice(&bytes).unwrap();
-        (bytes, pk)
-    }
-
-    fn coordinator_pk() -> (Vec<u8>, PublicEncryptKey) {
-        let bytes = vec![0xbb; 32];
-        let pk = PublicEncryptKey::from_slice(&bytes).unwrap();
-        (bytes, pk)
-    }
-
-    pub(crate) fn message() -> (Vec<u8>, Message) {
-        let message = Message {
-            signature: Some(signature().1),
-            participant_pk: participant_pk().1,
-            coordinator_pk: coordinator_pk().1,
-            payload: sum::tests::sum().into(),
-            is_multipart: false,
-            tag: Tag::Sum,
-        };
-
-        let mut buf = signature().0;
-        buf.extend(participant_pk().0);
-        buf.extend(coordinator_pk().0);
-        let length = sum::tests::sum_bytes().len() + HEADER_LENGTH;
-        buf.extend(&(length as u32).to_be_bytes());
-        buf.push(Tag::Sum.into());
-        buf.extend(vec![0, 0, 0]);
-        buf.extend(sum::tests::sum_bytes());
-
-        (buf, message)
+    fn sum_message() -> (Message, Vec<u8>) {
+        helpers::message(helpers::sum::payload)
     }
 
     #[test]
     fn buffer_read() {
-        let bytes = message().0;
+        let bytes = sum_message().1;
         let buffer = MessageBuffer::new(&bytes).unwrap();
         assert_eq!(Tag::try_from(buffer.tag()).unwrap(), Tag::Sum);
-        assert_eq!(buffer.signature(), signature().0.as_slice());
-        assert_eq!(buffer.participant_pk(), participant_pk().0.as_slice());
-        assert_eq!(buffer.coordinator_pk(), coordinator_pk().0.as_slice());
+        assert_eq!(buffer.signature(), helpers::signature().1.as_slice());
+        assert_eq!(
+            buffer.participant_pk(),
+            helpers::participant_pk().1.as_slice()
+        );
+        assert_eq!(
+            buffer.coordinator_pk(),
+            helpers::coordinator_pk().1.as_slice()
+        );
         assert_eq!(buffer.length() as usize, bytes.len());
-        assert_eq!(buffer.payload(), sum::tests::sum_bytes().as_slice());
+        assert_eq!(buffer.payload(), helpers::sum::payload().1.as_slice());
     }
 
     #[test]
     fn buffer_write() {
-        let expected = message().0;
+        let expected = sum_message().1;
         let mut bytes = vec![0; expected.len()];
         let mut buffer = MessageBuffer::new_unchecked(&mut bytes);
 
         buffer
             .signature_mut()
-            .copy_from_slice(signature().0.as_slice());
+            .copy_from_slice(helpers::signature().1.as_slice());
         buffer
             .participant_pk_mut()
-            .copy_from_slice(participant_pk().0.as_slice());
+            .copy_from_slice(helpers::participant_pk().1.as_slice());
         buffer
             .coordinator_pk_mut()
-            .copy_from_slice(coordinator_pk().0.as_slice());
+            .copy_from_slice(helpers::coordinator_pk().1.as_slice());
         buffer.set_tag(Tag::Sum.into());
         buffer.set_length(expected.len() as u32);
         buffer
             .payload_mut()
-            .copy_from_slice(sum::tests::sum_bytes().as_slice());
+            .copy_from_slice(helpers::sum::payload().1.as_slice());
         assert_eq!(bytes, expected);
     }
 }

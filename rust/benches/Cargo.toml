@@ -1,0 +1,14 @@
+[package]
+name = "benches"
+version = "0.0.0"
+authors = ["Xayn Engineering <engineering@xaynet.dev>"]
+edition = "2018"
+publish = false
+
+[dev-dependencies]
+criterion = "0.3.3"
+xaynet-core = { version = "0.1.0", path = "../xaynet-core", features = ["testutils"] }
+
+[[bench]]
+name = "messages"
+harness = false

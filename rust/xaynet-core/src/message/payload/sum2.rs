@@ -172,39 +172,16 @@ impl FromBytes for Sum2 {
 }
 
 #[cfg(test)]
-pub(in crate::message) mod tests_helpers {
-    use super::*;
-    pub(in crate::message) use crate::mask::object::serialization::tests::mask_object;
+pub mod tests {
+    use crate::testutils::messages::sum2 as helpers;
 
-    pub fn signature() -> (ParticipantTaskSignature, Vec<u8>) {
-        let bytes = vec![0x99; ParticipantTaskSignature::LENGTH];
-        let signature = ParticipantTaskSignature::from_slice(&bytes[..]).unwrap();
-        (signature, bytes)
-    }
-
-    pub fn sum2() -> (Sum2, Vec<u8>) {
-        let (sum_signature, sum_signature_bytes) = signature();
-        let (model_mask, model_mask_bytes) = mask_object();
-        let bytes = [sum_signature_bytes.as_slice(), model_mask_bytes.as_slice()].concat();
-
-        let sum2 = Sum2 {
-            sum_signature,
-            model_mask,
-        };
-        (sum2, bytes)
-    }
-}
-
-#[cfg(test)]
-pub(in crate::message) mod tests {
-    pub(in crate::message) use super::tests_helpers as helpers;
     use super::*;
 
     #[test]
     fn buffer_read() {
-        let bytes = helpers::sum2().1;
+        let bytes = helpers::payload().1;
         let buffer = Sum2Buffer::new(&bytes).unwrap();
-        assert_eq!(buffer.sum_signature(), &helpers::signature().1[..]);
+        assert_eq!(buffer.sum_signature(), &helpers::sum_task_signature().1[..]);
 
         let expected_mask = helpers::mask_object().1;
         let expected_length = expected_mask.len();
@@ -219,16 +196,16 @@ pub(in crate::message) mod tests {
             let mut buffer = Sum2Buffer::new_unchecked(&mut bytes);
             buffer
                 .sum_signature_mut()
-                .copy_from_slice(&helpers::signature().1[..]);
+                .copy_from_slice(&helpers::sum_task_signature().1[..]);
             let mask = helpers::mask_object().1;
             buffer.model_mask_mut()[..mask.len()].copy_from_slice(&mask[..]);
         }
-        assert_eq!(&bytes[..], &helpers::sum2().1[..]);
+        assert_eq!(&bytes[..], &helpers::payload().1[..]);
     }
 
     #[test]
     fn encode() {
-        let (sum2, bytes) = helpers::sum2();
+        let (sum2, bytes) = helpers::payload();
         assert_eq!(sum2.buffer_length(), bytes.len());
 
         let mut buf = vec![0xff; sum2.buffer_length()];
@@ -238,14 +215,14 @@ pub(in crate::message) mod tests {
 
     #[test]
     fn decode() {
-        let (sum2, bytes) = helpers::sum2();
+        let (sum2, bytes) = helpers::payload();
         let parsed = Sum2::from_byte_slice(&bytes).unwrap();
         assert_eq!(parsed, sum2);
     }
 
     #[test]
     fn stream_parse() {
-        let (sum2, bytes) = helpers::sum2();
+        let (sum2, bytes) = helpers::payload();
         let parsed = Sum2::from_byte_stream(&mut bytes.into_iter()).unwrap();
         assert_eq!(parsed, sum2);
     }

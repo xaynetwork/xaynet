@@ -251,82 +251,21 @@ impl FromBytes for Update {
 }
 
 #[cfg(test)]
-pub(in crate::message) mod tests_helpers {
-    use std::convert::TryFrom;
-
+pub mod tests {
     use super::*;
-    pub(in crate::message) use crate::mask::object::serialization::tests::mask_object;
-    use crate::{crypto::ByteObject, mask::seed::EncryptedMaskSeed, SumParticipantPublicKey};
-
-    pub fn sum_signature() -> (ParticipantTaskSignature, Vec<u8>) {
-        let bytes = vec![0x33; 64];
-        let signature = ParticipantTaskSignature::from_slice(&bytes[..]).unwrap();
-        (signature, bytes)
-    }
-
-    pub fn update_signature() -> (ParticipantTaskSignature, Vec<u8>) {
-        let bytes = vec![0x44; 64];
-        let signature = ParticipantTaskSignature::from_slice(&bytes[..]).unwrap();
-        (signature, bytes)
-    }
-
-    pub fn local_seed_dict() -> (LocalSeedDict, Vec<u8>) {
-        let mut local_seed_dict = LocalSeedDict::new();
-        let mut bytes = vec![];
-
-        // Length (32+80) * 2 + 4 = 228
-        bytes.extend(vec![0x00, 0x00, 0x00, 0xe4]);
-
-        bytes.extend(vec![0x55; SumParticipantPublicKey::LENGTH]);
-        bytes.extend(vec![0x66; EncryptedMaskSeed::LENGTH]);
-        local_seed_dict.insert(
-            SumParticipantPublicKey::from_slice(vec![0x55; 32].as_slice()).unwrap(),
-            EncryptedMaskSeed::try_from(vec![0x66; EncryptedMaskSeed::LENGTH]).unwrap(),
-        );
-
-        // Second entry
-        bytes.extend(vec![0x77; SumParticipantPublicKey::LENGTH]);
-        bytes.extend(vec![0x88; EncryptedMaskSeed::LENGTH]);
-        local_seed_dict.insert(
-            SumParticipantPublicKey::from_slice(vec![0x77; 32].as_slice()).unwrap(),
-            EncryptedMaskSeed::try_from(vec![0x88; EncryptedMaskSeed::LENGTH]).unwrap(),
-        );
-
-        (local_seed_dict, bytes)
-    }
-
-    pub fn update() -> (Update, Vec<u8>) {
-        let mut bytes = sum_signature().1;
-        bytes.extend(update_signature().1);
-        bytes.extend(mask_object().1);
-        bytes.extend(local_seed_dict().1);
-
-        let update = Update {
-            sum_signature: sum_signature().0,
-            update_signature: update_signature().0,
-            masked_model: mask_object().0,
-            local_seed_dict: local_seed_dict().0,
-        };
-        (update, bytes)
-    }
-}
-
-#[cfg(test)]
-pub(in crate::message) mod tests {
-    pub(in crate::message) use super::tests_helpers as helpers;
-    use super::*;
+    use crate::testutils::messages::update as helpers;
 
     #[test]
     fn buffer_read() {
-        let bytes = helpers::update().1;
+        let bytes = helpers::payload().1;
         let buffer = UpdateBuffer::new(&bytes).unwrap();
         assert_eq!(
             buffer.sum_signature(),
-            helpers::sum_signature().1.as_slice()
+            helpers::sum_task_signature().1.as_slice()
         );
         assert_eq!(
             buffer.update_signature(),
-            helpers::update_signature().1.as_slice()
+            helpers::update_task_signature().1.as_slice()
         );
         let expected = helpers::mask_object().1;
         assert_eq!(&buffer.masked_model()[..expected.len()], &expected[..]);
@@ -339,8 +278,8 @@ pub(in crate::message) mod tests {
         // This truncates the last entry of the seed dictionary
         invalid[3] = 0xe3;
         let mut bytes = vec![];
-        bytes.extend(helpers::sum_signature().1);
-        bytes.extend(helpers::update_signature().1);
+        bytes.extend(helpers::sum_task_signature().1);
+        bytes.extend(helpers::update_task_signature().1);
         bytes.extend(helpers::mask_object().1);
         bytes.extend(invalid);
 
@@ -354,21 +293,21 @@ pub(in crate::message) mod tests {
 
     #[test]
     fn decode() {
-        let (update, bytes) = helpers::update();
+        let (update, bytes) = helpers::payload();
         let parsed = Update::from_byte_slice(&bytes).unwrap();
         assert_eq!(parsed, update);
     }
 
     #[test]
     fn stream_parse() {
-        let (update, bytes) = helpers::update();
+        let (update, bytes) = helpers::payload();
         let parsed = Update::from_byte_stream(&mut bytes.into_iter()).unwrap();
         assert_eq!(parsed, update);
     }
 
     #[test]
     fn encode() {
-        let (update, bytes) = helpers::update();
+        let (update, bytes) = helpers::payload();
         assert_eq!(update.buffer_length(), bytes.len());
         let mut buf = vec![0xff; update.buffer_length()];
         update.to_bytes(&mut buf);

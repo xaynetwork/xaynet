@@ -17,6 +17,8 @@ pub mod common;
 pub mod crypto;
 pub mod mask;
 pub mod message;
+#[cfg(any(feature = "testutils", test))]
+pub mod testutils;
 
 use std::collections::HashMap;
 

@@ -228,42 +228,19 @@ impl FromBytes for Sum {
 #[cfg(test)]
 pub(in crate::message) mod tests {
     use super::*;
-    use crate::crypto::ByteObject;
-
-    fn sum_signature_bytes() -> Vec<u8> {
-        vec![0x11; ParticipantTaskSignature::LENGTH]
-    }
-
-    fn ephm_pk_bytes() -> Vec<u8> {
-        vec![0x22; SumParticipantEphemeralPublicKey::LENGTH]
-    }
-
-    pub(crate) fn sum_bytes() -> Vec<u8> {
-        [sum_signature_bytes().as_slice(), ephm_pk_bytes().as_slice()].concat()
-    }
-
-    pub(crate) fn sum() -> Sum {
-        let sum_signature =
-            ParticipantTaskSignature::from_slice(&sum_signature_bytes()[..]).unwrap();
-        let ephm_pk = SumParticipantEphemeralPublicKey::from_slice(&ephm_pk_bytes()).unwrap();
-        Sum {
-            sum_signature,
-            ephm_pk,
-        }
-    }
+    use crate::testutils::messages::sum as helpers;
 
     #[test]
     fn buffer_read() {
-        let bytes = sum_bytes();
+        let bytes = helpers::payload().1;
         let buffer = SumBuffer::new(&bytes).unwrap();
-        assert_eq!(buffer.sum_signature(), &sum_signature_bytes()[..]);
-        assert_eq!(buffer.ephm_pk(), &ephm_pk_bytes()[..]);
+        assert_eq!(buffer.sum_signature(), &helpers::sum_task_signature().1[..]);
+        assert_eq!(buffer.ephm_pk(), &helpers::ephm_pk().1[..]);
     }
 
     #[test]
     fn buffer_read_invalid() {
-        let bytes = sum_bytes();
-        assert!(SumBuffer::new(&bytes[1..]).is_err());
+        assert!(SumBuffer::new(&helpers::payload().1[1..]).is_err());
     }
 
     #[test]
@@ -272,33 +249,33 @@ pub(in crate::message) mod tests {
         let mut writer = SumBuffer::new_unchecked(&mut buffer);
         writer
             .sum_signature_mut()
-            .copy_from_slice(sum_signature_bytes().as_slice());
+            .copy_from_slice(helpers::sum_task_signature().1.as_slice());
         writer
             .ephm_pk_mut()
-            .copy_from_slice(ephm_pk_bytes().as_slice());
+            .copy_from_slice(helpers::ephm_pk().1.as_slice());
     }
 
     #[test]
     fn encode() {
-        let message = sum();
-        assert_eq!(message.buffer_length(), sum_bytes().len());
+        let (sum, bytes) = helpers::payload();
+        assert_eq!(sum.buffer_length(), bytes.len());
 
-        let mut buf = vec![0xff; message.buffer_length()];
-        message.to_bytes(&mut buf);
-        assert_eq!(buf, sum_bytes());
+        let mut buf = vec![0xff; sum.buffer_length()];
+        sum.to_bytes(&mut buf);
+        assert_eq!(buf, bytes);
     }
 
     #[test]
     fn decode() {
-        let parsed = Sum::from_byte_slice(&sum_bytes()).unwrap();
-        let expected = sum();
+        let (expected, bytes) = helpers::payload();
+        let parsed = Sum::from_byte_slice(&bytes).unwrap();
         assert_eq!(parsed, expected);
     }
 
     #[test]
     fn stream_parse() {
-        let parsed = Sum::from_byte_stream(&mut sum_bytes().into_iter()).unwrap();
-        let expected = sum();
+        let (expected, bytes) = helpers::payload();
+        let parsed = Sum::from_byte_stream(&mut bytes.into_iter()).unwrap();
         assert_eq!(parsed, expected);
     }
 }

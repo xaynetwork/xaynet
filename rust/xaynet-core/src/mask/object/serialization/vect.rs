@@ -294,6 +294,7 @@ impl FromBytes for MaskUnit {
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
+
     use crate::mask::object::serialization::tests::mask_config;
 
     pub fn mask_vect() -> (MaskVect, Vec<u8>) {
