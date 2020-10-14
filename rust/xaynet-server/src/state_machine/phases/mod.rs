@@ -233,7 +233,7 @@ where
             match self.try_next_request()? {
                 Some((_req, span, resp_tx)) => {
                     let _span_guard = span.enter();
-                    info!("rejecting request");
+                    info!("rejecting outdated request");
                     let _ = resp_tx.send(Err(RequestError::MessageRejected));
 
                     metrics!(
