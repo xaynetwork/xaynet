@@ -136,18 +136,6 @@ impl PhaseState<Idle> {
 }
 
 #[cfg(test)]
-use crate::state_machine::{phases::Handler, requests::StateMachineRequest, RequestError};
-
-#[cfg(test)]
-#[async_trait]
-impl Handler for PhaseState<Idle> {
-    /// Reject the request with a [`RequestError::MessageRejected`]
-    async fn handle_request(&mut self, _req: StateMachineRequest) -> Result<(), RequestError> {
-        Err(RequestError::MessageRejected)
-    }
-}
-
-#[cfg(test)]
 mod test {
     use super::*;
     use crate::state_machine::{

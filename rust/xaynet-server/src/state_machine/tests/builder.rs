@@ -3,7 +3,7 @@ use xaynet_core::{common::RoundSeed, crypto::EncryptKeyPair, mask::MaskConfig};
 use crate::{
     state_machine::{
         events::EventSubscriber,
-        phases::{self, Handler, Phase, PhaseState, Shared},
+        phases::{self, Phase, PhaseState, Shared},
         requests::RequestSender,
         tests::utils,
         StateMachine,
@@ -37,7 +37,7 @@ impl StateMachineBuilder<phases::Idle> {
 
 impl<P> StateMachineBuilder<P>
 where
-    PhaseState<P>: Handler + Phase,
+    PhaseState<P>: Phase,
     StateMachine: From<PhaseState<P>>,
 {
     pub fn build(self) -> (StateMachine, RequestSender, EventSubscriber, redis::Client) {
