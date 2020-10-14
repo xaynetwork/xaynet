@@ -245,14 +245,14 @@ pub struct PetSettings {
 impl Default for PetSettings {
     fn default() -> Self {
         Self {
-            min_sum_count: 1_u64,
-            min_update_count: 3_u64,
-            min_sum_time: 0_u64,
-            min_update_time: 0_u64,
-            max_sum_time: 604800_u64,
-            max_update_time: 604800_u64,
-            sum: 0.01_f64,
-            update: 0.1_f64,
+            min_sum_count: 1,
+            min_update_count: 3,
+            min_sum_time: 0,
+            min_update_time: 0,
+            max_sum_time: 604800,
+            max_update_time: 604800,
+            sum: 0.01,
+            update: 0.1,
         }
     }
 }
