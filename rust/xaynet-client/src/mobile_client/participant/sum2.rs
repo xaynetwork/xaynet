@@ -99,7 +99,7 @@ impl Participant<Sum2> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::mobile_client::participant::AggregationConfig;
+    use crate::mobile_client::participant::{AggregationConfig, MaxMessageSize};
     use sodiumoxide::randombytes::{randombytes, randombytes_uniform};
     use std::{collections::HashSet, iter};
     use xaynet_core::{
@@ -124,6 +124,7 @@ mod tests {
         ParticipantState {
             keys: SigningKeyPair::generate(),
             aggregation_config,
+            max_message_size: MaxMessageSize::default(),
         }
     }
 

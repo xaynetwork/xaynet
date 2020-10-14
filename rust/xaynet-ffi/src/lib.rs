@@ -41,7 +41,7 @@ use std::{
 use ffi_support::FfiStr;
 
 use xaynet_client::mobile_client::{
-    participant::{AggregationConfig, ParticipantSettings},
+    participant::{AggregationConfig, MaxMessageSize, ParticipantSettings},
     MobileClient,
 };
 use xaynet_core::{
@@ -226,6 +226,7 @@ pub unsafe extern "C" fn xaynet_ffi_init_mobile_client(
             mask: mask_config,
             scalar,
         },
+        max_message_size: MaxMessageSize::default(),
     };
 
     // Check the certificates.
