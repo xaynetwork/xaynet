@@ -29,6 +29,10 @@ pub struct MaskUnitBuffer<T> {
 }
 
 impl<T: AsRef<[u8]>> MaskUnitBuffer<T> {
+    /// Creates a new buffer from `bytes`.
+    ///
+    /// # Errors
+    /// Fails if the `bytes` don't conform to the required buffer length for mask units.
     pub fn new(bytes: T) -> Result<Self, DecodeError> {
         let buffer = Self { inner: bytes };
         buffer
@@ -37,10 +41,15 @@ impl<T: AsRef<[u8]>> MaskUnitBuffer<T> {
         Ok(buffer)
     }
 
+    /// Creates a new buffer from `bytes`.
     pub fn new_unchecked(bytes: T) -> Self {
         Self { inner: bytes }
     }
 
+    /// Checks if this buffer conforms to the required buffer length for mask units.
+    ///
+    /// # Errors
+    /// Fails if the buffer is too small.
     pub fn check_buffer_length(&self) -> Result<(), DecodeError> {
         let len = self.inner.as_ref().len();
         if len < MASK_CONFIG_FIELD.end {
@@ -62,6 +71,9 @@ impl<T: AsRef<[u8]>> MaskUnitBuffer<T> {
         Ok(())
     }
 
+    /// Return the expected length of the underlying byte buffer,
+    /// based on the masking config field of numbers field. This is
+    /// similar to [`len`] but cannot panic.
     pub fn try_len(&self) -> Result<usize, DecodeError> {
         let config =
             MaskConfig::from_byte_slice(&self.config()).context("invalid MaskUnit buffer")?;
@@ -69,26 +81,46 @@ impl<T: AsRef<[u8]>> MaskUnitBuffer<T> {
         Ok(MASK_CONFIG_FIELD.end + data_length)
     }
 
+    /// Gets the expected number of bytes of this buffer wrt to the masking configuration.
+    ///
+    /// # Panics
+    /// Panics if the serialized masking configuration is invalid.
     pub fn len(&self) -> usize {
         let config = MaskConfig::from_byte_slice(&self.config()).unwrap();
         let data_length = config.bytes_per_number();
         MASK_CONFIG_FIELD.end + data_length
     }
 
+    /// Gets the serialized masking configuration.
+    ///
+    /// # Panics
+    /// May panic if this buffer is unchecked.
     pub fn config(&self) -> &[u8] {
         &self.inner.as_ref()[MASK_CONFIG_FIELD]
     }
 
+    /// Gets the serialized mask unit element.
+    ///
+    /// # Panics
+    /// May panic if this buffer is unchecked.
     pub fn data(&self) -> &[u8] {
         &self.inner.as_ref()[MASK_CONFIG_FIELD.end..self.len()]
     }
 }
 
 impl<T: AsRef<[u8]> + AsMut<[u8]>> MaskUnitBuffer<T> {
+    /// Gets the serialized masking configuration.
+    ///
+    /// # Panics
+    /// May panic if this buffer is unchecked.
     pub fn config_mut(&mut self) -> &mut [u8] {
         &mut self.inner.as_mut()[MASK_CONFIG_FIELD]
     }
 
+    /// Gets the serialized mask unit element.
+    ///
+    /// # Panics
+    /// May panic if this buffer is unchecked.
     pub fn data_mut(&mut self) -> &mut [u8] {
         let end = self.len();
         &mut self.inner.as_mut()[MASK_CONFIG_FIELD.end..end]
@@ -105,7 +137,12 @@ impl ToBytes for MaskUnit {
         self.config.to_bytes(&mut writer.config_mut());
 
         let data = writer.data_mut();
+        // FIXME: this allocates a vec which is sub-optimal. See
+        // https://github.com/rust-num/num-bigint/issues/152
         let bytes = self.data.to_bytes_le();
+        // This may panic if the data is invalid and is an
+        // integer that is bigger than what is expected by the
+        // configuration.
         data[..bytes.len()].copy_from_slice(&bytes[..]);
         // padding
         for b in data

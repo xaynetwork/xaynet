@@ -38,7 +38,7 @@ impl<T: AsRef<[u8]>> MaskVectBuffer<T> {
     /// Creates a new buffer from `bytes`.
     ///
     /// # Errors
-    /// Fails if the `bytes` don't conform to the required buffer length for mask objects.
+    /// Fails if the `bytes` don't conform to the required buffer length for mask vectors.
     pub fn new(bytes: T) -> Result<Self, DecodeError> {
         let buffer = Self { inner: bytes };
         buffer
@@ -52,7 +52,7 @@ impl<T: AsRef<[u8]>> MaskVectBuffer<T> {
         Self { inner: bytes }
     }
 
-    /// Checks if this buffer conforms to the required buffer length for mask objects.
+    /// Checks if this buffer conforms to the required buffer length for mask vectors.
     ///
     /// # Errors
     /// Fails if the buffer is too small.
@@ -131,7 +131,7 @@ impl<T: AsRef<[u8]>> MaskVectBuffer<T> {
         &self.inner.as_ref()[MASK_CONFIG_FIELD]
     }
 
-    /// Gets the serialized mask object elements.
+    /// Gets the serialized mask vector elements.
     ///
     /// # Panics
     /// May panic if this buffer is unchecked.
@@ -141,7 +141,7 @@ impl<T: AsRef<[u8]>> MaskVectBuffer<T> {
 }
 
 impl<T: AsRef<[u8]> + AsMut<[u8]>> MaskVectBuffer<T> {
-    /// Sets the number of serialized mask object elements.
+    /// Sets the number of serialized mask vector elements.
     ///
     /// # Panics
     /// May panic if this buffer is unchecked.
@@ -157,7 +157,7 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> MaskVectBuffer<T> {
         &mut self.inner.as_mut()[MASK_CONFIG_FIELD]
     }
 
-    /// Gets the serialized mask object elements.
+    /// Gets the serialized mask vector elements.
     ///
     /// # Panics
     /// May panic if this buffer is unchecked.
