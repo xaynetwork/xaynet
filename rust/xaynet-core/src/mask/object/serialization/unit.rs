@@ -76,7 +76,7 @@ impl<T: AsRef<[u8]>> MaskUnitBuffer<T> {
     /// similar to [`len`] but cannot panic.
     pub fn try_len(&self) -> Result<usize, DecodeError> {
         let config =
-            MaskConfig::from_byte_slice(&self.config()).context("invalid MaskUnit buffer")?;
+            MaskConfig::from_byte_slice(&self.config()).context("invalid mask unit buffer")?;
         let data_length = config.bytes_per_number();
         Ok(MASK_CONFIG_FIELD.end + data_length)
     }

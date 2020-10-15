@@ -40,7 +40,7 @@ impl<T: AsRef<[u8]>> MaskObjectBuffer<T> {
         let buffer = Self { inner: bytes };
         buffer
             .check_buffer_length()
-            .context("not a valid MaskObject")?;
+            .context("not a valid mask object")?;
         Ok(buffer)
     }
 
@@ -56,7 +56,7 @@ impl<T: AsRef<[u8]>> MaskObjectBuffer<T> {
     pub fn check_buffer_length(&self) -> Result<(), DecodeError> {
         let inner = self.inner.as_ref();
         // check length of vect field
-        MaskVectBuffer::new(&inner[0..]).context("invalid vector field")?;
+        MaskVectBuffer::new(inner).context("invalid vector field")?;
         // check length of unit field
         MaskUnitBuffer::new(&inner[self.unit_offset()..]).context("invalid unit field")?;
         Ok(())
@@ -73,7 +73,7 @@ impl<T: AsRef<[u8]>> MaskObjectBuffer<T> {
 
     /// Gets the offset of the unit field.
     pub fn unit_offset(&self) -> usize {
-        let vect_buf = MaskVectBuffer::new_unchecked(&self.inner.as_ref()[0..]);
+        let vect_buf = MaskVectBuffer::new_unchecked(self.inner.as_ref());
         vect_buf.len()
     }
 
@@ -103,7 +103,7 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> MaskObjectBuffer<T> {
     /// # Panics
     /// May panic if this buffer is unchecked.
     pub fn vect_mut(&mut self) -> &mut [u8] {
-        &mut self.inner.as_mut()[0..]
+        self.inner.as_mut()
     }
 
     /// Gets the unit part.

@@ -82,7 +82,7 @@ impl<T: AsRef<[u8]>> MaskVectBuffer<T> {
     /// similar to [`len`] but cannot panic.
     fn try_len(&self) -> Result<usize, DecodeError> {
         let config =
-            MaskConfig::from_byte_slice(&self.config()).context("invalid MaskVect buffer")?;
+            MaskConfig::from_byte_slice(&self.config()).context("invalid mask vector buffer")?;
         let bytes_per_number = config.bytes_per_number();
         let (data_length, overflows) = self.numbers().overflowing_mul(bytes_per_number);
         if overflows {
@@ -219,7 +219,7 @@ impl FromBytes for MaskVect {
             return Err(anyhow!("byte stream exhausted"));
         }
         let numbers = u32::from_byte_stream(iter)
-            .context("failed to parse the number of items in mask object")?;
+            .context("failed to parse the number of items in mask vector")?;
         let bytes_per_number = config.bytes_per_number();
 
         let data_len = numbers as usize * bytes_per_number;
