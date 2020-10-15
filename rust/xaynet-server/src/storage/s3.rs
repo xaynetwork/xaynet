@@ -93,8 +93,6 @@ impl Client {
 
     /// Uploads a global model.
     pub async fn upload_global_model(&self, key: &str, global_model: &Model) -> S3Result<()> {
-        // As key for the global model we use the round_id and the seed of the round in which the
-        // global model was created.
         debug!("store global model: {}", key);
         let data = bincode::serialize(global_model)?;
         self.upload(&self.buckets.global_models, key, data)
