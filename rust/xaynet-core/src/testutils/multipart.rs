@@ -32,9 +32,10 @@ pub fn local_seed_dict(len: usize) -> LocalSeedDict {
     let nb_entries = (len - 4) / entry_len;
     let mut dict = LocalSeedDict::new();
     for i in 0..nb_entries {
-        let b = (i % 0xff) as u8;
-        let pk = PublicSigningKey::from_slice(vec![b; 32].as_slice()).unwrap();
-        let mask_seed = EncryptedMaskSeed::try_from(vec![b; 80]).unwrap();
+        let mut pk_bytes = vec![0; 32];
+        (&mut pk_bytes[0..8]).copy_from_slice(&i.to_be_bytes()[..]);
+        let pk = PublicSigningKey::from_slice(pk_bytes.as_slice()).unwrap();
+        let mask_seed = EncryptedMaskSeed::try_from(vec![(i & 0xff) as u8; 80]).unwrap();
         dict.insert(pk, mask_seed);
     }
 
