@@ -1,7 +1,7 @@
 use thiserror::Error;
 use xaynet_core::message::DecodeError;
 
-use crate::state_machine::StateMachineError;
+use crate::state_machine::RequestError;
 
 /// Error type for the message parsing service
 #[derive(Debug, Error)]
@@ -24,7 +24,7 @@ pub enum ServiceError {
     // FIXME: we need to refine the state machine errors and the
     // conversion into a service error
     #[error("the state machine failed to process the request: {0:?}")]
-    StateMachine(StateMachineError),
+    StateMachine(RequestError),
 
     #[error("participant is not eligible for sum task")]
     NotSumEligible,

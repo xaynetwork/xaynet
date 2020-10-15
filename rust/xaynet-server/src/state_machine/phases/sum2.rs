@@ -1,10 +1,10 @@
 use xaynet_core::mask::Aggregation;
 
 use crate::state_machine::{
-    phases::{Handler, Phase, PhaseName, PhaseState, Shared, StateError, Unmask},
+    phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Unmask},
     requests::{StateMachineRequest, Sum2Request},
+    RequestError,
     StateMachine,
-    StateMachineError,
 };
 
 #[cfg(feature = "metrics")]
@@ -19,7 +19,7 @@ pub struct Sum2 {
     model_agg: Aggregation,
 
     /// The number of Sum2 messages successfully processed.
-    sum2_count: usize,
+    sum2_count: u64,
 }
 
 #[cfg(test)]
@@ -39,7 +39,7 @@ where
     /// Run the sum2 phase
     ///
     /// See the [module level documentation](../index.html) for more details.
-    async fn run(&mut self) -> Result<(), StateError> {
+    async fn run(&mut self) -> Result<(), PhaseStateError> {
         let min_time = self.shared.state.min_sum_time;
         debug!("in sum2 phase for a minimum of {} seconds", min_time);
         self.process_during(Duration::from_secs(min_time)).await?;
@@ -67,7 +67,7 @@ where
     Self: Handler + Phase,
 {
     /// Processes requests until there are enough.
-    async fn process_until_enough(&mut self) -> Result<(), StateError> {
+    async fn process_until_enough(&mut self) -> Result<(), PhaseStateError> {
         while !self.has_enough_sum2s() {
             debug!(
                 "{} sum2 messages handled (min {} required)",
@@ -85,8 +85,8 @@ impl Handler for PhaseState<Sum2> {
     ///
     /// If the request is a [`StateMachineRequest::Sum`] or
     /// [`StateMachineRequest::Update`] request, the request sender
-    /// will receive a [`StateMachineError::MessageRejected`].
-    async fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), StateMachineError> {
+    /// will receive a [`RequestError::MessageRejected`].
+    async fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), RequestError> {
         match req {
             StateMachineRequest::Sum2(sum2_req) => {
                 metrics!(
@@ -95,7 +95,7 @@ impl Handler for PhaseState<Sum2> {
                 );
                 self.handle_sum2(sum2_req).await
             }
-            _ => Err(StateMachineError::MessageRejected),
+            _ => Err(RequestError::MessageRejected),
         }
     }
 }
@@ -103,7 +103,6 @@ impl Handler for PhaseState<Sum2> {
 impl PhaseState<Sum2> {
     /// Creates a new sum2 state.
     pub fn new(shared: Shared, model_agg: Aggregation) -> Self {
-        info!("state transition");
         Self {
             inner: Sum2 {
                 model_agg,
@@ -117,7 +116,7 @@ impl PhaseState<Sum2> {
     ///
     /// # Errors
     /// Fails if the sum participant didn't register in the sum phase or it is a repetition.
-    async fn handle_sum2(&mut self, req: Sum2Request) -> Result<(), StateMachineError> {
+    async fn handle_sum2(&mut self, req: Sum2Request) -> Result<(), RequestError> {
         let Sum2Request {
             participant_pk,
             model_mask,

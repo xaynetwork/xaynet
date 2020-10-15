@@ -9,7 +9,7 @@ use crate::{
     state_machine::requests::RequestSender,
 };
 
-pub use crate::state_machine::StateMachineError;
+pub use crate::state_machine::RequestError;
 
 /// A service that hands the requests to the state machine
 /// ([`StateMachine`]) that runs in the

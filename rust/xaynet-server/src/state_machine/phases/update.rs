@@ -8,10 +8,10 @@ use xaynet_core::{
 
 use crate::state_machine::{
     events::{DictionaryUpdate, MaskLengthUpdate},
-    phases::{Handler, Phase, PhaseName, PhaseState, Shared, StateError, Sum2},
+    phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Sum2},
     requests::{StateMachineRequest, UpdateRequest},
+    RequestError,
     StateMachine,
-    StateMachineError,
 };
 
 #[cfg(feature = "metrics")]
@@ -26,7 +26,7 @@ pub struct Update {
     model_agg: Aggregation,
 
     /// The number of Update messages successfully processed.
-    update_count: usize,
+    update_count: u64,
 }
 
 #[cfg(test)]
@@ -46,7 +46,7 @@ where
     /// Moves from the update state to the next state.
     ///
     /// See the [module level documentation](../index.html) for more details.
-    async fn run(&mut self) -> Result<(), StateError> {
+    async fn run(&mut self) -> Result<(), PhaseStateError> {
         let min_time = self.shared.state.min_update_time;
         debug!("in update phase for a minimum of {} seconds", min_time);
         self.process_during(Duration::from_secs(min_time)).await?;
@@ -84,12 +84,7 @@ where
     }
 
     fn next(self) -> Option<StateMachine> {
-        let PhaseState {
-            inner: Update { model_agg, .. },
-            shared,
-        } = self;
-
-        Some(PhaseState::<Sum2>::new(shared, model_agg).into())
+        Some(PhaseState::<Sum2>::new(self.shared, self.inner.model_agg).into())
     }
 }
 
@@ -98,7 +93,7 @@ where
     Self: Handler + Phase,
 {
     /// Processes requests until there are enough.
-    async fn process_until_enough(&mut self) -> Result<(), StateError> {
+    async fn process_until_enough(&mut self) -> Result<(), PhaseStateError> {
         while !self.has_enough_updates() {
             debug!(
                 "{} update messages handled (min {} required)",
@@ -116,8 +111,8 @@ impl Handler for PhaseState<Update> {
     ///
     /// If the request is a [`StateMachineRequest::Sum`] or
     /// [`StateMachineRequest::Sum2`] request, the request sender will
-    /// receive a [`StateMachineError::MessageRejected`].
-    async fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), StateMachineError> {
+    /// receive a [`RequestError::MessageRejected`].
+    async fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), RequestError> {
         match req {
             StateMachineRequest::Update(update_req) => {
                 metrics!(
@@ -126,7 +121,7 @@ impl Handler for PhaseState<Update> {
                 );
                 self.handle_update(update_req).await
             }
-            _ => Err(StateMachineError::MessageRejected),
+            _ => Err(RequestError::MessageRejected),
         }
     }
 }
@@ -134,7 +129,6 @@ impl Handler for PhaseState<Update> {
 impl PhaseState<Update> {
     /// Creates a new update state.
     pub fn new(shared: Shared) -> Self {
-        info!("state transition");
         Self {
             inner: Update {
                 update_count: 0,
@@ -151,7 +145,7 @@ impl PhaseState<Update> {
 
     /// Handles an update request.
     /// If the handling of the update message fails, an error is returned to the request sender.
-    async fn handle_update(&mut self, req: UpdateRequest) -> Result<(), StateMachineError> {
+    async fn handle_update(&mut self, req: UpdateRequest) -> Result<(), RequestError> {
         let UpdateRequest {
             participant_pk,
             local_seed_dict,
@@ -167,7 +161,7 @@ impl PhaseState<Update> {
         pk: &UpdateParticipantPublicKey,
         local_seed_dict: &LocalSeedDict,
         mask_object: MaskObject,
-    ) -> Result<(), StateMachineError> {
+    ) -> Result<(), RequestError> {
         // Check if aggregation can be performed. It is important to
         // do that _before_ updating the seed dictionary, because we
         // don't want to add the local seed dict if the corresponding
@@ -178,7 +172,7 @@ impl PhaseState<Update> {
             .validate_aggregation(&mask_object)
             .map_err(|e| {
                 warn!("model aggregation error: {}", e);
-                StateMachineError::AggregationFailed
+                RequestError::AggregationFailed
             })?;
 
         // Try to update local seed dict first. If this fail, we do
@@ -204,7 +198,7 @@ impl PhaseState<Update> {
         &mut self,
         pk: &UpdateParticipantPublicKey,
         local_seed_dict: &LocalSeedDict,
-    ) -> Result<(), StateMachineError> {
+    ) -> Result<(), RequestError> {
         self.shared
             .io
             .redis

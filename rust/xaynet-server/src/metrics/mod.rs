@@ -90,7 +90,7 @@ pub mod round_parameters {
 
 pub mod phase {
     use super::models::{DataPoint, Event, Measurement};
-    use crate::state_machine::phases::{PhaseName, StateError};
+    use crate::state_machine::phases::{PhaseName, PhaseStateError};
     use influxdb::{InfluxDbWriteable, Timestamp, WriteQuery};
     pub mod error {
         use super::*;
@@ -104,7 +104,7 @@ pub mod phase {
         /// | measurement | `event             `        |
         /// | field_key   | `title`                     |
         /// | field_value | value of `error.to_string()`|
-        pub fn emit(error: &StateError) -> WriteQuery {
+        pub fn emit(error: &PhaseStateError) -> WriteQuery {
             Event {
                 time: Timestamp::Now.into(),
                 title: error.to_string(),
@@ -365,8 +365,8 @@ pub mod message {
 mod test {
     use super::*;
     use crate::state_machine::{
-        phases::{PhaseName, StateError},
-        RoundFailed,
+        phases::{PhaseName, PhaseStateError},
+        UnmaskGlobalModelError,
     };
     use influxdb::Query;
 
@@ -415,9 +415,12 @@ mod test {
 
     #[test]
     fn test_phase_error() {
-        let query = phase::error::emit(&StateError::RoundError(RoundFailed::NoMask)).build();
+        let query = phase::error::emit(&PhaseStateError::UnmaskGlobalModel(
+            UnmaskGlobalModelError::NoMask,
+        ))
+        .build();
         assert!(format!("{:?}", query.unwrap()).contains(
-            "event title=\\\"state\\\\ failed:\\\\ round\\\\ error:\\\\ no\\\\ mask\\\\ found\\\""
+            "event title=\\\"unmask\\\\ global\\\\ model\\\\ error:\\\\ no\\\\ mask\\\\ found\\\""
         ));
     }
 

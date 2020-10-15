@@ -9,7 +9,7 @@ mod unmask;
 mod update;
 
 pub use self::{
-    error::StateError,
+    error::PhaseStateError,
     idle::Idle,
     shutdown::Shutdown,
     sum::Sum,
@@ -23,8 +23,8 @@ use crate::{
         coordinator::CoordinatorState,
         events::EventPublisher,
         requests::{RequestReceiver, ResponseSender, StateMachineRequest},
+        RequestError,
         StateMachine,
-        StateMachineError,
     },
     storage::redis,
 };
@@ -55,7 +55,7 @@ pub trait Phase {
     const NAME: PhaseName;
 
     /// Run this phase to completion
-    async fn run(&mut self) -> Result<(), StateError>;
+    async fn run(&mut self) -> Result<(), PhaseStateError>;
 
     /// Moves from this state to the next state.
     fn next(self) -> Option<StateMachine>;
@@ -65,7 +65,7 @@ pub trait Phase {
 #[async_trait]
 pub trait Handler {
     /// Handles a request.
-    async fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), StateMachineError>;
+    async fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), RequestError>;
 }
 
 /// I/O interfaces.
@@ -141,7 +141,7 @@ where
     Self: Handler + Phase,
 {
     /// Processes requests for as long as the given duration.
-    async fn process_during(&mut self, dur: tokio::time::Duration) -> Result<(), StateError> {
+    async fn process_during(&mut self, dur: tokio::time::Duration) -> Result<(), PhaseStateError> {
         tokio::select! {
             err = self.process_loop() => {
                 error!("processing loop terminated before duration elapsed");
@@ -155,20 +155,20 @@ where
     }
 
     /// Processes requests indefinitely.
-    async fn process_loop(&mut self) -> Result<(), StateError> {
+    async fn process_loop(&mut self) -> Result<(), PhaseStateError> {
         loop {
             self.process_single().await?;
         }
     }
 
     /// Processes the next available request.
-    async fn process_single(&mut self) -> Result<(), StateError> {
+    async fn process_single(&mut self) -> Result<(), PhaseStateError> {
         let (req, span, resp_tx) = self.next_request().await?;
         let _span_guard = span.enter();
         let res = self.handle_request(req).await;
 
         if let Err(ref err) = res {
-            error!("failed to handle message: {:?}", err);
+            warn!("failed to handle message: {}", err);
             metrics!(
                 self.shared.io.metrics_tx,
                 metrics::message::rejected::increment(self.shared.state.round_id, Self::NAME)
@@ -202,7 +202,6 @@ where
             metrics!(self.shared.io.metrics_tx, metrics::phase::update(phase));
 
             if let Err(err) = self.run().await {
-                warn!("phase failed: {:?}", err);
                 return Some(self.into_error_state(err));
             }
 
@@ -229,13 +228,13 @@ where
     /// Process all the pending requests that are now considered
     /// outdated. This happens at the end of each phase, before
     /// transitioning to the next phase.
-    fn purge_outdated_requests(&mut self) -> Result<(), StateError> {
+    fn purge_outdated_requests(&mut self) -> Result<(), PhaseStateError> {
         loop {
             match self.try_next_request()? {
                 Some((_req, span, resp_tx)) => {
                     let _span_guard = span.enter();
-                    info!("rejecting request");
-                    let _ = resp_tx.send(Err(StateMachineError::MessageRejected));
+                    info!("rejecting outdated request");
+                    let _ = resp_tx.send(Err(RequestError::MessageRejected));
 
                     metrics!(
                         self.shared.io.metrics_tx,
@@ -259,17 +258,17 @@ impl<S> PhaseState<S> {
     /// Returns [`StateError::ChannelError`] when all sender halves have been dropped.
     async fn next_request(
         &mut self,
-    ) -> Result<(StateMachineRequest, Span, ResponseSender), StateError> {
+    ) -> Result<(StateMachineRequest, Span, ResponseSender), PhaseStateError> {
         debug!("waiting for the next incoming request");
         self.shared.io.request_rx.next().await.ok_or_else(|| {
             error!("request receiver broken: senders have been dropped");
-            StateError::ChannelError("all message senders have been dropped!")
+            PhaseStateError::Channel("all message senders have been dropped!")
         })
     }
 
     fn try_next_request(
         &mut self,
-    ) -> Result<Option<(StateMachineRequest, Span, ResponseSender)>, StateError> {
+    ) -> Result<Option<(StateMachineRequest, Span, ResponseSender)>, PhaseStateError> {
         match self.shared.io.request_rx.try_recv() {
             Ok(item) => Ok(Some(item)),
             Err(tokio::sync::mpsc::error::TryRecvError::Empty) => {
@@ -278,15 +277,15 @@ impl<S> PhaseState<S> {
             }
             Err(tokio::sync::mpsc::error::TryRecvError::Closed) => {
                 warn!("failed to get next pending request: channel shut down");
-                Err(StateError::ChannelError(
+                Err(PhaseStateError::Channel(
                     "all message senders have been dropped!",
                 ))
             }
         }
     }
 
-    fn into_error_state(self, err: StateError) -> StateMachine {
-        PhaseState::<StateError>::new(self.shared, err).into()
+    fn into_error_state(self, err: PhaseStateError) -> StateMachine {
+        PhaseState::<PhaseStateError>::new(self.shared, err).into()
     }
 }
 

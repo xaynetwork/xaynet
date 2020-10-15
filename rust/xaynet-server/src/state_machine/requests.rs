@@ -27,7 +27,7 @@ use xaynet_core::{
 #[error("the RequestSender cannot be used because the state machine shut down")]
 pub struct StateMachineShutdown;
 
-use crate::state_machine::{StateMachineError, StateMachineResult};
+use crate::state_machine::{RequestError, StateMachineResult};
 
 /// A sum request.
 #[derive(Debug)]
@@ -114,14 +114,14 @@ impl RequestSender {
     pub async fn request(&self, req: StateMachineRequest, span: Span) -> StateMachineResult {
         let (resp_tx, resp_rx) = oneshot::channel::<StateMachineResult>();
         self.0.send((req, span, resp_tx)).map_err(|_| {
-            warn!("failed to send request to the state machine: state machine is shutting down");
-            StateMachineError::InternalError
+            RequestError::InternalError(
+                "failed to send request to the state machine: state machine is shutting down",
+            )
         })?;
         resp_rx.await.map_err(|_| {
-            warn!(
-                "failed to receive response from the state machine: state machine is shutting down"
-            );
-            StateMachineError::InternalError
+            RequestError::InternalError(
+                "failed to receive response from the state machine: state machine is shutting down",
+            )
         })?
     }
 }

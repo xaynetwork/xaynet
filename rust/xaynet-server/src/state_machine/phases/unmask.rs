@@ -4,9 +4,9 @@ use xaynet_core::mask::{Aggregation, MaskObject, Model};
 
 use crate::state_machine::{
     events::ModelUpdate,
-    phases::{Idle, Phase, PhaseName, PhaseState, Shared, StateError},
-    RoundFailed,
+    phases::{Idle, Phase, PhaseName, PhaseState, PhaseStateError, Shared},
     StateMachine,
+    UnmaskGlobalModelError,
 };
 
 #[cfg(feature = "metrics")]
@@ -31,7 +31,7 @@ impl Phase for PhaseState<Unmask> {
     const NAME: PhaseName = PhaseName::Unmask;
 
     /// Run the unmasking phase
-    async fn run(&mut self) -> Result<(), StateError> {
+    async fn run(&mut self) -> Result<(), PhaseStateError> {
         #[cfg(feature = "metrics")]
         {
             let redis = self.shared.io.redis.clone();
@@ -74,7 +74,6 @@ impl Phase for PhaseState<Unmask> {
     ///
     /// See the [module level documentation](../index.html) for more details.
     fn next(self) -> Option<StateMachine> {
-        info!("going back to idle phase");
         Some(PhaseState::<Idle>::new(self.shared).into())
     }
 }
@@ -82,7 +81,6 @@ impl Phase for PhaseState<Unmask> {
 impl PhaseState<Unmask> {
     /// Creates a new unmask state.
     pub fn new(shared: Shared, model_agg: Aggregation) -> Self {
-        info!("state transition");
         Self {
             inner: Unmask {
                 model_agg: Some(model_agg),
@@ -95,9 +93,9 @@ impl PhaseState<Unmask> {
     async fn freeze_mask_dict(
         &mut self,
         mut best_masks: Vec<(MaskObject, u64)>,
-    ) -> Result<MaskObject, RoundFailed> {
+    ) -> Result<MaskObject, UnmaskGlobalModelError> {
         if best_masks.is_empty() {
-            return Err(RoundFailed::NoMask);
+            return Err(UnmaskGlobalModelError::NoMask);
         }
 
         let mask = best_masks
@@ -111,7 +109,7 @@ impl PhaseState<Unmask> {
                 },
             )
             .0
-            .ok_or(RoundFailed::AmbiguousMasks)?;
+            .ok_or(UnmaskGlobalModelError::AmbiguousMasks)?;
 
         Ok(mask)
     }
@@ -119,7 +117,7 @@ impl PhaseState<Unmask> {
     async fn end_round(
         &mut self,
         best_masks: Vec<(MaskObject, u64)>,
-    ) -> Result<Model, RoundFailed> {
+    ) -> Result<Model, UnmaskGlobalModelError> {
         let mask = self.freeze_mask_dict(best_masks).await?;
 
         // Safe unwrap: State::<Unmask>::new always creates Some(aggregation)
@@ -127,7 +125,7 @@ impl PhaseState<Unmask> {
 
         model_agg
             .validate_unmasking(&mask)
-            .map_err(RoundFailed::from)?;
+            .map_err(UnmaskGlobalModelError::from)?;
 
         Ok(model_agg.unmask(mask))
     }

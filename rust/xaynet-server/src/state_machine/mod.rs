@@ -105,9 +105,9 @@ use self::{
         Phase,
         PhaseName,
         PhaseState,
+        PhaseStateError,
         Shared,
         Shutdown,
-        StateError,
         Sum,
         Sum2,
         Unmask,
@@ -128,37 +128,34 @@ use crate::metrics::MetricsSender;
 
 /// Error returned when the state machine fails to handle a request
 #[derive(Debug, Error)]
-pub enum StateMachineError {
+pub enum RequestError {
     #[error("the message was rejected")]
     MessageRejected,
 
     #[error("invalid update: the model or scalar sent by the participant could not be aggregated")]
     AggregationFailed,
 
-    #[error("invalid update: the seed dictionary sent by the participant is invalid")]
-    InvalidLocalSeedDict,
+    #[error("the request could not be processed due to an internal error: {0}")]
+    InternalError(&'static str),
 
-    #[error("the request could not be processed due to an internal error")]
-    InternalError,
-
-    #[error("Redis failed: {0}")]
+    #[error("redis request failed: {0}")]
     Redis(#[from] RedisError),
 
-    #[error("{0}")]
+    #[error(transparent)]
     SeedDictUpdate(#[from] SeedDictUpdateError),
 
-    #[error("{0}")]
+    #[error(transparent)]
     SumDictAdd(#[from] SumDictAddError),
 
-    #[error("{0}")]
+    #[error(transparent)]
     MaskDictIncr(#[from] MaskDictIncrError),
 }
 
-pub type StateMachineResult = Result<(), StateMachineError>;
+pub type StateMachineResult = Result<(), RequestError>;
 
 /// Error that occurs when unmasking of the global model fails.
 #[derive(Error, Debug, Eq, PartialEq)]
-pub enum RoundFailed {
+pub enum UnmaskGlobalModelError {
     #[error("ambiguous masks were computed by the sum participants")]
     AmbiguousMasks,
     #[error("no mask found")]
@@ -175,7 +172,7 @@ pub enum StateMachine {
     Update(PhaseState<Update>),
     Sum2(PhaseState<Sum2>),
     Unmask(PhaseState<Unmask>),
-    Error(PhaseState<StateError>),
+    Error(PhaseState<PhaseStateError>),
     Shutdown(PhaseState<Shutdown>),
 }
 
@@ -186,7 +183,7 @@ where
     PhaseState<Update>: Phase,
     PhaseState<Sum2>: Phase,
     PhaseState<Unmask>: Phase,
-    PhaseState<StateError>: Phase,
+    PhaseState<PhaseStateError>: Phase,
     PhaseState<Shutdown>: Phase,
 {
     /// Creates a new state machine with the initial state [`Idle`].

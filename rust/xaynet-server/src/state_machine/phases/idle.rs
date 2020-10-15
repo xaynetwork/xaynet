@@ -5,11 +5,9 @@ use xaynet_core::{
 
 use crate::state_machine::{
     events::{DictionaryUpdate, MaskLengthUpdate},
-    phases::{Handler, Phase, PhaseName, PhaseState, Shared, Sum},
-    requests::StateMachineRequest,
-    StateError,
+    phases::{Phase, PhaseName, PhaseState, Shared, Sum},
+    PhaseStateError,
     StateMachine,
-    StateMachineError,
 };
 
 #[cfg(feature = "metrics")]
@@ -22,21 +20,13 @@ use sodiumoxide::crypto::hash::sha256;
 pub struct Idle;
 
 #[async_trait]
-impl Handler for PhaseState<Idle> {
-    /// Reject the request with a [`StateMachineError::MessageRejected`]
-    async fn handle_request(&mut self, _req: StateMachineRequest) -> Result<(), StateMachineError> {
-        Err(StateMachineError::MessageRejected)
-    }
-}
-
-#[async_trait]
 impl Phase for PhaseState<Idle> {
     const NAME: PhaseName = PhaseName::Idle;
 
     /// Moves from the idle state to the next state.
     ///
     /// See the [module level documentation](../index.html) for more details.
-    async fn run(&mut self) -> Result<(), StateError> {
+    async fn run(&mut self) -> Result<(), PhaseStateError> {
         info!("updating the keys");
         self.gen_round_keypair();
 
@@ -99,7 +89,6 @@ impl Phase for PhaseState<Idle> {
     }
 
     fn next(self) -> Option<StateMachine> {
-        info!("going to sum phase");
         Some(PhaseState::<Sum>::new(self.shared).into())
     }
 }

@@ -88,7 +88,7 @@ pub struct PetSettings {
     /// ```text
     /// XAYNET_PET__MIN_SUM_COUNT=1
     /// ```
-    pub min_sum_count: usize,
+    pub min_sum_count: u64,
 
     #[validate(range(min = 3))]
     /// The expected fraction of participants selected for submitting an updated local model for
@@ -109,7 +109,7 @@ pub struct PetSettings {
     /// ```text
     /// XAYNET_PET__MIN_UPDATE_COUNT=3
     /// ```
-    pub min_update_count: usize,
+    pub min_update_count: u64,
 
     /// The minimum amount of time reserved for processing messages in the `sum`
     /// and `sum2` phases, in seconds.
@@ -245,14 +245,14 @@ pub struct PetSettings {
 impl Default for PetSettings {
     fn default() -> Self {
         Self {
-            min_sum_count: 1_usize,
-            min_update_count: 3_usize,
-            min_sum_time: 0_u64,
-            min_update_time: 0_u64,
-            max_sum_time: 604800_u64,
-            max_update_time: 604800_u64,
-            sum: 0.01_f64,
-            update: 0.1_f64,
+            min_sum_count: 1,
+            min_update_count: 3,
+            min_sum_time: 0,
+            min_update_time: 0,
+            max_sum_time: 604800,
+            max_update_time: 604800,
+            sum: 0.01,
+            update: 0.1,
         }
     }
 }

@@ -1,8 +1,8 @@
 use crate::{
     state_machine::{
         phases::{Idle, Phase, PhaseName, PhaseState, Shared, Shutdown},
-        RoundFailed,
         StateMachine,
+        UnmaskGlobalModelError,
     },
     storage::redis::RedisError,
 };
@@ -16,21 +16,20 @@ use thiserror::Error;
 
 /// Error that can occur during the execution of the [`StateMachine`].
 #[derive(Error, Debug)]
-pub enum StateError {
-    #[error("state failed: channel error: {0}")]
-    ChannelError(&'static str),
-    #[error("state failed: round error: {0}")]
-    RoundError(#[from] RoundFailed),
-    #[error("state failed: phase timeout: {0}")]
-    TimeoutError(#[from] tokio::time::Elapsed),
-    #[error("state failed: Redis failed: {0}")]
+pub enum PhaseStateError {
+    #[error("channel error: {0}")]
+    Channel(&'static str),
+    #[error("unmask global model error: {0}")]
+    UnmaskGlobalModel(#[from] UnmaskGlobalModelError),
+    #[error("phase timeout")]
+    Timeout(#[from] tokio::time::Elapsed),
+    #[error("redis request failed: {0}")]
     Redis(#[from] RedisError),
 }
 
-impl PhaseState<StateError> {
+impl PhaseState<PhaseStateError> {
     /// Creates a new error state.
-    pub fn new(shared: Shared, error: StateError) -> Self {
-        info!("state transition");
+    pub fn new(shared: Shared, error: PhaseStateError) -> Self {
         Self {
             inner: error,
             shared,
@@ -39,21 +38,18 @@ impl PhaseState<StateError> {
 }
 
 #[async_trait]
-impl Phase for PhaseState<StateError> {
+impl Phase for PhaseState<PhaseStateError> {
     const NAME: PhaseName = PhaseName::Error;
 
-    async fn run(&mut self) -> Result<(), StateError> {
-        error!("state transition failed! error: {:?}", self.inner);
+    async fn run(&mut self) -> Result<(), PhaseStateError> {
+        error!("state failed: {}", self.inner);
 
         metrics!(
             self.shared.io.metrics_tx,
             metrics::phase::error::emit(&self.inner)
         );
 
-        info!("broadcasting error phase event");
-        self.shared.io.events.broadcast_phase(PhaseName::Error);
-
-        if let StateError::Redis(_) = self.inner {
+        if let PhaseStateError::Redis(_) = self.inner {
             // a simple loop that stops as soon as the redis client has reconnected to a redis
             // instance. Reconnecting a lost connection is handled internally by
             // redis::aio::ConnectionManager
@@ -81,7 +77,7 @@ impl Phase for PhaseState<StateError> {
     /// See the [module level documentation](../index.html) for more details.
     fn next(self) -> Option<StateMachine> {
         Some(match self.inner {
-            StateError::ChannelError(_) => PhaseState::<Shutdown>::new(self.shared).into(),
+            PhaseStateError::Channel(_) => PhaseState::<Shutdown>::new(self.shared).into(),
             _ => PhaseState::<Idle>::new(self.shared).into(),
         })
     }
