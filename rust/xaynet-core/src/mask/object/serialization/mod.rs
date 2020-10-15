@@ -4,6 +4,7 @@
 //!
 //! [mask module]: ../index.html
 
+pub(crate) mod unit;
 pub(crate) mod vect;
 
 use anyhow::Context;
@@ -145,7 +146,7 @@ pub(crate) mod tests {
     use super::*;
     use crate::mask::{
         config::{BoundType, DataType, GroupType, MaskConfig, ModelType},
-        object::serialization::vect::tests::{mask_unit, mask_vect},
+        object::serialization::{unit::tests::mask_unit, vect::tests::mask_vect},
         MaskObject,
     };
 
