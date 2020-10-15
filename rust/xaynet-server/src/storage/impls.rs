@@ -288,20 +288,21 @@ impl SumDictAdd {
 impl FromRedisValue for SumDictAdd {
     fn from_redis_value(v: &Value) -> RedisResult<SumDictAdd> {
         match *v {
-            Value::Int(0) => Ok(SumDictAdd(Err(SumDictAddError::AlreadyExists))),
             Value::Int(1) => Ok(SumDictAdd(Ok(()))),
-            _ => Err(redis_type_error(
-                "Response status not valid integer",
-                Some(format!("Response was {:?}", v)),
-            )),
+            Value::Int(error_code) => match SumDictAddError::try_from(error_code) {
+                Ok(error_variant) => Ok(SumDictAdd(Err(error_variant))),
+                Err(_) => Err(error_code_type_error(v)),
+            },
+            _ => Err(error_code_type_error(v)),
         }
     }
 }
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, TryFromPrimitive)]
+#[repr(i64)]
 pub enum SumDictAddError {
     #[error("sum participant already exists")]
-    AlreadyExists,
+    AlreadyExists = 0,
 }
 
 #[cfg(test)]
@@ -319,21 +320,22 @@ impl SumDictDelete {
 impl FromRedisValue for SumDictDelete {
     fn from_redis_value(v: &Value) -> RedisResult<SumDictDelete> {
         match *v {
-            Value::Int(0) => Ok(SumDictDelete(Err(SumDictDeleteError::DoesNotExist))),
             Value::Int(1) => Ok(SumDictDelete(Ok(()))),
-            _ => Err(redis_type_error(
-                "Response status not valid integer",
-                Some(format!("Response was {:?}", v)),
-            )),
+            Value::Int(error_code) => match SumDictDeleteError::try_from(error_code) {
+                Ok(error_variant) => Ok(SumDictDelete(Err(error_variant))),
+                Err(_) => Err(error_code_type_error(v)),
+            },
+            _ => Err(error_code_type_error(v)),
         }
     }
 }
 
 #[cfg(test)]
-#[derive(Error, Debug)]
+#[derive(Error, Debug, TryFromPrimitive)]
+#[repr(i64)]
 pub enum SumDictDeleteError {
     #[error("sum participant does not exist")]
-    DoesNotExist,
+    DoesNotExist = 0,
 }
 
 #[derive(Deref)]
@@ -348,21 +350,21 @@ impl MaskDictIncr {
 impl FromRedisValue for MaskDictIncr {
     fn from_redis_value(v: &Value) -> RedisResult<MaskDictIncr> {
         match *v {
-            Value::Int(-2) => Ok(MaskDictIncr(Err(MaskDictIncrError::MaskAlreadySubmitted))),
-            Value::Int(-1) => Ok(MaskDictIncr(Err(MaskDictIncrError::UnknownSumPk))),
             Value::Int(0) => Ok(MaskDictIncr(Ok(()))),
-            _ => Err(redis_type_error(
-                "Response status not valid integer",
-                Some(format!("Response was {:?}", v)),
-            )),
+            Value::Int(error_code) => match MaskDictIncrError::try_from(error_code) {
+                Ok(error_variant) => Ok(MaskDictIncr(Err(error_variant))),
+                Err(_) => Err(error_code_type_error(v)),
+            },
+            _ => Err(error_code_type_error(v)),
         }
     }
 }
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, TryFromPrimitive)]
+#[repr(i64)]
 pub enum MaskDictIncrError {
     #[error("unknown sum participant")]
-    UnknownSumPk,
+    UnknownSumPk = -1,
     #[error("sum participant submitted a mask already")]
-    MaskAlreadySubmitted,
+    MaskAlreadySubmitted = -2,
 }
