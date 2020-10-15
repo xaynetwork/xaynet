@@ -27,6 +27,7 @@ tower-test = "0.3.0"
 tokio-test = "0.2.1"
 num = { version = "0.3.0", features = ["serde"] }
 xaynet-core = { path = "../xaynet-core", version = "0.1.0", features = ["testutils"] }
+serde_json = "1.0.58"
 
 [features]
 default = []

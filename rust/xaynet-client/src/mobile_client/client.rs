@@ -23,10 +23,6 @@ use xaynet_core::{
 
 use crate::PetError;
 
-// TODO: figure out the final size of an encrypted message for a given
-// payload size. This is totally arbitrary atm...
-const MAX_PAYLOAD_SIZE: usize = 1000;
-
 #[async_trait]
 pub trait LocalModel {
     async fn get_local_model(&mut self) -> Option<Model>;
@@ -63,13 +59,19 @@ impl<Type> ClientState<Type> {
         api: &mut T,
         payload: Payload,
     ) -> Result<(), ClientError<T::Error>> {
+        let max_payload_size = self
+            .participant
+            .max_message_size()
+            .max_payload_size()
+            .unwrap_or(0);
+
         // Unwrapping is fine because this only errors out if the
         // payload is a Chunk, which we never create in the client.
         let encoder = MessageEncoder::<'_, Type>::new(
             &self.participant,
             payload,
             self.round_params.pk,
-            MAX_PAYLOAD_SIZE,
+            max_payload_size,
         )
         .unwrap();
         for part in encoder {

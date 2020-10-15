@@ -72,6 +72,7 @@ fn get_participant_settings() -> ParticipantSettings {
             },
             scalar: 1_f64,
         },
+        max_message_size: Default::default(),
     }
 }
 

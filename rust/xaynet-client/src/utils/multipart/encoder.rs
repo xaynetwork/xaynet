@@ -106,7 +106,8 @@ impl<'a, T> MessageEncoder<'a, T> {
     /// Create a new encoder for the given payload. The `participant`
     /// is used to sign the message(s). If the serialized payload is
     /// larger than `max_payload_size`, the message will we split in
-    /// multiple chunks.
+    /// multiple chunks. If `max_payload_size` is `0`, the message
+    /// will not be split.
     ///
     /// # Errors
     ///
@@ -125,11 +126,11 @@ impl<'a, T> MessageEncoder<'a, T> {
             return Err(InvalidEncodingInput::Payload);
         }
 
-        if max_payload_size <= MIN_PAYLOAD_SIZE {
+        if max_payload_size != 0 && max_payload_size <= MIN_PAYLOAD_SIZE {
             return Err(InvalidEncodingInput::PayloadSize);
         }
 
-        if payload.buffer_length() > max_payload_size {
+        if max_payload_size != 0 && payload.buffer_length() > max_payload_size {
             Ok(Self::new_multipart(
                 participant,
                 coordinator_pk,
@@ -198,6 +199,7 @@ mod tests {
 
     use crate::mobile_client::participant::{
         AggregationConfig,
+        MaxMessageSize,
         ParticipantState,
         Update as UpdateState,
     };
@@ -213,6 +215,10 @@ mod tests {
                 mask: helpers::mask_config(),
                 scalar: 0.0,
             },
+            // Note that this is ignored in our tests, since we pass
+            // the maximum payload size directly to the MessageEncoder
+            // constructor
+            max_message_size: MaxMessageSize::default(),
         };
 
         let (sum_signature, update_signature) = helpers::task_signatures();
