@@ -21,7 +21,7 @@ use crate::{
     mask::{
         config::MaskConfig,
         model::{float_to_ratio_bounded, Model},
-        object::{MaskMany, MaskObject, MaskOne},
+        object::{MaskObject, MaskUnit, MaskVect},
         seed::MaskSeed,
     },
 };
@@ -80,7 +80,7 @@ impl From<MaskObject> for Aggregation {
     fn from(object: MaskObject) -> Self {
         Self {
             nb_models: 1,
-            object_size: object.vector.data.len(),
+            object_size: object.vect.data.len(),
             object,
         }
     }
@@ -110,12 +110,12 @@ impl Aggregation {
 
     /// Gets the masking configuration of the vector aggregator.
     pub fn config_many(&self) -> MaskConfig {
-        self.object.vector.config
+        self.object.vect.config
     }
 
     /// Gets the masking configuration of the scalar aggregator.
     pub fn config_one(&self) -> MaskConfig {
-        self.object.scalar.config
+        self.object.unit.config
     }
 
     /// Validates if unmasking of the aggregated masked model with the given `mask` may be
@@ -146,21 +146,19 @@ impl Aggregation {
             return Err(UnmaskingError::NoModel);
         }
 
-        if self.nb_models > self.object.vector.config.model_type.max_nb_models() {
+        if self.nb_models > self.object.vect.config.model_type.max_nb_models() {
             return Err(UnmaskingError::TooManyModels);
         }
 
-        if self.nb_models > self.object.scalar.config.model_type.max_nb_models() {
+        if self.nb_models > self.object.unit.config.model_type.max_nb_models() {
             return Err(UnmaskingError::TooManyScalars);
         }
 
-        if self.object.vector.config != mask.vector.config
-            || self.object_size != mask.vector.data.len()
-        {
+        if self.object.vect.config != mask.vect.config || self.object_size != mask.vect.data.len() {
             return Err(UnmaskingError::MaskManyMismatch);
         }
 
-        if self.object.scalar.config != mask.scalar.config {
+        if self.object.unit.config != mask.unit.config {
             return Err(UnmaskingError::MaskOneMismatch);
         }
 
@@ -190,51 +188,45 @@ impl Aggregation {
     ///
     /// [`validate_unmasking()`]: #method.validate_unmasking
     /// [`mask()`]: struct.Masker.html#method.mask
-    pub fn unmask(mut self, mask_obj: MaskObject) -> Model {
-        // unmask (over-scaled) global model
-        let scaled_add_shift_n =
-            self.object.vector.config.add_shift() * BigInt::from(self.nb_models);
-        let exp_shift_n = self.object.vector.config.exp_shift();
-        let order_n = self.object.vector.config.order();
-        let model: Model = self
-            .object
-            .vector
-            .data
-            .drain(..)
-            .zip(mask_obj.vector.data.into_iter())
-            .map(|(masked_weight, mask)| {
+    pub fn unmask(self, mask_obj: MaskObject) -> Model {
+        let (masked_n, config_n) = (self.object.vect.data, self.object.vect.config);
+        let (masked_1, config_1) = (self.object.unit.data, self.object.unit.config);
+        let mask_n = mask_obj.vect.data;
+        let mask_1 = mask_obj.unit.data;
+
+        // unmask scalar sum
+        let scaled_add_shift_1 = config_1.add_shift() * BigInt::from(self.nb_models);
+        let exp_shift_1 = config_1.exp_shift();
+        let order_1 = config_1.order();
+        let n = (masked_1 + &order_1 - mask_1) % &order_1;
+        let ratio = Ratio::<BigInt>::from(n.to_bigint().unwrap());
+        let scalar_sum = ratio / &exp_shift_1 - &scaled_add_shift_1;
+
+        // unmask global model
+        let scaled_add_shift_n = config_n.add_shift() * BigInt::from(self.nb_models);
+        let exp_shift_n = config_n.exp_shift();
+        let order_n = config_n.order();
+        masked_n
+            .into_iter()
+            .zip(mask_n)
+            .map(|(masked, mask)| {
                 // PANIC_SAFE: The substraction panics if it
                 // underflows, which can only happen if:
                 //
-                //     mask > self.object.config.order()
+                //     mask > order_n
                 //
                 // If the mask is valid, we are guaranteed that this
                 // cannot happen. Thus this method may panic only if
                 // given an invalid mask.
-                let n = (masked_weight + &order_n - mask) % &order_n;
+                let n = (masked + &order_n - mask) % &order_n;
 
                 // UNWRAP_SAFE: to_bigint never fails for BigUint
                 let ratio = Ratio::<BigInt>::from(n.to_bigint().unwrap());
+                let unmasked = ratio / &exp_shift_n - &scaled_add_shift_n;
 
-                ratio / &exp_shift_n - &scaled_add_shift_n
+                // scaling correction
+                unmasked / &scalar_sum
             })
-            .collect();
-
-        // unmask scalar sum
-        let scaled_add_shift_1 =
-            self.object.scalar.config.add_shift() * BigInt::from(self.nb_models);
-        let exp_shift_1 = self.object.scalar.config.exp_shift();
-        let order_1 = self.object.scalar.config.order();
-        let masked = self.object.scalar.data;
-        let mask = mask_obj.scalar.data;
-        let n = (masked + &order_1 - mask) % &order_1;
-        let ratio = Ratio::<BigInt>::from(n.to_bigint().unwrap());
-        let scalar_sum = ratio / &exp_shift_1 - &scaled_add_shift_1;
-
-        // apply scaling correction
-        model
-            .into_iter()
-            .map(|weight| weight / &scalar_sum)
             .collect()
     }
 
@@ -259,23 +251,23 @@ impl Aggregation {
     ///
     /// [`aggregate()`]: #method.aggregate
     pub fn validate_aggregation(&self, object: &MaskObject) -> Result<(), AggregationError> {
-        if self.object.vector.config != object.vector.config {
+        if self.object.vect.config != object.vect.config {
             return Err(AggregationError::ModelMismatch);
         }
 
-        if self.object.scalar.config != object.scalar.config {
+        if self.object.unit.config != object.unit.config {
             return Err(AggregationError::ScalarMismatch);
         }
 
-        if self.object_size != object.vector.data.len() {
+        if self.object_size != object.vect.data.len() {
             return Err(AggregationError::ModelMismatch);
         }
 
-        if self.nb_models >= self.object.vector.config.model_type.max_nb_models() {
+        if self.nb_models >= self.object.vect.config.model_type.max_nb_models() {
             return Err(AggregationError::TooManyModels);
         }
 
-        if self.nb_models >= self.object.scalar.config.model_type.max_nb_models() {
+        if self.nb_models >= self.object.unit.config.model_type.max_nb_models() {
             return Err(AggregationError::TooManyScalars);
         }
 
@@ -304,20 +296,20 @@ impl Aggregation {
             return;
         }
 
-        let order_n = self.object.vector.config.order();
+        let order_n = self.object.vect.config.order();
         for (i, j) in self
             .object
-            .vector
+            .vect
             .data
             .iter_mut()
-            .zip(object.vector.data.into_iter())
+            .zip(object.vect.data.into_iter())
         {
             *i = (&*i + j) % &order_n
         }
 
-        let order_1 = self.object.scalar.config.order();
-        let a = &mut self.object.scalar.data;
-        let b = object.scalar.data;
+        let order_1 = self.object.unit.config.order();
+        let a = &mut self.object.unit.data;
+        let b = object.unit.data;
         *a = (&*a + b) % &order_1;
 
         self.nb_models += 1;
@@ -404,7 +396,7 @@ impl Masker {
                 (shifted + rand_int) % &order
             })
             .collect();
-        let masked_model = MaskMany::new(config_model, masked_weights);
+        let masked_model = MaskVect::new_unchecked(config_model, masked_weights);
 
         // mask the scalar
         // PANIC_SAFE: shifted scalar is guaranteed to be non-negative
@@ -413,9 +405,9 @@ impl Masker {
             .to_biguint()
             .unwrap();
         let masked = (shifted + random_int) % config_scalar.order();
-        let masked_scalar = MaskOne::new(config_scalar, masked);
+        let masked_scalar = MaskUnit::new_unchecked(config_scalar, masked);
 
-        (seed, MaskObject::new(masked_model, masked_scalar))
+        (seed, MaskObject::new_unchecked(masked_model, masked_scalar))
     }
 
     /// Randomly generates integers wrt the masking configurations.
@@ -506,7 +498,7 @@ mod tests {
                     // c. unmask the model and check it against the original one.
                     let (mask_seed, masked_model) =
                         Masker::new(config.clone(), config.clone()).mask(1_f64, model.clone());
-                    assert_eq!(masked_model.vector.data.len(), model.len());
+                    assert_eq!(masked_model.vect.data.len(), model.len());
                     assert!(masked_model.is_valid());
 
                     let mask = mask_seed.derive_mask(model.len(), config.clone(), config.clone());
@@ -634,9 +626,9 @@ mod tests {
                         let integers = iter::repeat_with(|| generate_integer(&mut prng, &order))
                             .take($len as usize)
                             .collect::<Vec<_>>();
-                        let model = MaskMany::new(config, integers);
-                        let scalar = MaskOne::empty(config);
-                        MaskObject::new(model, scalar)
+                        let model = MaskVect::new_unchecked(config, integers);
+                        let scalar = MaskUnit::default(config);
+                        MaskObject::new_unchecked(model, scalar)
                     });
 
                     // Step 3 (actual test):
@@ -651,9 +643,9 @@ mod tests {
                         aggregated_masked_model.aggregate(masked_model);
 
                         assert_eq!(aggregated_masked_model.nb_models, nb);
-                        assert_eq!(aggregated_masked_model.object.vector.data.len(), $len as usize);
-                        assert_eq!(aggregated_masked_model.object.vector.config, config);
-                        assert_eq!(aggregated_masked_model.object.scalar.config, config);
+                        assert_eq!(aggregated_masked_model.object.vect.data.len(), $len as usize);
+                        assert_eq!(aggregated_masked_model.object.vect.config, config);
+                        assert_eq!(aggregated_masked_model.object.unit.config, config);
                         assert!(aggregated_masked_model.object.is_valid());
                     }
                 }

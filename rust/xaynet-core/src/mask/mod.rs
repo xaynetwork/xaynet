@@ -200,11 +200,11 @@ pub use self::{
     masking::{Aggregation, AggregationError, Masker, UnmaskingError},
     model::{FromPrimitives, IntoPrimitives, Model, ModelCastError, PrimitiveCastError},
     object::{
-        serialization::MaskManyBuffer,
+        serialization::vect::MaskVectBuffer,
         InvalidMaskObjectError,
-        MaskMany,
         MaskObject,
-        MaskOne,
+        MaskUnit,
+        MaskVect,
     },
     seed::{EncryptedMaskSeed, MaskSeed},
 };

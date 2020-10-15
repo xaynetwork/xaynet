@@ -1,4 +1,4 @@
-//! Serialization of masked objects.
+//! Serialization of masked vectors.
 //!
 //! See the [mask module] documentation since this is a private module anyways.
 //!
@@ -12,7 +12,7 @@ use num::bigint::BigUint;
 use crate::{
     mask::{
         config::{serialization::MASK_CONFIG_BUFFER_LEN, MaskConfig},
-        object::{MaskMany, MaskObject, MaskOne},
+        object::{MaskUnit, MaskVect},
     },
     message::{
         traits::{FromBytes, ToBytes},
@@ -28,85 +28,13 @@ const NUMBERS_FIELD: Range<usize> = range(MASK_CONFIG_FIELD.end, 4);
 #[cfg(target_pointer_width = "16")]
 const MAX_NB: u32 = u16::MAX as u32;
 
-/// A buffer for serialized `MaskMany`s.
-pub struct MaskManyBuffer<T> {
+/// A buffer for serialized mask vectors.
+pub struct MaskVectBuffer<T> {
     inner: T,
-}
-
-/// A buffer for serialized mask objects.
-pub struct MaskObjectBuffer<T> {
-    inner: T,
-}
-
-impl<T: AsRef<[u8]>> MaskObjectBuffer<T> {
-    /// Creates a new buffer from `bytes`.
-    ///
-    /// # Errors
-    /// Fails if the `bytes` don't conform to the required buffer length for mask objects.
-    pub fn new(bytes: T) -> Result<Self, DecodeError> {
-        let buffer = Self { inner: bytes };
-        buffer
-            .check_buffer_length()
-            .context("not a valid MaskObject")?;
-        Ok(buffer)
-    }
-
-    /// Creates a new buffer from `bytes`.
-    pub fn new_unchecked(bytes: T) -> Self {
-        Self { inner: bytes }
-    }
-
-    /// Checks if this buffer conforms to the required buffer length for mask objects.
-    ///
-    /// # Errors
-    /// Fails if the buffer is too small.
-    pub fn check_buffer_length(&self) -> Result<(), DecodeError> {
-        let inner = self.inner.as_ref();
-        // check length of vector field
-        MaskManyBuffer::new(&inner[0..]).context("invalid vector field")?;
-        // check length of scalar field
-        // TODO possible change to MaskOneBuffer in the future once implemented
-        MaskManyBuffer::new(&inner[self.scalar_offset()..]).context("invalid scalar field")?;
-        Ok(())
-    }
-
-    /// Gets the vector part.
-    ///
-    /// # Panics
-    /// May panic if this buffer is unchecked.
-    pub fn vector(&self) -> &[u8] {
-        let len = self.scalar_offset();
-        &self.inner.as_ref()[0..len]
-    }
-
-    /// Gets the offset of the scalar field.
-    pub fn scalar_offset(&self) -> usize {
-        let vector = MaskManyBuffer::new_unchecked(&self.inner.as_ref()[0..]);
-        vector.len()
-    }
-
-    /// Gets the scalar part.
-    ///
-    /// # Panics
-    /// May panic if this buffer is unchecked.
-    pub fn scalar(&self) -> &[u8] {
-        let offset = self.scalar_offset();
-        &self.inner.as_ref()[offset..]
-    }
-
-    /// Gets the expected number of bytes of this buffer.
-    ///
-    /// # Panics
-    /// May panic if this buffer is unchecked.
-    pub fn len(&self) -> usize {
-        let scalar_offset = self.scalar_offset();
-        let scalar = MaskManyBuffer::new_unchecked(&self.inner.as_ref()[scalar_offset..]);
-        scalar_offset + scalar.len()
-    }
 }
 
 #[allow(clippy::len_without_is_empty)]
-impl<T: AsRef<[u8]>> MaskManyBuffer<T> {
+impl<T: AsRef<[u8]>> MaskVectBuffer<T> {
     /// Creates a new buffer from `bytes`.
     ///
     /// # Errors
@@ -115,7 +43,7 @@ impl<T: AsRef<[u8]>> MaskManyBuffer<T> {
         let buffer = Self { inner: bytes };
         buffer
             .check_buffer_length()
-            .context("not a valid MaskMany")?;
+            .context("not a valid mask vector")?;
         Ok(buffer)
     }
 
@@ -212,17 +140,7 @@ impl<T: AsRef<[u8]>> MaskManyBuffer<T> {
     }
 }
 
-impl<T: AsRef<[u8]> + AsMut<[u8]>> MaskObjectBuffer<T> {
-    pub fn vector_mut(&mut self) -> &mut [u8] {
-        &mut self.inner.as_mut()[0..]
-    }
-    pub fn scalar_mut(&mut self) -> &mut [u8] {
-        let offset = self.scalar_offset();
-        &mut self.inner.as_mut()[offset..]
-    }
-}
-
-impl<T: AsRef<[u8]> + AsMut<[u8]>> MaskManyBuffer<T> {
+impl<T: AsRef<[u8]> + AsMut<[u8]>> MaskVectBuffer<T> {
     /// Sets the number of serialized mask object elements.
     ///
     /// # Panics
@@ -249,13 +167,13 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> MaskManyBuffer<T> {
     }
 }
 
-impl ToBytes for MaskMany {
+impl ToBytes for MaskVect {
     fn buffer_length(&self) -> usize {
         NUMBERS_FIELD.end + self.config.bytes_per_number() * self.data.len()
     }
 
     fn to_bytes<T: AsMut<[u8]>>(&self, buffer: &mut T) {
-        let mut writer = MaskManyBuffer::new_unchecked(buffer.as_mut());
+        let mut writer = MaskVectBuffer::new_unchecked(buffer.as_mut());
         self.config.to_bytes(&mut writer.config_mut());
         writer.set_numbers(self.data.len() as u32);
 
@@ -279,9 +197,9 @@ impl ToBytes for MaskMany {
     }
 }
 
-impl FromBytes for MaskMany {
+impl FromBytes for MaskVect {
     fn from_byte_slice<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
-        let reader = MaskManyBuffer::new(buffer.as_ref())?;
+        let reader = MaskVectBuffer::new(buffer.as_ref())?;
 
         let config = MaskConfig::from_byte_slice(&reader.config())?;
         let mut data = Vec::with_capacity(reader.numbers());
@@ -290,7 +208,7 @@ impl FromBytes for MaskMany {
             data.push(BigUint::from_bytes_le(chunk));
         }
 
-        Ok(MaskMany { data, config })
+        Ok(MaskVect { data, config })
     }
 
     fn from_byte_stream<I: Iterator<Item = u8> + ExactSizeIterator>(
@@ -322,27 +240,30 @@ impl FromBytes for MaskMany {
             data.push(BigUint::from_bytes_le(buf.as_slice()));
         }
 
-        Ok(MaskMany { data, config })
+        Ok(MaskVect { data, config })
     }
 }
 
-impl ToBytes for MaskOne {
+impl ToBytes for MaskUnit {
     fn buffer_length(&self) -> usize {
-        MaskMany::from(self).buffer_length()
+        MaskVect::from(self).buffer_length()
     }
 
     fn to_bytes<T: AsMut<[u8]> + AsRef<[u8]>>(&self, buffer: &mut T) {
-        MaskMany::from(self).to_bytes(buffer)
+        MaskVect::from(self).to_bytes(buffer)
     }
 }
 
-impl FromBytes for MaskOne {
+impl FromBytes for MaskUnit {
     fn from_byte_slice<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
         // TODO more direct implementation in later refactoring
-        let mut mask_many = MaskMany::from_byte_slice(buffer)?;
-        let vec_len = mask_many.data.len();
+        let mut mask_vect = MaskVect::from_byte_slice(buffer)?;
+        let vec_len = mask_vect.data.len();
         if vec_len == 1 {
-            Ok(MaskOne::new(mask_many.config, mask_many.data.remove(0)))
+            Ok(MaskUnit::new_unchecked(
+                mask_vect.config,
+                mask_vect.data.remove(0),
+            ))
         } else {
             Err(anyhow!(
                 "invalid data length: expected 1 but got {}",
@@ -354,70 +275,28 @@ impl FromBytes for MaskOne {
     fn from_byte_stream<I: Iterator<Item = u8> + ExactSizeIterator>(
         iter: &mut I,
     ) -> Result<Self, DecodeError> {
-        let mut mask_many = MaskMany::from_byte_stream(iter)?;
-        let vec_len = mask_many.data.len();
+        let mut mask_vect = MaskVect::from_byte_stream(iter)?;
+        let vec_len = mask_vect.data.len();
         if vec_len == 1 {
-            Ok(MaskOne::new(mask_many.config, mask_many.data.remove(0)))
+            Ok(MaskUnit::new_unchecked(
+                mask_vect.config,
+                mask_vect.data.remove(0),
+            ))
         } else {
             Err(anyhow!(
                 "invalid data length: expected 1 but got {}",
                 vec_len
             ))
         }
-    }
-}
-
-impl ToBytes for MaskObject {
-    fn buffer_length(&self) -> usize {
-        self.vector.buffer_length() + self.scalar.buffer_length()
-    }
-
-    fn to_bytes<T: AsMut<[u8]> + AsRef<[u8]>>(&self, buffer: &mut T) {
-        let mut writer = MaskObjectBuffer::new_unchecked(buffer.as_mut());
-        self.vector.to_bytes(&mut writer.vector_mut());
-        self.scalar.to_bytes(&mut writer.scalar_mut());
-    }
-}
-
-impl FromBytes for MaskObject {
-    fn from_byte_slice<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
-        let reader = MaskObjectBuffer::new(buffer.as_ref())?;
-        let vector = MaskMany::from_byte_slice(&reader.vector()).context("invalid vector part")?;
-        let scalar = MaskOne::from_byte_slice(&reader.scalar()).context("invalid scalar part")?;
-        Ok(Self { vector, scalar })
-    }
-
-    fn from_byte_stream<I: Iterator<Item = u8> + ExactSizeIterator>(
-        iter: &mut I,
-    ) -> Result<Self, DecodeError> {
-        let vector = MaskMany::from_byte_stream(iter).context("invalid vector part")?;
-        let scalar = MaskOne::from_byte_stream(iter).context("invalid scalar part")?;
-        Ok(Self { vector, scalar })
     }
 }
 
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
-    use crate::mask::{
-        config::{BoundType, DataType, GroupType, MaskConfig, ModelType},
-        MaskObject,
-    };
+    use crate::mask::object::serialization::tests::mask_config;
 
-    pub fn mask_config() -> (MaskConfig, Vec<u8>) {
-        // config.order() = 20_000_000_000_001 with this config, so the data
-        // should be stored on 6 bytes.
-        let config = MaskConfig {
-            group_type: GroupType::Integer,
-            data_type: DataType::I32,
-            bound_type: BoundType::B0,
-            model_type: ModelType::M3,
-        };
-        let bytes = vec![0x00, 0x02, 0x00, 0x03];
-        (config, bytes)
-    }
-
-    pub fn mask_many() -> (MaskMany, Vec<u8>) {
+    pub fn mask_vect() -> (MaskVect, Vec<u8>) {
         let (config, mut bytes) = mask_config();
         let data = vec![
             BigUint::from(1_u8),
@@ -425,7 +304,7 @@ pub(crate) mod tests {
             BigUint::from(3_u8),
             BigUint::from(4_u8),
         ];
-        let mask_many = MaskMany::new(config, data);
+        let mask_vect = MaskVect::new_unchecked(config, data);
 
         bytes.extend(vec![
             // number of elements
@@ -436,96 +315,64 @@ pub(crate) mod tests {
             0x04, 0x00, 0x00, 0x00, 0x00, 0x00, // 4
         ]);
 
-        (mask_many, bytes)
+        (mask_vect, bytes)
     }
 
-    pub fn mask_one() -> (MaskOne, Vec<u8>) {
+    pub fn mask_unit() -> (MaskUnit, Vec<u8>) {
         let (config, mut bytes) = mask_config();
         let data = BigUint::from(1_u8);
-        let mask_one = MaskOne::new(config, data);
+        let mask_unit = MaskUnit::new_unchecked(config, data);
 
         bytes.extend(vec![
             // number of elements
             0x00, 0x00, 0x00, 0x01, // data
             0x01, 0x00, 0x00, 0x00, 0x00, 0x00, // 1
         ]);
-        (mask_one, bytes)
-    }
-
-    pub fn mask_object() -> (MaskObject, Vec<u8>) {
-        let (mask_many, mask_many_bytes) = mask_many();
-        let (mask_one, mask_one_bytes) = mask_one();
-        let obj = MaskObject::new(mask_many, mask_one);
-        let bytes = [mask_many_bytes.as_slice(), mask_one_bytes.as_slice()].concat();
-
-        (obj, bytes)
+        (mask_unit, bytes)
     }
 
     #[test]
-    fn serialize_mask_object() {
-        let (mask_object, expected) = mask_object();
-        let mut buf = vec![0xff; 46];
-        mask_object.to_bytes(&mut buf);
+    fn serialize_mask_vect() {
+        let (mask_vect, expected) = mask_vect();
+        let mut buf = vec![0xff; expected.len()];
+        mask_vect.to_bytes(&mut buf);
         assert_eq!(buf, expected);
     }
 
     #[test]
-    fn deserialize_mask_object() {
-        let (expected, bytes) = mask_object();
-        assert_eq!(MaskObject::from_byte_slice(&&bytes[..]).unwrap(), expected);
+    fn deserialize_mask_vect() {
+        let (expected, bytes) = mask_vect();
+        assert_eq!(MaskVect::from_byte_slice(&&bytes[..]).unwrap(), expected);
     }
 
     #[test]
-    fn deserialize_mask_object_from_stream() {
-        let (expected, bytes) = mask_object();
+    fn deserialize_mask_vect_from_stream() {
+        let (expected, bytes) = mask_vect();
         assert_eq!(
-            MaskObject::from_byte_stream(&mut bytes.into_iter()).unwrap(),
+            MaskVect::from_byte_stream(&mut bytes.into_iter()).unwrap(),
             expected
         );
     }
 
     #[test]
-    fn serialize_mask_many() {
-        let (mask_many, expected) = mask_many();
+    fn serialize_mask_unit() {
+        let (mask_unit, expected) = mask_unit();
         let mut buf = vec![0xff; expected.len()];
-        mask_many.to_bytes(&mut buf);
+        mask_unit.to_bytes(&mut buf);
         assert_eq!(buf, expected);
     }
 
     #[test]
-    fn deserialize_mask_many() {
-        let (expected, bytes) = mask_many();
-        assert_eq!(MaskMany::from_byte_slice(&&bytes[..]).unwrap(), expected);
+    fn deserialize_mask_unit() {
+        let (expected, bytes) = mask_unit();
+        assert_eq!(MaskUnit::from_byte_slice(&&bytes[..]).unwrap(), expected);
     }
 
     #[test]
-    fn deserialize_mask_many_from_stream() {
-        let (expected, bytes) = mask_many();
+    fn deserialize_mask_unit_from_stream() {
+        let (expected, bytes) = mask_unit();
         assert_eq!(
-            MaskMany::from_byte_stream(&mut bytes.into_iter()).unwrap(),
-            expected
-        );
-    }
-
-    #[test]
-    fn serialize_mask_one() {
-        let (mask_one, expected) = mask_one();
-        let mut buf = vec![0xff; expected.len()];
-        mask_one.to_bytes(&mut buf);
-        assert_eq!(buf, expected);
-    }
-
-    #[test]
-    fn deserialize_mask_one() {
-        let (expected, bytes) = mask_one();
-        assert_eq!(MaskOne::from_byte_slice(&&bytes[..]).unwrap(), expected);
-    }
-
-    #[test]
-    fn deserialize_mask_one_from_stream() {
-        let (expected, bytes) = mask_one();
-        assert_eq!(
-            MaskOne::from_byte_stream(&mut bytes.into_iter()).unwrap(),
+            MaskUnit::from_byte_stream(&mut bytes.into_iter()).unwrap(),
             expected
         );
     }

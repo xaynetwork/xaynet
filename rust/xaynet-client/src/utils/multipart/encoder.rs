@@ -208,9 +208,9 @@ mod tests {
             EncryptedMaskSeed,
             GroupType,
             MaskConfig,
-            MaskMany,
             MaskObject,
-            MaskOne,
+            MaskUnit,
+            MaskVect,
             ModelType,
         },
         message::{FromBytes, Update},
@@ -280,9 +280,9 @@ mod tests {
             weights.push(BigUint::from(i));
         }
 
-        let masked_model = MaskMany::new(mask_config(), weights);
-        let masked_scalar = MaskOne::new(mask_config(), BigUint::from(0_u32));
-        let obj = MaskObject::new(masked_model, masked_scalar);
+        let masked_model = MaskVect::new_unchecked(mask_config(), weights);
+        let masked_scalar = MaskUnit::new_unchecked(mask_config(), BigUint::from(0_u32));
+        let obj = MaskObject::new_unchecked(masked_model, masked_scalar);
 
         // Check that our calculations are correct
         assert_eq!(obj.buffer_length(), len);

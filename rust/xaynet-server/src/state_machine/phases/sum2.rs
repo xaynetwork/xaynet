@@ -222,7 +222,7 @@ mod test {
             .compose_sum2_message(
                 coord_keys.public,
                 &local_seed_dict,
-                masked_model.vector.data.len(),
+                masked_model.vect.data.len(),
             )
             .unwrap();
 

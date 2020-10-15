@@ -10,7 +10,7 @@ use anyhow::{anyhow, Context};
 
 use crate::{
     crypto::ByteObject,
-    mask::object::{serialization::MaskManyBuffer, MaskMany, MaskObject, MaskOne},
+    mask::object::{serialization::vect::MaskVectBuffer, MaskObject},
     message::{
         traits::{FromBytes, ToBytes},
         utils::range,
@@ -62,11 +62,11 @@ impl<T: AsRef<[u8]>> Sum2Buffer<T> {
         }
 
         // Check the length of the model mask field
-        let _ = MaskManyBuffer::new(&self.inner.as_ref()[self.model_mask_offset()..])
+        let _ = MaskVectBuffer::new(&self.inner.as_ref()[self.model_mask_offset()..])
             .context("invalid model mask field")?;
 
-        // Check the length of the scalar mask field
-        let _ = MaskManyBuffer::new(&self.inner.as_ref()[self.scalar_mask_offset()..])
+        // Check the length of the scalar mask field (TODO MaskUnitBuffer)
+        let _ = MaskVectBuffer::new(&self.inner.as_ref()[self.scalar_mask_offset()..])
             .context("invalid scalar mask field")?;
 
         Ok(())
@@ -80,7 +80,7 @@ impl<T: AsRef<[u8]>> Sum2Buffer<T> {
     /// Gets the offset of the scalar mask field.
     fn scalar_mask_offset(&self) -> usize {
         let model_mask =
-            MaskManyBuffer::new_unchecked(&self.inner.as_ref()[self.model_mask_offset()..]);
+            MaskVectBuffer::new_unchecked(&self.inner.as_ref()[self.model_mask_offset()..]);
         self.model_mask_offset() + model_mask.len()
     }
 }
@@ -102,15 +102,6 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> Sum2Buffer<T> {
         let offset = self.model_mask_offset();
         &mut self.inner.as_mut()[offset..]
     }
-
-    /// Gets a mutable reference to the scalar mask field.
-    ///
-    /// # Panics
-    /// Accessing the field may panic if the buffer has not been checked before.
-    pub fn scalar_mask_mut(&mut self) -> &mut [u8] {
-        let offset = self.scalar_mask_offset();
-        &mut self.inner.as_mut()[offset..]
-    }
 }
 
 impl<'a, T: AsRef<[u8]> + ?Sized> Sum2Buffer<&'a T> {
@@ -130,15 +121,6 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Sum2Buffer<&'a T> {
         let offset = self.model_mask_offset();
         &self.inner.as_ref()[offset..]
     }
-
-    /// Gets a reference to the scalar mask field.
-    ///
-    /// # Panics
-    /// Accessing the field may panic if the buffer has not been checked before.
-    pub fn scalar_mask(&self) -> &'a [u8] {
-        let offset = self.scalar_mask_offset();
-        &self.inner.as_ref()[offset..]
-    }
 }
 
 #[derive(Eq, PartialEq, Clone, Debug)]
@@ -155,37 +137,26 @@ pub struct Sum2 {
     pub model_mask: MaskObject,
 }
 
-// TODO ToBytes impl for MaskObject
 impl ToBytes for Sum2 {
     fn buffer_length(&self) -> usize {
-        SUM_SIGNATURE_RANGE.end
-            + self.model_mask.vector.buffer_length()
-            + self.model_mask.scalar.buffer_length()
+        SUM_SIGNATURE_RANGE.end + self.model_mask.buffer_length()
     }
 
     fn to_bytes<T: AsMut<[u8]> + AsRef<[u8]>>(&self, buffer: &mut T) {
         let mut writer = Sum2Buffer::new_unchecked(buffer.as_mut());
         self.sum_signature.to_bytes(&mut writer.sum_signature_mut());
-        self.model_mask
-            .vector
-            .to_bytes(&mut writer.model_mask_mut());
-        self.model_mask
-            .scalar
-            .to_bytes(&mut writer.scalar_mask_mut());
+        self.model_mask.to_bytes(&mut writer.model_mask_mut());
     }
 }
 
-// TODO FromBytes impl for MaskObject
 impl FromBytes for Sum2 {
     fn from_byte_slice<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
         let reader = Sum2Buffer::new(buffer.as_ref())?;
         Ok(Self {
             sum_signature: ParticipantTaskSignature::from_byte_slice(&reader.sum_signature())
                 .context("invalid sum signature")?,
-            model_mask: MaskObject::new(
-                MaskMany::from_byte_slice(&reader.model_mask()).context("invalid model mask")?,
-                MaskOne::from_byte_slice(&reader.scalar_mask()).context("invalid scalar mask")?,
-            ),
+            model_mask: MaskObject::from_byte_slice(&reader.model_mask())
+                .context("invalid mask")?,
         })
     }
 
@@ -203,11 +174,7 @@ impl FromBytes for Sum2 {
 #[cfg(test)]
 pub(in crate::message) mod tests_helpers {
     use super::*;
-    pub(in crate::message) use crate::mask::object::serialization::tests::{
-        mask_many,
-        mask_object,
-        mask_one,
-    };
+    pub(in crate::message) use crate::mask::object::serialization::tests::mask_object;
 
     pub fn signature() -> (ParticipantTaskSignature, Vec<u8>) {
         let bytes = vec![0x99; ParticipantTaskSignature::LENGTH];
@@ -239,12 +206,10 @@ pub(in crate::message) mod tests {
         let buffer = Sum2Buffer::new(&bytes).unwrap();
         assert_eq!(buffer.sum_signature(), &helpers::signature().1[..]);
 
-        let expected_model_mask = helpers::mask_many().1;
-        let expected_len = expected_model_mask.len();
-        let actual_model_mask = &buffer.model_mask()[..expected_len];
-        assert_eq!(actual_model_mask, expected_model_mask);
-
-        assert_eq!(buffer.scalar_mask(), &helpers::mask_one().1[..]);
+        let expected_mask = helpers::mask_object().1;
+        let expected_length = expected_mask.len();
+        let actual_mask = &buffer.model_mask()[..expected_length];
+        assert_eq!(actual_mask, expected_mask);
     }
 
     #[test]
@@ -255,11 +220,8 @@ pub(in crate::message) mod tests {
             buffer
                 .sum_signature_mut()
                 .copy_from_slice(&helpers::signature().1[..]);
-            let model_mask = helpers::mask_many().1;
-            buffer.model_mask_mut()[..model_mask.len()].copy_from_slice(&model_mask[..]);
-            buffer
-                .scalar_mask_mut()
-                .copy_from_slice(&helpers::mask_one().1[..]);
+            let mask = helpers::mask_object().1;
+            buffer.model_mask_mut()[..mask.len()].copy_from_slice(&mask[..]);
         }
         assert_eq!(&bytes[..], &helpers::sum2().1[..]);
     }

@@ -11,7 +11,7 @@ use anyhow::{anyhow, Context};
 use crate::{
     crypto::ByteObject,
     mask::object::{
-        serialization::{MaskManyBuffer, MaskObjectBuffer},
+        serialization::{vect::MaskVectBuffer, MaskObjectBuffer},
         MaskObject,
     },
     message::{
@@ -70,11 +70,11 @@ impl<T: AsRef<[u8]>> UpdateBuffer<T> {
         }
 
         // Check the length of the masked model field
-        let _ = MaskManyBuffer::new(&self.inner.as_ref()[self.masked_model_offset()..])
+        let _ = MaskVectBuffer::new(&self.inner.as_ref()[self.masked_model_offset()..])
             .context("invalid masked model field")?;
 
-        // Check the length of the masked scalar field
-        let _ = MaskManyBuffer::new(&self.inner.as_ref()[self.masked_scalar_offset()..])
+        // Check the length of the masked scalar field (TODO MaskUnitBuffer)
+        let _ = MaskVectBuffer::new(&self.inner.as_ref()[self.masked_scalar_offset()..])
             .context("invalid masked scalar field")?;
 
         // Check the length of the local seed dictionary field
@@ -92,7 +92,7 @@ impl<T: AsRef<[u8]>> UpdateBuffer<T> {
     /// Gets the offset of the masked scalar field.
     fn masked_scalar_offset(&self) -> usize {
         let masked_model =
-            MaskManyBuffer::new_unchecked(&self.inner.as_ref()[self.masked_model_offset()..]);
+            MaskVectBuffer::new_unchecked(&self.inner.as_ref()[self.masked_model_offset()..]);
         self.masked_model_offset() + masked_model.len()
     }
 
@@ -133,15 +133,6 @@ impl<'a, T: AsRef<[u8]> + ?Sized> UpdateBuffer<&'a T> {
         &self.inner.as_ref()[offset..]
     }
 
-    /// Gets a slice that starts at the beginning of the masked scalar field.
-    ///
-    /// # Panics
-    /// Accessing the field may panic if the buffer has not been checked before.
-    pub fn masked_scalar(&self) -> &'a [u8] {
-        let offset = self.masked_scalar_offset();
-        &self.inner.as_ref()[offset..]
-    }
-
     /// Gets a slice that starts at the beginning og the local seed dictionary field.
     ///
     /// # Panics
@@ -175,15 +166,6 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> UpdateBuffer<T> {
     /// Accessing the field may panic if the buffer has not been checked before.
     pub fn masked_model_mut(&mut self) -> &mut [u8] {
         let offset = self.masked_model_offset();
-        &mut self.inner.as_mut()[offset..]
-    }
-
-    /// Gets a mutable slice that starts at the beginning of the masked scalar field.
-    ///
-    /// # Panics
-    /// Accessing the field may panic if the buffer has not been checked before.
-    pub fn masked_scalar_mut(&mut self) -> &mut [u8] {
-        let offset = self.masked_scalar_offset();
         &mut self.inner.as_mut()[offset..]
     }
 
@@ -223,8 +205,7 @@ pub struct Update {
 impl ToBytes for Update {
     fn buffer_length(&self) -> usize {
         UPDATE_SIGNATURE_RANGE.end
-            + self.masked_model.vector.buffer_length()
-            + self.masked_model.scalar.buffer_length()
+            + self.masked_model.buffer_length()
             + self.local_seed_dict.buffer_length()
     }
 
@@ -233,12 +214,7 @@ impl ToBytes for Update {
         self.sum_signature.to_bytes(&mut writer.sum_signature_mut());
         self.update_signature
             .to_bytes(&mut writer.update_signature_mut());
-        self.masked_model
-            .vector
-            .to_bytes(&mut writer.masked_model_mut());
-        self.masked_model
-            .scalar
-            .to_bytes(&mut writer.masked_scalar_mut());
+        self.masked_model.to_bytes(&mut writer.masked_model_mut());
         self.local_seed_dict
             .to_bytes(&mut writer.local_seed_dict_mut());
     }
@@ -279,11 +255,7 @@ pub(in crate::message) mod tests_helpers {
     use std::convert::TryFrom;
 
     use super::*;
-    pub(in crate::message) use crate::mask::object::serialization::tests::{
-        mask_many,
-        mask_object,
-        mask_one,
-    };
+    pub(in crate::message) use crate::mask::object::serialization::tests::mask_object;
     use crate::{crypto::ByteObject, mask::seed::EncryptedMaskSeed, SumParticipantPublicKey};
 
     pub fn sum_signature() -> (ParticipantTaskSignature, Vec<u8>) {
@@ -356,10 +328,8 @@ pub(in crate::message) mod tests {
             buffer.update_signature(),
             helpers::update_signature().1.as_slice()
         );
-        let mut expected = helpers::mask_many().1;
+        let expected = helpers::mask_object().1;
         assert_eq!(&buffer.masked_model()[..expected.len()], &expected[..]);
-        expected = helpers::mask_one().1;
-        assert_eq!(&buffer.masked_scalar()[..expected.len()], &expected[..]);
         assert_eq!(buffer.local_seed_dict(), &helpers::local_seed_dict().1[..]);
     }
 
