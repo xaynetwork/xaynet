@@ -14,6 +14,9 @@ use xaynet_server::{
 #[cfg(feature = "metrics")]
 use xaynet_server::metrics::{run_metric_service, MetricsService};
 
+#[cfg(feature = "model-persistence")]
+use xaynet_server::storage::s3;
+
 #[macro_use]
 extern crate tracing;
 
@@ -28,20 +31,20 @@ struct Opt {
 #[tokio::main]
 async fn main() {
     let opt = Opt::from_args();
-    #[cfg_attr(not(feature = "metrics"), allow(unused_variables))]
+
+    let settings = Settings::new(opt.config_path).unwrap_or_else(|err| {
+        eprintln!("{}", err);
+        process::exit(1);
+    });
     let Settings {
         pet: pet_settings,
         mask: mask_settings,
         api: api_settings,
         log: log_settings,
         model: model_settings,
-        metrics: metrics_settings,
         redis: redis_settings,
         ..
-    } = Settings::new(opt.config_path).unwrap_or_else(|err| {
-        eprintln!("{}", err);
-        process::exit(1);
-    });
+    } = settings;
 
     let _fmt_subscriber = FmtSubscriber::builder()
         .with_env_filter(log_settings.filter)
@@ -56,13 +59,22 @@ async fn main() {
     #[cfg(feature = "metrics")]
     let (metrics_sender, metrics_handle) = {
         let (metrics_service, metrics_sender) = MetricsService::new(
-            &metrics_settings.influxdb.url,
-            &metrics_settings.influxdb.db,
+            &settings.metrics.influxdb.url,
+            &settings.metrics.influxdb.db,
         );
         (
             metrics_sender,
             tokio::spawn(async { run_metric_service(metrics_service).await }),
         )
+    };
+
+    #[cfg(feature = "model-persistence")]
+    let s3 = {
+        let s3 = s3::Client::new(settings.s3).expect("failed to create S3 client");
+        s3.create_global_models_bucket()
+            .await
+            .expect("failed to create bucket for global-models");
+        s3
     };
 
     let redis = redis::Client::new(redis_settings.url, 100)
@@ -80,6 +92,8 @@ async fn main() {
         mask_settings,
         model_settings,
         redis,
+        #[cfg(feature = "model-persistence")]
+        s3,
         #[cfg(feature = "metrics")]
         metrics_sender,
     )
