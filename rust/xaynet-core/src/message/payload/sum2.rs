@@ -191,7 +191,8 @@ pub mod tests {
 
     #[test]
     fn buffer_write() {
-        let mut bytes = vec![0xff; 110];
+        // length = 64 (signature) + 42 (mask) = 106
+        let mut bytes = vec![0xff; 106];
         {
             let mut buffer = Sum2Buffer::new_unchecked(&mut bytes);
             buffer

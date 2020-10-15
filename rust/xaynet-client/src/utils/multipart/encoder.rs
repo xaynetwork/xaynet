@@ -243,10 +243,10 @@ mod tests {
 
     fn small_message() -> Message {
         let dict_len = 80 + 32 + 4; // 116 => dict with a single entry
-        let model_len = 6 + 22; // 28 => masked model with single weight
+        let model_len = 6 + 18; // 24 => masked model with single weight
         let message = message(dict_len, model_len);
-        let payload_len = 116 + 28 + 64 * 2; // 272
-        let message_len = payload_len + 136; // 408
+        let payload_len = dict_len + model_len + 64 * 2; // 268
+        let message_len = payload_len + 136; // 404
         assert_eq!(message.payload.buffer_length(), payload_len);
         assert_eq!(message.buffer_length(), message_len);
         message
@@ -283,7 +283,7 @@ mod tests {
         //
         // 8 of these 200 payload bytes are for the Chunk payload
         // header. So this chunk actually only contains 192 bytes (out
-        // of 272) from the Update payload. So 80 bytes remain.
+        // of 268) from the Update payload. So 76 bytes remain.
         assert_eq!(data.len(), 200 + 136);
         let parsed = Message::from_byte_slice(&data.as_slice()).unwrap();
         assert_eq!(parsed.is_multipart, true);
@@ -293,15 +293,15 @@ mod tests {
         assert_eq!(chunk1.data.len(), 192);
 
         let data = enc.next().unwrap();
-        // The payload should be 80 bytes + 8 bytes of CHUNK_OVERHEAD,
+        // The payload should be 76 bytes + 8 bytes of CHUNK_OVERHEAD,
         // plus 136 byte for the message header
-        assert_eq!(data.len(), 88 + 136);
+        assert_eq!(data.len(), 84 + 136);
         let parsed = Message::from_byte_slice(&data.as_slice()).unwrap();
         assert_eq!(parsed.is_multipart, true);
         let chunk2 = extract_chunk(parsed);
         assert!(chunk2.last);
         assert_eq!(chunk2.id, 1);
-        assert_eq!(chunk2.data.len(), 80);
+        assert_eq!(chunk2.data.len(), 76);
 
         let payload_data: Vec<u8> = [chunk1.data, chunk2.data].concat();
         let update = Update::from_byte_slice(&payload_data).unwrap();

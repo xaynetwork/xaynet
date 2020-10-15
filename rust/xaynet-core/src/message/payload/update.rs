@@ -317,8 +317,8 @@ pub mod tests {
         //
         // First compute the offset at which the local seed dict value
         // starts: two signature (64 bytes), the masked model (32
-        // bytes), the length field (4 bytes), the masked scalar (14 bytes)
-        let offset = 64 * 2 + 32 + 4 + 14;
+        // bytes), the length field (4 bytes), the masked scalar (10 bytes)
+        let offset = 64 * 2 + 32 + 4 + 10;
         // Sort the end of the buffer
         (&mut buf[offset..]).sort();
         assert_eq!(buf, bytes);
