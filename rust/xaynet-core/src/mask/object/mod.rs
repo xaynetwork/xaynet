@@ -27,7 +27,7 @@ pub struct MaskVect {
 
 impl MaskVect {
     /// Creates a new mask vector from the given data and masking configuration.
-    pub fn new(config: MaskConfig, data: Vec<BigUint>) -> Self {
+    pub fn new_unchecked(config: MaskConfig, data: Vec<BigUint>) -> Self {
         Self { data, config }
     }
 
@@ -35,11 +35,8 @@ impl MaskVect {
     ///
     /// # Errors
     /// Fails if the elements of the mask object don't conform to the given masking configuration.
-    pub fn new_checked(
-        config: MaskConfig,
-        data: Vec<BigUint>,
-    ) -> Result<Self, InvalidMaskObjectError> {
-        let obj = Self::new(config, data);
+    pub fn new(config: MaskConfig, data: Vec<BigUint>) -> Result<Self, InvalidMaskObjectError> {
+        let obj = Self::new_unchecked(config, data);
         if obj.is_valid() {
             Ok(obj)
         } else {
@@ -71,19 +68,19 @@ pub struct MaskUnit {
 
 impl From<&MaskUnit> for MaskVect {
     fn from(mask_unit: &MaskUnit) -> Self {
-        Self::new(mask_unit.config, vec![mask_unit.data.clone()])
+        Self::new_unchecked(mask_unit.config, vec![mask_unit.data.clone()])
     }
 }
 
 impl From<MaskUnit> for MaskVect {
     fn from(mask_unit: MaskUnit) -> Self {
-        Self::new(mask_unit.config, vec![mask_unit.data])
+        Self::new_unchecked(mask_unit.config, vec![mask_unit.data])
     }
 }
 
 impl MaskUnit {
     /// Creates a new mask unit from the given mask and masking configuration.
-    pub fn new(config: MaskConfig, data: BigUint) -> Self {
+    pub fn new_unchecked(config: MaskConfig, data: BigUint) -> Self {
         Self { data, config }
     }
 
@@ -91,8 +88,8 @@ impl MaskUnit {
     ///
     /// # Errors
     /// Fails if the mask unit doesn't conform to the given masking configuration.
-    pub fn new_checked(config: MaskConfig, data: BigUint) -> Result<Self, InvalidMaskObjectError> {
-        let obj = Self::new(config, data);
+    pub fn new(config: MaskConfig, data: BigUint) -> Result<Self, InvalidMaskObjectError> {
+        let obj = Self::new_unchecked(config, data);
         if obj.is_valid() {
             Ok(obj)
         } else {
@@ -123,19 +120,19 @@ pub struct MaskObject {
 
 impl MaskObject {
     /// Creates a new mask object from the given vector and unit.
-    pub fn new(vect: MaskVect, unit: MaskUnit) -> Self {
+    pub fn new_unchecked(vect: MaskVect, unit: MaskUnit) -> Self {
         Self { vect, unit }
     }
 
     /// Creates a new mask object from the given vector, unit and masking configurations.
-    pub fn new_checked(
+    pub fn new(
         config_v: MaskConfig,
         data_v: Vec<BigUint>,
         config_s: MaskConfig,
         data_s: BigUint,
     ) -> Result<Self, InvalidMaskObjectError> {
-        let vect = MaskVect::new_checked(config_v, data_v)?;
-        let unit = MaskUnit::new_checked(config_s, data_s)?;
+        let vect = MaskVect::new(config_v, data_v)?;
+        let unit = MaskUnit::new(config_s, data_s)?;
         Ok(Self { vect, unit })
     }
 

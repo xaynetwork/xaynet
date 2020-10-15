@@ -165,7 +165,7 @@ pub(crate) mod tests {
     pub fn mask_object() -> (MaskObject, Vec<u8>) {
         let (mask_vect, mask_vect_bytes) = mask_vect();
         let (mask_unit, mask_unit_bytes) = mask_unit();
-        let obj = MaskObject::new(mask_vect, mask_unit);
+        let obj = MaskObject::new_unchecked(mask_vect, mask_unit);
         let bytes = [mask_vect_bytes.as_slice(), mask_unit_bytes.as_slice()].concat();
 
         (obj, bytes)

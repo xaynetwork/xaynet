@@ -260,7 +260,10 @@ impl FromBytes for MaskUnit {
         let mut mask_vect = MaskVect::from_byte_slice(buffer)?;
         let vec_len = mask_vect.data.len();
         if vec_len == 1 {
-            Ok(MaskUnit::new(mask_vect.config, mask_vect.data.remove(0)))
+            Ok(MaskUnit::new_unchecked(
+                mask_vect.config,
+                mask_vect.data.remove(0),
+            ))
         } else {
             Err(anyhow!(
                 "invalid data length: expected 1 but got {}",
@@ -275,7 +278,10 @@ impl FromBytes for MaskUnit {
         let mut mask_vect = MaskVect::from_byte_stream(iter)?;
         let vec_len = mask_vect.data.len();
         if vec_len == 1 {
-            Ok(MaskUnit::new(mask_vect.config, mask_vect.data.remove(0)))
+            Ok(MaskUnit::new_unchecked(
+                mask_vect.config,
+                mask_vect.data.remove(0),
+            ))
         } else {
             Err(anyhow!(
                 "invalid data length: expected 1 but got {}",
@@ -298,7 +304,7 @@ pub(crate) mod tests {
             BigUint::from(3_u8),
             BigUint::from(4_u8),
         ];
-        let mask_vect = MaskVect::new(config, data);
+        let mask_vect = MaskVect::new_unchecked(config, data);
 
         bytes.extend(vec![
             // number of elements
@@ -315,7 +321,7 @@ pub(crate) mod tests {
     pub fn mask_unit() -> (MaskUnit, Vec<u8>) {
         let (config, mut bytes) = mask_config();
         let data = BigUint::from(1_u8);
-        let mask_unit = MaskUnit::new(config, data);
+        let mask_unit = MaskUnit::new_unchecked(config, data);
 
         bytes.extend(vec![
             // number of elements

@@ -189,42 +189,43 @@ impl Aggregation {
     /// [`validate_unmasking()`]: #method.validate_unmasking
     /// [`mask()`]: struct.Masker.html#method.mask
     pub fn unmask(self, mask_obj: MaskObject) -> Model {
+        let (masked_n, config_n) = (self.object.vect.data, self.object.vect.config);
+        let (masked_1, config_1) = (self.object.unit.data, self.object.unit.config);
+        let mask_n = mask_obj.vect.data;
+        let mask_1 = mask_obj.unit.data;
+
         // unmask scalar sum
-        let scaled_add_shift_1 = self.object.unit.config.add_shift() * BigInt::from(self.nb_models);
-        let exp_shift_1 = self.object.unit.config.exp_shift();
-        let order_1 = self.object.unit.config.order();
-        let masked = self.object.unit.data;
-        let mask = mask_obj.unit.data;
-        let n = (masked + &order_1 - mask) % &order_1;
+        let scaled_add_shift_1 = config_1.add_shift() * BigInt::from(self.nb_models);
+        let exp_shift_1 = config_1.exp_shift();
+        let order_1 = config_1.order();
+        let n = (masked_1 + &order_1 - mask_1) % &order_1;
         let ratio = Ratio::<BigInt>::from(n.to_bigint().unwrap());
         let scalar_sum = ratio / &exp_shift_1 - &scaled_add_shift_1;
 
         // unmask global model
-        let scaled_add_shift_n = self.object.vect.config.add_shift() * BigInt::from(self.nb_models);
-        let exp_shift_n = self.object.vect.config.exp_shift();
-        let order_n = self.object.vect.config.order();
-        self.object
-            .vect
-            .data
+        let scaled_add_shift_n = config_n.add_shift() * BigInt::from(self.nb_models);
+        let exp_shift_n = config_n.exp_shift();
+        let order_n = config_n.order();
+        masked_n
             .into_iter()
-            .zip(mask_obj.vect.data.into_iter())
-            .map(|(masked_weight, mask)| {
+            .zip(mask_n)
+            .map(|(masked, mask)| {
                 // PANIC_SAFE: The substraction panics if it
                 // underflows, which can only happen if:
                 //
-                //     mask > self.object.config.order()
+                //     mask > order_n
                 //
                 // If the mask is valid, we are guaranteed that this
                 // cannot happen. Thus this method may panic only if
                 // given an invalid mask.
-                let n = (masked_weight + &order_n - mask) % &order_n;
+                let n = (masked + &order_n - mask) % &order_n;
 
                 // UNWRAP_SAFE: to_bigint never fails for BigUint
                 let ratio = Ratio::<BigInt>::from(n.to_bigint().unwrap());
-                let unmasked_weight = ratio / &exp_shift_n - &scaled_add_shift_n;
+                let unmasked = ratio / &exp_shift_n - &scaled_add_shift_n;
 
                 // scaling correction
-                unmasked_weight / &scalar_sum
+                unmasked / &scalar_sum
             })
             .collect()
     }
@@ -395,7 +396,7 @@ impl Masker {
                 (shifted + rand_int) % &order
             })
             .collect();
-        let masked_model = MaskVect::new(config_model, masked_weights);
+        let masked_model = MaskVect::new_unchecked(config_model, masked_weights);
 
         // mask the scalar
         // PANIC_SAFE: shifted scalar is guaranteed to be non-negative
@@ -404,9 +405,9 @@ impl Masker {
             .to_biguint()
             .unwrap();
         let masked = (shifted + random_int) % config_scalar.order();
-        let masked_scalar = MaskUnit::new(config_scalar, masked);
+        let masked_scalar = MaskUnit::new_unchecked(config_scalar, masked);
 
-        (seed, MaskObject::new(masked_model, masked_scalar))
+        (seed, MaskObject::new_unchecked(masked_model, masked_scalar))
     }
 
     /// Randomly generates integers wrt the masking configurations.
@@ -625,9 +626,9 @@ mod tests {
                         let integers = iter::repeat_with(|| generate_integer(&mut prng, &order))
                             .take($len as usize)
                             .collect::<Vec<_>>();
-                        let model = MaskVect::new(config, integers);
+                        let model = MaskVect::new_unchecked(config, integers);
                         let scalar = MaskUnit::default(config);
-                        MaskObject::new(model, scalar)
+                        MaskObject::new_unchecked(model, scalar)
                     });
 
                     // Step 3 (actual test):

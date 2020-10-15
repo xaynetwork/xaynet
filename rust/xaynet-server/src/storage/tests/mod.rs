@@ -49,7 +49,7 @@ pub fn create_mask_zeroed(byte_size: usize) -> MaskObject {
         model_type: ModelType::M3,
     };
 
-    MaskObject::new_checked(
+    MaskObject::new(
         config.clone(),
         vec![BigUint::zero(); byte_size],
         config,
@@ -66,7 +66,7 @@ pub fn create_mask(byte_size: usize, number: u32) -> MaskObject {
         model_type: ModelType::M3,
     };
 
-    MaskObject::new_checked(
+    MaskObject::new(
         config.clone(),
         vec![BigUint::from(number); byte_size],
         config,

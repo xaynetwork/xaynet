@@ -66,14 +66,14 @@ impl MaskSeed {
         let mut prng = ChaCha20Rng::from_seed(self.as_array());
 
         let rand_int = generate_integer(&mut prng, &config_one.order());
-        let scalar_mask = MaskUnit::new(config_one, rand_int);
+        let scalar_mask = MaskUnit::new_unchecked(config_one, rand_int);
 
         let rand_ints = iter::repeat_with(|| generate_integer(&mut prng, &config_many.order()))
             .take(len)
             .collect();
-        let model_mask = MaskVect::new(config_many, rand_ints);
+        let model_mask = MaskVect::new_unchecked(config_many, rand_ints);
 
-        MaskObject::new(model_mask, scalar_mask)
+        MaskObject::new_unchecked(model_mask, scalar_mask)
     }
 }
 
