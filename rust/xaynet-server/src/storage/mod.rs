@@ -1,5 +1,6 @@
 pub(crate) mod impls;
 pub mod redis;
+#[cfg(feature = "model-persistence")]
 pub mod s3;
 
 pub use self::{

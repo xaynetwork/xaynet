@@ -44,6 +44,15 @@ pub struct Client {
     s3_client: S3Client,
 }
 
+#[cfg(test)]
+impl std::fmt::Debug for Client {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Client")
+            .field("buckets", &self.buckets)
+            .finish()
+    }
+}
+
 impl Client {
     /// Creates a new S3 client. The client creates and maintains one bucket for storing global models.
     ///
@@ -155,7 +164,7 @@ mod tests {
 
     impl Client {
         // Deletes all objects in a bucket.
-        async fn clear_bucket(&self, bucket: &str) -> S3Result<()> {
+        pub async fn clear_bucket(&self, bucket: &str) -> S3Result<()> {
             let mut continuation_token: Option<String> = None;
 
             loop {
@@ -260,9 +269,7 @@ mod tests {
             region,
             access_key: String::from("minio"),
             secret_access_key: String::from("minio123"),
-            buckets: S3BucketsSettings {
-                global_models: String::from("global-models"),
-            },
+            buckets: S3BucketsSettings::default(),
         }
     }
 
