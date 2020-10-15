@@ -10,10 +10,7 @@ use anyhow::{anyhow, Context};
 
 use crate::{
     crypto::ByteObject,
-    mask::object::{
-        serialization::{vect::MaskVectBuffer, MaskObjectBuffer},
-        MaskObject,
-    },
+    mask::object::{serialization::MaskObjectBuffer, MaskObject},
     message::{
         traits::{FromBytes, LengthValueBuffer, ToBytes},
         utils::range,
@@ -69,13 +66,9 @@ impl<T: AsRef<[u8]>> UpdateBuffer<T> {
             ));
         }
 
-        // Check the length of the masked model field
-        let _ = MaskVectBuffer::new(&self.inner.as_ref()[self.masked_model_offset()..])
-            .context("invalid masked model field")?;
-
-        // Check the length of the masked scalar field (TODO MaskUnitBuffer)
-        let _ = MaskVectBuffer::new(&self.inner.as_ref()[self.masked_scalar_offset()..])
-            .context("invalid masked scalar field")?;
+        // Check length of the masked object field
+        MaskObjectBuffer::new(&self.inner.as_ref()[self.masked_model_offset()..])
+            .context("invalid masked object field")?;
 
         // Check the length of the local seed dictionary field
         let _ = LengthValueBuffer::new(&self.inner.as_ref()[self.local_seed_dict_offset()..])
@@ -87,13 +80,6 @@ impl<T: AsRef<[u8]>> UpdateBuffer<T> {
     /// Gets the offset of the masked model field.
     fn masked_model_offset(&self) -> usize {
         UPDATE_SIGNATURE_RANGE.end
-    }
-
-    /// Gets the offset of the masked scalar field.
-    fn masked_scalar_offset(&self) -> usize {
-        let masked_model =
-            MaskVectBuffer::new_unchecked(&self.inner.as_ref()[self.masked_model_offset()..]);
-        self.masked_model_offset() + masked_model.len()
     }
 
     /// Gets the offset of the local seed dictionary field.
