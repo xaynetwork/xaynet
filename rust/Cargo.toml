@@ -9,4 +9,5 @@ members = [
     "xaynet-ffi",
     # Internal
     "examples",
+    "benches",
 ]

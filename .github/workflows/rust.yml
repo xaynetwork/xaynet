@@ -135,13 +135,13 @@ jobs:
         run: docker-compose down
 
       - name: bench
-        working-directory: ./rust/xaynet-core
+        working-directory: ./rust/benches
         run: cargo bench
 
       - uses: actions/upload-artifact@v2
         with:
           name: bench_${{ github.sha }}
-          path: ./rust/xaynet-core/target/criterion
+          path: ./rust/benches/target/criterion
 
 
   docs:
