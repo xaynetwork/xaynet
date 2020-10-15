@@ -244,53 +244,6 @@ impl FromBytes for MaskVect {
     }
 }
 
-// impl ToBytes for MaskUnit {
-//     fn buffer_length(&self) -> usize {
-//         MaskVect::from(self).buffer_length()
-//     }
-
-//     fn to_bytes<T: AsMut<[u8]> + AsRef<[u8]>>(&self, buffer: &mut T) {
-//         MaskVect::from(self).to_bytes(buffer)
-//     }
-// }
-
-// impl FromBytes for MaskUnit {
-//     fn from_byte_slice<T: AsRef<[u8]>>(buffer: &T) -> Result<Self, DecodeError> {
-//         // TODO more direct implementation in later refactoring
-//         let mut mask_vect = MaskVect::from_byte_slice(buffer)?;
-//         let vec_len = mask_vect.data.len();
-//         if vec_len == 1 {
-//             Ok(MaskUnit::new_unchecked(
-//                 mask_vect.config,
-//                 mask_vect.data.remove(0),
-//             ))
-//         } else {
-//             Err(anyhow!(
-//                 "invalid data length: expected 1 but got {}",
-//                 vec_len
-//             ))
-//         }
-//     }
-
-//     fn from_byte_stream<I: Iterator<Item = u8> + ExactSizeIterator>(
-//         iter: &mut I,
-//     ) -> Result<Self, DecodeError> {
-//         let mut mask_vect = MaskVect::from_byte_stream(iter)?;
-//         let vec_len = mask_vect.data.len();
-//         if vec_len == 1 {
-//             Ok(MaskUnit::new_unchecked(
-//                 mask_vect.config,
-//                 mask_vect.data.remove(0),
-//             ))
-//         } else {
-//             Err(anyhow!(
-//                 "invalid data length: expected 1 but got {}",
-//                 vec_len
-//             ))
-//         }
-//     }
-// }
-
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
@@ -318,19 +271,6 @@ pub(crate) mod tests {
 
         (mask_vect, bytes)
     }
-
-    // pub fn mask_unit() -> (MaskUnit, Vec<u8>) {
-    //     let (config, mut bytes) = mask_config();
-    //     let data = BigUint::from(1_u8);
-    //     let mask_unit = MaskUnit::new_unchecked(config, data);
-
-    //     bytes.extend(vec![
-    //         // number of elements
-    //         0x00, 0x00, 0x00, 0x01, // data
-    //         0x01, 0x00, 0x00, 0x00, 0x00, 0x00, // 1
-    //     ]);
-    //     (mask_unit, bytes)
-    // }
 
     #[test]
     fn serialize_mask_vect() {

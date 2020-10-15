@@ -51,20 +51,18 @@ pub fn mask_object(len: usize) -> MaskObject {
     //         - 6 bytes (with our config) for each weight
     //    - the masked scalar:
     //         - 4 bytes for the config
-    //         - 4 bytes for the number of weights (actually
-    //           always equal to 1)
     //         - 6 bytes (with our config) for the scalar
     //
     // The only parameter we control to make the length vary is
     // the number of weights. The lengths is then:
     //
-    // len = (4 + 4 + n_weights * 6) + (4 + 4 + 6) = 22 + 6 * n_weights
+    // len = (4 + 4 + n_weights * 6) + (4 + 6) = 18 + 6 * n_weights
     //
-    // So we must have: (len - 22) % 6 = 0
-    if (len - 22) % 6 != 0 {
+    // So we must have: (len - 18) % 6 = 0
+    if (len - 18) % 6 != 0 {
         panic!("invalid masked model length")
     }
-    let n_weights = (len - 22) / 6;
+    let n_weights = (len - 18) / 6;
     // Let's not be too crazy, it makes no sense to test with too
     // many weights
     assert!(n_weights < u32::MAX as usize);
