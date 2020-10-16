@@ -20,7 +20,7 @@ pub mod update {
 
     /// Get an update that corresponds to:
     ///     - 1 sum participant (1 entry in the seed dict)
-    ///     - a 128 bytes serialized masked model
+    ///     - a 28 bytes serialized masked model
     pub fn update_tiny() -> (Update, Vec<u8>) {
         // 116 + 28 + 128 = 272
         make_update(116, 28, 272)
