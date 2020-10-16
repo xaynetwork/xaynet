@@ -244,9 +244,7 @@ pub mod mask {
         let mask_unit = MaskUnit::new(config, data).unwrap();
 
         bytes.extend(vec![
-            // number of elements
-            0x00, 0x00, 0x00, 0x01, // data
-            0x01, 0x00, 0x00, 0x00, 0x00, 0x00, // 1
+            0x01, 0x00, 0x00, 0x00, 0x00, 0x00, // data: 1
         ]);
         (mask_unit, bytes)
     }

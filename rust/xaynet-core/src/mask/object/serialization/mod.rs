@@ -4,12 +4,18 @@
 //!
 //! [mask module]: ../index.html
 
+pub(crate) mod unit;
 pub(crate) mod vect;
 
 use anyhow::Context;
 
 use crate::{
-    mask::object::{serialization::vect::MaskVectBuffer, MaskObject, MaskUnit, MaskVect},
+    mask::object::{
+        serialization::{unit::MaskUnitBuffer, vect::MaskVectBuffer},
+        MaskObject,
+        MaskUnit,
+        MaskVect,
+    },
     message::{
         traits::{FromBytes, ToBytes},
         DecodeError,
@@ -34,7 +40,7 @@ impl<T: AsRef<[u8]>> MaskObjectBuffer<T> {
         let buffer = Self { inner: bytes };
         buffer
             .check_buffer_length()
-            .context("not a valid MaskObject")?;
+            .context("not a valid mask object")?;
         Ok(buffer)
     }
 
@@ -49,11 +55,10 @@ impl<T: AsRef<[u8]>> MaskObjectBuffer<T> {
     /// Fails if the buffer is too small.
     pub fn check_buffer_length(&self) -> Result<(), DecodeError> {
         let inner = self.inner.as_ref();
-        // check length of vector field
-        MaskVectBuffer::new(&inner[0..]).context("invalid vector field")?;
-        // check length of scalar field
-        // TODO possible change to MaskOneBuffer in the future once implemented
-        MaskVectBuffer::new(&inner[self.unit_offset()..]).context("invalid unit field")?;
+        // check length of vect field
+        MaskVectBuffer::new(inner).context("invalid vector field")?;
+        // check length of unit field
+        MaskUnitBuffer::new(&inner[self.unit_offset()..]).context("invalid unit field")?;
         Ok(())
     }
 
@@ -68,7 +73,7 @@ impl<T: AsRef<[u8]>> MaskObjectBuffer<T> {
 
     /// Gets the offset of the unit field.
     pub fn unit_offset(&self) -> usize {
-        let vect_buf = MaskVectBuffer::new_unchecked(&self.inner.as_ref()[0..]);
+        let vect_buf = MaskVectBuffer::new_unchecked(self.inner.as_ref());
         vect_buf.len()
     }
 
@@ -87,7 +92,7 @@ impl<T: AsRef<[u8]>> MaskObjectBuffer<T> {
     /// May panic if this buffer is unchecked.
     pub fn len(&self) -> usize {
         let unit_offset = self.unit_offset();
-        let unit_buf = MaskVectBuffer::new_unchecked(&self.inner.as_ref()[unit_offset..]);
+        let unit_buf = MaskUnitBuffer::new_unchecked(&self.inner.as_ref()[unit_offset..]);
         unit_offset + unit_buf.len()
     }
 }
@@ -98,7 +103,7 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> MaskObjectBuffer<T> {
     /// # Panics
     /// May panic if this buffer is unchecked.
     pub fn vect_mut(&mut self) -> &mut [u8] {
-        &mut self.inner.as_mut()[0..]
+        self.inner.as_mut()
     }
 
     /// Gets the unit part.
@@ -145,7 +150,7 @@ pub(crate) mod tests {
     use super::*;
     use crate::mask::{
         config::{BoundType, DataType, GroupType, MaskConfig, ModelType},
-        object::serialization::vect::tests::{mask_unit, mask_vect},
+        object::serialization::{unit::tests::mask_unit, vect::tests::mask_vect},
         MaskObject,
     };
 
@@ -174,7 +179,7 @@ pub(crate) mod tests {
     #[test]
     fn serialize_mask_object() {
         let (mask_object, expected) = mask_object();
-        let mut buf = vec![0xff; 46];
+        let mut buf = vec![0xff; 42];
         mask_object.to_bytes(&mut buf);
         assert_eq!(buf, expected);
     }

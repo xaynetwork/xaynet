@@ -10,7 +10,7 @@ use anyhow::{anyhow, Context};
 
 use crate::{
     crypto::ByteObject,
-    mask::object::{serialization::vect::MaskVectBuffer, MaskObject},
+    mask::object::{serialization::MaskObjectBuffer, MaskObject},
     message::{
         traits::{FromBytes, ToBytes},
         utils::range,
@@ -61,13 +61,9 @@ impl<T: AsRef<[u8]>> Sum2Buffer<T> {
             ));
         }
 
-        // Check the length of the model mask field
-        let _ = MaskVectBuffer::new(&self.inner.as_ref()[self.model_mask_offset()..])
-            .context("invalid model mask field")?;
-
-        // Check the length of the scalar mask field (TODO MaskUnitBuffer)
-        let _ = MaskVectBuffer::new(&self.inner.as_ref()[self.scalar_mask_offset()..])
-            .context("invalid scalar mask field")?;
+        // check the length of the mask field
+        MaskObjectBuffer::new(&self.inner.as_ref()[self.model_mask_offset()..])
+            .context("invalid mask field")?;
 
         Ok(())
     }
@@ -75,13 +71,6 @@ impl<T: AsRef<[u8]>> Sum2Buffer<T> {
     /// Gets the offset of the model mask field.
     fn model_mask_offset(&self) -> usize {
         SUM_SIGNATURE_RANGE.end
-    }
-
-    /// Gets the offset of the scalar mask field.
-    fn scalar_mask_offset(&self) -> usize {
-        let model_mask =
-            MaskVectBuffer::new_unchecked(&self.inner.as_ref()[self.model_mask_offset()..]);
-        self.model_mask_offset() + model_mask.len()
     }
 }
 
@@ -191,7 +180,8 @@ pub mod tests {
 
     #[test]
     fn buffer_write() {
-        let mut bytes = vec![0xff; 110];
+        // length = 64 (signature) + 42 (mask) = 106
+        let mut bytes = vec![0xff; 106];
         {
             let mut buffer = Sum2Buffer::new_unchecked(&mut bytes);
             buffer
