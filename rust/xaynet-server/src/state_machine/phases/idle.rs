@@ -163,7 +163,7 @@ mod test {
     #[tokio::test]
     #[serial]
     async fn integration_idle_to_sum() {
-        let (state_machine, _request_tx, events, redis) =
+        let (state_machine, _request_tx, events, eio) =
             StateMachineBuilder::new().await.with_round_id(2).build();
         assert!(state_machine.is_idle());
 
@@ -176,7 +176,7 @@ mod test {
 
         let PhaseState { shared, .. } = state_machine.into_sum_phase_state();
 
-        let sum_dict = redis.connection().await.get_sum_dict().await.unwrap();
+        let sum_dict = eio.redis.connection().await.get_sum_dict().await.unwrap();
         assert!(sum_dict.is_empty());
 
         let new_round_params = shared.state.round_params.clone();

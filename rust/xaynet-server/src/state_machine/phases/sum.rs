@@ -156,7 +156,7 @@ mod test {
     pub async fn integration_sum_to_update() {
         utils::enable_logging();
         let sum = Sum { sum_count: 0 };
-        let (state_machine, request_tx, events, redis) = StateMachineBuilder::new()
+        let (state_machine, request_tx, events, eio) = StateMachineBuilder::new()
             .await
             .with_phase(sum)
             // Make sure anyone is a sum participant.
@@ -192,13 +192,13 @@ mod test {
         } = state_machine.into_update_phase_state();
 
         // Check the initial state of the update phase.
-        let frozen_sum_dict = redis.connection().await.get_sum_dict().await.unwrap();
+        let frozen_sum_dict = eio.redis.connection().await.get_sum_dict().await.unwrap();
         assert_eq!(frozen_sum_dict.len(), 1);
         let (pk, ephm_pk) = frozen_sum_dict.iter().next().unwrap();
         assert_eq!(pk.clone(), summer.pk);
         assert_eq!(ephm_pk.clone(), utils::ephm_pk(&sum_msg));
 
-        let seed_dict = redis.connection().await.get_seed_dict().await.unwrap();
+        let seed_dict = eio.redis.connection().await.get_seed_dict().await.unwrap();
         assert_eq!(seed_dict.len(), 1);
         let (pk, dict) = seed_dict.iter().next().unwrap();
         assert_eq!(pk.clone(), summer.pk);

@@ -194,7 +194,7 @@ mod test {
             sum2_count: 0,
         };
 
-        let (state_machine, request_tx, events, redis) = StateMachineBuilder::new()
+        let (state_machine, request_tx, events, eio) = StateMachineBuilder::new()
             .await
             .with_seed(seed.clone())
             .with_phase(sum2)
@@ -209,7 +209,7 @@ mod test {
         assert!(state_machine.is_sum2());
 
         // Write the sum participant into redis so that the mask lua script does not fail
-        redis
+        eio.redis
             .connection()
             .await
             .add_sum_participant(&summer.pk, &ephm_pk)
@@ -239,7 +239,7 @@ mod test {
 
         // Check the initial state of the unmask phase.
 
-        let mut best_masks = redis.connection().await.get_best_masks().await.unwrap();
+        let mut best_masks = eio.redis.connection().await.get_best_masks().await.unwrap();
         assert_eq!(best_masks.len(), 1);
         let (mask, count) = best_masks.pop().unwrap();
         assert_eq!(count, 1);

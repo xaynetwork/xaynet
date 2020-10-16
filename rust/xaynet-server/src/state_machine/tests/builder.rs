@@ -11,18 +11,20 @@ use crate::{
     storage::redis,
 };
 
+#[cfg(feature = "model-persistence")]
+use crate::storage::s3;
+
 #[derive(Debug)]
 pub struct StateMachineBuilder<P> {
     shared: Shared,
     request_tx: RequestSender,
     event_subscriber: EventSubscriber,
     phase_state: P,
-    redis: redis::Client,
 }
 
 impl StateMachineBuilder<phases::Idle> {
     pub async fn new() -> Self {
-        let (shared, event_subscriber, request_tx, redis) = utils::init_shared().await;
+        let (shared, event_subscriber, request_tx) = utils::init_shared().await;
 
         let phase_state = phases::Idle;
         StateMachineBuilder {
@@ -30,9 +32,13 @@ impl StateMachineBuilder<phases::Idle> {
             request_tx,
             event_subscriber,
             phase_state,
-            redis,
         }
     }
+}
+pub struct ExternalIO {
+    pub redis: redis::Client,
+    #[cfg(feature = "model-persistence")]
+    pub s3: s3::Client,
 }
 
 impl<P> StateMachineBuilder<P>
@@ -40,13 +46,12 @@ where
     PhaseState<P>: Phase,
     StateMachine: From<PhaseState<P>>,
 {
-    pub fn build(self) -> (StateMachine, RequestSender, EventSubscriber, redis::Client) {
+    pub fn build(self) -> (StateMachine, RequestSender, EventSubscriber, ExternalIO) {
         let Self {
             mut shared,
             request_tx,
             event_subscriber,
             phase_state,
-            redis,
         } = self;
 
         // Make sure the events that the listeners have are up to date
@@ -64,6 +69,12 @@ where
         let seed_dict = event_subscriber.seed_dict_listener().get_latest().event;
         events.broadcast_seed_dict(seed_dict);
 
+        let eio = ExternalIO {
+            redis: shared.io.redis.clone(),
+            #[cfg(feature = "model-persistence")]
+            s3: shared.io.s3.clone(),
+        };
+
         let state = PhaseState {
             inner: phase_state,
             shared,
@@ -71,7 +82,7 @@ where
 
         let state_machine = StateMachine::from(state);
 
-        (state_machine, request_tx, event_subscriber, redis)
+        (state_machine, request_tx, event_subscriber, eio)
     }
 
     #[allow(dead_code)]
@@ -146,7 +157,6 @@ where
             shared,
             request_tx,
             event_subscriber,
-            redis,
             ..
         } = self;
         StateMachineBuilder {
@@ -154,7 +164,6 @@ where
             request_tx,
             event_subscriber,
             phase_state,
-            redis,
         }
     }
 }

@@ -269,7 +269,7 @@ mod test {
         };
 
         // Create the state machine
-        let (state_machine, request_tx, events, redis) = StateMachineBuilder::new()
+        let (state_machine, request_tx, events, eio) = StateMachineBuilder::new()
             .await
             .with_seed(seed.clone())
             .with_phase(update)
@@ -284,7 +284,7 @@ mod test {
 
         // We need to add the sum participant to the sum_dict because the sum_pks are used
         // to compose the seed_dict when fetching the seed_dict from redis.
-        redis
+        eio.redis
             .connection()
             .await
             .add_sum_participant(&summer.pk, &summer_ephm_pk)
@@ -317,7 +317,7 @@ mod test {
         // Check the initial state of the sum2 phase.
 
         // The sum dict should be unchanged
-        let sum_dict = redis.connection().await.get_sum_dict().await.unwrap();
+        let sum_dict = eio.redis.connection().await.get_sum_dict().await.unwrap();
         assert_eq!(sum_dict, frozen_sum_dict);
         // We have only one updater, so the aggregation should contain
         // the masked model from that updater
@@ -325,7 +325,7 @@ mod test {
             <Aggregation as Into<MaskObject>>::into(sum2_state.aggregation().clone().into()),
             masked_model
         );
-        let best_masks = redis.connection().await.get_best_masks().await.unwrap();
+        let best_masks = eio.redis.connection().await.get_best_masks().await.unwrap();
         assert!(best_masks.is_empty());
 
         // Check all the events that should be emitted during the update

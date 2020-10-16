@@ -31,7 +31,7 @@ async fn integration_full_round() {
     let coord_pk = coord_keys.public;
     let model_size = 4;
 
-    let (state_machine, requests, events, redis) = StateMachineBuilder::new()
+    let (state_machine, requests, events, eio) = StateMachineBuilder::new()
         .await
         .with_round_id(42)
         .with_seed(seed.clone())
@@ -109,7 +109,8 @@ async fn integration_full_round() {
 
     // check if all seed dicts have been removed
     for (sum_pk, _) in sum_dict.iter() {
-        assert!(redis
+        assert!(eio
+            .redis
             .connection()
             .await
             .get_seed_dict_for_sum_pk(sum_pk)
