@@ -144,21 +144,22 @@ impl Client {
 #[cfg(test)]
 pub(in crate) mod tests {
     use super::*;
-
     use crate::storage::tests::create_global_model;
     use hex;
     use rusoto_core::Region;
-    use serial_test::serial;
-    use xaynet_core::{common::RoundSeed, crypto::ByteObject};
-
     use rusoto_s3::{
         Delete,
         DeleteObjectsOutput,
         DeleteObjectsRequest,
+        GetObjectOutput,
+        GetObjectRequest,
         ListObjectsV2Output,
         ListObjectsV2Request,
         ObjectIdentifier,
     };
+    use serial_test::serial;
+    use tokio::io::AsyncReadExt;
+    use xaynet_core::{common::RoundSeed, crypto::ByteObject};
 
     impl Client {
         // Deletes all objects in a bucket.
@@ -181,6 +182,14 @@ pub(in crate) mod tests {
                 }
             }
             Ok(())
+        }
+
+        // Download a global model.
+        pub async fn download_global_model(&self, key: &str) -> Model {
+            debug!("get global model {:?}", key);
+            let object = self.download_object(&self.buckets.global_models, key).await;
+            let content = Self::unpack_object(object).await.expect("unpack error");
+            bincode::deserialize(&content).expect("deserialization error")
         }
 
         // Unpacks the object identifier/keys of a [`ListObjectsV2Output`] response.
@@ -254,6 +263,33 @@ pub(in crate) mod tests {
             } else {
                 None
             }
+        }
+
+        // Get the content of the given object.
+        async fn unpack_object(object: GetObjectOutput) -> S3Result<Vec<u8>> {
+            let mut content = Vec::new();
+            object
+                .body
+                .ok_or(S3Error::EmptyResponse)?
+                .into_async_read()
+                .read_to_end(&mut content)
+                .await
+                .map_err(|_| S3Error::EmptyResponse)?;
+            Ok(content)
+        }
+
+        /// Download an object from the given bucket.
+        async fn download_object(&self, bucket: &str, key: &str) -> GetObjectOutput {
+            // If an object does not exist, aws will return an error
+            let req = GetObjectRequest {
+                bucket: bucket.to_string(),
+                key: key.to_string(),
+                ..Default::default()
+            };
+            self.s3_client
+                .get_object(req)
+                .await
+                .expect("download error")
         }
     }
 

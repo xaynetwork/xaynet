@@ -133,7 +133,6 @@ pub async fn write_local_seed_entries(
     update_result
 }
 
-
 #[cfg(feature = "model-persistence")]
 use xaynet_core::mask::{FromPrimitives, Model};
 

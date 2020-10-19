@@ -93,6 +93,25 @@ async fn integration_full_round() {
 
     // Unmask phase
     let state_machine = state_machine.next().await.unwrap();
+
+    // check if a global model exist
+    #[cfg(feature = "model-persistence")]
+    {
+        use hex;
+        use xaynet_core::crypto::ByteObject;
+        let round_id = events.params_listener().get_latest().round_id;
+        let round_seed = events.params_listener().get_latest().event.seed;
+        let round_seed_hex = hex::encode(round_seed.as_slice());
+
+        let s3_model = eio
+            .s3
+            .download_global_model(&format!("{}_{}", round_id, round_seed_hex))
+            .await;
+        assert!(
+            matches!(events.model_listener().get_latest().event, super::events::ModelUpdate::New(broadcasted_model) if s3_model == *broadcasted_model)
+        );
+    }
+
     assert!(state_machine.is_idle());
 
     // New idle phase
