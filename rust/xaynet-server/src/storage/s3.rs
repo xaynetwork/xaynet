@@ -142,7 +142,7 @@ impl Client {
 }
 
 #[cfg(test)]
-mod tests {
+pub(in crate) mod tests {
     use super::*;
 
     use crate::storage::tests::create_global_model;
@@ -271,7 +271,7 @@ mod tests {
         }
     }
 
-    async fn create_client() -> Client {
+    pub async fn create_client() -> Client {
         let settings = create_minio_setup();
         let client = Client::new(settings).unwrap();
         client.create_global_models_bucket().await.unwrap();

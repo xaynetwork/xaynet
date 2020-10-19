@@ -87,26 +87,6 @@ pub async fn init_shared() -> (Shared, EventSubscriber, RequestSender, redis::Cl
     let redis = redis::Client::new("redis://127.0.0.1/", 10).await.unwrap();
     redis.connection().await.flush_db().await.unwrap();
 
-    #[cfg(feature = "model-persistence")]
-    let s3 = {
-        let region = rusoto_core::Region::Custom {
-            name: String::from("eu-east-3"),
-            endpoint: String::from("http://localhost:9000"),
-        };
-
-        let s3_settings = crate::settings::S3Settings {
-            region,
-            access_key: String::from("minio"),
-            secret_access_key: String::from("minio123"),
-            buckets: crate::settings::S3BucketsSettings::default(),
-        };
-
-        let s3 = s3::Client::new(s3_settings).unwrap();
-        s3.create_global_models_bucket().await.unwrap();
-        s3.clear_bucket("global-models").await.unwrap();
-        s3
-    };
-
     let coordinator_state =
         CoordinatorState::new(pet_settings(), mask_settings(), model_settings());
 
@@ -125,7 +105,7 @@ pub async fn init_shared() -> (Shared, EventSubscriber, RequestSender, redis::Cl
             request_rx,
             redis.clone(),
             #[cfg(feature = "model-persistence")]
-            s3,
+            s3::tests::create_client().await,
             #[cfg(feature = "metrics")]
             MetricsSender(),
         ),
