@@ -658,7 +658,7 @@ pub struct S3BucketsSettings {
     /// XAYNET_S3__BUCKETS__GLOBAL_MODELS="global-models"
     /// ```
     #[validate(custom = "validate_s3_bucket_name")]
-    global_models: String,
+    pub global_models: String,
 }
 
 // Default value for the global models bucket

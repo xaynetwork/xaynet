@@ -1,5 +1,6 @@
 pub(crate) mod impls;
 pub mod redis;
+pub mod s3;
 
 pub use self::{
     impls::{
