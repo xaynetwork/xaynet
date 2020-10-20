@@ -35,7 +35,8 @@ use std::{
     convert::TryFrom,
     iter::Iterator,
     os::raw::{c_double, c_int, c_uchar, c_uint, c_void},
-    ptr, slice,
+    ptr,
+    slice,
 };
 
 use ffi_support::FfiStr;
@@ -47,7 +48,13 @@ use xaynet_client::mobile_client::{
 use xaynet_core::{
     crypto::ByteObject,
     mask::{
-        BoundType, DataType, FromPrimitives, GroupType, IntoPrimitives, MaskConfig, Model,
+        BoundType,
+        DataType,
+        FromPrimitives,
+        GroupType,
+        IntoPrimitives,
+        MaskConfig,
+        Model,
         ModelType,
     },
     ParticipantSecretKey,

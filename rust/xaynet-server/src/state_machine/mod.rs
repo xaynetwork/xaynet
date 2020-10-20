@@ -46,9 +46,9 @@
 //!
 //! **Error**
 //!
-//! Publishes [`PhaseName::Error`] and handles [`StateError`]s that can occur during the
+//! Publishes [`PhaseName::Error`] and handles [`PhaseStateError`]s that can occur during the
 //! execution of the [`StateMachine`]. In most cases, the error is handled by restarting the round.
-//! However, if a [`StateError::ChannelError`] occurs, the [`StateMachine`] will shut down.
+//! However, if a [`PhaseStateError::Channel`] occurs, the [`StateMachine`] will shut down.
 //!
 //! **Shutdown**
 //!
