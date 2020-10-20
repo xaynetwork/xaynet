@@ -1,12 +1,12 @@
+#![cfg_attr(doc, forbid(warnings))]
+
 extern crate proc_macro;
 
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
     parse::{Parse, ParseStream, Result},
-    parse_macro_input,
-    Expr,
-    Token,
+    parse_macro_input, Expr, Token,
 };
 struct Send {
     sender: Expr,

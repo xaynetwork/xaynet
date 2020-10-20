@@ -1,3 +1,4 @@
+#![cfg_attr(doc, forbid(warnings))]
 //! Provides client-side functionality to connect to a XayNet service.
 //!
 //! This functionality includes:
