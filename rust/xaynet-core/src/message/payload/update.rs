@@ -306,7 +306,7 @@ pub mod tests {
         // bytes), the length field (4 bytes), the masked scalar (10 bytes)
         let offset = 64 * 2 + 32 + 4 + 10;
         // Sort the end of the buffer
-        (&mut buf[offset..]).sort();
+        (&mut buf[offset..]).sort_unstable();
         assert_eq!(buf, bytes);
     }
 }
