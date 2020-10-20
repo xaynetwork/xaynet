@@ -136,19 +136,19 @@ environment on your system, as everything is done inside the container.
 Docker images of the latest releases are provided on
 [Docker Hub](https://hub.docker.com/r/xaynetwork/xaynet).
 
-You can try them out with the default `configs/config.toml` by running:
+You can try them out with the default `configs/docker-dev.toml` by running:
 
 **Xaynet below v0.11**
 
 ```bash
-docker run -v ${PWD}/configs/config.toml:/app/config.toml -p 8081:8081 xaynetwork/xaynet:v0.10.0 /app/coordinator -c /app/config.toml
+docker run -v ${PWD}/configs/docker-dev.toml:/app/config.toml -p 8081:8081 xaynetwork/xaynet:v0.10.0 /app/coordinator -c /app/config.toml
 ```
 
 **Xaynet v0.11+**
 
 ```bash
-# don't forget to adjust the Redis url in configs/config.toml
-docker run -v ${PWD}/configs/config.toml:/app/config.toml -p 8081:8081 xaynetwork/xaynet:v0.11.0
+# don't forget to adjust the Redis url in configs/docker-dev.toml
+docker run -v ${PWD}/configs/docker-dev.toml:/app/config.toml -p 8081:8081 xaynetwork/xaynet:v0.11.0
 ```
 
 The docker image contains a release build of the coordinator without optional features.
