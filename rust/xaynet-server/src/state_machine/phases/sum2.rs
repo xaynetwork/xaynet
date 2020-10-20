@@ -244,11 +244,7 @@ mod test {
         let (mask, count) = best_masks.pop().unwrap();
         assert_eq!(count, 1);
 
-        let unmasked_model = unmask_state
-            .aggregation()
-            .unwrap()
-            .clone()
-            .unmask(mask.clone());
+        let unmasked_model = unmask_state.aggregation().unwrap().clone().unmask(mask);
         assert_eq!(unmasked_model, model);
 
         assert_eq!(

@@ -435,11 +435,12 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn test_ratio_to_float() {
         let ratio = R::from_float(0_f32).unwrap();
-        assert_eq!(ratio_to_float::<f32>(&ratio).unwrap(), 0.0);
+        assert_eq!(ratio_to_float::<f32>(&ratio).unwrap(), 0_f32);
         let ratio = R::from_float(0_f64).unwrap();
-        assert_eq!(ratio_to_float::<f64>(&ratio).unwrap(), 0.0);
+        assert_eq!(ratio_to_float::<f64>(&ratio).unwrap(), 0_f64);
 
         let ratio = R::from_float(0.1_f32).unwrap();
         assert_eq!(ratio_to_float::<f32>(&ratio).unwrap(), 0.1_f32);

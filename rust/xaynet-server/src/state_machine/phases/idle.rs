@@ -183,7 +183,7 @@ mod test {
         let new_keys = shared.state.keys.clone();
 
         // Make sure the seed and keys have updated
-        assert_ne!(initial_seed, new_round_params.seed.clone());
+        assert_ne!(initial_seed, new_round_params.seed);
         assert_ne!(initial_keys, new_keys);
 
         fn expected_event<T>(event: T) -> Event<T> {

@@ -21,7 +21,7 @@ pub fn create_sum_participant_entry() -> (SumParticipantPublicKey, SumParticipan
 }
 
 pub fn create_local_seed_entries(
-    sum_pks: &Vec<SumParticipantPublicKey>,
+    sum_pks: &[SumParticipantPublicKey],
 ) -> Vec<(UpdateParticipantPublicKey, LocalSeedDict)> {
     let mut entries = Vec::new();
 
@@ -33,7 +33,7 @@ pub fn create_local_seed_entries(
         let mut local_seed_dict = LocalSeedDict::new();
         for sum_pk in sum_pks {
             let seed = EncryptedMaskSeed::zeroed();
-            local_seed_dict.insert(sum_pk.clone(), seed);
+            local_seed_dict.insert(*sum_pk, seed);
         }
         entries.push((update_pk, local_seed_dict))
     }
@@ -50,7 +50,7 @@ pub fn create_mask_zeroed(byte_size: usize) -> MaskObject {
     };
 
     MaskObject::new(
-        config.clone(),
+        config,
         vec![BigUint::zero(); byte_size],
         config,
         BigUint::zero(),
@@ -67,7 +67,7 @@ pub fn create_mask(byte_size: usize, number: u32) -> MaskObject {
     };
 
     MaskObject::new(
-        config.clone(),
+        config,
         vec![BigUint::from(number); byte_size],
         config,
         BigUint::zero(),
@@ -77,7 +77,7 @@ pub fn create_mask(byte_size: usize, number: u32) -> MaskObject {
 
 pub fn create_seed_dict(
     sum_dict: SumDict,
-    seed_updates: &Vec<(UpdateParticipantPublicKey, LocalSeedDict)>,
+    seed_updates: &[(UpdateParticipantPublicKey, LocalSeedDict)],
 ) -> SeedDict {
     let mut seed_dict: SeedDict = sum_dict
         .keys()
@@ -116,7 +116,7 @@ pub async fn create_and_write_sum_participant_entries(
 
 pub async fn write_local_seed_entries(
     client: &Client,
-    local_seed_entries: &Vec<(UpdateParticipantPublicKey, LocalSeedDict)>,
+    local_seed_entries: &[(UpdateParticipantPublicKey, LocalSeedDict)],
 ) -> Vec<SeedDictUpdate> {
     let mut update_result = Vec::new();
 

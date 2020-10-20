@@ -115,7 +115,7 @@ mod tests {
 
         match part.determine_role(eligible_sum_seed, 0.5_f64, 0.5_f64) {
             Role::Summer(_) => (),
-            _ => assert!(false),
+            _ => panic!(),
         }
     }
 
@@ -141,7 +141,7 @@ mod tests {
 
         match part.determine_role(eligible_sum_update_seed, 0.5_f64, 0.5_f64) {
             Role::Summer(_) => (),
-            _ => assert!(false),
+            _ => panic!(),
         }
     }
 
@@ -167,7 +167,7 @@ mod tests {
 
         match part.determine_role(eligible_update_seed, 0.5_f64, 0.5_f64) {
             Role::Updater(_) => (),
-            _ => assert!(false),
+            _ => panic!(),
         }
     }
 
@@ -193,7 +193,7 @@ mod tests {
 
         match part.determine_role(ineligible_sum_update_seed, 0.5_f64, 0.5_f64) {
             Role::Unselected(_) => (),
-            _ => assert!(false),
+            _ => panic!(),
         }
     }
 }

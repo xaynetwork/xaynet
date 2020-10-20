@@ -322,7 +322,7 @@ mod test {
         // We have only one updater, so the aggregation should contain
         // the masked model from that updater
         assert_eq!(
-            <Aggregation as Into<MaskObject>>::into(sum2_state.aggregation().clone().into()),
+            <Aggregation as Into<MaskObject>>::into(sum2_state.aggregation().clone()),
             masked_model
         );
         let best_masks = eio.redis.connection().await.get_best_masks().await.unwrap();

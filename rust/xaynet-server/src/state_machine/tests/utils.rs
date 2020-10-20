@@ -38,10 +38,9 @@ pub fn generate_summer(seed: &RoundSeed, sum_ratio: f64, update_ratio: f64) -> P
     loop {
         let mut participant = Participant::new().unwrap();
         participant.compute_signatures(seed.as_slice());
-        match participant.check_task(sum_ratio, update_ratio) {
-            Task::Sum => return participant,
-            _ => {}
-        }
+        if participant.check_task(sum_ratio, update_ratio) == Task::Sum {
+            return participant;
+        };
     }
 }
 
@@ -49,10 +48,9 @@ pub fn generate_updater(seed: &RoundSeed, sum_ratio: f64, update_ratio: f64) -> 
     loop {
         let mut participant = Participant::new().unwrap();
         participant.compute_signatures(seed.as_slice());
-        match participant.check_task(sum_ratio, update_ratio) {
-            Task::Update => return participant,
-            _ => {}
-        }
+        if participant.check_task(sum_ratio, update_ratio) == Task::Update {
+            return participant;
+        };
     }
 }
 
@@ -75,7 +73,6 @@ pub fn pet_settings() -> PetSettings {
         max_sum_time: 2,
         min_update_time: 1,
         max_update_time: 2,
-        ..Default::default()
     }
 }
 

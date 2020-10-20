@@ -15,7 +15,7 @@ use crate::state_machine::{
 pub fn new_event_channels() -> (EventPublisher, EventSubscriber) {
     let keys = EncryptKeyPair::generate();
     let params = RoundParameters {
-        pk: keys.public.clone(),
+        pk: keys.public,
         sum: 0.0,
         update: 0.0,
         seed: RoundSeed::generate(),
@@ -36,7 +36,7 @@ pub fn new_sum_message(round_params: &RoundParameters) -> (Message, SigningKeyPa
             .sign_detached(&[round_params.seed.as_slice(), b"sum"].concat()),
         ephm_pk: PublicEncryptKey::generate(),
     };
-    let message = Message::new_sum(signing_keys.public.clone(), round_params.pk, sum);
+    let message = Message::new_sum(signing_keys.public, round_params.pk, sum);
     (message, signing_keys)
 }
 
