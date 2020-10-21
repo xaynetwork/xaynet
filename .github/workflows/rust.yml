@@ -134,15 +134,40 @@ jobs:
         working-directory: ./docker
         run: docker-compose down
 
-      - name: bench
+  bench:
+    name: cargo-bench
+    timeout-minutes: 20
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+
+      - name: Cache cargo
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ${{ github.workspace }}/rust/target
+          key: ${{ runner.os }}-cargo-bench-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run Bench
         working-directory: ./rust/benches
         run: cargo bench
 
-      - uses: actions/upload-artifact@v2
+      - name: Upload bench artifacts
+        uses: actions/upload-artifact@v2
         with:
           name: bench_${{ github.sha }}
-          path: ./rust/benches/target/criterion
-
+          path: ${{ github.workspace }}/rust/benches/target/criterion
 
   docs:
     name: cargo-doc
