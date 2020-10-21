@@ -1,17 +1,25 @@
 [package]
 name = "examples"
 version = "0.0.0"
+authors = ["Xayn Engineering <engineering@xaynet.dev>"]
 publish = false
 edition = "2018"
+description = "The Xayn Network project is building a privacy layer for machine learning so that AI projects can meet compliance such as GDPR and CCPA. The approach relies on Federated Learning as enabling technology that allows production AI applications to be fully privacy compliant."
+readme = "../../README.md"
+homepage = "https://xaynet.dev/"
+repository = "https://github.com/xaynetwork/xaynet/"
+license-file = "../../LICENSE"
+keywords = ["federated-learning", "fl", "ai", "machine-learning"]
+categories = ["science", "cryptography"]
 
 [dev-dependencies]
+sodiumoxide = "0.2.6"
+structopt = "0.3.17"
+tokio = { version = "0.2.22", features = ["full"] }
+tracing = "0.1.19"
+tracing-subscriber = "0.2.12"
 xaynet-client = { path = "../xaynet-client" }
 xaynet-core = { path = "../xaynet-core" }
-tracing = "0.1.19"
-structopt = "0.3.17"
-tracing-subscriber = "0.2.12"
-sodiumoxide = "0.2.6"
-tokio = { version = "0.2.22", features = ["full"] }
 
 [features]
 default = []

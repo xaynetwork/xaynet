@@ -1,13 +1,13 @@
 [workspace]
-
 members = [
     "xaynet",
-    "xaynet-server",
     "xaynet-client",
     "xaynet-core",
-    "xaynet-macros",
     "xaynet-ffi",
-    # Internal
-    "examples",
+    "xaynet-macros",
+    "xaynet-server",
+
+    # internals
     "benches",
+    "examples",
 ]
