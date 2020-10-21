@@ -1,3 +1,4 @@
+#![cfg_attr(doc, forbid(warnings))]
 //! A C-API of the Xaynet mobile client.
 //!
 //! # Safety
