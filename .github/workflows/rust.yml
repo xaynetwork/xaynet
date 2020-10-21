@@ -95,7 +95,9 @@ jobs:
 
       - name: cargo clippy
         working-directory: ./rust
-        run: cargo clippy --all-targets -- -D warnings
+        run: |
+          cargo clippy --all-targets -- --deny warnings
+          cargo clippy --all-targets --all-features -- --deny warnings
 
   test:
     name: cargo-test

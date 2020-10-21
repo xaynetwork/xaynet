@@ -113,10 +113,10 @@ mod tests {
             193, 111, 216, 217, 127, 168, 104, 99, 42, 55, 201, 207, 226, 237,
         ];
 
-        match part.determine_role(eligible_sum_seed, 0.5_f64, 0.5_f64) {
-            Role::Summer(_) => (),
-            _ => panic!(),
-        }
+        assert!(matches!(
+            part.determine_role(eligible_sum_seed, 0.5_f64, 0.5_f64),
+            Role::Summer(_)
+        ));
     }
 
     #[test]
@@ -139,10 +139,10 @@ mod tests {
             170, 245, 38, 85, 161, 86, 143, 96, 18, 89, 161, 186, 172, 199,
         ];
 
-        match part.determine_role(eligible_sum_update_seed, 0.5_f64, 0.5_f64) {
-            Role::Summer(_) => (),
-            _ => panic!(),
-        }
+        assert!(matches!(
+            part.determine_role(eligible_sum_update_seed, 0.5_f64, 0.5_f64),
+            Role::Summer(_)
+        ));
     }
 
     #[test]
@@ -165,10 +165,10 @@ mod tests {
             80, 43, 96, 255, 29, 236, 183, 96, 245, 36, 182, 239, 179,
         ];
 
-        match part.determine_role(eligible_update_seed, 0.5_f64, 0.5_f64) {
-            Role::Updater(_) => (),
-            _ => panic!(),
-        }
+        assert!(matches!(
+            part.determine_role(eligible_update_seed, 0.5_f64, 0.5_f64),
+            Role::Updater(_)
+        ));
     }
 
     #[test]
@@ -191,9 +191,9 @@ mod tests {
             187, 119, 128, 151, 223, 57, 144, 229, 66, 150, 100, 75, 62, 62,
         ];
 
-        match part.determine_role(ineligible_sum_update_seed, 0.5_f64, 0.5_f64) {
-            Role::Unselected(_) => (),
-            _ => panic!(),
-        }
+        assert!(matches!(
+            part.determine_role(ineligible_sum_update_seed, 0.5_f64, 0.5_f64),
+            Role::Unselected(_)
+        ));
     }
 }
