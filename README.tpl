@@ -1,4 +1,4 @@
-[![crates.io badge](https://img.shields.io/crates/v/xaynet.svg)](https://crates.io/crates/xaynet) [![docs.rs badge](https://docs.rs/xaynet/badge.svg)](https://docs.rs/xaynet) {{badges}}
+[![crates.io badge](https://img.shields.io/crates/v/xaynet.svg)](https://crates.io/crates/xaynet) [![docs.rs badge](https://docs.rs/xaynet/badge.svg)](https://docs.rs/xaynet)  [![rustc badge](https://img.shields.io/badge/rustc-1.46+-lightgray.svg)](https://www.rust-lang.org/learn/get-started) {{badges}}
 
 ![Xaynet banner](./assets/xaynet_banner.png)
 
@@ -9,6 +9,10 @@
 ---
 
 # Getting Started
+
+## Minimum supported rust version
+
+rustc 1.46.0
 
 ## Running the platform
 

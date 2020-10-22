@@ -11,6 +11,10 @@ license-file = "../../LICENSE"
 keywords = ["federated-learning", "fl", "ai", "machine-learning"]
 categories = ["science", "cryptography"]
 
+[package.metadata]
+# minimum supported rust version
+msrv = "1.46.0"
+
 [dependencies]
 ffi-support = "0.4.2"
 xaynet-client = { path = "../xaynet-client", default-features = false, version = "0.1.0" }

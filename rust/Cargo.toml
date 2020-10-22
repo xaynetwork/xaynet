@@ -11,3 +11,7 @@ members = [
     "benches",
     "examples",
 ]
+
+[workspace.metadata]
+# minimum supported rust version
+msrv = "1.46.0"

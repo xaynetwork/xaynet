@@ -11,6 +11,10 @@ license-file = "../../LICENSE"
 keywords = ["federated-learning", "fl", "ai", "machine-learning"]
 categories = ["science", "cryptography"]
 
+[package.metadata]
+# minimum supported rust version
+msrv = "1.46.0"
+
 [dependencies]
 quote = "1.0.7"
 syn = "1.0.41"

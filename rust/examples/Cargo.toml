@@ -12,6 +12,10 @@ license-file = "../../LICENSE"
 keywords = ["federated-learning", "fl", "ai", "machine-learning"]
 categories = ["science", "cryptography"]
 
+[package.metadata]
+# minimum supported rust version
+msrv = "1.46.0"
+
 [dev-dependencies]
 sodiumoxide = "0.2.6"
 structopt = "0.3.17"
