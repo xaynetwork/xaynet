@@ -31,7 +31,7 @@ async fn integration_full_round() {
     let coord_pk = coord_keys.public;
     let model_size = 4;
 
-    let (state_machine, requests, events, redis) = StateMachineBuilder::new()
+    let (state_machine, requests, events, eio) = StateMachineBuilder::new()
         .await
         .with_round_id(42)
         .with_seed(seed.clone())
@@ -93,6 +93,25 @@ async fn integration_full_round() {
 
     // Unmask phase
     let state_machine = state_machine.next().await.unwrap();
+
+    // check if a global model exist
+    #[cfg(feature = "model-persistence")]
+    {
+        use hex;
+        use xaynet_core::crypto::ByteObject;
+        let round_id = events.params_listener().get_latest().round_id;
+        let round_seed = events.params_listener().get_latest().event.seed;
+        let round_seed_hex = hex::encode(round_seed.as_slice());
+
+        let s3_model = eio
+            .s3
+            .download_global_model(&format!("{}_{}", round_id, round_seed_hex))
+            .await;
+        assert!(
+            matches!(events.model_listener().get_latest().event, super::events::ModelUpdate::New(broadcasted_model) if s3_model == *broadcasted_model)
+        );
+    }
+
     assert!(state_machine.is_idle());
 
     // New idle phase
@@ -109,7 +128,8 @@ async fn integration_full_round() {
 
     // check if all seed dicts have been removed
     for (sum_pk, _) in sum_dict.iter() {
-        assert!(redis
+        assert!(eio
+            .redis
             .connection()
             .await
             .get_seed_dict_for_sum_pk(sum_pk)

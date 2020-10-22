@@ -22,6 +22,9 @@ use xaynet_client::{Participant, Task};
 #[cfg(feature = "metrics")]
 use crate::metrics::MetricsSender;
 
+#[cfg(feature = "model-persistence")]
+use crate::storage::s3;
+
 use tracing_subscriber::*;
 
 pub fn enable_logging() {
@@ -80,7 +83,7 @@ pub fn model_settings() -> ModelSettings {
     ModelSettings { size: 1 }
 }
 
-pub async fn init_shared() -> (Shared, EventSubscriber, RequestSender, redis::Client) {
+pub async fn init_shared() -> (Shared, EventSubscriber, RequestSender) {
     let redis = redis::Client::new("redis://127.0.0.1/", 10).await.unwrap();
     redis.connection().await.flush_db().await.unwrap();
 
@@ -100,13 +103,14 @@ pub async fn init_shared() -> (Shared, EventSubscriber, RequestSender, redis::Cl
             coordinator_state,
             event_publisher,
             request_rx,
-            redis.clone(),
+            redis,
+            #[cfg(feature = "model-persistence")]
+            s3::tests::create_client().await,
             #[cfg(feature = "metrics")]
             MetricsSender(),
         ),
         event_subscriber,
         request_tx,
-        redis,
     )
 }
 

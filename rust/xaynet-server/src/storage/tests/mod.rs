@@ -2,17 +2,7 @@ use crate::storage::{impls::SeedDictUpdate, redis::Client};
 use num::{bigint::BigUint, traits::identities::Zero};
 use xaynet_core::{
     crypto::{ByteObject, EncryptKeyPair, SigningKeyPair},
-    mask::{
-        BoundType,
-        DataType,
-        EncryptedMaskSeed,
-        FromPrimitives,
-        GroupType,
-        MaskConfig,
-        MaskObject,
-        Model,
-        ModelType,
-    },
+    mask::{BoundType, DataType, EncryptedMaskSeed, GroupType, MaskConfig, MaskObject, ModelType},
     LocalSeedDict,
     SeedDict,
     SumDict,
@@ -143,6 +133,10 @@ pub async fn write_local_seed_entries(
     update_result
 }
 
+#[cfg(feature = "model-persistence")]
+use xaynet_core::mask::{FromPrimitives, Model};
+
+#[cfg(feature = "model-persistence")]
 pub fn create_global_model(nb_elements: usize) -> Model {
     Model::from_primitives(vec![0; nb_elements].into_iter()).unwrap()
 }

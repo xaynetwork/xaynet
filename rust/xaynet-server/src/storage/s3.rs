@@ -44,6 +44,15 @@ pub struct Client {
     s3_client: S3Client,
 }
 
+#[cfg(test)]
+impl std::fmt::Debug for Client {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Client")
+            .field("buckets", &self.buckets)
+            .finish()
+    }
+}
+
 impl Client {
     /// Creates a new S3 client. The client creates and maintains one bucket for storing global models.
     ///
@@ -84,8 +93,6 @@ impl Client {
 
     /// Uploads a global model.
     pub async fn upload_global_model(&self, key: &str, global_model: &Model) -> S3Result<()> {
-        // As key for the global model we use the round_id and the seed of the round in which the
-        // global model was created.
         debug!("store global model: {}", key);
         let data = bincode::serialize(global_model)?;
         self.upload(&self.buckets.global_models, key, data)
@@ -135,27 +142,28 @@ impl Client {
 }
 
 #[cfg(test)]
-mod tests {
+pub(in crate) mod tests {
     use super::*;
-
     use crate::storage::tests::create_global_model;
     use hex;
     use rusoto_core::Region;
-    use serial_test::serial;
-    use xaynet_core::{common::RoundSeed, crypto::ByteObject};
-
     use rusoto_s3::{
         Delete,
         DeleteObjectsOutput,
         DeleteObjectsRequest,
+        GetObjectOutput,
+        GetObjectRequest,
         ListObjectsV2Output,
         ListObjectsV2Request,
         ObjectIdentifier,
     };
+    use serial_test::serial;
+    use tokio::io::AsyncReadExt;
+    use xaynet_core::{common::RoundSeed, crypto::ByteObject};
 
     impl Client {
         // Deletes all objects in a bucket.
-        async fn clear_bucket(&self, bucket: &str) -> S3Result<()> {
+        pub async fn clear_bucket(&self, bucket: &str) -> S3Result<()> {
             let mut continuation_token: Option<String> = None;
 
             loop {
@@ -174,6 +182,14 @@ mod tests {
                 }
             }
             Ok(())
+        }
+
+        // Download a global model.
+        pub async fn download_global_model(&self, key: &str) -> Model {
+            debug!("get global model {:?}", key);
+            let object = self.download_object(&self.buckets.global_models, key).await;
+            let content = Self::unpack_object(object).await.expect("unpack error");
+            bincode::deserialize(&content).expect("deserialization error")
         }
 
         // Unpacks the object identifier/keys of a [`ListObjectsV2Output`] response.
@@ -248,6 +264,33 @@ mod tests {
                 None
             }
         }
+
+        // Get the content of the given object.
+        async fn unpack_object(object: GetObjectOutput) -> S3Result<Vec<u8>> {
+            let mut content = Vec::new();
+            object
+                .body
+                .ok_or(S3Error::EmptyResponse)?
+                .into_async_read()
+                .read_to_end(&mut content)
+                .await
+                .map_err(|_| S3Error::EmptyResponse)?;
+            Ok(content)
+        }
+
+        /// Download an object from the given bucket.
+        async fn download_object(&self, bucket: &str, key: &str) -> GetObjectOutput {
+            // If an object does not exist, aws will return an error
+            let req = GetObjectRequest {
+                bucket: bucket.to_string(),
+                key: key.to_string(),
+                ..Default::default()
+            };
+            self.s3_client
+                .get_object(req)
+                .await
+                .expect("download error")
+        }
     }
 
     fn create_minio_setup() -> S3Settings {
@@ -260,13 +303,11 @@ mod tests {
             region,
             access_key: String::from("minio"),
             secret_access_key: String::from("minio123"),
-            buckets: S3BucketsSettings {
-                global_models: String::from("global-models"),
-            },
+            buckets: S3BucketsSettings::default(),
         }
     }
 
-    async fn create_client() -> Client {
+    pub async fn create_client() -> Client {
         let settings = create_minio_setup();
         let client = Client::new(settings).unwrap();
         client.create_global_models_bucket().await.unwrap();

@@ -32,6 +32,9 @@ use crate::{
 #[cfg(feature = "metrics")]
 use crate::{metrics, metrics::MetricsSender};
 
+#[cfg(feature = "model-persistence")]
+use crate::storage::s3;
+
 use futures::StreamExt;
 use tracing::Span;
 use tracing_futures::Instrument;
@@ -77,6 +80,9 @@ pub struct IO {
     pub(in crate::state_machine) events: EventPublisher,
     /// Redis client.
     pub(in crate::state_machine) redis: redis::Client,
+    #[cfg(feature = "model-persistence")]
+    /// S3 client.
+    pub(in crate::state_machine) s3: s3::Client,
     #[cfg(feature = "metrics")]
     /// The metrics sender half.
     pub(in crate::state_machine) metrics_tx: MetricsSender,
@@ -98,6 +104,7 @@ impl Shared {
         publisher: EventPublisher,
         request_rx: RequestReceiver,
         redis: redis::Client,
+        #[cfg(feature = "model-persistence")] s3: s3::Client,
         #[cfg(feature = "metrics")] metrics_tx: MetricsSender,
     ) -> Self {
         Self {
@@ -106,6 +113,8 @@ impl Shared {
                 request_rx,
                 events: publisher,
                 redis,
+                #[cfg(feature = "model-persistence")]
+                s3,
                 #[cfg(feature = "metrics")]
                 metrics_tx,
             },

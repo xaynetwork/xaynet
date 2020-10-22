@@ -126,6 +126,9 @@ use xaynet_core::{mask::UnmaskingError, InitError};
 #[cfg(feature = "metrics")]
 use crate::metrics::MetricsSender;
 
+#[cfg(feature = "model-persistence")]
+use crate::storage::s3;
+
 /// Error returned when the state machine fails to handle a request
 #[derive(Debug, Error)]
 pub enum RequestError {
@@ -214,6 +217,7 @@ where
         mask_settings: MaskSettings,
         model_settings: ModelSettings,
         redis: redis::Client,
+        #[cfg(feature = "model-persistence")] s3: s3::Client,
         #[cfg(feature = "metrics")] metrics_tx: MetricsSender,
     ) -> Result<(Self, RequestSender, EventSubscriber), InitError> {
         // crucial: init must be called before anything else in this module
@@ -233,6 +237,8 @@ where
             event_publisher,
             req_receiver,
             redis,
+            #[cfg(feature = "model-persistence")]
+            s3,
             #[cfg(feature = "metrics")]
             metrics_tx,
         );

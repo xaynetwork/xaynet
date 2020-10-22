@@ -25,6 +25,9 @@ pub enum PhaseStateError {
     Timeout(#[from] tokio::time::Elapsed),
     #[error("redis request failed: {0}")]
     Redis(#[from] RedisError),
+    #[cfg(feature = "model-persistence")]
+    #[error("saving the global model failed: {0}")]
+    SaveGlobalModel(crate::storage::s3::S3Error),
 }
 
 impl PhaseState<PhaseStateError> {
