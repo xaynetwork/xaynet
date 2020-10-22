@@ -10,6 +10,10 @@
 
 # Getting Started
 
+## Minimum supported rust version
+
+rustc 1.46.0
+
 ## Running the platform
 
 There are a few different ways to run the backend: via docker, or by deploying it to

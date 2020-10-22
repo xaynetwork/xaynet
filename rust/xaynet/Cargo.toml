@@ -11,6 +11,10 @@ license-file = "../../LICENSE"
 keywords = ["federated-learning", "fl", "ai", "machine-learning"]
 categories = ["science", "cryptography"]
 
+[package.metadata]
+# minimum supported rust version
+msrv = "1.46.0"
+
 [badges]
 codecov = { repository = "xaynetwork/xaynet", branch = "master", service = "github" }
 

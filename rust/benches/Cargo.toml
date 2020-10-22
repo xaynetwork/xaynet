@@ -12,6 +12,10 @@ keywords = ["federated-learning", "fl", "ai", "machine-learning"]
 categories = ["science", "cryptography"]
 publish = false
 
+[package.metadata]
+# minimum supported rust version
+msrv = "1.46.0"
+
 [dev-dependencies]
 criterion = "0.3.3"
 xaynet-core = { path = "../xaynet-core", features = ["testutils"] }
