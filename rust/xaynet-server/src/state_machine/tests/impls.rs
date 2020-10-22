@@ -17,10 +17,7 @@ impl RequestSender {
 
 impl StateMachine {
     pub fn is_update(&self) -> bool {
-        match self {
-            StateMachine::Update(_) => true,
-            _ => false,
-        }
+        matches!(self, StateMachine::Update(_))
     }
 
     pub fn into_update_phase_state(self) -> PhaseState<phases::Update> {
@@ -31,10 +28,7 @@ impl StateMachine {
     }
 
     pub fn is_sum(&self) -> bool {
-        match self {
-            StateMachine::Sum(_) => true,
-            _ => false,
-        }
+        matches!(self, StateMachine::Sum(_))
     }
 
     pub fn into_sum_phase_state(self) -> PhaseState<phases::Sum> {
@@ -45,10 +39,7 @@ impl StateMachine {
     }
 
     pub fn is_sum2(&self) -> bool {
-        match self {
-            StateMachine::Sum2(_) => true,
-            _ => false,
-        }
+        matches!(self, StateMachine::Sum2(_))
     }
 
     pub fn into_sum2_phase_state(self) -> PhaseState<phases::Sum2> {
@@ -59,10 +50,7 @@ impl StateMachine {
     }
 
     pub fn is_idle(&self) -> bool {
-        match self {
-            StateMachine::Idle(_) => true,
-            _ => false,
-        }
+        matches!(self, StateMachine::Idle(_))
     }
 
     pub fn into_idle_phase_state(self) -> PhaseState<phases::Idle> {
@@ -73,10 +61,7 @@ impl StateMachine {
     }
 
     pub fn is_unmask(&self) -> bool {
-        match self {
-            StateMachine::Unmask(_) => true,
-            _ => false,
-        }
+        matches!(self, StateMachine::Unmask(_))
     }
 
     pub fn into_unmask_phase_state(self) -> PhaseState<phases::Unmask> {
@@ -87,10 +72,7 @@ impl StateMachine {
     }
 
     pub fn is_error(&self) -> bool {
-        match self {
-            StateMachine::Error(_) => true,
-            _ => false,
-        }
+        matches!(self, StateMachine::Error(_))
     }
 
     pub fn into_error_phase_state(self) -> PhaseState<phases::PhaseStateError> {
@@ -101,10 +83,7 @@ impl StateMachine {
     }
 
     pub fn is_shutdown(&self) -> bool {
-        match self {
-            StateMachine::Shutdown(_) => true,
-            _ => false,
-        }
+        matches!(self, StateMachine::Shutdown(_))
     }
 
     pub fn into_shutdown_phase_state(self) -> PhaseState<phases::Shutdown> {

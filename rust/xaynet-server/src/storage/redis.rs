@@ -926,7 +926,7 @@ mod tests {
         assert_eq!(remove_result, 1);
 
         let update_result =
-            write_local_seed_entries(&client, &vec![(update_participant, local_seed_dict)]).await;
+            write_local_seed_entries(&client, &[(update_participant, local_seed_dict)]).await;
         update_result.into_iter().for_each(|res| {
             assert!(matches!(
                 res.into_inner().unwrap_err(),

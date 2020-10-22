@@ -243,7 +243,7 @@ mod tests {
             id: 1,
             message_id: 1234,
             last: false,
-            data: data,
+            data,
         };
         let chunk2 = Chunk {
             id: 2,
@@ -276,7 +276,7 @@ mod tests {
     fn test_message_builder_in_order() {
         let mut msg = message_builder();
         let (data, sum) = sum();
-        let (c1, c2, c3, c4, c5) = chunks(data.clone());
+        let (c1, c2, c3, c4, c5) = chunks(data);
 
         assert!(msg.data.is_empty());
         assert!(msg.last_chunk_id.is_none());
@@ -317,7 +317,7 @@ mod tests {
     fn test_message_builder_out_of_order() {
         let mut msg = message_builder();
         let (data, sum) = sum();
-        let (c1, c2, c3, c4, c5) = chunks(data.clone());
+        let (c1, c2, c3, c4, c5) = chunks(data);
 
         assert!(msg.data.is_empty());
         assert!(msg.last_chunk_id.is_none());
@@ -360,7 +360,7 @@ mod tests {
         assert_ready!(task.poll_ready()).unwrap();
 
         let coordinator_pk =
-            PublicEncryptKey::from_slice(&vec![0x00; PublicSigningKey::LENGTH]).unwrap();
+            PublicEncryptKey::from_slice(&[0x00; PublicSigningKey::LENGTH]).unwrap();
 
         // The payload of the message (and therefore the chunks) will
         // be the same for the two participants. What must differ is
@@ -369,7 +369,7 @@ mod tests {
         let (c1, c2, c3, c4, c5) = chunks(data.clone());
 
         // A signing key that identifies a first faked participant.
-        let pk1 = PublicSigningKey::from_slice(&vec![0x11; PublicSigningKey::LENGTH]).unwrap();
+        let pk1 = PublicSigningKey::from_slice(&[0x11; PublicSigningKey::LENGTH]).unwrap();
         // message ID for the message from our fake participant identified by `pk1`
         let message_id1 = MessageId {
             message_id: 1234,
@@ -383,7 +383,7 @@ mod tests {
         // Do the same thing to fake a second participant: generate a
         // public key, a message ID, and a function to create messages
         // originating from that participant
-        let pk2 = PublicSigningKey::from_slice(&vec![0x22; PublicSigningKey::LENGTH]).unwrap();
+        let pk2 = PublicSigningKey::from_slice(&[0x22; PublicSigningKey::LENGTH]).unwrap();
         let message_id2 = MessageId {
             message_id: 1234,
             participant_pk: pk2,

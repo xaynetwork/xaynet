@@ -65,7 +65,6 @@ impl Phase for PhaseState<Unmask> {
         {
             // As key for the global model we use the round_id and the seed
             // (format: `roundid_roundseed`) of the round in which the global model was created.
-            use hex;
             use xaynet_core::crypto::ByteObject;
             let round_seed = hex::encode(self.shared.state.round_params.seed.as_slice());
             let key = format!("{}_{}", self.shared.state.round_id, round_seed);
@@ -74,7 +73,7 @@ impl Phase for PhaseState<Unmask> {
                 .s3
                 .upload_global_model(&key, &global_model)
                 .await
-                .map_err(|err| PhaseStateError::SaveGlobalModel(err))?;
+                .map_err(PhaseStateError::SaveGlobalModel)?;
         }
 
         info!("broadcasting the new global model");

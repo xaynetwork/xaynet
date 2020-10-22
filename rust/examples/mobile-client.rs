@@ -181,12 +181,11 @@ fn perform_task(
         Err((client, _)) => client,
     };
 
-    match client.get_global_model().unwrap() {
-        Some(model) => println!(
+    if let Some(model) = client.get_global_model().unwrap() {
+        println!(
             "global model: {:?}",
             model.into_primitives_unchecked().collect::<Vec<f32>>()
-        ),
-        _ => (),
+        );
     };
 
     let new_bytes = client.serialize();

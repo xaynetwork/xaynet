@@ -97,7 +97,6 @@ async fn integration_full_round() {
     // check if a global model exist
     #[cfg(feature = "model-persistence")]
     {
-        use hex;
         use xaynet_core::crypto::ByteObject;
         let round_id = events.params_listener().get_latest().round_id;
         let round_seed = events.params_listener().get_latest().event.seed;

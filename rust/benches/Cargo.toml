@@ -3,11 +3,18 @@ name = "benches"
 version = "0.0.0"
 authors = ["Xayn Engineering <engineering@xaynet.dev>"]
 edition = "2018"
+description = "The Xayn Network project is building a privacy layer for machine learning so that AI projects can meet compliance such as GDPR and CCPA. The approach relies on Federated Learning as enabling technology that allows production AI applications to be fully privacy compliant."
+readme = "../../README.md"
+homepage = "https://xaynet.dev/"
+repository = "https://github.com/xaynetwork/xaynet/"
+license-file = "../../LICENSE"
+keywords = ["federated-learning", "fl", "ai", "machine-learning"]
+categories = ["science", "cryptography"]
 publish = false
 
 [dev-dependencies]
 criterion = "0.3.3"
-xaynet-core = { version = "0.1.0", path = "../xaynet-core", features = ["testutils"] }
+xaynet-core = { path = "../xaynet-core", features = ["testutils"] }
 
 [[bench]]
 name = "messages"

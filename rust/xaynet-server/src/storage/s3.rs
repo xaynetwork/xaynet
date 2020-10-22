@@ -145,7 +145,6 @@ impl Client {
 pub(in crate) mod tests {
     use super::*;
     use crate::storage::tests::create_global_model;
-    use hex;
     use rusoto_core::Region;
     use rusoto_s3::{
         Delete,

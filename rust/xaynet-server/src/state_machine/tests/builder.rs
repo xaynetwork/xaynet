@@ -87,8 +87,8 @@ where
 
     #[allow(dead_code)]
     pub fn with_keys(mut self, keys: EncryptKeyPair) -> Self {
-        self.shared.state.round_params.pk = keys.public.clone();
-        self.shared.state.keys = keys.clone();
+        self.shared.state.round_params.pk = keys.public;
+        self.shared.state.keys = keys;
         self
     }
 
