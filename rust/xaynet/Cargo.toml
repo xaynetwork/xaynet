@@ -17,6 +17,7 @@ msrv = "1.46.0"
 
 [badges]
 codecov = { repository = "xaynetwork/xaynet", branch = "master", service = "github" }
+maintenance = { status = "actively-developed" }
 
 [dependencies]
 xaynet-core = { path = "../xaynet-core", version = "0.1.0" }
