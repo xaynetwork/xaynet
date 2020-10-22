@@ -354,7 +354,7 @@ impl Masker {
     /// proceeds in reverse order.
     ///
     /// [`unmask()`]: struct.Aggregation.html#method.unmask
-    pub fn mask(self, scalar: f64, model: Model) -> (MaskSeed, MaskObject) {
+    pub fn mask(self, scalar: f64, model: &Model) -> (MaskSeed, MaskObject) {
         let (random_int, mut random_ints) = self.random_ints();
         let Self { config, seed } = self;
         let MaskConfigPair {
@@ -376,10 +376,10 @@ impl Masker {
 
         // mask the (scaled) weights
         let masked_weights = model
-            .into_iter()
+            .iter()
             .zip(&mut random_ints)
             .map(|(weight, rand_int)| {
-                let scaled = scalar_clamped * &weight;
+                let scaled = scalar_clamped * weight;
                 let scaled_clamped = clamp(&scaled, &lower_bound, higher_bound);
                 // PANIC_SAFE: shifted weight is guaranteed to be non-negative
                 let shifted = ((scaled_clamped + &add_shift_n) * &exp_shift_n)
@@ -492,7 +492,7 @@ mod tests {
                     // b. derive the mask corresponding to the seed used
                     // c. unmask the model and check it against the original one.
                     let (mask_seed, masked_model) =
-                        Masker::new(config.into()).mask(1_f64, model.clone());
+                        Masker::new(config.into()).mask(1_f64, &model);
                     assert_eq!(masked_model.vect.data.len(), vect_len);
                     assert!(masked_model.is_valid());
 
@@ -641,7 +641,7 @@ mod tests {
                     // b. derive the mask corresponding to the seed used
                     // c. unmask the model and check it against the expected [1, ..., 1]
                     let (mask_seed, masked_model) =
-                        Masker::new(config.into()).mask(scalar, model);
+                        Masker::new(config.into()).mask(scalar, &model);
                     assert_eq!(masked_model.vect.data.len(), vect_len);
                     assert!(masked_model.is_valid());
 
@@ -907,7 +907,7 @@ mod tests {
                             });
 
                         let (mask_seed, masked_model) =
-                            Masker::new(config.into()).mask(scalar, model);
+                            Masker::new(config.into()).mask(scalar, &model);
                         let mask = mask_seed.derive_mask(vect_len, config.into());
 
                         assert!(
@@ -1077,7 +1077,7 @@ mod tests {
                         let scalar = scalars.next().unwrap();
 
                         let (mask_seed, masked_model) =
-                            Masker::new(config.into()).mask(scalar, model);
+                            Masker::new(config.into()).mask(scalar, &model);
                         let mask = mask_seed.derive_mask(vect_len, config.into());
 
                         assert!(

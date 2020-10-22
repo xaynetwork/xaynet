@@ -31,6 +31,15 @@ impl EncryptKeyPair {
             secret: SecretEncryptKey(sk),
         }
     }
+
+    /// Deterministically derives a new `C25519` key pair for encryption from a seed.
+    pub fn derive_from_seed(seed: &EncryptKeySeed) -> Self {
+        let (pk, sk) = seed.derive_encrypt_key_pair();
+        Self {
+            public: pk,
+            secret: sk,
+        }
+    }
 }
 
 #[derive(

@@ -1,28 +1,7 @@
-//! Provides the logic and functionality for a participant of the PET protocol.
-//!
-//! See the [client module] documentation since this is a private module anyways.
-//!
-//! [client module]: ../index.html
-use derive_more::From;
-use serde::de::{Deserialize, Deserializer, Error as SerdeError};
+use serde::{de::Error as SerdeError, Deserialize, Deserializer};
 use thiserror::Error;
-use xaynet_core::{
-    crypto::SigningKeyPair,
-    mask::MaskConfig,
-    message::Message,
-    CoordinatorPublicKey,
-    ParticipantPublicKey,
-    ParticipantSecretKey,
-};
-
-pub mod awaiting;
-pub mod sum;
-pub mod sum2;
-pub mod update;
-
-pub use self::{awaiting::Awaiting, sum::Sum, sum2::Sum2, update::Update};
-
 pub use xaynet_core::message::MESSAGE_HEADER_LENGTH;
+
 /// The minimum message payload size
 pub const MINIMUM_PAYLOAD_SIZE: usize = 1;
 /// Length of the encryption header in encrypted messages
@@ -30,28 +9,6 @@ pub const ENCRYPTION_HEADER_LENGTH: usize = xaynet_core::crypto::SEALBYTES;
 /// The minimum size a message can have
 pub const MIN_MESSAGE_SIZE: usize =
     MESSAGE_HEADER_LENGTH + ENCRYPTION_HEADER_LENGTH + MINIMUM_PAYLOAD_SIZE;
-
-#[derive(Serialize, Deserialize)]
-pub struct AggregationConfig {
-    pub mask: MaskConfig,
-    pub scalar: f64,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct ParticipantState {
-    // credentials
-    pub keys: SigningKeyPair,
-    // Mask config
-    pub aggregation_config: AggregationConfig,
-    pub max_message_size: MaxMessageSize,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct ParticipantSettings {
-    pub secret_key: ParticipantSecretKey,
-    pub aggregation_config: AggregationConfig,
-    pub max_message_size: MaxMessageSize,
-}
 
 #[derive(Debug, Error)]
 #[error("max message size must be at least {}", MIN_MESSAGE_SIZE)]
@@ -62,9 +19,7 @@ pub struct InvalidMaxMessageSize;
 /// sent in several parts. Note that messages have a minimal size of
 /// [`MIN_MESSAGE_SIZE`].
 #[derive(Serialize, Deserialize, Clone, Copy, Debug)]
-pub struct MaxMessageSize(
-    #[serde(deserialize_with = "deserialize_max_message_size")] Option<usize>,
-);
+pub struct MaxMessageSize(#[serde(deserialize_with = "deserialize")] Option<usize>);
 
 impl Default for MaxMessageSize {
     fn default() -> Self {
@@ -103,7 +58,7 @@ impl MaxMessageSize {
     }
 }
 
-fn deserialize_max_message_size<'de, D>(deserializer: D) -> Result<Option<usize>, D::Error>
+fn deserialize<'de, D>(deserializer: D) -> Result<Option<usize>, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -120,75 +75,6 @@ where
             }
         }
         None => Ok(None),
-    }
-}
-
-impl From<ParticipantSettings> for ParticipantState {
-    fn from(
-        ParticipantSettings {
-            secret_key,
-            aggregation_config,
-            max_message_size,
-        }: ParticipantSettings,
-    ) -> ParticipantState {
-        ParticipantState {
-            keys: SigningKeyPair {
-                public: secret_key.public_key(),
-                secret: secret_key,
-            },
-            aggregation_config,
-            max_message_size,
-        }
-    }
-}
-
-#[derive(From)]
-pub enum Role {
-    Unselected(Participant<Awaiting>),
-    Summer(Participant<Sum>),
-    Updater(Participant<Update>),
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct Participant<Task> {
-    inner: Task,
-    state: ParticipantState,
-}
-
-impl<Task> Participant<Task> {
-    /// Get the maxiumum message size this participant can send
-    pub fn max_message_size(&self) -> MaxMessageSize {
-        self.state.max_message_size
-    }
-
-    /// Get the participant's public signing key
-    pub fn public_key(&self) -> ParticipantPublicKey {
-        self.state.keys.public
-    }
-
-    /// Serialize, sign and encrypt the given message.
-    ///
-    /// The message is signed with the participant secret signing
-    /// key. `pk` is the coordinator public key, used to encrypt the
-    /// final message
-    pub fn seal_message(&self, pk: &CoordinatorPublicKey, message: &Message) -> Vec<u8> {
-        let mut buf = vec![0; message.buffer_length()];
-        message.to_bytes(&mut buf, &self.state.keys.secret);
-        pk.encrypt(&buf[..])
-    }
-
-    /// Serialize and sign given message.
-    ///
-    /// The message is signed with the participant secret signing key.
-    pub fn serialize_message(&self, message: &Message) -> Vec<u8> {
-        let mut buf = vec![0; message.buffer_length()];
-        message.to_bytes(&mut buf, &self.state.keys.secret);
-        buf
-    }
-
-    /// Resets the client.
-    pub fn reset(self) -> Participant<Awaiting> {
-        Participant::<Awaiting>::new(self.state)
     }
 }
 

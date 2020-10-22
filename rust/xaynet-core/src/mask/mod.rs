@@ -103,8 +103,8 @@
 //! };
 //!
 //! // mask the local models
-//! let (local_mask_seed_1, masked_local_model_1) = Masker::new(config.into()).mask(scalar, local_model_1);
-//! let (local_mask_seed_2, masked_local_model_2) = Masker::new(config.into()).mask(scalar, local_model_2);
+//! let (local_mask_seed_1, masked_local_model_1) = Masker::new(config.into()).mask(scalar, &local_model_1);
+//! let (local_mask_seed_2, masked_local_model_2) = Masker::new(config.into()).mask(scalar, &local_model_2);
 //!
 //! // derive the masks of the local masked models
 //! let local_mask_1 = local_mask_seed_1.derive_mask(number_weights, config.into());
@@ -124,8 +124,8 @@
 //! # let local_model_1 = Model::from_primitives_bounded(vec![0_f32; number_weights].into_iter());
 //! # let local_model_2 = Model::from_primitives_bounded(vec![1_f32; number_weights].into_iter());
 //! # let config = MaskConfig { group_type: GroupType::Prime, data_type: DataType::F32, bound_type: BoundType::B0, model_type: ModelType::M3};
-//! # let (local_mask_seed_1, masked_local_model_1) = Masker::new(config.into()).mask(scalar, local_model_1);
-//! # let (local_mask_seed_2, masked_local_model_2) = Masker::new(config.into()).mask(scalar, local_model_2);
+//! # let (local_mask_seed_1, masked_local_model_1) = Masker::new(config.into()).mask(scalar, &local_model_1);
+//! # let (local_mask_seed_2, masked_local_model_2) = Masker::new(config.into()).mask(scalar, &local_model_2);
 //! # let local_model_mask_1 = local_mask_seed_1.derive_mask(number_weights, config.into());
 //! # let local_model_mask_2 = local_mask_seed_2.derive_mask(number_weights, config.into());
 //! // aggregate the local model masks (similarly for local scalar masks)
@@ -160,8 +160,8 @@
 //! # let local_model_1 = Model::from_primitives_bounded(vec![0_f32; number_weights].into_iter());
 //! # let local_model_2 = Model::from_primitives_bounded(vec![1_f32; number_weights].into_iter());
 //! # let config = MaskConfig { group_type: GroupType::Prime, data_type: DataType::F32, bound_type: BoundType::B0, model_type: ModelType::M3};
-//! # let (local_mask_seed_1, masked_local_model_1) = Masker::new(config.into()).mask(scalar, local_model_1);
-//! # let (local_mask_seed_2, masked_local_model_2) = Masker::new(config.into()).mask(scalar, local_model_2);
+//! # let (local_mask_seed_1, masked_local_model_1) = Masker::new(config.into()).mask(scalar, &local_model_1);
+//! # let (local_mask_seed_2, masked_local_model_2) = Masker::new(config.into()).mask(scalar, &local_model_2);
 //! # let local_model_mask_1 = local_mask_seed_1.derive_mask(number_weights, config.into());
 //! # let local_model_mask_2 = local_mask_seed_2.derive_mask(number_weights, config.into());
 //! # let mut mask_aggregator = Aggregation::new(config.into(), number_weights);

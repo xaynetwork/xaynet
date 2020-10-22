@@ -17,7 +17,7 @@ msrv = "1.46.0"
 
 [dependencies]
 ffi-support = "0.4.2"
-xaynet-client = { path = "../xaynet-client", default-features = false, version = "0.1.0" }
+xaynet-sdk = { path = "../xaynet-sdk", default-features = false, version = "0.1.0" }
 xaynet-core = { path = "../xaynet-core", version = "0.1.0" }
 
 [lib]
@@ -26,4 +26,4 @@ crate-type = ["staticlib", "cdylib"]
 
 [features]
 default = []
-tls = ["xaynet-client/tls"]
+tls = []

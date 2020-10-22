@@ -1,16 +1,13 @@
-#[cfg(feature = "tls")]
 use std::{
     fs,
     path::{Path, PathBuf},
+    sync::Arc,
 };
 
-use reqwest::{self, Client, ClientBuilder, Response, StatusCode};
+use reqwest::{self, Certificate, ClientBuilder, Response, StatusCode};
 use thiserror::Error;
 
-#[cfg(feature = "tls")]
-use reqwest::Certificate;
-
-use crate::api::ApiClient;
+use crate::XaynetClient;
 use xaynet_core::{
     common::RoundParameters,
     crypto::ByteObject,
@@ -20,81 +17,73 @@ use xaynet_core::{
     UpdateSeedDict,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 /// A client that communicates with the coordinator's API via HTTP(S).
-pub struct HttpApiClient {
+pub struct Client {
     /// HTTP client
-    client: Client,
+    client: reqwest::Client,
     /// Coordinator URL
-    address: String,
+    address: Arc<String>,
 }
 
-impl HttpApiClient {
+impl Client {
     /// Creates a new HTTP(S) client.
     ///
     /// Requires trusted server `certificates` if the `tls` feature is enabled.
-    pub fn new<S>(
-        address: S,
-        #[cfg(feature = "tls")] certificates: Vec<Certificate>,
-    ) -> Result<Self, HttpApiClientError>
+    pub fn new<S>(address: S, certificates: Option<Vec<Certificate>>) -> Result<Self, ClientError>
     where
         S: Into<String>,
     {
-        #[cfg(not(feature = "tls"))]
-        let client = ClientBuilder::new()
-            .build()
-            .map_err(HttpApiClientError::Http)?;
+        let address = Arc::new(address.into());
+        if certificates.is_none() {
+            return Ok(Self {
+                client: ClientBuilder::new().build().map_err(ClientError::Http)?,
+                address,
+            });
+        }
 
-        #[cfg(feature = "tls")]
+        let certificates = certificates.unwrap();
         let client = if certificates.is_empty() {
-            return Err(HttpApiClientError::NoCertificate);
+            return Err(ClientError::NoCertificate);
         } else {
             let mut builder = ClientBuilder::new().use_rustls_tls();
             for certificate in certificates {
                 builder = builder.add_root_certificate(certificate);
             }
-            builder.build().map_err(HttpApiClientError::Http)?
+            builder.build().map_err(ClientError::Http)?
         };
 
-        Ok(Self {
-            client,
-            address: address.into(),
-        })
+        Ok(Self { client, address })
     }
 
-    #[cfg(feature = "tls")]
     /// Reads DER and PEM certificates from given paths.
     ///
     /// Requires the `tls` feature.
-    pub fn certificates_from(paths: &[PathBuf]) -> Result<Vec<Certificate>, HttpApiClientError> {
-        fn load_certificate(path: &Path) -> Result<Certificate, HttpApiClientError> {
-            let encoding = fs::read(path).map_err(HttpApiClientError::Io)?;
+    pub fn certificates_from(paths: &[PathBuf]) -> Result<Vec<Certificate>, ClientError> {
+        fn load_certificate(path: &Path) -> Result<Certificate, ClientError> {
+            let encoding = fs::read(path).map_err(ClientError::Io)?;
             if let Some(extension) = path.extension() {
                 match extension.to_str() {
-                    Some("der") => {
-                        Certificate::from_der(&encoding).map_err(HttpApiClientError::Http)
-                    }
-                    Some("pem") => {
-                        Certificate::from_pem(&encoding).map_err(HttpApiClientError::Http)
-                    }
-                    _ => Err(HttpApiClientError::UnexpectedCertificate),
+                    Some("der") => Certificate::from_der(&encoding).map_err(ClientError::Http),
+                    Some("pem") => Certificate::from_pem(&encoding).map_err(ClientError::Http),
+                    _ => Err(ClientError::UnexpectedCertificate),
                 }
             } else {
-                Err(HttpApiClientError::UnexpectedCertificate)
+                Err(ClientError::UnexpectedCertificate)
             }
         }
 
         if paths.is_empty() {
-            Err(HttpApiClientError::NoCertificate)
+            Err(ClientError::NoCertificate)
         } else {
             paths.iter().map(|path| load_certificate(path)).collect()
         }
     }
 }
 
-/// Error returned by an [`HttpApiClient`]
+/// Error returned by an [`Client`]
 #[derive(Debug, Error)]
-pub enum HttpApiClientError {
+pub enum ClientError {
     #[error("failed to deserialize data: {0}")]
     Deserialize(String),
 
@@ -107,30 +96,28 @@ pub enum HttpApiClientError {
     #[error("Reading from file failed: {0}")]
     Io(#[from] std::io::Error),
 
-    #[cfg(feature = "tls")]
     #[error("Unexpected certificate extension")]
     UnexpectedCertificate,
 
-    #[cfg(feature = "tls")]
     #[error("No certificate found")]
     NoCertificate,
 }
 
-impl From<bincode::Error> for HttpApiClientError {
+impl From<bincode::Error> for ClientError {
     fn from(e: bincode::Error) -> Self {
         Self::Deserialize(format!("{:?}", e))
     }
 }
 
-impl From<::std::num::ParseIntError> for HttpApiClientError {
+impl From<::std::num::ParseIntError> for ClientError {
     fn from(e: ::std::num::ParseIntError) -> Self {
         Self::Deserialize(format!("{:?}", e))
     }
 }
 
 #[async_trait]
-impl ApiClient for HttpApiClient {
-    type Error = HttpApiClientError;
+impl XaynetClient for Client {
+    type Error = ClientError;
 
     async fn get_round_params(&mut self) -> Result<RoundParameters, Self::Error> {
         let url = format!("{}/params", self.address);
@@ -139,7 +126,7 @@ impl ApiClient for HttpApiClient {
             let body = resp.bytes().await?; //
             Ok(bincode::deserialize(&body[..])?)
         } else {
-            Err(HttpApiClientError::UnexpectedResponse(resp))
+            Err(ClientError::UnexpectedResponse(resp))
         }
     }
 
@@ -152,7 +139,7 @@ impl ApiClient for HttpApiClient {
                 Ok(Some(bincode::deserialize(&body[..])?))
             }
             StatusCode::NO_CONTENT => Ok(None),
-            _ => Err(HttpApiClientError::UnexpectedResponse(resp)),
+            _ => Err(ClientError::UnexpectedResponse(resp)),
         }
     }
 
@@ -175,7 +162,7 @@ impl ApiClient for HttpApiClient {
                 Ok(Some(bincode::deserialize(&body[..])?))
             }
             StatusCode::NO_CONTENT => Ok(None),
-            _ => Err(HttpApiClientError::UnexpectedResponse(resp)),
+            _ => Err(ClientError::UnexpectedResponse(resp)),
         }
     }
 
@@ -185,7 +172,7 @@ impl ApiClient for HttpApiClient {
         match resp.status() {
             StatusCode::OK => Ok(Some(resp.text().await?.parse()?)),
             StatusCode::NO_CONTENT => Ok(None),
-            _ => Err(HttpApiClientError::UnexpectedResponse(resp)),
+            _ => Err(ClientError::UnexpectedResponse(resp)),
         }
     }
 
@@ -198,7 +185,7 @@ impl ApiClient for HttpApiClient {
                 Ok(Some(bincode::deserialize(&body[..])?))
             }
             StatusCode::NO_CONTENT => Ok(None),
-            _ => Err(HttpApiClientError::UnexpectedResponse(resp)),
+            _ => Err(ClientError::UnexpectedResponse(resp)),
         }
     }
 

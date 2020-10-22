@@ -431,7 +431,7 @@ bitflags::bitflags! {
     }
 }
 
-#[derive(Copy, Debug, Clone, Eq, PartialEq)]
+#[derive(Copy, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 /// A tag that indicates the type of the [`Message`].
 pub enum Tag {
     /// A tag for [`Sum`] messages

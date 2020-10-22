@@ -220,11 +220,14 @@ mod test {
     use super::*;
     use crate::state_machine::{
         events::Event,
-        tests::{builder::StateMachineBuilder, utils},
+        tests::{
+            builder::StateMachineBuilder,
+            utils::{self, Participant},
+        },
     };
     use serial_test::serial;
     use xaynet_core::{
-        common::RoundSeed,
+        common::{RoundParameters, RoundSeed},
         crypto::{ByteObject, EncryptKeyPair},
         mask::{FromPrimitives, MaskConfig, Model},
         SeedDict,
@@ -236,40 +239,38 @@ mod test {
     #[serial]
     pub async fn integration_update_to_sum2() {
         utils::enable_logging();
+        let round_params = RoundParameters {
+            pk: EncryptKeyPair::generate().public,
+            sum: 0.5,
+            update: 1.0,
+            seed: RoundSeed::generate(),
+        };
         let n_updaters = 1;
         let n_summers = 1;
-        let seed = RoundSeed::generate();
-        let sum_ratio = 0.5;
-        let update_ratio = 1.0;
-        let coord_keys = EncryptKeyPair::generate();
         let model_size = 4;
 
         // Find a sum participant and an update participant for the
         // given seed and ratios.
-        let mut summer = utils::generate_summer(&seed, sum_ratio, update_ratio);
-        let updater = utils::generate_updater(&seed, sum_ratio, update_ratio);
+        let summer = utils::generate_summer(round_params.clone());
+        let updater = utils::generate_updater(round_params.clone());
 
         // Initialize the update phase state
-        let sum_msg = summer.compose_sum_message(coord_keys.public);
-        let summer_ephm_pk = utils::ephm_pk(&sum_msg);
-
         let mut frozen_sum_dict = SumDict::new();
-        frozen_sum_dict.insert(summer.pk, summer_ephm_pk);
+        frozen_sum_dict.insert(summer.keys.public, summer.ephm_keys.public);
 
         let config: MaskConfig = utils::mask_settings().into();
         let aggregation = Aggregation::new(config.into(), model_size);
-        let update = Update {
-            update_count: 0,
-            model_agg: aggregation.clone(),
-        };
 
         // Create the state machine
         let (state_machine, request_tx, events, eio) = StateMachineBuilder::new()
             .await
-            .with_seed(seed.clone())
-            .with_phase(update)
-            .with_sum_ratio(sum_ratio)
-            .with_update_ratio(update_ratio)
+            .with_seed(round_params.seed.clone())
+            .with_phase(Update {
+                update_count: 0,
+                model_agg: aggregation.clone(),
+            })
+            .with_sum_ratio(round_params.sum)
+            .with_update_ratio(round_params.update)
             .with_min_sum(n_summers)
             .with_min_update(n_updaters)
             .with_min_update_time(1)
@@ -282,22 +283,19 @@ mod test {
         eio.redis
             .connection()
             .await
-            .add_sum_participant(&summer.pk, &summer_ephm_pk)
+            .add_sum_participant(&summer.keys.public, &summer.ephm_keys.public)
             .await
             .unwrap();
 
         assert!(state_machine.is_update());
 
         // Create an update request.
-        let scalar = 1.0 / (n_updaters as f64 * update_ratio);
+        let scalar = 1.0 / (n_updaters as f64 * round_params.update);
         let model = Model::from_primitives(vec![0; model_size].into_iter()).unwrap();
-        let update_msg = updater.compose_update_message(
-            coord_keys.public,
-            &frozen_sum_dict,
-            scalar,
-            model.clone(),
-        );
-        let masked_model = utils::masked_model(&update_msg);
+        let (mask_seed, masked_model) = updater.compute_masked_model(&model, scalar);
+        let local_seed_dict = Participant::build_seed_dict(&frozen_sum_dict, &mask_seed);
+        let update_msg =
+            updater.compose_update_message(masked_model.clone(), local_seed_dict.clone());
         let request_fut = async { request_tx.msg(&update_msg).await.unwrap() };
 
         // Have the state machine process the request
@@ -347,13 +345,9 @@ mod test {
         // participant.
         let mut global_seed_dict = SeedDict::new();
         let mut entry = UpdateSeedDict::new();
-        let encrypted_mask_seed = utils::local_seed_dict(&update_msg)
-            .values()
-            .next()
-            .unwrap()
-            .clone();
-        entry.insert(updater.pk, encrypted_mask_seed);
-        global_seed_dict.insert(summer.pk, entry);
+        let encrypted_mask_seed = local_seed_dict.values().next().unwrap().clone();
+        entry.insert(updater.keys.public, encrypted_mask_seed);
+        global_seed_dict.insert(summer.keys.public, entry);
         assert_eq!(
             events.seed_dict_listener().get_latest(),
             Event {
