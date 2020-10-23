@@ -84,7 +84,7 @@ impl Participant<Sum2> {
         let config = self.state.aggregation_config.mask;
         let mut mask_agg = Aggregation::new(config.into(), mask_len);
         for seed in mask_seeds.into_iter() {
-            let mask = seed.derive_mask(mask_len, config, config);
+            let mask = seed.derive_mask(mask_len, config.into());
             mask_agg
                 .validate_aggregation(&mask)
                 .map_err(|_| PetError::InvalidMask)?;

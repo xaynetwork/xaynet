@@ -15,8 +15,8 @@ use thiserror::Error;
 use crate::{
     crypto::{encrypt::SEALBYTES, prng::generate_integer, ByteObject},
     mask::{
-        config::MaskConfig,
         object::{MaskObject, MaskUnit, MaskVect},
+        MaskConfigPair,
     },
     SumParticipantEphemeralPublicKey,
     SumParticipantEphemeralSecretKey,
@@ -57,22 +57,16 @@ impl MaskSeed {
     }
 
     /// Derives a mask of given length from this seed wrt the masking configurations.
-    pub fn derive_mask(
-        &self,
-        len: usize,
-        // TODO refactor
-        config_many: MaskConfig,
-        config_one: MaskConfig,
-    ) -> MaskObject {
+    pub fn derive_mask(&self, len: usize, config: MaskConfigPair) -> MaskObject {
         let mut prng = ChaCha20Rng::from_seed(self.as_array());
 
-        let rand_int = generate_integer(&mut prng, &config_one.order());
-        let scalar_mask = MaskUnit::new_unchecked(config_one, rand_int);
+        let rand_int = generate_integer(&mut prng, &config.unit.order());
+        let scalar_mask = MaskUnit::new_unchecked(config.unit, rand_int);
 
-        let rand_ints = iter::repeat_with(|| generate_integer(&mut prng, &config_many.order()))
+        let rand_ints = iter::repeat_with(|| generate_integer(&mut prng, &config.vect.order()))
             .take(len)
             .collect();
-        let model_mask = MaskVect::new_unchecked(config_many, rand_ints);
+        let model_mask = MaskVect::new_unchecked(config.vect, rand_ints);
 
         MaskObject::new_unchecked(model_mask, scalar_mask)
     }
@@ -166,7 +160,7 @@ mod tests {
             model_type: ModelType::M3,
         };
         let seed = MaskSeed::generate();
-        let mask = seed.derive_mask(10, config, config);
+        let mask = seed.derive_mask(10, config.into());
         assert_eq!(mask.vect.data.len(), 10);
         assert!(mask
             .vect

@@ -225,7 +225,7 @@ impl Participant {
 
         let mut mask_agg = Aggregation::new(mask_config.into(), mask_len);
         for seed in mask_seeds.into_iter() {
-            let mask = seed.derive_mask(mask_len, mask_config, mask_config);
+            let mask = seed.derive_mask(mask_len, mask_config.into());
 
             mask_agg
                 .validate_aggregation(&mask)

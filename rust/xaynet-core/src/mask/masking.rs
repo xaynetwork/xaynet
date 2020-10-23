@@ -500,7 +500,7 @@ mod tests {
                     assert_eq!(masked_model.vect.data.len(), model.len());
                     assert!(masked_model.is_valid());
 
-                    let mask = mask_seed.derive_mask(model.len(), config.clone(), config.clone());
+                    let mask = mask_seed.derive_mask(model.len(), config.into());
                     let aggregation = Aggregation::from(masked_model);
                     let unmasked_model = aggregation.unmask(mask);
 
@@ -800,7 +800,7 @@ mod tests {
 
                         let (mask_seed, masked_model) =
                             Masker::new(config, config).mask(scalar, model);
-                        let mask = mask_seed.derive_mask($len as usize, config, config);
+                        let mask = mask_seed.derive_mask($len as usize, config.into());
 
                         assert!(
                             aggregated_masked_model.validate_aggregation(&masked_model).is_ok()
