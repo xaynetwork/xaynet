@@ -19,7 +19,7 @@ use thiserror::Error;
 use crate::{
     crypto::{prng::generate_integer, ByteObject},
     mask::{
-        config::MaskConfig,
+        config::{MaskConfig, MaskConfigPair},
         model::{float_to_ratio_bounded, Model},
         object::{MaskObject, MaskUnit, MaskVect},
         seed::MaskSeed,
@@ -94,6 +94,7 @@ impl Into<MaskObject> for Aggregation {
 
 #[allow(clippy::len_without_is_empty)]
 impl Aggregation {
+    // TODO refactor
     /// Creates a new, empty aggregator for masks or masked models.
     pub fn new(config_many: MaskConfig, config_one: MaskConfig, object_size: usize) -> Self {
         Self {
@@ -108,14 +109,24 @@ impl Aggregation {
         self.object_size
     }
 
+    // TODO remove
     /// Gets the masking configuration of the vector aggregator.
     pub fn config_many(&self) -> MaskConfig {
         self.object.vect.config
     }
 
+    // TODO remove
     /// Gets the masking configuration of the scalar aggregator.
     pub fn config_one(&self) -> MaskConfig {
         self.object.unit.config
+    }
+
+    /// Gets the masking configurations of the aggregator.
+    pub fn config(&self) -> MaskConfigPair {
+        MaskConfigPair {
+            vect: self.object.vect.config,
+            unit: self.object.unit.config,
+        }
     }
 
     /// Validates if unmasking of the aggregated masked model with the given `mask` may be
@@ -318,6 +329,7 @@ impl Aggregation {
 
 /// A masker for models.
 pub struct Masker {
+    // TODO refactor
     config_model: MaskConfig,
     config_scalar: MaskConfig,
     seed: MaskSeed,

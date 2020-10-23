@@ -195,6 +195,7 @@ pub use self::{
         GroupType,
         InvalidMaskConfigError,
         MaskConfig,
+        MaskConfigPair,
         ModelType,
     },
     masking::{Aggregation, AggregationError, Masker, UnmaskingError},

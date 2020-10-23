@@ -632,3 +632,22 @@ impl MaskConfig {
         BigUint::from_str_radix(order_str, 10).unwrap()
     }
 }
+
+/// Convenience struct for a pair of masking configurations.
+///
+/// One configuration is intended for (un)masking a vector of values, the other
+/// for a unit value.
+pub struct MaskConfigPair {
+    pub vect: MaskConfig,
+    pub unit: MaskConfig,
+}
+
+impl MaskConfigPair {
+    /// Creates two copies of the given masking configuration as a pair.
+    pub fn new_shared(config: MaskConfig) -> Self {
+        Self {
+            vect: config,
+            unit: config,
+        }
+    }
+}
