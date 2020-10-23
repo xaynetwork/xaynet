@@ -98,7 +98,7 @@ impl Aggregation {
     pub fn new(config: MaskConfigPair, object_size: usize) -> Self {
         Self {
             nb_models: 0,
-            object: MaskObject::empty(config.vect, config.unit, object_size),
+            object: MaskObject::empty(config, object_size),
             object_size,
         }
     }
