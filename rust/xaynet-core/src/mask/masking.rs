@@ -94,12 +94,11 @@ impl Into<MaskObject> for Aggregation {
 
 #[allow(clippy::len_without_is_empty)]
 impl Aggregation {
-    // TODO refactor
     /// Creates a new, empty aggregator for masks or masked models.
-    pub fn new(config_many: MaskConfig, config_one: MaskConfig, object_size: usize) -> Self {
+    pub fn new(config: MaskConfigPair, object_size: usize) -> Self {
         Self {
             nb_models: 0,
-            object: MaskObject::empty(config_many, config_one, object_size),
+            object: MaskObject::empty(config.vect, config.unit, object_size),
             object_size,
         }
     }
@@ -107,18 +106,6 @@ impl Aggregation {
     /// Gets the length of the aggregated mask object.
     pub fn len(&self) -> usize {
         self.object_size
-    }
-
-    // TODO remove
-    /// Gets the masking configuration of the vector aggregator.
-    pub fn config_many(&self) -> MaskConfig {
-        self.object.vect.config
-    }
-
-    // TODO remove
-    /// Gets the masking configuration of the scalar aggregator.
-    pub fn config_one(&self) -> MaskConfig {
-        self.object.unit.config
     }
 
     /// Gets the masking configurations of the aggregator.
@@ -646,7 +633,7 @@ mod tests {
                     // Step 3 (actual test):
                     // a. aggregate the masked models
                     // b. check the aggregated masked model
-                    let mut aggregated_masked_model = Aggregation::new(config, config, model_size);
+                    let mut aggregated_masked_model = Aggregation::new(config.into(), model_size);
                     for nb in 1..$count as usize + 1 {
                         let masked_model = masked_models.next().unwrap();
                         assert!(
@@ -798,8 +785,8 @@ mod tests {
                         iter::repeat(paste::expr! { 0 as [<$data:lower>] }).take($len as usize)
                     )
                     .unwrap();
-                    let mut aggregated_masked_model = Aggregation::new(config, config, model_size);
-                    let mut aggregated_mask = Aggregation::new(config, config, model_size);
+                    let mut aggregated_masked_model = Aggregation::new(config.into(), model_size);
+                    let mut aggregated_mask = Aggregation::new(config.into(), model_size);
                     let scalar = 1_f64 / ($count as f64);
                     let scalar_ratio = Ratio::from_float(scalar).unwrap();
                     for _ in 0..$count as usize {

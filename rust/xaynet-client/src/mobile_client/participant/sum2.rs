@@ -81,9 +81,8 @@ impl Participant<Sum2> {
             return Err(PetError::InvalidMask);
         }
 
-        // HACK reuse config for both
         let config = self.state.aggregation_config.mask;
-        let mut mask_agg = Aggregation::new(config, config, mask_len);
+        let mut mask_agg = Aggregation::new(config.into(), mask_len);
         for seed in mask_seeds.into_iter() {
             let mask = seed.derive_mask(mask_len, config, config);
             mask_agg

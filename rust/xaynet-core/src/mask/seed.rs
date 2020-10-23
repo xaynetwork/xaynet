@@ -60,6 +60,7 @@ impl MaskSeed {
     pub fn derive_mask(
         &self,
         len: usize,
+        // TODO refactor
         config_many: MaskConfig,
         config_one: MaskConfig,
     ) -> MaskObject {

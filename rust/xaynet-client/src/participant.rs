@@ -218,14 +218,12 @@ impl Participant {
         mask_seeds: Vec<MaskSeed>,
         mask_len: usize,
         mask_config: MaskConfig,
-        // FIXME also need scalar mask config somehow
     ) -> Result<MaskObject, PetError> {
         if mask_seeds.is_empty() {
             return Err(PetError::InvalidMask);
         }
 
-        // HACK reuse model mask config for now
-        let mut mask_agg = Aggregation::new(mask_config, mask_config, mask_len);
+        let mut mask_agg = Aggregation::new(mask_config.into(), mask_len);
         for seed in mask_seeds.into_iter() {
             let mask = seed.derive_mask(mask_len, mask_config, mask_config);
 

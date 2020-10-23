@@ -633,6 +633,7 @@ impl MaskConfig {
     }
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 /// Convenience struct for a pair of masking configurations.
 ///
 /// One configuration is intended for (un)masking a vector of values, the other
@@ -642,9 +643,9 @@ pub struct MaskConfigPair {
     pub unit: MaskConfig,
 }
 
-impl MaskConfigPair {
+impl From<MaskConfig> for MaskConfigPair {
     /// Creates two copies of the given masking configuration as a pair.
-    pub fn new_shared(config: MaskConfig) -> Self {
+    fn from(config: MaskConfig) -> Self {
         Self {
             vect: config,
             unit: config,

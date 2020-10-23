@@ -124,6 +124,7 @@ impl MaskObject {
         Self { vect, unit }
     }
 
+    // TODO refactor
     /// Creates a new mask object from the given vector, unit and masking configurations.
     pub fn new(
         config_v: MaskConfig,
@@ -136,6 +137,7 @@ impl MaskObject {
         Ok(Self { vect, unit })
     }
 
+    // TODO refactor
     /// Creates a new empty mask object of given size and masking configurations.
     pub fn empty(config_many: MaskConfig, config_one: MaskConfig, size: usize) -> Self {
         Self {
