@@ -43,11 +43,8 @@ impl Participant<Update> {
 
     /// Generate a mask seed and mask a local model.
     fn mask_model(&self, local_model: Model) -> (MaskSeed, MaskObject) {
-        Masker::new(
-            self.state.aggregation_config.mask,
-            self.state.aggregation_config.mask, // HACK reuse model mask config
-        )
-        .mask(self.state.aggregation_config.scalar, local_model)
+        Masker::new(self.state.aggregation_config.mask.into())
+            .mask(self.state.aggregation_config.scalar, local_model)
     }
 
     // Create a local seed dictionary from a sum dictionary.

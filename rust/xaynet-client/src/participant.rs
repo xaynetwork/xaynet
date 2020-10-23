@@ -190,7 +190,7 @@ impl Participant {
     fn mask_model(scalar: f64, local_model: Model) -> (MaskSeed, MaskObject) {
         // TODO: use proper config
         let config = dummy_config();
-        Masker::new(config, config).mask(scalar, local_model) // HACK reuse model mask config
+        Masker::new(config.into()).mask(scalar, local_model)
     }
 
     // Create a local seed dictionary from a sum dictionary.
