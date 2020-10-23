@@ -356,18 +356,19 @@ impl Masker {
     pub fn mask(self, scalar: f64, model: Model) -> (MaskSeed, MaskObject) {
         let (random_int, mut random_ints) = self.random_ints();
         let Self { config, seed } = self;
+        let (config_n, config_1) = (config.vect, config.unit);
 
         // clamp the scalar
-        let add_shift_scalar = config.unit.add_shift();
+        let add_shift_1 = config_1.add_shift();
         let scalar_ratio = float_to_ratio_bounded(scalar);
         let zero = Ratio::<BigInt>::from_float(0_f64).unwrap();
-        let scalar_clamped = clamp(&scalar_ratio, &zero, &add_shift_scalar);
+        let scalar_clamped = clamp(&scalar_ratio, &zero, &add_shift_1);
 
-        let exp_shift = config.vect.exp_shift();
-        let add_shift = config.vect.add_shift();
-        let order = config.vect.order();
-        let higher_bound = &add_shift;
-        let lower_bound = -&add_shift;
+        let exp_shift_n = config_n.exp_shift();
+        let add_shift_n = config_n.add_shift();
+        let order_n = config_n.order();
+        let higher_bound = &add_shift_n;
+        let lower_bound = -&add_shift_n;
 
         // mask the (scaled) weights
         let masked_weights = model
@@ -377,23 +378,23 @@ impl Masker {
                 let scaled = scalar_clamped * &weight;
                 let scaled_clamped = clamp(&scaled, &lower_bound, higher_bound);
                 // PANIC_SAFE: shifted weight is guaranteed to be non-negative
-                let shifted = ((scaled_clamped + &add_shift) * &exp_shift)
+                let shifted = ((scaled_clamped + &add_shift_n) * &exp_shift_n)
                     .to_integer()
                     .to_biguint()
                     .unwrap();
-                (shifted + rand_int) % &order
+                (shifted + rand_int) % &order_n
             })
             .collect();
-        let masked_model = MaskVect::new_unchecked(config.vect, masked_weights);
+        let masked_model = MaskVect::new_unchecked(config_n, masked_weights);
 
         // mask the scalar
         // PANIC_SAFE: shifted scalar is guaranteed to be non-negative
-        let shifted = ((scalar_clamped + &add_shift_scalar) * config.unit.exp_shift())
+        let shifted = ((scalar_clamped + &add_shift_1) * config_1.exp_shift())
             .to_integer()
             .to_biguint()
             .unwrap();
-        let masked = (shifted + random_int) % config.unit.order();
-        let masked_scalar = MaskUnit::new_unchecked(config.unit, masked);
+        let masked = (shifted + random_int) % config_1.order();
+        let masked_scalar = MaskUnit::new_unchecked(config_1, masked);
 
         (seed, MaskObject::new_unchecked(masked_model, masked_scalar))
     }
