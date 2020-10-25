@@ -73,7 +73,7 @@ where
                 "{} sum2 messages handled (min {} required)",
                 self.inner.sum2_count, self.shared.state.min_sum_count
             );
-            self.process_single().await?;
+            self.process_next().await?;
         }
         Ok(())
     }

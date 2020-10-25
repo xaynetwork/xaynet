@@ -119,9 +119,7 @@ impl RequestSender {
             )
         })?;
         resp_rx.await.map_err(|_| {
-            RequestError::InternalError(
-                "failed to receive response from the state machine: state machine is shutting down",
-            )
+            RequestError::InternalError("failed to receive response from the state machine")
         })?
     }
 }

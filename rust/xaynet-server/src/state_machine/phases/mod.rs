@@ -151,28 +151,36 @@ where
 {
     /// Processes requests for as long as the given duration.
     async fn process_during(&mut self, dur: tokio::time::Duration) -> Result<(), PhaseStateError> {
-        tokio::select! {
-            err = self.process_loop() => {
-                error!("processing loop terminated before duration elapsed");
-                err
-            }
-            _ = tokio::time::delay_for(dur) => {
-                debug!("duration elapsed");
-                Ok(())
-            }
-        }
-    }
+        let mut delay = tokio::time::delay_for(dur);
 
-    /// Processes requests indefinitely.
-    async fn process_loop(&mut self) -> Result<(), PhaseStateError> {
         loop {
-            self.process_single().await?;
+            tokio::select! {
+                _ = &mut delay => {
+                    debug!("duration elapsed");
+                    break Ok(());
+                }
+                next = self.next_request() => {
+                    let (req, span, resp_tx) = next?;
+                    self.process_single(req, span, resp_tx).await;
+                }
+            }
         }
     }
 
     /// Processes the next available request.
-    async fn process_single(&mut self) -> Result<(), PhaseStateError> {
+    async fn process_next(&mut self) -> Result<(), PhaseStateError> {
         let (req, span, resp_tx) = self.next_request().await?;
+        self.process_single(req, span, resp_tx).await;
+        Ok(())
+    }
+
+    /// Processes a single request.
+    async fn process_single(
+        &mut self,
+        req: StateMachineRequest,
+        span: Span,
+        resp_tx: ResponseSender,
+    ) {
         let _span_guard = span.enter();
         let res = self.handle_request(req).await;
 
@@ -187,7 +195,6 @@ where
         // This may error out if the receiver has already be dropped but
         // it doesn't matter for us.
         let _ = resp_tx.send(res.map_err(Into::into));
-        Ok(())
     }
 }
 
