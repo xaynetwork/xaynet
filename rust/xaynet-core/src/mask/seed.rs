@@ -58,15 +58,20 @@ impl MaskSeed {
 
     /// Derives a mask of given length from this seed wrt the masking configurations.
     pub fn derive_mask(&self, len: usize, config: MaskConfigPair) -> MaskObject {
+        let MaskConfigPair {
+            vect: config_n,
+            unit: config_1,
+        } = config;
         let mut prng = ChaCha20Rng::from_seed(self.as_array());
 
-        let rand_int = generate_integer(&mut prng, &config.unit.order());
-        let scalar_mask = MaskUnit::new_unchecked(config.unit, rand_int);
+        let rand_int = generate_integer(&mut prng, &config_1.order());
+        let scalar_mask = MaskUnit::new_unchecked(config_1, rand_int);
 
-        let rand_ints = iter::repeat_with(|| generate_integer(&mut prng, &config.vect.order()))
+        let order_n = config_n.order();
+        let rand_ints = iter::repeat_with(|| generate_integer(&mut prng, &order_n))
             .take(len)
             .collect();
-        let model_mask = MaskVect::new_unchecked(config.vect, rand_ints);
+        let model_mask = MaskVect::new_unchecked(config_n, rand_ints);
 
         MaskObject::new_unchecked(model_mask, scalar_mask)
     }

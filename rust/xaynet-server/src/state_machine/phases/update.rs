@@ -256,7 +256,7 @@ mod test {
         let mut frozen_sum_dict = SumDict::new();
         frozen_sum_dict.insert(summer.pk, summer_ephm_pk);
 
-        let config: MaskConfig = utils::mask_settings().into(); // help out the typechecker
+        let config: MaskConfig = utils::mask_settings().into();
         let aggregation = Aggregation::new(config.into(), model_size);
         let update = Update {
             update_count: 0,

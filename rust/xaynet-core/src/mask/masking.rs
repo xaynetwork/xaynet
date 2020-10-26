@@ -356,7 +356,10 @@ impl Masker {
     pub fn mask(self, scalar: f64, model: Model) -> (MaskSeed, MaskObject) {
         let (random_int, mut random_ints) = self.random_ints();
         let Self { config, seed } = self;
-        let (config_n, config_1) = (config.vect, config.unit);
+        let MaskConfigPair {
+            vect: config_n,
+            unit: config_1,
+        } = config;
 
         // clamp the scalar
         let add_shift_1 = config_1.add_shift();
