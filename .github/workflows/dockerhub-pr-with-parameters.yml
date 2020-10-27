@@ -37,7 +37,7 @@ jobs:
         uses: jacobtomlinson/gha-find-replace@master
         with:
           find: "newTag: development"
-          replace: "newTag: pr-${{ steps.comment-branch.outputs.head_ref }}"
+          replace: "newTag: ${{ steps.comment-branch.outputs.head_ref }}"
           include: "kustomization.yaml"
 
       - name: build-tag-push-pr
