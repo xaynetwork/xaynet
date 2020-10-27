@@ -1,4 +1,9 @@
-on: issue_comment
+on:
+  pull_request:
+    types: [opened]
+  issue_comment:
+    types: [created]
+    
 name: DockerHub (PR) with parameters
 
 jobs:
@@ -15,7 +20,7 @@ jobs:
           reaction: "true"
           reaction-type: "eyes"
           allow-edits: "false"
-          permission-level: maintain
+          permission-level: write
       - name: Act on the command
         run: echo "The command was '${{ steps.command.outputs.command-name }}' with arguments '${{ steps.command.outputs.command-arguments }}'"
       # Build container
@@ -23,17 +28,18 @@ jobs:
         id: comment-branch
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
+
       - uses: actions/checkout@v2
         if: success()
         with:
           ref: ${{ steps.comment-branch.outputs.head_ref }}
-      - run: git rev-parse --abbrev-ref HEAD
-      - run: git rev-parse --verify HEAD
-      - name: Clone branch of the PR
-        uses: actions/checkout@v2
+      - name: Find and Replace
+        uses: jacobtomlinson/gha-find-replace@master
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          ref: ${{ steps.pr_data.outputs.branch }}
+          find: "newTag: development"
+          replace: "newTag: pr-${{ steps.comment-branch.outputs.head_ref }}"
+          include: "kustomization.yaml"
+
       - name: build-tag-push-pr
         uses: docker/build-push-action@v1
         with:
@@ -42,7 +48,7 @@ jobs:
           dockerfile: docker/Dockerfile
           cache_froms: buildpack-deps:stable-curl
           repository: xaynetwork/xaynet
-          tags: pr-${{ steps.pr_data.outputs.branch }}
+          tags: ${{ steps.pr_data.outputs.branch }}
           push: true
           build_args: '${{ steps.command.outputs.command-arguments }}'
       # k8s deploy
@@ -56,7 +62,7 @@ jobs:
           cache_froms: buildpack-deps:stable-curl
           repository: xaynetwork/xaynet
           tag_with_ref: true
-          tags: development
+          tags: ${{ steps.comment-branch.outputs.head_ref }}
           push: true
           build_args: '${{ steps.command.outputs.command-arguments }}'
 
@@ -98,4 +104,3 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-
