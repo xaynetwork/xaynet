@@ -1,0 +1,91 @@
+on:
+  issue_comment:
+    types: [created]
+    
+name: DockerHub (PR) with parameters
+
+jobs:
+  check_comments:
+    name: Check comments for /build_pr
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for Command
+        id: command
+        uses: xt0rted/slash-command-action@v1
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          command: build_pr
+          reaction: "true"
+          reaction-type: "eyes"
+          allow-edits: "false"
+          permission-level: maintain
+      - name: Act on the command
+        run: echo "The command was '${{ steps.command.outputs.command-name }}' with arguments '${{ steps.command.outputs.command-arguments }}'"
+      # Build container
+      - uses: xt0rted/pull-request-comment-branch@v1
+        id: comment-branch
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/checkout@v2
+        if: success()
+        with:
+          ref: ${{ steps.comment-branch.outputs.head_ref }}
+      - name: Find and Replace
+        uses: jacobtomlinson/gha-find-replace@master
+        with:
+          find: "newTag: development"
+          replace: "newTag: ${{ steps.comment-branch.outputs.head_ref }}"
+          include: "kustomization.yaml"
+      # k8s deploy
+      - name: build-tag-push
+        uses: docker/build-push-action@v1
+        id: docker
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+          dockerfile: docker/Dockerfile
+          cache_froms: buildpack-deps:stable-curl
+          repository: xaynetwork/xaynet
+          tags: ${{ steps.comment-branch.outputs.head_ref }}
+          push: true
+          build_args: '${{ steps.command.outputs.command-arguments }}'
+
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      - name: Get DigitalOcean kubeconfig
+        run: doctl kubernetes cluster kubeconfig save ${{ secrets.K8S_CLUSTER }}
+
+      - name: Re-apply manifests
+        run: kubectl apply -n development -k $GITHUB_WORKSPACE/k8s/coordinator/development
+
+      - name: Force deployment rollout
+        run: kubectl rollout -n development restart deployment/coordinator-deployment
+
+      - name: Check deployment status
+        run: kubectl rollout -n development status deployment/coordinator-deployment
+
+      - name: Clean-up stale ReplicaSets
+        run: kubectl delete -n development replicasets $(kubectl get -n development replicasets | awk 'NR!=1 && ($2==0) {print $1}')
+
+      - name: Notify on Slack
+        uses: 8398a7/action-slack@v3
+        if: always()
+        with:
+          status: custom
+          fields: workflow,job,repo,ref
+          custom_payload: |
+            {
+              username: 'GitHub Actions',
+              icon_emoji: ':octocat:',
+              attachments: [{
+                color: '${{ steps.docker.outcome }}' === 'success' ? 'good' : '${{ steps.docker.outcome }}' === 'failure' ? 'danger' : 'warning',
+                text: `${process.env.AS_WORKFLOW}\nRepository: :xaynet: ${process.env.AS_REPO}\nRef: ${process.env.AS_REF}\nTags: latest, development`,
+              }]
+            }
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
