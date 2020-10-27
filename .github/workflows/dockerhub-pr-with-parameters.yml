@@ -18,7 +18,7 @@ jobs:
           reaction: "true"
           reaction-type: "eyes"
           allow-edits: "false"
-          permission-level: maintain
+          permission-level: write
       - name: Act on the command
         run: echo "The command was '${{ steps.command.outputs.command-name }}' with arguments '${{ steps.command.outputs.command-arguments }}'"
       # Build container
@@ -73,7 +73,6 @@ jobs:
 
       - name: Notify on Slack
         uses: 8398a7/action-slack@v3
-        if: always()
         with:
           status: custom
           fields: workflow,job,repo,ref
