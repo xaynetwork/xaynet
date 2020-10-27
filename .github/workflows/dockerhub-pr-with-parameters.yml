@@ -73,7 +73,6 @@ jobs:
 
       - name: Notify on Slack
         uses: 8398a7/action-slack@v3
-        if: always()
         with:
           status: custom
           fields: workflow,job,repo,ref
