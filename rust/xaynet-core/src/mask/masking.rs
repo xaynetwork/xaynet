@@ -187,8 +187,9 @@ impl Aggregation {
     /// [`validate_unmasking()`]: #method.validate_unmasking
     /// [`mask()`]: struct.Masker.html#method.mask
     pub fn unmask(self, mask_obj: MaskObject) -> Model {
-        let (masked_n, config_n) = (self.object.vect.data, self.object.vect.config);
-        let (masked_1, config_1) = (self.object.unit.data, self.object.unit.config);
+        let MaskObject { vect, unit } = self.object;
+        let (masked_n, config_n) = (vect.data, vect.config);
+        let (masked_1, config_1) = (unit.data, unit.config);
         let mask_n = mask_obj.vect.data;
         let mask_1 = mask_obj.unit.data;
 
