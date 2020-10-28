@@ -52,6 +52,9 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
+        id: buildx
+        with:
+          install: true
 
       - name: build-tag-push
         uses: docker/build-push-action@v2
