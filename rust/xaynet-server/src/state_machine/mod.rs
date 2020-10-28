@@ -35,7 +35,7 @@
 //!
 //! **Sum2**
 //!
-//! Publishes [`PhaseName::Sum2`], builds the [`MaskDict`], ensures that enough sum2
+//! Publishes [`PhaseName::Sum2`], builds the mask dictionary, ensures that enough sum2
 //! messages have been submitted and determines the applicable mask for unmasking the global
 //! masked model.
 //!
@@ -88,7 +88,6 @@
 //! [`SeedDict`]: xaynet_core::SeedDict
 //! [`EncryptKeyPair`]: xaynet_core::crypto::EncryptKeyPair
 //! [`RoundParameters`]: xaynet_core::common::RoundParameters
-//! [`MaskDict`]: crate::state_machine::coordinator::MaskDict
 //! [`StateMachineRequest`]: crate::state_machine::requests::StateMachineRequest
 //! [requests_idx]: ./requests/index.html
 //! [events]: ./events/index.html

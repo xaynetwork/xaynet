@@ -1,10 +1,8 @@
 //! Coordinator state and round parameter types.
-use std::collections::HashMap;
-
 use xaynet_core::{
     common::{RoundParameters, RoundSeed},
     crypto::{ByteObject, EncryptKeyPair},
-    mask::{MaskConfig, MaskObject},
+    mask::MaskConfig,
 };
 
 use crate::settings::{MaskSettings, ModelSettings, PetSettings};
@@ -65,7 +63,3 @@ impl CoordinatorState {
         }
     }
 }
-
-/// A dictionary created during the sum2 phase of the protocol. It counts the model masks
-/// represented by their hashes.
-pub type MaskDict = HashMap<MaskObject, usize>;
