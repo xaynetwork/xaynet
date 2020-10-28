@@ -1,7 +1,7 @@
 on:
   issue_comment:
     types: [created]
-    
+
 name: DockerHub (PR) with parameters
 
 jobs:
