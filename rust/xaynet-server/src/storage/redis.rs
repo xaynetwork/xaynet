@@ -1040,7 +1040,7 @@ pub(in crate) mod tests {
 
     #[tokio::test]
     #[serial]
-    async fn integration_flush_dicts_return() {
+    async fn integration_flush_dicts() {
         let client = init_client().await;
 
         // write some data into redis
@@ -1049,6 +1049,13 @@ pub(in crate) mod tests {
             .connection()
             .await
             .set_coordinator_state(&set_state)
+            .await;
+        assert!(res.is_ok());
+
+        let res = client
+            .connection()
+            .await
+            .set_latest_global_model_id("global_model_id")
             .await;
         assert!(res.is_ok());
 
@@ -1070,8 +1077,11 @@ pub(in crate) mod tests {
         let res = client.connection().await.flush_dicts().await;
         assert!(res.is_ok());
 
-        // ensure that only the coordinator state exists
+        // ensure that only the coordinator state and latest global model id exists
         let res = client.connection().await.get_coordinator_state().await;
+        assert!(res.unwrap().is_some());
+
+        let res = client.connection().await.get_latest_global_model_id().await;
         assert!(res.unwrap().is_some());
 
         let res = client.connection().await.get_sum_dict().await;
@@ -1089,11 +1099,95 @@ pub(in crate) mod tests {
 
     #[tokio::test]
     #[serial]
+    async fn integration_flush_coordinator_data() {
+        let client = init_client().await;
+
+        // write some data into redis
+        let set_state = CoordinatorState::new(pet_settings(), mask_settings(), model_settings());
+        let res = client
+            .connection()
+            .await
+            .set_coordinator_state(&set_state)
+            .await;
+        assert!(res.is_ok());
+
+        let res = client
+            .connection()
+            .await
+            .set_latest_global_model_id("global_model_id")
+            .await;
+        assert!(res.is_ok());
+
+        let sum_pks = create_and_write_sum_participant_entries(&client, 2).await;
+
+        let local_seed_dicts = create_local_seed_entries(&sum_pks);
+        let update_result = write_local_seed_entries(&client, &local_seed_dicts).await;
+        update_result.iter().for_each(|res| assert!(res.is_ok()));
+
+        let mask = create_mask_zeroed(10);
+        client
+            .connection()
+            .await
+            .incr_mask_count(sum_pks.get(0).unwrap(), &mask)
+            .await
+            .unwrap();
+
+        // remove all coordinator data
+        let res = client.connection().await.flush_coordinator_data().await;
+        assert!(res.is_ok());
+
+        let keys = client.connection().await.get_keys().await.unwrap();
+        assert!(keys.is_empty());
+    }
+
+    #[tokio::test]
+    #[serial]
     async fn integration_ping() {
         // test ping command
         let client = init_client().await;
 
         let res = client.connection().await.ping().await;
         assert!(res.is_ok())
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn integration_set_and_get_latest_global_model_id() {
+        // test the writing and reading of the global model id
+        let client = init_client().await;
+
+        let set_id = "global_model_id";
+        client
+            .connection()
+            .await
+            .set_latest_global_model_id(set_id)
+            .await
+            .unwrap();
+
+        let get_id = client
+            .connection()
+            .await
+            .get_latest_global_model_id()
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(set_id, get_id)
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn integration_get_latest_global_model_id_empty() {
+        // test the reading of a non existing global model id
+        let client = init_client().await;
+
+        let get_id = client
+            .connection()
+            .await
+            .get_latest_global_model_id()
+            .await
+            .unwrap();
+
+        assert_eq!(None, get_id)
     }
 }
