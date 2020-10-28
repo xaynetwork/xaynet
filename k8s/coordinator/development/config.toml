@@ -40,3 +40,6 @@ db = "metrics"
 # `XAYNET_S3__ACCESS_KEY` and `XAYNET_S3__SECRET_ACCESS_KEY`.
 # See: k8s/coordinator/base/deployment.yaml
 region = ["minio", "http://minio:9000"]
+
+[restore]
+no_restore = false

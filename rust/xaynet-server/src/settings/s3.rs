@@ -182,6 +182,29 @@ where
     deserializer.deserialize_any(S3RegionVisitor)
 }
 
+#[derive(Debug, Deserialize, Validate)]
+/// Restore settings.
+pub struct RestoreSettings {
+    /// If set to `true`, the restoring of coordinator state is prevented.
+    /// Instead, the state is reset and the coordinator is started with the
+    /// settings of the configuration file.
+    /// Defaults to `false`.
+    ///
+    /// # Examples
+    ///
+    /// **TOML**
+    /// ```text
+    /// [restore]
+    /// no_restore = false
+    /// ```
+    ///
+    /// **Environment variable**
+    /// ```text
+    /// XAYNET_RESTORE__NO_RESTORE=false
+    /// ```
+    pub no_restore: bool,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -318,6 +341,16 @@ mod tests {
             self
         }
 
+        fn with_restore(mut self) -> Self {
+            let restore = r#"
+            [restore]
+            no_restore = false
+            "#;
+
+            self.config.push_str(restore);
+            self
+        }
+
         fn with_custom(mut self, custom_config: &str) -> Self {
             self.config.push_str(custom_config);
             self
@@ -355,6 +388,7 @@ mod tests {
             .with_model()
             .with_metrics()
             .with_redis()
+            .with_restore()
             .with_s3()
             .build();
 
@@ -376,6 +410,7 @@ mod tests {
             .with_model()
             .with_metrics()
             .with_redis()
+            .with_restore()
             .with_s3()
             .with_s3_buckets()
             .build();
@@ -395,6 +430,7 @@ mod tests {
             .with_model()
             .with_metrics()
             .with_redis()
+            .with_restore()
             .with_s3()
             .with_s3_buckets()
             .build();
@@ -416,6 +452,7 @@ mod tests {
             .with_model()
             .with_metrics()
             .with_redis()
+            .with_restore()
             .with_s3()
             .build();
 
@@ -443,6 +480,7 @@ mod tests {
             .with_model()
             .with_metrics()
             .with_redis()
+            .with_restore()
             .with_custom(region)
             .build();
 
@@ -461,6 +499,7 @@ mod tests {
             .with_model()
             .with_metrics()
             .with_redis()
+            .with_restore()
             .with_s3()
             .build();
 
@@ -485,6 +524,7 @@ mod tests {
             .with_model()
             .with_metrics()
             .with_redis()
+            .with_restore()
             .with_s3()
             .build();
 
@@ -492,6 +532,30 @@ mod tests {
         let settings = Settings::load_from_str(&config).unwrap();
         assert!(matches!(settings.s3.region, Region::EuWest1));
         std::env::remove_var("XAYNET_S3__REGION");
+    }
+
+    #[test]
+    #[serial]
+    fn test_restore() {
+        let no_restore = r#"
+        [restore]
+        no_restore = true
+        "#;
+
+        let config = ConfigBuilder::new()
+            .with_log()
+            .with_api()
+            .with_pet()
+            .with_mask()
+            .with_model()
+            .with_metrics()
+            .with_redis()
+            .with_s3()
+            .with_custom(no_restore)
+            .build();
+
+        let settings = Settings::load_from_str(&config).unwrap();
+        assert_eq!(settings.restore.no_restore, true);
     }
 
     #[test]
@@ -505,6 +569,7 @@ mod tests {
             .with_model()
             .with_metrics()
             .with_redis()
+            .with_restore()
             .with_s3()
             .build();
 
