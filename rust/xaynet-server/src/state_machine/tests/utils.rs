@@ -11,7 +11,7 @@ use crate::{
     settings::{MaskSettings, ModelSettings, PetSettings},
     state_machine::{
         coordinator::CoordinatorState,
-        events::{EventPublisher, EventSubscriber},
+        events::{EventPublisher, EventSubscriber, ModelUpdate},
         phases::{PhaseName, Shared},
         requests::{RequestReceiver, RequestSender},
     },
@@ -81,8 +81,7 @@ pub fn model_settings() -> ModelSettings {
 }
 
 pub async fn init_shared() -> (Shared, EventSubscriber, RequestSender) {
-    let redis = redis::Client::new("redis://127.0.0.1/", 10).await.unwrap();
-    redis.connection().await.flush_db().await.unwrap();
+    let redis = redis::tests::init_client().await;
 
     let coordinator_state =
         CoordinatorState::new(pet_settings(), mask_settings(), model_settings());
@@ -92,6 +91,7 @@ pub async fn init_shared() -> (Shared, EventSubscriber, RequestSender) {
         coordinator_state.keys.clone(),
         coordinator_state.round_params.clone(),
         PhaseName::Idle,
+        ModelUpdate::Invalidate,
     );
 
     let (request_rx, request_tx) = RequestReceiver::new();
