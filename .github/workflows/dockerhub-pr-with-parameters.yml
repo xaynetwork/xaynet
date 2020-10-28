@@ -58,7 +58,6 @@ jobs:
         id: docker
         with:
           file: docker/Dockerfile
-          cache-from: type=registry,ref=xaynetwork/xaynet
           tags: ${{ steps.comment-branch.outputs.head_ref }}
           push: true
           build-args: |
