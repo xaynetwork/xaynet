@@ -30,7 +30,8 @@
 //!     "mask_dict": [ // sorted set
 //!         (mask_object_1, 2), // (mask: bincode encoded string, score/counter: number)
 //!         (mask_object_2, 1)
-//!     ]
+//!     ],
+//!     "latest_global_model_id": global_model_id
 //! }
 //! ```
 use crate::{
@@ -49,9 +50,10 @@ use crate::{
         SumDictAdd,
     },
 };
-use redis::{aio::ConnectionManager, AsyncCommands, IntoConnectionInfo, RedisResult, Script};
+use redis::{aio::ConnectionManager, AsyncCommands, IntoConnectionInfo, Pipeline, Script};
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
+
 use xaynet_core::{
     mask::{EncryptedMaskSeed, MaskObject},
     LocalSeedDict,
@@ -62,7 +64,7 @@ use xaynet_core::{
     UpdateParticipantPublicKey,
 };
 
-pub use redis::RedisError;
+pub use redis::{RedisError, RedisResult};
 
 #[derive(Clone)]
 pub struct Client {
@@ -121,9 +123,9 @@ impl Client {
 }
 
 impl Connection {
-    /// Stores a [`CoordinatorState`].
+    /// Sets a [`CoordinatorState`].
     ///
-    /// If the coordinator state already exists, it is overwritten.
+    /// If a coordinator state already exists, it is overwritten.
     pub async fn set_coordinator_state(mut self, state: &CoordinatorState) -> RedisResult<()> {
         debug!("set coordinator state");
         // https://redis.io/commands/set
@@ -134,7 +136,18 @@ impl Connection {
         self.connection.set("coordinator_state", state).await
     }
 
-    /// Retrieves the [`SumDict`].
+    /// Gets a [`CoordinatorState`] or `None` when the [`CoordinatorState`] does not exist.
+    pub async fn get_coordinator_state(mut self) -> RedisResult<Option<CoordinatorState>> {
+        // https://redis.io/commands/get
+        // > Get the value of key. If the key does not exist the special value nil is returned.
+        //   An error is returned if the value stored at key is not a string, because GET only
+        //   handles string values.
+        // > Return value
+        //   Bulk string reply: the value of key, or nil when key does not exist.
+        self.connection.get("coordinator_state").await
+    }
+
+    /// Gets the [`SumDict`].
     pub async fn get_sum_dict(mut self) -> RedisResult<SumDict> {
         debug!("get sum dictionary");
         // https://redis.io/commands/hgetall
@@ -151,7 +164,7 @@ impl Connection {
         Ok(sum_dict)
     }
 
-    /// Stores a new [`SumDict`] entry.
+    /// Adds a new [`SumDict`] entry.
     ///
     /// Returns [`Ok(())`] if field is a new or
     /// [`SumDictAddError::AlreadyExists`] if field already exists.
@@ -178,7 +191,7 @@ impl Connection {
             .await
     }
 
-    /// Retrieves the [`SeedDict`] entry for the given ['SumParticipantPublicKey'] or an empty map
+    /// Gets the [`SeedDict`] entry for the given ['SumParticipantPublicKey'] or an empty map
     /// when a [`SeedDict`] entry does not exist.
     pub async fn get_seed_dict_for_sum_pk(
         mut self,
@@ -265,7 +278,7 @@ impl Connection {
             .await
     }
 
-    /// Retrieves the [`SeedDict`] or an empty [`SeedDict`] when the [`SumDict`] does not exist.
+    /// Gets the [`SeedDict`] or an empty [`SeedDict`] when the [`SumDict`] does not exist.
     ///
     /// # Note
     /// This method is **not** an atomic operation.
@@ -340,7 +353,7 @@ impl Connection {
             .await
     }
 
-    /// Retrieves the two masks with the highest score.
+    /// Gets the two masks with the highest score.
     pub async fn get_best_masks(mut self) -> RedisResult<Vec<(MaskObject, u64)>> {
         debug!("get best masks");
         // https://redis.io/commands/zrevrangebyscore
@@ -358,7 +371,7 @@ impl Connection {
             .collect())
     }
 
-    /// Retrieves the number of unique masks.
+    /// Gets the number of unique masks.
     pub async fn get_number_of_unique_masks(mut self) -> RedisResult<u64> {
         debug!("get number of unique masks");
         // https://redis.io/commands/zcount
@@ -367,22 +380,26 @@ impl Connection {
         self.connection.zcount("mask_dict", "-inf", "+inf").await
     }
 
-    /// Deletes all data in the current database.
-    pub async fn flush_db(mut self) -> RedisResult<()> {
-        debug!("flush current database");
-        // https://redis.io/commands/flushdb
-        // > This command never fails.
-        redis::cmd("FLUSHDB")
-            .arg("ASYNC")
-            .query_async(&mut self.connection)
-            .await
+    /// Deletes all coordinator data in the current database.
+    /// This method is **not** an atomic operation.
+    pub async fn flush_coordinator_data(mut self) -> RedisResult<()> {
+        debug!("flush coordinator data");
+        let mut pipe = self.create_flush_dicts_pipeline().await?;
+        pipe.del("coordinator_state").ignore();
+        pipe.del("latest_global_model_id").ignore();
+        pipe.atomic().query_async(&mut self.connection).await
     }
 
-    /// Deletes the dictionaries [`SumDict`], [`SeedDict`] and mask dictionary.
+    /// Deletes the [`SumDict`], [`SeedDict`] and mask dictionary.
     ///
     /// # Note
     /// This method is **not** an atomic operation.
     pub async fn flush_dicts(mut self) -> RedisResult<()> {
+        let mut pipe = self.create_flush_dicts_pipeline().await?;
+        pipe.atomic().query_async(&mut self.connection).await
+    }
+
+    async fn create_flush_dicts_pipeline(&mut self) -> RedisResult<Pipeline> {
         debug!("flush all dictionaries");
         // https://redis.io/commands/hkeys
         // > Return value:
@@ -409,7 +426,7 @@ impl Connection {
         // delete mask dict
         pipe.del("mask_submitted").ignore();
         pipe.del("mask_dict").ignore();
-        pipe.atomic().query_async(&mut self.connection).await
+        Ok(pipe)
     }
 
     /// Pings the Redis server. Useful for checking whether there is a connection
@@ -418,23 +435,37 @@ impl Connection {
         // https://redis.io/commands/ping
         redis::cmd("PING").query_async(&mut self.connection).await
     }
-}
 
-#[cfg(test)]
-// Functions that are not needed in the state machine but handy for testing.
-impl Connection {
-    // Retrieves a [`CoordinatorState`] or `None` when the [`CoordinatorState`] does not exist.
-    // currently only used for testing but later required for restoring the coordinator
-    async fn get_coordinator_state(mut self) -> RedisResult<Option<CoordinatorState>> {
+    /// Sets the latest global model id.
+    /// If a global model id already exists, it is overwritten.
+    pub async fn set_latest_global_model_id(mut self, global_model_id: &str) -> RedisResult<()> {
+        debug!("set latest global model with id {}", global_model_id);
+        // https://redis.io/commands/set
+        // > Set key to hold the string value. If key already holds a value,
+        //   it is overwritten, regardless of its type.
+        // Possible return value in our case:
+        // > Simple string reply: OK if SET was executed correctly.
+        self.connection
+            .set("latest_global_model_id", global_model_id)
+            .await
+    }
+
+    /// Gets the latest global model id.
+    pub async fn get_latest_global_model_id(mut self) -> RedisResult<Option<String>> {
+        debug!("get latest global model id");
         // https://redis.io/commands/get
         // > Get the value of key. If the key does not exist the special value nil is returned.
         //   An error is returned if the value stored at key is not a string, because GET only
         //   handles string values.
         // > Return value
         //   Bulk string reply: the value of key, or nil when key does not exist.
-        self.connection.get("coordinator_state").await
+        self.connection.get("latest_global_model_id").await
     }
+}
 
+#[cfg(test)]
+// Functions that are not needed in the state machine but handy for testing.
+impl Connection {
     // Removes an entry in the [`SumDict`].
     //
     // Returns [`SumDictDelete(Ok(()))`] if field was deleted or
@@ -494,10 +525,26 @@ impl Connection {
         let sum_pks = result.into_iter().map(|pk| pk.into()).collect();
         Ok(sum_pks)
     }
+
+    // Returns all keys in the current database
+    pub async fn get_keys(mut self) -> RedisResult<Vec<String>> {
+        self.connection.keys("*").await
+    }
+
+    /// Deletes all data in the current database.
+    pub async fn flush_db(mut self) -> RedisResult<()> {
+        debug!("flush current database");
+        // https://redis.io/commands/flushdb
+        // > This command never fails.
+        redis::cmd("FLUSHDB")
+            .arg("ASYNC")
+            .query_async(&mut self.connection)
+            .await
+    }
 }
 
 #[cfg(test)]
-mod tests {
+pub(in crate) mod tests {
     use super::*;
     use crate::{
         state_machine::tests::utils::{mask_settings, model_settings, pet_settings},
@@ -512,7 +559,7 @@ mod tests {
         Client::new("redis://127.0.0.1/", 10).await.unwrap()
     }
 
-    async fn init_client() -> Client {
+    pub async fn init_client() -> Client {
         let client = create_redis_client().await;
         client.connection().await.flush_db().await.unwrap();
         client
@@ -541,6 +588,22 @@ mod tests {
             .unwrap();
 
         assert_eq!(set_state, get_state)
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn integration_get_coordinator_empty() {
+        // test the reading of a non existing coordinator state
+        let client = init_client().await;
+
+        let get_state = client
+            .connection()
+            .await
+            .get_coordinator_state()
+            .await
+            .unwrap();
+
+        assert_eq!(None, get_state)
     }
 
     #[tokio::test]
