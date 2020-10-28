@@ -44,17 +44,18 @@ jobs:
           include: "kustomization.yaml"
 
       - name: build-tag-push
-        uses: docker/build-push-action@v1
+        uses: docker/build-push-action@v2
         id: docker
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
-          dockerfile: docker/Dockerfile
-          cache_froms: buildpack-deps:stable-curl
-          repository: xaynetwork/xaynet
+          file: docker/Dockerfile
+          cache-from: type=registry,ref=xaynetwork/xaynet
           tags: ${{ steps.comment-branch.outputs.head_ref }}
           push: true
-          build_args: '${{ steps.command.outputs.command-arguments }}'
+          build-args: |
+            ${{ steps.split.outputs._0 }}
+            ${{ steps.split.outputs._1 }}
 
       - name: Install doctl
         uses: digitalocean/action-doctl@v2
