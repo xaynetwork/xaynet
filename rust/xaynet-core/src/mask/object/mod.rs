@@ -11,7 +11,7 @@ use std::iter::Iterator;
 use num::bigint::BigUint;
 use thiserror::Error;
 
-use crate::mask::config::MaskConfig;
+use crate::mask::config::{MaskConfig, MaskConfigPair};
 
 #[derive(Error, Debug)]
 #[error("the mask object is invalid: data is incompatible with the masking configuration")]
@@ -126,21 +126,20 @@ impl MaskObject {
 
     /// Creates a new mask object from the given vector, unit and masking configurations.
     pub fn new(
-        config_v: MaskConfig,
-        data_v: Vec<BigUint>,
-        config_s: MaskConfig,
-        data_s: BigUint,
+        config: MaskConfigPair,
+        data_vect: Vec<BigUint>,
+        data_unit: BigUint,
     ) -> Result<Self, InvalidMaskObjectError> {
-        let vect = MaskVect::new(config_v, data_v)?;
-        let unit = MaskUnit::new(config_s, data_s)?;
+        let vect = MaskVect::new(config.vect, data_vect)?;
+        let unit = MaskUnit::new(config.unit, data_unit)?;
         Ok(Self { vect, unit })
     }
 
     /// Creates a new empty mask object of given size and masking configurations.
-    pub fn empty(config_many: MaskConfig, config_one: MaskConfig, size: usize) -> Self {
+    pub fn empty(config: MaskConfigPair, size: usize) -> Self {
         Self {
-            vect: MaskVect::empty(config_many, size),
-            unit: MaskUnit::default(config_one),
+            vect: MaskVect::empty(config.vect, size),
+            unit: MaskUnit::default(config.unit),
         }
     }
 

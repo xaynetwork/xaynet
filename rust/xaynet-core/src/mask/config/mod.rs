@@ -632,3 +632,23 @@ impl MaskConfig {
         BigUint::from_str_radix(order_str, 10).unwrap()
     }
 }
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+/// Convenience struct for a pair of masking configurations.
+///
+/// One configuration is intended for (un)masking a vector of values, the other
+/// for a unit value.
+pub struct MaskConfigPair {
+    pub vect: MaskConfig,
+    pub unit: MaskConfig,
+}
+
+impl From<MaskConfig> for MaskConfigPair {
+    /// Creates two copies of the given masking configuration as a pair.
+    fn from(config: MaskConfig) -> Self {
+        Self {
+            vect: config,
+            unit: config,
+        }
+    }
+}

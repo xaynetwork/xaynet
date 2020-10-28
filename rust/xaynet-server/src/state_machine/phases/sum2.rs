@@ -152,7 +152,7 @@ mod test {
     use xaynet_core::{
         common::RoundSeed,
         crypto::{ByteObject, EncryptKeyPair},
-        mask::{FromPrimitives, Model},
+        mask::{FromPrimitives, MaskConfig, Model},
         SumDict,
     };
 
@@ -181,11 +181,8 @@ mod test {
             updater.compose_update_message(coord_keys.public, &sum_dict, scalar, model.clone());
         let masked_model = utils::masked_model(&msg);
         let local_seed_dict = utils::local_seed_dict(&msg);
-        let mut aggregation = Aggregation::new(
-            utils::mask_settings().into(),
-            utils::mask_settings().into(),
-            model_size,
-        );
+        let config: MaskConfig = utils::mask_settings().into();
+        let mut aggregation = Aggregation::new(config.into(), model_size);
         aggregation.aggregate(masked_model.clone());
 
         // Create the state machine

@@ -19,7 +19,7 @@ use thiserror::Error;
 use crate::{
     crypto::{prng::generate_integer, ByteObject},
     mask::{
-        config::MaskConfig,
+        config::MaskConfigPair,
         model::{float_to_ratio_bounded, Model},
         object::{MaskObject, MaskUnit, MaskVect},
         seed::MaskSeed,
@@ -95,10 +95,10 @@ impl Into<MaskObject> for Aggregation {
 #[allow(clippy::len_without_is_empty)]
 impl Aggregation {
     /// Creates a new, empty aggregator for masks or masked models.
-    pub fn new(config_many: MaskConfig, config_one: MaskConfig, object_size: usize) -> Self {
+    pub fn new(config: MaskConfigPair, object_size: usize) -> Self {
         Self {
             nb_models: 0,
-            object: MaskObject::empty(config_many, config_one, object_size),
+            object: MaskObject::empty(config, object_size),
             object_size,
         }
     }
@@ -108,14 +108,12 @@ impl Aggregation {
         self.object_size
     }
 
-    /// Gets the masking configuration of the vector aggregator.
-    pub fn config_many(&self) -> MaskConfig {
-        self.object.vect.config
-    }
-
-    /// Gets the masking configuration of the scalar aggregator.
-    pub fn config_one(&self) -> MaskConfig {
-        self.object.unit.config
+    /// Gets the masking configurations of the aggregator.
+    pub fn config(&self) -> MaskConfigPair {
+        MaskConfigPair {
+            vect: self.object.vect.config,
+            unit: self.object.unit.config,
+        }
     }
 
     /// Validates if unmasking of the aggregated masked model with the given `mask` may be
@@ -189,8 +187,9 @@ impl Aggregation {
     /// [`validate_unmasking()`]: #method.validate_unmasking
     /// [`mask()`]: struct.Masker.html#method.mask
     pub fn unmask(self, mask_obj: MaskObject) -> Model {
-        let (masked_n, config_n) = (self.object.vect.data, self.object.vect.config);
-        let (masked_1, config_1) = (self.object.unit.data, self.object.unit.config);
+        let MaskObject { vect, unit } = self.object;
+        let (masked_n, config_n) = (vect.data, vect.config);
+        let (masked_1, config_1) = (unit.data, unit.config);
         let mask_n = mask_obj.vect.data;
         let mask_1 = mask_obj.unit.data;
 
@@ -318,28 +317,22 @@ impl Aggregation {
 
 /// A masker for models.
 pub struct Masker {
-    config_model: MaskConfig,
-    config_scalar: MaskConfig,
+    config: MaskConfigPair,
     seed: MaskSeed,
 }
 
 impl Masker {
     /// Creates a new masker with the given masking `config`uration with a randomly generated seed.
-    pub fn new(config_model: MaskConfig, config_scalar: MaskConfig) -> Self {
+    pub fn new(config: MaskConfigPair) -> Self {
         Self {
-            config_model,
-            config_scalar,
+            config,
             seed: MaskSeed::generate(),
         }
     }
 
     /// Creates a new masker with the given masking `config`uration and `seed`.
-    pub fn with_seed(config_model: MaskConfig, config_scalar: MaskConfig, seed: MaskSeed) -> Self {
-        Self {
-            config_model,
-            config_scalar,
-            seed,
-        }
+    pub fn with_seed(config: MaskConfigPair, seed: MaskSeed) -> Self {
+        Self { config, seed }
     }
 }
 
@@ -363,23 +356,23 @@ impl Masker {
     /// [`unmask()`]: struct.Aggregation.html#method.unmask
     pub fn mask(self, scalar: f64, model: Model) -> (MaskSeed, MaskObject) {
         let (random_int, mut random_ints) = self.random_ints();
-        let Self {
-            config_model,
-            config_scalar,
-            seed,
-        } = self;
+        let Self { config, seed } = self;
+        let MaskConfigPair {
+            vect: config_n,
+            unit: config_1,
+        } = config;
 
         // clamp the scalar
-        let add_shift_scalar = config_scalar.add_shift();
+        let add_shift_1 = config_1.add_shift();
         let scalar_ratio = float_to_ratio_bounded(scalar);
         let zero = Ratio::<BigInt>::from_float(0_f64).unwrap();
-        let scalar_clamped = clamp(&scalar_ratio, &zero, &add_shift_scalar);
+        let scalar_clamped = clamp(&scalar_ratio, &zero, &add_shift_1);
 
-        let exp_shift = config_model.exp_shift();
-        let add_shift = config_model.add_shift();
-        let order = config_model.order();
-        let higher_bound = &add_shift;
-        let lower_bound = -&add_shift;
+        let exp_shift_n = config_n.exp_shift();
+        let add_shift_n = config_n.add_shift();
+        let order_n = config_n.order();
+        let higher_bound = &add_shift_n;
+        let lower_bound = -&add_shift_n;
 
         // mask the (scaled) weights
         let masked_weights = model
@@ -389,23 +382,23 @@ impl Masker {
                 let scaled = scalar_clamped * &weight;
                 let scaled_clamped = clamp(&scaled, &lower_bound, higher_bound);
                 // PANIC_SAFE: shifted weight is guaranteed to be non-negative
-                let shifted = ((scaled_clamped + &add_shift) * &exp_shift)
+                let shifted = ((scaled_clamped + &add_shift_n) * &exp_shift_n)
                     .to_integer()
                     .to_biguint()
                     .unwrap();
-                (shifted + rand_int) % &order
+                (shifted + rand_int) % &order_n
             })
             .collect();
-        let masked_model = MaskVect::new_unchecked(config_model, masked_weights);
+        let masked_model = MaskVect::new_unchecked(config_n, masked_weights);
 
         // mask the scalar
         // PANIC_SAFE: shifted scalar is guaranteed to be non-negative
-        let shifted = ((scalar_clamped + &add_shift_scalar) * config_scalar.exp_shift())
+        let shifted = ((scalar_clamped + &add_shift_1) * config_1.exp_shift())
             .to_integer()
             .to_biguint()
             .unwrap();
-        let masked = (shifted + random_int) % config_scalar.order();
-        let masked_scalar = MaskUnit::new_unchecked(config_scalar, masked);
+        let masked = (shifted + random_int) % config_1.order();
+        let masked_scalar = MaskUnit::new_unchecked(config_1, masked);
 
         (seed, MaskObject::new_unchecked(masked_model, masked_scalar))
     }
@@ -415,8 +408,8 @@ impl Masker {
     /// The first is generated wrt the scalar configuration, while the rest are
     /// wrt the vector configuration and returned as an iterator.
     fn random_ints(&self) -> (BigUint, impl Iterator<Item = BigUint>) {
-        let order_n = self.config_model.order();
-        let order_1 = self.config_scalar.order();
+        let order_n = self.config.vect.order();
+        let order_1 = self.config.unit.order();
         let mut prng = ChaCha20Rng::from_seed(self.seed.as_array());
         let int = generate_integer(&mut prng, &order_1);
         let ints = iter::from_fn(move || Some(generate_integer(&mut prng, &order_n)));
@@ -497,11 +490,11 @@ mod tests {
                     // b. derive the mask corresponding to the seed used
                     // c. unmask the model and check it against the original one.
                     let (mask_seed, masked_model) =
-                        Masker::new(config.clone(), config.clone()).mask(1_f64, model.clone());
+                        Masker::new(config.into()).mask(1_f64, model.clone());
                     assert_eq!(masked_model.vect.data.len(), model.len());
                     assert!(masked_model.is_valid());
 
-                    let mask = mask_seed.derive_mask(model.len(), config.clone(), config.clone());
+                    let mask = mask_seed.derive_mask(model.len(), config.into());
                     let aggregation = Aggregation::from(masked_model);
                     let unmasked_model = aggregation.unmask(mask);
 
@@ -634,7 +627,7 @@ mod tests {
                     // Step 3 (actual test):
                     // a. aggregate the masked models
                     // b. check the aggregated masked model
-                    let mut aggregated_masked_model = Aggregation::new(config, config, model_size);
+                    let mut aggregated_masked_model = Aggregation::new(config.into(), model_size);
                     for nb in 1..$count as usize + 1 {
                         let masked_model = masked_models.next().unwrap();
                         assert!(
@@ -786,8 +779,8 @@ mod tests {
                         iter::repeat(paste::expr! { 0 as [<$data:lower>] }).take($len as usize)
                     )
                     .unwrap();
-                    let mut aggregated_masked_model = Aggregation::new(config, config, model_size);
-                    let mut aggregated_mask = Aggregation::new(config, config, model_size);
+                    let mut aggregated_masked_model = Aggregation::new(config.into(), model_size);
+                    let mut aggregated_mask = Aggregation::new(config.into(), model_size);
                     let scalar = 1_f64 / ($count as f64);
                     let scalar_ratio = Ratio::from_float(scalar).unwrap();
                     for _ in 0..$count as usize {
@@ -800,8 +793,8 @@ mod tests {
                             });
 
                         let (mask_seed, masked_model) =
-                            Masker::new(config, config).mask(scalar, model);
-                        let mask = mask_seed.derive_mask($len as usize, config, config);
+                            Masker::new(config.into()).mask(scalar, model);
+                        let mask = mask_seed.derive_mask($len as usize, config.into());
 
                         assert!(
                             aggregated_masked_model.validate_aggregation(&masked_model).is_ok()

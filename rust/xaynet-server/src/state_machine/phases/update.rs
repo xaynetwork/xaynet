@@ -132,10 +132,8 @@ impl PhaseState<Update> {
         Self {
             inner: Update {
                 update_count: 0,
-                // HACK reuse mask config
                 model_agg: Aggregation::new(
-                    shared.state.mask_config,
-                    shared.state.mask_config,
+                    shared.state.mask_config.into(),
                     shared.state.model_size,
                 ),
             },
@@ -228,7 +226,7 @@ mod test {
     use xaynet_core::{
         common::RoundSeed,
         crypto::{ByteObject, EncryptKeyPair},
-        mask::{FromPrimitives, Model},
+        mask::{FromPrimitives, MaskConfig, Model},
         SeedDict,
         SumDict,
         UpdateSeedDict,
@@ -258,11 +256,8 @@ mod test {
         let mut frozen_sum_dict = SumDict::new();
         frozen_sum_dict.insert(summer.pk, summer_ephm_pk);
 
-        let aggregation = Aggregation::new(
-            utils::mask_settings().into(),
-            utils::mask_settings().into(),
-            model_size,
-        );
+        let config: MaskConfig = utils::mask_settings().into();
+        let aggregation = Aggregation::new(config.into(), model_size);
         let update = Update {
             update_count: 0,
             model_agg: aggregation.clone(),

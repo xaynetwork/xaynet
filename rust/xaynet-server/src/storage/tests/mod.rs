@@ -50,9 +50,8 @@ pub fn create_mask_zeroed(byte_size: usize) -> MaskObject {
     };
 
     MaskObject::new(
-        config,
+        config.into(),
         vec![BigUint::zero(); byte_size],
-        config,
         BigUint::zero(),
     )
     .unwrap()
@@ -67,9 +66,8 @@ pub fn create_mask(byte_size: usize, number: u32) -> MaskObject {
     };
 
     MaskObject::new(
-        config,
+        config.into(),
         vec![BigUint::from(number); byte_size],
-        config,
         BigUint::zero(),
     )
     .unwrap()
