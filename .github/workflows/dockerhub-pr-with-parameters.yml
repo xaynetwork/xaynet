@@ -6,7 +6,7 @@ name: DockerHub (PR) with parameters
 
 jobs:
   check_comments:
-    name: Check comments for /build_pr
+    name: Check comments for /deploy
     runs-on: ubuntu-latest
     steps:
       - name: Check for Command
@@ -14,14 +14,18 @@ jobs:
         uses: xt0rted/slash-command-action@v1
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
-          command: build_pr
+          command: deploy
           reaction: "true"
           reaction-type: "eyes"
           allow-edits: "false"
           permission-level: write
-      - name: Act on the command
-        run: echo "The command was '${{ steps.command.outputs.command-name }}' with arguments '${{ steps.command.outputs.command-arguments }}'"
-      # Build container
+
+      - uses: jungwinter/split@v1
+        id: split
+        with:
+          msg: '${{ steps.command.outputs.command-arguments }}'
+          maxsplit: 1
+
       - uses: xt0rted/pull-request-comment-branch@v1
         id: comment-branch
         with:
@@ -31,13 +35,14 @@ jobs:
         if: success()
         with:
           ref: ${{ steps.comment-branch.outputs.head_ref }}
+
       - name: Find and Replace
         uses: jacobtomlinson/gha-find-replace@master
         with:
           find: "newTag: development"
           replace: "newTag: ${{ steps.comment-branch.outputs.head_ref }}"
           include: "kustomization.yaml"
-      # k8s deploy
+
       - name: build-tag-push
         uses: docker/build-push-action@v1
         id: docker
@@ -73,6 +78,7 @@ jobs:
 
       - name: Notify on Slack
         uses: 8398a7/action-slack@v3
+        if: ${{ success() }}
         with:
           status: custom
           fields: workflow,job,repo,ref
