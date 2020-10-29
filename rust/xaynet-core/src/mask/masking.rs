@@ -750,12 +750,11 @@ mod tests {
                     let mut prng = ChaCha20Rng::from_seed(MaskSeed::generate().as_array());
                     let mut masked_models = iter::repeat_with(move || {
                         let order = config.order();
+                        let integer = generate_integer(&mut prng, &order);
                         let integers = iter::repeat_with(|| generate_integer(&mut prng, &order))
                             .take($len as usize)
                             .collect::<Vec<_>>();
-                        let model = MaskVect::new_unchecked(config, integers);
-                        let scalar = MaskUnit::default(config);
-                        MaskObject::new_unchecked(model, scalar)
+                        MaskObject::new(config.into(), integers, integer).unwrap()
                     });
 
                     // Step 3 (actual test):
