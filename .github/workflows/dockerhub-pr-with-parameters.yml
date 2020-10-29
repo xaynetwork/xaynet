@@ -61,11 +61,12 @@ jobs:
         id: docker
         with:
           file: docker/Dockerfile
-          tags: ${{ steps.comment-branch.outputs.head_ref }}
+          tags: xaynetwork/xaynet:${{ steps.comment-branch.outputs.head_ref }}
           push: true
           build-args: |
             ${{ steps.split.outputs._0 }}
             ${{ steps.split.outputs._1 }}
+            
 
       - name: Install doctl
         uses: digitalocean/action-doctl@v2
