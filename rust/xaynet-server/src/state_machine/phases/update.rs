@@ -99,7 +99,7 @@ where
                 "{} update messages handled (min {} required)",
                 self.inner.update_count, self.shared.state.min_update_count
             );
-            self.process_single().await?;
+            self.process_next().await?;
         }
         Ok(())
     }
