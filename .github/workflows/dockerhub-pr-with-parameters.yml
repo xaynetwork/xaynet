@@ -57,6 +57,7 @@ jobs:
         uses: docker/build-push-action@v2
         id: docker
         with:
+          context: .
           file: docker/Dockerfile
           tags: xaynetwork/xaynet:${{ steps.comment-branch.outputs.head_ref }}
           push: true
