@@ -12,6 +12,7 @@ pub use self::error::ServiceError;
 use self::{
     decryptor::Decryptor,
     message_parser::MessageParser,
+    multipart::MultipartHandler,
     state_machine::StateMachine,
     task_validator::TaskValidator,
 };
@@ -33,12 +34,14 @@ impl PetMessageHandler {
         // TODO: don't unwrap
         let thread_pool = Arc::new(ThreadPoolBuilder::new().build().unwrap());
         let decryptor = Decryptor::new(event_subscriber, thread_pool.clone());
+        let multipart_handler = MultipartHandler::new();
         let message_parser = MessageParser::new(event_subscriber, thread_pool);
         let task_validator = TaskValidator::new(event_subscriber);
         let state_machine = StateMachine::new(requests_tx);
 
         Self {
             decryptor,
+            multipart_handler,
             message_parser,
             task_validator,
             state_machine,
@@ -55,6 +58,14 @@ impl PetMessageHandler {
         self.message_parser.call(data).await
     }
 
+    async fn handle_multipart(
+        &mut self,
+        message: Message,
+    ) -> Result<Option<Message>, ServiceError> {
+        poll_fn(|cx| self.multipart_handler.poll_ready(cx)).await?;
+        self.multipart_handler.call(message).await
+    }
+
     async fn validate_task(&mut self, message: Message) -> Result<Message, ServiceError> {
         poll_fn(|cx| self.task_validator.poll_ready(cx)).await?;
         self.task_validator.call(message).await
@@ -68,8 +79,13 @@ impl PetMessageHandler {
     pub async fn handle_message(&mut self, enc_data: Vec<u8>) -> Result<(), ServiceError> {
         let raw_message = self.decrypt(enc_data).await?;
         let message = self.parse(raw_message).await?;
-        let message = self.validate_task(message).await?;
-        self.process(message).await
+        match self.handle_multipart(message).await? {
+            Some(message) => {
+                let message = self.validate_task(message).await?;
+                self.process(message).await
+            }
+            None => Ok(()),
+        }
     }
 }
 
@@ -90,6 +106,7 @@ impl PetMessageHandler {
 #[derive(Clone)]
 pub struct PetMessageHandler {
     decryptor: Decryptor,
+    multipart_handler: MultipartHandler,
     message_parser: MessageParser,
     task_validator: TaskValidator,
     state_machine: StateMachine,
