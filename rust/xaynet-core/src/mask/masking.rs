@@ -586,6 +586,140 @@ mod tests {
     test_masking!(pow_i64_b6, Power2, i64, 1_000_000, 10);
     test_masking!(pow_i64_bmax, Power2, i64, 10);
 
+    macro_rules! test_masking_scalar {
+        ($suffix:ident, $group:ty, $data:ty, $bound:expr, $len:expr $(,)?) => {
+            paste::item! {
+                #[test]
+                fn [<test_masking_scalar_ $suffix>]() {
+                    // Step 1: Build the masking config
+                    let config = MaskConfig {
+                        group_type: $group,
+                        data_type: paste::expr! { [<$data:upper>] },
+                        bound_type: match $bound {
+                            1 => B0,
+                            100 => B2,
+                            10_000 => B4,
+                            1_000_000 => B6,
+                            _ => Bmax,
+                        },
+                        model_type: M3,
+                    };
+                    let model_size = $len as usize;
+
+                    // Step 2: Generate a random scalar (0, bound]
+                    // take unit vector as the model to scale
+                    let bound = if $bound == 0 {
+                        paste::expr! { [<$data:lower>]::MAX / (2 as [<$data:lower>]) }
+                    } else {
+                        paste::expr! { $bound as [<$data:lower>] }
+                    };
+                    let zero = 0 as [<$data:lower>];
+                    let mut prng = ChaCha20Rng::from_seed(MaskSeed::generate().as_array());
+                    let rand_neg = Uniform::new(-bound, zero).sample(&mut prng);
+                    let scalar = rand_neg.abs() as f64;
+                    let model = Model::from_primitives(iter::repeat(1).take(model_size)).unwrap();
+
+                    // Step 3 (actual test):
+                    // a. mask the model
+                    // b. derive the mask corresponding to the seed used
+                    // c. unmask the model and check it against the original one.
+                    let (mask_seed, masked_model) =
+                        Masker::new(config.into()).mask(scalar, model);
+                    assert_eq!(masked_model.vect.data.len(), model_size);
+                    assert!(masked_model.is_valid());
+
+                    let mask = mask_seed.derive_mask(model_size, config.into());
+                    let unmasked_model = Aggregation::from(masked_model).unmask(mask);
+
+                    let tolerance = Ratio::from_integer(config.exp_shift()).recip();
+                    let expected_weight = Ratio::from_integer(BigInt::from(1));
+                    assert!(
+                        unmasked_model
+                            .iter()
+                            .all(|unmasked_weight| {
+                                (unmasked_weight - &expected_weight).abs() <= tolerance
+                            })
+                    );
+                }
+            }
+        };
+        ($suffix:ident, $group:ty, $data:ty, $len:expr $(,)?) => {
+            test_masking_scalar!($suffix, $group, $data, 0, $len);
+        };
+    }
+
+    test_masking_scalar!(int_f32_b0, Integer, f32, 1, 10);
+    test_masking_scalar!(int_f32_b2, Integer, f32, 100, 10);
+    test_masking_scalar!(int_f32_b4, Integer, f32, 10_000, 10);
+    test_masking_scalar!(int_f32_b6, Integer, f32, 1_000_000, 10);
+    test_masking_scalar!(int_f32_bmax, Integer, f32, 10);
+
+    test_masking_scalar!(prime_f32_b0, Prime, f32, 1, 10);
+    test_masking_scalar!(prime_f32_b2, Prime, f32, 100, 10);
+    test_masking_scalar!(prime_f32_b4, Prime, f32, 10_000, 10);
+    test_masking_scalar!(prime_f32_b6, Prime, f32, 1_000_000, 10);
+    test_masking_scalar!(prime_f32_bmax, Prime, f32, 10);
+
+    test_masking_scalar!(pow_f32_b0, Power2, f32, 1, 10);
+    test_masking_scalar!(pow_f32_b2, Power2, f32, 100, 10);
+    test_masking_scalar!(pow_f32_b4, Power2, f32, 10_000, 10);
+    test_masking_scalar!(pow_f32_b6, Power2, f32, 1_000_000, 10);
+    test_masking_scalar!(pow_f32_bmax, Power2, f32, 10);
+
+    test_masking_scalar!(int_f64_b0, Integer, f64, 1, 10);
+    test_masking_scalar!(int_f64_b2, Integer, f64, 100, 10);
+    test_masking_scalar!(int_f64_b4, Integer, f64, 10_000, 10);
+    test_masking_scalar!(int_f64_b6, Integer, f64, 1_000_000, 10);
+    test_masking_scalar!(int_f64_bmax, Integer, f64, 10);
+
+    test_masking_scalar!(prime_f64_b0, Prime, f64, 1, 10);
+    test_masking_scalar!(prime_f64_b2, Prime, f64, 100, 10);
+    test_masking_scalar!(prime_f64_b4, Prime, f64, 10_000, 10);
+    test_masking_scalar!(prime_f64_b6, Prime, f64, 1_000_000, 10);
+    test_masking_scalar!(prime_f64_bmax, Prime, f64, 10);
+
+    test_masking_scalar!(pow_f64_b0, Power2, f64, 1, 10);
+    test_masking_scalar!(pow_f64_b2, Power2, f64, 100, 10);
+    test_masking_scalar!(pow_f64_b4, Power2, f64, 10_000, 10);
+    test_masking_scalar!(pow_f64_b6, Power2, f64, 1_000_000, 10);
+    test_masking_scalar!(pow_f64_bmax, Power2, f64, 10);
+
+    test_masking_scalar!(int_i32_b0, Integer, i32, 1, 10);
+    test_masking_scalar!(int_i32_b2, Integer, i32, 100, 10);
+    test_masking_scalar!(int_i32_b4, Integer, i32, 10_000, 10);
+    test_masking_scalar!(int_i32_b6, Integer, i32, 1_000_000, 10);
+    test_masking_scalar!(int_i32_bmax, Integer, i32, 10);
+
+    test_masking_scalar!(prime_i32_b0, Prime, i32, 1, 10);
+    test_masking_scalar!(prime_i32_b2, Prime, i32, 100, 10);
+    test_masking_scalar!(prime_i32_b4, Prime, i32, 10_000, 10);
+    test_masking_scalar!(prime_i32_b6, Prime, i32, 1_000_000, 10);
+    test_masking_scalar!(prime_i32_bmax, Prime, i32, 10);
+
+    test_masking_scalar!(pow_i32_b0, Power2, i32, 1, 10);
+    test_masking_scalar!(pow_i32_b2, Power2, i32, 100, 10);
+    test_masking_scalar!(pow_i32_b4, Power2, i32, 10_000, 10);
+    test_masking_scalar!(pow_i32_b6, Power2, i32, 1_000_000, 10);
+    test_masking_scalar!(pow_i32_bmax, Power2, i32, 10);
+
+    test_masking_scalar!(int_i64_b0, Integer, i64, 1, 10);
+    test_masking_scalar!(int_i64_b2, Integer, i64, 100, 10);
+    test_masking_scalar!(int_i64_b4, Integer, i64, 10_000, 10);
+    test_masking_scalar!(int_i64_b6, Integer, i64, 1_000_000, 10);
+    test_masking_scalar!(int_i64_bmax, Integer, i64, 10);
+
+    test_masking_scalar!(prime_i64_b0, Prime, i64, 1, 10);
+    test_masking_scalar!(prime_i64_b2, Prime, i64, 100, 10);
+    test_masking_scalar!(prime_i64_b4, Prime, i64, 10_000, 10);
+    test_masking_scalar!(prime_i64_b6, Prime, i64, 1_000_000, 10);
+    test_masking_scalar!(prime_i64_bmax, Prime, i64, 10);
+
+    test_masking_scalar!(pow_i64_b0, Power2, i64, 1, 10);
+    test_masking_scalar!(pow_i64_b2, Power2, i64, 100, 10);
+    test_masking_scalar!(pow_i64_b4, Power2, i64, 10_000, 10);
+    test_masking_scalar!(pow_i64_b6, Power2, i64, 1_000_000, 10);
+    test_masking_scalar!(pow_i64_bmax, Power2, i64, 10);
+
     /// Generate tests for aggregation of multiple masked models:
     /// - generate random integers from a uniform distribution with a seeded PRNG
     /// - create a masked model from the integers and aggregate it to the aggregated masked models
