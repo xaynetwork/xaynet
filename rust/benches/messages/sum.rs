@@ -59,7 +59,7 @@ pub fn parse_sum(c: &mut Criterion) {
 }
 
 criterion_group!(
-    name = messages;
+    name = sum;
     // By default criterion collection 100 sample and the
     // measurement time is 5 seconds, but the results are
     // quite unstable with this configuration. This
