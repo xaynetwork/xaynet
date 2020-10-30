@@ -294,7 +294,11 @@ impl StateMachineInitializer {
             .flush_coordinator_data()
             .await?;
         Ok((
-            CoordinatorState::new(self.pet_settings, self.mask_settings, self.model_settings),
+            CoordinatorState::new(
+                self.pet_settings,
+                self.mask_settings,
+                self.model_settings.clone(),
+            ),
             ModelUpdate::Invalidate,
         ))
     }
@@ -361,12 +365,12 @@ impl StateMachineInitializer {
         // crucial: init must be called before anything else in this module
         sodiumoxide::init().or(Err(StateMachineInitializationError::CryptoInit))?;
 
-        let (coordinator_state, global_model) = if self.restore_settings.no_restore {
-            info!("requested not to restore the coordinator state");
+        let (coordinator_state, global_model) = if self.restore_settings.enable {
+            self.from_previous_state().await?
+        } else {
+            info!("restoring coordinator state is disabled");
             info!("initialize state machine from settings");
             self.from_settings().await?
-        } else {
-            self.from_previous_state().await?
         };
 
         Ok(self.init_state_machine(coordinator_state, global_model))

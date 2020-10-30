@@ -42,4 +42,4 @@ db = "metrics"
 region = ["minio", "http://minio:9000"]
 
 [restore]
-no_restore = false
+enable = true

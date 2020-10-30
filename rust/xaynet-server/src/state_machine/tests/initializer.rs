@@ -27,7 +27,7 @@ async fn integration_state_machine_initializer_no_restore() {
         pet_settings(),
         mask_settings(),
         model_settings(),
-        RestoreSettings { no_restore: true },
+        RestoreSettings { enable: false },
         redis,
         s3::tests::create_client().await,
         #[cfg(feature = "metrics")]
@@ -66,7 +66,7 @@ async fn integration_state_machine_initializer_no_state() {
         pet_settings(),
         mask_settings(),
         model_settings(),
-        RestoreSettings { no_restore: false },
+        RestoreSettings { enable: true },
         redis,
         s3::tests::create_client().await,
         #[cfg(feature = "metrics")]
@@ -106,7 +106,7 @@ async fn integration_state_machine_initializer_without_global_model() {
 
     // set a coordinator state in redis with the round_id 5
     let redis = redis::tests::init_client().await;
-    let mut state = CoordinatorState::new(pet_settings, mask_settings, model_settings);
+    let mut state = CoordinatorState::new(pet_settings, mask_settings, model_settings.clone());
     let new_round_id = 5;
     state.round_id = new_round_id;
     redis
@@ -120,7 +120,7 @@ async fn integration_state_machine_initializer_without_global_model() {
         pet_settings,
         mask_settings,
         model_settings,
-        RestoreSettings { no_restore: false },
+        RestoreSettings { enable: true },
         redis,
         s3::tests::create_client().await,
         #[cfg(feature = "metrics")]
@@ -160,7 +160,7 @@ async fn integration_state_machine_initializer_with_global_model() {
 
     // set a coordinator state in redis with the round_id 7
     let redis = redis::tests::init_client().await;
-    let mut state = CoordinatorState::new(pet_settings, mask_settings, model_settings);
+    let mut state = CoordinatorState::new(pet_settings, mask_settings, model_settings.clone());
     let new_round_id = 7;
     state.round_id = new_round_id;
     redis
@@ -188,7 +188,7 @@ async fn integration_state_machine_initializer_with_global_model() {
         pet_settings,
         mask_settings,
         model_settings,
-        RestoreSettings { no_restore: false },
+        RestoreSettings { enable: true },
         redis,
         s3,
         #[cfg(feature = "metrics")]
@@ -230,7 +230,7 @@ async fn integration_state_machine_initializer_failed_because_of_wrong_size() {
 
     // set a coordinator state in redis with the round_id 9
     let redis = redis::tests::init_client().await;
-    let mut state = CoordinatorState::new(pet_settings, mask_settings, model_settings);
+    let mut state = CoordinatorState::new(pet_settings, mask_settings, model_settings.clone());
     let new_round_id = 9;
     state.round_id = new_round_id;
     redis
@@ -258,7 +258,7 @@ async fn integration_state_machine_initializer_failed_because_of_wrong_size() {
         pet_settings,
         mask_settings,
         model_settings,
-        RestoreSettings { no_restore: false },
+        RestoreSettings { enable: true },
         redis,
         s3,
         #[cfg(feature = "metrics")]
@@ -283,7 +283,7 @@ async fn integration_state_machine_initializer_failed_to_find_global_model() {
 
     // set a coordinator state in redis with the round_id 11
     let redis = redis::tests::init_client().await;
-    let mut state = CoordinatorState::new(pet_settings, mask_settings, model_settings);
+    let mut state = CoordinatorState::new(pet_settings, mask_settings, model_settings.clone());
     let new_round_id = 11;
     state.round_id = new_round_id;
     redis
@@ -306,7 +306,7 @@ async fn integration_state_machine_initializer_failed_to_find_global_model() {
         pet_settings,
         mask_settings,
         model_settings,
-        RestoreSettings { no_restore: false },
+        RestoreSettings { enable: true },
         redis,
         s3::tests::create_client().await,
         #[cfg(feature = "metrics")]
@@ -329,7 +329,7 @@ async fn integration_state_machine_initializer_reset_state() {
     let model_settings = model_settings();
 
     let redis = redis::tests::init_client().await;
-    let state = CoordinatorState::new(pet_settings, mask_settings, model_settings);
+    let state = CoordinatorState::new(pet_settings, mask_settings, model_settings.clone());
     redis
         .connection()
         .await
@@ -342,7 +342,7 @@ async fn integration_state_machine_initializer_reset_state() {
         mask_settings,
         model_settings,
         #[cfg(feature = "model-persistence")]
-        RestoreSettings { no_restore: false },
+        RestoreSettings { enable: true },
         redis.clone(),
         #[cfg(feature = "model-persistence")]
         s3::tests::create_client().await,

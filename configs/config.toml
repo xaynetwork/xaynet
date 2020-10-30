@@ -38,4 +38,4 @@ secret_access_key = "minio123"
 region = ["minio", "http://localhost:9000"]
 
 [restore]
-no_restore = false
+enable = true

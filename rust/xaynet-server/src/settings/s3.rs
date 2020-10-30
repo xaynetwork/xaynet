@@ -185,24 +185,23 @@ where
 #[derive(Debug, Deserialize, Validate)]
 /// Restore settings.
 pub struct RestoreSettings {
-    /// If set to `true`, the restoring of coordinator state is prevented.
+    /// If set to `false`, the restoring of coordinator state is prevented.
     /// Instead, the state is reset and the coordinator is started with the
     /// settings of the configuration file.
-    /// Defaults to `false`.
     ///
     /// # Examples
     ///
     /// **TOML**
     /// ```text
     /// [restore]
-    /// no_restore = false
+    /// enable = true
     /// ```
     ///
     /// **Environment variable**
     /// ```text
-    /// XAYNET_RESTORE__NO_RESTORE=false
+    /// XAYNET_RESTORE__ENABLE=false
     /// ```
-    pub no_restore: bool,
+    pub enable: bool,
 }
 
 #[cfg(test)]
@@ -344,7 +343,7 @@ mod tests {
         fn with_restore(mut self) -> Self {
             let restore = r#"
             [restore]
-            no_restore = false
+            enable = true
             "#;
 
             self.config.push_str(restore);
@@ -539,7 +538,7 @@ mod tests {
     fn test_restore() {
         let no_restore = r#"
         [restore]
-        no_restore = true
+        enable = false
         "#;
 
         let config = ConfigBuilder::new()
@@ -555,7 +554,7 @@ mod tests {
             .build();
 
         let settings = Settings::load_from_str(&config).unwrap();
-        assert_eq!(settings.restore.no_restore, true);
+        assert_eq!(settings.restore.enable, false);
     }
 
     #[test]
