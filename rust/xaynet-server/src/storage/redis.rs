@@ -395,12 +395,12 @@ impl Connection {
     /// # Note
     /// This method is **not** an atomic operation.
     pub async fn flush_dicts(mut self) -> RedisResult<()> {
+        debug!("flush all dictionaries");
         let mut pipe = self.create_flush_dicts_pipeline().await?;
         pipe.atomic().query_async(&mut self.connection).await
     }
 
     async fn create_flush_dicts_pipeline(&mut self) -> RedisResult<Pipeline> {
-        debug!("flush all dictionaries");
         // https://redis.io/commands/hkeys
         // > Return value:
         //   Array reply: list of fields in the hash, or an empty list when key does not exist.
