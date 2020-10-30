@@ -21,15 +21,6 @@ criterion = "0.3.3"
 xaynet-core = { path = "../xaynet-core", features = ["testutils"] }
 
 [[bench]]
-name = "messages"
-harness = false
-
-[[bench]]
-name = "parse_models"
-path = "benches/models/parse_models.rs"
-harness = false
-
-[[bench]]
-name = "serialize_models"
-path = "benches/models/serialize_models.rs"
+name = "benches"
+path = "main.rs"
 harness = false

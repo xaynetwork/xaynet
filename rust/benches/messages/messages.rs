@@ -1,6 +1,7 @@
 use std::time::Duration;
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{black_box, criterion_group, Criterion};
+
 use xaynet_core::{
     crypto::{ByteObject, SecretSigningKey},
     message::Message,
@@ -57,12 +58,15 @@ pub fn parse_sum(c: &mut Criterion) {
     });
 }
 
-criterion_group!(name = benches;
-                 // By default criterion collection 100 sample and the
-                 // measurement time is 5 seconds, but the results are
-                 // quite unstable with this configuration. This
-                 // config makes the benchmarks running longer but
-                 // provide more reliable results
-                 config = Criterion::default().sample_size(1000).measurement_time(Duration::new(10, 0));
-                 targets = emit_sum, parse_sum);
-criterion_main!(benches);
+criterion_group!(
+    name = messages;
+    // By default criterion collection 100 sample and the
+    // measurement time is 5 seconds, but the results are
+    // quite unstable with this configuration. This
+    // config makes the benchmarks running longer but
+    // provide more reliable results
+    config = Criterion::default().sample_size(1000).measurement_time(Duration::new(10, 0));
+    targets =
+        emit_sum,
+        parse_sum,
+);
