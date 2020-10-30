@@ -472,6 +472,7 @@ mod tests {
                         },
                         model_type: M3,
                     };
+                    let vect_len = $len as usize;
 
                     // Step 2: Generate a random model
                     let bound = if $bound == 0 {
@@ -482,8 +483,9 @@ mod tests {
                     let mut prng = ChaCha20Rng::from_seed(MaskSeed::generate().as_array());
                     let random_weights = Uniform::new_inclusive(-bound, bound)
                         .sample_iter(&mut prng)
-                        .take($len as usize);
+                        .take(vect_len);
                     let model = Model::from_primitives(random_weights).unwrap();
+                    assert_eq!(model.len(), vect_len);
 
                     // Step 3 (actual test):
                     // a. mask the model
@@ -491,10 +493,10 @@ mod tests {
                     // c. unmask the model and check it against the original one.
                     let (mask_seed, masked_model) =
                         Masker::new(config.into()).mask(1_f64, model.clone());
-                    assert_eq!(masked_model.vect.data.len(), model.len());
+                    assert_eq!(masked_model.vect.data.len(), vect_len);
                     assert!(masked_model.is_valid());
 
-                    let mask = mask_seed.derive_mask(model.len(), config.into());
+                    let mask = mask_seed.derive_mask(vect_len, config.into());
                     let aggregation = Aggregation::from(masked_model);
                     let unmasked_model = aggregation.unmask(mask);
 
@@ -604,10 +606,10 @@ mod tests {
                         },
                         model_type: M3,
                     };
-                    let model_size = $len as usize;
+                    let vect_len = $len as usize;
 
-                    // Step 2: Generate a random scalar (0, bound]
-                    // take unit vector as the model to scale
+                    // Step 2: Generate a random scalar from (0, bound]
+                    // take vector [1, ..., 1] as the model to scale
                     let bound = if $bound == 0 {
                         paste::expr! { [<$data:lower>]::MAX / (2 as [<$data:lower>]) }
                     } else {
@@ -617,18 +619,19 @@ mod tests {
                     let mut prng = ChaCha20Rng::from_seed(MaskSeed::generate().as_array());
                     let rand_neg = Uniform::new(-bound, zero).sample(&mut prng);
                     let scalar = rand_neg.abs() as f64;
-                    let model = Model::from_primitives(iter::repeat(1).take(model_size)).unwrap();
+                    let model = Model::from_primitives(iter::repeat(1).take(vect_len)).unwrap();
+                    assert_eq!(model.len(), vect_len);
 
                     // Step 3 (actual test):
                     // a. mask the model
                     // b. derive the mask corresponding to the seed used
-                    // c. unmask the model and check it against the original one.
+                    // c. unmask the model and check it against the expected [1, ..., 1]
                     let (mask_seed, masked_model) =
                         Masker::new(config.into()).mask(scalar, model);
-                    assert_eq!(masked_model.vect.data.len(), model_size);
+                    assert_eq!(masked_model.vect.data.len(), vect_len);
                     assert!(masked_model.is_valid());
 
-                    let mask = mask_seed.derive_mask(model_size, config.into());
+                    let mask = mask_seed.derive_mask(vect_len, config.into());
                     let unmasked_model = Aggregation::from(masked_model).unmask(mask);
 
                     let tolerance = Ratio::from_integer(config.exp_shift()).recip();
@@ -744,7 +747,7 @@ mod tests {
                         bound_type: $bound,
                         model_type: M3,
                     };
-                    let model_size = $len as usize;
+                    let vect_len = $len as usize;
 
                     // Step 2: generate random masked models
                     let mut prng = ChaCha20Rng::from_seed(MaskSeed::generate().as_array());
@@ -752,7 +755,7 @@ mod tests {
                         let order = config.order();
                         let integer = generate_integer(&mut prng, &order);
                         let integers = iter::repeat_with(|| generate_integer(&mut prng, &order))
-                            .take($len as usize)
+                            .take(vect_len)
                             .collect::<Vec<_>>();
                         MaskObject::new(config.into(), integers, integer).unwrap()
                     });
@@ -760,7 +763,7 @@ mod tests {
                     // Step 3 (actual test):
                     // a. aggregate the masked models
                     // b. check the aggregated masked model
-                    let mut aggregated_masked_model = Aggregation::new(config.into(), model_size);
+                    let mut aggregated_masked_model = Aggregation::new(config.into(), vect_len);
                     for nb in 1..$count as usize + 1 {
                         let masked_model = masked_models.next().unwrap();
                         assert!(
@@ -769,7 +772,7 @@ mod tests {
                         aggregated_masked_model.aggregate(masked_model);
 
                         assert_eq!(aggregated_masked_model.nb_models, nb);
-                        assert_eq!(aggregated_masked_model.object.vect.data.len(), $len as usize);
+                        assert_eq!(aggregated_masked_model.object.vect.data.len(), vect_len);
                         assert_eq!(aggregated_masked_model.object.vect.config, config);
                         assert_eq!(aggregated_masked_model.object.unit.config, config);
                         assert!(aggregated_masked_model.object.is_valid());
@@ -884,7 +887,7 @@ mod tests {
                         },
                         model_type: M3,
                     };
-                    let model_size = $len as usize;
+                    let vect_len = $len as usize;
 
                     // Step 2: Generate random models
                     let bound = if $bound == 0 {
@@ -897,7 +900,7 @@ mod tests {
                         Model::from_primitives(
                             Uniform::new_inclusive(-bound, bound)
                                 .sample_iter(&mut prng)
-                                .take($len as usize)
+                                .take(vect_len)
                         )
                         .unwrap()
                     });
@@ -909,11 +912,11 @@ mod tests {
                     // d. aggregate the masked model resp. mask
                     // e. repeat a-d, then unmask the model and check it against the averaged one
                     let mut averaged_model = Model::from_primitives(
-                        iter::repeat(paste::expr! { 0 as [<$data:lower>] }).take($len as usize)
+                        iter::repeat(paste::expr! { 0 as [<$data:lower>] }).take(vect_len)
                     )
                     .unwrap();
-                    let mut aggregated_masked_model = Aggregation::new(config.into(), model_size);
-                    let mut aggregated_mask = Aggregation::new(config.into(), model_size);
+                    let mut aggregated_masked_model = Aggregation::new(config.into(), vect_len);
+                    let mut aggregated_mask = Aggregation::new(config.into(), vect_len);
                     let scalar = 1_f64 / ($count as f64);
                     let scalar_ratio = Ratio::from_float(scalar).unwrap();
                     for _ in 0..$count as usize {
@@ -927,7 +930,7 @@ mod tests {
 
                         let (mask_seed, masked_model) =
                             Masker::new(config.into()).mask(scalar, model);
-                        let mask = mask_seed.derive_mask($len as usize, config.into());
+                        let mask = mask_seed.derive_mask(vect_len, config.into());
 
                         assert!(
                             aggregated_masked_model.validate_aggregation(&masked_model).is_ok()
@@ -937,7 +940,9 @@ mod tests {
                         aggregated_mask.aggregate(mask);
                     }
 
-                    let unmasked_model = aggregated_masked_model.unmask(aggregated_mask.into());
+                    let mask = aggregated_mask.into();
+                    assert!(aggregated_masked_model.validate_unmasking(&mask).is_ok());
+                    let unmasked_model = aggregated_masked_model.unmask(mask);
                     let tolerance = Ratio::from_integer(BigInt::from($count as usize))
                         / Ratio::from_integer(config.exp_shift());
                     assert!(
@@ -1049,9 +1054,10 @@ mod tests {
                         },
                         model_type: M3,
                     };
-                    let model_size = $len as usize;
+                    let vect_len = $len as usize;
 
                     // Step 2: Generate random scalars
+                    // take vectors [1, ..., 1] as models to scale
                     let bound = if $bound == 0 {
                         paste::expr! { [<$data:lower>]::MAX / (2 as [<$data:lower>]) }
                     } else {
@@ -1064,23 +1070,22 @@ mod tests {
                         rand_neg.abs() as f64
                     });
                     let mut models =
-                        iter::repeat(Model::from_primitives(iter::repeat(1).take(model_size)).unwrap());
+                        iter::repeat(Model::from_primitives(iter::repeat(1).take(vect_len)).unwrap());
 
                     // Step 3 (actual test):
-                    // a. average the model weights for later checks
-                    // b. mask the model
-                    // c. derive the mask corresponding to the seed used
-                    // d. aggregate the masked model resp. mask
-                    // e. repeat a-d, then unmask the model and check it against the averaged one
-                    let mut aggregated_masked_model = Aggregation::new(config.into(), model_size);
-                    let mut aggregated_mask = Aggregation::new(config.into(), model_size);
+                    // a. mask the model
+                    // b. derive the mask corresponding to the seed used
+                    // c. aggregate the masked model resp. mask
+                    // d. repeat a-c, unmask the model and check it against the expected [1, ..., 1]
+                    let mut aggregated_masked_model = Aggregation::new(config.into(), vect_len);
+                    let mut aggregated_mask = Aggregation::new(config.into(), vect_len);
                     for _ in 0..$count as usize {
                         let model = models.next().unwrap();
                         let scalar = scalars.next().unwrap();
 
                         let (mask_seed, masked_model) =
                             Masker::new(config.into()).mask(scalar, model);
-                        let mask = mask_seed.derive_mask(model_size, config.into());
+                        let mask = mask_seed.derive_mask(vect_len, config.into());
 
                         assert!(
                             aggregated_masked_model.validate_aggregation(&masked_model).is_ok()
