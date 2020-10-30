@@ -588,6 +588,20 @@ mod tests {
     test_masking!(pow_i64_b6, Power2, i64, 1_000_000, 10);
     test_masking!(pow_i64_bmax, Power2, i64, 10);
 
+    /// Generate tests for masking and unmasking of a single model:
+    /// - generate random scalar from a uniform distribution with a seeded PRNG
+    /// - scale a model of unit weights and mask it
+    /// - check that all masked weights belong to the chosen finite group
+    /// - unmask the masked model
+    /// - check that all unmasked weights are equal to the original weights (up to a tolerance
+    ///   determined by the masking configuration)
+    ///
+    /// The arguments to the macro are:
+    /// - a suffix for the test name
+    /// - the group type of the model (variants of `GroupType`)
+    /// - the data type of the model (either primitives or variants of `DataType`)
+    /// - an absolute bound for the weights (optional, choices: 1, 100, 10_000, 1_000_000)
+    /// - the number of weights
     macro_rules! test_masking_scalar {
         ($suffix:ident, $group:ty, $data:ty, $bound:expr, $len:expr $(,)?) => {
             paste::item! {
@@ -1036,6 +1050,21 @@ mod tests {
     test_masking_and_aggregation!(pow_i64_b6, Power2, i64, 1_000_000, 10, 5);
     test_masking_and_aggregation!(pow_i64_bmax, Power2, i64, 10, 5);
 
+    /// Generate tests for masking, aggregation and unmasking of multiple models:
+    /// - generate random scalars from a uniform distribution with a seeded PRNG
+    /// - scale a model of unit weights, mask and aggregate it to the aggregated masked models
+    /// - derive a mask from the mask seed and aggregate it to the aggregated masks
+    /// - unmask the aggregated masked model
+    /// - check that all aggregated unmasked weights are equal to the original unit weights (up
+    ///   to a tolerance determined by the masking configuration)
+    ///
+    /// The arguments to the macro are:
+    /// - a suffix for the test name
+    /// - the group type of the model (variants of `GroupType`)
+    /// - the data type of the model (either primitives or variants of `DataType`)
+    /// - an absolute bound for the weights (optional, choices: 1, 100, 10_000, 1_000_000)
+    /// - the number of weights per model
+    /// - the number of models
     macro_rules! test_masking_and_aggregation_scalar {
         ($suffix:ident, $group:ty, $data:ty, $bound:expr, $len:expr, $count:expr $(,)?) => {
             paste::item! {
