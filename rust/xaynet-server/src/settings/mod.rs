@@ -455,7 +455,7 @@ impl From<MaskSettings> for MaskConfig {
     }
 }
 
-#[derive(Debug, Deserialize, Copy, Clone)]
+#[derive(Debug, Deserialize, Clone)]
 /// Model settings.
 pub struct ModelSettings {
     /// The expected size of the model. The model size corresponds to the number of elements.
