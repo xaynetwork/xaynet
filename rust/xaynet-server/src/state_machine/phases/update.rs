@@ -6,12 +6,15 @@ use xaynet_core::{
     UpdateParticipantPublicKey,
 };
 
-use crate::state_machine::{
-    events::{DictionaryUpdate, MaskLengthUpdate},
-    phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Sum2},
-    requests::{StateMachineRequest, UpdateRequest},
-    RequestError,
-    StateMachine,
+use crate::{
+    state_machine::{
+        events::{DictionaryUpdate, MaskLengthUpdate},
+        phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Sum2},
+        requests::{StateMachineRequest, UpdateRequest},
+        RequestError,
+        StateMachine,
+    },
+    storage::api::Storage,
 };
 
 #[cfg(feature = "metrics")]
@@ -37,7 +40,7 @@ impl Update {
 }
 
 #[async_trait]
-impl Phase for PhaseState<Update>
+impl<Store: Storage> Phase<Store> for PhaseState<Update, Store>
 where
     Self: Handler,
 {
@@ -61,36 +64,27 @@ where
 
         info!("broadcasting mask length");
         self.shared
-            .io
             .events
             .broadcast_mask_length(MaskLengthUpdate::New(self.inner.model_agg.len()));
 
-        let seed_dict = self
-            .shared
-            .io
-            .redis
-            .connection()
-            .await
-            .get_seed_dict()
-            .await?;
+        let seed_dict = self.shared.store.get_seed_dict().await?;
 
         info!("broadcasting the global seed dictionary");
         self.shared
-            .io
             .events
             .broadcast_seed_dict(DictionaryUpdate::New(Arc::new(seed_dict)));
 
         Ok(())
     }
 
-    fn next(self) -> Option<StateMachine> {
-        Some(PhaseState::<Sum2>::new(self.shared, self.inner.model_agg).into())
+    fn next(self) -> Option<StateMachine<Store>> {
+        Some(PhaseState::<Sum2, _>::new(self.shared, self.inner.model_agg).into())
     }
 }
 
-impl PhaseState<Update>
+impl<Store: Storage> PhaseState<Update, Store>
 where
-    Self: Handler + Phase,
+    Self: Handler + Phase<Store>,
 {
     /// Processes requests until there are enough.
     async fn process_until_enough(&mut self) -> Result<(), PhaseStateError> {
@@ -106,7 +100,7 @@ where
 }
 
 #[async_trait]
-impl Handler for PhaseState<Update> {
+impl<Store: Storage> Handler for PhaseState<Update, Store> {
     /// Handles a [`StateMachineRequest`].
     ///
     /// If the request is a [`StateMachineRequest::Sum`] or
@@ -116,7 +110,7 @@ impl Handler for PhaseState<Update> {
         match req {
             StateMachineRequest::Update(update_req) => {
                 metrics!(
-                    self.shared.io.metrics_tx,
+                    self.shared.metrics_tx,
                     metrics::message::update::increment(self.shared.state.round_id, Self::NAME)
                 );
                 self.handle_update(update_req).await
@@ -126,9 +120,9 @@ impl Handler for PhaseState<Update> {
     }
 }
 
-impl PhaseState<Update> {
+impl<Store: Storage> PhaseState<Update, Store> {
     /// Creates a new update state.
-    pub fn new(shared: Shared) -> Self {
+    pub fn new(shared: Shared<Store>) -> Self {
         Self {
             inner: Update {
                 update_count: 0,
@@ -198,11 +192,8 @@ impl PhaseState<Update> {
         local_seed_dict: &LocalSeedDict,
     ) -> Result<(), RequestError> {
         self.shared
-            .io
-            .redis
-            .connection()
-            .await
-            .update_seed_dict(pk, local_seed_dict)
+            .store
+            .add_local_seed_dict(pk, local_seed_dict)
             .await?
             .into_inner()?;
 

@@ -55,7 +55,7 @@ use std::{collections::HashMap, sync::Arc};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
 use xaynet_core::{
-    mask::{EncryptedMaskSeed, MaskObject},
+    mask::MaskObject,
     LocalSeedDict,
     SeedDict,
     SumDict,
@@ -189,32 +189,6 @@ impl Connection {
                 PublicEncryptKeyWrite::from(ephm_pk),
             )
             .await
-    }
-
-    /// Gets the [`SeedDict`] entry for the given ['SumParticipantPublicKey'] or an empty map
-    /// when a [`SeedDict`] entry does not exist.
-    pub async fn get_seed_dict_for_sum_pk(
-        mut self,
-        sum_pk: &SumParticipantPublicKey,
-    ) -> RedisResult<HashMap<UpdateParticipantPublicKey, EncryptedMaskSeed>> {
-        debug!(
-            "get seed dictionary for sum participant with pk {:?}",
-            sum_pk
-        );
-        // https://redis.io/commands/hgetall
-        // > Return value
-        //   Array reply: list of fields and their values stored in the hash, or an empty
-        //   list when key does not exist.
-        let result: Vec<(PublicSigningKeyRead, EncryptedMaskSeedRead)> = self
-            .connection
-            .hgetall(PublicSigningKeyWrite::from(sum_pk))
-            .await?;
-        let seed_dict = result
-            .into_iter()
-            .map(|(pk, seed)| (pk.into(), seed.into()))
-            .collect();
-
-        Ok(seed_dict)
     }
 
     /// Updates the [`SeedDict`] with the seeds from the given ['UpdateParticipantPublicKey'].
@@ -481,6 +455,33 @@ impl Connection {
         self.connection
             .hdel("sum_dict", PublicSigningKeyWrite::from(pk))
             .await
+    }
+
+    /// Gets the [`SeedDict`] entry for the given ['SumParticipantPublicKey'] or an empty map
+    /// when a [`SeedDict`] entry does not exist.
+    pub async fn get_seed_dict_for_sum_pk(
+        mut self,
+        sum_pk: &SumParticipantPublicKey,
+    ) -> RedisResult<HashMap<UpdateParticipantPublicKey, xaynet_core::mask::EncryptedMaskSeed>>
+    {
+        debug!(
+            "get seed dictionary for sum participant with pk {:?}",
+            sum_pk
+        );
+        // https://redis.io/commands/hgetall
+        // > Return value
+        //   Array reply: list of fields and their values stored in the hash, or an empty
+        //   list when key does not exist.
+        let result: Vec<(PublicSigningKeyRead, EncryptedMaskSeedRead)> = self
+            .connection
+            .hgetall(PublicSigningKeyWrite::from(sum_pk))
+            .await?;
+        let seed_dict = result
+            .into_iter()
+            .map(|(pk, seed)| (pk.into(), seed.into()))
+            .collect();
+
+        Ok(seed_dict)
     }
 
     // Retrieves the length of the [`SumDict`].

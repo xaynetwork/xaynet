@@ -117,7 +117,7 @@ use self::{
 };
 use crate::{
     settings::{MaskSettings, ModelSettings, PetSettings},
-    storage::{redis, MaskDictIncrError, RedisError, SeedDictUpdateError, SumDictAddError},
+    storage::{api::Storage, MaskDictIncrError, RedisError, SeedDictUpdateError, SumDictAddError},
 };
 use derive_more::From;
 use thiserror::Error;
@@ -130,7 +130,7 @@ use crate::metrics::MetricsSender;
 use xaynet_core::mask::Model;
 
 #[cfg(feature = "model-persistence")]
-use crate::{settings::RestoreSettings, storage::s3};
+use crate::settings::RestoreSettings;
 
 /// Error returned when the state machine fails to handle a request
 #[derive(Debug, Error)]
@@ -144,9 +144,6 @@ pub enum RequestError {
     #[error("the request could not be processed due to an internal error: {0}")]
     InternalError(&'static str),
 
-    #[error("redis request failed: {0}")]
-    Redis(#[from] RedisError),
-
     #[error(transparent)]
     SeedDictUpdate(#[from] SeedDictUpdateError),
 
@@ -155,6 +152,9 @@ pub enum RequestError {
 
     #[error(transparent)]
     MaskDictIncr(#[from] MaskDictIncrError),
+
+    #[error(transparent)]
+    Storage(#[from] crate::storage::api::StorageError),
 }
 
 pub type StateMachineResult = Result<(), RequestError>;
@@ -172,25 +172,25 @@ pub enum UnmaskGlobalModelError {
 
 /// The state machine with all its states.
 #[derive(From)]
-pub enum StateMachine {
-    Idle(PhaseState<Idle>),
-    Sum(PhaseState<Sum>),
-    Update(PhaseState<Update>),
-    Sum2(PhaseState<Sum2>),
-    Unmask(PhaseState<Unmask>),
-    Error(PhaseState<PhaseStateError>),
-    Shutdown(PhaseState<Shutdown>),
+pub enum StateMachine<Store: Storage> {
+    Idle(PhaseState<Idle, Store>),
+    Sum(PhaseState<Sum, Store>),
+    Update(PhaseState<Update, Store>),
+    Sum2(PhaseState<Sum2, Store>),
+    Unmask(PhaseState<Unmask, Store>),
+    Error(PhaseState<PhaseStateError, Store>),
+    Shutdown(PhaseState<Shutdown, Store>),
 }
 
-impl StateMachine
+impl<Store: Storage> StateMachine<Store>
 where
-    PhaseState<Idle>: Phase,
-    PhaseState<Sum>: Phase,
-    PhaseState<Update>: Phase,
-    PhaseState<Sum2>: Phase,
-    PhaseState<Unmask>: Phase,
-    PhaseState<PhaseStateError>: Phase,
-    PhaseState<Shutdown>: Phase,
+    PhaseState<Idle, Store>: Phase<Store>,
+    PhaseState<Sum, Store>: Phase<Store>,
+    PhaseState<Update, Store>: Phase<Store>,
+    PhaseState<Sum2, Store>: Phase<Store>,
+    PhaseState<Unmask, Store>: Phase<Store>,
+    PhaseState<PhaseStateError, Store>: Phase<Store>,
+    PhaseState<Shutdown, Store>: Phase<Store>,
 {
     /// Moves the [`StateMachine`] to the next state and consumes the current one.
     /// Returns the next state or `None` if the [`StateMachine`] reached the state [`Shutdown`].
@@ -224,47 +224,44 @@ pub enum StateMachineInitializationError {
     Redis(#[from] RedisError),
     #[error("failed to initialize crypto library")]
     CryptoInit,
-    #[error("failed to fetch global model: {0}")]
-    GlobalModelUnavailable(String),
+    #[error("failed to fetch global model")]
+    GlobalModelUnavailable,
     #[error("{0}")]
     GlobalModelInvalid(String),
+    #[error("{0}")]
+    Storage(#[from] crate::storage::api::StorageError),
 }
 
 /// The state machine initializer that initializes a new state machine.
-pub struct StateMachineInitializer {
+pub struct StateMachineInitializer<S: Storage> {
     pet_settings: PetSettings,
     mask_settings: MaskSettings,
     model_settings: ModelSettings,
+    store: S,
+
     #[cfg(feature = "model-persistence")]
     restore_settings: RestoreSettings,
-
-    redis_handle: redis::Client,
-    #[cfg(feature = "model-persistence")]
-    s3_handle: s3::Client,
     #[cfg(feature = "metrics")]
     metrics_handle: MetricsSender,
 }
 
-impl StateMachineInitializer {
+impl<S: Storage> StateMachineInitializer<S> {
     /// Creates a new [`StateMachineInitializer`].
     pub fn new(
         pet_settings: PetSettings,
         mask_settings: MaskSettings,
         model_settings: ModelSettings,
+        store: S,
         #[cfg(feature = "model-persistence")] restore_settings: RestoreSettings,
-        redis_handle: redis::Client,
-        #[cfg(feature = "model-persistence")] s3_handle: s3::Client,
         #[cfg(feature = "metrics")] metrics_handle: MetricsSender,
     ) -> Self {
         Self {
             pet_settings,
             mask_settings,
             model_settings,
+            store,
             #[cfg(feature = "model-persistence")]
             restore_settings,
-            redis_handle,
-            #[cfg(feature = "model-persistence")]
-            s3_handle,
             #[cfg(feature = "metrics")]
             metrics_handle,
         }
@@ -274,7 +271,7 @@ impl StateMachineInitializer {
     /// Initializes a new [`StateMachine`] with the given settings.
     pub async fn init(
         self,
-    ) -> StateMachineInitializationResult<(StateMachine, RequestSender, EventSubscriber)> {
+    ) -> StateMachineInitializationResult<(StateMachine<S>, RequestSender, EventSubscriber)> {
         // crucial: init must be called before anything else in this module
         sodiumoxide::init().or(Err(StateMachineInitializationError::CryptoInit))?;
 
@@ -288,11 +285,7 @@ impl StateMachineInitializer {
     async fn from_settings(
         &self,
     ) -> StateMachineInitializationResult<(CoordinatorState, ModelUpdate)> {
-        self.redis_handle
-            .connection()
-            .await
-            .flush_coordinator_data()
-            .await?;
+        self.store.delete_coordinator_data().await?;
         Ok((
             CoordinatorState::new(
                 self.pet_settings,
@@ -308,7 +301,10 @@ impl StateMachineInitializer {
         self,
         coordinator_state: CoordinatorState,
         global_model: ModelUpdate,
-    ) -> (StateMachine, RequestSender, EventSubscriber) {
+    ) -> (StateMachine<S>, RequestSender, EventSubscriber)
+    where
+        S: Storage,
+    {
         let (event_publisher, event_subscriber) = EventPublisher::init(
             coordinator_state.round_id,
             coordinator_state.keys.clone(),
@@ -323,20 +319,18 @@ impl StateMachineInitializer {
             coordinator_state,
             event_publisher,
             request_rx,
-            self.redis_handle,
-            #[cfg(feature = "model-persistence")]
-            self.s3_handle,
+            self.store,
             #[cfg(feature = "metrics")]
             self.metrics_handle,
         );
 
-        let state_machine = StateMachine::from(PhaseState::<Idle>::new(shared));
+        let state_machine = StateMachine::from(PhaseState::<Idle, _>::new(shared));
         (state_machine, request_tx, event_subscriber)
     }
 }
 
 #[cfg(feature = "model-persistence")]
-impl StateMachineInitializer {
+impl<S: Storage> StateMachineInitializer<S> {
     /// Initializes a new [`StateMachine`] by trying to restore the previous coordinator state
     /// along with the latest global model. After a successful initialization, the state machine
     /// always starts from a new round. This means that the round id is increased by one.
@@ -361,7 +355,7 @@ impl StateMachineInitializer {
     /// - Any network error will cause the initialization to fail.
     pub async fn init(
         self,
-    ) -> StateMachineInitializationResult<(StateMachine, RequestSender, EventSubscriber)> {
+    ) -> StateMachineInitializationResult<(StateMachine<S>, RequestSender, EventSubscriber)> {
         // crucial: init must be called before anything else in this module
         sodiumoxide::init().or(Err(StateMachineInitializationError::CryptoInit))?;
 
@@ -380,18 +374,13 @@ impl StateMachineInitializer {
     async fn from_previous_state(
         &self,
     ) -> StateMachineInitializationResult<(CoordinatorState, ModelUpdate)> {
-        let (coordinator_state, global_model) = if let Some(coordinator_state) = self
-            .redis_handle
-            .connection()
-            .await
-            .get_coordinator_state()
-            .await?
-        {
-            self.try_restore_state(coordinator_state).await?
-        } else {
-            // no state in redis available seems to be a fresh start
-            self.from_settings().await?
-        };
+        let (coordinator_state, global_model) =
+            if let Some(coordinator_state) = self.store.get_coordinator_state().await? {
+                self.try_restore_state(coordinator_state).await?
+            } else {
+                // no state in redis available seems to be a fresh start
+                self.from_settings().await?
+            };
 
         Ok((coordinator_state, global_model))
     }
@@ -401,12 +390,7 @@ impl StateMachineInitializer {
         &self,
         coordinator_state: CoordinatorState,
     ) -> StateMachineInitializationResult<(CoordinatorState, ModelUpdate)> {
-        let latest_global_model_id = self
-            .redis_handle
-            .connection()
-            .await
-            .get_latest_global_model_id()
-            .await?;
+        let latest_global_model_id = self.store.get_latest_global_model_id().await?;
 
         let global_model_id = match latest_global_model_id {
             // the state machine was shut down before completing a round
@@ -441,8 +425,8 @@ impl StateMachineInitializer {
         coordinator_state: &CoordinatorState,
         global_model_id: &str,
     ) -> StateMachineInitializationResult<Model> {
-        match self.s3_handle.download_global_model(&global_model_id).await {
-            Ok(global_model) => {
+        match self.store.get_global_model(&global_model_id).await? {
+            Some(global_model) => {
                 if Self::model_properties_matches_settings(coordinator_state, &global_model) {
                     Ok(global_model)
                 } else {
@@ -451,20 +435,17 @@ impl StateMachineInitializer {
                         &global_model_id,
                         global_model.len(),
                         coordinator_state.model_size);
-
                     Err(StateMachineInitializationError::GlobalModelInvalid(
                         error_msg,
                     ))
                 }
             }
-            Err(err) => {
+            None => {
                 warn!("cannot find global model {}", &global_model_id);
                 // the model id exists but we cannot find it in S3 / Minio
                 // here we better fail because if we restart a coordinator with an empty model
                 // the clients will throw away their current global model and start from scratch
-                Err(StateMachineInitializationError::GlobalModelUnavailable(
-                    format!("{}", err),
-                ))
+                Err(StateMachineInitializationError::GlobalModelUnavailable)
             }
         }
     }

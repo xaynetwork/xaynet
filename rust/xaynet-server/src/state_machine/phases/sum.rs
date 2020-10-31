@@ -1,11 +1,14 @@
 use std::sync::Arc;
 
-use crate::state_machine::{
-    events::DictionaryUpdate,
-    phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Update},
-    requests::{StateMachineRequest, SumRequest},
-    RequestError,
-    StateMachine,
+use crate::{
+    state_machine::{
+        events::DictionaryUpdate,
+        phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Update},
+        requests::{StateMachineRequest, SumRequest},
+        RequestError,
+        StateMachine,
+    },
+    storage::api::Storage,
 };
 
 #[cfg(feature = "metrics")]
@@ -21,7 +24,7 @@ pub struct Sum {
 }
 
 #[async_trait]
-impl Handler for PhaseState<Sum> {
+impl<Store: Storage> Handler for PhaseState<Sum, Store> {
     /// Handles a [`StateMachineRequest`].
     ///
     /// If the request is a [`StateMachineRequest::Update`] or
@@ -31,7 +34,7 @@ impl Handler for PhaseState<Sum> {
         match req {
             StateMachineRequest::Sum(sum_req) => {
                 metrics!(
-                    self.shared.io.metrics_tx,
+                    self.shared.metrics_tx,
                     metrics::message::sum::increment(self.shared.state.round_id, Self::NAME)
                 );
                 self.handle_sum(sum_req).await
@@ -42,7 +45,7 @@ impl Handler for PhaseState<Sum> {
 }
 
 #[async_trait]
-impl Phase for PhaseState<Sum>
+impl<Store: Storage> Phase<Store> for PhaseState<Sum, Store>
 where
     Self: Handler,
 {
@@ -64,31 +67,23 @@ where
             self.inner.sum_count, self.shared.state.min_sum_count
         );
 
-        let sum_dict = self
-            .shared
-            .io
-            .redis
-            .connection()
-            .await
-            .get_sum_dict()
-            .await?;
+        let sum_dict = self.shared.store.get_sum_dict().await?;
 
         info!("broadcasting sum dictionary");
         self.shared
-            .io
             .events
             .broadcast_sum_dict(DictionaryUpdate::New(Arc::new(sum_dict)));
         Ok(())
     }
 
-    fn next(self) -> Option<StateMachine> {
-        Some(PhaseState::<Update>::new(self.shared).into())
+    fn next(self) -> Option<StateMachine<Store>> {
+        Some(PhaseState::<Update, _>::new(self.shared).into())
     }
 }
 
-impl PhaseState<Sum>
+impl<Store: Storage> PhaseState<Sum, Store>
 where
-    Self: Handler + Phase,
+    Self: Handler + Phase<Store>,
 {
     /// Processes requests until there are enough.
     async fn process_until_enough(&mut self) -> Result<(), PhaseStateError> {
@@ -103,9 +98,9 @@ where
     }
 }
 
-impl PhaseState<Sum> {
+impl<Store: Storage> PhaseState<Sum, Store> {
     /// Creates a new sum state.
-    pub fn new(shared: Shared) -> Self {
+    pub fn new(shared: Shared<Store>) -> Self {
         Self {
             inner: Sum { sum_count: 0 },
             shared,
@@ -123,10 +118,7 @@ impl PhaseState<Sum> {
         } = req;
 
         self.shared
-            .io
-            .redis
-            .connection()
-            .await
+            .store
             .add_sum_participant(&participant_pk, &ephm_pk)
             .await?
             .into_inner()?;

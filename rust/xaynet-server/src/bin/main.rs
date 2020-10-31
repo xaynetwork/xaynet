@@ -8,14 +8,11 @@ use xaynet_server::{
     services,
     settings::Settings,
     state_machine::StateMachineInitializer,
-    storage::redis,
+    storage::api::ExternalStorage,
 };
 
 #[cfg(feature = "metrics")]
 use xaynet_server::metrics::{run_metric_service, MetricsService};
-
-#[cfg(feature = "model-persistence")]
-use xaynet_server::storage::s3;
 
 #[macro_use]
 extern crate tracing;
@@ -68,28 +65,17 @@ async fn main() {
         )
     };
 
-    #[cfg(feature = "model-persistence")]
-    let s3 = {
-        let s3 = s3::Client::new(settings.s3).expect("failed to create S3 client");
-        s3.create_global_models_bucket()
-            .await
-            .expect("failed to create bucket for global-models");
-        s3
-    };
-
-    let redis = redis::Client::new(redis_settings.url, 100)
+    let storage = ExternalStorage::new(redis_settings, settings.s3)
         .await
-        .expect("failed to establish a connection to Redis");
+        .expect("failed to initialize storage");
 
     let (state_machine, requests_tx, event_subscriber) = StateMachineInitializer::new(
         pet_settings,
         mask_settings,
         model_settings,
+        storage,
         #[cfg(feature = "model-persistence")]
         settings.restore,
-        redis,
-        #[cfg(feature = "model-persistence")]
-        s3,
         #[cfg(feature = "metrics")]
         metrics_sender,
     )

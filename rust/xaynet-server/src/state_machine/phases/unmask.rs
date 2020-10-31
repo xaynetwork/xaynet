@@ -2,11 +2,14 @@ use std::{cmp::Ordering, sync::Arc};
 
 use xaynet_core::mask::{Aggregation, MaskObject, Model};
 
-use crate::state_machine::{
-    events::ModelUpdate,
-    phases::{Idle, Phase, PhaseName, PhaseState, PhaseStateError, Shared},
-    StateMachine,
-    UnmaskGlobalModelError,
+use crate::{
+    state_machine::{
+        events::ModelUpdate,
+        phases::{Idle, Phase, PhaseName, PhaseState, PhaseStateError, Shared},
+        StateMachine,
+        UnmaskGlobalModelError,
+    },
+    storage::api::Storage,
 };
 
 #[cfg(feature = "metrics")]
@@ -27,19 +30,19 @@ impl Unmask {
 }
 
 #[async_trait]
-impl Phase for PhaseState<Unmask> {
+impl<Store: Storage> Phase<Store> for PhaseState<Unmask, Store> {
     const NAME: PhaseName = PhaseName::Unmask;
 
     /// Run the unmasking phase
     async fn run(&mut self) -> Result<(), PhaseStateError> {
         #[cfg(feature = "metrics")]
         {
-            let redis = self.shared.io.redis.clone();
-            let mut metrics_tx = self.shared.io.metrics_tx.clone();
+            let storage = self.shared.store.clone();
+            let mut metrics_tx = self.shared.metrics_tx.clone();
             let (round_id, phase_name) = (self.shared.state.round_id, Self::NAME);
 
             tokio::spawn(async move {
-                match redis.connection().await.get_number_of_unique_masks().await {
+                match storage.get_number_of_unique_masks().await {
                     Ok(number_of_masks) => metrics_tx.send(metrics::masks::total_number::update(
                         number_of_masks,
                         round_id,
@@ -50,44 +53,29 @@ impl Phase for PhaseState<Unmask> {
             });
         }
 
-        let best_masks = self
-            .shared
-            .io
-            .redis
-            .connection()
-            .await
-            .get_best_masks()
-            .await?;
+        let best_masks = self.shared.store.get_best_masks().await?;
 
         let global_model = self.end_round(best_masks).await?;
 
         #[cfg(feature = "model-persistence")]
         {
-            // As key for the global model we use the round_id and the seed
-            // (format: `roundid_roundseed`) of the round in which the global model was created.
-            use xaynet_core::crypto::ByteObject;
-            let round_seed = hex::encode(self.shared.state.round_params.seed.as_slice());
-            let key = format!("{}_{}", self.shared.state.round_id, round_seed);
-            self.shared
-                .io
-                .s3
-                .upload_global_model(&key, &global_model)
-                .await
-                .map_err(PhaseStateError::SaveGlobalModel)?;
+            let round_seed = self.shared.state.round_params.seed.clone();
+            let round_id = self.shared.state.round_id;
+            let id = self
+                .shared
+                .store
+                .set_global_model(round_id, &round_seed, &global_model)
+                .await?;
             let _ = self
                 .shared
-                .io
-                .redis
-                .connection()
+                .store
+                .set_latest_global_model_id(&id)
                 .await
-                .set_latest_global_model_id(&key)
-                .await
-                .map_err(|err| warn!("failed to update latest global model id: {}", err));
+                .map_err(|err| warn!("cannot set latest model id: {}", err));
         }
 
         info!("broadcasting the new global model");
         self.shared
-            .io
             .events
             .broadcast_model(ModelUpdate::New(Arc::new(global_model)));
 
@@ -97,14 +85,14 @@ impl Phase for PhaseState<Unmask> {
     /// Moves from the unmask state to the next state.
     ///
     /// See the [module level documentation](../index.html) for more details.
-    fn next(self) -> Option<StateMachine> {
-        Some(PhaseState::<Idle>::new(self.shared).into())
+    fn next(self) -> Option<StateMachine<Store>> {
+        Some(PhaseState::<Idle, _>::new(self.shared).into())
     }
 }
 
-impl PhaseState<Unmask> {
+impl<Store: Storage> PhaseState<Unmask, Store> {
     /// Creates a new unmask state.
-    pub fn new(shared: Shared, model_agg: Aggregation) -> Self {
+    pub fn new(shared: Shared<Store>, model_agg: Aggregation) -> Self {
         Self {
             inner: Unmask {
                 model_agg: Some(model_agg),

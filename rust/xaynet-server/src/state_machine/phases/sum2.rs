@@ -1,10 +1,13 @@
 use xaynet_core::mask::Aggregation;
 
-use crate::state_machine::{
-    phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Unmask},
-    requests::{StateMachineRequest, Sum2Request},
-    RequestError,
-    StateMachine,
+use crate::{
+    state_machine::{
+        phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Unmask},
+        requests::{StateMachineRequest, Sum2Request},
+        RequestError,
+        StateMachine,
+    },
+    storage::api::Storage,
 };
 
 #[cfg(feature = "metrics")]
@@ -30,7 +33,7 @@ impl Sum2 {
 }
 
 #[async_trait]
-impl Phase for PhaseState<Sum2>
+impl<Store: Storage> Phase<Store> for PhaseState<Sum2, Store>
 where
     Self: Handler,
 {
@@ -57,14 +60,14 @@ where
     /// Moves from the sum2 state to the next state.
     ///
     /// See the [module level documentation](../index.html) for more details.
-    fn next(self) -> Option<StateMachine> {
-        Some(PhaseState::<Unmask>::new(self.shared, self.inner.model_agg).into())
+    fn next(self) -> Option<StateMachine<Store>> {
+        Some(PhaseState::<Unmask, _>::new(self.shared, self.inner.model_agg).into())
     }
 }
 
-impl PhaseState<Sum2>
+impl<Store: Storage> PhaseState<Sum2, Store>
 where
-    Self: Handler + Phase,
+    Self: Handler + Phase<Store>,
 {
     /// Processes requests until there are enough.
     async fn process_until_enough(&mut self) -> Result<(), PhaseStateError> {
@@ -80,7 +83,7 @@ where
 }
 
 #[async_trait]
-impl Handler for PhaseState<Sum2> {
+impl<Store: Storage> Handler for PhaseState<Sum2, Store> {
     /// Handles a [`StateMachineRequest`],
     ///
     /// If the request is a [`StateMachineRequest::Sum`] or
@@ -90,7 +93,7 @@ impl Handler for PhaseState<Sum2> {
         match req {
             StateMachineRequest::Sum2(sum2_req) => {
                 metrics!(
-                    self.shared.io.metrics_tx,
+                    self.shared.metrics_tx,
                     metrics::message::sum2::increment(self.shared.state.round_id, Self::NAME)
                 );
                 self.handle_sum2(sum2_req).await
@@ -100,9 +103,9 @@ impl Handler for PhaseState<Sum2> {
     }
 }
 
-impl PhaseState<Sum2> {
+impl<Store: Storage> PhaseState<Sum2, Store> {
     /// Creates a new sum2 state.
-    pub fn new(shared: Shared, model_agg: Aggregation) -> Self {
+    pub fn new(shared: Shared<Store>, model_agg: Aggregation) -> Self {
         Self {
             inner: Sum2 {
                 model_agg,
@@ -123,11 +126,8 @@ impl PhaseState<Sum2> {
         } = req;
 
         self.shared
-            .io
-            .redis
-            .connection()
-            .await
-            .incr_mask_count(&participant_pk, &model_mask)
+            .store
+            .incr_mask_score(&participant_pk, &model_mask)
             .await?
             .into_inner()?;
 

@@ -3,11 +3,14 @@ use xaynet_core::{
     crypto::{ByteObject, EncryptKeyPair, SigningKeySeed},
 };
 
-use crate::state_machine::{
-    events::{DictionaryUpdate, MaskLengthUpdate},
-    phases::{Phase, PhaseName, PhaseState, Shared, Sum},
-    PhaseStateError,
-    StateMachine,
+use crate::{
+    state_machine::{
+        events::{DictionaryUpdate, MaskLengthUpdate},
+        phases::{Phase, PhaseName, PhaseState, Shared, Sum},
+        PhaseStateError,
+        StateMachine,
+    },
+    storage::api::Storage,
 };
 
 #[cfg(feature = "metrics")]
@@ -20,7 +23,7 @@ use sodiumoxide::crypto::hash::sha256;
 pub struct Idle;
 
 #[async_trait]
-impl Phase for PhaseState<Idle> {
+impl<Store: Storage> Phase<Store> for PhaseState<Idle, Store> {
     const NAME: PhaseName = PhaseName::Idle;
 
     /// Moves from the idle state to the next state.
@@ -37,14 +40,11 @@ impl Phase for PhaseState<Idle> {
         self.update_round_seed();
 
         self.shared
-            .io
-            .redis
-            .connection()
-            .await
+            .store
             .set_coordinator_state(&self.shared.state)
             .await?;
 
-        let events = &mut self.shared.io.events;
+        let events = &mut self.shared.events;
 
         info!("broadcasting new keys");
         events.broadcast_keys(self.shared.state.keys.clone());
@@ -58,19 +58,13 @@ impl Phase for PhaseState<Idle> {
         info!("broadcasting invalidation of mask length from previous round");
         events.broadcast_mask_length(MaskLengthUpdate::Invalidate);
 
-        self.shared
-            .io
-            .redis
-            .connection()
-            .await
-            .flush_dicts()
-            .await?;
+        self.shared.store.delete_dicts().await?;
 
         info!("broadcasting new round parameters");
         events.broadcast_params(self.shared.state.round_params.clone());
 
         metrics!(
-            self.shared.io.metrics_tx,
+            self.shared.metrics_tx,
             metrics::round::total_number::update(self.shared.state.round_id),
             metrics::round_parameters::sum::update(
                 self.shared.state.round_params.sum,
@@ -84,18 +78,17 @@ impl Phase for PhaseState<Idle> {
             )
         );
 
-        // TODO: add a delay to prolongate the idle phase
         Ok(())
     }
 
-    fn next(self) -> Option<StateMachine> {
-        Some(PhaseState::<Sum>::new(self.shared).into())
+    fn next(self) -> Option<StateMachine<Store>> {
+        Some(PhaseState::<Sum, _>::new(self.shared).into())
     }
 }
 
-impl PhaseState<Idle> {
+impl<Store: Storage> PhaseState<Idle, Store> {
     /// Creates a new idle state.
-    pub fn new(mut shared: Shared) -> Self {
+    pub fn new(mut shared: Shared<Store>) -> Self {
         // Since some events are emitted very early, the round id must
         // be correct when the idle phase starts. Therefore, we update
         // it here, when instantiating the idle PhaseState.
