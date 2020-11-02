@@ -598,9 +598,10 @@ mod tests {
     ///
     /// The arguments to the macro are:
     /// - a suffix for the test name
-    /// - the group type of the model (variants of `GroupType`)
-    /// - the data type of the model (either primitives or variants of `DataType`)
-    /// - an absolute bound for the weights (optional, choices: 1, 100, 10_000, 1_000_000)
+    /// - the group type of the model and scalar (variants of `GroupType`)
+    /// - the data type of the model and scalar (either float primitives or float variants of
+    ///   `DataType`)
+    /// - an absolute bound for the scalar (optional, choices: 1, 100, 10_000, 1_000_000)
     /// - the number of weights
     macro_rules! test_masking_scalar {
         ($suffix:ident, $group:ty, $data:ty, $bound:expr, $len:expr $(,)?) => {
@@ -629,10 +630,9 @@ mod tests {
                     } else {
                         paste::expr! { $bound as [<$data:lower>] }
                     };
-                    let zero = 0 as [<$data:lower>];
+                    let eps = [<$data:lower>]::EPSILON;
                     let mut prng = ChaCha20Rng::from_seed(MaskSeed::generate().as_array());
-                    let rand_neg = Uniform::new(-bound, zero).sample(&mut prng);
-                    let scalar = rand_neg.abs() as f64;
+                    let scalar = Uniform::new_inclusive(eps, bound).sample(&mut prng) as f64;
                     let model = Model::from_primitives(iter::repeat(1).take(vect_len)).unwrap();
                     assert_eq!(model.len(), vect_len);
 
@@ -700,42 +700,6 @@ mod tests {
     test_masking_scalar!(pow_f64_b4, Power2, f64, 10_000, 10);
     test_masking_scalar!(pow_f64_b6, Power2, f64, 1_000_000, 10);
     test_masking_scalar!(pow_f64_bmax, Power2, f64, 10);
-
-    test_masking_scalar!(int_i32_b0, Integer, i32, 1, 10);
-    test_masking_scalar!(int_i32_b2, Integer, i32, 100, 10);
-    test_masking_scalar!(int_i32_b4, Integer, i32, 10_000, 10);
-    test_masking_scalar!(int_i32_b6, Integer, i32, 1_000_000, 10);
-    test_masking_scalar!(int_i32_bmax, Integer, i32, 10);
-
-    test_masking_scalar!(prime_i32_b0, Prime, i32, 1, 10);
-    test_masking_scalar!(prime_i32_b2, Prime, i32, 100, 10);
-    test_masking_scalar!(prime_i32_b4, Prime, i32, 10_000, 10);
-    test_masking_scalar!(prime_i32_b6, Prime, i32, 1_000_000, 10);
-    test_masking_scalar!(prime_i32_bmax, Prime, i32, 10);
-
-    test_masking_scalar!(pow_i32_b0, Power2, i32, 1, 10);
-    test_masking_scalar!(pow_i32_b2, Power2, i32, 100, 10);
-    test_masking_scalar!(pow_i32_b4, Power2, i32, 10_000, 10);
-    test_masking_scalar!(pow_i32_b6, Power2, i32, 1_000_000, 10);
-    test_masking_scalar!(pow_i32_bmax, Power2, i32, 10);
-
-    test_masking_scalar!(int_i64_b0, Integer, i64, 1, 10);
-    test_masking_scalar!(int_i64_b2, Integer, i64, 100, 10);
-    test_masking_scalar!(int_i64_b4, Integer, i64, 10_000, 10);
-    test_masking_scalar!(int_i64_b6, Integer, i64, 1_000_000, 10);
-    test_masking_scalar!(int_i64_bmax, Integer, i64, 10);
-
-    test_masking_scalar!(prime_i64_b0, Prime, i64, 1, 10);
-    test_masking_scalar!(prime_i64_b2, Prime, i64, 100, 10);
-    test_masking_scalar!(prime_i64_b4, Prime, i64, 10_000, 10);
-    test_masking_scalar!(prime_i64_b6, Prime, i64, 1_000_000, 10);
-    test_masking_scalar!(prime_i64_bmax, Prime, i64, 10);
-
-    test_masking_scalar!(pow_i64_b0, Power2, i64, 1, 10);
-    test_masking_scalar!(pow_i64_b2, Power2, i64, 100, 10);
-    test_masking_scalar!(pow_i64_b4, Power2, i64, 10_000, 10);
-    test_masking_scalar!(pow_i64_b6, Power2, i64, 1_000_000, 10);
-    test_masking_scalar!(pow_i64_bmax, Power2, i64, 10);
 
     /// Generate tests for aggregation of multiple masked models:
     /// - generate random integers from a uniform distribution with a seeded PRNG
@@ -1060,9 +1024,10 @@ mod tests {
     ///
     /// The arguments to the macro are:
     /// - a suffix for the test name
-    /// - the group type of the model (variants of `GroupType`)
-    /// - the data type of the model (either primitives or variants of `DataType`)
-    /// - an absolute bound for the weights (optional, choices: 1, 100, 10_000, 1_000_000)
+    /// - the group type of the model and scalar (variants of `GroupType`)
+    /// - the data type of the model and scalar (either float primitives or float variants of
+    ///   `DataType`)
+    /// - an absolute bound for the scalar (optional, choices: 1, 100, 10_000, 1_000_000)
     /// - the number of weights per model
     /// - the number of models
     macro_rules! test_masking_and_aggregation_scalar {
@@ -1092,11 +1057,10 @@ mod tests {
                     } else {
                         paste::expr! { $bound as [<$data:lower>] }
                     };
-                    let zero = 0 as [<$data:lower>];
+                    let eps = [<$data:lower>]::EPSILON;
                     let mut prng = ChaCha20Rng::from_seed(MaskSeed::generate().as_array());
                     let mut scalars = iter::repeat_with(move || {
-                        let rand_neg = Uniform::new(-bound, zero).sample(&mut prng);
-                        rand_neg.abs() as f64
+                        Uniform::new_inclusive(eps, bound).sample(&mut prng) as f64
                     });
                     let mut models =
                         iter::repeat(Model::from_primitives(iter::repeat(1).take(vect_len)).unwrap());
@@ -1180,40 +1144,4 @@ mod tests {
     test_masking_and_aggregation_scalar!(pow_f64_b4, Power2, f64, 10_000, 10, 2);
     test_masking_and_aggregation_scalar!(pow_f64_b6, Power2, f64, 1_000_000, 10, 2);
     test_masking_and_aggregation_scalar!(pow_f64_bmax, Power2, f64, 10, 2);
-
-    test_masking_and_aggregation_scalar!(int_i32_b0, Integer, i32, 1, 10, 5);
-    test_masking_and_aggregation_scalar!(int_i32_b2, Integer, i32, 100, 10, 5);
-    test_masking_and_aggregation_scalar!(int_i32_b4, Integer, i32, 10_000, 10, 5);
-    test_masking_and_aggregation_scalar!(int_i32_b6, Integer, i32, 1_000_000, 10, 5);
-    test_masking_and_aggregation_scalar!(int_i32_bmax, Integer, i32, 10, 5);
-
-    test_masking_and_aggregation_scalar!(prime_i32_b0, Prime, i32, 1, 10, 5);
-    test_masking_and_aggregation_scalar!(prime_i32_b2, Prime, i32, 100, 10, 5);
-    test_masking_and_aggregation_scalar!(prime_i32_b4, Prime, i32, 10_000, 10, 5);
-    test_masking_and_aggregation_scalar!(prime_i32_b6, Prime, i32, 1_000_000, 10, 5);
-    test_masking_and_aggregation_scalar!(prime_i32_bmax, Prime, i32, 10, 5);
-
-    test_masking_and_aggregation_scalar!(pow_i32_b0, Power2, i32, 1, 10, 5);
-    test_masking_and_aggregation_scalar!(pow_i32_b2, Power2, i32, 100, 10, 5);
-    test_masking_and_aggregation_scalar!(pow_i32_b4, Power2, i32, 10_000, 10, 5);
-    test_masking_and_aggregation_scalar!(pow_i32_b6, Power2, i32, 1_000_000, 10, 5);
-    test_masking_and_aggregation_scalar!(pow_i32_bmax, Power2, i32, 10, 5);
-
-    test_masking_and_aggregation_scalar!(int_i64_b0, Integer, i64, 1, 10, 5);
-    test_masking_and_aggregation_scalar!(int_i64_b2, Integer, i64, 100, 10, 5);
-    test_masking_and_aggregation_scalar!(int_i64_b4, Integer, i64, 10_000, 10, 5);
-    test_masking_and_aggregation_scalar!(int_i64_b6, Integer, i64, 1_000_000, 10, 5);
-    test_masking_and_aggregation_scalar!(int_i64_bmax, Integer, i64, 10, 5);
-
-    test_masking_and_aggregation_scalar!(prime_i64_b0, Prime, i64, 1, 10, 5);
-    test_masking_and_aggregation_scalar!(prime_i64_b2, Prime, i64, 100, 10, 5);
-    test_masking_and_aggregation_scalar!(prime_i64_b4, Prime, i64, 10_000, 10, 5);
-    test_masking_and_aggregation_scalar!(prime_i64_b6, Prime, i64, 1_000_000, 10, 5);
-    test_masking_and_aggregation_scalar!(prime_i64_bmax, Prime, i64, 10, 5);
-
-    test_masking_and_aggregation_scalar!(pow_i64_b0, Power2, i64, 1, 10, 5);
-    test_masking_and_aggregation_scalar!(pow_i64_b2, Power2, i64, 100, 10, 5);
-    test_masking_and_aggregation_scalar!(pow_i64_b4, Power2, i64, 10_000, 10, 5);
-    test_masking_and_aggregation_scalar!(pow_i64_b6, Power2, i64, 1_000_000, 10, 5);
-    test_masking_and_aggregation_scalar!(pow_i64_bmax, Power2, i64, 10, 5);
 }
