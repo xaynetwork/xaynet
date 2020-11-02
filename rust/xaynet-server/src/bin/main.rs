@@ -7,7 +7,7 @@ use xaynet_server::{
     rest,
     services,
     settings::Settings,
-    state_machine::StateMachine,
+    state_machine::StateMachineInitializer,
     storage::redis,
 };
 
@@ -80,24 +80,23 @@ async fn main() {
     let redis = redis::Client::new(redis_settings.url, 100)
         .await
         .expect("failed to establish a connection to Redis");
-    redis
-        .connection()
-        .await
-        .flush_db()
-        .await
-        .expect("failed to flush the Redis database");
 
-    let (state_machine, requests_tx, event_subscriber) = StateMachine::new(
+    let (state_machine, requests_tx, event_subscriber) = StateMachineInitializer::new(
         pet_settings,
         mask_settings,
         model_settings,
+        #[cfg(feature = "model-persistence")]
+        settings.restore,
         redis,
         #[cfg(feature = "model-persistence")]
         s3,
         #[cfg(feature = "metrics")]
         metrics_sender,
     )
-    .unwrap();
+    .init()
+    .await
+    .expect("failed to initialize state machine");
+
     let fetcher = services::fetchers::fetcher(&event_subscriber);
     let message_handler =
         services::messages::PetMessageHandler::new(&event_subscriber, requests_tx);

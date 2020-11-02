@@ -12,7 +12,7 @@ pub use self::{
         SumDictAdd,
         SumDictAddError,
     },
-    redis::RedisError,
+    redis::{RedisError, RedisResult},
 };
 
 #[cfg(test)]

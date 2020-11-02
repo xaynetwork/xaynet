@@ -36,3 +36,6 @@ url = "redis://redis"
 access_key = "minio"
 secret_access_key = "minio123"
 region = ["minio", "http://minio:9000"]
+
+[restore]
+enable = true

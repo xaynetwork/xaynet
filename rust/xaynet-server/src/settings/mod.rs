@@ -22,7 +22,7 @@ mod tests;
 #[cfg(feature = "model-persistence")]
 pub mod s3;
 #[cfg(feature = "model-persistence")]
-pub use self::{s3::S3BucketsSettings, s3::S3Settings};
+pub use self::{s3::RestoreSettings, s3::S3BucketsSettings, s3::S3Settings};
 
 #[derive(Error, Debug)]
 /// An error related to loading and validation of settings.
@@ -50,6 +50,9 @@ pub struct Settings {
     #[cfg(feature = "model-persistence")]
     #[validate]
     pub s3: S3Settings,
+    #[cfg(feature = "model-persistence")]
+    #[validate]
+    pub restore: RestoreSettings,
 }
 
 impl Settings {
@@ -452,7 +455,7 @@ impl From<MaskSettings> for MaskConfig {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 /// Model settings.
 pub struct ModelSettings {
     /// The expected size of the model. The model size corresponds to the number of elements.

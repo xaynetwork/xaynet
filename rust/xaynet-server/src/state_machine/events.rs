@@ -87,6 +87,7 @@ impl EventPublisher {
         keys: EncryptKeyPair,
         params: RoundParameters,
         phase: PhaseName,
+        model: ModelUpdate,
     ) -> (Self, EventSubscriber) {
         let (keys_tx, keys_rx) = watch::channel::<Event<EncryptKeyPair>>(Event {
             round_id,
@@ -100,7 +101,7 @@ impl EventPublisher {
 
         let (model_tx, model_rx) = watch::channel::<Event<ModelUpdate>>(Event {
             round_id,
-            event: ModelUpdate::Invalidate,
+            event: model,
         });
 
         let (mask_length_tx, mask_length_rx) = watch::channel::<Event<MaskLengthUpdate>>(Event {

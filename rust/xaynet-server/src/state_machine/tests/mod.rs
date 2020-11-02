@@ -1,5 +1,6 @@
 pub mod builder;
 pub mod impls;
+pub mod initializer;
 pub mod utils;
 
 use xaynet_core::{
@@ -101,14 +102,26 @@ async fn integration_full_round() {
         let round_id = events.params_listener().get_latest().round_id;
         let round_seed = events.params_listener().get_latest().event.seed;
         let round_seed_hex = hex::encode(round_seed.as_slice());
+        let global_model_id = format!("{}_{}", round_id, round_seed_hex);
 
         let s3_model = eio
             .s3
-            .download_global_model(&format!("{}_{}", round_id, round_seed_hex))
-            .await;
+            .download_global_model(&global_model_id)
+            .await
+            .unwrap();
         assert!(
             matches!(events.model_listener().get_latest().event, super::events::ModelUpdate::New(broadcasted_model) if s3_model == *broadcasted_model)
         );
+
+        let get_global_model_id = eio
+            .redis
+            .connection()
+            .await
+            .get_latest_global_model_id()
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(global_model_id, get_global_model_id);
     }
 
     assert!(state_machine.is_idle());

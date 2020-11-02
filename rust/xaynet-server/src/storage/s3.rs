@@ -5,6 +5,9 @@ use rusoto_s3::{
     CreateBucketOutput,
     CreateBucketRequest,
     DeleteObjectsError,
+    GetObjectError,
+    GetObjectOutput,
+    GetObjectRequest,
     ListObjectsV2Error,
     PutObjectError,
     PutObjectOutput,
@@ -15,6 +18,7 @@ use rusoto_s3::{
 };
 use std::sync::Arc;
 use thiserror::Error;
+use tokio::io::AsyncReadExt;
 
 use xaynet_core::mask::Model;
 
@@ -22,17 +26,19 @@ type S3Result<T> = Result<T, S3Error>;
 
 #[derive(Debug, Error)]
 pub enum S3Error {
-    #[error("upload error: {0}")]
+    #[error("failed to upload an object: {0}")]
     Upload(#[from] RusotoError<PutObjectError>),
-    #[error("create bucket error: {0}")]
+    #[error("failed to crate a bucket: {0}")]
     CreateBucket(#[from] RusotoError<CreateBucketError>),
-    #[error("list objects error: {0}")]
+    #[error("failed to download an object: {0}")]
+    Download(#[from] RusotoError<GetObjectError>),
+    #[error("failed to list objects: {0}")]
     ListObjects(#[from] RusotoError<ListObjectsV2Error>),
-    #[error("delete objects error: {0}")]
+    #[error("failed to delete objects: {0}")]
     DeleteObjects(#[from] RusotoError<DeleteObjectsError>),
-    #[error("serialization failed")]
+    #[error("failed to de/serialization an object: {0}")]
     Serialization(#[from] bincode::Error),
-    #[error("empty response error")]
+    #[error("response body is empty")]
     EmptyResponse,
     #[error(transparent)]
     HttpClient(#[from] TlsError),
@@ -78,7 +84,7 @@ impl Client {
     ///     },
     /// };
     ///
-    /// let store = Client::new(s3_settings);
+    /// let store = Client::new(s3_settings).unwrap();
     /// ```
     pub fn new(settings: S3Settings) -> S3Result<Self> {
         let credentials_provider =
@@ -102,9 +108,10 @@ impl Client {
     }
 
     /// Creates the `global_models` bucket.
+    /// This method does not fail if the bucket already exists or is already owned by you.
     pub async fn create_global_models_bucket(&self) -> S3Result<()> {
-        debug!("create global-models bucket");
-        match self.create_bucket("global-models").await {
+        debug!("create {} bucket", &self.buckets.global_models);
+        match self.create_bucket(&self.buckets.global_models).await {
             Ok(_)
             | Err(RusotoError::Service(CreateBucketError::BucketAlreadyExists(_)))
             | Err(RusotoError::Service(CreateBucketError::BucketAlreadyOwnedByYou(_))) => Ok(()),
@@ -112,7 +119,45 @@ impl Client {
         }
     }
 
-    // Uploads an object to the given bucket.
+    /// Downloads a global model with the given key.
+    pub async fn download_global_model(&self, key: &str) -> S3Result<Model> {
+        debug!("download global model {}", key);
+        let object = self
+            .download_object(&self.buckets.global_models, key)
+            .await?;
+        let content = Self::unpack_object(object).await?;
+        Ok(bincode::deserialize(&content)?)
+    }
+
+    // Gets the content of the given object.
+    async fn unpack_object(object: GetObjectOutput) -> S3Result<Vec<u8>> {
+        let mut content = Vec::new();
+        object
+            .body
+            .ok_or(S3Error::EmptyResponse)?
+            .into_async_read()
+            .read_to_end(&mut content)
+            .await
+            .map_err(|_| S3Error::EmptyResponse)?;
+        Ok(content)
+    }
+
+    // Downloads an object with the given key from the given bucket.
+    async fn download_object(
+        &self,
+        bucket: &str,
+        key: &str,
+    ) -> Result<GetObjectOutput, RusotoError<GetObjectError>> {
+        // If an object does not exist, S3 / Minio will return an error
+        let req = GetObjectRequest {
+            bucket: bucket.to_string(),
+            key: key.to_string(),
+            ..Default::default()
+        };
+        self.s3_client.get_object(req).await
+    }
+
+    // Uploads an object with the given key to the given bucket.
     async fn upload(
         &self,
         bucket: &str,
@@ -150,14 +195,12 @@ pub(in crate) mod tests {
         Delete,
         DeleteObjectsOutput,
         DeleteObjectsRequest,
-        GetObjectOutput,
-        GetObjectRequest,
         ListObjectsV2Output,
         ListObjectsV2Request,
         ObjectIdentifier,
     };
     use serial_test::serial;
-    use tokio::io::AsyncReadExt;
+
     use xaynet_core::{common::RoundSeed, crypto::ByteObject};
 
     impl Client {
@@ -181,14 +224,6 @@ pub(in crate) mod tests {
                 }
             }
             Ok(())
-        }
-
-        // Download a global model.
-        pub async fn download_global_model(&self, key: &str) -> Model {
-            debug!("get global model {:?}", key);
-            let object = self.download_object(&self.buckets.global_models, key).await;
-            let content = Self::unpack_object(object).await.expect("unpack error");
-            bincode::deserialize(&content).expect("deserialization error")
         }
 
         // Unpacks the object identifier/keys of a [`ListObjectsV2Output`] response.
@@ -237,7 +272,7 @@ pub(in crate) mod tests {
             let req = ListObjectsV2Request {
                 bucket: bucket.to_string(),
                 continuation_token,
-                // the AWS response is limited to 1000 keys max.
+                // the S3 response is limited to 1000 keys max.
                 // https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/S3.html#listObjectsV2-property
                 // However, Minio could return more.
                 max_keys: Some(1000),
@@ -262,33 +297,6 @@ pub(in crate) mod tests {
             } else {
                 None
             }
-        }
-
-        // Get the content of the given object.
-        async fn unpack_object(object: GetObjectOutput) -> S3Result<Vec<u8>> {
-            let mut content = Vec::new();
-            object
-                .body
-                .ok_or(S3Error::EmptyResponse)?
-                .into_async_read()
-                .read_to_end(&mut content)
-                .await
-                .map_err(|_| S3Error::EmptyResponse)?;
-            Ok(content)
-        }
-
-        /// Download an object from the given bucket.
-        async fn download_object(&self, bucket: &str, key: &str) -> GetObjectOutput {
-            // If an object does not exist, aws will return an error
-            let req = GetObjectRequest {
-                bucket: bucket.to_string(),
-                key: key.to_string(),
-                ..Default::default()
-            };
-            self.s3_client
-                .get_object(req)
-                .await
-                .expect("download error")
         }
     }
 
@@ -316,15 +324,61 @@ pub(in crate) mod tests {
 
     #[tokio::test]
     #[serial]
-    async fn integration_test_upload_global_model() {
+    async fn integration_test_upload_and_download_global_model() {
         let client = create_client().await;
 
         let global_model = create_global_model(10);
         let round_seed = hex::encode(RoundSeed::generate().as_slice());
+        let global_model_id = format!("{}_{}", 1, round_seed);
 
         let res = client
-            .upload_global_model(&format!("{}_{}", 1, round_seed), &global_model)
+            .upload_global_model(&global_model_id, &global_model)
             .await;
-        assert!(res.is_ok())
+        assert!(res.is_ok());
+
+        let downloaded_global_model = client
+            .download_global_model(&global_model_id)
+            .await
+            .unwrap();
+        assert_eq!(global_model, downloaded_global_model)
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn integration_test_download_global_model_non_existent() {
+        let client = create_client().await;
+
+        let round_seed = hex::encode(RoundSeed::generate().as_slice());
+        let global_model_id = format!("{}_{}", 1, round_seed);
+
+        let res = client.download_global_model(&global_model_id).await;
+        assert!(matches!(res, Err(S3Error::Download(_))))
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn integration_test_override_global_model() {
+        let client = create_client().await;
+
+        let global_model = create_global_model(10);
+        let round_seed = hex::encode(RoundSeed::generate().as_slice());
+        let global_model_id = format!("{}_{}", 1, round_seed);
+
+        let res = client
+            .upload_global_model(&global_model_id, &global_model)
+            .await;
+        assert!(res.is_ok());
+
+        let global_model = create_global_model(20);
+        let res = client
+            .upload_global_model(&global_model_id, &global_model)
+            .await;
+        assert!(res.is_ok());
+
+        let downloaded_global_model = client
+            .download_global_model(&global_model_id)
+            .await
+            .unwrap();
+        assert_eq!(global_model, downloaded_global_model)
     }
 }

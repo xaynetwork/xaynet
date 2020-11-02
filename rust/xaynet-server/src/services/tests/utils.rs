@@ -5,7 +5,7 @@ use xaynet_core::{
 };
 
 use crate::state_machine::{
-    events::{EventPublisher, EventSubscriber},
+    events::{EventPublisher, EventSubscriber, ModelUpdate},
     phases::PhaseName,
 };
 
@@ -22,7 +22,8 @@ pub fn new_event_channels() -> (EventPublisher, EventSubscriber) {
     };
     let phase = PhaseName::Idle;
     let round_id = 0;
-    EventPublisher::init(round_id, keys, params, phase)
+    let model = ModelUpdate::Invalidate;
+    EventPublisher::init(round_id, keys, params, phase, model)
 }
 
 /// Simulate a participant generating keys and crafting a valid sum
