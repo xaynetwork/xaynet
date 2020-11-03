@@ -25,8 +25,8 @@ use xaynet_core::{
 // Not so sure about the error type
 // On the one hand, it would be cool to have the specific error inside of StorageError like
 // StorageError(RedisError)
-// However, it would lead to compiler errors as soon as we swap the storage backend with
-// something that produces the other error types e.g. `std::io::Error`
+// On the other hand, it would lead to compiler errors as soon as we swap the storage backend with
+// something that produces other error types e.g. `std::io::Error`
 // So I decided to only store the error message instead of the error type
 // An alternative is to use "dyn std :: error :: Error", but I'm not sure if there is any benefit to it
 #[derive(Debug, Error)]
