@@ -153,8 +153,8 @@ pub enum RequestError {
     #[error(transparent)]
     MaskDictIncr(#[from] MaskDictIncrError),
 
-    #[error(transparent)]
-    Storage(#[from] crate::storage::api::StorageError),
+    #[error("failed to handle message: {0}")]
+    MessageHandle(#[from] crate::storage::api::StorageError),
 }
 
 pub type StateMachineResult = Result<(), RequestError>;

@@ -8,6 +8,7 @@ use crate::{
     },
 };
 
+use super::{s3::S3Error, RedisError};
 use thiserror::Error;
 use xaynet_core::{
     common::RoundSeed,
@@ -21,11 +22,18 @@ use xaynet_core::{
     UpdateParticipantPublicKey,
 };
 
+// Not so sure about the error type
+// On the one hand, it would be cool to have the specific error inside of StorageError like
+// StorageError(RedisError)
+// However, it would lead to compiler errors as soon as we swap the storage backend with
+// something that produces the other error types e.g. `std::io::Error`
+// So I decided to only store the error message instead of the error type
+// An alternative is to use "dyn std :: error :: Error", but I'm not sure if there is any benefit to it
 #[derive(Debug, Error)]
-pub enum StorageError {
-    #[error("IO error{0}")]
-    Io(String),
-}
+#[error("storage error: {0}")]
+// Wrapper that surrounds all types of error types that are not directly related to the actual application logic
+// These include, for example: IOErrors (RedisError, FileNotFoundError, Timeouts), ProtocolErrors (RedisError(wrong type)), etc
+pub struct StorageError(String);
 
 type StorageResult<T> = Result<T, StorageError>;
 
@@ -141,7 +149,7 @@ where
 
     /////////// Mask dict
 
-    /// Updates the mask dictionary with the given [`MaskObject`].
+    /// Increments the mask score with the given [`MaskObject`].
     /// The score of the given mask is incremented by `1`.
     ///
     /// Behavior
@@ -314,6 +322,18 @@ impl ExternalStorage {
     }
 }
 
+impl From<RedisError> for StorageError {
+    fn from(e: RedisError) -> Self {
+        Self(format!("{}", e))
+    }
+}
+
+impl From<S3Error> for StorageError {
+    fn from(e: S3Error) -> Self {
+        Self(format!("{}", e))
+    }
+}
+
 #[async_trait]
 impl Storage for ExternalStorage {
     async fn set_coordinator_state(&self, state: &CoordinatorState) -> StorageResult<()> {
@@ -322,7 +342,7 @@ impl Storage for ExternalStorage {
             .await
             .set_coordinator_state(state)
             .await
-            .map_err(|_| StorageError::Io("".to_string()))
+            .map_err(StorageError::from)
     }
 
     async fn get_coordinator_state(&self) -> StorageResult<Option<CoordinatorState>> {
@@ -331,7 +351,7 @@ impl Storage for ExternalStorage {
             .await
             .get_coordinator_state()
             .await
-            .map_err(|_| StorageError::Io("".to_string()))
+            .map_err(StorageError::from)
     }
 
     async fn add_sum_participant(
@@ -344,7 +364,7 @@ impl Storage for ExternalStorage {
             .await
             .add_sum_participant(pk, ephm_pk)
             .await
-            .map_err(|_| StorageError::Io("".to_string()))
+            .map_err(StorageError::from)
     }
 
     async fn get_sum_dict(&self) -> StorageResult<SumDict> {
@@ -353,7 +373,7 @@ impl Storage for ExternalStorage {
             .await
             .get_sum_dict()
             .await
-            .map_err(|_| StorageError::Io("".to_string()))
+            .map_err(StorageError::from)
     }
 
     async fn add_local_seed_dict(
@@ -366,7 +386,7 @@ impl Storage for ExternalStorage {
             .await
             .update_seed_dict(update_pk, local_seed_dict)
             .await
-            .map_err(|_| StorageError::Io("".to_string()))
+            .map_err(StorageError::from)
     }
 
     async fn get_seed_dict(&self) -> StorageResult<SeedDict> {
@@ -375,7 +395,7 @@ impl Storage for ExternalStorage {
             .await
             .get_seed_dict()
             .await
-            .map_err(|_| StorageError::Io("".to_string()))
+            .map_err(StorageError::from)
     }
 
     async fn incr_mask_score(
@@ -388,7 +408,7 @@ impl Storage for ExternalStorage {
             .await
             .incr_mask_count(pk, mask)
             .await
-            .map_err(|_| StorageError::Io("".to_string()))
+            .map_err(StorageError::from)
     }
 
     async fn get_best_masks(&self) -> StorageResult<Vec<(MaskObject, u64)>> {
@@ -397,7 +417,7 @@ impl Storage for ExternalStorage {
             .await
             .get_best_masks()
             .await
-            .map_err(|_| StorageError::Io("".to_string()))
+            .map_err(StorageError::from)
     }
 
     async fn get_number_of_unique_masks(&self) -> StorageResult<u64> {
@@ -406,7 +426,7 @@ impl Storage for ExternalStorage {
             .await
             .get_number_of_unique_masks()
             .await
-            .map_err(|_| StorageError::Io("".to_string()))
+            .map_err(StorageError::from)
     }
 
     async fn delete_coordinator_data(&self) -> StorageResult<()> {
@@ -415,7 +435,7 @@ impl Storage for ExternalStorage {
             .await
             .flush_coordinator_data()
             .await
-            .map_err(|_| StorageError::Io("".to_string()))
+            .map_err(StorageError::from)
     }
 
     async fn delete_dicts(&self) -> StorageResult<()> {
@@ -424,7 +444,7 @@ impl Storage for ExternalStorage {
             .await
             .flush_dicts()
             .await
-            .map_err(|_| StorageError::Io("".to_string()))
+            .map_err(StorageError::from)
     }
 
     async fn set_global_model(
@@ -437,7 +457,7 @@ impl Storage for ExternalStorage {
         self.s3
             .upload_global_model(&id, global_model)
             .await
-            .map_err(|_| StorageError::Io("".to_string()))?;
+            .map_err(StorageError::from)?;
         Ok(id)
     }
 
@@ -446,7 +466,7 @@ impl Storage for ExternalStorage {
             .s3
             .download_global_model(&id)
             .await
-            .map_err(|_| StorageError::Io("".to_string()))?;
+            .map_err(StorageError::from)?;
         Ok(Some(model))
     }
 
@@ -456,7 +476,7 @@ impl Storage for ExternalStorage {
             .await
             .set_latest_global_model_id(id)
             .await
-            .map_err(|_| StorageError::Io("".to_string()))
+            .map_err(StorageError::from)
     }
 
     async fn get_latest_global_model_id(&self) -> StorageResult<Option<String>> {
@@ -466,7 +486,7 @@ impl Storage for ExternalStorage {
             .await
             .get_latest_global_model_id()
             .await
-            .map_err(|_| StorageError::Io("".to_string()))?;
+            .map_err(StorageError::from)?;
         Ok(id)
     }
 }

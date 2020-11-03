@@ -23,11 +23,18 @@ pub enum PhaseStateError {
     UnmaskGlobalModel(#[from] UnmaskGlobalModelError),
     #[error("phase timeout")]
     Timeout(#[from] tokio::time::Elapsed),
-    #[cfg(feature = "model-persistence")]
-    #[error("saving the global model failed: {0}")]
-    SaveGlobalModel(crate::storage::s3::S3Error),
-    #[error("saving the global model failed: {0}")]
-    Storage(#[from] crate::storage::api::StorageError),
+    #[error("failed to update the coordinator state: {0}")]
+    UpdateCoordinatorState(crate::storage::api::StorageError),
+    #[error("failed to clear dictionaries: {0}")]
+    ClearDictionaries(crate::storage::api::StorageError),
+    #[error("failed to retrieve sum dictionary: {0}")]
+    GetSumDict(crate::storage::api::StorageError),
+    #[error("failed to retrieve seed dictionary: {0}")]
+    GetSeedDict(crate::storage::api::StorageError),
+    #[error("failed to retrieve masks: {0}")]
+    GetMasks(crate::storage::api::StorageError),
+    #[error("failed to save the global model: {0}")]
+    SaveGlobalModel(crate::storage::api::StorageError),
 }
 
 impl<Store: Storage> PhaseState<PhaseStateError, Store> {
@@ -52,16 +59,18 @@ impl<Store: Storage> Phase<Store> for PhaseState<PhaseStateError, Store> {
             metrics::phase::error::emit(&self.inner)
         );
 
-        if let PhaseStateError::Storage(_) = self.inner {
-            // a simple loop that stops as soon as the redis client has reconnected to a redis
-            // instance. Reconnecting a lost connection is handled internally by
-            // redis::aio::ConnectionManager
-
-            while self.shared.store.get_coordinator_state().await.is_err() {
-                info!("try to reconnect to Redis in 5 sec");
-                delay_for(Duration::from_secs(5)).await;
+        match self.inner {
+            PhaseStateError::Channel(_) => {}
+            _ => {
+                // a simple loop that stops as soon as the redis client has reconnected to a redis
+                // instance. Reconnecting a lost connection is handled internally by
+                // redis::aio::ConnectionManager
+                while self.shared.store.get_coordinator_state().await.is_err() {
+                    info!("try to reconnect to Redis in 5 sec");
+                    delay_for(Duration::from_secs(5)).await;
+                }
             }
-        }
+        };
 
         Ok(())
     }

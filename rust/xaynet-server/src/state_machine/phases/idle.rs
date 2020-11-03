@@ -42,7 +42,8 @@ impl<Store: Storage> Phase<Store> for PhaseState<Idle, Store> {
         self.shared
             .store
             .set_coordinator_state(&self.shared.state)
-            .await?;
+            .await
+            .map_err(PhaseStateError::UpdateCoordinatorState)?;
 
         let events = &mut self.shared.events;
 
@@ -58,7 +59,11 @@ impl<Store: Storage> Phase<Store> for PhaseState<Idle, Store> {
         info!("broadcasting invalidation of mask length from previous round");
         events.broadcast_mask_length(MaskLengthUpdate::Invalidate);
 
-        self.shared.store.delete_dicts().await?;
+        self.shared
+            .store
+            .delete_dicts()
+            .await
+            .map_err(PhaseStateError::ClearDictionaries)?;
 
         info!("broadcasting new round parameters");
         events.broadcast_params(self.shared.state.round_params.clone());

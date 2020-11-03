@@ -67,7 +67,12 @@ where
             self.inner.sum_count, self.shared.state.min_sum_count
         );
 
-        let sum_dict = self.shared.store.get_sum_dict().await?;
+        let sum_dict = self
+            .shared
+            .store
+            .get_sum_dict()
+            .await
+            .map_err(PhaseStateError::GetSumDict)?;
 
         info!("broadcasting sum dictionary");
         self.shared

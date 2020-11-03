@@ -53,7 +53,12 @@ impl<Store: Storage> Phase<Store> for PhaseState<Unmask, Store> {
             });
         }
 
-        let best_masks = self.shared.store.get_best_masks().await?;
+        let best_masks = self
+            .shared
+            .store
+            .get_best_masks()
+            .await
+            .map_err(PhaseStateError::GetSeedDict)?;
 
         let global_model = self.end_round(best_masks).await?;
 
@@ -65,7 +70,8 @@ impl<Store: Storage> Phase<Store> for PhaseState<Unmask, Store> {
                 .shared
                 .store
                 .set_global_model(round_id, &round_seed, &global_model)
-                .await?;
+                .await
+                .map_err(PhaseStateError::SaveGlobalModel)?;
             let _ = self
                 .shared
                 .store

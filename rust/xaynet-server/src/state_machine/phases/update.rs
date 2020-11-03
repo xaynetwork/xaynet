@@ -67,7 +67,12 @@ where
             .events
             .broadcast_mask_length(MaskLengthUpdate::New(self.inner.model_agg.len()));
 
-        let seed_dict = self.shared.store.get_seed_dict().await?;
+        let seed_dict = self
+            .shared
+            .store
+            .get_seed_dict()
+            .await
+            .map_err(PhaseStateError::GetSeedDict)?;
 
         info!("broadcasting the global seed dictionary");
         self.shared
