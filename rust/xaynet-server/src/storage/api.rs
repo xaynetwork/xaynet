@@ -3,8 +3,7 @@ use crate::{
     state_machine::coordinator::CoordinatorState,
     storage::{
         impls::{MaskDictIncr, SeedDictUpdate, SumDictAdd},
-        redis,
-        s3,
+        redis, s3,
     },
 };
 
@@ -14,11 +13,7 @@ use xaynet_core::{
     common::RoundSeed,
     crypto::ByteObject,
     mask::{MaskObject, Model},
-    LocalSeedDict,
-    SeedDict,
-    SumDict,
-    SumParticipantEphemeralPublicKey,
-    SumParticipantPublicKey,
+    LocalSeedDict, SeedDict, SumDict, SumParticipantEphemeralPublicKey, SumParticipantPublicKey,
     UpdateParticipantPublicKey,
 };
 
@@ -96,29 +91,10 @@ where
     }
 }
 
-#[cfg_attr(test, derive(Debug))]
-#[derive(Clone)]
-pub struct Storage<V, P>
-where
-    V: VolatileStorage,
-    P: PersistentStorage,
-{
-    volatile: V,
-    persistent: P,
-}
 
-impl<V, P> Storage<V, P>
-where
-    V: VolatileStorage,
-    P: PersistentStorage,
-{
-    pub fn new(volatile: V, persistent: P) -> Self {
-        Self {
-            volatile,
-            persistent,
-        }
-    }
 
+#[async_trait]
+impl<V: VolatileStorage, P: PersistentStorage> Store for Storage<V, P> {
     /// Sets a [`CoordinatorState`].
     ///
     /// Behavior
@@ -132,7 +108,7 @@ where
     ///
     /// ## Protocol
     /// None
-    pub async fn set_coordinator_state(&self, state: &CoordinatorState) -> StorageResult<()> {
+    async fn set_coordinator_state(&self, state: &CoordinatorState) -> StorageResult<()> {
         self.volatile.set_coordinator_state(state).await
     }
 
@@ -149,7 +125,7 @@ where
     ///
     /// ## Protocol
     /// None
-    pub async fn get_coordinator_state(&self) -> StorageResult<Option<CoordinatorState>> {
+    async fn get_coordinator_state(&self) -> StorageResult<Option<CoordinatorState>> {
         self.volatile.get_coordinator_state().await
     }
 
@@ -168,7 +144,7 @@ where
     ///
     /// ## Protocol
     /// - [`SumDictAddError::AlreadyExists`]
-    pub async fn add_sum_participant(
+    async fn add_sum_participant(
         &self,
         pk: &SumParticipantPublicKey,
         ephm_pk: &SumParticipantEphemeralPublicKey,
@@ -189,7 +165,7 @@ where
     ///
     /// ## Protocol
     /// None
-    pub async fn get_sum_dict(&self) -> StorageResult<SumDict> {
+    async fn get_sum_dict(&self) -> StorageResult<SumDict> {
         self.volatile.get_sum_dict().await
     }
 
@@ -211,7 +187,7 @@ where
     /// - [`SeedDictAddError::UnknownSumParticipant`]
     /// - [`SeedDictAddError::UpdatePkAlreadySubmitted`]
     /// - [`SeedDictAddError::UpdatePkAlreadyExistsInUpdateSeedDict`]
-    pub async fn add_local_seed_dict(
+    async fn add_local_seed_dict(
         &self,
         update_pk: &UpdateParticipantPublicKey,
         local_seed_dict: &LocalSeedDict,
@@ -234,7 +210,7 @@ where
     ///
     /// ## Protocol
     /// None
-    pub async fn get_seed_dict(&self) -> StorageResult<SeedDict> {
+    async fn get_seed_dict(&self) -> StorageResult<SeedDict> {
         self.volatile.get_seed_dict().await
     }
 
@@ -255,7 +231,7 @@ where
     /// ## Protocol
     /// - [`MaskDictIncrError::UnknownSumPk`]
     /// - [`MaskDictIncrError::MaskAlreadySubmitted`]
-    pub async fn incr_mask_score(
+    async fn incr_mask_score(
         &self,
         pk: &SumParticipantPublicKey,
         mask: &MaskObject,
@@ -278,7 +254,7 @@ where
     ///
     /// ## Protocol
     /// None
-    pub async fn get_best_masks(&self) -> StorageResult<Vec<(MaskObject, u64)>> {
+    async fn get_best_masks(&self) -> StorageResult<Vec<(MaskObject, u64)>> {
         self.volatile.get_best_masks().await
     }
 
@@ -291,7 +267,7 @@ where
     ///
     /// ## Protocol
     /// None
-    pub async fn get_number_of_unique_masks(&self) -> StorageResult<u64> {
+    async fn get_number_of_unique_masks(&self) -> StorageResult<u64> {
         self.volatile.get_number_of_unique_masks().await
     }
 
@@ -306,7 +282,7 @@ where
     ///
     /// ## Protocol
     /// None
-    pub async fn delete_coordinator_data(&self) -> StorageResult<()> {
+    async fn delete_coordinator_data(&self) -> StorageResult<()> {
         self.volatile.delete_coordinator_data().await
     }
 
@@ -319,7 +295,7 @@ where
     ///
     /// ## Protocol
     /// None
-    pub async fn delete_dicts(&self) -> StorageResult<()> {
+    async fn delete_dicts(&self) -> StorageResult<()> {
         self.volatile.delete_dicts().await
     }
 
@@ -338,7 +314,7 @@ where
     ///
     /// ## Protocol
     /// None
-    pub async fn set_global_model(
+    async fn set_global_model(
         &self,
         round_id: u64,
         round_seed: &RoundSeed,
@@ -362,7 +338,7 @@ where
     ///
     /// ## Protocol
     /// None
-    pub async fn get_global_model(&self, id: &str) -> StorageResult<Option<Model>> {
+    async fn get_global_model(&self, id: &str) -> StorageResult<Option<Model>> {
         self.persistent.get_global_model(id).await
     }
 
@@ -379,7 +355,7 @@ where
     ///
     /// ## Protocol
     /// None
-    pub async fn set_latest_global_model_id(&self, id: &str) -> StorageResult<()> {
+    async fn set_latest_global_model_id(&self, id: &str) -> StorageResult<()> {
         self.volatile.set_latest_global_model_id(id).await
     }
 
@@ -396,8 +372,32 @@ where
     ///
     /// ## Protocol
     /// None
-    pub async fn get_latest_global_model_id(&self) -> StorageResult<Option<String>> {
+    async fn get_latest_global_model_id(&self) -> StorageResult<Option<String>> {
         self.volatile.get_latest_global_model_id().await
+    }
+}
+
+#[cfg_attr(test, derive(Debug))]
+#[derive(Clone)]
+pub struct Storage<V, P>
+where
+    V: VolatileStorage,
+    P: PersistentStorage,
+{
+    volatile: V,
+    persistent: P,
+}
+
+impl<V, P> Storage<V, P>
+where
+    V: VolatileStorage,
+    P: PersistentStorage,
+{
+    pub fn new(volatile: V, persistent: P) -> Self {
+        Self {
+            volatile,
+            persistent,
+        }
     }
 }
 
@@ -592,4 +592,58 @@ impl PersistentStorage for S3Storage {
             .map_err(StorageError::from)?;
         Ok(Some(model))
     }
+}
+
+
+#[async_trait]
+pub trait Store
+where
+    Self: Clone + Send + Sync + 'static,
+{
+    async fn set_coordinator_state(&self, state: &CoordinatorState) -> StorageResult<()>;
+
+    async fn get_coordinator_state(&self) -> StorageResult<Option<CoordinatorState>>;
+
+    async fn add_sum_participant(
+        &self,
+        pk: &SumParticipantPublicKey,
+        ephm_pk: &SumParticipantEphemeralPublicKey,
+    ) -> StorageResult<SumDictAdd>;
+
+    async fn get_sum_dict(&self) -> StorageResult<SumDict>;
+
+    async fn add_local_seed_dict(
+        &self,
+        update_pk: &UpdateParticipantPublicKey,
+        local_seed_dict: &LocalSeedDict,
+    ) -> StorageResult<SeedDictUpdate>;
+
+    async fn get_seed_dict(&self) -> StorageResult<SeedDict>;
+
+    async fn incr_mask_score(
+        &self,
+        pk: &SumParticipantPublicKey,
+        mask: &MaskObject,
+    ) -> StorageResult<MaskDictIncr>;
+
+    async fn get_best_masks(&self) -> StorageResult<Vec<(MaskObject, u64)>>;
+
+    async fn get_number_of_unique_masks(&self) -> StorageResult<u64>;
+
+    async fn delete_coordinator_data(&self) -> StorageResult<()>;
+
+    async fn delete_dicts(&self) -> StorageResult<()>;
+
+    async fn set_latest_global_model_id(&self, id: &str) -> StorageResult<()>;
+
+    async fn get_latest_global_model_id(&self) -> StorageResult<Option<String>>;
+
+    async fn set_global_model(
+        &self,
+        round_id: u64,
+        round_seed: &RoundSeed,
+        global_model: &Model,
+    ) -> Result<String, StorageError>;
+
+    async fn get_global_model(&self, id: &str) -> StorageResult<Option<Model>>;
 }

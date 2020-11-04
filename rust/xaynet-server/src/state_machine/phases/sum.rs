@@ -5,10 +5,9 @@ use crate::{
         events::DictionaryUpdate,
         phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Update},
         requests::{StateMachineRequest, SumRequest},
-        RequestError,
-        StateMachine,
+        RequestError, StateMachine,
     },
-    storage::api::{PersistentStorage, VolatileStorage},
+    storage::api::Store,
 };
 
 #[cfg(feature = "metrics")]
@@ -24,10 +23,9 @@ pub struct Sum {
 }
 
 #[async_trait]
-impl<V, P> Handler for PhaseState<Sum, V, P>
+impl<St> Handler for PhaseState<Sum, St>
 where
-    V: VolatileStorage,
-    P: PersistentStorage,
+    St: Store,
 {
     /// Handles a [`StateMachineRequest`].
     ///
@@ -49,11 +47,10 @@ where
 }
 
 #[async_trait]
-impl<V, P> Phase<V, P> for PhaseState<Sum, V, P>
+impl<St> Phase<St> for PhaseState<Sum, St>
 where
     Self: Handler,
-    V: VolatileStorage,
-    P: PersistentStorage,
+    St: Store,
 {
     const NAME: PhaseName = PhaseName::Sum;
 
@@ -87,17 +84,16 @@ where
         Ok(())
     }
 
-    fn next(self) -> Option<StateMachine<V, P>> {
-        Some(PhaseState::<Update, _, _>::new(self.shared).into())
+    fn next(self) -> Option<StateMachine<St>> {
+        Some(PhaseState::<Update, _>::new(self.shared).into())
     }
 }
 
-impl<V, P> PhaseState<Sum, V, P>
+impl<St> PhaseState<Sum, St>
 where
-    Self: Handler + Phase<V, P>,
+    Self: Handler + Phase<St>,
 
-    V: VolatileStorage,
-    P: PersistentStorage,
+    St: Store,
 {
     /// Processes requests until there are enough.
     async fn process_until_enough(&mut self) -> Result<(), PhaseStateError> {
@@ -112,13 +108,12 @@ where
     }
 }
 
-impl<V, P> PhaseState<Sum, V, P>
+impl<St> PhaseState<Sum, St>
 where
-    V: VolatileStorage,
-    P: PersistentStorage,
+    St: Store,
 {
     /// Creates a new sum state.
-    pub fn new(shared: Shared<V, P>) -> Self {
+    pub fn new(shared: Shared<St>) -> Self {
         Self {
             inner: Sum { sum_count: 0 },
             shared,

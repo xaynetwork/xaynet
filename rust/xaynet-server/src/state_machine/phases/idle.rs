@@ -10,7 +10,7 @@ use crate::{
         PhaseStateError,
         StateMachine,
     },
-    storage::api::{PersistentStorage, VolatileStorage},
+    storage::api::Store,
 };
 
 #[cfg(feature = "metrics")]
@@ -23,10 +23,9 @@ use sodiumoxide::crypto::hash::sha256;
 pub struct Idle;
 
 #[async_trait]
-impl<V, P> Phase<V, P> for PhaseState<Idle, V, P>
+impl<St> Phase<St> for PhaseState<Idle, St>
 where
-    V: VolatileStorage,
-    P: PersistentStorage,
+    St: Store,
 {
     const NAME: PhaseName = PhaseName::Idle;
 
@@ -90,18 +89,17 @@ where
         Ok(())
     }
 
-    fn next(self) -> Option<StateMachine<V, P>> {
-        Some(PhaseState::<Sum, _, _>::new(self.shared).into())
+    fn next(self) -> Option<StateMachine<St>> {
+        Some(PhaseState::<Sum, _>::new(self.shared).into())
     }
 }
 
-impl<V, P> PhaseState<Idle, V, P>
+impl<St> PhaseState<Idle, St>
 where
-    V: VolatileStorage,
-    P: PersistentStorage,
+    St: Store,
 {
     /// Creates a new idle state.
-    pub fn new(mut shared: Shared<V, P>) -> Self {
+    pub fn new(mut shared: Shared<St>) -> Self {
         // Since some events are emitted very early, the round id must
         // be correct when the idle phase starts. Therefore, we update
         // it here, when instantiating the idle PhaseState.

@@ -4,10 +4,9 @@ use crate::{
     state_machine::{
         phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Unmask},
         requests::{StateMachineRequest, Sum2Request},
-        RequestError,
-        StateMachine,
+        RequestError, StateMachine,
     },
-    storage::api::{PersistentStorage, VolatileStorage},
+    storage::api::Store,
 };
 
 #[cfg(feature = "metrics")]
@@ -33,11 +32,10 @@ impl Sum2 {
 }
 
 #[async_trait]
-impl<V, P> Phase<V, P> for PhaseState<Sum2, V, P>
+impl<St> Phase<St> for PhaseState<Sum2, St>
 where
     Self: Handler,
-    V: VolatileStorage,
-    P: PersistentStorage,
+    St: Store,
 {
     const NAME: PhaseName = PhaseName::Sum2;
 
@@ -62,16 +60,15 @@ where
     /// Moves from the sum2 state to the next state.
     ///
     /// See the [module level documentation](../index.html) for more details.
-    fn next(self) -> Option<StateMachine<V, P>> {
-        Some(PhaseState::<Unmask, _, _>::new(self.shared, self.inner.model_agg).into())
+    fn next(self) -> Option<StateMachine<St>> {
+        Some(PhaseState::<Unmask, _>::new(self.shared, self.inner.model_agg).into())
     }
 }
 
-impl<V, P> PhaseState<Sum2, V, P>
+impl<St> PhaseState<Sum2, St>
 where
-    Self: Handler + Phase<V, P>,
-    V: VolatileStorage,
-    P: PersistentStorage,
+    Self: Handler + Phase<St>,
+    St: Store,
 {
     /// Processes requests until there are enough.
     async fn process_until_enough(&mut self) -> Result<(), PhaseStateError> {
@@ -87,10 +84,9 @@ where
 }
 
 #[async_trait]
-impl<V, P> Handler for PhaseState<Sum2, V, P>
+impl<St> Handler for PhaseState<Sum2, St>
 where
-    V: VolatileStorage,
-    P: PersistentStorage,
+    St: Store,
 {
     /// Handles a [`StateMachineRequest`],
     ///
@@ -111,13 +107,12 @@ where
     }
 }
 
-impl<V, P> PhaseState<Sum2, V, P>
+impl<St> PhaseState<Sum2, St>
 where
-    V: VolatileStorage,
-    P: PersistentStorage,
+    St: Store,
 {
     /// Creates a new sum2 state.
-    pub fn new(shared: Shared<V, P>, model_agg: Aggregation) -> Self {
+    pub fn new(shared: Shared<St>, model_agg: Aggregation) -> Self {
         Self {
             inner: Sum2 {
                 model_agg,
