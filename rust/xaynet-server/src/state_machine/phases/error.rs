@@ -4,7 +4,7 @@ use crate::{
         StateMachine,
         UnmaskGlobalModelError,
     },
-    storage::api::Storage,
+    storage::api::{PersistentStorage, VolatileStorage},
 };
 use std::time::Duration;
 use tokio::time::delay_for;
@@ -37,9 +37,13 @@ pub enum PhaseStateError {
     SaveGlobalModel(crate::storage::api::StorageError),
 }
 
-impl<Store: Storage> PhaseState<PhaseStateError, Store> {
+impl<V, P> PhaseState<PhaseStateError, V, P>
+where
+    V: VolatileStorage,
+    P: PersistentStorage,
+{
     /// Creates a new error state.
-    pub fn new(shared: Shared<Store>, error: PhaseStateError) -> Self {
+    pub fn new(shared: Shared<V, P>, error: PhaseStateError) -> Self {
         Self {
             inner: error,
             shared,
@@ -48,7 +52,11 @@ impl<Store: Storage> PhaseState<PhaseStateError, Store> {
 }
 
 #[async_trait]
-impl<Store: Storage> Phase<Store> for PhaseState<PhaseStateError, Store> {
+impl<V, P> Phase<V, P> for PhaseState<PhaseStateError, V, P>
+where
+    V: VolatileStorage,
+    P: PersistentStorage,
+{
     const NAME: PhaseName = PhaseName::Error;
 
     async fn run(&mut self) -> Result<(), PhaseStateError> {
@@ -78,10 +86,10 @@ impl<Store: Storage> Phase<Store> for PhaseState<PhaseStateError, Store> {
     /// Moves from the error state to the next state.
     ///
     /// See the [module level documentation](../index.html) for more details.
-    fn next(self) -> Option<StateMachine<Store>> {
+    fn next(self) -> Option<StateMachine<V, P>> {
         Some(match self.inner {
-            PhaseStateError::Channel(_) => PhaseState::<Shutdown, _>::new(self.shared).into(),
-            _ => PhaseState::<Idle, _>::new(self.shared).into(),
+            PhaseStateError::Channel(_) => PhaseState::<Shutdown, _, _>::new(self.shared).into(),
+            _ => PhaseState::<Idle, _, _>::new(self.shared).into(),
         })
     }
 }

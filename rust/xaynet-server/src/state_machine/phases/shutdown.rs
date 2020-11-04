@@ -4,7 +4,7 @@ use crate::{
         PhaseStateError,
         StateMachine,
     },
-    storage::api::Storage,
+    storage::api::{PersistentStorage, VolatileStorage},
 };
 
 /// Shutdown state
@@ -12,7 +12,11 @@ use crate::{
 pub struct Shutdown;
 
 #[async_trait]
-impl<Store: Storage> Phase<Store> for PhaseState<Shutdown, Store> {
+impl<V, P> Phase<V, P> for PhaseState<Shutdown, V, P>
+where
+    V: VolatileStorage,
+    P: PersistentStorage,
+{
     const NAME: PhaseName = PhaseName::Shutdown;
 
     /// Shuts down the [`StateMachine`].
@@ -25,14 +29,18 @@ impl<Store: Storage> Phase<Store> for PhaseState<Shutdown, Store> {
         Ok(())
     }
 
-    fn next(self) -> Option<StateMachine<Store>> {
+    fn next(self) -> Option<StateMachine<V, P>> {
         None
     }
 }
 
-impl<Store: Storage> PhaseState<Shutdown, Store> {
+impl<V, P> PhaseState<Shutdown, V, P>
+where
+    V: VolatileStorage,
+    P: PersistentStorage,
+{
     /// Creates a new shutdown state.
-    pub fn new(shared: Shared<Store>) -> Self {
+    pub fn new(shared: Shared<V, P>) -> Self {
         Self {
             inner: Shutdown,
             shared,

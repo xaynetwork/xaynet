@@ -8,7 +8,7 @@ use xaynet_server::{
     services,
     settings::Settings,
     state_machine::StateMachineInitializer,
-    storage::api::ExternalStorage,
+    storage::api::{RedisStorage, S3Storage, Storage},
 };
 
 #[cfg(feature = "metrics")]
@@ -65,9 +65,13 @@ async fn main() {
         )
     };
 
-    let storage = ExternalStorage::new(redis_settings, settings.s3)
+    let s3 = S3Storage::new(settings.s3)
         .await
         .expect("failed to initialize storage");
+    let redis = RedisStorage::new(redis_settings)
+        .await
+        .expect("failed to initialize storage");
+    let storage = Storage::new(redis, s3);
 
     let (state_machine, requests_tx, event_subscriber) = StateMachineInitializer::new(
         pet_settings,

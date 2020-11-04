@@ -7,7 +7,7 @@ use crate::{
         RequestError,
         StateMachine,
     },
-    storage::api::Storage,
+    storage::api::{PersistentStorage, VolatileStorage},
 };
 
 #[cfg(feature = "metrics")]
@@ -33,9 +33,11 @@ impl Sum2 {
 }
 
 #[async_trait]
-impl<Store: Storage> Phase<Store> for PhaseState<Sum2, Store>
+impl<V, P> Phase<V, P> for PhaseState<Sum2, V, P>
 where
     Self: Handler,
+    V: VolatileStorage,
+    P: PersistentStorage,
 {
     const NAME: PhaseName = PhaseName::Sum2;
 
@@ -60,14 +62,16 @@ where
     /// Moves from the sum2 state to the next state.
     ///
     /// See the [module level documentation](../index.html) for more details.
-    fn next(self) -> Option<StateMachine<Store>> {
-        Some(PhaseState::<Unmask, _>::new(self.shared, self.inner.model_agg).into())
+    fn next(self) -> Option<StateMachine<V, P>> {
+        Some(PhaseState::<Unmask, _, _>::new(self.shared, self.inner.model_agg).into())
     }
 }
 
-impl<Store: Storage> PhaseState<Sum2, Store>
+impl<V, P> PhaseState<Sum2, V, P>
 where
-    Self: Handler + Phase<Store>,
+    Self: Handler + Phase<V, P>,
+    V: VolatileStorage,
+    P: PersistentStorage,
 {
     /// Processes requests until there are enough.
     async fn process_until_enough(&mut self) -> Result<(), PhaseStateError> {
@@ -83,7 +87,11 @@ where
 }
 
 #[async_trait]
-impl<Store: Storage> Handler for PhaseState<Sum2, Store> {
+impl<V, P> Handler for PhaseState<Sum2, V, P>
+where
+    V: VolatileStorage,
+    P: PersistentStorage,
+{
     /// Handles a [`StateMachineRequest`],
     ///
     /// If the request is a [`StateMachineRequest::Sum`] or
@@ -103,9 +111,13 @@ impl<Store: Storage> Handler for PhaseState<Sum2, Store> {
     }
 }
 
-impl<Store: Storage> PhaseState<Sum2, Store> {
+impl<V, P> PhaseState<Sum2, V, P>
+where
+    V: VolatileStorage,
+    P: PersistentStorage,
+{
     /// Creates a new sum2 state.
-    pub fn new(shared: Shared<Store>, model_agg: Aggregation) -> Self {
+    pub fn new(shared: Shared<V, P>, model_agg: Aggregation) -> Self {
         Self {
             inner: Sum2 {
                 model_agg,

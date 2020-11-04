@@ -14,7 +14,7 @@ use crate::{
         RequestError,
         StateMachine,
     },
-    storage::api::Storage,
+    storage::api::{PersistentStorage, VolatileStorage},
 };
 
 #[cfg(feature = "metrics")]
@@ -40,9 +40,11 @@ impl Update {
 }
 
 #[async_trait]
-impl<Store: Storage> Phase<Store> for PhaseState<Update, Store>
+impl<V, P> Phase<V, P> for PhaseState<Update, V, P>
 where
     Self: Handler,
+    V: VolatileStorage,
+    P: PersistentStorage,
 {
     const NAME: PhaseName = PhaseName::Update;
 
@@ -82,14 +84,16 @@ where
         Ok(())
     }
 
-    fn next(self) -> Option<StateMachine<Store>> {
-        Some(PhaseState::<Sum2, _>::new(self.shared, self.inner.model_agg).into())
+    fn next(self) -> Option<StateMachine<V, P>> {
+        Some(PhaseState::<Sum2, _, _>::new(self.shared, self.inner.model_agg).into())
     }
 }
 
-impl<Store: Storage> PhaseState<Update, Store>
+impl<V, P> PhaseState<Update, V, P>
 where
-    Self: Handler + Phase<Store>,
+    Self: Handler + Phase<V, P>,
+    V: VolatileStorage,
+    P: PersistentStorage,
 {
     /// Processes requests until there are enough.
     async fn process_until_enough(&mut self) -> Result<(), PhaseStateError> {
@@ -105,7 +109,11 @@ where
 }
 
 #[async_trait]
-impl<Store: Storage> Handler for PhaseState<Update, Store> {
+impl<V, P> Handler for PhaseState<Update, V, P>
+where
+    V: VolatileStorage,
+    P: PersistentStorage,
+{
     /// Handles a [`StateMachineRequest`].
     ///
     /// If the request is a [`StateMachineRequest::Sum`] or
@@ -125,9 +133,13 @@ impl<Store: Storage> Handler for PhaseState<Update, Store> {
     }
 }
 
-impl<Store: Storage> PhaseState<Update, Store> {
+impl<V, P> PhaseState<Update, V, P>
+where
+    V: VolatileStorage,
+    P: PersistentStorage,
+{
     /// Creates a new update state.
-    pub fn new(shared: Shared<Store>) -> Self {
+    pub fn new(shared: Shared<V, P>) -> Self {
         Self {
             inner: Update {
                 update_count: 0,

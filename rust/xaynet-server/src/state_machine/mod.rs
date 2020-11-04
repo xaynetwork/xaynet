@@ -117,7 +117,13 @@ use self::{
 };
 use crate::{
     settings::{MaskSettings, ModelSettings, PetSettings},
-    storage::{api::Storage, MaskDictIncrError, RedisError, SeedDictUpdateError, SumDictAddError},
+    storage::{
+        api::{PersistentStorage, Storage, VolatileStorage},
+        MaskDictIncrError,
+        RedisError,
+        SeedDictUpdateError,
+        SumDictAddError,
+    },
 };
 use derive_more::From;
 use thiserror::Error;
@@ -172,25 +178,31 @@ pub enum UnmaskGlobalModelError {
 
 /// The state machine with all its states.
 #[derive(From)]
-pub enum StateMachine<Store: Storage> {
-    Idle(PhaseState<Idle, Store>),
-    Sum(PhaseState<Sum, Store>),
-    Update(PhaseState<Update, Store>),
-    Sum2(PhaseState<Sum2, Store>),
-    Unmask(PhaseState<Unmask, Store>),
-    Error(PhaseState<PhaseStateError, Store>),
-    Shutdown(PhaseState<Shutdown, Store>),
+pub enum StateMachine<V, P>
+where
+    V: VolatileStorage,
+    P: PersistentStorage,
+{
+    Idle(PhaseState<Idle, V, P>),
+    Sum(PhaseState<Sum, V, P>),
+    Update(PhaseState<Update, V, P>),
+    Sum2(PhaseState<Sum2, V, P>),
+    Unmask(PhaseState<Unmask, V, P>),
+    Error(PhaseState<PhaseStateError, V, P>),
+    Shutdown(PhaseState<Shutdown, V, P>),
 }
 
-impl<Store: Storage> StateMachine<Store>
+impl<V, P> StateMachine<V, P>
 where
-    PhaseState<Idle, Store>: Phase<Store>,
-    PhaseState<Sum, Store>: Phase<Store>,
-    PhaseState<Update, Store>: Phase<Store>,
-    PhaseState<Sum2, Store>: Phase<Store>,
-    PhaseState<Unmask, Store>: Phase<Store>,
-    PhaseState<PhaseStateError, Store>: Phase<Store>,
-    PhaseState<Shutdown, Store>: Phase<Store>,
+    PhaseState<Idle, V, P>: Phase<V, P>,
+    PhaseState<Sum, V, P>: Phase<V, P>,
+    PhaseState<Update, V, P>: Phase<V, P>,
+    PhaseState<Sum2, V, P>: Phase<V, P>,
+    PhaseState<Unmask, V, P>: Phase<V, P>,
+    PhaseState<PhaseStateError, V, P>: Phase<V, P>,
+    PhaseState<Shutdown, V, P>: Phase<V, P>,
+    V: VolatileStorage,
+    P: PersistentStorage,
 {
     /// Moves the [`StateMachine`] to the next state and consumes the current one.
     /// Returns the next state or `None` if the [`StateMachine`] reached the state [`Shutdown`].
@@ -233,11 +245,15 @@ pub enum StateMachineInitializationError {
 }
 
 /// The state machine initializer that initializes a new state machine.
-pub struct StateMachineInitializer<S: Storage> {
+pub struct StateMachineInitializer<V, P>
+where
+    V: VolatileStorage,
+    P: PersistentStorage,
+{
     pet_settings: PetSettings,
     mask_settings: MaskSettings,
     model_settings: ModelSettings,
-    store: S,
+    store: Storage<V, P>,
 
     #[cfg(feature = "model-persistence")]
     restore_settings: RestoreSettings,
@@ -245,13 +261,17 @@ pub struct StateMachineInitializer<S: Storage> {
     metrics_handle: MetricsSender,
 }
 
-impl<S: Storage> StateMachineInitializer<S> {
+impl<V, P> StateMachineInitializer<V, P>
+where
+    V: VolatileStorage,
+    P: PersistentStorage,
+{
     /// Creates a new [`StateMachineInitializer`].
     pub fn new(
         pet_settings: PetSettings,
         mask_settings: MaskSettings,
         model_settings: ModelSettings,
-        store: S,
+        store: Storage<V, P>,
         #[cfg(feature = "model-persistence")] restore_settings: RestoreSettings,
         #[cfg(feature = "metrics")] metrics_handle: MetricsSender,
     ) -> Self {
@@ -301,10 +321,7 @@ impl<S: Storage> StateMachineInitializer<S> {
         self,
         coordinator_state: CoordinatorState,
         global_model: ModelUpdate,
-    ) -> (StateMachine<S>, RequestSender, EventSubscriber)
-    where
-        S: Storage,
-    {
+    ) -> (StateMachine<V, P>, RequestSender, EventSubscriber) {
         let (event_publisher, event_subscriber) = EventPublisher::init(
             coordinator_state.round_id,
             coordinator_state.keys.clone(),
@@ -324,13 +341,17 @@ impl<S: Storage> StateMachineInitializer<S> {
             self.metrics_handle,
         );
 
-        let state_machine = StateMachine::from(PhaseState::<Idle, _>::new(shared));
+        let state_machine = StateMachine::from(PhaseState::<Idle, _, _>::new(shared));
         (state_machine, request_tx, event_subscriber)
     }
 }
 
 #[cfg(feature = "model-persistence")]
-impl<S: Storage> StateMachineInitializer<S> {
+impl<V, P> StateMachineInitializer<V, P>
+where
+    V: VolatileStorage,
+    P: PersistentStorage,
+{
     /// Initializes a new [`StateMachine`] by trying to restore the previous coordinator state
     /// along with the latest global model. After a successful initialization, the state machine
     /// always starts from a new round. This means that the round id is increased by one.
@@ -355,7 +376,8 @@ impl<S: Storage> StateMachineInitializer<S> {
     /// - Any network error will cause the initialization to fail.
     pub async fn init(
         self,
-    ) -> StateMachineInitializationResult<(StateMachine<S>, RequestSender, EventSubscriber)> {
+    ) -> StateMachineInitializationResult<(StateMachine<V, P>, RequestSender, EventSubscriber)>
+    {
         // crucial: init must be called before anything else in this module
         sodiumoxide::init().or(Err(StateMachineInitializationError::CryptoInit))?;
 

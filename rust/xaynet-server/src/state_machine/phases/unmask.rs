@@ -9,7 +9,7 @@ use crate::{
         StateMachine,
         UnmaskGlobalModelError,
     },
-    storage::api::Storage,
+    storage::api::{PersistentStorage, VolatileStorage},
 };
 
 #[cfg(feature = "metrics")]
@@ -30,7 +30,11 @@ impl Unmask {
 }
 
 #[async_trait]
-impl<Store: Storage> Phase<Store> for PhaseState<Unmask, Store> {
+impl<V, P> Phase<V, P> for PhaseState<Unmask, V, P>
+where
+    V: VolatileStorage,
+    P: PersistentStorage,
+{
     const NAME: PhaseName = PhaseName::Unmask;
 
     /// Run the unmasking phase
@@ -91,14 +95,18 @@ impl<Store: Storage> Phase<Store> for PhaseState<Unmask, Store> {
     /// Moves from the unmask state to the next state.
     ///
     /// See the [module level documentation](../index.html) for more details.
-    fn next(self) -> Option<StateMachine<Store>> {
-        Some(PhaseState::<Idle, _>::new(self.shared).into())
+    fn next(self) -> Option<StateMachine<V, P>> {
+        Some(PhaseState::<Idle, _, _>::new(self.shared).into())
     }
 }
 
-impl<Store: Storage> PhaseState<Unmask, Store> {
+impl<V, P> PhaseState<Unmask, V, P>
+where
+    V: VolatileStorage,
+    P: PersistentStorage,
+{
     /// Creates a new unmask state.
-    pub fn new(shared: Shared<Store>, model_agg: Aggregation) -> Self {
+    pub fn new(shared: Shared<V, P>, model_agg: Aggregation) -> Self {
         Self {
             inner: Unmask {
                 model_agg: Some(model_agg),

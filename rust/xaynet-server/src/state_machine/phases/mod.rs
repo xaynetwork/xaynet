@@ -26,7 +26,7 @@ use crate::{
         RequestError,
         StateMachine,
     },
-    storage::api::Storage,
+    storage::api::{PersistentStorage, Storage, VolatileStorage},
 };
 
 #[cfg(feature = "metrics")]
@@ -50,7 +50,11 @@ pub enum PhaseName {
 
 /// A trait that must be implemented by a state in order to move to a next state.
 #[async_trait]
-pub trait Phase<Store: Storage> {
+pub trait Phase<V, P>
+where
+    V: VolatileStorage,
+    P: PersistentStorage,
+{
     /// Name of the current phase
     const NAME: PhaseName;
 
@@ -58,7 +62,7 @@ pub trait Phase<Store: Storage> {
     async fn run(&mut self) -> Result<(), PhaseStateError>;
 
     /// Moves from this state to the next state.
-    fn next(self) -> Option<StateMachine<Store>>;
+    fn next(self) -> Option<StateMachine<V, P>>;
 }
 
 /// A trait that must be implemented by a state to handle a request.
@@ -71,7 +75,11 @@ pub trait Handler {
 /// A struct that contains the coordinator state and the I/O interfaces that is shared and
 /// accessible by all `PhaseState`s.
 #[cfg_attr(test, derive(Debug))]
-pub struct Shared<Store: Storage> {
+pub struct Shared<V, P>
+where
+    V: VolatileStorage,
+    P: PersistentStorage,
+{
     /// The coordinator state.
     pub(in crate::state_machine) state: CoordinatorState,
     /// The request receiver half.
@@ -79,18 +87,22 @@ pub struct Shared<Store: Storage> {
     /// The event publisher.
     pub(in crate::state_machine) events: EventPublisher,
 
-    pub(in crate::state_machine) store: Store,
+    pub(in crate::state_machine) store: Storage<V, P>,
     #[cfg(feature = "metrics")]
     /// The metrics sender half.
     pub(in crate::state_machine) metrics_tx: MetricsSender,
 }
 
-impl<Store: Storage> Shared<Store> {
+impl<V, P> Shared<V, P>
+where
+    V: VolatileStorage,
+    P: PersistentStorage,
+{
     pub fn new(
         state: CoordinatorState,
         publisher: EventPublisher,
         request_rx: RequestReceiver,
-        store: Store,
+        store: Storage<V, P>,
         #[cfg(feature = "metrics")] metrics_tx: MetricsSender,
     ) -> Self {
         Self {
@@ -120,16 +132,22 @@ impl<Store: Storage> Shared<Store> {
 /// This contains the state-dependent `inner` state and the state-independent `shared.state`
 /// which is shared across state transitions. Furthermore, `shared.io` contains the I/O interfaces
 /// of the state machine.
-pub struct PhaseState<S, Store: Storage> {
+pub struct PhaseState<S, V, P>
+where
+    V: VolatileStorage,
+    P: PersistentStorage,
+{
     /// The inner state.
     pub(in crate::state_machine) inner: S,
     /// The shared coordinator state and I/O interfaces.
-    pub(in crate::state_machine) shared: Shared<Store>,
+    pub(in crate::state_machine) shared: Shared<V, P>,
 }
 
-impl<S, Store: Storage> PhaseState<S, Store>
+impl<S, V, P> PhaseState<S, V, P>
 where
-    Self: Handler + Phase<Store>,
+    Self: Handler + Phase<V, P>,
+    V: VolatileStorage,
+    P: PersistentStorage,
 {
     /// Processes requests for as long as the given duration.
     async fn process_during(&mut self, dur: tokio::time::Duration) -> Result<(), PhaseStateError> {
@@ -180,14 +198,17 @@ where
     }
 }
 
-impl<S, Store: Storage> PhaseState<S, Store>
+impl<S, V, P> PhaseState<S, V, P>
 where
-    Self: Phase<Store>,
+    Self: Phase<V, P>,
+
+    V: VolatileStorage,
+    P: PersistentStorage,
 {
     /// Run the current phase to completion, then transition to the
     /// next phase and return it.
-    pub async fn run_phase(mut self) -> Option<StateMachine<Store>> {
-        let phase = <Self as Phase<_>>::NAME;
+    pub async fn run_phase(mut self) -> Option<StateMachine<V, P>> {
+        let phase = <Self as Phase<_, _>>::NAME;
         let span = error_span!("run_phase", phase = ?phase);
 
         async move {
@@ -249,7 +270,11 @@ where
 }
 
 // Functions that are available to all states
-impl<S, Store: Storage> PhaseState<S, Store> {
+impl<S, V, P> PhaseState<S, V, P>
+where
+    V: VolatileStorage,
+    P: PersistentStorage,
+{
     /// Receives the next [`Request`].
     ///
     /// # Errors
@@ -282,8 +307,8 @@ impl<S, Store: Storage> PhaseState<S, Store> {
         }
     }
 
-    fn into_error_state(self, err: PhaseStateError) -> StateMachine<Store> {
-        PhaseState::<PhaseStateError, _>::new(self.shared, err).into()
+    fn into_error_state(self, err: PhaseStateError) -> StateMachine<V, P> {
+        PhaseState::<PhaseStateError, _, _>::new(self.shared, err).into()
     }
 }
 
