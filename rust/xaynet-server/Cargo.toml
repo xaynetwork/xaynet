@@ -48,6 +48,8 @@ redis = { version = "0.17.0", default-features = false, features = [
 ] }
 sodiumoxide = "0.2.6"
 structopt = "0.3.17"
+# import of syn is currently needed to avoid version conflicts of `redis` and `warp`
+syn = "1.0.44"
 thiserror = "1.0.20"
 tokio = { version = "0.2.22", features = [
     "macros",
@@ -65,7 +67,7 @@ tracing-futures = "0.2.4"
 tracing-subscriber = "0.2.12"
 uuid = { version = "0.8.1", features = ["v4"] }
 validator = { version = "0.11.0", features = ["derive"] }
-warp = "0.2.5"
+warp = { git = "https://github.com/xaynetwork/warp", branch = "tls_client_authentication" }
 xaynet-core = { path = "../xaynet-core", version = "0.1.0" }
 xaynet-macros = { path = "../xaynet-macros", version = "0.1.0" }
 

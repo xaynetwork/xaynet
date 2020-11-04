@@ -5,6 +5,7 @@ filter = "xaynet=debug,http=warn,info"
 bind_address = "0.0.0.0:8081"
 tls_certificate = "/app/ssl/tls.pem"
 tls_key = "/app/ssl/tls.key"
+# tls_root = "/app/ssl/root.pem"
 
 [pet]
 min_sum_count = 1

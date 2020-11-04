@@ -297,7 +297,16 @@ fn validate_fractions(s: &PetSettings) -> Result<(), ValidationError> {
 }
 
 #[derive(Debug, Deserialize, Clone)]
+#[cfg_attr(
+    feature = "tls",
+    derive(Validate),
+    validate(schema(function = "validate_api"))
+)]
 /// REST API settings.
+///
+/// Requires at least one of the following arguments if the `tls` feature is enabled:
+/// - `tls_certificate` together with `tls_key` for TLS server authentication
+/// - `tls_root` for TLS client authentication
 pub struct ApiSettings {
     /// The address to which the REST API should be bound.
     ///
@@ -318,8 +327,8 @@ pub struct ApiSettings {
     pub bind_address: std::net::SocketAddr,
 
     #[cfg(feature = "tls")]
-    /// The path to the server certificate to enable TLS. If this is present, then `tls_key` must
-    /// also be present.
+    /// The path to the server certificate to enable TLS server authentication. Leave this out to
+    /// disable server authentication. If this is present, then `tls_key` must also be present.
     ///
     /// Requires the `tls` feature to be enabled.
     ///
@@ -335,11 +344,12 @@ pub struct ApiSettings {
     /// ```text
     /// XAYNET_API__TLS_CERTIFICATE=path/to/tls/files/certificate.pem
     /// ```
-    pub tls_certificate: String,
+    pub tls_certificate: Option<PathBuf>,
 
     #[cfg(feature = "tls")]
-    /// The path to the server private key to enable TLS. If this is present, then `tls_certificate
-    /// ` must also be present.
+    /// The path to the server private key to enable TLS server authentication. Leave this out to
+    /// disable server authentication. If this is present, then `tls_certificate` must also be
+    /// present.
     ///
     /// Requires the `tls` feature to be enabled.
     ///
@@ -355,7 +365,36 @@ pub struct ApiSettings {
     /// ```text
     /// XAYNET_API__TLS_KEY=path/to/tls/files/key.rsa
     /// ```
-    pub tls_key: String,
+    pub tls_key: Option<PathBuf>,
+
+    #[cfg(feature = "tls")]
+    /// The path to the trusted anchors to enable TLS client authentication. Leave this out to
+    /// disable client authentication.
+    ///
+    /// Requires the `tls` feature to be enabled.
+    ///
+    /// # Examples
+    ///
+    /// **TOML**
+    /// ```text
+    /// [api]
+    /// tls_root = path/to/tls/files/root.pem
+    /// ```
+    ///
+    /// **Environment variable**
+    /// ```text
+    /// XAYNET_API__TLS_ROOT=path/to/tls/files/root.pem
+    /// ```
+    pub tls_root: Option<PathBuf>,
+}
+
+#[cfg(feature = "tls")]
+/// Checks API settings.
+fn validate_api(s: &ApiSettings) -> Result<(), ValidationError> {
+    match (&s.tls_certificate, &s.tls_key, &s.tls_root) {
+        (Some(_), Some(_), _) | (None, None, Some(_)) => Ok(()),
+        _ => Err(ValidationError::new("invalid tls settings")),
+    }
 }
 
 #[derive(Debug, Validate, Deserialize, Clone, Copy)]
