@@ -81,7 +81,12 @@ pub trait PersistentStorage
 where
     Self: Clone + Send + Sync + 'static,
 {
-    async fn set_global_model(&self, id: &str, global_model: &Model) -> StorageResult<()>;
+    async fn set_global_model(
+        &self,
+        round_id: u64,
+        round_seed: &RoundSeed,
+        global_model: &Model,
+    ) -> Result<String, StorageError>;
 
     async fn get_global_model(&self, id: &str) -> StorageResult<Option<Model>>;
 
@@ -91,10 +96,32 @@ where
     }
 }
 
+#[cfg_attr(test, derive(Debug))]
+#[derive(Clone)]
+pub struct Storage<V, P>
+where
+    V: VolatileStorage,
+    P: PersistentStorage,
+{
+    volatile: V,
+    persistent: P,
+}
 
+impl<V, P> Storage<V, P>
+where
+    V: VolatileStorage,
+    P: PersistentStorage,
+{
+    pub fn new(volatile: V, persistent: P) -> Self {
+        Self {
+            volatile,
+            persistent,
+        }
+    }
+}
 
 #[async_trait]
-impl<V: VolatileStorage, P: PersistentStorage> Store for Storage<V, P> {
+impl<V: VolatileStorage, P: PersistentStorage> VolatileStorage for Storage<V, P> {
     /// Sets a [`CoordinatorState`].
     ///
     /// Behavior
@@ -299,49 +326,6 @@ impl<V: VolatileStorage, P: PersistentStorage> Store for Storage<V, P> {
         self.volatile.delete_dicts().await
     }
 
-    /////////// Global model
-
-    /// Set a global model.
-    ///
-    /// Behavior
-    /// - if the global model already exists (same id),  ?
-    /// - if the global model does not exist,  write model and return id
-    ///
-    /// # Errors:
-    ///
-    /// ## IO
-    /// - S3Error
-    ///
-    /// ## Protocol
-    /// None
-    async fn set_global_model(
-        &self,
-        round_id: u64,
-        round_seed: &RoundSeed,
-        global_model: &Model,
-    ) -> Result<String, StorageError> {
-        let id = P::format_global_model_id(round_id, round_seed);
-        self.persistent.set_global_model(&id, global_model).await?;
-        Ok(id)
-    }
-
-    /// Gets a global model.
-    ///
-    /// Behavior
-    /// - if the global model does not exist, return Ok(None)
-    /// - if the global model exists, return Ok(Some(Model))
-    ///
-    /// # Errors:
-    ///
-    /// ## IO
-    /// - S3Error
-    ///
-    /// ## Protocol
-    /// None
-    async fn get_global_model(&self, id: &str) -> StorageResult<Option<Model>> {
-        self.persistent.get_global_model(id).await
-    }
-
     /// Sets the latest global model id.
     ///
     /// Behavior
@@ -377,27 +361,49 @@ impl<V: VolatileStorage, P: PersistentStorage> Store for Storage<V, P> {
     }
 }
 
-#[cfg_attr(test, derive(Debug))]
-#[derive(Clone)]
-pub struct Storage<V, P>
-where
-    V: VolatileStorage,
-    P: PersistentStorage,
-{
-    volatile: V,
-    persistent: P,
-}
+#[async_trait]
+impl<V: VolatileStorage, P: PersistentStorage> PersistentStorage for Storage<V, P> {
+    /////////// Global model
 
-impl<V, P> Storage<V, P>
-where
-    V: VolatileStorage,
-    P: PersistentStorage,
-{
-    pub fn new(volatile: V, persistent: P) -> Self {
-        Self {
-            volatile,
-            persistent,
-        }
+    /// Set a global model.
+    ///
+    /// Behavior
+    /// - if the global model already exists (same id),  ?
+    /// - if the global model does not exist,  write model and return id
+    ///
+    /// # Errors:
+    ///
+    /// ## IO
+    /// - S3Error
+    ///
+    /// ## Protocol
+    /// None
+    async fn set_global_model(
+        &self,
+        round_id: u64,
+        round_seed: &RoundSeed,
+        global_model: &Model,
+    ) -> Result<String, StorageError> {
+        self.persistent
+            .set_global_model(round_id, round_seed, global_model)
+            .await
+    }
+
+    /// Gets a global model.
+    ///
+    /// Behavior
+    /// - if the global model does not exist, return Ok(None)
+    /// - if the global model exists, return Ok(Some(Model))
+    ///
+    /// # Errors:
+    ///
+    /// ## IO
+    /// - S3Error
+    ///
+    /// ## Protocol
+    /// None
+    async fn get_global_model(&self, id: &str) -> StorageResult<Option<Model>> {
+        self.persistent.get_global_model(id).await
     }
 }
 
@@ -576,12 +582,18 @@ impl S3Storage {
 
 #[async_trait]
 impl PersistentStorage for S3Storage {
-    async fn set_global_model(&self, id: &str, global_model: &Model) -> StorageResult<()> {
+    async fn set_global_model(
+        &self,
+        round_id: u64,
+        round_seed: &RoundSeed,
+        global_model: &Model,
+    ) -> StorageResult<String> {
+        let id = Self::format_global_model_id(round_id, round_seed);
         self.s3
-            .upload_global_model(id, global_model)
+            .upload_global_model(&id, global_model)
             .await
             .map_err(StorageError::from)?;
-        Ok(())
+        Ok(id)
     }
 
     async fn get_global_model(&self, id: &str) -> StorageResult<Option<Model>> {
@@ -594,56 +606,17 @@ impl PersistentStorage for S3Storage {
     }
 }
 
-
 #[async_trait]
 pub trait Store
 where
-    Self: Clone + Send + Sync + 'static,
+    Self: Clone + Send + Sync + 'static + VolatileStorage + PersistentStorage,
 {
-    async fn set_coordinator_state(&self, state: &CoordinatorState) -> StorageResult<()>;
+}
 
-    async fn get_coordinator_state(&self) -> StorageResult<Option<CoordinatorState>>;
-
-    async fn add_sum_participant(
-        &self,
-        pk: &SumParticipantPublicKey,
-        ephm_pk: &SumParticipantEphemeralPublicKey,
-    ) -> StorageResult<SumDictAdd>;
-
-    async fn get_sum_dict(&self) -> StorageResult<SumDict>;
-
-    async fn add_local_seed_dict(
-        &self,
-        update_pk: &UpdateParticipantPublicKey,
-        local_seed_dict: &LocalSeedDict,
-    ) -> StorageResult<SeedDictUpdate>;
-
-    async fn get_seed_dict(&self) -> StorageResult<SeedDict>;
-
-    async fn incr_mask_score(
-        &self,
-        pk: &SumParticipantPublicKey,
-        mask: &MaskObject,
-    ) -> StorageResult<MaskDictIncr>;
-
-    async fn get_best_masks(&self) -> StorageResult<Vec<(MaskObject, u64)>>;
-
-    async fn get_number_of_unique_masks(&self) -> StorageResult<u64>;
-
-    async fn delete_coordinator_data(&self) -> StorageResult<()>;
-
-    async fn delete_dicts(&self) -> StorageResult<()>;
-
-    async fn set_latest_global_model_id(&self, id: &str) -> StorageResult<()>;
-
-    async fn get_latest_global_model_id(&self) -> StorageResult<Option<String>>;
-
-    async fn set_global_model(
-        &self,
-        round_id: u64,
-        round_seed: &RoundSeed,
-        global_model: &Model,
-    ) -> Result<String, StorageError>;
-
-    async fn get_global_model(&self, id: &str) -> StorageResult<Option<Model>>;
+#[async_trait]
+impl<V, P> Store for Storage<V, P>
+where
+    V: VolatileStorage,
+    P: PersistentStorage,
+{
 }
