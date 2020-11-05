@@ -32,4 +32,12 @@ pub struct Opt {
         help = "The list of trusted DER/PEM encoded TLS server certificates"
     )]
     pub certificates: Option<Vec<PathBuf>>,
+
+    #[structopt(
+        short,
+        long,
+        parse(from_os_str),
+        help = "The PEM encoded TLS client identity"
+    )]
+    pub identity: Option<PathBuf>,
 }

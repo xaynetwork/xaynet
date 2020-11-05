@@ -19,25 +19,25 @@ msrv = "1.46.0"
 all-features = true
 
 [dependencies]
+async-trait = "0.1.40"
 derive_more = { version = "0.99.10", default-features = false, features = ["from"] }
 serde = { version = "1.0.116", features = ["derive"] }
 sodiumoxide = "0.2.6"
 thiserror = "1.0.20"
-async-trait = "0.1.40"
 tracing = "0.1.21"
 xaynet-core = { path = "../xaynet-core", version = "0.1.0" }
 
-# Used in the reqwest client
+# feature: reqwest client
 bincode = { version = "1.3.1", optional = true }
 reqwest = { version = "0.10.8", default-features = false, optional = true }
 
 [dev-dependencies]
-tokio-test = "0.2.1"
-tokio = { version = "0.2.22", features = ["rt-core", "macros"] }
 num = { version = "0.3.0", features = ["serde"] }
-xaynet-core = { path = "../xaynet-core", version = "0.1.0", features = ["testutils"] }
 serde_json = "1.0.58"
+tokio = { version = "0.2.22", features = ["rt-core", "macros"] }
+tokio-test = "0.2.1"
+xaynet-core = { path = "../xaynet-core", version = "0.1.0", features = ["testutils"] }
 
 [features]
 default = []
-reqwest_client = ["reqwest/rustls-tls", "bincode"]
+reqwest_client = ["bincode", "reqwest/rustls-tls"]

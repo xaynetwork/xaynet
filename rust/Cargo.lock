@@ -608,6 +608,7 @@ name = "examples"
 version = "0.0.0"
 dependencies = [
  "async-trait",
+ "reqwest",
  "structopt",
  "tokio",
  "tracing",
