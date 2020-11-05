@@ -101,7 +101,7 @@ unsafe fn identity_path_from(raw: FfiStr) -> Option<PathBuf> {
     unsafe { raw.as_opt_str() }.map(PathBuf::from)
 }
 
-/// A Opaque type of MobileClient.
+/// An opaque type of MobileClient.
 /// see [FFI-C-OPAQUE](https://anssi-fr.github.io/rust-guide/07_ffi.html#recommendation-a-idffi-c-opaqueaffi-c-opaque)
 pub struct CMobileClient(MobileClient);
 
