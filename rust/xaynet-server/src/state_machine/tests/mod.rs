@@ -4,7 +4,7 @@ pub mod initializer;
 pub mod utils;
 
 use xaynet_core::{
-    common::RoundSeed,
+    common::{RoundParameters, RoundSeed},
     crypto::{ByteObject, EncryptKeyPair},
     mask::{FromPrimitives, Model},
 };
@@ -14,7 +14,7 @@ use crate::state_machine::{
     phases::PhaseName,
     tests::{
         builder::StateMachineBuilder,
-        utils::{enable_logging, generate_summer, generate_updater},
+        utils::{enable_logging, generate_summer, generate_updater, Participant},
     },
 };
 use serial_test::serial;
@@ -23,21 +23,22 @@ use serial_test::serial;
 #[serial]
 async fn integration_full_round() {
     enable_logging();
+    let round_params = RoundParameters {
+        pk: EncryptKeyPair::generate().public,
+        sum: 0.5,
+        update: 1.0,
+        seed: RoundSeed::generate(),
+    };
     let n_updaters = 3;
     let n_summers = 2;
-    let seed = RoundSeed::generate();
-    let sum_ratio = 0.5;
-    let update_ratio = 1.0;
-    let coord_keys = EncryptKeyPair::generate();
-    let coord_pk = coord_keys.public;
     let model_size = 4;
 
     let (state_machine, requests, events, eio) = StateMachineBuilder::new()
         .await
         .with_round_id(42)
-        .with_seed(seed.clone())
-        .with_sum_ratio(sum_ratio)
-        .with_update_ratio(update_ratio)
+        .with_seed(round_params.seed.clone())
+        .with_sum_ratio(round_params.sum)
+        .with_update_ratio(round_params.update)
         .with_min_sum(n_summers)
         .with_min_update(n_updaters)
         .with_min_sum_time(1)
@@ -54,10 +55,10 @@ async fn integration_full_round() {
     assert!(state_machine.is_sum());
 
     // Sum phase
-    let mut summer_1 = generate_summer(&seed, sum_ratio, update_ratio);
-    let mut summer_2 = generate_summer(&seed, sum_ratio, update_ratio);
-    let msg_1 = summer_1.compose_sum_message(coord_pk);
-    let msg_2 = summer_2.compose_sum_message(coord_pk);
+    let summer_1 = generate_summer(round_params.clone());
+    let summer_2 = generate_summer(round_params.clone());
+    let msg_1 = summer_1.compose_sum_message();
+    let msg_2 = summer_2.compose_sum_message();
     let req_1 = async { requests.msg(&msg_1).await.unwrap() };
     let req_2 = async { requests.msg(&msg_2).await.unwrap() };
     let transition = async { state_machine.next().await.unwrap() };
@@ -67,11 +68,13 @@ async fn integration_full_round() {
     // Update phase
     let transition_task = tokio::spawn(async { state_machine.next().await.unwrap() });
     let sum_dict = events.sum_dict_listener().get_latest().event.unwrap();
-    let scalar = 1.0 / (n_updaters as f64 * update_ratio);
+    let scalar = 1.0 / (n_updaters as f64 * round_params.update);
     let model = Model::from_primitives(vec![0; model_size].into_iter()).unwrap();
     for _ in 0..3 {
-        let updater = generate_updater(&seed, sum_ratio, update_ratio);
-        let msg = updater.compose_update_message(coord_pk, &sum_dict, scalar, model.clone());
+        let updater = generate_updater(round_params.clone());
+        let (mask_seed, masked_model) = updater.compute_masked_model(&model, scalar);
+        let local_seed_dict = Participant::build_seed_dict(&sum_dict, &mask_seed);
+        let msg = updater.compose_update_message(masked_model.clone(), local_seed_dict.clone());
         requests.msg(&msg).await.unwrap();
     }
     let state_machine = transition_task.await.unwrap();
@@ -79,15 +82,18 @@ async fn integration_full_round() {
 
     // Sum2 phase
     let seed_dict = events.seed_dict_listener().get_latest().event.unwrap();
-    let mask_length = events.mask_length_listener().get_latest().event.unwrap();
-    let msg_1 = summer_1
-        .compose_sum2_message(coord_pk, seed_dict.get(&summer_1.pk).unwrap(), mask_length)
-        .unwrap();
-    let msg_2 = summer_2
-        .compose_sum2_message(coord_pk, seed_dict.get(&summer_2.pk).unwrap(), mask_length)
-        .unwrap();
+
+    let seeds_1 = summer_1.decrypt_seeds(&seed_dict.get(&summer_1.keys.public).unwrap());
+    let aggregation_1 = summer_1.aggregate_masks(model_size, &seeds_1);
+    let msg_1 = summer_1.compose_sum2_message(aggregation_1.into());
+
+    let seeds_2 = summer_2.decrypt_seeds(&seed_dict.get(&summer_2.keys.public).unwrap());
+    let aggregation_2 = summer_2.aggregate_masks(model_size, &seeds_2);
+    let msg_2 = summer_2.compose_sum2_message(aggregation_2.into());
+
     let req_1 = async { requests.msg(&msg_1).await.unwrap() };
     let req_2 = async { requests.msg(&msg_2).await.unwrap() };
+
     let transition = async { state_machine.next().await.unwrap() };
     let ((), (), state_machine) = tokio::join!(req_1, req_2, transition);
     assert!(state_machine.is_unmask());

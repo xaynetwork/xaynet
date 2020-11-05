@@ -29,6 +29,7 @@ pub struct CoordinatorState {
     /// The maximum time (in seconds) permitted for processing update messages.
     pub max_update_time: u64,
     /// The masking configuration.
+    // FIXME: this should be a MaskConfigPair
     pub mask_config: MaskConfig,
     /// The size of the model.
     pub model_size: usize,

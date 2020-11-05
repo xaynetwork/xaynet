@@ -1,10 +1,24 @@
 use xaynet_core::{
-    common::RoundSeed,
-    crypto::ByteObject,
-    mask::{BoundType, DataType, GroupType, MaskObject, ModelType},
-    message::{Message, Payload, Sum, Update},
+    common::RoundParameters,
+    crypto::{ByteObject, EncryptKeyPair, Signature, SigningKeyPair},
+    mask::{
+        Aggregation,
+        BoundType,
+        DataType,
+        GroupType,
+        MaskConfig,
+        MaskConfigPair,
+        MaskObject,
+        MaskSeed,
+        Masker,
+        Model,
+        ModelType,
+    },
+    message::{Message, Payload, Sum, Sum2, Update},
     LocalSeedDict,
+    SumDict,
     SumParticipantEphemeralPublicKey,
+    UpdateSeedDict,
 };
 
 use crate::{
@@ -17,7 +31,6 @@ use crate::{
     },
     storage::redis,
 };
-use xaynet_client::{Participant, Task};
 
 #[cfg(feature = "metrics")]
 use crate::metrics::MetricsSender;
@@ -34,23 +47,132 @@ pub fn enable_logging() {
         .try_init();
 }
 
-pub fn generate_summer(seed: &RoundSeed, sum_ratio: f64, update_ratio: f64) -> Participant {
-    loop {
-        let mut participant = Participant::new().unwrap();
-        participant.compute_signatures(seed.as_slice());
-        if participant.check_task(sum_ratio, update_ratio) == Task::Sum {
-            return participant;
+pub struct Participant {
+    pub keys: SigningKeyPair,
+    pub round_params: RoundParameters,
+    pub mask_settings: MaskConfigPair,
+    // sum participants have an ephemeral key pair for the round they
+    // are taking part in
+    pub ephm_keys: EncryptKeyPair,
+}
+
+impl Participant {
+    pub fn new(round_params: RoundParameters, mask_settings: MaskSettings) -> Self {
+        let mask_config: MaskConfig = mask_settings.into();
+        Participant {
+            round_params,
+            mask_settings: mask_config.into(),
+            keys: SigningKeyPair::generate(),
+            ephm_keys: EncryptKeyPair::generate(),
+        }
+    }
+
+    pub fn sign(&self, data: &[u8]) -> Signature {
+        let sk = &self.keys.secret;
+        let seed = self.round_params.seed.as_slice();
+        sk.sign_detached(&[seed, data].concat())
+    }
+
+    pub fn sum_signature(&self) -> Signature {
+        self.sign(b"sum")
+    }
+
+    pub fn update_signature(&self) -> Signature {
+        self.sign(b"update")
+    }
+
+    pub fn is_sum_eligible(&self) -> bool {
+        let signature = self.sum_signature();
+        signature.is_eligible(self.round_params.sum)
+    }
+
+    pub fn is_update_eligible(&self) -> bool {
+        if self.is_sum_eligible() {
+            return false;
+        }
+        let signature = self.update_signature();
+        signature.is_eligible(self.round_params.update)
+    }
+
+    // Sum methods
+    pub fn compose_sum_message(&self) -> Message {
+        let payload = Sum {
+            sum_signature: self.sum_signature(),
+            ephm_pk: self.ephm_keys.public,
         };
+        Message::new_sum(self.keys.public, self.round_params.pk, payload)
+    }
+
+    // Update methods
+    pub fn compute_masked_model(&self, model: &Model, scalar: f64) -> (MaskSeed, MaskObject) {
+        let masker = Masker::new(self.mask_settings);
+        masker.mask(scalar, model)
+    }
+
+    pub fn build_seed_dict(sum_dict: &SumDict, mask_seed: &MaskSeed) -> LocalSeedDict {
+        sum_dict
+            .iter()
+            .map(|(pk, ephm_pk)| (*pk, mask_seed.encrypt(&ephm_pk)))
+            .collect()
+    }
+
+    pub fn compose_update_message(
+        &self,
+        masked_model: MaskObject,
+        local_seed_dict: LocalSeedDict,
+    ) -> Message {
+        let payload = Update {
+            sum_signature: self.sum_signature(),
+            update_signature: self.update_signature(),
+            masked_model,
+            local_seed_dict,
+        };
+        Message::new_update(self.keys.public, self.round_params.pk, payload)
+    }
+
+    // Sum2 methods
+    pub fn decrypt_seeds(&self, seed_dict: &UpdateSeedDict) -> Vec<MaskSeed> {
+        let (pk, sk) = (self.ephm_keys.public, self.ephm_keys.secret.clone());
+        seed_dict
+            .iter()
+            .map(|(_, seed)| seed.decrypt(&pk, &sk).unwrap())
+            .collect()
+    }
+
+    pub fn aggregate_masks(&self, mask_length: usize, seeds: &[MaskSeed]) -> Aggregation {
+        let mut aggregation = Aggregation::new(self.mask_settings, mask_length);
+        for seed in seeds {
+            let mask = seed.derive_mask(mask_length, self.mask_settings);
+            aggregation.validate_aggregation(&mask).unwrap();
+            aggregation.aggregate(mask);
+        }
+        aggregation
+    }
+
+    pub fn compose_sum2_message(&self, model_mask: MaskObject) -> Message {
+        let payload = Sum2 {
+            sum_signature: self.sum_signature(),
+            model_mask,
+        };
+        Message::new_sum2(self.keys.public, self.round_params.pk, payload)
     }
 }
 
-pub fn generate_updater(seed: &RoundSeed, sum_ratio: f64, update_ratio: f64) -> Participant {
+pub fn generate_summer(round_params: RoundParameters) -> Participant {
     loop {
-        let mut participant = Participant::new().unwrap();
-        participant.compute_signatures(seed.as_slice());
-        if participant.check_task(sum_ratio, update_ratio) == Task::Update {
+        let participant = Participant::new(round_params.clone(), mask_settings());
+        if participant.is_sum_eligible() {
             return participant;
-        };
+        }
+    }
+}
+
+pub fn generate_updater(round_params: RoundParameters) -> Participant {
+    loop {
+        let participant = Participant::new(round_params.clone(), mask_settings());
+        if participant.is_update_eligible() {
+            return participant;
+        }
     }
 }
 
@@ -121,34 +243,5 @@ pub fn ephm_pk(msg: &Message) -> SumParticipantEphemeralPublicKey {
         *ephm_pk
     } else {
         panic!("not a sum message");
-    }
-}
-
-/// Extract the masked model from an update message
-///
-/// # Panic
-///
-/// Panic if this message is not an update message
-pub fn masked_model(msg: &Message) -> MaskObject {
-    if let Payload::Update(Update { masked_model, .. }) = &msg.payload {
-        masked_model.clone()
-    } else {
-        panic!("not an update message");
-    }
-}
-
-/// Extract the local seed dictioanry from an update message
-///
-/// # Panic
-///
-/// Panic if this message is not an update message
-pub fn local_seed_dict(msg: &Message) -> LocalSeedDict {
-    if let Payload::Update(Update {
-        local_seed_dict, ..
-    }) = &msg.payload
-    {
-        local_seed_dict.clone()
-    } else {
-        panic!("not an update message");
     }
 }

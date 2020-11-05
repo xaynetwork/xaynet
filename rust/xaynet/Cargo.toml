@@ -21,15 +21,13 @@ maintenance = { status = "actively-developed" }
 
 [dependencies]
 xaynet-core = { path = "../xaynet-core", version = "0.1.0" }
-
-# feature: client
-xaynet-client = { path = "../xaynet-client", version = "0.1.0", optional = true }
-
+# feature: sdk
+xaynet-sdk = { path = "../xaynet-sdk", version = "0.1.0", optional = true }
 # feature: server
 xaynet-server = { path = "../xaynet-server", version = "0.1.0", optional = true }
 
 [features]
 default = []
-client = ["xaynet-client"]
-full = ["client", "server"]
+full = ["sdk", "server"]
+sdk = ["xaynet-sdk"]
 server = ["xaynet-server"]

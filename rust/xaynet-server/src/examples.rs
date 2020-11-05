@@ -144,71 +144,15 @@ $ cd xaynet/rust
 $ cargo run --bin coordinator -- -c ../configs/config.toml
 ```
 
-We will assume `configs/config.toml` includes the values shown in the excerpt
-above.
 
-# Connecting with Participants
+## Running participants
 
-The below shows an example of how participants can be created to connect to the
-coordinator running as instructed above. It is a slightly adapted version of
-the `test-drive-net` example, for illustrative purposes.
-
-```no_run
-use tokio::signal;
-use xaynet_client::{
-    api::{HttpApiClient, HttpApiClientError},
-    Client,
-    ClientError,
-};
-use xaynet_core::mask::{FromPrimitives, Model};
-
-#[tokio::main]
-async fn main() -> Result<(), ClientError<HttpApiClientError>> {
-    let len = 4_usize;
-    let model = Model::from_primitives(vec![0; len].into_iter()).unwrap();
-
-    let mut clients = Vec::with_capacity(20_usize);
-    for id in 0..20 {
-        let api_client = HttpApiClient::new("http://127.0.0.1:8081").map_err(ClientError::Api)?;
-        let mut client = Client::new(1, id, api_client)?;
-        client.local_model = Some(model.clone());
-        let join_hdl = tokio::spawn(async move {
-            tokio::select! {
-                _ = signal::ctrl_c() => {}
-                result = client.start() => {
-                    println!("{:?}", result);
-                }
-            }
-        });
-        clients.push(join_hdl);
-    }
-
-    for client in clients {
-        let _ = client.await;
-    }
-
-    Ok(())
-}
-```
-
-As this example is meant solely as a demonstration of the operation of
-the PET protocol, it does not perform any training as such (see other
-forthcoming examples for that). Instead, a "dummy" zero-[`Model`] is used throughout.
-Nevertheless, note that its length and contents, respectively, are required to
-match the size and mask configuration expected by the coordinator.
-
-The example creates the expected number of participants (called `Client`s
-here), connecting to the address where the coordinator should be listening. The
-participants are then started, and run continuously until stopped (with CTRL +
-C).
-
-## Running
-
-The actual `test-drive-net` example is a tidier version of the above, where the
-hard-coded numbers are made configurable. To run:
+You can run the example from the xaynet repository:
 
 ```text
-$ cargo run --example test-drive-net -- -l 4 -n 20 -u http://127.0.0.1:8081
+$ git clone https://github.com/xaynetwork/xaynet
+$ cf xaynet/rust/examples
+$ RUST_LOG=info cargo run --example test-drive -- -n 10
 ```
 
 [`ApiSettings`]: crate::settings::ApiSettings

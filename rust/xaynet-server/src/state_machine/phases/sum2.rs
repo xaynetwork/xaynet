@@ -143,60 +143,70 @@ impl PhaseState<Sum2> {
 
 #[cfg(test)]
 mod test {
+    use std::collections::HashMap;
+
+    use serial_test::serial;
+    use xaynet_core::{
+        common::{RoundParameters, RoundSeed},
+        crypto::{ByteObject, EncryptKeyPair},
+        mask::{FromPrimitives, Model},
+        SumDict,
+    };
+
     use super::*;
     use crate::state_machine::{
         events::Event,
-        tests::{builder::StateMachineBuilder, utils},
-    };
-    use serial_test::serial;
-    use xaynet_core::{
-        common::RoundSeed,
-        crypto::{ByteObject, EncryptKeyPair},
-        mask::{FromPrimitives, MaskConfig, Model},
-        SumDict,
+        tests::{
+            builder::StateMachineBuilder,
+            utils::{self, Participant},
+        },
     };
 
     #[tokio::test]
     #[serial]
     pub async fn integration_sum2_to_unmask() {
+        utils::enable_logging();
+        let round_params = RoundParameters {
+            pk: EncryptKeyPair::generate().public,
+            sum: 0.5,
+            update: 1.0,
+            seed: RoundSeed::generate(),
+        };
+
         let n_updaters = 1;
         let n_summers = 1;
-        let seed = RoundSeed::generate();
-        let sum_ratio = 0.5;
-        let update_ratio = 1.0;
-        let coord_keys = EncryptKeyPair::generate();
         let model_size = 4;
 
         // Generate a sum dictionary with a single sum participant
-        let mut summer = utils::generate_summer(&seed, sum_ratio, update_ratio);
-        let ephm_pk = utils::ephm_pk(&summer.compose_sum_message(coord_keys.public));
+        let summer = utils::generate_summer(round_params.clone());
         let mut sum_dict = SumDict::new();
-        sum_dict.insert(summer.pk, ephm_pk);
+        sum_dict.insert(summer.keys.public, summer.ephm_keys.public);
 
         // Generate a new masked model, seed dictionary and aggregation
-        let updater = utils::generate_updater(&seed, sum_ratio, update_ratio);
-        let scalar = 1.0 / (n_updaters as f64 * update_ratio);
+        let updater = utils::generate_updater(round_params.clone());
+        let scalar = 1.0 / (n_updaters as f64 * round_params.update);
         let model = Model::from_primitives(vec![0; model_size].into_iter()).unwrap();
-        let msg =
-            updater.compose_update_message(coord_keys.public, &sum_dict, scalar, model.clone());
-        let masked_model = utils::masked_model(&msg);
-        let local_seed_dict = utils::local_seed_dict(&msg);
-        let config: MaskConfig = utils::mask_settings().into();
-        let mut aggregation = Aggregation::new(config.into(), model_size);
-        aggregation.aggregate(masked_model.clone());
+        let (mask_seed, masked_model) = updater.compute_masked_model(&model, scalar);
+        let local_seed_dict = Participant::build_seed_dict(&sum_dict, &mask_seed);
 
-        // Create the state machine
-        let sum2 = Sum2 {
-            model_agg: aggregation,
-            sum2_count: 0,
-        };
+        // Build the update seed dict that we'll give to the sum
+        // participant, so that they can compute a global mask.
+        let mut update_seed_dict = HashMap::new();
+        let encrypted_seed = local_seed_dict.get(&summer.keys.public).unwrap();
+        update_seed_dict.insert(updater.keys.public, encrypted_seed.clone());
 
+        // Create the state machine in the Sum2 phase
+        let mut agg = Aggregation::new(summer.mask_settings, model_size);
+        agg.aggregate(masked_model);
         let (state_machine, request_tx, events, eio) = StateMachineBuilder::new()
             .await
-            .with_seed(seed.clone())
-            .with_phase(sum2)
-            .with_sum_ratio(sum_ratio)
-            .with_update_ratio(update_ratio)
+            .with_seed(round_params.seed.clone())
+            .with_phase(Sum2 {
+                model_agg: agg,
+                sum2_count: 0,
+            })
+            .with_sum_ratio(round_params.sum)
+            .with_update_ratio(round_params.update)
             .with_min_sum(n_summers)
             .with_min_update(n_updaters)
             .with_min_sum_time(1)
@@ -205,24 +215,21 @@ mod test {
             .build();
         assert!(state_machine.is_sum2());
 
-        // Write the sum participant into redis so that the mask lua script does not fail
+        // Write the sum participant into redis so that the mask lua
+        // script does not fail
         eio.redis
             .connection()
             .await
-            .add_sum_participant(&summer.pk, &ephm_pk)
+            .add_sum_participant(&summer.keys.public, &summer.ephm_keys.public)
             .await
             .unwrap();
 
-        // Create a sum2 request.
-        let msg = summer
-            .compose_sum2_message(
-                coord_keys.public,
-                &local_seed_dict,
-                masked_model.vect.data.len(),
-            )
-            .unwrap();
+        // aggregate the masks (there's only one), compose a sum2
+        // message and have the state machine process it
+        let seeds = summer.decrypt_seeds(&update_seed_dict);
+        let aggregation = summer.aggregate_masks(model_size, &seeds);
+        let msg = summer.compose_sum2_message(aggregation.clone().into());
 
-        // Have the state machine process the request
         let req = async { request_tx.msg(&msg).await.unwrap() };
         let transition = async { state_machine.next().await.unwrap() };
         let ((), state_machine) = tokio::join!(req, transition);
@@ -235,7 +242,6 @@ mod test {
         } = state_machine.into_unmask_phase_state();
 
         // Check the initial state of the unmask phase.
-
         let mut best_masks = eio.redis.connection().await.get_best_masks().await.unwrap();
         assert_eq!(best_masks.len(), 1);
         let (mask, count) = best_masks.pop().unwrap();

@@ -2,21 +2,18 @@
 
 use thiserror::Error;
 use xaynet_core::{
-    crypto::PublicEncryptKey,
+    crypto::{PublicEncryptKey, SecretSigningKey, SigningKeyPair},
     message::{Chunk, Message, Payload, Tag, ToBytes},
 };
 
 use super::Chunker;
 
-use crate::mobile_client::participant::Participant;
-
 /// An encoder for multipart messages. It implements
 /// `Iterator<Item=Vec<u8>>`, which yields message parts ready to be
 /// sent over the wire.
-pub struct MultipartEncoder<'a, T> {
-    /// Participant sending the message. Each chunk is signed with the
-    /// participant secret key.
-    participant: &'a Participant<T>,
+#[derive(Serialize, Deserialize, Debug)]
+pub struct MultipartEncoder {
+    keys: SigningKeyPair,
     /// The coordinator public key. It should be the key used to
     /// encrypt the message.
     coordinator_pk: PublicEncryptKey,
@@ -35,7 +32,7 @@ pub struct MultipartEncoder<'a, T> {
 pub const CHUNK_OVERHEAD: usize = 8;
 pub const MIN_PAYLOAD_SIZE: usize = CHUNK_OVERHEAD + 1;
 
-impl<'a, T> Iterator for MultipartEncoder<'a, T> {
+impl Iterator for MultipartEncoder {
     type Item = Vec<u8>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -57,13 +54,13 @@ impl<'a, T> Iterator for MultipartEncoder<'a, T> {
         let message = Message {
             // The signature is computed when serializing the message
             signature: None,
-            participant_pk: self.participant.public_key(),
+            participant_pk: self.keys.public,
             is_multipart: true,
             tag: self.tag,
             payload: Payload::Chunk(chunk),
             coordinator_pk: self.coordinator_pk,
         };
-        let data = self.participant.serialize_message(&message);
+        let data = serialize_message(&message, &self.keys.secret);
         Some(data)
     }
 }
@@ -73,15 +70,16 @@ impl<'a, T> Iterator for MultipartEncoder<'a, T> {
 /// is added, and the message is serialized and signed. If
 /// the [`Payload`] is too large to fit in a single message, it is
 /// split in chunks which are also serialized and signed.
-pub enum MessageEncoder<'a, T> {
+#[derive(Serialize, Deserialize, Debug)]
+pub enum MessageEncoder {
     /// Encoder for a payload that fits in a single message.
     Simple(Option<Vec<u8>>),
     /// Encoder for a large payload that needs to be split in several
     /// parts.
-    Multipart(MultipartEncoder<'a, T>),
+    Multipart(MultipartEncoder),
 }
 
-impl<'a, T> Iterator for MessageEncoder<'a, T> {
+impl Iterator for MessageEncoder {
     type Item = Vec<u8>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -100,7 +98,7 @@ pub enum InvalidEncodingInput {
     PayloadSize,
 }
 
-impl<'a, T> MessageEncoder<'a, T> {
+impl MessageEncoder {
     // NOTE: the only reason we need to consume the payload is because creating the Message
     // consumes it.
     /// Create a new encoder for the given payload. The `participant`
@@ -115,7 +113,7 @@ impl<'a, T> MessageEncoder<'a, T> {
     /// type [`Payload::Chunk`]. Only [`Payload::Sum`],
     /// [`Payload::Update`], [`Payload::Sum2`] are accepted.
     pub fn new(
-        participant: &'a Participant<T>,
+        keys: SigningKeyPair,
         payload: Payload,
         coordinator_pk: PublicEncryptKey,
         max_payload_size: usize,
@@ -132,36 +130,36 @@ impl<'a, T> MessageEncoder<'a, T> {
 
         if max_payload_size != 0 && payload.buffer_length() > max_payload_size {
             Ok(Self::new_multipart(
-                participant,
+                keys,
                 coordinator_pk,
                 payload,
                 max_payload_size,
             ))
         } else {
-            Ok(Self::new_simple(participant, coordinator_pk, payload))
+            Ok(Self::new_simple(keys, coordinator_pk, payload))
         }
     }
 
     fn new_simple(
-        participant: &'a Participant<T>,
+        keys: SigningKeyPair,
         coordinator_pk: PublicEncryptKey,
         payload: Payload,
     ) -> Self {
         let message = Message {
             // The signature is computed when serializing the message
             signature: None,
-            participant_pk: participant.public_key(),
+            participant_pk: keys.public,
             is_multipart: false,
             coordinator_pk,
             tag: Self::get_tag_from_payload(&payload),
             payload,
         };
-        let data = participant.serialize_message(&message);
+        let data = serialize_message(&message, &keys.secret);
         Self::Simple(Some(data))
     }
 
     fn new_multipart(
-        participant: &'a Participant<T>,
+        keys: SigningKeyPair,
         coordinator_pk: PublicEncryptKey,
         payload: Payload,
         payload_size: usize,
@@ -170,7 +168,7 @@ impl<'a, T> MessageEncoder<'a, T> {
         let mut data = vec![0; payload.buffer_length()];
         payload.to_bytes(&mut data);
         Self::Multipart(MultipartEncoder {
-            participant,
+            keys,
             data,
             id: 0,
             tag,
@@ -192,52 +190,32 @@ impl<'a, T> MessageEncoder<'a, T> {
 #[cfg(test)]
 mod tests {
     use xaynet_core::{
-        crypto::{ByteObject, EncryptKeySeed, SigningKeyPair, SigningKeySeed},
+        crypto::{ByteObject, EncryptKeyPair, EncryptKeySeed, SigningKeyPair, SigningKeySeed},
         message::{FromBytes, Update},
         testutils::multipart as helpers,
     };
 
-    use crate::mobile_client::participant::{
-        AggregationConfig,
-        MaxMessageSize,
-        ParticipantState,
-        Update as UpdateState,
-    };
-
     use super::*;
 
-    fn participant() -> Participant<UpdateState> {
-        assert_eq!(SigningKeySeed::LENGTH, 32);
-        let sign_seed = SigningKeySeed::from_slice(vec![0; 32].as_slice()).unwrap();
-        let state = ParticipantState {
-            keys: SigningKeyPair::derive_from_seed(&sign_seed),
-            aggregation_config: AggregationConfig {
-                mask: helpers::mask_config(),
-                scalar: 0.0,
-            },
-            // Note that this is ignored in our tests, since we pass
-            // the maximum payload size directly to the MessageEncoder
-            // constructor
-            max_message_size: MaxMessageSize::default(),
-        };
+    fn participant_keys() -> SigningKeyPair {
+        let seed = SigningKeySeed::from_slice(vec![0; 32].as_slice()).unwrap();
+        SigningKeyPair::derive_from_seed(&seed)
+    }
 
-        let (sum_signature, update_signature) = helpers::task_signatures();
-        Participant::<UpdateState>::new(state, sum_signature, update_signature)
+    fn coordinator_keys() -> EncryptKeyPair {
+        let seed = EncryptKeySeed::from_slice(vec![0; 32].as_slice()).unwrap();
+        EncryptKeyPair::derive_from_seed(&seed)
     }
 
     fn message(dict_len: usize, mask_obj_len: usize) -> Message {
-        assert_eq!(EncryptKeySeed::LENGTH, 32);
-        let encr_seed = EncryptKeySeed::from_slice(vec![0; 32].as_slice()).unwrap();
-        let (coordinator_pk, _) = encr_seed.derive_encrypt_key_pair();
-
         let payload = helpers::update(dict_len, mask_obj_len).into();
         Message {
             signature: None,
-            participant_pk: participant().public_key(),
+            participant_pk: participant_keys().public,
             is_multipart: false,
             tag: Tag::Update,
             payload,
-            coordinator_pk,
+            coordinator_pk: coordinator_keys().public,
         }
     }
 
@@ -254,12 +232,15 @@ mod tests {
 
     #[test]
     fn no_chunk() {
-        let participant = participant();
         let msg = small_message();
 
-        let mut enc =
-            MessageEncoder::new(&participant, msg.clone().payload, msg.coordinator_pk, 272)
-                .unwrap();
+        let mut enc = MessageEncoder::new(
+            participant_keys(),
+            msg.clone().payload,
+            msg.coordinator_pk,
+            272,
+        )
+        .unwrap();
 
         let data = enc.next().unwrap();
         let parsed = Message::from_byte_slice(&data.as_slice()).unwrap();
@@ -270,12 +251,15 @@ mod tests {
 
     #[test]
     fn two_chunks() {
-        let participant = participant();
         let msg = small_message();
 
-        let mut enc =
-            MessageEncoder::new(&participant, msg.clone().payload, msg.coordinator_pk, 200)
-                .unwrap();
+        let mut enc = MessageEncoder::new(
+            participant_keys(),
+            msg.clone().payload,
+            msg.coordinator_pk,
+            200,
+        )
+        .unwrap();
 
         let data = enc.next().unwrap();
         // The payload should be 200 bytes + 136 bytes for the
@@ -323,4 +307,10 @@ mod tests {
             panic!("not an update message");
         }
     }
+}
+
+fn serialize_message(message: &Message, sk: &SecretSigningKey) -> Vec<u8> {
+    let mut buf = vec![0; message.buffer_length()];
+    message.to_bytes(&mut buf, sk);
+    buf
 }

@@ -22,7 +22,7 @@ use crate::{
     SumParticipantEphemeralSecretKey,
 };
 
-#[derive(AsRef, AsMut, Clone, Debug, PartialEq, Eq)]
+#[derive(AsRef, AsMut, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 /// A seed to generate a mask.
 ///
 /// When this goes out of scope, its contents will be zeroed out.
