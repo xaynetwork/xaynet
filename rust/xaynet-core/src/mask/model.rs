@@ -17,6 +17,7 @@ use num::{
     rational::Ratio,
     traits::{float::FloatCore, identities::Zero, ToPrimitive},
 };
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 #[derive(Debug, Clone, PartialEq, Hash, From, Index, IndexMut, Into, Serialize, Deserialize)]

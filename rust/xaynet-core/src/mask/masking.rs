@@ -11,7 +11,6 @@ use num::{
     clamp,
     rational::Ratio,
 };
-
 use rand::SeedableRng;
 use rand_chacha::ChaCha20Rng;
 use thiserror::Error;

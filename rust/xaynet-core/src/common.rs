@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use sodiumoxide::{self, crypto::box_};
 
 use crate::{crypto::ByteObject, CoordinatorPublicKey};

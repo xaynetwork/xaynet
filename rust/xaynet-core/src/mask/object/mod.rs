@@ -9,6 +9,7 @@ pub mod serialization;
 use std::iter::Iterator;
 
 use num::bigint::BigUint;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::mask::config::{MaskConfig, MaskConfigPair};

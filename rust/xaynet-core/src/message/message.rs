@@ -7,6 +7,7 @@
 use std::convert::{TryFrom, TryInto};
 
 use anyhow::{anyhow, Context};
+use serde::{Deserialize, Serialize};
 
 use crate::{
     crypto::{ByteObject, PublicEncryptKey, PublicSigningKey, SecretSigningKey, Signature},

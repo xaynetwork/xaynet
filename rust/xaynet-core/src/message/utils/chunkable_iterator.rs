@@ -2,6 +2,7 @@
 //! by chunks. One important property of our chunks, is that they implement
 //! [`std::iter::ExactSizeIterator`], which is required by the [`crate::message::FromBytes`]
 //! trait.
+
 use std::{
     cell::RefCell,
     cmp,
