@@ -40,4 +40,4 @@ xaynet-core = { path = "../xaynet-core", version = "0.1.0", features = ["testuti
 
 [features]
 default = []
-reqwest_client = ["bincode", "reqwest/rustls-tls"]
+reqwest-client = ["bincode", "reqwest/rustls-tls"]

@@ -1,5 +1,6 @@
-use serde::{de::Error as SerdeError, Deserialize, Deserializer};
+use serde::{de::Error as SerdeError, Deserialize, Deserializer, Serialize};
 use thiserror::Error;
+
 pub use xaynet_core::message::MESSAGE_HEADER_LENGTH;
 
 /// The minimum message payload size

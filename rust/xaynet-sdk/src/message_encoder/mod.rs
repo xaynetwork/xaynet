@@ -1,5 +1,5 @@
 mod chunker;
-pub(self) use chunker::Chunker;
-
 mod encoder;
+
+use chunker::Chunker;
 pub use encoder::MessageEncoder;

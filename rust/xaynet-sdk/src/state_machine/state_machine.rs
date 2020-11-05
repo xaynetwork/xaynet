@@ -1,7 +1,5 @@
 use derive_more::From;
 
-use crate::{settings::PetSettings, ModelStore, Notify, XaynetClient};
-
 use super::{
     boxed_io,
     Awaiting,
@@ -14,6 +12,7 @@ use super::{
     Sum2,
     Update,
 };
+use crate::{settings::PetSettings, ModelStore, Notify, XaynetClient};
 
 /// Outcome of a state machine transition attempt.
 pub enum TransitionOutcome {

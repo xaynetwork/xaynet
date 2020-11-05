@@ -25,7 +25,7 @@ tracing = "0.1.19"
 tracing-futures = "0.2.4"
 tracing-subscriber = "0.2.12"
 xaynet-core = { path = "../xaynet-core" }
-xaynet-sdk = { path = "../xaynet-sdk", features = ["reqwest_client"] }
+xaynet-sdk = { path = "../xaynet-sdk", features = ["reqwest-client"] }
 
 [[example]]
 name = "test-drive"

@@ -4,8 +4,4 @@ mod sum;
 mod sum2;
 mod update;
 
-pub use awaiting::Awaiting;
-pub use new_round::NewRound;
-pub use sum::Sum;
-pub use sum2::Sum2;
-pub use update::Update;
+pub use self::{awaiting::Awaiting, new_round::NewRound, sum::Sum, sum2::Sum2, update::Update};
