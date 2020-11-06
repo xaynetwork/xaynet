@@ -1,12 +1,11 @@
+use crate::state_machine::{
+    events::{EventPublisher, EventSubscriber, ModelUpdate},
+    phases::PhaseName,
+};
 use xaynet_core::{
     common::{RoundParameters, RoundSeed},
     crypto::{ByteObject, EncryptKeyPair, PublicEncryptKey, SigningKeyPair},
     message::{Message, Sum},
-};
-
-use crate::state_machine::{
-    events::{EventPublisher, EventSubscriber, ModelUpdate},
-    phases::PhaseName,
 };
 
 /// Create an [`EventPublisher`]/[`EventSubscriber`] pair with default

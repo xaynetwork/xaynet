@@ -1,7 +1,7 @@
 use thiserror::Error;
-use xaynet_core::message::DecodeError;
 
 use crate::state_machine::RequestError;
+use xaynet_core::message::DecodeError;
 
 /// Error type for the message parsing service
 #[derive(Debug, Error)]

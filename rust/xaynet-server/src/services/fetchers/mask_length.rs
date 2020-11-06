@@ -2,6 +2,7 @@ use std::task::{Context, Poll};
 
 use futures::future::{self, Ready};
 use tower::Service;
+use tracing::error_span;
 use tracing_futures::{Instrument, Instrumented};
 
 use crate::state_machine::events::{EventListener, EventSubscriber, MaskLengthUpdate};

@@ -8,6 +8,11 @@ mod sum2;
 mod unmask;
 mod update;
 
+use async_trait::async_trait;
+use futures::StreamExt;
+use tracing::{debug, error, error_span, info, warn, Span};
+use tracing_futures::Instrument;
+
 pub use self::{
     error::PhaseStateError,
     idle::Idle,
@@ -17,7 +22,10 @@ pub use self::{
     unmask::Unmask,
     update::Update,
 };
-
+#[cfg(feature = "model-persistence")]
+use crate::storage::s3;
+#[cfg(feature = "metrics")]
+use crate::{metrics, metrics::MetricsSender};
 use crate::{
     state_machine::{
         coordinator::CoordinatorState,
@@ -28,16 +36,7 @@ use crate::{
     },
     storage::redis,
 };
-
-#[cfg(feature = "metrics")]
-use crate::{metrics, metrics::MetricsSender};
-
-#[cfg(feature = "model-persistence")]
-use crate::storage::s3;
-
-use futures::StreamExt;
-use tracing::Span;
-use tracing_futures::Instrument;
+use xaynet_macros::metrics;
 
 /// Name of the current phase
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]

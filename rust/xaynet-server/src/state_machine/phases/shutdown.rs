@@ -1,3 +1,5 @@
+use async_trait::async_trait;
+
 use crate::state_machine::{
     phases::{Phase, PhaseName, PhaseState, Shared},
     PhaseStateError,

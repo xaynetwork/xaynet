@@ -34,6 +34,14 @@
 //!     "latest_global_model_id": global_model_id
 //! }
 //! ```
+
+use std::{collections::HashMap, sync::Arc};
+
+use redis::{aio::ConnectionManager, AsyncCommands, IntoConnectionInfo, Pipeline, Script};
+pub use redis::{RedisError, RedisResult};
+use tokio::sync::{OwnedSemaphorePermit, Semaphore};
+use tracing::debug;
+
 use crate::{
     state_machine::coordinator::CoordinatorState,
     storage::impls::{
@@ -50,10 +58,6 @@ use crate::{
         SumDictAdd,
     },
 };
-use redis::{aio::ConnectionManager, AsyncCommands, IntoConnectionInfo, Pipeline, Script};
-use std::{collections::HashMap, sync::Arc};
-use tokio::sync::{OwnedSemaphorePermit, Semaphore};
-
 use xaynet_core::{
     mask::{EncryptedMaskSeed, MaskObject},
     LocalSeedDict,
@@ -63,8 +67,6 @@ use xaynet_core::{
     SumParticipantPublicKey,
     UpdateParticipantPublicKey,
 };
-
-pub use redis::{RedisError, RedisResult};
 
 #[derive(Clone)]
 pub struct Client {

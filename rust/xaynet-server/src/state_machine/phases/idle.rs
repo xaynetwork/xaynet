@@ -1,19 +1,20 @@
-use xaynet_core::{
-    common::RoundSeed,
-    crypto::{ByteObject, EncryptKeyPair, SigningKeySeed},
-};
+use async_trait::async_trait;
+use sodiumoxide::crypto::hash::sha256;
+use tracing::{debug, info};
 
+#[cfg(feature = "metrics")]
+use crate::metrics;
 use crate::state_machine::{
     events::{DictionaryUpdate, MaskLengthUpdate},
     phases::{Phase, PhaseName, PhaseState, Shared, Sum},
     PhaseStateError,
     StateMachine,
 };
-
-#[cfg(feature = "metrics")]
-use crate::metrics;
-
-use sodiumoxide::crypto::hash::sha256;
+use xaynet_core::{
+    common::RoundSeed,
+    crypto::{ByteObject, EncryptKeyPair, SigningKeySeed},
+};
+use xaynet_macros::metrics;
 
 /// Idle state
 #[derive(Debug)]

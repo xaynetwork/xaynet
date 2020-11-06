@@ -1,4 +1,5 @@
-use crate::settings::{S3BucketsSettings, S3Settings};
+use std::sync::Arc;
+
 use rusoto_core::{credential::StaticProvider, request::TlsError, HttpClient, RusotoError};
 use rusoto_s3::{
     CreateBucketError,
@@ -16,10 +17,11 @@ use rusoto_s3::{
     StreamingBody,
     S3,
 };
-use std::sync::Arc;
 use thiserror::Error;
 use tokio::io::AsyncReadExt;
+use tracing::debug;
 
+use crate::settings::{S3BucketsSettings, S3Settings};
 use xaynet_core::mask::Model;
 
 type S3Result<T> = Result<T, S3Error>;

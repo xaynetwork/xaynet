@@ -11,6 +11,8 @@ use std::{
 
 use futures::Stream;
 use tokio::sync::watch;
+
+use crate::state_machine::phases::PhaseName;
 use xaynet_core::{
     common::RoundParameters,
     crypto::EncryptKeyPair,
@@ -18,8 +20,6 @@ use xaynet_core::{
     SeedDict,
     SumDict,
 };
-
-use crate::state_machine::phases::PhaseName;
 
 /// An event emitted by the coordinator.
 #[derive(Debug, Clone, PartialEq, Eq)]

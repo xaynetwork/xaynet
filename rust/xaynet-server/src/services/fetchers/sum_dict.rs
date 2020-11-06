@@ -5,10 +5,11 @@ use std::{
 
 use futures::future::{self, Ready};
 use tower::Service;
+use tracing::error_span;
 use tracing_futures::{Instrument, Instrumented};
-use xaynet_core::SumDict;
 
 use crate::state_machine::events::{DictionaryUpdate, EventListener, EventSubscriber};
+use xaynet_core::SumDict;
 
 /// A service that returns the sum dictionary for the current round.
 pub struct SumDictService(EventListener<DictionaryUpdate<SumDict>>);

@@ -93,7 +93,7 @@ path = "src/bin/main.rs"
 
 [features]
 default = []
-full = ["metrics", "tls"]
+full = ["metrics", "model-persistence", "tls"]
 metrics = ["chrono", "influxdb"]
 model-persistence = ["fancy-regex", "hex", "rusoto_core", "rusoto_s3"]
 tls = ["warp/tls"]

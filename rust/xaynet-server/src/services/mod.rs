@@ -7,6 +7,7 @@
 //!   module
 //! - the services for processing PET message are provided by the
 //!   [`messages`] module.
+
 pub mod fetchers;
 pub mod messages;
 

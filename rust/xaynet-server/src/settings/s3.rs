@@ -1,10 +1,11 @@
+use std::fmt;
+
 use fancy_regex::Regex;
 use rusoto_core::Region;
 use serde::{
     de::{self, value, Deserializer, Visitor},
     Deserialize,
 };
-use std::fmt;
 use validator::{Validate, ValidationError};
 
 #[derive(Debug, Validate, Deserialize)]

@@ -1,12 +1,8 @@
+use serial_test::serial;
+
 use super::utils::{mask_settings, model_settings, pet_settings};
 #[cfg(feature = "metrics")]
 use crate::metrics::MetricsSender;
-use crate::{
-    state_machine::{CoordinatorState, StateMachineInitializer},
-    storage::redis,
-};
-use serial_test::serial;
-
 #[cfg(feature = "model-persistence")]
 use crate::{
     settings::RestoreSettings,
@@ -16,6 +12,10 @@ use crate::{
         StateMachineInitializationError,
     },
     storage::{s3, tests::create_global_model},
+};
+use crate::{
+    state_machine::{CoordinatorState, StateMachineInitializer},
+    storage::redis,
 };
 
 #[cfg(feature = "model-persistence")]

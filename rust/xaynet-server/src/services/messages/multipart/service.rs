@@ -8,12 +8,12 @@ use futures::{
     task::Context,
 };
 use tower::Service;
+
+use crate::services::messages::{multipart::buffer::MultipartMessageBuffer, ServiceError};
 use xaynet_core::{
     crypto::{PublicEncryptKey, PublicSigningKey},
     message::{Chunk, DecodeError, FromBytes, Message, Payload, Sum, Sum2, Tag, Update},
 };
-
-use crate::services::messages::{multipart::buffer::MultipartMessageBuffer, ServiceError};
 
 /// A `MessageBuilder` stores chunks of a multipart message. Once it
 /// has all the chunks, it can be consumed and turned into a

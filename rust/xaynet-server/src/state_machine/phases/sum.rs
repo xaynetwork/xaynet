@@ -1,5 +1,11 @@
 use std::sync::Arc;
 
+use async_trait::async_trait;
+use tokio::time::{timeout, Duration};
+use tracing::{debug, info};
+
+#[cfg(feature = "metrics")]
+use crate::metrics;
 use crate::state_machine::{
     events::DictionaryUpdate,
     phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Update},
@@ -7,11 +13,7 @@ use crate::state_machine::{
     RequestError,
     StateMachine,
 };
-
-#[cfg(feature = "metrics")]
-use crate::metrics;
-
-use tokio::time::{timeout, Duration};
+use xaynet_macros::metrics;
 
 /// Sum state
 #[derive(Debug)]

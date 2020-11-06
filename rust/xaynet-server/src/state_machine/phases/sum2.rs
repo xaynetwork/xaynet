@@ -1,16 +1,17 @@
-use xaynet_core::mask::Aggregation;
+use async_trait::async_trait;
+use tokio::time::{timeout, Duration};
+use tracing::{debug, info};
 
+#[cfg(feature = "metrics")]
+use crate::metrics;
 use crate::state_machine::{
     phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Unmask},
     requests::{StateMachineRequest, Sum2Request},
     RequestError,
     StateMachine,
 };
-
-#[cfg(feature = "metrics")]
-use crate::metrics;
-
-use tokio::time::{timeout, Duration};
+use xaynet_core::mask::Aggregation;
+use xaynet_macros::metrics;
 
 /// Sum2 state
 #[derive(Debug)]

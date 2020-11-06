@@ -2,6 +2,8 @@ pub(crate) mod impls;
 pub mod redis;
 #[cfg(feature = "model-persistence")]
 pub mod s3;
+#[cfg(test)]
+pub(crate) mod tests;
 
 pub use self::{
     impls::{
@@ -14,6 +16,3 @@ pub use self::{
     },
     redis::{RedisError, RedisResult},
 };
-
-#[cfg(test)]
-pub(crate) mod tests;

@@ -2,7 +2,13 @@ use std::{path::PathBuf, process};
 
 use structopt::StructOpt;
 use tokio::signal;
+use tracing::warn;
 use tracing_subscriber::*;
+
+#[cfg(feature = "metrics")]
+use xaynet_server::metrics::{run_metric_service, MetricsService};
+#[cfg(feature = "model-persistence")]
+use xaynet_server::storage::s3;
 use xaynet_server::{
     rest::{serve, RestError},
     services,
@@ -10,15 +16,6 @@ use xaynet_server::{
     state_machine::StateMachineInitializer,
     storage::redis,
 };
-
-#[cfg(feature = "metrics")]
-use xaynet_server::metrics::{run_metric_service, MetricsService};
-
-#[cfg(feature = "model-persistence")]
-use xaynet_server::storage::s3;
-
-#[macro_use]
-extern crate tracing;
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "Coordinator")]

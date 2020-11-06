@@ -1,5 +1,5 @@
-use xaynet_core::{common::RoundSeed, crypto::EncryptKeyPair, mask::MaskConfig};
-
+#[cfg(feature = "model-persistence")]
+use crate::storage::s3;
 use crate::{
     state_machine::{
         events::EventSubscriber,
@@ -10,9 +10,7 @@ use crate::{
     },
     storage::redis,
 };
-
-#[cfg(feature = "model-persistence")]
-use crate::storage::s3;
+use xaynet_core::{common::RoundSeed, crypto::EncryptKeyPair, mask::MaskConfig};
 
 #[derive(Debug)]
 pub struct StateMachineBuilder<P> {

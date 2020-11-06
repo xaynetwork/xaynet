@@ -2,20 +2,13 @@
 //!
 //! There are multiple such services and [`PetMessageHandler`]
 //! provides a single unifying interface for all of these.
+
 mod decryptor;
 mod error;
 mod message_parser;
 mod multipart;
 mod state_machine;
 mod task_validator;
-pub use self::error::ServiceError;
-use self::{
-    decryptor::Decryptor,
-    message_parser::MessageParser,
-    multipart::MultipartHandler,
-    state_machine::StateMachine,
-    task_validator::TaskValidator,
-};
 
 use std::sync::Arc;
 
@@ -24,6 +17,14 @@ use rayon::ThreadPoolBuilder;
 use tower::Service;
 use xaynet_core::message::Message;
 
+pub use self::error::ServiceError;
+use self::{
+    decryptor::Decryptor,
+    message_parser::MessageParser,
+    multipart::MultipartHandler,
+    state_machine::StateMachine,
+    task_validator::TaskValidator,
+};
 use crate::state_machine::{events::EventSubscriber, requests::RequestSender};
 
 impl PetMessageHandler {
