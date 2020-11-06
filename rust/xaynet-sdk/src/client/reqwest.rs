@@ -1,10 +1,6 @@
-use std::{
-    fs,
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::{fs, path::Path, sync::Arc};
 
-use reqwest::{self, Certificate, ClientBuilder, Response, StatusCode};
+use reqwest::{self, Certificate, ClientBuilder, Identity, Response, StatusCode};
 use thiserror::Error;
 
 use crate::XaynetClient;
@@ -20,7 +16,7 @@ use xaynet_core::{
 #[derive(Debug, Clone)]
 /// A client that communicates with the coordinator's API via HTTP(S).
 pub struct Client {
-    /// HTTP client
+    /// HTTP(S) client
     client: reqwest::Client,
     /// Coordinator URL
     address: Arc<String>,
@@ -29,54 +25,92 @@ pub struct Client {
 impl Client {
     /// Creates a new HTTP(S) client.
     ///
-    /// Requires trusted server `certificates` if the `tls` feature is enabled.
-    pub fn new<S>(address: S, certificates: Option<Vec<Certificate>>) -> Result<Self, ClientError>
+    /// Optionally requires at least one of the following arguments to enable TLS:
+    /// - `certificates`: DER or PEM encoded certificates to enable TLS server authentication.
+    /// - `identity`: PEM encoded identity to enable TLS client authentication.
+    ///
+    /// # Errors
+    /// Fails if the TLS settings are invalid.
+    pub fn new<S, C, I>(address: S, certificates: C, identity: I) -> Result<Self, ClientError>
     where
         S: Into<String>,
+        C: Into<Option<Vec<Certificate>>>,
+        I: Into<Option<Identity>>,
     {
         let address = Arc::new(address.into());
-        if certificates.is_none() {
-            return Ok(Self {
-                client: ClientBuilder::new().build().map_err(ClientError::Http)?,
-                address,
-            });
+        let certificates = certificates.into();
+        let identity = identity.into();
+
+        // without TLS
+        if certificates.is_none() && identity.is_none() {
+            let client = ClientBuilder::new().build().map_err(ClientError::Http)?;
+            return Ok(Self { client, address });
         }
 
-        let certificates = certificates.unwrap();
-        let client = if certificates.is_empty() {
-            return Err(ClientError::NoCertificate);
-        } else {
-            let mut builder = ClientBuilder::new().use_rustls_tls();
+        // with TLS
+        let mut builder = ClientBuilder::new().use_rustls_tls();
+        if let Some(certificates) = certificates {
+            if certificates.is_empty() {
+                return Err(ClientError::NoCertificate);
+            }
             for certificate in certificates {
                 builder = builder.add_root_certificate(certificate);
             }
-            builder.build().map_err(ClientError::Http)?
-        };
-
+        }
+        if let Some(identity) = identity {
+            builder = builder.identity(identity);
+        }
+        let client = builder.build().map_err(ClientError::Http)?;
         Ok(Self { client, address })
     }
 
-    /// Reads DER and PEM certificates from given paths.
+    /// Reads DER and PEM encoded certificates from given paths.
     ///
-    /// Requires the `tls` feature.
-    pub fn certificates_from(paths: &[PathBuf]) -> Result<Vec<Certificate>, ClientError> {
-        fn load_certificate(path: &Path) -> Result<Certificate, ClientError> {
-            let encoding = fs::read(path).map_err(ClientError::Io)?;
-            if let Some(extension) = path.extension() {
-                match extension.to_str() {
-                    Some("der") => Certificate::from_der(&encoding).map_err(ClientError::Http),
-                    Some("pem") => Certificate::from_pem(&encoding).map_err(ClientError::Http),
-                    _ => Err(ClientError::UnexpectedCertificate),
+    /// # Errors
+    /// Fails if the paths are empty, if a path doesn't contain a DER/PEM file or if this file can't
+    /// be read.
+    pub fn certificates_from<P, S>(paths: S) -> Result<Vec<Certificate>, ClientError>
+    where
+        P: AsRef<Path>,
+        S: AsRef<[P]>,
+    {
+        fn load_certificate<P>(path: P) -> Result<Certificate, ClientError>
+        where
+            P: AsRef<Path>,
+        {
+            match path.as_ref().extension().map(|ext| ext.to_str()) {
+                Some(Some("der")) => {
+                    let encoding = fs::read(path).map_err(ClientError::Io)?;
+                    Certificate::from_der(&encoding).map_err(ClientError::Http)
                 }
-            } else {
-                Err(ClientError::UnexpectedCertificate)
+                Some(Some("pem")) => {
+                    let encoding = fs::read(path).map_err(ClientError::Io)?;
+                    Certificate::from_pem(&encoding).map_err(ClientError::Http)
+                }
+                _ => Err(ClientError::UnexpectedCertificate),
             }
         }
 
-        if paths.is_empty() {
+        if paths.as_ref().is_empty() {
             Err(ClientError::NoCertificate)
         } else {
-            paths.iter().map(|path| load_certificate(path)).collect()
+            paths.as_ref().iter().map(load_certificate).collect()
+        }
+    }
+
+    /// Reads a PEM encoded identity from a given path.
+    ///
+    /// # Errors
+    /// Fails if the path doesn't contain a PEM file or if this file can't be read.
+    pub fn identity_from<P>(path: P) -> Result<Identity, ClientError>
+    where
+        P: AsRef<Path>,
+    {
+        if let Some(Some("pem")) = path.as_ref().extension().map(|ext| ext.to_str()) {
+            let encoding = fs::read(path).map_err(ClientError::Io)?;
+            Identity::from_pem(&encoding).map_err(ClientError::Http)
+        } else {
+            Err(ClientError::UnexpectedCertificate)
         }
     }
 }

@@ -5,10 +5,14 @@ use std::convert::Infallible;
 use std::path::PathBuf;
 
 use bytes::{Buf, Bytes};
+use thiserror::Error;
 use warp::{
     http::{Response, StatusCode},
+    reply::Reply,
     Filter,
 };
+#[cfg(feature = "tls")]
+use warp::{Server, TlsServer};
 
 use crate::{
     services::{fetchers::Fetcher, messages::PetMessageHandler},
@@ -20,10 +24,17 @@ use xaynet_core::{crypto::ByteObject, ParticipantPublicKey};
 /// data and POST requests containing PET messages.
 ///
 /// * `api_settings`: address of the server and optional certificate and key for TLS server
-///   authentication.
+///   authentication as well as trusted anchors for TLS client authentication.
 /// * `fetcher`: fetcher for responding to data requests.
 /// * `pet_message_handler`: handler for responding to PET messages.
-pub async fn serve<F>(api_settings: ApiSettings, fetcher: F, pet_message_handler: PetMessageHandler)
+///
+/// # Errors
+/// Fails if the TLS settings are invalid.
+pub async fn serve<F>(
+    api_settings: ApiSettings,
+    fetcher: F,
+    pet_message_handler: PetMessageHandler,
+) -> Result<(), RestError>
 where
     F: Fetcher + Sync + Send + 'static + Clone,
 {
@@ -68,13 +79,12 @@ where
         .recover(handle_reject)
         .with(warp::log("http"));
 
-    let server = warp::serve(routes);
+    #[cfg(not(feature = "tls"))]
+    return run_http(routes, api_settings)
+        .await
+        .map_err(RestError::from);
     #[cfg(feature = "tls")]
-    let server = server
-        .tls()
-        .cert_path(PathBuf::from(api_settings.tls_certificate))
-        .key_path(PathBuf::from(api_settings.tls_key));
-    server.run(api_settings.bind_address).await
+    return run_https(routes, api_settings).await;
 }
 
 /// Handles and responds to a PET message.
@@ -242,4 +252,80 @@ async fn handle_reject(err: warp::Rejection) -> Result<impl warp::Reply, Infalli
     };
     // reply with empty body; the status code is the interesting part
     Ok(warp::reply::with_status(Vec::new(), code))
+}
+
+#[derive(Debug, Error)]
+/// Errors of the rest server.
+pub enum RestError {
+    #[error("invalid TLS configuration was provided")]
+    InvalidTlsConfig,
+}
+
+impl From<Infallible> for RestError {
+    fn from(infallible: Infallible) -> RestError {
+        match infallible {}
+    }
+}
+
+#[cfg(feature = "tls")]
+/// Configures a server for TLS server and client authentication.
+///
+/// # Errors
+/// Fails if the TLS settings are invalid.
+fn configure_tls<F>(
+    server: Server<F>,
+    tls_certificate: Option<PathBuf>,
+    tls_key: Option<PathBuf>,
+    tls_root: Option<PathBuf>,
+) -> Result<TlsServer<F>, RestError>
+where
+    F: Filter + Clone + Send + Sync + 'static,
+    F::Extract: Reply,
+{
+    if tls_certificate.is_none() && tls_key.is_none() && tls_root.is_none() {
+        return Err(RestError::InvalidTlsConfig);
+    }
+
+    let mut server = server.tls();
+    match (tls_certificate, tls_key) {
+        (Some(cert), Some(key)) => server = server.cert_path(cert).key_path(key),
+        (None, None) => {}
+        _ => return Err(RestError::InvalidTlsConfig),
+    }
+    if let Some(root) = tls_root {
+        server = server.root_path(root, true);
+    }
+    Ok(server)
+}
+
+#[cfg(not(feature = "tls"))]
+/// Runs a server with the provided filter routes.
+async fn run_http<F>(filter: F, api_settings: ApiSettings) -> Result<(), Infallible>
+where
+    F: Filter + Clone + Send + Sync + 'static,
+    F::Extract: Reply,
+{
+    warp::serve(filter).run(api_settings.bind_address).await;
+    Ok(())
+}
+
+#[cfg(feature = "tls")]
+/// Runs a TLS server with the provided filter routes.
+///
+/// # Errors
+/// Fails if the TLS settings are invalid.
+async fn run_https<F>(filter: F, api_settings: ApiSettings) -> Result<(), RestError>
+where
+    F: Filter + Clone + Send + Sync + 'static,
+    F::Extract: Reply,
+{
+    configure_tls(
+        warp::serve(filter),
+        api_settings.tls_certificate,
+        api_settings.tls_key,
+        api_settings.tls_root,
+    )?
+    .run(api_settings.bind_address)
+    .await;
+    Ok(())
 }

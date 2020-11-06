@@ -4,7 +4,7 @@ use structopt::StructOpt;
 use tokio::signal;
 use tracing_subscriber::*;
 use xaynet_server::{
-    rest,
+    rest::{serve, RestError},
     services,
     settings::Settings,
     state_machine::StateMachineInitializer,
@@ -105,8 +105,13 @@ async fn main() {
         _ = state_machine.run() => {
             warn!("shutting down: Service terminated");
         }
-        _ = rest::serve(api_settings, fetcher, message_handler) => {
-            warn!("shutting down: REST server terminated");
+        result = serve(api_settings, fetcher, message_handler) => {
+            match result {
+                Ok(()) => warn!("shutting down: REST server terminated"),
+                Err(RestError::InvalidTlsConfig) => {
+                    warn!("shutting down: invalid TLS settings for REST server");
+                },
+            }
         }
         _ =  signal::ctrl_c() => {}
     }

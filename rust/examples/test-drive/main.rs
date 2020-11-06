@@ -4,22 +4,27 @@ extern crate tracing;
 #[macro_use]
 extern crate async_trait;
 
-use std::{sync::Arc, time::Duration};
+use std::{path::PathBuf, sync::Arc, time::Duration};
 
+use reqwest::Certificate;
 use structopt::StructOpt;
 use tracing_futures::Instrument;
 use tracing_subscriber::*;
+
 use xaynet_core::{
     crypto::SigningKeyPair,
     mask::{BoundType, DataType, FromPrimitives, GroupType, MaskConfig, Model, ModelType},
 };
-use xaynet_sdk::{client::Client, PetSettings};
+use xaynet_sdk::{
+    client::{Client, ClientError},
+    PetSettings,
+};
 
 mod participant;
 mod settings;
 
 #[tokio::main]
-async fn main() -> Result<(), std::convert::Infallible> {
+async fn main() -> Result<(), ClientError> {
     let _fmt_subscriber = FmtSubscriber::builder()
         .with_env_filter(EnvFilter::from_default_env())
         .with_ansi(true)
@@ -31,10 +36,21 @@ async fn main() -> Result<(), std::convert::Infallible> {
     let len = opt.len as usize;
     let model = Arc::new(Model::from_primitives(vec![0; len].into_iter()).unwrap());
 
-    let xaynet_client = Client::new(&opt.url, None).unwrap();
+    // optional certificates for TLS server authentication
+    let certificates = opt
+        .certificates
+        .as_ref()
+        .map(Client::certificates_from)
+        .transpose()?;
 
     for id in 0..opt.nb_client {
-        spawn_participant(id as u32, xaynet_client.clone(), model.clone())
+        spawn_participant(
+            id as u32,
+            &opt.url,
+            certificates.clone(),
+            &opt.identity,
+            model.clone(),
+        )?;
     }
 
     tokio::signal::ctrl_c().await.unwrap();
@@ -52,8 +68,21 @@ fn generate_agent_config() -> PetSettings {
     PetSettings::new(keys, mask_config)
 }
 
-fn spawn_participant(id: u32, client: Client, model: Arc<Model>) {
+fn spawn_participant(
+    id: u32,
+    url: &str,
+    certificates: Option<Vec<Certificate>>,
+    identity: &Option<PathBuf>,
+    model: Arc<Model>,
+) -> Result<(), ClientError> {
+    // optional identity for TLS client authentication (`Identity` doesn't implement `Clone` because
+    // every participant should of course use its own identity in a real use case, therefore we have
+    // to create it here for every client again)
+    let identity = identity.as_ref().map(Client::identity_from).transpose()?;
+
     let config = generate_agent_config();
+    let client = Client::new(url, certificates, identity).unwrap();
+
     let (participant, agent) = participant::Participant::new(config, client, model);
     tokio::spawn(async move {
         participant
@@ -67,4 +96,5 @@ fn spawn_participant(id: u32, client: Client, model: Arc<Model>) {
             .instrument(error_span!("agent", id = id))
             .await;
     });
+    Ok(())
 }
