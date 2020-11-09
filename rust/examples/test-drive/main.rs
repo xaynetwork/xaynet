@@ -1,15 +1,10 @@
-#[macro_use]
-extern crate tracing;
-
-#[macro_use]
-extern crate async_trait;
-
 use std::{path::PathBuf, sync::Arc, time::Duration};
 
 use reqwest::Certificate;
 use structopt::StructOpt;
+use tracing::error_span;
 use tracing_futures::Instrument;
-use tracing_subscriber::*;
+use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
 use xaynet_core::{
     crypto::SigningKeyPair,

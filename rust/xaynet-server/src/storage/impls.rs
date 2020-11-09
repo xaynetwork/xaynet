@@ -1,10 +1,13 @@
-use crate::state_machine::coordinator::CoordinatorState;
+use std::convert::TryFrom;
+
 use derive_more::{Deref, From, Into};
 use num_enum::TryFromPrimitive;
 use paste::paste;
 use redis::{ErrorKind, FromRedisValue, RedisError, RedisResult, RedisWrite, ToRedisArgs, Value};
-use std::convert::TryFrom;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
+
+use crate::state_machine::coordinator::CoordinatorState;
 use xaynet_core::{
     crypto::{ByteObject, PublicEncryptKey, PublicSigningKey},
     mask::{EncryptedMaskSeed, MaskObject},

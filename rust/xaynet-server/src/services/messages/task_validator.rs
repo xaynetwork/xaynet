@@ -2,15 +2,15 @@ use std::task::Poll;
 
 use futures::{future, task::Context};
 use tower::Service;
-use xaynet_core::{
-    common::RoundParameters,
-    crypto::ByteObject,
-    message::{Message, Payload},
-};
 
 use crate::{
     services::messages::ServiceError,
     state_machine::events::{EventListener, EventSubscriber},
+};
+use xaynet_core::{
+    common::RoundParameters,
+    crypto::ByteObject,
+    message::{Message, Payload},
 };
 
 /// A service for performing sanity checks and preparing incoming

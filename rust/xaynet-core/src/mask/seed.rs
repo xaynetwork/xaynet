@@ -9,6 +9,7 @@ use std::iter;
 use derive_more::{AsMut, AsRef};
 use rand::SeedableRng;
 use rand_chacha::ChaCha20Rng;
+use serde::{Deserialize, Serialize};
 use sodiumoxide::crypto::box_;
 use thiserror::Error;
 

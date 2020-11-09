@@ -1,12 +1,11 @@
-#![allow(dead_code)]
-
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
+
+use super::Chunker;
 use xaynet_core::{
     crypto::{PublicEncryptKey, SecretSigningKey, SigningKeyPair},
     message::{Chunk, Message, Payload, Tag, ToBytes},
 };
-
-use super::Chunker;
 
 /// An encoder for multipart messages. It implements
 /// `Iterator<Item=Vec<u8>>`, which yields message parts ready to be

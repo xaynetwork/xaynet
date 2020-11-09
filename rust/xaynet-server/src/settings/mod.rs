@@ -3,13 +3,14 @@
 //! Values defined in the configuration file can be overridden by environment variables. Examples of
 //! configuration files can be found in the `configs/` directory located in the repository root.
 
+use std::{fmt, path::PathBuf};
+
 use config::{Config, ConfigError, Environment};
 use redis::{ConnectionInfo, IntoConnectionInfo};
 use serde::{
     de::{self, Deserializer, Visitor},
     Deserialize,
 };
-use std::{fmt, path::PathBuf};
 use thiserror::Error;
 use tracing_subscriber::filter::EnvFilter;
 use validator::{Validate, ValidationError, ValidationErrors};

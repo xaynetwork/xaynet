@@ -26,9 +26,6 @@
 //!
 //! [#71668]: https://github.com/rust-lang/rust/issues/71668
 
-#[macro_use]
-extern crate ffi_support;
-
 #[cfg(feature = "tls")]
 use std::path::PathBuf;
 use std::{
@@ -39,7 +36,7 @@ use std::{
     slice,
 };
 
-use ffi_support::FfiStr;
+use ffi_support::{define_box_destructor, FfiStr};
 
 use xaynet_client::mobile_client::{
     participant::{AggregationConfig, MaxMessageSize, ParticipantSettings},

@@ -1,10 +1,12 @@
+mod max_message_size;
+
+use serde::{Deserialize, Serialize};
+
+pub use max_message_size::MaxMessageSize;
 use xaynet_core::{
     crypto::SigningKeyPair,
     mask::{MaskConfig, MaskConfigPair},
 };
-
-mod max_message_size;
-pub use max_message_size::MaxMessageSize;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct PetSettings {

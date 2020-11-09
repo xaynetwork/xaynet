@@ -1,16 +1,21 @@
 use std::{cmp::Ordering, sync::Arc};
 
-use xaynet_core::mask::{Aggregation, MaskObject, Model};
+use async_trait::async_trait;
+#[cfg(feature = "metrics")]
+use tracing::error;
+use tracing::info;
+#[cfg(feature = "model-persistence")]
+use tracing::warn;
 
+#[cfg(feature = "metrics")]
+use crate::metrics;
 use crate::state_machine::{
     events::ModelUpdate,
     phases::{Idle, Phase, PhaseName, PhaseState, PhaseStateError, Shared},
     StateMachine,
     UnmaskGlobalModelError,
 };
-
-#[cfg(feature = "metrics")]
-use crate::metrics;
+use xaynet_core::mask::{Aggregation, MaskObject, Model};
 
 /// Unmask state
 #[derive(Debug)]

@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
-use xaynet_core::{
-    mask::{Aggregation, MaskObject},
-    LocalSeedDict,
-    UpdateParticipantPublicKey,
-};
+use async_trait::async_trait;
+use tokio::time::{timeout, Duration};
+use tracing::{debug, info, warn};
 
+#[cfg(feature = "metrics")]
+use crate::metrics;
 use crate::state_machine::{
     events::{DictionaryUpdate, MaskLengthUpdate},
     phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Sum2},
@@ -13,11 +13,12 @@ use crate::state_machine::{
     RequestError,
     StateMachine,
 };
-
-#[cfg(feature = "metrics")]
-use crate::metrics;
-
-use tokio::time::{timeout, Duration};
+use xaynet_core::{
+    mask::{Aggregation, MaskObject},
+    LocalSeedDict,
+    UpdateParticipantPublicKey,
+};
+use xaynet_macros::metrics;
 
 /// Update state
 #[derive(Debug)]

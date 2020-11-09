@@ -1,5 +1,6 @@
 use std::{fs, path::Path, sync::Arc};
 
+use async_trait::async_trait;
 use reqwest::{self, Certificate, ClientBuilder, Identity, Response, StatusCode};
 use thiserror::Error;
 

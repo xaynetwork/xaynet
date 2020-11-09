@@ -1,5 +1,6 @@
-use crate::storage::{impls::SeedDictUpdate, redis::Client};
 use num::{bigint::BigUint, traits::identities::Zero};
+
+use crate::storage::{impls::SeedDictUpdate, redis::Client};
 use xaynet_core::{
     crypto::{ByteObject, EncryptKeyPair, SigningKeyPair},
     mask::{BoundType, DataType, EncryptedMaskSeed, GroupType, MaskConfig, MaskObject, ModelType},

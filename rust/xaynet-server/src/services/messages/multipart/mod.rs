@@ -1,4 +1,3 @@
-use crate::services::messages::ServiceError;
 mod buffer;
 mod service;
 
@@ -6,6 +5,8 @@ use std::task::{Context, Poll};
 
 use futures::future::TryFutureExt;
 use tower::{buffer::Buffer, Service, ServiceBuilder};
+
+use crate::services::messages::ServiceError;
 use xaynet_core::message::Message;
 
 type Inner = Buffer<service::MultipartHandler, Message>;

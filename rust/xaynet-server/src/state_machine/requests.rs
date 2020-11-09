@@ -2,6 +2,7 @@
 //! types.
 //!
 //! [`StateMachine`]: crate::state_machine::StateMachine
+
 use std::{
     pin::Pin,
     task::{Context, Poll},
@@ -11,7 +12,9 @@ use derive_more::From;
 use futures::Stream;
 use thiserror::Error;
 use tokio::sync::{mpsc, oneshot};
-use tracing::Span;
+use tracing::{trace, Span};
+
+use crate::state_machine::{RequestError, StateMachineResult};
 use xaynet_core::{
     mask::MaskObject,
     message::{Message, Payload, Update},
@@ -26,8 +29,6 @@ use xaynet_core::{
 #[derive(Debug, Error)]
 #[error("the RequestSender cannot be used because the state machine shut down")]
 pub struct StateMachineShutdown;
-
-use crate::state_machine::{RequestError, StateMachineResult};
 
 /// A sum request.
 #[derive(Debug)]

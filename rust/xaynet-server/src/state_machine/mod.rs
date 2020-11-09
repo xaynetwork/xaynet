@@ -97,6 +97,11 @@ pub mod events;
 pub mod phases;
 pub mod requests;
 
+use derive_more::From;
+use thiserror::Error;
+#[cfg(feature = "model-persistence")]
+use tracing::{debug, info, warn};
+
 use self::{
     coordinator::CoordinatorState,
     events::{EventPublisher, EventSubscriber, ModelUpdate},
@@ -115,22 +120,17 @@ use self::{
     },
     requests::{RequestReceiver, RequestSender},
 };
+#[cfg(feature = "metrics")]
+use crate::metrics::MetricsSender;
+#[cfg(feature = "model-persistence")]
+use crate::{settings::RestoreSettings, storage::s3};
 use crate::{
     settings::{MaskSettings, ModelSettings, PetSettings},
     storage::{redis, MaskDictIncrError, RedisError, SeedDictUpdateError, SumDictAddError},
 };
-use derive_more::From;
-use thiserror::Error;
-use xaynet_core::mask::UnmaskingError;
-
-#[cfg(feature = "metrics")]
-use crate::metrics::MetricsSender;
-
 #[cfg(feature = "model-persistence")]
 use xaynet_core::mask::Model;
-
-#[cfg(feature = "model-persistence")]
-use crate::{settings::RestoreSettings, storage::s3};
+use xaynet_core::mask::UnmaskingError;
 
 /// Error returned when the state machine fails to handle a request
 #[derive(Debug, Error)]

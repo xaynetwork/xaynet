@@ -5,11 +5,11 @@
 //! [sodiumoxide]: https://docs.rs/sodiumoxide/
 //! [crypto module]: ../index.html
 
-use super::ByteObject;
-
+use derive_more::{AsMut, AsRef, From};
+use serde::{Deserialize, Serialize};
 use sodiumoxide::crypto::hash::sha256;
 
-use derive_more::{AsMut, AsRef, From};
+use super::ByteObject;
 
 #[derive(
     AsRef,

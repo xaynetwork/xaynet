@@ -5,10 +5,11 @@ use std::{
 
 use futures::future::{self, Ready};
 use tower::Service;
+use tracing::error_span;
 use tracing_futures::{Instrument, Instrumented};
-use xaynet_core::SeedDict;
 
 use crate::state_machine::events::{DictionaryUpdate, EventListener, EventSubscriber};
+use xaynet_core::SeedDict;
 
 /// A service that serves the seed dictionary for the current round.
 pub struct SeedDictService(EventListener<DictionaryUpdate<SeedDict>>);

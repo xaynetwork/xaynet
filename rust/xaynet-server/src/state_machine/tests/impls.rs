@@ -1,5 +1,4 @@
 use tracing::Span;
-use xaynet_core::message::Message;
 
 use crate::state_machine::{
     events::{DictionaryUpdate, MaskLengthUpdate},
@@ -8,6 +7,7 @@ use crate::state_machine::{
     StateMachine,
     StateMachineResult,
 };
+use xaynet_core::message::Message;
 
 impl RequestSender {
     pub async fn msg(&self, msg: &Message) -> StateMachineResult {

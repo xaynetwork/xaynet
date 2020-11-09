@@ -13,6 +13,7 @@ use num::{
     rational::Ratio,
     traits::{pow::Pow, Num},
 };
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 // target dependent maximum bytes per mask object element

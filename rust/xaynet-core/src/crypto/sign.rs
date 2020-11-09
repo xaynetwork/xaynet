@@ -10,6 +10,7 @@ use num::{
     bigint::{BigUint, ToBigInt},
     rational::Ratio,
 };
+use serde::{Deserialize, Serialize};
 use sodiumoxide::crypto::{hash::sha256, sign};
 
 use super::ByteObject;

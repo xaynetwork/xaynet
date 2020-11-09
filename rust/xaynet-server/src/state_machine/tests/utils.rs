@@ -1,3 +1,19 @@
+use tracing_subscriber::{EnvFilter, FmtSubscriber};
+
+#[cfg(feature = "metrics")]
+use crate::metrics::MetricsSender;
+#[cfg(feature = "model-persistence")]
+use crate::storage::s3;
+use crate::{
+    settings::{MaskSettings, ModelSettings, PetSettings},
+    state_machine::{
+        coordinator::CoordinatorState,
+        events::{EventPublisher, EventSubscriber, ModelUpdate},
+        phases::{PhaseName, Shared},
+        requests::{RequestReceiver, RequestSender},
+    },
+    storage::redis,
+};
 use xaynet_core::{
     common::RoundParameters,
     crypto::{ByteObject, EncryptKeyPair, Signature, SigningKeyPair},
@@ -20,25 +36,6 @@ use xaynet_core::{
     SumParticipantEphemeralPublicKey,
     UpdateSeedDict,
 };
-
-use crate::{
-    settings::{MaskSettings, ModelSettings, PetSettings},
-    state_machine::{
-        coordinator::CoordinatorState,
-        events::{EventPublisher, EventSubscriber, ModelUpdate},
-        phases::{PhaseName, Shared},
-        requests::{RequestReceiver, RequestSender},
-    },
-    storage::redis,
-};
-
-#[cfg(feature = "metrics")]
-use crate::metrics::MetricsSender;
-
-#[cfg(feature = "model-persistence")]
-use crate::storage::s3;
-
-use tracing_subscriber::*;
 
 pub fn enable_logging() {
     let _fmt_subscriber = FmtSubscriber::builder()

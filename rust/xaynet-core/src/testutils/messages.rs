@@ -1,5 +1,6 @@
 //! This module provides helpers for generating messages or messages
 //! parts such as signatures, cryptographic keys, or mask objects.
+
 use std::convert::TryFrom;
 
 use num::BigUint;

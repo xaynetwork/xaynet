@@ -3,11 +3,7 @@ pub mod impls;
 pub mod initializer;
 pub mod utils;
 
-use xaynet_core::{
-    common::{RoundParameters, RoundSeed},
-    crypto::{ByteObject, EncryptKeyPair},
-    mask::{FromPrimitives, Model},
-};
+use serial_test::serial;
 
 use crate::state_machine::{
     events::Event,
@@ -17,7 +13,11 @@ use crate::state_machine::{
         utils::{enable_logging, generate_summer, generate_updater, Participant},
     },
 };
-use serial_test::serial;
+use xaynet_core::{
+    common::{RoundParameters, RoundSeed},
+    crypto::{ByteObject, EncryptKeyPair},
+    mask::{FromPrimitives, Model},
+};
 
 #[tokio::test]
 #[serial]

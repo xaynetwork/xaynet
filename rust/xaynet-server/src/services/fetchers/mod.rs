@@ -2,11 +2,18 @@
 //!
 //! There are multiple such services and the [`Fetcher`] trait
 //! provides a single unifying interface for all of these.
+
 mod mask_length;
 mod model;
 mod round_parameters;
 mod seed_dict;
 mod sum_dict;
+
+use std::task::{Context, Poll};
+
+use async_trait::async_trait;
+use futures::future::poll_fn;
+use tower::{layer::Layer, Service, ServiceBuilder};
 
 pub use self::{
     mask_length::{MaskLengthRequest, MaskLengthResponse, MaskLengthService},
@@ -15,12 +22,6 @@ pub use self::{
     seed_dict::{SeedDictRequest, SeedDictResponse, SeedDictService},
     sum_dict::{SumDictRequest, SumDictResponse, SumDictService},
 };
-
-use std::task::{Context, Poll};
-
-use futures::future::poll_fn;
-use tower::{layer::Layer, Service, ServiceBuilder};
-
 use crate::state_machine::events::EventSubscriber;
 
 /// A single interface for retrieving data from the coordinator.

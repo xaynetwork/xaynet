@@ -1,11 +1,13 @@
 //! Coordinator state and round parameter types.
+
+use serde::{Deserialize, Serialize};
+
+use crate::settings::{MaskSettings, ModelSettings, PetSettings};
 use xaynet_core::{
     common::{RoundParameters, RoundSeed},
     crypto::{ByteObject, EncryptKeyPair},
     mask::MaskConfig,
 };
-
-use crate::settings::{MaskSettings, ModelSettings, PetSettings};
 
 /// The coordinator state.
 #[derive(Debug, PartialEq, Serialize, Deserialize)]

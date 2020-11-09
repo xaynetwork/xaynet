@@ -12,24 +12,12 @@
 //!
 //! [whitepaper]: https://uploads-ssl.webflow.com/5f0c5c0bb18a279f0a62919e/5f157004da6585f299fa542b_XayNet%20Whitepaper%202.1.pdf
 
-#[macro_use]
-extern crate async_trait;
-#[macro_use]
-extern crate serde;
-
-#[macro_use]
-extern crate tracing;
-
-#[macro_use]
-extern crate xaynet_macros;
-
 pub mod examples;
+#[cfg_attr(docsrs, doc(cfg(feature = "metrics")))]
+#[cfg(feature = "metrics")]
+pub mod metrics;
 pub mod rest;
 pub mod services;
 pub mod settings;
 pub mod state_machine;
 pub mod storage;
-
-#[cfg_attr(docsrs, doc(cfg(feature = "metrics")))]
-#[cfg(feature = "metrics")]
-pub mod metrics;

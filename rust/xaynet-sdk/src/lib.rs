@@ -80,7 +80,7 @@
 //! - a client to talk with the Xaynet coordinator. This can be any
 //!   type that implements the [`XaynetClient`] trait. For this we're
 //!   going to use the [`Client`] that is available when compiling
-//!   with `--features reqwest_client`.
+//!   with `--features reqwest-client`.
 //! - a notifier that the state machine can use to send
 //!   notifications. This can be any type that implements the
 //!   [`Notify`] trait. We'll use channels for this.
@@ -91,14 +91,12 @@
 //! is the full code:
 //!
 //! ```rust,ignore
-//! #[macro_use]
-//! extern crate async_trait;
-//!
 //! use std::{
 //!     sync::{mpsc, Arc},
 //!     time::Duration,
 //! };
 //!
+//! use async_trait::async_trait;
 //! use tokio::time::delay_for;
 //! use xaynet_core::{
 //!     crypto::SigningKeyPair,
@@ -201,24 +199,17 @@
 //!     }
 //! }
 //! ```
-#[macro_use]
-extern crate async_trait;
-#[macro_use]
-extern crate serde;
-#[macro_use]
-extern crate tracing;
 
-mod message_encoder;
-pub(crate) use message_encoder::MessageEncoder;
-
-mod settings;
-pub use settings::PetSettings;
-
-mod state_machine;
-pub use state_machine::{PassiveNotifier, StateMachine, TransitionOutcome};
-
-mod traits;
-pub use traits::{ModelStore, Notify, XaynetClient};
-
-#[cfg(feature = "reqwest_client")]
+#[cfg(feature = "reqwest-client")]
 pub mod client;
+mod message_encoder;
+mod settings;
+mod state_machine;
+mod traits;
+
+pub(crate) use crate::message_encoder::MessageEncoder;
+pub use crate::{
+    settings::PetSettings,
+    state_machine::{PassiveNotifier, StateMachine, TransitionOutcome},
+    traits::{ModelStore, Notify, XaynetClient},
+};

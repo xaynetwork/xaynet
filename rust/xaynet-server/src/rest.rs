@@ -6,6 +6,7 @@ use std::path::PathBuf;
 
 use bytes::{Buf, Bytes};
 use thiserror::Error;
+use tracing::{error, warn};
 use warp::{
     http::{Response, StatusCode},
     reply::Reply,

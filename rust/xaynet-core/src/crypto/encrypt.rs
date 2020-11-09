@@ -6,6 +6,7 @@
 //! [crypto module]: ../index.html
 
 use derive_more::{AsMut, AsRef, From};
+use serde::{Deserialize, Serialize};
 use sodiumoxide::crypto::{box_, sealedbox};
 
 use super::ByteObject;

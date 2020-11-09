@@ -1,3 +1,12 @@
+use std::time::Duration;
+
+use async_trait::async_trait;
+use thiserror::Error;
+use tokio::time::delay_for;
+use tracing::{error, info};
+
+#[cfg(feature = "metrics")]
+use crate::metrics;
 use crate::{
     state_machine::{
         phases::{Idle, Phase, PhaseName, PhaseState, Shared, Shutdown},
@@ -6,13 +15,7 @@ use crate::{
     },
     storage::redis::RedisError,
 };
-use std::time::Duration;
-use tokio::time::delay_for;
-
-#[cfg(feature = "metrics")]
-use crate::metrics;
-
-use thiserror::Error;
+use xaynet_macros::metrics;
 
 /// Error that can occur during the execution of the [`StateMachine`].
 #[derive(Error, Debug)]

@@ -2,14 +2,6 @@ use std::{collections::HashMap, sync::Arc};
 
 use tokio_test::assert_ready;
 use tower_test::mock::Spawn;
-use xaynet_core::{
-    common::{RoundParameters, RoundSeed},
-    crypto::{ByteObject, PublicEncryptKey, PublicSigningKey},
-    mask::{EncryptedMaskSeed, Model},
-    SeedDict,
-    SumDict,
-    UpdateSeedDict,
-};
 
 use crate::{
     services::{
@@ -28,6 +20,14 @@ use crate::{
         tests::utils::new_event_channels,
     },
     state_machine::events::{DictionaryUpdate, MaskLengthUpdate, ModelUpdate},
+};
+use xaynet_core::{
+    common::{RoundParameters, RoundSeed},
+    crypto::{ByteObject, PublicEncryptKey, PublicSigningKey},
+    mask::{EncryptedMaskSeed, Model},
+    SeedDict,
+    SumDict,
+    UpdateSeedDict,
 };
 
 #[tokio::test]

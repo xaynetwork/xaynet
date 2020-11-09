@@ -1,5 +1,6 @@
 use influxdb::{Client, WriteQuery};
 use tokio::sync::mpsc::{channel, Receiver, Sender};
+use tracing::{error, warn};
 
 /// Runs the metrics service.
 ///
