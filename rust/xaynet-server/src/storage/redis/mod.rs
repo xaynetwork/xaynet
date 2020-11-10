@@ -37,6 +37,8 @@
 //! }
 //! ```
 
+mod impls;
+
 use std::collections::HashMap;
 
 use async_trait::async_trait;
@@ -44,19 +46,19 @@ use redis::{aio::ConnectionManager, AsyncCommands, IntoConnectionInfo, Pipeline,
 pub use redis::{RedisError, RedisResult};
 use tracing::debug;
 
+use self::impls::{
+    EncryptedMaskSeedRead,
+    LocalSeedDictWrite,
+    MaskObjectRead,
+    MaskObjectWrite,
+    PublicEncryptKeyRead,
+    PublicEncryptKeyWrite,
+    PublicSigningKeyRead,
+    PublicSigningKeyWrite,
+};
 use crate::{
     state_machine::coordinator::CoordinatorState,
     storage::{
-        impls::{
-            EncryptedMaskSeedRead,
-            LocalSeedDictWrite,
-            MaskObjectRead,
-            MaskObjectWrite,
-            PublicEncryptKeyRead,
-            PublicEncryptKeyWrite,
-            PublicSigningKeyRead,
-            PublicSigningKeyWrite,
-        },
         CoordinatorStorage,
         LocalSeedDictAdd,
         MaskScoreIncr,
@@ -461,7 +463,7 @@ impl Client {
     pub async fn remove_sum_dict_entry(
         &mut self,
         pk: &SumParticipantPublicKey,
-    ) -> RedisResult<crate::storage::impls::SumDictDelete> {
+    ) -> RedisResult<self::impls::SumDictDelete> {
         // https://redis.io/commands/hdel
         // > Return value
         //   Integer reply: the number of fields that were removed from the hash,
@@ -560,16 +562,11 @@ impl Client {
 
 #[cfg(test)]
 pub(in crate) mod tests {
+    use self::impls::SumDictDeleteError;
     use super::*;
     use crate::{
         state_machine::tests::utils::{mask_settings, model_settings, pet_settings},
-        storage::{
-            impls::SumDictDeleteError,
-            tests::*,
-            LocalSeedDictAddError,
-            MaskScoreIncrError,
-            SumPartAddError,
-        },
+        storage::{tests::*, LocalSeedDictAddError, MaskScoreIncrError, SumPartAddError},
     };
     use serial_test::serial;
 
