@@ -1,6 +1,6 @@
 use num::{bigint::BigUint, traits::identities::Zero};
 
-use crate::storage::{impls::SeedDictUpdate, redis::Client};
+use crate::storage::{redis::Client, LocalSeedDictAdd};
 use xaynet_core::{
     crypto::{ByteObject, EncryptKeyPair, SigningKeyPair},
     mask::{BoundType, DataType, EncryptedMaskSeed, GroupType, MaskConfig, MaskObject, ModelType},
@@ -116,7 +116,7 @@ pub async fn create_and_write_sum_participant_entries(
 pub async fn write_local_seed_entries(
     client: &Client,
     local_seed_entries: &[(UpdateParticipantPublicKey, LocalSeedDict)],
-) -> Vec<SeedDictUpdate> {
+) -> Vec<LocalSeedDictAdd> {
     let mut update_result = Vec::new();
 
     for (update_pk, local_seed_dict) in local_seed_entries {
