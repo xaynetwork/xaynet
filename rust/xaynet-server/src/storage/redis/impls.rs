@@ -111,15 +111,6 @@ macro_rules! impl_byte_object_redis_traits {
                     self.0.as_slice().write_redis_args(out)
                 }
             }
-
-            impl<'a> ToRedisArgs for &'a [<$ty Write>]<'a> {
-                fn write_redis_args<W>(&self, out: &mut W)
-                where
-                    W: ?Sized + RedisWrite,
-                {
-                    self.0.as_slice().write_redis_args(out)
-                }
-            }
         }
     };
 }
@@ -196,39 +187,10 @@ impl ToRedisArgs for MaskObjectWrite<'_> {
     }
 }
 
-impl<'a> ToRedisArgs for &'a MaskObjectWrite<'a> {
-    fn write_redis_args<W>(&self, out: &mut W)
-    where
-        W: ?Sized + RedisWrite,
-    {
-        (*self).write_redis_args(out)
-    }
-}
-
 #[derive(From)]
 pub(crate) struct LocalSeedDictWrite<'a>(&'a LocalSeedDict);
 
 impl ToRedisArgs for LocalSeedDictWrite<'_> {
-    fn write_redis_args<W>(&self, out: &mut W)
-    where
-        W: ?Sized + RedisWrite,
-    {
-        let args: Vec<(PublicSigningKeyWrite, EncryptedMaskSeedWrite)> = self
-            .0
-            .iter()
-            .map(|(pk, seed)| {
-                (
-                    PublicSigningKeyWrite::from(pk),
-                    EncryptedMaskSeedWrite::from(seed),
-                )
-            })
-            .collect();
-
-        args.write_redis_args(out)
-    }
-}
-
-impl<'a> ToRedisArgs for &'a LocalSeedDictWrite<'a> {
     fn write_redis_args<W>(&self, out: &mut W)
     where
         W: ?Sized + RedisWrite,
