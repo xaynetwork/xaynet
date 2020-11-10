@@ -44,18 +44,20 @@ use tracing::debug;
 
 use crate::{
     state_machine::coordinator::CoordinatorState,
-    storage::impls::{
-        EncryptedMaskSeedRead,
-        LocalSeedDictWrite,
-        MaskDictIncr,
-        MaskObjectRead,
-        MaskObjectWrite,
-        PublicEncryptKeyRead,
-        PublicEncryptKeyWrite,
-        PublicSigningKeyRead,
-        PublicSigningKeyWrite,
-        SeedDictUpdate,
-        SumDictAdd,
+    storage::{
+        impls::{
+            EncryptedMaskSeedRead,
+            LocalSeedDictWrite,
+            MaskObjectRead,
+            MaskObjectWrite,
+            PublicEncryptKeyRead,
+            PublicEncryptKeyWrite,
+            PublicSigningKeyRead,
+            PublicSigningKeyWrite,
+        },
+        LocalSeedDictAdd,
+        MaskScoreIncr,
+        SumPartAdd,
     },
 };
 use xaynet_core::{
@@ -169,14 +171,14 @@ impl Connection {
     /// Adds a new [`SumDict`] entry.
     ///
     /// Returns [`Ok(())`] if field is a new or
-    /// [`SumDictAddError::AlreadyExists`] if field already exists.
+    /// [`SumPartAddError::AlreadyExists`] if field already exists.
     ///
-    /// [`SumDictAddError::AlreadyExists`]: [crate::storage]
+    /// [`SumPartAddError::AlreadyExists`]: [crate::storage]
     pub async fn add_sum_participant(
         mut self,
         pk: &SumParticipantPublicKey,
         ephm_pk: &SumParticipantEphemeralPublicKey,
-    ) -> RedisResult<SumDictAdd> {
+    ) -> RedisResult<SumPartAdd> {
         debug!("add sum participant with pk {:?}", pk);
         // https://redis.io/commands/hsetnx
         // > If field already exists, this operation has no effect.
@@ -224,7 +226,7 @@ impl Connection {
         mut self,
         update_pk: &UpdateParticipantPublicKey,
         local_seed_dict: &LocalSeedDict,
-    ) -> RedisResult<SeedDictUpdate> {
+    ) -> RedisResult<LocalSeedDictAdd> {
         debug!(
             "update seed dictionary for update participant with pk {:?}",
             update_pk
@@ -319,7 +321,7 @@ impl Connection {
         mut self,
         sum_pk: &SumParticipantPublicKey,
         mask: &MaskObject,
-    ) -> RedisResult<MaskDictIncr> {
+    ) -> RedisResult<MaskScoreIncr> {
         debug!("increment mask count");
         let script = Script::new(
             r#"
@@ -551,8 +553,11 @@ pub(in crate) mod tests {
     use crate::{
         state_machine::tests::utils::{mask_settings, model_settings, pet_settings},
         storage::{
-            impls::{MaskDictIncrError, SeedDictUpdateError, SumDictAddError, SumDictDeleteError},
+            impls::SumDictDeleteError,
             tests::*,
+            LocalSeedDictAddError,
+            MaskScoreIncrError,
+            SumPartAddError,
         },
     };
     use serial_test::serial;
@@ -656,7 +661,7 @@ pub(in crate) mod tests {
 
         assert!(matches!(
             unknown_sum_pk.into_inner().unwrap_err(),
-            MaskDictIncrError::UnknownSumPk
+            MaskScoreIncrError::UnknownSumPk
         ));
     }
 
@@ -689,7 +694,7 @@ pub(in crate) mod tests {
 
         assert!(matches!(
             already_submitted.into_inner().unwrap_err(),
-            MaskDictIncrError::MaskAlreadySubmitted
+            MaskScoreIncrError::MaskAlreadySubmitted
         ));
     }
 
@@ -838,7 +843,7 @@ pub(in crate) mod tests {
             entries.push((pk, epk));
         }
 
-        // ensure that add_sum_participant returns SumDictAddError::AlreadyExists if the key already exist
+        // ensure that add_sum_participant returns SumPartAddError::AlreadyExists if the key already exist
         let (pk, epk) = entries.get(0).unwrap();
         let key_already_exist = client
             .connection()
@@ -848,7 +853,7 @@ pub(in crate) mod tests {
             .unwrap();
         assert!(matches!(
             key_already_exist.into_inner().unwrap_err(),
-            SumDictAddError::AlreadyExists
+            SumPartAddError::AlreadyExists
         ));
 
         // ensure that get_sum_dict_len returns 2
@@ -925,7 +930,7 @@ pub(in crate) mod tests {
         update_result.into_iter().for_each(|res| {
             assert!(matches!(
                 res.into_inner().unwrap_err(),
-                SeedDictUpdateError::LengthMisMatch
+                LocalSeedDictAddError::LengthMisMatch
             ))
         });
     }
@@ -947,7 +952,7 @@ pub(in crate) mod tests {
         update_result.into_iter().for_each(|res| {
             assert!(matches!(
                 res.into_inner().unwrap_err(),
-                SeedDictUpdateError::UnknownSumParticipant
+                LocalSeedDictAddError::UnknownSumParticipant
             ))
         });
     }
@@ -966,7 +971,7 @@ pub(in crate) mod tests {
         update_result.into_iter().for_each(|res| {
             assert!(matches!(
                 res.into_inner().unwrap_err(),
-                SeedDictUpdateError::UpdatePkAlreadySubmitted
+                LocalSeedDictAddError::UpdatePkAlreadySubmitted
             ))
         });
     }
@@ -995,7 +1000,7 @@ pub(in crate) mod tests {
         update_result.into_iter().for_each(|res| {
             assert!(matches!(
                 res.into_inner().unwrap_err(),
-                SeedDictUpdateError::UpdatePkAlreadyExistsInUpdateSeedDict
+                LocalSeedDictAddError::UpdatePkAlreadyExistsInUpdateSeedDict
             ))
         });
     }

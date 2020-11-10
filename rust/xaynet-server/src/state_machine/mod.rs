@@ -126,7 +126,7 @@ use crate::metrics::MetricsSender;
 use crate::{settings::RestoreSettings, storage::s3};
 use crate::{
     settings::{MaskSettings, ModelSettings, PetSettings},
-    storage::{redis, MaskDictIncrError, RedisError, SeedDictUpdateError, SumDictAddError},
+    storage::{redis, LocalSeedDictAddError, MaskScoreIncrError, RedisError, SumPartAddError},
 };
 #[cfg(feature = "model-persistence")]
 use xaynet_core::mask::Model;
@@ -135,26 +135,33 @@ use xaynet_core::mask::UnmaskingError;
 /// Error returned when the state machine fails to handle a request
 #[derive(Debug, Error)]
 pub enum RequestError {
+    /// the message was rejected
     #[error("the message was rejected")]
     MessageRejected,
 
+    /// the model or scalar sent by the participant could not be aggregated
     #[error("invalid update: the model or scalar sent by the participant could not be aggregated")]
     AggregationFailed,
 
+    /// the request could not be processed due to an internal error
     #[error("the request could not be processed due to an internal error: {0}")]
     InternalError(&'static str),
 
+    /// a redis request failed
     #[error("redis request failed: {0}")]
     Redis(#[from] RedisError),
 
+    /// adding a local seed dict to the seed dictionary failed
     #[error(transparent)]
-    SeedDictUpdate(#[from] SeedDictUpdateError),
+    LocalSeedDictAdd(#[from] LocalSeedDictAddError),
 
+    /// adding a sum participant to the sum dictionary failed
     #[error(transparent)]
-    SumDictAdd(#[from] SumDictAddError),
+    SumPartAdd(#[from] SumPartAddError),
 
+    /// incrementing a mask score failed
     #[error(transparent)]
-    MaskDictIncr(#[from] MaskDictIncrError),
+    MaskScoreIncr(#[from] MaskScoreIncrError),
 }
 
 pub type StateMachineResult = Result<(), RequestError>;
