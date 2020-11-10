@@ -1,13 +1,21 @@
 use std::convert::TryFrom;
 
-use derive_more::{Deref, From, Into};
-use num_enum::TryFromPrimitive;
+use derive_more::{From, Into};
 use paste::paste;
 use redis::{ErrorKind, FromRedisValue, RedisError, RedisResult, RedisWrite, ToRedisArgs, Value};
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
 
-use crate::state_machine::coordinator::CoordinatorState;
+use crate::{
+    state_machine::coordinator::CoordinatorState,
+    storage::{
+        LocalSeedDictAdd,
+        LocalSeedDictAddError,
+        MaskScoreIncr,
+        MaskScoreIncrError,
+        SumPartAdd,
+        SumPartAddError,
+    },
+};
 use xaynet_core::{
     crypto::{ByteObject, PublicEncryptKey, PublicSigningKey},
     mask::{EncryptedMaskSeed, MaskObject},
@@ -240,20 +248,12 @@ impl<'a> ToRedisArgs for &'a LocalSeedDictWrite<'a> {
     }
 }
 
-#[derive(Deref)]
-pub struct SeedDictUpdate(Result<(), SeedDictUpdateError>);
-impl SeedDictUpdate {
-    pub fn into_inner(self) -> Result<(), SeedDictUpdateError> {
-        self.0
-    }
-}
-
-impl FromRedisValue for SeedDictUpdate {
-    fn from_redis_value(v: &Value) -> RedisResult<SeedDictUpdate> {
+impl FromRedisValue for LocalSeedDictAdd {
+    fn from_redis_value(v: &Value) -> RedisResult<LocalSeedDictAdd> {
         match *v {
-            Value::Int(0) => Ok(SeedDictUpdate(Ok(()))),
-            Value::Int(error_code) => match SeedDictUpdateError::try_from(error_code) {
-                Ok(error_variant) => Ok(SeedDictUpdate(Err(error_variant))),
+            Value::Int(0) => Ok(LocalSeedDictAdd(Ok(()))),
+            Value::Int(error_code) => match LocalSeedDictAddError::try_from(error_code) {
+                Ok(error_variant) => Ok(LocalSeedDictAdd(Err(error_variant))),
                 Err(_) => Err(error_code_type_error(v)),
             },
             _ => Err(error_code_type_error(v)),
@@ -261,35 +261,12 @@ impl FromRedisValue for SeedDictUpdate {
     }
 }
 
-/// Error that can occur during the update of the `SeedDict`.
-#[derive(Error, Debug, TryFromPrimitive)]
-#[repr(i64)]
-pub enum SeedDictUpdateError {
-    #[error("the length of the local seed dict and the length of sum dict are not equal")]
-    LengthMisMatch = -1,
-    #[error("local dict contains an unknown sum participant")]
-    UnknownSumParticipant = -2,
-    #[error("update participant already submitted an update")]
-    UpdatePkAlreadySubmitted = -3,
-    #[error("update participant already exists in the inner update seed dict")]
-    UpdatePkAlreadyExistsInUpdateSeedDict = -4,
-}
-
-#[derive(Deref)]
-pub struct SumDictAdd(Result<(), SumDictAddError>);
-
-impl SumDictAdd {
-    pub fn into_inner(self) -> Result<(), SumDictAddError> {
-        self.0
-    }
-}
-
-impl FromRedisValue for SumDictAdd {
-    fn from_redis_value(v: &Value) -> RedisResult<SumDictAdd> {
+impl FromRedisValue for SumPartAdd {
+    fn from_redis_value(v: &Value) -> RedisResult<SumPartAdd> {
         match *v {
-            Value::Int(1) => Ok(SumDictAdd(Ok(()))),
-            Value::Int(error_code) => match SumDictAddError::try_from(error_code) {
-                Ok(error_variant) => Ok(SumDictAdd(Err(error_variant))),
+            Value::Int(1) => Ok(SumPartAdd(Ok(()))),
+            Value::Int(error_code) => match SumPartAddError::try_from(error_code) {
+                Ok(error_variant) => Ok(SumPartAdd(Err(error_variant))),
                 Err(_) => Err(error_code_type_error(v)),
             },
             _ => Err(error_code_type_error(v)),
@@ -297,15 +274,21 @@ impl FromRedisValue for SumDictAdd {
     }
 }
 
-#[derive(Error, Debug, TryFromPrimitive)]
-#[repr(i64)]
-pub enum SumDictAddError {
-    #[error("sum participant already exists")]
-    AlreadyExists = 0,
+impl FromRedisValue for MaskScoreIncr {
+    fn from_redis_value(v: &Value) -> RedisResult<MaskScoreIncr> {
+        match *v {
+            Value::Int(0) => Ok(MaskScoreIncr(Ok(()))),
+            Value::Int(error_code) => match MaskScoreIncrError::try_from(error_code) {
+                Ok(error_variant) => Ok(MaskScoreIncr(Err(error_variant))),
+                Err(_) => Err(error_code_type_error(v)),
+            },
+            _ => Err(error_code_type_error(v)),
+        }
+    }
 }
 
 #[cfg(test)]
-#[derive(Deref)]
+#[derive(derive_more::Deref)]
 pub struct SumDictDelete(Result<(), SumDictDeleteError>);
 
 #[cfg(test)]
@@ -313,6 +296,14 @@ impl SumDictDelete {
     pub fn into_inner(self) -> Result<(), SumDictDeleteError> {
         self.0
     }
+}
+
+#[cfg(test)]
+#[derive(thiserror::Error, Debug, num_enum::TryFromPrimitive)]
+#[repr(i64)]
+pub enum SumDictDeleteError {
+    #[error("sum participant does not exist")]
+    DoesNotExist = 0,
 }
 
 #[cfg(test)]
@@ -327,43 +318,4 @@ impl FromRedisValue for SumDictDelete {
             _ => Err(error_code_type_error(v)),
         }
     }
-}
-
-#[cfg(test)]
-#[derive(Error, Debug, TryFromPrimitive)]
-#[repr(i64)]
-pub enum SumDictDeleteError {
-    #[error("sum participant does not exist")]
-    DoesNotExist = 0,
-}
-
-#[derive(Deref)]
-pub struct MaskDictIncr(Result<(), MaskDictIncrError>);
-
-impl MaskDictIncr {
-    pub fn into_inner(self) -> Result<(), MaskDictIncrError> {
-        self.0
-    }
-}
-
-impl FromRedisValue for MaskDictIncr {
-    fn from_redis_value(v: &Value) -> RedisResult<MaskDictIncr> {
-        match *v {
-            Value::Int(0) => Ok(MaskDictIncr(Ok(()))),
-            Value::Int(error_code) => match MaskDictIncrError::try_from(error_code) {
-                Ok(error_variant) => Ok(MaskDictIncr(Err(error_variant))),
-                Err(_) => Err(error_code_type_error(v)),
-            },
-            _ => Err(error_code_type_error(v)),
-        }
-    }
-}
-
-#[derive(Error, Debug, TryFromPrimitive)]
-#[repr(i64)]
-pub enum MaskDictIncrError {
-    #[error("unknown sum participant")]
-    UnknownSumPk = -1,
-    #[error("sum participant submitted a mask already")]
-    MaskAlreadySubmitted = -2,
 }

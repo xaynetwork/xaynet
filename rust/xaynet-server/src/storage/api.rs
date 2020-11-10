@@ -189,3 +189,67 @@ where
     }
 }
 
+/// A wrapper that contains the result of the "add sum participant" operation.
+#[derive(Deref)]
+pub struct SumPartAdd(pub(crate) Result<(), SumPartAddError>);
+
+impl SumPartAdd {
+    /// Unwraps this wrapper, returning the underlying result.
+    pub fn into_inner(self) -> Result<(), SumPartAddError> {
+        self.0
+    }
+}
+
+/// Error that can occur when adding a sum participant to the [`SumDict`].
+#[derive(Display, Error, Debug, TryFromPrimitive)]
+#[repr(i64)]
+pub enum SumPartAddError {
+    /// sum participant already exists
+    AlreadyExists = 0,
+}
+
+/// A wrapper that contains the result of the "add local seed dict" operation.
+#[derive(Deref)]
+pub struct LocalSeedDictAdd(pub(crate) Result<(), LocalSeedDictAddError>);
+
+impl LocalSeedDictAdd {
+    /// Unwraps this wrapper, returning the underlying result.
+    pub fn into_inner(self) -> Result<(), LocalSeedDictAddError> {
+        self.0
+    }
+}
+
+/// Error that can occur when adding a local seed dict to the [`SeedDict`].
+#[derive(Display, Error, Debug, TryFromPrimitive)]
+#[repr(i64)]
+pub enum LocalSeedDictAddError {
+    /// the length of the local seed dict and the length of sum dict are not equal
+    LengthMisMatch = -1,
+    /// local dict contains an unknown sum participant
+    UnknownSumParticipant = -2,
+    /// update participant already submitted an update
+    UpdatePkAlreadySubmitted = -3,
+    /// update participant already exists in the inner update seed dict
+    UpdatePkAlreadyExistsInUpdateSeedDict = -4,
+}
+
+/// A wrapper that contains the result of the "increment mask score" operation.
+#[derive(Deref)]
+pub struct MaskScoreIncr(pub(crate) Result<(), MaskScoreIncrError>);
+
+impl MaskScoreIncr {
+    /// Unwraps this wrapper, returning the underlying result.
+    pub fn into_inner(self) -> Result<(), MaskScoreIncrError> {
+        self.0
+    }
+}
+
+/// Error that can occur when incrementing a mask score.
+#[derive(Display, Error, Debug, TryFromPrimitive)]
+#[repr(i64)]
+pub enum MaskScoreIncrError {
+    /// unknown sum participant
+    UnknownSumPk = -1,
+    /// sum participant submitted a mask already
+    MaskAlreadySubmitted = -2,
+}
