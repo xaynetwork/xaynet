@@ -7,13 +7,13 @@ use tracing::{error, info};
 
 #[cfg(feature = "metrics")]
 use crate::metrics;
+use crate::storage::CoordinatorStorage;
 use crate::{
     state_machine::{
         phases::{Idle, Phase, PhaseName, PhaseState, Shared, Shutdown},
-        StateMachine,
-        UnmaskGlobalModelError,
+        StateMachine, UnmaskGlobalModelError,
     },
-    storage::redis::RedisError,
+    storage::StorageError,
 };
 use xaynet_macros::metrics;
 
@@ -22,15 +22,22 @@ use xaynet_macros::metrics;
 pub enum PhaseStateError {
     #[error("channel error: {0}")]
     Channel(&'static str),
-    #[error("unmask global model error: {0}")]
-    UnmaskGlobalModel(#[from] UnmaskGlobalModelError),
     #[error("phase timeout")]
     Timeout(#[from] tokio::time::Elapsed),
+
+    #[error("sum dictionary does not exists")]
+    NoSumDict,
+    #[error("seed dictionary does not exists")]
+    NoSeedDict,
+    #[error("unmask global model error: {0}")]
+    UnmaskGlobalModel(#[from] UnmaskGlobalModelError),
+
     #[error("redis request failed: {0}")]
-    Redis(#[from] RedisError),
+    CoordinatorStorage(#[from] StorageError),
+
     #[cfg(feature = "model-persistence")]
     #[error("saving the global model failed: {0}")]
-    SaveGlobalModel(crate::storage::StorageError),
+    SaveGlobalModel(StorageError),
 }
 
 impl PhaseState<PhaseStateError> {
@@ -55,24 +62,9 @@ impl Phase for PhaseState<PhaseStateError> {
             metrics::phase::error::emit(&self.inner)
         );
 
-        if let PhaseStateError::Redis(_) = self.inner {
-            // a simple loop that stops as soon as the redis client has reconnected to a redis
-            // instance. Reconnecting a lost connection is handled internally by
-            // redis::aio::ConnectionManager
-
-            while self
-                .shared
-                .io
-                .redis
-                .connection()
-                .await
-                .ping()
-                .await
-                .is_err()
-            {
-                info!("try to reconnect to Redis in 5 sec");
-                delay_for(Duration::from_secs(5)).await;
-            }
+        while self.shared.io.redis.coordinator_state().await.is_err() {
+            info!("try to reconnect to Redis in 5 sec");
+            delay_for(Duration::from_secs(5)).await;
         }
 
         Ok(())

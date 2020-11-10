@@ -47,34 +47,19 @@ pub use redis::{RedisError, RedisResult};
 use tracing::debug;
 
 use self::impls::{
-    EncryptedMaskSeedRead,
-    LocalSeedDictWrite,
-    MaskObjectRead,
-    MaskObjectWrite,
-    PublicEncryptKeyRead,
-    PublicEncryptKeyWrite,
-    PublicSigningKeyRead,
-    PublicSigningKeyWrite,
+    EncryptedMaskSeedRead, LocalSeedDictWrite, MaskObjectRead, MaskObjectWrite,
+    PublicEncryptKeyRead, PublicEncryptKeyWrite, PublicSigningKeyRead, PublicSigningKeyWrite,
 };
 use crate::{
     state_machine::coordinator::CoordinatorState,
     storage::{
-        CoordinatorStorage,
-        LocalSeedDictAdd,
-        MaskScoreIncr,
-        StorageError,
-        StorageResult,
+        CoordinatorStorage, LocalSeedDictAdd, MaskScoreIncr, StorageError, StorageResult,
         SumPartAdd,
     },
 };
 use xaynet_core::{
-    mask::MaskObject,
-    LocalSeedDict,
-    SeedDict,
-    SumDict,
-    SumParticipantEphemeralPublicKey,
-    SumParticipantPublicKey,
-    UpdateParticipantPublicKey,
+    mask::MaskObject, LocalSeedDict, SeedDict, SumDict, SumParticipantEphemeralPublicKey,
+    SumParticipantPublicKey, UpdateParticipantPublicKey,
 };
 
 #[derive(Clone)]
@@ -523,7 +508,7 @@ impl Client {
 
     /// Returns the [`SeedDict`] entry for the given ['SumParticipantPublicKey'] or an empty map
     /// when a [`SeedDict`] entry does not exist.
-    async fn seed_dict_for_sum_pk(
+    pub async fn seed_dict_for_sum_pk(
         &mut self,
         sum_pk: &SumParticipantPublicKey,
     ) -> RedisResult<HashMap<UpdateParticipantPublicKey, xaynet_core::mask::EncryptedMaskSeed>>

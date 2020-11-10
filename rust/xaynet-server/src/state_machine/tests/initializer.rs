@@ -3,6 +3,7 @@ use serial_test::serial;
 use super::utils::{mask_settings, model_settings, pet_settings};
 #[cfg(feature = "metrics")]
 use crate::metrics::MetricsSender;
+use crate::storage::api::CoordinatorStorage;
 #[cfg(feature = "model-persistence")]
 use crate::{
     settings::RestoreSettings,
@@ -110,12 +111,7 @@ async fn integration_state_machine_initializer_without_global_model() {
     let mut state = CoordinatorState::new(pet_settings, mask_settings, model_settings.clone());
     let new_round_id = 5;
     state.round_id = new_round_id;
-    redis
-        .connection()
-        .await
-        .set_coordinator_state(&state)
-        .await
-        .unwrap();
+    redis.set_coordinator_state(&state).await.unwrap();
 
     let smi = StateMachineInitializer::new(
         pet_settings,
@@ -164,12 +160,7 @@ async fn integration_state_machine_initializer_with_global_model() {
     let mut state = CoordinatorState::new(pet_settings, mask_settings, model_settings.clone());
     let new_round_id = 7;
     state.round_id = new_round_id;
-    redis
-        .connection()
-        .await
-        .set_coordinator_state(&state)
-        .await
-        .unwrap();
+    redis.set_coordinator_state(&state).await.unwrap();
 
     // upload a global model to minio and set the id in redis
     let uploaded_global_model = create_global_model(state.model_size);
@@ -183,8 +174,6 @@ async fn integration_state_machine_initializer_with_global_model() {
         .await
         .unwrap();
     redis
-        .connection()
-        .await
         .set_latest_global_model_id(&global_model_id)
         .await
         .unwrap();
@@ -238,12 +227,7 @@ async fn integration_state_machine_initializer_failed_because_of_wrong_size() {
     let mut state = CoordinatorState::new(pet_settings, mask_settings, model_settings.clone());
     let new_round_id = 9;
     state.round_id = new_round_id;
-    redis
-        .connection()
-        .await
-        .set_coordinator_state(&state)
-        .await
-        .unwrap();
+    redis.set_coordinator_state(&state).await.unwrap();
 
     // upload a global model with a wrong model size to minio and set the id in redis
     let uploaded_global_model = create_global_model(state.model_size + 10);
@@ -257,8 +241,6 @@ async fn integration_state_machine_initializer_failed_because_of_wrong_size() {
         .await
         .unwrap();
     redis
-        .connection()
-        .await
         .set_latest_global_model_id(&global_model_id)
         .await
         .unwrap();
@@ -295,19 +277,12 @@ async fn integration_state_machine_initializer_failed_to_find_global_model() {
     let mut state = CoordinatorState::new(pet_settings, mask_settings, model_settings.clone());
     let new_round_id = 11;
     state.round_id = new_round_id;
-    redis
-        .connection()
-        .await
-        .set_coordinator_state(&state)
-        .await
-        .unwrap();
+    redis.set_coordinator_state(&state).await.unwrap();
 
     // set a model id in redis but don't upload a model to minio
     let global_model_id =
         s3::Client::create_global_model_id(state.round_id, &state.round_params.seed);
     redis
-        .connection()
-        .await
         .set_latest_global_model_id(&global_model_id)
         .await
         .unwrap();
@@ -340,12 +315,7 @@ async fn integration_state_machine_initializer_reset_state() {
 
     let redis = redis::tests::init_client().await;
     let state = CoordinatorState::new(pet_settings, mask_settings, model_settings.clone());
-    redis
-        .connection()
-        .await
-        .set_coordinator_state(&state)
-        .await
-        .unwrap();
+    redis.set_coordinator_state(&state).await.unwrap();
 
     let smi = StateMachineInitializer::new(
         pet_settings,
@@ -362,7 +332,7 @@ async fn integration_state_machine_initializer_reset_state() {
 
     smi.from_settings().await.unwrap();
 
-    let keys = redis.connection().await.get_keys().await.unwrap();
+    let keys = redis.keys().await.unwrap();
 
     assert!(keys.is_empty());
 }

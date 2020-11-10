@@ -106,16 +106,7 @@ use self::{
     coordinator::CoordinatorState,
     events::{EventPublisher, EventSubscriber, ModelUpdate},
     phases::{
-        Idle,
-        Phase,
-        PhaseName,
-        PhaseState,
-        PhaseStateError,
-        Shared,
-        Shutdown,
-        Sum,
-        Sum2,
-        Unmask,
+        Idle, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Shutdown, Sum, Sum2, Unmask,
         Update,
     },
     requests::{RequestReceiver, RequestSender},
@@ -127,12 +118,8 @@ use crate::{settings::RestoreSettings, storage::api::ModelStorage, storage::s3};
 use crate::{
     settings::{MaskSettings, ModelSettings, PetSettings},
     storage::{
-        api::StorageError,
-        redis,
-        LocalSeedDictAddError,
-        MaskScoreIncrError,
-        RedisError,
-        SumPartAddError,
+        api::CoordinatorStorage, api::StorageError, redis, LocalSeedDictAddError,
+        MaskScoreIncrError, RedisError, SumPartAddError,
     },
 };
 #[cfg(feature = "model-persistence")]
@@ -156,7 +143,7 @@ pub enum RequestError {
 
     /// a redis request failed
     #[error("redis request failed: {0}")]
-    Redis(#[from] RedisError),
+    CoordinatorStorage(#[from] StorageError),
 
     /// adding a local seed dict to the seed dictionary failed
     #[error(transparent)]
@@ -302,13 +289,9 @@ impl StateMachineInitializer {
     // all coordinator data in Redis. Should only be called for the first start
     // or if we need to perform reset.
     async fn from_settings(
-        &self,
+        &mut self,
     ) -> StateMachineInitializationResult<(CoordinatorState, ModelUpdate)> {
-        self.redis_handle
-            .connection()
-            .await
-            .flush_coordinator_data()
-            .await?;
+        self.redis_handle.delete_coordinator_data().await?;
         Ok((
             CoordinatorState::new(
                 self.pet_settings,
@@ -396,18 +379,13 @@ impl StateMachineInitializer {
     async fn from_previous_state(
         &mut self,
     ) -> StateMachineInitializationResult<(CoordinatorState, ModelUpdate)> {
-        let (coordinator_state, global_model) = if let Some(coordinator_state) = self
-            .redis_handle
-            .connection()
-            .await
-            .get_coordinator_state()
-            .await?
-        {
-            self.try_restore_state(coordinator_state).await?
-        } else {
-            // no state in redis available seems to be a fresh start
-            self.from_settings().await?
-        };
+        let (coordinator_state, global_model) =
+            if let Some(coordinator_state) = self.redis_handle.coordinator_state().await? {
+                self.try_restore_state(coordinator_state).await?
+            } else {
+                // no state in redis available seems to be a fresh start
+                self.from_settings().await?
+            };
 
         Ok((coordinator_state, global_model))
     }
@@ -417,14 +395,7 @@ impl StateMachineInitializer {
         &mut self,
         coordinator_state: CoordinatorState,
     ) -> StateMachineInitializationResult<(CoordinatorState, ModelUpdate)> {
-        let latest_global_model_id = self
-            .redis_handle
-            .connection()
-            .await
-            .get_latest_global_model_id()
-            .await?;
-
-        let global_model_id = match latest_global_model_id {
+        let global_model_id = match self.redis_handle.latest_global_model_id().await? {
             // the state machine was shut down before completing a round
             // we cannot use the round_id here because we increment the round_id after each restart
             // that means even if the round id is larger than one, it doesn't mean that a

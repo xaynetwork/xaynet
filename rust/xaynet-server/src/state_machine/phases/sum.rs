@@ -10,9 +10,9 @@ use crate::state_machine::{
     events::DictionaryUpdate,
     phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Update},
     requests::{StateMachineRequest, SumRequest},
-    RequestError,
-    StateMachine,
+    RequestError, StateMachine,
 };
+use crate::storage::CoordinatorStorage;
 use xaynet_macros::metrics;
 
 /// Sum state
@@ -70,10 +70,9 @@ where
             .shared
             .io
             .redis
-            .connection()
-            .await
-            .get_sum_dict()
-            .await?;
+            .sum_dict()
+            .await?
+            .ok_or(PhaseStateError::NoSumDict)?;
 
         info!("broadcasting sum dictionary");
         self.shared
@@ -127,8 +126,6 @@ impl PhaseState<Sum> {
         self.shared
             .io
             .redis
-            .connection()
-            .await
             .add_sum_participant(&participant_pk, &ephm_pk)
             .await?
             .into_inner()?;
@@ -194,13 +191,13 @@ mod test {
         } = state_machine.into_update_phase_state();
 
         // Check the initial state of the update phase.
-        let frozen_sum_dict = eio.redis.connection().await.get_sum_dict().await.unwrap();
+        let frozen_sum_dict = eio.redis.sum_dict().await.unwrap().unwrap();
         assert_eq!(frozen_sum_dict.len(), 1);
         let (pk, ephm_pk) = frozen_sum_dict.iter().next().unwrap();
         assert_eq!(pk.clone(), summer.keys.public);
         assert_eq!(ephm_pk.clone(), utils::ephm_pk(&sum_msg));
 
-        let seed_dict = eio.redis.connection().await.get_seed_dict().await.unwrap();
+        let seed_dict = eio.redis.seed_dict().await.unwrap().unwrap();
         assert_eq!(seed_dict.len(), 1);
         let (pk, dict) = seed_dict.iter().next().unwrap();
         assert_eq!(pk.clone(), summer.keys.public);

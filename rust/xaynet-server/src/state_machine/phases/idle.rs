@@ -7,9 +7,9 @@ use crate::metrics;
 use crate::state_machine::{
     events::{DictionaryUpdate, MaskLengthUpdate},
     phases::{Phase, PhaseName, PhaseState, Shared, Sum},
-    PhaseStateError,
-    StateMachine,
+    PhaseStateError, StateMachine,
 };
+use crate::storage::CoordinatorStorage;
 use xaynet_core::{
     common::RoundSeed,
     crypto::{ByteObject, EncryptKeyPair, SigningKeySeed},
@@ -40,8 +40,6 @@ impl Phase for PhaseState<Idle> {
         self.shared
             .io
             .redis
-            .connection()
-            .await
             .set_coordinator_state(&self.shared.state)
             .await?;
 
@@ -59,13 +57,7 @@ impl Phase for PhaseState<Idle> {
         info!("broadcasting invalidation of mask length from previous round");
         events.broadcast_mask_length(MaskLengthUpdate::Invalidate);
 
-        self.shared
-            .io
-            .redis
-            .connection()
-            .await
-            .flush_dicts()
-            .await?;
+        self.shared.io.redis.delete_dicts().await?;
 
         info!("broadcasting new round parameters");
         events.broadcast_params(self.shared.state.round_params.clone());
