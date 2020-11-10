@@ -358,35 +358,27 @@ pub(in crate) mod tests {
 
     #[tokio::test]
     #[serial]
-    async fn integration_test_upload_and_download_global_model() {
-        let client = create_client().await;
+    async fn integration_test_set_and_get_global_model() {
+        let mut client = create_client().await;
 
         let global_model = create_global_model(10);
-        let round_seed = hex::encode(RoundSeed::generate().as_slice());
-        let global_model_id = format!("{}_{}", 1, round_seed);
-
-        let res = client
-            .upload_global_model(&global_model_id, &global_model)
-            .await;
-        assert!(res.is_ok());
-
-        let downloaded_global_model = client
-            .download_global_model(&global_model_id)
+        let id = client
+            .set_global_model(1, &RoundSeed::generate(), &global_model)
             .await
             .unwrap();
+
+        let downloaded_global_model = client.global_model(&id).await.unwrap().unwrap();
         assert_eq!(global_model, downloaded_global_model)
     }
 
     #[tokio::test]
     #[serial]
-    async fn integration_test_download_global_model_non_existent() {
-        let client = create_client().await;
+    async fn integration_test_get_global_model_non_existent() {
+        let mut client = create_client().await;
 
-        let round_seed = hex::encode(RoundSeed::generate().as_slice());
-        let global_model_id = format!("{}_{}", 1, round_seed);
-
-        let res = client.download_global_model(&global_model_id).await;
-        assert!(matches!(res, Err(S3Error::Download(_))))
+        let id = Client::create_global_model_id(1, &RoundSeed::generate());
+        let res = client.global_model(&id).await.unwrap();
+        assert!(res.is_none())
     }
 
     #[tokio::test]
@@ -395,24 +387,23 @@ pub(in crate) mod tests {
         let mut client = create_client().await;
 
         let global_model = create_global_model(10);
-        let round_seed = hex::encode(RoundSeed::generate().as_slice());
-        let global_model_id = format!("{}_{}", 1, round_seed);
-
-        let res = client
-            .upload_global_model(&global_model_id, &global_model)
-            .await;
-        assert!(res.is_ok());
-
-        let global_model = create_global_model(20);
-        let res = client
-            .upload_global_model(&global_model_id, &global_model)
-            .await;
-        assert!(res.is_ok());
-
-        let downloaded_global_model = client
-            .download_global_model(&global_model_id)
+        let round_seed = RoundSeed::generate();
+        let id = client
+            .set_global_model(1, &round_seed, &global_model)
             .await
             .unwrap();
+
+        let global_model_2 = create_global_model(20);
+        let res = client
+            .set_global_model(1, &round_seed, &global_model_2)
+            .await
+            .unwrap_err();
+        assert!(matches!(
+            res.downcast_ref::<ClientError>().unwrap(),
+            ClientError::ObjectAlreadyExist(_)
+        ));
+
+        let downloaded_global_model = client.global_model(&id).await.unwrap().unwrap();
         assert_eq!(global_model, downloaded_global_model)
     }
 }
