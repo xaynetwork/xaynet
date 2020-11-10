@@ -32,7 +32,9 @@ derive_more = { version = "0.99.10", default-features = false, features = [
     "index_mut",
     "into",
 ] }
+displaydoc = "0.1.7"
 futures = "0.3.5"
+hex = "0.4.2"
 num = { version = "0.3.0", features = ["serde"] }
 num_enum = "0.5.1"
 paste = "1.0.1"
@@ -75,7 +77,6 @@ chrono = { version = "0.4.15", optional = true }
 
 # feature: model-persistence
 fancy-regex = { version = "0.4.0", optional = true }
-hex = { version = "0.4.2", optional = true }
 rusoto_core = { version = "0.45.0", optional = true }
 rusoto_s3 = { version = "0.45.0", optional = true }
 
@@ -95,5 +96,5 @@ path = "src/bin/main.rs"
 default = []
 full = ["metrics", "model-persistence", "tls"]
 metrics = ["chrono", "influxdb"]
-model-persistence = ["fancy-regex", "hex", "rusoto_core", "rusoto_s3"]
+model-persistence = ["fancy-regex", "rusoto_core", "rusoto_s3"]
 tls = ["warp/tls"]
