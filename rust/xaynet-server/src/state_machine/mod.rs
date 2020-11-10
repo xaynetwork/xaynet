@@ -106,7 +106,16 @@ use self::{
     coordinator::CoordinatorState,
     events::{EventPublisher, EventSubscriber, ModelUpdate},
     phases::{
-        Idle, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Shutdown, Sum, Sum2, Unmask,
+        Idle,
+        Phase,
+        PhaseName,
+        PhaseState,
+        PhaseStateError,
+        Shared,
+        Shutdown,
+        Sum,
+        Sum2,
+        Unmask,
         Update,
     },
     requests::{RequestReceiver, RequestSender},
@@ -118,13 +127,15 @@ use crate::{settings::RestoreSettings, storage::api::ModelStorage, storage::s3};
 use crate::{
     settings::{MaskSettings, ModelSettings, PetSettings},
     storage::{
-        api::CoordinatorStorage, api::StorageError, redis, LocalSeedDictAddError,
-        MaskScoreIncrError, RedisError, SumPartAddError,
+        api::{CoordinatorStorage, StorageError},
+        redis,
+        LocalSeedDictAddError,
+        MaskScoreIncrError,
+        SumPartAddError,
     },
 };
 #[cfg(feature = "model-persistence")]
 use xaynet_core::mask::Model;
-use xaynet_core::mask::UnmaskingError;
 
 /// Error returned when the state machine fails to handle a request
 #[derive(Debug, Error)]
@@ -159,17 +170,6 @@ pub enum RequestError {
 }
 
 pub type StateMachineResult = Result<(), RequestError>;
-
-/// Error that occurs when unmasking of the global model fails.
-#[derive(Error, Debug, Eq, PartialEq)]
-pub enum UnmaskGlobalModelError {
-    #[error("ambiguous masks were computed by the sum participants")]
-    AmbiguousMasks,
-    #[error("no mask found")]
-    NoMask,
-    #[error("unmasking error: {0}")]
-    Unmasking(#[from] UnmaskingError),
-}
 
 /// The state machine with all its states.
 #[derive(From)]
@@ -221,12 +221,10 @@ type StateMachineInitializationResult<T> = Result<T, StateMachineInitializationE
 /// Error that can occur during the initialization of the [`StateMachine`].
 #[derive(Debug, Error)]
 pub enum StateMachineInitializationError {
-    #[error("redis request failed: {0}")]
-    Redis(#[from] RedisError),
-    #[error("failed to fetch global model: {0}")]
-    Store(#[from] StorageError),
     #[error("failed to initialize crypto library")]
     CryptoInit,
+    #[error("failed to fetch global model: {0}")]
+    Store(#[from] StorageError),
     #[error("{0}")]
     GlobalModelUnavailable(String),
     #[error("{0}")]
@@ -276,7 +274,7 @@ impl StateMachineInitializer {
     #[cfg(not(feature = "model-persistence"))]
     /// Initializes a new [`StateMachine`] with the given settings.
     pub async fn init(
-        self,
+        mut self,
     ) -> StateMachineInitializationResult<(StateMachine, RequestSender, EventSubscriber)> {
         // crucial: init must be called before anything else in this module
         sodiumoxide::init().or(Err(StateMachineInitializationError::CryptoInit))?;

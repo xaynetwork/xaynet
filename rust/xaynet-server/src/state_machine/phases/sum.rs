@@ -6,14 +6,27 @@ use tracing::{debug, info};
 
 #[cfg(feature = "metrics")]
 use crate::metrics;
-use crate::state_machine::{
-    events::DictionaryUpdate,
-    phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Update},
-    requests::{StateMachineRequest, SumRequest},
-    RequestError, StateMachine,
+use crate::{
+    state_machine::{
+        events::DictionaryUpdate,
+        phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Update},
+        requests::{StateMachineRequest, SumRequest},
+        RequestError,
+        StateMachine,
+    },
+    storage::{CoordinatorStorage, StorageError},
 };
-use crate::storage::CoordinatorStorage;
+use thiserror::Error;
 use xaynet_macros::metrics;
+
+/// Error that occurs during the sum phase.
+#[derive(Error, Debug)]
+pub enum SumStateError {
+    #[error("sum dictionary does not exists")]
+    NoSumDict,
+    #[error("fetching sum dictionary failed: {0}")]
+    FetchSumDict(StorageError),
+}
 
 /// Sum state
 #[derive(Debug)]
@@ -71,8 +84,9 @@ where
             .io
             .redis
             .sum_dict()
-            .await?
-            .ok_or(PhaseStateError::NoSumDict)?;
+            .await
+            .map_err(SumStateError::FetchSumDict)?
+            .ok_or(SumStateError::NoSumDict)?;
 
         info!("broadcasting sum dictionary");
         self.shared
@@ -155,7 +169,7 @@ mod test {
     pub async fn integration_sum_to_update() {
         utils::enable_logging();
         let sum = Sum { sum_count: 0 };
-        let (state_machine, request_tx, events, eio) = StateMachineBuilder::new()
+        let (state_machine, request_tx, events, mut eio) = StateMachineBuilder::new()
             .await
             .with_phase(sum)
             // Make sure anyone is a sum participant.

@@ -7,13 +7,23 @@ use tracing::{error, info};
 
 #[cfg(feature = "metrics")]
 use crate::metrics;
-use crate::storage::CoordinatorStorage;
 use crate::{
     state_machine::{
-        phases::{Idle, Phase, PhaseName, PhaseState, Shared, Shutdown},
-        StateMachine, UnmaskGlobalModelError,
+        phases::{
+            idle::IdleStateError,
+            sum::SumStateError,
+            unmask::UnmaskStateError,
+            update::UpdateStateError,
+            Idle,
+            Phase,
+            PhaseName,
+            PhaseState,
+            Shared,
+            Shutdown,
+        },
+        StateMachine,
     },
-    storage::StorageError,
+    storage::CoordinatorStorage,
 };
 use xaynet_macros::metrics;
 
@@ -25,19 +35,17 @@ pub enum PhaseStateError {
     #[error("phase timeout")]
     Timeout(#[from] tokio::time::Elapsed),
 
-    #[error("sum dictionary does not exists")]
-    NoSumDict,
-    #[error("seed dictionary does not exists")]
-    NoSeedDict,
-    #[error("unmask global model error: {0}")]
-    UnmaskGlobalModel(#[from] UnmaskGlobalModelError),
+    #[error("idle phase failed: {0}")]
+    Idle(#[from] IdleStateError),
 
-    #[error("redis request failed: {0}")]
-    CoordinatorStorage(#[from] StorageError),
+    #[error("sum phase failed: {0}")]
+    Sum(#[from] SumStateError),
 
-    #[cfg(feature = "model-persistence")]
-    #[error("saving the global model failed: {0}")]
-    SaveGlobalModel(StorageError),
+    #[error("update phase failed: {0}")]
+    Update(#[from] UpdateStateError),
+
+    #[error("unmask phase failed: {0}")]
+    Unmask(#[from] UnmaskStateError),
 }
 
 impl PhaseState<PhaseStateError> {
@@ -55,7 +63,7 @@ impl Phase for PhaseState<PhaseStateError> {
     const NAME: PhaseName = PhaseName::Error;
 
     async fn run(&mut self) -> Result<(), PhaseStateError> {
-        error!("state failed: {}", self.inner);
+        error!("{}", self.inner);
 
         metrics!(
             self.shared.io.metrics_tx,

@@ -3,7 +3,6 @@ use serial_test::serial;
 use super::utils::{mask_settings, model_settings, pet_settings};
 #[cfg(feature = "metrics")]
 use crate::metrics::MetricsSender;
-use crate::storage::api::CoordinatorStorage;
 #[cfg(feature = "model-persistence")]
 use crate::{
     settings::RestoreSettings,
@@ -17,7 +16,7 @@ use crate::{
 };
 use crate::{
     state_machine::{CoordinatorState, StateMachineInitializer},
-    storage::redis,
+    storage::{api::CoordinatorStorage, redis},
 };
 
 #[cfg(feature = "model-persistence")]
@@ -107,7 +106,7 @@ async fn integration_state_machine_initializer_without_global_model() {
     let model_settings = model_settings();
 
     // set a coordinator state in redis with the round_id 5
-    let redis = redis::tests::init_client().await;
+    let mut redis = redis::tests::init_client().await;
     let mut state = CoordinatorState::new(pet_settings, mask_settings, model_settings.clone());
     let new_round_id = 5;
     state.round_id = new_round_id;
@@ -156,7 +155,7 @@ async fn integration_state_machine_initializer_with_global_model() {
     let model_settings = model_settings();
 
     // set a coordinator state in redis with the round_id 7
-    let redis = redis::tests::init_client().await;
+    let mut redis = redis::tests::init_client().await;
     let mut state = CoordinatorState::new(pet_settings, mask_settings, model_settings.clone());
     let new_round_id = 7;
     state.round_id = new_round_id;
@@ -223,7 +222,7 @@ async fn integration_state_machine_initializer_failed_because_of_wrong_size() {
     let model_settings = model_settings();
 
     // set a coordinator state in redis with the round_id 9
-    let redis = redis::tests::init_client().await;
+    let mut redis = redis::tests::init_client().await;
     let mut state = CoordinatorState::new(pet_settings, mask_settings, model_settings.clone());
     let new_round_id = 9;
     state.round_id = new_round_id;
@@ -273,7 +272,7 @@ async fn integration_state_machine_initializer_failed_to_find_global_model() {
     let model_settings = model_settings();
 
     // set a coordinator state in redis with the round_id 11
-    let redis = redis::tests::init_client().await;
+    let mut redis = redis::tests::init_client().await;
     let mut state = CoordinatorState::new(pet_settings, mask_settings, model_settings.clone());
     let new_round_id = 11;
     state.round_id = new_round_id;
@@ -313,11 +312,11 @@ async fn integration_state_machine_initializer_reset_state() {
     let mask_settings = mask_settings();
     let model_settings = model_settings();
 
-    let redis = redis::tests::init_client().await;
+    let mut redis = redis::tests::init_client().await;
     let state = CoordinatorState::new(pet_settings, mask_settings, model_settings.clone());
     redis.set_coordinator_state(&state).await.unwrap();
 
-    let smi = StateMachineInitializer::new(
+    let mut smi = StateMachineInitializer::new(
         pet_settings,
         mask_settings,
         model_settings,

@@ -15,12 +15,12 @@ use tracing_futures::Instrument;
 
 pub use self::{
     error::PhaseStateError,
-    idle::Idle,
+    idle::{Idle, IdleStateError},
     shutdown::Shutdown,
-    sum::Sum,
+    sum::{Sum, SumStateError},
     sum2::Sum2,
-    unmask::Unmask,
-    update::Update,
+    unmask::{Unmask, UnmaskStateError},
+    update::{Update, UpdateStateError},
 };
 #[cfg(feature = "model-persistence")]
 use crate::storage::s3;

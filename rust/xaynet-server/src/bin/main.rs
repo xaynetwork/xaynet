@@ -74,7 +74,7 @@ async fn main() {
         s3
     };
 
-    let redis = redis::Client::new(redis_settings.url, 100)
+    let redis = redis::Client::new(redis_settings.url)
         .await
         .expect("failed to establish a connection to Redis");
 

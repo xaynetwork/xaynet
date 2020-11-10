@@ -47,19 +47,34 @@ pub use redis::{RedisError, RedisResult};
 use tracing::debug;
 
 use self::impls::{
-    EncryptedMaskSeedRead, LocalSeedDictWrite, MaskObjectRead, MaskObjectWrite,
-    PublicEncryptKeyRead, PublicEncryptKeyWrite, PublicSigningKeyRead, PublicSigningKeyWrite,
+    EncryptedMaskSeedRead,
+    LocalSeedDictWrite,
+    MaskObjectRead,
+    MaskObjectWrite,
+    PublicEncryptKeyRead,
+    PublicEncryptKeyWrite,
+    PublicSigningKeyRead,
+    PublicSigningKeyWrite,
 };
 use crate::{
     state_machine::coordinator::CoordinatorState,
     storage::{
-        CoordinatorStorage, LocalSeedDictAdd, MaskScoreIncr, StorageError, StorageResult,
+        CoordinatorStorage,
+        LocalSeedDictAdd,
+        MaskScoreIncr,
+        StorageError,
+        StorageResult,
         SumPartAdd,
     },
 };
 use xaynet_core::{
-    mask::MaskObject, LocalSeedDict, SeedDict, SumDict, SumParticipantEphemeralPublicKey,
-    SumParticipantPublicKey, UpdateParticipantPublicKey,
+    mask::MaskObject,
+    LocalSeedDict,
+    SeedDict,
+    SumDict,
+    SumParticipantEphemeralPublicKey,
+    SumParticipantPublicKey,
+    UpdateParticipantPublicKey,
 };
 
 #[derive(Clone)]
@@ -569,7 +584,7 @@ pub(in crate) mod tests {
     #[serial]
     async fn integration_set_and_get_coordinator_state() {
         // test the writing and reading of the coordinator state
-        let client = init_client().await;
+        let mut client = init_client().await;
 
         let set_state = CoordinatorState::new(pet_settings(), mask_settings(), model_settings());
         client.set_coordinator_state(&set_state).await.unwrap();
@@ -583,7 +598,7 @@ pub(in crate) mod tests {
     #[serial]
     async fn integration_get_coordinator_empty() {
         // test the reading of a non existing coordinator state
-        let client = init_client().await;
+        let mut client = init_client().await;
 
         let get_state = client.coordinator_state().await.unwrap();
 
@@ -594,7 +609,7 @@ pub(in crate) mod tests {
     #[serial]
     async fn integration_incr_mask_score() {
         // test the increment of the mask counter
-        let client = init_client().await;
+        let mut client = init_client().await;
 
         let should_be_none = client.best_masks().await.unwrap();
         assert!(should_be_none.is_none());
@@ -618,7 +633,7 @@ pub(in crate) mod tests {
     #[serial]
     async fn integration_get_incr_mask_count_unknown_sum_pk() {
         // test the writing and reading of one mask
-        let client = init_client().await;
+        let mut client = init_client().await;
 
         let should_be_none = client.best_masks().await.unwrap();
         assert!(should_be_none.is_none());
@@ -637,7 +652,7 @@ pub(in crate) mod tests {
     #[serial]
     async fn integration_get_incr_mask_score_sum_pk_already_submitted() {
         // test the writing and reading of one mask
-        let client = init_client().await;
+        let mut client = init_client().await;
 
         let should_be_none = client.best_masks().await.unwrap();
         assert!(should_be_none.is_none());
@@ -660,7 +675,7 @@ pub(in crate) mod tests {
     #[serial]
     async fn integration_get_best_masks_only_one_mask() {
         // test the writing and reading of one mask
-        let client = init_client().await;
+        let mut client = init_client().await;
 
         let should_be_none = client.best_masks().await.unwrap();
         assert!(should_be_none.is_none());
@@ -683,7 +698,7 @@ pub(in crate) mod tests {
     async fn integration_get_best_masks_two_masks() {
         // test the writing and reading of two masks
         // the first mask is incremented twice
-        let client = init_client().await;
+        let mut client = init_client().await;
 
         let should_be_none = client.best_masks().await.unwrap();
         assert!(should_be_none.is_none());
@@ -718,7 +733,7 @@ pub(in crate) mod tests {
     #[serial]
     async fn integration_get_best_masks_no_mask() {
         // ensure that get_best_masks returns an empty vec if no mask exist
-        let client = init_client().await;
+        let mut client = init_client().await;
 
         let best_masks = client.best_masks().await.unwrap();
         assert!(best_masks.is_none())
@@ -728,7 +743,7 @@ pub(in crate) mod tests {
     #[serial]
     async fn integration_get_number_of_unique_masks_empty() {
         // ensure that get_best_masks returns an empty vec if no mask exist
-        let client = init_client().await;
+        let mut client = init_client().await;
 
         let number_of_unique_masks = client.number_of_unique_masks().await.unwrap();
         assert_eq!(number_of_unique_masks, 0)
@@ -738,7 +753,7 @@ pub(in crate) mod tests {
     #[serial]
     async fn integration_get_number_of_unique_masks() {
         // ensure that get_best_masks returns an empty vec if no mask exist
-        let client = init_client().await;
+        let mut client = init_client().await;
 
         let should_be_none = client.best_masks().await.unwrap();
         assert!(should_be_none.is_none());
@@ -758,7 +773,7 @@ pub(in crate) mod tests {
     #[serial]
     async fn integration_sum_dict() {
         // test multiple sum dict related methods
-        let client = init_client().await;
+        let mut client = init_client().await;
 
         // create two entries and write them into redis
         let mut entries = vec![];
@@ -812,7 +827,7 @@ pub(in crate) mod tests {
     #[tokio::test]
     #[serial]
     async fn integration_seed_dict() {
-        let client = init_client().await;
+        let mut client = init_client().await;
 
         let sum_pks = create_and_add_sum_participant_entries(&mut client, 2).await;
         let local_seed_dicts = create_local_seed_entries(&sum_pks);
@@ -830,7 +845,7 @@ pub(in crate) mod tests {
     #[tokio::test]
     #[serial]
     async fn integration_seed_dict_len_mis_match() {
-        let client = init_client().await;
+        let mut client = init_client().await;
 
         let mut sum_pks = create_and_add_sum_participant_entries(&mut client, 2).await;
 
@@ -850,7 +865,7 @@ pub(in crate) mod tests {
     #[tokio::test]
     #[serial]
     async fn integration_seed_dict_unknown_sum_participant() {
-        let client = init_client().await;
+        let mut client = init_client().await;
 
         let mut sum_pks = create_and_add_sum_participant_entries(&mut client, 2).await;
 
@@ -872,7 +887,7 @@ pub(in crate) mod tests {
     #[tokio::test]
     #[serial]
     async fn integration_seed_dict_update_pk_already_submitted() {
-        let client = init_client().await;
+        let mut client = init_client().await;
         let sum_pks = create_and_add_sum_participant_entries(&mut client, 2).await;
 
         let local_seed_dicts = create_local_seed_entries(&sum_pks);
@@ -891,7 +906,7 @@ pub(in crate) mod tests {
     #[tokio::test]
     #[serial]
     async fn integration_seed_dict_update_pk_already_exists_in_update_seed_dict() {
-        let client = init_client().await;
+        let mut client = init_client().await;
         let sum_pks = create_and_add_sum_participant_entries(&mut client, 2).await;
 
         let local_seed_dicts = create_local_seed_entries(&sum_pks);
@@ -918,7 +933,7 @@ pub(in crate) mod tests {
     #[tokio::test]
     #[serial]
     async fn integration_seed_dict_get_seed_dict_for_sum_pk() {
-        let client = init_client().await;
+        let mut client = init_client().await;
         let mut sum_pks = create_and_add_sum_participant_entries(&mut client, 2).await;
 
         let local_seed_dicts = create_local_seed_entries(&sum_pks);
@@ -938,7 +953,7 @@ pub(in crate) mod tests {
     #[tokio::test]
     #[serial]
     async fn integration_seed_dict_get_seed_dict_for_sum_pk_empty() {
-        let client = init_client().await;
+        let mut client = init_client().await;
         let (sum_pk, _) = create_sum_participant_entry();
 
         let result = client.seed_dict_for_sum_pk(&sum_pk).await.unwrap();
@@ -948,7 +963,7 @@ pub(in crate) mod tests {
     #[tokio::test]
     #[serial]
     async fn integration_flush_dicts() {
-        let client = init_client().await;
+        let mut client = init_client().await;
 
         // write some data into redis
         let set_state = CoordinatorState::new(pet_settings(), mask_settings(), model_settings());
@@ -997,7 +1012,7 @@ pub(in crate) mod tests {
     #[tokio::test]
     #[serial]
     async fn integration_flush_coordinator_data() {
-        let client = init_client().await;
+        let mut client = init_client().await;
 
         // write some data into redis
         let set_state = CoordinatorState::new(pet_settings(), mask_settings(), model_settings());
@@ -1031,7 +1046,7 @@ pub(in crate) mod tests {
     #[serial]
     async fn integration_set_and_get_latest_global_model_id() {
         // test the writing and reading of the global model id
-        let client = init_client().await;
+        let mut client = init_client().await;
 
         let set_id = "global_model_id";
         client.set_latest_global_model_id(set_id).await.unwrap();
@@ -1045,7 +1060,7 @@ pub(in crate) mod tests {
     #[serial]
     async fn integration_get_latest_global_model_id_empty() {
         // test the reading of a non existing global model id
-        let client = init_client().await;
+        let mut client = init_client().await;
 
         let get_id = client.latest_global_model_id().await.unwrap();
 

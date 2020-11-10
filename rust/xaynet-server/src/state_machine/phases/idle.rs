@@ -4,17 +4,30 @@ use tracing::{debug, info};
 
 #[cfg(feature = "metrics")]
 use crate::metrics;
-use crate::state_machine::{
-    events::{DictionaryUpdate, MaskLengthUpdate},
-    phases::{Phase, PhaseName, PhaseState, Shared, Sum},
-    PhaseStateError, StateMachine,
+use crate::{
+    state_machine::{
+        events::{DictionaryUpdate, MaskLengthUpdate},
+        phases::{Phase, PhaseName, PhaseState, Shared, Sum},
+        PhaseStateError,
+        StateMachine,
+    },
+    storage::{CoordinatorStorage, StorageError},
 };
-use crate::storage::CoordinatorStorage;
+use thiserror::Error;
 use xaynet_core::{
     common::RoundSeed,
     crypto::{ByteObject, EncryptKeyPair, SigningKeySeed},
 };
 use xaynet_macros::metrics;
+
+/// Error that occurs during the idle phase.
+#[derive(Error, Debug)]
+pub enum IdleStateError {
+    #[error("setting the coordinator state failed: {0}")]
+    SetCoordinatorState(StorageError),
+    #[error("deleting the dictionaries failed: {0}")]
+    DeleteDictionaries(StorageError),
+}
 
 /// Idle state
 #[derive(Debug)]
@@ -41,7 +54,8 @@ impl Phase for PhaseState<Idle> {
             .io
             .redis
             .set_coordinator_state(&self.shared.state)
-            .await?;
+            .await
+            .map_err(IdleStateError::SetCoordinatorState)?;
 
         let events = &mut self.shared.io.events;
 
@@ -57,7 +71,12 @@ impl Phase for PhaseState<Idle> {
         info!("broadcasting invalidation of mask length from previous round");
         events.broadcast_mask_length(MaskLengthUpdate::Invalidate);
 
-        self.shared.io.redis.delete_dicts().await?;
+        self.shared
+            .io
+            .redis
+            .delete_dicts()
+            .await
+            .map_err(IdleStateError::DeleteDictionaries)?;
 
         info!("broadcasting new round parameters");
         events.broadcast_params(self.shared.state.round_params.clone());
@@ -156,7 +175,7 @@ mod test {
     #[tokio::test]
     #[serial]
     async fn integration_idle_to_sum() {
-        let (state_machine, _request_tx, events, eio) =
+        let (state_machine, _request_tx, events, mut eio) =
             StateMachineBuilder::new().await.with_round_id(2).build();
         assert!(state_machine.is_idle());
 
@@ -169,8 +188,8 @@ mod test {
 
         let PhaseState { shared, .. } = state_machine.into_sum_phase_state();
 
-        let sum_dict = eio.redis.connection().await.get_sum_dict().await.unwrap();
-        assert!(sum_dict.is_empty());
+        let sum_dict = eio.redis.sum_dict().await.unwrap();
+        assert!(sum_dict.is_none());
 
         let new_round_params = shared.state.round_params.clone();
         let new_keys = shared.state.keys.clone();

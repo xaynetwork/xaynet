@@ -4,12 +4,15 @@ use tracing::{debug, info};
 
 #[cfg(feature = "metrics")]
 use crate::metrics;
-use crate::state_machine::{
-    phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Unmask},
-    requests::{StateMachineRequest, Sum2Request},
-    RequestError, StateMachine,
+use crate::{
+    state_machine::{
+        phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Unmask},
+        requests::{StateMachineRequest, Sum2Request},
+        RequestError,
+        StateMachine,
+    },
+    storage::CoordinatorStorage,
 };
-use crate::storage::CoordinatorStorage;
 use xaynet_core::mask::Aggregation;
 use xaynet_macros::metrics;
 
@@ -197,7 +200,7 @@ mod test {
         // Create the state machine in the Sum2 phase
         let mut agg = Aggregation::new(summer.mask_settings, model_size);
         agg.aggregate(masked_model);
-        let (state_machine, request_tx, events, eio) = StateMachineBuilder::new()
+        let (state_machine, request_tx, events, mut eio) = StateMachineBuilder::new()
             .await
             .with_seed(round_params.seed.clone())
             .with_phase(Sum2 {

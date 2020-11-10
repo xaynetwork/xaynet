@@ -6,18 +6,32 @@ use tracing::{debug, info, warn};
 
 #[cfg(feature = "metrics")]
 use crate::metrics;
-use crate::state_machine::{
-    events::{DictionaryUpdate, MaskLengthUpdate},
-    phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Sum2},
-    requests::{StateMachineRequest, UpdateRequest},
-    RequestError, StateMachine,
+use crate::{
+    state_machine::{
+        events::{DictionaryUpdate, MaskLengthUpdate},
+        phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Sum2},
+        requests::{StateMachineRequest, UpdateRequest},
+        RequestError,
+        StateMachine,
+    },
+    storage::{CoordinatorStorage, StorageError},
 };
-use crate::storage::CoordinatorStorage;
+use thiserror::Error;
 use xaynet_core::{
     mask::{Aggregation, MaskObject},
-    LocalSeedDict, UpdateParticipantPublicKey,
+    LocalSeedDict,
+    UpdateParticipantPublicKey,
 };
 use xaynet_macros::metrics;
+
+/// Error that occurs during the update phase.
+#[derive(Error, Debug)]
+pub enum UpdateStateError {
+    #[error("seed dictionary does not exists")]
+    NoSeedDict,
+    #[error("fetching seed dictionary failed: {0}")]
+    FetchSeedDict(StorageError),
+}
 
 /// Update state
 #[derive(Debug)]
@@ -70,8 +84,9 @@ where
             .io
             .redis
             .seed_dict()
-            .await?
-            .ok_or(PhaseStateError::NoSeedDict)?;
+            .await
+            .map_err(UpdateStateError::FetchSeedDict)?
+            .ok_or(UpdateStateError::NoSeedDict)?;
 
         info!("broadcasting the global seed dictionary");
         self.shared
@@ -227,7 +242,9 @@ mod test {
         common::{RoundParameters, RoundSeed},
         crypto::{ByteObject, EncryptKeyPair},
         mask::{FromPrimitives, MaskConfig, Model},
-        SeedDict, SumDict, UpdateSeedDict,
+        SeedDict,
+        SumDict,
+        UpdateSeedDict,
     };
 
     #[tokio::test]
@@ -257,7 +274,7 @@ mod test {
         let aggregation = Aggregation::new(config.into(), model_size);
 
         // Create the state machine
-        let (state_machine, request_tx, events, eio) = StateMachineBuilder::new()
+        let (state_machine, request_tx, events, mut eio) = StateMachineBuilder::new()
             .await
             .with_seed(round_params.seed.clone())
             .with_phase(Update {

@@ -364,10 +364,7 @@ pub mod message {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::state_machine::{
-        phases::{PhaseName, PhaseStateError},
-        UnmaskGlobalModelError,
-    };
+    use crate::state_machine::phases::{PhaseName, PhaseStateError, UnmaskStateError};
     use influxdb::Query;
 
     // The fields of the WriteQuery are private and there are no kinds of getters for the fields.
@@ -415,10 +412,7 @@ mod test {
 
     #[test]
     fn test_phase_error() {
-        let query = phase::error::emit(&PhaseStateError::UnmaskGlobalModel(
-            UnmaskGlobalModelError::NoMask,
-        ))
-        .build();
+        let query = phase::error::emit(&PhaseStateError::Unmask(UnmaskStateError::NoMask)).build();
         assert!(format!("{:?}", query.unwrap()).contains(
             "event title=\\\"unmask\\\\ global\\\\ model\\\\ error:\\\\ no\\\\ mask\\\\ found\\\""
         ));
