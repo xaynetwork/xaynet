@@ -1,6 +1,6 @@
 use num::{bigint::BigUint, traits::identities::Zero};
 
-use crate::storage::{redis::Client, LocalSeedDictAdd};
+use crate::storage::{api::CoordinatorStorage, redis::Client, LocalSeedDictAdd};
 use xaynet_core::{
     crypto::{ByteObject, EncryptKeyPair, SigningKeyPair},
     mask::{BoundType, DataType, EncryptedMaskSeed, GroupType, MaskConfig, MaskObject, ModelType},
@@ -92,38 +92,30 @@ pub fn create_seed_dict(
     seed_dict
 }
 
-pub async fn create_and_write_sum_participant_entries(
-    client: &Client,
+pub async fn create_and_add_sum_participant_entries(
+    client: &mut Client,
     n: u32,
 ) -> Vec<SumParticipantPublicKey> {
     let mut sum_pks = Vec::new();
     for _ in 0..n {
         let (pk, ephm_pk) = create_sum_participant_entry();
 
-        let _ = client
-            .connection()
-            .await
-            .add_sum_participant(&pk, &ephm_pk)
-            .await
-            .unwrap();
-        // assert_eq!(add_new_key, AddSumParticipant::Ok);
+        let _ = client.add_sum_participant(&pk, &ephm_pk).await.unwrap();
         sum_pks.push(pk);
     }
 
     sum_pks
 }
 
-pub async fn write_local_seed_entries(
-    client: &Client,
+pub async fn add_local_seed_entries(
+    client: &mut Client,
     local_seed_entries: &[(UpdateParticipantPublicKey, LocalSeedDict)],
 ) -> Vec<LocalSeedDictAdd> {
     let mut update_result = Vec::new();
 
     for (update_pk, local_seed_dict) in local_seed_entries {
         let res = client
-            .connection()
-            .await
-            .update_seed_dict(&update_pk, &local_seed_dict)
+            .add_local_seed_dict(&update_pk, &local_seed_dict)
             .await;
         assert!(res.is_ok());
         update_result.push(res.unwrap())
