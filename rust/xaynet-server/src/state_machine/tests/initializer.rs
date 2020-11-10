@@ -11,6 +11,7 @@ use crate::{
         phases::PhaseName,
         StateMachineInitializationError,
     },
+    storage::ModelStorage,
     storage::{s3, tests::create_global_model},
 };
 use crate::{
@@ -172,15 +173,19 @@ async fn integration_state_machine_initializer_with_global_model() {
 
     // upload a global model to minio and set the id in redis
     let uploaded_global_model = create_global_model(state.model_size);
-    let global_model_id = "key";
-    let s3 = s3::tests::create_client().await;
-    s3.upload_global_model(global_model_id, &uploaded_global_model)
+    let mut s3 = s3::tests::create_client().await;
+    let global_model_id = s3
+        .set_global_model(
+            state.round_id,
+            &state.round_params.seed,
+            &uploaded_global_model,
+        )
         .await
         .unwrap();
     redis
         .connection()
         .await
-        .set_latest_global_model_id(global_model_id)
+        .set_latest_global_model_id(&global_model_id)
         .await
         .unwrap();
 
@@ -242,15 +247,19 @@ async fn integration_state_machine_initializer_failed_because_of_wrong_size() {
 
     // upload a global model with a wrong model size to minio and set the id in redis
     let uploaded_global_model = create_global_model(state.model_size + 10);
-    let global_model_id = "key";
-    let s3 = s3::tests::create_client().await;
-    s3.upload_global_model(global_model_id, &uploaded_global_model)
+    let mut s3 = s3::tests::create_client().await;
+    let global_model_id = s3
+        .set_global_model(
+            state.round_id,
+            &state.round_params.seed,
+            &uploaded_global_model,
+        )
         .await
         .unwrap();
     redis
         .connection()
         .await
-        .set_latest_global_model_id(global_model_id)
+        .set_latest_global_model_id(&global_model_id)
         .await
         .unwrap();
 
@@ -294,11 +303,12 @@ async fn integration_state_machine_initializer_failed_to_find_global_model() {
         .unwrap();
 
     // set a model id in redis but don't upload a model to minio
-    let global_model_id = "key";
+    let global_model_id =
+        s3::Client::create_global_model_id(state.round_id, &state.round_params.seed);
     redis
         .connection()
         .await
-        .set_latest_global_model_id(global_model_id)
+        .set_latest_global_model_id(&global_model_id)
         .await
         .unwrap();
 

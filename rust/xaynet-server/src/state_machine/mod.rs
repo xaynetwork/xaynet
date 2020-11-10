@@ -100,7 +100,7 @@ pub mod requests;
 use derive_more::From;
 use thiserror::Error;
 #[cfg(feature = "model-persistence")]
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 use self::{
     coordinator::CoordinatorState,
@@ -123,10 +123,17 @@ use self::{
 #[cfg(feature = "metrics")]
 use crate::metrics::MetricsSender;
 #[cfg(feature = "model-persistence")]
-use crate::{settings::RestoreSettings, storage::s3};
+use crate::{settings::RestoreSettings, storage::api::ModelStorage, storage::s3};
 use crate::{
     settings::{MaskSettings, ModelSettings, PetSettings},
-    storage::{redis, LocalSeedDictAddError, MaskScoreIncrError, RedisError, SumPartAddError},
+    storage::{
+        api::StorageError,
+        redis,
+        LocalSeedDictAddError,
+        MaskScoreIncrError,
+        RedisError,
+        SumPartAddError,
+    },
 };
 #[cfg(feature = "model-persistence")]
 use xaynet_core::mask::Model;
@@ -229,9 +236,11 @@ type StateMachineInitializationResult<T> = Result<T, StateMachineInitializationE
 pub enum StateMachineInitializationError {
     #[error("redis request failed: {0}")]
     Redis(#[from] RedisError),
+    #[error(transparent)]
+    Store(#[from] StorageError),
     #[error("failed to initialize crypto library")]
     CryptoInit,
-    #[error("failed to fetch global model: {0}")]
+    #[error("{0}")]
     GlobalModelUnavailable(String),
     #[error("{0}")]
     GlobalModelInvalid(String),
@@ -367,7 +376,7 @@ impl StateMachineInitializer {
     ///   the initialization will fail with [`StateMachineInitializationError::GlobalModelInvalid`].
     /// - Any network error will cause the initialization to fail.
     pub async fn init(
-        self,
+        mut self,
     ) -> StateMachineInitializationResult<(StateMachine, RequestSender, EventSubscriber)> {
         // crucial: init must be called before anything else in this module
         sodiumoxide::init().or(Err(StateMachineInitializationError::CryptoInit))?;
@@ -385,7 +394,7 @@ impl StateMachineInitializer {
 
     // see [`StateMachineInitializer::init`]
     async fn from_previous_state(
-        &self,
+        &mut self,
     ) -> StateMachineInitializationResult<(CoordinatorState, ModelUpdate)> {
         let (coordinator_state, global_model) = if let Some(coordinator_state) = self
             .redis_handle
@@ -405,7 +414,7 @@ impl StateMachineInitializer {
 
     // see [`StateMachineInitializer::init`]
     async fn try_restore_state(
-        &self,
+        &mut self,
         coordinator_state: CoordinatorState,
     ) -> StateMachineInitializationResult<(CoordinatorState, ModelUpdate)> {
         let latest_global_model_id = self
@@ -429,7 +438,7 @@ impl StateMachineInitializer {
         };
 
         let global_model = self
-            .download_global_model(&coordinator_state, &global_model_id)
+            .load_global_model(&coordinator_state, &global_model_id)
             .await?;
 
         debug!(
@@ -442,14 +451,14 @@ impl StateMachineInitializer {
         ))
     }
 
-    // Downloads a global model and checks its properties for suitability.
-    async fn download_global_model(
-        &self,
+    // Loads a global model and checks its properties for suitability.
+    async fn load_global_model(
+        &mut self,
         coordinator_state: &CoordinatorState,
         global_model_id: &str,
     ) -> StateMachineInitializationResult<Model> {
-        match self.s3_handle.download_global_model(&global_model_id).await {
-            Ok(global_model) => {
+        match self.s3_handle.global_model(&global_model_id).await? {
+            Some(global_model) => {
                 if Self::model_properties_matches_settings(coordinator_state, &global_model) {
                     Ok(global_model)
                 } else {
@@ -464,19 +473,18 @@ impl StateMachineInitializer {
                     ))
                 }
             }
-            Err(err) => {
-                warn!("cannot find global model {}", &global_model_id);
-                // the model id exists but we cannot find it in S3 / Minio
+            None => {
+                // the model id exists but we cannot find it in the model store
                 // here we better fail because if we restart a coordinator with an empty model
                 // the clients will throw away their current global model and start from scratch
                 Err(StateMachineInitializationError::GlobalModelUnavailable(
-                    format!("{}", err),
+                    format!("cannot find global model {}", &global_model_id),
                 ))
             }
         }
     }
 
-    // Checks whether the properties of the downloaded global model match the current
+    // Checks whether the properties of the loaded global model match the current
     // model settings of the coordinator.
     fn model_properties_matches_settings(
         coordinator_state: &CoordinatorState,
