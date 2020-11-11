@@ -349,7 +349,7 @@ pub unsafe extern "C" fn xaynet_ffi_settings_set_keys(
 ///
 /// # Return value
 ///
-/// - [`OK`] on sucess
+/// - [`OK`] on success
 /// - [`ERR_SETTINGS_URL`] if the URL has not been set
 /// - [`ERR_SETTINGS_MASKCONFIG`] if the mask configuration has not been set
 /// - [`ERR_SETTINGS_KEYS`] if the signing keys have not been set
