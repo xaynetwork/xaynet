@@ -24,7 +24,7 @@ use super::{
     ERR_SETTINGS_URL,
     OK,
 };
-use crate::settings::{Settings, SettingsError};
+use crate::{Settings, SettingsError};
 
 mod pv {
     use super::Settings;

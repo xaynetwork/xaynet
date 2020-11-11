@@ -9,10 +9,7 @@ use ffi_support::{ByteBuffer, FfiStr};
 use xaynet_core::mask::{DataType, FromPrimitives, Model};
 
 use super::{ERR_NULLPTR, ERR_SETMODEL_DATATYPE, ERR_SETMODEL_MODEL, OK};
-use crate::{
-    participant::{Participant, Task},
-    settings::Settings,
-};
+use crate::{Participant, Settings, Task};
 
 mod pv {
     use super::Participant;
