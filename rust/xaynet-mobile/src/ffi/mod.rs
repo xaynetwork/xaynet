@@ -8,11 +8,10 @@ pub use settings::*;
 
 use std::os::raw::c_int;
 
-/// Destroy the given `ByteBuffer` and free its memory. This
-/// function must only be called on `ByteBuffer`s that have been
-/// created on the Rust side of the FFI. If you have created a
-/// `ByteBuffer` on the other side of the FFI, do not use this
-/// function, use `free()` instead.
+/// Destroy the given `ByteBuffer` and free its memory. This function must only be
+/// called on `ByteBuffer`s that have been created on the Rust side of the FFI. If you
+/// have created a `ByteBuffer` on the other side of the FFI, do not use this function,
+/// use `free()` instead.
 ///
 /// # Return value
 ///
@@ -21,15 +20,15 @@ use std::os::raw::c_int;
 ///
 /// # Safety
 ///
-/// 1. When calling this method, you have to ensure that *either* the
-///    pointer is NULL *or* all of the following is true:
-///    - The pointer must be properly [aligned].
-///    - It must be "dereferencable" in the sense defined in the
-///      [`::std::ptr`] module documentation.
-/// 2. After destroying the `ByteBuffer` the pointer becomes invalid
-///    and must not be used.
-/// 3. Calling this function on a `ByteBuffer` that has not been
-///    created on the Rust side of the FFI is UB.
+/// 1. When calling this method, you have to ensure that *either* the pointer is NULL
+/// *or* all of the following is true:
+///  - The pointer must be properly [aligned].
+///  - It must be "dereferencable" in the sense defined in the [`::std::ptr`] module
+///    documentation.
+/// 2. After destroying the `ByteBuffer` the pointer becomes invalid and must not be
+///    used.
+/// 3. Calling this function on a `ByteBuffer` that has not been created on the Rust
+///    side of the FFI is UB.
 ///
 /// [`::std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
 /// [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
@@ -51,9 +50,8 @@ pub unsafe extern "C" fn xaynet_ffi_byte_buffer_destroy(
     OK
 }
 
-/// Initialize the crypto library. This method must be called before
-/// instantiating a participant with [`xaynet_ffi_participant_new()`]
-/// or before generating new keys with
+/// Initialize the crypto library. This method must be called before instantiating a
+/// participant with [`xaynet_ffi_participant_new()`] or before generating new keys with
 /// [`xaynet_ffi_generate_key_pair()`].
 ///
 /// # Return value

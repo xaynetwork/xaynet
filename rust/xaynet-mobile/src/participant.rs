@@ -18,8 +18,8 @@ use xaynet_sdk::{
 
 use crate::settings::{Settings, SettingsError};
 
-/// Event emitted by the participant internal state machine as it
-/// advances through the PET protocol
+/// Event emitted by the participant internal state machine as it advances through the
+/// PET protocol
 pub enum Event {
     /// Event emitted when the participant is selected for the update task
     Update,
@@ -29,14 +29,13 @@ pub enum Event {
     Idle,
     /// Event emitted when a new round starts
     NewRound,
-    /// Event emitted when the participant should load its model. This
-    /// only happens if the participant has been selected for the
-    /// update task
+    /// Event emitted when the participant should load its model. This only happens if
+    /// the participant has been selected for the update task
     LoadModel,
 }
 
-/// Event sender that is passed to the participant internal state
-/// machine for emitting notification
+/// Event sender that is passed to the participant internal state machine for emitting
+/// notification
 pub struct Notifier(mpsc::Sender<Event>);
 impl Notifier {
     fn notify(&mut self, event: Event) {
@@ -56,8 +55,7 @@ impl Events {
         (Self(rx), Notifier(tx))
     }
 
-    /// Pop the next event. If no event has been received, return
-    /// `None`.
+    /// Pop the next event. If no event has been received, return `None`.
     fn next(&mut self) -> Option<Event> {
         match self.0.try_recv() {
             Ok(event) => Some(event),
@@ -90,10 +88,9 @@ impl Notify for Notifier {
     }
 }
 
-/// A store shared between by the participant and its internal state
-/// machine. When the state machine emits a [`Event::LoadModel`]
-/// event, the participant is expected to load its model into the
-/// store. See [`Participant::set_model()`].
+/// A store shared between by the participant and its internal state machine. When the
+/// state machine emits a [`Event::LoadModel`] event, the participant is expected to
+/// load its model into the store. See [`Participant::set_model()`].
 #[derive(Clone)]
 struct Store(Arc<Mutex<Option<Model>>>);
 
@@ -125,10 +122,10 @@ pub enum Task {
     None,
 }
 
-/// A participant. It embeds an internal state machine that executes
-/// the PET protocol. However, it is the caller responsability to
-/// drive this state machine by calling [`Participant::tick()`], and
-/// to take action when the participant state changes.
+/// A participant. It embeds an internal state machine that executes the PET
+/// protocol. However, it is the caller responsability to drive this state machine by
+/// calling [`Participant::tick()`], and to take action when the participant state
+/// changes.
 pub struct Participant {
     /// Internal state machine
     state_machine: Option<StateMachine>,
@@ -148,8 +145,8 @@ pub struct Participant {
     task: Task,
 }
 
-/// Error that can occur when instantiating a new [`Participant`],
-/// either with [`Participant::new()`] or [`Participant::restore()`]
+/// Error that can occur when instantiating a new [`Participant`], either with
+/// [`Participant::new()`] or [`Participant::restore()`]
 #[derive(Error, Debug)]
 pub enum InitError {
     #[error("failed to deserialize the participant state {:?}", _0)]
@@ -173,10 +170,9 @@ impl Participant {
         Self::init(state_machine, events, store)
     }
 
-    /// Restore a participant from it's serialized state. The
-    /// coordinator client that the participant use internally is not
-    /// part of the participant state, so the `url` is used to
-    /// instantiate a new one.
+    /// Restore a participant from it's serialized state. The coordinator client that
+    /// the participant use internally is not part of the participant state, so the
+    /// `url` is used to instantiate a new one.
     pub fn restore(state: &[u8], url: String) -> Result<Self, InitError> {
         let state: SerializableState =
             bincode::deserialize(state).map_err(InitError::Deserialization)?;
@@ -218,15 +214,15 @@ impl Participant {
 
     /// Drive the participant internal state machine.
     ///
-    /// After calling this method, the caller should check whether the
-    /// participant state changed, by calling
-    /// [`Participant::made_progress()`].  If the state changed, the
+    /// After calling this method, the caller should check whether the participant state
+    /// changed, by calling [`Participant::made_progress()`].  If the state changed, the
     /// caller should perform the following checks and react appropriately:
     ///
-    /// - whether the participant is taking part to any task by
-    ///   calling [`Participant::task()`]
-    /// - whether the participant should load its model into the store
-    ///   by calling [`Participant::should_set_model()`]
+    /// - whether the participant is taking part to any task by calling
+    ///   [`Participant::task()`]
+    /// - whether the participant should load its model into the store by calling
+    ///   [`Participant::should_set_model()`]
+
     pub fn tick(&mut self) {
         // UNWRAP_SAFE: the state machine is always set.
         let state_machine = self.state_machine.take().unwrap();
@@ -268,17 +264,15 @@ impl Participant {
         }
     }
 
-    /// Check whether the participant internal state machine made
-    /// progress while executing the PET protocol. If so, the
-    /// participant state likely changed.
+    /// Check whether the participant internal state machine made progress while
+    /// executing the PET protocol. If so, the participant state likely changed.
     pub fn made_progress(&self) -> bool {
         self.made_progress
     }
 
-    /// Check whether the participant internal state machine is
-    /// waiting for the participant to load its model into the
-    /// store. If this method returns `true`, the caller should make
-    /// sure to call [`Participant::set_model()`] at some point.
+    /// Check whether the participant internal state machine is waiting for the
+    /// participant to load its model into the store. If this method returns `true`, the
+    /// caller should make sure to call [`Participant::set_model()`] at some point.
     pub fn should_set_model(&self) -> bool {
         self.should_set_model
     }
@@ -288,8 +282,8 @@ impl Participant {
         self.task
     }
 
-    /// Load the given model into the store, so that the participant
-    /// internal state machine can process it.
+    /// Load the given model into the store, so that the participant internal state
+    /// machine can process it.
     pub fn set_model(&mut self, model: Model) {
         let Self {
             ref mut runtime,
