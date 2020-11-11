@@ -230,7 +230,7 @@ jobs:
         run: docker-compose up -d influxdb minio redis
 
       - name: Run cargo-tarpaulin
-        uses: actions-rs/tarpaulin@v0.1.2
+        uses: actions-rs/tarpaulin@v0.1
         with:
           args: '--manifest-path rust/Cargo.toml --all-features --force-clean --lib --ignore-tests'
 
