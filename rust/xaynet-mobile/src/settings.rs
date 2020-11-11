@@ -1,4 +1,6 @@
 //! This module provides utilities to configure a [`Participant`].
+//!
+//! [`Participant`]: crate::Participant
 
 use std::convert::TryInto;
 use thiserror::Error;
