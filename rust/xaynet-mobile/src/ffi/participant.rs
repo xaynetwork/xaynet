@@ -222,7 +222,7 @@ pub unsafe extern "C" fn xaynet_ffi_participant_save(
 /// # Return value
 ///
 /// - a NULL pointer on failure
-/// - a pointer to the retored participant on success
+/// - a pointer to the restored participant on success
 ///
 /// # Safety
 ///
