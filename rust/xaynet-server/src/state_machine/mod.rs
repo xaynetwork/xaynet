@@ -236,7 +236,7 @@ type StateMachineInitializationResult<T> = Result<T, StateMachineInitializationE
 pub enum StateMachineInitializationError {
     #[error("redis request failed: {0}")]
     Redis(#[from] RedisError),
-    #[error(transparent)]
+    #[error("failed to fetch global model: {0}")]
     Store(#[from] StorageError),
     #[error("failed to initialize crypto library")]
     CryptoInit,

@@ -26,7 +26,7 @@ use tracing::debug;
 
 use crate::{
     settings::{S3BucketsSettings, S3Settings},
-    storage::ModelStorage,
+    storage::{ModelStorage, StorageResult},
 };
 use xaynet_core::{common::RoundSeed, mask::Model};
 
@@ -54,8 +54,8 @@ pub enum ClientError {
     NoBody,
     #[error("failed to download body: {0}")]
     DownloadBody(std::io::Error),
-    #[error("object {0} already exist")]
-    ObjectAlreadyExist(String),
+    #[error("object {0} already exists")]
+    ObjectAlreadyExists(String),
 }
 
 #[derive(Clone)]
@@ -136,7 +136,7 @@ impl Client {
         Ok(body)
     }
 
-    // Fetches the object meta data of the object with the given key from the given bucket.
+    // Fetches the metadata of the object with the given key from the given bucket.
     async fn fetch_object_meta(
         &self,
         bucket: &str,
@@ -187,7 +187,7 @@ impl ModelStorage for Client {
         round_id: u64,
         round_seed: &RoundSeed,
         global_model: &Model,
-    ) -> super::StorageResult<String> {
+    ) -> StorageResult<String> {
         let id = Self::create_global_model_id(round_id, &round_seed);
 
         debug!("upload global model: {}", id);
@@ -195,7 +195,7 @@ impl ModelStorage for Client {
             .fetch_object_meta(&self.buckets.global_models, &id)
             .await;
         if output.is_ok() {
-            return Err(anyhow::anyhow!(ClientError::ObjectAlreadyExist(
+            return Err(anyhow::anyhow!(ClientError::ObjectAlreadyExists(
                 id.to_string()
             )));
         };
@@ -206,7 +206,7 @@ impl ModelStorage for Client {
             .map(|_| Ok(id))?
     }
 
-    async fn global_model(&mut self, id: &str) -> super::StorageResult<Option<Model>> {
+    async fn global_model(&mut self, id: &str) -> StorageResult<Option<Model>> {
         debug!("download global model {}", id);
         let output = self
             .fetch_object_meta(&self.buckets.global_models, id)
@@ -400,7 +400,7 @@ pub(in crate) mod tests {
             .unwrap_err();
         assert!(matches!(
             res.downcast_ref::<ClientError>().unwrap(),
-            ClientError::ObjectAlreadyExist(_)
+            ClientError::ObjectAlreadyExists(_)
         ));
 
         let downloaded_global_model = client.global_model(&id).await.unwrap().unwrap();
