@@ -328,8 +328,8 @@ mod test {
             <Aggregation as Into<MaskObject>>::into(sum2_state.aggregation().clone()),
             masked_model
         );
-        let best_masks = eio.redis.best_masks().await.unwrap().unwrap();
-        assert!(best_masks.is_empty());
+        let best_masks = eio.redis.best_masks().await.unwrap();
+        assert!(best_masks.is_none());
 
         // Check all the events that should be emitted during the update
         // phase

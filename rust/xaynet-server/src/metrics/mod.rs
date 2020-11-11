@@ -414,7 +414,7 @@ mod test {
     fn test_phase_error() {
         let query = phase::error::emit(&PhaseStateError::Unmask(UnmaskStateError::NoMask)).build();
         assert!(format!("{:?}", query.unwrap()).contains(
-            "event title=\\\"unmask\\\\ global\\\\ model\\\\ error:\\\\ no\\\\ mask\\\\ found\\\""
+            "event title=\\\"unmask\\\\ phase\\\\ failed:\\\\ no\\\\ mask\\\\ found\\\""
         ));
     }
 
