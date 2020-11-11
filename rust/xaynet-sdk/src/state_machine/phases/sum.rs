@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 
 use crate::{
-    state_machine::{Phase, Progress, State, Step, Sum2, TransitionOutcome},
+    state_machine::{IntoPhase, Phase, PhaseIo, Progress, State, Step, Sum2, TransitionOutcome},
     MessageEncoder,
 };
 use xaynet_core::{
@@ -25,6 +25,13 @@ impl Sum {
             sum_signature,
             message: None,
         }
+    }
+}
+
+impl IntoPhase<Sum> for State<Sum> {
+    fn into_phase(self, mut io: PhaseIo) -> Phase<Sum> {
+        io.notify_sum();
+        Phase::<_>::new(self, io)
     }
 }
 
@@ -71,6 +78,7 @@ impl Phase<Sum> {
             self.state.private.ephm_keys,
             self.state.private.sum_signature,
         );
-        Phase::<Sum2>::new(State::new(self.state.shared, sum2), self.io)
+        let state = State::new(self.state.shared, sum2);
+        state.into_phase(self.io)
     }
 }

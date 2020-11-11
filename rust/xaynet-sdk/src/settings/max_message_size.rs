@@ -11,6 +11,7 @@ pub const ENCRYPTION_HEADER_LENGTH: usize = xaynet_core::crypto::SEALBYTES;
 pub const MIN_MESSAGE_SIZE: usize =
     MESSAGE_HEADER_LENGTH + ENCRYPTION_HEADER_LENGTH + MINIMUM_PAYLOAD_SIZE;
 
+/// Invalid [`MaxMessageSize`] value
 #[derive(Debug, Error)]
 #[error("max message size must be at least {}", MIN_MESSAGE_SIZE)]
 pub struct InvalidMaxMessageSize;

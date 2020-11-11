@@ -9,12 +9,12 @@ mod state_machine;
 
 // It is useful to re-export everything within this module because
 // there are lot of interdependencies between all the sub-modules
-pub use self::{
-    io::PassiveNotifier,
-    state_machine::{StateMachine, TransitionOutcome},
-};
 use self::{
     io::{boxed_io, IO},
-    phase::{Phase, Progress, SerializableState, SharedState, State, Step},
+    phase::{IntoPhase, Phase, PhaseIo, Progress, SharedState, State, Step},
     phases::{Awaiting, NewRound, Sum, Sum2, Update},
+};
+pub use self::{
+    phase::SerializableState,
+    state_machine::{StateMachine, TransitionOutcome},
 };

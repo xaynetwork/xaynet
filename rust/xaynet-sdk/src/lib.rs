@@ -72,7 +72,7 @@
 //! state machine requires found components:
 //!
 //! - PET settings: a cryptographic key identifying the participant and a
-//!   masking configuration. This is provided by [`PetSettings`]
+//!   masking configuration. This is provided by [`settings::PetSettings`]
 //! - a store from which it can load a model when the participant is
 //!   selected for the updat etask. This can be any type that
 //!   implements the [`ModelStore`] trait. In our case, we'll use a
@@ -106,7 +106,7 @@
 //!     client::Client,
 //!     ModelStore,
 //!     Notify,
-//!     PetSettings,
+//!     settings::PetSettings,
 //!     StateMachine,
 //!     TransitionOutcome,
 //! };
@@ -202,14 +202,14 @@
 
 #[cfg(feature = "reqwest-client")]
 pub mod client;
-mod message_encoder;
-mod settings;
-mod state_machine;
-mod traits;
 
-pub(crate) use crate::message_encoder::MessageEncoder;
-pub use crate::{
-    settings::PetSettings,
-    state_machine::{PassiveNotifier, StateMachine, TransitionOutcome},
-    traits::{ModelStore, Notify, XaynetClient},
-};
+mod message_encoder;
+pub(crate) use self::message_encoder::MessageEncoder;
+
+pub mod settings;
+
+mod state_machine;
+pub use state_machine::{SerializableState, StateMachine, TransitionOutcome};
+
+mod traits;
+pub use self::traits::{ModelStore, Notify, XaynetClient};

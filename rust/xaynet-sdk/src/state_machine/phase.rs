@@ -33,13 +33,15 @@ impl<P> State<P> {
     }
 }
 
+pub(crate) type PhaseIo = Box<dyn IO<Model = Box<dyn AsRef<Model> + Send>>>;
+
 /// Represent the state machine in a specific phase
 pub struct Phase<P> {
     /// State of the phase.
     pub(super) state: State<P>,
     /// Opaque client for performing IO tasks: talking with the
     /// coordinator API, loading models, etc.
-    pub(super) io: Box<dyn IO<Model = Box<dyn AsRef<Model> + Send>>>,
+    pub(super) io: PhaseIo,
 }
 
 /// Store for all the data that are common to all the phases
@@ -153,16 +155,17 @@ where
     }
 }
 
+pub(crate) trait IntoPhase<P> {
+    fn into_phase(self, io: PhaseIo) -> Phase<P>;
+}
+
 impl<P> Phase<P> {
-    pub(super) fn new(
-        state: State<P>,
-        io: Box<dyn IO<Model = Box<dyn AsRef<Model> + Send>>>,
-    ) -> Self {
-        Self { state, io }
+    pub(crate) fn new(state: State<P>, io: PhaseIo) -> Self {
+        Phase { state, io }
     }
 
     pub fn into_awaiting(self) -> Phase<Awaiting> {
-        Phase::<Awaiting>::new(State::new(self.state.shared, Awaiting), self.io)
+        State::new(self.state.shared, Awaiting).into_phase(self.io)
     }
 
     pub async fn send_message(&mut self, encoder: MessageEncoder) -> Result<(), SendMessageError> {

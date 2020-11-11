@@ -25,12 +25,6 @@ where
     Box::new(StateMachineIO::new(xaynet_client, model_store, notifier))
 }
 
-/// A notifier that discards the notifications from the PET state
-/// machine. This is useful if you don't care about the state machine
-/// notifications.
-pub struct PassiveNotifier;
-impl Notify for PassiveNotifier {}
-
 #[async_trait]
 pub(crate) trait IO: Send + 'static {
     type Model;
@@ -50,6 +44,7 @@ pub(crate) trait IO: Send + 'static {
     fn notify_sum(&mut self);
     fn notify_update(&mut self);
     fn notify_idle(&mut self);
+    fn notify_load_model(&mut self);
 }
 
 struct StateMachineIO<X, M, N> {
@@ -131,19 +126,23 @@ where
     }
 
     fn notify_new_round(&mut self) {
-        self.notifier.notify_new_round()
+        self.notifier.new_round()
     }
 
     fn notify_sum(&mut self) {
-        self.notifier.notify_sum()
+        self.notifier.sum()
     }
 
     fn notify_update(&mut self) {
-        self.notifier.notify_update()
+        self.notifier.update()
     }
 
     fn notify_idle(&mut self) {
-        self.notifier.notify_idle()
+        self.notifier.idle()
+    }
+
+    fn notify_load_model(&mut self) {
+        self.notifier.load_model()
     }
 }
 
@@ -196,5 +195,9 @@ impl IO for Box<dyn IO<Model = Box<dyn AsRef<Model> + Send>>> {
 
     fn notify_idle(&mut self) {
         self.as_mut().notify_idle()
+    }
+
+    fn notify_load_model(&mut self) {
+        self.as_mut().notify_load_model()
     }
 }
