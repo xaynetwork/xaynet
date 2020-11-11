@@ -30,10 +30,10 @@ use xaynet_macros::metrics;
 /// Error that can occur during the execution of the [`StateMachine`].
 #[derive(Error, Debug)]
 pub enum PhaseStateError {
-    #[error("channel error: {0}")]
-    Channel(&'static str),
+    #[error("request channel error: {0}")]
+    RequestChannel(&'static str),
     #[error("phase timeout")]
-    Timeout(#[from] tokio::time::Elapsed),
+    PhaseTimeout(#[from] tokio::time::Elapsed),
 
     #[error("idle phase failed: {0}")]
     Idle(#[from] IdleStateError),
@@ -63,7 +63,7 @@ impl Phase for PhaseState<PhaseStateError> {
     const NAME: PhaseName = PhaseName::Error;
 
     async fn run(&mut self) -> Result<(), PhaseStateError> {
-        error!("{}", self.inner);
+        error!("phase state error: {}", self.inner);
 
         metrics!(
             self.shared.io.metrics_tx,
@@ -71,7 +71,7 @@ impl Phase for PhaseState<PhaseStateError> {
         );
 
         while self.shared.io.redis.coordinator_state().await.is_err() {
-            info!("try to reconnect to Redis in 5 sec");
+            info!("storage not ready... try again in 5 sec");
             delay_for(Duration::from_secs(5)).await;
         }
 
@@ -83,7 +83,7 @@ impl Phase for PhaseState<PhaseStateError> {
     /// See the [module level documentation](../index.html) for more details.
     fn next(self) -> Option<StateMachine> {
         Some(match self.inner {
-            PhaseStateError::Channel(_) => PhaseState::<Shutdown>::new(self.shared).into(),
+            PhaseStateError::RequestChannel(_) => PhaseState::<Shutdown>::new(self.shared).into(),
             _ => PhaseState::<Idle>::new(self.shared).into(),
         })
     }

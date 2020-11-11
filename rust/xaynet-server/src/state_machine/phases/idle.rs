@@ -96,7 +96,6 @@ impl Phase for PhaseState<Idle> {
             )
         );
 
-        // TODO: add a delay to prolongate the idle phase
         Ok(())
     }
 

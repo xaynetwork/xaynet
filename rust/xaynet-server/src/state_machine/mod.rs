@@ -48,7 +48,7 @@
 //!
 //! Publishes [`PhaseName::Error`] and handles [`PhaseStateError`]s that can occur during the
 //! execution of the [`StateMachine`]. In most cases, the error is handled by restarting the round.
-//! However, if a [`PhaseStateError::Channel`] occurs, the [`StateMachine`] will shut down.
+//! However, if a [`PhaseStateError::RequestChannel`] occurs, the [`StateMachine`] will shut down.
 //!
 //! **Shutdown**
 //!
@@ -152,8 +152,8 @@ pub enum RequestError {
     #[error("the request could not be processed due to an internal error: {0}")]
     InternalError(&'static str),
 
-    /// a redis request failed
-    #[error("redis request failed: {0}")]
+    /// a storage request failed
+    #[error("storage request failed: {0}")]
     CoordinatorStorage(#[from] StorageError),
 
     /// adding a local seed dict to the seed dictionary failed

@@ -1,4 +1,4 @@
-//! A Redis compatible [`CoordinatorStore`].
+//! A Redis compatible [`CoordinatorStorage`].
 //!
 //! # Redis Data Model
 //!
@@ -77,6 +77,7 @@ use xaynet_core::{
     UpdateParticipantPublicKey,
 };
 
+/// Redis client.
 #[derive(Clone)]
 pub struct Client {
     connection: ConnectionManager,
@@ -85,7 +86,7 @@ pub struct Client {
 #[cfg(test)]
 impl std::fmt::Debug for Client {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Redis client").finish()
+        f.debug_struct("redis client").finish()
     }
 }
 
@@ -99,7 +100,7 @@ impl Client {
     /// `url` to which Redis instance the client should connect to.
     /// The URL format is `redis://[<username>][:<passwd>@]<hostname>[:port][/<db>]`.
     ///
-    /// The [`Client`] uses a [`redis::aio::ConnectionManager`] that automatically reconnects
+    /// The [`Client`] uses a [`ConnectionManager`] that automatically reconnects
     /// if the connection is dropped.
     pub async fn new<T: IntoConnectionInfo>(url: T) -> Result<Self, RedisError> {
         let client = redis::Client::open(url)?;
@@ -139,7 +140,6 @@ impl Client {
 
 #[async_trait]
 impl CoordinatorStorage for Client {
-    /// See [`CoordinatorStorage::set_coordinator_state`].
     async fn set_coordinator_state(&mut self, state: &CoordinatorState) -> StorageResult<()> {
         debug!("set coordinator state");
         // https://redis.io/commands/set
@@ -153,7 +153,6 @@ impl CoordinatorStorage for Client {
             .map_err(to_storage_err)
     }
 
-    /// See [`CoordinatorStorage::coordinator_state`].
     async fn coordinator_state(&mut self) -> StorageResult<Option<CoordinatorState>> {
         // https://redis.io/commands/get
         // > Get the value of key. If the key does not exist the special value nil is returned.
@@ -167,7 +166,6 @@ impl CoordinatorStorage for Client {
             .map_err(to_storage_err)
     }
 
-    /// See [`CoordinatorStorage::add_sum_participant`].
     async fn add_sum_participant(
         &mut self,
         pk: &SumParticipantPublicKey,
@@ -190,7 +188,6 @@ impl CoordinatorStorage for Client {
             .map_err(to_storage_err)
     }
 
-    /// See [`CoordinatorStorage::sum_dict`].
     async fn sum_dict(&mut self) -> StorageResult<Option<SumDict>> {
         debug!("get sum dictionary");
         // https://redis.io/commands/hgetall
@@ -215,7 +212,6 @@ impl CoordinatorStorage for Client {
         Ok(Some(sum_dict))
     }
 
-    /// See [`CoordinatorStorage::add_local_seed_dict`].
     async fn add_local_seed_dict(
         &mut self,
         update_pk: &UpdateParticipantPublicKey,
@@ -277,8 +273,6 @@ impl CoordinatorStorage for Client {
             .map_err(to_storage_err)
     }
 
-    /// See [`CoordinatorStorage::seed_dict`].
-    ///
     /// # Note
     /// This method is **not** an atomic operation.
     async fn seed_dict(&mut self) -> StorageResult<Option<SeedDict>> {
@@ -312,8 +306,6 @@ impl CoordinatorStorage for Client {
         Ok(Some(seed_dict))
     }
 
-    /// See [`CoordinatorStorage::incr_mask_score`].
-    ///
     /// The maximum length of a serialized mask is 512 Megabytes.
     async fn incr_mask_score(
         &mut self,
@@ -356,7 +348,6 @@ impl CoordinatorStorage for Client {
             .map_err(to_storage_err)
     }
 
-    /// See [`CoordinatorStorage::best_masks`].
     async fn best_masks(&mut self) -> StorageResult<Option<Vec<(MaskObject, u64)>>> {
         debug!("get best masks");
         // https://redis.io/commands/zrevrangebyscore
@@ -383,7 +374,6 @@ impl CoordinatorStorage for Client {
         Ok(result)
     }
 
-    /// See [`CoordinatorStorage::number_of_unique_masks`].
     async fn number_of_unique_masks(&mut self) -> StorageResult<u64> {
         debug!("get number of unique masks");
         // https://redis.io/commands/zcount
@@ -395,8 +385,6 @@ impl CoordinatorStorage for Client {
             .map_err(to_storage_err)
     }
 
-    /// See [`CoordinatorStorage::delete_coordinator_data`].
-    ///
     /// # Note
     /// This method is **not** an atomic operation.
     async fn delete_coordinator_data(&mut self) -> StorageResult<()> {
@@ -410,8 +398,6 @@ impl CoordinatorStorage for Client {
             .map_err(to_storage_err)
     }
 
-    /// See [`CoordinatorStorage::delete_dicts`].
-    ///
     /// # Note
     /// This method is **not** an atomic operation.
     async fn delete_dicts(&mut self) -> StorageResult<()> {
@@ -423,7 +409,6 @@ impl CoordinatorStorage for Client {
             .map_err(to_storage_err)
     }
 
-    /// See [`CoordinatorStorage::set_latest_global_model_id`].
     async fn set_latest_global_model_id(&mut self, global_model_id: &str) -> StorageResult<()> {
         debug!("set latest global model with id {}", global_model_id);
         // https://redis.io/commands/set
@@ -437,7 +422,6 @@ impl CoordinatorStorage for Client {
             .map_err(to_storage_err)
     }
 
-    /// See [`CoordinatorStorage::latest_global_model_id`].
     async fn latest_global_model_id(&mut self) -> StorageResult<Option<String>> {
         debug!("get latest global model id");
         // https://redis.io/commands/get

@@ -277,7 +277,7 @@ impl<S> PhaseState<S> {
         debug!("waiting for the next incoming request");
         self.shared.io.request_rx.next().await.ok_or_else(|| {
             error!("request receiver broken: senders have been dropped");
-            PhaseStateError::Channel("all message senders have been dropped!")
+            PhaseStateError::RequestChannel("all message senders have been dropped!")
         })
     }
 
@@ -292,7 +292,7 @@ impl<S> PhaseState<S> {
             }
             Err(tokio::sync::mpsc::error::TryRecvError::Closed) => {
                 warn!("failed to get next pending request: channel shut down");
-                Err(PhaseStateError::Channel(
+                Err(PhaseStateError::RequestChannel(
                     "all message senders have been dropped!",
                 ))
             }
