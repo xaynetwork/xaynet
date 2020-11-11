@@ -173,6 +173,10 @@ pub unsafe extern "C" fn xaynet_ffi_participant_tick(participant: *mut Participa
 /// 2. the `ByteBuffer` created by this function must be destroyed with
 ///    [`xaynet_ffi_participant_destroy`]. Attempting to free the memory from the other
 ///    side of the FFI is UB.
+/// 3. This function destroys the participant. Therefore, **the pointer becomes invalid
+///    and must not be used anymore**. Instead, a new participant should be created,
+///    either with [`xaynet_ffi_participant_new()`] or
+///    [`xaynet_ffi_participant_restore()`]
 ///
 /// [`::std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
 /// [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
