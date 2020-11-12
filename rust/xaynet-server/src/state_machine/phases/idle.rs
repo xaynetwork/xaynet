@@ -11,7 +11,7 @@ use crate::{
         PhaseStateError,
         StateMachine,
     },
-    storage::{CoordinatorStorage, StorageError},
+    storage::{CoordinatorStorage, ModelStorage, StorageError},
 };
 use thiserror::Error;
 use xaynet_core::{
@@ -34,7 +34,11 @@ pub enum IdleStateError {
 pub struct Idle;
 
 #[async_trait]
-impl Phase for PhaseState<Idle> {
+impl<C, M> Phase<C, M> for PhaseState<Idle, C, M>
+where
+    C: CoordinatorStorage,
+    M: ModelStorage,
+{
     const NAME: PhaseName = PhaseName::Idle;
 
     /// Moves from the idle state to the next state.
@@ -51,13 +55,12 @@ impl Phase for PhaseState<Idle> {
         self.update_round_seed();
 
         self.shared
-            .io
-            .redis
+            .store
             .set_coordinator_state(&self.shared.state)
             .await
             .map_err(IdleStateError::SetCoordinatorState)?;
 
-        let events = &mut self.shared.io.events;
+        let events = &mut self.shared.events;
 
         info!("broadcasting new keys");
         events.broadcast_keys(self.shared.state.keys.clone());
@@ -72,8 +75,7 @@ impl Phase for PhaseState<Idle> {
         events.broadcast_mask_length(MaskLengthUpdate::Invalidate);
 
         self.shared
-            .io
-            .redis
+            .store
             .delete_dicts()
             .await
             .map_err(IdleStateError::DeleteDictionaries)?;
@@ -82,7 +84,7 @@ impl Phase for PhaseState<Idle> {
         events.broadcast_params(self.shared.state.round_params.clone());
 
         metrics!(
-            self.shared.io.metrics_tx,
+            self.shared.metrics_tx,
             metrics::round::total_number::update(self.shared.state.round_id),
             metrics::round_parameters::sum::update(
                 self.shared.state.round_params.sum,
@@ -99,14 +101,18 @@ impl Phase for PhaseState<Idle> {
         Ok(())
     }
 
-    fn next(self) -> Option<StateMachine> {
-        Some(PhaseState::<Sum>::new(self.shared).into())
+    fn next(self) -> Option<StateMachine<C, M>> {
+        Some(PhaseState::<Sum, _, _>::new(self.shared).into())
     }
 }
 
-impl PhaseState<Idle> {
+impl<C, M> PhaseState<Idle, C, M>
+where
+    C: CoordinatorStorage,
+    M: ModelStorage,
+{
     /// Creates a new idle state.
-    pub fn new(mut shared: Shared) -> Self {
+    pub fn new(mut shared: Shared<C, M>) -> Self {
         // Since some events are emitted very early, the round id must
         // be correct when the idle phase starts. Therefore, we update
         // it here, when instantiating the idle PhaseState.

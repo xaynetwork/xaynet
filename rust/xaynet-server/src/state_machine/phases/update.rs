@@ -14,7 +14,7 @@ use crate::{
         RequestError,
         StateMachine,
     },
-    storage::{CoordinatorStorage, StorageError},
+    storage::{CoordinatorStorage, ModelStorage, StorageError},
 };
 use thiserror::Error;
 use xaynet_core::{
@@ -51,9 +51,11 @@ impl Update {
 }
 
 #[async_trait]
-impl Phase for PhaseState<Update>
+impl<C, M> Phase<C, M> for PhaseState<Update, C, M>
 where
     Self: Handler,
+    C: CoordinatorStorage,
+    M: ModelStorage,
 {
     const NAME: PhaseName = PhaseName::Update;
 
@@ -75,14 +77,12 @@ where
 
         info!("broadcasting mask length");
         self.shared
-            .io
             .events
             .broadcast_mask_length(MaskLengthUpdate::New(self.inner.model_agg.len()));
 
         let seed_dict = self
             .shared
-            .io
-            .redis
+            .store
             .seed_dict()
             .await
             .map_err(UpdateStateError::FetchSeedDict)?
@@ -90,21 +90,22 @@ where
 
         info!("broadcasting the global seed dictionary");
         self.shared
-            .io
             .events
             .broadcast_seed_dict(DictionaryUpdate::New(Arc::new(seed_dict)));
 
         Ok(())
     }
 
-    fn next(self) -> Option<StateMachine> {
-        Some(PhaseState::<Sum2>::new(self.shared, self.inner.model_agg).into())
+    fn next(self) -> Option<StateMachine<C, M>> {
+        Some(PhaseState::<Sum2, _, _>::new(self.shared, self.inner.model_agg).into())
     }
 }
 
-impl PhaseState<Update>
+impl<C, M> PhaseState<Update, C, M>
 where
-    Self: Handler + Phase,
+    Self: Handler + Phase<C, M>,
+    C: CoordinatorStorage,
+    M: ModelStorage,
 {
     /// Processes requests until there are enough.
     async fn process_until_enough(&mut self) -> Result<(), PhaseStateError> {
@@ -120,7 +121,11 @@ where
 }
 
 #[async_trait]
-impl Handler for PhaseState<Update> {
+impl<C, M> Handler for PhaseState<Update, C, M>
+where
+    C: CoordinatorStorage,
+    M: ModelStorage,
+{
     /// Handles a [`StateMachineRequest`].
     ///
     /// If the request is a [`StateMachineRequest::Sum`] or
@@ -130,7 +135,7 @@ impl Handler for PhaseState<Update> {
         match req {
             StateMachineRequest::Update(update_req) => {
                 metrics!(
-                    self.shared.io.metrics_tx,
+                    self.shared.metrics_tx,
                     metrics::message::update::increment(self.shared.state.round_id, Self::NAME)
                 );
                 self.handle_update(update_req).await
@@ -140,9 +145,13 @@ impl Handler for PhaseState<Update> {
     }
 }
 
-impl PhaseState<Update> {
+impl<C, M> PhaseState<Update, C, M>
+where
+    C: CoordinatorStorage,
+    M: ModelStorage,
+{
     /// Creates a new update state.
-    pub fn new(shared: Shared) -> Self {
+    pub fn new(shared: Shared<C, M>) -> Self {
         Self {
             inner: Update {
                 update_count: 0,
@@ -212,8 +221,7 @@ impl PhaseState<Update> {
         local_seed_dict: &LocalSeedDict,
     ) -> Result<(), RequestError> {
         self.shared
-            .io
-            .redis
+            .store
             .add_local_seed_dict(pk, local_seed_dict)
             .await?
             .into_inner()?;

@@ -23,7 +23,7 @@ use crate::{
         },
         StateMachine,
     },
-    storage::CoordinatorStorage,
+    storage::{CoordinatorStorage, ModelStorage},
 };
 use xaynet_macros::metrics;
 
@@ -48,9 +48,13 @@ pub enum PhaseStateError {
     Unmask(#[from] UnmaskStateError),
 }
 
-impl PhaseState<PhaseStateError> {
+impl<C, M> PhaseState<PhaseStateError, C, M>
+where
+    C: CoordinatorStorage,
+    M: ModelStorage,
+{
     /// Creates a new error state.
-    pub fn new(shared: Shared, error: PhaseStateError) -> Self {
+    pub fn new(shared: Shared<C, M>, error: PhaseStateError) -> Self {
         Self {
             inner: error,
             shared,
@@ -59,18 +63,22 @@ impl PhaseState<PhaseStateError> {
 }
 
 #[async_trait]
-impl Phase for PhaseState<PhaseStateError> {
+impl<C, M> Phase<C, M> for PhaseState<PhaseStateError, C, M>
+where
+    C: CoordinatorStorage,
+    M: ModelStorage,
+{
     const NAME: PhaseName = PhaseName::Error;
 
     async fn run(&mut self) -> Result<(), PhaseStateError> {
         error!("phase state error: {}", self.inner);
 
         metrics!(
-            self.shared.io.metrics_tx,
+            self.shared.metrics_tx,
             metrics::phase::error::emit(&self.inner)
         );
 
-        while self.shared.io.redis.coordinator_state().await.is_err() {
+        while self.shared.store.coordinator_state().await.is_err() {
             info!("storage not ready... try again in 5 sec");
             delay_for(Duration::from_secs(5)).await;
         }
@@ -81,10 +89,12 @@ impl Phase for PhaseState<PhaseStateError> {
     /// Moves from the error state to the next state.
     ///
     /// See the [module level documentation](../index.html) for more details.
-    fn next(self) -> Option<StateMachine> {
+    fn next(self) -> Option<StateMachine<C, M>> {
         Some(match self.inner {
-            PhaseStateError::RequestChannel(_) => PhaseState::<Shutdown>::new(self.shared).into(),
-            _ => PhaseState::<Idle>::new(self.shared).into(),
+            PhaseStateError::RequestChannel(_) => {
+                PhaseState::<Shutdown, _, _>::new(self.shared).into()
+            }
+            _ => PhaseState::<Idle, _, _>::new(self.shared).into(),
         })
     }
 }

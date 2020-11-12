@@ -123,14 +123,16 @@ use self::{
 #[cfg(feature = "metrics")]
 use crate::metrics::MetricsSender;
 #[cfg(feature = "model-persistence")]
-use crate::{settings::RestoreSettings, storage::api::ModelStorage, storage::s3};
+use crate::settings::RestoreSettings;
 use crate::{
     settings::{MaskSettings, ModelSettings, PetSettings},
     storage::{
-        api::{CoordinatorStorage, StorageError},
-        redis,
+        CoordinatorStorage,
         LocalSeedDictAddError,
         MaskScoreIncrError,
+        ModelStorage,
+        StorageError,
+        Store,
         SumPartAddError,
     },
 };
@@ -173,25 +175,31 @@ pub type StateMachineResult = Result<(), RequestError>;
 
 /// The state machine with all its states.
 #[derive(From)]
-pub enum StateMachine {
-    Idle(PhaseState<Idle>),
-    Sum(PhaseState<Sum>),
-    Update(PhaseState<Update>),
-    Sum2(PhaseState<Sum2>),
-    Unmask(PhaseState<Unmask>),
-    Error(PhaseState<PhaseStateError>),
-    Shutdown(PhaseState<Shutdown>),
+pub enum StateMachine<C, M>
+where
+    C: CoordinatorStorage,
+    M: ModelStorage,
+{
+    Idle(PhaseState<Idle, C, M>),
+    Sum(PhaseState<Sum, C, M>),
+    Update(PhaseState<Update, C, M>),
+    Sum2(PhaseState<Sum2, C, M>),
+    Unmask(PhaseState<Unmask, C, M>),
+    Error(PhaseState<PhaseStateError, C, M>),
+    Shutdown(PhaseState<Shutdown, C, M>),
 }
 
-impl StateMachine
+impl<C, M> StateMachine<C, M>
 where
-    PhaseState<Idle>: Phase,
-    PhaseState<Sum>: Phase,
-    PhaseState<Update>: Phase,
-    PhaseState<Sum2>: Phase,
-    PhaseState<Unmask>: Phase,
-    PhaseState<PhaseStateError>: Phase,
-    PhaseState<Shutdown>: Phase,
+    PhaseState<Idle, C, M>: Phase<C, M>,
+    PhaseState<Sum, C, M>: Phase<C, M>,
+    PhaseState<Update, C, M>: Phase<C, M>,
+    PhaseState<Sum2, C, M>: Phase<C, M>,
+    PhaseState<Unmask, C, M>: Phase<C, M>,
+    PhaseState<PhaseStateError, C, M>: Phase<C, M>,
+    PhaseState<Shutdown, C, M>: Phase<C, M>,
+    C: CoordinatorStorage,
+    M: ModelStorage,
 {
     /// Moves the [`StateMachine`] to the next state and consumes the current one.
     /// Returns the next state or `None` if the [`StateMachine`] reached the state [`Shutdown`].
@@ -238,29 +246,34 @@ pub enum StateMachineInitializationError {
 }
 
 /// The state machine initializer that initializes a new state machine.
-pub struct StateMachineInitializer {
+pub struct StateMachineInitializer<C, M>
+where
+    C: CoordinatorStorage,
+    M: ModelStorage,
+{
     pet_settings: PetSettings,
     mask_settings: MaskSettings,
     model_settings: ModelSettings,
     #[cfg(feature = "model-persistence")]
     restore_settings: RestoreSettings,
 
-    redis_handle: redis::Client,
-    #[cfg(feature = "model-persistence")]
-    s3_handle: s3::Client,
+    store: Store<C, M>,
     #[cfg(feature = "metrics")]
     metrics_handle: MetricsSender,
 }
 
-impl StateMachineInitializer {
+impl<C, M> StateMachineInitializer<C, M>
+where
+    C: CoordinatorStorage,
+    M: ModelStorage,
+{
     /// Creates a new [`StateMachineInitializer`].
     pub fn new(
         pet_settings: PetSettings,
         mask_settings: MaskSettings,
         model_settings: ModelSettings,
         #[cfg(feature = "model-persistence")] restore_settings: RestoreSettings,
-        redis_handle: redis::Client,
-        #[cfg(feature = "model-persistence")] s3_handle: s3::Client,
+        store: Store<C, M>,
         #[cfg(feature = "metrics")] metrics_handle: MetricsSender,
     ) -> Self {
         Self {
@@ -269,9 +282,7 @@ impl StateMachineInitializer {
             model_settings,
             #[cfg(feature = "model-persistence")]
             restore_settings,
-            redis_handle,
-            #[cfg(feature = "model-persistence")]
-            s3_handle,
+            store,
             #[cfg(feature = "metrics")]
             metrics_handle,
         }
@@ -281,7 +292,8 @@ impl StateMachineInitializer {
     /// Initializes a new [`StateMachine`] with the given settings.
     pub async fn init(
         mut self,
-    ) -> StateMachineInitializationResult<(StateMachine, RequestSender, EventSubscriber)> {
+    ) -> StateMachineInitializationResult<(StateMachine<C, M>, RequestSender, EventSubscriber)>
+    {
         // crucial: init must be called before anything else in this module
         sodiumoxide::init().or(Err(StateMachineInitializationError::CryptoInit))?;
 
@@ -295,7 +307,7 @@ impl StateMachineInitializer {
     async fn from_settings(
         &mut self,
     ) -> StateMachineInitializationResult<(CoordinatorState, ModelUpdate)> {
-        self.redis_handle
+        self.store
             .delete_coordinator_data()
             .await
             .map_err(StateMachineInitializationError::DeleteCoordinatorData)?;
@@ -314,7 +326,7 @@ impl StateMachineInitializer {
         self,
         coordinator_state: CoordinatorState,
         global_model: ModelUpdate,
-    ) -> (StateMachine, RequestSender, EventSubscriber) {
+    ) -> (StateMachine<C, M>, RequestSender, EventSubscriber) {
         let (event_publisher, event_subscriber) = EventPublisher::init(
             coordinator_state.round_id,
             coordinator_state.keys.clone(),
@@ -329,20 +341,22 @@ impl StateMachineInitializer {
             coordinator_state,
             event_publisher,
             request_rx,
-            self.redis_handle,
-            #[cfg(feature = "model-persistence")]
-            self.s3_handle,
+            self.store,
             #[cfg(feature = "metrics")]
             self.metrics_handle,
         );
 
-        let state_machine = StateMachine::from(PhaseState::<Idle>::new(shared));
+        let state_machine = StateMachine::from(PhaseState::<Idle, _, _>::new(shared));
         (state_machine, request_tx, event_subscriber)
     }
 }
 
 #[cfg(feature = "model-persistence")]
-impl StateMachineInitializer {
+impl<C, M> StateMachineInitializer<C, M>
+where
+    C: CoordinatorStorage,
+    M: ModelStorage,
+{
     /// Initializes a new [`StateMachine`] by trying to restore the previous coordinator state
     /// along with the latest global model. After a successful initialization, the state machine
     /// always starts from a new round. This means that the round id is increased by one.
@@ -367,7 +381,8 @@ impl StateMachineInitializer {
     /// - Any network error will cause the initialization to fail.
     pub async fn init(
         mut self,
-    ) -> StateMachineInitializationResult<(StateMachine, RequestSender, EventSubscriber)> {
+    ) -> StateMachineInitializationResult<(StateMachine<C, M>, RequestSender, EventSubscriber)>
+    {
         // crucial: init must be called before anything else in this module
         sodiumoxide::init().or(Err(StateMachineInitializationError::CryptoInit))?;
 
@@ -387,7 +402,7 @@ impl StateMachineInitializer {
         &mut self,
     ) -> StateMachineInitializationResult<(CoordinatorState, ModelUpdate)> {
         let (coordinator_state, global_model) = if let Some(coordinator_state) = self
-            .redis_handle
+            .store
             .coordinator_state()
             .await
             .map_err(StateMachineInitializationError::FetchCoordinatorState)?
@@ -407,7 +422,7 @@ impl StateMachineInitializer {
         coordinator_state: CoordinatorState,
     ) -> StateMachineInitializationResult<(CoordinatorState, ModelUpdate)> {
         let global_model_id = match self
-            .redis_handle
+            .store
             .latest_global_model_id()
             .await
             .map_err(StateMachineInitializationError::FetchLatestGlobalModelId)?
@@ -445,7 +460,7 @@ impl StateMachineInitializer {
         global_model_id: &str,
     ) -> StateMachineInitializationResult<Model> {
         match self
-            .s3_handle
+            .store
             .global_model(&global_model_id)
             .await
             .map_err(StateMachineInitializationError::FetchGlobalModel)?
