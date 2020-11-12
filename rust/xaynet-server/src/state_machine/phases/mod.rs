@@ -74,7 +74,6 @@ pub trait Handler {
 
 /// A struct that contains the coordinator state and the I/O interfaces that is shared and
 /// accessible by all `PhaseState`s.
-#[cfg_attr(test, derive(Debug))]
 pub struct Shared<C, M>
 where
     C: CoordinatorStorage,
@@ -312,13 +311,15 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state_machine::tests::utils;
+    use crate::{state_machine::tests::utils, storage::tests::init_store};
     use serial_test::serial;
 
     #[tokio::test]
     #[serial]
     async fn integration_update_round_id() {
-        let (mut shared, event_subscriber, ..) = utils::init_shared().await;
+        let store = init_store().await;
+        let coordinator_state = utils::coordinator_state();
+        let (mut shared, _, event_subscriber) = utils::init_shared(coordinator_state, store);
 
         let phases = event_subscriber.phase_listener();
         // When starting the round ID should be 0

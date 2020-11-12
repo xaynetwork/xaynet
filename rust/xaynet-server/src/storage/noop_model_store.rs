@@ -1,14 +1,12 @@
-use crate::storage::ModelStorage;
-use crate::storage::StorageResult;
+use crate::storage::{ModelStorage, StorageResult};
 use async_trait::async_trait;
-use xaynet_core::common::RoundSeed;
-use xaynet_core::mask::Model;
+use xaynet_core::{common::RoundSeed, mask::Model};
 
 #[derive(Clone)]
-struct NoOp;
+pub struct NoOpModelStore;
 
 #[async_trait]
-impl ModelStorage for NoOp {
+impl ModelStorage for NoOpModelStore {
     async fn set_global_model(
         &mut self,
         round_id: u64,

@@ -167,12 +167,15 @@ mod test {
     };
 
     use super::*;
-    use crate::state_machine::{
-        events::Event,
-        tests::{
-            builder::StateMachineBuilder,
-            utils::{self, Participant},
+    use crate::{
+        state_machine::{
+            events::Event,
+            tests::{
+                builder::StateMachineBuilder,
+                utils::{self, Participant},
+            },
         },
+        storage::tests::init_store,
     };
 
     #[tokio::test]
@@ -211,8 +214,9 @@ mod test {
         // Create the state machine in the Sum2 phase
         let mut agg = Aggregation::new(summer.mask_settings, model_size);
         agg.aggregate(masked_model);
-        let (state_machine, request_tx, events, mut eio) = StateMachineBuilder::new()
-            .await
+
+        let mut store = init_store().await;
+        let (state_machine, request_tx, events) = StateMachineBuilder::new(store.clone())
             .with_seed(round_params.seed.clone())
             .with_phase(Sum2 {
                 model_agg: agg,
@@ -230,7 +234,7 @@ mod test {
 
         // Write the sum participant into redis so that the mask lua
         // script does not fail
-        eio.redis
+        store
             .add_sum_participant(&summer.keys.public, &summer.ephm_keys.public)
             .await
             .unwrap();
@@ -253,7 +257,7 @@ mod test {
         } = state_machine.into_unmask_phase_state();
 
         // Check the initial state of the unmask phase.
-        let mut best_masks = eio.redis.best_masks().await.unwrap().unwrap();
+        let mut best_masks = store.best_masks().await.unwrap().unwrap();
         assert_eq!(best_masks.len(), 1);
         let (mask, count) = best_masks.pop().unwrap();
         assert_eq!(count, 1);

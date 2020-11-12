@@ -238,12 +238,15 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::state_machine::{
-        events::Event,
-        tests::{
-            builder::StateMachineBuilder,
-            utils::{self, Participant},
+    use crate::{
+        state_machine::{
+            events::Event,
+            tests::{
+                builder::StateMachineBuilder,
+                utils::{self, Participant},
+            },
         },
+        storage::tests::init_store,
     };
     use serial_test::serial;
     use xaynet_core::{
@@ -281,9 +284,9 @@ mod test {
         let config: MaskConfig = utils::mask_settings().into();
         let aggregation = Aggregation::new(config.into(), model_size);
 
+        let mut store = init_store().await;
         // Create the state machine
-        let (state_machine, request_tx, events, mut eio) = StateMachineBuilder::new()
-            .await
+        let (state_machine, request_tx, events) = StateMachineBuilder::new(store.clone())
             .with_seed(round_params.seed.clone())
             .with_phase(Update {
                 update_count: 0,
@@ -300,7 +303,7 @@ mod test {
 
         // We need to add the sum participant to the sum_dict because the sum_pks are used
         // to compose the seed_dict when fetching the seed_dict from redis.
-        eio.redis
+        store
             .add_sum_participant(&summer.keys.public, &summer.ephm_keys.public)
             .await
             .unwrap();
@@ -328,7 +331,7 @@ mod test {
         // Check the initial state of the sum2 phase.
 
         // The sum dict should be unchanged
-        let sum_dict = eio.redis.sum_dict().await.unwrap().unwrap();
+        let sum_dict = store.sum_dict().await.unwrap().unwrap();
         assert_eq!(sum_dict, frozen_sum_dict);
         // We have only one updater, so the aggregation should contain
         // the masked model from that updater
@@ -336,7 +339,7 @@ mod test {
             <Aggregation as Into<MaskObject>>::into(sum2_state.aggregation().clone()),
             masked_model
         );
-        let best_masks = eio.redis.best_masks().await.unwrap();
+        let best_masks = store.best_masks().await.unwrap();
         assert!(best_masks.is_none());
 
         // Check all the events that should be emitted during the update

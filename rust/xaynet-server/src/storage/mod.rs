@@ -9,9 +9,18 @@ pub(crate) mod tests;
 
 pub use self::{
     api::{
-        CoordinatorStorage, LocalSeedDictAdd, LocalSeedDictAddError, MaskScoreIncr,
-        MaskScoreIncrError, ModelStorage, StorageError, StorageResult, SumPartAdd, SumPartAddError,
+        CoordinatorStorage,
+        LocalSeedDictAdd,
+        LocalSeedDictAddError,
+        MaskScoreIncr,
+        MaskScoreIncrError,
+        ModelStorage,
+        StorageError,
+        StorageResult,
+        SumPartAdd,
+        SumPartAddError,
     },
+    noop_model_store::NoOpModelStore,
     redis::{RedisError, RedisResult},
     store::Store,
 };

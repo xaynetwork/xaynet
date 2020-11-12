@@ -1,9 +1,12 @@
 use num::{bigint::BigUint, traits::identities::Zero};
 
-use crate::storage::{api::CoordinatorStorage, redis::Client, LocalSeedDictAdd};
+use crate::{
+    state_machine::tests::utils::mask_settings,
+    storage::{redis, CoordinatorStorage, LocalSeedDictAdd, ModelStorage, Store},
+};
 use xaynet_core::{
     crypto::{ByteObject, EncryptKeyPair, SigningKeyPair},
-    mask::{BoundType, DataType, EncryptedMaskSeed, GroupType, MaskConfig, MaskObject, ModelType},
+    mask::{EncryptedMaskSeed, MaskConfig, MaskObject},
     LocalSeedDict,
     SeedDict,
     SumDict,
@@ -43,15 +46,8 @@ pub fn create_local_seed_entries(
 }
 
 pub fn create_mask_zeroed(byte_size: usize) -> MaskObject {
-    let config = MaskConfig {
-        group_type: GroupType::Prime,
-        data_type: DataType::F32,
-        bound_type: BoundType::B0,
-        model_type: ModelType::M3,
-    };
-
     MaskObject::new(
-        config.into(),
+        MaskConfig::from(mask_settings()).into(),
         vec![BigUint::zero(); byte_size],
         BigUint::zero(),
     )
@@ -59,15 +55,8 @@ pub fn create_mask_zeroed(byte_size: usize) -> MaskObject {
 }
 
 pub fn create_mask(byte_size: usize, number: u32) -> MaskObject {
-    let config = MaskConfig {
-        group_type: GroupType::Prime,
-        data_type: DataType::F32,
-        bound_type: BoundType::B0,
-        model_type: ModelType::M3,
-    };
-
     MaskObject::new(
-        config.into(),
+        MaskConfig::from(mask_settings()).into(),
         vec![BigUint::from(number); byte_size],
         BigUint::zero(),
     )
@@ -93,7 +82,7 @@ pub fn create_seed_dict(
 }
 
 pub async fn create_and_add_sum_participant_entries(
-    client: &mut Client,
+    client: &mut impl CoordinatorStorage,
     n: u32,
 ) -> Vec<SumParticipantPublicKey> {
     let mut sum_pks = Vec::new();
@@ -108,7 +97,7 @@ pub async fn create_and_add_sum_participant_entries(
 }
 
 pub async fn add_local_seed_entries(
-    client: &mut Client,
+    client: &mut impl CoordinatorStorage,
     local_seed_entries: &[(UpdateParticipantPublicKey, LocalSeedDict)],
 ) -> Vec<LocalSeedDictAdd> {
     let mut update_result = Vec::new();
@@ -130,4 +119,22 @@ use xaynet_core::mask::{FromPrimitives, Model};
 #[cfg(feature = "model-persistence")]
 pub fn create_global_model(nb_elements: usize) -> Model {
     Model::from_primitives(vec![0; nb_elements].into_iter()).unwrap()
+}
+
+pub async fn init_store() -> Store<impl CoordinatorStorage, impl ModelStorage> {
+    let coordinator_store = redis::tests::init_client().await;
+
+    let model_store = {
+        #[cfg(not(feature = "model-persistence"))]
+        {
+            crate::storage::NoOpModelStore
+        }
+
+        #[cfg(feature = "model-persistence")]
+        {
+            crate::storage::s3::tests::init_client().await
+        }
+    };
+
+    Store::new(coordinator_store, model_store)
 }

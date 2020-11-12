@@ -167,9 +167,12 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::state_machine::{
-        events::Event,
-        tests::{builder::StateMachineBuilder, utils},
+    use crate::{
+        state_machine::{
+            events::Event,
+            tests::{builder::StateMachineBuilder, utils},
+        },
+        storage::tests::init_store,
     };
     use serial_test::serial;
 
@@ -177,9 +180,10 @@ mod test {
     #[serial]
     pub async fn integration_sum_to_update() {
         utils::enable_logging();
+        let mut store = init_store().await;
+
         let sum = Sum { sum_count: 0 };
-        let (state_machine, request_tx, events, mut eio) = StateMachineBuilder::new()
-            .await
+        let (state_machine, request_tx, events) = StateMachineBuilder::new(store.clone())
             .with_phase(sum)
             // Make sure anyone is a sum participant.
             .with_sum_ratio(1.0)
@@ -214,13 +218,13 @@ mod test {
         } = state_machine.into_update_phase_state();
 
         // Check the initial state of the update phase.
-        let frozen_sum_dict = eio.redis.sum_dict().await.unwrap().unwrap();
+        let frozen_sum_dict = store.sum_dict().await.unwrap().unwrap();
         assert_eq!(frozen_sum_dict.len(), 1);
         let (pk, ephm_pk) = frozen_sum_dict.iter().next().unwrap();
         assert_eq!(pk.clone(), summer.keys.public);
         assert_eq!(ephm_pk.clone(), utils::ephm_pk(&sum_msg));
 
-        let seed_dict = eio.redis.seed_dict().await.unwrap().unwrap();
+        let seed_dict = store.seed_dict().await.unwrap().unwrap();
         assert_eq!(seed_dict.len(), 1);
         let (pk, dict) = seed_dict.iter().next().unwrap();
         assert_eq!(pk.clone(), summer.keys.public);

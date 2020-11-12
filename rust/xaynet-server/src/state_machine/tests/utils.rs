@@ -2,8 +2,6 @@ use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
 #[cfg(feature = "metrics")]
 use crate::metrics::MetricsSender;
-#[cfg(feature = "model-persistence")]
-use crate::storage::s3;
 use crate::{
     settings::{MaskSettings, ModelSettings, PetSettings},
     state_machine::{
@@ -12,7 +10,7 @@ use crate::{
         phases::{PhaseName, Shared},
         requests::{RequestReceiver, RequestSender},
     },
-    storage::redis,
+    storage::{CoordinatorStorage, ModelStorage, Store},
 };
 use xaynet_core::{
     common::RoundParameters,
@@ -199,12 +197,14 @@ pub fn model_settings() -> ModelSettings {
     ModelSettings { size: 1 }
 }
 
-pub async fn init_shared() -> (Shared, EventSubscriber, RequestSender) {
-    let redis = redis::tests::init_client().await;
-
-    let coordinator_state =
-        CoordinatorState::new(pet_settings(), mask_settings(), model_settings());
-
+pub fn init_shared<C, M>(
+    coordinator_state: CoordinatorState,
+    store: Store<C, M>,
+) -> (Shared<C, M>, RequestSender, EventSubscriber)
+where
+    C: CoordinatorStorage,
+    M: ModelStorage,
+{
     let (event_publisher, event_subscriber) = EventPublisher::init(
         coordinator_state.round_id,
         coordinator_state.keys.clone(),
@@ -219,15 +219,17 @@ pub async fn init_shared() -> (Shared, EventSubscriber, RequestSender) {
             coordinator_state,
             event_publisher,
             request_rx,
-            redis,
-            #[cfg(feature = "model-persistence")]
-            s3::tests::create_client().await,
+            store,
             #[cfg(feature = "metrics")]
             MetricsSender(),
         ),
-        event_subscriber,
         request_tx,
+        event_subscriber,
     )
+}
+
+pub fn coordinator_state() -> CoordinatorState {
+    CoordinatorState::new(pet_settings(), mask_settings(), model_settings())
 }
 
 /// Extract the ephemeral public key from a sum message.

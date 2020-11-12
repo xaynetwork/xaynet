@@ -348,7 +348,7 @@ pub(in crate) mod tests {
         }
     }
 
-    pub async fn create_client() -> Client {
+    pub async fn init_client() -> Client {
         let settings = create_minio_setup();
         let client = Client::new(settings).unwrap();
         client.create_global_models_bucket().await.unwrap();
@@ -359,7 +359,7 @@ pub(in crate) mod tests {
     #[tokio::test]
     #[serial]
     async fn integration_test_set_and_get_global_model() {
-        let mut client = create_client().await;
+        let mut client = init_client().await;
 
         let global_model = create_global_model(10);
         let id = client
@@ -374,7 +374,7 @@ pub(in crate) mod tests {
     #[tokio::test]
     #[serial]
     async fn integration_test_get_global_model_non_existent() {
-        let mut client = create_client().await;
+        let mut client = init_client().await;
 
         let id = Client::create_global_model_id(1, &RoundSeed::generate());
         let res = client.global_model(&id).await.unwrap();
@@ -384,7 +384,7 @@ pub(in crate) mod tests {
     #[tokio::test]
     #[serial]
     async fn integration_test_global_model_already_exists() {
-        let mut client = create_client().await;
+        let mut client = init_client().await;
 
         let global_model = create_global_model(10);
         let round_seed = RoundSeed::generate();

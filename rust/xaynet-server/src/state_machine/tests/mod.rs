@@ -5,13 +5,16 @@ pub mod utils;
 
 use serial_test::serial;
 
-use crate::state_machine::{
-    events::Event,
-    phases::PhaseName,
-    tests::{
-        builder::StateMachineBuilder,
-        utils::{enable_logging, generate_summer, generate_updater, Participant},
+use crate::{
+    state_machine::{
+        events::Event,
+        phases::PhaseName,
+        tests::{
+            builder::StateMachineBuilder,
+            utils::{enable_logging, generate_summer, generate_updater, Participant},
+        },
     },
+    storage::{api::CoordinatorStorage, tests::init_store},
 };
 use xaynet_core::{
     common::{RoundParameters, RoundSeed},
@@ -33,8 +36,8 @@ async fn integration_full_round() {
     let n_summers = 2;
     let model_size = 4;
 
-    let (state_machine, requests, events, mut eio) = StateMachineBuilder::new()
-        .await
+    let mut store = init_store().await;
+    let (state_machine, requests, events) = StateMachineBuilder::new(store.clone())
         .with_round_id(42)
         .with_seed(round_params.seed.clone())
         .with_sum_ratio(round_params.sum)
@@ -104,23 +107,19 @@ async fn integration_full_round() {
     // check if a global model exist
     #[cfg(feature = "model-persistence")]
     {
-        use crate::storage::{s3, CoordinatorStorage, ModelStorage};
+        use crate::storage::{s3, ModelStorage};
 
         let round_id = events.params_listener().get_latest().round_id;
         let round_seed = events.params_listener().get_latest().event.seed;
+        // FIXME: don't use s3
         let global_model_id = s3::Client::create_global_model_id(round_id, &round_seed);
 
-        let s3_model = eio
-            .s3
-            .global_model(&global_model_id)
-            .await
-            .unwrap()
-            .unwrap();
+        let store_model = store.global_model(&global_model_id).await.unwrap().unwrap();
         assert!(
-            matches!(events.model_listener().get_latest().event, super::events::ModelUpdate::New(broadcasted_model) if s3_model == *broadcasted_model)
+            matches!(events.model_listener().get_latest().event, super::events::ModelUpdate::New(broadcasted_model) if store_model == *broadcasted_model)
         );
 
-        let get_global_model_id = eio.redis.latest_global_model_id().await.unwrap().unwrap();
+        let get_global_model_id = store.latest_global_model_id().await.unwrap().unwrap();
         assert_eq!(global_model_id, get_global_model_id);
     }
 
@@ -138,15 +137,10 @@ async fn integration_full_round() {
         events.phase_listener().get_latest()
     );
 
-    // check if all seed dicts have been removed
-    for (sum_pk, _) in sum_dict.iter() {
-        assert!(eio
-            .redis
-            .seed_dict_for_sum_pk(sum_pk)
-            .await
-            .unwrap()
-            .is_empty());
-    }
+    // check if the dicts have been removed
+    assert!(store.sum_dict().await.unwrap().is_none());
+    assert!(store.seed_dict().await.unwrap().is_none());
+    assert!(store.best_masks().await.unwrap().is_none());
 
     // dropping the request sender should make the state machine
     // error out

@@ -155,22 +155,27 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::state_machine::{
-        events::Event,
-        tests::{builder::StateMachineBuilder, utils},
+    use crate::{
+        state_machine::{
+            events::Event,
+            tests::{builder::StateMachineBuilder, utils},
+        },
+        storage::tests::init_store,
     };
     use serial_test::serial;
 
     #[tokio::test]
     #[serial]
     async fn integration_round_id_is_updated_when_idle_phase_runs() {
-        let (shared, event_subscriber, ..) = utils::init_shared().await;
+        let store = init_store().await;
+        let coordinator_state = utils::coordinator_state();
+        let (shared, _, event_subscriber) = utils::init_shared(coordinator_state, store);
 
         let keys = event_subscriber.keys_listener();
         let id = keys.get_latest().round_id;
         assert_eq!(id, 0);
 
-        let mut idle_phase = PhaseState::<Idle>::new(shared);
+        let mut idle_phase = PhaseState::<Idle, _, _>::new(shared);
         idle_phase.run().await.unwrap();
 
         let id = keys.get_latest().round_id;
@@ -180,8 +185,10 @@ mod test {
     #[tokio::test]
     #[serial]
     async fn integration_idle_to_sum() {
-        let (state_machine, _request_tx, events, mut eio) =
-            StateMachineBuilder::new().await.with_round_id(2).build();
+        let mut store = init_store().await;
+        let (state_machine, _request_tx, events) = StateMachineBuilder::new(store.clone())
+            .with_round_id(2)
+            .build();
         assert!(state_machine.is_idle());
 
         let initial_round_params = events.params_listener().get_latest().event;
@@ -193,7 +200,7 @@ mod test {
 
         let PhaseState { shared, .. } = state_machine.into_sum_phase_state();
 
-        let sum_dict = eio.redis.sum_dict().await.unwrap();
+        let sum_dict = store.sum_dict().await.unwrap();
         assert!(sum_dict.is_none());
 
         let new_round_params = shared.state.round_params.clone();
