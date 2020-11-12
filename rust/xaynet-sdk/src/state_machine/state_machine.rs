@@ -17,11 +17,10 @@ use crate::{settings::PetSettings, ModelStore, Notify, XaynetClient};
 
 /// Outcome of a state machine transition attempt.
 pub enum TransitionOutcome {
-    /// Outcome when the state machine cannot make immediate
-    /// progress. The state machine is returned state unchanged.
+    /// Outcome when the state machine cannot make immediate progress. The state machine
+    /// is returned state unchanged.
     Pending(StateMachine),
-    /// Outcome when a transition occured and the state machine was
-    /// updated.
+    /// Outcome when a transition occured and the state machine was updated.
     Complete(StateMachine),
 }
 
@@ -73,13 +72,10 @@ impl StateMachine {
     /// # Args
     ///
     /// - `settings`: PET settings
-    /// - `xaynet_client`: a client for communicating with the Xaynet
-    ///   coordinator
-    /// - `model_store`: a store from which the model trained by the
-    ///   participant can be loaded, when the participant is selected
-    ///   for the update task
-    /// - `notifier`: a type that the state machine can use to emit
-    ///   notifications
+    /// - `xaynet_client`: a client for communicating with the Xaynet coordinator
+    /// - `model_store`: a store from which the model trained by the participant can be
+    ///   loaded, when the participant is selected for the update task
+    /// - `notifier`: a type that the state machine can use to emit notifications
     pub fn new<X, M, N>(
         settings: PetSettings,
         xaynet_client: X,

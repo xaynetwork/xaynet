@@ -12,6 +12,7 @@ use xaynet_core::{
 
 use crate::{ModelStore, Notify, XaynetClient};
 
+/// Returned a dynamically dispatched [`IO`] object
 pub(crate) fn boxed_io<X, M, N>(
     xaynet_client: X,
     model_store: M,
@@ -25,28 +26,61 @@ where
     Box::new(StateMachineIO::new(xaynet_client, model_store, notifier))
 }
 
+/// A trait that gathers all the [`Notify`], [`XaynetClient`] and [`ModelStore`]
+/// methods.
+///
+///This trait is intended not to be exposed. It is a convenience for avoiding the
+/// proliferation of generic parameters in the state machine: instead of three traits,
+/// we now have only one.
+///
+/// Note that by having only one trait, we can also use dynamic dispatch and actually
+/// get rid of all the generic parameters in the state machine.
+///
+/// ```ignore
+/// Box<dyn IO> // allowed
+/// Box<dyn ModelStore + Notify + XaynetClient // not allowed
+/// ```
 #[async_trait]
 pub(crate) trait IO: Send + 'static {
     type Model;
 
+    /// Attempt to load the model from the store.
     async fn load_model(&mut self) -> Result<Option<Self::Model>, Box<dyn Error>>;
+
+    /// Fetch the round parameters from the coordinator
     async fn get_round_params(&mut self) -> Result<RoundParameters, Box<dyn Error>>;
+    /// Fetch the sum dictionary from the coordinator
     async fn get_sums(&mut self) -> Result<Option<SumDict>, Box<dyn Error>>;
+    /// Fetch the seed dictionary for the given sum participant from the coordinator
     async fn get_seeds(
         &mut self,
         pk: SumParticipantPublicKey,
     ) -> Result<Option<UpdateSeedDict>, Box<dyn Error>>;
+    /// Fetch the mask length from the coordinator
     async fn get_mask_length(&mut self) -> Result<Option<u64>, Box<dyn Error>>;
+    /// Fetch the latest global model from the coordinator
     async fn get_model(&mut self) -> Result<Option<Model>, Box<dyn Error>>;
+    /// Send the given signed and encrypted PET message to the coordinator
     async fn send_message(&mut self, msg: Vec<u8>) -> Result<(), Box<dyn Error>>;
 
+    /// Notify the participant that a new round started
     fn notify_new_round(&mut self);
+    /// Notify the participant that it is selected for the sum task for the current
+    /// round
     fn notify_sum(&mut self);
+    /// Notify the participant that it is selected for the update task for the current
+    /// round
     fn notify_update(&mut self);
+    /// Notify the participant that is done with its current task and it waiting for
+    /// being selected for a task
     fn notify_idle(&mut self);
+    /// Notify the participant that is is expected to provide a model to the state
+    /// machine by loading it into the store
     fn notify_load_model(&mut self);
 }
 
+/// Internal struct that implements the [`IO`] trait. It is not used as is in the state
+/// machine. Instead, we box it and use it as a `dyn IO` object.
 struct StateMachineIO<X, M, N> {
     xaynet_client: X,
     model_store: M,
@@ -54,6 +88,7 @@ struct StateMachineIO<X, M, N> {
 }
 
 impl<X, M, N> StateMachineIO<X, M, N> {
+    /// Create a new `StateMachineIO`
     pub fn new(xaynet_client: X, model_store: M, notifier: N) -> Self {
         Self {
             xaynet_client,
