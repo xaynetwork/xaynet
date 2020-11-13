@@ -18,7 +18,7 @@ use crate::{settings::PetSettings, ModelStore, Notify, XaynetClient};
 /// Outcome of a state machine transition attempt.
 pub enum TransitionOutcome {
     /// Outcome when the state machine cannot make immediate progress. The state machine
-    /// is returned state unchanged.
+    /// is returned unchanged.
     Pending(StateMachine),
     /// Outcome when a transition occured and the state machine was updated.
     Complete(StateMachine),
