@@ -195,7 +195,7 @@ impl<P> Phase<P> {
     /// Send the message created by the given message encoder.
     ///
     /// If the message is split in multiple parts, they are sent sequentially. If a
-    /// single part fails, the remaining parts are not sent. There is not retry
+    /// single part fails, the remaining parts are not sent. There is no retry
     /// mechanism.
     pub async fn send_message(&mut self, encoder: MessageEncoder) -> Result<(), SendMessageError> {
         for part in encoder {
