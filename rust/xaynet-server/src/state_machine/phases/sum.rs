@@ -6,14 +6,27 @@ use tracing::{debug, info};
 
 #[cfg(feature = "metrics")]
 use crate::metrics;
-use crate::state_machine::{
-    events::DictionaryUpdate,
-    phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Update},
-    requests::{StateMachineRequest, SumRequest},
-    RequestError,
-    StateMachine,
+use crate::{
+    state_machine::{
+        events::DictionaryUpdate,
+        phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Update},
+        requests::{StateMachineRequest, SumRequest},
+        RequestError,
+        StateMachine,
+    },
+    storage::{CoordinatorStorage, StorageError},
 };
+use thiserror::Error;
 use xaynet_macros::metrics;
+
+/// Error that occurs during the sum phase.
+#[derive(Error, Debug)]
+pub enum SumStateError {
+    #[error("sum dictionary does not exists")]
+    NoSumDict,
+    #[error("fetching sum dictionary failed: {0}")]
+    FetchSumDict(StorageError),
+}
 
 /// Sum state
 #[derive(Debug)]
@@ -70,10 +83,10 @@ where
             .shared
             .io
             .redis
-            .connection()
+            .sum_dict()
             .await
-            .get_sum_dict()
-            .await?;
+            .map_err(SumStateError::FetchSumDict)?
+            .ok_or(SumStateError::NoSumDict)?;
 
         info!("broadcasting sum dictionary");
         self.shared
@@ -127,8 +140,6 @@ impl PhaseState<Sum> {
         self.shared
             .io
             .redis
-            .connection()
-            .await
             .add_sum_participant(&participant_pk, &ephm_pk)
             .await?
             .into_inner()?;
@@ -158,7 +169,7 @@ mod test {
     pub async fn integration_sum_to_update() {
         utils::enable_logging();
         let sum = Sum { sum_count: 0 };
-        let (state_machine, request_tx, events, eio) = StateMachineBuilder::new()
+        let (state_machine, request_tx, events, mut eio) = StateMachineBuilder::new()
             .await
             .with_phase(sum)
             // Make sure anyone is a sum participant.
@@ -194,13 +205,13 @@ mod test {
         } = state_machine.into_update_phase_state();
 
         // Check the initial state of the update phase.
-        let frozen_sum_dict = eio.redis.connection().await.get_sum_dict().await.unwrap();
+        let frozen_sum_dict = eio.redis.sum_dict().await.unwrap().unwrap();
         assert_eq!(frozen_sum_dict.len(), 1);
         let (pk, ephm_pk) = frozen_sum_dict.iter().next().unwrap();
         assert_eq!(pk.clone(), summer.keys.public);
         assert_eq!(ephm_pk.clone(), utils::ephm_pk(&sum_msg));
 
-        let seed_dict = eio.redis.connection().await.get_seed_dict().await.unwrap();
+        let seed_dict = eio.redis.seed_dict().await.unwrap().unwrap();
         assert_eq!(seed_dict.len(), 1);
         let (pk, dict) = seed_dict.iter().next().unwrap();
         assert_eq!(pk.clone(), summer.keys.public);

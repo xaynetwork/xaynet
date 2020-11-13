@@ -1,5 +1,4 @@
 pub mod api;
-pub(crate) mod impls;
 pub mod redis;
 #[cfg(feature = "model-persistence")]
 pub mod s3;

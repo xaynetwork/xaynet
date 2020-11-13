@@ -1,21 +1,36 @@
 use std::{cmp::Ordering, sync::Arc};
 
 use async_trait::async_trait;
-#[cfg(feature = "metrics")]
-use tracing::error;
 use tracing::info;
-#[cfg(feature = "model-persistence")]
-use tracing::warn;
 
 #[cfg(feature = "metrics")]
 use crate::metrics;
-use crate::state_machine::{
-    events::ModelUpdate,
-    phases::{Idle, Phase, PhaseName, PhaseState, PhaseStateError, Shared},
-    StateMachine,
-    UnmaskGlobalModelError,
+use crate::{
+    state_machine::{
+        events::ModelUpdate,
+        phases::{Idle, Phase, PhaseName, PhaseState, PhaseStateError, Shared},
+        StateMachine,
+    },
+    storage::{CoordinatorStorage, StorageError},
 };
-use xaynet_core::mask::{Aggregation, MaskObject, Model};
+use thiserror::Error;
+use xaynet_core::mask::{Aggregation, MaskObject, Model, UnmaskingError};
+
+/// Error that occurs during the unmask phase.
+#[derive(Error, Debug)]
+pub enum UnmaskStateError {
+    #[error("ambiguous masks were computed by the sum participants")]
+    AmbiguousMasks,
+    #[error("no mask found")]
+    NoMask,
+    #[error("unmasking global model failed: {0}")]
+    Unmasking(#[from] UnmaskingError),
+    #[error("fetching best masks failed: {0}")]
+    FetchBestMasks(#[from] StorageError),
+    #[cfg(feature = "model-persistence")]
+    #[error("saving the global model failed: {0}")]
+    SaveGlobalModel(crate::storage::StorageError),
+}
 
 /// Unmask state
 #[derive(Debug)]
@@ -38,56 +53,21 @@ impl Phase for PhaseState<Unmask> {
     /// Run the unmasking phase
     async fn run(&mut self) -> Result<(), PhaseStateError> {
         #[cfg(feature = "metrics")]
-        {
-            let redis = self.shared.io.redis.clone();
-            let mut metrics_tx = self.shared.io.metrics_tx.clone();
-            let (round_id, phase_name) = (self.shared.state.round_id, Self::NAME);
-
-            tokio::spawn(async move {
-                match redis.connection().await.get_number_of_unique_masks().await {
-                    Ok(number_of_masks) => metrics_tx.send(metrics::masks::total_number::update(
-                        number_of_masks,
-                        round_id,
-                        phase_name,
-                    )),
-                    Err(err) => error!("failed to fetch total number of masks: {}", err),
-                };
-            });
-        }
+        self.emit_number_of_unique_masks_metrics();
 
         let best_masks = self
             .shared
             .io
             .redis
-            .connection()
+            .best_masks()
             .await
-            .get_best_masks()
-            .await?;
+            .map_err(UnmaskStateError::FetchBestMasks)?
+            .ok_or(UnmaskStateError::NoMask)?;
 
         let global_model = self.end_round(best_masks).await?;
 
         #[cfg(feature = "model-persistence")]
-        {
-            use crate::storage::ModelStorage;
-
-            let round_seed = &self.shared.state.round_params.seed;
-            let global_model_id = self
-                .shared
-                .io
-                .s3
-                .set_global_model(self.shared.state.round_id, &round_seed, &global_model)
-                .await
-                .map_err(PhaseStateError::SaveGlobalModel)?;
-            let _ = self
-                .shared
-                .io
-                .redis
-                .connection()
-                .await
-                .set_latest_global_model_id(&global_model_id)
-                .await
-                .map_err(|err| warn!("failed to update latest global model id: {}", err));
-        }
+        self.save_global_model(&global_model).await?;
 
         info!("broadcasting the new global model");
         self.shared
@@ -121,11 +101,7 @@ impl PhaseState<Unmask> {
     async fn freeze_mask_dict(
         &mut self,
         mut best_masks: Vec<(MaskObject, u64)>,
-    ) -> Result<MaskObject, UnmaskGlobalModelError> {
-        if best_masks.is_empty() {
-            return Err(UnmaskGlobalModelError::NoMask);
-        }
-
+    ) -> Result<MaskObject, UnmaskStateError> {
         let mask = best_masks
             .drain(0..)
             .fold(
@@ -137,7 +113,7 @@ impl PhaseState<Unmask> {
                 },
             )
             .0
-            .ok_or(UnmaskGlobalModelError::AmbiguousMasks)?;
+            .ok_or(UnmaskStateError::AmbiguousMasks)?;
 
         Ok(mask)
     }
@@ -145,7 +121,7 @@ impl PhaseState<Unmask> {
     async fn end_round(
         &mut self,
         best_masks: Vec<(MaskObject, u64)>,
-    ) -> Result<Model, UnmaskGlobalModelError> {
+    ) -> Result<Model, UnmaskStateError> {
         let mask = self.freeze_mask_dict(best_masks).await?;
 
         // Safe unwrap: State::<Unmask>::new always creates Some(aggregation)
@@ -153,8 +129,56 @@ impl PhaseState<Unmask> {
 
         model_agg
             .validate_unmasking(&mask)
-            .map_err(UnmaskGlobalModelError::from)?;
+            .map_err(UnmaskStateError::from)?;
 
         Ok(model_agg.unmask(mask))
+    }
+
+    #[cfg(feature = "model-persistence")]
+    async fn save_global_model(&mut self, global_model: &Model) -> Result<(), UnmaskStateError> {
+        use crate::storage::ModelStorage;
+        use tracing::warn;
+
+        let round_seed = &self.shared.state.round_params.seed;
+        let global_model_id = self
+            .shared
+            .io
+            .s3
+            .set_global_model(self.shared.state.round_id, &round_seed, global_model)
+            .await
+            .map_err(UnmaskStateError::SaveGlobalModel)?;
+        let _ = self
+            .shared
+            .io
+            .redis
+            .set_latest_global_model_id(&global_model_id)
+            .await
+            .map_err(|err| warn!("failed to update latest global model id: {}", err));
+        Ok(())
+    }
+}
+
+#[cfg(feature = "metrics")]
+impl PhaseState<Unmask>
+where
+    Self: Phase,
+{
+    fn emit_number_of_unique_masks_metrics(&mut self) {
+        use tracing::error;
+
+        let mut redis = self.shared.io.redis.clone();
+        let mut metrics_tx = self.shared.io.metrics_tx.clone();
+        let (round_id, phase_name) = (self.shared.state.round_id, Self::NAME);
+
+        tokio::spawn(async move {
+            match redis.number_of_unique_masks().await {
+                Ok(number_of_masks) => metrics_tx.send(metrics::masks::total_number::update(
+                    number_of_masks,
+                    round_id,
+                    phase_name,
+                )),
+                Err(err) => error!("failed to fetch total number of masks: {}", err),
+            };
+        });
     }
 }

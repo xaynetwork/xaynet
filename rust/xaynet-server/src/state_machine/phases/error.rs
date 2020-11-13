@@ -9,28 +9,43 @@ use tracing::{error, info};
 use crate::metrics;
 use crate::{
     state_machine::{
-        phases::{Idle, Phase, PhaseName, PhaseState, Shared, Shutdown},
+        phases::{
+            idle::IdleStateError,
+            sum::SumStateError,
+            unmask::UnmaskStateError,
+            update::UpdateStateError,
+            Idle,
+            Phase,
+            PhaseName,
+            PhaseState,
+            Shared,
+            Shutdown,
+        },
         StateMachine,
-        UnmaskGlobalModelError,
     },
-    storage::redis::RedisError,
+    storage::CoordinatorStorage,
 };
 use xaynet_macros::metrics;
 
 /// Error that can occur during the execution of the [`StateMachine`].
 #[derive(Error, Debug)]
 pub enum PhaseStateError {
-    #[error("channel error: {0}")]
-    Channel(&'static str),
-    #[error("unmask global model error: {0}")]
-    UnmaskGlobalModel(#[from] UnmaskGlobalModelError),
+    #[error("request channel error: {0}")]
+    RequestChannel(&'static str),
     #[error("phase timeout")]
-    Timeout(#[from] tokio::time::Elapsed),
-    #[error("redis request failed: {0}")]
-    Redis(#[from] RedisError),
-    #[cfg(feature = "model-persistence")]
-    #[error("saving the global model failed: {0}")]
-    SaveGlobalModel(crate::storage::StorageError),
+    PhaseTimeout(#[from] tokio::time::Elapsed),
+
+    #[error("idle phase failed: {0}")]
+    Idle(#[from] IdleStateError),
+
+    #[error("sum phase failed: {0}")]
+    Sum(#[from] SumStateError),
+
+    #[error("update phase failed: {0}")]
+    Update(#[from] UpdateStateError),
+
+    #[error("unmask phase failed: {0}")]
+    Unmask(#[from] UnmaskStateError),
 }
 
 impl PhaseState<PhaseStateError> {
@@ -48,31 +63,16 @@ impl Phase for PhaseState<PhaseStateError> {
     const NAME: PhaseName = PhaseName::Error;
 
     async fn run(&mut self) -> Result<(), PhaseStateError> {
-        error!("state failed: {}", self.inner);
+        error!("phase state error: {}", self.inner);
 
         metrics!(
             self.shared.io.metrics_tx,
             metrics::phase::error::emit(&self.inner)
         );
 
-        if let PhaseStateError::Redis(_) = self.inner {
-            // a simple loop that stops as soon as the redis client has reconnected to a redis
-            // instance. Reconnecting a lost connection is handled internally by
-            // redis::aio::ConnectionManager
-
-            while self
-                .shared
-                .io
-                .redis
-                .connection()
-                .await
-                .ping()
-                .await
-                .is_err()
-            {
-                info!("try to reconnect to Redis in 5 sec");
-                delay_for(Duration::from_secs(5)).await;
-            }
+        while self.shared.io.redis.coordinator_state().await.is_err() {
+            info!("storage not ready... try again in 5 sec");
+            delay_for(Duration::from_secs(5)).await;
         }
 
         Ok(())
@@ -83,7 +83,7 @@ impl Phase for PhaseState<PhaseStateError> {
     /// See the [module level documentation](../index.html) for more details.
     fn next(self) -> Option<StateMachine> {
         Some(match self.inner {
-            PhaseStateError::Channel(_) => PhaseState::<Shutdown>::new(self.shared).into(),
+            PhaseStateError::RequestChannel(_) => PhaseState::<Shutdown>::new(self.shared).into(),
             _ => PhaseState::<Idle>::new(self.shared).into(),
         })
     }

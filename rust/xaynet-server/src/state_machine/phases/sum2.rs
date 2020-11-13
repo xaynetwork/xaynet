@@ -4,11 +4,14 @@ use tracing::{debug, info};
 
 #[cfg(feature = "metrics")]
 use crate::metrics;
-use crate::state_machine::{
-    phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Unmask},
-    requests::{StateMachineRequest, Sum2Request},
-    RequestError,
-    StateMachine,
+use crate::{
+    state_machine::{
+        phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Unmask},
+        requests::{StateMachineRequest, Sum2Request},
+        RequestError,
+        StateMachine,
+    },
+    storage::CoordinatorStorage,
 };
 use xaynet_core::mask::Aggregation;
 use xaynet_macros::metrics;
@@ -126,9 +129,7 @@ impl PhaseState<Sum2> {
         self.shared
             .io
             .redis
-            .connection()
-            .await
-            .incr_mask_count(&participant_pk, &model_mask)
+            .incr_mask_score(&participant_pk, &model_mask)
             .await?
             .into_inner()?;
 
@@ -199,7 +200,7 @@ mod test {
         // Create the state machine in the Sum2 phase
         let mut agg = Aggregation::new(summer.mask_settings, model_size);
         agg.aggregate(masked_model);
-        let (state_machine, request_tx, events, eio) = StateMachineBuilder::new()
+        let (state_machine, request_tx, events, mut eio) = StateMachineBuilder::new()
             .await
             .with_seed(round_params.seed.clone())
             .with_phase(Sum2 {
@@ -219,8 +220,6 @@ mod test {
         // Write the sum participant into redis so that the mask lua
         // script does not fail
         eio.redis
-            .connection()
-            .await
             .add_sum_participant(&summer.keys.public, &summer.ephm_keys.public)
             .await
             .unwrap();
@@ -243,7 +242,7 @@ mod test {
         } = state_machine.into_unmask_phase_state();
 
         // Check the initial state of the unmask phase.
-        let mut best_masks = eio.redis.connection().await.get_best_masks().await.unwrap();
+        let mut best_masks = eio.redis.best_masks().await.unwrap().unwrap();
         assert_eq!(best_masks.len(), 1);
         let (mask, count) = best_masks.pop().unwrap();
         assert_eq!(count, 1);

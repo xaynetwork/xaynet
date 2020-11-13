@@ -33,7 +33,7 @@ async fn integration_full_round() {
     let n_summers = 2;
     let model_size = 4;
 
-    let builder = StateMachineBuilder::new()
+    let (state_machine, requests, events, mut eio) = StateMachineBuilder::new()
         .await
         .with_round_id(42)
         .with_seed(round_params.seed.clone())
@@ -45,12 +45,8 @@ async fn integration_full_round() {
         .with_max_sum_time(2)
         .with_min_update_time(1)
         .with_max_update_time(2)
-        .with_model_size(model_size);
-
-    #[cfg(not(feature = "model-persistence"))]
-    let (state_machine, requests, events, eio) = builder.build();
-    #[cfg(feature = "model-persistence")]
-    let (state_machine, requests, events, mut eio) = builder.build();
+        .with_model_size(model_size)
+        .build();
 
     assert!(state_machine.is_idle());
 
@@ -108,7 +104,7 @@ async fn integration_full_round() {
     // check if a global model exist
     #[cfg(feature = "model-persistence")]
     {
-        use crate::storage::{s3, ModelStorage};
+        use crate::storage::{s3, CoordinatorStorage, ModelStorage};
 
         let round_id = events.params_listener().get_latest().round_id;
         let round_seed = events.params_listener().get_latest().event.seed;
@@ -124,14 +120,7 @@ async fn integration_full_round() {
             matches!(events.model_listener().get_latest().event, super::events::ModelUpdate::New(broadcasted_model) if s3_model == *broadcasted_model)
         );
 
-        let get_global_model_id = eio
-            .redis
-            .connection()
-            .await
-            .get_latest_global_model_id()
-            .await
-            .unwrap()
-            .unwrap();
+        let get_global_model_id = eio.redis.latest_global_model_id().await.unwrap().unwrap();
         assert_eq!(global_model_id, get_global_model_id);
     }
 
@@ -153,9 +142,7 @@ async fn integration_full_round() {
     for (sum_pk, _) in sum_dict.iter() {
         assert!(eio
             .redis
-            .connection()
-            .await
-            .get_seed_dict_for_sum_pk(sum_pk)
+            .seed_dict_for_sum_pk(sum_pk)
             .await
             .unwrap()
             .is_empty());

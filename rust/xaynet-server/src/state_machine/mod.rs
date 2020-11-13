@@ -48,7 +48,7 @@
 //!
 //! Publishes [`PhaseName::Error`] and handles [`PhaseStateError`]s that can occur during the
 //! execution of the [`StateMachine`]. In most cases, the error is handled by restarting the round.
-//! However, if a [`PhaseStateError::Channel`] occurs, the [`StateMachine`] will shut down.
+//! However, if a [`PhaseStateError::RequestChannel`] occurs, the [`StateMachine`] will shut down.
 //!
 //! **Shutdown**
 //!
@@ -127,17 +127,15 @@ use crate::{settings::RestoreSettings, storage::api::ModelStorage, storage::s3};
 use crate::{
     settings::{MaskSettings, ModelSettings, PetSettings},
     storage::{
-        api::StorageError,
+        api::{CoordinatorStorage, StorageError},
         redis,
         LocalSeedDictAddError,
         MaskScoreIncrError,
-        RedisError,
         SumPartAddError,
     },
 };
 #[cfg(feature = "model-persistence")]
 use xaynet_core::mask::Model;
-use xaynet_core::mask::UnmaskingError;
 
 /// Error returned when the state machine fails to handle a request
 #[derive(Debug, Error)]
@@ -154,9 +152,9 @@ pub enum RequestError {
     #[error("the request could not be processed due to an internal error: {0}")]
     InternalError(&'static str),
 
-    /// a redis request failed
-    #[error("redis request failed: {0}")]
-    Redis(#[from] RedisError),
+    /// a storage request failed
+    #[error("storage request failed: {0}")]
+    CoordinatorStorage(#[from] StorageError),
 
     /// adding a local seed dict to the seed dictionary failed
     #[error(transparent)]
@@ -172,17 +170,6 @@ pub enum RequestError {
 }
 
 pub type StateMachineResult = Result<(), RequestError>;
-
-/// Error that occurs when unmasking of the global model fails.
-#[derive(Error, Debug, Eq, PartialEq)]
-pub enum UnmaskGlobalModelError {
-    #[error("ambiguous masks were computed by the sum participants")]
-    AmbiguousMasks,
-    #[error("no mask found")]
-    NoMask,
-    #[error("unmasking error: {0}")]
-    Unmasking(#[from] UnmaskingError),
-}
 
 /// The state machine with all its states.
 #[derive(From)]
@@ -234,12 +221,16 @@ type StateMachineInitializationResult<T> = Result<T, StateMachineInitializationE
 /// Error that can occur during the initialization of the [`StateMachine`].
 #[derive(Debug, Error)]
 pub enum StateMachineInitializationError {
-    #[error("redis request failed: {0}")]
-    Redis(#[from] RedisError),
-    #[error("failed to fetch global model: {0}")]
-    Store(#[from] StorageError),
-    #[error("failed to initialize crypto library")]
+    #[error("initializing crypto library failed")]
     CryptoInit,
+    #[error("fetching coordinator state failed: {0}")]
+    FetchCoordinatorState(StorageError),
+    #[error("deleting coordinator data failed: {0}")]
+    DeleteCoordinatorData(StorageError),
+    #[error("fetching latest global model id failed: {0}")]
+    FetchLatestGlobalModelId(StorageError),
+    #[error("fetching global model failed: {0}")]
+    FetchGlobalModel(StorageError),
     #[error("{0}")]
     GlobalModelUnavailable(String),
     #[error("{0}")]
@@ -289,7 +280,7 @@ impl StateMachineInitializer {
     #[cfg(not(feature = "model-persistence"))]
     /// Initializes a new [`StateMachine`] with the given settings.
     pub async fn init(
-        self,
+        mut self,
     ) -> StateMachineInitializationResult<(StateMachine, RequestSender, EventSubscriber)> {
         // crucial: init must be called before anything else in this module
         sodiumoxide::init().or(Err(StateMachineInitializationError::CryptoInit))?;
@@ -302,13 +293,12 @@ impl StateMachineInitializer {
     // all coordinator data in Redis. Should only be called for the first start
     // or if we need to perform reset.
     async fn from_settings(
-        &self,
+        &mut self,
     ) -> StateMachineInitializationResult<(CoordinatorState, ModelUpdate)> {
         self.redis_handle
-            .connection()
+            .delete_coordinator_data()
             .await
-            .flush_coordinator_data()
-            .await?;
+            .map_err(StateMachineInitializationError::DeleteCoordinatorData)?;
         Ok((
             CoordinatorState::new(
                 self.pet_settings,
@@ -398,10 +388,9 @@ impl StateMachineInitializer {
     ) -> StateMachineInitializationResult<(CoordinatorState, ModelUpdate)> {
         let (coordinator_state, global_model) = if let Some(coordinator_state) = self
             .redis_handle
-            .connection()
+            .coordinator_state()
             .await
-            .get_coordinator_state()
-            .await?
+            .map_err(StateMachineInitializationError::FetchCoordinatorState)?
         {
             self.try_restore_state(coordinator_state).await?
         } else {
@@ -417,14 +406,12 @@ impl StateMachineInitializer {
         &mut self,
         coordinator_state: CoordinatorState,
     ) -> StateMachineInitializationResult<(CoordinatorState, ModelUpdate)> {
-        let latest_global_model_id = self
+        let global_model_id = match self
             .redis_handle
-            .connection()
+            .latest_global_model_id()
             .await
-            .get_latest_global_model_id()
-            .await?;
-
-        let global_model_id = match latest_global_model_id {
+            .map_err(StateMachineInitializationError::FetchLatestGlobalModelId)?
+        {
             // the state machine was shut down before completing a round
             // we cannot use the round_id here because we increment the round_id after each restart
             // that means even if the round id is larger than one, it doesn't mean that a
@@ -457,7 +444,12 @@ impl StateMachineInitializer {
         coordinator_state: &CoordinatorState,
         global_model_id: &str,
     ) -> StateMachineInitializationResult<Model> {
-        match self.s3_handle.global_model(&global_model_id).await? {
+        match self
+            .s3_handle
+            .global_model(&global_model_id)
+            .await
+            .map_err(StateMachineInitializationError::FetchGlobalModel)?
+        {
             Some(global_model) => {
                 if Self::model_properties_matches_settings(coordinator_state, &global_model) {
                     Ok(global_model)

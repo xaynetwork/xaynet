@@ -6,19 +6,32 @@ use tracing::{debug, info, warn};
 
 #[cfg(feature = "metrics")]
 use crate::metrics;
-use crate::state_machine::{
-    events::{DictionaryUpdate, MaskLengthUpdate},
-    phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Sum2},
-    requests::{StateMachineRequest, UpdateRequest},
-    RequestError,
-    StateMachine,
+use crate::{
+    state_machine::{
+        events::{DictionaryUpdate, MaskLengthUpdate},
+        phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Sum2},
+        requests::{StateMachineRequest, UpdateRequest},
+        RequestError,
+        StateMachine,
+    },
+    storage::{CoordinatorStorage, StorageError},
 };
+use thiserror::Error;
 use xaynet_core::{
     mask::{Aggregation, MaskObject},
     LocalSeedDict,
     UpdateParticipantPublicKey,
 };
 use xaynet_macros::metrics;
+
+/// Error that occurs during the update phase.
+#[derive(Error, Debug)]
+pub enum UpdateStateError {
+    #[error("seed dictionary does not exists")]
+    NoSeedDict,
+    #[error("fetching seed dictionary failed: {0}")]
+    FetchSeedDict(StorageError),
+}
 
 /// Update state
 #[derive(Debug)]
@@ -70,10 +83,10 @@ where
             .shared
             .io
             .redis
-            .connection()
+            .seed_dict()
             .await
-            .get_seed_dict()
-            .await?;
+            .map_err(UpdateStateError::FetchSeedDict)?
+            .ok_or(UpdateStateError::NoSeedDict)?;
 
         info!("broadcasting the global seed dictionary");
         self.shared
@@ -201,9 +214,7 @@ impl PhaseState<Update> {
         self.shared
             .io
             .redis
-            .connection()
-            .await
-            .update_seed_dict(pk, local_seed_dict)
+            .add_local_seed_dict(pk, local_seed_dict)
             .await?
             .into_inner()?;
 
@@ -263,7 +274,7 @@ mod test {
         let aggregation = Aggregation::new(config.into(), model_size);
 
         // Create the state machine
-        let (state_machine, request_tx, events, eio) = StateMachineBuilder::new()
+        let (state_machine, request_tx, events, mut eio) = StateMachineBuilder::new()
             .await
             .with_seed(round_params.seed.clone())
             .with_phase(Update {
@@ -282,8 +293,6 @@ mod test {
         // We need to add the sum participant to the sum_dict because the sum_pks are used
         // to compose the seed_dict when fetching the seed_dict from redis.
         eio.redis
-            .connection()
-            .await
             .add_sum_participant(&summer.keys.public, &summer.ephm_keys.public)
             .await
             .unwrap();
@@ -311,7 +320,7 @@ mod test {
         // Check the initial state of the sum2 phase.
 
         // The sum dict should be unchanged
-        let sum_dict = eio.redis.connection().await.get_sum_dict().await.unwrap();
+        let sum_dict = eio.redis.sum_dict().await.unwrap().unwrap();
         assert_eq!(sum_dict, frozen_sum_dict);
         // We have only one updater, so the aggregation should contain
         // the masked model from that updater
@@ -319,8 +328,8 @@ mod test {
             <Aggregation as Into<MaskObject>>::into(sum2_state.aggregation().clone()),
             masked_model
         );
-        let best_masks = eio.redis.connection().await.get_best_masks().await.unwrap();
-        assert!(best_masks.is_empty());
+        let best_masks = eio.redis.best_masks().await.unwrap();
+        assert!(best_masks.is_none());
 
         // Check all the events that should be emitted during the update
         // phase
