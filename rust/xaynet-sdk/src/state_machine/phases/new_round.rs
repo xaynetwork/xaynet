@@ -69,3 +69,73 @@ impl Phase<NewRound> {
         state.into_phase(self.io)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::state_machine::{
+        testutils::{shared_state, SelectFor},
+        MockIO,
+        StateMachine,
+    };
+
+    #[tokio::test]
+    async fn test_selected_for_sum() {
+        let mut io = MockIO::new();
+        io.expect_notify_sum().return_const(());
+        let phase = make_phase(SelectFor::Sum, io);
+
+        let outcome = <Phase<NewRound> as Step>::step(phase).await;
+        matches!(outcome, TransitionOutcome::Complete(StateMachine::Sum(_)));
+    }
+
+    #[tokio::test]
+    async fn test_selected_for_update() {
+        let mut io = MockIO::new();
+        io.expect_notify_update().times(1).return_const(());
+        io.expect_notify_load_model().times(1).return_const(());
+        let phase = make_phase(SelectFor::Update, io);
+
+        let outcome = <Phase<NewRound> as Step>::step(phase).await;
+        matches!(
+            outcome,
+            TransitionOutcome::Complete(StateMachine::Update(_))
+        );
+    }
+
+    #[tokio::test]
+    async fn test_not_selected() {
+        let mut io = MockIO::new();
+        io.expect_notify_idle().times(1).return_const(());
+        let phase = make_phase(SelectFor::None, io);
+
+        let outcome = <Phase<NewRound> as Step>::step(phase).await;
+        matches!(
+            outcome,
+            TransitionOutcome::Complete(StateMachine::Awaiting(_))
+        );
+    }
+
+    /// Instantiate a new round phase.
+    ///
+    /// - `task` is the task we want the simulated participant to be selected for. If you want a
+    ///   sum participant, pass `SelectedFor::Sum` for example.
+    /// - `io` is the mock the test wants to use. It should contains all the test expectations. The
+    ///   reason for settings the mocked IO object in this helper is that once the phase is
+    ///   created, `phase.io` is a `Box<dyn IO>`, not a `MockIO`. Therefore, it doesn't have any of
+    ///   the mock methods (`expect_xxx()`, `checkpoint()`, etc.) so we cannot set any expectation
+    ///   a posteriori
+    fn make_phase(task: SelectFor, io: MockIO) -> Phase<NewRound> {
+        let shared = shared_state(task);
+
+        // Check IntoPhase<NewRound> implementation
+        let mut mock = MockIO::new();
+        mock.expect_notify_new_round().times(1).return_const(());
+        let mut phase: Phase<NewRound> = State::new(shared, NewRound).into_phase(Box::new(mock));
+
+        // Set `phase.io` to the mock the test wants to use. Note that this drops the `mock` we
+        // created above, so the expectations we set on `mock` run now.
+        let _ = std::mem::replace(&mut phase.io, Box::new(io));
+        phase
+    }
+}

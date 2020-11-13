@@ -26,6 +26,8 @@ where
     Box::new(StateMachineIO::new(xaynet_client, model_store, notifier))
 }
 
+#[cfg(test)]
+type DynModel = Box<(dyn ::std::convert::AsRef<xaynet_core::mask::Model> + Send)>;
 /// A trait that gathers all the [`Notify`], [`XaynetClient`] and [`ModelStore`]
 /// methods.
 ///
@@ -40,6 +42,7 @@ where
 /// Box<dyn IO> // allowed
 /// Box<dyn ModelStore + Notify + XaynetClient // not allowed
 /// ```
+#[cfg_attr(test, mockall::automock(type Model=DynModel;))]
 #[async_trait]
 pub(crate) trait IO: Send + 'static {
     type Model;
