@@ -221,10 +221,16 @@ type StateMachineInitializationResult<T> = Result<T, StateMachineInitializationE
 /// Error that can occur during the initialization of the [`StateMachine`].
 #[derive(Debug, Error)]
 pub enum StateMachineInitializationError {
-    #[error("failed to initialize crypto library")]
+    #[error("initializing crypto library failed")]
     CryptoInit,
-    #[error("failed to fetch global model: {0}")]
-    Store(#[from] StorageError),
+    #[error("fetching coordinator state failed: {0}")]
+    FetchCoordinatorState(StorageError),
+    #[error("deleting coordinator data failed: {0}")]
+    DeleteCoordinatorData(StorageError),
+    #[error("fetching latest global model id failed: {0}")]
+    FetchLatestGlobalModelId(StorageError),
+    #[error("fetching global model failed: {0}")]
+    FetchGlobalModel(StorageError),
     #[error("{0}")]
     GlobalModelUnavailable(String),
     #[error("{0}")]
@@ -289,7 +295,10 @@ impl StateMachineInitializer {
     async fn from_settings(
         &mut self,
     ) -> StateMachineInitializationResult<(CoordinatorState, ModelUpdate)> {
-        self.redis_handle.delete_coordinator_data().await?;
+        self.redis_handle
+            .delete_coordinator_data()
+            .await
+            .map_err(StateMachineInitializationError::DeleteCoordinatorData)?;
         Ok((
             CoordinatorState::new(
                 self.pet_settings,
@@ -377,13 +386,17 @@ impl StateMachineInitializer {
     async fn from_previous_state(
         &mut self,
     ) -> StateMachineInitializationResult<(CoordinatorState, ModelUpdate)> {
-        let (coordinator_state, global_model) =
-            if let Some(coordinator_state) = self.redis_handle.coordinator_state().await? {
-                self.try_restore_state(coordinator_state).await?
-            } else {
-                // no state in redis available seems to be a fresh start
-                self.from_settings().await?
-            };
+        let (coordinator_state, global_model) = if let Some(coordinator_state) = self
+            .redis_handle
+            .coordinator_state()
+            .await
+            .map_err(StateMachineInitializationError::FetchCoordinatorState)?
+        {
+            self.try_restore_state(coordinator_state).await?
+        } else {
+            // no state in redis available seems to be a fresh start
+            self.from_settings().await?
+        };
 
         Ok((coordinator_state, global_model))
     }
@@ -393,7 +406,12 @@ impl StateMachineInitializer {
         &mut self,
         coordinator_state: CoordinatorState,
     ) -> StateMachineInitializationResult<(CoordinatorState, ModelUpdate)> {
-        let global_model_id = match self.redis_handle.latest_global_model_id().await? {
+        let global_model_id = match self
+            .redis_handle
+            .latest_global_model_id()
+            .await
+            .map_err(StateMachineInitializationError::FetchLatestGlobalModelId)?
+        {
             // the state machine was shut down before completing a round
             // we cannot use the round_id here because we increment the round_id after each restart
             // that means even if the round id is larger than one, it doesn't mean that a
@@ -426,7 +444,12 @@ impl StateMachineInitializer {
         coordinator_state: &CoordinatorState,
         global_model_id: &str,
     ) -> StateMachineInitializationResult<Model> {
-        match self.s3_handle.global_model(&global_model_id).await? {
+        match self
+            .s3_handle
+            .global_model(&global_model_id)
+            .await
+            .map_err(StateMachineInitializationError::FetchGlobalModel)?
+        {
             Some(global_model) => {
                 if Self::model_properties_matches_settings(coordinator_state, &global_model) {
                     Ok(global_model)
