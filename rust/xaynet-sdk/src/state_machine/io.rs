@@ -29,7 +29,7 @@ where
 /// A trait that gathers all the [`Notify`], [`XaynetClient`] and [`ModelStore`]
 /// methods.
 ///
-///This trait is intended not to be exposed. It is a convenience for avoiding the
+/// This trait is intended not to be exposed. It is a convenience for avoiding the
 /// proliferation of generic parameters in the state machine: instead of three traits,
 /// we now have only one.
 ///
