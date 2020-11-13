@@ -64,15 +64,6 @@ pub struct Client {
     client: S3Client,
 }
 
-#[cfg(test)]
-impl std::fmt::Debug for Client {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Client")
-            .field("buckets", &self.buckets)
-            .finish()
-    }
-}
-
 impl Client {
     /// Creates a new S3 client. The client creates and maintains one bucket for storing global models.
     ///

@@ -83,13 +83,6 @@ pub struct Client {
     connection: ConnectionManager,
 }
 
-#[cfg(test)]
-impl std::fmt::Debug for Client {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("redis client").finish()
-    }
-}
-
 fn to_storage_err(e: RedisError) -> StorageError {
     anyhow::anyhow!(e)
 }

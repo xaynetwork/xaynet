@@ -8,6 +8,8 @@ mod sum2;
 mod unmask;
 mod update;
 
+use std::fmt;
+
 use async_trait::async_trait;
 use futures::StreamExt;
 use tracing::{debug, error, error_span, info, warn, Span};
@@ -90,6 +92,20 @@ where
     #[cfg(feature = "metrics")]
     /// The metrics sender half.
     pub(in crate::state_machine) metrics_tx: MetricsSender,
+}
+
+impl<C, M> fmt::Debug for Shared<C, M>
+where
+    C: CoordinatorStorage,
+    M: ModelStorage,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Shared")
+            .field("state", &self.state)
+            .field("request_rx", &self.request_rx)
+            .field("events", &self.events)
+            .finish()
+    }
 }
 
 impl<C, M> Shared<C, M>
