@@ -74,7 +74,7 @@ pub trait Handler {
     async fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), RequestError>;
 }
 
-/// A struct that contains the coordinator state and the I/O interfaces that is shared and
+/// A struct that contains the coordinator state and the I/O interfaces that are shared and
 /// accessible by all `PhaseState`s.
 pub struct Shared<C, M>
 where
@@ -144,16 +144,15 @@ where
 
 /// The state corresponding to a phase of the PET protocol.
 ///
-/// This contains the state-dependent `inner` state and the state-independent `shared.state`
-/// which is shared across state transitions. Furthermore, it contains the I/O interfaces
-/// of the state machine.
+/// This contains the state-dependent `private` state and the state-independent `shared` state
+/// which is shared across state transitions.
 pub struct PhaseState<S, C, M>
 where
     C: CoordinatorStorage,
     M: ModelStorage,
 {
-    /// The inner state.
-    pub(in crate::state_machine) inner: S,
+    /// The private state.
+    pub(in crate::state_machine) private: S,
     /// The shared coordinator state and I/O interfaces.
     pub(in crate::state_machine) shared: Shared<C, M>,
 }

@@ -82,7 +82,7 @@ where
 
         info!(
             "{} sum messages handled (min {} required)",
-            self.inner.sum_count, self.shared.state.min_sum_count
+            self.private.sum_count, self.shared.state.min_sum_count
         );
 
         let sum_dict = self
@@ -116,7 +116,7 @@ where
         while !self.has_enough_sums() {
             debug!(
                 "{} sum messages handled (min {} required)",
-                self.inner.sum_count, self.shared.state.min_sum_count,
+                self.private.sum_count, self.shared.state.min_sum_count,
             );
             self.process_next().await?;
         }
@@ -132,7 +132,7 @@ where
     /// Creates a new sum state.
     pub fn new(shared: Shared<C, M>) -> Self {
         Self {
-            inner: Sum { sum_count: 0 },
+            private: Sum { sum_count: 0 },
             shared,
         }
     }
@@ -140,7 +140,8 @@ where
     /// Handles a sum request.
     ///
     /// # Error
-    /// Fails if the sum participant cannot be added due to a Redis error.
+    ///
+    /// Fails if the sum participant cannot be added due to a PET or [`StorageError`].
     async fn handle_sum(&mut self, req: SumRequest) -> Result<(), RequestError> {
         let SumRequest {
             participant_pk,
@@ -153,14 +154,14 @@ where
             .await?
             .into_inner()?;
 
-        self.inner.sum_count += 1;
+        self.private.sum_count += 1;
         Ok(())
     }
 
     /// Checks whether enough sum participants submitted their ephemeral keys to start the update
     /// phase.
     fn has_enough_sums(&self) -> bool {
-        self.inner.sum_count >= self.shared.state.min_sum_count
+        self.private.sum_count >= self.shared.state.min_sum_count
     }
 }
 
@@ -212,7 +213,7 @@ mod test {
 
         let (_response, state_machine) = tokio::join!(request_fut, transition_fut);
         let PhaseState {
-            inner: update_state,
+            private: update_state,
             shared,
             ..
         } = state_machine.into_update_phase_state();

@@ -119,7 +119,7 @@ where
         shared.set_round_id(shared.round_id() + 1);
         debug!("new round ID = {}", shared.round_id());
         Self {
-            inner: Idle,
+            private: Idle,
             shared,
         }
     }

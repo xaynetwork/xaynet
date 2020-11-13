@@ -72,13 +72,13 @@ where
 
         info!(
             "{} update messages handled (min {} required)",
-            self.inner.update_count, self.shared.state.min_update_count
+            self.private.update_count, self.shared.state.min_update_count
         );
 
         info!("broadcasting mask length");
         self.shared
             .events
-            .broadcast_mask_length(MaskLengthUpdate::New(self.inner.model_agg.len()));
+            .broadcast_mask_length(MaskLengthUpdate::New(self.private.model_agg.len()));
 
         let seed_dict = self
             .shared
@@ -97,7 +97,7 @@ where
     }
 
     fn next(self) -> Option<StateMachine<C, M>> {
-        Some(PhaseState::<Sum2, _, _>::new(self.shared, self.inner.model_agg).into())
+        Some(PhaseState::<Sum2, _, _>::new(self.shared, self.private.model_agg).into())
     }
 }
 
@@ -112,7 +112,7 @@ where
         while !self.has_enough_updates() {
             debug!(
                 "{} update messages handled (min {} required)",
-                self.inner.update_count, self.shared.state.min_update_count
+                self.private.update_count, self.shared.state.min_update_count
             );
             self.process_next().await?;
         }
@@ -153,7 +153,7 @@ where
     /// Creates a new update state.
     pub fn new(shared: Shared<C, M>) -> Self {
         Self {
-            inner: Update {
+            private: Update {
                 update_count: 0,
                 model_agg: Aggregation::new(
                     shared.state.mask_config.into(),
@@ -188,7 +188,7 @@ where
         // don't want to add the local seed dict if the corresponding
         // masked model is invalid
         debug!("checking whether the masked model can be aggregated");
-        self.inner
+        self.private
             .model_agg
             .validate_aggregation(&mask_object)
             .map_err(|e| {
@@ -207,14 +207,15 @@ where
             })?;
 
         info!("aggregating the masked model and scalar");
-        self.inner.model_agg.aggregate(mask_object);
+        self.private.model_agg.aggregate(mask_object);
         Ok(())
     }
 
     /// Adds a local seed dictionary to the seed dictionary.
     ///
     /// # Error
-    /// Fails if the local dict cannot be added due to a Redis error.
+    ///
+    /// Fails if the local seed dict cannot be added due to a PET or [`StorageError`].
     async fn add_local_seed_dict(
         &mut self,
         pk: &UpdateParticipantPublicKey,
@@ -226,12 +227,12 @@ where
             .await?
             .into_inner()?;
 
-        self.inner.update_count += 1;
+        self.private.update_count += 1;
         Ok(())
     }
 
     fn has_enough_updates(&self) -> bool {
-        self.inner.update_count >= self.shared.state.min_update_count
+        self.private.update_count >= self.shared.state.min_update_count
     }
 }
 
@@ -301,8 +302,7 @@ mod test {
             .with_mask_config(utils::mask_settings().into())
             .build();
 
-        // We need to add the sum participant to the sum_dict because the sum_pks are used
-        // to compose the seed_dict when fetching the seed_dict from redis.
+        // We need to add the sum participant to follow the pet protocol
         store
             .add_sum_participant(&summer.keys.public, &summer.ephm_keys.public)
             .await
@@ -325,7 +325,8 @@ mod test {
 
         // Extract state of the state machine
         let PhaseState {
-            inner: sum2_state, ..
+            private: sum2_state,
+            ..
         } = state_machine.into_sum2_phase_state();
 
         // Check the initial state of the sum2 phase.

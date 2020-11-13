@@ -56,7 +56,7 @@ where
     /// Creates a new error state.
     pub fn new(shared: Shared<C, M>, error: PhaseStateError) -> Self {
         Self {
-            inner: error,
+            private: error,
             shared,
         }
     }
@@ -71,11 +71,11 @@ where
     const NAME: PhaseName = PhaseName::Error;
 
     async fn run(&mut self) -> Result<(), PhaseStateError> {
-        error!("phase state error: {}", self.inner);
+        error!("phase state error: {}", self.private);
 
         metrics!(
             self.shared.metrics_tx,
-            metrics::phase::error::emit(&self.inner)
+            metrics::phase::error::emit(&self.private)
         );
 
         while self.shared.store.coordinator_state().await.is_err() {
@@ -90,7 +90,7 @@ where
     ///
     /// See the [module level documentation](../index.html) for more details.
     fn next(self) -> Option<StateMachine<C, M>> {
-        Some(match self.inner {
+        Some(match self.private {
             PhaseStateError::RequestChannel(_) => {
                 PhaseState::<Shutdown, _, _>::new(self.shared).into()
             }

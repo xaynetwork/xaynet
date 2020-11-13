@@ -44,7 +44,7 @@ where
     /// Creates a new shutdown state.
     pub fn new(shared: Shared<C, M>) -> Self {
         Self {
-            inner: Shutdown,
+            private: Shutdown,
             shared,
         }
     }

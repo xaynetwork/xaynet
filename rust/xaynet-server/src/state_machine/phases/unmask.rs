@@ -96,7 +96,7 @@ where
     /// Creates a new unmask state.
     pub fn new(shared: Shared<C, M>, model_agg: Aggregation) -> Self {
         Self {
-            inner: Unmask {
+            private: Unmask {
                 model_agg: Some(model_agg),
             },
             shared,
@@ -131,7 +131,7 @@ where
         let mask = self.freeze_mask_dict(best_masks).await?;
 
         // Safe unwrap: State::<Unmask>::new always creates Some(aggregation)
-        let model_agg = self.inner.model_agg.take().unwrap();
+        let model_agg = self.private.model_agg.take().unwrap();
 
         model_agg
             .validate_unmasking(&mask)

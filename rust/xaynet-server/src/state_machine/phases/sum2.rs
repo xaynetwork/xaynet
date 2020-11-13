@@ -55,7 +55,7 @@ where
 
         info!(
             "{} sum2 messages handled (min {} required)",
-            self.inner.sum2_count, self.shared.state.min_sum_count
+            self.private.sum2_count, self.shared.state.min_sum_count
         );
         Ok(())
     }
@@ -64,7 +64,7 @@ where
     ///
     /// See the [module level documentation](../index.html) for more details.
     fn next(self) -> Option<StateMachine<C, M>> {
-        Some(PhaseState::<Unmask, _, _>::new(self.shared, self.inner.model_agg).into())
+        Some(PhaseState::<Unmask, _, _>::new(self.shared, self.private.model_agg).into())
     }
 }
 
@@ -79,7 +79,7 @@ where
         while !self.has_enough_sum2s() {
             debug!(
                 "{} sum2 messages handled (min {} required)",
-                self.inner.sum2_count, self.shared.state.min_sum_count
+                self.private.sum2_count, self.shared.state.min_sum_count
             );
             self.process_next().await?;
         }
@@ -120,7 +120,7 @@ where
     /// Creates a new sum2 state.
     pub fn new(shared: Shared<C, M>, model_agg: Aggregation) -> Self {
         Self {
-            inner: Sum2 {
+            private: Sum2 {
                 model_agg,
                 sum2_count: 0,
             },
@@ -131,7 +131,8 @@ where
     /// Handles a sum2 request by adding a mask to the mask dictionary.
     ///
     /// # Errors
-    /// Fails if the sum participant didn't register in the sum phase or it is a repetition.
+    ///
+    /// Fails if the mask score cannot be incremented due to a PET or [`StorageError`].
     async fn handle_sum2(&mut self, req: Sum2Request) -> Result<(), RequestError> {
         let Sum2Request {
             participant_pk,
@@ -144,13 +145,13 @@ where
             .await?
             .into_inner()?;
 
-        self.inner.sum2_count += 1;
+        self.private.sum2_count += 1;
         Ok(())
     }
 
     /// Checks whether enough sum participants submitted their masks to start the unmask phase.
     fn has_enough_sum2s(&self) -> bool {
-        self.inner.sum2_count >= self.shared.state.min_sum_count
+        self.private.sum2_count >= self.shared.state.min_sum_count
     }
 }
 
@@ -232,8 +233,8 @@ mod test {
             .build();
         assert!(state_machine.is_sum2());
 
-        // Write the sum participant into redis so that the mask lua
-        // script does not fail
+        // Write the sum participant into the store so that the method store.incr_mask_score does
+        // not fail
         store
             .add_sum_participant(&summer.keys.public, &summer.ephm_keys.public)
             .await
@@ -252,7 +253,7 @@ mod test {
 
         // Extract state of the state machine
         let PhaseState {
-            inner: unmask_state,
+            private: unmask_state,
             ..
         } = state_machine.into_unmask_phase_state();
 

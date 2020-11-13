@@ -70,7 +70,7 @@ where
         events.broadcast_seed_dict(seed_dict);
 
         let state = PhaseState {
-            inner: phase_state,
+            private: phase_state,
             shared,
         };
 

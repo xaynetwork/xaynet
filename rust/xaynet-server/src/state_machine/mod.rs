@@ -301,8 +301,8 @@ where
         Ok(self.init_state_machine(coordinator_state, global_model))
     }
 
-    // Creates a new [`CoordinatorState`] from the given settings and flushes
-    // all coordinator data in Redis. Should only be called for the first start
+    // Creates a new [`CoordinatorState`] from the given settings and deletes
+    // all coordinator data. Should only be called for the first start
     // or if we need to perform reset.
     async fn from_settings(
         &mut self,
@@ -409,7 +409,7 @@ where
         {
             self.try_restore_state(coordinator_state).await?
         } else {
-            // no state in redis available seems to be a fresh start
+            // no coordinator state available seems to be a fresh start
             self.from_settings().await?
         };
 
