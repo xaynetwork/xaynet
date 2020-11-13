@@ -3,6 +3,7 @@ use derive_more::From;
 use super::{
     boxed_io,
     Awaiting,
+    IntoPhase,
     NewRound,
     Phase,
     SerializableState,
@@ -92,7 +93,7 @@ impl StateMachine {
     {
         let io = boxed_io(xaynet_client, model_store, notifier);
         let state = State::new(SharedState::new(settings), Awaiting);
-        Phase::<_>::new(state, io).into()
+        state.into_phase(io).into()
     }
 
     /// Restore the PET state machine from the given `state`.
@@ -109,11 +110,11 @@ impl StateMachine {
     {
         let io = boxed_io(xaynet_client, model_store, notifier);
         match state {
-            SerializableState::NewRound(state) => Phase::<_>::new(state, io).into(),
-            SerializableState::Awaiting(state) => Phase::<_>::new(state, io).into(),
-            SerializableState::Sum(state) => Phase::<_>::new(state, io).into(),
-            SerializableState::Sum2(state) => Phase::<_>::new(state, io).into(),
-            SerializableState::Update(state) => Phase::<_>::new(state, io).into(),
+            SerializableState::NewRound(state) => state.into_phase(io).into(),
+            SerializableState::Awaiting(state) => state.into_phase(io).into(),
+            SerializableState::Sum(state) => state.into_phase(io).into(),
+            SerializableState::Sum2(state) => state.into_phase(io).into(),
+            SerializableState::Update(state) => state.into_phase(io).into(),
         }
     }
 }

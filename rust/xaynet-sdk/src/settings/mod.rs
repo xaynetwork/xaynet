@@ -2,7 +2,7 @@ mod max_message_size;
 
 use serde::{Deserialize, Serialize};
 
-pub use max_message_size::MaxMessageSize;
+pub use max_message_size::{InvalidMaxMessageSize, MaxMessageSize, MIN_MESSAGE_SIZE};
 use xaynet_core::{
     crypto::SigningKeyPair,
     mask::{MaskConfig, MaskConfigPair},
@@ -10,10 +10,10 @@ use xaynet_core::{
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct PetSettings {
-    pub(crate) keys: SigningKeyPair,
-    pub(crate) mask_config: MaskConfigPair,
-    pub(crate) scalar: f64,
-    pub(crate) max_message_size: MaxMessageSize,
+    pub keys: SigningKeyPair,
+    pub mask_config: MaskConfigPair,
+    pub scalar: f64,
+    pub max_message_size: MaxMessageSize,
 }
 
 impl PetSettings {

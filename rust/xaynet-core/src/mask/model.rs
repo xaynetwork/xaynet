@@ -24,6 +24,12 @@ use thiserror::Error;
 /// A numerical representation of a machine learning model.
 pub struct Model(Vec<Ratio<BigInt>>);
 
+impl ::std::convert::AsRef<Model> for Model {
+    fn as_ref(&self) -> &Model {
+        self
+    }
+}
+
 #[allow(clippy::len_without_is_empty)]
 impl Model {
     /// Gets the number of weights/parameters of this model.

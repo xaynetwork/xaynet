@@ -2,8 +2,8 @@
 members = [
     "xaynet",
     "xaynet-core",
-    # "xaynet-ffi",
     "xaynet-macros",
+    "xaynet-mobile",
     "xaynet-server",
     "xaynet-sdk",
 

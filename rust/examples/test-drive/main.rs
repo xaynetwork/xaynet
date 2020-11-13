@@ -12,7 +12,7 @@ use xaynet_core::{
 };
 use xaynet_sdk::{
     client::{Client, ClientError},
-    PetSettings,
+    settings::PetSettings,
 };
 
 mod participant;

@@ -7,9 +7,9 @@ use tracing::{info, warn};
 use xaynet_core::mask::Model;
 use xaynet_sdk::{
     client::Client,
+    settings::PetSettings,
     ModelStore,
     Notify,
-    PetSettings,
     StateMachine,
     TransitionOutcome,
     XaynetClient,
@@ -105,22 +105,25 @@ impl Participant {
 struct Notifier(mpsc::Sender<Event>);
 
 impl Notify for Notifier {
-    fn notify_new_round(&mut self) {
+    fn new_round(&mut self) {
         if let Err(e) = self.0.try_send(Event::NewRound) {
             warn!("failed to notify participant: {}", e);
         }
     }
-    fn notify_sum(&mut self) {
+
+    fn sum(&mut self) {
         if let Err(e) = self.0.try_send(Event::Sum) {
             warn!("failed to notify participant: {}", e);
         }
     }
-    fn notify_update(&mut self) {
+
+    fn update(&mut self) {
         if let Err(e) = self.0.try_send(Event::Update) {
             warn!("failed to notify participant: {}", e);
         }
     }
-    fn notify_idle(&mut self) {
+
+    fn idle(&mut self) {
         if let Err(e) = self.0.try_send(Event::Idle) {
             warn!("failed to notify participant: {}", e);
         }

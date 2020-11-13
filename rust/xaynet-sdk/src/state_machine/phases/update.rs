@@ -5,10 +5,6 @@ use derive_more::From;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, warn};
 
-use crate::{
-    state_machine::{Phase, Progress, Step, TransitionOutcome, IO},
-    MessageEncoder,
-};
 use xaynet_core::{
     crypto::Signature,
     mask::{MaskObject, MaskSeed, Masker, Model},
@@ -16,6 +12,11 @@ use xaynet_core::{
     LocalSeedDict,
     ParticipantTaskSignature,
     SumDict,
+};
+
+use crate::{
+    state_machine::{IntoPhase, Phase, PhaseIo, Progress, State, Step, TransitionOutcome, IO},
+    MessageEncoder,
 };
 
 #[derive(From)]
@@ -97,6 +98,16 @@ impl Update {
 
     fn has_composed_message(&self) -> bool {
         self.message.is_some()
+    }
+}
+
+impl IntoPhase<Update> for State<Update> {
+    fn into_phase(self, mut io: PhaseIo) -> Phase<Update> {
+        io.notify_update();
+        if !self.private.has_loaded_model() {
+            io.notify_load_model();
+        }
+        Phase::<_>::new(self, io)
     }
 }
 

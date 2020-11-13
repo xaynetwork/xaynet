@@ -15,16 +15,19 @@ use xaynet_core::{
 pub trait Notify {
     /// Emit a notification when a new round of federated learning
     /// starts
-    fn notify_new_round(&mut self) {}
+    fn new_round(&mut self) {}
     /// Emit a notification when the participant has been selected for
     /// the sum task
-    fn notify_sum(&mut self) {}
+    fn sum(&mut self) {}
     /// Emit a notification when the participant has been selected for
     /// the update task
-    fn notify_update(&mut self) {}
+    fn update(&mut self) {}
     /// Emit a notification when the participant is not selected for
     /// any task and is waiting for another round to start
-    fn notify_idle(&mut self) {}
+    fn idle(&mut self) {}
+    /// Emit a notification when the participant should populate the
+    /// model store (see [`ModelStore`]).
+    fn load_model(&mut self) {}
 }
 
 /// A trait used by the [`StateMachine`] to load the model trained by

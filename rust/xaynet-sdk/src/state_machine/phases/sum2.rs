@@ -1,16 +1,16 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error, info, warn};
-
-use crate::{
-    state_machine::{Phase, Progress, Step, TransitionOutcome, IO},
-    MessageEncoder,
-};
 use xaynet_core::{
     crypto::{EncryptKeyPair, Signature},
     mask::{Aggregation, MaskObject, MaskSeed},
     message::Sum2 as Sum2Message,
     UpdateSeedDict,
+};
+
+use crate::{
+    state_machine::{IntoPhase, Phase, PhaseIo, Progress, State, Step, TransitionOutcome, IO},
+    MessageEncoder,
 };
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -55,6 +55,12 @@ impl Sum2 {
 
     fn has_composed_message(&self) -> bool {
         self.message.is_some()
+    }
+}
+
+impl IntoPhase<Sum2> for State<Sum2> {
+    fn into_phase(self, io: PhaseIo) -> Phase<Sum2> {
+        Phase::<_>::new(self, io)
     }
 }
 
