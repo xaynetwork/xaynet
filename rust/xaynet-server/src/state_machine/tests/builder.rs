@@ -55,22 +55,19 @@ where
             utils::init_shared(coordinator_state, store);
 
         // Make sure the events that the listeners have are up to date
-        shared.events.broadcast_keys(shared.state.keys.clone());
-        shared
-            .events
-            .broadcast_params(shared.state.round_params.clone());
-        shared
-            .events
-            .broadcast_phase(<PhaseState<P, _, _> as Phase<_, _>>::NAME);
+        let events = &mut shared.events;
+        events.broadcast_keys(shared.state.keys.clone());
+        events.broadcast_params(shared.state.round_params.clone());
+        events.broadcast_phase(<PhaseState<P, _, _> as Phase<_, _>>::NAME);
         // Also re-emit the other events in case the round ID changed
         let model = event_subscriber.model_listener().get_latest().event;
-        shared.events.broadcast_model(model);
+        events.broadcast_model(model);
         let mask_length = event_subscriber.mask_length_listener().get_latest().event;
-        shared.events.broadcast_mask_length(mask_length);
+        events.broadcast_mask_length(mask_length);
         let sum_dict = event_subscriber.sum_dict_listener().get_latest().event;
-        shared.events.broadcast_sum_dict(sum_dict);
+        events.broadcast_sum_dict(sum_dict);
         let seed_dict = event_subscriber.seed_dict_listener().get_latest().event;
-        shared.events.broadcast_seed_dict(seed_dict);
+        events.broadcast_seed_dict(seed_dict);
 
         let state = PhaseState {
             inner: phase_state,

@@ -14,7 +14,7 @@ use crate::{
             utils::{enable_logging, generate_summer, generate_updater, Participant},
         },
     },
-    storage::{api::CoordinatorStorage, tests::init_store},
+    storage::{tests::init_store, CoordinatorStorage},
 };
 use xaynet_core::{
     common::{RoundParameters, RoundSeed},
@@ -107,13 +107,9 @@ async fn integration_full_round() {
     // check if a global model exist
     #[cfg(feature = "model-persistence")]
     {
-        use crate::storage::{s3, ModelStorage};
+        use crate::storage::ModelStorage;
 
-        let round_id = events.params_listener().get_latest().round_id;
-        let round_seed = events.params_listener().get_latest().event.seed;
-        // FIXME: don't use s3
-        let global_model_id = s3::Client::create_global_model_id(round_id, &round_seed);
-
+        let global_model_id = store.latest_global_model_id().await.unwrap().unwrap();
         let store_model = store.global_model(&global_model_id).await.unwrap().unwrap();
         assert!(
             matches!(events.model_listener().get_latest().event, super::events::ModelUpdate::New(broadcasted_model) if store_model == *broadcasted_model)

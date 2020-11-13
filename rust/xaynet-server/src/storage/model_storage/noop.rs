@@ -3,10 +3,10 @@ use async_trait::async_trait;
 use xaynet_core::{common::RoundSeed, mask::Model};
 
 #[derive(Clone)]
-pub struct NoOpModelStore;
+pub struct NoOp;
 
 #[async_trait]
-impl ModelStorage for NoOpModelStore {
+impl ModelStorage for NoOp {
     async fn set_global_model(
         &mut self,
         round_id: u64,

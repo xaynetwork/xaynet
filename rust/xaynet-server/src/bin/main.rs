@@ -15,10 +15,10 @@ use xaynet_server::{
     services,
     settings::{LoggingSettings, RedisSettings, Settings},
     state_machine::StateMachineInitializer,
-    storage::{redis, CoordinatorStorage, ModelStorage, Store},
+    storage::{coordinator_storage::redis, CoordinatorStorage, ModelStorage, Store},
 };
 #[cfg(feature = "model-persistence")]
-use xaynet_server::{settings::S3Settings, storage::s3};
+use xaynet_server::{settings::S3Settings, storage::model_storage::s3};
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "Coordinator")]
@@ -134,7 +134,7 @@ async fn init_store(
     let model_store = {
         #[cfg(not(feature = "model-persistence"))]
         {
-            xaynet_server::storage::NoOpModelStore
+            xaynet_server::storage::model_storage::noop::NoOp
         }
 
         #[cfg(feature = "model-persistence")]

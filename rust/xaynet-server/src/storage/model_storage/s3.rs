@@ -217,7 +217,7 @@ impl ModelStorage for Client {
 #[cfg(test)]
 pub(in crate) mod tests {
     use super::*;
-    use crate::storage::tests::create_global_model;
+    use crate::storage::tests::utils::create_global_model;
     use rusoto_core::Region;
     use rusoto_s3::{
         Delete,

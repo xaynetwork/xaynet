@@ -543,7 +543,7 @@ pub(in crate) mod tests {
     use super::*;
     use crate::{
         state_machine::tests::utils::{mask_settings, model_settings, pet_settings},
-        storage::{tests::*, LocalSeedDictAddError, MaskScoreIncrError, SumPartAddError},
+        storage::{tests::utils::*, LocalSeedDictAddError, MaskScoreIncrError, SumPartAddError},
     };
     use serial_test::serial;
 

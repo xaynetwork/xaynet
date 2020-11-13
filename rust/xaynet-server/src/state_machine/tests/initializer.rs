@@ -11,8 +11,8 @@ use crate::{
         phases::PhaseName,
         StateMachineInitializationError,
     },
-    storage::tests::create_global_model,
-    storage::{s3, ModelStorage},
+    storage::tests::utils::create_global_model,
+    storage::ModelStorage,
 };
 use crate::{
     state_machine::{CoordinatorState, StateMachineInitializer},
@@ -272,9 +272,7 @@ async fn integration_state_machine_initializer_failed_to_find_global_model() {
     store.set_coordinator_state(&state).await.unwrap();
 
     // set a model id but don't store a model
-    // FIXME: don't use s3
-    let global_model_id =
-        s3::Client::create_global_model_id(state.round_id, &state.round_params.seed);
+    let global_model_id = "1_412957050209fcfa733b1fb4ad51f321";
     store
         .set_latest_global_model_id(&global_model_id)
         .await
