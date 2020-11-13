@@ -73,7 +73,7 @@ impl StateMachine {
     ///
     /// - `settings`: PET settings
     /// - `xaynet_client`: a client for communicating with the Xaynet coordinator
-    /// - `model_store`: a store from which the model trained by the participant can be
+    /// - `model_store`: a store from which the trained model can be
     ///   loaded, when the participant is selected for the update task
     /// - `notifier`: a type that the state machine can use to emit notifications
     pub fn new<X, M, N>(
