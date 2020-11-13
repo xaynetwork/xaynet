@@ -27,6 +27,7 @@ derive_more = { version = "0.99.10", default-features = false, features = [
     "index_mut",
     "into",
 ] }
+hist = "0.1.0"
 num = { version = "0.3.0", features = ["serde"] }
 paste = "1.0.1"
 rand = "0.7.3"

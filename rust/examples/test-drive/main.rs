@@ -29,7 +29,7 @@ async fn main() -> Result<(), ClientError> {
 
     // dummy local model for clients
     let len = opt.len as usize;
-    let model = Arc::new(Model::from_primitives(vec![0; len].into_iter()).unwrap());
+    // let model = Arc::new(Model::from_primitives(vec![0; len].into_iter()).unwrap());
 
     // optional certificates for TLS server authentication
     let certificates = opt
@@ -39,6 +39,17 @@ async fn main() -> Result<(), ClientError> {
         .transpose()?;
 
     for id in 0..opt.nb_client {
+        let mut v = Vec::with_capacity(len);
+        for i in 0..len as u32 {
+            if i == id % (len as u32) {
+                v.push(1)
+            } else {
+                v.push(0)
+            }
+        }
+        println!("private model {:?}", v);
+        let it = v.into_iter();
+        let model = Arc::new(Model::from_primitives(it).unwrap());
         spawn_participant(
             id as u32,
             &opt.url,
@@ -53,6 +64,7 @@ async fn main() -> Result<(), ClientError> {
 }
 
 fn generate_agent_config() -> PetSettings {
+    // TODO check this config is ok
     let mask_config = MaskConfig {
         group_type: GroupType::Prime,
         data_type: DataType::F32,

@@ -64,6 +64,7 @@ impl Agent {
 
 impl Participant {
     pub fn new(settings: PetSettings, xaynet_client: Client, model: Arc<Model>) -> (Self, Agent) {
+        info!("private model {:?}", model);
         let (tx, rx) = mpsc::channel::<Event>(10);
         let notifier = Notifier(tx);
         let agent = Agent::new(settings, xaynet_client.clone(), LocalModel(model), notifier);

@@ -14,8 +14,8 @@ min_sum_time = 5
 min_update_time = 10
 max_sum_time = 3600
 max_update_time = 3600
-sum = 0.01
-update = 0.1
+sum = 0.5
+update = 0.9
 
 [mask]
 group_type = "Prime"
@@ -31,7 +31,7 @@ url = "http://influxdb:8086"
 db = "metrics"
 
 [redis]
-url = "redis://redis"
+url = "redis://127.00.0.1/"
 
 [s3]
 access_key = "minio"

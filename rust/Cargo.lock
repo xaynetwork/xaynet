@@ -946,6 +946,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "644f9158b2f133fd50f5fb3242878846d9eb792e445c893805ff0e3824006e35"
 
 [[package]]
+name = "hist"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ca1d61bc7e668d28d2a9759992dc83e73461f6efc5da114d5ab8502780cebd6c"
+
+[[package]]
 name = "hmac"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3532,6 +3538,7 @@ dependencies = [
  "anyhow",
  "bitflags",
  "derive_more",
+ "hist",
  "num",
  "paste",
  "rand 0.7.3",

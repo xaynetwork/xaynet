@@ -25,6 +25,8 @@ use crate::{
     },
 };
 
+extern crate hist;
+
 #[derive(Debug, Error, Eq, PartialEq)]
 /// Errors related to the unmasking of models.
 pub enum UnmaskingError {
@@ -198,13 +200,13 @@ impl Aggregation {
         let order_1 = config_1.order();
         let n = (masked_1 + &order_1 - mask_1) % &order_1;
         let ratio = Ratio::<BigInt>::from(n.to_bigint().unwrap());
-        let scalar_sum = ratio / &exp_shift_1 - &scaled_add_shift_1;
+        let _scalar_sum = ratio / &exp_shift_1 - &scaled_add_shift_1;
 
         // unmask global model
         let scaled_add_shift_n = config_n.add_shift() * BigInt::from(self.nb_models);
         let exp_shift_n = config_n.exp_shift();
         let order_n = config_n.order();
-        masked_n
+        let unmasked: Model = masked_n
             .into_iter()
             .zip(mask_n)
             .map(|(masked, mask)| {
@@ -222,10 +224,32 @@ impl Aggregation {
                 let ratio = Ratio::<BigInt>::from(n.to_bigint().unwrap());
                 let unmasked = ratio / &exp_shift_n - &scaled_add_shift_n;
 
+                // TEMP suppress
                 // scaling correction
-                unmasked / &scalar_sum
+                //unmasked / &scalar_sum
+
+                //let unmasked_int = unmasked.to_integer();
+                //println!("rounded unmasked int {}", unmasked_int.to_str_radix(10));
+                unmasked
             })
-            .collect()
+            .collect();
+
+        let approxs: Vec<i32> = unmasked
+            .iter()
+            .map(|x| {
+                let y = x.to_integer();
+                let digits = y.to_str_radix(10);
+                i32::from_str_radix(&digits, 10).unwrap()
+            })
+            .collect();
+
+        println!("histogram for {:?}", approxs);
+
+        let h = hist::Hist::new(12, 3, &vec![0, 1, 2, 3], &approxs);
+        h.display();
+
+        //println!("unmasked model {:#?}", unmasked);
+        unmasked
     }
 
     /// Validates if aggregation of the aggregated mask object with the given `object` may be safely
