@@ -33,7 +33,7 @@ async fn integration_full_round() {
     let n_summers = 2;
     let model_size = 4;
 
-    let (state_machine, requests, events, eio) = StateMachineBuilder::new()
+    let builder = StateMachineBuilder::new()
         .await
         .with_round_id(42)
         .with_seed(round_params.seed.clone())
@@ -45,8 +45,12 @@ async fn integration_full_round() {
         .with_max_sum_time(2)
         .with_min_update_time(1)
         .with_max_update_time(2)
-        .with_model_size(model_size)
-        .build();
+        .with_model_size(model_size);
+
+    #[cfg(not(feature = "model-persistence"))]
+    let (state_machine, requests, events, eio) = builder.build();
+    #[cfg(feature = "model-persistence")]
+    let (state_machine, requests, events, mut eio) = builder.build();
 
     assert!(state_machine.is_idle());
 
@@ -104,16 +108,17 @@ async fn integration_full_round() {
     // check if a global model exist
     #[cfg(feature = "model-persistence")]
     {
-        use xaynet_core::crypto::ByteObject;
+        use crate::storage::{s3, ModelStorage};
+
         let round_id = events.params_listener().get_latest().round_id;
         let round_seed = events.params_listener().get_latest().event.seed;
-        let round_seed_hex = hex::encode(round_seed.as_slice());
-        let global_model_id = format!("{}_{}", round_id, round_seed_hex);
+        let global_model_id = s3::Client::create_global_model_id(round_id, &round_seed);
 
         let s3_model = eio
             .s3
-            .download_global_model(&global_model_id)
+            .global_model(&global_model_id)
             .await
+            .unwrap()
             .unwrap();
         assert!(
             matches!(events.model_listener().get_latest().event, super::events::ModelUpdate::New(broadcasted_model) if s3_model == *broadcasted_model)

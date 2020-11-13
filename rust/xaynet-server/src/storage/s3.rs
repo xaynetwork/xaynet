@@ -1,5 +1,8 @@
+//! A S3 compatible [`ModelStorage`].
+
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use rusoto_core::{credential::StaticProvider, request::TlsError, HttpClient, RusotoError};
 use rusoto_s3::{
     CreateBucketError,
@@ -21,35 +24,44 @@ use thiserror::Error;
 use tokio::io::AsyncReadExt;
 use tracing::debug;
 
-use crate::settings::{S3BucketsSettings, S3Settings};
-use xaynet_core::mask::Model;
+use crate::{
+    settings::{S3BucketsSettings, S3Settings},
+    storage::{ModelStorage, StorageResult},
+};
+use xaynet_core::{common::RoundSeed, mask::Model};
 
-type S3Result<T> = Result<T, S3Error>;
+type ClientResult<T> = Result<T, ClientError>;
 
 #[derive(Debug, Error)]
-pub enum S3Error {
-    #[error("failed to upload an object: {0}")]
-    Upload(#[from] RusotoError<PutObjectError>),
-    #[error("failed to crate a bucket: {0}")]
-    CreateBucket(#[from] RusotoError<CreateBucketError>),
-    #[error("failed to download an object: {0}")]
-    Download(#[from] RusotoError<GetObjectError>),
-    #[error("failed to list objects: {0}")]
-    ListObjects(#[from] RusotoError<ListObjectsV2Error>),
-    #[error("failed to delete objects: {0}")]
-    DeleteObjects(#[from] RusotoError<DeleteObjectsError>),
-    #[error("failed to de/serialization an object: {0}")]
-    Serialization(#[from] bincode::Error),
-    #[error("response body is empty")]
-    EmptyResponse,
+pub enum ClientError {
     #[error(transparent)]
-    HttpClient(#[from] TlsError),
+    CreateBucket(#[from] RusotoError<CreateBucketError>),
+    #[error(transparent)]
+    GetObject(#[from] RusotoError<GetObjectError>),
+    #[error(transparent)]
+    PutObject(#[from] RusotoError<PutObjectError>),
+    #[error(transparent)]
+    ListObjects(#[from] RusotoError<ListObjectsV2Error>),
+    #[error(transparent)]
+    DeleteObjects(#[from] RusotoError<DeleteObjectsError>),
+    #[error(transparent)]
+    Dispatcher(#[from] TlsError),
+    #[error("failed to serialize: {0}")]
+    Serialization(bincode::Error),
+    #[error("failed to deserialize: {0}")]
+    Deserialization(bincode::Error),
+    #[error("response contains no body")]
+    NoBody,
+    #[error("failed to download body: {0}")]
+    DownloadBody(std::io::Error),
+    #[error("object {0} already exists")]
+    ObjectAlreadyExists(String),
 }
 
 #[derive(Clone)]
 pub struct Client {
     buckets: Arc<S3BucketsSettings>,
-    s3_client: S3Client,
+    client: S3Client,
 }
 
 #[cfg(test)]
@@ -88,64 +100,44 @@ impl Client {
     ///
     /// let store = Client::new(s3_settings).unwrap();
     /// ```
-    pub fn new(settings: S3Settings) -> S3Result<Self> {
+    pub fn new(settings: S3Settings) -> ClientResult<Self> {
         let credentials_provider =
             StaticProvider::new_minimal(settings.access_key, settings.secret_access_key);
 
         let dispatcher = HttpClient::new()?;
         Ok(Self {
             buckets: Arc::new(settings.buckets),
-            s3_client: S3Client::new_with(dispatcher, credentials_provider, settings.region),
+            client: S3Client::new_with(dispatcher, credentials_provider, settings.region),
         })
     }
 
-    /// Uploads a global model.
-    pub async fn upload_global_model(&self, key: &str, global_model: &Model) -> S3Result<()> {
-        debug!("store global model: {}", key);
-        let data = bincode::serialize(global_model)?;
-        self.upload(&self.buckets.global_models, key, data)
-            .await
-            .map_err(From::from)
-            .map(|_| ())
-    }
-
-    /// Creates the `global_models` bucket.
+    /// Creates the `global models` bucket.
     /// This method does not fail if the bucket already exists or is already owned by you.
-    pub async fn create_global_models_bucket(&self) -> S3Result<()> {
+    pub async fn create_global_models_bucket(&self) -> ClientResult<()> {
         debug!("create {} bucket", &self.buckets.global_models);
         match self.create_bucket(&self.buckets.global_models).await {
             Ok(_)
             | Err(RusotoError::Service(CreateBucketError::BucketAlreadyExists(_)))
             | Err(RusotoError::Service(CreateBucketError::BucketAlreadyOwnedByYou(_))) => Ok(()),
-            Err(err) => Err(S3Error::from(err)),
+            Err(err) => Err(ClientError::from(err)),
         }
     }
 
-    /// Downloads a global model with the given key.
-    pub async fn download_global_model(&self, key: &str) -> S3Result<Model> {
-        debug!("download global model {}", key);
-        let object = self
-            .download_object(&self.buckets.global_models, key)
-            .await?;
-        let content = Self::unpack_object(object).await?;
-        Ok(bincode::deserialize(&content)?)
-    }
-
-    // Gets the content of the given object.
-    async fn unpack_object(object: GetObjectOutput) -> S3Result<Vec<u8>> {
-        let mut content = Vec::new();
+    // Downloads the content of the given object.
+    async fn download_object_body(object: GetObjectOutput) -> ClientResult<Vec<u8>> {
+        let mut body = Vec::new();
         object
             .body
-            .ok_or(S3Error::EmptyResponse)?
+            .ok_or(ClientError::NoBody)?
             .into_async_read()
-            .read_to_end(&mut content)
+            .read_to_end(&mut body)
             .await
-            .map_err(|_| S3Error::EmptyResponse)?;
-        Ok(content)
+            .map_err(ClientError::DownloadBody)?;
+        Ok(body)
     }
 
-    // Downloads an object with the given key from the given bucket.
-    async fn download_object(
+    // Fetches the metadata of the object with the given key from the given bucket.
+    async fn fetch_object_meta(
         &self,
         bucket: &str,
         key: &str,
@@ -156,11 +148,11 @@ impl Client {
             key: key.to_string(),
             ..Default::default()
         };
-        self.s3_client.get_object(req).await
+        self.client.get_object(req).await
     }
 
     // Uploads an object with the given key to the given bucket.
-    async fn upload(
+    async fn upload_object(
         &self,
         bucket: &str,
         key: &str,
@@ -172,7 +164,7 @@ impl Client {
             body: Some(StreamingBody::from(data)),
             ..Default::default()
         };
-        self.s3_client.put_object(req).await
+        self.client.put_object(req).await
     }
 
     // Creates a new bucket with the given bucket name.
@@ -184,7 +176,50 @@ impl Client {
             bucket: bucket.to_string(),
             ..Default::default()
         };
-        self.s3_client.create_bucket(req).await
+        self.client.create_bucket(req).await
+    }
+}
+
+#[async_trait]
+impl ModelStorage for Client {
+    async fn set_global_model(
+        &mut self,
+        round_id: u64,
+        round_seed: &RoundSeed,
+        global_model: &Model,
+    ) -> StorageResult<String> {
+        let id = Self::create_global_model_id(round_id, &round_seed);
+
+        debug!("upload global model: {}", id);
+        let output = self
+            .fetch_object_meta(&self.buckets.global_models, &id)
+            .await;
+        if output.is_ok() {
+            return Err(anyhow::anyhow!(ClientError::ObjectAlreadyExists(
+                id.to_string()
+            )));
+        };
+
+        let data = bincode::serialize(global_model).map_err(ClientError::Serialization)?;
+        self.upload_object(&self.buckets.global_models, &id, data)
+            .await
+            .map(|_| Ok(id))?
+    }
+
+    async fn global_model(&mut self, id: &str) -> StorageResult<Option<Model>> {
+        debug!("download global model {}", id);
+        let output = self
+            .fetch_object_meta(&self.buckets.global_models, id)
+            .await;
+        let object_meta = match output {
+            Err(RusotoError::Service(GetObjectError::NoSuchKey(_))) => return Ok(None),
+            Err(err) => return Err(anyhow::anyhow!(err)),
+            Ok(object) => object,
+        };
+
+        let body = Self::download_object_body(object_meta).await?;
+        let model = bincode::deserialize(&body).map_err(ClientError::Deserialization)?;
+        Ok(Some(model))
     }
 }
 
@@ -207,7 +242,7 @@ pub(in crate) mod tests {
 
     impl Client {
         // Deletes all objects in a bucket.
-        pub async fn clear_bucket(&self, bucket: &str) -> S3Result<()> {
+        pub async fn clear_bucket(&self, bucket: &str) -> ClientResult<()> {
             let mut continuation_token: Option<String> = None;
 
             loop {
@@ -262,7 +297,7 @@ pub(in crate) mod tests {
                 ..Default::default()
             };
 
-            self.s3_client.delete_objects(req).await.map_err(From::from)
+            self.client.delete_objects(req).await.map_err(From::from)
         }
 
         // Returns all object keys for the given bucket.
@@ -281,10 +316,7 @@ pub(in crate) mod tests {
                 ..Default::default()
             };
 
-            self.s3_client
-                .list_objects_v2(req)
-                .await
-                .map_err(From::from)
+            self.client.list_objects_v2(req).await.map_err(From::from)
         }
 
         // Unpacks the next_continuation_token of the [`ListObjectsV2Output`] response.
@@ -326,61 +358,52 @@ pub(in crate) mod tests {
 
     #[tokio::test]
     #[serial]
-    async fn integration_test_upload_and_download_global_model() {
-        let client = create_client().await;
+    async fn integration_test_set_and_get_global_model() {
+        let mut client = create_client().await;
 
         let global_model = create_global_model(10);
-        let round_seed = hex::encode(RoundSeed::generate().as_slice());
-        let global_model_id = format!("{}_{}", 1, round_seed);
-
-        let res = client
-            .upload_global_model(&global_model_id, &global_model)
-            .await;
-        assert!(res.is_ok());
-
-        let downloaded_global_model = client
-            .download_global_model(&global_model_id)
+        let id = client
+            .set_global_model(1, &RoundSeed::generate(), &global_model)
             .await
             .unwrap();
+
+        let downloaded_global_model = client.global_model(&id).await.unwrap().unwrap();
         assert_eq!(global_model, downloaded_global_model)
     }
 
     #[tokio::test]
     #[serial]
-    async fn integration_test_download_global_model_non_existent() {
-        let client = create_client().await;
+    async fn integration_test_get_global_model_non_existent() {
+        let mut client = create_client().await;
 
-        let round_seed = hex::encode(RoundSeed::generate().as_slice());
-        let global_model_id = format!("{}_{}", 1, round_seed);
-
-        let res = client.download_global_model(&global_model_id).await;
-        assert!(matches!(res, Err(S3Error::Download(_))))
+        let id = Client::create_global_model_id(1, &RoundSeed::generate());
+        let res = client.global_model(&id).await.unwrap();
+        assert!(res.is_none())
     }
 
     #[tokio::test]
     #[serial]
-    async fn integration_test_override_global_model() {
-        let client = create_client().await;
+    async fn integration_test_global_model_already_exists() {
+        let mut client = create_client().await;
 
         let global_model = create_global_model(10);
-        let round_seed = hex::encode(RoundSeed::generate().as_slice());
-        let global_model_id = format!("{}_{}", 1, round_seed);
-
-        let res = client
-            .upload_global_model(&global_model_id, &global_model)
-            .await;
-        assert!(res.is_ok());
-
-        let global_model = create_global_model(20);
-        let res = client
-            .upload_global_model(&global_model_id, &global_model)
-            .await;
-        assert!(res.is_ok());
-
-        let downloaded_global_model = client
-            .download_global_model(&global_model_id)
+        let round_seed = RoundSeed::generate();
+        let id = client
+            .set_global_model(1, &round_seed, &global_model)
             .await
             .unwrap();
+
+        let global_model_2 = create_global_model(20);
+        let res = client
+            .set_global_model(1, &round_seed, &global_model_2)
+            .await
+            .unwrap_err();
+        assert!(matches!(
+            res.downcast_ref::<ClientError>().unwrap(),
+            ClientError::ObjectAlreadyExists(_)
+        ));
+
+        let downloaded_global_model = client.global_model(&id).await.unwrap().unwrap();
         assert_eq!(global_model, downloaded_global_model)
     }
 }

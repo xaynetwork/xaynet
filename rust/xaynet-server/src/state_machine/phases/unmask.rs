@@ -68,15 +68,14 @@ impl Phase for PhaseState<Unmask> {
 
         #[cfg(feature = "model-persistence")]
         {
-            // As key for the global model we use the round_id and the seed
-            // (format: `roundid_roundseed`) of the round in which the global model was created.
-            use xaynet_core::crypto::ByteObject;
-            let round_seed = hex::encode(self.shared.state.round_params.seed.as_slice());
-            let key = format!("{}_{}", self.shared.state.round_id, round_seed);
-            self.shared
+            use crate::storage::ModelStorage;
+
+            let round_seed = &self.shared.state.round_params.seed;
+            let global_model_id = self
+                .shared
                 .io
                 .s3
-                .upload_global_model(&key, &global_model)
+                .set_global_model(self.shared.state.round_id, &round_seed, &global_model)
                 .await
                 .map_err(PhaseStateError::SaveGlobalModel)?;
             let _ = self
@@ -85,7 +84,7 @@ impl Phase for PhaseState<Unmask> {
                 .redis
                 .connection()
                 .await
-                .set_latest_global_model_id(&key)
+                .set_latest_global_model_id(&global_model_id)
                 .await
                 .map_err(|err| warn!("failed to update latest global model id: {}", err));
         }

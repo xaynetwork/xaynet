@@ -30,7 +30,7 @@ pub enum PhaseStateError {
     Redis(#[from] RedisError),
     #[cfg(feature = "model-persistence")]
     #[error("saving the global model failed: {0}")]
-    SaveGlobalModel(crate::storage::s3::S3Error),
+    SaveGlobalModel(crate::storage::StorageError),
 }
 
 impl PhaseState<PhaseStateError> {
