@@ -65,7 +65,7 @@ pub(crate) trait IO: Send + 'static {
 
     /// Notify the participant that a new round started
     fn notify_new_round(&mut self);
-    /// Notify the participant that it is selected for the sum task for the current
+    /// Notify the participant that they have been selected for the sum task for the current
     /// round
     fn notify_sum(&mut self);
     /// Notify the participant that it is selected for the update task for the current
