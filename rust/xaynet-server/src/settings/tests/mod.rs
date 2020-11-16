@@ -62,21 +62,21 @@ fn test_validate_api() {
         bind_address,
         tls_certificate: Some(PathBuf::new()),
         tls_key: Some(PathBuf::new()),
-        tls_root: Some(PathBuf::new()),
+        tls_client_auth: Some(PathBuf::new()),
     })
     .is_ok());
     assert!(validate_api(&ApiSettings {
         bind_address,
         tls_certificate: Some(PathBuf::new()),
         tls_key: Some(PathBuf::new()),
-        tls_root: None,
+        tls_client_auth: None,
     })
     .is_ok());
     assert!(validate_api(&ApiSettings {
         bind_address,
         tls_certificate: None,
         tls_key: None,
-        tls_root: Some(PathBuf::new()),
+        tls_client_auth: Some(PathBuf::new()),
     })
     .is_ok());
 
@@ -84,35 +84,35 @@ fn test_validate_api() {
         bind_address,
         tls_certificate: Some(PathBuf::new()),
         tls_key: None,
-        tls_root: Some(PathBuf::new()),
+        tls_client_auth: Some(PathBuf::new()),
     })
     .is_err());
     assert!(validate_api(&ApiSettings {
         bind_address,
         tls_certificate: None,
         tls_key: Some(PathBuf::new()),
-        tls_root: Some(PathBuf::new()),
+        tls_client_auth: Some(PathBuf::new()),
     })
     .is_err());
     assert!(validate_api(&ApiSettings {
         bind_address,
         tls_certificate: Some(PathBuf::new()),
         tls_key: None,
-        tls_root: None,
+        tls_client_auth: None,
     })
     .is_err());
     assert!(validate_api(&ApiSettings {
         bind_address,
         tls_certificate: None,
         tls_key: Some(PathBuf::new()),
-        tls_root: None,
+        tls_client_auth: None,
     })
     .is_err());
     assert!(validate_api(&ApiSettings {
         bind_address,
         tls_certificate: None,
         tls_key: None,
-        tls_root: None,
+        tls_client_auth: None,
     })
     .is_err());
 }
