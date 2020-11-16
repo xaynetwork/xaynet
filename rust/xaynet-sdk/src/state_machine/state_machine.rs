@@ -16,6 +16,7 @@ use super::{
 use crate::{settings::PetSettings, ModelStore, Notify, XaynetClient};
 
 /// Outcome of a state machine transition attempt.
+#[derive(Debug)]
 pub enum TransitionOutcome {
     /// Outcome when the state machine cannot make immediate progress. The state machine
     /// is returned unchanged.
@@ -25,7 +26,7 @@ pub enum TransitionOutcome {
 }
 
 /// PET state machine.
-#[derive(From)]
+#[derive(From, Debug)]
 #[allow(clippy::large_enum_variant)]
 pub enum StateMachine {
     /// PET state machine in the "new round" phase

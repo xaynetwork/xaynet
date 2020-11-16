@@ -45,6 +45,18 @@ pub struct Phase<P> {
     pub(super) io: PhaseIo,
 }
 
+impl<P> std::fmt::Debug for Phase<P>
+where
+    P: std::fmt::Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Phase")
+            .field("state", &self.state)
+            .field("io", &"PhaseIo")
+            .finish()
+    }
+}
+
 /// Store for all the data that are common to all the phases
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SharedState {
@@ -102,6 +114,7 @@ macro_rules! try_progress {
 
 /// Represent the presence or absence of progress being made during a phase.
 #[allow(clippy::large_enum_variant)]
+#[derive(Debug)]
 pub enum Progress<P> {
     /// No progress can be made currently.
     Stuck(Phase<P>),

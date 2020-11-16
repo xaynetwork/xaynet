@@ -25,6 +25,17 @@ pub enum LocalModel {
     Owned(Model),
 }
 
+impl std::fmt::Debug for LocalModel {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            LocalModel::Dyn(_) => fmt.debug_tuple("LocalModel::Dyn"),
+            LocalModel::Owned(_) => fmt.debug_tuple("LocalModel::Owned"),
+        }
+        .field(&"...")
+        .finish()
+    }
+}
+
 impl AsRef<Model> for LocalModel {
     fn as_ref(&self) -> &Model {
         match self {
@@ -56,7 +67,7 @@ impl<'de> serde::de::Deserialize<'de> for LocalModel {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Update {
     pub sum_signature: ParticipantTaskSignature,
     pub update_signature: ParticipantTaskSignature,
