@@ -157,8 +157,17 @@ typedef enum MASKCONFIG_DATATYPE SETMODEL_DATATYPE;
  */
 typedef struct KeyPair KeyPair;
 
+/**
+ * A participant. It embeds an internal state machine that executes the PET
+ * protocol. However, it is the caller responsability to drive this state machine by
+ * calling [`Participant::tick()`], and to take action when the participant state
+ * changes.
+ */
 typedef struct Participant Participant;
 
+/**
+ * A participant settings
+ */
 typedef struct Settings Settings;
 
 /**
@@ -295,11 +304,10 @@ typedef struct {
 typedef const char *FfiStr;
 
 /**
- * Destroy the given `ByteBuffer` and free its memory. This
- * function must only be called on `ByteBuffer`s that have been
- * created on the Rust side of the FFI. If you have created a
- * `ByteBuffer` on the other side of the FFI, do not use this
- * function, use `free()` instead.
+ * Destroy the given `ByteBuffer` and free its memory. This function must only be
+ * called on `ByteBuffer`s that have been created on the Rust side of the FFI. If you
+ * have created a `ByteBuffer` on the other side of the FFI, do not use this function,
+ * use `free()` instead.
  *
  * # Return value
  *
@@ -308,15 +316,15 @@ typedef const char *FfiStr;
  *
  * # Safety
  *
- * 1. When calling this method, you have to ensure that *either* the
- *    pointer is NULL *or* all of the following is true:
- *    - The pointer must be properly [aligned].
- *    - It must be "dereferencable" in the sense defined in the
- *      [`::std::ptr`] module documentation.
- * 2. After destroying the `ByteBuffer` the pointer becomes invalid
- *    and must not be used.
- * 3. Calling this function on a `ByteBuffer` that has not been
- *    created on the Rust side of the FFI is UB.
+ * 1. When calling this method, you have to ensure that *either* the pointer is NULL
+ * *or* all of the following is true:
+ *  - The pointer must be properly [aligned].
+ *  - It must be "dereferencable" in the sense defined in the [`::std::ptr`] module
+ *    documentation.
+ * 2. After destroying the `ByteBuffer` the pointer becomes invalid and must not be
+ *    used.
+ * 3. Calling this function on a `ByteBuffer` that has not been created on the Rust
+ *    side of the FFI is UB.
  *
  * [`::std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
  * [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
@@ -324,9 +332,8 @@ typedef const char *FfiStr;
 int xaynet_ffi_byte_buffer_destroy(const ByteBuffer *buf);
 
 /**
- * Initialize the crypto library. This method must be called before
- * instantiating a participant with [`xaynet_ffi_participant_new()`]
- * or before generating new keys with
+ * Initialize the crypto library. This method must be called before instantiating a
+ * participant with [`xaynet_ffi_participant_new()`] or before generating new keys with
  * [`xaynet_ffi_generate_key_pair()`].
  *
  * # Return value
@@ -344,8 +351,7 @@ int xaynet_ffi_byte_buffer_destroy(const ByteBuffer *buf);
 int xaynet_ffi_crypto_init(void);
 
 /**
- * Destroy the participant created by
- * [`xaynet_ffi_participant_new()`] or
+ * Destroy the participant created by [`xaynet_ffi_participant_new()`] or
  * [`xaynet_ffi_participant_restore()`].
  *
  * # Return value
@@ -355,16 +361,15 @@ int xaynet_ffi_crypto_init(void);
  *
  * # Safety
  *
- * 1. When calling this method, you have to ensure that *either* the
- *    pointer is NULL *or* all of the following is true:
+ * 1. When calling this method, you have to ensure that *either* the pointer is NULL
+ *    *or* all of the following is true:
  *    - The pointer must be properly [aligned].
- *    - It must be "dereferencable" in the sense defined in the
- *      [`::std::ptr`] module documentation.
- * 2. After destroying the `Participant`, the pointer becomes invalid
- *    and must not be used.
- * 3. This function should only be called on a pointer that has been
- *    created by [`xaynet_ffi_participant_new()`] or
- *    [`xaynet_ffi_participant_restore()`]
+ *    - It must be "dereferencable" in the sense defined in the [`::std::ptr`] module
+ *      documentation.
+ * 2. After destroying the `Participant`, the pointer becomes invalid and must not be
+ *    used.
+ * 3. This function should only be called on a pointer that has been created by
+ *    [`xaynet_ffi_participant_new()`] or [`xaynet_ffi_participant_restore()`]
  *
  * [`::std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
  * [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
@@ -372,8 +377,8 @@ int xaynet_ffi_crypto_init(void);
 int xaynet_ffi_participant_destroy(Participant *participant);
 
 /**
- * Instantiate a new participant with the given settings. The
- * participant must be destroyed with [`xaynet_ffi_participant_destroy`].
+ * Instantiate a new participant with the given settings. The participant must be
+ * destroyed with [`xaynet_ffi_participant_destroy`].
  *
  * # Return value
  *
@@ -382,16 +387,15 @@ int xaynet_ffi_participant_destroy(Participant *participant);
  *
  * # Safety
  *
- * When calling this method, you have to ensure that *either* the
- * pointer is NULL *or* all of the following is true:
+ * When calling this method, you have to ensure that *either* the pointer is NULL *or*
+ * all of the following is true:
  *
  * - The pointer must be properly [aligned].
- * - It must be "dereferencable" in the sense defined in the
- *   [`::std::ptr`] module documentation.
+ * - It must be "dereferencable" in the sense defined in the [`::std::ptr`] module
+ *   documentation.
  *
- * After destroying the participant with
- * [`xaynet_ffi_participant_destroy`] becomes invalid and must not be
- * used.
+ * After destroying the participant with [`xaynet_ffi_participant_destroy`] becomes
+ * invalid and must not be used.
  *
  * [`::std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
  * [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
@@ -399,54 +403,45 @@ int xaynet_ffi_participant_destroy(Participant *participant);
 Participant *xaynet_ffi_participant_new(const Settings *settings);
 
 /**
- * Drive the participant internal state machine. Every tick, the
- * state machine tries attempts to perform a small work unit.
+ * Drive the participant internal state machine. Every tick, the state machine tries
+ * attempts to perform a small work unit.
  *
  * # Return value
  *
  * - [`ERR_NULLPTR`] is `participant` is NULL
  * - a bitflag otherwise, with the following flags:
- *     - [`PARTICIPANT_MADE_PROGRESS`]: if set, this flag indicates
- *       that the participant internal state machine was able to make
- *       some progress, and that the participant state changed. This
- *       information can be used as an indication for saving the
- *       participant state for instance. If the flag is not set, the
- *       state machine was not able to make progress. There are
- *       many potential causes for this, including:
- *           - the participant is not taking part to the current
- *             training round and is just waiting for a new one to
- *             start
- *           - the Xaynet coordinator is not reachable or has not
- *             published some information the participant is waiting
- *             for
- *           - the state machine is waiting for the model to be set
- *             (see [`xaynet_ffi_participant_set_model()`])
- *     - [`PARTICIPANT_TASK_NONE`], [`PARTICIPANT_TASK_SUM`] and
- *       [`PARTICIPANT_TASK_UPDATE`]: these flags are mutually
- *       exclusive, and indicate which task the participant has been
- *       selected for, for the current round. If
- *       [`PARTICIPANT_TASK_NONE`] is set, then the participant will
- *       just wait for a new round to start. If
- *       [`PARTICIPANT_TASK_UPDATE`] is set, then the participant has
- *       been selected to update the global model, and should prepare
- *       to train a model, and set it once the
- *       [`PARTICIPANT_SHOULD_SET_MODEL`] flag is set.
- *     - [`PARTICIPANT_SHOULD_SET_MODEL`]: if set, then the
- *       participant should set its model, by calling
- *       [`xaynet_ffi_participant_set_model()`]
+ *   - [`PARTICIPANT_MADE_PROGRESS`]: if set, this flag indicates that the participant
+ *     internal state machine was able to make some progress, and that the participant
+ *     state changed. This information can be used as an indication for saving the
+ *     participant state for instance. If the flag is not set, the state machine was
+ *     not able to make progress. There are many potential causes for this, including:
+ *       - the participant is not taking part to the current training round and is just
+ *         waiting for a new one to start
+ *       - the Xaynet coordinator is not reachable or has not published some
+ *         information the participant is waiting for
+ *       - the state machine is waiting for the model to be set (see
+ *         [`xaynet_ffi_participant_set_model()`])
+ *   - [`PARTICIPANT_TASK_NONE`], [`PARTICIPANT_TASK_SUM`] and
+ *     [`PARTICIPANT_TASK_UPDATE`]: these flags are mutually exclusive, and indicate
+ *     which task the participant has been selected for, for the current round. If
+ *     [`PARTICIPANT_TASK_NONE`] is set, then the participant will just wait for a new
+ *     round to start. If [`PARTICIPANT_TASK_UPDATE`] is set, then the participant has
+ *     been selected to update the global model, and should prepare to provide a new
+ *     model once the [`PARTICIPANT_SHOULD_SET_MODEL`] flag is set.
+ *   - [`PARTICIPANT_SHOULD_SET_MODEL`]: if set, then the participant should set its
+ *     model, by calling [`xaynet_ffi_participant_set_model()`]
  *
  * # Safety
  *
- * When calling this method, you have to ensure that *either* the
- * pointer is NULL *or* all of the following is true:
+ * When calling this method, you have to ensure that *either* the pointer is NULL *or*
+ * all of the following is true:
  *
  * - The pointer must be properly [aligned].
- * - It must be "dereferencable" in the sense defined in the
- *   [`::std::ptr`] module documentation.
+ * - It must be "dereferencable" in the sense defined in the [`::std::ptr`] module
+ *   documentation.
  *
- * After destroying the participant with
- * [`xaynet_ffi_participant_destroy`] becomes invalid and must not be
- * used.
+ * After destroying the participant with [`xaynet_ffi_participant_destroy`] becomes
+ * invalid and must not be used.
  *
  * [`::std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
  * [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
@@ -454,19 +449,23 @@ Participant *xaynet_ffi_participant_new(const Settings *settings);
 int xaynet_ffi_participant_tick(Participant *participant);
 
 /**
- * Serialize the participant state and return a buffer that contains
- * the serialized participant.
+ * Serialize the participant state and return a buffer that contains the serialized
+ * participant.
  *
  * # Safety
  *
- * 1. When calling this method, you have to ensure that *either* the
- *    pointer is NULL *or* all of the following is true:
- *      - The pointer must be properly [aligned].
- *      - It must be "dereferencable" in the sense defined in the
- *        [`::std::ptr`] module documentation.
- * 2. the `ByteBuffer` created by this function must be destroyed
- *    with [`xaynet_ffi_participant_destroy`]. Attempting to free the
- *    memory from the other side of the FFI is UB.
+ * 1. When calling this method, you have to ensure that *either* the pointer is NULL
+ *    *or* all of the following is true:
+ *    - The pointer must be properly [aligned].
+ *    - It must be "dereferencable" in the sense defined in the [`::std::ptr`] module
+ *      documentation.
+ * 2. the `ByteBuffer` created by this function must be destroyed with
+ *    [`xaynet_ffi_participant_destroy`]. Attempting to free the memory from the other
+ *    side of the FFI is UB.
+ * 3. This function destroys the participant. Therefore, **the pointer becomes invalid
+ *    and must not be used anymore**. Instead, a new participant should be created,
+ *    either with [`xaynet_ffi_participant_new()`] or
+ *    [`xaynet_ffi_participant_restore()`]
  *
  * [`::std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
  * [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
@@ -488,21 +487,20 @@ int xaynet_ffi_participant_tick(Participant *participant);
 const ByteBuffer *xaynet_ffi_participant_save(Participant *participant);
 
 /**
- * Restore the participant from a buffer that contained its
- * serialized state.
+ * Restore the participant from a buffer that contained its serialized state.
  *
  * # Return value
  *
  * - a NULL pointer on failure
- * - a pointer to the retored participant on success
+ * - a pointer to the restored participant on success
  *
  * # Safety
  *
- * When calling this method, you have to ensure that *either* the
- * pointers are NULL *or* all of the following is true:
+ * When calling this method, you have to ensure that *either* the pointers are NULL
+ * *or* all of the following is true:
  * - The pointers must be properly [aligned].
- * - They must be "dereferencable" in the sense defined in the
- *   [`::std::ptr`] module documentation.
+ * - They must be "dereferencable" in the sense defined in the [`::std::ptr`] module
+ *   documentation.
  *
  * [`::std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
  * [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
@@ -531,16 +529,14 @@ const ByteBuffer *xaynet_ffi_participant_save(Participant *participant);
 Participant *xaynet_ffi_participant_restore(FfiStr url, ByteBuffer buffer);
 
 /**
- * Set the participant's model. Usually this should be called when
- * the value returned by [`xaynet_ffi_participant_tick()`] contains
- * the [`PARTICIPANT_SHOULD_SET_MODEL`] flag, but it can be called
- * anytime. The model just won't be sent to the coordinator until
- * it's time.
+ * Set the participant's model. Usually this should be called when the value returned
+ * by [`xaynet_ffi_participant_tick()`] contains the [`PARTICIPANT_SHOULD_SET_MODEL`]
+ * flag, but it can be called anytime. The model just won't be sent to the coordinator
+ * until it's time.
  *
  * - `buffer` should be a pointer to a buffer that contains the model
- * - `data_type` specify the type of the model weights (see
- *   [`DataType`]). The C header file generated by this crate
- *   provides an enum corresponding to the parameters:
+ * - `data_type` specify the type of the model weights (see [`DataType`]). The C header
+ *   file generated by this crate provides an enum corresponding to the parameters:
  *   `SETMODEL_DATATYPE`.
  * - `len` is the number of weights the model has
  *
@@ -553,13 +549,13 @@ Participant *xaynet_ffi_participant_restore(FfiStr url, ByteBuffer buffer);
  *
  * # Safety
  *
- * 1. When calling this method, you have to ensure that *either* the
- *    pointer is NULL *or* all of the following is true:
+ * 1. When calling this method, you have to ensure that *either* the pointer is NULL
+ *    *or* all of the following is true:
  *    - The pointer must be properly [aligned].
- *    - It must be "dereferencable" in the sense defined in the
- *      [`::std::ptr`] module documentation.
- * 2. If `len` or `data_type` do not match the model in `buffer`,
- *    this method will result in a buffer overread
+ *    - It must be "dereferencable" in the sense defined in the [`::std::ptr`] module
+ *      documentation.
+ * 2. If `len` or `data_type` do not match the model in `buffer`, this method will
+ *    result in a buffer overread
  *
  * [`::std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
  * [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
@@ -579,15 +575,15 @@ int xaynet_ffi_participant_set_model(Participant *participant,
  *
  * # Safety
  *
- * 1. When calling this method, you have to ensure that *either* the
- *    pointer is NULL *or* all of the following is true:
+ * 1. When calling this method, you have to ensure that *either* the pointer is NULL
+ *    *or* all of the following is true:
  *    - The pointer must be properly [aligned].
- *    - It must be "dereferencable" in the sense defined in the
- *      [`::std::ptr`] module documentation.
- * 2. After destroying the `Settings`, the pointer becomes invalid
- *    and must not be used.
- * 3. This function should only be called on a pointer that has been
- *    created by [`xaynet_ffi_settings_new`].
+ *    - It must be "dereferencable" in the sense defined in the [`::std::ptr`] module
+ *      documentation.
+ * 2. After destroying the `Settings`, the pointer becomes invalid and must not be
+ *    used.
+ * 3. This function should only be called on a pointer that has been created by
+ *    [`xaynet_ffi_settings_new`].
  *
  * [`::std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
  * [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
@@ -600,8 +596,8 @@ int xaynet_ffi_settings_destroy(Settings *settings);
  * # Safety
  *
  * The `Settings` created by this function must be destroyed with
- * [`xaynet_ffi_settings_destroy()`]. Attempting to free the memory
- * from the other side of the FFI is UB.
+ * [`xaynet_ffi_settings_destroy()`]. Attempting to free the memory from the other side
+ * of the FFI is UB.
  */
 Settings *xaynet_ffi_settings_new(void);
 
@@ -613,9 +609,8 @@ Settings *xaynet_ffi_settings_new(void);
  * - `bound_type`: see [`BoundType`]
  * - `model_type`: see [`ModelType`]
  *
- * The C header file generated by this crate provides enums
- * corresponding to the parameters: `MASKCONFIG_MODELTYPE`,
- * `MASKCONFIG_BOUNDTYPE`, `MASKCONFIG_DATATYPE`,
+ * The C header file generated by this crate provides enums corresponding to the
+ * parameters: `MASKCONFIG_MODELTYPE`, `MASKCONFIG_BOUNDTYPE`, `MASKCONFIG_DATATYPE`,
  * `MASKCONFIG_GROUPTYPE`.
  *
  * # Return value
@@ -629,12 +624,11 @@ Settings *xaynet_ffi_settings_new(void);
  *
  * # Safety
  *
- * When calling this method, you have to ensure that *either* the
- * pointer is NULL *or* all of the following is true:
- *
+ * When calling this method, you have to ensure that *either* the pointer is NULL *or*
+ * all of the following is true:
  * - The pointer must be properly [aligned].
- * - It must be "dereferencable" in the sense defined in the
- *   [`::std::ptr`] module documentation.
+ * - It must be "dereferencable" in the sense defined in the [`::std::ptr`] module
+ *   documentation.
  *
  * [`::std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
  * [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
@@ -655,12 +649,11 @@ int xaynet_ffi_settings_set_mask_config(Settings *settings,
  *
  * # Safety
  *
- * When calling this method, you have to ensure that *either* the
- * pointer is NULL *or* all of the following is true:
- *
+ * When calling this method, you have to ensure that *either* the pointer is NULL *or*
+ * all of the following is true:
  * - The pointer must be properly [aligned].
- * - It must be "dereferencable" in the sense defined in the
- *   [`::std::ptr`] module documentation.
+ * - It must be "dereferencable" in the sense defined in the [`::std::ptr`] module
+ *   documentation.
  *
  * [`::std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
  * [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
@@ -678,12 +671,11 @@ int xaynet_ffi_settings_set_scalar(Settings *settings, double scalar);
  *
  * # Safety
  *
- * When calling this method, you have to ensure that *either* the
- * pointers are NULL *or* all of the following is true:
- *
+ * When calling this method, you have to ensure that *either* the pointers are NULL
+ * *or* all of the following is true:
  * - The pointers must be properly [aligned].
- * - They must be "dereferencable" in the sense defined in the
- *   [`::std::ptr`] module documentation.
+ * - They must be "dereferencable" in the sense defined in the [`::std::ptr`] module
+ *   documentation.
  *
  * [`::std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
  * [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
@@ -691,14 +683,13 @@ int xaynet_ffi_settings_set_scalar(Settings *settings, double scalar);
 int xaynet_ffi_settings_set_url(Settings *settings, FfiStr url);
 
 /**
- * Generate a new signing key pair that can be used in the
- * [`Settings`]. **Before calling this function you must initialize
- * the crypto library with [`xaynet_ffi_crypto_init()`]**.
+ * Generate a new signing key pair that can be used in the [`Settings`]. **Before
+ * calling this function you must initialize the crypto library with
+ * [`xaynet_ffi_crypto_init()`]**.
  *
- * The returned value contains a pointer to the secret key. For
- * security reasons, you must make sure that this buffer life is a
- * short as possible, and call [`xaynet_ffi_forget_key_pair`] to
- * destroy it.
+ * The returned value contains a pointer to the secret key. For security reasons, you
+ * must make sure that this buffer life is a short as possible, and call
+ * [`xaynet_ffi_forget_key_pair`] to destroy it.
  *
  * [`xaynet_ffi_crypto_init()`]: crate::ffi::xaynet_ffi_crypto_init
  *
@@ -709,8 +700,8 @@ int xaynet_ffi_settings_set_url(Settings *settings, FfiStr url);
 const KeyPair *xaynet_ffi_generate_key_pair(void);
 
 /**
- * De-allocate the buffers that contain the signing keys, and zero
- * out the content of the buffer that contains the secret key.
+ * De-allocate the buffers that contain the signing keys, and zero out the content of
+ * the buffer that contains the secret key.
  *
  * # Return value
  *
@@ -719,12 +710,11 @@ const KeyPair *xaynet_ffi_generate_key_pair(void);
  *
  * # Safety
  *
- * When calling this method, you have to ensure that *either* the
- * pointer is NULL *or* all of the following is true:
- *
+ * When calling this method, you have to ensure that *either* the pointer is NULL *or*
+ * all of the following is true:
  * - The pointer must be properly [aligned].
- * - It must be "dereferencable" in the sense defined in the
- *   [`::std::ptr`] module documentation.
+ * - It must be "dereferencable" in the sense defined in the [`::std::ptr`] module
+ *   documentation.
  *
  * [`::std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
  * [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
@@ -738,19 +728,16 @@ int xaynet_ffi_forget_key_pair(const KeyPair *key_pair);
  *
  * - [`OK`] if successful
  * - [`ERR_NULLPTR`] if `settings` or `key_pair` is `NULL`
- * - [`ERR_CRYPTO_PUBLIC_KEY`] if the given `key_pair` contains an
- *   invalid public key
- * - [`ERR_CRYPTO_SECRET_KEY`] if the given `key_pair` contains an
- *   invalid secret key
+ * - [`ERR_CRYPTO_PUBLIC_KEY`] if the given `key_pair` contains an invalid public key
+ * - [`ERR_CRYPTO_SECRET_KEY`] if the given `key_pair` contains an invalid secret key
  *
  * # Safety
  *
- * When calling this method, you have to ensure that *either* the
- * pointers are NULL *or* all of the following is true:
- *
+ * When calling this method, you have to ensure that *either* the pointers are NULL
+ * *or* all of the following is true:
  * - The pointers must be properly [aligned].
- * - They must be "dereferencable" in the sense defined in the
- *   [`::std::ptr`] module documentation.
+ * - They must be "dereferencable" in the sense defined in the [`::std::ptr`] module
+ *   documentation.
  *
  * [`::std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
  * [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
@@ -758,24 +745,24 @@ int xaynet_ffi_forget_key_pair(const KeyPair *key_pair);
 int xaynet_ffi_settings_set_keys(Settings *settings, const KeyPair *key_pair);
 
 /**
- * Check whether the given settings are valid and can be used to
- * instantiate a participant (see [`xaynet_ffi_participant_new()`]).
+ * Check whether the given settings are valid and can be used to instantiate a
+ * participant (see [`xaynet_ffi_participant_new()`]).
  *
  * # Return value
  *
- * - [`OK`] on sucess
+ * - [`OK`] on success
  * - [`ERR_SETTINGS_URL`] if the URL has not been set
  * - [`ERR_SETTINGS_MASKCONFIG`] if the mask configuration has not been set
  * - [`ERR_SETTINGS_KEYS`] if the signing keys have not been set
  *
  * # Safety
  *
- * When calling this method, you have to ensure that *either* the
- * pointer is NULL *or* all of the following is true:
+ * When calling this method, you have to ensure that *either* the pointer is NULL *or*
+ * all of the following is true:
  *
  * - The pointer must be properly [aligned].
- * - It must be "dereferencable" in the sense defined in the
- *   [`::std::ptr`] module documentation.
+ * - It must be "dereferencable" in the sense defined in the [`::std::ptr`] module
+ *   documentation.
  *
  * [`xaynet_ffi_participant_new()`]: crate::ffi::xaynet_ffi_participant_new
  * [`::std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
