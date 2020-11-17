@@ -20,7 +20,7 @@ msrv = "1.46.0"
 async-trait = "0.1.40"
 reqwest = { version = "0.10.8", default-features = false }
 structopt = "0.3.17"
-tokio = { version = "0.2.22", features = ["full"] }
+tokio = { version = "0.2.22", features = ["sync", "time", "macros", "rt-threaded", "signal"] }
 tracing = "0.1.19"
 tracing-futures = "0.2.4"
 tracing-subscriber = "0.2.12"

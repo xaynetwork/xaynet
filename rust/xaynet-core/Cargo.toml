@@ -28,7 +28,6 @@ derive_more = { version = "0.99.10", default-features = false, features = [
     "into",
 ] }
 num = { version = "0.3.0", features = ["serde"] }
-paste = "1.0.1"
 rand = "0.7.3"
 rand_chacha = "0.2.2"
 serde = { version = "1.0.116", features = ["derive"] }
@@ -37,3 +36,6 @@ thiserror = "1.0.20"
 
 [features]
 testutils = []
+
+[dev-dependencies]
+paste = "1.0.3"
