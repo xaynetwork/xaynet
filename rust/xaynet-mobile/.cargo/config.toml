@@ -1,4 +1,6 @@
 # These reduces the size of the libraries a lot!
+# See: https://github.com/johnthagen/min-sized-rust
 [profile.release]
 lto = true
 codegen-units = 1
+opt-level = 'z'
