@@ -85,16 +85,18 @@ impl Phase<Sum> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
-    use crate::state_machine::{
-        testutils::{shared_state, SelectFor},
-        MockIO,
-        SharedState,
-        StateMachine,
-    };
     use thiserror::Error;
     use xaynet_core::crypto::{ByteObject, EncryptKeySeed};
+
+    use super::*;
+    use crate::{
+        state_machine::{
+            testutils::{shared_state, SelectFor},
+            MockIO,
+            SharedState,
+        },
+        unwrap_step,
+    };
 
     /// Instantiate a sum phase.
     fn make_phase(io: MockIO) -> Phase<Sum> {
@@ -127,14 +129,9 @@ mod tests {
     async fn check_step_1() -> Phase<Sum> {
         let io = MockIO::new();
         let phase = make_phase(io);
-        let outcome = <Phase<Sum> as Step>::step(phase).await;
-        match outcome {
-            TransitionOutcome::Complete(StateMachine::Sum(phase)) => {
-                assert!(phase.state.private.message.is_some());
-                phase
-            }
-            _ => panic!("unexpected outcome {:?}", outcome),
-        }
+        let phase = unwrap_step!(phase, complete, sum);
+        assert!(phase.state.private.message.is_some());
+        phase
     }
 
     #[tokio::test]
@@ -145,8 +142,7 @@ mod tests {
         io.expect_send_message().times(1).returning(|_| Ok(()));
         let _ = std::mem::replace(&mut phase.io, Box::new(io));
 
-        let outcome = <Phase<Sum> as Step>::step(phase).await;
-        matches!(outcome, TransitionOutcome::Complete(StateMachine::Sum2(_)));
+        let _phase = unwrap_step!(phase, complete, sum2);
     }
 
     #[derive(Error, Debug)]
@@ -164,10 +160,6 @@ mod tests {
         io.expect_notify_idle().times(1).return_const(());
         let _ = std::mem::replace(&mut phase.io, Box::new(io));
 
-        let outcome = <Phase<Sum> as Step>::step(phase).await;
-        matches!(
-            outcome,
-            TransitionOutcome::Complete(StateMachine::Awaiting(_))
-        );
+        let _phase = unwrap_step!(phase, complete, awaiting);
     }
 }

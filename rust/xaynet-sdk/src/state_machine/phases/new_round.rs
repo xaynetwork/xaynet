@@ -73,10 +73,13 @@ impl Phase<NewRound> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state_machine::{
-        testutils::{shared_state, SelectFor},
-        MockIO,
-        StateMachine,
+
+    use crate::{
+        state_machine::{
+            testutils::{shared_state, SelectFor},
+            MockIO,
+        },
+        unwrap_step,
     };
 
     #[tokio::test]
@@ -84,9 +87,7 @@ mod tests {
         let mut io = MockIO::new();
         io.expect_notify_sum().return_const(());
         let phase = make_phase(SelectFor::Sum, io);
-
-        let outcome = <Phase<NewRound> as Step>::step(phase).await;
-        matches!(outcome, TransitionOutcome::Complete(StateMachine::Sum(_)));
+        unwrap_step!(phase, complete, sum);
     }
 
     #[tokio::test]
@@ -95,12 +96,7 @@ mod tests {
         io.expect_notify_update().times(1).return_const(());
         io.expect_notify_load_model().times(1).return_const(());
         let phase = make_phase(SelectFor::Update, io);
-
-        let outcome = <Phase<NewRound> as Step>::step(phase).await;
-        matches!(
-            outcome,
-            TransitionOutcome::Complete(StateMachine::Update(_))
-        );
+        unwrap_step!(phase, complete, update);
     }
 
     #[tokio::test]
@@ -108,12 +104,7 @@ mod tests {
         let mut io = MockIO::new();
         io.expect_notify_idle().times(1).return_const(());
         let phase = make_phase(SelectFor::None, io);
-
-        let outcome = <Phase<NewRound> as Step>::step(phase).await;
-        matches!(
-            outcome,
-            TransitionOutcome::Complete(StateMachine::Awaiting(_))
-        );
+        unwrap_step!(phase, complete, awaiting);
     }
 
     /// Instantiate a new round phase.
