@@ -241,16 +241,21 @@ pub unsafe extern "C" fn xaynet_ffi_participant_save(
 /// assert(n_read == fsize);
 /// fclose(f);
 /// Participant *restored =
-///     xaynet_ffi_participant_restore("http://localhost:8081", buf);
+///     xaynet_ffi_participant_restore("http://localhost:8081", &buf);
 /// free(buf.data);
 /// ```
 #[no_mangle]
 pub unsafe extern "C" fn xaynet_ffi_participant_restore(
     url: FfiStr,
-    buffer: ByteBuffer,
+    buffer: *const ByteBuffer,
 ) -> *mut Participant {
     let url = match url.as_opt_str() {
         Some(url) => url,
+        None => return ptr::null_mut(),
+    };
+
+    let buffer: &ByteBuffer = match unsafe { buffer.as_ref() } {
+        Some(ptr) => ptr,
         None => return ptr::null_mut(),
     };
 
