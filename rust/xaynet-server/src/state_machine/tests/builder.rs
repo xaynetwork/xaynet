@@ -1,10 +1,10 @@
 use crate::{
     state_machine::{
+        coordinator::CoordinatorState,
         events::EventSubscriber,
         phases::{self, Phase, PhaseState},
         requests::RequestSender,
         tests::utils,
-        CoordinatorState,
         StateMachine,
     },
     storage::{CoordinatorStorage, ModelStorage, Store},

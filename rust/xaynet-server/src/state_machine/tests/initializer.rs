@@ -8,14 +8,14 @@ use crate::{
     settings::RestoreSettings,
     state_machine::{
         events::{DictionaryUpdate, MaskLengthUpdate, ModelUpdate},
+        initializer::StateMachineInitializationError,
         phases::PhaseName,
-        StateMachineInitializationError,
     },
     storage::tests::utils::create_global_model,
     storage::ModelStorage,
 };
 use crate::{
-    state_machine::{CoordinatorState, StateMachineInitializer},
+    state_machine::{coordinator::CoordinatorState, StateMachineInitializer},
     storage::{tests::init_store, CoordinatorStorage},
 };
 
