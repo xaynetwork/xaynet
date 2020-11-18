@@ -1,0 +1,13 @@
+status = [
+    "cargo-fmt",
+    "cargo-check",
+    "cargo-clippy",
+    "cargo-test",
+    "cargo-bench",
+    "cargo-doc",
+]
+
+required_approvals = 1
+
+# Set timeout to 20 minutes
+timeout_sec = 1200
