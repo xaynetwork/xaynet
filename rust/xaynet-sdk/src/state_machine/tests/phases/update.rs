@@ -73,7 +73,7 @@ async fn step1_fetch_sum_dict(mut phase: Phase<Update>) -> Phase<Update> {
     phase.with_io_mock(|mock| {
         let mut seq = Sequence::new();
         // The first time the state machine fetches the sum dict,
-        // pretend it's not publiches yet
+        // pretend it's not published yet
         mock.expect_get_sums()
             .times(1)
             .in_sequence(&mut seq)
