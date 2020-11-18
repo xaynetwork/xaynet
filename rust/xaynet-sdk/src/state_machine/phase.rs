@@ -254,7 +254,7 @@ impl<P> Phase<P> {
 
     #[cfg(test)]
     pub(crate) fn check_io_mock(&mut self) {
-        // drooping the mock forces the checks to run. We replace it
+        // dropping the mock forces the checks to run. We replace it
         // by an empty one, so that we detect if a method is called
         // un-expectedly afterwards
         let _ = std::mem::replace(&mut self.io, Box::new(super::MockIO::new()));
