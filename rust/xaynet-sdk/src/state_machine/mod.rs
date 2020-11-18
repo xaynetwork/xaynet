@@ -91,11 +91,17 @@ pub(crate) mod testutils {
 
     #[macro_export]
     macro_rules! unwrap_progress_continue {
-        ($phase:expr, $method:tt) => {
-            match $phase.$method().await {
+        ($expr:expr) => {
+            match $expr {
                 Progress::Continue(phase) => phase,
                 x => panic!("expected Progress::Continue, got {:?}", x),
             }
+        };
+        ($phase:expr, $method:tt) => {
+            unwrap_progress_continue!($phase.$method())
+        };
+        ($phase:expr, $method:tt, async) => {
+            unwrap_progress_continue!($phase.$method().await)
         };
     }
 

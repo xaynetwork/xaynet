@@ -148,7 +148,6 @@ impl Step for Phase<Update> {
         }
 
         info!("going back to awaiting phase");
-        self.io.notify_idle();
         TransitionOutcome::Complete(self.into_awaiting().into())
     }
 }
@@ -273,6 +272,7 @@ mod tests {
     use super::*;
     use crate::{
         state_machine::{
+            phases::Awaiting,
             testutils::{shared_state, EncryptKeyGenerator, SelectFor, SigningKeyGenerator},
             MockIO,
             SharedState,
@@ -356,11 +356,8 @@ mod tests {
         assert!(phase.state.private.has_fetched_sum_dict());
 
         // Calling `fetch_sum_dict` again should return Progress::Continue
-        let mut phase = unwrap_progress_continue!(phase, fetch_sum_dict);
-
-        // Drop phase.io to force the mock checks to run now
-        let _ = std::mem::replace(&mut phase.io, Box::new(MockIO::new()));
-        phase
+        let phase = unwrap_progress_continue!(phase, fetch_sum_dict, async);
+        io_checks(phase)
     }
 
     async fn step2_load_model(mut phase: Phase<Update>) -> Phase<Update> {
@@ -390,13 +387,61 @@ mod tests {
         assert!(phase.state.private.has_loaded_model());
 
         // Calling `load_model` again should return Progress::Continue
-        unwrap_progress_continue!(phase, load_model)
+        let phase = unwrap_progress_continue!(phase, load_model, async);
+        io_checks(phase)
+    }
+
+    fn io_checks<T>(mut phase: Phase<T>) -> Phase<T> {
+        // Drop phase.io to force the mock checks to run now
+        let _ = std::mem::replace(&mut phase.io, Box::new(MockIO::new()));
+        phase
+    }
+
+    async fn step3_mask_model(phase: Phase<Update>) -> Phase<Update> {
+        let phase = unwrap_step!(phase, complete, update);
+        assert!(phase.state.private.has_masked_model());
+        let phase = unwrap_progress_continue!(phase, mask_model);
+        io_checks(phase)
+    }
+
+    async fn step4_build_seed_dict(phase: Phase<Update>) -> Phase<Update> {
+        let phase = unwrap_step!(phase, complete, update);
+        assert!(phase.state.private.has_built_seed_dict());
+        let phase = unwrap_progress_continue!(phase, build_seed_dict);
+        io_checks(phase)
+    }
+
+    async fn step5_compose_update_message(phase: Phase<Update>) -> Phase<Update> {
+        let phase = unwrap_step!(phase, complete, update);
+        assert!(phase.state.private.has_composed_message());
+        let phase = unwrap_progress_continue!(phase, compose_update_message);
+        io_checks(phase)
+    }
+
+    async fn step6_send_message(mut phase: Phase<Update>) -> Phase<Awaiting> {
+        let mut io = MockIO::new();
+        let mut seq = Sequence::new();
+        io.expect_send_message()
+            .times(1)
+            .in_sequence(&mut seq)
+            .returning(|_| Ok(()));
+        io.expect_notify_idle()
+            .times(1)
+            .in_sequence(&mut seq)
+            .return_const(());
+        phase.io = Box::new(io);
+        let phase = unwrap_step!(phase, complete, awaiting);
+        io_checks(phase)
     }
 
     #[tokio::test]
     async fn test_update_phase() {
         let phase = make_phase();
         let phase = step1_fetch_sum_dict(phase).await;
-        let _phase = step2_load_model(phase).await;
+        let phase = step2_load_model(phase).await;
+        let phase = step3_mask_model(phase).await;
+        let phase = step4_build_seed_dict(phase).await;
+        let phase = step5_compose_update_message(phase).await;
+        step6_send_message(phase).await;
     }
 }
