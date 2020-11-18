@@ -153,7 +153,7 @@ impl Step for Phase<Update> {
 }
 
 impl Phase<Update> {
-    async fn fetch_sum_dict(mut self) -> Progress<Update> {
+    pub(crate) async fn fetch_sum_dict(mut self) -> Progress<Update> {
         if self.state.private.has_fetched_sum_dict() {
             debug!("already fetched the sum dictionary, continuing");
             return Progress::Continue(self);
@@ -175,7 +175,7 @@ impl Phase<Update> {
         }
     }
 
-    async fn load_model(mut self) -> Progress<Update> {
+    pub(crate) async fn load_model(mut self) -> Progress<Update> {
         if self.state.private.has_loaded_model() {
             debug!("already loaded the model, continuing");
             return Progress::Continue(self);
@@ -199,7 +199,7 @@ impl Phase<Update> {
     }
 
     /// Generate a mask seed and mask a local model.
-    fn mask_model(mut self) -> Progress<Update> {
+    pub(crate) fn mask_model(mut self) -> Progress<Update> {
         if self.state.private.has_masked_model() {
             debug!("already computed the masked model, continuing");
             return Progress::Continue(self);
@@ -216,7 +216,7 @@ impl Phase<Update> {
     }
 
     // Create a local seed dictionary from a sum dictionary.
-    fn build_seed_dict(mut self) -> Progress<Update> {
+    pub(crate) fn build_seed_dict(mut self) -> Progress<Update> {
         if self.state.private.has_built_seed_dict() {
             debug!("already built the seed dictionary, continuing");
             return Progress::Continue(self);
@@ -238,7 +238,7 @@ impl Phase<Update> {
         Progress::Updated(self.into())
     }
 
-    fn compose_update_message(mut self) -> Progress<Update> {
+    pub(crate) fn compose_update_message(mut self) -> Progress<Update> {
         if self.state.private.has_composed_message() {
             debug!("already composed the update message, continuing");
             return Progress::Continue(self);
@@ -257,191 +257,5 @@ impl Phase<Update> {
         };
         self.state.private.message = Some(self.message_encoder(update.into()));
         Progress::Updated(self.into())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use mockall::Sequence;
-    use xaynet_core::{
-        crypto::ByteObject,
-        mask::{FromPrimitives, Model},
-        SumDict,
-    };
-
-    use super::*;
-    use crate::{
-        state_machine::{
-            phases::Awaiting,
-            testutils::{shared_state, EncryptKeyGenerator, SelectFor, SigningKeyGenerator},
-            MockIO,
-            SharedState,
-        },
-        unwrap_progress_continue,
-        unwrap_step,
-    };
-
-    /// Instantiate a sum phase.
-    fn make_phase() -> Phase<Update> {
-        let shared = shared_state(SelectFor::Sum);
-        let update = make_update(&shared);
-
-        // Check IntoPhase<Update> implementation
-        let mut mock = MockIO::new();
-        mock.expect_notify_update().times(1).return_const(());
-        mock.expect_notify_load_model().times(1).return_const(());
-        let mut phase: Phase<Update> = State::new(shared, update).into_phase(Box::new(mock));
-
-        // Drop phase.io to force the mock checks to run now
-        let _ = std::mem::replace(&mut phase.io, Box::new(MockIO::new()));
-        phase
-    }
-
-    fn make_update(shared: &SharedState) -> Update {
-        let sk = &shared.keys.secret;
-        let seed = shared.round_params.seed.as_slice();
-        let sum_signature = sk.sign_detached(&[seed, b"sum"].concat());
-        let update_signature = sk.sign_detached(&[seed, b"update"].concat());
-        Update {
-            sum_signature,
-            update_signature,
-            sum_dict: None,
-            seed_dict: None,
-            model: None,
-            mask: None,
-            message: None,
-        }
-    }
-
-    fn make_model() -> Model {
-        let weights: Vec<f32> = vec![1.1, 2.2, 3.3, 4.4];
-        Model::from_primitives(weights.into_iter()).unwrap()
-    }
-
-    fn make_sum_dict() -> SumDict {
-        let mut dict = SumDict::new();
-
-        let mut signing_keys = SigningKeyGenerator::new();
-        let mut encrypt_keys = EncryptKeyGenerator::new();
-
-        dict.insert(signing_keys.next().public, encrypt_keys.next().public);
-        dict.insert(signing_keys.next().public, encrypt_keys.next().public);
-
-        dict
-    }
-
-    async fn step1_fetch_sum_dict(mut phase: Phase<Update>) -> Phase<Update> {
-        let mut io = MockIO::new();
-        let mut seq = Sequence::new();
-        // The first time the state machine fetches the sum dict,
-        // pretend it's not publiches yet
-        io.expect_get_sums()
-            .times(1)
-            .in_sequence(&mut seq)
-            .returning(|| Ok(None));
-        // The second time, return a sum dictionary.
-        io.expect_get_sums()
-            .times(1)
-            .in_sequence(&mut seq)
-            .returning(|| Ok(Some(make_sum_dict())));
-        phase.io = Box::new(io);
-
-        // First time: no progress should be made, since we didn't
-        // fetch any sum dict yet
-        let phase = unwrap_step!(phase, pending, update);
-        assert!(!phase.state.private.has_fetched_sum_dict());
-
-        // Second time: now the state machine should have made progress
-        let phase = unwrap_step!(phase, complete, update);
-        assert!(phase.state.private.has_fetched_sum_dict());
-
-        // Calling `fetch_sum_dict` again should return Progress::Continue
-        let phase = unwrap_progress_continue!(phase, fetch_sum_dict, async);
-        io_checks(phase)
-    }
-
-    async fn step2_load_model(mut phase: Phase<Update>) -> Phase<Update> {
-        let mut io = MockIO::new();
-        let mut seq = Sequence::new();
-        // The first time the state machine fetches the sum dict,
-        // pretend it's not publiches yet
-        io.expect_load_model()
-            .times(1)
-            .in_sequence(&mut seq)
-            .returning(|| Ok(None));
-        // The second time, return a sum dictionary.
-        io.expect_load_model()
-            .times(1)
-            .in_sequence(&mut seq)
-            .returning(|| Ok(Some(Box::new(make_model()))));
-        phase.io = Box::new(io);
-
-        // First time: no progress should be made, since we didn't
-        // load any model
-        let phase = unwrap_step!(phase, pending, update);
-        assert!(phase.state.private.has_fetched_sum_dict());
-        assert!(!phase.state.private.has_loaded_model());
-
-        // Second time: now the state machine should have made progress
-        let phase = unwrap_step!(phase, complete, update);
-        assert!(phase.state.private.has_loaded_model());
-
-        // Calling `load_model` again should return Progress::Continue
-        let phase = unwrap_progress_continue!(phase, load_model, async);
-        io_checks(phase)
-    }
-
-    fn io_checks<T>(mut phase: Phase<T>) -> Phase<T> {
-        // Drop phase.io to force the mock checks to run now
-        let _ = std::mem::replace(&mut phase.io, Box::new(MockIO::new()));
-        phase
-    }
-
-    async fn step3_mask_model(phase: Phase<Update>) -> Phase<Update> {
-        let phase = unwrap_step!(phase, complete, update);
-        assert!(phase.state.private.has_masked_model());
-        let phase = unwrap_progress_continue!(phase, mask_model);
-        io_checks(phase)
-    }
-
-    async fn step4_build_seed_dict(phase: Phase<Update>) -> Phase<Update> {
-        let phase = unwrap_step!(phase, complete, update);
-        assert!(phase.state.private.has_built_seed_dict());
-        let phase = unwrap_progress_continue!(phase, build_seed_dict);
-        io_checks(phase)
-    }
-
-    async fn step5_compose_update_message(phase: Phase<Update>) -> Phase<Update> {
-        let phase = unwrap_step!(phase, complete, update);
-        assert!(phase.state.private.has_composed_message());
-        let phase = unwrap_progress_continue!(phase, compose_update_message);
-        io_checks(phase)
-    }
-
-    async fn step6_send_message(mut phase: Phase<Update>) -> Phase<Awaiting> {
-        let mut io = MockIO::new();
-        let mut seq = Sequence::new();
-        io.expect_send_message()
-            .times(1)
-            .in_sequence(&mut seq)
-            .returning(|_| Ok(()));
-        io.expect_notify_idle()
-            .times(1)
-            .in_sequence(&mut seq)
-            .return_const(());
-        phase.io = Box::new(io);
-        let phase = unwrap_step!(phase, complete, awaiting);
-        io_checks(phase)
-    }
-
-    #[tokio::test]
-    async fn test_update_phase() {
-        let phase = make_phase();
-        let phase = step1_fetch_sum_dict(phase).await;
-        let phase = step2_load_model(phase).await;
-        let phase = step3_mask_model(phase).await;
-        let phase = step4_build_seed_dict(phase).await;
-        let phase = step5_compose_update_message(phase).await;
-        step6_send_message(phase).await;
     }
 }

@@ -241,6 +241,24 @@ impl<P> Phase<P> {
         // unwrapping is fine
         .unwrap()
     }
+
+    #[cfg(test)]
+    pub(crate) fn with_io_mock<F>(&mut self, f: F)
+    where
+        F: FnOnce(&mut super::MockIO),
+    {
+        let mut mock = super::MockIO::new();
+        f(&mut mock);
+        self.io = Box::new(mock);
+    }
+
+    #[cfg(test)]
+    pub(crate) fn check_io_mock(&mut self) {
+        // drooping the mock forces the checks to run. We replace it
+        // by an empty one, so that we detect if a method is called
+        // un-expectedly afterwards
+        let _ = std::mem::replace(&mut self.io, Box::new(super::MockIO::new()));
+    }
 }
 
 #[derive(Error, Debug)]
@@ -265,7 +283,7 @@ pub enum RoundFreshness {
 /// // `buf` is a Vec<u8> that contains a serialized state that we want to deserialize
 /// let state: State<???> = State::deserialize(&buf[..]).unwrap();
 /// ```
-#[derive(Serialize, Deserialize, From)]
+#[derive(Serialize, Deserialize, From, Debug)]
 #[allow(clippy::large_enum_variant)]
 pub enum SerializableState {
     NewRound(State<NewRound>),
