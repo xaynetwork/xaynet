@@ -8,6 +8,8 @@ mod sum2;
 mod unmask;
 mod update;
 
+use std::fmt;
+
 use async_trait::async_trait;
 use futures::StreamExt;
 use tracing::{debug, error, error_span, info, warn, Span};
@@ -22,8 +24,6 @@ pub use self::{
     unmask::{Unmask, UnmaskStateError},
     update::{Update, UpdateStateError},
 };
-#[cfg(feature = "model-persistence")]
-use crate::storage::s3;
 #[cfg(feature = "metrics")]
 use crate::{metrics, metrics::MetricsSender};
 use crate::{
@@ -34,7 +34,7 @@ use crate::{
         RequestError,
         StateMachine,
     },
-    storage::redis,
+    storage::{CoordinatorStorage, ModelStorage, Store},
 };
 use xaynet_macros::metrics;
 
@@ -52,7 +52,11 @@ pub enum PhaseName {
 
 /// A trait that must be implemented by a state in order to move to a next state.
 #[async_trait]
-pub trait Phase {
+pub trait Phase<C, M>
+where
+    C: CoordinatorStorage,
+    M: ModelStorage,
+{
     /// Name of the current phase
     const NAME: PhaseName;
 
@@ -60,7 +64,7 @@ pub trait Phase {
     async fn run(&mut self) -> Result<(), PhaseStateError>;
 
     /// Moves from this state to the next state.
-    fn next(self) -> Option<StateMachine>;
+    fn next(self) -> Option<StateMachine<C, M>>;
 }
 
 /// A trait that must be implemented by a state to handle a request.
@@ -70,60 +74,66 @@ pub trait Handler {
     async fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), RequestError>;
 }
 
-/// I/O interfaces.
-#[cfg_attr(test, derive(Debug))]
-pub struct IO {
+/// A struct that contains the coordinator state and the I/O interfaces that are shared and
+/// accessible by all `PhaseState`s.
+pub struct Shared<C, M>
+where
+    C: CoordinatorStorage,
+    M: ModelStorage,
+{
+    /// The coordinator state.
+    pub(in crate::state_machine) state: CoordinatorState,
     /// The request receiver half.
     pub(in crate::state_machine) request_rx: RequestReceiver,
     /// The event publisher.
     pub(in crate::state_machine) events: EventPublisher,
-    /// Redis client.
-    pub(in crate::state_machine) redis: redis::Client,
-    #[cfg(feature = "model-persistence")]
-    /// S3 client.
-    pub(in crate::state_machine) s3: s3::Client,
+    /// The store for storing coordinator and model data.
+    pub(in crate::state_machine) store: Store<C, M>,
     #[cfg(feature = "metrics")]
     /// The metrics sender half.
     pub(in crate::state_machine) metrics_tx: MetricsSender,
 }
 
-/// A struct that contains the coordinator state and the I/O interfaces that is shared and
-/// accessible by all `PhaseState`s.
-#[cfg_attr(test, derive(Debug))]
-pub struct Shared {
-    /// The coordinator state.
-    pub(in crate::state_machine) state: CoordinatorState,
-    /// I/O interfaces.
-    pub(in crate::state_machine) io: IO,
+impl<C, M> fmt::Debug for Shared<C, M>
+where
+    C: CoordinatorStorage,
+    M: ModelStorage,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Shared")
+            .field("state", &self.state)
+            .field("request_rx", &self.request_rx)
+            .field("events", &self.events)
+            .finish()
+    }
 }
 
-impl Shared {
+impl<C, M> Shared<C, M>
+where
+    C: CoordinatorStorage,
+    M: ModelStorage,
+{
     pub fn new(
         coordinator_state: CoordinatorState,
         publisher: EventPublisher,
         request_rx: RequestReceiver,
-        redis: redis::Client,
-        #[cfg(feature = "model-persistence")] s3: s3::Client,
+        store: Store<C, M>,
         #[cfg(feature = "metrics")] metrics_tx: MetricsSender,
     ) -> Self {
         Self {
             state: coordinator_state,
-            io: IO {
-                request_rx,
-                events: publisher,
-                redis,
-                #[cfg(feature = "model-persistence")]
-                s3,
-                #[cfg(feature = "metrics")]
-                metrics_tx,
-            },
+            request_rx,
+            events: publisher,
+            store,
+            #[cfg(feature = "metrics")]
+            metrics_tx,
         }
     }
 
     /// Set the round ID to the given value
     pub fn set_round_id(&mut self, id: u64) {
         self.state.round_id = id;
-        self.io.events.set_round_id(id);
+        self.events.set_round_id(id);
     }
 
     /// Return the current round ID
@@ -134,19 +144,24 @@ impl Shared {
 
 /// The state corresponding to a phase of the PET protocol.
 ///
-/// This contains the state-dependent `inner` state and the state-independent `shared.state`
-/// which is shared across state transitions. Furthermore, `shared.io` contains the I/O interfaces
-/// of the state machine.
-pub struct PhaseState<S> {
-    /// The inner state.
-    pub(in crate::state_machine) inner: S,
+/// This contains the state-dependent `private` state and the state-independent `shared` state
+/// which is shared across state transitions.
+pub struct PhaseState<S, C, M>
+where
+    C: CoordinatorStorage,
+    M: ModelStorage,
+{
+    /// The private state.
+    pub(in crate::state_machine) private: S,
     /// The shared coordinator state and I/O interfaces.
-    pub(in crate::state_machine) shared: Shared,
+    pub(in crate::state_machine) shared: Shared<C, M>,
 }
 
-impl<S> PhaseState<S>
+impl<S, C, M> PhaseState<S, C, M>
 where
-    Self: Handler + Phase,
+    Self: Handler + Phase<C, M>,
+    C: CoordinatorStorage,
+    M: ModelStorage,
 {
     /// Processes requests for as long as the given duration.
     async fn process_during(&mut self, dur: tokio::time::Duration) -> Result<(), PhaseStateError> {
@@ -186,7 +201,7 @@ where
         if let Err(ref err) = res {
             warn!("failed to handle message: {}", err);
             metrics!(
-                self.shared.io.metrics_tx,
+                self.shared.metrics_tx,
                 metrics::message::rejected::increment(self.shared.state.round_id, Self::NAME)
             );
         }
@@ -197,24 +212,24 @@ where
     }
 }
 
-impl<S> PhaseState<S>
+impl<S, C, M> PhaseState<S, C, M>
 where
-    Self: Phase,
+    Self: Phase<C, M>,
+    C: CoordinatorStorage,
+    M: ModelStorage,
 {
     /// Run the current phase to completion, then transition to the
     /// next phase and return it.
-    pub async fn run_phase(mut self) -> Option<StateMachine> {
-        let phase = <Self as Phase>::NAME;
+    pub async fn run_phase(mut self) -> Option<StateMachine<C, M>> {
+        let phase = <Self as Phase<_, _>>::NAME;
         let span = error_span!("run_phase", phase = ?phase);
 
         async move {
             info!("starting phase");
             info!("broadcasting phase event");
-            self.shared.io.events.broadcast_phase(
-                phase,
-            );
+            self.shared.events.broadcast_phase(phase);
 
-            metrics!(self.shared.io.metrics_tx, metrics::phase::update(phase));
+            metrics!(self.shared.metrics_tx, metrics::phase::update(phase));
 
             if let Err(err) = self.run().await {
                 return Some(self.into_error_state(err));
@@ -252,7 +267,7 @@ where
                     let _ = resp_tx.send(Err(RequestError::MessageRejected));
 
                     metrics!(
-                        self.shared.io.metrics_tx,
+                        self.shared.metrics_tx,
                         metrics::message::discarded::increment(
                             self.shared.state.round_id,
                             Self::NAME
@@ -266,7 +281,11 @@ where
 }
 
 // Functions that are available to all states
-impl<S> PhaseState<S> {
+impl<S, C, M> PhaseState<S, C, M>
+where
+    C: CoordinatorStorage,
+    M: ModelStorage,
+{
     /// Receives the next [`Request`].
     ///
     /// # Errors
@@ -275,7 +294,7 @@ impl<S> PhaseState<S> {
         &mut self,
     ) -> Result<(StateMachineRequest, Span, ResponseSender), PhaseStateError> {
         debug!("waiting for the next incoming request");
-        self.shared.io.request_rx.next().await.ok_or_else(|| {
+        self.shared.request_rx.next().await.ok_or_else(|| {
             error!("request receiver broken: senders have been dropped");
             PhaseStateError::RequestChannel("all message senders have been dropped!")
         })
@@ -284,7 +303,7 @@ impl<S> PhaseState<S> {
     fn try_next_request(
         &mut self,
     ) -> Result<Option<(StateMachineRequest, Span, ResponseSender)>, PhaseStateError> {
-        match self.shared.io.request_rx.try_recv() {
+        match self.shared.request_rx.try_recv() {
             Ok(item) => Ok(Some(item)),
             Err(tokio::sync::mpsc::error::TryRecvError::Empty) => {
                 debug!("no pending request");
@@ -299,21 +318,23 @@ impl<S> PhaseState<S> {
         }
     }
 
-    fn into_error_state(self, err: PhaseStateError) -> StateMachine {
-        PhaseState::<PhaseStateError>::new(self.shared, err).into()
+    fn into_error_state(self, err: PhaseStateError) -> StateMachine<C, M> {
+        PhaseState::<PhaseStateError, _, _>::new(self.shared, err).into()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state_machine::tests::utils;
+    use crate::{state_machine::tests::utils, storage::tests::init_store};
     use serial_test::serial;
 
     #[tokio::test]
     #[serial]
     async fn integration_update_round_id() {
-        let (mut shared, event_subscriber, ..) = utils::init_shared().await;
+        let store = init_store().await;
+        let coordinator_state = utils::coordinator_state();
+        let (mut shared, _, event_subscriber) = utils::init_shared(coordinator_state, store);
 
         let phases = event_subscriber.phase_listener();
         // When starting the round ID should be 0
@@ -328,7 +349,7 @@ mod tests {
         assert_eq!(id, 0);
 
         // But new events should have the new round ID
-        shared.io.events.broadcast_phase(PhaseName::Sum);
+        shared.events.broadcast_phase(PhaseName::Sum);
         let id = phases.get_latest().round_id;
         assert_eq!(id, 1);
     }

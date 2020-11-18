@@ -6,16 +6,19 @@ use tracing::warn;
 use tracing_subscriber::*;
 
 #[cfg(feature = "metrics")]
-use xaynet_server::metrics::{run_metric_service, MetricsService};
-#[cfg(feature = "model-persistence")]
-use xaynet_server::storage::s3;
+use xaynet_server::{
+    metrics::{run_metric_service, MetricsSender, MetricsService},
+    settings::MetricsSettings,
+};
 use xaynet_server::{
     rest::{serve, RestError},
     services,
-    settings::Settings,
+    settings::{LoggingSettings, RedisSettings, Settings},
     state_machine::StateMachineInitializer,
-    storage::redis,
+    storage::{coordinator_storage::redis, CoordinatorStorage, ModelStorage, Store},
 };
+#[cfg(feature = "model-persistence")]
+use xaynet_server::{settings::S3Settings, storage::model_storage::s3};
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "Coordinator")]
@@ -43,10 +46,7 @@ async fn main() {
         ..
     } = settings;
 
-    let _fmt_subscriber = FmtSubscriber::builder()
-        .with_env_filter(log_settings.filter)
-        .with_ansi(true)
-        .init();
+    init_tracing(log_settings);
 
     // This should already called internally when instantiating the
     // state machine but it doesn't hurt making sure the crypto layer
@@ -54,29 +54,14 @@ async fn main() {
     sodiumoxide::init().unwrap();
 
     #[cfg(feature = "metrics")]
-    let (metrics_sender, metrics_handle) = {
-        let (metrics_service, metrics_sender) = MetricsService::new(
-            &settings.metrics.influxdb.url,
-            &settings.metrics.influxdb.db,
-        );
-        (
-            metrics_sender,
-            tokio::spawn(async { run_metric_service(metrics_service).await }),
-        )
-    };
+    let (metrics_sender, metrics_handle) = init_metrics(settings.metrics);
 
-    #[cfg(feature = "model-persistence")]
-    let s3 = {
-        let s3 = s3::Client::new(settings.s3).expect("failed to create S3 client");
-        s3.create_global_models_bucket()
-            .await
-            .expect("failed to create bucket for global-models");
-        s3
-    };
-
-    let redis = redis::Client::new(redis_settings.url)
-        .await
-        .expect("failed to establish a connection to Redis");
+    let store = init_store(
+        redis_settings,
+        #[cfg(feature = "model-persistence")]
+        settings.s3,
+    )
+    .await;
 
     let (state_machine, requests_tx, event_subscriber) = StateMachineInitializer::new(
         pet_settings,
@@ -84,9 +69,7 @@ async fn main() {
         model_settings,
         #[cfg(feature = "model-persistence")]
         settings.restore,
-        redis,
-        #[cfg(feature = "model-persistence")]
-        s3,
+        store,
         #[cfg(feature = "metrics")]
         metrics_sender,
     )
@@ -121,4 +104,47 @@ async fn main() {
         warn!("shutting down metrics service");
         let _ = metrics_handle.await;
     }
+}
+
+fn init_tracing(settings: LoggingSettings) {
+    let _fmt_subscriber = FmtSubscriber::builder()
+        .with_env_filter(settings.filter)
+        .with_ansi(true)
+        .init();
+}
+
+#[cfg(feature = "metrics")]
+fn init_metrics(settings: MetricsSettings) -> (MetricsSender, tokio::task::JoinHandle<()>) {
+    let (metrics_service, metrics_sender) =
+        MetricsService::new(&settings.influxdb.url, &settings.influxdb.db);
+    (
+        metrics_sender,
+        tokio::spawn(async { run_metric_service(metrics_service).await }),
+    )
+}
+
+async fn init_store(
+    redis_settings: RedisSettings,
+    #[cfg(feature = "model-persistence")] s3_settings: S3Settings,
+) -> Store<impl CoordinatorStorage, impl ModelStorage> {
+    let coordinator_store = redis::Client::new(redis_settings.url)
+        .await
+        .expect("failed to establish a connection to Redis");
+
+    let model_store = {
+        #[cfg(not(feature = "model-persistence"))]
+        {
+            xaynet_server::storage::model_storage::noop::NoOp
+        }
+
+        #[cfg(feature = "model-persistence")]
+        {
+            let s3 = s3::Client::new(s3_settings).expect("failed to create S3 client");
+            s3.create_global_models_bucket()
+                .await
+                .expect("failed to create bucket for global models");
+            s3
+        }
+    };
+    Store::new(coordinator_store, model_store)
 }

@@ -11,7 +11,7 @@ use crate::{
         RequestError,
         StateMachine,
     },
-    storage::CoordinatorStorage,
+    storage::{CoordinatorStorage, ModelStorage},
 };
 use xaynet_core::mask::Aggregation;
 use xaynet_macros::metrics;
@@ -34,9 +34,11 @@ impl Sum2 {
 }
 
 #[async_trait]
-impl Phase for PhaseState<Sum2>
+impl<C, M> Phase<C, M> for PhaseState<Sum2, C, M>
 where
     Self: Handler,
+    C: CoordinatorStorage,
+    M: ModelStorage,
 {
     const NAME: PhaseName = PhaseName::Sum2;
 
@@ -53,7 +55,7 @@ where
 
         info!(
             "{} sum2 messages handled (min {} required)",
-            self.inner.sum2_count, self.shared.state.min_sum_count
+            self.private.sum2_count, self.shared.state.min_sum_count
         );
         Ok(())
     }
@@ -61,21 +63,23 @@ where
     /// Moves from the sum2 state to the next state.
     ///
     /// See the [module level documentation](../index.html) for more details.
-    fn next(self) -> Option<StateMachine> {
-        Some(PhaseState::<Unmask>::new(self.shared, self.inner.model_agg).into())
+    fn next(self) -> Option<StateMachine<C, M>> {
+        Some(PhaseState::<Unmask, _, _>::new(self.shared, self.private.model_agg).into())
     }
 }
 
-impl PhaseState<Sum2>
+impl<C, M> PhaseState<Sum2, C, M>
 where
-    Self: Handler + Phase,
+    Self: Handler + Phase<C, M>,
+    C: CoordinatorStorage,
+    M: ModelStorage,
 {
     /// Processes requests until there are enough.
     async fn process_until_enough(&mut self) -> Result<(), PhaseStateError> {
         while !self.has_enough_sum2s() {
             debug!(
                 "{} sum2 messages handled (min {} required)",
-                self.inner.sum2_count, self.shared.state.min_sum_count
+                self.private.sum2_count, self.shared.state.min_sum_count
             );
             self.process_next().await?;
         }
@@ -84,7 +88,11 @@ where
 }
 
 #[async_trait]
-impl Handler for PhaseState<Sum2> {
+impl<C, M> Handler for PhaseState<Sum2, C, M>
+where
+    C: CoordinatorStorage,
+    M: ModelStorage,
+{
     /// Handles a [`StateMachineRequest`],
     ///
     /// If the request is a [`StateMachineRequest::Sum`] or
@@ -94,7 +102,7 @@ impl Handler for PhaseState<Sum2> {
         match req {
             StateMachineRequest::Sum2(sum2_req) => {
                 metrics!(
-                    self.shared.io.metrics_tx,
+                    self.shared.metrics_tx,
                     metrics::message::sum2::increment(self.shared.state.round_id, Self::NAME)
                 );
                 self.handle_sum2(sum2_req).await
@@ -104,11 +112,15 @@ impl Handler for PhaseState<Sum2> {
     }
 }
 
-impl PhaseState<Sum2> {
+impl<C, M> PhaseState<Sum2, C, M>
+where
+    C: CoordinatorStorage,
+    M: ModelStorage,
+{
     /// Creates a new sum2 state.
-    pub fn new(shared: Shared, model_agg: Aggregation) -> Self {
+    pub fn new(shared: Shared<C, M>, model_agg: Aggregation) -> Self {
         Self {
-            inner: Sum2 {
+            private: Sum2 {
                 model_agg,
                 sum2_count: 0,
             },
@@ -119,7 +131,8 @@ impl PhaseState<Sum2> {
     /// Handles a sum2 request by adding a mask to the mask dictionary.
     ///
     /// # Errors
-    /// Fails if the sum participant didn't register in the sum phase or it is a repetition.
+    ///
+    /// Fails if the mask score cannot be incremented due to a PET or [`StorageError`].
     async fn handle_sum2(&mut self, req: Sum2Request) -> Result<(), RequestError> {
         let Sum2Request {
             participant_pk,
@@ -127,19 +140,18 @@ impl PhaseState<Sum2> {
         } = req;
 
         self.shared
-            .io
-            .redis
+            .store
             .incr_mask_score(&participant_pk, &model_mask)
             .await?
             .into_inner()?;
 
-        self.inner.sum2_count += 1;
+        self.private.sum2_count += 1;
         Ok(())
     }
 
     /// Checks whether enough sum participants submitted their masks to start the unmask phase.
     fn has_enough_sum2s(&self) -> bool {
-        self.inner.sum2_count >= self.shared.state.min_sum_count
+        self.private.sum2_count >= self.shared.state.min_sum_count
     }
 }
 
@@ -156,12 +168,15 @@ mod test {
     };
 
     use super::*;
-    use crate::state_machine::{
-        events::Event,
-        tests::{
-            builder::StateMachineBuilder,
-            utils::{self, Participant},
+    use crate::{
+        state_machine::{
+            events::Event,
+            tests::{
+                builder::StateMachineBuilder,
+                utils::{self, Participant},
+            },
         },
+        storage::tests::init_store,
     };
 
     #[tokio::test]
@@ -200,8 +215,9 @@ mod test {
         // Create the state machine in the Sum2 phase
         let mut agg = Aggregation::new(summer.mask_settings, model_size);
         agg.aggregate(masked_model);
-        let (state_machine, request_tx, events, mut eio) = StateMachineBuilder::new()
-            .await
+
+        let mut store = init_store().await;
+        let (state_machine, request_tx, events) = StateMachineBuilder::new(store.clone())
             .with_seed(round_params.seed.clone())
             .with_phase(Sum2 {
                 model_agg: agg,
@@ -217,9 +233,9 @@ mod test {
             .build();
         assert!(state_machine.is_sum2());
 
-        // Write the sum participant into redis so that the mask lua
-        // script does not fail
-        eio.redis
+        // Write the sum participant into the store so that the method store.incr_mask_score does
+        // not fail
+        store
             .add_sum_participant(&summer.keys.public, &summer.ephm_keys.public)
             .await
             .unwrap();
@@ -237,12 +253,12 @@ mod test {
 
         // Extract state of the state machine
         let PhaseState {
-            inner: unmask_state,
+            private: unmask_state,
             ..
         } = state_machine.into_unmask_phase_state();
 
         // Check the initial state of the unmask phase.
-        let mut best_masks = eio.redis.best_masks().await.unwrap().unwrap();
+        let mut best_masks = store.best_masks().await.unwrap().unwrap();
         assert_eq!(best_masks.len(), 1);
         let (mask, count) = best_masks.pop().unwrap();
         assert_eq!(count, 1);

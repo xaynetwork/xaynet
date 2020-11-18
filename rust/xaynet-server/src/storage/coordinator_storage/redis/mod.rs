@@ -83,13 +83,6 @@ pub struct Client {
     connection: ConnectionManager,
 }
 
-#[cfg(test)]
-impl std::fmt::Debug for Client {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("redis client").finish()
-    }
-}
-
 fn to_storage_err(e: RedisError) -> StorageError {
     anyhow::anyhow!(e)
 }
@@ -550,7 +543,7 @@ pub(in crate) mod tests {
     use super::*;
     use crate::{
         state_machine::tests::utils::{mask_settings, model_settings, pet_settings},
-        storage::{tests::*, LocalSeedDictAddError, MaskScoreIncrError, SumPartAddError},
+        storage::{tests::utils::*, LocalSeedDictAddError, MaskScoreIncrError, SumPartAddError},
     };
     use serial_test::serial;
 

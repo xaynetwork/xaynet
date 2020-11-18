@@ -11,7 +11,7 @@ use crate::{
         PhaseStateError,
         StateMachine,
     },
-    storage::{CoordinatorStorage, StorageError},
+    storage::{CoordinatorStorage, ModelStorage, StorageError},
 };
 use thiserror::Error;
 use xaynet_core::{
@@ -34,7 +34,11 @@ pub enum IdleStateError {
 pub struct Idle;
 
 #[async_trait]
-impl Phase for PhaseState<Idle> {
+impl<C, M> Phase<C, M> for PhaseState<Idle, C, M>
+where
+    C: CoordinatorStorage,
+    M: ModelStorage,
+{
     const NAME: PhaseName = PhaseName::Idle;
 
     /// Moves from the idle state to the next state.
@@ -51,13 +55,12 @@ impl Phase for PhaseState<Idle> {
         self.update_round_seed();
 
         self.shared
-            .io
-            .redis
+            .store
             .set_coordinator_state(&self.shared.state)
             .await
             .map_err(IdleStateError::SetCoordinatorState)?;
 
-        let events = &mut self.shared.io.events;
+        let events = &mut self.shared.events;
 
         info!("broadcasting new keys");
         events.broadcast_keys(self.shared.state.keys.clone());
@@ -72,8 +75,7 @@ impl Phase for PhaseState<Idle> {
         events.broadcast_mask_length(MaskLengthUpdate::Invalidate);
 
         self.shared
-            .io
-            .redis
+            .store
             .delete_dicts()
             .await
             .map_err(IdleStateError::DeleteDictionaries)?;
@@ -82,7 +84,7 @@ impl Phase for PhaseState<Idle> {
         events.broadcast_params(self.shared.state.round_params.clone());
 
         metrics!(
-            self.shared.io.metrics_tx,
+            self.shared.metrics_tx,
             metrics::round::total_number::update(self.shared.state.round_id),
             metrics::round_parameters::sum::update(
                 self.shared.state.round_params.sum,
@@ -99,21 +101,25 @@ impl Phase for PhaseState<Idle> {
         Ok(())
     }
 
-    fn next(self) -> Option<StateMachine> {
-        Some(PhaseState::<Sum>::new(self.shared).into())
+    fn next(self) -> Option<StateMachine<C, M>> {
+        Some(PhaseState::<Sum, _, _>::new(self.shared).into())
     }
 }
 
-impl PhaseState<Idle> {
+impl<C, M> PhaseState<Idle, C, M>
+where
+    C: CoordinatorStorage,
+    M: ModelStorage,
+{
     /// Creates a new idle state.
-    pub fn new(mut shared: Shared) -> Self {
+    pub fn new(mut shared: Shared<C, M>) -> Self {
         // Since some events are emitted very early, the round id must
         // be correct when the idle phase starts. Therefore, we update
         // it here, when instantiating the idle PhaseState.
         shared.set_round_id(shared.round_id() + 1);
         debug!("new round ID = {}", shared.round_id());
         Self {
-            inner: Idle,
+            private: Idle,
             shared,
         }
     }
@@ -149,22 +155,27 @@ impl PhaseState<Idle> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::state_machine::{
-        events::Event,
-        tests::{builder::StateMachineBuilder, utils},
+    use crate::{
+        state_machine::{
+            events::Event,
+            tests::{builder::StateMachineBuilder, utils},
+        },
+        storage::tests::init_store,
     };
     use serial_test::serial;
 
     #[tokio::test]
     #[serial]
     async fn integration_round_id_is_updated_when_idle_phase_runs() {
-        let (shared, event_subscriber, ..) = utils::init_shared().await;
+        let store = init_store().await;
+        let coordinator_state = utils::coordinator_state();
+        let (shared, _, event_subscriber) = utils::init_shared(coordinator_state, store);
 
         let keys = event_subscriber.keys_listener();
         let id = keys.get_latest().round_id;
         assert_eq!(id, 0);
 
-        let mut idle_phase = PhaseState::<Idle>::new(shared);
+        let mut idle_phase = PhaseState::<Idle, _, _>::new(shared);
         idle_phase.run().await.unwrap();
 
         let id = keys.get_latest().round_id;
@@ -174,8 +185,10 @@ mod test {
     #[tokio::test]
     #[serial]
     async fn integration_idle_to_sum() {
-        let (state_machine, _request_tx, events, mut eio) =
-            StateMachineBuilder::new().await.with_round_id(2).build();
+        let mut store = init_store().await;
+        let (state_machine, _request_tx, events) = StateMachineBuilder::new(store.clone())
+            .with_round_id(2)
+            .build();
         assert!(state_machine.is_idle());
 
         let initial_round_params = events.params_listener().get_latest().event;
@@ -187,7 +200,7 @@ mod test {
 
         let PhaseState { shared, .. } = state_machine.into_sum_phase_state();
 
-        let sum_dict = eio.redis.sum_dict().await.unwrap();
+        let sum_dict = store.sum_dict().await.unwrap();
         assert!(sum_dict.is_none());
 
         let new_round_params = shared.state.round_params.clone();

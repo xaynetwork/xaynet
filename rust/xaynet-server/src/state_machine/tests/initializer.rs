@@ -11,26 +11,25 @@ use crate::{
         phases::PhaseName,
         StateMachineInitializationError,
     },
+    storage::tests::utils::create_global_model,
     storage::ModelStorage,
-    storage::{s3, tests::create_global_model},
 };
 use crate::{
     state_machine::{CoordinatorState, StateMachineInitializer},
-    storage::{api::CoordinatorStorage, redis},
+    storage::{tests::init_store, CoordinatorStorage},
 };
 
 #[cfg(feature = "model-persistence")]
 #[tokio::test]
 #[serial]
 async fn integration_state_machine_initializer_no_restore() {
-    let redis = redis::tests::init_client().await;
+    let store = init_store().await;
     let smi = StateMachineInitializer::new(
         pet_settings(),
         mask_settings(),
         model_settings(),
         RestoreSettings { enable: false },
-        redis,
-        s3::tests::create_client().await,
+        store,
         #[cfg(feature = "metrics")]
         MetricsSender(),
     );
@@ -62,14 +61,13 @@ async fn integration_state_machine_initializer_no_restore() {
 #[tokio::test]
 #[serial]
 async fn integration_state_machine_initializer_no_state() {
-    let redis = redis::tests::init_client().await;
+    let store = init_store().await;
     let smi = StateMachineInitializer::new(
         pet_settings(),
         mask_settings(),
         model_settings(),
         RestoreSettings { enable: true },
-        redis,
-        s3::tests::create_client().await,
+        store,
         #[cfg(feature = "metrics")]
         MetricsSender(),
     );
@@ -105,20 +103,22 @@ async fn integration_state_machine_initializer_without_global_model() {
     let mask_settings = mask_settings();
     let model_settings = model_settings();
 
-    // set a coordinator state in redis with the round_id 5
-    let mut redis = redis::tests::init_client().await;
+    // we change the round id to ensure that the state machine is
+    // initialized with the coordinator state in the store
+    // if we don't update the round_id we can't check if the state in the store was used or if the state was reset
+    // because in both cases the round id will be 0
+    let mut store = init_store().await;
     let mut state = CoordinatorState::new(pet_settings, mask_settings, model_settings.clone());
     let new_round_id = 5;
     state.round_id = new_round_id;
-    redis.set_coordinator_state(&state).await.unwrap();
+    store.set_coordinator_state(&state).await.unwrap();
 
     let smi = StateMachineInitializer::new(
         pet_settings,
         mask_settings,
         model_settings,
         RestoreSettings { enable: true },
-        redis,
-        s3::tests::create_client().await,
+        store,
         #[cfg(feature = "metrics")]
         MetricsSender(),
     );
@@ -154,17 +154,15 @@ async fn integration_state_machine_initializer_with_global_model() {
     let mask_settings = mask_settings();
     let model_settings = model_settings();
 
-    // set a coordinator state in redis with the round_id 7
-    let mut redis = redis::tests::init_client().await;
+    let mut store = init_store().await;
     let mut state = CoordinatorState::new(pet_settings, mask_settings, model_settings.clone());
     let new_round_id = 7;
     state.round_id = new_round_id;
-    redis.set_coordinator_state(&state).await.unwrap();
+    store.set_coordinator_state(&state).await.unwrap();
 
-    // upload a global model to minio and set the id in redis
+    // upload a global model and set the id
     let uploaded_global_model = create_global_model(state.model_size);
-    let mut s3 = s3::tests::create_client().await;
-    let global_model_id = s3
+    let global_model_id = store
         .set_global_model(
             state.round_id,
             &state.round_params.seed,
@@ -172,7 +170,7 @@ async fn integration_state_machine_initializer_with_global_model() {
         )
         .await
         .unwrap();
-    redis
+    store
         .set_latest_global_model_id(&global_model_id)
         .await
         .unwrap();
@@ -182,8 +180,7 @@ async fn integration_state_machine_initializer_with_global_model() {
         mask_settings,
         model_settings,
         RestoreSettings { enable: true },
-        redis,
-        s3,
+        store,
         #[cfg(feature = "metrics")]
         MetricsSender(),
     );
@@ -221,17 +218,15 @@ async fn integration_state_machine_initializer_failed_because_of_wrong_size() {
     let mask_settings = mask_settings();
     let model_settings = model_settings();
 
-    // set a coordinator state in redis with the round_id 9
-    let mut redis = redis::tests::init_client().await;
+    let mut store = init_store().await;
     let mut state = CoordinatorState::new(pet_settings, mask_settings, model_settings.clone());
     let new_round_id = 9;
     state.round_id = new_round_id;
-    redis.set_coordinator_state(&state).await.unwrap();
+    store.set_coordinator_state(&state).await.unwrap();
 
-    // upload a global model with a wrong model size to minio and set the id in redis
+    // upload a global model with a wrong model size and set the id
     let uploaded_global_model = create_global_model(state.model_size + 10);
-    let mut s3 = s3::tests::create_client().await;
-    let global_model_id = s3
+    let global_model_id = store
         .set_global_model(
             state.round_id,
             &state.round_params.seed,
@@ -239,7 +234,7 @@ async fn integration_state_machine_initializer_failed_because_of_wrong_size() {
         )
         .await
         .unwrap();
-    redis
+    store
         .set_latest_global_model_id(&global_model_id)
         .await
         .unwrap();
@@ -249,8 +244,7 @@ async fn integration_state_machine_initializer_failed_because_of_wrong_size() {
         mask_settings,
         model_settings,
         RestoreSettings { enable: true },
-        redis,
-        s3,
+        store,
         #[cfg(feature = "metrics")]
         MetricsSender(),
     );
@@ -271,17 +265,15 @@ async fn integration_state_machine_initializer_failed_to_find_global_model() {
     let mask_settings = mask_settings();
     let model_settings = model_settings();
 
-    // set a coordinator state in redis with the round_id 11
-    let mut redis = redis::tests::init_client().await;
+    let mut store = init_store().await;
     let mut state = CoordinatorState::new(pet_settings, mask_settings, model_settings.clone());
     let new_round_id = 11;
     state.round_id = new_round_id;
-    redis.set_coordinator_state(&state).await.unwrap();
+    store.set_coordinator_state(&state).await.unwrap();
 
-    // set a model id in redis but don't upload a model to minio
-    let global_model_id =
-        s3::Client::create_global_model_id(state.round_id, &state.round_params.seed);
-    redis
+    // set a model id but don't store a model
+    let global_model_id = "1_412957050209fcfa733b1fb4ad51f321";
+    store
         .set_latest_global_model_id(&global_model_id)
         .await
         .unwrap();
@@ -291,8 +283,7 @@ async fn integration_state_machine_initializer_failed_to_find_global_model() {
         mask_settings,
         model_settings,
         RestoreSettings { enable: true },
-        redis,
-        s3::tests::create_client().await,
+        store,
         #[cfg(feature = "metrics")]
         MetricsSender(),
     );
@@ -312,9 +303,9 @@ async fn integration_state_machine_initializer_reset_state() {
     let mask_settings = mask_settings();
     let model_settings = model_settings();
 
-    let mut redis = redis::tests::init_client().await;
+    let mut store = init_store().await;
     let state = CoordinatorState::new(pet_settings, mask_settings, model_settings.clone());
-    redis.set_coordinator_state(&state).await.unwrap();
+    store.set_coordinator_state(&state).await.unwrap();
 
     let mut smi = StateMachineInitializer::new(
         pet_settings,
@@ -322,16 +313,17 @@ async fn integration_state_machine_initializer_reset_state() {
         model_settings,
         #[cfg(feature = "model-persistence")]
         RestoreSettings { enable: true },
-        redis.clone(),
-        #[cfg(feature = "model-persistence")]
-        s3::tests::create_client().await,
+        store.clone(),
         #[cfg(feature = "metrics")]
         MetricsSender(),
     );
 
     smi.from_settings().await.unwrap();
 
-    let keys = redis.keys().await.unwrap();
-
-    assert!(keys.is_empty());
+    assert!(store.coordinator_state().await.unwrap().is_none());
+    assert!(store.sum_dict().await.unwrap().is_none());
+    assert!(store.seed_dict().await.unwrap().is_none());
+    assert!(store.best_masks().await.unwrap().is_none());
+    assert!(store.latest_global_model_id().await.unwrap().is_none());
+    assert_eq!(store.number_of_unique_masks().await.unwrap(), 0);
 }

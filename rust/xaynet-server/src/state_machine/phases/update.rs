@@ -14,7 +14,7 @@ use crate::{
         RequestError,
         StateMachine,
     },
-    storage::{CoordinatorStorage, StorageError},
+    storage::{CoordinatorStorage, ModelStorage, StorageError},
 };
 use thiserror::Error;
 use xaynet_core::{
@@ -51,9 +51,11 @@ impl Update {
 }
 
 #[async_trait]
-impl Phase for PhaseState<Update>
+impl<C, M> Phase<C, M> for PhaseState<Update, C, M>
 where
     Self: Handler,
+    C: CoordinatorStorage,
+    M: ModelStorage,
 {
     const NAME: PhaseName = PhaseName::Update;
 
@@ -70,19 +72,17 @@ where
 
         info!(
             "{} update messages handled (min {} required)",
-            self.inner.update_count, self.shared.state.min_update_count
+            self.private.update_count, self.shared.state.min_update_count
         );
 
         info!("broadcasting mask length");
         self.shared
-            .io
             .events
-            .broadcast_mask_length(MaskLengthUpdate::New(self.inner.model_agg.len()));
+            .broadcast_mask_length(MaskLengthUpdate::New(self.private.model_agg.len()));
 
         let seed_dict = self
             .shared
-            .io
-            .redis
+            .store
             .seed_dict()
             .await
             .map_err(UpdateStateError::FetchSeedDict)?
@@ -90,28 +90,29 @@ where
 
         info!("broadcasting the global seed dictionary");
         self.shared
-            .io
             .events
             .broadcast_seed_dict(DictionaryUpdate::New(Arc::new(seed_dict)));
 
         Ok(())
     }
 
-    fn next(self) -> Option<StateMachine> {
-        Some(PhaseState::<Sum2>::new(self.shared, self.inner.model_agg).into())
+    fn next(self) -> Option<StateMachine<C, M>> {
+        Some(PhaseState::<Sum2, _, _>::new(self.shared, self.private.model_agg).into())
     }
 }
 
-impl PhaseState<Update>
+impl<C, M> PhaseState<Update, C, M>
 where
-    Self: Handler + Phase,
+    Self: Handler + Phase<C, M>,
+    C: CoordinatorStorage,
+    M: ModelStorage,
 {
     /// Processes requests until there are enough.
     async fn process_until_enough(&mut self) -> Result<(), PhaseStateError> {
         while !self.has_enough_updates() {
             debug!(
                 "{} update messages handled (min {} required)",
-                self.inner.update_count, self.shared.state.min_update_count
+                self.private.update_count, self.shared.state.min_update_count
             );
             self.process_next().await?;
         }
@@ -120,7 +121,11 @@ where
 }
 
 #[async_trait]
-impl Handler for PhaseState<Update> {
+impl<C, M> Handler for PhaseState<Update, C, M>
+where
+    C: CoordinatorStorage,
+    M: ModelStorage,
+{
     /// Handles a [`StateMachineRequest`].
     ///
     /// If the request is a [`StateMachineRequest::Sum`] or
@@ -130,7 +135,7 @@ impl Handler for PhaseState<Update> {
         match req {
             StateMachineRequest::Update(update_req) => {
                 metrics!(
-                    self.shared.io.metrics_tx,
+                    self.shared.metrics_tx,
                     metrics::message::update::increment(self.shared.state.round_id, Self::NAME)
                 );
                 self.handle_update(update_req).await
@@ -140,11 +145,15 @@ impl Handler for PhaseState<Update> {
     }
 }
 
-impl PhaseState<Update> {
+impl<C, M> PhaseState<Update, C, M>
+where
+    C: CoordinatorStorage,
+    M: ModelStorage,
+{
     /// Creates a new update state.
-    pub fn new(shared: Shared) -> Self {
+    pub fn new(shared: Shared<C, M>) -> Self {
         Self {
-            inner: Update {
+            private: Update {
                 update_count: 0,
                 model_agg: Aggregation::new(
                     shared.state.mask_config.into(),
@@ -179,7 +188,7 @@ impl PhaseState<Update> {
         // don't want to add the local seed dict if the corresponding
         // masked model is invalid
         debug!("checking whether the masked model can be aggregated");
-        self.inner
+        self.private
             .model_agg
             .validate_aggregation(&mask_object)
             .map_err(|e| {
@@ -198,44 +207,47 @@ impl PhaseState<Update> {
             })?;
 
         info!("aggregating the masked model and scalar");
-        self.inner.model_agg.aggregate(mask_object);
+        self.private.model_agg.aggregate(mask_object);
         Ok(())
     }
 
     /// Adds a local seed dictionary to the seed dictionary.
     ///
     /// # Error
-    /// Fails if the local dict cannot be added due to a Redis error.
+    ///
+    /// Fails if the local seed dict cannot be added due to a PET or [`StorageError`].
     async fn add_local_seed_dict(
         &mut self,
         pk: &UpdateParticipantPublicKey,
         local_seed_dict: &LocalSeedDict,
     ) -> Result<(), RequestError> {
         self.shared
-            .io
-            .redis
+            .store
             .add_local_seed_dict(pk, local_seed_dict)
             .await?
             .into_inner()?;
 
-        self.inner.update_count += 1;
+        self.private.update_count += 1;
         Ok(())
     }
 
     fn has_enough_updates(&self) -> bool {
-        self.inner.update_count >= self.shared.state.min_update_count
+        self.private.update_count >= self.shared.state.min_update_count
     }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::state_machine::{
-        events::Event,
-        tests::{
-            builder::StateMachineBuilder,
-            utils::{self, Participant},
+    use crate::{
+        state_machine::{
+            events::Event,
+            tests::{
+                builder::StateMachineBuilder,
+                utils::{self, Participant},
+            },
         },
+        storage::tests::init_store,
     };
     use serial_test::serial;
     use xaynet_core::{
@@ -273,9 +285,9 @@ mod test {
         let config: MaskConfig = utils::mask_settings().into();
         let aggregation = Aggregation::new(config.into(), model_size);
 
+        let mut store = init_store().await;
         // Create the state machine
-        let (state_machine, request_tx, events, mut eio) = StateMachineBuilder::new()
-            .await
+        let (state_machine, request_tx, events) = StateMachineBuilder::new(store.clone())
             .with_seed(round_params.seed.clone())
             .with_phase(Update {
                 update_count: 0,
@@ -290,9 +302,8 @@ mod test {
             .with_mask_config(utils::mask_settings().into())
             .build();
 
-        // We need to add the sum participant to the sum_dict because the sum_pks are used
-        // to compose the seed_dict when fetching the seed_dict from redis.
-        eio.redis
+        // We need to add the sum participant to follow the pet protocol
+        store
             .add_sum_participant(&summer.keys.public, &summer.ephm_keys.public)
             .await
             .unwrap();
@@ -314,13 +325,14 @@ mod test {
 
         // Extract state of the state machine
         let PhaseState {
-            inner: sum2_state, ..
+            private: sum2_state,
+            ..
         } = state_machine.into_sum2_phase_state();
 
         // Check the initial state of the sum2 phase.
 
         // The sum dict should be unchanged
-        let sum_dict = eio.redis.sum_dict().await.unwrap().unwrap();
+        let sum_dict = store.sum_dict().await.unwrap().unwrap();
         assert_eq!(sum_dict, frozen_sum_dict);
         // We have only one updater, so the aggregation should contain
         // the masked model from that updater
@@ -328,7 +340,7 @@ mod test {
             <Aggregation as Into<MaskObject>>::into(sum2_state.aggregation().clone()),
             masked_model
         );
-        let best_masks = eio.redis.best_masks().await.unwrap();
+        let best_masks = store.best_masks().await.unwrap();
         assert!(best_masks.is_none());
 
         // Check all the events that should be emitted during the update

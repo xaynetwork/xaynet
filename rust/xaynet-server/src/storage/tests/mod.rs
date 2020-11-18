@@ -1,133 +1,27 @@
-use num::{bigint::BigUint, traits::identities::Zero};
+pub mod utils;
 
-use crate::storage::{api::CoordinatorStorage, redis::Client, LocalSeedDictAdd};
-use xaynet_core::{
-    crypto::{ByteObject, EncryptKeyPair, SigningKeyPair},
-    mask::{BoundType, DataType, EncryptedMaskSeed, GroupType, MaskConfig, MaskObject, ModelType},
-    LocalSeedDict,
-    SeedDict,
-    SumDict,
-    SumParticipantEphemeralPublicKey,
-    SumParticipantPublicKey,
-    UpdateParticipantPublicKey,
+use crate::storage::{
+    coordinator_storage::redis,
+    model_storage,
+    CoordinatorStorage,
+    ModelStorage,
+    Store,
 };
 
-pub fn create_sum_participant_entry() -> (SumParticipantPublicKey, SumParticipantEphemeralPublicKey)
-{
-    let SigningKeyPair { public: pk, .. } = SigningKeyPair::generate();
-    let EncryptKeyPair {
-        public: ephm_pk, ..
-    } = EncryptKeyPair::generate();
-    (pk, ephm_pk)
-}
+pub async fn init_store() -> Store<impl CoordinatorStorage, impl ModelStorage> {
+    let coordinator_store = redis::tests::init_client().await;
 
-pub fn create_local_seed_entries(
-    sum_pks: &[SumParticipantPublicKey],
-) -> Vec<(UpdateParticipantPublicKey, LocalSeedDict)> {
-    let mut entries = Vec::new();
-
-    for _ in 0..sum_pks.len() {
-        let SigningKeyPair {
-            public: update_pk, ..
-        } = SigningKeyPair::generate();
-
-        let mut local_seed_dict = LocalSeedDict::new();
-        for sum_pk in sum_pks {
-            let seed = EncryptedMaskSeed::zeroed();
-            local_seed_dict.insert(*sum_pk, seed);
+    let model_store = {
+        #[cfg(not(feature = "model-persistence"))]
+        {
+            model_storage::noop::NoOp
         }
-        entries.push((update_pk, local_seed_dict))
-    }
 
-    entries
-}
-
-pub fn create_mask_zeroed(byte_size: usize) -> MaskObject {
-    let config = MaskConfig {
-        group_type: GroupType::Prime,
-        data_type: DataType::F32,
-        bound_type: BoundType::B0,
-        model_type: ModelType::M3,
+        #[cfg(feature = "model-persistence")]
+        {
+            model_storage::s3::tests::init_client().await
+        }
     };
 
-    MaskObject::new(
-        config.into(),
-        vec![BigUint::zero(); byte_size],
-        BigUint::zero(),
-    )
-    .unwrap()
-}
-
-pub fn create_mask(byte_size: usize, number: u32) -> MaskObject {
-    let config = MaskConfig {
-        group_type: GroupType::Prime,
-        data_type: DataType::F32,
-        bound_type: BoundType::B0,
-        model_type: ModelType::M3,
-    };
-
-    MaskObject::new(
-        config.into(),
-        vec![BigUint::from(number); byte_size],
-        BigUint::zero(),
-    )
-    .unwrap()
-}
-
-pub fn create_seed_dict(
-    sum_dict: SumDict,
-    seed_updates: &[(UpdateParticipantPublicKey, LocalSeedDict)],
-) -> SeedDict {
-    let mut seed_dict: SeedDict = sum_dict
-        .keys()
-        .map(|pk| (*pk, LocalSeedDict::new()))
-        .collect();
-
-    for (pk, local_seed_dict) in seed_updates {
-        for (sum_pk, seed) in local_seed_dict {
-            seed_dict.get_mut(sum_pk).unwrap().insert(*pk, seed.clone());
-        }
-    }
-
-    seed_dict
-}
-
-pub async fn create_and_add_sum_participant_entries(
-    client: &mut Client,
-    n: u32,
-) -> Vec<SumParticipantPublicKey> {
-    let mut sum_pks = Vec::new();
-    for _ in 0..n {
-        let (pk, ephm_pk) = create_sum_participant_entry();
-
-        let _ = client.add_sum_participant(&pk, &ephm_pk).await.unwrap();
-        sum_pks.push(pk);
-    }
-
-    sum_pks
-}
-
-pub async fn add_local_seed_entries(
-    client: &mut Client,
-    local_seed_entries: &[(UpdateParticipantPublicKey, LocalSeedDict)],
-) -> Vec<LocalSeedDictAdd> {
-    let mut update_result = Vec::new();
-
-    for (update_pk, local_seed_dict) in local_seed_entries {
-        let res = client
-            .add_local_seed_dict(&update_pk, &local_seed_dict)
-            .await;
-        assert!(res.is_ok());
-        update_result.push(res.unwrap())
-    }
-
-    update_result
-}
-
-#[cfg(feature = "model-persistence")]
-use xaynet_core::mask::{FromPrimitives, Model};
-
-#[cfg(feature = "model-persistence")]
-pub fn create_global_model(nb_elements: usize) -> Model {
-    Model::from_primitives(vec![0; nb_elements].into_iter()).unwrap()
+    Store::new(coordinator_store, model_store)
 }

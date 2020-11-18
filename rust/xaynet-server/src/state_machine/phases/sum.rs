@@ -14,7 +14,7 @@ use crate::{
         RequestError,
         StateMachine,
     },
-    storage::{CoordinatorStorage, StorageError},
+    storage::{CoordinatorStorage, ModelStorage, StorageError},
 };
 use thiserror::Error;
 use xaynet_macros::metrics;
@@ -36,7 +36,11 @@ pub struct Sum {
 }
 
 #[async_trait]
-impl Handler for PhaseState<Sum> {
+impl<C, M> Handler for PhaseState<Sum, C, M>
+where
+    C: CoordinatorStorage,
+    M: ModelStorage,
+{
     /// Handles a [`StateMachineRequest`].
     ///
     /// If the request is a [`StateMachineRequest::Update`] or
@@ -46,7 +50,7 @@ impl Handler for PhaseState<Sum> {
         match req {
             StateMachineRequest::Sum(sum_req) => {
                 metrics!(
-                    self.shared.io.metrics_tx,
+                    self.shared.metrics_tx,
                     metrics::message::sum::increment(self.shared.state.round_id, Self::NAME)
                 );
                 self.handle_sum(sum_req).await
@@ -57,9 +61,11 @@ impl Handler for PhaseState<Sum> {
 }
 
 #[async_trait]
-impl Phase for PhaseState<Sum>
+impl<C, M> Phase<C, M> for PhaseState<Sum, C, M>
 where
     Self: Handler,
+    C: CoordinatorStorage,
+    M: ModelStorage,
 {
     const NAME: PhaseName = PhaseName::Sum;
 
@@ -76,13 +82,12 @@ where
 
         info!(
             "{} sum messages handled (min {} required)",
-            self.inner.sum_count, self.shared.state.min_sum_count
+            self.private.sum_count, self.shared.state.min_sum_count
         );
 
         let sum_dict = self
             .shared
-            .io
-            .redis
+            .store
             .sum_dict()
             .await
             .map_err(SumStateError::FetchSumDict)?
@@ -90,27 +95,28 @@ where
 
         info!("broadcasting sum dictionary");
         self.shared
-            .io
             .events
             .broadcast_sum_dict(DictionaryUpdate::New(Arc::new(sum_dict)));
         Ok(())
     }
 
-    fn next(self) -> Option<StateMachine> {
-        Some(PhaseState::<Update>::new(self.shared).into())
+    fn next(self) -> Option<StateMachine<C, M>> {
+        Some(PhaseState::<Update, _, _>::new(self.shared).into())
     }
 }
 
-impl PhaseState<Sum>
+impl<C, M> PhaseState<Sum, C, M>
 where
-    Self: Handler + Phase,
+    Self: Handler + Phase<C, M>,
+    C: CoordinatorStorage,
+    M: ModelStorage,
 {
     /// Processes requests until there are enough.
     async fn process_until_enough(&mut self) -> Result<(), PhaseStateError> {
         while !self.has_enough_sums() {
             debug!(
                 "{} sum messages handled (min {} required)",
-                self.inner.sum_count, self.shared.state.min_sum_count,
+                self.private.sum_count, self.shared.state.min_sum_count,
             );
             self.process_next().await?;
         }
@@ -118,11 +124,15 @@ where
     }
 }
 
-impl PhaseState<Sum> {
+impl<C, M> PhaseState<Sum, C, M>
+where
+    C: CoordinatorStorage,
+    M: ModelStorage,
+{
     /// Creates a new sum state.
-    pub fn new(shared: Shared) -> Self {
+    pub fn new(shared: Shared<C, M>) -> Self {
         Self {
-            inner: Sum { sum_count: 0 },
+            private: Sum { sum_count: 0 },
             shared,
         }
     }
@@ -130,7 +140,8 @@ impl PhaseState<Sum> {
     /// Handles a sum request.
     ///
     /// # Error
-    /// Fails if the sum participant cannot be added due to a Redis error.
+    ///
+    /// Fails if the sum participant cannot be added due to a PET or [`StorageError`].
     async fn handle_sum(&mut self, req: SumRequest) -> Result<(), RequestError> {
         let SumRequest {
             participant_pk,
@@ -138,29 +149,31 @@ impl PhaseState<Sum> {
         } = req;
 
         self.shared
-            .io
-            .redis
+            .store
             .add_sum_participant(&participant_pk, &ephm_pk)
             .await?
             .into_inner()?;
 
-        self.inner.sum_count += 1;
+        self.private.sum_count += 1;
         Ok(())
     }
 
     /// Checks whether enough sum participants submitted their ephemeral keys to start the update
     /// phase.
     fn has_enough_sums(&self) -> bool {
-        self.inner.sum_count >= self.shared.state.min_sum_count
+        self.private.sum_count >= self.shared.state.min_sum_count
     }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::state_machine::{
-        events::Event,
-        tests::{builder::StateMachineBuilder, utils},
+    use crate::{
+        state_machine::{
+            events::Event,
+            tests::{builder::StateMachineBuilder, utils},
+        },
+        storage::tests::init_store,
     };
     use serial_test::serial;
 
@@ -168,9 +181,10 @@ mod test {
     #[serial]
     pub async fn integration_sum_to_update() {
         utils::enable_logging();
+        let mut store = init_store().await;
+
         let sum = Sum { sum_count: 0 };
-        let (state_machine, request_tx, events, mut eio) = StateMachineBuilder::new()
-            .await
+        let (state_machine, request_tx, events) = StateMachineBuilder::new(store.clone())
             .with_phase(sum)
             // Make sure anyone is a sum participant.
             .with_sum_ratio(1.0)
@@ -199,19 +213,19 @@ mod test {
 
         let (_response, state_machine) = tokio::join!(request_fut, transition_fut);
         let PhaseState {
-            inner: update_state,
+            private: update_state,
             shared,
             ..
         } = state_machine.into_update_phase_state();
 
         // Check the initial state of the update phase.
-        let frozen_sum_dict = eio.redis.sum_dict().await.unwrap().unwrap();
+        let frozen_sum_dict = store.sum_dict().await.unwrap().unwrap();
         assert_eq!(frozen_sum_dict.len(), 1);
         let (pk, ephm_pk) = frozen_sum_dict.iter().next().unwrap();
         assert_eq!(pk.clone(), summer.keys.public);
         assert_eq!(ephm_pk.clone(), utils::ephm_pk(&sum_msg));
 
-        let seed_dict = eio.redis.seed_dict().await.unwrap().unwrap();
+        let seed_dict = store.seed_dict().await.unwrap().unwrap();
         assert_eq!(seed_dict.len(), 1);
         let (pk, dict) = seed_dict.iter().next().unwrap();
         assert_eq!(pk.clone(), summer.keys.public);

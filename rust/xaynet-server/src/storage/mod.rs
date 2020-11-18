@@ -1,13 +1,13 @@
-pub mod api;
-pub mod redis;
-#[cfg(feature = "model-persistence")]
-pub mod s3;
+pub mod coordinator_storage;
+pub mod model_storage;
 pub mod store;
 #[cfg(test)]
 pub(crate) mod tests;
+pub mod traits;
 
 pub use self::{
-    api::{
+    store::Store,
+    traits::{
         CoordinatorStorage,
         LocalSeedDictAdd,
         LocalSeedDictAddError,
@@ -19,6 +19,4 @@ pub use self::{
         SumPartAdd,
         SumPartAddError,
     },
-    redis::{RedisError, RedisResult},
-    store::Store,
 };

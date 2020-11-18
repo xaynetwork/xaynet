@@ -64,15 +64,6 @@ pub struct Client {
     client: S3Client,
 }
 
-#[cfg(test)]
-impl std::fmt::Debug for Client {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Client")
-            .field("buckets", &self.buckets)
-            .finish()
-    }
-}
-
 impl Client {
     /// Creates a new S3 client. The client creates and maintains one bucket for storing global models.
     ///
@@ -226,7 +217,7 @@ impl ModelStorage for Client {
 #[cfg(test)]
 pub(in crate) mod tests {
     use super::*;
-    use crate::storage::tests::create_global_model;
+    use crate::storage::tests::utils::create_global_model;
     use rusoto_core::Region;
     use rusoto_s3::{
         Delete,
@@ -348,7 +339,7 @@ pub(in crate) mod tests {
         }
     }
 
-    pub async fn create_client() -> Client {
+    pub async fn init_client() -> Client {
         let settings = create_minio_setup();
         let client = Client::new(settings).unwrap();
         client.create_global_models_bucket().await.unwrap();
@@ -359,7 +350,7 @@ pub(in crate) mod tests {
     #[tokio::test]
     #[serial]
     async fn integration_test_set_and_get_global_model() {
-        let mut client = create_client().await;
+        let mut client = init_client().await;
 
         let global_model = create_global_model(10);
         let id = client
@@ -374,7 +365,7 @@ pub(in crate) mod tests {
     #[tokio::test]
     #[serial]
     async fn integration_test_get_global_model_non_existent() {
-        let mut client = create_client().await;
+        let mut client = init_client().await;
 
         let id = Client::create_global_model_id(1, &RoundSeed::generate());
         let res = client.global_model(&id).await.unwrap();
@@ -384,7 +375,7 @@ pub(in crate) mod tests {
     #[tokio::test]
     #[serial]
     async fn integration_test_global_model_already_exists() {
-        let mut client = create_client().await;
+        let mut client = init_client().await;
 
         let global_model = create_global_model(10);
         let round_seed = RoundSeed::generate();

@@ -11,7 +11,7 @@ use crate::{
         phases::{Idle, Phase, PhaseName, PhaseState, PhaseStateError, Shared},
         StateMachine,
     },
-    storage::{CoordinatorStorage, StorageError},
+    storage::{CoordinatorStorage, ModelStorage, StorageError},
 };
 use thiserror::Error;
 use xaynet_core::mask::{Aggregation, MaskObject, Model, UnmaskingError};
@@ -47,7 +47,11 @@ impl Unmask {
 }
 
 #[async_trait]
-impl Phase for PhaseState<Unmask> {
+impl<C, M> Phase<C, M> for PhaseState<Unmask, C, M>
+where
+    C: CoordinatorStorage,
+    M: ModelStorage,
+{
     const NAME: PhaseName = PhaseName::Unmask;
 
     /// Run the unmasking phase
@@ -57,8 +61,7 @@ impl Phase for PhaseState<Unmask> {
 
         let best_masks = self
             .shared
-            .io
-            .redis
+            .store
             .best_masks()
             .await
             .map_err(UnmaskStateError::FetchBestMasks)?
@@ -71,7 +74,6 @@ impl Phase for PhaseState<Unmask> {
 
         info!("broadcasting the new global model");
         self.shared
-            .io
             .events
             .broadcast_model(ModelUpdate::New(Arc::new(global_model)));
 
@@ -81,16 +83,20 @@ impl Phase for PhaseState<Unmask> {
     /// Moves from the unmask state to the next state.
     ///
     /// See the [module level documentation](../index.html) for more details.
-    fn next(self) -> Option<StateMachine> {
-        Some(PhaseState::<Idle>::new(self.shared).into())
+    fn next(self) -> Option<StateMachine<C, M>> {
+        Some(PhaseState::<Idle, _, _>::new(self.shared).into())
     }
 }
 
-impl PhaseState<Unmask> {
+impl<C, M> PhaseState<Unmask, C, M>
+where
+    C: CoordinatorStorage,
+    M: ModelStorage,
+{
     /// Creates a new unmask state.
-    pub fn new(shared: Shared, model_agg: Aggregation) -> Self {
+    pub fn new(shared: Shared<C, M>, model_agg: Aggregation) -> Self {
         Self {
-            inner: Unmask {
+            private: Unmask {
                 model_agg: Some(model_agg),
             },
             shared,
@@ -125,7 +131,7 @@ impl PhaseState<Unmask> {
         let mask = self.freeze_mask_dict(best_masks).await?;
 
         // Safe unwrap: State::<Unmask>::new always creates Some(aggregation)
-        let model_agg = self.inner.model_agg.take().unwrap();
+        let model_agg = self.private.model_agg.take().unwrap();
 
         model_agg
             .validate_unmasking(&mask)
@@ -136,21 +142,18 @@ impl PhaseState<Unmask> {
 
     #[cfg(feature = "model-persistence")]
     async fn save_global_model(&mut self, global_model: &Model) -> Result<(), UnmaskStateError> {
-        use crate::storage::ModelStorage;
         use tracing::warn;
 
         let round_seed = &self.shared.state.round_params.seed;
         let global_model_id = self
             .shared
-            .io
-            .s3
+            .store
             .set_global_model(self.shared.state.round_id, &round_seed, global_model)
             .await
             .map_err(UnmaskStateError::SaveGlobalModel)?;
         let _ = self
             .shared
-            .io
-            .redis
+            .store
             .set_latest_global_model_id(&global_model_id)
             .await
             .map_err(|err| warn!("failed to update latest global model id: {}", err));
@@ -159,19 +162,21 @@ impl PhaseState<Unmask> {
 }
 
 #[cfg(feature = "metrics")]
-impl PhaseState<Unmask>
+impl<C, M> PhaseState<Unmask, C, M>
 where
-    Self: Phase,
+    Self: Phase<C, M>,
+    C: CoordinatorStorage,
+    M: ModelStorage,
 {
     fn emit_number_of_unique_masks_metrics(&mut self) {
         use tracing::error;
 
-        let mut redis = self.shared.io.redis.clone();
-        let mut metrics_tx = self.shared.io.metrics_tx.clone();
+        let mut store = self.shared.store.clone();
+        let mut metrics_tx = self.shared.metrics_tx.clone();
         let (round_id, phase_name) = (self.shared.state.round_id, Self::NAME);
 
         tokio::spawn(async move {
-            match redis.number_of_unique_masks().await {
+            match store.number_of_unique_masks().await {
                 Ok(number_of_masks) => metrics_tx.send(metrics::masks::total_number::update(
                     number_of_masks,
                     round_id,
