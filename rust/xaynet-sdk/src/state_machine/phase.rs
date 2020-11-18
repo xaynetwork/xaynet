@@ -45,6 +45,18 @@ pub struct Phase<P> {
     pub(super) io: PhaseIo,
 }
 
+impl<P> std::fmt::Debug for Phase<P>
+where
+    P: std::fmt::Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Phase")
+            .field("state", &self.state)
+            .field("io", &"PhaseIo")
+            .finish()
+    }
+}
+
 /// Store for all the data that are common to all the phases
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SharedState {
@@ -102,6 +114,7 @@ macro_rules! try_progress {
 
 /// Represent the presence or absence of progress being made during a phase.
 #[allow(clippy::large_enum_variant)]
+#[derive(Debug)]
 pub enum Progress<P> {
     /// No progress can be made currently.
     Stuck(Phase<P>),
@@ -228,6 +241,24 @@ impl<P> Phase<P> {
         // unwrapping is fine
         .unwrap()
     }
+
+    #[cfg(test)]
+    pub(crate) fn with_io_mock<F>(&mut self, f: F)
+    where
+        F: FnOnce(&mut super::MockIO),
+    {
+        let mut mock = super::MockIO::new();
+        f(&mut mock);
+        self.io = Box::new(mock);
+    }
+
+    #[cfg(test)]
+    pub(crate) fn check_io_mock(&mut self) {
+        // dropping the mock forces the checks to run. We replace it
+        // by an empty one, so that we detect if a method is called
+        // un-expectedly afterwards
+        let _ = std::mem::replace(&mut self.io, Box::new(super::MockIO::new()));
+    }
 }
 
 #[derive(Error, Debug)]
@@ -252,7 +283,7 @@ pub enum RoundFreshness {
 /// // `buf` is a Vec<u8> that contains a serialized state that we want to deserialize
 /// let state: State<???> = State::deserialize(&buf[..]).unwrap();
 /// ```
-#[derive(Serialize, Deserialize, From)]
+#[derive(Serialize, Deserialize, From, Debug)]
 #[allow(clippy::large_enum_variant)]
 pub enum SerializableState {
     NewRound(State<NewRound>),

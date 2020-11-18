@@ -25,6 +25,17 @@ pub enum LocalModel {
     Owned(Model),
 }
 
+impl std::fmt::Debug for LocalModel {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            LocalModel::Dyn(_) => fmt.debug_tuple("LocalModel::Dyn"),
+            LocalModel::Owned(_) => fmt.debug_tuple("LocalModel::Owned"),
+        }
+        .field(&"...")
+        .finish()
+    }
+}
+
 impl AsRef<Model> for LocalModel {
     fn as_ref(&self) -> &Model {
         match self {
@@ -56,7 +67,7 @@ impl<'de> serde::de::Deserialize<'de> for LocalModel {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Update {
     pub sum_signature: ParticipantTaskSignature,
     pub update_signature: ParticipantTaskSignature,
@@ -137,13 +148,12 @@ impl Step for Phase<Update> {
         }
 
         info!("going back to awaiting phase");
-        self.io.notify_idle();
         TransitionOutcome::Complete(self.into_awaiting().into())
     }
 }
 
 impl Phase<Update> {
-    async fn fetch_sum_dict(mut self) -> Progress<Update> {
+    pub(crate) async fn fetch_sum_dict(mut self) -> Progress<Update> {
         if self.state.private.has_fetched_sum_dict() {
             debug!("already fetched the sum dictionary, continuing");
             return Progress::Continue(self);
@@ -165,7 +175,7 @@ impl Phase<Update> {
         }
     }
 
-    async fn load_model(mut self) -> Progress<Update> {
+    pub(crate) async fn load_model(mut self) -> Progress<Update> {
         if self.state.private.has_loaded_model() {
             debug!("already loaded the model, continuing");
             return Progress::Continue(self);
@@ -189,7 +199,7 @@ impl Phase<Update> {
     }
 
     /// Generate a mask seed and mask a local model.
-    fn mask_model(mut self) -> Progress<Update> {
+    pub(crate) fn mask_model(mut self) -> Progress<Update> {
         if self.state.private.has_masked_model() {
             debug!("already computed the masked model, continuing");
             return Progress::Continue(self);
@@ -206,7 +216,7 @@ impl Phase<Update> {
     }
 
     // Create a local seed dictionary from a sum dictionary.
-    fn build_seed_dict(mut self) -> Progress<Update> {
+    pub(crate) fn build_seed_dict(mut self) -> Progress<Update> {
         if self.state.private.has_built_seed_dict() {
             debug!("already built the seed dictionary, continuing");
             return Progress::Continue(self);
@@ -228,7 +238,7 @@ impl Phase<Update> {
         Progress::Updated(self.into())
     }
 
-    fn compose_update_message(mut self) -> Progress<Update> {
+    pub(crate) fn compose_update_message(mut self) -> Progress<Update> {
         if self.state.private.has_composed_message() {
             debug!("already composed the update message, continuing");
             return Progress::Continue(self);
