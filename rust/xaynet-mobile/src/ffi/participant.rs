@@ -254,7 +254,7 @@ pub unsafe extern "C" fn xaynet_ffi_participant_restore(
         None => return ptr::null_mut(),
     };
 
-    if let Ok(participant) = Participant::restore(buffer.as_slice(), url.into()) {
+    if let Ok(participant) = Participant::restore(buffer.as_slice(), url) {
         Box::into_raw(Box::new(participant))
     } else {
         ptr::null_mut()

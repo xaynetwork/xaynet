@@ -163,7 +163,7 @@ impl Participant {
     /// Create a new participant with the given settings
     pub fn new(settings: Settings) -> Result<Self, InitError> {
         let (url, pet_settings) = settings.try_into().map_err(InitError::InvalidSettings)?;
-        let client = Client::new(url, None, None).map_err(InitError::Client)?;
+        let client = Client::new(url.as_str(), None, None).map_err(InitError::Client)?;
         let (events, notifier) = Events::new();
         let store = Store::new();
         let state_machine = StateMachine::new(pet_settings, client, store.clone(), notifier);
@@ -173,7 +173,7 @@ impl Participant {
     /// Restore a participant from it's serialized state. The coordinator client that
     /// the participant use internally is not part of the participant state, so the
     /// `url` is used to instantiate a new one.
-    pub fn restore(state: &[u8], url: String) -> Result<Self, InitError> {
+    pub fn restore(state: &[u8], url: &str) -> Result<Self, InitError> {
         let state: SerializableState =
             bincode::deserialize(state).map_err(InitError::Deserialization)?;
         let (events, notifier) = Events::new();
