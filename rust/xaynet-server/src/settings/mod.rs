@@ -307,7 +307,7 @@ fn validate_fractions(s: &PetSettings) -> Result<(), ValidationError> {
 ///
 /// Requires at least one of the following arguments if the `tls` feature is enabled:
 /// - `tls_certificate` together with `tls_key` for TLS server authentication
-/// - `tls_root` for TLS client authentication
+/// - `tls_client_auth` for TLS client authentication
 pub struct ApiSettings {
     /// The address to which the REST API should be bound.
     ///
@@ -369,8 +369,8 @@ pub struct ApiSettings {
     pub tls_key: Option<PathBuf>,
 
     #[cfg(feature = "tls")]
-    /// The path to the trusted anchors to enable TLS client authentication. Leave this out to
-    /// disable client authentication.
+    /// The path to the trust anchor to enable TLS client authentication. Leave this out to disable
+    /// client authentication.
     ///
     /// Requires the `tls` feature to be enabled.
     ///
@@ -379,20 +379,20 @@ pub struct ApiSettings {
     /// **TOML**
     /// ```text
     /// [api]
-    /// tls_root = path/to/tls/files/root.pem
+    /// tls_client_auth = path/to/tls/files/trust_anchor.pem
     /// ```
     ///
     /// **Environment variable**
     /// ```text
-    /// XAYNET_API__TLS_ROOT=path/to/tls/files/root.pem
+    /// XAYNET_API__TLS_CLIENT_AUTH=path/to/tls/files/trust_anchor.pem
     /// ```
-    pub tls_root: Option<PathBuf>,
+    pub tls_client_auth: Option<PathBuf>,
 }
 
 #[cfg(feature = "tls")]
 /// Checks API settings.
 fn validate_api(s: &ApiSettings) -> Result<(), ValidationError> {
-    match (&s.tls_certificate, &s.tls_key, &s.tls_root) {
+    match (&s.tls_certificate, &s.tls_key, &s.tls_client_auth) {
         (Some(_), Some(_), _) | (None, None, Some(_)) => Ok(()),
         _ => Err(ValidationError::new("invalid tls settings")),
     }

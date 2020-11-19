@@ -277,13 +277,13 @@ fn configure_tls<F>(
     server: Server<F>,
     tls_certificate: Option<PathBuf>,
     tls_key: Option<PathBuf>,
-    tls_root: Option<PathBuf>,
+    tls_client_auth: Option<PathBuf>,
 ) -> Result<TlsServer<F>, RestError>
 where
     F: Filter + Clone + Send + Sync + 'static,
     F::Extract: Reply,
 {
-    if tls_certificate.is_none() && tls_key.is_none() && tls_root.is_none() {
+    if tls_certificate.is_none() && tls_key.is_none() && tls_client_auth.is_none() {
         return Err(RestError::InvalidTlsConfig);
     }
 
@@ -293,8 +293,8 @@ where
         (None, None) => {}
         _ => return Err(RestError::InvalidTlsConfig),
     }
-    if let Some(root) = tls_root {
-        server = server.root_path(root, true);
+    if let Some(trust_anchor) = tls_client_auth {
+        server = server.client_auth_required_path(trust_anchor);
     }
     Ok(server)
 }
@@ -324,7 +324,7 @@ where
         warp::serve(filter),
         api_settings.tls_certificate,
         api_settings.tls_key,
-        api_settings.tls_root,
+        api_settings.tls_client_auth,
     )?
     .run(api_settings.bind_address)
     .await;
