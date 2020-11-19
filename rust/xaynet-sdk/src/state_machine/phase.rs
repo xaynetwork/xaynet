@@ -11,9 +11,9 @@ use crate::{
     MessageEncoder,
 };
 use xaynet_core::{
-    common::RoundParameters,
-    crypto::SigningKeyPair,
-    mask::{MaskConfigPair, Model},
+    common::{RoundParameters, RoundSeed},
+    crypto::{ByteObject, PublicEncryptKey, SigningKeyPair},
+    mask::{self, MaskConfig, Model},
     message::Payload,
 };
 
@@ -63,8 +63,6 @@ pub struct SharedState {
     /// Keys that identify the participant. They are used to sign the
     /// PET message sent by the participant.
     pub keys: SigningKeyPair,
-    /// Masking configuration
-    pub mask_config: MaskConfigPair,
     /// Scalar used for masking
     pub scalar: f64,
     /// Maximum message size the participant can send. Messages larger
@@ -74,14 +72,33 @@ pub struct SharedState {
     pub round_params: RoundParameters,
 }
 
+/// Get arbitrary round parameters. These round parameters are never used, we just
+/// temporarily use them in the [`SharedState`] when creating a new state machine. The
+/// first thing the state machine does when it runs, is to fetch the real round
+/// parameters from the coordinator.
+fn dummy_round_parameters() -> RoundParameters {
+    RoundParameters {
+        pk: PublicEncryptKey::zeroed(),
+        sum: 0.0,
+        update: 0.0,
+        seed: RoundSeed::zeroed(),
+        mask_config: MaskConfig {
+            group_type: mask::GroupType::Integer,
+            data_type: mask::DataType::F32,
+            bound_type: mask::BoundType::B0,
+            model_type: mask::ModelType::M3,
+        }
+        .into(),
+    }
+}
+
 impl SharedState {
     pub fn new(settings: PetSettings) -> Self {
         Self {
             keys: settings.keys,
-            mask_config: settings.mask_config,
             scalar: settings.scalar,
             message_size: settings.max_message_size,
-            round_params: RoundParameters::default(),
+            round_params: dummy_round_parameters(),
         }
     }
 }

@@ -17,7 +17,7 @@ use crate::{
             SumDictRequest,
             SumDictService,
         },
-        tests::utils::new_event_channels,
+        tests::utils::{mask_config, new_event_channels},
     },
     state_machine::events::{DictionaryUpdate, MaskLengthUpdate, ModelUpdate},
 };
@@ -89,6 +89,7 @@ async fn test_round_params_svc() {
         sum: 0.42,
         update: 0.42,
         seed: RoundSeed::fill_with(0x11),
+        mask_config: mask_config().into(),
     };
     publisher.broadcast_params(params.clone());
     assert_ready!(task.poll_ready()).unwrap();

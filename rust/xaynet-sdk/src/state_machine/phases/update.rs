@@ -205,7 +205,7 @@ impl Phase<Update> {
             return Progress::Continue(self);
         }
         info!("computing masked model");
-        let config = self.state.shared.mask_config;
+        let config = self.state.shared.round_params.mask_config;
         let masker = Masker::new(config);
         // UNWRAP_SAFE: the model is set, per the `has_masked_model()`
         // check above

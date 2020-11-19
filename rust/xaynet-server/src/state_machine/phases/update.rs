@@ -253,7 +253,7 @@ mod test {
     use xaynet_core::{
         common::{RoundParameters, RoundSeed},
         crypto::{ByteObject, EncryptKeyPair},
-        mask::{FromPrimitives, MaskConfig, Model},
+        mask::{FromPrimitives, Model},
         SeedDict,
         SumDict,
         UpdateSeedDict,
@@ -268,6 +268,7 @@ mod test {
             sum: 0.5,
             update: 1.0,
             seed: RoundSeed::generate(),
+            mask_config: utils::mask_config(),
         };
         let n_updaters = 1;
         let n_summers = 1;
@@ -282,8 +283,7 @@ mod test {
         let mut frozen_sum_dict = SumDict::new();
         frozen_sum_dict.insert(summer.keys.public, summer.ephm_keys.public);
 
-        let config: MaskConfig = utils::mask_settings().into();
-        let aggregation = Aggregation::new(config.into(), model_size);
+        let aggregation = Aggregation::new(utils::mask_config(), model_size);
 
         let mut store = init_store().await;
         // Create the state machine

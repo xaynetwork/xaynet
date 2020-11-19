@@ -11,7 +11,7 @@ use crate::{
         phases::PhaseName,
         tests::{
             builder::StateMachineBuilder,
-            utils::{enable_logging, generate_summer, generate_updater, Participant},
+            utils::{enable_logging, generate_summer, generate_updater, mask_config, Participant},
         },
     },
     storage::{tests::init_store, CoordinatorStorage},
@@ -31,6 +31,7 @@ async fn integration_full_round() {
         sum: 0.5,
         update: 1.0,
         seed: RoundSeed::generate(),
+        mask_config: mask_config(),
     };
     let n_updaters = 3;
     let n_summers = 2;

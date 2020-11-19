@@ -188,6 +188,7 @@ mod test {
             sum: 0.5,
             update: 1.0,
             seed: RoundSeed::generate(),
+            mask_config: utils::mask_config(),
         };
 
         let n_updaters = 1;

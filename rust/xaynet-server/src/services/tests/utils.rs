@@ -5,8 +5,18 @@ use crate::state_machine::{
 use xaynet_core::{
     common::{RoundParameters, RoundSeed},
     crypto::{ByteObject, EncryptKeyPair, PublicEncryptKey, SigningKeyPair},
+    mask::{self, MaskConfig},
     message::{Message, Sum},
 };
+
+pub fn mask_config() -> MaskConfig {
+    MaskConfig {
+        group_type: mask::GroupType::Integer,
+        data_type: mask::DataType::F32,
+        bound_type: mask::BoundType::B0,
+        model_type: mask::ModelType::M3,
+    }
+}
 
 /// Create an [`EventPublisher`]/[`EventSubscriber`] pair with default
 /// values similar to those produced in practice when instantiating a
@@ -18,6 +28,7 @@ pub fn new_event_channels() -> (EventPublisher, EventSubscriber) {
         sum: 0.0,
         update: 0.0,
         seed: RoundSeed::generate(),
+        mask_config: mask_config().into(),
     };
     let phase = PhaseName::Idle;
     let round_id = 0;

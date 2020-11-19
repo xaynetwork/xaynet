@@ -8,7 +8,7 @@ use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
 use xaynet_core::{
     crypto::SigningKeyPair,
-    mask::{BoundType, DataType, FromPrimitives, GroupType, MaskConfig, Model, ModelType},
+    mask::{FromPrimitives, Model},
 };
 use xaynet_sdk::{
     client::{Client, ClientError},
@@ -53,14 +53,8 @@ async fn main() -> Result<(), ClientError> {
 }
 
 fn generate_agent_config() -> PetSettings {
-    let mask_config = MaskConfig {
-        group_type: GroupType::Prime,
-        data_type: DataType::F32,
-        bound_type: BoundType::B0,
-        model_type: ModelType::M3,
-    };
     let keys = SigningKeyPair::generate();
-    PetSettings::new(keys, mask_config)
+    PetSettings::new(keys)
 }
 
 fn spawn_participant(
