@@ -15,11 +15,15 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Install nightly toolchain
+        id: rust-toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: nightly
           components: rustfmt
+          # we need to set the nightly toolchain as default so that `rust-toolchain.outputs.rustc`
+          # prints the installed nightly version rather than the installed version of stable
+          default: true
 
       - name: Cache cargo
         uses: actions/cache@v2
@@ -28,7 +32,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             ${{ github.workspace }}/rust/target
-          key: ${{ runner.os }}-cargo-fmt-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-fmt-${{ hashFiles('**/Cargo.lock') }}
 
       - name: cargo fmt
         working-directory: ./rust
@@ -45,6 +49,7 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Install stable toolchain
+        id: rust-toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -57,7 +62,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             ${{ github.workspace }}/rust/target
-          key: ${{ runner.os }}-cargo-check-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-check-${{ hashFiles('**/Cargo.lock') }}
 
       - name: cargo check
         working-directory: ./rust
@@ -78,6 +83,7 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Install stable toolchain
+        id: rust-toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -91,7 +97,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             ${{ github.workspace }}/rust/target
-          key: ${{ runner.os }}-cargo-clippy-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-clippy-${{ hashFiles('**/Cargo.lock') }}
 
       - name: cargo clippy
         working-directory: ./rust
@@ -110,6 +116,7 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Install stable toolchain
+        id: rust-toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -122,7 +129,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             ${{ github.workspace }}/rust/target
-          key: ${{ runner.os }}-cargo-tests-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-tests-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Start docker-compose
         working-directory: ./docker
@@ -151,6 +158,7 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Install stable toolchain
+        id: rust-toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -163,7 +171,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             ${{ github.workspace }}/rust/target
-          key: ${{ runner.os }}-cargo-bench-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-bench-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Run Bench
         working-directory: ./rust/benches
@@ -184,10 +192,12 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Install nightly toolchain
+        id: rust-toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: nightly
+          default: true
 
       - name: Cache cargo
         uses: actions/cache@v2
@@ -196,7 +206,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             ${{ github.workspace }}/rust/target
-          key: ${{ runner.os }}-cargo-doc-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-doc-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Check the building of docs
         working-directory: ./rust
@@ -211,10 +221,11 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Install stable toolchain
+        id: rust-toolchain
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-          override: true
+          profile: minimal
 
       - name: Cache cargo
         uses: actions/cache@v2
@@ -223,7 +234,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             ${{ github.workspace }}/rust/target
-          key: ${{ runner.os }}-cargo-tarpaulin-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-tarpaulin-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Start docker-compose
         working-directory: ./docker
