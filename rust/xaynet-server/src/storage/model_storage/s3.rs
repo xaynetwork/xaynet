@@ -339,10 +339,10 @@ pub(in crate) mod tests {
         }
     }
 
-    fn create_minio_setup() -> S3Settings {
+    fn create_minio_setup(url: &str) -> S3Settings {
         let region = Region::Custom {
             name: String::from("minio"),
-            endpoint: String::from("http://localhost:9000"),
+            endpoint: String::from(url),
         };
 
         S3Settings {
@@ -354,11 +354,16 @@ pub(in crate) mod tests {
     }
 
     pub async fn init_client() -> Client {
-        let settings = create_minio_setup();
+        let settings = create_minio_setup("http://localhost:9000");
         let client = Client::new(settings).unwrap();
         client.create_global_models_bucket().await.unwrap();
         client.clear_bucket("global-models").await.unwrap();
         client
+    }
+
+    async fn init_disconnected_client() -> Client {
+        let settings = create_minio_setup("http://localhost:11000");
+        Client::new(settings).unwrap()
     }
 
     #[tokio::test]
@@ -410,5 +415,34 @@ pub(in crate) mod tests {
 
         let downloaded_global_model = client.global_model(&id).await.unwrap().unwrap();
         assert_eq!(global_model, downloaded_global_model)
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn integration_test_is_ready_ok() {
+        let mut client = init_client().await;
+        client.create_global_models_bucket().await.unwrap();
+        client.clear_bucket("global-models").await.unwrap();
+
+        let res = client.is_ready().await;
+        assert!(res.is_ok())
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn integration_test_is_ready_ok_no_such_bucket() {
+        let mut client = init_client().await;
+
+        let res = client.is_ready().await;
+        assert!(res.is_ok())
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn integration_test_is_ready_err() {
+        let mut client = init_disconnected_client().await;
+
+        let res = client.is_ready().await;
+        assert!(res.is_err())
     }
 }

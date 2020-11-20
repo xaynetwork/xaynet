@@ -1043,6 +1043,16 @@ pub(in crate) mod tests {
 
     #[tokio::test]
     #[serial]
+    async fn integration_is_ready_ok() {
+        // test is_ready command
+        let mut client = init_client().await;
+
+        let res = client.is_ready().await;
+        assert!(res.is_ok())
+    }
+
+    #[tokio::test]
+    #[serial]
     async fn integration_get_latest_global_model_id_empty() {
         // test the reading of a non existing global model id
         let mut client = init_client().await;
