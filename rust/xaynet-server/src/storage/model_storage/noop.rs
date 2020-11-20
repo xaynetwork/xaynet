@@ -19,4 +19,8 @@ impl ModelStorage for NoOp {
     async fn global_model(&mut self, _id: &str) -> StorageResult<Option<Model>> {
         Err(anyhow::anyhow!("No-op model store"))
     }
+
+    async fn is_ready(&mut self) -> StorageResult<()> {
+        Ok(())
+    }
 }

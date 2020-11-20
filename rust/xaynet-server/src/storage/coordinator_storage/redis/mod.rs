@@ -428,6 +428,14 @@ impl CoordinatorStorage for Client {
             .await
             .map_err(to_storage_err)
     }
+
+    async fn is_ready(&mut self) -> StorageResult<()> {
+        // https://redis.io/commands/ping
+        redis::cmd("PING")
+            .query_async(&mut self.connection)
+            .await
+            .map_err(to_storage_err)
+    }
 }
 
 #[cfg(test)]

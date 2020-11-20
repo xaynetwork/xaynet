@@ -53,11 +53,20 @@ where
     C: CoordinatorStorage,
     M: ModelStorage,
 {
-    /// Creates a new error state.
+    /// Creates a new error phase.
     pub fn new(shared: Shared<C, M>, error: PhaseStateError) -> Self {
         Self {
             private: error,
             shared,
+        }
+    }
+
+    /// Waits until the [`crate::storage::Store`] is ready.
+    async fn wait_for_store_readiness(&mut self) {
+        while let Err(err) = self.shared.store.is_ready().await {
+            error!("store not ready: {}", err);
+            info!("try again in 5 sec");
+            delay_for(Duration::from_secs(5)).await;
         }
     }
 }
@@ -70,6 +79,11 @@ where
 {
     const NAME: PhaseName = PhaseName::Error;
 
+    /// Runs the error phase.
+    ///
+    /// # Behavior
+    ///
+    /// The state machine remains in the error phase until the [`crate::storage::Store`] is ready.
     async fn run(&mut self) -> Result<(), PhaseStateError> {
         error!("phase state error: {}", self.private);
 
@@ -78,15 +92,12 @@ where
             metrics::phase::error::emit(&self.private)
         );
 
-        while self.shared.store.coordinator_state().await.is_err() {
-            info!("storage not ready... try again in 5 sec");
-            delay_for(Duration::from_secs(5)).await;
-        }
+        self.wait_for_store_readiness().await;
 
         Ok(())
     }
 
-    /// Moves from the error state to the next state.
+    /// Moves from the error phase to the next phase.
     ///
     /// See the [module level documentation](../index.html) for more details.
     fn next(self) -> Option<StateMachine<C, M>> {

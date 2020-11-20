@@ -12,6 +12,8 @@ use rusoto_s3::{
     GetObjectError,
     GetObjectOutput,
     GetObjectRequest,
+    HeadBucketError,
+    HeadBucketRequest,
     ListObjectsV2Error,
     PutObjectError,
     PutObjectOutput,
@@ -56,6 +58,8 @@ pub enum ClientError {
     DownloadBody(std::io::Error),
     #[error("object {0} already exists")]
     ObjectAlreadyExists(String),
+    #[error("storage not ready: {0}")]
+    NotReady(RusotoError<HeadBucketError>),
 }
 
 #[derive(Clone)]
@@ -211,6 +215,16 @@ impl ModelStorage for Client {
         let body = Self::download_object_body(object_meta).await?;
         let model = bincode::deserialize(&body).map_err(ClientError::Deserialization)?;
         Ok(Some(model))
+    }
+
+    async fn is_ready(&mut self) -> StorageResult<()> {
+        let req = HeadBucketRequest {
+            bucket: self.buckets.global_models.clone(),
+        };
+        self.client
+            .head_bucket(req)
+            .await
+            .map_err(|e| anyhow::anyhow!(ClientError::NotReady(e)))
     }
 }
 
