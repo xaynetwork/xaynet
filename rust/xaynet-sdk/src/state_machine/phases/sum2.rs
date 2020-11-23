@@ -145,7 +145,7 @@ impl Phase<Sum2> {
         }
 
         info!("aggregating masks");
-        let config = self.state.shared.mask_config;
+        let config = self.state.shared.round_params.mask_config;
         // UNWRAP_SAFE: the mask length is set in
         // `self.fetch_mask_length()` which is called before this method
         let mask_len = self.state.private.mask_length.unwrap();

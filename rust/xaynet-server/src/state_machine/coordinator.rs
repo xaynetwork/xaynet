@@ -44,11 +44,13 @@ impl CoordinatorState {
         model_settings: ModelSettings,
     ) -> Self {
         let keys = EncryptKeyPair::generate();
+        let mask_config: MaskConfig = mask_settings.into();
         let round_params = RoundParameters {
             pk: keys.public,
             sum: pet_settings.sum,
             update: pet_settings.update,
             seed: RoundSeed::zeroed(),
+            mask_config: mask_config.clone().into(),
         };
         let round_id = 0;
         Self {
@@ -61,7 +63,7 @@ impl CoordinatorState {
             min_update_time: pet_settings.min_update_time,
             max_sum_time: pet_settings.max_sum_time,
             max_update_time: pet_settings.max_update_time,
-            mask_config: mask_settings.into(),
+            mask_config,
             model_size: model_settings.size,
         }
     }

@@ -5,49 +5,14 @@ include_version = true
 # A list of lines to add verbatim after the includes block
 after_includes = """
 /**
- * The maximum number of models to be aggregated.
+ * The original primitive data type of the model weights.
  */
-enum MASKCONFIG_MODELTYPE {
-  MODELTYPE_M3 = 3, /** At most 1_000 models to be aggregated. */
-  MODELTYPE_M6 = 6, /** At most 1_000_000 models to be aggregated. */
-  MODELTYPE_M9 = 9, /** At most 1_000_000_000 models to be aggregated. */
-  MODELTYPE_M12 = 12, /** At most 1_000_000_000_000 models to be aggregated. */
-};
-
-/**
- * The bounds of the numerical values.
- */
-enum MASKCONFIG_BOUNDTYPE{
-  BOUNDTYPE_B0 = 0, /** Numerical values absolutely bounded by 1 */
-  BOUNDTYPE_B2 = 2, /** Numerical values absolutely bounded by 100 */
-  BOUNDTYPE_B4 = 4, /** Numerical values absolutely bounded by 10_000 */
-  BOUNDTYPE_B6 = 6, /** Numerical values absolutely bounded by 1_000_000 */
-  BOUNDTYPE_BMAX = 255, /** Numerical values absolutely bounded by their original primitive data type's maximum absolute */
-};
-
-/**
- * The original primitive data type of the numerical values to be masked.
- */
-enum MASKCONFIG_DATATYPE {
+enum SETMODEL_DATATYPE {
   DATATYPE_F32 = 0, /** Numbers of type f32. */
   DATATYPE_F64 = 1, /** Numbers of type f64. */
   DATATYPE_I32 = 2, /** Numbers of type i32. */
   DATATYPE_I64 = 3, /** Numbers of type i64. */
 };
-
-/**
- * The order of the finite group.
- */
-enum GroupType {
-  GROUPTYPE_INTEGER = 0, /** A finite group of exact integer order. */
-  GROUPTYPE_PRIME = 1, /** A finite group of prime order. */
-  GROUPTYPE_POWER2 = 2, /** A finite group of power-of-two order. */
-};
-
-/**
- * The original primitive data type of the model weights.
- */
-typedef enum MASKCONFIG_DATATYPE SETMODEL_DATATYPE;
 """
 [export]
 exclude = ["_xaynet_ffi_settings_destroy", "_xaynet_ffi_participant_destroy"]

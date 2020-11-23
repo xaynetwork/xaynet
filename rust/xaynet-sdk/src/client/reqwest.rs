@@ -20,7 +20,7 @@ pub struct Client {
     /// HTTP(S) client
     client: reqwest::Client,
     /// Coordinator URL
-    address: Arc<String>,
+    address: Arc<str>,
 }
 
 impl Client {
@@ -32,13 +32,12 @@ impl Client {
     ///
     /// # Errors
     /// Fails if the TLS settings are invalid.
-    pub fn new<S, C, I>(address: S, certificates: C, identity: I) -> Result<Self, ClientError>
+    pub fn new<C, I>(address: &str, certificates: C, identity: I) -> Result<Self, ClientError>
     where
-        S: Into<String>,
         C: Into<Option<Vec<Certificate>>>,
         I: Into<Option<Identity>>,
     {
-        let address = Arc::new(address.into());
+        let address: Arc<str> = From::from(address);
         let certificates = certificates.into();
         let identity = identity.into();
 

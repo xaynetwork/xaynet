@@ -180,6 +180,10 @@ pub fn mask_settings() -> MaskSettings {
     }
 }
 
+pub fn mask_config() -> MaskConfigPair {
+    Into::<MaskConfig>::into(mask_settings()).into()
+}
+
 pub fn pet_settings() -> PetSettings {
     PetSettings {
         sum: 0.4,

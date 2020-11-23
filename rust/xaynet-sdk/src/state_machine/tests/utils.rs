@@ -125,13 +125,13 @@ pub fn round_params(task: SelectFor) -> RoundParameters {
         sum: if task == SelectFor::Sum { 1.0 } else { 0.0 },
         update: if task == SelectFor::Update { 1.0 } else { 0.0 },
         seed: RoundSeed::zeroed(),
+        mask_config: mask_config().into(),
     }
 }
 
 pub fn shared_state(task: SelectFor) -> SharedState {
     SharedState {
         keys: SigningKeyPair::derive_from_seed(&SigningKeySeed::zeroed()),
-        mask_config: mask_config().into(),
         scalar: 1.0,
         message_size: MaxMessageSize::unlimited(),
         round_params: round_params(task),

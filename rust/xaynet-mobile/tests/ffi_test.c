@@ -13,33 +13,6 @@ static char *test_settings_new() {
   return 0;
 }
 
-static char *test_settings_set_mask_config() {
-  Settings *settings = xaynet_ffi_settings_new();
-  // invalid group type
-  int err = xaynet_ffi_settings_set_mask_config(settings, 50, 0, 0, 0);
-  mu_assert("expected group type error", err == ERR_MASKCONFIG_GROUPTYPE);
-
-  // invalid data type
-  err = xaynet_ffi_settings_set_mask_config(settings, 0, 50, 0, 0);
-  mu_assert("expected data type error", err == ERR_MASKCONFIG_DATATYPE);
-
-  // invalid bound type
-  err = xaynet_ffi_settings_set_mask_config(settings, 0, 0, 50, 0);
-  mu_assert("expected bound type error", err == ERR_MASKCONFIG_BOUNDTYPE);
-
-  // invalid bound type
-  err = xaynet_ffi_settings_set_mask_config(settings, 0, 0, 0, 50);
-  mu_assert("expected model type error", err == ERR_MASKCONFIG_MODELTYPE);
-
-  // valid config
-  err = xaynet_ffi_settings_set_mask_config(
-      settings, GROUPTYPE_POWER2, DATATYPE_F64, BOUNDTYPE_BMAX, MODELTYPE_M3);
-  mu_assert("failed to set mask config", !err);
-
-  xaynet_ffi_settings_destroy(settings);
-  return 0;
-}
-
 static char *test_settings_set_keys() {
   mu_assert("failed to init crypto", xaynet_ffi_crypto_init() == OK);
   Settings *settings = xaynet_ffi_settings_new();
@@ -73,12 +46,6 @@ static char *test_settings_set_url() {
   return 0;
 }
 
-void with_mask_config(Settings *settings) {
-  int err = xaynet_ffi_settings_set_mask_config(
-      settings, GROUPTYPE_POWER2, DATATYPE_F64, BOUNDTYPE_BMAX, MODELTYPE_M3);
-  assert(!err);
-}
-
 void with_keys(Settings *settings) {
   const KeyPair *keys = xaynet_ffi_generate_key_pair();
   int err = xaynet_ffi_settings_set_keys(settings, keys);
@@ -93,25 +60,15 @@ void with_url(Settings *settings) {
 
 static char *test_settings() {
   Settings *settings = xaynet_ffi_settings_new();
-  with_mask_config(settings);
   with_keys(settings);
   int err = xaynet_ffi_check_settings(settings);
   mu_assert("expected missing url error", err == ERR_SETTINGS_URL);
   xaynet_ffi_settings_destroy(settings);
 
   settings = xaynet_ffi_settings_new();
-  with_mask_config(settings);
   with_url(settings);
   err = xaynet_ffi_check_settings(settings);
   mu_assert("expected missing keys error", err == ERR_SETTINGS_KEYS);
-  xaynet_ffi_settings_destroy(settings);
-
-  settings = xaynet_ffi_settings_new();
-  with_keys(settings);
-  with_url(settings);
-  err = xaynet_ffi_check_settings(settings);
-  mu_assert("expected missing mask config error",
-            err == ERR_SETTINGS_MASKCONFIG);
   xaynet_ffi_settings_destroy(settings);
 
   return 0;
@@ -119,7 +76,6 @@ static char *test_settings() {
 
 static char *test_participant_save_and_restore() {
   Settings *settings = xaynet_ffi_settings_new();
-  with_mask_config(settings);
   with_keys(settings);
   with_url(settings);
 
@@ -166,7 +122,6 @@ static char *test_participant_save_and_restore() {
 
 static char *test_participant_tick() {
   Settings *settings = xaynet_ffi_settings_new();
-  with_mask_config(settings);
   with_keys(settings);
   with_url(settings);
 
@@ -190,7 +145,6 @@ static char *test_participant_tick() {
 
 static char *all_tests() {
   mu_run_test(test_settings_new);
-  mu_run_test(test_settings_set_mask_config);
   mu_run_test(test_settings_set_keys);
   mu_run_test(test_settings_set_url);
   mu_run_test(test_settings);

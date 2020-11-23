@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use sodiumoxide::{self, crypto::box_};
 
-use crate::{crypto::ByteObject, CoordinatorPublicKey};
+use crate::{crypto::ByteObject, mask::MaskConfigPair, CoordinatorPublicKey};
 
 /// The round parameters.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -14,17 +14,8 @@ pub struct RoundParameters {
     pub update: f64,
     /// The random round seed.
     pub seed: RoundSeed,
-}
-
-impl Default for RoundParameters {
-    fn default() -> Self {
-        Self {
-            pk: CoordinatorPublicKey::zeroed(),
-            sum: 0.0,
-            update: 0.0,
-            seed: RoundSeed::zeroed(),
-        }
-    }
+    /// The masking configuration
+    pub mask_config: MaskConfigPair,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
