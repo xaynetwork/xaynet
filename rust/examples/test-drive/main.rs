@@ -1,6 +1,5 @@
-use std::{path::PathBuf, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
-use reqwest::Certificate;
 use structopt::StructOpt;
 use tracing::error_span;
 use tracing_futures::Instrument;
@@ -31,21 +30,8 @@ async fn main() -> Result<(), ClientError> {
     let len = opt.len as usize;
     let model = Arc::new(Model::from_primitives(vec![0; len].into_iter()).unwrap());
 
-    // optional certificates for TLS server authentication
-    let certificates = opt
-        .certificates
-        .as_ref()
-        .map(Client::certificates_from)
-        .transpose()?;
-
     for id in 0..opt.nb_client {
-        spawn_participant(
-            id as u32,
-            &opt.url,
-            certificates.clone(),
-            &opt.identity,
-            model.clone(),
-        )?;
+        spawn_participant(id as u32, &opt.url, model.clone())?;
     }
 
     tokio::signal::ctrl_c().await.unwrap();
@@ -57,20 +43,10 @@ fn generate_agent_config() -> PetSettings {
     PetSettings::new(keys)
 }
 
-fn spawn_participant(
-    id: u32,
-    url: &str,
-    certificates: Option<Vec<Certificate>>,
-    identity: &Option<PathBuf>,
-    model: Arc<Model>,
-) -> Result<(), ClientError> {
-    // optional identity for TLS client authentication (`Identity` doesn't implement `Clone` because
-    // every participant should of course use its own identity in a real use case, therefore we have
-    // to create it here for every client again)
-    let identity = identity.as_ref().map(Client::identity_from).transpose()?;
-
+fn spawn_participant(id: u32, url: &str, model: Arc<Model>) -> Result<(), ClientError> {
     let config = generate_agent_config();
-    let client = Client::new(url, certificates, identity).unwrap();
+    let http_client = reqwest::ClientBuilder::new().build().unwrap();
+    let client = Client::new(http_client, url).unwrap();
 
     let (participant, agent) = participant::Participant::new(config, client, model);
     tokio::spawn(async move {

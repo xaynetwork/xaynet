@@ -4,7 +4,8 @@ use std::convert::Infallible;
 #[cfg(feature = "tls")]
 use std::path::PathBuf;
 
-use bytes::{Buf, Bytes};
+use bytes::Bytes;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::{error, warn};
 use warp::{
@@ -20,6 +21,11 @@ use crate::{
     settings::ApiSettings,
 };
 use xaynet_core::{crypto::ByteObject, ParticipantPublicKey};
+
+#[derive(Deserialize, Serialize)]
+struct SeedDictQuery {
+    pk: String,
+}
 
 /// Starts a HTTP server at the given address, listening to GET requests for
 /// data and POST requests containing PET messages.
@@ -52,7 +58,8 @@ where
 
     let seed_dict = warp::path!("seeds")
         .and(warp::get())
-        .and(part_pk())
+        .and(warp::query::<SeedDictQuery>())
+        .and_then(part_pk)
         .and(with_fetcher(fetcher.clone()))
         .and_then(handle_seeds);
 
@@ -157,17 +164,17 @@ async fn handle_length<F: Fetcher>(mut fetcher: F) -> Result<impl warp::Reply, I
     Ok(match fetcher.mask_length().await {
         Ok(Some(mask_length)) => Response::builder()
             .status(StatusCode::OK)
-            .body(mask_length.to_string())
+            .body(bincode::serialize(&mask_length).unwrap())
             .unwrap(),
         Ok(None) => Response::builder()
             .status(StatusCode::NO_CONTENT)
-            .body(String::new())
+            .body(vec![])
             .unwrap(),
         Err(e) => {
             warn!("failed to handle mask_length request: {:?}", e);
             Response::builder()
                 .status(StatusCode::INTERNAL_SERVER_ERROR)
-                .body(String::new())
+                .body(vec![])
                 .unwrap()
         }
     })
@@ -226,14 +233,17 @@ fn with_fetcher<F: Fetcher + Sync + Send + 'static + Clone>(
 }
 
 /// Extracts a participant public key from a request body
-fn part_pk() -> impl Filter<Extract = (ParticipantPublicKey,), Error = warp::Rejection> + Clone {
-    warp::body::bytes().and_then(|body: Bytes| async move {
-        if let Some(pk) = ParticipantPublicKey::from_slice(body.bytes()) {
-            Ok(pk)
-        } else {
-            Err(warp::reject::custom(InvalidPublicKey))
+async fn part_pk(query: SeedDictQuery) -> Result<ParticipantPublicKey, warp::Rejection> {
+    match base64::decode(query.pk.as_bytes()) {
+        Ok(bytes) => {
+            if let Some(pk) = ParticipantPublicKey::from_slice(&bytes[..]) {
+                Ok(pk)
+            } else {
+                Err(warp::reject::custom(InvalidPublicKey))
+            }
         }
-    })
+        Err(_) => Err(warp::reject::custom(InvalidPublicKey)),
+    }
 }
 
 #[derive(Debug)]

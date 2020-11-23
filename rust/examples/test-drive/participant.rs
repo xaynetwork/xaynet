@@ -28,7 +28,7 @@ pub struct Participant {
     // wrap the client in an Arc, which would allow us to share the
     // same client with all the participants. Maybe XaynetClient
     // should have methods that take &self?
-    xaynet_client: Client,
+    xaynet_client: Client<reqwest::Client>,
     notifications: mpsc::Receiver<Event>,
 }
 
@@ -63,7 +63,11 @@ impl Agent {
 }
 
 impl Participant {
-    pub fn new(settings: PetSettings, xaynet_client: Client, model: Arc<Model>) -> (Self, Agent) {
+    pub fn new(
+        settings: PetSettings,
+        xaynet_client: Client<reqwest::Client>,
+        model: Arc<Model>,
+    ) -> (Self, Agent) {
         let (tx, rx) = mpsc::channel::<Event>(10);
         let notifier = Notifier(tx);
         let agent = Agent::new(settings, xaynet_client.clone(), LocalModel(model), notifier);
