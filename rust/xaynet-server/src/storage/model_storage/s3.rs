@@ -3,6 +3,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use http::StatusCode;
 use rusoto_core::{credential::StaticProvider, request::TlsError, HttpClient, RusotoError};
 use rusoto_s3::{
     CreateBucketError,
@@ -76,7 +77,7 @@ impl Client {
     /// use rusoto_core::Region;
     /// use xaynet_server::{
     ///     settings::{S3BucketsSettings, S3Settings},
-    ///     storage::s3::Client,
+    ///     storage::model_storage::s3::Client,
     /// };
     ///
     /// let region = Region::Custom {
@@ -219,12 +220,26 @@ impl ModelStorage for Client {
 
     async fn is_ready(&mut self) -> StorageResult<()> {
         let req = HeadBucketRequest {
+            // we can't use an empty string because S3/Minio would return BAD_REQUEST
             bucket: self.buckets.global_models.clone(),
         };
-        self.client
-            .head_bucket(req)
-            .await
-            .map_err(|e| anyhow::anyhow!(ClientError::NotReady(e)))
+        let res = self.client.head_bucket(req).await;
+
+        match res {
+            // rusoto doesn't return NoSuchBucket if the bucket doesn't exist
+            // https://github.com/rusoto/rusoto/issues/1099
+            //
+            // a workaround is to check if the StatusCode is NOT_FOUND
+            Err(RusotoError::Service(HeadBucketError::NoSuchBucket(_))) | Ok(_) => Ok(()),
+            Err(RusotoError::Unknown(resp)) => match resp.status {
+                // https://github.com/timberio/vector/blob/803c68c031e5872876e1167c428cd41358123d64/src/sinks/aws_s3.rs#L229
+                StatusCode::NOT_FOUND => Ok(()),
+                _ => Err(anyhow::anyhow!(ClientError::NotReady(
+                    RusotoError::Unknown(resp)
+                ))),
+            },
+            Err(e) => Err(anyhow::anyhow!(ClientError::NotReady(e))),
+        }
     }
 }
 
@@ -235,6 +250,8 @@ pub(in crate) mod tests {
     use rusoto_core::Region;
     use rusoto_s3::{
         Delete,
+        DeleteBucketError,
+        DeleteBucketRequest,
         DeleteObjectsOutput,
         DeleteObjectsRequest,
         ListObjectsV2Output,
@@ -337,6 +354,13 @@ pub(in crate) mod tests {
                 None
             }
         }
+
+        async fn delete_bucket(&self, bucket: &str) -> Result<(), RusotoError<DeleteBucketError>> {
+            let req = DeleteBucketRequest {
+                bucket: bucket.to_string(),
+            };
+            self.client.delete_bucket(req).await
+        }
     }
 
     fn create_minio_setup(url: &str) -> S3Settings {
@@ -421,8 +445,6 @@ pub(in crate) mod tests {
     #[serial]
     async fn integration_test_is_ready_ok() {
         let mut client = init_client().await;
-        client.create_global_models_bucket().await.unwrap();
-        client.clear_bucket("global-models").await.unwrap();
 
         let res = client.is_ready().await;
         assert!(res.is_ok())
@@ -431,7 +453,12 @@ pub(in crate) mod tests {
     #[tokio::test]
     #[serial]
     async fn integration_test_is_ready_ok_no_such_bucket() {
+        // test that is_ready returns Ok even if the bucket doesn't exist
         let mut client = init_client().await;
+        client
+            .delete_bucket(&S3BucketsSettings::default().global_models)
+            .await
+            .unwrap();
 
         let res = client.is_ready().await;
         assert!(res.is_ok())
