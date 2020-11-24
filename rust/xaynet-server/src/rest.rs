@@ -232,7 +232,7 @@ fn with_fetcher<F: Fetcher + Sync + Send + 'static + Clone>(
     warp::any().map(move || fetcher.clone())
 }
 
-/// Extracts a participant public key from a request body
+/// Extracts a participant public key from the url query string
 async fn part_pk(query: SeedDictQuery) -> Result<ParticipantPublicKey, warp::Rejection> {
     match base64::decode(query.pk.as_bytes()) {
         Ok(bytes) => {
