@@ -40,3 +40,7 @@ pub use self::{
     settings::{Settings, SettingsError},
 };
 pub mod ffi;
+
+mod reqwest_client;
+pub(crate) use reqwest_client::new_client;
+pub use reqwest_client::ClientError;

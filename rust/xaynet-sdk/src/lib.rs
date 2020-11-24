@@ -200,7 +200,6 @@
 //! }
 //! ```
 
-#[cfg(feature = "reqwest-client")]
 pub mod client;
 
 mod message_encoder;

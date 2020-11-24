@@ -7,16 +7,13 @@ use tokio::{
     sync::{mpsc, Mutex},
 };
 use xaynet_core::mask::Model;
-use xaynet_sdk::{
-    client::{Client, ClientError},
-    ModelStore,
-    Notify,
-    SerializableState,
-    StateMachine,
-    TransitionOutcome,
-};
+use xaynet_sdk::{ModelStore, Notify, SerializableState, StateMachine, TransitionOutcome};
 
-use crate::settings::{Settings, SettingsError};
+use crate::{
+    new_client,
+    settings::{Settings, SettingsError},
+    ClientError,
+};
 
 /// Event emitted by the participant internal state machine as it advances through the
 /// PET protocol
@@ -150,11 +147,11 @@ pub struct Participant {
 #[derive(Error, Debug)]
 pub enum InitError {
     #[error("failed to deserialize the participant state {:?}", _0)]
-    Deserialization(Box<bincode::ErrorKind>),
+    Deserialization(#[from] Box<bincode::ErrorKind>),
     #[error("failed to initialize the participant runtime {:?}", _0)]
     Runtime(std::io::Error),
     #[error("failed to initialize HTTP client {:?}", _0)]
-    Client(ClientError),
+    Client(#[from] ClientError),
     #[error("invalid participant settings {:?}", _0)]
     InvalidSettings(#[from] SettingsError),
 }
@@ -162,8 +159,8 @@ pub enum InitError {
 impl Participant {
     /// Create a new participant with the given settings
     pub fn new(settings: Settings) -> Result<Self, InitError> {
-        let (url, pet_settings) = settings.try_into().map_err(InitError::InvalidSettings)?;
-        let client = Client::new(url.as_str(), None, None).map_err(InitError::Client)?;
+        let (url, pet_settings) = settings.try_into()?;
+        let client = new_client(url.as_str(), None, None)?;
         let (events, notifier) = Events::new();
         let store = Store::new();
         let state_machine = StateMachine::new(pet_settings, client, store.clone(), notifier);
@@ -174,11 +171,10 @@ impl Participant {
     /// the participant use internally is not part of the participant state, so the
     /// `url` is used to instantiate a new one.
     pub fn restore(state: &[u8], url: &str) -> Result<Self, InitError> {
-        let state: SerializableState =
-            bincode::deserialize(state).map_err(InitError::Deserialization)?;
+        let state: SerializableState = bincode::deserialize(state)?;
         let (events, notifier) = Events::new();
         let store = Store::new();
-        let client = Client::new(url, None, None).map_err(InitError::Client)?;
+        let client = new_client(url, None, None)?;
         let state_machine = StateMachine::restore(state, client, store.clone(), notifier);
         Self::init(state_machine, events, store)
     }

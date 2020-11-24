@@ -3696,6 +3696,7 @@ dependencies = [
  "async-trait",
  "bincode",
  "ffi-support",
+ "reqwest",
  "sodiumoxide",
  "thiserror",
  "tokio",
@@ -3710,7 +3711,9 @@ name = "xaynet-sdk"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "base64 0.13.0",
  "bincode",
+ "bytes",
  "derive_more",
  "mockall",
  "num",
@@ -3722,6 +3725,7 @@ dependencies = [
  "tokio",
  "tokio-test",
  "tracing",
+ "url",
  "xaynet-core",
 ]
 
@@ -3731,6 +3735,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "base64 0.13.0",
  "bincode",
  "bitflags",
  "bytes",
