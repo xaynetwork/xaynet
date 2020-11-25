@@ -110,7 +110,7 @@ static char *test_participant_save_and_restore() {
 
   // restore the participant
   Participant *restored =
-      xaynet_ffi_participant_restore("http://localhost:8081", restore_buf);
+      xaynet_ffi_participant_restore("http://localhost:8081", &restore_buf);
   mu_assert("failed to restore participant", restored != NULL);
 
   // free memory

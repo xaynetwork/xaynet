@@ -487,11 +487,11 @@ const ByteBuffer *xaynet_ffi_participant_save(Participant *participant);
  * assert(n_read == fsize);
  * fclose(f);
  * Participant *restored =
- *     xaynet_ffi_participant_restore("http://localhost:8081", buf);
+ *     xaynet_ffi_participant_restore("http://localhost:8081", &buf);
  * free(buf.data);
  * ```
  */
-Participant *xaynet_ffi_participant_restore(FfiStr url, ByteBuffer buffer);
+Participant *xaynet_ffi_participant_restore(FfiStr url, const ByteBuffer *buffer);
 
 /**
  * Set the participant's model. Usually this should be called when the value returned
