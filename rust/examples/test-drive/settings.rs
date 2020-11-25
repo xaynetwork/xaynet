@@ -29,9 +29,9 @@ pub struct Opt {
         short,
         long,
         parse(from_os_str),
-        help = "The list of trusted DER/PEM encoded TLS server certificates"
+        help = "Trusted DER/PEM encoded TLS server certificate"
     )]
-    pub certificates: Option<Vec<PathBuf>>,
+    pub certificate: Option<PathBuf>,
 
     #[structopt(
         short,
