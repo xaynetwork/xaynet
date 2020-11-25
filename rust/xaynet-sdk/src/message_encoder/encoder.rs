@@ -43,8 +43,7 @@ impl Iterator for MultipartEncoder {
 
         let chunk = Chunk {
             id: self.id,
-            // FIXME: make this random
-            message_id: 1,
+            message_id: rand::random::<u16>(),
             last: self.id as usize == chunker.nb_chunks() - 1,
             data: chunker.get_chunk(self.id as usize).to_vec(),
         };
