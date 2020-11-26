@@ -33,8 +33,8 @@ pub struct CoordinatorState {
     /// The masking configuration.
     // FIXME: this should be a MaskConfigPair
     pub mask_config: MaskConfig,
-    /// The size of the model.
-    pub model_size: usize,
+    /// The length of the model.
+    pub model_length: usize,
 }
 
 impl CoordinatorState {
@@ -65,7 +65,7 @@ impl CoordinatorState {
             max_sum_time: pet_settings.max_sum_time,
             max_update_time: pet_settings.max_update_time,
             mask_config,
-            model_size: model_settings.length,
+            model_length: model_settings.length,
         }
     }
 }

@@ -192,7 +192,7 @@ mod test {
             // Make sure a single participant is enough to go to the
             // update phase
             .with_min_sum(1)
-            .with_model_size(4)
+            .with_model_length(4)
             .with_min_sum_time(1)
             .with_max_sum_time(2)
             .build();

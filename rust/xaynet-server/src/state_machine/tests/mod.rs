@@ -26,14 +26,14 @@ use xaynet_core::{
 #[serial]
 async fn integration_full_round() {
     enable_logging();
-    let model_size = 4;
+    let model_length = 4;
     let round_params = RoundParameters {
         pk: EncryptKeyPair::generate().public,
         sum: 0.5,
         update: 1.0,
         seed: RoundSeed::generate(),
         mask_config: mask_config(),
-        model_length: model_size,
+        model_length,
     };
     let n_updaters = 3;
     let n_summers = 2;
@@ -50,7 +50,7 @@ async fn integration_full_round() {
         .with_max_sum_time(2)
         .with_min_update_time(1)
         .with_max_update_time(2)
-        .with_model_size(model_size)
+        .with_model_length(model_length)
         .build();
 
     assert!(state_machine.is_idle());
@@ -74,7 +74,7 @@ async fn integration_full_round() {
     let transition_task = tokio::spawn(async { state_machine.next().await.unwrap() });
     let sum_dict = events.sum_dict_listener().get_latest().event.unwrap();
     let scalar = 1.0 / (n_updaters as f64 * round_params.update);
-    let model = Model::from_primitives(vec![0; model_size].into_iter()).unwrap();
+    let model = Model::from_primitives(vec![0; model_length].into_iter()).unwrap();
     for _ in 0..3 {
         let updater = generate_updater(round_params.clone());
         let (mask_seed, masked_model) = updater.compute_masked_model(&model, scalar);
@@ -89,11 +89,11 @@ async fn integration_full_round() {
     let seed_dict = events.seed_dict_listener().get_latest().event.unwrap();
 
     let seeds_1 = summer_1.decrypt_seeds(&seed_dict.get(&summer_1.keys.public).unwrap());
-    let aggregation_1 = summer_1.aggregate_masks(model_size, &seeds_1);
+    let aggregation_1 = summer_1.aggregate_masks(model_length, &seeds_1);
     let msg_1 = summer_1.compose_sum2_message(aggregation_1.into());
 
     let seeds_2 = summer_2.decrypt_seeds(&seed_dict.get(&summer_2.keys.public).unwrap());
-    let aggregation_2 = summer_2.aggregate_masks(model_size, &seeds_2);
+    let aggregation_2 = summer_2.aggregate_masks(model_length, &seeds_2);
     let msg_2 = summer_2.compose_sum2_message(aggregation_2.into());
 
     let req_1 = async { requests.msg(&msg_1).await.unwrap() };

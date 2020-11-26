@@ -157,7 +157,7 @@ where
                 update_count: 0,
                 model_agg: Aggregation::new(
                     shared.state.mask_config.into(),
-                    shared.state.model_size,
+                    shared.state.model_length,
                 ),
             },
             shared,
@@ -263,14 +263,14 @@ mod test {
     #[serial]
     pub async fn integration_update_to_sum2() {
         utils::enable_logging();
-        let model_size = 4;
+        let model_length = 4;
         let round_params = RoundParameters {
             pk: EncryptKeyPair::generate().public,
             sum: 0.5,
             update: 1.0,
             seed: RoundSeed::generate(),
             mask_config: utils::mask_config(),
-            model_length: model_size,
+            model_length,
         };
         let n_updaters = 1;
         let n_summers = 1;
@@ -284,7 +284,7 @@ mod test {
         let mut frozen_sum_dict = SumDict::new();
         frozen_sum_dict.insert(summer.keys.public, summer.ephm_keys.public);
 
-        let aggregation = Aggregation::new(utils::mask_config(), model_size);
+        let aggregation = Aggregation::new(utils::mask_config(), model_length);
 
         let mut store = init_store().await;
         // Create the state machine
@@ -313,7 +313,7 @@ mod test {
 
         // Create an update request.
         let scalar = 1.0 / (n_updaters as f64 * round_params.update);
-        let model = Model::from_primitives(vec![0; model_size].into_iter()).unwrap();
+        let model = Model::from_primitives(vec![0; model_length].into_iter()).unwrap();
         let (mask_seed, masked_model) = updater.compute_masked_model(&model, scalar);
         let local_seed_dict = Participant::build_seed_dict(&frozen_sum_dict, &mask_seed);
         let update_msg =

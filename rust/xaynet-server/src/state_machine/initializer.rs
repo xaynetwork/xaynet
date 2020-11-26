@@ -267,10 +267,10 @@ where
                     Ok(global_model)
                 } else {
                     let error_msg = format!(
-                        "the size of global model with the id {} does not match with the value of the model size setting {} != {}",
+                        "the length of global model with the id {} does not match with the value of the model length setting {} != {}",
                         &global_model_id,
                         global_model.len(),
-                        coordinator_state.model_size);
+                        coordinator_state.model_length);
 
                     Err(StateMachineInitializationError::GlobalModelInvalid(
                         error_msg,
@@ -294,6 +294,6 @@ where
         coordinator_state: &CoordinatorState,
         global_model: &Model,
     ) -> bool {
-        coordinator_state.model_size == global_model.len()
+        coordinator_state.model_length == global_model.len()
     }
 }

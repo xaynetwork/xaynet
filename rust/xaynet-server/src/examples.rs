@@ -100,7 +100,7 @@ bound_type = "B0"
 model_type = "M3"
 
 [model]
-size = 4
+length = 4
 ```
 
 The actual files contain more settings than this, but we mention just the
@@ -131,7 +131,7 @@ allow for more messages to be processed, increase these times.
 
 The [`MaskSettings`] determines the masking configuration, consisting of the
 group type, data type, bound type and model type. The [`ModelSettings`] specify
-the size of the model used. Both of these settings should be decided in advance
+the length of the model used. Both of these settings should be decided in advance
 with participants, and agreed upon by both.
 
 ## Running

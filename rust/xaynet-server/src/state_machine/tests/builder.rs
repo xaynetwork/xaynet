@@ -120,8 +120,8 @@ where
         self
     }
 
-    pub fn with_model_size(mut self, model_size: usize) -> Self {
-        self.coordinator_state.model_size = model_size;
+    pub fn with_model_length(mut self, model_length: usize) -> Self {
+        self.coordinator_state.model_length = model_length;
         self
     }
 
