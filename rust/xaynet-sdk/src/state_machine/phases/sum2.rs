@@ -13,15 +13,27 @@ use crate::{
     MessageEncoder,
 };
 
+/// Sum2 phase data
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Sum2 {
-    ephm_keys: EncryptKeyPair,
-    sum_signature: Signature,
-    seed_dict: Option<UpdateSeedDict>,
-    seeds: Option<Vec<MaskSeed>>,
-    mask: Option<MaskObject>,
-    mask_length: Option<u64>,
-    message: Option<MessageEncoder>,
+    /// The sum participant ephemeral keys. They are used to decrypt
+    /// the encrypted mask seeds.
+    pub ephm_keys: EncryptKeyPair,
+    /// Signature that proves that the participant has been selected
+    /// for the sum task.
+    pub sum_signature: Signature,
+    /// Dictionary containing the encrypted mask seed of every update
+    /// participants.
+    pub seed_dict: Option<UpdateSeedDict>,
+    /// The decrypted mask seeds
+    pub seeds: Option<Vec<MaskSeed>>,
+    /// The global mask, obtained by aggregating the masks derived
+    /// from the mask seeds.
+    pub mask: Option<MaskObject>,
+    /// Mask length
+    pub mask_length: Option<u64>,
+    /// Final sum2 message to send to the coordinator
+    pub message: Option<MessageEncoder>,
 }
 
 impl Sum2 {
@@ -65,7 +77,8 @@ impl IntoPhase<Sum2> for State<Sum2> {
 }
 
 impl Phase<Sum2> {
-    async fn fetch_seed_dict(mut self) -> Progress<Sum2> {
+    /// Retrieve the encrypted mask seeds.
+    pub(crate) async fn fetch_seed_dict(mut self) -> Progress<Sum2> {
         if self.state.private.has_fetched_seed_dict() {
             return Progress::Continue(self);
         }
@@ -86,7 +99,10 @@ impl Phase<Sum2> {
         }
     }
 
-    async fn fetch_mask_length(mut self) -> Progress<Sum2> {
+    /// Retrieve the mask length from the coordinator. This
+    /// information is necessary for deriving masks from the masks
+    /// seeds.
+    pub(crate) async fn fetch_mask_length(mut self) -> Progress<Sum2> {
         if self.state.private.has_fetched_mask_length() {
             return Progress::Continue(self);
         }
@@ -108,7 +124,8 @@ impl Phase<Sum2> {
         }
     }
 
-    fn decrypt_seeds(mut self) -> Progress<Sum2> {
+    /// Decrypt the mask seeds that the update participants generated.
+    pub(crate) fn decrypt_seeds(mut self) -> Progress<Sum2> {
         if self.state.private.has_decrypted_seeds() {
             return Progress::Continue(self);
         }
@@ -139,7 +156,10 @@ impl Phase<Sum2> {
         }
     }
 
-    fn aggregate_masks(mut self) -> Progress<Sum2> {
+    /// Derive the masks from the decrypted mask seeds, and aggregate
+    /// them. The resulting mask will later be added to the sum2
+    /// message to be sent to the coordinator.
+    pub(crate) fn aggregate_masks(mut self) -> Progress<Sum2> {
         if self.state.private.has_aggregated_masks() {
             return Progress::Continue(self);
         }
@@ -166,7 +186,8 @@ impl Phase<Sum2> {
         Progress::Updated(self.into())
     }
 
-    fn compose_sum2_message(mut self) -> Progress<Sum2> {
+    /// Build the sum2 message to send to the coordinator
+    pub(crate) fn compose_sum2_message(mut self) -> Progress<Sum2> {
         if self.state.private.has_composed_message() {
             return Progress::Continue(self);
         }

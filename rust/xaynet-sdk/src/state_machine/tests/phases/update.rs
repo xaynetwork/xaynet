@@ -23,7 +23,7 @@ use crate::{
 
 /// Instantiate a sum phase.
 fn make_phase() -> Phase<Update> {
-    let shared = shared_state(SelectFor::Sum);
+    let shared = shared_state(SelectFor::Update);
     let update = make_update(&shared);
 
     // Check IntoPhase<Update> implementation
