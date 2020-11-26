@@ -148,6 +148,15 @@ where
     /// - If the global model id does not exist, return `StorageResult::Ok(None)`.
     /// - If the global model id exists, return `StorageResult::Ok(Some(String)))`.
     async fn latest_global_model_id(&mut self) -> StorageResult<Option<String>>;
+
+    /// Checks if the [`CoordinatorStorage`] is ready to process requests.
+    ///
+    /// # Behavior
+    ///
+    /// If the [`CoordinatorStorage`] is ready to process requests, return `StorageResult::Ok(())`.
+    /// If the [`CoordinatorStorage`] cannot process requests because of a connection error,
+    /// for example, return `StorageResult::Err(error)`.
+    async fn is_ready(&mut self) -> StorageResult<()>;
 }
 
 #[async_trait]
@@ -187,6 +196,15 @@ where
         let round_seed = hex::encode(round_seed.as_slice());
         format!("{}_{}", round_id, round_seed)
     }
+
+    /// Checks if the [`ModelStorage`] is ready to process requests.
+    ///
+    /// # Behavior
+    ///
+    /// If the [`ModelStorage`] is ready to process requests, return `StorageResult::Ok(())`.
+    /// If the [`ModelStorage`] cannot process requests because of a connection error,
+    /// for example, return `StorageResult::Err(error)`.
+    async fn is_ready(&mut self) -> StorageResult<()>;
 }
 
 /// A wrapper that contains the result of the "add sum participant" operation.

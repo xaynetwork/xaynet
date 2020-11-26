@@ -3746,6 +3746,7 @@ dependencies = [
  "fancy-regex",
  "futures",
  "hex",
+ "http",
  "influxdb",
  "num",
  "num_enum",

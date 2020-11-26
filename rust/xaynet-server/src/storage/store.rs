@@ -46,6 +46,21 @@ where
     pub fn new(coordinator: C, model: M) -> Self {
         Self { coordinator, model }
     }
+
+    /// Checks if the [`Store`] is ready to process requests.
+    ///
+    /// # Behavior
+    ///
+    /// If the [`Store`] is ready to process requests, return `StorageResult::Ok(())`.
+    /// If the [`Store`] cannot process requests because of a connection error,
+    /// for example, return `StorageResult::Err(error)`.
+    pub async fn is_ready(&mut self) -> StorageResult<()> {
+        match tokio::join!(self.model.is_ready(), self.coordinator.is_ready()) {
+            (Err(err_c), Err(err_m)) => Err(anyhow::anyhow!("{}, {}", err_c, err_m)),
+            (Err(err), _) | (_, Err(err)) => Err(err),
+            _ => Ok(()),
+        }
+    }
 }
 
 #[async_trait]
@@ -119,6 +134,10 @@ where
     async fn latest_global_model_id(&mut self) -> StorageResult<Option<String>> {
         self.coordinator.latest_global_model_id().await
     }
+
+    async fn is_ready(&mut self) -> StorageResult<()> {
+        self.coordinator.is_ready().await
+    }
 }
 
 #[async_trait]
@@ -140,5 +159,9 @@ where
 
     async fn global_model(&mut self, id: &str) -> StorageResult<Option<Model>> {
         self.model.global_model(id).await
+    }
+
+    async fn is_ready(&mut self) -> StorageResult<()> {
+        self.model.is_ready().await
     }
 }

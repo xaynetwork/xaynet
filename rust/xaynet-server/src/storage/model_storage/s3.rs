@@ -3,6 +3,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use http::StatusCode;
 use rusoto_core::{credential::StaticProvider, request::TlsError, HttpClient, RusotoError};
 use rusoto_s3::{
     CreateBucketError,
@@ -12,6 +13,8 @@ use rusoto_s3::{
     GetObjectError,
     GetObjectOutput,
     GetObjectRequest,
+    HeadBucketError,
+    HeadBucketRequest,
     ListObjectsV2Error,
     PutObjectError,
     PutObjectOutput,
@@ -56,6 +59,8 @@ pub enum ClientError {
     DownloadBody(std::io::Error),
     #[error("object {0} already exists")]
     ObjectAlreadyExists(String),
+    #[error("storage not ready: {0}")]
+    NotReady(RusotoError<HeadBucketError>),
 }
 
 #[derive(Clone)]
@@ -72,7 +77,7 @@ impl Client {
     /// use rusoto_core::Region;
     /// use xaynet_server::{
     ///     settings::{S3BucketsSettings, S3Settings},
-    ///     storage::s3::Client,
+    ///     storage::model_storage::s3::Client,
     /// };
     ///
     /// let region = Region::Custom {
@@ -212,6 +217,30 @@ impl ModelStorage for Client {
         let model = bincode::deserialize(&body).map_err(ClientError::Deserialization)?;
         Ok(Some(model))
     }
+
+    async fn is_ready(&mut self) -> StorageResult<()> {
+        let req = HeadBucketRequest {
+            // we can't use an empty string because S3/Minio would return BAD_REQUEST
+            bucket: self.buckets.global_models.clone(),
+        };
+        let res = self.client.head_bucket(req).await;
+
+        match res {
+            // rusoto doesn't return NoSuchBucket if the bucket doesn't exist
+            // https://github.com/rusoto/rusoto/issues/1099
+            //
+            // a workaround is to check if the StatusCode is NOT_FOUND
+            Err(RusotoError::Service(HeadBucketError::NoSuchBucket(_))) | Ok(_) => Ok(()),
+            Err(RusotoError::Unknown(resp)) => match resp.status {
+                // https://github.com/timberio/vector/blob/803c68c031e5872876e1167c428cd41358123d64/src/sinks/aws_s3.rs#L229
+                StatusCode::NOT_FOUND => Ok(()),
+                _ => Err(anyhow::anyhow!(ClientError::NotReady(
+                    RusotoError::Unknown(resp)
+                ))),
+            },
+            Err(e) => Err(anyhow::anyhow!(ClientError::NotReady(e))),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -221,6 +250,8 @@ pub(in crate) mod tests {
     use rusoto_core::Region;
     use rusoto_s3::{
         Delete,
+        DeleteBucketError,
+        DeleteBucketRequest,
         DeleteObjectsOutput,
         DeleteObjectsRequest,
         ListObjectsV2Output,
@@ -323,12 +354,19 @@ pub(in crate) mod tests {
                 None
             }
         }
+
+        async fn delete_bucket(&self, bucket: &str) -> Result<(), RusotoError<DeleteBucketError>> {
+            let req = DeleteBucketRequest {
+                bucket: bucket.to_string(),
+            };
+            self.client.delete_bucket(req).await
+        }
     }
 
-    fn create_minio_setup() -> S3Settings {
+    fn create_minio_setup(url: &str) -> S3Settings {
         let region = Region::Custom {
             name: String::from("minio"),
-            endpoint: String::from("http://localhost:9000"),
+            endpoint: String::from(url),
         };
 
         S3Settings {
@@ -340,11 +378,16 @@ pub(in crate) mod tests {
     }
 
     pub async fn init_client() -> Client {
-        let settings = create_minio_setup();
+        let settings = create_minio_setup("http://localhost:9000");
         let client = Client::new(settings).unwrap();
         client.create_global_models_bucket().await.unwrap();
         client.clear_bucket("global-models").await.unwrap();
         client
+    }
+
+    async fn init_disconnected_client() -> Client {
+        let settings = create_minio_setup("http://localhost:11000");
+        Client::new(settings).unwrap()
     }
 
     #[tokio::test]
@@ -396,5 +439,37 @@ pub(in crate) mod tests {
 
         let downloaded_global_model = client.global_model(&id).await.unwrap().unwrap();
         assert_eq!(global_model, downloaded_global_model)
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn integration_test_is_ready_ok() {
+        let mut client = init_client().await;
+
+        let res = client.is_ready().await;
+        assert!(res.is_ok())
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn integration_test_is_ready_ok_no_such_bucket() {
+        // test that is_ready returns Ok even if the bucket doesn't exist
+        let mut client = init_client().await;
+        client
+            .delete_bucket(&S3BucketsSettings::default().global_models)
+            .await
+            .unwrap();
+
+        let res = client.is_ready().await;
+        assert!(res.is_ok())
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn integration_test_is_ready_err() {
+        let mut client = init_disconnected_client().await;
+
+        let res = client.is_ready().await;
+        assert!(res.is_err())
     }
 }

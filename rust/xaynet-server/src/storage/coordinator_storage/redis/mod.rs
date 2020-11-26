@@ -428,6 +428,14 @@ impl CoordinatorStorage for Client {
             .await
             .map_err(to_storage_err)
     }
+
+    async fn is_ready(&mut self) -> StorageResult<()> {
+        // https://redis.io/commands/ping
+        redis::cmd("PING")
+            .query_async(&mut self.connection)
+            .await
+            .map_err(to_storage_err)
+    }
 }
 
 #[cfg(test)]
@@ -1031,6 +1039,16 @@ pub(in crate) mod tests {
         let get_id = client.latest_global_model_id().await.unwrap().unwrap();
 
         assert_eq!(set_id, get_id)
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn integration_is_ready_ok() {
+        // test is_ready command
+        let mut client = init_client().await;
+
+        let res = client.is_ready().await;
+        assert!(res.is_ok())
     }
 
     #[tokio::test]
