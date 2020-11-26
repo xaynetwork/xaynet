@@ -126,6 +126,7 @@ pub fn round_params(task: SelectFor) -> RoundParameters {
         update: if task == SelectFor::Update { 1.0 } else { 0.0 },
         seed: RoundSeed::zeroed(),
         mask_config: mask_config().into(),
+        model_length: 0,
     }
 }
 

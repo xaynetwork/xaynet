@@ -90,6 +90,7 @@ async fn test_round_params_svc() {
         update: 0.42,
         seed: RoundSeed::fill_with(0x11),
         mask_config: mask_config().into(),
+        model_length: 42,
     };
     publisher.broadcast_params(params.clone());
     assert_ready!(task.poll_ready()).unwrap();

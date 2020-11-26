@@ -51,6 +51,7 @@ impl CoordinatorState {
             update: pet_settings.update,
             seed: RoundSeed::zeroed(),
             mask_config: mask_config.clone().into(),
+            model_length: model_settings.size,
         };
         let round_id = 0;
         Self {

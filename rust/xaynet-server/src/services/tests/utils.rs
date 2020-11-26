@@ -29,6 +29,7 @@ pub fn new_event_channels() -> (EventPublisher, EventSubscriber) {
         update: 0.0,
         seed: RoundSeed::generate(),
         mask_config: mask_config().into(),
+        model_length: 0,
     };
     let phase = PhaseName::Idle;
     let round_id = 0;

@@ -16,6 +16,8 @@ pub struct RoundParameters {
     pub seed: RoundSeed,
     /// The masking configuration
     pub mask_config: MaskConfigPair,
+    /// The length of the model.
+    pub model_length: usize,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

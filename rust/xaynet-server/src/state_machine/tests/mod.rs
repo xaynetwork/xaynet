@@ -26,16 +26,17 @@ use xaynet_core::{
 #[serial]
 async fn integration_full_round() {
     enable_logging();
+    let model_size = 4;
     let round_params = RoundParameters {
         pk: EncryptKeyPair::generate().public,
         sum: 0.5,
         update: 1.0,
         seed: RoundSeed::generate(),
         mask_config: mask_config(),
+        model_length: model_size,
     };
     let n_updaters = 3;
     let n_summers = 2;
-    let model_size = 4;
 
     let mut store = init_store().await;
     let (state_machine, requests, events) = StateMachineBuilder::new(store.clone())

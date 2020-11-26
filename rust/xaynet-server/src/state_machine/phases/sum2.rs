@@ -183,17 +183,18 @@ mod test {
     #[serial]
     pub async fn integration_sum2_to_unmask() {
         utils::enable_logging();
+        let model_size = 4;
         let round_params = RoundParameters {
             pk: EncryptKeyPair::generate().public,
             sum: 0.5,
             update: 1.0,
             seed: RoundSeed::generate(),
             mask_config: utils::mask_config(),
+            model_length: model_size,
         };
 
         let n_updaters = 1;
         let n_summers = 1;
-        let model_size = 4;
 
         // Generate a sum dictionary with a single sum participant
         let summer = utils::generate_summer(round_params.clone());
