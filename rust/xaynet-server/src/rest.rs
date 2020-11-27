@@ -63,11 +63,6 @@ where
         .and(with_fetcher(fetcher.clone()))
         .and_then(handle_seeds);
 
-    let length = warp::path!("length")
-        .and(warp::get())
-        .and(with_fetcher(fetcher.clone()))
-        .and_then(handle_length);
-
     let round_params = warp::path!("params")
         .and(warp::get())
         .and(with_fetcher(fetcher.clone()))
@@ -82,7 +77,6 @@ where
         .or(round_params)
         .or(sum_dict)
         .or(seed_dict)
-        .or(length)
         .or(model)
         .recover(handle_reject)
         .with(warp::log("http"));
@@ -156,27 +150,6 @@ async fn handle_seeds<F: Fetcher>(
             .status(StatusCode::NO_CONTENT)
             .body(Vec::new())
             .unwrap(),
-    })
-}
-
-/// Handles and responds to a request for mask / model length.
-async fn handle_length<F: Fetcher>(mut fetcher: F) -> Result<impl warp::Reply, Infallible> {
-    Ok(match fetcher.mask_length().await {
-        Ok(Some(mask_length)) => Response::builder()
-            .status(StatusCode::OK)
-            .body(bincode::serialize(&mask_length).unwrap())
-            .unwrap(),
-        Ok(None) => Response::builder()
-            .status(StatusCode::NO_CONTENT)
-            .body(vec![])
-            .unwrap(),
-        Err(e) => {
-            warn!("failed to handle mask_length request: {:?}", e);
-            Response::builder()
-                .status(StatusCode::INTERNAL_SERVER_ERROR)
-                .body(vec![])
-                .unwrap()
-        }
     })
 }
 

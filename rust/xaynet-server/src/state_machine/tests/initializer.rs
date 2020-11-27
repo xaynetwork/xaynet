@@ -7,7 +7,7 @@ use crate::metrics::MetricsSender;
 use crate::{
     settings::RestoreSettings,
     state_machine::{
-        events::{DictionaryUpdate, MaskLengthUpdate, ModelUpdate},
+        events::{DictionaryUpdate, ModelUpdate},
         initializer::StateMachineInitializationError,
         phases::PhaseName,
     },
@@ -47,9 +47,6 @@ async fn integration_state_machine_initializer_no_restore() {
     let seed_dict = event_subscriber.seed_dict_listener().get_latest().event;
     assert!(matches!(seed_dict, DictionaryUpdate::Invalidate));
 
-    let mask_length = event_subscriber.mask_length_listener().get_latest().event;
-    assert!(matches!(mask_length, MaskLengthUpdate::Invalidate));
-
     let global_model = event_subscriber.model_listener().get_latest().event;
     assert!(matches!(global_model, ModelUpdate::Invalidate));
 
@@ -84,9 +81,6 @@ async fn integration_state_machine_initializer_no_state() {
 
     let seed_dict = event_subscriber.seed_dict_listener().get_latest().event;
     assert!(matches!(seed_dict, DictionaryUpdate::Invalidate));
-
-    let mask_length = event_subscriber.mask_length_listener().get_latest().event;
-    assert!(matches!(mask_length, MaskLengthUpdate::Invalidate));
 
     let global_model = event_subscriber.model_listener().get_latest().event;
     assert!(matches!(global_model, ModelUpdate::Invalidate));
@@ -135,9 +129,6 @@ async fn integration_state_machine_initializer_without_global_model() {
 
     let seed_dict = event_subscriber.seed_dict_listener().get_latest().event;
     assert!(matches!(seed_dict, DictionaryUpdate::Invalidate));
-
-    let mask_length = event_subscriber.mask_length_listener().get_latest().event;
-    assert!(matches!(mask_length, MaskLengthUpdate::Invalidate));
 
     let global_model = event_subscriber.model_listener().get_latest().event;
     assert!(matches!(global_model, ModelUpdate::Invalidate));
@@ -197,9 +188,6 @@ async fn integration_state_machine_initializer_with_global_model() {
 
     let seed_dict = event_subscriber.seed_dict_listener().get_latest().event;
     assert!(matches!(seed_dict, DictionaryUpdate::Invalidate));
-
-    let mask_length = event_subscriber.mask_length_listener().get_latest().event;
-    assert!(matches!(mask_length, MaskLengthUpdate::Invalidate));
 
     let global_model = event_subscriber.model_listener().get_latest().event;
     assert!(

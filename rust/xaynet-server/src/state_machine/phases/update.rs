@@ -8,7 +8,7 @@ use tracing::{debug, info, warn};
 use crate::metrics;
 use crate::{
     state_machine::{
-        events::{DictionaryUpdate, MaskLengthUpdate},
+        events::DictionaryUpdate,
         phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Sum2},
         requests::{StateMachineRequest, UpdateRequest},
         RequestError,
@@ -74,11 +74,6 @@ where
             "{} update messages handled (min {} required)",
             self.private.update_count, self.shared.state.min_update_count
         );
-
-        info!("broadcasting mask length");
-        self.shared
-            .events
-            .broadcast_mask_length(MaskLengthUpdate::New(self.private.model_agg.len()));
 
         let seed_dict = self
             .shared
@@ -351,13 +346,6 @@ mod test {
             Event {
                 round_id: 0,
                 event: PhaseName::Update,
-            }
-        );
-        assert_eq!(
-            events.mask_length_listener().get_latest(),
-            Event {
-                round_id: 0,
-                event: MaskLengthUpdate::New(model.len()),
             }
         );
 

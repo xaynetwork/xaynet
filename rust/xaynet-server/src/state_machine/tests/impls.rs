@@ -2,7 +2,7 @@ use tracing::Span;
 
 use crate::{
     state_machine::{
-        events::{DictionaryUpdate, MaskLengthUpdate},
+        events::DictionaryUpdate,
         phases::{self, PhaseState},
         requests::RequestSender,
         StateMachine,
@@ -107,16 +107,6 @@ impl<D> DictionaryUpdate<D> {
             inner
         } else {
             panic!("DictionaryUpdate::Invalidate");
-        }
-    }
-}
-
-impl MaskLengthUpdate {
-    pub fn unwrap(self) -> usize {
-        if let MaskLengthUpdate::New(inner) = self {
-            inner
-        } else {
-            panic!("MaskLengthUpdate::Invalidate");
         }
     }
 }

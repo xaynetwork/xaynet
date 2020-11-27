@@ -6,7 +6,7 @@ use tracing::{debug, info};
 use crate::metrics;
 use crate::{
     state_machine::{
-        events::{DictionaryUpdate, MaskLengthUpdate},
+        events::DictionaryUpdate,
         phases::{Phase, PhaseName, PhaseState, Shared, Sum},
         PhaseStateError,
         StateMachine,
@@ -70,9 +70,6 @@ where
 
         info!("broadcasting invalidation of seed dictionary from previous round");
         events.broadcast_seed_dict(DictionaryUpdate::Invalidate);
-
-        info!("broadcasting invalidation of mask length from previous round");
-        events.broadcast_mask_length(MaskLengthUpdate::Invalidate);
 
         self.shared
             .store
@@ -239,11 +236,6 @@ mod test {
         assert_eq!(
             events.seed_dict_listener().get_latest(),
             expected_event(DictionaryUpdate::Invalidate)
-        );
-
-        assert_eq!(
-            events.mask_length_listener().get_latest(),
-            expected_event(MaskLengthUpdate::Invalidate)
         );
     }
 }

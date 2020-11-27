@@ -29,9 +29,8 @@
 //!
 //! **Update**
 //!
-//! Publishes [`PhaseName::Update`], publishes the `scalar`, builds and publishes the
-//! [`SeedDict`], ensures that enough update messages have been submitted and aggregates the
-//! masked model.
+//! Publishes [`PhaseName::Update`], builds and publishes the [`SeedDict`], ensures that enough
+//! update messages have been submitted and aggregates the masked model.
 //!
 //! **Sum2**
 //!

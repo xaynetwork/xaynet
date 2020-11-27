@@ -62,8 +62,6 @@ where
         // Also re-emit the other events in case the round ID changed
         let model = event_subscriber.model_listener().get_latest().event;
         events.broadcast_model(model);
-        let mask_length = event_subscriber.mask_length_listener().get_latest().event;
-        events.broadcast_mask_length(mask_length);
         let sum_dict = event_subscriber.sum_dict_listener().get_latest().event;
         events.broadcast_sum_dict(sum_dict);
         let seed_dict = event_subscriber.seed_dict_listener().get_latest().event;
