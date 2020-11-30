@@ -1,4 +1,4 @@
-[![crates.io badge](https://img.shields.io/crates/v/xaynet.svg)](https://crates.io/crates/xaynet) [![docs.rs badge](https://docs.rs/xaynet/badge.svg)](https://docs.rs/xaynet)  [![rustc badge](https://img.shields.io/badge/rustc-1.46+-lightgray.svg)](https://www.rust-lang.org/learn/get-started) {{badges}}
+[![crates.io badge](https://img.shields.io/crates/v/xaynet.svg)](https://crates.io/crates/xaynet) [![docs.rs badge](https://docs.rs/xaynet/badge.svg)](https://docs.rs/xaynet) [![rustc badge](https://img.shields.io/badge/rustc-1.48+-lightgray.svg)](https://www.rust-lang.org/learn/get-started) {{badges}}
 
 ![Xaynet banner](./assets/xaynet_banner.png)
 
@@ -12,7 +12,7 @@
 
 ## Minimum supported rust version
 
-rustc 1.46.0
+rustc 1.48.0
 
 ## Running the platform
 
@@ -31,24 +31,67 @@ beyond the scope of this project:
    * [Docker](https://docs.docker.com/) and [Docker Compose](https://docs.docker.com/compose/)
    * [Kubernetes](https://kubernetes.io/docs/home/)
 
-### Using `docker-compose`
+**Note:**
+
+With Xaynet `v0.11` the coordinator needs a connection to a redis instance in order to save its state.
+
+**Please don't connect the coordinator to a Redis instance that is used in production!**
+
+The coordinator clears the currently selected Redis database each time it is started.
+This behavior will change as soon as the coordinator state can be automatically restored.
+
+### Using Docker
 
 The convenience of using the docker setup is that there's no need to setup a working Rust
 environment on your system, as everything is done inside the container.
 
-Start the coordinator by pointing to the `docker/docker-compose.yml` file. Keep in mind that
-given this is the file used for development, it spins up some infrastructure that is currently
-not essential.
+#### Run an image from Docker Hub
+
+Docker images of the latest releases are provided on
+[Docker Hub](https://hub.docker.com/r/xaynetwork/xaynet).
+
+You can try them out with the default `configs/docker-dev.toml` by running:
+
+**Xaynet below v0.11**
+
+```bash
+docker run -v ${PWD}/configs/docker-dev.toml:/app/config.toml -p 8081:8081 xaynetwork/xaynet:v0.10.0 /app/coordinator -c /app/config.toml
+```
+
+**Xaynet v0.11+**
+
+```bash
+# don't forget to adjust the Redis url in configs/docker-dev.toml
+docker run -v ${PWD}/configs/docker-dev.toml:/app/config.toml -p 8081:8081 xaynetwork/xaynet:v0.11.0
+```
+
+The docker image contains a release build of the coordinator without optional features.
+
+#### Run a coordinator with additional infrastructure
+
+Start the coordinator by pointing to the `docker/docker-compose.yml` file. It spins up all
+infrastructure that is essential to run the coordinator with default or optional features.
+Keep in mind that this file is used for development only.
 
 ```bash
 docker-compose -f docker/docker-compose.yml up --build
 ```
 
-If you would like, you can use the `docker/docker-compose-release.yml` file, but keep in mind
-that given this runs a release build with optimizations, compilation will be slower.
+#### Create a release build
+
+If you would like, you can create an optimized release build of the coordinator,
+but keep in mind that the compilation will be slower.
 
 ```bash
-docker-compose -f docker/docker-compose-release.yml up --build
+docker build --build-arg RELEASE_BUILD=1 -f ./docker/Dockerfile .
+```
+
+#### Build a coordinator with optional features
+
+Optional features can be specified via the build argument `COORDINATOR_FEATURES`.
+
+```bash
+docker build --build-arg COORDINATOR_FEATURES=tls,metrics -f ./docker/Dockerfile .
 ```
 
 ### Using Kubernetes
@@ -91,10 +134,11 @@ kubectl port-forward $(kubectl get pods -l "app=coordinator" -o jsonpath="{.item
 
 ### Building the project manually
 
-The coordinator can be built and started with:
+The coordinator without optional features can be built and started with:
 
 ```bash
-cargo run --bin coordinator --manifest-path rust/Cargo.toml -- -c configs/config.toml
+cd rust
+cargo run --bin coordinator -- -c ../configs/config.toml
 ```
 
 ## Running the example

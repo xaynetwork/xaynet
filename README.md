@@ -1,4 +1,5 @@
-[![crates.io badge](https://img.shields.io/crates/v/xaynet.svg)](https://crates.io/crates/xaynet) [![docs.rs badge](https://docs.rs/xaynet/badge.svg)](https://docs.rs/xaynet) [![rustc badge](https://img.shields.io/badge/rustc-1.46+-lightgray.svg)](https://www.rust-lang.org/learn/get-started) [![Coverage Status](https://codecov.io/gh/xaynetwork/xaynet/branch/master/graph/badge.svg)](https://codecov.io/gh/xaynetwork/xaynet)
+[![crates.io badge](https://img.shields.io/crates/v/xaynet.svg)](https://crates.io/crates/xaynet) [![docs.rs badge](https://docs.rs/xaynet/badge.svg)](https://docs.rs/xaynet) [![rustc badge](https://img.shields.io/badge/rustc-1.48+-lightgray.svg)](https://www.rust-lang.org/learn/get-started) [![Coverage Status](https://codecov.io/gh/xaynetwork/xaynet/branch/master/graph/badge.svg)](https://codecov.io/gh/xaynetwork/xaynet)
+![Maintenance](https://img.shields.io/badge/maintenance-activly--developed-brightgreen.svg)
 
 ![Xaynet banner](./assets/xaynet_banner.png)
 
@@ -101,7 +102,7 @@ that meets these requirements:
 
 ## Minimum supported rust version
 
-rustc 1.46.0
+rustc 1.48.0
 
 ## Running the platform
 
@@ -119,7 +120,6 @@ beyond the scope of this project:
    * [Rust](https://www.rust-lang.org/tools/install)
    * [Docker](https://docs.docker.com/) and [Docker Compose](https://docs.docker.com/compose/)
    * [Kubernetes](https://kubernetes.io/docs/home/)
-
 
 **Note:**
 
