@@ -253,3 +253,39 @@ jobs:
         uses: codecov/codecov-action@v1.0.12
         with:
           token: ${{secrets.CODECOV_TOKEN}}
+
+  readme:
+    name: cargo-readme
+    timeout-minutes: 20
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Install stable toolchain
+        id: rust-toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+
+      - name: Install cargo readme
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: cargo-readme
+
+      - name: Cache cargo
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ${{ github.workspace }}/rust/target
+          key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-readme-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Check that readme matches docs
+        working-directory: ./
+        run: |
+          cargo readme --project-root rust/xaynet/ --template ../../README.tpl --output ../../CARGO_README.md
+          git diff --exit-code --no-index README.md CARGO_README.md
