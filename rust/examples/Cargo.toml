@@ -14,7 +14,7 @@ categories = ["science", "cryptography"]
 
 [package.metadata]
 # minimum supported rust version
-msrv = "1.46.0"
+msrv = "1.48.0"
 
 [dev-dependencies]
 async-trait = "0.1.40"

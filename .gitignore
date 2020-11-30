@@ -6,3 +6,5 @@
 
 # vscode workspace settings
 .vscode/*
+
+CARGO_README.md
