@@ -191,13 +191,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Install nightly toolchain
+      - name: Install stable toolchain
         id: rust-toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly
-          default: true
+          toolchain: stable
 
       - name: Cache cargo
         uses: actions/cache@v2
@@ -210,7 +209,7 @@ jobs:
 
       - name: Check the building of docs
         working-directory: ./rust
-        run: cargo +nightly doc --all-features --no-deps --color always
+        run: cargo doc --all-features --no-deps --color always
 
   coverage:
     name: cargo-tarpaulin
