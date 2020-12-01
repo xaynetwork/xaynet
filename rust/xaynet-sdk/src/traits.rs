@@ -65,9 +65,6 @@ pub trait XaynetClient {
         pk: SumParticipantPublicKey,
     ) -> Result<Option<UpdateSeedDict>, Self::Error>;
 
-    /// Retrieve the current model/mask length, if available
-    async fn get_mask_length(&mut self) -> Result<Option<u64>, Self::Error>;
-
     /// Retrieve the current global model, if available.
     async fn get_model(&mut self) -> Result<Option<Model>, Self::Error>;
 

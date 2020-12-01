@@ -44,7 +44,6 @@ fn make_sum2(shared: &SharedState) -> Sum2 {
         seed_dict: None,
         seeds: None,
         mask: None,
-        mask_length: None,
         message: None,
     }
 }
@@ -102,21 +101,7 @@ async fn step1_fetch_seed_dict(mut phase: Phase<Sum2>) -> Phase<Sum2> {
     phase
 }
 
-async fn step2_get_mask_length(mut phase: Phase<Sum2>) -> Phase<Sum2> {
-    phase.with_io_mock(move |mock| {
-        mock.expect_get_mask_length()
-            .times(1)
-            .returning(move || Ok(Some(4)));
-    });
-    let phase = unwrap_step!(phase, complete, sum2);
-
-    // Calling `fetch_mask_length` again should return Progress::Continue
-    let mut phase = unwrap_progress_continue!(phase, fetch_mask_length, async);
-    phase.check_io_mock();
-    phase
-}
-
-async fn step3_decrypt_seeds(phase: Phase<Sum2>) -> Phase<Sum2> {
+async fn step2_decrypt_seeds(phase: Phase<Sum2>) -> Phase<Sum2> {
     let phase = unwrap_step!(phase, complete, sum2);
     assert!(phase.state.private.seeds.is_some());
     // Make sure this steps consumes the seed dict.
@@ -124,7 +109,7 @@ async fn step3_decrypt_seeds(phase: Phase<Sum2>) -> Phase<Sum2> {
     phase
 }
 
-async fn step4_aggregate_masks(phase: Phase<Sum2>) -> Phase<Sum2> {
+async fn step3_aggregate_masks(phase: Phase<Sum2>) -> Phase<Sum2> {
     let phase = unwrap_step!(phase, complete, sum2);
     assert!(phase.state.private.mask.is_some());
     // Make sure this steps consumes the seeds.
@@ -132,7 +117,7 @@ async fn step4_aggregate_masks(phase: Phase<Sum2>) -> Phase<Sum2> {
     phase
 }
 
-async fn step5_compose_sum2_message(phase: Phase<Sum2>) -> Phase<Sum2> {
+async fn step4_compose_sum2_message(phase: Phase<Sum2>) -> Phase<Sum2> {
     let phase = unwrap_step!(phase, complete, sum2);
     assert!(phase.state.private.message.is_some());
     // Make sure this steps consumes the mask.
@@ -140,7 +125,7 @@ async fn step5_compose_sum2_message(phase: Phase<Sum2>) -> Phase<Sum2> {
     phase
 }
 
-async fn step6_send_message(mut phase: Phase<Sum2>) -> Phase<Awaiting> {
+async fn step5_send_message(mut phase: Phase<Sum2>) -> Phase<Awaiting> {
     phase.with_io_mock(|mock| {
         let mut seq = Sequence::new();
         mock.expect_send_message()
@@ -161,9 +146,8 @@ async fn step6_send_message(mut phase: Phase<Sum2>) -> Phase<Awaiting> {
 async fn test_phase() {
     let phase = make_phase();
     let phase = step1_fetch_seed_dict(phase).await;
-    let phase = step2_get_mask_length(phase).await;
-    let phase = step3_decrypt_seeds(phase).await;
-    let phase = step4_aggregate_masks(phase).await;
-    let phase = step5_compose_sum2_message(phase).await;
-    let _phase = step6_send_message(phase).await;
+    let phase = step2_decrypt_seeds(phase).await;
+    let phase = step3_aggregate_masks(phase).await;
+    let phase = step4_compose_sum2_message(phase).await;
+    let _phase = step5_send_message(phase).await;
 }

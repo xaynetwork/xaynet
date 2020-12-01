@@ -59,8 +59,6 @@ pub(crate) trait IO: Send + 'static {
         &mut self,
         pk: SumParticipantPublicKey,
     ) -> Result<Option<UpdateSeedDict>, Box<dyn Error>>;
-    /// Fetch the mask length from the coordinator
-    async fn get_mask_length(&mut self) -> Result<Option<u64>, Box<dyn Error>>;
     /// Fetch the latest global model from the coordinator
     async fn get_model(&mut self) -> Result<Option<Model>, Box<dyn Error>>;
     /// Send the given signed and encrypted PET message to the coordinator
@@ -142,13 +140,6 @@ where
             .map_err(|e| Box::new(e) as Box<dyn Error>)
     }
 
-    async fn get_mask_length(&mut self) -> Result<Option<u64>, Box<dyn Error>> {
-        self.xaynet_client
-            .get_mask_length()
-            .await
-            .map_err(|e| Box::new(e) as Box<dyn Error>)
-    }
-
     async fn get_model(&mut self) -> Result<Option<Model>, Box<dyn Error>> {
         self.xaynet_client
             .get_model()
@@ -205,10 +196,6 @@ impl IO for Box<dyn IO<Model = Box<dyn AsRef<Model> + Send>>> {
         pk: SumParticipantPublicKey,
     ) -> Result<Option<UpdateSeedDict>, Box<dyn Error>> {
         self.as_mut().get_seeds(pk).await
-    }
-
-    async fn get_mask_length(&mut self) -> Result<Option<u64>, Box<dyn Error>> {
-        self.as_mut().get_mask_length().await
     }
 
     async fn get_model(&mut self) -> Result<Option<Model>, Box<dyn Error>> {

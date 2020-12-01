@@ -166,11 +166,6 @@ where
         self.get(&url).await
     }
 
-    async fn get_mask_length(&mut self) -> Result<Option<u64>, Self::Error> {
-        let url = self.url("length");
-        Ok(self.get(&url).await?)
-    }
-
     async fn get_model(&mut self) -> Result<Option<Model>, Self::Error> {
         let url = self.url("model");
         Ok(self.get(&url).await?)
