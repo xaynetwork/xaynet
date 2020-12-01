@@ -36,6 +36,7 @@ reqwest = { version = "0.10", default-features = false, optional = true }
 # This has to match the version used by reqwest. It would be nice if
 # reqwest just re-exported it
 bytes = { version = "0.5", optional = true }
+rand = "0.7.3"
 
 [dev-dependencies]
 mockall = "0.8.3"
