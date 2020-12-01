@@ -8,6 +8,7 @@ use futures::{
     task::Context,
 };
 use tower::Service;
+use tracing::{debug, trace, warn};
 
 use crate::services::messages::{multipart::buffer::MultipartMessageBuffer, ServiceError};
 use xaynet_core::{
@@ -50,7 +51,10 @@ impl MessageBuilder {
     /// builder holds all the chunks.
     fn has_all_chunks(&self) -> bool {
         self.last_chunk_id
-            .map(|expected_number_of_chunks| self.data.len() == expected_number_of_chunks as usize)
+            .map(|last_chunk_id| {
+                // The IDs start at 0, hence the + 1
+                self.data.len() >= (last_chunk_id as usize + 1)
+            })
             .unwrap_or(false)
     }
 
@@ -121,9 +125,11 @@ impl Service<Message> for MultipartHandler {
         // If the message doesn't have the multipart flag, this
         // service has nothing to do with it.
         if !message.is_multipart {
+            trace!("message is not multipart, nothing to do");
             return ready_ok(Some(message));
         }
 
+        debug!("handling multipart message");
         if let Message {
             tag,
             participant_pk,
@@ -138,21 +144,28 @@ impl Service<Message> for MultipartHandler {
             };
             // If we don't have a partial message for this ID, create
             // an empty one.
-            let mp_message = self
-                .message_builders
-                .entry(id.clone())
-                .or_insert_with(|| MessageBuilder::new(tag, participant_pk, coordinator_pk));
+            let mp_message = self.message_builders.entry(id.clone()).or_insert_with(|| {
+                debug!("new multipart message (id = {})", id.message_id);
+                MessageBuilder::new(tag, participant_pk, coordinator_pk)
+            });
             // Add the chunk to the partial message
             mp_message.add_chunk(chunk);
 
             // Check if the message is complete, and if so parse it
             // and return it
             if mp_message.has_all_chunks() {
+                debug!("received the final message chunk, now parsing the full message");
                 // This entry exists, because `mp_message` above
                 // refers to it, so it's ok to unwrap.
                 match self.message_builders.remove(&id).unwrap().into_message() {
-                    Ok(message) => ready_ok(Some(message)),
-                    Err(e) => ready_err(ServiceError::Parsing(e)),
+                    Ok(message) => {
+                        debug!("multipart message succesfully parsed");
+                        ready_ok(Some(message))
+                    }
+                    Err(e) => {
+                        warn!("invalid multipart message: {}", e);
+                        ready_err(ServiceError::Parsing(e))
+                    }
                 }
             } else {
                 ready_ok(None)
@@ -240,31 +253,31 @@ mod tests {
         assert_eq!(data.len(), 1);
 
         let chunk1 = Chunk {
-            id: 1,
+            id: 0,
             message_id: 1234,
             last: false,
             data,
         };
         let chunk2 = Chunk {
-            id: 2,
+            id: 1,
             message_id: 1234,
             last: false,
             data: data2,
         };
         let chunk3 = Chunk {
-            id: 3,
+            id: 2,
             message_id: 1234,
             last: false,
             data: data3,
         };
         let chunk4 = Chunk {
-            id: 4,
+            id: 3,
             message_id: 1234,
             last: false,
             data: data4,
         };
         let chunk5 = Chunk {
-            id: 5,
+            id: 4,
             message_id: 1234,
             last: true,
             data: data5,
@@ -303,7 +316,7 @@ mod tests {
 
         msg.add_chunk(c5);
         assert_eq!(msg.data.len(), 5);
-        assert_eq!(msg.last_chunk_id, Some(5));
+        assert_eq!(msg.last_chunk_id, Some(4));
         assert!(msg.has_all_chunks());
 
         let actual = msg.into_message().unwrap();
@@ -334,17 +347,17 @@ mod tests {
 
         msg.add_chunk(c5);
         assert_eq!(msg.data.len(), 3);
-        assert_eq!(msg.last_chunk_id, Some(5));
+        assert_eq!(msg.last_chunk_id, Some(4));
         assert!(!msg.has_all_chunks());
 
         msg.add_chunk(c2);
         assert_eq!(msg.data.len(), 4);
-        assert_eq!(msg.last_chunk_id, Some(5));
+        assert_eq!(msg.last_chunk_id, Some(4));
         assert!(!msg.has_all_chunks());
 
         msg.add_chunk(c4);
         assert_eq!(msg.data.len(), 5);
-        assert_eq!(msg.last_chunk_id, Some(5));
+        assert_eq!(msg.last_chunk_id, Some(4));
         assert!(msg.has_all_chunks());
 
         let actual = msg.into_message().unwrap();

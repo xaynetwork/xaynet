@@ -25,6 +25,8 @@ pub struct MultipartEncoder {
     /// The maximum size allowed for the payload. `self.data` is split
     /// in chunks of this size.
     payload_size: usize,
+    /// A random ID common to all the message chunks.
+    message_id: u16,
 }
 
 /// Overhead induced by wrapping the data in [`Payload::Chunk`]
@@ -43,7 +45,7 @@ impl Iterator for MultipartEncoder {
 
         let chunk = Chunk {
             id: self.id,
-            message_id: rand::random::<u16>(),
+            message_id: self.message_id,
             last: self.id as usize == chunker.nb_chunks() - 1,
             data: chunker.get_chunk(self.id as usize).to_vec(),
         };
@@ -172,6 +174,7 @@ impl MessageEncoder {
             tag,
             coordinator_pk,
             payload_size,
+            message_id: rand::random::<u16>(),
         })
     }
 

@@ -57,7 +57,7 @@ impl Iterator for MultipartMessageBuffer {
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         let lower_bound = self.initial_length - self.consumed;
-        let upper_bound = self.initial_length;
+        let upper_bound = self.initial_length - self.consumed;
         (lower_bound, Some(upper_bound))
     }
 }
@@ -78,36 +78,43 @@ mod tests {
         let mut iter = MultipartMessageBuffer::from(map);
         assert_eq!(iter.consumed, 0);
         assert_eq!(iter.initial_length, 6);
+        assert_eq!(iter.len(), 6);
         assert!(iter.current_chunk.is_none());
 
         assert_eq!(iter.next(), Some(0));
         assert_eq!(iter.consumed, 1);
         assert_eq!(iter.initial_length, 6);
+        assert_eq!(iter.len(), 5);
         assert!(iter.current_chunk.is_some());
 
         assert_eq!(iter.next(), Some(1));
         assert_eq!(iter.consumed, 2);
         assert_eq!(iter.initial_length, 6);
+        assert_eq!(iter.len(), 4);
         assert!(iter.current_chunk.is_some());
 
         assert_eq!(iter.next(), Some(2));
         assert_eq!(iter.consumed, 3);
         assert_eq!(iter.initial_length, 6);
+        assert_eq!(iter.len(), 3);
         assert!(iter.current_chunk.is_some());
 
         assert_eq!(iter.next(), Some(3));
         assert_eq!(iter.consumed, 4);
         assert_eq!(iter.initial_length, 6);
+        assert_eq!(iter.len(), 2);
         assert!(iter.current_chunk.is_some());
 
         assert_eq!(iter.next(), Some(4));
         assert_eq!(iter.consumed, 5);
         assert_eq!(iter.initial_length, 6);
+        assert_eq!(iter.len(), 1);
         assert!(iter.current_chunk.is_some());
 
         assert_eq!(iter.next(), Some(5));
         assert_eq!(iter.consumed, 6);
         assert_eq!(iter.initial_length, 6);
+        assert_eq!(iter.len(), 0);
         assert!(iter.current_chunk.is_some());
     }
 }
