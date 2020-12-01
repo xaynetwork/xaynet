@@ -109,7 +109,7 @@ where
     }
 
     pub fn with_mask_config(mut self, mask_config: MaskConfig) -> Self {
-        self.coordinator_state.mask_config = mask_config;
+        self.coordinator_state.round_params.mask_config = mask_config.into();
         self
     }
 
@@ -119,7 +119,7 @@ where
     }
 
     pub fn with_model_length(mut self, model_length: usize) -> Self {
-        self.coordinator_state.model_length = model_length;
+        self.coordinator_state.round_params.model_length = model_length;
         self
     }
 

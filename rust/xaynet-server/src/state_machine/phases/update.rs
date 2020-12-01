@@ -151,8 +151,8 @@ where
             private: Update {
                 update_count: 0,
                 model_agg: Aggregation::new(
-                    shared.state.mask_config.into(),
-                    shared.state.model_length,
+                    shared.state.round_params.mask_config,
+                    shared.state.round_params.model_length,
                 ),
             },
             shared,
