@@ -9,10 +9,10 @@ use crate::{
     save_and_restore,
     state_machine::{
         tests::utils::{shared_state, EncryptKeyGenerator, SelectFor, SigningKeyGenerator},
-        Awaiting,
         IntoPhase,
         MockIO,
         Phase,
+        Sending,
         SharedState,
         State,
         Update,
@@ -48,7 +48,6 @@ fn make_update(shared: &SharedState) -> Box<Update> {
         seed_dict: None,
         model: None,
         mask: None,
-        message: None,
     })
 }
 
@@ -141,27 +140,8 @@ async fn step4_build_seed_dict(phase: Phase<Update>) -> Phase<Update> {
     phase
 }
 
-async fn step5_compose_update_message(phase: Phase<Update>) -> Phase<Update> {
-    let phase = unwrap_step!(phase, complete, update);
-    let mut phase = unwrap_progress_continue!(phase, compose_update_message);
-    phase.check_io_mock();
-    phase
-}
-
-async fn step6_send_message(mut phase: Phase<Update>) -> Phase<Awaiting> {
-    phase.with_io_mock(|mock| {
-        let mut seq = Sequence::new();
-        mock.expect_send_message()
-            .times(1)
-            .in_sequence(&mut seq)
-            .returning(|_| Ok(()));
-        mock.expect_notify_idle()
-            .times(1)
-            .in_sequence(&mut seq)
-            .return_const(());
-    });
-    let mut phase = unwrap_step!(phase, complete, awaiting);
-    phase.check_io_mock();
+async fn step5_into_sending_phase(phase: Phase<Update>) -> Phase<Sending> {
+    let phase = unwrap_step!(phase, complete, sending);
     phase
 }
 
@@ -172,8 +152,7 @@ async fn test_update_phase() {
     let phase = step2_load_model(phase).await;
     let phase = step3_mask_model(phase).await;
     let phase = step4_build_seed_dict(phase).await;
-    let phase = step5_compose_update_message(phase).await;
-    step6_send_message(phase).await;
+    let _phase = step5_into_sending_phase(phase).await;
 }
 
 #[tokio::test]
@@ -200,11 +179,15 @@ async fn test_save_and_restore() {
     });
     let phase = save_and_restore!(phase, Update);
 
-    let phase = step3_mask_model(phase).await;
-    let phase = step4_build_seed_dict(phase).await;
-    let mut phase = step5_compose_update_message(phase).await;
+    let mut phase = step3_mask_model(phase).await;
     phase.with_io_mock(|mock| {
         mock.expect_notify_update().times(1).return_const(());
     });
-    save_and_restore!(phase, Update);
+    let phase = save_and_restore!(phase, Update);
+
+    let mut phase = step4_build_seed_dict(phase).await;
+    phase.with_io_mock(|mock| {
+        mock.expect_notify_update().times(1).return_const(());
+    });
+    let _phase = save_and_restore!(phase, Update);
 }

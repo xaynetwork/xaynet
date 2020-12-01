@@ -8,9 +8,16 @@ use xaynet_core::{
     UpdateSeedDict,
 };
 
-use crate::{
-    state_machine::{IntoPhase, Phase, PhaseIo, Progress, State, Step, TransitionOutcome, IO},
-    MessageEncoder,
+use crate::state_machine::{
+    IntoPhase,
+    Phase,
+    PhaseIo,
+    Progress,
+    Sending,
+    State,
+    Step,
+    TransitionOutcome,
+    IO,
 };
 
 /// Sum2 phase data
@@ -30,8 +37,6 @@ pub struct Sum2 {
     /// The global mask, obtained by aggregating the masks derived
     /// from the mask seeds.
     pub mask: Option<MaskObject>,
-    /// Final sum2 message to send to the coordinator
-    pub message: Option<MessageEncoder>,
 }
 
 impl Sum2 {
@@ -42,7 +47,6 @@ impl Sum2 {
             seed_dict: None,
             seeds: None,
             mask: None,
-            message: None,
         }
     }
 
@@ -55,11 +59,7 @@ impl Sum2 {
     }
 
     fn has_aggregated_masks(&self) -> bool {
-        self.mask.is_some() || self.has_composed_message()
-    }
-
-    fn has_composed_message(&self) -> bool {
-        self.message.is_some()
+        self.mask.is_some()
     }
 }
 
@@ -152,20 +152,20 @@ impl Phase<Sum2> {
         Progress::Updated(self.into())
     }
 
-    /// Build the sum2 message to send to the coordinator
-    pub(crate) fn compose_sum2_message(mut self) -> Progress<Sum2> {
-        if self.state.private.has_composed_message() {
-            return Progress::Continue(self);
-        }
-
+    pub fn into_sending(mut self) -> Phase<Sending> {
+        debug!("composing sum2 message");
         let sum2 = Sum2Message {
             sum_signature: self.state.private.sum_signature,
             // UNWRAP_SAFE: the mask set in `self.aggregate_masks()`
             // which is called before this method
             model_mask: self.state.private.mask.take().unwrap(),
         };
-        self.state.private.message = Some(self.message_encoder(sum2.into()));
-        Progress::Updated(self.into())
+        let message = self.message_encoder(sum2.into());
+
+        debug!("going to sending phase");
+        let sending = Sending::from_sum2(message);
+        let state = State::new(self.state.shared, sending);
+        state.into_phase(self.io)
     }
 }
 
@@ -176,22 +176,6 @@ impl Step for Phase<Sum2> {
         self = try_progress!(self.fetch_seed_dict().await);
         self = try_progress!(self.decrypt_seeds());
         self = try_progress!(self.aggregate_masks());
-        self = try_progress!(self.compose_sum2_message());
-
-        // FIXME: currently if sending fails, we lose the message,
-        // thus wasting all the work we've done in this phase
-        let message = self.state.private.message.take().unwrap();
-        match self.send_message(message).await {
-            Ok(_) => {
-                info!("sent sum2 message");
-            }
-            Err(e) => {
-                warn!("failed to send sum2 message: {}", e);
-                warn!("sum2 phase failed");
-            }
-        }
-
-        info!("going back to awaiting phase");
-        TransitionOutcome::Complete(self.into_awaiting().into())
+        TransitionOutcome::Complete(self.into_sending().into())
     }
 }

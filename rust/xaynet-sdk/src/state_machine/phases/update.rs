@@ -14,9 +14,16 @@ use xaynet_core::{
     SumDict,
 };
 
-use crate::{
-    state_machine::{IntoPhase, Phase, PhaseIo, Progress, State, Step, TransitionOutcome, IO},
-    MessageEncoder,
+use crate::state_machine::{
+    IntoPhase,
+    Phase,
+    PhaseIo,
+    Progress,
+    Sending,
+    State,
+    Step,
+    TransitionOutcome,
+    IO,
 };
 
 #[derive(From)]
@@ -75,7 +82,6 @@ pub struct Update {
     pub seed_dict: Option<LocalSeedDict>,
     pub model: Option<LocalModel>,
     pub mask: Option<(MaskSeed, MaskObject)>,
-    pub message: Option<MessageEncoder>,
 }
 
 impl Update {
@@ -87,7 +93,6 @@ impl Update {
             seed_dict: None,
             model: None,
             mask: None,
-            message: None,
         }
     }
 
@@ -104,11 +109,7 @@ impl Update {
     }
 
     fn has_built_seed_dict(&self) -> bool {
-        self.seed_dict.is_some() || self.has_composed_message()
-    }
-
-    fn has_composed_message(&self) -> bool {
-        self.message.is_some()
+        self.seed_dict.is_some()
     }
 }
 
@@ -129,26 +130,7 @@ impl Step for Phase<Update> {
         self = try_progress!(self.load_model().await);
         self = try_progress!(self.mask_model());
         self = try_progress!(self.build_seed_dict());
-        self = try_progress!(self.compose_update_message());
-
-        // FIXME: currently if sending fails, we lose the message,
-        // thus wasting all the work we've done in this phase
-        //
-        // UNWRAP_SAFE: the message is set in
-        // `self.compose_update_message()`
-        let message = self.state.private.message.take().unwrap();
-        match self.send_message(message).await {
-            Ok(_) => {
-                info!("sent update message");
-            }
-            Err(e) => {
-                warn!("failed to send update message: {}", e);
-                warn!("update phase failed");
-            }
-        }
-
-        info!("going back to awaiting phase");
-        TransitionOutcome::Complete(self.into_awaiting().into())
+        TransitionOutcome::Complete(self.into_sending().into())
     }
 }
 
@@ -238,11 +220,7 @@ impl Phase<Update> {
         Progress::Updated(self.into())
     }
 
-    pub(crate) fn compose_update_message(mut self) -> Progress<Update> {
-        if self.state.private.has_composed_message() {
-            debug!("already composed the update message, continuing");
-            return Progress::Continue(self);
-        }
+    pub(crate) fn into_sending(mut self) -> Phase<Sending> {
         debug!("composing update message");
         let update = UpdateMessage {
             sum_signature: self.state.private.sum_signature,
@@ -255,7 +233,11 @@ impl Phase<Update> {
             // method
             local_seed_dict: self.state.private.seed_dict.take().unwrap(),
         };
-        self.state.private.message = Some(self.message_encoder(update.into()));
-        Progress::Updated(self.into())
+        let message = self.message_encoder(update.into());
+
+        debug!("going to sending phase");
+        let sending = Sending::from_sum2(message);
+        let state = State::new(self.state.shared, sending);
+        state.into_phase(self.io)
     }
 }

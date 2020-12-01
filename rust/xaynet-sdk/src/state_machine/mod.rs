@@ -14,7 +14,7 @@ use self::io::MockIO;
 use self::{
     io::{boxed_io, IO},
     phase::{IntoPhase, Phase, PhaseIo, Progress, SharedState, State, Step},
-    phases::{Awaiting, NewRound, Sum, Sum2, Update},
+    phases::{Awaiting, NewRound, Sending, Sum, Sum2, Update},
 };
 
 pub use self::{

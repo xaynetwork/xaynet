@@ -60,6 +60,13 @@ macro_rules! unwrap_step {
             $crate::state_machine::StateMachine::Update
         )
     };
+    ($phase:expr, $transition_outcome:path, sending) => {
+        unwrap_step!(
+            $phase,
+            $transition_outcome,
+            $crate::state_machine::StateMachine::Sending
+        )
+    };
     ($phase:expr, $transition_outcome:path, $state_machine:path) => {{
         let x = $crate::unwrap_as!(
             $crate::state_machine::Step::step($phase).await,
