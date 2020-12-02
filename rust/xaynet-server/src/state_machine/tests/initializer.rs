@@ -7,7 +7,7 @@ use crate::metrics::MetricsSender;
 use crate::{
     settings::RestoreSettings,
     state_machine::{
-        events::{DictionaryUpdate, MaskLengthUpdate, ModelUpdate},
+        events::{DictionaryUpdate, ModelUpdate},
         initializer::StateMachineInitializationError,
         phases::PhaseName,
     },
@@ -47,9 +47,6 @@ async fn integration_state_machine_initializer_no_restore() {
     let seed_dict = event_subscriber.seed_dict_listener().get_latest().event;
     assert!(matches!(seed_dict, DictionaryUpdate::Invalidate));
 
-    let mask_length = event_subscriber.mask_length_listener().get_latest().event;
-    assert!(matches!(mask_length, MaskLengthUpdate::Invalidate));
-
     let global_model = event_subscriber.model_listener().get_latest().event;
     assert!(matches!(global_model, ModelUpdate::Invalidate));
 
@@ -84,9 +81,6 @@ async fn integration_state_machine_initializer_no_state() {
 
     let seed_dict = event_subscriber.seed_dict_listener().get_latest().event;
     assert!(matches!(seed_dict, DictionaryUpdate::Invalidate));
-
-    let mask_length = event_subscriber.mask_length_listener().get_latest().event;
-    assert!(matches!(mask_length, MaskLengthUpdate::Invalidate));
 
     let global_model = event_subscriber.model_listener().get_latest().event;
     assert!(matches!(global_model, ModelUpdate::Invalidate));
@@ -136,9 +130,6 @@ async fn integration_state_machine_initializer_without_global_model() {
     let seed_dict = event_subscriber.seed_dict_listener().get_latest().event;
     assert!(matches!(seed_dict, DictionaryUpdate::Invalidate));
 
-    let mask_length = event_subscriber.mask_length_listener().get_latest().event;
-    assert!(matches!(mask_length, MaskLengthUpdate::Invalidate));
-
     let global_model = event_subscriber.model_listener().get_latest().event;
     assert!(matches!(global_model, ModelUpdate::Invalidate));
 
@@ -161,7 +152,7 @@ async fn integration_state_machine_initializer_with_global_model() {
     store.set_coordinator_state(&state).await.unwrap();
 
     // upload a global model and set the id
-    let uploaded_global_model = create_global_model(state.model_size);
+    let uploaded_global_model = create_global_model(state.round_params.model_length);
     let global_model_id = store
         .set_global_model(
             state.round_id,
@@ -198,9 +189,6 @@ async fn integration_state_machine_initializer_with_global_model() {
     let seed_dict = event_subscriber.seed_dict_listener().get_latest().event;
     assert!(matches!(seed_dict, DictionaryUpdate::Invalidate));
 
-    let mask_length = event_subscriber.mask_length_listener().get_latest().event;
-    assert!(matches!(mask_length, MaskLengthUpdate::Invalidate));
-
     let global_model = event_subscriber.model_listener().get_latest().event;
     assert!(
         matches!(global_model, ModelUpdate::New(broadcasted_model) if uploaded_global_model == *broadcasted_model)
@@ -224,8 +212,8 @@ async fn integration_state_machine_initializer_failed_because_of_wrong_size() {
     state.round_id = new_round_id;
     store.set_coordinator_state(&state).await.unwrap();
 
-    // upload a global model with a wrong model size and set the id
-    let uploaded_global_model = create_global_model(state.model_size + 10);
+    // upload a global model with a wrong model length and set the id
+    let uploaded_global_model = create_global_model(state.round_params.model_length + 10);
     let global_model_id = store
         .set_global_model(
             state.round_id,

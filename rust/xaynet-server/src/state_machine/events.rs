@@ -39,13 +39,6 @@ pub enum ModelUpdate {
     New(Arc<Model>),
 }
 
-/// Mask length update event.
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub enum MaskLengthUpdate {
-    Invalidate,
-    New(usize),
-}
-
 /// Dictionary update event.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum DictionaryUpdate<D> {
@@ -62,7 +55,6 @@ pub struct EventPublisher {
     params_tx: EventBroadcaster<RoundParameters>,
     phase_tx: EventBroadcaster<PhaseName>,
     model_tx: EventBroadcaster<ModelUpdate>,
-    mask_length_tx: EventBroadcaster<MaskLengthUpdate>,
     sum_dict_tx: EventBroadcaster<DictionaryUpdate<SumDict>>,
     seed_dict_tx: EventBroadcaster<DictionaryUpdate<SeedDict>>,
 }
@@ -75,7 +67,6 @@ pub struct EventSubscriber {
     params_rx: EventListener<RoundParameters>,
     phase_rx: EventListener<PhaseName>,
     model_rx: EventListener<ModelUpdate>,
-    mask_length_rx: EventListener<MaskLengthUpdate>,
     sum_dict_rx: EventListener<DictionaryUpdate<SumDict>>,
     seed_dict_rx: EventListener<DictionaryUpdate<SeedDict>>,
 }
@@ -104,11 +95,6 @@ impl EventPublisher {
             event: model,
         });
 
-        let (mask_length_tx, mask_length_rx) = watch::channel::<Event<MaskLengthUpdate>>(Event {
-            round_id,
-            event: MaskLengthUpdate::Invalidate,
-        });
-
         let (sum_dict_tx, sum_dict_rx) =
             watch::channel::<Event<DictionaryUpdate<SumDict>>>(Event {
                 round_id,
@@ -132,7 +118,6 @@ impl EventPublisher {
             params_tx: params_tx.into(),
             phase_tx: phase_tx.into(),
             model_tx: model_tx.into(),
-            mask_length_tx: mask_length_tx.into(),
             sum_dict_tx: sum_dict_tx.into(),
             seed_dict_tx: seed_dict_tx.into(),
         };
@@ -142,7 +127,6 @@ impl EventPublisher {
             params_rx: params_rx.into(),
             phase_rx: phase_rx.into(),
             model_rx: model_rx.into(),
-            mask_length_rx: mask_length_rx.into(),
             sum_dict_rx: sum_dict_rx.into(),
             seed_dict_rx: seed_dict_rx.into(),
         };
@@ -182,11 +166,6 @@ impl EventPublisher {
         let _ = self.model_tx.broadcast(self.event(update));
     }
 
-    /// Emit a mask_length event
-    pub fn broadcast_mask_length(&mut self, update: MaskLengthUpdate) {
-        let _ = self.mask_length_tx.broadcast(self.event(update));
-    }
-
     /// Emit a sum dictionary update
     pub fn broadcast_sum_dict(&mut self, update: DictionaryUpdate<SumDict>) {
         let _ = self.sum_dict_tx.broadcast(self.event(update));
@@ -218,11 +197,6 @@ impl EventSubscriber {
     /// Get a listener for new model events
     pub fn model_listener(&self) -> EventListener<ModelUpdate> {
         self.model_rx.clone()
-    }
-
-    /// Get a listener for new mask_length events
-    pub fn mask_length_listener(&self) -> EventListener<MaskLengthUpdate> {
-        self.mask_length_rx.clone()
     }
 
     /// Get a listener for sum dictionary updates

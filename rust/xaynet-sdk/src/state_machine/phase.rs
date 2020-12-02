@@ -89,6 +89,7 @@ fn dummy_round_parameters() -> RoundParameters {
             model_type: mask::ModelType::M3,
         }
         .into(),
+        model_length: 0,
     }
 }
 

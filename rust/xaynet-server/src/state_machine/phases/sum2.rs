@@ -183,17 +183,18 @@ mod test {
     #[serial]
     pub async fn integration_sum2_to_unmask() {
         utils::enable_logging();
+        let model_length = 4;
         let round_params = RoundParameters {
             pk: EncryptKeyPair::generate().public,
             sum: 0.5,
             update: 1.0,
             seed: RoundSeed::generate(),
             mask_config: utils::mask_config(),
+            model_length,
         };
 
         let n_updaters = 1;
         let n_summers = 1;
-        let model_size = 4;
 
         // Generate a sum dictionary with a single sum participant
         let summer = utils::generate_summer(round_params.clone());
@@ -203,7 +204,7 @@ mod test {
         // Generate a new masked model, seed dictionary and aggregation
         let updater = utils::generate_updater(round_params.clone());
         let scalar = 1.0 / (n_updaters as f64 * round_params.update);
-        let model = Model::from_primitives(vec![0; model_size].into_iter()).unwrap();
+        let model = Model::from_primitives(vec![0; model_length].into_iter()).unwrap();
         let (mask_seed, masked_model) = updater.compute_masked_model(&model, scalar);
         let local_seed_dict = Participant::build_seed_dict(&sum_dict, &mask_seed);
 
@@ -214,7 +215,7 @@ mod test {
         update_seed_dict.insert(updater.keys.public, encrypted_seed.clone());
 
         // Create the state machine in the Sum2 phase
-        let mut agg = Aggregation::new(summer.mask_settings, model_size);
+        let mut agg = Aggregation::new(summer.mask_settings, model_length);
         agg.aggregate(masked_model);
 
         let mut store = init_store().await;
@@ -244,7 +245,7 @@ mod test {
         // aggregate the masks (there's only one), compose a sum2
         // message and have the state machine process it
         let seeds = summer.decrypt_seeds(&update_seed_dict);
-        let aggregation = summer.aggregate_masks(model_size, &seeds);
+        let aggregation = summer.aggregate_masks(model_length, &seeds);
         let msg = summer.compose_sum2_message(aggregation.clone().into());
 
         let req = async { request_tx.msg(&msg).await.unwrap() };

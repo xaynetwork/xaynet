@@ -498,7 +498,7 @@ impl From<MaskSettings> for MaskConfig {
 #[derive(Debug, Deserialize, Clone)]
 /// Model settings.
 pub struct ModelSettings {
-    /// The expected size of the model. The model size corresponds to the number of elements.
+    /// The expected length of the model. The model length corresponds to the number of elements.
     /// This value is used to validate the uniform length of the submitted models/masks.
     ///
     /// # Examples
@@ -506,14 +506,14 @@ pub struct ModelSettings {
     /// **TOML**
     /// ```text
     /// [model]
-    /// size = 100
+    /// length = 100
     /// ```
     ///
     /// **Environment variable**
     /// ```text
-    /// XAYNET_MODEL__SIZE=100
+    /// XAYNET_MODEL__LENGTH=100
     /// ```
-    pub size: usize,
+    pub length: usize,
 }
 
 #[derive(Debug, Deserialize, Validate)]

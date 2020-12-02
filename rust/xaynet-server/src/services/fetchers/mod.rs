@@ -3,7 +3,6 @@
 //! There are multiple such services and the [`Fetcher`] trait
 //! provides a single unifying interface for all of these.
 
-mod mask_length;
 mod model;
 mod round_parameters;
 mod seed_dict;
@@ -16,7 +15,6 @@ use futures::future::poll_fn;
 use tower::{layer::Layer, Service, ServiceBuilder};
 
 pub use self::{
-    mask_length::{MaskLengthRequest, MaskLengthResponse, MaskLengthService},
     model::{ModelRequest, ModelResponse, ModelService},
     round_parameters::{RoundParamsRequest, RoundParamsResponse, RoundParamsService},
     seed_dict::{SeedDictRequest, SeedDictResponse, SeedDictService},
@@ -29,11 +27,6 @@ use crate::state_machine::events::EventSubscriber;
 pub trait Fetcher {
     /// Fetch the parameters for the current round
     async fn round_params(&mut self) -> Result<RoundParamsResponse, FetchError>;
-
-    /// Fetch the mask length for the current round. The sum
-    /// participants need this value during the sum2 phase to derive
-    /// masks from the update participant's masking seeds.
-    async fn mask_length(&mut self) -> Result<MaskLengthResponse, FetchError>;
 
     /// Fetch the latest global model.
     async fn model(&mut self) -> Result<ModelResponse, FetchError>;
@@ -58,19 +51,14 @@ fn into_fetch_error<E: Into<Box<dyn ::std::error::Error + 'static + Sync + Send>
 }
 
 #[async_trait]
-impl<RoundParams, SumDict, SeedDict, MaskLength, Model> Fetcher
-    for Fetchers<RoundParams, SumDict, SeedDict, MaskLength, Model>
+impl<RoundParams, SumDict, SeedDict, Model> Fetcher
+    for Fetchers<RoundParams, SumDict, SeedDict, Model>
 where
     Self: Send + Sync + 'static,
 
     RoundParams: Service<RoundParamsRequest, Response = RoundParamsResponse> + Send + 'static,
     <RoundParams as Service<RoundParamsRequest>>::Future: Send + Sync + 'static,
     <RoundParams as Service<RoundParamsRequest>>::Error:
-        Into<Box<dyn ::std::error::Error + 'static + Sync + Send>>,
-
-    MaskLength: Service<MaskLengthRequest, Response = MaskLengthResponse> + Send + 'static,
-    <MaskLength as Service<MaskLengthRequest>>::Future: Send + Sync + 'static,
-    <MaskLength as Service<MaskLengthRequest>>::Error:
         Into<Box<dyn ::std::error::Error + 'static + Sync + Send>>,
 
     Model: Service<ModelRequest, Response = ModelResponse> + Send + 'static,
@@ -97,20 +85,6 @@ where
         Ok(<RoundParams as Service<RoundParamsRequest>>::call(
             &mut self.round_params,
             RoundParamsRequest,
-        )
-        .await
-        .map_err(into_fetch_error)?)
-    }
-
-    async fn mask_length(&mut self) -> Result<MaskLengthResponse, FetchError> {
-        poll_fn(|cx| {
-            <MaskLength as Service<MaskLengthRequest>>::poll_ready(&mut self.mask_length, cx)
-        })
-        .await
-        .map_err(into_fetch_error)?;
-        Ok(<MaskLength as Service<MaskLengthRequest>>::call(
-            &mut self.mask_length,
-            MaskLengthRequest,
         )
         .await
         .map_err(into_fetch_error)?)
@@ -180,29 +154,24 @@ impl<S> Layer<S> for FetcherLayer {
 }
 
 #[derive(Debug, Clone)]
-pub struct Fetchers<RoundParams, SumDict, SeedDict, MaskLength, Model> {
+pub struct Fetchers<RoundParams, SumDict, SeedDict, Model> {
     round_params: RoundParams,
     sum_dict: SumDict,
     seed_dict: SeedDict,
-    mask_length: MaskLength,
     model: Model,
 }
 
-impl<RoundParams, SumDict, SeedDict, MaskLength, Model>
-    Fetchers<RoundParams, SumDict, SeedDict, MaskLength, Model>
-{
+impl<RoundParams, SumDict, SeedDict, Model> Fetchers<RoundParams, SumDict, SeedDict, Model> {
     pub fn new(
         round_params: RoundParams,
         sum_dict: SumDict,
         seed_dict: SeedDict,
-        mask_length: MaskLength,
         model: Model,
     ) -> Self {
         Self {
             round_params,
             sum_dict,
             seed_dict,
-            mask_length,
             model,
         }
     }
@@ -215,12 +184,6 @@ pub fn fetcher(event_subscriber: &EventSubscriber) -> impl Fetcher + Sync + Send
         .concurrency_limit(100)
         .layer(FetcherLayer)
         .service(RoundParamsService::new(event_subscriber));
-
-    let mask_length = ServiceBuilder::new()
-        .buffer(100)
-        .concurrency_limit(100)
-        .layer(FetcherLayer)
-        .service(MaskLengthService::new(event_subscriber));
 
     let model = ServiceBuilder::new()
         .buffer(100)
@@ -240,5 +203,5 @@ pub fn fetcher(event_subscriber: &EventSubscriber) -> impl Fetcher + Sync + Send
         .layer(FetcherLayer)
         .service(SeedDictService::new(event_subscriber));
 
-    Fetchers::new(round_params, sum_dict, seed_dict, mask_length, model)
+    Fetchers::new(round_params, sum_dict, seed_dict, model)
 }

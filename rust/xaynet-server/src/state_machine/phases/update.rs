@@ -8,7 +8,7 @@ use tracing::{debug, info, warn};
 use crate::metrics;
 use crate::{
     state_machine::{
-        events::{DictionaryUpdate, MaskLengthUpdate},
+        events::DictionaryUpdate,
         phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Sum2},
         requests::{StateMachineRequest, UpdateRequest},
         RequestError,
@@ -74,11 +74,6 @@ where
             "{} update messages handled (min {} required)",
             self.private.update_count, self.shared.state.min_update_count
         );
-
-        info!("broadcasting mask length");
-        self.shared
-            .events
-            .broadcast_mask_length(MaskLengthUpdate::New(self.private.model_agg.len()));
 
         let seed_dict = self
             .shared
@@ -156,8 +151,8 @@ where
             private: Update {
                 update_count: 0,
                 model_agg: Aggregation::new(
-                    shared.state.mask_config.into(),
-                    shared.state.model_size,
+                    shared.state.round_params.mask_config,
+                    shared.state.round_params.model_length,
                 ),
             },
             shared,
@@ -263,16 +258,17 @@ mod test {
     #[serial]
     pub async fn integration_update_to_sum2() {
         utils::enable_logging();
+        let model_length = 4;
         let round_params = RoundParameters {
             pk: EncryptKeyPair::generate().public,
             sum: 0.5,
             update: 1.0,
             seed: RoundSeed::generate(),
             mask_config: utils::mask_config(),
+            model_length,
         };
         let n_updaters = 1;
         let n_summers = 1;
-        let model_size = 4;
 
         // Find a sum participant and an update participant for the
         // given seed and ratios.
@@ -283,7 +279,7 @@ mod test {
         let mut frozen_sum_dict = SumDict::new();
         frozen_sum_dict.insert(summer.keys.public, summer.ephm_keys.public);
 
-        let aggregation = Aggregation::new(utils::mask_config(), model_size);
+        let aggregation = Aggregation::new(utils::mask_config(), model_length);
 
         let mut store = init_store().await;
         // Create the state machine
@@ -312,7 +308,7 @@ mod test {
 
         // Create an update request.
         let scalar = 1.0 / (n_updaters as f64 * round_params.update);
-        let model = Model::from_primitives(vec![0; model_size].into_iter()).unwrap();
+        let model = Model::from_primitives(vec![0; model_length].into_iter()).unwrap();
         let (mask_seed, masked_model) = updater.compute_masked_model(&model, scalar);
         let local_seed_dict = Participant::build_seed_dict(&frozen_sum_dict, &mask_seed);
         let update_msg =
@@ -350,13 +346,6 @@ mod test {
             Event {
                 round_id: 0,
                 event: PhaseName::Update,
-            }
-        );
-        assert_eq!(
-            events.mask_length_listener().get_latest(),
-            Event {
-                round_id: 0,
-                event: MaskLengthUpdate::New(model.len()),
             }
         );
 

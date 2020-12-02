@@ -30,8 +30,6 @@ pub struct Sum2 {
     /// The global mask, obtained by aggregating the masks derived
     /// from the mask seeds.
     pub mask: Option<MaskObject>,
-    /// Mask length
-    pub mask_length: Option<u64>,
     /// Final sum2 message to send to the coordinator
     pub message: Option<MessageEncoder>,
 }
@@ -44,17 +42,12 @@ impl Sum2 {
             seed_dict: None,
             seeds: None,
             mask: None,
-            mask_length: None,
             message: None,
         }
     }
 
     fn has_fetched_seed_dict(&self) -> bool {
-        self.seed_dict.is_some() || self.has_fetched_mask_length()
-    }
-
-    fn has_fetched_mask_length(&self) -> bool {
-        self.mask_length.is_some() || self.has_decrypted_seeds()
+        self.seed_dict.is_some() || self.has_decrypted_seeds()
     }
 
     fn has_decrypted_seeds(&self) -> bool {
@@ -94,31 +87,6 @@ impl Phase<Sum2> {
             }
             Ok(Some(seeds)) => {
                 self.state.private.seed_dict = Some(seeds);
-                Progress::Updated(self.into())
-            }
-        }
-    }
-
-    /// Retrieve the mask length from the coordinator. This
-    /// information is necessary for deriving masks from the masks
-    /// seeds.
-    pub(crate) async fn fetch_mask_length(mut self) -> Progress<Sum2> {
-        if self.state.private.has_fetched_mask_length() {
-            return Progress::Continue(self);
-        }
-
-        debug!("polling for mask length");
-        match self.io.get_mask_length().await {
-            Err(e) => {
-                warn!("failed to fetch mask length: {}", e);
-                Progress::Stuck(self)
-            }
-            Ok(None) => {
-                debug!("mask length not available yet");
-                Progress::Stuck(self)
-            }
-            Ok(Some(length)) => {
-                self.state.private.mask_length = Some(length);
                 Progress::Updated(self.into())
             }
         }
@@ -166,9 +134,7 @@ impl Phase<Sum2> {
 
         info!("aggregating masks");
         let config = self.state.shared.round_params.mask_config;
-        // UNWRAP_SAFE: the mask length is set in
-        // `self.fetch_mask_length()` which is called before this method
-        let mask_len = self.state.private.mask_length.unwrap();
+        let mask_len = self.state.shared.round_params.model_length;
         let mut mask_agg = Aggregation::new(config, mask_len as usize);
         // UNWRAP_SAFE: the seeds are set in `self.decrypt_seeds()`
         // which is called before this method
@@ -208,7 +174,6 @@ impl Step for Phase<Sum2> {
     async fn step(mut self) -> TransitionOutcome {
         info!("sum2 task");
         self = try_progress!(self.fetch_seed_dict().await);
-        self = try_progress!(self.fetch_mask_length().await);
         self = try_progress!(self.decrypt_seeds());
         self = try_progress!(self.aggregate_masks());
         self = try_progress!(self.compose_sum2_message());

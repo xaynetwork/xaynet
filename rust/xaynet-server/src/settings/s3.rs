@@ -291,7 +291,7 @@ mod tests {
         fn with_model(mut self) -> Self {
             let model = r#"
             [model]
-            size = 4
+            length = 4
             "#;
 
             self.config.push_str(model);

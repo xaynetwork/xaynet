@@ -62,8 +62,6 @@ where
         // Also re-emit the other events in case the round ID changed
         let model = event_subscriber.model_listener().get_latest().event;
         events.broadcast_model(model);
-        let mask_length = event_subscriber.mask_length_listener().get_latest().event;
-        events.broadcast_mask_length(mask_length);
         let sum_dict = event_subscriber.sum_dict_listener().get_latest().event;
         events.broadcast_sum_dict(sum_dict);
         let seed_dict = event_subscriber.seed_dict_listener().get_latest().event;
@@ -111,7 +109,7 @@ where
     }
 
     pub fn with_mask_config(mut self, mask_config: MaskConfig) -> Self {
-        self.coordinator_state.mask_config = mask_config;
+        self.coordinator_state.round_params.mask_config = mask_config.into();
         self
     }
 
@@ -120,8 +118,8 @@ where
         self
     }
 
-    pub fn with_model_size(mut self, model_size: usize) -> Self {
-        self.coordinator_state.model_size = model_size;
+    pub fn with_model_length(mut self, model_length: usize) -> Self {
+        self.coordinator_state.round_params.model_length = model_length;
         self
     }
 

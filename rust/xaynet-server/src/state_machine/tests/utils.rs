@@ -198,7 +198,7 @@ pub fn pet_settings() -> PetSettings {
 }
 
 pub fn model_settings() -> ModelSettings {
-    ModelSettings { size: 1 }
+    ModelSettings { length: 1 }
 }
 
 pub fn init_shared<C, M>(

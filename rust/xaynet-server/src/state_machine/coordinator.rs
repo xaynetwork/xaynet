@@ -30,11 +30,6 @@ pub struct CoordinatorState {
     pub max_sum_time: u64,
     /// The maximum time (in seconds) permitted for processing update messages.
     pub max_update_time: u64,
-    /// The masking configuration.
-    // FIXME: this should be a MaskConfigPair
-    pub mask_config: MaskConfig,
-    /// The size of the model.
-    pub model_size: usize,
 }
 
 impl CoordinatorState {
@@ -51,6 +46,7 @@ impl CoordinatorState {
             update: pet_settings.update,
             seed: RoundSeed::zeroed(),
             mask_config: mask_config.clone().into(),
+            model_length: model_settings.length,
         };
         let round_id = 0;
         Self {
@@ -63,8 +59,6 @@ impl CoordinatorState {
             min_update_time: pet_settings.min_update_time,
             max_sum_time: pet_settings.max_sum_time,
             max_update_time: pet_settings.max_update_time,
-            mask_config,
-            model_size: model_settings.size,
         }
     }
 }
