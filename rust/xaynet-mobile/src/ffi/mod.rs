@@ -6,6 +6,7 @@ pub use participant::*;
 mod settings;
 pub use settings::*;
 
+pub use ffi_support::{ByteBuffer, FfiStr};
 use std::os::raw::c_int;
 
 /// Destroy the given `ByteBuffer` and free its memory. This function must only be
@@ -41,12 +42,12 @@ pub unsafe extern "C" fn xaynet_ffi_byte_buffer_destroy(
     // *const pointers brings some safety, and casting back to *mut
     // here is no big deal since the pointer becomes invalid afterward
     // anyway.
-    buf: *const ffi_support::ByteBuffer,
+    buf: *const ByteBuffer,
 ) -> c_int {
     if buf.is_null() {
         return ERR_NULLPTR;
     }
-    Box::from_raw(buf as *mut ffi_support::ByteBuffer).destroy();
+    Box::from_raw(buf as *mut ByteBuffer).destroy();
     OK
 }
 
