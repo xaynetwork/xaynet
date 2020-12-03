@@ -1,6 +1,6 @@
 [package]
 name = "xaynet-mobile"
-version = "0.0.0"
+version = "0.1.0"
 authors = ["Xayn Engineering <engineering@xaynet.dev>"]
 edition = "2018"
 description = "The Xayn Network project is building a privacy layer for machine learning so that AI projects can meet compliance such as GDPR and CCPA. The approach relies on Federated Learning as enabling technology that allows production AI applications to be fully privacy compliant."
@@ -31,7 +31,7 @@ reqwest = { version = "0.10", default-features = false, features = ["rustls-tls"
 
 [lib]
 name = "xaynet_mobile"
-crate-type = ["staticlib", "cdylib"]
+crate-type = ["staticlib", "cdylib", "rlib"]
 
 [features]
 default = []
