@@ -13,7 +13,7 @@ use crate::{
 use xaynet_core::{
     common::{RoundParameters, RoundSeed},
     crypto::{ByteObject, PublicEncryptKey, SigningKeyPair},
-    mask::{self, MaskConfig, Model},
+    mask::{self, DataType, MaskConfig, Model},
     message::Payload,
 };
 
@@ -260,6 +260,14 @@ impl<P> Phase<P> {
         .unwrap()
     }
 
+    /// Return the model configuration of the model that is expected in the update phase.
+    pub fn model_config(&self) -> ModelConfig {
+        ModelConfig {
+            data_type: self.state.shared.round_params.mask_config.vect.data_type,
+            len: self.state.shared.round_params.model_length,
+        }
+    }
+
     #[cfg(test)]
     pub(crate) fn with_io_mock<F>(&mut self, f: F)
     where
@@ -277,6 +285,15 @@ impl<P> Phase<P> {
         // un-expectedly afterwards
         let _ = std::mem::replace(&mut self.io, Box::new(super::MockIO::new()));
     }
+}
+
+#[derive(Debug)]
+/// The model configuration of the model that is expected in the update phase.
+pub struct ModelConfig {
+    // The expected data type of the model.
+    pub data_type: DataType,
+    // The expected length of the model.
+    pub len: usize,
 }
 
 #[derive(Error, Debug)]

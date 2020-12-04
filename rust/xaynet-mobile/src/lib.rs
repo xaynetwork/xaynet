@@ -23,7 +23,7 @@
 //!   consume too much data.
 //!
 //! To solve this problem, the [`Participant`] provided in this crate embeds the PET
-//! state machine, and it's the caller responsability to drive its execution (see
+//! state machine, and it's the caller responsibility to drive its execution (see
 //! [`Participant::tick()`])
 #[macro_use]
 extern crate ffi_support;

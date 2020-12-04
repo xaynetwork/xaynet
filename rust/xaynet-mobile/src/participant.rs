@@ -7,7 +7,16 @@ use tokio::{
     sync::{mpsc, Mutex},
 };
 use xaynet_core::mask::Model;
-use xaynet_sdk::{ModelStore, Notify, SerializableState, StateMachine, TransitionOutcome};
+use xaynet_sdk::{
+    client::Client,
+    ModelConfig,
+    ModelStore,
+    Notify,
+    SerializableState,
+    StateMachine,
+    TransitionOutcome,
+    XaynetClient,
+};
 
 use crate::{
     new_client,
@@ -133,6 +142,8 @@ pub struct Participant {
     store: Store,
     /// Async runtime to execute the state machine
     runtime: Runtime,
+    /// Xaynet client
+    client: Client<reqwest::Client>,
     /// Whether the participant state changed after the last call to
     /// [`Participant::tick()`]
     made_progress: bool,
@@ -163,8 +174,9 @@ impl Participant {
         let client = new_client(url.as_str(), None, None)?;
         let (events, notifier) = Events::new();
         let store = Store::new();
-        let state_machine = StateMachine::new(pet_settings, client, store.clone(), notifier);
-        Self::init(state_machine, events, store)
+        let state_machine =
+            StateMachine::new(pet_settings, client.clone(), store.clone(), notifier);
+        Self::init(state_machine, client, events, store)
     }
 
     /// Restore a participant from it's serialized state. The coordinator client that
@@ -175,16 +187,22 @@ impl Participant {
         let (events, notifier) = Events::new();
         let store = Store::new();
         let client = new_client(url, None, None)?;
-        let state_machine = StateMachine::restore(state, client, store.clone(), notifier);
-        Self::init(state_machine, events, store)
+        let state_machine = StateMachine::restore(state, client.clone(), store.clone(), notifier);
+        Self::init(state_machine, client, events, store)
     }
 
-    fn init(state_machine: StateMachine, events: Events, store: Store) -> Result<Self, InitError> {
+    fn init(
+        state_machine: StateMachine,
+        client: Client<reqwest::Client>,
+        events: Events,
+        store: Store,
+    ) -> Result<Self, InitError> {
         let mut participant = Self {
             runtime: Self::runtime()?,
             state_machine: Some(state_machine),
             events,
             store,
+            client,
             task: Task::None,
             made_progress: true,
             should_set_model: false,
@@ -218,7 +236,6 @@ impl Participant {
     ///   [`Participant::task()`]
     /// - whether the participant should load its model into the store by calling
     ///   [`Participant::should_set_model()`]
-
     pub fn tick(&mut self) {
         // UNWRAP_SAFE: the state machine is always set.
         let state_machine = self.state_machine.take().unwrap();
@@ -292,5 +309,23 @@ impl Participant {
             *stored_model = Some(model)
         });
         self.should_set_model = false;
+    }
+
+    /// Retrieve the current global model, if available.
+    pub fn global_model(&mut self) -> Option<Model> {
+        let Self {
+            ref mut runtime,
+            ref mut client,
+            ..
+        } = self;
+        runtime.block_on(async { client.get_model().await.ok()? })
+    }
+
+    /// Return the model configuration of the model that is expected in the
+    /// [`Participant::set_model`] method.
+    pub fn model_config(&self) -> ModelConfig {
+        // UNWRAP_SAFE: the state machine is always set.
+        let state_machine = self.state_machine.as_ref().unwrap();
+        state_machine.model_config()
     }
 }

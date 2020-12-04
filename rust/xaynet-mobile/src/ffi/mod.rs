@@ -6,6 +6,9 @@ pub use participant::*;
 mod settings;
 pub use settings::*;
 
+mod config;
+pub use config::*;
+
 pub use ffi_support::{ByteBuffer, FfiStr};
 use std::os::raw::c_int;
 
@@ -97,7 +100,7 @@ pub const ERR_SETTINGS_MASKCONFIG: c_int = 8;
 pub const ERR_SETTINGS_KEYS: c_int = 9;
 /// Failed to set the local model: invalid model
 pub const ERR_SETMODEL_MODEL: c_int = 10;
-/// Failed to set the local model: data type
+/// Failed to set the local model: invalid data type
 pub const ERR_SETMODEL_DATATYPE: c_int = 11;
 /// Failed to initialized the crypto library
 pub const ERR_CRYPTO_INIT: c_int = 12;
@@ -105,3 +108,11 @@ pub const ERR_CRYPTO_INIT: c_int = 12;
 pub const ERR_CRYPTO_SECRET_KEY: c_int = 13;
 /// Invalid public signing key
 pub const ERR_CRYPTO_PUBLIC_KEY: c_int = 14;
+/// Global model unavailable
+pub const GLOBAL_MODEL_NONE: c_int = 15;
+/// Failed to get the global model: invalid data type
+pub const ERR_GLOBALMODEL_DATATYPE: c_int = 16;
+/// Failed to get the global model: invalid buffer length
+pub const ERR_GLOBALMODEL_LEN: c_int = 17;
+/// Failed to set the local model: invalid model
+pub const ERR_GLOBALMODEL_CONVERT: c_int = 18;

@@ -18,7 +18,7 @@ use self::{
 };
 
 pub use self::{
-    phase::SerializableState,
+    phase::{ModelConfig, SerializableState},
     state_machine::{StateMachine, TransitionOutcome},
 };
 

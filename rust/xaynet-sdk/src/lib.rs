@@ -208,7 +208,7 @@ pub(crate) use self::message_encoder::MessageEncoder;
 pub mod settings;
 
 mod state_machine;
-pub use state_machine::{SerializableState, StateMachine, TransitionOutcome};
+pub use state_machine::{ModelConfig, SerializableState, StateMachine, TransitionOutcome};
 
 mod traits;
 pub use self::traits::{ModelStore, Notify, XaynetClient};
