@@ -27,7 +27,7 @@ model_type = "M3"
 length = 4
 
 [metrics.influxdb]
-url = "http://influxdb:8086"
+url = "http://localhost:8086"
 db = "metrics"
 
 [redis]

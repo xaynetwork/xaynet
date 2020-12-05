@@ -24,9 +24,9 @@ pub use self::{
     unmask::{Unmask, UnmaskStateError},
     update::{Update, UpdateStateError},
 };
-#[cfg(feature = "metrics")]
-use crate::{metrics, metrics::MetricsSender};
 use crate::{
+    metric,
+    metrics::Measurement,
     state_machine::{
         coordinator::CoordinatorState,
         events::EventPublisher,
@@ -36,7 +36,6 @@ use crate::{
     },
     storage::{CoordinatorStorage, ModelStorage, Store},
 };
-use xaynet_macros::metrics;
 
 /// Name of the current phase
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -89,9 +88,6 @@ where
     pub(in crate::state_machine) events: EventPublisher,
     /// The store for storing coordinator and model data.
     pub(in crate::state_machine) store: Store<C, M>,
-    #[cfg(feature = "metrics")]
-    /// The metrics sender half.
-    pub(in crate::state_machine) metrics_tx: MetricsSender,
 }
 
 impl<C, M> fmt::Debug for Shared<C, M>
@@ -118,15 +114,12 @@ where
         publisher: EventPublisher,
         request_rx: RequestReceiver,
         store: Store<C, M>,
-        #[cfg(feature = "metrics")] metrics_tx: MetricsSender,
     ) -> Self {
         Self {
             state: coordinator_state,
             request_rx,
             events: publisher,
             store,
-            #[cfg(feature = "metrics")]
-            metrics_tx,
         }
     }
 
@@ -200,9 +193,11 @@ where
 
         if let Err(ref err) = res {
             warn!("failed to handle message: {}", err);
-            metrics!(
-                self.shared.metrics_tx,
-                metrics::message::rejected::increment(self.shared.state.round_id, Self::NAME)
+            metric!(
+                Measurement::MessageRejected,
+                1,
+                ("round_id", self.shared.state.round_id),
+                ("phase", Self::NAME as u8)
             );
         }
 
@@ -229,7 +224,7 @@ where
             info!("broadcasting phase event");
             self.shared.events.broadcast_phase(phase);
 
-            metrics!(self.shared.metrics_tx, metrics::phase::update(phase));
+            metric!(Measurement::Phase, phase as u8);
 
             if let Err(err) = self.run().await {
                 return Some(self.into_error_state(err));
@@ -263,15 +258,14 @@ where
             match self.try_next_request()? {
                 Some((_req, span, resp_tx)) => {
                     let _span_guard = span.enter();
-                    info!("rejecting outdated request");
+                    info!("discarding outdated request");
                     let _ = resp_tx.send(Err(RequestError::MessageRejected));
 
-                    metrics!(
-                        self.shared.metrics_tx,
-                        metrics::message::discarded::increment(
-                            self.shared.state.round_id,
-                            Self::NAME
-                        )
+                    metric!(
+                        Measurement::MessageDiscarded,
+                        1,
+                        ("round_id", self.shared.state.round_id),
+                        ("phase", Self::NAME as u8)
                     );
                 }
                 None => return Ok(()),

@@ -3,9 +3,9 @@ use std::{cmp::Ordering, sync::Arc};
 use async_trait::async_trait;
 use tracing::info;
 
-#[cfg(feature = "metrics")]
-use crate::metrics;
 use crate::{
+    metric,
+    metrics::{GlobalRecorder, Measurement},
     state_machine::{
         events::ModelUpdate,
         phases::{Idle, Phase, PhaseName, PhaseState, PhaseStateError, Shared},
@@ -56,7 +56,6 @@ where
 
     /// Run the unmasking phase
     async fn run(&mut self) -> Result<(), PhaseStateError> {
-        #[cfg(feature = "metrics")]
         self.emit_number_of_unique_masks_metrics();
 
         let best_masks = self
@@ -161,7 +160,6 @@ where
     }
 }
 
-#[cfg(feature = "metrics")]
 impl<C, M> PhaseState<Unmask, C, M>
 where
     Self: Phase<C, M>,
@@ -171,19 +169,21 @@ where
     fn emit_number_of_unique_masks_metrics(&mut self) {
         use tracing::error;
 
-        let mut store = self.shared.store.clone();
-        let mut metrics_tx = self.shared.metrics_tx.clone();
-        let (round_id, phase_name) = (self.shared.state.round_id, Self::NAME);
+        if GlobalRecorder::global().is_some() {
+            let mut store = self.shared.store.clone();
+            let (round_id, phase_name) = (self.shared.state.round_id, Self::NAME);
 
-        tokio::spawn(async move {
-            match store.number_of_unique_masks().await {
-                Ok(number_of_masks) => metrics_tx.send(metrics::masks::total_number::update(
-                    number_of_masks,
-                    round_id,
-                    phase_name,
-                )),
-                Err(err) => error!("failed to fetch total number of masks: {}", err),
-            };
-        });
+            tokio::spawn(async move {
+                match store.number_of_unique_masks().await {
+                    Ok(number_of_masks) => metric!(
+                        Measurement::MasksTotalNumber,
+                        number_of_masks,
+                        ("round_id", round_id),
+                        ("phase", phase_name as u8)
+                    ),
+                    Err(err) => error!("failed to fetch total number of masks: {}", err),
+                };
+            });
+        }
     }
 }

@@ -2,9 +2,9 @@ use async_trait::async_trait;
 use tokio::time::{timeout, Duration};
 use tracing::{debug, info};
 
-#[cfg(feature = "metrics")]
-use crate::metrics;
 use crate::{
+    metric,
+    metrics::Measurement,
     state_machine::{
         phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Unmask},
         requests::{StateMachineRequest, Sum2Request},
@@ -14,7 +14,6 @@ use crate::{
     storage::{CoordinatorStorage, ModelStorage},
 };
 use xaynet_core::mask::Aggregation;
-use xaynet_macros::metrics;
 
 /// Sum2 state
 #[derive(Debug)]
@@ -85,6 +84,15 @@ where
         }
         Ok(())
     }
+
+    fn increment_message_metric(&self) {
+        metric!(
+            Measurement::MessageSum2,
+            1,
+            ("round_id", self.shared.state.round_id),
+            ("phase", Self::NAME as u8)
+        );
+    }
 }
 
 #[async_trait]
@@ -100,13 +108,10 @@ where
     /// will receive a [`RequestError::MessageRejected`].
     async fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), RequestError> {
         match req {
-            StateMachineRequest::Sum2(sum2_req) => {
-                metrics!(
-                    self.shared.metrics_tx,
-                    metrics::message::sum2::increment(self.shared.state.round_id, Self::NAME)
-                );
-                self.handle_sum2(sum2_req).await
-            }
+            StateMachineRequest::Sum2(sum2_req) => self.handle_sum2(sum2_req).await.map(|res| {
+                self.increment_message_metric();
+                res
+            }),
             _ => Err(RequestError::MessageRejected),
         }
     }

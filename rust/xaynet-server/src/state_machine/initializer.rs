@@ -2,8 +2,6 @@ use thiserror::Error;
 #[cfg(feature = "model-persistence")]
 use tracing::{debug, info};
 
-#[cfg(feature = "metrics")]
-use crate::metrics::MetricsSender;
 #[cfg(feature = "model-persistence")]
 use crate::settings::RestoreSettings;
 use crate::{
@@ -55,8 +53,6 @@ where
     restore_settings: RestoreSettings,
 
     store: Store<C, M>,
-    #[cfg(feature = "metrics")]
-    metrics_handle: MetricsSender,
 }
 
 impl<C, M> StateMachineInitializer<C, M>
@@ -71,7 +67,6 @@ where
         model_settings: ModelSettings,
         #[cfg(feature = "model-persistence")] restore_settings: RestoreSettings,
         store: Store<C, M>,
-        #[cfg(feature = "metrics")] metrics_handle: MetricsSender,
     ) -> Self {
         Self {
             pet_settings,
@@ -80,8 +75,6 @@ where
             #[cfg(feature = "model-persistence")]
             restore_settings,
             store,
-            #[cfg(feature = "metrics")]
-            metrics_handle,
         }
     }
 
@@ -134,14 +127,7 @@ where
 
         let (request_rx, request_tx) = RequestReceiver::new();
 
-        let shared = Shared::new(
-            coordinator_state,
-            event_publisher,
-            request_rx,
-            self.store,
-            #[cfg(feature = "metrics")]
-            self.metrics_handle,
-        );
+        let shared = Shared::new(coordinator_state, event_publisher, request_rx, self.store);
 
         let state_machine = StateMachine::from(PhaseState::<Idle, _, _>::new(shared));
         (state_machine, request_tx, event_subscriber)

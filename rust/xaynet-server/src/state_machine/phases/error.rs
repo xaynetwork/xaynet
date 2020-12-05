@@ -5,9 +5,8 @@ use thiserror::Error;
 use tokio::time::delay_for;
 use tracing::{error, info};
 
-#[cfg(feature = "metrics")]
-use crate::metrics;
 use crate::{
+    event,
     state_machine::{
         phases::{
             idle::IdleStateError,
@@ -25,7 +24,6 @@ use crate::{
     },
     storage::{CoordinatorStorage, ModelStorage},
 };
-use xaynet_macros::metrics;
 
 /// Error that can occur during the execution of the [`StateMachine`].
 #[derive(Error, Debug)]
@@ -87,10 +85,7 @@ where
     async fn run(&mut self) -> Result<(), PhaseStateError> {
         error!("phase state error: {}", self.private);
 
-        metrics!(
-            self.shared.metrics_tx,
-            metrics::phase::error::emit(&self.private)
-        );
+        event!("Phase error", &self.private.to_string());
 
         self.wait_for_store_readiness().await;
 

@@ -1,8 +1,6 @@
 use serial_test::serial;
 
 use super::utils::{mask_settings, model_settings, pet_settings};
-#[cfg(feature = "metrics")]
-use crate::metrics::MetricsSender;
 #[cfg(feature = "model-persistence")]
 use crate::{
     settings::RestoreSettings,
@@ -30,8 +28,6 @@ async fn integration_state_machine_initializer_no_restore() {
         model_settings(),
         RestoreSettings { enable: false },
         store,
-        #[cfg(feature = "metrics")]
-        MetricsSender(),
     );
 
     let (state_machine, _request_sender, event_subscriber) = smi.init().await.unwrap();
@@ -65,8 +61,6 @@ async fn integration_state_machine_initializer_no_state() {
         model_settings(),
         RestoreSettings { enable: true },
         store,
-        #[cfg(feature = "metrics")]
-        MetricsSender(),
     );
 
     let (state_machine, _request_sender, event_subscriber) = smi.init().await.unwrap();
@@ -113,8 +107,6 @@ async fn integration_state_machine_initializer_without_global_model() {
         model_settings,
         RestoreSettings { enable: true },
         store,
-        #[cfg(feature = "metrics")]
-        MetricsSender(),
     );
 
     let (state_machine, _request_sender, event_subscriber) = smi.init().await.unwrap();
@@ -172,8 +164,6 @@ async fn integration_state_machine_initializer_with_global_model() {
         model_settings,
         RestoreSettings { enable: true },
         store,
-        #[cfg(feature = "metrics")]
-        MetricsSender(),
     );
 
     let (state_machine, _request_sender, event_subscriber) = smi.init().await.unwrap();
@@ -233,8 +223,6 @@ async fn integration_state_machine_initializer_failed_because_of_wrong_size() {
         model_settings,
         RestoreSettings { enable: true },
         store,
-        #[cfg(feature = "metrics")]
-        MetricsSender(),
     );
 
     let result = smi.init().await;
@@ -272,8 +260,6 @@ async fn integration_state_machine_initializer_failed_to_find_global_model() {
         model_settings,
         RestoreSettings { enable: true },
         store,
-        #[cfg(feature = "metrics")]
-        MetricsSender(),
     );
 
     let result = smi.init().await;
@@ -302,8 +288,6 @@ async fn integration_state_machine_initializer_reset_state() {
         #[cfg(feature = "model-persistence")]
         RestoreSettings { enable: true },
         store.clone(),
-        #[cfg(feature = "metrics")]
-        MetricsSender(),
     );
 
     smi.from_settings().await.unwrap();
