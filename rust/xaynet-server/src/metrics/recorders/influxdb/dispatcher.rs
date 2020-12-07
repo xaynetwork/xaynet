@@ -61,3 +61,57 @@ impl Service<Request> for Dispatcher {
         Box::pin(fut)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        metrics::{
+            recorders::influxdb::models::{Event, Metric},
+            Measurement,
+        },
+        settings::InfluxSettings,
+    };
+    use tokio_test::assert_ready;
+    use tower_test::mock::Spawn;
+
+    fn influx_settings() -> InfluxSettings {
+        InfluxSettings {
+            url: "http://localhost:8086".to_string(),
+            db: "metrics".to_string(),
+        }
+    }
+
+    #[tokio::test]
+    async fn integration_dispatch_metric() {
+        let settings = influx_settings();
+        let mut task = Spawn::new(Dispatcher::new(&settings.url, &settings.db));
+
+        let metric = Metric::new(Measurement::Phase, 1.into());
+        assert_ready!(task.poll_ready()).unwrap();
+        let resp = task.call(metric.into()).await;
+        assert!(resp.is_ok());
+    }
+
+    #[tokio::test]
+    async fn integration_dispatch_event() {
+        let settings = influx_settings();
+        let mut task = Spawn::new(Dispatcher::new(&settings.url, &settings.db));
+
+        let event = Event::new("event");
+        assert_ready!(task.poll_ready()).unwrap();
+        let resp = task.call(event.into()).await;
+        assert!(resp.is_ok());
+    }
+
+    #[tokio::test]
+    async fn integration_wrong_url() {
+        let settings = influx_settings();
+        let mut task = Spawn::new(Dispatcher::new("http://localhost:9998", &settings.db));
+
+        let event = Event::new("event");
+        assert_ready!(task.poll_ready()).unwrap();
+        let resp = task.call(event.into()).await;
+        assert!(resp.is_err());
+    }
+}
