@@ -67,6 +67,7 @@ impl StateMachine {
         }
     }
 
+    /// Return the model configuration of the model that is expected in the update phase.
     pub fn model_config(&self) -> ModelConfig {
         match self {
             StateMachine::NewRound(ref phase) => phase.model_config(),
