@@ -86,8 +86,10 @@ impl Metric {
     }
 
     pub(in crate::metrics) fn with_tags(&mut self, tags: Tags) {
-        // we don't want to extend tags. The user can't call that method
-        // multiple times because it is hidden behind the macro
+        // It is by design that this function should only be called once.
+        // see `Recorder::metric`
+        // Therefore, we don't cover the case where we would extend `self.tags`
+        // when `self.tags` already contains tags.
         self.tags = Some(tags)
     }
 
@@ -131,8 +133,10 @@ impl Event {
     }
 
     pub(in crate::metrics) fn with_tags(&mut self, tags: &[&str]) {
-        // we don't want to extend tags. The user can't call that method
-        // multiple times because it is hidden behind the macro
+        // It is by design that this function should only be called once.
+        // see `Recorder::metric`
+        // Therefore, we don't cover the case where we would extend `self.tags`
+        // when `self.tags` already contains tags.
         self.tags = Some(tags.join(","))
     }
 
