@@ -1,11 +1,8 @@
 use super::models::{Event, Metric};
 use derive_more::From;
+use futures::future::BoxFuture;
 use influxdb::Client as InfluxClient;
-use std::{
-    future::Future,
-    pin::Pin,
-    task::{Context, Poll},
-};
+use std::task::{Context, Poll};
 use tower::Service;
 use tracing::debug;
 
@@ -39,9 +36,7 @@ impl Dispatcher {
 impl Service<Request> for Dispatcher {
     type Response = ();
     type Error = anyhow::Error;
-    #[allow(clippy::type_complexity)]
-    type Future =
-        Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
+    type Future = BoxFuture<'static, Result<Self::Response, Self::Error>>;
 
     fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         Poll::Ready(Ok(()))

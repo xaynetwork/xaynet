@@ -1,7 +1,7 @@
 use std::{cmp::Ordering, sync::Arc};
 
 use async_trait::async_trait;
-use tracing::info;
+use tracing::{error, info};
 
 use crate::{
     metric,
@@ -167,23 +167,23 @@ where
     M: ModelStorage,
 {
     fn emit_number_of_unique_masks_metrics(&mut self) {
-        use tracing::error;
-
-        if GlobalRecorder::global().is_some() {
-            let mut store = self.shared.store.clone();
-            let (round_id, phase_name) = (self.shared.state.round_id, Self::NAME);
-
-            tokio::spawn(async move {
-                match store.number_of_unique_masks().await {
-                    Ok(number_of_masks) => metric!(
-                        Measurement::MasksTotalNumber,
-                        number_of_masks,
-                        ("round_id", round_id),
-                        ("phase", phase_name as u8)
-                    ),
-                    Err(err) => error!("failed to fetch total number of masks: {}", err),
-                };
-            });
+        if GlobalRecorder::global().is_none() {
+            return;
         }
+
+        let mut store = self.shared.store.clone();
+        let (round_id, phase_name) = (self.shared.state.round_id, Self::NAME);
+
+        tokio::spawn(async move {
+            match store.number_of_unique_masks().await {
+                Ok(number_of_masks) => metric!(
+                    Measurement::MasksTotalNumber,
+                    number_of_masks,
+                    ("round_id", round_id),
+                    ("phase", phase_name as u8)
+                ),
+                Err(err) => error!("failed to fetch total number of masks: {}", err),
+            };
+        });
     }
 }

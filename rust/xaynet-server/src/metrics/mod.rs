@@ -33,7 +33,11 @@ impl GlobalRecorder {
 /// event!("Error", "something went wrong");
 ///
 /// // An event with a title, a description and tags:
-/// event!("Error", "something went wrong", ["phase error"]);
+/// event!(
+///     "Error",
+///     "something went wrong",
+///     ["phase error", "coordinator"]
+/// );
 /// ```
 #[macro_export]
 macro_rules! event {
@@ -65,7 +69,7 @@ macro_rules! event {
 /// // A metric with one tag:
 /// metric!(Measurement::RoundParamSum, 0.7, ("round_id", 1));
 ///
-/// // A metric with multiple tag:
+/// // A metric with multiple tags:
 /// metric!(
 ///     Measurement::RoundParamSum,
 ///     0.7,

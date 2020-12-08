@@ -34,7 +34,7 @@ impl Recorder {
     }
 
     /// Records a new event and dispatches it to an InfluxDB instance.
-    pub fn event<'a, T>(&self, title: T, description: Option<&str>, tags: Option<&'a [&'a str]>)
+    pub fn event<T>(&self, title: T, description: Option<&str>, tags: Option<&[&str]>)
     where
         T: Into<String> + Send + 'static,
     {
@@ -54,8 +54,8 @@ impl Recorder {
     fn call(&self, req: Request) {
         let mut handle = self.service.0.clone();
         tokio::spawn(async move {
-            if poll_fn(|cx| handle.poll_ready(cx)).await.is_err() {
-                error!("influx service failed")
+            if let Err(err) = poll_fn(|cx| handle.poll_ready(cx)).await {
+                error!("influx service temporarily unavailable: {}", err)
             }
 
             if let Err(err) = handle.call(req).await {
