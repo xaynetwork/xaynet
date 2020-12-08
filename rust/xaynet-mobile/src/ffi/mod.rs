@@ -108,11 +108,13 @@ pub const ERR_CRYPTO_INIT: c_int = 12;
 pub const ERR_CRYPTO_SECRET_KEY: c_int = 13;
 /// Invalid public signing key
 pub const ERR_CRYPTO_PUBLIC_KEY: c_int = 14;
-/// Global model unavailable
+/// Global model does not exist
 pub const GLOBAL_MODEL_NONE: c_int = 15;
+/// Failed to get the global model: communication with the coordinator failed
+pub const ERR_GLOBALMODEL_IO: c_int = 16;
 /// Failed to get the global model: invalid data type
-pub const ERR_GLOBALMODEL_DATATYPE: c_int = 16;
+pub const ERR_GLOBALMODEL_DATATYPE: c_int = 17;
 /// Failed to get the global model: invalid buffer length
-pub const ERR_GLOBALMODEL_LEN: c_int = 17;
-/// Failed to set the local model: invalid model
-pub const ERR_GLOBALMODEL_CONVERT: c_int = 18;
+pub const ERR_GLOBALMODEL_LEN: c_int = 18;
+/// Failed to get the global model: invalid model
+pub const ERR_GLOBALMODEL_CONVERT: c_int = 19;

@@ -83,24 +83,29 @@
 #define ERR_CRYPTO_PUBLIC_KEY 14
 
 /**
- * Global model unavailable
+ * Global model does not exist
  */
 #define GLOBAL_MODEL_NONE 15
 
 /**
+ * Failed to get the global model: communication with the coordinator failed
+ */
+#define ERR_GLOBALMODEL_IO 16
+
+/**
  * Failed to get the global model: invalid data type
  */
-#define ERR_GLOBALMODEL_DATATYPE 16
+#define ERR_GLOBALMODEL_DATATYPE 17
 
 /**
  * Failed to get the global model: invalid buffer length
  */
-#define ERR_GLOBALMODEL_LEN 17
+#define ERR_GLOBALMODEL_LEN 18
 
 /**
- * Failed to set the local model: invalid model
+ * Failed to get the global model: invalid model
  */
-#define ERR_GLOBALMODEL_CONVERT 18
+#define ERR_GLOBALMODEL_CONVERT 19
 
 /**
  * The participant is not taking part in the sum or update task
@@ -582,7 +587,8 @@ int xaynet_ffi_participant_set_model(Participant *participant,
  *
  * - [`OK`] if the model is set successfully
  * - [`ERR_NULLPTR`] if `participant` or the `buffer` is NULL
- * - [`GLOBAL_MODEL_NONE`] if `participant` or the `buffer` is NULL
+ * - [`GLOBAL_MODEL_NONE`] if no model exists
+ * - [`ERR_GLOBALMODEL_IO`] if the communication with the coordinator
  * - [`ERR_GLOBALMODEL_DATATYPE`] if the datatype is invalid
  * - [`ERR_GLOBALMODEL_LEN`] if the length of the buffer does not match the length of the model
  * - [`ERR_GLOBALMODEL_CONVERT`] if the conversion of the model failed

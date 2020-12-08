@@ -167,6 +167,10 @@ pub enum InitError {
     InvalidSettings(#[from] SettingsError),
 }
 
+#[derive(Error, Debug)]
+#[error("failed to fetch global model: {}", self.0)]
+pub struct GetGlobalModelError(xaynet_sdk::client::ClientError);
+
 impl Participant {
     /// Create a new participant with the given settings
     pub fn new(settings: Settings) -> Result<Self, InitError> {
@@ -312,13 +316,13 @@ impl Participant {
     }
 
     /// Retrieve the current global model, if available.
-    pub fn global_model(&mut self) -> Option<Model> {
+    pub fn global_model(&mut self) -> Result<Option<Model>, GetGlobalModelError> {
         let Self {
             ref mut runtime,
             ref mut client,
             ..
         } = self;
-        runtime.block_on(async { client.get_model().await.ok()? })
+        runtime.block_on(async { client.get_model().await.map_err(GetGlobalModelError) })
     }
 
     /// Return the model configuration of the model that is expected in the

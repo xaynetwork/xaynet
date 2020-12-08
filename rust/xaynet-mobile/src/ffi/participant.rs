@@ -12,6 +12,7 @@ use super::{
     ModelConfig,
     ERR_GLOBALMODEL_CONVERT,
     ERR_GLOBALMODEL_DATATYPE,
+    ERR_GLOBALMODEL_IO,
     ERR_GLOBALMODEL_LEN,
     ERR_NULLPTR,
     ERR_SETMODEL_DATATYPE,
@@ -366,7 +367,8 @@ pub unsafe extern "C" fn xaynet_ffi_participant_set_model(
 ///
 /// - [`OK`] if the model is set successfully
 /// - [`ERR_NULLPTR`] if `participant` or the `buffer` is NULL
-/// - [`GLOBAL_MODEL_NONE`] if `participant` or the `buffer` is NULL
+/// - [`GLOBAL_MODEL_NONE`] if no model exists
+/// - [`ERR_GLOBALMODEL_IO`] if the communication with the coordinator
 /// - [`ERR_GLOBALMODEL_DATATYPE`] if the datatype is invalid
 /// - [`ERR_GLOBALMODEL_LEN`] if the length of the buffer does not match the length of the model
 /// - [`ERR_GLOBALMODEL_CONVERT`] if the conversion of the model failed
@@ -404,10 +406,10 @@ pub unsafe extern "C" fn xaynet_ffi_participant_global_model(
         return ERR_NULLPTR;
     }
 
-    let global_model = if let Some(global_model) = participant.global_model() {
-        global_model
-    } else {
-        return GLOBAL_MODEL_NONE;
+    let global_model = match participant.global_model() {
+        Ok(Some(model)) => model,
+        Ok(None) => return GLOBAL_MODEL_NONE,
+        Err(_) => return ERR_GLOBALMODEL_IO,
     };
 
     let data_type = match DataType::try_from(data_type) {
