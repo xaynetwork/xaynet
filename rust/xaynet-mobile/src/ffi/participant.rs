@@ -397,8 +397,8 @@ pub unsafe extern "C" fn xaynet_ffi_participant_global_model(
     data_type: c_uchar,
     len: c_uint,
 ) -> c_int {
-    let mut participant = match unsafe { participant.as_mut() } {
-        Some(ptr) => unsafe { *Box::from_raw(ptr) },
+    let participant = match unsafe { participant.as_mut() } {
+        Some(participant) => participant,
         None => return ERR_NULLPTR,
     };
 
@@ -487,10 +487,10 @@ pub unsafe extern "C" fn xaynet_ffi_participant_global_model(
 #[no_mangle]
 pub unsafe extern "C" fn xaynet_ffi_participant_model_config(
     participant: *const Participant,
-) -> *const ModelConfig {
+) -> *mut ModelConfig {
     let participant = match unsafe { participant.as_ref() } {
         Some(ptr) => ptr,
-        None => return std::ptr::null(),
+        None => return std::ptr::null_mut(),
     };
 
     Box::into_raw(Box::new(participant.model_config().into()))

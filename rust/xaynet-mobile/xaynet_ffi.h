@@ -628,7 +628,7 @@ int xaynet_ffi_participant_global_model(Participant *participant,
  *    - It must be "dereferencable" in the sense defined in the [`::std::ptr`] module
  *      documentation.
  */
-const ModelConfig *xaynet_ffi_participant_model_config(const Participant *participant);
+ModelConfig *xaynet_ffi_participant_model_config(const Participant *participant);
 
 /**
  * Destroy the settings created by [`xaynet_ffi_settings_new()`].
