@@ -129,7 +129,7 @@ pub enum Task {
 }
 
 /// A participant. It embeds an internal state machine that executes the PET
-/// protocol. However, it is the caller responsability to drive this state machine by
+/// protocol. However, it is the caller's responsibility to drive this state machine by
 /// calling [`Participant::tick()`], and to take action when the participant state
 /// changes.
 pub struct Participant {
@@ -186,7 +186,7 @@ impl Participant {
     }
 
     /// Restore a participant from it's serialized state. The coordinator client that
-    /// the participant use internally is not part of the participant state, so the
+    /// the participant uses internally is not part of the participant state, so the
     /// `url` is used to instantiate a new one.
     pub fn restore(state: &[u8], url: &str) -> Result<Self, InitError> {
         let state: SerializableState = bincode::deserialize(state)?;

@@ -109,7 +109,7 @@ pub const ERR_CRYPTO_SECRET_KEY: c_int = 13;
 /// Invalid public signing key
 pub const ERR_CRYPTO_PUBLIC_KEY: c_int = 14;
 /// No global model is currently available
-pub const GLOBAL_MODEL_NONE: c_int = 15;
+pub const GLOBALMODEL_NONE: c_int = 15;
 /// Failed to get the global model: communication with the coordinator failed
 pub const ERR_GLOBALMODEL_IO: c_int = 16;
 /// Failed to get the global model: invalid data type
