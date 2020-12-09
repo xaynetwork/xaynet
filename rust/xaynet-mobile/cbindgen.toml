@@ -11,3 +11,7 @@ crates = ["xaynet-mobile"]
 [parse]
 parse_deps = true
 include = ["ffi-support", "xaynet-core"]
+
+[enum]
+rename_variants = "UpperCase"
+prefix_with_name = true
