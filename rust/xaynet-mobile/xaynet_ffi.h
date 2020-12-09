@@ -133,6 +133,11 @@
 #define PARTICIPANT_MADE_PROGRESS (1 << 4)
 
 /**
+ * A new global model is available
+ */
+#define PARTICIPANT_NEW_GLOBAL_MODEL (1 << 5)
+
+/**
  * The original primitive data type of the numerical values to be masked.
  */
 enum DataType {
@@ -441,6 +446,8 @@ Participant *xaynet_ffi_participant_new(const Settings *settings);
  *     model once the [`PARTICIPANT_SHOULD_SET_MODEL`] flag is set.
  *   - [`PARTICIPANT_SHOULD_SET_MODEL`]: if set, then the participant should set its
  *     model, by calling [`xaynet_ffi_participant_set_model()`]
+ *   - [`PARTICIPANT_NEW_GLOBAL_MODEL`]: if set, the participant can fetch the new global
+ *     model, by calling [`xaynet_ffi_participant_global_model()`]
  *
  * # Safety
  *

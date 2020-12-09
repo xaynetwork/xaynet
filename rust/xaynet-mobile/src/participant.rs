@@ -149,6 +149,8 @@ pub struct Participant {
     made_progress: bool,
     /// Whether the participant should load its model into the store.
     should_set_model: bool,
+    /// Whether a new global model is available.
+    new_global_model: bool,
     /// The participant current task
     task: Task,
 }
@@ -210,6 +212,7 @@ impl Participant {
             task: Task::None,
             made_progress: true,
             should_set_model: false,
+            new_global_model: false,
         };
         participant.process_events();
         Ok(participant)
@@ -271,8 +274,9 @@ impl Participant {
                 Some(Event::Sum) => {
                     self.task = Task::Sum;
                 }
-                // not sure whether we need to do anything here
-                Some(Event::NewRound) => {}
+                Some(Event::NewRound) => {
+                    self.new_global_model = true;
+                }
                 Some(Event::LoadModel) => {
                     self.should_set_model = true;
                 }
@@ -292,6 +296,12 @@ impl Participant {
     /// caller should make sure to call [`Participant::set_model()`] at some point.
     pub fn should_set_model(&self) -> bool {
         self.should_set_model
+    }
+
+    /// Check whether a new global model is available. If this method returns `true`, the
+    /// caller can call [`Participant::global_model()`] to fetch the new global model.
+    pub fn new_global_model(&self) -> bool {
+        self.new_global_model
     }
 
     /// Return the participant current task
@@ -322,7 +332,13 @@ impl Participant {
             ref mut client,
             ..
         } = self;
-        runtime.block_on(async { client.get_model().await.map_err(GetGlobalModelError) })
+
+        let global_model =
+            runtime.block_on(async { client.get_model().await.map_err(GetGlobalModelError) });
+        if global_model.is_ok() {
+            self.new_global_model = false;
+        }
+        global_model
     }
 
     /// Return the model configuration of the model that is expected in the

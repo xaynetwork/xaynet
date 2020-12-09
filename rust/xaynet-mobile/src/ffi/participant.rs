@@ -68,6 +68,8 @@ pub const PARTICIPANT_TASK_UPDATE: c_int = 1 << 2;
 pub const PARTICIPANT_SHOULD_SET_MODEL: c_int = 1 << 3;
 /// The participant is expected to set the model it trained
 pub const PARTICIPANT_MADE_PROGRESS: c_int = 1 << 4;
+/// A new global model is available
+pub const PARTICIPANT_NEW_GLOBAL_MODEL: c_int = 1 << 5;
 
 /// Instantiate a new participant with the given settings. The participant must be
 /// destroyed with [`xaynet_ffi_participant_destroy`].
@@ -131,6 +133,8 @@ pub unsafe extern "C" fn xaynet_ffi_participant_new(settings: *const Settings) -
 ///     model once the [`PARTICIPANT_SHOULD_SET_MODEL`] flag is set.
 ///   - [`PARTICIPANT_SHOULD_SET_MODEL`]: if set, then the participant should set its
 ///     model, by calling [`xaynet_ffi_participant_set_model()`]
+///   - [`PARTICIPANT_NEW_GLOBAL_MODEL`]: if set, the participant can fetch the new global
+///     model, by calling [`xaynet_ffi_participant_global_model()`]
 ///
 /// # Safety
 ///
@@ -167,6 +171,9 @@ pub unsafe extern "C" fn xaynet_ffi_participant_tick(participant: *mut Participa
     }
     if participant.made_progress() {
         flags |= PARTICIPANT_MADE_PROGRESS;
+    }
+    if participant.new_global_model() {
+        flags |= PARTICIPANT_NEW_GLOBAL_MODEL;
     }
     flags
 }
