@@ -382,11 +382,11 @@ pub unsafe extern "C" fn xaynet_ffi_participant_set_model(
 ///
 /// # Note
 ///
-///    It is **not** guaranteed, that the model configuration returned by
-///    [`xaynet_ffi_participant_model_config`] corresponds to the configuration of
-///    the global model. This means that the global model can have a different length / data type
-///    than it is defined in model configuration. That both model configurations are the same is
-///    only guaranteed if the model config **never** changes on the coordinator side.
+///   It is **not** guaranteed, that the model configuration returned by
+///   [`xaynet_ffi_participant_model_config`] corresponds to the configuration of
+///   the global model. This means that the global model can have a different length / data type
+///   than it is defined in model configuration. That both model configurations are the same is
+///   only guaranteed if the model config **never** changes on the coordinator side.
 ///
 /// # Safety
 ///
