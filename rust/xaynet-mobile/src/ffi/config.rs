@@ -41,7 +41,7 @@ pub unsafe extern "C" fn xaynet_ffi_model_config_destroy(model_config: *mut Mode
 /// The model configuration of the model that is expected in [`xaynet_ffi_participant_set_model`].
 pub struct ModelConfig {
     // The expected data type of the model.
-    pub data_type: DataType,
+    pub data_type: ModelDataType,
     // the expected length of the model.
     pub len: u64,
 }
@@ -49,8 +49,32 @@ pub struct ModelConfig {
 impl Into<ModelConfig> for xaynet_sdk::ModelConfig {
     fn into(self) -> ModelConfig {
         ModelConfig {
-            data_type: self.data_type,
+            data_type: self.data_type.into(),
             len: self.len as u64,
+        }
+    }
+}
+
+#[repr(u8)]
+/// The original primitive data type of the numerical values to be masked.
+pub enum ModelDataType {
+    /// Numbers of type f32.
+    F32 = 0,
+    /// Numbers of type f64.
+    F64 = 1,
+    /// Numbers of type i32.
+    I32 = 2,
+    /// Numbers of type i64.
+    I64 = 3,
+}
+
+impl Into<ModelDataType> for DataType {
+    fn into(self) -> ModelDataType {
+        match self {
+            DataType::F32 => ModelDataType::F32,
+            DataType::F64 => ModelDataType::F64,
+            DataType::I32 => ModelDataType::I32,
+            DataType::I64 => ModelDataType::I64,
         }
     }
 }

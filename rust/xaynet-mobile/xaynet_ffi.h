@@ -140,25 +140,25 @@
 /**
  * The original primitive data type of the numerical values to be masked.
  */
-enum DataType {
+enum ModelDataType {
   /**
    * Numbers of type f32.
    */
-  DATATYPE_F32 = 0,
+  MODEL_DATA_TYPE_F32 = 0,
   /**
    * Numbers of type f64.
    */
-  DATATYPE_F64 = 1,
+  MODEL_DATA_TYPE_F64 = 1,
   /**
    * Numbers of type i32.
    */
-  DATATYPE_I32 = 2,
+  MODEL_DATA_TYPE_I32 = 2,
   /**
    * Numbers of type i64.
    */
-  DATATYPE_I64 = 3,
+  MODEL_DATA_TYPE_I64 = 3,
 };
-typedef uint8_t DataType;
+typedef uint8_t ModelDataType;
 
 /**
  * A signing key pair
@@ -315,7 +315,7 @@ typedef const char *FfiStr;
  * The model configuration of the model that is expected in [`xaynet_ffi_participant_set_model`].
  */
 typedef struct {
-  DataType data_type;
+  ModelDataType data_type;
   uint64_t len;
 } ModelConfig;
 

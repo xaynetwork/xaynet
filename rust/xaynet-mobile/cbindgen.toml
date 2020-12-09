@@ -10,8 +10,8 @@ crates = ["xaynet-mobile"]
 
 [parse]
 parse_deps = true
-include = ["ffi-support", "xaynet-core"]
+include = ["ffi-support"]
 
 [enum]
-rename_variants = "UpperCase"
+rename_variants = "ScreamingSnakeCase"
 prefix_with_name = true
