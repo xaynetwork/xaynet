@@ -20,7 +20,7 @@ use super::{
     GLOBALMODEL_NONE,
     OK,
 };
-use crate::{Participant, Settings, Task};
+use crate::{into_primitives, Participant, Settings, Task};
 
 mod pv {
     use super::Participant;
@@ -429,55 +429,27 @@ pub unsafe extern "C" fn xaynet_ffi_participant_global_model(
     }
 
     match data_type {
-        DataType::F32 => {
-            if let Ok(global_model) = global_model
-                .into_primitives()
-                .collect::<Result<Vec<f32>, _>>()
-            {
-                let buffer = unsafe { slice::from_raw_parts_mut(buffer as *mut f32, len) };
-                buffer.copy_from_slice(global_model.as_slice());
-                OK
-            } else {
-                ERR_GLOBALMODEL_CONVERT
-            }
-        }
-        DataType::F64 => {
-            if let Ok(global_model) = global_model
-                .into_primitives()
-                .collect::<Result<Vec<f64>, _>>()
-            {
-                let buffer = unsafe { slice::from_raw_parts_mut(buffer as *mut f64, len) };
-                buffer.copy_from_slice(global_model.as_slice());
-                OK
-            } else {
-                ERR_GLOBALMODEL_CONVERT
-            }
-        }
-        DataType::I32 => {
-            if let Ok(global_model) = global_model
-                .into_primitives()
-                .collect::<Result<Vec<i32>, _>>()
-            {
-                let buffer = unsafe { slice::from_raw_parts_mut(buffer as *mut i32, len) };
-                buffer.copy_from_slice(global_model.as_slice());
-                OK
-            } else {
-                ERR_GLOBALMODEL_CONVERT
-            }
-        }
-        DataType::I64 => {
-            if let Ok(global_model) = global_model
-                .into_primitives()
-                .collect::<Result<Vec<i64>, _>>()
-            {
-                let buffer = unsafe { slice::from_raw_parts_mut(buffer as *mut i64, len) };
-                buffer.copy_from_slice(global_model.as_slice());
-                OK
-            } else {
-                ERR_GLOBALMODEL_CONVERT
-            }
-        }
+        DataType::F32 => into_primitives!(global_model, buffer, f32, len),
+        DataType::F64 => into_primitives!(global_model, buffer, f64, len),
+        DataType::I32 => into_primitives!(global_model, buffer, i32, len),
+        DataType::I64 => into_primitives!(global_model, buffer, i64, len),
     }
+}
+
+#[macro_export]
+macro_rules! into_primitives {
+    ($global_model:expr, $buffer:expr, $data_type:ty, $len:expr) => {{
+        if let Ok(global_model) = $global_model
+            .into_primitives()
+            .collect::<Result<Vec<$data_type>, _>>()
+        {
+            let buffer = unsafe { slice::from_raw_parts_mut($buffer as *mut $data_type, $len) };
+            buffer.copy_from_slice(global_model.as_slice());
+            OK
+        } else {
+            ERR_GLOBALMODEL_CONVERT
+        }
+    }};
 }
 
 /// Return the model configuration of the model that is expected in the
