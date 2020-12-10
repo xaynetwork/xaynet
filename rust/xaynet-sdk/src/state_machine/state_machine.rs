@@ -4,7 +4,7 @@ use super::{
     boxed_io,
     Awaiting,
     IntoPhase,
-    ModelConfig,
+    LocalModelConfig,
     NewRound,
     Phase,
     SerializableState,
@@ -67,14 +67,14 @@ impl StateMachine {
         }
     }
 
-    /// Return the model configuration of the model that is expected in the update phase.
-    pub fn model_config(&self) -> ModelConfig {
+    /// Return the local model configuration of the model that is expected in the update phase.
+    pub fn local_model_config(&self) -> LocalModelConfig {
         match self {
-            StateMachine::NewRound(ref phase) => phase.model_config(),
-            StateMachine::Awaiting(ref phase) => phase.model_config(),
-            StateMachine::Sum(ref phase) => phase.model_config(),
-            StateMachine::Update(ref phase) => phase.model_config(),
-            StateMachine::Sum2(ref phase) => phase.model_config(),
+            StateMachine::NewRound(ref phase) => phase.local_model_config(),
+            StateMachine::Awaiting(ref phase) => phase.local_model_config(),
+            StateMachine::Sum(ref phase) => phase.local_model_config(),
+            StateMachine::Update(ref phase) => phase.local_model_config(),
+            StateMachine::Sum2(ref phase) => phase.local_model_config(),
         }
     }
 }

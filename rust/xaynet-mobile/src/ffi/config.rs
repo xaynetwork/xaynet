@@ -3,16 +3,16 @@ use std::os::raw::c_int;
 use xaynet_core::mask::DataType;
 
 mod pv {
-    use super::ModelConfig;
-    ffi_support::define_box_destructor!(ModelConfig, _xaynet_ffi_model_config_destroy);
+    use super::LocalModelConfig;
+    ffi_support::define_box_destructor!(LocalModelConfig, _xaynet_ffi_local_model_config_destroy);
 }
 
-/// Destroy the model configuration created by [`xaynet_ffi_participant_model_config()`].
+/// Destroy the model configuration created by [`xaynet_ffi_participant_local_model_config()`].
 ///
 /// # Return value
 ///
 /// - [`OK`] on success
-/// - [`ERR_NULLPTR`] if `model_config` is NULL
+/// - [`ERR_NULLPTR`] if `local_model_config` is NULL
 ///
 /// # Safety
 ///
@@ -21,34 +21,36 @@ mod pv {
 ///    - The pointer must be properly [aligned].
 ///    - It must be "dereferencable" in the sense defined in the [`::std::ptr`] module
 ///      documentation.
-/// 2. After destroying the `ModelConfig`, the pointer becomes invalid and must not be
+/// 2. After destroying the `LocalModelConfig`, the pointer becomes invalid and must not be
 ///    used.
 /// 3. This function should only be called on a pointer that has been created by
-///    [`xaynet_ffi_participant_model_config()`].
+///    [`xaynet_ffi_participant_local_model_config()`].
 ///
 /// [`::std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
 /// [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
 #[no_mangle]
-pub unsafe extern "C" fn xaynet_ffi_model_config_destroy(model_config: *mut ModelConfig) -> c_int {
-    if model_config.is_null() {
+pub unsafe extern "C" fn xaynet_ffi_local_model_config_destroy(
+    local_model_config: *mut LocalModelConfig,
+) -> c_int {
+    if local_model_config.is_null() {
         return ERR_NULLPTR;
     }
-    pv::_xaynet_ffi_model_config_destroy(model_config);
+    pv::_xaynet_ffi_local_model_config_destroy(local_model_config);
     OK
 }
 
 #[repr(C)]
 /// The model configuration of the model that is expected in [`xaynet_ffi_participant_set_model`].
-pub struct ModelConfig {
+pub struct LocalModelConfig {
     // The expected data type of the model.
     pub data_type: ModelDataType,
     // the expected length of the model.
     pub len: u64,
 }
 
-impl Into<ModelConfig> for xaynet_sdk::ModelConfig {
-    fn into(self) -> ModelConfig {
-        ModelConfig {
+impl Into<LocalModelConfig> for xaynet_sdk::LocalModelConfig {
+    fn into(self) -> LocalModelConfig {
+        LocalModelConfig {
             data_type: self.data_type.into(),
             len: self.len as u64,
         }

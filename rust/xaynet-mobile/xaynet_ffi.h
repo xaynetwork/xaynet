@@ -317,7 +317,7 @@ typedef const char *FfiStr;
 typedef struct {
   ModelDataType data_type;
   uint64_t len;
-} ModelConfig;
+} LocalModelConfig;
 
 /**
  * Destroy the given `ByteBuffer` and free its memory. This function must only be
@@ -603,7 +603,7 @@ int xaynet_ffi_participant_set_model(Participant *participant,
  * # Note
  *
  *   It is **not** guaranteed, that the model configuration returned by
- *   [`xaynet_ffi_participant_model_config`] corresponds to the configuration of
+ *   [`xaynet_ffi_participant_local_model_config`] corresponds to the configuration of
  *   the global model. This means that the global model can have a different length / data type
  *   than it is defined in model configuration. That both model configurations are the same is
  *   only guaranteed if the model config **never** changes on the coordinator side.
@@ -624,7 +624,7 @@ int xaynet_ffi_participant_global_model(Participant *participant,
                                         unsigned int len);
 
 /**
- * Return the model configuration of the model that is expected in the
+ * Return the local model configuration of the model that is expected in the
  * [`xaynet_ffi_participant_set_model`] function.
  *
  * # Safety
@@ -635,7 +635,7 @@ int xaynet_ffi_participant_global_model(Participant *participant,
  *    - It must be "dereferencable" in the sense defined in the [`::std::ptr`] module
  *      documentation.
  */
-ModelConfig *xaynet_ffi_participant_model_config(const Participant *participant);
+LocalModelConfig *xaynet_ffi_participant_local_model_config(const Participant *participant);
 
 /**
  * Destroy the settings created by [`xaynet_ffi_settings_new()`].
@@ -804,12 +804,12 @@ int xaynet_ffi_settings_set_keys(Settings *settings, const KeyPair *key_pair);
 int xaynet_ffi_check_settings(const Settings *settings);
 
 /**
- * Destroy the model configuration created by [`xaynet_ffi_participant_model_config()`].
+ * Destroy the model configuration created by [`xaynet_ffi_participant_local_model_config()`].
  *
  * # Return value
  *
  * - [`OK`] on success
- * - [`ERR_NULLPTR`] if `model_config` is NULL
+ * - [`ERR_NULLPTR`] if `local_model_config` is NULL
  *
  * # Safety
  *
@@ -818,12 +818,12 @@ int xaynet_ffi_check_settings(const Settings *settings);
  *    - The pointer must be properly [aligned].
  *    - It must be "dereferencable" in the sense defined in the [`::std::ptr`] module
  *      documentation.
- * 2. After destroying the `ModelConfig`, the pointer becomes invalid and must not be
+ * 2. After destroying the `LocalModelConfig`, the pointer becomes invalid and must not be
  *    used.
  * 3. This function should only be called on a pointer that has been created by
- *    [`xaynet_ffi_participant_model_config()`].
+ *    [`xaynet_ffi_participant_local_model_config()`].
  *
  * [`::std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
  * [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
  */
-int xaynet_ffi_model_config_destroy(ModelConfig *model_config);
+int xaynet_ffi_local_model_config_destroy(LocalModelConfig *local_model_config);

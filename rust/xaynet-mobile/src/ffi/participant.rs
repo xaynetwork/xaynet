@@ -9,7 +9,7 @@ use ffi_support::{ByteBuffer, FfiStr};
 use xaynet_core::mask::{DataType, FromPrimitives, IntoPrimitives, Model};
 
 use super::{
-    ModelConfig,
+    LocalModelConfig,
     ERR_GLOBALMODEL_CONVERT,
     ERR_GLOBALMODEL_DATATYPE,
     ERR_GLOBALMODEL_IO,
@@ -382,7 +382,7 @@ pub unsafe extern "C" fn xaynet_ffi_participant_set_model(
 /// # Note
 ///
 ///   It is **not** guaranteed, that the model configuration returned by
-///   [`xaynet_ffi_participant_model_config`] corresponds to the configuration of
+///   [`xaynet_ffi_participant_local_model_config`] corresponds to the configuration of
 ///   the global model. This means that the global model can have a different length / data type
 ///   than it is defined in model configuration. That both model configurations are the same is
 ///   only guaranteed if the model config **never** changes on the coordinator side.
@@ -452,7 +452,7 @@ macro_rules! into_primitives {
     }};
 }
 
-/// Return the model configuration of the model that is expected in the
+/// Return the local model configuration of the model that is expected in the
 /// [`xaynet_ffi_participant_set_model`] function.
 ///
 /// # Safety
@@ -463,13 +463,13 @@ macro_rules! into_primitives {
 ///    - It must be "dereferencable" in the sense defined in the [`::std::ptr`] module
 ///      documentation.
 #[no_mangle]
-pub unsafe extern "C" fn xaynet_ffi_participant_model_config(
+pub unsafe extern "C" fn xaynet_ffi_participant_local_model_config(
     participant: *const Participant,
-) -> *mut ModelConfig {
+) -> *mut LocalModelConfig {
     let participant = match unsafe { participant.as_ref() } {
         Some(ptr) => ptr,
         None => return std::ptr::null_mut(),
     };
 
-    Box::into_raw(Box::new(participant.model_config().into()))
+    Box::into_raw(Box::new(participant.local_model_config().into()))
 }

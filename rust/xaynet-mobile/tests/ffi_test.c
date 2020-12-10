@@ -82,20 +82,20 @@ static char *test_global_model() {
 
   Participant *participant = xaynet_ffi_participant_new(settings);
   mu_assert("failed to create participant", participant != NULL);
-  ModelConfig *model_config = xaynet_ffi_participant_model_config(participant);
-  float* buffer = (float *)malloc(sizeof(float) * model_config->len);
+  LocalModelConfig *local_model_config = xaynet_ffi_participant_local_model_config(participant);
+  float* buffer = (float *)malloc(sizeof(float) * local_model_config->len);
 
-  int err = xaynet_ffi_participant_global_model(NULL, buffer, model_config->data_type, model_config->len);
+  int err = xaynet_ffi_participant_global_model(NULL, buffer, local_model_config->data_type, local_model_config->len);
   mu_assert("expected participant is null error", err == ERR_NULLPTR);
 
-  err = xaynet_ffi_participant_global_model(participant, NULL, model_config->data_type, model_config->len);
+  err = xaynet_ffi_participant_global_model(participant, NULL, local_model_config->data_type, local_model_config->len);
   mu_assert("expected buffer is null error", err == ERR_NULLPTR);
 
-  err = xaynet_ffi_participant_global_model(participant, buffer, model_config->data_type, model_config->len);
+  err = xaynet_ffi_participant_global_model(participant, buffer, local_model_config->data_type, local_model_config->len);
   mu_assert("expected io error (cannot connect to coordinator)", err == ERR_GLOBALMODEL_IO);
 
   free(buffer);
-  xaynet_ffi_model_config_destroy(model_config);
+  xaynet_ffi_local_model_config_destroy(local_model_config);
   xaynet_ffi_participant_destroy(participant);
   xaynet_ffi_settings_destroy(settings);
 

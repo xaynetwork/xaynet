@@ -260,9 +260,9 @@ impl<P> Phase<P> {
         .unwrap()
     }
 
-    /// Return the model configuration of the model that is expected in the update phase.
-    pub fn model_config(&self) -> ModelConfig {
-        ModelConfig {
+    /// Return the local model configuration of the model that is expected in the update phase.
+    pub fn local_model_config(&self) -> LocalModelConfig {
+        LocalModelConfig {
             data_type: self.state.shared.round_params.mask_config.vect.data_type,
             len: self.state.shared.round_params.model_length,
         }
@@ -288,11 +288,11 @@ impl<P> Phase<P> {
 }
 
 #[derive(Debug)]
-/// The model configuration of the model that is expected in the update phase.
-pub struct ModelConfig {
-    // The expected data type of the model.
+/// The local model configuration of the model that is expected in the update phase.
+pub struct LocalModelConfig {
+    // The expected data type of the local model.
     pub data_type: DataType,
-    // The expected length of the model.
+    // The expected length of the local model.
     pub len: usize,
 }
 

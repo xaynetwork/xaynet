@@ -9,7 +9,7 @@ use tokio::{
 use xaynet_core::mask::Model;
 use xaynet_sdk::{
     client::Client,
-    ModelConfig,
+    LocalModelConfig,
     ModelStore,
     Notify,
     SerializableState,
@@ -341,11 +341,11 @@ impl Participant {
         global_model
     }
 
-    /// Return the model configuration of the model that is expected in the
+    /// Return the local model configuration of the model that is expected in the
     /// [`Participant::set_model`] method.
-    pub fn model_config(&self) -> ModelConfig {
+    pub fn local_model_config(&self) -> LocalModelConfig {
         // UNWRAP_SAFE: the state machine is always set.
         let state_machine = self.state_machine.as_ref().unwrap();
-        state_machine.model_config()
+        state_machine.local_model_config()
     }
 }
