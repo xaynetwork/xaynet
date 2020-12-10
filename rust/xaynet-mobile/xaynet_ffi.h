@@ -315,7 +315,13 @@ typedef const char *FfiStr;
  * The model configuration of the model that is expected in [`xaynet_ffi_participant_set_model`].
  */
 typedef struct {
+  /**
+   * The expected data type of the model.
+   */
   ModelDataType data_type;
+  /**
+   * the expected length of the model.
+   */
   uint64_t len;
 } LocalModelConfig;
 

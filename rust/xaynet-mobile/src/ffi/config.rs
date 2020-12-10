@@ -42,9 +42,9 @@ pub unsafe extern "C" fn xaynet_ffi_local_model_config_destroy(
 #[repr(C)]
 /// The model configuration of the model that is expected in [`xaynet_ffi_participant_set_model`].
 pub struct LocalModelConfig {
-    // The expected data type of the model.
+    /// The expected data type of the model.
     pub data_type: ModelDataType,
-    // the expected length of the model.
+    /// the expected length of the model.
     pub len: u64,
 }
 

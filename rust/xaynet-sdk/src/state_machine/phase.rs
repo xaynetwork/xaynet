@@ -290,9 +290,12 @@ impl<P> Phase<P> {
 #[derive(Debug)]
 /// The local model configuration of the model that is expected in the update phase.
 pub struct LocalModelConfig {
-    // The expected data type of the local model.
+    /// The expected data type of the local model.
+    // In the current state it is not possible to configure a coordinator in which
+    // the scalar data type and the model data type are different. Therefore, we assume here
+    // that the scalar data type is the same as the model data type.
     pub data_type: DataType,
-    // The expected length of the local model.
+    /// The expected length of the local model.
     pub len: usize,
 }
 
