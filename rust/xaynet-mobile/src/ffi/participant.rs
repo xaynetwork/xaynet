@@ -106,7 +106,7 @@ pub unsafe extern "C" fn xaynet_ffi_participant_new(settings: *const Settings) -
     }
 }
 
-/// Drive the participant internal state machine. Every tick, the state machine tries
+/// Drive the participant internal state machine. Every tick, the state machine
 /// attempts to perform a small work unit.
 ///
 /// # Return value
