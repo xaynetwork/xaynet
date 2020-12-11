@@ -2,9 +2,9 @@ use async_trait::async_trait;
 use sodiumoxide::crypto::hash::sha256;
 use tracing::{debug, info};
 
-#[cfg(feature = "metrics")]
-use crate::metrics;
 use crate::{
+    metric,
+    metrics::Measurement,
     state_machine::{
         events::DictionaryUpdate,
         phases::{Phase, PhaseName, PhaseState, Shared, Sum},
@@ -18,7 +18,6 @@ use xaynet_core::{
     common::RoundSeed,
     crypto::{ByteObject, EncryptKeyPair, SigningKeySeed},
 };
-use xaynet_macros::metrics;
 
 /// Error that occurs during the idle phase.
 #[derive(Error, Debug)]
@@ -80,19 +79,18 @@ where
         info!("broadcasting new round parameters");
         events.broadcast_params(self.shared.state.round_params.clone());
 
-        metrics!(
-            self.shared.metrics_tx,
-            metrics::round::total_number::update(self.shared.state.round_id),
-            metrics::round_parameters::sum::update(
-                self.shared.state.round_params.sum,
-                self.shared.state.round_id,
-                Self::NAME
-            ),
-            metrics::round_parameters::update::update(
-                self.shared.state.round_params.update,
-                self.shared.state.round_id,
-                Self::NAME
-            )
+        metric!(Measurement::RoundTotalNumber, self.shared.state.round_id);
+        metric!(
+            Measurement::RoundParamSum,
+            self.shared.state.round_params.sum,
+            ("round_id", self.shared.state.round_id),
+            ("phase", Self::NAME as u8)
+        );
+        metric!(
+            Measurement::RoundParamUpdate,
+            self.shared.state.round_params.update,
+            ("round_id", self.shared.state.round_id),
+            ("phase", Self::NAME as u8)
         );
 
         Ok(())

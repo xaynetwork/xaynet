@@ -6,10 +6,8 @@ use tracing::warn;
 use tracing_subscriber::*;
 
 #[cfg(feature = "metrics")]
-use xaynet_server::{
-    metrics::{run_metric_service, MetricsSender, MetricsService},
-    settings::MetricsSettings,
-};
+use xaynet_server::{metrics, settings::InfluxSettings};
+
 use xaynet_server::{
     rest::{serve, RestError},
     services,
@@ -54,7 +52,7 @@ async fn main() {
     sodiumoxide::init().unwrap();
 
     #[cfg(feature = "metrics")]
-    let (metrics_sender, metrics_handle) = init_metrics(settings.metrics);
+    init_metrics(settings.metrics.influxdb);
 
     let store = init_store(
         redis_settings,
@@ -70,8 +68,6 @@ async fn main() {
         #[cfg(feature = "model-persistence")]
         settings.restore,
         store,
-        #[cfg(feature = "metrics")]
-        metrics_sender,
     )
     .init()
     .await
@@ -95,15 +91,6 @@ async fn main() {
         }
         _ =  signal::ctrl_c() => {}
     }
-
-    #[cfg(feature = "metrics")]
-    {
-        // The moment the state machine is dropped, the sender half of the metrics channel is also
-        // dropped, which means that the metric handle is resolved after all remaining messages have
-        // been processed.
-        warn!("shutting down metrics service");
-        let _ = metrics_handle.await;
-    }
 }
 
 fn init_tracing(settings: LoggingSettings) {
@@ -114,13 +101,11 @@ fn init_tracing(settings: LoggingSettings) {
 }
 
 #[cfg(feature = "metrics")]
-fn init_metrics(settings: MetricsSettings) -> (MetricsSender, tokio::task::JoinHandle<()>) {
-    let (metrics_service, metrics_sender) =
-        MetricsService::new(&settings.influxdb.url, &settings.influxdb.db);
-    (
-        metrics_sender,
-        tokio::spawn(async { run_metric_service(metrics_service).await }),
-    )
+fn init_metrics(settings: InfluxSettings) {
+    let recorder = metrics::Recorder::new(settings);
+    if metrics::GlobalRecorder::install(recorder).is_err() {
+        warn!("failed to install metrics recorder");
+    };
 }
 
 async fn init_store(

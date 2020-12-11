@@ -1,7 +1,5 @@
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
-#[cfg(feature = "metrics")]
-use crate::metrics::MetricsSender;
 use crate::{
     settings::{MaskSettings, ModelSettings, PetSettings},
     state_machine::{
@@ -219,14 +217,7 @@ where
 
     let (request_rx, request_tx) = RequestReceiver::new();
     (
-        Shared::new(
-            coordinator_state,
-            event_publisher,
-            request_rx,
-            store,
-            #[cfg(feature = "metrics")]
-            MetricsSender(),
-        ),
+        Shared::new(coordinator_state, event_publisher, request_rx, store),
         request_tx,
         event_subscriber,
     )

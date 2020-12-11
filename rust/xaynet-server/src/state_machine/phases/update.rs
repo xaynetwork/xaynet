@@ -4,9 +4,9 @@ use async_trait::async_trait;
 use tokio::time::{timeout, Duration};
 use tracing::{debug, info, warn};
 
-#[cfg(feature = "metrics")]
-use crate::metrics;
 use crate::{
+    metric,
+    metrics::Measurement,
     state_machine::{
         events::DictionaryUpdate,
         phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Sum2},
@@ -22,7 +22,6 @@ use xaynet_core::{
     LocalSeedDict,
     UpdateParticipantPublicKey,
 };
-use xaynet_macros::metrics;
 
 /// Error that occurs during the update phase.
 #[derive(Error, Debug)]
@@ -113,6 +112,15 @@ where
         }
         Ok(())
     }
+
+    fn increment_message_metric(&self) {
+        metric!(
+            Measurement::MessageUpdate,
+            1,
+            ("round_id", self.shared.state.round_id),
+            ("phase", Self::NAME as u8)
+        );
+    }
 }
 
 #[async_trait]
@@ -129,11 +137,10 @@ where
     async fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), RequestError> {
         match req {
             StateMachineRequest::Update(update_req) => {
-                metrics!(
-                    self.shared.metrics_tx,
-                    metrics::message::update::increment(self.shared.state.round_id, Self::NAME)
-                );
-                self.handle_update(update_req).await
+                self.handle_update(update_req).await.map(|res| {
+                    self.increment_message_metric();
+                    res
+                })
             }
             _ => Err(RequestError::MessageRejected),
         }

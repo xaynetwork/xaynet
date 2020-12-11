@@ -4,9 +4,9 @@ use async_trait::async_trait;
 use tokio::time::{timeout, Duration};
 use tracing::{debug, info};
 
-#[cfg(feature = "metrics")]
-use crate::metrics;
 use crate::{
+    metric,
+    metrics::Measurement,
     state_machine::{
         events::DictionaryUpdate,
         phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Update},
@@ -17,7 +17,6 @@ use crate::{
     storage::{CoordinatorStorage, ModelStorage, StorageError},
 };
 use thiserror::Error;
-use xaynet_macros::metrics;
 
 /// Error that occurs during the sum phase.
 #[derive(Error, Debug)]
@@ -48,13 +47,10 @@ where
     /// [`RequestError::MessageRejected`].
     async fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), RequestError> {
         match req {
-            StateMachineRequest::Sum(sum_req) => {
-                metrics!(
-                    self.shared.metrics_tx,
-                    metrics::message::sum::increment(self.shared.state.round_id, Self::NAME)
-                );
-                self.handle_sum(sum_req).await
-            }
+            StateMachineRequest::Sum(sum_req) => self.handle_sum(sum_req).await.map(|res| {
+                self.increment_message_metric();
+                res
+            }),
             _ => Err(RequestError::MessageRejected),
         }
     }
@@ -121,6 +117,15 @@ where
             self.process_next().await?;
         }
         Ok(())
+    }
+
+    fn increment_message_metric(&self) {
+        metric!(
+            Measurement::MessageSum,
+            1,
+            ("round_id", self.shared.state.round_id),
+            ("phase", Self::NAME as u8)
+        );
     }
 }
 
