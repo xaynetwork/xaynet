@@ -186,6 +186,7 @@ pub(crate) mod masking;
 pub(crate) mod model;
 pub(crate) mod object;
 pub(crate) mod seed;
+pub(crate) mod spec;
 
 pub use self::{
     config::{
@@ -208,4 +209,5 @@ pub use self::{
         MaskVect,
     },
     seed::{EncryptedMaskSeed, MaskSeed},
+    spec::{AggregateSpec, Analytic, AnalyticsFunc, PreData},
 };
