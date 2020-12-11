@@ -74,6 +74,34 @@ static char *test_settings() {
   return 0;
 }
 
+static char *test_global_model() {
+  Settings *settings = xaynet_ffi_settings_new();
+  with_keys(settings);
+  with_url(settings);
+  xaynet_ffi_settings_set_url(settings, "http://localhost:8081");
+
+  Participant *participant = xaynet_ffi_participant_new(settings);
+  mu_assert("failed to create participant", participant != NULL);
+  LocalModelConfig *local_model_config = xaynet_ffi_participant_local_model_config(participant);
+  float* buffer = (float *)malloc(sizeof(float) * local_model_config->len);
+
+  int err = xaynet_ffi_participant_global_model(NULL, buffer, local_model_config->data_type, local_model_config->len);
+  mu_assert("expected participant is null error", err == ERR_NULLPTR);
+
+  err = xaynet_ffi_participant_global_model(participant, NULL, local_model_config->data_type, local_model_config->len);
+  mu_assert("expected buffer is null error", err == ERR_NULLPTR);
+
+  err = xaynet_ffi_participant_global_model(participant, buffer, local_model_config->data_type, local_model_config->len);
+  mu_assert("expected io error (cannot connect to coordinator)", err == ERR_GLOBALMODEL_IO);
+
+  free(buffer);
+  xaynet_ffi_local_model_config_destroy(local_model_config);
+  xaynet_ffi_participant_destroy(participant);
+  xaynet_ffi_settings_destroy(settings);
+
+  return 0;
+}
+
 static char *test_participant_save_and_restore() {
   Settings *settings = xaynet_ffi_settings_new();
   with_keys(settings);
@@ -148,6 +176,7 @@ static char *all_tests() {
   mu_run_test(test_settings_set_keys);
   mu_run_test(test_settings_set_url);
   mu_run_test(test_settings);
+  mu_run_test(test_global_model);
   mu_run_test(test_participant_save_and_restore);
   mu_run_test(test_participant_tick);
   return 0;

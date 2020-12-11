@@ -7,7 +7,16 @@ use tokio::{
     sync::{mpsc, Mutex},
 };
 use xaynet_core::mask::Model;
-use xaynet_sdk::{ModelStore, Notify, SerializableState, StateMachine, TransitionOutcome};
+use xaynet_sdk::{
+    client::Client,
+    LocalModelConfig,
+    ModelStore,
+    Notify,
+    SerializableState,
+    StateMachine,
+    TransitionOutcome,
+    XaynetClient,
+};
 
 use crate::{
     new_client,
@@ -120,7 +129,7 @@ pub enum Task {
 }
 
 /// A participant. It embeds an internal state machine that executes the PET
-/// protocol. However, it is the caller responsability to drive this state machine by
+/// protocol. However, it is the caller's responsibility to drive this state machine by
 /// calling [`Participant::tick()`], and to take action when the participant state
 /// changes.
 pub struct Participant {
@@ -133,11 +142,15 @@ pub struct Participant {
     store: Store,
     /// Async runtime to execute the state machine
     runtime: Runtime,
+    /// Xaynet client
+    client: Client<reqwest::Client>,
     /// Whether the participant state changed after the last call to
     /// [`Participant::tick()`]
     made_progress: bool,
     /// Whether the participant should load its model into the store.
     should_set_model: bool,
+    /// Whether a new global model is available.
+    new_global_model: bool,
     /// The participant current task
     task: Task,
 }
@@ -156,6 +169,10 @@ pub enum InitError {
     InvalidSettings(#[from] SettingsError),
 }
 
+#[derive(Error, Debug)]
+#[error("failed to fetch global model: {}", self.0)]
+pub struct GetGlobalModelError(xaynet_sdk::client::ClientError);
+
 impl Participant {
     /// Create a new participant with the given settings
     pub fn new(settings: Settings) -> Result<Self, InitError> {
@@ -163,31 +180,39 @@ impl Participant {
         let client = new_client(url.as_str(), None, None)?;
         let (events, notifier) = Events::new();
         let store = Store::new();
-        let state_machine = StateMachine::new(pet_settings, client, store.clone(), notifier);
-        Self::init(state_machine, events, store)
+        let state_machine =
+            StateMachine::new(pet_settings, client.clone(), store.clone(), notifier);
+        Self::init(state_machine, client, events, store)
     }
 
     /// Restore a participant from it's serialized state. The coordinator client that
-    /// the participant use internally is not part of the participant state, so the
+    /// the participant uses internally is not part of the participant state, so the
     /// `url` is used to instantiate a new one.
     pub fn restore(state: &[u8], url: &str) -> Result<Self, InitError> {
         let state: SerializableState = bincode::deserialize(state)?;
         let (events, notifier) = Events::new();
         let store = Store::new();
         let client = new_client(url, None, None)?;
-        let state_machine = StateMachine::restore(state, client, store.clone(), notifier);
-        Self::init(state_machine, events, store)
+        let state_machine = StateMachine::restore(state, client.clone(), store.clone(), notifier);
+        Self::init(state_machine, client, events, store)
     }
 
-    fn init(state_machine: StateMachine, events: Events, store: Store) -> Result<Self, InitError> {
+    fn init(
+        state_machine: StateMachine,
+        client: Client<reqwest::Client>,
+        events: Events,
+        store: Store,
+    ) -> Result<Self, InitError> {
         let mut participant = Self {
             runtime: Self::runtime()?,
             state_machine: Some(state_machine),
             events,
             store,
+            client,
             task: Task::None,
             made_progress: true,
             should_set_model: false,
+            new_global_model: false,
         };
         participant.process_events();
         Ok(participant)
@@ -218,7 +243,6 @@ impl Participant {
     ///   [`Participant::task()`]
     /// - whether the participant should load its model into the store by calling
     ///   [`Participant::should_set_model()`]
-
     pub fn tick(&mut self) {
         // UNWRAP_SAFE: the state machine is always set.
         let state_machine = self.state_machine.take().unwrap();
@@ -250,8 +274,9 @@ impl Participant {
                 Some(Event::Sum) => {
                     self.task = Task::Sum;
                 }
-                // not sure whether we need to do anything here
-                Some(Event::NewRound) => {}
+                Some(Event::NewRound) => {
+                    self.new_global_model = true;
+                }
                 Some(Event::LoadModel) => {
                     self.should_set_model = true;
                 }
@@ -273,6 +298,12 @@ impl Participant {
         self.should_set_model
     }
 
+    /// Check whether a new global model is available. If this method returns `true`, the
+    /// caller can call [`Participant::global_model()`] to fetch the new global model.
+    pub fn new_global_model(&self) -> bool {
+        self.new_global_model
+    }
+
     /// Return the participant current task
     pub fn task(&self) -> Task {
         self.task
@@ -292,5 +323,29 @@ impl Participant {
             *stored_model = Some(model)
         });
         self.should_set_model = false;
+    }
+
+    /// Retrieve the current global model, if available.
+    pub fn global_model(&mut self) -> Result<Option<Model>, GetGlobalModelError> {
+        let Self {
+            ref mut runtime,
+            ref mut client,
+            ..
+        } = self;
+
+        let global_model =
+            runtime.block_on(async { client.get_model().await.map_err(GetGlobalModelError) });
+        if global_model.is_ok() {
+            self.new_global_model = false;
+        }
+        global_model
+    }
+
+    /// Return the local model configuration of the model that is expected in the
+    /// [`Participant::set_model`] method.
+    pub fn local_model_config(&self) -> LocalModelConfig {
+        // UNWRAP_SAFE: the state machine is always set.
+        let state_machine = self.state_machine.as_ref().unwrap();
+        state_machine.local_model_config()
     }
 }

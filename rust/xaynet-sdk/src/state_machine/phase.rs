@@ -13,7 +13,7 @@ use crate::{
 use xaynet_core::{
     common::{RoundParameters, RoundSeed},
     crypto::{ByteObject, PublicEncryptKey, SigningKeyPair},
-    mask::{self, MaskConfig, Model},
+    mask::{self, DataType, MaskConfig, Model},
     message::Payload,
 };
 
@@ -260,6 +260,14 @@ impl<P> Phase<P> {
         .unwrap()
     }
 
+    /// Return the local model configuration of the model that is expected in the update phase.
+    pub fn local_model_config(&self) -> LocalModelConfig {
+        LocalModelConfig {
+            data_type: self.state.shared.round_params.mask_config.vect.data_type,
+            len: self.state.shared.round_params.model_length,
+        }
+    }
+
     #[cfg(test)]
     pub(crate) fn with_io_mock<F>(&mut self, f: F)
     where
@@ -277,6 +285,18 @@ impl<P> Phase<P> {
         // un-expectedly afterwards
         let _ = std::mem::replace(&mut self.io, Box::new(super::MockIO::new()));
     }
+}
+
+#[derive(Debug)]
+/// The local model configuration of the model that is expected in the update phase.
+pub struct LocalModelConfig {
+    /// The expected data type of the local model.
+    // In the current state it is not possible to configure a coordinator in which
+    // the scalar data type and the model data type are different. Therefore, we assume here
+    // that the scalar data type is the same as the model data type.
+    pub data_type: DataType,
+    /// The expected length of the local model.
+    pub len: usize,
 }
 
 #[derive(Error, Debug)]
