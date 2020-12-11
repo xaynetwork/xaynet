@@ -205,6 +205,9 @@ pub mod client;
 mod message_encoder;
 pub(crate) use self::message_encoder::MessageEncoder;
 
+pub(crate) mod preprocessor;
+pub use preprocessor::Preprocessor;
+
 pub mod settings;
 
 mod state_machine;
