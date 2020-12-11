@@ -30,3 +30,7 @@ xaynet-sdk = { path = "../xaynet-sdk", features = ["reqwest-client"] }
 [[example]]
 name = "test-drive"
 path = "test-drive/main.rs"
+
+[[example]]
+name = "spec-drive"
+path = "spec-drive/main.rs"
