@@ -16,7 +16,7 @@ use crate::state_machine::phases::PhaseName;
 use xaynet_core::{
     common::RoundParameters,
     crypto::EncryptKeyPair,
-    mask::Model,
+    mask::{Analytic, Model},
     SeedDict,
     SumDict,
 };
@@ -39,6 +39,13 @@ pub enum ModelUpdate {
     New(Arc<Model>),
 }
 
+/// Global spec update event.
+#[derive(Debug, Clone, PartialEq)]
+pub enum SpecUpdate {
+    Invalidate, // TODO perhaps not needed
+    New(Arc<Analytic>),
+}
+
 /// Dictionary update event.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum DictionaryUpdate<D> {
@@ -55,6 +62,7 @@ pub struct EventPublisher {
     params_tx: EventBroadcaster<RoundParameters>,
     phase_tx: EventBroadcaster<PhaseName>,
     model_tx: EventBroadcaster<ModelUpdate>,
+    spec_tx: EventBroadcaster<SpecUpdate>,
     sum_dict_tx: EventBroadcaster<DictionaryUpdate<SumDict>>,
     seed_dict_tx: EventBroadcaster<DictionaryUpdate<SeedDict>>,
 }
@@ -67,6 +75,7 @@ pub struct EventSubscriber {
     params_rx: EventListener<RoundParameters>,
     phase_rx: EventListener<PhaseName>,
     model_rx: EventListener<ModelUpdate>,
+    spec_rx: EventListener<SpecUpdate>,
     sum_dict_rx: EventListener<DictionaryUpdate<SumDict>>,
     seed_dict_rx: EventListener<DictionaryUpdate<SeedDict>>,
 }
@@ -79,6 +88,7 @@ impl EventPublisher {
         params: RoundParameters,
         phase: PhaseName,
         model: ModelUpdate,
+        spec: SpecUpdate,
     ) -> (Self, EventSubscriber) {
         let (keys_tx, keys_rx) = watch::channel::<Event<EncryptKeyPair>>(Event {
             round_id,
@@ -93,6 +103,11 @@ impl EventPublisher {
         let (model_tx, model_rx) = watch::channel::<Event<ModelUpdate>>(Event {
             round_id,
             event: model,
+        });
+
+        let (spec_tx, spec_rx) = watch::channel::<Event<SpecUpdate>>(Event {
+            round_id,
+            event: spec,
         });
 
         let (sum_dict_tx, sum_dict_rx) =
@@ -118,6 +133,7 @@ impl EventPublisher {
             params_tx: params_tx.into(),
             phase_tx: phase_tx.into(),
             model_tx: model_tx.into(),
+            spec_tx: spec_tx.into(),
             sum_dict_tx: sum_dict_tx.into(),
             seed_dict_tx: seed_dict_tx.into(),
         };
@@ -127,6 +143,7 @@ impl EventPublisher {
             params_rx: params_rx.into(),
             phase_rx: phase_rx.into(),
             model_rx: model_rx.into(),
+            spec_rx: spec_rx.into(),
             sum_dict_rx: sum_dict_rx.into(),
             seed_dict_rx: seed_dict_rx.into(),
         };
@@ -166,6 +183,10 @@ impl EventPublisher {
         let _ = self.model_tx.broadcast(self.event(update));
     }
 
+    pub fn broadcast_spec(&mut self, update: SpecUpdate) {
+        let _ = self.spec_tx.broadcast(self.event(update));
+    }
+
     /// Emit a sum dictionary update
     pub fn broadcast_sum_dict(&mut self, update: DictionaryUpdate<SumDict>) {
         let _ = self.sum_dict_tx.broadcast(self.event(update));
@@ -197,6 +218,10 @@ impl EventSubscriber {
     /// Get a listener for new model events
     pub fn model_listener(&self) -> EventListener<ModelUpdate> {
         self.model_rx.clone()
+    }
+
+    pub fn spec_listener(&self) -> EventListener<SpecUpdate> {
+        self.spec_rx.clone()
     }
 
     /// Get a listener for sum dictionary updates
