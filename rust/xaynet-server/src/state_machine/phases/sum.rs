@@ -13,7 +13,7 @@ use crate::{
         RequestError,
         StateMachine,
     },
-    storage::{CoordinatorStorage, ModelStorage, StorageError},
+    storage::{Storage, StorageError},
 };
 use xaynet_core::{SumParticipantEphemeralPublicKey, SumParticipantPublicKey};
 
@@ -38,11 +38,10 @@ pub struct Sum {
 }
 
 #[async_trait]
-impl<C, M> Phase<C, M> for PhaseState<Sum, C, M>
+impl<S> Phase<S> for PhaseState<Sum, S>
 where
     Self: Handler,
-    C: CoordinatorStorage,
-    M: ModelStorage,
+    S: Storage,
 {
     const NAME: PhaseName = PhaseName::Sum;
 
@@ -81,16 +80,15 @@ where
         Ok(())
     }
 
-    fn next(self) -> Option<StateMachine<C, M>> {
-        Some(PhaseState::<Update, _, _>::new(self.shared).into())
+    fn next(self) -> Option<StateMachine<S>> {
+        Some(PhaseState::<Update, _>::new(self.shared).into())
     }
 }
 
 #[async_trait]
-impl<C, M> Handler for PhaseState<Sum, C, M>
+impl<S> Handler for PhaseState<Sum, S>
 where
-    C: CoordinatorStorage,
-    M: ModelStorage,
+    S: Storage,
 {
     async fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), RequestError> {
         if let StateMachineRequest::Sum(SumRequest {
@@ -131,13 +129,12 @@ where
     }
 }
 
-impl<C, M> PhaseState<Sum, C, M>
+impl<S> PhaseState<Sum, S>
 where
-    C: CoordinatorStorage,
-    M: ModelStorage,
+    S: Storage,
 {
     /// Creates a new sum state.
-    pub fn new(shared: Shared<C, M>) -> Self {
+    pub fn new(shared: Shared<S>) -> Self {
         Self {
             private: Sum {
                 accepted: 0,
@@ -173,7 +170,7 @@ mod tests {
             events::Event,
             tests::{builder::StateMachineBuilder, utils},
         },
-        storage::tests::init_store,
+        storage::{tests::init_store, CoordinatorStorage},
     };
 
     #[tokio::test]

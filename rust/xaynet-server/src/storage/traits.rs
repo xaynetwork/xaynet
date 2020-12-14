@@ -207,6 +207,44 @@ where
     async fn is_ready(&mut self) -> StorageResult<()>;
 }
 
+#[async_trait]
+/// An abstract trust anchor provider.
+pub trait TrustAnchor
+where
+    Self: Clone + Send + Sync + 'static,
+{
+    /// Publishes a proof of the global model.
+    ///
+    /// # Behavior
+    ///
+    /// Return `StorageResult::Ok(())` if the proof was published successfully,
+    /// otherwise return `StorageResult::Err(error)`.
+    async fn publish_proof(&mut self, global_model: &Model) -> StorageResult<()>;
+
+    /// Checks if the [`TrustAnchor`] is ready to process requests.
+    ///
+    /// # Behavior
+    ///
+    /// If the [`TrustAnchor`] is ready to process requests, return `StorageResult::Ok(())`.
+    /// If the [`TrustAnchor`] cannot process requests because of a connection error,
+    /// for example, return `StorageResult::Err(error)`.
+    async fn is_ready(&mut self) -> StorageResult<()>;
+}
+
+#[async_trait]
+pub trait Storage: CoordinatorStorage + ModelStorage + TrustAnchor {
+    /// Checks if the [`CoordinatorStorage`], [`ModelStorage`] and  [`TrustAnchor`]
+    /// are ready to process requests.
+    ///
+    /// # Behavior
+    ///
+    /// If all inner services are ready to process requests,
+    /// return `StorageResult::Ok(())`.
+    /// If any inner service cannot process requests because of a connection error,
+    /// for example, return `StorageResult::Err(error)`.
+    async fn is_ready(&mut self) -> StorageResult<()>;
+}
+
 /// A wrapper that contains the result of the "add sum participant" operation.
 #[derive(Deref)]
 pub struct SumPartAdd(pub(crate) Result<(), SumPartAddError>);

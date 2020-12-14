@@ -12,7 +12,7 @@ use crate::{
         PhaseStateError,
         StateMachine,
     },
-    storage::{CoordinatorStorage, ModelStorage, StorageError},
+    storage::{Storage, StorageError},
 };
 use xaynet_core::{
     common::RoundSeed,
@@ -33,10 +33,9 @@ pub enum IdleStateError {
 pub struct Idle;
 
 #[async_trait]
-impl<C, M> Phase<C, M> for PhaseState<Idle, C, M>
+impl<S> Phase<S> for PhaseState<Idle, S>
 where
-    C: CoordinatorStorage,
-    M: ModelStorage,
+    S: Storage,
 {
     const NAME: PhaseName = PhaseName::Idle;
 
@@ -93,18 +92,17 @@ where
         Ok(())
     }
 
-    fn next(self) -> Option<StateMachine<C, M>> {
-        Some(PhaseState::<Sum, _, _>::new(self.shared).into())
+    fn next(self) -> Option<StateMachine<S>> {
+        Some(PhaseState::<Sum, _>::new(self.shared).into())
     }
 }
 
-impl<C, M> PhaseState<Idle, C, M>
+impl<S> PhaseState<Idle, S>
 where
-    C: CoordinatorStorage,
-    M: ModelStorage,
+    S: Storage,
 {
     /// Creates a new idle state.
-    pub fn new(mut shared: Shared<C, M>) -> Self {
+    pub fn new(mut shared: Shared<S>) -> Self {
         // Since some events are emitted very early, the round id must
         // be correct when the idle phase starts. Therefore, we update
         // it here, when instantiating the idle PhaseState.
@@ -154,7 +152,7 @@ mod tests {
             events::Event,
             tests::{builder::StateMachineBuilder, utils},
         },
-        storage::tests::init_store,
+        storage::{tests::init_store, CoordinatorStorage},
     };
 
     #[tokio::test]
@@ -168,7 +166,7 @@ mod tests {
         let id = keys.get_latest().round_id;
         assert_eq!(id, 0);
 
-        let mut idle_phase = PhaseState::<Idle, _, _>::new(shared);
+        let mut idle_phase = PhaseState::<Idle, _>::new(shared);
         idle_phase.run().await.unwrap();
 
         let id = keys.get_latest().round_id;

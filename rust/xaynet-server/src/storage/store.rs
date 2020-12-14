@@ -5,12 +5,15 @@ use async_trait::async_trait;
 use crate::{
     state_machine::coordinator::CoordinatorState,
     storage::{
+        trust_anchor::noop::NoOp,
         CoordinatorStorage,
         LocalSeedDictAdd,
         MaskScoreIncr,
         ModelStorage,
+        Storage,
         StorageResult,
         SumPartAdd,
+        TrustAnchor,
     },
 };
 use xaynet_core::{
@@ -26,48 +29,56 @@ use xaynet_core::{
 
 #[derive(Clone)]
 /// A generic store.
-pub struct Store<C, M>
+pub struct Store<C, M, T>
 where
     C: CoordinatorStorage,
     M: ModelStorage,
+    T: TrustAnchor,
 {
     /// A coordinator store.
     coordinator: C,
     /// A model store.
     model: M,
+    /// A trust anchor.
+    trust_anchor: T,
 }
 
-impl<C, M> Store<C, M>
+impl<C, M, T> Store<C, M, T>
+where
+    C: CoordinatorStorage,
+    M: ModelStorage,
+    T: TrustAnchor,
+{
+    pub fn new_with_trust_anchor(coordinator: C, model: M, trust_anchor: T) -> Self {
+        Self {
+            coordinator,
+            model,
+            trust_anchor,
+        }
+    }
+}
+
+impl<C, M> Store<C, M, NoOp>
 where
     C: CoordinatorStorage,
     M: ModelStorage,
 {
     /// Creates a new [`Store`].
     pub fn new(coordinator: C, model: M) -> Self {
-        Self { coordinator, model }
-    }
-
-    /// Checks if the [`Store`] is ready to process requests.
-    ///
-    /// # Behavior
-    ///
-    /// If the [`Store`] is ready to process requests, return `StorageResult::Ok(())`.
-    /// If the [`Store`] cannot process requests because of a connection error,
-    /// for example, return `StorageResult::Err(error)`.
-    pub async fn is_ready(&mut self) -> StorageResult<()> {
-        match tokio::join!(self.model.is_ready(), self.coordinator.is_ready()) {
-            (Err(err_c), Err(err_m)) => Err(anyhow::anyhow!("{}, {}", err_c, err_m)),
-            (Err(err), _) | (_, Err(err)) => Err(err),
-            _ => Ok(()),
+        Self {
+            coordinator,
+            model,
+            trust_anchor: NoOp,
         }
     }
 }
 
 #[async_trait]
-impl<C, M> CoordinatorStorage for Store<C, M>
+impl<C, M, T> CoordinatorStorage for Store<C, M, T>
 where
     C: CoordinatorStorage,
     M: ModelStorage,
+    T: TrustAnchor,
 {
     async fn set_coordinator_state(&mut self, state: &CoordinatorState) -> StorageResult<()> {
         self.coordinator.set_coordinator_state(state).await
@@ -141,10 +152,11 @@ where
 }
 
 #[async_trait]
-impl<C, M> ModelStorage for Store<C, M>
+impl<C, M, T> ModelStorage for Store<C, M, T>
 where
     C: CoordinatorStorage,
     M: ModelStorage,
+    T: TrustAnchor,
 {
     async fn set_global_model(
         &mut self,
@@ -163,5 +175,38 @@ where
 
     async fn is_ready(&mut self) -> StorageResult<()> {
         self.model.is_ready().await
+    }
+}
+
+#[async_trait]
+impl<C, M, T> TrustAnchor for Store<C, M, T>
+where
+    C: CoordinatorStorage,
+    M: ModelStorage,
+    T: TrustAnchor,
+{
+    async fn publish_proof(&mut self, global_model: &Model) -> StorageResult<()> {
+        self.trust_anchor.publish_proof(global_model).await
+    }
+
+    async fn is_ready(&mut self) -> StorageResult<()> {
+        self.trust_anchor.is_ready().await
+    }
+}
+
+#[async_trait]
+impl<C, M, T> Storage for Store<C, M, T>
+where
+    C: CoordinatorStorage,
+    M: ModelStorage,
+    T: TrustAnchor,
+{
+    async fn is_ready(&mut self) -> StorageResult<()> {
+        tokio::try_join!(
+            self.model.is_ready(),
+            self.coordinator.is_ready(),
+            self.trust_anchor.is_ready()
+        )
+        .map(|_| ())
     }
 }

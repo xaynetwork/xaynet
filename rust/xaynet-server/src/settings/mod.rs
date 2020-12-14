@@ -57,6 +57,8 @@ pub struct Settings {
     #[cfg(feature = "model-persistence")]
     #[validate]
     pub restore: RestoreSettings,
+    #[serde(default)]
+    pub trust_anchor: TrustAnchorSettings,
 }
 
 impl Settings {
@@ -721,6 +723,17 @@ where
     }
 
     deserializer.deserialize_str(ConnectionInfoVisitor)
+}
+
+#[derive(Debug, Deserialize, Validate)]
+/// Trust anchor settings.
+pub struct TrustAnchorSettings {}
+
+// Default value for the global models bucket
+impl Default for TrustAnchorSettings {
+    fn default() -> Self {
+        Self {}
+    }
 }
 
 #[derive(Debug, Deserialize)]

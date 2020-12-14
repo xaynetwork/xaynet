@@ -106,10 +106,9 @@ use thiserror::Error;
 
 use self::phases::{Idle, Phase, PhaseState, PhaseStateError, Shutdown, Sum, Sum2, Unmask, Update};
 use crate::storage::{
-    CoordinatorStorage,
     LocalSeedDictAddError,
     MaskScoreIncrError,
-    ModelStorage,
+    Storage,
     StorageError,
     SumPartAddError,
 };
@@ -154,31 +153,29 @@ pub type StateMachineResult = Result<(), RequestError>;
 
 /// The state machine with all its states.
 #[derive(From)]
-pub enum StateMachine<C, M>
+pub enum StateMachine<S>
 where
-    C: CoordinatorStorage,
-    M: ModelStorage,
+    S: Storage,
 {
-    Idle(PhaseState<Idle, C, M>),
-    Sum(PhaseState<Sum, C, M>),
-    Update(PhaseState<Update, C, M>),
-    Sum2(PhaseState<Sum2, C, M>),
-    Unmask(PhaseState<Unmask, C, M>),
-    Error(PhaseState<PhaseStateError, C, M>),
-    Shutdown(PhaseState<Shutdown, C, M>),
+    Idle(PhaseState<Idle, S>),
+    Sum(PhaseState<Sum, S>),
+    Update(PhaseState<Update, S>),
+    Sum2(PhaseState<Sum2, S>),
+    Unmask(PhaseState<Unmask, S>),
+    Error(PhaseState<PhaseStateError, S>),
+    Shutdown(PhaseState<Shutdown, S>),
 }
 
-impl<C, M> StateMachine<C, M>
+impl<S> StateMachine<S>
 where
-    PhaseState<Idle, C, M>: Phase<C, M>,
-    PhaseState<Sum, C, M>: Phase<C, M>,
-    PhaseState<Update, C, M>: Phase<C, M>,
-    PhaseState<Sum2, C, M>: Phase<C, M>,
-    PhaseState<Unmask, C, M>: Phase<C, M>,
-    PhaseState<PhaseStateError, C, M>: Phase<C, M>,
-    PhaseState<Shutdown, C, M>: Phase<C, M>,
-    C: CoordinatorStorage,
-    M: ModelStorage,
+    PhaseState<Idle, S>: Phase<S>,
+    PhaseState<Sum, S>: Phase<S>,
+    PhaseState<Update, S>: Phase<S>,
+    PhaseState<Sum2, S>: Phase<S>,
+    PhaseState<Unmask, S>: Phase<S>,
+    PhaseState<PhaseStateError, S>: Phase<S>,
+    PhaseState<Shutdown, S>: Phase<S>,
+    S: Storage,
 {
     /// Moves the [`StateMachine`] to the next state and consumes the current one.
     /// Returns the next state or `None` if the [`StateMachine`] reached the state [`Shutdown`].

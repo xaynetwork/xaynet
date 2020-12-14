@@ -6,6 +6,7 @@ pub mod store;
 #[cfg(test)]
 pub(crate) mod tests;
 pub mod traits;
+pub mod trust_anchor;
 
 pub use self::{
     store::Store,
@@ -16,9 +17,11 @@ pub use self::{
         MaskScoreIncr,
         MaskScoreIncrError,
         ModelStorage,
+        Storage,
         StorageError,
         StorageResult,
         SumPartAdd,
         SumPartAddError,
+        TrustAnchor,
     },
 };
