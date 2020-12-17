@@ -1,55 +1,60 @@
-use std::path::PathBuf;
 #[cfg(feature = "tls")]
-use std::{net::SocketAddr, str::FromStr};
+use std::{net::SocketAddr, path::PathBuf, str::FromStr};
 
 #[cfg(feature = "tls")]
-use super::{validate_api, ApiSettings};
-use super::{validate_pet, PetSettings, Settings};
+use super::ApiSettings;
+use super::{PetSettings, Settings};
 
 #[test]
 fn test_settings_new() {
-    assert!(Settings::new(PathBuf::from("../../configs/config.toml")).is_ok());
-    assert!(Settings::new(PathBuf::from("")).is_err());
+    assert!(Settings::new("../../configs/config.toml").is_ok());
+    assert!(Settings::new("").is_err());
 }
 
 #[test]
 fn test_validate_pet() {
-    assert!(validate_pet(&PetSettings::default()).is_ok());
+    assert!(PetSettings::default().validate_pet().is_ok());
 
     // phase times
-    assert!(validate_pet(&PetSettings {
+    assert!(PetSettings {
         min_sum_time: 2,
         max_sum_time: 1,
         ..PetSettings::default()
-    })
+    }
+    .validate_pet()
     .is_err());
-    assert!(validate_pet(&PetSettings {
+    assert!(PetSettings {
         min_update_time: 2,
         max_update_time: 1,
         ..PetSettings::default()
-    })
+    }
+    .validate_pet()
     .is_err());
 
     // fractions
-    assert!(validate_pet(&PetSettings {
+    assert!(PetSettings {
         sum: 0.,
         ..PetSettings::default()
-    })
+    }
+    .validate_pet()
     .is_err());
-    assert!(validate_pet(&PetSettings {
+    assert!(PetSettings {
         sum: 1.,
         ..PetSettings::default()
-    })
+    }
+    .validate_pet()
     .is_err());
-    assert!(validate_pet(&PetSettings {
+    assert!(PetSettings {
         update: 0.,
         ..PetSettings::default()
-    })
+    }
+    .validate_pet()
     .is_err());
-    assert!(validate_pet(&PetSettings {
-        update: 1.,
+    assert!(PetSettings {
+        update: 1. + f64::EPSILON,
         ..PetSettings::default()
-    })
+    }
+    .validate_pet()
     .is_err());
 }
 
@@ -58,61 +63,69 @@ fn test_validate_pet() {
 fn test_validate_api() {
     let bind_address = SocketAddr::from_str("0.0.0.0:0000").unwrap();
 
-    assert!(validate_api(&ApiSettings {
+    assert!(ApiSettings {
         bind_address,
         tls_certificate: Some(PathBuf::new()),
         tls_key: Some(PathBuf::new()),
         tls_client_auth: Some(PathBuf::new()),
-    })
+    }
+    .validate_api()
     .is_ok());
-    assert!(validate_api(&ApiSettings {
+    assert!(ApiSettings {
         bind_address,
         tls_certificate: Some(PathBuf::new()),
         tls_key: Some(PathBuf::new()),
         tls_client_auth: None,
-    })
+    }
+    .validate_api()
     .is_ok());
-    assert!(validate_api(&ApiSettings {
+    assert!(ApiSettings {
         bind_address,
         tls_certificate: None,
         tls_key: None,
         tls_client_auth: Some(PathBuf::new()),
-    })
+    }
+    .validate_api()
     .is_ok());
 
-    assert!(validate_api(&ApiSettings {
+    assert!(ApiSettings {
         bind_address,
         tls_certificate: Some(PathBuf::new()),
         tls_key: None,
         tls_client_auth: Some(PathBuf::new()),
-    })
+    }
+    .validate_api()
     .is_err());
-    assert!(validate_api(&ApiSettings {
+    assert!(ApiSettings {
         bind_address,
         tls_certificate: None,
         tls_key: Some(PathBuf::new()),
         tls_client_auth: Some(PathBuf::new()),
-    })
+    }
+    .validate_api()
     .is_err());
-    assert!(validate_api(&ApiSettings {
+    assert!(ApiSettings {
         bind_address,
         tls_certificate: Some(PathBuf::new()),
         tls_key: None,
         tls_client_auth: None,
-    })
+    }
+    .validate_api()
     .is_err());
-    assert!(validate_api(&ApiSettings {
+    assert!(ApiSettings {
         bind_address,
         tls_certificate: None,
         tls_key: Some(PathBuf::new()),
         tls_client_auth: None,
-    })
+    }
+    .validate_api()
     .is_err());
-    assert!(validate_api(&ApiSettings {
+    assert!(ApiSettings {
         bind_address,
         tls_certificate: None,
         tls_key: None,
         tls_client_auth: None,
-    })
+    }
+    .validate_api()
     .is_err());
 }

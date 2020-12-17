@@ -188,6 +188,8 @@ pub fn pet_settings() -> PetSettings {
         update: 0.5,
         min_sum_count: 1,
         min_update_count: 3,
+        max_sum_count: 100,
+        max_update_count: 1000,
         min_sum_time: 1,
         max_sum_time: 2,
         min_update_time: 1,

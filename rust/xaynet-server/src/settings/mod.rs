@@ -3,7 +3,9 @@
 //! Values defined in the configuration file can be overridden by environment variables. Examples of
 //! configuration files can be found in the `configs/` directory located in the repository root.
 
-use std::{fmt, path::PathBuf};
+#[cfg(feature = "tls")]
+use std::path::PathBuf;
+use std::{fmt, path::Path};
 
 use config::{Config, ConfigError, Environment};
 use redis::{ConnectionInfo, IntoConnectionInfo};
@@ -61,15 +63,15 @@ impl Settings {
     ///
     /// # Errors
     /// Fails when the loading of the configuration file or its validation failed.
-    pub fn new(path: PathBuf) -> Result<Self, SettingsError> {
+    pub fn new(path: impl AsRef<Path>) -> Result<Self, SettingsError> {
         let settings: Settings = Self::load(path)?;
         settings.validate()?;
         Ok(settings)
     }
 
-    fn load(path: PathBuf) -> Result<Self, ConfigError> {
+    fn load(path: impl AsRef<Path>) -> Result<Self, ConfigError> {
         let mut config = Config::new();
-        config.merge(config::File::from(path))?;
+        config.merge(config::File::from(path.as_ref()))?;
         config.merge(Environment::with_prefix("xaynet").separator("__"))?;
         config.try_into()
     }
@@ -84,7 +86,7 @@ pub struct PetSettings {
     /// be greater or equal to `1` (i.e. `min_sum_count >= 1`), otherwise the PET protocol will be
     /// broken.
     ///
-    /// This parameter should only be used to enforce security constraints.
+    /// This parameter should only be used to enforce security constraints. Defaults to 1.
     ///
     /// # Examples
     ///
@@ -105,7 +107,7 @@ pub struct PetSettings {
     /// aggregation. The value must be greater or equal to `3` (i.e. `min_update_count >= 3`),
     /// otherwise the PET protocol will be broken.
     ///
-    /// This parameter should only be used to enforce security constraints.
+    /// This parameter should only be used to enforce security constraints. Defaults to 3.
     ///
     /// # Examples
     ///
@@ -120,6 +122,47 @@ pub struct PetSettings {
     /// XAYNET_PET__MIN_UPDATE_COUNT=3
     /// ```
     pub min_update_count: u64,
+
+    /// The maximal number of participants selected for computing the unmasking sum. The value must
+    /// be greater or equal to `min_sum_count` (i.e. `min_sum_count <= max_sum_count`).
+    ///
+    /// Defaults to 100, i.e. no more message will be processed in the `sum` and `sum2` phases if
+    /// the `min_sum_time` has not yet elapsed.
+    ///
+    /// # Examples
+    ///
+    /// **TOML**
+    /// ```text
+    /// [pet]
+    /// max_sum_count = 100
+    /// ```
+    ///
+    /// **Environment variable**
+    /// ```text
+    /// XAYNET_PET__MAX_SUM_COUNT=100
+    /// ```
+    pub max_sum_count: u64,
+
+    /// The maximal number of participants selected for submitting an updated local model for
+    /// aggregation. The value must be greater or equal to `min_update_count` (i.e.
+    /// `min_update_count <= max_update_count`).
+    ///
+    /// Defaults to 10000, i.e. no more message will be processed in the `update` phase if the
+    /// `min_update_time` has not yet elapsed.
+    ///
+    /// # Examples
+    ///
+    /// **TOML**
+    /// ```text
+    /// [pet]
+    /// max_update_count = 10000
+    /// ```
+    ///
+    /// **Environment variable**
+    /// ```text
+    /// XAYNET_PET__MAX_UPDATE_COUNT=10000
+    /// ```
+    pub max_update_count: u64,
 
     /// The minimum amount of time reserved for processing messages in the `sum`
     /// and `sum2` phases, in seconds.
@@ -232,9 +275,11 @@ pub struct PetSettings {
     pub sum: f64,
 
     /// The expected fraction of participants selected for submitting an updated local model for
-    /// aggregation. The value must be between `0` and `1` (i.e. `0 < update < 1`).
+    /// aggregation. The value must be between `0` and `1` (i.e. `0 < update <= 1`). Here, `1` is
+    /// included to be able to express that every participant who is not a sum participant must be
+    /// an update participant.
     ///
-    /// Additionally, it is enforced that `0 < sum + update - sum*update < 1` to avoid pathological
+    /// Additionally, it is enforced that `0 < sum + update - sum*update <= 1` to avoid pathological
     /// cases of deadlocks.
     ///
     /// # Examples
@@ -242,12 +287,12 @@ pub struct PetSettings {
     /// **TOML**
     /// ```text
     /// [pet]
-    /// update = 0.01
+    /// update = 0.1
     /// ```
     ///
     /// **Environment variable**
     /// ```text
-    /// XAYNET_PET__UPDATE=0.01
+    /// XAYNET_PET__UPDATE=0.1
     /// ```
     pub update: f64,
 }
@@ -257,6 +302,8 @@ impl Default for PetSettings {
         Self {
             min_sum_count: 1,
             min_update_count: 3,
+            max_sum_count: 100,
+            max_update_count: 10000,
             min_sum_time: 0,
             min_update_time: 0,
             max_sum_time: 604800,
@@ -267,34 +314,53 @@ impl Default for PetSettings {
     }
 }
 
-/// Checks PET settings.
+impl PetSettings {
+    /// Checks PET settings.
+    fn validate_pet(&self) -> Result<(), ValidationError> {
+        self.validate_phase_counts()?;
+        self.validate_phase_times()?;
+        self.validate_fractions()
+    }
+
+    /// Checks validity of phase count ranges.
+    fn validate_phase_counts(&self) -> Result<(), ValidationError> {
+        if self.min_sum_count <= self.max_sum_count
+            && self.min_update_count <= self.max_update_count
+        {
+            Ok(())
+        } else {
+            Err(ValidationError::new("invalid phase count range(s)"))
+        }
+    }
+
+    /// Checks validity of phase time ranges.
+    fn validate_phase_times(&self) -> Result<(), ValidationError> {
+        if self.min_sum_time <= self.max_sum_time && self.min_update_time <= self.max_update_time {
+            Ok(())
+        } else {
+            Err(ValidationError::new("invalid phase time range(s)"))
+        }
+    }
+
+    /// Checks pathological cases of deadlocks.
+    fn validate_fractions(&self) -> Result<(), ValidationError> {
+        if 0. < self.sum
+            && self.sum < 1.
+            && 0. < self.update
+            && self.update <= 1.
+            && 0. < self.sum + self.update - self.sum * self.update
+            && self.sum + self.update - self.sum * self.update <= 1.
+        {
+            Ok(())
+        } else {
+            Err(ValidationError::new("starvation"))
+        }
+    }
+}
+
+/// A wrapper for validate derive.
 fn validate_pet(s: &PetSettings) -> Result<(), ValidationError> {
-    validate_phase_times(s)?;
-    validate_fractions(s)
-}
-
-/// Checks validity of phase time ranges.
-fn validate_phase_times(s: &PetSettings) -> Result<(), ValidationError> {
-    if s.min_sum_time <= s.max_sum_time && s.min_update_time <= s.max_update_time {
-        Ok(())
-    } else {
-        Err(ValidationError::new("invalid phase time range(s)"))
-    }
-}
-
-/// Checks pathological cases of deadlocks.
-fn validate_fractions(s: &PetSettings) -> Result<(), ValidationError> {
-    if 0. < s.sum
-        && s.sum < 1.
-        && 0. < s.update
-        && s.update < 1.
-        && 0. < s.sum + s.update - s.sum * s.update
-        && s.sum + s.update - s.sum * s.update < 1.
-    {
-        Ok(())
-    } else {
-        Err(ValidationError::new("starvation"))
-    }
+    s.validate_pet()
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -390,12 +456,20 @@ pub struct ApiSettings {
 }
 
 #[cfg(feature = "tls")]
-/// Checks API settings.
-fn validate_api(s: &ApiSettings) -> Result<(), ValidationError> {
-    match (&s.tls_certificate, &s.tls_key, &s.tls_client_auth) {
-        (Some(_), Some(_), _) | (None, None, Some(_)) => Ok(()),
-        _ => Err(ValidationError::new("invalid tls settings")),
+impl ApiSettings {
+    /// Checks API settings.
+    fn validate_api(&self) -> Result<(), ValidationError> {
+        match (&self.tls_certificate, &self.tls_key, &self.tls_client_auth) {
+            (Some(_), Some(_), _) | (None, None, Some(_)) => Ok(()),
+            _ => Err(ValidationError::new("invalid tls settings")),
+        }
     }
+}
+
+/// A wrapper for validate derive.
+#[cfg(feature = "tls")]
+fn validate_api(s: &ApiSettings) -> Result<(), ValidationError> {
+    s.validate_api()
 }
 
 #[derive(Debug, Validate, Deserialize, Clone, Copy)]
