@@ -1,6 +1,8 @@
 #[cfg(feature = "tls")]
 use std::{net::SocketAddr, path::PathBuf, str::FromStr};
 
+use validator::Validate;
+
 #[cfg(feature = "tls")]
 use super::ApiSettings;
 use super::{PetSettings, Settings};
@@ -21,14 +23,14 @@ fn test_validate_pet() {
         max_sum_time: 1,
         ..PetSettings::default()
     }
-    .validate_pet()
+    .validate()
     .is_err());
     assert!(PetSettings {
         min_update_time: 2,
         max_update_time: 1,
         ..PetSettings::default()
     }
-    .validate_pet()
+    .validate()
     .is_err());
 
     // fractions
@@ -36,25 +38,25 @@ fn test_validate_pet() {
         sum: 0.,
         ..PetSettings::default()
     }
-    .validate_pet()
+    .validate()
     .is_err());
     assert!(PetSettings {
         sum: 1.,
         ..PetSettings::default()
     }
-    .validate_pet()
+    .validate()
     .is_err());
     assert!(PetSettings {
         update: 0.,
         ..PetSettings::default()
     }
-    .validate_pet()
+    .validate()
     .is_err());
     assert!(PetSettings {
         update: 1. + f64::EPSILON,
         ..PetSettings::default()
     }
-    .validate_pet()
+    .validate()
     .is_err());
 }
 
@@ -69,7 +71,7 @@ fn test_validate_api() {
         tls_key: Some(PathBuf::new()),
         tls_client_auth: Some(PathBuf::new()),
     }
-    .validate_api()
+    .validate()
     .is_ok());
     assert!(ApiSettings {
         bind_address,
@@ -77,7 +79,7 @@ fn test_validate_api() {
         tls_key: Some(PathBuf::new()),
         tls_client_auth: None,
     }
-    .validate_api()
+    .validate()
     .is_ok());
     assert!(ApiSettings {
         bind_address,
@@ -85,7 +87,7 @@ fn test_validate_api() {
         tls_key: None,
         tls_client_auth: Some(PathBuf::new()),
     }
-    .validate_api()
+    .validate()
     .is_ok());
 
     assert!(ApiSettings {
@@ -94,7 +96,7 @@ fn test_validate_api() {
         tls_key: None,
         tls_client_auth: Some(PathBuf::new()),
     }
-    .validate_api()
+    .validate()
     .is_err());
     assert!(ApiSettings {
         bind_address,
@@ -102,7 +104,7 @@ fn test_validate_api() {
         tls_key: Some(PathBuf::new()),
         tls_client_auth: Some(PathBuf::new()),
     }
-    .validate_api()
+    .validate()
     .is_err());
     assert!(ApiSettings {
         bind_address,
@@ -110,7 +112,7 @@ fn test_validate_api() {
         tls_key: None,
         tls_client_auth: None,
     }
-    .validate_api()
+    .validate()
     .is_err());
     assert!(ApiSettings {
         bind_address,
@@ -118,7 +120,7 @@ fn test_validate_api() {
         tls_key: Some(PathBuf::new()),
         tls_client_auth: None,
     }
-    .validate_api()
+    .validate()
     .is_err());
     assert!(ApiSettings {
         bind_address,
@@ -126,6 +128,6 @@ fn test_validate_api() {
         tls_key: None,
         tls_client_auth: None,
     }
-    .validate_api()
+    .validate()
     .is_err());
 }

@@ -88,9 +88,13 @@ bind_address = "127.0.0.1:8081"
 [pet]
 min_sum_count = 1
 min_update_count = 3
+max_sum_count = 100
+max_update_count = 10000
 min_sum_time = 5
 min_update_time = 10
-sum = 0.4
+max_sum_time = 3600
+max_update_time = 3600
+sum = 0.1
 update = 0.9
 
 [mask]
@@ -110,7 +114,8 @@ selection above because they will be the most relevant for this guide.
 
 Going from the top, the [`ApiSettings`] include the
 address the coordinator should listen on for requests from participants. This
-address should be known to all participants.
+address should be known to all participants. Optionally, it also contains configurations for TLS
+server and client authentication.
 
 The [`PetSettings`] specify various parameters of the PET protocol:
 
@@ -122,12 +127,15 @@ participant is selected for both roles, the *sum* role takes precedence).
 - The settings [`min_sum_count`] and [`min_update_count`] specify, respectively,
 the minimum number of `sum`/`sum2` and `update` messages the coordinator should
 accept. By default, they are set to the theoretical minimum in order for the
-protocol to function correctly.
+protocol to function correctly. Similarly, the [`max_sum_count`] and [`max_update_count`] specify
+the maximum number of `sum`/`sum2` and `update` messages the coordinator should accept.
 
 - To complement, the settings [`min_sum_time`] and
 [`min_update_time`] specify, respectively, the minimum amount of time (in
 seconds) the coordinator should wait for `sum`/`sum2` and `update` messages. To
-allow for more messages to be processed, increase these times.
+allow for more messages to be processed, increase these times. Similarly, the [`max_sum_time`] and
+[`max_update_time`] specify the maximum amount of time (in seconds) the coordinator should wait for
+`sum`/`sum2` and `update` messages.
 
 The [`MaskSettings`] determines the masking configuration, consisting of the
 group type, data type, bound type and model type. The [`ModelSettings`] specify
@@ -161,8 +169,12 @@ $ RUST_LOG=info cargo run --example test-drive -- -n 10
 [`update`]: crate::settings::PetSettings::update
 [`min_sum_count`]: crate::settings::PetSettings::min_sum_count
 [`min_update_count`]: crate::settings::PetSettings::min_update_count
+[`max_sum_count`]: crate::settings::PetSettings::max_sum_count
+[`max_update_count`]: crate::settings::PetSettings::max_update_count
 [`min_sum_time`]: crate::settings::PetSettings::min_sum_time
 [`min_update_time`]: crate::settings::PetSettings::min_update_time
+[`max_sum_time`]: crate::settings::PetSettings::max_sum_time
+[`max_update_time`]: crate::settings::PetSettings::max_update_time
 [`MaskSettings`]: crate::settings::MaskSettings
 [`ModelSettings`]: crate::settings::ModelSettings
 [`Model`]: xaynet_core::mask::Model
