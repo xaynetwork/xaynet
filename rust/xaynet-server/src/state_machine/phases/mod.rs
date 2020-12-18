@@ -158,6 +158,8 @@ where
 {
     /// Processes requests for as long as the given duration.
     async fn process_during(&mut self, dur: tokio::time::Duration) -> Result<(), PhaseStateError> {
+        // even though this is called a `Delay` it is actually a fixed deadline, hence the loop
+        // below doesn't start the delay again at each iteration and just checks for the deadline
         let mut delay = tokio::time::delay_for(dur);
 
         loop {
@@ -201,7 +203,7 @@ where
             );
         }
 
-        // This may error out if the receiver has already be dropped but
+        // This may error out if the receiver has already been dropped but
         // it doesn't matter for us.
         let _ = resp_tx.send(res.map_err(Into::into));
     }

@@ -22,6 +22,10 @@ pub struct CoordinatorState {
     pub min_sum_count: u64,
     /// The minimum of required update messages.
     pub min_update_count: u64,
+    /// The maximum of required sum/sum2 messages.
+    pub max_sum_count: u64,
+    /// The maximum of required update messages.
+    pub max_update_count: u64,
     /// The minimum time (in seconds) reserved for processing sum/sum2 messages.
     pub min_sum_time: u64,
     /// The minimum time (in seconds) reserved for processing update messages.
@@ -55,6 +59,8 @@ impl CoordinatorState {
             round_id,
             min_sum_count: pet_settings.min_sum_count,
             min_update_count: pet_settings.min_update_count,
+            max_sum_count: pet_settings.max_sum_count,
+            max_update_count: pet_settings.max_update_count,
             min_sum_time: pet_settings.min_sum_time,
             min_update_time: pet_settings.min_update_time,
             max_sum_time: pet_settings.max_sum_time,

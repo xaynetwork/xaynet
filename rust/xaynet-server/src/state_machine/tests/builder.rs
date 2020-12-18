@@ -103,8 +103,13 @@ where
         self
     }
 
-    pub fn with_min_sum(mut self, min_sum: u64) -> Self {
+    pub fn with_min_sum_count(mut self, min_sum: u64) -> Self {
         self.coordinator_state.min_sum_count = min_sum;
+        self
+    }
+
+    pub fn with_max_sum_count(mut self, max_sum: u64) -> Self {
+        self.coordinator_state.max_sum_count = max_sum;
         self
     }
 
@@ -113,8 +118,13 @@ where
         self
     }
 
-    pub fn with_min_update(mut self, min_update: u64) -> Self {
+    pub fn with_min_update_count(mut self, min_update: u64) -> Self {
         self.coordinator_state.min_update_count = min_update;
+        self
+    }
+
+    pub fn with_max_update_count(mut self, max_update: u64) -> Self {
+        self.coordinator_state.max_update_count = max_update;
         self
     }
 

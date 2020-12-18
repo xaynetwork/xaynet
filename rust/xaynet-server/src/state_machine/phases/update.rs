@@ -11,16 +11,14 @@ use crate::{
         events::DictionaryUpdate,
         phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Sum2},
         requests::{StateMachineRequest, UpdateRequest},
-        RequestError,
-        StateMachine,
+        RequestError, StateMachine,
     },
     storage::{CoordinatorStorage, ModelStorage, StorageError},
 };
 use thiserror::Error;
 use xaynet_core::{
     mask::{Aggregation, MaskObject},
-    LocalSeedDict,
-    UpdateParticipantPublicKey,
+    LocalSeedDict, UpdateParticipantPublicKey,
 };
 
 /// Error that occurs during the update phase.
@@ -256,9 +254,7 @@ mod test {
         common::{RoundParameters, RoundSeed},
         crypto::{ByteObject, EncryptKeyPair},
         mask::{FromPrimitives, Model},
-        SeedDict,
-        SumDict,
-        UpdateSeedDict,
+        SeedDict, SumDict, UpdateSeedDict,
     };
 
     #[tokio::test]
@@ -298,8 +294,10 @@ mod test {
             })
             .with_sum_ratio(round_params.sum)
             .with_update_ratio(round_params.update)
-            .with_min_sum(n_summers)
-            .with_min_update(n_updaters)
+            .with_min_sum_count(n_summers)
+            .with_max_sum_count(n_summers + 10)
+            .with_min_update_count(n_updaters)
+            .with_max_update_count(n_updaters + 10)
             .with_min_update_time(1)
             .with_max_update_time(2)
             .with_mask_config(utils::mask_settings().into())

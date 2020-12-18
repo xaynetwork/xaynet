@@ -8,8 +8,7 @@ use crate::{
     state_machine::{
         phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Unmask},
         requests::{StateMachineRequest, Sum2Request},
-        RequestError,
-        StateMachine,
+        RequestError, StateMachine,
     },
     storage::{CoordinatorStorage, ModelStorage},
 };
@@ -232,8 +231,10 @@ mod test {
             })
             .with_sum_ratio(round_params.sum)
             .with_update_ratio(round_params.update)
-            .with_min_sum(n_summers)
-            .with_min_update(n_updaters)
+            .with_min_sum_count(n_summers)
+            .with_max_sum_count(n_summers + 10)
+            .with_min_update_count(n_updaters)
+            .with_max_update_count(n_updaters + 10)
             .with_min_sum_time(1)
             .with_max_sum_time(2)
             .with_mask_config(utils::mask_settings().into())
