@@ -4,7 +4,7 @@ on:
   push:
     paths:
       - 'k8s/**'
-    
+
 jobs:
   k8s-kustomize-validation:
     name: Kubernetes manifests validation

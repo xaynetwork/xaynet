@@ -1,8 +1,8 @@
+name: DockerHub (PR) with parameters
+
 on:
   issue_comment:
     types: [created]
-    
-name: DockerHub (PR) with parameters
 
 jobs:
   check_comments:
@@ -64,7 +64,7 @@ jobs:
           build-args: |
             ${{ steps.split.outputs._0 }}
             ${{ steps.split.outputs._1 }}
-            
+
       - name: Install doctl
         uses: digitalocean/action-doctl@v2
         with:
