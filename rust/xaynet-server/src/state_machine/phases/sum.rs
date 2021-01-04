@@ -31,11 +31,11 @@ pub enum SumStateError {
 /// The sum state.
 #[derive(Debug)]
 pub struct Sum {
-    /// The number of Sum messages successfully processed.
+    /// The number of sum messages successfully processed.
     accepted: u64,
-    /// The number of Sum messages failed to processed.
+    /// The number of sum messages failed to processed.
     rejected: u64,
-    /// The number of Sum messages discarded without being processed.
+    /// The number of sum messages discarded without being processed.
     discarded: u64,
 }
 
@@ -101,7 +101,7 @@ where
         let min_time = self.shared.state.min_sum_time;
         let max_time = self.shared.state.max_sum_time;
         debug!(
-            "in sum phase for a min {} and max {} seconds",
+            "in sum phase for min {} and max {} seconds",
             min_time, max_time,
         );
         self.process_during(Duration::from_secs(min_time)).await?;
@@ -128,6 +128,7 @@ where
         self.shared
             .events
             .broadcast_sum_dict(DictionaryUpdate::New(Arc::new(sum_dict)));
+
         Ok(())
     }
 

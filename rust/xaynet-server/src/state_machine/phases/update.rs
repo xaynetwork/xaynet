@@ -37,11 +37,11 @@ pub enum UpdateStateError {
 pub struct Update {
     /// The aggregator for masked models.
     model_agg: Aggregation,
-    /// The number of Update messages successfully processed.
+    /// The number of update messages successfully processed.
     accepted: u64,
-    /// The number of Update messages failed to processed.
+    /// The number of update messages failed to processed.
     rejected: u64,
-    /// The number of Update messages discarded without being processed.
+    /// The number of update messages discarded without being processed.
     discarded: u64,
 }
 
@@ -61,7 +61,7 @@ where
         let min_time = self.shared.state.min_update_time;
         let max_time = self.shared.state.max_update_time;
         debug!(
-            "in update phase for a min {} and max {} seconds",
+            "in update phase for min {} and max {} seconds",
             min_time, max_time,
         );
         self.process_during(Duration::from_secs(min_time)).await?;
@@ -138,7 +138,7 @@ where
     /// Handles an update request.
     ///
     /// # Errors
-    /// Fails if the update participant cannot be added due to a PET or [`StorageError`].
+    /// Fails if the model update and seed dict cannot be added due to a PET or [`StorageError`].
     async fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), RequestError> {
         // discard if `max_update_count` is reached
         if self.has_overmuch_updates() {
@@ -188,13 +188,13 @@ where
     pub fn new(shared: Shared<C, M>) -> Self {
         Self {
             private: Update {
-                accepted: 0,
-                rejected: 0,
-                discarded: 0,
                 model_agg: Aggregation::new(
                     shared.state.round_params.mask_config,
                     shared.state.round_params.model_length,
                 ),
+                accepted: 0,
+                rejected: 0,
+                discarded: 0,
             },
             shared,
         }
@@ -325,10 +325,10 @@ mod test {
         let (state_machine, request_tx, events) = StateMachineBuilder::new(store.clone())
             .with_seed(round_params.seed.clone())
             .with_phase(Update {
+                model_agg: aggregation.clone(),
                 accepted: 0,
                 rejected: 0,
                 discarded: 0,
-                model_agg: aggregation.clone(),
             })
             .with_sum_ratio(round_params.sum)
             .with_update_ratio(round_params.update)
