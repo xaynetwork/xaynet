@@ -6,6 +6,7 @@
 mod model;
 mod round_parameters;
 mod seed_dict;
+mod spec;
 mod sum_dict;
 
 use std::task::{Context, Poll};
@@ -18,6 +19,7 @@ pub use self::{
     model::{ModelRequest, ModelResponse, ModelService},
     round_parameters::{RoundParamsRequest, RoundParamsResponse, RoundParamsService},
     seed_dict::{SeedDictRequest, SeedDictResponse, SeedDictService},
+    spec::{SpecRequest, SpecResponse, SpecService},
     sum_dict::{SumDictRequest, SumDictResponse, SumDictService},
 };
 use crate::state_machine::events::EventSubscriber;
@@ -35,6 +37,9 @@ pub trait Fetcher {
     /// different portion of that dictionary.
     async fn seed_dict(&mut self) -> Result<SeedDictResponse, FetchError>;
 
+    /// TODO
+    async fn spec(&mut self) -> Result<SpecResponse, FetchError>;
+
     /// Fetch the sum dictionary. The update participants need this
     /// dictionary to encrypt their masking seed for each sum
     /// participant.
@@ -51,8 +56,8 @@ fn into_fetch_error<E: Into<Box<dyn ::std::error::Error + 'static + Sync + Send>
 }
 
 #[async_trait]
-impl<RoundParams, SumDict, SeedDict, Model> Fetcher
-    for Fetchers<RoundParams, SumDict, SeedDict, Model>
+impl<RoundParams, SumDict, SeedDict, Model, Spec> Fetcher
+    for Fetchers<RoundParams, SumDict, SeedDict, Model, Spec>
 where
     Self: Send + Sync + 'static,
 
@@ -64,6 +69,11 @@ where
     Model: Service<ModelRequest, Response = ModelResponse> + Send + 'static,
     <Model as Service<ModelRequest>>::Future: Send + Sync + 'static,
     <Model as Service<ModelRequest>>::Error:
+        Into<Box<dyn ::std::error::Error + 'static + Sync + Send>>,
+
+    Spec: Service<SpecRequest, Response = SpecResponse> + Send + 'static,
+    <Spec as Service<SpecRequest>>::Future: Send + Sync + 'static,
+    <Spec as Service<SpecRequest>>::Error:
         Into<Box<dyn ::std::error::Error + 'static + Sync + Send>>,
 
     SeedDict: Service<SeedDictRequest, Response = SeedDictResponse> + Send + 'static,
@@ -96,6 +106,17 @@ where
             .map_err(into_fetch_error)?;
         Ok(
             <Model as Service<ModelRequest>>::call(&mut self.model, ModelRequest)
+                .await
+                .map_err(into_fetch_error)?,
+        )
+    }
+
+    async fn spec(&mut self) -> Result<SpecResponse, FetchError> {
+        poll_fn(|cx| <Spec as Service<SpecRequest>>::poll_ready(&mut self.spec, cx))
+            .await
+            .map_err(into_fetch_error)?;
+        Ok(
+            <Spec as Service<SpecRequest>>::call(&mut self.spec, SpecRequest)
                 .await
                 .map_err(into_fetch_error)?,
         )
@@ -154,25 +175,30 @@ impl<S> Layer<S> for FetcherLayer {
 }
 
 #[derive(Debug, Clone)]
-pub struct Fetchers<RoundParams, SumDict, SeedDict, Model> {
+pub struct Fetchers<RoundParams, SumDict, SeedDict, Model, Spec> {
     round_params: RoundParams,
     sum_dict: SumDict,
     seed_dict: SeedDict,
     model: Model,
+    spec: Spec,
 }
 
-impl<RoundParams, SumDict, SeedDict, Model> Fetchers<RoundParams, SumDict, SeedDict, Model> {
+impl<RoundParams, SumDict, SeedDict, Model, Spec>
+    Fetchers<RoundParams, SumDict, SeedDict, Model, Spec>
+{
     pub fn new(
         round_params: RoundParams,
         sum_dict: SumDict,
         seed_dict: SeedDict,
         model: Model,
+        spec: Spec,
     ) -> Self {
         Self {
             round_params,
             sum_dict,
             seed_dict,
             model,
+            spec,
         }
     }
 }
@@ -191,6 +217,12 @@ pub fn fetcher(event_subscriber: &EventSubscriber) -> impl Fetcher + Sync + Send
         .layer(FetcherLayer)
         .service(ModelService::new(event_subscriber));
 
+    let spec = ServiceBuilder::new()
+        .buffer(100)
+        .concurrency_limit(100)
+        .layer(FetcherLayer)
+        .service(SpecService::new(event_subscriber));
+
     let sum_dict = ServiceBuilder::new()
         .buffer(100)
         .concurrency_limit(100)
@@ -203,5 +235,5 @@ pub fn fetcher(event_subscriber: &EventSubscriber) -> impl Fetcher + Sync + Send
         .layer(FetcherLayer)
         .service(SeedDictService::new(event_subscriber));
 
-    Fetchers::new(round_params, sum_dict, seed_dict, model)
+    Fetchers::new(round_params, sum_dict, seed_dict, model, spec)
 }

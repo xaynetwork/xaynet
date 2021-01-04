@@ -73,11 +73,17 @@ where
         .and(with_fetcher(fetcher.clone()))
         .and_then(handle_model);
 
+    let spec = warp::path!("spec")
+        .and(warp::get())
+        .and(with_fetcher(fetcher.clone()))
+        .and_then(handle_spec);
+
     let routes = message
         .or(round_params)
         .or(sum_dict)
         .or(seed_dict)
         .or(model)
+        .or(spec)
         .recover(handle_reject)
         .with(warp::log("http"));
 
@@ -166,6 +172,27 @@ async fn handle_model<F: Fetcher>(mut fetcher: F) -> Result<impl warp::Reply, In
             .unwrap(),
         Err(e) => {
             warn!("failed to handle model request: {:?}", e);
+            Response::builder()
+                .status(StatusCode::INTERNAL_SERVER_ERROR)
+                .body(Vec::new())
+                .unwrap()
+        }
+    })
+}
+
+/// Handles and responds to a request for the global spec.
+async fn handle_spec<F: Fetcher>(mut fetcher: F) -> Result<impl warp::Reply, Infallible> {
+    Ok(match fetcher.spec().await {
+        Ok(Some(spec)) => Response::builder()
+            .status(StatusCode::OK)
+            .body(bincode::serialize(spec.as_ref()).unwrap())
+            .unwrap(),
+        Ok(None) => Response::builder()
+            .status(StatusCode::NO_CONTENT)
+            .body(Vec::new())
+            .unwrap(),
+        Err(e) => {
+            warn!("failed  to handle spec request: {:?}", e);
             Response::builder()
                 .status(StatusCode::INTERNAL_SERVER_ERROR)
                 .body(Vec::new())

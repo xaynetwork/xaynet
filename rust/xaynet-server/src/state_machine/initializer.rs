@@ -8,13 +8,14 @@ use crate::{
     settings::{MaskSettings, ModelSettings, PetSettings},
     state_machine::{
         coordinator::CoordinatorState,
-        events::{EventPublisher, EventSubscriber, ModelUpdate},
+        events::{EventPublisher, EventSubscriber, ModelUpdate, SpecUpdate},
         phases::{Idle, PhaseName, PhaseState, Shared},
         requests::{RequestReceiver, RequestSender},
         StateMachine,
     },
     storage::{CoordinatorStorage, ModelStorage, StorageError, Store},
 };
+use xaynet_core::mask::{Analytic, AnalyticsFunc};
 
 #[cfg(feature = "model-persistence")]
 use xaynet_core::mask::Model;
@@ -87,8 +88,8 @@ where
         // crucial: init must be called before anything else in this module
         sodiumoxide::init().or(Err(StateMachineInitializationError::CryptoInit))?;
 
-        let (coordinator_state, global_model) = { self.from_settings().await? };
-        Ok(self.init_state_machine(coordinator_state, global_model))
+        let (coordinator_state, global_model, global_spec) = { self.from_settings().await? };
+        Ok(self.init_state_machine(coordinator_state, global_model, global_spec))
     }
 
     // Creates a new [`CoordinatorState`] from the given settings and deletes
@@ -96,18 +97,26 @@ where
     // or if we need to perform reset.
     pub(in crate::state_machine) async fn from_settings(
         &mut self,
-    ) -> StateMachineInitializationResult<(CoordinatorState, ModelUpdate)> {
+    ) -> StateMachineInitializationResult<(CoordinatorState, ModelUpdate, SpecUpdate)> {
         self.store
             .delete_coordinator_data()
             .await
             .map_err(StateMachineInitializationError::DeleteCoordinatorData)?;
+
+        // HACK hard coded spec for now
+        let name = String::from("HoursSleepPast5Nights");
+        let func = AnalyticsFunc::Average(5);
+        let spec = Analytic::new(name, func);
+
         Ok((
             CoordinatorState::new(
                 self.pet_settings,
                 self.mask_settings,
                 self.model_settings.clone(),
+                spec.clone(), // TODO analytics settings
             ),
             ModelUpdate::Invalidate,
+            SpecUpdate::New(std::sync::Arc::new(spec)),
         ))
     }
 
@@ -116,6 +125,7 @@ where
         self,
         coordinator_state: CoordinatorState,
         global_model: ModelUpdate,
+        global_spec: SpecUpdate,
     ) -> (StateMachine<C, M>, RequestSender, EventSubscriber) {
         let (event_publisher, event_subscriber) = EventPublisher::init(
             coordinator_state.round_id,
@@ -123,6 +133,7 @@ where
             coordinator_state.round_params.clone(),
             PhaseName::Idle,
             global_model,
+            global_spec,
         );
 
         let (request_rx, request_tx) = RequestReceiver::new();

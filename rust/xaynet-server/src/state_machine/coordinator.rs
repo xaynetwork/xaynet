@@ -6,7 +6,7 @@ use crate::settings::{MaskSettings, ModelSettings, PetSettings};
 use xaynet_core::{
     common::{RoundParameters, RoundSeed},
     crypto::{ByteObject, EncryptKeyPair},
-    mask::MaskConfig,
+    mask::{Analytic, MaskConfig},
 };
 
 /// The coordinator state.
@@ -30,6 +30,10 @@ pub struct CoordinatorState {
     pub max_sum_time: u64,
     /// The maximum time (in seconds) permitted for processing update messages.
     pub max_update_time: u64,
+    // do we need the spec in here given that the global model is not? i think
+    // so because the state machine will need it later e.g. unmask phase
+    /// The global spec
+    pub spec: Analytic,
 }
 
 impl CoordinatorState {
@@ -37,6 +41,7 @@ impl CoordinatorState {
         pet_settings: PetSettings,
         mask_settings: MaskSettings,
         model_settings: ModelSettings,
+        spec: Analytic,
     ) -> Self {
         let keys = EncryptKeyPair::generate();
         let mask_config: MaskConfig = mask_settings.into();
@@ -59,6 +64,7 @@ impl CoordinatorState {
             min_update_time: pet_settings.min_update_time,
             max_sum_time: pet_settings.max_sum_time,
             max_update_time: pet_settings.max_update_time,
+            spec,
         }
     }
 }

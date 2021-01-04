@@ -5,7 +5,7 @@ use url::Url;
 use xaynet_core::{
     common::RoundParameters,
     crypto::{ByteObject, PublicSigningKey},
-    mask::Model,
+    mask::{Analytic, Model},
     SumDict,
     UpdateSeedDict,
 };
@@ -168,6 +168,11 @@ where
 
     async fn get_model(&mut self) -> Result<Option<Model>, Self::Error> {
         let url = self.url("model");
+        Ok(self.get(&url).await?)
+    }
+
+    async fn get_spec(&mut self) -> Result<Option<Analytic>, Self::Error> {
+        let url = self.url("spec");
         Ok(self.get(&url).await?)
     }
 

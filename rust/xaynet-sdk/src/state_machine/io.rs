@@ -4,7 +4,7 @@ use async_trait::async_trait;
 
 use xaynet_core::{
     common::RoundParameters,
-    mask::Model,
+    mask::{Analytic, Model},
     SumDict,
     SumParticipantPublicKey,
     UpdateSeedDict,
@@ -61,6 +61,8 @@ pub(crate) trait IO: Send + 'static {
     ) -> Result<Option<UpdateSeedDict>, Box<dyn Error>>;
     /// Fetch the latest global model from the coordinator
     async fn get_model(&mut self) -> Result<Option<Model>, Box<dyn Error>>;
+    /// Fetch the latest global spec from the coordinator
+    async fn get_spec(&mut self) -> Result<Option<Analytic>, Box<dyn Error>>;
     /// Send the given signed and encrypted PET message to the coordinator
     async fn send_message(&mut self, msg: Vec<u8>) -> Result<(), Box<dyn Error>>;
 
@@ -147,6 +149,13 @@ where
             .map_err(|e| Box::new(e) as Box<dyn Error>)
     }
 
+    async fn get_spec(&mut self) -> Result<Option<Analytic>, Box<dyn Error>> {
+        self.xaynet_client
+            .get_spec()
+            .await
+            .map_err(|e| Box::new(e) as Box<dyn Error>)
+    }
+
     async fn send_message(&mut self, msg: Vec<u8>) -> Result<(), Box<dyn Error>> {
         self.xaynet_client
             .send_message(msg)
@@ -200,6 +209,10 @@ impl IO for Box<dyn IO<Model = Box<dyn AsRef<Model> + Send>>> {
 
     async fn get_model(&mut self) -> Result<Option<Model>, Box<dyn Error>> {
         self.as_mut().get_model().await
+    }
+
+    async fn get_spec(&mut self) -> Result<Option<Analytic>, Box<dyn Error>> {
+        self.as_mut().get_spec().await
     }
 
     async fn send_message(&mut self, msg: Vec<u8>) -> Result<(), Box<dyn Error>> {

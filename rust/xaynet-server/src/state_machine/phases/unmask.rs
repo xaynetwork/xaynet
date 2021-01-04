@@ -14,7 +14,7 @@ use crate::{
     storage::{CoordinatorStorage, ModelStorage, StorageError},
 };
 use thiserror::Error;
-use xaynet_core::mask::{Aggregation, MaskObject, Model, UnmaskingError};
+use xaynet_core::mask::{Aggregation, AnalyticsFunc, MaskObject, Model, UnmaskingError};
 
 /// Error that occurs during the unmask phase.
 #[derive(Error, Debug)]
@@ -136,7 +136,14 @@ where
             .validate_unmasking(&mask)
             .map_err(UnmaskStateError::from)?;
 
-        Ok(model_agg.unmask(mask))
+        // TODO having unmasked, do further post-processing
+        Ok(
+            if let AnalyticsFunc::Average(_) = self.shared.state.spec.func() {
+                model_agg.unmask(mask)
+            } else {
+                model_agg.unmask_no_rescale(mask)
+            },
+        )
     }
 
     #[cfg(feature = "model-persistence")]

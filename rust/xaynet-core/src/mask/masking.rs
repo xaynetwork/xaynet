@@ -228,6 +228,37 @@ impl Aggregation {
             .collect()
     }
 
+    /// TODO
+    pub fn unmask_no_rescale(self, mask_obj: MaskObject) -> Model {
+        let MaskObject { vect, .. } = self.object;
+        let (masked_n, config_n) = (vect.data, vect.config);
+        let mask_n = mask_obj.vect.data;
+
+        // unmask global model
+        let scaled_add_shift_n = config_n.add_shift() * BigInt::from(self.nb_models);
+        let exp_shift_n = config_n.exp_shift();
+        let order_n = config_n.order();
+        masked_n
+            .into_iter()
+            .zip(mask_n)
+            .map(|(masked, mask)| {
+                // PANIC_SAFE: The substraction panics if it
+                // underflows, which can only happen if:
+                //
+                //     mask > order_n
+                //
+                // If the mask is valid, we are guaranteed that this
+                // cannot happen. Thus this method may panic only if
+                // given an invalid mask.
+                let n = (masked + &order_n - mask) % &order_n;
+
+                // UNWRAP_SAFE: to_bigint never fails for BigUint
+                let ratio = Ratio::<BigInt>::from(n.to_bigint().unwrap());
+                ratio / &exp_shift_n - &scaled_add_shift_n
+            })
+            .collect()
+    }
+
     /// Validates if aggregation of the aggregated mask object with the given `object` may be safely
     /// performed.
     ///

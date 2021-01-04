@@ -2,7 +2,7 @@ use async_trait::async_trait;
 
 use xaynet_core::{
     common::RoundParameters,
-    mask::Model,
+    mask::{Analytic, Model},
     SumDict,
     SumParticipantPublicKey,
     UpdateSeedDict,
@@ -67,6 +67,9 @@ pub trait XaynetClient {
 
     /// Retrieve the current global model, if available.
     async fn get_model(&mut self) -> Result<Option<Model>, Self::Error>;
+
+    /// Retrieve the current global spec, if available.
+    async fn get_spec(&mut self) -> Result<Option<Analytic>, Self::Error>;
 
     /// Send an encrypted and signed PET message to the coordinator.
     async fn send_message(&mut self, msg: Vec<u8>) -> Result<(), Self::Error>;
