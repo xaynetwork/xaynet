@@ -4,7 +4,7 @@ on:
   push:
     paths:
       - 'docker/docker-compose*yml'
-    
+
 jobs:
   check-docker-compose:
     name: docker-compose validation
