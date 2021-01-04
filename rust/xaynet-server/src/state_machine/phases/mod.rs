@@ -199,7 +199,7 @@ where
 
         // This may error out if the receiver has already been dropped but
         // it doesn't matter for us.
-        let _ = resp_tx.send(res.map_err(Into::into));
+        let _ = resp_tx.send(res);
     }
 }
 
