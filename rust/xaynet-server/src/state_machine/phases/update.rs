@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use thiserror::Error;
 use tokio::time::{timeout, Duration};
 use tracing::{debug, info, warn};
 
@@ -16,7 +17,6 @@ use crate::{
     },
     storage::{CoordinatorStorage, ModelStorage, StorageError},
 };
-use thiserror::Error;
 use xaynet_core::{
     mask::{Aggregation, MaskObject},
     LocalSeedDict,
@@ -265,7 +265,9 @@ where
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
+    use serial_test::serial;
+
     use super::*;
     use crate::{
         state_machine::{
@@ -277,7 +279,6 @@ mod test {
         },
         storage::tests::init_store,
     };
-    use serial_test::serial;
     use xaynet_core::{
         common::{RoundParameters, RoundSeed},
         crypto::{ByteObject, EncryptKeyPair},

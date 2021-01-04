@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use sodiumoxide::crypto::hash::sha256;
+use thiserror::Error;
 use tracing::{debug, info};
 
 use crate::{
@@ -13,7 +14,6 @@ use crate::{
     },
     storage::{CoordinatorStorage, ModelStorage, StorageError},
 };
-use thiserror::Error;
 use xaynet_core::{
     common::RoundSeed,
     crypto::{ByteObject, EncryptKeyPair, SigningKeySeed},
@@ -148,7 +148,9 @@ where
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
+    use serial_test::serial;
+
     use super::*;
     use crate::{
         state_machine::{
@@ -157,7 +159,6 @@ mod test {
         },
         storage::tests::init_store,
     };
-    use serial_test::serial;
 
     #[tokio::test]
     #[serial]

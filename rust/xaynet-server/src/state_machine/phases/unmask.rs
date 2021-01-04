@@ -1,6 +1,7 @@
 use std::{cmp::Ordering, sync::Arc};
 
 use async_trait::async_trait;
+use thiserror::Error;
 use tracing::{error, info};
 
 use crate::{
@@ -13,7 +14,6 @@ use crate::{
     },
     storage::{CoordinatorStorage, ModelStorage, StorageError},
 };
-use thiserror::Error;
 use xaynet_core::mask::{Aggregation, MaskObject, Model, UnmaskingError};
 
 /// Error that occurs during the unmask phase.
@@ -37,13 +37,6 @@ pub enum UnmaskStateError {
 pub struct Unmask {
     /// The aggregator for masked models.
     model_agg: Option<Aggregation>,
-}
-
-#[cfg(test)]
-impl Unmask {
-    pub fn aggregation(&self) -> Option<&Aggregation> {
-        self.model_agg.as_ref()
-    }
 }
 
 #[async_trait]
@@ -185,5 +178,16 @@ where
                 Err(err) => error!("failed to fetch total number of masks: {}", err),
             };
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    impl Unmask {
+        pub fn aggregation(&self) -> Option<&Aggregation> {
+            self.model_agg.as_ref()
+        }
     }
 }

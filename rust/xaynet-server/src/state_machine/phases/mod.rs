@@ -315,9 +315,10 @@ where
 
 #[cfg(test)]
 mod tests {
+    use serial_test::serial;
+
     use super::*;
     use crate::{state_machine::tests::utils, storage::tests::init_store};
-    use serial_test::serial;
 
     #[tokio::test]
     #[serial]

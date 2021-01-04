@@ -138,7 +138,7 @@ where
         match self.update_mask_dict(participant_pk, model_mask).await {
             ok @ Ok(_) => {
                 self.private.accepted += 1;
-                self.increment_message_metric(Measurement::MessageSum);
+                self.increment_message_metric(Measurement::MessageSum2);
                 ok
             }
             error @ Err(_) => {
@@ -194,16 +194,10 @@ where
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use std::collections::HashMap;
 
     use serial_test::serial;
-    use xaynet_core::{
-        common::{RoundParameters, RoundSeed},
-        crypto::{ByteObject, EncryptKeyPair},
-        mask::{FromPrimitives, Model},
-        SumDict,
-    };
 
     use super::*;
     use crate::{
@@ -215,6 +209,12 @@ mod test {
             },
         },
         storage::tests::init_store,
+    };
+    use xaynet_core::{
+        common::{RoundParameters, RoundSeed},
+        crypto::{ByteObject, EncryptKeyPair},
+        mask::{FromPrimitives, Model},
+        SumDict,
     };
 
     impl Sum2 {

@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use thiserror::Error;
 use tokio::time::{timeout, Duration};
 use tracing::{debug, info};
-use xaynet_core::{SumParticipantEphemeralPublicKey, SumParticipantPublicKey};
 
 use crate::{
     metric,
@@ -17,7 +17,7 @@ use crate::{
     },
     storage::{CoordinatorStorage, ModelStorage, StorageError},
 };
-use thiserror::Error;
+use xaynet_core::{SumParticipantEphemeralPublicKey, SumParticipantPublicKey};
 
 /// Error that occurs during the sum phase.
 #[derive(Error, Debug)]
@@ -212,7 +212,9 @@ where
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
+    use serial_test::serial;
+
     use super::*;
     use crate::{
         state_machine::{
@@ -221,7 +223,6 @@ mod test {
         },
         storage::tests::init_store,
     };
-    use serial_test::serial;
 
     #[tokio::test]
     #[serial]
