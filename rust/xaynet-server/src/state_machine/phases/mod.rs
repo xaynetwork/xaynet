@@ -195,12 +195,6 @@ where
 
         if let Err(ref err) = res {
             warn!("failed to handle message: {}", err);
-            metric!(
-                Measurement::MessageRejected,
-                1,
-                ("round_id", self.shared.state.round_id),
-                ("phase", Self::NAME as u8)
-            );
         }
 
         // This may error out if the receiver has already been dropped but

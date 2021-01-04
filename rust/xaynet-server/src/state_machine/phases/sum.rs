@@ -3,6 +3,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use tokio::time::{timeout, Duration};
 use tracing::{debug, info};
+use xaynet_core::{SumParticipantEphemeralPublicKey, SumParticipantPublicKey};
 
 use crate::{
     metric,
@@ -11,7 +12,8 @@ use crate::{
         events::DictionaryUpdate,
         phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Update},
         requests::{StateMachineRequest, SumRequest},
-        RequestError, StateMachine,
+        RequestError,
+        StateMachine,
     },
     storage::{CoordinatorStorage, ModelStorage, StorageError},
 };
@@ -26,8 +28,8 @@ pub enum SumStateError {
     FetchSumDict(StorageError),
 }
 
-/// Sum state
-#[derive(Debug, Default)]
+/// The sum state.
+#[derive(Debug)]
 pub struct Sum {
     /// The number of Sum messages successfully processed.
     accepted: u64,
@@ -68,21 +70,18 @@ where
         };
 
         // accept if processed successfully, otherwise reject
-        self.shared
-            .store
-            .add_sum_participant(&participant_pk, &ephm_pk)
-            .await?
-            .into_inner()
-            .map(|ok| {
+        match self.update_sum_dict(participant_pk, ephm_pk).await {
+            ok @ Ok(_) => {
                 self.private.accepted += 1;
                 self.increment_message_metric(Measurement::MessageSum);
                 ok
-            })
-            .map_err(|error| {
+            }
+            error @ Err(_) => {
                 self.private.rejected += 1;
                 self.increment_message_metric(Measurement::MessageRejected);
-                error.into()
-            })
+                error
+            }
+        }
     }
 }
 
@@ -175,9 +174,27 @@ where
     /// Creates a new sum state.
     pub fn new(shared: Shared<C, M>) -> Self {
         Self {
-            private: Sum::default(),
+            private: Sum {
+                accepted: 0,
+                rejected: 0,
+                discarded: 0,
+            },
             shared,
         }
+    }
+
+    /// Updates the sum dict with a sum participant request.
+    async fn update_sum_dict(
+        &mut self,
+        participant_pk: SumParticipantPublicKey,
+        ephm_pk: SumParticipantEphemeralPublicKey,
+    ) -> Result<(), RequestError> {
+        self.shared
+            .store
+            .add_sum_participant(&participant_pk, &ephm_pk)
+            .await?
+            .into_inner()
+            .map_err(RequestError::from)
     }
 
     /// Checks whether enough sum participants submitted their ephemeral keys to start the update
@@ -211,7 +228,11 @@ mod test {
         utils::enable_logging();
         let mut store = init_store().await;
 
-        let sum = Sum::default();
+        let sum = Sum {
+            accepted: 0,
+            rejected: 0,
+            discarded: 0,
+        };
         let (state_machine, request_tx, events) = StateMachineBuilder::new(store.clone())
             .with_phase(sum)
             // Make sure anyone is a sum participant.

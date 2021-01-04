@@ -8,7 +8,8 @@ use crate::{
     state_machine::{
         phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Unmask},
         requests::{StateMachineRequest, Sum2Request},
-        RequestError, StateMachine,
+        RequestError,
+        StateMachine,
     },
     storage::{CoordinatorStorage, ModelStorage},
 };
