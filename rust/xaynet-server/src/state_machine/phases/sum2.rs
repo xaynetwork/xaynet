@@ -114,6 +114,8 @@ where
     ///
     /// # Errors
     /// Fails if the mask score cannot be incremented due to a PET or [`StorageError`].
+    ///
+    /// [`StorageError`]: ../../storage/traits/type.StorageError.html
     async fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), RequestError> {
         // discard if `max_sum_count` is reached
         if self.has_overmuch_sum2s() {
