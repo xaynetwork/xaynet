@@ -35,10 +35,11 @@ beyond the scope of this project:
 
 With Xaynet `v0.11` the coordinator needs a connection to a redis instance in order to save its state.
 
-**Please don't connect the coordinator to a Redis instance that is used in production!**
+**Don't connect the coordinator to a Redis instance that is used in production!**
 
-The coordinator clears the currently selected Redis database each time it is started.
-This behavior will change as soon as the coordinator state can be automatically restored.
+We recommend connecting the coordinator to its own Redis instance. We have invested a lot of
+time to make sure that the coordinator only deletes its own data but in the current state of
+development, we cannot guarantee that this will always be the case.
 
 ### Using Docker
 
