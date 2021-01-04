@@ -90,6 +90,11 @@ impl PublicEncryptKey {
     }
 }
 
+#[derive(thiserror::Error, Debug)]
+#[error("decryption of a message failed")]
+/// An error related to the decryption of a message.
+pub struct DecryptionError;
+
 #[derive(AsRef, AsMut, From, Serialize, Deserialize, Eq, PartialEq, Clone, Debug)]
 /// A `C25519` secret key for asymmetric authenticated encryption.
 ///
@@ -101,9 +106,9 @@ impl SecretEncryptKey {
     /// the decrypted message.
     ///
     /// # Errors
-    /// Returns `Err(())` if decryption fails.
-    pub fn decrypt(&self, c: &[u8], pk: &PublicEncryptKey) -> Result<Vec<u8>, ()> {
-        sealedbox::open(c, pk.as_ref(), self.as_ref())
+    /// Returns `Err(DecryptionError)` if decryption fails.
+    pub fn decrypt(&self, c: &[u8], pk: &PublicEncryptKey) -> Result<Vec<u8>, DecryptionError> {
+        sealedbox::open(c, pk.as_ref(), self.as_ref()).map_err(|_| DecryptionError)
     }
 
     /// Computes the corresponding public key for this secret key.
