@@ -37,7 +37,7 @@ use crate::{
     storage::{CoordinatorStorage, ModelStorage, Store},
 };
 
-/// Name of the current phase
+/// The name of the current phase.
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum PhaseName {
     Idle,
@@ -56,13 +56,17 @@ where
     C: CoordinatorStorage,
     M: ModelStorage,
 {
-    /// Name of the current phase
+    /// The name of the current phase.
     const NAME: PhaseName;
 
-    /// Run this phase to completion
+    /// Runs this phase to completion.
+    ///
+    /// See the [module level documentation](../index.html) for more details.
     async fn run(&mut self) -> Result<(), PhaseStateError>;
 
     /// Moves from this state to the next state.
+    ///
+    /// See the [module level documentation](../index.html) for more details.
     fn next(self) -> Option<StateMachine<C, M>>;
 }
 
@@ -127,6 +131,7 @@ where
     C: CoordinatorStorage,
     M: ModelStorage,
 {
+    /// Creates a new shared state.
     pub fn new(
         coordinator_state: CoordinatorState,
         publisher: EventPublisher,
@@ -141,13 +146,13 @@ where
         }
     }
 
-    /// Set the round ID to the given value
+    /// Sets the round ID to the given value.
     pub fn set_round_id(&mut self, id: u64) {
         self.state.round_id = id;
         self.events.set_round_id(id);
     }
 
-    /// Return the current round ID
+    /// Returns the current round ID.
     pub fn round_id(&self) -> u64 {
         self.state.round_id
     }
@@ -194,10 +199,12 @@ where
         }
     }
 
-    /// Processes the next available request.
-    async fn process_next(&mut self) -> Result<(), PhaseStateError> {
-        let (req, span, resp_tx) = self.next_request().await?;
-        self.process_single(req, span, resp_tx).await;
+    /// Processes requests until there are enough.
+    async fn process_until_enough(&mut self) -> Result<(), PhaseStateError> {
+        while !self.has_enough_messages() {
+            let (req, span, resp_tx) = self.next_request().await?;
+            self.process_single(req, span, resp_tx).await;
+        }
         Ok(())
     }
 
@@ -227,7 +234,7 @@ where
                     self.increment_accepted();
                     // TODO: currently the metric! macro contains redundant information in case of
                     // accepted messages: the `Measurement::MessageSum/Update/Sum2` as well as the
-                    // ("phase", name_u8). once we changed those three enum variants to just
+                    // ("phase", name_u8). once we change those three enum variants to just one
                     // `Measurement::MessageAccepted` we don't need this match workaround and can
                     // call metric! directly.
                     metric!(

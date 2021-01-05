@@ -38,6 +38,55 @@ pub struct Sum {
 }
 
 #[async_trait]
+impl<C, M> Phase<C, M> for PhaseState<Sum, C, M>
+where
+    Self: Handler,
+    C: CoordinatorStorage,
+    M: ModelStorage,
+{
+    const NAME: PhaseName = PhaseName::Sum;
+
+    async fn run(&mut self) -> Result<(), PhaseStateError> {
+        let min_time = self.shared.state.min_sum_time;
+        let max_time = self.shared.state.max_sum_time;
+        debug!(
+            "in sum phase for min {} and max {} seconds",
+            min_time, max_time,
+        );
+        self.process_during(Duration::from_secs(min_time)).await?;
+
+        let time_left = max_time - min_time;
+        timeout(Duration::from_secs(time_left), self.process_until_enough()).await??;
+
+        info!(
+            "in total {} sum messages accepted (min {} and max {} required)",
+            self.private.accepted, self.shared.state.min_sum_count, self.shared.state.max_sum_count,
+        );
+        info!("in total {} sum messages rejected", self.private.rejected);
+        info!("in total {} sum messages discarded", self.private.discarded);
+
+        let sum_dict = self
+            .shared
+            .store
+            .sum_dict()
+            .await
+            .map_err(SumStateError::FetchSumDict)?
+            .ok_or(SumStateError::NoSumDict)?;
+
+        info!("broadcasting sum dictionary");
+        self.shared
+            .events
+            .broadcast_sum_dict(DictionaryUpdate::New(Arc::new(sum_dict)));
+
+        Ok(())
+    }
+
+    fn next(self) -> Option<StateMachine<C, M>> {
+        Some(PhaseState::<Update, _, _>::new(self.shared).into())
+    }
+}
+
+#[async_trait]
 impl<C, M> Handler for PhaseState<Sum, C, M>
 where
     C: CoordinatorStorage,
@@ -65,87 +114,20 @@ where
 
     fn increment_accepted(&mut self) {
         self.private.accepted += 1;
+        debug!(
+            "{} sum messages accepted (min {} and max {} required)",
+            self.private.accepted, self.shared.state.min_sum_count, self.shared.state.max_sum_count,
+        );
     }
 
     fn increment_rejected(&mut self) {
         self.private.rejected += 1;
+        debug!("{} sum messages rejected", self.private.rejected);
     }
 
     fn increment_discarded(&mut self) {
         self.private.discarded += 1;
-    }
-}
-
-#[async_trait]
-impl<C, M> Phase<C, M> for PhaseState<Sum, C, M>
-where
-    Self: Handler,
-    C: CoordinatorStorage,
-    M: ModelStorage,
-{
-    const NAME: PhaseName = PhaseName::Sum;
-
-    /// Run the sum phase.
-    ///
-    /// See the [module level documentation](../index.html) for more details.
-    async fn run(&mut self) -> Result<(), PhaseStateError> {
-        let min_time = self.shared.state.min_sum_time;
-        let max_time = self.shared.state.max_sum_time;
-        debug!(
-            "in sum phase for min {} and max {} seconds",
-            min_time, max_time,
-        );
-        self.process_during(Duration::from_secs(min_time)).await?;
-
-        let time_left = max_time - min_time;
-        timeout(Duration::from_secs(time_left), self.process_until_enough()).await??;
-
-        info!(
-            "{} sum messages successfully handled (min {} and max {} required)",
-            self.private.accepted, self.shared.state.min_sum_count, self.shared.state.max_sum_count,
-        );
-        info!("{} sum messages rejected", self.private.rejected);
-        info!("{} sum messages discarded", self.private.discarded);
-
-        let sum_dict = self
-            .shared
-            .store
-            .sum_dict()
-            .await
-            .map_err(SumStateError::FetchSumDict)?
-            .ok_or(SumStateError::NoSumDict)?;
-
-        info!("broadcasting sum dictionary");
-        self.shared
-            .events
-            .broadcast_sum_dict(DictionaryUpdate::New(Arc::new(sum_dict)));
-
-        Ok(())
-    }
-
-    fn next(self) -> Option<StateMachine<C, M>> {
-        Some(PhaseState::<Update, _, _>::new(self.shared).into())
-    }
-}
-
-impl<C, M> PhaseState<Sum, C, M>
-where
-    Self: Handler + Phase<C, M>,
-    C: CoordinatorStorage,
-    M: ModelStorage,
-{
-    /// Processes requests until there are enough.
-    async fn process_until_enough(&mut self) -> Result<(), PhaseStateError> {
-        while !self.has_enough_messages() {
-            debug!(
-                "{} sum messages successfully handled (min {} and max {} required)",
-                self.private.accepted,
-                self.shared.state.min_sum_count,
-                self.shared.state.max_sum_count,
-            );
-            self.process_next().await?;
-        }
-        Ok(())
+        debug!("{} sum messages discarded", self.private.discarded);
     }
 }
 

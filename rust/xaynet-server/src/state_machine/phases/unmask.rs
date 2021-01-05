@@ -47,7 +47,6 @@ where
 {
     const NAME: PhaseName = PhaseName::Unmask;
 
-    /// Run the unmasking phase
     async fn run(&mut self) -> Result<(), PhaseStateError> {
         self.emit_number_of_unique_masks_metrics();
 
@@ -72,9 +71,6 @@ where
         Ok(())
     }
 
-    /// Moves from the unmask state to the next state.
-    ///
-    /// See the [module level documentation](../index.html) for more details.
     fn next(self) -> Option<StateMachine<C, M>> {
         Some(PhaseState::<Idle, _, _>::new(self.shared).into())
     }

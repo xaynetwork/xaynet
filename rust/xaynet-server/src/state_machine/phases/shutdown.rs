@@ -21,9 +21,6 @@ where
 {
     const NAME: PhaseName = PhaseName::Shutdown;
 
-    /// Shuts down the [`StateMachine`].
-    ///
-    /// See the [module level documentation](../index.html) for more details.
     async fn run(&mut self) -> Result<(), PhaseStateError> {
         // clear the request channel
         self.shared.request_rx.close();

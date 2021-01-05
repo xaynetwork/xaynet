@@ -38,13 +38,9 @@ where
 {
     const NAME: PhaseName = PhaseName::Sum2;
 
-    /// Run the sum2 phase
-    ///
-    /// See the [module level documentation](../index.html) for more details.
     async fn run(&mut self) -> Result<(), PhaseStateError> {
         let min_time = self.shared.state.min_sum_time;
         let max_time = self.shared.state.max_sum_time;
-        debug!("in sum2 phase for a minimum of {} seconds", min_time);
         debug!(
             "in sum2 phase for min {} and max {} seconds",
             min_time, max_time,
@@ -55,11 +51,14 @@ where
         timeout(Duration::from_secs(time_left), self.process_until_enough()).await??;
 
         info!(
-            "{} sum2 messages successfully handled (min {} and max {} required)",
+            "in total {} sum2 messages accepted (min {} and max {} required)",
             self.private.accepted, self.shared.state.min_sum_count, self.shared.state.max_sum_count,
         );
-        info!("{} sum2 messages rejected", self.private.rejected);
-        info!("{} sum2 messages discarded", self.private.discarded);
+        info!("in total {} sum2 messages rejected", self.private.rejected);
+        info!(
+            "in total {} sum2 messages discarded",
+            self.private.discarded,
+        );
 
         Ok(())
     }
@@ -69,27 +68,6 @@ where
     /// See the [module level documentation](../index.html) for more details.
     fn next(self) -> Option<StateMachine<C, M>> {
         Some(PhaseState::<Unmask, _, _>::new(self.shared, self.private.model_agg).into())
-    }
-}
-
-impl<C, M> PhaseState<Sum2, C, M>
-where
-    Self: Handler + Phase<C, M>,
-    C: CoordinatorStorage,
-    M: ModelStorage,
-{
-    /// Processes requests until there are enough.
-    async fn process_until_enough(&mut self) -> Result<(), PhaseStateError> {
-        while !self.has_enough_messages() {
-            debug!(
-                "{} sum2 messages successfully handled (min {} and max {} required)",
-                self.private.accepted,
-                self.shared.state.min_sum_count,
-                self.shared.state.max_sum_count,
-            );
-            self.process_next().await?;
-        }
-        Ok(())
     }
 }
 
@@ -121,14 +99,20 @@ where
 
     fn increment_accepted(&mut self) {
         self.private.accepted += 1;
+        debug!(
+            "{} sum2 messages accepted (min {} and max {} required)",
+            self.private.accepted, self.shared.state.min_sum_count, self.shared.state.max_sum_count,
+        );
     }
 
     fn increment_rejected(&mut self) {
         self.private.rejected += 1;
+        debug!("{} sum2 messages rejected", self.private.rejected);
     }
 
     fn increment_discarded(&mut self) {
         self.private.discarded += 1;
+        debug!("{} sum2 messages discarded", self.private.discarded);
     }
 }
 

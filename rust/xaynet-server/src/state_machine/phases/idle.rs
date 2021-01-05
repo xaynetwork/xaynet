@@ -40,9 +40,6 @@ where
 {
     const NAME: PhaseName = PhaseName::Idle;
 
-    /// Moves from the idle state to the next state.
-    ///
-    /// See the [module level documentation](../index.html) for more details.
     async fn run(&mut self) -> Result<(), PhaseStateError> {
         info!("updating the keys");
         self.gen_round_keypair();
