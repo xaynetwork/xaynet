@@ -6,8 +6,6 @@ use tokio::time::{timeout, Duration};
 use tracing::{debug, info, warn};
 
 use crate::{
-    metric,
-    metrics::Measurement,
     state_machine::{
         events::DictionaryUpdate,
         phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Sum2},
@@ -107,7 +105,7 @@ where
 {
     /// Processes requests until there are enough.
     async fn process_until_enough(&mut self) -> Result<(), PhaseStateError> {
-        while !self.has_enough_updates() {
+        while !self.has_enough_messages() {
             debug!(
                 "{} update messages successfully handled (min {} and max {} required)",
                 self.private.accepted,
@@ -118,15 +116,6 @@ where
         }
         Ok(())
     }
-
-    fn increment_message_metric(&self, meas: Measurement) {
-        metric!(
-            meas,
-            1,
-            ("round_id", self.shared.state.round_id),
-            ("phase", Self::NAME as u8)
-        );
-    }
 }
 
 #[async_trait]
@@ -135,47 +124,42 @@ where
     C: CoordinatorStorage,
     M: ModelStorage,
 {
-    /// Handles an update request.
-    ///
-    /// # Errors
-    /// Fails if the model update and seed dict cannot be added due to a PET or [`StorageError`].
     async fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), RequestError> {
-        // discard if `max_update_count` is reached
-        if self.has_overmuch_updates() {
-            self.private.discarded += 1;
-            self.increment_message_metric(Measurement::MessageDiscarded);
-            return Ok(());
-        }
-
-        // reject if not an `update` message
-        let UpdateRequest {
+        if let StateMachineRequest::Update(UpdateRequest {
             participant_pk,
             local_seed_dict,
             masked_model,
-        } = if let StateMachineRequest::Update(req) = req {
-            req
-        } else {
-            self.private.rejected += 1;
-            self.increment_message_metric(Measurement::MessageRejected);
-            return Err(RequestError::MessageRejected);
-        };
-
-        // accept if processed successfully, otherwise reject
-        match self
-            .update_seed_dict_and_aggregate_mask(&participant_pk, &local_seed_dict, masked_model)
-            .await
+        }) = req
         {
-            ok @ Ok(_) => {
-                self.private.accepted += 1;
-                self.increment_message_metric(Measurement::MessageUpdate);
-                ok
-            }
-            error @ Err(_) => {
-                self.private.rejected += 1;
-                self.increment_message_metric(Measurement::MessageRejected);
-                error
-            }
+            self.update_seed_dict_and_aggregate_mask(
+                &participant_pk,
+                &local_seed_dict,
+                masked_model,
+            )
+            .await
+        } else {
+            Err(RequestError::MessageRejected)
         }
+    }
+
+    fn has_enough_messages(&self) -> bool {
+        self.private.accepted >= self.shared.state.min_update_count
+    }
+
+    fn has_overmuch_messages(&self) -> bool {
+        self.private.accepted >= self.shared.state.max_update_count
+    }
+
+    fn increment_accepted(&mut self) {
+        self.private.accepted += 1;
+    }
+
+    fn increment_rejected(&mut self) {
+        self.private.rejected += 1;
+    }
+
+    fn increment_discarded(&mut self) {
+        self.private.discarded += 1;
     }
 }
 
@@ -251,16 +235,6 @@ where
             .await?
             .into_inner()
             .map_err(RequestError::from)
-    }
-
-    /// Checks whether enough update participants submitted their update to start the sum2 phase.
-    fn has_enough_updates(&self) -> bool {
-        self.private.accepted >= self.shared.state.min_update_count
-    }
-
-    /// Checks whether too many update participants submitted their update to start the sum2 phase.
-    fn has_overmuch_updates(&self) -> bool {
-        self.private.accepted >= self.shared.state.max_update_count
     }
 }
 

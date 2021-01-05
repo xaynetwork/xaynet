@@ -70,7 +70,25 @@ where
 #[async_trait]
 pub trait Handler {
     /// Handles a request.
+    ///
+    /// # Errors
+    /// Fails on PET and storage errors.
     async fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), RequestError>;
+
+    /// Checks whether enough requests have been processed successfully wrt the PET settings.
+    fn has_enough_messages(&self) -> bool;
+
+    /// Checks whether too many requests are processed wrt the PET settings.
+    fn has_overmuch_messages(&self) -> bool;
+
+    /// Increments the counter for accepted requests.
+    fn increment_accepted(&mut self);
+
+    /// Increments the counter for rejected requests.
+    fn increment_rejected(&mut self);
+
+    /// Increments the counter for discarded requests.
+    fn increment_discarded(&mut self);
 }
 
 /// A struct that contains the coordinator state and the I/O interfaces that are shared and
@@ -191,14 +209,55 @@ where
         resp_tx: ResponseSender,
     ) {
         let _span_guard = span.enter();
-        let res = self.handle_request(req).await;
 
-        if let Err(ref err) = res {
-            warn!("failed to handle message: {}", err);
-        }
+        let res = if self.has_overmuch_messages() {
+            // discard if the maximum message count is reached
+            self.increment_discarded();
+            metric!(
+                Measurement::MessageDiscarded,
+                1,
+                ("round_id", self.shared.state.round_id),
+                ("phase", Self::NAME as u8)
+            );
+            Err(RequestError::MessageDiscarded)
+        } else {
+            match self.handle_request(req).await {
+                // accept if processed successfully
+                ok @ Ok(_) => {
+                    self.increment_accepted();
+                    // TODO: currently the metric! macro contains redundant information in case of
+                    // accepted messages: the `Measurement::MessageSum/Update/Sum2` as well as the
+                    // ("phase", name_u8). once we changed those three enum variants to just
+                    // `Measurement::MessageAccepted` we don't need this match workaround and can
+                    // call metric! directly.
+                    metric!(
+                        match Self::NAME {
+                            PhaseName::Sum => Measurement::MessageSum,
+                            PhaseName::Update => Measurement::MessageUpdate,
+                            PhaseName::Sum2 => Measurement::MessageSum2,
+                            _ => unreachable!(),
+                        },
+                        1,
+                        ("round_id", self.shared.state.round_id),
+                        ("phase", Self::NAME as u8)
+                    );
+                    ok
+                }
+                // otherwise reject
+                error @ Err(_) => {
+                    self.increment_rejected();
+                    metric!(
+                        Measurement::MessageRejected,
+                        1,
+                        ("round_id", self.shared.state.round_id),
+                        ("phase", Self::NAME as u8)
+                    );
+                    error
+                }
+            }
+        };
 
-        // This may error out if the receiver has already been dropped but
-        // it doesn't matter for us.
+        // This may error out if the receiver has already been dropped but it doesn't matter for us.
         let _ = resp_tx.send(res);
     }
 }

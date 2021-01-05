@@ -121,6 +121,10 @@ pub enum RequestError {
     #[error("the message was rejected")]
     MessageRejected,
 
+    /// the message was discarded
+    #[error("the message was discarded")]
+    MessageDiscarded,
+
     /// the model or scalar sent by the participant could not be aggregated
     #[error("invalid update: the model or scalar sent by the participant could not be aggregated")]
     AggregationFailed,

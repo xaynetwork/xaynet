@@ -6,8 +6,6 @@ use tokio::time::{timeout, Duration};
 use tracing::{debug, info};
 
 use crate::{
-    metric,
-    metrics::Measurement,
     state_machine::{
         events::DictionaryUpdate,
         phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Update},
@@ -45,43 +43,36 @@ where
     C: CoordinatorStorage,
     M: ModelStorage,
 {
-    /// Handles a sum request.
-    ///
-    /// # Errors
-    /// Fails if the sum participant cannot be added due to a PET or [`StorageError`].
     async fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), RequestError> {
-        // discard if `max_sum_count` is reached
-        if self.has_overmuch_sums() {
-            self.private.discarded += 1;
-            self.increment_message_metric(Measurement::MessageDiscarded);
-            return Ok(());
-        }
-
-        // reject if not a `sum` message
-        let SumRequest {
+        if let StateMachineRequest::Sum(SumRequest {
             participant_pk,
             ephm_pk,
-        } = if let StateMachineRequest::Sum(req) = req {
-            req
+        }) = req
+        {
+            self.update_sum_dict(participant_pk, ephm_pk).await
         } else {
-            self.private.rejected += 1;
-            self.increment_message_metric(Measurement::MessageRejected);
-            return Err(RequestError::MessageRejected);
-        };
-
-        // accept if processed successfully, otherwise reject
-        match self.update_sum_dict(participant_pk, ephm_pk).await {
-            ok @ Ok(_) => {
-                self.private.accepted += 1;
-                self.increment_message_metric(Measurement::MessageSum);
-                ok
-            }
-            error @ Err(_) => {
-                self.private.rejected += 1;
-                self.increment_message_metric(Measurement::MessageRejected);
-                error
-            }
+            Err(RequestError::MessageRejected)
         }
+    }
+
+    fn has_enough_messages(&self) -> bool {
+        self.private.accepted >= self.shared.state.min_sum_count
+    }
+
+    fn has_overmuch_messages(&self) -> bool {
+        self.private.accepted >= self.shared.state.max_sum_count
+    }
+
+    fn increment_accepted(&mut self) {
+        self.private.accepted += 1;
+    }
+
+    fn increment_rejected(&mut self) {
+        self.private.rejected += 1;
+    }
+
+    fn increment_discarded(&mut self) {
+        self.private.discarded += 1;
     }
 }
 
@@ -145,7 +136,7 @@ where
 {
     /// Processes requests until there are enough.
     async fn process_until_enough(&mut self) -> Result<(), PhaseStateError> {
-        while !self.has_enough_sums() {
+        while !self.has_enough_messages() {
             debug!(
                 "{} sum messages successfully handled (min {} and max {} required)",
                 self.private.accepted,
@@ -155,15 +146,6 @@ where
             self.process_next().await?;
         }
         Ok(())
-    }
-
-    fn increment_message_metric(&self, meas: Measurement) {
-        metric!(
-            meas,
-            1,
-            ("round_id", self.shared.state.round_id),
-            ("phase", Self::NAME as u8)
-        );
     }
 }
 
@@ -196,18 +178,6 @@ where
             .await?
             .into_inner()
             .map_err(RequestError::from)
-    }
-
-    /// Checks whether enough sum participants submitted their ephemeral keys to start the update
-    /// phase.
-    fn has_enough_sums(&self) -> bool {
-        self.private.accepted >= self.shared.state.min_sum_count
-    }
-
-    /// Checks whether too many sum participants submitted their ephemeral keys to start the update
-    /// phase.
-    fn has_overmuch_sums(&self) -> bool {
-        self.private.accepted >= self.shared.state.max_sum_count
     }
 }
 
