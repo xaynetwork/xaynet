@@ -82,39 +82,29 @@ pub unsafe extern "C" fn xaynet_ffi_crypto_init() -> c_int {
 pub const OK: c_int = 0;
 /// NULL pointer argument
 pub const ERR_NULLPTR: c_int = 1;
-/// Invalid mask configuration: invalid group type
-pub const ERR_MASKCONFIG_GROUPTYPE: c_int = 2;
-/// Invalid mask configuration: invalid data type
-pub const ERR_MASKCONFIG_DATATYPE: c_int = 3;
-/// Invalid mask configuration: invalid bound type
-pub const ERR_MASKCONFIG_BOUNDTYPE: c_int = 4;
-/// Invalid mask configuration: invalid model type
-pub const ERR_MASKCONFIG_MODELTYPE: c_int = 5;
 /// Invalid coordinator URL
-pub const ERR_INVALID_URL: c_int = 6;
+pub const ERR_INVALID_URL: c_int = 2;
 /// Invalid settings: coordinator URL is not set
-pub const ERR_SETTINGS_URL: c_int = 7;
-/// Invalid settings: mask configuration is not set
-pub const ERR_SETTINGS_MASKCONFIG: c_int = 8;
+pub const ERR_SETTINGS_URL: c_int = 3;
 /// Invalid settings: signing keys are not set
-pub const ERR_SETTINGS_KEYS: c_int = 9;
+pub const ERR_SETTINGS_KEYS: c_int = 4;
 /// Failed to set the local model: invalid model
-pub const ERR_SETMODEL_MODEL: c_int = 10;
+pub const ERR_SETMODEL_MODEL: c_int = 5;
 /// Failed to set the local model: invalid data type
-pub const ERR_SETMODEL_DATATYPE: c_int = 11;
+pub const ERR_SETMODEL_DATATYPE: c_int = 6;
 /// Failed to initialized the crypto library
-pub const ERR_CRYPTO_INIT: c_int = 12;
+pub const ERR_CRYPTO_INIT: c_int = 7;
 /// Invalid secret signing key
-pub const ERR_CRYPTO_SECRET_KEY: c_int = 13;
+pub const ERR_CRYPTO_SECRET_KEY: c_int = 8;
 /// Invalid public signing key
-pub const ERR_CRYPTO_PUBLIC_KEY: c_int = 14;
+pub const ERR_CRYPTO_PUBLIC_KEY: c_int = 9;
 /// No global model is currently available
-pub const GLOBALMODEL_NONE: c_int = 15;
+pub const GLOBALMODEL_NONE: c_int = 10;
 /// Failed to get the global model: communication with the coordinator failed
-pub const ERR_GLOBALMODEL_IO: c_int = 16;
+pub const ERR_GLOBALMODEL_IO: c_int = 11;
 /// Failed to get the global model: invalid data type
-pub const ERR_GLOBALMODEL_DATATYPE: c_int = 17;
+pub const ERR_GLOBALMODEL_DATATYPE: c_int = 12;
 /// Failed to get the global model: invalid buffer length
-pub const ERR_GLOBALMODEL_LEN: c_int = 18;
+pub const ERR_GLOBALMODEL_LEN: c_int = 13;
 /// Failed to get the global model: invalid model
-pub const ERR_GLOBALMODEL_CONVERT: c_int = 19;
+pub const ERR_GLOBALMODEL_CONVERT: c_int = 14;

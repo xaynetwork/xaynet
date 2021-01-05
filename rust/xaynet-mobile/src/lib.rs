@@ -25,6 +25,7 @@
 //! To solve this problem, the [`Participant`] provided in this crate embeds the PET
 //! state machine, and it's the caller responsibility to drive its execution (see
 //! [`Participant::tick()`])
+#![cfg_attr(doc, forbid(warnings))]
 #[macro_use]
 extern crate ffi_support;
 #[macro_use]
