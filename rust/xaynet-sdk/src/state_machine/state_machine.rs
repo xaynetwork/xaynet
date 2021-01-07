@@ -28,7 +28,6 @@ pub enum TransitionOutcome {
 
 /// PET state machine.
 #[derive(From, Debug)]
-#[allow(clippy::large_enum_variant)]
 pub enum StateMachine {
     /// PET state machine in the "new round" phase
     NewRound(Phase<NewRound>),
@@ -37,7 +36,6 @@ pub enum StateMachine {
     /// PET state machine in the "sum" phase
     Sum(Phase<Sum>),
     /// PET state machine in the "update" phase
-    // FIXME: box this
     Update(Phase<Update>),
     /// PET state machine in the "sum2" phase
     Sum2(Phase<Sum2>),
@@ -101,7 +99,7 @@ impl StateMachine {
         N: Notify + Send + 'static,
     {
         let io = boxed_io(xaynet_client, model_store, notifier);
-        let state = State::new(SharedState::new(settings), Awaiting);
+        let state = State::new(Box::new(SharedState::new(settings)), Box::new(Awaiting));
         state.into_phase(io).into()
     }
 

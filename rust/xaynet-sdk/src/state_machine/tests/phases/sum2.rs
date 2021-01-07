@@ -33,19 +33,19 @@ fn make_phase() -> Phase<Sum2> {
     phase
 }
 
-fn make_sum2(shared: &SharedState) -> Sum2 {
+fn make_sum2(shared: &SharedState) -> Box<Sum2> {
     let ephm_keys = EncryptKeyPair::derive_from_seed(&EncryptKeySeed::zeroed());
     let sk = &shared.keys.secret;
     let seed = shared.round_params.seed.as_slice();
     let signature = sk.sign_detached(&[seed, b"sum"].concat());
-    Sum2 {
+    Box::new(Sum2 {
         ephm_keys,
         sum_signature: signature,
         seed_dict: None,
         seeds: None,
         mask: None,
         message: None,
-    }
+    })
 }
 
 fn make_seed_dict(mask_config: MaskConfigPair, ephm_pk: PublicEncryptKey) -> UpdateSeedDict {

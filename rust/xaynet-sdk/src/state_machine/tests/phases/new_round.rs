@@ -50,7 +50,8 @@ fn make_phase(task: SelectFor, io: MockIO) -> Phase<NewRound> {
     // Check IntoPhase<NewRound> implementation
     let mut mock = MockIO::new();
     mock.expect_notify_new_round().times(1).return_const(());
-    let mut phase: Phase<NewRound> = State::new(shared, NewRound).into_phase(Box::new(mock));
+    let mut phase: Phase<NewRound> =
+        State::new(shared, Box::new(NewRound)).into_phase(Box::new(mock));
 
     // Set `phase.io` to the mock the test wants to use. Note that this drops the `mock` we
     // created above, so the expectations we set on `mock` run now.
