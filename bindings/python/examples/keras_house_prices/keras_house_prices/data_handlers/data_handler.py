@@ -23,7 +23,7 @@ class DataHandler(ABC):  # pylint: disable=too-many-instance-attributes
             of training samples to each participants. It can take
             three values:
 
-                - `iid`: meaning samples are randomely assigned to
+                - `iid`: meaning samples are randomly assigned to
                   participants.
                 - `intermediate`: half of the samples are randomly
                     assigned to participants, half of the samples
