@@ -58,7 +58,7 @@ helpful methods.
 ```python
 def spawn_participant(
     coordinator_url: str,
-    participant,
+    participant: ParticipantABC,
     args: Tuple = (),
     kwargs: dict = {},
     state: Optional[List[int]] = None,
@@ -235,7 +235,7 @@ global/local on their side.
 **Public API of `AsyncParticipant`**
 
 ```python
-def spawn_async_participant(coordinator_url: str, state: Optional[List[int]]=None, scalar: float = 1.0)
+def spawn_async_participant(coordinator_url: str, state: Optional[List[int]] = None, scalar: float = 1.0)
     -> (AsyncParticipant, threading.Event):
     """
     Spawns a `AsyncParticipant` in a separate thread and returns a participant handle

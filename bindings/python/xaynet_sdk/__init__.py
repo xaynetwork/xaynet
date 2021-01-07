@@ -7,7 +7,7 @@ from .participant import *
 
 def spawn_participant(
     coordinator_url: str,
-    participant,
+    participant: ParticipantABC,
     args: Tuple = (),
     kwargs: dict = {},
     state: Optional[List[int]] = None,
