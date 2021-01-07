@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use std::time::UNIX_EPOCH;
 
-use crate::data_combiner::data_points::data_point::{Calculate, DataPointMetadata};
+use crate::data_combiner::data_points::data_point::{CalculateDataPoints, DataPointMetadata};
 use crate::repo::analytics_event::AnalyticsEvent;
 
 pub struct WasActiveEachPastPeriod {
@@ -47,20 +47,17 @@ impl WasActiveEachPastPeriod {
     }
 }
 
-impl Calculate for WasActiveEachPastPeriod {
+impl CalculateDataPoints for WasActiveEachPastPeriod {
     fn metadata(&self) -> DataPointMetadata {
         self.metadata
     }
 
     fn calculate(&self) -> Vec<u32> {
         let timestamps_by_period_threshold = self.group_timestamps_by_period_threshold();
-        let values: Vec<bool> = timestamps_by_period_threshold
+        timestamps_by_period_threshold
             .values()
             .map(|timestamps| !timestamps.is_empty())
-            .collect();
-        values
-            .into_iter()
             .map(|was_active| if was_active == false { 0 } else { 1 })
-            .collect()
+            .collect::<Vec<u32>>()
     }
 }

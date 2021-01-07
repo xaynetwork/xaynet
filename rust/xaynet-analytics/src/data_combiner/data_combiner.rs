@@ -2,7 +2,7 @@ use chrono::{DateTime, Datelike, Duration, NaiveDate, Utc};
 use std::time::UNIX_EPOCH;
 
 use crate::data_combiner::data_points::data_point::{
-    Calculate, DataPoint, DataPointMetadata, Period, PeriodUnit,
+    CalculateDataPoints, DataPoints, DataPointMetadata, Period, PeriodUnit,
 };
 use crate::data_combiner::data_points::screen_active_time::ScreenActiveTime;
 use crate::data_combiner::data_points::screen_enter_count::ScreenEnterCount;
@@ -19,71 +19,48 @@ impl<R> DataCombiner<R>
 where
     R: Repository,
 {
+
     pub fn new(repo: Box<impl Repository>) -> DataCombiner<impl Repository> {
         DataCombiner { repo }
     }
 
-    pub fn init_data_points(&self) -> Vec<DataPoint> {
+    pub fn init_data_points(&self) -> Vec<DataPoints> {
+        let end_period = Utc::now();
         [
-            self.to_data_points(self.init_was_active_past_n_days_vars()),
-            self.to_data_points(self.init_screen_active_time_vars()),
-            self.to_data_points(self.init_screen_enter_count_vars()),
-            self.to_data_points(self.init_was_active_each_past_period_vars()),
+            self.to_data_points(self.init_was_active_past_n_days_vars(end_period)),
+            self.to_data_points(self.init_screen_active_time_vars(end_period)),
+            self.to_data_points(self.init_screen_enter_count_vars(end_period)),
+            self.to_data_points(self.init_was_active_each_past_period_vars(end_period)),
         ]
         .concat()
     }
 
-    fn to_data_points(&self, calculables: Vec<impl Calculate>) -> Vec<DataPoint> {
+    fn to_data_points(&self, calculables: Vec<impl CalculateDataPoints>) -> Vec<DataPoints> {
         calculables
             .into_iter()
-            .map(|calculable| DataPoint::new(calculable.metadata(), calculable.calculate()))
+            .map(|calculable| DataPoints::new(calculable.metadata(), calculable.calculate()))
             .collect()
     }
 
-    fn init_was_active_past_n_days_vars(&self) -> Vec<impl Calculate> {
-        let metadatas = vec![
-            DataPointMetadata {
-                period: Period {
-                    unit: PeriodUnit::Days,
-                    n: 1,
-                },
-                end: Utc::now(),
-            },
-            DataPointMetadata {
-                period: Period {
-                    unit: PeriodUnit::Days,
-                    n: 7,
-                },
-                end: Utc::now(),
-            },
-            DataPointMetadata {
-                period: Period {
-                    unit: PeriodUnit::Days,
-                    n: 28,
-                },
-                end: Utc::now(),
-            },
-        ];
-        metadatas
-            .into_iter()
+    fn init_was_active_past_n_days_vars(&self, end_period: DateTime<Utc>) -> Vec<impl CalculateDataPoints> {
+        [
+            DataPointMetadata::new(Period::new(PeriodUnit::Days, 1), end_period),
+            DataPointMetadata::new(Period::new(PeriodUnit::Days, 7), end_period),
+            DataPointMetadata::new(Period::new(PeriodUnit::Days, 28), end_period),
+        ]
+            .iter()
             .map(|metadata| {
                 WasActivePastNDays::new(
-                    metadata,
-                    self.filter_events_in_this_period(metadata, self.get_all_events()),
+                    *metadata,
+                    self.filter_events_in_this_period(*metadata, self.get_all_events()),
                 )
             })
             .collect()
     }
 
-    fn init_screen_active_time_vars(&self) -> Vec<impl Calculate> {
+    fn init_screen_active_time_vars(&self, end_period: DateTime<Utc>) -> Vec<impl CalculateDataPoints> {
         let mut screen_active_time_vars: Vec<ScreenActiveTime> = Vec::new();
-        let metadata = DataPointMetadata {
-            period: Period {
-                unit: PeriodUnit::Days,
-                n: 1,
-            },
-            end: Utc::now(),
-        };
+        let metadata = DataPointMetadata::new(Period::new(PeriodUnit::Days, 1), end_period);
         for screen_route in self.get_all_screen_routes().iter() {
             let events_this_route = self.get_events_single_route(screen_route.clone());
             let screen_active_time_this_route = ScreenActiveTime::new(
@@ -100,15 +77,9 @@ where
         screen_active_time_vars
     }
 
-    fn init_screen_enter_count_vars(&self) -> Vec<ScreenEnterCount> {
+    fn init_screen_enter_count_vars(&self, end_period: DateTime<Utc>) -> Vec<ScreenEnterCount> {
         let mut screen_enter_count_vars: Vec<ScreenEnterCount> = Vec::new();
-        let metadata = DataPointMetadata {
-            period: Period {
-                unit: PeriodUnit::Days,
-                n: 1,
-            },
-            end: Utc::now(),
-        };
+        let metadata = DataPointMetadata::new(Period::new(PeriodUnit::Days, 1), end_period);
         for screen_route in self.get_all_screen_routes().iter() {
             let events_this_route = self.get_events_single_route(screen_route.clone());
             let screen_enter_count_this_route = ScreenEnterCount::new(
@@ -120,29 +91,11 @@ where
         screen_enter_count_vars
     }
 
-    fn init_was_active_each_past_period_vars(&self) -> Vec<WasActiveEachPastPeriod> {
-        let metadatas = vec![
-            DataPointMetadata {
-                period: Period {
-                    unit: PeriodUnit::Days,
-                    n: 7,
-                },
-                end: Utc::now(),
-            },
-            DataPointMetadata {
-                period: Period {
-                    unit: PeriodUnit::Weeks,
-                    n: 6,
-                },
-                end: Utc::now(),
-            },
-            DataPointMetadata {
-                period: Period {
-                    unit: PeriodUnit::Months,
-                    n: 3,
-                },
-                end: Utc::now(),
-            },
+    fn init_was_active_each_past_period_vars(&self, end_period: DateTime<Utc>) -> Vec<WasActiveEachPastPeriod> {
+        let metadatas = [
+            DataPointMetadata::new(Period::new(PeriodUnit::Days, 7), end_period),
+            DataPointMetadata::new(Period::new(PeriodUnit::Weeks, 6), end_period),
+            DataPointMetadata::new(Period::new(PeriodUnit::Months, 3), end_period),
         ];
         let mut was_active_each_past_periods: Vec<WasActiveEachPastPeriod> = Vec::new();
         for metadata in metadatas.iter() {
@@ -191,7 +144,7 @@ where
         match metadata.period.unit {
             PeriodUnit::Days => midnight_end_of_period - Duration::days(n_periods as i64),
             PeriodUnit::Weeks => midnight_end_of_period - Duration::weeks(n_periods as i64),
-            PeriodUnit::Months => self.apply_offset_to_timestamp(midnight_end_of_period, n_periods),
+            PeriodUnit::Months => apply_offset_months_to_timestamp(midnight_end_of_period, n_periods),
             PeriodUnit::Any => UNIX_EPOCH.into(),
         }
     }
@@ -209,21 +162,7 @@ where
     }
 
     fn get_midnight(&self, timestamp: DateTime<Utc>) -> DateTime<Utc> {
-        self.apply_offset_to_timestamp(timestamp, 0)
-    }
-
-    fn apply_offset_to_timestamp(
-        &self,
-        timestamp: DateTime<Utc>,
-        n_months_offset: u32,
-    ) -> DateTime<Utc> {
-        let naive_offest_timestamp = NaiveDate::from_ymd(
-            timestamp.year(),
-            timestamp.month() - n_months_offset as u32,
-            timestamp.day(),
-        )
-        .and_hms(0, 0, 0);
-        DateTime::from_utc(naive_offest_timestamp, Utc)
+        apply_offset_months_to_timestamp(timestamp, 0)
     }
 
     fn get_events_single_route(&self, route: String) -> Vec<AnalyticsEvent> {
@@ -232,4 +171,14 @@ where
             .filter(|event| event.screen_route.as_ref().unwrap() == &route)
             .collect()
     }
+}
+
+fn apply_offset_months_to_timestamp(timestamp: DateTime<Utc>, n_months_offset: u32) -> DateTime<Utc> {
+    let naive_offest_timestamp = NaiveDate::from_ymd(
+        timestamp.year(),
+        timestamp.month() - n_months_offset as u32,
+        timestamp.day(),
+    )
+    .and_hms(0, 0, 0);
+    DateTime::from_utc(naive_offest_timestamp, Utc)
 }

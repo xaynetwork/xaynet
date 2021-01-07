@@ -14,25 +14,37 @@ pub struct Period {
     pub n: u32,
 }
 
+impl Period {
+    pub fn new(unit: PeriodUnit, n: u32) -> Period {
+        Period{ unit, n }
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct DataPointMetadata {
     pub period: Period,
     pub end: DateTime<Utc>,
 }
 
-pub trait Calculate: Sized {
+impl DataPointMetadata {
+    pub fn new(period: Period, end: DateTime<Utc>) -> DataPointMetadata {
+        DataPointMetadata { period, end }
+    }
+}
+
+pub trait CalculateDataPoints: Sized {
     fn metadata(&self) -> DataPointMetadata;
 
     fn calculate(&self) -> Vec<u32>;
 }
 #[derive(Debug, Clone)]
-pub struct DataPoint {
+pub struct DataPoints {
     metadata: DataPointMetadata,
     values: Vec<u32>,
 }
 
-impl DataPoint {
-    pub fn new(metadata: DataPointMetadata, values: Vec<u32>) -> DataPoint {
-        DataPoint { metadata, values }
+impl DataPoints {
+    pub fn new(metadata: DataPointMetadata, values: Vec<u32>) -> DataPoints {
+        DataPoints { metadata, values }
     }
 }

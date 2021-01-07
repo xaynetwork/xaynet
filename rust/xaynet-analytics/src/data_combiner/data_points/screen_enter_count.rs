@@ -1,4 +1,4 @@
-use crate::data_combiner::data_points::data_point::{Calculate, DataPointMetadata};
+use crate::data_combiner::data_points::data_point::{CalculateDataPoints, DataPointMetadata};
 use crate::repo::analytics_event::{AnalyticsEvent, AnalyticsEventType};
 
 pub struct ScreenEnterCount {
@@ -12,7 +12,7 @@ impl ScreenEnterCount {
     }
 }
 
-impl Calculate for ScreenEnterCount {
+impl CalculateDataPoints for ScreenEnterCount {
     fn metadata(&self) -> DataPointMetadata {
         self.metadata
     }
@@ -20,8 +20,7 @@ impl Calculate for ScreenEnterCount {
     fn calculate(&self) -> Vec<u32> {
         let value = self
             .events
-            .clone()
-            .into_iter()
+            .iter()
             .filter(|event| event.event_type == AnalyticsEventType::ScreenEnter)
             .count() as u32;
         vec![value]

@@ -1,6 +1,6 @@
 use chrono::Duration;
 
-use crate::data_combiner::data_points::data_point::{Calculate, DataPointMetadata};
+use crate::data_combiner::data_points::data_point::{CalculateDataPoints, DataPointMetadata};
 use crate::repo::analytics_event::{AnalyticsEvent, AnalyticsEventType};
 
 pub struct ScreenActiveTime {
@@ -42,22 +42,18 @@ impl ScreenActiveTime {
     }
 }
 
-impl Calculate for ScreenActiveTime {
+impl CalculateDataPoints for ScreenActiveTime {
     fn metadata(&self) -> DataPointMetadata {
         self.metadata
     }
 
     fn calculate(&self) -> Vec<u32> {
         let duration_between_events = self.calculate_duration_between_events();
-        let value = if duration_between_events.is_empty() {
-            0
-        } else {
-            let durations_in_milliseconds: Vec<u32> = duration_between_events
-                .into_iter()
-                .map(|duration| duration.num_milliseconds() as u32)
-                .collect();
-            durations_in_milliseconds.into_iter().sum()
-        };
+        let durations_in_milliseconds: Vec<u32> = duration_between_events
+            .into_iter()
+            .map(|duration| duration.num_milliseconds() as u32)
+            .collect();
+        let value = durations_in_milliseconds.into_iter().sum();
         vec![value]
     }
 }

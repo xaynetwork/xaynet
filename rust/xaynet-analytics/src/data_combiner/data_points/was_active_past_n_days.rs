@@ -1,4 +1,4 @@
-use crate::data_combiner::data_points::data_point::{Calculate, DataPointMetadata};
+use crate::data_combiner::data_points::data_point::{CalculateDataPoints, DataPointMetadata};
 use crate::repo::analytics_event::AnalyticsEvent;
 
 pub struct WasActivePastNDays {
@@ -12,14 +12,14 @@ impl WasActivePastNDays {
     }
 }
 
-impl Calculate for WasActivePastNDays {
+impl CalculateDataPoints for WasActivePastNDays {
     fn metadata(&self) -> DataPointMetadata {
         self.metadata
     }
 
     fn calculate(&self) -> Vec<u32> {
-        let value = !self.events.is_empty();
-        if value == false {
+        let value = self.events.is_empty();
+        if value == true {
             vec![0]
         } else {
             vec![1]
