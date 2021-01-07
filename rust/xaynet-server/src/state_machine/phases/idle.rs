@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use sodiumoxide::crypto::hash::sha256;
+use thiserror::Error;
 use tracing::{debug, info};
 
 use crate::{
@@ -13,7 +14,6 @@ use crate::{
     },
     storage::{CoordinatorStorage, ModelStorage, StorageError},
 };
-use thiserror::Error;
 use xaynet_core::{
     common::RoundSeed,
     crypto::{ByteObject, EncryptKeyPair, SigningKeySeed},
@@ -40,9 +40,6 @@ where
 {
     const NAME: PhaseName = PhaseName::Idle;
 
-    /// Moves from the idle state to the next state.
-    ///
-    /// See the [module level documentation](../index.html) for more details.
     async fn run(&mut self) -> Result<(), PhaseStateError> {
         info!("updating the keys");
         self.gen_round_keypair();
@@ -148,7 +145,9 @@ where
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
+    use serial_test::serial;
+
     use super::*;
     use crate::{
         state_machine::{
@@ -157,7 +156,6 @@ mod test {
         },
         storage::tests::init_store,
     };
-    use serial_test::serial;
 
     #[tokio::test]
     #[serial]

@@ -1,12 +1,11 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use thiserror::Error;
 use tokio::time::{timeout, Duration};
 use tracing::{debug, info, warn};
 
 use crate::{
-    metric,
-    metrics::Measurement,
     state_machine::{
         events::DictionaryUpdate,
         phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Sum2},
@@ -16,7 +15,6 @@ use crate::{
     },
     storage::{CoordinatorStorage, ModelStorage, StorageError},
 };
-use thiserror::Error;
 use xaynet_core::{
     mask::{Aggregation, MaskObject},
     LocalSeedDict,
@@ -32,21 +30,17 @@ pub enum UpdateStateError {
     FetchSeedDict(StorageError),
 }
 
-/// Update state
+/// The update state.
 #[derive(Debug)]
 pub struct Update {
     /// The aggregator for masked models.
     model_agg: Aggregation,
-
-    /// The number of Update messages successfully processed.
-    update_count: u64,
-}
-
-#[cfg(test)]
-impl Update {
-    pub fn aggregation(&self) -> &Aggregation {
-        &self.model_agg
-    }
+    /// The number of update messages successfully processed.
+    accepted: u64,
+    /// The number of update messages failed to processed.
+    rejected: u64,
+    /// The number of update messages discarded without being processed.
+    discarded: u64,
 }
 
 #[async_trait]
@@ -58,20 +52,31 @@ where
 {
     const NAME: PhaseName = PhaseName::Update;
 
-    /// Moves from the update state to the next state.
-    ///
-    /// See the [module level documentation](../index.html) for more details.
     async fn run(&mut self) -> Result<(), PhaseStateError> {
         let min_time = self.shared.state.min_update_time;
-        debug!("in update phase for a minimum of {} seconds", min_time);
+        let max_time = self.shared.state.max_update_time;
+        debug!(
+            "in update phase for min {} and max {} seconds",
+            min_time, max_time,
+        );
         self.process_during(Duration::from_secs(min_time)).await?;
 
-        let time_left = self.shared.state.max_update_time - min_time;
+        let time_left = max_time - min_time;
         timeout(Duration::from_secs(time_left), self.process_until_enough()).await??;
 
         info!(
-            "{} update messages handled (min {} required)",
-            self.private.update_count, self.shared.state.min_update_count
+            "in total {} update messages accepted (min {} and max {} required)",
+            self.private.accepted,
+            self.shared.state.min_update_count,
+            self.shared.state.max_update_count,
+        );
+        info!(
+            "in total {} update messages rejected",
+            self.private.rejected,
+        );
+        info!(
+            "in total {} update messages discarded",
+            self.private.discarded,
         );
 
         let seed_dict = self
@@ -95,55 +100,56 @@ where
     }
 }
 
-impl<C, M> PhaseState<Update, C, M>
-where
-    Self: Handler + Phase<C, M>,
-    C: CoordinatorStorage,
-    M: ModelStorage,
-{
-    /// Processes requests until there are enough.
-    async fn process_until_enough(&mut self) -> Result<(), PhaseStateError> {
-        while !self.has_enough_updates() {
-            debug!(
-                "{} update messages handled (min {} required)",
-                self.private.update_count, self.shared.state.min_update_count
-            );
-            self.process_next().await?;
-        }
-        Ok(())
-    }
-
-    fn increment_message_metric(&self) {
-        metric!(
-            Measurement::MessageUpdate,
-            1,
-            ("round_id", self.shared.state.round_id),
-            ("phase", Self::NAME as u8)
-        );
-    }
-}
-
 #[async_trait]
 impl<C, M> Handler for PhaseState<Update, C, M>
 where
     C: CoordinatorStorage,
     M: ModelStorage,
 {
-    /// Handles a [`StateMachineRequest`].
-    ///
-    /// If the request is a [`StateMachineRequest::Sum`] or
-    /// [`StateMachineRequest::Sum2`] request, the request sender will
-    /// receive a [`RequestError::MessageRejected`].
     async fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), RequestError> {
-        match req {
-            StateMachineRequest::Update(update_req) => {
-                self.handle_update(update_req).await.map(|res| {
-                    self.increment_message_metric();
-                    res
-                })
-            }
-            _ => Err(RequestError::MessageRejected),
+        if let StateMachineRequest::Update(UpdateRequest {
+            participant_pk,
+            local_seed_dict,
+            masked_model,
+        }) = req
+        {
+            self.update_seed_dict_and_aggregate_mask(
+                &participant_pk,
+                &local_seed_dict,
+                masked_model,
+            )
+            .await
+        } else {
+            Err(RequestError::MessageRejected)
         }
+    }
+
+    fn has_enough_messages(&self) -> bool {
+        self.private.accepted >= self.shared.state.min_update_count
+    }
+
+    fn has_overmuch_messages(&self) -> bool {
+        self.private.accepted >= self.shared.state.max_update_count
+    }
+
+    fn increment_accepted(&mut self) {
+        self.private.accepted += 1;
+        debug!(
+            "{} update messages accepted (min {} and max {} required)",
+            self.private.accepted,
+            self.shared.state.min_update_count,
+            self.shared.state.max_update_count,
+        );
+    }
+
+    fn increment_rejected(&mut self) {
+        self.private.rejected += 1;
+        debug!("{} update messages rejected", self.private.rejected);
+    }
+
+    fn increment_discarded(&mut self) {
+        self.private.discarded += 1;
+        debug!("{} update messages discarded", self.private.discarded);
     }
 }
 
@@ -156,26 +162,16 @@ where
     pub fn new(shared: Shared<C, M>) -> Self {
         Self {
             private: Update {
-                update_count: 0,
                 model_agg: Aggregation::new(
                     shared.state.round_params.mask_config,
                     shared.state.round_params.model_length,
                 ),
+                accepted: 0,
+                rejected: 0,
+                discarded: 0,
             },
             shared,
         }
-    }
-
-    /// Handles an update request.
-    /// If the handling of the update message fails, an error is returned to the request sender.
-    async fn handle_update(&mut self, req: UpdateRequest) -> Result<(), RequestError> {
-        let UpdateRequest {
-            participant_pk,
-            local_seed_dict,
-            masked_model,
-        } = req;
-        self.update_seed_dict_and_aggregate_mask(&participant_pk, &local_seed_dict, masked_model)
-            .await
     }
 
     /// Updates the local seed dict and aggregates the masked model.
@@ -227,19 +223,15 @@ where
             .store
             .add_local_seed_dict(pk, local_seed_dict)
             .await?
-            .into_inner()?;
-
-        self.private.update_count += 1;
-        Ok(())
-    }
-
-    fn has_enough_updates(&self) -> bool {
-        self.private.update_count >= self.shared.state.min_update_count
+            .into_inner()
+            .map_err(RequestError::from)
     }
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
+    use serial_test::serial;
+
     use super::*;
     use crate::{
         state_machine::{
@@ -251,7 +243,6 @@ mod test {
         },
         storage::tests::init_store,
     };
-    use serial_test::serial;
     use xaynet_core::{
         common::{RoundParameters, RoundSeed},
         crypto::{ByteObject, EncryptKeyPair},
@@ -260,6 +251,12 @@ mod test {
         SumDict,
         UpdateSeedDict,
     };
+
+    impl Update {
+        pub fn aggregation(&self) -> &Aggregation {
+            &self.model_agg
+        }
+    }
 
     #[tokio::test]
     #[serial]
@@ -293,13 +290,17 @@ mod test {
         let (state_machine, request_tx, events) = StateMachineBuilder::new(store.clone())
             .with_seed(round_params.seed.clone())
             .with_phase(Update {
-                update_count: 0,
                 model_agg: aggregation.clone(),
+                accepted: 0,
+                rejected: 0,
+                discarded: 0,
             })
             .with_sum_ratio(round_params.sum)
             .with_update_ratio(round_params.update)
-            .with_min_sum(n_summers)
-            .with_min_update(n_updaters)
+            .with_min_sum_count(n_summers)
+            .with_max_sum_count(n_summers + 10)
+            .with_min_update_count(n_updaters)
+            .with_max_update_count(n_updaters + 10)
             .with_min_update_time(1)
             .with_max_update_time(2)
             .with_mask_config(utils::mask_settings().into())

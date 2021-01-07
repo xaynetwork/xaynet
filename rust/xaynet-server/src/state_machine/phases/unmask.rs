@@ -1,6 +1,7 @@
 use std::{cmp::Ordering, sync::Arc};
 
 use async_trait::async_trait;
+use thiserror::Error;
 use tracing::{error, info};
 
 use crate::{
@@ -13,7 +14,6 @@ use crate::{
     },
     storage::{CoordinatorStorage, ModelStorage, StorageError},
 };
-use thiserror::Error;
 use xaynet_core::mask::{Aggregation, MaskObject, Model, UnmaskingError};
 
 /// Error that occurs during the unmask phase.
@@ -39,13 +39,6 @@ pub struct Unmask {
     model_agg: Option<Aggregation>,
 }
 
-#[cfg(test)]
-impl Unmask {
-    pub fn aggregation(&self) -> Option<&Aggregation> {
-        self.model_agg.as_ref()
-    }
-}
-
 #[async_trait]
 impl<C, M> Phase<C, M> for PhaseState<Unmask, C, M>
 where
@@ -54,7 +47,6 @@ where
 {
     const NAME: PhaseName = PhaseName::Unmask;
 
-    /// Run the unmasking phase
     async fn run(&mut self) -> Result<(), PhaseStateError> {
         self.emit_number_of_unique_masks_metrics();
 
@@ -79,9 +71,6 @@ where
         Ok(())
     }
 
-    /// Moves from the unmask state to the next state.
-    ///
-    /// See the [module level documentation](../index.html) for more details.
     fn next(self) -> Option<StateMachine<C, M>> {
         Some(PhaseState::<Idle, _, _>::new(self.shared).into())
     }
@@ -185,5 +174,16 @@ where
                 Err(err) => error!("failed to fetch total number of masks: {}", err),
             };
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    impl Unmask {
+        pub fn aggregation(&self) -> Option<&Aggregation> {
+            self.model_agg.as_ref()
+        }
     }
 }

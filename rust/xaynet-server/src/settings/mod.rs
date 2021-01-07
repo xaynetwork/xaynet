@@ -3,7 +3,9 @@
 //! Values defined in the configuration file can be overridden by environment variables. Examples of
 //! configuration files can be found in the `configs/` directory located in the repository root.
 
-use std::{fmt, path::PathBuf};
+#[cfg(feature = "tls")]
+use std::path::PathBuf;
+use std::{fmt, path::Path};
 
 use config::{Config, ConfigError, Environment};
 use redis::{ConnectionInfo, IntoConnectionInfo};
@@ -16,9 +18,6 @@ use tracing_subscriber::filter::EnvFilter;
 use validator::{Validate, ValidationError, ValidationErrors};
 
 use xaynet_core::mask::{BoundType, DataType, GroupType, MaskConfig, ModelType};
-
-#[cfg(test)]
-mod tests;
 
 #[cfg(feature = "model-persistence")]
 pub mod s3;
@@ -61,15 +60,15 @@ impl Settings {
     ///
     /// # Errors
     /// Fails when the loading of the configuration file or its validation failed.
-    pub fn new(path: PathBuf) -> Result<Self, SettingsError> {
+    pub fn new(path: impl AsRef<Path>) -> Result<Self, SettingsError> {
         let settings: Settings = Self::load(path)?;
         settings.validate()?;
         Ok(settings)
     }
 
-    fn load(path: PathBuf) -> Result<Self, ConfigError> {
+    fn load(path: impl AsRef<Path>) -> Result<Self, ConfigError> {
         let mut config = Config::new();
-        config.merge(config::File::from(path))?;
+        config.merge(config::File::from(path.as_ref()))?;
         config.merge(Environment::with_prefix("xaynet").separator("__"))?;
         config.try_into()
     }
@@ -121,13 +120,48 @@ pub struct PetSettings {
     /// ```
     pub min_update_count: u64,
 
-    /// The minimum amount of time reserved for processing messages in the `sum`
-    /// and `sum2` phases, in seconds.
+    /// The maximal number of participants selected for computing the unmasking sum. No more
+    /// messages will be processed in the `sum` and `sum2` phases if the `min_sum_time` has not yet
+    /// elapsed. The value must be greater or equal to `min_sum_count` (i.e. `min_sum_count <=
+    /// max_sum_count`).
     ///
-    /// Defaults to 0 i.e. `sum` and `sum2` phases end *as soon as*
-    /// [`PetSettings::min_sum_count`] messages have been processed. Set this higher
-    /// to allow for the possibility of more than
-    /// [`PetSettings::min_sum_count`] messages to be processed in the
+    /// # Examples
+    ///
+    /// **TOML**
+    /// ```text
+    /// [pet]
+    /// max_sum_count = 100
+    /// ```
+    ///
+    /// **Environment variable**
+    /// ```text
+    /// XAYNET_PET__MAX_SUM_COUNT=100
+    /// ```
+    pub max_sum_count: u64,
+
+    /// The maximal number of participants selected for submitting an updated local model for
+    /// aggregation. No more message will be processed in the `update` phase if the
+    /// `min_update_time` has not yet elapsed.The value must be greater or equal to
+    /// `min_update_count` (i.e. `min_update_count <= max_update_count`).
+    ///
+    /// # Examples
+    ///
+    /// **TOML**
+    /// ```text
+    /// [pet]
+    /// max_update_count = 10000
+    /// ```
+    ///
+    /// **Environment variable**
+    /// ```text
+    /// XAYNET_PET__MAX_UPDATE_COUNT=10000
+    /// ```
+    pub max_update_count: u64,
+
+    /// The minimum amount of time reserved for processing messages in the `sum` and `sum2` phases,
+    /// in seconds. Once this time has passed, the `sum` and `sum2` phases end *as soon as*
+    /// [`PetSettings::min_sum_count`] messages have been processed. Set this higher to allow for
+    /// the possibility of more than [`PetSettings::min_sum_count`] messages to be processed in the
     /// `sum` and `sum2` phases.
     ///
     /// # Examples
@@ -144,14 +178,11 @@ pub struct PetSettings {
     /// ```
     pub min_sum_time: u64,
 
-    /// The minimum amount of time reserved for processing messages in the
-    /// `update` phase, in seconds.
-    ///
-    /// Defaults to 0 i.e. `update` phase ends *as soon as*
-    /// [`PetSettings::min_update_count`] messages have been
-    /// processed. Set this higher to allow for the possibility of
-    /// more than [`PetSettings::min_update_count`] messages to be
-    /// processed in the `update` phase.
+    /// The minimum amount of time reserved for processing messages in the `update` phase, in
+    /// seconds. Once this time has passed, the `update` phase ends *as soon as*
+    /// [`PetSettings::min_update_count`] messages have been processed. Set this higher to allow for
+    /// the possibility of more than [`PetSettings::min_update_count`] messages to be processed in
+    /// the `update` phase.
     ///
     /// # Examples
     ///
@@ -167,13 +198,9 @@ pub struct PetSettings {
     /// ```
     pub min_update_time: u64,
 
-    /// The maximum amount of time permitted for processing messages in the `sum`
-    /// and `sum2` phases, in seconds.
-    ///
-    /// Defaults to a large number (effectively 1 week). Set this
-    /// lower to allow for the processing of
-    /// [`PetSettings::min_sum_count`] messages to time-out sooner in
-    /// the `sum` and `sum2` phases.
+    /// The maximum amount of time permitted for processing messages in the `sum` and `sum2` phases,
+    /// in seconds. Set this lower to allow for the processing of [`PetSettings::min_sum_count`]
+    /// messages to time-out sooner in the `sum` and `sum2` phases.
     ///
     /// # Examples
     ///
@@ -189,13 +216,9 @@ pub struct PetSettings {
     /// ```
     pub max_sum_time: u64,
 
-    /// The maximum amount of time permitted for processing messages in the
-    /// `update` phase, in seconds.
-    ///
-    /// Defaults to a large number (effectively 1 week). Set this
-    /// lower to allow for the processing of
-    /// [`PetSettings::min_update_count`] messages to time-out sooner
-    /// in the `update` phase.
+    /// The maximum amount of time permitted for processing messages in the `update` phase, in
+    /// seconds. Set this lower to allow for the processing of [`PetSettings::min_update_count`]
+    /// messages to time-out sooner in the `update` phase.
     ///
     /// # Examples
     ///
@@ -214,7 +237,7 @@ pub struct PetSettings {
     /// The expected fraction of participants selected for computing the unmasking sum. The value
     /// must be between `0` and `1` (i.e. `0 < sum < 1`).
     ///
-    /// Additionally, it is enforced that `0 < sum + update - sum*update < 1` to avoid pathological
+    /// Additionally, it is enforced that `0 < sum + update - sum*update <= 1` to avoid pathological
     /// cases of deadlocks.
     ///
     /// # Examples
@@ -232,9 +255,11 @@ pub struct PetSettings {
     pub sum: f64,
 
     /// The expected fraction of participants selected for submitting an updated local model for
-    /// aggregation. The value must be between `0` and `1` (i.e. `0 < update < 1`).
+    /// aggregation. The value must be between `0` and `1` (i.e. `0 < update <= 1`). Here, `1` is
+    /// included to be able to express that every participant who is not a sum participant must be
+    /// an update participant.
     ///
-    /// Additionally, it is enforced that `0 < sum + update - sum*update < 1` to avoid pathological
+    /// Additionally, it is enforced that `0 < sum + update - sum*update <= 1` to avoid pathological
     /// cases of deadlocks.
     ///
     /// # Examples
@@ -242,59 +267,63 @@ pub struct PetSettings {
     /// **TOML**
     /// ```text
     /// [pet]
-    /// update = 0.01
+    /// update = 0.1
     /// ```
     ///
     /// **Environment variable**
     /// ```text
-    /// XAYNET_PET__UPDATE=0.01
+    /// XAYNET_PET__UPDATE=0.1
     /// ```
     pub update: f64,
 }
 
-impl Default for PetSettings {
-    fn default() -> Self {
-        Self {
-            min_sum_count: 1,
-            min_update_count: 3,
-            min_sum_time: 0,
-            min_update_time: 0,
-            max_sum_time: 604800,
-            max_update_time: 604800,
-            sum: 0.01,
-            update: 0.1,
+impl PetSettings {
+    /// Checks PET settings.
+    fn validate_pet(&self) -> Result<(), ValidationError> {
+        self.validate_phase_counts()?;
+        self.validate_phase_times()?;
+        self.validate_fractions()
+    }
+
+    /// Checks validity of phase count ranges.
+    fn validate_phase_counts(&self) -> Result<(), ValidationError> {
+        if self.min_sum_count <= self.max_sum_count
+            && self.min_update_count <= self.max_update_count
+        {
+            Ok(())
+        } else {
+            Err(ValidationError::new("invalid phase count range(s)"))
+        }
+    }
+
+    /// Checks validity of phase time ranges.
+    fn validate_phase_times(&self) -> Result<(), ValidationError> {
+        if self.min_sum_time <= self.max_sum_time && self.min_update_time <= self.max_update_time {
+            Ok(())
+        } else {
+            Err(ValidationError::new("invalid phase time range(s)"))
+        }
+    }
+
+    /// Checks pathological cases of deadlocks.
+    fn validate_fractions(&self) -> Result<(), ValidationError> {
+        if 0. < self.sum
+            && self.sum < 1.
+            && 0. < self.update
+            && self.update <= 1.
+            && 0. < self.sum + self.update - self.sum * self.update
+            && self.sum + self.update - self.sum * self.update <= 1.
+        {
+            Ok(())
+        } else {
+            Err(ValidationError::new("starvation"))
         }
     }
 }
 
-/// Checks PET settings.
+/// A wrapper for validate derive.
 fn validate_pet(s: &PetSettings) -> Result<(), ValidationError> {
-    validate_phase_times(s)?;
-    validate_fractions(s)
-}
-
-/// Checks validity of phase time ranges.
-fn validate_phase_times(s: &PetSettings) -> Result<(), ValidationError> {
-    if s.min_sum_time <= s.max_sum_time && s.min_update_time <= s.max_update_time {
-        Ok(())
-    } else {
-        Err(ValidationError::new("invalid phase time range(s)"))
-    }
-}
-
-/// Checks pathological cases of deadlocks.
-fn validate_fractions(s: &PetSettings) -> Result<(), ValidationError> {
-    if 0. < s.sum
-        && s.sum < 1.
-        && 0. < s.update
-        && s.update < 1.
-        && 0. < s.sum + s.update - s.sum * s.update
-        && s.sum + s.update - s.sum * s.update < 1.
-    {
-        Ok(())
-    } else {
-        Err(ValidationError::new("starvation"))
-    }
+    s.validate_pet()
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -390,12 +419,20 @@ pub struct ApiSettings {
 }
 
 #[cfg(feature = "tls")]
-/// Checks API settings.
-fn validate_api(s: &ApiSettings) -> Result<(), ValidationError> {
-    match (&s.tls_certificate, &s.tls_key, &s.tls_client_auth) {
-        (Some(_), Some(_), _) | (None, None, Some(_)) => Ok(()),
-        _ => Err(ValidationError::new("invalid tls settings")),
+impl ApiSettings {
+    /// Checks API settings.
+    fn validate_api(&self) -> Result<(), ValidationError> {
+        match (&self.tls_certificate, &self.tls_key, &self.tls_client_auth) {
+            (Some(_), Some(_), _) | (None, None, Some(_)) => Ok(()),
+            _ => Err(ValidationError::new("invalid tls settings")),
+        }
     }
+}
+
+/// A wrapper for validate derive.
+#[cfg(feature = "tls")]
+fn validate_api(s: &ApiSettings) -> Result<(), ValidationError> {
+    s.validate_api()
 }
 
 #[derive(Debug, Validate, Deserialize, Clone, Copy)]
@@ -464,17 +501,6 @@ pub struct MaskSettings {
     /// XAYNET_MASK__MODEL_TYPE=M3
     /// ```
     pub model_type: ModelType,
-}
-
-impl Default for MaskSettings {
-    fn default() -> Self {
-        Self {
-            group_type: GroupType::Prime,
-            data_type: DataType::F32,
-            bound_type: BoundType::B0,
-            model_type: ModelType::M3,
-        }
-    }
 }
 
 impl From<MaskSettings> for MaskConfig {
@@ -660,4 +686,163 @@ where
     }
 
     deserializer.deserialize_str(EnvFilterVisitor)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    impl Default for PetSettings {
+        fn default() -> Self {
+            Self {
+                min_sum_count: 1,
+                min_update_count: 3,
+                max_sum_count: 100,
+                max_update_count: 10000,
+                min_sum_time: 0,
+                min_update_time: 0,
+                max_sum_time: 604800,
+                max_update_time: 604800,
+                sum: 0.01,
+                update: 0.1,
+            }
+        }
+    }
+
+    impl Default for MaskSettings {
+        fn default() -> Self {
+            Self {
+                group_type: GroupType::Prime,
+                data_type: DataType::F32,
+                bound_type: BoundType::B0,
+                model_type: ModelType::M3,
+            }
+        }
+    }
+
+    #[test]
+    fn test_settings_new() {
+        assert!(Settings::new("../../configs/config.toml").is_ok());
+        assert!(Settings::new("").is_err());
+    }
+
+    #[test]
+    fn test_validate_pet() {
+        assert!(PetSettings::default().validate_pet().is_ok());
+
+        // phase times
+        assert!(PetSettings {
+            min_sum_time: 2,
+            max_sum_time: 1,
+            ..PetSettings::default()
+        }
+        .validate()
+        .is_err());
+        assert!(PetSettings {
+            min_update_time: 2,
+            max_update_time: 1,
+            ..PetSettings::default()
+        }
+        .validate()
+        .is_err());
+
+        // fractions
+        assert!(PetSettings {
+            sum: 0.,
+            ..PetSettings::default()
+        }
+        .validate()
+        .is_err());
+        assert!(PetSettings {
+            sum: 1.,
+            ..PetSettings::default()
+        }
+        .validate()
+        .is_err());
+        assert!(PetSettings {
+            update: 0.,
+            ..PetSettings::default()
+        }
+        .validate()
+        .is_err());
+        assert!(PetSettings {
+            update: 1. + f64::EPSILON,
+            ..PetSettings::default()
+        }
+        .validate()
+        .is_err());
+    }
+
+    #[cfg(feature = "tls")]
+    #[test]
+    fn test_validate_api() {
+        let bind_address = ([0, 0, 0, 0], 0).into();
+        let some_path = Some(std::path::PathBuf::new());
+
+        assert!(ApiSettings {
+            bind_address,
+            tls_certificate: some_path.clone(),
+            tls_key: some_path.clone(),
+            tls_client_auth: some_path.clone(),
+        }
+        .validate()
+        .is_ok());
+        assert!(ApiSettings {
+            bind_address,
+            tls_certificate: some_path.clone(),
+            tls_key: some_path.clone(),
+            tls_client_auth: None,
+        }
+        .validate()
+        .is_ok());
+        assert!(ApiSettings {
+            bind_address,
+            tls_certificate: None,
+            tls_key: None,
+            tls_client_auth: some_path.clone(),
+        }
+        .validate()
+        .is_ok());
+
+        assert!(ApiSettings {
+            bind_address,
+            tls_certificate: some_path.clone(),
+            tls_key: None,
+            tls_client_auth: some_path.clone(),
+        }
+        .validate()
+        .is_err());
+        assert!(ApiSettings {
+            bind_address,
+            tls_certificate: None,
+            tls_key: some_path.clone(),
+            tls_client_auth: some_path.clone(),
+        }
+        .validate()
+        .is_err());
+        assert!(ApiSettings {
+            bind_address,
+            tls_certificate: some_path.clone(),
+            tls_key: None,
+            tls_client_auth: None,
+        }
+        .validate()
+        .is_err());
+        assert!(ApiSettings {
+            bind_address,
+            tls_certificate: None,
+            tls_key: some_path,
+            tls_client_auth: None,
+        }
+        .validate()
+        .is_err());
+        assert!(ApiSettings {
+            bind_address,
+            tls_certificate: None,
+            tls_key: None,
+            tls_client_auth: None,
+        }
+        .validate()
+        .is_err());
+    }
 }

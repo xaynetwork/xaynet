@@ -263,6 +263,8 @@ mod tests {
             [pet]
             min_sum_count = 1
             min_update_count = 3
+            max_sum_count = 100
+            max_update_count = 10000
             min_sum_time = 5
             min_update_time = 10
             max_sum_time = 3600

@@ -1,12 +1,11 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use thiserror::Error;
 use tokio::time::{timeout, Duration};
 use tracing::{debug, info};
 
 use crate::{
-    metric,
-    metrics::Measurement,
     state_machine::{
         events::DictionaryUpdate,
         phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Update},
@@ -16,7 +15,7 @@ use crate::{
     },
     storage::{CoordinatorStorage, ModelStorage, StorageError},
 };
-use thiserror::Error;
+use xaynet_core::{SumParticipantEphemeralPublicKey, SumParticipantPublicKey};
 
 /// Error that occurs during the sum phase.
 #[derive(Error, Debug)]
@@ -27,33 +26,15 @@ pub enum SumStateError {
     FetchSumDict(StorageError),
 }
 
-/// Sum state
+/// The sum state.
 #[derive(Debug)]
 pub struct Sum {
-    /// The number of Sum messages successfully processed.
-    sum_count: u64,
-}
-
-#[async_trait]
-impl<C, M> Handler for PhaseState<Sum, C, M>
-where
-    C: CoordinatorStorage,
-    M: ModelStorage,
-{
-    /// Handles a [`StateMachineRequest`].
-    ///
-    /// If the request is a [`StateMachineRequest::Update`] or
-    /// [`StateMachineRequest::Sum2`] request, the request sender will receive a
-    /// [`RequestError::MessageRejected`].
-    async fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), RequestError> {
-        match req {
-            StateMachineRequest::Sum(sum_req) => self.handle_sum(sum_req).await.map(|res| {
-                self.increment_message_metric();
-                res
-            }),
-            _ => Err(RequestError::MessageRejected),
-        }
-    }
+    /// The number of sum messages successfully processed.
+    accepted: u64,
+    /// The number of sum messages failed to processed.
+    rejected: u64,
+    /// The number of sum messages discarded without being processed.
+    discarded: u64,
 }
 
 #[async_trait]
@@ -65,21 +46,24 @@ where
 {
     const NAME: PhaseName = PhaseName::Sum;
 
-    /// Run the sum phase.
-    ///
-    /// See the [module level documentation](../index.html) for more details.
     async fn run(&mut self) -> Result<(), PhaseStateError> {
         let min_time = self.shared.state.min_sum_time;
-        debug!("in sum phase for a minimum of {} seconds", min_time);
+        let max_time = self.shared.state.max_sum_time;
+        debug!(
+            "in sum phase for min {} and max {} seconds",
+            min_time, max_time,
+        );
         self.process_during(Duration::from_secs(min_time)).await?;
 
-        let time_left = self.shared.state.max_sum_time - min_time;
+        let time_left = max_time - min_time;
         timeout(Duration::from_secs(time_left), self.process_until_enough()).await??;
 
         info!(
-            "{} sum messages handled (min {} required)",
-            self.private.sum_count, self.shared.state.min_sum_count
+            "in total {} sum messages accepted (min {} and max {} required)",
+            self.private.accepted, self.shared.state.min_sum_count, self.shared.state.max_sum_count,
         );
+        info!("in total {} sum messages rejected", self.private.rejected);
+        info!("in total {} sum messages discarded", self.private.discarded);
 
         let sum_dict = self
             .shared
@@ -93,6 +77,7 @@ where
         self.shared
             .events
             .broadcast_sum_dict(DictionaryUpdate::New(Arc::new(sum_dict)));
+
         Ok(())
     }
 
@@ -101,31 +86,48 @@ where
     }
 }
 
-impl<C, M> PhaseState<Sum, C, M>
+#[async_trait]
+impl<C, M> Handler for PhaseState<Sum, C, M>
 where
-    Self: Handler + Phase<C, M>,
     C: CoordinatorStorage,
     M: ModelStorage,
 {
-    /// Processes requests until there are enough.
-    async fn process_until_enough(&mut self) -> Result<(), PhaseStateError> {
-        while !self.has_enough_sums() {
-            debug!(
-                "{} sum messages handled (min {} required)",
-                self.private.sum_count, self.shared.state.min_sum_count,
-            );
-            self.process_next().await?;
+    async fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), RequestError> {
+        if let StateMachineRequest::Sum(SumRequest {
+            participant_pk,
+            ephm_pk,
+        }) = req
+        {
+            self.update_sum_dict(participant_pk, ephm_pk).await
+        } else {
+            Err(RequestError::MessageRejected)
         }
-        Ok(())
     }
 
-    fn increment_message_metric(&self) {
-        metric!(
-            Measurement::MessageSum,
-            1,
-            ("round_id", self.shared.state.round_id),
-            ("phase", Self::NAME as u8)
+    fn has_enough_messages(&self) -> bool {
+        self.private.accepted >= self.shared.state.min_sum_count
+    }
+
+    fn has_overmuch_messages(&self) -> bool {
+        self.private.accepted >= self.shared.state.max_sum_count
+    }
+
+    fn increment_accepted(&mut self) {
+        self.private.accepted += 1;
+        debug!(
+            "{} sum messages accepted (min {} and max {} required)",
+            self.private.accepted, self.shared.state.min_sum_count, self.shared.state.max_sum_count,
         );
+    }
+
+    fn increment_rejected(&mut self) {
+        self.private.rejected += 1;
+        debug!("{} sum messages rejected", self.private.rejected);
+    }
+
+    fn increment_discarded(&mut self) {
+        self.private.discarded += 1;
+        debug!("{} sum messages discarded", self.private.discarded);
     }
 }
 
@@ -137,41 +139,34 @@ where
     /// Creates a new sum state.
     pub fn new(shared: Shared<C, M>) -> Self {
         Self {
-            private: Sum { sum_count: 0 },
+            private: Sum {
+                accepted: 0,
+                rejected: 0,
+                discarded: 0,
+            },
             shared,
         }
     }
 
-    /// Handles a sum request.
-    ///
-    /// # Error
-    ///
-    /// Fails if the sum participant cannot be added due to a PET or [`StorageError`].
-    async fn handle_sum(&mut self, req: SumRequest) -> Result<(), RequestError> {
-        let SumRequest {
-            participant_pk,
-            ephm_pk,
-        } = req;
-
+    /// Updates the sum dict with a sum participant request.
+    async fn update_sum_dict(
+        &mut self,
+        participant_pk: SumParticipantPublicKey,
+        ephm_pk: SumParticipantEphemeralPublicKey,
+    ) -> Result<(), RequestError> {
         self.shared
             .store
             .add_sum_participant(&participant_pk, &ephm_pk)
             .await?
-            .into_inner()?;
-
-        self.private.sum_count += 1;
-        Ok(())
-    }
-
-    /// Checks whether enough sum participants submitted their ephemeral keys to start the update
-    /// phase.
-    fn has_enough_sums(&self) -> bool {
-        self.private.sum_count >= self.shared.state.min_sum_count
+            .into_inner()
+            .map_err(RequestError::from)
     }
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
+    use serial_test::serial;
+
     use super::*;
     use crate::{
         state_machine::{
@@ -180,7 +175,6 @@ mod test {
         },
         storage::tests::init_store,
     };
-    use serial_test::serial;
 
     #[tokio::test]
     #[serial]
@@ -188,7 +182,11 @@ mod test {
         utils::enable_logging();
         let mut store = init_store().await;
 
-        let sum = Sum { sum_count: 0 };
+        let sum = Sum {
+            accepted: 0,
+            rejected: 0,
+            discarded: 0,
+        };
         let (state_machine, request_tx, events) = StateMachineBuilder::new(store.clone())
             .with_phase(sum)
             // Make sure anyone is a sum participant.
@@ -196,7 +194,8 @@ mod test {
             .with_update_ratio(0.0)
             // Make sure a single participant is enough to go to the
             // update phase
-            .with_min_sum(1)
+            .with_min_sum_count(1)
+            .with_max_sum_count(10)
             .with_model_length(4)
             .with_min_sum_time(1)
             .with_max_sum_time(2)

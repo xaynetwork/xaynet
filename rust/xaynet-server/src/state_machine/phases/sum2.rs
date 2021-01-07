@@ -3,8 +3,6 @@ use tokio::time::{timeout, Duration};
 use tracing::{debug, info};
 
 use crate::{
-    metric,
-    metrics::Measurement,
     state_machine::{
         phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Unmask},
         requests::{StateMachineRequest, Sum2Request},
@@ -13,23 +11,22 @@ use crate::{
     },
     storage::{CoordinatorStorage, ModelStorage},
 };
-use xaynet_core::mask::Aggregation;
+use xaynet_core::{
+    mask::{Aggregation, MaskObject},
+    SumParticipantPublicKey,
+};
 
-/// Sum2 state
+/// The sum2 state.
 #[derive(Debug)]
 pub struct Sum2 {
     /// The aggregator for masked models.
     model_agg: Aggregation,
-
-    /// The number of Sum2 messages successfully processed.
-    sum2_count: u64,
-}
-
-#[cfg(test)]
-impl Sum2 {
-    pub fn aggregation(&self) -> &Aggregation {
-        &self.model_agg
-    }
+    /// The number of sum2 messages successfully processed.
+    accepted: u64,
+    /// The number of sum2 messages failed to processed.
+    rejected: u64,
+    /// The number of sum2 messages discarded without being processed.
+    discarded: u64,
 }
 
 #[async_trait]
@@ -41,21 +38,28 @@ where
 {
     const NAME: PhaseName = PhaseName::Sum2;
 
-    /// Run the sum2 phase
-    ///
-    /// See the [module level documentation](../index.html) for more details.
     async fn run(&mut self) -> Result<(), PhaseStateError> {
         let min_time = self.shared.state.min_sum_time;
-        debug!("in sum2 phase for a minimum of {} seconds", min_time);
+        let max_time = self.shared.state.max_sum_time;
+        debug!(
+            "in sum2 phase for min {} and max {} seconds",
+            min_time, max_time,
+        );
         self.process_during(Duration::from_secs(min_time)).await?;
 
-        let time_left = self.shared.state.max_sum_time - min_time;
+        let time_left = max_time - min_time;
         timeout(Duration::from_secs(time_left), self.process_until_enough()).await??;
 
         info!(
-            "{} sum2 messages handled (min {} required)",
-            self.private.sum2_count, self.shared.state.min_sum_count
+            "in total {} sum2 messages accepted (min {} and max {} required)",
+            self.private.accepted, self.shared.state.min_sum_count, self.shared.state.max_sum_count,
         );
+        info!("in total {} sum2 messages rejected", self.private.rejected);
+        info!(
+            "in total {} sum2 messages discarded",
+            self.private.discarded,
+        );
+
         Ok(())
     }
 
@@ -67,53 +71,48 @@ where
     }
 }
 
-impl<C, M> PhaseState<Sum2, C, M>
-where
-    Self: Handler + Phase<C, M>,
-    C: CoordinatorStorage,
-    M: ModelStorage,
-{
-    /// Processes requests until there are enough.
-    async fn process_until_enough(&mut self) -> Result<(), PhaseStateError> {
-        while !self.has_enough_sum2s() {
-            debug!(
-                "{} sum2 messages handled (min {} required)",
-                self.private.sum2_count, self.shared.state.min_sum_count
-            );
-            self.process_next().await?;
-        }
-        Ok(())
-    }
-
-    fn increment_message_metric(&self) {
-        metric!(
-            Measurement::MessageSum2,
-            1,
-            ("round_id", self.shared.state.round_id),
-            ("phase", Self::NAME as u8)
-        );
-    }
-}
-
 #[async_trait]
 impl<C, M> Handler for PhaseState<Sum2, C, M>
 where
     C: CoordinatorStorage,
     M: ModelStorage,
 {
-    /// Handles a [`StateMachineRequest`],
-    ///
-    /// If the request is a [`StateMachineRequest::Sum`] or
-    /// [`StateMachineRequest::Update`] request, the request sender
-    /// will receive a [`RequestError::MessageRejected`].
     async fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), RequestError> {
-        match req {
-            StateMachineRequest::Sum2(sum2_req) => self.handle_sum2(sum2_req).await.map(|res| {
-                self.increment_message_metric();
-                res
-            }),
-            _ => Err(RequestError::MessageRejected),
+        if let StateMachineRequest::Sum2(Sum2Request {
+            participant_pk,
+            model_mask,
+        }) = req
+        {
+            self.update_mask_dict(participant_pk, model_mask).await
+        } else {
+            Err(RequestError::MessageRejected)
         }
+    }
+
+    fn has_enough_messages(&self) -> bool {
+        self.private.accepted >= self.shared.state.min_sum_count
+    }
+
+    fn has_overmuch_messages(&self) -> bool {
+        self.private.accepted >= self.shared.state.max_sum_count
+    }
+
+    fn increment_accepted(&mut self) {
+        self.private.accepted += 1;
+        debug!(
+            "{} sum2 messages accepted (min {} and max {} required)",
+            self.private.accepted, self.shared.state.min_sum_count, self.shared.state.max_sum_count,
+        );
+    }
+
+    fn increment_rejected(&mut self) {
+        self.private.rejected += 1;
+        debug!("{} sum2 messages rejected", self.private.rejected);
+    }
+
+    fn increment_discarded(&mut self) {
+        self.private.discarded += 1;
+        debug!("{} sum2 messages discarded", self.private.discarded);
     }
 }
 
@@ -127,50 +126,34 @@ where
         Self {
             private: Sum2 {
                 model_agg,
-                sum2_count: 0,
+                accepted: 0,
+                rejected: 0,
+                discarded: 0,
             },
             shared,
         }
     }
 
-    /// Handles a sum2 request by adding a mask to the mask dictionary.
-    ///
-    /// # Errors
-    ///
-    /// Fails if the mask score cannot be incremented due to a PET or [`StorageError`].
-    async fn handle_sum2(&mut self, req: Sum2Request) -> Result<(), RequestError> {
-        let Sum2Request {
-            participant_pk,
-            model_mask,
-        } = req;
-
+    /// Updates the mask dict with a sum2 participant request.
+    async fn update_mask_dict(
+        &mut self,
+        participant_pk: SumParticipantPublicKey,
+        model_mask: MaskObject,
+    ) -> Result<(), RequestError> {
         self.shared
             .store
             .incr_mask_score(&participant_pk, &model_mask)
             .await?
-            .into_inner()?;
-
-        self.private.sum2_count += 1;
-        Ok(())
-    }
-
-    /// Checks whether enough sum participants submitted their masks to start the unmask phase.
-    fn has_enough_sum2s(&self) -> bool {
-        self.private.sum2_count >= self.shared.state.min_sum_count
+            .into_inner()
+            .map_err(RequestError::from)
     }
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use std::collections::HashMap;
 
     use serial_test::serial;
-    use xaynet_core::{
-        common::{RoundParameters, RoundSeed},
-        crypto::{ByteObject, EncryptKeyPair},
-        mask::{FromPrimitives, Model},
-        SumDict,
-    };
 
     use super::*;
     use crate::{
@@ -183,6 +166,18 @@ mod test {
         },
         storage::tests::init_store,
     };
+    use xaynet_core::{
+        common::{RoundParameters, RoundSeed},
+        crypto::{ByteObject, EncryptKeyPair},
+        mask::{FromPrimitives, Model},
+        SumDict,
+    };
+
+    impl Sum2 {
+        pub fn aggregation(&self) -> &Aggregation {
+            &self.model_agg
+        }
+    }
 
     #[tokio::test]
     #[serial]
@@ -228,12 +223,16 @@ mod test {
             .with_seed(round_params.seed.clone())
             .with_phase(Sum2 {
                 model_agg: agg,
-                sum2_count: 0,
+                accepted: 0,
+                rejected: 0,
+                discarded: 0,
             })
             .with_sum_ratio(round_params.sum)
             .with_update_ratio(round_params.update)
-            .with_min_sum(n_summers)
-            .with_min_update(n_updaters)
+            .with_min_sum_count(n_summers)
+            .with_max_sum_count(n_summers + 10)
+            .with_min_update_count(n_updaters)
+            .with_max_update_count(n_updaters + 10)
             .with_min_sum_time(1)
             .with_max_sum_time(2)
             .with_mask_config(utils::mask_settings().into())

@@ -79,12 +79,12 @@ macro_rules! event {
 /// ```
 #[macro_export]
 macro_rules! metric {
-    ($measurement: expr, $value: expr) => {
+    ($measurement: expr, $value: expr $(,)?) => {
         if let Some(recorder) = crate::metrics::GlobalRecorder::global() {
             recorder.metric($measurement, $value, None)
         }
     };
-    ($measurement: expr, $value: expr, $($tag: expr),*) => {
+    ($measurement: expr, $value: expr, $($tag: expr),+ $(,)?) => {
         if let Some(recorder) = crate::metrics::GlobalRecorder::global() {
             let mut tags = crate::metrics::Tags::new();
 

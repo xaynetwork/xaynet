@@ -37,7 +37,7 @@ use crate::{
     storage::{CoordinatorStorage, ModelStorage, Store},
 };
 
-/// Name of the current phase
+/// The name of the current phase.
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum PhaseName {
     Idle,
@@ -56,13 +56,17 @@ where
     C: CoordinatorStorage,
     M: ModelStorage,
 {
-    /// Name of the current phase
+    /// The name of the current phase.
     const NAME: PhaseName;
 
-    /// Run this phase to completion
+    /// Runs this phase to completion.
+    ///
+    /// See the [module level documentation](../index.html) for more details.
     async fn run(&mut self) -> Result<(), PhaseStateError>;
 
     /// Moves from this state to the next state.
+    ///
+    /// See the [module level documentation](../index.html) for more details.
     fn next(self) -> Option<StateMachine<C, M>>;
 }
 
@@ -70,7 +74,25 @@ where
 #[async_trait]
 pub trait Handler {
     /// Handles a request.
+    ///
+    /// # Errors
+    /// Fails on PET and storage errors.
     async fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), RequestError>;
+
+    /// Checks whether enough requests have been processed successfully wrt the PET settings.
+    fn has_enough_messages(&self) -> bool;
+
+    /// Checks whether too many requests are processed wrt the PET settings.
+    fn has_overmuch_messages(&self) -> bool;
+
+    /// Increments the counter for accepted requests.
+    fn increment_accepted(&mut self);
+
+    /// Increments the counter for rejected requests.
+    fn increment_rejected(&mut self);
+
+    /// Increments the counter for discarded requests.
+    fn increment_discarded(&mut self);
 }
 
 /// A struct that contains the coordinator state and the I/O interfaces that are shared and
@@ -109,6 +131,7 @@ where
     C: CoordinatorStorage,
     M: ModelStorage,
 {
+    /// Creates a new shared state.
     pub fn new(
         coordinator_state: CoordinatorState,
         publisher: EventPublisher,
@@ -123,13 +146,13 @@ where
         }
     }
 
-    /// Set the round ID to the given value
+    /// Sets the round ID to the given value.
     pub fn set_round_id(&mut self, id: u64) {
         self.state.round_id = id;
         self.events.set_round_id(id);
     }
 
-    /// Return the current round ID
+    /// Returns the current round ID.
     pub fn round_id(&self) -> u64 {
         self.state.round_id
     }
@@ -158,6 +181,8 @@ where
 {
     /// Processes requests for as long as the given duration.
     async fn process_during(&mut self, dur: tokio::time::Duration) -> Result<(), PhaseStateError> {
+        // even though this is called a `Delay` it is actually a fixed deadline, hence the loop
+        // below doesn't start the delay again at each iteration and just checks for the deadline
         let mut delay = tokio::time::delay_for(dur);
 
         loop {
@@ -174,10 +199,12 @@ where
         }
     }
 
-    /// Processes the next available request.
-    async fn process_next(&mut self) -> Result<(), PhaseStateError> {
-        let (req, span, resp_tx) = self.next_request().await?;
-        self.process_single(req, span, resp_tx).await;
+    /// Processes requests until there are enough.
+    async fn process_until_enough(&mut self) -> Result<(), PhaseStateError> {
+        while !self.has_enough_messages() {
+            let (req, span, resp_tx) = self.next_request().await?;
+            self.process_single(req, span, resp_tx).await;
+        }
         Ok(())
     }
 
@@ -189,21 +216,56 @@ where
         resp_tx: ResponseSender,
     ) {
         let _span_guard = span.enter();
-        let res = self.handle_request(req).await;
 
-        if let Err(ref err) = res {
-            warn!("failed to handle message: {}", err);
+        let res = if self.has_overmuch_messages() {
+            // discard if the maximum message count is reached
+            self.increment_discarded();
             metric!(
-                Measurement::MessageRejected,
+                Measurement::MessageDiscarded,
                 1,
                 ("round_id", self.shared.state.round_id),
                 ("phase", Self::NAME as u8)
             );
-        }
+            Err(RequestError::MessageDiscarded)
+        } else {
+            match self.handle_request(req).await {
+                // accept if processed successfully
+                ok @ Ok(_) => {
+                    self.increment_accepted();
+                    // TODO: currently the metric! macro contains redundant information in case of
+                    // accepted messages: the `Measurement::MessageSum/Update/Sum2` as well as the
+                    // ("phase", name_u8). once we change those three enum variants to just one
+                    // `Measurement::MessageAccepted` we don't need this match workaround and can
+                    // call metric! directly.
+                    metric!(
+                        match Self::NAME {
+                            PhaseName::Sum => Measurement::MessageSum,
+                            PhaseName::Update => Measurement::MessageUpdate,
+                            PhaseName::Sum2 => Measurement::MessageSum2,
+                            _ => unreachable!(),
+                        },
+                        1,
+                        ("round_id", self.shared.state.round_id),
+                        ("phase", Self::NAME as u8)
+                    );
+                    ok
+                }
+                // otherwise reject
+                error @ Err(_) => {
+                    self.increment_rejected();
+                    metric!(
+                        Measurement::MessageRejected,
+                        1,
+                        ("round_id", self.shared.state.round_id),
+                        ("phase", Self::NAME as u8)
+                    );
+                    error
+                }
+            }
+        };
 
-        // This may error out if the receiver has already be dropped but
-        // it doesn't matter for us.
-        let _ = resp_tx.send(res.map_err(Into::into));
+        // This may error out if the receiver has already been dropped but it doesn't matter for us.
+        let _ = resp_tx.send(res);
     }
 }
 
@@ -319,9 +381,10 @@ where
 
 #[cfg(test)]
 mod tests {
+    use serial_test::serial;
+
     use super::*;
     use crate::{state_machine::tests::utils, storage::tests::init_store};
-    use serial_test::serial;
 
     #[tokio::test]
     #[serial]

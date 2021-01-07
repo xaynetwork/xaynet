@@ -77,11 +77,6 @@ where
 {
     const NAME: PhaseName = PhaseName::Error;
 
-    /// Runs the error phase.
-    ///
-    /// # Behavior
-    ///
-    /// The state machine remains in the error phase until the [`crate::storage::Store`] is ready.
     async fn run(&mut self) -> Result<(), PhaseStateError> {
         error!("phase state error: {}", self.private);
 
@@ -92,9 +87,6 @@ where
         Ok(())
     }
 
-    /// Moves from the error phase to the next phase.
-    ///
-    /// See the [module level documentation](../index.html) for more details.
     fn next(self) -> Option<StateMachine<C, M>> {
         Some(match self.private {
             PhaseStateError::RequestChannel(_) => {
