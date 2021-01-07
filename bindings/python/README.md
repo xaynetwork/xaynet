@@ -137,7 +137,7 @@ class ParticipantABC(ABC):
         """
         A callback used by the `InternalParticipant` to determine whether the
         `train_round` method should be called. This callback is only called
-        if the participant is selected as a update participant. If `participate_in_update_task`
+        if the participant is selected as an update participant. If `participate_in_update_task`
         returns the `False`, `train_round` will not be called by the `InternalParticipant`.
 
         If the method is not overridden, it returns `True` by default.
