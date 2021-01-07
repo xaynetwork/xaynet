@@ -28,6 +28,7 @@ mod pv {
 ///
 /// [`::std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
 /// [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
+/// [`xaynet_ffi_participant_local_model_config()`]: crate::ffi::xaynet_ffi_participant_local_model_config
 #[no_mangle]
 pub unsafe extern "C" fn xaynet_ffi_local_model_config_destroy(
     local_model_config: *mut LocalModelConfig,
@@ -40,7 +41,9 @@ pub unsafe extern "C" fn xaynet_ffi_local_model_config_destroy(
 }
 
 #[repr(C)]
-/// The model configuration of the model that is expected in [`xaynet_ffi_participant_set_model`].
+/// The model configuration of the model that is expected in [`xaynet_ffi_participant_set_model()`].
+///
+/// [`xaynet_ffi_participant_set_model()`]: crate::ffi::xaynet_ffi_participant_set_model
 pub struct LocalModelConfig {
     /// The expected data type of the model.
     pub data_type: ModelDataType,

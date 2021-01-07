@@ -396,6 +396,8 @@ pub unsafe extern "C" fn xaynet_ffi_participant_set_model(
 ///      documentation.
 /// 2. If `len` or `data_type` do not match the model in `buffer`, this method will
 ///    result in a buffer over-read.
+///
+/// [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
 #[no_mangle]
 pub unsafe extern "C" fn xaynet_ffi_participant_global_model(
     participant: *mut Participant,
@@ -453,7 +455,7 @@ macro_rules! into_primitives {
 }
 
 /// Return the local model configuration of the model that is expected in the
-/// [`xaynet_ffi_participant_set_model`] function.
+/// [`xaynet_ffi_participant_set_model()`] function.
 ///
 /// # Safety
 ///
@@ -462,6 +464,8 @@ macro_rules! into_primitives {
 ///    - The pointer must be properly [aligned].
 ///    - It must be "dereferencable" in the sense defined in the [`::std::ptr`] module
 ///      documentation.
+///
+/// [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
 #[no_mangle]
 pub unsafe extern "C" fn xaynet_ffi_participant_local_model_config(
     participant: *const Participant,
