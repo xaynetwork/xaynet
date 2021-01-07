@@ -48,7 +48,7 @@ they use [`xaynet-mobile`](../../rust/xaynet-mobile/) via
 
 The `ParticipantABC` API is similar to the old one which we introduced in
 [`v0.8.0`](https://github.com/xaynetwork/xaynet/blob/v0.8.0/python/sdk/xain_sdk/participant.py#L24).
-The only difference is that the new participant now runs in it's own thread and provides additional
+The only difference is that the new participant now runs in its own thread and provides additional
 helpful methods.
 
 ![ParticipantABC](../../assets/python_participant.svg)
