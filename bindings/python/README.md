@@ -92,7 +92,7 @@ def spawn_participant(
 class ParticipantABC(ABC):
     def train_round(self, training_input: Optional[TrainingInput]) -> TrainingResult:
         """
-        Trains a model. `training_input` is hte deserialized global model
+        Trains a model. `training_input` is the deserialized global model
         (see `deserialize_training_input`). If no global model exists
         (usually in the first round), `training_input` will be `None`.
         In this case the weights of the model should be initialized and returned.
