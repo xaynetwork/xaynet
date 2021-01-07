@@ -25,7 +25,7 @@ class DataHandler(ABC):  # pylint: disable=too-many-instance-attributes
 
                 - `iid`: meaning samples are randomely assigned to
                   participants.
-                - `intermediate`: half of the samples are randomely
+                - `intermediate`: half of the samples are randomly
                     assigned to participants, half of the samples
                     follow the 'total_split' logic.
                 - `total_split`: if there are more participants than
