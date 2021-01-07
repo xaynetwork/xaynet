@@ -20,7 +20,7 @@ class ParticipantABC(ABC):
     @abstractmethod
     def train_round(self, training_input: Optional[TrainingInput]) -> TrainingResult:
         """
-        Trains a model. `training_input` is hte deserialized global model
+        Trains a model. `training_input` is the deserialized global model
         (see `deserialize_training_input`). If no global model exists
         (usually in the first round), `training_input` will be `None`.
         In this case the weights of the model should be initialized and returned.
@@ -66,15 +66,11 @@ class ParticipantABC(ABC):
         """
         raise NotImplementedError()
 
-    # FIXME: make it possible in the participant state machine to skip a task
-    # def participate_in_sum_task(self) -> bool:
-    #     True
-
     def participate_in_update_task(self) -> bool:
         """
         A callback used by the `InternalParticipant` to determine whether the
         `train_round` method should be called. This callback is only called
-        if the participant is selected as a update participant. If `participate_in_update_task`
+        if the participant is selected as an update participant. If `participate_in_update_task`
         returns the `False`, `train_round` will not be called by the `InternalParticipant`.
 
         If the method is not overridden, it returns `True` by default.
@@ -245,10 +241,3 @@ class InternalParticipant(threading.Thread):
             LOG.debug("participant stopped")
         self._participant.on_stop()
         return state
-
-
-# FIXME: wait for participate_in_sum_task
-# class Task(Enum):
-#     NONE = 0
-#     SUM = 1
-#     UPDATE = 2

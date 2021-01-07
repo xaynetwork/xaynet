@@ -86,7 +86,6 @@ class Participant(  # pylint: disable=too-few-public-methods,too-many-instance-a
             return self.regressor.get_weights()
 
         weights = training_input
-        # FIXME: what should this be?
         epochs = 10
         self.regressor.set_weights(weights)
         self.regressor.train_n_epochs(epochs, self.trainset_x, self.trainset_y)
