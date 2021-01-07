@@ -23,9 +23,9 @@ pub struct StateMachine {
 impl StateMachine {
     /// Create a new service with the given handle for forwarding
     /// requests to the state machine. The handle should be obtained
-    /// via [`StateMachine::new`].
+    /// via [`init()`].
     ///
-    /// [`StateMachine::new`]: crate::state_machine::StateMachine::new
+    /// [`init()`]: crate::state_machine::initializer::StateMachineInitializer::init
     pub fn new(handle: RequestSender) -> Self {
         Self { handle }
     }

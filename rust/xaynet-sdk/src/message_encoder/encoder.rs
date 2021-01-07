@@ -109,7 +109,7 @@ impl MessageEncoder {
     ///
     /// # Errors
     ///
-    /// An [`InvalidPayload`] error is returned when `payload` is of
+    /// An [`InvalidEncodingInput`] error is returned when `payload` is of
     /// type [`Payload::Chunk`]. Only [`Payload::Sum`],
     /// [`Payload::Update`], [`Payload::Sum2`] are accepted.
     pub fn new(

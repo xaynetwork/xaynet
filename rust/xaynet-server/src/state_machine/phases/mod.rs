@@ -342,10 +342,10 @@ where
     C: CoordinatorStorage,
     M: ModelStorage,
 {
-    /// Receives the next [`Request`].
+    /// Receives the next [`StateMachineRequest`].
     ///
     /// # Errors
-    /// Returns [`StateError::ChannelError`] when all sender halves have been dropped.
+    /// Returns [`PhaseStateError::RequestChannel`] when all sender halves have been dropped.
     async fn next_request(
         &mut self,
     ) -> Result<(StateMachineRequest, Span, ResponseSender), PhaseStateError> {
