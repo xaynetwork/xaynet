@@ -241,22 +241,6 @@ impl<P> Phase<P> {
         .unwrap()
     }
 
-    /// Send the message created by the given message encoder.
-    ///
-    /// If the message is split in multiple parts, they are sent sequentially. If a
-    /// single part fails, the remaining parts are not sent. There is no retry
-    /// mechanism.
-    pub async fn send_message(&mut self, encoder: MessageEncoder) -> Result<(), SendMessageError> {
-        for part in encoder {
-            let data = self.state.shared.round_params.pk.encrypt(part.as_slice());
-            self.io.send_message(data).await.map_err(|e| {
-                error!("failed to send message: {:?}", e);
-                SendMessageError
-            })?
-        }
-        Ok(())
-    }
-
     /// Return the local model configuration of the model that is expected in the update phase.
     pub fn local_model_config(&self) -> LocalModelConfig {
         LocalModelConfig {

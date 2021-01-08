@@ -75,7 +75,7 @@ impl Phase<Sending> {
         }
     }
 
-    async fn send_some(mut self) -> Progress<Sending> {
+    async fn send_next(mut self) -> Progress<Sending> {
         if let Some(data) = self.state.private.failed.take() {
             debug!("retrying to send message that couldn't be sent previously");
             self.try_send(data).await
@@ -98,7 +98,7 @@ impl Phase<Sending> {
 impl Step for Phase<Sending> {
     async fn step(mut self) -> TransitionOutcome {
         info!("sending task");
-        self = try_progress!(self.send_some().await);
+        self = try_progress!(self.send_next().await);
         info!("done sending");
         match self.state.private.next {
             Next::Sum2(sum2) => {
