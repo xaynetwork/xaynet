@@ -30,16 +30,16 @@ fn make_phase(io: MockIO) -> Phase<Sum> {
     phase
 }
 
-fn make_sum(shared: &SharedState) -> Sum {
+fn make_sum(shared: &SharedState) -> Box<Sum> {
     let ephm_keys = EncryptKeyPair::derive_from_seed(&EncryptKeySeed::zeroed());
     let sk = &shared.keys.secret;
     let seed = shared.round_params.seed.as_slice();
     let signature = sk.sign_detached(&[seed, b"sum"].concat());
-    Sum {
+    Box::new(Sum {
         ephm_keys,
         sum_signature: signature,
         message: None,
-    }
+    })
 }
 
 async fn check_step_1() -> Phase<Sum> {

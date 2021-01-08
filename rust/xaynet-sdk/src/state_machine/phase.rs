@@ -21,14 +21,14 @@ use xaynet_core::{
 #[derive(Debug, Serialize, Deserialize)]
 pub struct State<P> {
     /// data specific to the current phase
-    pub private: P,
+    pub private: Box<P>,
     /// data common to most of the phases
-    pub shared: SharedState,
+    pub shared: Box<SharedState>,
 }
 
 impl<P> State<P> {
     /// Create a new state
-    pub fn new(shared: SharedState, private: P) -> Self {
+    pub fn new(shared: Box<SharedState>, private: Box<P>) -> Self {
         Self { shared, private }
     }
 }
@@ -131,17 +131,13 @@ macro_rules! try_progress {
 }
 
 /// Represent the presence or absence of progress being made during a phase.
-#[allow(clippy::large_enum_variant)]
 #[derive(Debug)]
 pub enum Progress<P> {
     /// No progress can be made currently.
     Stuck(Phase<P>),
-    /// More work needs to be done for progress to be made
+    /// More work needs to be done for progress to be made.
     Continue(Phase<P>),
-    /// Progress has been made and resulted in this new state machine
-    // FIXME: Box this? Not sure this is actually needed. Clippy
-    // reports that the size of Phase<P> is 0 but that's clearly
-    // wrong. It should be close to the StateMachine size actually.
+    /// Progress has been made and resulted in this new state machine.
     Updated(StateMachine),
 }
 
@@ -168,7 +164,11 @@ where
                 info!("a new round started: updating the round parameters and resetting the state machine");
                 self.io.notify_new_round();
                 TransitionOutcome::Complete(
-                    Phase::<NewRound>::new(State::new(self.state.shared, NewRound), self.io).into(),
+                    Phase::<NewRound>::new(
+                        State::new(self.state.shared, Box::new(NewRound)),
+                        self.io,
+                    )
+                    .into(),
                 )
             }
             RoundFreshness::Fresh => {
@@ -220,7 +220,7 @@ impl<P> Phase<P> {
 
     /// Transition to the awaiting phase
     pub fn into_awaiting(self) -> Phase<Awaiting> {
-        State::new(self.state.shared, Awaiting).into_phase(self.io)
+        State::new(self.state.shared, Box::new(Awaiting)).into_phase(self.io)
     }
 
     /// Send the message created by the given message encoder.
@@ -322,12 +322,10 @@ pub enum RoundFreshness {
 /// let state: State<???> = State::deserialize(&buf[..]).unwrap();
 /// ```
 #[derive(Serialize, Deserialize, From, Debug)]
-#[allow(clippy::large_enum_variant)]
 pub enum SerializableState {
     NewRound(State<NewRound>),
     Awaiting(State<Awaiting>),
     Sum(State<Sum>),
-    // FIXME: this should be boxed...
     Update(State<Update>),
     Sum2(State<Sum2>),
 }

@@ -58,13 +58,13 @@ impl Phase<NewRound> {
     }
 
     fn into_sum(self, sum_signature: Signature) -> Phase<Sum> {
-        let sum = Sum::new(sum_signature);
+        let sum = Box::new(Sum::new(sum_signature));
         let state = State::new(self.state.shared, sum);
         state.into_phase(self.io)
     }
 
     fn into_update(self, sum_signature: Signature, update_signature: Signature) -> Phase<Update> {
-        let update = Update::new(sum_signature, update_signature);
+        let update = Box::new(Update::new(sum_signature, update_signature));
         let state = State::new(self.state.shared, update);
         state.into_phase(self.io)
     }

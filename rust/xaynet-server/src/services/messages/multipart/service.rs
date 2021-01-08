@@ -18,7 +18,9 @@ use xaynet_core::{
 
 /// A `MessageBuilder` stores chunks of a multipart message. Once it
 /// has all the chunks, it can be consumed and turned into a
-/// full-blown [`Message`] (see [`into_message`]).
+/// full-blown [`Message`] (see [`into_message()`]).
+///
+/// [`into_message()`]: MessageBuilder::into_message
 #[derive(Debug)]
 #[cfg_attr(test, derive(Clone))]
 pub struct MessageBuilder {

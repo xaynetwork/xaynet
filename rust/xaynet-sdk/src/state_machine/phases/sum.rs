@@ -74,10 +74,10 @@ impl Phase<Sum> {
     }
 
     pub fn into_sum2(self) -> Phase<Sum2> {
-        let sum2 = Sum2::new(
+        let sum2 = Box::new(Sum2::new(
             self.state.private.ephm_keys,
             self.state.private.sum_signature,
-        );
+        ));
         let state = State::new(self.state.shared, sum2);
         state.into_phase(self.io)
     }

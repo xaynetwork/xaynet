@@ -79,7 +79,9 @@ impl<T: AsRef<[u8]>> MaskVectBuffer<T> {
 
     /// Return the expected length of the underlying byte buffer,
     /// based on the masking config field of numbers field. This is
-    /// similar to [`len`] but cannot panic.
+    /// similar to [`len()`] but cannot panic.
+    ///
+    /// [`len()`]: MaskVectBuffer::len
     fn try_len(&self) -> Result<usize, DecodeError> {
         let config =
             MaskConfig::from_byte_slice(&self.config()).context("invalid mask vector buffer")?;

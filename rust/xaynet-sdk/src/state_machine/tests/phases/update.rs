@@ -36,12 +36,12 @@ fn make_phase() -> Phase<Update> {
     phase
 }
 
-fn make_update(shared: &SharedState) -> Update {
+fn make_update(shared: &SharedState) -> Box<Update> {
     let sk = &shared.keys.secret;
     let seed = shared.round_params.seed.as_slice();
     let sum_signature = sk.sign_detached(&[seed, b"sum"].concat());
     let update_signature = sk.sign_detached(&[seed, b"update"].concat());
-    Update {
+    Box::new(Update {
         sum_signature,
         update_signature,
         sum_dict: None,
@@ -49,7 +49,7 @@ fn make_update(shared: &SharedState) -> Update {
         model: None,
         mask: None,
         message: None,
-    }
+    })
 }
 
 fn make_model() -> Model {
