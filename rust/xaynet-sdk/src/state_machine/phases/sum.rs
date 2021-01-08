@@ -55,12 +55,12 @@ impl Phase<Sum> {
         let message = self.compose_sum_message();
 
         debug!("going to sending phase");
-        let sum2 = Box::new(Sum2::new(
+        let sum2 = Sum2::new(
             self.state.private.ephm_keys,
             self.state.private.sum_signature,
-        ));
+        );
         let sending = Sending::from_sum(message, sum2);
-        let state = State::new(self.state.shared, sending);
+        let state = State::new(self.state.shared, Box::new(sending));
         state.into_phase(self.io)
     }
 }

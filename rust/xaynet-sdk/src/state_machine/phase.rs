@@ -256,7 +256,7 @@ impl<P> Phase<P> {
         }
         Ok(())
     }
-    
+
     /// Return the local model configuration of the model that is expected in the update phase.
     pub fn local_model_config(&self) -> LocalModelConfig {
         LocalModelConfig {
@@ -264,8 +264,6 @@ impl<P> Phase<P> {
             len: self.state.shared.round_params.model_length,
         }
     }
-
-
 
     #[cfg(test)]
     pub(crate) fn with_io_mock<F>(&mut self, f: F)

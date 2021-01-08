@@ -78,6 +78,7 @@ impl StateMachine {
             StateMachine::Sum(ref phase) => phase.local_model_config(),
             StateMachine::Update(ref phase) => phase.local_model_config(),
             StateMachine::Sum2(ref phase) => phase.local_model_config(),
+            StateMachine::Sending(ref phase) => phase.local_model_config(),
         }
     }
 }

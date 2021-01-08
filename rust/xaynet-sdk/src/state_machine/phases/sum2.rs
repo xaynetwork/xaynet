@@ -164,7 +164,7 @@ impl Phase<Sum2> {
 
         debug!("going to sending phase");
         let sending = Sending::from_sum2(message);
-        let state = State::new(self.state.shared, sending);
+        let state = State::new(self.state.shared, Box::new(sending));
         state.into_phase(self.io)
     }
 }

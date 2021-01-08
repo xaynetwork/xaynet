@@ -102,7 +102,7 @@ impl Step for Phase<Sending> {
         info!("done sending");
         match self.state.private.next {
             Next::Sum2(sum2) => {
-                let state = State::new(self.state.shared, sum2);
+                let state = State::new(self.state.shared, Box::new(sum2));
                 TransitionOutcome::Complete(state.into_phase(self.io).into())
             }
             Next::Awaiting => {
