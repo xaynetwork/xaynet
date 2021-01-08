@@ -77,7 +77,7 @@ impl Phase<Sending> {
 
     async fn send_some(mut self) -> Progress<Sending> {
         if let Some(data) = self.state.private.failed.take() {
-            debug!("retrying to send message that couldn't be send previously");
+            debug!("retrying to send message that couldn't be sent previously");
             self.try_send(data).await
         } else {
             match self.state.private.message.next() {
