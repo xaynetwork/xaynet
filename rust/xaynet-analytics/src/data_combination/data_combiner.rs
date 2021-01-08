@@ -1,13 +1,13 @@
 use chrono::{DateTime, Datelike, Duration, NaiveDate, Utc};
 
 use crate::{
-    data_combiner::data_points::data_point::{CalculateDataPoints, DataPoints, DataPointMetadata, Period, PeriodUnit},
-    data_combiner::data_points::screen_active_time::ScreenActiveTime,
-    data_combiner::data_points::screen_enter_count::ScreenEnterCount,
-    data_combiner::data_points::was_active_each_past_period::WasActiveEachPastPeriod,
-    data_combiner::data_points::was_active_past_n_days::WasActivePastNDays,
-    repo::analytics_event::AnalyticsEvent,
-    repo::repo::Repository,
+    data_combination::data_points::data_point::{CalculateDataPoints, DataPoints, DataPointMetadata, Period, PeriodUnit},
+    data_combination::data_points::screen_active_time::ScreenActiveTime,
+    data_combination::data_points::screen_enter_count::ScreenEnterCount,
+    data_combination::data_points::was_active_each_past_period::WasActiveEachPastPeriod,
+    data_combination::data_points::was_active_past_n_days::WasActivePastNDays,
+    data_provision::analytics_event::AnalyticsEvent,
+    data_provision::data_provider::DataProvider,
 };
 
 pub struct DataCombiner<R> {
@@ -16,10 +16,10 @@ pub struct DataCombiner<R> {
 
 impl<R> DataCombiner<R>
 where
-    R: Repository,
+    R: DataProvider,
 {
 
-    pub fn new(repo: Box<impl Repository>) -> DataCombiner<impl Repository> {
+    pub fn new(repo: Box<impl DataProvider>) -> DataCombiner<impl DataProvider> {
         DataCombiner { repo }
     }
 

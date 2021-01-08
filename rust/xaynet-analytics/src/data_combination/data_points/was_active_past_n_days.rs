@@ -1,6 +1,6 @@
 use crate::{
-    data_combiner::data_points::data_point::{CalculateDataPoints, DataPointMetadata},
-    repo::analytics_event::AnalyticsEvent,
+    data_combination::data_points::data_point::{CalculateDataPoints, DataPointMetadata},
+    data_provision::analytics_event::AnalyticsEvent,
 };
 
 // TODO: accept an iterator instead of Vec: https://xainag.atlassian.net/browse/XN-1517

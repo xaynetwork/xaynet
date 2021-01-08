@@ -1,15 +1,15 @@
-use crate::repo::analytics_event::AnalyticsEvent;
+use crate::data_provision::analytics_event::AnalyticsEvent;
 
-pub trait Repository: Sized {
+pub trait DataProvider: Sized {
     // TODO: return an iterator instead of Vec: https://xainag.atlassian.net/browse/XN-1517
     fn get_all_events(&self) -> Vec<AnalyticsEvent>;
 
     fn get_all_routes(&self) -> Vec<String>;
 }
 
-pub struct XayNetRepo {}
+pub struct AnalyticsDataProvider {}
 
-impl Repository for XayNetRepo {
+impl DataProvider for AnalyticsDataProvider {
     fn get_all_events(&self) -> Vec<AnalyticsEvent> {
         // TODO: https://xainag.atlassian.net/browse/XN-1409
         unimplemented!()
@@ -21,9 +21,9 @@ impl Repository for XayNetRepo {
     }
 }
 
-pub struct MockRepo {}
+pub struct MockAnalyticsDataProvider {}
 
-impl Repository for MockRepo {
+impl DataProvider for MockAnalyticsDataProvider {
     fn get_all_events(&self) -> Vec<AnalyticsEvent> {
         // TODO will return hardcoded list of events for testings
         unimplemented!()

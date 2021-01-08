@@ -1,2 +1,2 @@
 pub mod analytics_event;
-pub mod repo;
+pub mod data_provider;
