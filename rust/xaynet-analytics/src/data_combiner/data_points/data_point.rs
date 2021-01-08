@@ -5,7 +5,6 @@ pub enum PeriodUnit {
     Days,
     Weeks,
     Months,
-    Any,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]

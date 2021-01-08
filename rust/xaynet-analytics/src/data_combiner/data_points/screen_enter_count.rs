@@ -1,6 +1,9 @@
-use crate::data_combiner::data_points::data_point::{CalculateDataPoints, DataPointMetadata};
-use crate::repo::analytics_event::{AnalyticsEvent, AnalyticsEventType};
+use crate::{
+    data_combiner::data_points::data_point::{CalculateDataPoints, DataPointMetadata},
+    repo::analytics_event::{AnalyticsEvent, AnalyticsEventType},
+};
 
+// TODO: accept an iterator instead of Vec: https://xainag.atlassian.net/browse/XN-1517
 pub struct ScreenEnterCount {
     metadata: DataPointMetadata,
     events: Vec<AnalyticsEvent>,

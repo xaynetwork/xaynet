@@ -1,6 +1,9 @@
-use crate::data_combiner::data_points::data_point::{CalculateDataPoints, DataPointMetadata};
-use crate::repo::analytics_event::AnalyticsEvent;
+use crate::{
+    data_combiner::data_points::data_point::{CalculateDataPoints, DataPointMetadata},
+    repo::analytics_event::AnalyticsEvent,
+};
 
+// TODO: accept an iterator instead of Vec: https://xainag.atlassian.net/browse/XN-1517
 pub struct WasActivePastNDays {
     metadata: DataPointMetadata,
     events: Vec<AnalyticsEvent>,

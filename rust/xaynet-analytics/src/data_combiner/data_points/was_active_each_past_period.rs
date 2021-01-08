@@ -1,10 +1,12 @@
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
-use std::time::UNIX_EPOCH;
 
-use crate::data_combiner::data_points::data_point::{CalculateDataPoints, DataPointMetadata};
-use crate::repo::analytics_event::AnalyticsEvent;
+use crate::{
+    data_combiner::data_points::data_point::{CalculateDataPoints, DataPointMetadata},
+    repo::analytics_event::AnalyticsEvent,
+};
 
+// TODO: accept an iterator instead of Vec: https://xainag.atlassian.net/browse/XN-1517
 pub struct WasActiveEachPastPeriod {
     metadata: DataPointMetadata,
     events: Vec<AnalyticsEvent>,
@@ -27,17 +29,13 @@ impl WasActiveEachPastPeriod {
     // TODO: this could possibly later be optimised by sorting events by timestamp and caching the last timestamp added to the HashMap
     fn group_timestamps_by_period_threshold(&self) -> HashMap<DateTime<Utc>, Vec<DateTime<Utc>>> {
         let mut timestamps_by_period_threshold = HashMap::new();
-        for this_threshold in self.period_thresholds.iter() {
-            let next_threshold = if this_threshold != self.period_thresholds.iter().last().unwrap()
-            {
-                **self.period_thresholds.iter().peekable().peek().unwrap()
-            } else {
-                UNIX_EPOCH.into()
-            };
+        for these_thresholds in self.period_thresholds.windows(2) {
+            let newer_threshold = these_thresholds.first().unwrap();
+            let older_threshold = these_thresholds.last().unwrap();
             for event in self.events.iter() {
-                if event.timestamp < *this_threshold && event.timestamp > next_threshold {
+                if event.timestamp < *newer_threshold && event.timestamp > *older_threshold {
                     timestamps_by_period_threshold
-                        .entry(*this_threshold)
+                        .entry(*newer_threshold)
                         .or_insert(Vec::new())
                         .push(event.timestamp);
                 }

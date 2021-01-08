@@ -1,6 +1,7 @@
 use crate::repo::analytics_event::AnalyticsEvent;
 
 pub trait Repository: Sized {
+    // TODO: return an iterator instead of Vec: https://xainag.atlassian.net/browse/XN-1517
     fn get_all_events(&self) -> Vec<AnalyticsEvent>;
 
     fn get_all_routes(&self) -> Vec<String>;

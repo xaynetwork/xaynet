@@ -1,8 +1,11 @@
 use chrono::Duration;
 
-use crate::data_combiner::data_points::data_point::{CalculateDataPoints, DataPointMetadata};
-use crate::repo::analytics_event::{AnalyticsEvent, AnalyticsEventType};
+use crate::{
+    data_combiner::data_points::data_point::{CalculateDataPoints, DataPointMetadata},
+    repo::analytics_event::{AnalyticsEvent, AnalyticsEventType},
+};
 
+// TODO: accept an iterator instead of Vec: https://xainag.atlassian.net/browse/XN-1517
 pub struct ScreenActiveTime {
     metadata: DataPointMetadata,
     events: Vec<AnalyticsEvent>,
@@ -13,6 +16,7 @@ impl ScreenActiveTime {
         ScreenActiveTime { metadata, events }
     }
 
+    // TODO: return an iterator instead of Vec: https://xainag.atlassian.net/browse/XN-1517
     fn get_screen_and_app_events(&self) -> Vec<AnalyticsEvent> {
         self.events
             .iter()
@@ -25,21 +29,6 @@ impl ScreenActiveTime {
             .cloned()
             .collect()
     }
-
-    fn calculate_duration_between_events(&self) -> Vec<Duration> {
-        let mut duration_between_events: Vec<Duration> = Vec::new();
-        let screen_and_app_events = self.get_screen_and_app_events();
-        for this_event in screen_and_app_events.iter() {
-            let has_next = this_event != screen_and_app_events.last().unwrap();
-            if has_next && this_event.event_type == AnalyticsEventType::ScreenEnter {
-                let mut peekable_events = screen_and_app_events.clone().into_iter().peekable();
-                let next_event = peekable_events.peek().unwrap();
-                let duration = next_event.timestamp - this_event.timestamp;
-                duration_between_events.push(duration);
-            }
-        }
-        duration_between_events
-    }
 }
 
 impl CalculateDataPoints for ScreenActiveTime {
@@ -48,12 +37,23 @@ impl CalculateDataPoints for ScreenActiveTime {
     }
 
     fn calculate(&self) -> Vec<u32> {
-        let duration_between_events = self.calculate_duration_between_events();
-        let durations_in_milliseconds: Vec<u32> = duration_between_events
-            .into_iter()
+        let screen_and_app_events = self.get_screen_and_app_events();
+        let value = screen_and_app_events
+            .iter()
+            .scan(
+                screen_and_app_events.first().unwrap().timestamp,
+                |last_timestamp, event| {
+                    let duration = if event.event_type == AnalyticsEventType::ScreenEnter {
+                        event.timestamp - *last_timestamp
+                    } else {
+                        Duration::zero()
+                    };
+                    *last_timestamp = event.timestamp;
+                    Some(duration)
+                }
+            )
             .map(|duration| duration.num_milliseconds() as u32)
-            .collect();
-        let value = durations_in_milliseconds.into_iter().sum();
+            .sum();
         vec![value]
     }
 }
