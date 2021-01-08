@@ -11,14 +11,10 @@ license-file = "../../LICENSE"
 keywords = ["federated-learning", "fl", "ai", "machine-learning"]
 categories = ["science", "cryptography"]
 
-[package.metadata]
-# minimum supported rust version
-msrv = "1.48.0"
-
 [dependencies]
-anyhow = "1.0.32"
+anyhow = "1.0.37"
 bitflags = "1.2.1"
-derive_more = { version = "0.99.10", default-features = false, features = [
+derive_more = { version = "0.99.11", default-features = false, features = [
     "as_ref",
     "as_mut",
     "display",
@@ -27,15 +23,15 @@ derive_more = { version = "0.99.10", default-features = false, features = [
     "index_mut",
     "into",
 ] }
-num = { version = "0.3.0", features = ["serde"] }
-rand = "0.7.3"
-rand_chacha = "0.2.2"
-serde = { version = "1.0.116", features = ["derive"] }
+num = { version = "0.3.1", features = ["serde"] }
+rand = "0.8.1"
+rand_chacha = "0.3.0"
+serde = { version = "1.0.118", features = ["derive"] }
 sodiumoxide = "0.2.6"
-thiserror = "1.0.20"
+thiserror = "1.0.23"
 
 [features]
 testutils = []
 
 [dev-dependencies]
-paste = "1.0.3"
+paste = "1.0.4"
