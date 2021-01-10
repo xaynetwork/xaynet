@@ -7,14 +7,14 @@ setup(
     author=["Xayn Engineering"],
     author_email="engineering@xaynet.dev",
     license="Apache License Version 2.0",
-    python_requires=">=3.6",
+    python_requires=">=3.7.1",
     packages=find_packages(),
     install_requires=[
         "pandas==1.2.0",
         "scikit-learn==0.24.0",
         "tensorflow==2.4.0",
         "numpy~=1.19.2",
-        "tabulate~=0.8",
+        "tabulate~=0.8.7",
     ],
     entry_points={
         "console_scripts": [

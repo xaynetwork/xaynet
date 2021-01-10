@@ -100,10 +100,10 @@ class Participant(  # pylint: disable=too-few-public-methods,too-many-instance-a
 
         return self.regressor.get_weights()
 
-    def deserialize_training_input(self, global_model: list) -> Optional[np.ndarray]:
+    def deserialize_training_input(self, global_model: list) -> np.ndarray:
         return np.array(global_model)
 
-    def serialize_training_result(self, training_result: np.ndarray) -> bytes:
+    def serialize_training_result(self, training_result: np.ndarray) -> list:
         return training_result.tolist()
 
     def on_stop(self) -> None:
