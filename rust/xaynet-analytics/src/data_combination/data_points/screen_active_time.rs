@@ -2,7 +2,9 @@ use chrono::Duration;
 
 use crate::{
     data_combination::data_points::data_point::{
-        CalcScreenActiveTime, CalculateDataPoints, DataPointMetadata,
+        CalcScreenActiveTime,
+        CalculateDataPoints,
+        DataPointMetadata,
     },
     data_provision::analytics_event::{AnalyticsEvent, AnalyticsEventType},
 };

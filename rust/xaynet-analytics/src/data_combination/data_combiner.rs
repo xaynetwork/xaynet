@@ -4,11 +4,16 @@ use std::iter::empty;
 
 use crate::{
     data_combination::data_points::data_point::{
-        CalcScreenActiveTime, CalcScreenEnterCount, CalcWasActiveEachPastPeriod,
-        CalcWasActivePastNDays, DataPoint, DataPointMetadata, Period, PeriodUnit,
+        CalcScreenActiveTime,
+        CalcScreenEnterCount,
+        CalcWasActiveEachPastPeriod,
+        CalcWasActivePastNDays,
+        DataPoint,
+        DataPointMetadata,
+        Period,
+        PeriodUnit,
     },
-    data_provision::analytics_event::AnalyticsEvent,
-    data_provision::data_provider::DataProvider,
+    data_provision::{analytics_event::AnalyticsEvent, data_provider::DataProvider},
 };
 
 pub struct DataCombiner<R> {
@@ -19,8 +24,8 @@ impl<R> DataCombiner<R>
 where
     R: DataProvider,
 {
-    pub fn new(repo: Box<impl DataProvider>) -> DataCombiner<impl DataProvider> {
-        DataCombiner { repo }
+    pub fn new(repo: Box<R>) -> Self {
+        Self { repo }
     }
 
     pub fn init_data_points(&self) -> Vec<DataPoint> {
@@ -46,7 +51,7 @@ where
                 self.filter_events_in_this_period(*metadata, self.get_all_events()),
             )
         })
-        .map(|data| DataPoint::WasActivePastNDays(data))
+        .map(DataPoint::WasActivePastNDays)
         .collect()
     }
 
@@ -62,7 +67,7 @@ where
                     self.filter_events_in_this_period(metadata, events_this_route),
                 )
             })
-            .map(|data| DataPoint::ScreenActiveTime(data))
+            .map(DataPoint::ScreenActiveTime)
             .collect();
         screen_active_time_vars.push(DataPoint::ScreenActiveTime(CalcScreenActiveTime::new(
             metadata,
@@ -82,7 +87,7 @@ where
                     self.filter_events_in_this_period(metadata, events_this_route),
                 )
             })
-            .map(|data| DataPoint::ScreenEnterCount(data))
+            .map(DataPoint::ScreenEnterCount)
             .collect()
     }
 
@@ -103,7 +108,7 @@ where
                 period_thresholds,
             )
         })
-        .map(|data| DataPoint::WasActiveEachPastPeriod(data))
+        .map(DataPoint::WasActiveEachPastPeriod)
         .collect()
     }
 

@@ -3,7 +3,9 @@ use std::collections::HashMap;
 
 use crate::{
     data_combination::data_points::data_point::{
-        CalcWasActiveEachPastPeriod, CalculateDataPoints, DataPointMetadata,
+        CalcWasActiveEachPastPeriod,
+        CalculateDataPoints,
+        DataPointMetadata,
     },
     data_provision::analytics_event::AnalyticsEvent,
 };
@@ -31,7 +33,7 @@ impl CalcWasActiveEachPastPeriod {
                 if event.timestamp < *newer_threshold && event.timestamp > *older_threshold {
                     timestamps_by_period_threshold
                         .entry(*newer_threshold)
-                        .or_insert(Vec::new())
+                        .or_insert_with(Vec::new)
                         .push(event.timestamp);
                 }
             }
@@ -50,7 +52,7 @@ impl CalculateDataPoints for CalcWasActiveEachPastPeriod {
         timestamps_by_period_threshold
             .values()
             .map(|timestamps| !timestamps.is_empty())
-            .map(|was_active| if was_active == false { 0 } else { 1 })
+            .map(|was_active| if was_active { 1 } else { 0 })
             .collect::<Vec<u32>>()
     }
 }
