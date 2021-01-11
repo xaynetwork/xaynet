@@ -223,7 +223,10 @@ impl<P> Phase<P> {
         State::new(self.state.shared, Box::new(Awaiting)).into_phase(self.io)
     }
 
-    /// Transition to the message sending phase
+    /// Instantiate a message encoder for the given payload.
+    ///
+    /// The encoder takes care of converting the given `payload` into one or several
+    /// signed and encrypted PET messages.
     pub fn message_encoder(&self, payload: Payload) -> MessageEncoder {
         MessageEncoder::new(
             self.state.shared.keys.clone(),
