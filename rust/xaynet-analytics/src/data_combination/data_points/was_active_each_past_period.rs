@@ -2,24 +2,19 @@ use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 
 use crate::{
-    data_combination::data_points::data_point::{CalculateDataPoints, DataPointMetadata},
+    data_combination::data_points::data_point::{
+        CalcWasActiveEachPastPeriod, CalculateDataPoints, DataPointMetadata,
+    },
     data_provision::analytics_event::AnalyticsEvent,
 };
 
-// TODO: accept an iterator instead of Vec: https://xainag.atlassian.net/browse/XN-1517
-pub struct WasActiveEachPastPeriod {
-    metadata: DataPointMetadata,
-    events: Vec<AnalyticsEvent>,
-    period_thresholds: Vec<DateTime<Utc>>,
-}
-
-impl WasActiveEachPastPeriod {
+impl CalcWasActiveEachPastPeriod {
     pub fn new(
         metadata: DataPointMetadata,
         events: Vec<AnalyticsEvent>,
         period_thresholds: Vec<DateTime<Utc>>,
-    ) -> WasActiveEachPastPeriod {
-        WasActiveEachPastPeriod {
+    ) -> CalcWasActiveEachPastPeriod {
+        CalcWasActiveEachPastPeriod {
             metadata,
             events,
             period_thresholds,
@@ -45,7 +40,7 @@ impl WasActiveEachPastPeriod {
     }
 }
 
-impl CalculateDataPoints for WasActiveEachPastPeriod {
+impl CalculateDataPoints for CalcWasActiveEachPastPeriod {
     fn metadata(&self) -> DataPointMetadata {
         self.metadata
     }

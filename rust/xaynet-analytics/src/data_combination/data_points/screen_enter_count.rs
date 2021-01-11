@@ -1,21 +1,17 @@
 use crate::{
-    data_combination::data_points::data_point::{CalculateDataPoints, DataPointMetadata},
+    data_combination::data_points::data_point::{
+        CalcScreenEnterCount, CalculateDataPoints, DataPointMetadata,
+    },
     data_provision::analytics_event::{AnalyticsEvent, AnalyticsEventType},
 };
 
-// TODO: accept an iterator instead of Vec: https://xainag.atlassian.net/browse/XN-1517
-pub struct ScreenEnterCount {
-    metadata: DataPointMetadata,
-    events: Vec<AnalyticsEvent>,
-}
-
-impl ScreenEnterCount {
-    pub fn new(metadata: DataPointMetadata, events: Vec<AnalyticsEvent>) -> ScreenEnterCount {
-        ScreenEnterCount { metadata, events }
+impl CalcScreenEnterCount {
+    pub fn new(metadata: DataPointMetadata, events: Vec<AnalyticsEvent>) -> CalcScreenEnterCount {
+        CalcScreenEnterCount { metadata, events }
     }
 }
 
-impl CalculateDataPoints for ScreenEnterCount {
+impl CalculateDataPoints for CalcScreenEnterCount {
     fn metadata(&self) -> DataPointMetadata {
         self.metadata
     }

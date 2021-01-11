@@ -1,19 +1,15 @@
 use chrono::Duration;
 
 use crate::{
-    data_combination::data_points::data_point::{CalculateDataPoints, DataPointMetadata},
+    data_combination::data_points::data_point::{
+        CalcScreenActiveTime, CalculateDataPoints, DataPointMetadata,
+    },
     data_provision::analytics_event::{AnalyticsEvent, AnalyticsEventType},
 };
 
-// TODO: accept an iterator instead of Vec: https://xainag.atlassian.net/browse/XN-1517
-pub struct ScreenActiveTime {
-    metadata: DataPointMetadata,
-    events: Vec<AnalyticsEvent>,
-}
-
-impl ScreenActiveTime {
-    pub fn new(metadata: DataPointMetadata, events: Vec<AnalyticsEvent>) -> ScreenActiveTime {
-        ScreenActiveTime { metadata, events }
+impl CalcScreenActiveTime {
+    pub fn new(metadata: DataPointMetadata, events: Vec<AnalyticsEvent>) -> CalcScreenActiveTime {
+        CalcScreenActiveTime { metadata, events }
     }
 
     // TODO: return an iterator instead of Vec: https://xainag.atlassian.net/browse/XN-1517
@@ -31,7 +27,7 @@ impl ScreenActiveTime {
     }
 }
 
-impl CalculateDataPoints for ScreenActiveTime {
+impl CalculateDataPoints for CalcScreenActiveTime {
     fn metadata(&self) -> DataPointMetadata {
         self.metadata
     }
@@ -50,7 +46,7 @@ impl CalculateDataPoints for ScreenActiveTime {
                     };
                     *last_timestamp = event.timestamp;
                     Some(duration)
-                }
+                },
             )
             .map(|duration| duration.num_milliseconds() as u32)
             .sum();

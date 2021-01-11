@@ -1,21 +1,17 @@
 use crate::{
-    data_combination::data_points::data_point::{CalculateDataPoints, DataPointMetadata},
+    data_combination::data_points::data_point::{
+        CalcWasActivePastNDays, CalculateDataPoints, DataPointMetadata,
+    },
     data_provision::analytics_event::AnalyticsEvent,
 };
 
-// TODO: accept an iterator instead of Vec: https://xainag.atlassian.net/browse/XN-1517
-pub struct WasActivePastNDays {
-    metadata: DataPointMetadata,
-    events: Vec<AnalyticsEvent>,
-}
-
-impl WasActivePastNDays {
-    pub fn new(metadata: DataPointMetadata, events: Vec<AnalyticsEvent>) -> WasActivePastNDays {
-        WasActivePastNDays { metadata, events }
+impl CalcWasActivePastNDays {
+    pub fn new(metadata: DataPointMetadata, events: Vec<AnalyticsEvent>) -> CalcWasActivePastNDays {
+        CalcWasActivePastNDays { metadata, events }
     }
 }
 
-impl CalculateDataPoints for WasActivePastNDays {
+impl CalculateDataPoints for CalcWasActivePastNDays {
     fn metadata(&self) -> DataPointMetadata {
         self.metadata
     }
