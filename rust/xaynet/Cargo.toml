@@ -11,18 +11,16 @@ license-file = "../../LICENSE"
 keywords = ["federated-learning", "fl", "ai", "machine-learning"]
 categories = ["science", "cryptography"]
 
-[package.metadata]
-# minimum supported rust version
-msrv = "1.48.0"
-
 [badges]
 codecov = { repository = "xaynetwork/xaynet", branch = "master", service = "github" }
 maintenance = { status = "actively-developed" }
 
 [dependencies]
 xaynet-core = { path = "../xaynet-core", version = "0.1.0" }
+
 # feature: sdk
 xaynet-sdk = { path = "../xaynet-sdk", version = "0.1.0", optional = true }
+
 # feature: server
 xaynet-server = { path = "../xaynet-server", version = "0.1.0", optional = true }
 
