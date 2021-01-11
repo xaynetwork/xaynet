@@ -1,0 +1,26 @@
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: "/rust"
+    schedule:
+      interval: daily
+      time: "09:00"
+      timezone: "Europe/Berlin"
+
+  - package-ecosystem: cargo
+    directory: "/bindings/python"
+    schedule:
+      interval: weekly
+      day: "monday"
+
+  - package-ecosystem: pip
+    directory: "/bindings/python/examples/keras_house_prices"
+    schedule:
+      interval: weekly
+      day: "monday"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
