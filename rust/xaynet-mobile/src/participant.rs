@@ -275,6 +275,7 @@ impl Participant {
                     self.task = Task::Sum;
                 }
                 Some(Event::NewRound) => {
+                    self.should_set_model = false;
                     self.new_global_model = true;
                 }
                 Some(Event::LoadModel) => {
