@@ -14,16 +14,20 @@ use xaynet_core::{
     SumDict,
 };
 
-use crate::state_machine::{
-    IntoPhase,
-    Phase,
-    PhaseIo,
-    Progress,
-    Sending,
-    State,
-    Step,
-    TransitionOutcome,
-    IO,
+use crate::{
+    state_machine::{
+        Awaiting,
+        IntoPhase,
+        Phase,
+        PhaseIo,
+        Progress,
+        SendingUpdate,
+        State,
+        Step,
+        TransitionOutcome,
+        IO,
+    },
+    MessageEncoder,
 };
 
 #[derive(From)]
@@ -74,6 +78,7 @@ impl<'de> serde::de::Deserialize<'de> for LocalModel {
     }
 }
 
+/// The state of the update phase.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Update {
     pub sum_signature: ParticipantTaskSignature,
@@ -85,6 +90,7 @@ pub struct Update {
 }
 
 impl Update {
+    /// Creates a new update state.
     pub fn new(sum_signature: Signature, update_signature: Signature) -> Self {
         Update {
             sum_signature,
@@ -130,7 +136,26 @@ impl Step for Phase<Update> {
         self = try_progress!(self.load_model().await);
         self = try_progress!(self.mask_model());
         self = try_progress!(self.build_seed_dict());
-        TransitionOutcome::Complete(self.into_sending().into())
+        let sending: Phase<SendingUpdate> = self.into();
+        TransitionOutcome::Complete(sending.into())
+    }
+}
+
+impl From<Phase<Update>> for Phase<SendingUpdate> {
+    fn from(mut update: Phase<Update>) -> Self {
+        debug!("composing update message");
+        let message = update.compose_message();
+
+        debug!("going to sending phase");
+        let sending = Box::new(SendingUpdate::new(message, Awaiting));
+        let state = State::new(update.state.shared, sending);
+        state.into_phase(update.io)
+    }
+}
+
+impl From<Phase<Update>> for Phase<Awaiting> {
+    fn from(update: Phase<Update>) -> Self {
+        State::new(update.state.shared, Box::new(Awaiting)).into_phase(update.io)
     }
 }
 
@@ -189,8 +214,7 @@ impl Phase<Update> {
         info!("computing masked model");
         let config = self.state.shared.round_params.mask_config;
         let masker = Masker::new(config);
-        // UNWRAP_SAFE: the model is set, per the `has_masked_model()`
-        // check above
+        // UNWRAP_SAFE: the model is set, per the `has_masked_model()` check above
         let model = self.state.private.model.take().unwrap();
         let scalar = self.state.shared.scalar;
         self.state.private.mask = Some(masker.mask(scalar, model.as_ref()));
@@ -203,8 +227,7 @@ impl Phase<Update> {
             debug!("already built the seed dictionary, continuing");
             return Progress::Continue(self);
         }
-        // UNWRAP_SAFE: the mask is set `self.mask_model()` which is
-        // called before this method.
+        // UNWRAP_SAFE: the mask is set in `mask_model()` which is called before this method
         let mask_seed = &self.state.private.mask.as_ref().unwrap().0;
         info!("building local seed dictionary");
         let seeds = self
@@ -220,24 +243,16 @@ impl Phase<Update> {
         Progress::Updated(self.into())
     }
 
-    pub(crate) fn into_sending(mut self) -> Phase<Sending> {
-        debug!("composing update message");
+    /// Creates and encodes the update message from the update state.
+    pub fn compose_message(&mut self) -> MessageEncoder {
         let update = UpdateMessage {
             sum_signature: self.state.private.sum_signature,
             update_signature: self.state.private.update_signature,
-            // UNWRAP_SAFE: the mask is set in `self.mask_model()`
-            // which is called before this method
+            // UNWRAP_SAFE: the mask is set in `mask_model()` which is called before this method
             masked_model: self.state.private.mask.take().unwrap().1,
-            // UNWRAP_SAFE: the mask is set in
-            // `self.build_seed_dict()` which is called before this
-            // method
+            // UNWRAP_SAFE: the dict is set in `build_seed_dict()` which is called before this method
             local_seed_dict: self.state.private.seed_dict.take().unwrap(),
         };
-        let message = self.message_encoder(update.into());
-
-        debug!("going to sending phase");
-        let sending = Sending::from_sum2(message);
-        let state = State::new(self.state.shared, Box::new(sending));
-        state.into_phase(self.io)
+        self.message_encoder(update.into())
     }
 }

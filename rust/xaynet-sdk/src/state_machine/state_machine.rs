@@ -7,7 +7,9 @@ use super::{
     LocalModelConfig,
     NewRound,
     Phase,
-    Sending,
+    SendingSum,
+    SendingSum2,
+    SendingUpdate,
     SerializableState,
     SharedState,
     State,
@@ -40,8 +42,12 @@ pub enum StateMachine {
     Update(Phase<Update>),
     /// PET state machine in the "sum2" phase
     Sum2(Phase<Sum2>),
-    /// PET status machine in the "sending message" phase
-    Sending(Phase<Sending>),
+    /// PET state machine in the "sending sum message" phase
+    SendingSum(Phase<SendingSum>),
+    /// PET state machine in the "sending update message" phase
+    SendingUpdate(Phase<SendingUpdate>),
+    /// PET state machine in the "sending sum2 message" phase
+    SendingSum2(Phase<SendingSum2>),
 }
 
 impl StateMachine {
@@ -53,7 +59,9 @@ impl StateMachine {
             StateMachine::Sum(phase) => phase.step().await,
             StateMachine::Update(phase) => phase.step().await,
             StateMachine::Sum2(phase) => phase.step().await,
-            StateMachine::Sending(phase) => phase.step().await,
+            StateMachine::SendingSum(phase) => phase.step().await,
+            StateMachine::SendingUpdate(phase) => phase.step().await,
+            StateMachine::SendingSum2(phase) => phase.step().await,
         }
     }
 
@@ -66,7 +74,9 @@ impl StateMachine {
             StateMachine::Sum(phase) => phase.state.into(),
             StateMachine::Update(phase) => phase.state.into(),
             StateMachine::Sum2(phase) => phase.state.into(),
-            StateMachine::Sending(phase) => phase.state.into(),
+            StateMachine::SendingSum(phase) => phase.state.into(),
+            StateMachine::SendingUpdate(phase) => phase.state.into(),
+            StateMachine::SendingSum2(phase) => phase.state.into(),
         }
     }
 
@@ -78,7 +88,9 @@ impl StateMachine {
             StateMachine::Sum(ref phase) => phase.local_model_config(),
             StateMachine::Update(ref phase) => phase.local_model_config(),
             StateMachine::Sum2(ref phase) => phase.local_model_config(),
-            StateMachine::Sending(ref phase) => phase.local_model_config(),
+            StateMachine::SendingSum(ref phase) => phase.local_model_config(),
+            StateMachine::SendingUpdate(ref phase) => phase.local_model_config(),
+            StateMachine::SendingSum2(ref phase) => phase.local_model_config(),
         }
     }
 }
@@ -128,7 +140,9 @@ impl StateMachine {
             SerializableState::Sum(state) => state.into_phase(io).into(),
             SerializableState::Sum2(state) => state.into_phase(io).into(),
             SerializableState::Update(state) => state.into_phase(io).into(),
-            SerializableState::Sending(state) => state.into_phase(io).into(),
+            SerializableState::SendingSum(state) => state.into_phase(io).into(),
+            SerializableState::SendingUpdate(state) => state.into_phase(io).into(),
+            SerializableState::SendingSum2(state) => state.into_phase(io).into(),
         }
     }
 }

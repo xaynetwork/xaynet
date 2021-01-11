@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::{debug, error, info, warn};
 
-use super::{Awaiting, NewRound, Sending, Sum, Sum2, Update, IO};
+use super::{Awaiting, NewRound, SendingSum, SendingSum2, SendingUpdate, Sum, Sum2, Update, IO};
 use crate::{
     settings::{MaxMessageSize, PetSettings},
     state_machine::{StateMachine, TransitionOutcome},
@@ -218,11 +218,6 @@ impl<P> Phase<P> {
         Phase { state, io }
     }
 
-    /// Transition to the awaiting phase
-    pub fn into_awaiting(self) -> Phase<Awaiting> {
-        State::new(self.state.shared, Box::new(Awaiting)).into_phase(self.io)
-    }
-
     /// Instantiate a message encoder for the given payload.
     ///
     /// The encoder takes care of converting the given `payload` into one or several
@@ -312,7 +307,9 @@ pub enum SerializableState {
     Sum(State<Sum>),
     Update(State<Update>),
     Sum2(State<Sum2>),
-    Sending(State<Sending>),
+    SendingSum(State<SendingSum>),
+    SendingUpdate(State<SendingUpdate>),
+    SendingSum2(State<SendingSum2>),
 }
 
 impl<P> Into<SerializableState> for Phase<P>

@@ -11,7 +11,7 @@ use crate::{
         IntoPhase,
         MockIO,
         Phase,
-        Sending,
+        SendingSum2,
         SharedState,
         State,
         Sum2,
@@ -116,8 +116,8 @@ async fn step3_aggregate_masks(phase: Phase<Sum2>) -> Phase<Sum2> {
     phase
 }
 
-async fn step4_into_sending_phase(phase: Phase<Sum2>) -> Phase<Sending> {
-    let phase = unwrap_step!(phase, complete, sending);
+async fn step4_into_sending_phase(phase: Phase<Sum2>) -> Phase<SendingSum2> {
+    let phase = unwrap_step!(phase, complete, sending_sum2);
     phase
 }
 

@@ -45,7 +45,7 @@ fn make_sum(shared: &SharedState) -> Box<Sum> {
 async fn test_phase() {
     let io = MockIO::new();
     let phase = make_phase(io);
-    let _phase = unwrap_step!(phase, complete, sending);
+    let _phase = unwrap_step!(phase, complete, sending_sum);
 }
 
 #[derive(Error, Debug)]

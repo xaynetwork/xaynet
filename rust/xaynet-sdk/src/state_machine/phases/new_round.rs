@@ -4,6 +4,7 @@ use tracing::info;
 use xaynet_core::crypto::{ByteObject, Signature};
 
 use crate::state_machine::{
+    Awaiting,
     IntoPhase,
     Phase,
     PhaseIo,
@@ -46,7 +47,14 @@ impl Step for Phase<NewRound> {
         }
 
         info!("not eligible for update task, going to sleep until next round");
-        TransitionOutcome::Complete(self.into_awaiting().into())
+        let awaiting: Phase<Awaiting> = self.into();
+        TransitionOutcome::Complete(awaiting.into())
+    }
+}
+
+impl From<Phase<NewRound>> for Phase<Awaiting> {
+    fn from(new_round: Phase<NewRound>) -> Self {
+        State::new(new_round.state.shared, Box::new(Awaiting)).into_phase(new_round.io)
     }
 }
 

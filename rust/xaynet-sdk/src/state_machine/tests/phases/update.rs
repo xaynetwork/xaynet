@@ -12,7 +12,7 @@ use crate::{
         IntoPhase,
         MockIO,
         Phase,
-        Sending,
+        SendingUpdate,
         SharedState,
         State,
         Update,
@@ -140,8 +140,8 @@ async fn step4_build_seed_dict(phase: Phase<Update>) -> Phase<Update> {
     phase
 }
 
-async fn step5_into_sending_phase(phase: Phase<Update>) -> Phase<Sending> {
-    let phase = unwrap_step!(phase, complete, sending);
+async fn step5_into_sending_phase(phase: Phase<Update>) -> Phase<SendingUpdate> {
+    let phase = unwrap_step!(phase, complete, sending_update);
     phase
 }
 

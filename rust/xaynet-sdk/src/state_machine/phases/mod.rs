@@ -8,7 +8,7 @@ mod update;
 pub use self::{
     awaiting::Awaiting,
     new_round::NewRound,
-    sending::Sending,
+    sending::{SendingSum, SendingSum2, SendingUpdate},
     sum::Sum,
     sum2::Sum2,
     update::Update,
