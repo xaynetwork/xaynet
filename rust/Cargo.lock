@@ -1309,7 +1309,7 @@ dependencies = [
  "serde 1.0.118",
  "serde_json",
  "serde_qs",
- "serde_urlencoded",
+ "serde_urlencoded 0.7.0",
  "url",
 ]
 
@@ -2536,7 +2536,7 @@ dependencies = [
  "pin-project-lite 0.2.1",
  "rustls",
  "serde 1.0.118",
- "serde_urlencoded",
+ "serde_urlencoded 0.7.0",
  "tokio",
  "tokio-rustls",
  "url",
@@ -2858,6 +2858,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "110b3dbdf8607ec493c22d5d947753282f3bae73c0f56d322af1e8c78e4c23d5"
 dependencies = [
  "serde 0.8.23",
+]
+
+[[package]]
+name = "serde_urlencoded"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9ec5d77e2d4c73717816afac02670d5c4f534ea95ed430442cad02e7a6e32c97"
+dependencies = [
+ "dtoa",
+ "itoa",
+ "serde 1.0.118",
+ "url",
 ]
 
 [[package]]
@@ -3716,6 +3728,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "urlencoding"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c9232eb53352b4442e40d7900465dfc534e8cb2dc8f18656fcb2ac16112b5593"
+
+[[package]]
 name = "utf-8"
 version = "0.7.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3814,7 +3832,8 @@ dependencies = [
 [[package]]
 name = "warp"
 version = "0.2.5"
-source = "git+https://github.com/seanmonstar/warp?rev=42fd14fdab8145d27ae770fe4b5c843a99bc2a44#42fd14fdab8145d27ae770fe4b5c843a99bc2a44"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f41be6df54c97904af01aa23e613d4521eed7ab23537cede692d4058f6449407"
 dependencies = [
  "bytes 0.5.6",
  "futures",
@@ -3825,18 +3844,18 @@ dependencies = [
  "mime",
  "mime_guess",
  "multipart",
- "percent-encoding",
- "pin-project 1.0.3",
+ "pin-project 0.4.27",
  "scoped-tls",
  "serde 1.0.118",
  "serde_json",
- "serde_urlencoded",
+ "serde_urlencoded 0.6.1",
  "tokio",
  "tokio-rustls",
  "tokio-tungstenite",
  "tower-service",
  "tracing",
  "tracing-futures",
+ "urlencoding",
 ]
 
 [[package]]
