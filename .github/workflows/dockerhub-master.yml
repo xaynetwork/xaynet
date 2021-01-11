@@ -12,19 +12,24 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: build-tag-push
-        uses: docker/build-push-action@v1
-        id: docker
+      - name: Login to DockerHub
+        uses: docker/login-action@v1
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
-          dockerfile: docker/Dockerfile
-          cache_froms: buildpack-deps:stable-curl
-          repository: xaynetwork/xaynet
-          tag_with_ref: true
-          tags: development
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: build-tag-push
+        uses: docker/build-push-action@v2
+        id: docker
+        with:
+          context: .
+          file: docker/Dockerfile
+          tags: xaynetwork/xaynet:development
           push: true
-          build_args: COORDINATOR_FEATURES=metrics
+          build-args: COORDINATOR_FEATURES=metrics
 
       - name: Install doctl
         uses: digitalocean/action-doctl@v2
@@ -58,7 +63,7 @@ jobs:
               icon_emoji: ':octocat:',
               attachments: [{
                 color: '${{ steps.docker.outcome }}' === 'success' ? 'good' : '${{ steps.docker.outcome }}' === 'failure' ? 'danger' : 'warning',
-                text: `${process.env.AS_WORKFLOW}\nRepository: :xaynet: ${process.env.AS_REPO}\nRef: ${process.env.AS_REF}\nTags: latest, development`,
+                text: `${process.env.AS_WORKFLOW}\nRepository: :xaynet: ${process.env.AS_REPO}\nRef: ${process.env.AS_REF}\nTags: development`,
               }]
             }
         env:

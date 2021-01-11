@@ -12,18 +12,24 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: build-tag-push
-        id: docker
-        uses: docker/build-push-action@v1
+      - name: Login to DockerHub
+        uses: docker/login-action@v1
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
-          dockerfile: docker/Dockerfile
-          cache_froms: buildpack-deps:stable-curl
-          repository: xaynetwork/xaynet
-          tag_with_ref: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: build-tag-push
+        uses: docker/build-push-action@v2
+        id: docker
+        with:
+          context: .
+          file: docker/Dockerfile
+          tags: xaynetwork/xaynet:latest
           push: true
-          build_args: RELEASE_BUILD=1
+          build-args: RELEASE_BUILD=1
 
       - name: Notify on Slack
         uses: 8398a7/action-slack@v3
