@@ -17,14 +17,14 @@ use crate::{
 };
 
 pub struct DataCombiner<R> {
-    repo: Box<R>,
+    repo: R,
 }
 
 impl<R> DataCombiner<R>
 where
     R: DataProvider,
 {
-    pub fn new(repo: Box<R>) -> Self {
+    pub fn new(repo: R) -> Self {
         Self { repo }
     }
 
@@ -165,7 +165,13 @@ where
     fn get_events_single_route(&self, route: String) -> Vec<AnalyticsEvent> {
         self.get_all_events()
             .into_iter()
-            .filter(|event| event.screen_route.as_ref().unwrap() == &route)
+            .filter(|event| {
+                if let Some(ref screen_route) = event.screen_route {
+                    screen_route == &route
+                } else {
+                    false
+                }
+            })
             .collect()
     }
 }

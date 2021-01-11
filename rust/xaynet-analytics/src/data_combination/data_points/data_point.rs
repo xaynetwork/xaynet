@@ -33,7 +33,7 @@ impl DataPointMetadata {
     }
 }
 
-pub trait CalculateDataPoints: Sized {
+pub trait CalculateDataPoints {
     fn metadata(&self) -> DataPointMetadata;
 
     fn calculate(&self) -> Vec<u32>;

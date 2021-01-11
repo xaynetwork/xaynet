@@ -27,6 +27,8 @@ impl CalcWasActiveEachPastPeriod {
     fn group_timestamps_by_period_threshold(&self) -> HashMap<DateTime<Utc>, Vec<DateTime<Utc>>> {
         let mut timestamps_by_period_threshold = HashMap::new();
         for these_thresholds in self.period_thresholds.windows(2) {
+            // safe unwrap: `windows` guarantees that there are at least two elements.
+            // If `period_thresholds` contains less than two elements, this code block is not executed
             let newer_threshold = these_thresholds.first().unwrap();
             let older_threshold = these_thresholds.last().unwrap();
             for event in self.events.iter() {
@@ -51,8 +53,8 @@ impl CalculateDataPoints for CalcWasActiveEachPastPeriod {
         let timestamps_by_period_threshold = self.group_timestamps_by_period_threshold();
         timestamps_by_period_threshold
             .values()
-            .map(|timestamps| !timestamps.is_empty())
-            .map(|was_active| if was_active { 1 } else { 0 })
+            .map(|timestamps| timestamps.is_empty())
+            .map(|was_not_active| if was_not_active { 0 } else { 1 })
             .collect::<Vec<u32>>()
     }
 }

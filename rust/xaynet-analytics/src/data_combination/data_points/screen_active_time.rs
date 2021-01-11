@@ -36,22 +36,26 @@ impl CalculateDataPoints for CalcScreenActiveTime {
 
     fn calculate(&self) -> Vec<u32> {
         let screen_and_app_events = self.get_screen_and_app_events();
-        let value = screen_and_app_events
-            .iter()
-            .scan(
-                screen_and_app_events.first().unwrap().timestamp,
-                |last_timestamp, event| {
-                    let duration = if event.event_type == AnalyticsEventType::ScreenEnter {
-                        event.timestamp - *last_timestamp
-                    } else {
-                        Duration::zero()
-                    };
-                    *last_timestamp = event.timestamp;
-                    Some(duration)
-                },
-            )
-            .map(|duration| duration.num_milliseconds() as u32)
-            .sum();
+        let value = if screen_and_app_events.is_empty() {
+            0
+        } else {
+            screen_and_app_events
+                .iter()
+                .scan(
+                    screen_and_app_events.first().unwrap().timestamp,
+                    |last_timestamp, event| {
+                        let duration = if event.event_type == AnalyticsEventType::ScreenEnter {
+                            last_timestamp.signed_duration_since(event.timestamp)
+                        } else {
+                            Duration::zero()
+                        };
+                        *last_timestamp = event.timestamp;
+                        Some(duration)
+                    },
+                )
+                .map(|duration| duration.num_milliseconds() as u32)
+                .sum()
+        };
         vec![value]
     }
 }
