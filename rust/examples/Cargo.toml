@@ -19,7 +19,7 @@ autobins = false
 [dev-dependencies]
 async-trait = "0.1.42"
 # TODO (XN-1372): can't upgrade yet because of tokio
-reqwest = { version = "0.10.10", default-features = false, features = ["rustls-tls"] }
+reqwest = { version = "0.11.0", default-features = false, features = ["rustls-tls"] }
 structopt = "0.3.21"
 # TODO (XN-1372): upgrade
 tokio = { version = "0.2.24", features = ["sync", "time", "macros", "rt-threaded", "signal"] }

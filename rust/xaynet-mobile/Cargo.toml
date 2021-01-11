@@ -17,7 +17,7 @@ bincode = "1.3.1"
 ffi-support = "0.4.2"
 # Note that this MUST match the version used in `xaynet-sdk`.
 # TODO (XN-1372): can't upgrade yet because of tokio
-reqwest = { version = "0.10.10", default-features = false, features = ["rustls-tls"]}
+reqwest = { version = "0.11.0", default-features = false, features = ["rustls-tls"]}
 sodiumoxide = "0.2.6"
 thiserror = "1.0.23"
 tracing = "0.1.22"
