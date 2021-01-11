@@ -237,7 +237,7 @@ The example can be found under [rust/examples/](./rust/examples/). It uses a dum
 but is network-capable, so it's a good starting point for checking connectivity with
 the coordinator.
 
-### `test-drive-net.rs`
+### `test-drive`
 
 Make sure you have a running instance of the coordinator and that the clients
 you will spawn with the command below are able to reach it through the network.
@@ -247,7 +247,7 @@ running on `127.0.0.1:8081`:
 
 ```bash
 cd rust
-RUST_LOG=info cargo run --example test-drive-net -- -n 20 -u http://127.0.0.1:8081
+RUST_LOG=info cargo run --example test-drive -- -n 20 -u http://127.0.0.1:8081
 ```
 
 For more in-depth details on how to run examples, see the accompanying Getting

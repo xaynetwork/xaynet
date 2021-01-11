@@ -12,6 +12,10 @@ license-file = "../../LICENSE"
 keywords = ["federated-learning", "fl", "ai", "machine-learning"]
 categories = ["science", "cryptography"]
 
+# https://github.com/http-rs/tide/issues/225
+# https://github.com/dependabot/dependabot-core/issues/1156
+autobins = false
+
 [dev-dependencies]
 async-trait = "0.1.42"
 # TODO (XN-1372): can't upgrade yet because of tokio
