@@ -65,7 +65,7 @@ tokio = { version = "0.2.24", features = [
     "time",
 ] }
 # TODO (XN-1372): can't upgrade yet because of tokio
-tower = "0.3.1"
+tower = "0.4.1"
 tracing = "0.1.22"
 tracing-futures = "0.2.4"
 tracing-subscriber = "0.2.15"
