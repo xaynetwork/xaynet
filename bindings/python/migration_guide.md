@@ -48,7 +48,7 @@ def main() -> None:
     )
 ```
 
-## `v0.11.0`
+## [`v0.11.0`](https://github.com/xaynetwork/xaynet/blob/v0.11.0/bindings/python/xaynet_sdk/participant.py)
 
 ```bash
 pip install xaynet-sdk-python
