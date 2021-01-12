@@ -9,11 +9,23 @@ use xaynet_core::{
 };
 
 use crate::{
-    state_machine::{IntoPhase, Phase, PhaseIo, Progress, State, Step, TransitionOutcome, IO},
+    state_machine::{
+        IntoPhase,
+        Phase,
+        PhaseIo,
+        Progress,
+        SendingSum2,
+        State,
+        Step,
+        TransitionOutcome,
+        IO,
+    },
     MessageEncoder,
 };
 
-/// Sum2 phase data
+use super::Awaiting;
+
+/// The state of the sum2 phase.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Sum2 {
     /// The sum participant ephemeral keys. They are used to decrypt
@@ -30,11 +42,10 @@ pub struct Sum2 {
     /// The global mask, obtained by aggregating the masks derived
     /// from the mask seeds.
     pub mask: Option<MaskObject>,
-    /// Final sum2 message to send to the coordinator
-    pub message: Option<MessageEncoder>,
 }
 
 impl Sum2 {
+    /// Creates a new sum2 state.
     pub fn new(ephm_keys: EncryptKeyPair, sum_signature: Signature) -> Self {
         Self {
             ephm_keys,
@@ -42,30 +53,58 @@ impl Sum2 {
             seed_dict: None,
             seeds: None,
             mask: None,
-            message: None,
         }
     }
 
+    /// Checks if the seed dict has already been fetched.
     fn has_fetched_seed_dict(&self) -> bool {
         self.seed_dict.is_some() || self.has_decrypted_seeds()
     }
 
+    /// Checks if the seeds have already been decrypted.
     fn has_decrypted_seeds(&self) -> bool {
         self.seeds.is_some() || self.has_aggregated_masks()
     }
 
+    /// Checks if the masks have already been aggregated.
     fn has_aggregated_masks(&self) -> bool {
-        self.mask.is_some() || self.has_composed_message()
-    }
-
-    fn has_composed_message(&self) -> bool {
-        self.message.is_some()
+        self.mask.is_some()
     }
 }
 
 impl IntoPhase<Sum2> for State<Sum2> {
     fn into_phase(self, io: PhaseIo) -> Phase<Sum2> {
         Phase::<_>::new(self, io)
+    }
+}
+
+#[async_trait]
+impl Step for Phase<Sum2> {
+    async fn step(mut self) -> TransitionOutcome {
+        info!("sum2 task");
+        self = try_progress!(self.fetch_seed_dict().await);
+        self = try_progress!(self.decrypt_seeds());
+        self = try_progress!(self.aggregate_masks());
+        let sending: Phase<SendingSum2> = self.into();
+        TransitionOutcome::Complete(sending.into())
+    }
+}
+
+impl From<Phase<Sum2>> for Phase<SendingSum2> {
+    fn from(mut sum2: Phase<Sum2>) -> Self {
+        debug!("composing sum2 message");
+        let message = sum2.compose_message();
+
+        debug!("going to sending phase");
+        let sending = Box::new(SendingSum2::new(message, Awaiting));
+        let state = State::new(sum2.state.shared, sending);
+        state.into_phase(sum2.io)
+    }
+}
+
+impl From<Phase<Sum2>> for Phase<Awaiting> {
+    fn from(sum2: Phase<Sum2>) -> Self {
+        State::new(sum2.state.shared, Box::new(Awaiting)).into_phase(sum2.io)
     }
 }
 
@@ -119,7 +158,8 @@ impl Phase<Sum2> {
             Err(_) => {
                 warn!("failed to decrypt mask seeds, going back to waiting phase");
                 self.io.notify_idle();
-                Progress::Updated(self.into_awaiting().into())
+                let awaiting: Phase<Awaiting> = self.into();
+                Progress::Updated(awaiting.into())
             }
         }
     }
@@ -136,14 +176,14 @@ impl Phase<Sum2> {
         let config = self.state.shared.round_params.mask_config;
         let mask_len = self.state.shared.round_params.model_length;
         let mut mask_agg = Aggregation::new(config, mask_len as usize);
-        // UNWRAP_SAFE: the seeds are set in `self.decrypt_seeds()`
-        // which is called before this method
+        // UNWRAP_SAFE: the seeds are set in `decrypt_seeds()` which is called before this method
         for seed in self.state.private.seeds.take().unwrap().into_iter() {
             let mask = seed.derive_mask(mask_len as usize, config);
             if let Err(e) = mask_agg.validate_aggregation(&mask) {
                 error!("sum2 phase failed: cannot aggregate masks: {}", e);
                 error!("going to awaiting phase");
-                return Progress::Updated(self.into_awaiting().into());
+                let awaiting: Phase<Awaiting> = self.into();
+                return Progress::Updated(awaiting.into());
             } else {
                 mask_agg.aggregate(mask);
             }
@@ -152,46 +192,13 @@ impl Phase<Sum2> {
         Progress::Updated(self.into())
     }
 
-    /// Build the sum2 message to send to the coordinator
-    pub(crate) fn compose_sum2_message(mut self) -> Progress<Sum2> {
-        if self.state.private.has_composed_message() {
-            return Progress::Continue(self);
-        }
-
+    /// Creates and encodes the sum2 message from the sum2 state.
+    pub fn compose_message(&mut self) -> MessageEncoder {
         let sum2 = Sum2Message {
             sum_signature: self.state.private.sum_signature,
-            // UNWRAP_SAFE: the mask set in `self.aggregate_masks()`
-            // which is called before this method
+            // UNWRAP_SAFE: the mask set in `aggregate_masks()` which is called before this method
             model_mask: self.state.private.mask.take().unwrap(),
         };
-        self.state.private.message = Some(self.message_encoder(sum2.into()));
-        Progress::Updated(self.into())
-    }
-}
-
-#[async_trait]
-impl Step for Phase<Sum2> {
-    async fn step(mut self) -> TransitionOutcome {
-        info!("sum2 task");
-        self = try_progress!(self.fetch_seed_dict().await);
-        self = try_progress!(self.decrypt_seeds());
-        self = try_progress!(self.aggregate_masks());
-        self = try_progress!(self.compose_sum2_message());
-
-        // FIXME: currently if sending fails, we lose the message,
-        // thus wasting all the work we've done in this phase
-        let message = self.state.private.message.take().unwrap();
-        match self.send_message(message).await {
-            Ok(_) => {
-                info!("sent sum2 message");
-            }
-            Err(e) => {
-                warn!("failed to send sum2 message: {}", e);
-                warn!("sum2 phase failed");
-            }
-        }
-
-        info!("going back to awaiting phase");
-        TransitionOutcome::Complete(self.into_awaiting().into())
+        self.message_encoder(sum2.into())
     }
 }

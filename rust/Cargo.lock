@@ -4091,6 +4091,7 @@ dependencies = [
  "derive_more",
  "mockall",
  "num",
+ "paste",
  "rand 0.8.1",
  "reqwest",
  "serde 1.0.118",

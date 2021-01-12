@@ -8,10 +8,10 @@ use xaynet_core::{
 use crate::{
     state_machine::{
         tests::utils::{shared_state, SelectFor, SigningKeyGenerator},
-        Awaiting,
         IntoPhase,
         MockIO,
         Phase,
+        SendingSum2,
         SharedState,
         State,
         Sum2,
@@ -44,7 +44,6 @@ fn make_sum2(shared: &SharedState) -> Box<Sum2> {
         seed_dict: None,
         seeds: None,
         mask: None,
-        message: None,
     })
 }
 
@@ -117,28 +116,8 @@ async fn step3_aggregate_masks(phase: Phase<Sum2>) -> Phase<Sum2> {
     phase
 }
 
-async fn step4_compose_sum2_message(phase: Phase<Sum2>) -> Phase<Sum2> {
-    let phase = unwrap_step!(phase, complete, sum2);
-    assert!(phase.state.private.message.is_some());
-    // Make sure this steps consumes the mask.
-    assert!(phase.state.private.seeds.is_none());
-    phase
-}
-
-async fn step5_send_message(mut phase: Phase<Sum2>) -> Phase<Awaiting> {
-    phase.with_io_mock(|mock| {
-        let mut seq = Sequence::new();
-        mock.expect_send_message()
-            .times(1)
-            .in_sequence(&mut seq)
-            .returning(|_| Ok(()));
-        mock.expect_notify_idle()
-            .times(1)
-            .in_sequence(&mut seq)
-            .return_const(());
-    });
-    let mut phase = unwrap_step!(phase, complete, awaiting);
-    phase.check_io_mock();
+async fn step4_into_sending_phase(phase: Phase<Sum2>) -> Phase<SendingSum2> {
+    let phase = unwrap_step!(phase, complete, sending_sum2);
     phase
 }
 
@@ -148,6 +127,5 @@ async fn test_phase() {
     let phase = step1_fetch_seed_dict(phase).await;
     let phase = step2_decrypt_seeds(phase).await;
     let phase = step3_aggregate_masks(phase).await;
-    let phase = step4_compose_sum2_message(phase).await;
-    let _phase = step5_send_message(phase).await;
+    let _phase = step4_into_sending_phase(phase).await;
 }

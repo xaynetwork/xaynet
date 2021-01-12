@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::{debug, error, info, warn};
 
-use super::{Awaiting, NewRound, Sum, Sum2, Update, IO};
+use super::{Awaiting, NewRound, SendingSum, SendingSum2, SendingUpdate, Sum, Sum2, Update, IO};
 use crate::{
     settings::{MaxMessageSize, PetSettings},
     state_machine::{StateMachine, TransitionOutcome},
@@ -218,27 +218,6 @@ impl<P> Phase<P> {
         Phase { state, io }
     }
 
-    /// Transition to the awaiting phase
-    pub fn into_awaiting(self) -> Phase<Awaiting> {
-        State::new(self.state.shared, Box::new(Awaiting)).into_phase(self.io)
-    }
-
-    /// Send the message created by the given message encoder.
-    ///
-    /// If the message is split in multiple parts, they are sent sequentially. If a
-    /// single part fails, the remaining parts are not sent. There is no retry
-    /// mechanism.
-    pub async fn send_message(&mut self, encoder: MessageEncoder) -> Result<(), SendMessageError> {
-        for part in encoder {
-            let data = self.state.shared.round_params.pk.encrypt(part.as_slice());
-            self.io.send_message(data).await.map_err(|e| {
-                error!("failed to send message: {:?}", e);
-                SendMessageError
-            })?
-        }
-        Ok(())
-    }
-
     /// Instantiate a message encoder for the given payload.
     ///
     /// The encoder takes care of converting the given `payload` into one or several
@@ -328,6 +307,9 @@ pub enum SerializableState {
     Sum(State<Sum>),
     Update(State<Update>),
     Sum2(State<Sum2>),
+    SendingSum(State<SendingSum>),
+    SendingUpdate(State<SendingUpdate>),
+    SendingSum2(State<SendingSum2>),
 }
 
 impl<P> Into<SerializableState> for Phase<P>

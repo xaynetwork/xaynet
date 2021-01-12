@@ -60,6 +60,27 @@ macro_rules! unwrap_step {
             $crate::state_machine::StateMachine::Update
         )
     };
+    ($phase:expr, $transition_outcome:path, sending_sum) => {
+        unwrap_step!(
+            $phase,
+            $transition_outcome,
+            $crate::state_machine::StateMachine::SendingSum
+        )
+    };
+    ($phase:expr, $transition_outcome:path, sending_update) => {
+        unwrap_step!(
+            $phase,
+            $transition_outcome,
+            $crate::state_machine::StateMachine::SendingUpdate
+        )
+    };
+    ($phase:expr, $transition_outcome:path, sending_sum2) => {
+        unwrap_step!(
+            $phase,
+            $transition_outcome,
+            $crate::state_machine::StateMachine::SendingSum2
+        )
+    };
     ($phase:expr, $transition_outcome:path, $state_machine:path) => {{
         let x = $crate::unwrap_as!(
             $crate::state_machine::Step::step($phase).await,

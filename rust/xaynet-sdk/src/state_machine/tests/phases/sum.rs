@@ -38,43 +38,16 @@ fn make_sum(shared: &SharedState) -> Box<Sum> {
     Box::new(Sum {
         ephm_keys,
         sum_signature: signature,
-        message: None,
     })
-}
-
-async fn check_step_1() -> Phase<Sum> {
-    let io = MockIO::new();
-    let phase = make_phase(io);
-    let phase = unwrap_step!(phase, complete, sum);
-    assert!(phase.state.private.message.is_some());
-    phase
 }
 
 #[tokio::test]
 async fn test_phase() {
-    let mut phase = check_step_1().await;
-
-    let mut io = MockIO::new();
-    io.expect_send_message().times(1).returning(|_| Ok(()));
-    let _ = std::mem::replace(&mut phase.io, Box::new(io));
-
-    let _phase = unwrap_step!(phase, complete, sum2);
+    let io = MockIO::new();
+    let phase = make_phase(io);
+    let _phase = unwrap_step!(phase, complete, sending_sum);
 }
 
 #[derive(Error, Debug)]
 #[error("error")]
 struct DummyErr;
-
-#[tokio::test]
-async fn test_send_sum_message_fails() {
-    let mut phase = check_step_1().await;
-
-    let mut io = MockIO::new();
-    io.expect_send_message()
-        .times(1)
-        .returning(|_| Err(Box::new(DummyErr)));
-    io.expect_notify_idle().times(1).return_const(());
-    let _ = std::mem::replace(&mut phase.io, Box::new(io));
-
-    let _phase = unwrap_step!(phase, complete, awaiting);
-}

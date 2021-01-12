@@ -37,6 +37,7 @@ pub enum ClientError {
     NoCertificate,
 }
 
+#[cfg_attr(not(feature = "reqwest-client"), allow(dead_code))]
 impl ClientError {
     fn http_error<E: std::error::Error>(e: E) -> Self {
         Self::Http(format!("{}", e))
