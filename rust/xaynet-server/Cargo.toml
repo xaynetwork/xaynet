@@ -88,7 +88,7 @@ serial_test = "0.5.1"
 # TODO (XN-1372): can't upgrade yet because of tokio
 tokio-test = "0.2.1"
 # TODO (XN-1372): can't upgrade yet because of tokio
-tower-test = "0.3.0"
+tower-test = "0.4.0"
 
 [[bin]]
 name = "coordinator"
