@@ -36,7 +36,7 @@ class Participant(xaynet_sdk.ParticipantABC):
         if get_battery_level() < 20:
             LOG.info("low battery, skip training")
             return False
-        LOG.info("enough battery, participate in update")
+        LOG.info("enough battery, participate in update task")
         return True
 
     def on_new_global_model(self, global_model: Optional[list]) -> None:

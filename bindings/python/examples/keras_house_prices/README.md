@@ -1,5 +1,9 @@
 # `keras_house_prices` Example
 
+**Prerequisites**
+
+- Python 3.7.1 or higher
+
 1. Adjust the coordinator settings
 
 Change the model length to `55117` and the `bound_type` to `B2`

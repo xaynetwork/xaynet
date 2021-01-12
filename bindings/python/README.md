@@ -4,7 +4,7 @@
 
 **Prerequisites**
 
-- Python (3.6 or higher)
+- Python 3.6 or higher
 
 **Install it from source**
 
@@ -38,18 +38,14 @@ It refers to the property when a local model can be set. In `ParticipantABC`
 the local model can only be set if the participant was selected an update participant
 while in `AsyncParticipant` the model can be set at any time.
 
-**Nice to know:**
-
-The Python participants do not implement a Xaynet participant from scratch. Under the hood
-they use [`xaynet-mobile`](../../rust/xaynet-mobile/) via
-[`pyo3`](https://github.com/PyO3/pyo3).
-
 ### `ParticipantABC`
 
 The `ParticipantABC` API is similar to the old one which we introduced in
 [`v0.8.0`](https://github.com/xaynetwork/xaynet/blob/v0.8.0/python/sdk/xain_sdk/participant.py#L24).
-The only difference is that the new participant now runs in its own thread and provides additional
-helpful methods.
+Aside from some changes to the method signature, the biggest change is that the participant
+now runs in its own thread.
+
+To migrate from `v0.8.0` to `v0.11.0` please follow the [migration guide](./migration_guide.md).
 
 ![ParticipantABC](../../assets/python_participant.svg)
 
@@ -76,6 +72,14 @@ def spawn_participant(
         kwargs: The kwargs that get passed to the constructor of the `participant` class.
         state: A serialized participant state. Defaults to `None`.
         scalar: The scalar used for masking. Defaults to `1.0`.
+
+    Note:
+        The `scalar` is used later when the models are aggregated in order to scale their weights.
+        It can be used when you want to weight the participants updates differently.
+
+        For example:
+        If not all participant updates should be weighted equally but proportionally to their
+        training samples, the scalar would be set to `scalar = 1 / number_of_samples`.
 
     Returns:
         The `InternalParticipant`.
@@ -138,7 +142,7 @@ class ParticipantABC(ABC):
         A callback used by the `InternalParticipant` to determine whether the
         `train_round` method should be called. This callback is only called
         if the participant is selected as an update participant. If `participate_in_update_task`
-        returns the `False`, `train_round` will not be called by the `InternalParticipant`.
+        returns `False`, `train_round` will not be called by the `InternalParticipant`.
 
         If the method is not overridden, it returns `True` by default.
 
@@ -253,6 +257,14 @@ def spawn_async_participant(coordinator_url: str, state: Optional[List[int]] = N
         state: A serialized participant state. Defaults to `None`.
         scalar: The scalar used for masking. Defaults to `1.0`.
 
+    Note:
+        The `scalar` is used later when the models are aggregated in order to scale their weights.
+        It can be used when you want to weight the participants updates differently.
+
+        For example:
+        If not all participant updates should be weighted equally but proportionally to their
+        training samples, the scalar would be set to `scalar = 1 / number_of_samples`.
+
     Returns:
         A tuple which consists of an `AsyncParticipant` and a global model notifier.
 
@@ -284,7 +296,7 @@ class AsyncParticipant:
     def set_local_model(self, local_model: list):
         """
         Sets a local model. This method can be called at any time. Internally the
-        participant first caches the local model. As soon as the participant is selected as the
+        participant first caches the local model. As soon as the participant is selected as an
         update participant, the currently cached local model is used. This means that the cache
         is empty after this operation.
 

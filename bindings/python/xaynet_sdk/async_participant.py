@@ -93,7 +93,7 @@ class AsyncParticipant(threading.Thread):
     def set_local_model(self, local_model: list):
         """
         Sets a local model. This method can be called at any time. Internally the
-        participant first caches the local model. As soon as the participant is selected as the
+        participant first caches the local model. As soon as the participant is selected as an
         update participant, the currently cached local model is used. This means that the cache
         is empty after this operation.
 

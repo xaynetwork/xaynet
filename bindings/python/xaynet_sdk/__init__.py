@@ -26,6 +26,14 @@ def spawn_participant(
         state: A serialized participant state. Defaults to `None`.
         scalar: The scalar used for masking. Defaults to `1.0`.
 
+    Note:
+        The `scalar` is used later when the models are aggregated in order to scale their weights.
+        It can be used when you want to weight the participants updates differently.
+
+        For example:
+        If not all participant updates should be weighted equally but proportionally to their
+        training samples, the scalar would be set to `scalar = 1 / number_of_samples`.
+
     Returns:
         The `InternalParticipant`.
 
@@ -60,6 +68,14 @@ def spawn_async_participant(
         coordinator_url: The url of the coordinator.
         state: A serialized participant state. Defaults to `None`.
         scalar: The scalar used for masking. Defaults to `1.0`.
+
+    Note:
+        The `scalar` is used later when the models are aggregated in order to scale their weights.
+        It can be used when you want to weight the participants updates differently.
+
+        For example:
+        If not all participant updates should be weighted equally but proportionally to their
+        training samples, the scalar would be set to `scalar = 1 / number_of_samples`.
 
     Returns:
         A tuple which consists of an `AsyncParticipant` and a global model notifier.
