@@ -86,7 +86,7 @@ base64 = "0.13.0"
 # https://github.com/xd009642/tarpaulin/issues/317. A workaround is to use `serial_test`.
 serial_test = "0.5.1"
 # TODO (XN-1372): can't upgrade yet because of tokio
-tokio-test = "0.2.1"
+tokio-test = "0.4.0"
 # TODO (XN-1372): can't upgrade yet because of tokio
 tower-test = "0.3.0"
 
