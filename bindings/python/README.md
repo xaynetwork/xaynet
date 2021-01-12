@@ -21,7 +21,7 @@ pyenv virtualenv xayn
 pyenv activate xayn
 
 # install maturin
-pip install maturin
+pip install maturin==0.9.0
 pip install justbackoff
 
 # install xaynet-sdk
