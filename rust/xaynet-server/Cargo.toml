@@ -33,7 +33,7 @@ derive_more = { version = "0.99.11", default-features = false, features = [
 displaydoc = "0.1.7"
 futures = "0.3.9"
 hex = "0.4.2"
-http = "0.2.2"
+http = "0.2.3"
 influxdb = "0.3.0"
 num = { version = "0.3.1", features = ["serde"] }
 num_enum = "0.5.1"
