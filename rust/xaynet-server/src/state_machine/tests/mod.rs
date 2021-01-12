@@ -61,18 +61,21 @@ async fn integration_full_round() {
     let state_machine = state_machine.next().await.unwrap();
     assert!(state_machine.is_sum());
 
-    // Sum phase
+    // Sum phase (3 participants)
     let summer_1 = generate_summer(round_params.clone());
     let summer_2 = generate_summer(round_params.clone());
+    let summer_3 = generate_summer(round_params.clone());
     let msg_1 = summer_1.compose_sum_message();
     let msg_2 = summer_2.compose_sum_message();
+    let msg_3 = summer_3.compose_sum_message();
     let req_1 = async { requests.msg(&msg_1).await.unwrap() };
     let req_2 = async { requests.msg(&msg_2).await.unwrap() };
+    let req_3 = async { requests.msg(&msg_3).await.unwrap() };
     let transition = async { state_machine.next().await.unwrap() };
-    let ((), (), state_machine) = tokio::join!(req_1, req_2, transition);
+    let ((), (), (), state_machine) = tokio::join!(req_1, req_2, req_3, transition);
     assert!(state_machine.is_update());
 
-    // Update phase
+    // Update phase (3 participants)
     let transition_task = tokio::spawn(async { state_machine.next().await.unwrap() });
     let sum_dict = events.sum_dict_listener().get_latest().event.unwrap();
     let scalar = 1.0 / (n_updaters as f64 * round_params.update);
@@ -87,7 +90,7 @@ async fn integration_full_round() {
     let state_machine = transition_task.await.unwrap();
     assert!(state_machine.is_sum2());
 
-    // Sum2 phase
+    // Sum2 phase (2 out of 3 participants)
     let seed_dict = events.seed_dict_listener().get_latest().event.unwrap();
 
     let seeds_1 = summer_1.decrypt_seeds(&seed_dict.get(&summer_1.keys.public).unwrap());

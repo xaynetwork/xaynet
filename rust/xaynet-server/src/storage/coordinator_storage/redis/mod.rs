@@ -221,7 +221,7 @@ impl CoordinatorStorage for Client {
 
                 -- check if the local seed dict has the same length as the sum_dict
 
-                -- KEYS is a list (table) of key value pairs ([update_pk_1, seed_1, update_pk_2, seed_2])
+                -- KEYS is a list (table) of key value pairs ([sum_pk_1, seed_1, sum_pk_2, seed_2, ...])
                 local seed_dict_len = #KEYS / 2
                 local sum_dict_len = redis.call("HLEN", "sum_dict")
                 if seed_dict_len ~= sum_dict_len then
@@ -236,7 +236,7 @@ impl CoordinatorStorage for Client {
                     end
                 end
 
-                -- check if one pk of the local seed dict already exists in seed_dict
+                -- check if the update pk already exists (i.e. the local seed dict has already been submitted)
                 local exist_in_seed_dict = redis.call("SADD", "update_participants", update_pk)
                 -- SADD returns 0 if the key already exists
                 if exist_in_seed_dict == 0 then
@@ -246,7 +246,7 @@ impl CoordinatorStorage for Client {
                 -- update the seed dict
                 for i = 1, #KEYS, 2 do
                     local exist_in_update_seed_dict = redis.call("HSETNX", KEYS[i], update_pk, KEYS[i + 1])
-                    -- HSETNX returns 0 if the key already exists
+                    -- HSETNX returns 0 if the update pk already exists
                     if exist_in_update_seed_dict == 0 then
                         -- This condition should never apply.
                         -- If this condition is true, it is an indication that the data in redis is corrupted.
