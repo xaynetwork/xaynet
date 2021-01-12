@@ -31,14 +31,15 @@ impl CalcWasActiveEachPastPeriod {
             // If `period_thresholds` contains less than two elements, this code block is not executed
             let newer_threshold = these_thresholds.first().unwrap();
             let older_threshold = these_thresholds.last().unwrap();
-            for event in self.events.iter() {
-                if event.timestamp < *newer_threshold && event.timestamp > *older_threshold {
-                    timestamps_by_period_threshold
-                        .entry(*newer_threshold)
-                        .or_insert_with(Vec::new)
-                        .push(event.timestamp);
-                }
-            }
+            let timestamps: Vec<DateTime<Utc>> = self
+                .events
+                .iter()
+                .filter(|event| {
+                    event.timestamp < *newer_threshold && event.timestamp > *older_threshold
+                })
+                .map(|event| event.timestamp)
+                .collect();
+            timestamps_by_period_threshold.insert(*newer_threshold, timestamps);
         }
         timestamps_by_period_threshold
     }
@@ -53,8 +54,7 @@ impl CalculateDataPoints for CalcWasActiveEachPastPeriod {
         let timestamps_by_period_threshold = self.group_timestamps_by_period_threshold();
         timestamps_by_period_threshold
             .values()
-            .map(|timestamps| timestamps.is_empty())
-            .map(|was_not_active| if was_not_active { 0 } else { 1 })
+            .map(|timestamps| !timestamps.is_empty() as u32)
             .collect::<Vec<u32>>()
     }
 }

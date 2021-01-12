@@ -61,7 +61,7 @@ where
             .get_all_screen_routes()
             .iter()
             .map(|route| {
-                let events_this_route = self.get_events_single_route(route.clone());
+                let events_this_route = self.get_events_single_route(&route);
                 CalcScreenActiveTime::new(
                     metadata,
                     self.filter_events_in_this_period(metadata, events_this_route),
@@ -81,7 +81,7 @@ where
         self.get_all_screen_routes()
             .iter()
             .map(|route| {
-                let events_this_route = self.get_events_single_route(route.clone());
+                let events_this_route = self.get_events_single_route(&route);
                 CalcScreenEnterCount::new(
                     metadata,
                     self.filter_events_in_this_period(metadata, events_this_route),
@@ -162,12 +162,12 @@ where
     }
 
     // TODO: return an iterator instead of Vec: https://xainag.atlassian.net/browse/XN-1517
-    fn get_events_single_route(&self, route: String) -> Vec<AnalyticsEvent> {
+    fn get_events_single_route(&self, route: &str) -> Vec<AnalyticsEvent> {
         self.get_all_events()
             .into_iter()
             .filter(|event| {
                 if let Some(ref screen_route) = event.screen_route {
-                    screen_route == &route
+                    screen_route == route
                 } else {
                     false
                 }

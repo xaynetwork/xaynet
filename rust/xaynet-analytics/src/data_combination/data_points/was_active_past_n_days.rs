@@ -19,10 +19,6 @@ impl CalculateDataPoints for CalcWasActivePastNDays {
     }
 
     fn calculate(&self) -> Vec<u32> {
-        if self.events.is_empty() {
-            vec![0]
-        } else {
-            vec![1]
-        }
+        vec![!self.events.is_empty() as u32]
     }
 }
