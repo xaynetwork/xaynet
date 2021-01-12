@@ -336,7 +336,7 @@ fn validate_pet(s: &PetSettings) -> Result<(), ValidationError> {
 ///
 /// Requires at least one of the following arguments if the `tls` feature is enabled:
 /// - `tls_certificate` together with `tls_key` for TLS server authentication
-/// - `tls_client_auth` for TLS client authentication
+// - `tls_client_auth` for TLS client authentication
 pub struct ApiSettings {
     /// The address to which the REST API should be bound.
     ///
@@ -415,7 +415,7 @@ pub struct ApiSettings {
     /// ```text
     /// XAYNET_API__TLS_CLIENT_AUTH=path/to/tls/files/trust_anchor.pem
     /// ```
-    pub tls_client_auth: Option<PathBuf>,
+    pub(crate) tls_client_auth: Option<PathBuf>,
 }
 
 #[cfg(feature = "tls")]
