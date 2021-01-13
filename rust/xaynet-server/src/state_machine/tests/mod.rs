@@ -35,8 +35,9 @@ async fn integration_full_round() {
         mask_config: mask_config(),
         model_length,
     };
+    let n_summers = 3;
     let n_updaters = 3;
-    let n_summers = 2;
+    let n_summers2 = 2;
 
     let mut store = init_store().await;
     let (state_machine, requests, events) = StateMachineBuilder::new(store.clone())
@@ -48,10 +49,14 @@ async fn integration_full_round() {
         .with_max_sum_count(n_summers + 10)
         .with_min_update_count(n_updaters)
         .with_max_update_count(n_updaters + 10)
+        .with_min_sum2_count(n_summers2)
+        .with_max_sum2_count(n_summers2 + 10)
         .with_min_sum_time(1)
         .with_max_sum_time(2)
         .with_min_update_time(1)
         .with_max_update_time(2)
+        .with_min_sum2_time(1)
+        .with_max_sum2_time(2)
         .with_model_length(model_length)
         .build();
 
