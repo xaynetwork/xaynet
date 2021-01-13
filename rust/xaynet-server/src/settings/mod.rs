@@ -17,7 +17,10 @@ use thiserror::Error;
 use tracing_subscriber::filter::EnvFilter;
 use validator::{Validate, ValidationError, ValidationErrors};
 
-use xaynet_core::mask::{BoundType, DataType, GroupType, MaskConfig, ModelType};
+use xaynet_core::{
+    mask::{BoundType, DataType, GroupType, MaskConfig, ModelType},
+    message::{MIN_SUM_COUNT, MIN_UPDATE_COUNT},
+};
 
 #[cfg(feature = "model-persistence")]
 pub mod s3;
@@ -78,52 +81,64 @@ impl Settings {
 #[validate(schema(function = "validate_pet"))]
 /// PET protocol settings.
 pub struct PetSettings {
-    #[validate(range(min = 1))]
-    /// The minimal number of participants selected for computing the unmasking sum. The value must
-    /// be greater or equal to `1` (i.e. `min_sum_count >= 1`), otherwise the PET protocol will be
-    /// broken.
-    ///
-    /// This parameter should only be used to enforce security constraints.
+    /// The minimal number of participants selected for preparing the unmasking. The value must be
+    /// greater or equal to `1` (i.e. `min_sum_count >= 1`) for the PET protocol to function
+    /// correctly.
     ///
     /// # Examples
     ///
     /// **TOML**
     /// ```text
     /// [pet]
-    /// min_sum_count = 1
+    /// min_sum_count = 10
     /// ```
     ///
     /// **Environment variable**
     /// ```text
-    /// XAYNET_PET__MIN_SUM_COUNT=1
+    /// XAYNET_PET__MIN_SUM_COUNT=10
     /// ```
     pub min_sum_count: u64,
 
-    #[validate(range(min = 3))]
-    /// The expected fraction of participants selected for submitting an updated local model for
-    /// aggregation. The value must be greater or equal to `3` (i.e. `min_update_count >= 3`),
-    /// otherwise the PET protocol will be broken.
-    ///
-    /// This parameter should only be used to enforce security constraints.
+    /// The expected number of participants selected for submitting an updated local model for
+    /// aggregation. The value must be greater or equal to `3` (i.e. `min_update_count >= 3`) for
+    /// the PET protocol to function correctly.
     ///
     /// # Examples
     ///
     /// **TOML**
     /// ```text
     /// [pet]
-    /// min_update_count = 3
+    /// min_update_count = 100
     /// ```
     ///
     /// **Environment variable**
     /// ```text
-    /// XAYNET_PET__MIN_UPDATE_COUNT=3
+    /// XAYNET_PET__MIN_UPDATE_COUNT=100
     /// ```
     pub min_update_count: u64,
 
-    /// The maximal number of participants selected for computing the unmasking sum. No more
-    /// messages will be processed in the `sum` and `sum2` phases if the `min_sum_time` has not yet
-    /// elapsed. The value must be greater or equal to `min_sum_count` (i.e. `min_sum_count <=
+    /// The minimal number of participants selected for submitting the aggregated masks. The value
+    /// must be greater or equal to `1` (i.e. `min_sum2_count >= 1`) for the PET protocol to
+    /// function correctly and less or equal to `max_sum_count` (i.e. `min_sum2_count <=
     /// max_sum_count`).
+    ///
+    /// # Examples
+    ///
+    /// **TOML**
+    /// ```text
+    /// [pet]
+    /// min_sum2_count = 10
+    /// ```
+    ///
+    /// **Environment variable**
+    /// ```text
+    /// XAYNET_PET__MIN_SUM2_COUNT=10
+    /// ```
+    pub min_sum2_count: u64,
+
+    /// The maximal number of participants selected for preparing the unmasking. No more messages
+    /// will be processed in the `sum` phase if the `min_sum_time` has not yet elapsed. The value
+    /// must be greater or equal to `min_sum_count` (i.e. `min_sum_count <= max_sum_count`).
     ///
     /// # Examples
     ///
@@ -141,7 +156,7 @@ pub struct PetSettings {
 
     /// The maximal number of participants selected for submitting an updated local model for
     /// aggregation. No more message will be processed in the `update` phase if the
-    /// `min_update_time` has not yet elapsed.The value must be greater or equal to
+    /// `min_update_time` has not yet elapsed. The value must be greater or equal to
     /// `min_update_count` (i.e. `min_update_count <= max_update_count`).
     ///
     /// # Examples
@@ -158,11 +173,30 @@ pub struct PetSettings {
     /// ```
     pub max_update_count: u64,
 
-    /// The minimum amount of time reserved for processing messages in the `sum` and `sum2` phases,
-    /// in seconds. Once this time has passed, the `sum` and `sum2` phases end *as soon as*
-    /// [`PetSettings::min_sum_count`] messages have been processed. Set this higher to allow for
-    /// the possibility of more than [`PetSettings::min_sum_count`] messages to be processed in the
-    /// `sum` and `sum2` phases.
+    /// The maximal number of participants selected for submitting the aggregated masks. No more
+    /// messages will be processed in the `sum2` phase if the `min_sum2_time` has not yet elapsed.
+    /// The value must be greater or equal to `min_sum2_count` (i.e. `min_sum2_count <=
+    /// max_sum2_count`) and less or equal to `max_sum_count` (i.e. `max_sum2_count <=
+    /// max_sum_count`).
+    ///
+    /// # Examples
+    ///
+    /// **TOML**
+    /// ```text
+    /// [pet]
+    /// max_sum2_count = 100
+    /// ```
+    ///
+    /// **Environment variable**
+    /// ```text
+    /// XAYNET_PET__MAX_SUM2_COUNT=100
+    /// ```
+    pub max_sum2_count: u64,
+
+    /// The minimum amount of time reserved for processing messages in the `sum` phase, in seconds.
+    /// Once this time has passed, the `sum` phase ends *as soon as* `min_sum_count` messages have
+    /// been processed. Set this higher to allow for the possibility of more than `min_sum_count`
+    /// messages to be processed in the `sum` phase.
     ///
     /// # Examples
     ///
@@ -179,10 +213,9 @@ pub struct PetSettings {
     pub min_sum_time: u64,
 
     /// The minimum amount of time reserved for processing messages in the `update` phase, in
-    /// seconds. Once this time has passed, the `update` phase ends *as soon as*
-    /// [`PetSettings::min_update_count`] messages have been processed. Set this higher to allow for
-    /// the possibility of more than [`PetSettings::min_update_count`] messages to be processed in
-    /// the `update` phase.
+    /// seconds. Once this time has passed, the `update` phase ends *as soon as* `min_update_count`
+    /// messages have been processed. Set this higher to allow for the possibility of more than
+    /// `min_update_count` messages to be processed in the `update` phase.
     ///
     /// # Examples
     ///
@@ -198,9 +231,28 @@ pub struct PetSettings {
     /// ```
     pub min_update_time: u64,
 
-    /// The maximum amount of time permitted for processing messages in the `sum` and `sum2` phases,
-    /// in seconds. Set this lower to allow for the processing of [`PetSettings::min_sum_count`]
-    /// messages to time-out sooner in the `sum` and `sum2` phases.
+    /// The minimum amount of time reserved for processing messages in the `sum2` phase, in seconds.
+    /// Once this time has passed, the `sum2` phase ends *as soon as* `min_sum2_count` messages have
+    /// been processed. Set this higher to allow for the possibility of more than `min_sum2_count`
+    /// messages to be processed in the `sum2` phase.
+    ///
+    /// # Examples
+    ///
+    /// **TOML**
+    /// ```text
+    /// [pet]
+    /// min_sum2_time = 5
+    /// ```
+    ///
+    /// **Environment variable**
+    /// ```text
+    /// XAYNET_PET__MIN_SUM2_TIME=5
+    /// ```
+    pub min_sum2_time: u64,
+
+    /// The maximum amount of time permitted for processing messages in the `sum` phase, in seconds.
+    /// Set this lower to allow for the processing of `min_sum_count` messages to time-out sooner in
+    /// the `sum` phase.
     ///
     /// # Examples
     ///
@@ -217,8 +269,8 @@ pub struct PetSettings {
     pub max_sum_time: u64,
 
     /// The maximum amount of time permitted for processing messages in the `update` phase, in
-    /// seconds. Set this lower to allow for the processing of [`PetSettings::min_update_count`]
-    /// messages to time-out sooner in the `update` phase.
+    /// seconds. Set this lower to allow for the processing of `min_update_count` messages to
+    /// time-out sooner in the `update` phase.
     ///
     /// # Examples
     ///
@@ -234,8 +286,26 @@ pub struct PetSettings {
     /// ```
     pub max_update_time: u64,
 
-    /// The expected fraction of participants selected for computing the unmasking sum. The value
-    /// must be between `0` and `1` (i.e. `0 < sum < 1`).
+    /// The maximum amount of time permitted for processing messages in the `sum2` phase, in
+    /// seconds. Set this lower to allow for the processing of `min_sum2_count` messages to time-out
+    /// sooner in the `sum2` phase.
+    ///
+    /// # Examples
+    ///
+    /// **TOML**
+    /// ```text
+    /// [pet]
+    /// max_sum2_time = 30
+    /// ```
+    ///
+    /// **Environment variable**
+    /// ```text
+    /// XAYNET_PET__MAX_SUM2_TIME=30
+    /// ```
+    pub max_sum2_time: u64,
+
+    /// The expected fraction of participants selected for preparing and computing the aggregated
+    /// masks. The value must be between `0` and `1` (i.e. `0 < sum < 1`).
     ///
     /// Additionally, it is enforced that `0 < sum + update - sum*update <= 1` to avoid pathological
     /// cases of deadlocks.
@@ -278,17 +348,24 @@ pub struct PetSettings {
 }
 
 impl PetSettings {
-    /// Checks PET settings.
+    /// Checks the PET settings.
     fn validate_pet(&self) -> Result<(), ValidationError> {
         self.validate_phase_counts()?;
         self.validate_phase_times()?;
         self.validate_fractions()
     }
 
-    /// Checks validity of phase count ranges.
+    /// Checks the validity of phase count ranges.
     fn validate_phase_counts(&self) -> Result<(), ValidationError> {
-        if self.min_sum_count <= self.max_sum_count
+        // the validate attribute only accepts literals, therefore we check the invariants here
+        if MIN_SUM_COUNT <= self.min_sum_count
+            && self.min_sum_count <= self.max_sum_count
+            && MIN_UPDATE_COUNT <= self.min_update_count
             && self.min_update_count <= self.max_update_count
+            && MIN_SUM_COUNT <= self.min_sum2_count
+            && self.min_sum2_count <= self.max_sum2_count
+            && self.min_sum2_count <= self.max_sum_count
+            && self.max_sum2_count <= self.max_sum_count
         {
             Ok(())
         } else {
@@ -296,16 +373,19 @@ impl PetSettings {
         }
     }
 
-    /// Checks validity of phase time ranges.
+    /// Checks the validity of phase time ranges.
     fn validate_phase_times(&self) -> Result<(), ValidationError> {
-        if self.min_sum_time <= self.max_sum_time && self.min_update_time <= self.max_update_time {
+        if self.min_sum_time <= self.max_sum_time
+            && self.min_update_time <= self.max_update_time
+            && self.min_sum2_time <= self.max_sum2_time
+        {
             Ok(())
         } else {
             Err(ValidationError::new("invalid phase time range(s)"))
         }
     }
 
-    /// Checks pathological cases of deadlocks.
+    /// Checks the validity of fraction ranges including pathological cases of deadlocks.
     fn validate_fractions(&self) -> Result<(), ValidationError> {
         if 0. < self.sum
             && self.sum < 1.
@@ -695,14 +775,18 @@ mod tests {
     impl Default for PetSettings {
         fn default() -> Self {
             Self {
-                min_sum_count: 1,
-                min_update_count: 3,
+                min_sum_count: 10,
+                min_update_count: 100,
+                min_sum2_count: 10,
                 max_sum_count: 100,
                 max_update_count: 10000,
+                max_sum2_count: 100,
                 min_sum_time: 0,
                 min_update_time: 0,
+                min_sum2_time: 0,
                 max_sum_time: 604800,
                 max_update_time: 604800,
+                max_sum2_time: 604800,
                 sum: 0.01,
                 update: 0.1,
             }
@@ -729,8 +813,69 @@ mod tests {
     #[test]
     fn test_validate_pet() {
         assert!(PetSettings::default().validate_pet().is_ok());
+    }
 
-        // phase times
+    #[test]
+    fn test_validate_pet_counts() {
+        assert_eq!(MIN_SUM_COUNT, 1);
+        assert_eq!(MIN_UPDATE_COUNT, 3);
+        assert!(PetSettings {
+            min_sum_count: 0,
+            ..PetSettings::default()
+        }
+        .validate()
+        .is_err());
+        assert!(PetSettings {
+            min_update_count: 2,
+            ..PetSettings::default()
+        }
+        .validate()
+        .is_err());
+        assert!(PetSettings {
+            min_sum2_count: 0,
+            ..PetSettings::default()
+        }
+        .validate()
+        .is_err());
+        assert!(PetSettings {
+            min_sum_count: 11,
+            max_sum_count: 10,
+            ..PetSettings::default()
+        }
+        .validate()
+        .is_err());
+        assert!(PetSettings {
+            min_update_count: 11,
+            max_update_count: 10,
+            ..PetSettings::default()
+        }
+        .validate()
+        .is_err());
+        assert!(PetSettings {
+            min_sum2_count: 11,
+            max_sum2_count: 10,
+            ..PetSettings::default()
+        }
+        .validate()
+        .is_err());
+        assert!(PetSettings {
+            min_sum2_count: 11,
+            max_sum_count: 10,
+            ..PetSettings::default()
+        }
+        .validate()
+        .is_err());
+        assert!(PetSettings {
+            max_sum2_count: 11,
+            max_sum_count: 10,
+            ..PetSettings::default()
+        }
+        .validate()
+        .is_err());
+    }
+
+    #[test]
+    fn test_validate_pet_times() {
         assert!(PetSettings {
             min_sum_time: 2,
             max_sum_time: 1,
@@ -745,8 +890,17 @@ mod tests {
         }
         .validate()
         .is_err());
+        assert!(PetSettings {
+            min_sum2_time: 2,
+            max_sum2_time: 1,
+            ..PetSettings::default()
+        }
+        .validate()
+        .is_err());
+    }
 
-        // fractions
+    #[test]
+    fn test_validate_pet_fractions() {
         assert!(PetSettings {
             sum: 0.,
             ..PetSettings::default()

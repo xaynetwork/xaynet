@@ -32,7 +32,15 @@ pub(crate) mod traits;
 pub(crate) mod utils;
 
 pub use self::{
-    message::{Flags, Message, MessageBuffer, Tag, HEADER_LENGTH as MESSAGE_HEADER_LENGTH},
+    message::{
+        Flags,
+        Message,
+        MessageBuffer,
+        Tag,
+        HEADER_LENGTH as MESSAGE_HEADER_LENGTH,
+        MIN_SUM_COUNT,
+        MIN_UPDATE_COUNT,
+    },
     payload::{
         chunk::{Chunk, ChunkBuffer},
         sum::{Sum, SumBuffer},
