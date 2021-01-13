@@ -6,6 +6,118 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [unreleased]
 
+### Added
+
+#### Rust SDK `xaynet-sdk`
+
+`xaynet-sdk` contains the basic building blocks required to run the _Privacy-Enhancing Technology_
+(PET) Protocol. It consists of a state machine and two I/O interfaces with which specific Xaynet
+participants can be developed that are adapted to the respective environments/requirements.
+
+If you are interested in building your own Xaynet participant, you can take a look at
+`xaynet-sdk`, our [Rust participant](https://github.com/xaynetwork/xaynet/blob/master/rust/examples/test-drive/participant.rs)
+which we use primarily for testing or at
+[`xaynet-mobile`](https://github.com/xaynetwork/xaynet/blob/master/rust/xaynet-mobile/src/participant.rs)
+our mobile friendly participant.
+
+#### A Mobile friendly Xaynet participant `xaynet-mobile`
+
+`xaynet-mobile` provides a mobile friendly implementation of a Xaynet participant. It gives the user
+a lot of control on how to drive the participant execution. You can regularly pause the execution of
+the participant, save it, and later restore it and continue the execution. When running on a device
+that is low on battery or does not have access to Wi-Fi for instance, it can be useful to be able to
+pause the participant.
+
+**C API**
+
+Furthermore, `xaynet-mobile` offers `C` bindings that allow `xaynet-mobile` to be used in other
+programming languages ​​such as `Dart`.
+
+#### Python participant SDK `xaynet-sdk-python`
+
+We are happy to announce that we finally released `xaynet-sdk-python` a Python SDK that
+consists of two experimental Xaynet participants (`ParticipantABC` and `AsyncParticipant`).
+
+The `ParticipantABC` API is similar to the old one which we introduced in `v0.8.0`. Aside from some
+changes to the method signature, the biggest change is that the participant now runs in its own
+thread. To migrate from `v0.8.0` to `v0.11.0` please follow the
+[migration guide](https://github.com/xaynetwork/xaynet/blob/master/bindings/python/migration_guide.md).
+
+However, we noticed that our Participant API may be difficult to integrate with existing
+applications, considering the code for the training has to be moved into the `train_round` method,
+which can lead to significant changes to the existing code. Therefore, we offer a second API
+(`AsyncParticipant`) in which the training of the model is no longer part of the participant.
+
+A more in-depth explanation of the differences between the Participant APIs
+and examples of how to use them can be found
+[here](https://github.com/xaynetwork/xaynet/blob/master/bindings/python/README.md).
+
+#### Multi-part messages
+
+Participant messages can get large, possibly too large to be sent successfully in one go. On mobile
+devices in particular, the internet connection may not be as reliable. In order to make the
+transmission of messages more robust, we implemented multi-part messages to break a large message
+into parts and send them sequentially to the coordinator. If the transmission of part of
+a message fails, only that part will be resent and not the entire message.
+
+#### Coordinator state managed in Redis
+
+In order to be able to restore the state of the coordinator after an failure or shutdown,
+the state is managed in Redis and no longer in memory.
+
+The Redis client can be configured via the `[redis]` setting:
+
+```toml
+[redis]
+url = "redis://127.0.0.1/"
+```
+
+#### Support for storing global models in S3/Minio
+
+The coordinator is able to save a global model in S3/Minio after a successful round.
+
+The S3 client can be configured via the `[s3]` setting:
+
+```toml
+[s3]
+access_key = "minio"
+secret_access_key = "minio123"
+region = ["minio", "http://localhost:9000"]
+
+[s3.buckets]
+global_models = "global-models"
+```
+
+`xaynet-server` must be compiled with the feature flag `model-persistence` in order to enable
+this feature.
+
+#### Restore coordinator state
+
+The state of the coordinator can be restored after a failure or shutdown.
+
+Restoring the coordinator be configured via the `[restore]` setting:
+
+```toml
+[restore]
+enable = true
+```
+
+`xaynet-server` must be compiled with the feature flag `model-persistence` in order to enable
+this feature.
+
+#### Improved collection of state machine metrics
+
+In `v0.10.0` we introduced the collection of metrics that are emitted in the state machine of
+`xaynet-server` and sent to an InfluxDB instance. In `v0.11.0` we have revised the implementation
+and improved it further. Metrics are now sent much faster and adding metrics to the code has
+become much easier.
+
+### Removed
+
+  - `xaynet_client` (was split into `xaynet_sdk` and `xaynet_mobile`)
+  - `xaynet_ffi` (is now part of `xaynet_mobile`)
+  - `xaynet_macro`
+
 ## [0.10.0] - 2020-09-22
 
 ### Added
