@@ -10,12 +10,14 @@ use xaynet_sdk::settings::{MaxMessageSize, PetSettings};
 /// A participant settings
 #[derive(Clone, Debug)]
 pub struct Settings {
-    /// The participant signing keys
-    keys: Option<SigningKeyPair>,
-    /// The Xaynet coordinator URL
+    /// The Xaynet coordinator URL.
     url: Option<String>,
-    /// The scalar used for masking
+    /// The participant signing keys.
+    keys: Option<SigningKeyPair>,
+    /// The scalar used for masking.
     scalar: f64,
+    /// The maximum possible size of a message.
+    max_message_size: MaxMessageSize,
 }
 
 impl Default for Settings {
@@ -25,12 +27,13 @@ impl Default for Settings {
 }
 
 impl Settings {
-    /// Create new empty settings
+    /// Create new empty settings.
     pub fn new() -> Self {
         Self {
-            keys: None,
             url: None,
+            keys: None,
             scalar: 1.0,
+            max_message_size: MaxMessageSize::default(),
         }
     }
 
@@ -47,6 +50,11 @@ impl Settings {
     /// Set the Xaynet coordinator address
     pub fn set_url(&mut self, url: String) {
         self.url = Some(url);
+    }
+
+    /// Sets the maximum possible size of a message.
+    pub fn set_max_message_size(&mut self, size: MaxMessageSize) {
+        self.max_message_size = size;
     }
 
     /// Check whether the settings are complete and valid
@@ -74,16 +82,21 @@ impl TryInto<(String, PetSettings)> for Settings {
     type Error = SettingsError;
 
     fn try_into(self) -> Result<(String, PetSettings), Self::Error> {
-        let Settings { keys, url, scalar } = self;
+        let Settings {
+            keys,
+            url,
+            scalar,
+            max_message_size,
+        } = self;
 
         let url = url.ok_or(SettingsError::MissingUrl)?;
 
         let keys = keys.ok_or(SettingsError::MissingKeys)?;
 
         let pet_settings = PetSettings {
-            scalar,
-            max_message_size: MaxMessageSize::default(),
             keys,
+            scalar,
+            max_message_size,
         };
 
         Ok((url, pet_settings))
