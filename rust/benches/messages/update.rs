@@ -1,94 +1,77 @@
-#![allow(non_snake_case)]
-
-mod utils;
-
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use xaynet_core::message::{FromBytes, Update};
+use paste::paste;
 
-pub fn parse_tiny(c: &mut Criterion) {
-    let (_, bytes) = utils::update::update_tiny();
+use xaynet_core::{
+    message::{FromBytes, ToBytes, Update},
+    testutils::multipart as helpers,
+};
 
-    c.bench_function("parse tiny update from slice", |b| {
-        b.iter(|| Update::from_byte_slice(&black_box(bytes.as_slice())))
-    });
-
-    // Note that an alternative way to write this benchmark is
-    //
-    // c.bench_function("parse tiny update from stream slower", |b| {
-    //    b.iter(|| {
-    //        Update::from_byte_stream(black_box(&mut bytes.as_slice().into_iter().cloned()))
-    //    })
-    // });
-    //
-    // However that is slightly slower so it seems that the method
-    // that has the less overhead is to clone the iterator
-    // directly. The cost of cloning should be negligible since we're
-    // just cloning two pointers.
-    let iter = bytes.clone().into_iter();
-    c.bench_function("parse tiny update from stream", |b| {
-        b.iter(|| Update::from_byte_stream(black_box(&mut iter.clone())))
-    });
+fn make_update(dict_len: usize, mask_len: usize, total_expected_len: usize) -> (Update, Vec<u8>) {
+    let update = helpers::update(dict_len, mask_len);
+    // just check that we made our calculation right
+    // message size = dict_len + mask_len + 64*2
+    assert_eq!(update.buffer_length(), total_expected_len);
+    let mut bytes = vec![0; update.buffer_length()];
+    update.to_bytes(&mut bytes);
+    (update, bytes)
 }
 
-pub fn parse_100kB(c: &mut Criterion) {
-    let (_, bytes) = utils::update::update_100kB();
+macro_rules! fn_parse {
+    ($name: ident, $dict_len: expr, $mask_len: expr, $total_len: expr) => {
+        paste! {
+            #[allow(non_snake_case)]
+            pub fn [<parse $name>](c: &mut Criterion) {
+                let (_, bytes) = make_update($dict_len, $mask_len, $total_len);
+                let size = &stringify!($name)[1..];
 
-    c.bench_function("parse 100kB update from slice", |b| {
-        b.iter(|| Update::from_byte_slice(&black_box(bytes.as_slice())))
-    });
+                c.bench_function(format!("parse {} update from slice", size).as_str(), |b| {
+                    b.iter(|| Update::from_byte_slice(&black_box(bytes.as_slice())))
+                });
 
-    let iter = bytes.clone().into_iter();
-    c.bench_function("parse 100k update from stream", |b| {
-        b.iter(|| Update::from_byte_stream(black_box(&mut iter.clone())))
-    });
+                // it's less overhead to clone the iterator of bytes instead of re-creating it
+                // again in every benchmark iteration
+                let iter = bytes.into_iter();
+                c.bench_function(format!("parse {} update from stream", size).as_str(), |b| {
+                    b.iter(|| Update::from_byte_stream(black_box(&mut iter.clone())))
+                });
+            }
+        }
+    };
 }
 
-pub fn parse_1MB(c: &mut Criterion) {
-    let (_, bytes) = utils::update::update_1MB();
+// Get an update that corresponds to:
+// - 1 sum participant (1 entry in the seed dict)
+// - a 42 bytes serialized masked model
+fn_parse!(_tiny, 116, 42, 286);
 
-    c.bench_function("parse 1MB update from slice", |b| {
-        b.iter(|| Update::from_byte_slice(&black_box(bytes.as_slice())))
-    });
+// Get an update that corresponds to:
+// - 1k sum participants (1k entries in the seed dict)
+// - a 6kB serialized masked model
+fn_parse!(_100kB, 112_004, 6_018, 118_150);
 
-    let iter = bytes.clone().into_iter();
-    c.bench_function("parse 1MB update from stream", |b| {
-        b.iter(|| Update::from_byte_stream(black_box(&mut iter.clone())))
-    });
-}
+// Get an update that corresponds to:
+// - 10k sum participants (10k entries in the seed dict)
+// - a 60kB serialized masked model
+fn_parse!(_1MB, 1_120_004, 60_018, 1_180_150);
 
-pub fn parse_2MB(c: &mut Criterion) {
-    let (_, bytes) = utils::update::update_2MB();
+// Get an update that corresponds to:
+// - 10k sum participants (10k entries in the seed dict)
+// - a ~1MB serialized masked model
+fn_parse!(_2MB, 1_120_004, 1_000_020, 2_120_152);
 
-    c.bench_function("parse 2MB update from slice", |b| {
-        b.iter(|| Update::from_byte_slice(&black_box(bytes.as_slice())))
-    });
+// Get an update that corresponds to:
+// - 10k sum participants (10k entries in the seed dict)
+// - a ~9MB serialized masked model
+fn_parse!(_10MB, 1_120_004, 9_000_018, 10_120_150);
 
-    let iter = bytes.clone().into_iter();
-    c.bench_function("parse 2MB update from stream", |b| {
-        b.iter(|| Update::from_byte_stream(black_box(&mut iter.clone())))
-    });
-}
-
-pub fn parse_10MB(c: &mut Criterion) {
-    let (_, bytes) = utils::update::update_10MB();
-
-    c.bench_function("parse 10MB update from slice", |b| {
-        b.iter(|| Update::from_byte_slice(&black_box(bytes.as_slice())))
-    });
-
-    let iter = bytes.clone().into_iter();
-    c.bench_function("parse 10MB update from stream", |b| {
-        b.iter(|| Update::from_byte_stream(black_box(&mut iter.clone())))
-    });
-}
-
-criterion_group!(name = benches;
-                 config = Criterion::default();
-                 targets =
-                    parse_tiny,
-                    parse_100kB,
-                    parse_1MB,
-                    parse_2MB,
-                    parse_10MB,
+criterion_group!(
+    name = bench_update_message;
+    config = Criterion::default();
+    targets =
+        parse_tiny,
+        parse_100kB,
+        parse_1MB,
+        parse_2MB,
+        parse_10MB,
 );
-criterion_main!(benches);
+criterion_main!(bench_update_message);
