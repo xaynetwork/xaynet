@@ -20,13 +20,14 @@ impl AnalyticsEvent {
     pub fn new(
         name: String,
         event_type: AnalyticsEventType,
+        timestamp: DateTime<Utc>,
         screen_route: Option<String>,
     ) -> AnalyticsEvent {
         AnalyticsEvent {
             name,
             event_type,
+            timestamp,
             screen_route,
-            timestamp: chrono::offset::Utc::now(),
         }
     }
 }

@@ -21,7 +21,7 @@ impl Period {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct DataPointMetadata {
     pub period: Period,
     pub end: DateTime<Utc>,
@@ -39,6 +39,7 @@ pub trait CalculateDataPoints {
     fn calculate(&self) -> Vec<u32>;
 }
 
+#[derive(Debug, PartialEq, Eq)]
 pub enum DataPoint {
     ScreenActiveTime(CalcScreenActiveTime),
     ScreenEnterCount(CalcScreenEnterCount),
@@ -59,18 +60,21 @@ impl DataPoint {
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
 // TODO: accept an iterator instead of Vec: https://xainag.atlassian.net/browse/XN-1517
 pub struct CalcScreenActiveTime {
     pub metadata: DataPointMetadata,
     pub events: Vec<AnalyticsEvent>,
 }
 
+#[derive(Debug, PartialEq, Eq)]
 // TODO: accept an iterator instead of Vec: https://xainag.atlassian.net/browse/XN-1517
 pub struct CalcScreenEnterCount {
     pub metadata: DataPointMetadata,
     pub events: Vec<AnalyticsEvent>,
 }
 
+#[derive(Debug, PartialEq, Eq)]
 // TODO: accept an iterator instead of Vec: https://xainag.atlassian.net/browse/XN-1517
 pub struct CalcWasActiveEachPastPeriod {
     pub metadata: DataPointMetadata,
@@ -78,6 +82,7 @@ pub struct CalcWasActiveEachPastPeriod {
     pub period_thresholds: Vec<DateTime<Utc>>,
 }
 
+#[derive(Debug, PartialEq, Eq)]
 // TODO: accept an iterator instead of Vec: https://xainag.atlassian.net/browse/XN-1517
 pub struct CalcWasActivePastNDays {
     pub metadata: DataPointMetadata,

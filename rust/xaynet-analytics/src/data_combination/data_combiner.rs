@@ -1,5 +1,4 @@
 use chrono::{DateTime, Datelike, Duration, NaiveDate, Utc};
-
 use std::iter::empty;
 
 use crate::{
@@ -30,38 +29,66 @@ where
 
     pub fn init_data_points(&self) -> Vec<DataPoint> {
         let end_period = Utc::now();
+        let events = self.get_all_events();
+        let screen_routes = self.get_all_screen_routes();
+
+        let one_day_period_metadata =
+            DataPointMetadata::new(Period::new(PeriodUnit::Days, 1), end_period);
+        let was_active_each_period_metadatas = vec![
+            DataPointMetadata::new(Period::new(PeriodUnit::Days, 7), end_period),
+            DataPointMetadata::new(Period::new(PeriodUnit::Weeks, 6), end_period),
+            DataPointMetadata::new(Period::new(PeriodUnit::Months, 3), end_period),
+        ];
+        let was_active_past_days_metadatas = vec![
+            one_day_period_metadata.clone(),
+            DataPointMetadata::new(Period::new(PeriodUnit::Days, 7), end_period),
+            DataPointMetadata::new(Period::new(PeriodUnit::Days, 28), end_period),
+        ];
+
         empty::<DataPoint>()
-            .chain(self.init_was_active_past_n_days_vars(end_period))
-            .chain(self.init_screen_active_time_vars(end_period))
-            .chain(self.init_screen_enter_count_vars(end_period))
-            .chain(self.init_was_active_each_past_period_vars(end_period))
+            .chain(self.init_screen_active_time_vars(
+                one_day_period_metadata.clone(),
+                events.clone(),
+                &screen_routes,
+            ))
+            .chain(self.init_screen_enter_count_vars(
+                one_day_period_metadata.clone(),
+                events.clone(),
+                &screen_routes,
+            ))
+            .chain(self.init_was_active_each_past_period_vars(
+                was_active_each_period_metadatas,
+                events.clone(),
+            ))
+            .chain(
+                self.init_was_active_past_n_days_vars(
+                    was_active_past_days_metadatas,
+                    events.clone(),
+                ),
+            )
             .collect()
     }
 
-    fn init_was_active_past_n_days_vars(&self, end_period: DateTime<Utc>) -> Vec<DataPoint> {
-        [
-            DataPointMetadata::new(Period::new(PeriodUnit::Days, 1), end_period),
-            DataPointMetadata::new(Period::new(PeriodUnit::Days, 7), end_period),
-            DataPointMetadata::new(Period::new(PeriodUnit::Days, 28), end_period),
-        ]
-        .iter()
-        .map(|metadata| {
-            CalcWasActivePastNDays::new(
-                *metadata,
-                self.filter_events_in_this_period(*metadata, self.get_all_events()),
-            )
-        })
-        .map(DataPoint::WasActivePastNDays)
-        .collect()
+    // TODO: return an iterator instead of Vec: https://xainag.atlassian.net/browse/XN-1517
+    fn get_all_events(&self) -> Vec<AnalyticsEvent> {
+        self.repo.get_all_events()
     }
 
-    fn init_screen_active_time_vars(&self, end_period: DateTime<Utc>) -> Vec<DataPoint> {
-        let metadata = DataPointMetadata::new(Period::new(PeriodUnit::Days, 1), end_period);
-        let mut screen_active_time_vars: Vec<DataPoint> = self
-            .get_all_screen_routes()
+    /// TODO: don't use String here, handle via RouteController: https://xainag.atlassian.net/browse/XN-1535
+    fn get_all_screen_routes(&self) -> Vec<String> {
+        self.repo.get_all_routes()
+    }
+
+    fn init_screen_active_time_vars(
+        &self,
+        metadata: DataPointMetadata,
+        events: Vec<AnalyticsEvent>,
+        screen_routes: &Vec<String>,
+    ) -> Vec<DataPoint> {
+        let mut screen_active_time_vars: Vec<DataPoint> = screen_routes
             .iter()
             .map(|route| {
-                let events_this_route = self.get_events_single_route(&route);
+                let events_this_route = self.get_events_single_route(&route, events.clone());
                 CalcScreenActiveTime::new(
                     metadata,
                     self.filter_events_in_this_period(metadata, events_this_route),
@@ -71,17 +98,21 @@ where
             .collect();
         screen_active_time_vars.push(DataPoint::ScreenActiveTime(CalcScreenActiveTime::new(
             metadata,
-            self.filter_events_in_this_period(metadata, self.get_all_events()),
+            self.filter_events_in_this_period(metadata, events),
         )));
         screen_active_time_vars
     }
 
-    fn init_screen_enter_count_vars(&self, end_period: DateTime<Utc>) -> Vec<DataPoint> {
-        let metadata = DataPointMetadata::new(Period::new(PeriodUnit::Days, 1), end_period);
-        self.get_all_screen_routes()
+    fn init_screen_enter_count_vars(
+        &self,
+        metadata: DataPointMetadata,
+        events: Vec<AnalyticsEvent>,
+        screen_routes: &Vec<String>,
+    ) -> Vec<DataPoint> {
+        screen_routes
             .iter()
             .map(|route| {
-                let events_this_route = self.get_events_single_route(&route);
+                let events_this_route = self.get_events_single_route(&route, events.clone());
                 CalcScreenEnterCount::new(
                     metadata,
                     self.filter_events_in_this_period(metadata, events_this_route),
@@ -91,35 +122,42 @@ where
             .collect()
     }
 
-    fn init_was_active_each_past_period_vars(&self, end_period: DateTime<Utc>) -> Vec<DataPoint> {
-        [
-            DataPointMetadata::new(Period::new(PeriodUnit::Days, 7), end_period),
-            DataPointMetadata::new(Period::new(PeriodUnit::Weeks, 6), end_period),
-            DataPointMetadata::new(Period::new(PeriodUnit::Months, 3), end_period),
-        ]
-        .iter()
-        .map(|metadata| {
-            let period_thresholds = (0..metadata.period.n)
-                .map(|i| self.get_start_of_period(*metadata, i))
-                .collect();
-            CalcWasActiveEachPastPeriod::new(
-                *metadata,
-                self.filter_events_in_this_period(*metadata, self.get_all_events()),
-                period_thresholds,
-            )
-        })
-        .map(DataPoint::WasActiveEachPastPeriod)
-        .collect()
+    fn init_was_active_each_past_period_vars(
+        &self,
+        metadatas: Vec<DataPointMetadata>,
+        events: Vec<AnalyticsEvent>,
+    ) -> Vec<DataPoint> {
+        metadatas
+            .iter()
+            .map(|metadata| {
+                let period_thresholds = (0..metadata.period.n)
+                    .map(|i| self.get_start_of_period(*metadata, Some(i)))
+                    .collect();
+                CalcWasActiveEachPastPeriod::new(
+                    *metadata,
+                    self.filter_events_in_this_period(*metadata, events.clone()),
+                    period_thresholds,
+                )
+            })
+            .map(DataPoint::WasActiveEachPastPeriod)
+            .collect()
     }
 
-    // TODO: return an iterator instead of Vec: https://xainag.atlassian.net/browse/XN-1517
-    fn get_all_events(&self) -> Vec<AnalyticsEvent> {
-        self.repo.get_all_events()
-    }
-
-    /// TODO: don't use String here, handle via RouteController
-    fn get_all_screen_routes(&self) -> Vec<String> {
-        self.repo.get_all_routes()
+    fn init_was_active_past_n_days_vars(
+        &self,
+        metadatas: Vec<DataPointMetadata>,
+        events: Vec<AnalyticsEvent>,
+    ) -> Vec<DataPoint> {
+        metadatas
+            .iter()
+            .map(|metadata| {
+                CalcWasActivePastNDays::new(
+                    *metadata,
+                    self.filter_events_in_this_period(*metadata, events.clone()),
+                )
+            })
+            .map(DataPoint::WasActivePastNDays)
+            .collect()
     }
 
     // TODO: return an iterator instead of Vec: https://xainag.atlassian.net/browse/XN-1517
@@ -128,14 +166,23 @@ where
         metadata: DataPointMetadata,
         events: Vec<AnalyticsEvent>,
     ) -> Vec<AnalyticsEvent> {
-        let start_of_period = self.get_start_of_period(metadata, metadata.period.n);
+        let start_of_period = self.get_start_of_period(metadata, None);
         self.filter_events_before_end_of_period(metadata.end, events)
             .into_iter()
             .filter(|event| event.timestamp > start_of_period)
             .collect()
     }
 
-    fn get_start_of_period(&self, metadata: DataPointMetadata, n_periods: u32) -> DateTime<Utc> {
+    fn get_start_of_period(
+        &self,
+        metadata: DataPointMetadata,
+        n_periods_override: Option<u32>,
+    ) -> DateTime<Utc> {
+        let n_periods = if n_periods_override == None {
+            metadata.period.n
+        } else {
+            n_periods_override.unwrap()
+        };
         let avg_days_per_month = 365.0 / 12.0;
         let midnight_end_of_period = get_midnight(metadata.end);
         match metadata.period.unit {
@@ -162,8 +209,12 @@ where
     }
 
     // TODO: return an iterator instead of Vec: https://xainag.atlassian.net/browse/XN-1517
-    fn get_events_single_route(&self, route: &str) -> Vec<AnalyticsEvent> {
-        self.get_all_events()
+    fn get_events_single_route(
+        &self,
+        route: &str,
+        all_events: Vec<AnalyticsEvent>,
+    ) -> Vec<AnalyticsEvent> {
+        all_events
             .into_iter()
             .filter(|event| {
                 if let Some(ref screen_route) = event.screen_route {
@@ -181,4 +232,273 @@ fn get_midnight(timestamp: DateTime<Utc>) -> DateTime<Utc> {
         NaiveDate::from_ymd(timestamp.year(), timestamp.month(), timestamp.day()).and_hms(0, 0, 0),
         Utc,
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use chrono::{DateTime, Duration, Utc};
+
+    use crate::{
+        data_combination::{
+            data_combiner::{get_midnight, DataCombiner},
+            data_points::data_point::{
+                CalcScreenActiveTime,
+                CalcScreenEnterCount,
+                CalcWasActiveEachPastPeriod,
+                CalcWasActivePastNDays,
+                DataPoint,
+                DataPointMetadata,
+                Period,
+                PeriodUnit,
+            },
+        },
+        data_provision::{
+            analytics_event::{AnalyticsEvent, AnalyticsEventType},
+            data_provider::MockAnalyticsDataProvider,
+        },
+    };
+
+    #[test]
+    fn test_init_screen_active_time_vars() {
+        let data_combiner = DataCombiner::new(MockAnalyticsDataProvider {});
+        let end_period = DateTime::parse_from_rfc3339("2021-01-01T01:01:00-00:00")
+            .unwrap()
+            .with_timezone(&Utc);
+        let metadata = DataPointMetadata::new(Period::new(PeriodUnit::Days, 1), end_period);
+        let screen_route = "home_screen".to_string();
+        let first_event = AnalyticsEvent::new(
+            "test1".to_string(),
+            AnalyticsEventType::ScreenEnter,
+            end_period - Duration::hours(12),
+            Some(screen_route.clone()),
+        );
+        let all_events = vec![
+            first_event.clone(),
+            AnalyticsEvent::new(
+                "test1".to_string(),
+                AnalyticsEventType::AppEvent,
+                end_period - Duration::hours(13),
+                None,
+            ),
+        ];
+        let expected_output = vec![
+            DataPoint::ScreenActiveTime(CalcScreenActiveTime::new(
+                metadata,
+                vec![first_event.clone()],
+            )),
+            DataPoint::ScreenActiveTime(CalcScreenActiveTime::new(metadata, all_events.clone())),
+        ];
+        let actual_output = data_combiner.init_screen_active_time_vars(
+            metadata,
+            all_events.clone(),
+            &vec![screen_route],
+        );
+        assert_eq!(actual_output, expected_output);
+    }
+
+    #[test]
+    fn test_init_screen_enter_count_vars() {
+        let data_combiner = DataCombiner::new(MockAnalyticsDataProvider {});
+        let end_period = DateTime::parse_from_rfc3339("2021-02-02T02:02:00-00:00")
+            .unwrap()
+            .with_timezone(&Utc);
+        let metadata = DataPointMetadata::new(Period::new(PeriodUnit::Days, 1), end_period);
+        let screen_route = "home_screen".to_string();
+        let events = vec![AnalyticsEvent::new(
+            "test1".to_string(),
+            AnalyticsEventType::ScreenEnter,
+            end_period - Duration::hours(12),
+            Some(screen_route.clone()),
+        )];
+        let expected_output = vec![DataPoint::ScreenEnterCount(CalcScreenEnterCount::new(
+            metadata,
+            events.clone(),
+        ))];
+        let actual_output = data_combiner.init_screen_enter_count_vars(
+            metadata,
+            events.clone(),
+            &vec![screen_route],
+        );
+        assert_eq!(actual_output, expected_output);
+    }
+
+    #[test]
+    fn test_init_was_active_each_past_period_vars() {
+        let data_combiner = DataCombiner::new(MockAnalyticsDataProvider {});
+        let end_period = DateTime::parse_from_rfc3339("2021-03-03T03:03:00-00:00")
+            .unwrap()
+            .with_timezone(&Utc);
+        let metadata = DataPointMetadata::new(Period::new(PeriodUnit::Days, 1), end_period);
+        let events = vec![AnalyticsEvent::new(
+            "test1".to_string(),
+            AnalyticsEventType::AppEvent,
+            end_period - Duration::hours(12),
+            None,
+        )];
+        let period_thresholds = vec![get_midnight(end_period)];
+        let expected_output = vec![DataPoint::WasActiveEachPastPeriod(
+            CalcWasActiveEachPastPeriod::new(metadata, events.clone(), period_thresholds),
+        )];
+        let actual_output =
+            data_combiner.init_was_active_each_past_period_vars(vec![metadata], events.clone());
+        assert_eq!(actual_output, expected_output);
+    }
+
+    #[test]
+    fn test_init_was_active_past_n_days_vars() {
+        let data_combiner = DataCombiner::new(MockAnalyticsDataProvider {});
+        let end_period = DateTime::parse_from_rfc3339("2021-04-04T04:04:00-00:00")
+            .unwrap()
+            .with_timezone(&Utc);
+        let metadata = DataPointMetadata::new(Period::new(PeriodUnit::Days, 1), end_period);
+        let events = vec![AnalyticsEvent::new(
+            "test1".to_string(),
+            AnalyticsEventType::AppEvent,
+            end_period - Duration::hours(12),
+            None,
+        )];
+        let expected_output = vec![DataPoint::WasActivePastNDays(CalcWasActivePastNDays::new(
+            metadata,
+            events.clone(),
+        ))];
+        let actual_output =
+            data_combiner.init_was_active_past_n_days_vars(vec![metadata], events.clone());
+        assert_eq!(actual_output, expected_output);
+    }
+
+    #[test]
+    fn test_filter_events_in_this_period() {
+        let data_combiner = DataCombiner::new(MockAnalyticsDataProvider {});
+        let end_period = DateTime::parse_from_rfc3339("2021-05-05T05:05:00-00:00")
+            .unwrap()
+            .with_timezone(&Utc);
+        let metadata = DataPointMetadata::new(Period::new(PeriodUnit::Days, 3), end_period);
+        let event_before = AnalyticsEvent::new(
+            "test1".to_string(),
+            AnalyticsEventType::AppEvent,
+            end_period - Duration::days(5),
+            None,
+        );
+        let event_during = AnalyticsEvent::new(
+            "test2".to_string(),
+            AnalyticsEventType::AppEvent,
+            end_period - Duration::days(1),
+            None,
+        );
+        let event_after = AnalyticsEvent::new(
+            "test3".to_string(),
+            AnalyticsEventType::AppEvent,
+            end_period + Duration::days(2),
+            None,
+        );
+        let events = vec![event_before, event_during.clone(), event_after];
+        let expected_output = vec![event_during.clone()];
+        let actual_output = data_combiner.filter_events_in_this_period(metadata, events);
+        assert_eq!(actual_output, expected_output);
+    }
+
+    #[test]
+    fn test_get_start_of_period_one_day() {
+        let data_combiner = DataCombiner::new(MockAnalyticsDataProvider {});
+        let end_period = DateTime::parse_from_rfc3339("2021-01-01T00:00:00-00:00")
+            .unwrap()
+            .with_timezone(&Utc);
+        let metadata = DataPointMetadata::new(Period::new(PeriodUnit::Days, 1), end_period);
+        let expected_output = end_period - Duration::days(1);
+        let actual_output = data_combiner.get_start_of_period(metadata, None);
+        assert_eq!(actual_output, expected_output);
+    }
+
+    #[test]
+    fn test_get_start_of_period_one_day_with_override() {
+        let data_combiner = DataCombiner::new(MockAnalyticsDataProvider {});
+        let end_period = DateTime::parse_from_rfc3339("2021-02-02T00:00:00-00:00")
+            .unwrap()
+            .with_timezone(&Utc);
+        let metadata = DataPointMetadata::new(Period::new(PeriodUnit::Days, 2), end_period);
+        let expected_output = end_period - Duration::days(1);
+        let actual_output = data_combiner.get_start_of_period(metadata, Some(1));
+        assert_eq!(actual_output, expected_output);
+    }
+
+    #[test]
+    fn test_get_start_of_period_one_week() {
+        let data_combiner = DataCombiner::new(MockAnalyticsDataProvider {});
+        let end_period = DateTime::parse_from_rfc3339("2021-03-03T00:00:00-00:00")
+            .unwrap()
+            .with_timezone(&Utc);
+        let metadata = DataPointMetadata::new(Period::new(PeriodUnit::Weeks, 1), end_period);
+        let expected_output = end_period - Duration::weeks(1);
+        let actual_output = data_combiner.get_start_of_period(metadata, None);
+        assert_eq!(actual_output, expected_output);
+    }
+
+    #[test]
+    fn test_get_start_of_period_one_month() {
+        let data_combiner = DataCombiner::new(MockAnalyticsDataProvider {});
+        let end_period = DateTime::parse_from_rfc3339("2021-04-04T00:00:00-00:00")
+            .unwrap()
+            .with_timezone(&Utc);
+        let metadata = DataPointMetadata::new(Period::new(PeriodUnit::Months, 1), end_period);
+        let expected_output = end_period - Duration::days(30);
+        let actual_output = data_combiner.get_start_of_period(metadata, None);
+        assert_eq!(actual_output, expected_output);
+    }
+
+    #[test]
+    fn text_filter_events_before_end_of_period() {
+        let data_combiner = DataCombiner::new(MockAnalyticsDataProvider {});
+        let end_of_period = Utc::now();
+        let event_before = AnalyticsEvent::new(
+            "test1".to_string(),
+            AnalyticsEventType::AppEvent,
+            end_of_period - Duration::days(1),
+            None,
+        );
+        let event_after = AnalyticsEvent::new(
+            "test2".to_string(),
+            AnalyticsEventType::AppEvent,
+            end_of_period + Duration::days(1),
+            None,
+        );
+        let events = vec![event_before.clone(), event_after];
+        let expected_output = vec![event_before.clone()];
+        let actual_output = data_combiner.filter_events_before_end_of_period(end_of_period, events);
+        assert_eq!(actual_output, expected_output);
+    }
+
+    #[test]
+    fn test_get_events_single_route() {
+        let data_combiner = DataCombiner::new(MockAnalyticsDataProvider {});
+        let timestamp = Utc::now();
+        let home_route = "home_screen".to_string();
+        let home_route_event = AnalyticsEvent::new(
+            "test1".to_string(),
+            AnalyticsEventType::AppEvent,
+            timestamp,
+            Some(home_route.clone()),
+        );
+        let other_route_event = AnalyticsEvent::new(
+            "test2".to_string(),
+            AnalyticsEventType::ScreenEnter,
+            timestamp,
+            Some("other_screen".to_string()),
+        );
+        let all_events = vec![home_route_event.clone(), other_route_event];
+        let expected_output = vec![home_route_event.clone()];
+        let actual_output = data_combiner.get_events_single_route(&home_route, all_events);
+        assert_eq!(actual_output, expected_output);
+    }
+
+    #[test]
+    fn test_get_midnight() {
+        let timestamp = DateTime::parse_from_rfc3339("2021-01-01T21:21:21-02:00")
+            .unwrap()
+            .with_timezone(&Utc);
+        let expected_output = DateTime::parse_from_rfc3339("2021-01-01T00:00:00-00:00")
+            .unwrap()
+            .with_timezone(&Utc);
+        let actual_output = get_midnight(timestamp);
+        assert_eq!(actual_output, expected_output);
+    }
 }
