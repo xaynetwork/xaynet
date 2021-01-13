@@ -2,18 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to the [Python form of Semantic Versioning](https://www.python.org/dev/peps/pep-0440/).
-
-For reference, the possible headings are:
-
-- `Added` for new features.
-- `Changed` for changes in existing functionality.
-- `Deprecated` for soon-to-be removed features.
-- `Removed` for now removed features.
-- `Fixed` for any bug fixes.
-- `Security` in case of vulnerabilities.
-- `External Contributors` to list all external contributors.
-- `Notes` for notes regarding this particular release.
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to the [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [unreleased]
 
@@ -21,11 +10,11 @@ For reference, the possible headings are:
 
 ### Added
 
-- Preparation for redis support: prepare for `xaynet_server` to store PET data in redis (https://github.com/xaynetwork/xaynet/pull/416, https://github.com/xaynetwork/xaynet/pull/515)
-- Add support for multipart messages in the message structure (https://github.com/xaynetwork/xaynet/pull/508, https://github.com/xaynetwork/xaynet/pull/513, https://github.com/xaynetwork/xaynet/pull/514)
-- Generalised scalar extension (https://github.com/xaynetwork/xaynet/pull/496, https://github.com/xaynetwork/xaynet/pull/507)
-- Add server metrics (https://github.com/xaynetwork/xaynet/pull/487, https://github.com/xaynetwork/xaynet/pull/488, https://github.com/xaynetwork/xaynet/pull/489,https://github.com/xaynetwork/xaynet/pull/493)
-- Refactor the client into a state machine, and add a client tailored for mobile devices (https://github.com/xaynetwork/xaynet/pull/471, https://github.com/xaynetwork/xaynet/pull/497, https://github.com/xaynetwork/xaynet/pull/506)
+- Preparation for redis support: prepare for `xaynet_server` to store PET data in redis [#416](https://github.com/xaynetwork/xaynet/pull/416), [#515](https://github.com/xaynetwork/xaynet/pull/515)
+- Add support for multipart messages in the message structure [#508](https://github.com/xaynetwork/xaynet/pull/508), [#513](https://github.com/xaynetwork/xaynet/pull/513), [#514](https://github.com/xaynetwork/xaynet/pull/514)
+- Generalised scalar extension [#496](https://github.com/xaynetwork/xaynet/pull/496), [#507](https://github.com/xaynetwork/xaynet/pull/507)
+- Add server metrics [#487](https://github.com/xaynetwork/xaynet/pull/487), [#488](https://github.com/xaynetwork/xaynet/pull/488), [#489](https://github.com/xaynetwork/xaynet/pull/489), [#493](https://github.com/xaynetwork/xaynet/pull/493)
+- Refactor the client into a state machine, and add a client tailored for mobile devices [#471](https://github.com/xaynetwork/xaynet/pull/471), [#497](https://github.com/xaynetwork/xaynet/pull/497), [#506](https://github.com/xaynetwork/xaynet/pull/506)
 
 ### Changed
 
@@ -53,29 +42,29 @@ The integration of the PET protocol required a complete rewrite of the codebase 
 
 ### Added
 
-- New tutorial for the Python SDK (https://github.com/xainag/xain-fl/pull/355)
-- Swagger description of the REST API (https://github.com/xainag/xain-fl/pull/345), and is published at https://xain-fl.readthedocs.io/en/latest/ (https://github.com/xainag/xain-fl/pull/358)
-- The Python examples now accepts additional parameters (model size, heartbeat period, verbosity, etc.) (https://github.com/xainag/xain-fl/pull/351)
+- New tutorial for the Python SDK [#355](https://github.com/xaynetwork/xaynet/pull/355)
+- Swagger description of the REST API [#345](https://github.com/xaynetwork/xaynet/pull/345), and is published at https://xain-fl.readthedocs.io/en/latest/ [#358](https://github.com/xaynetwork/xaynet/pull/358)
+- The Python examples now accepts additional parameters (model size, heartbeat period, verbosity, etc.) [#351](https://github.com/xaynetwork/xaynet/pull/351)
 - Publish docker images to dockerhub
 
 ### Security
 
 - Stop using `pickle` for messages serialization
-  (https://github.com/xainag/xain-fl/pull/355). `pickle` is insecure
+  [#355](https://github.com/xaynetwork/xaynet/pull/355). `pickle` is insecure
   and can lead to remote code execution. Instead, the default
   aggregator uses `numpy.save()`.
 
 ### Fixed
 
-- The documentation has been updated at https://xain-fl.readthedocs.io/en/latest/ (https://github.com/xainag/xain-fl/pull/358)
-- Document aggregator error on Darwin platform (https://github.com/xainag/xain-fl/pull/365/files)
+- The documentation has been updated at https://xain-fl.readthedocs.io/en/latest/ [#358](https://github.com/xaynetwork/xaynet/pull/358)
+- Document aggregator error on Darwin platform [#365](https://github.com/xaynetwork/xaynet/pull/365/files)
 
 ### Changed
 
-- Simplified the Python SDK API (https://github.com/xainag/xain-fl/pull/355)
-- Added unit tests for the coordinator and aggregator (https://github.com/xainag/xain-fl/pull/353), (https://github.com/xainag/xain-fl/pull/352)
-- Refactor the metrics store (https://github.com/xainag/xain-fl/pull/340)
-- Speed up the docker builds (https://github.com/xainag/xain-fl/pull/348)
+- Simplified the Python SDK API [#355](https://github.com/xaynetwork/xaynet/pull/355)
+- Added unit tests for the coordinator and aggregator [#353](https://github.com/xaynetwork/xaynet/pull/353), [#352](https://github.com/xaynetwork/xaynet/pull/352)
+- Refactor the metrics store [#340](https://github.com/xaynetwork/xaynet/pull/340)
+- Speed up the docker builds [#348](https://github.com/xaynetwork/xaynet/pull/348)
 
 ## [0.7.0] - 2020-03-25
 
@@ -226,8 +215,18 @@ The first public release of **XAIN**
 ### Added
 
 - FedML implementation on well known
-  [benchmarks](https://github.com/xainag/xain-fl/tree/master/benchmarks/benchmark) using
+  [benchmarks](https://github.com/xaynetwork/xaynet/tree/v0.1.0/xain/benchmark) using
   a realistic deep learning model structure.
 
-[unreleased]: https://github.com/xainag/xain-fl/pulls?utf8=%E2%9C%93&q=merged%3A%3E2019-09-25+
-[0.1.0]: https://github.com/xainag/xain-fl/pulls?utf8=%E2%9C%93&q=merged%3A%3C%3D2019-09-25+
+[Unreleased]: https://github.com/xaynetwork/xaynet/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/xaynetwork/xaynet/compare/v0.9.0...v0.10.0
+[0.9.0]: https://github.com/xaynetwork/xaynet/compare/v0.8.0...v0.9.0
+[0.8.0]: https://github.com/xaynetwork/xaynet/compare/v0.7.0...v0.8.0
+[0.7.0]: https://github.com/xaynetwork/xaynet/compare/v0.6.0...v0.7.0
+[0.6.0]: https://github.com/xaynetwork/xaynet/compare/v0.5.0...v0.6.0
+[0.5.0]: https://github.com/xaynetwork/xaynet/compare/v0.4.0...v0.5.0
+[0.4.0]: https://github.com/xaynetwork/xaynet/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/xaynetwork/xaynet/compare/v0.2.0...v0.3.0
+[0.2.1]: https://github.com/xaynetwork/xaynet/compare/v0.2.0...v0.2.1
+[0.2.0]: https://github.com/xaynetwork/xaynet/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/xaynetwork/xaynet/tree/v0.1.0
