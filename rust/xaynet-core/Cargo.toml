@@ -24,7 +24,7 @@ derive_more = { version = "0.99.11", default-features = false, features = [
     "into",
 ] }
 num = { version = "0.3.1", features = ["serde"] }
-rand = "0.8.1"
+rand = "0.8.2"
 rand_chacha = "0.3.0"
 serde = { version = "1.0.119", features = ["derive"] }
 sodiumoxide = "0.2.6"
