@@ -1,5 +1,3 @@
-use std::convert::TryFrom;
-
 use num::BigUint;
 
 use crate::{
@@ -32,9 +30,11 @@ pub fn local_seed_dict(len: usize) -> LocalSeedDict {
     let nb_entries = (len - 4) / entry_len;
     let mut dict = LocalSeedDict::new();
     for i in 0..nb_entries {
-        let b = (i % 0xff) as u8;
-        let pk = PublicSigningKey::from_slice(vec![b; 32].as_slice()).unwrap();
-        let mask_seed = EncryptedMaskSeed::try_from(vec![b; 80]).unwrap();
+        let bytes = (i as u64).to_be_bytes();
+        let pk_bytes = bytes.iter().cycle().take(32).copied().collect::<Vec<_>>();
+        let seed_bytes = bytes.iter().cycle().take(80).copied().collect::<Vec<_>>();
+        let pk = PublicSigningKey::from_slice(pk_bytes.as_slice()).unwrap();
+        let mask_seed = EncryptedMaskSeed::from_slice(seed_bytes.as_slice()).unwrap();
         dict.insert(pk, mask_seed);
     }
 

@@ -14,7 +14,7 @@ fn participant_sk() -> SecretSigningKey {
     SecretSigningKey::from_slice(vec![2; 64].as_slice()).unwrap()
 }
 
-pub fn emit_sum(c: &mut Criterion) {
+pub fn to_bytes(c: &mut Criterion) {
     let (sum_message, _) = helpers::message(helpers::sum::payload);
     let buf_len = sum_message.buffer_length();
     let mut pre_allocated_buf = vec![0; buf_len];
@@ -29,11 +29,11 @@ pub fn emit_sum(c: &mut Criterion) {
     let mut bench = c.benchmark_group("emit_sum");
     bench.confidence_level(0.9).noise_threshold(0.05);
 
-    bench.bench_function("compute buffer length", |b| {
+    bench.bench_function("compute sum message buffer length", |b| {
         b.iter(|| black_box(&sum_message).buffer_length())
     });
 
-    bench.bench_function("emit sum message", |b| {
+    bench.bench_function("serialize sum message to bytes", |b| {
         b.iter(|| {
             sum_message.to_bytes(
                 black_box(&mut pre_allocated_buf),
@@ -43,7 +43,7 @@ pub fn emit_sum(c: &mut Criterion) {
     });
 }
 
-pub fn parse_sum(c: &mut Criterion) {
+pub fn from_bytes(c: &mut Criterion) {
     let sum_message = helpers::message(helpers::sum::payload).0;
     let mut bytes = vec![0; sum_message.buffer_length()];
     sum_message.to_bytes(&mut bytes, &participant_sk());
@@ -52,17 +52,21 @@ pub fn parse_sum(c: &mut Criterion) {
     // relaxed
     let mut bench = c.benchmark_group("parse_sum");
     bench.confidence_level(0.9).noise_threshold(0.05);
-    bench.bench_function("parse from slice", |b| {
+    bench.bench_function("deserialize sum message from bytes", |b| {
         b.iter(|| Message::from_byte_slice(&black_box(bytes.as_slice())))
     });
 }
 
-criterion_group!(name = benches;
-                 // By default criterion collection 100 sample and the
-                 // measurement time is 5 seconds, but the results are
-                 // quite unstable with this configuration. This
-                 // config makes the benchmarks running longer but
-                 // provide more reliable results
-                 config = Criterion::default().sample_size(1000).measurement_time(Duration::new(10, 0));
-                 targets = emit_sum, parse_sum);
-criterion_main!(benches);
+criterion_group!(
+    name = bench_sum_message;
+    // By default criterion collection 100 sample and the
+    // measurement time is 5 seconds, but the results are
+    // quite unstable with this configuration. This
+    // config makes the benchmarks running longer but
+    // provide more reliable results
+    config = Criterion::default().sample_size(1000).measurement_time(Duration::new(10, 0));
+    targets =
+        to_bytes,
+        from_bytes,
+);
+criterion_main!(bench_sum_message);

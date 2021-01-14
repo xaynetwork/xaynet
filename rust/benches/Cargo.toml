@@ -14,8 +14,15 @@ publish = false
 
 [dev-dependencies]
 criterion = "0.3.3"
+paste = "1.0.4"
 xaynet-core = { path = "../xaynet-core", features = ["testutils"] }
 
 [[bench]]
-name = "messages"
+name = "sum_message"
+path = "messages/sum.rs"
+harness = false
+
+[[bench]]
+name = "update_message"
+path = "messages/update.rs"
 harness = false
