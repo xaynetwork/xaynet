@@ -179,6 +179,7 @@ where
 }
 
 #[cfg(feature = "reqwest-client")]
+#[cfg_attr(docsrs, doc(cfg(feature = "reqwest-client")))]
 #[async_trait]
 impl XaynetHttpClient for reqwest::Client {
     type Error = reqwest::Error;

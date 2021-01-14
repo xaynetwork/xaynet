@@ -1,9 +1,9 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![cfg_attr(doc, forbid(warnings))]
 #![doc(
-    html_logo_url = "https://raw.githubusercontent.com/xaynetwork/xaynet/master/assets/logo.png",
+    html_logo_url = "https://raw.githubusercontent.com/xaynetwork/xaynet/master/assets/xaynet_banner.png",
     html_favicon_url = "https://raw.githubusercontent.com/xaynetwork/xaynet/master/assets/favicon.png",
-    issue_tracker_base_url = "https://github.com/tokio-rs/tracing/issues/"
+    issue_tracker_base_url = "https://github.com/xaynetwork/xaynet/issues"
 )]
 //! # Xaynet: Train on the Edge with Federated Learning
 //!
@@ -97,8 +97,14 @@
 //!   suites for LLVM.
 pub use xaynet_core as core;
 
-#[cfg(feature = "server")]
-pub use xaynet_server as server;
+#[cfg(feature = "mobile")]
+#[cfg_attr(docsrs, doc(cfg(feature = "mobile")))]
+pub use xaynet_mobile as mobile;
 
-#[cfg(feature = "client")]
-pub use xaynet_client as client;
+#[cfg(feature = "sdk")]
+#[cfg_attr(docsrs, doc(cfg(feature = "sdk")))]
+pub use xaynet_sdk as sdk;
+
+#[cfg(feature = "server")]
+#[cfg_attr(docsrs, doc(cfg(feature = "server")))]
+pub use xaynet_server as server;

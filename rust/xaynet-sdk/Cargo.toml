@@ -11,8 +11,9 @@ license-file = "../../LICENSE"
 keywords = ["federated-learning", "fl", "ai", "machine-learning"]
 categories = ["science", "cryptography"]
 
-[package.metadata."docs.rs"]
+[package.metadata.docs.rs]
 all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
 async-trait = "0.1.42"

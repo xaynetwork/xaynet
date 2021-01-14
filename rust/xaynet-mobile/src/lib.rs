@@ -1,3 +1,9 @@
+#![cfg_attr(doc, forbid(warnings))]
+#![doc(
+    html_logo_url = "https://raw.githubusercontent.com/xaynetwork/xaynet/master/assets/xaynet_banner.png",
+    html_favicon_url = "https://raw.githubusercontent.com/xaynetwork/xaynet/master/assets/favicon.png",
+    issue_tracker_base_url = "https://github.com/xaynetwork/xaynet/issues"
+)]
 //! This crates provides a mobile friendly implementation of a Xaynet Federated Learning
 //! participant, along with FFI C bindings for building applications in languages that
 //! can use C bindings.
@@ -25,7 +31,6 @@
 //! To solve this problem, the [`Participant`] provided in this crate embeds the PET
 //! state machine, and it's the caller responsibility to drive its execution (see
 //! [`Participant::tick()`])
-#![cfg_attr(doc, forbid(warnings))]
 #[macro_use]
 extern crate ffi_support;
 #[macro_use]

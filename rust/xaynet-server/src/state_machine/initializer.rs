@@ -135,6 +135,7 @@ where
 }
 
 #[cfg(feature = "model-persistence")]
+#[cfg_attr(docsrs, doc(cfg(feature = "model-persistence")))]
 impl<C, M> StateMachineInitializer<C, M>
 where
     C: CoordinatorStorage,

@@ -1,9 +1,9 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![cfg_attr(doc, forbid(warnings))]
 #![doc(
-    html_logo_url = "https://raw.githubusercontent.com/xaynetwork/xaynet/master/assets/logo.png",
-    issue_tracker_base_url = "https://github.com/xaynetwork/xaynet/issues",
-    html_favicon_url = "https://raw.githubusercontent.com/xaynetwork/xaynet/master/assets/favicon.png"
+    html_logo_url = "https://raw.githubusercontent.com/xaynetwork/xaynet/master/assets/xaynet_banner.png",
+    html_favicon_url = "https://raw.githubusercontent.com/xaynetwork/xaynet/master/assets/favicon.png",
+    issue_tracker_base_url = "https://github.com/xaynetwork/xaynet/issues"
 )]
 //! `xaynet_core` provides basic building blocks for implementing the
 //! _Privacy-Enhancing Technology_ (PET), a privacy preserving
@@ -17,6 +17,7 @@ pub mod crypto;
 pub mod mask;
 pub mod message;
 #[cfg(any(feature = "testutils", test))]
+#[cfg_attr(docsrs, doc(cfg(feature = "testutils")))]
 pub mod testutils;
 
 use std::collections::HashMap;
