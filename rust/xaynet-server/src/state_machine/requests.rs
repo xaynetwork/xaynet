@@ -1,7 +1,5 @@
-//! This module provides the the [`StateMachine`]'s `Request`, `RequestSender` and `RequestReceiver`
+//! This module provides the the `StateMachine`, `Request`, `RequestSender` and `RequestReceiver`
 //! types.
-//!
-//! [`StateMachine`]: crate::state_machine::StateMachine
 
 use std::{
     pin::Pin,
@@ -158,7 +156,7 @@ impl RequestReceiver {
     /// Closes the `Request` channel.
     /// See [the `tokio` documentation][close] for more information.
     ///
-    /// [close]: https://docs.rs/tokio/0.2.21/tokio/sync/mpsc/struct.UnboundedReceiver.html#method.close
+    /// [close]: https://docs.rs/tokio/0.2.24/tokio/sync/mpsc/struct.UnboundedReceiver.html#method.close
     pub fn close(&mut self) {
         self.0.close()
     }
@@ -166,7 +164,7 @@ impl RequestReceiver {
     /// Receives the next request.
     /// See [the `tokio` documentation][receive] for more information.
     ///
-    /// [receive]: https://docs.rs/tokio/0.2.21/tokio/sync/mpsc/struct.UnboundedReceiver.html#method.recv
+    /// [receive]: https://docs.rs/tokio/0.2.24/tokio/sync/mpsc/struct.UnboundedReceiver.html#method.recv
     pub async fn recv(&mut self) -> Option<(StateMachineRequest, Span, ResponseSender)> {
         self.0.recv().await
     }
@@ -174,7 +172,7 @@ impl RequestReceiver {
     /// Try to retrieve the next request without blocked
     /// See [the `tokio` documentation][try_receive] for more information.
     ///
-    /// [try_receive]: https://docs.rs/tokio/0.2.21/tokio/sync/mpsc/struct.UnboundedReceiver.html#method.try_recv
+    /// [try_receive]: https://docs.rs/tokio/0.2.24/tokio/sync/mpsc/struct.UnboundedReceiver.html#method.try_recv
     pub fn try_recv(
         &mut self,
     ) -> Result<(StateMachineRequest, Span, ResponseSender), tokio::sync::mpsc::error::TryRecvError>

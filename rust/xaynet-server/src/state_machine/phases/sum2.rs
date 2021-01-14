@@ -67,7 +67,9 @@ where
 
     /// Moves from the sum2 state to the next state.
     ///
-    /// See the [module level documentation](../index.html) for more details.
+    /// See the [module level documentation] for more details.
+    ///
+    /// [module level documentation]: crate::state_machine
     fn next(self) -> Option<StateMachine<C, M>> {
         Some(PhaseState::<Unmask, _, _>::new(self.shared, self.private.model_agg).into())
     }

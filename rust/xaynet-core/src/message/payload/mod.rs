@@ -2,7 +2,7 @@
 //!
 //! See the [message module] documentation since this is a private module anyways.
 //!
-//! [message module]: ../index.html
+//! [message module]: crate::message
 
 pub(crate) mod chunk;
 pub(crate) mod sum;
@@ -18,7 +18,7 @@ use crate::message::{
 
 /// The payload of a [`Message`].
 ///
-/// [`Message`]: struct.Message.html
+/// [`Message`]: crate::message::Message
 #[derive(From, Eq, PartialEq, Debug, Clone)]
 pub enum Payload {
     /// The payload of a [`Sum`] message.

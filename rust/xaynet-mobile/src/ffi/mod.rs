@@ -27,14 +27,14 @@ use std::os::raw::c_int;
 /// 1. When calling this method, you have to ensure that *either* the pointer is NULL
 /// *or* all of the following is true:
 ///  - The pointer must be properly [aligned].
-///  - It must be "dereferencable" in the sense defined in the [`::std::ptr`] module
+///  - It must be "dereferencable" in the sense defined in the [`std::ptr`] module
 ///    documentation.
 /// 2. After destroying the `ByteBuffer` the pointer becomes invalid and must not be
 ///    used.
 /// 3. Calling this function on a `ByteBuffer` that has not been created on the Rust
 ///    side of the FFI is UB.
 ///
-/// [`::std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
+/// [`std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
 /// [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
 #[no_mangle]
 pub unsafe extern "C" fn xaynet_ffi_byte_buffer_destroy(
@@ -62,9 +62,6 @@ pub unsafe extern "C" fn xaynet_ffi_byte_buffer_destroy(
 ///
 /// - [`OK`] if the initialization succeeded
 /// - -[`ERR_CRYPTO_INIT`] if the initialization failed
-///
-/// [`xaynet_ffi_participant_new()`]: xaynet_ffi_participant_new
-/// [`xaynet_ffi_generate_key_pair()`]: xaynet_ffi_generate_key_pair
 ///
 /// # Safety
 ///

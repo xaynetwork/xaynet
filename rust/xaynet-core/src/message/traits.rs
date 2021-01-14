@@ -2,7 +2,7 @@
 //!
 //! See the [message module] documentation since this is a private module anyways.
 //!
-//! [message module]: ../index.html
+//! [message module]: crate::message
 
 use std::{
     convert::TryInto,
@@ -34,7 +34,7 @@ pub trait ToBytes {
     /// This method may panic if the given buffer is too small. Thus, [`buffer_length()`] must be
     /// called prior to calling this, and a large enough buffer must be provided.
     ///
-    /// [`buffer_length()`]: #method.buffer_length
+    /// [`buffer_length()`]: ToBytes::buffer_length
     fn to_bytes<T: AsMut<[u8]> + AsRef<[u8]>>(&self, buffer: &mut T);
 }
 
@@ -122,7 +122,7 @@ where
 /// assert_eq!(bytes, expected);
 /// ```
 ///
-/// [`length()`]: #method.length
+/// [`length()`]: LengthValueBuffer::length
 pub struct LengthValueBuffer<T> {
     inner: T,
 }

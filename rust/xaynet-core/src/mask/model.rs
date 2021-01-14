@@ -2,7 +2,7 @@
 //!
 //! See the [mask module] documentation since this is a private module anyways.
 //!
-//! [mask module]: ../index.html
+//! [mask module]: crate::mask
 
 use std::{
     fmt::Debug,
@@ -24,7 +24,7 @@ use thiserror::Error;
 /// A numerical representation of a machine learning model.
 pub struct Model(Vec<Ratio<BigInt>>);
 
-impl ::std::convert::AsRef<Model> for Model {
+impl std::convert::AsRef<Model> for Model {
     fn as_ref(&self) -> &Model {
         self
     }

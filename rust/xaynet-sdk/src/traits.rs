@@ -11,7 +11,7 @@ use xaynet_core::{
 /// A trait used by the [`StateMachine`] to emit notifications upon
 /// certain events.
 ///
-/// [`StateMachine`]: [crate::StateMachine]
+/// [`StateMachine`]: crate::StateMachine
 pub trait Notify {
     /// Emit a notification when a new round of federated learning
     /// starts
@@ -33,10 +33,10 @@ pub trait Notify {
 /// A trait used by the [`StateMachine`] to load the model trained by
 /// the participant, when it has been selected for the update task.
 ///
-/// [`StateMachine`]: [crate::StateMachine]
+/// [`StateMachine`]: crate::StateMachine
 #[async_trait]
 pub trait ModelStore {
-    type Error: ::std::error::Error;
+    type Error: std::error::Error;
     type Model: AsRef<Model> + Send;
 
     /// Attempt to load the model. If the model is not yet available,
@@ -47,10 +47,10 @@ pub trait ModelStore {
 /// A trait used by the [`StateMachine`] to communicate with the
 /// Xaynet coordinator.
 ///
-/// [`StateMachine`]: [crate::StateMachine]
+/// [`StateMachine`]: crate::StateMachine
 #[async_trait]
 pub trait XaynetClient {
-    type Error: ::std::error::Error;
+    type Error: std::error::Error;
 
     /// Retrieve the current round parameters
     async fn get_round_params(&mut self) -> Result<RoundParameters, Self::Error>;

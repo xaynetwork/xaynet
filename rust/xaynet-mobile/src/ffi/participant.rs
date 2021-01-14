@@ -40,14 +40,14 @@ mod pv {
 /// 1. When calling this method, you have to ensure that *either* the pointer is NULL
 ///    *or* all of the following is true:
 ///    - The pointer must be properly [aligned].
-///    - It must be "dereferencable" in the sense defined in the [`::std::ptr`] module
+///    - It must be "dereferencable" in the sense defined in the [`std::ptr`] module
 ///      documentation.
 /// 2. After destroying the `Participant`, the pointer becomes invalid and must not be
 ///    used.
 /// 3. This function should only be called on a pointer that has been created by
 ///    [`xaynet_ffi_participant_new()`] or [`xaynet_ffi_participant_restore()`]
 ///
-/// [`::std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
+/// [`std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
 /// [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
 #[no_mangle]
 pub unsafe extern "C" fn xaynet_ffi_participant_destroy(participant: *mut Participant) -> c_int {
@@ -85,13 +85,13 @@ pub const PARTICIPANT_NEW_GLOBALMODEL: c_int = 1 << 5;
 /// all of the following is true:
 ///
 /// - The pointer must be properly [aligned].
-/// - It must be "dereferencable" in the sense defined in the [`::std::ptr`] module
+/// - It must be "dereferencable" in the sense defined in the [`std::ptr`] module
 ///   documentation.
 ///
 /// After destroying the participant with [`xaynet_ffi_participant_destroy`] becomes
 /// invalid and must not be used.
 ///
-/// [`::std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
+/// [`std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
 /// [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
 #[no_mangle]
 pub unsafe extern "C" fn xaynet_ffi_participant_new(settings: *const Settings) -> *mut Participant {
@@ -142,13 +142,13 @@ pub unsafe extern "C" fn xaynet_ffi_participant_new(settings: *const Settings) -
 /// all of the following is true:
 ///
 /// - The pointer must be properly [aligned].
-/// - It must be "dereferencable" in the sense defined in the [`::std::ptr`] module
+/// - It must be "dereferencable" in the sense defined in the [`std::ptr`] module
 ///   documentation.
 ///
 /// After destroying the participant with [`xaynet_ffi_participant_destroy`] becomes
 /// invalid and must not be used.
 ///
-/// [`::std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
+/// [`std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
 /// [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
 #[no_mangle]
 pub unsafe extern "C" fn xaynet_ffi_participant_tick(participant: *mut Participant) -> c_int {
@@ -185,7 +185,7 @@ pub unsafe extern "C" fn xaynet_ffi_participant_tick(participant: *mut Participa
 /// 1. When calling this method, you have to ensure that *either* the pointer is NULL
 ///    *or* all of the following is true:
 ///    - The pointer must be properly [aligned].
-///    - It must be "dereferencable" in the sense defined in the [`::std::ptr`] module
+///    - It must be "dereferencable" in the sense defined in the [`std::ptr`] module
 ///      documentation.
 /// 2. the `ByteBuffer` created by this function must be destroyed with
 ///    [`xaynet_ffi_participant_destroy`]. Attempting to free the memory from the other
@@ -195,7 +195,7 @@ pub unsafe extern "C" fn xaynet_ffi_participant_tick(participant: *mut Participa
 ///    either with [`xaynet_ffi_participant_new()`] or
 ///    [`xaynet_ffi_participant_restore()`]
 ///
-/// [`::std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
+/// [`std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
 /// [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
 ///
 /// # Example
@@ -235,10 +235,10 @@ pub unsafe extern "C" fn xaynet_ffi_participant_save(
 /// When calling this method, you have to ensure that *either* the pointers are NULL
 /// *or* all of the following is true:
 /// - The pointers must be properly [aligned].
-/// - They must be "dereferencable" in the sense defined in the [`::std::ptr`] module
+/// - They must be "dereferencable" in the sense defined in the [`std::ptr`] module
 ///   documentation.
 ///
-/// [`::std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
+/// [`std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
 /// [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
 ///
 /// # Example
@@ -305,12 +305,12 @@ pub unsafe extern "C" fn xaynet_ffi_participant_restore(
 /// 1. When calling this method, you have to ensure that *either* the pointer is NULL
 ///    *or* all of the following is true:
 ///    - The pointer must be properly [aligned].
-///    - It must be "dereferencable" in the sense defined in the [`::std::ptr`] module
+///    - It must be "dereferencable" in the sense defined in the [`std::ptr`] module
 ///      documentation.
 /// 2. If `len` or `data_type` do not match the model in `buffer`, this method will
 ///    result in a buffer over-read.
 ///
-/// [`::std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
+/// [`std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
 /// [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
 #[no_mangle]
 pub unsafe extern "C" fn xaynet_ffi_participant_set_model(
@@ -392,7 +392,7 @@ pub unsafe extern "C" fn xaynet_ffi_participant_set_model(
 /// 1. When calling this method, you have to ensure that *either* the pointer is NULL
 ///    *or* all of the following is true:
 ///    - The pointer must be properly [aligned].
-///    - It must be "dereferencable" in the sense defined in the [`::std::ptr`] module
+///    - It must be "dereferencable" in the sense defined in the [`std::ptr`] module
 ///      documentation.
 /// 2. If `len` or `data_type` do not match the model in `buffer`, this method will
 ///    result in a buffer over-read.
@@ -462,7 +462,7 @@ macro_rules! into_primitives {
 /// 1. When calling this method, you have to ensure that *either* the pointer is NULL
 ///    *or* all of the following is true:
 ///    - The pointer must be properly [aligned].
-///    - It must be "dereferencable" in the sense defined in the [`::std::ptr`] module
+///    - It must be "dereferencable" in the sense defined in the [`std::ptr`] module
 ///      documentation.
 ///
 /// [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment

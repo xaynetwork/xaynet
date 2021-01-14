@@ -52,13 +52,13 @@
 //! **Shutdown**
 //!
 //! Publishes [`PhaseName::Shutdown`] and shuts down the [`StateMachine`]. During the shutdown,
-//! the [`StateMachine`] performs a clean shutdown of the [Request][requests_idx] channel by
+//! the [`StateMachine`] performs a clean shutdown of the [Request][requests] channel by
 //! closing it and consuming all remaining messages.
 //!
 //! # Requests
 //!
 //! By initiating a new [`StateMachine`] via [`StateMachineInitializer::init()`], a new
-//! [StateMachineRequest][requests_idx] channel is created, the function of which is to send
+//! [StateMachineRequest][requests] channel is created, the function of which is to send
 //! [`StateMachineRequest`]s to the [`StateMachine`]. The sender half of that channel
 //! ([`RequestSender`]) is returned back to the caller of
 //! [`StateMachineInitializer::init()`], whereas the receiver half ([`RequestReceiver`])
@@ -75,7 +75,7 @@
 //!
 //! See [here][events] for more details.
 //!
-//! [settings]: ../settings/index.html
+//! [settings]: crate::settings
 //! [`PhaseName::Idle`]: crate::state_machine::phases::PhaseName::Idle
 //! [`PhaseName::Sum`]: crate::state_machine::phases::PhaseName::Sum
 //! [`PhaseName::Update`]: crate::state_machine::phases::PhaseName::Update
@@ -88,10 +88,10 @@
 //! [`EncryptKeyPair`]: xaynet_core::crypto::EncryptKeyPair
 //! [`RoundParameters`]: xaynet_core::common::RoundParameters
 //! [`StateMachineRequest`]: crate::state_machine::requests::StateMachineRequest
-//! [requests_idx]: ./requests/index.html
+//! [requests]: crate::state_machine::requests
 //! [`RequestSender`]: crate::state_machine::requests::RequestSender
 //! [`RequestReceiver`]: crate::state_machine::requests::RequestReceiver
-//! [events]: ./events/index.html
+//! [events]: crate::state_machine::events
 //! [`EventSubscriber`]: crate::state_machine::events::EventSubscriber
 
 pub mod coordinator;

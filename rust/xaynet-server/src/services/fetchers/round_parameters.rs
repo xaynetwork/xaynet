@@ -26,7 +26,7 @@ impl RoundParamsService {
 
 impl Service<RoundParamsRequest> for RoundParamsService {
     type Response = RoundParameters;
-    type Error = ::std::convert::Infallible;
+    type Error = std::convert::Infallible;
     type Future = Instrumented<Ready<Result<Self::Response, Self::Error>>>;
 
     fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {

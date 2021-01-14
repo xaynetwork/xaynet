@@ -85,7 +85,7 @@
 //!   notifications. This can be any type that implements the
 //!   [`Notify`] trait. We'll use channels for this.
 //!
-//! [`Client`]: [crate::clients::Client]
+//! [`Client`]: crate::client::Client
 //!
 //! Finally we can start our agent and log the events it emits. Here
 //! is the full code:

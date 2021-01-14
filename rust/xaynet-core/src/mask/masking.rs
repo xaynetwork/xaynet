@@ -2,7 +2,7 @@
 //!
 //! See the [mask module] documentation since this is a private module anyways.
 //!
-//! [mask module]: ../index.html
+//! [mask module]: crate::mask
 
 use std::iter::{self, Iterator};
 
@@ -136,7 +136,7 @@ impl Aggregation {
     /// - a masked model may unmask a mask
     /// - a masked model may unmask another masked model
     ///
-    /// [`unmask()`]: #method.unmask
+    /// [`unmask()`]: Aggregation::unmask
     pub fn validate_unmasking(&self, mask: &MaskObject) -> Result<(), UnmaskingError> {
         // We cannot perform unmasking without at least one real model
         if self.nb_models == 0 {
@@ -183,8 +183,8 @@ impl Aggregation {
     ///
     /// if [`validate_unmasking()`] returns `true`.
     ///
-    /// [`validate_unmasking()`]: #method.validate_unmasking
-    /// [`mask()`]: struct.Masker.html#method.mask
+    /// [`validate_unmasking()`]: Aggregation::validate_unmasking
+    /// [`mask()`]: Masker::mask
     pub fn unmask(self, mask_obj: MaskObject) -> Model {
         let MaskObject { vect, unit } = self.object;
         let (masked_n, config_n) = (vect.data, vect.config);
@@ -247,7 +247,7 @@ impl Aggregation {
     /// due to the [`MaskObject`] type to validate, that a mask may be aggregated with a masked
     /// model.
     ///
-    /// [`aggregate()`]: #method.aggregate
+    /// [`aggregate()`]: Aggregation::aggregate
     pub fn validate_aggregation(&self, object: &MaskObject) -> Result<(), AggregationError> {
         if self.object.vect.config != object.vect.config {
             return Err(AggregationError::ModelMismatch);
@@ -286,7 +286,7 @@ impl Aggregation {
     /// due to the [`MaskObject`] type to aggregate a mask with a masked model if
     /// [`validate_aggregation()`] returns `true`.
     ///
-    /// [`validate_aggregation()`]: #method.validate_aggregation
+    /// [`validate_aggregation()`]: Aggregation::validate_aggregation
     pub fn aggregate(&mut self, object: MaskObject) {
         if self.nb_models == 0 {
             self.object = object;
@@ -352,7 +352,7 @@ impl Masker {
     /// The random elements are derived from a seeded PRNG. Unmasking as performed in [`unmask()`]
     /// proceeds in reverse order.
     ///
-    /// [`unmask()`]: struct.Aggregation.html#method.unmask
+    /// [`unmask()`]: Aggregation::unmask
     pub fn mask(self, scalar: f64, model: &Model) -> (MaskSeed, MaskObject) {
         let (random_int, mut random_ints) = self.random_ints();
         let Self { config, seed } = self;

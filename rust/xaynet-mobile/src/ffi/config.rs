@@ -19,14 +19,14 @@ mod pv {
 /// 1. When calling this method, you have to ensure that *either* the pointer is NULL
 ///    *or* all of the following is true:
 ///    - The pointer must be properly [aligned].
-///    - It must be "dereferencable" in the sense defined in the [`::std::ptr`] module
+///    - It must be "dereferencable" in the sense defined in the [`std::ptr`] module
 ///      documentation.
 /// 2. After destroying the `LocalModelConfig`, the pointer becomes invalid and must not be
 ///    used.
 /// 3. This function should only be called on a pointer that has been created by
 ///    [`xaynet_ffi_participant_local_model_config()`].
 ///
-/// [`::std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
+/// [`std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
 /// [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
 /// [`xaynet_ffi_participant_local_model_config()`]: crate::ffi::xaynet_ffi_participant_local_model_config
 #[no_mangle]

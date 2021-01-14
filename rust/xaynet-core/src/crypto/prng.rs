@@ -3,7 +3,7 @@
 //! See the [crypto module] documentation since this is a private module anyways.
 //!
 //! [sodiumoxide]: https://docs.rs/sodiumoxide/
-//! [crypto module]: ../index.html
+//! [crypto module]: crate::crypto
 
 use num::{bigint::BigUint, traits::identities::Zero};
 use rand::RngCore;

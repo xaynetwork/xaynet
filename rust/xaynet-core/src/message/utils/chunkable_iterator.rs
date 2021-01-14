@@ -1,7 +1,10 @@
-//! This module provides an extension to the [`::std::iter::Iterator`] trait that allows iterating
-//! by chunks. One important property of our chunks, is that they implement
-//! [`std::iter::ExactSizeIterator`], which is required by the [`crate::message::FromBytes`]
-//! trait.
+//! This module provides an extension to the [`Iterator`] trait that allows iterating by chunks. One
+//! important property of our chunks, is that they implement [`ExactSizeIterator`], which is
+//! required by the [`FromBytes`] trait.
+//!
+//! [`Iterator`]: std::iter::Iterator
+//! [`ExactSizeIterator`]: std::iter::ExactSizeIterator
+//! [`FromBytes`]: crate::message::FromBytes
 
 use std::{
     cell::RefCell,

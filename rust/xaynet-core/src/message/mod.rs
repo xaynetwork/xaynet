@@ -22,8 +22,6 @@
 //! XayNet during the sum2 phase of the PET protocol. It contains the following values:
 //! - The sum signature proves the eligibility of the participant for the sum task.
 //! - The global mask is used by XayNet to unmask the aggregated global model.
-//!
-//! [crypto module]: ../crypto/index.html
 
 #[allow(clippy::module_inception)]
 pub(crate) mod message;

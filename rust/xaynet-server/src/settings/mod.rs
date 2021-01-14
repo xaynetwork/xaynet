@@ -742,7 +742,7 @@ pub struct LoggingSettings {
     /// XAYNET_LOG__FILTER=info
     /// ```
     ///
-    /// [here]: https://docs.rs/tracing-subscriber/0.2.6/tracing_subscriber/filter/struct.EnvFilter.html#directives
+    /// [here]: https://docs.rs/tracing-subscriber/0.2.15/tracing_subscriber/filter/struct.EnvFilter.html#directives
     #[serde(deserialize_with = "deserialize_env_filter")]
     pub filter: EnvFilter,
 }
