@@ -1,4 +1,4 @@
-//! A Redis compatible [`CoordinatorStorage`].
+//! A Redis [`CoordinatorStorage`] backend.
 //!
 //! # Redis Data Model
 //!

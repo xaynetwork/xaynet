@@ -1,3 +1,5 @@
+//! A state machine initializer.
+
 use thiserror::Error;
 #[cfg(feature = "model-persistence")]
 use tracing::{debug, info};

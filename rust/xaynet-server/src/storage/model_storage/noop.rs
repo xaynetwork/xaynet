@@ -1,3 +1,5 @@
+//! A NoOp [`ModelStorage`] backend.
+
 use crate::storage::{ModelStorage, StorageResult};
 use async_trait::async_trait;
 use xaynet_core::{common::RoundSeed, mask::Model};

@@ -1,4 +1,4 @@
-//! A S3 compatible [`ModelStorage`].
+//! A S3 [`ModelStorage`] backend.
 
 use std::sync::Arc;
 
