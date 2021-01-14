@@ -40,19 +40,19 @@ where
             DataPointMetadata::new(Period::new(PeriodUnit::Months, 3), end_period),
         ];
         let was_active_past_days_metadatas = vec![
-            one_day_period_metadata.clone(),
+            one_day_period_metadata,
             DataPointMetadata::new(Period::new(PeriodUnit::Days, 7), end_period),
             DataPointMetadata::new(Period::new(PeriodUnit::Days, 28), end_period),
         ];
 
         empty::<DataPoint>()
             .chain(self.init_screen_active_time_vars(
-                one_day_period_metadata.clone(),
+                one_day_period_metadata,
                 events.clone(),
                 &screen_routes,
             ))
             .chain(self.init_screen_enter_count_vars(
-                one_day_period_metadata.clone(),
+                one_day_period_metadata,
                 events.clone(),
                 &screen_routes,
             ))
@@ -60,12 +60,7 @@ where
                 was_active_each_period_metadatas,
                 events.clone(),
             ))
-            .chain(
-                self.init_was_active_past_n_days_vars(
-                    was_active_past_days_metadatas,
-                    events.clone(),
-                ),
-            )
+            .chain(self.init_was_active_past_n_days_vars(was_active_past_days_metadatas, events))
             .collect()
     }
 
@@ -83,7 +78,7 @@ where
         &self,
         metadata: DataPointMetadata,
         events: Vec<AnalyticsEvent>,
-        screen_routes: &Vec<String>,
+        screen_routes: &[String],
     ) -> Vec<DataPoint> {
         let mut screen_active_time_vars: Vec<DataPoint> = screen_routes
             .iter()
@@ -107,7 +102,7 @@ where
         &self,
         metadata: DataPointMetadata,
         events: Vec<AnalyticsEvent>,
-        screen_routes: &Vec<String>,
+        screen_routes: &[String],
     ) -> Vec<DataPoint> {
         screen_routes
             .iter()
@@ -282,17 +277,11 @@ mod tests {
             ),
         ];
         let expected_output = vec![
-            DataPoint::ScreenActiveTime(CalcScreenActiveTime::new(
-                metadata,
-                vec![first_event.clone()],
-            )),
+            DataPoint::ScreenActiveTime(CalcScreenActiveTime::new(metadata, vec![first_event])),
             DataPoint::ScreenActiveTime(CalcScreenActiveTime::new(metadata, all_events.clone())),
         ];
-        let actual_output = data_combiner.init_screen_active_time_vars(
-            metadata,
-            all_events.clone(),
-            &vec![screen_route],
-        );
+        let actual_output =
+            data_combiner.init_screen_active_time_vars(metadata, all_events, &[screen_route]);
         assert_eq!(actual_output, expected_output);
     }
 
@@ -314,11 +303,8 @@ mod tests {
             metadata,
             events.clone(),
         ))];
-        let actual_output = data_combiner.init_screen_enter_count_vars(
-            metadata,
-            events.clone(),
-            &vec![screen_route],
-        );
+        let actual_output =
+            data_combiner.init_screen_enter_count_vars(metadata, events, &[screen_route]);
         assert_eq!(actual_output, expected_output);
     }
 
@@ -340,7 +326,7 @@ mod tests {
             CalcWasActiveEachPastPeriod::new(metadata, events.clone(), period_thresholds),
         )];
         let actual_output =
-            data_combiner.init_was_active_each_past_period_vars(vec![metadata], events.clone());
+            data_combiner.init_was_active_each_past_period_vars(vec![metadata], events);
         assert_eq!(actual_output, expected_output);
     }
 
@@ -361,8 +347,7 @@ mod tests {
             metadata,
             events.clone(),
         ))];
-        let actual_output =
-            data_combiner.init_was_active_past_n_days_vars(vec![metadata], events.clone());
+        let actual_output = data_combiner.init_was_active_past_n_days_vars(vec![metadata], events);
         assert_eq!(actual_output, expected_output);
     }
 
@@ -392,7 +377,7 @@ mod tests {
             None,
         );
         let events = vec![event_before, event_during.clone(), event_after];
-        let expected_output = vec![event_during.clone()];
+        let expected_output = vec![event_during];
         let actual_output = data_combiner.filter_events_in_this_period(metadata, events);
         assert_eq!(actual_output, expected_output);
     }
@@ -462,7 +447,7 @@ mod tests {
             None,
         );
         let events = vec![event_before.clone(), event_after];
-        let expected_output = vec![event_before.clone()];
+        let expected_output = vec![event_before];
         let actual_output = data_combiner.filter_events_before_end_of_period(end_of_period, events);
         assert_eq!(actual_output, expected_output);
     }
@@ -485,7 +470,7 @@ mod tests {
             Some("other_screen".to_string()),
         );
         let all_events = vec![home_route_event.clone(), other_route_event];
-        let expected_output = vec![home_route_event.clone()];
+        let expected_output = vec![home_route_event];
         let actual_output = data_combiner.get_events_single_route(&home_route, all_events);
         assert_eq!(actual_output, expected_output);
     }
