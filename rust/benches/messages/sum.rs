@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
+
 use xaynet_core::{
     crypto::{ByteObject, SecretSigningKey},
     message::Message,
@@ -14,7 +15,7 @@ fn participant_sk() -> SecretSigningKey {
     SecretSigningKey::from_slice(vec![2; 64].as_slice()).unwrap()
 }
 
-pub fn to_bytes(c: &mut Criterion) {
+fn to_bytes(crit: &mut Criterion) {
     let (sum_message, _) = helpers::message(helpers::sum::payload);
     let buf_len = sum_message.buffer_length();
     let mut pre_allocated_buf = vec![0; buf_len];
@@ -26,15 +27,15 @@ pub fn to_bytes(c: &mut Criterion) {
     //
     // Note: criterion always reports p = 0.0 so lowering the
     // significance level doesn't change anything
-    let mut bench = c.benchmark_group("emit_sum");
-    bench.confidence_level(0.9).noise_threshold(0.05);
+    let mut crit = crit.benchmark_group("serialize sum message to bytes");
+    crit.confidence_level(0.9).noise_threshold(0.05);
 
-    bench.bench_function("compute sum message buffer length", |b| {
-        b.iter(|| black_box(&sum_message).buffer_length())
+    crit.bench_function("compute sum message buffer length", |bench| {
+        bench.iter(|| black_box(&sum_message).buffer_length())
     });
 
-    bench.bench_function("serialize sum message to bytes", |b| {
-        b.iter(|| {
+    crit.bench_function("serialize sum message to bytes", |bench| {
+        bench.iter(|| {
             sum_message.to_bytes(
                 black_box(&mut pre_allocated_buf),
                 black_box(&participant_sk()),
@@ -43,17 +44,18 @@ pub fn to_bytes(c: &mut Criterion) {
     });
 }
 
-pub fn from_bytes(c: &mut Criterion) {
+fn from_bytes(crit: &mut Criterion) {
     let sum_message = helpers::message(helpers::sum::payload).0;
     let mut bytes = vec![0; sum_message.buffer_length()];
     sum_message.to_bytes(&mut bytes, &participant_sk());
 
     // This benchmark is also quite unstable so make it a bit more
     // relaxed
-    let mut bench = c.benchmark_group("parse_sum");
-    bench.confidence_level(0.9).noise_threshold(0.05);
-    bench.bench_function("deserialize sum message from bytes", |b| {
-        b.iter(|| Message::from_byte_slice(&black_box(bytes.as_slice())))
+    let mut crit = crit.benchmark_group("deserialize sum message from bytes");
+    crit.confidence_level(0.9).noise_threshold(0.05);
+
+    crit.bench_function("deserialize sum message from bytes", |bench| {
+        bench.iter(|| Message::from_byte_slice(&black_box(bytes.as_slice())))
     });
 }
 

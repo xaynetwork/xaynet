@@ -20,20 +20,27 @@ macro_rules! fn_from_bytes {
     ($name: ident, $dict_len: expr, $mask_len: expr, $total_len: expr) => {
         paste! {
             #[allow(non_snake_case)]
-            pub fn [<from_bytes $name>](c: &mut Criterion) {
+            fn [<from_bytes $name>](crit: &mut Criterion) {
                 let (_, bytes) = make_update($dict_len, $mask_len, $total_len);
-                let size = &stringify!($name)[1..];
+                let name = &stringify!($name)[1..];
+                let mut crit = crit.benchmark_group(format!("deserialize {} update from bytes", name));
 
-                c.bench_function(format!("deserialize {} update from bytes slice", size).as_str(), |b| {
-                    b.iter(|| Update::from_byte_slice(&black_box(bytes.as_slice())))
-                });
+                crit.bench_function(
+                    format!("deserialize {} update from bytes slice", name).as_str(),
+                    |bench| {
+                        bench.iter(|| Update::from_byte_slice(&black_box(bytes.as_slice())))
+                    },
+                );
 
                 // it's less overhead to clone the iterator of bytes instead of re-creating it
                 // again in every benchmark iteration
                 let iter = bytes.into_iter();
-                c.bench_function(format!("deserialize {} update from bytes stream", size).as_str(), |b| {
-                    b.iter(|| Update::from_byte_stream(black_box(&mut iter.clone())))
-                });
+                crit.bench_function(
+                    format!("deserialize {} update from bytes stream", name).as_str(),
+                    |bench| {
+                        bench.iter(|| Update::from_byte_stream(black_box(&mut iter.clone())))
+                    },
+                );
             }
         }
     };
