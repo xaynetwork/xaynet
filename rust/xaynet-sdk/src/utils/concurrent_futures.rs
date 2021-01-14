@@ -20,11 +20,11 @@ where
     T: Future + Send + 'static,
     T::Output: Send + 'static,
 {
-    /// in-flight futures
+    /// In-flight futures.
     running: FuturesUnordered<JoinHandle<T::Output>>,
-    /// buffered tasks
-    pending: VecDeque<T>,
-    /// max number of concurrent futures
+    /// Buffered tasks.
+    queued: VecDeque<T>,
+    /// Max number of concurrent futures.
     max_in_flight: usize,
 }
 
@@ -36,13 +36,13 @@ where
     pub fn new(max_in_flight: usize) -> Self {
         Self {
             running: FuturesUnordered::new(),
-            pending: VecDeque::new(),
+            queued: VecDeque::new(),
             max_in_flight,
         }
     }
 
     pub fn push(&mut self, task: T) {
-        self.pending.push_back(task)
+        self.queued.push_back(task)
     }
 }
 
@@ -62,8 +62,8 @@ where
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
         let this = self.get_mut();
         while this.running.len() < this.max_in_flight {
-            if let Some(pending) = this.pending.pop_front() {
-                let handle = tokio::spawn(pending);
+            if let Some(queued) = this.queued.pop_front() {
+                let handle = tokio::spawn(queued);
                 this.running.push(handle);
             } else {
                 break;
@@ -93,39 +93,46 @@ mod tests {
         }));
 
         stream.push(Box::pin(async {
-            delay_for(Duration::from_millis(25_u64)).await;
+            delay_for(Duration::from_millis(28_u64)).await;
             2_u8
         }));
 
         stream.push(Box::pin(async {
-            delay_for(Duration::from_millis(12_u64)).await;
+            delay_for(Duration::from_millis(8_u64)).await;
             3_u8
         }));
 
         stream.push(Box::pin(async {
-            delay_for(Duration::from_millis(1_u64)).await;
+            delay_for(Duration::from_millis(2_u64)).await;
             4_u8
         }));
 
-        // poll_next hasn't been called yet so nothing is running
+        // poll_next() hasn't been called yet so all futures are queued
         assert_eq!(stream.running.len(), 0);
-        assert_eq!(stream.pending.len(), 4);
+        assert_eq!(stream.queued.len(), 4);
+
+        // future 1 and 2 are spawned, then future 1 is ready
         assert_eq!(stream.next().await.unwrap().unwrap(), 1);
 
-        // two futures have been spawned, but one of them just finished: one is still running, two are
-        // still pending
+        // future 2 is pending, futures 3 and 4 are queued
         assert_eq!(stream.running.len(), 1);
-        assert_eq!(stream.pending.len(), 2);
+        assert_eq!(stream.queued.len(), 2);
+
+        // future 3 is spawned, then future 3 is ready
         assert_eq!(stream.next().await.unwrap().unwrap(), 3);
 
-        // three futures have been spawned, two finished: one is still running, one is still pending
+        // future 2 is pending, future 4 is queued
         assert_eq!(stream.running.len(), 1);
-        assert_eq!(stream.pending.len(), 1);
+        assert_eq!(stream.queued.len(), 1);
+
+        // future 4 is spawned, then future 4 is ready
         assert_eq!(stream.next().await.unwrap().unwrap(), 4);
 
-        // four futures have been spawn, three finished: one is still running
+        // future 2 is pending, then future 2 is ready
         assert_eq!(stream.next().await.unwrap().unwrap(), 2);
+
+        // all futures have been resolved
         assert_eq!(stream.running.len(), 0);
-        assert_eq!(stream.pending.len(), 0);
+        assert_eq!(stream.queued.len(), 0);
     }
 }
