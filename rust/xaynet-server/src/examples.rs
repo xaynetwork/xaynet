@@ -88,12 +88,16 @@ bind_address = "127.0.0.1:8081"
 [pet]
 min_sum_count = 1
 min_update_count = 3
+min_sum2_count = 1
 max_sum_count = 100
 max_update_count = 10000
+max_sum2_count = 100
 min_sum_time = 5
 min_update_time = 10
+min_sum2_time = 5
 max_sum_time = 3600
 max_update_time = 3600
+max_sum2_time = 3600
 sum = 0.1
 update = 0.9
 
@@ -119,23 +123,20 @@ server and client authentication.
 
 The [`PetSettings`] specify various parameters of the PET protocol:
 
-- The most
-important are [`sum`] and [`update`], which are the probabilities assigned to
-the selection of sum and update participants, respectively (note that if a
-participant is selected for both roles, the *sum* role takes precedence).
+- The most important are [`sum`] and [`update`], which are the probabilities assigned to the
+selection of sum and update participants, respectively (note that if a participant is selected for
+both roles, the *sum* role takes precedence).
 
-- The settings [`min_sum_count`] and [`min_update_count`] specify, respectively,
-the minimum number of `sum`/`sum2` and `update` messages the coordinator should
-accept. By default, they are set to the theoretical minimum in order for the
-protocol to function correctly. Similarly, the [`max_sum_count`] and [`max_update_count`] specify
-the maximum number of `sum`/`sum2` and `update` messages the coordinator should accept.
+- The settings [`min_sum_count`], [`min_update_count`] and [`min_sum2_count`] specify, respectively,
+the minimum number of `sum`, `update` and `sum2` messages the coordinator should accept. Similarly,
+the [`max_sum_count`], [`max_update_count`] and [`max_sum2_count`] specify the maximum number of
+`sum`, `update` and `sum2` messages the coordinator should accept.
 
-- To complement, the settings [`min_sum_time`] and
-[`min_update_time`] specify, respectively, the minimum amount of time (in
-seconds) the coordinator should wait for `sum`/`sum2` and `update` messages. To
-allow for more messages to be processed, increase these times. Similarly, the [`max_sum_time`] and
-[`max_update_time`] specify the maximum amount of time (in seconds) the coordinator should wait for
-`sum`/`sum2` and `update` messages.
+- To complement, the settings [`min_sum_time`], [`min_update_time`] and [`min_sum2_time`] specify,
+respectively, the minimum amount of time (in seconds) the coordinator should wait for `sum`,
+`update` and `sum2` messages. To allow for more messages to be processed, increase these times.
+Similarly, the [`max_sum_time`], [`max_update_time`] and [`max_sum2_time`] specify the maximum
+amount of time (in seconds) the coordinator should wait for `sum`, `update` and `sum2` messages.
 
 The [`MaskSettings`] determines the masking configuration, consisting of the
 group type, data type, bound type and model type. The [`ModelSettings`] specify
@@ -169,12 +170,16 @@ $ RUST_LOG=info cargo run --example test-drive -- -n 10
 [`update`]: crate::settings::PetSettings::update
 [`min_sum_count`]: crate::settings::PetSettings::min_sum_count
 [`min_update_count`]: crate::settings::PetSettings::min_update_count
+[`min_sum2_count`]: crate::settings::PetSettings::min_sum2_count
 [`max_sum_count`]: crate::settings::PetSettings::max_sum_count
 [`max_update_count`]: crate::settings::PetSettings::max_update_count
+[`max_sum2_count`]: crate::settings::PetSettings::max_sum2_count
 [`min_sum_time`]: crate::settings::PetSettings::min_sum_time
 [`min_update_time`]: crate::settings::PetSettings::min_update_time
+[`min_sum2_time`]: crate::settings::PetSettings::min_sum2_time
 [`max_sum_time`]: crate::settings::PetSettings::max_sum_time
 [`max_update_time`]: crate::settings::PetSettings::max_update_time
+[`max_sum2_time`]: crate::settings::PetSettings::max_sum2_time
 [`MaskSettings`]: crate::settings::MaskSettings
 [`ModelSettings`]: crate::settings::ModelSettings
 [`Model`]: xaynet_core::mask::Model

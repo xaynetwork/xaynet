@@ -10,12 +10,16 @@ tls_key = "/app/ssl/tls.key"
 [pet]
 min_sum_count = 1
 min_update_count = 3
+min_sum2_count = 1
 max_sum_count = 100
 max_update_count = 10000
+max_sum2_count = 100
 min_sum_time = 5
 min_update_time = 10
+min_sum2_time = 5
 max_sum_time = 3600
 max_update_time = 3600
+max_sum2_time = 3600
 sum = 0.01
 update = 0.1
 

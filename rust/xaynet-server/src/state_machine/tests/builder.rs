@@ -128,6 +128,16 @@ where
         self
     }
 
+    pub fn with_min_sum2_count(mut self, min_sum2: u64) -> Self {
+        self.coordinator_state.min_sum2_count = min_sum2;
+        self
+    }
+
+    pub fn with_max_sum2_count(mut self, max_sum2: u64) -> Self {
+        self.coordinator_state.max_sum2_count = max_sum2;
+        self
+    }
+
     pub fn with_model_length(mut self, model_length: usize) -> Self {
         self.coordinator_state.round_params.model_length = model_length;
         self
@@ -150,6 +160,16 @@ where
 
     pub fn with_max_update_time(mut self, in_secs: u64) -> Self {
         self.coordinator_state.max_update_time = in_secs;
+        self
+    }
+
+    pub fn with_min_sum2_time(mut self, in_secs: u64) -> Self {
+        self.coordinator_state.min_sum2_time = in_secs;
+        self
+    }
+
+    pub fn with_max_sum2_time(mut self, in_secs: u64) -> Self {
+        self.coordinator_state.max_sum2_time = in_secs;
         self
     }
 

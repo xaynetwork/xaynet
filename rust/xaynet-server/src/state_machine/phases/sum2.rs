@@ -39,8 +39,8 @@ where
     const NAME: PhaseName = PhaseName::Sum2;
 
     async fn run(&mut self) -> Result<(), PhaseStateError> {
-        let min_time = self.shared.state.min_sum_time;
-        let max_time = self.shared.state.max_sum_time;
+        let min_time = self.shared.state.min_sum2_time;
+        let max_time = self.shared.state.max_sum2_time;
         debug!(
             "in sum2 phase for min {} and max {} seconds",
             min_time, max_time,
@@ -52,7 +52,9 @@ where
 
         info!(
             "in total {} sum2 messages accepted (min {} and max {} required)",
-            self.private.accepted, self.shared.state.min_sum_count, self.shared.state.max_sum_count,
+            self.private.accepted,
+            self.shared.state.min_sum2_count,
+            self.shared.state.max_sum2_count,
         );
         info!("in total {} sum2 messages rejected", self.private.rejected);
         info!(
@@ -90,18 +92,20 @@ where
     }
 
     fn has_enough_messages(&self) -> bool {
-        self.private.accepted >= self.shared.state.min_sum_count
+        self.private.accepted >= self.shared.state.min_sum2_count
     }
 
     fn has_overmuch_messages(&self) -> bool {
-        self.private.accepted >= self.shared.state.max_sum_count
+        self.private.accepted >= self.shared.state.max_sum2_count
     }
 
     fn increment_accepted(&mut self) {
         self.private.accepted += 1;
         debug!(
             "{} sum2 messages accepted (min {} and max {} required)",
-            self.private.accepted, self.shared.state.min_sum_count, self.shared.state.max_sum_count,
+            self.private.accepted,
+            self.shared.state.min_sum2_count,
+            self.shared.state.max_sum2_count,
         );
     }
 
@@ -233,8 +237,10 @@ mod tests {
             .with_max_sum_count(n_summers + 10)
             .with_min_update_count(n_updaters)
             .with_max_update_count(n_updaters + 10)
-            .with_min_sum_time(1)
-            .with_max_sum_time(2)
+            .with_min_sum2_count(n_summers)
+            .with_max_sum2_count(n_summers + 10)
+            .with_min_sum2_time(1)
+            .with_max_sum2_time(2)
             .with_mask_config(utils::mask_settings().into())
             .build();
         assert!(state_machine.is_sum2());
