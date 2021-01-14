@@ -1,7 +1,4 @@
-use std::{
-    iter::{repeat, FromIterator},
-    time::Duration,
-};
+use std::{iter, time::Duration};
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use num::{bigint::BigInt, rational::Ratio};
@@ -13,8 +10,9 @@ fn make_model(bytes_size: usize) -> Model {
     // 1 i32 -> 4 bytes
     assert_eq!(bytes_size % 4, 0);
     let n_elements = bytes_size / 4;
-    let iter = repeat(Ratio::from(BigInt::from(0))).take(n_elements);
-    Model::from_iter(iter)
+    iter::repeat(Ratio::from(BigInt::from(0)))
+        .take(n_elements)
+        .collect()
 }
 
 macro_rules! fn_to_primitives {
