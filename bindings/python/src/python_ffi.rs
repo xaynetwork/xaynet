@@ -7,6 +7,7 @@ use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
 use xaynet_core::mask::IntoPrimitives;
 use xaynet_core::mask::{DataType, FromPrimitives, Model};
+use xaynet_sdk::settings::MaxMessageSize;
 
 use crate::from_primitives;
 use crate::into_primitives;
@@ -73,9 +74,10 @@ impl Participant {
         } else {
             debug!("initialize participant");
             let mut settings = xaynet_mobile::Settings::new();
-            settings.set_keys(xaynet_core::crypto::SigningKeyPair::generate());
             settings.set_url(url);
+            settings.set_keys(xaynet_core::crypto::SigningKeyPair::generate());
             settings.set_scalar(scalar);
+            settings.set_max_message_size(MaxMessageSize::unlimited());
 
             xaynet_mobile::Participant::new(settings).map_err(|err| {
                 ParticipantInit::new_err(format!("failed to initialize participant: {}", err))

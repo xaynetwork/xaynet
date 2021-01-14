@@ -1594,6 +1594,7 @@ dependencies = [
  "tracing-subscriber",
  "xaynet-core",
  "xaynet-mobile",
+ "xaynet-sdk",
 ]
 
 [[package]]

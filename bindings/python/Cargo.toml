@@ -42,12 +42,13 @@ requires-dist = [
 msrv = "1.48.0"
 
 [dependencies]
-xaynet-core = { path = "../../rust/xaynet-core"}
-xaynet-mobile = { path = "../../rust/xaynet-mobile"}
-tracing = "0.1.22"
 sodiumoxide = "0.2.6"
+tracing = "0.1.22"
 tracing-subscriber = "0.2.15"
 pyo3 = {version = "0.13.1", features = ["abi3-py36", "extension-module"]}
+xaynet-core = { path = "../../rust/xaynet-core"}
+xaynet-mobile = { path = "../../rust/xaynet-mobile"}
+xaynet-sdk = { path = "../../rust/xaynet-sdk"}
 
 [lib]
 name = "xaynet_sdk"
