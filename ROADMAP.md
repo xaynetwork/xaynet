@@ -29,5 +29,5 @@ community and external feature suggestions and reviews. Also we want to make the
 observable as a foundation for further optimisations.
 
 [Xayn app]: https://www.xayn.com/
-[NDCG metrics]: https://en.wikipedia.org/wiki/Discounted_cumulative_gain
+[NDCG metrics]: https://en.wikipedia.org/wiki/Discounted_cumulative_gain#Normalized_DCG
 [WASM]: https://webassembly.org/
