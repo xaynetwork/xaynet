@@ -64,7 +64,7 @@ a message fails, only that part will be resent and not the entire message.
 
 #### Coordinator state managed in Redis
 
-In order to be able to restore the state of the coordinator after an failure or shutdown,
+In order to be able to restore the state of the coordinator after a failure or shutdown,
 the state is managed in Redis and no longer in memory.
 
 The Redis client can be configured via the `[redis]` setting:
