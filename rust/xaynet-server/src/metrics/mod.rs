@@ -27,7 +27,7 @@ impl GlobalRecorder {
 ///
 /// # Example
 ///
-/// ```rust
+/// ```ignore
 /// // An event with just a title:
 /// event!("Error");
 ///
@@ -64,7 +64,7 @@ macro_rules! event {
 ///
 /// # Example
 ///
-/// ```rust
+/// ```ignore
 /// // A basic metric:
 /// metric!(Measurement::RoundTotalNumber, 1);
 ///

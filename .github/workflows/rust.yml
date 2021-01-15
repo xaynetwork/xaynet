@@ -210,6 +210,7 @@ jobs:
         run: |
           cargo test --all-targets
           cargo test --all-targets --all-features
+          cargo test --all-features --doc
 
       - name: Stop docker-compose
         working-directory: ./docker
