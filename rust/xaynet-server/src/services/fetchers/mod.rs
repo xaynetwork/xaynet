@@ -44,7 +44,7 @@ pub trait Fetcher {
 /// An error returned by the [`Fetcher`]'s method.
 pub type FetchError = anyhow::Error;
 
-fn into_fetch_error<E: Into<Box<dyn ::std::error::Error + 'static + Sync + Send>>>(
+fn into_fetch_error<E: Into<Box<dyn std::error::Error + 'static + Sync + Send>>>(
     e: E,
 ) -> FetchError {
     anyhow::anyhow!("Fetcher failed: {:?}", e.into())
@@ -59,22 +59,22 @@ where
     RoundParams: Service<RoundParamsRequest, Response = RoundParamsResponse> + Send + 'static,
     <RoundParams as Service<RoundParamsRequest>>::Future: Send + Sync + 'static,
     <RoundParams as Service<RoundParamsRequest>>::Error:
-        Into<Box<dyn ::std::error::Error + 'static + Sync + Send>>,
+        Into<Box<dyn std::error::Error + 'static + Sync + Send>>,
 
     Model: Service<ModelRequest, Response = ModelResponse> + Send + 'static,
     <Model as Service<ModelRequest>>::Future: Send + Sync + 'static,
     <Model as Service<ModelRequest>>::Error:
-        Into<Box<dyn ::std::error::Error + 'static + Sync + Send>>,
+        Into<Box<dyn std::error::Error + 'static + Sync + Send>>,
 
     SeedDict: Service<SeedDictRequest, Response = SeedDictResponse> + Send + 'static,
     <SeedDict as Service<SeedDictRequest>>::Future: Send + Sync + 'static,
     <SeedDict as Service<SeedDictRequest>>::Error:
-        Into<Box<dyn ::std::error::Error + 'static + Sync + Send>>,
+        Into<Box<dyn std::error::Error + 'static + Sync + Send>>,
 
     SumDict: Service<SumDictRequest, Response = SumDictResponse> + Send + 'static,
     <SumDict as Service<SumDictRequest>>::Future: Send + Sync + 'static,
     <SumDict as Service<SumDictRequest>>::Error:
-        Into<Box<dyn ::std::error::Error + 'static + Sync + Send>>,
+        Into<Box<dyn std::error::Error + 'static + Sync + Send>>,
 {
     async fn round_params(&mut self) -> Result<RoundParamsResponse, FetchError> {
         poll_fn(|cx| {

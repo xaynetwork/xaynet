@@ -4045,6 +4045,7 @@ name = "xaynet"
 version = "0.10.0"
 dependencies = [
  "xaynet-core",
+ "xaynet-mobile",
  "xaynet-sdk",
  "xaynet-server",
 ]

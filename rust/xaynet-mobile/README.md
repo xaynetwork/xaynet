@@ -11,7 +11,7 @@ To generate the header files, install [`cbindgen`] and run:
 
 ```
 cargo build
-cbindgen \
+RUSTUP_TOOLCHAIN=nightly cbindgen \
     --config cbindgen.toml \
     --crate xaynet-mobile \
     --output xaynet_ffi.h

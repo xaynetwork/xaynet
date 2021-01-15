@@ -27,7 +27,7 @@ where
 }
 
 #[cfg(test)]
-type DynModel = Box<(dyn ::std::convert::AsRef<xaynet_core::mask::Model> + Send)>;
+type DynModel = Box<(dyn std::convert::AsRef<xaynet_core::mask::Model> + Send)>;
 /// A trait that gathers all the [`Notify`], [`XaynetClient`] and [`ModelStore`]
 /// methods.
 ///

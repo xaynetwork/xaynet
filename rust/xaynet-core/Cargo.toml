@@ -11,6 +11,10 @@ license-file = "../../LICENSE"
 keywords = ["federated-learning", "fl", "ai", "machine-learning"]
 categories = ["science", "cryptography"]
 
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
 [dependencies]
 anyhow = "1.0.38"
 bitflags = "1.2.1"

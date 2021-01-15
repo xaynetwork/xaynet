@@ -182,5 +182,4 @@ $ RUST_LOG=info cargo run --example test-drive -- -n 10
 [`max_sum2_time`]: crate::settings::PetSettings::max_sum2_time
 [`MaskSettings`]: crate::settings::MaskSettings
 [`ModelSettings`]: crate::settings::ModelSettings
-[`Model`]: xaynet_core::mask::Model
 */

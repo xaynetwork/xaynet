@@ -61,12 +61,16 @@ where
 
     /// Runs this phase to completion.
     ///
-    /// See the [module level documentation](../index.html) for more details.
+    /// See the [module level documentation] for more details.
+    ///
+    /// [module level documentation]: crate::state_machine
     async fn run(&mut self) -> Result<(), PhaseStateError>;
 
     /// Moves from this state to the next state.
     ///
-    /// See the [module level documentation](../index.html) for more details.
+    /// See the [module level documentation] for more details.
+    ///
+    /// [module level documentation]: crate::state_machine
     fn next(self) -> Option<StateMachine<C, M>>;
 }
 

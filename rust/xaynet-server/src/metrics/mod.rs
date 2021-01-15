@@ -1,3 +1,5 @@
+//! Utils to record metrics.
+
 pub mod recorders;
 pub use self::recorders::influxdb::{Measurement, Recorder, Tags};
 use once_cell::sync::OnceCell;

@@ -23,6 +23,7 @@ use xaynet_core::{
 };
 
 #[cfg(feature = "model-persistence")]
+#[cfg_attr(docsrs, doc(cfg(feature = "model-persistence")))]
 pub mod s3;
 #[cfg(feature = "model-persistence")]
 pub use self::{s3::RestoreSettings, s3::S3BucketsSettings, s3::S3Settings};
@@ -437,6 +438,7 @@ pub struct ApiSettings {
     pub bind_address: std::net::SocketAddr,
 
     #[cfg(feature = "tls")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "tls")))]
     /// The path to the server certificate to enable TLS server authentication. Leave this out to
     /// disable server authentication. If this is present, then `tls_key` must also be present.
     ///
@@ -457,6 +459,7 @@ pub struct ApiSettings {
     pub tls_certificate: Option<PathBuf>,
 
     #[cfg(feature = "tls")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "tls")))]
     /// The path to the server private key to enable TLS server authentication. Leave this out to
     /// disable server authentication. If this is present, then `tls_certificate` must also be
     /// present.
@@ -478,6 +481,7 @@ pub struct ApiSettings {
     pub tls_key: Option<PathBuf>,
 
     #[cfg(feature = "tls")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "tls")))]
     /// The path to the trust anchor to enable TLS client authentication. Leave this out to disable
     /// client authentication.
     ///
@@ -738,7 +742,7 @@ pub struct LoggingSettings {
     /// XAYNET_LOG__FILTER=info
     /// ```
     ///
-    /// [here]: https://docs.rs/tracing-subscriber/0.2.6/tracing_subscriber/filter/struct.EnvFilter.html#directives
+    /// [here]: https://docs.rs/tracing-subscriber/0.2.15/tracing_subscriber/filter/struct.EnvFilter.html#directives
     #[serde(deserialize_with = "deserialize_env_filter")]
     pub filter: EnvFilter,
 }

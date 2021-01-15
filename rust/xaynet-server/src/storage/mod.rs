@@ -1,3 +1,5 @@
+//! Storage backends for the coordinator.
+
 pub mod coordinator_storage;
 pub mod model_storage;
 pub mod store;

@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use thiserror::Error;
 use url::Url;
 
+use crate::XaynetClient;
 use xaynet_core::{
     common::RoundParameters,
     crypto::{ByteObject, PublicSigningKey},
@@ -9,8 +10,6 @@ use xaynet_core::{
     SumDict,
     UpdateSeedDict,
 };
-
-use crate::XaynetClient;
 
 /// Error returned upon failing to build a new [`Client`]
 #[derive(Debug, Error)]
@@ -50,8 +49,8 @@ impl From<bincode::Error> for ClientError {
     }
 }
 
-impl From<::std::num::ParseIntError> for ClientError {
-    fn from(e: ::std::num::ParseIntError) -> Self {
+impl From<std::num::ParseIntError> for ClientError {
+    fn from(e: std::num::ParseIntError) -> Self {
         Self::Deserialize(format!("{}", e))
     }
 }
@@ -179,6 +178,7 @@ where
 }
 
 #[cfg(feature = "reqwest-client")]
+#[cfg_attr(docsrs, doc(cfg(feature = "reqwest-client")))]
 #[async_trait]
 impl XaynetHttpClient for reqwest::Client {
     type Error = reqwest::Error;

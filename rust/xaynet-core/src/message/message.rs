@@ -2,7 +2,7 @@
 //!
 //! See the [message module] documentation since this is a private module anyways.
 //!
-//! [message module]: ../index.html
+//! [message module]: crate::mask
 
 use std::convert::{TryFrom, TryInto};
 
@@ -215,8 +215,6 @@ pub const HEADER_LENGTH: usize = ranges::RESERVED.end;
 ///     .copy_from_slice([vec![0xaa; 32], vec![0xbb; 32]].concat().as_slice());
 /// assert_eq!(expected, bytes);
 /// ```
-///
-/// [`Message`]: struct.Message.html
 pub struct MessageBuffer<T> {
     inner: T,
 }
@@ -473,7 +471,7 @@ impl Into<u8> for Tag {
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
-/// A header common to all [`Message`]s.
+/// A header common to all messages.
 pub struct Message {
     /// Message signature. This can be `None` if it hasn't been
     /// computed yet.

@@ -32,14 +32,14 @@ mod pv {
 /// 1. When calling this method, you have to ensure that *either* the pointer is NULL
 ///    *or* all of the following is true:
 ///    - The pointer must be properly [aligned].
-///    - It must be "dereferencable" in the sense defined in the [`::std::ptr`] module
+///    - It must be "dereferencable" in the sense defined in the [`std::ptr`] module
 ///      documentation.
 /// 2. After destroying the `Settings`, the pointer becomes invalid and must not be
 ///    used.
 /// 3. This function should only be called on a pointer that has been created by
 ///    [`xaynet_ffi_settings_new`].
 ///
-/// [`::std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
+/// [`std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
 /// [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
 #[no_mangle]
 pub unsafe extern "C" fn xaynet_ffi_settings_destroy(settings: *mut Settings) -> c_int {
@@ -74,10 +74,10 @@ pub unsafe extern "C" fn xaynet_ffi_settings_new() -> *mut Settings {
 /// When calling this method, you have to ensure that *either* the pointer is NULL *or*
 /// all of the following is true:
 /// - The pointer must be properly [aligned].
-/// - It must be "dereferencable" in the sense defined in the [`::std::ptr`] module
+/// - It must be "dereferencable" in the sense defined in the [`std::ptr`] module
 ///   documentation.
 ///
-/// [`::std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
+/// [`std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
 /// [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
 #[no_mangle]
 pub unsafe extern "C" fn xaynet_ffi_settings_set_scalar(
@@ -106,10 +106,10 @@ pub unsafe extern "C" fn xaynet_ffi_settings_set_scalar(
 /// When calling this method, you have to ensure that *either* the pointers are NULL
 /// *or* all of the following is true:
 /// - The pointers must be properly [aligned].
-/// - They must be "dereferencable" in the sense defined in the [`::std::ptr`] module
+/// - They must be "dereferencable" in the sense defined in the [`std::ptr`] module
 ///   documentation.
 ///
-/// [`::std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
+/// [`std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
 /// [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
 #[no_mangle]
 pub unsafe extern "C" fn xaynet_ffi_settings_set_url(
@@ -178,10 +178,10 @@ pub unsafe extern "C" fn xaynet_ffi_generate_key_pair() -> *const KeyPair {
 /// When calling this method, you have to ensure that *either* the pointer is NULL *or*
 /// all of the following is true:
 /// - The pointer must be properly [aligned].
-/// - It must be "dereferencable" in the sense defined in the [`::std::ptr`] module
+/// - It must be "dereferencable" in the sense defined in the [`std::ptr`] module
 ///   documentation.
 ///
-/// [`::std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
+/// [`std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
 /// [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
 #[no_mangle]
 pub unsafe extern "C" fn xaynet_ffi_forget_key_pair(key_pair: *const KeyPair) -> c_int {
@@ -211,10 +211,10 @@ pub unsafe extern "C" fn xaynet_ffi_forget_key_pair(key_pair: *const KeyPair) ->
 /// When calling this method, you have to ensure that *either* the pointers are NULL
 /// *or* all of the following is true:
 /// - The pointers must be properly [aligned].
-/// - They must be "dereferencable" in the sense defined in the [`::std::ptr`] module
+/// - They must be "dereferencable" in the sense defined in the [`std::ptr`] module
 ///   documentation.
 ///
-/// [`::std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
+/// [`std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
 /// [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
 #[no_mangle]
 pub unsafe extern "C" fn xaynet_ffi_settings_set_keys(
@@ -262,11 +262,11 @@ pub unsafe extern "C" fn xaynet_ffi_settings_set_keys(
 /// all of the following is true:
 ///
 /// - The pointer must be properly [aligned].
-/// - It must be "dereferencable" in the sense defined in the [`::std::ptr`] module
+/// - It must be "dereferencable" in the sense defined in the [`std::ptr`] module
 ///   documentation.
 ///
 /// [`xaynet_ffi_participant_new()`]: crate::ffi::xaynet_ffi_participant_new
-/// [`::std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
+/// [`std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
 /// [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
 #[no_mangle]
 pub unsafe extern "C" fn xaynet_ffi_check_settings(settings: *const Settings) -> c_int {

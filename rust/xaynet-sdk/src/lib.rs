@@ -1,9 +1,9 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![cfg_attr(doc, forbid(warnings))]
 #![doc(
-    html_logo_url = "https://raw.githubusercontent.com/xaynetwork/xaynet/master/assets/logo.png",
-    issue_tracker_base_url = "https://github.com/xaynetwork/xaynet/issues",
-    html_favicon_url = "https://raw.githubusercontent.com/xaynetwork/xaynet/master/assets/favicon.png"
+    html_logo_url = "https://raw.githubusercontent.com/xaynetwork/xaynet/master/assets/xaynet_banner.png",
+    html_favicon_url = "https://raw.githubusercontent.com/xaynetwork/xaynet/master/assets/favicon.png",
+    issue_tracker_base_url = "https://github.com/xaynetwork/xaynet/issues"
 )]
 //! This crate provides building blocks for implementing participants for
 //! the [Xaynet Federated Learning platform](https://www.xaynet.dev/).
@@ -85,7 +85,7 @@
 //!   notifications. This can be any type that implements the
 //!   [`Notify`] trait. We'll use channels for this.
 //!
-//! [`Client`]: [crate::clients::Client]
+//! [`Client`]: crate::client::Client
 //!
 //! Finally we can start our agent and log the events it emits. Here
 //! is the full code:

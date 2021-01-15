@@ -2,7 +2,7 @@
 //!
 //! See the [mask module] documentation since this is a private module anyways.
 //!
-//! [mask module]: ../index.html
+//! [mask module]: crate::mask
 
 use std::convert::TryInto;
 

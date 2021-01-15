@@ -1,3 +1,5 @@
+//! S3 settings.
+
 use std::fmt;
 
 use fancy_regex::Regex;
@@ -82,6 +84,7 @@ pub struct S3Settings {
 }
 
 #[derive(Debug, Validate, Deserialize)]
+/// S3 buckets settings.
 pub struct S3BucketsSettings {
     /// The bucket name in which the global models are stored.
     /// Defaults to `global-models`.

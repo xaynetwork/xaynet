@@ -1,3 +1,5 @@
+//! A state machine initializer.
+
 use thiserror::Error;
 #[cfg(feature = "model-persistence")]
 use tracing::{debug, info};
@@ -135,6 +137,7 @@ where
 }
 
 #[cfg(feature = "model-persistence")]
+#[cfg_attr(docsrs, doc(cfg(feature = "model-persistence")))]
 impl<C, M> StateMachineInitializer<C, M>
 where
     C: CoordinatorStorage,

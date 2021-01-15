@@ -11,12 +11,19 @@ license-file = "../../LICENSE"
 keywords = ["federated-learning", "fl", "ai", "machine-learning"]
 categories = ["science", "cryptography"]
 
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
 [badges]
 codecov = { repository = "xaynetwork/xaynet", branch = "master", service = "github" }
 maintenance = { status = "actively-developed" }
 
 [dependencies]
 xaynet-core = { path = "../xaynet-core", version = "0.1.0" }
+
+# feature: mobile
+xaynet-mobile = { path = "../xaynet-mobile", version = "0.1.0", optional = true }
 
 # feature: sdk
 xaynet-sdk = { path = "../xaynet-sdk", version = "0.1.0", optional = true }
@@ -26,6 +33,7 @@ xaynet-server = { path = "../xaynet-server", version = "0.1.0", optional = true 
 
 [features]
 default = []
-full = ["sdk", "server"]
+full = ["mobile", "sdk", "server"]
+mobile = ["xaynet-mobile"]
 sdk = ["xaynet-sdk"]
 server = ["xaynet-server"]

@@ -2,7 +2,7 @@
 //!
 //! See the [message module] documentation since this is a private module anyways.
 //!
-//! [message module]: ../index.html
+//! [message module]: crate::message
 
 use std::ops::Range;
 

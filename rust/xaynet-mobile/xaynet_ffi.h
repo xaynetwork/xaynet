@@ -318,14 +318,14 @@ typedef struct LocalModelConfig {
  * 1. When calling this method, you have to ensure that *either* the pointer is NULL
  * *or* all of the following is true:
  *  - The pointer must be properly [aligned].
- *  - It must be "dereferencable" in the sense defined in the [`::std::ptr`] module
+ *  - It must be "dereferencable" in the sense defined in the [`std::ptr`] module
  *    documentation.
  * 2. After destroying the `ByteBuffer` the pointer becomes invalid and must not be
  *    used.
  * 3. Calling this function on a `ByteBuffer` that has not been created on the Rust
  *    side of the FFI is UB.
  *
- * [`::std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
+ * [`std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
  * [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
  */
 int xaynet_ffi_byte_buffer_destroy(const struct ByteBuffer *buf);
@@ -339,9 +339,6 @@ int xaynet_ffi_byte_buffer_destroy(const struct ByteBuffer *buf);
  *
  * - [`OK`] if the initialization succeeded
  * - -[`ERR_CRYPTO_INIT`] if the initialization failed
- *
- * [`xaynet_ffi_participant_new()`]: xaynet_ffi_participant_new
- * [`xaynet_ffi_generate_key_pair()`]: xaynet_ffi_generate_key_pair
  *
  * # Safety
  *
@@ -363,14 +360,14 @@ int xaynet_ffi_crypto_init(void);
  * 1. When calling this method, you have to ensure that *either* the pointer is NULL
  *    *or* all of the following is true:
  *    - The pointer must be properly [aligned].
- *    - It must be "dereferencable" in the sense defined in the [`::std::ptr`] module
+ *    - It must be "dereferencable" in the sense defined in the [`std::ptr`] module
  *      documentation.
  * 2. After destroying the `Participant`, the pointer becomes invalid and must not be
  *    used.
  * 3. This function should only be called on a pointer that has been created by
  *    [`xaynet_ffi_participant_new()`] or [`xaynet_ffi_participant_restore()`]
  *
- * [`::std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
+ * [`std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
  * [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
  */
 int xaynet_ffi_participant_destroy(struct Participant *participant);
@@ -390,13 +387,13 @@ int xaynet_ffi_participant_destroy(struct Participant *participant);
  * all of the following is true:
  *
  * - The pointer must be properly [aligned].
- * - It must be "dereferencable" in the sense defined in the [`::std::ptr`] module
+ * - It must be "dereferencable" in the sense defined in the [`std::ptr`] module
  *   documentation.
  *
  * After destroying the participant with [`xaynet_ffi_participant_destroy`] becomes
  * invalid and must not be used.
  *
- * [`::std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
+ * [`std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
  * [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
  */
 struct Participant *xaynet_ffi_participant_new(const struct Settings *settings);
@@ -438,13 +435,13 @@ struct Participant *xaynet_ffi_participant_new(const struct Settings *settings);
  * all of the following is true:
  *
  * - The pointer must be properly [aligned].
- * - It must be "dereferencable" in the sense defined in the [`::std::ptr`] module
+ * - It must be "dereferencable" in the sense defined in the [`std::ptr`] module
  *   documentation.
  *
  * After destroying the participant with [`xaynet_ffi_participant_destroy`] becomes
  * invalid and must not be used.
  *
- * [`::std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
+ * [`std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
  * [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
  */
 int xaynet_ffi_participant_tick(struct Participant *participant);
@@ -458,7 +455,7 @@ int xaynet_ffi_participant_tick(struct Participant *participant);
  * 1. When calling this method, you have to ensure that *either* the pointer is NULL
  *    *or* all of the following is true:
  *    - The pointer must be properly [aligned].
- *    - It must be "dereferencable" in the sense defined in the [`::std::ptr`] module
+ *    - It must be "dereferencable" in the sense defined in the [`std::ptr`] module
  *      documentation.
  * 2. the `ByteBuffer` created by this function must be destroyed with
  *    [`xaynet_ffi_participant_destroy`]. Attempting to free the memory from the other
@@ -468,7 +465,7 @@ int xaynet_ffi_participant_tick(struct Participant *participant);
  *    either with [`xaynet_ffi_participant_new()`] or
  *    [`xaynet_ffi_participant_restore()`]
  *
- * [`::std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
+ * [`std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
  * [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
  *
  * # Example
@@ -500,10 +497,10 @@ const struct ByteBuffer *xaynet_ffi_participant_save(struct Participant *partici
  * When calling this method, you have to ensure that *either* the pointers are NULL
  * *or* all of the following is true:
  * - The pointers must be properly [aligned].
- * - They must be "dereferencable" in the sense defined in the [`::std::ptr`] module
+ * - They must be "dereferencable" in the sense defined in the [`std::ptr`] module
  *   documentation.
  *
- * [`::std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
+ * [`std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
  * [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
  *
  * # Example
@@ -552,12 +549,12 @@ struct Participant *xaynet_ffi_participant_restore(FfiStr url, const struct Byte
  * 1. When calling this method, you have to ensure that *either* the pointer is NULL
  *    *or* all of the following is true:
  *    - The pointer must be properly [aligned].
- *    - It must be "dereferencable" in the sense defined in the [`::std::ptr`] module
+ *    - It must be "dereferencable" in the sense defined in the [`std::ptr`] module
  *      documentation.
  * 2. If `len` or `data_type` do not match the model in `buffer`, this method will
  *    result in a buffer over-read.
  *
- * [`::std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
+ * [`std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
  * [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
  */
 int xaynet_ffi_participant_set_model(struct Participant *participant,
@@ -596,7 +593,7 @@ int xaynet_ffi_participant_set_model(struct Participant *participant,
  * 1. When calling this method, you have to ensure that *either* the pointer is NULL
  *    *or* all of the following is true:
  *    - The pointer must be properly [aligned].
- *    - It must be "dereferencable" in the sense defined in the [`::std::ptr`] module
+ *    - It must be "dereferencable" in the sense defined in the [`std::ptr`] module
  *      documentation.
  * 2. If `len` or `data_type` do not match the model in `buffer`, this method will
  *    result in a buffer over-read.
@@ -617,7 +614,7 @@ int xaynet_ffi_participant_global_model(struct Participant *participant,
  * 1. When calling this method, you have to ensure that *either* the pointer is NULL
  *    *or* all of the following is true:
  *    - The pointer must be properly [aligned].
- *    - It must be "dereferencable" in the sense defined in the [`::std::ptr`] module
+ *    - It must be "dereferencable" in the sense defined in the [`std::ptr`] module
  *      documentation.
  *
  * [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
@@ -637,14 +634,14 @@ struct LocalModelConfig *xaynet_ffi_participant_local_model_config(const struct 
  * 1. When calling this method, you have to ensure that *either* the pointer is NULL
  *    *or* all of the following is true:
  *    - The pointer must be properly [aligned].
- *    - It must be "dereferencable" in the sense defined in the [`::std::ptr`] module
+ *    - It must be "dereferencable" in the sense defined in the [`std::ptr`] module
  *      documentation.
  * 2. After destroying the `Settings`, the pointer becomes invalid and must not be
  *    used.
  * 3. This function should only be called on a pointer that has been created by
  *    [`xaynet_ffi_settings_new`].
  *
- * [`::std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
+ * [`std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
  * [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
  */
 int xaynet_ffi_settings_destroy(struct Settings *settings);
@@ -673,10 +670,10 @@ struct Settings *xaynet_ffi_settings_new(void);
  * When calling this method, you have to ensure that *either* the pointer is NULL *or*
  * all of the following is true:
  * - The pointer must be properly [aligned].
- * - It must be "dereferencable" in the sense defined in the [`::std::ptr`] module
+ * - It must be "dereferencable" in the sense defined in the [`std::ptr`] module
  *   documentation.
  *
- * [`::std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
+ * [`std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
  * [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
  */
 int xaynet_ffi_settings_set_scalar(struct Settings *settings, double scalar);
@@ -695,10 +692,10 @@ int xaynet_ffi_settings_set_scalar(struct Settings *settings, double scalar);
  * When calling this method, you have to ensure that *either* the pointers are NULL
  * *or* all of the following is true:
  * - The pointers must be properly [aligned].
- * - They must be "dereferencable" in the sense defined in the [`::std::ptr`] module
+ * - They must be "dereferencable" in the sense defined in the [`std::ptr`] module
  *   documentation.
  *
- * [`::std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
+ * [`std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
  * [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
  */
 int xaynet_ffi_settings_set_url(struct Settings *settings, FfiStr url);
@@ -734,10 +731,10 @@ const struct KeyPair *xaynet_ffi_generate_key_pair(void);
  * When calling this method, you have to ensure that *either* the pointer is NULL *or*
  * all of the following is true:
  * - The pointer must be properly [aligned].
- * - It must be "dereferencable" in the sense defined in the [`::std::ptr`] module
+ * - It must be "dereferencable" in the sense defined in the [`std::ptr`] module
  *   documentation.
  *
- * [`::std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
+ * [`std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
  * [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
  */
 int xaynet_ffi_forget_key_pair(const struct KeyPair *key_pair);
@@ -757,10 +754,10 @@ int xaynet_ffi_forget_key_pair(const struct KeyPair *key_pair);
  * When calling this method, you have to ensure that *either* the pointers are NULL
  * *or* all of the following is true:
  * - The pointers must be properly [aligned].
- * - They must be "dereferencable" in the sense defined in the [`::std::ptr`] module
+ * - They must be "dereferencable" in the sense defined in the [`std::ptr`] module
  *   documentation.
  *
- * [`::std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
+ * [`std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
  * [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
  */
 int xaynet_ffi_settings_set_keys(struct Settings *settings, const struct KeyPair *key_pair);
@@ -781,11 +778,11 @@ int xaynet_ffi_settings_set_keys(struct Settings *settings, const struct KeyPair
  * all of the following is true:
  *
  * - The pointer must be properly [aligned].
- * - It must be "dereferencable" in the sense defined in the [`::std::ptr`] module
+ * - It must be "dereferencable" in the sense defined in the [`std::ptr`] module
  *   documentation.
  *
  * [`xaynet_ffi_participant_new()`]: crate::ffi::xaynet_ffi_participant_new
- * [`::std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
+ * [`std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
  * [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
  */
 int xaynet_ffi_check_settings(const struct Settings *settings);
@@ -803,14 +800,14 @@ int xaynet_ffi_check_settings(const struct Settings *settings);
  * 1. When calling this method, you have to ensure that *either* the pointer is NULL
  *    *or* all of the following is true:
  *    - The pointer must be properly [aligned].
- *    - It must be "dereferencable" in the sense defined in the [`::std::ptr`] module
+ *    - It must be "dereferencable" in the sense defined in the [`std::ptr`] module
  *      documentation.
  * 2. After destroying the `LocalModelConfig`, the pointer becomes invalid and must not be
  *    used.
  * 3. This function should only be called on a pointer that has been created by
  *    [`xaynet_ffi_participant_local_model_config()`].
  *
- * [`::std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
+ * [`std::ptr`]: https://doc.rust-lang.org/std/ptr/index.html#safety
  * [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
  * [`xaynet_ffi_participant_local_model_config()`]: crate::ffi::xaynet_ffi_participant_local_model_config
  */

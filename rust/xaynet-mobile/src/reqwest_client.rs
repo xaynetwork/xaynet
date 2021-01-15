@@ -1,5 +1,7 @@
 use std::{fs::File, io::Read};
+
 use thiserror::Error;
+
 use xaynet_sdk::client::Client;
 
 /// Error returned upon failing to instantiate a new [`xaynet_sdk::client::Client`]
@@ -16,15 +18,15 @@ pub enum ClientError {
 }
 
 impl ClientError {
-    fn trust_anchor<E: ::std::error::Error>(path: String, e: E) -> Self {
+    fn trust_anchor<E: std::error::Error>(path: String, e: E) -> Self {
         Self::TrustAnchor(path, format!("{}", e))
     }
 
-    fn client_cert<E: ::std::error::Error>(path: String, e: E) -> Self {
+    fn client_cert<E: std::error::Error>(path: String, e: E) -> Self {
         Self::ClientCert(path, format!("{}", e))
     }
 
-    fn other<E: ::std::error::Error>(e: E) -> Self {
+    fn other<E: std::error::Error>(e: E) -> Self {
         Self::Other(format!("{}", e))
     }
 }

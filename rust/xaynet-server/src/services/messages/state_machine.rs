@@ -10,9 +10,7 @@ use crate::{
     state_machine::requests::RequestSender,
 };
 
-/// A service that hands the requests to the state machine
-/// ([`StateMachine`]) that runs in the
-/// background.
+/// A service that hands the requests to the [`StateMachine`] that runs in the background.
 ///
 /// [`StateMachine`]: crate::state_machine::StateMachine
 #[derive(Debug, Clone)]
