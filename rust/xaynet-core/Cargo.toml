@@ -1,6 +1,6 @@
 [package]
 name = "xaynet-core"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Xayn Engineering <engineering@xaynet.dev>"]
 edition = "2018"
 description = "The Xayn Network project is building a privacy layer for machine learning so that AI projects can meet compliance such as GDPR and CCPA. The approach relies on Federated Learning as enabling technology that allows production AI applications to be fully privacy compliant."
