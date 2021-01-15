@@ -173,10 +173,10 @@ where
         metadata: DataPointMetadata,
         n_periods_override: Option<u32>,
     ) -> DateTime<Utc> {
-        let n_periods = if n_periods_override == None {
-            metadata.period.n
+        let n_periods = if let Some(n_periods) = n_periods_override {
+            n_periods
         } else {
-            n_periods_override.unwrap()
+            metadata.period.n
         };
         let avg_days_per_month = 365.0 / 12.0;
         let midnight_end_of_period = get_midnight(metadata.end);
@@ -262,15 +262,15 @@ mod tests {
         let metadata = DataPointMetadata::new(Period::new(PeriodUnit::Days, 1), end_period);
         let screen_route = "home_screen".to_string();
         let first_event = AnalyticsEvent::new(
-            "test1".to_string(),
+            "test1",
             AnalyticsEventType::ScreenEnter,
             end_period - Duration::hours(12),
-            Some(screen_route.clone()),
+            screen_route.clone(),
         );
         let all_events = vec![
             first_event.clone(),
             AnalyticsEvent::new(
-                "test1".to_string(),
+                "test1",
                 AnalyticsEventType::AppEvent,
                 end_period - Duration::hours(13),
                 None,
@@ -294,10 +294,10 @@ mod tests {
         let metadata = DataPointMetadata::new(Period::new(PeriodUnit::Days, 1), end_period);
         let screen_route = "home_screen".to_string();
         let events = vec![AnalyticsEvent::new(
-            "test1".to_string(),
+            "test1",
             AnalyticsEventType::ScreenEnter,
             end_period - Duration::hours(12),
-            Some(screen_route.clone()),
+            screen_route.clone(),
         )];
         let expected_output = vec![DataPoint::ScreenEnterCount(CalcScreenEnterCount::new(
             metadata,
@@ -316,7 +316,7 @@ mod tests {
             .with_timezone(&Utc);
         let metadata = DataPointMetadata::new(Period::new(PeriodUnit::Days, 1), end_period);
         let events = vec![AnalyticsEvent::new(
-            "test1".to_string(),
+            "test1",
             AnalyticsEventType::AppEvent,
             end_period - Duration::hours(12),
             None,
@@ -338,7 +338,7 @@ mod tests {
             .with_timezone(&Utc);
         let metadata = DataPointMetadata::new(Period::new(PeriodUnit::Days, 1), end_period);
         let events = vec![AnalyticsEvent::new(
-            "test1".to_string(),
+            "test1",
             AnalyticsEventType::AppEvent,
             end_period - Duration::hours(12),
             None,
@@ -359,19 +359,19 @@ mod tests {
             .with_timezone(&Utc);
         let metadata = DataPointMetadata::new(Period::new(PeriodUnit::Days, 3), end_period);
         let event_before = AnalyticsEvent::new(
-            "test1".to_string(),
+            "test1",
             AnalyticsEventType::AppEvent,
             end_period - Duration::days(5),
             None,
         );
         let event_during = AnalyticsEvent::new(
-            "test2".to_string(),
+            "test2",
             AnalyticsEventType::AppEvent,
             end_period - Duration::days(1),
             None,
         );
         let event_after = AnalyticsEvent::new(
-            "test3".to_string(),
+            "test3",
             AnalyticsEventType::AppEvent,
             end_period + Duration::days(2),
             None,
@@ -435,13 +435,13 @@ mod tests {
         let data_combiner = DataCombiner::new(MockAnalyticsDataProvider {});
         let end_of_period = Utc::now();
         let event_before = AnalyticsEvent::new(
-            "test1".to_string(),
+            "test1",
             AnalyticsEventType::AppEvent,
             end_of_period - Duration::days(1),
             None,
         );
         let event_after = AnalyticsEvent::new(
-            "test2".to_string(),
+            "test2",
             AnalyticsEventType::AppEvent,
             end_of_period + Duration::days(1),
             None,
@@ -458,16 +458,16 @@ mod tests {
         let timestamp = Utc::now();
         let home_route = "home_screen".to_string();
         let home_route_event = AnalyticsEvent::new(
-            "test1".to_string(),
+            "test1",
             AnalyticsEventType::AppEvent,
             timestamp,
-            Some(home_route.clone()),
+            home_route.clone(),
         );
         let other_route_event = AnalyticsEvent::new(
-            "test2".to_string(),
+            "test2",
             AnalyticsEventType::ScreenEnter,
             timestamp,
-            Some("other_screen".to_string()),
+            "other_screen".to_string(),
         );
         let all_events = vec![home_route_event.clone(), other_route_event];
         let expected_output = vec![home_route_event];
