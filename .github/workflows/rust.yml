@@ -6,6 +6,8 @@ on:
       - 'rust/**'
       - 'bindings/python/**'
       - '.github/workflows/rust.yml'
+      - 'README.md'
+      - 'README.tpl'
 
 jobs:
   registry-cache:
