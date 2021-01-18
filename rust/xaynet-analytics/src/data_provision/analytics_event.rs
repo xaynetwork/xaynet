@@ -17,16 +17,17 @@ pub struct AnalyticsEvent {
 }
 
 impl AnalyticsEvent {
-    pub fn new(
-        name: String,
+    pub fn new<N: Into<String>, R: Into<Option<String>>>(
+        name: N,
         event_type: AnalyticsEventType,
-        screen_route: Option<String>,
+        timestamp: DateTime<Utc>,
+        screen_route: R,
     ) -> AnalyticsEvent {
         AnalyticsEvent {
-            name,
+            name: name.into(),
             event_type,
-            screen_route,
-            timestamp: chrono::offset::Utc::now(),
+            timestamp,
+            screen_route: screen_route.into(),
         }
     }
 }
