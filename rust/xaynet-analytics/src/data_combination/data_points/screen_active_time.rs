@@ -107,7 +107,7 @@ mod tests {
             ),
         ];
         let screen_active_time = CalcScreenActiveTime::new(metadata, events);
-        let expected_output = vec![screen_enter_event.clone(), app_event.clone()];
+        let expected_output = vec![screen_enter_event, app_event];
         let actual_output = screen_active_time.get_screen_and_app_events();
         assert_eq!(actual_output, expected_output);
     }

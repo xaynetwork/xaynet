@@ -81,7 +81,7 @@ mod tests {
                 "test2",
                 AnalyticsEventType::ScreenEnter,
                 end_period - Duration::hours(18),
-                screen_route.clone(),
+                screen_route,
             ),
         ];
         let screen_enter_count = CalcScreenEnterCount::new(metadata, events);
