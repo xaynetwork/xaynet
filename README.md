@@ -1,5 +1,5 @@
 [![crates.io badge](https://img.shields.io/crates/v/xaynet.svg)](https://crates.io/crates/xaynet) [![docs.rs badge](https://docs.rs/xaynet/badge.svg)](https://docs.rs/xaynet) [![rustc badge](https://img.shields.io/badge/rustc-1.48+-lightgray.svg)](https://www.rust-lang.org/learn/get-started) [![Coverage Status](https://codecov.io/gh/xaynetwork/xaynet/branch/master/graph/badge.svg)](https://codecov.io/gh/xaynetwork/xaynet)
-![Maintenance](https://img.shields.io/badge/maintenance-activly--developed-brightgreen.svg)
+![Maintenance](https://img.shields.io/badge/maintenance-activly--developed-brightgreen.svg) [![roadmap badge](https://img.shields.io/badge/Roadmap-2021-blue)](./ROADMAP.md)
 
 ![Xaynet banner](./assets/xaynet_banner.png)
 
