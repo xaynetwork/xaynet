@@ -31,7 +31,7 @@ thiserror = "1.0.23"
 tokio = { version = "0.2.24", features = ["rt-core", "macros"] }
 tracing = "0.1.22"
 url = "2.2.0"
-xaynet-core = { path = "../xaynet-core", version = "0.1.0" }
+xaynet-core = { path = "../xaynet-core", version = "0.2.0" }
 
 # feature: reqwest client
 # TODO (XN-1372): can't upgrade yet because of tokio

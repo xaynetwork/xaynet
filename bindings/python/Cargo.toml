@@ -46,9 +46,9 @@ sodiumoxide = "0.2.6"
 tracing = "0.1.22"
 tracing-subscriber = "0.2.15"
 pyo3 = {version = "0.13.1", features = ["abi3-py36", "extension-module"]}
-xaynet-core = { path = "../../rust/xaynet-core"}
-xaynet-mobile = { path = "../../rust/xaynet-mobile"}
-xaynet-sdk = { path = "../../rust/xaynet-sdk"}
+xaynet-core = { path = "../../rust/xaynet-core", version = "0.2.0"}
+xaynet-mobile = { path = "../../rust/xaynet-mobile", version = "0.1.0"}
+xaynet-sdk = { path = "../../rust/xaynet-sdk", version = "0.1.0"}
 
 [lib]
 name = "xaynet_sdk"
