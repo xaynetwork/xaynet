@@ -27,12 +27,10 @@ impl CalculateDataPoints for CalcWasActivePastNDays {
 mod tests {
     use chrono::{Duration, Utc};
 
+    use super::*;
     use crate::{
-        data_combination::data_points::{
-            data_point::{CalculateDataPoints, DataPointMetadata, Period, PeriodUnit},
-            was_active_past_n_days::CalcWasActivePastNDays,
-        },
-        data_provision::analytics_event::{AnalyticsEvent, AnalyticsEventType},
+        data_combination::data_points::data_point::{Period, PeriodUnit},
+        data_provision::analytics_event::AnalyticsEventType,
     };
 
     #[test]

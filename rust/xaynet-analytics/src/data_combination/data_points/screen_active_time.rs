@@ -64,13 +64,8 @@ impl CalculateDataPoints for CalcScreenActiveTime {
 mod tests {
     use chrono::{DateTime, Duration, Utc};
 
-    use crate::{
-        data_combination::data_points::{
-            data_point::{CalculateDataPoints, DataPointMetadata, Period, PeriodUnit},
-            screen_active_time::CalcScreenActiveTime,
-        },
-        data_provision::analytics_event::{AnalyticsEvent, AnalyticsEventType},
-    };
+    use super::*;
+    use crate::data_combination::data_points::data_point::{Period, PeriodUnit};
 
     #[test]
     fn test_get_screen_and_app_events() {

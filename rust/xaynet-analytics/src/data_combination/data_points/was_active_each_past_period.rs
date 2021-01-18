@@ -65,12 +65,10 @@ impl CalculateDataPoints for CalcWasActiveEachPastPeriod {
 mod tests {
     use chrono::{DateTime, Duration, Utc};
 
+    use super::*;
     use crate::{
-        data_combination::data_points::{
-            data_point::{CalculateDataPoints, DataPointMetadata, Period, PeriodUnit},
-            was_active_each_past_period::CalcWasActiveEachPastPeriod,
-        },
-        data_provision::analytics_event::{AnalyticsEvent, AnalyticsEventType},
+        data_combination::data_points::data_point::{Period, PeriodUnit},
+        data_provision::analytics_event::AnalyticsEventType,
     };
 
     #[test]
@@ -161,7 +159,6 @@ mod tests {
                 None,
             ),
         ];
-        // let period_thresholds = vec![end_period, end_period - Duration::days(1), end_period - Duration::days(2)];
         let period_thresholds = vec![
             end_period,
             end_period - Duration::days(1),

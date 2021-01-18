@@ -32,13 +32,8 @@ impl CalculateDataPoints for CalcScreenEnterCount {
 mod tests {
     use chrono::{DateTime, Duration, Utc};
 
-    use crate::{
-        data_combination::data_points::{
-            data_point::{CalculateDataPoints, DataPointMetadata, Period, PeriodUnit},
-            screen_enter_count::CalcScreenEnterCount,
-        },
-        data_provision::analytics_event::{AnalyticsEvent, AnalyticsEventType},
-    };
+    use super::*;
+    use crate::data_combination::data_points::data_point::{Period, PeriodUnit};
 
     #[test]
     fn test_calculate_when_no_events() {
