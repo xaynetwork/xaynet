@@ -6,7 +6,17 @@
 
 - Python 3.6 or higher
 
-**Install it from source**
+**1. Install it via `pip`**
+
+```bash
+# create and activate a virtual environment e.g.
+pyenv virtualenv xaynet
+pyenv activate xaynet
+
+pip install xaynet-sdk-python
+```
+
+**2. Build it from source**
 
 ```bash
 # first install rust via https://rustup.rs/
@@ -17,8 +27,8 @@ git clone https://github.com/xaynetwork/xaynet.git
 cd xaynet/bindings/python
 
 # create and activate a virtual environment e.g.
-pyenv virtualenv xayn
-pyenv activate xayn
+pyenv virtualenv xaynet
+pyenv activate xaynet
 
 # install maturin
 pip install maturin==0.9.0
