@@ -52,8 +52,8 @@ where
     const NAME: PhaseName = PhaseName::Update;
 
     async fn run(&mut self) -> Result<(), PhaseStateError> {
-        let min_time = self.shared.state.min_update_time;
-        let max_time = self.shared.state.max_update_time;
+        let min_time = self.shared.state.update.time.min;
+        let max_time = self.shared.state.update.time.max;
         debug!(
             "in update phase for min {} and max {} seconds",
             min_time, max_time,
@@ -66,8 +66,8 @@ where
         info!(
             "in total {} update messages accepted (min {} and max {} required)",
             self.private.accepted,
-            self.shared.state.min_update_count,
-            self.shared.state.max_update_count,
+            self.shared.state.update.count.min,
+            self.shared.state.update.count.max,
         );
         info!(
             "in total {} update messages rejected",
@@ -123,11 +123,11 @@ where
     }
 
     fn has_enough_messages(&self) -> bool {
-        self.private.accepted >= self.shared.state.min_update_count
+        self.private.accepted >= self.shared.state.update.count.min
     }
 
     fn has_overmuch_messages(&self) -> bool {
-        self.private.accepted >= self.shared.state.max_update_count
+        self.private.accepted >= self.shared.state.update.count.max
     }
 
     fn increment_accepted(&mut self) {
@@ -135,8 +135,8 @@ where
         debug!(
             "{} update messages accepted (min {} and max {} required)",
             self.private.accepted,
-            self.shared.state.min_update_count,
-            self.shared.state.max_update_count,
+            self.shared.state.update.count.min,
+            self.shared.state.update.count.max,
         );
     }
 
@@ -292,14 +292,14 @@ mod tests {
                 rejected: 0,
                 discarded: 0,
             })
-            .with_sum_ratio(round_params.sum)
-            .with_update_ratio(round_params.update)
-            .with_min_sum_count(n_summers)
-            .with_max_sum_count(n_summers + 10)
-            .with_min_update_count(n_updaters)
-            .with_max_update_count(n_updaters + 10)
-            .with_min_update_time(1)
-            .with_max_update_time(2)
+            .with_sum_probability(round_params.sum)
+            .with_update_probability(round_params.update)
+            .with_sum_count_min(n_summers)
+            .with_sum_count_max(n_summers + 10)
+            .with_update_count_min(n_updaters)
+            .with_update_count_max(n_updaters + 10)
+            .with_update_time_min(1)
+            .with_update_time_max(2)
             .with_mask_config(utils::mask_settings().into())
             .build();
 

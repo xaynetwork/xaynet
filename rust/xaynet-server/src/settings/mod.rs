@@ -85,7 +85,6 @@ impl Settings {
 pub struct PetSettingsCount {
     /// The minimal number of participants selected in a phase.
     pub min: u64,
-
     /// The maximal number of participants selected in a phase.
     pub max: u64,
 }
@@ -95,7 +94,6 @@ pub struct PetSettingsCount {
 pub struct PetSettingsTime {
     /// The minimal amount of time reserved for a phase.
     pub min: u64,
-
     /// The maximal amount of time reserved for a phase.
     pub max: u64,
 }
@@ -302,10 +300,8 @@ pub struct PetSettingsSum2 {
 pub struct PetSettings {
     /// The PET settings for the `sum` phase.
     pub sum: PetSettingsSum,
-
     /// The PET settings for the `update` phase.
     pub update: PetSettingsUpdate,
-
     /// The PET settings for the `sum2` phase.
     pub sum2: PetSettingsSum2,
 }
