@@ -180,20 +180,20 @@ $ RUST_LOG=info cargo run --example test-drive -- -n 10
 
 [`ApiSettings`]: crate::settings::ApiSettings
 [`PetSettings`]: crate::settings::PetSettings
-[`sum.prob`]: crate::settings::PetSettings::PetSettingsSum::prob
-[`update.prob`]: crate::settings::PetSettings::PetSettingsUpdate::prob
-[`sum.count.min`]: crate::settings::PetSettings::PetSettingsSum::count
-[`update.count.min`]: crate::settings::PetSettings::PetSettingsUpdate::count
-[`sum2.count.min`]: crate::settings::PetSettings::PetSettingsSum2::count
-[`sum.count.max`]: crate::settings::PetSettings::PetSettingsSum::count
-[`update.count.max`]: crate::settings::PetSettings::PetSettingsUpdate::count
-[`sum2.count.max`]: crate::settings::PetSettings::PetSettingsSum2::count
-[`sum.time.min`]: crate::settings::PetSettings::PetSettingsSum::time
-[`update.time.min`]: crate::settings::PetSettings::PetSettingsUpdate::time
-[`sum2.time.min`]: crate::settings::PetSettings::PetSettingsSum2::time
-[`sum.time.max`]: crate::settings::PetSettings::PetSettingsSum::time
-[`update.time.max`]: crate::settings::PetSettings::PetSettingsUpdate::time
-[`sum2.time.max`]: crate::settings::PetSettings::PetSettingsSum2::time
+[`sum.prob`]: crate::settings::PetSettingsSum::prob
+[`update.prob`]: crate::settings::PetSettingsUpdate::prob
+[`sum.count.min`]: crate::settings::PetSettingsSum::count
+[`update.count.min`]: crate::settings::PetSettingsUpdate::count
+[`sum2.count.min`]: crate::settings::PetSettingsSum2::count
+[`sum.count.max`]: crate::settings::PetSettingsSum::count
+[`update.count.max`]: crate::settings::PetSettingsUpdate::count
+[`sum2.count.max`]: crate::settings::PetSettingsSum2::count
+[`sum.time.min`]: crate::settings::PetSettingsSum::time
+[`update.time.min`]: crate::settings::PetSettingsUpdate::time
+[`sum2.time.min`]: crate::settings::PetSettingsSum2::time
+[`sum.time.max`]: crate::settings::PetSettingsSum::time
+[`update.time.max`]: crate::settings::PetSettingsUpdate::time
+[`sum2.time.max`]: crate::settings::PetSettingsSum2::time
 [`MaskSettings`]: crate::settings::MaskSettings
 [`ModelSettings`]: crate::settings::ModelSettings
 */
