@@ -19,7 +19,7 @@ use validator::{Validate, ValidationError, ValidationErrors};
 
 use xaynet_core::{
     mask::{BoundType, DataType, GroupType, MaskConfig, ModelType},
-    message::{MIN_SUM_COUNT, MIN_UPDATE_COUNT},
+    message::{SUM_COUNT_MIN, UPDATE_COUNT_MIN},
 };
 
 #[cfg(feature = "model-persistence")]
@@ -321,11 +321,11 @@ impl PetSettings {
     /// Checks the validity of phase count ranges.
     fn validate_counts(&self) -> Result<(), ValidationError> {
         // the validate attribute only accepts literals, therefore we check the invariants here
-        if MIN_SUM_COUNT <= self.sum.count.min
+        if SUM_COUNT_MIN <= self.sum.count.min
             && self.sum.count.min <= self.sum.count.max
-            && MIN_UPDATE_COUNT <= self.update.count.min
+            && UPDATE_COUNT_MIN <= self.update.count.min
             && self.update.count.min <= self.update.count.max
-            && MIN_SUM_COUNT <= self.sum2.count.min
+            && SUM_COUNT_MIN <= self.sum2.count.min
             && self.sum2.count.min <= self.sum2.count.max
             && self.sum2.count.min <= self.sum.count.max
             && self.sum2.count.max <= self.sum.count.max
@@ -806,8 +806,8 @@ mod tests {
 
     #[test]
     fn test_validate_pet_counts() {
-        assert_eq!(MIN_SUM_COUNT, 1);
-        assert_eq!(MIN_UPDATE_COUNT, 3);
+        assert_eq!(SUM_COUNT_MIN, 1);
+        assert_eq!(UPDATE_COUNT_MIN, 3);
 
         let mut pet = PetSettings::default();
         pet.sum.count.min = 0;

@@ -15,10 +15,10 @@ use crate::{
 };
 
 /// The minimum number of accepted `sum`/`sum2` messages for the PET protocol to function correctly.
-pub const MIN_SUM_COUNT: u64 = 1;
+pub const SUM_COUNT_MIN: u64 = 1;
 
 /// The minimum number of accepted `update` messages for the PET protocol to function correctly.
-pub const MIN_UPDATE_COUNT: u64 = 3;
+pub const UPDATE_COUNT_MIN: u64 = 3;
 
 pub(crate) mod ranges {
     use std::ops::Range;

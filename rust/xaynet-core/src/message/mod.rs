@@ -36,8 +36,8 @@ pub use self::{
         MessageBuffer,
         Tag,
         HEADER_LENGTH as MESSAGE_HEADER_LENGTH,
-        MIN_SUM_COUNT,
-        MIN_UPDATE_COUNT,
+        SUM_COUNT_MIN,
+        UPDATE_COUNT_MIN,
     },
     payload::{
         chunk::{Chunk, ChunkBuffer},

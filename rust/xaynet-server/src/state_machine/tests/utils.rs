@@ -1,7 +1,16 @@
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
 use crate::{
-    settings::{MaskSettings, ModelSettings, PetSettings},
+    settings::{
+        MaskSettings,
+        ModelSettings,
+        PetSettings,
+        PetSettingsCount,
+        PetSettingsSum,
+        PetSettingsSum2,
+        PetSettingsTime,
+        PetSettingsUpdate,
+    },
     state_machine::{
         coordinator::CoordinatorState,
         events::{EventPublisher, EventSubscriber, ModelUpdate},
@@ -184,20 +193,20 @@ pub fn mask_config() -> MaskConfigPair {
 
 pub fn pet_settings() -> PetSettings {
     PetSettings {
-        sum: 0.4,
-        update: 0.5,
-        min_sum_count: 1,
-        min_update_count: 3,
-        min_sum2_count: 1,
-        max_sum_count: 100,
-        max_update_count: 1000,
-        max_sum2_count: 100,
-        min_sum_time: 1,
-        min_update_time: 1,
-        min_sum2_time: 1,
-        max_sum_time: 2,
-        max_update_time: 2,
-        max_sum2_time: 2,
+        sum: PetSettingsSum {
+            prob: 0.4,
+            count: PetSettingsCount { min: 1, max: 100 },
+            time: PetSettingsTime { min: 1, max: 2 },
+        },
+        update: PetSettingsUpdate {
+            prob: 0.5,
+            count: PetSettingsCount { min: 3, max: 1000 },
+            time: PetSettingsTime { min: 1, max: 2 },
+        },
+        sum2: PetSettingsSum2 {
+            count: PetSettingsCount { min: 1, max: 100 },
+            time: PetSettingsTime { min: 1, max: 2 },
+        },
     }
 }
 
