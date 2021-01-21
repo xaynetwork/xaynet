@@ -37,7 +37,7 @@
 //! }
 //! ```
 
-mod impls;
+pub(in crate::storage) mod impls;
 
 use std::collections::HashMap;
 

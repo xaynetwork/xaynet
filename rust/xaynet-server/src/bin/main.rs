@@ -13,7 +13,7 @@ use xaynet_server::{
     services,
     settings::{LoggingSettings, RedisSettings, Settings},
     state_machine::StateMachineInitializer,
-    storage::{coordinator_storage::redis, CoordinatorStorage, ModelStorage, Store},
+    storage::{coordinator_storage::redis, Storage, Store},
 };
 #[cfg(feature = "model-persistence")]
 use xaynet_server::{settings::S3Settings, storage::model_storage::s3};
@@ -111,7 +111,7 @@ fn init_metrics(settings: InfluxSettings) {
 async fn init_store(
     redis_settings: RedisSettings,
     #[cfg(feature = "model-persistence")] s3_settings: S3Settings,
-) -> Store<impl CoordinatorStorage, impl ModelStorage> {
+) -> impl Storage {
     let coordinator_store = redis::Client::new(redis_settings.url)
         .await
         .expect("failed to establish a connection to Redis");
@@ -131,5 +131,6 @@ async fn init_store(
             s3
         }
     };
+
     Store::new(coordinator_store, model_store)
 }

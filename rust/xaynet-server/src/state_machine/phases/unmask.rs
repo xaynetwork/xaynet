@@ -12,7 +12,7 @@ use crate::{
         phases::{Idle, Phase, PhaseName, PhaseState, PhaseStateError, Shared},
         StateMachine,
     },
-    storage::{CoordinatorStorage, ModelStorage, StorageError},
+    storage::{Storage, StorageError},
 };
 use xaynet_core::mask::{Aggregation, MaskObject, Model, UnmaskingError};
 
@@ -30,6 +30,8 @@ pub enum UnmaskStateError {
     #[cfg(feature = "model-persistence")]
     #[error("saving the global model failed: {0}")]
     SaveGlobalModel(crate::storage::StorageError),
+    #[error("publishing the proof of the global model failed: {0}")]
+    PublishProof(crate::storage::StorageError),
 }
 
 /// Unmask state
@@ -40,10 +42,9 @@ pub struct Unmask {
 }
 
 #[async_trait]
-impl<C, M> Phase<C, M> for PhaseState<Unmask, C, M>
+impl<S> Phase<S> for PhaseState<Unmask, S>
 where
-    C: CoordinatorStorage,
-    M: ModelStorage,
+    S: Storage,
 {
     const NAME: PhaseName = PhaseName::Unmask;
 
@@ -63,6 +64,12 @@ where
         #[cfg(feature = "model-persistence")]
         self.save_global_model(&global_model).await?;
 
+        self.shared
+            .store
+            .publish_proof(&global_model)
+            .await
+            .map_err(UnmaskStateError::PublishProof)?;
+
         info!("broadcasting the new global model");
         self.shared
             .events
@@ -71,18 +78,17 @@ where
         Ok(())
     }
 
-    fn next(self) -> Option<StateMachine<C, M>> {
-        Some(PhaseState::<Idle, _, _>::new(self.shared).into())
+    fn next(self) -> Option<StateMachine<S>> {
+        Some(PhaseState::<Idle, _>::new(self.shared).into())
     }
 }
 
-impl<C, M> PhaseState<Unmask, C, M>
+impl<S> PhaseState<Unmask, S>
 where
-    C: CoordinatorStorage,
-    M: ModelStorage,
+    S: Storage,
 {
     /// Creates a new unmask state.
-    pub fn new(shared: Shared<C, M>, model_agg: Aggregation) -> Self {
+    pub fn new(shared: Shared<S>, model_agg: Aggregation) -> Self {
         Self {
             private: Unmask {
                 model_agg: Some(model_agg),
@@ -149,11 +155,10 @@ where
     }
 }
 
-impl<C, M> PhaseState<Unmask, C, M>
+impl<S> PhaseState<Unmask, S>
 where
-    Self: Phase<C, M>,
-    C: CoordinatorStorage,
-    M: ModelStorage,
+    Self: Phase<S>,
+    S: Storage,
 {
     fn emit_number_of_unique_masks_metrics(&mut self) {
         if GlobalRecorder::global().is_none() {

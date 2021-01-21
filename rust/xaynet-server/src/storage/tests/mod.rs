@@ -1,14 +1,8 @@
 pub mod utils;
 
-use crate::storage::{
-    coordinator_storage::redis,
-    model_storage,
-    CoordinatorStorage,
-    ModelStorage,
-    Store,
-};
+use crate::storage::{coordinator_storage::redis, model_storage, Storage, Store};
 
-pub async fn init_store() -> Store<impl CoordinatorStorage, impl ModelStorage> {
+pub async fn init_store() -> impl Storage {
     let coordinator_store = redis::tests::init_client().await;
 
     let model_store = {

@@ -8,7 +8,7 @@ use crate::{
         StateMachine,
         StateMachineResult,
     },
-    storage::{CoordinatorStorage, ModelStorage},
+    storage::Storage,
 };
 use xaynet_core::message::Message;
 
@@ -18,16 +18,15 @@ impl RequestSender {
     }
 }
 
-impl<C, M> StateMachine<C, M>
+impl<S> StateMachine<S>
 where
-    C: CoordinatorStorage,
-    M: ModelStorage,
+    S: Storage,
 {
     pub fn is_update(&self) -> bool {
         matches!(self, StateMachine::Update(_))
     }
 
-    pub fn into_update_phase_state(self) -> PhaseState<phases::Update, C, M> {
+    pub fn into_update_phase_state(self) -> PhaseState<phases::Update, S> {
         match self {
             StateMachine::Update(state) => state,
             _ => panic!("not in update state"),
@@ -38,7 +37,7 @@ where
         matches!(self, StateMachine::Sum(_))
     }
 
-    pub fn into_sum_phase_state(self) -> PhaseState<phases::Sum, C, M> {
+    pub fn into_sum_phase_state(self) -> PhaseState<phases::Sum, S> {
         match self {
             StateMachine::Sum(state) => state,
             _ => panic!("not in sum state"),
@@ -49,7 +48,7 @@ where
         matches!(self, StateMachine::Sum2(_))
     }
 
-    pub fn into_sum2_phase_state(self) -> PhaseState<phases::Sum2, C, M> {
+    pub fn into_sum2_phase_state(self) -> PhaseState<phases::Sum2, S> {
         match self {
             StateMachine::Sum2(state) => state,
             _ => panic!("not in sum2 state"),
@@ -60,7 +59,7 @@ where
         matches!(self, StateMachine::Idle(_))
     }
 
-    pub fn into_idle_phase_state(self) -> PhaseState<phases::Idle, C, M> {
+    pub fn into_idle_phase_state(self) -> PhaseState<phases::Idle, S> {
         match self {
             StateMachine::Idle(state) => state,
             _ => panic!("not in idle state"),
@@ -71,7 +70,7 @@ where
         matches!(self, StateMachine::Unmask(_))
     }
 
-    pub fn into_unmask_phase_state(self) -> PhaseState<phases::Unmask, C, M> {
+    pub fn into_unmask_phase_state(self) -> PhaseState<phases::Unmask, S> {
         match self {
             StateMachine::Unmask(state) => state,
             _ => panic!("not in unmask state"),
@@ -82,7 +81,7 @@ where
         matches!(self, StateMachine::Error(_))
     }
 
-    pub fn into_error_phase_state(self) -> PhaseState<phases::PhaseStateError, C, M> {
+    pub fn into_error_phase_state(self) -> PhaseState<phases::PhaseStateError, S> {
         match self {
             StateMachine::Error(state) => state,
             _ => panic!("not in error state"),
@@ -93,7 +92,7 @@ where
         matches!(self, StateMachine::Shutdown(_))
     }
 
-    pub fn into_shutdown_phase_state(self) -> PhaseState<phases::Shutdown, C, M> {
+    pub fn into_shutdown_phase_state(self) -> PhaseState<phases::Shutdown, S> {
         match self {
             StateMachine::Shutdown(state) => state,
             _ => panic!("not in shutdown state"),

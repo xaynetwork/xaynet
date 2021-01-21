@@ -13,7 +13,7 @@ use crate::{
         RequestError,
         StateMachine,
     },
-    storage::{CoordinatorStorage, ModelStorage, StorageError},
+    storage::{Storage, StorageError},
 };
 use xaynet_core::{
     mask::{Aggregation, MaskObject},
@@ -44,11 +44,10 @@ pub struct Update {
 }
 
 #[async_trait]
-impl<C, M> Phase<C, M> for PhaseState<Update, C, M>
+impl<S> Phase<S> for PhaseState<Update, S>
 where
     Self: Handler,
-    C: CoordinatorStorage,
-    M: ModelStorage,
+    S: Storage,
 {
     const NAME: PhaseName = PhaseName::Update;
 
@@ -95,16 +94,15 @@ where
         Ok(())
     }
 
-    fn next(self) -> Option<StateMachine<C, M>> {
-        Some(PhaseState::<Sum2, _, _>::new(self.shared, self.private.model_agg).into())
+    fn next(self) -> Option<StateMachine<S>> {
+        Some(PhaseState::<Sum2, _>::new(self.shared, self.private.model_agg).into())
     }
 }
 
 #[async_trait]
-impl<C, M> Handler for PhaseState<Update, C, M>
+impl<S> Handler for PhaseState<Update, S>
 where
-    C: CoordinatorStorage,
-    M: ModelStorage,
+    S: Storage,
 {
     async fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), RequestError> {
         if let StateMachineRequest::Update(UpdateRequest {
@@ -153,13 +151,12 @@ where
     }
 }
 
-impl<C, M> PhaseState<Update, C, M>
+impl<S> PhaseState<Update, S>
 where
-    C: CoordinatorStorage,
-    M: ModelStorage,
+    S: Storage,
 {
     /// Creates a new update state.
-    pub fn new(shared: Shared<C, M>) -> Self {
+    pub fn new(shared: Shared<S>) -> Self {
         Self {
             private: Update {
                 model_agg: Aggregation::new(
@@ -241,7 +238,7 @@ mod tests {
                 utils::{self, Participant},
             },
         },
-        storage::tests::init_store,
+        storage::{tests::init_store, CoordinatorStorage},
     };
     use xaynet_core::{
         common::{RoundParameters, RoundSeed},

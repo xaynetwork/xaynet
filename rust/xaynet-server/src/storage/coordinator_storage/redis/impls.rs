@@ -22,7 +22,7 @@ use xaynet_core::{
     LocalSeedDict,
 };
 
-fn redis_type_error(desc: &'static str, details: Option<String>) -> RedisError {
+pub fn redis_type_error(desc: &'static str, details: Option<String>) -> RedisError {
     if let Some(details) = details {
         RedisError::from((ErrorKind::TypeError, desc, details))
     } else {

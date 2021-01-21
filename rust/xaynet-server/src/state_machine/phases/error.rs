@@ -22,7 +22,7 @@ use crate::{
         },
         StateMachine,
     },
-    storage::{CoordinatorStorage, ModelStorage},
+    storage::Storage,
 };
 
 /// Error that can occur during the execution of the [`StateMachine`].
@@ -46,13 +46,12 @@ pub enum PhaseStateError {
     Unmask(#[from] UnmaskStateError),
 }
 
-impl<C, M> PhaseState<PhaseStateError, C, M>
+impl<S> PhaseState<PhaseStateError, S>
 where
-    C: CoordinatorStorage,
-    M: ModelStorage,
+    S: Storage,
 {
     /// Creates a new error phase.
-    pub fn new(shared: Shared<C, M>, error: PhaseStateError) -> Self {
+    pub fn new(shared: Shared<S>, error: PhaseStateError) -> Self {
         Self {
             private: error,
             shared,
@@ -61,7 +60,7 @@ where
 
     /// Waits until the [`crate::storage::Store`] is ready.
     async fn wait_for_store_readiness(&mut self) {
-        while let Err(err) = self.shared.store.is_ready().await {
+        while let Err(err) = <S as Storage>::is_ready(&mut self.shared.store).await {
             error!("store not ready: {}", err);
             info!("try again in 5 sec");
             delay_for(Duration::from_secs(5)).await;
@@ -70,10 +69,9 @@ where
 }
 
 #[async_trait]
-impl<C, M> Phase<C, M> for PhaseState<PhaseStateError, C, M>
+impl<S> Phase<S> for PhaseState<PhaseStateError, S>
 where
-    C: CoordinatorStorage,
-    M: ModelStorage,
+    S: Storage,
 {
     const NAME: PhaseName = PhaseName::Error;
 
@@ -87,12 +85,12 @@ where
         Ok(())
     }
 
-    fn next(self) -> Option<StateMachine<C, M>> {
+    fn next(self) -> Option<StateMachine<S>> {
         Some(match self.private {
             PhaseStateError::RequestChannel(_) => {
-                PhaseState::<Shutdown, _, _>::new(self.shared).into()
+                PhaseState::<Shutdown, _>::new(self.shared).into()
             }
-            _ => PhaseState::<Idle, _, _>::new(self.shared).into(),
+            _ => PhaseState::<Idle, _>::new(self.shared).into(),
         })
     }
 }

@@ -34,7 +34,7 @@ use crate::{
         RequestError,
         StateMachine,
     },
-    storage::{CoordinatorStorage, ModelStorage, Store},
+    storage::Storage,
 };
 
 /// The name of the current phase.
@@ -51,10 +51,9 @@ pub enum PhaseName {
 
 /// A trait that must be implemented by a state in order to move to a next state.
 #[async_trait]
-pub trait Phase<C, M>
+pub trait Phase<S>
 where
-    C: CoordinatorStorage,
-    M: ModelStorage,
+    S: Storage,
 {
     /// The name of the current phase.
     const NAME: PhaseName;
@@ -71,7 +70,7 @@ where
     /// See the [module level documentation] for more details.
     ///
     /// [module level documentation]: crate::state_machine
-    fn next(self) -> Option<StateMachine<C, M>>;
+    fn next(self) -> Option<StateMachine<S>>;
 }
 
 /// A trait that must be implemented by a state to handle a request.
@@ -101,10 +100,9 @@ pub trait Handler {
 
 /// A struct that contains the coordinator state and the I/O interfaces that are shared and
 /// accessible by all `PhaseState`s.
-pub struct Shared<C, M>
+pub struct Shared<S>
 where
-    C: CoordinatorStorage,
-    M: ModelStorage,
+    S: Storage,
 {
     /// The coordinator state.
     pub(in crate::state_machine) state: CoordinatorState,
@@ -113,13 +111,12 @@ where
     /// The event publisher.
     pub(in crate::state_machine) events: EventPublisher,
     /// The store for storing coordinator and model data.
-    pub(in crate::state_machine) store: Store<C, M>,
+    pub(in crate::state_machine) store: S,
 }
 
-impl<C, M> fmt::Debug for Shared<C, M>
+impl<S> fmt::Debug for Shared<S>
 where
-    C: CoordinatorStorage,
-    M: ModelStorage,
+    S: Storage,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Shared")
@@ -130,17 +127,16 @@ where
     }
 }
 
-impl<C, M> Shared<C, M>
+impl<S> Shared<S>
 where
-    C: CoordinatorStorage,
-    M: ModelStorage,
+    S: Storage,
 {
     /// Creates a new shared state.
     pub fn new(
         coordinator_state: CoordinatorState,
         publisher: EventPublisher,
         request_rx: RequestReceiver,
-        store: Store<C, M>,
+        store: S,
     ) -> Self {
         Self {
             state: coordinator_state,
@@ -166,22 +162,20 @@ where
 ///
 /// This contains the state-dependent `private` state and the state-independent `shared` state
 /// which is shared across state transitions.
-pub struct PhaseState<S, C, M>
+pub struct PhaseState<S, T>
 where
-    C: CoordinatorStorage,
-    M: ModelStorage,
+    T: Storage,
 {
     /// The private state.
     pub(in crate::state_machine) private: S,
     /// The shared coordinator state and I/O interfaces.
-    pub(in crate::state_machine) shared: Shared<C, M>,
+    pub(in crate::state_machine) shared: Shared<T>,
 }
 
-impl<S, C, M> PhaseState<S, C, M>
+impl<S, T> PhaseState<S, T>
 where
-    Self: Handler + Phase<C, M>,
-    C: CoordinatorStorage,
-    M: ModelStorage,
+    Self: Handler + Phase<T>,
+    T: Storage,
 {
     /// Processes requests for as long as the given duration.
     async fn process_during(&mut self, dur: tokio::time::Duration) -> Result<(), PhaseStateError> {
@@ -273,16 +267,15 @@ where
     }
 }
 
-impl<S, C, M> PhaseState<S, C, M>
+impl<S, T> PhaseState<S, T>
 where
-    Self: Phase<C, M>,
-    C: CoordinatorStorage,
-    M: ModelStorage,
+    Self: Phase<T>,
+    T: Storage,
 {
     /// Run the current phase to completion, then transition to the
     /// next phase and return it.
-    pub async fn run_phase(mut self) -> Option<StateMachine<C, M>> {
-        let phase = <Self as Phase<_, _>>::NAME;
+    pub async fn run_phase(mut self) -> Option<StateMachine<T>> {
+        let phase = <Self as Phase<_>>::NAME;
         let span = error_span!("run_phase", phase = ?phase);
 
         async move {
@@ -341,10 +334,9 @@ where
 }
 
 // Functions that are available to all states
-impl<S, C, M> PhaseState<S, C, M>
+impl<S, T> PhaseState<S, T>
 where
-    C: CoordinatorStorage,
-    M: ModelStorage,
+    T: Storage,
 {
     /// Receives the next [`StateMachineRequest`].
     ///
@@ -378,8 +370,8 @@ where
         }
     }
 
-    fn into_error_state(self, err: PhaseStateError) -> StateMachine<C, M> {
-        PhaseState::<PhaseStateError, _, _>::new(self.shared, err).into()
+    fn into_error_state(self, err: PhaseStateError) -> StateMachine<T> {
+        PhaseState::<PhaseStateError, _>::new(self.shared, err).into()
     }
 }
 

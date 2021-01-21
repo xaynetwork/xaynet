@@ -9,7 +9,7 @@ use crate::{
         RequestError,
         StateMachine,
     },
-    storage::{CoordinatorStorage, ModelStorage},
+    storage::Storage,
 };
 use xaynet_core::{
     mask::{Aggregation, MaskObject},
@@ -30,11 +30,10 @@ pub struct Sum2 {
 }
 
 #[async_trait]
-impl<C, M> Phase<C, M> for PhaseState<Sum2, C, M>
+impl<S> Phase<S> for PhaseState<Sum2, S>
 where
     Self: Handler,
-    C: CoordinatorStorage,
-    M: ModelStorage,
+    S: Storage,
 {
     const NAME: PhaseName = PhaseName::Sum2;
 
@@ -70,16 +69,15 @@ where
     /// See the [module level documentation] for more details.
     ///
     /// [module level documentation]: crate::state_machine
-    fn next(self) -> Option<StateMachine<C, M>> {
-        Some(PhaseState::<Unmask, _, _>::new(self.shared, self.private.model_agg).into())
+    fn next(self) -> Option<StateMachine<S>> {
+        Some(PhaseState::<Unmask, _>::new(self.shared, self.private.model_agg).into())
     }
 }
 
 #[async_trait]
-impl<C, M> Handler for PhaseState<Sum2, C, M>
+impl<S> Handler for PhaseState<Sum2, S>
 where
-    C: CoordinatorStorage,
-    M: ModelStorage,
+    S: Storage,
 {
     async fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), RequestError> {
         if let StateMachineRequest::Sum2(Sum2Request {
@@ -122,13 +120,12 @@ where
     }
 }
 
-impl<C, M> PhaseState<Sum2, C, M>
+impl<S> PhaseState<Sum2, S>
 where
-    C: CoordinatorStorage,
-    M: ModelStorage,
+    S: Storage,
 {
     /// Creates a new sum2 state.
-    pub fn new(shared: Shared<C, M>, model_agg: Aggregation) -> Self {
+    pub fn new(shared: Shared<S>, model_agg: Aggregation) -> Self {
         Self {
             private: Sum2 {
                 model_agg,
@@ -170,7 +167,7 @@ mod tests {
                 utils::{self, Participant},
             },
         },
-        storage::tests::init_store,
+        storage::{tests::init_store, CoordinatorStorage},
     };
     use xaynet_core::{
         common::{RoundParameters, RoundSeed},

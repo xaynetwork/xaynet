@@ -7,26 +7,24 @@ use crate::{
         tests::utils,
         StateMachine,
     },
-    storage::{CoordinatorStorage, ModelStorage, Store},
+    storage::Storage,
 };
 use xaynet_core::{common::RoundSeed, crypto::EncryptKeyPair, mask::MaskConfig};
 
-pub struct StateMachineBuilder<P, C, M>
+pub struct StateMachineBuilder<P, S>
 where
-    C: CoordinatorStorage,
-    M: ModelStorage,
+    S: Storage,
 {
     coordinator_state: CoordinatorState,
     phase_state: P,
-    store: Store<C, M>,
+    store: S,
 }
 
-impl<C, M> StateMachineBuilder<phases::Idle, C, M>
+impl<S> StateMachineBuilder<phases::Idle, S>
 where
-    C: CoordinatorStorage,
-    M: ModelStorage,
+    S: Storage,
 {
-    pub fn new(store: Store<C, M>) -> Self {
+    pub fn new(store: S) -> Self {
         let coordinator_state = utils::coordinator_state();
         let phase_state = phases::Idle;
         Self {
@@ -37,14 +35,13 @@ where
     }
 }
 
-impl<P, C, M> StateMachineBuilder<P, C, M>
+impl<P, S> StateMachineBuilder<P, S>
 where
-    PhaseState<P, C, M>: Phase<C, M>,
-    StateMachine<C, M>: From<PhaseState<P, C, M>>,
-    C: CoordinatorStorage,
-    M: ModelStorage,
+    PhaseState<P, S>: Phase<S>,
+    StateMachine<S>: From<PhaseState<P, S>>,
+    S: Storage,
 {
-    pub fn build(self) -> (StateMachine<C, M>, RequestSender, EventSubscriber) {
+    pub fn build(self) -> (StateMachine<S>, RequestSender, EventSubscriber) {
         let Self {
             coordinator_state,
             phase_state,
@@ -58,7 +55,7 @@ where
         let events = &mut shared.events;
         events.broadcast_keys(shared.state.keys.clone());
         events.broadcast_params(shared.state.round_params.clone());
-        events.broadcast_phase(<PhaseState<P, _, _> as Phase<_, _>>::NAME);
+        events.broadcast_phase(<PhaseState<P, _> as Phase<_>>::NAME);
         // Also re-emit the other events in case the round ID changed
         let model = event_subscriber.model_listener().get_latest().event;
         events.broadcast_model(model);
@@ -173,7 +170,7 @@ where
         self
     }
 
-    pub fn with_phase<S>(self, phase_state: S) -> StateMachineBuilder<S, C, M> {
+    pub fn with_phase<State>(self, phase_state: State) -> StateMachineBuilder<State, S> {
         let Self {
             coordinator_state,
             store,
