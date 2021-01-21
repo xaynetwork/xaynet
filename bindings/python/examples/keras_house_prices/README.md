@@ -17,7 +17,7 @@ length = 55117
 bound_type = "B2"
 ```
 
-Curious what the `bond_type` is? You can find an explanation [here](https://docs.rs/xaynet-core/0.1.0/xaynet_core/mask/index.html#bound-type).
+Curious what the `bond_type` is? You can find an explanation [here](https://docs.rs/xaynet-core/0.2.0/xaynet_core/mask/index.html#bound-type).
 
 2. Start the coordinator
 
