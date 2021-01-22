@@ -1,7 +1,6 @@
-use isar_core::{
-    error::IsarError,
-    object::{data_type::DataType, object_builder::ObjectBuilder},
-};
+use anyhow::Error;
+
+use isar_core::object::{data_type::DataType, object_builder::ObjectBuilder};
 use std::vec::IntoIter;
 
 pub trait IsarAdapter: Sized {
@@ -14,9 +13,9 @@ pub trait Repo<T>
 where
     T: IsarAdapter,
 {
-    fn add(&self, object: T) -> Result<(), IsarError>;
+    fn add(&self, object: T) -> Result<(), Error>;
 
-    fn get_all(&self) -> Result<Vec<T>, IsarError>;
+    fn get_all(&self) -> Result<Vec<T>, Error>;
 }
 
 pub struct MockRepo {}
@@ -34,11 +33,11 @@ impl IsarAdapter for MockObject {
 }
 
 impl Repo<MockObject> for MockRepo {
-    fn add(&self, _object: MockObject) -> Result<(), IsarError> {
+    fn add(&self, _object: MockObject) -> Result<(), Error> {
         unimplemented!()
     }
 
-    fn get_all(&self) -> Result<Vec<MockObject>, IsarError> {
+    fn get_all(&self) -> Result<Vec<MockObject>, Error> {
         unimplemented!()
     }
 }

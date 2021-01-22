@@ -12,9 +12,9 @@ pub enum AnalyticsEventType {
     UserAction,
 }
 
-impl AnalyticsEventType {
-    pub fn to_int(&self) -> i32 {
-        match self {
+impl From<AnalyticsEventType> for i32 {
+    fn from(event_type: AnalyticsEventType) -> i32 {
+        match event_type {
             AnalyticsEventType::AppEvent => 0,
             AnalyticsEventType::Error => 1,
             AnalyticsEventType::ScreenEnter => 2,
@@ -62,7 +62,7 @@ impl IsarAdapter for AnalyticsEvent {
 
     fn write_with_object_builder(&self, object_builder: &mut ObjectBuilder) {
         object_builder.write_string(Some(&self.name));
-        object_builder.write_int(self.event_type.to_int());
+        object_builder.write_int(i32::from(self.event_type.clone()));
         object_builder.write_string(Some(&self.timestamp.to_rfc3339()));
         match &self.screen_route {
             Some(screen) => object_builder.write_string(Some(&screen)),
