@@ -85,21 +85,19 @@ the following (in TOML format):
 [api]
 bind_address = "127.0.0.1:8081"
 
-[pet]
-min_sum_count = 1
-min_update_count = 3
-min_sum2_count = 1
-max_sum_count = 100
-max_update_count = 10000
-max_sum2_count = 100
-min_sum_time = 5
-min_update_time = 10
-min_sum2_time = 5
-max_sum_time = 3600
-max_update_time = 3600
-max_sum2_time = 3600
-sum = 0.1
-update = 0.9
+[pet.sum]
+prob = 0.1
+count = { min = 1, max = 100 }
+time = { min = 5, max = 3600 }
+
+[pet.update]
+prob = 0.9
+count = { min = 3, max = 10000 }
+time = { min = 10, max = 3600 }
+
+[pet.sum2]
+count = { min = 1, max = 100 }
+time = { min = 5, max = 3600 }
 
 [mask]
 group_type = "Prime"
@@ -123,19 +121,19 @@ server and client authentication.
 
 The [`PetSettings`] specify various parameters of the PET protocol:
 
-- The most important are [`sum`] and [`update`], which are the probabilities assigned to the
-selection of sum and update participants, respectively (note that if a participant is selected for
+- The most important are [`sum.prob`] and [`update.prob`], which are the probabilities assigned to
+the selection of sum and update participants, respectively (note that if a participant is selected for
 both roles, the *sum* role takes precedence).
 
-- The settings [`min_sum_count`], [`min_update_count`] and [`min_sum2_count`] specify, respectively,
+- The settings [`sum.count.min`], [`update.count.min`] and [`sum2.count.min`] specify, respectively,
 the minimum number of `sum`, `update` and `sum2` messages the coordinator should accept. Similarly,
-the [`max_sum_count`], [`max_update_count`] and [`max_sum2_count`] specify the maximum number of
+the [`sum.count.max`], [`update.count.max`] and [`sum2.count.max`] specify the maximum number of
 `sum`, `update` and `sum2` messages the coordinator should accept.
 
-- To complement, the settings [`min_sum_time`], [`min_update_time`] and [`min_sum2_time`] specify,
+- To complement, the settings [`sum.time.min`], [`update.time.min`] and [`sum2.time.min`] specify,
 respectively, the minimum amount of time (in seconds) the coordinator should wait for `sum`,
 `update` and `sum2` messages. To allow for more messages to be processed, increase these times.
-Similarly, the [`max_sum_time`], [`max_update_time`] and [`max_sum2_time`] specify the maximum
+Similarly, the [`sum.time.max`], [`update.time.max`] and [`sum2.time.max`] specify the maximum
 amount of time (in seconds) the coordinator should wait for `sum`, `update` and `sum2` messages.
 
 The [`MaskSettings`] determines the masking configuration, consisting of the
@@ -166,20 +164,20 @@ $ RUST_LOG=info cargo run --example test-drive -- -n 10
 
 [`ApiSettings`]: crate::settings::ApiSettings
 [`PetSettings`]: crate::settings::PetSettings
-[`sum`]: crate::settings::PetSettings::sum
-[`update`]: crate::settings::PetSettings::update
-[`min_sum_count`]: crate::settings::PetSettings::min_sum_count
-[`min_update_count`]: crate::settings::PetSettings::min_update_count
-[`min_sum2_count`]: crate::settings::PetSettings::min_sum2_count
-[`max_sum_count`]: crate::settings::PetSettings::max_sum_count
-[`max_update_count`]: crate::settings::PetSettings::max_update_count
-[`max_sum2_count`]: crate::settings::PetSettings::max_sum2_count
-[`min_sum_time`]: crate::settings::PetSettings::min_sum_time
-[`min_update_time`]: crate::settings::PetSettings::min_update_time
-[`min_sum2_time`]: crate::settings::PetSettings::min_sum2_time
-[`max_sum_time`]: crate::settings::PetSettings::max_sum_time
-[`max_update_time`]: crate::settings::PetSettings::max_update_time
-[`max_sum2_time`]: crate::settings::PetSettings::max_sum2_time
+[`sum.prob`]: crate::settings::PetSettingsSum::prob
+[`update.prob`]: crate::settings::PetSettingsUpdate::prob
+[`sum.count.min`]: crate::settings::PetSettingsSum::count
+[`update.count.min`]: crate::settings::PetSettingsUpdate::count
+[`sum2.count.min`]: crate::settings::PetSettingsSum2::count
+[`sum.count.max`]: crate::settings::PetSettingsSum::count
+[`update.count.max`]: crate::settings::PetSettingsUpdate::count
+[`sum2.count.max`]: crate::settings::PetSettingsSum2::count
+[`sum.time.min`]: crate::settings::PetSettingsSum::time
+[`update.time.min`]: crate::settings::PetSettingsUpdate::time
+[`sum2.time.min`]: crate::settings::PetSettingsSum2::time
+[`sum.time.max`]: crate::settings::PetSettingsSum::time
+[`update.time.max`]: crate::settings::PetSettingsUpdate::time
+[`sum2.time.max`]: crate::settings::PetSettingsSum2::time
 [`MaskSettings`]: crate::settings::MaskSettings
 [`ModelSettings`]: crate::settings::ModelSettings
 */

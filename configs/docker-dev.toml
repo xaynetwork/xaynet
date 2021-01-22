@@ -7,21 +7,19 @@ tls_certificate = "/app/ssl/tls.pem"
 tls_key = "/app/ssl/tls.key"
 # tls_client_auth = "/app/ssl/trust_anchor.pem"
 
-[pet]
-min_sum_count = 1
-min_update_count = 3
-min_sum2_count = 1
-max_sum_count = 100
-max_update_count = 10000
-max_sum2_count = 100
-min_sum_time = 5
-min_update_time = 10
-min_sum2_time = 5
-max_sum_time = 3600
-max_update_time = 3600
-max_sum2_time = 3600
-sum = 0.01
-update = 0.1
+[pet.sum]
+prob = 0.01
+count = { min = 1, max = 100 }
+time = { min = 5, max = 3600 }
+
+[pet.update]
+prob = 0.1
+count = { min = 3, max = 10000 }
+time = { min = 10, max = 3600 }
+
+[pet.sum2]
+count = { min = 1, max = 100 }
+time = { min = 5, max = 3600 }
 
 [mask]
 group_type = "Prime"

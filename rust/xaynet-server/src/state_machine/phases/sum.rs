@@ -46,8 +46,8 @@ where
     const NAME: PhaseName = PhaseName::Sum;
 
     async fn run(&mut self) -> Result<(), PhaseStateError> {
-        let min_time = self.shared.state.min_sum_time;
-        let max_time = self.shared.state.max_sum_time;
+        let min_time = self.shared.state.sum.time.min;
+        let max_time = self.shared.state.sum.time.max;
         debug!(
             "in sum phase for min {} and max {} seconds",
             min_time, max_time,
@@ -59,7 +59,7 @@ where
 
         info!(
             "in total {} sum messages accepted (min {} and max {} required)",
-            self.private.accepted, self.shared.state.min_sum_count, self.shared.state.max_sum_count,
+            self.private.accepted, self.shared.state.sum.count.min, self.shared.state.sum.count.max,
         );
         info!("in total {} sum messages rejected", self.private.rejected);
         info!("in total {} sum messages discarded", self.private.discarded);
@@ -103,18 +103,18 @@ where
     }
 
     fn has_enough_messages(&self) -> bool {
-        self.private.accepted >= self.shared.state.min_sum_count
+        self.private.accepted >= self.shared.state.sum.count.min
     }
 
     fn has_overmuch_messages(&self) -> bool {
-        self.private.accepted >= self.shared.state.max_sum_count
+        self.private.accepted >= self.shared.state.sum.count.max
     }
 
     fn increment_accepted(&mut self) {
         self.private.accepted += 1;
         debug!(
             "{} sum messages accepted (min {} and max {} required)",
-            self.private.accepted, self.shared.state.min_sum_count, self.shared.state.max_sum_count,
+            self.private.accepted, self.shared.state.sum.count.min, self.shared.state.sum.count.max,
         );
     }
 
@@ -187,15 +187,15 @@ mod tests {
         let (state_machine, request_tx, events) = StateMachineBuilder::new(store.clone())
             .with_phase(sum)
             // Make sure anyone is a sum participant.
-            .with_sum_ratio(1.0)
-            .with_update_ratio(0.0)
+            .with_sum_probability(1.0)
+            .with_update_probability(0.0)
             // Make sure a single participant is enough to go to the
             // update phase
-            .with_min_sum_count(1)
-            .with_max_sum_count(10)
+            .with_sum_count_min(1)
+            .with_sum_count_max(10)
             .with_model_length(4)
-            .with_min_sum_time(1)
-            .with_max_sum_time(2)
+            .with_sum_time_min(1)
+            .with_sum_time_max(2)
             .build();
         assert!(state_machine.is_sum());
 

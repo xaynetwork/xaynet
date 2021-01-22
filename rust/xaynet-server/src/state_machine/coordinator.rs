@@ -2,12 +2,92 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::settings::{MaskSettings, ModelSettings, PetSettings};
+use crate::settings::{
+    MaskSettings,
+    ModelSettings,
+    PetSettings,
+    PetSettingsCount,
+    PetSettingsSum,
+    PetSettingsSum2,
+    PetSettingsTime,
+    PetSettingsUpdate,
+};
 use xaynet_core::{
     common::{RoundParameters, RoundSeed},
     crypto::{ByteObject, EncryptKeyPair},
     mask::MaskConfig,
 };
+
+/// The phase count parameters.
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+pub struct CountParameters {
+    /// The minimal number of required messages.
+    pub min: u64,
+    /// The maximal number of accepted messages.
+    pub max: u64,
+}
+
+impl From<PetSettingsCount> for CountParameters {
+    fn from(count: PetSettingsCount) -> Self {
+        let PetSettingsCount { min, max } = count;
+        Self { min, max }
+    }
+}
+
+/// The phase time parameters.
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+pub struct TimeParameters {
+    /// The minimal amount of time (in seconds) reserved for processing messages.
+    pub min: u64,
+    /// The maximal amount of time (in seconds) permitted for processing messages.
+    pub max: u64,
+}
+
+impl From<PetSettingsTime> for TimeParameters {
+    fn from(time: PetSettingsTime) -> Self {
+        let PetSettingsTime { min, max } = time;
+        Self { min, max }
+    }
+}
+
+/// The phase parameters.
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+pub struct PhaseParameters {
+    /// The number of messages.
+    pub count: CountParameters,
+    /// The amount of time for processing messages.
+    pub time: TimeParameters,
+}
+
+impl From<PetSettingsSum> for PhaseParameters {
+    fn from(sum: PetSettingsSum) -> Self {
+        let PetSettingsSum { count, time, .. } = sum;
+        Self {
+            count: count.into(),
+            time: time.into(),
+        }
+    }
+}
+
+impl From<PetSettingsUpdate> for PhaseParameters {
+    fn from(update: PetSettingsUpdate) -> Self {
+        let PetSettingsUpdate { count, time, .. } = update;
+        Self {
+            count: count.into(),
+            time: time.into(),
+        }
+    }
+}
+
+impl From<PetSettingsSum2> for PhaseParameters {
+    fn from(sum2: PetSettingsSum2) -> Self {
+        let PetSettingsSum2 { count, time } = sum2;
+        Self {
+            count: count.into(),
+            time: time.into(),
+        }
+    }
+}
 
 /// The coordinator state.
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -18,30 +98,12 @@ pub struct CoordinatorState {
     pub round_id: u64,
     /// The round parameters.
     pub round_params: RoundParameters,
-    /// The minimum of required sum messages.
-    pub min_sum_count: u64,
-    /// The minimum of required update messages.
-    pub min_update_count: u64,
-    /// The minimum of required sum2 messages.
-    pub min_sum2_count: u64,
-    /// The maximum of accepted sum messages.
-    pub max_sum_count: u64,
-    /// The maximum of accepted update messages.
-    pub max_update_count: u64,
-    /// The maximum of accepted sum2 messages.
-    pub max_sum2_count: u64,
-    /// The minimum time (in seconds) reserved for processing sum messages.
-    pub min_sum_time: u64,
-    /// The minimum time (in seconds) reserved for processing update messages.
-    pub min_update_time: u64,
-    /// The minimum time (in seconds) reserved for processing sum2 messages.
-    pub min_sum2_time: u64,
-    /// The maximum time (in seconds) permitted for processing sum messages.
-    pub max_sum_time: u64,
-    /// The maximum time (in seconds) permitted for processing update messages.
-    pub max_update_time: u64,
-    /// The maximum time (in seconds) permitted for processing sum2 messages.
-    pub max_sum2_time: u64,
+    /// The sum phase parameters.
+    pub sum: PhaseParameters,
+    /// The update phase parameters.
+    pub update: PhaseParameters,
+    /// The sum2 phase parameters.
+    pub sum2: PhaseParameters,
 }
 
 impl CoordinatorState {
@@ -53,8 +115,8 @@ impl CoordinatorState {
         let keys = EncryptKeyPair::generate();
         let round_params = RoundParameters {
             pk: keys.public,
-            sum: pet_settings.sum,
-            update: pet_settings.update,
+            sum: pet_settings.sum.prob,
+            update: pet_settings.update.prob,
             seed: RoundSeed::zeroed(),
             mask_config: MaskConfig::from(mask_settings).into(),
             model_length: model_settings.length,
@@ -64,18 +126,9 @@ impl CoordinatorState {
             keys,
             round_params,
             round_id,
-            min_sum_count: pet_settings.min_sum_count,
-            min_update_count: pet_settings.min_update_count,
-            min_sum2_count: pet_settings.min_sum2_count,
-            max_sum_count: pet_settings.max_sum_count,
-            max_update_count: pet_settings.max_update_count,
-            max_sum2_count: pet_settings.max_sum2_count,
-            min_sum_time: pet_settings.min_sum_time,
-            min_update_time: pet_settings.min_update_time,
-            min_sum2_time: pet_settings.min_sum2_time,
-            max_sum_time: pet_settings.max_sum_time,
-            max_update_time: pet_settings.max_update_time,
-            max_sum2_time: pet_settings.max_sum2_time,
+            sum: pet_settings.sum.into(),
+            update: pet_settings.update.into(),
+            sum2: pet_settings.sum2.into(),
         }
     }
 }

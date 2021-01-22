@@ -85,13 +85,13 @@ where
         self
     }
 
-    pub fn with_sum_ratio(mut self, sum_ratio: f64) -> Self {
-        self.coordinator_state.round_params.sum = sum_ratio;
+    pub fn with_sum_probability(mut self, prob: f64) -> Self {
+        self.coordinator_state.round_params.sum = prob;
         self
     }
 
-    pub fn with_update_ratio(mut self, update_ratio: f64) -> Self {
-        self.coordinator_state.round_params.update = update_ratio;
+    pub fn with_update_probability(mut self, prob: f64) -> Self {
+        self.coordinator_state.round_params.update = prob;
         self
     }
 
@@ -100,13 +100,13 @@ where
         self
     }
 
-    pub fn with_min_sum_count(mut self, min_sum: u64) -> Self {
-        self.coordinator_state.min_sum_count = min_sum;
+    pub fn with_sum_count_min(mut self, min: u64) -> Self {
+        self.coordinator_state.sum.count.min = min;
         self
     }
 
-    pub fn with_max_sum_count(mut self, max_sum: u64) -> Self {
-        self.coordinator_state.max_sum_count = max_sum;
+    pub fn with_sum_count_max(mut self, max: u64) -> Self {
+        self.coordinator_state.sum.count.max = max;
         self
     }
 
@@ -115,23 +115,23 @@ where
         self
     }
 
-    pub fn with_min_update_count(mut self, min_update: u64) -> Self {
-        self.coordinator_state.min_update_count = min_update;
+    pub fn with_update_count_min(mut self, min: u64) -> Self {
+        self.coordinator_state.update.count.min = min;
         self
     }
 
-    pub fn with_max_update_count(mut self, max_update: u64) -> Self {
-        self.coordinator_state.max_update_count = max_update;
+    pub fn with_update_count_max(mut self, max: u64) -> Self {
+        self.coordinator_state.update.count.max = max;
         self
     }
 
-    pub fn with_min_sum2_count(mut self, min_sum2: u64) -> Self {
-        self.coordinator_state.min_sum2_count = min_sum2;
+    pub fn with_sum2_count_min(mut self, min: u64) -> Self {
+        self.coordinator_state.sum2.count.min = min;
         self
     }
 
-    pub fn with_max_sum2_count(mut self, max_sum2: u64) -> Self {
-        self.coordinator_state.max_sum2_count = max_sum2;
+    pub fn with_sum2_count_max(mut self, max: u64) -> Self {
+        self.coordinator_state.sum2.count.max = max;
         self
     }
 
@@ -140,33 +140,33 @@ where
         self
     }
 
-    pub fn with_min_sum_time(mut self, in_secs: u64) -> Self {
-        self.coordinator_state.min_sum_time = in_secs;
+    pub fn with_sum_time_min(mut self, min: u64) -> Self {
+        self.coordinator_state.sum.time.min = min;
         self
     }
 
-    pub fn with_max_sum_time(mut self, in_secs: u64) -> Self {
-        self.coordinator_state.max_sum_time = in_secs;
+    pub fn with_sum_time_max(mut self, max: u64) -> Self {
+        self.coordinator_state.sum.time.max = max;
         self
     }
 
-    pub fn with_min_update_time(mut self, in_secs: u64) -> Self {
-        self.coordinator_state.min_update_time = in_secs;
+    pub fn with_update_time_min(mut self, min: u64) -> Self {
+        self.coordinator_state.update.time.min = min;
         self
     }
 
-    pub fn with_max_update_time(mut self, in_secs: u64) -> Self {
-        self.coordinator_state.max_update_time = in_secs;
+    pub fn with_update_time_max(mut self, max: u64) -> Self {
+        self.coordinator_state.update.time.max = max;
         self
     }
 
-    pub fn with_min_sum2_time(mut self, in_secs: u64) -> Self {
-        self.coordinator_state.min_sum2_time = in_secs;
+    pub fn with_sum2_time_min(mut self, min: u64) -> Self {
+        self.coordinator_state.sum2.time.min = min;
         self
     }
 
-    pub fn with_max_sum2_time(mut self, in_secs: u64) -> Self {
-        self.coordinator_state.max_sum2_time = in_secs;
+    pub fn with_sum2_time_max(mut self, max: u64) -> Self {
+        self.coordinator_state.sum2.time.max = max;
         self
     }
 
