@@ -265,33 +265,17 @@ mod tests {
             let pet = r#"
             [pet.sum]
             prob = 0.5
-
-            [pet.sum.count]
-            min = 1
-            max = 100
-
-            [pet.sum.time]
-            min = 5
-            max = 3600
+            count = { min = 1, max = 100 }
+            time = { min = 5, max = 3600 }
 
             [pet.update]
             prob = 0.9
+            count = { min = 3, max = 10000 }
+            time = { min = 10, max = 3600 }
 
-            [pet.update.count]
-            min = 3
-            max = 10000
-
-            [pet.update.time]
-            min = 10
-            max = 3600
-
-            [pet.sum2.count]
-            min = 1
-            max = 100
-
-            [pet.sum2.time]
-            min = 5
-            max = 3600
+            [pet.sum2]
+            count = { min = 1, max = 100 }
+            time = { min = 5, max = 3600 }
             "#;
 
             self.config.push_str(pet);

@@ -86,34 +86,18 @@ the following (in TOML format):
 bind_address = "127.0.0.1:8081"
 
 [pet.sum]
-sum = 0.1
-
-[pet.sum.count]
-min = 1
-max = 100
-
-[pet.sum.time]
-min = 5
-max = 3600
+prob = 0.1
+count = { min = 1, max = 100 }
+time = { min = 5, max = 3600 }
 
 [pet.update]
 prob = 0.9
+count = { min = 3, max = 10000 }
+time = { min = 10, max = 3600 }
 
-[pet.update.count]
-min = 3
-max = 10000
-
-[pet.update.time]
-min = 10
-max = 3600
-
-[pet.sum2.count]
-min = 1
-max = 100
-
-[pet.sum2.time]
-min = 5
-max = 3600
+[pet.sum2]
+count = { min = 1, max = 100 }
+time = { min = 5, max = 3600 }
 
 [mask]
 group_type = "Prime"
