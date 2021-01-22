@@ -31,25 +31,25 @@ jobs:
           push: true
           build-args: COORDINATOR_FEATURES=metrics
 
-      - name: Install doctl
-        uses: digitalocean/action-doctl@v2
-        with:
-          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
-
-      - name: Get DigitalOcean kubeconfig
-        run: doctl kubernetes cluster kubeconfig save ${{ secrets.K8S_CLUSTER }}
+      - name: Apply kubeconfig
+        shell: bash
+        env:
+          KUBECFG: ${{ secrets.KUBECFG_DEV_XAYNET }}
+        run: |
+          mkdir -pv ~/.kube
+          echo -e "${KUBECFG}" | base64 -d > ~/.kube/config
 
       - name: Re-apply manifests
-        run: kubectl apply -n development -k $GITHUB_WORKSPACE/k8s/coordinator/development
+        run: kubectl apply -n xaynet -k $GITHUB_WORKSPACE/k8s/coordinator/development
 
       - name: Force deployment rollout
-        run: kubectl rollout -n development restart deployment/coordinator-deployment
+        run: kubectl rollout -n xaynet restart deployment/coordinator-deployment
 
       - name: Check deployment status
-        run: kubectl rollout -n development status deployment/coordinator-deployment
+        run: kubectl rollout -n xaynet status deployment/coordinator-deployment
 
       - name: Clean-up stale ReplicaSets
-        run: kubectl delete -n development replicasets $(kubectl get -n development replicasets | awk 'NR!=1 && ($2==0) {print $1}')
+        run: kubectl delete -n xaynet replicasets $(kubectl get -n xaynet replicasets | awk 'NR!=1 && ($2==0) {print $1}')
 
       - name: Notify on Slack
         uses: 8398a7/action-slack@v3
