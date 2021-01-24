@@ -10,8 +10,7 @@ use crate::{
         events::DictionaryUpdate,
         phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Update},
         requests::{StateMachineRequest, SumRequest},
-        RequestError,
-        StateMachine,
+        RequestError, StateMachine,
     },
     storage::{Storage, StorageError},
 };
@@ -35,6 +34,7 @@ pub struct Sum {
     rejected: u64,
     /// The number of sum messages discarded without being processed.
     discarded: u64,
+    //phase parameters
 }
 
 #[async_trait]
@@ -63,6 +63,9 @@ where
         );
         info!("in total {} sum messages rejected", self.private.rejected);
         info!("in total {} sum messages discarded", self.private.discarded);
+
+        // purge
+        ///////////////////////////////////////////////////////////////////////////////////////////////
 
         let sum_dict = self
             .shared

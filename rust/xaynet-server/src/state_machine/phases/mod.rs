@@ -3,6 +3,7 @@
 mod error;
 mod idle;
 mod init;
+mod pause;
 mod shutdown;
 mod sum;
 mod sum2;
@@ -49,6 +50,7 @@ pub enum PhaseName {
     Unmask,
     Error,
     Shutdown,
+    Pause,
 }
 
 /// A trait that must be implemented by a state in order to move to a next state.
@@ -267,6 +269,9 @@ where
         // This may error out if the receiver has already been dropped but it doesn't matter for us.
         let _ = resp_tx.send(res);
     }
+
+
+    
 }
 
 impl<S, T> PhaseState<S, T>
@@ -287,9 +292,22 @@ where
 
             metric!(Measurement::Phase, phase as u8);
 
-            if let Err(err) = self.run().await {
-                return Some(self.into_error_state(err));
+            let delay = tokio::time::delay_for(tokio::time::Duration::from_secs(5));
+
+            tokio::select! {
+                _ =  delay => {
+                    warn!("");
+                }
+                res = self.run() => {
+                    if let Err(err) = res {
+                        return Some(self.into_error_state(err));
+                    }
+                }
             }
+
+            // if let Err(err) = self.run().await {
+            //     return Some(self.into_error_state(err));
+            // }
 
             info!("phase ran successfully");
 
