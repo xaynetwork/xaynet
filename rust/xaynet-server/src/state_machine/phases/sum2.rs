@@ -1,6 +1,4 @@
 use async_trait::async_trait;
-use tokio::time::{timeout, Duration};
-use tracing::{debug, info};
 
 use crate::{
     state_machine::{
@@ -21,12 +19,6 @@ use xaynet_core::{
 pub struct Sum2 {
     /// The aggregator for masked models.
     model_agg: Aggregation,
-    /// The number of sum2 messages successfully processed.
-    accepted: u64,
-    /// The number of sum2 messages failed to processed.
-    rejected: u64,
-    /// The number of sum2 messages discarded without being processed.
-    discarded: u64,
 }
 
 #[async_trait]
@@ -38,30 +30,7 @@ where
     const NAME: PhaseName = PhaseName::Sum2;
 
     async fn run(&mut self) -> Result<(), PhaseStateError> {
-        let min_time = self.shared.state.sum2.time.min;
-        let max_time = self.shared.state.sum2.time.max;
-        debug!(
-            "in sum2 phase for min {} and max {} seconds",
-            min_time, max_time,
-        );
-        self.process_during(Duration::from_secs(min_time)).await?;
-
-        let time_left = max_time - min_time;
-        timeout(Duration::from_secs(time_left), self.process_until_enough()).await??;
-
-        info!(
-            "in total {} sum2 messages accepted (min {} and max {} required)",
-            self.private.accepted,
-            self.shared.state.sum2.count.min,
-            self.shared.state.sum2.count.max,
-        );
-        info!("in total {} sum2 messages rejected", self.private.rejected);
-        info!(
-            "in total {} sum2 messages discarded",
-            self.private.discarded,
-        );
-
-        Ok(())
+        self.handle_requests(self.shared.state.sum2.clone()).await
     }
 
     /// Moves from the sum2 state to the next state.
@@ -90,34 +59,6 @@ where
             Err(RequestError::MessageRejected)
         }
     }
-
-    fn has_enough_messages(&self) -> bool {
-        self.private.accepted >= self.shared.state.sum2.count.min
-    }
-
-    fn has_overmuch_messages(&self) -> bool {
-        self.private.accepted >= self.shared.state.sum2.count.max
-    }
-
-    fn increment_accepted(&mut self) {
-        self.private.accepted += 1;
-        debug!(
-            "{} sum2 messages accepted (min {} and max {} required)",
-            self.private.accepted,
-            self.shared.state.sum2.count.min,
-            self.shared.state.sum2.count.max,
-        );
-    }
-
-    fn increment_rejected(&mut self) {
-        self.private.rejected += 1;
-        debug!("{} sum2 messages rejected", self.private.rejected);
-    }
-
-    fn increment_discarded(&mut self) {
-        self.private.discarded += 1;
-        debug!("{} sum2 messages discarded", self.private.discarded);
-    }
 }
 
 impl<S> PhaseState<Sum2, S>
@@ -127,12 +68,7 @@ where
     /// Creates a new sum2 state.
     pub fn new(shared: Shared<S>, model_agg: Aggregation) -> Self {
         Self {
-            private: Sum2 {
-                model_agg,
-                accepted: 0,
-                rejected: 0,
-                discarded: 0,
-            },
+            private: Sum2 { model_agg },
             shared,
         }
     }
@@ -224,12 +160,7 @@ mod tests {
         let mut store = init_store().await;
         let (state_machine, request_tx, events) = StateMachineBuilder::new(store.clone())
             .with_seed(round_params.seed.clone())
-            .with_phase(Sum2 {
-                model_agg: agg,
-                accepted: 0,
-                rejected: 0,
-                discarded: 0,
-            })
+            .with_phase(Sum2 { model_agg: agg })
             .with_sum_probability(round_params.sum)
             .with_update_probability(round_params.update)
             .with_sum_count_min(n_summers)

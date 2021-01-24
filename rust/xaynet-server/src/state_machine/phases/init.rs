@@ -3,7 +3,8 @@ use async_trait::async_trait;
 use crate::{
     state_machine::{
         phases::{Idle, Phase, PhaseName, PhaseState, Shared},
-        PhaseStateError, StateMachine,
+        PhaseStateError,
+        StateMachine,
     },
     storage::Storage,
 };

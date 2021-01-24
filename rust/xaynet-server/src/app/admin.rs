@@ -1,16 +1,6 @@
-use crate::app::drain::Watch;
-use crate::app::Readiness;
-use crate::app::Tracing;
+use crate::app::{drain::Watch, Readiness, Tracing};
 use futures::Future;
-use warp::{
-    http::{Response, StatusCode},
-    reply::Reply,
-    Filter,
-};
-
-// Settings
-// bindaddress
-// enable
+use warp::{http::StatusCode, Filter};
 
 pub fn build(
     shutdown: Watch,

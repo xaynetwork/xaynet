@@ -14,6 +14,7 @@ use std::fmt;
 
 use async_trait::async_trait;
 use futures::StreamExt;
+use tokio::time::{timeout, Duration};
 use tracing::{debug, error, error_span, info, warn, Span};
 use tracing_futures::Instrument;
 
@@ -34,11 +35,13 @@ use crate::{
         coordinator::CoordinatorState,
         events::EventPublisher,
         requests::{RequestReceiver, ResponseSender, StateMachineRequest},
-        RequestError, StateMachine,
+        RequestError,
+        StateMachine,
     },
     storage::Storage,
 };
 
+use super::coordinator::{CountParameters, PhaseParameters};
 /// The name of the current phase.
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum PhaseName {
@@ -51,6 +54,7 @@ pub enum PhaseName {
     Error,
     Shutdown,
     Pause,
+    Purge,
 }
 
 /// A trait that must be implemented by a state in order to move to a next state.
@@ -85,21 +89,6 @@ pub trait Handler {
     /// # Errors
     /// Fails on PET and storage errors.
     async fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), RequestError>;
-
-    /// Checks whether enough requests have been processed successfully wrt the PET settings.
-    fn has_enough_messages(&self) -> bool;
-
-    /// Checks whether too many requests are processed wrt the PET settings.
-    fn has_overmuch_messages(&self) -> bool;
-
-    /// Increments the counter for accepted requests.
-    fn increment_accepted(&mut self);
-
-    /// Increments the counter for rejected requests.
-    fn increment_rejected(&mut self);
-
-    /// Increments the counter for discarded requests.
-    fn increment_discarded(&mut self);
 }
 
 /// A struct that contains the coordinator state and the I/O interfaces that are shared and
@@ -182,7 +171,11 @@ where
     T: Storage,
 {
     /// Processes requests for as long as the given duration.
-    async fn process_during(&mut self, dur: tokio::time::Duration) -> Result<(), PhaseStateError> {
+    async fn process_during(
+        &mut self,
+        dur: tokio::time::Duration,
+        metrics: &mut MessageMetrics,
+    ) -> Result<(), PhaseStateError> {
         // even though this is called a `Delay` it is actually a fixed deadline, hence the loop
         // below doesn't start the delay again at each iteration and just checks for the deadline
         let mut delay = tokio::time::delay_for(dur);
@@ -195,17 +188,20 @@ where
                 }
                 next = self.next_request() => {
                     let (req, span, resp_tx) = next?;
-                    self.process_single(req, span, resp_tx).await;
+                    self.process_single(req, span, resp_tx, metrics).await;
                 }
             }
         }
     }
 
     /// Processes requests until there are enough.
-    async fn process_until_enough(&mut self) -> Result<(), PhaseStateError> {
-        while !self.has_enough_messages() {
+    async fn process_until_enough(
+        &mut self,
+        metrics: &mut MessageMetrics,
+    ) -> Result<(), PhaseStateError> {
+        while !metrics.has_enough_messages() {
             let (req, span, resp_tx) = self.next_request().await?;
-            self.process_single(req, span, resp_tx).await;
+            self.process_single(req, span, resp_tx, metrics).await;
         }
         Ok(())
     }
@@ -216,62 +212,140 @@ where
         req: StateMachineRequest,
         span: Span,
         resp_tx: ResponseSender,
+        metrics: &mut MessageMetrics,
     ) {
         let _span_guard = span.enter();
 
-        let res = if self.has_overmuch_messages() {
+        let res = if metrics.has_overmuch_messages() {
             // discard if the maximum message count is reached
-            self.increment_discarded();
-            metric!(
-                Measurement::MessageDiscarded,
-                1,
-                ("round_id", self.shared.state.round_id),
-                ("phase", Self::NAME as u8)
-            );
+            metrics.increment_discarded();
             Err(RequestError::MessageDiscarded)
         } else {
-            match self.handle_request(req).await {
+            let handle_res = self.handle_request(req).await;
+            if handle_res.is_ok() {
                 // accept if processed successfully
-                ok @ Ok(_) => {
-                    self.increment_accepted();
-                    // TODO: currently the metric! macro contains redundant information in case of
-                    // accepted messages: the `Measurement::MessageSum/Update/Sum2` as well as the
-                    // ("phase", name_u8). once we change those three enum variants to just one
-                    // `Measurement::MessageAccepted` we don't need this match workaround and can
-                    // call metric! directly.
-                    metric!(
-                        match Self::NAME {
-                            PhaseName::Sum => Measurement::MessageSum,
-                            PhaseName::Update => Measurement::MessageUpdate,
-                            PhaseName::Sum2 => Measurement::MessageSum2,
-                            _ => unreachable!(),
-                        },
-                        1,
-                        ("round_id", self.shared.state.round_id),
-                        ("phase", Self::NAME as u8)
-                    );
-                    ok
-                }
+                metrics.increment_accepted();
+            } else {
                 // otherwise reject
-                error @ Err(_) => {
-                    self.increment_rejected();
-                    metric!(
-                        Measurement::MessageRejected,
-                        1,
-                        ("round_id", self.shared.state.round_id),
-                        ("phase", Self::NAME as u8)
-                    );
-                    error
-                }
+                metrics.increment_rejected();
             }
+
+            handle_res
         };
 
         // This may error out if the receiver has already been dropped but it doesn't matter for us.
         let _ = resp_tx.send(res);
     }
 
+    async fn handle_requests(
+        &mut self,
+        PhaseParameters { time, count }: PhaseParameters,
+    ) -> Result<(), PhaseStateError> {
+        let mut metrics =
+            MessageMetrics::new(count.clone(), Self::NAME, self.shared.state.round_id);
 
-    
+        debug!("in phase for min {} and max {} seconds", time.min, time.max,);
+        self.process_during(Duration::from_secs(time.min), &mut metrics)
+            .await?;
+
+        let time_left = time.max - time.min;
+        timeout(
+            Duration::from_secs(time_left),
+            self.process_until_enough(&mut metrics),
+        )
+        .await??;
+
+        info!(
+            "in total {} messages accepted (min {} and max {} required)",
+            metrics.accepted, count.min, count.max,
+        );
+        info!("in total {} messages rejected", metrics.rejected);
+        info!("in total {} messages discarded", metrics.discarded);
+
+        debug!("purging outdated requests before transitioning");
+        self.purge_outdated_requests()
+    }
+}
+
+pub struct MessageMetrics {
+    /// The number of sum messages successfully processed.
+    pub accepted: u64,
+    /// The number of sum messages failed to processed.
+    pub rejected: u64,
+    /// The number of sum messages discarded without being processed.
+    pub discarded: u64,
+    //phase parameters
+    limits: CountParameters,
+
+    phase: PhaseName,
+    round_id: u64,
+}
+
+impl MessageMetrics {
+    fn new(limits: CountParameters, phase: PhaseName, round_id: u64) -> Self {
+        Self {
+            accepted: 0,
+            rejected: 0,
+            discarded: 0,
+            limits,
+            phase,
+            round_id,
+        }
+    }
+
+    fn has_enough_messages(&self) -> bool {
+        self.accepted >= self.limits.min
+    }
+
+    fn has_overmuch_messages(&self) -> bool {
+        self.accepted >= self.limits.max
+    }
+
+    fn increment_accepted(&mut self) {
+        self.accepted += 1;
+        debug!(
+            "{} messages accepted (min {} and max {} required)",
+            self.accepted, self.limits.min, self.limits.max,
+        );
+        // TODO: currently the metric! macro contains redundant information in case of
+        // accepted messages: the `Measurement::MessageSum/Update/Sum2` as well as the
+        // ("phase", name_u8). once we change those three enum variants to just one
+        // `Measurement::MessageAccepted` we don't need this match workaround and can
+        // call metric! directly.
+        metric!(
+            match self.phase {
+                PhaseName::Sum => Measurement::MessageSum,
+                PhaseName::Update => Measurement::MessageUpdate,
+                PhaseName::Sum2 => Measurement::MessageSum2,
+                _ => unreachable!(),
+            },
+            1,
+            ("round_id", self.round_id),
+            ("phase", self.phase as u8)
+        );
+    }
+
+    fn increment_rejected(&mut self) {
+        self.rejected += 1;
+        debug!("{} messages rejected", self.rejected);
+        metric!(
+            Measurement::MessageRejected,
+            1,
+            ("round_id", self.round_id),
+            ("phase", self.phase as u8)
+        );
+    }
+
+    fn increment_discarded(&mut self) {
+        self.discarded += 1;
+        debug!("{} messages discarded", self.discarded);
+        metric!(
+            Measurement::MessageDiscarded,
+            1,
+            ("round_id", self.round_id),
+            ("phase", self.phase as u8)
+        );
+    }
 }
 
 impl<S, T> PhaseState<S, T>
@@ -292,47 +366,51 @@ where
 
             metric!(Measurement::Phase, phase as u8);
 
-            let delay = tokio::time::delay_for(tokio::time::Duration::from_secs(5));
+            // let delay = tokio::time::delay_for(tokio::time::Duration::from_secs(5));
 
-            tokio::select! {
-                _ =  delay => {
-                    warn!("");
-                }
-                res = self.run() => {
-                    if let Err(err) = res {
-                        return Some(self.into_error_state(err));
-                    }
-                }
-            }
-
-            // if let Err(err) = self.run().await {
-            //     return Some(self.into_error_state(err));
+            // tokio::select! {
+            //     _ =  delay => {
+            //         warn!("");
+            //     }
+            //     res = self.run() => {
+            //         if let Err(err) = res {
+            //             return Some(self.into_error_state(err));
+            //         }
+            //     }
             // }
+
+            if let Err(err) = self.run().await {
+                return Some(self.into_error_state(err));
+            }
 
             info!("phase ran successfully");
 
-            debug!("purging outdated requests before transitioning");
-            if let Err(err) = self.purge_outdated_requests() {
-                warn!("failed to purge outdated requests");
-                // If we're already in the error state or shutdown state,
-                // ignore this error
-                match phase {
-                    PhaseName::Error | PhaseName::Shutdown => {
-                        debug!("already in error/shutdown state: ignoring error while purging outdated requests");
-                    }
-                    _ => return Some(self.into_error_state(err)),
-                }
-            }
+            // if let Err(err) = self.purge_outdated_requests() {
+            //     warn!("failed to purge outdated requests");
+            //     // If we're already in the error state or shutdown state,
+            //     // ignore this error
+            //     match phase {
+            //         PhaseName::Error | PhaseName::Shutdown => {
+            //             debug!("already in error/shutdown state: ignoring error while purging outdated requests");
+            //         }
+            //         _ => return Some(self.into_error_state(err)),
+            //     }
+            // }
 
             info!("transitioning to the next phase");
             self.next()
-        }.instrument(span).await
+        }
+        .instrument(span)
+        .await
     }
 
     /// Process all the pending requests that are now considered
     /// outdated. This happens at the end of each phase, before
     /// transitioning to the next phase.
     fn purge_outdated_requests(&mut self) -> Result<(), PhaseStateError> {
+        self.shared.events.broadcast_phase(PhaseName::Purge);
+        metric!(Measurement::Phase, PhaseName::Purge as u8);
+
         loop {
             match self.try_next_request()? {
                 Some((_req, span, resp_tx)) => {

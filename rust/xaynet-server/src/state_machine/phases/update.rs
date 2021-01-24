@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use thiserror::Error;
-use tokio::time::{timeout, Duration};
 use tracing::{debug, info, warn};
 
 use crate::{
@@ -35,12 +34,6 @@ pub enum UpdateStateError {
 pub struct Update {
     /// The aggregator for masked models.
     model_agg: Aggregation,
-    /// The number of update messages successfully processed.
-    accepted: u64,
-    /// The number of update messages failed to processed.
-    rejected: u64,
-    /// The number of update messages discarded without being processed.
-    discarded: u64,
 }
 
 #[async_trait]
@@ -52,31 +45,8 @@ where
     const NAME: PhaseName = PhaseName::Update;
 
     async fn run(&mut self) -> Result<(), PhaseStateError> {
-        let min_time = self.shared.state.update.time.min;
-        let max_time = self.shared.state.update.time.max;
-        debug!(
-            "in update phase for min {} and max {} seconds",
-            min_time, max_time,
-        );
-        self.process_during(Duration::from_secs(min_time)).await?;
-
-        let time_left = max_time - min_time;
-        timeout(Duration::from_secs(time_left), self.process_until_enough()).await??;
-
-        info!(
-            "in total {} update messages accepted (min {} and max {} required)",
-            self.private.accepted,
-            self.shared.state.update.count.min,
-            self.shared.state.update.count.max,
-        );
-        info!(
-            "in total {} update messages rejected",
-            self.private.rejected,
-        );
-        info!(
-            "in total {} update messages discarded",
-            self.private.discarded,
-        );
+        self.handle_requests(self.shared.state.update.clone())
+            .await?;
 
         let seed_dict = self
             .shared
@@ -121,34 +91,6 @@ where
             Err(RequestError::MessageRejected)
         }
     }
-
-    fn has_enough_messages(&self) -> bool {
-        self.private.accepted >= self.shared.state.update.count.min
-    }
-
-    fn has_overmuch_messages(&self) -> bool {
-        self.private.accepted >= self.shared.state.update.count.max
-    }
-
-    fn increment_accepted(&mut self) {
-        self.private.accepted += 1;
-        debug!(
-            "{} update messages accepted (min {} and max {} required)",
-            self.private.accepted,
-            self.shared.state.update.count.min,
-            self.shared.state.update.count.max,
-        );
-    }
-
-    fn increment_rejected(&mut self) {
-        self.private.rejected += 1;
-        debug!("{} update messages rejected", self.private.rejected);
-    }
-
-    fn increment_discarded(&mut self) {
-        self.private.discarded += 1;
-        debug!("{} update messages discarded", self.private.discarded);
-    }
 }
 
 impl<S> PhaseState<Update, S>
@@ -163,9 +105,6 @@ where
                     shared.state.round_params.mask_config,
                     shared.state.round_params.model_length,
                 ),
-                accepted: 0,
-                rejected: 0,
-                discarded: 0,
             },
             shared,
         }
@@ -288,9 +227,6 @@ mod tests {
             .with_seed(round_params.seed.clone())
             .with_phase(Update {
                 model_agg: aggregation.clone(),
-                accepted: 0,
-                rejected: 0,
-                discarded: 0,
             })
             .with_sum_probability(round_params.sum)
             .with_update_probability(round_params.update)

@@ -1,5 +1,7 @@
-use crate::settings::RedisSettings;
-use crate::storage::{coordinator_storage::redis, Storage, Store};
+use crate::{
+    settings::RedisSettings,
+    storage::{coordinator_storage::redis, Storage, Store},
+};
 
 pub async fn init(
     redis_settings: RedisSettings,

@@ -2,8 +2,7 @@ use futures::Future;
 
 use crate::{
     app::drain::Watch,
-    rest::serve,
-    rest::RestError,
+    rest::{serve, RestError},
     services,
     settings::ApiSettings,
     state_machine::{events::EventSubscriber, requests::RequestSender},

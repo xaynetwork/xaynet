@@ -105,11 +105,20 @@ use derive_more::From;
 use thiserror::Error;
 
 use self::phases::{
-    Idle, Init, Phase, PhaseState, PhaseStateError, Shutdown, Sum, Sum2, Unmask, Update,
+    Idle,
+    Init,
+    Phase,
+    PhaseState,
+    PhaseStateError,
+    Shutdown,
+    Sum,
+    Sum2,
+    Unmask,
+    Update,
 };
-use crate::app::drain::Watch;
-use crate::storage::{
-    LocalSeedDictAddError, MaskScoreIncrError, Storage, StorageError, SumPartAddError,
+use crate::{
+    app::drain::Watch,
+    storage::{LocalSeedDictAddError, MaskScoreIncrError, Storage, StorageError, SumPartAddError},
 };
 
 /// Error returned when the state machine fails to handle a request

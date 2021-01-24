@@ -1,3 +1,5 @@
+/// copied from https://github.com/linkerd/linkerd2-proxy/blob/f12988b773796b4fe46f5554bf5c2ad4b28f7f9b/linkerd/signal/src/lib.rs
+
 /// Returns a `Future` that completes when the proxy should start to shutdown.
 pub async fn shutdown() {
     imp::shutdown().await

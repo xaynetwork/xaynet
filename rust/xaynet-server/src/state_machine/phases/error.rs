@@ -9,8 +9,16 @@ use crate::{
     event,
     state_machine::{
         phases::{
-            idle::IdleStateError, sum::SumStateError, unmask::UnmaskStateError,
-            update::UpdateStateError, Idle, Phase, PhaseName, PhaseState, Shared, Shutdown,
+            idle::IdleStateError,
+            sum::SumStateError,
+            unmask::UnmaskStateError,
+            update::UpdateStateError,
+            Idle,
+            Phase,
+            PhaseName,
+            PhaseState,
+            Shared,
+            Shutdown,
         },
         StateMachine,
     },

@@ -1,10 +1,13 @@
-use crate::state_machine::initializer::StateMachineInitializationError;
-use crate::state_machine::StateMachine;
-use crate::state_machine::StateMachineInitializer;
-use crate::storage::Storage;
 use crate::{
     settings::{MaskSettings, ModelSettings, PetSettings},
-    state_machine::{events::EventSubscriber, requests::RequestSender},
+    state_machine::{
+        events::EventSubscriber,
+        initializer::StateMachineInitializationError,
+        requests::RequestSender,
+        StateMachine,
+        StateMachineInitializer,
+    },
+    storage::Storage,
 };
 
 pub async fn init<S: Storage>(

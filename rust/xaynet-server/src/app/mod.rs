@@ -1,5 +1,4 @@
-use crate::rest::RestError;
-use crate::settings::Settings;
+use crate::{rest::RestError, settings::Settings};
 
 use futures::Future;
 use structopt::StructOpt;
@@ -11,14 +10,7 @@ pub mod components;
 pub mod drain;
 pub mod signal;
 
-use components::api;
-use components::config;
-use components::crypto;
-use components::metrics;
-use components::state_machine;
-use components::store;
-use components::terminal;
-use components::trazing;
+use components::{api, config, crypto, metrics, state_machine, store, terminal, trazing};
 use trazing::Tracing;
 
 use self::components::terminal::Opt;
@@ -129,8 +121,7 @@ async fn init_components(
     Ok((state_machine.run(shutdown), api))
 }
 
-use crate::state_machine::events::EventListener;
-use crate::state_machine::events::EventSubscriber;
+use crate::state_machine::events::{EventListener, EventSubscriber};
 use arc_swap::ArcSwapOption;
 use std::sync::Arc;
 

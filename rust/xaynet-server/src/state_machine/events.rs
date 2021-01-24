@@ -11,7 +11,11 @@ use tokio::sync::watch;
 
 use crate::state_machine::phases::PhaseName;
 use xaynet_core::{
-    common::RoundParameters, crypto::EncryptKeyPair, mask::Model, SeedDict, SumDict,
+    common::RoundParameters,
+    crypto::EncryptKeyPair,
+    mask::Model,
+    SeedDict,
+    SumDict,
 };
 
 /// An event emitted by the coordinator.

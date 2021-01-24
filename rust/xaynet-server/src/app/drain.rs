@@ -1,3 +1,4 @@
+/// Copied from https://github.com/linkerd/linkerd2-proxy/blob/f12988b773796b4fe46f5554bf5c2ad4b28f7f9b/linkerd/drain/src/lib.rs
 use std::future::Future;
 use tokio::sync::{mpsc, watch};
 
