@@ -104,13 +104,12 @@ pub use self::initializer::StateMachineInitializer;
 use derive_more::From;
 use thiserror::Error;
 
-use self::phases::{Idle, Phase, PhaseState, PhaseStateError, Shutdown, Sum, Sum2, Unmask, Update};
+use self::phases::{
+    Idle, Init, Phase, PhaseState, PhaseStateError, Shutdown, Sum, Sum2, Unmask, Update,
+};
+use crate::app::drain::Watch;
 use crate::storage::{
-    LocalSeedDictAddError,
-    MaskScoreIncrError,
-    Storage,
-    StorageError,
-    SumPartAddError,
+    LocalSeedDictAddError, MaskScoreIncrError, Storage, StorageError, SumPartAddError,
 };
 
 /// Error returned when the state machine fails to handle a request
@@ -157,17 +156,20 @@ pub enum StateMachine<S>
 where
     S: Storage,
 {
+    Init(PhaseState<Init, S>),
     Idle(PhaseState<Idle, S>),
     Sum(PhaseState<Sum, S>),
     Update(PhaseState<Update, S>),
     Sum2(PhaseState<Sum2, S>),
     Unmask(PhaseState<Unmask, S>),
+    // Pause
     Error(PhaseState<PhaseStateError, S>),
     Shutdown(PhaseState<Shutdown, S>),
 }
 
 impl<S> StateMachine<S>
 where
+    PhaseState<Init, S>: Phase<S>,
     PhaseState<Idle, S>: Phase<S>,
     PhaseState<Sum, S>: Phase<S>,
     PhaseState<Update, S>: Phase<S>,
@@ -181,6 +183,7 @@ where
     /// Returns the next state or `None` if the [`StateMachine`] reached the state [`Shutdown`].
     pub async fn next(self) -> Option<Self> {
         match self {
+            StateMachine::Init(state) => state.run_phase().await,
             StateMachine::Idle(state) => state.run_phase().await,
             StateMachine::Sum(state) => state.run_phase().await,
             StateMachine::Update(state) => state.run_phase().await,
@@ -195,10 +198,15 @@ where
     /// The [`StateMachine`] shuts down once all [`RequestSender`] have been dropped.
     ///
     /// [`RequestSender`]: crate::state_machine::requests::RequestSender
-    pub async fn run(mut self) -> Option<()> {
+    pub async fn run(mut self, shutdown: Watch) -> () {
         loop {
-            self = self.next().await?;
+            self = if let Some(next) = self.next().await {
+                next
+            } else {
+                break;
+            };
         }
+        let _ = shutdown.ignore_signaled();
     }
 }
 

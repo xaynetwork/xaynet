@@ -9,16 +9,8 @@ use crate::{
     event,
     state_machine::{
         phases::{
-            idle::IdleStateError,
-            sum::SumStateError,
-            unmask::UnmaskStateError,
-            update::UpdateStateError,
-            Idle,
-            Phase,
-            PhaseName,
-            PhaseState,
-            Shared,
-            Shutdown,
+            idle::IdleStateError, sum::SumStateError, unmask::UnmaskStateError,
+            update::UpdateStateError, Idle, Phase, PhaseName, PhaseState, Shared, Shutdown,
         },
         StateMachine,
     },
@@ -61,10 +53,12 @@ where
     /// Waits until the [`crate::storage::Store`] is ready.
     async fn wait_for_store_readiness(&mut self) {
         while let Err(err) = <S as Storage>::is_ready(&mut self.shared.store).await {
+            self.shared.events.broadcast_readiness(false);
             error!("store not ready: {}", err);
             info!("try again in 5 sec");
             delay_for(Duration::from_secs(5)).await;
         }
+        self.shared.events.broadcast_readiness(true);
     }
 }
 

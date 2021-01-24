@@ -94,6 +94,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dabe5a181f83789739c194cbe5a897dde195078fac08568d09221fd6137a7ba8"
 
 [[package]]
+name = "arc-swap"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d4d7d63395147b81a9e570bcc6243aaf71c017bd666d4909cfef0085bdda8d73"
+
+[[package]]
 name = "arrayref"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2318,7 +2324,7 @@ version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "95357caf2640abc54651b93c98a8df4fe1ccbf44b8e601ccdf43d5c1451f29ac"
 dependencies = [
- "arc-swap",
+ "arc-swap 0.4.8",
  "async-trait",
  "bytes 0.5.6",
  "combine",
@@ -4005,6 +4011,7 @@ name = "xaynet-server"
 version = "0.2.0"
 dependencies = [
  "anyhow",
+ "arc-swap 1.2.0",
  "async-trait",
  "base64 0.13.0",
  "bincode",

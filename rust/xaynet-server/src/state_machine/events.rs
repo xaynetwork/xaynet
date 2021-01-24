@@ -11,11 +11,7 @@ use tokio::sync::watch;
 
 use crate::state_machine::phases::PhaseName;
 use xaynet_core::{
-    common::RoundParameters,
-    crypto::EncryptKeyPair,
-    mask::Model,
-    SeedDict,
-    SumDict,
+    common::RoundParameters, crypto::EncryptKeyPair, mask::Model, SeedDict, SumDict,
 };
 
 /// An event emitted by the coordinator.
@@ -54,6 +50,7 @@ pub struct EventPublisher {
     model_tx: EventBroadcaster<ModelUpdate>,
     sum_dict_tx: EventBroadcaster<DictionaryUpdate<SumDict>>,
     seed_dict_tx: EventBroadcaster<DictionaryUpdate<SeedDict>>,
+    readiness_tx: EventBroadcaster<bool>,
 }
 
 /// The `EventSubscriber` hands out `EventListener`s for any
@@ -66,6 +63,7 @@ pub struct EventSubscriber {
     model_rx: EventListener<ModelUpdate>,
     sum_dict_rx: EventListener<DictionaryUpdate<SumDict>>,
     seed_dict_rx: EventListener<DictionaryUpdate<SeedDict>>,
+    readiness_rx: EventListener<bool>,
 }
 
 impl EventPublisher {
@@ -109,6 +107,11 @@ impl EventPublisher {
             event: params,
         });
 
+        let (readiness_tx, readiness_rx) = watch::channel::<Event<bool>>(Event {
+            round_id,
+            event: false,
+        });
+
         let publisher = EventPublisher {
             round_id,
             keys_tx: keys_tx.into(),
@@ -117,6 +120,7 @@ impl EventPublisher {
             model_tx: model_tx.into(),
             sum_dict_tx: sum_dict_tx.into(),
             seed_dict_tx: seed_dict_tx.into(),
+            readiness_tx: readiness_tx.into(),
         };
 
         let subscriber = EventSubscriber {
@@ -126,6 +130,7 @@ impl EventPublisher {
             model_rx: model_rx.into(),
             sum_dict_rx: sum_dict_rx.into(),
             seed_dict_rx: seed_dict_rx.into(),
+            readiness_rx: readiness_rx.into(),
         };
 
         (publisher, subscriber)
@@ -172,6 +177,10 @@ impl EventPublisher {
     pub fn broadcast_seed_dict(&mut self, update: DictionaryUpdate<SeedDict>) {
         let _ = self.seed_dict_tx.broadcast(self.event(update));
     }
+
+    pub fn broadcast_readiness(&mut self, update: bool) {
+        let _ = self.readiness_tx.broadcast(self.event(update));
+    }
 }
 
 impl EventSubscriber {
@@ -204,6 +213,10 @@ impl EventSubscriber {
     /// Get a listener for seed dictionary updates
     pub fn seed_dict_listener(&self) -> EventListener<DictionaryUpdate<SeedDict>> {
         self.seed_dict_rx.clone()
+    }
+
+    pub fn readiness_listener(&self) -> EventListener<bool> {
+        self.readiness_rx.clone()
     }
 }
 

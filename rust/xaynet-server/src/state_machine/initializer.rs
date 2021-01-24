@@ -11,7 +11,7 @@ use crate::{
     state_machine::{
         coordinator::CoordinatorState,
         events::{EventPublisher, EventSubscriber, ModelUpdate},
-        phases::{Idle, PhaseName, PhaseState, Shared},
+        phases::{Init, PhaseName, PhaseState, Shared},
         requests::{RequestReceiver, RequestSender},
         StateMachine,
     },
@@ -26,8 +26,6 @@ type StateMachineInitializationResult<T> = Result<T, StateMachineInitializationE
 /// Error that can occur during the initialization of the [`StateMachine`].
 #[derive(Debug, Error)]
 pub enum StateMachineInitializationError {
-    #[error("initializing crypto library failed")]
-    CryptoInit,
     #[error("fetching coordinator state failed: {0}")]
     FetchCoordinatorState(StorageError),
     #[error("deleting coordinator data failed: {0}")]
@@ -82,9 +80,6 @@ where
     pub async fn init(
         mut self,
     ) -> StateMachineInitializationResult<(StateMachine<S>, RequestSender, EventSubscriber)> {
-        // crucial: init must be called before anything else in this module
-        sodiumoxide::init().or(Err(StateMachineInitializationError::CryptoInit))?;
-
         let (coordinator_state, global_model) = { self.from_settings().await? };
         Ok(self.init_state_machine(coordinator_state, global_model))
     }
@@ -119,7 +114,7 @@ where
             coordinator_state.round_id,
             coordinator_state.keys.clone(),
             coordinator_state.round_params.clone(),
-            PhaseName::Idle,
+            PhaseName::Init,
             global_model,
         );
 
@@ -127,7 +122,7 @@ where
 
         let shared = Shared::new(coordinator_state, event_publisher, request_rx, self.store);
 
-        let state_machine = StateMachine::from(PhaseState::<Idle, _>::new(shared));
+        let state_machine = StateMachine::from(PhaseState::<Init, _>::new(shared));
         (state_machine, request_tx, event_subscriber)
     }
 }
@@ -163,9 +158,6 @@ where
     pub async fn init(
         mut self,
     ) -> StateMachineInitializationResult<(StateMachine<S>, RequestSender, EventSubscriber)> {
-        // crucial: init must be called before anything else in this module
-        sodiumoxide::init().or(Err(StateMachineInitializationError::CryptoInit))?;
-
         let (coordinator_state, global_model) = if self.restore_settings.enable {
             self.from_previous_state().await?
         } else {

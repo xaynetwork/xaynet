@@ -14,6 +14,7 @@
 
 pub mod examples;
 
+pub mod app;
 pub mod metrics;
 pub mod rest;
 pub mod services;

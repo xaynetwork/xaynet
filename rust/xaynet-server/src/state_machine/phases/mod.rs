@@ -2,6 +2,7 @@
 
 mod error;
 mod idle;
+mod init;
 mod shutdown;
 mod sum;
 mod sum2;
@@ -18,6 +19,7 @@ use tracing_futures::Instrument;
 pub use self::{
     error::PhaseStateError,
     idle::{Idle, IdleStateError},
+    init::Init,
     shutdown::Shutdown,
     sum::{Sum, SumStateError},
     sum2::Sum2,
@@ -31,8 +33,7 @@ use crate::{
         coordinator::CoordinatorState,
         events::EventPublisher,
         requests::{RequestReceiver, ResponseSender, StateMachineRequest},
-        RequestError,
-        StateMachine,
+        RequestError, StateMachine,
     },
     storage::Storage,
 };
@@ -40,6 +41,7 @@ use crate::{
 /// The name of the current phase.
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum PhaseName {
+    Init,
     Idle,
     Sum,
     Update,

@@ -4,6 +4,7 @@ use std::convert::Infallible;
 #[cfg(feature = "tls")]
 use std::path::PathBuf;
 
+use crate::app::drain::Watch;
 use bytes::Bytes;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -41,6 +42,7 @@ pub async fn serve<F>(
     api_settings: ApiSettings,
     fetcher: F,
     pet_message_handler: PetMessageHandler,
+    shutdown: Watch,
 ) -> Result<(), RestError>
 where
     F: Fetcher + Sync + Send + 'static + Clone,
@@ -82,11 +84,11 @@ where
         .with(warp::log("http"));
 
     #[cfg(not(feature = "tls"))]
-    return run_http(routes, api_settings)
+    return run_http(routes, api_settings, shutdown)
         .await
         .map_err(RestError::from);
     #[cfg(feature = "tls")]
-    return run_https(routes, api_settings).await;
+    return run_https(routes, api_settings, shutdown).await;
 }
 
 /// Handles and responds to a PET message.
@@ -284,12 +286,22 @@ where
 
 #[cfg(not(feature = "tls"))]
 /// Runs a server with the provided filter routes.
-async fn run_http<F>(filter: F, api_settings: ApiSettings) -> Result<(), Infallible>
+async fn run_http<F>(
+    filter: F,
+    api_settings: ApiSettings,
+    shutdown: Watch,
+) -> Result<(), Infallible>
 where
     F: Filter + Clone + Send + Sync + 'static,
     F::Extract: Reply,
 {
-    warp::serve(filter).run(api_settings.bind_address).await;
+    warp::serve(filter)
+        .bind_with_graceful_shutdown(api_settings.bind_address, async {
+            let release = shutdown.signaled().await;
+            drop(release)
+        })
+        .1
+        .await;
     Ok(())
 }
 
@@ -298,7 +310,11 @@ where
 ///
 /// # Errors
 /// Fails if the TLS settings are invalid.
-async fn run_https<F>(filter: F, api_settings: ApiSettings) -> Result<(), RestError>
+async fn run_https<F>(
+    filter: F,
+    api_settings: ApiSettings,
+    shutdown: Watch,
+) -> Result<(), RestError>
 where
     F: Filter + Clone + Send + Sync + 'static,
     F::Extract: Reply,
@@ -309,7 +325,11 @@ where
         api_settings.tls_key,
         api_settings.tls_client_auth,
     )?
-    .run(api_settings.bind_address)
+    .bind_with_graceful_shutdown(api_settings.bind_address, async {
+        let release = shutdown.signaled().await;
+        drop(release)
+    })
+    .0
     .await;
     Ok(())
 }
