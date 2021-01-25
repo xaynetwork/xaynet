@@ -405,9 +405,10 @@ where
             // request channel if the current phase is a handle phase (sum, update, sum2)
             // if maybe_purge_outdated_requests fails it means the request channel was drop
             // which indicates a graceful shutdown
-            if let Err(err) = self.maybe_purge_outdated_requests() {
-                // if `self.run` failed because of an channelerror it will be captured here
-                // because maybe_purge_outdated_requests will fail because of channelerror as well
+            if self.maybe_purge_outdated_requests().is_err() {
+                // if `self.run` has failed because of an `PhaseStateError::RequestChannel` it will
+                // already be captured here because `maybe_purge_outdated_requests will fail
+                // as well with `PhaseStateError::RequestChannel`
                 return Some(PhaseState::<Shutdown, _>::new(self.shared).into());
             };
 
@@ -417,7 +418,7 @@ where
                 }
                 SelectEvent::PhaseCompleted(res) => {
                     // first check if the result of `self.run` is `err`
-                    // only run `self.publish` if the result of `self.run` was OK
+                    // only run `self.publish` if the result of `self.run` was Ok
                     if let Err(err) = future::ready(res).and_then(|_| self.publish()).await {
                         return Some(self.into_error_state(err));
                     };
@@ -446,6 +447,7 @@ where
     /// outdated. This happens at the end of each phase, before
     /// transitioning to the next phase.
     fn purge_outdated_requests(&mut self) -> Result<(), PhaseStateError> {
+        // we change the Phase here so that the PETMessageHandle does not process any new messages
         self.shared.events.broadcast_phase(PhaseName::Purge);
         metric!(Measurement::Phase, PhaseName::Purge as u8);
 

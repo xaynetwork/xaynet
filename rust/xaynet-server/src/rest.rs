@@ -4,7 +4,7 @@ use std::convert::Infallible;
 #[cfg(feature = "tls")]
 use std::path::PathBuf;
 
-use crate::app::drain::Watch;
+use crate::{app::drain::Watch, state_machine::phases::ConfigUpdate};
 use bytes::Bytes;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -85,7 +85,11 @@ where
         .and(warp::patch())
         .and(with_user_handler(user_requests_tx.clone()))
         .and_then(handle_pause);
-    // let config = warp::path!("control" / "config").and(warp::patch());
+    let config = warp::path!("control" / "config")
+        .and(warp::patch())
+        .and(warp::body::json())
+        .and(with_user_handler(user_requests_tx.clone()))
+        .and_then(handle_config);
 
     let routes = message
         .or(round_params)
@@ -94,6 +98,7 @@ where
         .or(model)
         .or(resume)
         .or(pause)
+        .or(config)
         .recover(handle_reject)
         .with(warp::log("http"));
 
@@ -121,6 +126,17 @@ async fn handle_resume(mut sender: UserRequestSender) -> Result<impl warp::Reply
 
 async fn handle_pause(mut sender: UserRequestSender) -> Result<impl warp::Reply, Infallible> {
     let sc = match sender.request(UserRequest::Pause).await {
+        Ok(()) => StatusCode::OK,
+        Err(_) => StatusCode::BAD_REQUEST,
+    };
+    Ok(sc)
+}
+
+async fn handle_config(
+    config: ConfigUpdate,
+    mut sender: UserRequestSender,
+) -> Result<impl warp::Reply, Infallible> {
+    let sc = match sender.request(UserRequest::Change(config)).await {
         Ok(()) => StatusCode::OK,
         Err(_) => StatusCode::BAD_REQUEST,
     };

@@ -10,6 +10,7 @@ use crate::{
     storage::Storage,
 };
 use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
 use tracing::{debug, error_span, info, warn};
 use xaynet_core::mask::{MaskConfig, MaskConfigPair};
 
@@ -17,9 +18,10 @@ pub struct Interrupt {
     req: Option<(UserRequest, UserResponseSender)>,
 }
 
+#[derive(Deserialize)]
 pub struct ConfigUpdate {
-    pub pet: PetSettings,
-    pub mask: MaskSettings,
+    pet: PetSettings,
+    mask: MaskSettings,
 }
 
 #[async_trait]

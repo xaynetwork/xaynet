@@ -20,13 +20,13 @@ use self::components::terminal::Opt;
 pub enum ApplicationError {
     #[error("initializing crypto failed.")]
     Crypto,
-    #[error("initializing crypto failed.")]
+    #[error("initializing config failed.")]
     Config,
-    #[error("initializing crypto failed.")]
+    #[error("initializing metrics failed.")]
     Metrics,
-    #[error("initializing crypto failed.")]
+    #[error("initializing trace failed.")]
     Trace,
-    #[error("initializing crypto failed.")]
+    #[error("initializing state machine failed.")]
     StateMachine,
 }
 

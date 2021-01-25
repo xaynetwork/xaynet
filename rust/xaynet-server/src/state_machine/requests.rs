@@ -8,7 +8,7 @@ use std::{
 
 use derive_more::From;
 use futures::Stream;
-use thiserror::Error;
+// use thiserror::Error;
 use tokio::sync::{mpsc, oneshot};
 use tracing::{trace, Span};
 
@@ -23,10 +23,10 @@ use xaynet_core::{
     UpdateParticipantPublicKey,
 };
 
-/// Error that occurs when a [`RequestSender`] tries to send a request on a closed `Request` channel.
-#[derive(Debug, Error)]
-#[error("the RequestSender cannot be used because the state machine shut down")]
-pub struct StateMachineShutdown;
+// /// Error that occurs when a [`RequestSender`] tries to send a request on a closed `Request` channel.
+// #[derive(Debug, Error)]
+// #[error("the RequestSender cannot be used because the state machine shut down")]
+// pub struct StateMachineShutdown;
 
 /// A sum request.
 #[derive(Debug)]
