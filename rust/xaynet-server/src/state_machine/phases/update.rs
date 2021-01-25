@@ -9,15 +9,13 @@ use crate::{
         events::DictionaryUpdate,
         phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Sum2},
         requests::{StateMachineRequest, UpdateRequest},
-        RequestError,
-        StateMachine,
+        RequestError, StateMachine,
     },
     storage::{Storage, StorageError},
 };
 use xaynet_core::{
     mask::{Aggregation, MaskObject},
-    LocalSeedDict,
-    UpdateParticipantPublicKey,
+    LocalSeedDict, UpdateParticipantPublicKey,
 };
 
 /// Error that occurs during the update phase.
@@ -45,9 +43,10 @@ where
     const NAME: PhaseName = PhaseName::Update;
 
     async fn run(&mut self) -> Result<(), PhaseStateError> {
-        self.handle_requests(self.shared.state.update.clone())
-            .await?;
+        self.handle_requests(self.shared.state.update.clone()).await
+    }
 
+    async fn publish(&mut self) -> Result<(), PhaseStateError> {
         let seed_dict = self
             .shared
             .store
@@ -60,7 +59,6 @@ where
         self.shared
             .events
             .broadcast_seed_dict(DictionaryUpdate::New(Arc::new(seed_dict)));
-
         Ok(())
     }
 
@@ -183,9 +181,7 @@ mod tests {
         common::{RoundParameters, RoundSeed},
         crypto::{ByteObject, EncryptKeyPair},
         mask::{FromPrimitives, Model},
-        SeedDict,
-        SumDict,
-        UpdateSeedDict,
+        SeedDict, SumDict, UpdateSeedDict,
     };
 
     impl Update {

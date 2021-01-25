@@ -9,8 +9,7 @@ use crate::{
         events::DictionaryUpdate,
         phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Update},
         requests::{StateMachineRequest, SumRequest},
-        RequestError,
-        StateMachine,
+        RequestError, StateMachine,
     },
     storage::{Storage, StorageError},
 };
@@ -38,8 +37,10 @@ where
     const NAME: PhaseName = PhaseName::Sum;
 
     async fn run(&mut self) -> Result<(), PhaseStateError> {
-        self.handle_requests(self.shared.state.sum.clone()).await?;
+        self.handle_requests(self.shared.state.sum.clone()).await
+    }
 
+    async fn publish(&mut self) -> Result<(), PhaseStateError> {
         let sum_dict = self
             .shared
             .store

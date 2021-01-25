@@ -16,12 +16,11 @@ use crate::state_machine::{RequestError, StateMachineResult};
 use xaynet_core::{
     mask::MaskObject,
     message::{Message, Payload, Update},
-    LocalSeedDict,
-    ParticipantPublicKey,
-    SumParticipantEphemeralPublicKey,
-    SumParticipantPublicKey,
+    LocalSeedDict, ParticipantPublicKey, SumParticipantEphemeralPublicKey, SumParticipantPublicKey,
     UpdateParticipantPublicKey,
 };
+
+use super::coordinator;
 
 /// Error that occurs when a [`RequestSender`] tries to send a request on a closed `Request` channel.
 #[derive(Debug, Error)]
@@ -177,6 +176,84 @@ impl RequestReceiver {
         &mut self,
     ) -> Result<(StateMachineRequest, Span, ResponseSender), tokio::sync::mpsc::error::TryRecvError>
     {
+        self.0.try_recv()
+    }
+}
+
+pub enum UserRequest {
+    Resume,
+    Pause,
+    Change(coordinator::CoordinatorState),
+}
+
+#[derive(Clone, From, Debug)]
+pub struct UserRequestSender(mpsc::Sender<(UserRequest, UserResponseSender)>);
+
+impl UserRequestSender {
+    /// Sends a request to the [`StateMachine`].
+    ///
+    /// # Errors
+    /// Fails if the [`StateMachine`] has already shut down and the `Request` channel has been
+    /// closed as a result.
+    ///
+    /// [`StateMachine`]: crate::state_machine
+    pub async fn request(&mut self, req: UserRequest) -> Result<(), ()> {
+        let (resp_tx, resp_rx) = oneshot::channel::<()>();
+        self.0.send((req, resp_tx)).await;
+        resp_rx.await;
+        Ok(())
+    }
+}
+
+/// A channel for sending the state machine to send the response to a
+/// [`StateMachineRequest`].
+pub(in crate::state_machine) type UserResponseSender = oneshot::Sender<()>;
+
+#[derive(From, Debug)]
+pub struct UserRequestReceiver(mpsc::Receiver<(UserRequest, UserResponseSender)>);
+
+impl Stream for UserRequestReceiver {
+    type Item = (UserRequest, UserResponseSender);
+
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+        trace!("UserRequestReceiver: polling");
+        Pin::new(&mut self.get_mut().0).poll_next(cx)
+    }
+}
+
+impl UserRequestReceiver {
+    /// Creates a new `Request` channel and returns the [`RequestReceiver`] as well as the
+    /// [`RequestSender`] half.
+    pub fn new() -> (Self, UserRequestSender) {
+        let (tx, rx) = mpsc::channel::<(UserRequest, UserResponseSender)>(1);
+        let receiver = UserRequestReceiver::from(rx);
+        let handle = UserRequestSender::from(tx);
+        (receiver, handle)
+    }
+
+    /// Closes the `Request` channel.
+    /// See [the `tokio` documentation][close] for more information.
+    ///
+    /// [close]: https://docs.rs/tokio/0.2.24/tokio/sync/mpsc/struct.UnboundedReceiver.html#method.close
+    pub fn close(&mut self) {
+        self.0.close()
+    }
+
+    /// Receives the next request.
+    /// See [the `tokio` documentation][receive] for more information.
+    ///
+    /// [receive]: https://docs.rs/tokio/0.2.24/tokio/sync/mpsc/struct.UnboundedReceiver.html#method.recv
+    pub async fn recv(&mut self) -> Option<(UserRequest, UserResponseSender)> {
+        self.0.recv().await
+    }
+
+    /// Try to retrieve the next request without blocked
+    /// See [the `tokio` documentation][try_receive] for more information.
+    ///
+    /// [try_receive]: https://docs.rs/tokio/0.2.24/tokio/sync/mpsc/struct.UnboundedReceiver.html#method.try_recv
+    pub fn try_recv(
+        &mut self,
+    ) -> Result<(UserRequest, UserResponseSender), tokio::sync::mpsc::error::TryRecvError> {
         self.0.try_recv()
     }
 }

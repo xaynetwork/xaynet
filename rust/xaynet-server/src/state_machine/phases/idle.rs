@@ -9,8 +9,7 @@ use crate::{
     state_machine::{
         events::DictionaryUpdate,
         phases::{Phase, PhaseName, PhaseState, Shared, Sum},
-        PhaseStateError,
-        StateMachine,
+        PhaseStateError, StateMachine,
     },
     storage::{Storage, StorageError},
 };
@@ -66,6 +65,10 @@ where
         info!("broadcasting invalidation of seed dictionary from previous round");
         events.broadcast_seed_dict(DictionaryUpdate::Invalidate);
 
+        Ok(())
+    }
+
+    async fn publish(&mut self) -> Result<(), PhaseStateError> {
         self.shared
             .store
             .delete_dicts()
@@ -73,7 +76,9 @@ where
             .map_err(IdleStateError::DeleteDictionaries)?;
 
         info!("broadcasting new round parameters");
-        events.broadcast_params(self.shared.state.round_params.clone());
+        self.shared
+            .events
+            .broadcast_params(self.shared.state.round_params.clone());
 
         metric!(Measurement::RoundTotalNumber, self.shared.state.round_id);
         metric!(

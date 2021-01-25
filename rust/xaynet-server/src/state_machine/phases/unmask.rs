@@ -39,6 +39,7 @@ pub enum UnmaskStateError {
 pub struct Unmask {
     /// The aggregator for masked models.
     model_agg: Option<Aggregation>,
+    global_model: Option<Model>,
 }
 
 #[async_trait]
@@ -70,11 +71,17 @@ where
             .await
             .map_err(UnmaskStateError::PublishProof)?;
 
+        self.private.global_model = Some(global_model);
+        Ok(())
+    }
+
+    async fn publish(&mut self) -> Result<(), PhaseStateError> {
         info!("broadcasting the new global model");
         self.shared
             .events
-            .broadcast_model(ModelUpdate::New(Arc::new(global_model)));
-
+            .broadcast_model(ModelUpdate::New(Arc::new(
+                self.private.global_model.take().unwrap(),
+            )));
         Ok(())
     }
 
@@ -92,6 +99,7 @@ where
         Self {
             private: Unmask {
                 model_agg: Some(model_agg),
+                global_model: None,
             },
             shared,
         }

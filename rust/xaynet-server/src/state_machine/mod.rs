@@ -190,16 +190,16 @@ where
 {
     /// Moves the [`StateMachine`] to the next state and consumes the current one.
     /// Returns the next state or `None` if the [`StateMachine`] reached the state [`Shutdown`].
-    pub async fn next(self) -> Option<Self> {
+    pub async fn next(self, user_tx: &mut requests::UserRequestReceiver) -> Option<Self> {
         match self {
-            StateMachine::Init(state) => state.run_phase().await,
-            StateMachine::Idle(state) => state.run_phase().await,
-            StateMachine::Sum(state) => state.run_phase().await,
-            StateMachine::Update(state) => state.run_phase().await,
-            StateMachine::Sum2(state) => state.run_phase().await,
-            StateMachine::Unmask(state) => state.run_phase().await,
-            StateMachine::Error(state) => state.run_phase().await,
-            StateMachine::Shutdown(state) => state.run_phase().await,
+            StateMachine::Init(state) => state.run_phase(user_tx).await,
+            StateMachine::Idle(state) => state.run_phase(user_tx).await,
+            StateMachine::Sum(state) => state.run_phase(user_tx).await,
+            StateMachine::Update(state) => state.run_phase(user_tx).await,
+            StateMachine::Sum2(state) => state.run_phase(user_tx).await,
+            StateMachine::Unmask(state) => state.run_phase(user_tx).await,
+            StateMachine::Error(state) => state.run_phase(user_tx).await,
+            StateMachine::Shutdown(state) => state.run_phase(user_tx).await,
         }
     }
 
@@ -207,9 +207,13 @@ where
     /// The [`StateMachine`] shuts down once all [`RequestSender`] have been dropped.
     ///
     /// [`RequestSender`]: crate::state_machine::requests::RequestSender
-    pub async fn run(mut self, shutdown: Watch) -> () {
+    pub async fn run(mut self, shutdown: Watch, user_tx: &mut requests::UserRequestReceiver) -> () {
+
+
+
+
         loop {
-            self = if let Some(next) = self.next().await {
+            self = if let Some(next) = self.next(user_tx).await {
                 next
             } else {
                 break;

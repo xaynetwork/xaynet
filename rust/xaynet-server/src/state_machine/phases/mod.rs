@@ -28,19 +28,21 @@ pub use self::{
     unmask::{Unmask, UnmaskStateError},
     update::{Update, UpdateStateError},
 };
+use super::{
+    coordinator::{CountParameters, PhaseParameters},
+    requests::UserRequest,
+};
 use crate::{
     metric,
     metrics::Measurement,
     state_machine::{
         coordinator::CoordinatorState,
         events::EventPublisher,
-        requests::{RequestReceiver, ResponseSender, StateMachineRequest},
+        requests::{RequestReceiver, ResponseSender, StateMachineRequest, UserRequestReceiver},
         RequestError, StateMachine,
     },
     storage::Storage,
 };
-
-use super::coordinator::{CountParameters, PhaseParameters};
 /// The name of the current phase.
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum PhaseName {
@@ -72,6 +74,11 @@ where
     /// [module level documentation]: crate::state_machine
     async fn run(&mut self) -> Result<(), PhaseStateError>;
 
+    ///
+    async fn publish(&mut self) -> Result<(), PhaseStateError> {
+        Ok(())
+    }
+
     /// Moves from this state to the next state.
     ///
     /// See the [module level documentation] for more details.
@@ -100,6 +107,8 @@ where
     pub(in crate::state_machine) state: CoordinatorState,
     /// The request receiver half.
     pub(in crate::state_machine) request_rx: RequestReceiver,
+
+    // pub(in crate::state_machine) user_request_rx: UserRequestReceiver,
     /// The event publisher.
     pub(in crate::state_machine) events: EventPublisher,
     /// The store for storing coordinator and model data.
@@ -113,8 +122,9 @@ where
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Shared")
             .field("state", &self.state)
-            .field("request_rx", &self.request_rx)
             .field("events", &self.events)
+            .field("request_rx", &self.request_rx)
+            // .field("user_request_rx", &self.user_request_rx)
             .finish()
     }
 }
@@ -128,12 +138,14 @@ where
         coordinator_state: CoordinatorState,
         publisher: EventPublisher,
         request_rx: RequestReceiver,
+        // user_request_rx: UserRequestReceiver,
         store: S,
     ) -> Self {
         Self {
             state: coordinator_state,
-            request_rx,
             events: publisher,
+            request_rx,
+            // user_request_rx,
             store,
         }
     }
@@ -350,10 +362,11 @@ impl<S, T> PhaseState<S, T>
 where
     Self: Phase<T>,
     T: Storage,
+    S: Send,
 {
     /// Run the current phase to completion, then transition to the
     /// next phase and return it.
-    pub async fn run_phase(mut self) -> Option<StateMachine<T>> {
+    pub async fn run_phase(mut self, user_tx: &mut UserRequestReceiver) -> Option<StateMachine<T>> {
         let phase = <Self as Phase<_>>::NAME;
         let span = error_span!("run_phase", phase = ?phase);
 
@@ -361,26 +374,24 @@ where
             info!("starting phase");
             info!("broadcasting phase event");
             self.shared.events.broadcast_phase(phase);
-
             metric!(Measurement::Phase, phase as u8);
 
-            // let delay = tokio::time::delay_for(tokio::time::Duration::from_secs(5));
-
             // tokio::select! {
-            //     _ =  delay => {
+            //     _ =  user_tx.next() => {
             //         warn!("");
             //     }
             //     res = self.run() => {
-            //         if let Err(err) = res {
-            //             return Some(self.into_error_state(err));
-            //         }
+
             //     }
             // }
 
             let run_res = self.run().await;
             let purge_res = self.maybe_purge_outdated_requests();
-
             if let Err(err) = run_res.and(purge_res) {
+                return Some(self.into_error_state(err));
+            };
+
+            if let Err(err) = self.publish().await {
                 return Some(self.into_error_state(err));
             };
 

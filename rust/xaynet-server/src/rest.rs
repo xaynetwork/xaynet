@@ -75,6 +75,10 @@ where
         .and(with_fetcher(fetcher.clone()))
         .and_then(handle_model);
 
+    let resume = warp::path!("control" / "resume").and(warp::patch());
+    let stop = warp::path!("control" / "stop").and(warp::patch());
+    let config = warp::path!("control" / "config").and(warp::patch());
+
     let routes = message
         .or(round_params)
         .or(sum_dict)
