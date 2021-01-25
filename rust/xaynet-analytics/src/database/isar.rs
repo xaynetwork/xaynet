@@ -118,7 +118,7 @@ fn get_collection_schema(
         CollectionSchema::new(&name, &format!("{}_oid", &name), DataType::String),
         |mut schema, prop| {
             schema
-                .add_property(prop.name, prop.data_type)
+                .add_property(&prop.name, prop.data_type)
                 .map_err(|_| {
                     anyhow!(
                         "failed to add property {} to collection {}",
@@ -129,7 +129,7 @@ fn get_collection_schema(
             schema
                 .add_index(
                     &[(
-                        prop.name,
+                        &prop.name,
                         Some(prop.string_index_type),
                         prop.is_case_sensitive,
                     )],
