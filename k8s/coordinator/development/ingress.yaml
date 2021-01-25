@@ -1,4 +1,4 @@
-apiVersion: networking.k8s.io/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: coordinator-ingress
@@ -8,13 +8,15 @@ metadata:
 spec:
   tls:
     - hosts:
-        - dev-coordinator.xayn.com
+        - dev-coordinator.xaynet.dev
       secretName: dev-coordinator
   rules:
-    - host: dev-coordinator.xayn.com
+    - host: dev-coordinator.xaynet.dev
       http:
         paths:
           - path: /
             backend:
-              serviceName: coordinator-service
-              servicePort: 8081
+              service:
+                name: coordinator-service
+                port:
+                  number: 8081
