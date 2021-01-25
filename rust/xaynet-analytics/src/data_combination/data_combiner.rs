@@ -75,7 +75,7 @@ where
 
     // TODO: return an iterator instead of Vec: https://xainag.atlassian.net/browse/XN-1517
     fn get_all_events(&self) -> Vec<AnalyticsEvent> {
-        self.events_repo.get_all().unwrap_or(Vec::new())
+        self.events_repo.get_all().unwrap_or_default()
     }
 
     /// TODO: don't use String here, handle via RouteController: https://xainag.atlassian.net/browse/XN-1535
