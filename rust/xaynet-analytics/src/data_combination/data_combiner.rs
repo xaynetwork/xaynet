@@ -18,6 +18,7 @@ use crate::{
     },
 };
 
+#[allow(dead_code)]
 pub struct DataCombiner<E, S> {
     events_repo: E,
     screen_routes_repo: S,
@@ -74,19 +75,13 @@ where
 
     // TODO: return an iterator instead of Vec: https://xainag.atlassian.net/browse/XN-1517
     fn get_all_events(&self) -> Vec<AnalyticsEvent> {
-        match self.events_repo.get_all() {
-            Ok(events) => events,
-            Err(_) => Vec::new(),
-        }
+        self.events_repo.get_all().unwrap_or(Vec::new())
     }
 
     /// TODO: don't use String here, handle via RouteController: https://xainag.atlassian.net/browse/XN-1535
     fn get_all_screen_routes(&self) -> Vec<String> {
-        let empty_mock_vector: Vec<String> = Vec::new();
-        match self.screen_routes_repo.get_all() {
-            Ok(_) => empty_mock_vector,
-            Err(_) => empty_mock_vector,
-        }
+        // self.screen_routes_repo.get_all().unwrap_or(Vec::new())
+        Vec::new() // placeholder until ScreenRoute model is implemented
     }
 
     fn init_screen_active_time_vars(

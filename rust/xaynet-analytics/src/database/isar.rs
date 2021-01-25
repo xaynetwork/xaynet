@@ -78,7 +78,7 @@ impl IsarDb {
                     Self::ANALYTICS_EVENT_NAME
                 ))
             })
-            .map(|_| return schema)
+            .map(|_| schema)
     }
 
     fn get_collection(&self, collection_name: &str) -> Result<&IsarCollection, Error> {
