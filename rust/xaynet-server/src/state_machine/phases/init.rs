@@ -9,7 +9,6 @@ use crate::{
     storage::Storage,
 };
 
-/// Shutdown state
 #[derive(Debug)]
 pub struct Init;
 
@@ -34,7 +33,6 @@ impl<S> PhaseState<Init, S>
 where
     S: Storage,
 {
-    /// Creates a new shutdown state.
     pub fn new(shared: Shared<S>) -> Self {
         Self {
             private: Init,
