@@ -3,7 +3,7 @@
 mod error;
 mod idle;
 mod init;
-mod pause;
+mod interrupt;
 mod shutdown;
 mod sum;
 mod sum2;
@@ -13,7 +13,7 @@ mod update;
 use std::fmt;
 
 use async_trait::async_trait;
-use futures::StreamExt;
+use futures::{future, StreamExt, TryFutureExt};
 use tokio::time::{timeout, Duration};
 use tracing::{debug, error, error_span, info, warn, Span};
 use tracing_futures::Instrument;
@@ -22,6 +22,7 @@ pub use self::{
     error::PhaseStateError,
     idle::{Idle, IdleStateError},
     init::Init,
+    interrupt::{ConfigUpdate, Interrupt},
     shutdown::Shutdown,
     sum::{Sum, SumStateError},
     sum2::Sum2,
@@ -30,7 +31,7 @@ pub use self::{
 };
 use super::{
     coordinator::{CountParameters, PhaseParameters},
-    requests::UserRequest,
+    requests::{self},
 };
 use crate::{
     metric,
@@ -39,7 +40,8 @@ use crate::{
         coordinator::CoordinatorState,
         events::EventPublisher,
         requests::{RequestReceiver, ResponseSender, StateMachineRequest, UserRequestReceiver},
-        RequestError, StateMachine,
+        RequestError,
+        StateMachine,
     },
     storage::Storage,
 };
@@ -54,7 +56,7 @@ pub enum PhaseName {
     Unmask,
     Error,
     Shutdown,
-    Pause,
+    Interrupt,
     Purge,
 }
 
@@ -358,6 +360,11 @@ impl MessageMetrics {
     }
 }
 
+pub enum SelectEvent {
+    UserRequest((requests::UserRequest, requests::UserResponseSender)),
+    PhaseCompleted(Result<(), PhaseStateError>),
+}
+
 impl<S, T> PhaseState<S, T>
 where
     Self: Phase<T>,
@@ -366,7 +373,7 @@ where
 {
     /// Run the current phase to completion, then transition to the
     /// next phase and return it.
-    pub async fn run_phase(mut self, user_tx: &mut UserRequestReceiver) -> Option<StateMachine<T>> {
+    pub async fn run_phase(mut self, user_rx: &mut UserRequestReceiver) -> Option<StateMachine<T>> {
         let phase = <Self as Phase<_>>::NAME;
         let span = error_span!("run_phase", phase = ?phase);
 
@@ -376,28 +383,50 @@ where
             self.shared.events.broadcast_phase(phase);
             metric!(Measurement::Phase, phase as u8);
 
-            // tokio::select! {
-            //     _ =  user_tx.next() => {
-            //         warn!("");
-            //     }
-            //     res = self.run() => {
-
-            //     }
-            // }
-
-            let run_res = self.run().await;
-            let purge_res = self.maybe_purge_outdated_requests();
-            if let Err(err) = run_res.and(purge_res) {
-                return Some(self.into_error_state(err));
+            // run the phase and listen for user requests
+            // we cannot make `user_rx part` of `self.shared` because we would
+            // have two mutable borrows of self at the same time.
+            let event = tokio::select! {
+                next = user_rx.next() => {
+                    match next {
+                        None => return Some(PhaseState::<Shutdown, _>::new(self.shared).into()),
+                        Some(user_req) => {
+                            info!("recv user request");
+                            SelectEvent::UserRequest(user_req)
+                        }
+                    }
+                }
+                res = self.run() => {
+                    SelectEvent::PhaseCompleted(res)
+                }
             };
 
-            if let Err(err) = self.publish().await {
-                return Some(self.into_error_state(err));
+            // in any case (User request, phase run completed/failed) we want to empty the
+            // request channel if the current phase is a handle phase (sum, update, sum2)
+            // if maybe_purge_outdated_requests fails it means the request channel was drop
+            // which indicates a graceful shutdown
+            if let Err(err) = self.maybe_purge_outdated_requests() {
+                // if `self.run` failed because of an channelerror it will be captured here
+                // because maybe_purge_outdated_requests will fail because of channelerror as well
+                return Some(PhaseState::<Shutdown, _>::new(self.shared).into());
             };
 
-            info!("phase ran successfully");
-            info!("transitioning to the next phase");
-            self.next()
+            match event {
+                SelectEvent::UserRequest(request) => {
+                    return Some(PhaseState::<Interrupt, _>::new(self.shared, request).into());
+                }
+                SelectEvent::PhaseCompleted(res) => {
+                    // first check if the result of `self.run` is `err`
+                    // only run `self.publish` if the result of `self.run` was OK
+                    if let Err(err) = future::ready(res).and_then(|_| self.publish()).await {
+                        return Some(self.into_error_state(err));
+                    };
+
+                    info!("phase ran successfully");
+                    info!("transitioning to the next phase");
+                    self.next()
+                }
+            }
         }
         .instrument(span)
         .await

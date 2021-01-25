@@ -12,15 +12,16 @@ use thiserror::Error;
 use tokio::sync::{mpsc, oneshot};
 use tracing::{trace, Span};
 
-use crate::state_machine::{RequestError, StateMachineResult};
+use crate::state_machine::{phases::ConfigUpdate, RequestError, StateMachineResult};
 use xaynet_core::{
     mask::MaskObject,
     message::{Message, Payload, Update},
-    LocalSeedDict, ParticipantPublicKey, SumParticipantEphemeralPublicKey, SumParticipantPublicKey,
+    LocalSeedDict,
+    ParticipantPublicKey,
+    SumParticipantEphemeralPublicKey,
+    SumParticipantPublicKey,
     UpdateParticipantPublicKey,
 };
-
-use super::coordinator;
 
 /// Error that occurs when a [`RequestSender`] tries to send a request on a closed `Request` channel.
 #[derive(Debug, Error)]
@@ -183,7 +184,7 @@ impl RequestReceiver {
 pub enum UserRequest {
     Resume,
     Pause,
-    Change(coordinator::CoordinatorState),
+    Change(ConfigUpdate),
 }
 
 #[derive(Clone, From, Debug)]

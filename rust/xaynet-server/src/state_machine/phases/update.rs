@@ -9,13 +9,15 @@ use crate::{
         events::DictionaryUpdate,
         phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Sum2},
         requests::{StateMachineRequest, UpdateRequest},
-        RequestError, StateMachine,
+        RequestError,
+        StateMachine,
     },
     storage::{Storage, StorageError},
 };
 use xaynet_core::{
     mask::{Aggregation, MaskObject},
-    LocalSeedDict, UpdateParticipantPublicKey,
+    LocalSeedDict,
+    UpdateParticipantPublicKey,
 };
 
 /// Error that occurs during the update phase.
@@ -181,7 +183,9 @@ mod tests {
         common::{RoundParameters, RoundSeed},
         crypto::{ByteObject, EncryptKeyPair},
         mask::{FromPrimitives, Model},
-        SeedDict, SumDict, UpdateSeedDict,
+        SeedDict,
+        SumDict,
+        UpdateSeedDict,
     };
 
     impl Update {

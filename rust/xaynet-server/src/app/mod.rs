@@ -1,4 +1,4 @@
-use crate::{rest::RestError, settings::Settings};
+use crate::{rest::RestError, settings::Settings, state_machine::requests::UserRequestReceiver};
 
 use futures::Future;
 use structopt::StructOpt;
@@ -111,14 +111,17 @@ async fn init_components(
 
     ready.inject(&event_subscriber);
 
+    let (user_request_rx, user_request_tx) = UserRequestReceiver::new();
+
     let api = api::init(
         api_settings,
         event_subscriber,
         requests_tx,
+        user_request_tx,
         shutdown.clone(),
     );
 
-    Ok((state_machine.run(shutdown), api))
+    Ok((state_machine.run(shutdown, user_request_rx), api))
 }
 
 use crate::state_machine::events::{EventListener, EventSubscriber};

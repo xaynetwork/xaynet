@@ -107,6 +107,7 @@ use thiserror::Error;
 use self::phases::{
     Idle,
     Init,
+    Interrupt,
     Phase,
     PhaseState,
     PhaseStateError,
@@ -171,7 +172,7 @@ where
     Update(PhaseState<Update, S>),
     Sum2(PhaseState<Sum2, S>),
     Unmask(PhaseState<Unmask, S>),
-    // Pause
+    Interrupt(PhaseState<Interrupt, S>),
     Error(PhaseState<PhaseStateError, S>),
     Shutdown(PhaseState<Shutdown, S>),
 }
@@ -190,16 +191,17 @@ where
 {
     /// Moves the [`StateMachine`] to the next state and consumes the current one.
     /// Returns the next state or `None` if the [`StateMachine`] reached the state [`Shutdown`].
-    pub async fn next(self, user_tx: &mut requests::UserRequestReceiver) -> Option<Self> {
+    pub async fn next(self, user_rx: &mut requests::UserRequestReceiver) -> Option<Self> {
         match self {
-            StateMachine::Init(state) => state.run_phase(user_tx).await,
-            StateMachine::Idle(state) => state.run_phase(user_tx).await,
-            StateMachine::Sum(state) => state.run_phase(user_tx).await,
-            StateMachine::Update(state) => state.run_phase(user_tx).await,
-            StateMachine::Sum2(state) => state.run_phase(user_tx).await,
-            StateMachine::Unmask(state) => state.run_phase(user_tx).await,
-            StateMachine::Error(state) => state.run_phase(user_tx).await,
-            StateMachine::Shutdown(state) => state.run_phase(user_tx).await,
+            StateMachine::Init(state) => state.run_phase(user_rx).await,
+            StateMachine::Idle(state) => state.run_phase(user_rx).await,
+            StateMachine::Sum(state) => state.run_phase(user_rx).await,
+            StateMachine::Update(state) => state.run_phase(user_rx).await,
+            StateMachine::Sum2(state) => state.run_phase(user_rx).await,
+            StateMachine::Unmask(state) => state.run_phase(user_rx).await,
+            StateMachine::Error(state) => state.run_phase(user_rx).await,
+            StateMachine::Shutdown(state) => state.run_phase(user_rx).await,
+            StateMachine::Interrupt(state) => state.run_phase(user_rx).await,
         }
     }
 
@@ -207,13 +209,9 @@ where
     /// The [`StateMachine`] shuts down once all [`RequestSender`] have been dropped.
     ///
     /// [`RequestSender`]: crate::state_machine::requests::RequestSender
-    pub async fn run(mut self, shutdown: Watch, user_tx: &mut requests::UserRequestReceiver) -> () {
-
-
-
-
+    pub async fn run(mut self, shutdown: Watch, mut user_rx: requests::UserRequestReceiver) -> () {
         loop {
-            self = if let Some(next) = self.next(user_tx).await {
+            self = if let Some(next) = self.next(&mut user_rx).await {
                 next
             } else {
                 break;

@@ -5,13 +5,17 @@ use crate::{
     rest::{serve, RestError},
     services,
     settings::ApiSettings,
-    state_machine::{events::EventSubscriber, requests::RequestSender},
+    state_machine::{
+        events::EventSubscriber,
+        requests::{RequestSender, UserRequestSender},
+    },
 };
 
 pub fn init(
     api_settings: ApiSettings,
     event_subscriber: EventSubscriber,
     requests_tx: RequestSender,
+    user_requests_tx: UserRequestSender,
     shutdown: Watch,
 ) -> impl Future<Output = Result<(), RestError>> + 'static {
     tracing::debug!("initialize");
@@ -19,5 +23,11 @@ pub fn init(
     let message_handler =
         services::messages::PetMessageHandler::new(&event_subscriber, requests_tx);
 
-    serve(api_settings, fetcher, message_handler, shutdown)
+    serve(
+        api_settings,
+        fetcher,
+        message_handler,
+        shutdown,
+        user_requests_tx,
+    )
 }

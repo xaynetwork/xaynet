@@ -20,6 +20,7 @@ use warp::{Server, TlsServer};
 use crate::{
     services::{fetchers::Fetcher, messages::PetMessageHandler},
     settings::ApiSettings,
+    state_machine::requests::{UserRequest, UserRequestSender},
 };
 use xaynet_core::{crypto::ByteObject, ParticipantPublicKey};
 
@@ -43,6 +44,7 @@ pub async fn serve<F>(
     fetcher: F,
     pet_message_handler: PetMessageHandler,
     shutdown: Watch,
+    user_requests_tx: UserRequestSender,
 ) -> Result<(), RestError>
 where
     F: Fetcher + Sync + Send + 'static + Clone,
@@ -75,15 +77,23 @@ where
         .and(with_fetcher(fetcher.clone()))
         .and_then(handle_model);
 
-    let resume = warp::path!("control" / "resume").and(warp::patch());
-    let stop = warp::path!("control" / "stop").and(warp::patch());
-    let config = warp::path!("control" / "config").and(warp::patch());
+    let resume = warp::path!("control" / "resume")
+        .and(warp::patch())
+        .and(with_user_handler(user_requests_tx.clone()))
+        .and_then(handle_resume);
+    let pause = warp::path!("control" / "pause")
+        .and(warp::patch())
+        .and(with_user_handler(user_requests_tx.clone()))
+        .and_then(handle_pause);
+    // let config = warp::path!("control" / "config").and(warp::patch());
 
     let routes = message
         .or(round_params)
         .or(sum_dict)
         .or(seed_dict)
         .or(model)
+        .or(resume)
+        .or(pause)
         .recover(handle_reject)
         .with(warp::log("http"));
 
@@ -93,6 +103,28 @@ where
         .map_err(RestError::from);
     #[cfg(feature = "tls")]
     return run_https(routes, api_settings, shutdown).await;
+}
+
+fn with_user_handler(
+    handler: UserRequestSender,
+) -> impl Filter<Extract = (UserRequestSender,), Error = Infallible> + Clone {
+    warp::any().map(move || handler.clone())
+}
+
+async fn handle_resume(mut sender: UserRequestSender) -> Result<impl warp::Reply, Infallible> {
+    let sc = match sender.request(UserRequest::Resume).await {
+        Ok(()) => StatusCode::OK,
+        Err(_) => StatusCode::BAD_REQUEST,
+    };
+    Ok(sc)
+}
+
+async fn handle_pause(mut sender: UserRequestSender) -> Result<impl warp::Reply, Infallible> {
+    let sc = match sender.request(UserRequest::Pause).await {
+        Ok(()) => StatusCode::OK,
+        Err(_) => StatusCode::BAD_REQUEST,
+    };
+    Ok(sc)
 }
 
 /// Handles and responds to a PET message.

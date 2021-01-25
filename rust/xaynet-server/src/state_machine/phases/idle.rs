@@ -9,7 +9,8 @@ use crate::{
     state_machine::{
         events::DictionaryUpdate,
         phases::{Phase, PhaseName, PhaseState, Shared, Sum},
-        PhaseStateError, StateMachine,
+        PhaseStateError,
+        StateMachine,
     },
     storage::{Storage, StorageError},
 };
@@ -190,7 +191,6 @@ mod tests {
         let initial_round_params = events.params_listener().get_latest().event;
         let initial_keys = events.keys_listener().get_latest().event;
         let initial_seed = initial_round_params.seed.clone();
-
         let state_machine = state_machine.next().await.unwrap();
         assert!(state_machine.is_sum());
 
