@@ -35,8 +35,7 @@ use crate::{
         coordinator::CoordinatorState,
         events::EventPublisher,
         requests::{RequestReceiver, ResponseSender, StateMachineRequest},
-        RequestError,
-        StateMachine,
+        RequestError, StateMachine,
     },
     storage::Storage,
 };
@@ -262,8 +261,7 @@ where
         info!("in total {} messages rejected", metrics.rejected);
         info!("in total {} messages discarded", metrics.discarded);
 
-        debug!("purging outdated requests before transitioning");
-        self.purge_outdated_requests()
+        Ok(())
     }
 }
 
@@ -379,29 +377,29 @@ where
             //     }
             // }
 
-            if let Err(err) = self.run().await {
+            let run_res = self.run().await;
+            let purge_res = self.maybe_purge_outdated_requests();
+
+            if let Err(err) = run_res.and(purge_res) {
                 return Some(self.into_error_state(err));
-            }
+            };
 
             info!("phase ran successfully");
-
-            // if let Err(err) = self.purge_outdated_requests() {
-            //     warn!("failed to purge outdated requests");
-            //     // If we're already in the error state or shutdown state,
-            //     // ignore this error
-            //     match phase {
-            //         PhaseName::Error | PhaseName::Shutdown => {
-            //             debug!("already in error/shutdown state: ignoring error while purging outdated requests");
-            //         }
-            //         _ => return Some(self.into_error_state(err)),
-            //     }
-            // }
-
             info!("transitioning to the next phase");
             self.next()
         }
         .instrument(span)
         .await
+    }
+
+    fn maybe_purge_outdated_requests(&mut self) -> Result<(), PhaseStateError> {
+        match <Self as Phase<_>>::NAME {
+            PhaseName::Sum | PhaseName::Update | PhaseName::Sum2 => {
+                debug!("purging outdated requests before transitioning");
+                self.purge_outdated_requests()
+            }
+            _ => Ok(()),
+        }
     }
 
     /// Process all the pending requests that are now considered
