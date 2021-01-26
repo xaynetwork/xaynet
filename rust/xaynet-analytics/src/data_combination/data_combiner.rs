@@ -1,3 +1,4 @@
+use anyhow::{Error, Result};
 use chrono::{DateTime, Datelike, Duration, NaiveDate, Utc};
 use std::iter::empty;
 
@@ -36,10 +37,11 @@ where
         }
     }
 
-    pub fn init_data_points(&self) -> Vec<DataPoint> {
+    pub fn init_data_points(&self) -> Result<Vec<DataPoint>, Error> {
         let end_period = Utc::now();
-        let events = self.get_all_events();
-        let screen_routes = self.get_all_screen_routes();
+        let events = self.events_repo.get_all()?;
+        // let screen_routes = self.screen_routes_repo.get_all()?;
+        let screen_routes: Vec<String> = Vec::new(); // placeholder until ScreenRoute model is implemented: https://xainag.atlassian.net/browse/XN-1520
 
         let one_day_period_metadata =
             DataPointMetadata::new(Period::new(PeriodUnit::Days, 1), end_period);
@@ -54,7 +56,7 @@ where
             DataPointMetadata::new(Period::new(PeriodUnit::Days, 28), end_period),
         ];
 
-        empty::<DataPoint>()
+        let data_points = empty::<DataPoint>()
             .chain(self.init_screen_active_time_vars(
                 one_day_period_metadata,
                 events.clone(),
@@ -70,18 +72,8 @@ where
                 events.clone(),
             ))
             .chain(self.init_was_active_past_n_days_vars(was_active_past_days_metadatas, events))
-            .collect()
-    }
-
-    // TODO: return an iterator instead of Vec: https://xainag.atlassian.net/browse/XN-1517
-    fn get_all_events(&self) -> Vec<AnalyticsEvent> {
-        self.events_repo.get_all().unwrap_or_default()
-    }
-
-    /// TODO: don't use String here, handle via RouteController: https://xainag.atlassian.net/browse/XN-1535
-    fn get_all_screen_routes(&self) -> Vec<String> {
-        // self.screen_routes_repo.get_all().unwrap_or(Vec::new())
-        Vec::new() // placeholder until ScreenRoute model is implemented
+            .collect();
+        Ok(data_points)
     }
 
     fn init_screen_active_time_vars(

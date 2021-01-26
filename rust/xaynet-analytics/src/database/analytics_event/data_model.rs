@@ -4,23 +4,12 @@ use std::vec::IntoIter;
 
 use crate::database::common::{FieldProperty, IsarAdapter};
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum AnalyticsEventType {
-    AppEvent,
-    Error,
-    ScreenEnter,
-    UserAction,
-}
-
-impl From<AnalyticsEventType> for i32 {
-    fn from(event_type: AnalyticsEventType) -> i32 {
-        match event_type {
-            AnalyticsEventType::AppEvent => 0,
-            AnalyticsEventType::Error => 1,
-            AnalyticsEventType::ScreenEnter => 2,
-            AnalyticsEventType::UserAction => 3,
-        }
-    }
+    AppEvent = 0,
+    Error = 1,
+    ScreenEnter = 2,
+    UserAction = 3,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -62,7 +51,7 @@ impl IsarAdapter for AnalyticsEvent {
 
     fn write_with_object_builder(&self, object_builder: &mut ObjectBuilder) {
         object_builder.write_string(Some(&self.name));
-        object_builder.write_int(i32::from(self.event_type.clone()));
+        object_builder.write_int(self.event_type as i32);
         object_builder.write_string(Some(&self.timestamp.to_rfc3339()));
         match &self.screen_route {
             Some(screen) => object_builder.write_string(Some(&screen)),

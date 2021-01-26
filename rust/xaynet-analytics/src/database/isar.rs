@@ -70,7 +70,7 @@ impl IsarDb {
         schema
             .add_collection(get_collection_schema(
                 Self::ANALYTICS_EVENT_NAME,
-                AnalyticsEvent::into_field_properties(),
+                &mut AnalyticsEvent::into_field_properties(),
             )?)
             .map_err(|_| {
                 anyhow!(
@@ -96,30 +96,28 @@ impl IsarDb {
 
 fn get_collection_schema(
     name: &str,
-    field_properties: IntoIter<FieldProperty>,
+    field_properties: &mut IntoIter<FieldProperty>,
 ) -> Result<CollectionSchema, Error> {
-    let mut schema = CollectionSchema::new(&name);
-    field_properties.for_each(|prop| {
-        schema
-            .add_property(prop.name, prop.data_type)
-            .map_err(|_| {
-                anyhow!(
-                    "failed to add property {} to collection {}",
-                    prop.name,
-                    name
-                )
-            })
-            .ok();
-        schema
-            .add_index(&[prop.name], prop.is_unique, prop.has_hash_value)
-            .map_err(|_| {
-                anyhow!(
-                    "failed to add index for {} to collection {}",
-                    prop.name,
-                    name
-                )
-            })
-            .ok();
-    });
-    Ok(schema)
+    field_properties
+        .try_fold(CollectionSchema::new(&name), |mut schema, prop| {
+            schema
+                .add_property(prop.name, prop.data_type)
+                .map_err(|_| {
+                    anyhow!(
+                        "failed to add property {} to collection {}",
+                        prop.name,
+                        name
+                    )
+                })?;
+            schema
+                .add_index(&[prop.name], prop.is_unique, prop.has_hash_value)
+                .map_err(|_| {
+                    anyhow!(
+                        "failed to add index for {} to collection {}",
+                        prop.name,
+                        name
+                    )
+                })?;
+            Ok(schema)
+        })
 }
