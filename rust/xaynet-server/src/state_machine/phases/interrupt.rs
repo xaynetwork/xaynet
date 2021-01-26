@@ -90,7 +90,7 @@ where
         // what is not safe to update
         // model length -> will fail on client side if the length of local and global model are different
         // global model (partially) -> will fail on client side if the length or datatype is different -> same length & data type should be OK
-        // mask config data type -> will fail on client side if the length of local and global model are different
+        // mask config data type -> will fail on client side if the datatype of local and global model are different
 
         // what is safe to update
         // all pet settings
