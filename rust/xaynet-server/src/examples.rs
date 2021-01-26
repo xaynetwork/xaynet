@@ -72,7 +72,7 @@ aggregated global model, for the next round.
 
 This short description of the protocol skips over many details, but is
 sufficient for the purposes of this guide. For a much more complete
-specification, see the [white paper](https://www.xain.io/assets/XAIN-Whitepaper.pdf).
+specification, see the [white paper](https://uploads-ssl.webflow.com/5f0c5c0bb18a279f0a62919e/5f157004da6585f299fa542b_XayNet%20Whitepaper%202.1.pdf).
 
 # Coordinator
 

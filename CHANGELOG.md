@@ -147,7 +147,7 @@ The new crate will be published as `xaynet` under `v0.9.0`.
 
 ### Added
 
-This release introduces the integration of the [PET protocol](https://www.xain.io/assets/XAIN-Whitepaper.pdf) into the platform.
+This release introduces the integration of the [PET protocol](https://uploads-ssl.webflow.com/5f0c5c0bb18a279f0a62919e/5f157004da6585f299fa542b_XayNet%20Whitepaper%202.1.pdf) into the platform.
 
 **Note:**
 The integration of the PET protocol required a complete rewrite of the codebase and is therefore not compatible with the previous release.
