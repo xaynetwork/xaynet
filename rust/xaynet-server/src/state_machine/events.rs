@@ -47,6 +47,7 @@ pub enum DictionaryUpdate<D> {
 #[derive(Debug)]
 pub struct EventPublisher {
     /// Round ID that is attached to all the requests.
+    /// https://github.com/xaynetwork/xaynet/blob/f143731214f603fb38a1b6f9a85ca125d7fc0995/rust/src/services/messages/message_parser.rs#L118
     round_id: u64,
     keys_tx: EventBroadcaster<EncryptKeyPair>,
     params_tx: EventBroadcaster<RoundParameters>,
