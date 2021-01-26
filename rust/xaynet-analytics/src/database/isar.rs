@@ -98,26 +98,25 @@ fn get_collection_schema(
     name: &str,
     field_properties: &mut IntoIter<FieldProperty>,
 ) -> Result<CollectionSchema, Error> {
-    field_properties
-        .try_fold(CollectionSchema::new(&name), |mut schema, prop| {
-            schema
-                .add_property(prop.name, prop.data_type)
-                .map_err(|_| {
-                    anyhow!(
-                        "failed to add property {} to collection {}",
-                        prop.name,
-                        name
-                    )
-                })?;
-            schema
-                .add_index(&[prop.name], prop.is_unique, prop.has_hash_value)
-                .map_err(|_| {
-                    anyhow!(
-                        "failed to add index for {} to collection {}",
-                        prop.name,
-                        name
-                    )
-                })?;
-            Ok(schema)
-        })
+    field_properties.try_fold(CollectionSchema::new(&name), |mut schema, prop| {
+        schema
+            .add_property(prop.name, prop.data_type)
+            .map_err(|_| {
+                anyhow!(
+                    "failed to add property {} to collection {}",
+                    prop.name,
+                    name
+                )
+            })?;
+        schema
+            .add_index(&[prop.name], prop.is_unique, prop.has_hash_value)
+            .map_err(|_| {
+                anyhow!(
+                    "failed to add index for {} to collection {}",
+                    prop.name,
+                    name
+                )
+            })?;
+        Ok(schema)
+    })
 }
