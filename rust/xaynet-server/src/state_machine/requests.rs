@@ -7,7 +7,7 @@ use std::{
 };
 
 use derive_more::From;
-use futures::Stream;
+use futures::{future::FutureExt, Stream};
 use thiserror::Error;
 use tokio::sync::{mpsc, oneshot};
 use tracing::{trace, Span};
@@ -139,7 +139,7 @@ impl Stream for RequestReceiver {
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
         trace!("RequestReceiver: polling");
-        Pin::new(&mut self.get_mut().0).poll_next(cx)
+        Pin::new(&mut self.get_mut().0).poll_recv(cx)
     }
 }
 
@@ -156,7 +156,7 @@ impl RequestReceiver {
     /// Closes the `Request` channel.
     /// See [the `tokio` documentation][close] for more information.
     ///
-    /// [close]: https://docs.rs/tokio/0.2.24/tokio/sync/mpsc/struct.UnboundedReceiver.html#method.close
+    /// [close]: https://docs.rs/tokio/1.1.0/tokio/sync/mpsc/struct.UnboundedReceiver.html#method.close
     pub fn close(&mut self) {
         self.0.close()
     }
@@ -164,19 +164,20 @@ impl RequestReceiver {
     /// Receives the next request.
     /// See [the `tokio` documentation][receive] for more information.
     ///
-    /// [receive]: https://docs.rs/tokio/0.2.24/tokio/sync/mpsc/struct.UnboundedReceiver.html#method.recv
+    /// [receive]: https://docs.rs/tokio/1.1.0/tokio/sync/mpsc/struct.UnboundedReceiver.html#method.recv
     pub async fn recv(&mut self) -> Option<(StateMachineRequest, Span, ResponseSender)> {
         self.0.recv().await
     }
 
-    /// Try to retrieve the next request without blocked
-    /// See [the `tokio` documentation][try_receive] for more information.
-    ///
-    /// [try_receive]: https://docs.rs/tokio/0.2.24/tokio/sync/mpsc/struct.UnboundedReceiver.html#method.try_recv
-    pub fn try_recv(
-        &mut self,
-    ) -> Result<(StateMachineRequest, Span, ResponseSender), tokio::sync::mpsc::error::TryRecvError>
-    {
-        self.0.try_recv()
+    /// Try to retrieve the next request without blocking
+    pub fn try_recv(&mut self) -> Option<Option<(StateMachineRequest, Span, ResponseSender)>> {
+        // Note `try_recv` (tokio 0.2.x) or `recv().now_or_never()` (tokio 1.x)
+        // has an implementation bug where previously sent messages may not be
+        // available immediately.
+        // Related issue: https://github.com/tokio-rs/tokio/issues/3350
+        // At the moment it behaves like `try_recv`, but we should check if this
+        // bug is a problem for us. But first we should replace the unbounded channel canal with
+        // a bounded channel (XN-1162)
+        self.0.recv().now_or_never()
     }
 }

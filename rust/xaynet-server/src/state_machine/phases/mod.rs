@@ -179,13 +179,12 @@ where
 {
     /// Processes requests for as long as the given duration.
     async fn process_during(&mut self, dur: tokio::time::Duration) -> Result<(), PhaseStateError> {
-        // even though this is called a `Delay` it is actually a fixed deadline, hence the loop
-        // below doesn't start the delay again at each iteration and just checks for the deadline
-        let mut delay = tokio::time::delay_for(dur);
+        let deadline = tokio::time::sleep(dur);
+        tokio::pin!(deadline);
 
         loop {
             tokio::select! {
-                _ = &mut delay => {
+                _ = &mut deadline => {
                     debug!("duration elapsed");
                     break Ok(());
                 }
@@ -356,12 +355,12 @@ where
         &mut self,
     ) -> Result<Option<(StateMachineRequest, Span, ResponseSender)>, PhaseStateError> {
         match self.shared.request_rx.try_recv() {
-            Ok(item) => Ok(Some(item)),
-            Err(tokio::sync::mpsc::error::TryRecvError::Empty) => {
+            Some(Some(item)) => Ok(Some(item)),
+            None => {
                 debug!("no pending request");
                 Ok(None)
             }
-            Err(tokio::sync::mpsc::error::TryRecvError::Closed) => {
+            Some(None) => {
                 warn!("failed to get next pending request: channel shut down");
                 Err(PhaseStateError::RequestChannel(
                     "all message senders have been dropped!",
