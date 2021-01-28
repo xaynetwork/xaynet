@@ -6,13 +6,13 @@ use crate::database::{
     isar::IsarDb,
 };
 
-pub struct AnalyticsEventRepo {
-    collection_name: String,
-    db: IsarDb,
+pub struct AnalyticsEventRepo<'r> {
+    collection_name: &'r str,
+    db: &'r IsarDb,
 }
 
-impl AnalyticsEventRepo {
-    pub fn new(collection_name: String, db: IsarDb) -> Self {
+impl<'r> AnalyticsEventRepo<'r> {
+    pub fn new(collection_name: &'r str, db: &'r IsarDb) -> Self {
         Self {
             collection_name,
             db,
@@ -20,9 +20,9 @@ impl AnalyticsEventRepo {
     }
 }
 
-impl Repo<AnalyticsEvent> for AnalyticsEventRepo {
+impl<'r> Repo<AnalyticsEvent> for AnalyticsEventRepo<'r> {
     fn add(&self, event: AnalyticsEvent) -> Result<(), Error> {
-        let mut object_builder = self.db.get_object_builder(&self.collection_name)?;
+        let mut object_builder = self.db.get_object_builder(self.collection_name)?;
         event.write_with_object_builder(&mut object_builder);
         self.db
             .put(&self.collection_name, object_builder.finish().as_bytes())
@@ -34,6 +34,7 @@ impl Repo<AnalyticsEvent> for AnalyticsEventRepo {
         let _events_as_bytes = self.db.get_all_as_bytes(&self.collection_name)?;
 
         // TODO: not sure how to proceed to parse [u8] using the collection schema. didn't find examples in Isar
+        // implement when possible: https://xainag.atlassian.net/browse/XN-1604
         unimplemented!()
     }
 }
