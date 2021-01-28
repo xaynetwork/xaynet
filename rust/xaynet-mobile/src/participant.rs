@@ -1,6 +1,7 @@
 //! Participant implementation
 use std::{convert::TryInto, sync::Arc};
 
+use futures::future::FutureExt;
 use thiserror::Error;
 use tokio::{
     runtime::Runtime,
@@ -63,16 +64,22 @@ impl Events {
 
     /// Pop the next event. If no event has been received, return `None`.
     fn next(&mut self) -> Option<Event> {
-        match self.0.try_recv() {
-            Ok(event) => Some(event),
-            Err(mpsc::error::TryRecvError::Empty) => None,
+        // Note `try_recv` (tokio 0.2.x) or `recv().now_or_never()` (tokio 1.x)
+        // has an implementation bug where previously sent messages may not be
+        // available immediately.
+        // Related issue: https://github.com/tokio-rs/tokio/issues/3350
+        // However, that should not be in issue for us.
+        let next = self.0.recv().now_or_never()?;
+        if next.is_none() {
+            // if next is `none`, the channel is closed
             // This can happen if:
             //  1. the state machine crashed. In that case it's OK to crash.
             //  2. `next` was called whereas the state machine was
             //     dropped, which is an error. So crashing is OK as
             //     well.
-            Err(mpsc::error::TryRecvError::Closed) => panic!("notifier dropped"),
+            panic!("notifier dropped")
         }
+        next
     }
 }
 
@@ -219,8 +226,7 @@ impl Participant {
     }
 
     fn runtime() -> Result<Runtime, InitError> {
-        tokio::runtime::Builder::new()
-            .basic_scheduler()
+        tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
             .map_err(InitError::Runtime)

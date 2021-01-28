@@ -26,27 +26,24 @@ paste = "1.0.4"
 serde = { version = "1.0.123", features = ["derive"] }
 sodiumoxide = "0.2.6"
 thiserror = "1.0.23"
-# TODO (XN-1372): upgrade
 # TODO: move to dev-dependencies once concurrent_futures.rs was moved to the e2e package
-tokio = { version = "0.2.24", features = ["rt-core", "macros"] }
+tokio = { version = "1.1.0", features = ["rt", "macros"] }
 tracing = "0.1.22"
 url = "2.2.0"
 xaynet-core = { path = "../xaynet-core", version = "0.2.0" }
 
 # feature: reqwest client
-# TODO (XN-1372): can't upgrade yet because of tokio
-reqwest = { version = "0.10.10", default-features = false, optional = true }
+reqwest = { version = "0.11.0", default-features = false, optional = true }
 # This has to match the version used by reqwest. It would be nice if
 # reqwest just re-exported it
-bytes = { version = "0.5.6", optional = true }
+bytes = { version = "1.0.1", optional = true }
 rand = "0.8.3"
 
 [dev-dependencies]
 mockall = "0.9.0"
 num = { version = "0.3.1", features = ["serde"] }
 serde_json = "1.0.61"
-# TODO (XN-1372): can't upgrade yet because of tokio
-tokio-test = "0.2.1"
+tokio-test = "0.4.0"
 xaynet-core = { path = "../xaynet-core", features = ["testutils"] }
 
 [features]

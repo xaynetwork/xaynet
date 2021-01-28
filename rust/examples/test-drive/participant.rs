@@ -1,7 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use async_trait::async_trait;
-use tokio::{sync::mpsc, time::delay_for};
+use tokio::{sync::mpsc, time::sleep};
 use tracing::{info, warn};
 
 use xaynet_core::mask::Model;
@@ -53,7 +53,7 @@ impl Agent {
         loop {
             self = match self.0.transition().await {
                 TransitionOutcome::Pending(state_machine) => {
-                    delay_for(tick).await;
+                    sleep(tick).await;
                     Self(state_machine)
                 }
                 TransitionOutcome::Complete(state_machine) => Self(state_machine),
