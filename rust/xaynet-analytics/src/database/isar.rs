@@ -2,22 +2,11 @@ use anyhow::{anyhow, Error, Result};
 use isar_core::{
     collection::IsarCollection,
     instance::IsarInstance,
-    object::{
-        data_type::DataType,
-        isar_object::IsarObject,
-        object_builder::ObjectBuilder,
-        object_id::ObjectId,
-    },
+    object::{isar_object::IsarObject, object_builder::ObjectBuilder, object_id::ObjectId},
     schema::{collection_schema::CollectionSchema, Schema},
     txn::IsarTxn,
 };
-use std::{sync::Arc, vec::IntoIter};
-
-use crate::database::{
-    analytics_event::data_model::AnalyticsEvent,
-    common::{FieldProperty, IsarAdapter},
-    screen_route::data_model::ScreenRoute,
-};
+use std::sync::Arc;
 
 pub struct IsarDb {
     instance: Arc<IsarInstance>,
@@ -25,13 +14,15 @@ pub struct IsarDb {
 
 impl IsarDb {
     const MAX_SIZE: usize = 10000000;
-    const ANALYTICS_EVENT_COLLECTION_NAME: &'static str = "analytics_events";
-    const SCREEN_ROUTE_COLLECTION_NAME: &'static str = "screen_route";
 
-    pub fn new(path: &str) -> Result<IsarDb, Error> {
-        IsarInstance::open(path, IsarDb::MAX_SIZE, IsarDb::get_schema()?)
-            .map_err(|_| anyhow!("failed to create IsarInstance"))
-            .map(|instance| IsarDb { instance })
+    pub fn new(path: &str, collection_schemas: Vec<CollectionSchema>) -> Result<IsarDb, Error> {
+        IsarInstance::open(
+            path,
+            IsarDb::MAX_SIZE,
+            IsarDb::get_schema(collection_schemas)?,
+        )
+        .map_err(|_| anyhow!("failed to create IsarInstance"))
+        .map(|instance| IsarDb { instance })
     }
 
     pub fn get_all_as_bytes(
@@ -90,32 +81,22 @@ impl IsarDb {
         Ok(self.get_collection(collection_name)?.new_string_oid(oid))
     }
 
-    // TODO: move this logic to the Repo within the AnalyticsController ticket: https://xainag.atlassian.net/browse/XN-1559
-    fn get_schema() -> Result<Schema, Error> {
-        let mut schema = Schema::new();
-        schema
-            .add_collection(get_collection_schema(
-                Self::ANALYTICS_EVENT_COLLECTION_NAME,
-                &mut AnalyticsEvent::into_field_properties(),
-            )?)
-            .map_err(|_| {
-                anyhow!(
-                    "failed to add collection {} to schema",
-                    Self::ANALYTICS_EVENT_COLLECTION_NAME
-                )
-            })?;
-        schema
-            .add_collection(get_collection_schema(
-                Self::SCREEN_ROUTE_COLLECTION_NAME,
-                &mut ScreenRoute::into_field_properties(),
-            )?)
-            .map_err(|_| {
-                anyhow!(
-                    "failed to add collection {} to schema",
-                    Self::SCREEN_ROUTE_COLLECTION_NAME
-                )
-            })?;
-        Ok(schema)
+    pub fn dispose(self) -> Result<(), Error> {
+        match self.instance.close() {
+            Some(_) => Err(anyhow!("err")),
+            None => Ok(()),
+        }
+    }
+
+    fn get_schema(collection_schemas: Vec<CollectionSchema>) -> Result<Schema, Error> {
+        collection_schemas
+            .iter()
+            .try_fold(Schema::new(), |mut schema, collection_schema| {
+                schema
+                    .add_collection(collection_schema.to_owned())
+                    .map_err(|_| anyhow!("failed to add collection schema to instance schema"))?;
+                Ok(schema)
+            })
     }
 
     fn get_collection(&self, collection_name: &str) -> Result<&IsarCollection, Error> {
@@ -129,41 +110,4 @@ impl IsarDb {
             .begin_txn(write)
             .map_err(|_| anyhow!("failed to begin transaction"))
     }
-}
-
-fn get_collection_schema(
-    name: &str,
-    field_properties: &mut IntoIter<FieldProperty>,
-) -> Result<CollectionSchema, Error> {
-    field_properties.try_fold(
-        CollectionSchema::new(&name, &format!("{}_oid", &name), DataType::String),
-        |mut schema, prop| {
-            schema
-                .add_property(&prop.name, prop.data_type)
-                .map_err(|_| {
-                    anyhow!(
-                        "failed to add property {} to collection {}",
-                        prop.name,
-                        name
-                    )
-                })?;
-            schema
-                .add_index(
-                    &[(
-                        &prop.name,
-                        Some(prop.string_index_type),
-                        prop.is_case_sensitive,
-                    )],
-                    prop.is_unique,
-                )
-                .map_err(|_| {
-                    anyhow!(
-                        "failed to add index for {} to collection {}",
-                        prop.name,
-                        name
-                    )
-                })?;
-            Ok(schema)
-        },
-    )
 }
