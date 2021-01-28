@@ -47,7 +47,7 @@
 //! ```rust
 //! use std::time::Duration;
 //!
-//! use tokio::time::delay_for;
+//! use tokio::time::sleep;
 //! use xaynet_sdk::{StateMachine, TransitionOutcome};
 //!
 //! async fn run_agent(mut state_machine: StateMachine, tick: Duration) {
@@ -57,7 +57,7 @@
 //!             // either from the coordinator or from the
 //!             // participant. Let's wait a little and try again
 //!             TransitionOutcome::Pending(state_machine) => {
-//!                 delay_for(tick).await;
+//!                 sleep(tick).await;
 //!                 state_machine
 //!             }
 //!             // The state machine moved forward in the PET protocol.
@@ -97,7 +97,7 @@
 //! };
 //!
 //! use async_trait::async_trait;
-//! use tokio::time::delay_for;
+//! use tokio::time::sleep;
 //! use xaynet_core::{
 //!     crypto::SigningKeyPair,
 //!     mask::{BoundType, DataType, FromPrimitives, GroupType, MaskConfig, Model, ModelType},
@@ -115,7 +115,7 @@
 //!     loop {
 //!         state_machine = match state_machine.transition().await {
 //!             TransitionOutcome::Pending(state_machine) => {
-//!                 delay_for(tick.clone()).await;
+//!                 sleep(tick.clone()).await;
 //!                 state_machine
 //!             }
 //!             TransitionOutcome::Complete(state_machine) => state_machine,

@@ -68,7 +68,7 @@ impl Events {
         // has an implementation bug where previously sent messages may not be
         // available immediately.
         // Related issue: https://github.com/tokio-rs/tokio/issues/3350
-        // However, that should not be in issue for us.
+        // However, that should not be an issue for us.
         let next = self.0.recv().now_or_never()?;
         if next.is_none() {
             // if next is `none`, the channel is closed
