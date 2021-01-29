@@ -276,9 +276,9 @@ where
         (None, None) => {}
         _ => return Err(RestError::InvalidTlsConfig),
     }
-    // if let Some(trust_anchor) = tls_client_auth {
-    //     server = server.client_auth_required_path(trust_anchor);
-    // }
+    if let Some(trust_anchor) = tls_client_auth {
+        server = server.client_auth_required_path(trust_anchor);
+    }
     Ok(server)
 }
 

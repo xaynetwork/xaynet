@@ -457,7 +457,7 @@ pub struct ApiSettings {
     /// ```text
     /// XAYNET_API__TLS_CLIENT_AUTH=path/to/tls/files/trust_anchor.pem
     /// ```
-    pub(crate) tls_client_auth: Option<PathBuf>,
+    pub tls_client_auth: Option<PathBuf>,
 }
 
 #[cfg(feature = "tls")]
