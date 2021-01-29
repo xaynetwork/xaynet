@@ -34,15 +34,24 @@ impl AnalyticsEvent {
             screen_route: screen_route.into(),
         }
     }
+
+    fn add_screen_route(&self, object_builder: &mut ObjectBuilder) {
+        match &self.screen_route {
+            Some(screen) => object_builder.write_string(Some(&screen)),
+            None => object_builder.write_null(),
+        };
+    }
 }
 
 impl IsarAdapter for AnalyticsEvent {
     fn into_field_properties() -> IntoIter<FieldProperty> {
+        // NOTE: properties need to be ordered by type. Properties with the same type need to be ordered alphabetically
+        // https://github.com/isar/isar-core/blob/1ea9f27edfd6e3708daa47ac6a17995b628f31a6/src/schema/collection_schema.rs
         vec![
-            FieldProperty::new("name", DataType::String, None, None),
             FieldProperty::new("event_type", DataType::Int, None, None),
-            FieldProperty::new("timestamp", DataType::String, None, None),
+            FieldProperty::new("name", DataType::String, None, None),
             FieldProperty::new("screen_route", DataType::String, None, None),
+            FieldProperty::new("timestamp", DataType::String, None, None),
             /* TODO: when ScreenRoute will be a struct, the above IndexProperty will need to reference the id of the ScreenRoute object, like:
              * IndexProperty::new("screen_route_id", DataType::Int, None, None), */
         ]
@@ -50,12 +59,9 @@ impl IsarAdapter for AnalyticsEvent {
     }
 
     fn write_with_object_builder(&self, object_builder: &mut ObjectBuilder) {
-        object_builder.write_string(Some(&self.name));
         object_builder.write_int(self.event_type as i32);
+        object_builder.write_string(Some(&self.name));
+        self.add_screen_route(object_builder);
         object_builder.write_string(Some(&self.timestamp.to_rfc3339()));
-        match &self.screen_route {
-            Some(screen) => object_builder.write_string(Some(&screen)),
-            None => object_builder.write_null(),
-        };
     }
 }

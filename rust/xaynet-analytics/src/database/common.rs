@@ -9,10 +9,7 @@ pub trait IsarAdapter: Sized {
     fn write_with_object_builder(&self, object_builder: &mut ObjectBuilder);
 }
 
-pub trait Repo<T>
-where
-    T: IsarAdapter,
-{
+pub trait Repo<T> {
     fn add(&self, object: T) -> Result<(), Error>;
 
     fn get_all(&self) -> Result<Vec<T>, Error>;
