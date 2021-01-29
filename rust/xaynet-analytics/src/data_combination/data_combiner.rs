@@ -12,19 +12,27 @@ use crate::{
         Period,
         PeriodUnit,
     },
-    data_provision::{analytics_event::AnalyticsEvent, data_provider::DataProvider},
+    database::{
+        analytics_event::data_model::AnalyticsEvent,
+        common::{MockObject, Repo},
+    },
 };
 
-pub struct DataCombiner<R> {
-    repo: R,
+pub struct DataCombiner<E, S> {
+    events_repo: E,
+    screen_routes_repo: S,
 }
 
-impl<R> DataCombiner<R>
+impl<E, S> DataCombiner<E, S>
 where
-    R: DataProvider,
+    E: Repo<AnalyticsEvent>,
+    S: Repo<MockObject>, /* TODO: implement ScreenRoute data model and its repo: https://xainag.atlassian.net/browse/XN-1520 */
 {
-    pub fn new(repo: R) -> Self {
-        Self { repo }
+    pub fn new(events_repo: E, screen_routes_repo: S) -> Self {
+        Self {
+            events_repo,
+            screen_routes_repo,
+        }
     }
 
     pub fn init_data_points(&self) -> Vec<DataPoint> {
@@ -66,12 +74,19 @@ where
 
     // TODO: return an iterator instead of Vec: https://xainag.atlassian.net/browse/XN-1517
     fn get_all_events(&self) -> Vec<AnalyticsEvent> {
-        self.repo.get_all_events()
+        match self.events_repo.get_all() {
+            Ok(events) => events,
+            Err(_) => Vec::new(),
+        }
     }
 
     /// TODO: don't use String here, handle via RouteController: https://xainag.atlassian.net/browse/XN-1535
     fn get_all_screen_routes(&self) -> Vec<String> {
-        self.repo.get_all_routes()
+        let empty_mock_vector: Vec<String> = Vec::new();
+        match self.screen_routes_repo.get_all() {
+            Ok(_) => empty_mock_vector,
+            Err(_) => empty_mock_vector,
+        }
     }
 
     fn init_screen_active_time_vars(
@@ -247,15 +262,18 @@ mod tests {
                 PeriodUnit,
             },
         },
-        data_provision::{
-            analytics_event::{AnalyticsEvent, AnalyticsEventType},
-            data_provider::MockAnalyticsDataProvider,
+        database::{
+            analytics_event::{
+                data_model::{AnalyticsEvent, AnalyticsEventType},
+                repo::MockAnalyticsEventRepo,
+            },
+            common::MockRepo,
         },
     };
 
     #[test]
     fn test_init_screen_active_time_vars() {
-        let data_combiner = DataCombiner::new(MockAnalyticsDataProvider {});
+        let data_combiner = DataCombiner::new(MockAnalyticsEventRepo {}, MockRepo {});
         let end_period = DateTime::parse_from_rfc3339("2021-01-01T01:01:00-00:00")
             .unwrap()
             .with_timezone(&Utc);
@@ -287,7 +305,7 @@ mod tests {
 
     #[test]
     fn test_init_screen_enter_count_vars() {
-        let data_combiner = DataCombiner::new(MockAnalyticsDataProvider {});
+        let data_combiner = DataCombiner::new(MockAnalyticsEventRepo {}, MockRepo {});
         let end_period = DateTime::parse_from_rfc3339("2021-02-02T02:02:00-00:00")
             .unwrap()
             .with_timezone(&Utc);
@@ -310,7 +328,7 @@ mod tests {
 
     #[test]
     fn test_init_was_active_each_past_period_vars() {
-        let data_combiner = DataCombiner::new(MockAnalyticsDataProvider {});
+        let data_combiner = DataCombiner::new(MockAnalyticsEventRepo {}, MockRepo {});
         let end_period = DateTime::parse_from_rfc3339("2021-03-03T03:03:00-00:00")
             .unwrap()
             .with_timezone(&Utc);
@@ -332,7 +350,7 @@ mod tests {
 
     #[test]
     fn test_init_was_active_past_n_days_vars() {
-        let data_combiner = DataCombiner::new(MockAnalyticsDataProvider {});
+        let data_combiner = DataCombiner::new(MockAnalyticsEventRepo {}, MockRepo {});
         let end_period = DateTime::parse_from_rfc3339("2021-04-04T04:04:00-00:00")
             .unwrap()
             .with_timezone(&Utc);
@@ -353,7 +371,7 @@ mod tests {
 
     #[test]
     fn test_filter_events_in_this_period() {
-        let data_combiner = DataCombiner::new(MockAnalyticsDataProvider {});
+        let data_combiner = DataCombiner::new(MockAnalyticsEventRepo {}, MockRepo {});
         let end_period = DateTime::parse_from_rfc3339("2021-05-05T05:05:00-00:00")
             .unwrap()
             .with_timezone(&Utc);
@@ -384,7 +402,7 @@ mod tests {
 
     #[test]
     fn test_get_start_of_period_one_day() {
-        let data_combiner = DataCombiner::new(MockAnalyticsDataProvider {});
+        let data_combiner = DataCombiner::new(MockAnalyticsEventRepo {}, MockRepo {});
         let end_period = DateTime::parse_from_rfc3339("2021-01-01T00:00:00-00:00")
             .unwrap()
             .with_timezone(&Utc);
@@ -396,7 +414,7 @@ mod tests {
 
     #[test]
     fn test_get_start_of_period_one_day_with_override() {
-        let data_combiner = DataCombiner::new(MockAnalyticsDataProvider {});
+        let data_combiner = DataCombiner::new(MockAnalyticsEventRepo {}, MockRepo {});
         let end_period = DateTime::parse_from_rfc3339("2021-02-02T00:00:00-00:00")
             .unwrap()
             .with_timezone(&Utc);
@@ -408,7 +426,7 @@ mod tests {
 
     #[test]
     fn test_get_start_of_period_one_week() {
-        let data_combiner = DataCombiner::new(MockAnalyticsDataProvider {});
+        let data_combiner = DataCombiner::new(MockAnalyticsEventRepo {}, MockRepo {});
         let end_period = DateTime::parse_from_rfc3339("2021-03-03T00:00:00-00:00")
             .unwrap()
             .with_timezone(&Utc);
@@ -420,7 +438,7 @@ mod tests {
 
     #[test]
     fn test_get_start_of_period_one_month() {
-        let data_combiner = DataCombiner::new(MockAnalyticsDataProvider {});
+        let data_combiner = DataCombiner::new(MockAnalyticsEventRepo {}, MockRepo {});
         let end_period = DateTime::parse_from_rfc3339("2021-04-04T00:00:00-00:00")
             .unwrap()
             .with_timezone(&Utc);
@@ -432,7 +450,7 @@ mod tests {
 
     #[test]
     fn text_filter_events_before_end_of_period() {
-        let data_combiner = DataCombiner::new(MockAnalyticsDataProvider {});
+        let data_combiner = DataCombiner::new(MockAnalyticsEventRepo {}, MockRepo {});
         let end_of_period = Utc::now();
         let event_before = AnalyticsEvent::new(
             "test1",
@@ -454,7 +472,7 @@ mod tests {
 
     #[test]
     fn test_get_events_single_route() {
-        let data_combiner = DataCombiner::new(MockAnalyticsDataProvider {});
+        let data_combiner = DataCombiner::new(MockAnalyticsEventRepo {}, MockRepo {});
         let timestamp = Utc::now();
         let home_route = "home_screen".to_string();
         let home_route_event = AnalyticsEvent::new(

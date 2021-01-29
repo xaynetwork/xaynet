@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 
-use crate::data_provision::analytics_event::AnalyticsEvent;
+use crate::database::analytics_event::data_model::AnalyticsEvent;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum PeriodUnit {
