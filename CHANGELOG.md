@@ -33,6 +33,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Update to `rusoto_s3` `v0.46.x`
 - Update to `tower` `v0.4.x`
 - Update to `redis` `v0.19.x`
+- Enable optional server side client authentication via tls
 
 ## [0.11.0] - 2021-01-18
 
