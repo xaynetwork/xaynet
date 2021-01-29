@@ -2,7 +2,6 @@
 name = "examples"
 version = "0.0.0"
 authors = ["Xayn Engineering <engineering@xaynet.dev>"]
-publish = false
 edition = "2018"
 description = "The Xayn Network project is building a privacy layer for machine learning so that AI projects can meet compliance such as GDPR and CCPA. The approach relies on Federated Learning as enabling technology that allows production AI applications to be fully privacy compliant."
 readme = "../../README.md"
@@ -11,6 +10,7 @@ repository = "https://github.com/xaynetwork/xaynet/"
 license-file = "../../LICENSE"
 keywords = ["federated-learning", "fl", "ai", "machine-learning"]
 categories = ["science", "cryptography"]
+publish = false
 
 # https://github.com/http-rs/tide/issues/225
 # https://github.com/dependabot/dependabot-core/issues/1156
