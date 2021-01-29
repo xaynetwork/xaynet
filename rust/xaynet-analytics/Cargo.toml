@@ -10,10 +10,11 @@ repository = "https://github.com/xaynetwork/xaynet/"
 license-file = "../../LICENSE"
 keywords = ["federated-learning", "fl", "ai", "machine-learning"]
 categories = ["science", "cryptography"]
+publish = false
 
-[package.metadata]
-# minimum supported rust version
-msrv = "1.48.0"
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
 chrono = "0.4.19"

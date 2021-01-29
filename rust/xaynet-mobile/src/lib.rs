@@ -1,4 +1,4 @@
-#![cfg_attr(doc, forbid(warnings))]
+#![cfg_attr(doc, forbid(broken_intra_doc_links, private_intra_doc_links))]
 #![doc(
     html_logo_url = "https://raw.githubusercontent.com/xaynetwork/xaynet/master/assets/xaynet_banner.png",
     html_favicon_url = "https://raw.githubusercontent.com/xaynetwork/xaynet/master/assets/favicon.png",
