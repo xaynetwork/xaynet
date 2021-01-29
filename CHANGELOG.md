@@ -24,6 +24,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Update to `tokio` `v1.x`
 - Update to `reqwest` `v0.11.x`
 
+#### `xaynet-server`
+
+- Update to `tokio` `v1.x`
+- Update to `warp` `v0.3.x`
+- Update to `bytes` `v1.x`
+- Update to `rusoto_core` `v0.46.x`
+- Update to `rusoto_s3` `v0.46.x`
+- Update to `tower` `v0.4.x`
+- Update to `redis` `v0.19.x`
+
 ## [0.11.0] - 2021-01-18
 
 ### Added

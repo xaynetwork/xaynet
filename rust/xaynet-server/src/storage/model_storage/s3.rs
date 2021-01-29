@@ -222,6 +222,7 @@ impl ModelStorage for Client {
         let req = HeadBucketRequest {
             // we can't use an empty string because S3/Minio would return BAD_REQUEST
             bucket: self.buckets.global_models.clone(),
+            ..Default::default()
         };
         let res = self.client.head_bucket(req).await;
 
@@ -358,6 +359,7 @@ pub(in crate) mod tests {
         async fn delete_bucket(&self, bucket: &str) -> Result<(), RusotoError<DeleteBucketError>> {
             let req = DeleteBucketRequest {
                 bucket: bucket.to_string(),
+                ..Default::default()
             };
             self.client.delete_bucket(req).await
         }

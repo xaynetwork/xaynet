@@ -1,12 +1,7 @@
 //! This module provides the `StateMachine`, `Events`, `EventSubscriber` and `EventPublisher` types.
 
-use std::{
-    pin::Pin,
-    sync::Arc,
-    task::{Context, Poll},
-};
+use std::sync::Arc;
 
-use futures::Stream;
 use tokio::sync::watch;
 
 use crate::state_machine::phases::PhaseName;
@@ -209,8 +204,7 @@ impl EventSubscriber {
 
 /// A listener for coordinator events. It can be used to either
 /// retrieve the latest `Event<E>` emitted by the coordinator (with
-/// `EventListener::get_latest`) or to wait for events (since
-/// `EventListener<E>` implements `Stream<Item=Event<E>`.
+/// `EventListener::get_latest`).
 #[derive(Debug, Clone)]
 pub struct EventListener<E>(watch::Receiver<Event<E>>);
 
@@ -229,14 +223,6 @@ where
     }
 }
 
-impl<E: Clone> Stream for EventListener<E> {
-    type Item = Event<E>;
-
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-        Pin::new(&mut self.0).poll_next(cx)
-    }
-}
-
 /// A channel to send `Event<E>` to all the `EventListener<E>`.
 #[derive(Debug)]
 pub struct EventBroadcaster<E>(watch::Sender<Event<E>>);
@@ -245,7 +231,7 @@ impl<E> EventBroadcaster<E> {
     /// Send `event` to all the `EventListener<E>`
     fn broadcast(&self, event: Event<E>) {
         // We don't care whether there's a listener or not
-        let _ = self.0.broadcast(event);
+        let _ = self.0.send(event);
     }
 }
 

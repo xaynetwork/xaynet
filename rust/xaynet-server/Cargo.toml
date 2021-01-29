@@ -21,8 +21,7 @@ async-trait = "0.1.42"
 base64 = "0.13.0"
 bincode = "1.3.1"
 bitflags = "1.2.1"
-# TODO (XN-1527): can't upgrade yet because of warp
-bytes = "0.5.6"
+bytes = "1.0.1"
 config = "0.10.1"
 chrono = "0.4.19"
 derive_more = { version = "0.99.11", default-features = false, features = [
@@ -39,7 +38,7 @@ displaydoc = "0.1.7"
 futures = "0.3.12"
 hex = "0.4.2"
 http = "0.2.3"
-influxdb = "0.3.0"
+influxdb = { version = "0.3.0", default-features = false, features = ["h1-client"] }
 num = { version = "0.3.1", features = ["serde"] }
 num_enum = "0.5.1"
 once_cell = "1.5.2"
@@ -48,52 +47,46 @@ rand = "0.8.3"
 rand_chacha = "0.3.0"
 serde = { version = "1.0.123", features = ["derive"] }
 rayon = "1.5.0"
-# TODO (XN-1372): can't upgrade yet because of tokio
-redis = { version = "0.17.0", default-features = false, features = [
+redis = { version = "0.19.0", default-features = false, features = [
     "aio",
     "connection-manager",
     "script",
-    "tokio-rt-core",
+    "tokio-comp",
 ] }
 sodiumoxide = "0.2.6"
 structopt = "0.3.21"
 thiserror = "1.0.23"
-# TODO (XN-1372): upgrade
-tokio = { version = "0.2.24", features = [
+tokio = { version = "1.1.0", features = [
     "macros",
-    "rt-core",
-    "rt-threaded",
+    "rt-multi-thread",
     "signal",
-    "stream",
     "sync",
-    "tcp",
+    "net",
     "time",
 ] }
-# TODO (XN-1372): can't upgrade yet because of tokio
-tower = "0.3.1"
+tower = { version = "0.4.4", default-features = false, features = [
+    "buffer",
+    "load-shed",
+    "limit"
+] }
 tracing = "0.1.22"
 tracing-futures = "0.2.4"
 tracing-subscriber = "0.2.15"
 validator = { version = "0.12.0", features = ["derive"] }
-# warp = { git = "https://github.com/seanmonstar/warp", rev = "42fd14fdab8145d27ae770fe4b5c843a99bc2a44" }
-warp = "0.2.5"
+warp = "0.3.0"
 xaynet-core = { path = "../xaynet-core", version = "0.2.0" }
 
 # feature: model-persistence
 fancy-regex = { version = "0.4.1", optional = true }
-# TODO (XN-1372): can't upgrade yet because of tokio
-rusoto_core = { version = "0.45.0", optional = true }
-# TODO (XN-1372): can't upgrade yet because of tokio
-rusoto_s3 = { version = "0.45.0", optional = true }
+rusoto_core = { version = "0.46.0", optional = true }
+rusoto_s3 = { version = "0.46.0", optional = true }
 
 [dev-dependencies]
 # We can't run tarpaulin with the flag `--test-threads=1` because it can trigger a segfault:
 # https://github.com/xd009642/tarpaulin/issues/317. A workaround is to use `serial_test`.
 serial_test = "0.5.1"
-# TODO (XN-1372): can't upgrade yet because of tokio
-tokio-test = "0.2.1"
-# TODO (XN-1372): can't upgrade yet because of tokio
-tower-test = "0.3.0"
+tokio-test = "0.4.0"
+tower-test = "0.4.0"
 
 [[bin]]
 name = "coordinator"

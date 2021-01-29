@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use thiserror::Error;
-use tokio::time::delay_for;
+use tokio::time::sleep;
 use tracing::{error, info};
 
 use crate::{
@@ -31,7 +31,7 @@ pub enum PhaseStateError {
     #[error("request channel error: {0}")]
     RequestChannel(&'static str),
     #[error("phase timeout")]
-    PhaseTimeout(#[from] tokio::time::Elapsed),
+    PhaseTimeout(#[from] tokio::time::error::Elapsed),
 
     #[error("idle phase failed: {0}")]
     Idle(#[from] IdleStateError),
@@ -63,7 +63,7 @@ where
         while let Err(err) = <S as Storage>::is_ready(&mut self.shared.store).await {
             error!("store not ready: {}", err);
             info!("try again in 5 sec");
-            delay_for(Duration::from_secs(5)).await;
+            sleep(Duration::from_secs(5)).await;
         }
     }
 }
