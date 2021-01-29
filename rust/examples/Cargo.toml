@@ -22,7 +22,7 @@ async-trait = "0.1.42"
 reqwest = { version = "0.10.10", default-features = false, features = ["rustls-tls"] }
 structopt = "0.3.21"
 # TODO (XN-1372): upgrade
-tokio = { version = "0.2.24", features = ["sync", "time", "macros", "rt-threaded", "signal"] }
+tokio = { version = "0.2.25", features = ["sync", "time", "macros", "rt-threaded", "signal"] }
 tracing = "0.1.22"
 tracing-futures = "0.2.4"
 tracing-subscriber = "0.2.15"

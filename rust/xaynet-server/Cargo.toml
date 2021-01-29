@@ -59,7 +59,7 @@ sodiumoxide = "0.2.6"
 structopt = "0.3.21"
 thiserror = "1.0.23"
 # TODO (XN-1372): upgrade
-tokio = { version = "0.2.24", features = [
+tokio = { version = "0.2.25", features = [
     "macros",
     "rt-core",
     "rt-threaded",
