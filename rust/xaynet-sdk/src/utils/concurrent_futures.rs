@@ -78,7 +78,7 @@ mod tests {
     use std::time::Duration;
 
     use futures::stream::StreamExt;
-    use tokio::time::delay_for;
+    use tokio::time::sleep;
 
     use super::*;
 
@@ -88,22 +88,22 @@ mod tests {
             ConcurrentFutures::<Pin<Box<dyn Future<Output = u8> + Send + 'static>>>::new(2);
 
         stream.push(Box::pin(async {
-            delay_for(Duration::from_millis(10_u64)).await;
+            sleep(Duration::from_millis(10_u64)).await;
             1_u8
         }));
 
         stream.push(Box::pin(async {
-            delay_for(Duration::from_millis(28_u64)).await;
+            sleep(Duration::from_millis(28_u64)).await;
             2_u8
         }));
 
         stream.push(Box::pin(async {
-            delay_for(Duration::from_millis(8_u64)).await;
+            sleep(Duration::from_millis(8_u64)).await;
             3_u8
         }));
 
         stream.push(Box::pin(async {
-            delay_for(Duration::from_millis(2_u64)).await;
+            sleep(Duration::from_millis(2_u64)).await;
             4_u8
         }));
 
