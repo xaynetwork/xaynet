@@ -17,4 +17,6 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
+anyhow = "1.0.38"
 chrono = "0.4.19"
+isar-core = { git = "https://github.com/isar/isar-core", rev = "1ea9f27edfd6e3708daa47ac6a17995b628f31a6" }

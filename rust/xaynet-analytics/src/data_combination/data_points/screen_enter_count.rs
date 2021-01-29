@@ -4,7 +4,7 @@ use crate::{
         CalculateDataPoints,
         DataPointMetadata,
     },
-    data_provision::analytics_event::{AnalyticsEvent, AnalyticsEventType},
+    database::analytics_event::data_model::{AnalyticsEvent, AnalyticsEventType},
 };
 
 impl CalcScreenEnterCount {

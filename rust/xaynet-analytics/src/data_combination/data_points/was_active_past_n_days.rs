@@ -4,7 +4,7 @@ use crate::{
         CalculateDataPoints,
         DataPointMetadata,
     },
-    data_provision::analytics_event::AnalyticsEvent,
+    database::analytics_event::data_model::AnalyticsEvent,
 };
 
 impl CalcWasActivePastNDays {
@@ -30,7 +30,7 @@ mod tests {
     use super::*;
     use crate::{
         data_combination::data_points::data_point::{Period, PeriodUnit},
-        data_provision::analytics_event::AnalyticsEventType,
+        database::analytics_event::data_model::AnalyticsEventType,
     };
 
     #[test]

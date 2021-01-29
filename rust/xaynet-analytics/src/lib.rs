@@ -9,4 +9,4 @@
 //! analytics data via the _Privacy-Enhancing Technology_ (PET) protocol.
 
 pub mod data_combination;
-pub mod data_provision;
+pub mod database;
