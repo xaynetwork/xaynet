@@ -16,19 +16,19 @@ pub enum AnalyticsEventType {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct AnalyticsEvent<'a> {
+pub struct AnalyticsEvent<'screen> {
     pub name: String,
     pub event_type: AnalyticsEventType,
     pub timestamp: DateTime<Utc>,
-    pub screen_route: Option<&'a ScreenRoute>,
+    pub screen_route: Option<&'screen ScreenRoute>,
 }
 
-impl<'a> AnalyticsEvent<'a> {
+impl<'screen> AnalyticsEvent<'screen> {
     pub fn new<N: Into<String>>(
         name: N,
         event_type: AnalyticsEventType,
         timestamp: DateTime<Utc>,
-        screen_route: Option<&'a ScreenRoute>,
+        screen_route: Option<&'screen ScreenRoute>,
     ) -> AnalyticsEvent {
         AnalyticsEvent {
             name: name.into(),

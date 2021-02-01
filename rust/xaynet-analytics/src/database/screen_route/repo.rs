@@ -6,13 +6,13 @@ use crate::database::{
     screen_route::data_model::ScreenRoute,
 };
 
-pub struct ScreenRouteRepo {
-    collection_name: String,
-    db: IsarDb,
+pub struct ScreenRouteRepo<'db> {
+    collection_name: &'db str,
+    db: &'db IsarDb,
 }
 
-impl ScreenRouteRepo {
-    pub fn new(collection_name: String, db: IsarDb) -> Self {
+impl<'db> ScreenRouteRepo<'db> {
+    pub fn new(collection_name: &'db str, db: &'db IsarDb) -> Self {
         Self {
             collection_name,
             db,
@@ -20,8 +20,8 @@ impl ScreenRouteRepo {
     }
 }
 
-impl<'a> Repo<ScreenRoute> for ScreenRouteRepo {
-    fn add(&self, route: &mut ScreenRoute) -> Result<(), Error> {
+impl<'db> Repo<&'db mut ScreenRoute> for ScreenRouteRepo<'db> {
+    fn add(&self, route: &'db mut ScreenRoute) -> Result<(), Error> {
         let mut object_builder = self.db.get_object_builder(&self.collection_name)?;
         route.write_with_object_builder(&mut object_builder);
         let object_id = self
@@ -32,7 +32,7 @@ impl<'a> Repo<ScreenRoute> for ScreenRouteRepo {
     }
 
     // TODO: return an iterator instead of Vec: https://xainag.atlassian.net/browse/XN-1517
-    fn get_all(&self) -> Result<Vec<ScreenRoute>, Error> {
+    fn get_all(&self) -> Result<Vec<&'db mut ScreenRoute>, Error> {
         let _routes_as_bytes = self.db.get_all_as_bytes(&self.collection_name)?;
 
         // TODO: not sure how to proceed to parse [u8] using the collection schema. didn't find examples in Isar
@@ -43,7 +43,7 @@ impl<'a> Repo<ScreenRoute> for ScreenRouteRepo {
 pub struct MockScreenRouteRepo {}
 
 impl Repo<ScreenRoute> for MockScreenRouteRepo {
-    fn add(&self, _object: &mut ScreenRoute) -> Result<(), Error> {
+    fn add(&self, _object: ScreenRoute) -> Result<(), Error> {
         Ok(())
     }
 

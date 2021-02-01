@@ -12,7 +12,7 @@ pub trait IsarAdapter: Sized {
 }
 
 pub trait Repo<T> {
-    fn add(&self, object: &mut T) -> Result<(), Error>;
+    fn add(&self, object: T) -> Result<(), Error>;
 
     fn get_all(&self) -> Result<Vec<T>, Error>;
 }
@@ -32,7 +32,7 @@ impl IsarAdapter for MockObject {
 }
 
 impl Repo<MockObject> for MockRepo {
-    fn add(&self, _object: &mut MockObject) -> Result<(), Error> {
+    fn add(&self, _object: MockObject) -> Result<(), Error> {
         unimplemented!()
     }
 
