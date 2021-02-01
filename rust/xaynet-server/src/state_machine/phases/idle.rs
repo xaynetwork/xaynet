@@ -80,13 +80,13 @@ where
             Measurement::RoundParamSum,
             self.shared.state.round_params.sum,
             ("round_id", self.shared.state.round_id),
-            ("phase", Self::NAME as u8)
+            ("phase", Self::NAME as u8),
         );
         metric!(
             Measurement::RoundParamUpdate,
             self.shared.state.round_params.update,
             ("round_id", self.shared.state.round_id),
-            ("phase", Self::NAME as u8)
+            ("phase", Self::NAME as u8),
         );
 
         Ok(())

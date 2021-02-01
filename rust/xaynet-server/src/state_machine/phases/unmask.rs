@@ -174,7 +174,7 @@ where
                     Measurement::MasksTotalNumber,
                     number_of_masks,
                     ("round_id", round_id),
-                    ("phase", phase_name as u8)
+                    ("phase", phase_name as u8),
                 ),
                 Err(err) => error!("failed to fetch total number of masks: {}", err),
             };

@@ -214,55 +214,38 @@ where
     ) {
         let _span_guard = span.enter();
 
-        let res = if self.has_overmuch_messages() {
+        let response = if self.has_overmuch_messages() {
             // discard if the maximum message count is reached
             self.increment_discarded();
             metric!(
                 Measurement::MessageDiscarded,
                 1,
                 ("round_id", self.shared.state.round_id),
-                ("phase", Self::NAME as u8)
+                ("phase", Self::NAME as u8),
             );
             Err(RequestError::MessageDiscarded)
         } else {
-            match self.handle_request(req).await {
+            let response = self.handle_request(req).await;
+            let measurement = if response.is_ok() {
                 // accept if processed successfully
-                ok @ Ok(_) => {
-                    self.increment_accepted();
-                    // TODO: currently the metric! macro contains redundant information in case of
-                    // accepted messages: the `Measurement::MessageSum/Update/Sum2` as well as the
-                    // ("phase", name_u8). once we change those three enum variants to just one
-                    // `Measurement::MessageAccepted` we don't need this match workaround and can
-                    // call metric! directly.
-                    metric!(
-                        match Self::NAME {
-                            PhaseName::Sum => Measurement::MessageSum,
-                            PhaseName::Update => Measurement::MessageUpdate,
-                            PhaseName::Sum2 => Measurement::MessageSum2,
-                            _ => unreachable!(),
-                        },
-                        1,
-                        ("round_id", self.shared.state.round_id),
-                        ("phase", Self::NAME as u8)
-                    );
-                    ok
-                }
+                self.increment_accepted();
+                Measurement::MessageAccepted
+            } else {
                 // otherwise reject
-                error @ Err(_) => {
-                    self.increment_rejected();
-                    metric!(
-                        Measurement::MessageRejected,
-                        1,
-                        ("round_id", self.shared.state.round_id),
-                        ("phase", Self::NAME as u8)
-                    );
-                    error
-                }
-            }
+                self.increment_rejected();
+                Measurement::MessageRejected
+            };
+            metric!(
+                measurement,
+                1,
+                ("round_id", self.shared.state.round_id),
+                ("phase", Self::NAME as u8),
+            );
+            response
         };
 
         // This may error out if the receiver has already been dropped but it doesn't matter for us.
-        let _ = resp_tx.send(res);
+        let _ = resp_tx.send(response);
     }
 }
 
@@ -323,7 +306,7 @@ where
                         Measurement::MessageDiscarded,
                         1,
                         ("round_id", self.shared.state.round_id),
-                        ("phase", Self::NAME as u8)
+                        ("phase", Self::NAME as u8),
                     );
                 }
                 None => return Ok(()),

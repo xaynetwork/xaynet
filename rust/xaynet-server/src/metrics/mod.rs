@@ -8,10 +8,12 @@ pub use self::recorders::influxdb::{Measurement, Recorder, Tags};
 
 static RECORDER: OnceCell<Recorder> = OnceCell::new();
 
+/// A wrapper around a static global metrics/events recorder.
 pub struct GlobalRecorder;
 
 impl GlobalRecorder {
     /// Gets the reference to the global recorder.
+    ///
     /// Returns `None` if no recorder is set or is currently being initialized.
     /// This method never blocks.
     pub fn global() -> Option<&'static Recorder> {
@@ -19,6 +21,7 @@ impl GlobalRecorder {
     }
 
     /// Installs a new global recorder.
+    ///
     /// Returns Err(Recorder) if a recorder has already been set.
     pub fn install(recorder: Recorder) -> Result<(), Recorder> {
         RECORDER.set(recorder)

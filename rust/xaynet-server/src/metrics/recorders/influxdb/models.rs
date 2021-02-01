@@ -10,9 +10,7 @@ pub enum Measurement {
     Phase,
     MasksTotalNumber,
     RoundTotalNumber,
-    MessageSum,
-    MessageUpdate,
-    MessageSum2,
+    MessageAccepted,
     MessageDiscarded,
     MessageRejected,
 }
@@ -25,9 +23,7 @@ impl From<Measurement> for &'static str {
             Measurement::Phase => "phase",
             Measurement::MasksTotalNumber => "masks_total_number",
             Measurement::RoundTotalNumber => "round_total_number",
-            Measurement::MessageSum => "message_sum",
-            Measurement::MessageUpdate => "message_update",
-            Measurement::MessageSum2 => "message_sum2",
+            Measurement::MessageAccepted => "message_accepted",
             Measurement::MessageDiscarded => "message_discarded",
             Measurement::MessageRejected => "message_rejected",
         }
@@ -52,6 +48,12 @@ impl Tags {
     /// Adds a tag to the metric.
     pub fn add(&mut self, tag: impl Into<String>, value: impl Into<Type>) {
         self.0.push((tag.into(), value.into()))
+    }
+}
+
+impl Default for Tags {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
