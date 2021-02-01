@@ -1,9 +1,12 @@
-use super::{Dispatcher, Event, InfluxDbService, Measurement, Metric, Request, Tags};
-use crate::settings::InfluxSettings;
+use std::borrow::Borrow;
 
 use futures::future::poll_fn;
+use influxdb::Type;
 use tower::Service;
 use tracing::{error, warn};
+
+use super::{Dispatcher, Event, InfluxDbService, Measurement, Metric, Request, Tags};
+use crate::settings::InfluxSettings;
 
 /// An InfluxDB metrics / events recorder.
 pub struct Recorder {
@@ -14,31 +17,30 @@ pub struct Recorder {
 impl Recorder {
     /// Creates a new InfluxDB recorder.
     pub fn new(settings: InfluxSettings) -> Self {
-        let dispatcher = Dispatcher::new(&settings.url, &settings.db);
+        let dispatcher = Dispatcher::new(settings.url, settings.db);
         Self {
             service: InfluxDbService::new(dispatcher),
         }
     }
 
     /// Records a new metric and dispatches it to an InfluxDB instance.
-    pub fn metric<V>(&self, measurement: Measurement, value: V, tags: Option<Tags>)
-    where
-        V: Into<influxdb::Type> + Send + 'static,
-    {
-        let mut metric = Metric::new(measurement, value.into());
+    pub fn metric(&self, measurement: Measurement, value: impl Into<Type>, tags: Option<Tags>) {
+        let mut metric = Metric::new(measurement, value);
         if let Some(tags) = tags {
             metric.with_tags(tags);
         }
 
-        self.call(Request::from(metric))
+        self.call(metric.into())
     }
 
     /// Records a new event and dispatches it to an InfluxDB instance.
-    pub fn event<T>(&self, title: T, description: Option<&str>, tags: Option<&[&str]>)
-    where
-        T: Into<String> + Send + 'static,
-    {
-        let mut event = Event::new(title.into());
+    pub fn event(
+        &self,
+        title: impl Into<String>,
+        description: Option<impl Into<String>>,
+        tags: Option<&[impl Borrow<str>]>,
+    ) {
+        let mut event = Event::new(title);
 
         if let Some(description) = description {
             event.with_description(description);
@@ -48,7 +50,7 @@ impl Recorder {
             event.with_tags(tags);
         }
 
-        self.call(Request::from(event))
+        self.call(event.into())
     }
 
     fn call(&self, req: Request) {
