@@ -25,7 +25,11 @@ impl<'r> Repo<AnalyticsEvent> for AnalyticsEventRepo<'r> {
         let mut object_builder = self.db.get_object_builder(self.collection_name)?;
         event.write_with_object_builder(&mut object_builder);
         self.db
-            .put(&self.collection_name, object_builder.finish().as_bytes())
+            .put(
+                &self.collection_name,
+                &event.to_string(),
+                object_builder.finish().as_bytes(),
+            )
             .map(|_| ())
     }
 

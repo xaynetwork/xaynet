@@ -1,6 +1,9 @@
 use chrono::{DateTime, Utc};
 use isar_core::object::{data_type::DataType, object_builder::ObjectBuilder};
-use std::vec::IntoIter;
+use std::{
+    fmt::{Display, Formatter, Result},
+    vec::IntoIter,
+};
 
 use crate::database::common::{FieldProperty, IsarAdapter};
 
@@ -48,12 +51,10 @@ impl IsarAdapter for AnalyticsEvent {
         // NOTE: properties need to be ordered by type. Properties with the same type need to be ordered alphabetically
         // https://github.com/isar/isar-core/blob/1ea9f27edfd6e3708daa47ac6a17995b628f31a6/src/schema/collection_schema.rs
         vec![
-            FieldProperty::new("event_type", DataType::Int, None, None),
-            FieldProperty::new("name", DataType::String, None, None),
-            FieldProperty::new("screen_route", DataType::String, None, None),
-            FieldProperty::new("timestamp", DataType::String, None, None),
-            /* TODO: when ScreenRoute will be a struct, the above IndexProperty will need to reference the id of the ScreenRoute object, like:
-             * IndexProperty::new("screen_route_id", DataType::Int, None, None), */
+            FieldProperty::new("event_type", DataType::Int),
+            FieldProperty::new("name", DataType::String),
+            FieldProperty::new("screen_route", DataType::String),
+            FieldProperty::new("timestamp", DataType::String),
         ]
         .into_iter()
     }
@@ -63,5 +64,24 @@ impl IsarAdapter for AnalyticsEvent {
         object_builder.write_string(Some(&self.name));
         self.add_screen_route(object_builder);
         object_builder.write_string(Some(&self.timestamp.to_rfc3339()));
+    }
+}
+
+impl Display for AnalyticsEvent {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        write!(
+            f,
+            "{:?}_{:?}_{:?}_{:?}",
+            self.name,
+            self.event_type.to_string(),
+            self.timestamp,
+            self.screen_route
+        )
+    }
+}
+
+impl Display for AnalyticsEventType {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        write!(f, "{:?}", self)
     }
 }
