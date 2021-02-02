@@ -86,6 +86,30 @@ macro_rules! event {
 /// ```
 #[macro_export]
 macro_rules! metric {
+    (accepted: $round_id: expr, $phase: expr $(,)?) => {
+        crate::metric!(
+            crate::metrics::Measurement::MessageAccepted,
+            1,
+            ("round_id", $round_id),
+            ("phase", $phase as u8),
+        );
+    };
+    (rejected: $round_id: expr, $phase: expr $(,)?) => {
+        crate::metric!(
+            crate::metrics::Measurement::MessageRejected,
+            1,
+            ("round_id", $round_id),
+            ("phase", $phase as u8),
+        );
+    };
+    (discarded: $round_id: expr, $phase: expr $(,)?) => {
+        crate::metric!(
+            crate::metrics::Measurement::MessageDiscarded,
+            1,
+            ("round_id", $round_id),
+            ("phase", $phase as u8),
+        );
+    };
     ($measurement: expr, $value: expr $(,)?) => {
         if let Some(recorder) = crate::metrics::GlobalRecorder::global() {
             recorder.metric::<_, _, crate::metrics::Tags>($measurement, $value, None);

@@ -118,7 +118,7 @@ pub trait Handler {
 
 /// Implements all [`Handler`] methods except for [`handle_request()`].
 ///
-/// Circumvents the infeasibility of default impls due to the dependency on internal state.
+/// Circumvents the infeasibility of default trait impls due to the dependency on internal state.
 #[doc(hidden)]
 #[macro_export]
 macro_rules! impl_handler_for_phasestate {
@@ -154,36 +154,21 @@ macro_rules! impl_handler_for_phasestate {
                     self.shared.state.[<$phase:lower>].count.min,
                     self.shared.state.[<$phase:lower>].count.max,
                 );
-                crate::metric!(
-                    crate::metrics::Measurement::MessageAccepted,
-                    1,
-                    ("round_id", self.shared.state.round_id),
-                    ("phase", phase as u8)
-                );
+                crate::metric!(accepted: self.shared.state.round_id, phase);
             }
 
             fn increment_rejected(&mut self) {
                 let phase = <Self as crate::state_machine::phases::Phase<_>>::NAME;
                 self.private.rejected += 1;
                 tracing::debug!("{} {} messages rejected", self.private.rejected, phase);
-                crate::metric!(
-                    crate::metrics::Measurement::MessageRejected,
-                    1,
-                    ("round_id", self.shared.state.round_id),
-                    ("phase", phase as u8)
-                );
+                crate::metric!(rejected: self.shared.state.round_id, phase);
             }
 
             fn increment_discarded(&mut self) {
                 let phase = <Self as crate::state_machine::phases::Phase<_>>::NAME;
                 self.private.discarded += 1;
                 tracing::debug!("{} {} messages discarded", self.private.discarded, phase);
-                crate::metric!(
-                    crate::metrics::Measurement::MessageDiscarded,
-                    1,
-                    ("round_id", self.shared.state.round_id),
-                    ("phase", phase as u8)
-                );
+                crate::metric!(discarded: self.shared.state.round_id, phase);
             }
         }
     };
@@ -268,10 +253,10 @@ where
     Self: Handler + Phase<T>,
     T: Storage,
 {
-    /// Processes requests wrt. the phase parameters.
+    /// Processes requests wrt the phase parameters.
     ///
     /// - Processes at most `count.max` requests during the time interval `[now, now+time.min]`.
-    /// - Processes requests until there are enough (ie. `count.min`) for the time interval
+    /// - Processes requests until there are enough (ie `count.min`) for the time interval
     /// `[now+time.min, now+time.max]`.
     /// - Aborts if either all connections were dropped or not enough requests were processed
     /// until timeout.
@@ -298,7 +283,11 @@ where
             count.max,
         );
         info!("in total {} {} messages rejected", self.rejected(), phase);
-        info!("in total {} {} messages discarded", self.discarded(), phase);
+        info!(
+            "in total {} {} messages discarded (purged not included)",
+            self.discarded(),
+            phase,
+        );
 
         Ok(())
     }
@@ -382,7 +371,6 @@ where
             if let Err(err) = self.run().await {
                 return Some(self.into_error_state(err));
             }
-
             info!("{} phase ran successfully", phase);
 
             debug!("purging outdated requests before transitioning");
@@ -413,23 +401,13 @@ where
     /// transitioning to the next phase.
     fn purge_outdated_requests(&mut self) -> Result<(), PhaseStateError> {
         let phase = <Self as Phase<_>>::NAME;
-        loop {
-            match self.try_next_request()? {
-                Some((_req, span, resp_tx)) => {
-                    let _span_guard = span.enter();
-                    info!("discarding outdated request");
-                    let _ = resp_tx.send(Err(RequestError::MessageRejected));
-
-                    metric!(
-                        Measurement::MessageDiscarded,
-                        1,
-                        ("round_id", self.shared.state.round_id),
-                        ("phase", phase as u8)
-                    );
-                }
-                None => return Ok(()),
-            }
+        info!("discarding outdated request");
+        while let Some((_, span, resp_tx)) = self.try_next_request()? {
+            let _span_guard = span.enter();
+            metric!(discarded: self.shared.state.round_id, phase);
+            let _ = resp_tx.send(Err(RequestError::MessageDiscarded));
         }
+        Ok(())
     }
 }
 
