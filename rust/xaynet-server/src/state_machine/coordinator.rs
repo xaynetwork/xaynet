@@ -19,7 +19,7 @@ use xaynet_core::{
 };
 
 /// The phase count parameters.
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CountParameters {
     /// The minimal number of required messages.
     pub min: u64,
@@ -35,7 +35,7 @@ impl From<PetSettingsCount> for CountParameters {
 }
 
 /// The phase time parameters.
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TimeParameters {
     /// The minimal amount of time (in seconds) reserved for processing messages.
     pub min: u64,
@@ -51,7 +51,7 @@ impl From<PetSettingsTime> for TimeParameters {
 }
 
 /// The phase parameters.
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PhaseParameters {
     /// The number of messages.
     pub count: CountParameters,

@@ -2,10 +2,10 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use thiserror::Error;
-use tokio::time::{timeout, Duration};
 use tracing::{debug, info, warn};
 
 use crate::{
+    impl_handler_for_phasestate,
     state_machine::{
         events::DictionaryUpdate,
         phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Sum2},
@@ -52,32 +52,9 @@ where
     const NAME: PhaseName = PhaseName::Update;
 
     async fn run(&mut self) -> Result<(), PhaseStateError> {
-        let min_time = self.shared.state.update.time.min;
-        let max_time = self.shared.state.update.time.max;
-        debug!(
-            "in update phase for min {} and max {} seconds",
-            min_time, max_time,
-        );
-        self.process_during(Duration::from_secs(min_time)).await?;
+        self.process(self.shared.state.update).await?;
 
-        let time_left = max_time - min_time;
-        timeout(Duration::from_secs(time_left), self.process_until_enough()).await??;
-
-        info!(
-            "in total {} update messages accepted (min {} and max {} required)",
-            self.private.accepted,
-            self.shared.state.update.count.min,
-            self.shared.state.update.count.max,
-        );
-        info!(
-            "in total {} update messages rejected",
-            self.private.rejected,
-        );
-        info!(
-            "in total {} update messages discarded",
-            self.private.discarded,
-        );
-
+        info!("broadcasting the global seed dictionary");
         let seed_dict = self
             .shared
             .store
@@ -85,8 +62,6 @@ where
             .await
             .map_err(UpdateStateError::FetchSeedDict)?
             .ok_or(UpdateStateError::NoSeedDict)?;
-
-        info!("broadcasting the global seed dictionary");
         self.shared
             .events
             .broadcast_seed_dict(DictionaryUpdate::New(Arc::new(seed_dict)));
@@ -122,33 +97,7 @@ where
         }
     }
 
-    fn has_enough_messages(&self) -> bool {
-        self.private.accepted >= self.shared.state.update.count.min
-    }
-
-    fn has_overmuch_messages(&self) -> bool {
-        self.private.accepted >= self.shared.state.update.count.max
-    }
-
-    fn increment_accepted(&mut self) {
-        self.private.accepted += 1;
-        debug!(
-            "{} update messages accepted (min {} and max {} required)",
-            self.private.accepted,
-            self.shared.state.update.count.min,
-            self.shared.state.update.count.max,
-        );
-    }
-
-    fn increment_rejected(&mut self) {
-        self.private.rejected += 1;
-        debug!("{} update messages rejected", self.private.rejected);
-    }
-
-    fn increment_discarded(&mut self) {
-        self.private.discarded += 1;
-        debug!("{} update messages discarded", self.private.discarded);
-    }
+    impl_handler_for_phasestate! { Update }
 }
 
 impl<S> PhaseState<Update, S>

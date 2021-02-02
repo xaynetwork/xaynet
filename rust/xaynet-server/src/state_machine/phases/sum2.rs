@@ -1,8 +1,7 @@
 use async_trait::async_trait;
-use tokio::time::{timeout, Duration};
-use tracing::{debug, info};
 
 use crate::{
+    impl_handler_for_phasestate,
     state_machine::{
         phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Unmask},
         requests::{StateMachineRequest, Sum2Request},
@@ -38,37 +37,9 @@ where
     const NAME: PhaseName = PhaseName::Sum2;
 
     async fn run(&mut self) -> Result<(), PhaseStateError> {
-        let min_time = self.shared.state.sum2.time.min;
-        let max_time = self.shared.state.sum2.time.max;
-        debug!(
-            "in sum2 phase for min {} and max {} seconds",
-            min_time, max_time,
-        );
-        self.process_during(Duration::from_secs(min_time)).await?;
-
-        let time_left = max_time - min_time;
-        timeout(Duration::from_secs(time_left), self.process_until_enough()).await??;
-
-        info!(
-            "in total {} sum2 messages accepted (min {} and max {} required)",
-            self.private.accepted,
-            self.shared.state.sum2.count.min,
-            self.shared.state.sum2.count.max,
-        );
-        info!("in total {} sum2 messages rejected", self.private.rejected);
-        info!(
-            "in total {} sum2 messages discarded",
-            self.private.discarded,
-        );
-
-        Ok(())
+        self.process(self.shared.state.sum2).await
     }
 
-    /// Moves from the sum2 state to the next state.
-    ///
-    /// See the [module level documentation] for more details.
-    ///
-    /// [module level documentation]: crate::state_machine
     fn next(self) -> Option<StateMachine<S>> {
         Some(PhaseState::<Unmask, _>::new(self.shared, self.private.model_agg).into())
     }
@@ -91,33 +62,7 @@ where
         }
     }
 
-    fn has_enough_messages(&self) -> bool {
-        self.private.accepted >= self.shared.state.sum2.count.min
-    }
-
-    fn has_overmuch_messages(&self) -> bool {
-        self.private.accepted >= self.shared.state.sum2.count.max
-    }
-
-    fn increment_accepted(&mut self) {
-        self.private.accepted += 1;
-        debug!(
-            "{} sum2 messages accepted (min {} and max {} required)",
-            self.private.accepted,
-            self.shared.state.sum2.count.min,
-            self.shared.state.sum2.count.max,
-        );
-    }
-
-    fn increment_rejected(&mut self) {
-        self.private.rejected += 1;
-        debug!("{} sum2 messages rejected", self.private.rejected);
-    }
-
-    fn increment_discarded(&mut self) {
-        self.private.discarded += 1;
-        debug!("{} sum2 messages discarded", self.private.discarded);
-    }
+    impl_handler_for_phasestate! { Sum2 }
 }
 
 impl<S> PhaseState<Sum2, S>
