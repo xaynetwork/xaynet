@@ -84,12 +84,17 @@ impl Metric {
         }
     }
 
-    pub(in crate::metrics) fn with_tags(&mut self, tags: Tags) {
+    pub(in crate::metrics) fn with_tags<T, I>(mut self, tags: T) -> Self
+    where
+        T: Into<Option<I>>,
+        I: Into<Tags>,
+    {
         // It is by design that this function should only be called once.
         // see `Recorder::metric`
         // Therefore, we don't cover the case where we would extend `self.tags`
         // when `self.tags` already contains tags.
-        self.tags = Some(tags)
+        self.tags = tags.into().map(Into::into);
+        self
     }
 }
 
@@ -128,16 +133,27 @@ impl Event {
         }
     }
 
-    pub(in crate::metrics) fn with_description(&mut self, description: impl Into<String>) {
-        self.description = Some(description.into())
+    pub(in crate::metrics) fn with_description<D, S>(mut self, description: D) -> Self
+    where
+        D: Into<Option<S>>,
+        S: Into<String>,
+    {
+        self.description = description.into().map(Into::into);
+        self
     }
 
-    pub(in crate::metrics) fn with_tags(&mut self, tags: &[impl Borrow<str>]) {
+    pub(in crate::metrics) fn with_tags<T, A, B>(mut self, tags: T) -> Self
+    where
+        T: Into<Option<A>>,
+        A: AsRef<[B]>,
+        B: Borrow<str>,
+    {
         // It is by design that this function should only be called once.
         // see `Recorder::metric`
         // Therefore, we don't cover the case where we would extend `self.tags`
         // when `self.tags` already contains tags.
-        self.tags = Some(tags.join(","))
+        self.tags = tags.into().map(|tags| tags.as_ref().join(","));
+        self
     }
 }
 
@@ -164,6 +180,19 @@ mod tests {
 
     use super::*;
 
+    /// Creates key-value tags for metrics.
+    macro_rules! tags {
+        ($(($tag: expr, $val: expr)),+ $(,)?) => {
+            {
+                let mut tags = crate::metrics::Tags::new();
+                $(
+                    tags.add($tag, $val);
+                )+
+                tags
+            }
+        };
+    }
+
     #[test]
     fn test_basic_metric() {
         let metric = Metric::new(Measurement::Phase, 1);
@@ -176,10 +205,7 @@ mod tests {
 
     #[test]
     fn test_metric_with_tag() {
-        let mut metric = Metric::new(Measurement::Phase, 1);
-        let mut tag = Tags::new();
-        tag.add("key", 42);
-        metric.with_tags(tag);
+        let metric = Metric::new(Measurement::Phase, 1).with_tags(tags![("key", 42)]);
         assert!(WriteQuery::from(metric)
             .build()
             .unwrap()
@@ -189,12 +215,11 @@ mod tests {
 
     #[test]
     fn test_metric_with_tags() {
-        let mut metric = Metric::new(Measurement::Phase, 1);
-        let mut tag = Tags::new();
-        tag.add("key_1", 42);
-        tag.add("key_2", "42");
-        tag.add("key_3", 1.0f32);
-        metric.with_tags(tag);
+        let metric = Metric::new(Measurement::Phase, 1).with_tags(tags![
+            ("key_1", 42),
+            ("key_2", "42"),
+            ("key_3", 1.0f32),
+        ]);
         assert!(WriteQuery::from(metric)
             .build()
             .unwrap()
@@ -214,8 +239,7 @@ mod tests {
 
     #[test]
     fn test_event_with_description() {
-        let mut event = Event::new("error");
-        event.with_description("description");
+        let event = Event::new("error").with_description("description");
         assert!(WriteQuery::from(event)
             .build()
             .unwrap()
@@ -225,9 +249,9 @@ mod tests {
 
     #[test]
     fn test_event_with_description_and_tag() {
-        let mut event = Event::new("error");
-        event.with_description("description");
-        event.with_tags(&["tag"]);
+        let event = Event::new("error")
+            .with_description("description")
+            .with_tags(["tag"]);
         assert!(WriteQuery::from(event)
             .build()
             .unwrap()
@@ -237,9 +261,9 @@ mod tests {
 
     #[test]
     fn test_event_with_description_and_tags() {
-        let mut event = Event::new("error");
-        event.with_description("description");
-        event.with_tags(&["tag_1", "tag_2"]);
+        let event = Event::new("error")
+            .with_description("description")
+            .with_tags(["tag_1", "tag_2"]);
         assert!(WriteQuery::from(event)
             .build()
             .unwrap()
@@ -249,8 +273,7 @@ mod tests {
 
     #[test]
     fn test_event_with_tag() {
-        let mut event = Event::new("error");
-        event.with_tags(&["tag"]);
+        let event = Event::new("error").with_tags(["tag"]);
         assert!(WriteQuery::from(event)
             .build()
             .unwrap()

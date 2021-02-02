@@ -50,17 +50,17 @@ impl GlobalRecorder {
 macro_rules! event {
     ($title: expr $(,)?) => {
         if let Some(recorder) = crate::metrics::GlobalRecorder::global() {
-            recorder.event($title, Option::<&str>::None, Option::<&[&str]>::None)
+            recorder.event::<_, _, &str, _, &[_], &str>($title, None, None);
         }
     };
     ($title: expr, $description: expr $(,)?) => {
         if let Some(recorder) = crate::metrics::GlobalRecorder::global() {
-            recorder.event($title, Some($description), Option::<&[&str]>::None)
+            recorder.event::<_, _, _, _, &[_], &str>($title, $description, None);
         }
     };
     ($title: expr, $description: expr, [$($tags: expr),+] $(,)?) => {
         if let Some(recorder) = crate::metrics::GlobalRecorder::global() {
-            recorder.event($title, Some($description), Some(&[$($tags),+]))
+            recorder.event($title, $description, [$($tags),+])
         }
     };
 }
@@ -88,7 +88,7 @@ macro_rules! event {
 macro_rules! metric {
     ($measurement: expr, $value: expr $(,)?) => {
         if let Some(recorder) = crate::metrics::GlobalRecorder::global() {
-            recorder.metric($measurement, $value, Option::<crate::metrics::Tags>::None)
+            recorder.metric::<_, _, crate::metrics::Tags>($measurement, $value, None);
         }
     };
     ($measurement: expr, $value: expr, $(($tag: expr, $val: expr)),+ $(,)?) => {
@@ -97,7 +97,7 @@ macro_rules! metric {
             $(
                 tags.add($tag, $val);
             )+
-            recorder.metric($measurement, $value, Some(tags))
+            recorder.metric($measurement, $value, tags);
         }
     };
 }

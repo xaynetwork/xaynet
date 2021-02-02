@@ -24,33 +24,30 @@ impl Recorder {
     }
 
     /// Records a new metric and dispatches it to an InfluxDB instance.
-    pub fn metric(&self, measurement: Measurement, value: impl Into<Type>, tags: Option<Tags>) {
-        let mut metric = Metric::new(measurement, value);
-        if let Some(tags) = tags {
-            metric.with_tags(tags);
-        }
-
-        self.call(metric.into())
+    pub fn metric<V, T, I>(&self, measurement: Measurement, value: V, tags: T)
+    where
+        V: Into<Type>,
+        T: Into<Option<I>>,
+        I: Into<Tags>,
+    {
+        let metric = Metric::new(measurement, value).with_tags(tags);
+        self.call(metric.into());
     }
 
     /// Records a new event and dispatches it to an InfluxDB instance.
-    pub fn event(
-        &self,
-        title: impl Into<String>,
-        description: Option<impl Into<String>>,
-        tags: Option<&[impl Borrow<str>]>,
-    ) {
-        let mut event = Event::new(title);
-
-        if let Some(description) = description {
-            event.with_description(description);
-        }
-
-        if let Some(tags) = tags {
-            event.with_tags(tags);
-        }
-
-        self.call(event.into())
+    pub fn event<H, D, S, T, A, B>(&self, title: H, description: D, tags: T)
+    where
+        H: Into<String>,
+        D: Into<Option<S>>,
+        S: Into<String>,
+        T: Into<Option<A>>,
+        A: AsRef<[B]>,
+        B: Borrow<str>,
+    {
+        let event = Event::new(title)
+            .with_description(description)
+            .with_tags(tags);
+        self.call(event.into());
     }
 
     fn call(&self, req: Request) {
