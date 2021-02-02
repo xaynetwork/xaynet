@@ -52,12 +52,17 @@ impl IsarDb {
         unimplemented!()
     }
 
-    pub fn put(&self, collection_name: &str, object_id: &str, object: &[u8]) -> Result<(), Error> {
+    pub fn put(
+        &self,
+        collection_name: &str,
+        object_id: Option<ObjectId>,
+        object: &[u8],
+    ) -> Result<(), Error> {
         let collection = self.get_collection(collection_name)?;
         collection
             .put(
                 &mut self.begin_txn(true)?,
-                Some(collection.new_string_oid(object_id)),
+                object_id,
                 IsarObject::new(object),
             )
             .map_err(|_| {

@@ -27,7 +27,7 @@ impl<'r> Repo<AnalyticsEvent> for AnalyticsEventRepo<'r> {
         self.db
             .put(
                 &self.collection_name,
-                &event.to_string(),
+                None,
                 object_builder.finish().as_bytes(),
             )
             .map(|_| ())
