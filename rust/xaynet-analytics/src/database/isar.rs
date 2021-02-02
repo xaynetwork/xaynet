@@ -1,13 +1,17 @@
 use anyhow::{anyhow, Error, Result};
-
 use isar_core::{
     collection::IsarCollection,
     instance::IsarInstance,
-    object::{object_builder::ObjectBuilder, object_id::ObjectId},
+    object::{
+        data_type::DataType,
+        isar_object::IsarObject,
+        object_builder::ObjectBuilder,
+        object_id::ObjectId,
+    },
     schema::{collection_schema::CollectionSchema, Schema},
     txn::IsarTxn,
 };
-use std::vec::IntoIter;
+use std::{sync::Arc, vec::IntoIter};
 
 use crate::database::{
     analytics_event::data_model::AnalyticsEvent,
@@ -15,7 +19,7 @@ use crate::database::{
 };
 
 pub struct IsarDb {
-    instance: IsarInstance,
+    instance: Arc<IsarInstance>,
 }
 
 impl IsarDb {
@@ -23,7 +27,7 @@ impl IsarDb {
     const ANALYTICS_EVENT_NAME: &'static str = "analytics_events";
 
     pub fn new(path: &str) -> Result<IsarDb, Error> {
-        IsarInstance::create(path, IsarDb::MAX_SIZE, IsarDb::get_schema()?)
+        IsarInstance::open(path, IsarDb::MAX_SIZE, IsarDb::get_schema()?)
             .map_err(|_| anyhow!("failed to create IsarInstance"))
             .map(|instance| IsarDb { instance })
     }
@@ -33,10 +37,10 @@ impl IsarDb {
         collection_name: &str,
     ) -> Result<Vec<(&ObjectId, &[u8])>, Error> {
         let _bytes = self
-            .instance
-            .create_query_builder(self.get_collection(collection_name)?)
+            .get_collection(collection_name)?
+            .new_query_builder()
             .build()
-            .find_all_vec(&self.begin_txn(false)?)
+            .find_all_vec(&mut self.begin_txn(false)?)
             .map_err(|_| {
                 anyhow!(
                     "failed to find all bytes from collection {}",
@@ -48,9 +52,19 @@ impl IsarDb {
         unimplemented!()
     }
 
-    pub fn put(&self, collection_name: &str, object: &[u8]) -> Result<(), Error> {
-        self.get_collection(collection_name)?
-            .put(&self.begin_txn(false)?, None, object)
+    pub fn put(
+        &self,
+        collection_name: &str,
+        object_id: Option<ObjectId>,
+        object: &[u8],
+    ) -> Result<(), Error> {
+        let collection = self.get_collection(collection_name)?;
+        collection
+            .put(
+                &mut self.begin_txn(true)?,
+                object_id,
+                IsarObject::new(object),
+            )
             .map_err(|_| {
                 anyhow!(
                     "failed to add object {:?} to collection: {}",
@@ -62,7 +76,9 @@ impl IsarDb {
     }
 
     pub fn get_object_builder(&self, collection_name: &str) -> Result<ObjectBuilder, Error> {
-        Ok(self.get_collection(collection_name)?.get_object_builder())
+        Ok(self
+            .get_collection(collection_name)?
+            .new_object_builder(None))
     }
 
     fn get_schema() -> Result<Schema, Error> {
@@ -98,25 +114,35 @@ fn get_collection_schema(
     name: &str,
     field_properties: &mut IntoIter<FieldProperty>,
 ) -> Result<CollectionSchema, Error> {
-    field_properties.try_fold(CollectionSchema::new(&name), |mut schema, prop| {
-        schema
-            .add_property(prop.name, prop.data_type)
-            .map_err(|_| {
-                anyhow!(
-                    "failed to add property {} to collection {}",
-                    prop.name,
-                    name
+    field_properties.try_fold(
+        CollectionSchema::new(&name, &format!("{}_oid", &name), DataType::String),
+        |mut schema, prop| {
+            schema
+                .add_property(prop.name, prop.data_type)
+                .map_err(|_| {
+                    anyhow!(
+                        "failed to add property {} to collection {}",
+                        prop.name,
+                        name
+                    )
+                })?;
+            schema
+                .add_index(
+                    &[(
+                        prop.name,
+                        Some(prop.string_index_type),
+                        prop.is_case_sensitive,
+                    )],
+                    prop.is_unique,
                 )
-            })?;
-        schema
-            .add_index(&[prop.name], prop.is_unique, prop.has_hash_value)
-            .map_err(|_| {
-                anyhow!(
-                    "failed to add index for {} to collection {}",
-                    prop.name,
-                    name
-                )
-            })?;
-        Ok(schema)
-    })
+                .map_err(|_| {
+                    anyhow!(
+                        "failed to add index for {} to collection {}",
+                        prop.name,
+                        name
+                    )
+                })?;
+            Ok(schema)
+        },
+    )
 }

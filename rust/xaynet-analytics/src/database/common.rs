@@ -1,6 +1,8 @@
 use anyhow::Error;
-
-use isar_core::object::{data_type::DataType, object_builder::ObjectBuilder};
+use isar_core::{
+    index::StringIndexType,
+    object::{data_type::DataType, object_builder::ObjectBuilder},
+};
 use std::vec::IntoIter;
 
 pub trait IsarAdapter: Sized {
@@ -42,22 +44,19 @@ impl Repo<MockObject> for MockRepo {
 pub struct FieldProperty {
     pub name: &'static str,
     pub data_type: DataType,
+    pub string_index_type: StringIndexType,
+    pub is_case_sensitive: bool,
     pub is_unique: bool,
-    pub has_hash_value: bool,
 }
 
 impl FieldProperty {
-    pub fn new(
-        name: &'static str,
-        data_type: DataType,
-        is_unique: Option<bool>,
-        has_hash_value: Option<bool>,
-    ) -> Self {
-        Self {
+    pub fn new(name: &'static str, data_type: DataType) -> FieldProperty {
+        FieldProperty {
             name,
             data_type,
-            is_unique: is_unique.unwrap_or(true),
-            has_hash_value: has_hash_value.unwrap_or(false),
+            string_index_type: StringIndexType::Hash,
+            is_case_sensitive: true,
+            is_unique: true,
         }
     }
 }
