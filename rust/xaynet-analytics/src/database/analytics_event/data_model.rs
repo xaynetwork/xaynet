@@ -1,9 +1,6 @@
 use chrono::{DateTime, Utc};
 use isar_core::object::{data_type::DataType, object_builder::ObjectBuilder};
-use std::{
-    fmt::{Display, Formatter, Result},
-    vec::IntoIter,
-};
+use std::vec::IntoIter;
 
 use crate::database::common::{FieldProperty, IsarAdapter};
 
@@ -64,24 +61,5 @@ impl IsarAdapter for AnalyticsEvent {
         object_builder.write_string(Some(&self.name));
         self.add_screen_route(object_builder);
         object_builder.write_string(Some(&self.timestamp.to_rfc3339()));
-    }
-}
-
-impl Display for AnalyticsEvent {
-    fn fmt(&self, f: &mut Formatter) -> Result {
-        write!(
-            f,
-            "{:?}_{:?}_{:?}_{:?}",
-            self.name,
-            self.event_type.to_string(),
-            self.timestamp,
-            self.screen_route
-        )
-    }
-}
-
-impl Display for AnalyticsEventType {
-    fn fmt(&self, f: &mut Formatter) -> Result {
-        write!(f, "{:?}", self)
     }
 }
