@@ -1,20 +1,18 @@
 [log]
-filter = "xaynet=debug,http=warn,info"
+filter = "xaynet_server::state_machine=debug,http=warn,info"
 
 [api]
-bind_address = "0.0.0.0:8081"
-tls_certificate = "/app/ssl/tls.pem"
-tls_key = "/app/ssl/tls.key"
+bind_address = "127.0.0.1:8081"
 
 [pet.sum]
 prob = 0.5
-count = { min = 1, max = 100 }
-time = { min = 5, max = 3600 }
+count = { min = 3, max = 100 }
+time = { min = 20, max = 3600 }
 
 [pet.update]
 prob = 0.9
-count = { min = 3, max = 10000 }
-time = { min = 10, max = 3600 }
+count = { min = 5, max = 10000 }
+time = { min = 30, max = 3600 }
 
 [pet.sum2]
 count = { min = 1, max = 100 }
@@ -23,11 +21,11 @@ time = { min = 5, max = 3600 }
 [mask]
 group_type = "Prime"
 data_type = "F32"
-bound_type = "B0"
+bound_type = "B2"
 model_type = "M3"
 
 [model]
-length = 4
+length = 55117
 
 [metrics.influxdb]
 url = "http://influxdb:8086"

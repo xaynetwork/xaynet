@@ -2,6 +2,7 @@ use std::{cmp::Ordering, sync::Arc};
 
 use async_trait::async_trait;
 use thiserror::Error;
+use tokio::time::Instant;
 use tracing::{error, info};
 
 use crate::{
@@ -51,6 +52,7 @@ where
     async fn run(&mut self) -> Result<(), PhaseStateError> {
         self.emit_number_of_unique_masks_metrics();
 
+        let now = Instant::now();
         let best_masks = self
             .shared
             .store
@@ -58,6 +60,10 @@ where
             .await
             .map_err(UnmaskStateError::FetchBestMasks)?
             .ok_or(UnmaskStateError::NoMask)?;
+        info!(
+            "fetching best masks took {} millis",
+            now.elapsed().as_millis()
+        );
 
         let global_model = self.end_round(best_masks).await?;
 
@@ -127,11 +133,19 @@ where
         // Safe unwrap: State::<Unmask>::new always creates Some(aggregation)
         let model_agg = self.private.model_agg.take().unwrap();
 
+        let now = Instant::now();
         model_agg
             .validate_unmasking(&mask)
             .map_err(UnmaskStateError::from)?;
+        info!(
+            "model validate unmasking took {} millis",
+            now.elapsed().as_millis()
+        );
 
-        Ok(model_agg.unmask(mask))
+        let now = Instant::now();
+        let model = model_agg.unmask(mask);
+        info!("model unmasking took {} millis", now.elapsed().as_millis());
+        Ok(model)
     }
 
     #[cfg(feature = "model-persistence")]

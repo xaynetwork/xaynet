@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use thiserror::Error;
-use tokio::time::{timeout, Duration};
+use tokio::time::{timeout, Duration, Instant};
 use tracing::{debug, info, warn};
 
 use crate::{
@@ -202,7 +202,9 @@ where
             })?;
 
         info!("aggregating the masked model and scalar");
+        let now = Instant::now();
         self.private.model_agg.aggregate(mask_object);
+        info!("model aggregation took {} millis", now.elapsed().as_millis());
         Ok(())
     }
 
