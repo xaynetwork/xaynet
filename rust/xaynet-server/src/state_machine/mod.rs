@@ -17,10 +17,9 @@
 //!
 //! **Idle**
 //!
-//! Publishes [`PhaseName::Idle`], increments the `round id` by `1`, invalidates the
-//! [`SumDict`], [`SeedDict`], `scalar` and `mask length`, updates the [`EncryptKeyPair`],
-//! `thresholds` as well as the `seed` and publishes the [`EncryptKeyPair`] and the
-//! [`RoundParameters`].
+//! Publishes [`PhaseName::Idle`] and increments the `round_id` by `1`. Invalidates the [`SumDict`],
+//! [`SeedDict`], `scalar` and `mask length`. Updates the [`EncryptKeyPair`], `probabilities` for
+//! the tasks and the `seed`. Publishes the [`EncryptKeyPair`] and the [`RoundParameters`].
 //!
 //! **Sum**
 //!

@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use sodiumoxide::crypto::hash::sha256;
 use thiserror::Error;
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 use crate::{
     metric,
@@ -43,22 +43,31 @@ where
         info!("updating the keys");
         self.gen_round_keypair();
 
-        info!("updating round thresholds");
-        self.update_round_thresholds();
+        info!("updating round probabilities");
+        self.update_round_probabilities();
 
-        info!("updating round seeds");
+        info!("updating round seed");
         self.update_round_seed();
 
+        info!("storing new coordinator state");
         self.shared
             .store
             .set_coordinator_state(&self.shared.state)
             .await
             .map_err(IdleStateError::SetCoordinatorState)?;
 
-        let events = &mut self.shared.events;
+        info!("removing phase dictionaries from previous round");
+        self.shared
+            .store
+            .delete_dicts()
+            .await
+            .map_err(IdleStateError::DeleteDictionaries)?;
 
-        info!("broadcasting new keys");
-        events.broadcast_keys(self.shared.state.keys.clone());
+        self.broadcast().await
+    }
+
+    async fn broadcast(&mut self) -> Result<(), PhaseStateError> {
+        let events = &mut self.shared.events;
 
         info!("broadcasting invalidation of sum dictionary from previous round");
         events.broadcast_sum_dict(DictionaryUpdate::Invalidate);
@@ -66,11 +75,8 @@ where
         info!("broadcasting invalidation of seed dictionary from previous round");
         events.broadcast_seed_dict(DictionaryUpdate::Invalidate);
 
-        self.shared
-            .store
-            .delete_dicts()
-            .await
-            .map_err(IdleStateError::DeleteDictionaries)?;
+        info!("broadcasting new keys");
+        events.broadcast_keys(self.shared.state.keys.clone());
 
         info!("broadcasting new round parameters");
         events.broadcast_params(self.shared.state.round_params.clone());
@@ -114,7 +120,9 @@ where
         }
     }
 
-    fn update_round_thresholds(&mut self) {}
+    fn update_round_probabilities(&mut self) {
+        warn!("round probabilities stay constant, no update strategy implemented yet");
+    }
 
     /// Updates the seed round parameter.
     fn update_round_seed(&mut self) {

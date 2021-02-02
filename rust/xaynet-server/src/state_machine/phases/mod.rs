@@ -76,6 +76,15 @@ where
     /// [module level documentation]: crate::state_machine
     async fn run(&mut self) -> Result<(), PhaseStateError>;
 
+    /// Broadcasts data of this phase (nothing by default).
+    ///
+    /// See the [module level documentation] for more details.
+    ///
+    /// [module level documentation]: crate::state_machine
+    async fn broadcast(&mut self) -> Result<(), PhaseStateError> {
+        Ok(())
+    }
+
     /// Moves from this state to the next state.
     ///
     /// See the [module level documentation] for more details.

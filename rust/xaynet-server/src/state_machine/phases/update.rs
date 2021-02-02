@@ -52,7 +52,10 @@ where
 
     async fn run(&mut self) -> Result<(), PhaseStateError> {
         self.process(self.shared.state.update).await?;
+        self.broadcast().await
+    }
 
+    async fn broadcast(&mut self) -> Result<(), PhaseStateError> {
         let seed_dict = self
             .shared
             .store

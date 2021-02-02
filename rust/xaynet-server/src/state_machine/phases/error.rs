@@ -46,28 +46,6 @@ pub enum PhaseStateError {
     Unmask(#[from] UnmaskStateError),
 }
 
-impl<S> PhaseState<PhaseStateError, S>
-where
-    S: Storage,
-{
-    /// Creates a new error phase.
-    pub fn new(shared: Shared<S>, error: PhaseStateError) -> Self {
-        Self {
-            private: error,
-            shared,
-        }
-    }
-
-    /// Waits until the [`crate::storage::Store`] is ready.
-    async fn wait_for_store_readiness(&mut self) {
-        while let Err(err) = <S as Storage>::is_ready(&mut self.shared.store).await {
-            error!("store not ready: {}", err);
-            info!("try again in 5 sec");
-            sleep(Duration::from_secs(5)).await;
-        }
-    }
-}
-
 #[async_trait]
 impl<S> Phase<S> for PhaseState<PhaseStateError, S>
 where
@@ -77,9 +55,7 @@ where
 
     async fn run(&mut self) -> Result<(), PhaseStateError> {
         error!("phase state error: {}", self.private);
-
         event!("Phase error", self.private.to_string());
-
         self.wait_for_store_readiness().await;
 
         Ok(())
@@ -92,5 +68,29 @@ where
             }
             _ => PhaseState::<Idle, _>::new(self.shared).into(),
         })
+    }
+}
+
+impl<S> PhaseState<PhaseStateError, S>
+where
+    S: Storage,
+{
+    /// Creates a new error phase.
+    pub fn new(shared: Shared<S>, error: PhaseStateError) -> Self {
+        Self {
+            private: error,
+            shared,
+        }
+    }
+
+    /// Waits until the [`Store`] is ready.
+    ///
+    /// [`Store`]: crate::storage::Store
+    async fn wait_for_store_readiness(&mut self) {
+        while let Err(err) = <S as Storage>::is_ready(&mut self.shared.store).await {
+            error!("store not ready: {}", err);
+            info!("try again in 5 sec");
+            sleep(Duration::from_secs(5)).await;
+        }
     }
 }
