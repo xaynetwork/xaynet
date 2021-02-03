@@ -24,8 +24,8 @@ impl ScreenRoute {
 impl IsarAdapter for ScreenRoute {
     fn into_field_properties() -> IntoIter<FieldProperty> {
         vec![
-            FieldProperty::new("created_at".to_string(), DataType::String, None, None),
-            FieldProperty::new("name".to_string(), DataType::String, None, None),
+            FieldProperty::new("created_at".to_string(), DataType::String),
+            FieldProperty::new("name".to_string(), DataType::String),
         ]
         .into_iter()
     }

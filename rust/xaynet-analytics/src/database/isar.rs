@@ -16,6 +16,7 @@ use std::{sync::Arc, vec::IntoIter};
 use crate::database::{
     analytics_event::data_model::AnalyticsEvent,
     common::{FieldProperty, IsarAdapter},
+    screen_route::data_model::ScreenRoute,
 };
 
 pub struct IsarDb {
@@ -24,7 +25,8 @@ pub struct IsarDb {
 
 impl IsarDb {
     const MAX_SIZE: usize = 10000000;
-    const ANALYTICS_EVENT_NAME: &'static str = "analytics_events";
+    const ANALYTICS_EVENT_COLLECTION_NAME: &'static str = "analytics_events";
+    const SCREEN_ROUTE_COLLECTION_NAME: &'static str = "screen_route";
 
     pub fn new(path: &str) -> Result<IsarDb, Error> {
         IsarInstance::open(path, IsarDb::MAX_SIZE, IsarDb::get_schema()?)
@@ -58,8 +60,7 @@ impl IsarDb {
         object_id: Option<ObjectId>,
         object: &[u8],
     ) -> Result<(), Error> {
-        let collection = self.get_collection(collection_name)?;
-        collection
+        self.get_collection(collection_name)?
             .put(
                 &mut self.begin_txn(true)?,
                 object_id,
@@ -81,20 +82,40 @@ impl IsarDb {
             .new_object_builder(None))
     }
 
+    pub fn get_object_id_from_str(
+        &self,
+        collection_name: &str,
+        oid: &str,
+    ) -> Result<ObjectId, Error> {
+        Ok(self.get_collection(collection_name)?.new_string_oid(oid))
+    }
+
+    // TODO: move this logic to the Repo within the AnalyticsController ticket: https://xainag.atlassian.net/browse/XN-1559
     fn get_schema() -> Result<Schema, Error> {
         let mut schema = Schema::new();
         schema
             .add_collection(get_collection_schema(
-                Self::ANALYTICS_EVENT_NAME,
+                Self::ANALYTICS_EVENT_COLLECTION_NAME,
                 &mut AnalyticsEvent::into_field_properties(),
             )?)
             .map_err(|_| {
                 anyhow!(
                     "failed to add collection {} to schema",
-                    Self::ANALYTICS_EVENT_NAME
+                    Self::ANALYTICS_EVENT_COLLECTION_NAME
                 )
-            })
-            .map(|_| schema)
+            })?;
+        schema
+            .add_collection(get_collection_schema(
+                Self::SCREEN_ROUTE_COLLECTION_NAME,
+                &mut ScreenRoute::into_field_properties(),
+            )?)
+            .map_err(|_| {
+                anyhow!(
+                    "failed to add collection {} to schema",
+                    Self::SCREEN_ROUTE_COLLECTION_NAME
+                )
+            })?;
+        Ok(schema)
     }
 
     fn get_collection(&self, collection_name: &str) -> Result<&IsarCollection, Error> {

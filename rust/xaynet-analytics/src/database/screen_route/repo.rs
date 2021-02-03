@@ -26,9 +26,12 @@ impl<'db> Repo<&'db mut ScreenRoute> for ScreenRouteRepo<'db> {
         route.write_with_object_builder(&mut object_builder);
         let object_id = self
             .db
-            .put(&self.collection_name, object_builder.finish().as_bytes())?;
-        route.object_id = Some(object_id);
-        Ok(())
+            .get_object_id_from_str(&self.collection_name, &route.name)?;
+        self.db.put(
+            &self.collection_name,
+            Some(object_id),
+            object_builder.finish().as_bytes(),
+        )
     }
 
     // TODO: return an iterator instead of Vec: https://xainag.atlassian.net/browse/XN-1517
