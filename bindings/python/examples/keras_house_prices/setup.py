@@ -7,7 +7,7 @@ setup(
     author=["Xayn Engineering"],
     author_email="engineering@xaynet.dev",
     license="Apache License Version 2.0",
-    python_requires=">=3.7.1",
+    python_requires=">=3.7.1, <=3.8",
     packages=find_packages(),
     install_requires=[
         "pandas==1.2.1",

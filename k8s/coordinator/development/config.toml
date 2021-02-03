@@ -34,13 +34,13 @@ url = "http://influxdb:8086"
 db = "metrics"
 
 [redis]
-# The url is configured via the enviroment variable `XAYNET_REDIS__URL`.
-# `XAYNET_REDIS__URL` depends on the enviroment variable `REDIS_AUTH`,
+# The url is configured via the environment variable `XAYNET_REDIS__URL`.
+# `XAYNET_REDIS__URL` depends on the environment variable `REDIS_AUTH`,
 # which is defined as a Kubernetes secret and exposed to the coordinator pod.
 # See: k8s/coordinator/base/deployment.yaml
 
 [s3]
-# The access_key and secret_access_key are configured via the enviroment variables
+# The access_key and secret_access_key are configured via the environment variables
 # `XAYNET_S3__ACCESS_KEY` and `XAYNET_S3__SECRET_ACCESS_KEY`.
 # See: k8s/coordinator/base/deployment.yaml
 region = ["minio", "http://minio:9000"]
