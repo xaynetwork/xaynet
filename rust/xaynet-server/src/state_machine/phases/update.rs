@@ -6,6 +6,7 @@ use tracing::{debug, info, warn};
 
 use crate::{
     impl_handler_for_phasestate,
+    impl_process_for_phasestate_handler,
     state_machine::{
         events::DictionaryUpdate,
         phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Sum2},
@@ -52,7 +53,7 @@ where
     const NAME: PhaseName = PhaseName::Update;
 
     async fn run(&mut self) -> Result<(), PhaseStateError> {
-        self.process(self.shared.state.update).await?;
+        self.process().await?;
 
         info!("broadcasting the global seed dictionary");
         let seed_dict = self
@@ -99,6 +100,8 @@ where
 
     impl_handler_for_phasestate! { Update }
 }
+
+impl_process_for_phasestate_handler! { Update }
 
 impl<S> PhaseState<Update, S>
 where

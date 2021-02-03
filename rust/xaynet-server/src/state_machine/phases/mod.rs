@@ -13,7 +13,6 @@ use std::fmt;
 use async_trait::async_trait;
 use derive_more::Display;
 use futures::StreamExt;
-use tokio::time::{timeout, Duration};
 use tracing::{debug, error, error_span, info, warn, Span};
 use tracing_futures::Instrument;
 
@@ -30,7 +29,7 @@ use crate::{
     metric,
     metrics::Measurement,
     state_machine::{
-        coordinator::{CoordinatorState, PhaseParameters},
+        coordinator::CoordinatorState,
         events::EventPublisher,
         requests::{RequestReceiver, ResponseSender, StateMachineRequest},
         RequestError,
@@ -97,15 +96,6 @@ pub trait Handler {
     /// Checks whether too many requests are processed wrt the PET settings.
     fn has_overmuch_messages(&self) -> bool;
 
-    /// Gets the value of the counter for accepted requests.
-    fn accepted(&self) -> u64;
-
-    /// Gets the value of the counter for rejected requests.
-    fn rejected(&self) -> u64;
-
-    /// Gets the value of the counter for discarded requests.
-    fn discarded(&self) -> u64;
-
     /// Increments the counter for accepted requests.
     fn increment_accepted(&mut self);
 
@@ -114,64 +104,6 @@ pub trait Handler {
 
     /// Increments the counter for discarded requests.
     fn increment_discarded(&mut self);
-}
-
-/// Implements all [`Handler`] methods except for [`handle_request()`].
-///
-/// Circumvents the infeasibility of default trait impls due to the dependency on internal state.
-#[doc(hidden)]
-#[macro_export]
-macro_rules! impl_handler_for_phasestate {
-    ($phase: ty) => {
-        paste::paste! {
-            fn has_enough_messages(&self) -> bool {
-                self.private.accepted >= self.shared.state.[<$phase:lower>].count.min
-            }
-
-            fn has_overmuch_messages(&self) -> bool {
-                self.private.accepted >= self.shared.state.[<$phase:lower>].count.max
-            }
-
-            fn accepted(&self) -> u64 {
-                self.private.accepted
-            }
-
-            fn rejected(&self) -> u64 {
-                self.private.rejected
-            }
-
-            fn discarded(&self) -> u64 {
-                self.private.discarded
-            }
-
-            fn increment_accepted(&mut self) {
-                let phase = <Self as crate::state_machine::phases::Phase<_>>::NAME;
-                self.private.accepted += 1;
-                tracing::debug!(
-                    "{} {} messages accepted (min {} and max {} required)",
-                    self.private.accepted,
-                    phase,
-                    self.shared.state.[<$phase:lower>].count.min,
-                    self.shared.state.[<$phase:lower>].count.max,
-                );
-                crate::metric!(accepted: self.shared.state.round_id, phase);
-            }
-
-            fn increment_rejected(&mut self) {
-                let phase = <Self as crate::state_machine::phases::Phase<_>>::NAME;
-                self.private.rejected += 1;
-                tracing::debug!("{} {} messages rejected", self.private.rejected, phase);
-                crate::metric!(rejected: self.shared.state.round_id, phase);
-            }
-
-            fn increment_discarded(&mut self) {
-                let phase = <Self as crate::state_machine::phases::Phase<_>>::NAME;
-                self.private.discarded += 1;
-                tracing::debug!("{} {} messages discarded", self.private.discarded, phase);
-                crate::metric!(discarded: self.shared.state.round_id, phase);
-            }
-        }
-    };
 }
 
 /// A struct that contains the coordinator state and the I/O interfaces that are shared and
@@ -248,50 +180,121 @@ where
     pub(in crate::state_machine) shared: Shared<T>,
 }
 
+/// Implements all [`Handler`] methods for [`PhaseState`] except for [`handle_request()`].
+///
+/// Circumvents the infeasibility of default trait impls due to the dependency on internal state.
+#[doc(hidden)]
+#[macro_export]
+macro_rules! impl_handler_for_phasestate {
+    ($phase: ty) => {
+        paste::paste! {
+            fn has_enough_messages(&self) -> bool {
+                self.private.accepted >= self.shared.state.[<$phase:lower>].count.min
+            }
+
+            fn has_overmuch_messages(&self) -> bool {
+                self.private.accepted >= self.shared.state.[<$phase:lower>].count.max
+            }
+
+            fn increment_accepted(&mut self) {
+                let phase = <Self as crate::state_machine::phases::Phase<_>>::NAME;
+                self.private.accepted += 1;
+                tracing::debug!(
+                    "{} {} messages accepted (min {} and max {} required)",
+                    self.private.accepted,
+                    phase,
+                    self.shared.state.[<$phase:lower>].count.min,
+                    self.shared.state.[<$phase:lower>].count.max,
+                );
+                crate::metric!(accepted: self.shared.state.round_id, phase);
+            }
+
+            fn increment_rejected(&mut self) {
+                let phase = <Self as crate::state_machine::phases::Phase<_>>::NAME;
+                self.private.rejected += 1;
+                tracing::debug!("{} {} messages rejected", self.private.rejected, phase);
+                crate::metric!(rejected: self.shared.state.round_id, phase);
+            }
+
+            fn increment_discarded(&mut self) {
+                let phase = <Self as crate::state_machine::phases::Phase<_>>::NAME;
+                self.private.discarded += 1;
+                tracing::debug!("{} {} messages discarded", self.private.discarded, phase);
+                crate::metric!(discarded: self.shared.state.round_id, phase);
+            }
+        }
+    };
+}
+
+/// Implements `process()` for [`PhaseState`]`: `[`Handler`]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! impl_process_for_phasestate_handler {
+    ($phase: ty) => {
+        paste::paste! {
+            impl<S> crate::state_machine::phases::PhaseState<$phase, S>
+            where
+                Self: crate::state_machine::phases::Handler
+                    + crate::state_machine::phases::Phase<S>,
+                S: crate::storage::Storage,
+            {
+                // Processes requests wrt the phase parameters.
+                //
+                // - Processes at most `count.max` requests during the time interval
+                // `[now, now + time.min]`.
+                // - Processes requests until there are enough (ie `count.min`) for the time
+                // interval `[now + time.min, now + time.max]`.
+                // - Aborts if either all connections were dropped or not enough requests were
+                // processed until timeout.
+                #[doc =
+                    "Processes requests wrt the phase parameters.\n\n"
+                    "- Processes at most `" [<$phase:lower>] ".count.max` requests during the time interval `[now, now + " [<$phase:lower>] ".time.min]`.\n"
+                    "- Processes requests until there are enough (ie `" [<$phase:lower>] ".count.min`) for the time interval `[now + " [<$phase:lower>] ".time.min, now + " [<$phase:lower>] ".time.max]`.\n"
+                    "- Aborts if either all connections were dropped or not enough requests were processed until timeout."
+                ]
+                async fn process(&mut self) -> Result<(), PhaseStateError> {
+                    let phase = <Self as crate::state_machine::phases::Phase<_>>::NAME;
+                    let crate::state_machine::coordinator::PhaseParameters { count, time } =
+                        self.shared.state.[<$phase:lower>];
+                    tracing::info!("processing requests in {} phase", phase);
+                    tracing::debug!(
+                        "in {} phase for min {} and max {} seconds",
+                        phase, time.min, time.max,
+                    );
+                    self.process_during(tokio::time::Duration::from_secs(time.min)).await?;
+
+                    let time_left = time.max - time.min;
+                    tokio::time::timeout(
+                        tokio::time::Duration::from_secs(time_left),
+                        self.process_until_enough()
+                    ).await??;
+
+                    tracing::info!(
+                        "in total {} {} messages accepted (min {} and max {} required)",
+                        self.private.accepted,
+                        phase,
+                        count.min,
+                        count.max,
+                    );
+                    tracing::info!("in total {} {} messages rejected", self.private.rejected, phase);
+                    tracing::info!(
+                        "in total {} {} messages discarded (purged not included)",
+                        self.private.discarded,
+                        phase,
+                    );
+
+                    Ok(())
+                }
+            }
+        }
+    };
+}
+
 impl<S, T> PhaseState<S, T>
 where
     Self: Handler + Phase<T>,
     T: Storage,
 {
-    /// Processes requests wrt the phase parameters.
-    ///
-    /// - Processes at most `count.max` requests during the time interval `[now, now+time.min]`.
-    /// - Processes requests until there are enough (ie `count.min`) for the time interval
-    /// `[now+time.min, now+time.max]`.
-    /// - Aborts if either all connections were dropped or not enough requests were processed
-    /// until timeout.
-    async fn process(
-        &mut self,
-        PhaseParameters { time, count }: PhaseParameters,
-    ) -> Result<(), PhaseStateError> {
-        let phase = <Self as Phase<_>>::NAME;
-        info!("processing requests in {} phase", phase);
-        debug!(
-            "in {} phase for min {} and max {} seconds",
-            phase, time.min, time.max,
-        );
-        self.process_during(Duration::from_secs(time.min)).await?;
-
-        let time_left = time.max - time.min;
-        timeout(Duration::from_secs(time_left), self.process_until_enough()).await??;
-
-        info!(
-            "in total {} {} messages accepted (min {} and max {} required)",
-            self.accepted(),
-            phase,
-            count.min,
-            count.max,
-        );
-        info!("in total {} {} messages rejected", self.rejected(), phase);
-        info!(
-            "in total {} {} messages discarded (purged not included)",
-            self.discarded(),
-            phase,
-        );
-
-        Ok(())
-    }
-
     /// Processes requests for as long as the given duration.
     async fn process_during(&mut self, dur: tokio::time::Duration) -> Result<(), PhaseStateError> {
         let phase = <Self as Phase<_>>::NAME;
