@@ -20,8 +20,8 @@ impl<'db> ScreenRouteRepo<'db> {
     }
 }
 
-impl<'db> Repo<&'db mut ScreenRoute> for ScreenRouteRepo<'db> {
-    fn add(&self, route: &'db mut ScreenRoute) -> Result<(), Error> {
+impl<'db> Repo<ScreenRoute> for ScreenRouteRepo<'db> {
+    fn add(&self, route: ScreenRoute) -> Result<(), Error> {
         let mut object_builder = self.db.get_object_builder(&self.collection_name)?;
         route.write_with_object_builder(&mut object_builder);
         let object_id = self
@@ -35,7 +35,7 @@ impl<'db> Repo<&'db mut ScreenRoute> for ScreenRouteRepo<'db> {
     }
 
     // TODO: return an iterator instead of Vec: https://xainag.atlassian.net/browse/XN-1517
-    fn get_all(&self) -> Result<Vec<&'db mut ScreenRoute>, Error> {
+    fn get_all(&self) -> Result<Vec<ScreenRoute>, Error> {
         let _routes_as_bytes = self.db.get_all_as_bytes(&self.collection_name)?;
 
         // TODO: not sure how to proceed to parse [u8] using the collection schema. didn't find examples in Isar

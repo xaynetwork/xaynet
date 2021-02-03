@@ -87,7 +87,7 @@ where
         let mut screen_active_time_vars: Vec<DataPoint> = screen_routes
             .iter()
             .map(|route| {
-                let events_this_route = Self::get_events_single_route(&route, events.clone());
+                let events_this_route = Self::get_events_single_route(&route, events.as_slice());
                 CalcScreenActiveTime::new(
                     metadata,
                     Self::filter_events_in_this_period(metadata, events_this_route),
@@ -110,7 +110,7 @@ where
         screen_routes
             .iter()
             .map(|route| {
-                let events_this_route = Self::get_events_single_route(&route, events.clone());
+                let events_this_route = Self::get_events_single_route(&route, events.as_slice());
                 CalcScreenEnterCount::new(
                     metadata,
                     Self::filter_events_in_this_period(metadata, events_this_route),
@@ -204,10 +204,10 @@ where
     // TODO: return an iterator instead of Vec: https://xainag.atlassian.net/browse/XN-1517
     fn get_events_single_route(
         route: &ScreenRoute,
-        all_events: Vec<AnalyticsEvent<'screen>>,
+        all_events: &[AnalyticsEvent<'screen>],
     ) -> Vec<AnalyticsEvent<'screen>> {
         all_events
-            .into_iter()
+            .iter()
             .filter(|event| {
                 if let Some(screen_route) = event.screen_route {
                     screen_route == route
@@ -215,6 +215,7 @@ where
                     false
                 }
             })
+            .cloned()
             .collect()
     }
 }
@@ -473,12 +474,12 @@ mod tests {
             timestamp,
             Some(&other_route),
         );
-        let all_events = vec![home_route_event.clone(), other_route_event];
+        let all_events = [home_route_event.clone(), other_route_event];
         let expected_output = vec![home_route_event];
         let actual_output =
             DataCombiner::<MockAnalyticsEventRepo, MockScreenRouteRepo>::get_events_single_route(
                 &home_route,
-                all_events,
+                &all_events,
             );
         assert_eq!(actual_output, expected_output);
     }

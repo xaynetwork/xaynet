@@ -37,16 +37,6 @@ impl<'screen> AnalyticsEvent<'screen> {
             screen_route,
         }
     }
-
-    fn write_screen_route(&self, object_builder: &mut ObjectBuilder) {
-        match &self.screen_route {
-            Some(screen) => match &screen.object_id {
-                Some(object_id) => object_builder.write_string(Some(&object_id)),
-                None => object_builder.write_null(),
-            },
-            None => object_builder.write_null(),
-        }
-    }
 }
 
 impl<'a> IsarAdapter for AnalyticsEvent<'a> {
@@ -65,7 +55,7 @@ impl<'a> IsarAdapter for AnalyticsEvent<'a> {
     fn write_with_object_builder(&self, object_builder: &mut ObjectBuilder) {
         object_builder.write_int(self.event_type as i32);
         object_builder.write_string(Some(&self.name));
-        self.write_screen_route(object_builder);
+        object_builder.write_string(self.screen_route.map(|screen| screen.name.as_ref()));
         object_builder.write_string(Some(&self.timestamp.to_rfc3339()));
     }
 }
