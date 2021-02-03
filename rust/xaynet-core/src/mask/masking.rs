@@ -21,6 +21,7 @@ use crate::{
         config::MaskConfigPair,
         model::{float_to_ratio_bounded, Model},
         object::{MaskObject, MaskUnit, MaskVect},
+        scalar::Scalar,
         seed::MaskSeed,
     },
 };
