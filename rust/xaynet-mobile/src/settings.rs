@@ -4,7 +4,10 @@
 
 use std::convert::TryInto;
 use thiserror::Error;
-use xaynet_core::{crypto::SigningKeyPair, mask::Scalar};
+use xaynet_core::{
+    crypto::SigningKeyPair,
+    mask::{FromPrimitive, Scalar},
+};
 use xaynet_sdk::settings::{MaxMessageSize, PetSettings};
 
 /// A participant settings
@@ -43,8 +46,11 @@ impl Settings {
     }
 
     /// Set the scalar to use for masking
-    pub fn set_scalar(&mut self, numer: u32, denom: u32) {
-        self.scalar = Scalar::new(numer, denom)
+    ///
+    /// # Panics
+    /// Panics if a `Scalar` cannot be constructed from the given `scalar`.
+    pub fn set_scalar(&mut self, scalar: f64) {
+        self.scalar = Scalar::from_primitive(scalar).unwrap()
     }
 
     /// Set the Xaynet coordinator address
