@@ -21,9 +21,14 @@ where
     const NAME: PhaseName = PhaseName::Shutdown;
 
     async fn run(&mut self) -> Result<(), PhaseStateError> {
+        <Self as Phase<S>>::process(self).await
+    }
+
+    async fn process(&mut self) -> Result<(), PhaseStateError> {
         // clear the request channel
         self.shared.request_rx.close();
         while self.shared.request_rx.recv().await.is_some() {}
+
         Ok(())
     }
 

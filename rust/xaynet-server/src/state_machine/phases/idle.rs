@@ -40,6 +40,11 @@ where
     const NAME: PhaseName = PhaseName::Idle;
 
     async fn run(&mut self) -> Result<(), PhaseStateError> {
+        <Self as Phase<S>>::process(self).await?;
+        self.broadcast().await
+    }
+
+    async fn process(&mut self) -> Result<(), PhaseStateError> {
         info!("updating the keys");
         self.gen_round_keypair();
 
@@ -63,7 +68,7 @@ where
             .await
             .map_err(IdleStateError::DeleteDictionaries)?;
 
-        self.broadcast().await
+        Ok(())
     }
 
     async fn broadcast(&mut self) -> Result<(), PhaseStateError> {
