@@ -72,7 +72,7 @@ mod tests {
 
     fn influx_settings() -> InfluxSettings {
         InfluxSettings {
-            url: "http://localhost:8086".to_string(),
+            url: "http://127.0.0.1:8086".to_string(),
             db: "metrics".to_string(),
         }
     }
@@ -102,7 +102,7 @@ mod tests {
     #[tokio::test]
     async fn integration_wrong_url() {
         let settings = influx_settings();
-        let mut task = Spawn::new(Dispatcher::new("http://localhost:9998", &settings.db));
+        let mut task = Spawn::new(Dispatcher::new("http://127.0.0.1:9998", &settings.db));
 
         let event = Event::new("event");
         assert_ready!(task.poll_ready()).unwrap();
