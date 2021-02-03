@@ -216,7 +216,7 @@ impl Phase<Update> {
         let masker = Masker::new(config);
         // UNWRAP_SAFE: the model is set, per the `has_masked_model()` check above
         let model = self.state.private.model.take().unwrap();
-        let scalar = self.state.shared.scalar;
+        let scalar = self.state.shared.scalar.clone();
         self.state.private.mask = Some(masker.mask(scalar, model.as_ref()));
         Progress::Updated(self.into())
     }

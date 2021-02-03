@@ -19,7 +19,7 @@ use crate::{
 use xaynet_core::{
     common::{RoundParameters, RoundSeed},
     crypto::{ByteObject, EncryptKeyPair},
-    mask::{FromPrimitives, Model},
+    mask::{FromPrimitives, Model, Scalar},
 };
 
 #[tokio::test]
@@ -83,11 +83,12 @@ async fn integration_full_round() {
     // Update phase (3 participants)
     let transition_task = tokio::spawn(async { state_machine.next().await.unwrap() });
     let sum_dict = events.sum_dict_listener().get_latest().event.unwrap();
-    let scalar = 1.0 / (n_updaters as f64 * round_params.update);
+    let expected_upd = (round_params.update * n_updaters as f64) as u64;
+    let scalar = Scalar::new(1, expected_upd);
     let model = Model::from_primitives(vec![0; model_length].into_iter()).unwrap();
     for _ in 0..3 {
         let updater = generate_updater(round_params.clone());
-        let (mask_seed, masked_model) = updater.compute_masked_model(&model, scalar);
+        let (mask_seed, masked_model) = updater.compute_masked_model(&model, scalar.clone());
         let local_seed_dict = Participant::build_seed_dict(&sum_dict, &mask_seed);
         let msg = updater.compose_update_message(masked_model.clone(), local_seed_dict.clone());
         requests.msg(&msg).await.unwrap();

@@ -1,4 +1,4 @@
-use std::os::raw::{c_double, c_int};
+use std::os::raw::{c_int, c_uint};
 
 use ffi_support::{ByteBuffer, FfiStr};
 use xaynet_core::crypto::{ByteObject, PublicSigningKey, SecretSigningKey, SigningKeyPair};
@@ -82,11 +82,12 @@ pub unsafe extern "C" fn xaynet_ffi_settings_new() -> *mut Settings {
 #[no_mangle]
 pub unsafe extern "C" fn xaynet_ffi_settings_set_scalar(
     settings: *mut Settings,
-    scalar: c_double,
+    numer: c_uint,
+    denom: c_uint,
 ) -> c_int {
     match unsafe { settings.as_mut() } {
         Some(settings) => {
-            settings.set_scalar(scalar);
+            settings.set_scalar(numer, denom);
             OK
         }
         None => ERR_NULLPTR,

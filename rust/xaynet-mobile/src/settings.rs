@@ -4,7 +4,7 @@
 
 use std::convert::TryInto;
 use thiserror::Error;
-use xaynet_core::crypto::SigningKeyPair;
+use xaynet_core::{crypto::SigningKeyPair, mask::Scalar};
 use xaynet_sdk::settings::{MaxMessageSize, PetSettings};
 
 /// A participant settings
@@ -15,7 +15,7 @@ pub struct Settings {
     /// The participant signing keys.
     keys: Option<SigningKeyPair>,
     /// The scalar used for masking.
-    scalar: f64,
+    scalar: Scalar,
     /// The maximum possible size of a message.
     max_message_size: MaxMessageSize,
 }
@@ -32,7 +32,7 @@ impl Settings {
         Self {
             url: None,
             keys: None,
-            scalar: 1.0,
+            scalar: Scalar::unit(),
             max_message_size: MaxMessageSize::default(),
         }
     }
@@ -42,9 +42,9 @@ impl Settings {
         self.keys = Some(keys);
     }
 
-    /// Set the scalar use for masking
-    pub fn set_scalar(&mut self, scalar: f64) {
-        self.scalar = scalar;
+    /// Set the scalar to use for masking
+    pub fn set_scalar(&mut self, numer: u32, denom: u32) {
+        self.scalar = Scalar::new(numer, denom)
     }
 
     /// Set the Xaynet coordinator address
