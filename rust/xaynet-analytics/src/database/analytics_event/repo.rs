@@ -6,13 +6,13 @@ use crate::database::{
     isar::IsarDb,
 };
 
-pub struct AnalyticsEventRepo<'r> {
-    collection_name: &'r str,
-    db: &'r IsarDb,
+pub struct AnalyticsEventRepo<'db> {
+    collection_name: &'db str,
+    db: &'db IsarDb,
 }
 
-impl<'r> AnalyticsEventRepo<'r> {
-    pub fn new(collection_name: &'r str, db: &'r IsarDb) -> Self {
+impl<'db> AnalyticsEventRepo<'db> {
+    pub fn new(collection_name: &'db str, db: &'db IsarDb) -> Self {
         Self {
             collection_name,
             db,
@@ -20,21 +20,19 @@ impl<'r> AnalyticsEventRepo<'r> {
     }
 }
 
-impl<'r> Repo<AnalyticsEvent> for AnalyticsEventRepo<'r> {
+impl<'screen, 'db> Repo<AnalyticsEvent<'screen>> for AnalyticsEventRepo<'db> {
     fn add(&self, event: AnalyticsEvent) -> Result<(), Error> {
         let mut object_builder = self.db.get_object_builder(self.collection_name)?;
         event.write_with_object_builder(&mut object_builder);
-        self.db
-            .put(
-                &self.collection_name,
-                None,
-                object_builder.finish().as_bytes(),
-            )
-            .map(|_| ())
+        self.db.put(
+            &self.collection_name,
+            None,
+            object_builder.finish().as_bytes(),
+        )
     }
 
     // TODO: return an iterator instead of Vec: https://xainag.atlassian.net/browse/XN-1517
-    fn get_all(&self) -> Result<Vec<AnalyticsEvent>, Error> {
+    fn get_all(&self) -> Result<Vec<AnalyticsEvent<'screen>>, Error> {
         let _events_as_bytes = self.db.get_all_as_bytes(&self.collection_name)?;
 
         // TODO: not sure how to proceed to parse [u8] using the collection schema. didn't find examples in Isar
@@ -45,12 +43,12 @@ impl<'r> Repo<AnalyticsEvent> for AnalyticsEventRepo<'r> {
 
 pub struct MockAnalyticsEventRepo {}
 
-impl Repo<AnalyticsEvent> for MockAnalyticsEventRepo {
+impl<'screen> Repo<AnalyticsEvent<'screen>> for MockAnalyticsEventRepo {
     fn add(&self, _object: AnalyticsEvent) -> Result<(), Error> {
         Ok(())
     }
 
-    fn get_all(&self) -> Result<Vec<AnalyticsEvent>, Error> {
+    fn get_all(&self) -> Result<Vec<AnalyticsEvent<'screen>>, Error> {
         Ok(Vec::new())
     }
 }
