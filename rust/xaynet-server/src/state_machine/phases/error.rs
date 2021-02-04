@@ -53,10 +53,6 @@ where
 {
     const NAME: PhaseName = PhaseName::Error;
 
-    async fn run(&mut self) -> Result<(), PhaseStateError> {
-        <Self as Phase<S>>::process(self).await
-    }
-
     async fn process(&mut self) -> Result<(), PhaseStateError> {
         error!("phase state error: {}", self.private);
         event!("Phase error", self.private.to_string());

@@ -2,8 +2,7 @@ use async_trait::async_trait;
 
 use crate::{
     state_machine::{
-        phases::{Phase, PhaseName, PhaseState, Shared},
-        PhaseStateError,
+        phases::{Phase, PhaseName, PhaseState, PhaseStateError, Shared},
         StateMachine,
     },
     storage::Storage,
@@ -19,10 +18,6 @@ where
     S: Storage,
 {
     const NAME: PhaseName = PhaseName::Shutdown;
-
-    async fn run(&mut self) -> Result<(), PhaseStateError> {
-        <Self as Phase<S>>::process(self).await
-    }
 
     async fn process(&mut self) -> Result<(), PhaseStateError> {
         // clear the request channel

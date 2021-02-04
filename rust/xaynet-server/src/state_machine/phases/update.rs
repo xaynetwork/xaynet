@@ -50,11 +50,6 @@ where
 {
     const NAME: PhaseName = PhaseName::Update;
 
-    async fn run(&mut self) -> Result<(), PhaseStateError> {
-        <Self as Phase<S>>::process(self).await?;
-        self.broadcast().await
-    }
-
     async fn process(&mut self) -> Result<(), PhaseStateError> {
         self.process(self.shared.state.update).await
     }

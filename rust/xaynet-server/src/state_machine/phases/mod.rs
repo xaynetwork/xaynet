@@ -61,38 +61,34 @@ pub enum PhaseName {
 }
 
 /// A trait that must be implemented by a state in order to move to a next state.
+///
+/// See the [module level documentation] for more details.
+///
+/// [module level documentation]: crate::state_machine
 #[async_trait]
 pub trait Phase<S>
 where
     S: Storage,
+    Self: Sync,
 {
     /// The name of the current phase.
     const NAME: PhaseName;
 
-    /// Runs this phase to completion.
-    ///
-    /// See the [module level documentation] for more details.
-    ///
-    /// [module level documentation]: crate::state_machine
-    async fn run(&mut self) -> Result<(), PhaseStateError>;
-
     /// Performs the tasks of this phase.
     async fn process(&mut self) -> Result<(), PhaseStateError>;
+    // TODO: add a filter service in PetMessageHandler that only passes through messages if
+    // the state machine is in one of the Sum, Update or Sum2 phases. then we can add a Purge
+    // phase here which gets broadcasted when the purge starts to prevent further incomming
+    // messages, which means we can split `purge()` from `process()` and use a no-op default impl
+    // for all phases except Sum, Update and Sum. until then we have to have a purge impl in every
+    // phase, which also means that the metrics can be a bit off.
 
     /// Broadcasts data of this phase (nothing by default).
-    ///
-    /// See the [module level documentation] for more details.
-    ///
-    /// [module level documentation]: crate::state_machine
     async fn broadcast(&mut self) -> Result<(), PhaseStateError> {
         Ok(())
     }
 
-    /// Moves from this state to the next state.
-    ///
-    /// See the [module level documentation] for more details.
-    ///
-    /// [module level documentation]: crate::state_machine
+    /// Moves from this phase to the next phase.
     fn next(self) -> Option<StateMachine<S>>;
 }
 
@@ -172,11 +168,16 @@ where
 
 impl<S, T> PhaseState<S, T>
 where
-    Self: Phase<T>,
+    S: Send,
     T: Storage,
+    Self: Phase<T>,
 {
-    /// Run the current phase to completion, then transition to the
-    /// next phase and return it.
+    /// Runs the current phase to completion.
+    ///
+    /// 1. Performs the phase tasks.
+    /// 2. Purges outdated phase messages.
+    /// 3. Broadcasts the phase data.
+    /// 4. Transitions to the next phase.
     pub async fn run_phase(mut self) -> Option<StateMachine<T>> {
         let phase = <Self as Phase<_>>::NAME;
         let span = error_span!("run_phase", phase = %phase);
@@ -187,7 +188,8 @@ where
             self.shared.events.broadcast_phase(phase);
             metric!(Measurement::Phase, phase as u8);
 
-            if let Err(err) = self.run().await {
+            if let Err(err) = self.process().await {
+                warn!("failed to perform the {} phase tasks", phase);
                 return Some(self.into_error_state(err));
             }
             info!("phase ran successfully");
@@ -195,8 +197,6 @@ where
             debug!("purging outdated requests before transitioning");
             if let Err(err) = self.purge_outdated_requests() {
                 warn!("failed to purge outdated requests");
-                // If we're already in the error state or shutdown state,
-                // ignore this error
                 match phase {
                     PhaseName::Error | PhaseName::Shutdown => {
                         debug!(
@@ -206,6 +206,11 @@ where
                     }
                     _ => return Some(self.into_error_state(err)),
                 }
+            }
+
+            if let Err(err) = self.broadcast().await {
+                warn!("failed to broadcast the {} phase data", phase);
+                return Some(self.into_error_state(err));
             }
 
             info!("transitioning to the next phase");

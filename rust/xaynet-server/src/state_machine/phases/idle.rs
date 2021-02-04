@@ -8,8 +8,7 @@ use crate::{
     metrics::Measurement,
     state_machine::{
         events::DictionaryUpdate,
-        phases::{Phase, PhaseName, PhaseState, Shared, Sum},
-        PhaseStateError,
+        phases::{Phase, PhaseName, PhaseState, PhaseStateError, Shared, Sum},
         StateMachine,
     },
     storage::{Storage, StorageError},
@@ -38,11 +37,6 @@ where
     S: Storage,
 {
     const NAME: PhaseName = PhaseName::Idle;
-
-    async fn run(&mut self) -> Result<(), PhaseStateError> {
-        <Self as Phase<S>>::process(self).await?;
-        self.broadcast().await
-    }
 
     async fn process(&mut self) -> Result<(), PhaseStateError> {
         info!("updating the keys");
@@ -180,7 +174,8 @@ mod tests {
         assert_eq!(id, 0);
 
         let mut idle_phase = PhaseState::<Idle, _>::new(shared);
-        idle_phase.run().await.unwrap();
+        idle_phase.process().await.unwrap();
+        idle_phase.broadcast().await.unwrap();
 
         let id = keys.get_latest().round_id;
         assert_eq!(id, 1);

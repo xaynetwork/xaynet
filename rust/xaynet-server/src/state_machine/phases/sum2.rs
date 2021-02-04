@@ -35,10 +35,6 @@ where
 {
     const NAME: PhaseName = PhaseName::Sum2;
 
-    async fn run(&mut self) -> Result<(), PhaseStateError> {
-        <Self as Phase<S>>::process(self).await
-    }
-
     async fn process(&mut self) -> Result<(), PhaseStateError> {
         self.process(self.shared.state.sum2).await
     }
