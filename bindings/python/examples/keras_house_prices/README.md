@@ -2,7 +2,7 @@
 
 **Prerequisites**
 
-- Python 3.7.1 or higher
+- Python >=3.7.1 <=3.8
 
 1. Adjust the coordinator settings
 
@@ -43,7 +43,7 @@ pip install -e .
    https://www.kaggle.com/c/house-prices-advanced-regression-techniques/data
 
 6. Extract the data (into
-   `python/client_examples/keras_house_prices/data/` here, but the
+   `python/examples/keras_house_prices/data/` here, but the
    location doesn't matter):
 
 ```shell
