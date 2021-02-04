@@ -1,7 +1,7 @@
 use super::models::{Event, Metric};
 use derive_more::From;
 use futures::future::BoxFuture;
-use influxdb::Client as InfluxClient;
+use influxdb::{Client as InfluxClient, WriteQuery};
 use std::task::{Context, Poll};
 use tower::Service;
 use tracing::debug;
@@ -12,11 +12,11 @@ pub(in crate::metrics) enum Request {
     Event(Event),
 }
 
-impl Request {
-    fn into_query(self) -> influxdb::WriteQuery {
-        match self {
-            Request::Metric(metric) => metric.into_query(),
-            Request::Event(event) => event.into_query(),
+impl From<Request> for WriteQuery {
+    fn from(req: Request) -> Self {
+        match req {
+            Request::Metric(metric) => metric.into(),
+            Request::Event(event) => event.into(),
         }
     }
 }
@@ -27,7 +27,7 @@ pub(in crate::metrics) struct Dispatcher {
 }
 
 impl Dispatcher {
-    pub fn new(url: &str, database: &str) -> Self {
+    pub fn new(url: impl Into<String>, database: impl Into<String>) -> Self {
         let client = InfluxClient::new(url, database);
         Self { client }
     }
@@ -47,7 +47,7 @@ impl Service<Request> for Dispatcher {
         let fut = async move {
             debug!("dispatch metric");
             client
-                .query(&req.into_query())
+                .query(&WriteQuery::from(req))
                 .await
                 .map_err(|err| anyhow::anyhow!("failed to dispatch metric {}", err))?;
             Ok(())
@@ -59,6 +59,9 @@ impl Service<Request> for Dispatcher {
 
 #[cfg(test)]
 mod tests {
+    use tokio_test::assert_ready;
+    use tower_test::mock::Spawn;
+
     use super::*;
     use crate::{
         metrics::{
@@ -67,8 +70,6 @@ mod tests {
         },
         settings::InfluxSettings,
     };
-    use tokio_test::assert_ready;
-    use tower_test::mock::Spawn;
 
     fn influx_settings() -> InfluxSettings {
         InfluxSettings {
@@ -80,9 +81,9 @@ mod tests {
     #[tokio::test]
     async fn integration_dispatch_metric() {
         let settings = influx_settings();
-        let mut task = Spawn::new(Dispatcher::new(&settings.url, &settings.db));
+        let mut task = Spawn::new(Dispatcher::new(settings.url, settings.db));
 
-        let metric = Metric::new(Measurement::Phase, 1.into());
+        let metric = Metric::new(Measurement::Phase, 1);
         assert_ready!(task.poll_ready()).unwrap();
         let resp = task.call(metric.into()).await;
         assert!(resp.is_ok());
@@ -91,7 +92,7 @@ mod tests {
     #[tokio::test]
     async fn integration_dispatch_event() {
         let settings = influx_settings();
-        let mut task = Spawn::new(Dispatcher::new(&settings.url, &settings.db));
+        let mut task = Spawn::new(Dispatcher::new(settings.url, settings.db));
 
         let event = Event::new("event");
         assert_ready!(task.poll_ready()).unwrap();
@@ -102,7 +103,7 @@ mod tests {
     #[tokio::test]
     async fn integration_wrong_url() {
         let settings = influx_settings();
-        let mut task = Spawn::new(Dispatcher::new("http://127.0.0.1:9998", &settings.db));
+        let mut task = Spawn::new(Dispatcher::new("http://127.0.0.1:9998", settings.db));
 
         let event = Event::new("event");
         assert_ready!(task.poll_ready()).unwrap();
