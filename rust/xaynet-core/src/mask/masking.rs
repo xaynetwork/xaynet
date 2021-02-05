@@ -365,7 +365,7 @@ impl Masker {
 
         // clamp the scalar
         let add_shift_1 = config_1.add_shift();
-        let scalar_ratio = scalar.into_ratio();
+        let scalar_ratio = scalar.into();
         let scalar_clamped = clamp_max(&scalar_ratio, &add_shift_1);
 
         let exp_shift_n = config_n.exp_shift();
@@ -899,14 +899,14 @@ mod tests {
                     let mut aggregated_masked_model = Aggregation::new(config.into(), vect_len);
                     let mut aggregated_mask = Aggregation::new(config.into(), vect_len);
                     let scalar = Scalar::new(1, model_count);
-                    let scalar_ratio = scalar.clone().into_ratio();
+                    let scalar_ratio = &scalar.to_ratio();
                     for _ in 0..model_count {
                         let model = models.next().unwrap();
                         averaged_model
                             .iter_mut()
                             .zip(model.iter())
                             .for_each(|(averaged_weight, weight)| {
-                                *averaged_weight += &scalar_ratio * weight;
+                                *averaged_weight += scalar_ratio * weight;
                             });
 
                         let (mask_seed, masked_model) =

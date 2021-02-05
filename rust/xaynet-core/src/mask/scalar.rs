@@ -2,7 +2,7 @@
 //!
 //! See the [mask module] documentation since this is a private module anyways.
 //!
-//! [mask module]: ../index.html
+//! [mask module]: crate::mask
 
 use crate::mask::{
     model::{ratio_to_float, PrimitiveType},
@@ -20,12 +20,31 @@ use num::{
     Zero,
 };
 use serde::{Deserialize, Serialize};
-use std::{convert::TryFrom, fmt::Debug};
+use std::{
+    convert::{TryFrom, TryInto},
+    fmt::Debug,
+};
 use thiserror::Error;
 
 #[derive(Debug, Clone, PartialEq, Hash, From, Into, Serialize, Deserialize)]
 /// A numerical representation of a machine learning scalar.
 pub struct Scalar(Ratio<BigUint>);
+
+impl From<Scalar> for Ratio<BigInt> {
+    fn from(scalar: Scalar) -> Self {
+        let (numer, denom) = scalar.0.into();
+        Ratio::new(numer.into(), denom.into())
+    }
+}
+
+impl TryFrom<Ratio<BigInt>> for Scalar {
+    type Error = <BigUint as TryFrom<BigInt>>::Error;
+
+    fn try_from(ratio: Ratio<BigInt>) -> Result<Self, Self::Error> {
+        let (numer, denom) = ratio.into();
+        Ok(Self(Ratio::new(numer.try_into()?, denom.try_into()?)))
+    }
+}
 
 impl Scalar {
     /// Constructs a new `Scalar` from the given numerator and denominator.
@@ -41,24 +60,24 @@ impl Scalar {
         Self(Ratio::one())
     }
 
-    /// Convenience method for conversion into a non-negative ratio of `BigInt`.
-    pub(crate) fn into_ratio(self) -> Ratio<BigInt> {
-        let (numer, denom) = self.0.into();
-        Ratio::new(numer.into(), denom.into())
-    }
-
     /// Convenience method for conversion to a non-negative ratio of `BigInt`.
     pub(crate) fn to_ratio(&self) -> Ratio<BigInt> {
-        let numer = self.0.numer().clone();
-        let denom = self.0.denom().clone();
-        Ratio::new(numer.into(), denom.into())
+        self.clone().into()
     }
 
-    fn from_ratio(r: Ratio<BigInt>) -> anyhow::Result<Self> {
-        let (inumer, idenom) = r.into();
-        let unumer = BigUint::try_from(inumer)?;
-        let udenom = BigUint::try_from(idenom)?;
-        Ok(Self(Ratio::new(unumer, udenom)))
+    /// Constructs a `Scalar` from a primitive floating point value, clamped where necessary.
+    ///
+    /// Maps positive infinity to max of the primitive data type, negatives and NaN to zero.
+    pub(crate) fn from_float_bounded<F: FloatCore>(f: F) -> Self {
+        if f.is_nan() {
+            Self(Ratio::zero())
+        } else {
+            let finite_f = clamp(f, F::zero(), F::max_value());
+            // safe unwrap: clamped weight is guaranteed to be finite
+            let r = Ratio::from_float(finite_f).unwrap();
+            // safe unwrap: bounded non-negative ratio r
+            r.try_into().unwrap()
+        }
     }
 }
 
@@ -126,11 +145,7 @@ impl IntoPrimitive<i32> for Scalar {
     }
 
     fn to_primitive(&self) -> Result<i32, ScalarCastError> {
-        let r = self.0.clone();
-        r.to_integer().to_i32().ok_or(ScalarCastError {
-            weight: r,
-            target: PrimitiveType::I32,
-        })
+        self.clone().into_primitive()
     }
 }
 
@@ -155,11 +170,7 @@ impl IntoPrimitive<i64> for Scalar {
     }
 
     fn to_primitive(&self) -> Result<i64, ScalarCastError> {
-        let i = self.0.clone();
-        i.to_integer().to_i64().ok_or(ScalarCastError {
-            weight: i,
-            target: PrimitiveType::I64,
-        })
+        self.clone().into_primitive()
     }
 }
 
@@ -177,74 +188,49 @@ impl FromPrimitive<i64> for Scalar {
 impl IntoPrimitive<f32> for Scalar {
     fn into_primitive(self) -> Result<f32, ScalarCastError> {
         let r = self.to_ratio();
-        ratio_to_float::<f32>(&r).ok_or(ScalarCastError {
+        ratio_to_float(&r).ok_or(ScalarCastError {
             weight: self.0,
             target: PrimitiveType::F32,
         })
     }
 
     fn to_primitive(&self) -> Result<f32, ScalarCastError> {
-        let r = self.to_ratio();
-        ratio_to_float::<f32>(&r).ok_or(ScalarCastError {
-            weight: self.0.clone(),
-            target: PrimitiveType::F32,
-        })
+        self.clone().into_primitive()
     }
 }
 
 impl FromPrimitive<f32> for Scalar {
     fn from_primitive(prim: f32) -> Result<Self, PrimitiveCastError<f32>> {
         let r = Ratio::from_float(prim).ok_or(PrimitiveCastError(prim))?;
-        Ok(Self::from_ratio(r).map_err(|_| PrimitiveCastError(prim))?)
+        Ok(r.try_into().map_err(|_| PrimitiveCastError(prim))?)
     }
 
     fn from_primitive_bounded(prim: f32) -> Self {
-        let r = float_to_ratio_bounded::<f32>(prim);
-        // safe unwrap: bounded non-negative ratio r
-        Self::from_ratio(r).unwrap()
+        Self::from_float_bounded(prim)
     }
 }
 
 impl IntoPrimitive<f64> for Scalar {
     fn into_primitive(self) -> Result<f64, ScalarCastError> {
         let r = self.to_ratio();
-        ratio_to_float::<f64>(&r).ok_or(ScalarCastError {
+        ratio_to_float(&r).ok_or(ScalarCastError {
             weight: self.0,
             target: PrimitiveType::F64,
         })
     }
 
     fn to_primitive(&self) -> Result<f64, ScalarCastError> {
-        let r = self.to_ratio();
-        ratio_to_float::<f64>(&r).ok_or(ScalarCastError {
-            weight: self.0.clone(),
-            target: PrimitiveType::F64,
-        })
+        self.clone().into_primitive()
     }
 }
 
 impl FromPrimitive<f64> for Scalar {
     fn from_primitive(prim: f64) -> Result<Self, PrimitiveCastError<f64>> {
         let r = Ratio::from_float(prim).ok_or(PrimitiveCastError(prim))?;
-        Ok(Self::from_ratio(r).map_err(|_| PrimitiveCastError(prim))?)
+        Ok(r.try_into().map_err(|_| PrimitiveCastError(prim))?)
     }
 
     fn from_primitive_bounded(prim: f64) -> Self {
-        let r = float_to_ratio_bounded::<f64>(prim);
-        // safe unwrap: bounded non-negative ratio r
-        Self::from_ratio(r).unwrap()
-    }
-}
-
-/// Converts the primitive floating point value into a numerical value.
-///
-/// Maps positive/negative infinity to max/min of the primitive data type and NaN to zero.
-pub(crate) fn float_to_ratio_bounded<F: FloatCore>(f: F) -> Ratio<BigInt> {
-    if f.is_nan() {
-        Ratio::<BigInt>::zero()
-    } else {
-        let finite_f = clamp(f, F::zero(), F::max_value());
-        // safe unwrap: clamped weight is guaranteed to be finite
-        Ratio::<BigInt>::from_float(finite_f).unwrap()
+        Self::from_float_bounded(prim)
     }
 }
