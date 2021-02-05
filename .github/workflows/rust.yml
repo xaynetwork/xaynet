@@ -9,6 +9,10 @@ on:
       - 'README.md'
       - 'README.tpl'
 
+env:
+  RUST_STABLE: 1.49.0
+  RUST_NIGHTLY: nightly-2021-01-31
+
 jobs:
   registry-cache:
     name: cargo-fetch
@@ -26,7 +30,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: ${{ env.RUST_STABLE }}
 
       # We want to create a new cache after a week. Otherwise, the cache will
       # take up too much space by caching old dependencies
@@ -71,7 +75,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly
+          toolchain: ${{ env.RUST_NIGHTLY }}
           components: rustfmt
           default: true
 
@@ -87,7 +91,7 @@ jobs:
 
       - name: cargo fmt
         working-directory: ${{ matrix.cargo_manifest }}
-        run: cargo +nightly fmt --all -- --check
+        run: cargo +${{ env.RUST_NIGHTLY }} fmt --all -- --check
 
   check:
     name: cargo-check
@@ -107,7 +111,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: ${{ env.RUST_STABLE }}
 
       - name: Use cached cargo registry
         uses: actions/cache@v2
@@ -146,7 +150,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: ${{ env.RUST_STABLE }}
           components: clippy
 
       - name: Use cached cargo registry
@@ -184,7 +188,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: ${{ env.RUST_STABLE }}
 
       - name: Use cached cargo registry
         uses: actions/cache@v2
@@ -232,7 +236,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: ${{ env.RUST_STABLE }}
 
       - name: Use cached cargo registry
         uses: actions/cache@v2
@@ -273,7 +277,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: ${{ env.RUST_STABLE }}
 
       - name: Use cached cargo registry
         uses: actions/cache@v2
@@ -307,7 +311,7 @@ jobs:
         id: rust-toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: ${{ env.RUST_STABLE }}
           profile: minimal
 
       - name: Use cached cargo registry
@@ -360,7 +364,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: ${{ env.RUST_STABLE }}
 
       - name: Cache cargo registry
         uses: actions/cache@v2
@@ -422,7 +426,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: ${{ env.RUST_STABLE }}
 
       - name: Cache cargo readme
         uses: actions/cache@v2
