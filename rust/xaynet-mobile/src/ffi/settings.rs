@@ -10,6 +10,7 @@ use super::{
     ERR_INVALID_URL,
     ERR_NULLPTR,
     ERR_SETTINGS_KEYS,
+    ERR_SETTINGS_SCALAR,
     ERR_SETTINGS_URL,
     OK,
 };
@@ -255,6 +256,7 @@ pub unsafe extern "C" fn xaynet_ffi_settings_set_keys(
 /// - [`OK`] on success
 /// - [`ERR_SETTINGS_URL`] if the URL has not been set
 /// - [`ERR_SETTINGS_KEYS`] if the signing keys have not been set
+/// - [`ERR_SETTINGS_SCALAR`] if the scalar is out of bounds
 ///
 /// # Safety
 ///
@@ -275,6 +277,7 @@ pub unsafe extern "C" fn xaynet_ffi_check_settings(settings: *const Settings) ->
             Ok(()) => OK,
             Err(SettingsError::MissingUrl) => ERR_SETTINGS_URL,
             Err(SettingsError::MissingKeys) => ERR_SETTINGS_KEYS,
+            Err(SettingsError::OutOfScalarRange(_)) => ERR_SETTINGS_SCALAR,
         },
         None => ERR_NULLPTR,
     }

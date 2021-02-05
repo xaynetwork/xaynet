@@ -85,23 +85,25 @@ pub const ERR_INVALID_URL: c_int = 2;
 pub const ERR_SETTINGS_URL: c_int = 3;
 /// Invalid settings: signing keys are not set
 pub const ERR_SETTINGS_KEYS: c_int = 4;
+/// Invalid settings: scalar is out of bounds
+pub const ERR_SETTINGS_SCALAR: c_int = 5;
 /// Failed to set the local model: invalid model
-pub const ERR_SETMODEL_MODEL: c_int = 5;
+pub const ERR_SETMODEL_MODEL: c_int = 6;
 /// Failed to set the local model: invalid data type
-pub const ERR_SETMODEL_DATATYPE: c_int = 6;
+pub const ERR_SETMODEL_DATATYPE: c_int = 7;
 /// Failed to initialized the crypto library
-pub const ERR_CRYPTO_INIT: c_int = 7;
+pub const ERR_CRYPTO_INIT: c_int = 8;
 /// Invalid secret signing key
-pub const ERR_CRYPTO_SECRET_KEY: c_int = 8;
+pub const ERR_CRYPTO_SECRET_KEY: c_int = 9;
 /// Invalid public signing key
-pub const ERR_CRYPTO_PUBLIC_KEY: c_int = 9;
+pub const ERR_CRYPTO_PUBLIC_KEY: c_int = 10;
 /// No global model is currently available
-pub const GLOBALMODEL_NONE: c_int = 10;
+pub const GLOBALMODEL_NONE: c_int = 11;
 /// Failed to get the global model: communication with the coordinator failed
-pub const ERR_GLOBALMODEL_IO: c_int = 11;
+pub const ERR_GLOBALMODEL_IO: c_int = 12;
 /// Failed to get the global model: invalid data type
-pub const ERR_GLOBALMODEL_DATATYPE: c_int = 12;
+pub const ERR_GLOBALMODEL_DATATYPE: c_int = 13;
 /// Failed to get the global model: invalid buffer length
-pub const ERR_GLOBALMODEL_LEN: c_int = 13;
+pub const ERR_GLOBALMODEL_LEN: c_int = 14;
 /// Failed to get the global model: invalid model
-pub const ERR_GLOBALMODEL_CONVERT: c_int = 14;
+pub const ERR_GLOBALMODEL_CONVERT: c_int = 15;
