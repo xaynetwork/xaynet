@@ -202,5 +202,47 @@ where
     }
 }
 
+/// Records a message accepted metric.
+#[doc(hidden)]
+#[macro_export]
+macro_rules! accepted {
+    ($round_id: expr, $phase: expr $(,)?) => {
+        crate::metric!(
+            crate::metrics::Measurement::MessageAccepted,
+            1,
+            ("round_id", $round_id),
+            ("phase", $phase as u8),
+        );
+    };
+}
+
+/// Records a message rejected metric.
+#[doc(hidden)]
+#[macro_export]
+macro_rules! rejected {
+    ($round_id: expr, $phase: expr $(,)?) => {
+        crate::metric!(
+            crate::metrics::Measurement::MessageRejected,
+            1,
+            ("round_id", $round_id),
+            ("phase", $phase as u8),
+        );
+    };
+}
+
+/// Records a message discared metric.
+#[doc(hidden)]
+#[macro_export]
+macro_rules! discarded {
+    ($round_id: expr, $phase: expr $(,)?) => {
+        crate::metric!(
+            crate::metrics::Measurement::MessageDiscarded,
+            1,
+            ("round_id", $round_id),
+            ("phase", $phase as u8),
+        );
+    };
+}
+
 #[cfg(test)]
 pub(crate) mod tests;

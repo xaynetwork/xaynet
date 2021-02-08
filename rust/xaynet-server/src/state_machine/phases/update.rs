@@ -55,7 +55,6 @@ where
     async fn run(&mut self) -> Result<(), PhaseStateError> {
         self.process().await?;
 
-        info!("broadcasting the global seed dictionary");
         let seed_dict = self
             .shared
             .store
@@ -63,6 +62,7 @@ where
             .await
             .map_err(UpdateStateError::FetchSeedDict)?
             .ok_or(UpdateStateError::NoSeedDict)?;
+        info!("broadcasting the global seed dictionary");
         self.shared
             .events
             .broadcast_seed_dict(DictionaryUpdate::New(Arc::new(seed_dict)));

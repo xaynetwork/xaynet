@@ -61,21 +61,21 @@ macro_rules! impl_handler_for_phasestate {
                     self.shared.state.[<$phase:lower>].count.min,
                     self.shared.state.[<$phase:lower>].count.max,
                 );
-                crate::metric!(accepted: self.shared.state.round_id, phase);
+                crate::accepted!(self.shared.state.round_id, phase);
             }
 
             fn increment_rejected(&mut self) {
                 let phase = <Self as crate::state_machine::phases::Phase<_>>::NAME;
                 self.private.rejected += 1;
                 tracing::debug!("{} {} messages rejected", self.private.rejected, phase);
-                crate::metric!(rejected: self.shared.state.round_id, phase);
+                crate::rejected!(self.shared.state.round_id, phase);
             }
 
             fn increment_discarded(&mut self) {
                 let phase = <Self as crate::state_machine::phases::Phase<_>>::NAME;
                 self.private.discarded += 1;
                 tracing::debug!("{} {} messages discarded", self.private.discarded, phase);
-                crate::metric!(discarded: self.shared.state.round_id, phase);
+                crate::discarded!(self.shared.state.round_id, phase);
             }
         }
     };
@@ -108,14 +108,10 @@ macro_rules! impl_process_for_phasestate_handler {
                     "- Aborts if either all connections were dropped or not enough requests were processed until timeout."
                 ]
                 async fn process(&mut self) -> Result<(), PhaseStateError> {
-                    let phase = <Self as crate::state_machine::phases::Phase<_>>::NAME;
                     let crate::state_machine::coordinator::PhaseParameters { count, time } =
                         self.shared.state.[<$phase:lower>];
-                    tracing::info!("processing requests in {} phase", phase);
-                    tracing::debug!(
-                        "in {} phase for min {} and max {} seconds",
-                        phase, time.min, time.max,
-                    );
+                    tracing::info!("processing requests");
+                    tracing::debug!("processing for min {} and max {} seconds", time.min, time.max);
                     self.process_during(tokio::time::Duration::from_secs(time.min)).await?;
 
                     let time_left = time.max - time.min;
@@ -125,17 +121,15 @@ macro_rules! impl_process_for_phasestate_handler {
                     ).await??;
 
                     tracing::info!(
-                        "in total {} {} messages accepted (min {} and max {} required)",
+                        "in total {} messages accepted (min {} and max {} required)",
                         self.private.accepted,
-                        phase,
                         count.min,
                         count.max,
                     );
-                    tracing::info!("in total {} {} messages rejected", self.private.rejected, phase);
+                    tracing::info!("in total {} messages rejected", self.private.rejected);
                     tracing::info!(
-                        "in total {} {} messages discarded (purged not included)",
+                        "in total {} messages discarded (purged not included)",
                         self.private.discarded,
-                        phase,
                     );
 
                     Ok(())
@@ -155,14 +149,13 @@ where
         &mut self,
         dur: tokio::time::Duration,
     ) -> Result<(), PhaseStateError> {
-        let phase = <Self as Phase<_>>::NAME;
         let deadline = tokio::time::sleep(dur);
         tokio::pin!(deadline);
 
         loop {
             tokio::select! {
                 _ = &mut deadline => {
-                    debug!("{} duration elapsed", phase);
+                    debug!("duration elapsed");
                     break Ok(());
                 }
                 next = self.next_request() => {

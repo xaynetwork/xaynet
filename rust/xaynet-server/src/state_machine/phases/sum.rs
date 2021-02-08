@@ -49,7 +49,6 @@ where
     async fn run(&mut self) -> Result<(), PhaseStateError> {
         self.process().await?;
 
-        info!("broadcasting sum dictionary");
         let sum_dict = self
             .shared
             .store
@@ -57,6 +56,7 @@ where
             .await
             .map_err(SumStateError::FetchSumDict)?
             .ok_or(SumStateError::NoSumDict)?;
+        info!("broadcasting sum dictionary");
         self.shared
             .events
             .broadcast_sum_dict(DictionaryUpdate::New(Arc::new(sum_dict)));

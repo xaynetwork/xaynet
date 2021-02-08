@@ -28,6 +28,7 @@ pub use self::{
     update::{Update, UpdateStateError},
 };
 use crate::{
+    discarded,
     metric,
     metrics::Measurement,
     state_machine::{
@@ -169,15 +170,15 @@ where
         let span = error_span!("run_phase", phase = %phase);
 
         async move {
-            info!("starting {} phase", phase);
-            info!("broadcasting {} phase event", phase);
+            info!("starting phase");
+            info!("broadcasting phase event");
             self.shared.events.broadcast_phase(phase);
             metric!(Measurement::Phase, phase as u8);
 
             if let Err(err) = self.run().await {
                 return Some(self.into_error_state(err));
             }
-            info!("{} phase ran successfully", phase);
+            info!("phase ran successfully");
 
             debug!("purging outdated requests before transitioning");
             if let Err(err) = self.purge_outdated_requests() {
@@ -207,10 +208,11 @@ where
     /// transitioning to the next phase.
     fn purge_outdated_requests(&mut self) -> Result<(), PhaseStateError> {
         let phase = <Self as Phase<_>>::NAME;
-        info!("discarding outdated request");
+        info!("discarding outdated requests");
         while let Some((_, span, resp_tx)) = self.try_next_request()? {
+            debug!("discarding outdated request");
             let _span_guard = span.enter();
-            metric!(discarded: self.shared.state.round_id, phase);
+            discarded!(self.shared.state.round_id, phase);
             let _ = resp_tx.send(Err(RequestError::MessageDiscarded));
         }
         Ok(())
