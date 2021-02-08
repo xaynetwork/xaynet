@@ -19,7 +19,7 @@ futures = "0.3.12"
 reqwest = { version = "0.11.0", default-features = false, features = ["rustls-tls"]}
 sodiumoxide = "0.2.6"
 thiserror = "1.0.23"
-tracing = "0.1.22"
+tracing = "0.1.23"
 tokio = { version = "1.1.1", default-features = false, features = ["rt"] }
 xaynet-core = { path = "../xaynet-core", version = "0.2.0" }
 xaynet-sdk = { path = "../xaynet-sdk", default-features = false, version = "0.1.0", features = ["reqwest-client"]}
