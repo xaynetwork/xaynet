@@ -46,9 +46,9 @@ pub enum PhaseName {
 ///
 /// [module level documentation]: crate::state_machine
 #[async_trait]
-pub trait Phase<S>
+pub trait Phase<T>
 where
-    S: Storage,
+    T: Storage,
 {
     /// The name of the current phase.
     const NAME: PhaseName;
@@ -68,15 +68,12 @@ where
     }
 
     /// Moves from this phase to the next phase.
-    async fn next(self) -> Option<StateMachine<S>>;
+    async fn next(self) -> Option<StateMachine<T>>;
 }
 
 /// A struct that contains the coordinator state and the I/O interfaces that are shared and
 /// accessible by all `PhaseState`s.
-pub struct Shared<S>
-where
-    S: Storage,
-{
+pub struct Shared<T> {
     /// The coordinator state.
     pub(in crate::state_machine) state: CoordinatorState,
     /// The request receiver half.
@@ -84,13 +81,10 @@ where
     /// The event publisher.
     pub(in crate::state_machine) events: EventPublisher,
     /// The store for storing coordinator and model data.
-    pub(in crate::state_machine) store: S,
+    pub(in crate::state_machine) store: T,
 }
 
-impl<S> fmt::Debug for Shared<S>
-where
-    S: Storage,
-{
+impl<T> fmt::Debug for Shared<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Shared")
             .field("state", &self.state)
@@ -100,16 +94,13 @@ where
     }
 }
 
-impl<S> Shared<S>
-where
-    S: Storage,
-{
+impl<T> Shared<T> {
     /// Creates a new shared state.
     pub fn new(
         coordinator_state: CoordinatorState,
         publisher: EventPublisher,
         request_rx: RequestReceiver,
-        store: S,
+        store: T,
     ) -> Self {
         Self {
             state: coordinator_state,
@@ -135,10 +126,7 @@ where
 ///
 /// This contains the state-dependent `private` state and the state-independent `shared` state
 /// which is shared across state transitions.
-pub struct PhaseState<S, T>
-where
-    T: Storage,
-{
+pub struct PhaseState<S, T> {
     /// The private state.
     pub(in crate::state_machine) private: S,
     /// The shared coordinator state and I/O interfaces.
@@ -212,11 +200,7 @@ where
     }
 }
 
-// Functions that are available to all states
-impl<S, T> PhaseState<S, T>
-where
-    T: Storage,
-{
+impl<S, T> PhaseState<S, T> {
     /// Receives the next [`StateMachineRequest`].
     ///
     /// # Errors

@@ -48,9 +48,9 @@ pub enum PhaseStateError {
 }
 
 #[async_trait]
-impl<S> Phase<S> for PhaseState<PhaseStateError, S>
+impl<T> Phase<T> for PhaseState<PhaseStateError, T>
 where
-    S: Storage,
+    T: Storage,
 {
     const NAME: PhaseName = PhaseName::Error;
 
@@ -75,7 +75,7 @@ where
         Ok(())
     }
 
-    async fn next(mut self) -> Option<StateMachine<S>> {
+    async fn next(mut self) -> Option<StateMachine<T>> {
         self.wait_for_store_readiness().await;
 
         Some(match self.private {
@@ -87,23 +87,25 @@ where
     }
 }
 
-impl<S> PhaseState<PhaseStateError, S>
-where
-    S: Storage,
-{
+impl<T> PhaseState<PhaseStateError, T> {
     /// Creates a new error phase.
-    pub fn new(shared: Shared<S>, error: PhaseStateError) -> Self {
+    pub fn new(shared: Shared<T>, error: PhaseStateError) -> Self {
         Self {
             private: error,
             shared,
         }
     }
+}
 
+impl<T> PhaseState<PhaseStateError, T>
+where
+    T: Storage,
+{
     /// Waits until the [`Store`] is ready.
     ///
     /// [`Store`]: crate::storage::Store
     async fn wait_for_store_readiness(&mut self) {
-        while let Err(err) = <S as Storage>::is_ready(&mut self.shared.store).await {
+        while let Err(err) = <T as Storage>::is_ready(&mut self.shared.store).await {
             error!("store not ready: {}", err);
             info!("try again in 5 sec");
             sleep(Duration::from_secs(5)).await;

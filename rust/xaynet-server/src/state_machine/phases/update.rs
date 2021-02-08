@@ -40,10 +40,10 @@ pub struct Update {
 }
 
 #[async_trait]
-impl<S> Phase<S> for PhaseState<Update, S>
+impl<T> Phase<T> for PhaseState<Update, T>
 where
+    T: Storage,
     Self: Handler,
-    S: Storage,
 {
     const NAME: PhaseName = PhaseName::Update;
 
@@ -77,15 +77,15 @@ where
         }
     }
 
-    async fn next(self) -> Option<StateMachine<S>> {
+    async fn next(self) -> Option<StateMachine<T>> {
         Some(PhaseState::<Sum2, _>::new(self.shared, self.private.model_agg).into())
     }
 }
 
 #[async_trait]
-impl<S> Handler for PhaseState<Update, S>
+impl<T> Handler for PhaseState<Update, T>
 where
-    S: Storage,
+    T: Storage,
 {
     async fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), RequestError> {
         if let StateMachineRequest::Update(UpdateRequest {
@@ -106,12 +106,9 @@ where
     }
 }
 
-impl<S> PhaseState<Update, S>
-where
-    S: Storage,
-{
+impl<T> PhaseState<Update, T> {
     /// Creates a new update state.
-    pub fn new(shared: Shared<S>) -> Self {
+    pub fn new(shared: Shared<T>) -> Self {
         let model_agg = Aggregation::new(
             shared.state.round_params.mask_config,
             shared.state.round_params.model_length,
@@ -124,7 +121,12 @@ where
             shared,
         }
     }
+}
 
+impl<T> PhaseState<Update, T>
+where
+    T: Storage,
+{
     /// Updates the local seed dict and aggregates the masked model.
     async fn update_seed_dict_and_aggregate_mask(
         &mut self,

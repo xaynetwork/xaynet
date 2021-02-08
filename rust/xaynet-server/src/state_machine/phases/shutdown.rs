@@ -13,9 +13,9 @@ use crate::{
 pub struct Shutdown;
 
 #[async_trait]
-impl<S> Phase<S> for PhaseState<Shutdown, S>
+impl<T> Phase<T> for PhaseState<Shutdown, T>
 where
-    S: Storage,
+    T: Storage,
 {
     const NAME: PhaseName = PhaseName::Shutdown;
 
@@ -27,17 +27,14 @@ where
         Ok(())
     }
 
-    async fn next(self) -> Option<StateMachine<S>> {
+    async fn next(self) -> Option<StateMachine<T>> {
         None
     }
 }
 
-impl<S> PhaseState<Shutdown, S>
-where
-    S: Storage,
-{
+impl<T> PhaseState<Shutdown, T> {
     /// Creates a new shutdown state.
-    pub fn new(shared: Shared<S>) -> Self {
+    pub fn new(shared: Shared<T>) -> Self {
         Self {
             private: Shutdown,
             shared,

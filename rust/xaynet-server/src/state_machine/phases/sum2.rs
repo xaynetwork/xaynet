@@ -22,10 +22,10 @@ pub struct Sum2 {
 }
 
 #[async_trait]
-impl<S> Phase<S> for PhaseState<Sum2, S>
+impl<T> Phase<T> for PhaseState<Sum2, T>
 where
+    T: Storage,
     Self: Handler,
-    S: Storage,
 {
     const NAME: PhaseName = PhaseName::Sum2;
 
@@ -33,15 +33,15 @@ where
         self.process(self.shared.state.sum2).await
     }
 
-    async fn next(self) -> Option<StateMachine<S>> {
+    async fn next(self) -> Option<StateMachine<T>> {
         Some(PhaseState::<Unmask, _>::new(self.shared, self.private.model_agg).into())
     }
 }
 
 #[async_trait]
-impl<S> Handler for PhaseState<Sum2, S>
+impl<T> Handler for PhaseState<Sum2, T>
 where
-    S: Storage,
+    T: Storage,
 {
     async fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), RequestError> {
         if let StateMachineRequest::Sum2(Sum2Request {
@@ -56,18 +56,20 @@ where
     }
 }
 
-impl<S> PhaseState<Sum2, S>
-where
-    S: Storage,
-{
+impl<T> PhaseState<Sum2, T> {
     /// Creates a new sum2 state.
-    pub fn new(shared: Shared<S>, model_agg: Aggregation) -> Self {
+    pub fn new(shared: Shared<T>, model_agg: Aggregation) -> Self {
         Self {
             private: Sum2 { model_agg },
             shared,
         }
     }
+}
 
+impl<T> PhaseState<Sum2, T>
+where
+    T: Storage,
+{
     /// Updates the mask dict with a sum2 participant request.
     async fn update_mask_dict(
         &mut self,

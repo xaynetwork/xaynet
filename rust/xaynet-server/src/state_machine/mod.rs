@@ -152,29 +152,26 @@ pub type StateMachineResult = Result<(), RequestError>;
 
 /// The state machine with all its states.
 #[derive(From)]
-pub enum StateMachine<S>
-where
-    S: Storage,
-{
-    Idle(PhaseState<Idle, S>),
-    Sum(PhaseState<Sum, S>),
-    Update(PhaseState<Update, S>),
-    Sum2(PhaseState<Sum2, S>),
-    Unmask(PhaseState<Unmask, S>),
-    Error(PhaseState<PhaseStateError, S>),
-    Shutdown(PhaseState<Shutdown, S>),
+pub enum StateMachine<T> {
+    Idle(PhaseState<Idle, T>),
+    Sum(PhaseState<Sum, T>),
+    Update(PhaseState<Update, T>),
+    Sum2(PhaseState<Sum2, T>),
+    Unmask(PhaseState<Unmask, T>),
+    Error(PhaseState<PhaseStateError, T>),
+    Shutdown(PhaseState<Shutdown, T>),
 }
 
-impl<S> StateMachine<S>
+impl<T> StateMachine<T>
 where
-    PhaseState<Idle, S>: Phase<S>,
-    PhaseState<Sum, S>: Phase<S>,
-    PhaseState<Update, S>: Phase<S>,
-    PhaseState<Sum2, S>: Phase<S>,
-    PhaseState<Unmask, S>: Phase<S>,
-    PhaseState<PhaseStateError, S>: Phase<S>,
-    PhaseState<Shutdown, S>: Phase<S>,
-    S: Storage,
+    T: Storage,
+    PhaseState<Idle, T>: Phase<T>,
+    PhaseState<Sum, T>: Phase<T>,
+    PhaseState<Update, T>: Phase<T>,
+    PhaseState<Sum2, T>: Phase<T>,
+    PhaseState<Unmask, T>: Phase<T>,
+    PhaseState<PhaseStateError, T>: Phase<T>,
+    PhaseState<Shutdown, T>: Phase<T>,
 {
     /// Moves the [`StateMachine`] to the next state and consumes the current one.
     /// Returns the next state or `None` if the [`StateMachine`] reached the state [`Shutdown`].

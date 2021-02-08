@@ -1,4 +1,4 @@
-//! This module provides the `PhaseStates` of the [`StateMachine`].
+//! This module provides the states (aka phases) of the [`StateMachine`].
 
 mod error;
 mod handler;

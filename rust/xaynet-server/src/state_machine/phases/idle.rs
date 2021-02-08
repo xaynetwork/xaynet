@@ -31,9 +31,9 @@ pub enum IdleStateError {
 pub struct Idle;
 
 #[async_trait]
-impl<S> Phase<S> for PhaseState<Idle, S>
+impl<T> Phase<T> for PhaseState<Idle, T>
 where
-    S: Storage,
+    T: Storage,
 {
     const NAME: PhaseName = PhaseName::Idle;
 
@@ -92,17 +92,14 @@ where
         Ok(())
     }
 
-    async fn next(self) -> Option<StateMachine<S>> {
+    async fn next(self) -> Option<StateMachine<T>> {
         Some(PhaseState::<Sum, _>::new(self.shared).into())
     }
 }
 
-impl<S> PhaseState<Idle, S>
-where
-    S: Storage,
-{
+impl<T> PhaseState<Idle, T> {
     /// Creates a new idle state.
-    pub fn new(mut shared: Shared<S>) -> Self {
+    pub fn new(mut shared: Shared<T>) -> Self {
         // Since some events are emitted very early, the round id must
         // be correct when the idle phase starts. Therefore, we update
         // it here, when instantiating the idle PhaseState.

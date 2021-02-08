@@ -33,10 +33,10 @@ pub struct Sum {
 }
 
 #[async_trait]
-impl<S> Phase<S> for PhaseState<Sum, S>
+impl<T> Phase<T> for PhaseState<Sum, T>
 where
+    T: Storage,
     Self: Handler,
-    S: Storage,
 {
     const NAME: PhaseName = PhaseName::Sum;
 
@@ -70,15 +70,15 @@ where
         }
     }
 
-    async fn next(self) -> Option<StateMachine<S>> {
+    async fn next(self) -> Option<StateMachine<T>> {
         Some(PhaseState::<Update, _>::new(self.shared).into())
     }
 }
 
 #[async_trait]
-impl<S> Handler for PhaseState<Sum, S>
+impl<T> Handler for PhaseState<Sum, T>
 where
-    S: Storage,
+    T: Storage,
 {
     async fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), RequestError> {
         if let StateMachineRequest::Sum(SumRequest {
@@ -93,18 +93,20 @@ where
     }
 }
 
-impl<S> PhaseState<Sum, S>
-where
-    S: Storage,
-{
+impl<T> PhaseState<Sum, T> {
     /// Creates a new sum state.
-    pub fn new(shared: Shared<S>) -> Self {
+    pub fn new(shared: Shared<T>) -> Self {
         Self {
             private: Sum { sum_dict: None },
             shared,
         }
     }
+}
 
+impl<T> PhaseState<Sum, T>
+where
+    T: Storage,
+{
     /// Updates the sum dict with a sum participant request.
     async fn update_sum_dict(
         &mut self,

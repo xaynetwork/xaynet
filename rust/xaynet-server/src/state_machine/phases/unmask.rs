@@ -44,9 +44,9 @@ pub struct Unmask {
 }
 
 #[async_trait]
-impl<S> Phase<S> for PhaseState<Unmask, S>
+impl<T> Phase<T> for PhaseState<Unmask, T>
 where
-    S: Storage,
+    T: Storage,
 {
     const NAME: PhaseName = PhaseName::Unmask;
 
@@ -87,17 +87,14 @@ where
         }
     }
 
-    async fn next(self) -> Option<StateMachine<S>> {
+    async fn next(self) -> Option<StateMachine<T>> {
         Some(PhaseState::<Idle, _>::new(self.shared).into())
     }
 }
 
-impl<S> PhaseState<Unmask, S>
-where
-    S: Storage,
-{
+impl<T> PhaseState<Unmask, T> {
     /// Creates a new unmask state.
-    pub fn new(shared: Shared<S>, model_agg: Aggregation) -> Self {
+    pub fn new(shared: Shared<T>, model_agg: Aggregation) -> Self {
         Self {
             private: Unmask {
                 model_agg: Some(model_agg),
@@ -143,7 +140,12 @@ where
 
         Ok(())
     }
+}
 
+impl<T> PhaseState<Unmask, T>
+where
+    T: Storage,
+{
     #[cfg(feature = "model-persistence")]
     async fn save_global_model(&mut self) -> Result<(), UnmaskStateError> {
         if let Some(ref global_model) = self.shared.state.global_model {
@@ -171,13 +173,7 @@ where
             unreachable!("never fails when `save_global_model()` is called after `end_round()`");
         }
     }
-}
 
-impl<S> PhaseState<Unmask, S>
-where
-    Self: Phase<S>,
-    S: Storage,
-{
     fn emit_number_of_unique_masks_metrics(&mut self) {
         if GlobalRecorder::global().is_none() {
             return;
