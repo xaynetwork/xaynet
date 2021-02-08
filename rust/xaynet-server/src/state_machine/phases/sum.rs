@@ -14,7 +14,7 @@ use crate::{
     },
     storage::{Storage, StorageError},
 };
-use xaynet_core::{SumParticipantEphemeralPublicKey, SumParticipantPublicKey};
+use xaynet_core::{SumDict, SumParticipantEphemeralPublicKey, SumParticipantPublicKey};
 
 /// Error that occurs during the sum phase.
 #[derive(Error, Debug)]
@@ -28,12 +28,8 @@ pub enum SumStateError {
 /// The sum state.
 #[derive(Debug)]
 pub struct Sum {
-    /// The number of sum messages successfully processed.
-    accepted: u64,
-    /// The number of sum messages failed to processed.
-    rejected: u64,
-    /// The number of sum messages discarded without being processed.
-    discarded: u64,
+    /// The sum dictionary which gets assembled during the sum phase.
+    sum_dict: Option<SumDict>,
 }
 
 #[async_trait]
@@ -45,26 +41,36 @@ where
     const NAME: PhaseName = PhaseName::Sum;
 
     async fn process(&mut self) -> Result<(), PhaseStateError> {
-        self.process(self.shared.state.sum).await
-    }
+        self.process(self.shared.state.sum).await?;
 
-    async fn broadcast(&mut self) -> Result<(), PhaseStateError> {
         let sum_dict = self
             .shared
             .store
             .sum_dict()
             .await
-            .map_err(SumStateError::FetchSumDict)?
-            .ok_or(SumStateError::NoSumDict)?;
-        info!("broadcasting sum dictionary");
-        self.shared
-            .events
-            .broadcast_sum_dict(DictionaryUpdate::New(Arc::new(sum_dict)));
-
-        Ok(())
+            .map_err(SumStateError::FetchSumDict)?;
+        if sum_dict.is_some() {
+            self.private.sum_dict = sum_dict;
+            Ok(())
+        } else {
+            Err(SumStateError::NoSumDict.into())
+        }
     }
 
-    fn next(self) -> Option<StateMachine<S>> {
+    async fn broadcast(&mut self) -> Result<(), PhaseStateError> {
+        if let Some(sum_dict) = self.private.sum_dict.take() {
+            info!("broadcasting sum dictionary");
+            self.shared
+                .events
+                .broadcast_sum_dict(DictionaryUpdate::New(Arc::new(sum_dict)));
+
+            Ok(())
+        } else {
+            unreachable!("never fails when `broadcast()` is called after `process()`");
+        }
+    }
+
+    async fn next(self) -> Option<StateMachine<S>> {
         Some(PhaseState::<Update, _>::new(self.shared).into())
     }
 }
@@ -94,11 +100,7 @@ where
     /// Creates a new sum state.
     pub fn new(shared: Shared<S>) -> Self {
         Self {
-            private: Sum {
-                accepted: 0,
-                rejected: 0,
-                discarded: 0,
-            },
+            private: Sum { sum_dict: None },
             shared,
         }
     }
@@ -137,13 +139,8 @@ mod tests {
         utils::enable_logging();
         let mut store = init_store().await;
 
-        let sum = Sum {
-            accepted: 0,
-            rejected: 0,
-            discarded: 0,
-        };
         let (state_machine, request_tx, events) = StateMachineBuilder::new(store.clone())
-            .with_phase(sum)
+            .with_phase(Sum { sum_dict: None })
             // Make sure anyone is a sum participant.
             .with_sum_probability(1.0)
             .with_update_probability(0.0)

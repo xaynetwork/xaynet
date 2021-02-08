@@ -27,10 +27,15 @@ pub trait Handler {
 
 /// A counter to keep track of handled messages.
 struct Counter {
+    /// The minimal number of succesfully processed messages.
     min: u64,
+    /// The maximal number of succesfully processed messages.
     max: u64,
+    /// The number of messages successfully processed.
     accepted: u64,
+    /// The number of messages failed to processed.
     rejected: u64,
+    /// The number of messages discarded without being processed.
     discarded: u64,
 }
 
@@ -86,8 +91,8 @@ impl Counter {
 
 impl<S, T> PhaseState<S, T>
 where
-    Self: Handler + Phase<T>,
     T: Storage,
+    Self: Phase<T> + Handler,
 {
     /// Processes requests wrt the phase parameters.
     ///
@@ -96,7 +101,7 @@ where
     /// `[now + time.min, now + time.max]`.
     /// - Aborts if either all connections were dropped or not enough requests were processed until
     /// timeout.
-    pub(in crate::state_machine::phases) async fn process(
+    pub(super) async fn process(
         &mut self,
         PhaseParameters { count, time }: PhaseParameters,
     ) -> Result<(), PhaseStateError> {

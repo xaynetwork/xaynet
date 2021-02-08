@@ -17,6 +17,7 @@ use crate::{
 use xaynet_core::{
     mask::{Aggregation, MaskObject},
     LocalSeedDict,
+    SeedDict,
     UpdateParticipantPublicKey,
 };
 
@@ -34,12 +35,8 @@ pub enum UpdateStateError {
 pub struct Update {
     /// The aggregator for masked models.
     model_agg: Aggregation,
-    /// The number of update messages successfully processed.
-    accepted: u64,
-    /// The number of update messages failed to processed.
-    rejected: u64,
-    /// The number of update messages discarded without being processed.
-    discarded: u64,
+    /// The seed dictionary which gets assembled during the update phase.
+    seed_dict: Option<SeedDict>,
 }
 
 #[async_trait]
@@ -51,26 +48,36 @@ where
     const NAME: PhaseName = PhaseName::Update;
 
     async fn process(&mut self) -> Result<(), PhaseStateError> {
-        self.process(self.shared.state.update).await
-    }
+        self.process(self.shared.state.update).await?;
 
-    async fn broadcast(&mut self) -> Result<(), PhaseStateError> {
         let seed_dict = self
             .shared
             .store
             .seed_dict()
             .await
-            .map_err(UpdateStateError::FetchSeedDict)?
-            .ok_or(UpdateStateError::NoSeedDict)?;
-        info!("broadcasting the global seed dictionary");
-        self.shared
-            .events
-            .broadcast_seed_dict(DictionaryUpdate::New(Arc::new(seed_dict)));
-
-        Ok(())
+            .map_err(UpdateStateError::FetchSeedDict)?;
+        if seed_dict.is_some() {
+            self.private.seed_dict = seed_dict;
+            Ok(())
+        } else {
+            Err(UpdateStateError::NoSeedDict.into())
+        }
     }
 
-    fn next(self) -> Option<StateMachine<S>> {
+    async fn broadcast(&mut self) -> Result<(), PhaseStateError> {
+        if let Some(seed_dict) = self.private.seed_dict.take() {
+            info!("broadcasting the global seed dictionary");
+            self.shared
+                .events
+                .broadcast_seed_dict(DictionaryUpdate::New(Arc::new(seed_dict)));
+
+            Ok(())
+        } else {
+            unreachable!("never fails when `broadcast()` is called after `process()`");
+        }
+    }
+
+    async fn next(self) -> Option<StateMachine<S>> {
         Some(PhaseState::<Sum2, _>::new(self.shared, self.private.model_agg).into())
     }
 }
@@ -105,15 +112,14 @@ where
 {
     /// Creates a new update state.
     pub fn new(shared: Shared<S>) -> Self {
+        let model_agg = Aggregation::new(
+            shared.state.round_params.mask_config,
+            shared.state.round_params.model_length,
+        );
         Self {
             private: Update {
-                model_agg: Aggregation::new(
-                    shared.state.round_params.mask_config,
-                    shared.state.round_params.model_length,
-                ),
-                accepted: 0,
-                rejected: 0,
-                discarded: 0,
+                model_agg,
+                seed_dict: None,
             },
             shared,
         }
@@ -236,9 +242,7 @@ mod tests {
             .with_seed(round_params.seed.clone())
             .with_phase(Update {
                 model_agg: aggregation.clone(),
-                accepted: 0,
-                rejected: 0,
-                discarded: 0,
+                seed_dict: None,
             })
             .with_sum_probability(round_params.sum)
             .with_update_probability(round_params.update)

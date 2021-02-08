@@ -7,7 +7,6 @@ use crate::{
     metric,
     metrics::Measurement,
     state_machine::{
-        events::DictionaryUpdate,
         phases::{Phase, PhaseName, PhaseState, PhaseStateError, Shared, Sum},
         StateMachine,
     },
@@ -39,6 +38,13 @@ where
     const NAME: PhaseName = PhaseName::Idle;
 
     async fn process(&mut self) -> Result<(), PhaseStateError> {
+        info!("removing phase dictionaries from previous round");
+        self.shared
+            .store
+            .delete_dicts()
+            .await
+            .map_err(IdleStateError::DeleteDictionaries)?;
+
         info!("updating the keys");
         self.gen_round_keypair();
 
@@ -55,30 +61,19 @@ where
             .await
             .map_err(IdleStateError::SetCoordinatorState)?;
 
-        info!("removing phase dictionaries from previous round");
-        self.shared
-            .store
-            .delete_dicts()
-            .await
-            .map_err(IdleStateError::DeleteDictionaries)?;
-
         Ok(())
     }
 
     async fn broadcast(&mut self) -> Result<(), PhaseStateError> {
-        let events = &mut self.shared.events;
-
-        info!("broadcasting invalidation of sum dictionary from previous round");
-        events.broadcast_sum_dict(DictionaryUpdate::Invalidate);
-
-        info!("broadcasting invalidation of seed dictionary from previous round");
-        events.broadcast_seed_dict(DictionaryUpdate::Invalidate);
-
         info!("broadcasting new keys");
-        events.broadcast_keys(self.shared.state.keys.clone());
+        self.shared
+            .events
+            .broadcast_keys(self.shared.state.keys.clone());
 
         info!("broadcasting new round parameters");
-        events.broadcast_params(self.shared.state.round_params.clone());
+        self.shared
+            .events
+            .broadcast_params(self.shared.state.round_params.clone());
 
         metric!(Measurement::RoundTotalNumber, self.shared.state.round_id);
         metric!(
@@ -97,7 +92,7 @@ where
         Ok(())
     }
 
-    fn next(self) -> Option<StateMachine<S>> {
+    async fn next(self) -> Option<StateMachine<S>> {
         Some(PhaseState::<Sum, _>::new(self.shared).into())
     }
 }
@@ -156,7 +151,7 @@ mod tests {
     use super::*;
     use crate::{
         state_machine::{
-            events::Event,
+            events::{DictionaryUpdate, Event},
             tests::{builder::StateMachineBuilder, utils},
         },
         storage::{tests::init_store, CoordinatorStorage},

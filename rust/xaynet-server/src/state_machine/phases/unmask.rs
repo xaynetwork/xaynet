@@ -87,7 +87,7 @@ where
         }
     }
 
-    fn next(self) -> Option<StateMachine<S>> {
+    async fn next(self) -> Option<StateMachine<S>> {
         Some(PhaseState::<Idle, _>::new(self.shared).into())
     }
 }

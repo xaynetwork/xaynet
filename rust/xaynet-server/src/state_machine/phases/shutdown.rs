@@ -27,7 +27,7 @@ where
         Ok(())
     }
 
-    fn next(self) -> Option<StateMachine<S>> {
+    async fn next(self) -> Option<StateMachine<S>> {
         None
     }
 }

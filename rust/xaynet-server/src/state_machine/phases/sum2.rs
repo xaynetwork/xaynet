@@ -19,12 +19,6 @@ use xaynet_core::{
 pub struct Sum2 {
     /// The aggregator for masked models.
     model_agg: Aggregation,
-    /// The number of sum2 messages successfully processed.
-    accepted: u64,
-    /// The number of sum2 messages failed to processed.
-    rejected: u64,
-    /// The number of sum2 messages discarded without being processed.
-    discarded: u64,
 }
 
 #[async_trait]
@@ -39,7 +33,7 @@ where
         self.process(self.shared.state.sum2).await
     }
 
-    fn next(self) -> Option<StateMachine<S>> {
+    async fn next(self) -> Option<StateMachine<S>> {
         Some(PhaseState::<Unmask, _>::new(self.shared, self.private.model_agg).into())
     }
 }
@@ -69,12 +63,7 @@ where
     /// Creates a new sum2 state.
     pub fn new(shared: Shared<S>, model_agg: Aggregation) -> Self {
         Self {
-            private: Sum2 {
-                model_agg,
-                accepted: 0,
-                rejected: 0,
-                discarded: 0,
-            },
+            private: Sum2 { model_agg },
             shared,
         }
     }
@@ -167,12 +156,7 @@ mod tests {
         let mut store = init_store().await;
         let (state_machine, request_tx, events) = StateMachineBuilder::new(store.clone())
             .with_seed(round_params.seed.clone())
-            .with_phase(Sum2 {
-                model_agg: agg,
-                accepted: 0,
-                rejected: 0,
-                discarded: 0,
-            })
+            .with_phase(Sum2 { model_agg: agg })
             .with_sum_probability(round_params.sum)
             .with_update_probability(round_params.update)
             .with_sum_count_min(n_summers)

@@ -69,7 +69,6 @@ pub enum PhaseName {
 pub trait Phase<S>
 where
     S: Storage,
-    Self: Sync,
 {
     /// The name of the current phase.
     const NAME: PhaseName;
@@ -89,7 +88,7 @@ where
     }
 
     /// Moves from this phase to the next phase.
-    fn next(self) -> Option<StateMachine<S>>;
+    async fn next(self) -> Option<StateMachine<S>>;
 }
 
 /// A struct that contains the coordinator state and the I/O interfaces that are shared and
@@ -99,13 +98,13 @@ where
     S: Storage,
 {
     /// The coordinator state.
-    pub(in crate::state_machine) state: CoordinatorState,
+    pub(super) state: CoordinatorState,
     /// The request receiver half.
-    pub(in crate::state_machine) request_rx: RequestReceiver,
+    pub(super) request_rx: RequestReceiver,
     /// The event publisher.
-    pub(in crate::state_machine) events: EventPublisher,
+    pub(super) events: EventPublisher,
     /// The store for storing coordinator and model data.
-    pub(in crate::state_machine) store: S,
+    pub(super) store: S,
 }
 
 impl<S> fmt::Debug for Shared<S>
@@ -179,7 +178,7 @@ where
     /// 3. Broadcasts the phase data.
     /// 4. Transitions to the next phase.
     pub async fn run_phase(mut self) -> Option<StateMachine<T>> {
-        let phase = <Self as Phase<_>>::NAME;
+        let phase = Self::NAME;
         let span = error_span!("run_phase", phase = %phase);
 
         async move {
@@ -189,7 +188,7 @@ where
             metric!(Measurement::Phase, phase as u8);
 
             if let Err(err) = self.process().await {
-                warn!("failed to perform the {} phase tasks", phase);
+                warn!("failed to perform the phase tasks");
                 return Some(self.into_error_state(err));
             }
             info!("phase ran successfully");
@@ -209,27 +208,24 @@ where
             }
 
             if let Err(err) = self.broadcast().await {
-                warn!("failed to broadcast the {} phase data", phase);
+                warn!("failed to broadcast the phase data");
                 return Some(self.into_error_state(err));
             }
 
             info!("transitioning to the next phase");
-            self.next()
+            self.next().await
         }
         .instrument(span)
         .await
     }
 
-    /// Process all the pending requests that are now considered
-    /// outdated. This happens at the end of each phase, before
-    /// transitioning to the next phase.
+    /// Purges all pending requests that are considered outdated at the end of a successful phase.
     fn purge_outdated_requests(&mut self) -> Result<(), PhaseStateError> {
-        let phase = <Self as Phase<_>>::NAME;
         info!("discarding outdated requests");
         while let Some((_, span, resp_tx)) = self.try_next_request()? {
             debug!("discarding outdated request");
             let _span_guard = span.enter();
-            discarded!(self.shared.state.round_id, phase);
+            discarded!(self.shared.state.round_id, Self::NAME);
             let _ = resp_tx.send(Err(RequestError::MessageDiscarded));
         }
         Ok(())

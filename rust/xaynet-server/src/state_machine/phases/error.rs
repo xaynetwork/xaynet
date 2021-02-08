@@ -8,6 +8,7 @@ use tracing::{error, info};
 use crate::{
     event,
     state_machine::{
+        events::DictionaryUpdate,
         phases::{
             idle::IdleStateError,
             sum::SumStateError,
@@ -56,12 +57,27 @@ where
     async fn process(&mut self) -> Result<(), PhaseStateError> {
         error!("phase state error: {}", self.private);
         event!("Phase error", self.private.to_string());
-        self.wait_for_store_readiness().await;
 
         Ok(())
     }
 
-    fn next(self) -> Option<StateMachine<S>> {
+    async fn broadcast(&mut self) -> Result<(), PhaseStateError> {
+        info!("broadcasting invalidation of sum dictionary from previous round");
+        self.shared
+            .events
+            .broadcast_sum_dict(DictionaryUpdate::Invalidate);
+
+        info!("broadcasting invalidation of seed dictionary from previous round");
+        self.shared
+            .events
+            .broadcast_seed_dict(DictionaryUpdate::Invalidate);
+
+        Ok(())
+    }
+
+    async fn next(mut self) -> Option<StateMachine<S>> {
+        self.wait_for_store_readiness().await;
+
         Some(match self.private {
             PhaseStateError::RequestChannel(_) => {
                 PhaseState::<Shutdown, _>::new(self.shared).into()
