@@ -5,8 +5,6 @@ use thiserror::Error;
 use tracing::info;
 
 use crate::{
-    impl_handler_for_phasestate,
-    impl_process_for_phasestate_handler,
     state_machine::{
         events::DictionaryUpdate,
         phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Update},
@@ -47,7 +45,7 @@ where
     const NAME: PhaseName = PhaseName::Sum;
 
     async fn run(&mut self) -> Result<(), PhaseStateError> {
-        self.process().await?;
+        self.process(self.shared.state.sum).await?;
 
         let sum_dict = self
             .shared
@@ -85,11 +83,7 @@ where
             Err(RequestError::MessageRejected)
         }
     }
-
-    impl_handler_for_phasestate! { Sum }
 }
-
-impl_process_for_phasestate_handler! { Sum }
 
 impl<S> PhaseState<Sum, S>
 where
