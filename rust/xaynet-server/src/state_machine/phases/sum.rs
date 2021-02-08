@@ -2,8 +2,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use thiserror::Error;
-use tokio::time::{timeout, Duration};
-use tracing::{debug, info};
+use tracing::info;
 
 use crate::{
     state_machine::{
@@ -46,23 +45,7 @@ where
     const NAME: PhaseName = PhaseName::Sum;
 
     async fn run(&mut self) -> Result<(), PhaseStateError> {
-        let min_time = self.shared.state.sum.time.min;
-        let max_time = self.shared.state.sum.time.max;
-        debug!(
-            "in sum phase for min {} and max {} seconds",
-            min_time, max_time,
-        );
-        self.process_during(Duration::from_secs(min_time)).await?;
-
-        let time_left = max_time - min_time;
-        timeout(Duration::from_secs(time_left), self.process_until_enough()).await??;
-
-        info!(
-            "in total {} sum messages accepted (min {} and max {} required)",
-            self.private.accepted, self.shared.state.sum.count.min, self.shared.state.sum.count.max,
-        );
-        info!("in total {} sum messages rejected", self.private.rejected);
-        info!("in total {} sum messages discarded", self.private.discarded);
+        self.process(self.shared.state.sum).await?;
 
         let sum_dict = self
             .shared
@@ -71,7 +54,6 @@ where
             .await
             .map_err(SumStateError::FetchSumDict)?
             .ok_or(SumStateError::NoSumDict)?;
-
         info!("broadcasting sum dictionary");
         self.shared
             .events
@@ -100,32 +82,6 @@ where
         } else {
             Err(RequestError::MessageRejected)
         }
-    }
-
-    fn has_enough_messages(&self) -> bool {
-        self.private.accepted >= self.shared.state.sum.count.min
-    }
-
-    fn has_overmuch_messages(&self) -> bool {
-        self.private.accepted >= self.shared.state.sum.count.max
-    }
-
-    fn increment_accepted(&mut self) {
-        self.private.accepted += 1;
-        debug!(
-            "{} sum messages accepted (min {} and max {} required)",
-            self.private.accepted, self.shared.state.sum.count.min, self.shared.state.sum.count.max,
-        );
-    }
-
-    fn increment_rejected(&mut self) {
-        self.private.rejected += 1;
-        debug!("{} sum messages rejected", self.private.rejected);
-    }
-
-    fn increment_discarded(&mut self) {
-        self.private.discarded += 1;
-        debug!("{} sum messages discarded", self.private.discarded);
     }
 }
 
