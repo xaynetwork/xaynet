@@ -19,7 +19,6 @@ use crate::{
         phases::{PhaseName, Shared},
         requests::{RequestReceiver, RequestSender},
     },
-    storage::Storage,
 };
 use xaynet_core::{
     common::RoundParameters,
@@ -217,13 +216,10 @@ pub fn model_settings() -> ModelSettings {
     ModelSettings { length: 1 }
 }
 
-pub fn init_shared<S>(
+pub fn init_shared<T>(
     coordinator_state: CoordinatorState,
-    store: S,
-) -> (Shared<S>, RequestSender, EventSubscriber)
-where
-    S: Storage,
-{
+    store: T,
+) -> (Shared<T>, RequestSender, EventSubscriber) {
     let (event_publisher, event_subscriber) = EventPublisher::init(
         coordinator_state.round_id,
         coordinator_state.keys.clone(),

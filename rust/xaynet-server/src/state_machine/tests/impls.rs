@@ -1,13 +1,10 @@
 use tracing::Span;
 
-use crate::{
-    state_machine::{
-        events::DictionaryUpdate,
-        phases::{self, PhaseState},
-        requests::{RequestError, RequestSender},
-        StateMachine,
-    },
-    storage::Storage,
+use crate::state_machine::{
+    events::DictionaryUpdate,
+    phases::{Failure, Idle, PhaseState, Shutdown, Sum, Sum2, Unmask, Update},
+    requests::{RequestError, RequestSender},
+    StateMachine,
 };
 use xaynet_core::message::Message;
 
@@ -17,18 +14,15 @@ impl RequestSender {
     }
 }
 
-impl<S> StateMachine<S>
-where
-    S: Storage,
-{
-    pub fn is_update(&self) -> bool {
-        matches!(self, StateMachine::Update(_))
+impl<T> StateMachine<T> {
+    pub fn is_idle(&self) -> bool {
+        matches!(self, StateMachine::Idle(_))
     }
 
-    pub fn into_update_phase_state(self) -> PhaseState<phases::Update, S> {
+    pub fn into_idle_phase_state(self) -> PhaseState<Idle, T> {
         match self {
-            StateMachine::Update(state) => state,
-            _ => panic!("not in update state"),
+            StateMachine::Idle(state) => state,
+            _ => panic!("not in idle state"),
         }
     }
 
@@ -36,10 +30,21 @@ where
         matches!(self, StateMachine::Sum(_))
     }
 
-    pub fn into_sum_phase_state(self) -> PhaseState<phases::Sum, S> {
+    pub fn into_sum_phase_state(self) -> PhaseState<Sum, T> {
         match self {
             StateMachine::Sum(state) => state,
             _ => panic!("not in sum state"),
+        }
+    }
+
+    pub fn is_update(&self) -> bool {
+        matches!(self, StateMachine::Update(_))
+    }
+
+    pub fn into_update_phase_state(self) -> PhaseState<Update, T> {
+        match self {
+            StateMachine::Update(state) => state,
+            _ => panic!("not in update state"),
         }
     }
 
@@ -47,21 +52,10 @@ where
         matches!(self, StateMachine::Sum2(_))
     }
 
-    pub fn into_sum2_phase_state(self) -> PhaseState<phases::Sum2, S> {
+    pub fn into_sum2_phase_state(self) -> PhaseState<Sum2, T> {
         match self {
             StateMachine::Sum2(state) => state,
             _ => panic!("not in sum2 state"),
-        }
-    }
-
-    pub fn is_idle(&self) -> bool {
-        matches!(self, StateMachine::Idle(_))
-    }
-
-    pub fn into_idle_phase_state(self) -> PhaseState<phases::Idle, S> {
-        match self {
-            StateMachine::Idle(state) => state,
-            _ => panic!("not in idle state"),
         }
     }
 
@@ -69,7 +63,7 @@ where
         matches!(self, StateMachine::Unmask(_))
     }
 
-    pub fn into_unmask_phase_state(self) -> PhaseState<phases::Unmask, S> {
+    pub fn into_unmask_phase_state(self) -> PhaseState<Unmask, T> {
         match self {
             StateMachine::Unmask(state) => state,
             _ => panic!("not in unmask state"),
@@ -80,7 +74,7 @@ where
         matches!(self, StateMachine::Failure(_))
     }
 
-    pub fn into_failure_phase_state(self) -> PhaseState<phases::Failure, S> {
+    pub fn into_failure_phase_state(self) -> PhaseState<Failure, T> {
         match self {
             StateMachine::Failure(state) => state,
             _ => panic!("not in error state"),
@@ -91,7 +85,7 @@ where
         matches!(self, StateMachine::Shutdown(_))
     }
 
-    pub fn into_shutdown_phase_state(self) -> PhaseState<phases::Shutdown, S> {
+    pub fn into_shutdown_phase_state(self) -> PhaseState<Shutdown, T> {
         match self {
             StateMachine::Shutdown(state) => state,
             _ => panic!("not in shutdown state"),
