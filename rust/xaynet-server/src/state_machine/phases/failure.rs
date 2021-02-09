@@ -10,16 +10,16 @@ use crate::{
     state_machine::{
         events::DictionaryUpdate,
         phases::{
-            idle::IdleStateError,
-            sum::SumStateError,
-            unmask::UnmaskStateError,
-            update::UpdateStateError,
             Idle,
+            IdleStateError,
             Phase,
             PhaseName,
             PhaseState,
             Shared,
             Shutdown,
+            SumStateError,
+            UnmaskStateError,
+            UpdateStateError,
         },
         StateMachine,
     },
@@ -28,9 +28,10 @@ use crate::{
 
 /// Error that can occur during the execution of the [`StateMachine`].
 #[derive(Error, Debug)]
-pub enum PhaseStateError {
+pub enum PhaseError {
     #[error("request channel error: {0}")]
     RequestChannel(&'static str),
+
     #[error("phase timeout")]
     PhaseTimeout(#[from] tokio::time::error::Elapsed),
 
@@ -47,16 +48,22 @@ pub enum PhaseStateError {
     Unmask(#[from] UnmaskStateError),
 }
 
+/// The failure state.
+#[derive(Debug)]
+pub struct Failure {
+    error: PhaseError,
+}
+
 #[async_trait]
-impl<T> Phase<T> for PhaseState<PhaseStateError, T>
+impl<T> Phase<T> for PhaseState<Failure, T>
 where
     T: Storage,
 {
     const NAME: PhaseName = PhaseName::Error;
 
-    async fn process(&mut self) -> Result<(), PhaseStateError> {
-        error!("phase state error: {}", self.private);
-        event!("Phase error", self.private.to_string());
+    async fn process(&mut self) -> Result<(), PhaseError> {
+        error!("phase state error: {}", self.private.error);
+        event!("Phase error", self.private.error.to_string());
 
         Ok(())
     }
@@ -76,26 +83,24 @@ where
     async fn next(mut self) -> Option<StateMachine<T>> {
         self.wait_for_store_readiness().await;
 
-        Some(match self.private {
-            PhaseStateError::RequestChannel(_) => {
-                PhaseState::<Shutdown, _>::new(self.shared).into()
-            }
+        Some(match self.private.error {
+            PhaseError::RequestChannel(_) => PhaseState::<Shutdown, _>::new(self.shared).into(),
             _ => PhaseState::<Idle, _>::new(self.shared).into(),
         })
     }
 }
 
-impl<T> PhaseState<PhaseStateError, T> {
+impl<T> PhaseState<Failure, T> {
     /// Creates a new error phase.
-    pub fn new(shared: Shared<T>, error: PhaseStateError) -> Self {
+    pub fn new(shared: Shared<T>, error: PhaseError) -> Self {
         Self {
-            private: error,
+            private: Failure { error },
             shared,
         }
     }
 }
 
-impl<T> PhaseState<PhaseStateError, T>
+impl<T> PhaseState<Failure, T>
 where
     T: Storage,
 {
@@ -126,9 +131,11 @@ mod tests {
     async fn integration_error_to_shutdown() {
         let store = init_store().await;
         let (state_machine, _request_tx, events) = StateMachineBuilder::new(store.clone())
-            .with_phase(PhaseStateError::RequestChannel(""))
+            .with_phase(Failure {
+                error: PhaseError::RequestChannel(""),
+            })
             .build();
-        assert!(state_machine.is_error());
+        assert!(state_machine.is_failure());
 
         let state_machine = state_machine.next().await.unwrap();
         assert!(state_machine.is_shutdown());

@@ -76,13 +76,13 @@ where
         }
     }
 
-    pub fn is_error(&self) -> bool {
-        matches!(self, StateMachine::Error(_))
+    pub fn is_failure(&self) -> bool {
+        matches!(self, StateMachine::Failure(_))
     }
 
-    pub fn into_error_phase_state(self) -> PhaseState<phases::PhaseStateError, S> {
+    pub fn into_failure_phase_state(self) -> PhaseState<phases::Failure, S> {
         match self {
-            StateMachine::Error(state) => state,
+            StateMachine::Failure(state) => state,
             _ => panic!("not in error state"),
         }
     }

@@ -13,7 +13,7 @@ use crate::{
     state_machine::{
         coordinator::CoordinatorState,
         events::EventPublisher,
-        phases::error::PhaseStateError,
+        phases::{Failure, PhaseError},
         requests::{RequestError, RequestReceiver, ResponseSender, StateMachineRequest},
         StateMachine,
     },
@@ -53,7 +53,7 @@ where
     const NAME: PhaseName;
 
     /// Performs the tasks of this phase.
-    async fn process(&mut self) -> Result<(), PhaseStateError>;
+    async fn process(&mut self) -> Result<(), PhaseError>;
     // TODO: add a filter service in PetMessageHandler that only passes through messages if
     // the state machine is in one of the Sum, Update or Sum2 phases. then we can add a Purge
     // phase here which gets broadcasted when the purge starts to prevent further incomming
@@ -153,7 +153,7 @@ where
 
             if let Err(err) = self.process().await {
                 warn!("failed to perform the phase tasks");
-                return Some(self.into_error_state(err));
+                return Some(self.into_failure_state(err));
             }
             info!("phase ran successfully");
 
@@ -166,7 +166,7 @@ where
                             phase,
                         );
                     }
-                    _ => return Some(self.into_error_state(err)),
+                    _ => return Some(self.into_failure_state(err)),
                 }
             }
 
@@ -180,7 +180,7 @@ where
     }
 
     /// Purges all pending requests that are considered outdated at the end of a successful phase.
-    fn purge_outdated_requests(&mut self) -> Result<(), PhaseStateError> {
+    fn purge_outdated_requests(&mut self) -> Result<(), PhaseError> {
         info!("discarding outdated requests");
         while let Some((_, span, resp_tx)) = self.try_next_request()? {
             debug!("discarding outdated request");
@@ -196,20 +196,20 @@ impl<S, T> PhaseState<S, T> {
     /// Receives the next [`StateMachineRequest`].
     ///
     /// # Errors
-    /// Returns [`PhaseStateError::RequestChannel`] when all sender halves have been dropped.
+    /// Returns [`PhaseError::RequestChannel`] when all sender halves have been dropped.
     pub async fn next_request(
         &mut self,
-    ) -> Result<(StateMachineRequest, Span, ResponseSender), PhaseStateError> {
+    ) -> Result<(StateMachineRequest, Span, ResponseSender), PhaseError> {
         debug!("waiting for the next incoming request");
         self.shared.request_rx.next().await.ok_or_else(|| {
             error!("request receiver broken: senders have been dropped");
-            PhaseStateError::RequestChannel("all message senders have been dropped!")
+            PhaseError::RequestChannel("all message senders have been dropped!")
         })
     }
 
     pub fn try_next_request(
         &mut self,
-    ) -> Result<Option<(StateMachineRequest, Span, ResponseSender)>, PhaseStateError> {
+    ) -> Result<Option<(StateMachineRequest, Span, ResponseSender)>, PhaseError> {
         match self.shared.request_rx.try_recv() {
             Some(Some(item)) => Ok(Some(item)),
             None => {
@@ -218,15 +218,15 @@ impl<S, T> PhaseState<S, T> {
             }
             Some(None) => {
                 warn!("failed to get next pending request: channel shut down");
-                Err(PhaseStateError::RequestChannel(
+                Err(PhaseError::RequestChannel(
                     "all message senders have been dropped!",
                 ))
             }
         }
     }
 
-    fn into_error_state(self, err: PhaseStateError) -> StateMachine<T> {
-        PhaseState::<PhaseStateError, _>::new(self.shared, err).into()
+    fn into_failure_state(self, err: PhaseError) -> StateMachine<T> {
+        PhaseState::<Failure, _>::new(self.shared, err).into()
     }
 }
 

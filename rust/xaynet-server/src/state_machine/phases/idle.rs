@@ -7,7 +7,7 @@ use crate::{
     metric,
     metrics::Measurement,
     state_machine::{
-        phases::{Phase, PhaseName, PhaseState, PhaseStateError, Shared, Sum},
+        phases::{Phase, PhaseError, PhaseName, PhaseState, Shared, Sum},
         StateMachine,
     },
     storage::{Storage, StorageError},
@@ -37,7 +37,7 @@ where
 {
     const NAME: PhaseName = PhaseName::Idle;
 
-    async fn process(&mut self) -> Result<(), PhaseStateError> {
+    async fn process(&mut self) -> Result<(), PhaseError> {
         info!("removing phase dictionaries from previous round");
         self.shared
             .store

@@ -2,7 +2,7 @@ use async_trait::async_trait;
 
 use crate::{
     state_machine::{
-        phases::{Phase, PhaseName, PhaseState, PhaseStateError, Shared},
+        phases::{Phase, PhaseError, PhaseName, PhaseState, Shared},
         StateMachine,
     },
     storage::Storage,
@@ -19,7 +19,7 @@ where
 {
     const NAME: PhaseName = PhaseName::Shutdown;
 
-    async fn process(&mut self) -> Result<(), PhaseStateError> {
+    async fn process(&mut self) -> Result<(), PhaseError> {
         // clear the request channel
         self.shared.request_rx.close();
         while self.shared.request_rx.recv().await.is_some() {}

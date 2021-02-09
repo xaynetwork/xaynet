@@ -7,7 +7,7 @@ use tracing::{debug, info, warn};
 use crate::{
     state_machine::{
         events::DictionaryUpdate,
-        phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Sum2},
+        phases::{Handler, Phase, PhaseError, PhaseName, PhaseState, Shared, Sum2},
         requests::{RequestError, StateMachineRequest, UpdateRequest},
         StateMachine,
     },
@@ -46,7 +46,7 @@ where
 {
     const NAME: PhaseName = PhaseName::Update;
 
-    async fn process(&mut self) -> Result<(), PhaseStateError> {
+    async fn process(&mut self) -> Result<(), PhaseError> {
         self.process(self.shared.state.update).await?;
 
         self.private.seed_dict = self

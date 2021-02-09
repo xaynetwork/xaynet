@@ -44,9 +44,9 @@
 //!
 //! **Error**
 //!
-//! Publishes [`PhaseName::Error`] and handles [`PhaseStateError`]s that can occur during the
+//! Publishes [`PhaseName::Error`] and handles [`PhaseError`]s that can occur during the
 //! execution of the [`StateMachine`]. In most cases, the error is handled by restarting the round.
-//! However, if a [`PhaseStateError::RequestChannel`] occurs, the [`StateMachine`] will shut down.
+//! However, if a [`PhaseError::RequestChannel`] occurs, the [`StateMachine`] will shut down.
 //!
 //! **Shutdown**
 //!
@@ -103,10 +103,10 @@ use derive_more::From;
 
 use crate::{
     state_machine::phases::{
+        Failure,
         Idle,
         Phase,
         PhaseState,
-        PhaseStateError,
         Shutdown,
         Sum,
         Sum2,
@@ -124,7 +124,7 @@ pub enum StateMachine<T> {
     Update(PhaseState<Update, T>),
     Sum2(PhaseState<Sum2, T>),
     Unmask(PhaseState<Unmask, T>),
-    Error(PhaseState<PhaseStateError, T>),
+    Failure(PhaseState<Failure, T>),
     Shutdown(PhaseState<Shutdown, T>),
 }
 
@@ -136,7 +136,7 @@ where
     PhaseState<Update, T>: Phase<T>,
     PhaseState<Sum2, T>: Phase<T>,
     PhaseState<Unmask, T>: Phase<T>,
-    PhaseState<PhaseStateError, T>: Phase<T>,
+    PhaseState<Failure, T>: Phase<T>,
     PhaseState<Shutdown, T>: Phase<T>,
 {
     /// Moves the [`StateMachine`] to the next state and consumes the current one.
@@ -149,7 +149,7 @@ where
             StateMachine::Update(state) => state.run_phase().await,
             StateMachine::Sum2(state) => state.run_phase().await,
             StateMachine::Unmask(state) => state.run_phase().await,
-            StateMachine::Error(state) => state.run_phase().await,
+            StateMachine::Failure(state) => state.run_phase().await,
             StateMachine::Shutdown(state) => state.run_phase().await,
         }
     }

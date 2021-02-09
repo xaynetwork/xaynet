@@ -8,7 +8,7 @@ use crate::{
     rejected,
     state_machine::{
         coordinator::{CountParameters, PhaseParameters},
-        phases::{Phase, PhaseState, PhaseStateError},
+        phases::{Phase, PhaseError, PhaseState},
         requests::{RequestError, ResponseSender, StateMachineRequest},
     },
     storage::Storage,
@@ -103,7 +103,7 @@ where
     pub(super) async fn process(
         &mut self,
         PhaseParameters { count, time }: PhaseParameters,
-    ) -> Result<(), PhaseStateError> {
+    ) -> Result<(), PhaseError> {
         let mut counter = Counter::new(count);
 
         info!("processing requests");
@@ -139,7 +139,7 @@ where
         &mut self,
         dur: tokio::time::Duration,
         counter: &mut Counter,
-    ) -> Result<(), PhaseStateError> {
+    ) -> Result<(), PhaseError> {
         let deadline = tokio::time::sleep(dur);
         tokio::pin!(deadline);
 
@@ -158,7 +158,7 @@ where
     }
 
     /// Processes requests until there are enough.
-    async fn process_until_enough(&mut self, counter: &mut Counter) -> Result<(), PhaseStateError> {
+    async fn process_until_enough(&mut self, counter: &mut Counter) -> Result<(), PhaseError> {
         while !counter.has_enough_messages() {
             let (req, span, resp_tx) = self.next_request().await?;
             self.process_single(req, span, resp_tx, counter).await;

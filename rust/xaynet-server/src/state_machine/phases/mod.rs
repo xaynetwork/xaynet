@@ -2,7 +2,7 @@
 //!
 //! [`StateMachine`]: crate::state_machine::StateMachine
 
-mod error;
+mod failure;
 mod handler;
 mod idle;
 mod phase;
@@ -13,7 +13,7 @@ mod unmask;
 mod update;
 
 pub use self::{
-    error::PhaseStateError,
+    failure::{Failure, PhaseError},
     handler::Handler,
     idle::{Idle, IdleStateError},
     phase::{Phase, PhaseName, PhaseState, Shared},

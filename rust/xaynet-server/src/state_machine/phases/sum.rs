@@ -7,7 +7,7 @@ use tracing::info;
 use crate::{
     state_machine::{
         events::DictionaryUpdate,
-        phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Update},
+        phases::{Handler, Phase, PhaseError, PhaseName, PhaseState, Shared, Update},
         requests::{RequestError, StateMachineRequest, SumRequest},
         StateMachine,
     },
@@ -39,7 +39,7 @@ where
 {
     const NAME: PhaseName = PhaseName::Sum;
 
-    async fn process(&mut self) -> Result<(), PhaseStateError> {
+    async fn process(&mut self) -> Result<(), PhaseError> {
         self.process(self.shared.state.sum).await?;
 
         self.private.sum_dict = self

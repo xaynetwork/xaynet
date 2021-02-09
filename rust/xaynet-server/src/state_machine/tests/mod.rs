@@ -157,7 +157,7 @@ async fn integration_full_round() {
     // error out
     drop(requests);
     let state_machine = state_machine.next().await.unwrap();
-    assert!(state_machine.is_error());
+    assert!(state_machine.is_failure());
 
     // then the state machine should enter the shutdown state
     let state_machine = state_machine.next().await.unwrap();

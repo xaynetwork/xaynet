@@ -11,7 +11,7 @@ use crate::{
     metrics::{GlobalRecorder, Measurement},
     state_machine::{
         events::ModelUpdate,
-        phases::{Idle, Phase, PhaseName, PhaseState, PhaseStateError, Shared},
+        phases::{Idle, Phase, PhaseError, PhaseName, PhaseState, Shared},
         StateMachine,
     },
     storage::{Storage, StorageError},
@@ -52,7 +52,7 @@ where
 {
     const NAME: PhaseName = PhaseName::Unmask;
 
-    async fn process(&mut self) -> Result<(), PhaseStateError> {
+    async fn process(&mut self) -> Result<(), PhaseError> {
         self.emit_number_of_unique_masks_metrics();
         let best_masks = self.best_masks().await?;
         self.end_round(best_masks).await?;
