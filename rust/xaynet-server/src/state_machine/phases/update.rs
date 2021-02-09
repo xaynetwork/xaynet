@@ -20,9 +20,9 @@ use xaynet_core::{
     UpdateParticipantPublicKey,
 };
 
-/// Error that occurs during the update phase.
+/// Errors which can occur during the update phase.
 #[derive(Error, Debug)]
-pub enum UpdateStateError {
+pub enum UpdateError {
     #[error("seed dictionary does not exists")]
     NoSeedDict,
     #[error("fetching seed dictionary failed: {0}")]
@@ -54,9 +54,10 @@ where
             .store
             .seed_dict()
             .await
-            .map_err(UpdateStateError::FetchSeedDict)?
-            .ok_or(UpdateStateError::NoSeedDict)?
+            .map_err(UpdateError::FetchSeedDict)?
+            .ok_or(UpdateError::NoSeedDict)?
             .into();
+
         Ok(())
     }
 

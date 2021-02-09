@@ -33,8 +33,8 @@ pub enum PhaseName {
     Sum2,
     #[display(fmt = "Unmask")]
     Unmask,
-    #[display(fmt = "Error")]
-    Error,
+    #[display(fmt = "Failure")]
+    Failure,
     #[display(fmt = "Shutdown")]
     Shutdown,
 }
@@ -159,14 +159,13 @@ where
 
             if let Err(err) = self.purge_outdated_requests() {
                 warn!("failed to purge outdated requests");
-                match phase {
-                    PhaseName::Error | PhaseName::Shutdown => {
-                        debug!(
-                            "already in {} phase: ignoring error while purging outdated requests",
-                            phase,
-                        );
-                    }
-                    _ => return Some(self.into_failure_state(err)),
+                if let PhaseName::Failure | PhaseName::Shutdown = phase {
+                    debug!(
+                        "already in {} phase: ignoring error while purging outdated requests",
+                        phase,
+                    );
+                } else {
+                    return Some(self.into_failure_state(err));
                 }
             }
 

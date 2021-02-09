@@ -11,41 +11,36 @@ use crate::{
         events::DictionaryUpdate,
         phases::{
             Idle,
-            IdleStateError,
+            IdleError,
             Phase,
             PhaseName,
             PhaseState,
             Shared,
             Shutdown,
-            SumStateError,
-            UnmaskStateError,
-            UpdateStateError,
+            SumError,
+            UnmaskError,
+            UpdateError,
         },
         StateMachine,
     },
     storage::Storage,
 };
 
-/// Error that can occur during the execution of the [`StateMachine`].
+/// Errors which can occur during the execution of the [`StateMachine`].
 #[derive(Error, Debug)]
 pub enum PhaseError {
     #[error("request channel error: {0}")]
     RequestChannel(&'static str),
-
     #[error("phase timeout")]
     PhaseTimeout(#[from] tokio::time::error::Elapsed),
-
     #[error("idle phase failed: {0}")]
-    Idle(#[from] IdleStateError),
-
+    Idle(#[from] IdleError),
     #[error("sum phase failed: {0}")]
-    Sum(#[from] SumStateError),
-
+    Sum(#[from] SumError),
     #[error("update phase failed: {0}")]
-    Update(#[from] UpdateStateError),
-
+    Update(#[from] UpdateError),
     #[error("unmask phase failed: {0}")]
-    Unmask(#[from] UnmaskStateError),
+    Unmask(#[from] UnmaskError),
 }
 
 /// The failure state.
@@ -59,7 +54,7 @@ impl<T> Phase<T> for PhaseState<Failure, T>
 where
     T: Storage,
 {
-    const NAME: PhaseName = PhaseName::Error;
+    const NAME: PhaseName = PhaseName::Failure;
 
     async fn process(&mut self) -> Result<(), PhaseError> {
         error!("phase state error: {}", self.private.error);
@@ -141,7 +136,10 @@ mod tests {
         assert!(state_machine.is_shutdown());
 
         // Check all the events that should be emitted during the error phase
-        assert_eq!(events.phase_listener().get_latest().event, PhaseName::Error);
+        assert_eq!(
+            events.phase_listener().get_latest().event,
+            PhaseName::Failure,
+        );
         assert_eq!(
             events.sum_dict_listener().get_latest().event,
             DictionaryUpdate::Invalidate,

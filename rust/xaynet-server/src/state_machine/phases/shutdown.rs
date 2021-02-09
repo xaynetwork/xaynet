@@ -8,7 +8,7 @@ use crate::{
     storage::Storage,
 };
 
-/// Shutdown state
+/// The shutdown state.
 #[derive(Debug)]
 pub struct Shutdown;
 

@@ -15,9 +15,9 @@ use crate::{
 };
 use xaynet_core::{SumDict, SumParticipantEphemeralPublicKey, SumParticipantPublicKey};
 
-/// Error that occurs during the sum phase.
+/// Errors which can occur during the sum phase.
 #[derive(Error, Debug)]
-pub enum SumStateError {
+pub enum SumError {
     #[error("sum dictionary does not exists")]
     NoSumDict,
     #[error("fetching sum dictionary failed: {0}")]
@@ -47,9 +47,10 @@ where
             .store
             .sum_dict()
             .await
-            .map_err(SumStateError::FetchSumDict)?
-            .ok_or(SumStateError::NoSumDict)?
+            .map_err(SumError::FetchSumDict)?
+            .ok_or(SumError::NoSumDict)?
             .into();
+
         Ok(())
     }
 

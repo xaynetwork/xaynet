@@ -18,9 +18,9 @@ use crate::{
 };
 use xaynet_core::mask::{Aggregation, MaskObject, Model, UnmaskingError};
 
-/// Error that occurs during the unmask phase.
+/// Errors which can occur during the unmask phase.
 #[derive(Error, Debug)]
-pub enum UnmaskStateError {
+pub enum UnmaskError {
     #[error("ambiguous masks were computed by the sum participants")]
     AmbiguousMasks,
     #[error("no mask found")]
@@ -36,7 +36,7 @@ pub enum UnmaskStateError {
     PublishProof(crate::storage::StorageError),
 }
 
-/// Unmask state
+/// The unmask state.
 #[derive(Debug)]
 pub struct Unmask {
     /// The aggregator for masked models.
@@ -96,7 +96,7 @@ impl<T> PhaseState<Unmask, T> {
     async fn freeze_mask_dict(
         &mut self,
         mut best_masks: Vec<(MaskObject, u64)>,
-    ) -> Result<MaskObject, UnmaskStateError> {
+    ) -> Result<MaskObject, UnmaskError> {
         let mask = best_masks
             .drain(0..)
             .fold(
@@ -108,15 +108,12 @@ impl<T> PhaseState<Unmask, T> {
                 },
             )
             .0
-            .ok_or(UnmaskStateError::AmbiguousMasks)?;
+            .ok_or(UnmaskError::AmbiguousMasks)?;
 
         Ok(mask)
     }
 
-    async fn end_round(
-        &mut self,
-        best_masks: Vec<(MaskObject, u64)>,
-    ) -> Result<(), UnmaskStateError> {
+    async fn end_round(&mut self, best_masks: Vec<(MaskObject, u64)>) -> Result<(), UnmaskError> {
         let mask = self.freeze_mask_dict(best_masks).await?;
 
         // Safe unwrap: State::<Unmask>::new always creates Some(aggregation)
@@ -124,7 +121,7 @@ impl<T> PhaseState<Unmask, T> {
 
         model_agg
             .validate_unmasking(&mask)
-            .map_err(UnmaskStateError::from)?;
+            .map_err(UnmaskError::from)?;
         self.private.global_model = Some(Arc::new(model_agg.unmask(mask)));
 
         Ok(())
@@ -156,17 +153,17 @@ where
         });
     }
 
-    async fn best_masks(&mut self) -> Result<Vec<(MaskObject, u64)>, UnmaskStateError> {
+    async fn best_masks(&mut self) -> Result<Vec<(MaskObject, u64)>, UnmaskError> {
         self.shared
             .store
             .best_masks()
             .await
-            .map_err(UnmaskStateError::FetchBestMasks)?
-            .ok_or(UnmaskStateError::NoMask)
+            .map_err(UnmaskError::FetchBestMasks)?
+            .ok_or(UnmaskError::NoMask)
     }
 
     #[cfg(feature = "model-persistence")]
-    async fn save_global_model(&mut self) -> Result<(), UnmaskStateError> {
+    async fn save_global_model(&mut self) -> Result<(), UnmaskError> {
         info!("saving global model");
         let global_model = self
             .private
@@ -185,7 +182,7 @@ where
                 global_model,
             )
             .await
-            .map_err(UnmaskStateError::SaveGlobalModel)?;
+            .map_err(UnmaskError::SaveGlobalModel)?;
         if let Err(err) = self
             .shared
             .store
@@ -198,7 +195,7 @@ where
         Ok(())
     }
 
-    async fn publish_proof(&mut self) -> Result<(), UnmaskStateError> {
+    async fn publish_proof(&mut self) -> Result<(), UnmaskError> {
         info!("publishing proof of the new global model");
         let global_model = self
             .private
@@ -212,7 +209,7 @@ where
             .store
             .publish_proof(global_model)
             .await
-            .map_err(UnmaskStateError::PublishProof)
+            .map_err(UnmaskError::PublishProof)
     }
 }
 

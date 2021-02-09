@@ -17,16 +17,16 @@ use xaynet_core::{
     crypto::{ByteObject, EncryptKeyPair, SigningKeySeed},
 };
 
-/// Error that occurs during the idle phase.
+/// Errors which can occur during the idle phase.
 #[derive(Error, Debug)]
-pub enum IdleStateError {
+pub enum IdleError {
     #[error("setting the coordinator state failed: {0}")]
     SetCoordinatorState(StorageError),
     #[error("deleting the dictionaries failed: {0}")]
     DeleteDictionaries(StorageError),
 }
 
-/// Idle state
+/// The idle state.
 #[derive(Debug)]
 pub struct Idle;
 
@@ -43,7 +43,7 @@ where
             .store
             .delete_dicts()
             .await
-            .map_err(IdleStateError::DeleteDictionaries)?;
+            .map_err(IdleError::DeleteDictionaries)?;
 
         info!("updating the keys");
         self.gen_round_keypair();
@@ -59,7 +59,7 @@ where
             .store
             .set_coordinator_state(&self.shared.state)
             .await
-            .map_err(IdleStateError::SetCoordinatorState)?;
+            .map_err(IdleError::SetCoordinatorState)?;
 
         Ok(())
     }

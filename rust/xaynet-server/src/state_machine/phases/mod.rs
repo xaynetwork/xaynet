@@ -15,11 +15,11 @@ mod update;
 pub use self::{
     failure::{Failure, PhaseError},
     handler::Handler,
-    idle::{Idle, IdleStateError},
+    idle::{Idle, IdleError},
     phase::{Phase, PhaseName, PhaseState, Shared},
     shutdown::Shutdown,
-    sum::{Sum, SumStateError},
+    sum::{Sum, SumError},
     sum2::Sum2,
-    unmask::{Unmask, UnmaskStateError},
-    update::{Update, UpdateStateError},
+    unmask::{Unmask, UnmaskError},
+    update::{Update, UpdateError},
 };
