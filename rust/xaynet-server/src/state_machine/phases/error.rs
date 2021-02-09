@@ -134,6 +134,7 @@ mod tests {
         assert!(state_machine.is_shutdown());
 
         // Check all the events that should be emitted during the error phase
+        assert_eq!(events.phase_listener().get_latest().event, PhaseName::Error);
         assert_eq!(
             events.sum_dict_listener().get_latest().event,
             DictionaryUpdate::Invalidate,

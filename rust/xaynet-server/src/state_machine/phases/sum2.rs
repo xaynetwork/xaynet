@@ -107,12 +107,9 @@ mod tests {
 
     use super::*;
     use crate::{
-        state_machine::{
-            events::Event,
-            tests::{
-                builder::StateMachineBuilder,
-                utils::{self, Participant},
-            },
+        state_machine::tests::{
+            builder::StateMachineBuilder,
+            utils::{self, Participant},
         },
         storage::{tests::init_store, CoordinatorStorage},
     };
@@ -220,12 +217,15 @@ mod tests {
         let unmasked_model = unmask_state.aggregation().unwrap().clone().unmask(mask);
         assert_eq!(unmasked_model, model);
 
+        // Check all the events that should be emitted during the sum2 phase
+        assert_eq!(events.phase_listener().get_latest().event, PhaseName::Sum2);
         assert_eq!(
-            events.phase_listener().get_latest(),
-            Event {
-                round_id: 0,
-                event: PhaseName::Sum2,
-            }
+            events.sum_dict_listener().get_latest().event,
+            DictionaryUpdate::Invalidate,
+        );
+        assert_eq!(
+            events.seed_dict_listener().get_latest().event,
+            DictionaryUpdate::Invalidate,
         );
     }
 }

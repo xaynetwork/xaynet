@@ -204,18 +204,15 @@ mod tests {
             Event { round_id: 2, event }
         }
 
-        // Check all the events that should be emitted during the idle
-        // phase
+        // Check all the events that should be emitted during the idle phase
         assert_eq!(
             events.phase_listener().get_latest(),
             expected_event(PhaseName::Idle),
         );
-
         assert_eq!(
             events.keys_listener().get_latest(),
             expected_event(new_keys),
         );
-
         assert_eq!(
             events.params_listener().get_latest(),
             expected_event(new_round_params),
