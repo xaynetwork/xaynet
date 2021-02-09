@@ -55,6 +55,14 @@ impl Scalar {
         Self(Ratio::new(numer.into(), denom.into()))
     }
 
+    /// Constructs a `Scalar` representing the given integer.
+    pub fn from_integer<U>(u: U) -> Self
+    where
+        U: Unsigned + Into<BigUint>,
+    {
+        Self(Ratio::from_integer(u.into()))
+    }
+
     /// Constructs a `Scalar` of unit value.
     pub fn unit() -> Self {
         Self(Ratio::one())
@@ -232,5 +240,150 @@ impl FromPrimitive<f64> for Scalar {
 
     fn from_primitive_bounded(prim: f64) -> Self {
         Self::from_float_bounded(prim)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_ratio_conversion() {
+        let (numer, denom) = (1_u8, 2_u8);
+        let expected_ratio = Ratio::new(BigInt::from(numer), BigInt::from(denom));
+        let actual_ratio = Scalar::new(numer, denom).into();
+        assert_eq!(expected_ratio, actual_ratio);
+    }
+
+    #[test]
+    fn test_ratio_conversion_ok() {
+        let (numer, denom) = (1_u8, 2_u8);
+        let ratio = Ratio::new(BigInt::from(numer), BigInt::from(denom));
+        let sc_res = Scalar::try_from(ratio);
+        assert!(sc_res.is_ok());
+        assert_eq!(sc_res.unwrap(), Scalar::new(numer, denom));
+    }
+
+    #[test]
+    fn test_ratio_conversion_err() {
+        let neg_ratio = Ratio::new(BigInt::from(-1), BigInt::from(2));
+        let sc_res = Scalar::try_from(neg_ratio);
+        assert!(sc_res.is_err());
+    }
+
+    #[test]
+    #[allow(clippy::float_cmp)]
+    fn test_scalar_f32() {
+        let prim_sc_pairs = vec![
+            (0_f32, Scalar::from_integer(0_u8)),
+            (2_f32, Scalar::from_integer(2_u8)),
+            (0.5_f32, Scalar::new(1_u8, 2_u8)),
+        ];
+        for (prim, sc) in prim_sc_pairs {
+            let converted_sc = Scalar::from_primitive(prim);
+            assert!(converted_sc.is_ok());
+            assert_eq!(converted_sc.unwrap(), sc);
+
+            let converted_sc = Scalar::from_primitive_bounded(prim);
+            assert_eq!(converted_sc, sc);
+
+            let converted_prim: f32 = sc.into_primitive_unchecked();
+            assert_eq!(converted_prim, prim);
+        }
+    }
+
+    #[test]
+    fn test_scalar_f32_from_weird_prims() {
+        let prim_pairs = vec![
+            (f32::INFINITY, f32::MAX),
+            (-1_f32, 0_f32),
+            (f32::NAN, 0_f32),
+        ];
+        for (weird, fine) in prim_pairs {
+            let weird_res = Scalar::from_primitive(weird);
+            assert!(weird_res.is_err());
+
+            let bounded = Scalar::from_primitive_bounded(weird);
+            let fine_res = Scalar::try_from(Ratio::from_float(fine).unwrap());
+            assert!(fine_res.is_ok());
+            assert_eq!(bounded, fine_res.unwrap());
+        }
+    }
+
+    #[test]
+    #[allow(clippy::float_cmp)]
+    fn test_scalar_f64() {
+        let prim_sc_pairs = vec![
+            (0_f64, Scalar::from_integer(0_u8)),
+            (2_f64, Scalar::from_integer(2_u8)),
+            (0.5_f64, Scalar::new(1_u8, 2_u8)),
+        ];
+        for (prim, sc) in prim_sc_pairs {
+            let converted_sc = Scalar::from_primitive(prim);
+            assert!(converted_sc.is_ok());
+            assert_eq!(converted_sc.unwrap(), sc);
+
+            let converted_sc = Scalar::from_primitive_bounded(prim);
+            assert_eq!(converted_sc, sc);
+
+            let converted_prim: f64 = sc.into_primitive_unchecked();
+            assert_eq!(converted_prim, prim);
+        }
+    }
+
+    #[test]
+    fn test_scalar_f64_from_weird_prims() {
+        let prim_pairs = vec![
+            (f64::INFINITY, f64::MAX),
+            (-1_f64, 0_f64),
+            (f64::NAN, 0_f64),
+        ];
+        for (weird, fine) in prim_pairs {
+            let weird_res = Scalar::from_primitive(weird);
+            assert!(weird_res.is_err());
+
+            let bounded = Scalar::from_primitive_bounded(weird);
+            let fine_res = Scalar::try_from(Ratio::from_float(fine).unwrap());
+            assert!(fine_res.is_ok());
+            assert_eq!(bounded, fine_res.unwrap());
+        }
+    }
+
+    #[test]
+    fn test_scalar_i32() {
+        let prim_sc_pairs = vec![
+            (0_i32, Scalar::from_integer(0_u8)),
+            (2_i32, Scalar::from_integer(2_u8)),
+        ];
+        for (prim, sc) in prim_sc_pairs {
+            let converted_sc = Scalar::from_primitive(prim);
+            assert!(converted_sc.is_ok());
+            assert_eq!(converted_sc.unwrap(), sc);
+
+            let converted_sc = Scalar::from_primitive_bounded(prim);
+            assert_eq!(converted_sc, sc);
+
+            let converted_prim: i32 = sc.into_primitive_unchecked();
+            assert_eq!(converted_prim, prim);
+        }
+    }
+
+    #[test]
+    fn test_scalar_i64() {
+        let prim_sc_pairs = vec![
+            (0_i64, Scalar::from_integer(0_u8)),
+            (2_i64, Scalar::from_integer(2_u8)),
+        ];
+        for (prim, sc) in prim_sc_pairs {
+            let converted_sc = Scalar::from_primitive(prim);
+            assert!(converted_sc.is_ok());
+            assert_eq!(converted_sc.unwrap(), sc);
+
+            let converted_sc = Scalar::from_primitive_bounded(prim);
+            assert_eq!(converted_sc, sc);
+
+            let converted_prim: i64 = sc.into_primitive_unchecked();
+            assert_eq!(converted_prim, prim);
+        }
     }
 }
