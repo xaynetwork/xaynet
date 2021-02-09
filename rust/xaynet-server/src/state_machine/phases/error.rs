@@ -61,18 +61,16 @@ where
         Ok(())
     }
 
-    async fn broadcast(&mut self) -> Result<(), PhaseStateError> {
-        info!("broadcasting invalidation of sum dictionary from previous round");
+    fn broadcast(&mut self) {
+        info!("broadcasting invalidation of sum dictionary");
         self.shared
             .events
             .broadcast_sum_dict(DictionaryUpdate::Invalidate);
 
-        info!("broadcasting invalidation of seed dictionary from previous round");
+        info!("broadcasting invalidation of seed dictionary");
         self.shared
             .events
             .broadcast_seed_dict(DictionaryUpdate::Invalidate);
-
-        Ok(())
     }
 
     async fn next(mut self) -> Option<StateMachine<T>> {

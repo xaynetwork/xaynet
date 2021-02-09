@@ -50,31 +50,27 @@ where
     async fn process(&mut self) -> Result<(), PhaseStateError> {
         self.process(self.shared.state.update).await?;
 
-        let seed_dict = self
+        self.private.seed_dict = self
             .shared
             .store
             .seed_dict()
             .await
-            .map_err(UpdateStateError::FetchSeedDict)?;
-        if seed_dict.is_some() {
-            self.private.seed_dict = seed_dict;
-            Ok(())
-        } else {
-            Err(UpdateStateError::NoSeedDict.into())
-        }
+            .map_err(UpdateStateError::FetchSeedDict)?
+            .ok_or(UpdateStateError::NoSeedDict)?
+            .into();
+        Ok(())
     }
 
-    async fn broadcast(&mut self) -> Result<(), PhaseStateError> {
-        if let Some(seed_dict) = self.private.seed_dict.take() {
-            info!("broadcasting the global seed dictionary");
-            self.shared
-                .events
-                .broadcast_seed_dict(DictionaryUpdate::New(Arc::new(seed_dict)));
-
-            Ok(())
-        } else {
-            unreachable!("never fails when `broadcast()` is called after `process()`");
-        }
+    fn broadcast(&mut self) {
+        info!("broadcasting the global seed dictionary");
+        let seed_dict = self
+            .private
+            .seed_dict
+            .take()
+            .expect("unreachable: never fails when `broadcast()` is called after `process()`");
+        self.shared
+            .events
+            .broadcast_seed_dict(DictionaryUpdate::New(Arc::new(seed_dict)));
     }
 
     async fn next(self) -> Option<StateMachine<T>> {

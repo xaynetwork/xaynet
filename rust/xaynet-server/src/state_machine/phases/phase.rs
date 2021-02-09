@@ -63,9 +63,7 @@ where
     // phase, which also means that the metrics can be a bit off.
 
     /// Broadcasts data of this phase (nothing by default).
-    async fn broadcast(&mut self) -> Result<(), PhaseStateError> {
-        Ok(())
-    }
+    fn broadcast(&mut self) {}
 
     /// Moves from this phase to the next phase.
     async fn next(self) -> Option<StateMachine<T>>;
@@ -151,7 +149,6 @@ where
 
         async move {
             info!("starting phase");
-            info!("broadcasting phase event");
             self.shared.events.broadcast_phase(phase);
             metric!(Measurement::Phase, phase as u8);
 
@@ -161,7 +158,6 @@ where
             }
             info!("phase ran successfully");
 
-            debug!("purging outdated requests before transitioning");
             if let Err(err) = self.purge_outdated_requests() {
                 warn!("failed to purge outdated requests");
                 match phase {
@@ -175,10 +171,7 @@ where
                 }
             }
 
-            if let Err(err) = self.broadcast().await {
-                warn!("failed to broadcast the phase data");
-                return Some(self.into_error_state(err));
-            }
+            self.broadcast();
 
             info!("transitioning to the next phase");
             self.next().await

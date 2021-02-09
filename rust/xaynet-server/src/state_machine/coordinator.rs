@@ -1,7 +1,5 @@
 //! Coordinator state and round parameter types.
 
-use std::sync::Arc;
-
 use serde::{Deserialize, Serialize};
 
 use crate::settings::{
@@ -17,7 +15,7 @@ use crate::settings::{
 use xaynet_core::{
     common::{RoundParameters, RoundSeed},
     crypto::{ByteObject, EncryptKeyPair},
-    mask::{MaskConfig, Model},
+    mask::MaskConfig,
 };
 
 /// The phase count parameters.
@@ -106,9 +104,6 @@ pub struct CoordinatorState {
     pub update: PhaseParameters,
     /// The sum2 phase parameters.
     pub sum2: PhaseParameters,
-    /// The global model of the current round.
-    #[serde(skip)]
-    pub global_model: Option<Arc<Model>>,
 }
 
 impl CoordinatorState {
@@ -134,7 +129,6 @@ impl CoordinatorState {
             sum: pet_settings.sum.into(),
             update: pet_settings.update.into(),
             sum2: pet_settings.sum2.into(),
-            global_model: None,
         }
     }
 }

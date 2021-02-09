@@ -64,7 +64,7 @@ where
         Ok(())
     }
 
-    async fn broadcast(&mut self) -> Result<(), PhaseStateError> {
+    fn broadcast(&mut self) {
         info!("broadcasting new keys");
         self.shared
             .events
@@ -88,8 +88,6 @@ where
             ("round_id", self.shared.state.round_id),
             ("phase", Self::NAME as u8),
         );
-
-        Ok(())
     }
 
     async fn next(self) -> Option<StateMachine<T>> {
@@ -168,7 +166,7 @@ mod tests {
 
         let mut idle_phase = PhaseState::<Idle, _>::new(shared);
         idle_phase.process().await.unwrap();
-        idle_phase.broadcast().await.unwrap();
+        idle_phase.broadcast();
 
         let id = keys.get_latest().round_id;
         assert_eq!(id, 1);

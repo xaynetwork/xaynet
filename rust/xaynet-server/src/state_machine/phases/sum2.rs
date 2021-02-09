@@ -1,7 +1,9 @@
 use async_trait::async_trait;
+use tracing::info;
 
 use crate::{
     state_machine::{
+        events::DictionaryUpdate,
         phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Unmask},
         requests::{StateMachineRequest, Sum2Request},
         RequestError,
@@ -31,6 +33,18 @@ where
 
     async fn process(&mut self) -> Result<(), PhaseStateError> {
         self.process(self.shared.state.sum2).await
+    }
+
+    fn broadcast(&mut self) {
+        info!("broadcasting invalidation of sum dictionary");
+        self.shared
+            .events
+            .broadcast_sum_dict(DictionaryUpdate::Invalidate);
+
+        info!("broadcasting invalidation of seed dictionary");
+        self.shared
+            .events
+            .broadcast_seed_dict(DictionaryUpdate::Invalidate);
     }
 
     async fn next(self) -> Option<StateMachine<T>> {

@@ -27,9 +27,9 @@ pub trait Handler {
 
 /// A counter to keep track of handled messages.
 struct Counter {
-    /// The minimal number of succesfully processed messages.
+    /// The minimal number of successfully processed messages.
     min: u64,
-    /// The maximal number of succesfully processed messages.
+    /// The maximal number of successfully processed messages.
     max: u64,
     /// The number of messages successfully processed.
     accepted: u64,

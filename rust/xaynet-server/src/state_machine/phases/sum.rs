@@ -43,31 +43,27 @@ where
     async fn process(&mut self) -> Result<(), PhaseStateError> {
         self.process(self.shared.state.sum).await?;
 
-        let sum_dict = self
+        self.private.sum_dict = self
             .shared
             .store
             .sum_dict()
             .await
-            .map_err(SumStateError::FetchSumDict)?;
-        if sum_dict.is_some() {
-            self.private.sum_dict = sum_dict;
-            Ok(())
-        } else {
-            Err(SumStateError::NoSumDict.into())
-        }
+            .map_err(SumStateError::FetchSumDict)?
+            .ok_or(SumStateError::NoSumDict)?
+            .into();
+        Ok(())
     }
 
-    async fn broadcast(&mut self) -> Result<(), PhaseStateError> {
-        if let Some(sum_dict) = self.private.sum_dict.take() {
-            info!("broadcasting sum dictionary");
-            self.shared
-                .events
-                .broadcast_sum_dict(DictionaryUpdate::New(Arc::new(sum_dict)));
-
-            Ok(())
-        } else {
-            unreachable!("never fails when `broadcast()` is called after `process()`");
-        }
+    fn broadcast(&mut self) {
+        info!("broadcasting sum dictionary");
+        let sum_dict = self
+            .private
+            .sum_dict
+            .take()
+            .expect("unreachable: never fails when `broadcast()` is called after `process()`");
+        self.shared
+            .events
+            .broadcast_sum_dict(DictionaryUpdate::New(Arc::new(sum_dict)));
     }
 
     async fn next(self) -> Option<StateMachine<T>> {
