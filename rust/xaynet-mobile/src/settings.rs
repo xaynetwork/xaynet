@@ -4,7 +4,10 @@
 
 use std::convert::TryInto;
 use thiserror::Error;
-use xaynet_core::crypto::SigningKeyPair;
+use xaynet_core::{
+    crypto::SigningKeyPair,
+    mask::{FromPrimitive, PrimitiveCastError, Scalar},
+};
 use xaynet_sdk::settings::{MaxMessageSize, PetSettings};
 
 /// A participant settings
@@ -15,7 +18,7 @@ pub struct Settings {
     /// The participant signing keys.
     keys: Option<SigningKeyPair>,
     /// The scalar used for masking.
-    scalar: f64,
+    scalar: Result<Scalar, PrimitiveCastError<f64>>,
     /// The maximum possible size of a message.
     max_message_size: MaxMessageSize,
 }
@@ -32,7 +35,7 @@ impl Settings {
         Self {
             url: None,
             keys: None,
-            scalar: 1.0,
+            scalar: Ok(Scalar::unit()),
             max_message_size: MaxMessageSize::default(),
         }
     }
@@ -42,9 +45,9 @@ impl Settings {
         self.keys = Some(keys);
     }
 
-    /// Set the scalar use for masking
+    /// Set the scalar to use for masking
     pub fn set_scalar(&mut self, scalar: f64) {
-        self.scalar = scalar;
+        self.scalar = Scalar::from_primitive(scalar)
     }
 
     /// Set the Xaynet coordinator address
@@ -63,6 +66,8 @@ impl Settings {
             Err(SettingsError::MissingUrl)
         } else if self.keys.is_none() {
             Err(SettingsError::MissingKeys)
+        } else if let Err(e) = &self.scalar {
+            Err(e.clone().into())
         } else {
             Ok(())
         }
@@ -76,6 +81,8 @@ pub enum SettingsError {
     MissingUrl,
     #[error("the participant signing key pair must be specified")]
     MissingKeys,
+    #[error("float not within range of scalar: {0}")]
+    OutOfScalarRange(#[from] PrimitiveCastError<f64>),
 }
 
 impl TryInto<(String, PetSettings)> for Settings {
@@ -90,8 +97,8 @@ impl TryInto<(String, PetSettings)> for Settings {
         } = self;
 
         let url = url.ok_or(SettingsError::MissingUrl)?;
-
         let keys = keys.ok_or(SettingsError::MissingKeys)?;
+        let scalar = scalar.map_err(SettingsError::OutOfScalarRange)?;
 
         let pet_settings = PetSettings {
             keys,

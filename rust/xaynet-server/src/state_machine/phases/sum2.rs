@@ -114,7 +114,7 @@ mod tests {
     use xaynet_core::{
         common::{RoundParameters, RoundSeed},
         crypto::{ByteObject, EncryptKeyPair},
-        mask::{FromPrimitives, Model},
+        mask::{FromPrimitives, Model, Scalar},
         SumDict,
     };
 
@@ -148,7 +148,8 @@ mod tests {
 
         // Generate a new masked model, seed dictionary and aggregation
         let updater = utils::generate_updater(round_params.clone());
-        let scalar = 1.0 / (n_updaters as f64 * round_params.update);
+        let expected_upd = (round_params.update * n_updaters as f64) as u64;
+        let scalar = Scalar::new(1, expected_upd);
         let model = Model::from_primitives(vec![0; model_length].into_iter()).unwrap();
         let (mask_seed, masked_model) = updater.compute_masked_model(&model, scalar);
         let local_seed_dict = Participant::build_seed_dict(&sum_dict, &mask_seed);

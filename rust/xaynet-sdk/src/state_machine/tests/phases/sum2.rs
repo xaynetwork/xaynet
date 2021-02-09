@@ -1,7 +1,7 @@
 use mockall::Sequence;
 use xaynet_core::{
     crypto::{ByteObject, EncryptKeyPair, EncryptKeySeed, PublicEncryptKey},
-    mask::{FromPrimitives, MaskConfigPair, MaskObject, MaskSeed, Masker, Model},
+    mask::{FromPrimitives, MaskConfigPair, MaskObject, MaskSeed, Masker, Model, Scalar},
     UpdateSeedDict,
 };
 
@@ -64,7 +64,7 @@ fn make_model() -> Model {
 
 fn make_masked_model(mask_config: MaskConfigPair) -> (MaskSeed, MaskObject) {
     let masker = Masker::new(mask_config);
-    let scalar = 1.0;
+    let scalar = Scalar::unit();
     let model = make_model();
     masker.mask(scalar, &model)
 }

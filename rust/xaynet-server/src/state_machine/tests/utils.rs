@@ -34,6 +34,7 @@ use xaynet_core::{
         Masker,
         Model,
         ModelType,
+        Scalar,
     },
     message::{Message, Payload, Sum, Sum2, Update},
     LocalSeedDict,
@@ -106,7 +107,7 @@ impl Participant {
     }
 
     // Update methods
-    pub fn compute_masked_model(&self, model: &Model, scalar: f64) -> (MaskSeed, MaskObject) {
+    pub fn compute_masked_model(&self, model: &Model, scalar: Scalar) -> (MaskSeed, MaskObject) {
         let masker = Masker::new(self.mask_settings);
         masker.mask(scalar, model)
     }

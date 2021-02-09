@@ -89,10 +89,10 @@
 //! can be generated via the additionally returned [`MaskSeed`].
 //!
 //! ```
-//! # use xaynet_core::mask::{BoundType, DataType, FromPrimitives, GroupType, MaskConfig, Masker, Model, ModelType};
+//! # use xaynet_core::mask::{BoundType, DataType, FromPrimitives, GroupType, MaskConfig, Masker, Model, ModelType, Scalar};
 //! // create local models and a fitting masking configuration
 //! let number_weights = 10;
-//! let scalar = 0.5;
+//! let scalar = Scalar::new(1, 2_u8);
 //! let local_model_1 = Model::from_primitives_bounded(vec![0_f32; number_weights].into_iter());
 //! let local_model_2 = Model::from_primitives_bounded(vec![1_f32; number_weights].into_iter());
 //! let config = MaskConfig {
@@ -103,7 +103,7 @@
 //! };
 //!
 //! // mask the local models
-//! let (local_mask_seed_1, masked_local_model_1) = Masker::new(config.into()).mask(scalar, &local_model_1);
+//! let (local_mask_seed_1, masked_local_model_1) = Masker::new(config.into()).mask(scalar.clone(), &local_model_1);
 //! let (local_mask_seed_2, masked_local_model_2) = Masker::new(config.into()).mask(scalar, &local_model_2);
 //!
 //! // derive the masks of the local masked models
@@ -118,13 +118,13 @@
 //! safely performed wrt the chosen masking configuration without possible loss of information.
 //!
 //! ```
-//! # use xaynet_core::mask::{Aggregation, BoundType, DataType, FromPrimitives, GroupType, MaskConfig, Masker, MaskObject, Model, ModelType};
+//! # use xaynet_core::mask::{Aggregation, BoundType, DataType, FromPrimitives, GroupType, MaskConfig, Masker, MaskObject, Model, ModelType, Scalar};
 //! # let number_weights = 10;
-//! # let scalar = 0.5;
+//! # let scalar = Scalar::new(1, 2_u8);
 //! # let local_model_1 = Model::from_primitives_bounded(vec![0_f32; number_weights].into_iter());
 //! # let local_model_2 = Model::from_primitives_bounded(vec![1_f32; number_weights].into_iter());
 //! # let config = MaskConfig { group_type: GroupType::Prime, data_type: DataType::F32, bound_type: BoundType::B0, model_type: ModelType::M3};
-//! # let (local_mask_seed_1, masked_local_model_1) = Masker::new(config.into()).mask(scalar, &local_model_1);
+//! # let (local_mask_seed_1, masked_local_model_1) = Masker::new(config.into()).mask(scalar.clone(), &local_model_1);
 //! # let (local_mask_seed_2, masked_local_model_2) = Masker::new(config.into()).mask(scalar, &local_model_2);
 //! # let local_model_mask_1 = local_mask_seed_1.derive_mask(number_weights, config.into());
 //! # let local_model_mask_2 = local_mask_seed_2.derive_mask(number_weights, config.into());
@@ -154,13 +154,13 @@
 //! configuration without possible loss of information.
 //!
 //! ```no_run
-//! # use xaynet_core::mask::{Aggregation, BoundType, DataType, FromPrimitives, GroupType, MaskConfig, Masker, MaskObject, Model, ModelType};
+//! # use xaynet_core::mask::{Aggregation, BoundType, DataType, FromPrimitives, GroupType, MaskConfig, Masker, MaskObject, Model, ModelType, Scalar};
 //! # let number_weights = 10;
-//! # let scalar = 0.5;
+//! # let scalar = Scalar::new(1, 2_u8);
 //! # let local_model_1 = Model::from_primitives_bounded(vec![0_f32; number_weights].into_iter());
 //! # let local_model_2 = Model::from_primitives_bounded(vec![1_f32; number_weights].into_iter());
 //! # let config = MaskConfig { group_type: GroupType::Prime, data_type: DataType::F32, bound_type: BoundType::B0, model_type: ModelType::M3};
-//! # let (local_mask_seed_1, masked_local_model_1) = Masker::new(config.into()).mask(scalar, &local_model_1);
+//! # let (local_mask_seed_1, masked_local_model_1) = Masker::new(config.into()).mask(scalar.clone(), &local_model_1);
 //! # let (local_mask_seed_2, masked_local_model_2) = Masker::new(config.into()).mask(scalar, &local_model_2);
 //! # let local_model_mask_1 = local_mask_seed_1.derive_mask(number_weights, config.into());
 //! # let local_model_mask_2 = local_mask_seed_2.derive_mask(number_weights, config.into());
@@ -185,6 +185,7 @@ pub(crate) mod config;
 pub(crate) mod masking;
 pub(crate) mod model;
 pub(crate) mod object;
+pub(crate) mod scalar;
 pub(crate) mod seed;
 
 pub use self::{
@@ -207,5 +208,6 @@ pub use self::{
         MaskUnit,
         MaskVect,
     },
+    scalar::{FromPrimitive, IntoPrimitive, Scalar, ScalarCastError},
     seed::{EncryptedMaskSeed, MaskSeed},
 };

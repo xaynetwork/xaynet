@@ -1,7 +1,7 @@
 use xaynet_core::{
     common::{RoundParameters, RoundSeed},
     crypto::{ByteObject, EncryptKeyPair, EncryptKeySeed, SigningKeyPair, SigningKeySeed},
-    mask::{self, MaskConfig},
+    mask::{self, MaskConfig, Scalar},
 };
 
 use crate::{settings::MaxMessageSize, state_machine::SharedState};
@@ -154,7 +154,7 @@ pub fn round_params(task: SelectFor) -> RoundParameters {
 pub fn shared_state(task: SelectFor) -> Box<SharedState> {
     Box::new(SharedState {
         keys: SigningKeyPair::derive_from_seed(&SigningKeySeed::zeroed()),
-        scalar: 1.0,
+        scalar: Scalar::unit(),
         message_size: MaxMessageSize::unlimited(),
         round_params: round_params(task),
     })

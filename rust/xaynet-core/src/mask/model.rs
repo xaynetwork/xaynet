@@ -66,7 +66,7 @@ impl IntoIterator for Model {
 
 #[derive(Debug, Display)]
 /// A primitive data type as a target for model conversion.
-enum PrimitiveType {
+pub(crate) enum PrimitiveType {
     F32,
     F64,
     I32,
@@ -81,10 +81,10 @@ pub struct ModelCastError {
     target: PrimitiveType,
 }
 
-#[derive(Error, Debug)]
-#[error("Could not convert primitive type {0:?} to model weight")]
-/// Errors related to model conversion from primitives.
-pub struct PrimitiveCastError<P: Debug>(P);
+#[derive(Clone, Error, Debug)]
+#[error("Could not convert primitive type {0:?} to weight")]
+/// Errors related to weight conversion from primitives.
+pub struct PrimitiveCastError<P: Debug>(pub(crate) P);
 
 /// An interface to convert a collection of numerical values into an iterator of primitive values.
 ///

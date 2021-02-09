@@ -13,7 +13,7 @@ use crate::{
 use xaynet_core::{
     common::{RoundParameters, RoundSeed},
     crypto::{ByteObject, PublicEncryptKey, SigningKeyPair},
-    mask::{self, DataType, MaskConfig, Model},
+    mask::{self, DataType, MaskConfig, Model, Scalar},
     message::Payload,
 };
 
@@ -64,7 +64,7 @@ pub struct SharedState {
     /// PET message sent by the participant.
     pub keys: SigningKeyPair,
     /// Scalar used for masking
-    pub scalar: f64,
+    pub scalar: Scalar,
     /// Maximum message size the participant can send. Messages larger
     /// than `message_size` are split in several parts.
     pub message_size: MaxMessageSize,

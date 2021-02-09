@@ -33,7 +33,7 @@ gcc \
     tests/ffi_test.c
     -Wall \
     -I. \
-    -lpthread -lm -ldl \
+    -pthread -Wl,--no-as-needed -lm -ldl \
     ../target/debug/libxaynet_mobile.a \
     -o tests/ffi_test.o
 ./tests/ffi_test.o

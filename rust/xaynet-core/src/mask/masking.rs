@@ -10,6 +10,7 @@ use num::{
     bigint::{BigInt, BigUint, ToBigInt},
     clamp,
     rational::Ratio,
+    traits::clamp_max,
 };
 use rand::SeedableRng;
 use rand_chacha::ChaCha20Rng;
@@ -19,8 +20,9 @@ use crate::{
     crypto::{prng::generate_integer, ByteObject},
     mask::{
         config::MaskConfigPair,
-        model::{float_to_ratio_bounded, Model},
+        model::Model,
         object::{MaskObject, MaskUnit, MaskVect},
+        scalar::Scalar,
         seed::MaskSeed,
     },
 };
@@ -353,7 +355,7 @@ impl Masker {
     /// proceeds in reverse order.
     ///
     /// [`unmask()`]: Aggregation::unmask
-    pub fn mask(self, scalar: f64, model: &Model) -> (MaskSeed, MaskObject) {
+    pub fn mask(self, scalar: Scalar, model: &Model) -> (MaskSeed, MaskObject) {
         let (random_int, mut random_ints) = self.random_ints();
         let Self { config, seed } = self;
         let MaskConfigPair {
@@ -363,9 +365,8 @@ impl Masker {
 
         // clamp the scalar
         let add_shift_1 = config_1.add_shift();
-        let scalar_ratio = float_to_ratio_bounded(scalar);
-        let zero = Ratio::<BigInt>::from_float(0_f64).unwrap();
-        let scalar_clamped = clamp(&scalar_ratio, &zero, &add_shift_1);
+        let scalar_ratio = scalar.into();
+        let scalar_clamped = clamp_max(&scalar_ratio, &add_shift_1);
 
         let exp_shift_n = config_n.exp_shift();
         let add_shift_n = config_n.add_shift();
@@ -437,6 +438,7 @@ mod tests {
             ModelType::M3,
         },
         model::FromPrimitives,
+        scalar::FromPrimitive,
     };
 
     /// Generate tests for masking and unmasking of a single model:
@@ -491,7 +493,7 @@ mod tests {
                     // b. derive the mask corresponding to the seed used
                     // c. unmask the model and check it against the original one.
                     let (mask_seed, masked_model) =
-                        Masker::new(config.into()).mask(1_f64, &model);
+                        Masker::new(config.into()).mask(Scalar::unit(), &model);
                     assert_eq!(masked_model.vect.data.len(), vect_len);
                     assert!(masked_model.is_valid());
 
@@ -631,7 +633,8 @@ mod tests {
                     };
                     let eps = [<$data:lower>]::EPSILON;
                     let mut prng = ChaCha20Rng::from_seed(MaskSeed::generate().as_array());
-                    let scalar = Uniform::new_inclusive(eps, bound).sample(&mut prng) as f64;
+                    let random_weight = Uniform::new_inclusive(eps, bound).sample(&mut prng);
+                    let scalar = Scalar::from_primitive(random_weight).unwrap();
                     let model = Model::from_primitives(iter::repeat(1).take(vect_len)).unwrap();
                     assert_eq!(model.len(), vect_len);
 
@@ -865,6 +868,7 @@ mod tests {
                         model_type: M3,
                     };
                     let vect_len = $len as usize;
+                    let model_count = $count as usize;
 
                     // Step 2: Generate random models
                     let bound = if $bound == 0 {
@@ -894,19 +898,19 @@ mod tests {
                     .unwrap();
                     let mut aggregated_masked_model = Aggregation::new(config.into(), vect_len);
                     let mut aggregated_mask = Aggregation::new(config.into(), vect_len);
-                    let scalar = 1_f64 / ($count as f64);
-                    let scalar_ratio = Ratio::from_float(scalar).unwrap();
-                    for _ in 0..$count as usize {
+                    let scalar = Scalar::new(1, model_count);
+                    let scalar_ratio = &scalar.to_ratio();
+                    for _ in 0..model_count {
                         let model = models.next().unwrap();
                         averaged_model
                             .iter_mut()
                             .zip(model.iter())
                             .for_each(|(averaged_weight, weight)| {
-                                *averaged_weight += &scalar_ratio * weight;
+                                *averaged_weight += scalar_ratio * weight;
                             });
 
                         let (mask_seed, masked_model) =
-                            Masker::new(config.into()).mask(scalar, &model);
+                            Masker::new(config.into()).mask(scalar.clone(), &model);
                         let mask = mask_seed.derive_mask(vect_len, config.into());
 
                         assert!(
@@ -920,7 +924,7 @@ mod tests {
                     let mask = aggregated_mask.into();
                     assert!(aggregated_masked_model.validate_unmasking(&mask).is_ok());
                     let unmasked_model = aggregated_masked_model.unmask(mask);
-                    let tolerance = Ratio::from_integer(BigInt::from($count as usize))
+                    let tolerance = Ratio::from_integer(BigInt::from(model_count))
                         / Ratio::from_integer(config.exp_shift());
                     assert!(
                         averaged_model.iter()
@@ -937,45 +941,41 @@ mod tests {
         };
     }
 
-    // FIXME some of the test cases below exceed the closeness checks, namely
-    // those with data type f64, and f32_bmax. For now, reduce the number of
-    // models for these test cases to 2 to minimise the error.
-
     test_masking_and_aggregation!(int_f32_b0, Integer, f32, 1, 10, 5);
     test_masking_and_aggregation!(int_f32_b2, Integer, f32, 100, 10, 5);
     test_masking_and_aggregation!(int_f32_b4, Integer, f32, 10_000, 10, 5);
     test_masking_and_aggregation!(int_f32_b6, Integer, f32, 1_000_000, 10, 5);
-    test_masking_and_aggregation!(int_f32_bmax, Integer, f32, 10, 2);
+    test_masking_and_aggregation!(int_f32_bmax, Integer, f32, 10, 5);
 
     test_masking_and_aggregation!(prime_f32_b0, Prime, f32, 1, 10, 5);
     test_masking_and_aggregation!(prime_f32_b2, Prime, f32, 100, 10, 5);
     test_masking_and_aggregation!(prime_f32_b4, Prime, f32, 10_000, 10, 5);
     test_masking_and_aggregation!(prime_f32_b6, Prime, f32, 1_000_000, 10, 5);
-    test_masking_and_aggregation!(prime_f32_bmax, Prime, f32, 10, 2);
+    test_masking_and_aggregation!(prime_f32_bmax, Prime, f32, 10, 5);
 
     test_masking_and_aggregation!(pow_f32_b0, Power2, f32, 1, 10, 5);
     test_masking_and_aggregation!(pow_f32_b2, Power2, f32, 100, 10, 5);
     test_masking_and_aggregation!(pow_f32_b4, Power2, f32, 10_000, 10, 5);
     test_masking_and_aggregation!(pow_f32_b6, Power2, f32, 1_000_000, 10, 5);
-    test_masking_and_aggregation!(pow_f32_bmax, Power2, f32, 10, 2);
+    test_masking_and_aggregation!(pow_f32_bmax, Power2, f32, 10, 5);
 
-    test_masking_and_aggregation!(int_f64_b0, Integer, f64, 1, 10, 2);
-    test_masking_and_aggregation!(int_f64_b2, Integer, f64, 100, 10, 2);
-    test_masking_and_aggregation!(int_f64_b4, Integer, f64, 10_000, 10, 2);
-    test_masking_and_aggregation!(int_f64_b6, Integer, f64, 1_000_000, 10, 2);
-    test_masking_and_aggregation!(int_f64_bmax, Integer, f64, 10, 2);
+    test_masking_and_aggregation!(int_f64_b0, Integer, f64, 1, 10, 5);
+    test_masking_and_aggregation!(int_f64_b2, Integer, f64, 100, 10, 5);
+    test_masking_and_aggregation!(int_f64_b4, Integer, f64, 10_000, 10, 5);
+    test_masking_and_aggregation!(int_f64_b6, Integer, f64, 1_000_000, 10, 5);
+    test_masking_and_aggregation!(int_f64_bmax, Integer, f64, 10, 5);
 
-    test_masking_and_aggregation!(prime_f64_b0, Prime, f64, 1, 10, 2);
-    test_masking_and_aggregation!(prime_f64_b2, Prime, f64, 100, 10, 2);
-    test_masking_and_aggregation!(prime_f64_b4, Prime, f64, 10_000, 10, 2);
-    test_masking_and_aggregation!(prime_f64_b6, Prime, f64, 1_000_000, 10, 2);
-    test_masking_and_aggregation!(prime_f64_bmax, Prime, f64, 10, 2);
+    test_masking_and_aggregation!(prime_f64_b0, Prime, f64, 1, 10, 5);
+    test_masking_and_aggregation!(prime_f64_b2, Prime, f64, 100, 10, 5);
+    test_masking_and_aggregation!(prime_f64_b4, Prime, f64, 10_000, 10, 5);
+    test_masking_and_aggregation!(prime_f64_b6, Prime, f64, 1_000_000, 10, 5);
+    test_masking_and_aggregation!(prime_f64_bmax, Prime, f64, 10, 5);
 
-    test_masking_and_aggregation!(pow_f64_b0, Power2, f64, 1, 10, 2);
-    test_masking_and_aggregation!(pow_f64_b2, Power2, f64, 100, 10, 2);
-    test_masking_and_aggregation!(pow_f64_b4, Power2, f64, 10_000, 10, 2);
-    test_masking_and_aggregation!(pow_f64_b6, Power2, f64, 1_000_000, 10, 2);
-    test_masking_and_aggregation!(pow_f64_bmax, Power2, f64, 10, 2);
+    test_masking_and_aggregation!(pow_f64_b0, Power2, f64, 1, 10, 5);
+    test_masking_and_aggregation!(pow_f64_b2, Power2, f64, 100, 10, 5);
+    test_masking_and_aggregation!(pow_f64_b4, Power2, f64, 10_000, 10, 5);
+    test_masking_and_aggregation!(pow_f64_b6, Power2, f64, 1_000_000, 10, 5);
+    test_masking_and_aggregation!(pow_f64_bmax, Power2, f64, 10, 5);
 
     test_masking_and_aggregation!(int_i32_b0, Integer, i32, 1, 10, 5);
     test_masking_and_aggregation!(int_i32_b2, Integer, i32, 100, 10, 5);
@@ -1048,6 +1048,7 @@ mod tests {
                         model_type: M3,
                     };
                     let vect_len = $len as usize;
+                    let model_count = $count as usize;
 
                     // Step 2: Generate random scalars
                     // take vectors [1, ..., 1] as models to scale
@@ -1059,7 +1060,8 @@ mod tests {
                     let eps = [<$data:lower>]::EPSILON;
                     let mut prng = ChaCha20Rng::from_seed(MaskSeed::generate().as_array());
                     let mut scalars = iter::repeat_with(move || {
-                        Uniform::new_inclusive(eps, bound).sample(&mut prng) as f64
+                        let random_weight = Uniform::new_inclusive(eps, bound).sample(&mut prng);
+                        Scalar::from_primitive(random_weight).unwrap()
                     });
                     let mut models =
                         iter::repeat(Model::from_primitives(iter::repeat(1).take(vect_len)).unwrap());
@@ -1071,7 +1073,7 @@ mod tests {
                     // d. repeat a-c, unmask the model and check it against the expected [1, ..., 1]
                     let mut aggregated_masked_model = Aggregation::new(config.into(), vect_len);
                     let mut aggregated_mask = Aggregation::new(config.into(), vect_len);
-                    for _ in 0..$count as usize {
+                    for _ in 0..model_count {
                         let model = models.next().unwrap();
                         let scalar = scalars.next().unwrap();
 
@@ -1090,7 +1092,7 @@ mod tests {
                     let mask = aggregated_mask.into();
                     assert!(aggregated_masked_model.validate_unmasking(&mask).is_ok());
                     let unmasked_model = aggregated_masked_model.unmask(mask);
-                    let tolerance = Ratio::from_integer(BigInt::from($count as usize))
+                    let tolerance = Ratio::from_integer(BigInt::from(model_count))
                         / Ratio::from_integer(config.exp_shift());
                     let expected_weight = Ratio::from_integer(BigInt::from(1));
                     assert!(
