@@ -5,8 +5,7 @@ use crate::{
     state_machine::{
         events::DictionaryUpdate,
         phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Unmask},
-        requests::{StateMachineRequest, Sum2Request},
-        RequestError,
+        requests::{RequestError, StateMachineRequest, Sum2Request},
         StateMachine,
     },
     storage::Storage,

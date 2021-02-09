@@ -8,8 +8,7 @@ use crate::{
     state_machine::{
         events::DictionaryUpdate,
         phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Sum2},
-        requests::{StateMachineRequest, UpdateRequest},
-        RequestError,
+        requests::{RequestError, StateMachineRequest, UpdateRequest},
         StateMachine,
     },
     storage::{Storage, StorageError},

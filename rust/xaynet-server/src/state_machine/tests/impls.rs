@@ -4,16 +4,15 @@ use crate::{
     state_machine::{
         events::DictionaryUpdate,
         phases::{self, PhaseState},
-        requests::RequestSender,
+        requests::{RequestError, RequestSender},
         StateMachine,
-        StateMachineResult,
     },
     storage::Storage,
 };
 use xaynet_core::message::Message;
 
 impl RequestSender {
-    pub async fn msg(&self, msg: &Message) -> StateMachineResult {
+    pub async fn msg(&self, msg: &Message) -> Result<(), RequestError> {
         self.request(msg.clone().into(), Span::none()).await
     }
 }

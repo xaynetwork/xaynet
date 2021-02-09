@@ -17,7 +17,6 @@ use crate::{
     },
     storage::{Storage, StorageError},
 };
-
 #[cfg(feature = "model-persistence")]
 use xaynet_core::mask::Model;
 
@@ -43,29 +42,23 @@ pub enum StateMachineInitializationError {
 }
 
 /// The state machine initializer that initializes a new state machine.
-pub struct StateMachineInitializer<S>
-where
-    S: Storage,
-{
+pub struct StateMachineInitializer<T> {
     pet_settings: PetSettings,
     mask_settings: MaskSettings,
     model_settings: ModelSettings,
     #[cfg(feature = "model-persistence")]
     restore_settings: RestoreSettings,
-    store: S,
+    store: T,
 }
 
-impl<S> StateMachineInitializer<S>
-where
-    S: Storage,
-{
+impl<T> StateMachineInitializer<T> {
     /// Creates a new [`StateMachineInitializer`].
     pub fn new(
         pet_settings: PetSettings,
         mask_settings: MaskSettings,
         model_settings: ModelSettings,
         #[cfg(feature = "model-persistence")] restore_settings: RestoreSettings,
-        store: S,
+        store: T,
     ) -> Self {
         Self {
             pet_settings,
@@ -89,6 +82,33 @@ where
         Ok(self.init_state_machine(coordinator_state, global_model))
     }
 
+    // Initializes a new [`StateMachine`] with its components.
+    fn init_state_machine(
+        self,
+        coordinator_state: CoordinatorState,
+        global_model: ModelUpdate,
+    ) -> (StateMachine<T>, RequestSender, EventSubscriber) {
+        let (event_publisher, event_subscriber) = EventPublisher::init(
+            coordinator_state.round_id,
+            coordinator_state.keys.clone(),
+            coordinator_state.round_params.clone(),
+            PhaseName::Idle,
+            global_model,
+        );
+
+        let (request_rx, request_tx) = RequestReceiver::new();
+
+        let shared = Shared::new(coordinator_state, event_publisher, request_rx, self.store);
+
+        let state_machine = StateMachine::from(PhaseState::<Idle, _>::new(shared));
+        (state_machine, request_tx, event_subscriber)
+    }
+}
+
+impl<T> StateMachineInitializer<T>
+where
+    T: Storage,
+{
     // Creates a new [`CoordinatorState`] from the given settings and deletes
     // all coordinator data. Should only be called for the first start
     // or if we need to perform reset.
@@ -108,35 +128,13 @@ where
             ModelUpdate::Invalidate,
         ))
     }
-
-    // Initializes a new [`StateMachine`] with its components.
-    fn init_state_machine(
-        self,
-        coordinator_state: CoordinatorState,
-        global_model: ModelUpdate,
-    ) -> (StateMachine<S>, RequestSender, EventSubscriber) {
-        let (event_publisher, event_subscriber) = EventPublisher::init(
-            coordinator_state.round_id,
-            coordinator_state.keys.clone(),
-            coordinator_state.round_params.clone(),
-            PhaseName::Idle,
-            global_model,
-        );
-
-        let (request_rx, request_tx) = RequestReceiver::new();
-
-        let shared = Shared::new(coordinator_state, event_publisher, request_rx, self.store);
-
-        let state_machine = StateMachine::from(PhaseState::<Idle, _>::new(shared));
-        (state_machine, request_tx, event_subscriber)
-    }
 }
 
 #[cfg(feature = "model-persistence")]
 #[cfg_attr(docsrs, doc(cfg(feature = "model-persistence")))]
-impl<S> StateMachineInitializer<S>
+impl<T> StateMachineInitializer<T>
 where
-    S: Storage,
+    T: Storage,
 {
     /// Initializes a new [`StateMachine`] by trying to restore the previous coordinator state
     /// along with the latest global model. After a successful initialization, the state machine
@@ -162,7 +160,7 @@ where
     /// - Any network error will cause the initialization to fail.
     pub async fn init(
         mut self,
-    ) -> StateMachineInitializationResult<(StateMachine<S>, RequestSender, EventSubscriber)> {
+    ) -> StateMachineInitializationResult<(StateMachine<T>, RequestSender, EventSubscriber)> {
         // crucial: init must be called before anything else in this module
         sodiumoxide::init().or(Err(StateMachineInitializationError::CryptoInit))?;
 

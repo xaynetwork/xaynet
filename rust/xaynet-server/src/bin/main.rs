@@ -12,7 +12,7 @@ use xaynet_server::{
     rest::{serve, RestError},
     services,
     settings::{LoggingSettings, RedisSettings, Settings},
-    state_machine::StateMachineInitializer,
+    state_machine::initializer::StateMachineInitializer,
     storage::{coordinator_storage::redis, Storage, Store},
 };
 #[cfg(feature = "model-persistence")]

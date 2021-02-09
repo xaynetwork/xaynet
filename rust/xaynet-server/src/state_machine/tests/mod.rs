@@ -1,3 +1,5 @@
+//! State machine test utilities.
+
 pub mod builder;
 pub mod impls;
 pub mod initializer;

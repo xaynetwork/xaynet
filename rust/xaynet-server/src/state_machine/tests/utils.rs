@@ -1,3 +1,5 @@
+//! State machine misc test utilities.
+
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
 use crate::{

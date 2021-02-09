@@ -1,3 +1,5 @@
+//! State machine builder test utilities.
+
 use crate::{
     state_machine::{
         coordinator::CoordinatorState,

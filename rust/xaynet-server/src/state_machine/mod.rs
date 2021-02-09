@@ -98,57 +98,23 @@ pub mod events;
 pub mod initializer;
 pub mod phases;
 pub mod requests;
-pub use self::initializer::StateMachineInitializer;
 
 use derive_more::From;
-use thiserror::Error;
 
-use self::phases::{Idle, Phase, PhaseState, PhaseStateError, Shutdown, Sum, Sum2, Unmask, Update};
-use crate::storage::{
-    LocalSeedDictAddError,
-    MaskScoreIncrError,
-    Storage,
-    StorageError,
-    SumPartAddError,
+use crate::{
+    state_machine::phases::{
+        Idle,
+        Phase,
+        PhaseState,
+        PhaseStateError,
+        Shutdown,
+        Sum,
+        Sum2,
+        Unmask,
+        Update,
+    },
+    storage::Storage,
 };
-
-/// Error returned when the state machine fails to handle a request
-#[derive(Debug, Error)]
-pub enum RequestError {
-    /// the message was rejected
-    #[error("the message was rejected")]
-    MessageRejected,
-
-    /// the message was discarded
-    #[error("the message was discarded")]
-    MessageDiscarded,
-
-    /// the model or scalar sent by the participant could not be aggregated
-    #[error("invalid update: the model or scalar sent by the participant could not be aggregated")]
-    AggregationFailed,
-
-    /// the request could not be processed due to an internal error
-    #[error("the request could not be processed due to an internal error: {0}")]
-    InternalError(&'static str),
-
-    /// a storage request failed
-    #[error("storage request failed: {0}")]
-    CoordinatorStorage(#[from] StorageError),
-
-    /// adding a local seed dict to the seed dictionary failed
-    #[error(transparent)]
-    LocalSeedDictAdd(#[from] LocalSeedDictAddError),
-
-    /// adding a sum participant to the sum dictionary failed
-    #[error(transparent)]
-    SumPartAdd(#[from] SumPartAddError),
-
-    /// incrementing a mask score failed
-    #[error(transparent)]
-    MaskScoreIncr(#[from] MaskScoreIncrError),
-}
-
-pub type StateMachineResult = Result<(), RequestError>;
 
 /// The state machine with all its states.
 #[derive(From)]
@@ -174,6 +140,7 @@ where
     PhaseState<Shutdown, T>: Phase<T>,
 {
     /// Moves the [`StateMachine`] to the next state and consumes the current one.
+    ///
     /// Returns the next state or `None` if the [`StateMachine`] reached the state [`Shutdown`].
     pub async fn next(self) -> Option<Self> {
         match self {
@@ -188,6 +155,7 @@ where
     }
 
     /// Runs the state machine until it shuts down.
+    ///
     /// The [`StateMachine`] shuts down once all [`RequestSender`] have been dropped.
     ///
     /// [`RequestSender`]: crate::state_machine::requests::RequestSender

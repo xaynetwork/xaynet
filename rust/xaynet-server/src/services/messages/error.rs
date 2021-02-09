@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use crate::state_machine::RequestError;
+use crate::state_machine::requests::RequestError;
 use xaynet_core::message::DecodeError;
 
 /// Error type for the message parsing service

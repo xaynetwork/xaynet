@@ -9,8 +9,7 @@ use crate::{
     state_machine::{
         coordinator::{CountParameters, PhaseParameters},
         phases::{Phase, PhaseState, PhaseStateError},
-        requests::{ResponseSender, StateMachineRequest},
-        RequestError,
+        requests::{RequestError, ResponseSender, StateMachineRequest},
     },
     storage::Storage,
 };
