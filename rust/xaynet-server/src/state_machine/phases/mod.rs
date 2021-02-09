@@ -1,4 +1,6 @@
 //! This module provides the states (aka phases) of the [`StateMachine`].
+//!
+//! [`StateMachine`]: crate::state_machine::StateMachine
 
 mod error;
 mod handler;

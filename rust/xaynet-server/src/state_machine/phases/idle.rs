@@ -111,6 +111,7 @@ impl<T> PhaseState<Idle, T> {
         }
     }
 
+    /// Updates the participant probabilities round parameters.
     fn update_round_probabilities(&mut self) {
         warn!("round probabilities stay constant, no update strategy implemented yet");
     }
