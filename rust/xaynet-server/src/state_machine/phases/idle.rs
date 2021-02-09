@@ -148,7 +148,7 @@ mod tests {
     use super::*;
     use crate::{
         state_machine::{
-            events::{DictionaryUpdate, Event},
+            events::Event,
             tests::{builder::StateMachineBuilder, utils},
         },
         storage::{tests::init_store, CoordinatorStorage},
@@ -209,7 +209,7 @@ mod tests {
         // phase
         assert_eq!(
             events.phase_listener().get_latest(),
-            expected_event(PhaseName::Idle)
+            expected_event(PhaseName::Idle),
         );
 
         assert_eq!(
@@ -219,17 +219,7 @@ mod tests {
 
         assert_eq!(
             events.params_listener().get_latest(),
-            expected_event(new_round_params)
-        );
-
-        assert_eq!(
-            events.sum_dict_listener().get_latest(),
-            expected_event(DictionaryUpdate::Invalidate)
-        );
-
-        assert_eq!(
-            events.seed_dict_listener().get_latest(),
-            expected_event(DictionaryUpdate::Invalidate)
+            expected_event(new_round_params),
         );
     }
 }

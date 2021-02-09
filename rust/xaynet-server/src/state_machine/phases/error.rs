@@ -112,3 +112,37 @@ where
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use serial_test::serial;
+
+    use super::*;
+    use crate::{
+        state_machine::{events::DictionaryUpdate, tests::builder::StateMachineBuilder},
+        storage::tests::init_store,
+    };
+
+    #[tokio::test]
+    #[serial]
+    async fn integration_error_to_shutdown() {
+        let store = init_store().await;
+        let (state_machine, _request_tx, events) = StateMachineBuilder::new(store.clone())
+            .with_phase(PhaseStateError::RequestChannel(""))
+            .build();
+        assert!(state_machine.is_error());
+
+        let state_machine = state_machine.next().await.unwrap();
+        assert!(state_machine.is_shutdown());
+
+        // Check all the events that should be emitted during the error phase
+        assert_eq!(
+            events.sum_dict_listener().get_latest().event,
+            DictionaryUpdate::Invalidate,
+        );
+        assert_eq!(
+            events.seed_dict_listener().get_latest().event,
+            DictionaryUpdate::Invalidate,
+        );
+    }
+}
