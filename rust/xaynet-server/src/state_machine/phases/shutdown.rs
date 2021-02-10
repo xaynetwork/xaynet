@@ -2,8 +2,7 @@ use async_trait::async_trait;
 
 use crate::{
     state_machine::{
-        phases::{Phase, PhaseName, PhaseState, Shared},
-        PhaseStateError,
+        phases::{Phase, PhaseName, PhaseState, PhaseStateError, Shared},
         StateMachine,
     },
     storage::Storage,
@@ -14,30 +13,28 @@ use crate::{
 pub struct Shutdown;
 
 #[async_trait]
-impl<S> Phase<S> for PhaseState<Shutdown, S>
+impl<T> Phase<T> for PhaseState<Shutdown, T>
 where
-    S: Storage,
+    T: Storage,
 {
     const NAME: PhaseName = PhaseName::Shutdown;
 
-    async fn run(&mut self) -> Result<(), PhaseStateError> {
+    async fn process(&mut self) -> Result<(), PhaseStateError> {
         // clear the request channel
         self.shared.request_rx.close();
         while self.shared.request_rx.recv().await.is_some() {}
+
         Ok(())
     }
 
-    fn next(self) -> Option<StateMachine<S>> {
+    async fn next(self) -> Option<StateMachine<T>> {
         None
     }
 }
 
-impl<S> PhaseState<Shutdown, S>
-where
-    S: Storage,
-{
+impl<T> PhaseState<Shutdown, T> {
     /// Creates a new shutdown state.
-    pub fn new(shared: Shared<S>) -> Self {
+    pub fn new(shared: Shared<T>) -> Self {
         Self {
             private: Shutdown,
             shared,

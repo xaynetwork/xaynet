@@ -2,6 +2,8 @@ use std::{cmp::Ordering, sync::Arc};
 
 use async_trait::async_trait;
 use thiserror::Error;
+#[cfg(feature = "model-persistence")]
+use tracing::warn;
 use tracing::{error, info};
 
 use crate::{
@@ -39,59 +41,52 @@ pub enum UnmaskStateError {
 pub struct Unmask {
     /// The aggregator for masked models.
     model_agg: Option<Aggregation>,
+    /// The global model of the current round.
+    global_model: Option<Arc<Model>>,
 }
 
 #[async_trait]
-impl<S> Phase<S> for PhaseState<Unmask, S>
+impl<T> Phase<T> for PhaseState<Unmask, T>
 where
-    S: Storage,
+    T: Storage,
 {
     const NAME: PhaseName = PhaseName::Unmask;
 
-    async fn run(&mut self) -> Result<(), PhaseStateError> {
+    async fn process(&mut self) -> Result<(), PhaseStateError> {
         self.emit_number_of_unique_masks_metrics();
-
-        let best_masks = self
-            .shared
-            .store
-            .best_masks()
-            .await
-            .map_err(UnmaskStateError::FetchBestMasks)?
-            .ok_or(UnmaskStateError::NoMask)?;
-
-        let global_model = self.end_round(best_masks).await?;
+        let best_masks = self.best_masks().await?;
+        self.end_round(best_masks).await?;
 
         #[cfg(feature = "model-persistence")]
-        self.save_global_model(&global_model).await?;
-
-        self.shared
-            .store
-            .publish_proof(&global_model)
-            .await
-            .map_err(UnmaskStateError::PublishProof)?;
-
-        info!("broadcasting the new global model");
-        self.shared
-            .events
-            .broadcast_model(ModelUpdate::New(Arc::new(global_model)));
+        self.save_global_model().await?;
+        self.publish_proof().await?;
 
         Ok(())
     }
 
-    fn next(self) -> Option<StateMachine<S>> {
+    fn broadcast(&mut self) {
+        info!("broadcasting the new global model");
+        let global_model =
+            self.private.global_model.take().expect(
+                "unreachable: never fails when `broadcast()` is called after `end_round()`",
+            );
+        self.shared
+            .events
+            .broadcast_model(ModelUpdate::New(global_model));
+    }
+
+    async fn next(self) -> Option<StateMachine<T>> {
         Some(PhaseState::<Idle, _>::new(self.shared).into())
     }
 }
 
-impl<S> PhaseState<Unmask, S>
-where
-    S: Storage,
-{
+impl<T> PhaseState<Unmask, T> {
     /// Creates a new unmask state.
-    pub fn new(shared: Shared<S>, model_agg: Aggregation) -> Self {
+    pub fn new(shared: Shared<T>, model_agg: Aggregation) -> Self {
         Self {
             private: Unmask {
                 model_agg: Some(model_agg),
+                global_model: None,
             },
             shared,
         }
@@ -121,7 +116,7 @@ where
     async fn end_round(
         &mut self,
         best_masks: Vec<(MaskObject, u64)>,
-    ) -> Result<Model, UnmaskStateError> {
+    ) -> Result<(), UnmaskStateError> {
         let mask = self.freeze_mask_dict(best_masks).await?;
 
         // Safe unwrap: State::<Unmask>::new always creates Some(aggregation)
@@ -130,35 +125,15 @@ where
         model_agg
             .validate_unmasking(&mask)
             .map_err(UnmaskStateError::from)?;
+        self.private.global_model = Some(Arc::new(model_agg.unmask(mask)));
 
-        Ok(model_agg.unmask(mask))
-    }
-
-    #[cfg(feature = "model-persistence")]
-    async fn save_global_model(&mut self, global_model: &Model) -> Result<(), UnmaskStateError> {
-        use tracing::warn;
-
-        let round_seed = &self.shared.state.round_params.seed;
-        let global_model_id = self
-            .shared
-            .store
-            .set_global_model(self.shared.state.round_id, &round_seed, global_model)
-            .await
-            .map_err(UnmaskStateError::SaveGlobalModel)?;
-        let _ = self
-            .shared
-            .store
-            .set_latest_global_model_id(&global_model_id)
-            .await
-            .map_err(|err| warn!("failed to update latest global model id: {}", err));
         Ok(())
     }
 }
 
-impl<S> PhaseState<Unmask, S>
+impl<T> PhaseState<Unmask, T>
 where
-    Self: Phase<S>,
-    S: Storage,
+    T: Storage,
 {
     fn emit_number_of_unique_masks_metrics(&mut self) {
         if GlobalRecorder::global().is_none() {
@@ -179,6 +154,65 @@ where
                 Err(err) => error!("failed to fetch total number of masks: {}", err),
             };
         });
+    }
+
+    async fn best_masks(&mut self) -> Result<Vec<(MaskObject, u64)>, UnmaskStateError> {
+        self.shared
+            .store
+            .best_masks()
+            .await
+            .map_err(UnmaskStateError::FetchBestMasks)?
+            .ok_or(UnmaskStateError::NoMask)
+    }
+
+    #[cfg(feature = "model-persistence")]
+    async fn save_global_model(&mut self) -> Result<(), UnmaskStateError> {
+        info!("saving global model");
+        let global_model = self
+            .private
+            .global_model
+            .as_ref()
+            .expect(
+                "unreachable: never fails when `save_global_model()` is called after `end_round()`",
+            )
+            .as_ref();
+        let global_model_id = self
+            .shared
+            .store
+            .set_global_model(
+                self.shared.state.round_id,
+                &self.shared.state.round_params.seed,
+                global_model,
+            )
+            .await
+            .map_err(UnmaskStateError::SaveGlobalModel)?;
+        if let Err(err) = self
+            .shared
+            .store
+            .set_latest_global_model_id(&global_model_id)
+            .await
+        {
+            warn!("failed to update latest global model id: {}", err);
+        }
+
+        Ok(())
+    }
+
+    async fn publish_proof(&mut self) -> Result<(), UnmaskStateError> {
+        info!("publishing proof of the new global model");
+        let global_model = self
+            .private
+            .global_model
+            .as_ref()
+            .expect(
+                "unreachable: never fails when `save_global_model()` is called after `end_round()`",
+            )
+            .as_ref();
+        self.shared
+            .store
+            .publish_proof(global_model)
+            .await
+            .map_err(UnmaskStateError::PublishProof)
     }
 }
 

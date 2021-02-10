@@ -1,15 +1,13 @@
 use async_trait::async_trait;
 use sodiumoxide::crypto::hash::sha256;
 use thiserror::Error;
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 use crate::{
     metric,
     metrics::Measurement,
     state_machine::{
-        events::DictionaryUpdate,
-        phases::{Phase, PhaseName, PhaseState, Shared, Sum},
-        PhaseStateError,
+        phases::{Phase, PhaseName, PhaseState, PhaseStateError, Shared, Sum},
         StateMachine,
     },
     storage::{Storage, StorageError},
@@ -33,47 +31,49 @@ pub enum IdleStateError {
 pub struct Idle;
 
 #[async_trait]
-impl<S> Phase<S> for PhaseState<Idle, S>
+impl<T> Phase<T> for PhaseState<Idle, T>
 where
-    S: Storage,
+    T: Storage,
 {
     const NAME: PhaseName = PhaseName::Idle;
 
-    async fn run(&mut self) -> Result<(), PhaseStateError> {
-        info!("updating the keys");
-        self.gen_round_keypair();
-
-        info!("updating round thresholds");
-        self.update_round_thresholds();
-
-        info!("updating round seeds");
-        self.update_round_seed();
-
-        self.shared
-            .store
-            .set_coordinator_state(&self.shared.state)
-            .await
-            .map_err(IdleStateError::SetCoordinatorState)?;
-
-        let events = &mut self.shared.events;
-
-        info!("broadcasting new keys");
-        events.broadcast_keys(self.shared.state.keys.clone());
-
-        info!("broadcasting invalidation of sum dictionary from previous round");
-        events.broadcast_sum_dict(DictionaryUpdate::Invalidate);
-
-        info!("broadcasting invalidation of seed dictionary from previous round");
-        events.broadcast_seed_dict(DictionaryUpdate::Invalidate);
-
+    async fn process(&mut self) -> Result<(), PhaseStateError> {
+        info!("removing phase dictionaries from previous round");
         self.shared
             .store
             .delete_dicts()
             .await
             .map_err(IdleStateError::DeleteDictionaries)?;
 
+        info!("updating the keys");
+        self.gen_round_keypair();
+
+        info!("updating round probabilities");
+        self.update_round_probabilities();
+
+        info!("updating round seed");
+        self.update_round_seed();
+
+        info!("storing new coordinator state");
+        self.shared
+            .store
+            .set_coordinator_state(&self.shared.state)
+            .await
+            .map_err(IdleStateError::SetCoordinatorState)?;
+
+        Ok(())
+    }
+
+    fn broadcast(&mut self) {
+        info!("broadcasting new keys");
+        self.shared
+            .events
+            .broadcast_keys(self.shared.state.keys.clone());
+
         info!("broadcasting new round parameters");
-        events.broadcast_params(self.shared.state.round_params.clone());
+        self.shared
+            .events
+            .broadcast_params(self.shared.state.round_params.clone());
 
         metric!(Measurement::RoundTotalNumber, self.shared.state.round_id);
         metric!(
@@ -88,21 +88,16 @@ where
             ("round_id", self.shared.state.round_id),
             ("phase", Self::NAME as u8),
         );
-
-        Ok(())
     }
 
-    fn next(self) -> Option<StateMachine<S>> {
+    async fn next(self) -> Option<StateMachine<T>> {
         Some(PhaseState::<Sum, _>::new(self.shared).into())
     }
 }
 
-impl<S> PhaseState<Idle, S>
-where
-    S: Storage,
-{
+impl<T> PhaseState<Idle, T> {
     /// Creates a new idle state.
-    pub fn new(mut shared: Shared<S>) -> Self {
+    pub fn new(mut shared: Shared<T>) -> Self {
         // Since some events are emitted very early, the round id must
         // be correct when the idle phase starts. Therefore, we update
         // it here, when instantiating the idle PhaseState.
@@ -114,7 +109,10 @@ where
         }
     }
 
-    fn update_round_thresholds(&mut self) {}
+    /// Updates the participant probabilities round parameters.
+    fn update_round_probabilities(&mut self) {
+        warn!("round probabilities stay constant, no update strategy implemented yet");
+    }
 
     /// Updates the seed round parameter.
     fn update_round_seed(&mut self) {
@@ -167,7 +165,8 @@ mod tests {
         assert_eq!(id, 0);
 
         let mut idle_phase = PhaseState::<Idle, _>::new(shared);
-        idle_phase.run().await.unwrap();
+        idle_phase.process().await.unwrap();
+        idle_phase.broadcast();
 
         let id = keys.get_latest().round_id;
         assert_eq!(id, 1);
@@ -205,31 +204,18 @@ mod tests {
             Event { round_id: 2, event }
         }
 
-        // Check all the events that should be emitted during the idle
-        // phase
+        // Check all the events that should be emitted during the idle phase
         assert_eq!(
             events.phase_listener().get_latest(),
-            expected_event(PhaseName::Idle)
+            expected_event(PhaseName::Idle),
         );
-
         assert_eq!(
             events.keys_listener().get_latest(),
             expected_event(new_keys),
         );
-
         assert_eq!(
             events.params_listener().get_latest(),
-            expected_event(new_round_params)
-        );
-
-        assert_eq!(
-            events.sum_dict_listener().get_latest(),
-            expected_event(DictionaryUpdate::Invalidate)
-        );
-
-        assert_eq!(
-            events.seed_dict_listener().get_latest(),
-            expected_event(DictionaryUpdate::Invalidate)
+            expected_event(new_round_params),
         );
     }
 }

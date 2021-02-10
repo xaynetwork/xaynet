@@ -1,7 +1,9 @@
 use async_trait::async_trait;
+use tracing::info;
 
 use crate::{
     state_machine::{
+        events::DictionaryUpdate,
         phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Unmask},
         requests::{StateMachineRequest, Sum2Request},
         RequestError,
@@ -19,35 +21,41 @@ use xaynet_core::{
 pub struct Sum2 {
     /// The aggregator for masked models.
     model_agg: Aggregation,
-    /// The number of sum2 messages successfully processed.
-    accepted: u64,
-    /// The number of sum2 messages failed to processed.
-    rejected: u64,
-    /// The number of sum2 messages discarded without being processed.
-    discarded: u64,
 }
 
 #[async_trait]
-impl<S> Phase<S> for PhaseState<Sum2, S>
+impl<T> Phase<T> for PhaseState<Sum2, T>
 where
+    T: Storage,
     Self: Handler,
-    S: Storage,
 {
     const NAME: PhaseName = PhaseName::Sum2;
 
-    async fn run(&mut self) -> Result<(), PhaseStateError> {
+    async fn process(&mut self) -> Result<(), PhaseStateError> {
         self.process(self.shared.state.sum2).await
     }
 
-    fn next(self) -> Option<StateMachine<S>> {
+    fn broadcast(&mut self) {
+        info!("broadcasting invalidation of sum dictionary");
+        self.shared
+            .events
+            .broadcast_sum_dict(DictionaryUpdate::Invalidate);
+
+        info!("broadcasting invalidation of seed dictionary");
+        self.shared
+            .events
+            .broadcast_seed_dict(DictionaryUpdate::Invalidate);
+    }
+
+    async fn next(self) -> Option<StateMachine<T>> {
         Some(PhaseState::<Unmask, _>::new(self.shared, self.private.model_agg).into())
     }
 }
 
 #[async_trait]
-impl<S> Handler for PhaseState<Sum2, S>
+impl<T> Handler for PhaseState<Sum2, T>
 where
-    S: Storage,
+    T: Storage,
 {
     async fn handle_request(&mut self, req: StateMachineRequest) -> Result<(), RequestError> {
         if let StateMachineRequest::Sum2(Sum2Request {
@@ -62,23 +70,20 @@ where
     }
 }
 
-impl<S> PhaseState<Sum2, S>
-where
-    S: Storage,
-{
+impl<T> PhaseState<Sum2, T> {
     /// Creates a new sum2 state.
-    pub fn new(shared: Shared<S>, model_agg: Aggregation) -> Self {
+    pub fn new(shared: Shared<T>, model_agg: Aggregation) -> Self {
         Self {
-            private: Sum2 {
-                model_agg,
-                accepted: 0,
-                rejected: 0,
-                discarded: 0,
-            },
+            private: Sum2 { model_agg },
             shared,
         }
     }
+}
 
+impl<T> PhaseState<Sum2, T>
+where
+    T: Storage,
+{
     /// Updates the mask dict with a sum2 participant request.
     async fn update_mask_dict(
         &mut self,
@@ -102,12 +107,9 @@ mod tests {
 
     use super::*;
     use crate::{
-        state_machine::{
-            events::Event,
-            tests::{
-                builder::StateMachineBuilder,
-                utils::{self, Participant},
-            },
+        state_machine::tests::{
+            builder::StateMachineBuilder,
+            utils::{self, Participant},
         },
         storage::{tests::init_store, CoordinatorStorage},
     };
@@ -167,12 +169,7 @@ mod tests {
         let mut store = init_store().await;
         let (state_machine, request_tx, events) = StateMachineBuilder::new(store.clone())
             .with_seed(round_params.seed.clone())
-            .with_phase(Sum2 {
-                model_agg: agg,
-                accepted: 0,
-                rejected: 0,
-                discarded: 0,
-            })
+            .with_phase(Sum2 { model_agg: agg })
             .with_sum_probability(round_params.sum)
             .with_update_probability(round_params.update)
             .with_sum_count_min(n_summers)
@@ -220,12 +217,15 @@ mod tests {
         let unmasked_model = unmask_state.aggregation().unwrap().clone().unmask(mask);
         assert_eq!(unmasked_model, model);
 
+        // Check all the events that should be emitted during the sum2 phase
+        assert_eq!(events.phase_listener().get_latest().event, PhaseName::Sum2);
         assert_eq!(
-            events.phase_listener().get_latest(),
-            Event {
-                round_id: 0,
-                event: PhaseName::Sum2,
-            }
+            events.sum_dict_listener().get_latest().event,
+            DictionaryUpdate::Invalidate,
+        );
+        assert_eq!(
+            events.seed_dict_listener().get_latest().event,
+            DictionaryUpdate::Invalidate,
         );
     }
 }

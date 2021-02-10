@@ -8,6 +8,7 @@ use tracing::{error, info};
 use crate::{
     event,
     state_machine::{
+        events::DictionaryUpdate,
         phases::{
             idle::IdleStateError,
             sum::SumStateError,
@@ -46,21 +47,63 @@ pub enum PhaseStateError {
     Unmask(#[from] UnmaskStateError),
 }
 
-impl<S> PhaseState<PhaseStateError, S>
+#[async_trait]
+impl<T> Phase<T> for PhaseState<PhaseStateError, T>
 where
-    S: Storage,
+    T: Storage,
 {
+    const NAME: PhaseName = PhaseName::Error;
+
+    async fn process(&mut self) -> Result<(), PhaseStateError> {
+        error!("phase state error: {}", self.private);
+        event!("Phase error", self.private.to_string());
+
+        Ok(())
+    }
+
+    fn broadcast(&mut self) {
+        info!("broadcasting invalidation of sum dictionary");
+        self.shared
+            .events
+            .broadcast_sum_dict(DictionaryUpdate::Invalidate);
+
+        info!("broadcasting invalidation of seed dictionary");
+        self.shared
+            .events
+            .broadcast_seed_dict(DictionaryUpdate::Invalidate);
+    }
+
+    async fn next(mut self) -> Option<StateMachine<T>> {
+        self.wait_for_store_readiness().await;
+
+        Some(match self.private {
+            PhaseStateError::RequestChannel(_) => {
+                PhaseState::<Shutdown, _>::new(self.shared).into()
+            }
+            _ => PhaseState::<Idle, _>::new(self.shared).into(),
+        })
+    }
+}
+
+impl<T> PhaseState<PhaseStateError, T> {
     /// Creates a new error phase.
-    pub fn new(shared: Shared<S>, error: PhaseStateError) -> Self {
+    pub fn new(shared: Shared<T>, error: PhaseStateError) -> Self {
         Self {
             private: error,
             shared,
         }
     }
+}
 
-    /// Waits until the [`crate::storage::Store`] is ready.
+impl<T> PhaseState<PhaseStateError, T>
+where
+    T: Storage,
+{
+    /// Waits until the [`Store`] is ready.
+    ///
+    /// [`Store`]: crate::storage::Store
     async fn wait_for_store_readiness(&mut self) {
-        while let Err(err) = <S as Storage>::is_ready(&mut self.shared.store).await {
+        while let Err(err) = <T as Storage>::is_ready(&mut self.shared.store).await {
             error!("store not ready: {}", err);
             info!("try again in 5 sec");
             sleep(Duration::from_secs(5)).await;
@@ -68,29 +111,37 @@ where
     }
 }
 
-#[async_trait]
-impl<S> Phase<S> for PhaseState<PhaseStateError, S>
-where
-    S: Storage,
-{
-    const NAME: PhaseName = PhaseName::Error;
+#[cfg(test)]
+mod tests {
+    use serial_test::serial;
 
-    async fn run(&mut self) -> Result<(), PhaseStateError> {
-        error!("phase state error: {}", self.private);
+    use super::*;
+    use crate::{
+        state_machine::{events::DictionaryUpdate, tests::builder::StateMachineBuilder},
+        storage::tests::init_store,
+    };
 
-        event!("Phase error", self.private.to_string());
+    #[tokio::test]
+    #[serial]
+    async fn integration_error_to_shutdown() {
+        let store = init_store().await;
+        let (state_machine, _request_tx, events) = StateMachineBuilder::new(store.clone())
+            .with_phase(PhaseStateError::RequestChannel(""))
+            .build();
+        assert!(state_machine.is_error());
 
-        self.wait_for_store_readiness().await;
+        let state_machine = state_machine.next().await.unwrap();
+        assert!(state_machine.is_shutdown());
 
-        Ok(())
-    }
-
-    fn next(self) -> Option<StateMachine<S>> {
-        Some(match self.private {
-            PhaseStateError::RequestChannel(_) => {
-                PhaseState::<Shutdown, _>::new(self.shared).into()
-            }
-            _ => PhaseState::<Idle, _>::new(self.shared).into(),
-        })
+        // Check all the events that should be emitted during the error phase
+        assert_eq!(events.phase_listener().get_latest().event, PhaseName::Error);
+        assert_eq!(
+            events.sum_dict_listener().get_latest().event,
+            DictionaryUpdate::Invalidate,
+        );
+        assert_eq!(
+            events.seed_dict_listener().get_latest().event,
+            DictionaryUpdate::Invalidate,
+        );
     }
 }
