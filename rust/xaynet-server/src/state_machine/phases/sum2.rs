@@ -4,9 +4,8 @@ use tracing::info;
 use crate::{
     state_machine::{
         events::DictionaryUpdate,
-        phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Unmask},
-        requests::{StateMachineRequest, Sum2Request},
-        RequestError,
+        phases::{Handler, Phase, PhaseError, PhaseName, PhaseState, Shared, Unmask},
+        requests::{RequestError, StateMachineRequest, Sum2Request},
         StateMachine,
     },
     storage::Storage,
@@ -31,7 +30,7 @@ where
 {
     const NAME: PhaseName = PhaseName::Sum2;
 
-    async fn process(&mut self) -> Result<(), PhaseStateError> {
+    async fn process(&mut self) -> Result<(), PhaseError> {
         self.process(self.shared.state.sum2).await
     }
 

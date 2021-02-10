@@ -1,5 +1,6 @@
 //! A state machine initializer.
 
+use displaydoc::Display;
 use thiserror::Error;
 #[cfg(feature = "model-persistence")]
 use tracing::{debug, info};
@@ -17,55 +18,48 @@ use crate::{
     },
     storage::{Storage, StorageError},
 };
-
 #[cfg(feature = "model-persistence")]
 use xaynet_core::mask::Model;
 
 type StateMachineInitializationResult<T> = Result<T, StateMachineInitializationError>;
 
-/// Error that can occur during the initialization of the [`StateMachine`].
-#[derive(Debug, Error)]
+/// Errors which can occur during the initialization of the [`StateMachine`].
+#[derive(Debug, Display, Error)]
 pub enum StateMachineInitializationError {
-    #[error("initializing crypto library failed")]
+    /// Initializing crypto library failed.
     CryptoInit,
-    #[error("fetching coordinator state failed: {0}")]
+    /// Fetching coordinator state failed: {0}.
     FetchCoordinatorState(StorageError),
-    #[error("deleting coordinator data failed: {0}")]
+    /// Deleting coordinator data failed: {0}.
     DeleteCoordinatorData(StorageError),
-    #[error("fetching latest global model id failed: {0}")]
+    /// Fetching latest global model id failed: {0}.
     FetchLatestGlobalModelId(StorageError),
-    #[error("fetching global model failed: {0}")]
+    /// Fetching global model failed: {0}.
     FetchGlobalModel(StorageError),
-    #[error("{0}")]
+    /// Global model is unavailable: {0}.
     GlobalModelUnavailable(String),
-    #[error("{0}")]
+    /// Global model is invalid: {0}.
     GlobalModelInvalid(String),
 }
 
 /// The state machine initializer that initializes a new state machine.
-pub struct StateMachineInitializer<S>
-where
-    S: Storage,
-{
+pub struct StateMachineInitializer<T> {
     pet_settings: PetSettings,
     mask_settings: MaskSettings,
     model_settings: ModelSettings,
     #[cfg(feature = "model-persistence")]
     restore_settings: RestoreSettings,
-    store: S,
+    store: T,
 }
 
-impl<S> StateMachineInitializer<S>
-where
-    S: Storage,
-{
+impl<T> StateMachineInitializer<T> {
     /// Creates a new [`StateMachineInitializer`].
     pub fn new(
         pet_settings: PetSettings,
         mask_settings: MaskSettings,
         model_settings: ModelSettings,
         #[cfg(feature = "model-persistence")] restore_settings: RestoreSettings,
-        store: S,
+        store: T,
     ) -> Self {
         Self {
             pet_settings,
@@ -77,11 +71,38 @@ where
         }
     }
 
+    // Initializes a new [`StateMachine`] with its components.
+    fn init_state_machine(
+        self,
+        coordinator_state: CoordinatorState,
+        global_model: ModelUpdate,
+    ) -> (StateMachine<T>, RequestSender, EventSubscriber) {
+        let (event_publisher, event_subscriber) = EventPublisher::init(
+            coordinator_state.round_id,
+            coordinator_state.keys.clone(),
+            coordinator_state.round_params.clone(),
+            PhaseName::Idle,
+            global_model,
+        );
+
+        let (request_rx, request_tx) = RequestReceiver::new();
+
+        let shared = Shared::new(coordinator_state, event_publisher, request_rx, self.store);
+
+        let state_machine = StateMachine::from(PhaseState::<Idle, _>::new(shared));
+        (state_machine, request_tx, event_subscriber)
+    }
+}
+
+impl<T> StateMachineInitializer<T>
+where
+    T: Storage,
+{
     #[cfg(not(feature = "model-persistence"))]
     /// Initializes a new [`StateMachine`] with the given settings.
     pub async fn init(
         mut self,
-    ) -> StateMachineInitializationResult<(StateMachine<S>, RequestSender, EventSubscriber)> {
+    ) -> StateMachineInitializationResult<(StateMachine<T>, RequestSender, EventSubscriber)> {
         // crucial: init must be called before anything else in this module
         sodiumoxide::init().or(Err(StateMachineInitializationError::CryptoInit))?;
 
@@ -108,35 +129,13 @@ where
             ModelUpdate::Invalidate,
         ))
     }
-
-    // Initializes a new [`StateMachine`] with its components.
-    fn init_state_machine(
-        self,
-        coordinator_state: CoordinatorState,
-        global_model: ModelUpdate,
-    ) -> (StateMachine<S>, RequestSender, EventSubscriber) {
-        let (event_publisher, event_subscriber) = EventPublisher::init(
-            coordinator_state.round_id,
-            coordinator_state.keys.clone(),
-            coordinator_state.round_params.clone(),
-            PhaseName::Idle,
-            global_model,
-        );
-
-        let (request_rx, request_tx) = RequestReceiver::new();
-
-        let shared = Shared::new(coordinator_state, event_publisher, request_rx, self.store);
-
-        let state_machine = StateMachine::from(PhaseState::<Idle, _>::new(shared));
-        (state_machine, request_tx, event_subscriber)
-    }
 }
 
 #[cfg(feature = "model-persistence")]
 #[cfg_attr(docsrs, doc(cfg(feature = "model-persistence")))]
-impl<S> StateMachineInitializer<S>
+impl<T> StateMachineInitializer<T>
 where
-    S: Storage,
+    T: Storage,
 {
     /// Initializes a new [`StateMachine`] by trying to restore the previous coordinator state
     /// along with the latest global model. After a successful initialization, the state machine
@@ -162,7 +161,7 @@ where
     /// - Any network error will cause the initialization to fail.
     pub async fn init(
         mut self,
-    ) -> StateMachineInitializationResult<(StateMachine<S>, RequestSender, EventSubscriber)> {
+    ) -> StateMachineInitializationResult<(StateMachine<T>, RequestSender, EventSubscriber)> {
         // crucial: init must be called before anything else in this module
         sodiumoxide::init().or(Err(StateMachineInitializationError::CryptoInit))?;
 

@@ -7,12 +7,13 @@ use std::{
 };
 
 use derive_more::From;
+use displaydoc::Display;
 use futures::{future::FutureExt, Stream};
 use thiserror::Error;
 use tokio::sync::{mpsc, oneshot};
 use tracing::{trace, Span};
 
-use crate::state_machine::{RequestError, StateMachineResult};
+use crate::storage::{LocalSeedDictAddError, MaskScoreIncrError, StorageError, SumPartAddError};
 use xaynet_core::{
     mask::MaskObject,
     message::{Message, Payload, Update},
@@ -23,10 +24,26 @@ use xaynet_core::{
     UpdateParticipantPublicKey,
 };
 
-/// Error that occurs when a [`RequestSender`] tries to send a request on a closed `Request` channel.
-#[derive(Debug, Error)]
-#[error("the RequestSender cannot be used because the state machine shut down")]
-pub struct StateMachineShutdown;
+/// Errors which can occur while the state machine handles a request.
+#[derive(Debug, Display, Error)]
+pub enum RequestError {
+    /// The message was rejected.
+    MessageRejected,
+    /// The message was discarded.
+    MessageDiscarded,
+    /// Invalid update: the model or scalar sent by the participant could not be aggregated.
+    AggregationFailed,
+    /// The request could not be processed due to an internal error: {0}.
+    InternalError(&'static str),
+    /// Storage request failed: {0}.
+    CoordinatorStorage(#[from] StorageError),
+    /// Adding a local seed dict to the seed dictionary failed: {0}.
+    LocalSeedDictAdd(#[from] LocalSeedDictAddError),
+    /// Adding a sum participant to the sum dictionary failed: {0}.
+    SumPartAdd(#[from] SumPartAddError),
+    /// Incrementing a mask score failed: {0}.
+    MaskScoreIncr(#[from] MaskScoreIncrError),
+}
 
 /// A sum request.
 #[derive(Debug)]
@@ -110,8 +127,8 @@ impl RequestSender {
     /// closed as a result.
     ///
     /// [`StateMachine`]: crate::state_machine
-    pub async fn request(&self, req: StateMachineRequest, span: Span) -> StateMachineResult {
-        let (resp_tx, resp_rx) = oneshot::channel::<StateMachineResult>();
+    pub async fn request(&self, req: StateMachineRequest, span: Span) -> Result<(), RequestError> {
+        let (resp_tx, resp_rx) = oneshot::channel::<Result<(), RequestError>>();
         self.0.send((req, span, resp_tx)).map_err(|_| {
             RequestError::InternalError(
                 "failed to send request to the state machine: state machine is shutting down",
@@ -125,7 +142,7 @@ impl RequestSender {
 
 /// A channel for sending the state machine to send the response to a
 /// [`StateMachineRequest`].
-pub(in crate::state_machine) type ResponseSender = oneshot::Sender<StateMachineResult>;
+pub(in crate::state_machine) type ResponseSender = oneshot::Sender<Result<(), RequestError>>;
 
 /// The receiver half of the `Request` channel that is used by the [`StateMachine`] to receive
 /// requests.

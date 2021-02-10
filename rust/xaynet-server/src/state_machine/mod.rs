@@ -2,7 +2,7 @@
 //!
 //! # Overview
 //!
-//! ![](https://mermaid.ink/svg/eyJjb2RlIjoic3RhdGVEaWFncmFtXG5cdFsqXSAtLT4gSWRsZVxuXG4gIElkbGUgLS0-IFN1bVxuICBTdW0gLS0-IFVwZGF0ZVxuICBVcGRhdGUgLS0-IFN1bTJcbiAgU3VtMiAtLT4gVW5tYXNrXG4gIFVubWFzayAtLT4gSWRsZVxuXG4gIFN1bSAtLT4gRXJyb3JcbiAgVXBkYXRlIC0tPiBFcnJvclxuICBTdW0yIC0tPiBFcnJvclxuICBVbm1hc2sgLS0-IEVycm9yXG4gIEVycm9yIC0tPiBJZGxlXG4gIEVycm9yIC0tPiBTaHV0ZG93blxuXG4gIFNodXRkb3duIC0tPiBbKl1cblxuXG5cblxuXG5cblxuICAiLCJtZXJtYWlkIjp7InRoZW1lIjoibmV1dHJhbCJ9fQ)
+//! ![State Machine](https://mermaid.ink/svg/eyJjb2RlIjoic3RhdGVEaWFncmFtXG5cdFsqXSAtLT4gSWRsZVxuXG4gICAgSWRsZSAtLT4gU3VtXG4gICAgU3VtIC0tPiBVcGRhdGVcbiAgICBVcGRhdGUgLS0-IFN1bTJcbiAgICBTdW0yIC0tPiBVbm1hc2tcbiAgICBVbm1hc2sgLS0-IElkbGVcblxuICAgIFN1bSAtLT4gRmFpbHVyZVxuICAgIFVwZGF0ZSAtLT4gRmFpbHVyZVxuICAgIFN1bTIgLS0-IEZhaWx1cmVcbiAgICBVbm1hc2sgLS0-IEZhaWx1cmVcbiAgICBGYWlsdXJlIC0tPiBJZGxlXG4gICAgRmFpbHVyZSAtLT4gU2h1dGRvd25cblxuICAgIFNodXRkb3duIC0tPiBbKl1cbiIsIm1lcm1haWQiOnsidGhlbWUiOiJuZXV0cmFsIn0sInVwZGF0ZUVkaXRvciI6ZmFsc2V9)
 //!
 //! The [`StateMachine`] is responsible for executing the individual tasks of the PET protocol.
 //! The main tasks include: building the sum and seed dictionaries, aggregating the masked
@@ -42,11 +42,11 @@
 //! Publishes [`PhaseName::Unmask`], unmasks the global masked model and publishes the global
 //! model.
 //!
-//! **Error**
+//! **Failure**
 //!
-//! Publishes [`PhaseName::Error`] and handles [`PhaseStateError`]s that can occur during the
+//! Publishes [`PhaseName::Failure`] and handles [`PhaseError`]s that can occur during the
 //! execution of the [`StateMachine`]. In most cases, the error is handled by restarting the round.
-//! However, if a [`PhaseStateError::RequestChannel`] occurs, the [`StateMachine`] will shut down.
+//! However, if a [`PhaseError::RequestChannel`] occurs, the [`StateMachine`] will shut down.
 //!
 //! **Shutdown**
 //!
@@ -80,12 +80,15 @@
 //! [`PhaseName::Update`]: crate::state_machine::phases::PhaseName::Update
 //! [`PhaseName::Sum2`]: crate::state_machine::phases::PhaseName::Sum2
 //! [`PhaseName::Unmask`]: crate::state_machine::phases::PhaseName::Unmask
-//! [`PhaseName::Error`]: crate::state_machine::phases::PhaseName::Error
+//! [`PhaseName::Failure`]: crate::state_machine::phases::PhaseName::Failure
 //! [`PhaseName::Shutdown`]: crate::state_machine::phases::PhaseName::Shutdown
+//! [`PhaseError`]: crate::state_machine::phases::PhaseError
+//! [`PhaseError::RequestChannel`]: crate::state_machine::phases::PhaseError::RequestChannel
 //! [`SumDict`]: xaynet_core::SumDict
 //! [`SeedDict`]: xaynet_core::SeedDict
 //! [`EncryptKeyPair`]: xaynet_core::crypto::EncryptKeyPair
 //! [`RoundParameters`]: xaynet_core::common::RoundParameters
+//! [`StateMachineInitializer::init()`]: crate::state_machine::initializer::StateMachineInitializer::init
 //! [`StateMachineRequest`]: crate::state_machine::requests::StateMachineRequest
 //! [requests]: crate::state_machine::requests
 //! [`RequestSender`]: crate::state_machine::requests::RequestSender
@@ -98,67 +101,40 @@ pub mod events;
 pub mod initializer;
 pub mod phases;
 pub mod requests;
-pub use self::initializer::StateMachineInitializer;
 
 use derive_more::From;
-use thiserror::Error;
 
-use self::phases::{Idle, Phase, PhaseState, PhaseStateError, Shutdown, Sum, Sum2, Unmask, Update};
-use crate::storage::{
-    LocalSeedDictAddError,
-    MaskScoreIncrError,
-    Storage,
-    StorageError,
-    SumPartAddError,
+use crate::{
+    state_machine::phases::{
+        Failure,
+        Idle,
+        Phase,
+        PhaseState,
+        Shutdown,
+        Sum,
+        Sum2,
+        Unmask,
+        Update,
+    },
+    storage::Storage,
 };
-
-/// Error returned when the state machine fails to handle a request
-#[derive(Debug, Error)]
-pub enum RequestError {
-    /// the message was rejected
-    #[error("the message was rejected")]
-    MessageRejected,
-
-    /// the message was discarded
-    #[error("the message was discarded")]
-    MessageDiscarded,
-
-    /// the model or scalar sent by the participant could not be aggregated
-    #[error("invalid update: the model or scalar sent by the participant could not be aggregated")]
-    AggregationFailed,
-
-    /// the request could not be processed due to an internal error
-    #[error("the request could not be processed due to an internal error: {0}")]
-    InternalError(&'static str),
-
-    /// a storage request failed
-    #[error("storage request failed: {0}")]
-    CoordinatorStorage(#[from] StorageError),
-
-    /// adding a local seed dict to the seed dictionary failed
-    #[error(transparent)]
-    LocalSeedDictAdd(#[from] LocalSeedDictAddError),
-
-    /// adding a sum participant to the sum dictionary failed
-    #[error(transparent)]
-    SumPartAdd(#[from] SumPartAddError),
-
-    /// incrementing a mask score failed
-    #[error(transparent)]
-    MaskScoreIncr(#[from] MaskScoreIncrError),
-}
-
-pub type StateMachineResult = Result<(), RequestError>;
 
 /// The state machine with all its states.
 #[derive(From)]
 pub enum StateMachine<T> {
+    /// The [`Idle`] phase.
     Idle(PhaseState<Idle, T>),
+    /// The [`Sum`] phase.
     Sum(PhaseState<Sum, T>),
+    /// The [`Update`] phase.
     Update(PhaseState<Update, T>),
+    /// The [`Sum2`] phase.
     Sum2(PhaseState<Sum2, T>),
+    /// The [`Unmask`] phase.
     Unmask(PhaseState<Unmask, T>),
-    Error(PhaseState<PhaseStateError, T>),
+    /// The [`Failure`] phase.
+    Failure(PhaseState<Failure, T>),
+    /// The [`Shutdown`] phase.
     Shutdown(PhaseState<Shutdown, T>),
 }
 
@@ -170,10 +146,11 @@ where
     PhaseState<Update, T>: Phase<T>,
     PhaseState<Sum2, T>: Phase<T>,
     PhaseState<Unmask, T>: Phase<T>,
-    PhaseState<PhaseStateError, T>: Phase<T>,
+    PhaseState<Failure, T>: Phase<T>,
     PhaseState<Shutdown, T>: Phase<T>,
 {
     /// Moves the [`StateMachine`] to the next state and consumes the current one.
+    ///
     /// Returns the next state or `None` if the [`StateMachine`] reached the state [`Shutdown`].
     pub async fn next(self) -> Option<Self> {
         match self {
@@ -182,12 +159,13 @@ where
             StateMachine::Update(state) => state.run_phase().await,
             StateMachine::Sum2(state) => state.run_phase().await,
             StateMachine::Unmask(state) => state.run_phase().await,
-            StateMachine::Error(state) => state.run_phase().await,
+            StateMachine::Failure(state) => state.run_phase().await,
             StateMachine::Shutdown(state) => state.run_phase().await,
         }
     }
 
     /// Runs the state machine until it shuts down.
+    ///
     /// The [`StateMachine`] shuts down once all [`RequestSender`] have been dropped.
     ///
     /// [`RequestSender`]: crate::state_machine::requests::RequestSender

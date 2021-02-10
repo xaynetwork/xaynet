@@ -1,6 +1,7 @@
+//! State machine initialization test utilities.
+
 use serial_test::serial;
 
-use super::utils::{mask_settings, model_settings, pet_settings};
 #[cfg(feature = "model-persistence")]
 use crate::{
     settings::RestoreSettings,
@@ -13,7 +14,11 @@ use crate::{
     storage::ModelStorage,
 };
 use crate::{
-    state_machine::{coordinator::CoordinatorState, StateMachineInitializer},
+    state_machine::{
+        coordinator::CoordinatorState,
+        initializer::StateMachineInitializer,
+        tests::utils::{mask_settings, model_settings, pet_settings},
+    },
     storage::{tests::init_store, CoordinatorStorage},
 };
 

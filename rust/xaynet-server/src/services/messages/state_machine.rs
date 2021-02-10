@@ -4,7 +4,6 @@ use futures::task::Context;
 use tower::Service;
 use xaynet_core::message::Message;
 
-pub use crate::state_machine::RequestError;
 use crate::{
     services::messages::{BoxedServiceFuture, ServiceError},
     state_machine::requests::RequestSender,

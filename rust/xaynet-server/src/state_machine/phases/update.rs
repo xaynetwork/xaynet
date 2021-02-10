@@ -1,15 +1,15 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use displaydoc::Display;
 use thiserror::Error;
 use tracing::{debug, info, warn};
 
 use crate::{
     state_machine::{
         events::DictionaryUpdate,
-        phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Sum2},
-        requests::{StateMachineRequest, UpdateRequest},
-        RequestError,
+        phases::{Handler, Phase, PhaseError, PhaseName, PhaseState, Shared, Sum2},
+        requests::{RequestError, StateMachineRequest, UpdateRequest},
         StateMachine,
     },
     storage::{Storage, StorageError},
@@ -21,12 +21,12 @@ use xaynet_core::{
     UpdateParticipantPublicKey,
 };
 
-/// Error that occurs during the update phase.
-#[derive(Error, Debug)]
-pub enum UpdateStateError {
-    #[error("seed dictionary does not exists")]
+/// Errors which can occur during the update phase.
+#[derive(Debug, Display, Error)]
+pub enum UpdateError {
+    /// Seed dictionary does not exists.
     NoSeedDict,
-    #[error("fetching seed dictionary failed: {0}")]
+    /// Fetching seed dictionary failed: {0}.
     FetchSeedDict(StorageError),
 }
 
@@ -47,17 +47,10 @@ where
 {
     const NAME: PhaseName = PhaseName::Update;
 
-    async fn process(&mut self) -> Result<(), PhaseStateError> {
+    async fn process(&mut self) -> Result<(), PhaseError> {
         self.process(self.shared.state.update).await?;
+        self.seed_dict().await?;
 
-        self.private.seed_dict = self
-            .shared
-            .store
-            .seed_dict()
-            .await
-            .map_err(UpdateStateError::FetchSeedDict)?
-            .ok_or(UpdateStateError::NoSeedDict)?
-            .into();
         Ok(())
     }
 
@@ -158,7 +151,7 @@ where
         Ok(())
     }
 
-    /// Adds a local seed dictionary to the seed dictionary.
+    /// Adds a local seed dictionary to the global seed dictionary.
     ///
     /// # Error
     ///
@@ -174,6 +167,20 @@ where
             .await?
             .into_inner()
             .map_err(RequestError::from)
+    }
+
+    /// Gets the global seed dict from the store.
+    async fn seed_dict(&mut self) -> Result<(), UpdateError> {
+        self.private.seed_dict = self
+            .shared
+            .store
+            .seed_dict()
+            .await
+            .map_err(UpdateError::FetchSeedDict)?
+            .ok_or(UpdateError::NoSeedDict)?
+            .into();
+
+        Ok(())
     }
 }
 

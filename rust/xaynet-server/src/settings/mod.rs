@@ -8,6 +8,7 @@ use std::path::PathBuf;
 use std::{fmt, path::Path};
 
 use config::{Config, ConfigError, Environment};
+use displaydoc::Display;
 use redis::{ConnectionInfo, IntoConnectionInfo};
 use serde::{
     de::{self, Deserializer, Visitor},
@@ -28,12 +29,12 @@ pub mod s3;
 #[cfg(feature = "model-persistence")]
 pub use self::{s3::RestoreSettings, s3::S3BucketsSettings, s3::S3Settings};
 
-#[derive(Error, Debug)]
+#[derive(Debug, Display, Error)]
 /// An error related to loading and validation of settings.
 pub enum SettingsError {
-    #[error("configuration loading failed: {0}")]
+    /// Configuration loading failed: {0}.
     Loading(#[from] ConfigError),
-    #[error("validation failed: {0}")]
+    /// Validation failed: {0}.
     Validation(#[from] ValidationErrors),
 }
 

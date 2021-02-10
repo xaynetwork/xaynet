@@ -1,14 +1,15 @@
 use async_trait::async_trait;
+use tracing::debug;
 
 use crate::{
     state_machine::{
-        phases::{Phase, PhaseName, PhaseState, PhaseStateError, Shared},
+        phases::{Phase, PhaseError, PhaseName, PhaseState, Shared},
         StateMachine,
     },
     storage::Storage,
 };
 
-/// Shutdown state
+/// The shutdown state.
 #[derive(Debug)]
 pub struct Shutdown;
 
@@ -19,8 +20,8 @@ where
 {
     const NAME: PhaseName = PhaseName::Shutdown;
 
-    async fn process(&mut self) -> Result<(), PhaseStateError> {
-        // clear the request channel
+    async fn process(&mut self) -> Result<(), PhaseError> {
+        debug!("clearing the request channel");
         self.shared.request_rx.close();
         while self.shared.request_rx.recv().await.is_some() {}
 

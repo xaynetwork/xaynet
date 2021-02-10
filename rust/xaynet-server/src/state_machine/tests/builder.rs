@@ -1,8 +1,10 @@
+//! State machine builder test utilities.
+
 use crate::{
     state_machine::{
         coordinator::CoordinatorState,
         events::EventSubscriber,
-        phases::{self, Phase, PhaseState},
+        phases::{Idle, Phase, PhaseState},
         requests::RequestSender,
         tests::utils,
         StateMachine,
@@ -11,22 +13,16 @@ use crate::{
 };
 use xaynet_core::{common::RoundSeed, crypto::EncryptKeyPair, mask::MaskConfig};
 
-pub struct StateMachineBuilder<P, S>
-where
-    S: Storage,
-{
+pub struct StateMachineBuilder<S, T> {
     coordinator_state: CoordinatorState,
-    phase_state: P,
-    store: S,
+    phase_state: S,
+    store: T,
 }
 
-impl<S> StateMachineBuilder<phases::Idle, S>
-where
-    S: Storage,
-{
-    pub fn new(store: S) -> Self {
+impl<T> StateMachineBuilder<Idle, T> {
+    pub fn new(store: T) -> Self {
         let coordinator_state = utils::coordinator_state();
-        let phase_state = phases::Idle;
+        let phase_state = Idle;
         Self {
             coordinator_state,
             phase_state,
@@ -35,44 +31,7 @@ where
     }
 }
 
-impl<P, S> StateMachineBuilder<P, S>
-where
-    PhaseState<P, S>: Phase<S>,
-    StateMachine<S>: From<PhaseState<P, S>>,
-    S: Storage,
-{
-    pub fn build(self) -> (StateMachine<S>, RequestSender, EventSubscriber) {
-        let Self {
-            coordinator_state,
-            phase_state,
-            store,
-        } = self;
-
-        let (mut shared, request_tx, event_subscriber) =
-            utils::init_shared(coordinator_state, store);
-
-        // Make sure the events that the listeners have are up to date
-        let events = &mut shared.events;
-        events.broadcast_keys(shared.state.keys.clone());
-        events.broadcast_params(shared.state.round_params.clone());
-        events.broadcast_phase(<PhaseState<P, _> as Phase<_>>::NAME);
-        // Also re-emit the other events in case the round ID changed
-        let model = event_subscriber.model_listener().get_latest().event;
-        events.broadcast_model(model);
-        let sum_dict = event_subscriber.sum_dict_listener().get_latest().event;
-        events.broadcast_sum_dict(sum_dict);
-        let seed_dict = event_subscriber.seed_dict_listener().get_latest().event;
-        events.broadcast_seed_dict(seed_dict);
-
-        let state = PhaseState {
-            private: phase_state,
-            shared,
-        };
-
-        let state_machine = StateMachine::from(state);
-        (state_machine, request_tx, event_subscriber)
-    }
-
+impl<S, T> StateMachineBuilder<S, T> {
     #[allow(dead_code)]
     pub fn with_keys(mut self, keys: EncryptKeyPair) -> Self {
         self.coordinator_state.round_params.pk = keys.public;
@@ -170,7 +129,7 @@ where
         self
     }
 
-    pub fn with_phase<State>(self, phase_state: State) -> StateMachineBuilder<State, S> {
+    pub fn with_phase<State>(self, phase_state: State) -> StateMachineBuilder<State, T> {
         let Self {
             coordinator_state,
             store,
@@ -181,5 +140,44 @@ where
             phase_state,
             store,
         }
+    }
+}
+
+impl<S, T> StateMachineBuilder<S, T>
+where
+    T: Storage,
+    PhaseState<S, T>: Phase<T>,
+    StateMachine<T>: From<PhaseState<S, T>>,
+{
+    pub fn build(self) -> (StateMachine<T>, RequestSender, EventSubscriber) {
+        let Self {
+            coordinator_state,
+            phase_state,
+            store,
+        } = self;
+
+        let (mut shared, request_tx, event_subscriber) =
+            utils::init_shared(coordinator_state, store);
+
+        // Make sure the events that the listeners have are up to date
+        let events = &mut shared.events;
+        events.broadcast_keys(shared.state.keys.clone());
+        events.broadcast_params(shared.state.round_params.clone());
+        events.broadcast_phase(<PhaseState<S, _> as Phase<_>>::NAME);
+        // Also re-emit the other events in case the round ID changed
+        let model = event_subscriber.model_listener().get_latest().event;
+        events.broadcast_model(model);
+        let sum_dict = event_subscriber.sum_dict_listener().get_latest().event;
+        events.broadcast_sum_dict(sum_dict);
+        let seed_dict = event_subscriber.seed_dict_listener().get_latest().event;
+        events.broadcast_seed_dict(seed_dict);
+
+        let state = PhaseState {
+            private: phase_state,
+            shared,
+        };
+
+        let state_machine = StateMachine::from(state);
+        (state_machine, request_tx, event_subscriber)
     }
 }

@@ -1,6 +1,7 @@
 use std::{cmp::Ordering, sync::Arc};
 
 use async_trait::async_trait;
+use displaydoc::Display;
 use thiserror::Error;
 #[cfg(feature = "model-persistence")]
 use tracing::warn;
@@ -11,32 +12,32 @@ use crate::{
     metrics::{GlobalRecorder, Measurement},
     state_machine::{
         events::ModelUpdate,
-        phases::{Idle, Phase, PhaseName, PhaseState, PhaseStateError, Shared},
+        phases::{Idle, Phase, PhaseError, PhaseName, PhaseState, Shared},
         StateMachine,
     },
     storage::{Storage, StorageError},
 };
 use xaynet_core::mask::{Aggregation, MaskObject, Model, UnmaskingError};
 
-/// Error that occurs during the unmask phase.
-#[derive(Error, Debug)]
-pub enum UnmaskStateError {
-    #[error("ambiguous masks were computed by the sum participants")]
+/// Errors which can occur during the unmask phase.
+#[derive(Debug, Display, Error)]
+pub enum UnmaskError {
+    /// Ambiguous masks were computed by the sum participants.
     AmbiguousMasks,
-    #[error("no mask found")]
+    /// No mask found.
     NoMask,
-    #[error("unmasking global model failed: {0}")]
+    /// Unmasking global model failed: {0}.
     Unmasking(#[from] UnmaskingError),
-    #[error("fetching best masks failed: {0}")]
+    /// Fetching best masks failed: {0}.
     FetchBestMasks(#[from] StorageError),
     #[cfg(feature = "model-persistence")]
-    #[error("saving the global model failed: {0}")]
+    /// Saving the global model failed: {0}.
     SaveGlobalModel(crate::storage::StorageError),
-    #[error("publishing the proof of the global model failed: {0}")]
+    /// Publishing the proof of the global model failed: {0}.
     PublishProof(crate::storage::StorageError),
 }
 
-/// Unmask state
+/// The unmask state.
 #[derive(Debug)]
 pub struct Unmask {
     /// The aggregator for masked models.
@@ -52,7 +53,7 @@ where
 {
     const NAME: PhaseName = PhaseName::Unmask;
 
-    async fn process(&mut self) -> Result<(), PhaseStateError> {
+    async fn process(&mut self) -> Result<(), PhaseError> {
         self.emit_number_of_unique_masks_metrics();
         let best_masks = self.best_masks().await?;
         self.end_round(best_masks).await?;
@@ -96,7 +97,7 @@ impl<T> PhaseState<Unmask, T> {
     async fn freeze_mask_dict(
         &mut self,
         mut best_masks: Vec<(MaskObject, u64)>,
-    ) -> Result<MaskObject, UnmaskStateError> {
+    ) -> Result<MaskObject, UnmaskError> {
         let mask = best_masks
             .drain(0..)
             .fold(
@@ -108,15 +109,13 @@ impl<T> PhaseState<Unmask, T> {
                 },
             )
             .0
-            .ok_or(UnmaskStateError::AmbiguousMasks)?;
+            .ok_or(UnmaskError::AmbiguousMasks)?;
 
         Ok(mask)
     }
 
-    async fn end_round(
-        &mut self,
-        best_masks: Vec<(MaskObject, u64)>,
-    ) -> Result<(), UnmaskStateError> {
+    /// Ends the round by unmasking the global model.
+    async fn end_round(&mut self, best_masks: Vec<(MaskObject, u64)>) -> Result<(), UnmaskError> {
         let mask = self.freeze_mask_dict(best_masks).await?;
 
         // Safe unwrap: State::<Unmask>::new always creates Some(aggregation)
@@ -124,7 +123,7 @@ impl<T> PhaseState<Unmask, T> {
 
         model_agg
             .validate_unmasking(&mask)
-            .map_err(UnmaskStateError::from)?;
+            .map_err(UnmaskError::from)?;
         self.private.global_model = Some(Arc::new(model_agg.unmask(mask)));
 
         Ok(())
@@ -135,6 +134,7 @@ impl<T> PhaseState<Unmask, T>
 where
     T: Storage,
 {
+    /// Broadcasts mask metrics.
     fn emit_number_of_unique_masks_metrics(&mut self) {
         if GlobalRecorder::global().is_none() {
             return;
@@ -156,17 +156,19 @@ where
         });
     }
 
-    async fn best_masks(&mut self) -> Result<Vec<(MaskObject, u64)>, UnmaskStateError> {
+    /// Gets the two masks with the highest score.
+    async fn best_masks(&mut self) -> Result<Vec<(MaskObject, u64)>, UnmaskError> {
         self.shared
             .store
             .best_masks()
             .await
-            .map_err(UnmaskStateError::FetchBestMasks)?
-            .ok_or(UnmaskStateError::NoMask)
+            .map_err(UnmaskError::FetchBestMasks)?
+            .ok_or(UnmaskError::NoMask)
     }
 
+    /// Persists the global model to the store.
     #[cfg(feature = "model-persistence")]
-    async fn save_global_model(&mut self) -> Result<(), UnmaskStateError> {
+    async fn save_global_model(&mut self) -> Result<(), UnmaskError> {
         info!("saving global model");
         let global_model = self
             .private
@@ -185,7 +187,7 @@ where
                 global_model,
             )
             .await
-            .map_err(UnmaskStateError::SaveGlobalModel)?;
+            .map_err(UnmaskError::SaveGlobalModel)?;
         if let Err(err) = self
             .shared
             .store
@@ -198,7 +200,8 @@ where
         Ok(())
     }
 
-    async fn publish_proof(&mut self) -> Result<(), UnmaskStateError> {
+    /// Publishes proof of the global model.
+    async fn publish_proof(&mut self) -> Result<(), UnmaskError> {
         info!("publishing proof of the new global model");
         let global_model = self
             .private
@@ -212,7 +215,7 @@ where
             .store
             .publish_proof(global_model)
             .await
-            .map_err(UnmaskStateError::PublishProof)
+            .map_err(UnmaskError::PublishProof)
     }
 }
 

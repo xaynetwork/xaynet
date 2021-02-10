@@ -1,27 +1,27 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use displaydoc::Display;
 use thiserror::Error;
 use tracing::info;
 
 use crate::{
     state_machine::{
         events::DictionaryUpdate,
-        phases::{Handler, Phase, PhaseName, PhaseState, PhaseStateError, Shared, Update},
-        requests::{StateMachineRequest, SumRequest},
-        RequestError,
+        phases::{Handler, Phase, PhaseError, PhaseName, PhaseState, Shared, Update},
+        requests::{RequestError, StateMachineRequest, SumRequest},
         StateMachine,
     },
     storage::{Storage, StorageError},
 };
 use xaynet_core::{SumDict, SumParticipantEphemeralPublicKey, SumParticipantPublicKey};
 
-/// Error that occurs during the sum phase.
-#[derive(Error, Debug)]
-pub enum SumStateError {
-    #[error("sum dictionary does not exists")]
+/// Errors which can occur during the sum phase.
+#[derive(Debug, Display, Error)]
+pub enum SumError {
+    /// Sum dictionary does not exists.
     NoSumDict,
-    #[error("fetching sum dictionary failed: {0}")]
+    /// Fetching sum dictionary failed: {0}.
     FetchSumDict(StorageError),
 }
 
@@ -40,17 +40,10 @@ where
 {
     const NAME: PhaseName = PhaseName::Sum;
 
-    async fn process(&mut self) -> Result<(), PhaseStateError> {
+    async fn process(&mut self) -> Result<(), PhaseError> {
         self.process(self.shared.state.sum).await?;
+        self.sum_dict().await?;
 
-        self.private.sum_dict = self
-            .shared
-            .store
-            .sum_dict()
-            .await
-            .map_err(SumStateError::FetchSumDict)?
-            .ok_or(SumStateError::NoSumDict)?
-            .into();
         Ok(())
     }
 
@@ -115,6 +108,20 @@ where
             .await?
             .into_inner()
             .map_err(RequestError::from)
+    }
+
+    /// Gets the sum dict from the store.
+    async fn sum_dict(&mut self) -> Result<(), SumError> {
+        self.private.sum_dict = self
+            .shared
+            .store
+            .sum_dict()
+            .await
+            .map_err(SumError::FetchSumDict)?
+            .ok_or(SumError::NoSumDict)?
+            .into();
+
+        Ok(())
     }
 }
 

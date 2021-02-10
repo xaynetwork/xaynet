@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use async_trait::async_trait;
+use displaydoc::Display;
 use thiserror::Error;
 use tokio::time::sleep;
 use tracing::{error, info};
@@ -10,53 +11,55 @@ use crate::{
     state_machine::{
         events::DictionaryUpdate,
         phases::{
-            idle::IdleStateError,
-            sum::SumStateError,
-            unmask::UnmaskStateError,
-            update::UpdateStateError,
             Idle,
+            IdleError,
             Phase,
             PhaseName,
             PhaseState,
             Shared,
             Shutdown,
+            SumError,
+            UnmaskError,
+            UpdateError,
         },
         StateMachine,
     },
     storage::Storage,
 };
 
-/// Error that can occur during the execution of the [`StateMachine`].
-#[derive(Error, Debug)]
-pub enum PhaseStateError {
-    #[error("request channel error: {0}")]
+/// Errors which can occur during the execution of the [`StateMachine`].
+#[derive(Debug, Display, Error)]
+pub enum PhaseError {
+    /// Request channel error: {0}.
     RequestChannel(&'static str),
-    #[error("phase timeout")]
+    /// Phase timeout.
     PhaseTimeout(#[from] tokio::time::error::Elapsed),
+    /// Idle phase failed: {0}.
+    Idle(#[from] IdleError),
+    /// Sum phase failed: {0}.
+    Sum(#[from] SumError),
+    /// Update phase failed: {0}.
+    Update(#[from] UpdateError),
+    /// Unmask phase failed: {0}.
+    Unmask(#[from] UnmaskError),
+}
 
-    #[error("idle phase failed: {0}")]
-    Idle(#[from] IdleStateError),
-
-    #[error("sum phase failed: {0}")]
-    Sum(#[from] SumStateError),
-
-    #[error("update phase failed: {0}")]
-    Update(#[from] UpdateStateError),
-
-    #[error("unmask phase failed: {0}")]
-    Unmask(#[from] UnmaskStateError),
+/// The failure state.
+#[derive(Debug)]
+pub struct Failure {
+    error: PhaseError,
 }
 
 #[async_trait]
-impl<T> Phase<T> for PhaseState<PhaseStateError, T>
+impl<T> Phase<T> for PhaseState<Failure, T>
 where
     T: Storage,
 {
-    const NAME: PhaseName = PhaseName::Error;
+    const NAME: PhaseName = PhaseName::Failure;
 
-    async fn process(&mut self) -> Result<(), PhaseStateError> {
-        error!("phase state error: {}", self.private);
-        event!("Phase error", self.private.to_string());
+    async fn process(&mut self) -> Result<(), PhaseError> {
+        error!("phase state error: {}", self.private.error);
+        event!("Phase error", self.private.error.to_string());
 
         Ok(())
     }
@@ -74,28 +77,26 @@ where
     }
 
     async fn next(mut self) -> Option<StateMachine<T>> {
-        self.wait_for_store_readiness().await;
-
-        Some(match self.private {
-            PhaseStateError::RequestChannel(_) => {
-                PhaseState::<Shutdown, _>::new(self.shared).into()
-            }
-            _ => PhaseState::<Idle, _>::new(self.shared).into(),
-        })
+        if let PhaseError::RequestChannel(_) = self.private.error {
+            Some(PhaseState::<Shutdown, _>::new(self.shared).into())
+        } else {
+            self.wait_for_store_readiness().await;
+            Some(PhaseState::<Idle, _>::new(self.shared).into())
+        }
     }
 }
 
-impl<T> PhaseState<PhaseStateError, T> {
+impl<T> PhaseState<Failure, T> {
     /// Creates a new error phase.
-    pub fn new(shared: Shared<T>, error: PhaseStateError) -> Self {
+    pub fn new(shared: Shared<T>, error: PhaseError) -> Self {
         Self {
-            private: error,
+            private: Failure { error },
             shared,
         }
     }
 }
 
-impl<T> PhaseState<PhaseStateError, T>
+impl<T> PhaseState<Failure, T>
 where
     T: Storage,
 {
@@ -126,15 +127,20 @@ mod tests {
     async fn integration_error_to_shutdown() {
         let store = init_store().await;
         let (state_machine, _request_tx, events) = StateMachineBuilder::new(store.clone())
-            .with_phase(PhaseStateError::RequestChannel(""))
+            .with_phase(Failure {
+                error: PhaseError::RequestChannel(""),
+            })
             .build();
-        assert!(state_machine.is_error());
+        assert!(state_machine.is_failure());
 
         let state_machine = state_machine.next().await.unwrap();
         assert!(state_machine.is_shutdown());
 
         // Check all the events that should be emitted during the error phase
-        assert_eq!(events.phase_listener().get_latest().event, PhaseName::Error);
+        assert_eq!(
+            events.phase_listener().get_latest().event,
+            PhaseName::Failure,
+        );
         assert_eq!(
             events.sum_dict_listener().get_latest().event,
             DictionaryUpdate::Invalidate,
