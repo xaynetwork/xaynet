@@ -39,7 +39,8 @@ pub enum PhaseName {
     Shutdown,
 }
 
-/// A trait that must be implemented by a state in order to move to a next state.
+/// A trait that must be implemented by a state in order to perform its tasks and to move to a next
+/// state.
 ///
 /// See the [module level documentation] for more details.
 ///
@@ -68,8 +69,8 @@ where
     async fn next(self) -> Option<StateMachine<T>>;
 }
 
-/// A struct that contains the coordinator state and the I/O interfaces that are shared and
-/// accessible by all `PhaseState`s.
+/// The coordinator state and the I/O interfaces that are shared and accessible by all
+/// [`PhaseState`]s.
 pub struct Shared<T> {
     /// The coordinator state.
     pub(in crate::state_machine) state: CoordinatorState,

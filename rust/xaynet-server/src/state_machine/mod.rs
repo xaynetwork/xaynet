@@ -2,7 +2,7 @@
 //!
 //! # Overview
 //!
-//! ![](https://mermaid.ink/svg/eyJjb2RlIjoic3RhdGVEaWFncmFtXG5cdFsqXSAtLT4gSWRsZVxuXG4gIElkbGUgLS0-IFN1bVxuICBTdW0gLS0-IFVwZGF0ZVxuICBVcGRhdGUgLS0-IFN1bTJcbiAgU3VtMiAtLT4gVW5tYXNrXG4gIFVubWFzayAtLT4gSWRsZVxuXG4gIFN1bSAtLT4gRXJyb3JcbiAgVXBkYXRlIC0tPiBFcnJvclxuICBTdW0yIC0tPiBFcnJvclxuICBVbm1hc2sgLS0-IEVycm9yXG4gIEVycm9yIC0tPiBJZGxlXG4gIEVycm9yIC0tPiBTaHV0ZG93blxuXG4gIFNodXRkb3duIC0tPiBbKl1cblxuXG5cblxuXG5cblxuICAiLCJtZXJtYWlkIjp7InRoZW1lIjoibmV1dHJhbCJ9fQ)
+//! ![State Machine](https://mermaid.ink/svg/eyJjb2RlIjoic3RhdGVEaWFncmFtXG5cdFsqXSAtLT4gSWRsZVxuXG4gICAgSWRsZSAtLT4gU3VtXG4gICAgU3VtIC0tPiBVcGRhdGVcbiAgICBVcGRhdGUgLS0-IFN1bTJcbiAgICBTdW0yIC0tPiBVbm1hc2tcbiAgICBVbm1hc2sgLS0-IElkbGVcblxuICAgIFN1bSAtLT4gRmFpbHVyZVxuICAgIFVwZGF0ZSAtLT4gRmFpbHVyZVxuICAgIFN1bTIgLS0-IEZhaWx1cmVcbiAgICBVbm1hc2sgLS0-IEZhaWx1cmVcbiAgICBGYWlsdXJlIC0tPiBJZGxlXG4gICAgRmFpbHVyZSAtLT4gU2h1dGRvd25cblxuICAgIFNodXRkb3duIC0tPiBbKl1cbiIsIm1lcm1haWQiOnsidGhlbWUiOiJuZXV0cmFsIn0sInVwZGF0ZUVkaXRvciI6ZmFsc2V9)
 //!
 //! The [`StateMachine`] is responsible for executing the individual tasks of the PET protocol.
 //! The main tasks include: building the sum and seed dictionaries, aggregating the masked
@@ -42,7 +42,7 @@
 //! Publishes [`PhaseName::Unmask`], unmasks the global masked model and publishes the global
 //! model.
 //!
-//! **Error**
+//! **Failure**
 //!
 //! Publishes [`PhaseName::Failure`] and handles [`PhaseError`]s that can occur during the
 //! execution of the [`StateMachine`]. In most cases, the error is handled by restarting the round.
