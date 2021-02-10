@@ -2,7 +2,11 @@ use anyhow::{anyhow, Error, Result};
 use isar_core::{
     collection::IsarCollection,
     instance::IsarInstance,
-    object::{isar_object::IsarObject, object_builder::ObjectBuilder, object_id::ObjectId},
+    object::{
+        isar_object::{IsarObject, Property},
+        object_builder::ObjectBuilder,
+        object_id::ObjectId,
+    },
     schema::{collection_schema::CollectionSchema, Schema},
     txn::IsarTxn,
 };
@@ -25,12 +29,11 @@ impl IsarDb {
         .map(|instance| IsarDb { instance })
     }
 
-    pub fn get_all_as_bytes(
+    pub fn get_all_isar_objects(
         &self,
         collection_name: &str,
-    ) -> Result<Vec<(&ObjectId, &[u8])>, Error> {
-        let _bytes = self
-            .get_collection(collection_name)?
+    ) -> Result<Vec<(ObjectId, IsarObject)>, Error> {
+        self.get_collection(collection_name)?
             .new_query_builder()
             .build()
             .find_all_vec(&mut self.begin_txn(false)?)
@@ -39,10 +42,22 @@ impl IsarDb {
                     "failed to find all bytes from collection {}",
                     collection_name
                 )
-            });
+            })
+    }
 
-        // TODO: not sure how to proceed to parse [u8] using the collection schema. didn't find examples in Isar
-        todo!()
+    pub fn get_transaction(&self) -> Result<IsarTxn, Error> {
+        self.begin_txn(false)
+    }
+
+    pub fn get_isar_object_by_id<'txn>(
+        &self,
+        object_id: &ObjectId,
+        collection_name: &str,
+        transaction: &'txn mut IsarTxn,
+    ) -> Result<Option<IsarObject<'txn>>, Error> {
+        self.get_collection(collection_name)?
+            .get(transaction, object_id)
+            .map_err(|_| anyhow!("unable to get {:?} object", object_id))
     }
 
     pub fn put(
@@ -79,6 +94,13 @@ impl IsarDb {
         oid: &str,
     ) -> Result<ObjectId, Error> {
         Ok(self.get_collection(collection_name)?.new_string_oid(oid))
+    }
+
+    pub fn get_collection_properties(
+        &self,
+        collection_name: &str,
+    ) -> Result<&[(String, Property)], Error> {
+        Ok(self.get_collection(collection_name)?.get_properties())
     }
 
     pub fn dispose(self) -> Result<(), Error> {

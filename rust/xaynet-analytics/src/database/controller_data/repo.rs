@@ -1,49 +1,41 @@
-use anyhow::{Error, Result};
+use anyhow::{anyhow, Error, Result};
+use std::convert::{TryFrom, TryInto};
 
 use crate::database::{
     common::{IsarAdapter, Repo},
-    controller_data::data_model::ControllerData,
+    controller_data::{adapter::ControllerDataAdapter, data_model::ControllerData},
     isar::IsarDb,
 };
 
-pub struct ControllerDataRepo<'db> {
-    collection_name: &'db str,
-}
-
-impl<'db> ControllerDataRepo<'db> {
-    pub fn new(collection_name: &'db str) -> Self {
-        Self { collection_name }
-    }
-}
-
-impl<'db> Repo<ControllerData> for ControllerDataRepo<'db> {
-    fn add(&self, data: &ControllerData, db: &IsarDb) -> Result<(), Error> {
-        let mut object_builder = db.get_object_builder(self.collection_name)?;
-        data.write_with_object_builder(&mut object_builder);
-        db.put(
-            &self.collection_name,
-            None,
-            object_builder.finish().as_bytes(),
-        )
+impl<'db> Repo<'db, ControllerData> for ControllerData {
+    fn add(self, db: &'db IsarDb, collection_name: &str) -> Result<(), Error> {
+        let mut object_builder = db.get_object_builder(collection_name)?;
+        let data_adapter: ControllerDataAdapter = self.try_into()?;
+        data_adapter.write_with_object_builder(&mut object_builder);
+        db.put(collection_name, None, object_builder.finish().as_bytes())
     }
 
     // TODO: return an iterator instead of Vec: https://xainag.atlassian.net/browse/XN-1517
-    fn get_all(&self, db: &IsarDb) -> Result<Vec<ControllerData>, Error> {
-        let _routes_as_bytes = db.get_all_as_bytes(&self.collection_name)?;
-
-        // TODO: not sure how to proceed to parse [u8] using the collection schema. didn't find examples in Isar
-        todo!()
-    }
-}
-
-pub struct MockControllerDataRepo {}
-
-impl Repo<ControllerData> for MockControllerDataRepo {
-    fn add(&self, _object: &ControllerData, _db: &IsarDb) -> Result<(), Error> {
-        Ok(())
+    fn get_all(db: &'db IsarDb, collection_name: &str) -> Result<Vec<Self>, Error> {
+        let isar_properties = db.get_collection_properties(collection_name)?;
+        db.get_all_isar_objects(collection_name)?
+            .into_iter()
+            .map(|(_, isar_object)| ControllerDataAdapter::read(&isar_object, isar_properties))
+            .map(|data_adapter| ControllerData::try_from(data_adapter?))
+            .collect()
     }
 
-    fn get_all(&self, _db: &IsarDb) -> Result<Vec<ControllerData>, Error> {
-        Ok(Vec::new())
+    fn get(oid: &str, db: &'db IsarDb, collection_name: &str) -> Result<Self, Error> {
+        let isar_properties = db.get_collection_properties(collection_name)?;
+        let object_id = db.get_object_id_from_str(oid, collection_name)?;
+        let mut transaction = db.get_transaction()?;
+        let isar_object =
+            db.get_isar_object_by_id(&object_id, collection_name, &mut transaction)?;
+        if let Some(isar_object) = isar_object {
+            let data_adapter = ControllerDataAdapter::read(&isar_object, isar_properties)?;
+            ControllerData::try_from(data_adapter)
+        } else {
+            Err(anyhow!("unable to get {:?} object", object_id))
+        }
     }
 }

@@ -40,16 +40,16 @@ pub trait CalculateDataPoints {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum DataPoint<'a> {
-    ScreenActiveTime(CalcScreenActiveTime<'a>),
-    ScreenEnterCount(CalcScreenEnterCount<'a>),
-    WasActiveEachPastPeriod(CalcWasActiveEachPastPeriod<'a>),
-    WasActivePastNDays(CalcWasActivePastNDays<'a>),
+pub enum DataPoint {
+    ScreenActiveTime(CalcScreenActiveTime),
+    ScreenEnterCount(CalcScreenEnterCount),
+    WasActiveEachPastPeriod(CalcWasActiveEachPastPeriod),
+    WasActivePastNDays(CalcWasActivePastNDays),
 }
 
 #[allow(dead_code)]
 // TODO: will be called when preparing the data to be sent to the coordinator
-impl<'a> DataPoint<'a> {
+impl DataPoint {
     fn calculate(&self) -> Vec<u32> {
         match self {
             DataPoint::ScreenActiveTime(data) => data.calculate(),
@@ -62,29 +62,29 @@ impl<'a> DataPoint<'a> {
 
 #[derive(Debug, PartialEq, Eq)]
 // TODO: accept an iterator instead of Vec: https://xainag.atlassian.net/browse/XN-1517
-pub struct CalcScreenActiveTime<'a> {
+pub struct CalcScreenActiveTime {
     pub metadata: DataPointMetadata,
-    pub events: Vec<AnalyticsEvent<'a>>,
+    pub events: Vec<AnalyticsEvent>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
 // TODO: accept an iterator instead of Vec: https://xainag.atlassian.net/browse/XN-1517
-pub struct CalcScreenEnterCount<'a> {
+pub struct CalcScreenEnterCount {
     pub metadata: DataPointMetadata,
-    pub events: Vec<AnalyticsEvent<'a>>,
+    pub events: Vec<AnalyticsEvent>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
 // TODO: accept an iterator instead of Vec: https://xainag.atlassian.net/browse/XN-1517
-pub struct CalcWasActiveEachPastPeriod<'a> {
+pub struct CalcWasActiveEachPastPeriod {
     pub metadata: DataPointMetadata,
-    pub events: Vec<AnalyticsEvent<'a>>,
+    pub events: Vec<AnalyticsEvent>,
     pub period_thresholds: Vec<DateTime<Utc>>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
 // TODO: accept an iterator instead of Vec: https://xainag.atlassian.net/browse/XN-1517
-pub struct CalcWasActivePastNDays<'a> {
+pub struct CalcWasActivePastNDays {
     pub metadata: DataPointMetadata,
-    pub events: Vec<AnalyticsEvent<'a>>,
+    pub events: Vec<AnalyticsEvent>,
 }

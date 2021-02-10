@@ -7,13 +7,13 @@ use crate::{
     database::analytics_event::data_model::{AnalyticsEvent, AnalyticsEventType},
 };
 
-impl<'a> CalcScreenEnterCount<'a> {
-    pub fn new(metadata: DataPointMetadata, events: Vec<AnalyticsEvent<'a>>) -> Self {
+impl CalcScreenEnterCount {
+    pub fn new(metadata: DataPointMetadata, events: Vec<AnalyticsEvent>) -> Self {
         Self { metadata, events }
     }
 }
 
-impl<'a> CalculateDataPoints for CalcScreenEnterCount<'a> {
+impl<'a> CalculateDataPoints for CalcScreenEnterCount {
     fn metadata(&self) -> DataPointMetadata {
         self.metadata
     }
@@ -56,7 +56,7 @@ mod tests {
             "test1",
             AnalyticsEventType::ScreenEnter,
             end_period - Duration::hours(12),
-            Some(&screen_route),
+            Some(screen_route),
         )];
         let screen_enter_count = CalcScreenEnterCount::new(metadata, events);
         assert_eq!(screen_enter_count.calculate(), vec![1]);
@@ -74,13 +74,13 @@ mod tests {
                 "test1",
                 AnalyticsEventType::ScreenEnter,
                 end_period - Duration::hours(9),
-                Some(&screen_route),
+                Some(screen_route.clone()),
             ),
             AnalyticsEvent::new(
                 "test2",
                 AnalyticsEventType::ScreenEnter,
                 end_period - Duration::hours(18),
-                Some(&screen_route),
+                Some(screen_route),
             ),
         ];
         let screen_enter_count = CalcScreenEnterCount::new(metadata, events);

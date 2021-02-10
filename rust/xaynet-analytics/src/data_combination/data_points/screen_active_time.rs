@@ -9,8 +9,8 @@ use crate::{
     database::analytics_event::data_model::{AnalyticsEvent, AnalyticsEventType},
 };
 
-impl<'a> CalcScreenActiveTime<'a> {
-    pub fn new(metadata: DataPointMetadata, events: Vec<AnalyticsEvent<'a>>) -> Self {
+impl CalcScreenActiveTime {
+    pub fn new(metadata: DataPointMetadata, events: Vec<AnalyticsEvent>) -> Self {
         Self { metadata, events }
     }
 
@@ -29,7 +29,7 @@ impl<'a> CalcScreenActiveTime<'a> {
     }
 }
 
-impl<'a> CalculateDataPoints for CalcScreenActiveTime<'a> {
+impl CalculateDataPoints for CalcScreenActiveTime {
     fn metadata(&self) -> DataPointMetadata {
         self.metadata
     }
@@ -81,7 +81,7 @@ mod tests {
             "test1",
             AnalyticsEventType::ScreenEnter,
             end_period - Duration::hours(10),
-            Some(&screen_route),
+            Some(screen_route),
         );
         let app_event = AnalyticsEvent::new(
             "test1",
@@ -93,7 +93,7 @@ mod tests {
             screen_enter_event.clone(),
             AnalyticsEvent::new(
                 "test1",
-                AnalyticsEventType::Error,
+                AnalyticsEventType::AppError,
                 end_period - Duration::hours(11),
                 None,
             ),
@@ -129,7 +129,7 @@ mod tests {
             "test1",
             AnalyticsEventType::ScreenEnter,
             end_period - Duration::hours(12),
-            Some(&screen_route),
+            Some(screen_route),
         )];
         let screen_active_time = CalcScreenActiveTime::new(metadata, events);
         assert_eq!(screen_active_time.calculate(), vec![0]);
@@ -147,13 +147,13 @@ mod tests {
                 "test1",
                 AnalyticsEventType::ScreenEnter,
                 end_period - Duration::hours(12),
-                Some(&screen_route),
+                Some(screen_route.clone()),
             ),
             AnalyticsEvent::new(
                 "test2",
                 AnalyticsEventType::ScreenEnter,
                 end_period - Duration::hours(15),
-                Some(&screen_route),
+                Some(screen_route),
             ),
         ];
         let time_between_events =
@@ -176,7 +176,7 @@ mod tests {
             "test1",
             AnalyticsEventType::ScreenEnter,
             end_period - Duration::hours(12),
-            Some(&screen_route),
+            Some(screen_route.clone()),
         );
         let second = AnalyticsEvent::new(
             "test1",
@@ -188,13 +188,13 @@ mod tests {
             "test2",
             AnalyticsEventType::ScreenEnter,
             end_period - Duration::hours(14),
-            Some(&screen_route),
+            Some(screen_route.clone()),
         );
         let fourth = AnalyticsEvent::new(
             "test2",
             AnalyticsEventType::ScreenEnter,
             end_period - Duration::hours(14),
-            Some(&screen_route),
+            Some(screen_route),
         );
         let events = vec![first.clone(), second.clone(), third.clone(), fourth.clone()];
         let time_between_events =

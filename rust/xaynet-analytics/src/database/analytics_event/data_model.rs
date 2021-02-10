@@ -1,34 +1,49 @@
+use anyhow::{anyhow, Error, Result};
 use chrono::{DateTime, Utc};
-use isar_core::object::{data_type::DataType, object_builder::ObjectBuilder};
-use std::vec::IntoIter;
+use std::convert::{From, Into, TryFrom, TryInto};
 
 use crate::database::{
-    common::{FieldProperty, IsarAdapter, SchemaGenerator},
+    analytics_event::adapter::{AnalyticsEventAdapter, AnalyticsEventRelationalAdapter},
+    common::RelationalField,
     screen_route::data_model::ScreenRoute,
 };
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum AnalyticsEventType {
     AppEvent = 0,
-    Error = 1,
+    AppError = 1,
     ScreenEnter = 2,
     UserAction = 3,
 }
 
+impl TryFrom<i32> for AnalyticsEventType {
+    type Error = ();
+
+    fn try_from(v: i32) -> Result<Self, Self::Error> {
+        match v {
+            x if x == AnalyticsEventType::AppEvent as i32 => Ok(AnalyticsEventType::AppEvent),
+            x if x == AnalyticsEventType::AppError as i32 => Ok(AnalyticsEventType::AppError),
+            x if x == AnalyticsEventType::ScreenEnter as i32 => Ok(AnalyticsEventType::ScreenEnter),
+            x if x == AnalyticsEventType::UserAction as i32 => Ok(AnalyticsEventType::UserAction),
+            _ => Err(()),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct AnalyticsEvent<'screen> {
+pub struct AnalyticsEvent {
     pub name: String,
     pub event_type: AnalyticsEventType,
     pub timestamp: DateTime<Utc>,
-    pub screen_route: Option<&'screen ScreenRoute>,
+    pub screen_route: Option<ScreenRoute>,
 }
 
-impl<'screen> AnalyticsEvent<'screen> {
+impl AnalyticsEvent {
     pub fn new<N: Into<String>>(
         name: N,
         event_type: AnalyticsEventType,
         timestamp: DateTime<Utc>,
-        screen_route: Option<&'screen ScreenRoute>,
+        screen_route: Option<ScreenRoute>,
     ) -> Self {
         Self {
             name: name.into(),
@@ -39,30 +54,39 @@ impl<'screen> AnalyticsEvent<'screen> {
     }
 }
 
-impl<'screen> IsarAdapter for AnalyticsEvent<'screen> {
-    fn into_field_properties() -> IntoIter<FieldProperty> {
-        // NOTE: properties need to be ordered by type. Properties with the same type need to be ordered alphabetically
-        // https://github.com/isar/isar-core/blob/1ea9f27edfd6e3708daa47ac6a17995b628f31a6/src/schema/collection_schema.rs
-        vec![
-            FieldProperty::new("event_type".to_string(), DataType::Int),
-            FieldProperty::new("name".to_string(), DataType::String),
-            FieldProperty::new("screen_route".to_string(), DataType::String),
-            FieldProperty::new("timestamp".to_string(), DataType::String),
-        ]
-        .into_iter()
-    }
+impl TryFrom<AnalyticsEventRelationalAdapter> for AnalyticsEvent {
+    type Error = anyhow::Error;
 
-    fn write_with_object_builder(&self, object_builder: &mut ObjectBuilder) {
-        object_builder.write_int(self.event_type as i32);
-        object_builder.write_string(Some(&self.name));
-        object_builder.write_string(self.screen_route.map(|screen| screen.name.as_ref()));
-        object_builder.write_string(Some(&self.timestamp.to_rfc3339()));
-    }
-
-    fn read(_bytes: &[u8]) -> AnalyticsEvent<'screen> {
-        // TODO: implement when Isar will support it: https://xainag.atlassian.net/browse/XN-1604
-        todo!()
+    fn try_from(adapter: AnalyticsEventRelationalAdapter) -> Result<Self, Self::Error> {
+        let event = AnalyticsEvent::new(
+            adapter.name,
+            TryInto::<AnalyticsEventType>::try_into(adapter.event_type)
+                .map_err(|_| anyhow!("unable to convert event_type into enum"))?,
+            DateTime::parse_from_rfc3339(&adapter.timestamp)
+                .unwrap()
+                .with_timezone(&Utc),
+            adapter.screen_route,
+        );
+        Ok(event)
     }
 }
 
-impl<'screen> SchemaGenerator<AnalyticsEvent<'screen>> for AnalyticsEvent<'screen> {}
+impl<'event> TryInto<AnalyticsEventAdapter> for AnalyticsEvent {
+    type Error = anyhow::Error;
+
+    fn try_into(self) -> Result<AnalyticsEventAdapter, Error> {
+        let screen_route_field: Option<RelationalField> =
+            if let Some(screen_route) = self.screen_route {
+                Some(RelationalField::from(screen_route))
+            } else {
+                None
+            };
+
+        Ok(AnalyticsEventAdapter::new(
+            self.name,
+            self.event_type as i32,
+            self.timestamp.to_rfc3339(),
+            screen_route_field,
+        ))
+    }
+}
