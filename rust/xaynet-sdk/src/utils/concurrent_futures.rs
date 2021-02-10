@@ -82,6 +82,7 @@ mod tests {
 
     use super::*;
 
+    // this can fail in rare occasions because of polling delays
     #[tokio::test]
     async fn test() {
         let mut stream =

@@ -70,18 +70,6 @@ impl<T> StateMachineInitializer<T> {
         }
     }
 
-    #[cfg(not(feature = "model-persistence"))]
-    /// Initializes a new [`StateMachine`] with the given settings.
-    pub async fn init(
-        mut self,
-    ) -> StateMachineInitializationResult<(StateMachine<S>, RequestSender, EventSubscriber)> {
-        // crucial: init must be called before anything else in this module
-        sodiumoxide::init().or(Err(StateMachineInitializationError::CryptoInit))?;
-
-        let (coordinator_state, global_model) = { self.from_settings().await? };
-        Ok(self.init_state_machine(coordinator_state, global_model))
-    }
-
     // Initializes a new [`StateMachine`] with its components.
     fn init_state_machine(
         self,
@@ -109,6 +97,18 @@ impl<T> StateMachineInitializer<T>
 where
     T: Storage,
 {
+    #[cfg(not(feature = "model-persistence"))]
+    /// Initializes a new [`StateMachine`] with the given settings.
+    pub async fn init(
+        mut self,
+    ) -> StateMachineInitializationResult<(StateMachine<T>, RequestSender, EventSubscriber)> {
+        // crucial: init must be called before anything else in this module
+        sodiumoxide::init().or(Err(StateMachineInitializationError::CryptoInit))?;
+
+        let (coordinator_state, global_model) = { self.from_settings().await? };
+        Ok(self.init_state_machine(coordinator_state, global_model))
+    }
+
     // Creates a new [`CoordinatorState`] from the given settings and deletes
     // all coordinator data. Should only be called for the first start
     // or if we need to perform reset.

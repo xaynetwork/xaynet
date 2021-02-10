@@ -65,14 +65,7 @@ where
     }
 
     fn broadcast(&mut self) {
-        info!("broadcasting the new global model");
-        let global_model =
-            self.private.global_model.take().expect(
-                "unreachable: never fails when `broadcast()` is called after `end_round()`",
-            );
-        self.shared
-            .events
-            .broadcast_model(ModelUpdate::New(global_model));
+        self.broadcast_model();
     }
 
     async fn next(self) -> Option<StateMachine<T>> {
@@ -113,6 +106,7 @@ impl<T> PhaseState<Unmask, T> {
         Ok(mask)
     }
 
+    /// Ends the round by unmasking the global model.
     async fn end_round(&mut self, best_masks: Vec<(MaskObject, u64)>) -> Result<(), UnmaskError> {
         let mask = self.freeze_mask_dict(best_masks).await?;
 
@@ -126,12 +120,25 @@ impl<T> PhaseState<Unmask, T> {
 
         Ok(())
     }
+
+    /// Takes and broadcasts the global model.
+    fn broadcast_model(&mut self) {
+        info!("broadcasting the new global model");
+        let global_model =
+            self.private.global_model.take().expect(
+                "unreachable: never fails when `broadcast()` is called after `end_round()`",
+            );
+        self.shared
+            .events
+            .broadcast_model(ModelUpdate::New(global_model));
+    }
 }
 
 impl<T> PhaseState<Unmask, T>
 where
     T: Storage,
 {
+    /// Broadcasts mask metrics.
     fn emit_number_of_unique_masks_metrics(&mut self) {
         if GlobalRecorder::global().is_none() {
             return;
@@ -153,6 +160,7 @@ where
         });
     }
 
+    /// Gets the two masks with the highest score.
     async fn best_masks(&mut self) -> Result<Vec<(MaskObject, u64)>, UnmaskError> {
         self.shared
             .store
@@ -162,6 +170,7 @@ where
             .ok_or(UnmaskError::NoMask)
     }
 
+    /// Persists the global model to the store.
     #[cfg(feature = "model-persistence")]
     async fn save_global_model(&mut self) -> Result<(), UnmaskError> {
         info!("saving global model");
@@ -195,6 +204,7 @@ where
         Ok(())
     }
 
+    /// Publishes proof of the global model.
     async fn publish_proof(&mut self) -> Result<(), UnmaskError> {
         info!("publishing proof of the new global model");
         let global_model = self

@@ -35,15 +35,7 @@ where
     }
 
     fn broadcast(&mut self) {
-        info!("broadcasting invalidation of sum dictionary");
-        self.shared
-            .events
-            .broadcast_sum_dict(DictionaryUpdate::Invalidate);
-
-        info!("broadcasting invalidation of seed dictionary");
-        self.shared
-            .events
-            .broadcast_seed_dict(DictionaryUpdate::Invalidate);
+        self.broadcast_dict_invalidation();
     }
 
     async fn next(self) -> Option<StateMachine<T>> {
@@ -76,6 +68,19 @@ impl<T> PhaseState<Sum2, T> {
             private: Sum2 { model_agg },
             shared,
         }
+    }
+
+    /// Broadcasts the invalidation of the dicts.
+    fn broadcast_dict_invalidation(&mut self) {
+        info!("broadcasting invalidation of sum dictionary");
+        self.shared
+            .events
+            .broadcast_sum_dict(DictionaryUpdate::Invalidate);
+
+        info!("broadcasting invalidation of seed dictionary");
+        self.shared
+            .events
+            .broadcast_seed_dict(DictionaryUpdate::Invalidate);
     }
 }
 

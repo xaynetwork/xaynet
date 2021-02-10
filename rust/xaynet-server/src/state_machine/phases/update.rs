@@ -48,29 +48,13 @@ where
 
     async fn process(&mut self) -> Result<(), PhaseError> {
         self.process(self.shared.state.update).await?;
-
-        self.private.seed_dict = self
-            .shared
-            .store
-            .seed_dict()
-            .await
-            .map_err(UpdateError::FetchSeedDict)?
-            .ok_or(UpdateError::NoSeedDict)?
-            .into();
+        self.seed_dict().await?;
 
         Ok(())
     }
 
     fn broadcast(&mut self) {
-        info!("broadcasting the global seed dictionary");
-        let seed_dict = self
-            .private
-            .seed_dict
-            .take()
-            .expect("unreachable: never fails when `broadcast()` is called after `process()`");
-        self.shared
-            .events
-            .broadcast_seed_dict(DictionaryUpdate::New(Arc::new(seed_dict)));
+        self.broadcast_seed_dict();
     }
 
     async fn next(self) -> Option<StateMachine<T>> {
@@ -117,6 +101,19 @@ impl<T> PhaseState<Update, T> {
             shared,
         }
     }
+
+    /// Takes and broadcasts the global seed dict.
+    fn broadcast_seed_dict(&mut self) {
+        info!("broadcasting the global seed dictionary");
+        let seed_dict = self
+            .private
+            .seed_dict
+            .take()
+            .expect("unreachable: never fails when `broadcast()` is called after `process()`");
+        self.shared
+            .events
+            .broadcast_seed_dict(DictionaryUpdate::New(Arc::new(seed_dict)));
+    }
 }
 
 impl<T> PhaseState<Update, T>
@@ -158,7 +155,7 @@ where
         Ok(())
     }
 
-    /// Adds a local seed dictionary to the seed dictionary.
+    /// Adds a local seed dictionary to the global seed dictionary.
     ///
     /// # Error
     ///
@@ -174,6 +171,20 @@ where
             .await?
             .into_inner()
             .map_err(RequestError::from)
+    }
+
+    /// Gets the global seed dict from the store.
+    async fn seed_dict(&mut self) -> Result<(), UpdateError> {
+        self.private.seed_dict = self
+            .shared
+            .store
+            .seed_dict()
+            .await
+            .map_err(UpdateError::FetchSeedDict)?
+            .ok_or(UpdateError::NoSeedDict)?
+            .into();
+
+        Ok(())
     }
 }
 

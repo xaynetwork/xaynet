@@ -38,56 +38,21 @@ where
     const NAME: PhaseName = PhaseName::Idle;
 
     async fn process(&mut self) -> Result<(), PhaseError> {
-        info!("removing phase dictionaries from previous round");
-        self.shared
-            .store
-            .delete_dicts()
-            .await
-            .map_err(IdleError::DeleteDictionaries)?;
+        self.delete_dicts().await?;
 
-        info!("updating the keys");
         self.gen_round_keypair();
-
-        info!("updating round probabilities");
         self.update_round_probabilities();
-
-        info!("updating round seed");
         self.update_round_seed();
 
-        info!("storing new coordinator state");
-        self.shared
-            .store
-            .set_coordinator_state(&self.shared.state)
-            .await
-            .map_err(IdleError::SetCoordinatorState)?;
+        self.set_coordinator_state().await?;
 
         Ok(())
     }
 
     fn broadcast(&mut self) {
-        info!("broadcasting new keys");
-        self.shared
-            .events
-            .broadcast_keys(self.shared.state.keys.clone());
-
-        info!("broadcasting new round parameters");
-        self.shared
-            .events
-            .broadcast_params(self.shared.state.round_params.clone());
-
-        metric!(Measurement::RoundTotalNumber, self.shared.state.round_id);
-        metric!(
-            Measurement::RoundParamSum,
-            self.shared.state.round_params.sum,
-            ("round_id", self.shared.state.round_id),
-            ("phase", Self::NAME as u8),
-        );
-        metric!(
-            Measurement::RoundParamUpdate,
-            self.shared.state.round_params.update,
-            ("round_id", self.shared.state.round_id),
-            ("phase", Self::NAME as u8),
-        );
+        self.broadcast_keys();
+        self.broadcast_params();
+        self.broadcast_metrics();
     }
 
     async fn next(self) -> Option<StateMachine<T>> {
@@ -111,11 +76,13 @@ impl<T> PhaseState<Idle, T> {
 
     /// Updates the participant probabilities round parameters.
     fn update_round_probabilities(&mut self) {
+        info!("updating round probabilities");
         warn!("round probabilities stay constant, no update strategy implemented yet");
     }
 
     /// Updates the seed round parameter.
     fn update_round_seed(&mut self) {
+        info!("updating round seed");
         // Safe unwrap: `sk` and `seed` have same number of bytes
         let (_, sk) =
             SigningKeySeed::from_slice_unchecked(self.shared.state.keys.secret.as_slice())
@@ -135,8 +102,73 @@ impl<T> PhaseState<Idle, T> {
 
     /// Generates fresh round credentials.
     fn gen_round_keypair(&mut self) {
+        info!("updating the keys");
         self.shared.state.keys = EncryptKeyPair::generate();
         self.shared.state.round_params.pk = self.shared.state.keys.public;
+    }
+
+    /// Broadcasts the keys.
+    fn broadcast_keys(&mut self) {
+        info!("broadcasting new keys");
+        self.shared
+            .events
+            .broadcast_keys(self.shared.state.keys.clone());
+    }
+
+    /// Broadcasts the round parameters.
+    fn broadcast_params(&mut self) {
+        info!("broadcasting new round parameters");
+        self.shared
+            .events
+            .broadcast_params(self.shared.state.round_params.clone());
+    }
+}
+
+impl<T> PhaseState<Idle, T>
+where
+    T: Storage,
+{
+    /// Deletes the dicts from the store.
+    async fn delete_dicts(&mut self) -> Result<(), IdleError> {
+        info!("removing phase dictionaries from previous round");
+        self.shared
+            .store
+            .delete_dicts()
+            .await
+            .map_err(IdleError::DeleteDictionaries)
+    }
+
+    /// Persists the coordinator state to the store.
+    async fn set_coordinator_state(&mut self) -> Result<(), IdleError> {
+        info!("storing new coordinator state");
+        self.shared
+            .store
+            .set_coordinator_state(&self.shared.state)
+            .await
+            .map_err(IdleError::SetCoordinatorState)
+    }
+}
+
+impl<T> PhaseState<Idle, T>
+where
+    T: Storage,
+    Self: Phase<T>,
+{
+    /// Broadcasts idle phase metrics.
+    fn broadcast_metrics(&self) {
+        metric!(Measurement::RoundTotalNumber, self.shared.state.round_id);
+        metric!(
+            Measurement::RoundParamSum,
+            self.shared.state.round_params.sum,
+            ("round_id", self.shared.state.round_id),
+            ("phase", Self::NAME as u8),
+        );
+        metric!(
+            Measurement::RoundParamUpdate,
+            self.shared.state.round_params.update,
+            ("round_id", self.shared.state.round_id),
+            ("phase", Self::NAME as u8),
+        );
     }
 }
 

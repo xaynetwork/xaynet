@@ -23,7 +23,7 @@ use xaynet_core::{
     UpdateParticipantPublicKey,
 };
 
-/// Error returned when the state machine fails to handle a request
+/// Errors which can occur while the state machine handles a request.
 #[derive(Debug, Error)]
 pub enum RequestError {
     /// the message was rejected

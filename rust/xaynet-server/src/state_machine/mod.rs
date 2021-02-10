@@ -44,7 +44,7 @@
 //!
 //! **Error**
 //!
-//! Publishes [`PhaseName::Error`] and handles [`PhaseError`]s that can occur during the
+//! Publishes [`PhaseName::Failure`] and handles [`PhaseError`]s that can occur during the
 //! execution of the [`StateMachine`]. In most cases, the error is handled by restarting the round.
 //! However, if a [`PhaseError::RequestChannel`] occurs, the [`StateMachine`] will shut down.
 //!
@@ -80,12 +80,15 @@
 //! [`PhaseName::Update`]: crate::state_machine::phases::PhaseName::Update
 //! [`PhaseName::Sum2`]: crate::state_machine::phases::PhaseName::Sum2
 //! [`PhaseName::Unmask`]: crate::state_machine::phases::PhaseName::Unmask
-//! [`PhaseName::Error`]: crate::state_machine::phases::PhaseName::Error
+//! [`PhaseName::Failure`]: crate::state_machine::phases::PhaseName::Failure
 //! [`PhaseName::Shutdown`]: crate::state_machine::phases::PhaseName::Shutdown
+//! [`PhaseError`]: crate::state_machine::phases::PhaseError
+//! [`PhaseError::RequestChannel`]: crate::state_machine::phases::PhaseError::RequestChannel
 //! [`SumDict`]: xaynet_core::SumDict
 //! [`SeedDict`]: xaynet_core::SeedDict
 //! [`EncryptKeyPair`]: xaynet_core::crypto::EncryptKeyPair
 //! [`RoundParameters`]: xaynet_core::common::RoundParameters
+//! [`StateMachineInitializer::init()`]: crate::state_machine::initializer::StateMachineInitializer::init
 //! [`StateMachineRequest`]: crate::state_machine::requests::StateMachineRequest
 //! [requests]: crate::state_machine::requests
 //! [`RequestSender`]: crate::state_machine::requests::RequestSender

@@ -41,29 +41,13 @@ where
 
     async fn process(&mut self) -> Result<(), PhaseError> {
         self.process(self.shared.state.sum).await?;
-
-        self.private.sum_dict = self
-            .shared
-            .store
-            .sum_dict()
-            .await
-            .map_err(SumError::FetchSumDict)?
-            .ok_or(SumError::NoSumDict)?
-            .into();
+        self.sum_dict().await?;
 
         Ok(())
     }
 
     fn broadcast(&mut self) {
-        info!("broadcasting sum dictionary");
-        let sum_dict = self
-            .private
-            .sum_dict
-            .take()
-            .expect("unreachable: never fails when `broadcast()` is called after `process()`");
-        self.shared
-            .events
-            .broadcast_sum_dict(DictionaryUpdate::New(Arc::new(sum_dict)));
+        self.broadcast_sum_dict();
     }
 
     async fn next(self) -> Option<StateMachine<T>> {
@@ -97,6 +81,19 @@ impl<T> PhaseState<Sum, T> {
             shared,
         }
     }
+
+    /// Takes and broadcasts the sum dict.
+    fn broadcast_sum_dict(&mut self) {
+        info!("broadcasting sum dictionary");
+        let sum_dict = self
+            .private
+            .sum_dict
+            .take()
+            .expect("unreachable: never fails when `broadcast()` is called after `process()`");
+        self.shared
+            .events
+            .broadcast_sum_dict(DictionaryUpdate::New(Arc::new(sum_dict)));
+    }
 }
 
 impl<T> PhaseState<Sum, T>
@@ -115,6 +112,20 @@ where
             .await?
             .into_inner()
             .map_err(RequestError::from)
+    }
+
+    /// Gets the sum dict from the store.
+    async fn sum_dict(&mut self) -> Result<(), SumError> {
+        self.private.sum_dict = self
+            .shared
+            .store
+            .sum_dict()
+            .await
+            .map_err(SumError::FetchSumDict)?
+            .ok_or(SumError::NoSumDict)?
+            .into();
+
+        Ok(())
     }
 }
 
