@@ -26,10 +26,8 @@ pub trait ChunkableIterator: Iterator + Sized {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// # use std::iter::Iterator;
-    /// # use xaynet_core::message::utils::ChunkableIterator;
-    ///
+    /// ```compile_fail
+    /// # // private items can't be tested with doc tests
     /// let chunks = vec![0, 1, 2, 3, 4].into_iter().chunks(2);
     /// let mut chunks_iter = chunks.into_iter();
     ///
@@ -52,10 +50,8 @@ pub trait ChunkableIterator: Iterator + Sized {
     ///
     /// Attempting to consume chunks out of order fails:
     ///
-    /// ```ignore
-    /// # use std::iter::Iterator;
-    /// # use xaynet_core::message::utils::ChunkableIterator;
-    ///
+    /// ```compile_fail
+    /// # // private items can't be tested with doc tests
     /// let chunks = vec![0, 1, 2, 3, 4].into_iter().chunks(2);
     /// let mut chunks_iter = chunks.into_iter();
     ///
@@ -67,10 +63,8 @@ pub trait ChunkableIterator: Iterator + Sized {
     ///
     /// Similarly, not _fully_ consuming the chunks fails:
     ///
-    /// ```ignore
-    /// # use std::iter::Iterator;
-    /// # use xaynet_core::message::utils::ChunkableIterator;
-    ///
+    /// ```compile_fail
+    /// # // private items can't be tested with doc tests
     /// let chunks = vec![0, 1, 2, 3, 4].into_iter().chunks(2);
     /// let mut chunks_iter = chunks.into_iter();
     ///
@@ -227,8 +221,8 @@ where
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// # use xaynet_core::message::utils::IntoChunks;
+    /// ```compile_fail
+    /// # // private items can't be tested with doc tests
     /// let iter = vec![0, 1, 2, 3, 4, 5].into_iter();
     /// let chunk_size = 2;
     /// let chunks = IntoChunks::new(iter, chunk_size);

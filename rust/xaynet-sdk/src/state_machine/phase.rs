@@ -296,7 +296,7 @@ pub enum RoundFreshness {
 ///
 /// We cannot serialize the state directly, even though it implements `Serialize`, because deserializing it would require knowing its type in advance:
 ///
-/// ```ignore
+/// ```compile_fail
 /// // `buf` is a Vec<u8> that contains a serialized state that we want to deserialize
 /// let state: State<???> = State::deserialize(&buf[..]).unwrap();
 /// ```
