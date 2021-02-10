@@ -55,7 +55,15 @@ where
     }
 
     fn broadcast(&mut self) {
-        self.broadcast_seed_dict();
+        info!("broadcasting the global seed dictionary");
+        let seed_dict = self
+            .private
+            .seed_dict
+            .take()
+            .expect("unreachable: never fails when `broadcast()` is called after `process()`");
+        self.shared
+            .events
+            .broadcast_seed_dict(DictionaryUpdate::New(Arc::new(seed_dict)));
     }
 
     async fn next(self) -> Option<StateMachine<T>> {
@@ -101,19 +109,6 @@ impl<T> PhaseState<Update, T> {
             },
             shared,
         }
-    }
-
-    /// Takes and broadcasts the global seed dict.
-    fn broadcast_seed_dict(&mut self) {
-        info!("broadcasting the global seed dictionary");
-        let seed_dict = self
-            .private
-            .seed_dict
-            .take()
-            .expect("unreachable: never fails when `broadcast()` is called after `process()`");
-        self.shared
-            .events
-            .broadcast_seed_dict(DictionaryUpdate::New(Arc::new(seed_dict)));
     }
 }
 

@@ -48,7 +48,15 @@ where
     }
 
     fn broadcast(&mut self) {
-        self.broadcast_sum_dict();
+        info!("broadcasting sum dictionary");
+        let sum_dict = self
+            .private
+            .sum_dict
+            .take()
+            .expect("unreachable: never fails when `broadcast()` is called after `process()`");
+        self.shared
+            .events
+            .broadcast_sum_dict(DictionaryUpdate::New(Arc::new(sum_dict)));
     }
 
     async fn next(self) -> Option<StateMachine<T>> {
@@ -81,19 +89,6 @@ impl<T> PhaseState<Sum, T> {
             private: Sum { sum_dict: None },
             shared,
         }
-    }
-
-    /// Takes and broadcasts the sum dict.
-    fn broadcast_sum_dict(&mut self) {
-        info!("broadcasting sum dictionary");
-        let sum_dict = self
-            .private
-            .sum_dict
-            .take()
-            .expect("unreachable: never fails when `broadcast()` is called after `process()`");
-        self.shared
-            .events
-            .broadcast_sum_dict(DictionaryUpdate::New(Arc::new(sum_dict)));
     }
 }
 

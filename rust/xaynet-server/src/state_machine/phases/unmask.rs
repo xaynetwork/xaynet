@@ -66,7 +66,14 @@ where
     }
 
     fn broadcast(&mut self) {
-        self.broadcast_model();
+        info!("broadcasting the new global model");
+        let global_model =
+            self.private.global_model.take().expect(
+                "unreachable: never fails when `broadcast()` is called after `end_round()`",
+            );
+        self.shared
+            .events
+            .broadcast_model(ModelUpdate::New(global_model));
     }
 
     async fn next(self) -> Option<StateMachine<T>> {
@@ -120,18 +127,6 @@ impl<T> PhaseState<Unmask, T> {
         self.private.global_model = Some(Arc::new(model_agg.unmask(mask)));
 
         Ok(())
-    }
-
-    /// Takes and broadcasts the global model.
-    fn broadcast_model(&mut self) {
-        info!("broadcasting the new global model");
-        let global_model =
-            self.private.global_model.take().expect(
-                "unreachable: never fails when `broadcast()` is called after `end_round()`",
-            );
-        self.shared
-            .events
-            .broadcast_model(ModelUpdate::New(global_model));
     }
 }
 
