@@ -1,5 +1,6 @@
 //! A state machine initializer.
 
+use displaydoc::Display;
 use thiserror::Error;
 #[cfg(feature = "model-persistence")]
 use tracing::{debug, info};
@@ -22,22 +23,22 @@ use xaynet_core::mask::Model;
 
 type StateMachineInitializationResult<T> = Result<T, StateMachineInitializationError>;
 
-/// Error that can occur during the initialization of the [`StateMachine`].
-#[derive(Debug, Error)]
+/// Errors which can occur during the initialization of the [`StateMachine`].
+#[derive(Debug, Display, Error)]
 pub enum StateMachineInitializationError {
-    #[error("initializing crypto library failed")]
+    /// Initializing crypto library failed.
     CryptoInit,
-    #[error("fetching coordinator state failed: {0}")]
+    /// Fetching coordinator state failed: {0}.
     FetchCoordinatorState(StorageError),
-    #[error("deleting coordinator data failed: {0}")]
+    /// Deleting coordinator data failed: {0}.
     DeleteCoordinatorData(StorageError),
-    #[error("fetching latest global model id failed: {0}")]
+    /// Fetching latest global model id failed: {0}.
     FetchLatestGlobalModelId(StorageError),
-    #[error("fetching global model failed: {0}")]
+    /// Fetching global model failed: {0}.
     FetchGlobalModel(StorageError),
-    #[error("{0}")]
+    /// Global model is unavailable: {0}.
     GlobalModelUnavailable(String),
-    #[error("{0}")]
+    /// Global model is invalid: {0}.
     GlobalModelInvalid(String),
 }
 

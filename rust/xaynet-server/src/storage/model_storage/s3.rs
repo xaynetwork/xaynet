@@ -3,6 +3,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use displaydoc::Display;
 use http::StatusCode;
 use rusoto_core::{credential::StaticProvider, request::TlsError, HttpClient, RusotoError};
 use rusoto_s3::{
@@ -35,31 +36,31 @@ use xaynet_core::{common::RoundSeed, mask::Model};
 
 type ClientResult<T> = Result<T, ClientError>;
 
-#[derive(Debug, Error)]
+#[derive(Debug, Display, Error)]
 pub enum ClientError {
-    #[error(transparent)]
+    /// Failed to create bucket: {0}.
     CreateBucket(#[from] RusotoError<CreateBucketError>),
-    #[error(transparent)]
+    /// Failed to get object: {0}.
     GetObject(#[from] RusotoError<GetObjectError>),
-    #[error(transparent)]
+    /// Failed to put object: {0}.
     PutObject(#[from] RusotoError<PutObjectError>),
-    #[error(transparent)]
+    /// Failed to list objects: {0}.
     ListObjects(#[from] RusotoError<ListObjectsV2Error>),
-    #[error(transparent)]
+    /// Failed to delete objects: {0}.
     DeleteObjects(#[from] RusotoError<DeleteObjectsError>),
-    #[error(transparent)]
+    /// Failed to dispatch: {0}.
     Dispatcher(#[from] TlsError),
-    #[error("failed to serialize: {0}")]
+    /// Failed to serialize: {0}.
     Serialization(bincode::Error),
-    #[error("failed to deserialize: {0}")]
+    /// Failed to deserialize: {0}.
     Deserialization(bincode::Error),
-    #[error("response contains no body")]
+    /// Response contains no body.
     NoBody,
-    #[error("failed to download body: {0}")]
+    /// Failed to download body: {0}.
     DownloadBody(std::io::Error),
-    #[error("object {0} already exists")]
+    /// Object {0} already exists.
     ObjectAlreadyExists(String),
-    #[error("storage not ready: {0}")]
+    /// Storage not ready: {0}.
     NotReady(RusotoError<HeadBucketError>),
 }
 

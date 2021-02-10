@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use displaydoc::Display;
 use thiserror::Error;
 use tracing::info;
 
@@ -16,11 +17,11 @@ use crate::{
 use xaynet_core::{SumDict, SumParticipantEphemeralPublicKey, SumParticipantPublicKey};
 
 /// Errors which can occur during the sum phase.
-#[derive(Error, Debug)]
+#[derive(Debug, Display, Error)]
 pub enum SumError {
-    #[error("sum dictionary does not exists")]
+    /// Sum dictionary does not exists.
     NoSumDict,
-    #[error("fetching sum dictionary failed: {0}")]
+    /// Fetching sum dictionary failed: {0}.
     FetchSumDict(StorageError),
 }
 

@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use tracing::debug;
 
 use crate::{
     state_machine::{
@@ -20,7 +21,7 @@ where
     const NAME: PhaseName = PhaseName::Shutdown;
 
     async fn process(&mut self) -> Result<(), PhaseError> {
-        // clear the request channel
+        debug!("clearing the request channel");
         self.shared.request_rx.close();
         while self.shared.request_rx.recv().await.is_some() {}
 

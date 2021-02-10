@@ -122,12 +122,19 @@ use crate::{
 /// The state machine with all its states.
 #[derive(From)]
 pub enum StateMachine<T> {
+    /// The [`Idle`] phase.
     Idle(PhaseState<Idle, T>),
+    /// The [`Sum`] phase.
     Sum(PhaseState<Sum, T>),
+    /// The [`Update`] phase.
     Update(PhaseState<Update, T>),
+    /// The [`Sum2`] phase.
     Sum2(PhaseState<Sum2, T>),
+    /// The [`Unmask`] phase.
     Unmask(PhaseState<Unmask, T>),
+    /// The [`Failure`] phase.
     Failure(PhaseState<Failure, T>),
+    /// The [`Shutdown`] phase.
     Shutdown(PhaseState<Shutdown, T>),
 }
 

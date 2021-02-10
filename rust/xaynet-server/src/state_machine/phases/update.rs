@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use displaydoc::Display;
 use thiserror::Error;
 use tracing::{debug, info, warn};
 
@@ -21,11 +22,11 @@ use xaynet_core::{
 };
 
 /// Errors which can occur during the update phase.
-#[derive(Error, Debug)]
+#[derive(Debug, Display, Error)]
 pub enum UpdateError {
-    #[error("seed dictionary does not exists")]
+    /// Seed dictionary does not exists.
     NoSeedDict,
-    #[error("fetching seed dictionary failed: {0}")]
+    /// Fetching seed dictionary failed: {0}.
     FetchSeedDict(StorageError),
 }
 

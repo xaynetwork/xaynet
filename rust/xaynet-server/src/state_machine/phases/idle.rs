@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use displaydoc::Display;
 use sodiumoxide::crypto::hash::sha256;
 use thiserror::Error;
 use tracing::{debug, info, warn};
@@ -18,11 +19,11 @@ use xaynet_core::{
 };
 
 /// Errors which can occur during the idle phase.
-#[derive(Error, Debug)]
+#[derive(Debug, Display, Error)]
 pub enum IdleError {
-    #[error("setting the coordinator state failed: {0}")]
+    /// Setting the coordinator state failed: {0}.
     SetCoordinatorState(StorageError),
-    #[error("deleting the dictionaries failed: {0}")]
+    /// Deleting the dictionaries failed: {0}.
     DeleteDictionaries(StorageError),
 }
 

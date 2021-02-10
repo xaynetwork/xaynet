@@ -7,6 +7,7 @@ use std::{
 };
 
 use derive_more::From;
+use displaydoc::Display;
 use futures::{future::FutureExt, Stream};
 use thiserror::Error;
 use tokio::sync::{mpsc, oneshot};
@@ -24,38 +25,23 @@ use xaynet_core::{
 };
 
 /// Errors which can occur while the state machine handles a request.
-#[derive(Debug, Error)]
+#[derive(Debug, Display, Error)]
 pub enum RequestError {
-    /// the message was rejected
-    #[error("the message was rejected")]
+    /// The message was rejected.
     MessageRejected,
-
-    /// the message was discarded
-    #[error("the message was discarded")]
+    /// The message was discarded.
     MessageDiscarded,
-
-    /// the model or scalar sent by the participant could not be aggregated
-    #[error("invalid update: the model or scalar sent by the participant could not be aggregated")]
+    /// Invalid update: the model or scalar sent by the participant could not be aggregated.
     AggregationFailed,
-
-    /// the request could not be processed due to an internal error
-    #[error("the request could not be processed due to an internal error: {0}")]
+    /// The request could not be processed due to an internal error: {0}.
     InternalError(&'static str),
-
-    /// a storage request failed
-    #[error("storage request failed: {0}")]
+    /// Storage request failed: {0}.
     CoordinatorStorage(#[from] StorageError),
-
-    /// adding a local seed dict to the seed dictionary failed
-    #[error(transparent)]
+    /// Adding a local seed dict to the seed dictionary failed: {0}.
     LocalSeedDictAdd(#[from] LocalSeedDictAddError),
-
-    /// adding a sum participant to the sum dictionary failed
-    #[error(transparent)]
+    /// Adding a sum participant to the sum dictionary failed: {0}.
     SumPartAdd(#[from] SumPartAddError),
-
-    /// incrementing a mask score failed
-    #[error(transparent)]
+    /// Incrementing a mask score failed: {0}.
     MaskScoreIncr(#[from] MaskScoreIncrError),
 }
 

@@ -1,6 +1,7 @@
 use std::{cmp::Ordering, sync::Arc};
 
 use async_trait::async_trait;
+use displaydoc::Display;
 use thiserror::Error;
 #[cfg(feature = "model-persistence")]
 use tracing::warn;
@@ -19,20 +20,20 @@ use crate::{
 use xaynet_core::mask::{Aggregation, MaskObject, Model, UnmaskingError};
 
 /// Errors which can occur during the unmask phase.
-#[derive(Error, Debug)]
+#[derive(Debug, Display, Error)]
 pub enum UnmaskError {
-    #[error("ambiguous masks were computed by the sum participants")]
+    /// Ambiguous masks were computed by the sum participants.
     AmbiguousMasks,
-    #[error("no mask found")]
+    /// No mask found.
     NoMask,
-    #[error("unmasking global model failed: {0}")]
+    /// Unmasking global model failed: {0}.
     Unmasking(#[from] UnmaskingError),
-    #[error("fetching best masks failed: {0}")]
+    /// Fetching best masks failed: {0}.
     FetchBestMasks(#[from] StorageError),
     #[cfg(feature = "model-persistence")]
-    #[error("saving the global model failed: {0}")]
+    /// Saving the global model failed: {0}.
     SaveGlobalModel(crate::storage::StorageError),
-    #[error("publishing the proof of the global model failed: {0}")]
+    /// Publishing the proof of the global model failed: {0}.
     PublishProof(crate::storage::StorageError),
 }
 

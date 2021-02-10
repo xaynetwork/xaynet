@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use async_trait::async_trait;
+use displaydoc::Display;
 use thiserror::Error;
 use tokio::time::sleep;
 use tracing::{error, info};
@@ -27,19 +28,19 @@ use crate::{
 };
 
 /// Errors which can occur during the execution of the [`StateMachine`].
-#[derive(Error, Debug)]
+#[derive(Debug, Display, Error)]
 pub enum PhaseError {
-    #[error("request channel error: {0}")]
+    /// Request channel error: {0}.
     RequestChannel(&'static str),
-    #[error("phase timeout")]
+    /// Phase timeout.
     PhaseTimeout(#[from] tokio::time::error::Elapsed),
-    #[error("idle phase failed: {0}")]
+    /// Idle phase failed: {0}.
     Idle(#[from] IdleError),
-    #[error("sum phase failed: {0}")]
+    /// Sum phase failed: {0}.
     Sum(#[from] SumError),
-    #[error("update phase failed: {0}")]
+    /// Update phase failed: {0}.
     Update(#[from] UpdateError),
-    #[error("unmask phase failed: {0}")]
+    /// Unmask phase failed: {0}.
     Unmask(#[from] UnmaskError),
 }
 
@@ -64,24 +65,16 @@ where
     }
 
     fn broadcast(&mut self) {
-        info!("broadcasting invalidation of sum dictionary");
-        self.shared
-            .events
-            .broadcast_sum_dict(DictionaryUpdate::Invalidate);
-
-        info!("broadcasting invalidation of seed dictionary");
-        self.shared
-            .events
-            .broadcast_seed_dict(DictionaryUpdate::Invalidate);
+        self.broadcast_dict_invalidation();
     }
 
     async fn next(mut self) -> Option<StateMachine<T>> {
-        self.wait_for_store_readiness().await;
-
-        Some(match self.private.error {
-            PhaseError::RequestChannel(_) => PhaseState::<Shutdown, _>::new(self.shared).into(),
-            _ => PhaseState::<Idle, _>::new(self.shared).into(),
-        })
+        if let PhaseError::RequestChannel(_) = self.private.error {
+            Some(PhaseState::<Shutdown, _>::new(self.shared).into())
+        } else {
+            self.wait_for_store_readiness().await;
+            Some(PhaseState::<Idle, _>::new(self.shared).into())
+        }
     }
 }
 
@@ -92,6 +85,19 @@ impl<T> PhaseState<Failure, T> {
             private: Failure { error },
             shared,
         }
+    }
+
+    /// Broadcasts the invalidation of the dicts.
+    fn broadcast_dict_invalidation(&mut self) {
+        info!("broadcasting invalidation of sum dictionary");
+        self.shared
+            .events
+            .broadcast_sum_dict(DictionaryUpdate::Invalidate);
+
+        info!("broadcasting invalidation of seed dictionary");
+        self.shared
+            .events
+            .broadcast_seed_dict(DictionaryUpdate::Invalidate);
     }
 }
 
