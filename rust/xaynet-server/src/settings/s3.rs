@@ -358,6 +358,22 @@ mod tests {
             self
         }
 
+        fn with_trust_anchor(mut self) -> Self {
+            let restore = r#"
+            [trust_anchor.iota]
+            url = "https://nodes.devnet.iota.org:443"
+            network = "Devnet"
+            author_seed = "XAYN9IOTA9AUTHOR9SEED999"
+            author_state_pwd = "xaynet_iota_test_password"
+
+            [trust_anchor.iota.store]
+            url = "redis://127.0.0.1/"
+            "#;
+
+            self.config.push_str(restore);
+            self
+        }
+
         fn with_custom(mut self, custom_config: &str) -> Self {
             self.config.push_str(custom_config);
             self
@@ -396,6 +412,7 @@ mod tests {
             .with_metrics()
             .with_redis()
             .with_restore()
+            .with_trust_anchor()
             .with_s3()
             .build();
 
@@ -418,6 +435,7 @@ mod tests {
             .with_metrics()
             .with_redis()
             .with_restore()
+            .with_trust_anchor()
             .with_s3()
             .with_s3_buckets()
             .build();
@@ -438,6 +456,7 @@ mod tests {
             .with_metrics()
             .with_redis()
             .with_restore()
+            .with_trust_anchor()
             .with_s3()
             .with_s3_buckets()
             .build();
@@ -460,6 +479,7 @@ mod tests {
             .with_metrics()
             .with_redis()
             .with_restore()
+            .with_trust_anchor()
             .with_s3()
             .build();
 
@@ -488,6 +508,7 @@ mod tests {
             .with_metrics()
             .with_redis()
             .with_restore()
+            .with_trust_anchor()
             .with_custom(region)
             .build();
 
@@ -507,6 +528,7 @@ mod tests {
             .with_metrics()
             .with_redis()
             .with_restore()
+            .with_trust_anchor()
             .with_s3()
             .build();
 
@@ -532,6 +554,7 @@ mod tests {
             .with_metrics()
             .with_redis()
             .with_restore()
+            .with_trust_anchor()
             .with_s3()
             .build();
 
@@ -558,6 +581,7 @@ mod tests {
             .with_metrics()
             .with_redis()
             .with_s3()
+            .with_trust_anchor()
             .with_custom(no_restore)
             .build();
 
@@ -577,6 +601,7 @@ mod tests {
             .with_metrics()
             .with_redis()
             .with_restore()
+            .with_trust_anchor()
             .with_s3()
             .build();
 
