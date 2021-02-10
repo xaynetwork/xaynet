@@ -91,7 +91,7 @@
 //! is the full code:
 //!
 //! ```no_run
-//! # #[cfg(feature = "reqwest-client")]
+//! # #[cfg(all(feature = "reqwest-client", feature = "tokio/rt-muli-thread"))]
 //! # mod feature_reqwest_client {
 //! use std::{
 //!     sync::{mpsc, Arc},
@@ -182,7 +182,7 @@
 //!     }
 //! }
 //!
-//! #[tokio::main(flavor = "current_thread")]
+//! #[tokio::main]
 //! async fn main() -> Result<(), std::convert::Infallible> {
 //!     let keys = SigningKeyPair::generate();
 //!     let settings = PetSettings::new(keys);
@@ -203,7 +203,7 @@
 //!     }
 //! }
 //! # }
-//! # fn main() {}
+//! # fn main() {} // don't actually run anything, because the client never terminates
 //! ```
 
 pub mod client;
