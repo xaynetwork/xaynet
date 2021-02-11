@@ -100,131 +100,198 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
-    use serial_test::serial;
-
     use super::*;
+
+    use std::sync::Arc;
+
+    use xaynet_core::{SeedDict, SumDict};
+
     use crate::{
-        state_machine::tests::{
-            builder::StateMachineBuilder,
-            utils::{self, Participant},
+        state_machine::{
+            coordinator::CoordinatorState,
+            events::{DictionaryUpdate, EventPublisher, EventSubscriber, ModelUpdate},
+            tests::{
+                utils::{
+                    assert_event_updated,
+                    enable_logging,
+                    init_shared,
+                    send_sum2_messages,
+                    EventSnapshot,
+                },
+                CoordinatorStateBuilder,
+                EventBusBuilder,
+            },
         },
-        storage::{tests::init_store, CoordinatorStorage},
-    };
-    use xaynet_core::{
-        common::{RoundParameters, RoundSeed},
-        crypto::{ByteObject, EncryptKeyPair},
-        mask::{FromPrimitives, Model, Scalar},
-        SumDict,
+        storage::{
+            tests::{utils::create_global_model, MockCoordinatorStore, MockModelStore},
+            MaskScoreIncr,
+            MaskScoreIncrError,
+            Store,
+        },
     };
 
-    impl Sum2 {
-        pub fn aggregation(&self) -> &Aggregation {
-            &self.model_agg
-        }
+    fn events_from_update_phase(state: &CoordinatorState) -> (EventPublisher, EventSubscriber) {
+        EventBusBuilder::new(state)
+            .broadcast_phase(PhaseName::Update)
+            .broadcast_sum_dict(DictionaryUpdate::New(Arc::new(SumDict::new())))
+            .broadcast_seed_dict(DictionaryUpdate::New(Arc::new(SeedDict::new())))
+            .broadcast_model(ModelUpdate::New(Arc::new(create_global_model(10))))
+            .build()
+    }
+
+    fn assert_after_phase_success(
+        state_before: &CoordinatorState,
+        events_before: &EventSnapshot,
+        state_after: &CoordinatorState,
+        events_after: &EventSnapshot,
+    ) {
+        assert_eq!(state_after, state_before);
+
+        assert_event_updated(&events_after.phase, &events_before.phase);
+        assert_event_updated(&events_after.sum_dict, &events_before.sum_dict);
+        assert_event_updated(&events_after.seed_dict, &events_before.seed_dict);
+        assert_eq!(events_after.sum_dict.event, DictionaryUpdate::Invalidate);
+        assert_eq!(events_after.seed_dict.event, DictionaryUpdate::Invalidate);
+        assert_eq!(events_after.keys, events_before.keys);
+        assert_eq!(events_after.params, events_before.params);
+        assert_eq!(events_after.phase.event, PhaseName::Sum2);
+        assert_eq!(events_after.model, events_before.model);
+    }
+
+    fn assert_after_phase_failure(
+        state_before: &CoordinatorState,
+        events_before: &EventSnapshot,
+        state_after: &CoordinatorState,
+        events_after: &EventSnapshot,
+    ) {
+        assert_eq!(state_after, state_before);
+
+        assert_event_updated(&events_after.phase, &events_before.phase);
+        assert_eq!(events_after.keys, events_before.keys);
+        assert_eq!(events_after.params, events_before.params);
+        assert_eq!(events_after.phase.event, PhaseName::Sum2);
+        assert_eq!(events_after.sum_dict, events_before.sum_dict);
+        assert_eq!(events_after.seed_dict, events_before.seed_dict);
+        assert_eq!(events_after.model, events_before.model);
     }
 
     #[tokio::test]
-    #[serial]
-    pub async fn integration_sum2_to_unmask() {
-        utils::enable_logging();
-        let model_length = 4;
-        let round_params = RoundParameters {
-            pk: EncryptKeyPair::generate().public,
-            sum: 0.5,
-            update: 1.0,
-            seed: RoundSeed::generate(),
-            mask_config: utils::mask_config(),
-            model_length,
-        };
+    async fn test_sum2_to_unmask_phase() {
+        // No Storage errors
+        // lets pretend we come from the update phase
+        //
+        // What should happen:
+        // 1. broadcast Sum2 phase
+        // 2. accept 10 sum2 messages
+        // 3. broadcast invalidation of sum and seed dict
+        // 4. move into unmask phase
+        //
+        // What should not happen:
+        // - the shared state has been changed
+        // - events have been broadcasted (except phase event and invalidation
+        //   event of sum and seed dict)
+        enable_logging();
 
-        let n_updaters = 1;
-        let n_summers = 1;
+        let mut cs = MockCoordinatorStore::new();
+        cs.expect_incr_mask_score()
+            .times(10)
+            .returning(move |_, _| Ok(MaskScoreIncr(Ok(()))));
 
-        // Generate a sum dictionary with a single sum participant
-        let summer = utils::generate_summer(round_params.clone());
-        let mut sum_dict = SumDict::new();
-        sum_dict.insert(summer.keys.public, summer.ephm_keys.public);
-
-        // Generate a new masked model, seed dictionary and aggregation
-        let updater = utils::generate_updater(round_params.clone());
-        let expected_upd = (round_params.update * n_updaters as f64) as u64;
-        let scalar = Scalar::new(1, expected_upd);
-        let model = Model::from_primitives(vec![0; model_length].into_iter()).unwrap();
-        let (mask_seed, masked_model) = updater.compute_masked_model(&model, scalar);
-        let local_seed_dict = Participant::build_seed_dict(&sum_dict, &mask_seed);
-
-        // Build the update seed dict that we'll give to the sum
-        // participant, so that they can compute a global mask.
-        let mut update_seed_dict = HashMap::new();
-        let encrypted_seed = local_seed_dict.get(&summer.keys.public).unwrap();
-        update_seed_dict.insert(updater.keys.public, encrypted_seed.clone());
-
-        // Create the state machine in the Sum2 phase
-        let mut agg = Aggregation::new(summer.mask_settings, model_length);
-        agg.aggregate(masked_model);
-
-        let mut store = init_store().await;
-        let (state_machine, request_tx, events) = StateMachineBuilder::new(store.clone())
-            .with_seed(round_params.seed.clone())
-            .with_phase(Sum2 { model_agg: agg })
-            .with_sum_probability(round_params.sum)
-            .with_update_probability(round_params.update)
-            .with_sum_count_min(n_summers)
-            .with_sum_count_max(n_summers + 10)
-            .with_update_count_min(n_updaters)
-            .with_update_count_max(n_updaters + 10)
-            .with_sum2_count_min(n_summers)
-            .with_sum2_count_max(n_summers + 10)
+        let store = Store::new(cs, MockModelStore::new());
+        let state = CoordinatorStateBuilder::new()
+            .with_round_id(1)
+            .with_sum2_count_min(10)
+            .with_sum2_count_max(10)
             .with_sum2_time_min(1)
-            .with_sum2_time_max(2)
-            .with_mask_config(utils::mask_settings().into())
             .build();
+
+        let (event_publisher, event_subscriber) = events_from_update_phase(&state);
+        let events_before_sum2 = EventSnapshot::from(&event_subscriber);
+        let state_before_sum2 = state.clone();
+
+        let (shared, request_tx) = init_shared(state, store, event_publisher);
+        let agg = Aggregation::new(
+            state_before_sum2.round_params.mask_config,
+            state_before_sum2.round_params.model_length,
+        );
+        let state_machine = StateMachine::from(PhaseState::<Sum2, _>::new(shared, agg));
         assert!(state_machine.is_sum2());
 
-        // Write the sum participant into the store so that the method store.incr_mask_score does
-        // not fail
-        store
-            .add_sum_participant(&summer.keys.public, &summer.ephm_keys.public)
-            .await
-            .unwrap();
+        send_sum2_messages(10, request_tx.clone());
 
-        // aggregate the masks (there's only one), compose a sum2
-        // message and have the state machine process it
-        let seeds = summer.decrypt_seeds(&update_seed_dict);
-        let aggregation = summer.aggregate_masks(model_length, &seeds);
-        let msg = summer.compose_sum2_message(aggregation.clone().into());
+        let state_machine = state_machine.next().await.unwrap();
 
-        let req = async { request_tx.msg(&msg).await.unwrap() };
-        let transition = async { state_machine.next().await.unwrap() };
-        let ((), state_machine) = tokio::join!(req, transition);
+        let state_after_sum2 = state_machine.shared_state_as_ref().clone();
+        let events_after_sum2 = EventSnapshot::from(&event_subscriber);
+        assert_after_phase_success(
+            &state_before_sum2,
+            &events_before_sum2,
+            &state_after_sum2,
+            &events_after_sum2,
+        );
+
         assert!(state_machine.is_unmask());
+    }
 
-        // Extract state of the state machine
-        let PhaseState {
-            private: unmask_state,
-            ..
-        } = state_machine.into_unmask_phase_state();
+    #[tokio::test]
+    async fn test_rejected_messages_pet_error() {
+        // No Storage errors
+        //
+        // What should happen:
+        // 1. broadcast Sum2 phase
+        // 2. reject 3 sum2 messages (pet error MaskScoreIncrError::UnknownSumPk)
+        // 3. phase should timeout
+        // 4. move into error phase
+        //
+        // What should not happen:
+        // - the shared state has been changed
+        // - the global model has been invalidated
+        // - the sum dict has been invalidated
+        // - the seed dict has been invalidated
+        enable_logging();
 
-        // Check the initial state of the unmask phase.
-        let mut best_masks = store.best_masks().await.unwrap().unwrap();
-        assert_eq!(best_masks.len(), 1);
-        let (mask, count) = best_masks.pop().unwrap();
-        assert_eq!(count, 1);
+        let mut cs = MockCoordinatorStore::new();
+        cs.expect_incr_mask_score()
+            .times(3)
+            .returning(move |_, _| Ok(MaskScoreIncr(Err(MaskScoreIncrError::UnknownSumPk))));
+        let store = Store::new(cs, MockModelStore::new());
+        let state = CoordinatorStateBuilder::new()
+            .with_round_id(1)
+            .with_sum2_count_min(3)
+            .with_sum2_count_max(3)
+            .with_sum2_time_min(0)
+            .with_sum2_time_max(2)
+            .build();
 
-        let unmasked_model = unmask_state.aggregation().unwrap().clone().unmask(mask);
-        assert_eq!(unmasked_model, model);
+        let (event_publisher, event_subscriber) = events_from_update_phase(&state);
+        let events_before_sum2 = EventSnapshot::from(&event_subscriber);
+        let state_before_sum2 = state.clone();
 
-        // Check all the events that should be emitted during the sum2 phase
-        assert_eq!(events.phase_listener().get_latest().event, PhaseName::Sum2);
-        assert_eq!(
-            events.sum_dict_listener().get_latest().event,
-            DictionaryUpdate::Invalidate,
+        let (shared, request_tx) = init_shared(state, store, event_publisher);
+        let agg = Aggregation::new(
+            state_before_sum2.round_params.mask_config,
+            state_before_sum2.round_params.model_length,
         );
-        assert_eq!(
-            events.seed_dict_listener().get_latest().event,
-            DictionaryUpdate::Invalidate,
+        let state_machine = StateMachine::from(PhaseState::<Sum2, _>::new(shared, agg));
+        assert!(state_machine.is_sum2());
+
+        send_sum2_messages(3, request_tx.clone());
+
+        let state_machine = state_machine.next().await.unwrap();
+
+        let state_after_sum2 = state_machine.shared_state_as_ref().clone();
+        let events_after_sum2 = EventSnapshot::from(&event_subscriber);
+        assert_after_phase_failure(
+            &state_before_sum2,
+            &events_before_sum2,
+            &state_after_sum2,
+            &events_after_sum2,
         );
+
+        assert!(state_machine.is_failure());
+        assert!(matches!(
+            state_machine.into_failure_phase_state().private.error,
+            PhaseError::PhaseTimeout(_)
+        ))
     }
 }

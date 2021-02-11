@@ -229,36 +229,3 @@ impl<S, T> PhaseState<S, T> {
         PhaseState::<Failure, _>::new(self.shared, err).into()
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use serial_test::serial;
-
-    use super::*;
-    use crate::{state_machine::tests::utils, storage::tests::init_store};
-
-    #[tokio::test]
-    #[serial]
-    async fn integration_update_round_id() {
-        let store = init_store().await;
-        let coordinator_state = utils::coordinator_state();
-        let (mut shared, _, event_subscriber) = utils::init_shared(coordinator_state, store);
-
-        let phases = event_subscriber.phase_listener();
-        // When starting the round ID should be 0
-        let id = phases.get_latest().round_id;
-        assert_eq!(id, 0);
-
-        shared.set_round_id(1);
-        assert_eq!(shared.state.round_id, 1);
-
-        // Old events should still have the same round ID
-        let id = phases.get_latest().round_id;
-        assert_eq!(id, 0);
-
-        // But new events should have the new round ID
-        shared.events.broadcast_phase(PhaseName::Sum);
-        let id = phases.get_latest().round_id;
-        assert_eq!(id, 1);
-    }
-}

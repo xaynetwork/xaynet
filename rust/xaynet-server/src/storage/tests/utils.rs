@@ -113,10 +113,8 @@ pub async fn add_local_seed_entries(
     update_result
 }
 
-#[cfg(feature = "model-persistence")]
 use xaynet_core::mask::{FromPrimitives, Model};
 
-#[cfg(feature = "model-persistence")]
 pub fn create_global_model(nb_elements: usize) -> Model {
     Model::from_primitives(vec![0; nb_elements].into_iter()).unwrap()
 }

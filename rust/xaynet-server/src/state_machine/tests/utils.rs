@@ -1,6 +1,19 @@
 //! State machine misc test utilities.
 
+use std::fmt::Debug;
+
+use tokio::sync::mpsc;
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
+use xaynet_core::{
+    common::RoundParameters,
+    crypto::{ByteObject, EncryptKeyPair, PublicEncryptKey, PublicSigningKey},
+    mask::{BoundType, DataType, GroupType, MaskObject, ModelType},
+    message::{Message, Sum, Sum2, Update},
+    LocalSeedDict,
+    ParticipantTaskSignature,
+    SeedDict,
+    SumDict,
+};
 
 use crate::{
     settings::{
@@ -15,33 +28,11 @@ use crate::{
     },
     state_machine::{
         coordinator::CoordinatorState,
-        events::{EventPublisher, EventSubscriber, ModelUpdate},
+        events::{DictionaryUpdate, Event, EventPublisher, EventSubscriber, ModelUpdate},
         phases::{PhaseName, Shared},
         requests::{RequestReceiver, RequestSender},
     },
-};
-use xaynet_core::{
-    common::RoundParameters,
-    crypto::{ByteObject, EncryptKeyPair, Signature, SigningKeyPair},
-    mask::{
-        Aggregation,
-        BoundType,
-        DataType,
-        GroupType,
-        MaskConfig,
-        MaskConfigPair,
-        MaskObject,
-        MaskSeed,
-        Masker,
-        Model,
-        ModelType,
-        Scalar,
-    },
-    message::{Message, Payload, Sum, Sum2, Update},
-    LocalSeedDict,
-    SumDict,
-    SumParticipantEphemeralPublicKey,
-    UpdateSeedDict,
+    storage::tests::utils::create_mask,
 };
 
 pub fn enable_logging() {
@@ -49,148 +40,6 @@ pub fn enable_logging() {
         .with_env_filter(EnvFilter::from_default_env())
         .with_ansi(true)
         .try_init();
-}
-
-pub struct Participant {
-    pub keys: SigningKeyPair,
-    pub round_params: RoundParameters,
-    pub mask_settings: MaskConfigPair,
-    // sum participants have an ephemeral key pair for the round they
-    // are taking part in
-    pub ephm_keys: EncryptKeyPair,
-}
-
-impl Participant {
-    pub fn new(round_params: RoundParameters, mask_settings: MaskSettings) -> Self {
-        let mask_config: MaskConfig = mask_settings.into();
-        Participant {
-            round_params,
-            mask_settings: mask_config.into(),
-            keys: SigningKeyPair::generate(),
-            ephm_keys: EncryptKeyPair::generate(),
-        }
-    }
-
-    pub fn sign(&self, data: &[u8]) -> Signature {
-        let sk = &self.keys.secret;
-        let seed = self.round_params.seed.as_slice();
-        sk.sign_detached(&[seed, data].concat())
-    }
-
-    pub fn sum_signature(&self) -> Signature {
-        self.sign(b"sum")
-    }
-
-    pub fn update_signature(&self) -> Signature {
-        self.sign(b"update")
-    }
-
-    pub fn is_sum_eligible(&self) -> bool {
-        let signature = self.sum_signature();
-        signature.is_eligible(self.round_params.sum)
-    }
-
-    pub fn is_update_eligible(&self) -> bool {
-        if self.is_sum_eligible() {
-            return false;
-        }
-        let signature = self.update_signature();
-        signature.is_eligible(self.round_params.update)
-    }
-
-    // Sum methods
-    pub fn compose_sum_message(&self) -> Message {
-        let payload = Sum {
-            sum_signature: self.sum_signature(),
-            ephm_pk: self.ephm_keys.public,
-        };
-        Message::new_sum(self.keys.public, self.round_params.pk, payload)
-    }
-
-    // Update methods
-    pub fn compute_masked_model(&self, model: &Model, scalar: Scalar) -> (MaskSeed, MaskObject) {
-        let masker = Masker::new(self.mask_settings);
-        masker.mask(scalar, model)
-    }
-
-    pub fn build_seed_dict(sum_dict: &SumDict, mask_seed: &MaskSeed) -> LocalSeedDict {
-        sum_dict
-            .iter()
-            .map(|(pk, ephm_pk)| (*pk, mask_seed.encrypt(&ephm_pk)))
-            .collect()
-    }
-
-    pub fn compose_update_message(
-        &self,
-        masked_model: MaskObject,
-        local_seed_dict: LocalSeedDict,
-    ) -> Message {
-        let payload = Update {
-            sum_signature: self.sum_signature(),
-            update_signature: self.update_signature(),
-            masked_model,
-            local_seed_dict,
-        };
-        Message::new_update(self.keys.public, self.round_params.pk, payload)
-    }
-
-    // Sum2 methods
-    pub fn decrypt_seeds(&self, seed_dict: &UpdateSeedDict) -> Vec<MaskSeed> {
-        let (pk, sk) = (self.ephm_keys.public, self.ephm_keys.secret.clone());
-        seed_dict
-            .iter()
-            .map(|(_, seed)| seed.decrypt(&pk, &sk).unwrap())
-            .collect()
-    }
-
-    pub fn aggregate_masks(&self, mask_length: usize, seeds: &[MaskSeed]) -> Aggregation {
-        let mut aggregation = Aggregation::new(self.mask_settings, mask_length);
-        for seed in seeds {
-            let mask = seed.derive_mask(mask_length, self.mask_settings);
-            aggregation.validate_aggregation(&mask).unwrap();
-            aggregation.aggregate(mask);
-        }
-        aggregation
-    }
-
-    pub fn compose_sum2_message(&self, model_mask: MaskObject) -> Message {
-        let payload = Sum2 {
-            sum_signature: self.sum_signature(),
-            model_mask,
-        };
-        Message::new_sum2(self.keys.public, self.round_params.pk, payload)
-    }
-}
-
-pub fn generate_summer(round_params: RoundParameters) -> Participant {
-    loop {
-        let participant = Participant::new(round_params.clone(), mask_settings());
-        if participant.is_sum_eligible() {
-            return participant;
-        }
-    }
-}
-
-pub fn generate_updater(round_params: RoundParameters) -> Participant {
-    loop {
-        let participant = Participant::new(round_params.clone(), mask_settings());
-        if participant.is_update_eligible() {
-            return participant;
-        }
-    }
-}
-
-pub fn mask_settings() -> MaskSettings {
-    MaskSettings {
-        group_type: GroupType::Prime,
-        data_type: DataType::F32,
-        bound_type: BoundType::B0,
-        model_type: ModelType::M3,
-    }
-}
-
-pub fn mask_config() -> MaskConfigPair {
-    Into::<MaskConfig>::into(mask_settings()).into()
 }
 
 pub fn pet_settings() -> PetSettings {
@@ -212,6 +61,15 @@ pub fn pet_settings() -> PetSettings {
     }
 }
 
+pub fn mask_settings() -> MaskSettings {
+    MaskSettings {
+        group_type: GroupType::Prime,
+        data_type: DataType::F32,
+        bound_type: BoundType::B0,
+        model_type: ModelType::M3,
+    }
+}
+
 pub fn model_settings() -> ModelSettings {
     ModelSettings { length: 1 }
 }
@@ -219,36 +77,213 @@ pub fn model_settings() -> ModelSettings {
 pub fn init_shared<T>(
     coordinator_state: CoordinatorState,
     store: T,
-) -> (Shared<T>, RequestSender, EventSubscriber) {
-    let (event_publisher, event_subscriber) = EventPublisher::init(
-        coordinator_state.round_id,
-        coordinator_state.keys.clone(),
-        coordinator_state.round_params.clone(),
-        PhaseName::Idle,
-        ModelUpdate::Invalidate,
-    );
-
+    event_publisher: EventPublisher,
+) -> (Shared<T>, RequestSender) {
     let (request_rx, request_tx) = RequestReceiver::new();
     (
         Shared::new(coordinator_state, event_publisher, request_rx, store),
         request_tx,
-        event_subscriber,
     )
 }
 
-pub fn coordinator_state() -> CoordinatorState {
-    CoordinatorState::new(pet_settings(), mask_settings(), model_settings())
+#[derive(Debug, Clone, PartialEq)]
+pub struct EventSnapshot {
+    pub keys: Event<EncryptKeyPair>,
+    pub params: Event<RoundParameters>,
+    pub phase: Event<PhaseName>,
+    pub model: Event<ModelUpdate>,
+    pub sum_dict: Event<DictionaryUpdate<SumDict>>,
+    pub seed_dict: Event<DictionaryUpdate<SeedDict>>,
 }
 
-/// Extract the ephemeral public key from a sum message.
-///
-/// # Panic
-///
-/// Panic if this message is not a sum message
-pub fn ephm_pk(msg: &Message) -> SumParticipantEphemeralPublicKey {
-    if let Payload::Sum(Sum { ephm_pk, .. }) = &msg.payload {
-        *ephm_pk
-    } else {
-        panic!("not a sum message");
+impl From<&EventSubscriber> for EventSnapshot {
+    fn from(event_subscriber: &EventSubscriber) -> Self {
+        Self {
+            keys: event_subscriber.keys_listener().get_latest(),
+            params: event_subscriber.params_listener().get_latest(),
+            phase: event_subscriber.phase_listener().get_latest(),
+            model: event_subscriber.model_listener().get_latest(),
+            sum_dict: event_subscriber.sum_dict_listener().get_latest(),
+            seed_dict: event_subscriber.seed_dict_listener().get_latest(),
+        }
     }
+}
+
+pub fn assert_event_updated_with_id<T: Debug + PartialEq>(event1: &Event<T>, event2: &Event<T>) {
+    assert_ne!(event1.round_id, event2.round_id);
+    assert_ne!(event1.event, event2.event);
+}
+
+pub fn assert_event_updated<T: Debug + PartialEq>(event1: &Event<T>, event2: &Event<T>) {
+    assert_eq!(event1.round_id, event2.round_id);
+    assert_ne!(event1.event, event2.event);
+}
+
+pub fn compose_sum_message() -> Message {
+    let payload = Sum {
+        sum_signature: ParticipantTaskSignature::zeroed(),
+        ephm_pk: PublicEncryptKey::zeroed(),
+    };
+    Message::new_sum(
+        PublicSigningKey::zeroed(),
+        PublicEncryptKey::zeroed(),
+        payload,
+    )
+}
+
+pub fn compose_update_message(masked_model: MaskObject) -> Message {
+    let payload = Update {
+        sum_signature: ParticipantTaskSignature::zeroed(),
+        update_signature: ParticipantTaskSignature::zeroed(),
+        masked_model,
+        local_seed_dict: LocalSeedDict::new(),
+    };
+    Message::new_update(
+        PublicSigningKey::zeroed(),
+        PublicEncryptKey::zeroed(),
+        payload,
+    )
+}
+
+pub fn compose_sum2_message() -> Message {
+    let payload = Sum2 {
+        sum_signature: ParticipantTaskSignature::zeroed(),
+        model_mask: create_mask(1, 1),
+    };
+    Message::new_sum2(
+        PublicSigningKey::zeroed(),
+        PublicEncryptKey::zeroed(),
+        payload,
+    )
+}
+
+pub fn send_sum_messages(n: u32, request_tx: RequestSender) {
+    for _ in 0..n {
+        let request = request_tx.clone();
+        tokio::spawn(async move { request.msg(&compose_sum_message()).await });
+    }
+}
+
+#[allow(dead_code)]
+pub fn send_sum_messages_with_latch(n: u32, request_tx: RequestSender, latch: Latch) {
+    for _ in 0..n {
+        let request = request_tx.clone();
+        let l = latch.clone();
+        tokio::spawn(async move {
+            let _ = request.msg(&compose_sum_message()).await;
+            l.release();
+        });
+    }
+}
+
+pub fn send_sum2_messages(n: u32, request_tx: RequestSender) {
+    for _ in 0..n {
+        let request = request_tx.clone();
+        tokio::spawn(async move { request.msg(&compose_sum2_message()).await });
+    }
+}
+
+pub fn send_update_messages(n: u32, request_tx: RequestSender) {
+    let default_model = create_mask(1, 1);
+    for _ in 0..n {
+        let request = request_tx.clone();
+        let masked_model = default_model.clone();
+        tokio::spawn(async move { request.msg(&compose_update_message(masked_model)).await });
+    }
+}
+
+pub fn send_update_messages_with_model(
+    n: u32,
+    request_tx: RequestSender,
+    masked_model: MaskObject,
+) {
+    for _ in 0..n {
+        let request = request_tx.clone();
+        let moved_masked_model = masked_model.clone();
+        tokio::spawn(async move {
+            request
+                .msg(&compose_update_message(moved_masked_model))
+                .await
+        });
+    }
+}
+
+#[allow(dead_code)]
+pub struct Readiness(mpsc::Receiver<()>);
+
+#[allow(dead_code)]
+#[derive(Clone)]
+pub struct Latch(mpsc::Sender<()>);
+
+#[allow(dead_code)]
+impl Readiness {
+    pub fn new() -> (Readiness, Latch) {
+        let (sender, receiver) = mpsc::channel(1);
+        (Readiness(receiver), Latch(sender))
+    }
+
+    pub async fn is_ready(&mut self) {
+        let _ = self.0.recv().await;
+    }
+}
+
+impl Latch {
+    /// Releases this readiness latch.
+    pub fn release(self) {
+        drop(self);
+    }
+}
+
+#[test]
+fn test_initial_settings() {
+    let waring = "All state machine tests were written assuming these settings.
+    First, carefully check the correctness of the state machine test before finally
+    changing these values";
+
+    let pet = PetSettings {
+        sum: PetSettingsSum {
+            prob: 0.4,
+            count: PetSettingsCount { min: 1, max: 100 },
+            time: PetSettingsTime { min: 1, max: 2 },
+        },
+        update: PetSettingsUpdate {
+            prob: 0.5,
+            count: PetSettingsCount { min: 3, max: 1000 },
+            time: PetSettingsTime { min: 1, max: 2 },
+        },
+        sum2: PetSettingsSum2 {
+            count: PetSettingsCount { min: 1, max: 100 },
+            time: PetSettingsTime { min: 1, max: 2 },
+        },
+    };
+
+    assert_eq!(
+        pet,
+        pet_settings(),
+        "the initial PetSettings have been changed. {}",
+        waring
+    );
+
+    let mask = MaskSettings {
+        group_type: GroupType::Prime,
+        data_type: DataType::F32,
+        bound_type: BoundType::B0,
+        model_type: ModelType::M3,
+    };
+
+    assert_eq!(
+        mask,
+        mask_settings(),
+        "the initial MaskSettings have been changed. {}",
+        waring
+    );
+
+    let model = ModelSettings { length: 1 };
+
+    assert_eq!(
+        model,
+        model_settings(),
+        "the initial ModelSettings have been changed. {}",
+        waring
+    );
 }
