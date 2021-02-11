@@ -19,7 +19,7 @@ use crate::{
     },
 };
 
-pub struct DataCombiner {}
+pub struct DataCombiner;
 
 impl<'screen> DataCombiner {
     pub fn init_data_points(
@@ -73,7 +73,7 @@ impl<'screen> DataCombiner {
         let mut screen_active_time_vars: Vec<DataPoint> = screen_routes
             .iter()
             .map(|route| {
-                let events_this_route = Self::get_events_single_route(&route, events);
+                let events_this_route = Self::get_events_single_route(route, events);
                 CalcScreenActiveTime::new(
                     metadata,
                     Self::filter_events_in_this_period(metadata, events_this_route.as_slice()),
@@ -252,7 +252,7 @@ mod tests {
             end_period - Duration::hours(12),
             Some(&screen_route),
         );
-        let all_events = [
+        let all_events = vec![
             first_event.clone(),
             AnalyticsEvent::new(
                 "test1",
@@ -263,10 +263,7 @@ mod tests {
         ];
         let expected_output = vec![
             DataPoint::ScreenActiveTime(CalcScreenActiveTime::new(metadata, vec![first_event])),
-            DataPoint::ScreenActiveTime(CalcScreenActiveTime::new(
-                metadata,
-                all_events.clone().into(),
-            )),
+            DataPoint::ScreenActiveTime(CalcScreenActiveTime::new(metadata, all_events.clone())),
         ];
         let actual_output = DataCombiner::init_screen_active_time_vars(
             metadata,
@@ -283,7 +280,7 @@ mod tests {
             .with_timezone(&Utc);
         let metadata = DataPointMetadata::new(Period::new(PeriodUnit::Days, 1), end_period);
         let screen_route = ScreenRoute::new("home_screen", end_period + Duration::days(1));
-        let events = [AnalyticsEvent::new(
+        let events = vec![AnalyticsEvent::new(
             "test1",
             AnalyticsEventType::ScreenEnter,
             end_period - Duration::hours(12),
@@ -291,7 +288,7 @@ mod tests {
         )];
         let expected_output = vec![DataPoint::ScreenEnterCount(CalcScreenEnterCount::new(
             metadata,
-            events.clone().into(),
+            events.clone(),
         ))];
         let actual_output =
             DataCombiner::init_screen_enter_count_vars(metadata, &events, &[screen_route.clone()]);

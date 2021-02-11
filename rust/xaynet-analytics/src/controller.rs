@@ -38,7 +38,7 @@ impl<'ctrl> AnalyticsController<'ctrl> {
         path: String,
         is_charging: bool,
         is_connected_to_wifi: bool,
-    ) -> Result<AnalyticsController<'ctrl>, Error> {
+    ) -> Result<Self, Error> {
         let analytics_event_repo = AnalyticsEventRepo::new(Self::ANALYTICS_EVENT_COLLECTION_NAME);
         let controller_data_repo = ControllerDataRepo::new(Self::CONTROLLER_DATA_COLLECTION_NAME);
         let screen_route_repo = ScreenRouteRepo::new(Self::SCREEN_ROUTE_COLLECTION_NAME);
@@ -49,8 +49,8 @@ impl<'ctrl> AnalyticsController<'ctrl> {
         ];
         let db = IsarDb::new(&path, schemas)?;
         let last_time_data_sent = Self::get_last_time_data_sent(&controller_data_repo, &db)?;
-        let combiner = DataCombiner {};
-        let sender = Sender {};
+        let combiner = DataCombiner;
+        let sender = Sender;
         Ok(AnalyticsController {
             db,
             is_charging,
@@ -76,11 +76,11 @@ impl<'ctrl> AnalyticsController<'ctrl> {
     }
 
     pub fn change_connectivity_status(&mut self) {
-        self.is_connected_to_wifi = !self.is_connected_to_wifi
+        self.is_connected_to_wifi = !self.is_connected_to_wifi;
     }
 
     pub fn change_state_of_charge(&mut self) {
-        self.is_charging = !self.is_charging
+        self.is_charging = !self.is_charging;
     }
 
     pub fn maybe_send_data(&mut self) -> Result<(), Error> {

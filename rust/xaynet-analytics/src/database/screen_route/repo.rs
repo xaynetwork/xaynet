@@ -33,7 +33,7 @@ impl<'db> Repo<ScreenRoute> for ScreenRouteRepo<'db> {
         let _routes_as_bytes = db.get_all_as_bytes(&self.collection_name)?;
 
         // TODO: not sure how to proceed to parse [u8] using the collection schema. didn't find examples in Isar
-        unimplemented!()
+        todo!()
     }
 }
 

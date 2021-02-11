@@ -42,7 +42,7 @@ impl IsarDb {
             });
 
         // TODO: not sure how to proceed to parse [u8] using the collection schema. didn't find examples in Isar
-        unimplemented!()
+        todo!()
     }
 
     pub fn put(
@@ -83,7 +83,7 @@ impl IsarDb {
 
     pub fn dispose(self) -> Result<(), Error> {
         match self.instance.close() {
-            Some(_) => Err(anyhow!("err")),
+            Some(_) => Err(anyhow!("could not close the IsarInstance")),
             None => Ok(()),
         }
     }

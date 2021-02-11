@@ -62,8 +62,8 @@ pub struct FieldProperty {
 }
 
 impl FieldProperty {
-    pub fn new(name: String, data_type: DataType) -> FieldProperty {
-        FieldProperty {
+    pub fn new(name: String, data_type: DataType) -> Self {
+        Self {
             name,
             data_type,
             string_index_type: StringIndexType::Hash,

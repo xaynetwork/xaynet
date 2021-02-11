@@ -33,7 +33,7 @@ impl<'screen, 'db> Repo<AnalyticsEvent<'screen>> for AnalyticsEventRepo<'db> {
 
         // TODO: not sure how to proceed to parse [u8] using the collection schema. didn't find examples in Isar
         // implement when possible: https://xainag.atlassian.net/browse/XN-1604
-        unimplemented!()
+        todo!()
     }
 }
 

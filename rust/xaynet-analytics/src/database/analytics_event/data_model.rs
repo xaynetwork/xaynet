@@ -29,8 +29,8 @@ impl<'screen> AnalyticsEvent<'screen> {
         event_type: AnalyticsEventType,
         timestamp: DateTime<Utc>,
         screen_route: Option<&'screen ScreenRoute>,
-    ) -> AnalyticsEvent {
-        AnalyticsEvent {
+    ) -> Self {
+        Self {
             name: name.into(),
             event_type,
             timestamp,
@@ -61,7 +61,7 @@ impl<'screen> IsarAdapter for AnalyticsEvent<'screen> {
 
     fn read(_bytes: &[u8]) -> AnalyticsEvent<'screen> {
         // TODO: implement when Isar will support it: https://xainag.atlassian.net/browse/XN-1604
-        unimplemented!()
+        todo!()
     }
 }
 

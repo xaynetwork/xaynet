@@ -8,8 +8,8 @@ use crate::{
 };
 
 impl<'a> CalcWasActivePastNDays<'a> {
-    pub fn new(metadata: DataPointMetadata, events: Vec<AnalyticsEvent>) -> CalcWasActivePastNDays {
-        CalcWasActivePastNDays { metadata, events }
+    pub fn new(metadata: DataPointMetadata, events: Vec<AnalyticsEvent<'a>>) -> Self {
+        Self { metadata, events }
     }
 }
 

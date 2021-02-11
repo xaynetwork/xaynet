@@ -10,8 +10,8 @@ pub struct ControllerData {
 }
 
 impl ControllerData {
-    pub fn new(time_data_sent: DateTime<Utc>) -> ControllerData {
-        ControllerData { time_data_sent }
+    pub fn new(time_data_sent: DateTime<Utc>) -> Self {
+        Self { time_data_sent }
     }
 }
 
@@ -30,7 +30,7 @@ impl IsarAdapter for ControllerData {
 
     fn read(_bytes: &[u8]) -> ControllerData {
         // TODO: implement when Isar will support it: https://xainag.atlassian.net/browse/XN-1604
-        unimplemented!()
+        todo!()
     }
 }
 

@@ -11,8 +11,8 @@ pub struct ScreenRoute {
 }
 
 impl ScreenRoute {
-    pub fn new<N: Into<String>>(name: N, created_at: DateTime<Utc>) -> ScreenRoute {
-        ScreenRoute {
+    pub fn new<N: Into<String>>(name: N, created_at: DateTime<Utc>) -> Self {
+        Self {
             name: name.into(),
             created_at,
         }
@@ -35,7 +35,7 @@ impl IsarAdapter for ScreenRoute {
 
     fn read(_bytes: &[u8]) -> ScreenRoute {
         // TODO: implement when Isar will support it: https://xainag.atlassian.net/browse/XN-1604
-        unimplemented!()
+        todo!()
     }
 }
 

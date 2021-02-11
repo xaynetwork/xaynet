@@ -10,8 +10,8 @@ use crate::{
 };
 
 impl<'a> CalcScreenActiveTime<'a> {
-    pub fn new(metadata: DataPointMetadata, events: Vec<AnalyticsEvent>) -> CalcScreenActiveTime {
-        CalcScreenActiveTime { metadata, events }
+    pub fn new(metadata: DataPointMetadata, events: Vec<AnalyticsEvent<'a>>) -> Self {
+        Self { metadata, events }
     }
 
     // TODO: return an iterator instead of Vec: https://xainag.atlassian.net/browse/XN-1517

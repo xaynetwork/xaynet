@@ -13,10 +13,10 @@ use crate::{
 impl<'a> CalcWasActiveEachPastPeriod<'a> {
     pub fn new(
         metadata: DataPointMetadata,
-        events: Vec<AnalyticsEvent>,
+        events: Vec<AnalyticsEvent<'a>>,
         period_thresholds: Vec<DateTime<Utc>>,
-    ) -> CalcWasActiveEachPastPeriod {
-        CalcWasActiveEachPastPeriod {
+    ) -> Self {
+        Self {
             metadata,
             events,
             period_thresholds,
