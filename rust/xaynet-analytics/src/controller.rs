@@ -128,18 +128,17 @@ impl<'ctrl> AnalyticsController<'ctrl> {
         self.is_charging && self.is_connected_to_wifi
     }
 
+    // TODO: review and debug this method during https://xainag.atlassian.net/browse/XN-1560
     fn did_send_already_in_this_period(&self) -> bool {
-        if self.last_time_data_sent.is_none() {
-            false
-        } else {
+        self.last_time_data_sent.is_some() && {
             let tomorrow = Utc::now() + Duration::days(1);
             let midnight_after_current_time: DateTime<Utc> = DateTime::from_utc(
                 NaiveDate::from_ymd(tomorrow.year(), tomorrow.month(), tomorrow.day())
                     .and_hms(0, 0, 0),
                 Utc,
             );
-            let start_of_curret_period = midnight_after_current_time - self.send_data_frequency;
-            self.last_time_data_sent.unwrap() < start_of_curret_period
+            let start_of_current_period = midnight_after_current_time - self.send_data_frequency;
+            self.last_time_data_sent.unwrap() < start_of_current_period
         }
     }
 
